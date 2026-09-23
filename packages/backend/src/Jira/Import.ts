@@ -64,13 +64,18 @@ import {
   JiraPublicationInvalid,
   type JiraPreflightEnvironment
 } from "./Preflight"
-import { decodeCheckpoint, type AttemptFence } from "./MigrationProjection"
+import {
+  decodeCheckpoint,
+  JiraMigrationCheckpoint,
+  type AttemptFence
+} from "./MigrationProjection"
 import { jiraDocumentBatches } from "./MigrationActivities"
 import { JiraMigrationWorkflowFailure } from "./MigrationWorkflow"
 import type {
   JiraArtifactRef,
   JiraMigrationArtifactsShape
 } from "./MigrationArtifacts"
+import { artifactKey } from "./MigrationArtifacts"
 import {
   createJiraPublicationPlan,
   finalizeJiraPublication,
@@ -564,6 +569,7 @@ export const makeJiraMaterializationDependencies = (
           const { plan, publicationRevision } = yield* load(ref)
           return yield* publishJiraMigrationAtomically({
             fence,
+            planRef: ref,
             plan,
             publicationRevision,
             verified
@@ -575,6 +581,7 @@ export const makeJiraMaterializationDependencies = (
 
 export type JiraAtomicPublicationInput = Readonly<{
   fence: AttemptFence
+  planRef: JiraArtifactRef
   plan: JiraPublicationPlanV1
   publicationRevision: string
   verified: Readonly<{
@@ -630,19 +637,36 @@ export const publishJiraMigrationAtomically = Effect.fn(
           return yield* new JiraPublicationInvalid({
             reasons: ["stale-publication-attempt"]
           })
+        const checkpoint = yield* decodeCheckpoint(migration.checkpoint)
+        if (
+          input.planRef.key !==
+          artifactKey({
+            migrationId: fence.migrationId,
+            scanRevision: migration.scanRevision,
+            area: "publication",
+            kind: "plan-v1",
+            identity: input.publicationRevision
+          })
+        )
+          return yield* new JiraPublicationInvalid({
+            reasons: ["publication-plan-reference-mismatch"]
+          })
         if (migration.status === "succeeded") {
           if (
             project.publishedAt !== null &&
             migration.destinationProjectId === project.id &&
             migration.destinationProjectSlug === project.slug &&
-            migration.reportPath === plan.reportDocument.path
+            migration.reportPath === plan.reportDocument.path &&
+            checkpoint.publishedPlan?.publicationRevision ===
+              input.publicationRevision &&
+            checkpoint.publishedPlan.planRef.key === input.planRef.key &&
+            checkpoint.publishedPlan.planRef.sha256 === input.planRef.sha256
           )
             return true
           return yield* new JiraPublicationInvalid({
             reasons: ["publication-replay-conflict"]
           })
         }
-        const checkpoint = yield* decodeCheckpoint(migration.checkpoint)
         const plannedProject = plan.indexes.project
         if (
           migration.status !== "migrating" ||
@@ -764,6 +788,13 @@ export const publishJiraMigrationAtomically = Effect.fn(
             destinationProjectId: project.id,
             destinationProjectSlug: project.slug,
             reportPath: plan.reportDocument.path,
+            checkpoint: yield* Schema.encodeEffect(JiraMigrationCheckpoint)({
+              ...checkpoint,
+              publishedPlan: {
+                planRef: input.planRef,
+                publicationRevision: input.publicationRevision
+              }
+            }),
             finishedAt: now,
             retainedUntil: null,
             failureReason: null,

@@ -48,7 +48,13 @@ export const JiraMigrationGate = Schema.Union([
 ])
 export type JiraMigrationGate = typeof JiraMigrationGate.Type
 
-const JiraMigrationCheckpoint = Schema.Struct({
+export const JiraMigrationCheckpoint = Schema.Struct({
+  publishedPlan: Schema.optional(
+    Schema.Struct({
+      planRef: JiraArtifactRef,
+      publicationRevision: Schema.String
+    })
+  ),
   remoteWritesMayStillCommit: Schema.optional(
     Schema.Struct({
       workflowExecutionId: Schema.String,
@@ -436,7 +442,11 @@ export const JiraScanResumeResult = Schema.Union([
 ])
 export type JiraScanResumeResult = typeof JiraScanResumeResult.Type
 
-export type JiraMigrationCleanupMode = "reset_import" | "discard"
+export type JiraMigrationCleanupMode =
+  | "reset_import"
+  | "discard"
+  | "expire"
+  | "post_success"
 
 export type JiraMigrationProjectionShape = Readonly<{
   beginRemoteWrites: (fence: AttemptFence) => Effect.Effect<boolean, JiraError>
@@ -551,6 +561,12 @@ const conflict = () =>
   new Conflict({ reason: "jira_migration_revision_conflict" })
 const databaseError = () => new JiraError({ reason: "server_error" })
 const cleanupStatuses = ["failed", "cancelled"] as const
+const cleanupStatusesFor = (mode: JiraMigrationCleanupMode) =>
+  mode === "reset_import"
+    ? resetStatuses
+    : mode === "post_success"
+      ? (["succeeded"] as const)
+      : cleanupStatuses
 const resetStatuses = [
   "needs_configuration",
   "ready",
@@ -840,7 +856,7 @@ export class JiraMigrationProjection extends Context.Service<
             ...(patch.checkpoint === undefined
               ? {}
               : {
-                  checkpoint: sqlFragment`coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) || (coalesce(${patch.checkpoint}::jsonb, '{}'::jsonb) - 'scanFailureReceipts' - 'scanPages' - 'currentGate' - 'acceptedConfiguration' - 'remoteWritesMayStillCommit')`
+                  checkpoint: sqlFragment`coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) || (coalesce(${patch.checkpoint}::jsonb, '{}'::jsonb) - 'scanFailureReceipts' - 'scanPages' - 'currentGate' - 'acceptedConfiguration' - 'remoteWritesMayStillCommit' - 'publishedPlan')`
                 }),
             updatedAt: now,
             revision: sqlFragment`${jiraMigration.revision} + 1`
@@ -1296,12 +1312,7 @@ export class JiraMigrationProjection extends Context.Service<
                   input.mode === "reset_import"
                     ? isNotNull(jiraMigration.destinationProjectId)
                     : undefined,
-                  inArray(
-                    jiraMigration.status,
-                    input.mode === "reset_import"
-                      ? resetStatuses
-                      : cleanupStatuses
-                  )
+                  inArray(jiraMigration.status, cleanupStatusesFor(input.mode))
                 )
               )
               .returning({ id: jiraMigration.id })
@@ -1314,12 +1325,7 @@ export class JiraMigrationProjection extends Context.Service<
                 and(
                   fenceWhere(fence),
                   eq(jiraMigration.cleanupExecutionId, input.executionId),
-                  inArray(
-                    jiraMigration.status,
-                    input.mode === "reset_import"
-                      ? resetStatuses
-                      : cleanupStatuses
-                  )
+                  inArray(jiraMigration.status, cleanupStatusesFor(input.mode))
                 )
               )
               .limit(1)
@@ -1342,10 +1348,7 @@ export class JiraMigrationProjection extends Context.Service<
                 and(
                   fenceWhere(fence),
                   eq(jiraMigration.cleanupExecutionId, executionId),
-                  inArray(
-                    jiraMigration.status,
-                    mode === "reset_import" ? resetStatuses : cleanupStatuses
-                  )
+                  inArray(jiraMigration.status, cleanupStatusesFor(mode))
                 )
               )
               .returning({ id: jiraMigration.id })

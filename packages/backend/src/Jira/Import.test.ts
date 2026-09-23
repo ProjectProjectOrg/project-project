@@ -102,7 +102,7 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
       [organizationId]
     )
     await pool.query(
-      `insert into jira_migration (id,request_id,organization_id,initiated_by,source_cloud_id,source_site_name,source_site_url,source_project_id,source_project_key,source_project_name,staging_prefix,workflow_execution_id,workflow_attempt,status,phase,checkpoint) values ($1,$2,$3,$4,'cloud','Site','https://example.test','10000','APP','Application',$5,$1,1,'migrating','migrate',$6)`,
+      `insert into jira_migration (id,request_id,organization_id,initiated_by,source_cloud_id,source_site_name,source_site_url,source_project_id,source_project_key,source_project_name,staging_prefix,workflow_execution_id,workflow_attempt,scan_revision,status,phase,checkpoint) values ($1,$2,$3,$4,'cloud','Site','https://example.test','10000','APP','Application',$5,$1,1,1,'migrating','migrate',$6)`,
       [
         migrationId,
         randomUUID(),
@@ -510,7 +510,7 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
       [organizationId]
     )
     await pool.query(
-      `insert into jira_migration (id,request_id,organization_id,initiated_by,source_cloud_id,source_site_name,source_site_url,source_project_id,source_project_key,source_project_name,staging_prefix,workflow_execution_id,workflow_attempt,status,phase,checkpoint) values ($1,$2,$3,$4,'cloud','Site','https://example.test','10000','APP','Application',$5,$1,1,'migrating','migrate',$6)`,
+      `insert into jira_migration (id,request_id,organization_id,initiated_by,source_cloud_id,source_site_name,source_site_url,source_project_id,source_project_key,source_project_name,staging_prefix,workflow_execution_id,workflow_attempt,scan_revision,status,phase,checkpoint) values ($1,$2,$3,$4,'cloud','Site','https://example.test','10000','APP','Application',$5,$1,1,1,'migrating','migrate',$6)`,
       [
         migrationId,
         randomUUID(),
@@ -775,10 +775,15 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
                 workflowExecutionId: migrationId,
                 workflowAttempt: 1
               },
+              planRef: finalized.planRef,
               plan: loaded.plan,
               publicationRevision: loaded.publicationRevision,
               verified
             }
+            const planRefForRevision = (revision: string) => ({
+              ...finalized.planRef,
+              key: `migrations/jira/${migrationId}/scan-1/publication/plan-v1/${revision}.json`
+            })
             const missingAttachmentId = jiraAttachmentId(
               migrationId,
               "missing-attachment",
@@ -806,16 +811,18 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
                 )
               )
               .digest("hex")
-            expect(
-              (yield* Effect.result(
-                publishJiraMigrationAtomically({
-                  ...publishInput,
-                  plan: invalidPlan,
-                  publicationRevision: invalidRevision,
-                  verified: { ...verified, planSha256: invalidRevision }
-                })
-              ))._tag
-            ).toBe("Failure")
+            const invalidResult = yield* Effect.result(
+              publishJiraMigrationAtomically({
+                ...publishInput,
+                planRef: planRefForRevision(invalidRevision),
+                plan: invalidPlan,
+                publicationRevision: invalidRevision,
+                verified: { ...verified, planSha256: invalidRevision }
+              })
+            )
+            expect(invalidResult._tag).toBe("Failure")
+            if (invalidResult._tag === "Failure")
+              expect(invalidResult.failure._tag).toBe("EffectDrizzleQueryError")
             const [afterRollback] = (yield* Effect.promise(() =>
               pool.query(
                 "select published_at from project_index where id = $1",
@@ -866,6 +873,16 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
             expect(yield* callbacks.publish(finalized.planRef, verified)).toBe(
               true
             )
+            const [publishedMigration] = (yield* Effect.promise(() =>
+              pool.query(
+                "select checkpoint from jira_migration where id = $1",
+                [migrationId]
+              )
+            )).rows
+            expect(publishedMigration?.checkpoint?.publishedPlan).toEqual({
+              planRef: finalized.planRef,
+              publicationRevision: loaded.publicationRevision
+            })
             expect(yield* publishJiraMigrationAtomically(publishInput)).toBe(
               true
             )
@@ -893,6 +910,7 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
               (yield* Effect.result(
                 publishJiraMigrationAtomically({
                   ...publishInput,
+                  planRef: planRefForRevision(foreignRevision),
                   plan: foreignPlan,
                   publicationRevision: foreignRevision,
                   verified: { ...verified, planSha256: foreignRevision }

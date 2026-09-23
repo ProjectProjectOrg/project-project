@@ -164,6 +164,58 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
     )
   })
 
+  it("claims expiry and post-success cleanup without downgrading a published migration", async () => {
+    const expiredInput = await fixture()
+    const succeededInput = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const expired = yield* p.ensureCreated(expiredInput)
+        yield* p.recordFailure(fence(expired), {
+          reason: "retryable",
+          retryable: true
+        })
+        const failed = yield* p.owned(expiredInput, expired.id)
+        expect(
+          yield* p.claimCleanup(fence(failed), {
+            expectedRevision: failed.revision,
+            executionId: "expire-claim",
+            mode: "expire"
+          })
+        ).toBe(true)
+        expect(yield* p.deleteAfterCleanup(fence(failed), "expire-claim")).toBe(
+          true
+        )
+
+        const published = yield* p.ensureCreated(succeededInput)
+        yield* Effect.promise(() =>
+          pool.query(
+            "update jira_migration set status = 'succeeded', phase = 'succeeded' where id = $1",
+            [published.id]
+          )
+        )
+        const succeeded = yield* p.owned(succeededInput, published.id)
+        expect(
+          yield* p.claimCleanup(fence(succeeded), {
+            expectedRevision: succeeded.revision,
+            executionId: "post-success-claim",
+            mode: "post_success"
+          })
+        ).toBe(true)
+        expect(
+          yield* p.releaseCleanup(
+            fence(succeeded),
+            "post-success-claim",
+            "post_success"
+          )
+        ).toBe(true)
+        expect((yield* p.owned(succeededInput, published.id)).status).toBe(
+          "succeeded"
+        )
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
   it("records remote write intent before a remote callback and settles it afterward", async () => {
     const input = await fixture()
     await Effect.runPromise(
