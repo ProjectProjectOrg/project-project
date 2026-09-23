@@ -63,6 +63,8 @@ export function JiraTerminalStep({
 
   const cancelled = detail.status === "cancelled"
   const reconnect = detail.status === "reconnect_required"
+  const discardBlocked =
+    (cancelled || detail.status === "failed") && !detail.actions.canDiscard
   const title = reconnect
     ? m.jira_migration_reconnect_title()
     : cancelled
@@ -75,7 +77,18 @@ export function JiraTerminalStep({
       : failureDescription(detail.failure)
 
   return (
-    <TerminalSurface title={title} description={description} error={error}>
+    <TerminalSurface
+      title={title}
+      description={description}
+      details={
+        discardBlocked ? (
+          <p className="mt-4 text-sm leading-6 text-muted-foreground">
+            {m.jira_migration_discard_unavailable_description()}
+          </p>
+        ) : null
+      }
+      error={error}
+    >
       {reconnect ? (
         <Button
           render={
@@ -104,9 +117,15 @@ export function JiraTerminalStep({
           {m.jira_migration_action_rescan()}
         </Button>
       ) : null}
-      {detail.actions.canDiscard ? (
-        <Button variant="ghost" disabled={waiting} onClick={onDiscard}>
-          {m.jira_migration_action_discard()}
+      {detail.actions.canDiscard || discardBlocked ? (
+        <Button
+          variant="ghost"
+          disabled={waiting || discardBlocked}
+          onClick={onDiscard}
+        >
+          {discardBlocked
+            ? m.jira_migration_action_discard_unavailable()
+            : m.jira_migration_action_discard()}
         </Button>
       ) : null}
     </TerminalSurface>

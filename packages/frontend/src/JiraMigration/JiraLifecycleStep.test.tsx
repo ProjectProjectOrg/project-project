@@ -67,7 +67,7 @@ it("shows retry and rescan failures inline on the terminal screen", () => {
   )
 })
 
-it("explains that discarding a cancelled migration can leave its recovery record visible", () => {
+it("offers discard when a cancelled migration is safe to clean up", () => {
   render(
     <JiraTerminalStep
       detail={{
@@ -81,10 +81,29 @@ it("explains that discarding a cancelled migration can leave its recovery record
     />
   )
 
+  expect(screen.getByRole("button", { name: "Discard migration" })).toBeTruthy()
+})
+
+it("explains why a cancelled migration cannot yet be discarded", () => {
+  render(
+    <JiraTerminalStep
+      detail={{
+        ...terminalDetail,
+        status: "cancelled",
+        actions: { ...terminalDetail.actions, canDiscard: false }
+      }}
+      orgSlug="example"
+      waiting={false}
+      onDiscard={() => {}}
+    />
+  )
+
   expect(
-    screen.getByText(/may remain visible until cleanup is safe/)
+    screen.getByRole("button", { name: "Can’t discard yet" })
+  ).toHaveProperty("disabled", true)
+  expect(
+    screen.getByText(/A file upload or cleanup may still be finishing/)
   ).toBeTruthy()
-  expect(screen.getByRole("button", { name: "Request discard" })).toBeTruthy()
 })
 
 it("shows Jira and destination links with replacement guidance after a successful import", async () => {

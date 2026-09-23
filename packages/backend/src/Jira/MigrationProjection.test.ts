@@ -214,6 +214,8 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
           retryable: true
         })
         const failed = yield* p.owned(input, created.id)
+        expect(p.actionsFor(failed).canDiscard).toBe(false)
+        expect(p.actionsFor(failed).canRescan).toBe(false)
         expect(failed.checkpoint).toMatchObject({
           remoteWritesMayStillCommit: {
             workflowExecutionId: current.workflowExecutionId,
@@ -259,9 +261,10 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
           })
         ).toBe(false)
         expect(yield* p.settleRemoteWrites(current)).toBe(true)
-        expect((yield* p.owned(input, created.id)).revision).toBe(
-          failed.revision
-        )
+        const settled = yield* p.owned(input, created.id)
+        expect(settled.revision).toBe(failed.revision)
+        expect(p.actionsFor(settled).canDiscard).toBe(true)
+        expect(p.actionsFor(settled).canRescan).toBe(true)
         expect(
           yield* p.claimCleanup(current, {
             mode: "discard",

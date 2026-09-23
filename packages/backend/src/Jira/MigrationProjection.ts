@@ -96,6 +96,10 @@ export type JiraMigrationRow = typeof jiraMigration.$inferSelect
 
 const dateTime = (value: Date) => DateTime.fromDateUnsafe(value)
 
+const hasUnsettledRemoteWrites = (row: JiraMigrationRow): boolean =>
+  Predicate.isObject(row.checkpoint) &&
+  Object.hasOwn(row.checkpoint, "remoteWritesMayStillCommit")
+
 export const actionsFor = (row: JiraMigrationRow): JiraMigrationActions => ({
   canConfigure:
     row.cleanupExecutionId === null &&
@@ -109,6 +113,7 @@ export const actionsFor = (row: JiraMigrationRow): JiraMigrationActions => ({
       row.status === "reconnect_required"),
   canRescan:
     row.cleanupExecutionId === null &&
+    !hasUnsettledRemoteWrites(row) &&
     [
       "needs_configuration",
       "ready",
@@ -126,6 +131,7 @@ export const actionsFor = (row: JiraMigrationRow): JiraMigrationActions => ({
       row.status === "reconnect_required"),
   canDiscard:
     row.cleanupExecutionId === null &&
+    !hasUnsettledRemoteWrites(row) &&
     (row.status === "failed" || row.status === "cancelled")
 })
 
@@ -901,14 +907,14 @@ export class JiraMigrationProjection extends Context.Service<
             !fenceFor(row)
           )
             return yield* conflict()
-          if (!actionsFor(row).canRescan)
-            return yield* new Validation({
-              reason: "jira_migration_rescan_not_allowed"
-            })
           if (
             (yield* decodeCheckpoint(row.checkpoint)).remoteWritesMayStillCommit
           )
             return yield* conflict()
+          if (!actionsFor(row).canRescan)
+            return yield* new Validation({
+              reason: "jira_migration_rescan_not_allowed"
+            })
           const now = yield* DateTime.nowAsDate
           const updated = yield* db
             .update(jiraMigration)

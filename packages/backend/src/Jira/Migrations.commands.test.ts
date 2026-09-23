@@ -847,6 +847,44 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
     )
   }, 20000)
 
+  it("rejects discard while an attachment write can still finish", async () => {
+    const owner = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        yield* Effect.gen(function* () {
+          const m = yield* JiraMigrations
+          const created = yield* createScanned(m, p, owner)
+          const row = yield* p.owned(owner, created.id)
+          const current = fenceFor(row)!
+          expect(
+            yield* p.advance(current, { status: "migrating", phase: "import" })
+          ).toBe(true)
+          expect(yield* p.beginRemoteWrites(current)).toBe(true)
+          yield* p.recordFailure(current, {
+            reason: "ambiguous_upload",
+            retryable: true
+          })
+          expect(
+            yield* Effect.result(
+              m.discard(owner.organizationId, owner.userId, created.id)
+            )
+          ).toMatchObject({
+            _tag: "Failure",
+            failure: {
+              _tag: "Validation",
+              reason: "jira_migration_discard_not_allowed"
+            }
+          })
+        }).pipe(
+          Effect.provide(
+            Layer.merge(commandLayer(), scanningWorkflow(p, owner))
+          )
+        )
+      }).pipe(Effect.provide(commandTestLayer()), Effect.scoped)
+    )
+  }, 20000)
+
   it.each(["ready", "reconnect_required"] as const)(
     "waits for verified hidden %s reset and installs the returned revision once",
     async (status) => {
