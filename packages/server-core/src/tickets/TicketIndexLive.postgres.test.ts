@@ -795,3 +795,245 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       }).pipe(Effect.provide(TestLayer))
   )
 })
+
+describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
+  it.effect(
+    "finds a viewer's assigned and touched tickets across projects",
+    () =>
+      Effect.gen(function* () {
+        const suffix = randomUUID()
+        const organizationId = `ticket-index-org-${suffix}`
+        const orgSlug = `ticket-index-org-${suffix}`
+        const alphaSlug = `ticket-index-alpha-${suffix}`
+        const betaSlug = `ticket-index-beta-${suffix}`
+        const hiddenSlug = `ticket-index-hidden-${suffix}`
+        const viewerId = `viewer-${suffix}`
+        yield* withClient(async (client) => {
+          await client.query(
+            `insert into organization (id, name, slug, created_at)
+               values ($1, 'Ticket index org', $2, now())`,
+            [organizationId, orgSlug]
+          )
+          for (const [slug, key] of [
+            [alphaSlug, "AL"],
+            [betaSlug, "BE"],
+            [hiddenSlug, "HI"]
+          ] as const) {
+            await client.query(
+              `insert into project_index
+                   (id, slug, organization_id, key, name, icon, color, created_by, created_at)
+                 values ($1, $2, $3, $4, $2, 'folder', 'blue', 'test-user', now())`,
+              [randomUUID(), slug, organizationId, key]
+            )
+          }
+          await client.query(
+            `insert into "user" (id, name, email, created_at, updated_at)
+               values ($1, 'Viewer', $2, now(), now())`,
+            [viewerId, `${viewerId}@example.com`]
+          )
+        })
+        yield* Effect.addFinalizer(() =>
+          withClient(async (client) => {
+            await client.query(
+              "delete from comment_index where author_id = $1",
+              [viewerId]
+            )
+            await client.query('delete from "user" where id = $1', [viewerId])
+            await client.query("delete from organization where id = $1", [
+              organizationId
+            ])
+          })
+        )
+
+        const index = yield* TicketIndex
+        const [alpha, beta, hidden] = yield* Effect.forEach(
+          [alphaSlug, betaSlug, hiddenSlug],
+          (slug) => index.projectFor(orgSlug, slug)
+        )
+        const at = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
+        yield* Effect.forEach(
+          [
+            [
+              alpha,
+              indexedDocument("AL-1", {
+                assignees: [viewerId],
+                updatedAt: at("2026-03-05T00:00:00.000Z")
+              })
+            ],
+            [
+              alpha,
+              indexedDocument("AL-2", {
+                status: ticketStatus("done"),
+                assignees: [viewerId],
+                updatedAt: at("2026-02-01T00:00:00.000Z")
+              })
+            ],
+            [
+              alpha,
+              indexedDocument("AL-3", {
+                createdBy: viewerId,
+                updatedAt: at("2026-03-02T00:00:00.000Z")
+              })
+            ],
+            [
+              alpha,
+              indexedDocument("AL-4", {
+                assignees: [viewerId],
+                archivedAt: at("2026-03-01T00:00:00.000Z"),
+                updatedAt: at("2026-03-06T00:00:00.000Z")
+              })
+            ],
+            [
+              beta,
+              indexedDocument("BE-1", {
+                status: ticketStatus("done"),
+                assignees: ["someone-else", viewerId],
+                updatedAt: at("2026-03-04T00:00:00.000Z")
+              })
+            ],
+            [
+              beta,
+              indexedDocument("BE-2", {
+                updatedAt: at("2026-03-03T00:00:00.000Z")
+              })
+            ],
+            [
+              beta,
+              indexedDocument("BE-3", {
+                updatedAt: at("2026-03-07T00:00:00.000Z")
+              })
+            ],
+            [
+              hidden,
+              indexedDocument("HI-1", {
+                assignees: [viewerId],
+                updatedAt: at("2026-03-08T00:00:00.000Z")
+              })
+            ]
+          ] as const,
+          ([project, document]) => index.upsertTicket(project, document)
+        )
+        yield* withClient((client) =>
+          client.query(
+            `insert into comment_index (id, project_slug, ticket_id, author_id)
+               values ($1, $2, 'BE-2', $3)`,
+            [`comment-${suffix}`, betaSlug, viewerId]
+          )
+        )
+
+        const visible = yield* index.projectsFor(orgSlug, [
+          alphaSlug,
+          betaSlug,
+          "not-a-project"
+        ])
+        expect(visible.map((project) => project.projectSlug).sort()).toEqual(
+          [alphaSlug, betaSlug].sort()
+        )
+
+        const idsOf = (
+          rows: ReadonlyArray<{
+            entry: { id: string }
+            project: { projectSlug: string }
+          }>
+        ) =>
+          rows.map(({ project, entry }) => `${project.projectSlug}:${entry.id}`)
+
+        const assigned = yield* index.assignedTo(visible, {
+          viewerId,
+          doneAfter: at("2026-03-01T00:00:00.000Z"),
+          limit: 10
+        })
+        expect(idsOf(assigned)).toEqual([
+          `${alphaSlug}:AL-1`,
+          `${betaSlug}:BE-1`
+        ])
+
+        const firstPage = yield* index.assignedTo(visible, {
+          viewerId,
+          doneAfter: at("2026-01-01T00:00:00.000Z"),
+          limit: 1
+        })
+        expect(idsOf(firstPage)).toEqual([`${alphaSlug}:AL-1`])
+        const rest = yield* index.assignedTo(visible, {
+          viewerId,
+          doneAfter: at("2026-01-01T00:00:00.000Z"),
+          cursor: encodeCursor({
+            id: firstPage[0]!.entry.id,
+            sort: firstPage[0]!.sortValue
+          }),
+          limit: 10
+        })
+        expect(idsOf(rest)).toEqual([`${betaSlug}:BE-1`, `${alphaSlug}:AL-2`])
+
+        const touched = yield* index.touchedBy(visible, {
+          viewerId,
+          limit: 10
+        })
+        expect(idsOf(touched)).toEqual([
+          `${betaSlug}:BE-2`,
+          `${alphaSlug}:AL-3`,
+          `${alphaSlug}:AL-1`,
+          `${betaSlug}:BE-1`,
+          `${alphaSlug}:AL-2`
+        ])
+
+        const allTime = {
+          viewerId,
+          doneAfter: at("2026-01-01T00:00:00.000Z")
+        }
+        const statusCounts = yield* index.countAssignedByStatus(
+          visible,
+          allTime
+        )
+        expect(
+          statusCounts
+            .map(
+              ({ project, status, count }) =>
+                `${project.projectSlug}:${status}=${count}`
+            )
+            .toSorted()
+        ).toEqual(
+          [
+            `${alphaSlug}:done=1`,
+            `${alphaSlug}:todo=1`,
+            `${betaSlug}:done=1`
+          ].toSorted()
+        )
+        const previews = yield* index.assignedPerProject(visible, {
+          ...allTime,
+          perProject: 1
+        })
+        expect(
+          previews
+            .map(({ project, total, entries }) => [
+              project.projectSlug,
+              total,
+              entries.map((entry) => entry.id)
+            ])
+            .toSorted((a, b) => String(a[0]).localeCompare(String(b[0])))
+        ).toEqual(
+          [
+            [alphaSlug, 2, ["AL-1"]],
+            [betaSlug, 1, ["BE-1"]]
+          ].toSorted((a, b) => String(a[0]).localeCompare(String(b[0])))
+        )
+
+        const hasComment = new Map(
+          touched.map(({ entry, lastCommentAt }) => [
+            entry.id,
+            lastCommentAt !== null
+          ])
+        )
+        expect(hasComment.get(ticketId("BE-2"))).toBe(true)
+        expect(hasComment.get(ticketId("AL-1"))).toBe(false)
+
+        expect(
+          yield* index.assignedTo([], {
+            viewerId,
+            doneAfter: at("2026-01-01T00:00:00.000Z"),
+            limit: 10
+          })
+        ).toEqual([])
+      }).pipe(Effect.provide(TestLayer))
+  )
+})

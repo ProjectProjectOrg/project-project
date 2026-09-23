@@ -190,6 +190,11 @@ function makeFakeDocs(initial?: {
   }
 
   const ticketIndexService = {
+    projectsFor: () => Effect.succeed([]),
+    assignedTo: () => Effect.succeed([]),
+    touchedBy: () => Effect.succeed([]),
+    countAssignedByStatus: () => Effect.succeed([]),
+    assignedPerProject: () => Effect.succeed([]),
     projectFor: () => Effect.succeed(indexProject),
     list: (_project, requestedIds) =>
       Effect.sync(() => {

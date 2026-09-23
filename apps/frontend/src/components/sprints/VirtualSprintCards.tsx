@@ -12,6 +12,7 @@ import {
 } from "react"
 
 import { useDeferredOverscan } from "../TicketList/useDeferredOverscan"
+import { BOARD_CARD_LIST_CLASS } from "./BoardColumnShell"
 import { SprintCardMotion } from "./SprintCardMotion"
 import { useSprintEdgeScroll } from "./useSprintEdgeScroll"
 
@@ -129,7 +130,7 @@ export function VirtualSprintCards({
       data-virtual-sprint-column={status}
       data-loaded-cards={tickets.length}
       data-mounted-cards={rows.length}
-      className="relative z-10 min-h-0 flex-1 overflow-y-auto pb-2"
+      className={BOARD_CARD_LIST_CLASS}
       style={{ overflowAnchor: "none" }}
       onBlurCapture={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget))

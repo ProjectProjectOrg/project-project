@@ -13,10 +13,14 @@ import type {
   GitHubTokenExpired,
   GitStatesResponse,
   MentionInvalid,
+  MyTicketsQuery,
   NotFound,
   OpenPrInput,
   OpenPrResult,
+  OrgTicketPage,
+  ProjectTicketsPreview,
   QuickCreateTicketInput,
+  RecentTicketRow,
   RateLimited,
   SplitTicketInput,
   SplitTicketResult,
@@ -45,6 +49,19 @@ import type { MalformedTicketDocument } from "./TicketDocs"
 type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
 
 export interface TicketsShape {
+  readonly mine: (
+    orgSlug: string,
+    userId: string,
+    query: MyTicketsQuery
+  ) => Effect.Effect<OrgTicketPage, NotFound>
+  readonly mineByProject: (
+    orgSlug: string,
+    userId: string
+  ) => Effect.Effect<ReadonlyArray<ProjectTicketsPreview>, NotFound>
+  readonly recent: (
+    orgSlug: string,
+    userId: string
+  ) => Effect.Effect<ReadonlyArray<RecentTicketRow>, NotFound>
   readonly sections: (
     orgSlug: string,
     userId: string,

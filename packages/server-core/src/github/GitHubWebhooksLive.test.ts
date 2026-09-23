@@ -781,6 +781,11 @@ const makeFakeDocs = (initial: ReadonlyArray<TicketDocument>) => {
 const makeFakeIndex = (overrides: Partial<TicketIndexShape> = {}) => {
   const upserts: Array<{ projectId: string; ticketId: string }> = []
   const shape: TicketIndexShape = {
+    projectsFor: () => Effect.succeed([]),
+    assignedTo: () => Effect.succeed([]),
+    touchedBy: () => Effect.succeed([]),
+    countAssignedByStatus: () => Effect.succeed([]),
+    assignedPerProject: () => Effect.succeed([]),
     projectFor: () =>
       Effect.die(new Error("unexpected TicketIndex.projectFor call")),
     list: () => Effect.succeed([]),

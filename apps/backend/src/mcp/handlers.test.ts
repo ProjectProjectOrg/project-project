@@ -174,6 +174,11 @@ const ticketIndexProject: TicketIndexProject = {
 }
 
 const TicketIndexStub = Layer.succeed(TicketIndex, {
+  projectsFor: () => Effect.succeed([]),
+  assignedTo: () => Effect.succeed([]),
+  touchedBy: () => Effect.succeed([]),
+  countAssignedByStatus: () => Effect.succeed([]),
+  assignedPerProject: () => Effect.succeed([]),
   projectFor: (_o: any, _s: any) => Effect.succeed(ticketIndexProject),
   reconcileProject: (project: TicketIndexProject, options?: any) =>
     Effect.succeed({

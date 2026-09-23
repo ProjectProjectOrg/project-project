@@ -1,0 +1,2 @@
+CREATE INDEX "comment_index_author_idx" ON "comment_index" ("author_id","project_slug","ticket_id");--> statement-breakpoint
+CREATE INDEX "ticket_index_assignees_idx" ON "ticket_index" USING gin ("assignees");
