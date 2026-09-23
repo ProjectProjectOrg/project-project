@@ -3,13 +3,22 @@ import * as BunServices from "@effect/platform-bun/BunServices"
 import { PgClient } from "@effect/sql-pg"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
-import { ConfigProvider, Effect, FileSystem, Layer, Redacted } from "effect"
+import {
+  ConfigProvider,
+  Effect,
+  FileSystem,
+  Layer,
+  Redacted,
+  Schema,
+  Stream
+} from "effect"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 import type { JiraConvertedText, JiraMigrationManifest } from "./Manifest"
 import {
   aliasJiraMediaReferences,
   buildJiraImportPlan,
+  copyJiraPreparedAttachment,
   ensureHiddenJiraProject,
   groupColors,
   nextTicketNumberFor,
@@ -18,8 +27,11 @@ import {
 import type { JiraPreflightEnvironment } from "./Preflight"
 import { TAG_DEFAULT_PALETTE } from "@projectproject/shared"
 import type { JiraPublicationPlan } from "./PublicationPlan"
+import { jiraAttachmentId } from "./PublicationPlan"
 import { DbLive } from "../Layers/Db"
 import { MarkdownLive } from "../Layers/Markdown"
+import { attachmentObjectKey, type S3Connection } from "../Services/S3Storage"
+import { attachmentUrl, TicketId } from "@projectproject/shared"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -191,6 +203,150 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
         )
       ).rows[0]?.count
     ).toBe(1)
+  })
+
+  it("adopts a completed attachment upload after result loss without downloading again", async () => {
+    const organizationId = randomUUID()
+    const userId = randomUUID()
+    const migrationId = randomUUID()
+    const projectId = randomUUID()
+    const slug = `jira-${randomUUID()}`
+    owners.push({ organizationId, userId })
+    await pool.query(
+      'insert into "user" (id,name,email,email_verified,created_at,updated_at) values ($1,$1,$2,false,now(),now())',
+      [userId, `${userId}@example.test`]
+    )
+    await pool.query(
+      'insert into "organization" (id,name,slug,created_at) values ($1,$1,$1,now())',
+      [organizationId]
+    )
+    await pool.query(
+      `insert into jira_migration (id,request_id,organization_id,initiated_by,source_cloud_id,source_site_name,source_site_url,source_project_id,source_project_key,source_project_name,staging_prefix,workflow_execution_id,workflow_attempt,status,phase,checkpoint) values ($1,$2,$3,$4,'cloud','Site','https://example.test','10000','APP','Application',$5,$1,1,'migrating','migrate',$6)`,
+      [
+        migrationId,
+        randomUUID(),
+        organizationId,
+        userId,
+        `migrations/jira/${migrationId}`,
+        JSON.stringify({
+          remoteWritesMayStillCommit: {
+            workflowExecutionId: migrationId,
+            workflowAttempt: 1
+          }
+        })
+      ]
+    )
+    const fence = {
+      migrationId,
+      workflowExecutionId: migrationId,
+      workflowAttempt: 1
+    }
+    const dbLayer = DbLive.pipe(
+      Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
+    )
+    await Effect.runPromise(
+      ensureHiddenJiraProject({
+        fence,
+        project: {
+          id: projectId,
+          organizationId,
+          slug,
+          key: "APP",
+          name: "Application",
+          icon: "📦",
+          color: "#123456",
+          nextTicketNumber: 2,
+          createdBy: userId,
+          createdAt: "2026-09-22T10:00:00.000Z"
+        }
+      }).pipe(Effect.provide(dbLayer))
+    )
+    const attachmentId = jiraAttachmentId(
+      migrationId,
+      "jira-attachment-1",
+      "2026-09-22T10:00:00.000Z"
+    )
+    const connection: S3Connection = {
+      endpoint: "http://127.0.0.1:59000",
+      bucket: "projectproject-t172-local-test",
+      region: "us-east-1",
+      keyPrefix: null,
+      forcePathStyle: true,
+      accessKeyId: "test",
+      secretAccessKey: "test"
+    }
+    const bytes = new TextEncoder().encode("Jira attachment")
+    const objectKey = attachmentObjectKey({
+      keyPrefix: null,
+      orgSlug: organizationId,
+      projectSlug: slug,
+      ticketId: "APP-1",
+      attachmentId,
+      filename: "note.txt"
+    })
+    const stored = new Map<string, Uint8Array>([[objectKey, bytes]])
+    let downloads = 0
+    const jira = {
+      attachmentContent: () => {
+        downloads += 1
+        return Stream.fromIterable([bytes])
+      }
+    }
+    const s3 = {
+      getObject: (_connection: S3Connection, key: string) =>
+        Effect.succeed(stored.get(key) ?? null),
+      putObject: (
+        _connection: S3Connection,
+        key: string,
+        _contentType: string,
+        value: Uint8Array
+      ) => Effect.sync(() => void stored.set(key, value))
+    }
+    const input = {
+      fence,
+      projectId,
+      organizationId,
+      orgSlug: organizationId,
+      projectSlug: slug,
+      uploadedBy: userId,
+      cloudId: "cloud",
+      connection,
+      attachment: {
+        sourceAttachmentId: "jira-attachment-1",
+        id: attachmentId,
+        issueId: "issue-1",
+        ticketId: Schema.decodeSync(TicketId)("APP-1"),
+        objectKey,
+        url: attachmentUrl(organizationId, attachmentId),
+        filename: "note.txt",
+        contentType: "text/plain",
+        byteSize: bytes.length,
+        decision: "copy" as const
+      }
+    }
+    const copy = copyJiraPreparedAttachment(jira, s3, input).pipe(
+      Effect.provide(dbLayer)
+    )
+    const first = await Effect.runPromise(copy)
+    expect(await Effect.runPromise(copy)).toEqual(first)
+    expect(first).toMatchObject({
+      kind: "copied",
+      attachmentId,
+      contentSha256: createHash("sha256").update(bytes).digest("hex")
+    })
+    expect(downloads).toBe(0)
+    stored.delete(objectKey)
+    expect(await Effect.runPromise(copy)).toEqual(first)
+    expect(downloads).toBe(1)
+    expect(stored.get(objectKey)).toEqual(bytes)
+    expect(
+      (
+        await pool.query(
+          "select id,status,object_key from attachment_index where id = $1",
+          [attachmentId]
+        )
+      ).rows
+    ).toEqual([{ id: attachmentId, status: "pending", object_key: objectKey }])
   })
 })
 

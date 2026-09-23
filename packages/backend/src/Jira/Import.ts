@@ -54,9 +54,11 @@ import {
   JiraPublicationInvalid,
   type JiraPreflightEnvironment
 } from "./Preflight"
-import type { AttemptFence } from "./MigrationProjection"
+import { decodeCheckpoint, type AttemptFence } from "./MigrationProjection"
 import {
   createJiraPublicationPlan,
+  type JiraAttachmentOutcome,
+  type JiraPreparedPublicationV1,
   type JiraPublicationPlan,
   type JiraPublicationPlanV1
 } from "./PublicationPlan"
@@ -309,6 +311,194 @@ export const writeJiraHiddenDocuments = Effect.fn(
         return input.documents.length
       })
     )
+  )
+})
+
+export type JiraPreparedAttachmentInput = Readonly<{
+  fence: AttemptFence
+  projectId: string
+  organizationId: string
+  orgSlug: string
+  projectSlug: string
+  uploadedBy: string
+  cloudId: string
+  connection: S3Connection
+  attachment: JiraPreparedPublicationV1["attachments"][number]
+}>
+
+export const copyJiraPreparedAttachment = Effect.fn(
+  "JiraImport.copyPreparedAttachment"
+)(function* (
+  jira: Pick<JiraClientShape, "attachmentContent">,
+  s3: Pick<S3StorageShape, "getObject" | "putObject">,
+  input: JiraPreparedAttachmentInput
+) {
+  const { attachment, fence } = input
+  if (attachment.decision !== "copy")
+    return {
+      sourceAttachmentId: attachment.sourceAttachmentId,
+      kind: attachment.decision === "skip" ? "skipped" : "excluded"
+    } satisfies JiraAttachmentOutcome
+  const db = yield* Db
+  const attemptIsCurrent = db.transaction((tx) =>
+    Effect.gen(function* () {
+      const [migration] = yield* tx
+        .select()
+        .from(jiraMigration)
+        .where(eq(jiraMigration.id, fence.migrationId))
+        .for("update")
+      const [project] = yield* tx
+        .select()
+        .from(projectIndex)
+        .where(eq(projectIndex.id, input.projectId))
+        .limit(1)
+      const [org] = yield* tx
+        .select({ slug: organization.slug })
+        .from(organization)
+        .where(eq(organization.id, input.organizationId))
+        .limit(1)
+      if (
+        !migration ||
+        migration.workflowExecutionId !== fence.workflowExecutionId ||
+        migration.workflowAttempt !== fence.workflowAttempt ||
+        migration.status !== "migrating" ||
+        migration.cleanupExecutionId !== null ||
+        migration.organizationId !== input.organizationId ||
+        !project ||
+        project.publishedAt !== null ||
+        project.organizationId !== input.organizationId ||
+        project.slug !== input.projectSlug ||
+        org?.slug !== input.orgSlug
+      )
+        return false
+      const checkpoint = yield* decodeCheckpoint(migration.checkpoint)
+      return (
+        checkpoint.remoteWritesMayStillCommit?.workflowExecutionId ===
+          fence.workflowExecutionId &&
+        checkpoint.remoteWritesMayStillCommit.workflowAttempt ===
+          fence.workflowAttempt
+      )
+    })
+  )
+  if (!(yield* attemptIsCurrent))
+    return yield* new JiraPublicationInvalid({
+      reasons: ["stale-materialization-attempt"]
+    })
+  let bytes = yield* s3.getObject(input.connection, attachment.objectKey)
+  if (bytes === null) {
+    const chunks = yield* Stream.runCollect(
+      jira.attachmentContent(
+        input.uploadedBy,
+        input.cloudId,
+        attachment.sourceAttachmentId
+      )
+    )
+    const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
+    if (total !== attachment.byteSize)
+      return yield* new JiraPublicationInvalid({
+        reasons: ["attachment-size-mismatch"]
+      })
+    bytes = new Uint8Array(total)
+    let offset = 0
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset)
+      offset += chunk.length
+    }
+    yield* s3.putObject(
+      input.connection,
+      attachment.objectKey,
+      attachment.contentType,
+      bytes
+    )
+  }
+  if (bytes.length !== attachment.byteSize)
+    return yield* new JiraPublicationInvalid({
+      reasons: ["attachment-size-mismatch"]
+    })
+  const contentSha256 = createHash("sha256").update(bytes).digest("hex")
+  return yield* db.transaction((tx) =>
+    Effect.gen(function* () {
+      const [migration] = yield* tx
+        .select()
+        .from(jiraMigration)
+        .where(eq(jiraMigration.id, fence.migrationId))
+        .for("update")
+      const [project] = yield* tx
+        .select()
+        .from(projectIndex)
+        .where(eq(projectIndex.id, input.projectId))
+        .limit(1)
+      const checkpoint = migration
+        ? yield* decodeCheckpoint(migration.checkpoint)
+        : null
+      if (
+        !migration ||
+        migration.workflowExecutionId !== fence.workflowExecutionId ||
+        migration.workflowAttempt !== fence.workflowAttempt ||
+        migration.status !== "migrating" ||
+        migration.cleanupExecutionId !== null ||
+        migration.organizationId !== input.organizationId ||
+        !project ||
+        project.publishedAt !== null ||
+        project.organizationId !== input.organizationId ||
+        project.slug !== input.projectSlug ||
+        checkpoint?.remoteWritesMayStillCommit?.workflowExecutionId !==
+          fence.workflowExecutionId ||
+        checkpoint.remoteWritesMayStillCommit.workflowAttempt !==
+          fence.workflowAttempt
+      )
+        return yield* new JiraPublicationInvalid({
+          reasons: ["stale-materialization-attempt"]
+        })
+      yield* tx
+        .insert(attachmentIndex)
+        .values({
+          id: attachment.id,
+          organizationId: input.organizationId,
+          orgSlug: input.orgSlug,
+          projectSlug: input.projectSlug,
+          ticketId: attachment.ticketId,
+          objectKey: attachment.objectKey,
+          filename: attachment.filename,
+          contentType: attachment.contentType,
+          byteSize: attachment.byteSize,
+          contentHash: contentSha256,
+          status: "pending",
+          uploadedBy: input.uploadedBy
+        })
+        .onConflictDoNothing()
+      const [row] = yield* tx
+        .select()
+        .from(attachmentIndex)
+        .where(eq(attachmentIndex.id, attachment.id))
+        .limit(1)
+      if (
+        !row ||
+        row.organizationId !== input.organizationId ||
+        row.orgSlug !== input.orgSlug ||
+        row.projectSlug !== input.projectSlug ||
+        row.ticketId !== attachment.ticketId ||
+        row.objectKey !== attachment.objectKey ||
+        row.filename !== attachment.filename ||
+        row.contentType !== attachment.contentType ||
+        row.byteSize !== attachment.byteSize ||
+        row.contentHash !== contentSha256 ||
+        row.status !== "pending" ||
+        row.uploadedBy !== input.uploadedBy
+      )
+        return yield* new JiraPublicationInvalid({
+          reasons: ["attachment-identity-conflict"]
+        })
+      return {
+        sourceAttachmentId: attachment.sourceAttachmentId,
+        kind: "copied",
+        attachmentId: attachment.id,
+        objectKey: attachment.objectKey,
+        byteSize: attachment.byteSize,
+        contentType: attachment.contentType,
+        contentSha256
+      } satisfies JiraAttachmentOutcome
+    })
   )
 })
 
