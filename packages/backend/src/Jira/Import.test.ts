@@ -22,6 +22,7 @@ import {
   ensureHiddenJiraProject,
   groupColors,
   nextTicketNumberFor,
+  verifyJiraHiddenMaterialization,
   writeJiraHiddenDocuments
 } from "./Import"
 import type { JiraPreflightEnvironment } from "./Preflight"
@@ -78,13 +79,19 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
       [organizationId]
     )
     await pool.query(
-      `insert into jira_migration (id,request_id,organization_id,initiated_by,source_cloud_id,source_site_name,source_site_url,source_project_id,source_project_key,source_project_name,staging_prefix,workflow_execution_id,workflow_attempt,status,phase) values ($1,$2,$3,$4,'cloud','Site','https://example.test','10000','APP','Application',$5,$1,1,'migrating','migrate')`,
+      `insert into jira_migration (id,request_id,organization_id,initiated_by,source_cloud_id,source_site_name,source_site_url,source_project_id,source_project_key,source_project_name,staging_prefix,workflow_execution_id,workflow_attempt,status,phase,checkpoint) values ($1,$2,$3,$4,'cloud','Site','https://example.test','10000','APP','Application',$5,$1,1,'migrating','migrate',$6)`,
       [
         migrationId,
         randomUUID(),
         organizationId,
         userId,
-        `migrations/jira/${migrationId}`
+        `migrations/jira/${migrationId}`,
+        JSON.stringify({
+          remoteWritesMayStillCommit: {
+            workflowExecutionId: migrationId,
+            workflowAttempt: 1
+          }
+        })
       ]
     )
     const input = {
@@ -127,13 +134,19 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
         path: "project.md",
         content,
         sha256: createHash("sha256").update(content).digest("hex")
-      },
-      {
-        path: `imports/jira/${migrationId}/archive.json`,
-        content: archive,
-        sha256: createHash("sha256").update(archive).digest("hex")
       }
     ]
+    const archiveDocument = {
+      path: `imports/jira/${migrationId}/archive.json`,
+      content: archive,
+      sha256: createHash("sha256").update(archive).digest("hex")
+    }
+    const reportContent = "Import report"
+    const reportDocument = {
+      path: `imports/jira/${migrationId}/report.md`,
+      content: reportContent,
+      sha256: createHash("sha256").update(reportContent).digest("hex")
+    }
     const writeDocuments = Effect.scoped(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem
@@ -152,10 +165,10 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
           projectId,
           orgSlug: organizationId,
           projectSlug: slug,
-          documents
+          documents: [...documents, archiveDocument, reportDocument]
         }).pipe(Effect.provide(markdownLayer))
-        expect(yield* write).toBe(2)
-        expect(yield* write).toBe(2)
+        expect(yield* write).toBe(3)
+        expect(yield* write).toBe(3)
         const stored = yield* fs.readFileString(
           `${root}/orgs/${organizationId}/projects/${slug}/project.md`
         )
@@ -165,6 +178,42 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
             `${root}/orgs/${organizationId}/projects/${slug}/imports/jira/${migrationId}/archive.json`
           )
         ).toBe(archive)
+        const verify = verifyJiraHiddenMaterialization(
+          {
+            getObject: () => Effect.succeed(null),
+            headObject: () => Effect.succeed(null)
+          },
+          {
+            fence: input.fence,
+            projectId,
+            orgSlug: organizationId,
+            projectSlug: slug,
+            planSha256: "a".repeat(64),
+            documents,
+            archiveDocument,
+            reportDocument,
+            attachments: [],
+            connection: {
+              endpoint: "http://127.0.0.1:59000",
+              bucket: "projectproject-t172-local-test",
+              region: "us-east-1",
+              keyPrefix: null,
+              forcePathStyle: true,
+              accessKeyId: "test",
+              secretAccessKey: "test"
+            }
+          }
+        ).pipe(Effect.provide(markdownLayer))
+        expect(yield* verify).toEqual({
+          planSha256: "a".repeat(64),
+          documentCount: 3,
+          attachmentCount: 0,
+          unresolvedReferenceCount: 0
+        })
+        yield* fs.remove(
+          `${root}/orgs/${organizationId}/projects/${slug}/project.md`
+        )
+        expect((yield* Effect.result(verify))._tag).toBe("Failure")
         const unsafe = yield* Effect.result(
           writeJiraHiddenDocuments({
             fence: input.fence,
@@ -295,6 +344,16 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
     const s3 = {
       getObject: (_connection: S3Connection, key: string) =>
         Effect.succeed(stored.get(key) ?? null),
+      headObject: (_connection: S3Connection, key: string) =>
+        Effect.succeed(
+          stored.has(key)
+            ? {
+                byteSize: stored.get(key)!.length,
+                contentType: "text/plain",
+                contentHash: null
+              }
+            : null
+        ),
       putObject: (
         _connection: S3Connection,
         key: string,
@@ -347,6 +406,58 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
         )
       ).rows
     ).toEqual([{ id: attachmentId, status: "pending", object_key: objectKey }])
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem
+          const root = yield* fs.makeTempDirectoryScoped({
+            prefix: "jira-verify-"
+          })
+          const markdownLayer = MarkdownLive.pipe(
+            Layer.provide(
+              ConfigProvider.layer(
+                ConfigProvider.fromUnknown({ PROJECTS_DIR: root })
+              )
+            )
+          )
+          const archiveContent = "{}"
+          const reportContent = "Report"
+          const archiveDocument = {
+            path: `imports/jira/${migrationId}/archive.json`,
+            content: archiveContent,
+            sha256: createHash("sha256").update(archiveContent).digest("hex")
+          }
+          const reportDocument = {
+            path: `imports/jira/${migrationId}/report.md`,
+            content: reportContent,
+            sha256: createHash("sha256").update(reportContent).digest("hex")
+          }
+          const verify = verifyJiraHiddenMaterialization(s3, {
+            fence,
+            projectId,
+            orgSlug: organizationId,
+            projectSlug: slug,
+            planSha256: "b".repeat(64),
+            documents: [],
+            archiveDocument,
+            reportDocument,
+            attachments: [first],
+            connection
+          }).pipe(Effect.provide(markdownLayer))
+          expect((yield* Effect.result(verify))._tag).toBe("Failure")
+          const reports = `${root}/orgs/${organizationId}/projects/${slug}/imports/jira/${migrationId}`
+          yield* fs.makeDirectory(reports, { recursive: true })
+          yield* fs.writeFileString(`${reports}/archive.json`, archiveContent)
+          yield* fs.writeFileString(`${reports}/report.md`, reportContent)
+          expect(yield* verify).toMatchObject({
+            attachmentCount: 1,
+            unresolvedReferenceCount: 0
+          })
+          stored.set(objectKey, new TextEncoder().encode("Corrupt blob!!!!"))
+          expect((yield* Effect.result(verify))._tag).toBe("Failure")
+        })
+      ).pipe(Effect.provide(Layer.mergeAll(dbLayer, BunServices.layer)))
+    )
   })
 })
 

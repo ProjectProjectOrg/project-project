@@ -502,6 +502,156 @@ export const copyJiraPreparedAttachment = Effect.fn(
   )
 })
 
+export type JiraHiddenVerificationInput = Readonly<{
+  fence: AttemptFence
+  projectId: string
+  orgSlug: string
+  projectSlug: string
+  planSha256: string
+  documents: JiraPublicationPlanV1["documents"]
+  archiveDocument: JiraPublicationPlanV1["archiveDocument"]
+  reportDocument: JiraPublicationPlanV1["reportDocument"]
+  attachments: JiraPublicationPlanV1["attachments"]
+  connection: S3Connection
+}>
+
+export const verifyJiraHiddenMaterialization = Effect.fn(
+  "JiraImport.verifyHiddenMaterialization"
+)(function* (
+  s3: Pick<S3StorageShape, "getObject" | "headObject">,
+  input: JiraHiddenVerificationInput
+) {
+  const db = yield* Db
+  const markdown = yield* Markdown
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  const [migration] = yield* db
+    .select()
+    .from(jiraMigration)
+    .where(eq(jiraMigration.id, input.fence.migrationId))
+    .limit(1)
+  const [project] = yield* db
+    .select()
+    .from(projectIndex)
+    .where(eq(projectIndex.id, input.projectId))
+    .limit(1)
+  if (
+    !migration ||
+    migration.workflowExecutionId !== input.fence.workflowExecutionId ||
+    migration.workflowAttempt !== input.fence.workflowAttempt ||
+    migration.status !== "migrating" ||
+    migration.cleanupExecutionId !== null ||
+    !project ||
+    project.organizationId !== migration.organizationId ||
+    project.slug !== input.projectSlug ||
+    project.publishedAt !== null
+  )
+    return yield* new JiraPublicationInvalid({
+      reasons: ["stale-materialization-attempt"]
+    })
+  const checkpoint = yield* decodeCheckpoint(migration.checkpoint)
+  if (
+    checkpoint.remoteWritesMayStillCommit?.workflowExecutionId !==
+      input.fence.workflowExecutionId ||
+    checkpoint.remoteWritesMayStillCommit.workflowAttempt !==
+      input.fence.workflowAttempt
+  )
+    return yield* new JiraPublicationInvalid({
+      reasons: ["stale-materialization-attempt"]
+    })
+  const [org] = yield* db
+    .select({ slug: organization.slug })
+    .from(organization)
+    .where(eq(organization.id, project.organizationId))
+    .limit(1)
+  if (org?.slug !== input.orgSlug)
+    return yield* new JiraPublicationInvalid({
+      reasons: ["hidden-project-identity-conflict"]
+    })
+  const allDocuments = [
+    ...input.documents,
+    input.archiveDocument,
+    input.reportDocument
+  ]
+  if (
+    new Set(allDocuments.map(({ path }) => path)).size !== allDocuments.length
+  )
+    return yield* new JiraPublicationInvalid({
+      reasons: ["duplicate-document-path"]
+    })
+  const directory = markdown.projectDir(input.orgSlug, input.projectSlug)
+  let unresolvedReferenceCount = 0
+  for (const document of allDocuments) {
+    if (!safeJiraDocumentPath(document.path, input.fence.migrationId))
+      return yield* new JiraPublicationInvalid({
+        reasons: ["invalid-document-content-or-path"]
+      })
+    const stored = yield* fs
+      .readFileString(path.join(directory, document.path))
+      .pipe(
+        Effect.mapError(
+          () => new JiraPublicationInvalid({ reasons: ["missing-document"] })
+        )
+      )
+    if (createHash("sha256").update(stored).digest("hex") !== document.sha256)
+      return yield* new JiraPublicationInvalid({
+        reasons: ["document-verification-failed"]
+      })
+    unresolvedReferenceCount += (stored.match(/\uE000jira-reference:/g) ?? [])
+      .length
+  }
+  if (unresolvedReferenceCount !== 0)
+    return yield* new JiraPublicationInvalid({
+      reasons: ["unresolved-document-references"]
+    })
+  const copied = input.attachments.filter(
+    (attachment) => attachment.kind === "copied"
+  )
+  if (
+    new Set(copied.map(({ attachmentId }) => attachmentId)).size !==
+    copied.length
+  )
+    return yield* new JiraPublicationInvalid({
+      reasons: ["duplicate-attachment-outcome"]
+    })
+  for (const attachment of copied) {
+    const [row] = yield* db
+      .select()
+      .from(attachmentIndex)
+      .where(eq(attachmentIndex.id, attachment.attachmentId))
+      .limit(1)
+    const head = yield* s3.headObject(input.connection, attachment.objectKey)
+    const bytes = yield* s3.getObject(input.connection, attachment.objectKey)
+    if (
+      !row ||
+      row.organizationId !== migration.organizationId ||
+      row.orgSlug !== input.orgSlug ||
+      row.projectSlug !== input.projectSlug ||
+      row.objectKey !== attachment.objectKey ||
+      row.byteSize !== attachment.byteSize ||
+      row.contentType !== attachment.contentType ||
+      row.contentHash !== attachment.contentSha256 ||
+      row.status !== "pending" ||
+      !head ||
+      head.byteSize !== attachment.byteSize ||
+      head.contentType !== attachment.contentType ||
+      !bytes ||
+      bytes.length !== attachment.byteSize ||
+      createHash("sha256").update(bytes).digest("hex") !==
+        attachment.contentSha256
+    )
+      return yield* new JiraPublicationInvalid({
+        reasons: ["attachment-verification-failed"]
+      })
+  }
+  return {
+    planSha256: input.planSha256,
+    documentCount: allDocuments.length,
+    attachmentCount: copied.length,
+    unresolvedReferenceCount: 0 as const
+  }
+})
+
 const commentBlocksFor = (
   plan: JiraPublicationPlan,
   ticketId: string
