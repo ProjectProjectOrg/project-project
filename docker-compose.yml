@@ -12,6 +12,19 @@
 # The DATABASE_URL the backend uses is read from `.env` (see `.env.example`).
 # It points at this container at localhost:5432.
 
+# Pin the compose project name.
+#
+# Compose otherwise derives it from the working directory's basename, which
+# differs per git worktree (`project-project` in the main checkout, `t3code-*`
+# in each worktree). The `container_name:` keys below are global across compose
+# projects, so a second checkout would see no container in *its* project, try
+# to create one, and collide:
+#   Conflict. The container name "/projectproject-postgres" is already in use
+# Pinning the name means every checkout shares one project, one container set,
+# and one set of volumes. The value matches the existing
+# `project-project_*` volume prefix so current dev data is preserved.
+name: project-project
+
 services:
   postgres:
     image: postgres:16-alpine

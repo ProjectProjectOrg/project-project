@@ -1,6 +1,7 @@
 import * as Schema from "effect/Schema"
-import { TicketId } from "./Ticket"
+
 import { GroupId } from "./Group"
+import { TicketId } from "./Ticket"
 
 export const WorkTypeOption = Schema.Struct({
   key: Schema.String,

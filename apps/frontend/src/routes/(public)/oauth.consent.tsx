@@ -1,0 +1,185 @@
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { createFileRoute, Navigate } from "@tanstack/react-router"
+import * as Exit from "effect/Exit"
+import * as Schema from "effect/Schema"
+import * as Result from "effect/unstable/reactivity/AsyncResult"
+import { useState, type ReactNode } from "react"
+
+import { Logo, Wordmark } from "@/components/Logo"
+import { Button } from "@/components/ui/button"
+import { DitherShell } from "@/components/ui/dither-shell"
+import { me } from "@/features/auth/atoms/auth"
+import {
+  oauthClientNameAtom,
+  oauthClientRequest,
+  oauthConsentRequest,
+  submitConsentAtom
+} from "@/features/oauth/atoms/oauthConsent"
+import { oauthConsentErrorMessage } from "@/lib/errorMessage"
+import { rawQueryFromSearch } from "@/lib/oauthQuery"
+import { m } from "@/paraglide/messages"
+
+const OauthConsentSearch = Schema.Struct({
+  client_id: Schema.optional(Schema.String),
+  scope: Schema.optional(Schema.String)
+})
+
+export const Route = createFileRoute("/(public)/oauth/consent")({
+  component: OauthConsentPage,
+  validateSearch: Schema.toStandardSchemaV1(OauthConsentSearch)
+})
+
+function OauthConsentPage() {
+  const viewer = useAtomValue(me())
+  const search = Route.useSearch()
+  const oauthQuery =
+    typeof window === "undefined"
+      ? ""
+      : rawQueryFromSearch(window.location.search)
+  const clientId =
+    search.client_id ??
+    new URLSearchParams(oauthQuery).get("client_id") ??
+    undefined
+
+  if (Result.isFailure(viewer)) {
+    return (
+      <Navigate
+        to="/login"
+        search={{ redirect: `/oauth/consent?${oauthQuery}` }}
+      />
+    )
+  }
+
+  if (!oauthQuery) {
+    return <ConsentShell title={m.auth_oauth_consent_title()} />
+  }
+
+  return <ConsentForm oauthQuery={oauthQuery} clientId={clientId} />
+}
+
+function ConsentForm({
+  oauthQuery,
+  clientId
+}: {
+  oauthQuery: string
+  clientId: string | undefined
+}) {
+  const consentReq = oauthConsentRequest(oauthQuery)
+  const clientReq = oauthClientRequest(clientId)
+  const submit = useAtomSet(submitConsentAtom(consentReq), {
+    mode: "promiseExit"
+  })
+  const submitState = useAtomValue(submitConsentAtom(consentReq))
+  const clientName = useAtomValue(oauthClientNameAtom(clientReq))
+  const displayName =
+    (Result.isSuccess(clientName)
+      ? clientName.value.name?.trim() || null
+      : null) ?? m.auth_oauth_consent_client_fallback()
+  const [pending, setPending] = useState<"accept" | "deny" | null>(null)
+  const error = Result.matchWithError(submitState, {
+    onInitial: () => null,
+    onSuccess: () => null,
+    onError: oauthConsentErrorMessage,
+    onDefect: oauthConsentErrorMessage
+  })
+
+  const onSubmit = async (accept: boolean) => {
+    setPending(accept ? "accept" : "deny")
+    const exit = await submit({ accept })
+    if (Exit.isSuccess(exit)) {
+      window.location.replace(exit.value.redirectURI)
+      return
+    }
+    setPending(null)
+  }
+
+  const capabilities = [
+    m.auth_oauth_consent_capability_read(),
+    m.auth_oauth_consent_capability_write_tickets(),
+    m.auth_oauth_consent_capability_write_comments(),
+    m.auth_oauth_consent_capability_attach_branch()
+  ]
+
+  return (
+    <ConsentShell title={m.auth_oauth_consent_title()}>
+      <p className="text-center text-sm wrap-anywhere text-muted-foreground">
+        {m.auth_oauth_consent_subtitle({ client: displayName })}
+      </p>
+      <div className="flex w-full flex-col gap-2">
+        <p className="text-sm font-medium text-foreground">
+          {m.auth_oauth_consent_capabilities_heading()}
+        </p>
+        <ul className="w-full space-y-1.5 rounded-xl bg-background/60 p-3 text-[13px] text-foreground">
+          {capabilities.map((label) => (
+            <li key={label} className="flex items-start gap-2">
+              <span aria-hidden className="mt-[5px] text-muted-foreground">
+                ·
+              </span>
+              <span>{label}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="flex w-full flex-col gap-2">
+        <Button
+          onClick={() => onSubmit(true)}
+          disabled={pending !== null}
+          size="lg"
+          className="w-full"
+        >
+          {pending === "accept"
+            ? m.auth_oauth_consent_accept_pending()
+            : m.auth_oauth_consent_accept_button()}
+        </Button>
+        <Button
+          variant="tertiary"
+          onClick={() => onSubmit(false)}
+          disabled={pending !== null}
+          size="lg"
+          className="w-full"
+        >
+          {pending === "deny"
+            ? m.auth_oauth_consent_deny_pending()
+            : m.auth_oauth_consent_deny_button()}
+        </Button>
+      </div>
+
+      {error ? (
+        <p
+          role="alert"
+          className="text-center text-xs leading-relaxed text-destructive"
+        >
+          {error}
+        </p>
+      ) : (
+        <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
+          {m.auth_oauth_consent_footnote()}
+        </p>
+      )}
+    </ConsentShell>
+  )
+}
+
+function ConsentShell({
+  title,
+  children
+}: {
+  title: string
+  children?: ReactNode
+}) {
+  return (
+    <DitherShell>
+      <div className="relative flex flex-col items-center gap-4 px-8 pt-10 pb-2 text-foreground">
+        <div className="relative flex size-16 items-center justify-center rounded-2xl bg-primary corner-squircle">
+          <Logo className="size-10" inverted />
+        </div>
+        <Wordmark className="h-5 w-auto" />
+      </div>
+      <div className="relative flex flex-col items-center gap-5 px-8 pt-6 pb-8">
+        <h1 className="text-base font-medium text-foreground">{title}</h1>
+        {children}
+      </div>
+    </DitherShell>
+  )
+}

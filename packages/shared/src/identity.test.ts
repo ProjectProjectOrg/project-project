@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
+
 import { OUTER_RING } from "./colors"
 import {
   PROJECT_STARTER_EMOJIS,

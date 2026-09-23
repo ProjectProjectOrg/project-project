@@ -1,0 +1,53 @@
+{
+  "$schema": "./node_modules/turbo/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "outputLogs": "new-only"
+    },
+    "dev": {
+      "persistent": true,
+      "cache": false,
+      "interactive": true
+    },
+    "lint": {
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.md"],
+      "outputLogs": "new-only"
+    },
+    "lint:fix": {
+      "cache": false
+    },
+    "//#lint:root": {
+      "inputs": ["$TURBO_DEFAULT$", "!apps/**", "!packages/**", "!**/*.md"],
+      "outputLogs": "new-only"
+    },
+    "//#lint:root:fix": {
+      "cache": false
+    },
+    "test": {
+      "cache": false,
+      "dependsOn": ["^build"],
+      "env": ["BETTER_AUTH_SECRET", "PROJECTPROJECT_TEST_DATABASE_URL"],
+      "passThroughEnv": [
+        "PROJECTPROJECT_TEST_S3_ACCESS_KEY",
+        "PROJECTPROJECT_TEST_S3_ENDPOINT",
+        "PROJECTPROJECT_TEST_S3_SECRET_KEY"
+      ],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.md"],
+      "outputLogs": "new-only"
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/tsconfig.base.json"],
+      "outputLogs": "new-only"
+    },
+    "@pp/frontend#typecheck": {
+      "dependsOn": ["^typecheck"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/tsconfig.base.json"],
+      "outputs": ["src/paraglide/**"],
+      "outputLogs": "new-only"
+    }
+  }
+}

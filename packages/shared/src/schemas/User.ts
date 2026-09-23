@@ -36,6 +36,7 @@
 // to be strict at the schema boundary — declare ISO strings, validate, done.
 
 import * as Schema from "effect/Schema"
+
 import { PersonalEverhour } from "./Everhour"
 
 export const UserId = Schema.String.pipe(

@@ -84,7 +84,7 @@ This applies to every clickable button in the app — not just the obvious prima
 
 Hover (and Radix `[data-highlighted]` / `[data-selected]`) state changes should land **instantly on enter** and **ease out at ~150ms on exit**. That asymmetry is what makes the app feel responsive without feeling twitchy.
 
-Implementation lives as a single global rule in `packages/frontend/src/styles.css`: while the element is hovered or carries the highlight data attribute, `transition-duration` is forced to `0ms`; once the cursor leaves (or the highlight clears), the override is gone and the element's underlying transition-duration governs the exit.
+Implementation lives as a single global rule in `apps/frontend/src/styles.css`: while the element is hovered or carries the highlight data attribute, `transition-duration` is forced to `0ms`; once the cursor leaves (or the highlight clears), the override is gone and the element's underlying transition-duration governs the exit.
 
 When a parent reveals a child on hover (a row's actions, say), the child is not itself hovered, so give the parent a named reveal group — `group/reveal` — and pair it with `group-hover/reveal:*` on the child; the global rule covers that name alongside `group/hitbox`.
 
@@ -104,7 +104,7 @@ If extending the primitive feels disruptive (touches public API, would conflict 
 
 - All user-facing strings go through paraglide messages (`m.*` from `@/paraglide/messages`); raw literals in JSX are forbidden.
 - User-authored markdown (ticket descriptions, project READMEs, comments) stays as authored — never translated.
-- Errors map through `packages/frontend/src/lib/errorMessage.ts`. Extend that file when adding new tagged errors that surface in the UI.
+- Errors map through `apps/frontend/src/lib/errorMessage.ts`. Extend that file when adding new tagged errors that surface in the UI.
 - `Intl.*` callsites take the active locale, read via `getLocale()` from `@/paraglide/runtime`. No `format.ts` wrapper layer.
 - Source locale: `en`. Adding `nl` is a future PR (the locale switcher ships with it).
 - Translation placement is governed by this ruleset, not by a validation script.
@@ -118,17 +118,17 @@ If extending the primitive feels disruptive (touches public API, would conflict 
 
 | File                                          | Prefixes                                               |
 | --------------------------------------------- | ------------------------------------------------------ |
-| `packages/frontend/messages/en/common.json`   | `common_`, `error_`, `validation_`                     |
-| `packages/frontend/messages/en/shell.json`    | `chrome_`, `nav_`, `theme_`                            |
-| `packages/frontend/messages/en/account.json`  | `auth_`, `profile_`                                    |
-| `packages/frontend/messages/en/projects.json` | `org_`, `projects_`, `project_`, `members_`, `editor_`, `storage_`, `attachments_` |
-| `packages/frontend/messages/en/comments.json` | `comments_`                                            |
-| `packages/frontend/messages/en/tickets.json`  | `tickets_`                                             |
-| `packages/frontend/messages/en/tags.json`     | `tags_`, `color_`                                      |
-| `packages/frontend/messages/en/git.json`      | `git_`, `github_`                                      |
-| `packages/frontend/messages/en/sprints.json`  | `sprints_`, `error_sprint_`                            |
-| `packages/frontend/messages/en/time.json`     | `time_`                                                |
-| `packages/frontend/messages/en/figma.json`    | `figma_`                                               |
+| `apps/frontend/messages/en/common.json`   | `common_`, `error_`, `validation_`                     |
+| `apps/frontend/messages/en/shell.json`    | `chrome_`, `nav_`, `theme_`                            |
+| `apps/frontend/messages/en/account.json`  | `auth_`, `profile_`                                    |
+| `apps/frontend/messages/en/projects.json` | `org_`, `projects_`, `project_`, `members_`, `editor_`, `storage_`, `attachments_` |
+| `apps/frontend/messages/en/comments.json` | `comments_`                                            |
+| `apps/frontend/messages/en/tickets.json`  | `tickets_`                                             |
+| `apps/frontend/messages/en/tags.json`     | `tags_`, `color_`                                      |
+| `apps/frontend/messages/en/git.json`      | `git_`, `github_`                                      |
+| `apps/frontend/messages/en/sprints.json`  | `sprints_`, `error_sprint_`                            |
+| `apps/frontend/messages/en/time.json`     | `time_`                                                |
+| `apps/frontend/messages/en/figma.json`    | `figma_`                                               |
 
 Within each message file, group keys by prefix in the order listed above, then sort alphabetically inside each prefix group.
 
@@ -136,10 +136,10 @@ Within each message file, group keys by prefix in the order listed above, then s
 
 Multi-field and multi-step forms use **TanStack Form** (`@tanstack/react-form`, currently the v2 alpha). Setup follows the conventions in the `omgevingschat-platform` web app:
 
-- `packages/frontend/src/lib/form.ts` builds the hook via `createFormHook` and exports `useAppForm`, `useFormContext`, `appFormOptions`, `defineAppFieldGroup`, plus `useFormValues`. In v2 `createFormHook` no longer takes contexts, so there is no `form-context.ts`.
-- A form lives in `packages/frontend/src/forms/<name>/`, with shared options and schemas in `opts.ts` and the form in `index.tsx`. Multi-step forms get one file per step beside them.
+- `apps/frontend/src/lib/form.ts` builds the hook via `createFormHook` and exports `useAppForm`, `useFormContext`, `appFormOptions`, `defineAppFieldGroup`, plus `useFormValues`. In v2 `createFormHook` no longer takes contexts, so there is no `form-context.ts`.
+- A form lives in `apps/frontend/src/forms/<name>/`, with shared options and schemas in `opts.ts` and the form in `index.tsx`. Multi-step forms get one file per step beside them.
 
-**Validators are Effect Schema, not zod.** TanStack Form accepts any Standard Schema, and `Schema.toStandardSchemaV1` (Effect v4) produces one — so `@projectproject/shared` schemas can be used directly. Do not add zod; it is not a dependency and a second schema library is not wanted.
+**Validators are Effect Schema, not zod.** TanStack Form accepts any Standard Schema, and `Schema.toStandardSchemaV1` (Effect v4) produces one — so `@pp/shared` schemas can be used directly. Do not add zod; it is not a dependency and a second schema library is not wanted.
 
 ### Multi-step forms are FormGroups, not a bespoke primitive
 
@@ -169,7 +169,7 @@ Never disable a control on `isSubmitting` when an atom is doing the work — pas
 
 **Default to optimistic.** Reads are `Api.query(...)` wrapped in `Atom.optimistic`. Mutations are `Atom.optimisticFn` against the wrapper of the view they fire from. Worked examples and the legacy shapes we removed: `.agents/skills/effect-atom-optimistic-updates/SKILL.md`. Rationale: `docs/superpowers/specs/2026-09-11-native-atom-data-layer-design.md`.
 
-1. **One client.** `packages/frontend/src/api/Api.ts` is the only way to reach the server. Never hand-roll a fetch atom. Calls to better-auth stay `Effect.tryPromise`, but run inside `Api.runtime.fn` so there is one runtime.
+1. **One client.** `apps/frontend/src/api/Api.ts` is the only way to reach the server. Never hand-roll a fetch atom. Calls to better-auth stay `Effect.tryPromise`, but run inside `Api.runtime.fn` so there is one runtime.
 
 2. **Reads are wrappers.** Every exported read is `Atom.family((req) => Atom.optimistic(query(req)))`, and the query stays module-private. Family keys are request objects, never concatenated strings, so there is nothing to parse back apart:
 
@@ -230,13 +230,13 @@ Never disable a control on `isSubmitting` when an atom is doing the work — pas
 
 Types obey the repo rule above — nested `Readonly<{ ... }>`, `ReadonlyArray<T>`, `readonly [A, B]`, no `interface`, no per-field `readonly`. That covers request types, mutation inputs and composed view-model types.
 
-Reference: `packages/frontend/src/atoms/backlog.ts` (one sections query plus on-demand cursor pages, with sort-aware placement in the reducers), `packages/frontend/src/atoms/sprintBoard.ts` (a region composed from two queries), `packages/frontend/src/atoms/tags.ts` (`tagsFor` as a plain aggregate, `tagEditor` as a region composed from two wrappers).
+Reference: `apps/frontend/src/atoms/backlog.ts` (one sections query plus on-demand cursor pages, with sort-aware placement in the reducers), `apps/frontend/src/atoms/sprintBoard.ts` (a region composed from two queries), `apps/frontend/src/atoms/tags.ts` (`tagsFor` as a plain aggregate, `tagEditor` as a region composed from two wrappers).
 
 ## Rendering atom AsyncResults — `AsyncResult.matchWithError` + `ErrorPage`
 
 A `useAtomValue` on a runtime atom returns a `AsyncResult<A, E>` with four variants: `Initial`, `Success`, `Failure-with-typed-error`, `Failure-with-defect`. **Always handle all four — never just check `AsyncResult.isSuccess` and render a forever-loading state on anything else.** That swallows real errors silently and makes failures invisible.
 
-**The canonical helper is `AsyncResult.matchWithError`** from `effect/unstable/reactivity/AsyncResult`. It splits the failure path into `onError` (your typed `E` channel — `NotFound`, `Unauthorized`, etc.) and `onDefect` (unexpected throws, decode failures, interruptions). Failed renders use the shared `ErrorPage` component (`packages/frontend/src/components/ErrorPage.tsx`), which wraps the dither shell with a retry button and a home link. Pass `contained` when rendering inside a settings panel or any non-full-page surface.
+**The canonical helper is `AsyncResult.matchWithError`** from `effect/unstable/reactivity/AsyncResult`. It splits the failure path into `onError` (your typed `E` channel — `NotFound`, `Unauthorized`, etc.) and `onDefect` (unexpected throws, decode failures, interruptions). Failed renders use the shared `ErrorPage` component (`apps/frontend/src/components/ErrorPage.tsx`), which wraps the dither shell with a retry button and a home link. Pass `contained` when rendering inside a settings panel or any non-full-page surface.
 
 The minimal pattern:
 
@@ -265,7 +265,7 @@ A few details worth knowing:
 - **Don't combine `AsyncResult.matchWithError` with a separate `if (!AsyncResult.isSuccess) ...` early return.** Pick one. The `match` form handles every case; mixing both is dead code and a refactor hazard.
 - **For tiny callsites where you only care about success vs anything else** (e.g. a sidebar count that defaults to 0), `AsyncResult.isSuccess(result) ? result.value : fallback` is fine. The match form pays for itself once the failure case needs visible UI.
 
-Reference: `packages/frontend/src/routes/_authed/orgs/$orgSlug/projects/index.tsx` for the standard project-list pattern, and for reading a mutation atom's own state next to it. `AsyncResult` is imported as `Result` in most components; either alias is fine, but keep one per file.
+Reference: `apps/frontend/src/routes/_authed/orgs/$orgSlug/projects/index.tsx` for the standard project-list pattern, and for reading a mutation atom's own state next to it. `AsyncResult` is imported as `Result` in most components; either alias is fine, but keep one per file.
 
 ## Backend stack
 
@@ -276,8 +276,8 @@ Effect HttpApi + Drizzle + Better Auth + Postgres, as set up in chapters 0–2. 
 - **Spec / source of truth:** `docs/PROJECTPROJECT.md`
 - **Reference material:** `docs/chapters/` — chapter docs and walk-throughs from the learning phase. Read-only context; we don't add new chapters.
 - **Code:**
-  - `packages/backend` — Effect HTTP server.
-  - `packages/frontend` — TanStack Start app.
+  - `apps/backend` — Effect HTTP server.
+  - `apps/frontend` — TanStack Start app.
   - `packages/shared` — HttpApi definition, schemas, tagged errors. The typed seam between ends.
 
 The `packages/chapters-viewer` workspace has been removed.

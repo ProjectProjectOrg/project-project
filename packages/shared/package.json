@@ -1,5 +1,5 @@
 {
-  "name": "@projectproject/shared",
+  "name": "@pp/shared",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -8,12 +8,15 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vp test run"
+    "test": "vitest run",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint . --fix"
   },
   "dependencies": {
     "effect": "4.0.0-rc.112"
   },
   "devDependencies": {
-    "vite-plus": "0.3.0"
+    "@effect/vitest": "4.0.0-rc.112",
+    "vitest": "4.1.11"
   }
 }

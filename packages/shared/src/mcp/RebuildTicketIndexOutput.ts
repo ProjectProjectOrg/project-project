@@ -1,4 +1,5 @@
 import * as Schema from "effect/Schema"
+
 import { Slug } from "../schemas/Project"
 
 export const TicketIndexDrift = Schema.Struct({

@@ -1,7 +1,7 @@
 import * as Schema from "effect/Schema"
-import { TicketId, TicketStatus } from "./Ticket"
 
 import { GroupId } from "./GroupId"
+import { TicketId, TicketStatus } from "./Ticket"
 
 export { GroupId }
 

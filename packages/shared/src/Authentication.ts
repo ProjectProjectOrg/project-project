@@ -11,7 +11,7 @@
 //
 //   - The *Live Layer*: actually reads the cookie, calls Better Auth, and
 //     either provides a `User` or fails with `Unauthorized`. Lives in
-//     `packages/backend/src/services/Auth.ts` because it depends on
+//     `apps/backend/src/services/Auth.ts` because it depends on
 //     `BetterAuth`, which lives in backend.
 //
 // We put the Tag here in `shared/` so both `api.ts` (which calls
@@ -52,12 +52,13 @@
 // it provides matches the shared `User` shape.
 
 import * as Context from "effect/Context"
-import type { User } from "./schemas/User"
 import { HttpApiMiddleware, HttpApiSecurity } from "effect/unstable/httpapi"
+
 import { Unauthorized } from "./errors"
+import type { User } from "./schemas/User"
 
 export class CurrentUser extends Context.Service<CurrentUser, User>()(
-  "@projectproject/shared/Authentication/CurrentUser"
+  "@pp/shared/Authentication/CurrentUser"
 ) {}
 
 const sessionCookie = HttpApiSecurity.apiKey({

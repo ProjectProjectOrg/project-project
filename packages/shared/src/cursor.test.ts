@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
+
 import { padNumericIdSort, paginateSorted, tryDecodeCursor } from "./cursor"
 import { decodeCursor, encodeCursor } from "./Pagination"
 

@@ -1,6 +1,6 @@
 ---
 name: effect-atom-optimistic-updates
-description: Use when adding or changing optimistic UI in packages/frontend (instant edits, drag to change status, inline renames, list adds or removes), when a value flickers back to a stale server value after a mutation, or when tempted to add a pending map, settle key, preview merge, or React context to make an edit show instantly.
+description: Use when adding or changing optimistic UI in apps/frontend (instant edits, drag to change status, inline renames, list adds or removes), when a value flickers back to a stale server value after a mutation, or when tempted to add a pending map, settle key, preview merge, or React context to make an edit show instantly.
 ---
 
 # Effect Atom optimistic updates

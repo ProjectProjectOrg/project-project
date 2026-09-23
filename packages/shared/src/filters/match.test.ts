@@ -1,17 +1,18 @@
-import { describe, expect, it } from "vite-plus/test"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
-import type { Ticket } from "../schemas/Ticket"
-import { TagName } from "../schemas/Tag"
-import { TicketId } from "../schemas/Ticket"
+import { describe, expect, it } from "vitest"
+
 import { StatusSlug } from "../schemas/Status"
+import { TagName } from "../schemas/Tag"
+import type { Ticket } from "../schemas/Ticket"
+import { TicketId } from "../schemas/Ticket"
 import { UserId } from "../schemas/User"
-import type { TicketFilter, TicketListQuery } from "./Ticket"
 import {
   matchesTicketFilter,
   matchesTicketQuery,
   type MatchableTicket
 } from "./match"
+import type { TicketFilter, TicketListQuery } from "./Ticket"
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 const decodeTagName = Schema.decodeUnknownSync(TagName)
