@@ -25,6 +25,7 @@ export type JiraBrowserResources = Readonly<{
 }>
 
 const browserFrontendOrigin = "http://127.0.0.1:5174"
+const browserBackendPort = Number(process.env.JIRA_BROWSER_API_PORT ?? "3000")
 
 const loopbackHost = (hostname: string) =>
   hostname === "127.0.0.1" || hostname === "localhost"
@@ -199,7 +200,7 @@ export const makeJiraBrowserHarnessLive = async (
       clientId: "fixture-client",
       clientSecret: Redacted.make("fixture-secret"),
       publicBaseUrl: browserFrontendOrigin,
-      authorizationEndpoint: "http://127.0.0.1:3000/__jira-harness/authorize"
+      authorizationEndpoint: `http://127.0.0.1:${browserBackendPort}/__jira-harness/authorize`
     })
   )
   return HttpRouter.serve(
@@ -223,6 +224,12 @@ if (import.meta.main) {
     bucket: process.env.JIRA_BROWSER_BUCKET ?? "",
     hostname: "127.0.0.1"
   }
+  if (
+    !Number.isInteger(browserBackendPort) ||
+    browserBackendPort < 1 ||
+    browserBackendPort > 65535
+  )
+    throw new Error("Invalid Jira browser API port")
   assertBrowserResources(resources)
   process.env.DATABASE_URL = resources.databaseUrl
   process.env.PROJECTS_DIR = `${import.meta.dirname}/../.tmp/jira-browser-projects`
@@ -252,7 +259,10 @@ if (import.meta.main) {
       return yield* Layer.launch(
         harness.pipe(
           Layer.provide(
-            BunHttpServer.layer({ hostname: resources.hostname, port: 3000 })
+            BunHttpServer.layer({
+              hostname: resources.hostname,
+              port: browserBackendPort
+            })
           )
         )
       )
