@@ -49,6 +49,12 @@ export const JiraMigrationGate = Schema.Union([
 export type JiraMigrationGate = typeof JiraMigrationGate.Type
 
 const JiraMigrationCheckpoint = Schema.Struct({
+  remoteWritesMayStillCommit: Schema.optional(
+    Schema.Struct({
+      workflowExecutionId: Schema.String,
+      workflowAttempt: Schema.Int
+    })
+  ),
   currentGate: Schema.optional(JiraMigrationGate),
   acceptedConfiguration: Schema.optional(
     Schema.Struct({
@@ -433,6 +439,8 @@ export type JiraScanResumeResult = typeof JiraScanResumeResult.Type
 export type JiraMigrationCleanupMode = "reset_import" | "discard"
 
 export type JiraMigrationProjectionShape = Readonly<{
+  beginRemoteWrites: (fence: AttemptFence) => Effect.Effect<boolean, JiraError>
+  settleRemoteWrites: (fence: AttemptFence) => Effect.Effect<boolean, JiraError>
   finalizeInterrupted: (
     fence: AttemptFence
   ) => Effect.Effect<boolean, JiraError>
@@ -561,6 +569,88 @@ export class JiraMigrationProjection extends Context.Service<
     JiraMigrationProjection,
     Effect.gen(function* () {
       const db = yield* Db
+      const beginRemoteWrites: JiraMigrationProjectionShape["beginRemoteWrites"] =
+        (fence) =>
+          db
+            .transaction((tx) =>
+              Effect.gen(function* () {
+                const rows = yield* tx
+                  .select()
+                  .from(jiraMigration)
+                  .where(fenceWhere(fence))
+                  .for("update")
+                const row = rows[0]
+                if (
+                  !row ||
+                  row.cleanupExecutionId !== null ||
+                  !["scanning", "migrating"].includes(row.status)
+                )
+                  return false
+                const checkpoint = yield* decodeCheckpoint(row.checkpoint)
+                if (checkpoint.remoteWritesMayStillCommit)
+                  return (
+                    checkpoint.remoteWritesMayStillCommit
+                      .workflowExecutionId === fence.workflowExecutionId &&
+                    checkpoint.remoteWritesMayStillCommit.workflowAttempt ===
+                      fence.workflowAttempt
+                  )
+                const now = yield* DateTime.nowAsDate
+                yield* tx
+                  .update(jiraMigration)
+                  .set({
+                    checkpoint: yield* Schema.encodeEffect(
+                      JiraMigrationCheckpoint
+                    )({
+                      ...checkpoint,
+                      remoteWritesMayStillCommit: {
+                        workflowExecutionId: fence.workflowExecutionId,
+                        workflowAttempt: fence.workflowAttempt
+                      }
+                    }),
+                    updatedAt: now,
+                    revision: row.revision + 1
+                  })
+                  .where(fenceWhere(fence))
+                return true
+              })
+            )
+            .pipe(Effect.mapError(databaseError))
+      const settleRemoteWrites: JiraMigrationProjectionShape["settleRemoteWrites"] =
+        (fence) =>
+          db
+            .transaction((tx) =>
+              Effect.gen(function* () {
+                const rows = yield* tx
+                  .select()
+                  .from(jiraMigration)
+                  .where(fenceWhere(fence))
+                  .for("update")
+                const row = rows[0]
+                if (!row) return false
+                const checkpoint = yield* decodeCheckpoint(row.checkpoint)
+                const pending = checkpoint.remoteWritesMayStillCommit
+                if (!pending) return true
+                if (
+                  pending.workflowExecutionId !== fence.workflowExecutionId ||
+                  pending.workflowAttempt !== fence.workflowAttempt
+                )
+                  return false
+                const { remoteWritesMayStillCommit: _, ...settled } = checkpoint
+                const now = yield* DateTime.nowAsDate
+                yield* tx
+                  .update(jiraMigration)
+                  .set({
+                    checkpoint: yield* Schema.encodeEffect(
+                      JiraMigrationCheckpoint
+                    )(settled),
+                    updatedAt: now,
+                    revision: row.revision + 1
+                  })
+                  .where(fenceWhere(fence))
+                return true
+              })
+            )
+            .pipe(Effect.mapError(databaseError))
       const owned = Effect.fn("JiraMigrationProjection.owned")(function* (
         owner: ProjectionOwner,
         migrationId: string
@@ -659,6 +749,10 @@ export class JiraMigrationProjection extends Context.Service<
             return yield* new Validation({
               reason: "jira_migration_rescan_not_allowed"
             })
+          if (
+            (yield* decodeCheckpoint(row.checkpoint)).remoteWritesMayStillCommit
+          )
+            return yield* conflict()
           const now = yield* DateTime.nowAsDate
           const updated = yield* db
             .update(jiraMigration)
@@ -748,7 +842,7 @@ export class JiraMigrationProjection extends Context.Service<
             ...(patch.checkpoint === undefined
               ? {}
               : {
-                  checkpoint: sqlFragment`coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) || (coalesce(${patch.checkpoint}::jsonb, '{}'::jsonb) - 'scanFailureReceipts' - 'scanPages' - 'currentGate' - 'acceptedConfiguration')`
+                  checkpoint: sqlFragment`coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) || (coalesce(${patch.checkpoint}::jsonb, '{}'::jsonb) - 'scanFailureReceipts' - 'scanPages' - 'currentGate' - 'acceptedConfiguration' - 'remoteWritesMayStillCommit')`
                 }),
             updatedAt: now,
             revision: sqlFragment`${jiraMigration.revision} + 1`
@@ -1270,6 +1364,7 @@ export class JiraMigrationProjection extends Context.Service<
                 and(
                   fenceWhere(fence),
                   eq(jiraMigration.cleanupExecutionId, executionId),
+                  sqlFragment`not (coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) ? 'remoteWritesMayStillCommit')`,
                   inArray(jiraMigration.status, cleanupStatuses)
                 )
               )
@@ -1279,6 +1374,8 @@ export class JiraMigrationProjection extends Context.Service<
           }
         )
       return JiraMigrationProjection.of({
+        beginRemoteWrites,
+        settleRemoteWrites,
         ensureCreated,
         finalizeInterrupted,
         beginRescan,

@@ -428,6 +428,8 @@ Explicit discard starts cleanup with `discard: true`, records `cleanupExecutionI
 
 Each cleanup Activity is idempotent. `discard` and `expire` delete the projection row only after every cleanup stage succeeds. `reset_import` clears the cleanup marker and returns control to the new scan attempt. Failure retains the row and all remaining recovery metadata.
 
+Scan and materialization record an attempt-level `remoteWritesMayStillCommit` checkpoint before any remote storage write. The owning attempt clears it only after its callback has completed all remote writes with known terminal outcomes. Interruption or an ambiguous upload leaves the checkpoint set. Cleanup may release its claim for a later retry, but it cannot delete the migration row while the checkpoint is set; rescan also cannot clear that checkpoint. Cleanup verifies the graph absent after remote writes are settled and before deleting the row. An attempt that dies with an ambiguous outcome retains its recovery handle for manual resolution rather than promising timed deletion.
+
 Retry and cleanup use compare-and-set transitions around `cleanupExecutionId` and `retainedUntil`. If retry wins, it clears retention and cleanup cannot claim the row. If cleanup wins, retry is rejected until cleanup either completes or releases its failed claim.
 
 A scoped Effect retention process periodically selects failed or cancelled rows whose `retainedUntil` has passed and starts the same cleanup workflow. Expiry cleanup interrupts a workflow still waiting for a retry before deleting its artifacts. This process only schedules cleanup; it does not execute migrations or duplicate workflow semantics.

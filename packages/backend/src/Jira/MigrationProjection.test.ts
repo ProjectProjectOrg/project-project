@@ -14,6 +14,7 @@ import {
   JiraMigrationProjection,
   type AttemptFence
 } from "./MigrationProjection"
+import { withJiraRemoteWriteIntent } from "./MigrationWorkflow"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const source = {
@@ -84,6 +85,105 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
     migrationId: row.id,
     workflowExecutionId: row.workflowExecutionId!,
     workflowAttempt: row.workflowAttempt
+  })
+
+  it("retains a recovery handle until remote writes have a known terminal outcome", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        const current = fence(created)
+        expect(yield* p.beginRemoteWrites(current)).toBe(true)
+        expect(yield* p.beginRemoteWrites(current)).toBe(true)
+        yield* p.recordFailure(current, {
+          reason: "ambiguous_upload",
+          retryable: true
+        })
+        const failed = yield* p.owned(input, created.id)
+        expect(failed.checkpoint).toMatchObject({
+          remoteWritesMayStillCommit: {
+            workflowExecutionId: current.workflowExecutionId,
+            workflowAttempt: current.workflowAttempt
+          }
+        })
+        expect(
+          yield* Effect.result(
+            p.beginRescan({
+              migrationId: created.id,
+              supersededExecutionId: input.executionId,
+              expectedRevision: failed.revision,
+              workflowAttempt: 2,
+              scanRevision: 2,
+              executionId: "rescan-before-settle"
+            })
+          )
+        ).toMatchObject({ _tag: "Failure", failure: { _tag: "Conflict" } })
+        expect(
+          yield* p.claimCleanup(current, {
+            mode: "discard",
+            expectedRevision: failed.revision,
+            executionId: "cleanup"
+          })
+        ).toBe(true)
+        expect(yield* p.deleteAfterCleanup(current, "cleanup")).toBe(false)
+        expect(yield* p.releaseCleanup(current, "cleanup", "discard")).toBe(
+          true
+        )
+        const released = yield* p.owned(input, created.id)
+        expect(released.cleanupExecutionId).toBeNull()
+        expect(released.checkpoint).toMatchObject({
+          remoteWritesMayStillCommit: {
+            workflowExecutionId: current.workflowExecutionId,
+            workflowAttempt: current.workflowAttempt
+          }
+        })
+        expect(
+          yield* p.claimCleanup(current, {
+            mode: "discard",
+            expectedRevision: released.revision,
+            executionId: "cleanup-retry"
+          })
+        ).toBe(true)
+        expect(
+          yield* p.settleRemoteWrites({
+            ...current,
+            workflowAttempt: current.workflowAttempt - 1
+          })
+        ).toBe(false)
+        expect(yield* p.settleRemoteWrites(current)).toBe(true)
+        expect(yield* p.deleteAfterCleanup(current, "cleanup-retry")).toBe(true)
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("records remote write intent before a remote callback and settles it afterward", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        const current = fence(created)
+        yield* withJiraRemoteWriteIntent(
+          p,
+          current,
+          Effect.gen(function* () {
+            expect(
+              (yield* p.owned(input, created.id)).checkpoint
+            ).toMatchObject({
+              remoteWritesMayStillCommit: {
+                workflowExecutionId: current.workflowExecutionId,
+                workflowAttempt: current.workflowAttempt
+              }
+            })
+          }).pipe(Effect.orDie)
+        )
+        expect((yield* p.owned(input, created.id)).checkpoint).toEqual({})
+        yield* p.advance(current, { status: "migrating" })
+        yield* withJiraRemoteWriteIntent(p, current, Effect.void)
+        expect((yield* p.owned(input, created.id)).checkpoint).toEqual({})
+      }).pipe(Effect.provide(layer))
+    )
   })
 
   it("converges repeated creation and rejects every changed source field", async () => {

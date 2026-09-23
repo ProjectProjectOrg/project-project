@@ -4,6 +4,7 @@ import * as Workflow from "effect/unstable/workflow/Workflow"
 import * as Effect from "effect/Effect"
 import {
   JiraScanResumeResult,
+  type AttemptFence,
   type JiraMigrationProjectionShape
 } from "./MigrationProjection"
 import * as Schema from "effect/Schema"
@@ -146,34 +147,88 @@ export const makeJiraMigrationWorkflow = <R>(
     })
   )
 
+export const withJiraRemoteWriteIntent = <A, E, R>(
+  projection: JiraMigrationProjectionShape,
+  fence: AttemptFence,
+  run: Effect.Effect<A, E, R>
+): Effect.Effect<A, E | JiraMigrationWorkflowFailureValue, R> =>
+  Effect.gen(function* () {
+    const accepted = yield* projection.beginRemoteWrites(fence).pipe(
+      Effect.mapError(() => ({
+        _tag: "JiraMigrationWorkflowFailure" as const,
+        reason: "jira_migration_write_intent_failed",
+        retryable: true
+      }))
+    )
+    if (!accepted)
+      return yield* Effect.fail({
+        _tag: "JiraMigrationWorkflowFailure" as const,
+        reason: "jira_migration_superseded",
+        retryable: false
+      })
+    const value = yield* run
+    const settled = yield* projection.settleRemoteWrites(fence).pipe(
+      Effect.mapError(() => ({
+        _tag: "JiraMigrationWorkflowFailure" as const,
+        reason: "jira_migration_write_intent_failed",
+        retryable: true
+      }))
+    )
+    if (!settled)
+      return yield* Effect.fail({
+        _tag: "JiraMigrationWorkflowFailure" as const,
+        reason: "jira_migration_superseded",
+        retryable: false
+      })
+    return value
+  })
+
 export const makeProjectionMigrationActivities = (
   projection: JiraMigrationProjectionShape,
   finalize: MigrationActivities<WorkflowEngine.WorkflowEngine>["finalize"],
   scan: MigrationActivities<WorkflowEngine.WorkflowEngine>["scan"],
   materialize: MigrationActivities<WorkflowEngine.WorkflowEngine>["materialize"]
-): MigrationActivities<WorkflowEngine.WorkflowEngine> => ({
-  start: ({ payload, executionId }) =>
-    Effect.gen(function* () {
-      if (payload.command._tag === "Create") {
-        yield* projection.ensureCreated({ ...payload.command, executionId })
-      } else {
-        const row = yield* projection.beginRescan({
-          ...payload.command,
-          executionId
-        })
-        yield* JiraMigrationWorkflow.interrupt(row.supersededExecutionId)
-      }
-    }).pipe(
-      Effect.mapError((error) => ({
-        _tag: "JiraMigrationWorkflowFailure" as const,
-        reason: error.reason,
-        retryable: error._tag === "JiraError"
-      }))
-    ),
-  finalize,
-  scan,
-  materialize
-})
+): MigrationActivities<WorkflowEngine.WorkflowEngine> => {
+  const fenced = (input: Parameters<typeof scan>[0], run: typeof scan) =>
+    withJiraRemoteWriteIntent(
+      projection,
+      {
+        migrationId:
+          input.payload.command._tag === "Create"
+            ? input.executionId
+            : input.payload.command.migrationId,
+        workflowExecutionId: input.executionId,
+        workflowAttempt:
+          input.payload.command._tag === "Create"
+            ? 1
+            : input.payload.command.workflowAttempt
+      },
+      run(input)
+    )
+  return {
+    start: ({ payload, executionId }) =>
+      Effect.gen(function* () {
+        if (payload.command._tag === "Create") {
+          yield* projection.ensureCreated({ ...payload.command, executionId })
+        } else {
+          const row = yield* projection.beginRescan({
+            ...payload.command,
+            executionId
+          })
+          yield* JiraMigrationWorkflow.interrupt(row.supersededExecutionId)
+        }
+      }).pipe(
+        Effect.mapError((error) => ({
+          _tag: "JiraMigrationWorkflowFailure" as const,
+          reason: error.reason,
+          retryable: error._tag === "JiraError"
+        }))
+      ),
+    finalize,
+    scan: (input) => fenced(input, scan),
+    materialize: (input) => fenced(input, materialize)
+  }
+}
 
 export const runScanUnit = <A>(
   context: JiraScanContext,
