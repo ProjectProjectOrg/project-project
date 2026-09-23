@@ -18,6 +18,7 @@ import {
   jiraPublicationActivityName,
   jiraWriteDocumentsActivityName,
   materializeJiraPreparedPublication,
+  publishJiraPreparedPublication,
   defineFinalizeMigrationActivity,
   defineStartMigrationActivity
 } from "./MigrationActivities"
@@ -137,45 +138,51 @@ describe("Jira migration workflow contracts", () => {
           scan: () => Effect.void,
           finalize: () => Effect.void,
           materialize: () =>
-            materializeJiraPreparedPublication(
-              {
-                scanRevision: 1,
-                configurationRevision: 2,
-                attachments: [{ sourceAttachmentId: "attachment-1" }]
-              },
-              {
+            Effect.gen(function* () {
+              const ready = yield* materializeJiraPreparedPublication(
+                {
+                  scanRevision: 1,
+                  configurationRevision: 2,
+                  attachments: [{ sourceAttachmentId: "attachment-1" }]
+                },
+                {
+                  error: JiraMigrationWorkflowFailure,
+                  createHidden: record("hidden").pipe(Effect.as("project-1")),
+                  copyAttachment: (attachment) =>
+                    record(`attachment-${attachment.sourceAttachmentId}`).pipe(
+                      Effect.as({
+                        sourceAttachmentId: attachment.sourceAttachmentId,
+                        kind: "skipped" as const
+                      })
+                    ),
+                  finalizePlan: () =>
+                    record("plan").pipe(
+                      Effect.as({
+                        planRef,
+                        publicationRevision: "b".repeat(64),
+                        documentBatchCount: 2
+                      })
+                    ),
+                  writeDocumentBatch: (_planRef, ordinal) =>
+                    record(`batch-${ordinal}`).pipe(Effect.as(32)),
+                  writeArchive: () => record("archive").pipe(Effect.as(1)),
+                  writeReport: () => record("report").pipe(Effect.as(1)),
+                  verify: () =>
+                    record("verify").pipe(
+                      Effect.as({
+                        planSha256: "b".repeat(64),
+                        documentCount: 66,
+                        attachmentCount: 0,
+                        unresolvedReferenceCount: 0 as const
+                      })
+                    )
+                }
+              )
+              yield* publishJiraPreparedPublication(ready, {
                 error: JiraMigrationWorkflowFailure,
-                createHidden: record("hidden").pipe(Effect.as("project-1")),
-                copyAttachment: (attachment) =>
-                  record(`attachment-${attachment.sourceAttachmentId}`).pipe(
-                    Effect.as({
-                      sourceAttachmentId: attachment.sourceAttachmentId,
-                      kind: "skipped" as const
-                    })
-                  ),
-                finalizePlan: () =>
-                  record("plan").pipe(
-                    Effect.as({
-                      planRef,
-                      publicationRevision: "b".repeat(64),
-                      documentBatchCount: 2
-                    })
-                  ),
-                writeDocumentBatch: (_planRef, ordinal) =>
-                  record(`batch-${ordinal}`).pipe(Effect.as(32)),
-                writeArchive: () => record("archive").pipe(Effect.as(1)),
-                writeReport: () => record("report").pipe(Effect.as(1)),
-                verify: () =>
-                  record("verify").pipe(
-                    Effect.as({
-                      planSha256: "b".repeat(64),
-                      documentCount: 66,
-                      attachmentCount: 0,
-                      unresolvedReferenceCount: 0 as const
-                    })
-                  )
-              }
-            ).pipe(Effect.asVoid)
+                publish: () => record("publish").pipe(Effect.as(true))
+              })
+            })
         }).pipe(Layer.provideMerge(WorkflowEngine.layerMemory))
         yield* Effect.gen(function* () {
           const executionId = yield* JiraMigrationWorkflow.execute(
@@ -195,7 +202,8 @@ describe("Jira migration workflow contracts", () => {
             "batch-1",
             "archive",
             "report",
-            "verify"
+            "verify",
+            "publish"
           ])
         }).pipe(Effect.provide(layer))
       })

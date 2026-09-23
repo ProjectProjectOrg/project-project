@@ -592,7 +592,9 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
       { migrationId, workflowExecutionId: migrationId, workflowAttempt: 1 },
       {
         connection,
-        jira: { attachmentContent: () => Stream.fromIterable([attachmentBytes]) },
+        jira: {
+          attachmentContent: () => Stream.fromIterable([attachmentBytes])
+        },
         s3: {
           getObject: (_connection, key) =>
             Effect.succeed(storedAttachments.get(key) ?? null),
@@ -670,13 +672,12 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
             expect(verified.planSha256).toBe(finalized.publicationRevision)
             expect(verified.documentCount).toBeGreaterThanOrEqual(3)
             expect(verified.attachmentCount).toBe(1)
-            const [before] = (
-              yield* Effect.promise(() =>
-                pool.query("select published_at from project_index where id = $1", [
-                  prepared.projectId
-                ])
+            const [before] = (yield* Effect.promise(() =>
+              pool.query(
+                "select published_at from project_index where id = $1",
+                [prepared.projectId]
               )
-            ).rows
+            )).rows
             expect(before?.published_at).toBeNull()
             const projection = yield* JiraMigrationProjection
             expect(
@@ -730,63 +731,62 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
             const invalidRevision = createHash("sha256")
               .update(
                 canonicalJiraJson(
-                  yield* Schema.encodeEffect(JiraPublicationPlanV1)(
-                    invalidPlan
-                  )
+                  yield* Schema.encodeEffect(JiraPublicationPlanV1)(invalidPlan)
                 )
               )
               .digest("hex")
             expect(
-              (
-                yield* Effect.result(
-                  publishJiraMigrationAtomically({
-                    ...publishInput,
-                    plan: invalidPlan,
-                    publicationRevision: invalidRevision,
-                    verified: { ...verified, planSha256: invalidRevision }
-                  })
-                )
-              )._tag
+              (yield* Effect.result(
+                publishJiraMigrationAtomically({
+                  ...publishInput,
+                  plan: invalidPlan,
+                  publicationRevision: invalidRevision,
+                  verified: { ...verified, planSha256: invalidRevision }
+                })
+              ))._tag
             ).toBe("Failure")
-            const [afterRollback] = (
-              yield* Effect.promise(() =>
-                pool.query("select published_at from project_index where id = $1", [
-                  prepared.projectId
-                ])
+            const [afterRollback] = (yield* Effect.promise(() =>
+              pool.query(
+                "select published_at from project_index where id = $1",
+                [prepared.projectId]
               )
-            ).rows
+            )).rows
             expect(afterRollback?.published_at).toBeNull()
-            const [statusCount] = (
-              yield* Effect.promise(() =>
-                pool.query("select count(*)::int as count from project_status where project_id = $1", [
-                  prepared.projectId
-                ])
+            const [statusCount] = (yield* Effect.promise(() =>
+              pool.query(
+                "select count(*)::int as count from project_status where project_id = $1",
+                [prepared.projectId]
               )
-            ).rows
+            )).rows
             expect(statusCount?.count).toBe(0)
             yield* Effect.promise(() =>
-              pool.query("update jira_migration set status = 'cancelling' where id = $1", [
-                migrationId
-              ])
+              pool.query(
+                "update jira_migration set status = 'cancelling' where id = $1",
+                [migrationId]
+              )
             )
             expect(
-              (yield* Effect.result(publishJiraMigrationAtomically(publishInput)))._tag
+              (yield* Effect.result(
+                publishJiraMigrationAtomically(publishInput)
+              ))._tag
             ).toBe("Failure")
             yield* Effect.promise(() =>
-              pool.query("update jira_migration set status = 'migrating' where id = $1", [
-                migrationId
-              ])
-            )
-            expect(yield* publishJiraMigrationAtomically(publishInput)).toBe(true)
-            expect(yield* publishJiraMigrationAtomically(publishInput)).toBe(true)
-            const [liveAttachment] = (
-              yield* Effect.promise(() =>
-                pool.query(
-                  "select status from attachment_index where id = $1",
-                  [prepared.attachments[0]!.id]
-                )
+              pool.query(
+                "update jira_migration set status = 'migrating' where id = $1",
+                [migrationId]
               )
-            ).rows
+            )
+            expect(yield* callbacks.publish(finalized.planRef, verified)).toBe(
+              true
+            )
+            expect(yield* publishJiraMigrationAtomically(publishInput)).toBe(
+              true
+            )
+            const [liveAttachment] = (yield* Effect.promise(() =>
+              pool.query("select status from attachment_index where id = $1", [
+                prepared.attachments[0]!.id
+              ])
+            )).rows
             expect(liveAttachment?.status).toBe("live")
             const foreignPlan = {
               ...publishInput.plan,
@@ -803,16 +803,14 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
               )
               .digest("hex")
             expect(
-              (
-                yield* Effect.result(
-                  publishJiraMigrationAtomically({
-                    ...publishInput,
-                    plan: foreignPlan,
-                    publicationRevision: foreignRevision,
-                    verified: { ...verified, planSha256: foreignRevision }
-                  })
-                )
-              )._tag
+              (yield* Effect.result(
+                publishJiraMigrationAtomically({
+                  ...publishInput,
+                  plan: foreignPlan,
+                  publicationRevision: foreignRevision,
+                  verified: { ...verified, planSha256: foreignRevision }
+                })
+              ))._tag
             ).toBe("Failure")
             expect(
               yield* projection.finalizeInterrupted({
@@ -841,9 +839,10 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
     ).rows
     expect(project?.published_at).not.toBeNull()
     const [migration] = (
-      await pool.query("select status,destination_project_id from jira_migration where id = $1", [
-        migrationId
-      ])
+      await pool.query(
+        "select status,destination_project_id from jira_migration where id = $1",
+        [migrationId]
+      )
     ).rows
     expect(migration).toEqual({
       status: "succeeded",

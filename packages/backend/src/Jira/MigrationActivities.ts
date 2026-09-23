@@ -206,6 +206,26 @@ export const materializeJiraPreparedPublication = <
     return { projectId, planRef: finalized.planRef, verified }
   })
 
+export const publishJiraPreparedPublication = <R>(
+  ready: Readonly<{
+    planRef: JiraArtifactRef
+    verified: VerifiedJiraMaterialization
+  }>,
+  dependencies: Readonly<{
+    error: typeof JiraMigrationWorkflowFailure
+    publish: (
+      planRef: JiraArtifactRef,
+      verified: VerifiedJiraMaterialization
+    ) => Effect.Effect<boolean, JiraMigrationWorkflowFailureValue, R>
+  }>
+) =>
+  Activity.make({
+    name: jiraPublicationActivityName("publish", ready.verified.planSha256, 0),
+    success: Schema.Boolean,
+    error: dependencies.error,
+    execute: dependencies.publish(ready.planRef, ready.verified)
+  })
+
 export type MigrationActivityInput = Readonly<{
   payload: JiraMigrationWorkflowPayloadValue
   executionId: string

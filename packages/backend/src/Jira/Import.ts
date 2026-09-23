@@ -313,6 +313,26 @@ export const makeJiraMaterializationDependencies = (
             connection: services.connection
           })
         })
+      ),
+    publish: (
+      ref: JiraArtifactRef,
+      verified: Readonly<{
+        planSha256: string
+        documentCount: number
+        attachmentCount: number
+        unresolvedReferenceCount: 0
+      }>
+    ) =>
+      mapFailure(
+        Effect.gen(function* () {
+          const { plan, publicationRevision } = yield* load(ref)
+          return yield* publishJiraMigrationAtomically({
+            fence,
+            plan,
+            publicationRevision,
+            verified
+          })
+        })
       )
   }
 }
@@ -489,7 +509,12 @@ export const publishJiraMigrationAtomically = Effect.fn(
         const published = yield* tx
           .update(projectIndex)
           .set({ publishedAt: now })
-          .where(and(eq(projectIndex.id, project.id), drizzleSql`${projectIndex.publishedAt} is null`))
+          .where(
+            and(
+              eq(projectIndex.id, project.id),
+              drizzleSql`${projectIndex.publishedAt} is null`
+            )
+          )
           .returning({ id: projectIndex.id })
         if (published.length !== 1)
           return yield* new JiraPublicationInvalid({
