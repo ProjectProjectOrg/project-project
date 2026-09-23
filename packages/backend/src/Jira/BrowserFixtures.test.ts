@@ -126,6 +126,10 @@ describe("Jira browser fixtures", () => {
         )
 
         expect(issues.map(({ key }) => key)).toEqual(["APP-1", "APP-2"])
+        expect(issues[0]?.fields.attachment).toMatchObject([
+          { id: "attachment-1", mimeType: "text/plain" },
+          { id: "attachment-2", mimeType: "image/png" }
+        ])
         expect(comments.map(({ id }) => id)).toEqual(["comment-1", "comment-2"])
         expect(worklogs.map(({ id }) => id)).toEqual(["worklog-1", "worklog-2"])
         expect(changelogs.map(({ id }) => id)).toEqual([
@@ -218,21 +222,21 @@ describe("Jira browser fixtures", () => {
     Effect.gen(function* () {
       const { client, fixture } = yield* fixtureClient("pause_attachment")
       const fiber = yield* client
-        .attachmentContent("fixture-user-1", "fixture-cloud-1", "attachment-1")
+        .attachmentContent("fixture-user-1", "fixture-cloud-1", "attachment-2")
         .pipe(Stream.runCollect, Effect.forkChild)
       yield* Effect.yieldNow
 
       expect(fiber.pollUnsafe()).toBeUndefined()
       expect(yield* fixture.callCounts).toEqual({
-        "attachmentContent:attachment-1": 1
+        "attachmentContent:attachment-2": 1
       })
 
       yield* fixture.releaseAttachment
       const chunks = yield* Fiber.join(fiber)
 
-      expect(new TextDecoder().decode(chunks[0])).toBe(
-        "fixture attachment body"
-      )
+      expect(Array.from(chunks[0].slice(0, 8))).toEqual([
+        137, 80, 78, 71, 13, 10, 26, 10
+      ])
     })
   )
 })

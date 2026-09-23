@@ -142,6 +142,17 @@ const issues = [
           self: "https://fixture.atlassian.net/rest/api/3/attachment/attachment-1",
           author: user,
           created: "2026-09-20T09:00:00.000Z"
+        },
+        {
+          id: "attachment-2",
+          filename: "migration-preview.png",
+          mimeType: "image/png",
+          size: 68,
+          content:
+            "https://api.atlassian.com/ex/jira/fixture-cloud-1/rest/api/3/attachment/content/attachment-2",
+          self: "https://fixture.atlassian.net/rest/api/3/attachment/attachment-2",
+          author: user,
+          created: "2026-09-20T09:15:00.000Z"
         }
       ],
       issuelinks: [
@@ -637,7 +648,13 @@ export const createJiraBrowserFixture = Effect.fn("createJiraBrowserFixture")(
           })
         }
         if (logicalPage.operation === "attachmentContent") {
-          const bytes = new TextEncoder().encode("fixture attachment body")
+          const supported = logicalPage.page === "attachment-2"
+          const bytes = supported
+            ? Buffer.from(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y0fcJ8AAAAASUVORK5CYII=",
+                "base64"
+              )
+            : new TextEncoder().encode("fixture attachment body")
           const release = yield* Ref.get(attachmentRelease)
           const content =
             current.scenario === "pause_attachment"
@@ -650,7 +667,7 @@ export const createJiraBrowserFixture = Effect.fn("createJiraBrowserFixture")(
             200,
             {
               "content-length": String(bytes.byteLength),
-              "content-type": "text/plain"
+              "content-type": supported ? "image/png" : "text/plain"
             },
             content
           )
