@@ -2,8 +2,11 @@ import { useAtomValue } from "@effect/atom-react"
 import type { Project } from "@pp/shared"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import { ArrowRight, Plus } from "lucide-react"
 
 import {
@@ -16,12 +19,20 @@ import { ProjectBanner } from "@/components/ProjectBanner"
 import { ProjectTile as ProjectIconTile } from "@/components/ProjectTile"
 import { me } from "@/features/auth/atoms/auth"
 import {
+  project,
+  projectRequest,
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
 import {
+  statusesFor,
+  statusesRequest
+} from "@/features/projects/atoms/projectStatuses"
+import {
   myTickets,
-  orgTicketsRequest
+  orgTicketsRequest,
+  recentTickets,
+  type OrgTicketsValue
 } from "@/features/tickets/atoms/myTickets"
 import { formatRelative } from "@/lib/relative-time"
 import { cn } from "@/lib/utils"
@@ -31,11 +42,59 @@ const DashboardSearchSchema = Schema.Struct({
   view: Schema.optional(Schema.Literals(["list", "board"]))
 })
 
+const PROJECT_PRELOAD_CONCURRENCY = 4
+
+const projectSlugsOf = (
+  values: ReadonlyArray<Option.Option<OrgTicketsValue>>
+): ReadonlySet<string> =>
+  new Set(
+    values.flatMap((value) =>
+      Option.isSome(value)
+        ? value.value.tickets.map(({ project }) => project.slug)
+        : []
+    )
+  )
+
+const preloadDashboard = (registry: Registry.AtomRegistry, orgSlug: string) =>
+  Effect.gen(function* () {
+    const req = orgTicketsRequest(orgSlug)
+    const lists = yield* Effect.all(
+      [myTickets(req), recentTickets(req)].map((atom) =>
+        Registry.getResult(registry, atom).pipe(Effect.option)
+      ),
+      { concurrency: "unbounded" }
+    )
+    yield* Effect.forEach(
+      projectSlugsOf(lists),
+      (slug) =>
+        Effect.all(
+          [
+            Registry.getResult(
+              registry,
+              project(projectRequest(orgSlug, slug))
+            ),
+            Registry.getResult(
+              registry,
+              statusesFor(statusesRequest(orgSlug, slug))
+            )
+          ],
+          { concurrency: "unbounded" }
+        ).pipe(Effect.ignore),
+      { concurrency: PROJECT_PRELOAD_CONCURRENCY, discard: true }
+    )
+  })
+
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/")({
   component: Dashboard,
   validateSearch: Schema.toStandardSchemaV1(DashboardSearchSchema),
-  loader: ({ context: { registry }, params: { orgSlug } }) => {
-    registry.mount(myTickets(orgTicketsRequest(orgSlug)))()
+  loader: async ({
+    context: { registry },
+    params: { orgSlug },
+    abortController
+  }) => {
+    await Effect.runPromiseExit(preloadDashboard(registry, orgSlug), {
+      signal: abortController.signal
+    })
     return {
       crumb: { type: "static" as const, label: "Dashboard", to: "/" }
     }
@@ -63,9 +122,6 @@ function Dashboard() {
         <p>{m.org_dashboard_subtitle()}</p>
       </PageHeader>
 
-      <MyTicketsSection orgSlug={orgSlug} view={view} onViewChange={setView} />
-      <RecentTicketsSection orgSlug={orgSlug} />
-
       {Result.matchWithError(list, {
         onInitial: () => <TilesSkeleton />,
         onError: () => <NewProjectCTA orgSlug={orgSlug} />,
@@ -77,6 +133,9 @@ function Dashboard() {
             <RecentProjects orgSlug={orgSlug} projects={value} />
           )
       })}
+
+      <MyTicketsSection orgSlug={orgSlug} view={view} onViewChange={setView} />
+      <RecentTicketsSection orgSlug={orgSlug} />
     </PageContainer>
   )
 }
