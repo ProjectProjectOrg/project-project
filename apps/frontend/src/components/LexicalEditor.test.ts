@@ -21,6 +21,7 @@ import { describe, expect, it, vi } from "vitest"
 import { AttachmentNode } from "./Lexical/AttachmentNode"
 import { FigmaNode } from "./Lexical/FigmaNode"
 import { MentionNode } from "./Lexical/MentionNode"
+import { $isTicketBlockNode, TicketBlockNode } from "./Lexical/TicketBlockNode"
 import {
   attachmentsForDescription,
   AUTO_LINK_MATCHERS,
@@ -53,7 +54,8 @@ function roundTripMarkdown(markdown: string) {
       ListNode,
       ListItemNode,
       MentionNode,
-      QuoteNode
+      QuoteNode,
+      TicketBlockNode
     ],
     onError: (error) => {
       throw error
@@ -514,4 +516,132 @@ it("loads image and file attachments inside table cells and preserves their disp
     )
   ).toHaveLength(2)
   expect(roundTripAttachmentMarkdown(markdown)).toBe(markdown)
+})
+
+describe("ticket blocks", () => {
+  const CRITERIA_BLOCK = [
+    '<block type="acceptance-criteria">',
+    "",
+    "## Acceptance criteria",
+    "",
+    "- [ ] Can pick a template",
+    "",
+    "</block>"
+  ].join("\n")
+
+  function importedRootTypes(markdown: string) {
+    const editor = createEditor({
+      namespace: "lexical-editor-test",
+      nodes: [
+        CodeNode,
+        HeadingNode,
+        LinkNode,
+        ListNode,
+        ListItemNode,
+        MentionNode,
+        TableNode,
+        TableRowNode,
+        TableCellNode,
+        TicketBlockNode
+      ],
+      onError: (error) => {
+        throw error
+      }
+    })
+    let types: ReadonlyArray<string> = []
+    let blockChildren: ReadonlyArray<string> = []
+    editor.update(
+      () => {
+        $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS)
+        const children = $getRoot().getChildren()
+        types = children.map((child) => child.getType())
+        const block = children.find($isTicketBlockNode)
+        blockChildren = block?.getChildren().map((c) => c.getType()) ?? []
+      },
+      { discrete: true }
+    )
+    return { types, blockChildren }
+  }
+
+  it("round-trips a block with loose text around it", () => {
+    const markdown = ["Intro.", "", CRITERIA_BLOCK, "", "Outro."].join("\n")
+    expect(roundTripMarkdown(markdown)).toBe(markdown)
+  })
+
+  it("imports a block as one node holding its markdown as children", () => {
+    expect(importedRootTypes(CRITERIA_BLOCK)).toEqual({
+      types: ["ticket-block"],
+      blockChildren: ["heading", "list"]
+    })
+  })
+
+  it("normalises a block written without blank lines", () => {
+    expect(
+      roundTripMarkdown(
+        '<block type="acceptance-criteria">\n## Acceptance criteria\n\n- [ ] Can pick a template\n</block>'
+      )
+    ).toBe(CRITERIA_BLOCK)
+  })
+
+  it("keeps two blocks of the same type apart", () => {
+    const markdown = [
+      '<block type="steps">',
+      "",
+      "1. One",
+      "",
+      "</block>",
+      "",
+      '<block type="steps">',
+      "",
+      "1. Two",
+      "",
+      "</block>"
+    ].join("\n")
+    expect(roundTripMarkdown(markdown)).toBe(markdown)
+  })
+
+  it("keeps a closing tag inside a fenced example within the block", () => {
+    const markdown = [
+      '<block type="notes">',
+      "",
+      "```md",
+      "</block>",
+      "```",
+      "",
+      "</block>"
+    ].join("\n")
+    expect(importedRootTypes(markdown).types).toEqual(["ticket-block"])
+    expect(roundTripMarkdown(markdown)).toBe(markdown)
+  })
+
+  it("does not treat a block example inside a top-level fence as a block", () => {
+    const markdown = ["```md", CRITERIA_BLOCK, "```"].join("\n")
+    expect(importedRootTypes(markdown).types).toEqual(["code"])
+    expect(roundTripMarkdown(markdown)).toBe(markdown)
+  })
+
+  it("keeps an unclosed block as plain text", () => {
+    const markdown = '<block type="notes">\n\nstill typing'
+    expect(importedRootTypes(markdown).types).not.toContain("ticket-block")
+    expect(roundTripMarkdown(markdown)).toBe(markdown)
+  })
+
+  it("round-trips a table inside a block", () => {
+    const markdown = [
+      '<block type="notes">',
+      "",
+      "| a | b |",
+      "| --- | --- |",
+      "| 1 | 2 |",
+      "",
+      "</block>"
+    ].join("\n")
+    expect(roundTripMarkdown(markdown)).toBe(markdown)
+  })
+
+  it("round-trips an empty block", () => {
+    expect(roundTripMarkdown('<block type="notes">\n\n</block>')).toBe(
+      '<block type="notes">\n\n</block>'
+    )
+  })
 })

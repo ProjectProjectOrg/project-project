@@ -117,3 +117,42 @@ it("preserves links around compact images without nesting download links", () =>
   expect(screen.getByText("shot")).toBeDefined()
   expect(screen.queryByRole("img")).toBeNull()
 })
+
+describe("Markdown ticket blocks", () => {
+  it("renders a block as a labelled container around its markdown", () => {
+    const { container } = render(
+      <Markdown>
+        {
+          'Intro.\n\n<block type="acceptance-criteria">\n\n## Acceptance criteria\n\n- [ ] One\n\n</block>'
+        }
+      </Markdown>
+    )
+    const block = container.querySelector(".ticket-block")
+    expect(block?.getAttribute("data-block-label")).toBe("Acceptance criteria")
+    expect(block?.querySelector("h2")?.textContent).toBe("Acceptance criteria")
+    expect(container.textContent).not.toContain("<block")
+    expect(screen.getByText("Intro.")).toBeDefined()
+  })
+
+  it("parses markdown inside a block written without blank lines", () => {
+    const { container } = render(
+      <Markdown>{'<block type="notes">\n## Notes\n- item\n</block>'}</Markdown>
+    )
+    expect(container.querySelector(".ticket-block h2")?.textContent).toBe(
+      "Notes"
+    )
+    expect(container.querySelector(".ticket-block li")?.textContent).toBe(
+      "item"
+    )
+  })
+
+  it("shows a block example inside a code fence as code", () => {
+    const { container } = render(
+      <Markdown>{'```md\n<block type="notes">\n</block>\n```'}</Markdown>
+    )
+    expect(container.querySelector(".ticket-block")).toBeNull()
+    expect(container.querySelector("code")?.textContent).toContain(
+      '<block type="notes">'
+    )
+  })
+})

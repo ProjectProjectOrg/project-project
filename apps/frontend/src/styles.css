@@ -322,8 +322,27 @@
    block types (.prose-md p, .lexical-paragraph, etc) because that has higher
    specificity than this rule and would silently clobber the spacing. */
 .prose-md > * + *,
-.prose-md .lexical-content > * + * {
+.prose-md .lexical-content > * + *,
+.prose-md .ticket-block > * + * {
   margin-top: 0.85em;
+}
+.prose-md .ticket-block {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2rem 1rem 0.75rem;
+}
+.prose-md .ticket-block::before {
+  content: attr(data-block-label);
+  position: absolute;
+  top: 0.625rem;
+  left: 1rem;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--muted-foreground);
+  pointer-events: none;
+  user-select: none;
 }
 .prose-md h1 {
   font-size: 1.5rem;

@@ -2,7 +2,8 @@ import {
   attachmentSrc,
   attachmentViewParams,
   parseAttachmentUrl,
-  parseMentionHref
+  parseMentionHref,
+  parseTicketBlocks
 } from "@pp/shared"
 import {
   Children,
@@ -23,6 +24,7 @@ import {
   attachmentWidthStyle
 } from "@/components/Lexical/attachmentImageStyle"
 import { MentionChip } from "@/components/Lexical/MentionChip"
+import { ticketBlockLabel } from "@/components/Lexical/TicketBlockNode"
 import { cn } from "@/lib/utils"
 
 const prismPlugin = [rehypePrismPlus, { ignoreMissing: true }] as const
@@ -85,80 +87,108 @@ export function Markdown({
   children: string
   className?: string
 }) {
-  const attachmentId = useId()
+  const morphId = useId()
   return (
     <div className={cn("prose-md", className)}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[prismPlugin as never]}
-        urlTransform={allowMentionUrls}
-        components={{
-          a: ({ href, children: linkChildren, node, ...rest }) => {
-            if (
-              href &&
-              parseAttachmentUrl(href) &&
-              attachmentViewParams(href).density === "compact"
-            ) {
-              const label = attachmentLabel(linkChildren)
-              return (
-                <AttachmentChip
-                  url={attachmentSrc(href)}
-                  alt={label}
-                  filename={label}
-                  kind="file"
-                  morphId={`${attachmentId}-${node?.position?.start.offset}`}
-                />
-              )
-            }
-            const ref = href ? parseMentionHref(href) : null
-            if (!ref) {
-              return (
-                <a href={href} {...rest}>
-                  {linkedAttachmentContent(
-                    linkChildren,
-                    `${attachmentId}-${node?.position?.start.offset}`
-                  )}
-                </a>
-              )
-            }
-            const label =
-              typeof linkChildren === "string" ? linkChildren : ref.id
-            return <MentionChip type={ref.type} id={ref.id} label={label} />
-          },
-          img: ({ src, alt, node, ...rest }) => {
-            const url = typeof src === "string" ? src : undefined
-            if (
-              url &&
-              parseAttachmentUrl(url) &&
-              attachmentViewParams(url).density === "compact"
-            ) {
-              return (
-                <AttachmentChip
-                  url={attachmentSrc(url)}
-                  alt={alt ?? ""}
-                  filename={alt ?? ""}
-                  kind="image"
-                  morphId={`${attachmentId}-${node?.position?.start.offset}`}
-                />
-              )
-            }
-            const width = url ? attachmentViewParams(url).width : null
+      {parseTicketBlocks(children).map((segment, index) =>
+        segment.kind === "markdown" ? (
+          <MarkdownSegment
+            key={index}
+            text={segment.text}
+            morphId={`${morphId}-${index}`}
+          />
+        ) : (
+          <div
+            key={index}
+            className="ticket-block"
+            data-block-type={segment.type}
+            data-block-label={ticketBlockLabel(segment.type)}
+          >
+            <MarkdownSegment
+              text={segment.content}
+              morphId={`${morphId}-${index}`}
+            />
+          </div>
+        )
+      )}
+    </div>
+  )
+}
+
+function MarkdownSegment({
+  text,
+  morphId: attachmentId
+}: Readonly<{ text: string; morphId: string }>) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      rehypePlugins={[prismPlugin as never]}
+      urlTransform={allowMentionUrls}
+      components={{
+        a: ({ href, children: linkChildren, node, ...rest }) => {
+          if (
+            href &&
+            parseAttachmentUrl(href) &&
+            attachmentViewParams(href).density === "compact"
+          ) {
+            const label = attachmentLabel(linkChildren)
             return (
-              <img
-                src={url}
-                alt={alt ?? ""}
-                loading="lazy"
-                decoding="async"
-                style={attachmentWidthStyle(width)}
-                className={cn("my-2", ATTACHMENT_IMAGE_CLASS)}
-                {...rest}
+              <AttachmentChip
+                url={attachmentSrc(href)}
+                alt={label}
+                filename={label}
+                kind="file"
+                morphId={`${attachmentId}-${node?.position?.start.offset}`}
               />
             )
           }
-        }}
-      >
-        {children}
-      </ReactMarkdown>
-    </div>
+          const ref = href ? parseMentionHref(href) : null
+          if (!ref) {
+            return (
+              <a href={href} {...rest}>
+                {linkedAttachmentContent(
+                  linkChildren,
+                  `${attachmentId}-${node?.position?.start.offset}`
+                )}
+              </a>
+            )
+          }
+          const label = typeof linkChildren === "string" ? linkChildren : ref.id
+          return <MentionChip type={ref.type} id={ref.id} label={label} />
+        },
+        img: ({ src, alt, node, ...rest }) => {
+          const url = typeof src === "string" ? src : undefined
+          if (
+            url &&
+            parseAttachmentUrl(url) &&
+            attachmentViewParams(url).density === "compact"
+          ) {
+            return (
+              <AttachmentChip
+                url={attachmentSrc(url)}
+                alt={alt ?? ""}
+                filename={alt ?? ""}
+                kind="image"
+                morphId={`${attachmentId}-${node?.position?.start.offset}`}
+              />
+            )
+          }
+          const width = url ? attachmentViewParams(url).width : null
+          return (
+            <img
+              src={url}
+              alt={alt ?? ""}
+              loading="lazy"
+              decoding="async"
+              style={attachmentWidthStyle(width)}
+              className={cn("my-2", ATTACHMENT_IMAGE_CLASS)}
+              {...rest}
+            />
+          )
+        }
+      }}
+    >
+      {text}
+    </ReactMarkdown>
   )
 }

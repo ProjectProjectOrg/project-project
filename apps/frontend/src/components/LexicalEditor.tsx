@@ -69,6 +69,8 @@ import "@/lib/prism-langs"
 
 import { PAPER_TRANSFORMER } from "./Lexical/paperTransformer"
 import { createTableTransformer } from "./Lexical/tableTransformer"
+import { TicketBlockExtension } from "./Lexical/TicketBlockExtension"
+import { createTicketBlockTransformer } from "./Lexical/ticketBlockTransformer"
 
 const INLINE_AND_BLOCK_TRANSFORMERS = [
   MENTION_TRANSFORMER,
@@ -79,18 +81,28 @@ const INLINE_AND_BLOCK_TRANSFORMERS = [
   ...TRANSFORMERS
 ]
 
-export const MARKDOWN_TRANSFORMERS = [
+const BLOCK_CONTENT_TRANSFORMERS = [
   createTableTransformer(INLINE_AND_BLOCK_TRANSFORMERS),
   ...INLINE_AND_BLOCK_TRANSFORMERS
 ]
 
-const ATTACHMENT_MARKDOWN_TRANSFORMERS = [
+export const MARKDOWN_TRANSFORMERS = [
+  createTicketBlockTransformer(BLOCK_CONTENT_TRANSFORMERS),
+  ...BLOCK_CONTENT_TRANSFORMERS
+]
+
+const ATTACHMENT_BLOCK_CONTENT_TRANSFORMERS = [
   createTableTransformer([
     ATTACHMENT_TRANSFORMER,
     ...INLINE_AND_BLOCK_TRANSFORMERS
   ]),
   ATTACHMENT_TRANSFORMER,
   ...INLINE_AND_BLOCK_TRANSFORMERS
+]
+
+const ATTACHMENT_MARKDOWN_TRANSFORMERS = [
+  createTicketBlockTransformer(ATTACHMENT_BLOCK_CONTENT_TRANSFORMERS),
+  ...ATTACHMENT_BLOCK_CONTENT_TRANSFORMERS
 ]
 
 export const transformersForAttachments = (
@@ -383,6 +395,7 @@ export function LexicalEditor({
         MentionExtension,
         FigmaExtension,
         PaperExtension,
+        TicketBlockExtension,
         ...(attachmentNodesEnabled ? [AttachmentExtension] : []),
         configExtension(TabIndentationExtension, {
           $canIndent: $canIndentInsideLists,
