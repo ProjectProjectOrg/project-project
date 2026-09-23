@@ -13,6 +13,7 @@ import {
   type SectionHeading
 } from "@/components/TicketList/SectionHeader"
 import { useTicketPreview } from "@/components/TicketList/useTicketPreview"
+import { Button } from "@/components/ui/button"
 import {
   myTicketBoard,
   myTicketsByProject,
@@ -143,18 +144,25 @@ function ViewAllInProject({
   group
 }: Readonly<{ orgSlug: string; group: ProjectTicketGroup }>) {
   return (
-    <Link
-      to="/orgs/$orgSlug/projects/$slug"
-      params={{ orgSlug, slug: group.project.slug }}
-      search={{ assignee: ["mine"] }}
-      className="inline-flex items-center gap-1 self-start px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-    >
-      {m.org_dashboard_view_all_in_project({
-        count: group.total,
-        project: group.project.name
-      })}
-      <ArrowRight className="size-3.5" strokeWidth={1.75} />
-    </Link>
+    <div className="flex justify-center py-2">
+      <Button
+        variant="tertiary"
+        size="sm"
+        trailingIcon={ArrowRight}
+        render={
+          <Link
+            to="/orgs/$orgSlug/projects/$slug"
+            params={{ orgSlug, slug: group.project.slug }}
+            search={{ assignee: ["mine"] }}
+          />
+        }
+      >
+        {m.org_dashboard_view_all_in_project({
+          count: group.total,
+          project: group.project.name
+        })}
+      </Button>
+    </div>
   )
 }
 
