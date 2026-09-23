@@ -515,6 +515,10 @@ export type JiraMigrationProjectionShape = Readonly<{
     executionId: string,
     mode: JiraMigrationCleanupMode
   ) => Effect.Effect<boolean, JiraError>
+  completeResetCleanup: (
+    fence: AttemptFence,
+    executionId: string
+  ) => Effect.Effect<boolean, JiraError>
   deleteAfterCleanup: (
     fence: AttemptFence,
     executionId: string
@@ -1375,6 +1379,34 @@ export class JiraMigrationProjection extends Context.Service<
             return rows.length > 0
           }
         )
+      const completeResetCleanup: JiraMigrationProjectionShape["completeResetCleanup"] =
+        Effect.fn("JiraMigrationProjection.completeResetCleanup")(
+          function* (fence, executionId) {
+            const now = yield* DateTime.nowAsDate
+            const rows = yield* db
+              .update(jiraMigration)
+              .set({
+                destinationProjectId: null,
+                destinationProjectSlug: null,
+                reportPath: null,
+                cleanupExecutionId: null,
+                updatedAt: now,
+                revision: sqlFragment`${jiraMigration.revision} + 1`
+              })
+              .where(
+                and(
+                  fenceWhere(fence),
+                  eq(jiraMigration.cleanupExecutionId, executionId),
+                  inArray(jiraMigration.status, resetStatuses),
+                  sqlFragment`not (coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) ? 'remoteWritesMayStillCommit')`,
+                  sqlFragment`not exists (select 1 from project_index where id = ${jiraMigration.destinationProjectId})`
+                )
+              )
+              .returning({ id: jiraMigration.id })
+              .pipe(Effect.mapError(databaseError))
+            return rows.length > 0
+          }
+        )
       return JiraMigrationProjection.of({
         beginRemoteWrites,
         settleRemoteWrites,
@@ -1390,6 +1422,7 @@ export class JiraMigrationProjection extends Context.Service<
         saveConfiguration,
         claimCleanup,
         releaseCleanup,
+        completeResetCleanup,
         deleteAfterCleanup,
         owned,
         listOwned: (owner) =>

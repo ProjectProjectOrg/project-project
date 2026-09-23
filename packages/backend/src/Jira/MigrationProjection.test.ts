@@ -214,6 +214,66 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
     )
   })
 
+  it("completes reset only after hidden project deletion and preserves scan data", async () => {
+    const input = await fixture()
+    const projectId = randomUUID()
+    const projectSlug = `hidden-${randomUUID()}`
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        const current = fence(created)
+        const scannedAt = DateTime.toDate(
+          DateTime.makeUnsafe("2026-09-22T12:00:00Z")
+        )
+        yield* p.advance(current, {
+          status: "ready",
+          destinationProjectId: projectId,
+          destinationProjectSlug: projectSlug,
+          scanAt: scannedAt
+        })
+        yield* Effect.promise(() =>
+          pool.query(
+            "insert into project_index (id,slug,organization_id,key,name,icon,color,created_by,published_at) values ($1,$2,$3,$4,$5,$6,$7,$8,null)",
+            [
+              projectId,
+              projectSlug,
+              input.organizationId,
+              `H${projectId.slice(0, 8)}`,
+              "Hidden",
+              "📦",
+              "#777777",
+              input.userId
+            ]
+          )
+        )
+        const ready = yield* p.owned(input, created.id)
+        expect(
+          yield* p.claimCleanup(current, {
+            mode: "reset_import",
+            expectedRevision: ready.revision,
+            executionId: "reset-cleanup"
+          })
+        ).toBe(true)
+        expect(yield* p.completeResetCleanup(current, "reset-cleanup")).toBe(
+          false
+        )
+        yield* Effect.promise(() =>
+          pool.query("delete from project_index where id = $1", [projectId])
+        )
+        expect(yield* p.completeResetCleanup(current, "reset-cleanup")).toBe(
+          true
+        )
+        const reset = yield* p.owned(input, created.id)
+        expect(reset.destinationProjectId).toBeNull()
+        expect(reset.destinationProjectSlug).toBeNull()
+        expect(reset.cleanupExecutionId).toBeNull()
+        expect(reset.scanAt).toEqual(scannedAt)
+        expect(reset.status).toBe("ready")
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
   it("records remote write intent before a remote callback and settles it afterward", async () => {
     const input = await fixture()
     await Effect.runPromise(
