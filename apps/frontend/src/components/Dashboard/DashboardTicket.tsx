@@ -68,10 +68,12 @@ export function DashboardRow({
     <div
       className={cn(
         "col-span-full grid grid-cols-subgrid",
-        below !== undefined && "rounded-lg border border-border bg-card"
+        below !== undefined &&
+          "relative isolate rounded-lg border border-border bg-card transition-colors hover:bg-muted/60"
       )}
     >
       <Row
+        variant={below === undefined ? "standalone" : "embedded"}
         orgSlug={orgSlug}
         slug={item.project.slug}
         ticket={item.ticket}
@@ -85,7 +87,9 @@ export function DashboardRow({
         onPreviewOpenChange={onPreviewOpenChange}
       />
       {below !== undefined && (
-        <div className="col-span-full px-3 pb-2.5">{below}</div>
+        <div className="col-span-full -mt-1.5 grid grid-cols-subgrid items-center gap-3 px-3 pb-2.5">
+          {below}
+        </div>
       )}
       {Result.matchWithError(state, {
         onInitial: () => null,

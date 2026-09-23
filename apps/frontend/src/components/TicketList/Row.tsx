@@ -40,6 +40,7 @@ type RowPatchSource =
 
 type RowProps = RowPatchSource &
   Readonly<{
+    variant?: "standalone" | "embedded"
     orgSlug: string
     slug: string
     ticket: Ticket
@@ -71,6 +72,7 @@ function BacklogMutatingRow(
 }
 
 function RowView({
+  variant = "standalone",
   orgSlug,
   slug,
   ticket,
@@ -110,7 +112,11 @@ function RowView({
         >
           <div
             ref={rowElement}
-            className="relative isolate col-span-full grid grid-cols-subgrid items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors outline-none hover:bg-muted/60 [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20"
+            className={cn(
+              "col-span-full grid grid-cols-subgrid items-center gap-3 px-3 py-2.5 text-left outline-none [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20",
+              variant === "standalone" &&
+                "relative isolate rounded-lg transition-colors hover:bg-muted/60"
+            )}
           >
             <Link
               to="/orgs/$orgSlug/projects/$slug/tickets/$id"

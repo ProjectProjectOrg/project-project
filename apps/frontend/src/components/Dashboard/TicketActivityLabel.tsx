@@ -38,9 +38,13 @@ export function TicketActivityLabel({
   if (activity === null) return null
   const Icon = ACTIVITY_ICONS[activity.tag]
   return (
-    <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
-      <Icon className="mt-px size-3.5 shrink-0" strokeWidth={1.75} />
-      <span>{activityText(activity)}</span>
-    </p>
+    <>
+      <span className="grid size-6 place-items-center text-muted-foreground">
+        <Icon className="size-4" strokeWidth={1.75} />
+      </span>
+      <span className="col-[2/-1] min-w-0 text-sm text-muted-foreground">
+        {activityText(activity)}
+      </span>
+    </>
   )
 }
