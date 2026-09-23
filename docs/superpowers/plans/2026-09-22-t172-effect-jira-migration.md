@@ -34,7 +34,7 @@ User requested stopping for today. Resume from `docs/superpowers/handoffs/2026-0
 | 6. Durable scan and configuration pause | Complete; review fix verified | `2c78bfdf..875ae6af` |
 | 7. Drafts and durable commands | Application checkpoint; engine wake-up regression unresolved | `875ae6af..faa228a`, final review pending |
 | 8. Immutable publication plan | Paused WIP; agent reported93/93, final closeout pending | Final review pending |
-| 9. Hidden materialization | Not started | — |
+| 9. Hidden materialization | In progress; fenced project reservation and local document writes | `6212766..3a59aaa`, final review pending |
 | 10. Atomic publication | Pure index builders committed35b8a70; publication integration pending | Final review pending |
 | 11. Cleanup and SQL runtime cutover | Not started | — |
 | 12. Wizard drafts and polling | Implemented; browser verification pending | `8f18729` plus current slice |
