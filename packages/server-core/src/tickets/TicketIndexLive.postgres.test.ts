@@ -981,7 +981,24 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
           viewerId,
           doneAfter: at("2026-01-01T00:00:00.000Z")
         }
-        expect(yield* index.countAssigned(visible, allTime)).toBe(3)
+        const statusCounts = yield* index.countAssignedByStatus(
+          visible,
+          allTime
+        )
+        expect(
+          statusCounts
+            .map(
+              ({ project, status, count }) =>
+                `${project.projectSlug}:${status}=${count}`
+            )
+            .toSorted()
+        ).toEqual(
+          [
+            `${alphaSlug}:done=1`,
+            `${alphaSlug}:todo=1`,
+            `${betaSlug}:done=1`
+          ].toSorted()
+        )
         const previews = yield* index.assignedPerProject(visible, {
           ...allTime,
           perProject: 1

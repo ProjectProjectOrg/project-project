@@ -2,7 +2,7 @@ import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { ArrowRight } from "lucide-react"
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
 import { ProjectTile } from "@/components/ProjectTile"
@@ -31,7 +31,11 @@ import {
   type OrgTicketUpdate,
   type TicketPreview
 } from "./DashboardTicket"
-import { MyTicketsPagination } from "./MyTicketsPagination"
+import {
+  COMPACT_TICKET_LIMIT,
+  MyTicketsPagination,
+  RevealMoreButton
+} from "./MyTicketsPagination"
 
 export type DashboardGrouping = "project" | "status" | "none"
 
@@ -48,6 +52,7 @@ type Group = Readonly<{
   count: number
   tickets: ReadonlyArray<OrgTicket>
   footer?: ReactNode
+  expandable?: Readonly<{ pagination: ReactNode }>
 }>
 
 export function ProjectGroupedList(props: GroupedListProps) {
@@ -119,21 +124,23 @@ export function StatusGroupedList(props: GroupedListProps) {
                 />
               )
             },
-            count: column.items.length,
-            tickets: column.items
+            count: column.count,
+            tickets: column.items,
+            expandable: {
+              pagination: (
+                <MyTicketsPagination
+                  req={req}
+                  nextCursor={value.nextCursor}
+                  loaded={value.columns.reduce(
+                    (sum, candidate) => sum + candidate.items.length,
+                    0
+                  )}
+                  total={value.total}
+                />
+              )
+            }
           }
         })}
-        footer={
-          <MyTicketsPagination
-            req={req}
-            nextCursor={value.nextCursor}
-            loaded={value.columns.reduce(
-              (sum, column) => sum + column.items.length,
-              0
-            )}
-            total={value.total}
-          />
-        }
       />
     )
   })
@@ -171,13 +178,11 @@ function GroupedSections({
   collapseKey,
   empty,
   groups,
-  update,
-  footer
+  update
 }: GroupedListProps &
   Readonly<{
     groups: ReadonlyArray<Group>
     update: OrgTicketUpdate
-    footer?: ReactNode
   }>) {
   const preview = useTicketPreview()
   if (groups.every((group) => group.tickets.length === 0)) return empty
@@ -195,7 +200,6 @@ function GroupedSections({
           />
         ))}
       </div>
-      {footer}
     </>
   )
 }
@@ -218,6 +222,11 @@ function GroupSection({
     group.id,
     undefined
   )
+  const [expanded, setExpanded] = useState(false)
+  const limited = group.expandable !== undefined && !expanded
+  const shown = limited
+    ? group.tickets.slice(0, COMPACT_TICKET_LIMIT)
+    : group.tickets
   return (
     <div className="flex flex-col">
       <SectionHeader
@@ -240,12 +249,22 @@ function GroupSection({
         ) : (
           <DashboardRows
             req={req}
-            tickets={group.tickets}
+            tickets={shown}
             update={update}
             preview={preview}
           />
         )}
         {group.footer}
+        {limited && group.count > shown.length && (
+          <RevealMoreButton
+            remaining={group.count - shown.length}
+            onReveal={() => setExpanded(true)}
+          />
+        )}
+        {group.expandable !== undefined &&
+          expanded &&
+          group.tickets.length < group.count &&
+          group.expandable.pagination}
       </SectionBody>
     </div>
   )

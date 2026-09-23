@@ -1,4 +1,5 @@
 import type {
+  AssignedStatusCount,
   NotFound,
   OrgTicketRow,
   Project,
@@ -51,10 +52,14 @@ export type OrgTicketsValue = Readonly<{
   tickets: ReadonlyArray<OrgTicket>
   nextCursor: string | null
   total: number
+  statusCounts: ReadonlyArray<AssignedStatusCount>
 }>
 
+export type CountedColumn = PlacedColumn<OrgTicket> &
+  Readonly<{ count: number }>
+
 export type MyTicketBoardValue = Readonly<{
-  columns: ReadonlyArray<PlacedColumn<OrgTicket>>
+  columns: ReadonlyArray<CountedColumn>
   nextCursor: string | null
   total: number
 }>
@@ -179,7 +184,8 @@ const myTicketsView = (req: OrgTicketsRequest) => {
             {
               tickets: withProjects(projects, dedupeRows(rows)),
               nextCursor,
-              total: firstPage.total
+              total: firstPage.total,
+              statusCounts: firstPage.statusCounts
             },
             { waiting: parts.some((part) => part.waiting) }
           )
@@ -247,7 +253,12 @@ const recentTicketsView = (req: OrgTicketsRequest) => {
           AsyncResult.all([visible, get(recentQuery(scoped))]),
           ([, rows]): OrgTicketsValue => {
             const tickets = withProjects(projects, rows)
-            return { tickets, nextCursor: null, total: tickets.length }
+            return {
+              tickets,
+              nextCursor: null,
+              total: tickets.length,
+              statusCounts: []
+            }
           }
         )
       })
@@ -355,10 +366,48 @@ const patchTickets = (
 const stillMine = (key: OrgTicketKey) => (ticket: Ticket) =>
   ticket.assignees.includes(key.viewerId)
 
+const moveStatusCount = (
+  counts: ReadonlyArray<AssignedStatusCount>,
+  projectSlug: string,
+  from: Ticket["status"],
+  to: Ticket["status"] | null
+): ReadonlyArray<AssignedStatusCount> => {
+  if (from === to) return counts
+  const adjusted = counts.map((entry) =>
+    entry.projectSlug !== projectSlug
+      ? entry
+      : entry.status === from
+        ? { ...entry, count: Math.max(0, entry.count - 1) }
+        : entry.status === to
+          ? { ...entry, count: entry.count + 1 }
+          : entry
+  )
+  const hasTarget =
+    to === null ||
+    counts.some(
+      (entry) => entry.projectSlug === projectSlug && entry.status === to
+    )
+  return hasTarget
+    ? adjusted
+    : [...adjusted, { projectSlug, status: to, count: 1 }]
+}
+
 const patchMine: PatchView<OrgTicketsValue> = (value, key, update) => {
+  const before = value.tickets.find((item) => isKey(item, key))
   const tickets = patchTickets(value.tickets, key, update, stillMine(key))
-  const removed = value.tickets.length - tickets.length
-  return { ...value, tickets, total: value.total - removed }
+  if (!before) return { ...value, tickets }
+  const after = tickets.find((item) => isKey(item, key))
+  return {
+    ...value,
+    tickets,
+    total: after ? value.total : value.total - 1,
+    statusCounts: moveStatusCount(
+      value.statusCounts,
+      key.projectSlug,
+      before.ticket.status,
+      after ? after.ticket.status : null
+    )
+  }
 }
 
 const patchRecent: PatchView<OrgTicketsValue> = (value, key, update) => ({
@@ -487,15 +536,36 @@ export const myTicketBoard = Atom.family((req: OrgTicketsRequest) => {
               )
             )
           ]),
-          ([value, projectStatuses]): MyTicketBoardValue => ({
-            columns: placeInColumns(
-              mergeStatusColumns(projectStatuses),
-              value.tickets,
-              ({ project, ticket }) => [project.slug, ticket.status]
-            ),
-            nextCursor: value.nextCursor,
-            total: value.total
-          })
+          ([value, projectStatuses]): MyTicketBoardValue => {
+            const merged = mergeStatusColumns(projectStatuses)
+            const countByColumn = new Map<string, number>()
+            for (const entry of value.statusCounts) {
+              const column = merged.columnKeyFor(
+                entry.projectSlug,
+                entry.status
+              )
+              if (column === undefined) continue
+              countByColumn.set(
+                column,
+                (countByColumn.get(column) ?? 0) + entry.count
+              )
+            }
+            return {
+              columns: placeInColumns(
+                merged,
+                value.tickets,
+                ({ project, ticket }) => [project.slug, ticket.status]
+              ).map((column) => ({
+                ...column,
+                count: Math.max(
+                  countByColumn.get(column.key) ?? 0,
+                  column.items.length
+                )
+              })),
+              nextCursor: value.nextCursor,
+              total: value.total
+            }
+          }
         )
       })
     },

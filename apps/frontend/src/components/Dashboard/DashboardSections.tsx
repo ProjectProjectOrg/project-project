@@ -2,7 +2,7 @@ import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { Columns3, Rows3 } from "lucide-react"
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
 import {
@@ -24,12 +24,11 @@ import {
   recentTickets,
   updateMyTicket,
   updateRecentTicket,
-  type OrgTicket,
+  type CountedColumn,
   type OrgTicketsRequest
 } from "@/features/tickets/atoms/myTickets"
 import { useLocalStorageState } from "@/hooks/useLocalStorageState"
 import { getStatusIcon } from "@/lib/status-icons"
-import type { PlacedColumn } from "@/lib/statusColumns"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -39,7 +38,12 @@ import {
   StatusGroupedList,
   type DashboardGrouping
 } from "./GroupedTicketList"
-import { MyTicketsPagination } from "./MyTicketsPagination"
+import {
+  COMPACT_TICKET_LIMIT,
+  MyTicketsPagination,
+  RevealMoreButton,
+  ShowLessButton
+} from "./MyTicketsPagination"
 import { TicketActivityLabel } from "./TicketActivityLabel"
 
 export type MyTicketsView = "list" | "board"
@@ -146,6 +150,7 @@ function MyTicketsList({
 
 function FlatTicketList({ req }: Readonly<{ req: OrgTicketsRequest }>) {
   const preview = useTicketPreview()
+  const [expanded, setExpanded] = useState(false)
   const result = useAtomValue(myTickets(req))
   const refresh = useAtomRefresh(myTickets(req))
   return Result.matchWithError(result, {
@@ -161,16 +166,32 @@ function FlatTicketList({ req }: Readonly<{ req: OrgTicketsRequest }>) {
         <>
           <DashboardRows
             req={req}
-            tickets={value.tickets}
+            tickets={
+              expanded
+                ? value.tickets
+                : value.tickets.slice(0, COMPACT_TICKET_LIMIT)
+            }
             update={updateMyTicket}
             preview={preview}
           />
-          <MyTicketsPagination
-            req={req}
-            nextCursor={value.nextCursor}
-            loaded={value.tickets.length}
-            total={value.total}
-          />
+          {expanded ? (
+            <>
+              <MyTicketsPagination
+                req={req}
+                nextCursor={value.nextCursor}
+                loaded={value.tickets.length}
+                total={value.total}
+              />
+              <ShowLessButton onCollapse={() => setExpanded(false)} />
+            </>
+          ) : (
+            value.total > COMPACT_TICKET_LIMIT && (
+              <RevealMoreButton
+                remaining={value.total - COMPACT_TICKET_LIMIT}
+                onReveal={() => setExpanded(true)}
+              />
+            )
+          )}
         </>
       )
   })
@@ -248,7 +269,7 @@ function TicketBoard({
   columns
 }: Readonly<{
   req: OrgTicketsRequest
-  columns: ReadonlyArray<PlacedColumn<OrgTicket>>
+  columns: ReadonlyArray<CountedColumn>
 }>) {
   return (
     <div className="-mx-4 h-[min(40rem,70vh)] overflow-x-auto px-4">
@@ -262,7 +283,7 @@ function TicketBoard({
               className: "",
               color: column.color
             }}
-            count={column.items.length}
+            count={column.count}
           >
             {column.items.map((item) => (
               <DashboardCard

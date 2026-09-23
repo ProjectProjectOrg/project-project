@@ -3,10 +3,12 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 
 import { ErrorPage } from "@/components/ErrorPage"
 import { TicketPagination } from "@/components/TicketList/SectionList"
+import { Button } from "@/components/ui/button"
 import {
   loadMoreMyTickets,
   type OrgTicketsRequest
 } from "@/features/tickets/atoms/myTickets"
+import { m } from "@/paraglide/messages"
 
 type MyTicketsPaginationProps = Readonly<{
   req: OrgTicketsRequest
@@ -44,5 +46,32 @@ export function MyTicketsPagination({
         loadMore={() => loadMore()}
       />
     </>
+  )
+}
+
+export const COMPACT_TICKET_LIMIT = 5
+
+export function ShowLessButton({
+  onCollapse
+}: Readonly<{ onCollapse: () => void }>) {
+  return (
+    <div className="flex justify-center py-2">
+      <Button type="button" variant="tertiary" size="sm" onClick={onCollapse}>
+        {m.org_dashboard_show_less()}
+      </Button>
+    </div>
+  )
+}
+
+export function RevealMoreButton({
+  remaining,
+  onReveal
+}: Readonly<{ remaining: number; onReveal: () => void }>) {
+  return (
+    <div className="flex justify-center py-2">
+      <Button type="button" variant="tertiary" size="sm" onClick={onReveal}>
+        {m.tickets_section_load_more_button({ remaining })}
+      </Button>
+    </div>
   )
 }

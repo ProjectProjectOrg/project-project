@@ -137,6 +137,27 @@ type Served = {
   byProject?: ReadonlyArray<ProjectTicketsPreview>
 }
 
+const statusCountsOf = (rows: ReadonlyArray<OrgTicketRow>) => {
+  const counts = new Map<
+    string,
+    Readonly<{
+      projectSlug: string
+      status: OrgTicketRow["ticket"]["status"]
+      count: number
+    }>
+  >()
+  for (const { projectSlug, ticket } of rows) {
+    const id = `${projectSlug}/${ticket.status}`
+    const current = counts.get(id)
+    counts.set(id, {
+      projectSlug,
+      status: ticket.status,
+      count: (current?.count ?? 0) + 1
+    })
+  }
+  return [...counts.values()]
+}
+
 const previewsOf = (
   rows: ReadonlyArray<OrgTicketRow>
 ): ReadonlyArray<ProjectTicketsPreview> => {
@@ -188,7 +209,11 @@ const serve = (
           : (served.pages?.[cursor] ?? { items: [], nextCursor: null })
       return Promise.resolve(
         Response.json(
-          encodePage({ ...page, total: served.total ?? served.mine.length })
+          encodePage({
+            ...page,
+            total: served.total ?? served.mine.length,
+            statusCounts: statusCountsOf(served.mine)
+          })
         )
       )
     }

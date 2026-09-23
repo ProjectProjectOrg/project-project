@@ -784,7 +784,7 @@ const makeFakeIndex = (overrides: Partial<TicketIndexShape> = {}) => {
     projectsFor: () => Effect.succeed([]),
     assignedTo: () => Effect.succeed([]),
     touchedBy: () => Effect.succeed([]),
-    countAssigned: () => Effect.succeed(0),
+    countAssignedByStatus: () => Effect.succeed([]),
     assignedPerProject: () => Effect.succeed([]),
     projectFor: () =>
       Effect.die(new Error("unexpected TicketIndex.projectFor call")),

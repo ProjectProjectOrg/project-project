@@ -118,7 +118,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/")({
 
 function Dashboard() {
   const { orgSlug } = Route.useParams()
-  const { view = "list" } = Route.useSearch()
+  const { view = "board" } = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const setView = (next: MyTicketsView) => {
     void navigate({ search: (prev) => ({ ...prev, view: next }) })

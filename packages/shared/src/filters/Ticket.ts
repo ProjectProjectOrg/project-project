@@ -120,9 +120,17 @@ export const RecentTicketRow = Schema.Struct({
 })
 export type RecentTicketRow = typeof RecentTicketRow.Type
 
+export const AssignedStatusCount = Schema.Struct({
+  projectSlug: Slug,
+  status: TicketStatus,
+  count: Schema.Finite
+})
+export type AssignedStatusCount = typeof AssignedStatusCount.Type
+
 export const OrgTicketPage = Schema.Struct({
   ...Page(OrgTicketRow).fields,
-  total: Schema.Finite
+  total: Schema.Finite,
+  statusCounts: Schema.Array(AssignedStatusCount)
 })
 export type OrgTicketPage = typeof OrgTicketPage.Type
 

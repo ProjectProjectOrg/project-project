@@ -618,17 +618,35 @@ export const TicketIndexLive = Layer.effect(
       )
     ]
 
-    const countAssigned = (
+    const countAssignedByStatus = (
       projects: ReadonlyArray<TicketIndexProject>,
       scope: TicketIndexAssignedScope
-    ): Effect.Effect<number> => {
-      if (projects.length === 0) return Effect.succeed(0)
+    ) => {
+      if (projects.length === 0) return Effect.succeed([])
+      const byId = new Map(projects.map((p) => [p.projectId, p]))
       return db
-        .select({ total: drizzleCount() })
+        .select({
+          projectId: ticketIndex.projectId,
+          status: ticketIndex.status,
+          count: drizzleCount()
+        })
         .from(ticketIndex)
         .where(acrossProjects(projects, assignedConditions(scope)))
+        .groupBy(ticketIndex.projectId, ticketIndex.status)
         .pipe(
-          Effect.map((rows) => rows[0]?.total ?? 0),
+          Effect.map((rows) =>
+            rows.flatMap((row) => {
+              const project = byId.get(row.projectId)
+              if (!project) return []
+              return [
+                {
+                  project,
+                  status: row.status as TicketStatus,
+                  count: row.count
+                }
+              ]
+            })
+          ),
           Effect.orDie
         )
     }
@@ -1285,7 +1303,7 @@ export const TicketIndexLive = Layer.effect(
       projectFor,
       projectsFor,
       assignedTo,
-      countAssigned,
+      countAssignedByStatus,
       assignedPerProject,
       touchedBy,
       list,

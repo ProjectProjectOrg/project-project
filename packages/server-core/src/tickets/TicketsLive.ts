@@ -406,14 +406,14 @@ export const TicketsLive = Layer.effect(
     ) {
       const visible = yield* visibleIndexProjects(orgSlug, userId)
       const scope = yield* assignedScope(userId)
-      const [entries, total] = yield* Effect.all(
+      const [entries, counts] = yield* Effect.all(
         [
           ticketIndex.assignedTo(visible, {
             ...scope,
             cursor: query.cursor,
             limit: MY_TICKETS_PAGE_SIZE + 1
           }),
-          ticketIndex.countAssigned(visible, scope)
+          ticketIndex.countAssignedByStatus(visible, scope)
         ],
         { concurrency: "unbounded" }
       )
@@ -428,7 +428,12 @@ export const TicketsLive = Layer.effect(
       return {
         items,
         nextCursor: page.nextCursor,
-        total
+        total: counts.reduce((sum, { count }) => sum + count, 0),
+        statusCounts: counts.map(({ project, status, count }) => ({
+          projectSlug: project.projectSlug,
+          status,
+          count
+        }))
       } satisfies OrgTicketPage
     })
 

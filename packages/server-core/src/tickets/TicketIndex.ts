@@ -153,10 +153,18 @@ export interface TicketIndexShape {
     projects: ReadonlyArray<TicketIndexProject>,
     options: TicketIndexAssignedOptions
   ) => Effect.Effect<ReadonlyArray<TicketIndexOrgEntry>>
-  readonly countAssigned: (
+  readonly countAssignedByStatus: (
     projects: ReadonlyArray<TicketIndexProject>,
     scope: TicketIndexAssignedScope
-  ) => Effect.Effect<number>
+  ) => Effect.Effect<
+    ReadonlyArray<
+      Readonly<{
+        project: TicketIndexProject
+        status: TicketStatus
+        count: number
+      }>
+    >
+  >
   readonly assignedPerProject: (
     projects: ReadonlyArray<TicketIndexProject>,
     scope: TicketIndexAssignedScope & Readonly<{ perProject: number }>

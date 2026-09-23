@@ -31,6 +31,7 @@
   "org_dashboard_recent_empty": "Tickets you create, are assigned to, or comment on show up here.",
   "org_dashboard_recent_heading": "Recent activity",
   "org_dashboard_recent_projects_heading": "Recent projects",
+  "org_dashboard_show_less": "Show less",
   "org_dashboard_subtitle": "Pick up where you left off, or start something new.",
   "org_dashboard_ticket_updated": "Updated {when}",
   "org_dashboard_view_all_in_project": "View all {count} in {project}",

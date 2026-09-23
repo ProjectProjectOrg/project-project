@@ -193,7 +193,7 @@ function makeFakeDocs(initial?: {
     projectsFor: () => Effect.succeed([]),
     assignedTo: () => Effect.succeed([]),
     touchedBy: () => Effect.succeed([]),
-    countAssigned: () => Effect.succeed(0),
+    countAssignedByStatus: () => Effect.succeed([]),
     assignedPerProject: () => Effect.succeed([]),
     projectFor: () => Effect.succeed(indexProject),
     list: (_project, requestedIds) =>
