@@ -411,6 +411,55 @@ describe("Jira migration workflow contracts", () => {
       })
   )
 
+  it.effect("resumes a failed import after its retry signal", () =>
+    Effect.gen(function* () {
+      const attempts: number[] = []
+      let publications = 0
+      const layer = makeJiraMigrationWorkflow({
+        start: () => Effect.void,
+        scan: () => Effect.void,
+        materialize: (_input, operationTry) =>
+          Effect.gen(function* () {
+            attempts.push(operationTry ?? 0)
+            if (operationTry === 0)
+              return yield* Effect.fail(
+                JiraMigrationWorkflowFailure.make({
+                  reason: "transient_import_failure",
+                  retryable: true
+                })
+              )
+            return readyPublication
+          }),
+        publish: () => Effect.sync(() => publications++).pipe(Effect.asVoid),
+        recordImportFailure: () => Effect.succeed(1),
+        resumeImport: () => Effect.succeed({ _tag: "Resumed" as const }),
+        finalize: () => Effect.void
+      }).pipe(Layer.provideMerge(WorkflowEngine.layerMemory))
+
+      yield* Effect.gen(function* () {
+        const id = yield* JiraMigrationWorkflow.execute(createPayload, {
+          discard: true
+        })
+        yield* completeStartImport(id, 1)
+        yield* waitUntilSuspended(id)
+        expect(attempts).toEqual([0])
+        const deferred = retryDeferred(1)
+        yield* DurableDeferred.succeed(deferred, {
+          token: DurableDeferred.tokenFromExecutionId(deferred, {
+            workflow: JiraMigrationWorkflow,
+            executionId: id
+          }),
+          value: { failureSequence: 1 }
+        })
+        expect(yield* JiraMigrationWorkflow.execute(createPayload)).toEqual({
+          migrationId: id
+        })
+        expect(attempts).toContain(1)
+        expect(publications).toBe(1)
+      }).pipe(Effect.provide(layer))
+    })
+  )
+
   it.effect("uses the initial scan revision and execution id for create", () =>
     Effect.gen(function* () {
       const layer = makeJiraMigrationWorkflow({

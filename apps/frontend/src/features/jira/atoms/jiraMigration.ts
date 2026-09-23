@@ -108,6 +108,14 @@ export const refreshJiraMigrationAtom = Atom.family(
     )
 )
 
+export const invalidateJiraProjectsAtom = Atom.family((orgSlug: string) =>
+  Api.runtime.fn(
+    Effect.fn("invalidateJiraProjects")(function* (_input: void) {
+      yield* Reactivity.invalidate([Keys.projects(orgSlug)])
+    })
+  )
+)
+
 export const createJiraMigrationAtom = Atom.family((req: JiraOrgRequest) =>
   Api.runtime.fn(
     Effect.fn("createJiraMigration")(function* (

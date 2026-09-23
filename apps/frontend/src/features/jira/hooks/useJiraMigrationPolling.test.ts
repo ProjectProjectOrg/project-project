@@ -3,16 +3,18 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { useJiraMigrationPolling } from "./useJiraMigrationPolling"
 
-const state = vi.hoisted(() => ({ refresh: vi.fn() }))
+const state = vi.hoisted(() => ({ refresh: vi.fn(), invalidate: vi.fn() }))
 
 vi.mock("@effect/atom-react", () => ({
   useAtomRefresh: () => {
     throw new Error("Polling must use the public refresh command")
   },
-  useAtomSet: () => state.refresh
+  useAtomSet: (key: unknown) =>
+    typeof key === "string" ? state.invalidate : state.refresh
 }))
 
 vi.mock("@/features/jira/atoms/jiraMigration", () => ({
+  invalidateJiraProjectsAtom: (orgSlug: string) => orgSlug,
   jiraMigrationKey: (orgSlug: string, migrationId: string) => ({
     params: { orgSlug, migrationId }
   }),
@@ -23,6 +25,7 @@ afterEach(() => {
   cleanup()
   vi.useRealTimers()
   state.refresh.mockReset()
+  state.invalidate.mockReset()
 })
 
 describe("useJiraMigrationPolling", () => {
@@ -55,4 +58,14 @@ describe("useJiraMigrationPolling", () => {
       expect(state.refresh).not.toHaveBeenCalled()
     }
   )
+
+  it("refreshes the project list when completion is observed", () => {
+    const { rerender } = renderHook(
+      ({ status }) => useJiraMigrationPolling("org", "migration", status),
+      { initialProps: { status: "migrating" as "migrating" | "succeeded" } }
+    )
+    expect(state.invalidate).not.toHaveBeenCalled()
+    rerender({ status: "succeeded" })
+    expect(state.invalidate).toHaveBeenCalledOnce()
+  })
 })

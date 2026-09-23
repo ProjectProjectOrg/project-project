@@ -12,11 +12,16 @@ import { DateTime, Effect, Layer, Redacted, Schema } from "effect"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 
+import type { JiraClientShape } from "./Client"
+import type { JiraMigrationArtifactsShape } from "./MigrationArtifacts"
 import {
   JiraMigrationProjection,
   type AttemptFence
 } from "./MigrationProjection"
-import { withJiraRemoteWriteIntent } from "./MigrationWorkflow"
+import {
+  makeProjectionScanDependencies,
+  withJiraRemoteWriteIntent
+} from "./MigrationWorkflow"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const source = {
@@ -277,6 +282,141 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
         const claimed = yield* p.owned(input, created.id)
         expect(claimed.cleanupExecutionId).toBe("cleanup-retry")
         expect(yield* p.deleteAfterCleanup(current, "cleanup-retry")).toBe(true)
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("keeps an import retry gate tied to the failed operation", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        const current = fence(created)
+        expect(yield* p.completeScan(current, emptyScan)).toBe(true)
+        const scanned = yield* p.owned(input, created.id)
+        const ready = yield* p.saveConfiguration({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: scanned.revision,
+          configuration: emptyConfiguration
+        })
+        yield* p.transition({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: ready.revision,
+          action: "run"
+        })
+        expect(
+          yield* p.recordImportFailure(current, "materialize/0", {
+            reason: "temporary_error",
+            retryable: true
+          })
+        ).toBe(1)
+        expect(
+          yield* p.recordImportFailure(current, "materialize/0", {
+            reason: "temporary_error",
+            retryable: true
+          })
+        ).toBe(1)
+        const failed = yield* p.owned(input, created.id)
+        expect(failed.status).toBe("failed")
+        expect(failed.failureSequence).toBe(1)
+        expect(yield* p.resumeImport(current, 1)).toEqual({ _tag: "Rejected" })
+        yield* p.transition({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: failed.revision,
+          action: "run"
+        })
+        expect(yield* p.resumeImport(current, 1)).toEqual({ _tag: "Resumed" })
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("allows cleanup after a scan fails before any remote write", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        const current = fence(created)
+        expect(
+          yield* p.recordScanFailure(current, "page/0", {
+            reason: "jira_reconnect_required",
+            retryable: true,
+            reconnect: true
+          })
+        ).toBe(1)
+        const failed = yield* p.owned(input, created.id)
+        expect(failed.checkpoint).not.toHaveProperty(
+          "remoteWritesMayStillCommit"
+        )
+        yield* p.transition({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: failed.revision,
+          action: "cancel"
+        })
+        expect(p.actionsFor(yield* p.owned(input, created.id)).canDiscard).toBe(
+          true
+        )
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("settles each completed scan artifact write", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        const current = fence(created)
+        const ref = {
+          key: "scan.json",
+          contentType: "application/json",
+          byteSize: 2,
+          sha256: "a".repeat(64)
+        }
+        const artifacts: JiraMigrationArtifactsShape = {
+          writeJson: () =>
+            Effect.gen(function* () {
+              expect(
+                (yield* p.owned(input, created.id).pipe(Effect.orDie))
+                  .checkpoint
+              ).toHaveProperty("remoteWritesMayStillCommit")
+              return ref
+            }),
+          readJson: () => Effect.die("unused"),
+          verify: () => Effect.die("unused"),
+          listPrefix: () => Effect.die("unused"),
+          deletePrefix: () => Effect.die("unused")
+        }
+        const dependencies = makeProjectionScanDependencies(
+          p,
+          {
+            client: {} as JiraClientShape,
+            artifacts,
+            identityOptions: Effect.succeed([])
+          },
+          current
+        )
+        expect(
+          yield* dependencies.artifacts.writeJson(
+            "org",
+            {
+              migrationId: created.id,
+              scanRevision: 1,
+              area: "raw",
+              kind: "issues",
+              identity: "page-0"
+            },
+            []
+          )
+        ).toEqual(ref)
+        expect(
+          (yield* p.owned(input, created.id)).checkpoint
+        ).not.toHaveProperty("remoteWritesMayStillCommit")
       }).pipe(Effect.provide(layer))
     )
   })

@@ -39,6 +39,7 @@ export class JiraArtifactError extends Data.TaggedError("JiraArtifactError")<{
     | "schema"
     | "sha256"
     | "size"
+    | "write_intent"
 }> {}
 
 export type JiraMigrationArtifactError =

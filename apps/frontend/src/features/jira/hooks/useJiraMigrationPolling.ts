@@ -3,6 +3,7 @@ import type { JiraMigrationStatus } from "@pp/shared"
 import { useEffect } from "react"
 
 import {
+  invalidateJiraProjectsAtom,
   jiraMigrationKey,
   refreshJiraMigrationAtom
 } from "@/features/jira/atoms/jiraMigration"
@@ -18,7 +19,12 @@ export function useJiraMigrationPolling(
   const refresh = useAtomSet(
     refreshJiraMigrationAtom(jiraMigrationKey(orgSlug, migrationId))
   )
+  const invalidateProjects = useAtomSet(invalidateJiraProjectsAtom(orgSlug))
   const active = isActiveJiraMigration(status)
+
+  useEffect(() => {
+    if (status === "succeeded") invalidateProjects(undefined)
+  }, [invalidateProjects, status])
 
   useEffect(() => {
     if (!active || typeof document === "undefined") return undefined

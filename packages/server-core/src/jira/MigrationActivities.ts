@@ -97,6 +97,7 @@ export const prepareJiraPublicationReference = <R>(
   input: Readonly<{
     scanRevision: number
     configurationRevision: number
+    operationTry?: number
   }>,
   dependencies: Readonly<{
     error: typeof JiraMigrationWorkflowFailure
@@ -111,7 +112,7 @@ export const prepareJiraPublicationReference = <R>(
     name: jiraPreflightActivityName(
       input.scanRevision,
       input.configurationRevision,
-      0
+      input.operationTry ?? 0
     ),
     success: JiraArtifactRef,
     error: dependencies.error,
@@ -125,6 +126,7 @@ export const materializeJiraPreparedPublication = <
   input: Readonly<{
     scanRevision: number
     configurationRevision: number
+    operationTry?: number
     attachments: ReadonlyArray<A>
   }>,
   dependencies: JiraMaterializationDependencies<A, R>
@@ -134,7 +136,7 @@ export const materializeJiraPreparedPublication = <
       name: jiraCreateHiddenActivityName(
         input.scanRevision,
         input.configurationRevision,
-        0
+        input.operationTry ?? 0
       ),
       success: Schema.String,
       error: dependencies.error,
@@ -152,7 +154,7 @@ export const materializeJiraPreparedPublication = <
         Activity.make({
           name: jiraCopyAttachmentActivityName(
             attachment.sourceAttachmentId,
-            0
+            input.operationTry ?? 0
           ),
           success: JiraAttachmentOutcome,
           error: dependencies.error,
@@ -178,7 +180,7 @@ export const materializeJiraPreparedPublication = <
         input.scanRevision,
         input.configurationRevision,
         outcomeSetSha256,
-        0
+        input.operationTry ?? 0
       ),
       success: Schema.Struct({
         planRef: JiraArtifactRef,
@@ -193,7 +195,7 @@ export const materializeJiraPreparedPublication = <
         name: jiraWriteDocumentsActivityName(
           finalized.publicationRevision,
           ordinal,
-          0
+          input.operationTry ?? 0
         ),
         success: Schema.Int,
         error: dependencies.error,
@@ -203,7 +205,7 @@ export const materializeJiraPreparedPublication = <
       name: jiraPublicationActivityName(
         "write-archive",
         finalized.publicationRevision,
-        0
+        input.operationTry ?? 0
       ),
       success: Schema.Int,
       error: dependencies.error,
@@ -213,7 +215,7 @@ export const materializeJiraPreparedPublication = <
       name: jiraPublicationActivityName(
         "write-report",
         finalized.publicationRevision,
-        0
+        input.operationTry ?? 0
       ),
       success: Schema.Int,
       error: dependencies.error,
@@ -223,7 +225,7 @@ export const materializeJiraPreparedPublication = <
       name: jiraPublicationActivityName(
         "verify",
         finalized.publicationRevision,
-        0
+        input.operationTry ?? 0
       ),
       success: VerifiedJiraMaterialization,
       error: dependencies.error,
@@ -245,6 +247,7 @@ export const publishJiraPreparedPublication = <R>(
     verified: VerifiedJiraMaterialization
   }>,
   dependencies: Readonly<{
+    operationTry?: number
     error: typeof JiraMigrationWorkflowFailure
     publish: (
       planRef: JiraArtifactRef,
@@ -253,7 +256,11 @@ export const publishJiraPreparedPublication = <R>(
   }>
 ) =>
   Activity.make({
-    name: jiraPublicationActivityName("publish", ready.verified.planSha256, 0),
+    name: jiraPublicationActivityName(
+      "publish",
+      ready.verified.planSha256,
+      dependencies.operationTry ?? 0
+    ),
     success: Schema.Boolean,
     error: dependencies.error,
     execute: dependencies.publish(ready.planRef, ready.verified)
@@ -275,7 +282,8 @@ export type MigrationActivities<R = never> = Readonly<{
     | import("effect/unstable/workflow/WorkflowEngine").WorkflowInstance
   >
   materialize: (
-    input: MigrationActivityInput
+    input: MigrationActivityInput,
+    operationTry?: number
   ) => Effect.Effect<
     JiraReadyPublication,
     JiraMigrationWorkflowFailureValue,
@@ -283,7 +291,8 @@ export type MigrationActivities<R = never> = Readonly<{
   >
   publish: (
     input: MigrationActivityInput,
-    ready: JiraReadyPublication
+    ready: JiraReadyPublication,
+    operationTry?: number
   ) => Effect.Effect<
     void,
     JiraMigrationWorkflowFailureValue,
@@ -298,6 +307,15 @@ export type MigrationActivities<R = never> = Readonly<{
       exit: Exit.Exit<unknown, unknown>
     }>
   ) => Effect.Effect<void, never, R>
+  recordImportFailure?: (
+    input: MigrationActivityInput,
+    operationKey: string,
+    failure: JiraMigrationWorkflowFailureValue
+  ) => Effect.Effect<number | null, JiraMigrationWorkflowFailureValue, R>
+  resumeImport?: (
+    input: MigrationActivityInput,
+    failureSequence: number
+  ) => Effect.Effect<JiraScanResumeResult, JiraMigrationWorkflowFailureValue, R>
 }>
 
 export const activityName = (parts: ReadonlyArray<string | number>) =>

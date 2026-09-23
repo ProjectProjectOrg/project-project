@@ -1,4 +1,4 @@
-import { Duration, Stream } from "effect"
+import { Duration, Semaphore, Stream } from "effect"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -29,6 +29,7 @@ import {
   type JiraScanKind,
   type ScanSnapshotDependencies
 } from "./MigrationActivities"
+import { artifactKey, JiraArtifactError } from "./MigrationArtifacts"
 import {
   JiraScanResumeResult,
   type AttemptFence,
@@ -134,6 +135,69 @@ export const makeJiraMigrationWorkflow = <R>(
 ) =>
   JiraMigrationWorkflow.toLayer((payload, executionId) =>
     Effect.gen(function* () {
+      const input = { payload, executionId }
+      const runImportUnit = <A>(
+        stage: "materialize" | "publish",
+        run: (
+          operationTry: number
+        ) => Effect.Effect<
+          A,
+          JiraMigrationWorkflowFailureValue,
+          R | WorkflowEngine.WorkflowInstance
+        >
+      ) =>
+        Effect.gen(function* () {
+          let operationTry = 0
+          while (true) {
+            const result = yield* Effect.result(run(operationTry))
+            if (result._tag === "Success") return result.success
+            const failure = result.failure
+            if (
+              !failure.retryable ||
+              !activities.recordImportFailure ||
+              !activities.resumeImport
+            )
+              return yield* Effect.fail(failure)
+            const operationKey = `${stage}/${operationTry}`
+            const sequence = yield* Activity.make({
+              name: `v1/import-failure/${operationKey}`,
+              success: Schema.NullOr(Schema.Int),
+              error: JiraMigrationWorkflowFailure,
+              execute: activities.recordImportFailure(
+                input,
+                operationKey,
+                failure
+              )
+            })
+            if (sequence === null)
+              return yield* Effect.fail(
+                JiraMigrationWorkflowFailure.make({
+                  reason: "jira_migration_superseded",
+                  retryable: false
+                })
+              )
+            let awaitedSequence = sequence
+            while (true) {
+              yield* DurableDeferred.await(retryDeferred(awaitedSequence))
+              const resumed = yield* Activity.make({
+                name: `v1/import-resume/${operationKey}/${awaitedSequence}`,
+                success: JiraScanResumeResult,
+                error: JiraMigrationWorkflowFailure,
+                execute: activities.resumeImport(input, awaitedSequence)
+              })
+              if (resumed._tag === "Resumed") break
+              if (resumed._tag === "Rejected")
+                return yield* Effect.fail(
+                  JiraMigrationWorkflowFailure.make({
+                    reason: "jira_migration_superseded",
+                    retryable: false
+                  })
+                )
+              awaitedSequence = resumed.failureSequence
+            }
+            operationTry++
+          }
+        })
       yield* Workflow.addFinalizer((exit) =>
         defineFinalizeMigrationActivity(
           activities.finalize({ executionId, exit })
@@ -146,8 +210,12 @@ export const makeJiraMigrationWorkflow = <R>(
       yield* activities.scan({ payload, executionId })
       const identity = migrationIdentity(payload, executionId)
       yield* DurableDeferred.await(startImportDeferred(identity.scanRevision))
-      const ready = yield* activities.materialize({ payload, executionId })
-      yield* activities.publish({ payload, executionId }, ready)
+      const ready = yield* runImportUnit("materialize", (operationTry) =>
+        activities.materialize(input, operationTry)
+      )
+      yield* runImportUnit("publish", (operationTry) =>
+        activities.publish(input, ready, operationTry)
+      )
       return { migrationId: identity.migrationId }
     })
   )
@@ -216,6 +284,19 @@ export const makeProjectionMigrationActivities = <R>(
   materialize: MigrationActivities<R>["materialize"],
   publish: MigrationActivities<R>["publish"]
 ): MigrationActivities<R | WorkflowEngine.WorkflowEngine> => {
+  const fenceForActivity = (
+    input: Parameters<typeof scan>[0]
+  ): AttemptFence => ({
+    migrationId:
+      input.payload.command._tag === "Create"
+        ? input.executionId
+        : input.payload.command.migrationId,
+    workflowExecutionId: input.executionId,
+    workflowAttempt:
+      input.payload.command._tag === "Create"
+        ? 1
+        : input.payload.command.workflowAttempt
+  })
   const fenced = <A>(
     input: Parameters<typeof scan>[0],
     run: (
@@ -226,21 +307,7 @@ export const makeProjectionMigrationActivities = <R>(
       R | WorkflowEngine.WorkflowEngine | WorkflowEngine.WorkflowInstance
     >
   ) =>
-    withJiraRemoteWriteIntent(
-      projection,
-      {
-        migrationId:
-          input.payload.command._tag === "Create"
-            ? input.executionId
-            : input.payload.command.migrationId,
-        workflowExecutionId: input.executionId,
-        workflowAttempt:
-          input.payload.command._tag === "Create"
-            ? 1
-            : input.payload.command.workflowAttempt
-      },
-      run(input)
-    )
+    withJiraRemoteWriteIntent(projection, fenceForActivity(input), run(input))
   return {
     start: ({ payload, executionId }) =>
       Effect.gen(function* () {
@@ -261,9 +328,30 @@ export const makeProjectionMigrationActivities = <R>(
         }))
       ),
     finalize,
-    scan: (input) => fenced(input, scan),
-    materialize: (input) => fenced(input, materialize),
-    publish
+    scan,
+    materialize: (input, operationTry) =>
+      fenced(input, (current) => materialize(current, operationTry)),
+    publish,
+    recordImportFailure: (input, operationKey, failure) =>
+      projection
+        .recordImportFailure(fenceForActivity(input), operationKey, failure)
+        .pipe(
+          Effect.mapError(() =>
+            JiraMigrationWorkflowFailure.make({
+              reason: "jira_migration_database_failed",
+              retryable: true
+            })
+          )
+        ),
+    resumeImport: (input, sequence) =>
+      projection.resumeImport(fenceForActivity(input), sequence).pipe(
+        Effect.mapError(() =>
+          JiraMigrationWorkflowFailure.make({
+            reason: "jira_migration_database_failed",
+            retryable: true
+          })
+        )
+      )
   }
 }
 
@@ -495,16 +583,42 @@ export const makeProjectionScanDependencies = (
   dependencies: Pick<
     ScanSnapshotDependencies,
     "client" | "artifacts" | "identityOptions"
-  >
-): ScanSnapshotDependencies => ({
-  ...dependencies,
-  progress: (fence, page) =>
-    projection.recordScanProgress(
-      fence,
-      `${page.kind}/${page.parentId ?? ""}/${page.pageOrdinal}`,
-      page.count
-    ),
-  recordFailure: projection.recordScanFailure,
-  resume: projection.resumeScan,
-  configured: (fence, result) => projection.completeScan(fence, result)
-})
+  >,
+  fence: AttemptFence
+): ScanSnapshotDependencies => {
+  const writeLock = Semaphore.makeUnsafe(1)
+  return {
+    ...dependencies,
+    artifacts: {
+      ...dependencies.artifacts,
+      writeJson: (orgSlug, coordinates, value) =>
+        writeLock
+          .withPermits(1)(
+            withJiraRemoteWriteIntent(
+              projection,
+              fence,
+              dependencies.artifacts.writeJson(orgSlug, coordinates, value)
+            )
+          )
+          .pipe(
+            Effect.mapError((error) =>
+              error._tag === "JiraMigrationWorkflowFailure"
+                ? new JiraArtifactError({
+                    key: artifactKey(coordinates),
+                    reason: "write_intent"
+                  })
+                : error
+            )
+          )
+    },
+    progress: (fence, page) =>
+      projection.recordScanProgress(
+        fence,
+        `${page.kind}/${page.parentId ?? ""}/${page.pageOrdinal}`,
+        page.count
+      ),
+    recordFailure: projection.recordScanFailure,
+    resume: projection.resumeScan,
+    configured: (fence, result) => projection.completeScan(fence, result)
+  }
+}

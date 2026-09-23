@@ -126,15 +126,19 @@ export const makeJiraProductionActivities = Effect.gen(function* () {
           siteUrl: row.sourceSiteUrl,
           scannedAt
         },
-        MigrationWorkflow.makeProjectionScanDependencies(projection, {
-          client: jira,
-          artifacts,
-          identityOptions
-        })
+        MigrationWorkflow.makeProjectionScanDependencies(
+          projection,
+          {
+            client: jira,
+            artifacts,
+            identityOptions
+          },
+          fence
+        )
       )
     })
 
-  const materialize = (input: MigrationActivityInput) =>
+  const materialize = (input: MigrationActivityInput, operationTry = 0) =>
     Effect.gen(function* () {
       const fence = fenceForInput(input)
       const { row, orgSlug } = yield* readAttempt(fence)
@@ -155,7 +159,8 @@ export const makeJiraProductionActivities = Effect.gen(function* () {
       const preparedRef = yield* prepareJiraPublicationReference(
         {
           scanRevision: row.scanRevision,
-          configurationRevision: accepted.configurationRevision
+          configurationRevision: accepted.configurationRevision,
+          operationTry
         },
         {
           error: JiraMigrationWorkflowFailure,
@@ -221,6 +226,7 @@ export const makeJiraProductionActivities = Effect.gen(function* () {
         {
           scanRevision: row.scanRevision,
           configurationRevision: accepted.configurationRevision,
+          operationTry,
           attachments: prepared.attachments
         },
         {
@@ -240,13 +246,15 @@ export const makeJiraProductionActivities = Effect.gen(function* () {
 
   const publish = (
     input: MigrationActivityInput,
-    ready: import("./MigrationActivities").JiraReadyPublication
+    ready: import("./MigrationActivities").JiraReadyPublication,
+    operationTry = 0
   ) =>
     Effect.gen(function* () {
       const fence = fenceForInput(input)
       const { orgSlug } = yield* readAttempt(fence)
       yield* publishJiraPreparedPublication(ready, {
         error: JiraMigrationWorkflowFailure,
+        operationTry,
         publish: (planRef, verified) =>
           Effect.gen(function* () {
             const { plan, publicationRevision } =
