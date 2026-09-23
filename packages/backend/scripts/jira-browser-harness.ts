@@ -2,6 +2,7 @@ export type JiraBrowserResources = Readonly<{
   databaseUrl: string
   s3Endpoint: string
   bucket: string
+  hostname: string
 }>
 
 const loopbackHost = (hostname: string) =>
@@ -37,4 +38,6 @@ export const assertBrowserResources = (resources: JiraBrowserResources) => {
     resources.bucket !== "projectproject-t172-local-browser"
   )
     throw new Error("Jira browser harness requires the isolated bucket")
+  if (!loopbackHost(resources.hostname))
+    throw new Error("Jira browser harness must bind to loopback")
 }

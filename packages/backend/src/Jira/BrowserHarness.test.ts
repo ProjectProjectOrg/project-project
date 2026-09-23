@@ -5,7 +5,8 @@ const local = {
   databaseUrl:
     "postgres://projectproject:projectproject_dev@127.0.0.1:55432/projectproject_effect_v4_t172_browser",
   s3Endpoint: "http://127.0.0.1:59000",
-  bucket: "projectproject-t172-local-browser"
+  bucket: "projectproject-t172-local-browser",
+  hostname: "127.0.0.1"
 }
 
 describe("Jira browser harness resource guard", () => {
@@ -33,7 +34,8 @@ describe("Jira browser harness resource guard", () => {
     { s3Endpoint: "http://localhost:9000" },
     { s3Endpoint: "https://s3.example.com" },
     { s3Endpoint: "http://localhost:59000/other" },
-    { bucket: "production-attachments" }
+    { bucket: "production-attachments" },
+    { hostname: "0.0.0.0" }
   ])("rejects unrelated resources before setup: %j", (change) => {
     expect(() => assertBrowserResources({ ...local, ...change })).toThrow()
   })

@@ -151,7 +151,8 @@ export const JiraCredentialsLive = Layer.effect(
           clientId: oauth.clientId,
           redirectUri: jiraRedirectUri(oauth.publicBaseUrl),
           state,
-          codeVerifier
+          codeVerifier,
+          authorizationEndpoint: oauth.authorizationEndpoint
         })
       }
     })

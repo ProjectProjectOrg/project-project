@@ -42,11 +42,12 @@ export interface JiraTokenGrant {
   readonly grantedScopes: ReadonlyArray<string>
 }
 
-export interface JiraOAuthConfigShape {
-  readonly clientId: string
-  readonly clientSecret: Redacted.Redacted<string>
-  readonly publicBaseUrl: string
-}
+export type JiraOAuthConfigShape = Readonly<{
+  clientId: string
+  clientSecret: Redacted.Redacted<string>
+  publicBaseUrl: string
+  authorizationEndpoint?: string
+}>
 
 export class JiraOAuthConfig extends Context.Service<
   JiraOAuthConfig,
@@ -72,13 +73,18 @@ export const jiraRedirectUri = (baseUrl: string): string =>
 export const jiraCodeChallenge = (verifier: string): string =>
   createHash("sha256").update(verifier).digest("base64url")
 
-export const jiraAuthorizeUrl = (input: {
-  readonly clientId: string
-  readonly redirectUri: string
-  readonly state: string
-  readonly codeVerifier: string
-}): string => {
-  const url = new URL("https://auth.atlassian.com/authorize")
+export type JiraAuthorizeInput = Readonly<{
+  clientId: string
+  redirectUri: string
+  state: string
+  codeVerifier: string
+  authorizationEndpoint?: string
+}>
+
+export const jiraAuthorizeUrl = (input: JiraAuthorizeInput): string => {
+  const url = new URL(
+    input.authorizationEndpoint ?? "https://auth.atlassian.com/authorize"
+  )
   url.searchParams.set("audience", "api.atlassian.com")
   url.searchParams.set("client_id", input.clientId)
   url.searchParams.set("scope", JIRA_SCOPES)

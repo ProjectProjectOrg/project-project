@@ -39,6 +39,24 @@ describe("Jira OAuth", () => {
     expect(url.searchParams.get("code_challenge")).not.toBe("verifier-value")
   })
 
+  it("can direct a disposable harness to its local authorization page", () => {
+    const url = new URL(
+      jiraAuthorizeUrl({
+        clientId: "fixture-client",
+        redirectUri:
+          "http://localhost:5173/api/integrations/jira/oauth/callback",
+        state: "state-value",
+        codeVerifier: "verifier-value",
+        authorizationEndpoint: "http://127.0.0.1:3000/__jira-harness/authorize"
+      })
+    )
+
+    expect(url.origin + url.pathname).toBe(
+      "http://127.0.0.1:3000/__jira-harness/authorize"
+    )
+    expect(url.searchParams.get("state")).toBe("state-value")
+  })
+
   it("uses the exact callback path", () => {
     expect(JIRA_OAUTH_CALLBACK_PATH).toBe(
       "/api/integrations/jira/oauth/callback"
