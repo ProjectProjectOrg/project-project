@@ -51,6 +51,12 @@ Read `task-7-context.md`, `task-7-rulings.md`, `task-7-protocol-preflight.md`, a
 
 User authorization permits autonomous decisions within this migration; record every ruling. No push, merge, publication or shared-branch writes without approval. Never use the preserved preview database/bucket. Task 12 requires `react-useeffect`; Tasks 13–14 require `browser:control-in-app-browser`; final verification, most-capable whole-branch review and finishing-a-development-branch are still outstanding.
 
+## Continuation checkpoint — 2026-09-23
+
+The isolated branch has advanced through atomic publication, prepared-plan persistence, hidden materialization callbacks, and the structural cleanup workflow. Publication runs only after the remote-write marker settles. Commits `d00e29c..f8f7514` additionally prevent cleanup claims while remote writes are uncertain, add an expiry selector and scoped retention schedule, complete reset only after the hidden project is deleted, persist the hidden destination reservation atomically, and verify the permanent archive before post-success cleanup. Focused PostgreSQL tests and backend typecheck pass for these slices.
+
+Task 11 remains in progress: real cleanup stage callbacks, SQL runtime registration, worker removal, and restart proof are outstanding. Task 10 still needs the dedicated cancellation/publication race proof. Task 12 needs live browser verification; Tasks 13–14 need harness/release verification. The deferred Effect rc.112 early-Retry lost-wakeup regression remains a release blocker. No release, merge, push, or production cutover has occurred.
+
 ## Global Constraints
 
 - Begin implementation from PR 235 head `origin/feat/T-172-migrate-a-jira-cloud-project-into-projectproject` at `994455a26be958db47826c7425efedfdf84aea90`; the local branch with that name is stale at `463aff48` and must not be reset or overwritten.
