@@ -30,6 +30,181 @@ import {
   type ScanChunkReference
 } from "./ScanV2"
 import { DateTime } from "effect"
+import { JiraAttachmentOutcome } from "./PublicationPlan"
+import { canonicalJiraJson } from "./Manifest"
+
+export const VerifiedJiraMaterialization = Schema.Struct({
+  planSha256: Schema.String,
+  documentCount: Schema.Int,
+  attachmentCount: Schema.Int,
+  unresolvedReferenceCount: Schema.Literal(0)
+})
+export type VerifiedJiraMaterialization =
+  typeof VerifiedJiraMaterialization.Type
+
+export type JiraMaterializationDependencies<
+  A extends Readonly<{ sourceAttachmentId: string }>,
+  R
+> = Readonly<{
+  error: typeof JiraMigrationWorkflowFailure
+  createHidden: Effect.Effect<string, JiraMigrationWorkflowFailureValue, R>
+  copyAttachment: (
+    attachment: A
+  ) => Effect.Effect<
+    JiraAttachmentOutcome,
+    JiraMigrationWorkflowFailureValue,
+    R
+  >
+  finalizePlan: (
+    outcomes: ReadonlyArray<JiraAttachmentOutcome>
+  ) => Effect.Effect<
+    Readonly<{
+      planRef: JiraArtifactRef
+      publicationRevision: string
+      documentBatchCount: number
+    }>,
+    JiraMigrationWorkflowFailureValue,
+    R
+  >
+  writeDocumentBatch: (
+    planRef: JiraArtifactRef,
+    ordinal: number
+  ) => Effect.Effect<number, JiraMigrationWorkflowFailureValue, R>
+  writeArchive: (
+    planRef: JiraArtifactRef
+  ) => Effect.Effect<number, JiraMigrationWorkflowFailureValue, R>
+  writeReport: (
+    planRef: JiraArtifactRef
+  ) => Effect.Effect<number, JiraMigrationWorkflowFailureValue, R>
+  verify: (
+    planRef: JiraArtifactRef
+  ) => Effect.Effect<
+    VerifiedJiraMaterialization,
+    JiraMigrationWorkflowFailureValue,
+    R
+  >
+}>
+
+export const materializeJiraPreparedPublication = <
+  A extends Readonly<{ sourceAttachmentId: string }>,
+  R
+>(
+  input: Readonly<{
+    scanRevision: number
+    configurationRevision: number
+    attachments: ReadonlyArray<A>
+  }>,
+  dependencies: JiraMaterializationDependencies<A, R>
+) =>
+  Effect.gen(function* () {
+    const projectId = yield* Activity.make({
+      name: jiraCreateHiddenActivityName(
+        input.scanRevision,
+        input.configurationRevision,
+        0
+      ),
+      success: Schema.String,
+      error: dependencies.error,
+      execute: dependencies.createHidden
+    })
+    const outcomes = yield* Effect.forEach(
+      input.attachments.toSorted((a, b) =>
+        a.sourceAttachmentId < b.sourceAttachmentId
+          ? -1
+          : a.sourceAttachmentId > b.sourceAttachmentId
+            ? 1
+            : 0
+      ),
+      (attachment) =>
+        Activity.make({
+          name: jiraCopyAttachmentActivityName(
+            attachment.sourceAttachmentId,
+            0
+          ),
+          success: JiraAttachmentOutcome,
+          error: dependencies.error,
+          execute: dependencies.copyAttachment(attachment)
+        }),
+      { concurrency: 4 }
+    )
+    const encodedOutcomes = yield* Schema.encodeEffect(
+      Schema.Array(JiraAttachmentOutcome)
+    )(outcomes).pipe(
+      Effect.mapError(() =>
+        dependencies.error.make({
+          reason: "jira_migration_attachment_outcome_invalid",
+          retryable: false
+        })
+      )
+    )
+    const outcomeSetSha256 = createHash("sha256")
+      .update(canonicalJiraJson(encodedOutcomes))
+      .digest("hex")
+    const finalized = yield* Activity.make({
+      name: jiraFinalizePlanActivityName(
+        input.scanRevision,
+        input.configurationRevision,
+        outcomeSetSha256,
+        0
+      ),
+      success: Schema.Struct({
+        planRef: JiraArtifactRef,
+        publicationRevision: Schema.String,
+        documentBatchCount: Schema.Int
+      }),
+      error: dependencies.error,
+      execute: dependencies.finalizePlan(outcomes)
+    })
+    for (let ordinal = 0; ordinal < finalized.documentBatchCount; ordinal++)
+      yield* Activity.make({
+        name: jiraWriteDocumentsActivityName(
+          finalized.publicationRevision,
+          ordinal,
+          0
+        ),
+        success: Schema.Int,
+        error: dependencies.error,
+        execute: dependencies.writeDocumentBatch(finalized.planRef, ordinal)
+      })
+    yield* Activity.make({
+      name: jiraPublicationActivityName(
+        "write-archive",
+        finalized.publicationRevision,
+        0
+      ),
+      success: Schema.Int,
+      error: dependencies.error,
+      execute: dependencies.writeArchive(finalized.planRef)
+    })
+    yield* Activity.make({
+      name: jiraPublicationActivityName(
+        "write-report",
+        finalized.publicationRevision,
+        0
+      ),
+      success: Schema.Int,
+      error: dependencies.error,
+      execute: dependencies.writeReport(finalized.planRef)
+    })
+    const verified = yield* Activity.make({
+      name: jiraPublicationActivityName(
+        "verify",
+        finalized.publicationRevision,
+        0
+      ),
+      success: VerifiedJiraMaterialization,
+      error: dependencies.error,
+      execute: dependencies.verify(finalized.planRef)
+    })
+    if (verified.planSha256 !== finalized.publicationRevision)
+      return yield* Effect.fail(
+        dependencies.error.make({
+          reason: "jira_migration_plan_mismatch",
+          retryable: false
+        })
+      )
+    return { projectId, planRef: finalized.planRef, verified }
+  })
 
 export type MigrationActivityInput = Readonly<{
   payload: JiraMigrationWorkflowPayloadValue

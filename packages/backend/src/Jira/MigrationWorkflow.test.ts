@@ -17,6 +17,7 @@ import {
   jiraPreflightActivityName,
   jiraPublicationActivityName,
   jiraWriteDocumentsActivityName,
+  materializeJiraPreparedPublication,
   defineFinalizeMigrationActivity,
   defineStartMigrationActivity
 } from "./MigrationActivities"
@@ -118,6 +119,87 @@ const completeStartImport = (executionId: string, scanRevision: number) => {
 }
 
 describe("Jira migration workflow contracts", () => {
+  it.effect(
+    "runs bounded materialization stages through stable Activities",
+    () =>
+      Effect.gen(function* () {
+        const stages = yield* Ref.make<ReadonlyArray<string>>([])
+        const record = (stage: string) =>
+          Ref.update(stages, (items) => [...items, stage])
+        const planRef = {
+          key: "migrations/jira/migration-1/publication/plan.json",
+          contentType: "application/json",
+          byteSize: 10,
+          sha256: "a".repeat(64)
+        }
+        const layer = makeJiraMigrationWorkflow({
+          start: () => Effect.void,
+          scan: () => Effect.void,
+          finalize: () => Effect.void,
+          materialize: () =>
+            materializeJiraPreparedPublication(
+              {
+                scanRevision: 1,
+                configurationRevision: 2,
+                attachments: [{ sourceAttachmentId: "attachment-1" }]
+              },
+              {
+                error: JiraMigrationWorkflowFailure,
+                createHidden: record("hidden").pipe(Effect.as("project-1")),
+                copyAttachment: (attachment) =>
+                  record(`attachment-${attachment.sourceAttachmentId}`).pipe(
+                    Effect.as({
+                      sourceAttachmentId: attachment.sourceAttachmentId,
+                      kind: "skipped" as const
+                    })
+                  ),
+                finalizePlan: () =>
+                  record("plan").pipe(
+                    Effect.as({
+                      planRef,
+                      publicationRevision: "b".repeat(64),
+                      documentBatchCount: 2
+                    })
+                  ),
+                writeDocumentBatch: (_planRef, ordinal) =>
+                  record(`batch-${ordinal}`).pipe(Effect.as(32)),
+                writeArchive: () => record("archive").pipe(Effect.as(1)),
+                writeReport: () => record("report").pipe(Effect.as(1)),
+                verify: () =>
+                  record("verify").pipe(
+                    Effect.as({
+                      planSha256: "b".repeat(64),
+                      documentCount: 66,
+                      attachmentCount: 0,
+                      unresolvedReferenceCount: 0 as const
+                    })
+                  )
+              }
+            ).pipe(Effect.asVoid)
+        }).pipe(Layer.provideMerge(WorkflowEngine.layerMemory))
+        yield* Effect.gen(function* () {
+          const executionId = yield* JiraMigrationWorkflow.execute(
+            createPayload,
+            {
+              discard: true
+            }
+          )
+          yield* waitUntilSuspended(executionId)
+          yield* completeStartImport(executionId, 1)
+          yield* JiraMigrationWorkflow.execute(createPayload)
+          expect(yield* Ref.get(stages)).toEqual([
+            "hidden",
+            "attachment-attachment-1",
+            "plan",
+            "batch-0",
+            "batch-1",
+            "archive",
+            "report",
+            "verify"
+          ])
+        }).pipe(Effect.provide(layer))
+      })
+  )
   it("keeps import Activity names and sorted document batches stable", () => {
     const documents = Array.from({ length: 65 }, (_, index) => ({
       path: `tickets/APP-${String(index + 1).padStart(3, "0")}.md`

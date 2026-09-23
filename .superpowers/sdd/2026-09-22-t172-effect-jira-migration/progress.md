@@ -35,7 +35,7 @@
 - [ ] Task 13: Disposable Browser Harness
 - [ ] Task 14: End-to-End Release Gate and Branch Cleanup
 
-Tasks 1–6 are complete and reviewed, as detailed below. Task 8 passed focused verification after the pause; Task 13 fixtures passed but its harness is pending. Task 7 remains blocked on the Effect retry wakeup. Task 9 now has fenced hidden reservation, deterministic local document writes, an attempt-level remote-write intent checkpoint, replay-safe pending attachment copies, and hidden graph verification for documents, archive, report, and stored attachments, with SQL-backed tests. Materialization Activity orchestration and Tasks 10–11 remain pending. Historical entries below retain their original context.
+Tasks 1–6 are complete and reviewed, as detailed below. Task 8 passed focused verification after the pause; Task 13 fixtures passed but its harness is pending. Task 7 remains blocked on the Effect retry wakeup. Task 9 now has fenced hidden reservation, deterministic local document writes, an attempt-level remote-write intent checkpoint, replay-safe pending attachment copies, hidden graph verification, and a versioned Activity sequence exercised by the memory workflow engine. The sequence still needs real callbacks, retry generations, and SQL restart proof before Task 9 can be checked off. Tasks 10–11 remain pending. Historical entries below retain their original context.
 
 ## Exact persisted contracts to carry into briefs
 
