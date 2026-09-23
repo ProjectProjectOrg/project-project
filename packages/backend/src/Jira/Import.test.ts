@@ -889,9 +889,54 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
                 [migrationId]
               )
             )
-            expect(yield* callbacks.publish(finalized.planRef, verified)).toBe(
-              true
+            const [beforeRace] = (yield* Effect.promise(() =>
+              pool.query("select revision from jira_migration where id = $1", [
+                migrationId
+              ])
+            )).rows
+            const [publicationRace, cancellationRace] = yield* Effect.all(
+              [
+                Effect.result(callbacks.publish(finalized.planRef, verified)),
+                Effect.result(
+                  projection.transition({
+                    owner: { organizationId, userId },
+                    migrationId,
+                    expectedRevision: beforeRace!.revision,
+                    action: "cancel"
+                  })
+                )
+              ],
+              { concurrency: 2 }
             )
+            const [afterRace] = (yield* Effect.promise(() =>
+              pool.query("select status from jira_migration where id = $1", [
+                migrationId
+              ])
+            )).rows
+            const [projectAfterRace] = (yield* Effect.promise(() =>
+              pool.query(
+                "select published_at from project_index where id = $1",
+                [prepared.projectId]
+              )
+            )).rows
+            if (projectAfterRace?.published_at === null) {
+              expect(afterRace?.status).toBe("cancelling")
+              expect(publicationRace._tag).toBe("Failure")
+              expect(cancellationRace._tag).toBe("Success")
+              yield* Effect.promise(() =>
+                pool.query(
+                  "update jira_migration set status = 'migrating' where id = $1",
+                  [migrationId]
+                )
+              )
+              expect(
+                yield* callbacks.publish(finalized.planRef, verified)
+              ).toBe(true)
+            } else {
+              expect(afterRace?.status).toBe("succeeded")
+              expect(publicationRace._tag).toBe("Success")
+              expect(cancellationRace._tag).toBe("Failure")
+            }
             const [publishedMigration] = (yield* Effect.promise(() =>
               pool.query(
                 "select checkpoint from jira_migration where id = $1",
