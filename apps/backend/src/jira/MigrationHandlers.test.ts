@@ -265,6 +265,7 @@ it.effect(
           },
           requirements: null,
           configuration: null,
+          failedAttachmentIds: [],
           actions: {
             canConfigure: false,
             canRun: false,
@@ -439,6 +440,7 @@ it.effect(
             scanSummary: null,
             requirements: null,
             configuration: null,
+            failedAttachmentIds: [],
             actions: {
               canConfigure: false,
               canRun: false,

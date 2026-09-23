@@ -6,6 +6,7 @@ import {
   attachmentReference,
   commentIndex,
   jiraMigration,
+  member,
   organization,
   projectIndex,
   projectMember,
@@ -53,6 +54,7 @@ import {
 import type { TicketDocsShape } from "../tickets/TicketDocs"
 import type { TicketIndexShape } from "../tickets/TicketIndex"
 import { convertAdfToMarkdown } from "./Adf"
+import { JiraRateLimited } from "./Blocked"
 import type { JiraClientShape } from "./Client"
 import { JiraProject } from "./ClientSchemas"
 import {
@@ -249,11 +251,11 @@ export type JiraPublicationSnapshotInput = Readonly<{
   connection: S3Connection
 }>
 
-export const prepareJiraPublicationFromSnapshot = Effect.fn(
-  "JiraImport.prepareFromSnapshot"
+export const buildJiraPreparedPublicationFromSnapshot = Effect.fn(
+  "JiraImport.buildFromSnapshot"
 )(function* (
   input: JiraPublicationSnapshotInput,
-  artifacts: Pick<JiraMigrationArtifactsShape, "readJson" | "writeJson">
+  artifacts: Pick<JiraMigrationArtifactsShape, "readJson">
 ) {
   const db = yield* Db
   const manifest = yield* artifacts.readJson(
@@ -300,6 +302,8 @@ export const prepareJiraPublicationFromSnapshot = Effect.fn(
       email: userTable.email
     })
     .from(userTable)
+    .innerJoin(member, eq(member.userId, userTable.id))
+    .where(eq(member.organizationId, input.organizationId))
   const linkedUserIds = new Set([
     input.ownerId,
     ...input.configuration.identities.flatMap((identity) =>
@@ -366,6 +370,19 @@ export const prepareJiraPublicationFromSnapshot = Effect.fn(
     },
     source
   })
+  return prepared
+})
+
+export const prepareJiraPublicationFromSnapshot = Effect.fn(
+  "JiraImport.prepareFromSnapshot"
+)(function* (
+  input: JiraPublicationSnapshotInput,
+  artifacts: Pick<JiraMigrationArtifactsShape, "readJson" | "writeJson">
+) {
+  const prepared = yield* buildJiraPreparedPublicationFromSnapshot(
+    input,
+    artifacts
+  )
   return yield* persistJiraPreparedPublication(prepared, artifacts)
 })
 
@@ -584,13 +601,29 @@ export const makeJiraMaterializationDependencies = (
     createdBy: prepared.ownerId,
     createdAt: prepared.migrationCreatedAt
   }
-  const failure = (error: unknown) =>
-    JiraMigrationWorkflowFailure.make({
+  const failure = (error: unknown) => {
+    if (Schema.is(JiraRateLimited)(error))
+      return JiraMigrationWorkflowFailure.make({
+        reason: "jira_rate_limited",
+        retryable: true,
+        retryAfterMillis: error.retryAfterMillis
+      })
+    const reconnect =
+      error !== null &&
+      typeof error === "object" &&
+      "_tag" in error &&
+      (error._tag === "JiraReconnectRequired" ||
+        error._tag === "JiraNotConnected")
+    return JiraMigrationWorkflowFailure.make({
       reason: Schema.is(JiraPublicationInvalid)(error)
         ? "jira_migration_publication_invalid"
-        : "jira_migration_materialization_failed",
-      retryable: !Schema.is(JiraPublicationInvalid)(error)
+        : reconnect
+          ? "jira_reconnect_required"
+          : "jira_migration_materialization_failed",
+      retryable: !Schema.is(JiraPublicationInvalid)(error),
+      reconnect
     })
+  }
   const mapFailure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     effect.pipe(Effect.mapError(failure))
   const load = (ref: JiraArtifactRef) =>
@@ -810,6 +843,25 @@ export const publishJiraMigrationAtomically = Effect.fn(
           return yield* new JiraPublicationInvalid({
             reasons: ["hidden-project-identity-conflict"]
           })
+        const plannedMemberIds = [
+          ...new Set(plan.indexes.members.map((row) => row.userId))
+        ]
+        if (plannedMemberIds.length > 0) {
+          const orgMembers = yield* tx
+            .select({ userId: member.userId })
+            .from(member)
+            .where(
+              and(
+                eq(member.organizationId, migration.organizationId),
+                inArray(member.userId, plannedMemberIds)
+              )
+            )
+            .for("share")
+          if (orgMembers.length !== plannedMemberIds.length)
+            return yield* new JiraPublicationInvalid({
+              reasons: ["publication-member-conflict"]
+            })
+        }
         if (plan.indexes.statuses.length > 0)
           yield* tx.insert(projectStatus).values(
             plan.indexes.statuses.map((row) => ({
@@ -1832,52 +1884,7 @@ export const markJiraAttachmentsLive = Effect.fn("JiraImport.attachmentsLive")(
   }
 )
 
-export function aliasJiraMediaReferences(
-  manifest: JiraMigrationManifest,
-  urlsByAttachmentId: Readonly<Record<string, string>>
-): Readonly<Record<string, string>> {
-  const attachmentsByIssue = new Map<string, Array<JiraManifestAttachment>>()
-  for (const attachment of manifest.attachments) {
-    const existing = attachmentsByIssue.get(attachment.issueId)
-    if (existing) existing.push(attachment)
-    else attachmentsByIssue.set(attachment.issueId, [attachment])
-  }
-
-  const aliased: Record<string, string> = { ...urlsByAttachmentId }
-  const resolve = (issueId: string, filename: string) => {
-    const onIssue = (attachmentsByIssue.get(issueId) ?? [])
-      .filter((attachment) => attachment.filename === filename)
-      .toSorted((left, right) => (left.id < right.id ? -1 : 1))
-    if (onIssue[0]) return onIssue[0].id
-    const anywhere = manifest.attachments
-      .filter((attachment) => attachment.filename === filename)
-      .toSorted((left, right) => (left.id < right.id ? -1 : 1))
-    return anywhere.length === 1 ? anywhere[0]!.id : null
-  }
-
-  const apply = (
-    issueId: string,
-    references: JiraMigrationManifest["comments"][number]["body"]["references"]
-  ) => {
-    for (const reference of references) {
-      if (reference.kind !== "jira-attachment") continue
-      if (aliased[reference.sourceId] !== undefined) continue
-      const attachmentId = resolve(issueId, reference.fallbackText)
-      if (attachmentId === null) continue
-      const url = urlsByAttachmentId[attachmentId]
-      if (url !== undefined) aliased[reference.sourceId] = url
-    }
-  }
-
-  for (const issue of manifest.issues) {
-    if (issue.description !== null)
-      apply(issue.id, issue.description.references)
-  }
-  for (const comment of manifest.comments) {
-    apply(comment.issueId, comment.body.references)
-  }
-  return aliased
-}
+export { aliasJiraMediaReferences } from "./PublicationPlan"
 
 export const reconcileJiraAttachmentReferences = Effect.fn(
   "JiraImport.reconcileAttachments"

@@ -131,6 +131,7 @@ export const actionsFor = (row: JiraMigrationRow): JiraMigrationActions => ({
     row.status !== "succeeded",
   canRetry:
     row.cleanupExecutionId === null &&
+    row.failureReason !== "jira_migration_preparation_invalid" &&
     ((row.status === "failed" && row.failureRetryable === true) ||
       row.status === "reconnect_required"),
   canDiscard:
@@ -183,6 +184,12 @@ export const toDetail = (row: JiraMigrationRow) =>
       scanSummary: checkpoint.scan?.summary ?? null,
       requirements: checkpoint.scan?.requirements ?? null,
       configuration,
+      failedAttachmentIds:
+        checkpoint.failedAttachments !== undefined &&
+        checkpoint.failedAttachments.configurationRevision ===
+          checkpoint.acceptedConfiguration?.configurationRevision
+          ? checkpoint.failedAttachments.ids
+          : [],
       actions: actionsFor(row),
       failure:
         row.failureReason === null
@@ -503,7 +510,11 @@ export type JiraMigrationProjectionShape = Readonly<{
   recordImportFailure: (
     fence: AttemptFence,
     operationKey: string,
-    failure: Readonly<{ reason: string; retryable: boolean }>
+    failure: Readonly<{
+      reason: string
+      retryable: boolean
+      reconnect?: boolean
+    }>
   ) => Effect.Effect<number | null, JiraError>
   resumeImport: (
     fence: AttemptFence,
@@ -1187,7 +1198,7 @@ export class JiraMigrationProjection extends Context.Service<
                         [operationKey]: sequence
                       }
                     }),
-                    status: "failed",
+                    status: failure.reconnect ? "reconnect_required" : "failed",
                     failureReason: failure.reason,
                     failureRetryable: failure.retryable,
                     failureSequence: sequence,
@@ -1219,7 +1230,9 @@ export class JiraMigrationProjection extends Context.Service<
                 !row ||
                 row.cleanupExecutionId !== null ||
                 row.scanAt === null ||
-                !["failed", "migrating"].includes(row.status)
+                !["failed", "migrating", "reconnect_required"].includes(
+                  row.status
+                )
               )
                 return { _tag: "Rejected" } as const
               if (row.failureSequence > sequence)

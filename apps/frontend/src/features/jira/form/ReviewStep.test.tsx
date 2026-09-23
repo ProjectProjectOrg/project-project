@@ -1,12 +1,12 @@
 import type { JiraMigrationRequirements } from "@pp/shared"
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import * as DateTime from "effect/DateTime"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { useAppForm } from "@/lib/form"
 
-import { jiraMigrationFormOpts } from "./opts"
+import { buildJiraMigrationDraft, jiraMigrationFormOpts } from "./opts"
 import { ReviewStep } from "./ReviewStep"
 
 const atomState = vi.hoisted(() => ({
@@ -76,19 +76,28 @@ const summary = cast<Parameters<typeof ReviewStep>[0]["summary"]>({
 })
 
 function Harness({
-  restrictedContent
+  restrictedContent,
+  attachments = [],
+  failedAttachmentIds = []
 }: {
   restrictedContent: JiraMigrationRequirements["restrictedContent"]
+  attachments?: JiraMigrationRequirements["attachments"]
+  failedAttachmentIds?: ReadonlyArray<string>
 }) {
-  const form = useAppForm(jiraMigrationFormOpts)
+  const requirements = { ...requirementsWith(restrictedContent), attachments }
+  const form = useAppForm({
+    ...jiraMigrationFormOpts,
+    defaultValues: buildJiraMigrationDraft(requirements, null)
+  })
   return (
     <ReviewStep
       form={form}
       orgSlug="fixture-org"
       migrationId="migration-1"
       revision={2}
-      requirements={requirementsWith(restrictedContent)}
+      requirements={requirements}
       summary={summary}
+      failedAttachmentIds={failedAttachmentIds}
       waiting={false}
       error={null}
       onBack={() => {}}
@@ -187,6 +196,68 @@ describe("ReviewStep destination conflicts", () => {
         .getByRole("button", { name: "Confirm and migrate" })
         .hasAttribute("disabled")
     ).toBe(false)
+  })
+
+  it("requires acknowledging forced attachment skips before starting", () => {
+    atomState.result = AsyncResult.success([])
+    render(
+      <Harness
+        restrictedContent={restrictedContent}
+        attachments={[
+          {
+            jiraAttachmentId: "attachment-1",
+            filename: "video.mp4",
+            byteSize: 100,
+            forcedSkipReason: "unsupported_type"
+          }
+        ]}
+      />
+    )
+
+    const start = screen.getByRole("button", { name: "Confirm and migrate" })
+    expect(start.hasAttribute("disabled")).toBe(true)
+    expect(
+      screen.getByText(
+        "Confirm that these files will be left out before starting."
+      )
+    ).toBeTruthy()
+    fireEvent.click(screen.getByRole("checkbox"))
+    expect(start.hasAttribute("disabled")).toBe(false)
+  })
+
+  it("lets the user leave out a failed copy or retry it", () => {
+    atomState.result = AsyncResult.success([])
+    render(
+      <Harness
+        restrictedContent={restrictedContent}
+        attachments={[
+          {
+            jiraAttachmentId: "attachment-1",
+            filename: "notes.txt",
+            byteSize: 100,
+            forcedSkipReason: null
+          }
+        ]}
+        failedAttachmentIds={["attachment-1"]}
+      />
+    )
+
+    const start = screen.getByRole("button", { name: "Confirm and migrate" })
+    expect(start.hasAttribute("disabled")).toBe(true)
+    expect(
+      screen.getByText(
+        "Select a file to leave out, or go back to retry copying them all."
+      )
+    ).toBeTruthy()
+    fireEvent.click(screen.getByRole("checkbox", { name: /notes\.txt/ }))
+    expect(start.hasAttribute("disabled")).toBe(true)
+    expect(
+      screen.getByText(
+        "Confirm that these files will be left out before starting."
+      )
+    ).toBeTruthy()
+    fireEvent.click(screen.getByRole("checkbox", { name: /I understand/ }))
+    expect(start.hasAttribute("disabled")).toBe(false)
   })
 
   it("keeps Start disabled when the conflict check fails", () => {

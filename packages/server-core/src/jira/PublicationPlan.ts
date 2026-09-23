@@ -200,6 +200,10 @@ export function createJiraReferenceTargets(
   attachmentUrlsBySourceId: Readonly<Record<string, string>>
 ): JiraReferenceTargets {
   const targets: Record<string, JiraReferenceTarget> = {}
+  const resolvedAttachmentUrls = aliasJiraMediaReferences(
+    manifest,
+    attachmentUrlsBySourceId
+  )
   const ticketMappings = new Map(
     mappings.ticketIds.map((mapping) => [mapping.sourceIssueId, mapping])
   )
@@ -231,7 +235,87 @@ export function createJiraReferenceTargets(
     targets[jiraReferenceKey("jira-attachment", sourceAttachmentId)] =
       embeddableUrls.has(url) ? { url, embed: true } : { url }
   }
+  for (const [mediaId, url] of Object.entries(resolvedAttachmentUrls)) {
+    if (targets[jiraReferenceKey("jira-attachment", mediaId)]) continue
+    targets[jiraReferenceKey("jira-attachment", mediaId)] = embeddableUrls.has(
+      url
+    )
+      ? { url, embed: true }
+      : { url }
+  }
   return targets
+}
+
+export function aliasJiraMediaReferences(
+  manifest: JiraPublicationSource,
+  urlsByAttachmentId: Readonly<Record<string, string>>
+): Readonly<Record<string, string>> {
+  const aliased: Record<string, string> = { ...urlsByAttachmentId }
+  const resolve = (issueId: string | null, filename: string) => {
+    const matches = manifest.attachments.filter(
+      (attachment) =>
+        attachment.filename === filename &&
+        (issueId === null || attachment.issueId === issueId)
+    )
+    return matches.length === 1 ? matches[0]!.id : null
+  }
+  const apply = (issueId: string | null, text: JiraConvertedText) => {
+    for (const reference of text.references) {
+      if (reference.kind !== "jira-attachment") continue
+      if (aliased[reference.sourceId] !== undefined) continue
+      const attachmentId = resolve(issueId, reference.fallbackText)
+      if (attachmentId === null) continue
+      const url = urlsByAttachmentId[attachmentId]
+      if (url !== undefined) aliased[reference.sourceId] = url
+    }
+  }
+  if (manifest.source.description) apply(null, manifest.source.description)
+  for (const issue of manifest.issues) {
+    if (issue.description) apply(issue.id, issue.description)
+  }
+  for (const comment of manifest.comments) apply(comment.issueId, comment.body)
+  return aliased
+}
+
+function unresolvedJiraMediaReferences(
+  manifest: JiraPublicationSource,
+  mappings: JiraMigrationMappings,
+  urlsByAttachmentId: Readonly<Record<string, string>>
+) {
+  const aliases = aliasJiraMediaReferences(manifest, urlsByAttachmentId)
+  const excluded = excludedSourceRecords(manifest, mappings)
+  const unresolved: Array<
+    Readonly<{ source: string; mediaId: string; filename: string }>
+  > = []
+  const collect = (source: string, text: JiraConvertedText) => {
+    for (const reference of text.references) {
+      if (
+        reference.kind === "jira-attachment" &&
+        aliases[reference.sourceId] === undefined
+      )
+        unresolved.push({
+          source,
+          mediaId: reference.sourceId,
+          filename: reference.fallbackText
+        })
+    }
+  }
+  if (manifest.source.description)
+    collect("Project description", manifest.source.description)
+  for (const issue of manifest.issues) {
+    if (!excluded.issues.has(issue.id) && issue.description)
+      collect(issue.key, issue.description)
+  }
+  for (const comment of manifest.comments) {
+    if (
+      excluded.issues.has(comment.issueId) ||
+      excluded.comments.has(comment.id)
+    )
+      continue
+    const issue = manifest.issues.find((item) => item.id === comment.issueId)
+    collect(issue?.key ?? comment.issueId, comment.body)
+  }
+  return unresolved
 }
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i
@@ -242,14 +326,36 @@ const isEmbeddableAttachment = (attachment: JiraManifestAttachment): boolean =>
 
 export function rewriteJiraPublicationText(
   text: JiraConvertedText,
-  targets: JiraReferenceTargets
+  targets: JiraReferenceTargets,
+  sourceSiteUrl: string
 ): string {
   const destinations = new Map<string, JiraReferenceTarget>()
   for (const reference of text.references) {
+    if (
+      reference.kind === "jira-issue" &&
+      (reference.originalUrl === null ||
+        !isSourceJiraIssueUrl(reference.originalUrl, sourceSiteUrl))
+    )
+      continue
     const target = targets[jiraReferenceKey(reference.kind, reference.sourceId)]
     if (target) destinations.set(reference.placeholder, target)
   }
   return rewriteJiraReferences(text, destinations)
+}
+
+function isSourceJiraIssueUrl(originalUrl: string, sourceSiteUrl: string) {
+  try {
+    const original = new URL(originalUrl)
+    const source = new URL(sourceSiteUrl)
+    const sourcePath = source.pathname.replace(/\/$/, "")
+    return (
+      original.protocol === source.protocol &&
+      original.host === source.host &&
+      original.pathname.startsWith(`${sourcePath}/browse/`)
+    )
+  } catch {
+    return false
+  }
 }
 
 function createJiraPublicationDraft(
@@ -354,7 +460,11 @@ function createJiraPublicationDraft(
         body:
           issue.description === null
             ? ""
-            : rewriteJiraPublicationText(issue.description, targets),
+            : rewriteJiraPublicationText(
+                issue.description,
+                targets,
+                manifest.source.siteUrl
+              ),
         createdAt: issue.createdAt,
         updatedAt: issue.updatedAt
       }
@@ -380,7 +490,11 @@ function createJiraPublicationDraft(
                 displayName: comment.authorDisplayName,
                 accountId: comment.authorAccountId
               },
-        body: rewriteJiraPublicationText(comment.body, targets),
+        body: rewriteJiraPublicationText(
+          comment.body,
+          targets,
+          manifest.source.siteUrl
+        ),
         createdAt: comment.createdAt,
         editedAt: comment.updatedAt
       }
@@ -496,7 +610,11 @@ function createJiraPublicationDraft(
           manifest.source.description === undefined ||
           manifest.source.description === null
             ? ""
-            : rewriteJiraPublicationText(manifest.source.description, targets),
+            : rewriteJiraPublicationText(
+                manifest.source.description,
+                targets,
+                manifest.source.siteUrl
+              ),
         jiraSourceUrl: `${manifest.source.siteUrl.replace(/\/$/, "")}/browse/${manifest.source.projectKey}`
       },
       tags,
@@ -1388,7 +1506,8 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
             targetTicketUrl: `/orgs/${encodeURIComponent(prepared.orgSlug)}/projects/${encodeURIComponent(project.slug)}/tickets/${encodeURIComponent(attachment.ticketId)}`
           }
         ]
-      })
+      }),
+      unresolvedJiraMediaReferences(source, safeMappings, urls)
     )
     const plan = yield* Schema.decodeUnknownEffect(JiraPublicationPlanV1)({
       version: 1,

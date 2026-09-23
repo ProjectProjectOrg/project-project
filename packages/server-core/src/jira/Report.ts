@@ -663,6 +663,9 @@ export function buildJiraReportV2(
       sourceIssueUrl: string
       targetTicketUrl: string
     }>
+  > = [],
+  unresolvedMedia: ReadonlyArray<
+    Readonly<{ source: string; mediaId: string; filename: string }>
   > = []
 ) {
   const archivedCounts = Object.fromEntries(
@@ -686,7 +689,8 @@ export function buildJiraReportV2(
   const partialSuccess =
     outcomes.some((x) => x.kind !== "copied") ||
     archive.exclusions.some((x) => x.excludedReason === "excluded_by_user") ||
-    coverage.some((x) => x.visibility !== "complete")
+    coverage.some((x) => x.visibility !== "complete") ||
+    unresolvedMedia.length > 0
   const decodeTextRecord = Schema.decodeUnknownOption(
     Schema.Struct({
       id: Schema.String,
@@ -743,6 +747,22 @@ export function buildJiraReportV2(
     "## Attachment outcomes",
     canonicalJiraJson(archive.attachmentOutcomes),
     "",
+    ...(unresolvedMedia.length === 0
+      ? []
+      : [
+          "## Embedded files needing attention",
+          "These media references could not be matched safely to a copied Jira attachment. Their original text remains in the destination. Open the source issue to locate the file and add it manually if needed.",
+          "",
+          table(
+            ["Source", "File label", "Jira media ID"],
+            unresolvedMedia.map(({ source, filename, mediaId }) => [
+              escapeCell(source),
+              escapeCell(filename),
+              escapeCell(mediaId)
+            ])
+          ),
+          ""
+        ]),
     ...(manualAttachments.length === 0
       ? []
       : [

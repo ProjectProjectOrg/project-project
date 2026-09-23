@@ -3,7 +3,7 @@ import {
   type JiraMigrationDetail
 } from "@pp/shared"
 import { cleanup, render, screen } from "@testing-library/react"
-import { Schema } from "effect"
+import { DateTime, Schema } from "effect"
 import { afterEach, expect, it } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
@@ -22,18 +22,35 @@ const progressDetail = {
   actions: { canCancel: true }
 } as JiraMigrationDetail
 
-const terminalDetail = {
+const terminalDetail: JiraMigrationDetail = {
   id: "migration-1",
+  sourceCloudId: "cloud",
+  sourceProjectId: "project",
+  sourceProjectKey: "APP",
+  sourceProjectName: "Application",
   status: "failed",
+  phase: "migrate",
+  revision: 1,
+  progress: { phase: "migrate", done: 0, total: null },
   destinationProjectSlug: null,
+  createdAt: DateTime.makeUnsafe("2026-09-23T00:00:00.000Z"),
+  updatedAt: DateTime.makeUnsafe("2026-09-23T00:00:00.000Z"),
+  scanSummary: null,
+  requirements: null,
+  configuration: null,
+  failedAttachmentIds: [],
   actions: {
     canRetry: true,
     canConfigure: false,
+    canRun: true,
     canRescan: true,
+    canCancel: false,
     canDiscard: true
   },
-  failure: null
-} as JiraMigrationDetail
+  failure: null,
+  reportPath: null,
+  finishedAt: null
+}
 
 const mutationError = m.jira_migration_error_generic()
 
@@ -102,6 +119,27 @@ it("shows retry and rescan failures inline on the terminal screen", () => {
   expect(screen.getByRole("alert").textContent).toContain(
     "The Jira migration could not be updated. Try again."
   )
+})
+
+it("offers both retry and mapping when an attachment copy can be skipped", () => {
+  render(
+    <JiraTerminalStep
+      detail={{
+        ...terminalDetail,
+        actions: { ...terminalDetail.actions, canConfigure: true },
+        failedAttachmentIds: ["attachment-1"]
+      }}
+      orgSlug="example"
+      waiting={false}
+      onRetry={() => {}}
+      onReconfigure={() => {}}
+    />
+  )
+
+  expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy()
+  expect(
+    screen.getByRole("button", { name: "Choose files to leave out" })
+  ).toBeTruthy()
 })
 
 it("offers discard when a cancelled migration is safe to clean up", () => {

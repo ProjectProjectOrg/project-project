@@ -28,6 +28,7 @@ const detail = (id: string): JiraMigrationDetail => ({
   scanSummary: null,
   requirements: null,
   configuration: null,
+  failedAttachmentIds: [],
   actions: {
     canConfigure: true,
     canRun: true,

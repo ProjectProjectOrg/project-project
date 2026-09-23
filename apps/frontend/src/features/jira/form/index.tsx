@@ -57,12 +57,14 @@ export function JiraMigrationForm({
   detail,
   step,
   onStep,
+  onExitCorrection,
   draftSaveRef
 }: Readonly<{
   orgSlug: string
   detail: JiraMigrationDetail
   step: JiraWizardStep
   onStep: (step: JiraMigrationStep) => void
+  onExitCorrection?: () => void
   draftSaveRef: JiraDraftSaveRef
 }>) {
   if (!detail.requirements || !detail.scanSummary) return null
@@ -75,6 +77,7 @@ export function JiraMigrationForm({
       summary={detail.scanSummary}
       step={step}
       onStep={onStep}
+      onExitCorrection={onExitCorrection}
       draftSaveRef={draftSaveRef}
     />
   )
@@ -87,6 +90,7 @@ function ConfiguredJiraMigrationForm({
   summary,
   step,
   onStep,
+  onExitCorrection,
   draftSaveRef
 }: Readonly<{
   orgSlug: string
@@ -95,6 +99,7 @@ function ConfiguredJiraMigrationForm({
   summary: NonNullable<JiraMigrationDetail["scanSummary"]>
   step: JiraWizardStep
   onStep: (step: JiraMigrationStep) => void
+  onExitCorrection?: () => void
   draftSaveRef: JiraDraftSaveRef
 }>) {
   const key = jiraMigrationKey(orgSlug, detail.id)
@@ -108,7 +113,7 @@ function ConfiguredJiraMigrationForm({
   const run = useAtomSet(runJiraMigrationAtom(key), { mode: "promiseExit" })
   const configureState = useAtomValue(configureJiraMigrationAtom(key))
   const runState = useAtomValue(runJiraMigrationAtom(key))
-  const error = mutationError(configureState, runState) ?? validationError
+  const error = validationError ?? mutationError(configureState, runState)
   const waiting = configureState.waiting || runState.waiting
 
   const form = useAppForm({
@@ -352,6 +357,13 @@ function ConfiguredJiraMigrationForm({
               migrationId={detail.id}
               revision={savedRevision}
               summary={summary}
+              failedAttachmentIds={detail.failedAttachmentIds}
+              onBack={
+                detail.destinationProjectSlug !== null &&
+                detail.failedAttachmentIds.length > 0
+                  ? (onExitCorrection ?? previous)
+                  : previous
+              }
               onNext={() => void group.handleSubmit()}
             />
           )}

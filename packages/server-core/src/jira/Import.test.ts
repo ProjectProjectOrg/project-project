@@ -528,6 +528,10 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
       [organizationId]
     )
     await pool.query(
+      'insert into "member" (id,organization_id,user_id,role,created_at) values ($1,$2,$3,$4,now())',
+      [randomUUID(), organizationId, userId, "owner"]
+    )
+    await pool.query(
       `insert into jira_migration (id,request_id,organization_id,initiated_by,source_cloud_id,source_site_name,source_site_url,source_project_id,source_project_key,source_project_name,staging_prefix,workflow_execution_id,workflow_attempt,scan_revision,status,phase,checkpoint) values ($1,$2,$3,$4,'cloud','Site','https://example.test','10000','APP','Application',$5,$1,1,1,'migrating','migrate',$6)`,
       [
         migrationId,
@@ -729,6 +733,54 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
               }
             )
             const preparedRef = yield* preparation
+            const outsideUserId = randomUUID()
+            owners.push({ organizationId, userId: outsideUserId })
+            yield* Effect.promise(() =>
+              pool.query(
+                'insert into "user" (id,name,email,email_verified,created_at,updated_at) values ($1,$1,$2,false,now(),now())',
+                [outsideUserId, `${outsideUserId}@example.test`]
+              )
+            )
+            const outsideConfiguration = {
+              ...acceptedConfiguration,
+              identities: acceptedConfiguration.identities.map((identity) =>
+                identity.projectProjectUserId === null
+                  ? identity
+                  : { ...identity, projectProjectUserId: outsideUserId }
+              )
+            }
+            const outsideError = yield* Effect.flip(
+              prepareJiraPublicationFromSnapshot(
+                {
+                  fence: {
+                    migrationId,
+                    workflowExecutionId: migrationId,
+                    workflowAttempt: 1
+                  },
+                  manifestRef,
+                  configurationRevision: 2,
+                  configuration: outsideConfiguration,
+                  migrationCreatedAt,
+                  organizationId,
+                  orgSlug: organizationId,
+                  ownerId: userId,
+                  connection
+                },
+                {
+                  readJson: (_orgSlug, ref, schema) =>
+                    Schema.decodeUnknownEffect(schema)(
+                      stored.get(ref.key)
+                    ).pipe(Effect.orDie),
+                  writeJson: () => Effect.die("An invalid link must not write")
+                }
+              )
+            )
+            expect(outsideError).toMatchObject({
+              _tag: "JiraPublicationInvalid",
+              reasons: expect.arrayContaining([
+                "invalid-linked-user:account-linked"
+              ])
+            })
             const reloaded = yield* loadJiraPreparedPublication(
               organizationId,
               preparedRef,
@@ -870,6 +922,25 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
               )
             )).rows
             expect(statusCount?.count).toBe(0)
+            yield* Effect.promise(() =>
+              pool.query(
+                'delete from "member" where organization_id = $1 and user_id = $2',
+                [organizationId, userId]
+              )
+            )
+            const missingMember = yield* Effect.flip(
+              publishJiraMigrationAtomically(publishInput)
+            )
+            expect(missingMember).toMatchObject({
+              _tag: "JiraPublicationInvalid",
+              reasons: ["publication-member-conflict"]
+            })
+            yield* Effect.promise(() =>
+              pool.query(
+                'insert into "member" (id,organization_id,user_id,role,created_at) values ($1,$2,$3,$4,now())',
+                [randomUUID(), organizationId, userId, "owner"]
+              )
+            )
             yield* Effect.promise(() =>
               pool.query(
                 "update jira_migration set status = 'cancelling' where id = $1",
@@ -1586,16 +1657,10 @@ describe("embedded image references", () => {
       ]
     }
 
-    const urls = aliasJiraMediaReferences(withMedia, {
+    const result = buildJiraImportPlan(withMedia, configuration, environment, {
       "10348": "/api/attachments/example/IMG",
       "10349": "/api/attachments/example/DOC"
     })
-    const result = buildJiraImportPlan(
-      withMedia,
-      configuration,
-      environment,
-      urls
-    )
 
     if (result.kind !== "ready")
       throw new Error(`blocked: ${JSON.stringify(result.blockers)}`)

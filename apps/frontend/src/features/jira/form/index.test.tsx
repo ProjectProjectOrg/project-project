@@ -15,12 +15,17 @@ import type * as Atom from "effect/unstable/reactivity/Atom"
 import { createRef, useRef, useState } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import { jiraDestinationConflictsAtom } from "@/features/jira/atoms/jiraMigration"
+import {
+  configureJiraMigrationAtom,
+  jiraDestinationConflictsAtom,
+  jiraMigrationKey
+} from "@/features/jira/atoms/jiraMigration"
 
 import { JiraMigrationForm, type JiraDraftSave } from "."
 
 const mocks = vi.hoisted(() => ({
   mutate: vi.fn(),
+  failedConfigure: false,
   observedAtoms: [] as Array<unknown>
 }))
 
@@ -31,6 +36,12 @@ vi.mock("@effect/atom-react", async (importOriginal) => {
     useAtomSet: () => mocks.mutate,
     useAtomValue: (atom: Atom.Atom<unknown>) => {
       mocks.observedAtoms.push(atom)
+      if (
+        mocks.failedConfigure &&
+        atom ===
+          configureJiraMigrationAtom(jiraMigrationKey("example", "migration"))
+      )
+        return AsyncResult.fail(new Error("Configuration failed"))
       return AsyncResult.success([])
     },
     useAtomRefresh: () => vi.fn()
@@ -40,6 +51,7 @@ vi.mock("@effect/atom-react", async (importOriginal) => {
 afterEach(() => {
   cleanup()
   mocks.mutate.mockReset()
+  mocks.failedConfigure = false
   mocks.observedAtoms.length = 0
 })
 
@@ -126,6 +138,7 @@ const detail: JiraMigrationDetail = {
   sourceProjectKey: "WEB",
   sourceProjectName: "Platform",
   status: "needs_configuration",
+  failedAttachmentIds: [],
   phase: "configuration",
   revision: 14,
   progress: { phase: "configuration", done: 1, total: 1 },
@@ -192,7 +205,43 @@ function FormNavigationHarness({
 }
 
 describe("JiraMigrationForm navigation", () => {
+  it("returns from failed-file correction without saving an unchanged draft", () => {
+    const onExitCorrection = vi.fn()
+    const draftSaveRef = createRef<JiraDraftSave | null>()
+    render(
+      <JiraMigrationForm
+        orgSlug="example"
+        detail={{
+          ...detail,
+          status: "failed",
+          destinationProjectSlug: requirements.destination.suggestedSlug,
+          failedAttachmentIds: ["attachment-1"],
+          requirements: {
+            ...requirements,
+            attachments: [
+              {
+                jiraAttachmentId: "attachment-1",
+                filename: "notes.txt",
+                byteSize: 12,
+                forcedSkipReason: null
+              }
+            ]
+          }
+        }}
+        step="review"
+        draftSaveRef={draftSaveRef}
+        onStep={() => {}}
+        onExitCorrection={onExitCorrection}
+      />
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }))
+    expect(onExitCorrection).toHaveBeenCalledOnce()
+    expect(mocks.mutate).not.toHaveBeenCalled()
+  })
+
   it("keeps the current step and shows a mapped error when saving fails", async () => {
+    mocks.failedConfigure = true
     mocks.mutate.mockResolvedValueOnce(
       Exit.fail(new Conflict({ reason: "jira_migration_revision_conflict" }))
     )

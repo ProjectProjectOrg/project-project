@@ -323,6 +323,7 @@ export const JiraMigrationDetail = Schema.Struct({
   scanSummary: Schema.NullOr(JiraMigrationScanSummary),
   requirements: Schema.NullOr(JiraMigrationRequirements),
   configuration: Schema.NullOr(JiraMigrationConfiguration),
+  failedAttachmentIds: Schema.Array(Schema.NonEmptyString),
   actions: JiraMigrationActions,
   failure: Schema.NullOr(JiraMigrationFailure),
   reportPath: Schema.NullOr(Schema.String),

@@ -171,6 +171,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
           retryable: true
         })
         const failed = yield* p.owned(input, created.id)
+        expect((yield* p.toDetail(failed)).failedAttachmentIds).toEqual(["a-2"])
         const unresolved = yield* p.unresolvedFailedAttachments({
           ...current,
           expectedRevision: failed.revision
@@ -191,15 +192,58 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
             })
           ))._tag
         ).toBe("Failure")
-        expect(
-          (yield* p.saveConfiguration({
-            owner: input,
-            migrationId: created.id,
-            expectedRevision: failed.revision,
-            configuration: corrected,
-            unresolvedFailedAttachmentIds: unresolved
-          })).status
-        ).toBe("ready")
+        const correctedRow = yield* p.saveConfiguration({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: failed.revision,
+          configuration: corrected,
+          unresolvedFailedAttachmentIds: unresolved
+        })
+        expect(correctedRow.status).toBe("ready")
+        const resumed = yield* p.transition({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: correctedRow.revision,
+          action: "run"
+        })
+        expect(resumed.failedAttachmentIds).toEqual([])
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("keeps preparation failures configurable without offering a blind retry", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        const current = fence(created)
+        yield* p.completeScan(current, emptyScan)
+        const scanned = yield* p.owned(input, created.id)
+        const ready = yield* p.saveConfiguration({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: scanned.revision,
+          configuration: emptyConfiguration
+        })
+        yield* p.transition({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: ready.revision,
+          action: "run"
+        })
+        yield* p.recordFailure(current, {
+          reason: "jira_migration_preparation_invalid",
+          retryable: true
+        })
+        const failed = yield* p.owned(input, created.id)
+        const detail = yield* p.toDetail(failed)
+        expect(detail.actions.canConfigure).toBe(true)
+        expect(detail.actions.canRetry).toBe(false)
+        expect(detail.actions.canRescan).toBe(true)
+        expect(failed.checkpoint).not.toHaveProperty(
+          "remoteWritesMayStillCommit"
+        )
       }).pipe(Effect.provide(layer))
     )
   })
@@ -330,6 +374,23 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
           action: "run"
         })
         expect(yield* p.resumeImport(current, 1)).toEqual({ _tag: "Resumed" })
+        expect(
+          yield* p.recordImportFailure(current, "materialize/1", {
+            reason: "jira_reconnect_required",
+            retryable: true,
+            reconnect: true
+          })
+        ).toBe(2)
+        const reconnect = yield* p.owned(input, created.id)
+        expect(reconnect.status).toBe("reconnect_required")
+        expect(yield* p.resumeImport(current, 2)).toEqual({ _tag: "Rejected" })
+        yield* p.transition({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: reconnect.revision,
+          action: "run"
+        })
+        expect(yield* p.resumeImport(current, 2)).toEqual({ _tag: "Resumed" })
       }).pipe(Effect.provide(layer))
     )
   })

@@ -13,15 +13,30 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { MarkdownLive } from "../markdown/MarkdownLive"
 import { OrgStorage } from "../storage/OrgStorage"
 import { S3Storage } from "../storage/S3Storage"
-import { makeJiraProductionActivities } from "./MigrationProduction"
+import {
+  makeJiraProductionActivities,
+  preparationFailure
+} from "./MigrationProduction"
 import { JiraMigrationProjection } from "./MigrationProjection"
 import {
   JiraMigrationWorkflow,
   makeJiraMigrationWorkflow
 } from "./MigrationWorkflow"
+import { JiraPublicationInvalid } from "./Preflight"
 import { makeScanTestLayer } from "./ScanTestSupport"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
+
+it("keeps a correctable preparation failure inside the durable retry gate", () => {
+  expect(
+    preparationFailure(
+      new JiraPublicationInvalid({ reasons: ["project-key-collision:APP"] })
+    )
+  ).toMatchObject({
+    reason: "jira_migration_preparation_invalid",
+    retryable: true
+  })
+})
 
 describe.skipIf(!databaseUrl)("Jira production workflow composition", () => {
   let pool: Pool

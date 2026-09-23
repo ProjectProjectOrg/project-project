@@ -12,9 +12,10 @@ import { S3Storage } from "../storage/S3Storage"
 import * as CleanupWorkflow from "./CleanupWorkflow"
 import { JiraClient } from "./Client"
 import {
+  buildJiraPreparedPublicationFromSnapshot,
   loadJiraPreparedPublication,
   loadJiraPublicationPlan,
-  prepareJiraPublicationFromSnapshot,
+  persistJiraPreparedPublication,
   publishJiraMigrationAtomically
 } from "./Import"
 import * as JiraImport from "./Import"
@@ -30,7 +31,10 @@ import {
   JiraMigrationProjection,
   type AttemptFence
 } from "./MigrationProjection"
-import { JiraMigrationWorkflowFailure } from "./MigrationWorkflow"
+import {
+  JiraMigrationWorkflowFailure,
+  withJiraRemoteWriteIntent
+} from "./MigrationWorkflow"
 import { finalizeJiraMigrationAttempt, scanSnapshot } from "./MigrationWorkflow"
 import * as MigrationWorkflow from "./MigrationWorkflow"
 import { JiraPublicationInvalid } from "./Preflight"
@@ -57,6 +61,11 @@ const materializationFailure = (error: unknown) =>
       : "jira_migration_materialization_failed",
     !Schema.is(JiraPublicationInvalid)(error)
   )
+
+export const preparationFailure = (error: unknown) =>
+  Schema.is(JiraPublicationInvalid)(error)
+    ? failure("jira_migration_preparation_invalid", true)
+    : materializationFailure(error)
 
 export const makeJiraProductionActivities = Effect.gen(function* () {
   const db = yield* Db
@@ -164,20 +173,29 @@ export const makeJiraProductionActivities = Effect.gen(function* () {
         },
         {
           error: JiraMigrationWorkflowFailure,
-          prepare: prepareJiraPublicationFromSnapshot(
-            {
+          prepare: Effect.gen(function* () {
+            const prepared = yield* buildJiraPreparedPublicationFromSnapshot(
+              {
+                fence,
+                manifestRef,
+                configurationRevision: accepted.configurationRevision,
+                configuration: accepted.configuration,
+                migrationCreatedAt: row.createdAt.toISOString(),
+                organizationId: row.organizationId,
+                orgSlug,
+                ownerId: row.initiatedBy,
+                connection
+              },
+              artifacts
+            ).pipe(Effect.mapError(preparationFailure))
+            return yield* withJiraRemoteWriteIntent(
+              projection,
               fence,
-              manifestRef,
-              configurationRevision: accepted.configurationRevision,
-              configuration: accepted.configuration,
-              migrationCreatedAt: row.createdAt.toISOString(),
-              organizationId: row.organizationId,
-              orgSlug,
-              ownerId: row.initiatedBy,
-              connection
-            },
-            artifacts
-          ).pipe(Effect.mapError(materializationFailure))
+              persistJiraPreparedPublication(prepared, artifacts).pipe(
+                Effect.mapError(materializationFailure)
+              )
+            )
+          })
         }
       )
       const prepared = yield* loadJiraPreparedPublication(
@@ -222,25 +240,29 @@ export const makeJiraProductionActivities = Effect.gen(function* () {
               failure("jira_migration_superseded", false)
             )
         })
-      return yield* materializeJiraPreparedPublication(
-        {
-          scanRevision: row.scanRevision,
-          configurationRevision: accepted.configurationRevision,
-          operationTry,
-          attachments: prepared.attachments
-        },
-        {
-          ...dependencies,
-          copyAttachment: (attachment) =>
-            dependencies.copyAttachment(attachment).pipe(
-              Effect.tapError(() =>
-                attachment.decision === "copy"
-                  ? receipt(attachment.sourceAttachmentId, true)
-                  : Effect.void
-              ),
-              Effect.tap(() => receipt(attachment.sourceAttachmentId, false))
-            )
-        }
+      return yield* withJiraRemoteWriteIntent(
+        projection,
+        fence,
+        materializeJiraPreparedPublication(
+          {
+            scanRevision: row.scanRevision,
+            configurationRevision: accepted.configurationRevision,
+            operationTry,
+            attachments: prepared.attachments
+          },
+          {
+            ...dependencies,
+            copyAttachment: (attachment) =>
+              dependencies.copyAttachment(attachment).pipe(
+                Effect.tapError(() =>
+                  attachment.decision === "copy"
+                    ? receipt(attachment.sourceAttachmentId, true)
+                    : Effect.void
+                ),
+                Effect.tap(() => receipt(attachment.sourceAttachmentId, false))
+              )
+          }
+        )
       )
     })
 

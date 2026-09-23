@@ -80,7 +80,9 @@ export const JiraMigrationWorkflowFailure = Schema.TaggedStruct(
   "JiraMigrationWorkflowFailure",
   {
     reason: Schema.NonEmptyString,
-    retryable: Schema.Boolean
+    retryable: Schema.Boolean,
+    retryAfterMillis: Schema.optional(Schema.Int),
+    reconnect: Schema.optional(Schema.Boolean)
   }
 )
 export type JiraMigrationWorkflowFailureValue =
@@ -152,6 +154,15 @@ export const makeJiraMigrationWorkflow = <R>(
             const result = yield* Effect.result(run(operationTry))
             if (result._tag === "Success") return result.success
             const failure = result.failure
+            if (failure.retryAfterMillis !== undefined) {
+              yield* DurableClock.sleep({
+                name: `v1/import-rate-limit/${stage}/${operationTry}`,
+                duration: Duration.millis(failure.retryAfterMillis),
+                inMemoryThreshold: Duration.zero
+              })
+              operationTry++
+              continue
+            }
             if (
               !failure.retryable ||
               !activities.recordImportFailure ||
@@ -297,17 +308,6 @@ export const makeProjectionMigrationActivities = <R>(
         ? 1
         : input.payload.command.workflowAttempt
   })
-  const fenced = <A>(
-    input: Parameters<typeof scan>[0],
-    run: (
-      input: Parameters<typeof scan>[0]
-    ) => Effect.Effect<
-      A,
-      JiraMigrationWorkflowFailureValue,
-      R | WorkflowEngine.WorkflowEngine | WorkflowEngine.WorkflowInstance
-    >
-  ) =>
-    withJiraRemoteWriteIntent(projection, fenceForActivity(input), run(input))
   return {
     start: ({ payload, executionId }) =>
       Effect.gen(function* () {
@@ -329,8 +329,7 @@ export const makeProjectionMigrationActivities = <R>(
       ),
     finalize,
     scan,
-    materialize: (input, operationTry) =>
-      fenced(input, (current) => materialize(current, operationTry)),
+    materialize,
     publish,
     recordImportFailure: (input, operationKey, failure) =>
       projection

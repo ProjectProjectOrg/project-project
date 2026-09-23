@@ -460,6 +460,58 @@ describe("Jira migration workflow contracts", () => {
     })
   )
 
+  it.effect(
+    "waits for the attachment retry delay without a manual retry",
+    () => {
+      const attempts: number[] = []
+      const times: number[] = []
+      let recordedFailures = 0
+      const layer = makeJiraMigrationWorkflow({
+        start: () => Effect.void,
+        scan: () => Effect.void,
+        materialize: (_input, operationTry) =>
+          Effect.gen(function* () {
+            attempts.push(operationTry ?? 0)
+            times.push(yield* Clock.currentTimeMillis)
+            if (operationTry === 0)
+              return yield* Effect.fail(
+                JiraMigrationWorkflowFailure.make({
+                  reason: "jira_rate_limited",
+                  retryable: true,
+                  retryAfterMillis: 7000
+                })
+              )
+            return readyPublication
+          }),
+        publish: () => Effect.void,
+        recordImportFailure: () =>
+          Effect.sync(() => {
+            recordedFailures++
+            return 1
+          }),
+        finalize: () => Effect.void
+      }).pipe(Layer.provideMerge(WorkflowEngine.layerMemory))
+
+      return Effect.gen(function* () {
+        const id = yield* JiraMigrationWorkflow.execute(createPayload, {
+          discard: true
+        })
+        yield* completeStartImport(id, 1)
+        yield* waitUntilSuspended(id)
+        expect(attempts.every((attempt) => attempt === 0)).toBe(true)
+        yield* TestClock.adjust("6999 millis")
+        expect(attempts.every((attempt) => attempt === 0)).toBe(true)
+        yield* TestClock.adjust("1 millis")
+        expect(yield* JiraMigrationWorkflow.execute(createPayload)).toEqual({
+          migrationId: id
+        })
+        expect(attempts.at(-1)).toBe(1)
+        expect(times.at(-1)! - times[0]!).toBe(7000)
+        expect(recordedFailures).toBe(0)
+      }).pipe(Effect.provide(layer))
+    }
+  )
+
   it.effect("uses the initial scan revision and execution id for create", () =>
     Effect.gen(function* () {
       const layer = makeJiraMigrationWorkflow({

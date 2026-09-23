@@ -1,4 +1,4 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type {
   JiraConnection,
   JiraMigrationDetail,
@@ -53,6 +53,7 @@ import { isActiveJiraMigration, jiraMigrationScreen } from "./screen"
 
 export function JiraMigrationStartPage({ orgSlug }: { orgSlug: string }) {
   const profile = useAtomValue(jiraProfileAtom)
+  const refreshProfile = useAtomRefresh(jiraProfileAtom)
   const migrations = useAtomValue(jiraMigrationsAtom(jiraOrgRequest(orgSlug)))
 
   return Result.matchWithError(profile, {
@@ -63,12 +64,12 @@ export function JiraMigrationStartPage({ orgSlug }: { orgSlug: string }) {
     ),
     onError: (error) => (
       <JiraMigrationStartShell orgSlug={orgSlug} migrations={migrations}>
-        <ErrorPage error={error} contained />
+        <ErrorPage error={error} reset={refreshProfile} contained />
       </JiraMigrationStartShell>
     ),
     onDefect: (defect) => (
       <JiraMigrationStartShell orgSlug={orgSlug} migrations={migrations}>
-        <ErrorPage error={defect} contained />
+        <ErrorPage error={defect} reset={refreshProfile} contained />
       </JiraMigrationStartShell>
     ),
     onSuccess: ({ value }) => (
@@ -134,6 +135,12 @@ function ConnectedSource({
   connection: JiraConnection
 }) {
   const sitesResult = useAtomValue(jiraSitesAtom)
+  const refreshSites = useAtomRefresh(jiraSitesAtom)
+  const refreshProfile = useAtomRefresh(jiraProfileAtom)
+  const retrySites = () => {
+    refreshProfile()
+    refreshSites()
+  }
   const create = useAtomSet(createJiraMigrationAtom(jiraOrgRequest(orgSlug)), {
     mode: "promiseExit"
   })
@@ -191,8 +198,12 @@ function ConnectedSource({
         onScan={() => void scan()}
       />
     ),
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
+    onError: (error) => (
+      <ErrorPage error={error} reset={retrySites} contained />
+    ),
+    onDefect: (defect) => (
+      <ErrorPage error={defect} reset={retrySites} contained />
+    ),
     onSuccess: ({ value }) => (
       <ProjectsSource
         orgSlug={orgSlug}
@@ -240,9 +251,14 @@ function ProjectsSource({
   scanError: string | null
   onScan: () => void
 }) {
-  const projectsResult = useAtomValue(
-    jiraProjectsAtom(jiraProjectsRequest(cloudId))
-  )
+  const projectsAtom = jiraProjectsAtom(jiraProjectsRequest(cloudId))
+  const projectsResult = useAtomValue(projectsAtom)
+  const refreshProjects = useAtomRefresh(projectsAtom)
+  const refreshProfile = useAtomRefresh(jiraProfileAtom)
+  const retryProjects = () => {
+    refreshProfile()
+    refreshProjects()
+  }
 
   return Result.matchWithError(projectsResult, {
     onInitial: () => (
@@ -261,8 +277,12 @@ function ProjectsSource({
         onScan={onScan}
       />
     ),
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
+    onError: (error) => (
+      <ErrorPage error={error} reset={retryProjects} contained />
+    ),
+    onDefect: (defect) => (
+      <ErrorPage error={defect} reset={retryProjects} contained />
+    ),
     onSuccess: ({ value }) => (
       <SourceView
         orgSlug={orgSlug}
@@ -337,6 +357,9 @@ function ResumeRegion({
   orgSlug: string
   result: Result.AsyncResult<ReadonlyArray<JiraMigrationSummary>, unknown>
 }) {
+  const refreshMigrations = useAtomRefresh(
+    jiraMigrationsAtom(jiraOrgRequest(orgSlug))
+  )
   return (
     <div className="border-t border-border py-6">
       <h2 className="text-sm font-semibold text-foreground">
@@ -352,8 +375,12 @@ function ResumeRegion({
               {m.jira_migration_resume_loading()}
             </p>
           ),
-          onError: (error) => <ErrorPage error={error} contained />,
-          onDefect: (defect) => <ErrorPage error={defect} contained />,
+          onError: (error) => (
+            <ErrorPage error={error} reset={refreshMigrations} contained />
+          ),
+          onDefect: (defect) => (
+            <ErrorPage error={defect} reset={refreshMigrations} contained />
+          ),
           onSuccess: ({ value }) =>
             value.length === 0 ? (
               <p className="text-sm text-muted-foreground">
@@ -405,7 +432,9 @@ export function JiraMigrationItemPage({
   migrationId: string
 }) {
   const key = jiraMigrationKey(orgSlug, migrationId)
-  const detail = useAtomValue(jiraMigrationAtom(key))
+  const detailAtom = jiraMigrationAtom(key)
+  const detail = useAtomValue(detailAtom)
+  const refreshDetail = useAtomRefresh(detailAtom)
 
   return Result.matchWithError(detail, {
     onInitial: () => (
@@ -413,8 +442,8 @@ export function JiraMigrationItemPage({
         <SourceSkeleton />
       </JiraMigrationShell>
     ),
-    onError: (error) => <ErrorPage error={error} />,
-    onDefect: (defect) => <ErrorPage error={defect} />,
+    onError: (error) => <ErrorPage error={error} reset={refreshDetail} />,
+    onDefect: (defect) => <ErrorPage error={defect} reset={refreshDetail} />,
     onSuccess: ({ value, waiting }) => (
       <JiraMigrationDetailPage
         orgSlug={orgSlug}
@@ -453,7 +482,8 @@ function JiraMigrationDetailPage({
   const actionError =
     jiraMigrationActionError(runState) ??
     jiraMigrationActionError(rescanState) ??
-    jiraMigrationActionError(cancelState)
+    jiraMigrationActionError(cancelState) ??
+    jiraMigrationActionError(discardState)
   const busy =
     waiting ||
     runState.waiting ||
@@ -461,6 +491,9 @@ function JiraMigrationDetailPage({
     cancelState.waiting ||
     discardState.waiting
   const screen = jiraMigrationScreen(detail.status)
+  const attachmentCorrection =
+    detail.failedAttachmentIds.length > 0 &&
+    detail.destinationProjectSlug !== null
   const [step, setStep] = useState<JiraWizardStep>("snapshot")
   const [lastMappingStep, setLastMappingStep] =
     useState<JiraMappingStep>("statuses")
@@ -473,7 +506,8 @@ function JiraMigrationDetailPage({
       (screen === "configuration" ||
         (reconfiguring && detail.actions.canConfigure)) &&
       detail.scanSummary &&
-      detail.requirements
+      detail.requirements &&
+      !attachmentCorrection
     ),
     shouldBlockFn: async () => !(await draftSaveRef.current?.())
   })
@@ -528,14 +562,19 @@ function JiraMigrationDetailPage({
         currentStep={step}
         furthestStep={furthestStep}
         confirmLeave
-        onBeforeLeave={() => draftSaveRef.current?.() ?? Promise.resolve(false)}
-        onNavigate={navigateWithinJob}
+        onBeforeLeave={
+          attachmentCorrection
+            ? undefined
+            : () => draftSaveRef.current?.() ?? Promise.resolve(false)
+        }
+        onNavigate={attachmentCorrection ? undefined : navigateWithinJob}
       >
         <JiraMigrationForm
           orgSlug={orgSlug}
           detail={detail}
           step={step}
           draftSaveRef={draftSaveRef}
+          onExitCorrection={() => setReconfiguring(false)}
           onStep={(nextStep) => {
             if (stageIndex(nextStep) > stageIndex(furthestStep)) {
               setFurthestStep(nextStep)
@@ -566,7 +605,7 @@ function JiraMigrationDetailPage({
           error={actionError}
           onRetry={() => void run({ expectedRevision: detail.revision })}
           onReconfigure={() => {
-            setStep("people")
+            setStep(attachmentCorrection ? "review" : "people")
             setReconfiguring(true)
           }}
           onRescan={() => void rescan({ expectedRevision: detail.revision })}

@@ -242,32 +242,44 @@ describe("Jira publication references", () => {
     const targets = createJiraReferenceTargets(source, mappings(), {
       "attachment-1": "/api/orgs/acme/attachments/A1"
     })
-    const text = convertedText("\uE000i\uE001 \uE000e\uE001 \uE000u\uE001", [
-      {
-        kind: "jira-issue",
-        sourceId: "APP-4",
-        placeholder: "\uE000i\uE001",
-        originalUrl: "https://example.atlassian.net/browse/APP-4",
-        fallbackText: "APP-4"
-      },
-      {
-        kind: "jira-issue",
-        sourceId: "EXT-9",
-        placeholder: "\uE000e\uE001",
-        originalUrl: "https://example.atlassian.net/browse/EXT-9",
-        fallbackText: "EXT-9"
-      },
-      {
-        kind: "jira-user",
-        sourceId: "account-linked",
-        placeholder: "\uE000u\uE001",
-        originalUrl: null,
-        fallbackText: "@Linked User"
-      }
-    ])
+    const text = convertedText(
+      "\uE000i\uE001 \uE000e\uE001 \uE000x\uE001 \uE000u\uE001",
+      [
+        {
+          kind: "jira-issue",
+          sourceId: "APP-4",
+          placeholder: "\uE000i\uE001",
+          originalUrl: "https://example.atlassian.net/browse/APP-4",
+          fallbackText: "APP-4"
+        },
+        {
+          kind: "jira-issue",
+          sourceId: "EXT-9",
+          placeholder: "\uE000e\uE001",
+          originalUrl: "https://example.atlassian.net/browse/EXT-9",
+          fallbackText: "EXT-9"
+        },
+        {
+          kind: "jira-issue",
+          sourceId: "APP-4",
+          placeholder: "\uE000x\uE001",
+          originalUrl: "https://other.atlassian.net/browse/APP-4",
+          fallbackText: "APP-4"
+        },
+        {
+          kind: "jira-user",
+          sourceId: "account-linked",
+          placeholder: "\uE000u\uE001",
+          originalUrl: null,
+          fallbackText: "@Linked User"
+        }
+      ]
+    )
 
-    expect(rewriteJiraPublicationText(text, targets)).toBe(
-      "[APP-4](mention:ticket/APP-4) [EXT-9](https://example.atlassian.net/browse/EXT-9) [@Linked User](mention:user/user-1)"
+    expect(
+      rewriteJiraPublicationText(text, targets, source.source.siteUrl)
+    ).toBe(
+      "[APP-4](mention:ticket/APP-4) [EXT-9](https://example.atlassian.net/browse/EXT-9) [APP-4](https://other.atlassian.net/browse/APP-4) [@Linked User](mention:user/user-1)"
     )
   })
   it("embeds image attachments by content type, not by their display text", () => {
@@ -285,9 +297,9 @@ describe("Jira publication references", () => {
       }
     ])
 
-    expect(rewriteJiraPublicationText(text, targets)).toBe(
-      "![Login screen](/api/orgs/acme/attachments/A1)"
-    )
+    expect(
+      rewriteJiraPublicationText(text, targets, source.source.siteUrl)
+    ).toBe("![Login screen](/api/orgs/acme/attachments/A1)")
   })
 
   it("links non-image attachments even when the display text looks like a filename", () => {
@@ -316,9 +328,9 @@ describe("Jira publication references", () => {
       }
     ])
 
-    expect(rewriteJiraPublicationText(text, targets)).toBe(
-      "[screenshot.png](/api/orgs/acme/attachments/A2)"
-    )
+    expect(
+      rewriteJiraPublicationText(text, targets, source.source.siteUrl)
+    ).toBe("[screenshot.png](/api/orgs/acme/attachments/A2)")
   })
 })
 
@@ -1352,10 +1364,10 @@ it("keeps attachment identity when metadata changes and creates only references 
     convertedText("\uE000media\uE001", [
       {
         kind: "jira-attachment",
-        sourceId: "attachment",
+        sourceId: "media-uuid",
         placeholder: "\uE000media\uE001",
         originalUrl: null,
-        fallbackText: "Diagram"
+        fallbackText: "diagram.png"
       }
     ])
   )
@@ -1371,7 +1383,7 @@ it("keeps attachment identity when metadata changes and creates only references 
       attachments: [
         {
           id: "attachment",
-          issueId: "issue-1",
+          issueId: "issue-4",
           filename: "diagram.png",
           mimeType: "image/png",
           byteSize: 100,
@@ -1413,12 +1425,61 @@ it("keeps attachment identity when metadata changes and creates only references 
       }
     ])
   )
-  expect(final.plan.tickets[1]!.body).toContain(attachment.url)
+  expect(final.plan.tickets[1]!.body).toContain(
+    `![diagram.png](${attachment.url})`
+  )
   expect(
     final.plan.indexes.attachmentReferences.map(
       (reference) => reference.ticketId
     )
   ).toEqual(["APP-4"])
+
+  const unmatched = artifact(
+    "unmatched-description",
+    convertedText("\uE000media\uE001", [
+      {
+        kind: "jira-attachment",
+        sourceId: "unmatched-media-uuid",
+        placeholder: "\uE000media\uE001",
+        originalUrl: null,
+        fallbackText: "unmatched.png"
+      }
+    ])
+  )
+  const unmatchedPrepared = await Effect.runPromise(
+    prepareJiraPublication({
+      ...source,
+      manifest: {
+        ...source.manifest,
+        issues: source.manifest.issues.map((issue) =>
+          issue.id === "issue-4"
+            ? { ...issue, descriptionArtifact: unmatched.ref }
+            : issue
+        )
+      },
+      source: { ...source.source, artifacts: [metadata, unmatched] }
+    })
+  )
+  const unmatchedAttachment = unmatchedPrepared.attachments[0]!
+  const unmatchedFinal = await Effect.runPromise(
+    finalizeJiraPublication(unmatchedPrepared, [
+      {
+        kind: "copied",
+        sourceAttachmentId: "attachment",
+        attachmentId: unmatchedAttachment.id,
+        objectKey: unmatchedAttachment.objectKey,
+        byteSize: 100,
+        contentType: "image/png",
+        contentSha256: "c".repeat(64)
+      }
+    ])
+  )
+  expect(unmatchedFinal.plan.tickets[1]!.body).toContain("unmatched.png")
+  expect(unmatchedFinal.plan.report.partialSuccess).toBe(true)
+  expect(unmatchedFinal.plan.report.markdown).toContain(
+    "Embedded files needing attention"
+  )
+  expect(unmatchedFinal.plan.report.markdown).toContain("unmatched-media-uuid")
 })
 
 it("keeps excluded issue and worklog text out of native data, archive, report and maps", async () => {
@@ -1616,7 +1677,7 @@ it("writes native-readable markdown and comment indexes after resolving issue, u
         kind: "jira-issue",
         sourceId: "APP-4",
         placeholder: "\uE000issue\uE001",
-        originalUrl: "https://jira/browse/APP-4",
+        originalUrl: "https://example.atlassian.net/browse/APP-4",
         fallbackText: "APP-4"
       },
       {

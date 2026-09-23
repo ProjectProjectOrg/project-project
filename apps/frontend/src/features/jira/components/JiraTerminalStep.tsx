@@ -1,4 +1,4 @@
-import { useAtomValue } from "@effect/atom-react"
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import type { JiraMigrationDetail, JiraSkippedAttachment } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
@@ -103,11 +103,14 @@ export function JiraTerminalStep({
           {m.jira_migration_action_retry()}
         </Button>
       ) : null}
-      {!detail.actions.canRetry &&
-      detail.actions.canConfigure &&
+      {detail.actions.canConfigure &&
+      (detail.destinationProjectSlug === null ||
+        detail.failedAttachmentIds.length > 0) &&
       onReconfigure ? (
-        <Button disabled={waiting} onClick={onReconfigure}>
-          {m.jira_migration_action_reconfigure()}
+        <Button variant="tertiary" disabled={waiting} onClick={onReconfigure}>
+          {detail.failedAttachmentIds.length > 0
+            ? m.jira_migration_action_skip_failed_files()
+            : m.jira_migration_action_reconfigure()}
         </Button>
       ) : null}
       {detail.actions.canRescan ? (
@@ -134,17 +137,23 @@ function SkippedAttachments({
   orgSlug,
   migrationId
 }: Readonly<{ orgSlug: string; migrationId: string }>) {
-  const result = useAtomValue(
-    jiraSkippedAttachmentsAtom(jiraMigrationKey(orgSlug, migrationId))
+  const skippedAtom = jiraSkippedAttachmentsAtom(
+    jiraMigrationKey(orgSlug, migrationId)
   )
+  const result = useAtomValue(skippedAtom)
+  const refreshSkipped = useAtomRefresh(skippedAtom)
   return Result.matchWithError(result, {
     onInitial: () => (
       <p className="mt-6 text-sm text-muted-foreground">
         {m.jira_migration_skipped_loading()}
       </p>
     ),
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
+    onError: (error) => (
+      <ErrorPage error={error} reset={refreshSkipped} contained />
+    ),
+    onDefect: (defect) => (
+      <ErrorPage error={defect} reset={refreshSkipped} contained />
+    ),
     onSuccess: ({ value }) =>
       value.length === 0 ? null : (
         <section className="mt-8 text-left">
@@ -246,6 +255,9 @@ function failureDescription(failure: JiraMigrationDetail["failure"]): string {
   if (failure === null) return m.jira_migration_failed_description()
   if (failure.reason === "preflight_blocked") {
     return m.jira_migration_failure_preflight_blocked()
+  }
+  if (failure.reason === "jira_migration_preparation_invalid") {
+    return m.jira_migration_failure_preparation_invalid()
   }
   if (failure.reason === "storage_unavailable") {
     return m.jira_migration_failure_storage_unavailable()

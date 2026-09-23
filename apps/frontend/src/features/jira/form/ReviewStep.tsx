@@ -10,6 +10,7 @@ import { Check } from "lucide-react"
 import { ErrorPage } from "@/components/ErrorPage"
 import { Button } from "@/components/ui/button"
 import { jiraDestinationConflictsAtom } from "@/features/jira/atoms/jiraMigration"
+import { useFormValues } from "@/lib/form"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -23,6 +24,7 @@ export function ReviewStep({
   revision,
   requirements,
   summary,
+  failedAttachmentIds,
   waiting,
   error,
   onBack,
@@ -34,10 +36,21 @@ export function ReviewStep({
   })
   const conflicts = useAtomValue(conflictsAtom)
   const refreshConflicts = useAtomRefresh(conflictsAtom)
-  const canStart = Result.isSuccess(conflicts) && conflicts.value.length === 0
+  const { attachmentSkipsAccepted, skippedAttachmentIds } = useFormValues(form)
   const forcedSkips = requirements.attachments.filter(
     (attachment) => attachment.forcedSkipReason !== null
   )
+  const failedAttachments = requirements.attachments.filter((attachment) =>
+    failedAttachmentIds.includes(attachment.jiraAttachmentId)
+  )
+  const failedSkipsSelected = failedAttachments.some((attachment) =>
+    skippedAttachmentIds.includes(attachment.jiraAttachmentId)
+  )
+  const canStart =
+    Result.isSuccess(conflicts) &&
+    conflicts.value.length === 0 &&
+    (skippedAttachmentIds.length === 0 || attachmentSkipsAccepted) &&
+    (failedAttachmentIds.length === 0 || failedSkipsSelected)
   const restricted = requirements.restrictedContent
   const hasRestrictedContent =
     restricted.issueCount > 0 ||
@@ -186,9 +199,69 @@ export function ReviewStep({
                 </li>
               ))}
             </ul>
+          </div>
+        ) : null}
+
+        {failedAttachments.length > 0 ? (
+          <div>
+            <h3 className="text-sm font-semibold">
+              {m.jira_migration_attachment_failed_title()}
+            </h3>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {m.jira_migration_attachment_failed_description()}
+            </p>
+            <form.Field name="skippedAttachmentIds">
+              {(field) => (
+                <ul className="mt-3 divide-y divide-border">
+                  {failedAttachments.map((attachment) => (
+                    <li key={attachment.jiraAttachmentId}>
+                      <label className="flex cursor-pointer items-center justify-between gap-4 py-3 text-sm">
+                        <span className="min-w-0 truncate">
+                          {attachment.filename}
+                        </span>
+                        <span className="flex shrink-0 items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={field.value.includes(
+                              attachment.jiraAttachmentId
+                            )}
+                            className="size-4 accent-primary"
+                            onChange={(event) =>
+                              field.handleChange(
+                                event.currentTarget.checked
+                                  ? [
+                                      ...new Set([
+                                        ...field.value,
+                                        attachment.jiraAttachmentId
+                                      ])
+                                    ]
+                                  : field.value.filter(
+                                      (id) => id !== attachment.jiraAttachmentId
+                                    )
+                              )
+                            }
+                          />
+                          {m.jira_migration_attachment_leave_out()}
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </form.Field>
+            {!failedSkipsSelected ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {m.jira_migration_attachment_choose_or_retry()}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {skippedAttachmentIds.length > 0 ? (
+          <div>
             <form.Field name="attachmentSkipsAccepted">
               {(field) => (
-                <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-xl border border-border p-3 text-sm transition-colors hover:bg-accent/60">
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-3 text-sm transition-colors hover:bg-accent/60">
                   <input
                     type="checkbox"
                     checked={field.value}
@@ -201,6 +274,11 @@ export function ReviewStep({
                 </label>
               )}
             </form.Field>
+            {!attachmentSkipsAccepted ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {m.jira_migration_attachment_accept_required()}
+              </p>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -240,6 +318,7 @@ type StepProps = Readonly<{
   revision: number
   requirements: JiraMigrationRequirements
   summary: JiraMigrationScanSummary
+  failedAttachmentIds: ReadonlyArray<string>
   waiting: boolean
   error: string | null
   onBack: () => void
