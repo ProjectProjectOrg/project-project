@@ -208,13 +208,13 @@ export const finalizeJiraMigrationAttempt = Effect.fn(
   yield* projection.recordFailure(fence, failure)
 })
 
-export const makeProjectionMigrationActivities = (
+export const makeProjectionMigrationActivities = <R>(
   projection: JiraMigrationProjectionShape,
-  finalize: MigrationActivities<WorkflowEngine.WorkflowEngine>["finalize"],
-  scan: MigrationActivities<WorkflowEngine.WorkflowEngine>["scan"],
-  materialize: MigrationActivities<WorkflowEngine.WorkflowEngine>["materialize"],
-  publish: MigrationActivities<WorkflowEngine.WorkflowEngine>["publish"]
-): MigrationActivities<WorkflowEngine.WorkflowEngine> => {
+  finalize: MigrationActivities<R>["finalize"],
+  scan: MigrationActivities<R>["scan"],
+  materialize: MigrationActivities<R>["materialize"],
+  publish: MigrationActivities<R>["publish"]
+): MigrationActivities<R | WorkflowEngine.WorkflowEngine> => {
   const fenced = <A>(
     input: Parameters<typeof scan>[0],
     run: (
@@ -222,7 +222,7 @@ export const makeProjectionMigrationActivities = (
     ) => Effect.Effect<
       A,
       JiraMigrationWorkflowFailureValue,
-      WorkflowEngine.WorkflowEngine | WorkflowEngine.WorkflowInstance
+      R | WorkflowEngine.WorkflowEngine | WorkflowEngine.WorkflowInstance
     >
   ) =>
     withJiraRemoteWriteIntent(
