@@ -3,9 +3,10 @@ import { useLayoutEffect, useRef, useState } from "react"
 
 import { useTicketSearch } from "../search"
 import { TicketToolbarContext, type TicketToolbarProps } from "./context"
-import { Filters } from "./Filters"
+import { LegacyViewControls } from "./LegacyViewControls"
 import { activeFilterCount } from "./model"
-import { ClearAll, SearchInput, Sort, Status } from "./parts"
+import { ClearAll, SearchInput, Status } from "./parts"
+import { ViewOptions } from "./ViewOptions"
 
 export function TicketToolbar({
   orgSlug,
@@ -16,12 +17,19 @@ export function TicketToolbar({
   counts,
   filters,
   showSort = false,
+  scopeKey,
+  viewControls,
+  viewOptionsVariant = "panel",
   children
 }: TicketToolbarProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   const [focused, setFocused] = useState(false)
-  const search = useTicketSearch(query.q, (q) => onQueryChange({ ...query, q }))
+  const search = useTicketSearch(
+    query.q,
+    (q) => onQueryChange({ ...query, q }),
+    scopeKey
+  )
   const searchActive = focused || search.draft.length > 0
   const measured = width > 0
   const controlsCompact =
@@ -53,6 +61,7 @@ export function TicketToolbar({
       value={{
         orgSlug,
         slug,
+        viewControls,
         query,
         onQueryChange,
         members,
@@ -74,10 +83,16 @@ export function TicketToolbar({
         <SearchInput />
         {measured && (
           <div className="relative flex flex-wrap items-center gap-2">
-            <Status />
-            <Filters />
-            {showSort && <Sort />}
             {children}
+            <Status />
+            {viewOptionsVariant === "legacy" ? (
+              <>
+                <LegacyViewControls showSort={showSort} />
+                {viewControls}
+              </>
+            ) : (
+              <ViewOptions showSort={showSort} />
+            )}
             <ClearAll />
           </div>
         )}

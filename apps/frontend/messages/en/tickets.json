@@ -62,6 +62,7 @@
   "tickets_filters_section_archived": "Archived",
   "tickets_filters_section_assignee": "Assignee",
   "tickets_filters_section_sprint": "Sprint",
+  "tickets_filters_section_status": "Status",
   "tickets_filters_section_tags": "Tags",
   "tickets_filters_section_type": "Type",
   "tickets_filters_sprint_any": "Any sprint",
@@ -235,5 +236,15 @@
   "tickets_unarchive_error_fallback": "Failed to unarchive ticket",
   "tickets_view_board": "Board",
   "tickets_view_list": "List",
+  "tickets_view_options_active_aria_label": "View options ({count} active filters)",
+  "tickets_view_options_ascending": "Ascending",
+  "tickets_view_options_created": "Created",
+  "tickets_view_options_descending": "Descending",
+  "tickets_view_options_label": "View options",
+  "tickets_view_options_ordering": "Ordering",
+  "tickets_view_options_priority": "Priority",
+  "tickets_view_options_set_ascending": "Sort ascending",
+  "tickets_view_options_set_descending": "Sort descending",
+  "tickets_view_options_updated": "Updated",
   "tickets_view_tabs_aria_label": "Switch view"
 }

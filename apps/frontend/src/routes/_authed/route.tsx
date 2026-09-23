@@ -108,6 +108,7 @@ function Shell({ user }: { user: User }) {
             <div data-scroll-content className="flex min-h-full flex-col p-6">
               <Outlet />
             </div>
+            <div data-scroll-spacer aria-hidden />
           </div>
         </main>
       </div>

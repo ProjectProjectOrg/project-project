@@ -31,6 +31,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
+        "option-picker":
+          "w-40 min-w-0 shrink-0 justify-between border border-border bg-muted/40 text-foreground hover:bg-accent",
         "appearance-row":
           "w-full justify-start text-left whitespace-normal hover:bg-accent/40",
         "selection-card":

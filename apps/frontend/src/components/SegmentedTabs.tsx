@@ -19,7 +19,7 @@ export type SegmentedItem<K extends string> = {
   compactAriaLabel?: string
 }
 
-export type SegmentedVariant = "default" | "inline"
+export type SegmentedVariant = "default" | "inline" | "view"
 
 type VariantTokens = {
   container: string
@@ -39,6 +39,15 @@ const VARIANTS: Record<SegmentedVariant, VariantTokens> = {
     iconSize: "size-3.5",
     pillRounding: "rounded-lg",
     itemBase: "h-7 rounded-lg px-2.5 text-sm"
+  },
+  view: {
+    container:
+      "flex w-full items-center gap-0.5 rounded-xl border border-border bg-background p-0.5",
+    innerGap: "gap-1",
+    innerGapPx: 4,
+    iconSize: "size-3.5",
+    pillRounding: "rounded-lg",
+    itemBase: "h-7 flex-1 justify-center rounded-lg px-2.5 text-xs"
   },
   inline: {
     container: "inline-flex items-center gap-0.5",
@@ -141,16 +150,15 @@ export function CollapsingLabel({
   useLayoutEffect(() => {
     const el = innerRef.current
     if (!el) return
-    const measure = () => setWidth(el.getBoundingClientRect().width)
-    measure()
-    if (typeof document === "undefined" || !("fonts" in document)) return
-    let cancelled = false
-    void document.fonts.ready.then(() => {
-      if (!cancelled) measure()
+    setWidth(el.offsetWidth)
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry)
+        setWidth(
+          Math.ceil(entry.borderBoxSize[0]?.inlineSize ?? el.offsetWidth)
+        )
     })
-    return () => {
-      cancelled = true
-    }
+    observer.observe(el)
+    return () => observer.disconnect()
   }, [show, contentKey])
 
   return (

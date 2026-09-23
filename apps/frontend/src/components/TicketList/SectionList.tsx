@@ -15,7 +15,6 @@ import {
   useRef,
   useState,
   type ReactNode,
-  type ComponentType,
   type ComponentProps
 } from "react"
 
@@ -23,7 +22,6 @@ import { ErrorPage } from "@/components/ErrorPage"
 import { Button } from "@/components/ui/button"
 import {
   backlogRequest,
-  encodeTicketListQuery,
   flatBacklogRequest,
   loadMoreBacklog,
   type BacklogRequest,
@@ -37,6 +35,10 @@ import { SectionBody } from "./SectionBody"
 import { SectionHeader, type SectionHeading } from "./SectionHeader"
 import { SectionTicketCreator } from "./SectionTicketCreator"
 import { AutoLoad, VirtualRows } from "./VirtualRows"
+
+const renderDefaultRow = (props: ComponentProps<typeof Row>) => (
+  <Row {...props} />
+)
 
 export function SectionList({
   orgSlug,
@@ -59,16 +61,14 @@ export function SectionList({
   heading,
   canCreate = true,
   pagination,
-  listKey,
-  rowComponent: RowComponent = Row,
+  renderRow = renderDefaultRow,
   emptyMessage,
   creationVariant = "status"
 }: {
   heading?: SectionHeading
-  listKey?: string
   canCreate?: boolean
   pagination?: ReactNode
-  rowComponent?: ComponentType<ComponentProps<typeof Row>>
+  renderRow?: (props: ComponentProps<typeof Row>) => ReactNode
   creationVariant?: "status" | "flat"
   emptyMessage?: string
   orgSlug: string
@@ -96,9 +96,6 @@ export function SectionList({
         : backlogRequest(orgSlug, slug, query),
     [creationVariant, orgSlug, slug, query]
   )
-  const sectionKey =
-    listKey ??
-    `${orgSlug}/${slug}/${status}/${encodeTicketListQuery(req.query)}`
   const [creating, setCreating] = useState(false)
 
   const { items } = page
@@ -151,7 +148,6 @@ export function SectionList({
           </div>
         ) : (
           <VirtualRows
-            key={sectionKey}
             className={gridCols}
             rowKeys={items.map((row) => row.key)}
             activeIndex={items.findIndex(
@@ -169,21 +165,21 @@ export function SectionList({
                     pending && "pointer-events-none animate-pulse"
                   )}
                 >
-                  <RowComponent
-                    orgSlug={orgSlug}
-                    slug={slug}
-                    ticket={ticket}
-                    req={req}
-                    members={members}
-                    showSprintCol={showSprintCol}
-                    showExtraActionsCol={showExtraActionsCol}
-                    sprintMembership={sprintMembership?.get(ticket.id) ?? null}
-                    extraRowActions={extraRowActions}
-                    pending={pending}
-                    previewOpen={activePreviewId === ticket.id}
-                    onPreviewPointerEnter={onPreviewPointerEnter}
-                    onPreviewOpenChange={onPreviewOpenChange}
-                  />
+                  {renderRow({
+                    orgSlug,
+                    slug,
+                    ticket,
+                    req,
+                    members,
+                    showSprintCol,
+                    showExtraActionsCol,
+                    sprintMembership: sprintMembership?.get(ticket.id) ?? null,
+                    extraRowActions,
+                    pending,
+                    previewOpen: activePreviewId === ticket.id,
+                    onPreviewPointerEnter,
+                    onPreviewOpenChange
+                  })}
                 </div>
               )
             }}

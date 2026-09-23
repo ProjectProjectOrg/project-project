@@ -10,7 +10,7 @@ import {
 } from "@testing-library/react"
 import * as Schema from "effect/Schema"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
-import { afterEach, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
 
@@ -23,8 +23,19 @@ vi.mock("@tanstack/react-router", async (original) => ({
 
 const fetchStub = stubFetch()
 
+beforeEach(() => {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      disconnect() {}
+    }
+  )
+})
+
 afterEach(() => {
   cleanup()
+  vi.unstubAllGlobals()
 })
 
 it.each(["focus", "hover"] as const)(
