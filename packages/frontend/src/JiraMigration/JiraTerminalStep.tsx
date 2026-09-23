@@ -1,7 +1,28 @@
-import type { JiraMigrationDetail } from "@projectproject/shared"
+import type {
+  JiraMigrationDetail,
+  JiraSkippedAttachment
+} from "@projectproject/shared"
+import { useAtomValue } from "@effect/atom-react"
 import { Link } from "@tanstack/react-router"
+import * as Result from "effect/unstable/reactivity/AsyncResult"
+import {
+  jiraMigrationKey,
+  jiraSkippedAttachmentsAtom
+} from "@/atoms/jiraMigration"
 import { Button } from "@/components/ui/button"
+import { ErrorPage } from "@/components/ErrorPage"
 import { m } from "@/paraglide/messages"
+
+type JiraTerminalStepProps = Readonly<{
+  detail: JiraMigrationDetail
+  orgSlug: string
+  waiting: boolean
+  error?: string | null
+  onRetry?: () => void
+  onReconfigure?: () => void
+  onRescan?: () => void
+  onDiscard?: () => void
+}>
 
 export function JiraTerminalStep({
   detail,
@@ -12,24 +33,16 @@ export function JiraTerminalStep({
   onReconfigure,
   onRescan,
   onDiscard
-}: {
-  detail: JiraMigrationDetail
-  orgSlug: string
-  waiting: boolean
-  error?: string | null
-  onRetry?: () => void
-  onReconfigure?: () => void
-  onRescan?: () => void
-  onDiscard?: () => void
-}) {
+}: JiraTerminalStepProps) {
   if (detail.status === "succeeded") {
     return (
       <TerminalSurface
         title={m.jira_migration_success_title()}
-        description={
-          detail.configuration?.skippedAttachmentIds.length && detail.reportPath
-            ? `${m.jira_migration_success_description()} ${m.jira_migration_success_skipped({ reportPath: detail.reportPath })}`
-            : m.jira_migration_success_description()
+        description={m.jira_migration_success_description()}
+        details={
+          detail.configuration?.skippedAttachmentIds.length ? (
+            <SkippedAttachments orgSlug={orgSlug} migrationId={detail.id} />
+          ) : null
         }
       >
         {detail.destinationProjectSlug ? (
@@ -100,26 +113,105 @@ export function JiraTerminalStep({
   )
 }
 
+function SkippedAttachments({
+  orgSlug,
+  migrationId
+}: Readonly<{ orgSlug: string; migrationId: string }>) {
+  const result = useAtomValue(
+    jiraSkippedAttachmentsAtom(jiraMigrationKey(orgSlug, migrationId))
+  )
+  return Result.matchWithError(result, {
+    onInitial: () => (
+      <p className="mt-6 text-sm text-muted-foreground">
+        {m.jira_migration_skipped_loading()}
+      </p>
+    ),
+    onError: (error) => <ErrorPage error={error} contained />,
+    onDefect: (defect) => <ErrorPage error={defect} contained />,
+    onSuccess: ({ value }) =>
+      value.length === 0 ? null : (
+        <section className="mt-8 text-left">
+          <h3 className="text-sm font-semibold text-foreground">
+            {m.jira_migration_skipped_title()}
+          </h3>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            {m.jira_migration_success_skipped()}
+          </p>
+          <ul className="mt-4 divide-y divide-border border-y border-border">
+            {value.map((attachment) => (
+              <li key={attachment.sourceAttachmentId} className="py-3">
+                <div className="min-w-0 break-all font-mono text-[13px] text-foreground">
+                  {attachment.filename}
+                </div>
+                <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                  <a
+                    href={attachment.sourceIssueUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-foreground underline decoration-border underline-offset-4 transition-colors hover:decoration-foreground"
+                  >
+                    {m.jira_migration_skipped_jira_issue({
+                      issueKey: attachment.sourceIssueKey
+                    })}
+                  </a>
+                  <a
+                    href={attachment.targetTicketUrl}
+                    className="text-foreground underline decoration-border underline-offset-4 transition-colors hover:decoration-foreground"
+                  >
+                    {m.jira_migration_skipped_ticket({
+                      ticketId: attachment.targetTicketId
+                    })}
+                  </a>
+                </div>
+                <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+                  {replacementMessage(attachment.replacement)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+  })
+}
+
+function replacementMessage(
+  replacement: JiraSkippedAttachment["replacement"]
+): string {
+  switch (replacement) {
+    case "available":
+      return m.jira_migration_skipped_can_replace()
+    case "too_large":
+      return m.jira_migration_skipped_too_large()
+    case "unsupported_type":
+      return m.jira_migration_skipped_type_unavailable()
+  }
+}
+
+type TerminalSurfaceProps = Readonly<{
+  title: string
+  description: string
+  details?: React.ReactNode
+  error?: string | null
+  children: React.ReactNode
+}>
+
 function TerminalSurface({
   title,
   description,
+  details,
   error,
   children
-}: {
-  title: string
-  description: string
-  error?: string | null
-  children: React.ReactNode
-}) {
+}: TerminalSurfaceProps) {
   return (
     <div className="flex min-h-[520px] flex-col items-center justify-center px-6 py-12 text-center">
-      <div className="max-w-md">
+      <div className="w-full max-w-xl">
         <h2 className="text-xl font-semibold tracking-tight text-foreground text-balance">
           {title}
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground text-pretty">
           {description}
         </p>
+        {details}
         {error ? (
           <p className="mt-3 text-sm text-destructive" role="alert">
             {error}

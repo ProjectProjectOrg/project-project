@@ -153,6 +153,17 @@ const issues = [
           self: "https://fixture.atlassian.net/rest/api/3/attachment/attachment-2",
           author: user,
           created: "2026-09-20T09:15:00.000Z"
+        },
+        {
+          id: "attachment-3",
+          filename: "migration-demo.mp4",
+          mimeType: "video/mp4",
+          size: 128,
+          content:
+            "https://api.atlassian.com/ex/jira/fixture-cloud-1/rest/api/3/attachment/content/attachment-3",
+          self: "https://fixture.atlassian.net/rest/api/3/attachment/attachment-3",
+          author: user,
+          created: "2026-09-20T09:30:00.000Z"
         }
       ],
       issuelinks: [

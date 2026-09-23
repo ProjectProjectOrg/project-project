@@ -983,7 +983,7 @@ it("requires actual outcomes and permits only individually accepted skips", asyn
   expect(partial.plan.indexes.attachments).toEqual([])
   expect(partial.plan.report.partialSuccess).toBe(true)
   expect(partial.plan.report.markdown).toContain(
-    "Download each skipped attachment from Jira and upload it to its destination ticket in ProjectProject."
+    "Upload it to the destination ticket only if its type is supported and it is at most 25 MB."
   )
   expect(partial.plan.report.markdown).toContain("image.png")
   expect(partial.plan.report.markdown).toContain(

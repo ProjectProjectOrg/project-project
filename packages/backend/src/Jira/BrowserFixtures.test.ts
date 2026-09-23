@@ -128,7 +128,8 @@ describe("Jira browser fixtures", () => {
         expect(issues.map(({ key }) => key)).toEqual(["APP-1", "APP-2"])
         expect(issues[0]?.fields.attachment).toMatchObject([
           { id: "attachment-1", mimeType: "text/plain" },
-          { id: "attachment-2", mimeType: "image/png" }
+          { id: "attachment-2", mimeType: "image/png" },
+          { id: "attachment-3", mimeType: "video/mp4" }
         ])
         expect(comments.map(({ id }) => id)).toEqual(["comment-1", "comment-2"])
         expect(worklogs.map(({ id }) => id)).toEqual(["worklog-1", "worklog-2"])

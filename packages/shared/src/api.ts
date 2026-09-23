@@ -113,6 +113,7 @@ import {
   JiraMigrationDetail,
   JiraMigrationRevisionInput,
   JiraMigrationSummary,
+  JiraSkippedAttachment,
   JiraProjectChoice,
   JiraSite
 } from "./schemas/JiraMigration"
@@ -1004,6 +1005,17 @@ const JiraMigrationsGroup = HttpApiGroup.make("jiraMigrations")
       success: JiraMigrationDetail,
       error: JiraMigrationReadErrors
     })
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "skippedAttachments",
+      "/orgs/:orgSlug/jira-migrations/:migrationId/skipped-attachments",
+      {
+        params: JiraMigrationPath,
+        success: Schema.Array(JiraSkippedAttachment),
+        error: JiraMigrationReadErrors
+      }
+    )
   )
   .add(
     HttpApiEndpoint.post(

@@ -1,4 +1,6 @@
 import { it } from "@effect/vitest"
+import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
+import * as BunPath from "@effect/platform-bun/BunPath"
 import { expect } from "vite-plus/test"
 import {
   AppApi,
@@ -6,10 +8,21 @@ import {
   Conflict,
   CurrentUser,
   JiraMigrationConfiguration,
+  type JiraMigrationDetail,
+  NotFound,
   UserId,
   type User
 } from "@projectproject/shared"
-import { DateTime, Effect, Layer, Redacted, Schema, Stream } from "effect"
+import {
+  DateTime,
+  Effect,
+  FileSystem,
+  Layer,
+  Path,
+  Redacted,
+  Schema,
+  Stream
+} from "effect"
 import { FetchHttpClient, HttpRouter, HttpServer } from "effect/unstable/http"
 import { HttpApiTest } from "effect/unstable/httpapi"
 import { CurrentOrg } from "../Services/CurrentOrg"
@@ -25,6 +38,7 @@ import { JiraHandlerLive } from "./Handlers"
 import { JiraRateLimited, JiraTransientFailure } from "./Blocked"
 import { JiraMigrationsHandlerLive } from "./MigrationHandlers"
 import { JiraMigrations } from "./Migrations"
+import { Markdown, type MarkdownShape } from "../Services/Markdown"
 
 const unused = () => Effect.die("Unexpected dependency call")
 const user: User = {
@@ -52,9 +66,15 @@ const authentication = Layer.succeed(Authentication)({
 const dependenciesFor = (
   failure?: JiraCallError,
   failureAt: "sites" | "projects" = "sites",
-  clientLayer?: Layer.Layer<JiraClient>
+  clientLayer?: Layer.Layer<JiraClient>,
+  root = "."
 ) =>
   Layer.mergeAll(
+    BunFileSystem.layer,
+    BunPath.layer,
+    Layer.succeed(Markdown)({
+      projectDir: () => root
+    } as unknown as MarkdownShape),
     Layer.succeed(JiraCredentials)({
       status: unused,
       beginConnect: unused,
@@ -160,6 +180,152 @@ const dependenciesFor = (
   )
 
 const dependencies = dependenciesFor()
+
+it.effect(
+  "serves skipped attachment links only for an owned completed migration",
+  () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem
+        const path = yield* Path.Path
+        const root = yield* fs.makeTempDirectoryScoped({
+          prefix: "jira-skipped-links-"
+        })
+        const archiveDir = path.join(root, "imports", "jira", "migration-1")
+        yield* fs.makeDirectory(archiveDir, { recursive: true })
+        const archiveJson = yield* Schema.encodeEffect(
+          Schema.fromJsonString(Schema.Unknown)
+        )({
+          version: 1,
+          manifestVersion: 2,
+          migrationId: "migration-1",
+          source: {},
+          restrictionPolicy: "include",
+          categories: {
+            issues: [{ id: "issue-1", key: "APP-1" }],
+            attachments: [
+              {
+                id: "attachment-1",
+                issueId: "issue-1",
+                filename: "notes.txt",
+                mimeType: "text/plain",
+                byteSize: 25
+              }
+            ]
+          },
+          exclusions: [],
+          mappings: {},
+          attachmentOutcomes: [
+            { kind: "skipped", sourceAttachmentId: "attachment-1" }
+          ],
+          schemaVersions: [],
+          converterVersions: []
+        })
+        yield* fs.writeFileString(
+          path.join(archiveDir, "archive.json"),
+          archiveJson
+        )
+        const now = DateTime.makeUnsafe("2026-09-22T00:00:00Z")
+        const detail = {
+          id: "migration-1",
+          sourceCloudId: "cloud-1",
+          sourceProjectId: "10000",
+          sourceProjectKey: "APP",
+          sourceProjectName: "Application",
+          status: "succeeded",
+          phase: "succeeded",
+          revision: 3,
+          progress: { phase: "succeeded", done: 1, total: 1 },
+          destinationProjectSlug: "application",
+          createdAt: now,
+          updatedAt: now,
+          scanSummary: {
+            siteName: "Example",
+            siteUrl: "https://example.atlassian.net",
+            projectName: "Application",
+            projectKey: "APP",
+            scannedAt: now,
+            counts: {
+              identities: 0,
+              statuses: 0,
+              issueTypes: 0,
+              priorities: 0,
+              tags: 0,
+              issues: 1,
+              comments: 0,
+              attachments: 1,
+              groups: 0,
+              restrictions: 0
+            },
+            visibilityWarnings: []
+          },
+          requirements: null,
+          configuration: null,
+          actions: {
+            canConfigure: false,
+            canRun: false,
+            canRescan: false,
+            canCancel: false,
+            canRetry: false,
+            canDiscard: false
+          },
+          failure: null,
+          reportPath: "imports/jira/migration-1/report.md",
+          finishedAt: now
+        } satisfies JiraMigrationDetail
+        const services = Layer.mergeAll(
+          dependenciesFor(undefined, "sites", undefined, root),
+          Layer.succeed(JiraMigrations)({
+            list: unused,
+            create: unused,
+            configure: unused,
+            rescan: unused,
+            run: unused,
+            cancel: unused,
+            discard: unused,
+            get: (_orgId, _userId, migrationId) =>
+              migrationId === "migration-1"
+                ? Effect.succeed(detail)
+                : Effect.fail(new NotFound())
+          })
+        )
+        const handlers = JiraMigrationsHandlerLive.pipe(
+          Layer.provide(services),
+          HttpRouter.provideRequest(services),
+          Layer.provideMerge(authentication)
+        )
+        yield* Effect.gen(function* () {
+          const client = yield* HttpApiTest.groups(AppApi, ["jiraMigrations"])
+          const skipped = yield* client.jiraMigrations.skippedAttachments({
+            params: { orgSlug: "organization", migrationId: "migration-1" }
+          })
+          expect(skipped).toEqual([
+            {
+              sourceAttachmentId: "attachment-1",
+              filename: "notes.txt",
+              sourceIssueKey: "APP-1",
+              targetTicketId: "APP-1",
+              sourceIssueUrl: "https://example.atlassian.net/browse/APP-1",
+              targetTicketUrl:
+                "/orgs/organization/projects/application/tickets/APP-1",
+              replacement: "available"
+            }
+          ])
+          const missing = yield* Effect.result(
+            client.jiraMigrations.skippedAttachments({
+              params: { orgSlug: "organization", migrationId: "another" }
+            })
+          )
+          expect(missing).toMatchObject({
+            _tag: "Failure",
+            failure: { _tag: "NotFound" }
+          })
+        }).pipe(
+          Effect.provide(Layer.mergeAll(handlers, HttpServer.layerServices))
+        )
+      })
+    ).pipe(Effect.provide(Layer.mergeAll(BunFileSystem.layer, BunPath.layer)))
+)
 
 it.effect(
   "resolves the authenticated source and keeps detail and Conflict HTTP contracts",

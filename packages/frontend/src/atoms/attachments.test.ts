@@ -18,6 +18,67 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+it("sends a markdown upload with a matching content type when the browser leaves it blank", async () => {
+  let preparedContentType: string | undefined
+  let uploadedContentType: string | undefined
+  fetchStub.set(async (input, init) => {
+    const request = input instanceof Request ? input : new Request(input, init)
+    const path = new URL(request.url, "http://localhost").pathname
+    if (path.endsWith("/prepare")) {
+      preparedContentType = (await request.json()).contentType
+      return Response.json({
+        id: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        url: "https://storage.test/notes.md",
+        uploadUrl: "https://storage.test/notes.md",
+        expiresAt: "2026-09-10T00:00:00.000Z"
+      })
+    }
+    if (path.endsWith("/commit"))
+      return Response.json({
+        id: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        url: "https://storage.test/notes.md",
+        filename: "notes.md",
+        contentType: "text/markdown",
+        byteSize: 4,
+        status: "live",
+        uploadedBy: "user-1",
+        createdAt: "2026-09-10T00:00:00.000Z"
+      })
+    throw new Error(`Unexpected request: ${path}`)
+  })
+  vi.spyOn(XMLHttpRequest.prototype, "setRequestHeader").mockImplementation(
+    (name, value) => {
+      if (name === "content-type") uploadedContentType = value
+    }
+  )
+  vi.spyOn(XMLHttpRequest.prototype, "send").mockImplementation(
+    function (this: XMLHttpRequest) {
+      Object.defineProperty(this, "status", { value: 200 })
+      this.dispatchEvent(new Event("load"))
+    }
+  )
+
+  const registry = Registry.make()
+  const upload = uploadAttachment(
+    uploadAttachmentRequest(
+      "org",
+      "project",
+      Schema.decodeSync(TicketId)("T-1")
+    )
+  )
+  registry.mount(upload)
+  try {
+    registry.set(upload, { file: new File(["note"], "notes.md") })
+    await vi.waitFor(() =>
+      expect(registry.get(upload)).toMatchObject({ _tag: "Success" })
+    )
+    expect(preparedContentType).toBe("text/markdown")
+    expect(uploadedContentType).toBe("text/markdown")
+  } finally {
+    registry.dispose()
+  }
+})
+
 it("refreshes the org inventory and summary only after upload commit succeeds", async () => {
   const attachment = {
     id: "01ARZ3NDEKTSV4RRFFQ69G5FAV",

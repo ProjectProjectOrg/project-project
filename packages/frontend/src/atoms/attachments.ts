@@ -6,6 +6,7 @@ import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import {
   AttachmentId,
   ATTACHMENT_PAGE_SIZE,
+  attachmentUploadContentType,
   type AttachmentListPage,
   type AttachmentSort,
   type AttachmentStatus,
@@ -65,7 +66,10 @@ const transferAttachment = (input: UploadAttachmentInput, uploadUrl: string) =>
     signal.addEventListener("abort", abort)
     input.signal?.addEventListener("abort", abort)
     xhr.open("PUT", uploadUrl, true)
-    xhr.setRequestHeader("content-type", input.file.type)
+    xhr.setRequestHeader(
+      "content-type",
+      attachmentUploadContentType(input.file.name, input.file.type)
+    )
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
         input.onProgress?.(event.loaded / event.total)
@@ -110,7 +114,10 @@ export const uploadAttachment = Atom.family((req: UploadAttachmentRequest) =>
           params: req,
           payload: {
             filename: input.file.name,
-            contentType: input.file.type,
+            contentType: attachmentUploadContentType(
+              input.file.name,
+              input.file.type
+            ),
             byteSize: input.file.size
           }
         })

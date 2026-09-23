@@ -76,6 +76,14 @@ export const jiraMigrationAtom = Atom.family((req: JiraMigrationRequest) =>
   Atom.optimistic(jiraMigrationQuery(req))
 )
 
+export const jiraSkippedAttachmentsAtom = Atom.family(
+  (req: JiraMigrationRequest) =>
+    Api.query("jiraMigrations", "skippedAttachments", {
+      params: req.params,
+      timeToLive: "1 hour"
+    })
+)
+
 export const refreshJiraMigrationAtom = Atom.family(
   (req: JiraMigrationRequest) =>
     Api.runtime.fn(

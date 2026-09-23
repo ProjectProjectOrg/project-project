@@ -42,6 +42,15 @@ describe("validateUploadRequest", () => {
     ).toBeNull()
   })
 
+  it("accepts text and markdown within the cap", () => {
+    expect(
+      validateUploadRequest({ contentType: "text/plain", byteSize: 1024 })
+    ).toBeNull()
+    expect(
+      validateUploadRequest({ contentType: "text/markdown", byteSize: 1024 })
+    ).toBeNull()
+  })
+
   it("rejects svg", () => {
     expect(
       validateUploadRequest({ contentType: "image/svg+xml", byteSize: 1024 })

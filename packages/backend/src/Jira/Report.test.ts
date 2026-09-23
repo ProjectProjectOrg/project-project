@@ -4,9 +4,11 @@ import type { JiraMigrationManifest } from "./Manifest"
 import { JiraMigrationMappings } from "./Mappings"
 import type { JiraPreflightResult } from "./Preflight"
 import { createJiraPublicationPlan } from "./PublicationPlan"
+import { JiraPlannedArchive } from "./Report"
 import {
   buildJiraMigrationArchive,
   buildJiraMigrationReportMarkdown,
+  skippedAttachmentsForArchive,
   type JiraMigrationOutcomeInput
 } from "./Report"
 
@@ -266,5 +268,88 @@ describe("buildJiraMigrationArchive", () => {
       }
     ])
     expect(archive.outcome.copiedAttachmentIds).toEqual(["attachment-1"])
+  })
+})
+
+describe("skippedAttachmentsForArchive", () => {
+  it("links skipped files to Jira and their destination tickets with honest replacement status", () => {
+    const archive = Schema.decodeUnknownSync(JiraPlannedArchive)({
+      version: 1,
+      manifestVersion: 2,
+      migrationId: "migration-1",
+      source: {},
+      restrictionPolicy: "include",
+      categories: {
+        issues: [{ id: "issue-1", key: "APP-1" }],
+        attachments: [
+          {
+            id: "attachment-text",
+            issueId: "issue-1",
+            filename: "notes.txt",
+            mimeType: "text/plain",
+            byteSize: 42
+          },
+          {
+            id: "attachment-video",
+            issueId: "issue-1",
+            filename: "demo.mp4",
+            mimeType: "video/mp4",
+            byteSize: 42
+          },
+          {
+            id: "attachment-large",
+            issueId: "issue-1",
+            filename: "large.pdf",
+            mimeType: "application/pdf",
+            byteSize: 26 * 1024 * 1024
+          }
+        ]
+      },
+      exclusions: [],
+      mappings: {},
+      attachmentOutcomes: [
+        { kind: "skipped", sourceAttachmentId: "attachment-text" },
+        { kind: "skipped", sourceAttachmentId: "attachment-video" },
+        { kind: "skipped", sourceAttachmentId: "attachment-large" }
+      ],
+      schemaVersions: [],
+      converterVersions: []
+    })
+
+    expect(
+      skippedAttachmentsForArchive(archive, {
+        orgSlug: "acme",
+        projectSlug: "application",
+        siteUrl: "https://example.atlassian.net"
+      })
+    ).toEqual([
+      {
+        sourceAttachmentId: "attachment-text",
+        filename: "notes.txt",
+        sourceIssueKey: "APP-1",
+        targetTicketId: "APP-1",
+        sourceIssueUrl: "https://example.atlassian.net/browse/APP-1",
+        targetTicketUrl: "/orgs/acme/projects/application/tickets/APP-1",
+        replacement: "available"
+      },
+      {
+        sourceAttachmentId: "attachment-video",
+        filename: "demo.mp4",
+        sourceIssueKey: "APP-1",
+        targetTicketId: "APP-1",
+        sourceIssueUrl: "https://example.atlassian.net/browse/APP-1",
+        targetTicketUrl: "/orgs/acme/projects/application/tickets/APP-1",
+        replacement: "unsupported_type"
+      },
+      {
+        sourceAttachmentId: "attachment-large",
+        filename: "large.pdf",
+        sourceIssueKey: "APP-1",
+        targetTicketId: "APP-1",
+        sourceIssueUrl: "https://example.atlassian.net/browse/APP-1",
+        targetTicketUrl: "/orgs/acme/projects/application/tickets/APP-1",
+        replacement: "too_large"
+      }
+    ])
   })
 })

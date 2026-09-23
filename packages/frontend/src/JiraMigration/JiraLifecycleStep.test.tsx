@@ -6,10 +6,13 @@ import {
 } from "@projectproject/shared"
 import { Schema } from "effect"
 import { m } from "@/paraglide/messages"
+import { stubFetch } from "@/api/testFetch"
 import { JiraProgressStep } from "./JiraProgressStep"
 import { JiraTerminalStep } from "./JiraTerminalStep"
 
 afterEach(cleanup)
+
+const fetchStub = stubFetch()
 
 const progressDetail = {
   status: "migrating",
@@ -64,7 +67,38 @@ it("shows retry and rescan failures inline on the terminal screen", () => {
   )
 })
 
-it("shows how to replace skipped attachments after a successful import", () => {
+it("shows Jira and destination links with replacement guidance after a successful import", async () => {
+  fetchStub.set(async () =>
+    Response.json([
+      {
+        sourceAttachmentId: "attachment-1",
+        filename: "notes.txt",
+        sourceIssueKey: "APP-1",
+        targetTicketId: "APP-1",
+        sourceIssueUrl: "https://example.atlassian.net/browse/APP-1",
+        targetTicketUrl: "/orgs/example/projects/application/tickets/APP-1",
+        replacement: "available"
+      },
+      {
+        sourceAttachmentId: "attachment-2",
+        filename: "demo.mp4",
+        sourceIssueKey: "APP-1",
+        targetTicketId: "APP-1",
+        sourceIssueUrl: "https://example.atlassian.net/browse/APP-1",
+        targetTicketUrl: "/orgs/example/projects/application/tickets/APP-1",
+        replacement: "unsupported_type"
+      },
+      {
+        sourceAttachmentId: "attachment-3",
+        filename: "large.pdf",
+        sourceIssueKey: "APP-1",
+        targetTicketId: "APP-1",
+        sourceIssueUrl: "https://example.atlassian.net/browse/APP-1",
+        targetTicketUrl: "/orgs/example/projects/application/tickets/APP-1",
+        replacement: "too_large"
+      }
+    ])
+  )
   render(
     <JiraTerminalStep
       detail={{
@@ -81,7 +115,11 @@ it("shows how to replace skipped attachments after a successful import", () => {
           tags: [],
           activeFutureSprintChoices: [],
           restrictedContent: { policy: "exclude" },
-          skippedAttachmentIds: ["attachment-1"],
+          skippedAttachmentIds: [
+            "attachment-1",
+            "attachment-2",
+            "attachment-3"
+          ],
           attachmentSkipsAccepted: true
         })
       }}
@@ -90,6 +128,21 @@ it("shows how to replace skipped attachments after a successful import", () => {
     />
   )
 
-  expect(screen.getByText(/Download each file from Jira/)).toBeTruthy()
-  expect(screen.getByText(/imports\/jira\/migration-1\/report.md/)).toBeTruthy()
+  expect(await screen.findByText("notes.txt")).toBeTruthy()
+  expect(screen.getByText("demo.mp4")).toBeTruthy()
+  expect(screen.getByText("large.pdf")).toBeTruthy()
+  expect(
+    screen
+      .getAllByRole("link", { name: "APP-1 in Jira" })[0]
+      ?.getAttribute("href")
+  ).toBe("https://example.atlassian.net/browse/APP-1")
+  expect(
+    screen
+      .getAllByRole("link", { name: "APP-1 in ProjectProject" })[0]
+      ?.getAttribute("href")
+  ).toBe("/orgs/example/projects/application/tickets/APP-1")
+  expect(screen.getByText(/Upload the downloaded file/)).toBeTruthy()
+  expect(screen.getAllByText(/cannot be uploaded/)).toHaveLength(2)
+  expect(screen.getByText(/25 MB upload limit/)).toBeTruthy()
+  expect(screen.queryByText(/imports\/jira\/migration-1\/report.md/)).toBeNull()
 })

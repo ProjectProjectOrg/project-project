@@ -329,6 +329,17 @@ export const JiraMigrationDetail = Schema.Struct({
 })
 export type JiraMigrationDetail = typeof JiraMigrationDetail.Type
 
+export const JiraSkippedAttachment = Schema.Struct({
+  sourceAttachmentId: Schema.NonEmptyString,
+  filename: Schema.NonEmptyString,
+  sourceIssueKey: Schema.NonEmptyString,
+  targetTicketId: Schema.NonEmptyString,
+  sourceIssueUrl: Schema.NonEmptyString,
+  targetTicketUrl: Schema.NonEmptyString,
+  replacement: Schema.Literals(["available", "too_large", "unsupported_type"])
+})
+export type JiraSkippedAttachment = typeof JiraSkippedAttachment.Type
+
 export const CreateJiraMigrationInput = Schema.Struct({
   requestId: Schema.NonEmptyString,
   cloudId: Schema.NonEmptyString,

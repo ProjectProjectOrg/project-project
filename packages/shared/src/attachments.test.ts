@@ -15,6 +15,7 @@ import {
 } from "./attachments"
 import {
   ATTACHMENT_MIN_WIDTH,
+  attachmentUploadContentType,
   clampAttachmentWidth,
   isAllowedAttachmentContentType,
   isRasterImageContentType
@@ -152,6 +153,15 @@ describe("isAllowedAttachmentContentType", () => {
     expect(isAllowedAttachmentContentType("application/pdf")).toBe(true)
   })
 
+  it("allows plain text and markdown attachments", () => {
+    expect(isAllowedAttachmentContentType("text/plain")).toBe(true)
+    expect(isAllowedAttachmentContentType("text/markdown")).toBe(true)
+  })
+
+  it("still rejects video attachments", () => {
+    expect(isAllowedAttachmentContentType("video/mp4")).toBe(false)
+  })
+
   it("rejects svg", () => {
     expect(isAllowedAttachmentContentType("image/svg+xml")).toBe(false)
   })
@@ -165,6 +175,22 @@ describe("isAllowedAttachmentContentType", () => {
   it("normalizes case and parameters", () => {
     expect(isAllowedAttachmentContentType("IMAGE/PNG; charset=binary")).toBe(
       true
+    )
+  })
+})
+
+describe("attachmentUploadContentType", () => {
+  it("recognizes markdown and text files when the browser omits their type", () => {
+    expect(attachmentUploadContentType("notes.md", "")).toBe("text/markdown")
+    expect(attachmentUploadContentType("notes.txt", "")).toBe("text/plain")
+    expect(
+      attachmentUploadContentType("notes.md", "application/octet-stream")
+    ).toBe("text/markdown")
+  })
+
+  it("does not relabel an explicitly typed video", () => {
+    expect(attachmentUploadContentType("notes.md", "video/mp4")).toBe(
+      "video/mp4"
     )
   })
 })

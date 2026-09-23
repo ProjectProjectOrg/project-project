@@ -2,8 +2,14 @@ import { jiraRestrictionPolicy, type JiraMigrationMappings } from "./Mappings"
 import type { JiraMigrationManifest } from "./Manifest"
 import type { JiraPreflightResult } from "./Preflight"
 import type { JiraPublicationPlan } from "./PublicationPlan"
+import {
+  ATTACHMENT_MAX_BYTES,
+  attachmentUploadContentType,
+  isAllowedAttachmentContentType,
+  type JiraSkippedAttachment
+} from "@projectproject/shared"
 import { createHash } from "node:crypto"
-import { Option, Schema } from "effect"
+import { Option, Predicate, Schema } from "effect"
 import {
   JiraConvertedText as ArchivedConvertedText,
   JiraManifestSourceV2,
@@ -382,6 +388,74 @@ export const JiraPlannedArchive = Schema.Struct({
   schemaVersions: Schema.Array(Schema.Json),
   converterVersions: Schema.Array(Schema.Json)
 })
+
+const ArchivedIssueLink = Schema.Struct({
+  id: Schema.NonEmptyString,
+  key: Schema.NonEmptyString
+})
+
+const ArchivedAttachmentLink = Schema.Struct({
+  id: Schema.NonEmptyString,
+  issueId: Schema.NonEmptyString,
+  filename: Schema.NonEmptyString,
+  mimeType: Schema.NonEmptyString,
+  byteSize: Schema.Int
+})
+
+const ArchivedSkippedOutcome = Schema.Struct({
+  sourceAttachmentId: Schema.NonEmptyString,
+  kind: Schema.Literal("skipped")
+})
+
+export const skippedAttachmentsForArchive = (
+  archive: typeof JiraPlannedArchive.Type,
+  destination: Readonly<{
+    orgSlug: string
+    projectSlug: string
+    siteUrl: string
+  }>
+): ReadonlyArray<JiraSkippedAttachment> => {
+  const site = new URL(destination.siteUrl)
+  if (site.protocol !== "https:") throw new Error("Invalid Jira site URL")
+  const issues = archive.categories.issues ?? []
+  const attachments = archive.categories.attachments ?? []
+  return archive.attachmentOutcomes
+    .filter(Schema.is(ArchivedSkippedOutcome))
+    .map((outcome) => {
+      const attachment = Schema.decodeUnknownSync(ArchivedAttachmentLink)(
+        attachments.find(
+          (item) =>
+            Predicate.isObject(item) && item.id === outcome.sourceAttachmentId
+        )
+      )
+      const issue = Schema.decodeUnknownSync(ArchivedIssueLink)(
+        issues.find(
+          (item) => Predicate.isObject(item) && item.id === attachment.issueId
+        )
+      )
+      const contentType = attachmentUploadContentType(
+        attachment.filename,
+        attachment.mimeType
+      )
+      const replacement = !isAllowedAttachmentContentType(contentType)
+        ? "unsupported_type"
+        : attachment.byteSize <= 0 || attachment.byteSize > ATTACHMENT_MAX_BYTES
+          ? "too_large"
+          : "available"
+      return {
+        sourceAttachmentId: outcome.sourceAttachmentId,
+        filename: attachment.filename,
+        sourceIssueKey: issue.key,
+        targetTicketId: issue.key,
+        sourceIssueUrl: new URL(
+          `browse/${encodeURIComponent(issue.key)}`,
+          `${site.origin}/`
+        ).href,
+        targetTicketUrl: `/orgs/${encodeURIComponent(destination.orgSlug)}/projects/${encodeURIComponent(destination.projectSlug)}/tickets/${encodeURIComponent(issue.key)}`,
+        replacement
+      }
+    })
+}
 export const JiraPlannedReport = Schema.Struct({
   version: Schema.Literal(1),
   partialSuccess: Schema.Boolean,
@@ -671,7 +745,7 @@ export function buildJiraReportV2(
       ? []
       : [
           "## Manual attachment replacement",
-          "Download each skipped attachment from Jira and upload it to its destination ticket in ProjectProject. Update any old Jira link in the ticket text if the new file should appear there.",
+          "Download each skipped attachment from Jira. Upload it to the destination ticket only if its type is supported and its size is between 1 byte and 25 MB. Otherwise it cannot be replaced in ProjectProject. Update any old Jira link in the ticket text if the new file should appear there.",
           "",
           table(
             [
