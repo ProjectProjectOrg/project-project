@@ -1,6 +1,9 @@
+import { createHash } from "node:crypto"
 import { and, eq, inArray, sql as drizzleSql } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as FileSystem from "effect/FileSystem"
+import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
 import { ulid } from "ulid"
 import * as Stream from "effect/Stream"
@@ -21,6 +24,7 @@ import { generateKeyBetween } from "fractional-indexing"
 import {
   attachmentIndex,
   jiraMigration,
+  organization,
   projectIndex,
   projectMember,
   projectStatus,
@@ -31,6 +35,7 @@ import {
 import { serializeCommentsRegion, type CommentBlock } from "../comments-region"
 import { JiraMigrationBlocked } from "./Blocked"
 import { Db } from "../Services/Db"
+import { Markdown } from "../Services/Markdown"
 import {
   attachmentObjectKey,
   type S3Connection,
@@ -52,7 +57,8 @@ import {
 import type { AttemptFence } from "./MigrationProjection"
 import {
   createJiraPublicationPlan,
-  type JiraPublicationPlan
+  type JiraPublicationPlan,
+  type JiraPublicationPlanV1
 } from "./PublicationPlan"
 
 export type JiraImportBlocked = {
@@ -208,6 +214,99 @@ export const ensureHiddenJiraProject = Effect.fn(
         })
       return existing.id
     })
+  )
+})
+
+export type JiraHiddenDocumentsInput = Readonly<{
+  fence: AttemptFence
+  projectId: string
+  orgSlug: string
+  projectSlug: string
+  documents: JiraPublicationPlanV1["documents"]
+}>
+
+const safeJiraDocumentPath = (relative: string) =>
+  relative === "project.md" ||
+  /^(tickets|groups)\/[A-Za-z0-9_-]+\.md$/.test(relative)
+
+export const writeJiraHiddenDocuments = Effect.fn(
+  "JiraImport.writeHiddenDocuments"
+)(function* (input: JiraHiddenDocumentsInput) {
+  const db = yield* Db
+  const markdown = yield* Markdown
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  if (
+    new Set(input.documents.map(({ path }) => path)).size !==
+    input.documents.length
+  )
+    return yield* new JiraPublicationInvalid({
+      reasons: ["duplicate-document-path"]
+    })
+  for (const document of input.documents) {
+    if (
+      !safeJiraDocumentPath(document.path) ||
+      createHash("sha256").update(document.content).digest("hex") !==
+        document.sha256
+    )
+      return yield* new JiraPublicationInvalid({
+        reasons: ["invalid-document-content-or-path"]
+      })
+  }
+  return yield* Effect.uninterruptible(
+    db.transaction((tx) =>
+      Effect.gen(function* () {
+        const [migration] = yield* tx
+          .select()
+          .from(jiraMigration)
+          .where(eq(jiraMigration.id, input.fence.migrationId))
+          .for("update")
+        const [project] = yield* tx
+          .select()
+          .from(projectIndex)
+          .where(eq(projectIndex.id, input.projectId))
+          .limit(1)
+        const [org] = project
+          ? yield* tx
+              .select({ slug: organization.slug })
+              .from(organization)
+              .where(eq(organization.id, project.organizationId))
+              .limit(1)
+          : []
+        if (
+          !migration ||
+          migration.workflowExecutionId !== input.fence.workflowExecutionId ||
+          migration.workflowAttempt !== input.fence.workflowAttempt ||
+          migration.status !== "migrating" ||
+          migration.cleanupExecutionId !== null ||
+          !project ||
+          project.publishedAt !== null ||
+          project.slug !== input.projectSlug ||
+          project.organizationId !== migration.organizationId ||
+          org?.slug !== input.orgSlug
+        )
+          return yield* new JiraPublicationInvalid({
+            reasons: ["stale-materialization-attempt"]
+          })
+        const directory = markdown.projectDir(input.orgSlug, input.projectSlug)
+        for (const document of input.documents) {
+          const target = path.join(directory, document.path)
+          yield* fs.makeDirectory(path.dirname(target), { recursive: true })
+          const temporary = `${target}.jira-tmp`
+          yield* fs.writeFileString(temporary, document.content)
+          yield* fs.rename(temporary, target)
+          const stored = yield* fs.readFileString(target)
+          if (
+            createHash("sha256").update(stored).digest("hex") !==
+            document.sha256
+          )
+            return yield* new JiraPublicationInvalid({
+              reasons: ["document-verification-failed"]
+            })
+        }
+        return input.documents.length
+      })
+    )
   )
 })
 

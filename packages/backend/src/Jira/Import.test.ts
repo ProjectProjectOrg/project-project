@@ -1,8 +1,9 @@
-import { randomUUID } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
+import * as BunServices from "@effect/platform-bun/BunServices"
 import { PgClient } from "@effect/sql-pg"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
-import { Effect, Layer, Redacted } from "effect"
+import { ConfigProvider, Effect, FileSystem, Layer, Redacted } from "effect"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 import type { JiraConvertedText, JiraMigrationManifest } from "./Manifest"
@@ -11,12 +12,14 @@ import {
   buildJiraImportPlan,
   ensureHiddenJiraProject,
   groupColors,
-  nextTicketNumberFor
+  nextTicketNumberFor,
+  writeJiraHiddenDocuments
 } from "./Import"
 import type { JiraPreflightEnvironment } from "./Preflight"
 import { TAG_DEFAULT_PALETTE } from "@projectproject/shared"
 import type { JiraPublicationPlan } from "./PublicationPlan"
 import { DbLive } from "../Layers/Db"
+import { MarkdownLive } from "../Layers/Markdown"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -105,6 +108,43 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
       [slug]
     )
     expect(rows.rows).toEqual([{ id: projectId, published_at: null }])
+    const content = "---\nname: Application\n---\n# Application\n"
+    const documents = [
+      {
+        path: "project.md",
+        content,
+        sha256: createHash("sha256").update(content).digest("hex")
+      }
+    ]
+    const writeDocuments = Effect.scoped(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem
+        const root = yield* fs.makeTempDirectoryScoped({
+          prefix: "jira-hidden-"
+        })
+        const markdownLayer = MarkdownLive.pipe(
+          Layer.provide(
+            ConfigProvider.layer(
+              ConfigProvider.fromUnknown({ PROJECTS_DIR: root })
+            )
+          )
+        )
+        const write = writeJiraHiddenDocuments({
+          fence: input.fence,
+          projectId,
+          orgSlug: organizationId,
+          projectSlug: slug,
+          documents
+        }).pipe(Effect.provide(markdownLayer))
+        expect(yield* write).toBe(1)
+        expect(yield* write).toBe(1)
+        const stored = yield* fs.readFileString(
+          `${root}/orgs/${organizationId}/projects/${slug}/project.md`
+        )
+        expect(stored).toBe(content)
+      })
+    ).pipe(Effect.provide(Layer.mergeAll(layer, BunServices.layer)))
+    await Effect.runPromise(writeDocuments)
     const conflicting = await Effect.runPromise(
       Effect.result(
         ensureHiddenJiraProject({
