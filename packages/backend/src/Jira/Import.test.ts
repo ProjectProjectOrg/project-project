@@ -14,13 +14,18 @@ import {
 } from "effect"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
-import type { JiraConvertedText, JiraMigrationManifest } from "./Manifest"
+import {
+  JiraMigrationManifestV2,
+  type JiraConvertedText,
+  type JiraMigrationManifest
+} from "./Manifest"
 import {
   aliasJiraMediaReferences,
   buildJiraImportPlan,
   copyJiraPreparedAttachment,
   ensureHiddenJiraProject,
   groupColors,
+  makeJiraMaterializationDependencies,
   nextTicketNumberFor,
   verifyJiraHiddenMaterialization,
   writeJiraHiddenDocuments
@@ -28,7 +33,7 @@ import {
 import type { JiraPreflightEnvironment } from "./Preflight"
 import { TAG_DEFAULT_PALETTE } from "@projectproject/shared"
 import type { JiraPublicationPlan } from "./PublicationPlan"
-import { jiraAttachmentId } from "./PublicationPlan"
+import { jiraAttachmentId, prepareJiraPublication } from "./PublicationPlan"
 import { DbLive } from "../Layers/Db"
 import { MarkdownLive } from "../Layers/Markdown"
 import { attachmentObjectKey, type S3Connection } from "../Services/S3Storage"
@@ -471,6 +476,162 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
       ).pipe(Effect.provide(Layer.mergeAll(dbLayer, BunServices.layer)))
     )
   })
+
+  it("materializes a prepared plan through the real hidden project and document callbacks", async () => {
+    const organizationId = randomUUID()
+    const userId = randomUUID()
+    const migrationId = randomUUID()
+    const slug = `jira-${randomUUID()}`
+    owners.push({ organizationId, userId })
+    await pool.query(
+      'insert into "user" (id,name,email,email_verified,created_at,updated_at) values ($1,$1,$2,false,now(),now())',
+      [userId, `${userId}@example.test`]
+    )
+    await pool.query(
+      'insert into "organization" (id,name,slug,created_at) values ($1,$1,$1,now())',
+      [organizationId]
+    )
+    await pool.query(
+      `insert into jira_migration (id,request_id,organization_id,initiated_by,source_cloud_id,source_site_name,source_site_url,source_project_id,source_project_key,source_project_name,staging_prefix,workflow_execution_id,workflow_attempt,status,phase,checkpoint) values ($1,$2,$3,$4,'cloud','Site','https://example.test','10000','APP','Application',$5,$1,1,'migrating','migrate',$6)`,
+      [
+        migrationId,
+        randomUUID(),
+        organizationId,
+        userId,
+        `migrations/jira/${migrationId}`,
+        JSON.stringify({
+          remoteWritesMayStillCommit: {
+            workflowExecutionId: migrationId,
+            workflowAttempt: 1
+          }
+        })
+      ]
+    )
+    const migrationCreatedAt = (
+      await pool.query("select created_at from jira_migration where id = $1", [
+        migrationId
+      ])
+    ).rows[0]!.created_at.toISOString()
+    const prepared = await Effect.runPromise(
+      prepareJiraPublication({
+        manifest: manifestV2(migrationId),
+        manifestSha256: "a".repeat(64),
+        configurationRevision: 1,
+        configuration: {
+          ...configuration,
+          destination: { name: "Application", slug, key: "APP" },
+          identities: configuration.identities.map((identity) =>
+            identity.projectProjectUserId === null
+              ? identity
+              : { ...identity, projectProjectUserId: userId }
+          )
+        },
+        migrationCreatedAt,
+        organizationId,
+        orgSlug: organizationId,
+        ownerId: userId,
+        storageKeyPrefix: "",
+        users: [{ userId, username: "owner" }],
+        environment: {
+          existingProjectSlugs: [],
+          existingProjectKeys: [],
+          existingTicketIds: [],
+          existingUserIds: [userId],
+          existingStatusSlugs: ["todo", "in_progress", "done"]
+        },
+        source: { projectDescription: null, artifacts: [] }
+      })
+    )
+    const connection: S3Connection = {
+      endpoint: "http://127.0.0.1:59000",
+      bucket: "projectproject-t172-local-test",
+      region: "us-east-1",
+      keyPrefix: null,
+      forcePathStyle: true,
+      accessKeyId: "test",
+      secretAccessKey: "test"
+    }
+    const stored = new Map<string, unknown>()
+    const callbacks = makeJiraMaterializationDependencies(
+      prepared,
+      { migrationId, workflowExecutionId: migrationId, workflowAttempt: 1 },
+      {
+        connection,
+        jira: { attachmentContent: () => Stream.empty },
+        s3: {
+          getObject: () => Effect.succeed(null),
+          putObject: () => Effect.void,
+          headObject: () => Effect.succeed(null)
+        },
+        artifacts: {
+          writeJson: (_orgSlug, coordinates, value) =>
+            Effect.gen(function* () {
+              const key = `migrations/jira/${coordinates.migrationId}/scan-${coordinates.scanRevision}/${coordinates.area}/${coordinates.kind}/${coordinates.identity}.json`
+              stored.set(key, value)
+              const bytes = new TextEncoder().encode(
+                yield* Schema.encodeEffect(
+                  Schema.fromJsonString(Schema.Unknown)
+                )(value).pipe(Effect.orDie)
+              )
+              return {
+                key,
+                contentType: "application/json",
+                byteSize: bytes.length,
+                sha256: createHash("sha256").update(bytes).digest("hex")
+              }
+            }),
+          verify: () => Effect.void,
+          readJson: (_orgSlug, ref, schema) =>
+            Schema.decodeUnknownEffect(schema)(stored.get(ref.key)).pipe(
+              Effect.orDie
+            )
+        }
+      }
+    )
+    const dbLayer = DbLive.pipe(
+      Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
+    )
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem
+          const root = yield* fs.makeTempDirectoryScoped({
+            prefix: "jira-plan-"
+          })
+          const markdownLayer = MarkdownLive.pipe(
+            Layer.provide(
+              ConfigProvider.layer(
+                ConfigProvider.fromUnknown({ PROJECTS_DIR: root })
+              )
+            )
+          )
+          const run = Effect.gen(function* () {
+            expect(yield* callbacks.createHidden).toBe(prepared.projectId)
+            const finalized = yield* callbacks.finalizePlan([])
+            for (
+              let ordinal = 0;
+              ordinal < finalized.documentBatchCount;
+              ordinal++
+            )
+              yield* callbacks.writeDocumentBatch(finalized.planRef, ordinal)
+            yield* callbacks.writeArchive(finalized.planRef)
+            yield* callbacks.writeReport(finalized.planRef)
+            const verified = yield* callbacks.verify(finalized.planRef)
+            expect(verified.planSha256).toBe(finalized.publicationRevision)
+            expect(verified.documentCount).toBeGreaterThanOrEqual(3)
+            expect(verified.attachmentCount).toBe(0)
+          }).pipe(Effect.provide(markdownLayer))
+          yield* run
+        })
+      ).pipe(Effect.provide(Layer.mergeAll(dbLayer, BunServices.layer)))
+    )
+    const [project] = (
+      await pool.query("select published_at from project_index where id = $1", [
+        prepared.projectId
+      ])
+    ).rows
+    expect(project?.published_at).toBeNull()
+  })
 })
 
 const convertedText = (markdown: string): JiraConvertedText => ({
@@ -583,6 +744,51 @@ const manifest = (): JiraMigrationManifest => ({
   coverage: [],
   rawPages: []
 })
+
+const manifestV2 = (migrationId: string) => {
+  const source = manifest()
+  return Schema.decodeUnknownSync(JiraMigrationManifestV2)({
+    ...source,
+    version: 2,
+    migrationId,
+    scanRevision: 1,
+    source: {
+      ...source.source,
+      visibleAccount: {
+        accountId: "account-linked",
+        displayName: "Linked User",
+        caveat: "Visible account only"
+      }
+    },
+    workflow: { executionId: migrationId, attempt: 1 },
+    issues: source.issues.map(({ description, labels, ...issue }) => ({
+      ...issue,
+      descriptionArtifact: null,
+      reporterAccountId: null,
+      labelIds: labels
+    })),
+    comments: [],
+    attachments: [],
+    fieldDefinitions: [],
+    workflows: [],
+    changelogs: [],
+    worklogs: [],
+    watchers: [],
+    votes: [],
+    parentsSubtasks: [],
+    epics: [],
+    sprints: [],
+    versionsReleases: [],
+    ranks: [],
+    links: [],
+    productApps: [],
+    customFields: [],
+    warnings: [],
+    rawArtifacts: [],
+    schemaVersions: [{ id: "manifest", version: "2" }],
+    converterVersions: [{ id: "adf", version: "1" }]
+  })
+}
 
 const configuration = {
   destination: { name: "Application", slug: "application", key: "APP" },

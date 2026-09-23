@@ -8,7 +8,7 @@ import {
   createJiraReferenceTargets,
   rewriteJiraPublicationText
 } from "./PublicationPlan"
-import { Effect } from "effect"
+import { Effect, Stream } from "effect"
 import { AttachmentId } from "@projectproject/shared"
 import { JiraMigrationManifestV2 } from "./Manifest"
 import {
@@ -17,7 +17,11 @@ import {
   JiraPublicationPlanV1,
   jiraAttachmentId
 } from "./PublicationPlan"
-import { persistJiraPublicationPlan } from "./Import"
+import {
+  loadJiraPublicationPlan,
+  makeJiraMaterializationDependencies,
+  persistJiraPublicationPlan
+} from "./Import"
 const convertedText = (
   markdown: string,
   references: JiraConvertedText["references"]
@@ -570,6 +574,59 @@ const preparationInput = () => ({
 })
 
 describe("immutable v2 publication", () => {
+  it("connects the prepared plan to artifact-backed finalization", async () => {
+    const prepared = await Effect.runPromise(
+      prepareJiraPublication(preparationInput())
+    )
+    let stored: unknown = null
+    const ref = {
+      key: "migrations/jira/migration-1/scan-1/publication/plan-v1/test.json",
+      contentType: "application/json",
+      byteSize: 100,
+      sha256: "b".repeat(64)
+    }
+    const callbacks = makeJiraMaterializationDependencies(
+      prepared,
+      {
+        migrationId: prepared.manifest.migrationId,
+        workflowExecutionId: "execution-1",
+        workflowAttempt: 1
+      },
+      {
+        connection: {
+          endpoint: "http://127.0.0.1:59000",
+          bucket: "projectproject-t172-local-test",
+          region: "us-east-1",
+          keyPrefix: "storage",
+          forcePathStyle: true,
+          accessKeyId: "test",
+          secretAccessKey: "test"
+        },
+        jira: { attachmentContent: () => Stream.empty },
+        s3: {
+          getObject: () => Effect.succeed(null),
+          putObject: () => Effect.void,
+          headObject: () => Effect.succeed(null)
+        },
+        artifacts: {
+          writeJson: (_orgSlug, _coordinates, value) =>
+            Effect.sync(() => {
+              stored = value
+              return ref
+            }),
+          verify: () => Effect.void,
+          readJson: (_orgSlug, _ref, schema) =>
+            Schema.decodeUnknownEffect(schema)(stored).pipe(Effect.orDie)
+        }
+      }
+    )
+    const finalized = await Effect.runPromise(callbacks.finalizePlan([]))
+    expect(finalized.planRef).toEqual(ref)
+    expect(finalized.documentBatchCount).toBe(1)
+    expect(
+      Schema.decodeUnknownSync(JiraPublicationPlanV1)(stored).project.slug
+    ).toBe("application")
+  })
   it("stores the finalized plan under its content revision with a bounded batch count", async () => {
     const prepared = await Effect.runPromise(
       prepareJiraPublication(preparationInput())
@@ -609,6 +666,15 @@ describe("immutable v2 publication", () => {
       Schema.decodeUnknownSync(JiraPublicationPlanV1)(write.value).documents
         .length
     ).toBeGreaterThan(0)
+    const loaded = await Effect.runPromise(
+      loadJiraPublicationPlan(prepared.orgSlug, ref, {
+        verify: () => Effect.void,
+        readJson: (_orgSlug, _ref, schema) =>
+          Schema.decodeUnknownEffect(schema)(write.value).pipe(Effect.orDie)
+      })
+    )
+    expect(loaded.publicationRevision).toBe(result.publicationRevision)
+    expect(loaded.plan.project.slug).toBe("application")
   })
   it("derives schema-valid attachment IDs from source identity and creation time", () => {
     const id = jiraAttachmentId("migration-1", "jira-attachment-88", createdAt)

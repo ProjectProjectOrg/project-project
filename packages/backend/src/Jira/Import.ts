@@ -48,7 +48,11 @@ import type { TicketDocsShape } from "../Services/TicketDocs"
 import type { TicketIndexShape } from "../Services/TicketIndex"
 import type { JiraClientShape } from "./Client"
 import { jiraConfigurationToMappings } from "./Mappings"
-import type { JiraManifestAttachment, JiraMigrationManifest } from "./Manifest"
+import {
+  canonicalJiraJson,
+  type JiraManifestAttachment,
+  type JiraMigrationManifest
+} from "./Manifest"
 import {
   preflightJiraMigration,
   JiraPublicationInvalid,
@@ -56,14 +60,18 @@ import {
 } from "./Preflight"
 import { decodeCheckpoint, type AttemptFence } from "./MigrationProjection"
 import { jiraDocumentBatches } from "./MigrationActivities"
-import type { JiraMigrationArtifactsShape } from "./MigrationArtifacts"
+import { JiraMigrationWorkflowFailure } from "./MigrationWorkflow"
+import type {
+  JiraArtifactRef,
+  JiraMigrationArtifactsShape
+} from "./MigrationArtifacts"
 import {
   createJiraPublicationPlan,
   finalizeJiraPublication,
+  JiraPublicationPlanV1,
   type JiraAttachmentOutcome,
   type JiraPreparedPublicationV1,
-  type JiraPublicationPlan,
-  type JiraPublicationPlanV1
+  type JiraPublicationPlan
 } from "./PublicationPlan"
 
 export type JiraImportBlocked = {
@@ -164,6 +172,148 @@ export const persistJiraPublicationPlan = Effect.fn(
     documentBatchCount: jiraDocumentBatches(finalized.plan.documents).length
   }
 })
+
+export const loadJiraPublicationPlan = Effect.fn(
+  "JiraImport.loadPublicationPlan"
+)(function* (
+  orgSlug: string,
+  ref: JiraArtifactRef,
+  artifacts: Pick<JiraMigrationArtifactsShape, "verify" | "readJson">
+) {
+  yield* artifacts.verify(orgSlug, ref)
+  const plan = yield* artifacts.readJson(orgSlug, ref, JiraPublicationPlanV1)
+  const encoded = yield* Schema.encodeEffect(JiraPublicationPlanV1)(plan)
+  const publicationRevision = createHash("sha256")
+    .update(canonicalJiraJson(encoded))
+    .digest("hex")
+  return { plan, publicationRevision }
+})
+
+export const makeJiraMaterializationDependencies = (
+  prepared: JiraPreparedPublicationV1,
+  fence: AttemptFence,
+  services: Readonly<{
+    connection: S3Connection
+    jira: Pick<JiraClientShape, "attachmentContent">
+    s3: Pick<S3StorageShape, "getObject" | "putObject" | "headObject">
+    artifacts: Pick<
+      JiraMigrationArtifactsShape,
+      "writeJson" | "readJson" | "verify"
+    >
+  }>
+) => {
+  const destination = prepared.configuration.destination
+  const project = {
+    id: prepared.projectId,
+    organizationId: prepared.organizationId,
+    slug: destination.slug,
+    key: destination.key,
+    name: destination.name,
+    ...deriveProjectIdentity(destination.slug),
+    nextTicketNumber:
+      Math.max(
+        0,
+        ...prepared.manifest.issues.map((issue) => issue.issueNumber)
+      ) + 1,
+    createdBy: prepared.ownerId,
+    createdAt: prepared.migrationCreatedAt
+  }
+  const failure = (error: unknown) =>
+    JiraMigrationWorkflowFailure.make({
+      reason: Schema.is(JiraPublicationInvalid)(error)
+        ? "jira_migration_publication_invalid"
+        : "jira_migration_materialization_failed",
+      retryable: !Schema.is(JiraPublicationInvalid)(error)
+    })
+  const mapFailure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(Effect.mapError(failure))
+  const load = (ref: JiraArtifactRef) =>
+    loadJiraPublicationPlan(prepared.orgSlug, ref, services.artifacts)
+  const write = (documents: JiraPublicationPlanV1["documents"]) =>
+    writeJiraHiddenDocuments({
+      fence,
+      projectId: project.id,
+      orgSlug: prepared.orgSlug,
+      projectSlug: project.slug,
+      documents
+    })
+  return {
+    error: JiraMigrationWorkflowFailure,
+    createHidden: mapFailure(ensureHiddenJiraProject({ fence, project })),
+    copyAttachment: (
+      attachment: JiraPreparedPublicationV1["attachments"][number]
+    ) =>
+      mapFailure(
+        copyJiraPreparedAttachment(services.jira, services.s3, {
+          fence,
+          projectId: project.id,
+          organizationId: prepared.organizationId,
+          orgSlug: prepared.orgSlug,
+          projectSlug: project.slug,
+          uploadedBy: prepared.ownerId,
+          cloudId: prepared.manifest.source.cloudId,
+          connection: services.connection,
+          attachment
+        })
+      ),
+    finalizePlan: (outcomes: ReadonlyArray<JiraAttachmentOutcome>) =>
+      mapFailure(
+        persistJiraPublicationPlan(prepared, outcomes, services.artifacts)
+      ),
+    writeDocumentBatch: (ref: JiraArtifactRef, ordinal: number) =>
+      mapFailure(
+        Effect.gen(function* () {
+          const { plan } = yield* load(ref)
+          const batch = jiraDocumentBatches(plan.documents)[ordinal]
+          if (!batch)
+            return yield* new JiraPublicationInvalid({
+              reasons: ["invalid-document-batch"]
+            })
+          return yield* write(batch)
+        })
+      ),
+    writeArchive: (ref: JiraArtifactRef) =>
+      mapFailure(
+        Effect.gen(function* () {
+          const { plan } = yield* load(ref)
+          return yield* write([plan.archiveDocument])
+        })
+      ),
+    writeReport: (ref: JiraArtifactRef) =>
+      mapFailure(
+        Effect.gen(function* () {
+          const { plan } = yield* load(ref)
+          return yield* write([plan.reportDocument])
+        })
+      ),
+    verify: (ref: JiraArtifactRef) =>
+      mapFailure(
+        Effect.gen(function* () {
+          const { plan, publicationRevision } = yield* load(ref)
+          if (
+            plan.migrationId !== fence.migrationId ||
+            plan.project.id !== project.id ||
+            plan.project.slug !== project.slug
+          )
+            return yield* new JiraPublicationInvalid({
+              reasons: ["publication-plan-identity-conflict"]
+            })
+          return yield* verifyJiraHiddenMaterialization(services.s3, {
+            fence,
+            projectId: project.id,
+            orgSlug: prepared.orgSlug,
+            projectSlug: project.slug,
+            planSha256: publicationRevision,
+            documents: plan.documents,
+            archiveDocument: plan.archiveDocument,
+            reportDocument: plan.reportDocument,
+            attachments: plan.attachments,
+            connection: services.connection
+          })
+        })
+      )
+  }
+}
 
 export type HiddenJiraProjectInput = Readonly<{
   fence: AttemptFence
