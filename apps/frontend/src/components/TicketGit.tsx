@@ -28,11 +28,10 @@ import { CopyButton } from "@/components/ui/copy-button"
 import { InlineForm } from "@/components/ui/inline-form"
 import { me } from "@/features/auth/atoms/auth"
 import { projectGitStates } from "@/features/github/atoms/github"
-import { projectRequest } from "@/features/projects/atoms/projects"
+import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { branchOpensInNewTab, branchUrl } from "@/lib/branchUrl"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 
 function useGitState(
   orgSlug: string,
@@ -86,12 +85,15 @@ export function TicketGitChip({
   ticket: Pick<Ticket, "id" | "gitState">
 }) {
   const { state, waiting } = useGitState(orgSlug, slug, ticket)
-  const project = useProject()
-  if (!project.github) return <span aria-hidden />
+  const projectResult = useAtomValue(project(projectRequest(orgSlug, slug)))
+  const github = Result.isSuccess(projectResult)
+    ? projectResult.value.github
+    : null
+  if (!github) return <span aria-hidden />
   if (!state || state.tag === "no_branch") return <span aria-hidden />
   const pending = state.tag === "branch_pending" || state.tag === "pr_pending"
   const pulse = (waiting || pending) && "animate-pulse"
-  const repoSlug = `${project.github.repoOwner}/${project.github.repoName}`
+  const repoSlug = `${github.repoOwner}/${github.repoName}`
 
   if (state.tag === "stale_branch") {
     return (

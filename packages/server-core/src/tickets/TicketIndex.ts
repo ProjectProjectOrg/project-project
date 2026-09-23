@@ -70,6 +70,24 @@ export type TicketIndexQueryEntry = Readonly<{
   orderKey: string
 }>
 
+export type TicketIndexOrgEntry = Readonly<{
+  project: TicketIndexProject
+  entry: TicketIndexEntry
+  sortValue: string
+}>
+
+export type TicketIndexAssignedOptions = Readonly<{
+  viewerId: string
+  doneAfter: Date
+  cursor?: string
+  limit: number
+}>
+
+export type TicketIndexTouchedOptions = Readonly<{
+  viewerId: string
+  limit: number
+}>
+
 export interface TicketIndexMatch extends TicketIndexProject {
   readonly ticketId: string
   readonly branch: string
@@ -113,6 +131,18 @@ export interface TicketIndexShape {
     orgSlug: string,
     slug: string
   ) => Effect.Effect<TicketIndexProject, NotFound>
+  readonly projectsFor: (
+    orgSlug: string,
+    slugs: ReadonlyArray<string>
+  ) => Effect.Effect<ReadonlyArray<TicketIndexProject>>
+  readonly assignedTo: (
+    projects: ReadonlyArray<TicketIndexProject>,
+    options: TicketIndexAssignedOptions
+  ) => Effect.Effect<ReadonlyArray<TicketIndexOrgEntry>>
+  readonly touchedBy: (
+    projects: ReadonlyArray<TicketIndexProject>,
+    options: TicketIndexTouchedOptions
+  ) => Effect.Effect<ReadonlyArray<TicketIndexOrgEntry>>
   readonly list: (
     project: TicketIndexProject,
     ticketIds?: ReadonlyArray<string>

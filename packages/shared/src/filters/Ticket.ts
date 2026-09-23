@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema"
 
 import { Page } from "../Pagination"
 import { GroupId } from "../schemas/Group"
+import { Slug } from "../schemas/Project"
 import { TagName } from "../schemas/Tag"
 import { TicketStatus, TicketType } from "../schemas/Ticket"
 import { Ticket, TicketDetail } from "../schemas/Ticket"
@@ -87,6 +88,24 @@ export type TicketListRow = typeof TicketListRow.Type
 
 export const TicketListPage = Page(TicketListRow)
 export type TicketListPage = typeof TicketListPage.Type
+
+export const OrgTicketRow = Schema.Struct({
+  projectSlug: Slug,
+  ticket: Ticket
+})
+export type OrgTicketRow = typeof OrgTicketRow.Type
+
+export const OrgTicketPage = Page(OrgTicketRow)
+export type OrgTicketPage = typeof OrgTicketPage.Type
+
+export const MY_TICKETS_LIMIT = 200
+export const MY_TICKETS_DONE_WINDOW_DAYS = 7
+export const RECENT_TICKETS_LIMIT = 10
+
+export const MyTicketsQuery = Schema.Struct({
+  cursor: Schema.optional(Schema.String)
+})
+export type MyTicketsQuery = typeof MyTicketsQuery.Type
 
 export const TicketOrderKeyQuery = Schema.Struct({
   sort: Schema.optional(TicketSort)

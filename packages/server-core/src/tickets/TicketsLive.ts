@@ -13,12 +13,15 @@ import {
   GitHubTokenExpired,
   GitStatesResponse,
   MentionInvalid,
+  MY_TICKETS_DONE_WINDOW_DAYS,
+  MY_TICKETS_LIMIT,
   NotFound,
   OpenPrInput,
   OpenPrResult,
   paginateSorted,
   QuickCreateTicketInput,
   RateLimited,
+  RECENT_TICKETS_LIMIT,
   Forbidden,
   SprintCompletedImmutable,
   formatMentionHref,
@@ -36,6 +39,9 @@ import {
   type ProjectKey,
   type GroupId,
   type GroupIdFilter,
+  type MyTicketsQuery,
+  type OrgTicketPage,
+  type OrgTicketRow,
   type TicketCountQuery,
   type TicketCounts,
   type TicketListPage,
@@ -78,6 +84,7 @@ import {
 import {
   TicketIndex,
   type TicketIndexEntry,
+  type TicketIndexOrgEntry,
   type TicketIndexQueryEntry,
   type TicketIndexProject
 } from "./TicketIndex"
@@ -322,6 +329,84 @@ export const TicketsLive = Layer.effect(
         )
         return ticketPage(queryEntries, query, projectGithub, pageLimit)
       })
+
+    const visibleIndexProjects = (
+      orgSlug: string,
+      userId: string
+    ): Effect.Effect<ReadonlyArray<TicketIndexProject>, NotFound> =>
+      Effect.gen(function* () {
+        const visible = yield* projects.list(orgSlug, userId)
+        return yield* ticketIndex.projectsFor(
+          orgSlug,
+          visible.map((project) => project.slug)
+        )
+      })
+
+    const orgTicketRows = (
+      orgSlug: string,
+      userId: string,
+      entries: ReadonlyArray<TicketIndexOrgEntry>
+    ): Effect.Effect<ReadonlyArray<OrgTicketRow>, NotFound> =>
+      Effect.gen(function* () {
+        const slugs = [
+          ...new Set(entries.map(({ project }) => project.projectSlug))
+        ]
+        const integrations = yield* Effect.forEach(
+          slugs,
+          (slug) =>
+            projects
+              .getGithubIntegration(orgSlug, userId, slug)
+              .pipe(Effect.map((integration) => [slug, integration] as const)),
+          { concurrency: 8 }
+        )
+        const integrationBySlug = new Map(integrations)
+        return entries.map(({ project, entry }) => ({
+          projectSlug: project.projectSlug,
+          ticket: indexEntryToTicket(
+            entry,
+            integrationBySlug.get(project.projectSlug) ?? null
+          )
+        }))
+      })
+
+    const mine = Effect.fn("Tickets.mine")(function* (
+      orgSlug: string,
+      userId: string,
+      query: MyTicketsQuery
+    ) {
+      const visible = yield* visibleIndexProjects(orgSlug, userId)
+      const now = yield* DateTime.now
+      const doneAfter = DateTime.toDate(
+        DateTime.subtract(now, { days: MY_TICKETS_DONE_WINDOW_DAYS })
+      )
+      const entries = yield* ticketIndex.assignedTo(visible, {
+        viewerId: userId,
+        doneAfter,
+        cursor: query.cursor,
+        limit: MY_TICKETS_LIMIT + 1
+      })
+      const page = paginateSorted(entries, {
+        cursor: undefined,
+        limit: MY_TICKETS_LIMIT,
+        sortKey: (row) => row.sortValue,
+        id: (row) => row.entry.id,
+        dir: "desc"
+      })
+      const items = yield* orgTicketRows(orgSlug, userId, page.items)
+      return { items, nextCursor: page.nextCursor } satisfies OrgTicketPage
+    })
+
+    const recent = Effect.fn("Tickets.recent")(function* (
+      orgSlug: string,
+      userId: string
+    ) {
+      const visible = yield* visibleIndexProjects(orgSlug, userId)
+      const entries = yield* ticketIndex.touchedBy(visible, {
+        viewerId: userId,
+        limit: RECENT_TICKETS_LIMIT
+      })
+      return yield* orgTicketRows(orgSlug, userId, entries)
+    })
 
     const listInGroup = (
       orgSlug: string,
@@ -2042,6 +2127,8 @@ export const TicketsLive = Layer.effect(
       })
 
     return {
+      mine,
+      recent,
       list,
       sections,
       sprintSections,

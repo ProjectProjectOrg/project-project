@@ -62,6 +62,9 @@ import {
 } from "./errors"
 import {
   DEFAULT_TICKET_SORT,
+  MyTicketsQuery,
+  OrgTicketPage,
+  OrgTicketRow,
   TicketSort,
   TicketCountQuery,
   TicketCounts,
@@ -1066,6 +1069,21 @@ const TicketOrderKeyHttpQuery = TicketOrderKeyQuery.pipe(
 )
 
 const TicketsGroup = HttpApiGroup.make("tickets")
+  .add(
+    HttpApiEndpoint.get("mine", "/orgs/:orgSlug/tickets/mine", {
+      params: OrgPath,
+      query: MyTicketsQuery,
+      success: OrgTicketPage,
+      error: [Unauthorized, NotFound]
+    })
+  )
+  .add(
+    HttpApiEndpoint.get("recent", "/orgs/:orgSlug/tickets/recent", {
+      params: OrgPath,
+      success: Schema.Array(OrgTicketRow),
+      error: [Unauthorized, NotFound]
+    })
+  )
   .add(
     HttpApiEndpoint.get(
       "sections",

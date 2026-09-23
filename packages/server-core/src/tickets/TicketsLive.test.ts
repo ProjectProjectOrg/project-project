@@ -170,6 +170,9 @@ const ticketIndexProject = {
 }
 
 const FakeTicketIndex = Layer.succeed(TicketIndex, {
+  projectsFor: () => Effect.succeed([]),
+  assignedTo: () => Effect.succeed([]),
+  touchedBy: () => Effect.succeed([]),
   projectFor: () => Effect.succeed(ticketIndexProject),
   list: () => Effect.succeed([]),
   query: () => Effect.succeed([]),

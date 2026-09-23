@@ -1,10 +1,16 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { Project } from "@pp/shared"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
+import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { ArrowRight, Plus } from "lucide-react"
 
+import {
+  MyTicketsSection,
+  RecentTicketsSection,
+  type MyTicketsView
+} from "@/components/Dashboard/DashboardSections"
 import { PageContainer, PageHeader } from "@/components/page"
 import { ProjectBanner } from "@/components/ProjectBanner"
 import { ProjectTile as ProjectIconTile } from "@/components/ProjectTile"
@@ -13,19 +19,36 @@ import {
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
+import {
+  myTickets,
+  orgTicketsRequest
+} from "@/features/tickets/atoms/myTickets"
 import { formatRelative } from "@/lib/relative-time"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
+const DashboardSearchSchema = Schema.Struct({
+  view: Schema.optional(Schema.Literals(["list", "board"]))
+})
+
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/")({
   component: Dashboard,
-  loader: () => ({
-    crumb: { type: "static" as const, label: "Dashboard", to: "/" }
-  })
+  validateSearch: Schema.toStandardSchemaV1(DashboardSearchSchema),
+  loader: ({ context: { registry }, params: { orgSlug } }) => {
+    registry.mount(myTickets(orgTicketsRequest(orgSlug)))()
+    return {
+      crumb: { type: "static" as const, label: "Dashboard", to: "/" }
+    }
+  }
 })
 
 function Dashboard() {
   const { orgSlug } = Route.useParams()
+  const { view = "list" } = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
+  const setView = (next: MyTicketsView) => {
+    void navigate({ search: (prev) => ({ ...prev, view: next }) })
+  }
   const viewer = useAtomValue(me())
   const list = useAtomValue(projectsFor(projectsRequest(orgSlug)))
   const name = Result.isSuccess(viewer)
@@ -39,6 +62,9 @@ function Dashboard() {
         <h1>{m.org_dashboard_greeting_line({ greeting, name })}</h1>
         <p>{m.org_dashboard_subtitle()}</p>
       </PageHeader>
+
+      <MyTicketsSection orgSlug={orgSlug} view={view} onViewChange={setView} />
+      <RecentTicketsSection orgSlug={orgSlug} />
 
       {Result.matchWithError(list, {
         onInitial: () => <TilesSkeleton />,
@@ -73,7 +99,7 @@ function RecentProjects({
   const sorted = [...projects].toSorted(
     (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
   )
-  const top = sorted.slice(0, 6)
+  const top = sorted.slice(0, 3)
   const hasMore = sorted.length > top.length
 
   return (

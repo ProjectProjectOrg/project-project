@@ -23,6 +23,7 @@ function SprintBoardCardImpl({
   slug,
   req,
   backlogReq,
+  onPatch,
   ticket,
   members
 }: {
@@ -30,9 +31,21 @@ function SprintBoardCardImpl({
   slug: string
   req?: BoardRequest
   backlogReq?: BacklogRequest
+  onPatch?: (patch: UpdateTicketInput) => void
   ticket: Ticket
   members: ReadonlyArray<Member>
 }) {
+  if (onPatch) {
+    return (
+      <BoardCardFields
+        orgSlug={orgSlug}
+        slug={slug}
+        ticket={ticket}
+        members={members}
+        onPatch={onPatch}
+      />
+    )
+  }
   if (backlogReq) {
     return (
       <BacklogMutatingCard

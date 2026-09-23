@@ -92,6 +92,9 @@ const FakeProjects = Layer.succeed(Projects, {
 } satisfies ProjectsShape)
 
 const FakeTicketIndex = Layer.succeed(TicketIndex, {
+  projectsFor: () => unexpected("TicketIndex.projectsFor"),
+  assignedTo: () => unexpected("TicketIndex.assignedTo"),
+  touchedBy: () => unexpected("TicketIndex.touchedBy"),
   projectFor: () => unexpected("TicketIndex.projectFor"),
   list: () => unexpected("TicketIndex.list"),
   query: () => unexpected("TicketIndex.query"),

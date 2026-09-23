@@ -32,7 +32,8 @@ import {
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import { Row } from "./Row"
+import { Row, rowGridClassName } from "./Row"
+import { SectionBody } from "./SectionBody"
 import { SectionHeader, type SectionHeading } from "./SectionHeader"
 import { SectionTicketCreator } from "./SectionTicketCreator"
 import { AutoLoad, VirtualRows } from "./VirtualRows"
@@ -102,12 +103,7 @@ export function SectionList({
 
   const { items } = page
 
-  const gridCols = cn(
-    "grid gap-y-1",
-    showExtraActionsCol
-      ? "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto]"
-      : "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto]"
-  )
+  const gridCols = rowGridClassName(showExtraActionsCol)
 
   const shellRef = useRef<HTMLDivElement>(null)
 
@@ -148,77 +144,62 @@ export function SectionList({
         }
       />
 
-      <div
-        aria-hidden={collapsed || undefined}
-        inert={collapsed ? true : undefined}
-        className={cn(
-          "grid transition-[grid-template-rows,opacity] duration-150 ease-[cubic-bezier(0.65,0,0.35,1)] motion-reduce:transition-none",
-          collapsed
-            ? "grid-rows-[0fr] opacity-0"
-            : "grid-rows-[1fr] opacity-100"
-        )}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <div className="flex flex-col gap-1 pt-1">
-            {items.length === 0 ? (
-              <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-                {emptyMessage ?? "—"}
-              </div>
-            ) : (
-              <VirtualRows
-                key={sectionKey}
-                className={gridCols}
-                rowKeys={items.map((row) => row.key)}
-                activeIndex={items.findIndex(
-                  ({ ticket }) => ticket.id === activePreviewId
-                )}
-              >
-                {(index) => {
-                  const { ticket, pending } = items[index]
-                  return (
-                    <div
-                      inert={pending}
-                      aria-busy={pending}
-                      className={cn(
-                        "col-span-full grid grid-cols-subgrid",
-                        pending && "pointer-events-none animate-pulse"
-                      )}
-                    >
-                      <RowComponent
-                        orgSlug={orgSlug}
-                        slug={slug}
-                        ticket={ticket}
-                        req={req}
-                        members={members}
-                        showSprintCol={showSprintCol}
-                        showExtraActionsCol={showExtraActionsCol}
-                        sprintMembership={
-                          sprintMembership?.get(ticket.id) ?? null
-                        }
-                        extraRowActions={extraRowActions}
-                        pending={pending}
-                        previewOpen={activePreviewId === ticket.id}
-                        onPreviewPointerEnter={onPreviewPointerEnter}
-                        onPreviewOpenChange={onPreviewOpenChange}
-                      />
-                    </div>
-                  )
-                }}
-              </VirtualRows>
-            )}
-
-            {pagination ?? (
-              <SectionPagination
-                req={req}
-                collapsed={collapsed}
-                status={status}
-                page={page}
-                count={count}
-              />
-            )}
+      <SectionBody collapsed={collapsed}>
+        {items.length === 0 ? (
+          <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+            {emptyMessage ?? "—"}
           </div>
-        </div>
-      </div>
+        ) : (
+          <VirtualRows
+            key={sectionKey}
+            className={gridCols}
+            rowKeys={items.map((row) => row.key)}
+            activeIndex={items.findIndex(
+              ({ ticket }) => ticket.id === activePreviewId
+            )}
+          >
+            {(index) => {
+              const { ticket, pending } = items[index]
+              return (
+                <div
+                  inert={pending}
+                  aria-busy={pending}
+                  className={cn(
+                    "col-span-full grid grid-cols-subgrid",
+                    pending && "pointer-events-none animate-pulse"
+                  )}
+                >
+                  <RowComponent
+                    orgSlug={orgSlug}
+                    slug={slug}
+                    ticket={ticket}
+                    req={req}
+                    members={members}
+                    showSprintCol={showSprintCol}
+                    showExtraActionsCol={showExtraActionsCol}
+                    sprintMembership={sprintMembership?.get(ticket.id) ?? null}
+                    extraRowActions={extraRowActions}
+                    pending={pending}
+                    previewOpen={activePreviewId === ticket.id}
+                    onPreviewPointerEnter={onPreviewPointerEnter}
+                    onPreviewOpenChange={onPreviewOpenChange}
+                  />
+                </div>
+              )
+            }}
+          </VirtualRows>
+        )}
+
+        {pagination ?? (
+          <SectionPagination
+            req={req}
+            collapsed={collapsed}
+            status={status}
+            page={page}
+            count={count}
+          />
+        )}
+      </SectionBody>
     </div>
   )
 }

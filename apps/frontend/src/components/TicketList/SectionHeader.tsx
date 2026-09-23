@@ -15,20 +15,26 @@ export type SectionHeading = {
   detail?: ReactNode
 }
 
-type BareProps = {
+type HeadingSource =
+  | {
+      heading: SectionHeading
+      status?: TicketStatus
+      statuses?: ReadonlyArray<ProjectStatus>
+    }
+  | {
+      heading?: undefined
+      status: TicketStatus
+      statuses: ReadonlyArray<ProjectStatus>
+    }
+
+type BareProps = HeadingSource & {
   variant?: "bare"
-  status: TicketStatus
-  statuses: ReadonlyArray<ProjectStatus>
   count: number
-  heading?: SectionHeading
 }
 
-type StickyProps = {
+type StickyProps = HeadingSource & {
   variant: "sticky"
-  status: TicketStatus
-  statuses: ReadonlyArray<ProjectStatus>
   count: number
-  heading?: SectionHeading
   collapsed: boolean
   creating: boolean
   onToggleCollapsed: () => void
@@ -48,26 +54,14 @@ export const SectionHeader = forwardRef<
   return <BareSectionHeader {...props} />
 })
 
-function BareSectionHeader({
-  status,
-  statuses,
-  count,
-  heading
-}: BareProps): ReactNode {
-  const meta = statusMetaFor(status, statuses)
-  const Icon = meta.icon
-  const label = heading?.label ?? statusLabelFor(status, statuses)
+function BareSectionHeader(props: BareProps): ReactNode {
+  const { count, heading } = props
+  const label = headingLabel(props)
 
   return (
     <div className="flex w-full items-center gap-2">
       <span className="grid size-6 shrink-0 place-items-center">
-        {heading?.icon ?? (
-          <Icon
-            className={cn("size-4", meta.className)}
-            style={meta.color ? { color: meta.color } : undefined}
-            strokeWidth={1.75}
-          />
-        )}
+        {heading ? heading.icon : <StatusHeadingIcon {...props} />}
       </span>
       <span className="truncate text-sm font-medium">{label}</span>
       <span
@@ -85,16 +79,35 @@ function BareSectionHeader({
   )
 }
 
+const headingLabel = (source: HeadingSource): string =>
+  source.heading
+    ? source.heading.label
+    : statusLabelFor(source.status, source.statuses)
+
+function StatusHeadingIcon({
+  status,
+  statuses
+}: Readonly<{
+  status: TicketStatus
+  statuses: ReadonlyArray<ProjectStatus>
+}>) {
+  const meta = statusMetaFor(status, statuses)
+  const Icon = meta.icon
+  return (
+    <Icon
+      className={cn("size-4", meta.className)}
+      style={meta.color ? { color: meta.color } : undefined}
+      strokeWidth={1.75}
+    />
+  )
+}
+
 const morphFrom = { opacity: 0, filter: "blur(8px)" }
 const morphTo = { opacity: 1, filter: "blur(0px)" }
 
 const StickySectionHeader = forwardRef<HTMLDivElement, StickyProps>(
-  function StickySectionHeader(
-    {
-      status,
-      statuses,
-      count,
-      heading,
+  function StickySectionHeader(props, ref: Ref<HTMLDivElement>) {
+    const {
       canCreate = true,
       collapsed,
       creating,
@@ -102,10 +115,8 @@ const StickySectionHeader = forwardRef<HTMLDivElement, StickyProps>(
       onStartCreate,
       onDismissCreate,
       creator
-    },
-    ref: Ref<HTMLDivElement>
-  ) {
-    const label = heading?.label ?? statusLabelFor(status, statuses)
+    } = props
+    const label = headingLabel(props)
     return (
       <div
         ref={ref}
@@ -163,12 +174,7 @@ const StickySectionHeader = forwardRef<HTMLDivElement, StickyProps>(
                 transition={transitions.presence}
                 className="self-center [grid-area:1/1]"
               >
-                <BareSectionHeader
-                  status={status}
-                  statuses={statuses}
-                  count={count}
-                  heading={heading}
-                />
+                <BareSectionHeader {...props} variant="bare" />
               </motion.div>
             )}
           </AnimatePresence>

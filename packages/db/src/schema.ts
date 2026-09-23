@@ -598,7 +598,8 @@ export const ticketIndex = pgTable(
     }).onDelete("cascade"),
     index("ticket_index_project_idx").on(t.organizationId, t.projectId),
     index("ticket_index_branch_idx").on(t.projectId, t.branch),
-    index("ticket_index_updated_idx").on(t.projectId, t.updatedAt)
+    index("ticket_index_updated_idx").on(t.projectId, t.updatedAt),
+    index("ticket_index_assignees_idx").using("gin", t.assignees)
   ]
 )
 
@@ -617,7 +618,12 @@ export const commentIndex = pgTable(
     editedAt: timestamp("edited_at", { withTimezone: true })
   },
   (t) => [
-    index("comment_index_ticket_idx").on(t.projectSlug, t.ticketId, t.createdAt)
+    index("comment_index_ticket_idx").on(
+      t.projectSlug,
+      t.ticketId,
+      t.createdAt
+    ),
+    index("comment_index_author_idx").on(t.authorId, t.projectSlug, t.ticketId)
   ]
 )
 

@@ -1,0 +1,138 @@
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import type { Member, Ticket } from "@pp/shared"
+import * as Result from "effect/unstable/reactivity/AsyncResult"
+
+import { ErrorPage } from "@/components/ErrorPage"
+import { BOARD_CARD_SLOT_CLASS } from "@/components/sprints/BoardColumnShell"
+import { SprintBoardCard } from "@/components/sprints/SprintBoardCard"
+import { Row, rowGridClassName } from "@/components/TicketList/Row"
+import { useTicketPreview } from "@/components/TicketList/useTicketPreview"
+import { project, projectRequest } from "@/features/projects/atoms/projects"
+import type {
+  OrgTicket,
+  OrgTicketsRequest,
+  updateMyTicket
+} from "@/features/tickets/atoms/myTickets"
+
+const NO_MEMBERS: ReadonlyArray<Member> = []
+
+export type OrgTicketUpdate = typeof updateMyTicket
+
+const useProjectMembers = (orgSlug: string, slug: string) => {
+  const result = useAtomValue(project(projectRequest(orgSlug, slug)))
+  return Result.isSuccess(result) ? result.value.members : NO_MEMBERS
+}
+
+type DashboardTicketProps = Readonly<{
+  req: OrgTicketsRequest
+  item: OrgTicket
+  update: OrgTicketUpdate
+}>
+
+type DashboardRowProps = DashboardTicketProps &
+  Readonly<{
+    previewOpen: boolean
+    onPreviewPointerEnter: (ticketId: Ticket["id"]) => void
+    onPreviewOpenChange: (ticketId: Ticket["id"], open: boolean) => void
+  }>
+
+export function DashboardRow({
+  req,
+  item,
+  update,
+  previewOpen,
+  onPreviewPointerEnter,
+  onPreviewOpenChange
+}: DashboardRowProps) {
+  const { orgSlug } = req.params
+  const key = { req, projectSlug: item.project.slug, id: item.ticket.id }
+  const members = useProjectMembers(orgSlug, item.project.slug)
+  const patch = useAtomSet(update(key))
+  const state = useAtomValue(update(key))
+  return (
+    <div className="col-span-full grid grid-cols-subgrid">
+      <Row
+        orgSlug={orgSlug}
+        slug={item.project.slug}
+        ticket={item.ticket}
+        members={members}
+        showSprintCol={false}
+        showExtraActionsCol={false}
+        sprintMembership={null}
+        onUpdate={patch}
+        previewOpen={previewOpen}
+        onPreviewPointerEnter={onPreviewPointerEnter}
+        onPreviewOpenChange={onPreviewOpenChange}
+      />
+      {Result.matchWithError(state, {
+        onInitial: () => null,
+        onSuccess: () => null,
+        onError: (error) => (
+          <div className="col-span-full">
+            <ErrorPage error={error} contained />
+          </div>
+        ),
+        onDefect: (defect) => (
+          <div className="col-span-full">
+            <ErrorPage error={defect} contained />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+export function DashboardCard({ req, item, update }: DashboardTicketProps) {
+  const { orgSlug } = req.params
+  const key = { req, projectSlug: item.project.slug, id: item.ticket.id }
+  const members = useProjectMembers(orgSlug, item.project.slug)
+  const patch = useAtomSet(update(key))
+  const state = useAtomValue(update(key))
+  return (
+    <div className={BOARD_CARD_SLOT_CLASS}>
+      <SprintBoardCard
+        orgSlug={orgSlug}
+        slug={item.project.slug}
+        ticket={item.ticket}
+        members={members}
+        onPatch={patch}
+      />
+      {Result.matchWithError(state, {
+        onInitial: () => null,
+        onSuccess: () => null,
+        onError: (error) => <ErrorPage error={error} contained />,
+        onDefect: (defect) => <ErrorPage error={defect} contained />
+      })}
+    </div>
+  )
+}
+
+export type TicketPreview = ReturnType<typeof useTicketPreview>
+
+export function DashboardRows({
+  req,
+  tickets,
+  update,
+  preview
+}: Readonly<{
+  req: OrgTicketsRequest
+  tickets: ReadonlyArray<OrgTicket>
+  update: OrgTicketUpdate
+  preview: TicketPreview
+}>) {
+  return (
+    <div className={rowGridClassName(false)}>
+      {tickets.map((item) => (
+        <DashboardRow
+          key={`${item.project.slug}/${item.ticket.id}`}
+          req={req}
+          item={item}
+          update={update}
+          previewOpen={preview.activePreviewId === item.ticket.id}
+          onPreviewPointerEnter={preview.onPreviewPointerEnter}
+          onPreviewOpenChange={preview.onPreviewOpenChange}
+        />
+      ))}
+    </div>
+  )
+}
