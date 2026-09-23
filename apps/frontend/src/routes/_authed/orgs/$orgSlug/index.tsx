@@ -149,8 +149,16 @@ function Dashboard() {
           )
       })}
 
-      <MyTicketsSection orgSlug={orgSlug} view={view} onViewChange={setView} />
-      <RecentTicketsSection orgSlug={orgSlug} />
+      <div className="@container/dashboard">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6 @5xl/dashboard:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] @5xl/dashboard:items-start">
+          <MyTicketsSection
+            orgSlug={orgSlug}
+            view={view}
+            onViewChange={setView}
+          />
+          <RecentTicketsSection orgSlug={orgSlug} />
+        </div>
+      </div>
       <DashboardGitSync orgSlug={orgSlug} />
     </PageContainer>
   )
