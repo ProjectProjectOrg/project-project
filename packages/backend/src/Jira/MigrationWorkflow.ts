@@ -2,6 +2,9 @@ import * as DurableDeferred from "effect/unstable/workflow/DurableDeferred"
 import type * as WorkflowEngine from "effect/unstable/workflow/WorkflowEngine"
 import * as Workflow from "effect/unstable/workflow/Workflow"
 import * as Effect from "effect/Effect"
+import * as Cause from "effect/Cause"
+import * as Exit from "effect/Exit"
+import * as Option from "effect/Option"
 import {
   JiraScanResumeResult,
   type AttemptFence,
@@ -183,6 +186,27 @@ export const withJiraRemoteWriteIntent = <A, E, R>(
       })
     return value
   })
+
+export const finalizeJiraMigrationAttempt = Effect.fn(
+  "JiraMigration.finalizeAttempt"
+)(function* (
+  projection: JiraMigrationProjectionShape,
+  fence: AttemptFence,
+  exit: Exit.Exit<unknown, unknown>
+) {
+  if (Exit.isSuccess(exit)) return
+  const cancelled = yield* projection.finalizeInterrupted(fence)
+  if (cancelled || Cause.hasInterruptsOnly(exit.cause)) return
+  const error = Cause.findErrorOption(exit.cause)
+  const failure =
+    Option.isSome(error) && Schema.is(JiraMigrationWorkflowFailure)(error.value)
+      ? error.value
+      : JiraMigrationWorkflowFailure.make({
+          reason: "jira_migration_workflow_defect",
+          retryable: false
+        })
+  yield* projection.recordFailure(fence, failure)
+})
 
 export const makeProjectionMigrationActivities = (
   projection: JiraMigrationProjectionShape,

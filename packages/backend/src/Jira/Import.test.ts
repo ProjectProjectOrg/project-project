@@ -6,6 +6,7 @@ import { migrate } from "drizzle-orm/node-postgres/migrator"
 import {
   ConfigProvider,
   Effect,
+  Exit,
   FileSystem,
   Layer,
   Redacted,
@@ -51,6 +52,10 @@ import { MarkdownLive } from "../Layers/Markdown"
 import { attachmentObjectKey, type S3Connection } from "../Services/S3Storage"
 import { attachmentUrl, TicketId } from "@projectproject/shared"
 import { JiraMigrationProjection } from "./MigrationProjection"
+import {
+  finalizeJiraMigrationAttempt,
+  JiraMigrationWorkflowFailure
+} from "./MigrationWorkflow"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -836,6 +841,22 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
                 publishJiraMigrationAtomically(publishInput)
               ))._tag
             ).toBe("Failure")
+            yield* finalizeJiraMigrationAttempt(
+              projection,
+              publishInput.fence,
+              Exit.fail(
+                JiraMigrationWorkflowFailure.make({
+                  reason: "cancelled-before-publish",
+                  retryable: false
+                })
+              )
+            )
+            const [cancelled] = (yield* Effect.promise(() =>
+              pool.query("select status from jira_migration where id = $1", [
+                migrationId
+              ])
+            )).rows
+            expect(cancelled?.status).toBe("cancelled")
             yield* Effect.promise(() =>
               pool.query(
                 "update jira_migration set status = 'migrating' where id = $1",
@@ -885,6 +906,20 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
                 workflowAttempt: 1
               })
             ).toBe(false)
+            yield* finalizeJiraMigrationAttempt(
+              projection,
+              {
+                migrationId,
+                workflowExecutionId: migrationId,
+                workflowAttempt: 1
+              },
+              Exit.fail(
+                JiraMigrationWorkflowFailure.make({
+                  reason: "late-failure",
+                  retryable: true
+                })
+              )
+            )
           }).pipe(Effect.provide(markdownLayer))
           yield* run
         })
