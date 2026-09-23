@@ -878,8 +878,6 @@ export const jiraMigration = pgTable(
     failureSequence: integer("failure_sequence").notNull().default(0),
     retainedUntil: timestamp("retained_until", { withTimezone: true }),
     cleanupExecutionId: text("cleanup_execution_id"),
-    leaseId: uuid("lease_id"),
-    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
     scanAt: timestamp("scan_at", { withTimezone: true }),
     destinationProjectId: uuid("destination_project_id"),
     destinationProjectSlug: text("destination_project_slug"),
@@ -904,8 +902,7 @@ export const jiraMigration = pgTable(
       t.organizationId,
       t.initiatedBy,
       t.createdAt
-    ),
-    index("jira_migration_worker_idx").on(t.status, t.leaseExpiresAt)
+    )
   ]
 )
 

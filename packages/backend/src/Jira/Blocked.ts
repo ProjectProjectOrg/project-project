@@ -12,11 +12,6 @@ export class JiraMigrationBlocked extends Schema.TaggedError<JiraMigrationBlocke
   }
 ) {}
 
-export class JiraMigrationLeaseLost extends Schema.TaggedError<JiraMigrationLeaseLost>()(
-  "JiraMigrationLeaseLost",
-  { migrationId: Schema.String }
-) {}
-
 export class JiraMigrationDefect extends Schema.TaggedError<JiraMigrationDefect>()(
   "JiraMigrationDefect",
   { defect: Schema.Defect() }

@@ -21,7 +21,6 @@ import {
   TagName,
   TicketId
 } from "@projectproject/shared"
-import { generateKeyBetween } from "fractional-indexing"
 import {
   attachmentIndex,
   attachmentReference,
@@ -36,7 +35,6 @@ import {
   user as userTable
 } from "../db/schema"
 import { serializeCommentsRegion, type CommentBlock } from "../comments-region"
-import { JiraMigrationBlocked } from "./Blocked"
 import { Db } from "../Services/Db"
 import { Markdown } from "../Services/Markdown"
 import {
@@ -1601,175 +1599,6 @@ export const writeJiraStagedDocuments = Effect.fn("JiraImport.writeDocuments")(
     )
   }
 )
-
-export const publishJiraMigration = Effect.fn("JiraImport.publish")(function* (
-  deps: JiraImportDependencies,
-  input: {
-    readonly migrationId: string
-    readonly organizationId: string
-    readonly orgSlug: string
-    readonly ownerId: string
-    readonly leaseId: string
-    readonly reportPath: string
-    readonly priorDestinationProjectId: string | null
-    readonly plan: JiraPublicationPlan
-    readonly members: ReadonlyArray<JiraImportMember>
-  }
-) {
-  const now = yield* DateTime.nowAsDate
-  const identity = deriveProjectIdentity(input.plan.project.slug)
-  const publication = yield* deps.db
-    .transaction((tx) =>
-      Effect.gen(function* () {
-        const existing = yield* tx
-          .select({ id: projectIndex.id })
-          .from(projectIndex)
-          .where(eq(projectIndex.slug, input.plan.project.slug))
-          .limit(1)
-        const claimed = existing[0]
-        if (claimed && claimed.id !== input.priorDestinationProjectId) {
-          return "slug-taken" as const
-        }
-        const inserted = claimed
-          ? [claimed]
-          : yield* tx
-              .insert(projectIndex)
-              .values({
-                slug: input.plan.project.slug,
-                organizationId: input.organizationId,
-                key: input.plan.project.key,
-                name: input.plan.project.name,
-                icon: identity.icon,
-                color: identity.color,
-                nextTicketNumber: nextTicketNumberFor(input.plan),
-                createdBy: input.ownerId,
-                createdAt: now
-              })
-              .returning({ id: projectIndex.id })
-
-        const id = inserted[0]?.id
-        if (!id) return yield* Effect.interrupt
-
-        for (const baseline of BASELINE_STATUS_SEED) {
-          yield* tx
-            .insert(projectStatus)
-            .values({
-              projectId: id,
-              slug: baseline.slug,
-              label: baseline.label,
-              icon: baseline.icon,
-              color: baseline.color,
-              orderKey: baseline.orderKey,
-              createdBy: input.ownerId,
-              createdAt: now
-            })
-            .onConflictDoNothing()
-        }
-
-        let orderKey: string | null =
-          BASELINE_STATUS_SEED.at(-1)?.orderKey ?? null
-        for (const status of input.plan.createdStatuses) {
-          orderKey = generateKeyBetween(orderKey, null)
-          yield* tx
-            .insert(projectStatus)
-            .values({
-              projectId: id,
-              slug: status.slug,
-              label: status.label,
-              icon: status.icon,
-              color: status.color,
-              orderKey,
-              createdBy: input.ownerId,
-              createdAt: now
-            })
-            .onConflictDoNothing()
-        }
-
-        for (const member of input.members) {
-          yield* tx
-            .insert(projectMember)
-            .values({
-              projectSlug: input.plan.project.slug,
-              projectId: id,
-              userId: member.userId,
-              role: member.role
-            })
-            .onConflictDoNothing()
-        }
-
-        const usedTagColors: Array<string> = []
-        for (const tag of input.plan.tags) {
-          const tagColor = pickStatusColor(usedTagColors)
-          usedTagColors.push(tagColor)
-          yield* tx
-            .insert(projectTag)
-            .values({
-              projectId: id,
-              name: tag.name,
-              color: tagColor,
-              createdBy: input.ownerId,
-              createdAt: now
-            })
-            .onConflictDoNothing()
-        }
-
-        yield* deps.ticketIndex.rebuildProject({
-          orgSlug: input.orgSlug,
-          organizationId: input.organizationId,
-          projectId: id,
-          projectSlug: input.plan.project.slug
-        })
-
-        const published = yield* tx
-          .update(jiraMigration)
-          .set({
-            status: "succeeded",
-            phase: "succeeded",
-            destinationProjectId: id,
-            destinationProjectSlug: input.plan.project.slug,
-            reportPath: input.reportPath,
-            failureReason: null,
-            failureRetryable: null,
-            finishedAt: now,
-            leaseId: null,
-            leaseExpiresAt: null,
-            revision: drizzleSql`${jiraMigration.revision} + 1`,
-            updatedAt: now
-          })
-          .where(
-            and(
-              eq(jiraMigration.id, input.migrationId),
-              eq(jiraMigration.leaseId, input.leaseId),
-              eq(jiraMigration.status, "migrating")
-            )
-          )
-          .returning({ id: jiraMigration.id })
-        if (!published[0]) return yield* Effect.interrupt
-
-        return id
-      })
-    )
-    .pipe(Effect.catchTag("SqlError", Effect.die))
-
-  if (publication === "slug-taken") {
-    return yield* new JiraMigrationBlocked({
-      blockers: [
-        {
-          code: "project-slug-collision",
-          subjectId: input.plan.project.slug
-        }
-      ]
-    })
-  }
-
-  return {
-    kind: "published" as const,
-    projectSlug: input.plan.project.slug,
-    ticketCount: input.plan.tickets.length,
-    commentCount: input.plan.comments.length,
-    groupCount: input.plan.groups.length
-  }
-})
 
 export function nextTicketNumberFor(plan: JiraPublicationPlan): number {
   const numbers = plan.tickets.flatMap((ticket) => {

@@ -34,8 +34,6 @@ const row = (overrides: Partial<Row>): Row =>
     failureSequence: 0,
     retainedUntil: null,
     cleanupExecutionId: null,
-    leaseId: null,
-    leaseExpiresAt: null,
     scanAt: scannedAt,
     destinationProjectId: null,
     destinationProjectSlug: null,
