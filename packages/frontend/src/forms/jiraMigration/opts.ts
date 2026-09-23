@@ -132,6 +132,16 @@ const sprintChoicesSchema = allResolved(
   (item) => item.jiraSprintId !== undefined
 )
 
+const restrictedContentChoiceSchema = Schema.UndefinedOr(
+  Schema.Union([
+    Schema.Struct({ policy: Schema.Literal("exclude") }),
+    Schema.Struct({
+      policy: Schema.Literal("include"),
+      disclosureAccepted: Schema.Literal(true)
+    })
+  ])
+).pipe(Schema.check(Schema.makeFilter((value) => value !== undefined)))
+
 const jiraMigrationDraftSchema = Schema.Struct({
   destination: JiraMigrationConfiguration.fields.destination,
   identities: peopleSchema,
@@ -140,7 +150,7 @@ const jiraMigrationDraftSchema = Schema.Struct({
   priorities: prioritiesSchema,
   tags: tagsSchema,
   activeFutureSprintChoices: sprintChoicesSchema,
-  restrictedContent: JiraMigrationConfiguration.fields.restrictedContent,
+  restrictedContent: restrictedContentChoiceSchema,
   skippedAttachmentIds: JiraMigrationConfiguration.fields.skippedAttachmentIds,
   attachmentSkipsAccepted:
     JiraMigrationConfiguration.fields.attachmentSkipsAccepted
@@ -180,7 +190,7 @@ export const prioritiesValidator = Schema.toStandardSchemaV1(prioritiesSchema)
 export const tagsValidator = Schema.toStandardSchemaV1(tagsSchema)
 
 export const restrictedContentValidator = Schema.toStandardSchemaV1(
-  JiraMigrationConfiguration.fields.restrictedContent
+  restrictedContentChoiceSchema
 )
 
 export const destinationValidator = Schema.toStandardSchemaV1(
@@ -309,6 +319,7 @@ export function toPartialJiraMigrationConfiguration(
 ): JiraMigrationConfigurationType {
   return Schema.decodeUnknownSync(JiraMigrationConfiguration)({
     ...draft,
+    restrictedContent: draft.restrictedContent ?? null,
     identities: draft.identities.filter(
       (item) => item.projectProjectUserId !== undefined
     ),

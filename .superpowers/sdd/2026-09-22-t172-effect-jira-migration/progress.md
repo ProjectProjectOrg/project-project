@@ -31,7 +31,7 @@
 - [ ] Task 9: Idempotent Hidden Materialization Activities
 - [ ] Task 10: Atomic Publication and Cancellation Linearization
 - [ ] Task 11: Cleanup Workflow, Retention, and Production Runtime Cutover
-- [ ] Task 12: Wizard Draft Persistence and Public Atom Polling
+- [x] Task 12: Wizard Draft Persistence and Public Atom Polling
 - [ ] Task 13: Disposable Browser Harness
 - [ ] Task 14: End-to-End Release Gate and Branch Cleanup
 
@@ -451,3 +451,8 @@ Controller ratified P01–P25 as spec-derived implementation corrections, with P
 - USER STOP FOR TODAY:2026-09-22. All agents inactive; no task-related host process remains. Disposable PostgreSQL/MinIO containers stopped successfully, data preserved. Saved exact Task8/Task13 WIP and detailed next-day handoff; no further implementation authorized until user resumes. Task10 index slice35b8a70 complete11/11; Task8 last agent-reported93/93 with final closeout incomplete; Task13 fixture tests/closeout unknown. Pending cleanup/engine/frontend-merge questions remain unanswered.
 
 - Final overnight WIP snapshot f6c2c64 committed all remaining Task8/Task13 work and tracked handoff. Ports55432/59000/59001 verified closed after successful container stop. No implementation resumed after stop. This is recovery state, not a passing full-suite or completion claim.
+
+- Linux continuation, 2026-09-23: Pulled latest `origin/main` in the main checkout and merged `73fdd94` into the isolated T-172 branch as `6bc6272`. Resolved frontend atom/API and comments/index conflicts. Main checkout has no feature edits. User requested one comprehensive final review, retention of uncertain remote-cleanup recovery handles, and deferral of the Effect rc112 lost-wakeup fix. Task7 engine regression remains a release blocker.
+- User ruling on P06: extend the shared Jira configuration schema with `restrictedContent: null` to preserve an unchosen restricted-content policy in a server draft. The final review still requires an explicit policy, and server completeness must leave a null-policy configuration in `needs_configuration`. Invalid destination shapes remain validation failures under the existing ruling. No new dependency or endpoint was added.
+- Task12 first slice `8f18729`: public wrapper refresh command and polling termination, separate per-resource mutation state, step button variant, and optional save-before-leave shell seam. Task12 second slice: serialized revision-checked whole-draft saves on forward/back, rail navigation, explicit leave, and supported router exits; a 10-second flush bound blocks navigation on timeout. Save errors map through `errorMessage.ts`; remount hydrates the server configuration. Browser hard close cannot guarantee an asynchronous save. The explicit leave plus router blocker currently causes a second serialized save, which is safe but redundant; revisit if browser evidence shows material cost.
+- Verification after Task12 slice: focused frontend six files/28 tests; shared Jira schema 15 tests; Jira projection and commands with disposable Postgres 21 tests; root typecheck, lint, format check, and diff check all exit 0. Task12 live-browser integration remains part of Task14; no final whole-branch review or release claim yet.

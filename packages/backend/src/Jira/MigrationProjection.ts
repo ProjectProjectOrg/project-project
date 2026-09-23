@@ -268,6 +268,7 @@ export const isCompleteJiraConfiguration = (
     prioritiesValid &&
     tagsValid &&
     sprintChoicesValid &&
+    configuration.restrictedContent !== null &&
     attachmentsValid
   )
 }

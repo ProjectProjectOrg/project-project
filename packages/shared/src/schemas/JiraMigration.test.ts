@@ -30,6 +30,12 @@ describe("JiraMigration schemas", () => {
     expect(Schema.decodeUnknownSync(JiraMigrationConfiguration)(draft)).toEqual(
       draft
     )
+    expect(
+      Schema.decodeUnknownSync(JiraMigrationConfiguration)({
+        ...draft,
+        restrictedContent: null
+      }).restrictedContent
+    ).toBeNull()
     for (const key of ["name", "slug", "key"] as const)
       expect(() =>
         Schema.decodeUnknownSync(JiraMigrationConfiguration)({

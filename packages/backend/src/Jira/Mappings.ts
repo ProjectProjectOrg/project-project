@@ -352,12 +352,20 @@ function compareStrings(left: string, right: string): number {
 
 const UNPRIORITISED_DESTINATION = "med" as const
 
+export function jiraRestrictionPolicy(
+  configuration: JiraMigrationConfiguration
+) {
+  const policy = configuration.restrictedContent?.policy
+  if (!policy) throw new Error("Jira restricted-content policy is required")
+  return policy
+}
+
 export function jiraConfigurationToMappings(
   manifest: JiraMappingSource,
   configuration: JiraMigrationConfiguration
 ): JiraMigrationMappings {
   const restrictionResolution =
-    configuration.restrictedContent.policy === "include"
+    jiraRestrictionPolicy(configuration) === "include"
       ? ("include_acknowledged" as const)
       : ("exclude" as const)
   const candidates = buildTagCandidates(manifest)

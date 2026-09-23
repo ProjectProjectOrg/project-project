@@ -115,6 +115,11 @@ describe("Jira migration draft", () => {
     const draft = buildJiraMigrationDraft(requirements, null)
 
     expect(draft.restrictedContent).toBeUndefined()
+    const saved = toPartialJiraMigrationConfiguration(draft)
+    expect(saved.restrictedContent).toBeNull()
+    expect(
+      buildJiraMigrationDraft(requirements, saved).restrictedContent
+    ).toBeUndefined()
   })
 
   it("excludes restricted content automatically when the scan found none", () => {

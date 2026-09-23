@@ -484,7 +484,22 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
           expectedRevision: scanned.revision,
           configuration
         }
-        const draft = yield* p.saveConfiguration(save)
+        const unchosen = yield* p.saveConfiguration({
+          ...save,
+          configuration: {
+            ...configuration,
+            issueTypes: [{ jiraIssueTypeId: "bug", projectType: "bug" }],
+            restrictedContent: null
+          }
+        })
+        expect(unchosen).toMatchObject({
+          status: "needs_configuration",
+          configuration: { restrictedContent: null }
+        })
+        const draft = yield* p.saveConfiguration({
+          ...save,
+          expectedRevision: unchosen.revision
+        })
         expect(draft).toMatchObject({
           status: "needs_configuration",
           configuration: { issueTypes: [] }

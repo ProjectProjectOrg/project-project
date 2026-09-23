@@ -1,4 +1,4 @@
-import type { JiraMigrationMappings } from "./Mappings"
+import { jiraRestrictionPolicy, type JiraMigrationMappings } from "./Mappings"
 import type { JiraMigrationManifest } from "./Manifest"
 import type { JiraPreflightResult } from "./Preflight"
 import type { JiraPublicationPlan } from "./PublicationPlan"
@@ -398,7 +398,7 @@ export function buildJiraArchiveV2(
   outcomes: ReadonlyArray<JiraAttachmentOutcome>
 ) {
   const manifest = prepared.manifest
-  const exclude = prepared.configuration.restrictedContent.policy === "exclude"
+  const exclude = jiraRestrictionPolicy(prepared.configuration) === "exclude"
   const restriction = (kind: string, id: string) =>
     exclude
       ? manifest.restrictions.find(
@@ -556,7 +556,7 @@ export function buildJiraArchiveV2(
       ...manifest.source,
       description: prepared.source.projectDescription
     },
-    restrictionPolicy: prepared.configuration.restrictedContent.policy,
+    restrictionPolicy: jiraRestrictionPolicy(prepared.configuration),
     categories,
     exclusions: exclusions.toSorted((a, b) =>
       `${a.category}:${a.sourceId}`.localeCompare(

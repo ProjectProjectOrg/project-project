@@ -15,7 +15,11 @@ import {
 import { Effect, Schema } from "effect"
 import { JiraMigrationConfiguration, TicketId } from "@projectproject/shared"
 import { JiraMigrationManifestV2 } from "./Manifest"
-import { jiraConfigurationToMappings, jiraV2MappingSource } from "./Mappings"
+import {
+  jiraConfigurationToMappings,
+  jiraRestrictionPolicy,
+  jiraV2MappingSource
+} from "./Mappings"
 export type JiraPreflightBlockerCode =
   | "incompatible-project-key"
   | "invalid-configuration"
@@ -542,7 +546,7 @@ export const preflightJiraMigrationV2 = Effect.fn("preflightJiraMigrationV2")(
     const mappings = jiraConfigurationToMappings(source, configuration)
     const result = preflightJiraMigration(source, mappings, environment)
     const excludedIssueIds = new Set(
-      configuration.restrictedContent.policy === "exclude"
+      jiraRestrictionPolicy(configuration) === "exclude"
         ? manifest.restrictions
             .filter((restriction) => restriction.targetKind === "issue")
             .map((restriction) => restriction.targetId)

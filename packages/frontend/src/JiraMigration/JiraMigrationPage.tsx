@@ -1,6 +1,6 @@
 import { useRef, useState } from "react"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { Link, useNavigate } from "@tanstack/react-router"
+import { Link, useBlocker, useNavigate } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -30,7 +30,7 @@ import {
   runJiraMigrationAtom
 } from "@/atoms/jiraMigration"
 import { ErrorPage } from "@/components/ErrorPage"
-import { JiraMigrationForm } from "@/forms/jiraMigration"
+import { JiraMigrationForm, type JiraDraftSave } from "@/forms/jiraMigration"
 import { useJiraMigrationPolling } from "@/hooks/useJiraMigrationPolling"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -465,6 +465,16 @@ function JiraMigrationDetailPage({
   const [furthestStep, setFurthestStep] =
     useState<JiraMigrationStep>("snapshot")
   const [reconfiguring, setReconfiguring] = useState(false)
+  const draftSaveRef = useRef<JiraDraftSave | null>(null)
+  useBlocker({
+    disabled: !(
+      (screen === "configuration" ||
+        (reconfiguring && detail.actions.canConfigure)) &&
+      detail.scanSummary &&
+      detail.requirements
+    ),
+    shouldBlockFn: async () => !(await draftSaveRef.current?.())
+  })
   if (reconfiguring && isActiveJiraMigration(detail.status)) {
     setReconfiguring(false)
   }
@@ -503,10 +513,12 @@ function JiraMigrationDetailPage({
     detail.scanSummary &&
     detail.requirements
   ) {
-    const navigateWithinJob = (
+    const navigateWithinJob = async (
       destination: "connect" | "choose" | "snapshot" | "people" | "map"
     ) => {
-      setStep(destination === "map" ? lastMappingStep : destination)
+      if (await draftSaveRef.current?.()) {
+        setStep(destination === "map" ? lastMappingStep : destination)
+      }
     }
     return (
       <JiraMigrationShell
@@ -514,12 +526,14 @@ function JiraMigrationDetailPage({
         currentStep={step}
         furthestStep={furthestStep}
         confirmLeave
+        onBeforeLeave={() => draftSaveRef.current?.() ?? Promise.resolve(false)}
         onNavigate={navigateWithinJob}
       >
         <JiraMigrationForm
           orgSlug={orgSlug}
           detail={detail}
           step={step}
+          draftSaveRef={draftSaveRef}
           onStep={(nextStep) => {
             if (stageIndex(nextStep) > stageIndex(furthestStep)) {
               setFurthestStep(nextStep)

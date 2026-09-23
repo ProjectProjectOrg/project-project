@@ -37,7 +37,7 @@ User requested stopping for today. Resume from `docs/superpowers/handoffs/2026-0
 | 9. Hidden materialization | Not started | — |
 | 10. Atomic publication | Pure index builders committed35b8a70; publication integration pending | Final review pending |
 | 11. Cleanup and SQL runtime cutover | Not started | — |
-| 12. Wizard drafts and polling | Not started | — |
+| 12. Wizard drafts and polling | Implemented; browser verification pending | `8f18729` plus current slice |
 | 13. Disposable browser harness | Fixture WIP paused; verification and harness integration pending | Final review pending |
 | 14. Release gates and branch cleanup | Unused assets removedfd6e16f; release/browser checks pending | Final review pending |
 

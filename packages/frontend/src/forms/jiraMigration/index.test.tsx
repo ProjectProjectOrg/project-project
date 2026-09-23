@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { createRef, useRef, useState } from "react"
 import {
   cleanup,
   fireEvent,
@@ -9,12 +9,13 @@ import {
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type {
   JiraMigrationDetail,
   JiraMigrationRequirements
 } from "@projectproject/shared"
-import { JiraMigrationForm } from "."
+import { Conflict } from "@projectproject/shared"
+import { JiraMigrationForm, type JiraDraftSave } from "."
 
 const mocks = vi.hoisted(() => ({ mutate: vi.fn() }))
 
@@ -30,6 +31,12 @@ vi.mock("@effect/atom-react", async (importOriginal) => {
 afterEach(() => {
   cleanup()
   mocks.mutate.mockReset()
+})
+
+beforeEach(() => {
+  mocks.mutate.mockImplementation(async (input: { expectedRevision: number }) =>
+    Exit.succeed({ ...detail, revision: input.expectedRevision + 1 })
+  )
 })
 
 const requirements: JiraMigrationRequirements = {
@@ -150,13 +157,17 @@ const detail: JiraMigrationDetail = {
   finishedAt: null
 }
 
-function FormNavigationHarness() {
+function FormNavigationHarness({
+  initialDetail = detail
+}: Readonly<{ initialDetail?: JiraMigrationDetail }>) {
   const [step, setStep] = useState<"people" | "statuses" | "types">("people")
+  const draftSaveRef = useRef<JiraDraftSave | null>(null)
   return (
     <JiraMigrationForm
       orgSlug="example"
-      detail={detail}
+      detail={initialDetail}
       step={step}
+      draftSaveRef={draftSaveRef}
       onStep={(nextStep) => {
         if (
           nextStep === "people" ||
@@ -171,6 +182,45 @@ function FormNavigationHarness() {
 }
 
 describe("JiraMigrationForm navigation", () => {
+  it("keeps the current step and shows a mapped error when saving fails", async () => {
+    mocks.mutate.mockResolvedValueOnce(
+      Exit.fail(new Conflict({ reason: "jira_migration_revision_conflict" }))
+    )
+    render(<FormNavigationHarness />)
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Ada" }))
+    fireEvent.click(screen.getByRole("option", { name: "Don’t link" }))
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }))
+
+    expect(
+      await screen.findByText(
+        "This draft changed elsewhere. Reload it before saving again."
+      )
+    ).not.toBeNull()
+    expect(screen.getByRole("heading", { name: "Link people" })).not.toBeNull()
+    expect(mocks.mutate).toHaveBeenCalledTimes(1)
+  })
+
+  it("hydrates a saved partial configuration after remount", async () => {
+    const { unmount } = render(<FormNavigationHarness />)
+    fireEvent.click(screen.getByRole("combobox", { name: "Ada" }))
+    fireEvent.click(screen.getByRole("option", { name: "Don’t link" }))
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }))
+    await screen.findByRole("heading", { name: "Map statuses" })
+    const saved = mocks.mutate.mock.calls[0]?.[0].configuration
+    expect(saved.restrictedContent).toEqual({ policy: "exclude" })
+    unmount()
+
+    render(
+      <FormNavigationHarness
+        initialDetail={{ ...detail, revision: 15, configuration: saved }}
+      />
+    )
+    expect(screen.getByRole("combobox", { name: "Ada" }).textContent).toContain(
+      "Don’t link"
+    )
+  })
+
   it("validates forward and preserves unsaved choices across Back", async () => {
     render(<FormNavigationHarness />)
 
@@ -225,7 +275,24 @@ describe("JiraMigrationForm navigation", () => {
     expect(
       await screen.findByRole("heading", { name: "Map issue types" })
     ).not.toBeNull()
-    expect(mocks.mutate).not.toHaveBeenCalled()
+    expect(mocks.mutate).toHaveBeenCalledTimes(4)
+    expect(mocks.mutate).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        expectedRevision: 14,
+        configuration: expect.objectContaining({
+          identities: [
+            { jiraAccountId: "jira-user", projectProjectUserId: null }
+          ],
+          statuses: [],
+          restrictedContent: { policy: "exclude" }
+        })
+      })
+    )
+    expect(mocks.mutate).toHaveBeenNthCalledWith(
+      4,
+      expect.objectContaining({ expectedRevision: 17 })
+    )
   })
 })
 
@@ -253,13 +320,17 @@ describe("JiraMigrationForm restricted content", () => {
         }
       }
     }
-    mocks.mutate.mockResolvedValue(Exit.succeed(reviewDetail))
+    mocks.mutate.mockImplementation(
+      async (input: { expectedRevision: number }) =>
+        Exit.succeed({ ...reviewDetail, revision: input.expectedRevision + 1 })
+    )
 
     render(
       <JiraMigrationForm
         orgSlug="example"
         detail={reviewDetail}
         step="review"
+        draftSaveRef={createRef<JiraDraftSave | null>()}
         onStep={() => {}}
       />
     )

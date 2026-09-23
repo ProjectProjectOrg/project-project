@@ -852,6 +852,21 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
           statuses: [
             {
               jiraStatusId: "status-1",
+              projectStatusSlug: "in_progress" as never
+            }
+          ],
+          restrictedContent: null
+        },
+        requirements
+      )
+    ).toBe(false)
+    expect(
+      isCompleteJiraConfiguration(
+        {
+          ...base,
+          statuses: [
+            {
+              jiraStatusId: "status-1",
               projectStatusSlug: "ready_for_review" as never,
               createStatus: true
             }

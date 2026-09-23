@@ -9,6 +9,7 @@ import type {
 import {
   buildOpenSprintConflicts,
   buildJiraStatusCreateOptions,
+  jiraRestrictionPolicy,
   resolveTagDestinations,
   type JiraMappingSource,
   type JiraMigrationMappings
@@ -789,7 +790,7 @@ export const prepareJiraPublication = Effect.fn("prepareJiraPublication")(
         )
       )
     const excluded = new Set(
-      input.configuration.restrictedContent.policy === "exclude"
+      jiraRestrictionPolicy(input.configuration) === "exclude"
         ? input.manifest.restrictions
             .filter((x) => x.targetKind === "issue")
             .map((x) => x.targetId)
@@ -1145,7 +1146,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
     const values = sourceValues(prepared)
     const manifest = prepared.manifest
     const excludedIssues = new Set(
-      prepared.configuration.restrictedContent.policy === "exclude"
+      jiraRestrictionPolicy(prepared.configuration) === "exclude"
         ? manifest.restrictions
             .filter((x) => x.targetKind === "issue")
             .map((x) => x.targetId)

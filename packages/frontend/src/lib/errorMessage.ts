@@ -219,6 +219,18 @@ export const ticketListErrorMessage = (error: unknown): string => {
 export const ticketListDefectMessage = (defect: unknown): string =>
   m.tickets_list_defect({ defect: String(defect) })
 
+export const jiraMigrationSaveErrorMessage = (error: unknown): string =>
+  Match.value(error).pipe(
+    Match.when(
+      { _tag: "Conflict", reason: "jira_migration_revision_conflict" },
+      () => m.jira_migration_save_conflict()
+    ),
+    Match.when({ _tag: "JiraReconnectRequired" }, () =>
+      m.jira_migration_reconnect_description()
+    ),
+    Match.orElse(() => m.jira_migration_error_generic())
+  )
+
 export const oauthConsentErrorMessage = (error: unknown): string =>
   Match.value(error).pipe(
     Match.when({ _tag: "Validation", reason: "invalid_signature" }, () =>

@@ -83,6 +83,8 @@
   "jira_migration_resume_description": "Return to a migration you started earlier.",
   "jira_migration_resume_empty": "No saved Jira migrations yet.",
   "jira_migration_resume_loading": "Loading saved migrations…",
+  "jira_migration_save_conflict": "This draft changed elsewhere. Reload it before saving again.",
+  "jira_migration_save_timeout": "Saving is taking too long. Try again before leaving this page.",
   "jira_migration_resume_title": "Saved migrations",
   "jira_migration_review_counts": "{issues} issues · {comments} comments · {attachments} attachments",
   "jira_migration_review_created_statuses": "New destination statuses: {count}",

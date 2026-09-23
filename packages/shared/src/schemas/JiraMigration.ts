@@ -122,13 +122,15 @@ export const JiraMigrationConfiguration = Schema.Struct({
       jiraSprintId: Schema.NullOr(Schema.NonEmptyString)
     })
   ),
-  restrictedContent: Schema.Union([
-    Schema.Struct({ policy: Schema.Literal("exclude") }),
-    Schema.Struct({
-      policy: Schema.Literal("include"),
-      disclosureAccepted: Schema.Literal(true)
-    })
-  ]),
+  restrictedContent: Schema.NullOr(
+    Schema.Union([
+      Schema.Struct({ policy: Schema.Literal("exclude") }),
+      Schema.Struct({
+        policy: Schema.Literal("include"),
+        disclosureAccepted: Schema.Literal(true)
+      })
+    ])
+  ),
   skippedAttachmentIds: Schema.Array(Schema.NonEmptyString),
   attachmentSkipsAccepted: Schema.Boolean
 })

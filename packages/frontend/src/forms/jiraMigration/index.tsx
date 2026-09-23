@@ -1,6 +1,8 @@
-import { useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
+import * as Option from "effect/Option"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import type { JiraMigrationDetail } from "@projectproject/shared"
 import {
@@ -15,6 +17,7 @@ import {
 } from "@/JiraMigration/JiraMigrationShell"
 import { JiraSnapshotStep } from "@/JiraMigration/JiraSnapshotStep"
 import { useAppForm } from "@/lib/form"
+import { jiraMigrationSaveErrorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 import { DestinationStep } from "./DestinationStep"
 import {
@@ -44,17 +47,22 @@ const configurationSteps = [
   "review"
 ] as const satisfies ReadonlyArray<JiraMigrationStep>
 
+export type JiraDraftSave = () => Promise<boolean>
+export type JiraDraftSaveRef = RefObject<JiraDraftSave | null>
+
 export function JiraMigrationForm({
   orgSlug,
   detail,
   step,
-  onStep
-}: {
+  onStep,
+  draftSaveRef
+}: Readonly<{
   orgSlug: string
   detail: JiraMigrationDetail
   step: JiraWizardStep
   onStep: (step: JiraMigrationStep) => void
-}) {
+  draftSaveRef: JiraDraftSaveRef
+}>) {
   if (!detail.requirements || !detail.scanSummary) return null
 
   return (
@@ -65,6 +73,7 @@ export function JiraMigrationForm({
       summary={detail.scanSummary}
       step={step}
       onStep={onStep}
+      draftSaveRef={draftSaveRef}
     />
   )
 }
@@ -75,17 +84,20 @@ function ConfiguredJiraMigrationForm({
   requirements,
   summary,
   step,
-  onStep
-}: {
+  onStep,
+  draftSaveRef
+}: Readonly<{
   orgSlug: string
   detail: JiraMigrationDetail
   requirements: NonNullable<JiraMigrationDetail["requirements"]>
   summary: NonNullable<JiraMigrationDetail["scanSummary"]>
   step: JiraWizardStep
   onStep: (step: JiraMigrationStep) => void
-}) {
+  draftSaveRef: JiraDraftSaveRef
+}>) {
   const key = jiraMigrationKey(orgSlug, detail.id)
   const revision = useRef(detail.revision)
+  const saveQueue = useRef<Promise<unknown>>(Promise.resolve())
   const [validationError, setValidationError] = useState<string | null>(null)
   const configure = useAtomSet(configureJiraMigrationAtom(key), {
     mode: "promiseExit"
@@ -99,24 +111,60 @@ function ConfiguredJiraMigrationForm({
   const form = useAppForm({
     ...jiraMigrationFormOpts,
     defaultValues: buildJiraMigrationDraft(requirements, detail.configuration),
-    onSubmit: async ({ value }) => {
+    onSubmit: async () => {
       setValidationError(null)
-      const configured = await configure({
-        expectedRevision: revision.current,
-        configuration: toPartialJiraMigrationConfiguration(value)
-      })
-      if (!Exit.isSuccess(configured)) return
-      revision.current = configured.value.revision
-      await run({ expectedRevision: configured.value.revision })
+      if (await saveDraft()) await run({ expectedRevision: revision.current })
     },
     onSubmitInvalid: () => {
       setValidationError(m.jira_migration_mapping_required())
     }
   })
 
-  const advance = (next: JiraMigrationStep) => {
-    setValidationError(null)
-    onStep(next)
+  const saveDraft = useCallback(async (): Promise<boolean> => {
+    const operation = saveQueue.current.then(async () => {
+      try {
+        const configured = await configure({
+          expectedRevision: revision.current,
+          configuration: toPartialJiraMigrationConfiguration(form.state.values)
+        })
+        if (!Exit.isSuccess(configured)) {
+          setValidationError(
+            jiraMigrationSaveErrorMessage(
+              Option.getOrUndefined(Cause.findErrorOption(configured.cause))
+            )
+          )
+          return false
+        }
+        revision.current = configured.value.revision
+        setValidationError(null)
+        return true
+      } catch {
+        setValidationError(m.jira_migration_error_generic())
+        return false
+      }
+    })
+    saveQueue.current = operation
+    return await new Promise<boolean>((resolve) => {
+      const timeout = window.setTimeout(() => {
+        setValidationError(m.jira_migration_save_timeout())
+        resolve(false)
+      }, 10000)
+      void operation.then((saved) => {
+        window.clearTimeout(timeout)
+        resolve(saved)
+      })
+    })
+  }, [configure, form, setValidationError])
+
+  useEffect(() => {
+    draftSaveRef.current = saveDraft
+    return () => {
+      if (draftSaveRef.current === saveDraft) draftSaveRef.current = null
+    }
+  }, [draftSaveRef, saveDraft])
+
+  const advance = async (next: JiraMigrationStep) => {
+    if (await saveDraft()) onStep(next)
   }
 
   const rejectIncompleteMapping = () =>
@@ -125,10 +173,12 @@ function ConfiguredJiraMigrationForm({
   const rejectMissingRestrictedContentPolicy = () =>
     setValidationError(m.jira_migration_restricted_required())
 
-  const previous = () => {
+  const previous = async () => {
     if (step === "connect" || step === "choose" || step === "snapshot") return
     const index = configurationSteps.indexOf(step)
-    onStep(index === 0 ? "snapshot" : configurationSteps[index - 1])
+    if (await saveDraft()) {
+      onStep(index === 0 ? "snapshot" : configurationSteps[index - 1])
+    }
   }
 
   const commonProps = {
