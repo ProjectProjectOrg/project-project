@@ -233,7 +233,11 @@ export const auth = betterAuth({
   }),
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL,
-  trustedOrigins: ["http://localhost:5173", "http://localhost:3000"],
+  trustedOrigins: [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    ...(process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL] : [])
+  ],
   // `username` is a human-readable handle used in markdown frontmatter and
   // the members UI. Better Auth's CLI doesn't know about it from the schema
   // alone — declaring it here lets `auth.api.updateUser` etc. round-trip

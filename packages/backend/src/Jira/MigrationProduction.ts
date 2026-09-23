@@ -104,7 +104,15 @@ export const makeJiraProductionActivities = Effect.gen(function* () {
         .from(member)
         .innerJoin(user, eq(user.id, member.userId))
         .where(eq(member.organizationId, row.organizationId))
-        .pipe(Effect.mapError(() => new JiraError({ reason: "server_error" })))
+        .pipe(
+          Effect.map((members) =>
+            members.map((member) => ({
+              ...member,
+              name: member.name.trim() || member.email
+            }))
+          ),
+          Effect.mapError(() => new JiraError({ reason: "server_error" }))
+        )
       yield* scanSnapshot(
         {
           ...fence,

@@ -53,11 +53,15 @@ describe.skipIf(!databaseUrl)("Jira production workflow composition", () => {
     owners.push(owner)
     await pool.query(
       'insert into "user" (id,name,email,email_verified,created_at,updated_at) values ($1,$2,$3,false,now(),now())',
-      [owner.userId, "Ada", `${owner.userId}@example.test`]
+      [owner.userId, "", `${owner.userId}@example.test`]
     )
     await pool.query(
       'insert into "organization" (id,name,slug,created_at) values ($1,$2,$3,now())',
       [owner.organizationId, "Example", owner.organizationId]
+    )
+    await pool.query(
+      'insert into "member" (id,organization_id,user_id,role,created_at) values ($1,$2,$3,$4,now())',
+      [randomUUID(), owner.organizationId, owner.userId, "owner"]
     )
     const fixture = makeScanTestLayer()
     const pg = PgClient.layer({ url: Redacted.make(databaseUrl!) })

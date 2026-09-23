@@ -3,12 +3,15 @@ import { describe, expect } from "vite-plus/test"
 import { DateTime, Effect, Fiber, Layer, Redacted, Stream } from "effect"
 import { JiraCredentials } from "./Credentials"
 import { JiraClient, JiraClientLive, JiraTransport } from "./Client"
-import { JiraBrowserScenario, makeJiraBrowserFixture } from "./BrowserFixtures"
+import {
+  JiraBrowserScenario,
+  createJiraBrowserFixture
+} from "./BrowserFixtures"
 
 const fixtureClient = Effect.fn("fixtureClient")(function* (
   scenario: JiraBrowserScenario
 ) {
-  const fixture = yield* makeJiraBrowserFixture(scenario)
+  const fixture = yield* createJiraBrowserFixture(scenario)
   const credentials = JiraCredentials.of({
     status: () => Effect.die("unused"),
     beginConnect: () => Effect.die("unused"),
@@ -37,7 +40,7 @@ describe("Jira browser fixtures", () => {
     "exposes every manifest-v2 source category and stable source metadata",
     () =>
       Effect.gen(function* () {
-        const fixture = yield* makeJiraBrowserFixture("happy_path")
+        const fixture = yield* createJiraBrowserFixture("happy_path")
 
         expect(JiraBrowserScenario.literals).toEqual([
           "happy_path",
@@ -116,6 +119,11 @@ describe("Jira browser fixtures", () => {
           "fixture-cloud-1",
           "APP-1"
         )
+        const secondIssueComments = yield* client.comments(
+          "fixture-user-1",
+          "fixture-cloud-1",
+          "APP-2"
+        )
 
         expect(issues.map(({ key }) => key)).toEqual(["APP-1", "APP-2"])
         expect(comments.map(({ id }) => id)).toEqual(["comment-1", "comment-2"])
@@ -124,6 +132,7 @@ describe("Jira browser fixtures", () => {
           "changelog-1",
           "changelog-2"
         ])
+        expect(secondIssueComments).toEqual([])
         expect(
           (yield* fixture.calls).map(({ operation, page }) => [operation, page])
         ).toEqual([
@@ -134,13 +143,15 @@ describe("Jira browser fixtures", () => {
           ["worklogs", "APP-1:0"],
           ["worklogs", "APP-1:100"],
           ["changelogs", "APP-1:0"],
-          ["changelogs", "APP-1:100"]
+          ["changelogs", "APP-1:100"],
+          ["comments", "APP-2:0"]
         ])
         expect(yield* fixture.callCounts).toEqual({
           "changelogs:APP-1:0": 1,
           "changelogs:APP-1:100": 1,
           "comments:APP-1:0": 1,
           "comments:APP-1:100": 1,
+          "comments:APP-2:0": 1,
           "issues:first": 1,
           "issues:issues-2": 1,
           "worklogs:APP-1:0": 1,
@@ -175,7 +186,7 @@ describe("Jira browser fixtures", () => {
     "expires one OAuth refresh and then issues a stable rotating grant",
     () =>
       Effect.gen(function* () {
-        const fixture = yield* makeJiraBrowserFixture("reconnect_once")
+        const fixture = yield* createJiraBrowserFixture("reconnect_once")
 
         const first = yield* fixture.tokenEndpoint
           .refresh("fixture-refresh-token")

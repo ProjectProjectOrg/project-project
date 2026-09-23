@@ -38,26 +38,34 @@ import { TicketIndexLive } from "./Layers/TicketIndex"
 import { TicketDocsLive } from "./Layers/TicketDocs"
 import { TicketsLive } from "./Layers/Tickets"
 import { UsersLive } from "./Layers/Users"
-import { JiraClientLive, JiraTransportLive } from "./Jira/Client"
+import { JiraClientLive, JiraTransport, JiraTransportLive } from "./Jira/Client"
 import { JiraCredentialsLive } from "./Jira/Credentials"
-import { JiraOAuthConfigLive, JiraTokenEndpointLive } from "./Jira/OAuth"
+import {
+  JiraOAuthConfig,
+  JiraOAuthConfigLive,
+  JiraTokenEndpoint,
+  JiraTokenEndpointLive
+} from "./Jira/OAuth"
 import { JiraMigrationsDurableLive } from "./Jira/Migrations"
 import * as JiraCleanupWorkflow from "./Jira/CleanupWorkflow"
 import { JiraMigrationProjection } from "./Jira/MigrationProjection"
 import { JiraMigrationRetentionLive } from "./Jira/Retention"
 import { JiraWorkflowsLive } from "./Jira/WorkflowRuntime"
 
-const JiraServicesLive = JiraClientLive.pipe(
-  Layer.provideMerge(JiraTransportLive),
-  Layer.provideMerge(
-    JiraCredentialsLive.pipe(
-      Layer.provideMerge(
-        JiraTokenEndpointLive.pipe(Layer.provideMerge(JiraOAuthConfigLive))
-      ),
-      Layer.provideMerge(SecretCryptoLive)
+const makeJiraServicesLive = <TE, TR, EE, ER, CE, CR>(
+  transport: Layer.Layer<JiraTransport, TE, TR>,
+  tokenEndpoint: Layer.Layer<JiraTokenEndpoint, EE, ER>,
+  oauthConfig: Layer.Layer<JiraOAuthConfig, CE, CR>
+) =>
+  JiraClientLive.pipe(
+    Layer.provideMerge(transport),
+    Layer.provideMerge(
+      JiraCredentialsLive.pipe(
+        Layer.provideMerge(tokenEndpoint.pipe(Layer.provideMerge(oauthConfig))),
+        Layer.provideMerge(SecretCryptoLive)
+      )
     )
   )
-)
 
 const JiraDurableServicesLive = Layer.unwrap(
   Effect.gen(function* () {
@@ -83,63 +91,86 @@ export const BackendInfrastructureLive = Layer.mergeAll(
   BunPath.layer
 )
 
-// @effect-diagnostics-next-line unnecessaryPipeChain:off
-export const BackendServicesLive = TagsLive.pipe(
-  Layer.provideMerge(ProjectStatusesLive),
-  Layer.provideMerge(TicketsLive),
-  Layer.provideMerge(AttachmentUploadsLive),
-  Layer.provideMerge(AttachmentsLive),
-  Layer.provideMerge(FigmaLinksLive),
-  Layer.provideMerge(CommentsLive),
-  Layer.provideMerge(GroupsLive),
-  Layer.provideMerge(ProjectsLive),
-  Layer.provideMerge(CurrentOrgLive),
-  Layer.provideMerge(OrgLive.pipe(Layer.provideMerge(CurrentOrgLive))),
-  Layer.provideMerge(GitHubLive),
-  Layer.provideMerge(EverhourLive)
-)
-  .pipe(
-    Layer.provideMerge(
-      GitHubIntegrationsLive.pipe(
-        Layer.provideMerge(CurrentOrgLive),
-        Layer.provideMerge(GitHubLive)
-      )
-    ),
-    Layer.provideMerge(
-      EverhourIntegrationsLive.pipe(Layer.provideMerge(EverhourLive))
-    ),
-    Layer.provideMerge(
-      FigmaIntegrationsLive.pipe(Layer.provideMerge(FigmaLive))
-    ),
-    Layer.provideMerge(
-      EverhourTimeTrackingLive.pipe(Layer.provideMerge(EverhourLive))
-    ),
-    Layer.provideMerge(BannerPlaceholdersLive),
-    Layer.provideMerge(UsersLive),
-    Layer.provideMerge(TicketIndexLive),
-    Layer.provideMerge(JiraDurableServicesLive),
-    Layer.provideMerge(JiraWorkflowsLive),
-    Layer.provideMerge(ProjectDocsLive),
-    Layer.provideMerge(TicketDocsLive),
-    Layer.provideMerge(GroupDocsLive),
-    Layer.provideMerge(MarkdownLive),
-    Layer.provideMerge(OAuthApplicationsLive),
-    Layer.provideMerge(SecretCryptoLive),
-    Layer.provideMerge(JiraServicesLive)
+export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
+  transport: Layer.Layer<JiraTransport, TE, TR>,
+  tokenEndpoint: Layer.Layer<JiraTokenEndpoint, EE, ER>,
+  oauthConfig: Layer.Layer<JiraOAuthConfig, CE, CR>
+) =>
+  TagsLive.pipe(
+    Layer.provideMerge(ProjectStatusesLive),
+    Layer.provideMerge(TicketsLive),
+    Layer.provideMerge(AttachmentUploadsLive),
+    Layer.provideMerge(AttachmentsLive),
+    Layer.provideMerge(FigmaLinksLive),
+    Layer.provideMerge(CommentsLive),
+    Layer.provideMerge(GroupsLive),
+    Layer.provideMerge(ProjectsLive),
+    Layer.provideMerge(CurrentOrgLive),
+    Layer.provideMerge(OrgLive.pipe(Layer.provideMerge(CurrentOrgLive))),
+    Layer.provideMerge(GitHubLive),
+    Layer.provideMerge(EverhourLive)
   )
-  .pipe(
-    Layer.provideMerge(S3StorageLive),
-    Layer.provideMerge(
-      OrgStorageLive.pipe(
-        Layer.provideMerge(S3StorageLive),
-        Layer.provideMerge(SecretCryptoLive),
-        Layer.provideMerge(CurrentOrgLive)
+    .pipe(
+      Layer.provideMerge(
+        GitHubIntegrationsLive.pipe(
+          Layer.provideMerge(CurrentOrgLive),
+          Layer.provideMerge(GitHubLive)
+        )
+      ),
+      Layer.provideMerge(
+        EverhourIntegrationsLive.pipe(Layer.provideMerge(EverhourLive))
+      ),
+      Layer.provideMerge(
+        FigmaIntegrationsLive.pipe(Layer.provideMerge(FigmaLive))
+      ),
+      Layer.provideMerge(
+        EverhourTimeTrackingLive.pipe(Layer.provideMerge(EverhourLive))
+      ),
+      Layer.provideMerge(BannerPlaceholdersLive),
+      Layer.provideMerge(UsersLive),
+      Layer.provideMerge(TicketIndexLive),
+      Layer.provideMerge(JiraDurableServicesLive),
+      Layer.provideMerge(JiraWorkflowsLive),
+      Layer.provideMerge(ProjectDocsLive),
+      Layer.provideMerge(TicketDocsLive),
+      Layer.provideMerge(GroupDocsLive),
+      Layer.provideMerge(MarkdownLive),
+      Layer.provideMerge(OAuthApplicationsLive),
+      Layer.provideMerge(SecretCryptoLive),
+      Layer.provideMerge(
+        makeJiraServicesLive(transport, tokenEndpoint, oauthConfig)
       )
     )
+    .pipe(
+      Layer.provideMerge(S3StorageLive),
+      Layer.provideMerge(
+        OrgStorageLive.pipe(
+          Layer.provideMerge(S3StorageLive),
+          Layer.provideMerge(SecretCryptoLive),
+          Layer.provideMerge(CurrentOrgLive)
+        )
+      )
+    )
+
+export const BackendServicesLive = makeBackendServicesLive(
+  JiraTransportLive,
+  JiraTokenEndpointLive,
+  JiraOAuthConfigLive
+)
+
+export const makeBackendHttpServicesLive = <TE, TR, EE, ER, CE, CR>(
+  transport: Layer.Layer<JiraTransport, TE, TR>,
+  tokenEndpoint: Layer.Layer<JiraTokenEndpoint, EE, ER>,
+  oauthConfig: Layer.Layer<JiraOAuthConfig, CE, CR>
+) =>
+  makeBackendServicesLive(transport, tokenEndpoint, oauthConfig).pipe(
+    Layer.provideMerge(AuthenticationLive)
   )
 
-export const BackendHttpServicesLive = BackendServicesLive.pipe(
-  Layer.provideMerge(AuthenticationLive)
+export const BackendHttpServicesLive = makeBackendHttpServicesLive(
+  JiraTransportLive,
+  JiraTokenEndpointLive,
+  JiraOAuthConfigLive
 )
 
 export const BackendRuntimeLive = BackendServicesLive.pipe(

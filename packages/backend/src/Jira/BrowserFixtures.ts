@@ -442,6 +442,21 @@ const jsonForRequest = (request: JiraTransportRequest) => {
       ? { issues: [issues[1]], nextPageToken: null }
       : { issues: [issues[0]], nextPageToken: "issues-2" }
   }
+  const issueCollection = path.match(
+    /\/issue\/([^/]+)\/(comment|worklog|changelog)$/
+  )
+  if (issueCollection && !["APP-1", "10001"].includes(issueCollection[1]))
+    return {
+      [issueCollection[2] === "changelog"
+        ? "values"
+        : issueCollection[2] === "comment"
+          ? "comments"
+          : "worklogs"]: [],
+      startAt,
+      maxResults: 100,
+      total: 0,
+      isLast: true
+    }
   if (path.endsWith("/comment"))
     return offsetPage(
       startAt,
@@ -586,7 +601,7 @@ const jsonForRequest = (request: JiraTransportRequest) => {
   )
 }
 
-export const makeJiraBrowserFixture = Effect.fn("makeJiraBrowserFixture")(
+export const createJiraBrowserFixture = Effect.fn("createJiraBrowserFixture")(
   function* (
     initialScenario: JiraBrowserScenario
   ): Effect.fn.Return<JiraBrowserFixture> {

@@ -148,7 +148,7 @@ const betterAuthApp = Effect.gen(function* () {
   )
 )
 
-export const ApiLive = HttpApiBuilder.layer(AppApi).pipe(
+export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(HealthHandlerLive),
   Layer.provide(DbHandlerLive),
   Layer.provide(AuthHandlerLive),
@@ -167,7 +167,10 @@ export const ApiLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(OAuthApplicationsHandlerLive),
   Layer.provide(PublicOAuthHandlerLive),
   Layer.provide(StorageHandlerLive),
-  Layer.provide(AttachmentsHandlerLive),
+  Layer.provide(AttachmentsHandlerLive)
+)
+
+export const ApiLive = ApiRoutesLive.pipe(
   Layer.provide(BackendHttpServicesLive)
 )
 
@@ -435,7 +438,7 @@ export const ApiRouterLive = Layer.effect(
   Effect.map(HttpRouter.HttpRouter, (router) => router.prefixed("/api"))
 )
 
-const RouteLive = Layer.mergeAll(
+export const RouteLive = Layer.mergeAll(
   HttpRouter.add("*", "/api/auth/*", betterAuthApp),
   HttpRouter.add("*", "/.well-known/*", betterAuthApp),
   githubIntegrationRoutes,
@@ -454,7 +457,7 @@ const RouteLive = Layer.mergeAll(
   ),
   HttpRouter.add("POST", "/api/attachment-uploads", attachmentUploadRoute),
   HttpRouter.add("*", "/mcp", mcpRoute),
-  Layer.mergeAll(ApiLive, SwaggerLive).pipe(Layer.provide(ApiRouterLive))
+  Layer.mergeAll(ApiRoutesLive, SwaggerLive).pipe(Layer.provide(ApiRouterLive))
 )
 
 const ServerLive = HttpRouter.serve(RouteLive).pipe(
