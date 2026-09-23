@@ -1,7 +1,10 @@
 import { useEffect } from "react"
-import { useAtomRefresh } from "@effect/atom-react"
+import { useAtomSet } from "@effect/atom-react"
 import type { JiraMigrationStatus } from "@projectproject/shared"
-import { jiraMigrationAtom, jiraMigrationKey } from "@/atoms/jiraMigration"
+import {
+  jiraMigrationKey,
+  refreshJiraMigrationAtom
+} from "@/atoms/jiraMigration"
 import { isActiveJiraMigration } from "@/JiraMigration/screen"
 
 const POLL_INTERVAL_MS = 2_000
@@ -11,8 +14,8 @@ export function useJiraMigrationPolling(
   migrationId: string,
   status: JiraMigrationStatus
 ) {
-  const refresh = useAtomRefresh(
-    jiraMigrationAtom(jiraMigrationKey(orgSlug, migrationId))
+  const refresh = useAtomSet(
+    refreshJiraMigrationAtom(jiraMigrationKey(orgSlug, migrationId))
   )
   const active = isActiveJiraMigration(status)
 
@@ -20,7 +23,7 @@ export function useJiraMigrationPolling(
     if (!active || typeof document === "undefined") return undefined
 
     const refreshIfVisible = () => {
-      if (document.visibilityState === "visible") refresh()
+      if (document.visibilityState === "visible") refresh(undefined)
     }
 
     const interval = window.setInterval(refreshIfVisible, POLL_INTERVAL_MS)

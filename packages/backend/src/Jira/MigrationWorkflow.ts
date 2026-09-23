@@ -8,8 +8,8 @@ import {
 } from "./MigrationProjection"
 import * as Schema from "effect/Schema"
 import {
-  makeFinalizeMigrationActivity,
-  makeStartMigrationActivity,
+  defineFinalizeMigrationActivity,
+  defineStartMigrationActivity,
   type MigrationActivities
 } from "./MigrationActivities"
 import type { JiraMigrationSource } from "./Migrations"
@@ -18,9 +18,9 @@ import { Activity, DurableClock } from "effect/unstable/workflow"
 import {
   cursorHash,
   JiraScanFailure,
-  makeScanPageActivity,
-  makeBuildManifestActivity,
-  makeIdentityOptionsActivity,
+  defineScanPageActivity,
+  defineBuildManifestActivity,
+  defineIdentityOptionsActivity,
   scanError,
   scanFailure,
   scanPageActivityName,
@@ -130,11 +130,11 @@ export const makeJiraMigrationWorkflow = <R>(
   JiraMigrationWorkflow.toLayer((payload, executionId) =>
     Effect.gen(function* () {
       yield* Workflow.addFinalizer((exit) =>
-        makeFinalizeMigrationActivity(
+        defineFinalizeMigrationActivity(
           activities.finalize({ executionId, exit })
         )
       )
-      yield* makeStartMigrationActivity(
+      yield* defineStartMigrationActivity(
         activities.start({ payload, executionId }),
         JiraMigrationWorkflowFailure
       )
@@ -258,7 +258,7 @@ export const scanSnapshot = Effect.fn("scanSnapshot")(
         operationTry: 0
       }).replace(/\/0$/, ""),
       (operationTry) =>
-        makeIdentityOptionsActivity(context, dependencies, operationTry)
+        defineIdentityOptionsActivity(context, dependencies, operationTry)
     )
     const chunks: ScanChunkReference[] = []
     const collection = Effect.fn(function* (
@@ -277,7 +277,7 @@ export const scanSnapshot = Effect.fn("scanSnapshot")(
               cursorHash: cursorHash(input.cursor)
             }).replace(/\/0$/, ""),
             (operationTry) =>
-              makeScanPageActivity({ ...input, operationTry }, dependencies)
+              defineScanPageActivity({ ...input, operationTry }, dependencies)
           )
       )
       for (const page of pages) {
@@ -382,7 +382,7 @@ export const scanSnapshot = Effect.fn("scanSnapshot")(
       dependencies,
       `build-manifest/${context.scanRevision}`,
       (operationTry) =>
-        makeBuildManifestActivity(
+        defineBuildManifestActivity(
           context,
           chunks,
           identityOptionsArtifact,

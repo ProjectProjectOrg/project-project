@@ -11,40 +11,52 @@ import {
   type JiraMigrationConfiguration as JiraMigrationConfigurationType
 } from "@projectproject/shared"
 
-export interface JiraMigrationDraft {
-  destination: { name: string; slug: string; key: string }
-  identities: ReadonlyArray<{
-    jiraAccountId: string
-    projectProjectUserId: string | null | undefined
-  }>
-  statuses: ReadonlyArray<{
-    jiraStatusId: string
-    projectStatusSlug: string | undefined
-    createStatus?: true
-  }>
-  issueTypes: ReadonlyArray<{
-    jiraIssueTypeId: string
-    projectType: TicketType | undefined
-  }>
-  priorities: ReadonlyArray<{
-    jiraPriorityId: string
-    projectPriority: TicketPriority | undefined
-  }>
-  tags: ReadonlyArray<{
-    source: { kind: "label" | "component"; value: string }
-    destinationTagName: string
-  }>
-  activeFutureSprintChoices: ReadonlyArray<{
-    jiraIssueId: string
-    jiraSprintId: string | null | undefined
-  }>
+export type JiraMigrationDraft = Readonly<{
+  destination: Readonly<{ name: string; slug: string; key: string }>
+  identities: ReadonlyArray<
+    Readonly<{
+      jiraAccountId: string
+      projectProjectUserId: string | null | undefined
+    }>
+  >
+  statuses: ReadonlyArray<
+    Readonly<{
+      jiraStatusId: string
+      projectStatusSlug: string | undefined
+      createStatus?: true
+    }>
+  >
+  issueTypes: ReadonlyArray<
+    Readonly<{
+      jiraIssueTypeId: string
+      projectType: TicketType | undefined
+    }>
+  >
+  priorities: ReadonlyArray<
+    Readonly<{
+      jiraPriorityId: string
+      projectPriority: TicketPriority | undefined
+    }>
+  >
+  tags: ReadonlyArray<
+    Readonly<{
+      source: Readonly<{ kind: "label" | "component"; value: string }>
+      destinationTagName: string
+    }>
+  >
+  activeFutureSprintChoices: ReadonlyArray<
+    Readonly<{
+      jiraIssueId: string
+      jiraSprintId: string | null | undefined
+    }>
+  >
   restrictedContent:
-    | { policy: "exclude" }
-    | { policy: "include"; disclosureAccepted: true }
+    | Readonly<{ policy: "exclude" }>
+    | Readonly<{ policy: "include"; disclosureAccepted: true }>
     | undefined
   skippedAttachmentIds: ReadonlyArray<string>
   attachmentSkipsAccepted: boolean
-}
+}>
 
 const emptyDraft: JiraMigrationDraft = {
   destination: { name: "", slug: "", key: "" },
@@ -175,7 +187,7 @@ export const destinationValidator = Schema.toStandardSchemaV1(
   JiraMigrationConfiguration.fields.destination
 )
 
-const sourceKey = (source: { kind: string; value: string }) =>
+const sourceKey = (source: Readonly<{ kind: string; value: string }>) =>
   `${source.kind}:${source.value}`
 
 const exactIssueTypeNames = new Map<string, TicketType>([

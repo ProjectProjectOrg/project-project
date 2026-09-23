@@ -76,6 +76,15 @@ export const jiraMigrationAtom = Atom.family((req: JiraMigrationRequest) =>
   Atom.optimistic(jiraMigrationQuery(req))
 )
 
+export const refreshJiraMigrationAtom = Atom.family(
+  (req: JiraMigrationRequest) =>
+    Api.runtime.fn(
+      Effect.fn("refreshJiraMigration")(function* (_input: void, get) {
+        yield* Effect.sync(() => get.refresh(jiraMigrationAtom(req)))
+      })
+    )
+)
+
 export const createJiraMigrationAtom = Atom.family((req: JiraOrgRequest) =>
   Api.runtime.fn(
     Effect.fn("createJiraMigration")(function* (

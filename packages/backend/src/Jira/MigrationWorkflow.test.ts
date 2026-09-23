@@ -17,8 +17,8 @@ import {
   jiraPreflightActivityName,
   jiraPublicationActivityName,
   jiraWriteDocumentsActivityName,
-  makeFinalizeMigrationActivity,
-  makeStartMigrationActivity
+  defineFinalizeMigrationActivity,
+  defineStartMigrationActivity
 } from "./MigrationActivities"
 import {
   JiraMigrationWorkflow,
@@ -163,9 +163,12 @@ describe("Jira migration workflow contracts", () => {
     )
     expect(activityName(["start"])).toBe("v1/start")
     expect(
-      makeStartMigrationActivity(Effect.void, JiraMigrationWorkflowFailure).name
+      defineStartMigrationActivity(Effect.void, JiraMigrationWorkflowFailure)
+        .name
     ).toBe("v1/start")
-    expect(makeFinalizeMigrationActivity(Effect.void).name).toBe("v1/finalize")
+    expect(defineFinalizeMigrationActivity(Effect.void).name).toBe(
+      "v1/finalize"
+    )
     expect(startImportDeferredName(5)).toBe("StartImport/v1/5")
     expect(startImportDeferred(5).name).toBe("StartImport/v1/5")
     expect(retryDeferredName(1)).toBe("Retry/v1/1")

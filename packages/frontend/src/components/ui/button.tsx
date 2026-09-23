@@ -50,6 +50,7 @@ const buttonVariants = cva(
           "border border-border text-foreground bg-transparent hover:bg-muted active:bg-muted/60",
         ghost:
           "text-muted-foreground bg-transparent hover:bg-muted hover:text-foreground active:bg-muted/60",
+        step: "w-full justify-start rounded-xl bg-transparent text-left text-muted-foreground hover:bg-accent/60 hover:text-foreground",
         "sidebar-link":
           "w-fit max-w-full justify-start bg-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground active:bg-accent",
         "inline-help":
@@ -70,6 +71,7 @@ const buttonVariants = cva(
         "image-option": "aspect-[3/1] h-auto w-full p-0",
         "image-strip": "h-12 w-full p-0",
         "banner-add": "h-12 w-full justify-start px-4 text-[13px] gap-1.5",
+        step: "h-auto min-h-8 gap-3 px-3 text-[13px]",
         xs: "h-5 px-1.5 text-[11px] gap-1",
         sm: "h-7 px-3 text-[12px] gap-1",
         md: "h-8 px-4 text-[13px] gap-1.5",

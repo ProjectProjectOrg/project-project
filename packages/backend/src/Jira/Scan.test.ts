@@ -7,7 +7,7 @@ import { JiraClient } from "./Client"
 import { JiraMigrationArtifacts } from "./MigrationArtifacts"
 import {
   JiraScanPageResult,
-  makeScanPageActivity,
+  defineScanPageActivity,
   scanPageActivityName
 } from "./MigrationActivities"
 import {
@@ -263,7 +263,7 @@ describe("durable scan page", () => {
           cursor: null,
           operationTry: 0
         }
-        const activity = makeScanPageActivity(input, {
+        const activity = defineScanPageActivity(input, {
           client,
           artifacts,
           progress: (fence, page) =>
@@ -300,7 +300,7 @@ describe("durable scan page", () => {
             new TextDecoder().decode(bytes).includes("unique-raw-body-marker")
           )
         ).toBe(true)
-        const again = yield* makeScanPageActivity(
+        const again = yield* defineScanPageActivity(
           { ...input, operationTry: 1 },
           { client, artifacts, progress: () => Effect.succeed(true) }
         )
@@ -416,7 +416,7 @@ describe("scan collection pagination", () => {
           const pages = yield* scanCollection(
             { ...scanContext, kind, parentId: "1" },
             (input) =>
-              makeScanPageActivity(input, {
+              defineScanPageActivity(input, {
                 client,
                 artifacts,
                 progress: () => Effect.succeed(true)
@@ -448,7 +448,7 @@ it("sorts normalized stable IDs while preserving the original response JSON", as
   await Effect.runPromise(
     Effect.gen(function* () {
       const artifacts = yield* JiraMigrationArtifacts
-      const page = yield* makeScanPageActivity(
+      const page = yield* defineScanPageActivity(
         {
           ...scanContext,
           kind: "issues",
@@ -477,7 +477,7 @@ it("sorts normalized stable IDs while preserving the original response JSON", as
   )
 })
 
-import { makeBuildManifestActivity } from "./MigrationActivities"
+import { defineBuildManifestActivity } from "./MigrationActivities"
 
 it("blocks configuration when a raw artifact referenced by a completed page has disappeared", async () => {
   const fixture = makeScanTestLayer()
@@ -485,7 +485,7 @@ it("blocks configuration when a raw artifact referenced by a completed page has 
     Effect.gen(function* () {
       const artifacts = yield* JiraMigrationArtifacts
       const client = yield* JiraClient
-      const page = yield* makeScanPageActivity(
+      const page = yield* defineScanPageActivity(
         {
           ...scanContext,
           kind: "issues",
@@ -498,7 +498,7 @@ it("blocks configuration when a raw artifact referenced by a completed page has 
       )
       fixture.objects.delete(`tenant/${page.raw.key}`)
       const result = yield* Effect.result(
-        makeBuildManifestActivity(
+        defineBuildManifestActivity(
           scanContext,
           [
             {

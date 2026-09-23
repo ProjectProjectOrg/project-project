@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ConfirmButton } from "@/components/ui/confirm-button"
@@ -97,16 +97,18 @@ export function JiraMigrationShell({
   currentStep,
   furthestStep = currentStep,
   confirmLeave = false,
+  onBeforeLeave,
   onNavigate,
   children
-}: {
+}: Readonly<{
   orgSlug: string
   currentStep?: JiraMigrationStep
   furthestStep?: JiraMigrationStep
   confirmLeave?: boolean
+  onBeforeLeave?: () => Promise<boolean>
   onNavigate?: (stage: NavigableJiraMigrationStage) => void
   children: ReactNode
-}) {
+}>) {
   const currentStage = currentStep
     ? jiraMigrationStageForStep(currentStep)
     : undefined
@@ -126,7 +128,11 @@ export function JiraMigrationShell({
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           {m.jira_migration_page_title()}
         </h1>
-        <LeaveButton orgSlug={orgSlug} confirmLeave={confirmLeave} />
+        <LeaveButton
+          orgSlug={orgSlug}
+          confirmLeave={confirmLeave}
+          onBeforeLeave={onBeforeLeave}
+        />
       </header>
 
       <div className="flex w-full flex-1 flex-col gap-5 pt-3 md:flex-row md:items-stretch md:gap-10">
@@ -167,15 +173,14 @@ export function JiraMigrationShell({
                   "flex min-h-8 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px]",
                   current
                     ? "bg-accent font-medium text-foreground"
-                    : "text-muted-foreground",
-                  navigable &&
-                    "cursor-pointer transition-colors hover:bg-accent/60 hover:text-foreground active:scale-[0.97] active:transition-transform active:duration-100"
+                    : "text-muted-foreground"
                 )
                 return navigable ? (
-                  <button
+                  <Button
                     key={stage.id}
                     type="button"
-                    className={className}
+                    variant="step"
+                    size="step"
                     onClick={() => {
                       if (isNavigableJiraMigrationStage(stage.id)) {
                         onNavigate(stage.id)
@@ -183,7 +188,7 @@ export function JiraMigrationShell({
                     }}
                   >
                     {content}
-                  </button>
+                  </Button>
                 ) : (
                   <div
                     key={stage.id}
@@ -206,14 +211,15 @@ export function JiraMigrationShell({
 
 function LeaveButton({
   orgSlug,
-  confirmLeave
-}: {
+  confirmLeave,
+  onBeforeLeave
+}: Readonly<{
   orgSlug: string
   confirmLeave: boolean
-}) {
-  const leaveLink = (
-    <Link to="/orgs/$orgSlug/projects" params={{ orgSlug }} />
-  )
+  onBeforeLeave?: () => Promise<boolean>
+}>) {
+  const navigate = useNavigate()
+  const leaveLink = <Link to="/orgs/$orgSlug/projects" params={{ orgSlug }} />
 
   if (!confirmLeave) {
     return (
@@ -230,11 +236,30 @@ function LeaveButton({
       </ConfirmButton.Trigger>
       <ConfirmButton.Confirm>
         <span className="text-[13px] text-muted-foreground">
-          {m.jira_migration_leave_question()}
+          {onBeforeLeave
+            ? m.jira_migration_leave_save_question()
+            : m.jira_migration_leave_question()}
         </span>
-        <Button size="sm" variant="destructive" render={leaveLink}>
-          {m.jira_migration_action_leave_confirm()}
-        </Button>
+        {onBeforeLeave ? (
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={async () => {
+              if (await onBeforeLeave()) {
+                await navigate({
+                  to: "/orgs/$orgSlug/projects",
+                  params: { orgSlug }
+                })
+              }
+            }}
+          >
+            {m.jira_migration_action_leave_confirm()}
+          </Button>
+        ) : (
+          <Button size="sm" variant="destructive" render={leaveLink}>
+            {m.jira_migration_action_leave_confirm()}
+          </Button>
+        )}
         <ConfirmButton.Cancel>{m.common_cancel_button()}</ConfirmButton.Cancel>
       </ConfirmButton.Confirm>
     </ConfirmButton.Root>

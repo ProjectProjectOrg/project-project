@@ -159,7 +159,7 @@ export const jiraPublicationActivityName = (
   operationTry: number
 ) => activityName(["import", operation, publicationRevision, operationTry])
 
-export const makeStartMigrationActivity = <R>(
+export const defineStartMigrationActivity = <R>(
   execute: Effect.Effect<void, JiraMigrationWorkflowFailureValue, R>,
   error: typeof JiraMigrationWorkflowFailure
 ) =>
@@ -170,7 +170,7 @@ export const makeStartMigrationActivity = <R>(
     execute
   })
 
-export const makeFinalizeMigrationActivity = <R>(
+export const defineFinalizeMigrationActivity = <R>(
   execute: Effect.Effect<void, never, R>
 ) =>
   Activity.make({
@@ -450,7 +450,7 @@ const OPTIONAL_SCAN_KINDS = new Set<JiraScanKind>([
   "worklogs"
 ])
 
-export const makeScanPageActivity = (
+export const defineScanPageActivity = (
   input: JiraScanPageInput,
   dependencies: ScanPageDependencies
 ) =>
@@ -602,7 +602,7 @@ export interface ScanSnapshotDependencies extends ScanPageDependencies {
     failureSequence: number
   ) => Effect.Effect<JiraScanResumeResult, JiraError>
 }
-export const makeIdentityOptionsActivity = (
+export const defineIdentityOptionsActivity = (
   context: JiraScanContext,
   dependencies: ScanSnapshotDependencies,
   operationTry: number
@@ -633,7 +633,7 @@ export const makeIdentityOptionsActivity = (
       )
     }).pipe(Effect.mapError(scanError))
   })
-export const makeBuildManifestActivity = (
+export const defineBuildManifestActivity = (
   context: JiraScanContext,
   references: ReadonlyArray<ScanChunkReference>,
   identityOptionsArtifact: JiraArtifactRef,
