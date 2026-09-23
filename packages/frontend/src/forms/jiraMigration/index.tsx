@@ -97,6 +97,7 @@ function ConfiguredJiraMigrationForm({
 }>) {
   const key = jiraMigrationKey(orgSlug, detail.id)
   const revision = useRef(detail.revision)
+  const [savedRevision, setSavedRevision] = useState(detail.revision)
   const saveQueue = useRef<Promise<unknown>>(Promise.resolve())
   const [validationError, setValidationError] = useState<string | null>(null)
   const configure = useAtomSet(configureJiraMigrationAtom(key), {
@@ -136,6 +137,7 @@ function ConfiguredJiraMigrationForm({
           return false
         }
         revision.current = configured.value.revision
+        setSavedRevision(configured.value.revision)
         setValidationError(null)
         return true
       } catch {
@@ -154,7 +156,7 @@ function ConfiguredJiraMigrationForm({
         resolve(saved)
       })
     })
-  }, [configure, form, setValidationError])
+  }, [configure, form, setSavedRevision, setValidationError])
 
   useEffect(() => {
     draftSaveRef.current = saveDraft
@@ -337,6 +339,9 @@ function ConfiguredJiraMigrationForm({
           {(group) => (
             <ReviewStep
               {...commonProps}
+              orgSlug={orgSlug}
+              migrationId={detail.id}
+              revision={savedRevision}
               summary={summary}
               onNext={() => void group.handleSubmit()}
             />

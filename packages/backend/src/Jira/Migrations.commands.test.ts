@@ -40,6 +40,8 @@ import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 import { JiraScanFailure } from "./MigrationActivities"
 import { DbLive } from "../Layers/Db"
+import { Db } from "../Services/Db"
+import { JiraArtifactError } from "./MigrationArtifacts"
 import {
   JiraMigrationProjection,
   fenceFor,
@@ -149,6 +151,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
     | JiraMigrationProjection
     | SqlClient.SqlClient
     | WorkflowEngine.WorkflowEngine
+    | Db
   >
   let owners: ReadonlyArray<
     Readonly<{ organizationId: string; userId: string }>
@@ -165,7 +168,9 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       migrationsFolder: `${import.meta.dirname}/../db/migrations`
     })
     const pg = PgClient.layer({ url: Redacted.make(databaseUrl!) })
-    const projection = JiraMigrationProjection.layer.pipe(Layer.provide(DbLive))
+    const projection = JiraMigrationProjection.layer.pipe(
+      Layer.provideMerge(DbLive)
+    )
     commandTestLayer = () => {
       const storage = SqlMessageStorage.layerWith({
         prefix: `jira_command_${randomUUID().replaceAll("-", "")}`
@@ -219,14 +224,29 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
     start: () => Effect.die("Unexpected cleanup start"),
     awaitReset: () => Effect.die("Unexpected reset wait")
   }
+  const artifacts = (issueKeys: ReadonlyArray<string> = []) => ({
+    readJson: <A>(_orgSlug: string, _ref: unknown, schema: Schema.Decoder<A>) =>
+      Schema.decodeUnknownEffect(schema)({
+        issues: issueKeys.map((key) => ({ key }))
+      }).pipe(
+        Effect.mapError(
+          () => new JiraArtifactError({ key: "manifest", reason: "schema" })
+        )
+      )
+  })
   const commandLayer = (
     cleanup = unexpectedCleanup,
-    unresolvedFailedAttachmentIds: ReadonlyArray<string> = []
+    unresolvedFailedAttachmentIds: ReadonlyArray<string> = [],
+    issueKeys: ReadonlyArray<string> = []
   ) =>
-    JiraMigrationsDurableLive(cleanup, {
-      unresolvedFailedAttachments: () =>
-        Effect.succeed(unresolvedFailedAttachmentIds)
-    })
+    JiraMigrationsDurableLive(
+      cleanup,
+      {
+        unresolvedFailedAttachments: () =>
+          Effect.succeed(unresolvedFailedAttachmentIds)
+      },
+      artifacts(issueKeys)
+    )
   const scanningWorkflow = (
     p: JiraMigrationProjectionShape,
     owner: Readonly<{ organizationId: string; userId: string }>,
@@ -272,6 +292,72 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
     )
     return yield* p.toDetail(scanned)
   })
+
+  it("reads exact destination conflicts before starting the migration", async () => {
+    const owner = await fixture()
+    const existingProjectId = randomUUID()
+    await pool.query(
+      `insert into project_index (id, slug, organization_id, key, name, icon, color, created_by)
+       values ($1, 'application', $2, 'APP', 'Existing', '📁', '#000000', $3)`,
+      [existingProjectId, owner.organizationId, owner.userId]
+    )
+    await pool.query(
+      `insert into ticket_index (organization_id, org_slug, project_id, project_slug, ticket_id, title, status, type, priority, created_by, created_at, updated_at)
+       values ($1, $2, $3, 'application', 'APP-1', 'Existing ticket', 'todo', 'feat', 'med', $4, now(), now())`,
+      [
+        owner.organizationId,
+        owner.organizationId,
+        existingProjectId,
+        owner.userId
+      ]
+    )
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const projection = yield* JiraMigrationProjection
+        yield* Effect.gen(function* () {
+          const migrations = yield* JiraMigrations
+          const scanned = yield* createScanned(migrations, projection, owner)
+          const ready = yield* migrations.configure(
+            owner.organizationId,
+            owner.userId,
+            scanned.id,
+            scanned.revision,
+            configuration
+          )
+          expect(
+            yield* migrations.destinationConflicts(
+              owner.organizationId,
+              owner.userId,
+              owner.organizationId,
+              scanned.id,
+              ready.revision
+            )
+          ).toEqual([
+            { kind: "project_slug", value: "application" },
+            { kind: "project_key", value: "APP" },
+            { kind: "ticket_id", value: "APP-1" }
+          ])
+          const stale = yield* Effect.exit(
+            migrations.destinationConflicts(
+              owner.organizationId,
+              owner.userId,
+              owner.organizationId,
+              scanned.id,
+              scanned.revision
+            )
+          )
+          expect(Exit.isFailure(stale)).toBe(true)
+        }).pipe(
+          Effect.provide(
+            Layer.merge(
+              commandLayer(undefined, [], ["APP-1"]),
+              scanningWorkflow(projection, owner)
+            )
+          )
+        )
+      }).pipe(Effect.provide(commandTestLayer()), Effect.scoped)
+    )
+  }, 20000)
 
   it("rolls back the revision and retention when durable signal storage fails", async () => {
     const owner = await fixture()
@@ -1206,19 +1292,23 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             ]
           }
         }
-        const layer = JiraMigrationsDurableLive(unexpectedCleanup, {
-          unresolvedFailedAttachments: (input) =>
-            Effect.gen(function* () {
-              const current = yield* p.owned(owner, input.migrationId)
-              expect(input).toEqual({
-                ...fenceFor(current)!,
-                expectedRevision: current.revision
+        const layer = JiraMigrationsDurableLive(
+          unexpectedCleanup,
+          {
+            unresolvedFailedAttachments: (input) =>
+              Effect.gen(function* () {
+                const current = yield* p.owned(owner, input.migrationId)
+                expect(input).toEqual({
+                  ...fenceFor(current)!,
+                  expectedRevision: current.revision
+                })
+                yield* Deferred.succeed(lookup, undefined)
+                yield* Deferred.await(releaseLookup)
+                return ["failed"]
               })
-              yield* Deferred.succeed(lookup, undefined)
-              yield* Deferred.await(releaseLookup)
-              return ["failed"]
-            })
-        })
+          },
+          artifacts()
+        )
         yield* Effect.gen(function* () {
           const m = yield* JiraMigrations
           const created = yield* createScanned(m, p, owner)

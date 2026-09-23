@@ -22,6 +22,11 @@ export type JiraMigrationRequest = Readonly<{
   params: Readonly<{ orgSlug: string; migrationId: string }>
 }>
 
+export type JiraDestinationConflictsRequest = Readonly<{
+  params: Readonly<{ orgSlug: string; migrationId: string }>
+  query: Readonly<{ expectedRevision: number }>
+}>
+
 export const jiraOrgRequest = (orgSlug: string): JiraOrgRequest => ({
   params: { orgSlug }
 })
@@ -74,6 +79,15 @@ const jiraMigrationQuery = (req: JiraMigrationRequest) =>
 
 export const jiraMigrationAtom = Atom.family((req: JiraMigrationRequest) =>
   Atom.optimistic(jiraMigrationQuery(req))
+)
+
+export const jiraDestinationConflictsAtom = Atom.family(
+  (req: JiraDestinationConflictsRequest) =>
+    Api.query("jiraMigrations", "destinationConflicts", {
+      params: req.params,
+      query: req.query,
+      timeToLive: "30 seconds"
+    })
 )
 
 export const jiraSkippedAttachmentsAtom = Atom.family(

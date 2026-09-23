@@ -283,6 +283,7 @@ it.effect(
             run: unused,
             cancel: unused,
             discard: unused,
+            destinationConflicts: unused,
             get: (_orgId, _userId, migrationId) =>
               migrationId === "migration-1"
                 ? Effect.succeed(detail)
@@ -328,6 +329,69 @@ it.effect(
 )
 
 it.effect(
+  "shows destination conflicts for the authenticated migration revision",
+  () =>
+    Effect.gen(function* () {
+      const services = Layer.mergeAll(
+        dependenciesFor(),
+        Layer.succeed(JiraMigrations)({
+          list: unused,
+          get: unused,
+          create: unused,
+          configure: unused,
+          rescan: unused,
+          run: unused,
+          cancel: unused,
+          discard: unused,
+          destinationConflicts: (
+            organizationId,
+            userId,
+            orgSlug,
+            migrationId,
+            expectedRevision
+          ) => {
+            expect({
+              organizationId,
+              userId,
+              orgSlug,
+              migrationId,
+              expectedRevision
+            }).toEqual({
+              organizationId: "org-1",
+              userId: "user-1",
+              orgSlug: "organization",
+              migrationId: "migration-1",
+              expectedRevision: 14
+            })
+            return Effect.succeed([
+              { kind: "project_key" as const, value: "APP" },
+              { kind: "ticket_id" as const, value: "APP-1" }
+            ])
+          }
+        })
+      )
+      const handlers = JiraMigrationsHandlerLive.pipe(
+        Layer.provide(services),
+        HttpRouter.provideRequest(services),
+        Layer.provideMerge(authentication)
+      )
+      yield* Effect.gen(function* () {
+        const client = yield* HttpApiTest.groups(AppApi, ["jiraMigrations"])
+        const conflicts = yield* client.jiraMigrations.destinationConflicts({
+          params: { orgSlug: "organization", migrationId: "migration-1" },
+          query: { expectedRevision: 14 }
+        })
+        expect(conflicts).toEqual([
+          { kind: "project_key", value: "APP" },
+          { kind: "ticket_id", value: "APP-1" }
+        ])
+      }).pipe(
+        Effect.provide(Layer.mergeAll(handlers, HttpServer.layerServices))
+      )
+    })
+)
+
+it.effect(
   "resolves the authenticated source and keeps detail and Conflict HTTP contracts",
   () =>
     Effect.gen(function* () {
@@ -340,6 +404,7 @@ it.effect(
         run: unused,
         cancel: unused,
         discard: unused,
+        destinationConflicts: unused,
         create: (organizationId, userId, requestId, source) => {
           expect([organizationId, userId]).toEqual(["org-1", "user-1"])
           expect(source).toEqual({
@@ -456,7 +521,8 @@ for (const failureAt of ["sites", "projects"] as const) {
               rescan: unused,
               run: unused,
               cancel: unused,
-              discard: unused
+              discard: unused,
+              destinationConflicts: unused
             })
           )
           const handlers = Layer.mergeAll(
@@ -573,7 +639,8 @@ for (const kind of ["body reset", "malformed JSON"] as const) {
             rescan: unused,
             run: unused,
             cancel: unused,
-            discard: unused
+            discard: unused,
+            destinationConflicts: unused
           })
         )
         const handlers = Layer.mergeAll(
@@ -647,6 +714,7 @@ it.effect(
           rescan: unused,
           cancel: unused,
           discard: unused,
+          destinationConflicts: unused,
           configure: (
             organizationId,
             userId,

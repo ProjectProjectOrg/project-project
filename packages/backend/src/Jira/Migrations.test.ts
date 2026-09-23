@@ -135,7 +135,8 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
         const service = JiraMigrationsWorkflowLive({
           run: () => Effect.die("Task 7 command not exercised"),
           cancel: () => Effect.die("Task 7 command not exercised"),
-          discard: () => Effect.die("Task 7 command not exercised")
+          discard: () => Effect.die("Task 7 command not exercised"),
+          destinationConflicts: () => Effect.die("Task 7 command not exercised")
         }).pipe(
           Layer.provideMerge(workflow),
           Layer.provide(WorkflowEngine.layerMemory)
@@ -234,7 +235,8 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
         const service = JiraMigrationsWorkflowLive({
           run: () => Effect.die("unused"),
           cancel: () => Effect.die("unused"),
-          discard: () => Effect.die("unused")
+          discard: () => Effect.die("unused"),
+          destinationConflicts: () => Effect.die("unused")
         }).pipe(
           Layer.provideMerge(workflow),
           Layer.provideMerge(WorkflowEngine.layerMemory)
@@ -409,7 +411,8 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
         const service = JiraMigrationsWorkflowLive({
           run: () => Effect.die("unused"),
           cancel: () => Effect.die("unused"),
-          discard: () => Effect.die("unused")
+          discard: () => Effect.die("unused"),
+          destinationConflicts: () => Effect.die("unused")
         }).pipe(
           Layer.provideMerge(workflow),
           Layer.provideMerge(WorkflowEngine.layerMemory)
@@ -496,7 +499,8 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
         const service = JiraMigrationsWorkflowLive({
           run: () => Effect.die("Task 7 command not exercised"),
           cancel: () => Effect.die("Task 7 command not exercised"),
-          discard: () => Effect.die("Task 7 command not exercised")
+          discard: () => Effect.die("Task 7 command not exercised"),
+          destinationConflicts: () => Effect.die("Task 7 command not exercised")
         }).pipe(
           Layer.provideMerge(workflow),
           Layer.provide(WorkflowEngine.layerMemory)

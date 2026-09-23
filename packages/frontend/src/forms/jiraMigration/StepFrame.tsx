@@ -9,20 +9,22 @@ export function StepFrame({
   waiting,
   error,
   nextLabel,
+  nextDisabled = false,
   showBack = true,
   onBack,
   onNext
-}: {
+}: Readonly<{
   title: string
   description: string
   children: ReactNode
   waiting: boolean
   error: string | null
   nextLabel?: string
+  nextDisabled?: boolean
   showBack?: boolean
   onBack: () => void
   onNext: () => void
-}) {
+}>) {
   return (
     <div className="flex min-h-[650px] flex-col">
       <div className="flex flex-1 flex-col gap-6 pb-8 pt-1">
@@ -56,7 +58,7 @@ export function StepFrame({
         )}
         <Button
           type="button"
-          disabled={waiting}
+          disabled={waiting || nextDisabled}
           loading={waiting}
           onClick={onNext}
         >

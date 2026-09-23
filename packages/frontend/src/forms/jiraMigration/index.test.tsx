@@ -24,7 +24,8 @@ vi.mock("@effect/atom-react", async (importOriginal) => {
   return {
     ...actual,
     useAtomSet: () => mocks.mutate,
-    useAtomValue: () => AsyncResult.initial()
+    useAtomValue: () => AsyncResult.success([]),
+    useAtomRefresh: () => vi.fn()
   }
 })
 

@@ -111,6 +111,7 @@ import {
   CreateJiraMigrationInput,
   JiraConnection,
   JiraMigrationDetail,
+  JiraMigrationDestinationConflict,
   JiraMigrationRevisionInput,
   JiraMigrationSummary,
   JiraSkippedAttachment,
@@ -1005,6 +1006,23 @@ const JiraMigrationsGroup = HttpApiGroup.make("jiraMigrations")
       success: JiraMigrationDetail,
       error: JiraMigrationReadErrors
     })
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "destinationConflicts",
+      "/orgs/:orgSlug/jira-migrations/:migrationId/destination-conflicts",
+      {
+        params: JiraMigrationPath,
+        query: Schema.Struct({
+          expectedRevision: Schema.FiniteFromString.pipe(
+            Schema.check(Schema.isInt()),
+            Schema.check(Schema.isGreaterThanOrEqualTo(0))
+          )
+        }),
+        success: Schema.Array(JiraMigrationDestinationConflict),
+        error: JiraMigrationWriteErrors
+      }
+    )
   )
   .add(
     HttpApiEndpoint.get(

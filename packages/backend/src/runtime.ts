@@ -47,6 +47,7 @@ import {
   JiraTokenEndpointLive
 } from "./Jira/OAuth"
 import { JiraMigrationsDurableLive } from "./Jira/Migrations"
+import { JiraMigrationArtifacts } from "./Jira/MigrationArtifacts"
 import * as JiraCleanupWorkflow from "./Jira/CleanupWorkflow"
 import { JiraMigrationProjection } from "./Jira/MigrationProjection"
 import { JiraMigrationRetentionLive } from "./Jira/Retention"
@@ -71,10 +72,15 @@ const JiraDurableServicesLive = Layer.unwrap(
   Effect.gen(function* () {
     const cleanup = yield* JiraCleanupWorkflow.makeJiraCleanupCommands
     const projection = yield* JiraMigrationProjection
+    const artifacts = yield* JiraMigrationArtifacts
     return Layer.mergeAll(
-      JiraMigrationsDurableLive(cleanup, {
-        unresolvedFailedAttachments: projection.unresolvedFailedAttachments
-      }),
+      JiraMigrationsDurableLive(
+        cleanup,
+        {
+          unresolvedFailedAttachments: projection.unresolvedFailedAttachments
+        },
+        artifacts
+      ),
       JiraMigrationRetentionLive(cleanup)
     )
   })

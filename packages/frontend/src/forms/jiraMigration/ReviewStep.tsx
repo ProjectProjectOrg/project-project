@@ -1,8 +1,13 @@
 import type {
+  JiraMigrationDestinationConflict,
   JiraMigrationRequirements,
   JiraMigrationScanSummary
 } from "@projectproject/shared"
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
+import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { Check } from "lucide-react"
+import { jiraDestinationConflictsAtom } from "@/atoms/jiraMigration"
+import { ErrorPage } from "@/components/ErrorPage"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -11,6 +16,9 @@ import { StepFrame } from "./StepFrame"
 
 export function ReviewStep({
   form,
+  orgSlug,
+  migrationId,
+  revision,
   requirements,
   summary,
   waiting,
@@ -18,6 +26,13 @@ export function ReviewStep({
   onBack,
   onNext
 }: StepProps) {
+  const conflictsAtom = jiraDestinationConflictsAtom({
+    params: { orgSlug, migrationId },
+    query: { expectedRevision: revision }
+  })
+  const conflicts = useAtomValue(conflictsAtom)
+  const refreshConflicts = useAtomRefresh(conflictsAtom)
+  const canStart = Result.isSuccess(conflicts) && conflicts.value.length === 0
   const forcedSkips = requirements.attachments.filter(
     (attachment) => attachment.forcedSkipReason !== null
   )
@@ -34,6 +49,7 @@ export function ReviewStep({
       waiting={waiting}
       error={error}
       nextLabel={m.jira_migration_action_start()}
+      nextDisabled={!canStart}
       onBack={onBack}
       onNext={onNext}
     >
@@ -74,6 +90,42 @@ export function ReviewStep({
             }}
           </form.Subscribe>
         </div>
+
+        {Result.matchWithError(conflicts, {
+          onInitial: () => (
+            <p role="status" className="text-sm text-muted-foreground">
+              {m.jira_migration_review_conflicts_checking()}
+            </p>
+          ),
+          onError: (error) => (
+            <ErrorPage error={error} reset={refreshConflicts} contained />
+          ),
+          onDefect: (defect) => (
+            <ErrorPage error={defect} reset={refreshConflicts} contained />
+          ),
+          onSuccess: ({ value }) =>
+            value.length === 0 ? (
+              <p role="status" className="text-sm text-muted-foreground">
+                {m.jira_migration_review_conflicts_clear()}
+              </p>
+            ) : (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+                <h3 className="text-sm font-semibold text-destructive">
+                  {m.jira_migration_review_conflicts_title()}
+                </h3>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  {m.jira_migration_review_conflicts_description()}
+                </p>
+                <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
+                  {value.map((conflict) => (
+                    <li key={`${conflict.kind}:${conflict.value}`}>
+                      {conflictMessage(conflict)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )
+        })}
 
         {hasRestrictedContent ? (
           <div>
@@ -179,12 +231,27 @@ function ChoiceButton({
   )
 }
 
-interface StepProps {
+type StepProps = Readonly<{
   form: JiraMigrationForm
+  orgSlug: string
+  migrationId: string
+  revision: number
   requirements: JiraMigrationRequirements
   summary: JiraMigrationScanSummary
   waiting: boolean
   error: string | null
   onBack: () => void
   onNext: () => void
+}>
+
+function conflictMessage(conflict: JiraMigrationDestinationConflict): string {
+  switch (conflict.kind) {
+    case "project_slug":
+      return m.jira_migration_review_conflict_slug({ value: conflict.value })
+    case "project_key":
+      return m.jira_migration_review_conflict_key({ value: conflict.value })
+    case "ticket_id":
+      return m.jira_migration_review_conflict_ticket({ value: conflict.value })
+  }
+  throw new Error("Unknown destination conflict")
 }

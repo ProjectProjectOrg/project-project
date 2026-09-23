@@ -329,6 +329,13 @@ export const JiraMigrationDetail = Schema.Struct({
 })
 export type JiraMigrationDetail = typeof JiraMigrationDetail.Type
 
+export const JiraMigrationDestinationConflict = Schema.Struct({
+  kind: Schema.Literals(["project_slug", "project_key", "ticket_id"]),
+  value: Schema.NonEmptyString
+})
+export type JiraMigrationDestinationConflict =
+  typeof JiraMigrationDestinationConflict.Type
+
 export const JiraSkippedAttachment = Schema.Struct({
   sourceAttachmentId: Schema.NonEmptyString,
   filename: Schema.NonEmptyString,

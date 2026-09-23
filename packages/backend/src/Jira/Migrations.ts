@@ -5,12 +5,15 @@ import {
   JiraMigrationDetail,
   NotFound,
   Validation,
-  type JiraMigrationSummary
+  type JiraMigrationSummary,
+  type JiraMigrationDestinationConflict
 } from "@projectproject/shared"
 import * as Context from "effect/Context"
+import { and, eq, inArray } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schedule from "effect/Schedule"
+import * as Schema from "effect/Schema"
 import * as WorkflowEngine from "effect/unstable/workflow/WorkflowEngine"
 import {
   JiraMigrationWorkflow,
@@ -20,9 +23,14 @@ import {
 import * as DurableDeferred from "effect/unstable/workflow/DurableDeferred"
 import * as Option from "effect/Option"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
+import { projectIndex, ticketIndex } from "../db/schema"
+import { Db } from "../Services/Db"
+import { type JiraMigrationArtifactsShape } from "./MigrationArtifacts"
+import { jiraProjectIdFor } from "./PublicationPlan"
 import {
   actionsFor,
   decodeCheckpoint,
+  decodeConfiguration,
   toSummary,
   type JiraMigrationRow,
   JiraMigrationProjection,
@@ -69,6 +77,16 @@ export type JiraMigrationsShape = Readonly<{
     userId: string,
     migrationId: string
   ) => Effect.Effect<JiraMigrationDetail, NotFound | JiraError>
+  destinationConflicts: (
+    organizationId: string,
+    userId: string,
+    orgSlug: string,
+    migrationId: string,
+    expectedRevision: number
+  ) => Effect.Effect<
+    ReadonlyArray<JiraMigrationDestinationConflict>,
+    JiraMigrationMutationError
+  >
   configure: (
     organizationId: string,
     userId: string,
@@ -107,7 +125,10 @@ export class JiraMigrations extends Context.Service<
 >()("@projectproject/backend/Jira/Migrations/JiraMigrations") {}
 
 export const JiraMigrationsWorkflowLive = (
-  commands: Pick<JiraMigrationsShape, "run" | "cancel" | "discard">,
+  commands: Pick<
+    JiraMigrationsShape,
+    "run" | "cancel" | "discard" | "destinationConflicts"
+  >,
   prepareRescan?: (
     row: JiraMigrationRow
   ) => Effect.Effect<JiraMigrationRow, JiraMigrationMutationError>,
@@ -261,6 +282,58 @@ export type JiraMigrationRunCommand = Readonly<{
   migrationId: string
   expectedRevision: number
 }>
+export const jiraDestinationConflicts = (
+  input: Readonly<{
+    organizationId: string
+    currentProjectId: string
+    destination: JiraMigrationConfiguration["destination"]
+    issueKeys: ReadonlyArray<string>
+    projects: ReadonlyArray<
+      Readonly<{
+        id: string
+        organizationId: string
+        slug: string
+        key: string
+      }>
+    >
+    tickets: ReadonlyArray<Readonly<{ projectId: string; ticketId: string }>>
+  }>
+): ReadonlyArray<JiraMigrationDestinationConflict> => {
+  const otherProjects = input.projects.filter(
+    ({ id }) => id !== input.currentProjectId
+  )
+  const organizationProjectIds = new Set(
+    otherProjects
+      .filter(({ organizationId }) => organizationId === input.organizationId)
+      .map(({ id }) => id)
+  )
+  const issueKeys = new Set(input.issueKeys)
+  const ticketIds = [
+    ...new Set(
+      input.tickets
+        .filter(
+          ({ projectId, ticketId }) =>
+            organizationProjectIds.has(projectId) && issueKeys.has(ticketId)
+        )
+        .map(({ ticketId }) => ticketId)
+    )
+  ].toSorted()
+  return [
+    ...(otherProjects.some(({ slug }) => slug === input.destination.slug)
+      ? [{ kind: "project_slug" as const, value: input.destination.slug }]
+      : []),
+    ...(otherProjects.some(
+      ({ organizationId, key }) =>
+        organizationId === input.organizationId && key === input.destination.key
+    )
+      ? [{ kind: "project_key" as const, value: input.destination.key }]
+      : []),
+    ...ticketIds.map((ticketId) => ({
+      kind: "ticket_id" as const,
+      value: ticketId
+    }))
+  ]
+}
 export const submitJiraMigrationRun = Effect.fn("submitJiraMigrationRun")(
   function* (input: JiraMigrationRunCommand) {
     const projection = yield* JiraMigrationProjection
@@ -322,12 +395,14 @@ export const submitJiraMigrationRun = Effect.fn("submitJiraMigrationRun")(
 
 export const JiraMigrationsDurableLive = (
   cleanup: JiraMigrationCleanupCommands,
-  materialization: JiraMigrationMaterializationCommands
+  materialization: JiraMigrationMaterializationCommands,
+  artifacts: Pick<JiraMigrationArtifactsShape, "readJson">
 ) =>
   Layer.unwrap(
     Effect.gen(function* () {
       const projection = yield* JiraMigrationProjection
       const sql = yield* SqlClient.SqlClient
+      const db = yield* Db
       const engine = yield* WorkflowEngine.WorkflowEngine
       const provide = <A, E>(
         effect: Effect.Effect<
@@ -490,8 +565,89 @@ export const JiraMigrationsDurableLive = (
           })
         }
       )
+      const destinationConflicts: JiraMigrationsShape["destinationConflicts"] =
+        Effect.fn("JiraMigrations.destinationConflicts")(
+          function* (
+            organizationId,
+            userId,
+            orgSlug,
+            migrationId,
+            expectedRevision
+          ) {
+            const row = yield* projection.owned(
+              { organizationId, userId },
+              migrationId
+            )
+            if (row.revision !== expectedRevision)
+              return yield* new Conflict({
+                reason: "jira_migration_revision_conflict"
+              })
+            const checkpoint = yield* decodeCheckpoint(row.checkpoint)
+            const configuration = yield* decodeConfiguration(row.configuration)
+            if (!configuration || !checkpoint.scan?.manifest)
+              return yield* new Validation({
+                reason: "jira_migration_not_configurable"
+              })
+            const manifest = yield* artifacts
+              .readJson(
+                orgSlug,
+                checkpoint.scan.manifest,
+                Schema.Struct({
+                  issues: Schema.Array(Schema.Struct({ key: Schema.String }))
+                })
+              )
+              .pipe(
+                Effect.mapError(
+                  () => new JiraError({ reason: "invalid_response" })
+                )
+              )
+            const projects = yield* db
+              .select({
+                id: projectIndex.id,
+                organizationId: projectIndex.organizationId,
+                slug: projectIndex.slug,
+                key: projectIndex.key
+              })
+              .from(projectIndex)
+              .pipe(
+                Effect.mapError(() => new JiraError({ reason: "server_error" }))
+              )
+            const issueKeys = manifest.issues.map(({ key }) => key)
+            const issueKeyBatches = Array.from(
+              { length: Math.ceil(issueKeys.length / 1000) },
+              (_, index) => issueKeys.slice(index * 1000, (index + 1) * 1000)
+            )
+            const tickets = (yield* Effect.forEach(issueKeyBatches, (batch) =>
+              db
+                .select({
+                  projectId: ticketIndex.projectId,
+                  ticketId: ticketIndex.ticketId
+                })
+                .from(ticketIndex)
+                .where(
+                  and(
+                    eq(ticketIndex.organizationId, organizationId),
+                    inArray(ticketIndex.ticketId, batch)
+                  )
+                )
+                .pipe(
+                  Effect.mapError(
+                    () => new JiraError({ reason: "server_error" })
+                  )
+                )
+            )).flat()
+            return jiraDestinationConflicts({
+              organizationId,
+              currentProjectId: jiraProjectIdFor(migrationId),
+              destination: configuration.destination,
+              issueKeys,
+              projects,
+              tickets
+            })
+          }
+        )
       return JiraMigrationsWorkflowLive(
-        { run, cancel, discard },
+        { run, cancel, discard, destinationConflicts },
         prepareRescan,
         configure
       )

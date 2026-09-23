@@ -96,6 +96,19 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
           )
         })
       )
+      .handle("destinationConflicts", ({ params, query }) =>
+        Effect.gen(function* () {
+          const { user, org } = yield* contextFor(params.orgSlug)
+          const migrations = yield* JiraMigrations
+          return yield* migrations.destinationConflicts(
+            org.organizationId,
+            user.id,
+            org.orgSlug,
+            params.migrationId,
+            query.expectedRevision
+          )
+        })
+      )
       .handle("skippedAttachments", ({ params }) =>
         Effect.gen(function* () {
           const { user, org } = yield* contextFor(params.orgSlug)
