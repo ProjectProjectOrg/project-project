@@ -1699,5 +1699,6 @@ const validatePublicationSource = Effect.fn("validatePublicationSource")(
       return yield* new JiraPublicationInvalid({
         reasons: [...new Set(reasons)].toSorted(compareStrings)
       })
+    return undefined
   }
 )

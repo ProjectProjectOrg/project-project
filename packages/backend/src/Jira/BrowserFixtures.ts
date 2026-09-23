@@ -1,6 +1,8 @@
 import {
+  DateTime,
   Deferred,
   Effect,
+  Predicate,
   Ref,
   Schema,
   Stream
@@ -137,8 +139,7 @@ const issues = [
           size: 23,
           content:
             "https://api.atlassian.com/ex/jira/fixture-cloud-1/rest/api/3/attachment/content/attachment-1",
-          self:
-            "https://fixture.atlassian.net/rest/api/3/attachment/attachment-1",
+          self: "https://fixture.atlassian.net/rest/api/3/attachment/attachment-1",
           author: user,
           created: "2026-09-20T09:00:00.000Z"
         }
@@ -146,7 +147,12 @@ const issues = [
       issuelinks: [
         {
           id: "link-1",
-          type: { id: "10000", name: "Blocks", inward: "is blocked by", outward: "blocks" },
+          type: {
+            id: "10000",
+            name: "Blocks",
+            inward: "is blocked by",
+            outward: "blocks"
+          },
           outwardIssue: { id: "10002", key: "APP-2" }
         }
       ],
@@ -202,7 +208,7 @@ const response = (
   body: unknown,
   status = 200,
   headers: Readonly<Record<string, string>> = {},
-  stream: Stream.Stream<Uint8Array, never> = Stream.empty
+  stream: Stream.Stream<Uint8Array> = Stream.empty
 ): JiraTransportResponse => ({
   status,
   headers,
@@ -210,15 +216,22 @@ const response = (
   stream
 })
 
+const nextPageToken = (request: JiraTransportRequest) =>
+  Predicate.isObject(request.body) &&
+  Predicate.isString(request.body.nextPageToken)
+    ? request.body.nextPageToken
+    : null
+
 const pageFromRequest = (request: JiraTransportRequest) => {
   const url = new URL(request.url)
   const path = url.pathname
   const startAt = url.searchParams.get("startAt") ?? "0"
   if (path.endsWith("/search/jql")) {
-    const body = request.body as Readonly<{ nextPageToken?: string }> | undefined
-    return { operation: "issues", page: body?.nextPageToken ?? "first" }
+    return { operation: "issues", page: nextPageToken(request) ?? "first" }
   }
-  const issueCollection = path.match(/\/issue\/([^/]+)\/(comment|worklog|changelog)$/)
+  const issueCollection = path.match(
+    /\/issue\/([^/]+)\/(comment|worklog|changelog)$/
+  )
   if (issueCollection) {
     const [, issueId, collection] = issueCollection
     return {
@@ -237,15 +250,20 @@ const pageFromRequest = (request: JiraTransportRequest) => {
       operation: "attachmentContent",
       page: decodeURIComponent(attachment[1])
     }
-  if (path.endsWith("/myself")) return { operation: "currentUser", page: "single" }
-  if (path.endsWith("/statuses")) return { operation: "projectStatuses", page: "single" }
+  if (path.endsWith("/myself"))
+    return { operation: "currentUser", page: "single" }
+  if (path.endsWith("/statuses"))
+    return { operation: "projectStatuses", page: "single" }
   if (path.endsWith("/field")) return { operation: "fields", page: "single" }
-  if (path.endsWith("/priority")) return { operation: "priorities", page: "single" }
-  if (path.endsWith("/watchers")) return { operation: "watchers", page: "single" }
+  if (path.endsWith("/priority"))
+    return { operation: "priorities", page: "single" }
+  if (path.endsWith("/watchers"))
+    return { operation: "watchers", page: "single" }
   if (path.endsWith("/votes")) return { operation: "votes", page: "single" }
   if (path.endsWith("/configuration"))
     return { operation: "boardConfiguration", page: "single" }
-  if (path.endsWith("/component")) return { operation: "components", page: startAt }
+  if (path.endsWith("/component"))
+    return { operation: "components", page: startAt }
   if (path.endsWith("/version")) return { operation: "versions", page: startAt }
   if (path.endsWith("/sprint")) return { operation: "sprints", page: startAt }
   if (path.endsWith("/issue"))
@@ -254,8 +272,10 @@ const pageFromRequest = (request: JiraTransportRequest) => {
       page: url.searchParams.get("nextPageToken") ?? "first"
     }
   if (path.endsWith("/board")) return { operation: "boards", page: startAt }
-  if (path.endsWith("/project/search")) return { operation: "projects", page: startAt }
-  if (path.includes("/project/")) return { operation: "project", page: "single" }
+  if (path.endsWith("/project/search"))
+    return { operation: "projects", page: startAt }
+  if (path.includes("/project/"))
+    return { operation: "project", page: "single" }
   if (path.endsWith("/oauth/token/accessible-resources"))
     return { operation: "sites", page: "single" }
   return { operation: "unknown", page: "single" }
@@ -293,7 +313,10 @@ const jsonForRequest = (request: JiraTransportRequest) => {
       total: 1,
       isLast: true
     }
-  if (path.endsWith(`/project/${source.projectId}`) || path.endsWith("/project/APP"))
+  if (
+    path.endsWith(`/project/${source.projectId}`) ||
+    path.endsWith("/project/APP")
+  )
     return {
       id: source.projectId,
       key: source.projectKey,
@@ -336,31 +359,60 @@ const jsonForRequest = (request: JiraTransportRequest) => {
     ]
   if (path.endsWith("/field"))
     return [
-      { id: "summary", key: "summary", name: "Summary", custom: false, schema: { type: "string" } },
+      {
+        id: "summary",
+        key: "summary",
+        name: "Summary",
+        custom: false,
+        schema: { type: "string" }
+      },
       {
         id: "customfield_10001",
         key: "customfield_10001",
         name: "Rank",
         custom: true,
-        schema: { type: "string", custom: "com.pyxis.greenhopper.jira:gh-lexo-rank" }
+        schema: {
+          type: "string",
+          custom: "com.pyxis.greenhopper.jira:gh-lexo-rank"
+        }
       },
       {
         id: "customfield_10002",
         key: "customfield_10002",
         name: "Epic Link",
         custom: true,
-        schema: { type: "any", custom: "com.pyxis.greenhopper.jira:gh-epic-link" }
+        schema: {
+          type: "any",
+          custom: "com.pyxis.greenhopper.jira:gh-epic-link"
+        }
       }
     ]
   if (path.endsWith("/priority"))
     return [
-      { id: "priority-1", name: "High", description: "High priority", iconUrl: null, statusColor: "#d04437" },
-      { id: "priority-2", name: "Medium", description: "Medium priority", iconUrl: null, statusColor: "#f79232" }
+      {
+        id: "priority-1",
+        name: "High",
+        description: "High priority",
+        iconUrl: null,
+        statusColor: "#d04437"
+      },
+      {
+        id: "priority-2",
+        name: "Medium",
+        description: "Medium priority",
+        iconUrl: null,
+        statusColor: "#f79232"
+      }
     ]
   if (path.endsWith("/component"))
     return {
       values: [
-        { id: "component-1", name: "Migration", description: "Jira migration work", lead: user }
+        {
+          id: "component-1",
+          name: "Migration",
+          description: "Jira migration work",
+          lead: user
+        }
       ],
       startAt,
       maxResults: 100,
@@ -386,8 +438,7 @@ const jsonForRequest = (request: JiraTransportRequest) => {
       isLast: true
     }
   if (path.endsWith("/search/jql")) {
-    const body = request.body as Readonly<{ nextPageToken?: string }> | undefined
-    return body?.nextPageToken === "issues-2"
+    return nextPageToken(request) === "issues-2"
       ? { issues: [issues[1]], nextPageToken: null }
       : { issues: [issues[0]], nextPageToken: "issues-2" }
   }
@@ -445,13 +496,27 @@ const jsonForRequest = (request: JiraTransportRequest) => {
         id: "changelog-1",
         author: user,
         created: "2026-09-20T12:00:00.000Z",
-        items: [{ field: "status", fieldId: "status", from: "status-2", to: "status-1" }]
+        items: [
+          {
+            field: "status",
+            fieldId: "status",
+            from: "status-2",
+            to: "status-1"
+          }
+        ]
       },
       {
         id: "changelog-2",
         author: user,
         created: "2026-09-21T12:00:00.000Z",
-        items: [{ field: "priority", fieldId: "priority", from: "priority-2", to: "priority-1" }]
+        items: [
+          {
+            field: "priority",
+            fieldId: "priority",
+            from: "priority-2",
+            to: "priority-1"
+          }
+        ]
       }
     )
   if (path.endsWith("/watchers"))
@@ -465,7 +530,10 @@ const jsonForRequest = (request: JiraTransportRequest) => {
           id: 1,
           name: "Fixture board",
           type: "scrum",
-          location: { projectId: Number(source.projectId), projectKey: source.projectKey }
+          location: {
+            projectId: Number(source.projectId),
+            projectKey: source.projectKey
+          }
         }
       ],
       startAt,
@@ -478,7 +546,10 @@ const jsonForRequest = (request: JiraTransportRequest) => {
       id: 1,
       name: "Fixture board",
       type: "scrum",
-      location: { projectId: Number(source.projectId), projectKey: source.projectKey },
+      location: {
+        projectId: Number(source.projectId),
+        projectKey: source.projectKey
+      },
       columnConfig: {
         columns: [
           { name: "Todo", statuses: [{ id: "status-2" }] },
@@ -506,12 +577,19 @@ const jsonForRequest = (request: JiraTransportRequest) => {
       isLast: true
     }
   if (path.endsWith("/issue"))
-    return { issues: issues.map(({ id, key }) => ({ id, key })), nextPageToken: null }
-  throw new Error(`Unexpected Jira fixture request ${request.method} ${request.url}`)
+    return {
+      issues: issues.map(({ id, key }) => ({ id, key })),
+      nextPageToken: null
+    }
+  throw new Error(
+    `Unexpected Jira fixture request ${request.method} ${request.url}`
+  )
 }
 
 export const makeJiraBrowserFixture = Effect.fn("makeJiraBrowserFixture")(
-  function* (initialScenario: JiraBrowserScenario): Effect.fn.Return<JiraBrowserFixture> {
+  function* (
+    initialScenario: JiraBrowserScenario
+  ): Effect.fn.Return<JiraBrowserFixture> {
     const state = yield* Ref.make<FixtureState>({
       scenario: initialScenario,
       rateLimited: false,
@@ -539,11 +617,9 @@ export const makeJiraBrowserFixture = Effect.fn("makeJiraBrowserFixture")(
         const current = yield* Ref.get(state)
         if (current.scenario === "rate_limited_once" && !current.rateLimited) {
           yield* Ref.set(state, { ...current, rateLimited: true })
-          return response(
-            { errorMessages: ["Fixture rate limit"] },
-            429,
-            { "retry-after": "1" }
-          )
+          return response({ errorMessages: ["Fixture rate limit"] }, 429, {
+            "retry-after": "1"
+          })
         }
         if (logicalPage.operation === "attachmentContent") {
           const bytes = new TextEncoder().encode("fixture attachment body")
@@ -571,7 +647,9 @@ export const makeJiraBrowserFixture = Effect.fn("makeJiraBrowserFixture")(
     const tokenGrant = {
       accessToken: "fixture-access-token-2",
       refreshToken: "fixture-refresh-token-2",
-      expiresAt: new Date("2026-09-22T11:00:00.000Z"),
+      expiresAt: DateTime.toDate(
+        DateTime.makeUnsafe("2026-09-22T11:00:00.000Z")
+      ),
       grantedScopes: JIRA_SCOPES.split(" ")
     }
     const tokenEndpoint = {
@@ -587,23 +665,26 @@ export const makeJiraBrowserFixture = Effect.fn("makeJiraBrowserFixture")(
           return tokenGrant
         }
       ),
-      refresh: Effect.fn("JiraBrowserFixture.tokenEndpoint.refresh")(
-        function* (_refreshToken: string) {
-          yield* record({
-            target: "oauth",
-            operation: "oauth.refresh",
-            page: "single",
-            method: "POST",
-            url: "https://auth.atlassian.com/oauth/token"
-          })
-          const current = yield* Ref.get(state)
-          if (current.scenario === "reconnect_once" && !current.reconnectExpired) {
-            yield* Ref.set(state, { ...current, reconnectExpired: true })
-            return yield* new JiraReconnectRequired({ reason: "invalid_grant" })
-          }
-          return tokenGrant
+      refresh: Effect.fn("JiraBrowserFixture.tokenEndpoint.refresh")(function* (
+        _refreshToken: string
+      ) {
+        yield* record({
+          target: "oauth",
+          operation: "oauth.refresh",
+          page: "single",
+          method: "POST",
+          url: "https://auth.atlassian.com/oauth/token"
+        })
+        const current = yield* Ref.get(state)
+        if (
+          current.scenario === "reconnect_once" &&
+          !current.reconnectExpired
+        ) {
+          yield* Ref.set(state, { ...current, reconnectExpired: true })
+          return yield* new JiraReconnectRequired({ reason: "invalid_grant" })
         }
-      )
+        return tokenGrant
+      })
     } satisfies JiraTokenEndpointShape
 
     return {
