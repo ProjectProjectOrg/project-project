@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema"
-import { Slug } from "./Project"
+import { AssignableRole, Slug } from "./Project"
 
 export const ORG_DELETE_GRACE_DAYS = 14
 
@@ -23,3 +23,77 @@ export const OrgDetail = Schema.Struct({
   purgeAt: Schema.NullOr(Schema.DateFromString)
 })
 export type OrgDetail = typeof OrgDetail.Type
+
+export const OrgMember = Schema.Struct({
+  userId: Schema.String,
+  role: OrgRole,
+  name: Schema.String,
+  email: Schema.String,
+  image: Schema.NullOr(Schema.String)
+})
+export type OrgMember = typeof OrgMember.Type
+
+export const OrgInvitationStatus = Schema.Literals([
+  "pending",
+  "accepted",
+  "rejected",
+  "canceled"
+])
+export type OrgInvitationStatus = typeof OrgInvitationStatus.Type
+
+export const OrgInvitation = Schema.Struct({
+  id: Schema.String,
+  email: Schema.String,
+  role: OrgRole,
+  status: OrgInvitationStatus
+})
+export type OrgInvitation = typeof OrgInvitation.Type
+
+export const OrgMembers = Schema.Struct({
+  members: Schema.Array(OrgMember),
+  invitations: Schema.Array(OrgInvitation)
+})
+export type OrgMembers = typeof OrgMembers.Type
+
+export const UserInvitation = Schema.Struct({
+  id: Schema.String,
+  orgSlug: Slug,
+  orgName: Schema.String,
+  role: OrgRole,
+  inviterEmail: Schema.NullOr(Schema.String),
+  expiresAt: Schema.DateFromString,
+  createdAt: Schema.DateFromString
+})
+export type UserInvitation = typeof UserInvitation.Type
+
+// source must stay byte-equal to zod v4 regexes.email (better-auth uses z.email())
+export const INVITE_EMAIL_PATTERN = new RegExp(
+  "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+)
+
+export const InviteEmail = Schema.String.pipe(
+  Schema.check(Schema.isMaxLength(254)),
+  Schema.check(Schema.isPattern(INVITE_EMAIL_PATTERN))
+)
+export type InviteEmail = typeof InviteEmail.Type
+
+export const InviteMemberInput = Schema.Struct({
+  email: InviteEmail,
+  role: AssignableRole
+})
+export type InviteMemberInput = typeof InviteMemberInput.Type
+
+export const UpdateMemberRoleInput = Schema.Struct({
+  role: AssignableRole
+})
+export type UpdateMemberRoleInput = typeof UpdateMemberRoleInput.Type
+
+export const TransferOrgOwnershipInput = Schema.Struct({
+  userId: Schema.String
+})
+export type TransferOrgOwnershipInput = typeof TransferOrgOwnershipInput.Type
+
+export const RenameOrgInput = Schema.Struct({
+  name: Schema.String
+})
+export type RenameOrgInput = typeof RenameOrgInput.Type

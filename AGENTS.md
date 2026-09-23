@@ -51,6 +51,21 @@ When you hit one of these, **stop and ask**. Present the options with tradeoffs;
 - **Fluid Functionalism components** from <https://www.fluidfunctionalism.com>, installed through the shadcn registry (`npx shadcn@latest registry add @fluid`). Also Radix-backed, so they coexist cleanly with shadcn defaults. Prefer these where they exist for richer motion-aware primitives before reaching for something custom.
 - Don't add other UI libraries (Headless UI, Mantine, Chakra, etc.) without asking — see the architecture rule above.
 
+### Types: readonly type aliases, never interfaces
+
+Declare object shapes as `type` aliases wrapped in `Readonly<>`. Never use `interface`, and never
+annotate fields with `readonly` one by one.
+
+```ts
+export type TicketRequest = Readonly<{
+  params: Readonly<{ orgSlug: string; slug: string }>
+}>
+```
+
+Nest the wrapper for nested objects. Arrays are `ReadonlyArray<T>` rather than `T[]`; tuples keep
+the `readonly [A, B]` spelling. This applies everywhere — request objects, view models, mutation
+input shapes, component props, and inline annotations.
+
 ### No comments
 
 Default: write zero comments. Self-explanatory names, clean structure, and small functions carry the meaning. Inline comments are noise — they distract during review, rot independently of the code, and signal a missing abstraction.
@@ -153,90 +168,70 @@ Never disable a control on `isSubmitting` when an atom is doing the work — pas
 
 ## Mutations and optimistic updates
 
-**Default to optimistic.** Any mutation that updates a list or aggregate the user is staring at should flip the UI synchronously and let the server resolve in the background. We use Effect-Atom's first-party `Atom.optimistic` + `Atom.optimisticFn` — don't invent custom optimistic layers.
+**Default to optimistic.** Reads are `Api.query(...)` wrapped in `Atom.optimistic`. Mutations are `Atom.optimisticFn` against the wrapper of the view they fire from. Worked examples and the legacy shapes we removed: `.agents/skills/effect-atom-optimistic-updates/SKILL.md`. Rationale: `docs/superpowers/specs/2026-09-11-native-atom-data-layer-design.md`.
 
-**Every mutation atom is family-keyed** by the resource it affects — `projectKey(orgSlug, slug)` for project-scoped, `ticketKey(orgSlug, slug, id)` for ticket-scoped, `orgSlug` for org-scoped. This applies to both optimistic mutations (`Atom.optimisticFn`) and plain ones (`runtime.fn`). The reason: a mutation atom's `AsyncResult` (waiting / failure) is per-key, so concurrent mutations on different resources don't share status, and a stale failure on one resource doesn't bleed onto another. Path fields (`orgSlug`, `slug`, `id`) come from the key, not the input — keep input shapes equal to the API payload.
+1. **One client.** `packages/frontend/src/api/Api.ts` is the only way to reach the server. Never hand-roll a fetch atom. Calls to better-auth stay `Effect.tryPromise`, but run inside `Api.runtime.fn` so there is one runtime.
 
-```ts
-export const updateTicketAtom = Atom.family((key: string) => {
-  const { orgSlug, slug, id } = splitTicketKey(key)
-  return runtime.fn(
-    Effect.fn(function* (input: UpdateTicketInput, get) {
-      /* ... */
-    })
-  )
-})
-
-// caller
-const update = useAtomSet(updateTicketAtom(ticketKey(orgSlug, slug, id)))
-update({ status: "in_progress" })
-```
-
-**The optimistic shape:**
-
-1. Split the read into a private base + public optimistic wrapper:
+2. **Reads are wrappers.** Every exported read is `Atom.family((req) => Atom.optimistic(query(req)))`, and the query stays module-private. Family keys are request objects, never concatenated strings, so there is nothing to parse back apart:
 
    ```ts
-   const xBaseAtom = Atom.family((key: string) =>
-     runtime.atom(Effect.gen(function* () { ... })).pipe(Atom.setIdleTTL("..."))
-   )
-   export const xAtom = Atom.family((key: string) => Atom.optimistic(xBaseAtom(key)))
-   ```
+   export type TagsRequest = Readonly<{
+     params: Readonly<{ orgSlug: string; slug: string }>
+   }>
 
-   Consumers read `xAtom`. The base stays unexported (or near-unexported — only mutation atoms in the same module reference it).
-
-2. Mutations that affect `x` are family-keyed `Atom.optimisticFn`:
-
-   ```ts
-   export const mutateAtom = Atom.family((key: string) =>
-     Atom.optimisticFn(xAtom(key), {
-       reducer: (current, input) => {
-         if (!AsyncResult.isSuccess(current)) return current
-         return AsyncResult.success(applyOptimistically(current.value, input), {
-           waiting: true
-         })
-       },
-       fn: runtime.fn(
-         Effect.fn(function* (input, get) {
-           const updated = yield* api.mutate(input)
-           get.refresh(xBaseAtom(key)) // pull server truth — optimistic mirror auto-updates
-           get.refresh(otherAffectedAtoms)
-           return updated
-         })
-       )
+   const tagsQuery = (req: TagsRequest) =>
+     Api.query("tags", "list", {
+       params: req.params,
+       timeToLive: "2 minutes",
+       reactivityKeys: [Keys.tags(scopeOf(req))]
      })
+
+   export const tagsFor = Atom.family((req: TagsRequest) =>
+     Atom.optimistic(tagsQuery(req))
    )
    ```
 
-3. **Always refresh the _base_ atom**, never the optimistic wrapper, after the mutation lands. Refreshing the wrapper would loop.
+   `Atom.family` hashes its key by Effect's structural equality (`node_modules/effect/src/Equal.ts`), not by reference, so rebuilding the request literal on every render is free. What must be stable is the request's _contents_ — a field that is not structurally equal from one render to the next (a fresh `Date`, a generated id, a callback) is a different key and a second fetch. Export a query only to compose it into another region inside the atom layer (`sprintDetail.ts` exports `sprintQuery` for `sprintBoard.ts`, and nothing else does); components never see one.
 
-4. **The reducer's job is the synthetic next state.** It must match what the server will return well enough that the brief moment before the refresh isn't visibly wrong. When the result is hard to model (e.g. a PR number assigned by GitHub), use a **pulse-only reducer** instead — return the current value with `{ waiting: true }` so the UI flips its pulse animation without inventing fake data:
+3. **Retention and invalidation are declared at the query.** `timeToLive` and `reactivityKeys` sit in the `Api.query` call next to the data they describe, so a view states what it listens to and how long it is kept. Neither belongs in a mutation body.
 
-   ```ts
-   reducer: (current, _input) =>
-     AsyncResult.isSuccess(current)
-       ? AsyncResult.success(current.value, { waiting: true })
-       : current
-   ```
+4. **Read and write through the same wrapper.** The atom a view renders and the atom its editors mutate must be the same one. This is the worst failure mode in this layer: the optimistic value lands on an atom nobody renders, so the edit is invisible until a reload, and nothing errors. Adding a tag did exactly this during the migration — the detail view read `ticketDetail` while four editors still wrote a legacy atom that no longer had a consumer.
 
-   This keeps the data display honest and still gives the user a "syncing" affordance. See `openPrAtom` for an example.
+5. **Optimism is per view.** A mutation targets the wrapper of the view it fires from. Other views catch up through reactivity keys, updating once, old to new — that is not flicker. Never fan one transition into several wrappers, and never normalise entities into a store. When the same action must feel instant in three views, write three small `optimisticFn` atoms over one shared pure helper (`applyTicketPatch`).
 
-5. **Surface `waiting` in the UI.** The optimistic atom carries `result.waiting: true` while the mutation is in flight. Apply `animate-pulse` (or equivalent) on the elements that just changed so the user sees their action land but knows it's not confirmed yet. Don't pulse idle controls, only the data display.
-
-6. **Submitting / error state.** A form that owns its mutation atom directly reads `result.waiting` and `AsyncResult.isFailure(result)` from `useAtomValue(mutationAtom(key))` rather than mirroring into `useState`:
+6. **Key mutations by view request plus entity id**, never by the container alone:
 
    ```ts
-   const create = useAtomSet(createTicketAtom(projKey), { mode: "promiseExit" })
-   const createState = useAtomValue(createTicketAtom(projKey))
-   const submitting = createState.waiting
-   const error = AsyncResult.isFailure(createState)
-     ? m.tickets_create_error_fallback()
-     : null
+   export const updateBacklogTicket = Atom.family(
+     ({ req, id }: Readonly<{ req: BacklogRequest; id: TicketId }>) => ...
+   )
    ```
 
-   Forms wired through reusable shells (`InlineForm`, `ConfirmButton`) keep their imperative `setBusy` / `setError` API — the shell doesn't know which atom is firing, so it needs an explicit signal. Same for callsites whose UX needs richer state than the atom carries (e.g. tracking _which_ row in a list is in flight when the atom only says "something is").
+   A mutation atom's `AsyncResult` is per key. Key a row mutation by the project and every row in the list shares one transition, so one failed assignment paints the error state onto every visible row.
 
-Reference: `packages/frontend/src/atoms/github.ts` (`createBranchAtom`, `attachBranchAtom`); `packages/frontend/src/components/CreateTicketRow.tsx` for the direct-form pattern.
+7. **Mutation input equals the API payload.** Path params come from the family key. Cache keys, settle targets and view metadata never appear in the input.
+
+8. **Reactivity keys are array form, built in `src/api/keys.ts`.** Record form also hashes the bare key, which would make any ticket mutation refetch every ticket query. Publish every key another view needs, including each source of a composed region. Prefer not to publish a key your own view registered — the wrapper already refreshes its source when the transition commits, so that is a second refetch per edit — but when the key another view needs is one yours also listens to, publish it anyway: correctness before a saved request.
+
+9. **Reducers are pure,** use `AsyncResult.map(current, ...)` and derive from `current`, so stacked edits compose. Don't set `waiting` yourself — `optimisticFn` marks the provisional value waiting for you. A reducer that returns `current` unchanged is a pulse-only reducer: allowed only when the result is genuinely unpredictable, such as a PR number the server assigns.
+
+10. **Push the confirmed value** through `optimisticFn`'s `set` before returning, so the server's own value is on screen before the refetch lands.
+
+11. **Never hold a transition open** by waiting on a read — no `get.result(x, { suspendOnWaiting: true })` inside a mutation body, no pending map, no preview merge, no React context. The wrapper holds the optimistic value until its own source has refetched; that is the reason we wrap the view rather than the entity. (Awaiting a mutation atom's _own_ result from outside React, as `assignTicketToSprint` does to know when to unmount it, is a different thing and is fine.)
+
+12. **Multi-query regions** compose in `Atom.readable(read, (refresh) => ...)` that forwards refresh to every source, with one wrapper around the region. The composed result must report `waiting` while any source is waiting, and must not carry a timestamp older than the value it replaces — `AsyncResult.all` does both, unioning `waiting` and stamping the composed success with the composition time. Get either wrong and the confirmed value is dropped silently, which looks exactly like the bug you were fixing.
+
+13. **Refresh the wrapper, not the query.** `Atom.optimistic` forwards `refresh` to its source (`node_modules/effect/src/unstable/reactivity/Atom.ts`, the third argument to `writable`), and queries aren't exported, so `useAtomRefresh(backlog(req))` is both correct and the only option. This reverses the pre-migration rule that had callers refresh a base atom.
+
+**`waiting` means a mutation is in flight, never a read.** Once a wrapper holds a success it ignores a `Success { waiting: true }` from its source — see the `Success` branch of the source subscription in `Atom.optimistic` (`node_modules/effect/src/unstable/reactivity/Atom.ts`, around line 2435), which only adopts a source value that is not waiting and is not older. A refetch behind an already-loaded view is therefore invisible through the wrapper, and any loading state driven off a wrapper's `waiting` is dead code. Two consequences:
+
+- Surface `waiting` with `animate-pulse` on the data the mutation changed, never on idle controls.
+- When a view genuinely needs the read's in-flight state, expose it next to the wrapper as its own atom — `projectGitStatesWaiting` in `atoms/github.ts` is `Atom.readable((get) => get(gitStatesQuery(req)).waiting)`. For the same reason, don't wrap a read that nothing mutates: the wrapper costs the refetch transition and buys nothing.
+- A form reads its own submitting and error state off the mutation atom rather than mirroring it into `useState`: `const state = useAtomValue(createProject(req))` gives both `state.waiting` and the failure to render. Forms wired through reusable shells (`InlineForm`, `ConfirmButton`) keep their imperative `setBusy` / `setError` API — the shell doesn't know which atom is firing — as do callsites needing richer state than the atom carries, such as which row of a list is in flight.
+
+Types obey the repo rule above — nested `Readonly<{ ... }>`, `ReadonlyArray<T>`, `readonly [A, B]`, no `interface`, no per-field `readonly`. That covers request types, mutation inputs and composed view-model types.
+
+Reference: `packages/frontend/src/atoms/backlog.ts` (one sections query plus on-demand cursor pages, with sort-aware placement in the reducers), `packages/frontend/src/atoms/sprintBoard.ts` (a region composed from two queries), `packages/frontend/src/atoms/tags.ts` (`tagsFor` as a plain aggregate, `tagEditor` as a region composed from two wrappers).
 
 ## Rendering atom AsyncResults — `AsyncResult.matchWithError` + `ErrorPage`
 
@@ -252,7 +247,7 @@ import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import { ErrorPage } from "@/components/ErrorPage"
 
 function ProjectStatusesSettings() {
-  const result = useAtomValue(projectStatusesAtom(projectKey(orgSlug, slug)))
+  const result = useAtomValue(statusesFor(statusesRequest(orgSlug, slug)))
 
   return AsyncResult.matchWithError(result, {
     onInitial: () => <LoadingSkeleton />,
@@ -271,7 +266,7 @@ A few details worth knowing:
 - **Don't combine `AsyncResult.matchWithError` with a separate `if (!AsyncResult.isSuccess) ...` early return.** Pick one. The `match` form handles every case; mixing both is dead code and a refactor hazard.
 - **For tiny callsites where you only care about success vs anything else** (e.g. a sidebar count that defaults to 0), `AsyncResult.isSuccess(result) ? result.value : fallback` is fine. The match form pays for itself once the failure case needs visible UI.
 
-Reference: `packages/frontend/src/routes/_authed/orgs/$orgSlug/projects/index.tsx` for the standard project-list pattern; `packages/frontend/src/atoms/auth.ts` for the long-form docstring explaining the AsyncResult variants.
+Reference: `packages/frontend/src/routes/_authed/orgs/$orgSlug/projects/index.tsx` for the standard project-list pattern, and for reading a mutation atom's own state next to it. `AsyncResult` is imported as `Result` in most components; either alias is fine, but keep one per file.
 
 ## Backend stack
 

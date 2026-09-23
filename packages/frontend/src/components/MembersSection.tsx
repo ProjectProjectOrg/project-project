@@ -13,13 +13,11 @@ import {
   UserRound
 } from "lucide-react"
 import {
-  cancelPendingMemberAtom,
-  addMemberAtom,
-  memberKey,
-  pendingMemberKey,
-  projectKey,
-  removeMemberAtom,
-  updateMemberAtom
+  addMember,
+  cancelPendingMember,
+  projectRequest,
+  removeMember,
+  updateMember
 } from "@/atoms/projects"
 import {
   DropdownMenu,
@@ -36,6 +34,7 @@ import {
 import { Badge, type BadgeTone } from "@/components/ui/badge"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { transitions } from "@/lib/springs"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import type {
   AssignableRole,
@@ -70,6 +69,7 @@ export function MembersSection({
   slug,
   members,
   pendingMembers,
+  waiting,
   callerRole,
   callerId
 }: {
@@ -77,6 +77,7 @@ export function MembersSection({
   slug: string
   members: ReadonlyArray<Member>
   pendingMembers: ReadonlyArray<PendingProjectMember>
+  waiting: boolean
   callerRole: Role
   callerId: string
 }) {
@@ -107,6 +108,7 @@ export function MembersSection({
               member={member}
               callerRole={callerRole}
               callerId={callerId}
+              projectWaiting={waiting}
             />
           </li>
         ))}
@@ -117,6 +119,7 @@ export function MembersSection({
               slug={slug}
               member={member}
               callerRole={callerRole}
+              projectWaiting={waiting}
             />
           </li>
         ))}
@@ -136,17 +139,18 @@ function AddMemberRow({
   callerRole: Role
   onFocusChange?: (focused: boolean) => void
 }) {
-  const pKey = projectKey(orgSlug, slug)
-  const add = useAtomSet(addMemberAtom(pKey), { mode: "promiseExit" })
-  const addState = useAtomValue(addMemberAtom(pKey))
-  const submitting = addState.waiting
-  const error = Result.isFailure(addState)
-    ? m.members_add_error_fallback()
-    : null
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<AssignableRole>("member")
   const [submitted, setSubmitted] = useState(false)
   const trimmed = email.trim()
+  const req = projectRequest(orgSlug, slug)
+  const memberMutation = addMember({ req, id: trimmed })
+  const add = useAtomSet(memberMutation, { mode: "promiseExit" })
+  const addState = useAtomValue(memberMutation)
+  const submitting = addState.waiting
+  const error = Result.isFailure(addState)
+    ? m.members_add_error_fallback()
+    : null
   const availableRoles =
     callerRole === "owner"
       ? ASSIGNABLE_ROLES
@@ -261,21 +265,32 @@ function MemberRow({
   slug,
   member,
   callerRole,
-  callerId
+  callerId,
+  projectWaiting
 }: {
   orgSlug: string
   slug: string
   member: Member
   callerRole: Role
   callerId: string
+  projectWaiting: boolean
 }) {
   const meta = ROLE_META[member.role]
   const Icon = meta.icon
   const isSelf = member.id === callerId
+  const updateState = useAtomValue(
+    updateMember({ req: projectRequest(orgSlug, slug), id: member.id })
+  )
+  const updating = projectWaiting && updateState.waiting
   // Display: name (primary), then `@username` if set, fall back to email.
   // Email shows as the secondary identifier — useful for "remove bob@..".
   return (
-    <div className="flex items-center gap-3 pl-3 pr-3 py-2.5">
+    <div
+      className={cn(
+        "flex items-center gap-3 pl-3 pr-3 py-2.5",
+        updating && "animate-pulse"
+      )}
+    >
       <MemberAvatar member={member} size={32} />
       <div className="min-w-0 flex-1 leading-tight">
         <div className="truncate text-sm font-medium">
@@ -314,19 +329,28 @@ function PendingMemberRow({
   orgSlug,
   slug,
   member,
-  callerRole
+  callerRole,
+  projectWaiting
 }: {
   orgSlug: string
   slug: string
   member: PendingProjectMember
   callerRole: Role
+  projectWaiting: boolean
 }) {
   const meta = ROLE_META[member.role]
   const Icon = meta.icon
   const initial = member.email.trim().charAt(0).toUpperCase() || "?"
 
   return (
-    <div className="flex items-center gap-3 py-2.5 pr-3 pl-3">
+    <div
+      className={cn(
+        "flex items-center gap-3 py-2.5 pr-3 pl-3",
+        projectWaiting &&
+          member.invitationId.startsWith("optimistic:") &&
+          "animate-pulse"
+      )}
+    >
       <div className="grid size-8 shrink-0 place-items-center rounded-full border border-dashed border-border font-mono text-xs text-muted-foreground">
         {initial}
       </div>
@@ -366,11 +390,14 @@ function PendingMemberMenu({
   member: PendingProjectMember
   callerRole: Role
 }) {
-  const pKey = pendingMemberKey(orgSlug, slug, member.invitationId)
-  const cancel = useAtomSet(cancelPendingMemberAtom(pKey), {
+  const mutation = cancelPendingMember({
+    req: projectRequest(orgSlug, slug),
+    id: member.invitationId
+  })
+  const cancel = useAtomSet(mutation, {
     mode: "promiseExit"
   })
-  const cancelState = useAtomValue(cancelPendingMemberAtom(pKey))
+  const cancelState = useAtomValue(mutation)
   const canceling = cancelState.waiting
   const [confirming, setConfirming] = useState(false)
   const canCancel =
@@ -453,10 +480,13 @@ function MemberMenu({
   member: Member
   callerRole: Role
 }) {
-  const mKey = memberKey(orgSlug, slug, member.id)
-  const update = useAtomSet(updateMemberAtom(mKey))
-  const remove = useAtomSet(removeMemberAtom(mKey), { mode: "promiseExit" })
-  const removeState = useAtomValue(removeMemberAtom(mKey))
+  const mutationKey = { req: projectRequest(orgSlug, slug), id: member.id }
+  const updateMutation = updateMember(mutationKey)
+  const update = useAtomSet(updateMutation)
+  const remove = useAtomSet(removeMember(mutationKey), {
+    mode: "promiseExit"
+  })
+  const removeState = useAtomValue(removeMember(mutationKey))
   const removing = removeState.waiting
   const [confirming, setConfirming] = useState(false)
 

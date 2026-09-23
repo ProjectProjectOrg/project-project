@@ -60,6 +60,24 @@
   --dither-back: color-mix(in oklch, var(--background) 45%, var(--muted) 55%);
   --focus-ring: oklch(0.693 0.161 265.2);
   --icon-sticker-outline: oklch(0 0 0 / 0.55);
+  --surface-1: oklch(0.955 0 0);
+  --surface-2: oklch(0.977 0 0);
+  --surface-3: oklch(1 0 0);
+  --surface-4: oklch(1 0 0);
+  --surface-5: oklch(1 0 0);
+  --surface-6: oklch(1 0 0);
+  --surface-7: oklch(1 0 0);
+  --surface-8: oklch(1 0 0);
+  --shadow-color: oklch(0 0 0 / 0.06);
+  --shadow-1: 0 0 0 1px var(--shadow-color);
+  --shadow-1-hover: 0 0 0 1px oklch(0 0 0 / 0.14);
+  --shadow-2: var(--shadow-1), 0 1px 1px -0.5px var(--shadow-color);
+  --shadow-3: var(--shadow-2), 0 3px 3px -1.5px var(--shadow-color);
+  --shadow-4: var(--shadow-3), 0 6px 6px -3px var(--shadow-color);
+  --shadow-5: var(--shadow-4), 0 12px 12px -6px var(--shadow-color);
+  --shadow-6: var(--shadow-5), 0 24px 24px -12px var(--shadow-color);
+  --shadow-7: var(--shadow-6), 0 48px 48px -24px var(--shadow-color);
+  --shadow-8: var(--shadow-7), 0 96px 96px -48px var(--shadow-color);
 }
 
 .dark {
@@ -87,6 +105,57 @@
   --dither-front: var(--ring);
   --dither-back: color-mix(in oklch, var(--background) 45%, var(--muted) 55%);
   --icon-sticker-outline: oklch(1 0 0 / 0.9);
+  --surface-1: oklch(0.205 0 0);
+  --surface-2: oklch(0.235 0 0);
+  --surface-3: oklch(0.264 0 0);
+  --surface-4: oklch(0.293 0 0);
+  --surface-5: oklch(0.321 0 0);
+  --surface-6: oklch(0.348 0 0);
+  --surface-7: oklch(0.375 0 0);
+  --surface-8: oklch(0.402 0 0);
+  --dm-hi-base: oklch(1 0 0 / 0.01);
+  --dm-hi-mid: oklch(1 0 0 / 0.02);
+  --dm-hi-high: oklch(1 0 0 / 0.04);
+  --dm-hi-peak: oklch(1 0 0 / 0.06);
+  --dm-ring-base: oklch(1 0 0 / 0.02);
+  --dm-ring-mid: oklch(1 0 0 / 0.04);
+  --dm-ring-high: oklch(1 0 0 / 0.06);
+  --dm-drop: oklch(0 0 0 / 0.18);
+  --shadow-1: inset 0 0 0 1px var(--dm-ring-base);
+  --shadow-1-hover: inset 0 0 0 1px oklch(1 0 0 / 0.1);
+  --shadow-2:
+    inset 0 1px 0 0 var(--dm-hi-base), inset 0 0 0 1px var(--dm-ring-base),
+    0 1px 1px -0.5px var(--dm-drop);
+  --shadow-3:
+    inset 0 1px 0 0 var(--dm-hi-mid), inset 0 0 0 1px var(--dm-ring-base),
+    0 0 0 1px oklch(0 0 0 / 0.12), 0 1px 1px -0.5px var(--dm-drop),
+    0 3px 3px -1.5px var(--dm-drop);
+  --shadow-4:
+    inset 0 1px 0 0 var(--dm-hi-mid), inset 0 0 0 1px var(--dm-ring-mid),
+    0 0 0 1px oklch(0 0 0 / 0.14), 0 1px 1px -0.5px var(--dm-drop),
+    0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop);
+  --shadow-5:
+    inset 0 1px 0 0 var(--dm-hi-high), inset 0 0 0 1px var(--dm-ring-mid),
+    0 0 0 1px oklch(0 0 0 / 0.16), 0 1px 1px -0.5px var(--dm-drop),
+    0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop),
+    0 12px 12px -6px var(--dm-drop);
+  --shadow-6:
+    inset 0 1px 0 0 var(--dm-hi-high), inset 0 0 0 1px var(--dm-ring-high),
+    0 0 0 1px oklch(0 0 0 / 0.18), 0 1px 1px -0.5px var(--dm-drop),
+    0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop),
+    0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop);
+  --shadow-7:
+    inset 0 1px 0 0 var(--dm-hi-peak), inset 0 0 0 1px var(--dm-ring-high),
+    0 0 0 1px oklch(0 0 0 / 0.2), 0 1px 1px -0.5px var(--dm-drop),
+    0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop),
+    0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop),
+    0 48px 48px -24px var(--dm-drop);
+  --shadow-8:
+    inset 0 1px 0 0 var(--dm-hi-peak), inset 0 0 0 1px var(--dm-ring-high),
+    0 0 0 1px oklch(0 0 0 / 0.22), 0 1px 1px -0.5px var(--dm-drop),
+    0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop),
+    0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop),
+    0 48px 48px -24px var(--dm-drop), 0 96px 96px -48px var(--dm-drop);
 }
 
 @theme inline {
@@ -125,6 +194,23 @@
     "Segoe UI", Helvetica, Arial, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --color-focus-ring: var(--focus-ring);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-4: var(--surface-4);
+  --color-surface-5: var(--surface-5);
+  --color-surface-6: var(--surface-6);
+  --color-surface-7: var(--surface-7);
+  --color-surface-8: var(--surface-8);
+  --shadow-surface-1: var(--shadow-1);
+  --shadow-surface-1-hover: var(--shadow-1-hover);
+  --shadow-surface-2: var(--shadow-2);
+  --shadow-surface-3: var(--shadow-3);
+  --shadow-surface-4: var(--shadow-4);
+  --shadow-surface-5: var(--shadow-5);
+  --shadow-surface-6: var(--shadow-6);
+  --shadow-surface-7: var(--shadow-7);
+  --shadow-surface-8: var(--shadow-8);
 }
 
 @keyframes spinner-move {
@@ -793,4 +879,14 @@ html.dark .prose-md .token.coord {
   opacity: 1;
   pointer-events: auto;
   transition-delay: 0.25s;
+}
+
+/* React never runs the unmount a popup scheduled while its tree was hidden. */
+[data-retained-stale]
+  :is(
+    [data-slot="popover-content"],
+    [data-slot="dropdown-menu-content"],
+    [data-slot="dropdown-menu-sub-content"]
+  ):not([data-open]) {
+  display: none !important;
 }

@@ -37,14 +37,21 @@ import {
   UpdateTicketInput,
   Validation,
   type ProjectKey,
+  type GroupId,
+  type GroupIdFilter,
   type TicketCountQuery,
   type TicketCounts,
-  type TicketFilter,
   type TicketListPage,
   type TicketListQuery,
+  type TicketSearchQuery,
   type TicketSections,
+  type TicketSort,
+  type TicketSprintSections,
   type TicketStatus,
-  type User
+  type TicketUpdateResult,
+  type User,
+  sprintSectionKey,
+  sprintState
 } from "@projectproject/shared"
 import { Attachments } from "../Services/Attachments"
 import { FigmaLinks } from "../Services/FigmaLinks"
@@ -164,7 +171,10 @@ function ticketPage(
     dir: query.sort.dir
   })
   return {
-    items: page.items.map(({ entry }) => indexEntryToTicket(entry, github)),
+    items: page.items.map(({ entry, orderKey }) => ({
+      ticket: indexEntryToTicket(entry, github),
+      orderKey
+    })),
     nextCursor: page.nextCursor
   }
 }
@@ -210,7 +220,9 @@ export const TicketsLive = Layer.effect(
         .fullByIds([...new Set([document.createdBy, document.updatedBy])])
         .pipe(
           Effect.map((found) => {
-            const byId = new Map(found.map((user) => [user.id, user]))
+            const byId = new Map<string, User>(
+              found.map((user) => [user.id, user])
+            )
             return documentToDetail(
               document,
               github,
@@ -233,12 +245,12 @@ export const TicketsLive = Layer.effect(
       orgSlug: string,
       userId: string,
       slug: string,
-      groupIds: ReadonlyArray<string | null> | undefined
+      groupIds: ReadonlyArray<GroupIdFilter> | undefined
     ): Effect.Effect<ReadonlySet<string> | null, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         if (groupIds === undefined || groupIds.length === 0) return null
-        const wantsUngrouped = groupIds.includes(null)
-        const explicitIds = groupIds.filter((id): id is string => id !== null)
+        const wantsUngrouped = groupIds.includes("ungrouped")
+        const explicitIds = groupIds.filter((id) => id !== "ungrouped")
         const memberSet = new Set<string>()
         if (explicitIds.length > 0) {
           const details = yield* Effect.forEach(
@@ -256,14 +268,16 @@ export const TicketsLive = Layer.effect(
         }
         if (wantsUngrouped) {
           const allGroups = yield* groups.list(orgSlug, userId, slug)
-          const inAnyActiveSprint = new Set<string>()
+          const inIncompleteSprint = new Set<string>()
+          const now = yield* DateTime.nowAsDate
           for (const g of allGroups) {
-            if (g.completedAt !== null) continue
-            for (const t of g.tickets) inAnyActiveSprint.add(t)
+            if (g.kind !== "sprint" || sprintState(g, now) === "completed")
+              continue
+            for (const t of g.tickets) inIncompleteSprint.add(t)
           }
           const allTicketIds = yield* ticketIndex.listIds(project)
           for (const id of allTicketIds) {
-            if (!inAnyActiveSprint.has(id)) memberSet.add(id)
+            if (!inIncompleteSprint.has(id)) memberSet.add(id)
           }
         }
         return memberSet
@@ -293,7 +307,7 @@ export const TicketsLive = Layer.effect(
           orgSlug,
           userId,
           slug,
-          query.filter?.groupId
+          query.groupId
         )
         const pageLimit = limit ?? TICKET_LIST_LIMIT
         const queryEntries = yield* ticketIndex.query(project, query, {
@@ -340,11 +354,7 @@ export const TicketsLive = Layer.effect(
       orgSlug: string,
       userId: string,
       slug: string,
-      options: {
-        readonly q?: string
-        readonly excludeGroupId?: string
-        readonly limit?: number
-      }
+      options: TicketSearchQuery
     ): Effect.Effect<ReadonlyArray<Ticket>, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
@@ -409,14 +419,11 @@ export const TicketsLive = Layer.effect(
           orgSlug,
           userId,
           slug,
-          query.filter?.groupId
+          query.groupId
         )
-        const filterWithoutStatus: TicketFilter | undefined = query.filter
-          ? { ...query.filter, status: undefined }
-          : undefined
         const queryForCount: TicketCountQuery = {
-          filter: filterWithoutStatus,
-          q: query.q
+          ...query,
+          status: undefined
         }
         const counts = yield* ticketIndex.count(project, queryForCount, {
           viewerId: userId,
@@ -441,7 +448,7 @@ export const TicketsLive = Layer.effect(
         orgSlug,
         userId,
         slug,
-        query.filter?.groupId
+        query.groupId
       )
       const options = {
         viewerId: userId,
@@ -450,8 +457,8 @@ export const TicketsLive = Layer.effect(
       const counts = yield* ticketIndex.count(
         project,
         {
-          filter: { ...query.filter, status: undefined },
-          q: query.q
+          ...query,
+          status: undefined
         },
         options
       )
@@ -462,8 +469,8 @@ export const TicketsLive = Layer.effect(
       )
       const statuses = Object.keys(counts.byStatus).filter(
         (status) =>
-          !query.filter?.status?.length ||
-          query.filter.status.some((requested) => requested === status)
+          !query.status?.length ||
+          query.status.some((requested) => requested === status)
       )
       const pages = yield* Effect.forEach(
         statuses,
@@ -473,10 +480,7 @@ export const TicketsLive = Layer.effect(
               project,
               {
                 ...query,
-                filter: {
-                  ...query.filter,
-                  status: [Schema.decodeSync(Ticket.fields.status)(status)]
-                },
+                status: [Schema.decodeSync(Ticket.fields.status)(status)],
                 cursor: undefined
               },
               { ...options, limit: TICKET_LIST_LIMIT + 1 }
@@ -493,6 +497,105 @@ export const TicketsLive = Layer.effect(
         { concurrency: 4 }
       )
       return { counts, sections: Object.fromEntries(pages) }
+    })
+
+    const sprintSections = Effect.fn("Tickets.sprintSections")(function* (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      query: TicketListQuery
+    ): Effect.fn.Return<TicketSprintSections, NotFound | MarkdownError> {
+      yield* ensureAccess(orgSlug, userId, slug)
+      const project = yield* ticketIndex.projectFor(orgSlug, slug)
+      const sprints = (yield* groups.list(orgSlug, userId, slug)).filter(
+        (group) => group.kind === "sprint"
+      )
+      const sectionIds: ReadonlyArray<GroupIdFilter> = query.groupId?.length
+        ? query.groupId
+        : ["ungrouped", ...sprints.map((sprint) => sprint.id)]
+      const projectGithub = yield* projects.getGithubIntegration(
+        orgSlug,
+        userId,
+        slug
+      )
+      const claimed = new Set<string>()
+      const bySprint = new Map<GroupId, Array<string>>()
+      const takeUnclaimed = (tickets: ReadonlyArray<string>) => {
+        const ids: Array<string> = []
+        for (const id of tickets) {
+          if (claimed.has(id)) continue
+          claimed.add(id)
+          ids.push(id)
+        }
+        return ids
+      }
+      for (const sprint of sprints) {
+        if (sprint.completedAt === null) {
+          bySprint.set(sprint.id, takeUnclaimed(sprint.tickets))
+        }
+      }
+      for (const sprint of sprints) {
+        if (sprint.completedAt !== null) {
+          bySprint.set(sprint.id, takeUnclaimed(sprint.tickets))
+        }
+      }
+      const claimedIds = [...claimed]
+      const countQuery = { ...query, groupId: undefined }
+      const pages = yield* Effect.forEach(
+        sectionIds,
+        (groupId) =>
+          Effect.gen(function* () {
+            const known =
+              groupId === "ungrouped" ? undefined : bySprint.get(groupId)
+            const ticketIds =
+              groupId === "ungrouped"
+                ? undefined
+                : known !== undefined
+                  ? known
+                  : yield* resolveGroupMembers(project, orgSlug, userId, slug, [
+                      groupId
+                    ]).pipe(
+                      Effect.map((members) =>
+                        members === null
+                          ? []
+                          : [...members].filter((id) => !claimed.has(id))
+                      )
+                    )
+            const excludeTicketIds =
+              groupId === "ungrouped" && claimedIds.length > 0
+                ? claimedIds
+                : undefined
+            const counts = yield* ticketIndex.count(project, countQuery, {
+              viewerId: userId,
+              ticketIds,
+              excludeTicketIds
+            })
+            const entries = yield* ticketIndex.query(
+              project,
+              {
+                ...query,
+                groupId: undefined,
+                cursor: undefined
+              },
+              {
+                viewerId: userId,
+                ticketIds,
+                excludeTicketIds,
+                limit: TICKET_LIST_LIMIT + 1
+              }
+            )
+            return {
+              key: sprintSectionKey(groupId === "ungrouped" ? null : groupId),
+              count: counts.total,
+              page: ticketPage(entries, query, projectGithub, TICKET_LIST_LIMIT)
+            }
+          }),
+        { concurrency: 4 }
+      )
+      return {
+        total: pages.reduce((sum, section) => sum + section.count, 0),
+        sections: pages
+      }
     })
 
     const get = (
@@ -810,9 +913,10 @@ export const TicketsLive = Layer.effect(
       ownerId: string,
       slug: string,
       id: string,
-      input: UpdateTicketInput
+      input: UpdateTicketInput,
+      sort?: TicketSort
     ): Effect.Effect<
-      TicketDetail,
+      TicketUpdateResult,
       TicketReadError | Validation | MentionInvalid
     > =>
       withTicketDocumentLock(
@@ -894,10 +998,15 @@ export const TicketsLive = Layer.effect(
               )
           )
 
-          return yield* withMissingAttachments(
+          const ticket = yield* withMissingAttachments(
             orgSlug,
             yield* detailOf(next, projectGithub)
           )
+          const orderKey =
+            sort === undefined
+              ? null
+              : yield* ticketIndex.orderKeyFor(indexProject, id, sort)
+          return { ticket, orderKey }
         })
       )
 
@@ -1943,6 +2052,7 @@ export const TicketsLive = Layer.effect(
     return {
       list,
       sections,
+      sprintSections,
       count,
       search,
       listInGroup,

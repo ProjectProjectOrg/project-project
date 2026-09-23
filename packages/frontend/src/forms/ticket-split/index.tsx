@@ -2,8 +2,8 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { Split } from "lucide-react"
-import { useRef } from "react"
-import { ticketKey, ticketSplitAtom } from "@/atoms/tickets"
+import { useMemo, useRef } from "react"
+import { splitTicket, ticketRequest } from "@/atoms/ticketDetail"
 import { AssigneeSelect } from "@/components/TicketList/AssigneeField"
 import { PrioritySelect } from "@/components/TicketList/PriorityField"
 import { SprintSelect } from "@/components/TicketList/SprintField"
@@ -59,9 +59,12 @@ export function TicketSplitForm({
   onSplit: (created: ReadonlyArray<TicketId>) => void
   onCancel: () => void
 }) {
-  const tKey = ticketKey(orgSlug, slug, ticket.id)
-  const split = useAtomSet(ticketSplitAtom(tKey), { mode: "promiseExit" })
-  const splitState = useAtomValue(ticketSplitAtom(tKey))
+  const req = useMemo(
+    () => ticketRequest(orgSlug, slug, ticket.id),
+    [orgSlug, slug, ticket.id]
+  )
+  const split = useAtomSet(splitTicket(req), { mode: "promiseExit" })
+  const splitState = useAtomValue(splitTicket(req))
   const left = useRef(false)
 
   const defaults = {

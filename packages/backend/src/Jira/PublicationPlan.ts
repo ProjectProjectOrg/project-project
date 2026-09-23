@@ -42,7 +42,8 @@ import { generateKeyBetween } from "fractional-indexing"
 import {
   JiraConvertedText as ConvertedTextSchema,
   JiraMigrationManifestV2,
-  normalizeJiraMigrationManifestV2
+  normalizeJiraMigrationManifestV2,
+  canonicalJiraJson
 } from "./Manifest"
 import { JiraArtifactRef } from "./MigrationArtifacts"
 import {
@@ -647,15 +648,6 @@ export const JiraAttachmentOutcome = Schema.Union([
 ])
 export type JiraAttachmentOutcome = typeof JiraAttachmentOutcome.Type
 
-export const canonicalJiraJson = (value: Schema.Json): string => {
-  if (Array.isArray(value)) return `[${value.map(canonicalJiraJson).join(",")}]`
-  if (value !== null && typeof value === "object")
-    return `{${Object.entries(value)
-      .toSorted(([a], [b]) => compareStrings(a, b))
-      .map(([key, item]) => `${JSON.stringify(key)}:${canonicalJiraJson(item)}`)
-      .join(",")}}`
-  return JSON.stringify(value)
-}
 const digest = (value: string) =>
   createHash("sha256").update(value).digest("hex")
 export function jiraAttachmentId(

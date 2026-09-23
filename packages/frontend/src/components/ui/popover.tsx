@@ -1,10 +1,18 @@
 import * as React from "react"
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
 
+import { useActivityHiddenPortalRef } from "@/hooks/useActivityHiddenPortalRef"
 import { cn } from "@/lib/utils"
 
 function Popover(props: React.ComponentProps<typeof PopoverPrimitive.Root>) {
   return <PopoverPrimitive.Root {...props} />
+}
+
+function PopoverPortal({
+  ...props
+}: React.ComponentProps<typeof PopoverPrimitive.Portal>) {
+  const portalRef = useActivityHiddenPortalRef()
+  return <PopoverPrimitive.Portal ref={portalRef} {...props} />
 }
 
 function PopoverTrigger(
@@ -32,7 +40,7 @@ function PopoverContent({
   ...props
 }: PopoverContentProps) {
   return (
-    <PopoverPrimitive.Portal keepMounted={keepMounted}>
+    <PopoverPortal keepMounted={keepMounted}>
       <PopoverPrimitive.Positioner
         align={align}
         alignOffset={alignOffset}
@@ -50,7 +58,7 @@ function PopoverContent({
           {...props}
         />
       </PopoverPrimitive.Positioner>
-    </PopoverPrimitive.Portal>
+    </PopoverPortal>
   )
 }
 

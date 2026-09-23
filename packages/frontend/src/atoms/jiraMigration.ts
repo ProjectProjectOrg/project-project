@@ -1,173 +1,169 @@
 import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import * as Effect from "effect/Effect"
+import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import type {
   ConfigureJiraMigrationInput,
   CreateJiraMigrationInput,
   JiraMigrationRevisionInput
 } from "@projectproject/shared"
-import { projectsListAtom } from "@/atoms/projects"
-import { runtime } from "@/runtime"
-import { ApiClient } from "@/services/ApiClient"
+import { Api } from "@/api/Api"
+import { Keys } from "@/api/keys"
 
-export const jiraProfileAtom = runtime
-  .atom(
-    Effect.gen(function* () {
-      const client = yield* ApiClient
-      return yield* client.jira.profile()
-    })
-  )
-  .pipe(Atom.setIdleTTL("1 minute"))
+export type JiraOrgRequest = Readonly<{
+  params: Readonly<{ orgSlug: string }>
+}>
 
-export const jiraSitesAtom = runtime
-  .atom(
-    Effect.gen(function* () {
-      const client = yield* ApiClient
-      return yield* client.jira.sites()
-    })
-  )
-  .pipe(Atom.setIdleTTL("1 minute"))
+export type JiraProjectsRequest = Readonly<{
+  params: Readonly<{ cloudId: string }>
+}>
 
-export const jiraProjectsAtom = Atom.family((cloudId: string) =>
-  cloudId
-    ? runtime
-        .atom(
-          Effect.gen(function* () {
-            const client = yield* ApiClient
-            return yield* client.jira.projects({ params: { cloudId } })
-          })
-        )
-        .pipe(Atom.setIdleTTL("1 minute"))
-    : runtime.atom(Effect.succeed([]))
-)
+export type JiraMigrationRequest = Readonly<{
+  params: Readonly<{ orgSlug: string; migrationId: string }>
+}>
 
-export const jiraMigrationKey = (orgSlug: string, migrationId: string) =>
-  `${orgSlug}/${migrationId}`
-
-const splitMigrationKey = (key: string) => {
-  const separator = key.indexOf("/")
-  return {
-    orgSlug: key.slice(0, separator),
-    migrationId: key.slice(separator + 1)
-  }
-}
-
-const jiraMigrationsBaseAtom = Atom.family((orgSlug: string) =>
-  runtime
-    .atom(
-      Effect.gen(function* () {
-        const client = yield* ApiClient
-        return yield* client.jiraMigrations.list({ params: { orgSlug } })
-      })
-    )
-    .pipe(Atom.setIdleTTL("30 seconds"))
-)
-
-export const jiraMigrationsAtom = jiraMigrationsBaseAtom
-
-const jiraMigrationBaseAtom = Atom.family((key: string) => {
-  const { orgSlug, migrationId } = splitMigrationKey(key)
-  return runtime
-    .atom(
-      Effect.gen(function* () {
-        const client = yield* ApiClient
-        return yield* client.jiraMigrations.get({
-          params: { orgSlug, migrationId }
-        })
-      })
-    )
-    .pipe(Atom.setIdleTTL("30 seconds"))
+export const jiraOrgRequest = (orgSlug: string): JiraOrgRequest => ({
+  params: { orgSlug }
 })
 
-export const jiraMigrationRefreshAtom = jiraMigrationBaseAtom
+export const jiraProjectsRequest = (cloudId: string): JiraProjectsRequest => ({
+  params: { cloudId }
+})
 
-export const jiraMigrationAtom = Atom.family((key: string) =>
-  Atom.optimistic(jiraMigrationBaseAtom(key))
+export const jiraMigrationKey = (
+  orgSlug: string,
+  migrationId: string
+): JiraMigrationRequest => ({ params: { orgSlug, migrationId } })
+
+export const jiraProfileAtom = Api.query("jira", "profile", {
+  timeToLive: "1 minute"
+})
+
+export const jiraSitesAtom = Api.query("jira", "sites", {
+  timeToLive: "1 minute"
+})
+
+export const jiraProjectsAtom = Atom.family((req: JiraProjectsRequest) =>
+  req.params.cloudId
+    ? Api.query("jira", "projects", {
+        params: req.params,
+        timeToLive: "1 minute"
+      })
+    : Atom.make(Result.success([]))
 )
 
-export const createJiraMigrationAtom = Atom.family((orgSlug: string) =>
-  runtime.fn(
-    Effect.fn(function* (input: CreateJiraMigrationInput, get) {
-      const client = yield* ApiClient
-      const migration = yield* client.jiraMigrations.create({
-        params: { orgSlug },
-        payload: input
-      })
-      get.refresh(jiraMigrationsBaseAtom(orgSlug))
+const jiraMigrationsQuery = (req: JiraOrgRequest) =>
+  Api.query("jiraMigrations", "list", {
+    params: req.params,
+    timeToLive: "30 seconds",
+    reactivityKeys: [Keys.jiraMigrations(req.params.orgSlug)]
+  })
+
+export const jiraMigrationsAtom = Atom.family((req: JiraOrgRequest) =>
+  Atom.optimistic(jiraMigrationsQuery(req))
+)
+
+const jiraMigrationQuery = (req: JiraMigrationRequest) =>
+  Api.query("jiraMigrations", "get", {
+    params: req.params,
+    timeToLive: "30 seconds",
+    reactivityKeys: [
+      Keys.jiraMigration(req.params.orgSlug, req.params.migrationId)
+    ]
+  })
+
+export const jiraMigrationAtom = Atom.family((req: JiraMigrationRequest) =>
+  Atom.optimistic(jiraMigrationQuery(req))
+)
+
+export const createJiraMigrationAtom = Atom.family((req: JiraOrgRequest) =>
+  Api.runtime.fn(
+    Effect.fn("createJiraMigration")(function* (
+      input: CreateJiraMigrationInput
+    ) {
+      const migration = yield* Api.use((client) =>
+        client.jiraMigrations.create({ params: req.params, payload: input })
+      )
+      yield* Reactivity.invalidate([Keys.jiraMigrations(req.params.orgSlug)])
       return migration
     })
   )
 )
 
 const lifecycleMutation = (
-  key: string,
+  req: JiraMigrationRequest,
   operation: "rescan" | "run" | "cancel"
-) => {
-  const { orgSlug, migrationId } = splitMigrationKey(key)
-  return Atom.optimisticFn(jiraMigrationAtom(key), {
-    reducer: (current, _input: JiraMigrationRevisionInput) =>
-      Result.isSuccess(current)
-        ? Result.success(current.value, { waiting: true })
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (input: JiraMigrationRevisionInput, get) {
-        const client = yield* ApiClient
-        const migration = yield* client.jiraMigrations[operation]({
-          params: { orgSlug, migrationId },
-          payload: input
+) =>
+  Atom.optimisticFn(jiraMigrationAtom(req), {
+    reducer: (current, _input: JiraMigrationRevisionInput) => current,
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn("jiraMigrationLifecycle")(function* (
+          input: JiraMigrationRevisionInput
+        ) {
+          const migration = yield* Api.use((client) =>
+            client.jiraMigrations[operation]({
+              params: req.params,
+              payload: input
+            })
+          )
+          set(Result.success(migration))
+          yield* Reactivity.invalidate([
+            Keys.jiraMigrations(req.params.orgSlug),
+            ...(migration.status === "succeeded"
+              ? [Keys.projects(req.params.orgSlug)]
+              : [])
+          ])
+          return migration
         })
-        get.refresh(jiraMigrationBaseAtom(key))
-        get.refresh(jiraMigrationsBaseAtom(orgSlug))
-        if (migration.status === "succeeded") {
-          get.refresh(projectsListAtom(orgSlug))
-        }
-        return migration
-      })
-    )
+      )
   })
-}
 
-export const rescanJiraMigrationAtom = Atom.family((key: string) =>
-  lifecycleMutation(key, "rescan")
+export const rescanJiraMigrationAtom = Atom.family(
+  (req: JiraMigrationRequest) => lifecycleMutation(req, "rescan")
 )
 
-export const runJiraMigrationAtom = Atom.family((key: string) =>
-  lifecycleMutation(key, "run")
+export const runJiraMigrationAtom = Atom.family((req: JiraMigrationRequest) =>
+  lifecycleMutation(req, "run")
 )
 
-export const cancelJiraMigrationAtom = Atom.family((key: string) =>
-  lifecycleMutation(key, "cancel")
+export const cancelJiraMigrationAtom = Atom.family(
+  (req: JiraMigrationRequest) => lifecycleMutation(req, "cancel")
 )
 
-export const configureJiraMigrationAtom = Atom.family((key: string) => {
-  const { orgSlug, migrationId } = splitMigrationKey(key)
-  return Atom.optimisticFn(jiraMigrationAtom(key), {
-    reducer: (current, _input: ConfigureJiraMigrationInput) =>
-      Result.isSuccess(current)
-        ? Result.success(current.value, { waiting: true })
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (input: ConfigureJiraMigrationInput, get) {
-        const client = yield* ApiClient
-        const migration = yield* client.jiraMigrations.configure({
-          params: { orgSlug, migrationId },
-          payload: input
-        })
-        get.refresh(jiraMigrationBaseAtom(key))
-        get.refresh(jiraMigrationsBaseAtom(orgSlug))
-        return migration
-      })
-    )
-  })
-})
-
-export const discardJiraMigrationAtom = Atom.family((key: string) => {
-  const { orgSlug, migrationId } = splitMigrationKey(key)
-  return runtime.fn(
-    Effect.fn(function* (_input: void, get) {
-      const client = yield* ApiClient
-      yield* client.jiraMigrations.discard({ params: { orgSlug, migrationId } })
-      get.refresh(jiraMigrationsBaseAtom(orgSlug))
+export const configureJiraMigrationAtom = Atom.family(
+  (req: JiraMigrationRequest) =>
+    Atom.optimisticFn(jiraMigrationAtom(req), {
+      reducer: (current, _input: ConfigureJiraMigrationInput) => current,
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn("configureJiraMigration")(function* (
+            input: ConfigureJiraMigrationInput
+          ) {
+            const migration = yield* Api.use((client) =>
+              client.jiraMigrations.configure({
+                params: req.params,
+                payload: input
+              })
+            )
+            set(Result.success(migration))
+            yield* Reactivity.invalidate([
+              Keys.jiraMigrations(req.params.orgSlug)
+            ])
+            return migration
+          })
+        )
     })
-  )
-})
+)
+
+export const discardJiraMigrationAtom = Atom.family(
+  (req: JiraMigrationRequest) =>
+    Api.runtime.fn(
+      Effect.fn("discardJiraMigration")(function* (_input: void) {
+        yield* Api.use((client) =>
+          client.jiraMigrations.discard({ params: req.params })
+        )
+        yield* Reactivity.invalidate([Keys.jiraMigrations(req.params.orgSlug)])
+      })
+    )
+)

@@ -6,6 +6,7 @@ import {
   Conflict,
   CurrentUser,
   JiraMigrationConfiguration,
+  UserId,
   type User
 } from "@projectproject/shared"
 import { DateTime, Effect, Layer, Redacted, Schema, Stream } from "effect"
@@ -27,7 +28,7 @@ import { JiraMigrations } from "./Migrations"
 
 const unused = () => Effect.die("Unexpected dependency call")
 const user: User = {
-  id: "user-1",
+  id: Schema.decodeUnknownSync(UserId)("user-1"),
   name: "User",
   email: "user@example.test",
   username: null,

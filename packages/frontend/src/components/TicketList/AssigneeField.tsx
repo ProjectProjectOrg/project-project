@@ -1,4 +1,3 @@
-import { useAtomSet } from "@effect/atom-react"
 import { Check, UserRound } from "lucide-react"
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
@@ -11,9 +10,12 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { m } from "@/paraglide/messages"
-import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
-import type { Member, TicketId } from "@projectproject/shared"
+import type {
+  Member,
+  TicketId,
+  UpdateTicketInput
+} from "@projectproject/shared"
 
 type AssigneeVariant = "row" | "card" | "chip"
 
@@ -46,16 +48,27 @@ function chipLabel(resolved: ReadonlyArray<Member>): string {
 
 function Avatars({
   resolved,
-  size
+  size,
+  className
 }: {
   resolved: ReadonlyArray<Member>
   size: number
+  className?: string
 }) {
   if (resolved.length === 0) return null
   if (resolved.length === 1) {
-    return <MemberAvatar member={resolved[0]} size={size} />
+    return (
+      <MemberAvatar member={resolved[0]} size={size} className={className} />
+    )
   }
-  return <AvatarStack subjects={resolved} size={size} max={3} />
+  return (
+    <AvatarStack
+      subjects={resolved}
+      size={size}
+      max={3}
+      className={className}
+    />
+  )
 }
 
 function TriggerVisual({
@@ -230,37 +243,22 @@ export function AssigneeSelect({
 }
 
 export function AssigneeField({
-  orgSlug,
-  slug,
   ticket,
   members,
-  sprintTicketsKey,
-  ticketSectionsKey,
-  onChange,
+  onPatch,
   variant = "row",
   className
 }: {
-  orgSlug: string
-  slug: string
   ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
-  sprintTicketsKey?: string
-  ticketSectionsKey?: string
-  onChange?: (value: ReadonlyArray<string>) => void
+  onPatch: (patch: UpdateTicketInput) => void
   variant?: AssigneeVariant
   className?: string
 }) {
-  const update = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
-  )
   return (
     <AssigneeSelect
       value={ticket.assignees}
-      onChange={(assignees) =>
-        onChange
-          ? onChange(assignees)
-          : update({ assignees, sprintTicketsKey, ticketSectionsKey })
-      }
+      onChange={(assignees) => onPatch({ assignees })}
       members={members}
       variant={variant}
       className={className}
@@ -269,10 +267,9 @@ export function AssigneeField({
 }
 
 export function AssigneePicker(props: {
-  orgSlug: string
-  slug: string
   ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
+  onPatch: (patch: UpdateTicketInput) => void
 }) {
   return <AssigneeField {...props} variant="chip" />
 }

@@ -1,134 +1,42 @@
-import * as Result from "effect/unstable/reactivity/AsyncResult"
-import * as Atom from "effect/unstable/reactivity/Atom"
-// packages/frontend/src/atoms/auth.ts
-//
-// AUTH-RELATED ATOMS.
-// ============================================================================
-// Two atoms, both built on the runtime in `../runtime.ts`:
-//
-//   - `meAtom`     — query atom: reads `/me` once, caches the result, exposes
-//                    a `Result<User, Unauthorized>` to React.
-//   - `logoutAtom` — function atom: invokes Better Auth's `signOut()` and
-//                    refreshes `meAtom` so the gate kicks in immediately.
-//
-// THE QUERY ATOM PATTERN
-// ----------------------------------------------------------------------------
-// `runtime.atom(effect)` produces an Atom whose value, when read in React,
-// is `Result<A, E>` — the success/failure of running `effect` once. The
-// runtime caches the result and shares it across components. There's no
-// React Query equivalent of "useQuery" required: React state, atom state,
-// and the Effect graph are the same thing here.
-//
-// The `E` channel comes through verbatim. Because the `auth.me` endpoint
-// declared `addError(Unauthorized)` in the shared contract, the `Result`'s
-// failure variant is *typed* as `Unauthorized`. The `_authed` route gate
-// pattern-matches on this exact type.
-//
-// THE FUNCTION ATOM PATTERN
-// ----------------------------------------------------------------------------
-// `runtime.fn(effect)` produces an atom you call from React with arguments.
-// The Effect's `R` channel is provided by the runtime; the call returns a
-// promise that resolves to the success value (or rejects with the failure).
-//
-// Inside the Effect body, you receive a `get` parameter — that's how you
-// touch other atoms. `get.refresh(meAtom)` invalidates the cached result
-// and tells any reading component to re-run.
-//
-// CHAPTER 3 STEPS
-// ----------------------------------------------------------------------------
-//   1. Imports:
-//        import * as Atom from "effect/unstable/reactivity/Atom"
-//        import { Effect } from "effect"
-//        import { runtime } from "@/runtime"
-//        import { ApiClient } from "@/services/ApiClient"
-//        import { authClient } from "@/services/AuthClient"
-//
-//   2. meAtom:
-//        export const meAtom = runtime.atom(
-//          Effect.gen(function*() {
-//            const client = yield* ApiClient
-//            return yield* client.auth.me()
-//          })
-//        )
-//      You may also pipe `Atom.setIdleTTL("1 minute")` once you've seen the
-//      atom work. Skip it on the first pass — it's not load-bearing.
-//
-//   3. logoutAtom:
-//        export const logoutAtom = runtime.fn(
-//          Effect.fn(function*(_: void, get) {
-//            yield* Effect.tryPromise(() => authClient.signOut())
-//            get.refresh(meAtom)
-//          })
-//        )
-//
-//      Notes:
-//      - `Effect.tryPromise` wraps the Better Auth promise call. If sign-out
-//        fails for any reason, the Effect fails — but for now, the surface
-//        we'd react to is "did the cookie clear?", and the `get.refresh`
-//        call exposes that on the next `/me`.
-//      - The first parameter is `_: void` because we don't need any input
-//        from the caller — `runtime.fn`'s callable always passes one.
-//
-// READING THESE FROM A COMPONENT
-// ----------------------------------------------------------------------------
-//   import { useAtomValue, useAtomSet } from "@effect/atom-react"
-//
-//   const me = useAtomValue(meAtom)               // Result<User, Unauthorized>
-//   const logout = useAtomSet(logoutAtom)         // (input: void) => Promise<void>
-//
-// `Result` has three variants — `Initial`, `Success`, `Failure`. The Failure
-// variant carries `cause: Cause<E>`, NOT a raw `error: E`. So `Result.match`'s
-// `onFailure` callback receives the Failure variant itself (whose `_tag` is
-// just `"Failure"`) — not the error value.
-//
-// The most ergonomic helper is `Result.matchWithError`, which splits the
-// failure path into `onError` (typed errors from your `E` channel) and
-// `onDefect` (unexpected throws / interruptions):
-//
-//   Result.matchWithError(me, {
-//     onInitial: () => <p>Loading…</p>,
-//     onSuccess: ({ value }) => <p>Hi {value.name}</p>,
-//     onError: (error) =>
-//       error._tag === "Unauthorized"
-//         ? <p>Not signed in</p>
-//         : <p>Unexpected error</p>,
-//     onDefect: (defect) => <p>Defect: {String(defect)}</p>
-//   })
-//
-// If you only need success/failure granularity (no typed-error narrowing),
-// `Result.match` with `onFailure: (failure) => ...` is fine — just remember
-// the argument is the Failure variant, not the error.
-
 import type { EditorPreference } from "@projectproject/shared"
 import type { BetterFetchError } from "better-auth/react"
 import * as Effect from "effect/Effect"
-import {
-  filterActionableInvitations,
-  toPendingInvite,
-  type PendingInvite
-} from "@/lib/invitations"
-import { runtime } from "@/runtime"
-import { ApiClient } from "@/services/ApiClient"
-import { authClient } from "@/services/AuthClient"
+import * as Atom from "effect/unstable/reactivity/Atom"
+import * as Reactivity from "effect/unstable/reactivity/Reactivity"
+import { Api } from "@/api/Api"
+import { Keys } from "@/api/keys"
 import { clearBannerRenderCache } from "@/lib/bannerRenderCache"
-import { githubAuthEpochAtom } from "./github"
+import { authClient } from "@/services/AuthClient"
 
-export const meAtom = runtime.atom(
-  Effect.gen(function* () {
-    const client = yield* ApiClient
-    return yield* client.auth.me()
-  })
-)
+const meQuery = Api.query("auth", "me", {
+  reactivityKeys: [Keys.me()]
+})
 
-export const logoutAtom = runtime.fn(
-  Effect.fn(function* (_: void) {
+const meAtom = Atom.optimistic(meQuery)
+
+export const me = () => meAtom
+
+export const logout = Api.runtime.fn(
+  Effect.fn("logout")(function* (_: void) {
     yield* Effect.tryPromise(() => authData(authClient.signOut()))
     yield* Effect.promise(() => clearBannerRenderCache())
   })
 )
 
-export const connectPersonalGithubAtom = runtime.fn(
-  Effect.fn(function* (_: void) {
+const publishGithubAuth = Effect.fn("publishGithubAuth")(function* (
+  get: Atom.FnContext
+) {
+  const orgSlug = yield* get.result(me()).pipe(
+    Effect.map((user) => user.activeOrgSlug),
+    Effect.orElseSucceed(() => null)
+  )
+  if (orgSlug !== null) {
+    yield* Reactivity.invalidate([Keys.githubAuth(orgSlug)])
+  }
+})
+
+export const connectPersonalGithub = Api.runtime.fn(
+  Effect.fn("connectPersonalGithub")(function* (_: void, get) {
     yield* Effect.tryPromise(() =>
       authData(
         authClient.linkSocial({
@@ -139,11 +47,12 @@ export const connectPersonalGithubAtom = runtime.fn(
         })
       )
     )
+    yield* publishGithubAuth(get)
   })
 )
 
-export const disconnectPersonalGithubAtom = runtime.fn(
-  Effect.fn(function* (_: void, get) {
+export const disconnectPersonalGithub = Api.runtime.fn(
+  Effect.fn("disconnectPersonalGithub")(function* (_: void, get) {
     const accounts = yield* Effect.tryPromise(() =>
       authData(authClient.listAccounts())
     )
@@ -154,115 +63,29 @@ export const disconnectPersonalGithubAtom = runtime.fn(
     yield* Effect.tryPromise(() =>
       authData(authClient.unlinkAccount({ accountId: githubAccount.id }))
     )
-    get.set(githubAuthEpochAtom, get(githubAuthEpochAtom) + 1)
-    get.refresh(meAtom)
+    yield* publishGithubAuth(get)
+    yield* Reactivity.invalidate([Keys.me()])
   })
 )
 
-export const updateEditorPreferenceAtom = runtime.fn(
-  Effect.fn(function* (editorPreference: EditorPreference, get) {
+export const updateEditorPreference = Api.runtime.fn(
+  Effect.fn("updateEditorPreference")(function* (
+    editorPreference: EditorPreference
+  ) {
     yield* Effect.tryPromise(() =>
       authData(authClient.updateUser({ editorPreference }))
     )
-    get.refresh(meAtom)
+    yield* Reactivity.invalidate([Keys.me()])
   })
 )
 
-const pendingInvitesBaseAtom = runtime
-  .atom(
-    Effect.tryPromise(async (): Promise<PendingInvite[]> => {
-      const session = await authData(authClient.getSession())
-      const email = session?.user.email
-      if (!session?.user.emailVerified || !email) return []
-
-      const rawInvites = await authData(
-        authClient.organization.listUserInvitations()
-      )
-      const actionable = filterActionableInvitations(rawInvites ?? [], email)
-      const settled = await Promise.allSettled(
-        actionable.map((invite) =>
-          authData(
-            authClient.organization.getInvitation({ query: { id: invite.id } })
-          )
-        )
-      )
-
-      return settled.flatMap((result) =>
-        result.status === "fulfilled" && result.value
-          ? [toPendingInvite(result.value)]
-          : []
-      )
-    })
-  )
-  .pipe(Atom.setIdleTTL("30 seconds"))
-
-export const pendingInvitesAtom = Atom.optimistic(pendingInvitesBaseAtom)
-
-export const invitationAtom = Atom.family((invitationId: string) =>
-  runtime.atom(
-    Effect.tryPromise(async (): Promise<PendingInvite> => {
-      const invite = await authData(
-        authClient.organization.getInvitation({ query: { id: invitationId } })
-      )
-      if (!invite) throw new Error("invitation not found")
-      return toPendingInvite(invite)
-    })
-  )
-)
-
-export const declineInvitationAtom = Atom.family((invitationId: string) =>
-  Atom.optimisticFn(pendingInvitesAtom, {
-    reducer: (current) =>
-      Result.isSuccess(current)
-        ? Result.success(current.value, { waiting: true })
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (_input: void, get) {
-        yield* Effect.tryPromise(() =>
-          authData(authClient.organization.rejectInvitation({ invitationId }))
-        )
-        get.refresh(pendingInvitesBaseAtom)
-      })
+export const setActiveOrganization = Api.runtime.fn(
+  Effect.fn("setActiveOrganization")(function* (organizationSlug: string) {
+    yield* Effect.tryPromise(() =>
+      authData(authClient.organization.setActive({ organizationSlug }))
     )
+    yield* Reactivity.invalidate([Keys.me()])
   })
-)
-
-export const acceptInviteAtom = Atom.family((invitationId: string) =>
-  Atom.optimisticFn(pendingInvitesAtom, {
-    reducer: (current) =>
-      Result.isSuccess(current)
-        ? Result.success(current.value, { waiting: true })
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (_input: void, get) {
-        yield* Effect.tryPromise(() =>
-          authData(
-            authClient.organization.acceptInvitation({
-              invitationId
-            })
-          )
-        )
-
-        get.refresh(pendingInvitesBaseAtom)
-        return invitationId
-      })
-    )
-  })
-)
-
-export const setActiveOrganizationAtom = Atom.family((_key: "me") =>
-  runtime.fn(
-    Effect.fn(function* (organizationSlug: string, get) {
-      yield* Effect.tryPromise(() =>
-        authData(
-          authClient.organization.setActive({
-            organizationSlug
-          })
-        )
-      )
-      get.refresh(meAtom)
-    })
-  )
 )
 
 export type AuthClientError = Pick<

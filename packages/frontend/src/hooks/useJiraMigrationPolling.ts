@@ -1,10 +1,7 @@
 import { useEffect } from "react"
 import { useAtomRefresh } from "@effect/atom-react"
 import type { JiraMigrationStatus } from "@projectproject/shared"
-import {
-  jiraMigrationKey,
-  jiraMigrationRefreshAtom
-} from "@/atoms/jiraMigration"
+import { jiraMigrationAtom, jiraMigrationKey } from "@/atoms/jiraMigration"
 import { isActiveJiraMigration } from "@/JiraMigration/screen"
 
 const POLL_INTERVAL_MS = 2_000
@@ -15,7 +12,7 @@ export function useJiraMigrationPolling(
   status: JiraMigrationStatus
 ) {
   const refresh = useAtomRefresh(
-    jiraMigrationRefreshAtom(jiraMigrationKey(orgSlug, migrationId))
+    jiraMigrationAtom(jiraMigrationKey(orgSlug, migrationId))
   )
   const active = isActiveJiraMigration(status)
 

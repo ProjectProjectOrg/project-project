@@ -6,12 +6,12 @@ import { createHash } from "node:crypto"
 import { Option, Schema } from "effect"
 import {
   JiraConvertedText as ArchivedConvertedText,
-  JiraManifestSourceV2
+  JiraManifestSourceV2,
+  canonicalJiraJson
 } from "./Manifest"
-import {
-  canonicalJiraJson,
-  type JiraPreparedPublicationV1,
-  type JiraAttachmentOutcome
+import type {
+  JiraPreparedPublicationV1,
+  JiraAttachmentOutcome
 } from "./PublicationPlan"
 export type JiraMigrationOutcomeInput = Readonly<{
   migrationId: string

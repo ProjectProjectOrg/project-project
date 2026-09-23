@@ -9,16 +9,17 @@ import {
 } from "lucide-react"
 import { useMemo, useState } from "react"
 import {
-  connectGithubAtom,
-  disconnectGithubAtom,
-  githubInstallationReposAtom,
-  githubInstallationReposKey,
-  githubOrgIntegrationAtom,
-  projectGitStatesAtom,
-  startGithubInstallAtom
+  connectGithub,
+  disconnectGithub,
+  githubIntegration,
+  githubOrgRequest,
+  githubRepos,
+  githubReposRequest,
+  projectGitStates,
+  startGithubInstall
 } from "@/atoms/github"
-import { projectKey } from "@/atoms/projects"
-import { meAtom } from "@/atoms/auth"
+import { projectRequest } from "@/atoms/projects"
+import { me } from "@/atoms/auth"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -39,12 +40,13 @@ type Props = {
 }
 
 export function GithubChip({ orgSlug, slug, github, callerRole }: Props) {
-  const me = useAtomValue(meAtom)
+  const viewer = useAtomValue(me())
   const canManage =
     callerRole === "owner" &&
-    Result.isSuccess(me) &&
-    me.value.activeOrgSlug === orgSlug
-  const states = useAtomValue(projectGitStatesAtom(projectKey(orgSlug, slug)))
+    Result.isSuccess(viewer) &&
+    viewer.value.activeOrgSlug === orgSlug
+  const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
+  const states = useAtomValue(projectGitStates(req))
 
   const flag: "token_expired" | "scope" | "repo_gone" | null = useMemo(() => {
     if (!Result.isSuccess(states)) return null
@@ -186,14 +188,15 @@ function ConnectedChip({
 }
 
 function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
-  const orgIntegration = useAtomValue(githubOrgIntegrationAtom(orgSlug))
-  const pKey = projectKey(orgSlug, slug)
-  const connect = useAtomSet(connectGithubAtom(pKey))
-  const connectState = useAtomValue(connectGithubAtom(pKey))
-  const startInstall = useAtomSet(startGithubInstallAtom(orgSlug), {
+  const orgReq = useMemo(() => githubOrgRequest(orgSlug), [orgSlug])
+  const orgIntegration = useAtomValue(githubIntegration(orgReq))
+  const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
+  const connect = useAtomSet(connectGithub(req))
+  const connectState = useAtomValue(connectGithub(req))
+  const startInstall = useAtomSet(startGithubInstall(orgReq), {
     mode: "promise"
   })
-  const startInstallState = useAtomValue(startGithubInstallAtom(orgSlug))
+  const startInstallState = useAtomValue(startGithubInstall(orgReq))
   const busy = connectState.waiting
   const installing = startInstallState.waiting
   const installError = installing
@@ -324,9 +327,11 @@ function ActiveRepoList({
   onPick: (repo: GithubRepo) => void
 }) {
   const [query, setQuery] = useState("")
-  const repos = useAtomValue(
-    githubInstallationReposAtom(githubInstallationReposKey(orgSlug, query))
+  const reposReq = useMemo(
+    () => githubReposRequest(orgSlug, query),
+    [orgSlug, query]
   )
+  const repos = useAtomValue(githubRepos(reposReq))
 
   return (
     <div className="p-3">
@@ -409,12 +414,12 @@ function ManagePanel({
   slug: string
   github: GithubConnection
 }) {
-  const pKey = projectKey(orgSlug, slug)
+  const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
   const [base, setBase] = useState(github.defaultBaseBranch ?? "")
-  const connect = useAtomSet(connectGithubAtom(pKey), { mode: "promiseExit" })
-  const connectState = useAtomValue(connectGithubAtom(pKey))
+  const connect = useAtomSet(connectGithub(req), { mode: "promiseExit" })
+  const connectState = useAtomValue(connectGithub(req))
   const saving = connectState.waiting
-  const disconnect = useAtomSet(disconnectGithubAtom(pKey))
+  const disconnect = useAtomSet(disconnectGithub(req))
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
 
   async function saveBase() {

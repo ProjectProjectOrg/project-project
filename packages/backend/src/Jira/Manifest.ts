@@ -1,4 +1,13 @@
 import * as Schema from "effect/Schema"
+export const canonicalJiraJson = (value: Schema.Json): string => {
+  if (Array.isArray(value)) return `[${value.map(canonicalJiraJson).join(",")}]`
+  if (value !== null && typeof value === "object")
+    return `{${Object.entries(value)
+      .toSorted(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([key, item]) => `${JSON.stringify(key)}:${canonicalJiraJson(item)}`)
+      .join(",")}}`
+  return JSON.stringify(value)
+}
 import { JiraArtifactRef } from "./MigrationArtifacts"
 
 export const JIRA_MIGRATION_MANIFEST_VERSION = 2 as const

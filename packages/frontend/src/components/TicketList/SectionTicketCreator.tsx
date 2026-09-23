@@ -1,10 +1,12 @@
 import * as Random from "effect/Random"
 import * as Effect from "effect/Effect"
+import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Exit from "effect/Exit"
 import { Plus } from "lucide-react"
 import {
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -26,28 +28,28 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { BADGE_TONES } from "@/components/ui/badge"
-import { meAtom } from "@/atoms/auth"
-import { projectAtom, projectKey } from "@/atoms/projects"
+import { backlogRequest, quickCreateBacklogTicket } from "@/atoms/backlog"
+import { me } from "@/atoms/auth"
+import { project as projectView, projectRequest } from "@/atoms/projects"
 import {
-  projectKey as sprintsKey,
-  sprintsListAtom,
-  useAddTicketsToSprint
-} from "@/atoms/sprints"
+  assignTicketToSprint,
+  sprintList,
+  sprintListRequest
+} from "@/atoms/sprintList"
 import {
-  quickCreateTicketAtom,
-  quickCreateFlatTicketAtom,
-  ticketsListKey,
-  ticketsListKeyForStatus
-} from "@/atoms/tickets"
+  quickCreateSprintSectionsTicket,
+  sprintSectionsRequest
+} from "@/atoms/sprintSections"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
-import type {
-  Group,
+import {
   GroupId,
-  TicketListQuery,
-  TicketStatus,
-  TicketType
+  sprintSectionKey,
+  type Group,
+  type TicketListQuery,
+  type TicketStatus,
+  type TicketType
 } from "@projectproject/shared"
 
 export function SectionTicketCreator({
@@ -67,13 +69,37 @@ export function SectionTicketCreator({
   containerRef: RefObject<HTMLDivElement | null>
   onDone: () => void
 }) {
-  const sectionKey = ticketsListKeyForStatus(orgSlug, slug, query, status)
-  const mutation =
-    variant === "flat"
-      ? quickCreateFlatTicketAtom(ticketsListKey(orgSlug, slug, query))
-      : quickCreateTicketAtom(sectionKey)
-  const create = useAtomSet(mutation, { mode: "promiseExit" })
-  const createState = useAtomValue(mutation)
+  const registry = useContext(RegistryContext)
+  const sectionsReq = useMemo(
+    () => backlogRequest(orgSlug, slug, query),
+    [orgSlug, slug, query]
+  )
+  const sprintReqForCreate = useMemo(
+    () => sprintSectionsRequest(orgSlug, slug, query),
+    [orgSlug, slug, query]
+  )
+  const sprintKey = sprintSectionKey(
+    Schema.is(GroupId)(query.groupId?.[0]) ? query.groupId[0] : null
+  )
+  const createSections = useAtomSet(quickCreateBacklogTicket(sectionsReq), {
+    mode: "promiseExit"
+  })
+  const createSectionsState = useAtomValue(
+    quickCreateBacklogTicket(sectionsReq)
+  )
+  const createSprint = useAtomSet(
+    quickCreateSprintSectionsTicket({
+      req: sprintReqForCreate,
+      key: sprintKey
+    }),
+    { mode: "promiseExit" }
+  )
+  const createSprintState = useAtomValue(
+    quickCreateSprintSectionsTicket({ req: sprintReqForCreate, key: sprintKey })
+  )
+  const create = variant === "flat" ? createSprint : createSections
+  const createState =
+    variant === "flat" ? createSprintState : createSectionsState
   const submitting = createState.waiting
   const error = Result.isFailure(createState)
     ? m.tickets_create_error_fallback()
@@ -83,28 +109,29 @@ export function SectionTicketCreator({
       ? m.tickets_create_sprint_assignment_failed()
       : null
 
-  const me = useAtomValue(meAtom)
-  const viewerId = Result.isSuccess(me) ? me.value.id : ""
+  const viewer = useAtomValue(me())
+  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
 
-  const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
+  const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
   const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
 
-  const sprintProjectKey = sprintsKey(orgSlug, slug)
-  const sprintListResult = useAtomValue(sprintsListAtom(sprintProjectKey))
+  const sprintReq = useMemo(
+    () => sprintListRequest(orgSlug, slug),
+    [orgSlug, slug]
+  )
+  const sprintListResult = useAtomValue(sprintList(sprintReq))
   const sprints = useMemo<ReadonlyArray<Group>>(
     () => (Result.isSuccess(sprintListResult) ? sprintListResult.value : []),
     [sprintListResult]
   )
-  const addToSprint = useAddTicketsToSprint(sprintProjectKey)
 
-  const groupIdFilter = query.filter?.groupId
+  const groupIdFilter = query.groupId
   const singleGroupIdFilter =
     groupIdFilter && groupIdFilter.length === 1 ? groupIdFilter[0] : undefined
-  const activeSprintId: GroupId | null =
-    singleGroupIdFilter && singleGroupIdFilter !== null
-      ? (singleGroupIdFilter as GroupId)
-      : null
-  const isExplicitNoSprintFilter = singleGroupIdFilter === null
+  const activeSprintId = Schema.is(GroupId)(singleGroupIdFilter)
+    ? singleGroupIdFilter
+    : null
+  const isExplicitNoSprintFilter = singleGroupIdFilter === "ungrouped"
   const hasSprints = sprints.some((s) => s.completedAt === null)
   const showSprintAddon =
     activeSprintId === null && !isExplicitNoSprintFilter && hasSprints
@@ -201,7 +228,7 @@ export function SectionTicketCreator({
     }
     const attachTo = activeSprintId ?? selectedSprint?.id ?? null
     if (attachTo !== null && variant !== "flat") {
-      addToSprint({ groupId: attachTo, ticketIds: [exit.value.id] })
+      assignTicketToSprint(registry, sprintReq, exit.value.id, attachTo)
     }
   }
 

@@ -1,23 +1,21 @@
 import type { ReactNode } from "react"
 import { StatusButton } from "@/components/TicketList/StatusField"
 import { TitleField } from "@/components/TicketPage/TitleField"
-import type { TicketDetail } from "@projectproject/shared"
-
-const HEADER_STATUS_QUERY = {
-  sort: { key: "updated", dir: "desc" }
-} as const
+import type { TicketDetail, UpdateTicketInput } from "@projectproject/shared"
 
 export function TicketPageHeader({
   orgSlug,
   slug,
   ticket,
   readOnly = false,
+  onPatch,
   meta
 }: {
   orgSlug: string
   slug: string
   ticket: TicketDetail
   readOnly?: boolean
+  onPatch?: (patch: UpdateTicketInput) => void
   meta?: ReactNode
 }) {
   return (
@@ -27,9 +25,9 @@ export function TicketPageHeader({
           orgSlug={orgSlug}
           slug={slug}
           ticket={ticket}
-          query={HEADER_STATUS_QUERY}
           size="lg"
           disabled={readOnly}
+          onPatch={onPatch ?? noopPatch}
         />
       </div>
       <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
@@ -57,3 +55,5 @@ export function TicketPageHeader({
     </header>
   )
 }
+
+const noopPatch = (_patch: UpdateTicketInput) => {}

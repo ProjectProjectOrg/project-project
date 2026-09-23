@@ -1,12 +1,7 @@
 // Thin handlers for the `tickets` HttpApi group. All logic in Tickets.
 
 import { HttpApiBuilder } from "effect/unstable/httpapi"
-import {
-  AppApi,
-  CurrentUser,
-  ticketListQueryFromSearch,
-  Validation
-} from "@projectproject/shared"
+import { AppApi, CurrentUser, Validation } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import { CurrentOrg } from "../Services/CurrentOrg"
 import { Tickets } from "../Services/Tickets"
@@ -27,7 +22,21 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
             org.orgSlug,
             user.id,
             params.slug,
-            ticketListQueryFromSearch(query)
+            query
+          )
+        }).pipe(dieOnMarkdown)
+      )
+      .handle("sprintSections", ({ params, query }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
+          const tickets = yield* Tickets
+          return yield* tickets.sprintSections(
+            org.orgSlug,
+            user.id,
+            params.slug,
+            query
           )
         }).pipe(dieOnMarkdown)
       )
@@ -37,12 +46,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(params.orgSlug, user.id)
           const tickets = yield* Tickets
-          return yield* tickets.list(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            ticketListQueryFromSearch(query)
-          )
+          return yield* tickets.list(org.orgSlug, user.id, params.slug, query)
         }).pipe(dieOnMarkdown)
       )
       .handle("search", ({ params, query }) =>
@@ -51,18 +55,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(params.orgSlug, user.id)
           const tickets = yield* Tickets
-          const limitNum =
-            query.limit !== undefined
-              ? Number.parseInt(query.limit, 10)
-              : undefined
-          return yield* tickets.search(org.orgSlug, user.id, params.slug, {
-            q: query.q,
-            excludeGroupId: query.excludeGroupId,
-            limit:
-              limitNum !== undefined && Number.isFinite(limitNum)
-                ? limitNum
-                : undefined
-          })
+          return yield* tickets.search(org.orgSlug, user.id, params.slug, query)
         }).pipe(dieOnMarkdown)
       )
       .handle("count", ({ params, query }) =>
@@ -71,12 +64,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(params.orgSlug, user.id)
           const tickets = yield* Tickets
-          return yield* tickets.count(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            ticketListQueryFromSearch(query)
-          )
+          return yield* tickets.count(org.orgSlug, user.id, params.slug, query)
         }).pipe(dieOnMarkdown)
       )
       .handle("quickCreate", ({ params, payload }) =>
@@ -121,7 +109,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           )
         }).pipe(dieOnMarkdown)
       )
-      .handle("update", ({ params, payload }) =>
+      .handle("update", ({ params, payload, query }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const currentOrg = yield* CurrentOrg
@@ -132,7 +120,8 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
             user.id,
             params.slug,
             params.id,
-            payload
+            payload,
+            query.sort
           )
         }).pipe(dieOnMarkdown)
       )

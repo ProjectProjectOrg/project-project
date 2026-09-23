@@ -1,141 +1,165 @@
-import * as Result from "effect/unstable/reactivity/AsyncResult"
-import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Effect from "effect/Effect"
-import { runtime } from "@/runtime"
-import { ApiClient } from "@/services/ApiClient"
-import { meAtom } from "./auth"
+import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as Atom from "effect/unstable/reactivity/Atom"
+import * as Reactivity from "effect/unstable/reactivity/Reactivity"
+import type { ConnectEverhourProfileInput } from "@projectproject/shared"
+import { Api } from "@/api/Api"
+import { Keys, projectScope } from "@/api/keys"
 
-const splitProjectKey = (key: string): { orgSlug: string; slug: string } => {
-  const sep = key.indexOf("/")
-  return { orgSlug: key.slice(0, sep), slug: key.slice(sep + 1) }
-}
+export type EverhourProjectRequest = Readonly<{
+  params: Readonly<{ orgSlug: string; slug: string }>
+}>
 
-export const everhourProfileBaseAtom = runtime
-  .atom(
-    Effect.gen(function* () {
-      const client = yield* ApiClient
-      return yield* client.everhour.profile()
-    })
-  )
-  .pipe(Atom.setIdleTTL("1 minute"))
+export const everhourProjectRequest = (
+  orgSlug: string,
+  slug: string
+): EverhourProjectRequest => ({
+  params: { orgSlug, slug }
+})
 
-export const everhourProfileAtom = Atom.optimistic(everhourProfileBaseAtom)
+const scopeOf = (req: EverhourProjectRequest) =>
+  projectScope(req.params.orgSlug, req.params.slug)
+
+export const everhourProfileQuery = Api.query("everhour", "profile", {
+  timeToLive: "1 minute",
+  reactivityKeys: [Keys.everhourProfile()]
+})
+
+export const everhourProfileAtom = Atom.optimistic(everhourProfileQuery)
 
 export const connectEverhourProfileAtom = Atom.optimisticFn(
   everhourProfileAtom,
   {
-    reducer: (current) =>
-      Result.isSuccess(current)
-        ? Result.success(current.value, { waiting: true })
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (input: { apiKey: string }, get) {
-        const client = yield* ApiClient
-        const profile = yield* client.everhour.connectProfile({
-          payload: input
+    reducer: (current, _input: ConnectEverhourProfileInput) =>
+      AsyncResult.map(current, (profile) => ({
+        ...profile,
+        connected: true,
+        lastCheckError: null
+      })),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn("connectEverhourProfile")(function* (
+          input: ConnectEverhourProfileInput
+        ) {
+          const profile = yield* Api.use((client) =>
+            client.everhour.connectProfile({ payload: input })
+          )
+          set(AsyncResult.success(profile))
+          yield* Reactivity.invalidate([Keys.me()])
+          return profile
         })
-        get.refresh(everhourProfileBaseAtom)
-        get.refresh(meAtom)
-        return profile
-      })
-    )
+      )
   }
 )
 
 export const disconnectEverhourProfileAtom = Atom.optimisticFn(
   everhourProfileAtom,
   {
-    reducer: (current) =>
-      Result.isSuccess(current)
-        ? Result.success(
-            {
-              connected: false,
-              everhourUserId: null,
-              name: null,
-              email: null,
-              lastVerifiedAt: null,
-              lastCheckError: null
-            },
-            { waiting: true }
+    reducer: (current, _input: void) =>
+      AsyncResult.map(current, () => ({
+        connected: false,
+        everhourUserId: null,
+        name: null,
+        email: null,
+        lastVerifiedAt: null,
+        lastCheckError: null
+      })),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn("disconnectEverhourProfile")(function* (_input: void) {
+          const profile = yield* Api.use((client) =>
+            client.everhour.disconnectProfile()
           )
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (_input: void, get) {
-        const client = yield* ApiClient
-        const profile = yield* client.everhour.disconnectProfile()
-        get.refresh(everhourProfileBaseAtom)
-        get.refresh(meAtom)
-        return profile
-      })
-    )
+          set(AsyncResult.success(profile))
+          yield* Reactivity.invalidate([Keys.me()])
+          return profile
+        })
+      )
   }
 )
 
-export const everhourProjectStatusBaseAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitProjectKey(key)
-  return runtime
-    .atom(
-      Effect.gen(function* () {
-        const client = yield* ApiClient
-        return yield* client.everhour.projectStatus({
-          params: { orgSlug, slug }
-        })
-      })
-    )
-    .pipe(Atom.setIdleTTL("30 seconds"))
-})
+const everhourProjectQuery = (req: EverhourProjectRequest) =>
+  Api.query("everhour", "projectStatus", {
+    params: req.params,
+    timeToLive: "30 seconds",
+    reactivityKeys: [Keys.everhourProject(scopeOf(req))]
+  })
 
-export const everhourProjectStatusAtom = Atom.family((key: string) =>
-  Atom.optimistic(everhourProjectStatusBaseAtom(key))
+export const everhourProjectStatusAtom = Atom.family(
+  (req: EverhourProjectRequest) => Atom.optimistic(everhourProjectQuery(req))
 )
 
-export const connectEverhourProjectAtom = Atom.family((key: string) =>
-  Atom.optimisticFn(everhourProjectStatusAtom(key), {
-    reducer: (current) =>
-      Result.isSuccess(current)
-        ? Result.success(current.value, { waiting: true })
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (_input: void, get) {
-        const { orgSlug, slug } = splitProjectKey(key)
-        const client = yield* ApiClient
-        yield* client.everhour.connectProject({ params: { orgSlug, slug } })
-        get.refresh(everhourProjectStatusBaseAtom(key))
-      })
-    )
-  })
+export const connectEverhourProjectAtom = Atom.family(
+  (req: EverhourProjectRequest) =>
+    Atom.optimisticFn(everhourProjectStatusAtom(req), {
+      reducer: (current, _input: void) =>
+        AsyncResult.map(current, (status) => ({
+          ...status,
+          status: "active" as const,
+          lastSyncStatus: "ok" as const,
+          lastSyncError: null,
+          needsSync: false
+        })),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn("connectEverhourProject")(function* (_input: void) {
+            const summary = yield* Api.use((client) =>
+              client.everhour.connectProject({ params: req.params })
+            )
+            const status = yield* Api.use((client) =>
+              client.everhour.projectStatus({ params: req.params })
+            )
+            set(AsyncResult.success(status))
+            return summary
+          })
+        )
+    })
 )
 
-export const syncEverhourProjectAtom = Atom.family((key: string) =>
-  Atom.optimisticFn(everhourProjectStatusAtom(key), {
-    reducer: (current) =>
-      Result.isSuccess(current)
-        ? Result.success(current.value, { waiting: true })
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (_input: void, get) {
-        const { orgSlug, slug } = splitProjectKey(key)
-        const client = yield* ApiClient
-        yield* client.everhour.syncProject({ params: { orgSlug, slug } })
-        get.refresh(everhourProjectStatusBaseAtom(key))
-      })
-    )
-  })
+export const syncEverhourProjectAtom = Atom.family(
+  (req: EverhourProjectRequest) =>
+    Atom.optimisticFn(everhourProjectStatusAtom(req), {
+      reducer: (current, _input: void) =>
+        AsyncResult.map(current, (status) => status),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn("syncEverhourProject")(function* (_input: void) {
+            const summary = yield* Api.use((client) =>
+              client.everhour.syncProject({ params: req.params })
+            )
+            const status = yield* Api.use((client) =>
+              client.everhour.projectStatus({ params: req.params })
+            )
+            set(AsyncResult.success(status))
+            return summary
+          })
+        )
+    })
 )
 
-export const disconnectEverhourProjectAtom = Atom.family((key: string) =>
-  Atom.optimisticFn(everhourProjectStatusAtom(key), {
-    reducer: (current) =>
-      Result.isSuccess(current)
-        ? Result.success(current.value, { waiting: true })
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (_input: void, get) {
-        const { orgSlug, slug } = splitProjectKey(key)
-        const client = yield* ApiClient
-        yield* client.everhour.disconnectProject({ params: { orgSlug, slug } })
-        get.refresh(everhourProjectStatusBaseAtom(key))
-      })
-    )
-  })
+export const disconnectEverhourProjectAtom = Atom.family(
+  (req: EverhourProjectRequest) =>
+    Atom.optimisticFn(everhourProjectStatusAtom(req), {
+      reducer: (current, _input: void) =>
+        AsyncResult.map(current, (status) => ({
+          ...status,
+          status: "not_connected" as const,
+          everhourProjectId: null,
+          everhourProjectName: null,
+          lastSyncedAt: null,
+          lastSyncStatus: null,
+          lastSyncError: null,
+          needsSync: false
+        })),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn("disconnectEverhourProject")(function* (_input: void) {
+            const status = yield* Api.use((client) =>
+              client.everhour.disconnectProject({ params: req.params })
+            )
+            set(AsyncResult.success(status))
+            return status
+          })
+        )
+    })
 )

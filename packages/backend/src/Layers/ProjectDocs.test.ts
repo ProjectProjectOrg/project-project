@@ -61,6 +61,15 @@ it.effect(
   }
 )
 
+it.effect("reads an explicitly null legacy github field", () => {
+  const { layer } = docsWith({ ...base, github: null })
+  return Effect.gen(function* () {
+    const docs = yield* ProjectDocs
+    const document = yield* docs.read("demo", "demo")
+    expect(document.github).toBeNull()
+  }).pipe(Effect.provide(layer))
+})
+
 it.effect("drops the legacy aesthetic keys on the next write", () => {
   const { layer, written } = docsWith(legacy)
   return Effect.gen(function* () {

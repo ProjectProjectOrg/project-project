@@ -1,13 +1,6 @@
-import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Exit from "effect/Exit"
 import { Archive, ArchiveRestore } from "lucide-react"
 import { useState } from "react"
-import {
-  archiveTicketAtom,
-  ticketKey,
-  unarchiveTicketAtom
-} from "@/atoms/tickets"
 import { Button } from "@/components/ui/button"
 import {
   Popover,
@@ -15,31 +8,43 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import { m } from "@/paraglide/messages"
-import type { TicketId } from "@projectproject/shared"
+import type { ArchiveTicketInput } from "@projectproject/shared"
+
+type ArchiveExit = Exit.Exit<unknown, unknown>
 
 export function ArchiveTicketControl({
-  orgSlug,
-  slug,
-  id,
-  archived
+  archived,
+  onArchive,
+  onUnarchive,
+  waiting,
+  failed
 }: {
-  orgSlug: string
-  slug: string
-  id: TicketId
   archived: boolean
+  onArchive: (input: ArchiveTicketInput) => Promise<ArchiveExit>
+  onUnarchive: () => void
+  waiting: boolean
+  failed: boolean
 }) {
-  const tKey = ticketKey(orgSlug, slug, id)
   return archived ? (
-    <UnarchiveButton tKey={tKey} />
+    <UnarchiveButton
+      onUnarchive={onUnarchive}
+      waiting={waiting}
+      failed={failed}
+    />
   ) : (
-    <ArchivePopover tKey={tKey} />
+    <ArchivePopover onArchive={onArchive} waiting={waiting} failed={failed} />
   )
 }
 
-function UnarchiveButton({ tKey }: { tKey: string }) {
-  const unarchive = useAtomSet(unarchiveTicketAtom(tKey))
-  const state = useAtomValue(unarchiveTicketAtom(tKey))
-  const failed = Result.isFailure(state)
+function UnarchiveButton({
+  onUnarchive,
+  waiting,
+  failed
+}: {
+  onUnarchive: () => void
+  waiting: boolean
+  failed: boolean
+}) {
   return (
     <Button
       type="button"
@@ -51,8 +56,8 @@ function UnarchiveButton({ tKey }: { tKey: string }) {
           ? m.tickets_unarchive_error_fallback()
           : m.tickets_unarchive_button()
       }
-      disabled={state.waiting}
-      onClick={() => unarchive()}
+      disabled={waiting}
+      onClick={() => onUnarchive()}
       className={
         failed
           ? "text-destructive hover:text-destructive"
@@ -64,7 +69,15 @@ function UnarchiveButton({ tKey }: { tKey: string }) {
   )
 }
 
-function ArchivePopover({ tKey }: { tKey: string }) {
+function ArchivePopover({
+  onArchive,
+  waiting,
+  failed
+}: {
+  onArchive: (input: ArchiveTicketInput) => Promise<ArchiveExit>
+  waiting: boolean
+  failed: boolean
+}) {
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState("")
 
@@ -86,9 +99,11 @@ function ArchivePopover({ tKey }: { tKey: string }) {
       />
       <PopoverContent align="end" className="w-72">
         <ArchiveForm
-          tKey={tKey}
           reason={reason}
           onReasonChange={setReason}
+          onArchive={onArchive}
+          waiting={waiting}
+          failed={failed}
           onClose={() => setOpen(false)}
         />
       </PopoverContent>
@@ -97,32 +112,29 @@ function ArchivePopover({ tKey }: { tKey: string }) {
 }
 
 export function ArchiveForm({
-  tKey,
   reason,
   onReasonChange,
+  onArchive,
+  waiting,
+  failed,
   onClose
 }: {
-  tKey: string
   reason: string
   onReasonChange: (reason: string) => void
+  onArchive: (input: ArchiveTicketInput) => Promise<ArchiveExit>
+  waiting: boolean
+  failed: boolean
   onClose: () => void
 }) {
-  const archive = useAtomSet(archiveTicketAtom(tKey), { mode: "promiseExit" })
-  const state = useAtomValue(archiveTicketAtom(tKey))
-  const submitting = state.waiting
-  const error = Result.isFailure(state)
-    ? m.tickets_archive_error_fallback()
-    : null
-
-  const submit = () => {
+  const submit = async () => {
     const trimmed = reason.trim()
-    void archive({ reason: trimmed.length > 0 ? trimmed : undefined }).then(
-      (exit) => {
-        if (!Exit.isSuccess(exit)) return
-        onReasonChange("")
-        onClose()
-      }
-    )
+    const exit = await onArchive({
+      reason: trimmed.length > 0 ? trimmed : undefined
+    })
+    if (Exit.isSuccess(exit)) {
+      onReasonChange("")
+      onClose()
+    }
   }
 
   return (
@@ -145,12 +157,21 @@ export function ArchiveForm({
           className="w-full resize-none rounded-md border border-border bg-background px-2.5 py-1.5 text-sm outline-none ring-offset-background transition-colors focus-visible:ring-2 focus-visible:ring-ring"
         />
       </label>
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {failed && (
+        <p className="text-xs text-destructive">
+          {m.tickets_archive_error_fallback()}
+        </p>
+      )}
       <div className="flex items-center justify-end gap-2">
         <Button type="button" variant="ghost" size="sm" onClick={onClose}>
           {m.tickets_archive_cancel()}
         </Button>
-        <Button type="button" size="sm" disabled={submitting} onClick={submit}>
+        <Button
+          type="button"
+          size="sm"
+          disabled={waiting}
+          onClick={() => void submit()}
+        >
           {m.tickets_archive_submit()}
         </Button>
       </div>

@@ -73,6 +73,7 @@ describe("serializeCommentsRegion + parseCommentsRegion", () => {
     expect(serializeCommentsRegion(parseCommentsRegion(serialized))).toBe(
       serialized
     )
+    expect(serialized).not.toContain("editedAt: null")
   })
 
   it("decodes legacy string authors as native users", () => {
@@ -94,6 +95,45 @@ describe("serializeCommentsRegion + parseCommentsRegion", () => {
     const region = `${COMMENTS_START}\n<!-- comment:c_invalid -->\n---\nauthor:\n  kind: jira\n  displayName: Former Jira User\norigin: native\ncreatedAt: 2026-05-07T10:00:00.000Z\n---\nInvalid attribution.\n${COMMENTS_END}\n`
 
     expect(parseCommentsRegion(region)).toEqual([])
+  })
+
+  it("preserves comments with an explicit null edit timestamp", () => {
+    const region = `${COMMENTS_START}\n<!-- comment:c_a -->\n---\nauthor: github_42\ncreatedAt: 2026-05-07T10:00:00.000Z\neditedAt: null\n---\nHello.\n${COMMENTS_END}\n`
+    const parsed = parseCommentsRegion(region)
+    expect(parsed).toEqual([
+      {
+        id: "c_a",
+        author: { kind: "user", userId: "github_42" },
+        origin: "native",
+        createdAt: isoDate("2026-05-07T10:00:00.000Z"),
+        editedAt: null,
+        body: "Hello."
+      }
+    ])
+    const serialized = serializeCommentsRegion(parsed)
+    expect(serialized).not.toContain("editedAt:")
+    expect(parseCommentsRegion(serialized)).toEqual(parsed)
+  })
+
+  it("accepts quoted ISO timestamps", () => {
+    const region = `${COMMENTS_START}\n<!-- comment:c_a -->\n---\nauthor: github_42\ncreatedAt: "2026-05-07T10:00:00.000Z"\n---\nHello.\n${COMMENTS_END}\n`
+    const parsed = parseCommentsRegion(region)
+    expect(parsed[0].createdAt.toISOString()).toBe("2026-05-07T10:00:00.000Z")
+  })
+
+  it("keeps a comment whose editedAt cannot be parsed", () => {
+    const region = `${COMMENTS_START}\n<!-- comment:c_a -->\n---\nauthor: github_42\ncreatedAt: 2026-05-07T10:00:00.000Z\neditedAt: yesterday\n---\nHello.\n${COMMENTS_END}\n`
+    const parsed = parseCommentsRegion(region)
+    expect(parsed).toEqual([
+      {
+        id: "c_a",
+        author: { kind: "user", userId: "github_42" },
+        origin: "native",
+        createdAt: isoDate("2026-05-07T10:00:00.000Z"),
+        editedAt: null,
+        body: "Hello."
+      }
+    ])
   })
 
   it("parses a region containing tombstone-style whitespace tolerantly", () => {

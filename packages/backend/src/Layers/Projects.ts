@@ -22,8 +22,11 @@ import {
   RepoGone,
   RateLimited,
   Role,
+  UserId,
   Validation
 } from "@projectproject/shared"
+
+const decodeUserId = Schema.decodeSync(UserId)
 import type { CursorPayload } from "@projectproject/shared"
 import type {
   AddMemberInput,
@@ -260,7 +263,7 @@ export const ProjectsLive = Layer.effect(
         .pipe(
           Effect.map((rows) =>
             rows.map((r): Member => ({
-              id: r.user.id,
+              id: decodeUserId(r.user.id),
               username: r.user.username,
               name: r.user.name,
               email: r.user.email,

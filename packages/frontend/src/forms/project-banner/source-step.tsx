@@ -3,7 +3,7 @@ import { useAtomValue } from "@effect/atom-react"
 import { Link } from "@tanstack/react-router"
 import { useRef, useState } from "react"
 import { Database, Upload } from "lucide-react"
-import { orgStorageAtom } from "@/atoms/storage"
+import { orgStorage, storageRequest } from "@/atoms/storage"
 import { SegmentedTabs, SEGMENTED_ITEM_CLASS } from "@/components/SegmentedTabs"
 import { motion, useReducedMotion } from "motion/react"
 import { StepHeading } from "@/components/appearance/AppearanceCard"
@@ -31,7 +31,7 @@ export function BannerSourceStep({
   onPickPreset: () => void
   rejected: boolean
 }) {
-  const storage = useAtomValue(orgStorageAtom(orgSlug))
+  const storage = useAtomValue(orgStorage(storageRequest(orgSlug)))
   const fileRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const reduce = useReducedMotion() ?? false

@@ -2,50 +2,40 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomValue } from "@effect/atom-react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
-import { useEffect, useRef } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { TicketPage, TicketPageSkeleton } from "@/components/TicketPage"
 import { ErrorPage } from "@/components/ErrorPage"
 import { NotFoundPage } from "@/components/NotFoundPage"
 import { TicketId } from "@projectproject/shared"
-import { commentsAtom, commentsKey } from "@/atoms/comments"
-import { orgDetailAtom } from "@/atoms/orgs"
-import { orgStorageAtom } from "@/atoms/storage"
-import { ticketAtom, ticketKey } from "@/atoms/tickets"
+import { comments, commentsRequest } from "@/atoms/comments"
+import { orgDetail, orgRequest } from "@/atoms/orgs"
+import { orgStorage, storageRequest } from "@/atoms/storage"
+import { ticketDetail, ticketRequest } from "@/atoms/ticketDetail"
 import { m } from "@/paraglide/messages"
 import { useProject } from "../-context"
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 
-const isTicketId = Schema.is(TicketId)
-
-interface TicketDetailSearch {
-  focusBody?: 1
-  splitInto?: ReadonlyArray<TicketId>
-}
+const TicketDetailSearch = Schema.Struct({
+  focusBody: Schema.optional(Schema.Literal(1)),
+  splitInto: Schema.optional(Schema.Array(TicketId))
+})
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/tickets/$id"
 )({
   component: TicketDetailRoute,
-  validateSearch: (search: Record<string, unknown>): TicketDetailSearch => {
-    const splitInto = Array.isArray(search.splitInto)
-      ? search.splitInto.filter(isTicketId)
-      : []
-    return {
-      ...(search.focusBody === 1 ? { focusBody: 1 as const } : {}),
-      ...(splitInto.length > 0 ? { splitInto } : {})
-    }
-  },
+  validateSearch: Schema.toStandardSchemaV1(TicketDetailSearch),
   loader: ({ context, params }) => {
     const id = decodeTicketId(params.id)
     context.registry.mount(
-      ticketAtom(ticketKey(params.orgSlug, params.slug, id))
+      ticketDetail(ticketRequest(params.orgSlug, params.slug, id))
     )()
     context.registry.mount(
-      commentsAtom(commentsKey(params.orgSlug, params.slug, id))
+      comments(commentsRequest(params.orgSlug, params.slug, id))
     )()
-    context.registry.mount(orgStorageAtom(params.orgSlug))()
-    context.registry.mount(orgDetailAtom(params.orgSlug))()
+    context.registry.mount(orgStorage(storageRequest(params.orgSlug)))()
+    context.registry.mount(orgDetail(orgRequest(params.orgSlug)))()
     return {
       crumb: {
         type: "ticket" as const,
@@ -62,7 +52,11 @@ function TicketDetailRoute() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const ticketId = decodeTicketId(id)
-  const result = useAtomValue(ticketAtom(ticketKey(orgSlug, slug, ticketId)))
+  const req = useMemo(
+    () => ticketRequest(orgSlug, slug, ticketId),
+    [orgSlug, slug, ticketId]
+  )
+  const result = useAtomValue(ticketDetail(req))
   const project = useProject()
   const autoFocusBody = useRef(search.focusBody === 1).current
 
@@ -70,7 +64,8 @@ function TicketDetailRoute() {
     if (!autoFocusBody) return
     void navigate({
       to: ".",
-      search: () => ({}),
+      search: ({ splitInto }) =>
+        splitInto && splitInto.length > 0 ? { splitInto } : {},
       replace: true
     })
   }, [autoFocusBody, navigate])

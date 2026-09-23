@@ -7,25 +7,28 @@ export const COMMENTS_END = "<!-- comments:end -->"
 const COMMENT_MARKER = /^<!--\s*comment:([A-Za-z0-9_-]+)\s*-->$/
 const FORBIDDEN_BODY = /<!--\s*comment(s)?:/
 
-export interface CommentBlock {
-  readonly id: string
-  readonly author: CommentBlockAuthor
-  readonly origin: "native" | "jira"
-  readonly createdAt: Date
-  readonly editedAt: Date | null
-  readonly body: string
-}
+export type CommentBlock = Readonly<{
+  id: string
+  author: CommentBlockAuthor
+  origin: "native" | "jira"
+  createdAt: Date
+  editedAt: Date | null
+  body: string
+}>
 
 export type CommentBlockAuthor =
-  | { readonly kind: "user"; readonly userId: string }
-  | {
-      readonly kind: "jira"
-      readonly displayName: string
-      readonly accountId: string
-    }
+  | Readonly<{ kind: "user"; userId: string }>
+  | Readonly<{
+      kind: "jira"
+      displayName: string
+      accountId: string
+    }>
 
 const CommentBlockDate = Schema.Union([Schema.DateFromString, Schema.Date])
-const CommentBlockEditedDate = Schema.NullOr(CommentBlockDate)
+const decodeEditedAt = (value: unknown): Date | null => {
+  if (value == null) return null
+  return Option.getOrNull(Schema.decodeUnknownOption(CommentBlockDate)(value))
+}
 const UserBlockAuthor = Schema.Struct({
   kind: Schema.Literal("user"),
   userId: Schema.NonEmptyString
@@ -38,25 +41,25 @@ const JiraBlockAuthor = Schema.Struct({
 const LegacyCommentData = Schema.Struct({
   author: Schema.NonEmptyString,
   createdAt: CommentBlockDate,
-  editedAt: Schema.optionalKey(CommentBlockEditedDate)
+  editedAt: Schema.optionalKey(Schema.Unknown)
 })
 const NativeCommentData = Schema.Struct({
   author: UserBlockAuthor,
   origin: Schema.Literal("native"),
   createdAt: CommentBlockDate,
-  editedAt: Schema.optionalKey(CommentBlockEditedDate)
+  editedAt: Schema.optionalKey(Schema.Unknown)
 })
 const LinkedJiraCommentData = Schema.Struct({
   author: UserBlockAuthor,
   origin: Schema.Literal("jira"),
   createdAt: CommentBlockDate,
-  editedAt: Schema.optionalKey(CommentBlockEditedDate)
+  editedAt: Schema.optionalKey(Schema.Unknown)
 })
 const SnapshotJiraCommentData = Schema.Struct({
   author: JiraBlockAuthor,
   origin: Schema.Literal("jira"),
   createdAt: CommentBlockDate,
-  editedAt: Schema.optionalKey(CommentBlockEditedDate)
+  editedAt: Schema.optionalKey(Schema.Unknown)
 })
 const CommentBlockData = Schema.Union([
   LegacyCommentData,
@@ -66,8 +69,8 @@ const CommentBlockData = Schema.Union([
 ])
 
 export type ValidationResult =
-  | { readonly ok: true }
-  | { readonly ok: false; readonly reason: string }
+  | Readonly<{ ok: true }>
+  | Readonly<{ ok: false; reason: string }>
 
 export function validateCommentBody(body: string): ValidationResult {
   if (!body.trim()) return { ok: false, reason: "empty" }
@@ -77,10 +80,10 @@ export function validateCommentBody(body: string): ValidationResult {
   return { ok: true }
 }
 
-export function splitDescriptionAndCommentsRegion(full: string): {
+export function splitDescriptionAndCommentsRegion(full: string): Readonly<{
   description: string
   region: string
-} {
+}> {
   const idx = full.indexOf(COMMENTS_START)
   if (idx === -1) return { description: full, region: "" }
   const before = full.slice(0, idx)
@@ -128,7 +131,7 @@ export function parseCommentsRegion(
         author,
         origin,
         createdAt: data.createdAt,
-        editedAt: data.editedAt ?? null,
+        editedAt: decodeEditedAt(data.editedAt),
         body: parsed.content.replace(/^\n+/, "").replace(/\s+$/, "")
       })
     }

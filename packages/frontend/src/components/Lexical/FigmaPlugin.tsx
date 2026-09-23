@@ -1,12 +1,28 @@
 import { useEffect, type JSX } from "react"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import { $insertNodes, COMMAND_PRIORITY_HIGH, PASTE_COMMAND } from "lexical"
+import {
+  $insertNodes,
+  $nodesOfType,
+  COMMAND_PRIORITY_HIGH,
+  PASTE_COMMAND
+} from "lexical"
 import { figmaSrc, parseFigmaUrl } from "@projectproject/shared"
-import { $createFigmaNode } from "./FigmaNode"
+import type { FigmaTicketLinksRequest } from "@/atoms/figma"
+import { $createFigmaNode, FigmaNode } from "./FigmaNode"
 import { figmaSlugLabel } from "./FigmaChip"
 
-export function FigmaPlugin(): JSX.Element | null {
+export function FigmaPlugin({
+  request
+}: {
+  request: FigmaTicketLinksRequest | null
+}): JSX.Element | null {
   const [editor] = useLexicalComposerContext()
+
+  useEffect(() => {
+    editor.update(() => {
+      for (const node of $nodesOfType(FigmaNode)) node.setRequest(request)
+    })
+  }, [editor, request])
 
   useEffect(
     () =>
@@ -30,7 +46,8 @@ export function FigmaPlugin(): JSX.Element | null {
                 url: figmaSrc(text),
                 label: slug.length > 0 ? slug : text,
                 ref,
-                density: "compact"
+                density: "compact",
+                request
               })
             ])
           })
@@ -38,7 +55,7 @@ export function FigmaPlugin(): JSX.Element | null {
         },
         COMMAND_PRIORITY_HIGH
       ),
-    [editor]
+    [editor, request]
   )
 
   return null

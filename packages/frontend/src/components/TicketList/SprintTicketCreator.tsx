@@ -28,20 +28,16 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { BADGE_TONES } from "@/components/ui/badge"
-import { projectGitStatesBaseAtom } from "@/atoms/github"
-import { projectAtom, projectKey } from "@/atoms/projects"
+import { backlogRequest, quickCreateBacklogTicket } from "@/atoms/backlog"
+import { projectGitStates } from "@/atoms/github"
+import { project as projectView, projectRequest } from "@/atoms/projects"
 import {
-  projectKey as sprintsKey,
-  sprintsListAtom,
-  useAddTicketsToSprint
-} from "@/atoms/sprints"
-import { meAtom } from "@/atoms/auth"
-import {
-  quickCreateTicketAtom,
-  ticketSearchAtom,
-  ticketSearchKey,
-  ticketsListKeyForStatus
-} from "@/atoms/tickets"
+  assignTicketToSprint,
+  sprintList,
+  sprintListRequest
+} from "@/atoms/sprintList"
+import { me } from "@/atoms/auth"
+import { searchRequest, ticketSearch } from "@/atoms/ticketSearch"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
@@ -49,7 +45,6 @@ import type {
   GroupId,
   Ticket,
   TicketId,
-  TicketStatus,
   TicketType
 } from "@projectproject/shared"
 import { TicketCreatorShell } from "./TicketCreatorShell"
@@ -72,28 +67,36 @@ export function SprintTicketCreator({
   excludeIds: ReadonlySet<TicketId>
 }) {
   const registry = useContext(RegistryContext)
-  const projKey = projectKey(orgSlug, slug)
-  const sprintProjectKey = sprintsKey(orgSlug, slug)
-  const sectionKey = ticketsListKeyForStatus(
-    orgSlug,
-    slug,
-    { sort: { key: "updated", dir: "desc" }, filter: { groupId: [groupId] } },
-    "todo" as TicketStatus
+  const sprintReq = useMemo(
+    () => sprintListRequest(orgSlug, slug),
+    [orgSlug, slug]
+  )
+  const req = useMemo(
+    () =>
+      backlogRequest(orgSlug, slug, {
+        sort: { key: "updated", dir: "desc" },
+        groupId: [groupId]
+      }),
+    [orgSlug, slug, groupId]
   )
 
-  const create = useAtomSet(quickCreateTicketAtom(sectionKey), {
+  const create = useAtomSet(quickCreateBacklogTicket(req), {
     mode: "promiseExit"
   })
-  const createState = useAtomValue(quickCreateTicketAtom(sectionKey))
+  const createState = useAtomValue(quickCreateBacklogTicket(req))
   const submitting = createState.waiting
-  const me = useAtomValue(meAtom)
-  const viewerId = Result.isSuccess(me) ? me.value.id : ""
-  const project = useAtomValue(projectAtom(projKey))
+  const viewer = useAtomValue(me())
+  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
+  const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
   const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
   const error = Result.isFailure(createState)
     ? m.tickets_create_error_fallback()
     : null
-  const refreshGitStates = useAtomRefresh(projectGitStatesBaseAtom(projKey))
+  const projectReq = useMemo(
+    () => projectRequest(orgSlug, slug),
+    [orgSlug, slug]
+  )
+  const refreshGitStates = useAtomRefresh(projectGitStates(projectReq))
   const navigate = useNavigate()
 
   const [title, setTitle] = useState("")
@@ -108,8 +111,8 @@ export function SprintTicketCreator({
 
   const [searchQuery, setSearchQuery] = useState("")
   const searchDebouncer = useDebouncer(setSearchQuery, { wait: 200 })
-  const searchAtom = ticketSearchAtom(
-    ticketSearchKey(orgSlug, slug, {
+  const searchAtom = ticketSearch(
+    searchRequest(orgSlug, slug, {
       q: searchQuery || undefined,
       excludeGroupId: groupId,
       limit: 24
@@ -118,8 +121,7 @@ export function SprintTicketCreator({
   const ticketsResult = useAtomValue(
     expanded && trimmed === searchQuery ? searchAtom : idleSearchAtom
   )
-  const sprintsResult = useAtomValue(sprintsListAtom(sprintProjectKey))
-  const addToSprint = useAddTicketsToSprint(sprintProjectKey)
+  const sprintsResult = useAtomValue(sprintList(sprintReq))
 
   const memberOfOtherSprint = useMemo(() => {
     const map = new Map<string, string>()
@@ -170,7 +172,7 @@ export function SprintTicketCreator({
   async function commit(item: Item | undefined) {
     if (!item) return
     if (item.kind === "existing") {
-      addToSprint({ groupId, ticketIds: [item.ticket.id] })
+      assignTicketToSprint(registry, sprintReq, item.ticket.id, groupId)
       reset()
       return
     }
@@ -182,7 +184,7 @@ export function SprintTicketCreator({
       projectPrefix
     })
     if (Exit.isSuccess(exit)) {
-      addToSprint({ groupId, ticketIds: [exit.value.id] })
+      assignTicketToSprint(registry, sprintReq, exit.value.id, groupId)
       refreshGitStates()
       reset()
       openCreatedTicket(exit.value.id)
@@ -203,7 +205,7 @@ export function SprintTicketCreator({
       projectPrefix
     })
     if (Exit.isSuccess(exit)) {
-      addToSprint({ groupId, ticketIds: [exit.value.id] })
+      assignTicketToSprint(registry, sprintReq, exit.value.id, groupId)
       refreshGitStates()
       reset()
       openCreatedTicket(exit.value.id)

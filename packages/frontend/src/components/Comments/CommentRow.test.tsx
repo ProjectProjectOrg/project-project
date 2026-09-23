@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react"
-import type { Comment, User } from "@projectproject/shared"
+import { UserId, type Comment, type User } from "@projectproject/shared"
 import * as DateTime from "effect/DateTime"
+import * as Schema from "effect/Schema"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { CommentRow } from "./CommentRow"
 
@@ -18,11 +19,11 @@ vi.mock("@effect/atom-react", () => ({
   useAtomSet: () => vi.fn()
 }))
 
-vi.mock("@/atoms/auth", () => ({ meAtom: "me" }))
+vi.mock("@/atoms/auth", () => ({ me: () => "me" }))
 vi.mock("@/atoms/comments", () => ({
-  commentKey: () => "comment-key",
-  deleteCommentAtom: () => "delete",
-  editCommentAtom: () => "edit"
+  commentsRequest: () => "comment-key",
+  deleteComment: () => "delete",
+  editComment: () => "edit"
 }))
 vi.mock("@/components/MemberAvatar", () => ({
   MemberAvatar: ({ member }: { member: User }) => (
@@ -74,7 +75,7 @@ afterEach(() => {
 const at = (value: string) => DateTime.toDate(DateTime.makeUnsafe(value))
 
 const user: User = {
-  id: "user-1",
+  id: Schema.decodeUnknownSync(UserId)("user-1"),
   email: "user@example.com",
   name: "Linked User",
   username: "linked-user",

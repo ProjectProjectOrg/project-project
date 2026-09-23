@@ -1,72 +1,85 @@
-import * as Result from "effect/unstable/reactivity/AsyncResult"
-import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Effect from "effect/Effect"
+import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as Atom from "effect/unstable/reactivity/Atom"
 import type { ConnectStorageInput } from "@projectproject/shared"
-import { runtime } from "@/runtime"
-import { ApiClient } from "@/services/ApiClient"
+import { Api } from "@/api/Api"
+import { Keys } from "@/api/keys"
 
-export const orgStorageBaseAtom = Atom.family((orgSlug: string) =>
-  runtime
-    .atom(
-      Effect.gen(function* () {
-        const client = yield* ApiClient
-        return yield* client.storage.get({ params: { orgSlug } })
-      })
-    )
-    .pipe(Atom.setIdleTTL("30 seconds"))
+export type StorageRequest = Readonly<{
+  params: Readonly<{ orgSlug: string }>
+}>
+
+export const storageRequest = (orgSlug: string): StorageRequest => ({
+  params: { orgSlug }
+})
+
+const storageQuery = (req: StorageRequest) =>
+  Api.query("storage", "get", {
+    params: req.params,
+    timeToLive: "30 seconds",
+    reactivityKeys: [Keys.storage(req.params.orgSlug)]
+  })
+
+export const orgStorage = Atom.family((req: StorageRequest) =>
+  Atom.optimistic(storageQuery(req))
 )
 
-export const orgStorageAtom = Atom.family((orgSlug: string) =>
-  Atom.optimistic(orgStorageBaseAtom(orgSlug))
-)
+const maskAccessKeyId = (value: string): string =>
+  value.length <= 4
+    ? "*".repeat(value.length)
+    : `${"*".repeat(value.length - 4)}${value.slice(-4)}`
 
-export const connectStorageAtom = Atom.family((orgSlug: string) =>
-  Atom.optimisticFn(orgStorageAtom(orgSlug), {
-    reducer: (current) =>
-      Result.isSuccess(current)
-        ? Result.success(current.value, { waiting: true })
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (input: ConnectStorageInput, get) {
-        const client = yield* ApiClient
-        const status = yield* client.storage.connect({
-          params: { orgSlug },
-          payload: input
+export const connectStorage = Atom.family((req: StorageRequest) =>
+  Atom.optimisticFn(orgStorage(req), {
+    reducer: (current, input: ConnectStorageInput) =>
+      AsyncResult.map(current, (value) => ({
+        ...value,
+        status: "active" as const,
+        endpoint: input.endpoint,
+        bucket: input.bucket,
+        region: input.region,
+        keyPrefix: input.keyPrefix,
+        accessKeyIdMasked: maskAccessKeyId(input.accessKeyId),
+        forcePathStyle: input.forcePathStyle,
+        lastCheckError: null
+      })),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn("connectStorage")(function* (input: ConnectStorageInput) {
+          const status = yield* Api.use((client) =>
+            client.storage.connect({ params: req.params, payload: input })
+          )
+          set(AsyncResult.success(status))
+          return status
         })
-        get.refresh(orgStorageBaseAtom(orgSlug))
-        return status
-      })
-    )
+      )
   })
 )
 
-export const disconnectStorageAtom = Atom.family((orgSlug: string) =>
-  Atom.optimisticFn(orgStorageAtom(orgSlug), {
-    reducer: (current) =>
-      Result.isSuccess(current)
-        ? Result.success(
-            {
-              ...current.value,
-              status: "not_connected" as const,
-              endpoint: null,
-              bucket: null,
-              region: null,
-              keyPrefix: null,
-              accessKeyIdMasked: null,
-              connectedAt: null,
-              lastCheckedAt: null,
-              lastCheckError: null
-            },
-            { waiting: true }
+export const disconnectStorage = Atom.family((req: StorageRequest) =>
+  Atom.optimisticFn(orgStorage(req), {
+    reducer: (current, _input: void) =>
+      AsyncResult.map(current, (value) => ({
+        ...value,
+        status: "not_connected" as const,
+        endpoint: null,
+        bucket: null,
+        region: null,
+        keyPrefix: null,
+        accessKeyIdMasked: null,
+        connectedAt: null,
+        lastCheckedAt: null,
+        lastCheckError: null
+      })),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn("disconnectStorage")(function* (_input: void) {
+          const status = yield* Api.use((client) =>
+            client.storage.disconnect({ params: req.params })
           )
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (_input: void, get) {
-        const client = yield* ApiClient
-        const status = yield* client.storage.disconnect({ params: { orgSlug } })
-        get.refresh(orgStorageBaseAtom(orgSlug))
-        return status
-      })
-    )
+          set(AsyncResult.success(status))
+          return status
+        })
+      )
   })
 )

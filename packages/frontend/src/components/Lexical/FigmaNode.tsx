@@ -38,6 +38,7 @@ import {
   type FigmaDensity,
   type FigmaRef
 } from "@projectproject/shared"
+import type { FigmaTicketLinksRequest } from "@/atoms/figma"
 import { Button } from "@/components/ui/button"
 import { standardEaseCss, transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
@@ -50,6 +51,7 @@ export interface FigmaPayload {
   readonly label: string
   readonly ref: FigmaRef | null
   readonly density?: FigmaDensity
+  readonly request?: FigmaTicketLinksRequest | null
 }
 
 export type SerializedFigmaNode = Spread<
@@ -80,6 +82,7 @@ export class FigmaNode extends DecoratorNode<ReactElement> {
   __label: string
   __ref: FigmaRef | null
   __density: FigmaDensity
+  __request: FigmaTicketLinksRequest | null
 
   static getType(): string {
     return "figma"
@@ -91,7 +94,8 @@ export class FigmaNode extends DecoratorNode<ReactElement> {
         url: node.__url,
         label: node.__label,
         ref: node.__ref,
-        density: node.__density
+        density: node.__density,
+        request: node.__request
       },
       node.__key
     )
@@ -103,6 +107,7 @@ export class FigmaNode extends DecoratorNode<ReactElement> {
     this.__label = payload.label
     this.__ref = payload.ref
     this.__density = payload.density ?? "rich"
+    this.__request = payload.request ?? null
   }
 
   createDOM(): HTMLElement {
@@ -147,6 +152,11 @@ export class FigmaNode extends DecoratorNode<ReactElement> {
     writable.__density = density
   }
 
+  setRequest(request: FigmaTicketLinksRequest | null): void {
+    const writable = this.getWritable()
+    writable.__request = request
+  }
+
   exportJSON(): SerializedFigmaNode {
     return {
       ...super.exportJSON(),
@@ -175,6 +185,7 @@ export class FigmaNode extends DecoratorNode<ReactElement> {
         label={this.__label}
         reference={this.__ref}
         density={this.__density}
+        request={this.__request}
       />
     )
   }
@@ -185,13 +196,15 @@ function FigmaSelectable({
   url,
   label,
   reference,
-  density
+  density,
+  request
 }: {
   nodeKey: NodeKey
   url: string
   label: string
   reference: FigmaRef | null
   density: FigmaDensity
+  request: FigmaTicketLinksRequest | null
 }) {
   const [editor] = useLexicalComposerContext()
   const [isSelected, setSelected, clearSelection] =
@@ -356,6 +369,7 @@ function FigmaSelectable({
             >
               {compact ? (
                 <FigmaChip
+                  request={request}
                   reference={reference}
                   url={url}
                   label={label}
@@ -363,6 +377,7 @@ function FigmaSelectable({
                 />
               ) : (
                 <FigmaEmbed
+                  request={request}
                   reference={reference}
                   url={url}
                   label={label}

@@ -2,10 +2,10 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Exit from "effect/Exit"
 import { Check, ChevronDown, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import type { ProjectStatus, StatusSlug } from "@projectproject/shared"
-import { deleteStatusAtom, projectKey } from "@/atoms/projectStatuses"
-import { ticketsCountAtom, ticketsCountKey } from "@/atoms/tickets"
+import { deleteStatus, statusesRequest } from "@/atoms/projectStatuses"
+import { countsRequest, ticketCounts } from "@/atoms/ticketCounts"
 import { Button } from "@/components/ui/button"
 import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import {
@@ -55,11 +55,13 @@ export function StatusDeleteConfirm({
 
 function ConfirmBody({ status, statuses, orgSlug, slug }: Props) {
   const { close, busy, setBusy } = useConfirmButton()
-  const key = projectKey(orgSlug, slug)
-  const remove = useAtomSet(deleteStatusAtom(key), { mode: "promiseExit" })
+  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+  const remove = useAtomSet(deleteStatus({ req, statusSlug: status.slug }), {
+    mode: "promiseExit"
+  })
 
   const countResult = useAtomValue(
-    ticketsCountAtom(ticketsCountKey(orgSlug, slug, {}))
+    ticketCounts(countsRequest(orgSlug, slug, {}))
   )
   const affectedCount = Result.isSuccess(countResult)
     ? (countResult.value.byStatus[status.slug] ?? 0)
@@ -74,7 +76,6 @@ function ConfirmBody({ status, statuses, orgSlug, slug }: Props) {
     setBusy(true)
     setError(null)
     const exit = await remove({
-      statusSlug: status.slug,
       reassignTo:
         affectedCount > 0 ? (effectiveTarget as StatusSlug) : undefined
     })

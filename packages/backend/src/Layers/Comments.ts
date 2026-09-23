@@ -149,7 +149,9 @@ export const CommentsLive = Layer.effect(
         const authors = yield* users.fullByIds(
           rows.flatMap((r) => (r.authorId === null ? [] : [r.authorId]))
         )
-        const authorById = new Map(authors.map((u) => [u.id, u]))
+        const authorById = new Map<string, (typeof authors)[number]>(
+          authors.map((user) => [user.id, user])
+        )
         return rows.flatMap((r): Comment[] => {
           const block = blockById.get(r.id)
           if (!block) return []
@@ -307,7 +309,7 @@ export const CommentsLive = Layer.effect(
           )
         ]
         const linkedUsers = yield* users.fullByIds(linkedUserIds)
-        const linkedUserById = new Map(
+        const linkedUserById = new Map<string, (typeof linkedUsers)[number]>(
           linkedUsers.map((user) => [user.id, user])
         )
         for (const linkedUserId of linkedUserIds) {

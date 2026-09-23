@@ -23,6 +23,8 @@ import type {
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
+  InvitationNotAcceptable,
+  InvitationNotAcceptableReason,
   MentionInvalid,
   NotFound,
   RateLimited,
@@ -57,6 +59,7 @@ export type AppError =
   | BranchNotFound
   | MentionInvalid
   | SprintCompletedImmutable
+  | InvitationNotAcceptable
   | InviteAcceptError
   | StorageAuthInvalid
   | StorageConfigMissing
@@ -71,9 +74,27 @@ export type AppError =
   | FigmaFileNotFound
   | FigmaError
 
+const invitationNotAcceptableMessage = (
+  reason: InvitationNotAcceptableReason
+): string => {
+  switch (reason) {
+    case "expired":
+      return m.auth_invites_accept_error_expired()
+    case "not_recipient":
+      return m.auth_invites_accept_error_not_recipient()
+    case "email_verification_required":
+      return m.auth_invites_accept_error_email_verification_required()
+    case "membership_limit_reached":
+      return m.auth_invites_accept_error_membership_limit_reached()
+  }
+}
+
 export const errorMessage = (error: AppError): string =>
   Match.value(error)
     .pipe(
+      Match.tag("InvitationNotAcceptable", (error) =>
+        invitationNotAcceptableMessage(error.reason)
+      ),
       Match.tag("InviteExpired", () => m.auth_invites_accept_error_expired()),
       Match.tag("InviteNotFound", () =>
         m.auth_invites_accept_error_not_found()

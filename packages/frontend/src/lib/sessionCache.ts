@@ -2,7 +2,7 @@ import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { Unauthorized } from "@projectproject/shared"
-import { logoutAtom, meAtom } from "@/atoms/auth"
+import { logout, me } from "@/atoms/auth"
 
 export function createSessionCache<
   Router extends { cancelMatches: () => void }
@@ -11,14 +11,14 @@ export function createSessionCache<
   let identity: string | null | undefined
   let disposed = false
   let generation = 0
-  const makeSession = (me?: Atom.Type<typeof meAtom>) => {
+  const makeSession = (viewer?: Atom.Type<ReturnType<typeof me>>) => {
     const registry = Registry.make({
-      initialValues: me ? [[meAtom, me]] : undefined
+      initialValues: viewer ? [[me(), viewer]] : undefined
     })
     return {
       registry,
       router: createRouter(registry),
-      ready: me !== undefined,
+      ready: viewer !== undefined,
       generation: generation++
     }
   }
@@ -27,23 +27,23 @@ export function createSessionCache<
   const notify = () => listeners.forEach((listener) => listener())
 
   const replace = (
-    me: Atom.Type<typeof meAtom>,
+    viewer: Atom.Type<ReturnType<typeof me>>,
     nextIdentity: string | null
   ) => {
     stopWatching()
     session.router.cancelMatches()
     session.registry.dispose()
     identity = nextIdentity
-    session = makeSession(me)
+    session = makeSession(viewer)
     watch()
     notify()
   }
 
   const watch = () => {
     const { registry } = session
-    const stopIdentity = registry.subscribe(meAtom, (me) => {
+    const stopIdentity = registry.subscribe(me(), (viewer) => {
       if (disposed || registry !== session.registry) return
-      const nextIdentity = Result.matchWithError(me, {
+      const nextIdentity = Result.matchWithError(viewer, {
         onInitial: () => undefined,
         onSuccess: ({ value }) => value.id,
         onError: () => null,
@@ -54,16 +54,16 @@ export function createSessionCache<
         nextIdentity !== undefined &&
         identity !== nextIdentity
       ) {
-        replace(me, nextIdentity)
+        replace(viewer, nextIdentity)
         return
       }
       if (nextIdentity !== undefined) identity = nextIdentity
-      if (!session.ready && !Result.isInitial(me)) {
+      if (!session.ready && !Result.isInitial(viewer)) {
         session = { ...session, ready: true }
         notify()
       }
     })
-    const stopLogout = registry.subscribe(logoutAtom, (result) => {
+    const stopLogout = registry.subscribe(logout, (result) => {
       if (
         !disposed &&
         registry === session.registry &&
@@ -77,7 +77,7 @@ export function createSessionCache<
       stopIdentity()
       stopLogout()
     }
-    registry.get(meAtom)
+    registry.get(me())
   }
 
   watch()
@@ -91,7 +91,7 @@ export function createSessionCache<
       }
     },
     refreshIdentity: () => {
-      if (!disposed) session.registry.refresh(meAtom)
+      if (!disposed) session.registry.refresh(me())
     },
     dispose: () => {
       disposed = true

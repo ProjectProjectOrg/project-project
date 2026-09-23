@@ -21,8 +21,10 @@ import {
   jiraMigrationAtom,
   jiraMigrationKey,
   jiraMigrationsAtom,
+  jiraOrgRequest,
   jiraProfileAtom,
   jiraProjectsAtom,
+  jiraProjectsRequest,
   jiraSitesAtom,
   rescanJiraMigrationAtom,
   runJiraMigrationAtom
@@ -49,7 +51,7 @@ import { isActiveJiraMigration, jiraMigrationScreen } from "./screen"
 
 export function JiraMigrationStartPage({ orgSlug }: { orgSlug: string }) {
   const profile = useAtomValue(jiraProfileAtom)
-  const migrations = useAtomValue(jiraMigrationsAtom(orgSlug))
+  const migrations = useAtomValue(jiraMigrationsAtom(jiraOrgRequest(orgSlug)))
 
   return Result.matchWithError(profile, {
     onInitial: () => (
@@ -130,10 +132,12 @@ function ConnectedSource({
   connection: JiraConnection
 }) {
   const sitesResult = useAtomValue(jiraSitesAtom)
-  const create = useAtomSet(createJiraMigrationAtom(orgSlug), {
+  const create = useAtomSet(createJiraMigrationAtom(jiraOrgRequest(orgSlug)), {
     mode: "promiseExit"
   })
-  const createResult = useAtomValue(createJiraMigrationAtom(orgSlug))
+  const createResult = useAtomValue(
+    createJiraMigrationAtom(jiraOrgRequest(orgSlug))
+  )
   const navigate = useNavigate()
   const requestId = useRef<string | null>(null)
   const [cloudId, setCloudId] = useState("")
@@ -234,7 +238,9 @@ function ProjectsSource({
   scanError: string | null
   onScan: () => void
 }) {
-  const projectsResult = useAtomValue(jiraProjectsAtom(cloudId))
+  const projectsResult = useAtomValue(
+    jiraProjectsAtom(jiraProjectsRequest(cloudId))
+  )
 
   return Result.matchWithError(projectsResult, {
     onInitial: () => (

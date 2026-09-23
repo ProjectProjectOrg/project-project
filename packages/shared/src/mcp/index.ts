@@ -29,6 +29,7 @@ import { Org } from "../schemas/Org"
 import { Member, Project, ProjectDetail, Slug } from "../schemas/Project"
 import {
   CompleteSprintInput,
+  CompleteSprintOutput,
   CreateGroupInput,
   Group,
   GroupDetail,
@@ -51,7 +52,7 @@ import { DocFile } from "./DocFile"
 import { MeOutput } from "./MeOutput"
 import { RebuildTicketIndexOutput } from "./RebuildTicketIndexOutput"
 import { Page, Pagination } from "../Pagination"
-import { TicketFilter, GroupFilter } from "../filters"
+import { GroupFilter, TicketListQuery } from "../filters"
 import { SprintState } from "../sprintLogic"
 
 export * from "./DocFile"
@@ -155,12 +156,13 @@ export const McpTools = {
       "List tickets in a project with optional server-side filtering. Ticket " +
       "`status` values are stable slugs; resolve them through `list_statuses` " +
       "and use the corresponding label in conversation.",
-    input: Schema.Struct({
-      orgSlug: Slug,
-      projectSlug: Slug,
-      filter: Schema.optional(TicketFilter),
-      ...Pagination.fields
-    }),
+    input: TicketListQuery.pipe(
+      Schema.fieldsAssign({
+        orgSlug: Slug,
+        projectSlug: Slug,
+        limit: Pagination.fields.limit
+      })
+    ),
     output: Page(Ticket),
     errors: [Unauthorized, NotFound] as const
   },
@@ -445,14 +447,15 @@ export const McpTools = {
       "`{ kind: 'sprint', groupId: <G-N> }` (move carryover to another " +
       "sprint) or `{ kind: 'backlog' }` (drop carryover off all sprints). " +
       "Already-completed sprints fail with `SprintCompletedImmutable`. " +
-      "Returns the now-completed sprint.",
+      "Returns the now-completed sprint plus the `carried` ticket ids the " +
+      "server moved to the destination.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
       id: GroupId,
       ...CompleteSprintInput.fields
     }),
-    output: GroupDetail,
+    output: CompleteSprintOutput,
     errors: [
       Unauthorized,
       NotFound,

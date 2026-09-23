@@ -1,9 +1,15 @@
 import * as Effect from "effect/Effect"
+import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { Validation } from "@projectproject/shared"
 import * as AttachmentUploads from "../Services/AttachmentUploads"
 import { mapToolError } from "../mcp/errorMap"
+
+const AttachmentUploadQuery = Schema.fromURLSearchParams(
+  Schema.Struct({ token: Schema.NonEmptyString })
+)
 
 const failure = (error: unknown, status: number) =>
   HttpServerResponse.jsonUnsafe(
@@ -14,9 +20,10 @@ const failure = (error: unknown, status: number) =>
 export const attachmentUploadRoute = Effect.gen(function* () {
   const request = yield* HttpServerRequest.HttpServerRequest
   const url = new URL(request.url, "http://localhost")
+  const query = Schema.decodeOption(AttachmentUploadQuery)(url.searchParams)
   const uploads = yield* AttachmentUploads.AttachmentUploads
   const attachment = yield* uploads.receive(
-    url.searchParams.get("token") ?? "",
+    Option.isSome(query) ? query.value.token : "",
     request.headers["content-type"] ?? "",
     request.stream.pipe(
       Stream.mapError(

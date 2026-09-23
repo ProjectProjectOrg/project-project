@@ -13,12 +13,10 @@ vi.mock("@effect/atom-react", () => ({
   useAtomSet: () => async () => ({})
 }))
 vi.mock("@/atoms/projects", () => ({
-  projectKey: (org: string, slug: string) => `${org}/${slug}`,
-  updateProjectAtom: () => "atom"
-}))
-vi.mock("@/atoms/sprints", () => ({
-  projectKey: (org: string, slug: string) => `${org}/${slug}`,
-  sprintsListAtom: () => "atom"
+  projectRequest: (orgSlug: string, slug: string) => ({
+    params: { orgSlug, slug }
+  }),
+  updateProject: () => "atom"
 }))
 vi.mock("@/components/sprints/ActiveSprintLine", () => ({
   ActiveSprintLine: () => <p>/proj</p>

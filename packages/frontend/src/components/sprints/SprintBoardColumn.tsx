@@ -10,6 +10,8 @@ import {
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview"
 import { preserveOffsetOnSource } from "@atlaskit/pragmatic-drag-and-drop/element/preserve-offset-on-source"
 import { statusMetaFor } from "@/lib/ticket-meta"
+import type { BacklogRequest } from "@/atoms/backlog"
+import type { BoardRequest } from "@/atoms/sprintBoard"
 import { cn } from "@/lib/utils"
 import type {
   Member,
@@ -29,14 +31,15 @@ const REORDER_EASE = [0.32, 0.72, 0, 1] as const
 export function SprintBoardColumn({
   orgSlug,
   slug,
-  sprintTicketsKey,
-  ticketSectionsKey,
+  req,
+  backlogReq,
   status,
   statuses,
   tickets,
   count,
   members,
   isDraggable,
+  pendingId = null,
   ordered = true,
   overlay,
   inertTicketIds,
@@ -47,16 +50,17 @@ export function SprintBoardColumn({
 }: {
   orgSlug: string
   slug: string
-  sprintTicketsKey?: string
-  ticketSectionsKey?: string
+  req?: BoardRequest
+  backlogReq?: BacklogRequest
   status: string
   statuses: ReadonlyArray<ProjectStatus>
   tickets: ReadonlyArray<Ticket>
   count?: number
   members: ReadonlyArray<Member>
   isDraggable: boolean
+  pendingId?: TicketId | null
   ordered?: boolean
-  overlay: ReadonlyMap<TicketId, string>
+  overlay?: ReadonlyMap<TicketId, string>
   inertTicketIds?: ReadonlySet<TicketId>
   lastFlash: { id: TicketId; tick: number } | null
   reorderMode: boolean
@@ -133,7 +137,7 @@ export function SprintBoardColumn({
         filter: { duration: QUICK_S, ease: REORDER_EASE },
         zIndex: { duration: 0 }
       }}
-      className="flex max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-background"
+      className="flex max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-surface-1"
     >
       <div
         data-column-header
@@ -222,15 +226,17 @@ export function SprintBoardColumn({
             <CardSlot
               orgSlug={orgSlug}
               slug={slug}
-              sprintTicketsKey={sprintTicketsKey}
-              ticketSectionsKey={ticketSectionsKey}
+              req={req}
+              backlogReq={backlogReq}
               ordered={ordered}
               ticket={ticket}
               status={status}
               members={members}
               isDraggable={isDraggable && !reorderMode}
               inert={inertTicketIds?.has(ticket.id) ?? false}
-              pending={overlay.has(ticket.id)}
+              pending={
+                ticket.id === pendingId || (overlay?.has(ticket.id) ?? false)
+              }
               flashKey={
                 lastFlash?.id === ticket.id ? lastFlash.tick : undefined
               }
@@ -245,8 +251,8 @@ export function SprintBoardColumn({
 function CardSlot({
   orgSlug,
   slug,
-  sprintTicketsKey,
-  ticketSectionsKey,
+  req,
+  backlogReq,
   ticket,
   status,
   members,
@@ -258,8 +264,8 @@ function CardSlot({
 }: {
   orgSlug: string
   slug: string
-  sprintTicketsKey?: string
-  ticketSectionsKey?: string
+  req?: BoardRequest
+  backlogReq?: BacklogRequest
   ticket: Ticket
   status: string
   members: ReadonlyArray<Member>
@@ -348,8 +354,8 @@ function CardSlot({
           <SprintBoardCard
             orgSlug={orgSlug}
             slug={slug}
-            sprintTicketsKey={sprintTicketsKey}
-            ticketSectionsKey={ticketSectionsKey}
+            req={req}
+            backlogReq={backlogReq}
             ticket={ticket}
             members={members}
           />

@@ -1,7 +1,8 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import { Link } from "@tanstack/react-router"
 import { ArrowRight, Check } from "lucide-react"
+import { useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
 import {
@@ -13,25 +14,14 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { statusMetaFor, statusLabelFor } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
-import {
-  pendingTicketStatusChangesAtom,
-  ticketKey,
-  ticketsCountKey,
-  ticketsListKeyForStatus,
-  updateTicketStatusAtom
-} from "@/atoms/tickets"
-import { projectKey } from "@/atoms/projects"
-import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom
-} from "@/atoms/projectStatuses"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
 import { boardStatusesFor } from "@/components/sprints/board-utils"
 import { cn } from "@/lib/utils"
 import type {
   ProjectStatus,
   Ticket,
-  TicketListQuery,
-  TicketStatus
+  TicketStatus,
+  UpdateTicketInput
 } from "@projectproject/shared"
 
 function StatusMenuItems({
@@ -95,30 +85,21 @@ export function StatusBadgeTrigger({
   orgSlug,
   slug,
   ticket,
-  query,
+  onPatch,
   className
 }: {
   orgSlug: string
   slug: string
   ticket: Ticket
-  query: TicketListQuery
+  onPatch: (patch: UpdateTicketInput) => void
   className?: string
 }) {
-  const key = ticketKey(orgSlug, slug, ticket.id)
-  const update = useAtomSet(updateTicketStatusAtom(key))
-  const updateState = useAtomValue(updateTicketStatusAtom(key))
-  const pending = useAtomValue(
-    pendingTicketStatusChangesAtom(projectKey(orgSlug, slug))
-  )
-  const statusesResult = useAtomValue(
-    projectStatusesAtom(projectStatusKey(orgSlug, slug))
-  )
+  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+  const statusesResult = useAtomValue(statusesFor(req))
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
-  const currentStatus = pending.get(ticket.id)?.status ?? ticket.status
-  const currentTicket = { ...ticket, status: currentStatus }
-  const meta = statusMetaFor(currentStatus, statuses)
+  const meta = statusMetaFor(ticket.status, statuses)
   const Icon = meta.icon
-  const statusLabel = statusLabelFor(currentStatus, statuses)
+  const statusLabel = statusLabelFor(ticket.status, statuses)
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -129,7 +110,6 @@ export function StatusBadgeTrigger({
             onClick={(e) => e.stopPropagation()}
             aria-label={m.tickets_status_aria_label({ label: statusLabel })}
             className={className}
-            disabled={updateState.waiting}
           >
             <Icon
               className={cn("size-3.5", meta.className)}
@@ -150,30 +130,12 @@ export function StatusBadgeTrigger({
         <StatusMenuItems
           orgSlug={orgSlug}
           slug={slug}
-          current={currentStatus}
+          current={ticket.status}
           statuses={statuses}
-          onSelect={(status) =>
-            update({
-              ticket: currentTicket,
-              status,
-              sourceSectionKey: ticketsListKeyForStatus(
-                orgSlug,
-                slug,
-                query,
-                currentStatus
-              ),
-              destSectionKey: ticketsListKeyForStatus(
-                orgSlug,
-                slug,
-                query,
-                status
-              ),
-              countKey: ticketsCountKey(orgSlug, slug, {
-                filter: query.filter,
-                q: query.q
-              })
-            })
-          }
+          onSelect={(status) => {
+            if (status === ticket.status) return
+            onPatch({ status })
+          }}
         />
       </DropdownMenuContent>
     </DropdownMenu>
@@ -197,9 +159,8 @@ export function StatusSelect({
   stopPropagation?: boolean
   disabled?: boolean
 }) {
-  const statusesResult = useAtomValue(
-    projectStatusesAtom(projectStatusKey(orgSlug, slug))
-  )
+  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+  const statusesResult = useAtomValue(statusesFor(req))
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
   const meta = statusMetaFor(value, statuses)
   const Icon = meta.icon
@@ -260,38 +221,25 @@ export function StatusButton({
   orgSlug,
   slug,
   ticket,
-  query,
   stopPropagation,
-  onChange,
   size = "sm",
+  onPatch,
   disabled = false
 }: {
   orgSlug: string
   slug: string
   ticket: Ticket
-  query: TicketListQuery
   stopPropagation?: boolean
-  onChange?: (status: TicketStatus) => void
   size?: "sm" | "lg"
+  onPatch: (patch: UpdateTicketInput) => void
   disabled?: boolean
 }) {
-  const key = ticketKey(orgSlug, slug, ticket.id)
-  const update = useAtomSet(updateTicketStatusAtom(key))
-  const updateState = useAtomValue(updateTicketStatusAtom(key))
-  const pending = useAtomValue(
-    pendingTicketStatusChangesAtom(projectKey(orgSlug, slug))
-  )
-  const statusesResult = useAtomValue(
-    projectStatusesAtom(projectStatusKey(orgSlug, slug))
-  )
+  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+  const statusesResult = useAtomValue(statusesFor(req))
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
-  const currentStatus = onChange
-    ? ticket.status
-    : (pending.get(ticket.id)?.status ?? ticket.status)
-  const currentTicket = { ...ticket, status: currentStatus }
-  const meta = statusMetaFor(currentStatus, statuses)
+  const meta = statusMetaFor(ticket.status, statuses)
   const Icon = meta.icon
-  const statusLabel = statusLabelFor(currentStatus, statuses)
+  const statusLabel = statusLabelFor(ticket.status, statuses)
   const wrapperClass =
     size === "lg"
       ? "grid size-10 place-items-center rounded-lg bg-muted transition-colors group-hover/hitbox:bg-foreground/5"
@@ -314,7 +262,7 @@ export function StatusButton({
                 : m.tickets_status_aria_label({ label: statusLabel })
             }
             title={statusLabel}
-            disabled={disabled || (!onChange && updateState.waiting)}
+            disabled={disabled}
           >
             <span className={wrapperClass}>
               <Icon
@@ -335,32 +283,12 @@ export function StatusButton({
         <StatusMenuItems
           orgSlug={orgSlug}
           slug={slug}
-          current={currentStatus}
+          current={ticket.status}
           statuses={statuses}
-          onSelect={(status) =>
-            onChange
-              ? onChange(status)
-              : update({
-                  ticket: currentTicket,
-                  status,
-                  sourceSectionKey: ticketsListKeyForStatus(
-                    orgSlug,
-                    slug,
-                    query,
-                    currentStatus
-                  ),
-                  destSectionKey: ticketsListKeyForStatus(
-                    orgSlug,
-                    slug,
-                    query,
-                    status
-                  ),
-                  countKey: ticketsCountKey(orgSlug, slug, {
-                    filter: query.filter,
-                    q: query.q
-                  })
-                })
-          }
+          onSelect={(status) => {
+            if (status === ticket.status) return
+            onPatch({ status })
+          }}
         />
       </DropdownMenuContent>
     </DropdownMenu>

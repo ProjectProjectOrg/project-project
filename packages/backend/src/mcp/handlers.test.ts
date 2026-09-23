@@ -16,6 +16,7 @@ import {
   NotFound,
   SprintCompletedImmutable,
   TicketId,
+  type TicketListQuery,
   type User
 } from "@projectproject/shared"
 import { currentUserStorage } from "./currentUserStorage"
@@ -93,13 +94,21 @@ const fakeTicket = {
 }
 
 const capturedListLimits: Array<number | undefined> = []
+const capturedListQueries: Array<TicketListQuery> = []
 
 const TicketsStub = Layer.succeed(Tickets, {
-  list: (_o: any, _u: any, _s: any, _q: any, limit?: number) => {
+  list: (
+    _orgSlug: string,
+    _userId: string,
+    _slug: string,
+    query: TicketListQuery,
+    limit?: number
+  ) => {
     capturedListLimits.push(limit)
+    capturedListQueries.push(query)
     const all = Array.from({ length: 25 }, (_, i) => ({
-      ...fakeTicket,
-      id: decodeTicketId(`T-${i + 1}`)
+      ticket: { ...fakeTicket, id: decodeTicketId(`T-${i + 1}`) },
+      orderKey: `${i + 1}`.padStart(4, "0")
     }))
     const effective = limit ?? all.length
     return Effect.succeed({
@@ -199,6 +208,7 @@ const TestLayer = Layer.mergeAll(
 describe("MCP dispatcher → list_tickets", () => {
   test("threads the requested limit through to Tickets.list", async () => {
     capturedListLimits.length = 0
+    capturedListQueries.length = 0
     const runtime = ManagedRuntime.make(TestLayer)
 
     const registered = new Map<
@@ -219,13 +229,19 @@ describe("MCP dispatcher → list_tickets", () => {
     const cb = registered.get("list_tickets")
     expect(cb).toBeDefined()
     const result = await withFakeUser(() =>
-      cb!({ orgSlug: "acme", projectSlug: "demo", limit: 10 })
+      cb!({
+        orgSlug: "acme",
+        projectSlug: "demo",
+        status: ["todo"],
+        limit: 10
+      })
     )
 
     expect(result.isError).toBeUndefined()
     const text = result.content[0].text
     const payload = JSON.parse(text)
     expect(capturedListLimits).toEqual([10])
+    expect(capturedListQueries[0].status).toEqual(["todo"])
     expect(payload.items).toHaveLength(10)
     expect(payload.items[0].id).toBe("T-1")
     expect(payload.nextCursor).toBe("cursor-next")
@@ -373,9 +389,12 @@ describe("MCP dispatcher → write tools", () => {
     update: (_o: any, _u: any, _s: any, _id: any, input: any) => {
       captured.update = input
       return Effect.succeed({
-        ...fakeTicketDetail,
-        tags: input.tags ?? fakeTicketDetail.tags,
-        assignees: input.assignees ?? fakeTicketDetail.assignees
+        ticket: {
+          ...fakeTicketDetail,
+          tags: input.tags ?? fakeTicketDetail.tags,
+          assignees: input.assignees ?? fakeTicketDetail.assignees
+        },
+        orderKey: null
       })
     },
     attachBranch: (_o: any, _u: any, _s: any, _id: any, input: any) => {
@@ -810,8 +829,11 @@ describe("MCP dispatcher → sprint writes", () => {
           return Effect.fail(new SprintCompletedImmutable())
         }
         return Effect.succeed({
-          ...baseGroup({ id, kind: options.kind }),
-          completedAt: isoDate("2026-05-13T00:00:00.000Z")
+          target: {
+            ...baseGroup({ id, kind: options.kind }),
+            completedAt: isoDate("2026-05-13T00:00:00.000Z")
+          },
+          carried: []
         })
       }
     } as any)
