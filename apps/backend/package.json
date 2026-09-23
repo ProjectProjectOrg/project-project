@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --cwd ../.. --env-file=.env --watch \"$PWD/src/main.ts\"",
+    "dev": "bun --cwd \"$PWD/../..\" --env-file=\"$PWD/../../.env\" --watch \"$PWD/src/main.ts\"",
     "start": "bun --cwd ../.. --env-file=.env \"$PWD/src/main.ts\"",
     "typecheck": "tsc --noEmit && bun run typecheck:scripts",
     "typecheck:scripts": "tsc --noEmit -p tsconfig.scripts.json",
