@@ -902,6 +902,18 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
               planRef: finalized.planRef,
               publicationRevision: loaded.publicationRevision
             })
+            expect(
+              yield* projection.beginRemoteWrites(publishInput.fence)
+            ).toBe(true)
+            const [replayed] = (yield* Effect.promise(() =>
+              pool.query(
+                "select checkpoint from jira_migration where id = $1",
+                [migrationId]
+              )
+            )).rows
+            expect(replayed?.checkpoint).not.toHaveProperty(
+              "remoteWritesMayStillCommit"
+            )
             const verifyArchive = verifyJiraPermanentArchive(
               publishInput.fence,
               prepared.orgSlug,

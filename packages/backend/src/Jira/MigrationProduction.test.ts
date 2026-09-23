@@ -137,14 +137,19 @@ describe.skipIf(!databaseUrl)("Jira production workflow composition", () => {
           }),
           Effect.timeout("10 seconds")
         )
-        return row
+        expect(row.status).toBe("needs_configuration")
+        const requestCount = fixture.requests.length
+        yield* JiraMigrationWorkflow.resume(migrationId)
+        const resumed = yield* projection.owned(owner, migrationId)
+        return { row: resumed, requestCount }
       }).pipe(Effect.provide(layer))
     )
-    expect(result.status).toBe("needs_configuration")
-    expect(result.destinationProjectId).toBeNull()
-    expect(result.checkpoint).toMatchObject({
+    expect(result.row.status).toBe("needs_configuration")
+    expect(result.row.destinationProjectId).toBeNull()
+    expect(result.row.checkpoint).toMatchObject({
       scan: { manifest: { key: expect.stringContaining("manifest-v2") } }
     })
-    expect(fixture.requests.length).toBeGreaterThan(0)
+    expect(result.requestCount).toBeGreaterThan(0)
+    expect(fixture.requests).toHaveLength(result.requestCount)
   })
 })

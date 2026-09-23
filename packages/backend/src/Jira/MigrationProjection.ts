@@ -603,7 +603,7 @@ export class JiraMigrationProjection extends Context.Service<
                 if (
                   !row ||
                   row.cleanupExecutionId !== null ||
-                  !["scanning", "migrating"].includes(row.status)
+                  ["cancelling", "cancelled"].includes(row.status)
                 )
                   return false
                 const checkpoint = yield* decodeCheckpoint(row.checkpoint)
@@ -614,6 +614,16 @@ export class JiraMigrationProjection extends Context.Service<
                     checkpoint.remoteWritesMayStillCommit.workflowAttempt ===
                       fence.workflowAttempt
                   )
+                if (
+                  (["needs_configuration", "ready"].includes(row.status) &&
+                    row.scanAt !== null &&
+                    checkpoint.scan?.manifest !== undefined) ||
+                  (row.status === "succeeded" &&
+                    checkpoint.publishedPlan !== undefined)
+                )
+                  return true
+                if (!["scanning", "migrating"].includes(row.status))
+                  return false
                 const now = yield* DateTime.nowAsDate
                 yield* tx
                   .update(jiraMigration)

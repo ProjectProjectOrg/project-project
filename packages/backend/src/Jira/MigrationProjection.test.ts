@@ -110,6 +110,10 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
             workflowAttempt: current.workflowAttempt
           }
         })
+        expect(yield* p.beginRemoteWrites(current)).toBe(true)
+        expect((yield* p.owned(input, created.id)).revision).toBe(
+          failed.revision
+        )
         expect(
           yield* Effect.result(
             p.beginRescan({
@@ -296,9 +300,17 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
           }).pipe(Effect.orDie)
         )
         expect((yield* p.owned(input, created.id)).checkpoint).toEqual({})
+        expect(yield* p.completeScan(current, emptyScan)).toBe(true)
+        expect(yield* p.beginRemoteWrites(current)).toBe(true)
+        const scanned = yield* p.owned(input, created.id)
+        expect(scanned.checkpoint).not.toHaveProperty(
+          "remoteWritesMayStillCommit"
+        )
         yield* p.advance(current, { status: "migrating" })
         yield* withJiraRemoteWriteIntent(p, current, Effect.void)
-        expect((yield* p.owned(input, created.id)).checkpoint).toEqual({})
+        expect(
+          (yield* p.owned(input, created.id)).checkpoint
+        ).not.toHaveProperty("remoteWritesMayStillCommit")
       }).pipe(Effect.provide(layer))
     )
   })

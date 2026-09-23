@@ -94,8 +94,6 @@ export const makeJiraProductionActivities = Effect.gen(function* () {
     Effect.gen(function* () {
       const fence = fenceForInput(input)
       const { row, orgSlug } = yield* readAttempt(fence)
-      if (row.status !== "scanning")
-        return yield* Effect.fail(failure("jira_migration_superseded", false))
       const scannedAt = DateTime.formatIso(yield* DateTime.now)
       const identityOptions = db
         .select({
@@ -132,7 +130,7 @@ export const makeJiraProductionActivities = Effect.gen(function* () {
     Effect.gen(function* () {
       const fence = fenceForInput(input)
       const { row, orgSlug } = yield* readAttempt(fence)
-      if (row.status !== "migrating")
+      if (!["migrating", "succeeded"].includes(row.status))
         return yield* Effect.fail(failure("jira_migration_superseded", false))
       const checkpoint = yield* decodeCheckpoint(row.checkpoint).pipe(
         Effect.mapError(materializationFailure)
