@@ -15,6 +15,7 @@ import type {
   OrgTicketsRequest,
   updateMyTicket
 } from "@/features/tickets/atoms/myTickets"
+import { cn } from "@/lib/utils"
 
 const NO_MEMBERS: ReadonlyArray<Member> = []
 
@@ -43,7 +44,7 @@ type DashboardTicketProps = Readonly<{
 
 type DashboardRowProps = DashboardTicketProps &
   Readonly<{
-    trailing?: ReactNode
+    below?: ReactNode
     previewOpen: boolean
     onPreviewPointerEnter: (ticketId: Ticket["id"]) => void
     onPreviewOpenChange: (ticketId: Ticket["id"], open: boolean) => void
@@ -53,7 +54,7 @@ export function DashboardRow({
   req,
   item,
   update,
-  trailing,
+  below,
   previewOpen,
   onPreviewPointerEnter,
   onPreviewOpenChange
@@ -64,21 +65,28 @@ export function DashboardRow({
   const patch = useAtomSet(update(key))
   const state = useAtomValue(update(key))
   return (
-    <div className="col-span-full grid grid-cols-subgrid">
+    <div
+      className={cn(
+        "col-span-full grid grid-cols-subgrid",
+        below !== undefined && "rounded-lg border border-border bg-card"
+      )}
+    >
       <Row
         orgSlug={orgSlug}
         slug={item.project.slug}
         ticket={item.ticket}
         members={members}
         showSprintCol={false}
-        showExtraActionsCol={trailing !== undefined}
-        extraRowActions={trailing === undefined ? undefined : () => trailing}
+        showExtraActionsCol={false}
         sprintMembership={null}
         onUpdate={patch}
         previewOpen={previewOpen}
         onPreviewPointerEnter={onPreviewPointerEnter}
         onPreviewOpenChange={onPreviewOpenChange}
       />
+      {below !== undefined && (
+        <div className="col-span-full px-3 pb-2.5">{below}</div>
+      )}
       {Result.matchWithError(state, {
         onInitial: () => null,
         onSuccess: () => null,
@@ -129,23 +137,25 @@ export function DashboardRows({
   tickets,
   update,
   preview,
-  trailing
+  below
 }: Readonly<{
   req: OrgTicketsRequest
   tickets: ReadonlyArray<OrgTicket>
   update: OrgTicketUpdate
   preview: TicketPreview
-  trailing?: (item: OrgTicket) => ReactNode
+  below?: (item: OrgTicket) => ReactNode
 }>) {
   return (
-    <div className={rowGridClassName(trailing !== undefined)}>
+    <div
+      className={cn(rowGridClassName(false), below !== undefined && "gap-y-2")}
+    >
       {tickets.map((item) => (
         <DashboardRow
           key={`${item.project.slug}/${item.ticket.id}`}
           req={req}
           item={item}
           update={update}
-          trailing={trailing?.(item)}
+          below={below?.(item)}
           previewOpen={preview.activePreviewId === item.ticket.id}
           onPreviewPointerEnter={preview.onPreviewPointerEnter}
           onPreviewOpenChange={preview.onPreviewOpenChange}

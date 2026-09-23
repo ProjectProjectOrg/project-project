@@ -120,10 +120,21 @@ export const RecentTicketRow = Schema.Struct({
 })
 export type RecentTicketRow = typeof RecentTicketRow.Type
 
-export const OrgTicketPage = Page(OrgTicketRow)
+export const OrgTicketPage = Schema.Struct({
+  ...Page(OrgTicketRow).fields,
+  total: Schema.Finite
+})
 export type OrgTicketPage = typeof OrgTicketPage.Type
 
-export const MY_TICKETS_LIMIT = 200
+export const ProjectTicketsPreview = Schema.Struct({
+  projectSlug: Slug,
+  total: Schema.Finite,
+  tickets: Schema.Array(Ticket)
+})
+export type ProjectTicketsPreview = typeof ProjectTicketsPreview.Type
+
+export const MY_TICKETS_PAGE_SIZE = TICKET_LIST_LIMIT
+export const MY_TICKETS_PER_PROJECT = 5
 export const MY_TICKETS_DONE_WINDOW_DAYS = 7
 export const RECENT_TICKETS_LIMIT = 10
 

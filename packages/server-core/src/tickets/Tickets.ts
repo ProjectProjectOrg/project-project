@@ -18,6 +18,7 @@ import type {
   OpenPrInput,
   OpenPrResult,
   OrgTicketPage,
+  ProjectTicketsPreview,
   QuickCreateTicketInput,
   RecentTicketRow,
   RateLimited,
@@ -53,6 +54,10 @@ export interface TicketsShape {
     userId: string,
     query: MyTicketsQuery
   ) => Effect.Effect<OrgTicketPage, NotFound>
+  readonly mineByProject: (
+    orgSlug: string,
+    userId: string
+  ) => Effect.Effect<ReadonlyArray<ProjectTicketsPreview>, NotFound>
   readonly recent: (
     orgSlug: string,
     userId: string

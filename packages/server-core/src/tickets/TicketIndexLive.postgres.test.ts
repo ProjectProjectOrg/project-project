@@ -977,6 +977,30 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
           `${alphaSlug}:AL-2`
         ])
 
+        const allTime = {
+          viewerId,
+          doneAfter: at("2026-01-01T00:00:00.000Z")
+        }
+        expect(yield* index.countAssigned(visible, allTime)).toBe(3)
+        const previews = yield* index.assignedPerProject(visible, {
+          ...allTime,
+          perProject: 1
+        })
+        expect(
+          previews
+            .map(({ project, total, entries }) => [
+              project.projectSlug,
+              total,
+              entries.map((entry) => entry.id)
+            ])
+            .toSorted((a, b) => String(a[0]).localeCompare(String(b[0])))
+        ).toEqual(
+          [
+            [alphaSlug, 2, ["AL-1"]],
+            [betaSlug, 1, ["BE-1"]]
+          ].toSorted((a, b) => String(a[0]).localeCompare(String(b[0])))
+        )
+
         const hasComment = new Map(
           touched.map(({ entry, lastCommentAt }) => [
             entry.id,

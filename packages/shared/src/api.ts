@@ -64,6 +64,7 @@ import {
   DEFAULT_TICKET_SORT,
   MyTicketsQuery,
   OrgTicketPage,
+  ProjectTicketsPreview,
   RecentTicketRow,
   TicketSort,
   TicketCountQuery,
@@ -1076,6 +1077,17 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       success: OrgTicketPage,
       error: [Unauthorized, NotFound]
     })
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "mineByProject",
+      "/orgs/:orgSlug/tickets/mine/by-project",
+      {
+        params: OrgPath,
+        success: Schema.Array(ProjectTicketsPreview),
+        error: [Unauthorized, NotFound]
+      }
+    )
   )
   .add(
     HttpApiEndpoint.get("recent", "/orgs/:orgSlug/tickets/recent", {

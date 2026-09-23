@@ -35,6 +35,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  lte,
   ne,
   or,
   sql as drizzleSql,
@@ -56,9 +57,11 @@ import {
   type TicketIndexEntry,
   type TicketIndexCountOptions,
   type TicketIndexAssignedOptions,
+  type TicketIndexAssignedScope,
   type TicketIndexCounts,
   type TicketIndexOrgEntry,
   type TicketIndexProject,
+  type TicketIndexProjectPreview,
   type TicketIndexQueryEntry,
   type TicketIndexQueryOptions,
   type TicketIndexReconcileOptions,
@@ -607,6 +610,78 @@ export const TicketIndexLive = Layer.effect(
         )
     }
 
+    const assignedConditions = (scope: TicketIndexAssignedScope) => [
+      arrayContains(ticketIndex.assignees, [scope.viewerId]),
+      or(
+        ne(ticketIndex.status, "done"),
+        gt(ticketIndex.updatedAt, scope.doneAfter)
+      )
+    ]
+
+    const countAssigned = (
+      projects: ReadonlyArray<TicketIndexProject>,
+      scope: TicketIndexAssignedScope
+    ): Effect.Effect<number> => {
+      if (projects.length === 0) return Effect.succeed(0)
+      return db
+        .select({ total: drizzleCount() })
+        .from(ticketIndex)
+        .where(acrossProjects(projects, assignedConditions(scope)))
+        .pipe(
+          Effect.map((rows) => rows[0]?.total ?? 0),
+          Effect.orDie
+        )
+    }
+
+    const assignedPerProject = (
+      projects: ReadonlyArray<TicketIndexProject>,
+      scope: TicketIndexAssignedScope & Readonly<{ perProject: number }>
+    ): Effect.Effect<ReadonlyArray<TicketIndexProjectPreview>> => {
+      if (projects.length === 0) return Effect.succeed([])
+      const ranked = db
+        .select({
+          ...getTableColumns(ticketIndex),
+          rank: drizzleSql<number>`row_number() over (
+            partition by ${ticketIndex.projectId}
+            order by ${ticketIndex.updatedAt} desc, ${ticketIndex.ticketId} desc
+          )`
+            .mapWith(Number)
+            .as("rank"),
+          total: drizzleSql<number>`count(*) over (
+            partition by ${ticketIndex.projectId}
+          )`
+            .mapWith(Number)
+            .as("total")
+        })
+        .from(ticketIndex)
+        .where(acrossProjects(projects, assignedConditions(scope)))
+        .as("ranked")
+      return db
+        .select()
+        .from(ranked)
+        .where(lte(ranked.rank, Math.max(1, scope.perProject)))
+        .orderBy(asc(ranked.projectId), asc(ranked.rank))
+        .pipe(
+          Effect.map((rows) => {
+            const byProject = new Map<string, TicketIndexProjectPreview>()
+            for (const { rank: _rank, total, ...row } of rows) {
+              const project = projects.find(
+                (candidate) => candidate.projectId === row.projectId
+              )
+              if (!project) continue
+              const current = byProject.get(row.projectId)
+              byProject.set(row.projectId, {
+                project,
+                total,
+                entries: [...(current?.entries ?? []), toEntry(row)]
+              })
+            }
+            return [...byProject.values()]
+          }),
+          Effect.orDie
+        )
+    }
+
     const assignedTo = (
       projects: ReadonlyArray<TicketIndexProject>,
       options: TicketIndexAssignedOptions
@@ -614,11 +689,7 @@ export const TicketIndexLive = Layer.effect(
       queryAcross(
         projects,
         [
-          arrayContains(ticketIndex.assignees, [options.viewerId]),
-          or(
-            ne(ticketIndex.status, "done"),
-            gt(ticketIndex.updatedAt, options.doneAfter)
-          ),
+          ...assignedConditions(options),
           ticketCursorCondition(
             { sort: UPDATED_DESC, cursor: options.cursor },
             ticketSortExpression(UPDATED_DESC)
@@ -1214,6 +1285,8 @@ export const TicketIndexLive = Layer.effect(
       projectFor,
       projectsFor,
       assignedTo,
+      countAssigned,
+      assignedPerProject,
       touchedBy,
       list,
       query,

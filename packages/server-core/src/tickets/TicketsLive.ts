@@ -14,7 +14,8 @@ import {
   GitStatesResponse,
   MentionInvalid,
   MY_TICKETS_DONE_WINDOW_DAYS,
-  MY_TICKETS_LIMIT,
+  MY_TICKETS_PAGE_SIZE,
+  MY_TICKETS_PER_PROJECT,
   NotFound,
   OpenPrInput,
   OpenPrResult,
@@ -43,6 +44,7 @@ import {
   type MyTicketsQuery,
   type OrgTicketPage,
   type OrgTicketRow,
+  type ProjectTicketsPreview,
   type RecentTicketActivity,
   type RecentTicketRow,
   type TicketCountQuery,
@@ -389,31 +391,75 @@ export const TicketsLive = Layer.effect(
         }))
       })
 
+    const assignedScope = (userId: string) =>
+      Effect.map(DateTime.now, (now) => ({
+        viewerId: userId,
+        doneAfter: DateTime.toDate(
+          DateTime.subtract(now, { days: MY_TICKETS_DONE_WINDOW_DAYS })
+        )
+      }))
+
     const mine = Effect.fn("Tickets.mine")(function* (
       orgSlug: string,
       userId: string,
       query: MyTicketsQuery
     ) {
       const visible = yield* visibleIndexProjects(orgSlug, userId)
-      const now = yield* DateTime.now
-      const doneAfter = DateTime.toDate(
-        DateTime.subtract(now, { days: MY_TICKETS_DONE_WINDOW_DAYS })
+      const scope = yield* assignedScope(userId)
+      const [entries, total] = yield* Effect.all(
+        [
+          ticketIndex.assignedTo(visible, {
+            ...scope,
+            cursor: query.cursor,
+            limit: MY_TICKETS_PAGE_SIZE + 1
+          }),
+          ticketIndex.countAssigned(visible, scope)
+        ],
+        { concurrency: "unbounded" }
       )
-      const entries = yield* ticketIndex.assignedTo(visible, {
-        viewerId: userId,
-        doneAfter,
-        cursor: query.cursor,
-        limit: MY_TICKETS_LIMIT + 1
-      })
       const page = paginateSorted(entries, {
         cursor: undefined,
-        limit: MY_TICKETS_LIMIT,
+        limit: MY_TICKETS_PAGE_SIZE,
         sortKey: (row) => row.sortValue,
         id: (row) => row.entry.id,
         dir: "desc"
       })
       const items = yield* orgTicketRows(orgSlug, userId, page.items)
-      return { items, nextCursor: page.nextCursor } satisfies OrgTicketPage
+      return {
+        items,
+        nextCursor: page.nextCursor,
+        total
+      } satisfies OrgTicketPage
+    })
+
+    const mineByProject = Effect.fn("Tickets.mineByProject")(function* (
+      orgSlug: string,
+      userId: string
+    ) {
+      const visible = yield* visibleIndexProjects(orgSlug, userId)
+      const scope = yield* assignedScope(userId)
+      const previews = yield* ticketIndex.assignedPerProject(visible, {
+        ...scope,
+        perProject: MY_TICKETS_PER_PROJECT
+      })
+      return yield* Effect.forEach(
+        previews,
+        ({ project, total, entries }) =>
+          projects
+            .getGithubIntegration(orgSlug, userId, project.projectSlug)
+            .pipe(
+              Effect.map(
+                (github): ProjectTicketsPreview => ({
+                  projectSlug: project.projectSlug,
+                  total,
+                  tickets: entries.map((entry) =>
+                    indexEntryToTicket(entry, github)
+                  )
+                })
+              )
+            ),
+        { concurrency: 8 }
+      )
     })
 
     const recent = Effect.fn("Tickets.recent")(function* (
@@ -2155,6 +2201,7 @@ export const TicketsLive = Layer.effect(
 
     return {
       mine,
+      mineByProject,
       recent,
       list,
       sections,

@@ -3,6 +3,7 @@ import {
   OrgTicketRow,
   Project,
   ProjectStatus,
+  ProjectTicketsPreview,
   RecentTicketRow,
   Ticket,
   TicketDetail,
@@ -17,12 +18,14 @@ import { describe, expect, it, vi } from "vitest"
 import { stubFetch } from "@/api/testFetch"
 
 import {
+  loadMoreMyTickets,
   myTicketBoard,
   myTickets,
   orgTicketsRequest,
   myTicketsByProject,
   recentTickets,
-  updateMyTicket
+  updateMyTicket,
+  updateProjectTicket
 } from "./myTickets"
 import { ticketRequest, updateTicketDetail } from "./ticketDetail"
 
@@ -113,6 +116,7 @@ const row = (projectSlug: string, id: string, status: string): OrgTicketRow =>
 const encodeProjects = Schema.encodeSync(Schema.Array(Project))
 const encodePage = Schema.encodeSync(OrgTicketPage)
 const encodeRecent = Schema.encodeSync(Schema.Array(RecentTicketRow))
+const encodePreviews = Schema.encodeSync(Schema.Array(ProjectTicketsPreview))
 const encodeStatuses = Schema.encodeSync(Schema.Array(ProjectStatus))
 const encodeUpdate = Schema.encodeSync(TicketUpdateResult)
 
@@ -120,6 +124,34 @@ type Served = {
   mine: ReadonlyArray<OrgTicketRow>
   nextCursor: string | null
   recent: ReadonlyArray<OrgTicketRow>
+  total?: number
+  pages?: Readonly<
+    Record<
+      string,
+      Readonly<{
+        items: ReadonlyArray<OrgTicketRow>
+        nextCursor: string | null
+      }>
+    >
+  >
+  byProject?: ReadonlyArray<ProjectTicketsPreview>
+}
+
+const previewsOf = (
+  rows: ReadonlyArray<OrgTicketRow>
+): ReadonlyArray<ProjectTicketsPreview> => {
+  const bySlug = new Map<string, Array<OrgTicketRow>>()
+  for (const item of rows) {
+    bySlug.set(item.projectSlug, [
+      ...(bySlug.get(item.projectSlug) ?? []),
+      item
+    ])
+  }
+  return [...bySlug].map(([projectSlug, items]) => ({
+    projectSlug,
+    total: items.length,
+    tickets: items.slice(0, 5).map((item) => item.ticket)
+  }))
 }
 
 const serve = (
@@ -149,9 +181,21 @@ const serve = (
       return Promise.resolve(Response.json(encodeProjects(projects)))
     }
     if (url.pathname === "/api/orgs/acme/tickets/mine") {
+      const cursor = url.searchParams.get("cursor")
+      const page =
+        cursor === null
+          ? { items: served.mine, nextCursor: served.nextCursor }
+          : (served.pages?.[cursor] ?? { items: [], nextCursor: null })
       return Promise.resolve(
         Response.json(
-          encodePage({ items: served.mine, nextCursor: served.nextCursor })
+          encodePage({ ...page, total: served.total ?? served.mine.length })
+        )
+      )
+    }
+    if (url.pathname === "/api/orgs/acme/tickets/mine/by-project") {
+      return Promise.resolve(
+        Response.json(
+          encodePreviews(served.byProject ?? previewsOf(served.mine))
         )
       )
     }
@@ -217,7 +261,7 @@ describe("myTickets", () => {
           ["WEB", "WEB-1"],
           ["API", "API-1"]
         ])
-        expect(value.hasMore).toBe(true)
+        expect(value.nextCursor).toBe("next")
       })
     } finally {
       registry.dispose()
@@ -409,16 +453,24 @@ describe("updateMyTicket", () => {
 })
 
 describe("myTicketsByProject", () => {
-  it("groups rows per project, ordered by project name, keeping row order", async () => {
+  it("orders project previews by name and keeps each project's total", async () => {
     serve(
       {
-        mine: [
-          row("web", "WEB-2", "todo"),
-          row("api", "API-1", "done"),
-          row("web", "WEB-1", "todo")
-        ],
+        mine: [],
         nextCursor: null,
-        recent: []
+        recent: [],
+        byProject: [
+          {
+            projectSlug: "web",
+            total: 12,
+            tickets: [row("web", "WEB-2", "todo").ticket]
+          },
+          {
+            projectSlug: "api",
+            total: 1,
+            tickets: [row("api", "API-1", "done").ticket]
+          }
+        ]
       },
       []
     )
@@ -428,15 +480,98 @@ describe("myTicketsByProject", () => {
     try {
       await vi.waitFor(() =>
         expect(
-          successOf(registry.get(view)).groups.map(({ project, tickets }) => [
-            project.slug,
-            tickets.map(({ ticket }) => ticket.id)
-          ])
+          successOf(registry.get(view)).groups.map(
+            ({ project, total, tickets }) => [
+              project.slug,
+              total,
+              tickets.map(({ ticket }) => ticket.id)
+            ]
+          )
         ).toEqual([
-          ["api", ["API-1"]],
-          ["web", ["WEB-2", "WEB-1"]]
+          ["api", 1, ["API-1"]],
+          ["web", 12, ["WEB-2"]]
         ])
       )
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("drops an unassigned ticket and lowers that project's total", async () => {
+    serve(
+      {
+        mine: [],
+        nextCursor: null,
+        recent: [],
+        byProject: [
+          {
+            projectSlug: "web",
+            total: 7,
+            tickets: [row("web", "WEB-1", "todo").ticket]
+          }
+        ]
+      },
+      [],
+      () => new Promise<Response>(() => {})
+    )
+    const registry = AtomRegistry.make()
+    const view = myTicketsByProject(req)
+    const mutation = updateProjectTicket({
+      req,
+      viewerId: "user-1",
+      projectSlug: "web",
+      id: webTicketId
+    })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(successOf(registry.get(view)).groups).toHaveLength(1)
+      )
+      registry.set(mutation, { assignees: [] })
+      expect(successOf(registry.get(view)).groups[0]).toMatchObject({
+        total: 6,
+        tickets: []
+      })
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
+describe("loadMoreMyTickets", () => {
+  it("appends the next page and keeps the first page's total", async () => {
+    serve(
+      {
+        mine: [row("web", "WEB-1", "todo")],
+        nextCursor: "page-2",
+        total: 2,
+        pages: {
+          "page-2": { items: [row("api", "API-1", "todo")], nextCursor: null }
+        },
+        recent: []
+      },
+      []
+    )
+    const registry = AtomRegistry.make()
+    const view = myTickets(req)
+    const loadMore = loadMoreMyTickets(req)
+    registry.mount(view)
+    registry.mount(loadMore)
+    try {
+      await vi.waitFor(() =>
+        expect(successOf(registry.get(view)).tickets).toHaveLength(1)
+      )
+      registry.set(loadMore, undefined)
+      await vi.waitFor(() =>
+        expect(successOf(registry.get(view))).toMatchObject({
+          nextCursor: null,
+          total: 2
+        })
+      )
+      expect(
+        successOf(registry.get(view)).tickets.map(({ ticket }) => ticket.id)
+      ).toEqual(["WEB-1", "API-1"])
     } finally {
       registry.dispose()
     }

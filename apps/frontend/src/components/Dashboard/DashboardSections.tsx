@@ -1,5 +1,4 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
-import { MY_TICKETS_LIMIT } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { Columns3, Rows3 } from "lucide-react"
@@ -40,6 +39,7 @@ import {
   StatusGroupedList,
   type DashboardGrouping
 } from "./GroupedTicketList"
+import { MyTicketsPagination } from "./MyTicketsPagination"
 import { TicketActivityLabel } from "./TicketActivityLabel"
 
 export type MyTicketsView = "list" | "board"
@@ -137,8 +137,7 @@ function MyTicketsList({
     req,
     collapseKey,
     loading: <RowsSkeleton count={4} />,
-    empty: <EmptyTickets />,
-    footer: (hasMore: boolean) => hasMore && <TruncatedNote />
+    empty: <EmptyTickets />
   }
   if (grouping === "project") return <ProjectGroupedList {...grouped} />
   if (grouping === "status") return <StatusGroupedList {...grouped} />
@@ -166,7 +165,12 @@ function FlatTicketList({ req }: Readonly<{ req: OrgTicketsRequest }>) {
             update={updateMyTicket}
             preview={preview}
           />
-          {value.hasMore && <TruncatedNote />}
+          <MyTicketsPagination
+            req={req}
+            nextCursor={value.nextCursor}
+            loaded={value.tickets.length}
+            total={value.total}
+          />
         </>
       )
   })
@@ -188,7 +192,15 @@ function MyTicketsBoard({ orgSlug }: Readonly<{ orgSlug: string }>) {
       ) : (
         <>
           <TicketBoard req={req} columns={value.columns} />
-          {value.hasMore && <TruncatedNote />}
+          <MyTicketsPagination
+            req={req}
+            nextCursor={value.nextCursor}
+            loaded={value.columns.reduce(
+              (sum, column) => sum + column.items.length,
+              0
+            )}
+            total={value.total}
+          />
         </>
       )
   })
@@ -223,9 +235,7 @@ export function RecentTicketsSection({
               tickets={value.tickets}
               update={updateRecentTicket}
               preview={preview}
-              trailing={(item) => (
-                <TicketActivityLabel activity={item.activity} />
-              )}
+              below={(item) => <TicketActivityLabel activity={item.activity} />}
             />
           )
       })}
@@ -284,14 +294,6 @@ function EmptyTickets() {
 
 function EmptyNote({ children }: Readonly<{ children: ReactNode }>) {
   return <p className="px-3 text-xs text-muted-foreground">{children}</p>
-}
-
-function TruncatedNote() {
-  return (
-    <EmptyNote>
-      {m.org_dashboard_my_tickets_truncated({ count: MY_TICKETS_LIMIT })}
-    </EmptyNote>
-  )
 }
 
 function RowsSkeleton({ count }: Readonly<{ count: number }>) {

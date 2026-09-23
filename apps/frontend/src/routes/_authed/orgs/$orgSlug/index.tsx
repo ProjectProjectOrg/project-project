@@ -31,8 +31,10 @@ import {
 } from "@/features/projects/atoms/projectStatuses"
 import {
   myTickets,
+  myTicketsByProject,
   orgTicketsRequest,
   recentTickets,
+  type MyTicketsByProjectValue,
   type OrgTicketsValue
 } from "@/features/tickets/atoms/myTickets"
 import { formatRelative } from "@/lib/relative-time"
@@ -46,27 +48,39 @@ const DashboardSearchSchema = Schema.Struct({
 const PROJECT_PRELOAD_CONCURRENCY = 4
 
 const projectSlugsOf = (
-  values: ReadonlyArray<Option.Option<OrgTicketsValue>>
+  lists: ReadonlyArray<Option.Option<OrgTicketsValue>>,
+  byProject: Option.Option<MyTicketsByProjectValue>
 ): ReadonlySet<string> =>
-  new Set(
-    values.flatMap((value) =>
+  new Set([
+    ...lists.flatMap((value) =>
       Option.isSome(value)
         ? value.value.tickets.map(({ project }) => project.slug)
         : []
-    )
-  )
+    ),
+    ...(Option.isSome(byProject)
+      ? byProject.value.groups.map(({ project }) => project.slug)
+      : [])
+  ])
 
 const preloadDashboard = (registry: Registry.AtomRegistry, orgSlug: string) =>
   Effect.gen(function* () {
     const req = orgTicketsRequest(orgSlug)
-    const lists = yield* Effect.all(
-      [myTickets(req), recentTickets(req)].map((atom) =>
-        Registry.getResult(registry, atom).pipe(Effect.option)
-      ),
+    const [lists, byProject] = yield* Effect.all(
+      [
+        Effect.all(
+          [myTickets(req), recentTickets(req)].map((atom) =>
+            Registry.getResult(registry, atom).pipe(Effect.option)
+          ),
+          { concurrency: "unbounded" }
+        ),
+        Registry.getResult(registry, myTicketsByProject(req)).pipe(
+          Effect.option
+        )
+      ],
       { concurrency: "unbounded" }
     )
     yield* Effect.forEach(
-      projectSlugsOf(lists),
+      projectSlugsOf(lists, byProject),
       (slug) =>
         Effect.all(
           [

@@ -1,5 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
+import { Link } from "@tanstack/react-router"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
+import { ArrowRight } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
@@ -15,12 +17,20 @@ import {
   myTicketBoard,
   myTicketsByProject,
   updateMyTicket,
+  updateProjectTicket,
   type OrgTicket,
-  type OrgTicketsRequest
+  type OrgTicketsRequest,
+  type ProjectTicketGroup
 } from "@/features/tickets/atoms/myTickets"
 import { getStatusIcon } from "@/lib/status-icons"
+import { m } from "@/paraglide/messages"
 
-import { DashboardRows, type TicketPreview } from "./DashboardTicket"
+import {
+  DashboardRows,
+  type OrgTicketUpdate,
+  type TicketPreview
+} from "./DashboardTicket"
+import { MyTicketsPagination } from "./MyTicketsPagination"
 
 export type DashboardGrouping = "project" | "status" | "none"
 
@@ -29,13 +39,14 @@ type GroupedListProps = Readonly<{
   collapseKey: string
   loading: ReactNode
   empty: ReactNode
-  footer: (hasMore: boolean) => ReactNode
 }>
 
 type Group = Readonly<{
   id: string
   heading: SectionHeading
+  count: number
   tickets: ReadonlyArray<OrgTicket>
+  footer?: ReactNode
 }>
 
 export function ProjectGroupedList(props: GroupedListProps) {
@@ -51,23 +62,28 @@ export function ProjectGroupedList(props: GroupedListProps) {
     onSuccess: ({ value }) => (
       <GroupedSections
         {...props}
-        hasMore={value.hasMore}
-        groups={value.groups.map(({ project, tickets }) => ({
-          id: project.slug,
+        update={updateProjectTicket}
+        groups={value.groups.map((group) => ({
+          id: group.project.slug,
           heading: {
-            label: project.name,
+            label: group.project.name,
             icon: (
               <ProjectTile
                 orgSlug={req.params.orgSlug}
-                icon={project.icon}
-                iconImage={project.iconImage}
-                color={project.color}
+                icon={group.project.icon}
+                iconImage={group.project.iconImage}
+                color={group.project.color}
                 size="xs"
-                seed={project.slug}
+                seed={group.project.slug}
               />
             )
           },
-          tickets
+          count: group.total,
+          tickets: group.tickets,
+          footer:
+            group.total > group.tickets.length ? (
+              <ViewAllInProject orgSlug={req.params.orgSlug} group={group} />
+            ) : undefined
         }))}
       />
     )
@@ -87,7 +103,7 @@ export function StatusGroupedList(props: GroupedListProps) {
     onSuccess: ({ value }) => (
       <GroupedSections
         {...props}
-        hasMore={value.hasMore}
+        update={updateMyTicket}
         groups={value.columns.map((column) => {
           const Icon = getStatusIcon(column.icon)
           return {
@@ -102,23 +118,59 @@ export function StatusGroupedList(props: GroupedListProps) {
                 />
               )
             },
+            count: column.items.length,
             tickets: column.items
           }
         })}
+        footer={
+          <MyTicketsPagination
+            req={req}
+            nextCursor={value.nextCursor}
+            loaded={value.columns.reduce(
+              (sum, column) => sum + column.items.length,
+              0
+            )}
+            total={value.total}
+          />
+        }
       />
     )
   })
+}
+
+function ViewAllInProject({
+  orgSlug,
+  group
+}: Readonly<{ orgSlug: string; group: ProjectTicketGroup }>) {
+  return (
+    <Link
+      to="/orgs/$orgSlug/projects/$slug"
+      params={{ orgSlug, slug: group.project.slug }}
+      search={{ assignee: ["mine"] }}
+      className="inline-flex items-center gap-1 self-start px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+    >
+      {m.org_dashboard_view_all_in_project({
+        count: group.total,
+        project: group.project.name
+      })}
+      <ArrowRight className="size-3.5" strokeWidth={1.75} />
+    </Link>
+  )
 }
 
 function GroupedSections({
   req,
   collapseKey,
   empty,
-  footer,
   groups,
-  hasMore
+  update,
+  footer
 }: GroupedListProps &
-  Readonly<{ groups: ReadonlyArray<Group>; hasMore: boolean }>) {
+  Readonly<{
+    groups: ReadonlyArray<Group>
+    update: OrgTicketUpdate
+    footer?: ReactNode
+  }>) {
   const preview = useTicketPreview()
   if (groups.every((group) => group.tickets.length === 0)) return empty
   return (
@@ -130,11 +182,12 @@ function GroupedSections({
             req={req}
             collapseKey={collapseKey}
             group={group}
+            update={update}
             preview={preview}
           />
         ))}
       </div>
-      {footer(hasMore)}
+      {footer}
     </>
   )
 }
@@ -143,11 +196,13 @@ function GroupSection({
   req,
   collapseKey,
   group,
+  update,
   preview
 }: Readonly<{
   req: OrgTicketsRequest
   collapseKey: string
   group: Group
+  update: OrgTicketUpdate
   preview: TicketPreview
 }>) {
   const [collapsed, toggle] = useCollapsedInSet(
@@ -160,7 +215,7 @@ function GroupSection({
       <SectionHeader
         variant="sticky"
         heading={group.heading}
-        count={group.tickets.length}
+        count={group.count}
         collapsed={collapsed}
         creating={false}
         canCreate={false}
@@ -178,10 +233,11 @@ function GroupSection({
           <DashboardRows
             req={req}
             tickets={group.tickets}
-            update={updateMyTicket}
+            update={update}
             preview={preview}
           />
         )}
+        {group.footer}
       </SectionBody>
     </div>
   )

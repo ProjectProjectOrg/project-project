@@ -86,6 +86,17 @@ export type TicketIndexAssignedOptions = Readonly<{
   limit: number
 }>
 
+export type TicketIndexAssignedScope = Readonly<{
+  viewerId: string
+  doneAfter: Date
+}>
+
+export type TicketIndexProjectPreview = Readonly<{
+  project: TicketIndexProject
+  total: number
+  entries: ReadonlyArray<TicketIndexEntry>
+}>
+
 export type TicketIndexTouchedOptions = Readonly<{
   viewerId: string
   limit: number
@@ -142,6 +153,14 @@ export interface TicketIndexShape {
     projects: ReadonlyArray<TicketIndexProject>,
     options: TicketIndexAssignedOptions
   ) => Effect.Effect<ReadonlyArray<TicketIndexOrgEntry>>
+  readonly countAssigned: (
+    projects: ReadonlyArray<TicketIndexProject>,
+    scope: TicketIndexAssignedScope
+  ) => Effect.Effect<number>
+  readonly assignedPerProject: (
+    projects: ReadonlyArray<TicketIndexProject>,
+    scope: TicketIndexAssignedScope & Readonly<{ perProject: number }>
+  ) => Effect.Effect<ReadonlyArray<TicketIndexProjectPreview>>
   readonly touchedBy: (
     projects: ReadonlyArray<TicketIndexProject>,
     options: TicketIndexTouchedOptions
