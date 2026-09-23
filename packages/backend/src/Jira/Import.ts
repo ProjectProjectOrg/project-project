@@ -850,7 +850,9 @@ export const ensureHiddenJiraProject = Effect.fn(
           workflowAttempt: jiraMigration.workflowAttempt,
           status: jiraMigration.status,
           cleanupExecutionId: jiraMigration.cleanupExecutionId,
-          organizationId: jiraMigration.organizationId
+          organizationId: jiraMigration.organizationId,
+          destinationProjectId: jiraMigration.destinationProjectId,
+          destinationProjectSlug: jiraMigration.destinationProjectSlug
         })
         .from(jiraMigration)
         .where(eq(jiraMigration.id, fence.migrationId))
@@ -861,7 +863,11 @@ export const ensureHiddenJiraProject = Effect.fn(
         migration.workflowAttempt !== fence.workflowAttempt ||
         migration.status !== "migrating" ||
         migration.cleanupExecutionId !== null ||
-        migration.organizationId !== project.organizationId
+        migration.organizationId !== project.organizationId ||
+        (migration.destinationProjectId !== null &&
+          migration.destinationProjectId !== project.id) ||
+        (migration.destinationProjectSlug !== null &&
+          migration.destinationProjectSlug !== project.slug)
       )
         return yield* new JiraPublicationInvalid({
           reasons: ["stale-materialization-attempt"]
@@ -899,6 +905,13 @@ export const ensureHiddenJiraProject = Effect.fn(
         return yield* new JiraPublicationInvalid({
           reasons: ["hidden-project-identity-conflict"]
         })
+      yield* tx
+        .update(jiraMigration)
+        .set({
+          destinationProjectId: project.id,
+          destinationProjectSlug: project.slug
+        })
+        .where(eq(jiraMigration.id, fence.migrationId))
       return existing.id
     })
   )

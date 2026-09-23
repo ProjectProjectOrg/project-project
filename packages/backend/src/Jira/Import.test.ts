@@ -150,6 +150,16 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
       [slug]
     )
     expect(rows.rows).toEqual([{ id: projectId, published_at: null }])
+    const reserved = await pool.query(
+      "select destination_project_id,destination_project_slug from jira_migration where id = $1",
+      [migrationId]
+    )
+    expect(reserved.rows).toEqual([
+      {
+        destination_project_id: projectId,
+        destination_project_slug: slug
+      }
+    ])
     const content = "---\nname: Application\n---\n# Application\n"
     const archive = '{"version":1}'
     const documents = [
@@ -259,6 +269,14 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
       ).pipe(Effect.provide(layer))
     )
     expect(conflicting._tag).toBe("Failure")
+    await pool.query(
+      "update jira_migration set destination_project_id = $2 where id = $1",
+      [migrationId, randomUUID()]
+    )
+    const conflictingReservation = await Effect.runPromise(
+      Effect.result(ensureHiddenJiraProject(input)).pipe(Effect.provide(layer))
+    )
+    expect(conflictingReservation._tag).toBe("Failure")
     await pool.query(
       "update jira_migration set workflow_attempt = 2 where id = $1",
       [migrationId]
