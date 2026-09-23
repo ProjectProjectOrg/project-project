@@ -64,7 +64,7 @@ import {
   DEFAULT_TICKET_SORT,
   MyTicketsQuery,
   OrgTicketPage,
-  OrgTicketRow,
+  RecentTicketRow,
   TicketSort,
   TicketCountQuery,
   TicketCounts,
@@ -1080,7 +1080,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
   .add(
     HttpApiEndpoint.get("recent", "/orgs/:orgSlug/tickets/recent", {
       params: OrgPath,
-      success: Schema.Array(OrgTicketRow),
+      success: Schema.Array(RecentTicketRow),
       error: [Unauthorized, NotFound]
     })
   )

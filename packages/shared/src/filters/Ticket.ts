@@ -95,6 +95,25 @@ export const OrgTicketRow = Schema.Struct({
 })
 export type OrgTicketRow = typeof OrgTicketRow.Type
 
+export const RecentTicketActivity = Schema.Union([
+  Schema.Struct({
+    tag: Schema.Literal("commented"),
+    at: Schema.DateFromString
+  }),
+  Schema.Struct({
+    tag: Schema.Literal("created"),
+    at: Schema.DateFromString
+  }),
+  Schema.Struct({ tag: Schema.Literal("assigned") })
+])
+export type RecentTicketActivity = typeof RecentTicketActivity.Type
+
+export const RecentTicketRow = Schema.Struct({
+  ...OrgTicketRow.fields,
+  activity: RecentTicketActivity
+})
+export type RecentTicketRow = typeof RecentTicketRow.Type
+
 export const OrgTicketPage = Page(OrgTicketRow)
 export type OrgTicketPage = typeof OrgTicketPage.Type
 

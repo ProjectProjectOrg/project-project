@@ -1,6 +1,7 @@
 import type {
   OrgTicketRow,
   Project,
+  RecentTicketActivity,
   Ticket,
   TicketId,
   UpdateTicketInput
@@ -41,6 +42,7 @@ export const orgTicketsRequest = (orgSlug: string): OrgTicketsRequest => ({
 export type OrgTicket = Readonly<{
   project: Project
   ticket: Ticket
+  activity: RecentTicketActivity | null
 }>
 
 export type OrgTicketsValue = Readonly<{
@@ -83,12 +85,14 @@ const recentQuery = (scoped: ScopedRequest) =>
 
 const withProjects = (
   projects: ReadonlyArray<Project>,
-  rows: ReadonlyArray<OrgTicketRow>
+  rows: ReadonlyArray<
+    OrgTicketRow & Readonly<{ activity?: RecentTicketActivity }>
+  >
 ): ReadonlyArray<OrgTicket> => {
   const bySlug = new Map(projects.map((project) => [project.slug, project]))
-  return rows.flatMap(({ projectSlug, ticket }) => {
+  return rows.flatMap(({ projectSlug, ticket, activity }) => {
     const project = bySlug.get(projectSlug)
-    return project ? [{ project, ticket }] : []
+    return project ? [{ project, ticket, activity: activity ?? null }] : []
   })
 }
 

@@ -18,8 +18,8 @@ import type {
   OpenPrInput,
   OpenPrResult,
   OrgTicketPage,
-  OrgTicketRow,
   QuickCreateTicketInput,
+  RecentTicketRow,
   RateLimited,
   SplitTicketInput,
   SplitTicketResult,
@@ -56,7 +56,7 @@ export interface TicketsShape {
   readonly recent: (
     orgSlug: string,
     userId: string
-  ) => Effect.Effect<ReadonlyArray<OrgTicketRow>, NotFound>
+  ) => Effect.Effect<ReadonlyArray<RecentTicketRow>, NotFound>
   readonly sections: (
     orgSlug: string,
     userId: string,

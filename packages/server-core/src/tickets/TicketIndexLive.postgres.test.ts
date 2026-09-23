@@ -977,6 +977,15 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
           `${alphaSlug}:AL-2`
         ])
 
+        const hasComment = new Map(
+          touched.map(({ entry, lastCommentAt }) => [
+            entry.id,
+            lastCommentAt !== null
+          ])
+        )
+        expect(hasComment.get(ticketId("BE-2"))).toBe(true)
+        expect(hasComment.get(ticketId("AL-1"))).toBe(false)
+
         expect(
           yield* index.assignedTo([], {
             viewerId,

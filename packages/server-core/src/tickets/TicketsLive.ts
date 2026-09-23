@@ -42,6 +42,8 @@ import {
   type MyTicketsQuery,
   type OrgTicketPage,
   type OrgTicketRow,
+  type RecentTicketActivity,
+  type RecentTicketRow,
   type TicketCountQuery,
   type TicketCounts,
   type TicketListPage,
@@ -85,6 +87,7 @@ import {
   TicketIndex,
   type TicketIndexEntry,
   type TicketIndexOrgEntry,
+  type TicketIndexTouchedEntry,
   type TicketIndexQueryEntry,
   type TicketIndexProject
 } from "./TicketIndex"
@@ -162,6 +165,21 @@ function indexEntryToTicket(
     ...ticket,
     gitState: pendingGitState(entry, github, entry.branchDeletedAt)
   }
+}
+
+export function recentActivityOf(
+  entry: Pick<TicketIndexTouchedEntry, "lastCommentAt"> &
+    Readonly<{ entry: Pick<TicketIndexEntry, "createdBy" | "createdAt"> }>,
+  viewerId: string
+): RecentTicketActivity {
+  const created =
+    entry.entry.createdBy === viewerId ? entry.entry.createdAt : null
+  const commented = entry.lastCommentAt
+  if (commented !== null && (created === null || commented >= created)) {
+    return { tag: "commented", at: commented }
+  }
+  if (created !== null) return { tag: "created", at: created }
+  return { tag: "assigned" }
 }
 
 function ticketPage(
@@ -405,7 +423,13 @@ export const TicketsLive = Layer.effect(
         viewerId: userId,
         limit: RECENT_TICKETS_LIMIT
       })
-      return yield* orgTicketRows(orgSlug, userId, entries)
+      const rows = yield* orgTicketRows(orgSlug, userId, entries)
+      return rows.map(
+        (row, index): RecentTicketRow => ({
+          ...row,
+          activity: recentActivityOf(entries[index]!, userId)
+        })
+      )
     })
 
     const listInGroup = (

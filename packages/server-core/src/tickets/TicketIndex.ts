@@ -76,6 +76,9 @@ export type TicketIndexOrgEntry = Readonly<{
   sortValue: string
 }>
 
+export type TicketIndexTouchedEntry = TicketIndexOrgEntry &
+  Readonly<{ lastCommentAt: Date | null }>
+
 export type TicketIndexAssignedOptions = Readonly<{
   viewerId: string
   doneAfter: Date
@@ -142,7 +145,7 @@ export interface TicketIndexShape {
   readonly touchedBy: (
     projects: ReadonlyArray<TicketIndexProject>,
     options: TicketIndexTouchedOptions
-  ) => Effect.Effect<ReadonlyArray<TicketIndexOrgEntry>>
+  ) => Effect.Effect<ReadonlyArray<TicketIndexTouchedEntry>>
   readonly list: (
     project: TicketIndexProject,
     ticketIds?: ReadonlyArray<string>

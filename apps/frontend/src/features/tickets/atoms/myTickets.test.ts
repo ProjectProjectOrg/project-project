@@ -3,6 +3,7 @@ import {
   OrgTicketRow,
   Project,
   ProjectStatus,
+  RecentTicketRow,
   Ticket,
   TicketDetail,
   TicketId,
@@ -111,7 +112,7 @@ const row = (projectSlug: string, id: string, status: string): OrgTicketRow =>
 
 const encodeProjects = Schema.encodeSync(Schema.Array(Project))
 const encodePage = Schema.encodeSync(OrgTicketPage)
-const encodeRows = Schema.encodeSync(Schema.Array(OrgTicketRow))
+const encodeRecent = Schema.encodeSync(Schema.Array(RecentTicketRow))
 const encodeStatuses = Schema.encodeSync(Schema.Array(ProjectStatus))
 const encodeUpdate = Schema.encodeSync(TicketUpdateResult)
 
@@ -155,7 +156,16 @@ const serve = (
       )
     }
     if (url.pathname === "/api/orgs/acme/tickets/recent") {
-      return Promise.resolve(Response.json(encodeRows(served.recent)))
+      return Promise.resolve(
+        Response.json(
+          encodeRecent(
+            served.recent.map((recent) => ({
+              ...recent,
+              activity: { tag: "assigned" as const }
+            }))
+          )
+        )
+      )
     }
     const statuses = /^\/api\/orgs\/acme\/projects\/([^/]+)\/statuses$/.exec(
       url.pathname
@@ -267,8 +277,14 @@ describe("recentTickets", () => {
     try {
       await vi.waitFor(() =>
         expect(
-          successOf(registry.get(view)).tickets.map(({ ticket }) => ticket.id)
-        ).toEqual(["API-2", "WEB-3"])
+          successOf(registry.get(view)).tickets.map(({ ticket, activity }) => [
+            ticket.id,
+            activity?.tag
+          ])
+        ).toEqual([
+          ["API-2", "assigned"],
+          ["WEB-3", "assigned"]
+        ])
       )
     } finally {
       registry.dispose()

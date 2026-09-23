@@ -64,6 +64,7 @@ import {
   type TicketIndexReconcileOptions,
   type TicketIndexReconcileProjectSummary,
   type TicketIndexReconcileSummary,
+  type TicketIndexTouchedEntry,
   type TicketIndexTouchedOptions
 } from "./TicketIndex"
 
@@ -554,38 +555,53 @@ export const TicketIndexLive = Layer.effect(
         .pipe(Effect.orDie)
     }
 
+    const acrossProjects = (
+      projects: ReadonlyArray<TicketIndexProject>,
+      conditions: ReadonlyArray<SQL | undefined>
+    ) =>
+      and(
+        inArray(
+          ticketIndex.projectId,
+          projects.map((p) => p.projectId)
+        ),
+        isNull(ticketIndex.archivedAt),
+        ...conditions
+      )
+
+    const orgEntriesOf = <Row extends typeof ticketIndex.$inferSelect>(
+      projects: ReadonlyArray<TicketIndexProject>,
+      rows: ReadonlyArray<Row>
+    ): ReadonlyArray<TicketIndexOrgEntry & Readonly<{ row: Row }>> => {
+      const byId = new Map(projects.map((p) => [p.projectId, p]))
+      return rows.flatMap((row) => {
+        const project = byId.get(row.projectId)
+        if (!project) return []
+        return [
+          {
+            project,
+            entry: toEntry(row),
+            sortValue: row.updatedAt.toISOString(),
+            row
+          }
+        ]
+      })
+    }
+
     const queryAcross = (
       projects: ReadonlyArray<TicketIndexProject>,
       conditions: ReadonlyArray<SQL | undefined>,
       limit: number
     ): Effect.Effect<ReadonlyArray<TicketIndexOrgEntry>> => {
       if (projects.length === 0) return Effect.succeed([])
-      const byId = new Map(projects.map((p) => [p.projectId, p]))
       return db
         .select()
         .from(ticketIndex)
-        .where(
-          and(
-            inArray(ticketIndex.projectId, [...byId.keys()]),
-            isNull(ticketIndex.archivedAt),
-            ...conditions
-          )
-        )
+        .where(acrossProjects(projects, conditions))
         .orderBy(desc(ticketIndex.updatedAt), desc(ticketIndex.ticketId))
         .limit(Math.max(1, limit))
         .pipe(
           Effect.map((rows) =>
-            rows.flatMap((row) => {
-              const project = byId.get(row.projectId)
-              if (!project) return []
-              return [
-                {
-                  project,
-                  entry: toEntry(row),
-                  sortValue: row.updatedAt.toISOString()
-                }
-              ]
-            })
+            orgEntriesOf(projects, rows).map(({ row: _row, ...entry }) => entry)
           ),
           Effect.orDie
         )
@@ -614,29 +630,49 @@ export const TicketIndexLive = Layer.effect(
     const touchedBy = (
       projects: ReadonlyArray<TicketIndexProject>,
       options: TicketIndexTouchedOptions
-    ): Effect.Effect<ReadonlyArray<TicketIndexOrgEntry>> =>
-      queryAcross(
-        projects,
-        [
-          or(
-            eq(ticketIndex.createdBy, options.viewerId),
-            arrayContains(ticketIndex.assignees, [options.viewerId]),
-            exists(
-              db
-                .select({ id: commentIndex.id })
-                .from(commentIndex)
-                .where(
-                  and(
-                    eq(commentIndex.authorId, options.viewerId),
-                    eq(commentIndex.projectSlug, ticketIndex.projectSlug),
-                    eq(commentIndex.ticketId, ticketIndex.ticketId)
-                  )
-                )
-            )
-          )
-        ],
-        options.limit
+    ): Effect.Effect<ReadonlyArray<TicketIndexTouchedEntry>> => {
+      if (projects.length === 0) return Effect.succeed([])
+      const viewerComments = and(
+        eq(commentIndex.authorId, options.viewerId),
+        eq(commentIndex.projectSlug, ticketIndex.projectSlug),
+        eq(commentIndex.ticketId, ticketIndex.ticketId)
       )
+      return db
+        .select({
+          ...getTableColumns(ticketIndex),
+          lastCommentAt: drizzleSql<Date | null>`(
+            select max(${commentIndex.createdAt})
+            from ${commentIndex}
+            where ${viewerComments}
+          )`.mapWith(commentIndex.createdAt)
+        })
+        .from(ticketIndex)
+        .where(
+          acrossProjects(projects, [
+            or(
+              eq(ticketIndex.createdBy, options.viewerId),
+              arrayContains(ticketIndex.assignees, [options.viewerId]),
+              exists(
+                db
+                  .select({ id: commentIndex.id })
+                  .from(commentIndex)
+                  .where(viewerComments)
+              )
+            )
+          ])
+        )
+        .orderBy(desc(ticketIndex.updatedAt), desc(ticketIndex.ticketId))
+        .limit(Math.max(1, options.limit))
+        .pipe(
+          Effect.map((rows) =>
+            orgEntriesOf(projects, rows).map(({ row, ...entry }) => ({
+              ...entry,
+              lastCommentAt: row.lastCommentAt
+            }))
+          ),
+          Effect.orDie
+        )
+    }
 
     const orderKeyFor = (
       project: TicketIndexProject,

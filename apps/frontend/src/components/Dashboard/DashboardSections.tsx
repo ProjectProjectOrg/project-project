@@ -40,6 +40,7 @@ import {
   StatusGroupedList,
   type DashboardGrouping
 } from "./GroupedTicketList"
+import { TicketActivityLabel } from "./TicketActivityLabel"
 
 export type MyTicketsView = "list" | "board"
 
@@ -222,6 +223,9 @@ export function RecentTicketsSection({
               tickets={value.tickets}
               update={updateRecentTicket}
               preview={preview}
+              trailing={(item) => (
+                <TicketActivityLabel activity={item.activity} />
+              )}
             />
           )
       })}

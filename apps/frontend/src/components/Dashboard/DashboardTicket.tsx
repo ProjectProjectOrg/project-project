@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { Member, Ticket } from "@pp/shared"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
+import type { ReactNode } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
 import { BOARD_CARD_SLOT_CLASS } from "@/components/sprints/BoardColumnShell"
@@ -42,6 +43,7 @@ type DashboardTicketProps = Readonly<{
 
 type DashboardRowProps = DashboardTicketProps &
   Readonly<{
+    trailing?: ReactNode
     previewOpen: boolean
     onPreviewPointerEnter: (ticketId: Ticket["id"]) => void
     onPreviewOpenChange: (ticketId: Ticket["id"], open: boolean) => void
@@ -51,6 +53,7 @@ export function DashboardRow({
   req,
   item,
   update,
+  trailing,
   previewOpen,
   onPreviewPointerEnter,
   onPreviewOpenChange
@@ -68,7 +71,8 @@ export function DashboardRow({
         ticket={item.ticket}
         members={members}
         showSprintCol={false}
-        showExtraActionsCol={false}
+        showExtraActionsCol={trailing !== undefined}
+        extraRowActions={trailing === undefined ? undefined : () => trailing}
         sprintMembership={null}
         onUpdate={patch}
         previewOpen={previewOpen}
@@ -124,21 +128,24 @@ export function DashboardRows({
   req,
   tickets,
   update,
-  preview
+  preview,
+  trailing
 }: Readonly<{
   req: OrgTicketsRequest
   tickets: ReadonlyArray<OrgTicket>
   update: OrgTicketUpdate
   preview: TicketPreview
+  trailing?: (item: OrgTicket) => ReactNode
 }>) {
   return (
-    <div className={rowGridClassName(false)}>
+    <div className={rowGridClassName(trailing !== undefined)}>
       {tickets.map((item) => (
         <DashboardRow
           key={`${item.project.slug}/${item.ticket.id}`}
           req={req}
           item={item}
           update={update}
+          trailing={trailing?.(item)}
           previewOpen={preview.activePreviewId === item.ticket.id}
           onPreviewPointerEnter={preview.onPreviewPointerEnter}
           onPreviewOpenChange={preview.onPreviewOpenChange}
