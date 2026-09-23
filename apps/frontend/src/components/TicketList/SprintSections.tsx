@@ -96,12 +96,21 @@ export function SprintSections(props: Props) {
       value: snapshotResult.value
     })
   }
+  const retainedResult = useAtomValue(
+    sprintSections(previous?.req ?? snapshotReq)
+  )
   const active = Result.isSuccess(snapshotResult)
     ? { req: snapshotReq, query: props.query, value: snapshotResult.value }
     : previous?.req.params.orgSlug === props.orgSlug &&
         previous.req.params.slug === props.slug &&
         !Result.isFailure(snapshotResult)
-      ? previous
+      ? {
+          ...previous,
+          value: Option.getOrElse(
+            Result.value(retainedResult),
+            () => previous.value
+          )
+        }
       : null
   const waiting = groupsResult.waiting || snapshotResult.waiting
   const renderSections = () =>

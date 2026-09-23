@@ -7,13 +7,13 @@ export function effectiveTicketSearch(draft: string) {
   return draft.length >= MIN_SEARCH_CHARS ? draft : undefined
 }
 
-type SearchDraft = {
-  readonly scopeKey: string | undefined
-  readonly draft: string
-  readonly query: string | undefined
-  readonly submitted: { readonly query: string | undefined } | null
-  readonly revision: number
-}
+type SearchDraft = Readonly<{
+  scopeKey: string | undefined
+  draft: string
+  query: string | undefined
+  submitted: Readonly<{ query: string | undefined }> | null
+  revision: number
+}>
 
 export function useTicketSearch(
   query: string | undefined,

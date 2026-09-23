@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 
 export function ToolbarButton({
   active,
@@ -76,7 +77,10 @@ export function OptionPicker({
               <Button
                 variant="option-picker"
                 size="md"
-                aria-label={`${label}: ${value}`}
+                aria-label={m.tickets_view_options_picker_aria_label({
+                  label,
+                  value
+                })}
               >
                 <span className="min-w-0 flex-1 truncate text-left">
                   {value}

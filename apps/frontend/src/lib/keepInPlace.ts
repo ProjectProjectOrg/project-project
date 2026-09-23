@@ -4,18 +4,6 @@ type Edge = "top" | "bottom"
 
 const watched = new WeakSet<HTMLElement>()
 
-/**
- * Runs a height-changing update (collapsing a section, "show less") and then
- * scrolls so `anchor` sits exactly where it was on screen: only the bottom of
- * the page moves. Covers the two ways a collapse otherwise jumps:
- *
- * - A stuck sticky header falls back to its natural spot far above the
- *   viewport, dropping the reader into later sections.
- * - Near the end of the page the content gets shorter than the scroll
- *   position, the browser clamps scrollTop, and everything above slides down.
- *   The shell's `[data-scroll-spacer]` absorbs the missing height instead and
- *   hands it back as the reader scrolls up.
- */
 export function keepInPlace(
   anchor: Element,
   change: () => void,
@@ -54,8 +42,6 @@ function setHeight(spacer: HTMLElement, height: number): void {
   spacer.style.height = height > 0 ? `${height}px` : ""
 }
 
-// Shrinks the spacer to what the current scroll position still needs, so
-// scrolling up (or the content growing back) never leaves blank space below.
 function watch(root: HTMLElement, spacer: HTMLElement): void {
   if (watched.has(root)) return
   watched.add(root)

@@ -5,7 +5,6 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { motion } from "motion/react"
 import { Activity, type ReactNode } from "react"
 
-import { ErrorPage } from "@/components/ErrorPage"
 import { PageContainer } from "@/components/page"
 import { ReorderBoardBanner } from "@/components/sprints/ReorderBoardBanner"
 import {
@@ -165,8 +164,8 @@ function SprintCreator({
     onInitial: () => (
       <div className="h-9 animate-pulse rounded-xl bg-muted/40" />
     ),
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (error) => <ErrorPage error={error} contained />,
+    onError: () => null,
+    onDefect: () => null,
     onSuccess: ({ value }) =>
       value.completedAt !== null ? (
         <p className="flex min-h-9 items-center px-3 py-2 text-xs text-muted-foreground">

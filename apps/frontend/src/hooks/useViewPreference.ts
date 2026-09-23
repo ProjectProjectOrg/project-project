@@ -1,7 +1,7 @@
 import * as Schema from "effect/Schema"
 import { useLayoutEffect, useRef } from "react"
 
-import { useLocalStorageState } from "./useLocalStorageState"
+import { readLocalStorage, useLocalStorageState } from "./useLocalStorageState"
 
 const ViewPreference = Schema.Literals(["list", "board"])
 
@@ -11,6 +11,18 @@ type ViewScope = "backlog" | "sprints"
 
 const viewPreferenceKey = (orgSlug: string, slug: string, scope: ViewScope) =>
   `projectproject:view-preference:${orgSlug}/${slug}/${scope}`
+
+export function readViewPreference(
+  orgSlug: string,
+  slug: string,
+  scope: ViewScope
+): ViewPreference {
+  return readLocalStorage(
+    viewPreferenceKey(orgSlug, slug, scope),
+    ViewPreference,
+    "list"
+  )
+}
 
 export function useViewPreference(
   orgSlug: string,

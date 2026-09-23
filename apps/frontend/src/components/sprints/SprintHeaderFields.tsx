@@ -216,7 +216,7 @@ export function SprintNameField({
     )
   }
   return (
-    <div className="relative w-full">
+    <div className="relative w-full min-w-0">
       <input
         autoFocus
         value={draft}

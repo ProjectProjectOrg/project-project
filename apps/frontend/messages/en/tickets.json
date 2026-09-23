@@ -242,6 +242,7 @@
   "tickets_view_options_descending": "Descending",
   "tickets_view_options_label": "View options",
   "tickets_view_options_ordering": "Ordering",
+  "tickets_view_options_picker_aria_label": "{label}: {value}",
   "tickets_view_options_priority": "Priority",
   "tickets_view_options_set_ascending": "Sort ascending",
   "tickets_view_options_set_descending": "Sort descending",

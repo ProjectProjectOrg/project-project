@@ -6,6 +6,7 @@ import type {
   TicketId,
   TicketListQuery
 } from "@pp/shared"
+import * as Option from "effect/Option"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { Activity, useMemo, useState, type ReactNode } from "react"
 
@@ -113,11 +114,18 @@ function StatusSections({
   ) {
     setPrevious({ req, query, value: result.value })
   }
+  const retainedResult = useAtomValue(backlog(previous?.req ?? req))
   const active = Result.isSuccess(result)
     ? { req, query, value: result.value }
     : Result.isFailure(result) && previous?.req !== req
       ? null
-      : previous
+      : previous && {
+          ...previous,
+          value: Option.getOrElse(
+            Result.value(retainedResult),
+            () => previous.value
+          )
+        }
   const renderSections = () =>
     active ? (
       <>
