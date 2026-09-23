@@ -1,5 +1,5 @@
 import type { JiraMigrationScanSummary } from "@projectproject/shared"
-import { Boxes, Paperclip, UsersRound } from "lucide-react"
+import { Boxes, Info, Paperclip, UsersRound } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
 
@@ -12,6 +12,9 @@ export function JiraSnapshotStep({
   onBack?: () => void
   onContinue?: () => void
 }) {
+  const hasScanGaps = summary.visibilityWarnings.some(
+    ({ detail }) => detail !== "jira-permissions"
+  )
   const groups = [
     {
       label: m.jira_migration_snapshot_people_data(),
@@ -79,17 +82,29 @@ export function JiraSnapshotStep({
         </dl>
 
         {summary.visibilityWarnings.length > 0 ? (
-          <div className="rounded-xl border border-border bg-muted/40 px-4 py-3">
-            {summary.visibilityWarnings.map((warning) => (
-              <div key={`${warning.category}:${warning.label}`}>
-                <p className="text-sm font-medium">{warning.label}</p>
-                {warning.detail ? (
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    {warning.detail}
+          <div className="flex gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3">
+            <Info
+              className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+              aria-hidden
+            />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">
+                {m.jira_migration_snapshot_visibility_title()}
+              </p>
+              <p className="text-xs leading-5 text-muted-foreground">
+                {m.jira_migration_snapshot_visibility_description()}
+              </p>
+              {hasScanGaps ? (
+                <div className="pt-2">
+                  <p className="text-sm font-medium text-foreground">
+                    {m.jira_migration_snapshot_gaps_title()}
                   </p>
-                ) : null}
-              </div>
-            ))}
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    {m.jira_migration_snapshot_gaps_description()}
+                  </p>
+                </div>
+              ) : null}
+            </div>
           </div>
         ) : null}
 

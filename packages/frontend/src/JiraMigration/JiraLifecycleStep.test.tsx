@@ -35,6 +35,41 @@ const terminalDetail = {
 
 const mutationError = m.jira_migration_error_generic()
 
+it("shows a waiting state without progress while the scan is queued", () => {
+  const { container } = render(
+    <JiraProgressStep
+      detail={{
+        ...progressDetail,
+        status: "scanning",
+        progress: { phase: "queued_scan", done: 0, total: null }
+      }}
+      waiting={false}
+    />
+  )
+
+  expect(screen.getByText("Waiting to scan Jira")).not.toBeNull()
+  expect(screen.queryByRole("progressbar")).toBeNull()
+  expect(container.querySelector(".animate-spin")).toBeNull()
+})
+
+it("shows ongoing activity without inventing a scan percentage", () => {
+  const { container } = render(
+    <JiraProgressStep
+      detail={{
+        ...progressDetail,
+        status: "scanning",
+        progress: { phase: "scan", done: 42, total: null }
+      }}
+      waiting={false}
+    />
+  )
+
+  expect(screen.getByText("Scanning Jira project")).not.toBeNull()
+  expect(screen.getByText("42 records captured")).not.toBeNull()
+  expect(screen.queryByRole("progressbar")).toBeNull()
+  expect(container.querySelector(".animate-spin")).not.toBeNull()
+})
+
 it("shows cancel failures inline on the progress screen", () => {
   render(
     <JiraProgressStep

@@ -39,4 +39,53 @@ describe("JiraSnapshotStep", () => {
     expect(screen.getByText(/248 issues · 613 comments/)).not.toBeNull()
     expect(screen.getByText("42 attachments")).not.toBeNull()
   })
+
+  it("explains Jira account visibility once without showing internal reason codes", () => {
+    render(
+      <JiraSnapshotStep
+        summary={{
+          ...summary,
+          visibilityWarnings: [
+            { category: "issues", label: "issues", detail: "jira-permissions" },
+            {
+              category: "attachments",
+              label: "attachments",
+              detail: "jira-permissions"
+            }
+          ]
+        }}
+      />
+    )
+
+    expect(screen.getByText("What this snapshot includes")).not.toBeNull()
+    expect(
+      screen.getByText(/only includes Jira data your connected account can see/)
+    ).not.toBeNull()
+    expect(screen.queryByText("jira-permissions")).toBeNull()
+    expect(screen.queryByText("issues")).toBeNull()
+  })
+
+  it("separately flags data Jira could not read", () => {
+    render(
+      <JiraSnapshotStep
+        summary={{
+          ...summary,
+          visibilityWarnings: [
+            { category: "issues", label: "issues", detail: "jira-permissions" },
+            {
+              category: "worklogs",
+              label: "worklogs",
+              detail: "permission_denied"
+            }
+          ]
+        }}
+      />
+    )
+
+    expect(
+      screen.getByText("Some Jira data could not be scanned")
+    ).not.toBeNull()
+    expect(screen.queryByText("permission_denied")).toBeNull()
+    expect(screen.queryByText("worklogs")).toBeNull()
+  })
 })
