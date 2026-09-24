@@ -1,5 +1,5 @@
 import type {
-  AssignableRole,
+  OrgAssignableRole,
   CursorPayload,
   InviteMemberInput,
   NotFound,
@@ -113,7 +113,7 @@ export type BetterAuthShape = Readonly<{
     request: Request,
     orgSlug: string,
     userId: string,
-    role: AssignableRole
+    role: OrgAssignableRole
   ) => Effect.Effect<OrgMember, BetterAuthError | NotFound>
   readonly removeMember: (
     request: Request,

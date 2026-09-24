@@ -14,11 +14,10 @@ import type {
   Project,
   ProjectDetail,
   ProjectKey,
-  ProjectOwnerRemovalBlocked,
+  LastProjectPmBlocked,
   RateLimited,
   RepoGone,
   Role,
-  Validation,
   UpdateProjectInput,
   UpdateProjectSetupInput
 } from "@pp/shared"
@@ -124,22 +123,19 @@ export interface ProjectsShape {
     userId: string,
     slug: string,
     input: AddMemberInput
-  ) => Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError>
+  ) => Effect.Effect<
+    ProjectDetail,
+    NotFound | Forbidden | MarkdownError | LastProjectPmBlocked
+  >
   readonly updateMember: (
     orgSlug: string,
     userId: string,
     slug: string,
     targetUserId: string,
     nextRole: AssignableRole
-  ) => Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError>
-  readonly transferOwnership: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
-    targetUserId: string
   ) => Effect.Effect<
     ProjectDetail,
-    NotFound | Forbidden | Validation | MarkdownError
+    NotFound | Forbidden | MarkdownError | LastProjectPmBlocked
   >
   readonly removeMember: (
     orgSlug: string,
@@ -152,7 +148,7 @@ export interface ProjectsShape {
     | Forbidden
     | MarkdownError
     | MalformedTicketDocument
-    | ProjectOwnerRemovalBlocked
+    | LastProjectPmBlocked
   >
   readonly cancelPendingMember: (
     orgSlug: string,

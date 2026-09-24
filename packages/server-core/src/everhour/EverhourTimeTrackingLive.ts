@@ -99,11 +99,11 @@ export const EverhourTimeTrackingLive = Layer.effect(
         const project = yield* projectRow(orgSlug, slug)
         const explicit = yield* db.query.projectMember
           .findFirst({
-            columns: { role: true },
+            columns: { roleId: true },
             where: {
               RAW: (table, _operators) =>
                 _operators.and(
-                  _operators.eq(table.projectSlug, slug),
+                  _operators.eq(table.projectId, project.projectId),
                   _operators.eq(table.userId, userId)
                 )!
             }

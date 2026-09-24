@@ -11,7 +11,7 @@ import {
   NotFound,
   type OrgInvitation,
   type OrgRole,
-  ProjectOwnerRemovalBlocked,
+  LastProjectPmBlocked,
   Validation
 } from "@pp/shared"
 import { isAPIError } from "better-auth/api"
@@ -148,13 +148,13 @@ export const memberChangeErrorToFailure = (
     Effect.catchTags({ Validation: () => new Forbidden() })
   )
 
-const PROJECT_OWNER_REMOVAL_BLOCKED = "PROJECT_OWNER_REMOVAL_BLOCKED"
+const LAST_PROJECT_PM_BLOCKED = "LAST_PROJECT_PM_BLOCKED"
 
 export const blockingProjectSlugs = (
   error: BetterAuthError
 ): ReadonlyArray<string> | null => {
   if (!isClientRefusal(error)) return null
-  if (betterAuthErrorCode(error) !== PROJECT_OWNER_REMOVAL_BLOCKED) return null
+  if (betterAuthErrorCode(error) !== LAST_PROJECT_PM_BLOCKED) return null
   const { cause } = error
   const slugs = isAPIError(cause) ? cause.body?.projectSlugs : undefined
   return Array.isArray(slugs)
@@ -166,12 +166,12 @@ export const removeMemberErrorToFailure = (
   error: BetterAuthError
 ): Effect.Effect<
   never,
-  Forbidden | NotFound | Conflict | ProjectOwnerRemovalBlocked
+  Forbidden | NotFound | Conflict | LastProjectPmBlocked
 > => {
   const projectSlugs = blockingProjectSlugs(error)
   return projectSlugs === null
     ? memberChangeErrorToFailure(error)
-    : Effect.fail(new ProjectOwnerRemovalBlocked({ projectSlugs }))
+    : Effect.fail(new LastProjectPmBlocked({ projectSlugs }))
 }
 
 export const leaveErrorToFailure = (

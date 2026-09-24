@@ -84,7 +84,7 @@ export function TicketPage({
   const bodyDraft = useAtomValue(ticketBodyDraft(req))
   const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
-  const { canManageTags } = useProjectRole()
+  const { isPm: canManageTags } = useProjectRole()
   const {
     descriptionRef,
     onTypePatch,

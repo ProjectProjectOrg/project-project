@@ -22,7 +22,7 @@ vi.mock("better-auth", async () => {
   }
 })
 
-import { auth, lastOrgOwnerBlocked, projectOwnerRemovalError } from "./auth"
+import { auth, lastOrgOwnerBlocked, lastProjectPmError } from "./auth"
 
 describe("Better Auth plugin wiring", () => {
   it("signs users in through a magic link and marks the email verified", async () => {
@@ -340,14 +340,14 @@ describe("organization owner guard invariants", () => {
 
 describe("project-owner removal guard", () => {
   it("does not block when the member owns no projects", () => {
-    expect(projectOwnerRemovalError([])).toBeUndefined()
+    expect(lastProjectPmError([])).toBeUndefined()
   })
 
   it("blocks with a 409 and the owned project slugs", () => {
-    const error = projectOwnerRemovalError(["alpha", "beta"])
+    const error = lastProjectPmError(["alpha", "beta"])
     expect(error).toBeInstanceOf(APIError)
     expect(error?.statusCode).toBe(409)
-    expect(error?.body?.code).toBe("PROJECT_OWNER_REMOVAL_BLOCKED")
+    expect(error?.body?.code).toBe("LAST_PROJECT_PM_BLOCKED")
     expect(
       (error?.body as { projectSlugs?: ReadonlyArray<string> })?.projectSlugs
     ).toEqual(["alpha", "beta"])

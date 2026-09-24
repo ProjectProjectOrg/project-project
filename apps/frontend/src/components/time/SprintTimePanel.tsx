@@ -42,7 +42,7 @@ export function SprintTimePanel({
   const statusResult = useAtomValue(
     everhourProjectStatusAtom(everhourProjectRequest(orgSlug, slug))
   )
-  const { isOwner, isAdmin } = useProjectRole()
+  const { isPm } = useProjectRole()
   const profileResult = useAtomValue(everhourProfileAtom)
   const activeTimerResult = useAtomValue(activeTimerAtom(timerReq))
   const start = useAtomSet(startSprintTimerAtom(startKey), {
@@ -58,9 +58,7 @@ export function SprintTimePanel({
     Result.isSuccess(statusResult) &&
     statusResult.value.status === "not_connected"
   if (notConnected) {
-    return isOwner || isAdmin ? (
-      <EverhourSetupHint orgSlug={orgSlug} slug={slug} />
-    ) : null
+    return isPm ? <EverhourSetupHint orgSlug={orgSlug} slug={slug} /> : null
   }
   if (Result.isInitial(statusResult) || Result.isInitial(profileResult)) {
     return <div className="h-8 animate-pulse rounded bg-muted/40" />
