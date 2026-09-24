@@ -95,8 +95,11 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           const org = yield* currentOrg.resolve(params.orgSlug, user.id)
           const projects = yield* Projects
           const attachments = yield* Attachments
-          yield* projects.remove(org.orgSlug, user.id, params.slug)
-          yield* attachments.orphanProject(org.orgSlug, params.slug)
+          yield* attachments.orphanProject(
+            org.orgSlug,
+            params.slug,
+            projects.remove(org.orgSlug, user.id, params.slug)
+          )
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
       )
       .handle("githubIntegration", ({ params }) =>

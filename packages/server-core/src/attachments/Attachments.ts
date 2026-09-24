@@ -225,10 +225,11 @@ export interface AttachmentsShape {
     ticketId: string,
     body: string
   ) => Effect.Effect<void>
-  readonly orphanProject: (
+  readonly orphanProject: <E>(
     orgSlug: string,
-    slug: string
-  ) => Effect.Effect<{ readonly orphaned: number }>
+    slug: string,
+    removal: Effect.Effect<void, E>
+  ) => Effect.Effect<{ readonly orphaned: number }, E>
   readonly listForOrg: (
     orgSlug: string,
     userId: string,
