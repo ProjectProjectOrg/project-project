@@ -11,14 +11,11 @@ import { Tags } from "@pp/server-core/tags/Tags"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
 import { Tickets } from "@pp/server-core/tickets/Tickets"
-import { Users } from "@pp/server-core/users/Users"
 import {
-  CurrentUser,
   formatAttachmentMarkdown,
   isRasterImageContentType,
   type McpTools,
   TicketListQuery,
-  Unauthorized,
   Validation,
   tryDecodeCursor,
   type AttachBranchInput,
@@ -34,88 +31,35 @@ import {
   type UpdateTicketInput
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
+import type * as Layer from "effect/Layer"
 import type * as Schema from "effect/Schema"
+import { Tool } from "effect/unstable/ai"
 
-import type { HandlersMap } from "./dispatch"
+import { McpCurrentUser } from "./McpRequestUser"
+import {
+  McpToolkit,
+  toToolkitHandlers,
+  type McpHandlerEnv,
+  type McpHandlers,
+  type McpToolsByName
+} from "./toolkit"
 
 const DEFAULT_LIMIT = 50
 
-// MarkdownError (filesystem-level failure inside a *Docs / *Service read) and
-// BetterAuthError (failure inside the Better Auth wrapper) are backend-only
-// signals. The MCP catalog deliberately doesn't declare them — clients can't
-// act on either — so handlers `dieInternal` them. The dispatcher's defect
-// pipeline maps the result to a generic "Internal error" tool response and
-// logs the cause.
-const dieInternal = <A, E, R>(
-  eff: Effect.Effect<A, E, R>
-): Effect.Effect<
-  A,
-  Exclude<
-    E,
-    {
-      readonly _tag:
-        | "MarkdownError"
-        | "BetterAuthError"
-        | "MalformedTicketDocument"
-    }
-  >,
-  R
-> =>
-  eff.pipe(
-    Effect.catchTags({
-      MarkdownError: (e: unknown) => Effect.die(e),
-      BetterAuthError: (e: unknown) => Effect.die(e),
-      MalformedTicketDocument: (e: unknown) => Effect.die(e)
-    })
-  ) as Effect.Effect<
-    A,
-    Exclude<
-      E,
-      {
-        readonly _tag:
-          | "MarkdownError"
-          | "BetterAuthError"
-          | "MalformedTicketDocument"
-      }
-    >,
-    R
-  >
-
-// CurrentUser is intentionally absent — the dispatcher provides it per call
-// via `Effect.provideService`, so it shouldn't appear in the runtime's R.
-export type McpToolServices =
-  | AttachmentUploads.AttachmentUploads
-  | OrgStorage
-  | Users
-  | BetterAuth
-  | Comments
-  | Projects.Projects
-  | Tickets
-  | Groups
-  | Tags
-  | ProjectStatuses
-  | ProjectDocs
-  | GroupDocs
-  | TicketDocs.TicketDocs
-  | TicketIndex
-
 const me = (_input: {}) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
-    const users = yield* Users
-    const [user] = yield* users.fullByIds([current.id])
-    if (!user) return yield* new Unauthorized()
+    const current = yield* McpCurrentUser
     const betterAuth = yield* BetterAuth
     const orgs = yield* betterAuth.listOrganizations(current.id)
     return {
-      user,
+      user: current,
       roles: orgs.map((o) => ({ orgSlug: o.orgSlug, role: o.role }))
     }
   })
 
 const list_orgs = (input: Pagination) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const betterAuth = yield* BetterAuth
     return yield* betterAuth.listOrganizationsPaged(
       current.id,
@@ -125,7 +69,7 @@ const list_orgs = (input: Pagination) =>
   })
 
 const get_org = Effect.fn("get_org")(function* (input: { orgSlug: string }) {
-  const current = yield* CurrentUser
+  const current = yield* McpCurrentUser
   const betterAuth = yield* BetterAuth
   const org = yield* betterAuth.getOrganization(current.id, input.orgSlug)
   const orgStorage = yield* OrgStorage
@@ -138,7 +82,7 @@ const get_org = Effect.fn("get_org")(function* (input: { orgSlug: string }) {
 
 const list_projects = (input: { orgSlug: string } & Pagination) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const projects = yield* Projects.Projects
     return yield* projects.listPaged(
       input.orgSlug,
@@ -150,7 +94,7 @@ const list_projects = (input: { orgSlug: string } & Pagination) =>
 
 const get_project = (input: { orgSlug: string; projectSlug: string }) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const projects = yield* Projects.Projects
     return yield* projects.get(input.orgSlug, current.id, input.projectSlug)
   })
@@ -163,7 +107,7 @@ const list_groups = (
   } & Pagination
 ) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const groups = yield* Groups
     return yield* groups.listPaged(
       input.orgSlug,
@@ -183,7 +127,7 @@ const list_sprints = (
   } & Pagination
 ) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const groups = yield* Groups
     return yield* groups.listSprintsPaged(
       input.orgSlug,
@@ -201,7 +145,7 @@ const get_group = (input: {
   id: string
 }) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const groups = yield* Groups
     return yield* groups.get(
       input.orgSlug,
@@ -219,7 +163,7 @@ const list_tickets = (
     Pick<Pagination, "limit">
 ) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const tickets = yield* Tickets
     const query = TicketListQuery.make(input)
     const page = yield* tickets.list(
@@ -241,7 +185,7 @@ const get_ticket = (input: {
   id: string
 }) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const tickets = yield* Tickets
     return yield* tickets.get(
       input.orgSlug,
@@ -253,7 +197,7 @@ const get_ticket = (input: {
 
 const list_statuses = (input: { orgSlug: string; projectSlug: string }) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const statuses = yield* ProjectStatuses
     return yield* statuses.list(input.orgSlug, current.id, input.projectSlug)
   })
@@ -262,7 +206,7 @@ const list_tags = (
   input: { orgSlug: string; projectSlug: string } & Pagination
 ) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const tags = yield* Tags
     return yield* tags.listPaged(
       input.orgSlug,
@@ -277,7 +221,7 @@ const list_members = (
   input: { orgSlug: string; projectSlug: string } & Pagination
 ) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const projects = yield* Projects.Projects
     return yield* projects.listMembersPaged(
       input.orgSlug,
@@ -294,7 +238,7 @@ const get_git_state = (input: {
   ticketId?: string
 }) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const tickets = yield* Tickets
     return yield* tickets.getGitState(
       input.orgSlug,
@@ -306,7 +250,7 @@ const get_git_state = (input: {
 
 const get_project_doc = (input: { orgSlug: string; projectSlug: string }) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const projects = yield* Projects.Projects
     yield* projects.requireMember(input.orgSlug, current.id, input.projectSlug)
     const docs = yield* ProjectDocs
@@ -319,7 +263,7 @@ const get_group_doc = (input: {
   id: string
 }) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const projects = yield* Projects.Projects
     yield* projects.requireMember(input.orgSlug, current.id, input.projectSlug)
     const docs = yield* GroupDocs
@@ -332,7 +276,7 @@ const get_ticket_doc = (input: {
   id: string
 }) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const projects = yield* Projects.Projects
     yield* projects.requireMember(input.orgSlug, current.id, input.projectSlug)
     const docs = yield* TicketDocs.TicketDocs
@@ -343,7 +287,7 @@ const create_ticket = (
   input: { orgSlug: string; projectSlug: string } & CreateTicketInput
 ) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const tickets = yield* Tickets
     const { orgSlug, projectSlug, ...payload } = input
     return yield* tickets.create(orgSlug, current.id, projectSlug, payload)
@@ -357,7 +301,7 @@ const update_ticket = (
   } & UpdateTicketInput
 ) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const tickets = yield* Tickets
     const { orgSlug, projectSlug, id, ...payload } = input
     const updated = yield* tickets.update(
@@ -370,11 +314,11 @@ const update_ticket = (
     return updated.ticket
   })
 
-const prepare_ticket_attachment = Effect.fn("prepare_ticket_attachment")(
-  function* (
-    input: Schema.Schema.Type<typeof McpTools.prepare_ticket_attachment.input>
-  ) {
-    const current = yield* CurrentUser
+const prepare_ticket_attachment = (
+  input: Schema.Schema.Type<typeof McpTools.prepare_ticket_attachment.input>
+) =>
+  Effect.gen(function* () {
+    const current = yield* McpCurrentUser
     const uploads = yield* AttachmentUploads.AttachmentUploads
     const { orgSlug, projectSlug, ticketId, density, width, ...payload } = input
     const prepared = yield* uploads.prepare(
@@ -392,8 +336,7 @@ const prepare_ticket_attachment = Effect.fn("prepare_ticket_attachment")(
         width
       })
     }
-  }
-)
+  })
 
 const create_comment = (input: {
   orgSlug: string
@@ -402,7 +345,7 @@ const create_comment = (input: {
   body: string
 }) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const comments = yield* Comments
     return yield* comments
       .create(input.orgSlug, current.id, input.projectSlug, input.ticketId, {
@@ -423,7 +366,7 @@ const attach_branch = (
   } & AttachBranchInput
 ) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const tickets = yield* Tickets
     const { orgSlug, projectSlug, id, ...payload } = input
     return yield* tickets.attachBranch(
@@ -442,7 +385,7 @@ const create_sprint = (
   >
 ) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const groups = yield* Groups
     const { orgSlug, projectSlug, ...rest } = input
     return yield* groups.create(orgSlug, current.id, projectSlug, {
@@ -474,7 +417,7 @@ const update_sprint = (
   } & Omit<UpdateGroupInput, "completedAt">
 ) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const groups = yield* Groups
     const { orgSlug, projectSlug, id, ...payload } = input
     yield* requireSprintKind(orgSlug, current.id, projectSlug, id)
@@ -489,7 +432,7 @@ const complete_sprint = (
   } & CompleteSprintInput
 ) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const groups = yield* Groups
     const { orgSlug, projectSlug, id, ...payload } = input
     yield* requireSprintKind(orgSlug, current.id, projectSlug, id)
@@ -501,7 +444,7 @@ const rebuild_ticket_index = (input: {
   projectSlug: string
 }) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const projects = yield* Projects.Projects
     yield* projects.requireRole(input.orgSlug, current.id, input.projectSlug, [
       "owner",
@@ -536,7 +479,7 @@ const add_tickets_to_group = (input: {
   ticketIds: ReadonlyArray<TicketId>
 }) =>
   Effect.gen(function* () {
-    const current = yield* CurrentUser
+    const current = yield* McpCurrentUser
     const groups = yield* Groups
     return yield* groups.addTickets(
       input.orgSlug,
@@ -547,32 +490,40 @@ const add_tickets_to_group = (input: {
     )
   })
 
-export const handlers: HandlersMap<McpToolServices> = {
-  me: (i) => dieInternal(me(i)),
-  list_orgs: (i) => dieInternal(list_orgs(i)),
-  get_org: (i) => dieInternal(get_org(i)),
-  list_projects: (i) => dieInternal(list_projects(i)),
-  get_project: (i) => dieInternal(get_project(i)),
-  list_groups: (i) => dieInternal(list_groups(i)),
-  list_sprints: (i) => dieInternal(list_sprints(i)),
-  get_group: (i) => dieInternal(get_group(i)),
-  list_tickets: (i) => dieInternal(list_tickets(i)),
-  get_ticket: (i) => dieInternal(get_ticket(i)),
-  list_statuses: (i) => dieInternal(list_statuses(i)),
-  list_tags: (i) => dieInternal(list_tags(i)),
-  list_members: (i) => dieInternal(list_members(i)),
-  get_git_state: (i) => dieInternal(get_git_state(i)),
-  get_project_doc: (i) => dieInternal(get_project_doc(i)),
-  get_group_doc: (i) => dieInternal(get_group_doc(i)),
-  get_ticket_doc: (i) => dieInternal(get_ticket_doc(i)),
-  create_ticket: (i) => dieInternal(create_ticket(i)),
-  update_ticket: (i) => dieInternal(update_ticket(i)),
-  prepare_ticket_attachment: (i) => dieInternal(prepare_ticket_attachment(i)),
-  create_comment: (i) => dieInternal(create_comment(i)),
-  attach_branch: (i) => dieInternal(attach_branch(i)),
-  rebuild_ticket_index: (i) => dieInternal(rebuild_ticket_index(i)),
-  add_tickets_to_group: (i) => dieInternal(add_tickets_to_group(i)),
-  create_sprint: (i) => dieInternal(create_sprint(i)),
-  update_sprint: (i) => dieInternal(update_sprint(i)),
-  complete_sprint: (i) => dieInternal(complete_sprint(i))
+export const handlers: McpHandlers<McpHandlerEnv> = {
+  me,
+  list_orgs,
+  get_org,
+  list_projects,
+  get_project,
+  list_groups,
+  list_sprints,
+  get_group,
+  list_tickets,
+  get_ticket,
+  list_statuses,
+  list_tags,
+  list_members,
+  get_git_state,
+  get_project_doc,
+  get_group_doc,
+  get_ticket_doc,
+  create_ticket,
+  update_ticket,
+  prepare_ticket_attachment,
+  create_comment,
+  attach_branch,
+  rebuild_ticket_index,
+  add_tickets_to_group,
+  create_sprint,
+  update_sprint,
+  complete_sprint
 }
+
+export const toolkitHandlers = McpToolkit.of(toToolkitHandlers(handlers))
+
+export const McpToolkitHandlersLive: Layer.Layer<
+  Tool.HandlersFor<McpToolsByName>,
+  never,
+  McpHandlerEnv
+> = McpToolkit.toLayer(toolkitHandlers)

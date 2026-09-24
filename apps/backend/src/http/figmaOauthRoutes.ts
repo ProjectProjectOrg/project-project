@@ -12,7 +12,7 @@ import {
 
 import { toWebHeaders } from "./toWebHeaders"
 
-const publicBaseUrl = Config.string("BETTER_AUTH_URL").pipe(
+const publicBaseUrl = Config.String("BETTER_AUTH_URL").pipe(
   Config.withDefault("http://localhost:5173")
 )
 

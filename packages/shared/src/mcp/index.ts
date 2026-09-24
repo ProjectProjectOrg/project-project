@@ -74,7 +74,7 @@ export interface McpToolSpec<
 export const McpTools = {
   me: {
     description: "Identity of the authed user and their org/project roles.",
-    input: Schema.Struct({}),
+    input: Schema.Record(Schema.String, Schema.Never),
     output: MeOutput,
     errors: [Unauthorized] as const
   },
@@ -514,3 +514,7 @@ export const McpTools = {
 } as const satisfies Record<string, McpToolSpec<any, any, any>>
 
 export type McpToolName = keyof typeof McpTools
+
+export type McpToolError = Schema.Schema.Type<
+  (typeof McpTools)[McpToolName]["errors"][number]
+>
