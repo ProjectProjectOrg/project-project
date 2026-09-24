@@ -182,7 +182,7 @@ function DeleteAction({
       <ConfirmButton.Trigger type="button" variant="raised" size="xs">
         {m.templates_settings_action_delete()}
       </ConfirmButton.Trigger>
-      <ConfirmButton.Confirm className="absolute inset-0 z-10 gap-1 rounded-lg border border-border bg-popover pr-1 pl-2.5 shadow-sm">
+      <ConfirmButton.Confirm className="absolute inset-x-0 top-1/2 z-10 -translate-y-1/2 gap-1 rounded-lg border border-border bg-popover py-1 pr-1 pl-2.5 shadow-sm">
         <DeleteConfirmBody name={name} onConfirm={onConfirm} />
       </ConfirmButton.Confirm>
     </ConfirmButton.Root>
