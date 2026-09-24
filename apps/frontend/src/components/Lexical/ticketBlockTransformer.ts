@@ -7,7 +7,8 @@ import {
 import {
   TICKET_BLOCK_OPEN,
   findTicketBlockEnd,
-  formatTicketBlock
+  formatTicketBlock,
+  isInsideFenceOrComment
 } from "@pp/shared"
 
 import {
@@ -30,6 +31,7 @@ export function createTicketBlockTransformer(
       startLineIndex,
       startMatch
     }) => {
+      if (isInsideFenceOrComment(lines, startLineIndex)) return null
       const end = findTicketBlockEnd(lines, startLineIndex)
       if (end === null) return null
       const block = $createTicketBlockNode(startMatch[1])

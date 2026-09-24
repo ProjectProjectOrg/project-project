@@ -11,8 +11,20 @@ const TICKET_BLOCK_CLOSE = /^ {0,3}<\/block>\s*$/
 
 const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/
 
+const HTML_COMMENT_OPEN = /^ {0,3}<!--/
+
+const HTML_COMMENT = "<!--"
+
+const trimBlankLines = (lines: ReadonlyArray<string>): string => {
+  let start = 0
+  let end = lines.length
+  while (start < end && lines[start].trim() === "") start++
+  while (end > start && lines[end - 1].trim() === "") end--
+  return lines.slice(start, end).join("\n")
+}
+
 export const formatTicketBlock = (type: string, content: string): string => {
-  const body = content.trim()
+  const body = trimBlankLines(content.split("\n"))
   return body === ""
     ? `<block type="${type}">\n\n</block>`
     : `<block type="${type}">\n\n${body}\n\n</block>`
@@ -28,10 +40,29 @@ const closesFence = (line: string, fence: string): boolean => {
   )
 }
 
-const advanceFence = (line: string, fence: string | null): string | null => {
+const opensHtmlComment = (line: string): boolean => {
+  const match = HTML_COMMENT_OPEN.exec(line)
+  return match !== null && !line.includes("-->", match[0].length - 2)
+}
+
+export const advanceFence = (
+  line: string,
+  fence: string | null
+): string | null => {
+  if (fence === HTML_COMMENT) return line.includes("-->") ? null : fence
   if (fence !== null) return closesFence(line, fence) ? null : fence
+  if (opensHtmlComment(line)) return HTML_COMMENT
   const match = FENCE_OPEN.exec(line)
   return match === null ? null : match[1]
+}
+
+export const isInsideFenceOrComment = (
+  lines: ReadonlyArray<string>,
+  index: number
+): boolean => {
+  let fence: string | null = null
+  for (let i = 0; i < index; i++) fence = advanceFence(lines[i], fence)
+  return fence !== null
 }
 
 export const findTicketBlockEnd = (
@@ -48,14 +79,6 @@ export const findTicketBlockEnd = (
     fence = advanceFence(line, fence)
   }
   return null
-}
-
-const trimBlankLines = (lines: ReadonlyArray<string>): string => {
-  let start = 0
-  let end = lines.length
-  while (start < end && lines[start].trim() === "") start++
-  while (end > start && lines[end - 1].trim() === "") end--
-  return lines.slice(start, end).join("\n")
 }
 
 export const parseTicketBlocks = (

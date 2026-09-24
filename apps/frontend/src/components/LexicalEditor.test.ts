@@ -620,6 +620,11 @@ describe("ticket blocks", () => {
     expect(roundTripMarkdown(markdown)).toBe(markdown)
   })
 
+  it("does not treat a block inside an HTML comment as a block", () => {
+    const markdown = ["<!--", CRITERIA_BLOCK, "-->"].join("\n")
+    expect(importedRootTypes(markdown).types).not.toContain("ticket-block")
+  })
+
   it("keeps an unclosed block as plain text", () => {
     const markdown = '<block type="notes">\n\nstill typing'
     expect(importedRootTypes(markdown).types).not.toContain("ticket-block")

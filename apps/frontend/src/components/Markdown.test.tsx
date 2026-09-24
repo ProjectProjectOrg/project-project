@@ -146,6 +146,16 @@ describe("Markdown ticket blocks", () => {
     )
   })
 
+  it("leaves a block inside an HTML comment to the comment", () => {
+    const { container } = render(
+      <Markdown>
+        {'Intro.\n\n<!--\n<block type="notes">\n\nsecret\n\n</block>\n-->'}
+      </Markdown>
+    )
+    expect(container.querySelector(".ticket-block")).toBeNull()
+    expect(container.textContent).toContain('<block type="notes">')
+  })
+
   it("shows a block example inside a code fence as code", () => {
     const { container } = render(
       <Markdown>{'```md\n<block type="notes">\n</block>\n```'}</Markdown>
