@@ -43,7 +43,7 @@ export const MarkdownLive = Layer.effect(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const root = yield* Config.string("PROJECTS_DIR")
+    const root = yield* Config.String("PROJECTS_DIR")
     const absoluteRoot = path.isAbsolute(root)
       ? root
       : path.resolve(process.cwd(), root)
