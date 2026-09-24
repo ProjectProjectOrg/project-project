@@ -23,7 +23,7 @@ export interface TicketParts {
   readonly region: string
 }
 
-export type LibraryKind = "blocks"
+export type LibraryKind = "blocks" | "templates"
 
 export type LibraryFile = Readonly<{ key: string; content: string }>
 
@@ -158,6 +158,13 @@ export interface MarkdownShape {
     projectSlug: string | null,
     kind: LibraryKind,
     key: string,
+    content: string
+  ) => Effect.Effect<void, MarkdownError>
+  readonly readOrgLibraryFile: (
+    orgSlug: string
+  ) => Effect.Effect<string | null, MarkdownError>
+  readonly writeOrgLibraryFile: (
+    orgSlug: string,
     content: string
   ) => Effect.Effect<void, MarkdownError>
   readonly removeLibraryFile: (

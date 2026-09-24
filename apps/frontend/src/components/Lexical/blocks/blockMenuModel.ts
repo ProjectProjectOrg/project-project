@@ -24,11 +24,11 @@ import {
 import type { EditorBlocks } from "./editorBlocks"
 import type { SyncedBlockNode } from "./SyncedBlockNode"
 
-export type BlockMenuKind = "copy" | "synced"
+export type BlockMenuKind = "copy" | "synced" | "reference"
 
 export type BlockDefinitionState = "none" | "matches" | "edited"
 
-export type BlockResetTarget = "definition"
+export type BlockResetTarget = "definition" | "reference"
 
 export type BlockMenuModel = Readonly<{
   key: NodeKey
@@ -66,18 +66,22 @@ const DEFINITION_SUBTITLES: Record<BlockDefinitionState, () => string | null> =
 type MenuContext = Readonly<{
   lookup: BlockLookup
   transformers: ReadonlyArray<Transformer>
-  blocks: Pick<EditorBlocks, "canEdit" | "onMakeDefinition">
+  blocks: Pick<EditorBlocks, "canEdit" | "onMakeDefinition"> &
+    Partial<Pick<EditorBlocks, "mode">>
 }>
 
 function $syncedModel(
   node: SyncedBlockNode,
   lookup: BlockLookup
 ): Pick<BlockMenuModel, "kind" | "subtitle" | "content"> {
-  const view = syncedView(lookup, node.getBlockType(), node.getSnapshot())
+  const mode = node.getMode()
+  const view = syncedView(lookup, node.getBlockType(), node.getSnapshot(), mode)
   return {
-    kind: "synced",
+    kind: mode,
     subtitle:
-      view.kind === "live" ? syncedChipLabel(view.definition.origin) : null,
+      view.kind === "live"
+        ? syncedChipLabel(mode, view.definition.origin)
+        : null,
     content: view.content
   }
 }
@@ -125,6 +129,11 @@ export function $blockMenuModel(
     content,
     definition: state,
     definitionTarget: editable ? definition : null,
-    resetsTo: state === "none" ? null : "definition"
+    resetsTo:
+      state === "none"
+        ? null
+        : context.blocks.mode === "template"
+          ? "reference"
+          : "definition"
   }
 }

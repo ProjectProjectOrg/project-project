@@ -2,17 +2,33 @@ import type {
   BlockDefinition,
   Conflict,
   CreateBlockInput,
+  CreateTemplateInput,
   Forbidden,
   Library as LibraryValue,
   MentionInvalid,
   NotFound,
+  TagName,
+  LibraryDefaults,
+  TemplateDefinition,
+  TemplateKey,
+  TicketPriority,
+  TicketType,
   UpdateBlockInput,
+  UpdateTemplateDefaultsInput,
+  UpdateTemplateInput,
   Validation
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 
 import type { MarkdownError } from "../markdown/Markdown"
+
+export type TemplateExpansion = Readonly<{
+  body: string
+  type: TicketType | null
+  priority: TicketPriority | null
+  tags: ReadonlyArray<TagName>
+}>
 
 export type LibraryShape = Readonly<{
   orgLibrary: (
@@ -60,6 +76,64 @@ export type LibraryShape = Readonly<{
     slug: string,
     key: string
   ) => Effect.Effect<void, NotFound | Forbidden | Conflict | MarkdownError>
+  createTemplate: (
+    orgSlug: string,
+    userId: string,
+    slug: string | null,
+    input: CreateTemplateInput
+  ) => Effect.Effect<
+    TemplateDefinition,
+    | NotFound
+    | Forbidden
+    | Conflict
+    | Validation
+    | MentionInvalid
+    | MarkdownError
+  >
+  updateTemplate: (
+    orgSlug: string,
+    userId: string,
+    slug: string | null,
+    key: string,
+    input: UpdateTemplateInput
+  ) => Effect.Effect<
+    TemplateDefinition,
+    NotFound | Forbidden | Validation | MentionInvalid | MarkdownError
+  >
+  removeTemplate: (
+    orgSlug: string,
+    userId: string,
+    slug: string | null,
+    key: string
+  ) => Effect.Effect<void, NotFound | Forbidden | MarkdownError>
+  hideTemplate: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    key: string
+  ) => Effect.Effect<void, NotFound | Forbidden | Conflict | MarkdownError>
+  setOrgTemplateDefaults: (
+    orgSlug: string,
+    userId: string,
+    input: UpdateTemplateDefaultsInput
+  ) => Effect.Effect<
+    LibraryDefaults,
+    NotFound | Forbidden | Validation | MarkdownError
+  >
+  setTemplateDefaults: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    input: UpdateTemplateDefaultsInput
+  ) => Effect.Effect<
+    LibraryDefaults,
+    NotFound | Forbidden | Validation | MarkdownError
+  >
+  expandForCreate: (
+    orgSlug: string,
+    slug: string,
+    key: TemplateKey
+  ) => Effect.Effect<TemplateExpansion, Validation | MarkdownError>
   resolveSynced: (
     orgSlug: string,
     slug: string,

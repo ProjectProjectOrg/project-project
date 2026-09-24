@@ -1,25 +1,36 @@
 import { useAtomSet } from "@effect/atom-react"
 import {
+  blockLookupFor,
+  expandTemplate,
   formatTicketBlock,
   galleryBlocksFor,
+  galleryBlocksToAdopt,
+  galleryTemplatesFor,
   stripHints,
+  type BlockDefinition,
   type BlockDraft,
-  type Library
+  type Library,
+  type TemplateDraft
 } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import { AnimatePresence, motion } from "motion/react"
-import { useState, type ReactNode } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 
+import { LibraryContext } from "@/components/blocks/blockChrome"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import { sketchLines, type SketchBlock } from "./blockSketch"
+import { sketchLines, templateSketch, type SketchBlock } from "./blockSketch"
 import { DitheredBlocks } from "./DitheredBlocks"
 import { GalleryTile, type GalleryItem } from "./GalleryTile"
-import { blockDraftOf, type LibraryKind } from "./libraryModel"
+import { blockDraftOf, templateDraftOf, type LibraryKind } from "./libraryModel"
 import { failureText } from "./LibraryRow"
-import { createBlockAtom, type LibraryScope } from "./libraryScope"
+import {
+  createBlockAtom,
+  createTemplateAtom,
+  type LibraryScope
+} from "./libraryScope"
 import { LIBRARY_GRID_CLASS, LibrarySectionHeader } from "./LibrarySection"
 import { LibrarySyncedLabel } from "./LibrarySyncedLabel"
 
@@ -31,6 +42,63 @@ type Exited = Exit.Exit<unknown, Readonly<{ _tag: string }>>
 
 const failureOf = (exit: Exited): string | null =>
   Exit.isFailure(exit) ? failureText(AsyncResult.fromExit(exit)) : null
+
+const withGalleryBlocks = (library: Library, scope: LibraryScope): Library => ({
+  ...library,
+  blocks: [
+    ...library.blocks,
+    ...galleryBlocksFor(library).map(
+      (draft): BlockDefinition => ({
+        ...draft,
+        origin: scope.layer,
+        shadows: null,
+        hidden: false
+      })
+    )
+  ]
+})
+
+export function TemplateGalleryWell({ scope, library }: GalleryProps) {
+  const preview = useMemo(
+    () => withGalleryBlocks(library, scope),
+    [library, scope]
+  )
+  const lookup = useMemo(() => blockLookupFor(preview), [preview])
+  const createTemplate = useAtomSet(createTemplateAtom(scope), {
+    mode: "promiseExit"
+  })
+  const createBlock = useAtomSet(createBlockAtom(scope), {
+    mode: "promiseExit"
+  })
+  const drafts = galleryTemplatesFor(library)
+
+  const adopt = async (draft: TemplateDraft): Promise<string | null> => {
+    for (const block of galleryBlocksToAdopt(library, draft)) {
+      const message = failureOf(await createBlock(blockDraftOf(block)))
+      if (message !== null) return message
+    }
+    return failureOf(await createTemplate(templateDraftOf(draft)))
+  }
+
+  return (
+    <LibraryContext value={preview}>
+      <GalleryWell
+        kind="template"
+        canAdd={library.canEdit}
+        description={m.templates_settings_gallery_description()}
+        allAdded={m.templates_settings_gallery_all_added()}
+        tiles={drafts.map((draft) => ({
+          item: draft,
+          badge: null,
+          sketch: templateSketch(draft.body, lookup, TEMPLATE_SKETCH_LINES),
+          sketchNames: true,
+          preview: expandTemplate(draft, lookup),
+          adopt: () => adopt(draft)
+        }))}
+      />
+    </LibraryContext>
+  )
+}
 
 export function BlockGalleryWell({ scope, library }: GalleryProps) {
   const create = useAtomSet(createBlockAtom(scope), { mode: "promiseExit" })
@@ -62,6 +130,7 @@ export function BlockGalleryWell({ scope, library }: GalleryProps) {
   )
 }
 
+const TEMPLATE_SKETCH_LINES = 2
 const BLOCK_SKETCH_LINES = 4
 
 type Tile = Readonly<{

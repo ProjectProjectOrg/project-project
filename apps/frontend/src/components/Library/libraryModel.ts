@@ -1,16 +1,22 @@
 import {
+  BLANK_TEMPLATE_KEY,
   LIBRARY_KEY_MAX_LENGTH,
   TICKET_BLOCK_TYPE_PATTERN,
   type BlockDefinition,
   type BlockDraft,
-  type LibraryOrigin
+  type Library,
+  type LibraryOrigin,
+  type TemplateDefaults,
+  type TemplateDefinition,
+  type TemplateDraft,
+  type TicketType
 } from "@pp/shared"
 
 import { slugify } from "@/lib/slug"
 
 import type { LibraryLayer } from "./libraryScope"
 
-export type LibraryKind = "block"
+export type LibraryKind = "template" | "block"
 
 export type RowAction = "customize" | "duplicate" | "hide" | "reset" | "delete"
 
@@ -48,10 +54,11 @@ export const splitHidden = <A extends Placement>(
 export const keyFromName = (name: string): string =>
   slugify(name).slice(0, LIBRARY_KEY_MAX_LENGTH).replace(/-+$/, "")
 
-export type KeyProblem = "invalid" | "taken"
+export type KeyProblem = "invalid" | "reserved" | "taken"
 
 export const keyProblem = (
   key: string,
+  kind: LibraryKind,
   taken: ReadonlySet<string>
 ): KeyProblem | null => {
   if (
@@ -60,6 +67,7 @@ export const keyProblem = (
     !TICKET_BLOCK_TYPE_PATTERN.test(key)
   )
     return "invalid"
+  if (kind === "template" && key === BLANK_TEMPLATE_KEY) return "reserved"
   if (taken.has(key)) return "taken"
   return null
 }
@@ -75,6 +83,20 @@ export const copyKey = (key: string, taken: ReadonlySet<string>): string => {
   }
 }
 
+export const templateDraftOf = (
+  template: TemplateDefinition | TemplateDraft
+): TemplateDraft => ({
+  key: template.key,
+  name: template.name,
+  icon: template.icon,
+  color: template.color,
+  description: template.description,
+  type: template.type,
+  priority: template.priority,
+  tags: template.tags,
+  body: template.body
+})
+
 export const blockDraftOf = (
   block: BlockDefinition | BlockDraft
 ): BlockDraft => ({
@@ -86,6 +108,30 @@ export const blockDraftOf = (
   sync: block.sync,
   content: block.content
 })
+
+export const TICKET_TYPES: ReadonlyArray<TicketType> = [
+  "feat",
+  "bug",
+  "chore",
+  "other"
+]
+
+export const defaultTypesFor = (
+  defaults: TemplateDefaults,
+  key: string
+): ReadonlyArray<TicketType> =>
+  TICKET_TYPES.filter((type) => defaults[type] === key)
+
+export type DefaultState = "own" | "inherited" | "overridden"
+
+export const defaultState = (
+  library: Library,
+  layer: LibraryLayer,
+  type: TicketType
+): DefaultState => {
+  if (layer === "org") return "own"
+  return type in library.ownDefaults ? "overridden" : "inherited"
+}
 
 export const layoutIdFor = (kind: LibraryKind, key: string): string =>
   `library-${kind}:${key}`

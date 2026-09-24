@@ -23,6 +23,7 @@ import { toggleTaskAtLine } from "@/components/blocks/syncedContent"
 
 import { MARKDOWN_TRANSFORMERS } from "../../LexicalEditor"
 import { $isTicketBlockNode, TicketBlockNode } from "../TicketBlockNode"
+import { createTicketBlockTransformer } from "../ticketBlockTransformer"
 import {
   $isSyncedBlockNode,
   DETACH_SYNCED_BLOCK_COMMAND,
@@ -134,6 +135,33 @@ describe("synced block transformer", () => {
     expect(kinds).toEqual(["ticket-block"])
   })
 
+  it("imports empty blocks as references in template mode and exports them empty", () => {
+    const content = createTicketBlockTransformer(MARKDOWN_TRANSFORMERS.slice(1))
+    const template = [
+      createTicketBlockTransformer(MARKDOWN_TRANSFORMERS.slice(1), {
+        emptyAsReference: true
+      }),
+      ...MARKDOWN_TRANSFORMERS.slice(1)
+    ]
+    const editor = makeEditor()
+    const body = [
+      formatTicketBlock("context", ""),
+      formatTicketBlock("notes", "## Notes\n\nCustom")
+    ].join("\n\n")
+    load(editor, body, template)
+    const modes = editor.getEditorState().read(() =>
+      $getRoot()
+        .getChildren()
+        .map((node) => ($isSyncedBlockNode(node) ? node.getMode() : "copy"))
+    )
+    expect(modes).toEqual(["reference", "copy"])
+    expect(exported(editor, [content, ...MARKDOWN_TRANSFORMERS.slice(1)])).toBe(
+      body
+    )
+  })
+})
+
+describe("synced blocks against the library", () => {
   it("writes the current definition with this ticket's ticks", () => {
     const editor = makeEditor()
     load(editor, syncedBody(STALE_SNAPSHOT))

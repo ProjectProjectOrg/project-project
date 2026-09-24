@@ -35,8 +35,10 @@ import {
 } from "@/components/blocks/SyncedBlock"
 import {
   splitLeadingHeading,
+  syncedDisplayContent,
   syncedView,
   toggleTaskAtLine,
+  type SyncedBlockMode,
   type SyncedView
 } from "@/components/blocks/syncedContent"
 import { MarkdownSegment } from "@/components/Markdown"
@@ -56,7 +58,7 @@ export const DETACH_SYNCED_BLOCK_COMMAND: LexicalCommand<DetachSyncedBlockPayloa
   createCommand("DETACH_SYNCED_BLOCK_COMMAND")
 
 export type SerializedSyncedBlockNode = Spread<
-  { blockType: string; snapshot: string },
+  { blockType: string; snapshot: string; mode: SyncedBlockMode },
   SerializedLexicalNode
 >
 
@@ -68,33 +70,47 @@ const isInteractiveTarget = (target: EventTarget | null): boolean =>
 export class SyncedBlockNode extends DecoratorNode<ReactElement> {
   __blockType: string
   __snapshot: string
+  __mode: SyncedBlockMode
 
   static getType(): string {
     return "synced-block"
   }
 
   static clone(node: SyncedBlockNode): SyncedBlockNode {
-    return new SyncedBlockNode(node.__blockType, node.__snapshot, node.__key)
+    return new SyncedBlockNode(
+      node.__blockType,
+      node.__snapshot,
+      node.__mode,
+      node.__key
+    )
   }
 
   static importJSON(serialized: SerializedSyncedBlockNode): SyncedBlockNode {
     return $createSyncedBlockNode(
       serialized.blockType,
-      serialized.snapshot
+      serialized.snapshot,
+      serialized.mode
     ).updateFromJSON(serialized)
   }
 
-  constructor(blockType: string, snapshot: string, key?: NodeKey) {
+  constructor(
+    blockType: string,
+    snapshot: string,
+    mode: SyncedBlockMode = "synced",
+    key?: NodeKey
+  ) {
     super(key)
     this.__blockType = blockType
     this.__snapshot = snapshot
+    this.__mode = mode
   }
 
   exportJSON(): SerializedSyncedBlockNode {
     return {
       ...super.exportJSON(),
       blockType: this.__blockType,
-      snapshot: this.__snapshot
+      snapshot: this.__snapshot,
+      mode: this.__mode
     }
   }
 
@@ -104,6 +120,10 @@ export class SyncedBlockNode extends DecoratorNode<ReactElement> {
 
   getSnapshot(): string {
     return this.getLatest().__snapshot
+  }
+
+  getMode(): SyncedBlockMode {
+    return this.getLatest().__mode
   }
 
   setSnapshot(snapshot: string): this {
@@ -138,6 +158,7 @@ export class SyncedBlockNode extends DecoratorNode<ReactElement> {
         nodeKey={this.__key}
         blockType={this.__blockType}
         snapshot={this.__snapshot}
+        mode={this.__mode}
       />
     )
   }
@@ -145,9 +166,10 @@ export class SyncedBlockNode extends DecoratorNode<ReactElement> {
 
 export function $createSyncedBlockNode(
   blockType: string,
-  snapshot: string
+  snapshot: string,
+  mode: SyncedBlockMode = "synced"
 ): SyncedBlockNode {
-  return $applyNodeReplacement(new SyncedBlockNode(blockType, snapshot))
+  return $applyNodeReplacement(new SyncedBlockNode(blockType, snapshot, mode))
 }
 
 export function $isSyncedBlockNode(
@@ -159,18 +181,20 @@ export function $isSyncedBlockNode(
 function SyncedBlockView({
   nodeKey,
   blockType,
-  snapshot
+  snapshot,
+  mode
 }: Readonly<{
   nodeKey: NodeKey
   blockType: string
   snapshot: string
+  mode: SyncedBlockMode
 }>) {
   const [editor] = useLexicalComposerContext()
   const [isSelected, setSelected, clearSelection] =
     useLexicalNodeSelection(nodeKey)
   const scope = useContext(EditorBlocksContext)
   const morphId = useId()
-  const view = syncedView(useBlockLookup(), blockType, snapshot)
+  const view = syncedView(useBlockLookup(), blockType, snapshot, mode)
 
   useEffect(() => {
     const element = editor.getElementByKey(nodeKey)
@@ -252,28 +276,32 @@ function SyncedBlockView({
     )
   }
 
-  const toggleTask = (line: number) =>
-    editor.update(() => {
-      const node = $getNodeByKey(nodeKey)
-      if ($isSyncedBlockNode(node))
-        node.setSnapshot(toggleTaskAtLine(view.content, line))
-    })
+  const toggleTask =
+    mode === "synced"
+      ? (line: number) =>
+          editor.update(() => {
+            const node = $getNodeByKey(nodeKey)
+            if ($isSyncedBlockNode(node))
+              node.setSnapshot(toggleTaskAtLine(view.content, line))
+          })
+      : undefined
 
   return (
     <>
       <MarkdownSegment
-        text={view.content}
+        text={syncedDisplayContent(view, mode)}
         morphId={morphId}
         onToggleTask={toggleTask}
       />
       <SyncedChip
-        label={syncedChipLabel(view.definition.origin)}
+        label={syncedChipLabel(mode, view.definition.origin)}
         visible={isSelected}
       >
         {scope !== null && (
           <SyncedActions
             scope={scope}
             view={view}
+            mode={mode}
             onDetach={() =>
               editor.dispatchCommand(DETACH_SYNCED_BLOCK_COMMAND, {
                 key: nodeKey,
@@ -290,12 +318,21 @@ function SyncedBlockView({
 function SyncedActions({
   scope,
   view,
+  mode,
   onDetach
 }: Readonly<{
   scope: EditorBlocksScope
   view: Extract<SyncedView, { kind: "live" }>
+  mode: SyncedBlockMode
   onDetach: () => void
 }>) {
+  if (mode === "reference")
+    return (
+      <SyncedChipAction
+        label={m.editor_synced_customize()}
+        onClick={onDetach}
+      />
+    )
   const { origin, key } = view.definition
   const edit = syncedEditAction(
     scope.blocks.library,

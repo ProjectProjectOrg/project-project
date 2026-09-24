@@ -15,16 +15,37 @@ type EntryLinkProps = Readonly<{
 
 export function LibraryEntryLink({
   scope,
+  kind,
   entryKey,
   className,
   children,
   ...rest
 }: EntryLinkProps) {
   const label = rest["aria-label"]
-  return scope.layer === "org" ? (
+  if (scope.layer === "org")
+    return kind === "template" ? (
+      <Link
+        to="/orgs/$orgSlug/settings/templates/$templateKey"
+        params={{ ...scope.req.params, templateKey: entryKey }}
+        className={className}
+        aria-label={label}
+      >
+        {children}
+      </Link>
+    ) : (
+      <Link
+        to="/orgs/$orgSlug/settings/templates/blocks/$blockKey"
+        params={{ ...scope.req.params, blockKey: entryKey }}
+        className={className}
+        aria-label={label}
+      >
+        {children}
+      </Link>
+    )
+  return kind === "template" ? (
     <Link
-      to="/orgs/$orgSlug/settings/templates/blocks/$blockKey"
-      params={{ ...scope.req.params, blockKey: entryKey }}
+      to="/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey"
+      params={{ ...scope.req.params, templateKey: entryKey }}
       className={className}
       aria-label={label}
     >
@@ -45,11 +66,24 @@ export function LibraryEntryLink({
 export function useOpenEntry(scope: LibraryScope) {
   const navigate = useNavigate()
   return useCallback(
-    (_kind: LibraryKind, entryKey: string) => {
-      if (scope.layer === "org")
+    (kind: LibraryKind, entryKey: string) => {
+      if (scope.layer === "org") {
+        if (kind === "template")
+          void navigate({
+            to: "/orgs/$orgSlug/settings/templates/$templateKey",
+            params: { ...scope.req.params, templateKey: entryKey }
+          })
+        else
+          void navigate({
+            to: "/orgs/$orgSlug/settings/templates/blocks/$blockKey",
+            params: { ...scope.req.params, blockKey: entryKey }
+          })
+        return
+      }
+      if (kind === "template")
         void navigate({
-          to: "/orgs/$orgSlug/settings/templates/blocks/$blockKey",
-          params: { ...scope.req.params, blockKey: entryKey }
+          to: "/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey",
+          params: { ...scope.req.params, templateKey: entryKey }
         })
       else
         void navigate({
@@ -63,6 +97,7 @@ export function useOpenEntry(scope: LibraryScope) {
 
 export function LibraryBackLink({
   scope,
+  kind,
   className,
   children
 }: Readonly<{
@@ -71,10 +106,12 @@ export function LibraryBackLink({
   className?: string
   children: ReactNode
 }>) {
+  const search = kind === "block" ? { tab: "blocks" as const } : {}
   return scope.layer === "org" ? (
     <Link
       to="/orgs/$orgSlug/settings/templates"
       params={scope.req.params}
+      search={search}
       className={className}
     >
       {children}
@@ -83,6 +120,7 @@ export function LibraryBackLink({
     <Link
       to="/orgs/$orgSlug/projects/$slug/settings/templates"
       params={scope.req.params}
+      search={search}
       className={className}
     >
       {children}

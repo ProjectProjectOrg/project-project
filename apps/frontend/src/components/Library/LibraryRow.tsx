@@ -77,7 +77,7 @@ export const showsOrigin = (
 ): boolean => entry.origin !== layer || entry.shadows !== null
 
 /**
- * One of this layer's blocks. It reads like a gallery tile but
+ * One of this layer's templates or blocks. It reads like a gallery tile but
  * sits on the page instead of in the gallery well, carries the origin as a
  * badge, and opens its editor. Actions show on hover or focus.
  */

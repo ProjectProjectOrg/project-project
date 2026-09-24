@@ -57,6 +57,7 @@ import type { DropPlacement } from "./dragLayout"
 import type { EditorBlocks } from "./editorBlocks"
 import { GutterButton } from "./GutterButton"
 import { DETACH_SYNCED_BLOCK_COMMAND, SyncedBlockNode } from "./SyncedBlockNode"
+import { $revertToReference } from "./templateBlocks"
 import { useBlockDrag } from "./useBlockDrag"
 
 type GutterItem = Readonly<{
@@ -192,11 +193,12 @@ export function BlockGutterPlugin({
   blocks,
   transformers
 }: Readonly<{
-  blocks: Pick<EditorBlocks, "library" | "canEdit" | "onMakeDefinition">
+  blocks: Pick<EditorBlocks, "library" | "canEdit" | "onMakeDefinition"> &
+    Partial<Pick<EditorBlocks, "mode">>
   transformers: ReadonlyArray<Transformer>
 }>) {
   const [editor] = useLexicalComposerContext()
-  const { library, canEdit, onMakeDefinition } = blocks
+  const { library, canEdit, onMakeDefinition, mode } = blocks
   const lookup = useMemo(() => lookupFor(library), [library])
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
   const [items, setItems] = useState<ReadonlyArray<GutterItem>>([])
@@ -282,11 +284,11 @@ export function BlockGutterPlugin({
         $blockMenuModel(node, {
           lookup,
           transformers,
-          blocks: { canEdit, onMakeDefinition }
+          blocks: { canEdit, onMakeDefinition, mode }
         })
       )
     },
-    [canEdit, editor, lookup, onMakeDefinition, transformers]
+    [canEdit, editor, lookup, mode, onMakeDefinition, transformers]
   )
 
   useEffect(
@@ -485,6 +487,11 @@ export function BlockGutterPlugin({
           case "reset": {
             const definition = lookup(model.blockType)
             if (!$isTicketBlockNode(node) || definition === undefined) return
+            if (model.resetsTo === "reference") {
+              $revertToReference(node)
+              announce(m.editor_block_announce_reverted({ name }))
+              return
+            }
             $resetBlock(node, definition, transformers)
             announce(m.editor_block_announce_reset({ name }))
             return

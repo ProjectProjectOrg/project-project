@@ -12,7 +12,12 @@ import {
 } from "@lexical/markdown"
 import { RichTextExtension } from "@lexical/rich-text"
 import { TableExtension } from "@lexical/table"
-import { formatTicketBlock, stripHints } from "@pp/shared"
+import {
+  BUILTIN_TEMPLATES,
+  expandTemplate,
+  formatTicketBlock,
+  stripHints
+} from "@pp/shared"
 import {
   $getRoot,
   $createParagraphNode,
@@ -31,7 +36,12 @@ import { BUILTIN_LIBRARY, lookupFor } from "@/components/blocks/blockChrome"
 import { MARKDOWN_TRANSFORMERS } from "../../LexicalEditor"
 import { TicketBlockExtension } from "../TicketBlockExtension"
 import { $isTicketBlockNode } from "../TicketBlockNode"
-import { $insertBlocksAt } from "./blockCommands"
+import {
+  $applyTemplate,
+  $insertBlocksAt,
+  $selectFirstHint,
+  missingBlocksMarkdown
+} from "./blockCommands"
 
 const lookup = lookupFor(BUILTIN_LIBRARY)
 
@@ -40,6 +50,9 @@ const block = (key: string): string => {
   if (definition === undefined) throw new Error(`no block ${key}`)
   return formatTicketBlock(key, stripHints(definition.content))
 }
+
+const chore = BUILTIN_TEMPLATES.find((template) => template.key === "chore")
+if (chore === undefined) throw new Error("no chore template")
 
 function editorWith(markdown: string): LexicalEditor {
   const editor = buildEditorFromExtensions(
@@ -239,5 +252,111 @@ describe("$insertBlocksAt", () => {
 
     expect(typed).toBe("Before /notesafter")
     expect(markdown(editor)).toBe(typed)
+  })
+})
+
+describe("$applyTemplate", () => {
+  it("adds only the block types the body is missing, at the caret", () => {
+    const existing = [
+      "Intro",
+      '<block type="acceptance-criteria">\n\n## Acceptance criteria\n\n- [x] Ticked\n\n</block>',
+      "Tail"
+    ].join("\n\n")
+    const editor = editorWith(existing)
+    let added: ReadonlyArray<string> = []
+    run(editor, () => {
+      $caretAfter("Intro")
+      added = $applyTemplate(
+        expandTemplate(chore, lookup),
+        MARKDOWN_TRANSFORMERS,
+        lookup
+      )
+    })
+
+    expect(added).toEqual(["context"])
+    expect(outline(editor)).toEqual([
+      "paragraph:Intro",
+      "block:context",
+      "block:acceptance-criteria",
+      "paragraph:Tail"
+    ])
+    expect(markdown(editor)).toContain("- [x] Ticked")
+  })
+
+  it("does nothing when every block is already there", () => {
+    const editor = editorWith(
+      [block("context"), block("acceptance-criteria"), "Tail"].join("\n\n")
+    )
+    const before = outline(editor)
+    let added: ReadonlyArray<string> = ["unset"]
+    run(editor, () => {
+      $caretAfter("Tail")
+      added = $applyTemplate(
+        expandTemplate(chore, lookup),
+        MARKDOWN_TRANSFORMERS,
+        lookup
+      )
+    })
+
+    expect(added).toEqual([])
+    expect(outline(editor)).toEqual(before)
+  })
+
+  it("fills an empty body with the whole template", () => {
+    const editor = editorWith("")
+    run(editor, () => {
+      $getRoot().selectEnd()
+      $applyTemplate(
+        expandTemplate(chore, lookup),
+        MARKDOWN_TRANSFORMERS,
+        lookup
+      )
+    })
+
+    expect(
+      outline(editor).filter((entry) => entry.startsWith("block:"))
+    ).toEqual(["block:context", "block:acceptance-criteria"])
+    expect(caret(editor)).toMatchObject({ block: "context" })
+  })
+})
+
+describe("missingBlocksMarkdown", () => {
+  it("keeps the added blocks in template order", () => {
+    const expanded = [block("context"), block("notes"), block("risks")].join(
+      "\n\n"
+    )
+
+    expect(missingBlocksMarkdown(expanded, ["context", "risks"])).toBe(
+      [block("context"), block("risks")].join("\n\n")
+    )
+  })
+})
+
+describe("$selectFirstHint", () => {
+  it("lands on the first hinted line of a freshly created ticket", () => {
+    const editor = editorWith(
+      [block("expected-vs-actual"), block("steps-to-reproduce")].join("\n\n")
+    )
+    let landed = false
+    run(editor, () => {
+      $getRoot().selectStart()
+      landed = $selectFirstHint(lookup)
+    })
+
+    expect(landed).toBe(true)
+    expect(caret(editor)).toEqual({
+      text: "Expected:",
+      type: "paragraph",
+      block: "expected-vs-actual"
+    })
+  })
+
+  it("leaves the caret alone when no block has a hint", () => {
+    const editor = editorWith("Just text")
+    let landed = true
+    run(editor, () => {
+      landed = $selectFirstHint(lookup)
+    })
+    expect(landed).toBe(false)
   })
 })

@@ -135,6 +135,16 @@ function BlockMenuItems({
           onConfirm={() => onAction("reset")}
         />
       )}
+      {model.resetsTo === "reference" && (
+        <ConfirmMenuItem
+          icon={RotateCcw}
+          label={m.editor_template_revert()}
+          confirmName={m.editor_block_menu_revert_confirm()}
+          message={m.editor_block_menu_confirm_revert_message()}
+          action={m.editor_block_menu_confirm_revert_action()}
+          onConfirm={() => onAction("reset")}
+        />
+      )}
       {hasDefinition && editable && (
         <ConfirmMenuItem
           icon={Upload}
@@ -149,7 +159,9 @@ function BlockMenuItems({
       {model.kind !== "copy" && (
         <DropdownMenuItem onClick={() => onAction("detach")}>
           <Unlink strokeWidth={1.75} />
-          {m.editor_block_menu_detach()}
+          {model.kind === "reference"
+            ? m.editor_synced_customize()
+            : m.editor_block_menu_detach()}
         </DropdownMenuItem>
       )}
       <DropdownMenuSeparator />

@@ -462,9 +462,17 @@ describe("$blockMenuModel", () => {
     expect(modelFor(editor, "notes").subtitle).toBe("Edited")
   })
 
-  it("resets a copy with a definition to that definition", () => {
+  it("resets to the definition in a ticket and to a reference in a template", () => {
     const editor = editorWith(BODY)
+    const template = editor.getEditorState().read(() =>
+      $blockMenuModel($blockOf("notes"), {
+        lookup,
+        transformers: MARKDOWN_TRANSFORMERS,
+        blocks: { canEdit: { org: false, project: false }, mode: "template" }
+      })
+    )
     expect(modelFor(editor, "notes").resetsTo).toBe("definition")
+    expect(template.resetsTo).toBe("reference")
   })
 
   it("offers make-definition only to editors of the layer", () => {

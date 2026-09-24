@@ -45,9 +45,9 @@ export const Keys = {
   tags: (scope: string): string => `tags/${scope}`,
   /** Ticket-derived tag usage in this project. */
   tagUsage: (scope: string): string => `tag-usage/${scope}`,
-  /** One organization's block library. */
+  /** One organization's block and template library. */
   orgLibrary: (orgSlug: string): string => `org-library/${orgSlug}`,
-  /** This project's effective block library. */
+  /** This project's effective block and template library. */
   projectLibrary: (scope: string): string => `project-library/${scope}`,
   /** This project's workflow statuses. */
   statuses: (scope: string): string => `statuses/${scope}`,

@@ -7,14 +7,20 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { BUILTIN_LIBRARY } from "./blockChrome"
+import type { SyncedBlockMode } from "./syncedContent"
 
 const ORIGIN_LABELS: Record<LibraryOrigin, () => string> = {
   org: m.editor_block_origin_org,
   project: m.editor_block_origin_project
 }
 
-export const syncedChipLabel = (origin: LibraryOrigin): string =>
-  m.editor_synced_from({ origin: ORIGIN_LABELS[origin]() })
+export const syncedChipLabel = (
+  mode: SyncedBlockMode,
+  origin: LibraryOrigin
+): string =>
+  mode === "reference"
+    ? m.editor_synced_linked()
+    : m.editor_synced_from({ origin: ORIGIN_LABELS[origin]() })
 
 type LayerPermissions = Readonly<{ org: boolean; project: boolean }>
 

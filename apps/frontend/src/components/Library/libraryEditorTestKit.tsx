@@ -3,8 +3,11 @@ import {
   BUILTIN_BLOCKS,
   BlockDefinition,
   Library,
+  TemplateDefinition,
   type BlockDraft,
-  type LibraryOrigin
+  type LibraryOrigin,
+  type TemplateDraft,
+  type TemplateKey
 } from "@pp/shared"
 import { render } from "@testing-library/react"
 import * as Schema from "effect/Schema"
@@ -16,6 +19,7 @@ import type { FetchHandler } from "@/api/testFetch"
 export type Call = Readonly<{ method: string; path: string; body: unknown }>
 
 const encodeLibrary = Schema.encodeSync(Library)
+const encodeTemplate = Schema.encodeSync(TemplateDefinition)
 const encodeBlock = Schema.encodeSync(BlockDefinition)
 
 export const blockDraft = (key: string): BlockDraft =>
@@ -26,10 +30,42 @@ export const asBlock = (
   origin: LibraryOrigin = "project"
 ): BlockDefinition => ({ ...draft, origin, shadows: null, hidden: false })
 
+export const asTemplate = (
+  draft: TemplateDraft,
+  origin: LibraryOrigin = "project"
+): TemplateDefinition => ({ ...draft, origin, shadows: null, hidden: false })
+
+export const templateDraft = (
+  key: string,
+  body: string,
+  overrides: Partial<TemplateDraft> = {}
+): TemplateDraft => ({
+  key: key as TemplateKey,
+  name: "Bug report",
+  icon: "Bug",
+  color: null,
+  description: "Something is broken",
+  type: "bug",
+  priority: null,
+  tags: [],
+  body,
+  ...overrides
+})
+
+const NO_DEFAULTS = { feat: null, bug: null, chore: null, other: null }
+
 export const libraryOf = (
   blocks: ReadonlyArray<BlockDefinition>,
+  templates: ReadonlyArray<TemplateDefinition>,
   canEdit = true
-): Library => ({ blocks, canEdit })
+): Library => ({
+  blocks,
+  templates,
+  defaults: NO_DEFAULTS,
+  ownDefaults: {},
+  inheritedDefaults: NO_DEFAULTS,
+  canEdit
+})
 
 const pathOf = (input: RequestInfo | URL): string => {
   const href =
@@ -59,8 +95,24 @@ export const libraryServer = (
       return path.endsWith("/library")
         ? Response.json(encodeLibrary(served))
         : new Response(null, { status: 404 })
-    const [, kind, key] = /\/library\/(blocks)(?:\/([^/]+))?$/.exec(path) ?? []
+    const [, kind, key] =
+      /\/library\/(templates|blocks)(?:\/([^/]+))?$/.exec(path) ?? []
     const layer: LibraryOrigin = path.includes("/projects/") ? "project" : "org"
+    if (kind === "templates") {
+      const current = served.templates.find((entry) => entry.key === key)
+      const next = asTemplate(
+        { ...current, ...(body as TemplateDraft) } as TemplateDraft,
+        layer
+      )
+      served = {
+        ...served,
+        templates: [
+          ...served.templates.filter((entry) => entry.key !== next.key),
+          next
+        ]
+      }
+      return Response.json(encodeTemplate(next))
+    }
     if (kind === "blocks") {
       const current = served.blocks.find((entry) => entry.key === key)
       const next = asBlock(

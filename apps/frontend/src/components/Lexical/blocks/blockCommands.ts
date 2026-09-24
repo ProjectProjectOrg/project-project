@@ -9,12 +9,16 @@ import { $findMatchingParent } from "@lexical/utils"
 import {
   HINT,
   hintSlots,
+  mergeTemplateInto,
   outlineBlockContent,
+  parseTicketBlocks,
+  serializeTicketBlocks,
   stripHints,
   type BlockDefinition,
   type BlockLookup,
   type HintNodeKind,
-  type HintSlot
+  type HintSlot,
+  type TicketBlockSegment
 } from "@pp/shared"
 import {
   $copyNode,
@@ -187,6 +191,22 @@ function $firstHintTarget(
   return null
 }
 
+/**
+ * Puts the caret on the first hinted line of the body's blocks, for a ticket
+ * that opens straight into its template. Returns false when nothing is hinted.
+ */
+export function $selectFirstHint(lookup: BlockLookup): boolean {
+  for (const block of $topLevelBlocks()) {
+    if (!$isTicketBlockNode(block)) continue
+    const target = $firstHintTarget(block, lookup)
+    if (target !== null) {
+      target.selectEnd()
+      return true
+    }
+  }
+  return false
+}
+
 function $placeCaretAfterInsert(
   nodes: ReadonlyArray<LexicalNode>,
   lookup: BlockLookup
@@ -238,6 +258,36 @@ export function $insertBlocksAt(
     if (leftover.isAttached() && $isBlankParagraph(leftover)) leftover.remove()
   $placeCaretAfterInsert(nodes, lookup)
   return nodes
+}
+
+export const missingBlocksMarkdown = (
+  expanded: string,
+  added: ReadonlyArray<string>
+): string => {
+  const remaining = [...added]
+  const missing = parseTicketBlocks(expanded).filter(
+    (segment: TicketBlockSegment) => {
+      if (segment.kind !== "block" || segment.type !== remaining[0])
+        return false
+      remaining.shift()
+      return true
+    }
+  )
+  return serializeTicketBlocks(missing)
+}
+
+export function $applyTemplate(
+  expanded: string,
+  transformers: ReadonlyArray<Transformer>,
+  lookup: BlockLookup
+): ReadonlyArray<string> {
+  const body = $convertToMarkdownString([...transformers])
+  const merge = mergeTemplateInto(body, expanded)
+  const markdown =
+    body.trim() === "" ? expanded : missingBlocksMarkdown(expanded, merge.added)
+  if (markdown.trim() === "") return []
+  $insertBlocksAt(markdown, transformers, lookup)
+  return merge.added
 }
 
 export type BlockDirection = "up" | "down"

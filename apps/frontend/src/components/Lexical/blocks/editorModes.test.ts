@@ -6,7 +6,7 @@ import {
   $convertToMarkdownString
 } from "@lexical/markdown"
 import { HeadingNode, QuoteNode } from "@lexical/rich-text"
-import { formatTicketBlock } from "@pp/shared"
+import { formatTicketBlock, stripHints } from "@pp/shared"
 import {
   $createParagraphNode,
   $createTextNode,
@@ -17,11 +17,18 @@ import {
 import { describe, expect, it } from "vitest"
 
 import { transformersForMode } from "../../LexicalEditor"
-import { $createTicketBlockNode, TicketBlockNode } from "../TicketBlockNode"
+import {
+  $createTicketBlockNode,
+  $isTicketBlockNode,
+  TicketBlockNode
+} from "../TicketBlockNode"
 import { registerNoNestedBlocks } from "./definitionMode"
 import { $isHintNode, HintNode } from "./HintNode"
-import { SyncedBlockNode } from "./SyncedBlockNode"
+import { $isSyncedBlockNode, SyncedBlockNode } from "./SyncedBlockNode"
+import { $detachSyncedBlock } from "./syncedBlocks"
+import { $revertToReference } from "./templateBlocks"
 
+const TEMPLATE = transformersForMode("template", undefined)
 const DEFINITION = transformersForMode("definition", undefined)
 
 const CONTEXT = "## Context\n\n{{Why this ticket exists}}"
@@ -49,21 +56,60 @@ function makeEditor(): LexicalEditor {
 const load = (
   editor: LexicalEditor,
   markdown: string,
-  transformers: typeof DEFINITION
+  transformers: typeof TEMPLATE
 ) =>
   editor.update(() => $convertFromMarkdownString(markdown, transformers), {
     discrete: true
   })
 
-const exported = (editor: LexicalEditor, transformers: typeof DEFINITION) =>
+const exported = (editor: LexicalEditor, transformers: typeof TEMPLATE) =>
   editor.getEditorState().read(() => $convertToMarkdownString(transformers))
 
 const kinds = (editor: LexicalEditor) =>
   editor.getEditorState().read(() =>
     $getRoot()
       .getChildren()
-      .map((node) => node.getType())
+      .map((node) =>
+        $isSyncedBlockNode(node) ? node.getMode() : node.getType()
+      )
   )
+
+describe("template mode", () => {
+  const body = `Intro line.\n\n${formatTicketBlock("context", "")}`
+
+  it("imports references and keeps loose markdown", () => {
+    const editor = makeEditor()
+    load(editor, body, TEMPLATE)
+    expect(kinds(editor)).toEqual(["paragraph", "reference"])
+    expect(exported(editor, TEMPLATE)).toBe(body)
+  })
+
+  it("customizes a reference into a copy and reverts it to the reference", () => {
+    const editor = makeEditor()
+    load(editor, body, TEMPLATE)
+    editor.update(
+      () => {
+        const reference = $getRoot().getChildren().find($isSyncedBlockNode)!
+        $detachSyncedBlock(reference, stripHints(CONTEXT), TEMPLATE)
+      },
+      { discrete: true }
+    )
+    expect(kinds(editor)).toEqual(["paragraph", "ticket-block"])
+    expect(exported(editor, TEMPLATE)).toBe(
+      `Intro line.\n\n${formatTicketBlock("context", "## Context")}`
+    )
+
+    editor.update(
+      () => {
+        const copy = $getRoot().getChildren().find($isTicketBlockNode)!
+        $revertToReference(copy)
+      },
+      { discrete: true }
+    )
+    expect(kinds(editor)).toEqual(["paragraph", "reference"])
+    expect(exported(editor, TEMPLATE)).toBe(body)
+  })
+})
 
 describe("definition mode", () => {
   it("round-trips hints as hint nodes", () => {

@@ -59,6 +59,10 @@ const buttonVariants = cva(
         chip: "bg-transparent text-foreground hover:bg-accent hover:text-foreground active:bg-accent/80",
         "block-grip":
           "bg-transparent text-muted-foreground hover:bg-accent active:bg-accent/80",
+        "template-start":
+          "border border-border/70 bg-background/60 text-foreground hover:border-border hover:bg-accent active:bg-accent/80",
+        "template-more":
+          "bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground active:bg-accent/80",
         overlay:
           "bg-background text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground active:bg-accent/80",
         "overlay-destructive":
@@ -101,6 +105,10 @@ const buttonVariants = cva(
       {
         variant: "chip",
         className: "h-auto gap-1.5 rounded-md px-1.5 py-0.5 text-[13px]"
+      },
+      {
+        variant: ["template-start", "template-more"],
+        className: "h-6 gap-1.5 px-2 text-xs"
       }
     ],
     defaultVariants: {

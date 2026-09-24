@@ -88,7 +88,7 @@ describe("library error messages", () => {
     expect(
       errorMessage(new Validation({ reason: "attachments_not_allowed" }))
     ).toBe(
-      "Blocks can't contain attachments yet. Remove the attachment and try again."
+      "Blocks and templates can't contain attachments yet. Remove the attachment and try again."
     )
     expect(errorMessage(new Validation({ reason: "blocks_not_allowed" }))).toBe(
       "A block can't contain other blocks."
@@ -99,6 +99,9 @@ describe("library error messages", () => {
     expect(
       errorMessage(new Validation({ reason: "invalid_blocks:mystery:2" }))
     ).toBe("The block markup on line 2 isn't valid.")
+    expect(
+      errorMessage(new Validation({ reason: "unknown_template:bug-report" }))
+    ).toBe('The template "bug-report" doesn\'t exist anymore.')
     expect(errorMessage(new Validation({ reason: "other" }))).toBe(
       "Something went wrong."
     )

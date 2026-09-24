@@ -22,8 +22,6 @@ import {
   type KeyboardEvent
 } from "react"
 
-import { CollapsingLabel } from "@/components/SegmentedTabs"
-import { BADGE_TONES } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,7 +51,11 @@ import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
+import { CreatorChip } from "./CreatorChip"
+import { creatorErrorText } from "./creatorError"
+import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
 import { TicketCreatorShell } from "./TicketCreatorShell"
+import { useTemplateChoice } from "./useTemplateChoice"
 
 const idleSearchAtom = Atom.make(Result.initial<ReadonlyArray<Ticket>>())
 
@@ -95,9 +97,7 @@ export function SprintTicketCreator({
   const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
   const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
   const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
-  const error = Result.isFailure(createState)
-    ? m.tickets_create_error_fallback()
-    : null
+  const error = creatorErrorText(createState)
   const projectReq = useMemo(
     () => projectRequest(orgSlug, slug),
     [orgSlug, slug]
@@ -114,6 +114,28 @@ export function SprintTicketCreator({
   const inputRef = useRef<HTMLInputElement>(null)
   const trimmed = title.trim()
   const expanded = focused || typeMenuOpen || closingMenu
+  const templateChoice = useTemplateChoice(orgSlug, slug, type)
+  const slash = useTemplateSlash({
+    title,
+    choice: templateChoice,
+    onChoose: (template) => {
+      searchDebouncer.cancel()
+      setSearchQuery("")
+      setTitle("")
+      setHighlight(0)
+      if (template?.type) setType(template.type)
+    }
+  })
+
+  const refocusAfterMenu = (open: boolean) => {
+    if (open) return
+    setClosingMenu(true)
+    // @effect-diagnostics-next-line globalTimers:off
+    setTimeout(() => {
+      inputRef.current?.focus()
+      setClosingMenu(false)
+    }, 0)
+  }
 
   const [searchQuery, setSearchQuery] = useState("")
   const searchDebouncer = useDebouncer(setSearchQuery, { wait: 200 })
@@ -125,7 +147,9 @@ export function SprintTicketCreator({
     })
   )
   const ticketsResult = useAtomValue(
-    expanded && trimmed === searchQuery ? searchAtom : idleSearchAtom
+    expanded && !slash.open && trimmed === searchQuery
+      ? searchAtom
+      : idleSearchAtom
   )
   const sprintsResult = useAtomValue(sprintList(sprintReq))
 
@@ -157,7 +181,7 @@ export function SprintTicketCreator({
     return [{ kind: "create" as const, label: trimmed }, ...existing]
   }, [trimmed, ticketsResult, excludeIds, memberOfOtherSprint])
 
-  const dropdownOpen = expanded && items.length > 0
+  const dropdownOpen = expanded && !slash.open && items.length > 0
   const safeHighlight = items.length === 0 ? 0 : highlight % items.length
 
   function reset() {
@@ -185,10 +209,12 @@ export function SprintTicketCreator({
     if (submitting) return
     const exit = await create({
       clientId: Effect.runSync(Random.next).toString(36),
-      ticket: { title: item.label, type },
+      ticket: { title: item.label, type, ...templateChoice.payload },
       viewerId,
-      projectPrefix
+      projectPrefix,
+      prediction: templateChoice.prediction
     })
+    templateChoice.recover(exit)
     if (Exit.isSuccess(exit)) {
       assignTicketToSprint(registry, sprintReq, exit.value.id, groupId)
       refreshGitStates()
@@ -206,10 +232,12 @@ export function SprintTicketCreator({
     if (!trimmed || submitting) return
     const exit = await create({
       clientId: Effect.runSync(Random.next).toString(36),
-      ticket: { title: trimmed, type },
+      ticket: { title: trimmed, type, ...templateChoice.payload },
       viewerId,
-      projectPrefix
+      projectPrefix,
+      prediction: templateChoice.prediction
     })
+    templateChoice.recover(exit)
     if (Exit.isSuccess(exit)) {
       assignTicketToSprint(registry, sprintReq, exit.value.id, groupId)
       refreshGitStates()
@@ -219,6 +247,7 @@ export function SprintTicketCreator({
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (slash.onKeyDown(e)) return
     if (!dropdownOpen) return
     if (e.key === "ArrowDown") {
       e.preventDefault()
@@ -240,35 +269,21 @@ export function SprintTicketCreator({
       open={typeMenuOpen}
       onOpenChange={(open) => {
         setTypeMenuOpen(open)
-        if (!open) {
-          setClosingMenu(true)
-          // @effect-diagnostics-next-line globalTimers:off
-          setTimeout(() => {
-            inputRef.current?.focus()
-            setClosingMenu(false)
-          }, 0)
-        }
+        refocusAfterMenu(open)
       }}
     >
       <DropdownMenuTrigger
         render={
-          <button
-            type="button"
+          <CreatorChip
+            expanded={expanded}
+            tone={TYPE_META[type].tone}
+            icon={<TypeIcon className="size-4 shrink-0" strokeWidth={1.75} />}
+            label={TYPE_LABELS[type]()}
+            contentKey={type}
             aria-label={m.tickets_create_type_aria_label({
               type: TYPE_LABELS[type]()
             })}
-            className={cn(
-              "transition-expand inline-flex h-6 items-center gap-1.5 rounded-md",
-              expanded
-                ? cn("px-2", BADGE_TONES[TYPE_META[type].tone])
-                : "px-1 hover:bg-accent hover:text-foreground"
-            )}
-          >
-            <TypeIcon className="size-4 shrink-0" strokeWidth={1.75} />
-            <CollapsingLabel show={expanded} contentKey={type} gap={6}>
-              <span className="text-xs">{TYPE_LABELS[type]()}</span>
-            </CollapsingLabel>
-          </button>
+          />
         }
       />
       <DropdownMenuContent
@@ -297,7 +312,9 @@ export function SprintTicketCreator({
     </DropdownMenu>
   )
 
-  const dropdown = dropdownOpen ? (
+  const dropdown = slash.open ? (
+    <TemplateSlashList slash={slash} choice={templateChoice} />
+  ) : dropdownOpen ? (
     <div className="absolute top-full right-0 left-0 z-30 mt-1 overflow-hidden rounded-lg border border-border bg-popover shadow-md">
       <ul className="flex max-h-72 flex-col overflow-y-auto p-1">
         {items.map((item, idx) => (
@@ -340,6 +357,7 @@ export function SprintTicketCreator({
       inputRef={inputRef}
       value={title}
       onValueChange={(v) => {
+        slash.onTitleChange(title, v)
         setTitle(v)
         setHighlight(0)
         searchDebouncer.cancel()
@@ -354,6 +372,7 @@ export function SprintTicketCreator({
       onBlur={() => {
         searchDebouncer.cancel()
         setFocused(false)
+        slash.close()
       }}
       onKeyDown={onKeyDown}
       onSubmit={onSubmit}

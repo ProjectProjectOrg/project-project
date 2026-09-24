@@ -4,7 +4,11 @@ import { Db } from "@pp/db"
 import {
   BlockDraft,
   BUILTIN_BLOCKS,
+  BUILTIN_TEMPLATES,
+  formatMentionHref,
   ProjectKey,
+  TemplateDraft,
+  TemplateKey,
   type TicketStatus,
   type User,
   UserId
@@ -34,6 +38,7 @@ import { LibraryLive } from "../library/LibraryLive"
 import { Markdown } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
 import { CurrentOrg } from "../organizations/CurrentOrg"
+import { ProjectDocs } from "../projects/ProjectDocs"
 import { Projects, type ProjectsShape } from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
 import { TicketDocs } from "./TicketDocs"
@@ -180,44 +185,47 @@ const ticketIndexProject = {
   projectSlug: "p"
 }
 
-const FakeTicketIndex = Layer.succeed(TicketIndex, {
-  projectsFor: () => Effect.succeed([]),
-  assignedTo: () => Effect.succeed([]),
-  touchedBy: () => Effect.succeed([]),
-  countAssignedByStatus: () => Effect.succeed([]),
-  assignedPerProject: () => Effect.succeed([]),
-  projectFor: () => Effect.succeed(ticketIndexProject),
-  list: () => Effect.succeed([]),
-  query: () => Effect.succeed([]),
-  orderKeyFor: () => Effect.succeed(null),
-  count: () => Effect.succeed({ total: 0, byStatus: {} }),
-  listIds: () => Effect.succeed([]),
-  existingIds: () => Effect.succeed(new Set()),
-  reserveTicketNumber: () => Effect.succeed(1),
-  tagUsageCounts: () => Effect.succeed({}),
-  findTicketIdsByTag: () => Effect.succeed([]),
-  findTicketIdsByStatus: () => Effect.succeed([]),
-  findTicketsByBranch: () => Effect.succeed([]),
-  isRepositoryBranchAttached: () => Effect.succeed(false),
-  getBranchDeletedAt: () => Effect.succeed(null),
-  upsertTicket: () => Effect.void,
-  markBranchStale: () => Effect.succeed([]),
-  clearBranchStale: () => Effect.void,
-  updateBranchChecks: () => Effect.succeed([]),
-  deleteTicket: () => Effect.void,
-  rebuildProject: () =>
-    Effect.succeed({ project: ticketIndexProject, indexed: 0, skipped: 0 }),
-  rebuildAllProjects: () => Effect.succeed({ projects: [] }),
-  reconcileProject: () =>
-    Effect.succeed({
-      project: ticketIndexProject,
-      drift: { missing: [], orphaned: [], stale: [] },
-      rebuilt: false,
-      indexed: 0,
-      skipped: 0
-    }),
-  reconcileAllProjects: () => Effect.succeed({ projects: [], reconciled: 0 })
-} satisfies TicketIndexShape)
+const FakeTicketIndex = Layer.sync(TicketIndex, () => {
+  let reserved = 0
+  return {
+    projectsFor: () => Effect.succeed([]),
+    assignedTo: () => Effect.succeed([]),
+    touchedBy: () => Effect.succeed([]),
+    countAssignedByStatus: () => Effect.succeed([]),
+    assignedPerProject: () => Effect.succeed([]),
+    projectFor: () => Effect.succeed(ticketIndexProject),
+    list: () => Effect.succeed([]),
+    query: () => Effect.succeed([]),
+    orderKeyFor: () => Effect.succeed(null),
+    count: () => Effect.succeed({ total: 0, byStatus: {} }),
+    listIds: () => Effect.succeed([]),
+    existingIds: () => Effect.succeed(new Set()),
+    reserveTicketNumber: () => Effect.sync(() => ++reserved),
+    tagUsageCounts: () => Effect.succeed({}),
+    findTicketIdsByTag: () => Effect.succeed([]),
+    findTicketIdsByStatus: () => Effect.succeed([]),
+    findTicketsByBranch: () => Effect.succeed([]),
+    isRepositoryBranchAttached: () => Effect.succeed(false),
+    getBranchDeletedAt: () => Effect.succeed(null),
+    upsertTicket: () => Effect.void,
+    markBranchStale: () => Effect.succeed([]),
+    clearBranchStale: () => Effect.void,
+    updateBranchChecks: () => Effect.succeed([]),
+    deleteTicket: () => Effect.void,
+    rebuildProject: () =>
+      Effect.succeed({ project: ticketIndexProject, indexed: 0, skipped: 0 }),
+    rebuildAllProjects: () => Effect.succeed({ projects: [] }),
+    reconcileProject: () =>
+      Effect.succeed({
+        project: ticketIndexProject,
+        drift: { missing: [], orphaned: [], stale: [] },
+        rebuilt: false,
+        indexed: 0,
+        skipped: 0
+      }),
+    reconcileAllProjects: () => Effect.succeed({ projects: [], reconciled: 0 })
+  } satisfies TicketIndexShape
+})
 
 const FakeAttachments = Layer.succeed(Attachments, {
   prepare: () => unexpected("Attachments.prepare"),
@@ -244,6 +252,9 @@ const FakeDb = Layer.succeed(Db, {
     projectIndex: {
       findFirst: () => Effect.succeed({ id: "project-1" })
     },
+    projectTag: {
+      findMany: () => Effect.succeed([{ name: "frontend" }])
+    },
     projectStatus: {
       findMany: () =>
         Effect.succeed([
@@ -264,6 +275,7 @@ const TestLayer = Layer.unwrap(
     return TicketsLive.pipe(
       Layer.provideMerge(LibraryLive),
       Layer.provideMerge(LibraryDocsLive),
+      Layer.provide(Layer.mock(ProjectDocs, {})),
       Layer.provide(Layer.mock(CurrentOrg, {})),
       Layer.provideMerge(TicketDocsLive),
       Layer.provide(FakeAttachments),
@@ -424,6 +436,8 @@ it.effect(
     }).pipe(Effect.provide(TestLayer))
 )
 
+const templateKey = Schema.decodeUnknownSync(TemplateKey)
+const decodeTemplateDraft = Schema.decodeUnknownSync(TemplateDraft)
 const decodeBlockDraft = Schema.decodeUnknownSync(BlockDraft)
 
 const SYNCED_DONE = [
@@ -436,6 +450,20 @@ const SYNCED_DONE = [
   "",
   "</block>"
 ].join("\n")
+
+const projectTemplate = (overrides: Readonly<Record<string, unknown>>) =>
+  decodeTemplateDraft({
+    key: "incident-lite",
+    name: "Incident lite",
+    icon: "Siren",
+    color: null,
+    description: "",
+    type: "bug",
+    priority: "high",
+    tags: ["frontend", "ghost"],
+    body: '<block type="context">\n\n</block>',
+    ...overrides
+  })
 
 const projectDoneBlock = decodeBlockDraft({
   key: "definition-of-done",
@@ -459,7 +487,145 @@ const adoptAtOrg = (keys: ReadonlyArray<string>) =>
       keys.includes(draft.key)
     ))
       yield* docs.writeBlock("org", null, block)
+    for (const template of BUILTIN_TEMPLATES.filter((draft) =>
+      keys.includes(draft.key)
+    ))
+      yield* docs.writeTemplate("org", null, template)
   })
+
+const BUG_REPORT_KIT = [
+  "bug-report",
+  "expected-vs-actual",
+  "steps-to-reproduce",
+  "environment",
+  "definition-of-done"
+]
+
+it.effect("quickCreate with a template writes its expanded body and type", () =>
+  Effect.gen(function* () {
+    yield* adoptAtOrg(BUG_REPORT_KIT)
+    const tickets = yield* Tickets
+    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+      title: "login loops",
+      template: templateKey("bug-report")
+    })
+    expect(created.type).toBe("bug")
+    expect(created.priority).toBe("med")
+    expect(created.body).toContain('<block type="expected-vs-actual">')
+    expect(created.body).toContain('<block type="definition-of-done" sync>')
+    expect(created.body).toContain("**Expected:**")
+    expect(created.body).not.toContain("{{")
+
+    const fetched = yield* tickets.get("org", "user-1", "p", created.id)
+    expect(fetched.body).toBe(created.body)
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect("quickCreate keeps an explicit type over the template's", () =>
+  Effect.gen(function* () {
+    yield* adoptAtOrg(BUG_REPORT_KIT)
+    const tickets = yield* Tickets
+    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+      title: "typed",
+      type: "chore",
+      template: templateKey("bug-report")
+    })
+    expect(created.type).toBe("chore")
+    expect(created.body).toContain('<block type="expected-vs-actual">')
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect("no template or a null template creates a blank ticket", () =>
+  Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const omitted = yield* tickets.quickCreate("org", "user-1", "p", {
+      title: "bug without template",
+      type: "bug"
+    })
+    const blank = yield* tickets.create("org", "user-1", "p", {
+      title: "explicit blank",
+      type: "feat",
+      template: null
+    })
+    expect(omitted.body).toBe("")
+    expect(blank.body).toBe("")
+    expect(blank.type).toBe("feat")
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect("create lets explicit fields win and filters template tags", () =>
+  Effect.gen(function* () {
+    yield* adoptAtOrg(["context"])
+    yield* (yield* LibraryDocs).writeTemplate("org", "p", projectTemplate({}))
+    const tickets = yield* Tickets
+    const defaults = yield* tickets.create("org", "user-1", "p", {
+      title: "from template",
+      template: templateKey("incident-lite")
+    })
+    expect(defaults.type).toBe("bug")
+    expect(defaults.priority).toBe("high")
+    expect(defaults.tags).toEqual(["frontend"])
+    expect(defaults.body).toContain('<block type="context">')
+
+    const explicit = yield* tickets.create("org", "user-1", "p", {
+      title: "explicit fields",
+      type: "chore",
+      priority: "low",
+      tags: [],
+      body: "my own body",
+      template: templateKey("incident-lite")
+    })
+    expect(explicit.type).toBe("chore")
+    expect(explicit.priority).toBe("low")
+    expect(explicit.tags).toEqual([])
+    expect(explicit.body).toBe("my own body")
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect("an unknown template fails with Validation", () =>
+  Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const quick = yield* Effect.flip(
+      tickets.quickCreate("org", "user-1", "p", {
+        title: "nope",
+        template: templateKey("nope")
+      })
+    )
+    const full = yield* Effect.flip(
+      tickets.create("org", "user-1", "p", {
+        title: "nope",
+        body: "body wins but the key is still checked",
+        template: templateKey("nope")
+      })
+    )
+    expect(quick).toMatchObject({
+      _tag: "Validation",
+      reason: "unknown_template:nope"
+    })
+    expect(full).toMatchObject({
+      _tag: "Validation",
+      reason: "unknown_template:nope"
+    })
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect("unresolvable template mentions become plain text on create", () =>
+  Effect.gen(function* () {
+    yield* (yield* LibraryDocs).writeTemplate(
+      "org",
+      "p",
+      projectTemplate({
+        body: `Follow up on [T-99](${formatMentionHref("ticket", "T-99")})`
+      })
+    )
+    const tickets = yield* Tickets
+    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+      title: "mentions",
+      template: templateKey("incident-lite")
+    })
+    expect(created.body).toBe("Follow up on T-99")
+  }).pipe(Effect.provide(TestLayer))
+)
 
 it.effect("get resolves synced blocks without rewriting the file", () =>
   Effect.gen(function* () {

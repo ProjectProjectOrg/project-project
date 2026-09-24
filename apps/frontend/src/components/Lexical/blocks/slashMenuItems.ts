@@ -1,5 +1,15 @@
 import type { MenuTextMatch } from "@lexical/react/LexicalTypeaheadMenuPlugin"
-import type { BlockDefinition, BlockLookup, Library } from "@pp/shared"
+import {
+  expandTemplate,
+  mergeTemplateInto,
+  parseTicketBlocks,
+  templateFor,
+  type BlockDefinition,
+  type BlockLookup,
+  type Library,
+  type TemplateDefinition,
+  type TicketType
+} from "@pp/shared"
 
 import type { EditorBlocksMode } from "./editorBlocks"
 
@@ -38,15 +48,31 @@ const BASIC_ALIASES: Record<SlashBasicKind, ReadonlyArray<string>> = {
 }
 
 export type SlashItem =
-  | Readonly<{ kind: "block"; key: string; definition: BlockDefinition }>
+  | Readonly<{
+      kind: "block"
+      key: string
+      definition: BlockDefinition
+      suggestedBy: string | null
+    }>
+  | Readonly<{
+      kind: "template"
+      key: string
+      template: TemplateDefinition
+      adds: number
+    }>
   | Readonly<{ kind: "basic"; key: string; basic: SlashBasicKind }>
-  | Readonly<{ kind: "gallery"; key: string; entry: "block" }>
+  | Readonly<{ kind: "gallery"; key: string; entry: "block" | "template" }>
 
-export type SlashSectionKey = "blocks" | "basic"
+export type SlashSectionKey = "suggested" | "blocks" | "templates" | "basic"
 
-export type SlashTab = "all" | "blocks" | "markdown"
+export type SlashTab = "all" | "blocks" | "templates" | "markdown"
 
-export const SLASH_TABS: ReadonlyArray<SlashTab> = ["all", "blocks", "markdown"]
+export const SLASH_TABS: ReadonlyArray<SlashTab> = [
+  "all",
+  "blocks",
+  "templates",
+  "markdown"
+]
 
 export type SlashSection = Readonly<{
   section: SlashSectionKey
@@ -56,6 +82,8 @@ export type SlashSection = Readonly<{
 export type SlashMenuInput = Readonly<{
   library: Library
   lookup: BlockLookup
+  ticketType: TicketType | null
+  body: string
   query: string
   basicLabel: (kind: SlashBasicKind) => string
   mode?: EditorBlocksMode
@@ -95,8 +123,38 @@ export const matchesSlashQuery = (
   )
 }
 
+const blockTypesIn = (markdown: string): ReadonlyArray<string> =>
+  parseTicketBlocks(markdown).flatMap((segment) =>
+    segment.kind === "block" ? [segment.type] : []
+  )
+
 const visibleBlocks = (library: Library): ReadonlyArray<BlockDefinition> =>
   library.blocks.filter((block) => !block.hidden)
+
+const suggestedItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> => {
+  if (input.query !== "" || input.ticketType === null) return []
+  const template = templateFor(input.library, input.ticketType)
+  if (template === null) return []
+  const present = new Set(blockTypesIn(input.body))
+  const seen = new Set<string>()
+  return blockTypesIn(template.body).flatMap(
+    (type): ReadonlyArray<SlashItem> => {
+      if (present.has(type) || seen.has(type)) return []
+      seen.add(type)
+      const definition = input.lookup(type)
+      return definition === undefined
+        ? []
+        : [
+            {
+              kind: "block",
+              key: `suggested:${type}`,
+              definition,
+              suggestedBy: template.name
+            }
+          ]
+    }
+  )
+}
 
 const blockItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> =>
   visibleBlocks(input.library).flatMap(
@@ -110,7 +168,46 @@ const blockItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> =>
             {
               kind: "block",
               key: `block:${definition.key}`,
-              definition
+              definition,
+              suggestedBy: null
+            }
+          ]
+        : []
+  )
+
+export const templateAdds = (
+  template: TemplateDefinition,
+  body: string,
+  lookup: BlockLookup
+): number =>
+  mergeTemplateInto(body, expandTemplate(template, lookup)).added.length
+
+export const orderedTemplates = (
+  library: Library,
+  ticketType: TicketType | null
+): ReadonlyArray<TemplateDefinition> => {
+  const defaultKey = ticketType === null ? null : library.defaults[ticketType]
+  const active = library.templates.filter((template) => !template.hidden)
+  return [
+    ...active.filter((template) => template.key === defaultKey),
+    ...active.filter((template) => template.key !== defaultKey)
+  ]
+}
+
+const templateItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> =>
+  orderedTemplates(input.library, input.ticketType).flatMap(
+    (template): ReadonlyArray<SlashItem> =>
+      matchesSlashQuery(input.query, [
+        template.name,
+        template.key,
+        template.description
+      ])
+        ? [
+            {
+              kind: "template",
+              key: `template:${template.key}`,
+              template,
+              adds: templateAdds(template, input.body, input.lookup)
             }
           ]
         : []
@@ -134,17 +231,19 @@ const basicItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> =>
   )
 
 const MODE_SECTIONS: Record<EditorBlocksMode, ReadonlySet<SlashSectionKey>> = {
-  ticket: new Set(["blocks", "basic"]),
+  ticket: new Set(["suggested", "blocks", "templates", "basic"]),
+  template: new Set(["blocks", "basic"]),
   definition: new Set(["basic"])
 }
 
 const TAB_SECTIONS: Record<SlashTab, ReadonlyArray<SlashSectionKey>> = {
-  all: ["basic", "blocks"],
-  blocks: ["blocks"],
+  all: ["suggested", "basic", "blocks", "templates"],
+  blocks: ["suggested", "blocks"],
+  templates: ["templates"],
   markdown: ["basic"]
 }
 
-const galleryItem = (entry: "block"): SlashItem => ({
+const galleryItem = (entry: "block" | "template"): SlashItem => ({
   kind: "gallery",
   key: `gallery:${entry}`,
   entry
@@ -155,7 +254,9 @@ export const slashMenuSections = (
 ): ReadonlyArray<SlashSection> =>
   (
     [
+      { section: "suggested", items: suggestedItems(input) },
       { section: "blocks", items: blockItems(input) },
+      { section: "templates", items: templateItems(input) },
       { section: "basic", items: basicItems(input) }
     ] satisfies ReadonlyArray<SlashSection>
   ).filter(
@@ -177,11 +278,14 @@ const libraryIsEmpty = (
   section: SlashSectionKey
 ): boolean => {
   if (section === "blocks") return visibleBlocks(library).length === 0
+  if (section === "templates")
+    return library.templates.every((template) => template.hidden)
   return false
 }
 
-const GALLERY_ENTRY: Partial<Record<SlashSectionKey, "block">> = {
-  blocks: "block"
+const GALLERY_ENTRY: Partial<Record<SlashSectionKey, "block" | "template">> = {
+  blocks: "block",
+  templates: "template"
 }
 
 /** An item whose own name (or a Markdown alias) starts with the query. */
@@ -191,6 +295,8 @@ const namedByQuery = (input: SlashMenuInput, item: SlashItem): boolean => {
   switch (item.kind) {
     case "block":
       return starts(item.definition.name)
+    case "template":
+      return starts(item.template.name)
     case "basic":
       return [
         input.basicLabel(item.basic),
@@ -204,8 +310,8 @@ const namedByQuery = (input: SlashMenuInput, item: SlashItem): boolean => {
 
 /**
  * With a query, items named by it come first, and so do the sections that hold
- * them, so `/steps` lands on "Steps to reproduce" rather than a block whose
- * description mentions steps. Both sorts are stable.
+ * them, so `/bug` lands on "Bug report" rather than a block whose description
+ * mentions a bug. Both sorts are stable.
  */
 const rankedByQuery = (
   input: SlashMenuInput,

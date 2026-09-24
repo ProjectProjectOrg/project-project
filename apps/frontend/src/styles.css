@@ -260,12 +260,12 @@
 }
 
 .transition-expand {
-  transition-property: padding, background-color, color;
-  transition-duration: 200ms;
+  transition-property: padding, background-color, color, transform;
+  transition-duration: 200ms, 200ms, 200ms, 100ms;
   transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
 }
 .transition-expand:hover {
-  transition-duration: 200ms, 0ms, 0ms;
+  transition-duration: 200ms, 0ms, 0ms, 100ms;
 }
 
 .transition-colors:hover,
@@ -372,6 +372,9 @@
       (var(--ticket-comment-pad) + var(--block-rail-gap) +
         var(--block-rail-size) / 2)
   );
+}
+[data-template-preview] .prose-md .ticket-block > .ticket-block-icon {
+  left: -26px;
 }
 .prose-md .ticket-block {
   --block-first-line: calc(1.2rem * 1.3);

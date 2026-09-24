@@ -59,12 +59,18 @@ export function registerSyncedBlocks(
 ): () => void {
   return mergeRegister(
     editor.registerNodeTransform(SyncedBlockNode, (node) => {
-      const view = syncedView(lookup, node.getBlockType(), node.getSnapshot())
+      const view = syncedView(
+        lookup,
+        node.getBlockType(),
+        node.getSnapshot(),
+        node.getMode()
+      )
       if (view.kind === "removed") {
         onSourceRemoved($copyRemovedSource(node, transformers).getKey())
         return
       }
-      if (view.content !== node.getSnapshot()) node.setSnapshot(view.content)
+      if (node.getMode() === "synced" && view.content !== node.getSnapshot())
+        node.setSnapshot(view.content)
     }),
     editor.registerCommand(
       DETACH_SYNCED_BLOCK_COMMAND,

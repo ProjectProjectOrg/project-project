@@ -125,6 +125,8 @@ const validationMessage = (reason: string): string => {
       return m.templates_error_blocks_not_allowed()
     case "invalid_blocks":
       return invalidBlocksMessage(detail)
+    case "unknown_template":
+      return m.templates_error_unknown_template({ key: detail })
     default:
       return m.error_unknown()
   }

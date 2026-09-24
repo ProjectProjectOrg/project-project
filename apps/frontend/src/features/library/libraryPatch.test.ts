@@ -1,8 +1,10 @@
 import {
   BUILTIN_BLOCKS,
+  BUILTIN_TEMPLATES,
   EMPTY_LAYER,
   resolveLibrary,
-  type Layer
+  type Layer,
+  type PartialTemplateDefaults
 } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
@@ -10,15 +12,25 @@ import {
   applyBlockCreate,
   applyBlockHide,
   applyBlockRemove,
-  applyBlockUpdate
+  applyBlockUpdate,
+  applyTemplateDefaults,
+  applyTemplateRemove
 } from "./libraryPatch"
 
 const contextBlock = BUILTIN_BLOCKS.find((block) => block.key === "context")!
+const bugReport = BUILTIN_TEMPLATES.find((t) => t.key === "bug-report")!
+const chore = BUILTIN_TEMPLATES.find((t) => t.key === "chore")!
 
 const orgWithContext: Layer = { ...EMPTY_LAYER, blocks: [contextBlock] }
 
-const libraryWith = (project: Layer | null, org: Layer = EMPTY_LAYER) =>
-  resolveLibrary({ org, project }, true)
+const libraryWith = (
+  project: Layer | null,
+  org: Layer = EMPTY_LAYER,
+  defaults: Readonly<{
+    org: PartialTemplateDefaults
+    project: PartialTemplateDefaults | null
+  }> = { org: {}, project: project === null ? null : {} }
+) => resolveLibrary({ org, project }, defaults, true)
 
 const blockIn = (library: ReturnType<typeof libraryWith>, key: string) =>
   library.blocks.find((block) => block.key === key)
@@ -106,5 +118,34 @@ describe("libraryPatch", () => {
     expect(hidden.blocks).toEqual(resolvedHidden.blocks)
     const unhidden = applyBlockRemove(resolvedHidden, "context", "project")
     expect(unhidden.blocks).toEqual(shown.blocks)
+  })
+
+  it("removing an adopted template returns it to the gallery", () => {
+    const library = libraryWith(null, {
+      ...EMPTY_LAYER,
+      templates: [bugReport]
+    })
+    const removed = applyTemplateRemove(library, "bug-report", "org")
+    expect(removed.templates).toEqual([])
+  })
+
+  it("merges project overrides over inherited org defaults", () => {
+    const org: Layer = { ...EMPTY_LAYER, templates: [bugReport, chore] }
+    const library = libraryWith(EMPTY_LAYER, org, {
+      org: { bug: bugReport.key },
+      project: { chore: chore.key }
+    })
+    const overridden = applyTemplateDefaults(library, {
+      defaults: { bug: chore.key }
+    })
+    expect(overridden.defaults).toMatchObject({ bug: "chore", chore: "chore" })
+    expect(overridden.ownDefaults).toEqual({ bug: "chore", chore: "chore" })
+
+    const reset = applyTemplateDefaults(overridden, {
+      defaults: {},
+      reset: ["bug", "chore"]
+    })
+    expect(reset.defaults).toEqual(library.inheritedDefaults)
+    expect(reset.ownDefaults).toEqual({})
   })
 })

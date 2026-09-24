@@ -1,4 +1,9 @@
-import type { BlockDraft, Layer } from "@pp/shared"
+import type {
+  BlockDraft,
+  Layer,
+  PartialTemplateDefaults,
+  TemplateDraft
+} from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 
@@ -14,12 +19,25 @@ export type LibraryDocsShape = Readonly<{
     projectSlug: string | null,
     draft: BlockDraft
   ) => Effect.Effect<void, MarkdownError>
+  writeTemplate: (
+    orgSlug: string,
+    projectSlug: string | null,
+    draft: TemplateDraft
+  ) => Effect.Effect<void, MarkdownError>
   writeTombstone: (
     orgSlug: string,
     projectSlug: string | null,
     kind: LibraryKind,
     key: string
   ) => Effect.Effect<void, MarkdownError>
+  readOrgDefaults: (
+    orgSlug: string
+  ) => Effect.Effect<PartialTemplateDefaults, MarkdownError>
+  writeOrgDefaults: (
+    orgSlug: string,
+    defaults: PartialTemplateDefaults
+  ) => Effect.Effect<void, MarkdownError>
+
   hasFile: (
     orgSlug: string,
     projectSlug: string | null,

@@ -129,8 +129,14 @@ import {
   BlockDefinition,
   BlockKey,
   CreateBlockInput,
+  CreateTemplateInput,
   Library,
-  UpdateBlockInput
+  LibraryDefaults,
+  TemplateDefinition,
+  TemplateKey,
+  UpdateBlockInput,
+  UpdateTemplateDefaultsInput,
+  UpdateTemplateInput
 } from "./schemas/Library"
 import { OAuthApplication } from "./schemas/OAuthApplication"
 import {
@@ -1167,7 +1173,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
         params: ProjectPath,
         payload: QuickCreateTicketInput,
         success: TicketDetail,
-        error: [Unauthorized, NotFound, Validation]
+        error: [Unauthorized, NotFound, Validation, MentionInvalid]
       }
     )
   )
@@ -1627,10 +1633,16 @@ const GroupsGroup = HttpApiGroup.make("groups")
   .middleware(Authentication)
 
 const OrgBlockPath = Schema.Struct({ orgSlug: Slug, key: BlockKey })
+const OrgTemplatePath = Schema.Struct({ orgSlug: Slug, key: TemplateKey })
 const ProjectBlockPath = Schema.Struct({
   orgSlug: Slug,
   slug: Slug,
   key: BlockKey
+})
+const ProjectTemplatePath = Schema.Struct({
+  orgSlug: Slug,
+  slug: Slug,
+  key: TemplateKey
 })
 
 const LibraryGroup = HttpApiGroup.make("library")
@@ -1688,6 +1700,48 @@ const LibraryGroup = HttpApiGroup.make("library")
   )
   .add(
     HttpApiEndpoint.post(
+      "createOrgTemplate",
+      "/orgs/:orgSlug/library/templates",
+      {
+        params: OrgPath,
+        payload: CreateTemplateInput,
+        success: TemplateDefinition,
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          Conflict,
+          Validation,
+          MentionInvalid
+        ]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "updateOrgTemplate",
+      "/orgs/:orgSlug/library/templates/:key",
+      {
+        params: OrgTemplatePath,
+        payload: UpdateTemplateInput,
+        success: TemplateDefinition,
+        error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "removeOrgTemplate",
+      "/orgs/:orgSlug/library/templates/:key",
+      {
+        params: OrgTemplatePath,
+        success: HttpApiSchema.NoContent,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post(
       "createProjectBlock",
       "/orgs/:orgSlug/projects/:slug/library/blocks",
       {
@@ -1736,6 +1790,83 @@ const LibraryGroup = HttpApiGroup.make("library")
         params: ProjectBlockPath,
         success: HttpApiSchema.NoContent,
         error: [Unauthorized, NotFound, Forbidden, Conflict]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "createProjectTemplate",
+      "/orgs/:orgSlug/projects/:slug/library/templates",
+      {
+        params: ProjectPath,
+        payload: CreateTemplateInput,
+        success: TemplateDefinition,
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          Conflict,
+          Validation,
+          MentionInvalid
+        ]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "updateProjectTemplate",
+      "/orgs/:orgSlug/projects/:slug/library/templates/:key",
+      {
+        params: ProjectTemplatePath,
+        payload: UpdateTemplateInput,
+        success: TemplateDefinition,
+        error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "removeProjectTemplate",
+      "/orgs/:orgSlug/projects/:slug/library/templates/:key",
+      {
+        params: ProjectTemplatePath,
+        success: HttpApiSchema.NoContent,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "hideProjectTemplate",
+      "/orgs/:orgSlug/projects/:slug/library/templates/:key/hide",
+      {
+        params: ProjectTemplatePath,
+        success: HttpApiSchema.NoContent,
+        error: [Unauthorized, NotFound, Forbidden, Conflict]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "setOrgTemplateDefaults",
+      "/orgs/:orgSlug/library/defaults",
+      {
+        params: OrgPath,
+        payload: UpdateTemplateDefaultsInput,
+        success: LibraryDefaults,
+        error: [Unauthorized, NotFound, Forbidden, Validation]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "setTemplateDefaults",
+      "/orgs/:orgSlug/projects/:slug/library/defaults",
+      {
+        params: ProjectPath,
+        payload: UpdateTemplateDefaultsInput,
+        success: LibraryDefaults,
+        error: [Unauthorized, NotFound, Forbidden, Validation]
       }
     )
   )

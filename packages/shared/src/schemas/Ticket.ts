@@ -9,6 +9,7 @@ import * as Schema from "effect/Schema"
 
 import { GitState } from "./GitState"
 import { GroupId } from "./GroupId"
+import { TemplateKey } from "./LibraryKey"
 import { ProjectKey } from "./Project"
 import { StatusSlug } from "./Status"
 import { TagName } from "./Tag"
@@ -85,7 +86,8 @@ export const QuickCreateTicketInput = Schema.Struct({
     Schema.check(Schema.isMaxLength(200))
   ),
   type: Schema.optional(TicketType),
-  status: Schema.optional(TicketStatus)
+  status: Schema.optional(TicketStatus),
+  template: Schema.optional(Schema.NullOr(TemplateKey))
 })
 export type QuickCreateTicketInput = typeof QuickCreateTicketInput.Type
 
@@ -99,7 +101,8 @@ export const CreateTicketInput = Schema.Struct({
   priority: Schema.optional(TicketPriority),
   tags: Schema.optional(Schema.Array(TagName)),
   assignees: Schema.optional(Schema.Array(Schema.String)),
-  body: Schema.optional(Schema.String)
+  body: Schema.optional(Schema.String),
+  template: Schema.optional(Schema.NullOr(TemplateKey))
 })
 export type CreateTicketInput = typeof CreateTicketInput.Type
 

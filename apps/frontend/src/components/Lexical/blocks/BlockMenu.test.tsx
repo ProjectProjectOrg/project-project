@@ -165,3 +165,23 @@ it("offers detach on synced blocks and passes the action through", async () => {
   fireEvent.click(item("Remove block"))
   expect(onAction).toHaveBeenCalledWith(model, "remove")
 })
+
+it("reverts a customized block to a reference in a template", async () => {
+  const model: BlockMenuModel = {
+    ...COPY,
+    subtitle: "Matches definition",
+    definition: "matches",
+    resetsTo: "reference"
+  }
+  const { onAction } = renderMenu(model)
+  const revert = await screen.findByRole("menuitem", {
+    name: "Revert to block"
+  })
+  expect(revert.getAttribute("aria-disabled")).toBeNull()
+  expect(
+    screen.queryByRole("menuitem", { name: "Reset to definition" })
+  ).toBeNull()
+  fireEvent.click(revert)
+  fireEvent.click(item("Discard the customization and link the block"))
+  expect(onAction).toHaveBeenCalledWith(model, "reset")
+})

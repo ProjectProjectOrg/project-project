@@ -1,6 +1,7 @@
 import type {
   GithubConnection,
   NotFound,
+  PartialTemplateDefaults,
   ProjectKey,
   ProjectSetup,
   Role,
@@ -28,6 +29,7 @@ export interface ProjectDocument {
   readonly members: ReadonlyArray<ProjectDocMember>
   readonly github: GithubConnection | null
   readonly setup: ProjectSetup
+  readonly templateDefaults: PartialTemplateDefaults
   readonly body: string
 }
 
@@ -56,6 +58,11 @@ export interface ProjectDocsShape {
     slug: string,
     document: ProjectDocumentWrite
   ) => Effect.Effect<void, MarkdownError>
+  readonly writeTemplateDefaults: (
+    orgSlug: string,
+    slug: string,
+    defaults: PartialTemplateDefaults
+  ) => Effect.Effect<void, NotFound | MarkdownError>
   readonly removeDir: (
     orgSlug: string,
     slug: string

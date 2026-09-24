@@ -728,6 +728,54 @@ export const MarkdownLive = Layer.effect(
         )
       })
 
+    const orgLibraryFilePath = (orgSlug: string) =>
+      path.join(absoluteRoot, "orgs", orgSlug, "library.md")
+
+    const readOrgLibraryFile = (
+      orgSlug: string
+    ): Effect.Effect<string | null, MarkdownError> =>
+      Effect.gen(function* () {
+        yield* ensureSafeSlug(orgSlug)
+        const file = orgLibraryFilePath(orgSlug)
+        return yield* fs.readFileString(file, "utf8").pipe(
+          Effect.catch((cause) =>
+            cause.reason._tag === "NotFound"
+              ? Effect.succeed(null)
+              : Effect.fail(
+                  new MarkdownError({
+                    cause,
+                    message: `read failed: ${file}`
+                  })
+                )
+          )
+        )
+      })
+
+    const writeOrgLibraryFile = (
+      orgSlug: string,
+      content: string
+    ): Effect.Effect<void, MarkdownError> =>
+      Effect.gen(function* () {
+        yield* ensureSafeSlug(orgSlug)
+        const file = orgLibraryFilePath(orgSlug)
+        const failed = (cause: unknown) =>
+          new MarkdownError({ cause, message: `write failed: ${file}` })
+        yield* fs
+          .makeDirectory(path.dirname(file), { recursive: true })
+          .pipe(Effect.mapError(failed))
+        const temporary = ticketTemporaryFile(file)
+        yield* Effect.gen(function* () {
+          yield* fs
+            .writeFileString(temporary, content, { flag: "wx" })
+            .pipe(Effect.mapError(failed))
+          yield* fs.rename(temporary, file).pipe(Effect.mapError(failed))
+        }).pipe(
+          Effect.ensuring(
+            fs.remove(temporary, { force: true }).pipe(Effect.ignore)
+          )
+        )
+      })
+
     const removeLibraryFile = (
       orgSlug: string,
       projectSlug: string | null,
@@ -777,6 +825,8 @@ export const MarkdownLive = Layer.effect(
       libraryDir,
       listLibraryFiles,
       writeLibraryFile,
+      readOrgLibraryFile,
+      writeOrgLibraryFile,
       removeLibraryFile,
       root: absoluteRoot
     } satisfies MarkdownShape

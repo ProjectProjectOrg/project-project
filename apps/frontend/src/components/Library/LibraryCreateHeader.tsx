@@ -1,5 +1,11 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { FALLBACK_BLOCK_ICON, type BlockDraft, type BlockKey } from "@pp/shared"
+import {
+  FALLBACK_BLOCK_ICON,
+  type BlockDraft,
+  type BlockKey,
+  type TemplateDraft,
+  type TemplateKey
+} from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import { Plus } from "lucide-react"
@@ -18,7 +24,11 @@ import {
   type LibraryKind
 } from "./libraryModel"
 import { failureText } from "./LibraryRow"
-import { createBlockAtom, type LibraryScope } from "./libraryScope"
+import {
+  createBlockAtom,
+  createTemplateAtom,
+  type LibraryScope
+} from "./libraryScope"
 import { LibrarySectionHeader } from "./LibrarySection"
 
 type CreateRowProps = Readonly<{
@@ -50,17 +60,35 @@ export function LibraryCreateHeader({
               size="sm"
               leadingIcon={Plus}
             >
-              {m.templates_settings_new_block()}
+              {props.kind === "template"
+                ? m.templates_settings_new_template()
+                : m.templates_settings_new_block()}
             </InlineForm.Trigger>
           </InlineForm.Idle>
         }
       />
       <InlineForm.Form action="create" className="space-y-0">
-        <BlockCreateFields {...props} />
+        {props.kind === "template" ? (
+          <TemplateCreateFields {...props} />
+        ) : (
+          <BlockCreateFields {...props} />
+        )}
       </InlineForm.Form>
     </Root>
   )
 }
+
+const templateDraft = (key: string, name: string): TemplateDraft => ({
+  key: key as TemplateKey,
+  name,
+  icon: "LayoutTemplate",
+  color: null,
+  description: "",
+  type: null,
+  priority: null,
+  tags: [],
+  body: ""
+})
 
 const blockDraft = (key: string, name: string): BlockDraft => ({
   key: key as BlockKey,
@@ -71,6 +99,21 @@ const blockDraft = (key: string, name: string): BlockDraft => ({
   sync: false,
   content: `## ${name}`
 })
+
+function TemplateCreateFields({ scope, taken }: CreateRowProps) {
+  const mutation = createTemplateAtom(scope)
+  const create = useAtomSet(mutation, { mode: "promiseExit" })
+  const state = useAtomValue(mutation)
+  return (
+    <CreateFields
+      kind="template"
+      taken={taken}
+      scope={scope}
+      waiting={state.waiting}
+      submit={async (key, name) => create(templateDraft(key, name))}
+    />
+  )
+}
 
 function BlockCreateFields({ scope, taken }: CreateRowProps) {
   const mutation = createBlockAtom(scope)
@@ -89,6 +132,7 @@ function BlockCreateFields({ scope, taken }: CreateRowProps) {
 
 const KEY_PROBLEM_MESSAGES: Readonly<Record<KeyProblem, () => string>> = {
   invalid: () => m.templates_settings_key_invalid(),
+  reserved: () => m.templates_settings_key_reserved(),
   taken: () => m.templates_error_key_taken()
 }
 
@@ -116,7 +160,7 @@ function CreateFields({
   const [failure, setFailure] = useState<string | null>(null)
   const trimmed = name.trim()
   const key = typedKey ?? keyFromName(trimmed)
-  const problem = trimmed.length === 0 ? null : keyProblem(key, taken)
+  const problem = trimmed.length === 0 ? null : keyProblem(key, kind, taken)
   const error =
     problem !== null && (didSubmit || typedKey !== null)
       ? KEY_PROBLEM_MESSAGES[problem]()
@@ -164,7 +208,11 @@ function CreateFields({
           disabled={busy}
           maxLength={60}
           onChange={(event) => setName(event.target.value)}
-          placeholder={m.templates_settings_new_block_placeholder()}
+          placeholder={
+            kind === "template"
+              ? m.templates_settings_new_template_placeholder()
+              : m.templates_settings_new_block_placeholder()
+          }
           className="h-8 w-64 max-w-full rounded-md"
         />
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">

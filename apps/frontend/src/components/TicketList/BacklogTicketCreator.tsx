@@ -54,7 +54,11 @@ import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
+import { CreatorChip } from "./CreatorChip"
+import { creatorErrorText } from "./creatorError"
+import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
 import { TicketCreatorShell } from "./TicketCreatorShell"
+import { useTemplateChoice } from "./useTemplateChoice"
 
 export function BacklogTicketCreator({
   orgSlug,
@@ -75,9 +79,7 @@ export function BacklogTicketCreator({
   })
   const createState = useAtomValue(quickCreateBacklogTicket(req))
   const submitting = createState.waiting
-  const error = Result.isFailure(createState)
-    ? m.tickets_create_error_fallback()
-    : null
+  const error = creatorErrorText(createState)
   const projectReq = useMemo(
     () => projectRequest(orgSlug, slug),
     [orgSlug, slug]
@@ -114,6 +116,25 @@ export function BacklogTicketCreator({
   useGlobalShortcut("c", inputRef)
   const trimmed = title.trim()
   const expanded = focused || typeMenuOpen || sprintMenuOpen || closingMenu
+  const templateChoice = useTemplateChoice(orgSlug, slug, type)
+  const slash = useTemplateSlash({
+    title,
+    choice: templateChoice,
+    onChoose: (template) => {
+      setTitle("")
+      if (template?.type) setType(template.type)
+    }
+  })
+
+  const refocusAfterMenu = (open: boolean) => {
+    if (open) return
+    setClosingMenu(true)
+    // @effect-diagnostics-next-line globalTimers:off
+    setTimeout(() => {
+      inputRef.current?.focus()
+      setClosingMenu(false)
+    }, 0)
+  }
 
   useEffect(() => {
     if (selectedSprint || sprintCleared) return
@@ -128,10 +149,12 @@ export function BacklogTicketCreator({
     setFocused(false)
     const exit = await create({
       clientId: Effect.runSync(Random.next).toString(36),
-      ticket: { title: trimmed, type },
+      ticket: { title: trimmed, type, ...templateChoice.payload },
       viewerId,
-      projectPrefix
+      projectPrefix,
+      prediction: templateChoice.prediction
     })
+    templateChoice.recover(exit)
     if (Exit.isSuccess(exit)) {
       const ticket = exit.value
       if (selectedSprint) {
@@ -153,35 +176,21 @@ export function BacklogTicketCreator({
       open={typeMenuOpen}
       onOpenChange={(open) => {
         setTypeMenuOpen(open)
-        if (!open) {
-          setClosingMenu(true)
-          // @effect-diagnostics-next-line globalTimers:off
-          setTimeout(() => {
-            inputRef.current?.focus()
-            setClosingMenu(false)
-          }, 0)
-        }
+        refocusAfterMenu(open)
       }}
     >
       <DropdownMenuTrigger
         render={
-          <button
-            type="button"
+          <CreatorChip
+            expanded={expanded}
+            tone={TYPE_META[type].tone}
+            icon={<TypeIcon className="size-4 shrink-0" strokeWidth={1.75} />}
+            label={TYPE_LABELS[type]()}
+            contentKey={type}
             aria-label={m.tickets_create_type_aria_label({
               type: TYPE_LABELS[type]()
             })}
-            className={cn(
-              "transition-expand inline-flex h-6 items-center gap-1.5 rounded-md",
-              expanded
-                ? cn("px-2", BADGE_TONES[TYPE_META[type].tone])
-                : "px-1 hover:bg-accent hover:text-foreground"
-            )}
-          >
-            <TypeIcon className="size-4 shrink-0" strokeWidth={1.75} />
-            <CollapsingLabel show={expanded} contentKey={type} gap={6}>
-              <span className="text-xs">{TYPE_LABELS[type]()}</span>
-            </CollapsingLabel>
-          </button>
+          />
         }
       />
       <DropdownMenuContent
@@ -282,17 +291,27 @@ export function BacklogTicketCreator({
       formProps={{ "data-active": expanded || undefined }}
       inputRef={inputRef}
       value={title}
-      onValueChange={setTitle}
+      onValueChange={(next) => {
+        slash.onTitleChange(title, next)
+        setTitle(next)
+      }}
       onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
+      onBlur={() => {
+        setFocused(false)
+        slash.close()
+      }}
+      onKeyDown={(e) => {
+        slash.onKeyDown(e)
+      }}
       onSubmit={onSubmit}
       expanded={expanded}
       placeholder={m.tickets_create_title_placeholder()}
       ariaLabel={m.tickets_create_title_aria_label()}
       disabled={submitting}
       maxLength={200}
-      leadingAddons={sprintAddon ? [typeAddon, sprintAddon] : [typeAddon]}
+      leadingAddons={[typeAddon, sprintAddon].filter((addon) => addon !== null)}
       trailing={trailing}
+      belowInput={<TemplateSlashList slash={slash} choice={templateChoice} />}
     />
   )
 }

@@ -7,9 +7,16 @@ import {
   LibraryDescription,
   LibraryName,
   normalizeLineEndings,
+  TagName,
+  TemplateKey,
+  TicketPriority,
+  TicketType,
   type BlockDraft,
-  type Layer as LibraryLayer
+  type Layer as LibraryLayer,
+  type PartialTemplateDefaults,
+  type TemplateDraft
 } from "@pp/shared"
+import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
@@ -18,11 +25,15 @@ import matter from "gray-matter"
 
 import {
   Markdown,
+  MarkdownError,
   type LibraryFile,
-  type LibraryKind,
-  type MarkdownError
+  type LibraryKind
 } from "../markdown/Markdown"
 import { LibraryDocs, type LibraryDocsShape } from "./LibraryDocs"
+import {
+  templateDefaultsFrom,
+  withTemplateDefaults
+} from "./templateDefaultsFrontmatter"
 
 const withDefault = <S extends Schema.Top>(schema: S, value: S["Type"]) =>
   schema.pipe(Schema.withDecodingDefaultTypeKey(Effect.succeed(value)))
@@ -35,15 +46,29 @@ const BlockFrontmatter = Schema.Struct({
   sync: withDefault(Schema.Boolean, false)
 })
 
+const TemplateFrontmatter = Schema.Struct({
+  name: LibraryName,
+  icon: withDefault(BlockIcon, FALLBACK_BLOCK_ICON),
+  color: withDefault(LibraryColor, null),
+  description: withDefault(LibraryDescription, ""),
+  type: withDefault(Schema.NullOr(TicketType), null),
+  priority: withDefault(Schema.NullOr(TicketPriority), null),
+  tags: withDefault(Schema.Array(TagName), [])
+})
+
 const TOMBSTONE = "---\nhidden: true\n---\n"
 
 const Tombstone = Schema.Struct({ hidden: Schema.Literal(true) })
 
 const isTombstone = Schema.is(Tombstone)
 const decodeBlockFrontmatter = Schema.decodeUnknownOption(BlockFrontmatter)
+const decodeTemplateFrontmatter =
+  Schema.decodeUnknownOption(TemplateFrontmatter)
 const decodeBlockKey = Schema.decodeUnknownOption(BlockKey)
+const decodeTemplateKey = Schema.decodeUnknownOption(TemplateKey)
 const decodeContent = Schema.decodeUnknownOption(LibraryContent)
 const encodeBlockFrontmatter = Schema.encodeSync(BlockFrontmatter)
+const encodeTemplateFrontmatter = Schema.encodeSync(TemplateFrontmatter)
 
 const trimBlankLines = (text: string): string =>
   text.replace(/^(?:[ \t]*\r?\n)+/, "").replace(/(?:\r?\n[ \t]*)+$/, "")
@@ -85,6 +110,19 @@ const decodeBlock = (file: ParsedFile): Option.Option<BlockDraft> =>
     }))
   )
 
+const decodeTemplate = (file: ParsedFile): Option.Option<TemplateDraft> =>
+  Option.all({
+    key: decodeTemplateKey(file.key),
+    frontmatter: decodeTemplateFrontmatter(file.data),
+    body: decodeContent(file.body)
+  }).pipe(
+    Option.map(({ key, frontmatter, body }) => ({
+      key,
+      ...frontmatter,
+      body
+    }))
+  )
+
 type ClassifiedFile<A> =
   | Readonly<{ _tag: "definition"; definition: A }>
   | Readonly<{ _tag: "hidden"; key: string }>
@@ -105,6 +143,30 @@ const classifyFile = <A>(
     })
   })
 }
+
+type OrgLibraryFile = Readonly<{
+  data: Record<string, unknown>
+  body: string
+}>
+
+const EMPTY_ORG_FILE: OrgLibraryFile = { data: {}, body: "" }
+
+class OrgLibraryUnreadable extends Data.TaggedError("OrgLibraryUnreadable")<
+  Readonly<{ cause: unknown; orgSlug: string }>
+> {}
+
+const parseOrgFile = (
+  orgSlug: string,
+  content: string
+): Effect.Effect<OrgLibraryFile, OrgLibraryUnreadable> =>
+  Effect.try({
+    try: () => {
+      // gray-matter caches a failed parse and returns it empty next time; options skip the cache.
+      const parsed = matter(content, {})
+      return { data: parsed.data, body: parsed.content }
+    },
+    catch: (cause) => new OrgLibraryUnreadable({ cause, orgSlug })
+  })
 
 function withLibraryDocTelemetry<A, E>(
   operation: string,
@@ -173,12 +235,21 @@ export const LibraryDocsLive = Layer.effect(
         orgSlug,
         projectSlug,
         {},
-        readKind(orgSlug, projectSlug, "blocks", decodeBlock).pipe(
-          Effect.map((blocks) => ({
+        Effect.gen(function* () {
+          const [blocks, templates] = yield* Effect.all(
+            [
+              readKind(orgSlug, projectSlug, "blocks", decodeBlock),
+              readKind(orgSlug, projectSlug, "templates", decodeTemplate)
+            ],
+            { concurrency: 2 }
+          )
+          return {
             blocks: blocks.definitions,
-            hiddenBlocks: blocks.hidden
-          }))
-        )
+            templates: templates.definitions,
+            hiddenBlocks: blocks.hidden,
+            hiddenTemplates: templates.hidden
+          }
+        })
       )
 
     const writeBlock = (
@@ -202,6 +273,27 @@ export const LibraryDocsLive = Layer.effect(
       )
     }
 
+    const writeTemplate = (
+      orgSlug: string,
+      projectSlug: string | null,
+      draft: TemplateDraft
+    ): Effect.Effect<void, MarkdownError> => {
+      const { key, body, ...frontmatter } = draft
+      return withLibraryDocTelemetry(
+        "writeTemplate",
+        orgSlug,
+        projectSlug,
+        { key },
+        markdown.writeLibraryFile(
+          orgSlug,
+          projectSlug,
+          "templates",
+          key,
+          matter.stringify(body, encodeTemplateFrontmatter(frontmatter))
+        )
+      )
+    }
+
     const writeTombstone = (
       orgSlug: string,
       projectSlug: string | null,
@@ -214,6 +306,67 @@ export const LibraryDocsLive = Layer.effect(
         projectSlug,
         { kind, key },
         markdown.writeLibraryFile(orgSlug, projectSlug, kind, key, TOMBSTONE)
+      )
+
+    const readOrgFile = (
+      orgSlug: string
+    ): Effect.Effect<OrgLibraryFile, MarkdownError | OrgLibraryUnreadable> =>
+      markdown
+        .readOrgLibraryFile(orgSlug)
+        .pipe(
+          Effect.flatMap((content) =>
+            content === null
+              ? Effect.succeed(EMPTY_ORG_FILE)
+              : parseOrgFile(orgSlug, content)
+          )
+        )
+
+    const readOrgDefaults = (
+      orgSlug: string
+    ): Effect.Effect<PartialTemplateDefaults, MarkdownError> =>
+      withLibraryDocTelemetry(
+        "readOrgDefaults",
+        orgSlug,
+        null,
+        {},
+        readOrgFile(orgSlug).pipe(
+          Effect.catchTag("OrgLibraryUnreadable", () =>
+            Effect.logWarning("skipping unreadable org library file").pipe(
+              Effect.as(EMPTY_ORG_FILE)
+            )
+          ),
+          Effect.map((file) => templateDefaultsFrom(file.data))
+        )
+      )
+
+    const writeOrgDefaults = (
+      orgSlug: string,
+      defaults: PartialTemplateDefaults
+    ): Effect.Effect<void, MarkdownError> =>
+      withLibraryDocTelemetry(
+        "writeOrgDefaults",
+        orgSlug,
+        null,
+        {},
+        Effect.gen(function* () {
+          const file = yield* readOrgFile(orgSlug).pipe(
+            Effect.catchTag("OrgLibraryUnreadable", (error) =>
+              Effect.fail(
+                new MarkdownError({
+                  cause: error.cause,
+                  message: `refusing to overwrite unparseable orgs/${orgSlug}/library.md`
+                })
+              )
+            )
+          )
+          yield* markdown.writeOrgLibraryFile(
+            orgSlug,
+            matter.stringify(
+              file.body,
+              withTemplateDefaults(file.data, defaults)
+            )
+          )
+        })
       )
 
     const hasFile = (
@@ -249,7 +402,10 @@ export const LibraryDocsLive = Layer.effect(
     return {
       readLayer,
       writeBlock,
+      writeTemplate,
       writeTombstone,
+      readOrgDefaults,
+      writeOrgDefaults,
       hasFile,
       remove
     } satisfies LibraryDocsShape
