@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   findTicketBlockEnd,
+  formatBlockIssue,
   formatTicketBlock,
   parseTicketBlocks,
   serializeTicketBlocks,
@@ -361,6 +362,35 @@ describe("validateTicketBlocks", () => {
     expect(codesOf(markdown)).toEqual([
       { line: 3, code: "stray_close" },
       { line: 4, code: "unclosed" }
+    ])
+  })
+})
+
+describe("formatBlockIssue", () => {
+  it("names the line and the offending markup", () => {
+    const [issue] = validateTicketBlocks('text\n  <block type="notes">')
+
+    expect(formatBlockIssue(issue)).toBe(
+      'line 2: <block type="notes"> is never closed'
+    )
+  })
+
+  it("explains every code", () => {
+    const markdown = [
+      "</block>",
+      '<block type="Bad">',
+      '<block type="a" x>',
+      '<block type="outer">',
+      '<block type="inner">',
+      "</block>"
+    ].join("\n")
+
+    expect(validateTicketBlocks(markdown).map(formatBlockIssue)).toEqual([
+      "line 1: </block> has no matching <block> opener",
+      'line 2: <block type="Bad"> has an invalid type; use lowercase kebab-case such as acceptance-criteria',
+      'line 3: <block type="a" x> is not a valid block opener; write <block type="key"> or <block type="key" sync>',
+      'line 4: <block type="outer"> is never closed',
+      'line 5: <block type="inner"> opens inside another block, and blocks cannot nest'
     ])
   })
 })

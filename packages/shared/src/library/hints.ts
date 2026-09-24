@@ -86,6 +86,22 @@ const stripMatchingHints = (
 export const stripHints = (markdown: string): string =>
   stripMatchingHints(markdown, () => true)
 
+const hintsOf = (definitionContent: string): ReadonlySet<string> =>
+  new Set(
+    linesOutsideCode(definitionContent).flatMap(([line, insideCode]) => {
+      const match = insideCode ? null : HINT.exec(line)
+      return match === null ? [] : [match[1].trim()]
+    })
+  )
+
+export const stripDefinitionHints = (
+  markdown: string,
+  definitionContent: string
+): string => {
+  const hints = hintsOf(definitionContent)
+  return stripMatchingHints(markdown, (hint) => hints.has(hint))
+}
+
 const indentOf = (line: string): number => line.length - line.trimStart().length
 
 const classifyItem = (match: RegExpExecArray): ItemLine => {

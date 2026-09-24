@@ -183,3 +183,16 @@ export const validateTicketBlocks = (
   for (const opener of openers) issues.push(issueAt(lines, opener, "unclosed"))
   return issues.toSorted((a, b) => a.line - b.line)
 }
+
+const BLOCK_ISSUE_MESSAGES: Readonly<Record<BlockIssueCode, string>> = {
+  unclosed: "is never closed",
+  stray_close: "has no matching <block> opener",
+  nested: "opens inside another block, and blocks cannot nest",
+  malformed_open:
+    'is not a valid block opener; write <block type="key"> or <block type="key" sync>',
+  invalid_type:
+    "has an invalid type; use lowercase kebab-case such as acceptance-criteria"
+}
+
+export const formatBlockIssue = (issue: BlockIssue): string =>
+  `line ${issue.line}: ${issue.source} ${BLOCK_ISSUE_MESSAGES[issue.code]}`

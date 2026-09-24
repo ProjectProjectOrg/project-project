@@ -84,12 +84,21 @@ export const mapToolError = (error: unknown): McpToolErrorResult => {
       NotFound: () => text("Not found."),
       Conflict: (error) =>
         text(error.reason ? `Conflict (${error.reason}).` : "Conflict."),
-      Validation: (error) =>
-        text(
+      Validation: (error) => {
+        const blockMarkup = error.reason?.match(/^block_markup:(.*)$/s)
+        if (blockMarkup) {
+          return text(
+            `Invalid block markup — ${blockMarkup[1]} Discover valid block ` +
+              "types via list_blocks, and see the create_ticket/update_ticket " +
+              "descriptions for the format."
+          )
+        }
+        return text(
           error.reason
             ? `Validation error (${error.reason}).`
             : "Validation error."
-        ),
+        )
+      },
       MentionInvalid: (error) => {
         const detail =
           error.kind && error.href

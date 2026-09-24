@@ -4,6 +4,7 @@ import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as Comments from "@pp/server-core/comments/Comments"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
+import * as Library from "@pp/server-core/library/Library"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as Projects from "@pp/server-core/projects/Projects"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
@@ -76,7 +77,8 @@ const unused = Layer.mergeAll(
   Layer.mock(GroupDocs.GroupDocs, {}),
   Layer.mock(TicketDocs.TicketDocs, {}),
   Layer.mock(TicketIndex.TicketIndex, {}),
-  Layer.mock(ProjectStatuses.ProjectStatuses, {})
+  Layer.mock(ProjectStatuses.ProjectStatuses, {}),
+  Layer.mock(Library.Library, {})
 )
 
 const fixture = (

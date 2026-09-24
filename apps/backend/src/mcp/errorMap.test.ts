@@ -30,6 +30,21 @@ describe("mapToolError", () => {
     expect(result.content[0].text).toContain("Validation")
   })
 
+  it("maps a block_markup Validation reason to the formatted issue text", () => {
+    const result = mapToolError(
+      new Validation({
+        reason:
+          'block_markup:line 3: <block type="foo"> is not a valid block ' +
+          'opener; write <block type="key"> or <block type="key" sync>'
+      })
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text).toContain("Invalid block markup")
+    expect(result.content[0].text).toContain("line 3:")
+    expect(result.content[0].text).toContain("list_blocks")
+    expect(result.content[0].text).not.toContain("Validation error (")
+  })
+
   it("maps unknown defects to a generic Internal error", () => {
     const result = mapToolError(new Error("boom"))
     expect(result.isError).toBe(true)
