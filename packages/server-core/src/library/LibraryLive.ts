@@ -231,12 +231,13 @@ export const LibraryLive = Layer.effect(
           )
 
     const projectMemberIds = (
+      orgSlug: string,
       slug: string
     ): Effect.Effect<ReadonlySet<string>> =>
       db.query.projectMember
         .findMany({
           columns: { userId: true },
-          where: { project: { slug } }
+          where: { project: { slug, organization: { slug: orgSlug } } }
         })
         .pipe(
           Effect.map((rows) => new Set<string>(rows.map((row) => row.userId))),
@@ -260,7 +261,7 @@ export const LibraryLive = Layer.effect(
                 ),
               { concurrency: 8 }
             ).pipe(Effect.map((found) => new Set(found.flat())))
-          : projectMemberIds(slug)
+          : projectMemberIds(orgSlug, slug)
 
     const knownTickets = (
       orgSlug: string,
