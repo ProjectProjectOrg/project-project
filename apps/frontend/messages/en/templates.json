@@ -1,6 +1,6 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
-  "templates_editor_block_help": "Hints show as muted placeholders in tickets and never end up in the file.",
+  "templates_editor_block_help": "Type / for basic items or a hint. Hints show as muted placeholders in tickets and never end up in the file.",
   "templates_editor_block_placeholder": "Write the block's content in markdown…",
   "templates_editor_color_aria": "Icon colour",
   "templates_editor_color_clear": "No colour",

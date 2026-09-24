@@ -156,6 +156,7 @@ export function DescriptionField({
                 }}
                 onStatusChange={onStatusChange}
                 autoFocus={autoFocus}
+                placeholder={m.tickets_description_placeholder()}
                 attachments={attachments}
                 blocks={blocks}
               />

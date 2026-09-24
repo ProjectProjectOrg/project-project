@@ -38,6 +38,7 @@ import {
 
 import { $isTicketBlockNode, TicketBlockNode } from "../TicketBlockNode"
 import { $topLevelBlocks } from "./blockCommands"
+import { slashTriggerMatch } from "./slashMenuItems"
 
 export type ActiveHint = Readonly<{
   key: NodeKey
@@ -236,8 +237,19 @@ const $isAtLineEnd = (element: ElementNode): boolean => {
   )
 }
 
-const $typeaheadBeforeCaret = (editor: LexicalEditor): boolean =>
-  editor.getRootElement()?.hasAttribute("aria-controls") === true
+const $typeaheadBeforeCaret = (editor: LexicalEditor): boolean => {
+  if (editor.getRootElement()?.hasAttribute("aria-controls") === true)
+    return true
+  const selection = $getSelection()
+  if (!$isRangeSelection(selection)) return false
+  const anchor = selection.anchor.getNode()
+  return (
+    $isTextNode(anchor) &&
+    slashTriggerMatch(
+      anchor.getTextContent().slice(0, selection.anchor.offset)
+    ) !== null
+  )
+}
 
 export function $hintTabTarget(
   lookup: BlockLookup,

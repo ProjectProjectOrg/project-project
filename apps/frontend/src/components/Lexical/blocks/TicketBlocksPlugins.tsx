@@ -4,6 +4,7 @@ import { BlockGutterPlugin } from "./BlockGutterPlugin"
 import { BlockHintsPlugin } from "./BlockHintsPlugin"
 import { hasBlockGutter, type EditorBlocks } from "./editorBlocks"
 import { DefinitionModePlugin } from "./EditorModePlugins"
+import { SlashMenuPlugin } from "./SlashMenuPlugin"
 import { SyncedBlocksPlugin } from "./SyncedBlocksPlugin"
 
 export function TicketBlocksPlugins({
@@ -20,6 +21,11 @@ export function TicketBlocksPlugins({
       {blocks.mode !== "definition" ? (
         <BlockHintsPlugin library={blocks.library} />
       ) : null}
+      <SlashMenuPlugin
+        library={blocks.library}
+        transformers={transformers}
+        mode={blocks.mode}
+      />
       {blocks.mode === "definition" ? (
         <DefinitionModePlugin transformers={transformers} />
       ) : null}
