@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   findTicketBlockEnd,
+  flattenTicketBlocks,
   formatTicketBlock,
   parseTicketBlocks,
   serializeTicketBlocks
@@ -253,5 +254,17 @@ describe("formatTicketBlock whitespace", () => {
       type: "notes",
       content
     })
+  })
+})
+
+describe("flattenTicketBlocks", () => {
+  it("drops block tags and keeps the content in order", () => {
+    const markdown = [
+      "Intro.",
+      formatTicketBlock("acceptance-criteria", CRITERIA),
+      formatTicketBlock("notes", "")
+    ].join("\n\n")
+
+    expect(flattenTicketBlocks(markdown)).toBe(`Intro.\n\n${CRITERIA}`)
   })
 })

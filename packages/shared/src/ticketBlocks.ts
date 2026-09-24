@@ -126,3 +126,11 @@ export const serializeTicketBlocks = (
         : formatTicketBlock(segment.type, segment.content)
     )
     .join("\n\n")
+
+export const flattenTicketBlocks = (markdown: string): string =>
+  parseTicketBlocks(markdown)
+    .map((segment) =>
+      segment.kind === "markdown" ? segment.text : segment.content
+    )
+    .filter((text) => text !== "")
+    .join("\n\n")
