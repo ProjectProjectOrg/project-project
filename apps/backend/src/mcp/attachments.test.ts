@@ -43,7 +43,6 @@ import * as Tickets from "@pp/server-core/tickets/Tickets"
 import * as Users from "@pp/server-core/users/Users"
 import {
   AttachmentTooLarge,
-  CurrentUser,
   McpTools,
   NotFound,
   StorageNotConnected,
@@ -60,6 +59,7 @@ import * as ConfigProvider from "effect/ConfigProvider"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
@@ -71,8 +71,9 @@ import { Pool } from "pg"
 import { beforeAll, afterAll, describe, expect, vi } from "vitest"
 
 import { attachmentUploadRoute } from "../http/attachmentUploadRoutes"
-import { mapToolError } from "./errorMap"
+import { mappedToolErrorText } from "./errorMap"
 import { handlers } from "./handlers"
+import { McpRequestUser } from "./McpRequestUser"
 
 const user = Schema.decodeSync(User)({
   id: "user-1",
@@ -228,7 +229,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
   const context = yield* Layer.build(
     Layer.mergeAll(
       domain,
-      Layer.succeed(CurrentUser, user),
+      Layer.succeed(McpRequestUser, Option.some(user)),
       Layer.mock(Tickets.Tickets, {}),
       Layer.mock(Comments.Comments, {}),
       Layer.mock(Groups.Groups, {}),
@@ -827,7 +828,7 @@ describe("MCP attachment contracts", () => {
       const result = yield* handlers
         .prepare_ticket_attachment(decoded)
         .pipe(
-          Effect.provideService(CurrentUser, user),
+          Effect.provideService(McpRequestUser, Option.some(user)),
           Effect.provide(
             Layer.mergeAll(
               Layer.mock(AttachmentUploads.AttachmentUploads, { prepare }),
@@ -880,10 +881,9 @@ describe("MCP attachment contracts", () => {
     ).toBe(false)
   })
   it("reports the actual size limit without requesting a prepared byte size", () => {
-    const result = mapToolError(
-      new AttachmentTooLarge({ maxBytes: 1536 * 1024 })
-    )
-    expect(result.content[0].text).toBe(
+    expect(
+      mappedToolErrorText(new AttachmentTooLarge({ maxBytes: 1536 * 1024 }))
+    ).toBe(
       "AttachmentTooLarge: The file must be non-empty and at most 1.5 MiB."
     )
   })
@@ -894,10 +894,10 @@ describe("MCP attachment contracts", () => {
   ])(
     "exposes actionable storage errors without upstream details: $_tag",
     (error) => {
-      const result = mapToolError(error)
-      expect(result.isError).toBe(true)
-      expect(result.content[0].text).toContain(error._tag)
-      expect(result.content[0].text).not.toContain("private upstream details")
+      const text = mappedToolErrorText(error)
+      expect(text).toBeDefined()
+      expect(text).toContain(error._tag)
+      expect(text).not.toContain("private upstream details")
     }
   )
 })

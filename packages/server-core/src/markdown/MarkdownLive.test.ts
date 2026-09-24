@@ -59,7 +59,7 @@ describe("Markdown tickets (real fs)", () => {
       const md = yield* Markdown
       const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
-      const root = yield* Config.string("PROJECTS_DIR")
+      const root = yield* Config.String("PROJECTS_DIR")
 
       yield* md.createTicketFile(
         "acme",
@@ -101,7 +101,7 @@ describe("Markdown tickets (real fs)", () => {
         const md = yield* Markdown
         const fs = yield* FileSystem.FileSystem
         const path = yield* Path.Path
-        const root = yield* Config.string("PROJECTS_DIR")
+        const root = yield* Config.String("PROJECTS_DIR")
 
         yield* md.createTicketFile(
           "acme",
@@ -142,7 +142,7 @@ describe("Markdown deletion (real fs)", () => {
         const md = yield* Markdown
         const fs = yield* FileSystem.FileSystem
         const path = yield* Path.Path
-        const root = yield* Config.string("PROJECTS_DIR")
+        const root = yield* Config.String("PROJECTS_DIR")
 
         yield* md.createTicketFile(
           "acme",
@@ -177,7 +177,7 @@ describe("Markdown deletion (real fs)", () => {
         const md = yield* Markdown
         const fs = yield* FileSystem.FileSystem
         const path = yield* Path.Path
-        const root = yield* Config.string("PROJECTS_DIR")
+        const root = yield* Config.String("PROJECTS_DIR")
 
         yield* md.writeProjectFile(
           "acme",
