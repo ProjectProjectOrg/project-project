@@ -45,7 +45,6 @@ export const templateDraft = (
   icon: "Bug",
   color: null,
   description: "Something is broken",
-  type: "bug",
   priority: null,
   tags: [],
   body,

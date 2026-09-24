@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest"
 import {
   BlockDraft,
   Library,
-  PartialTemplateDefaults
+  PartialTemplateDefaults,
+  TemplateDefaults
 } from "../schemas/Library"
 import { formatTicketBlock } from "../ticketBlocks"
 import {
@@ -30,6 +31,8 @@ import {
   resolveSyncedBlocks,
   templateBodyFromTicket,
   templateFor,
+  ticketTypeForTemplate,
+  typesDefaultingTo,
   withDefaultsUpdate
 } from "./library"
 
@@ -308,6 +311,25 @@ describe("templateFor", () => {
   it("returns the default template for a type, or null for blank", () => {
     expect(templateFor(adoptedAll, "bug")?.key).toBe("bug-report")
     expect(templateFor(adoptedAll, "other")).toBeNull()
+  })
+})
+
+describe("ticketTypeForTemplate", () => {
+  const defaults = Schema.decodeUnknownSync(TemplateDefaults)({
+    feat: "feature",
+    bug: "bug-report",
+    chore: "bug-report",
+    other: null
+  })
+
+  it("is the one type a template is the default for", () => {
+    expect(ticketTypeForTemplate(defaults, "feature")).toBe("feat")
+  })
+
+  it("is null when the template is the default for several types or none", () => {
+    expect(typesDefaultingTo(defaults, "bug-report")).toEqual(["bug", "chore"])
+    expect(ticketTypeForTemplate(defaults, "bug-report")).toBeNull()
+    expect(ticketTypeForTemplate(defaults, "spike")).toBeNull()
   })
 })
 

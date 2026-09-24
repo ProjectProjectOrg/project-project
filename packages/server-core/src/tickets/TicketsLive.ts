@@ -966,7 +966,10 @@ export const TicketsLive = Layer.effect(
       orgSlug: string,
       slug: string,
       template: TemplateKey | null | undefined
-    ): Effect.Effect<TemplateExpansion | null, Validation | MarkdownError> =>
+    ): Effect.Effect<
+      TemplateExpansion | null,
+      NotFound | Validation | MarkdownError
+    > =>
       template === undefined || template === null
         ? Effect.succeed(null)
         : library.expandForCreate(orgSlug, slug, template)

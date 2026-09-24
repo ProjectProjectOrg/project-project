@@ -74,7 +74,6 @@ describe("saveAsTemplateSummary", () => {
 describe("saveAsTemplateDraft", () => {
   const options = {
     name: "Login bug",
-    includeType: true,
     includePriority: false,
     includeTags: false
   }
@@ -87,7 +86,6 @@ describe("saveAsTemplateDraft", () => {
       icon: "LayoutTemplate",
       color: null,
       description: "",
-      type: "bug",
       priority: null,
       tags: [],
       body: saveAsTemplateSummary(body, lookup).body
@@ -99,7 +97,6 @@ describe("saveAsTemplateDraft", () => {
       ticket,
       {
         ...options,
-        includeType: false,
         includePriority: true,
         includeTags: true
       },
@@ -107,7 +104,6 @@ describe("saveAsTemplateDraft", () => {
       new Set()
     )
     expect(draft).toMatchObject({
-      type: null,
       priority: "high",
       tags: ["auth"]
     })

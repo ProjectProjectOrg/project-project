@@ -120,9 +120,9 @@ export function BacklogTicketCreator({
   const slash = useTemplateSlash({
     title,
     choice: templateChoice,
-    onChoose: (template) => {
+    onChoose: (_template, ticketType) => {
       setTitle("")
-      if (template?.type) setType(template.type)
+      if (ticketType !== null) setType(ticketType)
     }
   })
 

@@ -118,12 +118,12 @@ export function SprintTicketCreator({
   const slash = useTemplateSlash({
     title,
     choice: templateChoice,
-    onChoose: (template) => {
+    onChoose: (_template, ticketType) => {
       searchDebouncer.cancel()
       setSearchQuery("")
       setTitle("")
       setHighlight(0)
-      if (template?.type) setType(template.type)
+      if (ticketType !== null) setType(ticketType)
     }
   })
 

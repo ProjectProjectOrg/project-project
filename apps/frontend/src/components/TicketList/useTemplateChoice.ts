@@ -1,6 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import {
   templateFor,
+  ticketTypeForTemplate,
   type Library,
   type TemplateDefinition,
   type TemplateKey,
@@ -25,6 +26,7 @@ export type TemplateChoice = Readonly<{
   sticky: boolean
   ready: boolean
   pick: (key: TemplateKey | null) => void
+  ticketTypeOf: (key: TemplateKey) => TicketType | null
   payload: Readonly<{ template?: TemplateKey }>
   prediction: QuickCreatePrediction | undefined
   recover: (exit: Exit.Exit<unknown, Readonly<{ _tag: string }>>) => void
@@ -83,6 +85,8 @@ export function useTemplateChoice(
       sticky: picked !== undefined,
       ready: library !== null,
       pick: setPicked,
+      ticketTypeOf: (key: TemplateKey) =>
+        library === null ? null : ticketTypeForTemplate(library.defaults, key),
       payload: template === null ? {} : { template: template.key },
       prediction:
         template === null

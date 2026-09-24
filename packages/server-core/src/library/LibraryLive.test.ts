@@ -883,6 +883,7 @@ describe("expandForCreate", () => {
       "definition-of-done",
       "steps-to-reproduce"
     ])
+    world.orgDefaults.current = { bug: templateKey("bug-report") }
     return run(
       Effect.gen(function* () {
         const library = yield* Library
@@ -903,6 +904,33 @@ describe("expandForCreate", () => {
       world
     )
   })
+
+  it.effect(
+    "sets the type a template is the default for, and only when it is one",
+    () => {
+      const world = makeWorld()
+      adopt(world, null, ["bug-report", "chore", "spike"])
+      world.orgDefaults.current = {
+        bug: templateKey("bug-report"),
+        chore: templateKey("chore")
+      }
+      world.defaults.current = { feat: templateKey("chore") }
+      return run(
+        Effect.gen(function* () {
+          const library = yield* Library
+          const typeOf = (key: string) =>
+            library
+              .expandForCreate("acme", "web", templateKey(key))
+              .pipe(Effect.map((expansion) => expansion.type))
+
+          expect(yield* typeOf("bug-report")).toBe("bug")
+          expect(yield* typeOf("chore")).toBeNull()
+          expect(yield* typeOf("spike")).toBeNull()
+        }),
+        world
+      )
+    }
+  )
 
   it.effect("filters tags to the project's and sanitizes mentions", () => {
     const world = makeWorld()

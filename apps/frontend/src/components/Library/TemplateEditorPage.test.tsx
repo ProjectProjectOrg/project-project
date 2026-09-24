@@ -119,7 +119,8 @@ describe("TemplateEditorPage", () => {
     expect(screen.getByLabelText<HTMLInputElement>("Description").value).toBe(
       "Something is broken"
     )
-    expect(screen.getByLabelText("Default type: Bug")).toBeTruthy()
+    expect(screen.queryByLabelText(/^Default type: /)).toBeNull()
+    expect(screen.getByText("Default for")).toBeTruthy()
   })
 
   it("autosaves the body with references to this layer's file", async () => {

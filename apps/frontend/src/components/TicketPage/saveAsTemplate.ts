@@ -7,8 +7,7 @@ import {
   type TagName,
   type TemplateDraft,
   type TemplateKey,
-  type TicketPriority,
-  type TicketType
+  type TicketPriority
 } from "@pp/shared"
 
 import { keyFromName } from "@/components/Library/libraryModel"
@@ -16,13 +15,11 @@ import type { LibraryLayer } from "@/components/Library/libraryScope"
 
 export type SaveAsTemplateOptions = Readonly<{
   name: string
-  includeType: boolean
   includePriority: boolean
   includeTags: boolean
 }>
 
 export type SaveAsTemplateTicket = Readonly<{
-  type: TicketType
   priority: TicketPriority
   tags: ReadonlyArray<TagName>
   body: string
@@ -88,7 +85,6 @@ export const saveAsTemplateDraft = (
     icon: "LayoutTemplate",
     color: null,
     description: "",
-    type: options.includeType ? ticket.type : null,
     priority: options.includePriority ? ticket.priority : null,
     tags: options.includeTags ? ticket.tags : [],
     body: saveAsTemplateSummary(ticket.body, lookup).body

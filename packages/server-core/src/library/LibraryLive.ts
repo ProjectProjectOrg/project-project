@@ -12,6 +12,7 @@ import {
   parseTicketBlocks,
   resolveLibrary,
   resolveLibraryDefaults,
+  ticketTypeForTemplate,
   resolveSyncedBlocks,
   serializeTicketBlocks,
   TemplateKey,
@@ -137,7 +138,6 @@ const patchTemplate = (
   icon: patched(patch.icon, draft.icon),
   color: patched(patch.color, draft.color),
   description: patched(patch.description, draft.description),
-  type: patched(patch.type, draft.type),
   priority: patched(patch.priority, draft.priority),
   tags: patched(patch.tags, draft.tags),
   body: patched(patch.body, draft.body)
@@ -745,12 +745,15 @@ export const LibraryLive = Layer.effect(
       orgSlug: string,
       slug: string,
       key: TemplateKey
-    ): Effect.fn.Return<TemplateExpansion, Validation | MarkdownError> {
-      const library = resolveLibrary(
-        yield* layersFor(orgSlug, slug),
-        NO_LAYER_DEFAULTS,
-        false
+    ): Effect.fn.Return<
+      TemplateExpansion,
+      NotFound | Validation | MarkdownError
+    > {
+      const [layers, defaults] = yield* Effect.all(
+        [layersFor(orgSlug, slug), layerDefaultsFor(orgSlug, slug)],
+        { concurrency: 2 }
       )
+      const library = resolveLibrary(layers, defaults, false)
       const template = library.templates.find(
         (candidate) => candidate.key === key && !candidate.hidden
       )
@@ -767,7 +770,7 @@ export const LibraryLive = Layer.effect(
           : yield* projectTagNames(slug)
       return {
         body,
-        type: template.type,
+        type: ticketTypeForTemplate(library.defaults, template.key),
         priority: template.priority,
         tags: template.tags.filter((tag) => known.has(tag))
       }

@@ -379,7 +379,6 @@ const list_templates = (input: { orgSlug: string; projectSlug: string }) =>
         key: template.key,
         name: template.name,
         description: template.description,
-        type: template.type,
         priority: template.priority,
         tags: template.tags,
         body: expandTemplateKeepingHints(template, lookup),

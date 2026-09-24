@@ -8,7 +8,8 @@ import {
   type LibraryOrigin,
   type TemplateKey,
   type TicketPriority,
-  type TicketType
+  type TicketType,
+  typesDefaultingTo
 } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
@@ -34,12 +35,12 @@ import {
   PRIORITY_ORDER
 } from "@/lib/priority-meta"
 import { springs } from "@/lib/springs"
-import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
+import { TYPE_LABELS } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { BlockIconGlyph } from "./BlockIconGlyph"
-import { TICKET_TYPES, defaultTypesFor } from "./libraryModel"
+import { TICKET_TYPES } from "./libraryModel"
 import { failureText } from "./LibraryRow"
 import { setDefaultsAtom, type LibraryScope } from "./libraryScope"
 
@@ -261,57 +262,6 @@ function ChoiceTrigger({
 }
 
 const noneLabel = () => m.templates_editor_none()
-
-export function NullableTypeField({
-  value,
-  onChange,
-  disabled = false
-}: Readonly<{
-  value: TicketType | null
-  onChange: (type: TicketType | null) => void
-  disabled?: boolean
-}>) {
-  const Icon = value === null ? null : TYPE_META[value].icon
-  const label = value === null ? noneLabel() : TYPE_LABELS[value]()
-  return (
-    <DropdownMenu>
-      <ChoiceTrigger
-        label={label}
-        disabled={disabled}
-        ariaLabel={m.templates_editor_type_aria({ label })}
-        icon={
-          Icon === null ? null : (
-            <Icon className="size-3.5" strokeWidth={1.75} />
-          )
-        }
-      />
-      <DropdownMenuContent align="start" sideOffset={6} className="w-40">
-        {[null, ...TICKET_TYPES].map((type) => {
-          const TypeIcon = type === null ? null : TYPE_META[type].icon
-          return (
-            <DropdownMenuItem
-              key={type ?? "none"}
-              onClick={() => {
-                if (type !== value) onChange(type)
-              }}
-              className="cursor-pointer"
-            >
-              {TypeIcon === null ? (
-                <span className="size-4" aria-hidden />
-              ) : (
-                <TypeIcon className="size-4" strokeWidth={1.75} />
-              )}
-              {type === null ? noneLabel() : TYPE_LABELS[type]()}
-              {type === value && (
-                <Check className="ml-auto size-3.5 text-muted-foreground" />
-              )}
-            </DropdownMenuItem>
-          )
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
 
 export function NullablePriorityField({
   value,
@@ -542,7 +492,7 @@ export function DefaultForField({
   const setDefaults = useAtomSet(mutation)
   const state = useAtomValue(mutation)
   const error = failureText(state)
-  const current = defaultTypesFor(library.defaults, templateKey)
+  const current = typesDefaultingTo(library.defaults, templateKey)
   const others = TICKET_TYPES.filter((type) => !current.includes(type))
   const add = (type: TicketType) =>
     setDefaults({ defaults: { [type]: templateKey } })

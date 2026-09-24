@@ -386,7 +386,6 @@ const bugReportTemplate = {
   icon: "Bug" as const,
   color: null,
   description: "Something is broken",
-  type: "bug" as const,
   priority: "med" as const,
   tags: [],
   body: formatTicketBlock("acceptance-criteria", ""),
@@ -456,6 +455,7 @@ describe("MCP handlers → list_blocks / list_templates", () => {
         expect(payload[0].body).toContain("{{")
         expect(payload[0].body).toContain('<block type="acceptance-criteria">')
         expect(payload[0].isDefaultFor).toEqual(["bug"])
+        expect(payload[0]).not.toHaveProperty("type")
       }).pipe(Effect.provide(LibraryTestLayer))
   )
 })

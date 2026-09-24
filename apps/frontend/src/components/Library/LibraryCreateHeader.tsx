@@ -84,7 +84,6 @@ const templateDraft = (key: string, name: string): TemplateDraft => ({
   icon: "LayoutTemplate",
   color: null,
   description: "",
-  type: null,
   priority: null,
   tags: [],
   body: ""

@@ -128,6 +128,32 @@ it("opens the template list on / in an empty title and picks with Enter", async 
   }
 })
 
+it("keeps the type when / picks a template that is no type's default", async () => {
+  const { registry, posted, input } = setup()
+  try {
+    await chooseType("Feature")
+    fireEvent.change(input, { target: { value: "/" } })
+    fireEvent.change(input, { target: { value: "/incident" } })
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole("option").map((option) => option.textContent)
+      ).toEqual(["Incident review"])
+    )
+    fireEvent.keyDown(input, { key: "Enter" })
+    await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull())
+    expect(screen.getByLabelText(/^Type: /).textContent).toContain("Feature")
+    submit(input, "Outage")
+    await waitFor(() => expect(posted).toHaveLength(1))
+    expect(posted[0]).toEqual({
+      title: "Outage",
+      type: "feat",
+      template: "incident"
+    })
+  } finally {
+    registry.dispose()
+  }
+})
+
 it("sticks with Blank from / even though the type has a default", async () => {
   const { registry, posted, input } = setup()
   try {

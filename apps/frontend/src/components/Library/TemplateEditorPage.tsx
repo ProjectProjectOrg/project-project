@@ -2,6 +2,7 @@ import { useAtomValue } from "@effect/atom-react"
 import {
   blockLookupFor,
   expandTemplate,
+  ticketTypeForTemplate,
   type Library,
   type TemplateDefinition,
   type UpdateTemplateInput
@@ -26,7 +27,6 @@ import {
   IconAndColorField,
   MutedValue,
   NullablePriorityField,
-  NullableTypeField,
   TemplateTagsField,
   originLabel
 } from "./DefinitionAside"
@@ -141,11 +141,11 @@ function TemplateEditor({
     () => ({
       mode: "template",
       library,
-      ticketType: template.type,
+      ticketType: ticketTypeForTemplate(library.defaults, key),
       canEdit,
       onEditDefinition
     }),
-    [canEdit, library, onEditDefinition, template.type]
+    [canEdit, key, library, onEditDefinition]
   )
 
   const preview = expandTemplate({ body: draft }, blockLookupFor(library))
@@ -246,11 +246,11 @@ function TemplateEditor({
               <MutedValue>{template.description}</MutedValue>
             )}
           </AsideField>
-          <AsideField label={m.templates_editor_type_label()}>
-            <NullableTypeField
-              value={template.type}
-              onChange={(type) => patch({ type })}
-              disabled={!editable}
+          <AsideField label={m.templates_editor_default_for_label()}>
+            <DefaultForField
+              scope={scope}
+              library={library}
+              templateKey={key}
             />
           </AsideField>
           <AsideField label={m.templates_editor_priority_label()}>
@@ -266,13 +266,6 @@ function TemplateEditor({
               value={template.tags}
               onChange={(tags) => patch({ tags })}
               disabled={!editable}
-            />
-          </AsideField>
-          <AsideField label={m.templates_editor_default_for_label()}>
-            <DefaultForField
-              scope={scope}
-              library={library}
-              templateKey={key}
             />
           </AsideField>
           <AsideField label={m.templates_editor_scope_label()}>
