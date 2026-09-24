@@ -1,5 +1,4 @@
 import { Db } from "@pp/db"
-import { publishedProject } from "@pp/db/projectVisibility"
 import { projectTag } from "@pp/db/schema"
 import {
   Conflict,
@@ -20,6 +19,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
 import type { MarkdownError } from "../markdown/Markdown"
+import { projectInOrg } from "../projects/projectLookup"
 import { Projects } from "../projects/Projects"
 import { TicketIndex } from "../tickets/TicketIndex"
 import { Tickets } from "../tickets/Tickets"
@@ -44,24 +44,8 @@ export const TagsLive = Layer.effect(
     const projects = yield* Projects
     const tickets = yield* Tickets
 
-    const projectIdFromSlug = (slug: string): Effect.Effect<string, NotFound> =>
-      db.query.projectIndex
-        .findFirst({
-          columns: { id: true },
-          where: {
-            RAW: (table, _operators) =>
-              _operators.and(
-                _operators.eq(table.slug, slug),
-                publishedProject(table)
-              )!
-          }
-        })
-        .pipe(
-          Effect.orDie,
-          Effect.flatMap((row) =>
-            row ? Effect.succeed(row.id) : Effect.fail(new NotFound())
-          )
-        )
+    const projectIdFromSlug = (orgSlug: string, slug: string) =>
+      projectInOrg(db, orgSlug, slug).pipe(Effect.map((project) => project.id))
 
     const rewriteTagInTickets = (
       orgSlug: string,
@@ -91,7 +75,7 @@ export const TagsLive = Layer.effect(
     ): Effect.Effect<ReadonlyArray<Tag>, NotFound> =>
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
-        const projectId = yield* projectIdFromSlug(slug)
+        const projectId = yield* projectIdFromSlug(orgSlug, slug)
         const rows = yield* db.query.projectTag
           .findMany({
             where: {
@@ -141,7 +125,7 @@ export const TagsLive = Layer.effect(
     ): Effect.Effect<Tag, NotFound | Forbidden | Conflict> =>
       Effect.gen(function* () {
         yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
-        const projectId = yield* projectIdFromSlug(slug)
+        const projectId = yield* projectIdFromSlug(orgSlug, slug)
 
         const existing = yield* db.query.projectTag
           .findMany({
@@ -197,7 +181,7 @@ export const TagsLive = Layer.effect(
     ): Effect.Effect<Tag, NotFound | Forbidden | Conflict | MarkdownError> =>
       Effect.gen(function* () {
         yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
-        const projectId = yield* projectIdFromSlug(slug)
+        const projectId = yield* projectIdFromSlug(orgSlug, slug)
 
         const existing = yield* db.query.projectTag
           .findFirst({
@@ -260,7 +244,7 @@ export const TagsLive = Layer.effect(
     ): Effect.Effect<void, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
         yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
-        const projectId = yield* projectIdFromSlug(slug)
+        const projectId = yield* projectIdFromSlug(orgSlug, slug)
 
         const existingRow = yield* db.query.projectTag
           .findFirst({

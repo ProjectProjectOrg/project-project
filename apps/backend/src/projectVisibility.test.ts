@@ -92,14 +92,18 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
       })
   } as never)
 
-  const insertAttachment = (id: string, projectSlug: string, status = "live") =>
+  const insertAttachment = (
+    id: string,
+    projectId: string | null,
+    status = "live"
+  ) =>
     pool.query(
-      "insert into attachment_index (id, organization_id, org_slug, project_slug, ticket_id, object_key, filename, content_type, byte_size, status, uploaded_by) values ($1, $2, $3, $4, 'T-1', $5, 'image.png', 'image/png', 10, $6, $7)",
+      "insert into attachment_index (id, organization_id, org_slug, project_id, ticket_id, object_key, filename, content_type, byte_size, status, uploaded_by) values ($1, $2, $3, $4, 'T-1', $5, 'image.png', 'image/png', 10, $6, $7)",
       [
         id,
         organizationId,
         `visibility-${organizationId}`,
-        projectSlug,
+        projectId,
         `visibility/${id}.png`,
         status,
         userId
@@ -324,14 +328,14 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
   it("keeps hidden-only attachment and thumbnail resources from reaching object signing", async () => {
     const attachmentId = `hidden-attachment-${randomUUID()}`
     const linkId = `hidden-figma-${randomUUID()}`
-    await insertAttachment(attachmentId, "hidden")
+    await insertAttachment(attachmentId, hiddenId)
     await pool.query(
-      "insert into figma_link_index (id, organization_id, org_slug, project_slug, file_key, node_id, kind, thumbnail_key) values ($1, $2, $3, 'hidden', 'file-key', null, 'design', 'visibility/thumbnail.png')",
-      [linkId, organizationId, `visibility-${organizationId}`]
+      "insert into figma_link_index (id, organization_id, project_id, file_key, node_id, kind, thumbnail_key) values ($1, $2, $3, 'file-key', null, 'design', 'visibility/thumbnail.png')",
+      [linkId, organizationId, hiddenId]
     )
     await pool.query(
-      "insert into figma_reference (link_id, org_slug, project_slug, ticket_id) values ($1, $2, 'hidden', 'T-1')",
-      [linkId, `visibility-${organizationId}`]
+      "insert into figma_reference (link_id, project_id, ticket_id) values ($1, $2, 'T-1')",
+      [linkId, hiddenId]
     )
 
     let attachmentSigns = 0
@@ -408,7 +412,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
 
   it("serves a genuine orphaned attachment to an organization admin", async () => {
     const attachmentId = `orphaned-serving-${randomUUID()}`
-    await insertAttachment(attachmentId, "deleted-project", "orphaned")
+    await insertAttachment(attachmentId, null, "orphaned")
     let signs = 0
     const result = await Effect.runPromise(
       Attachments.pipe(
@@ -452,12 +456,12 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
     const publishedAttachment = `published-attachment-${randomUUID()}`
     const hiddenAttachment = `hidden-attachment-${randomUUID()}`
     const orphanedAttachment = `orphaned-attachment-${randomUUID()}`
-    await insertAttachment(publishedAttachment, "published")
-    await insertAttachment(hiddenAttachment, "hidden")
-    await insertAttachment(orphanedAttachment, "deleted-project", "orphaned")
+    await insertAttachment(publishedAttachment, publishedId)
+    await insertAttachment(hiddenAttachment, hiddenId)
+    await insertAttachment(orphanedAttachment, null, "orphaned")
     await pool.query(
-      "insert into attachment_reference (attachment_id, org_slug, project_slug, ticket_id) values ($1, $2, 'published', 'T-1'), ($1, $2, 'hidden', 'T-2')",
-      [publishedAttachment, `visibility-${organizationId}`]
+      "insert into attachment_reference (attachment_id, project_id, ticket_id) values ($1, $2, 'T-1'), ($1, $3, 'T-2')",
+      [publishedAttachment, publishedId, hiddenId]
     )
 
     const result = await Effect.runPromise(
@@ -499,7 +503,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
 
   it("refuses to delete a hidden-project attachment from the organization library", async () => {
     const attachmentId = `hidden-delete-${randomUUID()}`
-    await insertAttachment(attachmentId, "hidden")
+    await insertAttachment(attachmentId, hiddenId)
     let deletedObjects = 0
     const result = await Effect.runPromise(
       Attachments.pipe(

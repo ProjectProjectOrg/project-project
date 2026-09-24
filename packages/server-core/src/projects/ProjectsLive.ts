@@ -76,6 +76,7 @@ import {
 import {
   Projects,
   type ProjectGithubIntegration,
+  type ProjectMembership,
   type ProjectsShape
 } from "./Projects"
 
@@ -139,6 +140,7 @@ export const ProjectsLive = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db
     const withProjectWriteLock = <A, E, R>(
+      orgSlug: string,
       slug: string,
       effect: Effect.Effect<A, E, R>
     ) =>
@@ -147,7 +149,7 @@ export const ProjectsLive = Layer.effect(
           Effect.gen(function* () {
             yield* db
               .execute(
-                sqlFragment`select slug from project_index where slug = ${slug} for update`
+                sqlFragment`select p.id from project_index p join organization o on o.id = p.organization_id where o.slug = ${orgSlug} and p.slug = ${slug} for update of p`
               )
               .pipe(Effect.orDie)
             return yield* effect
@@ -220,7 +222,10 @@ export const ProjectsLive = Layer.effect(
           Effect.orDie
         )
 
-    const findFreeSlug = (base: string): Effect.Effect<string> =>
+    const findFreeSlug = (
+      organizationId: string,
+      base: string
+    ): Effect.Effect<string> =>
       Effect.gen(function* () {
         const safeBase = base.length > 0 ? base : "project"
         for (let i = 0; i < MAX_SLUG_ATTEMPTS; i++) {
@@ -229,7 +234,11 @@ export const ProjectsLive = Layer.effect(
             .findFirst({
               columns: { slug: true },
               where: {
-                RAW: (table, _operators) => _operators.eq(table.slug, candidate)
+                RAW: (table, _operators) =>
+                  _operators.and(
+                    _operators.eq(table.organizationId, organizationId),
+                    _operators.eq(table.slug, candidate)
+                  )!
               }
             })
             .pipe(Effect.orDie)
@@ -599,7 +608,7 @@ export const ProjectsLive = Layer.effect(
 
     const requireMember = (orgSlug: string, userId: string, slug: string) =>
       requireMemberContext(orgSlug, userId, slug).pipe(
-        Effect.map(({ role }) => ({ role }))
+        Effect.map(({ role, indexRow }) => ({ role, projectId: indexRow.id }))
       )
 
     const requireRole = (
@@ -607,7 +616,7 @@ export const ProjectsLive = Layer.effect(
       userId: string,
       slug: string,
       allowed: ReadonlyArray<Role>
-    ): Effect.Effect<{ role: Role }, NotFound | Forbidden> =>
+    ): Effect.Effect<ProjectMembership, NotFound | Forbidden> =>
       Effect.gen(function* () {
         const ctx = yield* requireMember(orgSlug, userId, slug)
         if (!allowed.includes(ctx.role)) {
@@ -685,7 +694,7 @@ export const ProjectsLive = Layer.effect(
         { createdBy, projectName: input.name, projectKey: input.key },
         Effect.gen(function* () {
           const organizationId = yield* orgIdFromSlug(orgSlug)
-          const slug = yield* findFreeSlug(slugify(input.name))
+          const slug = yield* findFreeSlug(organizationId, slugify(input.name))
           const createdAt = yield* DateTime.nowAsDate
           const key = makeProjectKey(input.key)
           const identityRaw = deriveProjectIdentity(slug)
@@ -770,7 +779,7 @@ export const ProjectsLive = Layer.effect(
 
           const rollback = db
             .delete(projectIndex)
-            .where(eq(projectIndex.slug, slug))
+            .where(eq(projectIndex.id, row.id))
             .pipe(Effect.orDie)
 
           yield* syncFrontmatter(
@@ -873,8 +882,7 @@ export const ProjectsLive = Layer.effect(
               : (input.banner ?? null)
           if (input.banner !== undefined) {
             yield* replaceProjectImageReference(db, {
-              orgSlug,
-              projectSlug: slug,
+              projectId: indexRow.id,
               slot: "banner",
               attachmentId:
                 nextBanner?.type === "attachment"
@@ -892,14 +900,12 @@ export const ProjectsLive = Layer.effect(
             yield* db.transaction(() =>
               Effect.gen(function* () {
                 yield* replaceProjectImageReference(db, {
-                  orgSlug,
-                  projectSlug: slug,
+                  projectId: indexRow.id,
                   slot: "icon",
                   attachmentId: slots.icon
                 })
                 yield* replaceProjectImageReference(db, {
-                  orgSlug,
-                  projectSlug: slug,
+                  projectId: indexRow.id,
                   slot: "icon_source",
                   attachmentId: slots.iconSource
                 })
@@ -928,7 +934,7 @@ export const ProjectsLive = Layer.effect(
             yield* db
               .update(projectIndex)
               .set(dbPatch)
-              .where(eq(projectIndex.slug, slug))
+              .where(eq(projectIndex.id, indexRow.id))
               .pipe(Effect.orDie)
           }
 
@@ -965,7 +971,7 @@ export const ProjectsLive = Layer.effect(
             members,
             pendingMembers
           }
-        }).pipe((effect) => withProjectWriteLock(slug, effect))
+        }).pipe((effect) => withProjectWriteLock(orgSlug, slug, effect))
       )
 
     const updateSetup = (
@@ -1016,7 +1022,7 @@ export const ProjectsLive = Layer.effect(
             members,
             pendingMembers
           }
-        }).pipe((effect) => withProjectWriteLock(slug, effect))
+        }).pipe((effect) => withProjectWriteLock(orgSlug, slug, effect))
       )
 
     const remove = (
@@ -1029,11 +1035,13 @@ export const ProjectsLive = Layer.effect(
         orgSlug,
         { slug, userId },
         Effect.gen(function* () {
-          yield* requireRole(orgSlug, userId, slug, ["pm"])
+          const { projectId } = yield* requireRole(orgSlug, userId, slug, [
+            "pm"
+          ])
           yield* projectDocs.removeDir(orgSlug, slug)
           yield* db
             .delete(projectIndex)
-            .where(eq(projectIndex.slug, slug))
+            .where(eq(projectIndex.id, projectId))
             .pipe(Effect.orDie)
         })
       )
@@ -1078,7 +1086,7 @@ export const ProjectsLive = Layer.effect(
           members,
           pendingMembers
         }
-      }).pipe((effect) => withProjectWriteLock(slug, effect))
+      }).pipe((effect) => withProjectWriteLock(orgSlug, slug, effect))
 
     const unassignUserFromActiveTickets = (
       orgSlug: string,
@@ -1421,6 +1429,7 @@ export const ProjectsLive = Layer.effect(
           }
 
           yield* withProjectWriteLock(
+            orgSlug,
             slug,
             Effect.gen(function* () {
               const currentRole = yield* memberRole(indexRow.id, target.id)
@@ -1533,6 +1542,7 @@ export const ProjectsLive = Layer.effect(
           yield* requireRole(orgSlug, userId, slug, ["pm"])
           const indexRow = yield* getIndexRowInOrg(orgSlug, slug)
           yield* withProjectWriteLock(
+            orgSlug,
             slug,
             Effect.gen(function* () {
               const currentRole = yield* memberRole(indexRow.id, targetUserId)
@@ -1580,6 +1590,7 @@ export const ProjectsLive = Layer.effect(
           if (currentRole === null) return yield* new NotFound()
           yield* requireAnotherPm(indexRow, currentRole)
           const removed = yield* withProjectWriteLock(
+            orgSlug,
             slug,
             Effect.gen(function* () {
               const lockedRole = yield* memberRole(indexRow.id, targetUserId)

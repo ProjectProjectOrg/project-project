@@ -308,7 +308,8 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         Layer.mergeAll(
           ticketDocs,
           Layer.mock(Projects, {
-            requireMember: () => Effect.succeed({ role: "developer" as const })
+            requireMember: () =>
+              Effect.succeed({ role: "developer" as const, projectId })
           }),
           Layer.mock(TicketIndex, {}),
           Layer.mock(Users, {
@@ -341,8 +342,8 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       yield* Effect.addFinalizer(() =>
         withClient(async (client) => {
           await client.query(
-            "delete from comment_index where project_slug = $1",
-            [projectSlug]
+            "delete from comment_index where project_id = $1",
+            [projectId]
           )
           await client.query("delete from organization where id = $1", [
             organizationId
@@ -369,9 +370,9 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           `select id, origin, author_kind, author_id, jira_display_name,
                     jira_account_id, created_at, edited_at
              from comment_index
-             where project_slug = $1 and ticket_id = $2
+             where project_id = $1 and ticket_id = $2
              order by created_at`,
-          [projectSlug, rebuildDocument.id]
+          [projectId, rebuildDocument.id]
         )
       )
       expect(rows.rows).toEqual([
@@ -1169,9 +1170,9 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
         )
         yield* withClient((client) =>
           client.query(
-            `insert into comment_index (id, project_slug, ticket_id, origin, author_kind, author_id)
+            `insert into comment_index (id, project_id, ticket_id, origin, author_kind, author_id)
                values ($1, $2, 'BE-2', 'native', 'user', $3)`,
-            [`comment-${suffix}`, betaSlug, viewerId]
+            [`comment-${suffix}`, beta.projectId, viewerId]
           )
         )
 

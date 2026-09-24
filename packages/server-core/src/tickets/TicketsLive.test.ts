@@ -66,7 +66,8 @@ const FakeProjects = Layer.succeed(Projects, {
   update: () => unexpected("Projects.update"),
   updateSetup: () => unexpected("Projects.updateSetup"),
   remove: () => unexpected("Projects.remove"),
-  requireMember: () => Effect.succeed({ role: "developer" as const }),
+  requireMember: () =>
+    Effect.succeed({ role: "developer" as const, projectId: "project-1" }),
   requireRole: () => unexpected("Projects.requireRole"),
   addMember: () => unexpected("Projects.addMember"),
   updateMember: () => unexpected("Projects.updateMember"),

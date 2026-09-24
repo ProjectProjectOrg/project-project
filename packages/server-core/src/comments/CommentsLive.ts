@@ -127,13 +127,13 @@ export const CommentsLive = Layer.effect(
       NotFound | MarkdownError | MalformedTicketDocument
     > =>
       Effect.gen(function* () {
-        yield* ensureMember(orgSlug, userId, slug)
+        const { projectId } = yield* ensureMember(orgSlug, userId, slug)
         const rows = yield* db.query.commentIndex
           .findMany({
             where: {
               RAW: (table, _operators) =>
                 _operators.and(
-                  _operators.eq(table.projectSlug, slug),
+                  _operators.eq(table.projectId, projectId),
                   _operators.eq(table.ticketId, ticketId)
                 )!
             },
@@ -214,7 +214,7 @@ export const CommentsLive = Layer.effect(
       | MalformedTicketDocument
     > =>
       Effect.gen(function* () {
-        yield* ensureMember(orgSlug, userId, slug)
+        const { projectId } = yield* ensureMember(orgSlug, userId, slug)
         const validation = validateCommentBody(input.body)
         if (!validation.ok) {
           return yield* new InvalidCommentBody({ reason: validation.reason })
@@ -227,7 +227,7 @@ export const CommentsLive = Layer.effect(
           .insert(commentIndex)
           .values({
             id,
-            projectSlug: slug,
+            projectId,
             ticketId,
             authorId: userId,
             authorKind: "user",
@@ -281,7 +281,7 @@ export const CommentsLive = Layer.effect(
       input: ReadonlyArray<HistoricalCommentInput>
     ) =>
       Effect.gen(function* () {
-        yield* ensureMember(orgSlug, userId, slug)
+        const { projectId } = yield* ensureMember(orgSlug, userId, slug)
         yield* Effect.forEach(input, (comment) =>
           Effect.gen(function* () {
             if (!Schema.is(HistoricalCommentAuthor)(comment.author)) {
@@ -335,7 +335,7 @@ export const CommentsLive = Layer.effect(
           .values(
             blocks.map((block) => ({
               id: block.id,
-              projectSlug: slug,
+              projectId,
               ticketId,
               origin: "jira" as const,
               authorKind: block.author.kind,
@@ -381,7 +381,7 @@ export const CommentsLive = Layer.effect(
       })
 
     const requireAuthor = (
-      slug: string,
+      projectId: string,
       ticketId: string,
       commentId: string,
       userId: string
@@ -396,7 +396,7 @@ export const CommentsLive = Layer.effect(
               RAW: (table, _operators) =>
                 _operators.and(
                   _operators.eq(table.id, commentId),
-                  _operators.eq(table.projectSlug, slug),
+                  _operators.eq(table.projectId, projectId),
                   _operators.eq(table.ticketId, ticketId)
                 )!
             }
@@ -426,12 +426,17 @@ export const CommentsLive = Layer.effect(
       | MalformedTicketDocument
     > =>
       Effect.gen(function* () {
-        yield* ensureMember(orgSlug, userId, slug)
+        const { projectId } = yield* ensureMember(orgSlug, userId, slug)
         const validation = validateCommentBody(input.body)
         if (!validation.ok) {
           return yield* new InvalidCommentBody({ reason: validation.reason })
         }
-        const meta = yield* requireAuthor(slug, ticketId, commentId, userId)
+        const meta = yield* requireAuthor(
+          projectId,
+          ticketId,
+          commentId,
+          userId
+        )
         yield* validateBody(orgSlug, userId, slug, input.body)
         const editedAt = yield* DateTime.nowAsDate
         yield* updateBlocks(
@@ -476,8 +481,8 @@ export const CommentsLive = Layer.effect(
       NotFound | Forbidden | MarkdownError | MalformedTicketDocument
     > =>
       Effect.gen(function* () {
-        yield* ensureMember(orgSlug, userId, slug)
-        yield* requireAuthor(slug, ticketId, commentId, userId)
+        const { projectId } = yield* ensureMember(orgSlug, userId, slug)
+        yield* requireAuthor(projectId, ticketId, commentId, userId)
         yield* updateBlocks(
           orgSlug,
           slug,

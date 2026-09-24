@@ -72,8 +72,8 @@ export type OrgIntegrationConfig = OrgEverhourConfig | Record<string, never>
 export const projectIndex = pgTable(
   "project_index",
   {
-    id: uuid("id").defaultRandom().notNull().unique(),
-    slug: text("slug").primaryKey(),
+    id: uuid("id").defaultRandom().primaryKey(),
+    slug: text("slug").notNull(),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, {
@@ -101,7 +101,10 @@ export const projectIndex = pgTable(
       table.organizationId,
       table.key
     ),
-    uniqueIndex("project_index_slug_id_uidx").on(table.slug, table.id)
+    uniqueIndex("project_index_organization_slug_uidx").on(
+      table.organizationId,
+      table.slug
+    )
   ]
 )
 
@@ -571,9 +574,7 @@ export const ticketIndex = pgTable(
   "ticket_index",
   {
     organizationId: text("organization_id").notNull(),
-    orgSlug: text("org_slug").notNull(),
     projectId: uuid("project_id").notNull(),
-    projectSlug: text("project_slug").notNull(),
     ticketId: text("ticket_id").notNull(),
     title: text("title").notNull(),
     status: text("status").notNull(),
@@ -611,11 +612,6 @@ export const ticketIndex = pgTable(
       columns: [t.projectId, t.ticketId]
     }),
     foreignKey({
-      name: "ticket_index_project_slug_project_id_fkey",
-      columns: [t.projectSlug, t.projectId],
-      foreignColumns: [projectIndex.slug, projectIndex.id]
-    }).onDelete("cascade"),
-    foreignKey({
       name: "ticket_index_project_id_organization_id_fkey",
       columns: [t.projectId, t.organizationId],
       foreignColumns: [projectIndex.id, projectIndex.organizationId]
@@ -631,7 +627,9 @@ export const commentIndex = pgTable(
   "comment_index",
   {
     id: text("id").primaryKey(),
-    projectSlug: text("project_slug").notNull(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projectIndex.id, { onDelete: "cascade" }),
     ticketId: text("ticket_id").notNull(),
     origin: text("origin", { enum: ["native", "jira"] }).notNull(),
     authorKind: text("author_kind", { enum: ["user", "jira"] }).notNull(),
@@ -662,12 +660,8 @@ export const commentIndex = pgTable(
       "comment_index_origin_check",
       sql`${t.origin} = 'jira' or (${t.origin} = 'native' and ${t.authorKind} = 'user')`
     ),
-    index("comment_index_ticket_idx").on(
-      t.projectSlug,
-      t.ticketId,
-      t.createdAt
-    ),
-    index("comment_index_author_idx").on(t.authorId, t.projectSlug, t.ticketId)
+    index("comment_index_ticket_idx").on(t.projectId, t.ticketId, t.createdAt),
+    index("comment_index_author_idx").on(t.authorId, t.projectId, t.ticketId)
   ]
 )
 
@@ -679,7 +673,9 @@ export const attachmentIndex = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     orgSlug: text("org_slug").notNull(),
-    projectSlug: text("project_slug").notNull(),
+    projectId: uuid("project_id").references(() => projectIndex.id, {
+      onDelete: "set null"
+    }),
     ticketId: text("ticket_id"),
     objectKey: text("object_key").notNull(),
     filename: text("filename").notNull(),
@@ -700,11 +696,7 @@ export const attachmentIndex = pgTable(
     orphanedAt: timestamp("orphaned_at", { withTimezone: true, precision: 3 })
   },
   (t) => [
-    index("attachment_index_ticket_idx").on(
-      t.orgSlug,
-      t.projectSlug,
-      t.ticketId
-    ),
+    index("attachment_index_ticket_idx").on(t.projectId, t.ticketId),
     index("attachment_index_status_idx").on(t.status),
     index("attachment_index_org_idx").on(t.organizationId),
     index("attachment_index_org_created_idx").on(t.orgSlug, t.createdAt),
@@ -721,17 +713,16 @@ export const attachmentIndex = pgTable(
 export const projectImageReference = pgTable(
   "project_image_reference",
   {
-    projectSlug: text("project_slug")
+    projectId: uuid("project_id")
       .notNull()
-      .references(() => projectIndex.slug, { onDelete: "cascade" }),
-    orgSlug: text("org_slug").notNull(),
+      .references(() => projectIndex.id, { onDelete: "cascade" }),
     attachmentId: text("attachment_id")
       .notNull()
       .references(() => attachmentIndex.id, { onDelete: "restrict" }),
     slot: text("slot").notNull()
   },
   (t) => [
-    primaryKey({ columns: [t.projectSlug, t.slot] }),
+    primaryKey({ columns: [t.projectId, t.slot] }),
     index("project_image_reference_attachment_idx").on(t.attachmentId)
   ]
 )
@@ -742,20 +733,17 @@ export const attachmentReference = pgTable(
     attachmentId: text("attachment_id")
       .notNull()
       .references(() => attachmentIndex.id, { onDelete: "cascade" }),
-    orgSlug: text("org_slug").notNull(),
-    projectSlug: text("project_slug").notNull(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projectIndex.id, { onDelete: "cascade" }),
     ticketId: text("ticket_id").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, precision: 3 })
       .notNull()
       .defaultNow()
   },
   (t) => [
-    primaryKey({ columns: [t.attachmentId, t.projectSlug, t.ticketId] }),
-    index("attachment_reference_ticket_idx").on(
-      t.orgSlug,
-      t.projectSlug,
-      t.ticketId
-    )
+    primaryKey({ columns: [t.attachmentId, t.projectId, t.ticketId] }),
+    index("attachment_reference_ticket_idx").on(t.projectId, t.ticketId)
   ]
 )
 
@@ -971,10 +959,9 @@ export const figmaLinkIndex = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
-    orgSlug: text("org_slug").notNull(),
-    projectSlug: text("project_slug")
+    projectId: uuid("project_id")
       .notNull()
-      .references(() => projectIndex.slug, { onDelete: "cascade" }),
+      .references(() => projectIndex.id, { onDelete: "cascade" }),
     fileKey: text("file_key").notNull(),
     nodeId: text("node_id"),
     kind: text("kind", {
@@ -993,10 +980,10 @@ export const figmaLinkIndex = pgTable(
   },
   (t) => [
     unique("figma_link_index_node_uidx")
-      .on(t.projectSlug, t.fileKey, t.nodeId)
+      .on(t.projectId, t.fileKey, t.nodeId)
       .nullsNotDistinct(),
     index("figma_link_index_org_idx").on(t.organizationId),
-    index("figma_link_index_file_idx").on(t.projectSlug, t.fileKey)
+    index("figma_link_index_file_idx").on(t.projectId, t.fileKey)
   ]
 )
 
@@ -1006,8 +993,9 @@ export const figmaReference = pgTable(
     linkId: text("link_id")
       .notNull()
       .references(() => figmaLinkIndex.id, { onDelete: "cascade" }),
-    orgSlug: text("org_slug").notNull(),
-    projectSlug: text("project_slug").notNull(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projectIndex.id, { onDelete: "cascade" }),
     ticketId: text("ticket_id").notNull(),
     devResourceId: text("dev_resource_id"),
     createdAt: timestamp("created_at", { withTimezone: true, precision: 3 })
@@ -1015,8 +1003,8 @@ export const figmaReference = pgTable(
       .defaultNow()
   },
   (t) => [
-    primaryKey({ columns: [t.linkId, t.projectSlug, t.ticketId] }),
-    index("figma_reference_ticket_idx").on(t.orgSlug, t.projectSlug, t.ticketId)
+    primaryKey({ columns: [t.linkId, t.projectId, t.ticketId] }),
+    index("figma_reference_ticket_idx").on(t.projectId, t.ticketId)
   ]
 )
 
