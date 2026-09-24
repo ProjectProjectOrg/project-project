@@ -264,6 +264,9 @@ describe("LibraryDocs (real fs)", () => {
 
       expect(layer.blocks).toEqual([])
       expect(layer.templates).toEqual([])
+
+      expect(yield* docs.hasFile("acme", null, "blocks", "broken")).toBe(true)
+      expect(yield* docs.hasFile("acme", null, "blocks", "missing")).toBe(false)
     }).pipe(Effect.provide(TestLayer))
   )
 

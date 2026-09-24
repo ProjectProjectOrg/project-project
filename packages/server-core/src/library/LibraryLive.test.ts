@@ -48,6 +48,7 @@ const PROJECT_ROLES: Readonly<Record<string, Role>> = {
 
 type World = Readonly<{
   layers: Map<string, LibraryLayer>
+  unreadable: Set<string>
   reads: Array<string>
   defaults: { current: PartialTemplateDefaults }
   orgDefaults: { current: PartialTemplateDefaults }
@@ -115,6 +116,20 @@ const fakeLibraryDocs = (world: World): LibraryDocsShape => ({
     Effect.sync(() => {
       world.orgDefaults.current = defaults
     }),
+  hasFile: (orgSlug, projectSlug, kind, key) =>
+    Effect.sync(() => {
+      const layer =
+        world.layers.get(scopeKey(orgSlug, projectSlug)) ?? EMPTY_LAYER
+      const [definitions, hidden] =
+        kind === "blocks"
+          ? [layer.blocks, layer.hiddenBlocks]
+          : [layer.templates, layer.hiddenTemplates]
+      return (
+        world.unreadable.has(`${scopeKey(orgSlug, projectSlug)}/${key}`) ||
+        hidden.includes(key) ||
+        definitions.some((definition) => definition.key === key)
+      )
+    }),
   remove: (orgSlug, projectSlug, kind, key) =>
     Effect.sync(() => {
       const layer =
@@ -166,6 +181,7 @@ const fakeDb = Layer.succeed(Db, {
 
 const makeWorld = (): World => ({
   layers: new Map(),
+  unreadable: new Set(),
   reads: [],
   defaults: { current: {} },
   orgDefaults: { current: {} }
@@ -572,6 +588,32 @@ describe("keys per layer", () => {
       })
     )
   )
+
+  it.effect("keeps the key of an unreadable file taken", () => {
+    const world = makeWorld()
+    world.unreadable.add("acme//context")
+    world.unreadable.add("acme/web/context")
+    return run(
+      Effect.gen(function* () {
+        const library = yield* Library
+        const created = yield* library
+          .createBlock("acme", "org-admin", null, blockInput())
+          .pipe(Effect.flip)
+        expect(created).toMatchObject({ _tag: "Conflict", reason: "key_taken" })
+
+        updateLayer(world, "acme", null, (layer) => ({
+          ...layer,
+          blocks: [blockInput()]
+        }))
+        const hidden = yield* library
+          .hideBlock("acme", "project-admin", "web", "context")
+          .pipe(Effect.flip)
+        expect(hidden).toMatchObject({ _tag: "Conflict", reason: "customized" })
+        expect(world.layers.get("acme/web")).toBeUndefined()
+      }),
+      world
+    )
+  })
 
   it.effect("refuses to hide a key this layer customized", () =>
     run(
