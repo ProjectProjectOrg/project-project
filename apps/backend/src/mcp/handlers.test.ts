@@ -31,6 +31,8 @@ import {
 import { Tickets, type TicketsShape } from "@pp/server-core/tickets/Tickets"
 import { Users } from "@pp/server-core/users/Users"
 import {
+  blockLookupFor,
+  expandTemplate,
   formatTicketBlock,
   Library as LibrarySchema,
   McpTools,
@@ -42,7 +44,8 @@ import {
   SprintCompletedImmutable,
   TicketId,
   type TicketListQuery,
-  type User
+  type User,
+  Validation
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
@@ -947,6 +950,157 @@ describe("MCP handlers → write tools", () => {
   )
 
   it.effect.skip("placeholder2", () => Effect.void)
+})
+
+describe("MCP handlers → update_ticket with a template", () => {
+  const expandedBody = expandTemplate(
+    bugReportTemplate,
+    blockLookupFor(fakeLibrary)
+  )
+  const state: { currentBody: string; update?: any } = { currentBody: "" }
+
+  const TemplateTicketsStub = Layer.succeed(Tickets, {
+    get: (_o: any, _u: any, _s: any, _id: any) =>
+      Effect.succeed({
+        ...fakeTicket,
+        creator: null,
+        updater: null,
+        body: state.currentBody
+      }),
+    create: (_o: any, _u: any, _s: any, input: any) =>
+      Effect.succeed({
+        ...fakeTicket,
+        creator: null,
+        updater: null,
+        title: input.title,
+        body: input.body ?? ""
+      }),
+    update: (_o: any, _u: any, _s: any, _id: any, input: any) => {
+      state.update = input
+      return Effect.succeed({
+        ticket: {
+          ...fakeTicket,
+          creator: null,
+          updater: null,
+          body: input.body ?? state.currentBody
+        },
+        orderKey: null
+      })
+    }
+  } as unknown as TicketsShape)
+
+  const TemplateLibraryStub = Layer.succeed(Library, {
+    projectLibrary: () => Effect.succeed(fakeLibrary),
+    expandForCreate: (_o: string, _s: string, key: string) =>
+      key === "bug-report"
+        ? Effect.succeed({
+            body: expandedBody,
+            type: "bug",
+            priority: "high",
+            tags: ["from-template"]
+          })
+        : Effect.fail(new Validation({ reason: `unknown_template:${key}` }))
+  } as unknown as LibraryShape)
+
+  const TemplateTestLayer = Layer.mergeAll(
+    TestLayer,
+    TemplateTicketsStub,
+    TemplateLibraryStub
+  )
+
+  const updateWith = (currentBody: string, input: Record<string, unknown>) =>
+    Effect.gen(function* () {
+      state.currentBody = currentBody
+      state.update = undefined
+      const registered = register(yield* Effect.context<HandlerServices>())
+      return yield* withFakeUser(() =>
+        registered.get("update_ticket")!({
+          orgSlug: "acme",
+          projectSlug: "demo",
+          id: "T-1",
+          ...input
+        })
+      )
+    })
+
+  it.effect("expands the template into an empty description, body only", () =>
+    Effect.gen(function* () {
+      const result = yield* updateWith("", { template: "bug-report" })
+
+      expect(result.isError).toBeUndefined()
+      expect(state.update).toEqual({ body: expandedBody })
+      const payload = parseJson(result.content[0].text)
+      expect(payload.blocks).toEqual([
+        expect.objectContaining({ type: "acceptance-criteria", sync: false })
+      ])
+    }).pipe(Effect.provide(TemplateTestLayer))
+  )
+
+  it.effect("replaces a description that is still an untouched template", () =>
+    Effect.gen(function* () {
+      const result = yield* updateWith(expandedBody, {
+        template: "bug-report",
+        priority: "low"
+      })
+
+      expect(result.isError).toBeUndefined()
+      expect(state.update).toEqual({ body: expandedBody, priority: "low" })
+    }).pipe(Effect.provide(TemplateTestLayer))
+  )
+
+  it.effect("refuses to overwrite a description with written content", () =>
+    Effect.gen(function* () {
+      const result = yield* updateWith("Some context worth keeping.", {
+        template: "bug-report"
+      })
+
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toContain("list_templates")
+      expect(result.content[0].text).toContain("as body")
+      expect(state.update).toBeUndefined()
+    }).pipe(Effect.provide(TemplateTestLayer))
+  )
+
+  it.effect("surfaces an unknown template key", () =>
+    Effect.gen(function* () {
+      const result = yield* updateWith("", { template: "nope" })
+
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toContain('Unknown template "nope"')
+      expect(state.update).toBeUndefined()
+    }).pipe(Effect.provide(TemplateTestLayer))
+  )
+
+  it.effect("lets an explicit body win over the template", () =>
+    Effect.gen(function* () {
+      const result = yield* updateWith("Some context worth keeping.", {
+        template: "bug-report",
+        body: "Filled in by hand."
+      })
+
+      expect(result.isError).toBeUndefined()
+      expect(state.update).toEqual({ body: "Filled in by hand." })
+    }).pipe(Effect.provide(TemplateTestLayer))
+  )
+
+  it.effect("create_ticket returns the blocks breakdown", () =>
+    Effect.gen(function* () {
+      const registered = register(yield* Effect.context<HandlerServices>())
+      const result = yield* withFakeUser(() =>
+        registered.get("create_ticket")!({
+          orgSlug: "acme",
+          projectSlug: "demo",
+          title: "with blocks",
+          body: expandedBody
+        })
+      )
+
+      expect(result.isError).toBeUndefined()
+      expect(parseJson(result.content[0].text).blocks).toEqual([
+        expect.objectContaining({ type: "acceptance-criteria", sync: false })
+      ])
+    }).pipe(Effect.provide(TemplateTestLayer))
+  )
 })
 
 describe("MCP handlers → add_tickets_to_group", () => {

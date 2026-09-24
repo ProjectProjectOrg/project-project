@@ -20,8 +20,8 @@ export const McpLive = McpServer.layerHttp({
     "The upload response contains committed attachment metadata; use update_ticket to place the permanent URL in the description. " +
     "Ticket bodies can hold named blocks — reusable, structured sections such as acceptance criteria or a definition of done — " +
     'written as <block type="key">, a blank line, the content, a blank line, then </block>. Call list_blocks and list_templates ' +
-    "to see what a project defines before writing a ticket by hand, and prefer create_ticket's `template` parameter over hand-rolled " +
-    "blocks when a template fits. When filling in a template or an existing ticket, fill blocks in rather than replacing them: keep " +
+    "to see what a project defines before writing a ticket by hand, and prefer the `template` parameter of create_ticket (or of " +
+    "update_ticket, for a ticket whose description is still empty) over hand-rolled blocks when a template fits. When filling in a template or an existing ticket, fill blocks in rather than replacing them: keep " +
     "the <block> tags and headings, and replace each trailing {{hint}} placeholder with real content or leave the line empty. " +
     'A block written with the trailing sync attribute (<block type="key" sync>) is a shared, managed definition — leave its text ' +
     "alone and only tick or untick its checkboxes. Malformed block markup in create_ticket/update_ticket bodies is rejected with a " +

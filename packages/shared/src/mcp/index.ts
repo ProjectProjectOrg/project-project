@@ -70,6 +70,19 @@ export * from "./DocFile"
 export * from "./MeOutput"
 export * from "./RebuildTicketIndexOutput"
 
+const TicketDetailWithBlocks = Schema.Struct({
+  ...TicketDetail.fields,
+  blocks: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        type: Schema.String,
+        sync: Schema.Boolean,
+        content: Schema.String
+      })
+    )
+  )
+})
+
 const BLOCK_FORMAT_EXAMPLE =
   '<block type="acceptance-criteria">\n\n' +
   "## Acceptance criteria\n\n" +
@@ -206,18 +219,7 @@ export const McpTools = {
       "`body` — same content, already split out by `type` — so you can " +
       "inspect or diff a specific section without re-parsing the markdown.",
     input: Schema.Struct({ orgSlug: Slug, projectSlug: Slug, id: TicketId }),
-    output: Schema.Struct({
-      ...TicketDetail.fields,
-      blocks: Schema.optional(
-        Schema.Array(
-          Schema.Struct({
-            type: Schema.String,
-            sync: Schema.Boolean,
-            content: Schema.String
-          })
-        )
-      )
-    }),
+    output: TicketDetailWithBlocks,
     errors: [Unauthorized, NotFound] as const
   },
   list_statuses: {
@@ -375,13 +377,14 @@ export const McpTools = {
       "member's id from `list_members`) and " +
       "`[Label](mention:ticket/<T-N>)` for tickets (use an existing ticket " +
       "id in the same project). Malformed or unknown mentions are rejected " +
-      "with `MentionInvalid`. Returns the full ticket including the body.",
+      "with `MentionInvalid`. Returns the full ticket including the body, " +
+      "with the same `blocks` breakdown as `get_ticket`.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
       ...CreateTicketInput.fields
     }),
-    output: TicketDetail,
+    output: TicketDetailWithBlocks,
     errors: [Unauthorized, NotFound, Validation, MentionInvalid] as const
   },
   update_ticket: {
@@ -398,21 +401,31 @@ export const McpTools = {
       "read the current body first (`get_ticket`) and edit that, rather " +
       "than writing one from scratch, so existing content is preserved. " +
       "It may contain named blocks; fill blocks in rather than replacing " +
-      `them — see below for the format.\n\n${BLOCK_FORMAT_GUIDE}\n\nA ` +
+      "them — see below for the format. `template` is an optional key from " +
+      "`list_templates` that only shapes the body: type, priority and tags " +
+      "change only when passed explicitly. Without `body`, the server " +
+      "expands the template (hints stripped) into the description, but " +
+      "only when the description is empty or still an untouched template; " +
+      "otherwise it fails with `Validation`, and you fill in the " +
+      "template's body from `list_templates` and pass it as `body`. When " +
+      "both are given, `body` wins." +
+      `\n\n${BLOCK_FORMAT_GUIDE}\n\nA ` +
       "malformed `<block>` (unclosed, nested, or an invalid type) fails " +
       "with `Validation` describing the offending line. Mentions " +
       "use `[Label](mention:user/<userId>)` and " +
       "`[Label](mention:ticket/<T-N>)`; malformed or unknown mentions are " +
       "rejected with `MentionInvalid`. Use `attach_branch` to associate a " +
       "branch — `branch` is not editable through this tool. Returns the " +
-      "full ticket after the update.",
+      "full ticket after the update, with the same `blocks` breakdown as " +
+      "`get_ticket`.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
       id: TicketId,
-      ...UpdateTicketInput.fields
+      ...UpdateTicketInput.fields,
+      template: Schema.optional(Schema.NullOr(TemplateKey))
     }),
-    output: TicketDetail,
+    output: TicketDetailWithBlocks,
     errors: [Unauthorized, NotFound, Validation, MentionInvalid] as const
   },
   prepare_ticket_attachment: {
