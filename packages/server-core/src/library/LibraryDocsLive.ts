@@ -216,6 +216,22 @@ export const LibraryDocsLive = Layer.effect(
         markdown.writeLibraryFile(orgSlug, projectSlug, kind, key, TOMBSTONE)
       )
 
+    const hasFile = (
+      orgSlug: string,
+      projectSlug: string | null,
+      kind: LibraryKind,
+      key: string
+    ): Effect.Effect<boolean, MarkdownError> =>
+      withLibraryDocTelemetry(
+        "hasFile",
+        orgSlug,
+        projectSlug,
+        { kind, key },
+        markdown
+          .listLibraryFiles(orgSlug, projectSlug, kind)
+          .pipe(Effect.map((files) => files.some((file) => file.key === key)))
+      )
+
     const remove = (
       orgSlug: string,
       projectSlug: string | null,
@@ -234,6 +250,7 @@ export const LibraryDocsLive = Layer.effect(
       readLayer,
       writeBlock,
       writeTombstone,
+      hasFile,
       remove
     } satisfies LibraryDocsShape
   })

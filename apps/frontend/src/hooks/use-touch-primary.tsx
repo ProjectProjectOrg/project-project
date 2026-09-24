@@ -1,12 +1,8 @@
 "use client"
 
-// Adapted from Lina by SameerJS6 (https://lina.sameer.sh) — use-has-primary-touch.
-// Detects touch-primary devices (coarse pointer + touch points), updating live
-// on pointer-mode and media-query changes. Returns false on the server and the
-// first client render, so the non-touch branch is the hydration-stable default.
-
 import { useEffect, useState } from "react"
 
+// Adapted from Lina by SameerJS6 (https://lina.sameer.sh), use-has-primary-touch.
 export function useTouchPrimary() {
   const [isTouchPrimary, setIsTouchPrimary] = useState(false)
 
