@@ -14,20 +14,15 @@ import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import * as Tickets from "@pp/server-core/tickets/Tickets"
 import * as Users from "@pp/server-core/users/Users"
-import {
-  CurrentUser,
-  McpTools,
-  NotFound,
-  Org,
-  OrgStorageStatus,
-  User
-} from "@pp/shared"
+import { McpTools, NotFound, Org, OrgStorageStatus, User } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import { describe, expect } from "vitest"
 
 import { handlers } from "./handlers"
+import { McpRequestUser } from "./McpRequestUser"
 
 const user = Schema.decodeSync(User)({
   id: "user-1",
@@ -92,7 +87,7 @@ const fixture = (
     []
   const layer = Layer.mergeAll(
     unused,
-    Layer.succeed(CurrentUser, user),
+    Layer.succeed(McpRequestUser, Option.some(user)),
     Layer.mock(BetterAuth.BetterAuth, {
       getOrganization: (userId, orgSlug) => {
         calls.push({ operation: "organization", userId, orgSlug })

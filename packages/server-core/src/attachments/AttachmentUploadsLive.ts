@@ -85,7 +85,7 @@ export const AttachmentUploadsLive = Layer.effect(
     const prepare: AttachmentUploads.AttachmentUploads["Service"]["prepare"] =
       Effect.fn("AttachmentUploads.prepare")(function* (ticket, userId, input) {
         yield* requireTicket(ticket, userId)
-        const baseUrl = yield* Config.string("BETTER_AUTH_URL").pipe(
+        const baseUrl = yield* Config.String("BETTER_AUTH_URL").pipe(
           Config.withDefault("http://localhost:5173"),
           Effect.mapError(() => new StorageConfigMissing())
         )

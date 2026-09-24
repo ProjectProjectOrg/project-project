@@ -7,7 +7,7 @@ import { Db } from "./Db"
 import { relations } from "./schema"
 
 export const PgLive = PgClient.layerConfig({
-  url: Config.redacted("DATABASE_URL")
+  url: Config.Redacted("DATABASE_URL")
 })
 
 export const DbLive = Layer.effect(Db, makeWithDefaults({ relations }))

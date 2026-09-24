@@ -303,7 +303,7 @@ it.effect("deleting a ticket removes its markdown file from disk", () =>
     const tickets = yield* Tickets
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const root = yield* Config.string("PROJECTS_DIR")
+    const root = yield* Config.String("PROJECTS_DIR")
 
     const created = yield* tickets.quickCreate("org", "user-1", "p", {
       title: "first"
