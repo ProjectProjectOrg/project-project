@@ -20,7 +20,6 @@ import {
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString,
-  CHECK_LIST,
   TRANSFORMERS
 } from "@lexical/markdown"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
@@ -51,6 +50,10 @@ import { AttachmentExtension } from "./Lexical/AttachmentExtension"
 import { AttachmentsPlugin } from "./Lexical/AttachmentsPlugin"
 import { ATTACHMENT_TRANSFORMER } from "./Lexical/attachmentTransformer"
 import { ChecklistClickExtension } from "./Lexical/checklistClickExtension"
+import {
+  ChecklistShortcutExtension,
+  ESCAPED_CHECK_LIST
+} from "./Lexical/checklistMarkdown"
 import { FigmaExtension } from "./Lexical/FigmaExtension"
 import { FigmaPlugin } from "./Lexical/FigmaPlugin"
 import { FIGMA_TRANSFORMER } from "./Lexical/figmaTransformer"
@@ -74,7 +77,7 @@ import { createTicketBlockTransformer } from "./Lexical/ticketBlockTransformer"
 
 const INLINE_AND_BLOCK_TRANSFORMERS = [
   MENTION_TRANSFORMER,
-  CHECK_LIST,
+  ESCAPED_CHECK_LIST,
   HORIZONTAL_RULE,
   PAPER_TRANSFORMER,
   FIGMA_TRANSFORMER,
@@ -379,6 +382,7 @@ export function LexicalEditor({
         ListExtension,
         CheckListExtension,
         ChecklistClickExtension,
+        ChecklistShortcutExtension,
         ListTabExtension,
         LinkExtension,
         configExtension(ClickableLinkExtension, {
