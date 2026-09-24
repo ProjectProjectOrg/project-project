@@ -62,6 +62,7 @@ function Trigger({
   if (state !== "idle") return null
   return (
     <motion.div
+      className="flex"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={transitions.fade}
