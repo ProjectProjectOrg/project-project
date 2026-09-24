@@ -615,6 +615,22 @@ describe("keys per layer", () => {
     )
   })
 
+  it.effect("keeps the key of an unreadable template file taken", () => {
+    const world = makeWorld()
+    world.unreadable.add("acme/web/incident")
+    return run(
+      Effect.gen(function* () {
+        const library = yield* Library
+        const created = yield* library
+          .createTemplate("acme", "project-admin", "web", templateInput())
+          .pipe(Effect.flip)
+        expect(created).toMatchObject({ _tag: "Conflict", reason: "key_taken" })
+        expect(world.layers.get("acme/web")).toBeUndefined()
+      }),
+      world
+    )
+  })
+
   it.effect("refuses to hide a key this layer customized", () =>
     run(
       Effect.gen(function* () {
