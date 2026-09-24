@@ -15,7 +15,7 @@ export function TicketPageShell({
   children: ReactNode
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
+    <div className="ticket-page mx-auto flex w-full max-w-6xl flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <BackButton fallback={back} />
         {actions && <div className="flex items-center gap-2">{actions}</div>}

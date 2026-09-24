@@ -1,6 +1,8 @@
 import {
+  advanceFence,
   attachmentSrc,
   attachmentViewParams,
+  normalizeLineEndings,
   parseAttachmentUrl,
   parseMentionHref,
   parseTicketBlocks
@@ -8,7 +10,9 @@ import {
 import {
   Children,
   cloneElement,
+  createContext,
   isValidElement,
+  useContext,
   useId,
   type ReactNode
 } from "react"
@@ -20,11 +24,25 @@ import remarkGfm from "remark-gfm"
 
 import { AttachmentChip } from "@/components/AttachmentChip"
 import {
+  blankBlockHeading,
+  blockChrome,
+  useBlockLookup
+} from "@/components/blocks/blockChrome"
+import { BlockFrame } from "@/components/blocks/BlockFrame"
+import {
+  SourceRemovedNote,
+  SyncedChip,
+  syncedChipLabel
+} from "@/components/blocks/SyncedBlock"
+import {
+  splitLeadingHeading,
+  syncedView
+} from "@/components/blocks/syncedContent"
+import {
   ATTACHMENT_IMAGE_CLASS,
   attachmentWidthStyle
 } from "@/components/Lexical/attachmentImageStyle"
 import { MentionChip } from "@/components/Lexical/MentionChip"
-import { ticketBlockLabel } from "@/components/Lexical/TicketBlockNode"
 import { cn } from "@/lib/utils"
 
 const prismPlugin = [rehypePrismPlus, { ignoreMissing: true }] as const
@@ -80,51 +98,172 @@ const linkedAttachmentContent = (
       : cloneElement(child, {}, linkedAttachmentContent(nested, id))
   })
 
+export type MarkdownBlocks = "frame" | "flat"
+
+const LINK_REFERENCE_DEFINITION = /^ {0,3}\[[^\]]+\]:[ \t]*\S/
+
+export const linkReferenceDefinitions = (markdown: string): string => {
+  let fence: string | null = null
+  const definitions: Array<string> = []
+  for (const line of normalizeLineEndings(markdown).split("\n")) {
+    const insideCode = fence !== null || advanceFence(line, null) !== null
+    fence = advanceFence(line, fence)
+    if (!insideCode && LINK_REFERENCE_DEFINITION.test(line))
+      definitions.push(line)
+  }
+  return definitions.join("\n")
+}
+
+const EMPTY_TASK_ITEM = /^(\s*(?:[-*+]|\d{1,9}[.)])[ \t]+\[[ xX]\])[ \t]*$/
+
+export const withEmptyTaskItems = (markdown: string): string => {
+  let fence: string | null = null
+  return normalizeLineEndings(markdown)
+    .split("\n")
+    .map((line) => {
+      const insideCode = fence !== null || advanceFence(line, null) !== null
+      fence = advanceFence(line, fence)
+      return insideCode ? line : line.replace(EMPTY_TASK_ITEM, "$1 &nbsp;")
+    })
+    .join("\n")
+}
+
+const LinkReferencesContext = createContext("")
+
 export function Markdown({
   children,
-  className
-}: {
+  className,
+  blocks = "frame"
+}: Readonly<{
   children: string
   className?: string
-}) {
+  blocks?: MarkdownBlocks
+}>) {
   const morphId = useId()
+  const segments = parseTicketBlocks(children)
+  const framed =
+    blocks === "frame" && segments.some((segment) => segment.kind === "block")
+  const references =
+    segments.length > 1 ? linkReferenceDefinitions(children) : ""
   return (
-    <div className={cn("prose-md", className)}>
-      {parseTicketBlocks(children).map((segment, index) =>
-        segment.kind === "markdown" ? (
-          <MarkdownSegment
-            key={index}
-            text={segment.text}
-            morphId={`${morphId}-${index}`}
-          />
-        ) : (
-          <div
-            key={index}
-            className="ticket-block"
-            data-block-type={segment.type}
-            data-block-label={ticketBlockLabel(segment.type)}
-          >
-            <MarkdownSegment
-              text={segment.content}
-              morphId={`${morphId}-${index}`}
-            />
-          </div>
-        )
-      )}
-    </div>
+    <LinkReferencesContext.Provider value={references}>
+      <div className={cn("prose-md", framed && "block-gutter", className)}>
+        {segments.map((segment, index) => {
+          const id = `${morphId}-${index}`
+          if (segment.kind === "markdown")
+            return (
+              <MarkdownSegment key={index} text={segment.text} morphId={id} />
+            )
+          if (!framed)
+            return (
+              <MarkdownSegment
+                key={index}
+                text={segment.content}
+                morphId={id}
+              />
+            )
+          if (segment.sync === true)
+            return (
+              <SyncedMarkdownBlock
+                key={index}
+                blockType={segment.type}
+                snapshot={segment.content}
+                morphId={id}
+              />
+            )
+          const heading = blankBlockHeading(segment.content)
+          return (
+            <BlockFrame
+              key={index}
+              blockType={segment.type}
+              blank={heading !== null}
+            >
+              {heading === "" ? null : (
+                <MarkdownSegment
+                  text={heading ?? segment.content}
+                  morphId={id}
+                />
+              )}
+            </BlockFrame>
+          )
+        })}
+      </div>
+    </LinkReferencesContext.Provider>
   )
 }
 
-function MarkdownSegment({
+function SyncedMarkdownBlock({
+  blockType,
+  snapshot,
+  morphId
+}: Readonly<{ blockType: string; snapshot: string; morphId: string }>) {
+  const lookup = useBlockLookup()
+  const view = syncedView(lookup, blockType, snapshot)
+  if (view.kind === "removed") {
+    const { heading, rest } = splitLeadingHeading(view.content)
+    return (
+      <BlockFrame blockType={blockType}>
+        {heading !== null && (
+          <MarkdownSegment text={heading} morphId={`${morphId}-heading`} />
+        )}
+        <SourceRemovedNote />
+        <MarkdownSegment text={rest} morphId={morphId} />
+      </BlockFrame>
+    )
+  }
+  const origin = blockChrome(blockType, lookup).origin ?? "org"
+  return (
+    <BlockFrame blockType={blockType} sync>
+      <MarkdownSegment text={view.content} morphId={morphId} />
+      <SyncedChip label={syncedChipLabel(origin)} />
+    </BlockFrame>
+  )
+}
+
+const taskLineOf = (element: Element): number | null => {
+  const line = element
+    .closest("li[data-task-line]")
+    ?.getAttribute("data-task-line")
+  return line === null || line === undefined ? null : Number(line)
+}
+
+export function MarkdownSegment({
   text,
-  morphId: attachmentId
-}: Readonly<{ text: string; morphId: string }>) {
+  morphId: attachmentId,
+  onToggleTask
+}: Readonly<{
+  text: string
+  morphId: string
+  onToggleTask?: (line: number) => void
+}>) {
+  const references = useContext(LinkReferencesContext)
+  const body = withEmptyTaskItems(text)
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       rehypePlugins={[prismPlugin as never]}
       urlTransform={allowMentionUrls}
       components={{
+        ...(onToggleTask === undefined
+          ? {}
+          : {
+              li: ({ node, ...rest }) => (
+                <li {...rest} data-task-line={node?.position?.start.line} />
+              ),
+              input: ({ node: _node, type, disabled: _disabled, ...rest }) =>
+                type === "checkbox" ? (
+                  <input
+                    {...rest}
+                    type="checkbox"
+                    onChange={(event) => {
+                      const line = taskLineOf(event.currentTarget)
+                      if (line !== null) onToggleTask(line)
+                    }}
+                  />
+                ) : (
+                  <input {...rest} type={type} />
+                )
+            }),
         a: ({ href, children: linkChildren, node, ...rest }) => {
           if (
             href &&
@@ -188,7 +327,7 @@ function MarkdownSegment({
         }
       }}
     >
-      {text}
+      {references === "" ? body : `${body}\n\n${references}`}
     </ReactMarkdown>
   )
 }

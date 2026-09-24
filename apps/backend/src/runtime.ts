@@ -16,6 +16,8 @@ import * as GitHubProjectStateCache from "@pp/server-core/github/projectStateCac
 import * as GitHubRequest from "@pp/server-core/github/request"
 import { GroupDocsLive } from "@pp/server-core/groups/GroupDocsLive"
 import { GroupsLive } from "@pp/server-core/groups/GroupsLive"
+import { LibraryDocsLive } from "@pp/server-core/library/LibraryDocsLive"
+import { LibraryLive } from "@pp/server-core/library/LibraryLive"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { OAuthApplicationsLive } from "@pp/server-core/oauth/OAuthApplicationsLive"
 import { CurrentOrgLive } from "@pp/server-core/organizations/CurrentOrgLive"
@@ -54,6 +56,7 @@ export const BackendInfrastructureLive = Layer.mergeAll(
 export const BackendServicesLive = TagsLive.pipe(
   Layer.provideMerge(ProjectStatusesLive),
   Layer.provideMerge(TicketsLive),
+  Layer.provideMerge(LibraryLive),
   Layer.provideMerge(AttachmentUploadsLive),
   Layer.provideMerge(AttachmentsLive),
   Layer.provideMerge(FigmaLinksLive),
@@ -87,6 +90,7 @@ export const BackendServicesLive = TagsLive.pipe(
     Layer.provideMerge(ProjectDocsLive),
     Layer.provideMerge(TicketDocsLive),
     Layer.provideMerge(GroupDocsLive),
+    Layer.provideMerge(LibraryDocsLive),
     Layer.provideMerge(MarkdownLive),
     Layer.provideMerge(OAuthApplicationsLive),
     Layer.provideMerge(SecretCryptoLive)

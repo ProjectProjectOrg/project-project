@@ -70,7 +70,7 @@ export function CommentsSection({
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               transition={transitions.layout}
-              className="overflow-hidden"
+              className="overflow-y-clip"
             >
               <div className="mb-3">
                 <CommentComposer

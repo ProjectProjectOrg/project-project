@@ -91,6 +91,7 @@ import { EverhourHandlerLive } from "./handlers/everhour"
 import { FigmaHandlerLive } from "./handlers/figma"
 import { GroupsHandlerLive } from "./handlers/groups"
 import { InvitationsHandlerLive } from "./handlers/invitations"
+import { LibraryHandlerLive } from "./handlers/library"
 import {
   OAuthApplicationsHandlerLive,
   PublicOAuthHandlerLive
@@ -159,6 +160,7 @@ export const ApiLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(TagsHandlerLive),
   Layer.provide(StatusesHandlerLive),
   Layer.provide(GroupsHandlerLive),
+  Layer.provide(LibraryHandlerLive),
   Layer.provide(OAuthApplicationsHandlerLive),
   Layer.provide(PublicOAuthHandlerLive),
   Layer.provide(StorageHandlerLive),

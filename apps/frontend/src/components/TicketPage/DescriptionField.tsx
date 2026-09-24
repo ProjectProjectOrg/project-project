@@ -8,6 +8,10 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 
 import { AttachmentAvailabilityProvider } from "@/components/Lexical/attachmentAvailability"
 import {
+  entersEditing,
+  keepsEditing
+} from "@/components/Lexical/blocks/editingFocus"
+import {
   attachmentsForDescription,
   LexicalEditor,
   type SaveStatus
@@ -19,6 +23,7 @@ import {
   ticketRequest,
   updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
+import { useEditorBlocks } from "@/hooks/useEditorBlocks"
 import { cn } from "@/lib/utils"
 import { MentionScopeProvider } from "@/mentions/scope"
 import { m } from "@/paraglide/messages"
@@ -33,14 +38,14 @@ export function DescriptionField({
   members,
   autoFocus,
   onStatusChange
-}: {
+}: Readonly<{
   orgSlug: string
   slug: string
   ticket: TicketDetail
   members: ReadonlyArray<Member>
   autoFocus: boolean
   onStatusChange: (status: SaveStatus) => void
-}) {
+}>) {
   const req = useMemo(
     () => ticketRequest(orgSlug, slug, ticket.id),
     [orgSlug, slug, ticket.id]
@@ -48,6 +53,7 @@ export function DescriptionField({
   const update = useAtomSet(updateTicketDetail(req), { mode: "promiseExit" })
   const updateState = useAtomValue(updateTicketDetail(req))
   const bodyDraft = useAtomValue(ticketBodyDraft(req))
+  const blocks = useEditorBlocks(orgSlug, slug)
   const setBodyDraft = useAtomSet(ticketBodyDraft(req))
   const storageResult = useAtomValue(orgStorage(storageRequest(orgSlug)))
   const orgResult = useAtomValue(orgDetail(orgRequest(orgSlug)))
@@ -56,6 +62,12 @@ export function DescriptionField({
   const canConnectStorage =
     Result.isSuccess(orgResult) &&
     (orgResult.value.role === "owner" || orgResult.value.role === "admin")
+  const attachments = attachmentsForDescription({
+    orgSlug,
+    slug,
+    ticketId: ticket.id,
+    storageActive
+  })
 
   useEffect(() => {
     if (
@@ -114,17 +126,21 @@ export function DescriptionField({
       <div
         ref={wrapperRef}
         id={DESCRIPTION_REGION_ID}
+        data-block-rail-host
+        data-editing={focused ? "" : undefined}
         className={cn(
-          "relative rounded-lg border border-transparent px-3 py-2 transition-colors duration-150 focus-within:border-border focus-within:bg-background",
-          collapsed ? "overflow-hidden" : "overflow-visible"
+          "relative rounded-lg border border-transparent px-3 py-2 transition-colors duration-150 data-editing:border-border data-editing:bg-background",
+          collapsed && "overflow-y-clip"
         )}
         style={{
           maxHeight:
             collapsed && collapsedPx > 0 ? `${collapsedPx}px` : undefined
         }}
-        onFocus={() => setFocused(true)}
+        onFocus={(e) => {
+          if (entersEditing(e.currentTarget, e.target)) setFocused(true)
+        }}
         onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget)) setFocused(false)
+          if (!keepsEditing(e.currentTarget, e.relatedTarget)) setFocused(false)
         }}
       >
         <div ref={contentRef}>
@@ -140,12 +156,8 @@ export function DescriptionField({
                 }}
                 onStatusChange={onStatusChange}
                 autoFocus={autoFocus}
-                attachments={attachmentsForDescription({
-                  orgSlug,
-                  slug,
-                  ticketId: ticket.id,
-                  storageActive
-                })}
+                attachments={attachments}
+                blocks={blocks}
               />
             </AttachmentAvailabilityProvider>
           </MentionScopeProvider>

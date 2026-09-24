@@ -97,7 +97,10 @@ export function TicketHoverCard({
               <MetaRow ticket={ticket} scope={scope} statuses={statuses} />
               {body.length > 0 && (
                 <div className="relative">
-                  <Markdown className="line-clamp-6 text-xs leading-relaxed text-muted-foreground [&_*]:!my-0 [&_.ticket-block]:contents [&_.ticket-block]:before:hidden [&_pre]:!my-1">
+                  <Markdown
+                    className="line-clamp-6 text-xs leading-relaxed text-muted-foreground [&_*]:!my-0 [&_pre]:!my-1"
+                    blocks="flat"
+                  >
                     {body}
                   </Markdown>
                   {isOverflowing && interactive && (

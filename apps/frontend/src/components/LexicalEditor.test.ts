@@ -679,6 +679,25 @@ describe("checklist markers in markdown", () => {
     expect(reloaded).toEqual(["list:[ ] literal"])
   })
 
+  it("round-trips empty checklist, numbered and prefixed items inside a block", () => {
+    const markdown = [
+      '<block type="acceptance-criteria">',
+      "",
+      "## Acceptance criteria",
+      "",
+      "- [ ] ",
+      "- [ ] ",
+      "",
+      "1. ",
+      "2. ",
+      "",
+      "**Expected:** ",
+      "",
+      "</block>"
+    ].join("\n")
+    expect(roundTripMarkdown(markdown)).toBe(markdown)
+  })
+
   it("keeps a task item whose text starts with a marker a single task", () => {
     expect(roundTripMarkdown("- [ ] [ ] nested marker")).toBe(
       "- [ ] [ ] nested marker"

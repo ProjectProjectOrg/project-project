@@ -148,7 +148,7 @@ export function TicketPage({
       )}
 
       <div className="grid grid-cols-1 gap-x-8 gap-y-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <main className="flex min-w-0 flex-col gap-6">
+        <main className="flex min-w-0 flex-col gap-6 sm:pl-(--ticket-rail-inset)">
           <DescriptionField
             orgSlug={orgSlug}
             slug={slug}

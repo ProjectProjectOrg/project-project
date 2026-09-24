@@ -37,6 +37,7 @@ import {
   TicketId,
   UpdateTicketInput,
   UserId,
+  normalizeLineEndings,
   Validation,
   type ProjectKey,
   type GroupId,
@@ -72,6 +73,7 @@ import { Comments, type InvalidCommentBody } from "../comments/Comments"
 import { FigmaLinks } from "../figma/FigmaLinks"
 import * as GitHub from "../github/GitHub"
 import { Groups } from "../groups/Groups"
+import { Library } from "../library/Library"
 import type { MarkdownError } from "../markdown/Markdown"
 import { Projects } from "../projects/Projects"
 import type { ProjectGithubIntegration } from "../projects/Projects"
@@ -239,6 +241,7 @@ export const TicketsLive = Layer.effect(
     const attachments = yield* Attachments
     const figmaLinks = yield* FigmaLinks
     const users = yield* Users
+    const library = yield* Library
 
     const detailOf = (
       document: TicketDocument,
@@ -774,6 +777,7 @@ export const TicketsLive = Layer.effect(
           slug
         )
         const ticket = yield* readTicket(orgSlug, slug, id)
+        const body = yield* library.resolveSynced(orgSlug, slug, ticket.body)
         const branchDeletedAt = yield* ticketIndex.getBranchDeletedAt(
           orgSlug,
           slug,
@@ -781,7 +785,7 @@ export const TicketsLive = Layer.effect(
         )
         return yield* withMissingAttachments(
           orgSlug,
-          yield* detailOf(ticket, projectGithub, branchDeletedAt)
+          yield* detailOf({ ...ticket, body }, projectGithub, branchDeletedAt)
         )
       })
 
@@ -1024,8 +1028,13 @@ export const TicketsLive = Layer.effect(
         if (input.assignees !== undefined && input.assignees.length > 0) {
           yield* validateAssigneesAreMembers(orgSlug, slug, input.assignees)
         }
-        if (input.body !== undefined) {
-          yield* validateBody(orgSlug, ownerId, slug, input.body, indexProject)
+        const body = yield* library.resolveSynced(
+          orgSlug,
+          slug,
+          normalizeLineEndings(input.body ?? "")
+        )
+        if (body !== "") {
+          yield* validateBody(orgSlug, ownerId, slug, body, indexProject)
         }
         const now = yield* DateTime.nowAsDate
         const document = yield* writeWithIdAllocation(
@@ -1051,7 +1060,7 @@ export const TicketsLive = Layer.effect(
             createdAt: now,
             updatedBy: ownerId,
             updatedAt: now,
-            body: input.body ?? "",
+            body,
             commentsRegion: ""
           })
         )
@@ -1090,14 +1099,17 @@ export const TicketsLive = Layer.effect(
             yield* validateTagsExist(slug, input.tags)
           }
 
-          if (input.body !== undefined) {
-            yield* validateBody(
-              orgSlug,
-              ownerId,
-              slug,
-              input.body,
-              indexProject
-            )
+          const body =
+            input.body === undefined
+              ? undefined
+              : yield* library.resolveSynced(
+                  orgSlug,
+                  slug,
+                  normalizeLineEndings(input.body)
+                )
+
+          if (body !== undefined) {
+            yield* validateBody(orgSlug, ownerId, slug, body, indexProject)
           }
 
           const next = yield* ticketDocs.update(
@@ -1129,7 +1141,7 @@ export const TicketsLive = Layer.effect(
                       : existing.assignees,
                   updatedBy: ownerId,
                   updatedAt: yield* DateTime.nowAsDate,
-                  body: input.body ?? existing.body
+                  body: body ?? existing.body
                 }
               }),
             (next) =>

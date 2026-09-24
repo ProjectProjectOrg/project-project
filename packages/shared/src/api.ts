@@ -125,6 +125,13 @@ import {
   UpdateGroupTicketsOutput,
   UpdateTicketOrderInput
 } from "./schemas/Group"
+import {
+  BlockDefinition,
+  BlockKey,
+  CreateBlockInput,
+  Library,
+  UpdateBlockInput
+} from "./schemas/Library"
 import { OAuthApplication } from "./schemas/OAuthApplication"
 import {
   InviteMemberInput,
@@ -1619,6 +1626,121 @@ const GroupsGroup = HttpApiGroup.make("groups")
   )
   .middleware(Authentication)
 
+const OrgBlockPath = Schema.Struct({ orgSlug: Slug, key: BlockKey })
+const ProjectBlockPath = Schema.Struct({
+  orgSlug: Slug,
+  slug: Slug,
+  key: BlockKey
+})
+
+const LibraryGroup = HttpApiGroup.make("library")
+  .add(
+    HttpApiEndpoint.get("org", "/orgs/:orgSlug/library", {
+      params: OrgPath,
+      success: Library,
+      error: [Unauthorized, NotFound]
+    })
+  )
+  .add(
+    HttpApiEndpoint.get("project", "/orgs/:orgSlug/projects/:slug/library", {
+      params: ProjectPath,
+      success: Library,
+      error: [Unauthorized, NotFound]
+    })
+  )
+  .add(
+    HttpApiEndpoint.post("createOrgBlock", "/orgs/:orgSlug/library/blocks", {
+      params: OrgPath,
+      payload: CreateBlockInput,
+      success: BlockDefinition,
+      error: [
+        Unauthorized,
+        NotFound,
+        Forbidden,
+        Conflict,
+        Validation,
+        MentionInvalid
+      ]
+    })
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "updateOrgBlock",
+      "/orgs/:orgSlug/library/blocks/:key",
+      {
+        params: OrgBlockPath,
+        payload: UpdateBlockInput,
+        success: BlockDefinition,
+        error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "removeOrgBlock",
+      "/orgs/:orgSlug/library/blocks/:key",
+      {
+        params: OrgBlockPath,
+        success: HttpApiSchema.NoContent,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "createProjectBlock",
+      "/orgs/:orgSlug/projects/:slug/library/blocks",
+      {
+        params: ProjectPath,
+        payload: CreateBlockInput,
+        success: BlockDefinition,
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          Conflict,
+          Validation,
+          MentionInvalid
+        ]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "updateProjectBlock",
+      "/orgs/:orgSlug/projects/:slug/library/blocks/:key",
+      {
+        params: ProjectBlockPath,
+        payload: UpdateBlockInput,
+        success: BlockDefinition,
+        error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "removeProjectBlock",
+      "/orgs/:orgSlug/projects/:slug/library/blocks/:key",
+      {
+        params: ProjectBlockPath,
+        success: HttpApiSchema.NoContent,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "hideProjectBlock",
+      "/orgs/:orgSlug/projects/:slug/library/blocks/:key/hide",
+      {
+        params: ProjectBlockPath,
+        success: HttpApiSchema.NoContent,
+        error: [Unauthorized, NotFound, Forbidden, Conflict]
+      }
+    )
+  )
+  .middleware(Authentication)
+
 const OAuthApplicationsGroup = HttpApiGroup.make("oauthApplications")
   .add(
     HttpApiEndpoint.get("list", "/oauth-applications", {
@@ -1669,6 +1791,7 @@ const AppApi = HttpApi.make("projectproject")
   .add(TagsGroup)
   .add(StatusesGroup)
   .add(GroupsGroup)
+  .add(LibraryGroup)
   .add(OAuthApplicationsGroup)
   .add(PublicOAuthGroup)
   .annotateMerge(OpenApi.annotations({ servers: [{ url: "/api" }] }))

@@ -12,11 +12,6 @@ export type SerializedTicketBlockNode = Spread<
   SerializedElementNode
 >
 
-export const ticketBlockLabel = (blockType: string): string => {
-  const words = blockType.split("-").join(" ")
-  return words.charAt(0).toUpperCase() + words.slice(1)
-}
-
 export class TicketBlockNode extends ElementNode {
   __blockType: string
 
@@ -51,7 +46,6 @@ export class TicketBlockNode extends ElementNode {
     const element = document.createElement("div")
     element.className = "ticket-block"
     element.dataset.blockType = this.__blockType
-    element.dataset.blockLabel = ticketBlockLabel(this.__blockType)
     return element
   }
 
