@@ -117,3 +117,77 @@ it("preserves links around compact images without nesting download links", () =>
   expect(screen.getByText("shot")).toBeDefined()
   expect(screen.queryByRole("img")).toBeNull()
 })
+
+describe("Markdown ticket blocks", () => {
+  it("resolves a reference link inside a block from a definition outside it", () => {
+    render(
+      <Markdown>
+        {
+          '<block type="notes">\n\n## Notes\n\nSee [spec][1]\n\n</block>\n\n[1]: https://example.com/spec'
+        }
+      </Markdown>
+    )
+    expect(
+      screen.getByRole("link", { name: "spec" }).getAttribute("href")
+    ).toBe("https://example.com/spec")
+    expect(screen.queryByText(/\[spec\]/)).toBeNull()
+  })
+
+  it("does not pick up a reference definition from a fence or a comment", () => {
+    render(
+      <Markdown>
+        {
+          'See [spec][1] and [plan][2]\n\n<block type="notes">\n\nx\n\n</block>\n\n```\n[1]: https://example.com/spec\n```\n\n<!--\n[2]: https://example.com/plan\n-->'
+        }
+      </Markdown>
+    )
+    expect(screen.queryByRole("link")).toBeNull()
+  })
+
+  it("renders a block as a labelled container around its markdown", () => {
+    const { container } = render(
+      <Markdown>
+        {
+          'Intro.\n\n<block type="acceptance-criteria">\n\n## Acceptance criteria\n\n- [ ] One\n\n</block>'
+        }
+      </Markdown>
+    )
+    const block = container.querySelector(".ticket-block")
+    expect(block?.getAttribute("data-block-label")).toBe("Acceptance criteria")
+    expect(block?.querySelector("h2")?.textContent).toBe("Acceptance criteria")
+    expect(container.textContent).not.toContain("<block")
+    expect(screen.getByText("Intro.")).toBeDefined()
+  })
+
+  it("parses markdown inside a block written without blank lines", () => {
+    const { container } = render(
+      <Markdown>{'<block type="notes">\n## Notes\n- item\n</block>'}</Markdown>
+    )
+    expect(container.querySelector(".ticket-block h2")?.textContent).toBe(
+      "Notes"
+    )
+    expect(container.querySelector(".ticket-block li")?.textContent).toBe(
+      "item"
+    )
+  })
+
+  it("leaves a block inside an HTML comment to the comment", () => {
+    const { container } = render(
+      <Markdown>
+        {'Intro.\n\n<!--\n<block type="notes">\n\nsecret\n\n</block>\n-->'}
+      </Markdown>
+    )
+    expect(container.querySelector(".ticket-block")).toBeNull()
+    expect(container.textContent).toContain('<block type="notes">')
+  })
+
+  it("shows a block example inside a code fence as code", () => {
+    const { container } = render(
+      <Markdown>{'```md\n<block type="notes">\n</block>\n```'}</Markdown>
+    )
+    expect(container.querySelector(".ticket-block")).toBeNull()
+    expect(container.querySelector("code")?.textContent).toContain(
+      '<block type="notes">'
+    )
+  })
+})
