@@ -562,6 +562,61 @@ describe("LibraryPage", () => {
     )
   })
 
+  it("shows no key-taken error while its own create is in flight", async () => {
+    let confirm: (response: Response) => void = () => {}
+    serve(projectLibrary(true), (call) =>
+      call.method === "POST"
+        ? new Promise<Response>((resolve) => {
+            confirm = resolve
+          })
+        : undefined
+    )
+    renderPage(orgScope("acme"))
+
+    fireEvent.click(await screen.findByRole("button", { name: "New template" }))
+    fireEvent.change(screen.getByPlaceholderText("Template name"), {
+      target: { value: "Incident review" }
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Create" }))
+
+    await waitFor(() => expect(cardOf("incident-review")).not.toBeNull())
+    expect(screen.queryByRole("alert")).toBeNull()
+    await act(async () =>
+      confirm(
+        Response.json(
+          encodeTemplate({
+            ...(calls.find((call) => call.method === "POST")!
+              .body as TemplateDraft),
+            origin: "org",
+            shadows: null,
+            hidden: false
+          })
+        )
+      )
+    )
+    await waitFor(() => expect(navigate).toHaveBeenCalled())
+    expect(screen.queryByRole("alert")).toBeNull()
+  })
+
+  it("still refuses a key this layer already has", async () => {
+    serve(projectLibrary(true))
+    renderPage(orgScope("acme"))
+
+    fireEvent.click(await screen.findByRole("button", { name: "New template" }))
+    fireEvent.change(screen.getByPlaceholderText("Template name"), {
+      target: { value: "Triage" }
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Create" }))
+
+    expect(
+      await screen.findByText(
+        "That key is already used here. Pick another key."
+      )
+    ).toBeTruthy()
+    expect(calls.some((call) => call.method === "POST")).toBe(false)
+    expect(navigate).not.toHaveBeenCalled()
+  })
+
   it("keeps the new form's failure apart from a row's failure", async () => {
     serve(projectLibrary(true), (call) =>
       call.method !== "POST"
