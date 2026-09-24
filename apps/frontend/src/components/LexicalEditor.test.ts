@@ -645,3 +645,43 @@ describe("ticket blocks", () => {
     )
   })
 })
+
+describe("checklist markers in markdown", () => {
+  it("keeps a bullet whose text starts with a task marker a bullet", () => {
+    const exported = roundTripMarkdown("- \\[ ] not a task\n- \\[x] nor this")
+    expect(exported).toBe("- \\[ ] not a task\n- \\[x] nor this")
+    expect(roundTripMarkdown(exported)).toBe(exported)
+  })
+
+  it("escapes a marker typed into a bullet so it reloads as a bullet", () => {
+    const editor = createEditor({
+      namespace: "lexical-editor-test",
+      nodes: [ListNode, ListItemNode],
+      onError: (error) => {
+        throw error
+      }
+    })
+    let exported = ""
+    let reloaded: ReadonlyArray<string> = []
+    editor.update(
+      () => {
+        $convertFromMarkdownString("- placeholder", MARKDOWN_TRANSFORMERS)
+        $getRoot().getAllTextNodes()[0].setTextContent("[ ] literal")
+        exported = $convertToMarkdownString(MARKDOWN_TRANSFORMERS)
+        $convertFromMarkdownString(exported, MARKDOWN_TRANSFORMERS)
+        reloaded = $getRoot()
+          .getChildren()
+          .map((child) => `${child.getType()}:${child.getTextContent()}`)
+      },
+      { discrete: true }
+    )
+    expect(exported).toBe("- \\[ ] literal")
+    expect(reloaded).toEqual(["list:[ ] literal"])
+  })
+
+  it("keeps a task item whose text starts with a marker a single task", () => {
+    expect(roundTripMarkdown("- [ ] [ ] nested marker")).toBe(
+      "- [ ] [ ] nested marker"
+    )
+  })
+})
