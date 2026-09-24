@@ -26,15 +26,19 @@ import { SprintBadgeTrigger } from "@/components/TicketList/SprintField"
 import { TypeBadgeTrigger } from "@/components/TicketList/TypeField"
 import { DescriptionField } from "@/components/TicketPage/DescriptionField"
 import { MetaRow } from "@/components/TicketPage/MetaRow"
+import { SaveAsTemplatePopover } from "@/components/TicketPage/SaveAsTemplatePopover"
 import { SplitResultBanner } from "@/components/TicketPage/SplitResultBanner"
+import { TemplateSwapNote } from "@/components/TicketPage/TemplateSwapNote"
 import { TicketDesignLinks } from "@/components/TicketPage/TicketDesignLinks"
 import { TicketPageHeader } from "@/components/TicketPage/TicketPageHeader"
 import { TicketPageShell } from "@/components/TicketPage/TicketPageShell"
 import { UserTimestamp } from "@/components/TicketPage/UserTimestamp"
+import { useTemplateSwap } from "@/components/TicketPage/useTemplateSwap"
 import { TicketTimeSection } from "@/components/time/TicketTimePanel"
 import {
   archiveTicket,
   deleteTicket,
+  ticketBodyDraft,
   ticketRequest,
   unarchiveTicket,
   updateTicketDetail
@@ -67,6 +71,9 @@ export function TicketPage({
   )
   const remove = useAtomSet(deleteTicket(req), { mode: "promiseExit" })
   const updateTicket = useAtomSet(updateTicketDetail(req))
+  const patchTicket = useAtomSet(updateTicketDetail(req), {
+    mode: "promiseExit"
+  })
   const archiveTicketSet = useAtomSet(archiveTicket(req), {
     mode: "promiseExit"
   })
@@ -74,9 +81,16 @@ export function TicketPage({
   const unarchiveTicketSet = useAtomSet(unarchiveTicket(req))
   const unarchiveState = useAtomValue(unarchiveTicket(req))
   const [bodyStatus, setBodyStatus] = useState<SaveStatus>("idle")
+  const bodyDraft = useAtomValue(ticketBodyDraft(req))
   const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
   const { canManageTags } = useProjectRole()
+  const {
+    descriptionRef,
+    onTypePatch,
+    note: swapNote,
+    undo: undoSwap
+  } = useTemplateSwap(ticket.type, patchTicket)
 
   return (
     <TicketPageShell
@@ -87,6 +101,12 @@ export function TicketPage({
       actions={
         <>
           <MarkdownSaveIndicator status={bodyStatus} />
+          <SaveAsTemplatePopover
+            orgSlug={orgSlug}
+            slug={slug}
+            ticket={ticket}
+            body={bodyDraft ?? ticket.body}
+          />
           <SplitTicketControl orgSlug={orgSlug} slug={slug} id={ticket.id} />
           <ArchiveTicketControl
             archived={ticket.archivedAt !== null}
@@ -131,7 +151,10 @@ export function TicketPage({
           onPatch={updateTicket}
           meta={
             <>
-              <TypeBadgeTrigger ticket={ticket} onPatch={updateTicket} />
+              <TypeBadgeTrigger ticket={ticket} onPatch={onTypePatch} />
+              {swapNote !== null && (
+                <TemplateSwapNote name={swapNote.name} onUndo={undoSwap} />
+              )}
               {ticket.archivedAt !== null && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                   <Archive className="size-3" strokeWidth={1.75} />
@@ -150,6 +173,7 @@ export function TicketPage({
       <div className="grid grid-cols-1 gap-x-8 gap-y-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <main className="flex min-w-0 flex-col gap-6 sm:pl-(--ticket-rail-inset)">
           <DescriptionField
+            ref={descriptionRef}
             orgSlug={orgSlug}
             slug={slug}
             ticket={ticket}

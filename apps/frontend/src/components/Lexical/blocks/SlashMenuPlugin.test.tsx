@@ -6,10 +6,12 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import type { MenuRenderFn } from "@lexical/react/LexicalTypeaheadMenuPlugin"
 import { HeadingNode } from "@lexical/rich-text"
 import {
+  BUILTIN_TEMPLATE_DEFAULTS,
   EMPTY_LAYER,
   GALLERY_LAYER,
   resolveLibrary,
-  type Library
+  type Library,
+  type TicketType
 } from "@pp/shared"
 import {
   act,
@@ -125,15 +127,20 @@ const type = (value: string) =>
 
 const GALLERY_LIBRARY: Library = resolveLibrary(
   { org: GALLERY_LAYER, project: null },
+  { org: BUILTIN_TEMPLATE_DEFAULTS, project: null },
   false
 )
 
 const EMPTY_LIBRARY: Library = resolveLibrary(
   { org: EMPTY_LAYER, project: null },
+  { org: {}, project: null },
   false
 )
 
-function renderMenu(library: Library = GALLERY_LIBRARY) {
+function renderMenu(
+  ticketType: TicketType | null = "bug",
+  library: Library = GALLERY_LIBRARY
+) {
   let captured: LexicalEditor | null = null
   render(
     <LexicalComposer
@@ -155,7 +162,11 @@ function renderMenu(library: Library = GALLERY_LIBRARY) {
           captured = editor
         }}
       />
-      <SlashMenuPlugin library={library} transformers={MARKDOWN_TRANSFORMERS} />
+      <SlashMenuPlugin
+        library={library}
+        ticketType={ticketType}
+        transformers={MARKDOWN_TRANSFORMERS}
+      />
     </LexicalComposer>
   )
   const editor = () => {
@@ -208,11 +219,22 @@ describe("slashTriggerMatch", () => {
 })
 
 describe("SlashMenuPlugin", () => {
-  it("puts markdown before blocks in the all tab", () => {
+  it("puts markdown right after suggestions in the all tab", () => {
     const { type } = renderMenu()
     type("/")
 
-    expect(groupNames()).toEqual(["Markdown", "Blocks"])
+    expect(groupNames()).toEqual([
+      "Suggested",
+      "Markdown",
+      "Blocks",
+      "Templates"
+    ])
+    const suggested = screen.getByRole("group", { name: "Suggested" })
+    expect(suggested.textContent).toContain("Expected vs actual")
+    expect(suggested.textContent).toContain("Bug report")
+    expect(
+      screen.getByRole("group", { name: "Templates" }).textContent
+    ).toMatch(/^TemplatesBug report/)
   })
 
   it("shows every section tab with its count", () => {
@@ -223,9 +245,10 @@ describe("SlashMenuPlugin", () => {
     expect(tabs.map((tab) => tab.replace(/[\d]+$/, ""))).toEqual([
       "AllAll",
       "BlocksBlocks",
+      "TemplatesTemplates",
       "MarkdownMarkdown"
     ])
-    expect(tabs[2]).toMatch(/8$/)
+    expect(tabs[3]).toMatch(/8$/)
     expect(selectedTab()).toContain("All")
   })
 
@@ -235,8 +258,9 @@ describe("SlashMenuPlugin", () => {
 
     pressTab(editor())
     expect(selectedTab()).toContain("Blocks")
-    expect(groupNames()).toEqual(["Blocks"])
+    expect(groupNames()).toEqual(["Suggested", "Blocks"])
 
+    pressTab(editor())
     pressTab(editor())
     expect(groupNames()).toEqual(["Markdown"])
     expect(screen.getByRole("option", { name: /Checklist/ })).toBeTruthy()
@@ -266,21 +290,31 @@ describe("SlashMenuPlugin", () => {
     type("/")
 
     fireEvent.click(screen.getAllByRole("tab")[2])
-    expect(groupNames()).toEqual(["Markdown"])
+    expect(groupNames()).toEqual(["Templates"])
   })
 
   it("points at the gallery when the library has nothing yet", () => {
-    const { type, editor } = renderMenu(EMPTY_LIBRARY)
+    const { type, editor } = renderMenu("bug", EMPTY_LIBRARY)
     type("/")
 
-    expect(groupNames()).toEqual(["Markdown", "Blocks"])
+    expect(groupNames()).toEqual(["Markdown", "Blocks", "Templates"])
     expect(
       screen.getByRole("option", { name: /No blocks yet/ }).textContent
     ).toContain("Browse the gallery")
     expect(tabTexts()[1]).toMatch(/0$/)
 
     pressTab(editor())
-    expect(screen.getByRole("option", { name: /No blocks yet/ })).toBeTruthy()
+    pressTab(editor())
+    expect(
+      screen.getByRole("option", { name: /No templates yet/ })
+    ).toBeTruthy()
+  })
+
+  it("leaves out suggestions when the ticket has no type", () => {
+    const { type } = renderMenu(null)
+    type("/")
+
+    expect(groupNames()).not.toContain("Suggested")
   })
 
   it("filters on name, key and description words", () => {
@@ -301,14 +335,26 @@ describe("SlashMenuPlugin", () => {
     expect(screen.getByRole("option", { name: /Checklist/ })).toBeTruthy()
   })
 
-  it("opens on one section when asked for it", () => {
+  it("puts what the query names ahead of description matches", () => {
+    const { type } = renderMenu()
+    type("/bug")
+
+    const options = screen.getAllByRole("option")
+    expect(options[0].textContent).toMatch("Bug report")
+    expect(groupNames()[0]).toBe("Templates")
+    expect(
+      screen.getByRole("option", { name: /Steps to reproduce/ })
+    ).toBeTruthy()
+  })
+
+  it("opens on templates only when asked for that section", () => {
     const { type, editor } = renderMenu()
     act(() => {
-      editor().dispatchCommand(OPEN_SLASH_MENU_COMMAND, "blocks")
+      editor().dispatchCommand(OPEN_SLASH_MENU_COMMAND, "templates")
     })
     type("/")
 
-    expect(groupNames()).toEqual(["Blocks"])
+    expect(groupNames()).toEqual(["Templates"])
   })
 
   it("drops the preview pane when the content column is too narrow", () => {
@@ -349,13 +395,18 @@ describe("SlashMenuPlugin", () => {
     expect(screen.queryAllByRole("option")).toHaveLength(0)
   })
 
-  it("marks synced blocks", () => {
+  it("marks synced blocks and how many blocks a template adds", () => {
     const { type } = renderMenu()
     type("/done")
 
     const done = screen.getByRole("option", { name: /Definition of done/ })
     expect(done.textContent).toContain("synced")
     expect(done.textContent).toContain("⌥↵ copy")
+
+    type("/chore")
+    expect(screen.getByRole("option", { name: /Chore/ }).textContent).toContain(
+      "adds 2 blocks"
+    )
   })
 
   it("inserts the chosen block into the editor", async () => {

@@ -3,9 +3,16 @@ import * as Schema from "effect/Schema"
 
 import { TAG_COLOR_WHEEL } from "../colors"
 import { BLOCK_ICONS } from "../library/icons"
-import { BlockKey } from "./LibraryKey"
+import { BlockKey, TemplateKey } from "./LibraryKey"
+import { TagName } from "./Tag"
+import { TicketPriority, TicketType } from "./Ticket"
 
-export { BlockKey, LIBRARY_KEY_MAX_LENGTH } from "./LibraryKey"
+export {
+  BLANK_TEMPLATE_KEY,
+  BlockKey,
+  LIBRARY_KEY_MAX_LENGTH,
+  TemplateKey
+} from "./LibraryKey"
 
 const WHEEL_HEXES: ReadonlySet<string> = new Set(
   TAG_COLOR_WHEEL.map((swatch) => swatch.hex)
@@ -51,6 +58,17 @@ const blockFields = {
   content: LibraryContent
 }
 
+const templateFields = {
+  name: LibraryName,
+  icon: BlockIcon,
+  color: optionalColor,
+  description: LibraryDescription,
+  type: Schema.NullOr(TicketType),
+  priority: Schema.NullOr(TicketPriority),
+  tags: Schema.Array(TagName),
+  body: LibraryContent
+}
+
 const layerFields = {
   origin: LibraryOrigin,
   shadows: Schema.NullOr(LibraryOrigin),
@@ -60,6 +78,12 @@ const layerFields = {
 export const BlockDraft = Schema.Struct({ key: BlockKey, ...blockFields })
 export type BlockDraft = typeof BlockDraft.Type
 
+export const TemplateDraft = Schema.Struct({
+  key: TemplateKey,
+  ...templateFields
+})
+export type TemplateDraft = typeof TemplateDraft.Type
+
 export const BlockDefinition = Schema.Struct({
   key: BlockKey,
   ...blockFields,
@@ -67,8 +91,42 @@ export const BlockDefinition = Schema.Struct({
 })
 export type BlockDefinition = typeof BlockDefinition.Type
 
+export const TemplateDefinition = Schema.Struct({
+  key: TemplateKey,
+  ...templateFields,
+  ...layerFields
+})
+export type TemplateDefinition = typeof TemplateDefinition.Type
+
+const defaultTemplate = Schema.NullOr(TemplateKey)
+
+export const TemplateDefaults = Schema.Struct({
+  feat: defaultTemplate,
+  bug: defaultTemplate,
+  chore: defaultTemplate,
+  other: defaultTemplate
+})
+export type TemplateDefaults = typeof TemplateDefaults.Type
+
+export const PartialTemplateDefaults = Schema.Struct({
+  feat: Schema.optionalKey(defaultTemplate),
+  bug: Schema.optionalKey(defaultTemplate),
+  chore: Schema.optionalKey(defaultTemplate),
+  other: Schema.optionalKey(defaultTemplate)
+})
+export type PartialTemplateDefaults = typeof PartialTemplateDefaults.Type
+
+export const LibraryDefaults = Schema.Struct({
+  defaults: TemplateDefaults,
+  ownDefaults: PartialTemplateDefaults,
+  inheritedDefaults: TemplateDefaults
+})
+export type LibraryDefaults = typeof LibraryDefaults.Type
+
 export const Library = Schema.Struct({
   blocks: Schema.Array(BlockDefinition),
+  templates: Schema.Array(TemplateDefinition),
+  ...LibraryDefaults.fields,
   canEdit: Schema.Boolean
 })
 export type Library = typeof Library.Type
@@ -85,3 +143,25 @@ export const UpdateBlockInput = Schema.Struct({
   content: Schema.optional(blockFields.content)
 })
 export type UpdateBlockInput = typeof UpdateBlockInput.Type
+
+export const CreateTemplateInput = TemplateDraft
+export type CreateTemplateInput = typeof CreateTemplateInput.Type
+
+export const UpdateTemplateInput = Schema.Struct({
+  name: Schema.optional(templateFields.name),
+  icon: Schema.optional(templateFields.icon),
+  color: Schema.optional(LibraryColor),
+  description: Schema.optional(templateFields.description),
+  type: Schema.optional(templateFields.type),
+  priority: Schema.optional(templateFields.priority),
+  tags: Schema.optional(templateFields.tags),
+  body: Schema.optional(templateFields.body)
+})
+export type UpdateTemplateInput = typeof UpdateTemplateInput.Type
+
+export const UpdateTemplateDefaultsInput = Schema.Struct({
+  defaults: PartialTemplateDefaults,
+  reset: Schema.optional(Schema.Array(TicketType))
+})
+export type UpdateTemplateDefaultsInput =
+  typeof UpdateTemplateDefaultsInput.Type

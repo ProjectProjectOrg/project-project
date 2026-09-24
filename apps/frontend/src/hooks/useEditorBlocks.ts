@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
+import type { TicketType } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import { useCallback, useMemo } from "react"
@@ -15,6 +16,7 @@ import { useMakeBlockDefinition } from "./useMakeBlockDefinition"
 export function useEditorBlocks(
   orgSlug: string,
   slug: string,
+  ticketType: TicketType | null,
   onMakeDefinitionError: (message: string) => void
 ): EditorBlocks | undefined {
   const navigate = useNavigate()
@@ -55,10 +57,11 @@ export function useEditorBlocks(
         : {
             mode: "ticket",
             library,
+            ticketType,
             canEdit: { org: canEditOrg, project: library.canEdit },
             onEditDefinition,
             onMakeDefinition
           },
-    [library, canEditOrg, onEditDefinition, onMakeDefinition]
+    [library, ticketType, canEditOrg, onEditDefinition, onMakeDefinition]
   )
 }

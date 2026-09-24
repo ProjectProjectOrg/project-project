@@ -3,13 +3,19 @@ import { Db } from "@pp/db"
 import {
   BlockDraft,
   BUILTIN_BLOCKS,
+  BUILTIN_TEMPLATES,
   EMPTY_LAYER,
   Forbidden,
   NotFound,
+  TemplateDraft,
+  TemplateKey,
   TicketId,
   type Layer as LibraryLayer,
+  type PartialTemplateDefaults,
+  Slug,
   type Role
 } from "@pp/shared"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
@@ -17,13 +23,16 @@ import { describe, expect } from "vitest"
 
 import type { LibraryKind } from "../markdown/Markdown"
 import { CurrentOrg } from "../organizations/CurrentOrg"
+import { ProjectDocs, type ProjectDocument } from "../projects/ProjectDocs"
 import { Projects } from "../projects/Projects"
 import { TicketDocs } from "../tickets/TicketDocs"
 import { Library } from "./Library"
 import { LibraryDocs, type LibraryDocsShape } from "./LibraryDocs"
 import { LibraryLive } from "./LibraryLive"
 
+const templateKey = Schema.decodeUnknownSync(TemplateKey)
 const ticketId = Schema.decodeUnknownSync(TicketId)
+const slug = Schema.decodeUnknownSync(Slug)
 
 const ORG_ROLES: Readonly<Record<string, Role>> = {
   "org-admin": "admin",
@@ -40,6 +49,8 @@ const PROJECT_ROLES: Readonly<Record<string, Role>> = {
 type World = Readonly<{
   layers: Map<string, LibraryLayer>
   reads: Array<string>
+  defaults: { current: PartialTemplateDefaults }
+  orgDefaults: { current: PartialTemplateDefaults }
 }>
 
 const scopeKey = (orgSlug: string, projectSlug: string | null) =>
@@ -55,15 +66,20 @@ const updateLayer = (
   world.layers.set(key, update(world.layers.get(key) ?? EMPTY_LAYER))
 }
 
-const withoutKey = (
-  layer: LibraryLayer,
-  _kind: LibraryKind,
-  key: string
-): LibraryLayer => ({
-  ...layer,
-  blocks: layer.blocks.filter((block) => block.key !== key),
-  hiddenBlocks: layer.hiddenBlocks.filter((hidden) => hidden !== key)
-})
+const withoutKey = (layer: LibraryLayer, kind: LibraryKind, key: string) =>
+  kind === "blocks"
+    ? {
+        ...layer,
+        blocks: layer.blocks.filter((block) => block.key !== key),
+        hiddenBlocks: layer.hiddenBlocks.filter((hidden) => hidden !== key)
+      }
+    : {
+        ...layer,
+        templates: layer.templates.filter((template) => template.key !== key),
+        hiddenTemplates: layer.hiddenTemplates.filter(
+          (hidden) => hidden !== key
+        )
+      }
 
 const fakeLibraryDocs = (world: World): LibraryDocsShape => ({
   readLayer: (orgSlug, projectSlug) =>
@@ -78,13 +94,27 @@ const fakeLibraryDocs = (world: World): LibraryDocsShape => ({
         return { ...rest, blocks: [...rest.blocks, draft] }
       })
     ),
+  writeTemplate: (orgSlug, projectSlug, draft) =>
+    Effect.sync(() =>
+      updateLayer(world, orgSlug, projectSlug, (layer) => {
+        const rest = withoutKey(layer, "templates", draft.key)
+        return { ...rest, templates: [...rest.templates, draft] }
+      })
+    ),
   writeTombstone: (orgSlug, projectSlug, kind, key) =>
     Effect.sync(() =>
       updateLayer(world, orgSlug, projectSlug, (layer) => {
         const rest = withoutKey(layer, kind, key)
-        return { ...rest, hiddenBlocks: [...rest.hiddenBlocks, key] }
+        return kind === "blocks"
+          ? { ...rest, hiddenBlocks: [...rest.hiddenBlocks, key] }
+          : { ...rest, hiddenTemplates: [...rest.hiddenTemplates, key] }
       })
     ),
+  readOrgDefaults: () => Effect.sync(() => world.orgDefaults.current),
+  writeOrgDefaults: (_orgSlug, defaults) =>
+    Effect.sync(() => {
+      world.orgDefaults.current = defaults
+    }),
   remove: (orgSlug, projectSlug, kind, key) =>
     Effect.sync(() => {
       const layer =
@@ -92,14 +122,41 @@ const fakeLibraryDocs = (world: World): LibraryDocsShape => ({
       const next = withoutKey(layer, kind, key)
       const removed =
         next.blocks.length + next.hiddenBlocks.length !==
-        layer.blocks.length + layer.hiddenBlocks.length
+          layer.blocks.length + layer.hiddenBlocks.length ||
+        next.templates.length + next.hiddenTemplates.length !==
+          layer.templates.length + layer.hiddenTemplates.length
       world.layers.set(scopeKey(orgSlug, projectSlug), next)
       return removed
     })
 })
 
+const projectDocument = (
+  templateDefaults: PartialTemplateDefaults
+): ProjectDocument => ({
+  slug: slug("web"),
+  name: "Web",
+  icon: "folder",
+  color: "#3b82f6",
+  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-01T00:00:00.000Z")),
+  members: [],
+  github: null,
+  setup: {
+    workflowReviewedAt: null,
+    invitePeopleDismissedAt: null,
+    connectGithubDismissedAt: null
+  },
+  templateDefaults,
+  body: "# Web\n"
+})
+
 const fakeDb = Layer.succeed(Db, {
   query: {
+    projectIndex: {
+      findFirst: () => Effect.succeed({ id: "project-1" })
+    },
+    projectTag: {
+      findMany: () => Effect.succeed([{ name: "frontend" }])
+    },
     projectMember: {
       findMany: () =>
         Effect.succeed([{ userId: "project-admin" }, { userId: "member" }])
@@ -109,12 +166,23 @@ const fakeDb = Layer.succeed(Db, {
 
 const makeWorld = (): World => ({
   layers: new Map(),
-  reads: []
+  reads: [],
+  defaults: { current: {} },
+  orgDefaults: { current: {} }
 })
 
 const makeLayer = (world: World) =>
   LibraryLive.pipe(
     Layer.provide(Layer.succeed(LibraryDocs, fakeLibraryDocs(world))),
+    Layer.provide(
+      Layer.mock(ProjectDocs, {
+        read: () => Effect.succeed(projectDocument(world.defaults.current)),
+        writeTemplateDefaults: (_org, _slug, defaults) =>
+          Effect.sync(() => {
+            world.defaults.current = defaults
+          })
+      })
+    ),
     Layer.provide(
       Layer.mock(Projects, {
         requireMember: (_org, userId) =>
@@ -156,6 +224,7 @@ const run = <A, E>(
 ) => effect.pipe(Effect.provide(makeLayer(world)))
 
 const decodeBlockDraft = Schema.decodeUnknownSync(BlockDraft)
+const decodeTemplateDraft = Schema.decodeUnknownSync(TemplateDraft)
 
 const blockInput = (
   overrides: Readonly<Record<string, unknown>> = {}
@@ -168,6 +237,22 @@ const blockInput = (
     description: "Why",
     sync: false,
     content: "## Background\n\n{{Why this exists}}",
+    ...overrides
+  })
+
+const templateInput = (
+  overrides: Readonly<Record<string, unknown>> = {}
+): TemplateDraft =>
+  decodeTemplateDraft({
+    key: "incident",
+    name: "Incident",
+    icon: "Siren",
+    color: null,
+    description: "Something is on fire",
+    type: "bug",
+    priority: "high",
+    tags: [],
+    body: '<block type="context">\n\n</block>',
     ...overrides
   })
 
@@ -189,6 +274,10 @@ const adopt = (
     blocks: [
       ...layer.blocks,
       ...BUILTIN_BLOCKS.filter((block) => keys.includes(block.key))
+    ],
+    templates: [
+      ...layer.templates,
+      ...BUILTIN_TEMPLATES.filter((template) => keys.includes(template.key))
     ]
   }))
 
@@ -204,10 +293,20 @@ describe("reading", () => {
         expect(org.canEdit).toBe(false)
         expect(admin.canEdit).toBe(true)
         expect(org.blocks).toEqual([])
+        expect(org.templates).toEqual([])
+        expect(org.defaults).toEqual({
+          feat: null,
+          bug: null,
+          chore: null,
+          other: null
+        })
 
-        adopt(world, null, ["context"])
+        adopt(world, null, ["context", "chore"])
         const adopted = yield* library.orgLibrary("acme", "member")
         expect(adopted.blocks.map((block) => block.origin)).toEqual(["org"])
+        expect(adopted.templates.map((template) => template.key)).toEqual([
+          "chore"
+        ])
       }),
       world
     )
@@ -226,6 +325,46 @@ describe("reading", () => {
       })
     )
   )
+
+  it.effect("resolves project defaults over org defaults", () => {
+    const world = makeWorld()
+    adopt(world, null, ["bug-report", "chore", "spike"])
+    world.orgDefaults.current = {
+      bug: templateKey("bug-report"),
+      chore: templateKey("chore")
+    }
+    world.defaults.current = { bug: null, other: templateKey("spike") }
+    return run(
+      Effect.gen(function* () {
+        const library = yield* Library
+        const org = yield* library.orgLibrary("acme", "member")
+        const project = yield* library.projectLibrary("acme", "member", "web")
+        const admin = yield* library.projectLibrary(
+          "acme",
+          "project-admin",
+          "web"
+        )
+
+        expect(org.defaults).toEqual({
+          feat: null,
+          bug: "bug-report",
+          chore: "chore",
+          other: null
+        })
+        expect(project.defaults).toEqual({
+          feat: null,
+          bug: null,
+          chore: "chore",
+          other: "spike"
+        })
+        expect(project.inheritedDefaults).toEqual(org.defaults)
+        expect(project.ownDefaults).toEqual({ bug: null, other: "spike" })
+        expect(project.canEdit).toBe(false)
+        expect(admin.canEdit).toBe(true)
+      }),
+      world
+    )
+  })
 })
 
 describe("role gating", () => {
@@ -236,6 +375,13 @@ describe("role gating", () => {
         expect(
           yield* failureTag(
             library.createBlock("acme", "project-admin", null, blockInput())
+          )
+        ).toBe("Forbidden")
+        expect(
+          yield* failureTag(
+            library.setOrgTemplateDefaults("acme", "project-admin", {
+              defaults: {}
+            })
           )
         ).toBe("Forbidden")
         const created = yield* library.createBlock(
@@ -255,22 +401,24 @@ describe("role gating", () => {
         const library = yield* Library
         expect(
           yield* failureTag(
-            library.createBlock("acme", "member", "web", blockInput())
+            library.createTemplate("acme", "member", "web", templateInput())
           )
         ).toBe("Forbidden")
         expect(
           yield* failureTag(
-            library.createBlock("acme", "stranger", "web", blockInput())
+            library.createTemplate("acme", "stranger", "web", templateInput())
           )
         ).toBe("NotFound")
         expect(
-          yield* failureTag(library.hideBlock("acme", "member", "web", "notes"))
+          yield* failureTag(
+            library.hideTemplate("acme", "member", "web", "chore")
+          )
         ).toBe("Forbidden")
-        const created = yield* library.createBlock(
+        const created = yield* library.createTemplate(
           "acme",
           "project-admin",
           "web",
-          blockInput()
+          templateInput()
         )
         expect(created.origin).toBe("project")
       })
@@ -413,7 +561,7 @@ describe("keys per layer", () => {
         expect(context?.origin).toBe("project")
         expect(
           yield* failureTag(
-            library.hideBlock("acme", "project-admin", "web", "notes")
+            library.hideTemplate("acme", "project-admin", "web", "incident")
           )
         ).toBe("NotFound")
         yield* library.removeBlock("acme", "project-admin", "web", "context")
@@ -479,6 +627,26 @@ describe("content validation", () => {
             )
           )
         ).toBe("blocks_not_allowed")
+      })
+    )
+  )
+
+  it.effect("rejects a nested block in a template body", () =>
+    run(
+      Effect.gen(function* () {
+        const library = yield* Library
+        expect(
+          yield* reason(
+            library.createTemplate(
+              "acme",
+              "org-admin",
+              null,
+              templateInput({
+                body: '<block type="a">\n\n<block type="b">\n\n</block>\n\n</block>'
+              })
+            )
+          )
+        ).toBe("invalid_blocks:nested:3")
       })
     )
   )
@@ -562,6 +730,216 @@ describe("content validation", () => {
       })
     )
   )
+})
+
+describe("template defaults", () => {
+  it.effect(
+    "writes project overrides and resets them to the org default",
+    () => {
+      const world = makeWorld()
+      adopt(world, null, ["bug-report", "spike"])
+      world.orgDefaults.current = { bug: templateKey("bug-report") }
+      return run(
+        Effect.gen(function* () {
+          const library = yield* Library
+          expect(
+            yield* failureTag(
+              library.setTemplateDefaults("acme", "member", "web", {
+                defaults: { bug: null }
+              })
+            )
+          ).toBe("Forbidden")
+          const unknown = yield* library
+            .setTemplateDefaults("acme", "project-admin", "web", {
+              defaults: { bug: templateKey("feature") }
+            })
+            .pipe(Effect.flip)
+          expect(unknown).toMatchObject({
+            _tag: "Validation",
+            reason: "unknown_template:feature"
+          })
+
+          const overridden = yield* library.setTemplateDefaults(
+            "acme",
+            "project-admin",
+            "web",
+            { defaults: { bug: null, other: templateKey("spike") } }
+          )
+          expect(overridden.defaults).toEqual({
+            feat: null,
+            bug: null,
+            chore: null,
+            other: "spike"
+          })
+          expect(overridden.inheritedDefaults.bug).toBe("bug-report")
+          expect(world.defaults.current).toEqual({ bug: null, other: "spike" })
+
+          const reset = yield* library.setTemplateDefaults(
+            "acme",
+            "project-admin",
+            "web",
+            { defaults: {}, reset: ["bug"] }
+          )
+          expect(reset.defaults.bug).toBe("bug-report")
+          expect(world.defaults.current).toEqual({ other: "spike" })
+        }),
+        world
+      )
+    }
+  )
+
+  it.effect("writes org defaults to the org library file", () => {
+    const world = makeWorld()
+    adopt(world, null, ["feature"])
+    return run(
+      Effect.gen(function* () {
+        const library = yield* Library
+        const unknown = yield* library
+          .setOrgTemplateDefaults("acme", "org-admin", {
+            defaults: { bug: templateKey("bug-report") }
+          })
+          .pipe(Effect.flip)
+        expect(unknown).toMatchObject({
+          _tag: "Validation",
+          reason: "unknown_template:bug-report"
+        })
+        const set = yield* library.setOrgTemplateDefaults("acme", "org-admin", {
+          defaults: { feat: templateKey("feature") }
+        })
+        expect(set.defaults.feat).toBe("feature")
+        expect(set.ownDefaults).toEqual({ feat: "feature" })
+        expect(world.orgDefaults.current).toEqual({ feat: "feature" })
+        const project = yield* library.projectLibrary("acme", "member", "web")
+        expect(project.defaults.feat).toBe("feature")
+      }),
+      world
+    )
+  })
+})
+
+describe("expandForCreate", () => {
+  it.effect("expands an adopted template with synced blocks resolved", () => {
+    const world = makeWorld()
+    adopt(world, null, [
+      "bug-report",
+      "definition-of-done",
+      "steps-to-reproduce"
+    ])
+    return run(
+      Effect.gen(function* () {
+        const library = yield* Library
+        const expansion = yield* library.expandForCreate(
+          "acme",
+          "web",
+          templateKey("bug-report")
+        )
+
+        expect(expansion.type).toBe("bug")
+        expect(expansion.body).toContain(
+          '<block type="definition-of-done" sync>'
+        )
+        expect(expansion.body).toContain('<block type="steps-to-reproduce">')
+        expect(expansion.body).not.toContain('<block type="environment">')
+        expect(expansion.body).not.toContain("{{")
+      }),
+      world
+    )
+  })
+
+  it.effect("filters tags to the project's and sanitizes mentions", () => {
+    const world = makeWorld()
+    updateLayer(world, "acme", null, (layer) => ({
+      ...layer,
+      templates: [
+        templateInput({
+          tags: ["frontend", "backend"],
+          body: "Ping [Member](mention:user/member), [Nobody](mention:user/stranger), [T-1](mention:ticket/T-1) and [old](mention:ticket/T-9)"
+        })
+      ]
+    }))
+    return run(
+      Effect.gen(function* () {
+        const library = yield* Library
+        const expansion = yield* library.expandForCreate(
+          "acme",
+          "web",
+          templateKey("incident")
+        )
+
+        expect(expansion.tags).toEqual(["frontend"])
+        expect(expansion.priority).toBe("high")
+        expect(expansion.body).toBe(
+          "Ping [Member](mention:user/member), @Nobody, [T-1](mention:ticket/T-1) and T-9"
+        )
+      }),
+      world
+    )
+  })
+
+  it.effect("drops a mention of an org admin who is not in the project", () => {
+    const world = makeWorld()
+    return run(
+      Effect.gen(function* () {
+        const library = yield* Library
+        const rejected = yield* library
+          .createTemplate(
+            "acme",
+            "project-admin",
+            "web",
+            templateInput({ body: "Ask [Admin](mention:user/org-admin)" })
+          )
+          .pipe(Effect.flip)
+        updateLayer(world, "acme", null, (layer) => ({
+          ...layer,
+          templates: [
+            templateInput({ body: "Ask [Admin](mention:user/org-admin)" })
+          ]
+        }))
+        const expansion = yield* library.expandForCreate(
+          "acme",
+          "web",
+          templateKey("incident")
+        )
+
+        expect(rejected).toMatchObject({
+          _tag: "MentionInvalid",
+          kind: "unknown_user"
+        })
+        expect(expansion.body).toBe("Ask @Admin")
+      }),
+      world
+    )
+  })
+
+  it.effect("fails on an unknown or hidden template", () => {
+    const world = makeWorld()
+    adopt(world, null, ["chore"])
+    updateLayer(world, "acme", "web", (layer) => ({
+      ...layer,
+      hiddenTemplates: ["chore"]
+    }))
+    return run(
+      Effect.gen(function* () {
+        const library = yield* Library
+        const unadopted = yield* library
+          .expandForCreate("acme", "web", templateKey("incident"))
+          .pipe(Effect.flip)
+        const hidden = yield* library
+          .expandForCreate("acme", "web", templateKey("chore"))
+          .pipe(Effect.flip)
+
+        expect(unadopted).toMatchObject({
+          _tag: "Validation",
+          reason: "unknown_template:incident"
+        })
+        expect(hidden).toMatchObject({
+          _tag: "Validation",
+          reason: "unknown_template:chore"
+        })
+      }),
+      world
+    )
+  })
 })
 
 describe("resolveSynced", () => {

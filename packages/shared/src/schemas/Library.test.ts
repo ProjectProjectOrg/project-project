@@ -2,10 +2,18 @@ import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import { INNER_RING, OUTER_RING } from "../colors"
-import { BlockDraft, BlockKey, LibraryColor } from "./Library"
+import {
+  BlockDraft,
+  BlockKey,
+  LibraryColor,
+  TemplateKey,
+  UpdateTemplateDefaultsInput
+} from "./Library"
 
 const decodeBlockKey = Schema.decodeUnknownExit(BlockKey)
+const decodeTemplateKey = Schema.decodeUnknownExit(TemplateKey)
 const decodeColor = Schema.decodeUnknownExit(LibraryColor)
+const decodeDefaults = Schema.decodeUnknownExit(UpdateTemplateDefaultsInput)
 
 describe("library keys", () => {
   it("accepts kebab-case keys up to 48 characters", () => {
@@ -16,6 +24,7 @@ describe("library keys", () => {
       "a".repeat(48)
     ]) {
       expect(decodeBlockKey(key)._tag).toBe("Success")
+      expect(decodeTemplateKey(key)._tag).toBe("Success")
     }
   })
 
@@ -31,6 +40,11 @@ describe("library keys", () => {
     ]) {
       expect(decodeBlockKey(key)._tag).toBe("Failure")
     }
+  })
+
+  it("reserves blank for templates only", () => {
+    expect(decodeTemplateKey("blank")._tag).toBe("Failure")
+    expect(decodeBlockKey("blank")._tag).toBe("Success")
   })
 })
 
@@ -56,5 +70,27 @@ describe("LibraryColor", () => {
   it("rejects colours off the wheel", () => {
     expect(decodeColor("#123456")._tag).toBe("Failure")
     expect(decodeColor("red")._tag).toBe("Failure")
+  })
+})
+
+describe("UpdateTemplateDefaultsInput", () => {
+  it("accepts a partial mapping with explicit blanks", () => {
+    expect(
+      decodeDefaults({ defaults: { bug: "bug-report", other: null } })._tag
+    ).toBe("Success")
+    expect(decodeDefaults({ defaults: {} })._tag).toBe("Success")
+  })
+
+  it("accepts types to reset to the inherited default", () => {
+    expect(decodeDefaults({ defaults: {}, reset: ["bug", "feat"] })._tag).toBe(
+      "Success"
+    )
+    expect(decodeDefaults({ defaults: {}, reset: ["nope"] })._tag).toBe(
+      "Failure"
+    )
+  })
+
+  it("rejects the reserved blank key", () => {
+    expect(decodeDefaults({ defaults: { bug: "blank" } })._tag).toBe("Failure")
   })
 })

@@ -24,8 +24,13 @@ import {
 const trimBlankLines = (content: string): string =>
   content.replace(/^(?:[ \t]*\n)+/, "").replace(/(?:\n[ \t]*)+$/, "")
 
+export type TicketBlockTransformerOptions = Readonly<{
+  emptyAsReference?: boolean
+}>
+
 export function createTicketBlockTransformer(
-  transformers: ReadonlyArray<Transformer>
+  transformers: ReadonlyArray<Transformer>,
+  options?: TicketBlockTransformerOptions
 ): MultilineElementTransformer {
   return {
     type: "multiline-element",
@@ -47,6 +52,10 @@ export function createTicketBlockTransformer(
         )
         return [true, end]
       }
+      if (options?.emptyAsReference === true && content.trim() === "") {
+        rootNode.append($createSyncedBlockNode(startMatch[1], "", "reference"))
+        return [true, end]
+      }
       const block = $createTicketBlockNode(startMatch[1])
       rootNode.append(block)
       $convertFromMarkdownString(content, [...transformers], block)
@@ -54,9 +63,11 @@ export function createTicketBlockTransformer(
     },
     export: (node) => {
       if ($isSyncedBlockNode(node))
-        return formatTicketBlock(node.getBlockType(), node.getSnapshot(), {
-          sync: true
-        })
+        return node.getMode() === "reference"
+          ? formatTicketBlock(node.getBlockType(), "")
+          : formatTicketBlock(node.getBlockType(), node.getSnapshot(), {
+              sync: true
+            })
       return $isTicketBlockNode(node)
         ? formatTicketBlock(
             node.getBlockType(),

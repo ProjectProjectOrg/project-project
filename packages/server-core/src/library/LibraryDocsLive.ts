@@ -7,8 +7,14 @@ import {
   LibraryDescription,
   LibraryName,
   normalizeLineEndings,
+  TagName,
+  TemplateKey,
+  TicketPriority,
+  TicketType,
   type BlockDraft,
-  type Layer as LibraryLayer
+  type Layer as LibraryLayer,
+  type PartialTemplateDefaults,
+  type TemplateDraft
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -23,6 +29,10 @@ import {
   type MarkdownError
 } from "../markdown/Markdown"
 import { LibraryDocs, type LibraryDocsShape } from "./LibraryDocs"
+import {
+  templateDefaultsFrom,
+  withTemplateDefaults
+} from "./templateDefaultsFrontmatter"
 
 const withDefault = <S extends Schema.Top>(schema: S, value: S["Type"]) =>
   schema.pipe(Schema.withDecodingDefaultTypeKey(Effect.succeed(value)))
@@ -35,15 +45,29 @@ const BlockFrontmatter = Schema.Struct({
   sync: withDefault(Schema.Boolean, false)
 })
 
+const TemplateFrontmatter = Schema.Struct({
+  name: LibraryName,
+  icon: withDefault(BlockIcon, FALLBACK_BLOCK_ICON),
+  color: withDefault(LibraryColor, null),
+  description: withDefault(LibraryDescription, ""),
+  type: withDefault(Schema.NullOr(TicketType), null),
+  priority: withDefault(Schema.NullOr(TicketPriority), null),
+  tags: withDefault(Schema.Array(TagName), [])
+})
+
 const TOMBSTONE = "---\nhidden: true\n---\n"
 
 const Tombstone = Schema.Struct({ hidden: Schema.Literal(true) })
 
 const isTombstone = Schema.is(Tombstone)
 const decodeBlockFrontmatter = Schema.decodeUnknownOption(BlockFrontmatter)
+const decodeTemplateFrontmatter =
+  Schema.decodeUnknownOption(TemplateFrontmatter)
 const decodeBlockKey = Schema.decodeUnknownOption(BlockKey)
+const decodeTemplateKey = Schema.decodeUnknownOption(TemplateKey)
 const decodeContent = Schema.decodeUnknownOption(LibraryContent)
 const encodeBlockFrontmatter = Schema.encodeSync(BlockFrontmatter)
+const encodeTemplateFrontmatter = Schema.encodeSync(TemplateFrontmatter)
 
 const trimBlankLines = (text: string): string =>
   text.replace(/^(?:[ \t]*\r?\n)+/, "").replace(/(?:\r?\n[ \t]*)+$/, "")
@@ -82,6 +106,19 @@ const decodeBlock = (file: ParsedFile): Option.Option<BlockDraft> =>
       key,
       ...frontmatter,
       content
+    }))
+  )
+
+const decodeTemplate = (file: ParsedFile): Option.Option<TemplateDraft> =>
+  Option.all({
+    key: decodeTemplateKey(file.key),
+    frontmatter: decodeTemplateFrontmatter(file.data),
+    body: decodeContent(file.body)
+  }).pipe(
+    Option.map(({ key, frontmatter, body }) => ({
+      key,
+      ...frontmatter,
+      body
     }))
   )
 
@@ -173,12 +210,21 @@ export const LibraryDocsLive = Layer.effect(
         orgSlug,
         projectSlug,
         {},
-        readKind(orgSlug, projectSlug, "blocks", decodeBlock).pipe(
-          Effect.map((blocks) => ({
+        Effect.gen(function* () {
+          const [blocks, templates] = yield* Effect.all(
+            [
+              readKind(orgSlug, projectSlug, "blocks", decodeBlock),
+              readKind(orgSlug, projectSlug, "templates", decodeTemplate)
+            ],
+            { concurrency: 2 }
+          )
+          return {
             blocks: blocks.definitions,
-            hiddenBlocks: blocks.hidden
-          }))
-        )
+            templates: templates.definitions,
+            hiddenBlocks: blocks.hidden,
+            hiddenTemplates: templates.hidden
+          }
+        })
       )
 
     const writeBlock = (
@@ -202,6 +248,27 @@ export const LibraryDocsLive = Layer.effect(
       )
     }
 
+    const writeTemplate = (
+      orgSlug: string,
+      projectSlug: string | null,
+      draft: TemplateDraft
+    ): Effect.Effect<void, MarkdownError> => {
+      const { key, body, ...frontmatter } = draft
+      return withLibraryDocTelemetry(
+        "writeTemplate",
+        orgSlug,
+        projectSlug,
+        { key },
+        markdown.writeLibraryFile(
+          orgSlug,
+          projectSlug,
+          "templates",
+          key,
+          matter.stringify(body, encodeTemplateFrontmatter(frontmatter))
+        )
+      )
+    }
+
     const writeTombstone = (
       orgSlug: string,
       projectSlug: string | null,
@@ -214,6 +281,53 @@ export const LibraryDocsLive = Layer.effect(
         projectSlug,
         { kind, key },
         markdown.writeLibraryFile(orgSlug, projectSlug, kind, key, TOMBSTONE)
+      )
+
+    const readOrgFile = (orgSlug: string) =>
+      markdown.readOrgLibraryFile(orgSlug).pipe(
+        Effect.map((content) => {
+          if (content === null) return { data: {}, body: "" }
+          try {
+            const parsed = matter(content)
+            return { data: parsed.data, body: parsed.content }
+          } catch {
+            return { data: {}, body: "" }
+          }
+        })
+      )
+
+    const readOrgDefaults = (
+      orgSlug: string
+    ): Effect.Effect<PartialTemplateDefaults, MarkdownError> =>
+      withLibraryDocTelemetry(
+        "readOrgDefaults",
+        orgSlug,
+        null,
+        {},
+        readOrgFile(orgSlug).pipe(
+          Effect.map((file) => templateDefaultsFrom(file.data))
+        )
+      )
+
+    const writeOrgDefaults = (
+      orgSlug: string,
+      defaults: PartialTemplateDefaults
+    ): Effect.Effect<void, MarkdownError> =>
+      withLibraryDocTelemetry(
+        "writeOrgDefaults",
+        orgSlug,
+        null,
+        {},
+        Effect.gen(function* () {
+          const file = yield* readOrgFile(orgSlug)
+          yield* markdown.writeOrgLibraryFile(
+            orgSlug,
+            matter.stringify(
+              file.body,
+              withTemplateDefaults(file.data, defaults)
+            )
+          )
+        })
       )
 
     const remove = (
@@ -233,7 +347,10 @@ export const LibraryDocsLive = Layer.effect(
     return {
       readLayer,
       writeBlock,
+      writeTemplate,
       writeTombstone,
+      readOrgDefaults,
+      writeOrgDefaults,
       remove
     } satisfies LibraryDocsShape
   })

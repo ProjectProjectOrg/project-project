@@ -1,5 +1,6 @@
 import {
   BUILTIN_BLOCKS,
+  BUILTIN_TEMPLATE_DEFAULTS,
   FALLBACK_BLOCK_ICON,
   GALLERY_LAYER,
   blockLookupFor,
@@ -22,6 +23,7 @@ export type BlockChrome = Readonly<{
 
 export const BUILTIN_LIBRARY: Library = resolveLibrary(
   { org: GALLERY_LAYER, project: null },
+  { org: BUILTIN_TEMPLATE_DEFAULTS, project: null },
   false
 )
 

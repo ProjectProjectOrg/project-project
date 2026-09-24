@@ -1,9 +1,13 @@
 import {
   outlineBlockContent,
+  parseTicketBlocks,
   type BlockIconName,
+  type BlockLookup,
   type BlockOutlineNode,
   type HintListKind
 } from "@pp/shared"
+
+import { blockChrome } from "@/components/blocks/blockChrome"
 
 export type SketchLine = "heading" | "text" | "bullet" | "number" | "task"
 
@@ -41,3 +45,26 @@ export const sketchLines = (
   const body = nodes[0]?.kind === "heading" ? nodes.slice(1) : nodes
   return body.flatMap(nodeLines).slice(0, limit)
 }
+
+export const templateSketch = (
+  body: string,
+  lookup: BlockLookup,
+  linesPerBlock: number
+): ReadonlyArray<SketchBlock> =>
+  parseTicketBlocks(body).flatMap((segment, index) => {
+    if (segment.kind !== "block") return []
+    const chrome = blockChrome(segment.type, lookup)
+    const content =
+      segment.content.trim() === ""
+        ? (lookup(segment.type)?.content ?? "")
+        : segment.content
+    return [
+      {
+        key: `${segment.type}:${index}`,
+        name: chrome.name,
+        icon: chrome.icon,
+        color: chrome.color,
+        lines: sketchLines(content, linesPerBlock)
+      }
+    ]
+  })

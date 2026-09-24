@@ -5,7 +5,7 @@ import {
   INSERT_ORDERED_LIST_COMMAND,
   INSERT_UNORDERED_LIST_COMMAND
 } from "@lexical/list"
-import type { Transformer } from "@lexical/markdown"
+import { $convertToMarkdownString, type Transformer } from "@lexical/markdown"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import {
   LexicalTypeaheadMenuPlugin,
@@ -16,12 +16,14 @@ import { $setBlocksType } from "@lexical/selection"
 import { INSERT_TABLE_COMMAND } from "@lexical/table"
 import { mergeRegister } from "@lexical/utils"
 import {
+  expandTemplate,
   formatTicketBlock,
   stripHints,
   type BlockDefinition,
   type BlockIconName,
   type BlockLookup,
-  type Library
+  type Library,
+  type TicketType
 } from "@pp/shared"
 import { useRouter } from "@tanstack/react-router"
 import {
@@ -82,7 +84,7 @@ import type { IconComponent } from "@/lib/icon-context"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import { $insertBlocksAt } from "./blockCommands"
+import { $applyTemplate, $insertBlocksAt } from "./blockCommands"
 import type { EditorBlocksMode } from "./editorBlocks"
 import { $createHintNode } from "./HintNode"
 import {
@@ -155,18 +157,22 @@ const BASIC_ICONS: Record<SlashBasicKind, LucideIcon> = {
 }
 
 const SECTION_LABELS: Record<SlashSectionKey, () => string> = {
+  suggested: m.editor_slash_section_suggested,
   blocks: m.editor_slash_section_blocks,
+  templates: m.editor_slash_section_templates,
   basic: m.editor_slash_section_basic
 }
 
 const TAB_LABELS: Record<SlashTab, () => string> = {
   all: m.editor_slash_tab_all,
   blocks: m.editor_slash_section_blocks,
+  templates: m.editor_slash_section_templates,
   markdown: m.editor_slash_section_basic
 }
 
 const GALLERY_LABELS = {
-  block: m.editor_slash_gallery_blocks
+  block: m.editor_slash_gallery_blocks,
+  template: m.editor_slash_gallery_templates
 }
 
 const ORIGIN_LABELS = {
@@ -176,10 +182,17 @@ const ORIGIN_LABELS = {
 
 const basicLabel = (kind: SlashBasicKind): string => BASIC_LABELS[kind]()
 
-const blockMarkdown = (definition: BlockDefinition, detach: boolean): string =>
-  formatTicketBlock(definition.key, stripHints(definition.content), {
-    sync: definition.sync && !detach
+const blockMarkdown = (
+  definition: BlockDefinition,
+  detach: boolean,
+  mode: EditorBlocksMode
+): string => {
+  if (mode === "template" && !detach)
+    return formatTicketBlock(definition.key, "")
+  return formatTicketBlock(definition.key, stripHints(definition.content), {
+    sync: definition.sync && !detach && mode !== "template"
   })
+}
 
 function $insertHint() {
   const selection = $getSelection()
@@ -236,12 +249,24 @@ export function $runSlashItem(
     transformers: ReadonlyArray<Transformer>
     lookup: BlockLookup
     detach: boolean
+    mode?: EditorBlocksMode
   }>
 ) {
   switch (item.kind) {
     case "block":
       $insertBlocksAt(
-        blockMarkdown(item.definition, context.detach),
+        blockMarkdown(
+          item.definition,
+          context.detach,
+          context.mode ?? "ticket"
+        ),
+        context.transformers,
+        context.lookup
+      )
+      return
+    case "template":
+      $applyTemplate(
+        expandTemplate(item.template, context.lookup),
         context.transformers,
         context.lookup
       )
@@ -261,6 +286,10 @@ function ItemIcon({ item }: Readonly<{ item: SlashItem }>) {
         icon={item.definition.icon}
         color={item.definition.color}
       />
+    )
+  if (item.kind === "template")
+    return (
+      <BlockIconGlyph icon={item.template.icon} color={item.template.color} />
     )
   const Icon = item.kind === "gallery" ? LibraryBig : BASIC_ICONS[item.basic]
   return (
@@ -299,11 +328,14 @@ const glyphIcon = (
 const itemIcon = (item: SlashItem): IconComponent => {
   if (item.kind === "block")
     return glyphIcon(item.definition.icon, item.definition.color)
+  if (item.kind === "template")
+    return glyphIcon(item.template.icon, item.template.color)
   return item.kind === "gallery" ? LibraryBig : BASIC_ICONS[item.basic]
 }
 
 const itemName = (item: SlashItem): string => {
   if (item.kind === "block") return item.definition.name
+  if (item.kind === "template") return item.template.name
   if (item.kind === "gallery") return GALLERY_LABELS[item.entry]()
   return basicLabel(item.basic)
 }
@@ -313,8 +345,17 @@ const blockMeta = (definition: BlockDefinition): string | null => {
   return ORIGIN_LABELS[definition.origin]()
 }
 
+const templateMeta = (adds: number): string => {
+  if (adds === 0) return m.editor_slash_template_applied()
+  return adds === 1
+    ? m.editor_slash_template_adds_one()
+    : m.editor_slash_template_adds({ count: adds })
+}
+
 const itemMeta = (item: SlashItem): string | null => {
-  if (item.kind === "block") return blockMeta(item.definition)
+  if (item.kind === "block")
+    return item.suggestedBy ?? blockMeta(item.definition)
+  if (item.kind === "template") return templateMeta(item.adds)
   if (item.kind === "gallery") return m.editor_slash_gallery_browse()
   return null
 }
@@ -421,10 +462,12 @@ function SlashMenuKeys({
 
 function SlashMenuPreviewPane({
   items,
-  library
+  library,
+  lookup
 }: Readonly<{
   items: ReadonlyMap<string, SlashItem>
   library: Library
+  lookup: BlockLookup
 }>) {
   const row = useHighlighted()
   const item = row === undefined ? undefined : items.get(row.value)
@@ -440,6 +483,7 @@ function SlashMenuPreviewPane({
           name={itemName(item)}
           meta={itemMeta(item)}
           library={library}
+          lookup={lookup}
         />
       )}
     </div>
@@ -516,6 +560,7 @@ function SlashMenuList({
   menu,
   query,
   library,
+  lookup,
   detachRef,
   onPick,
   onTab
@@ -524,6 +569,7 @@ function SlashMenuList({
   menu: SlashMenuState
   query: string
   library: Library
+  lookup: BlockLookup
   detachRef: RefObject<boolean>
   onPick: (key: string) => void
   onTab: (tab: SlashTab) => void
@@ -633,7 +679,11 @@ function SlashMenuList({
               </CommandMenuList>
             </div>
             {layout?.fit.preview === true ? (
-              <SlashMenuPreviewPane items={itemsByKey} library={library} />
+              <SlashMenuPreviewPane
+                items={itemsByKey}
+                library={library}
+                lookup={lookup}
+              />
             ) : null}
           </div>
           <SlashMenuFooter tabs={hasTabs} />
@@ -723,19 +773,22 @@ function useOpenGallery() {
     warn: false
   })
   return useCallback(
-    (_entry: "block") => {
+    (entry: "block" | "template") => {
       if (router === undefined) return
       const params: RouteParams = router.state.matches.at(-1)?.params ?? {}
+      const search = entry === "block" ? { tab: "blocks" as const } : {}
       if (params.orgSlug === undefined) return
       if (params.slug === undefined)
         void router.navigate({
           to: "/orgs/$orgSlug/settings/templates",
-          params: { orgSlug: params.orgSlug }
+          params: { orgSlug: params.orgSlug },
+          search
         })
       else
         void router.navigate({
           to: "/orgs/$orgSlug/projects/$slug/settings/templates",
-          params: { orgSlug: params.orgSlug, slug: params.slug }
+          params: { orgSlug: params.orgSlug, slug: params.slug },
+          search
         })
     },
     [router]
@@ -744,10 +797,12 @@ function useOpenGallery() {
 
 export function SlashMenuPlugin({
   library,
+  ticketType,
   transformers,
   mode = "ticket"
 }: Readonly<{
   library: Library
+  ticketType: TicketType | null
   transformers: ReadonlyArray<Transformer>
   mode?: EditorBlocksMode
 }>) {
@@ -760,8 +815,11 @@ export function SlashMenuPlugin({
 
   const menu = useMemo((): SlashMenuState => {
     if (query === null) return EMPTY_MENU
+    const body = editor
+      .getEditorState()
+      .read(() => $convertToMarkdownString([...transformers]))
     const view = slashMenuView(
-      { library, lookup, query, basicLabel, mode },
+      { library, lookup, ticketType, body, query, basicLabel, mode },
       tab
     )
     return {
@@ -772,7 +830,7 @@ export function SlashMenuPlugin({
         section.items.map((item) => new SlashMenuOption(item))
       )
     }
-  }, [library, lookup, mode, tab, query])
+  }, [editor, library, lookup, mode, tab, query, ticketType, transformers])
 
   const menuRef = useRef(menu)
   const openRef = useRef(false)
@@ -830,11 +888,16 @@ export function SlashMenuPlugin({
       }
       editor.update(() => {
         nodeToReplace?.remove()
-        $runSlashItem(editor, option.item, { transformers, lookup, detach })
+        $runSlashItem(editor, option.item, {
+          transformers,
+          lookup,
+          detach,
+          mode
+        })
         closeMenu()
       })
     },
-    [editor, lookup, openGallery, transformers]
+    [editor, lookup, mode, openGallery, transformers]
   )
 
   return (
@@ -852,6 +915,7 @@ export function SlashMenuPlugin({
                 editor={editor}
                 menu={menu}
                 library={library}
+                lookup={lookup}
                 detachRef={detachRef}
                 onTab={switchTab}
                 query={matchingString}

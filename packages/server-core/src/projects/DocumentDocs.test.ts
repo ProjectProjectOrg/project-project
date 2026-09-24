@@ -11,6 +11,7 @@ const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
 import {
   GroupColor,
   GroupId,
+  NotFound,
   ProjectKey,
   TagName,
   TicketId,
@@ -65,6 +66,8 @@ function makeMarkdown(overrides: Partial<MarkdownShape>) {
     libraryDir: () => "/tmp/projectproject-test/library",
     listLibraryFiles: () => unexpectedMarkdownCall("listLibraryFiles"),
     writeLibraryFile: () => unexpectedMarkdownCall("writeLibraryFile"),
+    readOrgLibraryFile: () => unexpectedMarkdownCall("readOrgLibraryFile"),
+    writeOrgLibraryFile: () => unexpectedMarkdownCall("writeOrgLibraryFile"),
     removeLibraryFile: () => unexpectedMarkdownCall("removeLibraryFile"),
     ...overrides
   } satisfies MarkdownShape
@@ -654,6 +657,7 @@ it.effect(
         ProjectDocsLive.pipe(
           Layer.provide(
             makeMarkdown({
+              readProjectFile: () => Effect.fail(new NotFound()),
               writeProjectFile: (_org, projectSlug, frontmatter, body) => {
                 written = { slug: projectSlug, frontmatter, body }
                 return Effect.void

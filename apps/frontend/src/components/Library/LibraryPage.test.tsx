@@ -2,12 +2,15 @@ import { RegistryContext } from "@effect/atom-react"
 import {
   BlockDefinition,
   BUILTIN_BLOCKS,
+  BUILTIN_TEMPLATES,
   EMPTY_LAYER,
   Library,
+  LibraryDefaults,
+  TemplateDefinition,
   resolveLibrary,
-  type BlockDraft,
-  type BlockKey,
-  type Layer
+  type Layer,
+  type TemplateDraft,
+  type TemplateKey
 } from "@pp/shared"
 import {
   act,
@@ -25,7 +28,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
 
-import { LibraryPage } from "./LibraryPage"
+import { LibraryPage, type LibraryTab } from "./LibraryPage"
 import { orgScope, projectScope, type LibraryScope } from "./libraryScope"
 
 const navigate = vi.fn()
@@ -50,37 +53,54 @@ vi.mock("@tanstack/react-router", async (original) => ({
 
 const fetchStub = stubFetch()
 const encodeLibrary = Schema.encodeSync(Library)
+const encodeTemplate = Schema.encodeSync(TemplateDefinition)
 const encodeBlock = Schema.encodeSync(BlockDefinition)
+const encodeDefaults = Schema.encodeSync(LibraryDefaults)
 
-const builtin = (key: string): BlockDraft =>
-  BUILTIN_BLOCKS.find((block) => block.key === key)!
+const builtin = (key: string): TemplateDraft =>
+  BUILTIN_TEMPLATES.find((template) => template.key === key)!
 
-const triage: BlockDraft = {
-  ...builtin("notes"),
-  key: "triage" as BlockKey,
+const triage: TemplateDraft = {
+  ...builtin("chore"),
+  key: "triage" as TemplateKey,
   name: "Triage"
 }
 
 const orgLayer: Layer = {
   ...EMPTY_LAYER,
-  blocks: [
-    builtin("context"),
-    builtin("definition-of-done"),
-    builtin("notes"),
-    triage
-  ]
+  blocks: BUILTIN_BLOCKS.filter((block) =>
+    ["context", "definition-of-done"].includes(block.key)
+  ),
+  templates: [builtin("bug-report"), builtin("chore"), builtin("spike"), triage]
 }
 
 const projectLayer: Layer = {
-  blocks: [{ ...builtin("context"), name: "Context (web)" }],
-  hiddenBlocks: ["notes"]
+  ...EMPTY_LAYER,
+  templates: [{ ...builtin("chore"), name: "Chore (web)" }],
+  hiddenTemplates: ["spike" as TemplateKey]
 }
 
+const orgDefaults = { bug: "bug-report" as TemplateKey }
+
 const projectLibrary = (canEdit: boolean) =>
-  resolveLibrary({ org: orgLayer, project: projectLayer }, canEdit)
+  resolveLibrary(
+    { org: orgLayer, project: projectLayer },
+    { org: orgDefaults, project: {} },
+    canEdit
+  )
 
 const orgLibrary = (layer: Layer = orgLayer) =>
-  resolveLibrary({ org: layer, project: null }, true)
+  resolveLibrary(
+    { org: layer, project: null },
+    { org: orgDefaults, project: null },
+    true
+  )
+
+const defaultsOf = (library: Library) => ({
+  defaults: library.defaults,
+  ownDefaults: library.ownDefaults,
+  inheritedDefaults: library.inheritedDefaults
+})
 
 type Call = Readonly<{ method: string; path: string; body: unknown }>
 
@@ -119,10 +139,10 @@ const serve = (
   })
 }
 
-const renderPage = (scope: LibraryScope) =>
+const renderPage = (scope: LibraryScope, tab: LibraryTab = "templates") =>
   render(
     <RegistryContext.Provider value={registry}>
-      <LibraryPage scope={scope} />
+      <LibraryPage scope={scope} tab={tab} onTabChange={() => {}} />
     </RegistryContext.Provider>
   )
 
@@ -161,19 +181,19 @@ afterEach(() => {
 })
 
 describe("LibraryPage", () => {
-  it("labels each block by its origin and folds hidden ones away", async () => {
+  it("labels each template by its origin and folds hidden ones away", async () => {
     serve(projectLibrary(true))
     renderPage(projectScope("acme", "web"))
 
-    await waitFor(() => expect(cardOf("definition-of-done")).not.toBeNull())
-    expect(originOf("definition-of-done")).toBe("org")
+    await waitFor(() => expect(cardOf("bug-report")).not.toBeNull())
+    expect(originOf("bug-report")).toBe("org")
     expect(originOf("triage")).toBe("org")
-    expect(originOf("context")).toBe("project · overrides org")
-    expect(cardOf("notes")).toBeNull()
+    expect(originOf("chore")).toBe("project · overrides org")
+    expect(cardOf("spike")).toBeNull()
 
     fireEvent.click(screen.getByRole("button", { name: /1 hidden/ }))
     const hidden = document.querySelector<HTMLElement>(
-      '[data-hidden-row="notes"]'
+      '[data-hidden-row="spike"]'
     )!
     expect(within(hidden).getByRole("button").textContent).toMatch("Unhide")
   })
@@ -182,8 +202,8 @@ describe("LibraryPage", () => {
     serve(projectLibrary(true))
     renderPage(projectScope("acme", "web"))
 
-    await waitFor(() => expect(cardOf("triage")).not.toBeNull())
-    expect(actionsIn(cardOf("definition-of-done")!)).toEqual([
+    await waitFor(() => expect(cardOf("bug-report")).not.toBeNull())
+    expect(actionsIn(cardOf("bug-report")!)).toEqual([
       "Customize",
       "Duplicate",
       "Hide"
@@ -193,113 +213,223 @@ describe("LibraryPage", () => {
       "Duplicate",
       "Hide"
     ])
-    expect(actionsIn(cardOf("context")!)).toEqual(["Duplicate", "Reset"])
-    expect(screen.getByRole("button", { name: "New block" })).toBeTruthy()
+    expect(actionsIn(cardOf("chore")!)).toEqual(["Duplicate", "Reset"])
+    expect(screen.getByRole("button", { name: "New template" })).toBeTruthy()
   })
 
   it("shows members the lists without any actions", async () => {
     serve(projectLibrary(false))
     renderPage(projectScope("acme", "web"))
 
-    await waitFor(() => expect(cardOf("triage")).not.toBeNull())
-    for (const key of ["definition-of-done", "triage", "context"])
+    await waitFor(() => expect(cardOf("bug-report")).not.toBeNull())
+    for (const key of ["bug-report", "triage", "chore"])
       expect(actionsIn(cardOf(key)!)).toEqual([])
-    expect(screen.queryByRole("button", { name: "New block" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "New template" })).toBeNull()
     expect(screen.queryByRole("button", { name: "Add" })).toBeNull()
     expect(
-      screen.getAllByRole("button", { name: "Preview" }).length
-    ).toBeGreaterThan(0)
+      screen.queryByRole("button", { name: /Default template for/ })
+    ).toBeNull()
+    expect(screen.getAllByRole("button", { name: "Preview" })).toHaveLength(6)
   })
 
-  it("adds a gallery block to this layer and moves it into the list", async () => {
+  it("adds a gallery template to this layer and moves it into the list", async () => {
     const library = projectLibrary(true)
-    const steps = builtin("steps-to-reproduce")
-    const adopted: BlockDefinition = {
-      ...steps,
+    const incident = builtin("incident")
+    const adopted: TemplateDefinition = {
+      ...incident,
       origin: "project",
       shadows: null,
       hidden: false
     }
     serve(library, (call) => {
       if (call.method !== "POST") return undefined
-      served = { ...library, blocks: [...library.blocks, adopted] }
-      return Response.json(encodeBlock(adopted))
+      if (call.path.endsWith("/blocks"))
+        return Response.json(
+          encodeBlock({
+            ...(call.body as BlockDefinition),
+            origin: "project",
+            shadows: null,
+            hidden: false
+          })
+        )
+      served = { ...library, templates: [...library.templates, adopted] }
+      return Response.json(encodeTemplate(adopted))
     })
     renderPage(projectScope("acme", "web"))
 
-    await waitFor(() => expect(tileOf("steps-to-reproduce")).not.toBeNull())
-    fireEvent.click(within(tileOf("steps-to-reproduce")!).getByText("Add"))
+    await waitFor(() => expect(tileOf("incident")).not.toBeNull())
+    fireEvent.click(within(tileOf("incident")!).getByText("Add"))
 
-    await waitFor(() => expect(cardOf("steps-to-reproduce")).not.toBeNull())
-    expect(originOf("steps-to-reproduce")).toBeNull()
-    const posts = calls.filter((call) => call.method === "POST")
+    await waitFor(() => expect(cardOf("incident")).not.toBeNull())
+    // The tile hands its layoutId to the card and stays mounted until that
+    // shared animation ends, which never runs without layout in jsdom, so
+    // its removal is checked in the browser rather than here.
+    expect(originOf("incident")).toBeNull()
+    const posts = calls.filter(
+      (call) =>
+        call.method === "POST" && call.path.endsWith("/library/templates")
+    )
     expect(posts.map((call) => call.path)).toEqual([
-      "/orgs/acme/projects/web/library/blocks"
+      "/orgs/acme/projects/web/library/templates"
     ])
     expect(posts[0]!.body).toMatchObject({
-      key: "steps-to-reproduce",
-      name: steps.name
+      key: "incident",
+      name: incident.name
     })
+  })
+
+  it("adopts the gallery blocks a template references before the template", async () => {
+    const library = orgLibrary()
+    serve(library, (call) => {
+      if (call.method !== "POST") return undefined
+      const placed = {
+        ...(call.body as Readonly<Record<string, unknown>>),
+        origin: "org",
+        shadows: null,
+        hidden: false
+      }
+      return Response.json(
+        call.path.endsWith("/blocks")
+          ? encodeBlock(placed as BlockDefinition)
+          : encodeTemplate(placed as TemplateDefinition)
+      )
+    })
+    renderPage(orgScope("acme"))
+
+    await waitFor(() => expect(tileOf("feature")).not.toBeNull())
+    fireEvent.click(within(tileOf("feature")!).getByText("Add"))
+
+    await waitFor(() =>
+      expect(
+        calls
+          .filter((call) => call.method === "POST")
+          .map((call) => [call.path, (call.body as { key: string }).key])
+      ).toEqual([
+        ["/orgs/acme/library/blocks", "acceptance-criteria"],
+        ["/orgs/acme/library/blocks", "out-of-scope"],
+        ["/orgs/acme/library/templates", "feature"]
+      ])
+    )
+  })
+
+  it("adopts the block behind a customized copy in the template", async () => {
+    const library = orgLibrary({
+      ...orgLayer,
+      templates: orgLayer.templates.filter(
+        (template) => template.key !== "spike"
+      )
+    })
+    serve(library, (call) => {
+      if (call.method !== "POST") return undefined
+      const placed = {
+        ...(call.body as Readonly<Record<string, unknown>>),
+        origin: "org",
+        shadows: null,
+        hidden: false
+      }
+      return Response.json(
+        call.path.endsWith("/blocks")
+          ? encodeBlock(placed as BlockDefinition)
+          : encodeTemplate(placed as TemplateDefinition)
+      )
+    })
+    renderPage(orgScope("acme"))
+
+    await waitFor(() => expect(tileOf("spike")).not.toBeNull())
+    fireEvent.click(within(tileOf("spike")!).getByText("Add"))
+
+    await waitFor(() =>
+      expect(
+        calls
+          .filter((call) => call.method === "POST")
+          .map((call) => (call.body as { key: string }).key)
+      ).toContain("spike")
+    )
+    expect(
+      calls
+        .filter(
+          (call) => call.method === "POST" && call.path.endsWith("/blocks")
+        )
+        .map((call) => (call.body as { key: string }).key)
+    ).toContain("approach")
   })
 
   it("teaches the gallery when nothing is adopted yet", async () => {
     serve(orgLibrary(EMPTY_LAYER))
     renderPage(orgScope("acme"))
 
-    expect(await screen.findByText("no blocks")).toBeTruthy()
+    expect(await screen.findByText("no templates")).toBeTruthy()
     expect(
       screen.getByText("Add one from the gallery below, or create your own.")
     ).toBeTruthy()
-    expect(tileOf("context")).not.toBeNull()
+    expect(tileOf("bug-report")).not.toBeNull()
   })
 
-  it("focuses the previewed tile and brings the others back", async () => {
+  it("previews a gallery template in place", async () => {
     serve(projectLibrary(true))
     renderPage(projectScope("acme", "web"))
 
-    await waitFor(() => expect(tileOf("environment")).not.toBeNull())
-    const others = ["steps-to-reproduce", "out-of-scope"]
+    await waitFor(() => expect(tileOf("release")).not.toBeNull())
+    fireEvent.click(within(tileOf("release")!).getByText("Preview"))
+    expect(within(tileOf("release")!).getByText("Close")).toBeTruthy()
+    expect(tileOf("release")!.querySelector(".prose-md")).not.toBeNull()
+  })
+
+  it("focuses the previewed tile, hangs its block icons in the rail and brings the others back", async () => {
+    serve(projectLibrary(true))
+    renderPage(projectScope("acme", "web"))
+
+    await waitFor(() => expect(tileOf("release")).not.toBeNull())
+    const others = ["user-story", "incident"]
     for (const key of others) expect(tileOf(key)).not.toBeNull()
 
-    fireEvent.click(within(tileOf("environment")!).getByText("Preview"))
+    fireEvent.click(within(tileOf("release")!).getByText("Preview"))
     expect(
       document
-        .querySelector('[data-gallery="block"]')!
+        .querySelector('[data-gallery="template"]')!
         .hasAttribute("data-focused")
     ).toBe(true)
     await waitFor(() => {
       for (const key of others) expect(tileOf(key)).toBeNull()
     })
-    const tile = tileOf("environment")!
-    expect(within(tile).getByText("Close")).toBeTruthy()
-    expect(tile.querySelector(".prose-md")).not.toBeNull()
+    const tile = tileOf("release")!
+    expect(tile.classList.contains("block-rail-scope")).toBe(true)
+    expect(
+      tile
+        .querySelector("[data-gallery-preview]")!
+        .classList.contains("block-rail-sheet")
+    ).toBe(true)
 
     fireEvent.click(within(tile).getByText("Close"))
     for (const key of others) expect(tileOf(key)).not.toBeNull()
     expect(
-      tileOf("environment")!.querySelector("[data-gallery-preview]")
+      tileOf("release")!.querySelector("[data-gallery-preview]")
     ).toBeNull()
   })
 
-  it("shows this layer's blocks as cards under a heading with New block", async () => {
+  it("shows this layer's templates as cards under a heading with New template", async () => {
     serve(projectLibrary(true))
     renderPage(projectScope("acme", "web"))
 
-    await waitFor(() => expect(cardOf("triage")).not.toBeNull())
+    await waitFor(() => expect(cardOf("bug-report")).not.toBeNull())
     const section = screen
-      .getByRole("heading", { name: "Your blocks" })
+      .getByRole("heading", { name: "Your templates" })
       .closest("section")!
     expect(
-      within(section).getByRole("button", { name: "New block" }).className
+      within(section).getByRole("button", { name: "New template" }).className
     ).toMatch("bg-foreground")
-    const card = cardOf("triage")!
-    expect(within(card).getByRole("link", { name: "Triage" })).toBeTruthy()
+    const card = cardOf("bug-report")!
+    expect(within(card).getByRole("link", { name: "Bug report" })).toBeTruthy()
     expect(card.querySelector("[data-block-icon]")).not.toBeNull()
+    expect(card.textContent).toMatch("Steps to reproduce")
+    expect(card.textContent).not.toMatch("default for")
 
-    fireEvent.click(within(section).getByRole("button", { name: "New block" }))
-    expect(within(section).getByPlaceholderText("Block name")).toBeTruthy()
+    fireEvent.click(
+      within(section).getByRole("button", { name: "New template" })
+    )
+    expect(within(section).getByPlaceholderText("Template name")).toBeTruthy()
     expect(
-      within(section).queryByRole("button", { name: "New block" })
+      within(section).queryByRole("button", { name: "New template" })
     ).toBeNull()
   })
 
@@ -307,21 +437,45 @@ describe("LibraryPage", () => {
     serve(orgLibrary())
     renderPage(orgScope("acme"))
 
-    await waitFor(() => expect(cardOf("triage")).not.toBeNull())
-    expect(originOf("triage")).toBeNull()
+    await waitFor(() => expect(cardOf("bug-report")).not.toBeNull())
+    expect(originOf("bug-report")).toBeNull()
   })
 
-  it("hides an inherited block and unhides it again", async () => {
+  it("lays the defaults out as one calm row per type", async () => {
+    serve(projectLibrary(true))
+    renderPage(projectScope("acme", "web"))
+
+    const heading = await screen.findByRole("heading", {
+      name: "Default template per type"
+    })
+    const rows = heading
+      .closest("section")!
+      .querySelectorAll<HTMLElement>("li[data-default-type]")
+    expect([...rows].map((row) => row.dataset.defaultType)).toEqual([
+      "feat",
+      "bug",
+      "chore",
+      "other"
+    ])
+    const bug = rows[1]!
+    expect(bug.textContent).toMatch(/^Bug/)
+    expect(
+      within(bug).getByRole("button", { name: "Default template for Bug" })
+        .textContent
+    ).toBe("Bug report")
+  })
+
+  it("hides an inherited template and unhides it again", async () => {
     const library = projectLibrary(true)
     let settleUnhide = () => {}
     serve(library, (call) => {
       if (call.method === "POST")
         served = {
           ...library,
-          blocks: library.blocks.map((block) =>
-            block.key === "triage"
-              ? { ...block, origin: "project", shadows: "org", hidden: true }
-              : block
+          templates: library.templates.map((template) =>
+            template.key === "triage"
+              ? { ...template, origin: "project", shadows: "org", hidden: true }
+              : template
           )
         }
       if (call.method !== "DELETE") return undefined
@@ -338,7 +492,7 @@ describe("LibraryPage", () => {
     await waitFor(() => expect(cardOf("triage")).toBeNull())
     expect(calls).toContainEqual({
       method: "POST",
-      path: "/orgs/acme/projects/web/library/blocks/triage/hide",
+      path: "/orgs/acme/projects/web/library/templates/triage/hide",
       body: null
     })
 
@@ -352,7 +506,7 @@ describe("LibraryPage", () => {
     await waitFor(() =>
       expect(calls).toContainEqual({
         method: "DELETE",
-        path: "/orgs/acme/projects/web/library/blocks/triage",
+        path: "/orgs/acme/projects/web/library/templates/triage",
         body: null
       })
     )
@@ -361,7 +515,7 @@ describe("LibraryPage", () => {
     )
     settleUnhide()
     // The Unhide row unmounts on the optimistic update. The mutation must
-    // still finish and refetch.
+    // still finish and refetch, or inherited defaults stay stale.
     await waitFor(() => {
       const unhide = calls.findIndex((call) => call.method === "DELETE")
       expect(
@@ -376,12 +530,12 @@ describe("LibraryPage", () => {
     })
   })
 
-  it("creates a new block with a slugified key and opens it", async () => {
+  it("creates a new template with a slugified key and opens it", async () => {
     serve(projectLibrary(true), (call) =>
       call.method === "POST"
         ? Response.json(
-            encodeBlock({
-              ...(call.body as BlockDraft),
+            encodeTemplate({
+              ...(call.body as TemplateDraft),
               origin: "org",
               shadows: null,
               hidden: false
@@ -391,8 +545,8 @@ describe("LibraryPage", () => {
     )
     renderPage(orgScope("acme"))
 
-    fireEvent.click(await screen.findByRole("button", { name: "New block" }))
-    fireEvent.change(screen.getByPlaceholderText("Block name"), {
+    fireEvent.click(await screen.findByRole("button", { name: "New template" }))
+    fireEvent.change(screen.getByPlaceholderText("Template name"), {
       target: { value: "Security review" }
     })
     expect(screen.getByDisplayValue("security-review")).toBeTruthy()
@@ -400,19 +554,19 @@ describe("LibraryPage", () => {
 
     await waitFor(() => expect(navigate).toHaveBeenCalled())
     expect(navigate).toHaveBeenCalledWith({
-      to: "/orgs/$orgSlug/settings/templates/blocks/$blockKey",
-      params: { orgSlug: "acme", blockKey: "security-review" }
+      to: "/orgs/$orgSlug/settings/templates/$templateKey",
+      params: { orgSlug: "acme", templateKey: "security-review" }
     })
     expect(calls.find((call) => call.method === "POST")?.path).toBe(
-      "/orgs/acme/library/blocks"
+      "/orgs/acme/library/templates"
     )
   })
 
-  it("keeps the new form's failure apart from a card's failure", async () => {
+  it("keeps the new form's failure apart from a row's failure", async () => {
     serve(projectLibrary(true), (call) =>
       call.method !== "POST"
         ? undefined
-        : (call.body as BlockDraft).key === "security-review"
+        : (call.body as TemplateDraft).key === "security-review"
           ? Response.json(
               { _tag: "Conflict", reason: "key_taken" },
               { status: 409 }
@@ -424,8 +578,8 @@ describe("LibraryPage", () => {
     )
     renderPage(projectScope("acme", "web"))
 
-    fireEvent.click(await screen.findByRole("button", { name: "New block" }))
-    fireEvent.change(screen.getByPlaceholderText("Block name"), {
+    fireEvent.click(await screen.findByRole("button", { name: "New template" }))
+    fireEvent.change(screen.getByPlaceholderText("Template name"), {
       target: { value: "Security review" }
     })
     fireEvent.click(screen.getByRole("button", { name: "Create" }))
@@ -436,10 +590,12 @@ describe("LibraryPage", () => {
     ).toBeTruthy()
 
     fireEvent.click(
-      within(cardOf("triage")!).getByRole("button", { name: "Duplicate" })
+      within(cardOf("bug-report")!).getByRole("button", { name: "Duplicate" })
     )
     await waitFor(() =>
-      expect(cardOf("triage")!.textContent).toMatch("can't contain attachments")
+      expect(cardOf("bug-report")!.textContent).toMatch(
+        "can't contain attachments"
+      )
     )
     expect(
       screen.getByText("That key is already used here. Pick another key.")
@@ -447,19 +603,133 @@ describe("LibraryPage", () => {
     expect(screen.getAllByText(/can't contain attachments/)).toHaveLength(1)
   })
 
-  it("lists blocks with a synced label", async () => {
+  it("overrides the org default for a type and resets it", async () => {
+    const library = projectLibrary(true)
+    serve(library, (call) => {
+      if (call.method !== "PATCH") return undefined
+      const body = call.body as Readonly<{
+        defaults: Record<string, TemplateKey | null>
+        reset?: ReadonlyArray<string>
+      }>
+      served = resolveLibrary(
+        { org: orgLayer, project: projectLayer },
+        {
+          org: orgDefaults,
+          project: body.reset === undefined ? body.defaults : {}
+        },
+        true
+      )
+      return Response.json(encodeDefaults(defaultsOf(served)))
+    })
+    renderPage(projectScope("acme", "web"))
+
+    const trigger = await screen.findByRole("button", {
+      name: "Default template for Bug"
+    })
+    expect(trigger.textContent).toBe("Bug report")
+    expect(
+      document.querySelector('[data-default-type="bug"]')!.textContent
+    ).toMatch("from org")
+    fireEvent.click(trigger)
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Triage" }))
+
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: "PATCH",
+        path: "/orgs/acme/projects/web/library/defaults",
+        body: { defaults: { bug: "triage" } }
+      })
+    )
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Default template for Bug" })
+          .textContent
+      ).toBe("Triage")
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Default template for Bug" })
+    )
+    fireEvent.click(
+      await screen.findByRole("menuitem", {
+        name: "Use org default (Bug report)"
+      })
+    )
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: "PATCH",
+        path: "/orgs/acme/projects/web/library/defaults",
+        body: { defaults: {}, reset: ["bug"] }
+      })
+    )
+  })
+
+  it("pulses only the default being changed", async () => {
     serve(projectLibrary(true))
     renderPage(projectScope("acme", "web"))
+    const bug = await screen.findByRole("button", {
+      name: "Default template for Bug"
+    })
+    fetchStub.set((_input, init) =>
+      (init?.method ?? "GET") === "GET"
+        ? Promise.resolve(Response.json(encodeLibrary(served)))
+        : new Promise<Response>(() => {})
+    )
+    fireEvent.click(bug)
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Triage" }))
+
+    const chore = screen.getByRole("button", {
+      name: "Default template for Chore"
+    })
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("button", { name: "Default template for Bug" })
+          .querySelector(".animate-pulse")
+      ).not.toBeNull()
+    )
+    expect(chore.querySelector(".animate-pulse")).toBeNull()
+  })
+
+  it("sets org defaults from the org page", async () => {
+    const library = orgLibrary()
+    serve(library, (call) =>
+      call.method === "PATCH"
+        ? Response.json(encodeDefaults(defaultsOf(library)))
+        : undefined
+    )
+    renderPage(orgScope("acme"))
+
+    const trigger = await screen.findByRole("button", {
+      name: "Default template for Chore"
+    })
+    expect(trigger.textContent).toBe("Blank")
+    fireEvent.click(trigger)
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Chore" }))
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: "PATCH",
+        path: "/orgs/acme/library/defaults",
+        body: { defaults: { chore: "chore" } }
+      })
+    )
+  })
+
+  it("lists blocks with a synced label on the blocks tab", async () => {
+    serve(projectLibrary(true))
+    renderPage(projectScope("acme", "web"), "blocks")
 
     expect(
       await screen.findByRole("heading", { name: "Your blocks" })
     ).toBeTruthy()
+    expect(screen.getByRole("button", { name: "New block" })).toBeTruthy()
+
     await waitFor(() => expect(cardOf("definition-of-done")).not.toBeNull())
     expect(cardOf("definition-of-done")!.textContent).toMatch("synced")
     expect(cardOf("context")!.textContent).not.toMatch("synced")
     expect(cardOf("notes")).toBeNull()
-    expect(tileOf("notes")).toBeNull()
+    expect(tileOf("notes")).not.toBeNull()
     expect(tileOf("definition-of-done")).toBeNull()
-    expect(tileOf("environment")).not.toBeNull()
+    expect(tileOf("incident")).toBeNull()
   })
 })

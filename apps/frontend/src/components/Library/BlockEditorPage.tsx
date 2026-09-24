@@ -1,8 +1,10 @@
 import { useAtomValue } from "@effect/atom-react"
 import {
+  parseTicketBlocks,
   stripHints,
   type BlockDefinition,
   type Library,
+  type TemplateDefinition,
   type UpdateBlockInput
 } from "@pp/shared"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
@@ -14,7 +16,6 @@ import type { EditorBlocks } from "@/components/Lexical/blocks/editorBlocks"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { Markdown } from "@/components/Markdown"
 import { Switch } from "@/components/ui/switch"
-import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
 import { m } from "@/paraglide/messages"
 
 import { BlockIconGlyph } from "./BlockIconGlyph"
@@ -31,7 +32,9 @@ import {
   LibraryEditorSkeleton,
   LibraryEntryMissing
 } from "./LibraryEditorChrome"
+import { LibraryEntryLink } from "./LibraryEntryLink"
 import { libraryView, type LibraryScope } from "./libraryScope"
+import { combinedStatus, useLayerPermissions } from "./TemplateEditorPage"
 import { saveBlockTask, useLibrarySave } from "./useLibrarySave"
 
 const BLOCK_MARKUP_LINE = /^ {0,3}<\/?block\b/m
@@ -39,33 +42,17 @@ const BLOCK_MARKUP_LINE = /^ {0,3}<\/?block\b/m
 export const containsBlockMarkup = (content: string): boolean =>
   BLOCK_MARKUP_LINE.test(content)
 
-export function useLayerPermissions(
-  scope: LibraryScope,
-  library: Library
-): EditorBlocks["canEdit"] {
-  const orgResult = useAtomValue(
-    orgDetail(orgRequest(scope.req.params.orgSlug))
+export const templatesUsingBlock = (
+  library: Library,
+  key: string
+): ReadonlyArray<TemplateDefinition> =>
+  library.templates.filter(
+    (template) =>
+      !template.hidden &&
+      parseTicketBlocks(template.body).some(
+        (segment) => segment.kind === "block" && segment.type === key
+      )
   )
-  const orgAdmin =
-    AsyncResult.isSuccess(orgResult) &&
-    (orgResult.value.role === "owner" || orgResult.value.role === "admin")
-  return useMemo(
-    () =>
-      scope.layer === "org"
-        ? { org: library.canEdit, project: false }
-        : { org: orgAdmin, project: library.canEdit },
-    [library.canEdit, orgAdmin, scope.layer]
-  )
-}
-
-export const combinedStatus = (
-  editor: SaveStatus,
-  save: SaveStatus
-): SaveStatus => {
-  if (save === "saving") return "saving"
-  if (editor === "dirty") return "dirty"
-  return save === "idle" ? editor : save
-}
 
 const ignoreEditDefinition: EditorBlocks["onEditDefinition"] = () => {}
 
@@ -120,6 +107,7 @@ function BlockEditor({
   const syncId = useId()
   const key = block.key
   const editable = library.canEdit
+  const usedIn = templatesUsingBlock(library, key)
 
   const patch = useCallback(
     (input: UpdateBlockInput) =>
@@ -141,6 +129,7 @@ function BlockEditor({
     () => ({
       mode: "definition",
       library,
+      ticketType: null,
       canEdit,
       onEditDefinition: ignoreEditDefinition
     }),
@@ -257,6 +246,37 @@ function BlockEditor({
                     origin: originLabel(block.origin)
                   })}
             </MutedValue>
+          </AsideField>
+          <AsideField
+            label={
+              usedIn.length === 1
+                ? m.templates_editor_used_in_one()
+                : m.templates_editor_used_in({ count: usedIn.length })
+            }
+          >
+            {usedIn.length === 0 ? (
+              <MutedValue>{m.templates_editor_used_in_none()}</MutedValue>
+            ) : (
+              <ul className="flex flex-col gap-0.5">
+                {usedIn.map((template) => (
+                  <li key={template.key}>
+                    <LibraryEntryLink
+                      scope={scope}
+                      kind="template"
+                      entryKey={template.key}
+                      className="-mx-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[13px] transition-colors hover:bg-accent"
+                    >
+                      <BlockIconGlyph
+                        icon={template.icon}
+                        color={template.color}
+                        className="size-3.5"
+                      />
+                      {template.name}
+                    </LibraryEntryLink>
+                  </li>
+                ))}
+              </ul>
+            )}
           </AsideField>
         </>
       }

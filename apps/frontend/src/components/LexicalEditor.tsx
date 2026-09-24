@@ -24,6 +24,7 @@ import {
 } from "@lexical/markdown"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { ContentEditable } from "@lexical/react/LexicalContentEditable"
+import { EditorRefPlugin } from "@lexical/react/LexicalEditorRefPlugin"
 import { LexicalExtensionComposer } from "@lexical/react/LexicalExtensionComposer"
 import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin"
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin"
@@ -40,7 +41,7 @@ import {
   type ElementNode,
   type LexicalEditor as LexicalEditorType
 } from "lexical"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react"
 
 import { figmaTicketLinksRequest } from "@/features/figma/atoms/figma"
 import { cn } from "@/lib/utils"
@@ -118,6 +119,13 @@ const ATTACHMENT_MARKDOWN_TRANSFORMERS = [
   ...ATTACHMENT_BLOCK_CONTENT_TRANSFORMERS
 ]
 
+const TEMPLATE_MARKDOWN_TRANSFORMERS = [
+  createTicketBlockTransformer(BLOCK_CONTENT_TRANSFORMERS, {
+    emptyAsReference: true
+  }),
+  ...BLOCK_CONTENT_TRANSFORMERS
+]
+
 const DEFINITION_MARKDOWN_TRANSFORMERS = [
   HINT_TRANSFORMER,
   ...BLOCK_CONTENT_TRANSFORMERS
@@ -127,6 +135,7 @@ export const transformersForMode = (
   mode: EditorBlocksMode | undefined,
   attachments: AttachmentsTarget | undefined
 ) => {
+  if (mode === "template") return TEMPLATE_MARKDOWN_TRANSFORMERS
   if (mode === "definition") return DEFINITION_MARKDOWN_TRANSFORMERS
   return transformersForAttachments(attachments)
 }
@@ -264,10 +273,11 @@ export interface LexicalEditorProps {
   debounceMs?: number
   className?: string
   placeholder?: string
-  autoFocus?: boolean
+  autoFocus?: boolean | "start"
   compact?: boolean
   attachments?: AttachmentsTarget
   blocks?: EditorBlocks
+  editorRef?: RefObject<LexicalEditorType | null>
 }
 
 export function nextMarkdownChange(
@@ -372,7 +382,8 @@ export function LexicalEditor({
   autoFocus = false,
   compact = false,
   attachments,
-  blocks
+  blocks,
+  editorRef
 }: LexicalEditorProps) {
   const [transformers] = useState(() =>
     transformersForMode(blocks?.mode, attachments)
@@ -436,8 +447,9 @@ export function LexicalEditor({
           maxIndent: 4
         }),
         configExtension(AutoFocusExtension, {
-          defaultSelection: "rootEnd",
-          disabled: !initialAutoFocus
+          defaultSelection:
+            initialAutoFocus === "start" ? "rootStart" : "rootEnd",
+          disabled: initialAutoFocus === false
         })
       ]
     })
@@ -549,6 +561,9 @@ export function LexicalEditor({
           extension={extension}
           contentEditable={contentEditable}
         >
+          {editorRef !== undefined ? (
+            <EditorRefPlugin editorRef={editorRef} />
+          ) : null}
           <MentionsPlugin />
           <FigmaPlugin request={figmaTarget} />
           <PaperPlugin />

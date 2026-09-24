@@ -44,9 +44,10 @@ describe("keys", () => {
 
   it("reports invalid, reserved and taken keys", () => {
     const taken = new Set(["chore"])
-    expect(keyProblem("Bad key", taken)).toBe("invalid")
-    expect(keyProblem("blank", taken)).toBeNull()
-    expect(keyProblem("chore", taken)).toBe("taken")
+    expect(keyProblem("Bad key", "template", taken)).toBe("invalid")
+    expect(keyProblem("blank", "template", taken)).toBe("reserved")
+    expect(keyProblem("blank", "block", taken)).toBeNull()
+    expect(keyProblem("chore", "block", taken)).toBe("taken")
   })
 
   it("finds a free copy key", () => {

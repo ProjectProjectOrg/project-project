@@ -3,21 +3,36 @@ import type { ReactNode } from "react"
 
 import type { SaveStatus } from "@/components/LexicalEditor"
 import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
+import {
+  SEGMENTED_ITEM_CLASS,
+  SegmentedTabs,
+  type SegmentedItem
+} from "@/components/SegmentedTabs"
 import { m } from "@/paraglide/messages"
 
 import { LibraryBackLink } from "./LibraryEntryLink"
 import type { LibraryKind } from "./libraryModel"
 import type { LibraryScope } from "./libraryScope"
 
+export type EditorTab = "edit" | "preview"
+
 export function LibraryEditorHeader({
   scope,
   kind,
-  status
+  status,
+  tab,
+  onTabChange
 }: Readonly<{
   scope: LibraryScope
   kind: LibraryKind
   status: SaveStatus
+  tab?: EditorTab
+  onTabChange?: (tab: EditorTab) => void
 }>) {
+  const items: ReadonlyArray<SegmentedItem<EditorTab>> = [
+    { key: "edit", label: m.templates_editor_tab_edit() },
+    { key: "preview", label: m.templates_editor_tab_preview() }
+  ]
   return (
     <div className="flex items-center justify-between gap-3">
       <LibraryBackLink
@@ -26,10 +41,28 @@ export function LibraryEditorHeader({
         className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[13px] text-muted-foreground transition-all duration-100 hover:bg-accent hover:text-foreground active:scale-[0.97]"
       >
         <ArrowLeft className="size-3.5" strokeWidth={1.75} />
-        {m.templates_settings_back_blocks()}
+        {kind === "template"
+          ? m.templates_settings_back_templates()
+          : m.templates_settings_back_blocks()}
       </LibraryBackLink>
       <div className="flex items-center gap-3">
         <MarkdownSaveIndicator status={status} />
+        {tab === undefined || onTabChange === undefined ? null : (
+          <SegmentedTabs
+            items={items}
+            isActive={(key) => key === tab}
+            renderItem={(item, content, { active }) => (
+              <button
+                type="button"
+                aria-pressed={active}
+                onClick={() => onTabChange(item.key)}
+                className={SEGMENTED_ITEM_CLASS(active)}
+              >
+                {content}
+              </button>
+            )}
+          />
+        )}
       </div>
     </div>
   )

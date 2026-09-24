@@ -3,6 +3,7 @@ import {
   BlockKey,
   blockLookupFor,
   Conflict,
+  expandTemplate,
   extractAttachmentRefs,
   extractMentionLinks,
   Forbidden,
@@ -10,19 +11,30 @@ import {
   parseMentionHref,
   parseTicketBlocks,
   resolveLibrary,
+  resolveLibraryDefaults,
   resolveSyncedBlocks,
   serializeTicketBlocks,
+  TemplateKey,
   validateTicketBlocks,
   Validation,
+  withDefaultsUpdate,
   type BlockDefinition,
   type BlockDraft,
   type CreateBlockInput,
+  type CreateTemplateInput,
   type Layer as LibraryLayer,
+  type LayerDefaults,
   type Library as LibraryValue,
+  type LibraryDefaults,
   type LibraryLayers,
   type MentionInvalid,
+  type PartialTemplateDefaults,
+  type TemplateDefinition,
+  type TemplateDraft,
   type TicketBlockSegment,
-  type UpdateBlockInput
+  type UpdateBlockInput,
+  type UpdateTemplateDefaultsInput,
+  type UpdateTemplateInput
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -36,9 +48,10 @@ import {
   isOrgAdminRole,
   requireOrgAdmin
 } from "../organizations/CurrentOrg"
+import { ProjectDocs } from "../projects/ProjectDocs"
 import { Projects } from "../projects/Projects"
 import { TicketDocs } from "../tickets/TicketDocs"
-import { Library, type LibraryShape } from "./Library"
+import { Library, type LibraryShape, type TemplateExpansion } from "./Library"
 import { LibraryDocs } from "./LibraryDocs"
 
 type Keyed = Readonly<{ key: string }>
@@ -55,6 +68,8 @@ type KindOps<Draft extends Keyed, Definition extends Keyed> = Readonly<{
 }>
 
 const EDITOR_ROLES = ["owner", "admin"] as const
+
+const NO_LAYER_DEFAULTS: LayerDefaults = { org: {}, project: null }
 
 const SYNCED_OPENER = /<block[^>\n]*\ssync/
 
@@ -82,6 +97,21 @@ const blockOps: KindOps<BlockDraft, BlockDefinition> = {
   allowsBlocks: false
 }
 
+const templateOps: KindOps<TemplateDraft, TemplateDefinition> = {
+  kind: "templates",
+  isKey: Schema.is(TemplateKey),
+  definitions: (layer) => layer.templates,
+  hidden: (layer) => layer.hiddenTemplates,
+  entries: (library) => library.templates,
+  withDefinition: (layer, draft) => ({
+    ...layer,
+    templates: replaceByKey(layer.templates, draft),
+    hiddenTemplates: layer.hiddenTemplates.filter((key) => key !== draft.key)
+  }),
+  contentOf: (draft) => draft.body,
+  allowsBlocks: true
+}
+
 const patched = <A>(next: A | undefined, current: A): A =>
   next === undefined ? current : next
 
@@ -96,6 +126,21 @@ const patchBlock = (
   description: patched(patch.description, draft.description),
   sync: patched(patch.sync, draft.sync),
   content: patched(patch.content, draft.content)
+})
+
+const patchTemplate = (
+  draft: TemplateDraft,
+  patch: UpdateTemplateInput
+): TemplateDraft => ({
+  key: draft.key,
+  name: patched(patch.name, draft.name),
+  icon: patched(patch.icon, draft.icon),
+  color: patched(patch.color, draft.color),
+  description: patched(patch.description, draft.description),
+  type: patched(patch.type, draft.type),
+  priority: patched(patch.priority, draft.priority),
+  tags: patched(patch.tags, draft.tags),
+  body: patched(patch.body, draft.body)
 })
 
 const hasFileAt = <Draft extends Keyed>(
@@ -144,6 +189,7 @@ export const LibraryLive = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db
     const docs = yield* LibraryDocs
+    const projectDocs = yield* ProjectDocs
     const projects = yield* Projects
     const currentOrg = yield* CurrentOrg
     const ticketDocs = yield* TicketDocs
@@ -307,13 +353,30 @@ export const LibraryLive = Layer.effect(
       }
     )
 
+    const projectTagNames = Effect.fn("Library.projectTagNames")(function* (
+      slug: string
+    ) {
+      const project = yield* db.query.projectIndex.findFirst({
+        columns: { id: true },
+        where: { RAW: (table, operators) => operators.eq(table.slug, slug) }
+      })
+      if (!project) return new Set<string>()
+      const rows = yield* db.query.projectTag.findMany({
+        columns: { name: true },
+        where: {
+          RAW: (table, operators) => operators.eq(table.projectId, project.id)
+        }
+      })
+      return new Set<string>(rows.map((row) => row.name))
+    }, Effect.orDie)
+
     const resolvedEntry = <Draft extends Keyed, Definition extends Keyed>(
       ops: KindOps<Draft, Definition>,
       layers: LibraryLayers,
       key: string
     ): Effect.Effect<Definition> => {
       const entry = ops
-        .entries(resolveLibrary(layers, true))
+        .entries(resolveLibrary(layers, NO_LAYER_DEFAULTS, true))
         .find((definition) => definition.key === key)
       return entry === undefined
         ? Effect.die(
@@ -486,13 +549,33 @@ export const LibraryLive = Layer.effect(
         })
       )
 
+    const layerDefaultsFor = (
+      orgSlug: string,
+      slug: string | null
+    ): Effect.Effect<LayerDefaults, NotFound | MarkdownError> =>
+      Effect.all(
+        {
+          org: docs.readOrgDefaults(orgSlug),
+          project:
+            slug === null
+              ? Effect.succeed(null)
+              : projectDocs
+                  .read(orgSlug, slug)
+                  .pipe(Effect.map((project) => project.templateDefaults))
+        },
+        { concurrency: 2 }
+      )
+
     const orgLibrary = Effect.fn("Library.orgLibrary")(function* (
       orgSlug: string,
       userId: string
     ): Effect.fn.Return<LibraryValue, NotFound | MarkdownError> {
       const org = yield* currentOrg.resolve(orgSlug, userId)
-      const layers = yield* layersFor(orgSlug, null)
-      return resolveLibrary(layers, isOrgAdminRole(org.role))
+      const [layers, defaults] = yield* Effect.all(
+        [layersFor(orgSlug, null), layerDefaultsFor(orgSlug, null)],
+        { concurrency: 2 }
+      )
+      return resolveLibrary(layers, defaults, isOrgAdminRole(org.role))
     })
 
     const projectLibrary = Effect.fn("Library.projectLibrary")(function* (
@@ -501,9 +584,13 @@ export const LibraryLive = Layer.effect(
       slug: string
     ): Effect.fn.Return<LibraryValue, NotFound | MarkdownError> {
       const membership = yield* projects.requireMember(orgSlug, userId, slug)
-      const layers = yield* layersFor(orgSlug, slug)
+      const [layers, defaults] = yield* Effect.all(
+        [layersFor(orgSlug, slug), layerDefaultsFor(orgSlug, slug)],
+        { concurrency: 2 }
+      )
       return resolveLibrary(
         layers,
+        defaults,
         membership.role === "owner" || membership.role === "admin"
       )
     })
@@ -533,13 +620,152 @@ export const LibraryLive = Layer.effect(
         input
       )
 
+    const createTemplate = (
+      orgSlug: string,
+      userId: string,
+      slug: string | null,
+      input: CreateTemplateInput
+    ) =>
+      createEntry(templateOps, docs.writeTemplate, orgSlug, userId, slug, input)
+
+    const updateTemplate = (
+      orgSlug: string,
+      userId: string,
+      slug: string | null,
+      key: string,
+      input: UpdateTemplateInput
+    ) =>
+      updateEntry(
+        templateOps,
+        docs.writeTemplate,
+        patchTemplate,
+        orgSlug,
+        userId,
+        slug,
+        key,
+        input
+      )
+
+    const updateDefaults = Effect.fn("Library.updateDefaults")(function* (
+      orgSlug: string,
+      slug: string | null,
+      input: UpdateTemplateDefaultsInput,
+      write: (
+        defaults: PartialTemplateDefaults
+      ) => Effect.Effect<void, NotFound | MarkdownError>
+    ): Effect.fn.Return<
+      LibraryDefaults,
+      NotFound | Validation | MarkdownError
+    > {
+      const [layers, current] = yield* Effect.all(
+        [layersFor(orgSlug, slug), layerDefaultsFor(orgSlug, slug)],
+        { concurrency: 2 }
+      )
+      const { templates } = resolveLibrary(layers, NO_LAYER_DEFAULTS, true)
+      const active = new Set<string>(
+        templates.flatMap((template) => (template.hidden ? [] : [template.key]))
+      )
+      const unknown = Object.values(input.defaults).find(
+        (key) => key !== null && key !== undefined && !active.has(key)
+      )
+      if (unknown !== undefined && unknown !== null)
+        return yield* new Validation({
+          reason: `unknown_template:${unknown}`
+        })
+      const own = withDefaultsUpdate(current.project ?? current.org, input)
+      yield* write(own)
+      return resolveLibraryDefaults(
+        slug === null
+          ? { org: own, project: null }
+          : { org: current.org, project: own },
+        templates
+      )
+    })
+
+    const setOrgTemplateDefaults = Effect.fn("Library.setOrgTemplateDefaults")(
+      function* (
+        orgSlug: string,
+        userId: string,
+        input: UpdateTemplateDefaultsInput
+      ): Effect.fn.Return<
+        LibraryDefaults,
+        NotFound | Forbidden | Validation | MarkdownError
+      > {
+        yield* requireOrgAdmin(currentOrg, orgSlug, userId)
+        return yield* withLayerLock(
+          orgSlug,
+          null,
+          updateDefaults(orgSlug, null, input, (defaults) =>
+            docs.writeOrgDefaults(orgSlug, defaults)
+          )
+        )
+      }
+    )
+
+    const setTemplateDefaults = Effect.fn("Library.setTemplateDefaults")(
+      function* (
+        orgSlug: string,
+        userId: string,
+        slug: string,
+        input: UpdateTemplateDefaultsInput
+      ): Effect.fn.Return<
+        LibraryDefaults,
+        NotFound | Forbidden | Validation | MarkdownError
+      > {
+        yield* projects.requireRole(orgSlug, userId, slug, EDITOR_ROLES)
+        return yield* withLayerLock(
+          orgSlug,
+          slug,
+          updateDefaults(orgSlug, slug, input, (defaults) =>
+            projectDocs.writeTemplateDefaults(orgSlug, slug, defaults)
+          )
+        )
+      }
+    )
+
+    const expandForCreate = Effect.fn("Library.expandForCreate")(function* (
+      orgSlug: string,
+      slug: string,
+      key: TemplateKey
+    ): Effect.fn.Return<TemplateExpansion, Validation | MarkdownError> {
+      const library = resolveLibrary(
+        yield* layersFor(orgSlug, slug),
+        NO_LAYER_DEFAULTS,
+        false
+      )
+      const template = library.templates.find(
+        (candidate) => candidate.key === key && !candidate.hidden
+      )
+      if (template === undefined)
+        return yield* new Validation({ reason: `unknown_template:${key}` })
+      const body = yield* sanitizeMentions(
+        orgSlug,
+        slug,
+        expandTemplate(template, blockLookupFor(library))
+      )
+      const known =
+        template.tags.length === 0
+          ? new Set<string>()
+          : yield* projectTagNames(slug)
+      return {
+        body,
+        type: template.type,
+        priority: template.priority,
+        tags: template.tags.filter((tag) => known.has(tag))
+      }
+    })
+
     const resolveSynced = Effect.fn("Library.resolveSynced")(function* (
       orgSlug: string,
       slug: string,
       body: string
     ): Effect.fn.Return<string, MarkdownError> {
       if (!SYNCED_OPENER.test(body)) return body
-      const library = resolveLibrary(yield* layersFor(orgSlug, slug), false)
+      const library = resolveLibrary(
+        yield* layersFor(orgSlug, slug),
+        NO_LAYER_DEFAULTS,
+        false
+      )
       return yield* sanitizeSyncedMentions(
         orgSlug,
         slug,
@@ -556,6 +782,15 @@ export const LibraryLive = Layer.effect(
         removeEntry(blockOps, orgSlug, userId, slug, key),
       hideBlock: (orgSlug, userId, slug, key) =>
         hideEntry(blockOps, orgSlug, userId, slug, key),
+      createTemplate,
+      updateTemplate,
+      removeTemplate: (orgSlug, userId, slug, key) =>
+        removeEntry(templateOps, orgSlug, userId, slug, key),
+      hideTemplate: (orgSlug, userId, slug, key) =>
+        hideEntry(templateOps, orgSlug, userId, slug, key),
+      setOrgTemplateDefaults,
+      setTemplateDefaults,
+      expandForCreate,
       resolveSynced
     } satisfies LibraryShape)
   })

@@ -3,6 +3,8 @@ import {
   padNumericIdSort,
   Ticket,
   TicketDetail,
+  TagName,
+  TemplateKey,
   TicketId,
   type TicketListQuery,
   TicketStatus,
@@ -887,6 +889,59 @@ describe("backlog pagination", () => {
 })
 
 describe("backlog quick create", () => {
+  it("sends the template and predicts the template's priority and tags", async () => {
+    const payloads: Array<unknown> = []
+    fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        payloads.push(
+          JSON.parse(new TextDecoder().decode(init.body as Uint8Array))
+        )
+        return new Promise<Response>(() => {})
+      }
+      return Promise.resolve(sections([ticket]))
+    })
+    const registry = AtomRegistry.make()
+    const view = backlog(req)
+    const create = quickCreateBacklogTicket(req)
+    registry.mount(view)
+    registry.mount(create)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({ _tag: "Success" })
+      )
+      registry.set(create, {
+        ticket: {
+          title: "Login loops",
+          type: "bug",
+          template: Schema.decodeSync(TemplateKey)("bug-report")
+        },
+        viewerId: "user-1",
+        projectPrefix: "T",
+        clientId: "creation-1",
+        prediction: {
+          priority: "high",
+          tags: [Schema.decodeSync(TagName)("auth")]
+        }
+      })
+      const optimistic = registry.get(view)
+      if (!AsyncResult.isSuccess(optimistic)) {
+        throw new Error("no optimistic value")
+      }
+      expect(optimistic.value.sections.todo.items[0]).toMatchObject({
+        key: "creation-1",
+        pending: true,
+        ticket: { type: "bug", priority: "high", tags: ["auth"] }
+      })
+      await vi.waitFor(() =>
+        expect(payloads).toEqual([
+          { title: "Login loops", type: "bug", template: "bug-report" }
+        ])
+      )
+    } finally {
+      registry.dispose()
+    }
+  })
+
   it("keeps the caller's row key when the server row arrives", async () => {
     const created = {
       ...ticket,

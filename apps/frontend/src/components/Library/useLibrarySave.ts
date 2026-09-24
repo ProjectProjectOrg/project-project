@@ -3,7 +3,10 @@ import type {
   BlockDefinition,
   BlockKey,
   Library,
-  UpdateBlockInput
+  TemplateDefinition,
+  TemplateKey,
+  UpdateBlockInput,
+  UpdateTemplateInput
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
@@ -14,12 +17,14 @@ import { useCallback, useContext, useRef, useState } from "react"
 import type { SaveStatus } from "@/components/LexicalEditor"
 import { m } from "@/paraglide/messages"
 
-import { blockDraftOf } from "./libraryModel"
+import { blockDraftOf, templateDraftOf } from "./libraryModel"
 import { failureText } from "./LibraryRow"
 import {
   createBlockAtom,
+  createTemplateAtom,
   libraryView,
   updateBlockAtom,
+  updateTemplateAtom,
   type LibraryScope
 } from "./libraryScope"
 
@@ -93,6 +98,23 @@ export function useLibrarySave(): LibrarySave {
 }
 
 const missing = () => Promise.resolve(m.templates_settings_entry_missing())
+
+export const saveTemplateTask =
+  (scope: LibraryScope, key: TemplateKey, patch: UpdateTemplateInput): Task =>
+  (registry) => {
+    const entry: TemplateDefinition | undefined = currentLibrary(
+      registry,
+      scope
+    )?.templates.find((template) => template.key === key)
+    if (entry === undefined) return missing()
+    return entry.origin === scope.layer
+      ? runLibraryMutation(registry, updateTemplateAtom(scope, key), patch)
+      : runLibraryMutation(
+          registry,
+          createTemplateAtom(scope),
+          withoutUndefined(templateDraftOf(entry), patch)
+        )
+  }
 
 export const saveBlockTask =
   (scope: LibraryScope, key: BlockKey, patch: UpdateBlockInput): Task =>

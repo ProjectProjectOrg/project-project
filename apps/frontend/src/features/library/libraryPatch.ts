@@ -1,9 +1,16 @@
-import type {
-  BlockDefinition,
-  BlockDraft,
-  Library,
-  LibraryOrigin,
-  UpdateBlockInput
+import {
+  withDefaultsUpdate,
+  type BlockDefinition,
+  type BlockDraft,
+  type Library,
+  type LibraryOrigin,
+  type TemplateDefaults,
+  type TemplateDefinition,
+  type TemplateDraft,
+  type TicketType,
+  type UpdateBlockInput,
+  type UpdateTemplateDefaultsInput,
+  type UpdateTemplateInput
 } from "@pp/shared"
 
 type Keyed = Readonly<{ key: string; name: string }>
@@ -97,16 +104,35 @@ const withBlocks = (
   ) => ReadonlyArray<BlockDefinition>
 ): Library => ({ ...library, blocks: change(library.blocks) })
 
+const withTemplates = (
+  library: Library,
+  change: (
+    templates: ReadonlyArray<TemplateDefinition>
+  ) => ReadonlyArray<TemplateDefinition>
+): Library => ({ ...library, templates: change(library.templates) })
+
 export const applyBlockUpsert = (
   library: Library,
   block: BlockDefinition
 ): Library => withBlocks(library, (blocks) => upsert(blocks, block))
+
+export const applyTemplateUpsert = (
+  library: Library,
+  template: TemplateDefinition
+): Library => withTemplates(library, (templates) => upsert(templates, template))
 
 export const applyBlockCreate = (
   library: Library,
   draft: BlockDraft,
   origin: LibraryOrigin
 ): Library => withBlocks(library, (blocks) => created(blocks, draft, origin))
+
+export const applyTemplateCreate = (
+  library: Library,
+  draft: TemplateDraft,
+  origin: LibraryOrigin
+): Library =>
+  withTemplates(library, (templates) => created(templates, draft, origin))
 
 export const applyBlockUpdate = (
   library: Library,
@@ -117,11 +143,54 @@ export const applyBlockUpdate = (
     updated<BlockDraft>(blocks, key, definedFields(patch))
   )
 
+export const applyTemplateUpdate = (
+  library: Library,
+  key: string,
+  patch: UpdateTemplateInput
+): Library =>
+  withTemplates(library, (templates) =>
+    updated<TemplateDraft>(templates, key, definedFields(patch))
+  )
+
 export const applyBlockRemove = (
   library: Library,
   key: string,
   origin: LibraryOrigin
 ): Library => withBlocks(library, (blocks) => removed(blocks, key, origin))
 
+export const applyTemplateRemove = (
+  library: Library,
+  key: string,
+  origin: LibraryOrigin
+): Library =>
+  withTemplates(library, (templates) => removed(templates, key, origin))
+
 export const applyBlockHide = (library: Library, key: string): Library =>
   withBlocks(library, (blocks) => hidden(blocks, key))
+
+export const applyTemplateHide = (library: Library, key: string): Library =>
+  withTemplates(library, (templates) => hidden(templates, key))
+
+export const applyTemplateDefaults = (
+  library: Library,
+  update: UpdateTemplateDefaultsInput
+): Library => {
+  const ownDefaults = withDefaultsUpdate(library.ownDefaults, update)
+  const active = new Set(
+    library.templates.flatMap((template) =>
+      template.hidden ? [] : [template.key]
+    )
+  )
+  const resolveType = (type: TicketType) => {
+    if (!(type in ownDefaults)) return library.inheritedDefaults[type]
+    const key = ownDefaults[type] ?? null
+    return key !== null && active.has(key) ? key : null
+  }
+  const defaults: TemplateDefaults = {
+    feat: resolveType("feat"),
+    bug: resolveType("bug"),
+    chore: resolveType("chore"),
+    other: resolveType("other")
+  }
+  return { ...library, ownDefaults, defaults }
+}

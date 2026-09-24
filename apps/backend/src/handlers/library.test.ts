@@ -12,6 +12,7 @@ import {
   NotFound,
   type BlockDefinition,
   type Library as LibraryValue,
+  type TemplateDefinition,
   type UserId
 } from "@pp/shared"
 import * as Context from "effect/Context"
@@ -41,9 +42,34 @@ const block: BlockDefinition = {
   hidden: false
 }
 
+const template: TemplateDefinition = {
+  key: "bug-report" as TemplateDefinition["key"],
+  name: "Bug report",
+  icon: "Bug",
+  color: null,
+  description: "",
+  type: "bug",
+  priority: null,
+  tags: [],
+  body: "",
+  origin: "project",
+  shadows: null,
+  hidden: false
+}
+
 const library: LibraryValue = {
   blocks: [block],
+  templates: [template],
+  defaults: { feat: null, bug: template.key, chore: null, other: null },
+  ownDefaults: { bug: template.key },
+  inheritedDefaults: { feat: null, bug: null, chore: null, other: null },
   canEdit: true
+}
+
+const libraryDefaults = {
+  defaults: library.defaults,
+  ownDefaults: library.ownDefaults,
+  inheritedDefaults: library.inheritedDefaults
 }
 
 const failFor = <A>(
@@ -85,6 +111,31 @@ const fakeLibrary: LibraryShape = {
     record("hideBlock", args)
     return failFor(args[3], undefined)
   },
+  createTemplate: (...args) => {
+    record("createTemplate", args)
+    return Effect.succeed(template)
+  },
+  updateTemplate: (...args) => {
+    record("updateTemplate", args)
+    return failFor(args[3], template)
+  },
+  removeTemplate: (...args) => {
+    record("removeTemplate", args)
+    return failFor(args[3], undefined)
+  },
+  hideTemplate: (...args) => {
+    record("hideTemplate", args)
+    return failFor(args[3], undefined)
+  },
+  setOrgTemplateDefaults: (...args) => {
+    record("setOrgTemplateDefaults", args)
+    return Effect.succeed(libraryDefaults)
+  },
+  setTemplateDefaults: (...args) => {
+    record("setTemplateDefaults", args)
+    return Effect.succeed(libraryDefaults)
+  },
+  expandForCreate: () => Effect.die("unexpected"),
   resolveSynced: () => Effect.die("unexpected")
 }
 
@@ -205,24 +256,67 @@ it.effect("passes the key through update, remove and hide", () =>
   Effect.gen(function* () {
     const update = yield* send(
       "PATCH",
-      "/orgs/acme/projects/web/library/blocks/acceptance",
-      { name: "Acceptance" }
+      "/orgs/acme/projects/web/library/templates/bug-report",
+      { name: "Bug" }
     )
     expect(update.status).toBe(200)
     const remove = yield* send("DELETE", "/orgs/acme/library/blocks/acceptance")
     expect(remove.status).toBe(204)
     const hide = yield* send(
       "POST",
-      "/orgs/acme/projects/web/library/blocks/acceptance/hide"
+      "/orgs/acme/projects/web/library/templates/bug-report/hide"
     )
     expect(hide.status).toBe(204)
     expect(calls).toEqual([
       {
-        method: "updateBlock",
-        args: ["acme", USER_ID, "web", "acceptance", { name: "Acceptance" }]
+        method: "updateTemplate",
+        args: ["acme", USER_ID, "web", "bug-report", { name: "Bug" }]
       },
       { method: "removeBlock", args: ["acme", USER_ID, null, "acceptance"] },
-      { method: "hideBlock", args: ["acme", USER_ID, "web", "acceptance"] }
+      { method: "hideTemplate", args: ["acme", USER_ID, "web", "bug-report"] }
+    ])
+  })
+)
+
+it.effect("sets the project's default templates", () =>
+  Effect.gen(function* () {
+    const response = yield* send(
+      "PATCH",
+      "/orgs/acme/projects/web/library/defaults",
+      { defaults: { bug: "bug-report", feat: null } }
+    )
+    expect(response.status).toBe(200)
+    expect(yield* json(response)).toEqual(libraryDefaults)
+    expect(calls).toEqual([
+      {
+        method: "setTemplateDefaults",
+        args: [
+          "acme",
+          USER_ID,
+          "web",
+          { defaults: { bug: "bug-report", feat: null } }
+        ]
+      }
+    ])
+  })
+)
+
+it.effect("sets the org's default templates and resets", () =>
+  Effect.gen(function* () {
+    const response = yield* send("PATCH", "/orgs/acme/library/defaults", {
+      defaults: { bug: "bug-report" },
+      reset: ["feat"]
+    })
+    expect(response.status).toBe(200)
+    expect(calls).toEqual([
+      {
+        method: "setOrgTemplateDefaults",
+        args: [
+          "acme",
+          USER_ID,
+          { defaults: { bug: "bug-report" }, reset: ["feat"] }
+        ]
+      }
     ])
   })
 )
@@ -243,7 +337,10 @@ it.effect("maps service failures to their HTTP statuses", () =>
       {}
     )
     expect(forbidden.status).toBe(403)
-    const missing = yield* send("DELETE", "/orgs/acme/library/blocks/missing")
+    const missing = yield* send(
+      "DELETE",
+      "/orgs/acme/library/templates/missing"
+    )
     expect(missing.status).toBe(404)
     const taken = yield* send(
       "POST",
@@ -271,6 +368,11 @@ it.effect(
       expect(unknownOrg.status).toBe(404)
       const badKey = yield* send("DELETE", "/orgs/acme/library/blocks/Bad_Key")
       expect(badKey.status).toBe(400)
+      const blank = yield* send(
+        "POST",
+        "/orgs/acme/projects/web/library/templates/blank/hide"
+      )
+      expect(blank.status).toBe(400)
       expect(calls).toEqual([])
     })
 )

@@ -1,5 +1,6 @@
 import { cva, type VariantProps } from "class-variance-authority"
 
+import { MarqueeIfOverflow } from "@/components/MarqueeIfOverflow"
 import { cn } from "@/lib/utils"
 
 import { BlockIconGlyph } from "./BlockIconGlyph"
@@ -99,5 +100,28 @@ export function BlockSketch({
         </div>
       ))}
     </div>
+  )
+}
+
+export function BlockStrip({
+  blocks,
+  className
+}: Readonly<{ blocks: ReadonlyArray<SketchBlock>; className?: string }>) {
+  return (
+    <MarqueeIfOverflow
+      variant="strip"
+      className={cn("text-xs text-muted-foreground", className)}
+    >
+      {blocks.map((block) => (
+        <span key={block.key} className="flex shrink-0 items-center gap-1">
+          <BlockIconGlyph
+            icon={block.icon}
+            color={block.color}
+            className="size-3"
+          />
+          {block.name}
+        </span>
+      ))}
+    </MarqueeIfOverflow>
   )
 }

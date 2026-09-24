@@ -28,6 +28,7 @@ import { Route as AuthedOrgsOrgSlugSettingsDangerRouteImport } from './routes/_a
 import { Route as AuthedOrgsOrgSlugSettingsAttachmentsRouteImport } from './routes/_authed/orgs/$orgSlug/settings/attachments'
 import { Route as AuthedOrgsOrgSlugProjectsSlugRouteRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/route'
 import { Route as AuthedOrgsOrgSlugSettingsTemplatesIndexRouteImport } from './routes/_authed/orgs/$orgSlug/settings/templates/index'
+import { Route as AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRouteImport } from './routes/_authed/orgs/$orgSlug/settings/templates/$templateKey'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/route'
 import { Route as AuthedOrgsOrgSlugProjectsSlugProjectHeaderRouteRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/route'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/index'
@@ -43,6 +44,7 @@ import { Route as AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsRouteRouteImp
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/templates/index'
 import { Route as AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/index'
 import { Route as AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/tickets/$id_.split'
+import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey'
 import { Route as AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsGroupIdRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesBlocksBlockKeyRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/templates/blocks.$blockKey'
 
@@ -150,6 +152,12 @@ const AuthedOrgsOrgSlugSettingsTemplatesIndexRoute =
     path: '/templates/',
     getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
   } as any)
+const AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRoute =
+  AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRouteImport.update({
+    id: '/templates/$templateKey',
+    path: '/templates/$templateKey',
+    getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
+  } as any)
 const AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute =
   AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteImport.update({
     id: '/settings',
@@ -240,6 +248,12 @@ const AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRoute =
     path: '/tickets/$id/split',
     getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugRouteRoute,
   } as any)
+const AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRoute =
+  AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRouteImport.update({
+    id: '/templates/$templateKey',
+    path: '/templates/$templateKey',
+    getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute,
+  } as any)
 const AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsGroupIdRoute =
   AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsGroupIdRouteImport.update({
     id: '/$groupId',
@@ -275,6 +289,7 @@ export interface FileRoutesByFullPath {
   '/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/orgs/$orgSlug/settings/': typeof AuthedOrgsOrgSlugSettingsIndexRoute
   '/orgs/$orgSlug/projects/$slug/settings': typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteWithChildren
+  '/orgs/$orgSlug/settings/templates/$templateKey': typeof AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRoute
   '/orgs/$orgSlug/settings/templates/': typeof AuthedOrgsOrgSlugSettingsTemplatesIndexRoute
   '/orgs/$orgSlug/projects/$slug/sprints': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsRouteRouteWithChildren
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderAboutRoute
@@ -287,6 +302,7 @@ export interface FileRoutesByFullPath {
   '/orgs/$orgSlug/projects/$slug/': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderIndexRoute
   '/orgs/$orgSlug/projects/$slug/settings/': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute
   '/orgs/$orgSlug/projects/$slug/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsGroupIdRoute
+  '/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRoute
   '/orgs/$orgSlug/projects/$slug/tickets/$id/split': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRoute
   '/orgs/$orgSlug/projects/$slug/sprints/': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsIndexRoute
   '/orgs/$orgSlug/projects/$slug/settings/templates/': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesIndexRoute
@@ -308,6 +324,7 @@ export interface FileRoutesByTo {
   '/orgs/$orgSlug/settings/storage': typeof AuthedOrgsOrgSlugSettingsStorageRoute
   '/orgs/$orgSlug/projects': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/orgs/$orgSlug/settings': typeof AuthedOrgsOrgSlugSettingsIndexRoute
+  '/orgs/$orgSlug/settings/templates/$templateKey': typeof AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRoute
   '/orgs/$orgSlug/settings/templates': typeof AuthedOrgsOrgSlugSettingsTemplatesIndexRoute
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderAboutRoute
   '/orgs/$orgSlug/projects/$slug/settings/general': typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute
@@ -318,6 +335,7 @@ export interface FileRoutesByTo {
   '/orgs/$orgSlug/settings/templates/blocks/$blockKey': typeof AuthedOrgsOrgSlugSettingsTemplatesBlocksBlockKeyRoute
   '/orgs/$orgSlug/projects/$slug/settings': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute
   '/orgs/$orgSlug/projects/$slug/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsGroupIdRoute
+  '/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRoute
   '/orgs/$orgSlug/projects/$slug/tickets/$id/split': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRoute
   '/orgs/$orgSlug/projects/$slug/sprints': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsIndexRoute
   '/orgs/$orgSlug/projects/$slug/settings/templates': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesIndexRoute
@@ -345,6 +363,7 @@ export interface FileRoutesById {
   '/_authed/orgs/$orgSlug/settings/': typeof AuthedOrgsOrgSlugSettingsIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/projects/$slug/settings': typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteWithChildren
+  '/_authed/orgs/$orgSlug/settings/templates/$templateKey': typeof AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRoute
   '/_authed/orgs/$orgSlug/settings/templates/': typeof AuthedOrgsOrgSlugSettingsTemplatesIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/about': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderAboutRoute
@@ -357,6 +376,7 @@ export interface FileRoutesById {
   '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsGroupIdRoute
+  '/_authed/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRoute
   '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id_/split': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRoute
   '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/templates/': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesIndexRoute
@@ -383,6 +403,7 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/projects/'
     | '/orgs/$orgSlug/settings/'
     | '/orgs/$orgSlug/projects/$slug/settings'
+    | '/orgs/$orgSlug/settings/templates/$templateKey'
     | '/orgs/$orgSlug/settings/templates/'
     | '/orgs/$orgSlug/projects/$slug/sprints'
     | '/orgs/$orgSlug/projects/$slug/about'
@@ -395,6 +416,7 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/projects/$slug/'
     | '/orgs/$orgSlug/projects/$slug/settings/'
     | '/orgs/$orgSlug/projects/$slug/sprints/$groupId'
+    | '/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey'
     | '/orgs/$orgSlug/projects/$slug/tickets/$id/split'
     | '/orgs/$orgSlug/projects/$slug/sprints/'
     | '/orgs/$orgSlug/projects/$slug/settings/templates/'
@@ -416,6 +438,7 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/settings/storage'
     | '/orgs/$orgSlug/projects'
     | '/orgs/$orgSlug/settings'
+    | '/orgs/$orgSlug/settings/templates/$templateKey'
     | '/orgs/$orgSlug/settings/templates'
     | '/orgs/$orgSlug/projects/$slug/about'
     | '/orgs/$orgSlug/projects/$slug/settings/general'
@@ -426,6 +449,7 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/settings/templates/blocks/$blockKey'
     | '/orgs/$orgSlug/projects/$slug/settings'
     | '/orgs/$orgSlug/projects/$slug/sprints/$groupId'
+    | '/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey'
     | '/orgs/$orgSlug/projects/$slug/tickets/$id/split'
     | '/orgs/$orgSlug/projects/$slug/sprints'
     | '/orgs/$orgSlug/projects/$slug/settings/templates'
@@ -452,6 +476,7 @@ export interface FileRouteTypes {
     | '/_authed/orgs/$orgSlug/settings/'
     | '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings'
+    | '/_authed/orgs/$orgSlug/settings/templates/$templateKey'
     | '/_authed/orgs/$orgSlug/settings/templates/'
     | '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints'
     | '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/about'
@@ -464,6 +489,7 @@ export interface FileRouteTypes {
     | '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/'
     | '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId'
+    | '/_authed/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey'
     | '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id_/split'
     | '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/templates/'
@@ -613,6 +639,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsTemplatesIndexRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
     }
+    '/_authed/orgs/$orgSlug/settings/templates/$templateKey': {
+      id: '/_authed/orgs/$orgSlug/settings/templates/$templateKey'
+      path: '/templates/$templateKey'
+      fullPath: '/orgs/$orgSlug/settings/templates/$templateKey'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
+    }
     '/_authed/orgs/$orgSlug/projects/$slug/settings': {
       id: '/_authed/orgs/$orgSlug/projects/$slug/settings'
       path: '/settings'
@@ -718,6 +751,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugRouteRoute
     }
+    '/_authed/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey': {
+      id: '/_authed/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey'
+      path: '/templates/$templateKey'
+      fullPath: '/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute
+    }
     '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId': {
       id: '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId'
       path: '/$groupId'
@@ -742,6 +782,7 @@ interface AuthedOrgsOrgSlugSettingsRouteRouteChildren {
   AuthedOrgsOrgSlugSettingsMembersRoute: typeof AuthedOrgsOrgSlugSettingsMembersRoute
   AuthedOrgsOrgSlugSettingsStorageRoute: typeof AuthedOrgsOrgSlugSettingsStorageRoute
   AuthedOrgsOrgSlugSettingsIndexRoute: typeof AuthedOrgsOrgSlugSettingsIndexRoute
+  AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRoute: typeof AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRoute
   AuthedOrgsOrgSlugSettingsTemplatesIndexRoute: typeof AuthedOrgsOrgSlugSettingsTemplatesIndexRoute
   AuthedOrgsOrgSlugSettingsTemplatesBlocksBlockKeyRoute: typeof AuthedOrgsOrgSlugSettingsTemplatesBlocksBlockKeyRoute
 }
@@ -758,6 +799,8 @@ const AuthedOrgsOrgSlugSettingsRouteRouteChildren: AuthedOrgsOrgSlugSettingsRout
     AuthedOrgsOrgSlugSettingsStorageRoute:
       AuthedOrgsOrgSlugSettingsStorageRoute,
     AuthedOrgsOrgSlugSettingsIndexRoute: AuthedOrgsOrgSlugSettingsIndexRoute,
+    AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRoute:
+      AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRoute,
     AuthedOrgsOrgSlugSettingsTemplatesIndexRoute:
       AuthedOrgsOrgSlugSettingsTemplatesIndexRoute,
     AuthedOrgsOrgSlugSettingsTemplatesBlocksBlockKeyRoute:
@@ -814,6 +857,7 @@ interface AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteChildren {
   AuthedOrgsOrgSlugProjectsSlugSettingsTeamRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsTeamRoute
   AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRoute
   AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute
+  AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRoute
   AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesIndexRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesIndexRoute
   AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesBlocksBlockKeyRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesBlocksBlockKeyRoute
 }
@@ -830,6 +874,8 @@ const AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteChildren: AuthedOrgsOrgSlug
       AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRoute,
     AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute:
       AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute,
+    AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRoute:
+      AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRoute,
     AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesIndexRoute:
       AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesIndexRoute,
     AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesBlocksBlockKeyRoute:

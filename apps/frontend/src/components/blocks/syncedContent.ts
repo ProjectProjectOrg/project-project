@@ -1,8 +1,11 @@
 import {
   mergeChecklistTicks,
+  stripHints,
   type BlockDefinition,
   type BlockLookup
 } from "@pp/shared"
+
+export type SyncedBlockMode = "synced" | "reference"
 
 export type SyncedView =
   | Readonly<{ kind: "live"; content: string; definition: BlockDefinition }>
@@ -10,24 +13,29 @@ export type SyncedView =
 
 const liveDefinition = (
   lookup: BlockLookup,
-  blockType: string
+  blockType: string,
+  mode: SyncedBlockMode
 ): BlockDefinition | undefined => {
   const definition = lookup(blockType)
   if (definition === undefined || definition.hidden) return undefined
-  return definition.sync ? definition : undefined
+  return mode === "reference" || definition.sync ? definition : undefined
 }
 
 export const syncedView = (
   lookup: BlockLookup,
   blockType: string,
-  snapshot: string
+  snapshot: string,
+  mode: SyncedBlockMode
 ): SyncedView => {
-  const definition = liveDefinition(lookup, blockType)
+  const definition = liveDefinition(lookup, blockType, mode)
   if (definition === undefined) return { kind: "removed", content: snapshot }
   return {
     kind: "live",
     definition,
-    content: mergeChecklistTicks(definition.content, snapshot)
+    content:
+      mode === "reference"
+        ? stripHints(definition.content)
+        : mergeChecklistTicks(definition.content, snapshot)
   }
 }
 
@@ -40,6 +48,13 @@ const HINT = /\{\{([^{}\n]+)\}\}/g
  */
 export const hintsAsEmphasis = (markdown: string): string =>
   markdown.replace(HINT, (_, text: string) => `*${text.trim()}*`)
+
+/** What a synced or linked block shows: references show the hints. */
+export const syncedDisplayContent = (
+  view: Extract<SyncedView, { kind: "live" }>,
+  mode: SyncedBlockMode
+): string =>
+  mode === "reference" ? hintsAsEmphasis(view.definition.content) : view.content
 
 const TASK_MARK = /^(\s*(?:[-*+]|\d{1,9}[.)])\s+\[)([ xX])\]/
 

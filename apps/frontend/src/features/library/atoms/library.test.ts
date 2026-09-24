@@ -5,6 +5,7 @@ import {
   Conflict,
   EMPTY_LAYER,
   Library,
+  LibraryDefaults,
   resolveLibrary,
   type BlockDraft,
   type Layer
@@ -24,6 +25,7 @@ import {
   projectLibraryFor,
   projectLibraryRequest,
   removeProjectBlock,
+  setTemplateDefaults,
   updateOrgBlockFromProject,
   updateProjectBlock
 } from "./library"
@@ -33,6 +35,7 @@ const orgReq = orgLibraryRequest("acme")
 const projectReq = projectLibraryRequest("acme", "web")
 const encodeLibrary = Schema.encodeSync(Library)
 const encodeBlock = Schema.encodeSync(BlockDefinition)
+const encodeDefaults = Schema.encodeSync(LibraryDefaults)
 const encodeConflict = Schema.encodeSync(Conflict)
 const blockKey = Schema.decodeSync(BlockKey)
 
@@ -49,7 +52,11 @@ const triageDraft: BlockDraft = {
 }
 
 const libraryWith = (project: Layer | null, org: Layer = EMPTY_LAYER) =>
-  resolveLibrary({ org, project }, true)
+  resolveLibrary(
+    { org, project },
+    { org: {}, project: project === null ? null : {} },
+    true
+  )
 
 const layerWith = (blocks: ReadonlyArray<BlockDraft>): Layer => ({
   ...EMPTY_LAYER,
@@ -413,6 +420,46 @@ describe("library atoms", () => {
       expect(
         calls.filter((call) => call === `GET /api${PROJECT_PATH}`)
       ).toHaveLength(2)
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("writes template defaults through the project wrapper", async () => {
+    const setDefaults = deferred()
+    serve([
+      {
+        method: "GET",
+        path: PROJECT_PATH,
+        respond: json(libraryWith(null))
+      },
+      {
+        method: "PATCH",
+        path: `${PROJECT_PATH}/defaults`,
+        respond: () => setDefaults.promise
+      }
+    ])
+    const registry = AtomRegistry.make()
+    const view = projectLibraryFor(projectReq)
+    const mutation = setTemplateDefaults({ req: projectReq })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() => expect(registry.get(view)._tag).toBe("Success"))
+      registry.set(mutation, { defaults: { bug: null } })
+      const predicted = successValue(registry.get(view))
+      expect(predicted.defaults.bug).toBe(null)
+      expect(predicted.ownDefaults).toEqual({ bug: null })
+      setDefaults.resolve(
+        Response.json(
+          encodeDefaults({
+            defaults: predicted.defaults,
+            ownDefaults: { bug: null },
+            inheritedDefaults: predicted.inheritedDefaults
+          })
+        )
+      )
+      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
     } finally {
       registry.dispose()
     }

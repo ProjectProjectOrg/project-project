@@ -50,6 +50,7 @@ function renderEditor(
   const blocks: EditorBlocks = {
     mode: "ticket",
     library,
+    ticketType: null,
     canEdit,
     onEditDefinition
   }

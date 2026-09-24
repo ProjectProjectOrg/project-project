@@ -1,5 +1,11 @@
 import { formatTicketBlock } from "@pp/shared"
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react"
+import {
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+  within
+} from "@testing-library/react"
 import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry"
 import type { ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -10,10 +16,12 @@ import type { LexicalEditorProps } from "@/components/LexicalEditor"
 import { BlockEditorPage } from "./BlockEditorPage"
 import {
   asBlock,
+  asTemplate,
   blockDraft,
   libraryOf,
   libraryServer,
   renderWithRegistry,
+  templateDraft,
   type Call
 } from "./libraryEditorTestKit"
 import { orgScope, projectScope } from "./libraryScope"
@@ -50,7 +58,24 @@ const fetchStub = stubFetch()
 const context = asBlock(blockDraft("context"))
 const steps = asBlock(blockDraft("steps-to-reproduce"))
 
-const library = (canEdit = true) => libraryOf([context, steps], canEdit)
+const library = (canEdit = true) =>
+  libraryOf(
+    [context, steps],
+    [
+      asTemplate(templateDraft("bugs", formatTicketBlock("context", ""))),
+      asTemplate(
+        templateDraft("spikes", formatTicketBlock("context", ""), {
+          name: "Spike"
+        })
+      ),
+      asTemplate(
+        templateDraft("chores", formatTicketBlock("steps-to-reproduce", ""), {
+          name: "Chore"
+        })
+      )
+    ],
+    canEdit
+  )
 
 let registry: AtomRegistry.AtomRegistry
 let calls: Array<Call>
@@ -148,6 +173,22 @@ describe("BlockEditorPage", () => {
     })
   })
 
+  it("lists the templates that use the block", async () => {
+    fetchStub.set(libraryServer(library(), calls))
+    renderWithRegistry(
+      registry,
+      <BlockEditorPage scope={projectScope("acme", "web")} blockKey="context" />
+    )
+
+    const label = await screen.findByText("Used in 2 templates")
+    const field = label.parentElement!
+    expect(
+      within(field)
+        .getAllByRole("link")
+        .map((link) => link.textContent)
+    ).toEqual(["Bug report", "Spike"])
+  })
+
   it("shows members the content read-only with hints stripped", async () => {
     fetchStub.set(libraryServer(library(false), calls))
     renderWithRegistry(
@@ -155,7 +196,7 @@ describe("BlockEditorPage", () => {
       <BlockEditorPage scope={projectScope("acme", "web")} blockKey="context" />
     )
 
-    await screen.findByRole("switch")
+    await screen.findByText("Used in 2 templates")
     expect(screen.queryByLabelText("Content")).toBeNull()
     expect(screen.getByRole("switch").getAttribute("aria-disabled")).toBe(
       "true"

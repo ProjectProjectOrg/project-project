@@ -209,7 +209,7 @@ function SyncedMarkdownBlock({
   morphId
 }: Readonly<{ blockType: string; snapshot: string; morphId: string }>) {
   const lookup = useBlockLookup()
-  const view = syncedView(lookup, blockType, snapshot)
+  const view = syncedView(lookup, blockType, snapshot, "synced")
   if (view.kind === "removed") {
     const { heading, rest } = splitLeadingHeading(view.content)
     return (
@@ -226,7 +226,7 @@ function SyncedMarkdownBlock({
   return (
     <BlockFrame blockType={blockType} sync>
       <MarkdownSegment text={view.content} morphId={morphId} />
-      <SyncedChip label={syncedChipLabel(origin)} />
+      <SyncedChip label={syncedChipLabel("synced", origin)} />
     </BlockFrame>
   )
 }

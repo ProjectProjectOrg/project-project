@@ -61,6 +61,21 @@ export const LibraryHandlerLive = HttpApiBuilder.group(
           library.removeBlock(org, user, slug, params.key)
         )
       )
+      .handle("createOrgTemplate", ({ params, payload }) =>
+        withLibrary(params, (library, org, user, slug) =>
+          library.createTemplate(org, user, slug, payload)
+        )
+      )
+      .handle("updateOrgTemplate", ({ params, payload }) =>
+        withLibrary(params, (library, org, user, slug) =>
+          library.updateTemplate(org, user, slug, params.key, payload)
+        )
+      )
+      .handle("removeOrgTemplate", ({ params }) =>
+        withLibrary(params, (library, org, user, slug) =>
+          library.removeTemplate(org, user, slug, params.key)
+        )
+      )
       .handle("createProjectBlock", ({ params, payload }) =>
         withLibrary(params, (library, org, user, slug) =>
           library.createBlock(org, user, slug, payload)
@@ -79,6 +94,36 @@ export const LibraryHandlerLive = HttpApiBuilder.group(
       .handle("hideProjectBlock", ({ params }) =>
         withLibrary(params, (library, org, user) =>
           library.hideBlock(org, user, params.slug, params.key)
+        )
+      )
+      .handle("createProjectTemplate", ({ params, payload }) =>
+        withLibrary(params, (library, org, user, slug) =>
+          library.createTemplate(org, user, slug, payload)
+        )
+      )
+      .handle("updateProjectTemplate", ({ params, payload }) =>
+        withLibrary(params, (library, org, user, slug) =>
+          library.updateTemplate(org, user, slug, params.key, payload)
+        )
+      )
+      .handle("removeProjectTemplate", ({ params }) =>
+        withLibrary(params, (library, org, user, slug) =>
+          library.removeTemplate(org, user, slug, params.key)
+        )
+      )
+      .handle("hideProjectTemplate", ({ params }) =>
+        withLibrary(params, (library, org, user) =>
+          library.hideTemplate(org, user, params.slug, params.key)
+        )
+      )
+      .handle("setOrgTemplateDefaults", ({ params, payload }) =>
+        withLibrary(params, (library, org, user) =>
+          library.setOrgTemplateDefaults(org, user, payload)
+        )
+      )
+      .handle("setTemplateDefaults", ({ params, payload }) =>
+        withLibrary(params, (library, org, user) =>
+          library.setTemplateDefaults(org, user, params.slug, payload)
         )
       )
 )
