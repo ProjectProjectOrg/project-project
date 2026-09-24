@@ -48,6 +48,7 @@ import type * as Layer from "effect/Layer"
 import type * as Schema from "effect/Schema"
 import { Tool } from "effect/unstable/ai"
 
+import { orgTool } from "./access"
 import { McpCurrentUser } from "./McpRequestUser"
 import {
   McpToolkit,
@@ -146,10 +147,7 @@ const get_org = Effect.fn("get_org")(function* (input: { orgSlug: string }) {
   const betterAuth = yield* BetterAuth
   const org = yield* betterAuth.getOrganization(current.id, input.orgSlug)
   const orgStorage = yield* OrgStorage
-  const { status, lastCheckedAt } = yield* orgStorage.getStatus(
-    input.orgSlug,
-    current.id
-  )
+  const { status, lastCheckedAt } = yield* orgStorage.getStatus()
   return { ...org, storage: { status, lastCheckedAt } }
 })
 
@@ -676,33 +674,33 @@ const add_tickets_to_group = (input: {
 export const handlers: McpHandlers<McpHandlerEnv> = {
   me,
   list_orgs,
-  get_org,
-  list_projects,
-  get_project,
-  list_groups,
-  list_sprints,
-  get_group,
-  list_tickets,
-  get_ticket,
-  list_statuses,
-  list_tags,
-  list_members,
-  get_git_state,
-  get_project_doc,
-  get_group_doc,
-  get_ticket_doc,
-  list_blocks,
-  list_templates,
-  create_ticket,
-  update_ticket,
-  prepare_ticket_attachment,
-  create_comment,
-  attach_branch,
-  rebuild_ticket_index,
-  add_tickets_to_group,
-  create_sprint,
-  update_sprint,
-  complete_sprint
+  get_org: orgTool("membership", get_org),
+  list_projects: orgTool("membership", list_projects),
+  get_project: orgTool("membership", get_project),
+  list_groups: orgTool("membership", list_groups),
+  list_sprints: orgTool("membership", list_sprints),
+  get_group: orgTool("membership", get_group),
+  list_tickets: orgTool("membership", list_tickets),
+  get_ticket: orgTool("membership", get_ticket),
+  list_statuses: orgTool("membership", list_statuses),
+  list_tags: orgTool("membership", list_tags),
+  list_members: orgTool("membership", list_members),
+  get_git_state: orgTool("membership", get_git_state),
+  get_project_doc: orgTool("membership", get_project_doc),
+  get_group_doc: orgTool("membership", get_group_doc),
+  get_ticket_doc: orgTool("membership", get_ticket_doc),
+  list_blocks: orgTool("membership", list_blocks),
+  list_templates: orgTool("membership", list_templates),
+  create_ticket: orgTool("membership", create_ticket),
+  update_ticket: orgTool("membership", update_ticket),
+  prepare_ticket_attachment: orgTool("membership", prepare_ticket_attachment),
+  create_comment: orgTool("membership", create_comment),
+  attach_branch: orgTool("membership", attach_branch),
+  rebuild_ticket_index: orgTool("membership", rebuild_ticket_index),
+  add_tickets_to_group: orgTool("membership", add_tickets_to_group),
+  create_sprint: orgTool("membership", create_sprint),
+  update_sprint: orgTool("membership", update_sprint),
+  complete_sprint: orgTool("membership", complete_sprint)
 }
 
 export const toolkitHandlers = McpToolkit.of(toToolkitHandlers(handlers))

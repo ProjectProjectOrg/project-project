@@ -336,6 +336,7 @@
   "members_role_admin": "Admin",
   "members_role_client": "Client",
   "members_role_developer": "Developer",
+  "members_role_guest": "Guest",
   "members_role_member": "Member",
   "members_role_owner": "Owner",
   "members_role_pm": "PM",

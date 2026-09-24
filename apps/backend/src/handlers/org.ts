@@ -23,7 +23,8 @@ export const collapseRole = (role: string): OrgRole => {
   const roles = new Set(role.split(",").map((entry) => entry.trim()))
   if (roles.has("owner")) return "owner"
   if (roles.has("admin")) return "admin"
-  return "member"
+  if (roles.has("member")) return "member"
+  return "guest"
 }
 
 type RawInvitation = Readonly<{
@@ -42,7 +43,7 @@ export const pendingInvitations = (
           {
             id: invitation.id,
             email: invitation.email,
-            role: collapseRole(invitation.role ?? ""),
+            role: collapseRole(invitation.role ?? "member"),
             status: "pending" as const
           }
         ]
@@ -209,27 +210,9 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
         return yield* org.myOrgs(user.id)
       })
     )
-    .handle("get", ({ params }) =>
-      Effect.gen(function* () {
-        const user = yield* CurrentUser
-        const org = yield* Org
-        return yield* org.get(params.orgSlug, user.id)
-      })
-    )
-    .handle("softDelete", ({ params }) =>
-      Effect.gen(function* () {
-        const user = yield* CurrentUser
-        const org = yield* Org
-        return yield* org.softDelete(params.orgSlug, user.id)
-      })
-    )
-    .handle("restore", ({ params }) =>
-      Effect.gen(function* () {
-        const user = yield* CurrentUser
-        const org = yield* Org
-        return yield* org.restore(params.orgSlug, user.id)
-      })
-    )
+    .handle("get", () => Effect.flatMap(Org, (org) => org.get()))
+    .handle("softDelete", () => Effect.flatMap(Org, (org) => org.softDelete()))
+    .handle("restore", () => Effect.flatMap(Org, (org) => org.restore()))
     .handle("members", ({ params }) =>
       Effect.gen(function* () {
         yield* CurrentUser
@@ -242,14 +225,13 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
     )
     .handle("rename", ({ params, payload }) =>
       Effect.gen(function* () {
-        const user = yield* CurrentUser
         const ba = yield* BetterAuth
         const org = yield* Org
         const request = yield* webRequest
         yield* ba
           .renameOrg(request, params.orgSlug, payload.name)
           .pipe(Effect.catchTag("BetterAuthError", memberAccessErrorToFailure))
-        return yield* org.get(params.orgSlug, user.id)
+        return yield* org.get()
       })
     )
     .handle("inviteMember", ({ params, payload }) =>

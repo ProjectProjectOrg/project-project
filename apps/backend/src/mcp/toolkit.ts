@@ -1,3 +1,4 @@
+import { Access } from "@pp/server-core/access/Access"
 import { AttachmentUploads } from "@pp/server-core/attachments/AttachmentUploads"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { Comments } from "@pp/server-core/comments/Comments"
@@ -21,6 +22,7 @@ import { Tool, Toolkit } from "effect/unstable/ai"
 import { mappedToolErrorText } from "./errorMap"
 
 const handlerDependencies = [
+  Access,
   AttachmentUploads,
   BetterAuth,
   Comments,

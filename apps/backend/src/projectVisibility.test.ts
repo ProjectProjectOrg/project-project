@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises"
 
 import { PgClient } from "@effect/sql-pg"
 import { Db, DbLive } from "@pp/db"
+import { AccessLive } from "@pp/server-core/access/AccessLive"
+import { orgScope } from "@pp/server-core/access/testing"
 import { Attachments } from "@pp/server-core/attachments/Attachments"
 import { AttachmentsLive } from "@pp/server-core/attachments/AttachmentsLive"
 import { Comments } from "@pp/server-core/comments/Comments"
@@ -27,7 +29,13 @@ import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
 import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
 import { TicketsLive } from "@pp/server-core/tickets/TicketsLive"
 import { Users } from "@pp/server-core/users/Users"
-import { AppApi, Authentication, CurrentUser, NotFound } from "@pp/shared"
+import {
+  AppApi,
+  Authentication,
+  CurrentUser,
+  NotFound,
+  OrgScope
+} from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as Context from "effect/Context"
@@ -41,6 +49,7 @@ import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 
 import { TicketsHandlerLive } from "./handlers/tickets"
+import { OrgAccessLive, ProjectAccessLive } from "./Layers/Access"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -68,6 +77,12 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
         orgSlug: `visibility-${organizationId}`,
         role: "owner" as const
       })
+  })
+
+  const ownerScope = orgScope("owner", {
+    userId,
+    organizationId,
+    orgSlug: `visibility-${organizationId}`
   })
 
   const apiRouter = Layer.effect(
@@ -282,6 +297,11 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
       Layer.provide(tickets),
       Layer.provide(ownerOrg),
       Layer.provide(
+        Layer.mergeAll(OrgAccessLive, ProjectAccessLive).pipe(
+          Layer.provide(AccessLive.pipe(Layer.provide(dbLayer())))
+        )
+      ),
+      Layer.provide(
         Layer.succeed(Authentication, {
           sessionCookie: (httpEffect) =>
             Effect.provideService(httpEffect, CurrentUser, {
@@ -468,17 +488,11 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
       Attachments.pipe(
         Effect.flatMap((service) =>
           Effect.all({
-            page: service.listForOrg(
-              `visibility-${organizationId}`,
-              userId,
-              {}
-            ),
-            summary: service.summarizeForOrg(
-              `visibility-${organizationId}`,
-              userId
-            )
+            page: service.listForOrg({}),
+            summary: service.summarizeForOrg()
           })
         ),
+        Effect.provideService(OrgScope, ownerScope),
         Effect.provide(
           AttachmentsLive.pipe(
             Layer.provide(dbLayer()),
@@ -508,14 +522,9 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
     const result = await Effect.runPromise(
       Attachments.pipe(
         Effect.flatMap((service) =>
-          Effect.exit(
-            service.deleteForOrg(
-              `visibility-${organizationId}`,
-              attachmentId,
-              userId
-            )
-          )
+          Effect.exit(service.deleteForOrg(attachmentId))
         ),
+        Effect.provideService(OrgScope, ownerScope),
         Effect.provide(
           AttachmentsLive.pipe(
             Layer.provide(dbLayer()),

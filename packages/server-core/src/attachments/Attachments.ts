@@ -13,6 +13,7 @@ import {
   type AttachmentTypeRejected,
   type Forbidden,
   type NotFound,
+  type OrgScope,
   type PrepareAttachmentInput,
   type PrepareAttachmentResult,
   type StorageConfigMissing,
@@ -231,25 +232,23 @@ export interface AttachmentsShape {
     removal: Effect.Effect<void, E>
   ) => Effect.Effect<{ readonly orphaned: number }, E>
   readonly listForOrg: (
-    orgSlug: string,
-    userId: string,
     params: AttachmentListParams
-  ) => Effect.Effect<AttachmentListPage, NotFound | Forbidden>
-  readonly summarizeForOrg: (
-    orgSlug: string,
-    userId: string
-  ) => Effect.Effect<AttachmentSummary, NotFound | Forbidden>
+  ) => Effect.Effect<AttachmentListPage, never, OrgScope>
+  readonly summarizeForOrg: () => Effect.Effect<
+    AttachmentSummary,
+    never,
+    OrgScope
+  >
   readonly deleteForOrg: (
-    orgSlug: string,
-    attachmentId: string,
-    userId: string
+    attachmentId: string
   ) => Effect.Effect<
     void,
     | NotFound
     | Forbidden
     | StorageNotConnected
     | StorageConfigMissing
-    | StorageError
+    | StorageError,
+    OrgScope
   >
   readonly missingIds: (
     orgSlug: string,

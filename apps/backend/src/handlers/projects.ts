@@ -102,41 +102,20 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           )
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
       )
-      .handle("githubIntegration", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          yield* currentOrg.resolve(params.orgSlug, user.id)
-          const integrations = yield* GitHubIntegrations
-          return yield* integrations.getStatus(params.orgSlug, user.id)
-        })
+      .handle("githubIntegration", () =>
+        Effect.flatMap(GitHubIntegrations, (integrations) =>
+          integrations.getStatus()
+        )
       )
-      .handle("startGithubInstall", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          yield* currentOrg.resolve(params.orgSlug, user.id)
-          const integrations = yield* GitHubIntegrations
-          return yield* integrations.startInstall(
-            params.orgSlug,
-            user.id,
-            payload.returnProjectSlug
-          )
-        })
+      .handle("startGithubInstall", ({ payload }) =>
+        Effect.flatMap(GitHubIntegrations, (integrations) =>
+          integrations.startInstall(payload.returnProjectSlug)
+        )
       )
-      .handle("listGithubInstallationRepos", ({ params, query }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          yield* currentOrg.resolve(params.orgSlug, user.id)
-          const integrations = yield* GitHubIntegrations
-          return yield* integrations.listRepos(
-            params.orgSlug,
-            user.id,
-            query.q,
-            query.page ?? 1
-          )
-        })
+      .handle("listGithubInstallationRepos", ({ query }) =>
+        Effect.flatMap(GitHubIntegrations, (integrations) =>
+          integrations.listRepos(query.q, query.page ?? 1)
+        )
       )
       .handle("addMember", ({ params, payload }) =>
         Effect.gen(function* () {

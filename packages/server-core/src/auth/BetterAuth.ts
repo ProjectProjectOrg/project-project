@@ -1,5 +1,6 @@
 import type {
   OrgAssignableRole,
+  OrgRole,
   CursorPayload,
   InviteMemberInput,
   NotFound,
@@ -76,7 +77,7 @@ export type BetterAuthShape = Readonly<{
   readonly listOrganizations: (
     userId: string
   ) => Effect.Effect<
-    ReadonlyArray<{ orgSlug: string; role: "owner" | "admin" | "member" }>,
+    ReadonlyArray<{ orgSlug: string; role: OrgRole }>,
     BetterAuthError
   >
   readonly listOrganizationsPaged: (
