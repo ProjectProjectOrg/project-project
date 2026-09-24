@@ -304,14 +304,9 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       [existingProjectId, owner.organizationId, owner.userId]
     )
     await pool.query(
-      `insert into ticket_index (organization_id, org_slug, project_id, project_slug, ticket_id, title, status, type, priority, created_by, created_at, updated_at)
-       values ($1, $2, $3, 'application', 'APP-1', 'Existing ticket', 'todo', 'feat', 'med', $4, now(), now())`,
-      [
-        owner.organizationId,
-        owner.organizationId,
-        existingProjectId,
-        owner.userId
-      ]
+      `insert into ticket_index (organization_id, project_id, ticket_id, title, status, type, priority, created_by, created_at, updated_at)
+       values ($1, $2, 'APP-1', 'Existing ticket', 'todo', 'feat', 'med', $3, now(), now())`,
+      [owner.organizationId, existingProjectId, owner.userId]
     )
     await Effect.runPromise(
       Effect.gen(function* () {

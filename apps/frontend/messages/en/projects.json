@@ -519,6 +519,7 @@
   "attachments_page_of": "Page {page}",
   "attachments_page_prev": "Previous page",
   "attachments_page_range": "{from}–{to} of {total} objects",
+  "attachments_project_deleted": "Deleted project",
   "attachments_project_image": "Project image",
   "attachments_select_all": "Select every deletable attachment on this page",
   "attachments_select_row": "Select {filename}",

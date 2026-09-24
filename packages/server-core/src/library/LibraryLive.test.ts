@@ -203,13 +203,16 @@ const makeLayer = (world: World) =>
       Layer.mock(Projects, {
         requireMember: (_org, userId) =>
           userId in PROJECT_ROLES
-            ? Effect.succeed({ role: PROJECT_ROLES[userId] })
+            ? Effect.succeed({
+                role: PROJECT_ROLES[userId],
+                projectId: "project-1"
+              })
             : Effect.fail(new NotFound()),
         requireRole: (_org, userId, _slug, allowed) => {
           if (!(userId in PROJECT_ROLES)) return Effect.fail(new NotFound())
           const role = PROJECT_ROLES[userId]
           return allowed.includes(role)
-            ? Effect.succeed({ role })
+            ? Effect.succeed({ role, projectId: "project-1" })
             : Effect.fail(new Forbidden())
         }
       })

@@ -116,14 +116,14 @@ export const makeJiraCleanupActivities = Effect.gen(function* () {
         payload,
         executionId
       )
-      if (row.destinationProjectSlug === null) return
+      if (row.destinationProjectId === null) return
       const attachments = yield* db
         .select({ objectKey: attachmentIndex.objectKey })
         .from(attachmentIndex)
         .where(
           and(
             eq(attachmentIndex.organizationId, row.organizationId),
-            eq(attachmentIndex.projectSlug, row.destinationProjectSlug),
+            eq(attachmentIndex.projectId, row.destinationProjectId),
             eq(attachmentIndex.status, "pending")
           )
         )
@@ -158,13 +158,13 @@ export const makeJiraCleanupActivities = Effect.gen(function* () {
   ) =>
     Effect.gen(function* () {
       const { row } = yield* verifyUnpublishedDestination(payload, executionId)
-      if (row.destinationProjectSlug === null) return
+      if (row.destinationProjectId === null) return
       yield* db
         .delete(attachmentIndex)
         .where(
           and(
             eq(attachmentIndex.organizationId, row.organizationId),
-            eq(attachmentIndex.projectSlug, row.destinationProjectSlug),
+            eq(attachmentIndex.projectId, row.destinationProjectId),
             eq(attachmentIndex.status, "pending")
           )
         )

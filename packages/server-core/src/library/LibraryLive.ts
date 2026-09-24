@@ -352,11 +352,12 @@ export const LibraryLive = Layer.effect(
     )
 
     const projectTagNames = Effect.fn("Library.projectTagNames")(function* (
+      orgSlug: string,
       slug: string
     ) {
       const project = yield* db.query.projectIndex.findFirst({
         columns: { id: true },
-        where: { RAW: (table, operators) => operators.eq(table.slug, slug) }
+        where: { slug, organization: { slug: orgSlug } }
       })
       if (!project) return new Set<string>()
       const rows = yield* db.query.projectTag.findMany({
@@ -761,7 +762,7 @@ export const LibraryLive = Layer.effect(
       const known =
         template.tags.length === 0
           ? new Set<string>()
-          : yield* projectTagNames(slug)
+          : yield* projectTagNames(orgSlug, slug)
       return {
         body,
         type: ticketTypeForTemplate(library.defaults, template.key),

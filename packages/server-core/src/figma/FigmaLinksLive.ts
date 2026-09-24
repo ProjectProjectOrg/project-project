@@ -1,7 +1,11 @@
 import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
-import { projectIndex } from "@pp/db/schema"
-import { figmaLinkIndex, figmaReference } from "@pp/db/schema"
+import {
+  figmaLinkIndex,
+  figmaReference,
+  organization,
+  projectIndex
+} from "@pp/db/schema"
 import {
   extractFigmaRefs,
   figmaRefKey,
@@ -22,6 +26,7 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient"
 import { ulid } from "ulid"
 
 import { CurrentOrg, requireOrgAdmin } from "../organizations/CurrentOrg"
+import { projectInOrg } from "../projects/projectLookup"
 import { Projects } from "../projects/Projects"
 import { OrgStorage } from "../storage/OrgStorage"
 import { S3Storage, type S3Connection } from "../storage/S3Storage"
@@ -308,6 +313,7 @@ export const FigmaLinksLive = Layer.effect(
     const createBacklinks = (
       orgSlug: string,
       slug: string,
+      projectId: string,
       ticketId: string,
       title: string,
       entries: ReadonlyArray<{
@@ -344,8 +350,7 @@ export const FigmaLinksLive = Layer.effect(
                 .where(
                   and(
                     eq(figmaReference.linkId, entry.linkId),
-                    eq(figmaReference.orgSlug, orgSlug),
-                    eq(figmaReference.projectSlug, slug),
+                    eq(figmaReference.projectId, projectId),
                     eq(figmaReference.ticketId, ticketId)
                   )
                 )
@@ -381,6 +386,7 @@ export const FigmaLinksLive = Layer.effect(
     const retractBacklinks = (
       orgSlug: string,
       slug: string,
+      projectId: string,
       ticketId: string,
       entries: ReadonlyArray<{
         readonly linkId: string
@@ -409,8 +415,7 @@ export const FigmaLinksLive = Layer.effect(
                 .where(
                   and(
                     eq(figmaReference.linkId, entry.linkId),
-                    eq(figmaReference.orgSlug, orgSlug),
-                    eq(figmaReference.projectSlug, slug),
+                    eq(figmaReference.projectId, projectId),
                     eq(figmaReference.ticketId, ticketId)
                   )
                 )
@@ -451,8 +456,7 @@ export const FigmaLinksLive = Layer.effect(
 
     const upsertLink = (
       organizationId: string,
-      orgSlug: string,
-      projectSlug: string,
+      projectId: string,
       ref: FigmaRef
     ) =>
       Effect.gen(function* () {
@@ -465,8 +469,7 @@ export const FigmaLinksLive = Layer.effect(
           .from(figmaLinkIndex)
           .where(
             and(
-              eq(figmaLinkIndex.orgSlug, orgSlug),
-              eq(figmaLinkIndex.projectSlug, projectSlug),
+              eq(figmaLinkIndex.projectId, projectId),
               eq(figmaLinkIndex.fileKey, ref.fileKey),
               ref.nodeId === null
                 ? isNull(figmaLinkIndex.nodeId)
@@ -488,15 +491,14 @@ export const FigmaLinksLive = Layer.effect(
           .values({
             id: ulid(),
             organizationId,
-            orgSlug,
-            projectSlug,
+            projectId,
             fileKey: ref.fileKey,
             nodeId: ref.nodeId,
             kind: ref.kind
           })
           .onConflictDoUpdate({
             target: [
-              figmaLinkIndex.projectSlug,
+              figmaLinkIndex.projectId,
               figmaLinkIndex.fileKey,
               figmaLinkIndex.nodeId
             ],
@@ -515,6 +517,7 @@ export const FigmaLinksLive = Layer.effect(
       body: string
     ) =>
       Effect.gen(function* () {
+        const project = yield* projectInOrg(db, orgSlug, slug)
         const refs = extractFigmaRefs(body)
         const byKey = new Map(refs.map((ref) => [figmaRefKey(ref), ref]))
 
@@ -534,8 +537,7 @@ export const FigmaLinksLive = Layer.effect(
           )
           .where(
             and(
-              eq(figmaReference.orgSlug, orgSlug),
-              eq(figmaReference.projectSlug, slug),
+              eq(figmaReference.projectId, project.id),
               eq(figmaReference.ticketId, ticketId)
             )
           )
@@ -573,8 +575,7 @@ export const FigmaLinksLive = Layer.effect(
             .delete(figmaReference)
             .where(
               and(
-                eq(figmaReference.orgSlug, orgSlug),
-                eq(figmaReference.projectSlug, slug),
+                eq(figmaReference.projectId, project.id),
                 eq(figmaReference.ticketId, ticketId),
                 inArray(figmaReference.linkId, removalsToDeleteNow)
               )
@@ -602,18 +603,6 @@ export const FigmaLinksLive = Layer.effect(
         }
 
         if (plan.added.length > 0) {
-          const project = yield* db.query.projectIndex.findFirst({
-            columns: { organizationId: true },
-            where: {
-              RAW: (table, operators) =>
-                operators.and(
-                  operators.eq(table.slug, slug),
-                  publishedProject(table)
-                )!
-            }
-          })
-          if (project === undefined) return yield* new NotFound()
-
           const added: Array<{
             readonly linkId: string
             readonly ref: FigmaRef
@@ -623,8 +612,7 @@ export const FigmaLinksLive = Layer.effect(
             if (ref === undefined) continue
             const link = yield* upsertLink(
               project.organizationId,
-              orgSlug,
-              slug,
+              project.id,
               ref
             )
             if (link === null) continue
@@ -639,8 +627,7 @@ export const FigmaLinksLive = Layer.effect(
               .values(
                 added.map((entry) => ({
                   linkId: entry.linkId,
-                  orgSlug,
-                  projectSlug: slug,
+                  projectId: project.id,
                   ticketId
                 }))
               )
@@ -662,12 +649,20 @@ export const FigmaLinksLive = Layer.effect(
               yield* resolveLinks(orgSlug, slug, toResolve)
             }
             if (toBacklink.length > 0) {
-              yield* createBacklinks(orgSlug, slug, ticketId, title, toBacklink)
+              yield* createBacklinks(
+                orgSlug,
+                slug,
+                project.id,
+                ticketId,
+                title,
+                toBacklink
+              )
             }
             if (removalsToRetract.length > 0) {
               yield* retractBacklinks(
                 orgSlug,
                 slug,
+                project.id,
                 ticketId,
                 removalsToRetract
               )
@@ -704,7 +699,11 @@ export const FigmaLinksLive = Layer.effect(
       ticketId
     ) =>
       Effect.gen(function* () {
-        yield* projects.requireMember(orgSlug, userId, slug)
+        const { projectId } = yield* projects.requireMember(
+          orgSlug,
+          userId,
+          slug
+        )
 
         const rows = yield* db
           .select({
@@ -723,8 +722,7 @@ export const FigmaLinksLive = Layer.effect(
           )
           .where(
             and(
-              eq(figmaReference.orgSlug, orgSlug),
-              eq(figmaReference.projectSlug, slug),
+              eq(figmaReference.projectId, projectId),
               eq(figmaReference.ticketId, ticketId)
             )
           )
@@ -751,7 +749,7 @@ export const FigmaLinksLive = Layer.effect(
         const rows = yield* db
           .select({
             thumbnailKey: figmaLinkIndex.thumbnailKey,
-            projectSlug: figmaReference.projectSlug
+            projectSlug: projectIndex.slug
           })
           .from(figmaLinkIndex)
           .innerJoin(
@@ -760,12 +758,16 @@ export const FigmaLinksLive = Layer.effect(
           )
           .innerJoin(
             projectIndex,
-            eq(projectIndex.slug, figmaReference.projectSlug)
+            eq(projectIndex.id, figmaReference.projectId)
+          )
+          .innerJoin(
+            organization,
+            eq(organization.id, figmaLinkIndex.organizationId)
           )
           .where(
             and(
               eq(figmaLinkIndex.id, linkId),
-              eq(figmaLinkIndex.orgSlug, orgSlug),
+              eq(organization.slug, orgSlug),
               publishedProject(projectIndex)
             )
           )

@@ -67,6 +67,8 @@ const document: TicketDocument = {
   commentsRegion: ""
 }
 
+const projectId = randomUUID()
+
 const FakeProjects = Layer.succeed(Projects, {
   list: () => unexpected("Projects.list"),
   listPaged: () => unexpected("Projects.listPaged"),
@@ -78,7 +80,8 @@ const FakeProjects = Layer.succeed(Projects, {
   update: () => unexpected("Projects.update"),
   updateSetup: () => unexpected("Projects.updateSetup"),
   remove: () => unexpected("Projects.remove"),
-  requireMember: () => Effect.succeed({ role: "developer" as const }),
+  requireMember: () =>
+    Effect.succeed({ role: "developer" as const, projectId }),
   requireRole: () => unexpected("Projects.requireRole"),
   addMember: () => unexpected("Projects.addMember"),
   updateMember: () => unexpected("Projects.updateMember"),
@@ -619,20 +622,29 @@ describe.skipIf(!databaseUrl)("comment persistence failure", () => {
               [userId, `${userId}@example.com`]
             )
           )
+          const organizationId = randomUUID()
           yield* Effect.addFinalizer(() =>
             Effect.promise(async () => {
-              await client.query("delete from comment_index where id = $1", [
-                id
+              await client.query("delete from organization where id = $1", [
+                organizationId
               ])
               await client.query('delete from "user" where id = $1', [userId])
             })
           )
-          yield* Effect.promise(() =>
-            client.query(
-              "insert into comment_index (id, project_slug, ticket_id, origin, author_kind, author_id, created_at, edited_at) values ($1, 'project', 'T-1', 'native', 'user', $2, now(), $3)",
-              [id, userId, previousEdit]
+          yield* Effect.promise(async () => {
+            await client.query(
+              "insert into organization (id, name, slug, created_at) values ($1, $1, $1, now())",
+              [organizationId]
             )
-          )
+            await client.query(
+              "insert into project_index (id, slug, organization_id, key, name, icon, color, created_by) values ($1, $2, $3, 'CMT', 'Comments', 'x', '#000000', $4) on conflict (id) do nothing",
+              [projectId, `comments-${organizationId}`, organizationId, userId]
+            )
+            await client.query(
+              "insert into comment_index (id, project_id, ticket_id, origin, author_kind, author_id, created_at, edited_at) values ($1, $2, 'T-1', 'native', 'user', $3, now(), $4)",
+              [id, projectId, userId, previousEdit]
+            )
+          })
           const failure = new MarkdownError({
             message: "fixture write failed",
             cause: new Error("write failed")
