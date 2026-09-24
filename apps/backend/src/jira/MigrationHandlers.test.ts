@@ -1,6 +1,7 @@
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
 import * as BunPath from "@effect/platform-bun/BunPath"
 import { it } from "@effect/vitest"
+import { accessLayer, orgScope } from "@pp/server-core/access/testing"
 import {
   JiraRateLimited,
   JiraTransientFailure
@@ -41,6 +42,7 @@ import { FetchHttpClient, HttpRouter, HttpServer } from "effect/unstable/http"
 import { HttpApiTest } from "effect/unstable/httpapi"
 import { expect } from "vitest"
 
+import { OrgAccessLive, ProjectAccessLive } from "../Layers/Access"
 import { JiraHandlerLive } from "./Handlers"
 import { JiraMigrationsHandlerLive } from "./MigrationHandlers"
 
@@ -64,6 +66,14 @@ const user: User = {
     lastCheckError: null
   }
 }
+const accessMiddleware = Layer.mergeAll(OrgAccessLive, ProjectAccessLive).pipe(
+  Layer.provide(
+    accessLayer({
+      org: orgScope("owner", { userId: user.id, orgSlug: "organization" })
+    })
+  )
+)
+
 const authentication = Layer.succeed(Authentication)({
   sessionCookie: (effect) => Effect.provideService(effect, CurrentUser, user)
 })
@@ -327,7 +337,11 @@ it.effect(
             failure: { _tag: "NotFound" }
           })
         }).pipe(
-          Effect.provide(Layer.mergeAll(handlers, HttpServer.layerServices))
+          Effect.provide(
+            Layer.mergeAll(handlers, HttpServer.layerServices).pipe(
+              Layer.provideMerge(accessMiddleware)
+            )
+          )
         )
       })
     ).pipe(Effect.provide(Layer.mergeAll(BunFileSystem.layer, BunPath.layer)))
@@ -391,7 +405,11 @@ it.effect(
           { kind: "ticket_id", value: "APP-1" }
         ])
       }).pipe(
-        Effect.provide(Layer.mergeAll(handlers, HttpServer.layerServices))
+        Effect.provide(
+          Layer.mergeAll(handlers, HttpServer.layerServices).pipe(
+            Layer.provideMerge(accessMiddleware)
+          )
+        )
       )
     })
 )
@@ -490,7 +508,11 @@ it.effect(
           }
         })
       }).pipe(
-        Effect.provide(Layer.mergeAll(handlers, HttpServer.layerServices))
+        Effect.provide(
+          Layer.mergeAll(handlers, HttpServer.layerServices).pipe(
+            Layer.provideMerge(accessMiddleware)
+          )
+        )
       )
     })
 )
@@ -578,7 +600,11 @@ for (const failureAt of ["sites", "projects"] as const) {
               expect(created.failure).not.toHaveProperty("retryAfterMillis")
             }
           }).pipe(
-            Effect.provide(Layer.mergeAll(handlers, HttpServer.layerServices))
+            Effect.provide(
+              Layer.mergeAll(handlers, HttpServer.layerServices).pipe(
+                Layer.provideMerge(accessMiddleware)
+              )
+            )
           )
         })
     )
@@ -686,7 +712,11 @@ for (const kind of ["body reset", "malformed JSON"] as const) {
           }
           expect(requests).toBe(2)
         }).pipe(
-          Effect.provide(Layer.mergeAll(handlers, HttpServer.layerServices))
+          Effect.provide(
+            Layer.mergeAll(handlers, HttpServer.layerServices).pipe(
+              Layer.provideMerge(accessMiddleware)
+            )
+          )
         )
       })
   )
@@ -768,7 +798,11 @@ it.effect(
           }
         })
       }).pipe(
-        Effect.provide(Layer.mergeAll(handlers, HttpServer.layerServices))
+        Effect.provide(
+          Layer.mergeAll(handlers, HttpServer.layerServices).pipe(
+            Layer.provideMerge(accessMiddleware)
+          )
+        )
       )
     })
 )

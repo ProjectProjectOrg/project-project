@@ -1,4 +1,5 @@
 import { it } from "@effect/vitest"
+import { accessLayer, orgScope } from "@pp/server-core/access/testing"
 import { Library, type LibraryShape } from "@pp/server-core/library/Library"
 import { MarkdownError } from "@pp/server-core/markdown/Markdown"
 import { CurrentOrg } from "@pp/server-core/organizations/CurrentOrg"
@@ -24,6 +25,7 @@ import { HttpRouter, HttpServer } from "effect/unstable/http"
 import { HttpApi, HttpApiBuilder } from "effect/unstable/httpapi"
 import { afterAll, beforeEach, expect } from "vitest"
 
+import { OrgAccessLive } from "../Layers/Access"
 import { LibraryHandlerLive } from "./library"
 
 type Call = Readonly<{ method: string; args: ReadonlyArray<unknown> }>
@@ -155,6 +157,13 @@ const TestApi = HttpApi.make(AppApi.identifier).add(AppApi.groups.library)
 
 const ApiUnderTestLive = HttpApiBuilder.layer(TestApi).pipe(
   Layer.provide(LibraryHandlerLive),
+  Layer.provide(
+    OrgAccessLive.pipe(
+      Layer.provide(
+        accessLayer({ org: orgScope("owner", { userId: USER_ID }) })
+      )
+    )
+  ),
   Layer.provide(
     Layer.succeed(Authentication, {
       sessionCookie: (httpEffect) =>

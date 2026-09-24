@@ -5,6 +5,7 @@ import {
   ATTACHMENT_MAX_BYTES,
   isAttachmentDeletable,
   NotFound,
+  OrgScope,
   type OrgRole as Role
 } from "@pp/shared"
 import { PgDialect } from "drizzle-orm/pg-core"
@@ -13,6 +14,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { describe, expect } from "vitest"
 
+import { orgScope } from "../access/testing"
 import { CurrentOrg } from "../organizations/CurrentOrg"
 import { Projects } from "../projects/Projects"
 import { OrgStorage } from "../storage/OrgStorage"
@@ -556,11 +558,12 @@ const deletionHarness = (input: {
       } as never)
     ),
     Layer.provide(nonMemberProjects),
-    Layer.provide(stubCurrentOrg(input.role))
+    Layer.provide(stubCurrentOrg(input.role)),
+    Layer.merge(Layer.succeed(OrgScope, orgScope(input.role)))
   )
   const run = Attachments.pipe(
     Effect.flatMap((attachments) =>
-      Effect.result(attachments.deleteForOrg("acme", "att-1", "user-1"))
+      Effect.result(attachments.deleteForOrg("att-1"))
     ),
     Effect.provide(layer)
   )
@@ -651,17 +654,6 @@ describe("deleteForOrg", () => {
         expect(harness.deletedKeys).toEqual([])
       })
   )
-
-  it.effect("refuses a plain member, even for an orphaned attachment", () =>
-    Effect.gen(function* () {
-      const harness = deletionHarness({ status: "orphaned", role: "member" })
-      const result = yield* harness.run
-      expect(result._tag).toBe("Failure")
-      if (result._tag === "Failure")
-        expect(result.failure._tag).toBe("Forbidden")
-      expect(harness.deletedKeys).toEqual([])
-    })
-  )
 })
 
 const dialect = new PgDialect()
@@ -729,35 +721,21 @@ const listHarness = (input: {
     Layer.provide(stubOrgStorage),
     Layer.provide(stubS3),
     Layer.provide(nonMemberProjects),
-    Layer.provide(stubCurrentOrg(input.role))
+    Layer.provide(stubCurrentOrg(input.role)),
+    Layer.merge(Layer.succeed(OrgScope, orgScope(input.role)))
   )
   return { capture, layer }
 }
 
 describe("listForOrg", () => {
-  it.effect("refuses a plain member", () =>
-    Effect.gen(function* () {
-      const { layer } = listHarness({ role: "member" })
-      const result = yield* Attachments.pipe(
-        Effect.flatMap((a) =>
-          Effect.result(a.listForOrg("acme", "user-1", {}))
-        ),
-        Effect.provide(layer)
-      )
-      expect(result._tag).toBe("Failure")
-      if (result._tag === "Failure")
-        expect(result.failure._tag).toBe("Forbidden")
-    })
-  )
-
   it.effect("scopes the query to the org", () =>
     Effect.gen(function* () {
       const { layer, capture } = listHarness({ role: "owner" })
       yield* Attachments.pipe(
-        Effect.flatMap((a) => a.listForOrg("acme", "user-1", {})),
+        Effect.flatMap((a) => a.listForOrg({})),
         Effect.provide(layer)
       )
-      expect(sqlOf(capture.where)).toContain("org_slug")
+      expect(sqlOf(capture.where)).toContain("organization_id")
     })
   )
 
@@ -766,7 +744,7 @@ describe("listForOrg", () => {
       const { layer, capture } = listHarness({ role: "owner" })
       yield* Attachments.pipe(
         Effect.flatMap((a) =>
-          a.listForOrg("acme", "user-1", {
+          a.listForOrg({
             status: "orphaned",
             projectSlug: "apollo"
           })
@@ -783,9 +761,7 @@ describe("listForOrg", () => {
     Effect.gen(function* () {
       const { layer, capture } = listHarness({ role: "owner" })
       yield* Attachments.pipe(
-        Effect.flatMap((a) =>
-          a.listForOrg("acme", "user-1", { page: 3, limit: 25 })
-        ),
+        Effect.flatMap((a) => a.listForOrg({ page: 3, limit: 25 })),
         Effect.provide(layer)
       )
       expect(capture.limit).toBe(25)
@@ -801,7 +777,7 @@ describe("listForOrg", () => {
         total: 217
       })
       const page = yield* Attachments.pipe(
-        Effect.flatMap((a) => a.listForOrg("acme", "user-1", {})),
+        Effect.flatMap((a) => a.listForOrg({})),
         Effect.provide(layer)
       )
       expect(page.total).toBe(217)
@@ -828,7 +804,7 @@ describe("listForOrg", () => {
         ]
       })
       const page = yield* Attachments.pipe(
-        Effect.flatMap((a) => a.listForOrg("acme", "user-1", {})),
+        Effect.flatMap((a) => a.listForOrg({})),
         Effect.provide(layer)
       )
       expect(page.items[0]?.tickets).toEqual([
@@ -849,7 +825,7 @@ describe("listForOrg", () => {
           references: []
         })
         const page = yield* Attachments.pipe(
-          Effect.flatMap((a) => a.listForOrg("acme", "user-1", {})),
+          Effect.flatMap((a) => a.listForOrg({})),
           Effect.provide(layer)
         )
         expect(page.items[0]?.tickets).toEqual([])
@@ -864,7 +840,7 @@ describe("listForOrg", () => {
         total: 1
       })
       const page = yield* Attachments.pipe(
-        Effect.flatMap((a) => a.listForOrg("acme", "user-1", {})),
+        Effect.flatMap((a) => a.listForOrg({})),
         Effect.provide(layer)
       )
       expect(page.total).toBe(1)
@@ -881,21 +857,6 @@ describe("listForOrg", () => {
 })
 
 describe("summarizeForOrg", () => {
-  it.effect("refuses a plain member", () =>
-    Effect.gen(function* () {
-      const { layer } = listHarness({ role: "member" })
-      const result = yield* Attachments.pipe(
-        Effect.flatMap((a) =>
-          Effect.result(a.summarizeForOrg("acme", "user-1"))
-        ),
-        Effect.provide(layer)
-      )
-      expect(result._tag).toBe("Failure")
-      if (result._tag === "Failure")
-        expect(result.failure._tag).toBe("Forbidden")
-    })
-  )
-
   it.effect(
     "leaves pending bytes out of the headline totals, since the object may never have landed",
     () =>
@@ -908,7 +869,7 @@ describe("summarizeForOrg", () => {
           ]
         })
         const summary = yield* Attachments.pipe(
-          Effect.flatMap((a) => a.summarizeForOrg("acme", "user-1")),
+          Effect.flatMap((a) => a.summarizeForOrg()),
           Effect.provide(layer)
         )
         expect(summary.count).toBe(1)
@@ -934,7 +895,7 @@ describe("summarizeForOrg", () => {
         ]
       })
       const summary = yield* Attachments.pipe(
-        Effect.flatMap((a) => a.summarizeForOrg("acme", "user-1")),
+        Effect.flatMap((a) => a.summarizeForOrg()),
         Effect.provide(layer)
       )
       expect(summary.count).toBe(5)

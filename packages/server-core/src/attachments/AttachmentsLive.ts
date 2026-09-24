@@ -17,6 +17,7 @@ import {
   isAttachmentDeletable,
   isRasterImageContentType,
   NotFound,
+  OrgScope,
   StorageError,
   type Attachment,
   type AttachmentRow,
@@ -428,13 +429,9 @@ export const AttachmentsLive = Layer.effect(
         yield* s3.deleteObject(connection, row.objectKey)
       })
 
-    const listForOrg: AttachmentsShape["listForOrg"] = (
-      orgSlug,
-      userId,
-      params
-    ) =>
+    const listForOrg: AttachmentsShape["listForOrg"] = (params) =>
       Effect.gen(function* () {
-        yield* requireOrgAdmin(currentOrg, orgSlug, userId)
+        const { organizationId } = yield* OrgScope
 
         const limit = params.limit ?? DEFAULT_ATTACHMENT_LIMIT
         const plan = attachmentSortPlan(params.sort)
@@ -444,7 +441,7 @@ export const AttachmentsLive = Layer.effect(
             : attachmentIndex.createdAt
         const order = plan.direction === "desc" ? desc : asc
 
-        const conditions = [eq(attachmentIndex.orgSlug, orgSlug)]
+        const conditions = [eq(attachmentIndex.organizationId, organizationId)]
         if (params.status) {
           conditions.push(eq(attachmentIndex.status, params.status))
         }
@@ -524,12 +521,9 @@ export const AttachmentsLive = Layer.effect(
         }
       })
 
-    const summarizeForOrg: AttachmentsShape["summarizeForOrg"] = (
-      orgSlug,
-      userId
-    ) =>
+    const summarizeForOrg: AttachmentsShape["summarizeForOrg"] = () =>
       Effect.gen(function* () {
-        yield* requireOrgAdmin(currentOrg, orgSlug, userId)
+        const { organizationId } = yield* OrgScope
 
         const rows = yield* db
           .select({
@@ -544,7 +538,7 @@ export const AttachmentsLive = Layer.effect(
           )
           .where(
             and(
-              eq(attachmentIndex.orgSlug, orgSlug),
+              eq(attachmentIndex.organizationId, organizationId),
               libraryAttachmentIsVisible()
             )
           )
@@ -553,13 +547,9 @@ export const AttachmentsLive = Layer.effect(
         return summarizeAttachments({ rows })
       })
 
-    const deleteForOrg: AttachmentsShape["deleteForOrg"] = (
-      orgSlug,
-      attachmentId,
-      userId
-    ) =>
+    const deleteForOrg: AttachmentsShape["deleteForOrg"] = (attachmentId) =>
       Effect.gen(function* () {
-        yield* requireOrgAdmin(currentOrg, orgSlug, userId)
+        const { organizationId, orgSlug } = yield* OrgScope
 
         const rows = yield* db
           .select({ attachment: attachmentIndex })
@@ -571,7 +561,7 @@ export const AttachmentsLive = Layer.effect(
           .where(
             and(
               eq(attachmentIndex.id, attachmentId),
-              eq(attachmentIndex.orgSlug, orgSlug),
+              eq(attachmentIndex.organizationId, organizationId),
               libraryAttachmentIsVisible()
             )
           )

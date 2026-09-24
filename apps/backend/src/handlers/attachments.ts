@@ -47,30 +47,20 @@ export const AttachmentsHandlerLive = HttpApiBuilder.group(
           )
         })
       )
-      .handle("list", ({ params, query }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const attachments = yield* Attachments
-          return yield* attachments.listForOrg(params.orgSlug, user.id, query)
-        })
+      .handle("list", ({ query }) =>
+        Effect.flatMap(Attachments, (attachments) =>
+          attachments.listForOrg(query)
+        )
       )
-      .handle("summary", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const attachments = yield* Attachments
-          return yield* attachments.summarizeForOrg(params.orgSlug, user.id)
-        })
+      .handle("summary", () =>
+        Effect.flatMap(Attachments, (attachments) =>
+          attachments.summarizeForOrg()
+        )
       )
       .handle("remove", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const attachments = yield* Attachments
-          return yield* attachments.deleteForOrg(
-            params.orgSlug,
-            params.attachmentId,
-            user.id
-          )
-        })
+        Effect.flatMap(Attachments, (attachments) =>
+          attachments.deleteForOrg(params.attachmentId)
+        )
       )
       .handle("commit", ({ params }) =>
         Effect.gen(function* () {

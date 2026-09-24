@@ -19,6 +19,7 @@ import {
   organizationIntegration,
   organizationS3Integration
 } from "@pp/db/schema"
+import { accessLayer, orgScope } from "@pp/server-core/access/testing"
 import * as AttachmentsLayer from "@pp/server-core/attachments/AttachmentsLive"
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import * as AttachmentUploadsLayer from "@pp/server-core/attachments/AttachmentUploadsLive"
@@ -232,6 +233,13 @@ const fixture = Effect.fn("attachmentFixture")(function* (
   const context = yield* Layer.build(
     Layer.mergeAll(
       domain,
+      accessLayer({
+        org: orgScope("member", {
+          userId: user.id,
+          organizationId: slug,
+          orgSlug: slug
+        })
+      }),
       Layer.succeed(McpRequestUser, Option.some(user)),
       Layer.mock(Tickets.Tickets, {}),
       Layer.mock(Comments.Comments, {}),
@@ -838,6 +846,7 @@ describe("MCP attachment contracts", () => {
           Effect.provideService(McpRequestUser, Option.some(user)),
           Effect.provide(
             Layer.mergeAll(
+              accessLayer({ org: orgScope("member", { userId: user.id }) }),
               Layer.mock(AttachmentUploads.AttachmentUploads, { prepare }),
               Layer.mock(BetterAuth.BetterAuth, {}),
               Layer.mock(Comments.Comments, {}),

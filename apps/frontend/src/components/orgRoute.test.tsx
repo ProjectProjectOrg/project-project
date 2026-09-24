@@ -45,6 +45,7 @@ const initialOrg = {
   slug: "test",
   name: "Original organization",
   role: "owner",
+  permissions: {},
   createdAt: "2026-01-01T00:00:00.000Z",
   deletedAt: null as string | null,
   purgeAt: null as string | null
