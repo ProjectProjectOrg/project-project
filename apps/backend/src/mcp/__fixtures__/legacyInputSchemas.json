@@ -779,6 +779,25 @@
             "type": "null"
           }
         ]
+      },
+      "template": {
+        "anyOf": [
+          {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                "maxLength": 48
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     },
     "required": ["orgSlug", "projectSlug", "title"],
