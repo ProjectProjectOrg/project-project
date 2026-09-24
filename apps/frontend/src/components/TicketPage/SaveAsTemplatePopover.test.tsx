@@ -122,7 +122,6 @@ describe("SaveAsTemplateForm", () => {
       icon: "LayoutTemplate",
       color: null,
       description: "",
-      type: "bug",
       priority: null,
       tags: ["auth"],
       body: [

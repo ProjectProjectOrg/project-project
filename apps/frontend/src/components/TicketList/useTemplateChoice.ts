@@ -1,6 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import {
   templateFor,
+  ticketTypeForTemplate,
   type Library,
   type TemplateDefinition,
   type TemplateKey,
@@ -25,6 +26,7 @@ export type TemplateChoice = Readonly<{
   sticky: boolean
   ready: boolean
   pick: (key: TemplateKey | null) => void
+  ticketTypeOf: (key: TemplateKey) => TicketType | null
   payload: Readonly<{ template?: TemplateKey }>
   prediction: QuickCreatePrediction | undefined
   recover: (exit: Exit.Exit<unknown, Readonly<{ _tag: string }>>) => void
@@ -83,6 +85,8 @@ export function useTemplateChoice(
       sticky: picked !== undefined,
       ready: library !== null,
       pick: setPicked,
+      ticketTypeOf: (key: TemplateKey) =>
+        library === null ? null : ticketTypeForTemplate(library.defaults, key),
       payload: template === null ? {} : { template: template.key },
       prediction:
         template === null
@@ -91,4 +95,28 @@ export function useTemplateChoice(
       recover
     }
   }, [library, type, picked, recover])
+}
+
+export type TicketTypeChoice = Readonly<{
+  type: TicketType
+  setType: (next: TicketType) => void
+  applyTemplateDefault: (next: TicketType) => void
+}>
+
+export function useTicketTypeChoice(
+  initial: TicketType = "other"
+): TicketTypeChoice {
+  const [type, setTypeState] = useState<TicketType>(initial)
+  const [explicit, setExplicit] = useState(false)
+  const setType = useCallback((next: TicketType) => {
+    setExplicit(true)
+    setTypeState(next)
+  }, [])
+  const applyTemplateDefault = useCallback(
+    (next: TicketType) => {
+      if (!explicit) setTypeState(next)
+    },
+    [explicit]
+  )
+  return { type, setType, applyTemplateDefault }
 }

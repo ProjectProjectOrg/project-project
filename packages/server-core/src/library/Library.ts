@@ -133,7 +133,7 @@ export type LibraryShape = Readonly<{
     orgSlug: string,
     slug: string,
     key: TemplateKey
-  ) => Effect.Effect<TemplateExpansion, Validation | MarkdownError>
+  ) => Effect.Effect<TemplateExpansion, NotFound | Validation | MarkdownError>
   resolveSynced: (
     orgSlug: string,
     slug: string,

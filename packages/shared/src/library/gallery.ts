@@ -6,7 +6,6 @@ import {
   TemplateDefaults,
   TemplateDraft
 } from "../schemas/Library"
-import type { TicketType } from "../schemas/Ticket"
 import { formatTicketBlock } from "../ticketBlocks"
 
 type BlockSource = Readonly<{
@@ -23,7 +22,6 @@ type TemplateSource = Readonly<{
   name: string
   icon: BlockIcon
   description: string
-  type: TicketType
   body: string
 }>
 
@@ -246,7 +244,6 @@ const TEMPLATE_SOURCES: ReadonlyArray<TemplateSource> = [
     name: "Bug report",
     icon: "Bug",
     description: "Something is broken",
-    type: "bug",
     body: references(
       "expected-vs-actual",
       "steps-to-reproduce",
@@ -259,7 +256,6 @@ const TEMPLATE_SOURCES: ReadonlyArray<TemplateSource> = [
     name: "Feature",
     icon: "Sparkles",
     description: "New behaviour users will notice",
-    type: "feat",
     body: references(
       "context",
       "acceptance-criteria",
@@ -272,7 +268,6 @@ const TEMPLATE_SOURCES: ReadonlyArray<TemplateSource> = [
     name: "Chore",
     icon: "Wrench",
     description: "Upkeep, upgrades and cleanup",
-    type: "chore",
     body: references("context", "acceptance-criteria")
   },
   {
@@ -280,7 +275,6 @@ const TEMPLATE_SOURCES: ReadonlyArray<TemplateSource> = [
     name: "Spike",
     icon: "Telescope",
     description: "Answer a question before building",
-    type: "other",
     body: body(
       references("open-questions"),
       customized(
@@ -299,7 +293,6 @@ const TEMPLATE_SOURCES: ReadonlyArray<TemplateSource> = [
     name: "User story",
     icon: "UserRound",
     description: "A need, told from the user's side",
-    type: "feat",
     body: references(
       "user-story",
       "acceptance-criteria",
@@ -312,7 +305,6 @@ const TEMPLATE_SOURCES: ReadonlyArray<TemplateSource> = [
     name: "Incident review",
     icon: "Siren",
     description: "After an outage: impact, cause, follow-ups",
-    type: "bug",
     body: body(
       customized(
         "context",
@@ -345,7 +337,6 @@ const TEMPLATE_SOURCES: ReadonlyArray<TemplateSource> = [
     name: "Release",
     icon: "Package",
     description: "Ship a version safely",
-    type: "chore",
     body: references("test-plan", "rollout-plan", "risks")
   },
   {
@@ -353,7 +344,6 @@ const TEMPLATE_SOURCES: ReadonlyArray<TemplateSource> = [
     name: "Design task",
     icon: "Palette",
     description: "Visual or UX work",
-    type: "feat",
     body: references(
       "context",
       "designs",
@@ -366,7 +356,6 @@ const TEMPLATE_SOURCES: ReadonlyArray<TemplateSource> = [
     name: "Documentation",
     icon: "BookText",
     description: "Write or update docs",
-    type: "chore",
     body: references("context", "out-of-scope", "acceptance-criteria")
   }
 ]
@@ -385,13 +374,12 @@ export const BUILTIN_BLOCKS: ReadonlyArray<BlockDraft> = decodeBlockDrafts(
 
 export const BUILTIN_TEMPLATES: ReadonlyArray<TemplateDraft> =
   decodeTemplateDrafts(
-    TEMPLATE_SOURCES.map(({ key, name, icon, description, type, body }) => ({
+    TEMPLATE_SOURCES.map(({ key, name, icon, description, body }) => ({
       key,
       name,
       icon,
       color: null,
       description,
-      type,
       priority: null,
       tags: [],
       body

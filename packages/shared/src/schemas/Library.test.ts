@@ -6,8 +6,10 @@ import {
   BlockDraft,
   BlockKey,
   LibraryColor,
+  TemplateDraft,
   TemplateKey,
-  UpdateTemplateDefaultsInput
+  UpdateTemplateDefaultsInput,
+  UpdateTemplateInput
 } from "./Library"
 
 const decodeBlockKey = Schema.decodeUnknownExit(BlockKey)
@@ -92,5 +94,24 @@ describe("UpdateTemplateDefaultsInput", () => {
 
   it("rejects the reserved blank key", () => {
     expect(decodeDefaults({ defaults: { bug: "blank" } })._tag).toBe("Failure")
+  })
+})
+
+describe("TemplateDraft", () => {
+  it("drops the retired type field that older clients still send", () => {
+    const draft = Schema.decodeUnknownSync(TemplateDraft)({
+      key: "bug-report",
+      name: "Bug report",
+      icon: "Bug",
+      description: "",
+      type: "bug",
+      priority: null,
+      tags: [],
+      body: ""
+    })
+    expect("type" in draft).toBe(false)
+    expect(
+      "type" in Schema.decodeUnknownSync(UpdateTemplateInput)({ type: "bug" })
+    ).toBe(false)
   })
 })

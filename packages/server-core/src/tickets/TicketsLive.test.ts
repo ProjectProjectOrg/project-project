@@ -4,6 +4,7 @@ import { Db } from "@pp/db"
 import {
   BlockDraft,
   BUILTIN_BLOCKS,
+  BUILTIN_TEMPLATE_DEFAULTS,
   BUILTIN_TEMPLATES,
   formatMentionHref,
   ProjectKey,
@@ -275,7 +276,11 @@ const TestLayer = Layer.unwrap(
     return TicketsLive.pipe(
       Layer.provideMerge(LibraryLive),
       Layer.provideMerge(LibraryDocsLive),
-      Layer.provide(Layer.mock(ProjectDocs, {})),
+      Layer.provide(
+        Layer.mock(ProjectDocs, {
+          read: () => Effect.succeed({ templateDefaults: {} } as never)
+        })
+      ),
       Layer.provide(Layer.mock(CurrentOrg, {})),
       Layer.provideMerge(TicketDocsLive),
       Layer.provide(FakeAttachments),
@@ -491,6 +496,14 @@ const adoptAtOrg = (keys: ReadonlyArray<string>) =>
       keys.includes(draft.key)
     ))
       yield* docs.writeTemplate("org", null, template)
+    yield* docs.writeOrgDefaults(
+      "org",
+      Object.fromEntries(
+        Object.entries(BUILTIN_TEMPLATE_DEFAULTS).filter(
+          ([, key]) => key !== null && keys.includes(key)
+        )
+      )
+    )
   })
 
 const BUG_REPORT_KIT = [
@@ -562,7 +575,7 @@ it.effect("create lets explicit fields win and filters template tags", () =>
       title: "from template",
       template: templateKey("incident-lite")
     })
-    expect(defaults.type).toBe("bug")
+    expect(defaults.type).toBe("other")
     expect(defaults.priority).toBe("high")
     expect(defaults.tags).toEqual(["frontend"])
     expect(defaults.body).toContain('<block type="context">')

@@ -146,7 +146,7 @@ export function LibraryCard({
       {actions.length > 0 ? (
         <motion.div
           layout="position"
-          className="relative mt-auto flex items-center gap-0.5 pt-1 opacity-0 transition-opacity group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100 has-[[data-confirming]]:opacity-100"
+          className="relative mt-auto flex min-h-7 items-center gap-0.5 pt-1 opacity-0 transition-opacity group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100 has-[[data-confirming]]:opacity-100"
         >
           {actions.map((action) =>
             action === "delete" ? (
@@ -159,7 +159,7 @@ export function LibraryCard({
               <Button
                 key={action}
                 type="button"
-                variant="ghost"
+                variant="raised"
                 size="xs"
                 onClick={() => void onAction(action)}
               >
@@ -178,11 +178,11 @@ function DeleteAction({
   onConfirm
 }: Readonly<{ name: string; onConfirm: () => Promise<boolean> }>) {
   return (
-    <ConfirmButton.Root>
-      <ConfirmButton.Trigger type="button" variant="ghost" size="xs">
+    <ConfirmButton.Root className="static">
+      <ConfirmButton.Trigger type="button" variant="raised" size="xs">
         {m.templates_settings_action_delete()}
       </ConfirmButton.Trigger>
-      <ConfirmButton.Confirm className="gap-1">
+      <ConfirmButton.Confirm className="absolute inset-x-0 top-1/2 z-10 -translate-y-1/2 gap-1 rounded-lg border border-border bg-popover py-1 pr-1 pl-2.5 shadow-sm">
         <DeleteConfirmBody name={name} onConfirm={onConfirm} />
       </ConfirmButton.Confirm>
     </ConfirmButton.Root>
@@ -195,8 +195,8 @@ function DeleteConfirmBody({
 }: Readonly<{ name: string; onConfirm: () => Promise<boolean> }>) {
   const { close, busy, setBusy } = useConfirmButton()
   return (
-    <span data-confirming className="flex flex-wrap items-center gap-1">
-      <span className="text-xs text-muted-foreground">
+    <span data-confirming className="flex min-w-0 flex-1 items-center gap-1">
+      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
         {m.templates_settings_delete_confirm({ name })}
       </span>
       <Button
@@ -216,7 +216,7 @@ function DeleteConfirmBody({
       </Button>
       <Button
         type="button"
-        variant="ghost"
+        variant="raised"
         size="xs"
         disabled={busy}
         onClick={close}

@@ -48,7 +48,6 @@ const template: TemplateDefinition = {
   icon: "Bug",
   color: null,
   description: "",
-  type: "bug",
   priority: null,
   tags: [],
   body: "",

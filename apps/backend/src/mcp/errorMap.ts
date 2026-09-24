@@ -26,6 +26,11 @@ type Messages<E extends { readonly _tag: string }> = {
   readonly [K in E["_tag"]]: (error: Extract<E, { readonly _tag: K }>) => string
 }
 
+const asSentence = (text: string): string => {
+  const trimmed = text.trim()
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`
+}
+
 const catalogMessages: Messages<McpToolError> = {
   Unauthorized: () => "Unauthorized.",
   Forbidden: () => "Forbidden.",
@@ -35,9 +40,17 @@ const catalogMessages: Messages<McpToolError> = {
     const blockMarkup = reason?.match(/^block_markup:(.*)$/s)
     if (blockMarkup) {
       return (
-        `Invalid block markup — ${blockMarkup[1]} Discover valid block ` +
-        "types via list_blocks, and see the create_ticket/update_ticket " +
-        "descriptions for the format."
+        `Invalid block markup: ${asSentence(blockMarkup[1] ?? "")} Discover ` +
+        "valid block types via list_blocks, and see the create_ticket/" +
+        "update_ticket descriptions for the format."
+      )
+    }
+    const unknownTemplate = reason?.match(/^unknown_template:(.*)$/s)
+    if (unknownTemplate) {
+      return (
+        `Unknown template "${unknownTemplate[1]}". Discover the project's ` +
+        "template keys via list_templates, or omit template for a blank " +
+        "ticket."
       )
     }
     return reason ? `Validation error (${reason}).` : "Validation error."

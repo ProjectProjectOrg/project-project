@@ -387,6 +387,92 @@ describe("SlashMenuPlugin", () => {
     }
   })
 
+  it("places the menu from the typed trigger, not from the typeahead anchor", () => {
+    const width = window.innerWidth
+    const text = document.createTextNode("/")
+    const rect = { left: 120, right: 126, top: 300, bottom: 318, height: 18 }
+    const range = {
+      startContainer: text,
+      startOffset: 1,
+      cloneRange: () => ({
+        setStart: () => {},
+        setEnd: () => {},
+        getBoundingClientRect: () => rect
+      }),
+      getBoundingClientRect: () => rect
+    }
+    const getSelection = vi
+      .spyOn(window, "getSelection")
+      .mockReturnValue({ rangeCount: 1, getRangeAt: () => range } as never)
+    const anchor = vi
+      .spyOn(document.body, "getBoundingClientRect")
+      .mockReturnValue({ left: 40, top: 500, bottom: 520 } as DOMRect)
+    try {
+      window.innerWidth = 1280
+      renderMenu()
+      type("/")
+      const menu = document.querySelector<HTMLElement>(
+        "[data-slash-menu-frame] > [role=presentation]"
+      )
+      expect(menu?.className).toMatch(/\bfixed\b/)
+      expect(menu?.style.left).toBe("120px")
+      expect(menu?.style.top).toBe("296px")
+    } finally {
+      window.innerWidth = width
+      getSelection.mockRestore()
+      anchor.mockRestore()
+    }
+  })
+
+  it("anchors to the slash's rect, not the wrapped query's, when the query wraps lines", () => {
+    const width = window.innerWidth
+    const text = document.createTextNode("/query")
+    const slashRect = {
+      left: 120,
+      right: 126,
+      top: 300,
+      bottom: 318,
+      height: 18
+    }
+    const wrappedRect = {
+      left: 20,
+      right: 340,
+      top: 300,
+      bottom: 336,
+      height: 36
+    }
+    const range = {
+      startContainer: text,
+      startOffset: 6,
+      cloneRange: () => ({
+        setStart: () => {},
+        setEnd: () => {},
+        getBoundingClientRect: () => slashRect
+      }),
+      getBoundingClientRect: () => wrappedRect
+    }
+    const getSelection = vi
+      .spyOn(window, "getSelection")
+      .mockReturnValue({ rangeCount: 1, getRangeAt: () => range } as never)
+    const anchor = vi
+      .spyOn(document.body, "getBoundingClientRect")
+      .mockReturnValue({ left: 40, top: 500, bottom: 520 } as DOMRect)
+    try {
+      window.innerWidth = 1280
+      renderMenu()
+      type("/query")
+      const menu = document.querySelector<HTMLElement>(
+        "[data-slash-menu-frame] > [role=presentation]"
+      )
+      expect(menu?.style.left).toBe("120px")
+      expect(menu?.style.top).toBe("296px")
+    } finally {
+      window.innerWidth = width
+      getSelection.mockRestore()
+      anchor.mockRestore()
+    }
+  })
+
   it("says so when nothing matches", () => {
     const { type } = renderMenu()
     type("/zzz")

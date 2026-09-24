@@ -327,7 +327,9 @@ export const McpTools = {
       "to have the server do the expansion (with hints stripped) when the " +
       "ticket is actually created. `isDefaultFor` lists the ticket types " +
       "the app preselects this template for; the server never applies it " +
-      "on its own, so pass `template` explicitly to `create_ticket`. " +
+      "on its own, so pass `template` explicitly to `create_ticket`. When " +
+      "`isDefaultFor` names exactly one type, creating from the template " +
+      "without an explicit `type` gives the ticket that type. " +
       `Hidden templates are omitted.\n\n${BLOCK_FORMAT_GUIDE}`,
     input: Schema.Struct({ orgSlug: Slug, projectSlug: Slug }),
     output: Schema.Array(
@@ -335,7 +337,6 @@ export const McpTools = {
         key: TemplateKey,
         name: LibraryName,
         description: LibraryDescription,
-        type: Schema.NullOr(TicketType),
         priority: Schema.NullOr(TicketPriority),
         tags: Schema.Array(TagName),
         body: Schema.String,
@@ -356,12 +357,14 @@ export const McpTools = {
       "`list_tags`; the call fails if a name is unknown. `assignees` is an " +
       "array of user ids who must be members of the project — discover them " +
       "via `list_members`. `template` is an optional key from " +
-      "`list_templates`; when set, the server applies its type/priority/" +
-      "tags defaults and, if no `body` is given, expands its blocks into " +
-      "the body (with hints stripped). Omit `template`, or pass `null`, " +
-      "for a blank ticket. If both `template` and `body` are given, " +
-      "`body` wins outright and the template only supplies " +
-      "type/priority/tags defaults (D14: agents that fill in a template " +
+      "`list_templates`; when set, the server applies its priority/tags " +
+      "defaults, sets the type the template is the default for when " +
+      "`isDefaultFor` names exactly one (an explicit `type` always wins), " +
+      "and, if no `body` is given, expands its blocks into the body (with " +
+      "hints stripped). Omit `template`, or pass `null`, for a blank " +
+      "ticket. If both `template` and `body` are given, `body` wins " +
+      "outright and the template only supplies those type/priority/tags " +
+      "defaults (D14: agents that fill in a template " +
       "shouldn't get empty duplicate sections appended). `body` is the " +
       "ticket description as CommonMark markdown; headings, lists, code " +
       "fences and links are supported, and it may contain named blocks — " +

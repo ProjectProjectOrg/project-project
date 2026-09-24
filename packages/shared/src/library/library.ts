@@ -451,6 +451,20 @@ export const isPristineTemplateBody = (
   comparableMarkdown(body) ===
   comparableMarkdown(expandTemplate(template, lookup))
 
+export const typesDefaultingTo = (
+  defaults: TemplateDefaults,
+  key: string
+): ReadonlyArray<TicketType> =>
+  TICKET_TYPES.filter((type) => defaults[type] === key)
+
+export const ticketTypeForTemplate = (
+  defaults: TemplateDefaults,
+  key: string
+): TicketType | null => {
+  const types = typesDefaultingTo(defaults, key)
+  return types.length === 1 ? (types[0] ?? null) : null
+}
+
 export const templateFor = (
   library: Library,
   type: TicketType

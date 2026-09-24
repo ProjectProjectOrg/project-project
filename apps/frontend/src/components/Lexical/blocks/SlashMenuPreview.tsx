@@ -116,7 +116,7 @@ export function SlashMenuPreview({
       {markdown === null ? (
         <DitheredBlocks size={64} className="mt-2 self-center" />
       ) : (
-        <div className="min-h-0 flex-1 overflow-hidden rounded-md bg-muted/50 [mask-image:linear-gradient(to_bottom,black_80%,transparent)] px-3 py-2">
+        <div className="min-h-0 flex-1 overflow-hidden [mask-image:linear-gradient(to_bottom,black_80%,transparent)]">
           <LibraryContext value={library}>
             <Markdown blocks="flat" size="compact">
               {markdown}

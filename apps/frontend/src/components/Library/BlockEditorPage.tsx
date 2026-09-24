@@ -180,7 +180,7 @@ function BlockEditor({
               />
             </div>
           ) : (
-            <div className="rounded-lg border border-border bg-background px-5 py-4">
+            <div data-block-preview className="px-3 py-2">
               <Markdown className="text-sm">
                 {stripHints(block.content)}
               </Markdown>

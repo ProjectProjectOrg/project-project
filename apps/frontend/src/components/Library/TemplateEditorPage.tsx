@@ -2,6 +2,7 @@ import { useAtomValue } from "@effect/atom-react"
 import {
   blockLookupFor,
   expandTemplate,
+  ticketTypeForTemplate,
   type Library,
   type TemplateDefinition,
   type UpdateTemplateInput
@@ -26,7 +27,6 @@ import {
   IconAndColorField,
   MutedValue,
   NullablePriorityField,
-  NullableTypeField,
   TemplateTagsField,
   originLabel
 } from "./DefinitionAside"
@@ -141,11 +141,11 @@ function TemplateEditor({
     () => ({
       mode: "template",
       library,
-      ticketType: template.type,
+      ticketType: ticketTypeForTemplate(library.defaults, key),
       canEdit,
       onEditDefinition
     }),
-    [canEdit, library, onEditDefinition, template.type]
+    [canEdit, key, library, onEditDefinition]
   )
 
   const preview = expandTemplate({ body: draft }, blockLookupFor(library))
@@ -207,10 +207,7 @@ function TemplateEditor({
             </div>
           ) : null}
           {showPreview ? (
-            <div
-              data-template-preview
-              className="ml-7 rounded-lg border border-border bg-background px-3 py-2"
-            >
+            <div data-template-preview className="ml-7 px-3 py-2">
               {preview.trim() === "" ? (
                 <p className="text-sm text-muted-foreground">
                   {m.templates_editor_preview_empty()}
@@ -246,11 +243,11 @@ function TemplateEditor({
               <MutedValue>{template.description}</MutedValue>
             )}
           </AsideField>
-          <AsideField label={m.templates_editor_type_label()}>
-            <NullableTypeField
-              value={template.type}
-              onChange={(type) => patch({ type })}
-              disabled={!editable}
+          <AsideField label={m.templates_editor_default_for_label()}>
+            <DefaultForField
+              scope={scope}
+              library={library}
+              templateKey={key}
             />
           </AsideField>
           <AsideField label={m.templates_editor_priority_label()}>
@@ -266,13 +263,6 @@ function TemplateEditor({
               value={template.tags}
               onChange={(tags) => patch({ tags })}
               disabled={!editable}
-            />
-          </AsideField>
-          <AsideField label={m.templates_editor_default_for_label()}>
-            <DefaultForField
-              scope={scope}
-              library={library}
-              templateKey={key}
             />
           </AsideField>
           <AsideField label={m.templates_editor_scope_label()}>

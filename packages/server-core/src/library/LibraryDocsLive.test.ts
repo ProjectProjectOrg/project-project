@@ -48,7 +48,6 @@ const template = Schema.decodeUnknownSync(TemplateDraft)({
   icon: "Bug",
   color: null,
   description: "Something is broken",
-  type: "bug",
   priority: "med",
   tags: ["frontend"],
   body: '<block type="expected-vs-actual">\n\n</block>'
@@ -216,6 +215,26 @@ describe("LibraryDocs (real fs)", () => {
           content: "## Notes"
         }
       ])
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("reads a template written with the retired type field", () =>
+    Effect.gen(function* () {
+      const docs = yield* LibraryDocs
+      const markdown = yield* Markdown
+      yield* markdown.writeLibraryFile(
+        "acme",
+        null,
+        "templates",
+        "incident",
+        "---\nname: Incident\ntype: bug\npriority: high\n---\n\n## Timeline\n"
+      )
+
+      const [incident] = (yield* docs.readLayer("acme", null)).templates
+
+      expect(incident?.key).toBe("incident")
+      expect(incident?.priority).toBe("high")
+      expect(incident === undefined ? false : "type" in incident).toBe(false)
     }).pipe(Effect.provide(TestLayer))
   )
 

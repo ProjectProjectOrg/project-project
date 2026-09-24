@@ -55,7 +55,7 @@ import { CreatorChip } from "./CreatorChip"
 import { creatorErrorText } from "./creatorError"
 import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
 import { TicketCreatorShell } from "./TicketCreatorShell"
-import { useTemplateChoice } from "./useTemplateChoice"
+import { useTemplateChoice, useTicketTypeChoice } from "./useTemplateChoice"
 
 const idleSearchAtom = Atom.make(Result.initial<ReadonlyArray<Ticket>>())
 
@@ -106,7 +106,7 @@ export function SprintTicketCreator({
   const navigate = useNavigate()
 
   const [title, setTitle] = useState("")
-  const [type, setType] = useState<TicketType>("other")
+  const { type, setType, applyTemplateDefault } = useTicketTypeChoice()
   const [focused, setFocused] = useState(false)
   const [typeMenuOpen, setTypeMenuOpen] = useState(false)
   const [closingMenu, setClosingMenu] = useState(false)
@@ -118,12 +118,12 @@ export function SprintTicketCreator({
   const slash = useTemplateSlash({
     title,
     choice: templateChoice,
-    onChoose: (template) => {
+    onChoose: (_template, ticketType) => {
       searchDebouncer.cancel()
       setSearchQuery("")
       setTitle("")
       setHighlight(0)
-      if (template?.type) setType(template.type)
+      if (ticketType !== null) applyTemplateDefault(ticketType)
     }
   })
 

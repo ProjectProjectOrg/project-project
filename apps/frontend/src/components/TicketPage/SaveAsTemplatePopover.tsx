@@ -105,7 +105,6 @@ export function SaveAsTemplateForm({
   Readonly<{ library: Library; layers: ReadonlyArray<LibraryLayer> }>) {
   const [layer, setLayer] = useState<LibraryLayer>(layers[0] ?? "project")
   const [name, setName] = useState(() => TYPE_LABELS[ticket.type]())
-  const [includeType, setIncludeType] = useState(true)
   const [includePriority, setIncludePriority] = useState(false)
   const [includeTags, setIncludeTags] = useState(false)
   const [saved, setSaved] = useState<TemplateKey | null>(null)
@@ -131,7 +130,7 @@ export function SaveAsTemplateForm({
     if (!canSubmit) return
     const draft = saveAsTemplateDraft(
       { ...ticket, body },
-      { name, includeType, includePriority, includeTags },
+      { name, includePriority, includeTags },
       lookup,
       taken
     )
@@ -207,11 +206,6 @@ export function SaveAsTemplateForm({
         />
       ) : null}
       <div className="flex flex-col gap-1.5">
-        <IncludeToggle
-          label={m.templates_save_as_include_type()}
-          checked={includeType}
-          onChange={setIncludeType}
-        />
         <IncludeToggle
           label={m.templates_save_as_include_priority()}
           checked={includePriority}

@@ -102,7 +102,7 @@ export function GalleryTile({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           data-gallery-preview
-          className="block-rail-sheet ml-(--ticket-rail-inset) rounded-lg bg-muted/70 p-(--ticket-comment-pad) dark:bg-background/60"
+          className="block-rail-sheet ml-(--ticket-rail-inset) px-(--ticket-comment-pad)"
         >
           <Markdown className="text-sm">{preview}</Markdown>
         </motion.div>
@@ -135,7 +135,7 @@ export function GalleryTile({
       >
         <Button
           type="button"
-          variant="ghost"
+          variant="raised"
           size="xs"
           aria-expanded={expanded}
           onClick={onTogglePreview}
@@ -145,7 +145,7 @@ export function GalleryTile({
             : m.templates_settings_gallery_preview()}
         </Button>
         {canAdd ? (
-          <Button type="button" variant="ghost" size="xs" onClick={onAdd}>
+          <Button type="button" variant="raised" size="xs" onClick={onAdd}>
             {m.templates_settings_gallery_add()}
           </Button>
         ) : null}

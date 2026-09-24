@@ -62,7 +62,7 @@ import { m } from "@/paraglide/messages"
 import { CreatorChip } from "./CreatorChip"
 import { creatorErrorText } from "./creatorError"
 import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
-import { useTemplateChoice } from "./useTemplateChoice"
+import { useTemplateChoice, useTicketTypeChoice } from "./useTemplateChoice"
 
 export function SectionTicketCreator({
   orgSlug,
@@ -149,7 +149,7 @@ export function SectionTicketCreator({
     activeSprintId === null && !isExplicitNoSprintFilter && hasSprints
 
   const [title, setTitle] = useState("")
-  const [type, setType] = useState<TicketType>("other")
+  const { type, setType, applyTemplateDefault } = useTicketTypeChoice()
   const [typeMenuOpen, setTypeMenuOpen] = useState(false)
   const [sprintMenuOpen, setSprintMenuOpen] = useState(false)
   const [selectedSprint, setSelectedSprint] = useState<Group | null>(null)
@@ -161,9 +161,9 @@ export function SectionTicketCreator({
   const slash = useTemplateSlash({
     title,
     choice: templateChoice,
-    onChoose: (template) => {
+    onChoose: (_template, ticketType) => {
       setTitle("")
-      if (template?.type) setType(template.type)
+      if (ticketType !== null) applyTemplateDefault(ticketType)
     }
   })
   const menuOpen = typeMenuOpen || sprintMenuOpen

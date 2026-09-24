@@ -1,4 +1,4 @@
-import type { TemplateDefinition, TemplateKey } from "@pp/shared"
+import type { TemplateDefinition, TemplateKey, TicketType } from "@pp/shared"
 import { CircleDashed } from "lucide-react"
 import { useMemo, useState, type KeyboardEvent } from "react"
 
@@ -72,7 +72,10 @@ export function useTemplateSlash({
 }: Readonly<{
   title: string
   choice: TemplateChoice
-  onChoose: (template: TemplateDefinition | null) => void
+  onChoose: (
+    template: TemplateDefinition | null,
+    ticketType: TicketType | null
+  ) => void
 }>): TemplateSlash {
   const [active, setActive] = useState(false)
   const [highlight, setHighlight] = useState(0)
@@ -91,7 +94,10 @@ export function useTemplateSlash({
   const choose = (template: TemplateDefinition | null) => {
     choice.pick(template?.key ?? null)
     close()
-    onChoose(template)
+    onChoose(
+      template,
+      template === null ? null : choice.ticketTypeOf(template.key)
+    )
   }
 
   const onTitleChange = (previous: string, next: string) => {

@@ -6,7 +6,6 @@ import {
   type BlockDraft,
   type Library,
   type LibraryOrigin,
-  type TemplateDefaults,
   type TemplateDefinition,
   type TemplateDraft,
   type TicketType
@@ -91,7 +90,6 @@ export const templateDraftOf = (
   icon: template.icon,
   color: template.color,
   description: template.description,
-  type: template.type,
   priority: template.priority,
   tags: template.tags,
   body: template.body
@@ -115,12 +113,6 @@ export const TICKET_TYPES: ReadonlyArray<TicketType> = [
   "chore",
   "other"
 ]
-
-export const defaultTypesFor = (
-  defaults: TemplateDefaults,
-  key: string
-): ReadonlyArray<TicketType> =>
-  TICKET_TYPES.filter((type) => defaults[type] === key)
 
 export type DefaultState = "own" | "inherited" | "overridden"
 

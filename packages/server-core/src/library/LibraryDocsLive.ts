@@ -10,7 +10,6 @@ import {
   TagName,
   TemplateKey,
   TicketPriority,
-  TicketType,
   type BlockDraft,
   type Layer as LibraryLayer,
   type PartialTemplateDefaults,
@@ -51,7 +50,6 @@ const TemplateFrontmatter = Schema.Struct({
   icon: withDefault(BlockIcon, FALLBACK_BLOCK_ICON),
   color: withDefault(LibraryColor, null),
   description: withDefault(LibraryDescription, ""),
-  type: withDefault(Schema.NullOr(TicketType), null),
   priority: withDefault(Schema.NullOr(TicketPriority), null),
   tags: withDefault(Schema.Array(TagName), [])
 })

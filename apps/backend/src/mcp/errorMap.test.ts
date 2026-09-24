@@ -45,6 +45,30 @@ describe("mappedToolErrorText", () => {
     expect(text).not.toContain("Validation error (")
   })
 
+  it("ends the block issue as a sentence before pointing at list_blocks", () => {
+    expect(
+      mappedToolErrorText(
+        new Validation({
+          reason: 'block_markup:line 2: <block type="notes"> is never closed'
+        })
+      )
+    ).toBe(
+      'Invalid block markup: line 2: <block type="notes"> is never closed. ' +
+        "Discover valid block types via list_blocks, and see the " +
+        "create_ticket/update_ticket descriptions for the format."
+    )
+  })
+
+  it("names an unknown template key and points at list_templates", () => {
+    const text = mappedToolErrorText(
+      new Validation({ reason: "unknown_template:bug-report" })
+    )
+    expect(text).toBe(
+      'Unknown template "bug-report". Discover the project\'s template keys ' +
+        "via list_templates, or omit template for a blank ticket."
+    )
+  })
+
   it("leaves untagged values unmapped for the caller to treat as internal", () => {
     expect(mappedToolErrorText(new Error("boom"))).toBeUndefined()
   })

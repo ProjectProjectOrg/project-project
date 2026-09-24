@@ -52,6 +52,8 @@ const buttonVariants = cva(
           "border border-border bg-transparent text-foreground hover:bg-muted active:bg-muted/60",
         ghost:
           "bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground active:bg-muted/60",
+        raised:
+          "bg-surface-5 text-foreground shadow-surface-1 hover:bg-surface-7 hover:shadow-surface-1-hover active:bg-surface-6",
         "sidebar-link":
           "w-fit max-w-full justify-start bg-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground active:bg-accent",
         "inline-help":

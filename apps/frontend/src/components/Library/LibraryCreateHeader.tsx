@@ -84,7 +84,6 @@ const templateDraft = (key: string, name: string): TemplateDraft => ({
   icon: "LayoutTemplate",
   color: null,
   description: "",
-  type: null,
   priority: null,
   tags: [],
   body: ""
@@ -160,7 +159,8 @@ function CreateFields({
   const [failure, setFailure] = useState<string | null>(null)
   const trimmed = name.trim()
   const key = typedKey ?? keyFromName(trimmed)
-  const problem = trimmed.length === 0 ? null : keyProblem(key, kind, taken)
+  const problem =
+    trimmed.length === 0 || busy ? null : keyProblem(key, kind, taken)
   const error =
     problem !== null && (didSubmit || typedKey !== null)
       ? KEY_PROBLEM_MESSAGES[problem]()

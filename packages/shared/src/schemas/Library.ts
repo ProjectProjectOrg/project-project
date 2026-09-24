@@ -63,7 +63,6 @@ const templateFields = {
   icon: BlockIcon,
   color: optionalColor,
   description: LibraryDescription,
-  type: Schema.NullOr(TicketType),
   priority: Schema.NullOr(TicketPriority),
   tags: Schema.Array(TagName),
   body: LibraryContent
@@ -152,7 +151,6 @@ export const UpdateTemplateInput = Schema.Struct({
   icon: Schema.optional(templateFields.icon),
   color: Schema.optional(LibraryColor),
   description: Schema.optional(templateFields.description),
-  type: Schema.optional(templateFields.type),
   priority: Schema.optional(templateFields.priority),
   tags: Schema.optional(templateFields.tags),
   body: Schema.optional(templateFields.body)
