@@ -1,4 +1,4 @@
-import { useMatches, useNavigate } from "@tanstack/react-router"
+import { useMatch, useNavigate } from "@tanstack/react-router"
 import { Columns3, Rows3 } from "lucide-react"
 import { startTransition } from "react"
 import { flushSync } from "react-dom"
@@ -19,18 +19,15 @@ export function ViewSwitcher({
   slug: string
 }>) {
   const navigate = useNavigate()
-  const matches = useMatches()
-  const sprintMatch = matches.find(
-    (m) =>
-      m.routeId ===
-      "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId"
-  )
-  const backlogMatch = matches.find(
-    (m) => m.routeId === "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/"
-  )
-  const search = (sprintMatch ?? backlogMatch)?.search as
-    | { view?: "list" | "board" | "description" }
-    | undefined
+  const sprintMatch = useMatch({
+    from: "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId",
+    shouldThrow: false
+  })
+  const backlogMatch = useMatch({
+    from: "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/",
+    shouldThrow: false
+  })
+  const search = (sprintMatch ?? backlogMatch)?.search
   const { view, setPreference } = useProjectView(
     orgSlug,
     slug,
@@ -45,7 +42,7 @@ export function ViewSwitcher({
   }
 
   if (sprintMatch) {
-    const { groupId } = sprintMatch.params as { groupId: string }
+    const { groupId } = sprintMatch.params
     return (
       <SwitcherTabs
         variant="view"

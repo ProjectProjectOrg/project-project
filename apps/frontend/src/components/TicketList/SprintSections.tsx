@@ -346,7 +346,7 @@ function SprintSectionPagination({
   const state = useAtomValue(loadMoreSprintSections({ req, key: sectionKey }))
   return (
     <TicketPagination
-      requestKey={encodeTicketListQuery(req.query)}
+      requestKey={`${req.params.orgSlug}/${req.params.slug}:${encodeTicketListQuery(req.query)}`}
       nextCursor={nextCursor}
       remaining={Math.max(0, count - loaded)}
       collapsed={collapsed}

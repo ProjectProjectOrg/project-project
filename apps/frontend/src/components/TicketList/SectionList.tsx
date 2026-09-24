@@ -233,7 +233,7 @@ function SectionPagination({
         onSuccess: () => null
       })}
       <TicketPagination
-        requestKey={encodeTicketListQuery(req.query)}
+        requestKey={`${req.params.orgSlug}/${req.params.slug}:${encodeTicketListQuery(req.query)}`}
         nextCursor={nextCursor}
         remaining={remaining}
         collapsed={collapsed}

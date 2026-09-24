@@ -9,7 +9,10 @@ describe("TicketPagination", () => {
     vi.unstubAllGlobals()
   })
 
-  it("loads again when a new query has the same first-page cursor", () => {
+  it.each([
+    ["query change", "org/project:filter-a", "org/project:filter-b"],
+    ["project change", "org/project-a:filter", "org/project-b:filter"]
+  ])("loads again after a %s with the same cursor", (_, firstKey, nextKey) => {
     const observers: Array<IntersectionObserverCallback> = []
     vi.stubGlobal(
       "IntersectionObserver",
@@ -21,6 +24,17 @@ describe("TicketPagination", () => {
         disconnect() {}
       }
     )
+    const observer = new IntersectionObserver(() => {})
+    const entry: IntersectionObserverEntry = {
+      boundingClientRect: new DOMRect(),
+      intersectionRatio: 1,
+      intersectionRect: new DOMRect(),
+      isIntersecting: true,
+      rootBounds: null,
+      target: document.createElement("div"),
+      time: 0
+    }
+    const intersect = () => observers.at(-1)?.([entry], observer)
     const loadMore = vi.fn<() => void>()
     const props = {
       nextCursor: "same-cursor",
@@ -31,25 +45,16 @@ describe("TicketPagination", () => {
       loadMore
     }
     const { rerender } = render(
-      <TicketPagination {...props} requestKey="filter-a" />
+      <TicketPagination {...props} requestKey={firstKey} />
     )
 
-    observers.at(-1)?.(
-      [{ isIntersecting: true } as IntersectionObserverEntry],
-      {} as IntersectionObserver
-    )
+    intersect()
     expect(loadMore).toHaveBeenCalledTimes(1)
-    observers.at(-1)?.(
-      [{ isIntersecting: true } as IntersectionObserverEntry],
-      {} as IntersectionObserver
-    )
+    intersect()
     expect(loadMore).toHaveBeenCalledTimes(1)
 
-    rerender(<TicketPagination {...props} requestKey="filter-b" />)
-    observers.at(-1)?.(
-      [{ isIntersecting: true } as IntersectionObserverEntry],
-      {} as IntersectionObserver
-    )
+    rerender(<TicketPagination {...props} requestKey={nextKey} />)
+    intersect()
     expect(loadMore).toHaveBeenCalledTimes(2)
   })
 })

@@ -4,8 +4,6 @@ import { keepInPlace } from "./keepInPlace"
 
 const VIEWPORT = 500
 
-// jsdom has no layout, so model the shell's scroll root by hand: content of a
-// given height, the spacer's inline height, and the browser's scrollTop clamp.
 function shell(contentHeight: number, anchorOffset: number) {
   const layout = { contentHeight, anchorOffset, sticky: false }
   const root = document.createElement("div")
