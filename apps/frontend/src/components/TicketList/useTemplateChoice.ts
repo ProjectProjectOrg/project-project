@@ -96,3 +96,27 @@ export function useTemplateChoice(
     }
   }, [library, type, picked, recover])
 }
+
+export type TicketTypeChoice = Readonly<{
+  type: TicketType
+  setType: (next: TicketType) => void
+  applyTemplateDefault: (next: TicketType) => void
+}>
+
+export function useTicketTypeChoice(
+  initial: TicketType = "other"
+): TicketTypeChoice {
+  const [type, setTypeState] = useState<TicketType>(initial)
+  const [explicit, setExplicit] = useState(false)
+  const setType = useCallback((next: TicketType) => {
+    setExplicit(true)
+    setTypeState(next)
+  }, [])
+  const applyTemplateDefault = useCallback(
+    (next: TicketType) => {
+      if (!explicit) setTypeState(next)
+    },
+    [explicit]
+  )
+  return { type, setType, applyTemplateDefault }
+}

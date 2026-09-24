@@ -154,6 +154,57 @@ it("keeps the type when / picks a template that is no type's default", async () 
   }
 })
 
+it("keeps an explicitly chosen type when / picks a template whose default type differs", async () => {
+  const { registry, posted, input } = setup()
+  try {
+    await chooseType("Feature")
+    fireEvent.change(input, { target: { value: "/" } })
+    fireEvent.change(input, { target: { value: "/bug" } })
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole("option").map((option) => option.textContent)
+      ).toEqual(["Bug report"])
+    )
+    fireEvent.keyDown(input, { key: "Enter" })
+    await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull())
+    expect(screen.getByLabelText(/^Type: /).textContent).toContain("Feature")
+    submit(input, "Still a feature")
+    await waitFor(() => expect(posted).toHaveLength(1))
+    expect(posted[0]).toEqual({
+      title: "Still a feature",
+      type: "feat",
+      template: "bug-report"
+    })
+  } finally {
+    registry.dispose()
+  }
+})
+
+it("applies the template's type when no type was chosen explicitly", async () => {
+  const { registry, posted, input } = setup()
+  try {
+    fireEvent.change(input, { target: { value: "/" } })
+    fireEvent.change(input, { target: { value: "/bug" } })
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole("option").map((option) => option.textContent)
+      ).toEqual(["Bug report"])
+    )
+    fireEvent.keyDown(input, { key: "Enter" })
+    await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull())
+    expect(screen.getByLabelText(/^Type: /).textContent).toContain("Bug")
+    submit(input, "Login loops")
+    await waitFor(() => expect(posted).toHaveLength(1))
+    expect(posted[0]).toEqual({
+      title: "Login loops",
+      type: "bug",
+      template: "bug-report"
+    })
+  } finally {
+    registry.dispose()
+  }
+})
+
 it("sticks with Blank from / even though the type has a default", async () => {
   const { registry, posted, input } = setup()
   try {

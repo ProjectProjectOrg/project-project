@@ -58,7 +58,7 @@ import { CreatorChip } from "./CreatorChip"
 import { creatorErrorText } from "./creatorError"
 import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
 import { TicketCreatorShell } from "./TicketCreatorShell"
-import { useTemplateChoice } from "./useTemplateChoice"
+import { useTemplateChoice, useTicketTypeChoice } from "./useTemplateChoice"
 
 export function BacklogTicketCreator({
   orgSlug,
@@ -105,7 +105,7 @@ export function BacklogTicketCreator({
   const hasSprints = sprints.some((s) => s.completedAt === null)
 
   const [title, setTitle] = useState("")
-  const [type, setType] = useState<TicketType>("other")
+  const { type, setType, applyTemplateDefault } = useTicketTypeChoice()
   const [selectedSprint, setSelectedSprint] = useState<Group | null>(null)
   const [sprintCleared, setSprintCleared] = useState(false)
   const [focused, setFocused] = useState(false)
@@ -122,7 +122,7 @@ export function BacklogTicketCreator({
     choice: templateChoice,
     onChoose: (_template, ticketType) => {
       setTitle("")
-      if (ticketType !== null) setType(ticketType)
+      if (ticketType !== null) applyTemplateDefault(ticketType)
     }
   })
 
