@@ -62,6 +62,10 @@ function makeMarkdown(overrides: Partial<MarkdownShape>) {
       unexpectedMarkdownCall("writeGroupFileIfExists"),
     removeGroupFile: () => unexpectedMarkdownCall("removeGroupFile"),
     listGroupIds: () => unexpectedMarkdownCall("listGroupIds"),
+    libraryDir: () => "/tmp/projectproject-test/library",
+    listLibraryFiles: () => unexpectedMarkdownCall("listLibraryFiles"),
+    writeLibraryFile: () => unexpectedMarkdownCall("writeLibraryFile"),
+    removeLibraryFile: () => unexpectedMarkdownCall("removeLibraryFile"),
     ...overrides
   } satisfies MarkdownShape
 

@@ -23,6 +23,10 @@ export interface TicketParts {
   readonly region: string
 }
 
+export type LibraryKind = "blocks"
+
+export type LibraryFile = Readonly<{ key: string; content: string }>
+
 export interface MarkdownShape {
   readonly root: string
   readonly projectDir: (orgSlug: string, slug: string) => string
@@ -139,6 +143,29 @@ export interface MarkdownShape {
     orgSlug: string,
     slug: string
   ) => Effect.Effect<ReadonlyArray<string>, MarkdownError>
+  readonly libraryDir: (
+    orgSlug: string,
+    projectSlug: string | null,
+    kind: LibraryKind
+  ) => string
+  readonly listLibraryFiles: (
+    orgSlug: string,
+    projectSlug: string | null,
+    kind: LibraryKind
+  ) => Effect.Effect<ReadonlyArray<LibraryFile>, MarkdownError>
+  readonly writeLibraryFile: (
+    orgSlug: string,
+    projectSlug: string | null,
+    kind: LibraryKind,
+    key: string,
+    content: string
+  ) => Effect.Effect<void, MarkdownError>
+  readonly removeLibraryFile: (
+    orgSlug: string,
+    projectSlug: string | null,
+    kind: LibraryKind,
+    key: string
+  ) => Effect.Effect<boolean, MarkdownError>
 }
 
 export class Markdown extends Context.Service<Markdown, MarkdownShape>()(

@@ -49,7 +49,10 @@ export function CommentRow({
 
   return (
     <InlineForm.Root<Mode>
-      className={cn("rounded-md p-3", waiting && "animate-pulse")}
+      className={cn(
+        "ticket-comment rounded-md p-(--ticket-comment-pad)",
+        waiting && "animate-pulse"
+      )}
     >
       <InlineForm.Idle block>
         <header className="flex items-center justify-between gap-2 text-sm">

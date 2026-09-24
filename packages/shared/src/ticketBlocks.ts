@@ -1,11 +1,11 @@
 export type TicketBlockSegment =
   | Readonly<{ kind: "markdown"; text: string }>
-  | Readonly<{ kind: "block"; type: string; content: string }>
+  | Readonly<{ kind: "block"; type: string; content: string; sync?: boolean }>
 
 export const TICKET_BLOCK_TYPE_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 export const TICKET_BLOCK_OPEN =
-  /^ {0,3}<block\s+type="([a-z0-9]+(?:-[a-z0-9]+)*)"\s*>\s*$/
+  /^ {0,3}<block\s+type="([a-z0-9]+(?:-[a-z0-9]+)*)"(\s+sync)?\s*>\s*$/
 
 const TICKET_BLOCK_CLOSE = /^ {0,3}<\/block>\s*$/
 
@@ -23,11 +23,21 @@ const trimBlankLines = (lines: ReadonlyArray<string>): string => {
   return lines.slice(start, end).join("\n")
 }
 
-export const formatTicketBlock = (type: string, content: string): string => {
+export type TicketBlockFormatOptions = Readonly<{ sync?: boolean }>
+
+export const formatTicketBlock = (
+  type: string,
+  content: string,
+  options?: TicketBlockFormatOptions
+): string => {
+  const opener =
+    options?.sync === true
+      ? `<block type="${type}" sync>`
+      : `<block type="${type}">`
   const body = trimBlankLines(content.split("\n"))
   return body === ""
-    ? `<block type="${type}">\n\n</block>`
-    : `<block type="${type}">\n\n${body}\n\n</block>`
+    ? `${opener}\n\n</block>`
+    : `${opener}\n\n${body}\n\n</block>`
 }
 
 const closesFence = (line: string, fence: string): boolean => {
@@ -81,10 +91,13 @@ export const findTicketBlockEnd = (
   return null
 }
 
+export const normalizeLineEndings = (text: string): string =>
+  text.includes("\r") ? text.replace(/\r\n?/g, "\n") : text
+
 export const parseTicketBlocks = (
   markdown: string
 ): ReadonlyArray<TicketBlockSegment> => {
-  const lines = markdown.split("\n")
+  const lines = normalizeLineEndings(markdown).split("\n")
   const segments: Array<TicketBlockSegment> = []
   let pending: Array<string> = []
   let fence: string | null = null
@@ -101,11 +114,12 @@ export const parseTicketBlocks = (
     const end = open === null ? null : findTicketBlockEnd(lines, i)
     if (open !== null && end !== null) {
       flush()
-      segments.push({
-        kind: "block",
-        type: open[1],
-        content: trimBlankLines(lines.slice(i + 1, end))
-      })
+      const content = trimBlankLines(lines.slice(i + 1, end))
+      segments.push(
+        open[2] === undefined
+          ? { kind: "block", type: open[1], content }
+          : { kind: "block", type: open[1], content, sync: true }
+      )
       i = end
       continue
     }
@@ -123,7 +137,9 @@ export const serializeTicketBlocks = (
     .map((segment) =>
       segment.kind === "markdown"
         ? segment.text
-        : formatTicketBlock(segment.type, segment.content)
+        : formatTicketBlock(segment.type, segment.content, {
+            sync: segment.sync
+          })
     )
     .join("\n\n")
 
@@ -134,3 +150,64 @@ export const flattenTicketBlocks = (markdown: string): string =>
     )
     .filter((text) => text !== "")
     .join("\n\n")
+
+export type BlockIssueCode =
+  | "unclosed"
+  | "stray_close"
+  | "nested"
+  | "malformed_open"
+  | "invalid_type"
+
+export type BlockIssue = Readonly<{
+  line: number
+  code: BlockIssueCode
+  source: string
+}>
+
+const LOOKS_LIKE_BLOCK_OPEN = /^ {0,3}<block\b/
+
+const QUOTED_TYPE_ATTRIBUTE = /^ {0,3}<block\s+type="([^"]*)"/
+
+const classifyBadOpener = (line: string): BlockIssueCode => {
+  const quoted = QUOTED_TYPE_ATTRIBUTE.exec(line)
+  return quoted !== null && !TICKET_BLOCK_TYPE_PATTERN.test(quoted[1])
+    ? "invalid_type"
+    : "malformed_open"
+}
+
+const issueAt = (
+  lines: ReadonlyArray<string>,
+  index: number,
+  code: BlockIssueCode
+): BlockIssue => ({
+  line: index + 1,
+  code,
+  source: lines[index].trim()
+})
+
+export const validateTicketBlocks = (
+  markdown: string
+): ReadonlyArray<BlockIssue> => {
+  const lines = markdown.split("\n")
+  const issues: Array<BlockIssue> = []
+  const openers: Array<number> = []
+  let fence: string | null = null
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (fence === null) {
+      if (TICKET_BLOCK_OPEN.test(line)) {
+        if (openers.length > 0) issues.push(issueAt(lines, i, "nested"))
+        openers.push(i)
+      } else if (TICKET_BLOCK_CLOSE.test(line)) {
+        if (openers.pop() === undefined)
+          issues.push(issueAt(lines, i, "stray_close"))
+      } else if (LOOKS_LIKE_BLOCK_OPEN.test(line)) {
+        issues.push(issueAt(lines, i, classifyBadOpener(line)))
+      }
+    }
+    fence = advanceFence(line, fence)
+  }
+  for (const opener of openers) issues.push(issueAt(lines, opener, "unclosed"))
+  return issues.toSorted((a, b) => a.line - b.line)
+}

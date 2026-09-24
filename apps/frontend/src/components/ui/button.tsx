@@ -57,6 +57,8 @@ const buttonVariants = cva(
         "inline-help":
           "ml-1 bg-transparent align-middle text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground active:bg-muted/60",
         chip: "bg-transparent text-foreground hover:bg-accent hover:text-foreground active:bg-accent/80",
+        "block-grip":
+          "bg-transparent text-muted-foreground hover:bg-accent active:bg-accent/80",
         overlay:
           "bg-background text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground active:bg-accent/80",
         "overlay-destructive":
@@ -77,6 +79,7 @@ const buttonVariants = cva(
         md: "h-8 gap-1.5 px-4 text-[13px]",
         lg: "h-9 gap-1.5 px-5 text-[14px]",
         "icon-xs": "h-5 w-5 p-0 [&_svg]:h-3 [&_svg]:w-3",
+        "block-grip": "size-5 p-0",
         "icon-sm": "h-8 w-8 p-0 [&_svg]:h-3.5 [&_svg]:w-3.5",
         icon: "h-9 w-9 p-0 [&_svg]:h-4 [&_svg]:w-4",
         "icon-lg": "h-10 w-10 p-0 [&_svg]:h-5 [&_svg]:w-5"

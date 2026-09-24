@@ -37,6 +37,7 @@ const docsWith = (initial: Record<string, unknown>) => {
       Layer.mock(Markdown, {
         root: "/tmp",
         projectDir: () => "/tmp/demo",
+        libraryDir: () => "/tmp/demo/blocks",
         readProjectFile: () =>
           Effect.succeed({ data, body: "# Demo", path: "project.md" }),
         writeProjectFile: (_org, _slug, next) =>

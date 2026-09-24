@@ -1,7 +1,14 @@
 import * as BunServices from "@effect/platform-bun/BunServices"
 import { it } from "@effect/vitest"
 import { Db } from "@pp/db"
-import { ProjectKey, type TicketStatus, type User, UserId } from "@pp/shared"
+import {
+  BlockDraft,
+  BUILTIN_BLOCKS,
+  ProjectKey,
+  type TicketStatus,
+  type User,
+  UserId
+} from "@pp/shared"
 import * as Config from "effect/Config"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as DateTime from "effect/DateTime"
@@ -21,8 +28,12 @@ import {
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
 import { GitHub, type GitHubShape } from "../github/GitHub"
 import { Groups, type GroupsShape } from "../groups/Groups"
+import { LibraryDocs } from "../library/LibraryDocs"
+import { LibraryDocsLive } from "../library/LibraryDocsLive"
+import { LibraryLive } from "../library/LibraryLive"
 import { Markdown } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
+import { CurrentOrg } from "../organizations/CurrentOrg"
 import { Projects, type ProjectsShape } from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
 import { TicketDocs } from "./TicketDocs"
@@ -251,6 +262,9 @@ const TestLayer = Layer.unwrap(
       prefix: "projectproject-tk-"
     })
     return TicketsLive.pipe(
+      Layer.provideMerge(LibraryLive),
+      Layer.provideMerge(LibraryDocsLive),
+      Layer.provide(Layer.mock(CurrentOrg, {})),
       Layer.provideMerge(TicketDocsLive),
       Layer.provide(FakeAttachments),
       Layer.provide(FakeFigmaLinks),
@@ -408,4 +422,113 @@ it.effect(
       expect(fetched.body).not.toContain("old secret description")
       expect(fetched.body.trim()).toBe("")
     }).pipe(Effect.provide(TestLayer))
+)
+
+const decodeBlockDraft = Schema.decodeUnknownSync(BlockDraft)
+
+const SYNCED_DONE = [
+  '<block type="definition-of-done" sync>',
+  "",
+  "## Definition of done",
+  "",
+  "- [x] Reviewed and merged",
+  "- [ ] Tests cover the change",
+  "",
+  "</block>"
+].join("\n")
+
+const projectDoneBlock = decodeBlockDraft({
+  key: "definition-of-done",
+  name: "Definition of done",
+  icon: "CircleCheckBig",
+  color: null,
+  description: "",
+  sync: true,
+  content: [
+    "## Definition of done",
+    "",
+    "- [ ] Reviewed and merged",
+    "- [ ] Released {{where it ships}}"
+  ].join("\n")
+})
+
+const adoptAtOrg = (keys: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const docs = yield* LibraryDocs
+    for (const block of BUILTIN_BLOCKS.filter((draft) =>
+      keys.includes(draft.key)
+    ))
+      yield* docs.writeBlock("org", null, block)
+  })
+
+it.effect("get resolves synced blocks without rewriting the file", () =>
+  Effect.gen(function* () {
+    yield* adoptAtOrg(["definition-of-done"])
+    const tickets = yield* Tickets
+    const created = yield* tickets.create("org", "user-1", "p", {
+      title: "synced",
+      body: SYNCED_DONE
+    })
+    yield* (yield* LibraryDocs).writeBlock("org", "p", projectDoneBlock)
+
+    const fetched = yield* tickets.get("org", "user-1", "p", created.id)
+    expect(fetched.body).toContain("- [x] Reviewed and merged")
+    expect(fetched.body).toContain("- [ ] Released")
+    expect(fetched.body).not.toContain("Tests cover the change")
+    expect(fetched.body).not.toContain("{{")
+
+    const stored = yield* (yield* TicketDocs).read("org", "p", created.id)
+    expect(stored.body).toContain("Tests cover the change")
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect("update refreshes the stored synced snapshot", () =>
+  Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+      title: "stale snapshot"
+    })
+    yield* (yield* LibraryDocs).writeBlock("org", "p", projectDoneBlock)
+    yield* tickets.update("org", "user-1", "p", created.id, {
+      body: `Intro\n\n${SYNCED_DONE}`
+    })
+
+    const stored = yield* (yield* TicketDocs).read("org", "p", created.id)
+    expect(stored.body).toContain("Intro")
+    expect(stored.body).toContain('<block type="definition-of-done" sync>')
+    expect(stored.body).toContain("- [x] Reviewed and merged")
+    expect(stored.body).toContain("- [ ] Released")
+    expect(stored.body).not.toContain("Tests cover the change")
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect("a body without synced blocks is stored and read byte for byte", () =>
+  Effect.gen(function* () {
+    const body = [
+      "  Indented   text  ",
+      "",
+      '<block type="context">',
+      "",
+      "## Context",
+      "",
+      "- [ ] ",
+      "",
+      "</block>",
+      "",
+      "",
+      "trailing *md*"
+    ].join("\n")
+    const tickets = yield* Tickets
+    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+      title: "plain"
+    })
+    const updated = yield* tickets.update("org", "user-1", "p", created.id, {
+      body
+    })
+
+    const stored = yield* (yield* TicketDocs).read("org", "p", created.id)
+    const fetched = yield* tickets.get("org", "user-1", "p", created.id)
+    expect(updated.ticket.body).toBe(body)
+    expect(fetched.body).toBe(stored.body)
+  }).pipe(Effect.provide(TestLayer))
 )

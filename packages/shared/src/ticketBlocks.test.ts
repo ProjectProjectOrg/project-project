@@ -5,7 +5,9 @@ import {
   flattenTicketBlocks,
   formatTicketBlock,
   parseTicketBlocks,
-  serializeTicketBlocks
+  serializeTicketBlocks,
+  TICKET_BLOCK_OPEN,
+  validateTicketBlocks
 } from "./ticketBlocks"
 
 const CRITERIA = "## Acceptance criteria\n- [ ] Can pick a template"
@@ -180,6 +182,209 @@ describe("findTicketBlockEnd", () => {
   it("returns null when another block opens first", () => {
     const lines = ['<block type="a">', '<block type="b">', "</block>"]
     expect(findTicketBlockEnd(lines, 0)).toBeNull()
+  })
+})
+
+const DONE =
+  "## Definition of done\n\n- [x] Reviewed and merged\n- [ ] Tests cover the change"
+
+describe("synced blocks", () => {
+  it("formats the sync attribute after the type", () => {
+    expect(formatTicketBlock("definition-of-done", DONE, { sync: true })).toBe(
+      `<block type="definition-of-done" sync>\n\n${DONE}\n\n</block>`
+    )
+    expect(formatTicketBlock("notes", "", { sync: true })).toBe(
+      '<block type="notes" sync>\n\n</block>'
+    )
+  })
+
+  it("parses sync only when the attribute is present", () => {
+    const markdown = [
+      formatTicketBlock("definition-of-done", DONE, { sync: true }),
+      formatTicketBlock("notes", "## Notes")
+    ].join("\n\n")
+
+    expect(parseTicketBlocks(markdown)).toEqual([
+      { kind: "block", type: "definition-of-done", content: DONE, sync: true },
+      { kind: "block", type: "notes", content: "## Notes" }
+    ])
+    expect(parseTicketBlocks(markdown)[1]).not.toHaveProperty("sync")
+  })
+
+  it("round-trips sync through serialize and parse", () => {
+    const segments = [
+      { kind: "markdown", text: "Intro." },
+      { kind: "block", type: "definition-of-done", content: DONE, sync: true },
+      { kind: "block", type: "notes", content: "## Notes" }
+    ] as const
+
+    const serialized = serializeTicketBlocks(segments)
+
+    expect(parseTicketBlocks(serialized)).toEqual(segments)
+    expect(serializeTicketBlocks(parseTicketBlocks(serialized))).toBe(
+      serialized
+    )
+  })
+
+  it("accepts extra whitespace around the sync attribute", () => {
+    expect(
+      parseTicketBlocks('<block  type="notes"   sync >\n</block>')
+    ).toEqual([{ kind: "block", type: "notes", content: "", sync: true }])
+  })
+
+  it("keeps the type in the first capture group", () => {
+    expect(TICKET_BLOCK_OPEN.exec('<block type="notes" sync>')?.[1]).toBe(
+      "notes"
+    )
+    expect(TICKET_BLOCK_OPEN.exec('<block type="notes">')?.[2]).toBeUndefined()
+  })
+
+  it("does not treat other attributes or a valued sync as an opener", () => {
+    const openers = [
+      '<block type="notes" sync="true">',
+      '<block type="notes" scope="org">',
+      '<block type="notes" sync scope="org">',
+      '<block sync type="notes">',
+      '<block type="notes"sync>',
+      '<block type="notes" synced>'
+    ]
+
+    for (const opener of openers) {
+      const markdown = `${opener}\ntext\n</block>`
+      expect(parseTicketBlocks(markdown)).toEqual([
+        { kind: "markdown", text: markdown }
+      ])
+    }
+  })
+
+  it("leaves a synced opener inside a fence as markdown", () => {
+    const markdown = [
+      "```",
+      '<block type="notes" sync>',
+      "</block>",
+      "```"
+    ].join("\n")
+
+    expect(parseTicketBlocks(markdown)).toEqual([
+      { kind: "markdown", text: markdown }
+    ])
+  })
+})
+
+const codesOf = (markdown: string) =>
+  validateTicketBlocks(markdown).map(({ line, code }) => ({ line, code }))
+
+describe("validateTicketBlocks", () => {
+  it("reports nothing for well-formed blocks and loose markdown", () => {
+    const markdown = [
+      "Intro.",
+      formatTicketBlock("acceptance-criteria", CRITERIA),
+      formatTicketBlock("definition-of-done", DONE, { sync: true }),
+      "Outro with <block> inline."
+    ].join("\n\n")
+
+    expect(validateTicketBlocks(markdown)).toEqual([])
+    expect(validateTicketBlocks("")).toEqual([])
+  })
+
+  it("reports a block that is never closed", () => {
+    expect(codesOf('Intro.\n\n<block type="notes">\n## Notes')).toEqual([
+      { line: 3, code: "unclosed" }
+    ])
+  })
+
+  it("reports a closing tag without an opener", () => {
+    expect(codesOf("Intro.\n</block>")).toEqual([
+      { line: 2, code: "stray_close" }
+    ])
+  })
+
+  it("reports a nested opener once", () => {
+    const markdown = [
+      '<block type="outer">',
+      '<block type="inner">',
+      "inside",
+      "</block>",
+      "</block>"
+    ].join("\n")
+
+    expect(codesOf(markdown)).toEqual([{ line: 2, code: "nested" }])
+  })
+
+  it("reports a malformed opener", () => {
+    expect(codesOf('<block type="notes" sync="true">\n</block>')).toEqual([
+      { line: 1, code: "malformed_open" },
+      { line: 2, code: "stray_close" }
+    ])
+    expect(codesOf("<block type='notes'>")).toEqual([
+      { line: 1, code: "malformed_open" }
+    ])
+    expect(codesOf("<block>")).toEqual([{ line: 1, code: "malformed_open" }])
+  })
+
+  it("reports an invalid type", () => {
+    expect(codesOf('<block type="Acceptance Criteria">')).toEqual([
+      { line: 1, code: "invalid_type" }
+    ])
+    expect(codesOf('<block type="">')).toEqual([
+      { line: 1, code: "invalid_type" }
+    ])
+  })
+
+  it("ignores block markup inside fences", () => {
+    const markdown = [
+      "```md",
+      '<block type="unclosed">',
+      "</block>",
+      "</block>",
+      "<block type='x'>",
+      "```",
+      formatTicketBlock("notes", "~~~\n</block>\n<block oops>\n~~~")
+    ].join("\n")
+
+    expect(validateTicketBlocks(markdown)).toEqual([])
+  })
+
+  it("ignores block markup inside HTML comments", () => {
+    const markdown = [
+      "<!--",
+      '<block type="unclosed">',
+      "</block>",
+      "</block>",
+      "<block type='x'>",
+      "-->",
+      formatTicketBlock("notes", "<!--\n</block>\n-->")
+    ].join("\n")
+
+    expect(validateTicketBlocks(markdown)).toEqual([])
+  })
+
+  it("does not flag indented code, blockquote tags or inline mentions", () => {
+    expect(
+      validateTicketBlocks('    <block type="x">\n<blockquote>\ntext <block>')
+    ).toEqual([])
+  })
+
+  it("lists issues in line order", () => {
+    const markdown = [
+      '<block type="a">',
+      "</block>",
+      "</block>",
+      '<block type="b">'
+    ].join("\n")
+
+    expect(codesOf(markdown)).toEqual([
+      { line: 3, code: "stray_close" },
+      { line: 4, code: "unclosed" }
+    ])
+  })
+})
+
+describe("formatTicketBlock", () => {
+  it("trims blank lines but keeps the trailing space of an empty task item", () => {
+    expect(formatTicketBlock("notes", "\n\n## Notes\n\n- [ ] \n\n")).toBe(
+      '<block type="notes">\n\n## Notes\n\n- [ ] \n\n</block>'
+    )
   })
 })
 

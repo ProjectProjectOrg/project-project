@@ -2,7 +2,13 @@ import { useAtomValue } from "@effect/atom-react"
 import { Link, Outlet, useLocation } from "@tanstack/react-router"
 import { createFileRoute } from "@tanstack/react-router"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { GitBranch, SlidersHorizontal, Users, Workflow } from "lucide-react"
+import {
+  GitBranch,
+  LayoutTemplate,
+  SlidersHorizontal,
+  Users,
+  Workflow
+} from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
 import { useCallback } from "react"
 
@@ -15,7 +21,7 @@ import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-type SectionKey = "general" | "team" | "workflow" | "integrations"
+type SectionKey = "general" | "team" | "workflow" | "templates" | "integrations"
 
 const SECTIONS = [
   {
@@ -38,6 +44,13 @@ const SECTIONS = [
     icon: Workflow,
     heading: m.project_settings_workflow_heading(),
     description: m.project_settings_workflow_description()
+  },
+  {
+    key: "templates",
+    label: m.project_settings_templates_tab(),
+    icon: LayoutTemplate,
+    heading: m.project_settings_templates_heading(),
+    description: m.project_settings_templates_description()
   },
   {
     key: "integrations",

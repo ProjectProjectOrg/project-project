@@ -9,6 +9,10 @@ import { ErrorPage } from "@/components/ErrorPage"
 import { NotFoundPage } from "@/components/NotFoundPage"
 import { TicketPage, TicketPageSkeleton } from "@/components/TicketPage"
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
+import {
+  projectLibraryFor,
+  projectLibraryRequest
+} from "@/features/library/atoms/library"
 import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import {
@@ -41,6 +45,9 @@ export const Route = createFileRoute(
     )()
     context.registry.mount(orgStorage(storageRequest(params.orgSlug)))()
     context.registry.mount(orgDetail(orgRequest(params.orgSlug)))()
+    context.registry.mount(
+      projectLibraryFor(projectLibraryRequest(params.orgSlug, params.slug))
+    )()
     return {
       crumb: {
         type: "ticket" as const,

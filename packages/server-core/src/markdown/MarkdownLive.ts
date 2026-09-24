@@ -8,7 +8,7 @@
 
 import { randomUUID } from "node:crypto"
 
-import { NotFound, TicketId } from "@pp/shared"
+import { LIBRARY_KEY_MAX_LENGTH, NotFound, TicketId } from "@pp/shared"
 import * as Config from "effect/Config"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
@@ -23,6 +23,8 @@ import {
   Markdown,
   MarkdownError,
   TicketIdTaken,
+  type LibraryFile,
+  type LibraryKind,
   type MarkdownShape,
   type ParsedMarkdown
 } from "./Markdown"
@@ -609,6 +611,148 @@ export const MarkdownLive = Layer.effect(
           .filter((id) => SAFE_GROUP_ID.test(id))
       })
 
+    const isSafeLibraryKey = (key: string): boolean =>
+      SAFE_SLUG.test(key) && key.length <= LIBRARY_KEY_MAX_LENGTH
+
+    const ensureSafeLibraryScope = (
+      orgSlug: string,
+      projectSlug: string | null
+    ): Effect.Effect<void, MarkdownError> =>
+      projectSlug === null
+        ? ensureSafeSlug(orgSlug)
+        : ensureSafeOrgAndProject(orgSlug, projectSlug)
+
+    const ensureSafeLibraryKey = (
+      key: string
+    ): Effect.Effect<void, MarkdownError> =>
+      isSafeLibraryKey(key)
+        ? Effect.void
+        : Effect.fail(
+            new MarkdownError({
+              cause: undefined,
+              message: `unsafe library key: ${key}`
+            })
+          )
+
+    const libraryDir = (
+      orgSlug: string,
+      projectSlug: string | null,
+      kind: LibraryKind
+    ) =>
+      projectSlug === null
+        ? path.join(absoluteRoot, "orgs", orgSlug, kind)
+        : path.join(projectDir(orgSlug, projectSlug), kind)
+
+    const libraryFilePath = (
+      orgSlug: string,
+      projectSlug: string | null,
+      kind: LibraryKind,
+      key: string
+    ) => path.join(libraryDir(orgSlug, projectSlug, kind), `${key}.md`)
+
+    const readLibraryFile = (
+      dir: string,
+      key: string
+    ): Effect.Effect<ReadonlyArray<LibraryFile>, MarkdownError> => {
+      const file = path.join(dir, `${key}.md`)
+      return fs.readFileString(file, "utf8").pipe(
+        Effect.map((content) => [{ key, content }]),
+        Effect.catch((cause) =>
+          cause.reason._tag === "NotFound"
+            ? Effect.succeed([])
+            : Effect.fail(
+                new MarkdownError({ cause, message: `read failed: ${file}` })
+              )
+        )
+      )
+    }
+
+    const listLibraryFiles = (
+      orgSlug: string,
+      projectSlug: string | null,
+      kind: LibraryKind
+    ): Effect.Effect<ReadonlyArray<LibraryFile>, MarkdownError> =>
+      Effect.gen(function* () {
+        yield* ensureSafeLibraryScope(orgSlug, projectSlug)
+        const dir = libraryDir(orgSlug, projectSlug, kind)
+        const entries = yield* fs
+          .readDirectory(dir)
+          .pipe(
+            Effect.catch((cause) =>
+              cause.reason._tag === "NotFound"
+                ? Effect.succeed([] as ReadonlyArray<string>)
+                : Effect.fail(
+                    new MarkdownError({ cause, message: `list failed: ${dir}` })
+                  )
+            )
+          )
+        const keys = entries
+          .filter((entry) => entry.endsWith(".md"))
+          .map((entry) => entry.slice(0, -3))
+          .filter(isSafeLibraryKey)
+          .toSorted()
+        const files = yield* Effect.forEach(
+          keys,
+          (key) => readLibraryFile(dir, key),
+          { concurrency: 8 }
+        )
+        return files.flat()
+      })
+
+    const writeLibraryFile = (
+      orgSlug: string,
+      projectSlug: string | null,
+      kind: LibraryKind,
+      key: string,
+      content: string
+    ): Effect.Effect<void, MarkdownError> =>
+      Effect.gen(function* () {
+        yield* ensureSafeLibraryScope(orgSlug, projectSlug)
+        yield* ensureSafeLibraryKey(key)
+        const file = libraryFilePath(orgSlug, projectSlug, kind, key)
+        const failed = (cause: unknown) =>
+          new MarkdownError({ cause, message: `write failed: ${file}` })
+        yield* fs
+          .makeDirectory(path.dirname(file), { recursive: true })
+          .pipe(Effect.mapError(failed))
+        const temporary = ticketTemporaryFile(file)
+        yield* Effect.gen(function* () {
+          yield* fs
+            .writeFileString(temporary, content, { flag: "wx" })
+            .pipe(Effect.mapError(failed))
+          yield* fs.rename(temporary, file).pipe(Effect.mapError(failed))
+        }).pipe(
+          Effect.ensuring(
+            fs.remove(temporary, { force: true }).pipe(Effect.ignore)
+          )
+        )
+      })
+
+    const removeLibraryFile = (
+      orgSlug: string,
+      projectSlug: string | null,
+      kind: LibraryKind,
+      key: string
+    ): Effect.Effect<boolean, MarkdownError> =>
+      Effect.gen(function* () {
+        yield* ensureSafeLibraryScope(orgSlug, projectSlug)
+        yield* ensureSafeLibraryKey(key)
+        const file = libraryFilePath(orgSlug, projectSlug, kind, key)
+        return yield* fs.remove(file).pipe(
+          Effect.as(true),
+          Effect.catch((cause) =>
+            cause.reason._tag === "NotFound"
+              ? Effect.succeed(false)
+              : Effect.fail(
+                  new MarkdownError({
+                    cause,
+                    message: `remove failed: ${file}`
+                  })
+                )
+          )
+        )
+      })
+
     return {
       projectDir,
       readProjectFile,
@@ -630,6 +774,10 @@ export const MarkdownLive = Layer.effect(
       writeGroupFileIfExists,
       removeGroupFile,
       listGroupIds,
+      libraryDir,
+      listLibraryFiles,
+      writeLibraryFile,
+      removeLibraryFile,
       root: absoluteRoot
     } satisfies MarkdownShape
   })
