@@ -745,32 +745,35 @@ export const AttachmentsLive = Layer.effect(
         )
       )
 
-    const orphanProject: AttachmentsShape["orphanProject"] = (orgSlug, slug) =>
+    const projectAttachmentIds = (projectId: string) =>
       Effect.gen(function* () {
-        const { id: projectId } = yield* projectInOrg(db, orgSlug, slug)
-        const ownReferences = eq(attachmentReference.projectId, projectId)
-
+        const uploaded = yield* db
+          .select({ id: attachmentIndex.id })
+          .from(attachmentIndex)
+          .where(eq(attachmentIndex.projectId, projectId))
+          .pipe(Effect.orDie)
         const referenced = yield* db
-          .select({ attachmentId: attachmentReference.attachmentId })
+          .select({ id: attachmentReference.attachmentId })
           .from(attachmentReference)
-          .where(ownReferences)
+          .where(eq(attachmentReference.projectId, projectId))
           .pipe(Effect.orDie)
-
-        yield* db
-          .delete(attachmentReference)
-          .where(ownReferences)
+        const images = yield* db
+          .select({ id: projectImageReference.attachmentId })
+          .from(projectImageReference)
+          .where(eq(projectImageReference.projectId, projectId))
           .pipe(Effect.orDie)
+        return [
+          ...new Set(
+            [...uploaded, ...referenced, ...images].map((row) => row.id)
+          )
+        ]
+      })
 
-        const uploadedHere = eq(attachmentIndex.projectId, projectId)
-        const ids = [...new Set(referenced.map((row) => row.attachmentId))]
-        const candidates =
-          ids.length > 0
-            ? or(uploadedHere, inArray(attachmentIndex.id, ids))
-            : uploadedHere
-
+    const orphanUnreferenced = (orgSlug: string, ids: ReadonlyArray<string>) =>
+      Effect.gen(function* () {
+        if (ids.length === 0) return 0
         const now = yield* DateTime.nowAsDate
         const hasReference = sql`(exists (select 1 from ${attachmentReference} where ${attachmentReference.attachmentId} = ${attachmentIndex.id}) or exists (select 1 from ${projectImageReference} where ${projectImageReference.attachmentId} = ${attachmentIndex.id}))`
-
         const orphaned = yield* db
           .update(attachmentIndex)
           .set({ status: "orphaned", orphanedAt: now })
@@ -779,21 +782,40 @@ export const AttachmentsLive = Layer.effect(
               eq(attachmentIndex.orgSlug, orgSlug),
               eq(attachmentIndex.status, "live"),
               sql`not ${hasReference}`,
-              candidates
+              inArray(attachmentIndex.id, [...ids])
             )
           )
           .returning({ id: attachmentIndex.id })
           .pipe(Effect.orDie)
+        return orphaned.length
+      })
 
-        return { orphaned: orphaned.length }
-      }).pipe(
-        Effect.catchCause((cause) =>
-          Effect.as(
-            Effect.logError("orphaning project attachments failed", cause),
-            { orphaned: 0 }
+    const orphanProject: AttachmentsShape["orphanProject"] = (
+      orgSlug,
+      slug,
+      removal
+    ) =>
+      Effect.gen(function* () {
+        const ids = yield* projectInOrg(db, orgSlug, slug).pipe(
+          Effect.flatMap((project) => projectAttachmentIds(project.id)),
+          Effect.catchCause((cause) =>
+            Effect.as(
+              Effect.logError("collecting project attachments failed", cause),
+              []
+            )
           )
         )
-      )
+        yield* removal
+        const orphaned = yield* orphanUnreferenced(orgSlug, ids).pipe(
+          Effect.catchCause((cause) =>
+            Effect.as(
+              Effect.logError("orphaning project attachments failed", cause),
+              0
+            )
+          )
+        )
+        return { orphaned }
+      })
 
     const reapOnce: AttachmentsShape["reapOnce"] = () =>
       Effect.gen(function* () {
