@@ -17,6 +17,7 @@ import {
   EverhourError,
   Forbidden,
   NotFound,
+  Role,
   type EverhourProjectIntegrationStatus,
   type OrgEverhourConfig,
   type PersonalEverhour
@@ -26,6 +27,7 @@ import * as DateTime from "effect/DateTime"
 import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
 
 import { GroupDocs } from "../groups/GroupDocs"
@@ -63,6 +65,8 @@ type ActiveLink = {
   readonly lastSyncStatus: "ok" | "error" | null
   readonly lastSyncError: string | null
 }
+
+const makeProjectRole = Schema.decodeUnknownSync(Role)
 
 const emptySummary = (): MutableSummary => ({
   sectionsCreated: 0,
@@ -306,17 +310,17 @@ export const EverhourIntegrationsLive = Layer.effect(
         const project = yield* projectRow(orgSlug, slug)
         const explicit = yield* db.query.projectMember
           .findFirst({
-            columns: { role: true },
+            columns: { roleId: true },
             where: {
               RAW: (table, _operators) =>
                 _operators.and(
-                  _operators.eq(table.projectSlug, slug),
+                  _operators.eq(table.projectId, project.projectId),
                   _operators.eq(table.userId, userId)
                 )!
             }
           })
           .pipe(Effect.orDie)
-        if (explicit) return explicit.role
+        if (explicit) return makeProjectRole(explicit.roleId)
         const orgRole = yield* db.query.member
           .findFirst({
             columns: { role: true },
@@ -330,7 +334,7 @@ export const EverhourIntegrationsLive = Layer.effect(
           })
           .pipe(Effect.orDie)
         if (orgRole?.role === "owner" || orgRole?.role === "admin") {
-          return "admin" as const
+          return "pm" as const
         }
         return yield* new NotFound()
       })
@@ -338,7 +342,7 @@ export const EverhourIntegrationsLive = Layer.effect(
     const requireAdmin = (orgSlug: string, userId: string, slug: string) =>
       Effect.gen(function* () {
         const role = yield* requireMember(orgSlug, userId, slug)
-        if (role !== "owner" && role !== "admin") {
+        if (role !== "pm") {
           return yield* new Forbidden()
         }
       })

@@ -18,7 +18,7 @@ import {
   PersonalEverhour,
   PersonalGithub,
   UserInvitation,
-  type AssignableRole,
+  type OrgAssignableRole,
   type CursorPayload,
   type InviteMemberInput
 } from "@pp/shared"
@@ -461,7 +461,7 @@ export const BetterAuthLive = Layer.effect(
           status: "pending"
         }).pipe(Effect.orDie)
       }),
-      updateMemberRole: (request, orgSlug, userId, role: AssignableRole) =>
+      updateMemberRole: (request, orgSlug, userId, role: OrgAssignableRole) =>
         setRole(request, orgSlug, userId, role),
       removeMember: Effect.fn("BetterAuth.removeMember")(function* (
         request: Request,

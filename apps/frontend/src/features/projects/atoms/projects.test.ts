@@ -43,7 +43,7 @@ const detail = Schema.decodeSync(ProjectDetail)({
       name: "Jane",
       email: "jane@example.com",
       image: null,
-      role: "member"
+      role: "developer"
     }
   ],
   pendingMembers: []
@@ -75,17 +75,17 @@ describe("project member mutations", () => {
         expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
       )
 
-      registry.set(mutation, { role: "admin" })
+      registry.set(mutation, { role: "pm" })
       const optimistic = registry.get(view)
       if (!AsyncResult.isSuccess(optimistic)) {
         throw new Error("no optimistic project")
       }
       expect(optimistic.waiting).toBe(true)
-      expect(optimistic.value.members[0]?.role).toBe("admin")
+      expect(optimistic.value.members[0]?.role).toBe("pm")
 
       served = {
         ...detail,
-        members: [{ ...detail.members[0], role: "admin" }]
+        members: [{ ...detail.members[0], role: "pm" }]
       }
       finish?.(Response.json(encode(served)))
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
@@ -129,15 +129,15 @@ describe("project member mutations", () => {
         expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
       )
 
-      registry.set(first, { role: "admin" })
-      registry.set(second, { role: "admin" })
+      registry.set(first, { role: "pm" })
+      registry.set(second, { role: "pm" })
       await vi.waitFor(() => expect(finishes.size).toBe(2))
 
       finishes.get("/api/orgs/acme/projects/web/members/user-2")?.(
         Response.json(
           encode({
             ...initial,
-            members: [{ ...detail.members[0], role: "admin" }, secondMember]
+            members: [{ ...detail.members[0], role: "pm" }, secondMember]
           })
         )
       )
@@ -148,8 +148,8 @@ describe("project member mutations", () => {
         throw new Error("no project after first response")
       }
       expect(afterFirst.value.members.map((member) => member.role)).toEqual([
-        "admin",
-        "admin"
+        "pm",
+        "pm"
       ])
 
       finishes.get("/api/orgs/acme/projects/web/members/user-3")?.(
@@ -157,8 +157,8 @@ describe("project member mutations", () => {
           encode({
             ...initial,
             members: [
-              { ...detail.members[0], role: "admin" },
-              { ...secondMember, role: "admin" }
+              { ...detail.members[0], role: "pm" },
+              { ...secondMember, role: "pm" }
             ]
           })
         )
@@ -187,7 +187,7 @@ describe("project member mutations", () => {
                 {
                   invitationId: "inv-1",
                   email: "new@example.com",
-                  role: "member",
+                  role: "developer",
                   expiresAt: DateTime.toDate(
                     DateTime.makeUnsafe("2026-04-02T00:00:00.000Z")
                   )
@@ -219,7 +219,7 @@ describe("project member mutations", () => {
         expect(AsyncResult.isSuccess(registry.get(probe))).toBe(true)
       })
       fetched.clear()
-      registry.set(mutation, { email: "new@example.com", role: "member" })
+      registry.set(mutation, { email: "new@example.com", role: "developer" })
       await vi.waitFor(() => {
         expect(registry.get(mutation).waiting).toBe(false)
         expect(fetched.get("orgMembers") ?? 0).toBeGreaterThan(0)
@@ -236,7 +236,7 @@ describe("project member mutations", () => {
         {
           invitationId: "inv-1",
           email: "new@example.com",
-          role: "member" as const,
+          role: "developer" as const,
           expiresAt: DateTime.toDate(
             DateTime.makeUnsafe("2026-04-02T00:00:00.000Z")
           )

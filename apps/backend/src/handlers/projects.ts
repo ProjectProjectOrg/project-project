@@ -164,20 +164,6 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           )
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
       )
-      .handle("transferOwnership", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const projects = yield* Projects
-          return yield* projects.transferOwnership(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            payload.userId
-          )
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
-      )
       .handle("removeMember", ({ params }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser

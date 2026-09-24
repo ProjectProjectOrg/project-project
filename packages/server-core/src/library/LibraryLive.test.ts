@@ -13,6 +13,7 @@ import {
   type Layer as LibraryLayer,
   type PartialTemplateDefaults,
   Slug,
+  type OrgRole,
   type Role
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -34,16 +35,16 @@ const templateKey = Schema.decodeUnknownSync(TemplateKey)
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const slug = Schema.decodeUnknownSync(Slug)
 
-const ORG_ROLES: Readonly<Record<string, Role>> = {
+const ORG_ROLES: Readonly<Record<string, OrgRole>> = {
   "org-admin": "admin",
   "project-admin": "member",
   member: "member"
 }
 
 const PROJECT_ROLES: Readonly<Record<string, Role>> = {
-  "org-admin": "admin",
-  "project-admin": "admin",
-  member: "member"
+  "org-admin": "pm",
+  "project-admin": "pm",
+  member: "developer"
 }
 
 type World = Readonly<{
@@ -153,7 +154,6 @@ const projectDocument = (
   icon: "folder",
   color: "#3b82f6",
   createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-01T00:00:00.000Z")),
-  members: [],
   github: null,
   setup: {
     workflowReviewedAt: null,

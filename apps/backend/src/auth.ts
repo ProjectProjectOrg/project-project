@@ -15,8 +15,9 @@ import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { APIError } from "better-auth/api"
 import { admin, jwt, magicLink, organization } from "better-auth/plugins"
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq, isNull, ne } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/node-postgres"
+import { alias } from "drizzle-orm/pg-core"
 import { FileSystem, Path, Schema, Struct } from "effect"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -54,13 +55,14 @@ export function lastOrgOwnerBlocked(input: {
   return input.otherOwnerCount === 0
 }
 
-export function projectOwnerRemovalError(
+export function lastProjectPmError(
   projectSlugs: ReadonlyArray<string>
 ): APIError | undefined {
   if (projectSlugs.length === 0) return undefined
   return new APIError(409, {
-    code: "PROJECT_OWNER_REMOVAL_BLOCKED",
-    message: "Transfer project ownership before removing this member",
+    code: "LAST_PROJECT_PM_BLOCKED",
+    message:
+      "Make someone else PM of these projects before removing this member",
     projectSlugs: [...projectSlugs]
   })
 }
@@ -98,20 +100,33 @@ async function assertNotLastOrgOwner(
   }
 }
 
-async function projectOwnerSlugs(organizationId: string, userId: string) {
+async function lastPmProjectSlugs(organizationId: string, userId: string) {
+  const otherPm = alias(projectMember, "other_pm")
   return db
     .select({ slug: projectIndex.slug })
     .from(projectIndex)
     .innerJoin(
       projectMember,
       and(
-        eq(projectMember.projectSlug, projectIndex.slug),
+        eq(projectMember.projectId, projectIndex.id),
         eq(projectMember.userId, userId),
-        eq(projectMember.role, "owner")
+        eq(projectMember.roleId, "pm")
+      )
+    )
+    .leftJoin(
+      otherPm,
+      and(
+        eq(otherPm.projectId, projectIndex.id),
+        eq(otherPm.roleId, "pm"),
+        ne(otherPm.userId, userId)
       )
     )
     .where(
-      and(eq(projectIndex.organizationId, organizationId), publishedProject())
+      and(
+        eq(projectIndex.organizationId, organizationId),
+        isNull(otherPm.userId),
+        publishedProject()
+      )
     )
 }
 
@@ -188,39 +203,22 @@ async function unassignUserFromActiveTicketsOnDisk(
   )
 }
 
-async function cleanupRemovedOrgMemberProjectAccess(
+async function unassignRemovedOrgMember(
   orgSlug: string,
   organizationId: string,
   userId: string
 ) {
-  const rows = await db
+  const projects = await db
     .select({ slug: projectIndex.slug })
     .from(projectIndex)
-    .innerJoin(
-      projectMember,
-      and(
-        eq(projectMember.projectSlug, projectIndex.slug),
-        eq(projectMember.userId, userId)
-      )
-    )
     .where(
       and(eq(projectIndex.organizationId, organizationId), publishedProject())
     )
-  const slugs = rows.map((row) => row.slug)
   await Promise.all(
-    slugs.map((slug) =>
-      unassignUserFromActiveTicketsOnDisk(orgSlug, slug, userId)
+    projects.map((project) =>
+      unassignUserFromActiveTicketsOnDisk(orgSlug, project.slug, userId)
     )
   )
-  if (slugs.length === 0) return
-  await db
-    .delete(projectMember)
-    .where(
-      and(
-        eq(projectMember.userId, userId),
-        inArray(projectMember.projectSlug, slugs)
-      )
-    )
 }
 
 export const mcpResource = new URL(
@@ -369,17 +367,17 @@ export const auth = betterAuth({
             member.userId,
             null
           )
-          const owned = await projectOwnerSlugs(
+          const lastPm = await lastPmProjectSlugs(
             member.organizationId,
             member.userId
           )
-          const blocked = projectOwnerRemovalError(
-            owned.map((project) => project.slug)
+          const blocked = lastProjectPmError(
+            lastPm.map((project) => project.slug)
           )
           if (blocked) throw blocked
         },
         afterRemoveMember: async ({ member, organization }) => {
-          await cleanupRemovedOrgMemberProjectAccess(
+          await unassignRemovedOrgMember(
             organization.slug,
             member.organizationId,
             member.userId
@@ -396,16 +394,15 @@ export const auth = betterAuth({
           await db.transaction(async (tx) => {
             const grants = await tx
               .select({
-                projectSlug: projectInviteGrant.projectSlug,
                 projectId: projectInviteGrant.projectId,
-                role: projectInviteGrant.role
+                roleId: projectInviteGrant.roleId
               })
               .from(projectInviteGrant)
               .innerJoin(
                 projectIndex,
                 and(
-                  eq(projectIndex.slug, projectInviteGrant.projectSlug),
                   eq(projectIndex.id, projectInviteGrant.projectId),
+                  eq(projectIndex.organizationId, invitation.organizationId),
                   publishedProject()
                 )
               )
@@ -416,14 +413,14 @@ export const auth = betterAuth({
                 .insert(projectMember)
                 .values(
                   grants.map((grant) => ({
-                    projectSlug: grant.projectSlug,
                     projectId: grant.projectId,
+                    organizationId: invitation.organizationId,
                     userId: user.id,
-                    role: grant.role
+                    roleId: grant.roleId
                   }))
                 )
                 .onConflictDoNothing({
-                  target: [projectMember.projectSlug, projectMember.userId]
+                  target: [projectMember.projectId, projectMember.userId]
                 })
             }
 

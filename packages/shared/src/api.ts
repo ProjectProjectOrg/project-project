@@ -56,7 +56,7 @@ import {
   InvitationNotAcceptable,
   MentionInvalid,
   NotFound,
-  ProjectOwnerRemovalBlocked,
+  LastProjectPmBlocked,
   RateLimited,
   RepoGone,
   SprintCompletedImmutable,
@@ -181,7 +181,6 @@ import {
   Slug,
   StartGithubInstallInput,
   StartGithubInstallResponse,
-  TransferOwnershipInput,
   UpdateMemberInput,
   UpdateProjectInput,
   UpdateProjectSetupInput
@@ -321,13 +320,7 @@ const OrgGroup = HttpApiGroup.make("org")
     HttpApiEndpoint.delete("removeMember", "/orgs/:orgSlug/members/:userId", {
       params: OrgMemberPath,
       success: HttpApiSchema.NoContent,
-      error: [
-        Unauthorized,
-        NotFound,
-        Forbidden,
-        Conflict,
-        ProjectOwnerRemovalBlocked
-      ]
+      error: [Unauthorized, NotFound, Forbidden, Conflict, LastProjectPmBlocked]
     })
   )
   .add(
@@ -535,7 +528,7 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       params: ProjectPath,
       payload: AddMemberInput,
       success: ProjectDetail,
-      error: [Unauthorized, NotFound, Forbidden]
+      error: [Unauthorized, NotFound, Forbidden, LastProjectPmBlocked]
     })
   )
   .add(
@@ -546,19 +539,7 @@ const ProjectsGroup = HttpApiGroup.make("projects")
         params: ProjectMemberPath,
         payload: UpdateMemberInput,
         success: ProjectDetail,
-        error: [Unauthorized, NotFound, Forbidden]
-      }
-    )
-  )
-  .add(
-    HttpApiEndpoint.post(
-      "transferOwnership",
-      "/orgs/:orgSlug/projects/:slug/ownership",
-      {
-        params: ProjectPath,
-        payload: TransferOwnershipInput,
-        success: ProjectDetail,
-        error: [Unauthorized, NotFound, Forbidden, Validation]
+        error: [Unauthorized, NotFound, Forbidden, LastProjectPmBlocked]
       }
     )
   )
@@ -569,7 +550,7 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       {
         params: ProjectMemberPath,
         success: ProjectDetail,
-        error: [Unauthorized, NotFound, Forbidden, ProjectOwnerRemovalBlocked]
+        error: [Unauthorized, NotFound, Forbidden, LastProjectPmBlocked]
       }
     )
   )

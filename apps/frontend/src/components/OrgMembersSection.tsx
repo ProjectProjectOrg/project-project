@@ -1,6 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type {
-  AssignableRole,
+  OrgAssignableRole,
   OrgInvitation,
   OrgMember,
   OrgRole
@@ -66,7 +66,7 @@ const ROLE_META: Record<
 const ASSIGNABLE_ROLES = [
   "admin",
   "member"
-] satisfies ReadonlyArray<AssignableRole>
+] satisfies ReadonlyArray<OrgAssignableRole>
 
 export function OrgMembersSection({
   orgSlug,
@@ -143,7 +143,7 @@ function AddMemberRow({
   const inviteState = useAtomValue(inviteMember(req))
   const submitting = inviteState.waiting
   const [email, setEmail] = useState("")
-  const [role, setRole] = useState<AssignableRole>("member")
+  const [role, setRole] = useState<OrgAssignableRole>("member")
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<OrgActionError | null>(null)
   const trimmed = email.trim()
@@ -207,9 +207,9 @@ function RoleSelect({
   onChange,
   roles = ASSIGNABLE_ROLES
 }: {
-  value: AssignableRole
-  onChange: (r: AssignableRole) => void
-  roles?: ReadonlyArray<AssignableRole>
+  value: OrgAssignableRole
+  onChange: (r: OrgAssignableRole) => void
+  roles?: ReadonlyArray<OrgAssignableRole>
 }) {
   const meta = ROLE_META[value]
   const Icon = meta.icon
@@ -511,7 +511,7 @@ function MemberMenu({
     }
   }
 
-  async function onUpdateRole(role: AssignableRole) {
+  async function onUpdateRole(role: OrgAssignableRole) {
     setError(null)
     const exit = await update({ role })
     if (Exit.isFailure(exit)) setError(orgActionErrorFromExit(exit))

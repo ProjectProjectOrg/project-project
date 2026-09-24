@@ -108,7 +108,7 @@ export const ProjectStatusesLive = Layer.effect(
       input
     ) =>
       Effect.gen(function* () {
-        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
+        yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
         const projectId = yield* projectIdFromSlug(slug)
 
         const derived = deriveStatusSlug(input.label)
@@ -162,7 +162,7 @@ export const ProjectStatusesLive = Layer.effect(
       input
     ) =>
       Effect.gen(function* () {
-        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
+        yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
         const projectId = yield* projectIdFromSlug(slug)
 
         const current = yield* db.query.projectStatus
@@ -259,7 +259,7 @@ export const ProjectStatusesLive = Layer.effect(
       input
     ) =>
       Effect.gen(function* () {
-        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
+        yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
         const projectId = yield* projectIdFromSlug(slug)
         const updated = yield* db
           .update(projectStatus)
@@ -284,7 +284,7 @@ export const ProjectStatusesLive = Layer.effect(
       input
     ) =>
       Effect.gen(function* () {
-        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
+        yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
         if (isReservedStatusSlug(statusSlug)) return yield* new Forbidden()
         const projectId = yield* projectIdFromSlug(slug)
 

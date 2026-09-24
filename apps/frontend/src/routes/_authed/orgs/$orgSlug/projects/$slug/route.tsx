@@ -151,8 +151,7 @@ function ProjectSetupSlot({
   slug: string
   project: ProjectDetailType
 }) {
-  const { role } = useProjectRole()
-  const canManage = role === "owner" || role === "admin"
+  const { isPm: canManage } = useProjectRole()
   const render = useCallback(
     () => (
       <ProjectSetupRail

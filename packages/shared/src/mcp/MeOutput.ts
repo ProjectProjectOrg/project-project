@@ -1,17 +1,14 @@
 // Output schema for the MCP `me` tool: the authenticated user plus their
-// role in each org they belong to. We reuse the three-tier `Role` literal
-// from `schemas/Project` — the spec uses the same owner/admin/member tiers
-// at both the org and project levels, so duplicating the literal would just
-// invite drift.
+// role in each org they belong to.
 
 import * as Schema from "effect/Schema"
 
-import { Role } from "../schemas/Project"
+import { OrgRole } from "../schemas/Org"
 import { User } from "../schemas/User"
 
 export const MeRole = Schema.Struct({
   orgSlug: Schema.String,
-  role: Role
+  role: OrgRole
 })
 export type MeRole = typeof MeRole.Type
 

@@ -148,7 +148,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
       expect([orgSlug, userId, projectSlug]).toEqual([slug, user.id, slug])
       return options.denied
         ? Effect.fail(new NotFound())
-        : Effect.succeed({ role: "member" })
+        : Effect.succeed({ role: "developer" as const })
     }
   })
   const dependencies = Layer.mergeAll(

@@ -150,8 +150,8 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
         ]
       )
       await pool.query(
-        "insert into project_member (project_slug, project_id, user_id, role) values ($1, $2, $3, 'owner')",
-        [slug, id, userId]
+        "insert into project_member (project_id, organization_id, user_id, role_id) values ($1, $2, $3, 'pm')",
+        [id, organizationId, userId]
       )
     }
 

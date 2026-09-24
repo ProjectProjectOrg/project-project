@@ -110,11 +110,7 @@ data/projects/<slug>/docs/<...folders>/<doc-slug>.md
 ---
 slug: design-system
 name: Design System Rewrite
-owner: github_42 # users.id from postgres
-members:
-  - { id: github_42, role: owner }
-  - { id: github_88, role: admin }
-  - { id: github_103, role: member }
+createdBy: github_42 # users.id from postgres, audit only
 github:
   repoOwner: woutervh
   repoName: design-system
@@ -377,18 +373,38 @@ This is the kind of place where Effect's typed errors really earn their keep.
 
 ### Permission model
 
-Three roles: `owner`, `admin`, `member`. Stored in `project.md`'s `members` frontmatter.
+Access lives in Postgres, not in markdown. There are two levels, and org roles never grant access to project content.
 
-| Action              | owner | admin | member |
-| ------------------- | ----- | ----- | ------ |
-| Read project        | ✓     | ✓     | ✓      |
-| Read/write tickets  | ✓     | ✓     | ✓      |
-| Add/remove members  | ✓     | ✓     | –      |
-| Change roles        | ✓     | –     | –      |
-| Delete project      | ✓     | –     | –      |
-| Connect GitHub repo | ✓     | ✓     | –      |
+- **Org roles** (Better Auth's `member.role`): `owner`, `admin`, `member`, `guest`. They govern the org: its people, integrations and projects.
+- **Project roles** (`project_member.role_id`): `pm`, `developer`, `client`. One per person per project. Only people in the org can be on a project; leaving the org removes their project access.
 
-The permission check is a single function per action, called at the top of every Projects/Tickets service method. Returns `Forbidden` as a tagged error. Don't try to be clever about caching this — read the project markdown, check, done.
+Both role sets and their permissions are defined in `@pp/access` (`packages/access`). These matrices are its spec.
+
+| Org action                                               | owner | admin | member | guest |
+| -------------------------------------------------------- | ----- | ----- | ------ | ----- |
+| Delete org, transfer ownership, billing                  | ✓     | –     | –      | –     |
+| Invite and remove people, change org roles below owner   | ✓     | ✓     | –      | –     |
+| Integrations, storage, org blocks and templates          | ✓     | ✓     | –      | –     |
+| See all projects, manage their members, archive/delete   | ✓     | ✓     | –      | –     |
+| Create projects (creator becomes PM)                     | ✓     | ✓     | ✓      | –     |
+| See the org member directory                             | ✓     | ✓     | ✓      | –     |
+
+| Project action                                           | pm | developer | client      |
+| -------------------------------------------------------- | -- | --------- | ----------- |
+| View board, tickets, sprints, docs; create tickets       | ✓  | ✓         | ✓           |
+| Edit ticket content                                      | ✓  | ✓         | own tickets |
+| Change status and assignee                               | ✓  | ✓         | –           |
+| Delete tickets, plan sprints                             | ✓  | –         | –           |
+| Comment; edit and delete own comments                    | ✓  | ✓         | ✓           |
+| Edit or delete others' comments                          | ✓  | –         | –           |
+| Epics, edit docs, GitHub, Everhour                       | ✓  | ✓         | –           |
+| Figma links                                              | ✓  | ✓         | ✓           |
+| Tags, statuses, workflow, blocks and templates           | ✓  | –         | –           |
+| Project settings and integrations, members, archive/delete | ✓ | –        | –           |
+
+A project always keeps at least one PM.
+
+Every service method checks the caller's permissions before it does anything and fails with a tagged `Forbidden`, or `NotFound` when the caller isn't on the project at all.
 
 ---
 
@@ -642,7 +658,7 @@ Frontmatter `tags` is the source of truth for which docs carry which tag; `_meta
 
 ### Permissions
 
-Same model as the rest of the project. Read: any member. Write/create/delete/move: any member. Tag definitions in `_meta.json`: owner/admin only (so ad-hoc tag spam doesn't pollute the canonical list, but ad-hoc _use_ is fine).
+Same model as the rest of the project. Read: any member. Write/create/delete/move: any member. Tag definitions in `_meta.json`: PMs only (so ad-hoc tag spam doesn't pollute the canonical list, but ad-hoc _use_ is fine).
 
 ### UI
 

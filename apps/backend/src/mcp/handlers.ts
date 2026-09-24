@@ -631,8 +631,7 @@ const rebuild_ticket_index = (input: {
     const current = yield* McpCurrentUser
     const projects = yield* Projects.Projects
     yield* projects.requireRole(input.orgSlug, current.id, input.projectSlug, [
-      "owner",
-      "admin"
+      "pm"
     ])
     const ticketIndex = yield* TicketIndex
     const project = yield* ticketIndex.projectFor(

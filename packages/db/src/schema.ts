@@ -64,7 +64,7 @@ import {
 } from "drizzle-orm/pg-core"
 
 export * from "./auth-schema"
-import { invitation, organization, user } from "./auth-schema"
+import { invitation, member, organization, user } from "./auth-schema"
 import * as authSchema from "./auth-schema"
 
 export type OrgIntegrationConfig = OrgEverhourConfig | Record<string, never>
@@ -105,26 +105,54 @@ export const projectIndex = pgTable(
   ]
 )
 
-export const projectMember = pgTable(
-  "project_member",
+export const projectRole = pgTable(
+  "project_role",
   {
-    projectSlug: text("project_slug")
-      .notNull()
-      .references(() => projectIndex.slug, { onDelete: "cascade" }),
-    projectId: uuid("project_id").references(() => projectIndex.id, {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id").references(() => organization.id, {
       onDelete: "cascade"
     }),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    role: text("role", { enum: ["owner", "admin", "member"] }).notNull(),
+    name: text("name").notNull(),
+    permissions: jsonb("permissions"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow()
   },
   (table) => [
-    primaryKey({ columns: [table.projectSlug, table.userId] }),
-    index("project_member_user_idx").on(table.userId)
+    check(
+      "project_role_permissions_check",
+      sql`(${table.organizationId} is null) = (${table.permissions} is null)`
+    )
+  ]
+)
+
+export const projectMember = pgTable(
+  "project_member",
+  {
+    projectId: uuid("project_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+    userId: text("user_id").notNull(),
+    roleId: text("role_id")
+      .notNull()
+      .references(() => projectRole.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.userId] }),
+    foreignKey({
+      name: "project_member_project_fkey",
+      columns: [table.projectId, table.organizationId],
+      foreignColumns: [projectIndex.id, projectIndex.organizationId]
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "project_member_org_member_fkey",
+      columns: [table.organizationId, table.userId],
+      foreignColumns: [member.organizationId, member.userId]
+    }).onDelete("cascade"),
+    index("project_member_user_idx").on(table.userId),
+    index("project_member_org_user_idx").on(table.organizationId, table.userId)
   ]
 )
 
@@ -134,25 +162,19 @@ export const projectInviteGrant = pgTable(
     invitationId: text("invitation_id")
       .notNull()
       .references(() => invitation.id, { onDelete: "cascade" }),
-    projectSlug: text("project_slug").notNull(),
-    projectId: uuid("project_id").notNull(),
-    role: text("role", { enum: ["admin", "member"] }).notNull(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projectIndex.id, { onDelete: "cascade" }),
+    roleId: text("role_id")
+      .notNull()
+      .references(() => projectRole.id),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow()
   },
   (table) => [
-    primaryKey({ columns: [table.invitationId, table.projectSlug] }),
-    foreignKey({
-      name: "project_invite_grant_project_slug_id_fkey",
-      columns: [table.projectSlug, table.projectId],
-      foreignColumns: [projectIndex.slug, projectIndex.id]
-    }).onDelete("cascade"),
-    check(
-      "project_invite_grant_role_check",
-      sql`${table.role} in ('admin', 'member')`
-    ),
-    index("project_invite_grant_project_idx").on(table.projectSlug)
+    primaryKey({ columns: [table.invitationId, table.projectId] }),
+    index("project_invite_grant_project_idx").on(table.projectId)
   ]
 )
 
@@ -1009,6 +1031,7 @@ export const relations = defineRelations(
     figmaLinkIndex,
     figmaReference,
     projectIndex,
+    projectRole,
     projectMember,
     projectInviteGrant,
     projectTag,
@@ -1058,13 +1081,18 @@ export const relations = defineRelations(
     projectMember: {
       project: r.one.projectIndex({
         optional: false,
-        from: [r.projectMember.projectSlug],
-        to: [r.projectIndex.slug]
+        from: [r.projectMember.projectId],
+        to: [r.projectIndex.id]
       }),
       user: r.one.user({
         optional: false,
         from: [r.projectMember.userId],
         to: [r.user.id]
+      }),
+      role: r.one.projectRole({
+        optional: false,
+        from: [r.projectMember.roleId],
+        to: [r.projectRole.id]
       })
     },
     projectInviteGrant: {
@@ -1075,8 +1103,8 @@ export const relations = defineRelations(
       }),
       project: r.one.projectIndex({
         optional: false,
-        from: [r.projectInviteGrant.projectSlug],
-        to: [r.projectIndex.slug]
+        from: [r.projectInviteGrant.projectId],
+        to: [r.projectIndex.id]
       })
     },
     projectTag: {

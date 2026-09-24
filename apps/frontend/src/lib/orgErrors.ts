@@ -26,8 +26,8 @@ const projectSlugsOf = (error: unknown): ReadonlyArray<string> | undefined => {
 
 const taggedOrgActionError = (error: unknown): OrgActionError | null =>
   Match.value(error).pipe(
-    Match.when({ _tag: "ProjectOwnerRemovalBlocked" }, (blocked) => ({
-      message: m.org_members_project_owner_removal_blocked(),
+    Match.when({ _tag: "LastProjectPmBlocked" }, (blocked) => ({
+      message: m.org_members_last_project_pm_blocked(),
       projectSlugs: projectSlugsOf(blocked)
     })),
     Match.when({ _tag: "Conflict", reason: "already_member" }, () => ({
@@ -57,9 +57,9 @@ export const orgActionError = (error: unknown): OrgActionError => {
   if (hasErrorCode(error, "USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION")) {
     return { message: m.org_members_error_already_invited() }
   }
-  if (hasErrorCode(error, "PROJECT_OWNER_REMOVAL_BLOCKED")) {
+  if (hasErrorCode(error, "LAST_PROJECT_PM_BLOCKED")) {
     return {
-      message: m.org_members_project_owner_removal_blocked(),
+      message: m.org_members_last_project_pm_blocked(),
       projectSlugs: projectSlugsOf(error)
     }
   }

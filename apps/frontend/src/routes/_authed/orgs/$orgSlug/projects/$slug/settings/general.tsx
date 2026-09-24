@@ -38,8 +38,7 @@ function GeneralSettings() {
   const remove = useAtomSet(deleteProject(req), { mode: "promiseExit" })
   const removeState = useAtomValue(deleteProject(req))
   const navigate = useNavigate()
-  const { role } = useProjectRole()
-  const canEdit = role === "owner" || role === "admin"
+  const { isPm: canEdit } = useProjectRole()
   const [name, setName] = useState(project.name)
   const [status, setStatus] = useState<SaveStatus>("idle")
 
@@ -131,7 +130,7 @@ function GeneralSettings() {
         )}
       </section>
 
-      {role === "owner" ? (
+      {canEdit ? (
         <section className="flex items-center justify-between gap-4 border-t border-border pt-6">
           <div>
             <h2 className="text-lg font-semibold tracking-tight text-destructive">

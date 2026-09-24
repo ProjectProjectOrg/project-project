@@ -68,7 +68,7 @@ type KindOps<Draft extends Keyed, Definition extends Keyed> = Readonly<{
   allowsBlocks: boolean
 }>
 
-const EDITOR_ROLES = ["owner", "admin"] as const
+const EDITOR_ROLES = ["pm"] as const
 
 const NO_LAYER_DEFAULTS: LayerDefaults = { org: {}, project: null }
 
@@ -236,9 +236,7 @@ export const LibraryLive = Layer.effect(
       db.query.projectMember
         .findMany({
           columns: { userId: true },
-          where: {
-            RAW: (table, operators) => operators.eq(table.projectSlug, slug)
-          }
+          where: { project: { slug } }
         })
         .pipe(
           Effect.map((rows) => new Set<string>(rows.map((row) => row.userId))),
@@ -606,11 +604,7 @@ export const LibraryLive = Layer.effect(
         [layersFor(orgSlug, slug), layerDefaultsFor(orgSlug, slug)],
         { concurrency: 2 }
       )
-      return resolveLibrary(
-        layers,
-        defaults,
-        membership.role === "owner" || membership.role === "admin"
-      )
+      return resolveLibrary(layers, defaults, membership.role === "pm")
     })
 
     const createBlock = (

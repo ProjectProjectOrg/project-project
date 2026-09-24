@@ -153,6 +153,7 @@
         "pg": "^8.20.0",
       },
       "devDependencies": {
+        "@effect/platform-bun": "4.0.0-rc.116",
         "@effect/vitest": "4.0.0-rc.116",
         "@types/pg": "^8.20.0",
         "better-auth": "1.7.3",
@@ -193,6 +194,7 @@
       "name": "@pp/shared",
       "version": "0.0.0",
       "dependencies": {
+        "@pp/access": "workspace:*",
         "effect": "4.0.0-rc.116",
       },
       "devDependencies": {

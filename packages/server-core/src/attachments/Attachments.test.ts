@@ -5,7 +5,7 @@ import {
   ATTACHMENT_MAX_BYTES,
   isAttachmentDeletable,
   NotFound,
-  type Role
+  type OrgRole as Role
 } from "@pp/shared"
 import { PgDialect } from "drizzle-orm/pg-core"
 import * as DateTime from "effect/DateTime"

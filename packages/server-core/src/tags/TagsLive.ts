@@ -140,7 +140,7 @@ export const TagsLive = Layer.effect(
       input: CreateTagInput
     ): Effect.Effect<Tag, NotFound | Forbidden | Conflict> =>
       Effect.gen(function* () {
-        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
+        yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
         const projectId = yield* projectIdFromSlug(slug)
 
         const existing = yield* db.query.projectTag
@@ -196,7 +196,7 @@ export const TagsLive = Layer.effect(
       patch: UpdateTagInput
     ): Effect.Effect<Tag, NotFound | Forbidden | Conflict | MarkdownError> =>
       Effect.gen(function* () {
-        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
+        yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
         const projectId = yield* projectIdFromSlug(slug)
 
         const existing = yield* db.query.projectTag
@@ -259,7 +259,7 @@ export const TagsLive = Layer.effect(
       name: string
     ): Effect.Effect<void, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
-        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
+        yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
         const projectId = yield* projectIdFromSlug(slug)
 
         const existingRow = yield* db.query.projectTag

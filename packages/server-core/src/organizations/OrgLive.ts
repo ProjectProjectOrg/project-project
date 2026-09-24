@@ -6,7 +6,7 @@ import {
   NotFound,
   ORG_DELETE_GRACE_DAYS,
   type OrgDetail,
-  Role
+  OrgRole
 } from "@pp/shared"
 import { and, eq, isNull } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
@@ -17,7 +17,7 @@ import * as Schema from "effect/Schema"
 import { CurrentOrg } from "./CurrentOrg"
 import { Org, type OrgShape } from "./Org"
 
-const makeRole = Schema.decodeUnknownSync(Role)
+const makeRole = Schema.decodeUnknownSync(OrgRole)
 
 const purgeAtFor = (deletedAt: Date): Date =>
   DateTime.toDate(

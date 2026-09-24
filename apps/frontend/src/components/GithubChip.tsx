@@ -43,7 +43,7 @@ type Props = {
 export function GithubChip({ orgSlug, slug, github, callerRole }: Props) {
   const viewer = useAtomValue(me())
   const canManage =
-    callerRole === "owner" &&
+    callerRole === "pm" &&
     Result.isSuccess(viewer) &&
     viewer.value.activeOrgSlug === orgSlug
   const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
