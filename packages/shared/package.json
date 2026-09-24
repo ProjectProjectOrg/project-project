@@ -13,10 +13,10 @@
     "lint:fix": "oxlint . --fix"
   },
   "dependencies": {
-    "effect": "4.0.0-rc.112"
+    "effect": "4.0.0-rc.116"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-rc.112",
+    "@effect/vitest": "4.0.0-rc.116",
     "vitest": "4.1.11"
   }
 }
