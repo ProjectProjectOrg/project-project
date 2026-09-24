@@ -96,8 +96,7 @@ import {
   slashMenuBounds,
   slashMenuSpan,
   type SlashMenuFit,
-  type SlashMenuPlacement,
-  type SlashMenuSpan
+  type SlashMenuPlacement
 } from "./slashMenuFit"
 import {
   cycleSlashTab,
@@ -576,7 +575,12 @@ function SlashMenuList({
 }>) {
   const frameRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-  const layout = useSlashMenuLayout(frameRef, menuRef, editor.getRootElement())
+  const layout = useSlashMenuLayout(
+    frameRef,
+    menuRef,
+    editor.getRootElement(),
+    query
+  )
   const labelled = showsSectionLabel(menu)
   const hasTabs = menu.tabs.length > 1
 
@@ -622,12 +626,12 @@ function SlashMenuList({
             ? { visibility: "hidden" }
             : {
                 width: layout.fit.width,
-                left: layout.fit.offset,
+                left: layout.left,
                 top: layout.placement.top
               }
         }
         className={cn(
-          "absolute top-0 left-0 z-50 flex w-[28rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-border/60 bg-card text-foreground shadow-[0_4px_12px_rgba(0,0,0,0.02)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]",
+          "fixed top-0 left-0 z-50 flex w-[28rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-border/60 bg-card text-foreground shadow-[0_4px_12px_rgba(0,0,0,0.02)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]",
           !hasTabs && "[&_.scroll-divider]:border-t-0"
         )}
       >
@@ -692,29 +696,42 @@ function SlashMenuList({
 type SlashMenuLayout = Readonly<{
   fit: SlashMenuFit
   placement: SlashMenuPlacement
+  left: number
 }>
 
 const sameLayout = (a: SlashMenuLayout | null, b: SlashMenuLayout): boolean =>
   a !== null &&
   a.fit.preview === b.fit.preview &&
   a.fit.width === b.fit.width &&
-  a.fit.offset === b.fit.offset &&
+  a.left === b.left &&
   a.placement.side === b.placement.side &&
   a.placement.top === b.placement.top
 
-const caretLine = (fallback: DOMRect): SlashMenuSpan => {
+type TriggerRect = Readonly<{ left: number; top: number; bottom: number }>
+
+const triggerRect = (query: string, fallback: DOMRect): TriggerRect => {
   const selection = window.getSelection()
-  if (selection !== null && selection.rangeCount > 0) {
-    const rect = selection.getRangeAt(0).getBoundingClientRect()
-    if (rect.height > 0) return { top: rect.top, bottom: rect.bottom }
-  }
-  return { top: fallback.top, bottom: fallback.bottom }
+  if (selection === null || selection.rangeCount === 0)
+    return { left: fallback.left, top: fallback.top, bottom: fallback.bottom }
+  const caret = selection.getRangeAt(0)
+  const trigger = caret.cloneRange()
+  const node = caret.startContainer
+  if (node.nodeType === Node.TEXT_NODE)
+    trigger.setStart(node, Math.max(0, caret.startOffset - query.length - 1))
+  const rect = trigger.getBoundingClientRect()
+  if (rect.height > 0)
+    return { left: rect.left, top: rect.top, bottom: rect.bottom }
+  const line = caret.getBoundingClientRect()
+  return line.height > 0
+    ? { left: line.left, top: line.top, bottom: line.bottom }
+    : { left: fallback.left, top: fallback.top, bottom: fallback.bottom }
 }
 
 function useSlashMenuLayout(
   frameRef: RefObject<HTMLDivElement | null>,
   menuRef: RefObject<HTMLDivElement | null>,
-  root: HTMLElement | null
+  root: HTMLElement | null,
+  query: string
 ): SlashMenuLayout | null {
   const [layout, setLayout] = useState<SlashMenuLayout | null>(null)
   const measure = useCallback(() => {
@@ -724,7 +741,7 @@ function useSlashMenuLayout(
     const rem =
       Number.parseFloat(getComputedStyle(document.documentElement).fontSize) ||
       16
-    const anchor = frame.getBoundingClientRect()
+    const anchor = triggerRect(query, frame.getBoundingClientRect())
     const fit = fitSlashMenu({
       anchorLeft: anchor.left,
       bounds: slashMenuBounds(root),
@@ -732,33 +749,24 @@ function useSlashMenuLayout(
       list: SLASH_MENU_LIST_REM * rem
     })
     const placement = placeSlashMenu({
-      caret: caretLine(frame.parentElement?.getBoundingClientRect() ?? anchor),
+      caret: anchor,
       height: menu.offsetHeight,
       bounds: slashMenuSpan(root)
     })
-    const next = {
-      fit,
-      placement: { ...placement, top: placement.top - anchor.top }
-    }
+    const next = { fit, placement, left: anchor.left + fit.offset }
     setLayout((previous) => (sameLayout(previous, next) ? previous : next))
-  }, [frameRef, menuRef, root])
+  }, [frameRef, menuRef, root, query])
 
   useLayoutEffect(measure)
 
   useLayoutEffect(() => {
-    const frame = frameRef.current
-    if (frame === null) return undefined
-    const observer = new MutationObserver(measure)
-    if (frame.parentElement !== null)
-      observer.observe(frame.parentElement, { attributeFilter: ["style"] })
     window.addEventListener("resize", measure)
     document.addEventListener("scroll", measure, true)
     return () => {
-      observer.disconnect()
       window.removeEventListener("resize", measure)
       document.removeEventListener("scroll", measure, true)
     }
-  }, [frameRef, measure])
+  }, [measure])
   return layout
 }
 
