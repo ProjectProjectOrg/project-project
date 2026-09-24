@@ -102,7 +102,7 @@ export function GalleryTile({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           data-gallery-preview
-          className="block-rail-sheet ml-(--ticket-rail-inset) rounded-lg bg-muted/70 p-(--ticket-comment-pad) dark:bg-background/60"
+          className="block-rail-sheet ml-(--ticket-rail-inset) px-(--ticket-comment-pad)"
         >
           <Markdown className="text-sm">{preview}</Markdown>
         </motion.div>

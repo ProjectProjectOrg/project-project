@@ -207,10 +207,7 @@ function TemplateEditor({
             </div>
           ) : null}
           {showPreview ? (
-            <div
-              data-template-preview
-              className="ml-7 rounded-lg border border-border bg-background px-3 py-2"
-            >
+            <div data-template-preview className="ml-7 px-3 py-2">
               {preview.trim() === "" ? (
                 <p className="text-sm text-muted-foreground">
                   {m.templates_editor_preview_empty()}
