@@ -350,7 +350,7 @@ const OrgGroup = HttpApiGroup.make("org")
     HttpApiEndpoint.post("leave", "/orgs/:orgSlug/leave", {
       params: OrgPath,
       success: HttpApiSchema.NoContent,
-      error: [Unauthorized, NotFound, Conflict]
+      error: [Unauthorized, NotFound, Conflict, LastProjectPmBlocked]
     })
   )
   .middleware(Authentication)

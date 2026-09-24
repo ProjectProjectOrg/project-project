@@ -1,6 +1,7 @@
 DO $$
 DECLARE
   folded integer;
+  folded_invitations integer;
   duplicates integer;
 BEGIN
   UPDATE "member"
@@ -11,6 +12,15 @@ BEGIN
   END
   WHERE "role" NOT IN ('owner', 'admin', 'member');
   GET DIAGNOSTICS folded = ROW_COUNT;
+
+  UPDATE "invitation"
+  SET "role" = CASE
+    WHEN 'owner' = ANY (string_to_array(replace("role", ' ', ''), ',')) THEN 'owner'
+    WHEN 'admin' = ANY (string_to_array(replace("role", ' ', ''), ',')) THEN 'admin'
+    ELSE 'member'
+  END
+  WHERE "role" IS NOT NULL AND "role" NOT IN ('owner', 'admin', 'member');
+  GET DIAGNOSTICS folded_invitations = ROW_COUNT;
 
   WITH ranked AS (
     SELECT
@@ -28,12 +38,14 @@ BEGIN
   WHERE "id" IN (SELECT "id" FROM ranked WHERE position > 1);
   GET DIAGNOSTICS duplicates = ROW_COUNT;
 
-  RAISE LOG 'project_roles: folded % org roles, removed % duplicate org memberships', folded, duplicates;
+  RAISE LOG 'project_roles: folded % org roles and % invitation roles, removed % duplicate org memberships', folded, folded_invitations, duplicates;
 END $$;
 --> statement-breakpoint
 CREATE UNIQUE INDEX "member_organization_user_uidx" ON "member" ("organization_id","user_id");
 --> statement-breakpoint
 ALTER TABLE "member" ADD CONSTRAINT "member_role_check" CHECK ("role" in ('owner', 'admin', 'member', 'guest'));
+--> statement-breakpoint
+ALTER TABLE "invitation" ADD CONSTRAINT "invitation_role_check" CHECK ("role" is null or "role" in ('owner', 'admin', 'member', 'guest'));
 --> statement-breakpoint
 CREATE TABLE "project_role" (
 	"id" text PRIMARY KEY,

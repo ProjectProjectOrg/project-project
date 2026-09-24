@@ -15,7 +15,7 @@ import { migrationsFolder } from "./migrations"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
-const projectRolesMigration = "20260924125714_project_roles"
+const projectRolesMigration = "20260924133610_project_roles"
 
 const fixture = `
 INSERT INTO "user" (id, name, email) VALUES
@@ -48,7 +48,8 @@ INSERT INTO "project_member" (project_slug, user_id, role) VALUES
   ('app', 'dup', 'member'),
   ('ext', 'dev', 'owner');
 INSERT INTO "invitation" (id, organization_id, email, role, status, expires_at, inviter_id) VALUES
-  ('i1', 'o1', 'invitee@example.test', 'member', 'pending', now() + interval '7 days', 'admin');
+  ('i1', 'o1', 'invitee@example.test', 'member', 'pending', now() + interval '7 days', 'admin'),
+  ('i2', 'o1', 'comma@example.test', 'member,admin', 'pending', now() + interval '7 days', 'admin');
 INSERT INTO "project_invite_grant" (invitation_id, project_slug, project_id, role)
   SELECT 'i1', slug, id, CASE slug WHEN 'web' THEN 'admin' ELSE 'member' END
   FROM "project_index" WHERE slug IN ('web', 'app');
@@ -197,6 +198,18 @@ describe.skipIf(!databaseUrl)("project roles migration", () => {
         ).toStrictEqual([
           { invitation_id: "i1", project: "app", role_id: "developer" },
           { invitation_id: "i1", project: "web", role_id: "pm" }
+        ])
+      })
+    )
+
+    it.effect("folds comma roles on pending invitations", () =>
+      Effect.gen(function* () {
+        const database = yield* MigratedDatabase
+        expect(
+          yield* database.rows(`SELECT id, role FROM "invitation" ORDER BY id`)
+        ).toStrictEqual([
+          { id: "i1", role: "member" },
+          { id: "i2", role: "admin" }
         ])
       })
     )

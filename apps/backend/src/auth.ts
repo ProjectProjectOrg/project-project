@@ -203,7 +203,16 @@ async function unassignUserFromActiveTicketsOnDisk(
   )
 }
 
-async function unassignRemovedOrgMember(
+export async function assertNotLastProjectPm(
+  organizationId: string,
+  userId: string
+) {
+  const lastPm = await lastPmProjectSlugs(organizationId, userId)
+  const blocked = lastProjectPmError(lastPm.map((project) => project.slug))
+  if (blocked) throw blocked
+}
+
+export async function unassignRemovedOrgMember(
   orgSlug: string,
   organizationId: string,
   userId: string
@@ -367,14 +376,7 @@ export const auth = betterAuth({
             member.userId,
             null
           )
-          const lastPm = await lastPmProjectSlugs(
-            member.organizationId,
-            member.userId
-          )
-          const blocked = lastProjectPmError(
-            lastPm.map((project) => project.slug)
-          )
-          if (blocked) throw blocked
+          await assertNotLastProjectPm(member.organizationId, member.userId)
         },
         afterRemoveMember: async ({ member, organization }) => {
           await unassignRemovedOrgMember(
