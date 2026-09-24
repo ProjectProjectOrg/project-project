@@ -716,8 +716,11 @@ const triggerRect = (query: string, fallback: DOMRect): TriggerRect => {
   const caret = selection.getRangeAt(0)
   const trigger = caret.cloneRange()
   const node = caret.startContainer
-  if (node.nodeType === Node.TEXT_NODE)
-    trigger.setStart(node, Math.max(0, caret.startOffset - query.length - 1))
+  if (node.nodeType === Node.TEXT_NODE) {
+    const slashOffset = Math.max(0, caret.startOffset - query.length - 1)
+    trigger.setStart(node, slashOffset)
+    trigger.setEnd(node, slashOffset + 1)
+  }
   const rect = trigger.getBoundingClientRect()
   if (rect.height > 0)
     return { left: rect.left, top: rect.top, bottom: rect.bottom }
