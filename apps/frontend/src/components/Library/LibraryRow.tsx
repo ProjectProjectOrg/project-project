@@ -146,7 +146,7 @@ export function LibraryCard({
       {actions.length > 0 ? (
         <motion.div
           layout="position"
-          className="relative mt-auto flex items-center gap-0.5 pt-1 opacity-0 transition-opacity group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100 has-[[data-confirming]]:opacity-100"
+          className="relative mt-auto flex min-h-7 items-center gap-0.5 pt-1 opacity-0 transition-opacity group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100 has-[[data-confirming]]:opacity-100"
         >
           {actions.map((action) =>
             action === "delete" ? (
