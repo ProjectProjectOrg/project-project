@@ -13,7 +13,6 @@
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix",
     "bootstrap:org": "bun --cwd ../.. --env-file=.env \"$PWD/scripts/bootstrap-org.ts\"",
-    "migrate:orgs": "bun --cwd ../.. --env-file=.env \"$PWD/scripts/migrate-orgs.ts\"",
     "migrate:relayout": "bun --cwd ../.. --env-file=.env \"$PWD/scripts/relayout-data.ts\"",
     "benchmark:ticket-storage": "bun scripts/benchmark-ticket-storage.ts",
     "benchmark:ticket-requests": "bun --cwd ../.. --env-file=.env \"$PWD/scripts/benchmark-ticket-request-paths.ts\"",
