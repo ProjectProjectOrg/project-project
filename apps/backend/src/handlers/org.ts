@@ -176,13 +176,17 @@ export const removeMemberErrorToFailure = (
 
 export const leaveErrorToFailure = (
   error: BetterAuthError
-): Effect.Effect<never, NotFound | Conflict> =>
-  memberErrorToFailure(error).pipe(
-    Effect.catchTags({
-      Forbidden: () => new NotFound(),
-      Validation: () => new NotFound()
-    })
-  )
+): Effect.Effect<never, NotFound | Conflict | LastProjectPmBlocked> => {
+  const projectSlugs = blockingProjectSlugs(error)
+  return projectSlugs === null
+    ? memberErrorToFailure(error).pipe(
+        Effect.catchTags({
+          Forbidden: () => new NotFound(),
+          Validation: () => new NotFound()
+        })
+      )
+    : Effect.fail(new LastProjectPmBlocked({ projectSlugs }))
+}
 
 export const transferErrorToFailure = (
   error: BetterAuthError
@@ -305,11 +309,11 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
     )
     .handle("leave", ({ params }) =>
       Effect.gen(function* () {
-        yield* CurrentUser
+        const user = yield* CurrentUser
         const ba = yield* BetterAuth
         const request = yield* webRequest
         yield* ba
-          .leaveOrg(request, params.orgSlug)
+          .leaveOrg(request, params.orgSlug, user.id)
           .pipe(Effect.catchTag("BetterAuthError", leaveErrorToFailure))
       })
     )

@@ -157,7 +157,11 @@ export const invitation = pgTable(
   },
   (table) => [
     index("invitation_organizationId_idx").on(table.organizationId),
-    index("invitation_email_idx").on(table.email)
+    index("invitation_email_idx").on(table.email),
+    check(
+      "invitation_role_check",
+      sql`${table.role} is null or ${table.role} in ('owner', 'admin', 'member', 'guest')`
+    )
   ]
 )
 

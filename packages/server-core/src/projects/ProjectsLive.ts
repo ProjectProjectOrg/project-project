@@ -1394,30 +1394,35 @@ export const ProjectsLive = Layer.effect(
             return yield* replayDetail(orgSlug, slug)
           }
 
-          const currentRole = yield* memberRole(indexRow.id, target.id)
-          if (currentRole === null) {
-            yield* db
-              .insert(projectMember)
-              .values({
-                projectId: indexRow.id,
-                organizationId: indexRow.organizationId,
-                userId: target.id,
-                roleId: input.role
-              })
-              .pipe(Effect.orDie)
-          } else if (currentRole !== input.role) {
-            yield* requireAnotherPm(indexRow, currentRole)
-            yield* db
-              .update(projectMember)
-              .set({ roleId: input.role })
-              .where(
-                and(
-                  eq(projectMember.projectId, indexRow.id),
-                  eq(projectMember.userId, target.id)
-                )
-              )
-              .pipe(Effect.orDie)
-          }
+          yield* withProjectWriteLock(
+            slug,
+            Effect.gen(function* () {
+              const currentRole = yield* memberRole(indexRow.id, target.id)
+              if (currentRole === null) {
+                yield* db
+                  .insert(projectMember)
+                  .values({
+                    projectId: indexRow.id,
+                    organizationId: indexRow.organizationId,
+                    userId: target.id,
+                    roleId: input.role
+                  })
+                  .pipe(Effect.orDie)
+              } else if (currentRole !== input.role) {
+                yield* requireAnotherPm(indexRow, currentRole)
+                yield* db
+                  .update(projectMember)
+                  .set({ roleId: input.role })
+                  .where(
+                    and(
+                      eq(projectMember.projectId, indexRow.id),
+                      eq(projectMember.userId, target.id)
+                    )
+                  )
+                  .pipe(Effect.orDie)
+              }
+            })
+          )
 
           return yield* replayDetail(orgSlug, slug)
         })
@@ -1501,21 +1506,26 @@ export const ProjectsLive = Layer.effect(
         Effect.gen(function* () {
           yield* requireRole(orgSlug, userId, slug, ["pm"])
           const indexRow = yield* getIndexRowInOrg(orgSlug, slug)
-          const currentRole = yield* memberRole(indexRow.id, targetUserId)
-          if (currentRole === null) return yield* new NotFound()
-          if (currentRole !== nextRole) {
-            yield* requireAnotherPm(indexRow, currentRole)
-          }
-          yield* db
-            .update(projectMember)
-            .set({ roleId: nextRole })
-            .where(
-              and(
-                eq(projectMember.projectId, indexRow.id),
-                eq(projectMember.userId, targetUserId)
-              )
-            )
-            .pipe(Effect.orDie)
+          yield* withProjectWriteLock(
+            slug,
+            Effect.gen(function* () {
+              const currentRole = yield* memberRole(indexRow.id, targetUserId)
+              if (currentRole === null) return yield* new NotFound()
+              if (currentRole !== nextRole) {
+                yield* requireAnotherPm(indexRow, currentRole)
+              }
+              yield* db
+                .update(projectMember)
+                .set({ roleId: nextRole })
+                .where(
+                  and(
+                    eq(projectMember.projectId, indexRow.id),
+                    eq(projectMember.userId, targetUserId)
+                  )
+                )
+                .pipe(Effect.orDie)
+            })
+          )
           return yield* replayDetail(orgSlug, slug)
         })
       )
@@ -1544,15 +1554,23 @@ export const ProjectsLive = Layer.effect(
           if (currentRole === null) return yield* new NotFound()
           yield* requireAnotherPm(indexRow, currentRole)
           yield* unassignUserFromActiveTickets(orgSlug, slug, targetUserId)
-          yield* db
-            .delete(projectMember)
-            .where(
-              and(
-                eq(projectMember.projectId, indexRow.id),
-                eq(projectMember.userId, targetUserId)
-              )
-            )
-            .pipe(Effect.orDie)
+          yield* withProjectWriteLock(
+            slug,
+            Effect.gen(function* () {
+              const lockedRole = yield* memberRole(indexRow.id, targetUserId)
+              if (lockedRole === null) return
+              yield* requireAnotherPm(indexRow, lockedRole)
+              yield* db
+                .delete(projectMember)
+                .where(
+                  and(
+                    eq(projectMember.projectId, indexRow.id),
+                    eq(projectMember.userId, targetUserId)
+                  )
+                )
+                .pipe(Effect.orDie)
+            })
+          )
           return yield* replayDetail(orgSlug, slug)
         })
       )
