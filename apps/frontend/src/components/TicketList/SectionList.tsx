@@ -22,6 +22,7 @@ import { ErrorPage } from "@/components/ErrorPage"
 import { Button } from "@/components/ui/button"
 import {
   backlogRequest,
+  encodeTicketListQuery,
   flatBacklogRequest,
   loadMoreBacklog,
   type BacklogRequest,
@@ -232,6 +233,7 @@ function SectionPagination({
         onSuccess: () => null
       })}
       <TicketPagination
+        requestKey={encodeTicketListQuery(req.query)}
         nextCursor={nextCursor}
         remaining={remaining}
         collapsed={collapsed}
@@ -244,6 +246,7 @@ function SectionPagination({
 }
 
 export function TicketPagination({
+  requestKey,
   nextCursor,
   remaining,
   collapsed,
@@ -251,6 +254,7 @@ export function TicketPagination({
   failed,
   loadMore
 }: {
+  requestKey: string
   nextCursor: string | null
   remaining: number
   collapsed: boolean
@@ -262,7 +266,7 @@ export function TicketPagination({
     <>
       {nextCursor !== null && (
         <AutoLoad
-          key={nextCursor}
+          key={`${requestKey}:${nextCursor}`}
           cursor={nextCursor}
           enabled={!collapsed && !loadingMore && !failed}
           loadMore={loadMore}

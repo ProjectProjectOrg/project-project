@@ -22,6 +22,7 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import {
+  encodeTicketListQuery,
   type BacklogRequest,
   type BacklogSection
 } from "@/features/tickets/atoms/backlog"
@@ -345,6 +346,7 @@ function SprintSectionPagination({
   const state = useAtomValue(loadMoreSprintSections({ req, key: sectionKey }))
   return (
     <TicketPagination
+      requestKey={encodeTicketListQuery(req.query)}
       nextCursor={nextCursor}
       remaining={Math.max(0, count - loaded)}
       collapsed={collapsed}

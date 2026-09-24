@@ -39,6 +39,7 @@ export function MyTicketsPagination({
         )
       })}
       <TicketPagination
+        requestKey={req.params.orgSlug}
         nextCursor={nextCursor}
         remaining={Math.max(0, total - loaded)}
         collapsed={false}
@@ -62,8 +63,6 @@ export function ShowLessButton({
         variant="tertiary"
         size="sm"
         onClick={(e) =>
-          // This button ends its section, so pinning the section's bottom
-          // edge leaves "Show more" under the cursor instead of the list top.
           keepInPlace(
             e.currentTarget.closest("section") ?? e.currentTarget,
             onCollapse,
