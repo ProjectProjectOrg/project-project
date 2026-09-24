@@ -4,6 +4,7 @@ import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as Comments from "@pp/server-core/comments/Comments"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
+import * as Library from "@pp/server-core/library/Library"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as Projects from "@pp/server-core/projects/Projects"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
@@ -13,20 +14,15 @@ import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import * as Tickets from "@pp/server-core/tickets/Tickets"
 import * as Users from "@pp/server-core/users/Users"
-import {
-  CurrentUser,
-  McpTools,
-  NotFound,
-  Org,
-  OrgStorageStatus,
-  User
-} from "@pp/shared"
+import { McpTools, NotFound, Org, OrgStorageStatus, User } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import { describe, expect } from "vitest"
 
 import { handlers } from "./handlers"
+import { McpRequestUser } from "./McpRequestUser"
 
 const user = Schema.decodeSync(User)({
   id: "user-1",
@@ -76,7 +72,8 @@ const unused = Layer.mergeAll(
   Layer.mock(GroupDocs.GroupDocs, {}),
   Layer.mock(TicketDocs.TicketDocs, {}),
   Layer.mock(TicketIndex.TicketIndex, {}),
-  Layer.mock(ProjectStatuses.ProjectStatuses, {})
+  Layer.mock(ProjectStatuses.ProjectStatuses, {}),
+  Layer.mock(Library.Library, {})
 )
 
 const fixture = (
@@ -90,7 +87,7 @@ const fixture = (
     []
   const layer = Layer.mergeAll(
     unused,
-    Layer.succeed(CurrentUser, user),
+    Layer.succeed(McpRequestUser, Option.some(user)),
     Layer.mock(BetterAuth.BetterAuth, {
       getOrganization: (userId, orgSlug) => {
         calls.push({ operation: "organization", userId, orgSlug })

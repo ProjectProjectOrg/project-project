@@ -70,6 +70,38 @@ export type TicketIndexQueryEntry = Readonly<{
   orderKey: string
 }>
 
+export type TicketIndexOrgEntry = Readonly<{
+  project: TicketIndexProject
+  entry: TicketIndexEntry
+  sortValue: string
+}>
+
+export type TicketIndexTouchedEntry = TicketIndexOrgEntry &
+  Readonly<{ lastCommentAt: Date | null }>
+
+export type TicketIndexAssignedOptions = Readonly<{
+  viewerId: string
+  doneAfter: Date
+  cursor?: string
+  limit: number
+}>
+
+export type TicketIndexAssignedScope = Readonly<{
+  viewerId: string
+  doneAfter: Date
+}>
+
+export type TicketIndexProjectPreview = Readonly<{
+  project: TicketIndexProject
+  total: number
+  entries: ReadonlyArray<TicketIndexEntry>
+}>
+
+export type TicketIndexTouchedOptions = Readonly<{
+  viewerId: string
+  limit: number
+}>
+
 export interface TicketIndexMatch extends TicketIndexProject {
   readonly ticketId: string
   readonly branch: string
@@ -113,6 +145,34 @@ export interface TicketIndexShape {
     orgSlug: string,
     slug: string
   ) => Effect.Effect<TicketIndexProject, NotFound>
+  readonly projectsFor: (
+    orgSlug: string,
+    slugs: ReadonlyArray<string>
+  ) => Effect.Effect<ReadonlyArray<TicketIndexProject>>
+  readonly assignedTo: (
+    projects: ReadonlyArray<TicketIndexProject>,
+    options: TicketIndexAssignedOptions
+  ) => Effect.Effect<ReadonlyArray<TicketIndexOrgEntry>>
+  readonly countAssignedByStatus: (
+    projects: ReadonlyArray<TicketIndexProject>,
+    scope: TicketIndexAssignedScope
+  ) => Effect.Effect<
+    ReadonlyArray<
+      Readonly<{
+        project: TicketIndexProject
+        status: TicketStatus
+        count: number
+      }>
+    >
+  >
+  readonly assignedPerProject: (
+    projects: ReadonlyArray<TicketIndexProject>,
+    scope: TicketIndexAssignedScope & Readonly<{ perProject: number }>
+  ) => Effect.Effect<ReadonlyArray<TicketIndexProjectPreview>>
+  readonly touchedBy: (
+    projects: ReadonlyArray<TicketIndexProject>,
+    options: TicketIndexTouchedOptions
+  ) => Effect.Effect<ReadonlyArray<TicketIndexTouchedEntry>>
   readonly list: (
     project: TicketIndexProject,
     ticketIds?: ReadonlyArray<string>

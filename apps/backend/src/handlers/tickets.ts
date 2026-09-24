@@ -13,6 +13,33 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
   "tickets",
   (handlers) =>
     handlers
+      .handle("mine", ({ params, query }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
+          const tickets = yield* Tickets
+          return yield* tickets.mine(org.orgSlug, user.id, query)
+        })
+      )
+      .handle("mineByProject", ({ params }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
+          const tickets = yield* Tickets
+          return yield* tickets.mineByProject(org.orgSlug, user.id)
+        })
+      )
+      .handle("recent", ({ params }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
+          const tickets = yield* Tickets
+          return yield* tickets.recent(org.orgSlug, user.id)
+        })
+      )
       .handle("sections", ({ params, query }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser

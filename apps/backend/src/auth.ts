@@ -1,3 +1,4 @@
+import { cimd } from "@better-auth/cimd"
 import { mcp } from "@better-auth/mcp"
 import * as BunServices from "@effect/platform-bun/BunServices"
 import * as authSchema from "@pp/db/auth-schema"
@@ -14,13 +15,16 @@ import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { APIError } from "better-auth/api"
 import { admin, jwt, magicLink, organization } from "better-auth/plugins"
-import { and, eq, inArray, sql } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { FileSystem, Path, Schema, Struct } from "effect"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import matter from "gray-matter"
+
+import { fetchClientMetadataResource } from "./auth/cimdTransport"
+import { legacyMcpResources } from "./auth/legacyMcpResources"
 
 const db = drizzle(process.env.DATABASE_URL!, { relations: schema.relations })
 
@@ -455,7 +459,13 @@ export const auth = betterAuth({
       consentPage: "/oauth/consent",
       allowDynamicClientRegistration: true,
       allowUnauthenticatedClientRegistration: true,
-      refreshTokenReuseInterval: 0,
+      // Refresh tokens rotate on every use. Without an overlap window, a
+      // second presentation of an already-rotated token is treated as a
+      // breach and `invalidateRefreshFamily` deletes *every* refresh token
+      // for that client/user pair — forcing a full browser re-auth. MCP
+      // clients run as several long-lived processes sharing one credential,
+      // so concurrent refreshes across the access-token expiry are routine.
+      refreshTokenReuseInterval: 60,
       extensions: [
         {
           claims: {
@@ -478,19 +488,11 @@ export const auth = betterAuth({
         }
       ]
     }),
-    {
-      id: "legacy-mcp-resources",
-      init: async () => {
-        await db.execute(sql`
-          INSERT INTO oauth_client_resource (id, client_id, resource_id, created_at)
-          SELECT gen_random_uuid()::text, client.client_id, ${mcpResource}, now()
-          FROM oauth_client AS client
-          INNER JOIN oauth_application AS legacy
-            ON legacy.id = client.id AND legacy.client_id = client.client_id
-          ON CONFLICT (client_id, resource_id) DO NOTHING
-        `)
-      }
-    }
+    cimd({
+      fetchClientMetadataResource,
+      metadataProfile: "mcp-2026-07-28"
+    }),
+    legacyMcpResources({ db, resource: mcpResource })
   ]
 })
 

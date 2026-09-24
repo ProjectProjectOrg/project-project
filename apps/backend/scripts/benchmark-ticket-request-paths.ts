@@ -16,6 +16,7 @@ import {
 } from "@pp/server-core/figma/FigmaLinks"
 import { GitHub, type GitHubShape } from "@pp/server-core/github/GitHub"
 import { Groups, type GroupsShape } from "@pp/server-core/groups/Groups"
+import { Library } from "@pp/server-core/library/Library"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { Projects, type ProjectsShape } from "@pp/server-core/projects/Projects"
 import { TicketDocsLive } from "@pp/server-core/tickets/TicketDocsLive"
@@ -453,6 +454,10 @@ const FakeAttachments = Layer.succeed(Attachments, {
   dedupeOnce: () => unexpected("Attachments.dedupeOnce")
 } satisfies AttachmentsShape)
 
+const PassthroughLibrary = Layer.mock(Library, {
+  resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body)
+})
+
 const DocsLive = TicketDocsLive.pipe(
   Layer.provide(MarkdownLive),
   Layer.provideMerge(BunServices.layer)
@@ -464,6 +469,7 @@ const IndexLive = TicketIndexLive.pipe(
 )
 const BenchmarkLive = (options: Options) =>
   TicketsLive.pipe(
+    Layer.provide(PassthroughLibrary),
     Layer.provide(
       Layer.mergeAll(
         DocsLive,

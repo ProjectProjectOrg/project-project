@@ -17,7 +17,13 @@ import {
 import { useProximityHover } from "@/hooks/use-proximity-hover"
 import { fontWeights } from "@/lib/font-weight"
 import type { IconComponent } from "@/lib/icon-context"
-import { useShape } from "@/lib/shape-context"
+import {
+  shapeMap,
+  useShape,
+  type ShapeClasses,
+  type ShapeVariant
+} from "@/lib/shape-context"
+import type { SizeVariant } from "@/lib/size-context"
 import { springs } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 
@@ -28,6 +34,8 @@ interface TabsSubtleContextValue {
   onSelect: (index: number) => void
   idPrefix: string
   activeLabel: boolean
+  shape: ShapeClasses
+  compact: boolean
 }
 
 const TabsSubtleContext = createContext<TabsSubtleContextValue | null>(null)
@@ -48,6 +56,8 @@ interface TabsSubtleProps extends Omit<
   idPrefix?: string
   /** When true, only the selected tab shows its text label. Requires icons on tabs. */
   activeLabel?: boolean
+  size?: SizeVariant
+  shape?: ShapeVariant
 }
 
 const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
@@ -58,6 +68,8 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
       onSelect,
       idPrefix: idPrefixProp,
       activeLabel = false,
+      size,
+      shape: shapeProp,
       className,
       ...props
     },
@@ -66,7 +78,9 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
     const containerRef = useRef<HTMLDivElement>(null)
     const isMouseInside = useRef(false)
     const generatedId = useId()
-    const shape = useShape()
+    const contextShape = useShape()
+    const shape = shapeProp === undefined ? contextShape : shapeMap[shapeProp]
+    const compact = size === "compact"
     const idPrefix = idPrefixProp || generatedId
 
     const {
@@ -135,7 +149,9 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
           selectedIndex,
           onSelect,
           idPrefix,
-          activeLabel
+          activeLabel,
+          shape,
+          compact
         }}
       >
         <div
@@ -300,19 +316,21 @@ interface TabsSubtleItemProps extends HTMLAttributes<HTMLButtonElement> {
   icon?: IconComponent
   label: string
   index: number
+  count?: number
 }
 
 const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
-  ({ icon: Icon, label, index, className, ...props }, ref) => {
+  ({ icon: Icon, label, index, count, className, ...props }, ref) => {
     const internalRef = useRef<HTMLButtonElement>(null)
-    const shape = useShape()
     const {
       registerTab,
       hoveredIndex,
       selectedIndex,
       onSelect,
       idPrefix,
-      activeLabel
+      activeLabel,
+      shape,
+      compact
     } = useTabsSubtle()
 
     useEffect(() => {
@@ -366,8 +384,9 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
         tabIndex={isSelected ? 0 : -1}
         onClick={() => onSelect(index)}
         className={cn(
-          "relative z-10 flex cursor-pointer items-center border-none bg-transparent px-3 py-2 outline-none",
-          collapseLabel ? "h-8" : "gap-2",
+          "relative z-10 flex cursor-pointer items-center border-none bg-transparent outline-none",
+          compact ? "h-7 px-2.5" : "px-3 py-2",
+          collapseLabel ? (compact ? "h-7" : "h-8") : "gap-2",
           shape.bg,
           className
         )}
@@ -403,6 +422,11 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
           </AnimatePresence>
         ) : (
           labelContent
+        )}
+        {count === undefined ? null : (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {count}
+          </span>
         )}
       </button>
     )

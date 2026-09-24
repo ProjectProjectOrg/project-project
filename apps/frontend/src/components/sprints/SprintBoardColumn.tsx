@@ -5,7 +5,6 @@ import {
 } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import { preserveOffsetOnSource } from "@atlaskit/pragmatic-drag-and-drop/element/preserve-offset-on-source"
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview"
-import NumberFlow from "@number-flow/react"
 import type { Member, ProjectStatus, Ticket, TicketId } from "@pp/shared"
 import { GripVertical } from "lucide-react"
 import { motion, Reorder, useDragControls } from "motion/react"
@@ -17,6 +16,13 @@ import { statusMetaFor } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 
 import type { CardDropData, ColumnDropData, DragData } from "./board-utils"
+import {
+  BOARD_CARD_SLOT_CLASS,
+  BOARD_COLUMN_CLASS,
+  BOARD_COLUMN_HEADER_CLASS,
+  BoardColumnCount,
+  BoardColumnTitle
+} from "./BoardColumnShell"
 import { useLongPress } from "./BoardReorderMode"
 import { SprintBoardCard } from "./SprintBoardCard"
 import { VirtualSprintCards } from "./VirtualSprintCards"
@@ -65,7 +71,6 @@ export function SprintBoardColumn({
   footer?: ReactNode
 }) {
   const meta = statusMetaFor(status, statuses)
-  const Icon = meta.icon
   const [columnEl, setColumnEl] = useState<HTMLElement | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -134,7 +139,7 @@ export function SprintBoardColumn({
         filter: { duration: QUICK_S, ease: REORDER_EASE },
         zIndex: { duration: 0 }
       }}
-      className="flex max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-surface-1"
+      className={BOARD_COLUMN_CLASS}
     >
       <div
         data-column-header
@@ -150,21 +155,12 @@ export function SprintBoardColumn({
           headerHoldable ? longPressHandlers.onPointerLeave : undefined
         }
         className={cn(
-          "relative flex items-center justify-between px-3.5 pt-3 pb-2 select-none",
+          BOARD_COLUMN_HEADER_CLASS,
           (headerHoldable || reorderMode) &&
             "cursor-grab touch-none active:cursor-grabbing"
         )}
       >
-        <span className="inline-flex items-center gap-1.5 text-[13px] font-medium">
-          <span className="grid size-6 shrink-0 place-items-center">
-            <Icon
-              className={cn("size-4", meta.className)}
-              style={meta.color ? { color: meta.color } : undefined}
-              strokeWidth={1.75}
-            />
-          </span>
-          {meta.label}
-        </span>
+        <BoardColumnTitle meta={meta} />
         <span className="grid shrink-0 place-items-center">
           <motion.span
             initial={false}
@@ -182,13 +178,7 @@ export function SprintBoardColumn({
             className="col-start-1 row-start-1"
             aria-hidden={reorderMode}
           >
-            <NumberFlow
-              value={count ?? tickets.length}
-              transformTiming={{ duration: 180, easing: "ease-out" }}
-              spinTiming={{ duration: 180, easing: "ease-out" }}
-              opacityTiming={{ duration: 180, easing: "ease-out" }}
-              className="font-mono text-xs text-muted-foreground tabular-nums"
-            />
+            <BoardColumnCount value={count ?? tickets.length} />
           </motion.span>
         </span>
       </div>
@@ -329,7 +319,7 @@ function CardSlot({
       ref={ref}
       inert={inert}
       aria-busy={inert}
-      className={cn("relative px-3 py-1", inert && "pointer-events-none")}
+      className={cn(BOARD_CARD_SLOT_CLASS, inert && "pointer-events-none")}
     >
       <div
         ref={cardRef}

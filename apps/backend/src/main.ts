@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "node:crypto"
 // apps/backend/src/main.ts
 //
 // Backend entry point. This file's only job is to wire up the HttpApi from
@@ -56,8 +57,6 @@
 //   the process. `BunRuntime.runMain` adds Bun-specific signal handling and
 //   exit-code mapping.
 
-import { createHmac, timingSafeEqual } from "node:crypto"
-
 import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
 import { projectIndex } from "@pp/db/schema"
@@ -92,6 +91,7 @@ import { EverhourHandlerLive } from "./handlers/everhour"
 import { FigmaHandlerLive } from "./handlers/figma"
 import { GroupsHandlerLive } from "./handlers/groups"
 import { InvitationsHandlerLive } from "./handlers/invitations"
+import { LibraryHandlerLive } from "./handlers/library"
 import {
   OAuthApplicationsHandlerLive,
   PublicOAuthHandlerLive
@@ -109,10 +109,8 @@ import { figmaThumbnailRoutes } from "./http/figmaThumbnailRoutes"
 import { JiraHandlerLive } from "./jira/Handlers"
 import { JiraMigrationsHandlerLive } from "./jira/MigrationHandlers"
 import { jiraOauthRoutes } from "./jira/OAuthRoutes"
-import { McpHttpLive } from "./Layers/McpHttp"
-import { McpServerLive } from "./Layers/McpServer"
+import { McpLive } from "./Layers/Mcp"
 import { BackendHttpServicesLive, BackendInfrastructureLive } from "./runtime"
-import { McpHttp } from "./Services/McpHttp"
 
 // Exported so tests can compose them without booting a real Bun server.
 export const HealthHandlerLive = HttpApiBuilder.group(
@@ -166,6 +164,7 @@ export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(TagsHandlerLive),
   Layer.provide(StatusesHandlerLive),
   Layer.provide(GroupsHandlerLive),
+  Layer.provide(LibraryHandlerLive),
   Layer.provide(OAuthApplicationsHandlerLive),
   Layer.provide(PublicOAuthHandlerLive),
   Layer.provide(StorageHandlerLive),
@@ -181,26 +180,6 @@ export const ApiLive = ApiRoutesLive.pipe(
 // which we mount alongside our typed handlers in the same Layer chain — no
 // extra mountApp call needed; the layer adds routes to the api group.
 const SwaggerLive = HttpApiSwagger.layer(AppApi, { path: "/docs" })
-
-// /mcp is mounted as an HttpRouter.all route so any HTTP method (POST for
-// JSON-RPC, GET for SSE, DELETE for session teardown) reaches the SDK
-// transport. We bridge by converting the Effect-platform request to a Web
-// standard Request, delegating to the McpHttp handler, and translating its
-// Response back into an HttpServerResponse via fromWeb.
-const mcpRoute = Effect.gen(function* () {
-  const req = yield* HttpServerRequest.HttpServerRequest
-  const mcpHttp = yield* McpHttp
-  const webReq = yield* HttpServerRequest.toWeb(req)
-  const webRes = yield* Effect.promise(() => mcpHttp.handle(webReq))
-  return HttpServerResponse.fromWeb(webRes)
-}).pipe(
-  Effect.catchCause((cause) =>
-    Effect.andThen(
-      Effect.logError("mcp route failure", cause),
-      Effect.succeed(HttpServerResponse.text("MCP error", { status: 500 }))
-    )
-  )
-)
 
 const badRequest = (message: string) =>
   HttpServerResponse.text(message, { status: 400 })
@@ -370,7 +349,7 @@ export const githubWebhookRoute = Effect.gen(function* () {
       status: 413
     })
   }
-  const secret = yield* Config.redacted("GITHUB_APP_WEBHOOK_SECRET")
+  const secret = yield* Config.Redacted("GITHUB_APP_WEBHOOK_SECRET")
   const verified = verifyGithubWebhook(
     body,
     webReq.headers.get("x-hub-signature-256"),
@@ -458,13 +437,11 @@ export const RouteLive = Layer.mergeAll(
     attachmentRoutes
   ),
   HttpRouter.add("POST", "/api/attachment-uploads", attachmentUploadRoute),
-  HttpRouter.add("*", "/mcp", mcpRoute),
-  Layer.mergeAll(ApiRoutesLive, SwaggerLive).pipe(Layer.provide(ApiRouterLive))
+  McpLive,
+  Layer.mergeAll(ApiLive, SwaggerLive).pipe(Layer.provide(ApiRouterLive))
 )
 
 const ServerLive = HttpRouter.serve(RouteLive).pipe(
-  Layer.provide(McpHttpLive),
-  Layer.provide(McpServerLive),
   Layer.provide(GitHubWebhooksLive),
   Layer.provide(EverhourWebhooksLive),
   Layer.provide(BackendHttpServicesLive),

@@ -55,7 +55,7 @@ const RESOLVE_CONCURRENCY = 2
 
 const METADATA_TTL_MS = 24 * 60 * 60 * 1000
 
-const publicBaseUrl = Config.string("BETTER_AUTH_URL").pipe(
+const publicBaseUrl = Config.String("BETTER_AUTH_URL").pipe(
   Config.withDefault("http://localhost:5173")
 )
 

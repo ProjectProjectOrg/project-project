@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import {
   Files,
   HardDrive,
+  LayoutTemplate,
   SlidersHorizontal,
   TriangleAlert,
   Users
@@ -49,6 +50,14 @@ const SECTIONS = [
     description: m.attachments_description()
   },
   {
+    key: "templates",
+    to: "/orgs/$orgSlug/settings/templates",
+    label: m.org_settings_templates_tab(),
+    icon: LayoutTemplate,
+    heading: m.org_settings_templates_heading(),
+    description: m.org_settings_templates_description()
+  },
+  {
     key: "danger",
     to: "/orgs/$orgSlug/settings/danger",
     label: m.org_settings_danger_tab(),
@@ -63,6 +72,7 @@ const SECTIONS = [
     | "/orgs/$orgSlug/settings/members"
     | "/orgs/$orgSlug/settings/storage"
     | "/orgs/$orgSlug/settings/attachments"
+    | "/orgs/$orgSlug/settings/templates"
     | "/orgs/$orgSlug/settings/danger"
   label: string
   icon: typeof SlidersHorizontal

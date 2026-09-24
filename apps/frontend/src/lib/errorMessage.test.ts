@@ -8,6 +8,7 @@ import {
 import { describe, expect, it } from "vitest"
 
 import {
+  errorMessage,
   figmaStatusErrorMessage,
   oauthConsentErrorMessage,
   statusCreateErrorMessage
@@ -75,6 +76,34 @@ describe("oauthConsentErrorMessage", () => {
   it("gives recovery instructions without exposing unexpected errors", () => {
     expect(oauthConsentErrorMessage(new Error("private failure"))).toBe(
       "Couldn’t complete authorization. Try again. If it keeps failing, start a new connection from your agent."
+    )
+  })
+})
+
+describe("library error messages", () => {
+  it("maps library validation reasons and the key conflict", () => {
+    expect(errorMessage(new Conflict({ reason: "key_taken" }))).toBe(
+      "That key is already used here. Pick another key."
+    )
+    expect(
+      errorMessage(new Validation({ reason: "attachments_not_allowed" }))
+    ).toBe(
+      "Blocks and templates can't contain attachments yet. Remove the attachment and try again."
+    )
+    expect(errorMessage(new Validation({ reason: "blocks_not_allowed" }))).toBe(
+      "A block can't contain other blocks."
+    )
+    expect(
+      errorMessage(new Validation({ reason: "invalid_blocks:unclosed:4" }))
+    ).toBe("The block opened on line 4 is never closed.")
+    expect(
+      errorMessage(new Validation({ reason: "invalid_blocks:mystery:2" }))
+    ).toBe("The block markup on line 2 isn't valid.")
+    expect(
+      errorMessage(new Validation({ reason: "unknown_template:bug-report" }))
+    ).toBe('The template "bug-report" doesn\'t exist anymore.')
+    expect(errorMessage(new Validation({ reason: "other" }))).toBe(
+      "Something went wrong."
     )
   })
 })

@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema"
 
 import { Page } from "../Pagination"
 import { GroupId } from "../schemas/Group"
+import { Slug } from "../schemas/Project"
 import { TagName } from "../schemas/Tag"
 import { TicketStatus, TicketType } from "../schemas/Ticket"
 import { Ticket, TicketDetail } from "../schemas/Ticket"
@@ -87,6 +88,68 @@ export type TicketListRow = typeof TicketListRow.Type
 
 export const TicketListPage = Page(TicketListRow)
 export type TicketListPage = typeof TicketListPage.Type
+
+export const OrgTicketRow = Schema.Struct({
+  projectSlug: Slug,
+  ticket: Ticket
+})
+export type OrgTicketRow = typeof OrgTicketRow.Type
+
+export const RecentTicketActivity = Schema.Union([
+  Schema.Struct({
+    tag: Schema.Literal("commented"),
+    actor: UserId,
+    at: Schema.DateFromString
+  }),
+  Schema.Struct({
+    tag: Schema.Literal("created"),
+    actor: UserId,
+    at: Schema.DateFromString
+  }),
+  Schema.Struct({
+    tag: Schema.Literal("assigned"),
+    actor: Schema.optional(UserId),
+    at: Schema.optional(Schema.DateFromString)
+  })
+])
+export type RecentTicketActivity = typeof RecentTicketActivity.Type
+
+export const RecentTicketRow = Schema.Struct({
+  ...OrgTicketRow.fields,
+  activity: RecentTicketActivity
+})
+export type RecentTicketRow = typeof RecentTicketRow.Type
+
+export const AssignedStatusCount = Schema.Struct({
+  projectSlug: Slug,
+  status: TicketStatus,
+  count: Schema.Finite
+})
+export type AssignedStatusCount = typeof AssignedStatusCount.Type
+
+export const OrgTicketPage = Schema.Struct({
+  ...Page(OrgTicketRow).fields,
+  total: Schema.Finite,
+  statusCounts: Schema.Array(AssignedStatusCount)
+})
+export type OrgTicketPage = typeof OrgTicketPage.Type
+
+export const ProjectTicketsPreview = Schema.Struct({
+  projectSlug: Slug,
+  total: Schema.Finite,
+  tickets: Schema.Array(Ticket)
+})
+export type ProjectTicketsPreview = typeof ProjectTicketsPreview.Type
+
+export const MY_TICKETS_PAGE_SIZE = TICKET_LIST_LIMIT
+export const MY_TICKETS_PER_PROJECT = 5
+export const MY_TICKETS_DONE_WINDOW_DAYS = 7
+export const RECENT_TICKETS_LIMIT = 5
+
+export const MyTicketsQuery = Schema.Struct({
+  cursor: Schema.optional(Schema.String)
+})
+export type MyTicketsQuery = typeof MyTicketsQuery.Type
 
 export const TicketOrderKeyQuery = Schema.Struct({
   sort: Schema.optional(TicketSort)

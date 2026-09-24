@@ -28,6 +28,7 @@ import { Comments, type CommentsShape } from "../comments/Comments"
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
 import { GitHub, type GitHubShape } from "../github/GitHub"
 import { Groups, type GroupsShape } from "../groups/Groups"
+import { Library } from "../library/Library"
 import { MarkdownError } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
 import { Projects, type ProjectsShape } from "../projects/Projects"
@@ -225,6 +226,11 @@ const FakeUsers = Layer.succeed(Users, {
 } satisfies UsersShape)
 
 const FakeTicketIndex = Layer.succeed(TicketIndex, {
+  projectsFor: () => Effect.succeed([]),
+  assignedTo: () => Effect.succeed([]),
+  touchedBy: () => Effect.succeed([]),
+  countAssignedByStatus: () => Effect.succeed([]),
+  assignedPerProject: () => Effect.succeed([]),
   projectFor: () => Effect.succeed(ticketIndexProject),
   list: () => Effect.succeed([]),
   query: () => Effect.succeed([]),
@@ -299,6 +305,10 @@ const FakeDb = Layer.succeed(Db, {
   }
 } as never)
 
+const PassthroughLibrary = Layer.mock(Library, {
+  resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body)
+})
+
 const TestLayer = Layer.unwrap(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
@@ -306,6 +316,7 @@ const TestLayer = Layer.unwrap(
       prefix: "projectproject-split-"
     })
     return TicketsLive.pipe(
+      Layer.provide(PassthroughLibrary),
       Layer.provideMerge(TicketDocsLive),
       Layer.provide(FakeAttachments),
       Layer.provide(FakeFigmaLinks),
@@ -447,7 +458,7 @@ it.effect("split refuses a sprint the caller may not change", () =>
     const tickets = yield* Tickets
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const root = yield* Config.string("PROJECTS_DIR")
+    const root = yield* Config.String("PROJECTS_DIR")
     const original = yield* seedOriginal
 
     const attempt = yield* Effect.result(
@@ -503,7 +514,7 @@ it.effect("split removes created tickets when the original update fails", () =>
     const tickets = yield* Tickets
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const root = yield* Config.string("PROJECTS_DIR")
+    const root = yield* Config.String("PROJECTS_DIR")
     const original = yield* seedOriginal
 
     failUpsertAfter = upserts + 2
@@ -534,7 +545,7 @@ it.effect(
       const docs = yield* TicketDocs
       const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
-      const root = yield* Config.string("PROJECTS_DIR")
+      const root = yield* Config.String("PROJECTS_DIR")
       const original = yield* seedOriginal
       const originalSprintId = decodeGroupId("G-1")
       sprintMemberships.set(original.id, originalSprintId)

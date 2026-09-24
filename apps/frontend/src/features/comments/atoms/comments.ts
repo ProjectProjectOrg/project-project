@@ -11,6 +11,7 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
+import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
@@ -132,6 +133,7 @@ export const createComment = Atom.family((key: CreateCommentKey) =>
               )
             )
           )
+          yield* Reactivity.invalidate([Keys.ticketActivity(scopeOf(key.req))])
           return created
         })
       )
@@ -201,6 +203,7 @@ export const deleteComment = Atom.family(
               })
             )
             set(AsyncResult.map(get(comments(req)), (value) => value))
+            yield* Reactivity.invalidate([Keys.ticketActivity(scopeOf(req))])
             return commentId
           })
         )

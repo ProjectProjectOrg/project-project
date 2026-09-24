@@ -20,11 +20,11 @@ import {
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString,
-  CHECK_LIST,
   TRANSFORMERS
 } from "@lexical/markdown"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { ContentEditable } from "@lexical/react/LexicalContentEditable"
+import { EditorRefPlugin } from "@lexical/react/LexicalEditorRefPlugin"
 import { LexicalExtensionComposer } from "@lexical/react/LexicalExtensionComposer"
 import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin"
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin"
@@ -41,7 +41,7 @@ import {
   type ElementNode,
   type LexicalEditor as LexicalEditorType
 } from "lexical"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react"
 
 import { figmaTicketLinksRequest } from "@/features/figma/atoms/figma"
 import { cn } from "@/lib/utils"
@@ -50,7 +50,21 @@ import { m } from "@/paraglide/messages"
 import { AttachmentExtension } from "./Lexical/AttachmentExtension"
 import { AttachmentsPlugin } from "./Lexical/AttachmentsPlugin"
 import { ATTACHMENT_TRANSFORMER } from "./Lexical/attachmentTransformer"
+import { HintExtension } from "./Lexical/blocks/definitionMode"
+import {
+  hasBlockGutter,
+  type EditorBlocks,
+  type EditorBlocksMode
+} from "./Lexical/blocks/editorBlocks"
+import { EditorBlocksProvider } from "./Lexical/blocks/editorBlocksContext"
+import { HINT_TRANSFORMER } from "./Lexical/blocks/HintNode"
+import { SyncedBlockExtension } from "./Lexical/blocks/SyncedBlockNode"
+import { TicketBlocksPlugins } from "./Lexical/blocks/TicketBlocksPlugins"
 import { ChecklistClickExtension } from "./Lexical/checklistClickExtension"
+import {
+  ChecklistShortcutExtension,
+  ESCAPED_CHECK_LIST
+} from "./Lexical/checklistMarkdown"
 import { FigmaExtension } from "./Lexical/FigmaExtension"
 import { FigmaPlugin } from "./Lexical/FigmaPlugin"
 import { FIGMA_TRANSFORMER } from "./Lexical/figmaTransformer"
@@ -69,22 +83,29 @@ import "@/lib/prism-langs"
 
 import { PAPER_TRANSFORMER } from "./Lexical/paperTransformer"
 import { createTableTransformer } from "./Lexical/tableTransformer"
+import { TicketBlockExtension } from "./Lexical/TicketBlockExtension"
+import { createTicketBlockTransformer } from "./Lexical/ticketBlockTransformer"
 
 const INLINE_AND_BLOCK_TRANSFORMERS = [
   MENTION_TRANSFORMER,
-  CHECK_LIST,
+  ESCAPED_CHECK_LIST,
   HORIZONTAL_RULE,
   PAPER_TRANSFORMER,
   FIGMA_TRANSFORMER,
   ...TRANSFORMERS
 ]
 
-export const MARKDOWN_TRANSFORMERS = [
+const BLOCK_CONTENT_TRANSFORMERS = [
   createTableTransformer(INLINE_AND_BLOCK_TRANSFORMERS),
   ...INLINE_AND_BLOCK_TRANSFORMERS
 ]
 
-const ATTACHMENT_MARKDOWN_TRANSFORMERS = [
+export const MARKDOWN_TRANSFORMERS = [
+  createTicketBlockTransformer(BLOCK_CONTENT_TRANSFORMERS),
+  ...BLOCK_CONTENT_TRANSFORMERS
+]
+
+const ATTACHMENT_BLOCK_CONTENT_TRANSFORMERS = [
   createTableTransformer([
     ATTACHMENT_TRANSFORMER,
     ...INLINE_AND_BLOCK_TRANSFORMERS
@@ -92,6 +113,32 @@ const ATTACHMENT_MARKDOWN_TRANSFORMERS = [
   ATTACHMENT_TRANSFORMER,
   ...INLINE_AND_BLOCK_TRANSFORMERS
 ]
+
+const ATTACHMENT_MARKDOWN_TRANSFORMERS = [
+  createTicketBlockTransformer(ATTACHMENT_BLOCK_CONTENT_TRANSFORMERS),
+  ...ATTACHMENT_BLOCK_CONTENT_TRANSFORMERS
+]
+
+const TEMPLATE_MARKDOWN_TRANSFORMERS = [
+  createTicketBlockTransformer(BLOCK_CONTENT_TRANSFORMERS, {
+    emptyAsReference: true
+  }),
+  ...BLOCK_CONTENT_TRANSFORMERS
+]
+
+const DEFINITION_MARKDOWN_TRANSFORMERS = [
+  HINT_TRANSFORMER,
+  ...BLOCK_CONTENT_TRANSFORMERS
+]
+
+export const transformersForMode = (
+  mode: EditorBlocksMode | undefined,
+  attachments: AttachmentsTarget | undefined
+) => {
+  if (mode === "template") return TEMPLATE_MARKDOWN_TRANSFORMERS
+  if (mode === "definition") return DEFINITION_MARKDOWN_TRANSFORMERS
+  return transformersForAttachments(attachments)
+}
 
 export const transformersForAttachments = (
   attachments: AttachmentsTarget | undefined
@@ -226,9 +273,11 @@ export interface LexicalEditorProps {
   debounceMs?: number
   className?: string
   placeholder?: string
-  autoFocus?: boolean
+  autoFocus?: boolean | "start"
   compact?: boolean
   attachments?: AttachmentsTarget
+  blocks?: EditorBlocks
+  editorRef?: RefObject<LexicalEditorType | null>
 }
 
 export function nextMarkdownChange(
@@ -332,9 +381,14 @@ export function LexicalEditor({
   placeholder = m.editor_placeholder(),
   autoFocus = false,
   compact = false,
-  attachments
+  attachments,
+  blocks,
+  editorRef
 }: LexicalEditorProps) {
-  const [transformers] = useState(() => transformersForAttachments(attachments))
+  const [transformers] = useState(() =>
+    transformersForMode(blocks?.mode, attachments)
+  )
+  const [hintNodesEnabled] = useState(() => blocks?.mode === "definition")
   const [attachmentNodesEnabled] = useState(() => attachments !== undefined)
   const [extension] = useState(() => {
     const initialMarkdown = markdown
@@ -367,6 +421,7 @@ export function LexicalEditor({
         ListExtension,
         CheckListExtension,
         ChecklistClickExtension,
+        ChecklistShortcutExtension,
         ListTabExtension,
         LinkExtension,
         configExtension(ClickableLinkExtension, {
@@ -383,14 +438,18 @@ export function LexicalEditor({
         MentionExtension,
         FigmaExtension,
         PaperExtension,
+        TicketBlockExtension,
+        SyncedBlockExtension,
         ...(attachmentNodesEnabled ? [AttachmentExtension] : []),
+        ...(hintNodesEnabled ? [HintExtension] : []),
         configExtension(TabIndentationExtension, {
           $canIndent: $canIndentInsideLists,
           maxIndent: 4
         }),
         configExtension(AutoFocusExtension, {
-          defaultSelection: "rootEnd",
-          disabled: !initialAutoFocus
+          defaultSelection:
+            initialAutoFocus === "start" ? "rootStart" : "rootEnd",
+          disabled: initialAutoFocus === false
         })
       ]
     })
@@ -489,39 +548,54 @@ export function LexicalEditor({
   )
 
   return (
-    <div ref={wrapperRef} className={cn("group/editing prose-md", className)}>
-      <LexicalExtensionComposer
-        extension={extension}
-        contentEditable={contentEditable}
-      >
-        <MentionsPlugin />
-        <FigmaPlugin request={figmaTarget} />
-        <PaperPlugin />
-        {attachments !== undefined && attachments.uploadsEnabled ? (
-          <AttachmentsPlugin
-            orgSlug={attachments.orgSlug}
-            slug={attachments.slug}
-            ticketId={attachments.ticketId}
+    <div
+      ref={wrapperRef}
+      className={cn(
+        "group/editing prose-md",
+        hasBlockGutter(blocks) && "block-gutter",
+        className
+      )}
+    >
+      <EditorBlocksProvider blocks={blocks} transformers={transformers}>
+        <LexicalExtensionComposer
+          extension={extension}
+          contentEditable={contentEditable}
+        >
+          {editorRef !== undefined ? (
+            <EditorRefPlugin editorRef={editorRef} />
+          ) : null}
+          <MentionsPlugin />
+          <FigmaPlugin request={figmaTarget} />
+          <PaperPlugin />
+          {attachments !== undefined && attachments.uploadsEnabled ? (
+            <AttachmentsPlugin
+              orgSlug={attachments.orgSlug}
+              slug={attachments.slug}
+              ticketId={attachments.ticketId}
+            />
+          ) : null}
+          <LinkBlurActivationPlugin />
+          {blocks !== undefined ? (
+            <TicketBlocksPlugins blocks={blocks} transformers={transformers} />
+          ) : null}
+          <MarkdownShortcutPlugin transformers={transformers} />
+          <OnChangePlugin
+            onChange={(editorState) => {
+              editorState.read(() => {
+                const next = $convertToMarkdownString(transformers)
+                const changed = nextMarkdownChange(liveRef.current, next)
+                if (changed === null) return
+                liveRef.current = changed
+                onDraftChange?.(next)
+                saveQueue.enqueue(changed)
+                setStatus("dirty")
+                scheduleRef.current()
+              })
+            }}
+            ignoreSelectionChange
           />
-        ) : null}
-        <LinkBlurActivationPlugin />
-        <MarkdownShortcutPlugin transformers={transformers} />
-        <OnChangePlugin
-          onChange={(editorState) => {
-            editorState.read(() => {
-              const next = $convertToMarkdownString(transformers)
-              const changed = nextMarkdownChange(liveRef.current, next)
-              if (changed === null) return
-              liveRef.current = changed
-              onDraftChange?.(next)
-              saveQueue.enqueue(changed)
-              setStatus("dirty")
-              scheduleRef.current()
-            })
-          }}
-          ignoreSelectionChange
-        />
-      </LexicalExtensionComposer>
+        </LexicalExtensionComposer>
+      </EditorBlocksProvider>
     </div>
   )
 }

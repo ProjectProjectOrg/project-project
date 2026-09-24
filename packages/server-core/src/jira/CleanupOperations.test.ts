@@ -108,6 +108,7 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
           read: () => Effect.die("unused"),
           write: () => Effect.die("unused"),
           readRaw: () => Effect.die("unused"),
+          writeTemplateDefaults: () => Effect.die("unused"),
           removeDir: (_orgSlug, slug) =>
             Effect.sync(() => {
               removedDirectories.push(slug)

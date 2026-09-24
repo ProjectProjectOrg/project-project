@@ -59,6 +59,11 @@ import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
+import { CreatorChip } from "./CreatorChip"
+import { creatorErrorText } from "./creatorError"
+import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
+import { useTemplateChoice, useTicketTypeChoice } from "./useTemplateChoice"
+
 export function SectionTicketCreator({
   orgSlug,
   slug,
@@ -109,7 +114,7 @@ export function SectionTicketCreator({
     variant === "flat" ? createSprintState : createSectionsState
   const submitting = createState.waiting
   const error = Result.isFailure(createState)
-    ? m.tickets_create_error_fallback()
+    ? creatorErrorText(createState)
     : Result.isSuccess(createState) &&
         "sprintAssignmentFailed" in createState.value &&
         createState.value.sprintAssignmentFailed
@@ -144,7 +149,7 @@ export function SectionTicketCreator({
     activeSprintId === null && !isExplicitNoSprintFilter && hasSprints
 
   const [title, setTitle] = useState("")
-  const [type, setType] = useState<TicketType>("other")
+  const { type, setType, applyTemplateDefault } = useTicketTypeChoice()
   const [typeMenuOpen, setTypeMenuOpen] = useState(false)
   const [sprintMenuOpen, setSprintMenuOpen] = useState(false)
   const [selectedSprint, setSelectedSprint] = useState<Group | null>(null)
@@ -152,6 +157,26 @@ export function SectionTicketCreator({
   const [closingMenu, setClosingMenu] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const trimmed = title.trim()
+  const templateChoice = useTemplateChoice(orgSlug, slug, type)
+  const slash = useTemplateSlash({
+    title,
+    choice: templateChoice,
+    onChoose: (_template, ticketType) => {
+      setTitle("")
+      if (ticketType !== null) applyTemplateDefault(ticketType)
+    }
+  })
+  const menuOpen = typeMenuOpen || sprintMenuOpen
+
+  const refocusAfterMenu = (open: boolean) => {
+    if (open) return
+    setClosingMenu(true)
+    // @effect-diagnostics-next-line globalTimers:off
+    setTimeout(() => {
+      inputRef.current?.focus()
+      setClosingMenu(false)
+    }, 0)
+  }
 
   useEffect(() => {
     if (!showSprintAddon) return
@@ -174,7 +199,7 @@ export function SectionTicketCreator({
 
   useEffect(() => {
     const onMouseDown = (e: MouseEvent) => {
-      if (typeMenuOpen || sprintMenuOpen || closingMenu) return
+      if (menuOpen || closingMenu) return
       const container = containerRef.current
       if (container && !container.contains(e.target as Node)) {
         onDone()
@@ -182,33 +207,17 @@ export function SectionTicketCreator({
     }
     document.addEventListener("mousedown", onMouseDown)
     return () => document.removeEventListener("mousedown", onMouseDown)
-  }, [typeMenuOpen, sprintMenuOpen, closingMenu, onDone, containerRef])
+  }, [menuOpen, closingMenu, onDone, containerRef])
 
-  const dismissGuardsRef = useRef({
-    typeMenuOpen,
-    sprintMenuOpen,
-    closingMenu,
-    submitting
-  })
-  dismissGuardsRef.current = {
-    typeMenuOpen,
-    sprintMenuOpen,
-    closingMenu,
-    submitting
-  }
+  const dismissGuardsRef = useRef({ menuOpen, closingMenu, submitting })
+  dismissGuardsRef.current = { menuOpen, closingMenu, submitting }
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
     const onFocusOut = (e: FocusEvent) => {
       const guards = dismissGuardsRef.current
-      if (
-        guards.typeMenuOpen ||
-        guards.sprintMenuOpen ||
-        guards.closingMenu ||
-        guards.submitting
-      )
-        return
+      if (guards.menuOpen || guards.closingMenu || guards.submitting) return
       const next = e.relatedTarget as Node | null
       if (next !== null && container.contains(next)) return
       onDone()
@@ -225,11 +234,18 @@ export function SectionTicketCreator({
     inputRef.current?.focus()
     const exit = await create({
       clientId: Effect.runSync(Random.next).toString(36),
-      ticket: { title: submittedTitle, type, status },
+      ticket: {
+        title: submittedTitle,
+        type,
+        status,
+        ...templateChoice.payload
+      },
       viewerId,
-      projectPrefix
+      projectPrefix,
+      prediction: templateChoice.prediction
     })
     if (Exit.isFailure(exit)) {
+      templateChoice.recover(exit)
       setTitle(submittedTitle)
       return
     }
@@ -240,6 +256,7 @@ export function SectionTicketCreator({
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (slash.onKeyDown(e)) return
     if (e.key === "Escape") {
       e.preventDefault()
       onDone()
@@ -253,14 +270,7 @@ export function SectionTicketCreator({
       open={sprintMenuOpen}
       onOpenChange={(open) => {
         setSprintMenuOpen(open)
-        if (!open) {
-          setClosingMenu(true)
-          // @effect-diagnostics-next-line globalTimers:off
-          setTimeout(() => {
-            inputRef.current?.focus()
-            setClosingMenu(false)
-          }, 0)
-        }
+        refocusAfterMenu(open)
       }}
       finalFocus={() => {
         setClosingMenu(false)
@@ -312,38 +322,29 @@ export function SectionTicketCreator({
   ) : null
 
   return (
-    <form onSubmit={onSubmit} className="flex w-full items-center gap-2">
+    <form
+      onSubmit={onSubmit}
+      className="relative flex w-full items-center gap-2"
+    >
       <DropdownMenu
         open={typeMenuOpen}
         onOpenChange={(open) => {
           setTypeMenuOpen(open)
-          if (!open) {
-            setClosingMenu(true)
-            // @effect-diagnostics-next-line globalTimers:off
-            setTimeout(() => {
-              inputRef.current?.focus()
-              setClosingMenu(false)
-            }, 0)
-          }
+          refocusAfterMenu(open)
         }}
       >
         <DropdownMenuTrigger
           render={
-            <button
-              type="button"
+            <CreatorChip
+              expanded
+              tone={TYPE_META[type].tone}
+              icon={<TypeIcon className="size-4 shrink-0" strokeWidth={1.75} />}
+              label={TYPE_LABELS[type]()}
+              contentKey={type}
               aria-label={m.tickets_create_type_aria_label({
                 type: TYPE_LABELS[type]()
               })}
-              className={cn(
-                "transition-expand inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2",
-                BADGE_TONES[TYPE_META[type].tone]
-              )}
-            >
-              <TypeIcon className="size-4 shrink-0" strokeWidth={1.75} />
-              <CollapsingLabel show contentKey={type} gap={6}>
-                <span className="text-xs">{TYPE_LABELS[type]()}</span>
-              </CollapsingLabel>
-            </button>
+            />
           }
         />
         <DropdownMenuContent
@@ -377,7 +378,10 @@ export function SectionTicketCreator({
         ref={inputRef}
         type="text"
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        onChange={(e) => {
+          slash.onTitleChange(title, e.target.value)
+          setTitle(e.target.value)
+        }}
         onKeyDown={onKeyDown}
         placeholder={m.tickets_section_create_placeholder()}
         aria-label={m.tickets_section_create_placeholder()}
@@ -389,6 +393,8 @@ export function SectionTicketCreator({
       {error && (
         <span className="shrink-0 text-xs text-destructive">{error}</span>
       )}
+
+      <TemplateSlashList slash={slash} choice={templateChoice} />
     </form>
   )
 }

@@ -13,6 +13,7 @@ import {
   type BacklogRequest
 } from "@/features/tickets/atoms/backlog"
 import { transitions } from "@/lib/springs"
+import { cn } from "@/lib/utils"
 
 import { AssigneeField } from "./AssigneeField"
 import { PriorityButton } from "./PriorityField"
@@ -22,31 +23,48 @@ import { TypeButton } from "./TypeField"
 
 const TICKET_PREVIEW_DELAY_MS = 550
 
-type RowProps = Readonly<{
-  onUpdate?: (patch: UpdateTicketInput) => void
-  orgSlug: string
-  slug: string
-  ticket: Ticket
-  req: BacklogRequest
-  members: ReadonlyArray<Member>
-  showSprintCol: boolean
-  showExtraActionsCol: boolean
-  sprintMembership: Group | null
-  extraRowActions?: (ticket: Ticket) => ReactNode
-  pending?: boolean
-  previewOpen: boolean
-  onPreviewPointerEnter: (ticketId: Ticket["id"]) => void
-  onPreviewOpenChange: (ticketId: Ticket["id"], open: boolean) => void
-}>
+export const rowGridClassName = (showExtraActionsCol: boolean) =>
+  cn(
+    "grid gap-y-1",
+    showExtraActionsCol
+      ? "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto]"
+      : "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto]"
+  )
+
+type RowPatchSource =
+  | Readonly<{
+      onUpdate: (patch: UpdateTicketInput) => void
+      req?: BacklogRequest
+    }>
+  | Readonly<{ onUpdate?: undefined; req: BacklogRequest }>
+
+type RowProps = RowPatchSource &
+  Readonly<{
+    variant?: "standalone" | "embedded"
+    orgSlug: string
+    slug: string
+    ticket: Ticket
+    members: ReadonlyArray<Member>
+    showSprintCol: boolean
+    showExtraActionsCol: boolean
+    sprintMembership: Group | null
+    extraRowActions?: (ticket: Ticket) => ReactNode
+    pending?: boolean
+    previewOpen: boolean
+    onPreviewPointerEnter: (ticketId: Ticket["id"]) => void
+    onPreviewOpenChange: (ticketId: Ticket["id"], open: boolean) => void
+  }>
 
 function RowImpl(props: RowProps) {
   if (props.onUpdate) {
     return <RowView {...props} onPatch={props.onUpdate} />
   }
-  return <BacklogMutatingRow {...props} />
+  return <BacklogMutatingRow {...props} req={props.req} />
 }
 
-function BacklogMutatingRow(props: RowProps) {
+function BacklogMutatingRow(
+  props: RowProps & Readonly<{ req: BacklogRequest }>
+) {
   const update = useAtomSet(
     updateBacklogTicket({ req: props.req, id: props.ticket.id })
   )
@@ -54,6 +72,7 @@ function BacklogMutatingRow(props: RowProps) {
 }
 
 function RowView({
+  variant = "standalone",
   orgSlug,
   slug,
   ticket,
@@ -93,7 +112,11 @@ function RowView({
         >
           <div
             ref={rowElement}
-            className="relative isolate col-span-full grid grid-cols-subgrid items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors outline-none hover:bg-muted/60 [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20"
+            className={cn(
+              "col-span-full grid grid-cols-subgrid items-center gap-3 px-3 py-2.5 text-left outline-none [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20",
+              variant === "standalone" &&
+                "relative isolate rounded-lg transition-colors hover:bg-muted/60"
+            )}
           >
             <Link
               to="/orgs/$orgSlug/projects/$slug/tickets/$id"

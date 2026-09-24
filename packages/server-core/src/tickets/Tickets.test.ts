@@ -36,6 +36,7 @@ import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
 import { GitHub, type GitHubShape } from "../github/GitHub"
 import { applyPullRequestWebhookToTicket } from "../github/GitHubWebhooksLive"
 import { Groups, type GroupsShape } from "../groups/Groups"
+import { Library } from "../library/Library"
 import { TicketIdTaken } from "../markdown/Markdown"
 import {
   Projects,
@@ -418,6 +419,11 @@ const makeFakeTicketIndex = (
       )
     ) + 1
   return Layer.succeed(TicketIndex, {
+    projectsFor: () => Effect.succeed([]),
+    assignedTo: () => Effect.succeed([]),
+    touchedBy: () => Effect.succeed([]),
+    countAssignedByStatus: () => Effect.succeed([]),
+    assignedPerProject: () => Effect.succeed([]),
     projectFor: () => Effect.succeed(ticketIndexProject),
     list: (_project, ticketIds) =>
       Effect.sync(() => {
@@ -602,6 +608,10 @@ const makeRecordingTicketIndex = (documents: Map<string, TicketDocument>) => {
   }
 }
 
+const PassthroughLibrary = Layer.mock(Library, {
+  resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body)
+})
+
 function makeTicketsLayer(
   key: string,
   ticketDocsLayer: Layer.Layer<TicketDocs>,
@@ -615,6 +625,7 @@ function makeTicketsLayer(
   } = {}
 ) {
   return TicketsLive.pipe(
+    Layer.provide(PassthroughLibrary),
     Layer.provide(ticketDocsLayer),
     Layer.provide(options.projects ?? makeFakeProjects(key)),
     Layer.provide(options.groups ?? FakeGroups),
@@ -647,6 +658,7 @@ it.effect("listGitStates fetches only distinct ticket branches", () => {
 
   const fetchedBranches: string[][] = []
   const layer = TicketsLive.pipe(
+    Layer.provide(PassthroughLibrary),
     Layer.provide(docs.layer),
     Layer.provide(
       makeFakeProjects("T", {
@@ -710,6 +722,7 @@ it.effect(
       branch: "feat/T-1-old"
     })
     const layer = TicketsLive.pipe(
+      Layer.provide(PassthroughLibrary),
       Layer.provide(docs.layer),
       Layer.provide(
         makeFakeProjects("T", {

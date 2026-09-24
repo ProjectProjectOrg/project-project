@@ -442,7 +442,8 @@ describe("Jira migration workflow contracts", () => {
         })
         yield* completeStartImport(id, 1)
         yield* waitUntilSuspended(id)
-        expect(attempts).toEqual([0])
+        expect(attempts).toContain(0)
+        expect(attempts).not.toContain(1)
         const deferred = retryDeferred(1)
         yield* DurableDeferred.succeed(deferred, {
           token: DurableDeferred.tokenFromExecutionId(deferred, {

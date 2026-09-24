@@ -40,15 +40,25 @@ import {
   UpdateGroupInput,
   UpdateGroupTicketsOutput
 } from "../schemas/Group"
+import {
+  BlockKey,
+  LibraryContent,
+  LibraryDescription,
+  LibraryName,
+  LibraryOrigin,
+  TemplateKey
+} from "../schemas/Library"
 import { Org } from "../schemas/Org"
 import { Member, Project, ProjectDetail, Slug } from "../schemas/Project"
 import { ProjectStatus } from "../schemas/Status"
-import { Tag } from "../schemas/Tag"
+import { Tag, TagName } from "../schemas/Tag"
 import {
   CreateTicketInput,
   Ticket,
   TicketDetail,
   TicketId,
+  TicketPriority,
+  TicketType,
   UpdateTicketInput
 } from "../schemas/Ticket"
 import { SprintState } from "../sprintLogic"
@@ -59,6 +69,25 @@ import { RebuildTicketIndexOutput } from "./RebuildTicketIndexOutput"
 export * from "./DocFile"
 export * from "./MeOutput"
 export * from "./RebuildTicketIndexOutput"
+
+const BLOCK_FORMAT_EXAMPLE =
+  '<block type="acceptance-criteria">\n\n' +
+  "## Acceptance criteria\n\n" +
+  "- [ ] Given a starting state, when something happens, then this is true\n\n" +
+  "</block>"
+
+const BLOCK_FORMAT_GUIDE =
+  "Ticket bodies can contain named blocks: a reusable heading plus content " +
+  'wrapped as `<block type="key">`, a blank line, the content, a blank ' +
+  `line, then \`</block>\`, for example:\n\n${BLOCK_FORMAT_EXAMPLE}\n\n` +
+  "Discover the project's block and template keys via `list_blocks` and " +
+  "`list_templates` before writing one by hand. Fill blocks in rather " +
+  "than replacing them: keep the `<block>` tags and the heading, and " +
+  "replace each trailing `{{hint}}` with real content or leave the line " +
+  "empty. A block written with the trailing `sync` attribute " +
+  '(`<block type="key" sync>`) is managed elsewhere (e.g. a shared ' +
+  "definition of done) — leave its text alone and only tick or untick its " +
+  "checkboxes."
 
 export interface McpToolSpec<
   Input extends Schema.Top,
@@ -74,7 +103,7 @@ export interface McpToolSpec<
 export const McpTools = {
   me: {
     description: "Identity of the authed user and their org/project roles.",
-    input: Schema.Struct({}),
+    input: Schema.Record(Schema.String, Schema.Never),
     output: MeOutput,
     errors: [Unauthorized] as const
   },
@@ -171,9 +200,24 @@ export const McpTools = {
     description:
       "Fetch one ticket including raw markdown body. Its `status` is a stable " +
       "slug; resolve it through `list_statuses` and use the corresponding " +
-      "label in conversation.",
+      "label in conversation. `body` has any synced blocks already resolved " +
+      "to their current definition text (ticks preserved per ticket). " +
+      "`blocks` is a convenience breakdown of every named block found in " +
+      "`body` — same content, already split out by `type` — so you can " +
+      "inspect or diff a specific section without re-parsing the markdown.",
     input: Schema.Struct({ orgSlug: Slug, projectSlug: Slug, id: TicketId }),
-    output: TicketDetail,
+    output: Schema.Struct({
+      ...TicketDetail.fields,
+      blocks: Schema.optional(
+        Schema.Array(
+          Schema.Struct({
+            type: Schema.String,
+            sync: Schema.Boolean,
+            content: Schema.String
+          })
+        )
+      )
+    }),
     errors: [Unauthorized, NotFound] as const
   },
   list_statuses: {
@@ -245,6 +289,62 @@ export const McpTools = {
     output: DocFile,
     errors: [Unauthorized, NotFound] as const
   },
+  list_blocks: {
+    description:
+      "List the blocks available to a project: the org's and the " +
+      "project's own, with project overriding org. Built-in starting points " +
+      "only count once the org or project has adopted them. " +
+      "Each entry's `content` is the block's canonical markdown, exactly as " +
+      'it should appear inside `<block type="key">…</block>` in a ticket ' +
+      "body — including any trailing `{{hint}}` placeholder text (e.g. " +
+      "`**Expected:**{{what should have happened}}`) showing what to fill " +
+      "in. Hints are never written into a ticket: replace each one with " +
+      "real content, or delete the hint text and leave the rest of the " +
+      "line as-is. Hidden blocks are omitted. `sync` true means the block " +
+      "is a shared, managed definition — see `list_templates` and " +
+      "`create_ticket`/`update_ticket` for how synced blocks behave in a " +
+      "ticket body.",
+    input: Schema.Struct({ orgSlug: Slug, projectSlug: Slug }),
+    output: Schema.Array(
+      Schema.Struct({
+        key: BlockKey,
+        name: LibraryName,
+        description: LibraryDescription,
+        sync: Schema.Boolean,
+        origin: LibraryOrigin,
+        content: LibraryContent
+      })
+    ),
+    errors: [Unauthorized, NotFound] as const
+  },
+  list_templates: {
+    description:
+      "List the templates available to a project: the org's and the " +
+      "project's own, with project overriding org. Each entry's `body` is the template fully " +
+      "expanded — its block references resolved to their current " +
+      "definitions — with `{{hint}}` placeholders kept so you can see what " +
+      "to fill in; pass this same `key` as `template` to `create_ticket` " +
+      "to have the server do the expansion (with hints stripped) when the " +
+      "ticket is actually created. `isDefaultFor` lists the ticket types " +
+      "the app preselects this template for; the server never applies it " +
+      "on its own, so pass `template` explicitly to `create_ticket`. When " +
+      "`isDefaultFor` names exactly one type, creating from the template " +
+      "without an explicit `type` gives the ticket that type. " +
+      `Hidden templates are omitted.\n\n${BLOCK_FORMAT_GUIDE}`,
+    input: Schema.Struct({ orgSlug: Slug, projectSlug: Slug }),
+    output: Schema.Array(
+      Schema.Struct({
+        key: TemplateKey,
+        name: LibraryName,
+        description: LibraryDescription,
+        priority: Schema.NullOr(TicketPriority),
+        tags: Schema.Array(TagName),
+        body: Schema.String,
+        isDefaultFor: Schema.Array(TicketType)
+      })
+    ),
+    errors: [Unauthorized, NotFound] as const
+  },
   create_ticket: {
     description:
       "Create a new ticket in a project. `title` is required; everything " +
@@ -256,10 +356,23 @@ export const McpTools = {
       "tag names that must already exist on the project — discover them via " +
       "`list_tags`; the call fails if a name is unknown. `assignees` is an " +
       "array of user ids who must be members of the project — discover them " +
-      "via `list_members`. `body` is the ticket description as CommonMark " +
-      "markdown; headings, lists, code fences and links are supported. " +
-      "Mentions use the exact syntax `[Label](mention:user/<userId>)` for " +
-      "people (use a project member's id from `list_members`) and " +
+      "via `list_members`. `template` is an optional key from " +
+      "`list_templates`; when set, the server applies its priority/tags " +
+      "defaults, sets the type the template is the default for when " +
+      "`isDefaultFor` names exactly one (an explicit `type` always wins), " +
+      "and, if no `body` is given, expands its blocks into the body (with " +
+      "hints stripped). Omit `template`, or pass `null`, for a blank " +
+      "ticket. If both `template` and `body` are given, `body` wins " +
+      "outright and the template only supplies those type/priority/tags " +
+      "defaults (D14: agents that fill in a template " +
+      "shouldn't get empty duplicate sections appended). `body` is the " +
+      "ticket description as CommonMark markdown; headings, lists, code " +
+      "fences and links are supported, and it may contain named blocks — " +
+      `see below for the format.\n\n${BLOCK_FORMAT_GUIDE}\n\nA malformed ` +
+      "`<block>` (unclosed, nested, or an invalid type) fails with " +
+      "`Validation` describing the offending line. Mentions use the exact " +
+      "syntax `[Label](mention:user/<userId>)` for people (use a project " +
+      "member's id from `list_members`) and " +
       "`[Label](mention:ticket/<T-N>)` for tickets (use an existing ticket " +
       "id in the same project). Malformed or unknown mentions are rejected " +
       "with `MentionInvalid`. Returns the full ticket including the body.",
@@ -281,7 +394,13 @@ export const McpTools = {
       "one of `feat` | `bug` | `chore` | `other`. `priority` is one of " +
       "`low` | `med` | `high`. `tags` entries must already exist on the " +
       "project; `assignees` entries must be project members. `body` is " +
-      "CommonMark markdown and replaces the entire description. Mentions " +
+      "CommonMark markdown and replaces the entire description in full — " +
+      "read the current body first (`get_ticket`) and edit that, rather " +
+      "than writing one from scratch, so existing content is preserved. " +
+      "It may contain named blocks; fill blocks in rather than replacing " +
+      `them — see below for the format.\n\n${BLOCK_FORMAT_GUIDE}\n\nA ` +
+      "malformed `<block>` (unclosed, nested, or an invalid type) fails " +
+      "with `Validation` describing the offending line. Mentions " +
       "use `[Label](mention:user/<userId>)` and " +
       "`[Label](mention:ticket/<T-N>)`; malformed or unknown mentions are " +
       "rejected with `MentionInvalid`. Use `attach_branch` to associate a " +
@@ -514,3 +633,7 @@ export const McpTools = {
 } as const satisfies Record<string, McpToolSpec<any, any, any>>
 
 export type McpToolName = keyof typeof McpTools
+
+export type McpToolError = Schema.Schema.Type<
+  (typeof McpTools)[McpToolName]["errors"][number]
+>

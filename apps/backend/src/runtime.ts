@@ -33,6 +33,8 @@ import {
   JiraTokenEndpointLive
 } from "@pp/server-core/jira/OAuth"
 import { JiraMigrationRetentionLive } from "@pp/server-core/jira/Retention"
+import { LibraryDocsLive } from "@pp/server-core/library/LibraryDocsLive"
+import { LibraryLive } from "@pp/server-core/library/LibraryLive"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { OAuthApplicationsLive } from "@pp/server-core/oauth/OAuthApplicationsLive"
 import { CurrentOrgLive } from "@pp/server-core/organizations/CurrentOrgLive"
@@ -111,6 +113,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
   TagsLive.pipe(
     Layer.provideMerge(ProjectStatusesLive),
     Layer.provideMerge(TicketsLive),
+    Layer.provideMerge(LibraryLive),
     Layer.provideMerge(AttachmentUploadsLive),
     Layer.provideMerge(AttachmentsLive),
     Layer.provideMerge(FigmaLinksLive),
@@ -146,6 +149,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(ProjectDocsLive),
       Layer.provideMerge(TicketDocsLive),
       Layer.provideMerge(GroupDocsLive),
+      Layer.provideMerge(LibraryDocsLive),
       Layer.provideMerge(MarkdownLive),
       Layer.provideMerge(OAuthApplicationsLive),
       Layer.provideMerge(SecretCryptoLive),

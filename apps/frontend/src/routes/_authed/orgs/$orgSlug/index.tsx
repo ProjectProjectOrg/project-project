@@ -1,31 +1,128 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { Project } from "@pp/shared"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
+import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import { ArrowRight, Plus } from "lucide-react"
 
+import { DashboardGitSync } from "@/components/Dashboard/DashboardGitSync"
+import {
+  MyTicketsSection,
+  RecentTicketsSection,
+  type MyTicketsView
+} from "@/components/Dashboard/DashboardSections"
 import { PageContainer, PageHeader } from "@/components/page"
 import { ProjectBanner } from "@/components/ProjectBanner"
 import { ProjectTile as ProjectIconTile } from "@/components/ProjectTile"
 import { me } from "@/features/auth/atoms/auth"
 import {
+  project,
+  projectRequest,
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
+import {
+  statusesFor,
+  statusesRequest
+} from "@/features/projects/atoms/projectStatuses"
+import {
+  myTickets,
+  myTicketsByProject,
+  orgTicketsRequest,
+  recentTickets,
+  type MyTicketsByProjectValue,
+  type OrgTicketsValue
+} from "@/features/tickets/atoms/myTickets"
 import { formatRelative } from "@/lib/relative-time"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
+const DashboardSearchSchema = Schema.Struct({
+  view: Schema.optional(Schema.Literals(["list", "board"]))
+})
+
+const PROJECT_PRELOAD_CONCURRENCY = 4
+
+const projectSlugsOf = (
+  lists: ReadonlyArray<Option.Option<OrgTicketsValue>>,
+  byProject: Option.Option<MyTicketsByProjectValue>
+): ReadonlySet<string> =>
+  new Set([
+    ...lists.flatMap((value) =>
+      Option.isSome(value)
+        ? value.value.tickets.map(({ project }) => project.slug)
+        : []
+    ),
+    ...(Option.isSome(byProject)
+      ? byProject.value.groups.map(({ project }) => project.slug)
+      : [])
+  ])
+
+const preloadDashboard = (registry: Registry.AtomRegistry, orgSlug: string) =>
+  Effect.gen(function* () {
+    const req = orgTicketsRequest(orgSlug)
+    const [lists, byProject] = yield* Effect.all(
+      [
+        Effect.all(
+          [myTickets(req), recentTickets(req)].map((atom) =>
+            Registry.getResult(registry, atom).pipe(Effect.option)
+          ),
+          { concurrency: "unbounded" }
+        ),
+        Registry.getResult(registry, myTicketsByProject(req)).pipe(
+          Effect.option
+        )
+      ],
+      { concurrency: "unbounded" }
+    )
+    yield* Effect.forEach(
+      projectSlugsOf(lists, byProject),
+      (slug) =>
+        Effect.all(
+          [
+            Registry.getResult(
+              registry,
+              project(projectRequest(orgSlug, slug))
+            ),
+            Registry.getResult(
+              registry,
+              statusesFor(statusesRequest(orgSlug, slug))
+            )
+          ],
+          { concurrency: "unbounded" }
+        ).pipe(Effect.ignore),
+      { concurrency: PROJECT_PRELOAD_CONCURRENCY, discard: true }
+    )
+  })
+
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/")({
   component: Dashboard,
-  loader: () => ({
-    crumb: { type: "static" as const, label: "Dashboard", to: "/" }
-  })
+  validateSearch: Schema.toStandardSchemaV1(DashboardSearchSchema),
+  loader: async ({
+    context: { registry },
+    params: { orgSlug },
+    abortController
+  }) => {
+    await Effect.runPromiseExit(preloadDashboard(registry, orgSlug), {
+      signal: abortController.signal
+    })
+    return {
+      crumb: { type: "static" as const, label: "Dashboard", to: "/" }
+    }
+  }
 })
 
 function Dashboard() {
   const { orgSlug } = Route.useParams()
+  const { view = "board" } = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
+  const setView = (next: MyTicketsView) => {
+    void navigate({ search: (prev) => ({ ...prev, view: next }) })
+  }
   const viewer = useAtomValue(me())
   const list = useAtomValue(projectsFor(projectsRequest(orgSlug)))
   const name = Result.isSuccess(viewer)
@@ -40,17 +137,30 @@ function Dashboard() {
         <p>{m.org_dashboard_subtitle()}</p>
       </PageHeader>
 
-      {Result.matchWithError(list, {
-        onInitial: () => <TilesSkeleton />,
-        onError: () => <NewProjectCTA orgSlug={orgSlug} />,
-        onDefect: () => <NewProjectCTA orgSlug={orgSlug} />,
-        onSuccess: ({ value }) =>
-          value.length === 0 ? (
-            <NewProjectCTA orgSlug={orgSlug} />
-          ) : (
-            <RecentProjects orgSlug={orgSlug} projects={value} />
-          )
-      })}
+      <div className="@container/dashboard">
+        <div className="flex flex-col gap-6 @5xl/dashboard:gap-12">
+          {Result.matchWithError(list, {
+            onInitial: () => <TilesSkeleton />,
+            onError: () => <NewProjectCTA orgSlug={orgSlug} />,
+            onDefect: () => <NewProjectCTA orgSlug={orgSlug} />,
+            onSuccess: ({ value }) =>
+              value.length === 0 ? (
+                <NewProjectCTA orgSlug={orgSlug} />
+              ) : (
+                <RecentProjects orgSlug={orgSlug} projects={value} />
+              )
+          })}
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-6 @5xl/dashboard:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] @5xl/dashboard:items-start @5xl/dashboard:gap-12">
+            <MyTicketsSection
+              orgSlug={orgSlug}
+              view={view}
+              onViewChange={setView}
+            />
+            <RecentTicketsSection orgSlug={orgSlug} />
+          </div>
+        </div>
+      </div>
+      <DashboardGitSync orgSlug={orgSlug} />
     </PageContainer>
   )
 }
@@ -73,7 +183,7 @@ function RecentProjects({
   const sorted = [...projects].toSorted(
     (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
   )
-  const top = sorted.slice(0, 6)
+  const top = sorted.slice(0, 3)
   const hasMore = sorted.length > top.length
 
   return (

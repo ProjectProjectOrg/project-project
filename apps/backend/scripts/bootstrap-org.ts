@@ -25,7 +25,7 @@ const dbEffect = <A>(try_: () => Promise<A>) =>
 
 const requiredString = (name: string) =>
   Effect.gen(function* () {
-    const value = yield* Config.string(name)
+    const value = yield* Config.String(name)
     const trimmed = value.trim()
     if (!trimmed) {
       return yield* Effect.fail(new Error(`${name} is not set`))
@@ -35,13 +35,13 @@ const requiredString = (name: string) =>
 
 const optionalString = (name: string) =>
   Effect.gen(function* () {
-    const value = yield* Config.string(name).pipe(Config.withDefault(""))
+    const value = yield* Config.String(name).pipe(Config.withDefault(""))
     const trimmed = value.trim()
     return trimmed ? trimmed : null
   })
 
 const bootstrapConfig = Effect.gen(function* () {
-  const databaseUrl = yield* Config.redacted("DATABASE_URL").pipe(
+  const databaseUrl = yield* Config.Redacted("DATABASE_URL").pipe(
     Effect.map(Redacted.value),
     Effect.map((value) => value.trim()),
     Effect.filterOrFail(

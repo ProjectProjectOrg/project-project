@@ -1,0 +1,170 @@
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import type { Member, Ticket } from "@pp/shared"
+import * as Result from "effect/unstable/reactivity/AsyncResult"
+import type { ReactNode } from "react"
+
+import { ErrorPage } from "@/components/ErrorPage"
+import { BOARD_CARD_SLOT_CLASS } from "@/components/sprints/BoardColumnShell"
+import { SprintBoardCard } from "@/components/sprints/SprintBoardCard"
+import { Row, rowGridClassName } from "@/components/TicketList/Row"
+import { useTicketPreview } from "@/components/TicketList/useTicketPreview"
+import { me } from "@/features/auth/atoms/auth"
+import { project, projectRequest } from "@/features/projects/atoms/projects"
+import type {
+  OrgTicket,
+  OrgTicketsRequest,
+  updateMyTicket
+} from "@/features/tickets/atoms/myTickets"
+import { cn } from "@/lib/utils"
+
+const NO_MEMBERS: ReadonlyArray<Member> = []
+
+export type OrgTicketUpdate = typeof updateMyTicket
+
+const useTicketKey = (req: OrgTicketsRequest, item: OrgTicket) => {
+  const viewer = useAtomValue(me())
+  return {
+    req,
+    viewerId: Result.isSuccess(viewer) ? viewer.value.id : "",
+    projectSlug: item.project.slug,
+    id: item.ticket.id
+  }
+}
+
+const useProjectMembers = (orgSlug: string, slug: string) => {
+  const result = useAtomValue(project(projectRequest(orgSlug, slug)))
+  return Result.isSuccess(result) ? result.value.members : NO_MEMBERS
+}
+
+type DashboardTicketProps = Readonly<{
+  req: OrgTicketsRequest
+  item: OrgTicket
+  update: OrgTicketUpdate
+}>
+
+type DashboardRowProps = DashboardTicketProps &
+  Readonly<{
+    below?: ReactNode
+    previewOpen: boolean
+    onPreviewPointerEnter: (ticketId: Ticket["id"]) => void
+    onPreviewOpenChange: (ticketId: Ticket["id"], open: boolean) => void
+  }>
+
+export function DashboardRow({
+  req,
+  item,
+  update,
+  below,
+  previewOpen,
+  onPreviewPointerEnter,
+  onPreviewOpenChange
+}: DashboardRowProps) {
+  const { orgSlug } = req.params
+  const key = useTicketKey(req, item)
+  const members = useProjectMembers(orgSlug, item.project.slug)
+  const patch = useAtomSet(update(key))
+  const state = useAtomValue(update(key))
+  return (
+    <div
+      className={cn(
+        "col-span-full grid grid-cols-subgrid",
+        below !== undefined &&
+          "relative isolate rounded-lg border border-border bg-card transition-colors hover:bg-muted/60"
+      )}
+    >
+      <Row
+        variant={below === undefined ? "standalone" : "embedded"}
+        orgSlug={orgSlug}
+        slug={item.project.slug}
+        ticket={item.ticket}
+        members={members}
+        showSprintCol={false}
+        showExtraActionsCol={false}
+        sprintMembership={null}
+        onUpdate={patch}
+        previewOpen={previewOpen}
+        onPreviewPointerEnter={onPreviewPointerEnter}
+        onPreviewOpenChange={onPreviewOpenChange}
+      />
+      {below !== undefined && (
+        <div className="col-span-full -mt-1.5 grid grid-cols-subgrid items-center gap-3 px-3 pb-2.5">
+          {below}
+        </div>
+      )}
+      {Result.matchWithError(state, {
+        onInitial: () => null,
+        onSuccess: () => null,
+        onError: (error) => (
+          <div className="col-span-full">
+            <ErrorPage error={error} contained />
+          </div>
+        ),
+        onDefect: (defect) => (
+          <div className="col-span-full">
+            <ErrorPage error={defect} contained />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+export function DashboardCard({ req, item, update }: DashboardTicketProps) {
+  const { orgSlug } = req.params
+  const key = useTicketKey(req, item)
+  const members = useProjectMembers(orgSlug, item.project.slug)
+  const patch = useAtomSet(update(key))
+  const state = useAtomValue(update(key))
+  return (
+    <div className={BOARD_CARD_SLOT_CLASS}>
+      <SprintBoardCard
+        orgSlug={orgSlug}
+        slug={item.project.slug}
+        ticket={item.ticket}
+        members={members}
+        onPatch={patch}
+      />
+      {Result.matchWithError(state, {
+        onInitial: () => null,
+        onSuccess: () => null,
+        onError: (error) => <ErrorPage error={error} contained />,
+        onDefect: (defect) => <ErrorPage error={defect} contained />
+      })}
+    </div>
+  )
+}
+
+export type TicketPreview = ReturnType<typeof useTicketPreview>
+
+export function DashboardRows({
+  req,
+  tickets,
+  update,
+  preview,
+  below
+}: Readonly<{
+  req: OrgTicketsRequest
+  tickets: ReadonlyArray<OrgTicket>
+  update: OrgTicketUpdate
+  preview: TicketPreview
+  below?: (item: OrgTicket) => ReactNode
+}>) {
+  return (
+    <div
+      className={cn(rowGridClassName(false), below !== undefined && "gap-y-2")}
+    >
+      {tickets.map((item) => (
+        <DashboardRow
+          key={`${item.project.slug}/${item.ticket.id}`}
+          req={req}
+          item={item}
+          update={update}
+          below={below?.(item)}
+          previewOpen={preview.activePreviewId === item.ticket.id}
+          onPreviewPointerEnter={preview.onPreviewPointerEnter}
+          onPreviewOpenChange={preview.onPreviewOpenChange}
+        />
+      ))}
+    </div>
+  )
+}

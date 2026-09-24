@@ -13,6 +13,7 @@ import { FigmaLinks } from "@pp/server-core/figma/FigmaLinks"
 import { FigmaLinksLive } from "@pp/server-core/figma/FigmaLinksLive"
 import { GitHub } from "@pp/server-core/github/GitHub"
 import { Groups } from "@pp/server-core/groups/Groups"
+import { Library } from "@pp/server-core/library/Library"
 import { CurrentOrg } from "@pp/server-core/organizations/CurrentOrg"
 import { BannerPlaceholders } from "@pp/server-core/projects/BannerPlaceholders"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
@@ -261,6 +262,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
       Layer.provide(projects),
       Layer.provide(Layer.succeed(GitHub, {} as never)),
       Layer.provide(Layer.succeed(Groups, {} as never)),
+      Layer.provide(Layer.succeed(Library, {} as never)),
       Layer.provide(Layer.succeed(Comments, {} as never)),
       Layer.provide(Layer.succeed(Attachments, {} as never)),
       Layer.provide(Layer.succeed(FigmaLinks, {} as never)),
