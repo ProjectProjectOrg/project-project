@@ -7,6 +7,7 @@ import {
   hintSlots,
   outlineBlockContent,
   restoreDefinitionHints,
+  stripDefinitionHints,
   stripHints
 } from "./hints"
 
@@ -103,6 +104,38 @@ describe("stripHints", () => {
 
   it("is idempotent", () => {
     expect(stripHints(stripHints(STEPS))).toBe(stripHints(STEPS))
+  })
+})
+
+describe("stripDefinitionHints", () => {
+  it("strips only the hints the definition declares", () => {
+    const content = [
+      "## Expected vs actual",
+      "",
+      "**Expected:** {{what should happen}}",
+      "",
+      "NPM_TOKEN: ${{ secrets.NPM_TOKEN }}",
+      "Hi {{ user.firstName }}",
+      "    code {{y}}"
+    ].join("\n")
+
+    expect(stripDefinitionHints(content, EXPECTED)).toBe(
+      [
+        "## Expected vs actual",
+        "",
+        "**Expected:**",
+        "",
+        "NPM_TOKEN: ${{ secrets.NPM_TOKEN }}",
+        "Hi {{ user.firstName }}",
+        "    code {{y}}"
+      ].join("\n")
+    )
+  })
+
+  it("strips nothing without a definition hint", () => {
+    expect(stripDefinitionHints("- [ ] {{Given}}", "## Notes")).toBe(
+      "- [ ] {{Given}}"
+    )
   })
 })
 

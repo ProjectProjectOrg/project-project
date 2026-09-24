@@ -7,6 +7,7 @@ import {
   type GroupDocsShape
 } from "@pp/server-core/groups/GroupDocs"
 import { Groups } from "@pp/server-core/groups/Groups"
+import { Library, type LibraryShape } from "@pp/server-core/library/Library"
 import {
   ProjectDocs,
   type ProjectDocsShape
@@ -30,6 +31,8 @@ import {
 import { Tickets, type TicketsShape } from "@pp/server-core/tickets/Tickets"
 import { Users } from "@pp/server-core/users/Users"
 import {
+  formatTicketBlock,
+  Library as LibrarySchema,
   McpTools,
   type McpToolName,
   BranchNotFound,
@@ -357,6 +360,150 @@ describe("MCP handlers → doc tools", () => {
   it.effect.skip("placeholder", () => Effect.void)
 })
 
+const acceptanceCriteriaBlock = {
+  key: "acceptance-criteria",
+  name: "Acceptance criteria",
+  icon: "ListChecks" as const,
+  color: null,
+  description: "What must be true for this to be done",
+  sync: false,
+  content: "## Acceptance criteria\n\n- [ ] {{Given ... when ... then ...}}",
+  origin: "org" as const,
+  shadows: null,
+  hidden: false
+}
+
+const hiddenBlock = {
+  ...acceptanceCriteriaBlock,
+  key: "hidden-block",
+  name: "Hidden block",
+  hidden: true
+}
+
+const bugReportTemplate = {
+  key: "bug-report",
+  name: "Bug report",
+  icon: "Bug" as const,
+  color: null,
+  description: "Something is broken",
+  type: "bug" as const,
+  priority: "med" as const,
+  tags: [],
+  body: formatTicketBlock("acceptance-criteria", ""),
+  origin: "org" as const,
+  shadows: null,
+  hidden: false
+}
+
+const hiddenTemplate = {
+  ...bugReportTemplate,
+  key: "hidden-template",
+  name: "Hidden template",
+  hidden: true
+}
+
+const fakeLibrary = Schema.decodeUnknownSync(LibrarySchema)({
+  blocks: [acceptanceCriteriaBlock, hiddenBlock],
+  templates: [bugReportTemplate, hiddenTemplate],
+  defaults: { feat: null, bug: "bug-report", chore: null, other: null },
+  ownDefaults: { bug: "bug-report" },
+  inheritedDefaults: { feat: null, bug: null, chore: null, other: null },
+  canEdit: true
+})
+
+const LibraryStub = Layer.succeed(Library, {
+  projectLibrary: (_orgSlug: string, _userId: string, _slug: string) =>
+    Effect.succeed(fakeLibrary)
+} as unknown as LibraryShape)
+
+describe("MCP handlers → list_blocks / list_templates", () => {
+  const LibraryTestLayer = Layer.mergeAll(TestLayer, LibraryStub)
+
+  it.effect("list_blocks returns visible blocks with hints kept", () =>
+    Effect.gen(function* () {
+      const registered = register(yield* Effect.context<HandlerServices>())
+      const cb = registered.get("list_blocks")!
+      const result = yield* Effect.suspend(() =>
+        withFakeUser(() => cb({ orgSlug: "acme", projectSlug: "demo" }))
+      )
+
+      expect(result.isError).toBeUndefined()
+      const payload = parseJson(result.content[0].text)
+      expect(payload).toHaveLength(1)
+      expect(payload[0]).toMatchObject({
+        key: "acceptance-criteria",
+        origin: "org",
+        sync: false
+      })
+      expect(payload[0].content).toContain("{{")
+    }).pipe(Effect.provide(LibraryTestLayer))
+  )
+
+  it.effect(
+    "list_templates expands blocks with hints kept and reports defaults",
+    () =>
+      Effect.gen(function* () {
+        const registered = register(yield* Effect.context<HandlerServices>())
+        const cb = registered.get("list_templates")!
+        const result = yield* Effect.suspend(() =>
+          withFakeUser(() => cb({ orgSlug: "acme", projectSlug: "demo" }))
+        )
+
+        expect(result.isError).toBeUndefined()
+        const payload = parseJson(result.content[0].text)
+        expect(payload).toHaveLength(1)
+        expect(payload[0].key).toBe("bug-report")
+        expect(payload[0].body).toContain("{{")
+        expect(payload[0].body).toContain('<block type="acceptance-criteria">')
+        expect(payload[0].isDefaultFor).toEqual(["bug"])
+      }).pipe(Effect.provide(LibraryTestLayer))
+  )
+})
+
+const bigBlock = (key: string) => ({
+  ...acceptanceCriteriaBlock,
+  key,
+  name: key,
+  content: `## ${key}\n\n${"x".repeat(15_000)}`
+})
+
+const BigLibraryStub = Layer.succeed(Library, {
+  projectLibrary: () =>
+    Effect.succeed(
+      Schema.decodeUnknownSync(LibrarySchema)({
+        blocks: [bigBlock("a"), bigBlock("b")],
+        templates: [
+          {
+            ...bugReportTemplate,
+            body: [formatTicketBlock("a", ""), formatTicketBlock("b", "")].join(
+              "\n\n"
+            )
+          }
+        ],
+        defaults: { feat: null, bug: null, chore: null, other: null },
+        ownDefaults: {},
+        inheritedDefaults: { feat: null, bug: null, chore: null, other: null },
+        canEdit: true
+      })
+    )
+} as unknown as LibraryShape)
+
+describe("MCP handlers → list_templates size", () => {
+  it.effect("returns a template whose expansion exceeds the content cap", () =>
+    Effect.gen(function* () {
+      const registered = register(yield* Effect.context<HandlerServices>())
+      const cb = registered.get("list_templates")!
+      const result = yield* Effect.suspend(() =>
+        withFakeUser(() => cb({ orgSlug: "acme", projectSlug: "demo" }))
+      )
+
+      expect(result.isError).toBeUndefined()
+      const payload = parseJson(result.content[0].text)
+      expect(payload[0].body.length).toBeGreaterThan(30_000)
+    }).pipe(Effect.provide(Layer.mergeAll(TestLayer, BigLibraryStub)))
+  )
+})
+
 describe("MCP handlers → write tools", () => {
   const fakeTicketDetail = {
     ...fakeTicket,
@@ -373,6 +520,22 @@ describe("MCP handlers → write tools", () => {
   } = {}
 
   const WriteTicketsStub = Layer.succeed(Tickets, {
+    get: (_o: any, _u: any, _s: any, _id: any) =>
+      Effect.succeed({
+        ...fakeTicketDetail,
+        body: [
+          "Some context.",
+          formatTicketBlock(
+            "acceptance-criteria",
+            "## Acceptance criteria\n\n- [x] Done"
+          ),
+          formatTicketBlock(
+            "definition-of-done",
+            "## Definition of done\n\n- [ ] Reviewed",
+            { sync: true }
+          )
+        ].join("\n\n")
+      }),
     create: (_o: any, _u: any, _s: any, input: any) => {
       captured.create = input
       return Effect.succeed({ ...fakeTicketDetail, ...input })
@@ -451,7 +614,36 @@ describe("MCP handlers → write tools", () => {
     ProjectDocsStub,
     GroupDocsStub,
     TicketDocsStub,
-    TicketIndexStub
+    TicketIndexStub,
+    LibraryStub
+  )
+
+  it.effect("get_ticket splits the resolved body into a blocks breakdown", () =>
+    Effect.gen(function* () {
+      const registered = register(yield* Effect.context<HandlerServices>())
+      const cb = registered.get("get_ticket")!
+      const result = yield* Effect.suspend(() =>
+        withFakeUser(() =>
+          cb({ orgSlug: "acme", projectSlug: "demo", id: "T-1" })
+        )
+      )
+
+      expect(result.isError).toBeUndefined()
+      const payload = parseJson(result.content[0].text)
+      expect(payload.body).toContain("Some context.")
+      expect(payload.blocks).toEqual([
+        {
+          type: "acceptance-criteria",
+          sync: false,
+          content: "## Acceptance criteria\n\n- [x] Done"
+        },
+        {
+          type: "definition-of-done",
+          sync: true,
+          content: "## Definition of done\n\n- [ ] Reviewed"
+        }
+      ])
+    }).pipe(Effect.provide(WriteTestLayer))
   )
 
   it.effect("create_ticket forwards all fields and returns TicketDetail", () =>
@@ -508,6 +700,118 @@ describe("MCP handlers → write tools", () => {
         const payload = parseJson(result.content[0].text)
         expect(payload.tags).toEqual([])
         expect(captured.update).toEqual({ tags: [] })
+      })
+    }).pipe(Effect.provide(WriteTestLayer))
+  )
+
+  it.effect(
+    "create_ticket rejects malformed block markup with a line-specific reason",
+    () =>
+      Effect.gen(function* () {
+        captured.create = undefined
+        const registered = register(yield* Effect.context<HandlerServices>())
+        const cb = registered.get("create_ticket")!
+        yield* Effect.gen(function* () {
+          const result = yield* withFakeUser(() =>
+            cb({
+              orgSlug: "acme",
+              projectSlug: "demo",
+              title: "bad markup",
+              body: '<block type="Not Kebab">\n\nstuff\n\n</block>'
+            })
+          )
+
+          expect(result.isError).toBe(true)
+          expect(result.content[0].text).toContain("line 1")
+          expect(captured.create).toBeUndefined()
+        })
+      }).pipe(Effect.provide(WriteTestLayer))
+  )
+
+  it.effect(
+    "create_ticket strips hints inside blocks before saving, leaving loose text alone",
+    () =>
+      Effect.gen(function* () {
+        captured.create = undefined
+        const registered = register(yield* Effect.context<HandlerServices>())
+        const cb = registered.get("create_ticket")!
+        const body = [
+          "Some loose context. {{keep me}}",
+          formatTicketBlock(
+            "acceptance-criteria",
+            "## Acceptance criteria\n\n- [ ] {{Given ... when ... then ...}}"
+          )
+        ].join("\n\n")
+        yield* Effect.gen(function* () {
+          const result = yield* withFakeUser(() =>
+            cb({
+              orgSlug: "acme",
+              projectSlug: "demo",
+              title: "with a block",
+              body
+            })
+          )
+
+          expect(result.isError).toBeUndefined()
+          expect(captured.create.body).toContain(
+            "Some loose context. {{keep me}}"
+          )
+          expect(captured.create.body).toContain("## Acceptance criteria")
+          expect(captured.create.body).not.toContain("{{Given")
+        })
+      }).pipe(Effect.provide(WriteTestLayer))
+  )
+
+  it.effect("create_ticket keeps text that only looks like a hint", () =>
+    Effect.gen(function* () {
+      captured.create = undefined
+      const registered = register(yield* Effect.context<HandlerServices>())
+      const cb = registered.get("create_ticket")!
+      const body = [
+        formatTicketBlock(
+          "acceptance-criteria",
+          "## Acceptance criteria\n\n- [ ] NPM_TOKEN: ${{ secrets.NPM_TOKEN }}\n- [ ] Hi {{ user.firstName }}"
+        ),
+        formatTicketBlock("unknown-block", "## Notes\n\n{{kept}}")
+      ].join("\n\n")
+      yield* Effect.gen(function* () {
+        const result = yield* withFakeUser(() =>
+          cb({
+            orgSlug: "acme",
+            projectSlug: "demo",
+            title: "look-alike hints",
+            body
+          })
+        )
+
+        expect(result.isError).toBeUndefined()
+        expect(captured.create.body).toBe(body)
+      })
+    }).pipe(Effect.provide(WriteTestLayer))
+  )
+
+  it.effect("update_ticket strips hints inside blocks before saving", () =>
+    Effect.gen(function* () {
+      captured.update = undefined
+      const registered = register(yield* Effect.context<HandlerServices>())
+      const cb = registered.get("update_ticket")!
+      const body = formatTicketBlock(
+        "acceptance-criteria",
+        "## Acceptance criteria\n\n- [ ] {{Given ... when ... then ...}}"
+      )
+      yield* Effect.gen(function* () {
+        const result = yield* withFakeUser(() =>
+          cb({
+            orgSlug: "acme",
+            projectSlug: "demo",
+            id: "T-1",
+            body
+          })
+        )
+
+        expect(result.isError).toBeUndefined()
+        expect(captured.update.body).toContain("## Acceptance criteria")
+        expect(captured.update.body).not.toContain("{{Given")
       })
     }).pipe(Effect.provide(WriteTestLayer))
   )

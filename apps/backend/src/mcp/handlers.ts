@@ -3,6 +3,7 @@ import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { Comments } from "@pp/server-core/comments/Comments"
 import { GroupDocs } from "@pp/server-core/groups/GroupDocs"
 import { Groups } from "@pp/server-core/groups/Groups"
+import { Library } from "@pp/server-core/library/Library"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import * as Projects from "@pp/server-core/projects/Projects"
 import { ProjectStatuses } from "@pp/server-core/projects/ProjectStatuses"
@@ -12,11 +13,18 @@ import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
 import { Tickets } from "@pp/server-core/tickets/Tickets"
 import {
+  blockLookupFor,
+  expandTemplateKeepingHints,
   formatAttachmentMarkdown,
+  formatBlockIssue,
   isRasterImageContentType,
+  parseTicketBlocks,
+  serializeTicketBlocks,
+  stripDefinitionHints,
   type McpTools,
   TicketListQuery,
   Validation,
+  validateTicketBlocks,
   tryDecodeCursor,
   type AttachBranchInput,
   type CompleteSprintInput,
@@ -27,6 +35,7 @@ import {
   type Pagination,
   type SprintState,
   type TicketId,
+  type TicketType,
   type UpdateGroupInput,
   type UpdateTicketInput
 } from "@pp/shared"
@@ -45,6 +54,42 @@ import {
 } from "./toolkit"
 
 const DEFAULT_LIMIT = 50
+
+const sanitizeMcpBody = (orgSlug: string, projectSlug: string, body: string) =>
+  Effect.gen(function* () {
+    const [firstIssue] = validateTicketBlocks(body)
+    if (firstIssue !== undefined) {
+      return yield* new Validation({
+        reason: `block_markup:${formatBlockIssue(firstIssue)}`
+      })
+    }
+    const segments = parseTicketBlocks(body)
+    if (!segments.some((segment) => segment.kind === "block")) return body
+    const current = yield* McpCurrentUser
+    const library = yield* Library
+    const lookup = blockLookupFor(
+      yield* library.projectLibrary(orgSlug, current.id, projectSlug)
+    )
+    return serializeTicketBlocks(
+      segments.map((segment) => {
+        if (segment.kind === "markdown") return segment
+        const definition = lookup(segment.type)
+        return definition === undefined
+          ? segment
+          : {
+              ...segment,
+              content: stripDefinitionHints(segment.content, definition.content)
+            }
+      })
+    )
+  })
+
+const TICKET_TYPES: ReadonlyArray<TicketType> = [
+  "feat",
+  "bug",
+  "chore",
+  "other"
+]
 
 const me = (_input: {}) =>
   Effect.gen(function* () {
@@ -187,12 +232,26 @@ const get_ticket = (input: {
   Effect.gen(function* () {
     const current = yield* McpCurrentUser
     const tickets = yield* Tickets
-    return yield* tickets.get(
+    const detail = yield* tickets.get(
       input.orgSlug,
       current.id,
       input.projectSlug,
       input.id
     )
+    return {
+      ...detail,
+      blocks: parseTicketBlocks(detail.body).flatMap((segment) =>
+        segment.kind === "block"
+          ? [
+              {
+                type: segment.type,
+                sync: segment.sync === true,
+                content: segment.content
+              }
+            ]
+          : []
+      )
+    }
   })
 
 const list_statuses = (input: { orgSlug: string; projectSlug: string }) =>
@@ -283,14 +342,68 @@ const get_ticket_doc = (input: {
     return yield* docs.readRaw(input.orgSlug, input.projectSlug, input.id)
   })
 
+const list_blocks = (input: { orgSlug: string; projectSlug: string }) =>
+  Effect.gen(function* () {
+    const current = yield* McpCurrentUser
+    const library = yield* Library
+    const result = yield* library.projectLibrary(
+      input.orgSlug,
+      current.id,
+      input.projectSlug
+    )
+    return result.blocks
+      .filter((block) => !block.hidden)
+      .map((block) => ({
+        key: block.key,
+        name: block.name,
+        description: block.description,
+        sync: block.sync,
+        origin: block.origin,
+        content: block.content
+      }))
+  })
+
+const list_templates = (input: { orgSlug: string; projectSlug: string }) =>
+  Effect.gen(function* () {
+    const current = yield* McpCurrentUser
+    const library = yield* Library
+    const result = yield* library.projectLibrary(
+      input.orgSlug,
+      current.id,
+      input.projectSlug
+    )
+    const lookup = blockLookupFor(result)
+    return result.templates
+      .filter((template) => !template.hidden)
+      .map((template) => ({
+        key: template.key,
+        name: template.name,
+        description: template.description,
+        type: template.type,
+        priority: template.priority,
+        tags: template.tags,
+        body: expandTemplateKeepingHints(template, lookup),
+        isDefaultFor: TICKET_TYPES.filter(
+          (type) => result.defaults[type] === template.key
+        )
+      }))
+  })
+
 const create_ticket = (
   input: { orgSlug: string; projectSlug: string } & CreateTicketInput
 ) =>
   Effect.gen(function* () {
     const current = yield* McpCurrentUser
     const tickets = yield* Tickets
-    const { orgSlug, projectSlug, ...payload } = input
-    return yield* tickets.create(orgSlug, current.id, projectSlug, payload)
+    const { orgSlug, projectSlug, body, ...payload } = input
+    const sanitizedBody =
+      body === undefined
+        ? undefined
+        : yield* sanitizeMcpBody(orgSlug, projectSlug, body)
+    return yield* tickets.create(orgSlug, current.id, projectSlug, {
+      ...payload,
+      ...(sanitizedBody === undefined ? {} : { body: sanitizedBody })
+    })
   })
 
 const update_ticket = (
@@ -303,13 +416,20 @@ const update_ticket = (
   Effect.gen(function* () {
     const current = yield* McpCurrentUser
     const tickets = yield* Tickets
-    const { orgSlug, projectSlug, id, ...payload } = input
+    const { orgSlug, projectSlug, id, body, ...payload } = input
+    const sanitizedBody =
+      body === undefined
+        ? undefined
+        : yield* sanitizeMcpBody(orgSlug, projectSlug, body)
     const updated = yield* tickets.update(
       orgSlug,
       current.id,
       projectSlug,
       id,
-      payload
+      {
+        ...payload,
+        ...(sanitizedBody === undefined ? {} : { body: sanitizedBody })
+      }
     )
     return updated.ticket
   })
@@ -508,6 +628,8 @@ export const handlers: McpHandlers<McpHandlerEnv> = {
   get_project_doc,
   get_group_doc,
   get_ticket_doc,
+  list_blocks,
+  list_templates,
   create_ticket,
   update_ticket,
   prepare_ticket_attachment,

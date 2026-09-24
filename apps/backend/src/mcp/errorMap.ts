@@ -31,8 +31,17 @@ const catalogMessages: Messages<McpToolError> = {
   Forbidden: () => "Forbidden.",
   NotFound: () => "Not found.",
   Conflict: ({ reason }) => (reason ? `Conflict (${reason}).` : "Conflict."),
-  Validation: ({ reason }) =>
-    reason ? `Validation error (${reason}).` : "Validation error.",
+  Validation: ({ reason }) => {
+    const blockMarkup = reason?.match(/^block_markup:(.*)$/s)
+    if (blockMarkup) {
+      return (
+        `Invalid block markup — ${blockMarkup[1]} Discover valid block ` +
+        "types via list_blocks, and see the create_ticket/update_ticket " +
+        "descriptions for the format."
+      )
+    }
+    return reason ? `Validation error (${reason}).` : "Validation error."
+  },
   MentionInvalid: ({ kind, href }) => {
     const detail = kind && href ? `${kind}: ${href}` : (kind ?? href ?? "")
     return detail

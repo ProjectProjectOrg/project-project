@@ -3,6 +3,7 @@ import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { Comments } from "@pp/server-core/comments/Comments"
 import { GroupDocs } from "@pp/server-core/groups/GroupDocs"
 import { Groups } from "@pp/server-core/groups/Groups"
+import { Library } from "@pp/server-core/library/Library"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { Projects } from "@pp/server-core/projects/Projects"
 import { ProjectStatuses } from "@pp/server-core/projects/ProjectStatuses"
@@ -25,6 +26,7 @@ const handlerDependencies = [
   Comments,
   GroupDocs,
   Groups,
+  Library,
   OrgStorage,
   ProjectDocs,
   ProjectStatuses,
@@ -93,6 +95,8 @@ export const McpToolkit = Toolkit.make(
   makeTool("get_project_doc", McpTools.get_project_doc),
   makeTool("get_group_doc", McpTools.get_group_doc),
   makeTool("get_ticket_doc", McpTools.get_ticket_doc),
+  makeTool("list_blocks", McpTools.list_blocks),
+  makeTool("list_templates", McpTools.list_templates),
   makeTool("create_ticket", McpTools.create_ticket),
   makeTool("update_ticket", McpTools.update_ticket),
   makeTool("prepare_ticket_attachment", McpTools.prepare_ticket_attachment),

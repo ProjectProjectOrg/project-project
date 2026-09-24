@@ -31,6 +31,20 @@ describe("mappedToolErrorText", () => {
     )
   })
 
+  it("maps a block_markup Validation reason to the formatted issue text", () => {
+    const text = mappedToolErrorText(
+      new Validation({
+        reason:
+          'block_markup:line 3: <block type="foo"> is not a valid block ' +
+          'opener; write <block type="key"> or <block type="key" sync>'
+      })
+    )
+    expect(text).toContain("Invalid block markup")
+    expect(text).toContain("line 3:")
+    expect(text).toContain("list_blocks")
+    expect(text).not.toContain("Validation error (")
+  })
+
   it("leaves untagged values unmapped for the caller to treat as internal", () => {
     expect(mappedToolErrorText(new Error("boom"))).toBeUndefined()
   })

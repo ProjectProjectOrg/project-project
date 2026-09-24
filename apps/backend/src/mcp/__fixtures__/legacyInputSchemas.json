@@ -688,6 +688,46 @@
     "additionalProperties": true,
     "$defs": {}
   },
+  "list_blocks": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "required": ["orgSlug", "projectSlug"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "list_templates": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "required": ["orgSlug", "projectSlug"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
   "create_ticket": {
     "type": "object",
     "properties": {
