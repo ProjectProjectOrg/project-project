@@ -178,11 +178,11 @@ function DeleteAction({
   onConfirm
 }: Readonly<{ name: string; onConfirm: () => Promise<boolean> }>) {
   return (
-    <ConfirmButton.Root>
+    <ConfirmButton.Root className="static">
       <ConfirmButton.Trigger type="button" variant="raised" size="xs">
         {m.templates_settings_action_delete()}
       </ConfirmButton.Trigger>
-      <ConfirmButton.Confirm className="gap-1">
+      <ConfirmButton.Confirm className="absolute inset-0 z-10 gap-1 rounded-lg border border-border bg-popover pr-1 pl-2.5 shadow-sm">
         <DeleteConfirmBody name={name} onConfirm={onConfirm} />
       </ConfirmButton.Confirm>
     </ConfirmButton.Root>
@@ -195,8 +195,8 @@ function DeleteConfirmBody({
 }: Readonly<{ name: string; onConfirm: () => Promise<boolean> }>) {
   const { close, busy, setBusy } = useConfirmButton()
   return (
-    <span data-confirming className="flex flex-wrap items-center gap-1">
-      <span className="text-xs text-muted-foreground">
+    <span data-confirming className="flex min-w-0 flex-1 items-center gap-1">
+      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
         {m.templates_settings_delete_confirm({ name })}
       </span>
       <Button
