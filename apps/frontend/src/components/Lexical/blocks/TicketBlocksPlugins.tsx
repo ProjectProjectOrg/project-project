@@ -16,7 +16,9 @@ export function TicketBlocksPlugins({
 }>) {
   return (
     <>
-      {hasBlockGutter(blocks) ? <BlockGutterPlugin blocks={blocks} /> : null}
+      {hasBlockGutter(blocks) ? (
+        <BlockGutterPlugin blocks={blocks} transformers={transformers} />
+      ) : null}
       <SyncedBlocksPlugin library={blocks.library} />
       {blocks.mode !== "definition" ? (
         <BlockHintsPlugin library={blocks.library} />

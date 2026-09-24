@@ -2,28 +2,28 @@ import { CodeNode } from "@lexical/code"
 import { ListItemNode, ListNode } from "@lexical/list"
 import { $convertFromMarkdownString } from "@lexical/markdown"
 import { LexicalComposer } from "@lexical/react/LexicalComposer"
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { ContentEditable } from "@lexical/react/LexicalContentEditable"
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary"
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin"
 import { HeadingNode } from "@lexical/rich-text"
-import { cleanup, render, screen, waitFor } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { COMMAND_PRIORITY_CRITICAL } from "lexical"
+import { useEffect } from "react"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
 
 import { BUILTIN_LIBRARY } from "@/components/blocks/blockChrome"
 
 import { MARKDOWN_TRANSFORMERS } from "../../LexicalEditor"
 import { TicketBlockNode } from "../TicketBlockNode"
+import { OPEN_BLOCK_MENU_COMMAND } from "./blockCommands"
 import { BlockGutterPlugin } from "./BlockGutterPlugin"
 import { SyncedBlockNode } from "./SyncedBlockNode"
 
 const BODY = [
-  "Intro.",
   '<block type="acceptance-criteria">\n\n## Acceptance criteria\n\n- [ ] One\n\n</block>',
-  "Between.",
-  '<block type="release-notes">\n\n## Release notes\n\n</block>'
+  '<block type="notes">\n\n## Notes\n\nText\n\n</block>'
 ].join("\n\n")
-
-const NO_EDIT = { org: false, project: false }
 
 class NoopResizeObserver {
   observe() {}
@@ -35,10 +35,10 @@ beforeEach(() => {
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
     function (this: HTMLElement) {
       const index = Array.from(this.parentElement?.children ?? []).indexOf(this)
-      const top = index * 40
-      return DOMRect.fromRect({ x: 0, y: top, width: 600, height: 32 })
+      return DOMRect.fromRect({ x: 0, y: index * 40, width: 600, height: 32 })
     }
   )
+  HTMLElement.prototype.setPointerCapture = () => {}
 })
 
 afterEach(() => {
@@ -47,12 +47,30 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-function renderEditor(markdown: string) {
-  return render(
+function MenuSpy({ onOpen }: Readonly<{ onOpen: () => void }>) {
+  const [editor] = useLexicalComposerContext()
+  useEffect(
+    () =>
+      editor.registerCommand(
+        OPEN_BLOCK_MENU_COMMAND,
+        () => {
+          onOpen()
+          return true
+        },
+        COMMAND_PRIORITY_CRITICAL
+      ),
+    [editor, onOpen]
+  )
+  return null
+}
+
+it("does not open the block menu on the release after Escape cancels a drag", async () => {
+  const onOpen = vi.fn()
+  render(
     <div className="prose-md block-gutter">
       <LexicalComposer
         initialConfig={{
-          namespace: "block-gutter-test",
+          namespace: "block-drag-test",
           nodes: [
             CodeNode,
             HeadingNode,
@@ -62,7 +80,7 @@ function renderEditor(markdown: string) {
             SyncedBlockNode
           ],
           editorState: () =>
-            $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS),
+            $convertFromMarkdownString(BODY, MARKDOWN_TRANSFORMERS),
           onError: (error) => {
             throw error
           }
@@ -77,51 +95,33 @@ function renderEditor(markdown: string) {
           ErrorBoundary={LexicalErrorBoundary}
         />
         <BlockGutterPlugin
-          blocks={{ library: BUILTIN_LIBRARY, canEdit: NO_EDIT }}
+          blocks={{
+            library: BUILTIN_LIBRARY,
+            canEdit: { org: false, project: false }
+          }}
           transformers={MARKDOWN_TRANSFORMERS}
         />
+        <MenuSpy onOpen={onOpen} />
       </LexicalComposer>
     </div>
   )
-}
-
-it("mounts one gutter button per top-level block", async () => {
-  renderEditor(BODY)
-  await waitFor(() => expect(screen.getAllByRole("button")).toHaveLength(2))
-  expect(
-    screen.getByRole("button", { name: "Acceptance criteria block" })
-  ).toBeDefined()
-  expect(
-    screen.getByRole("button", { name: "Release notes block" })
-  ).toBeDefined()
-})
-
-it("shows the definition icon and the fallback icon in the gutter", async () => {
-  renderEditor(BODY)
-  const known = await screen.findByRole("button", {
+  const grip = await screen.findByRole("button", {
     name: "Acceptance criteria block"
   })
-  const unknown = screen.getByRole("button", { name: "Release notes block" })
-  expect(
-    known.querySelector("[data-block-icon]")?.getAttribute("data-block-icon")
-  ).toBe("ListChecks")
-  expect(
-    unknown.querySelector("[data-block-icon]")?.getAttribute("data-block-icon")
-  ).toBe("Square")
-})
 
-it("positions each button against its block's first line", async () => {
-  renderEditor(BODY)
-  const known = await screen.findByRole("button", {
-    name: "Acceptance criteria block"
+  fireEvent.pointerDown(grip, {
+    button: 0,
+    pointerId: 1,
+    clientX: 0,
+    clientY: 5
   })
-  expect(known.style.top).toMatch(/px$/)
-})
+  fireEvent.pointerMove(grip, { pointerId: 1, clientX: 0, clientY: 30 })
+  await act(async () => {})
+  fireEvent.keyDown(window, { key: "Escape" })
+  fireEvent.pointerUp(grip, { pointerId: 1, clientX: 0, clientY: 30 })
+  fireEvent.click(grip)
 
-it("renders no buttons without blocks", async () => {
-  renderEditor("Only text.")
-  await waitFor(() =>
-    expect(document.querySelector("[data-block-gutter]")).not.toBeNull()
-  )
-  expect(screen.queryAllByRole("button")).toHaveLength(0)
+  expect(onOpen).not.toHaveBeenCalled()
+  fireEvent.click(grip)
+  expect(onOpen).toHaveBeenCalledTimes(1)
 })

@@ -239,6 +239,16 @@ export const resolveSyncedBlocks = (
   )
 }
 
+const comparableMarkdown = (markdown: string): string =>
+  markdown.replace(/\s+/g, " ").trim()
+
+export const blockMatchesDefinition = (
+  content: string,
+  definition: BlockDefinition
+): boolean =>
+  comparableMarkdown(content) ===
+  comparableMarkdown(stripHints(definition.content))
+
 const keysOf = (entries: ReadonlyArray<Keyed>): ReadonlySet<string> =>
   new Set(entries.map((entry) => entry.key))
 

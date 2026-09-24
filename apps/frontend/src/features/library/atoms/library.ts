@@ -145,6 +145,27 @@ export const updateOrgBlock = Atom.family(({ req, key }: OrgKeyed<BlockKey>) =>
   )
 )
 
+export const updateOrgBlockFromProject = Atom.family(
+  ({ req, key }: ProjectKeyed<BlockKey>) =>
+    libraryMutation(
+      "updateOrgBlockFromProject",
+      {
+        view: projectLibraryFor(req),
+        publish: [Keys.orgLibrary(req.params.orgSlug)]
+      },
+      (library, patch: UpdateBlockInput) =>
+        applyBlockUpdate(library, key, patch),
+      (patch) =>
+        Api.use((client) =>
+          client.library.updateOrgBlock({
+            params: { orgSlug: req.params.orgSlug, key },
+            payload: patch
+          })
+        ),
+      upsertBlock
+    )
+)
+
 export const removeOrgBlock = Atom.family(({ req, key }: OrgKeyed<BlockKey>) =>
   libraryMutation(
     "removeOrgBlock",

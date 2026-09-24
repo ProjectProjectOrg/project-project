@@ -1,5 +1,9 @@
 import { $isListNode } from "@lexical/list"
-import { $convertFromMarkdownString, type Transformer } from "@lexical/markdown"
+import {
+  $convertFromMarkdownString,
+  $convertToMarkdownString,
+  type Transformer
+} from "@lexical/markdown"
 import { $isHeadingNode } from "@lexical/rich-text"
 import { $findMatchingParent } from "@lexical/utils"
 import {
@@ -7,11 +11,13 @@ import {
   hintSlots,
   outlineBlockContent,
   stripHints,
+  type BlockDefinition,
   type BlockLookup,
   type HintNodeKind,
   type HintSlot
 } from "@pp/shared"
 import {
+  $copyNode,
   $createParagraphNode,
   $getRoot,
   $getSelection,
@@ -21,14 +27,23 @@ import {
   $isRootNode,
   $isTextNode,
   $setSelection,
+  createCommand,
   type ElementNode,
+  type LexicalCommand,
   type LexicalNode,
+  type NodeKey,
   type RangeSelection
 } from "lexical"
+
+import { blankBlockHeading } from "@/components/blocks/blockChrome"
 
 import { $isTicketBlockNode, type TicketBlockNode } from "../TicketBlockNode"
 import { $isSyncedBlockNode, type SyncedBlockNode } from "./SyncedBlockNode"
 import { $detachSyncedBlock } from "./syncedBlocks"
+
+export const OPEN_BLOCK_MENU_COMMAND: LexicalCommand<NodeKey> = createCommand(
+  "OPEN_BLOCK_MENU_COMMAND"
+)
 
 export type TopLevelBlockNode = TicketBlockNode | SyncedBlockNode
 
@@ -225,6 +240,84 @@ export function $insertBlocksAt(
   return nodes
 }
 
+export type BlockDirection = "up" | "down"
+
+export type BlockPlacement = "before" | "after"
+
+export const $blockNeighbour = (
+  node: LexicalNode,
+  direction: BlockDirection
+): LexicalNode | null => {
+  let candidate =
+    direction === "up" ? node.getPreviousSibling() : node.getNextSibling()
+  while (candidate !== null && $isBlankParagraph(candidate))
+    candidate =
+      direction === "up"
+        ? candidate.getPreviousSibling()
+        : candidate.getNextSibling()
+  return candidate
+}
+
+export function $moveBlock(
+  node: TopLevelBlockNode,
+  direction: BlockDirection
+): LexicalNode | null {
+  const neighbour = $blockNeighbour(node, direction)
+  if (neighbour === null) return null
+  if (direction === "up") neighbour.insertBefore(node)
+  else neighbour.insertAfter(node)
+  return neighbour
+}
+
+export function $moveBlockTo(
+  node: TopLevelBlockNode,
+  target: LexicalNode,
+  placement: BlockPlacement
+): boolean {
+  if (target.is(node)) return false
+  const adjacent =
+    placement === "before"
+      ? target.getPreviousSibling()
+      : target.getNextSibling()
+  if (adjacent !== null && adjacent.is(node)) return false
+  if (placement === "before") target.insertBefore(node)
+  else target.insertAfter(node)
+  return true
+}
+
+function $deepCopy<T extends LexicalNode>(node: T): T {
+  const copy = $copyNode(node)
+  if ($isElementNode(node) && $isElementNode(copy))
+    copy.append(...node.getChildren().map($deepCopy))
+  return copy
+}
+
+export function $duplicateBlock(node: TopLevelBlockNode): TopLevelBlockNode {
+  const copy = $deepCopy(node)
+  node.insertAfter(copy)
+  return copy
+}
+
+function $moveCaretAway(node: LexicalNode) {
+  const previous = node.getPreviousSibling()
+  const next = node.getNextSibling()
+  if ($isElementNode(previous)) previous.selectEnd()
+  else if ($isElementNode(next)) next.selectStart()
+  else if (previous !== null) previous.selectNext()
+  else if (next !== null) next.selectPrevious()
+}
+
+export function $removeBlock(node: TopLevelBlockNode) {
+  $moveCaretAway(node)
+  const root = $getRoot()
+  node.remove()
+  if (root.isEmpty()) {
+    const line = $createParagraphNode()
+    root.append(line)
+    line.select()
+  }
+}
+
 export function $unwrapBlock(
   node: TopLevelBlockNode,
   content: string,
@@ -237,4 +330,57 @@ export function $unwrapBlock(
   for (const child of children) block.insertBefore(child)
   block.remove()
   return children
+}
+
+export function $blockMarkdown(
+  node: TicketBlockNode,
+  transformers: ReadonlyArray<Transformer>
+): string {
+  return $convertToMarkdownString([...transformers], node)
+}
+
+export function $resetBlock(
+  node: TicketBlockNode,
+  definition: BlockDefinition,
+  transformers: ReadonlyArray<Transformer>
+) {
+  $convertFromMarkdownString(
+    stripHints(definition.content),
+    [...transformers],
+    node
+  )
+  if (node.isEmpty()) node.append($createParagraphNode())
+  $materializeHintLines(node, definition.content)
+  const target = hintSlots(definition.content)
+    .map((slot) => $hintTarget(node, slot))
+    .find((candidate) => candidate !== null)
+  if (target !== undefined && target !== null) target.selectEnd()
+  else node.selectEnd()
+}
+
+const $isAtBlockStart = (
+  block: TicketBlockNode,
+  selection: RangeSelection
+): boolean => {
+  if (!selection.isCollapsed() || selection.anchor.offset !== 0) return false
+  const first = block.getFirstChild()
+  if (first === null) return false
+  const anchor = selection.anchor.getNode()
+  return (
+    anchor.is(first) ||
+    ($isElementNode(first) && anchor.is(first.getFirstDescendant()))
+  )
+}
+
+export function $blankBlockAtCaret(
+  transformers: ReadonlyArray<Transformer>
+): TicketBlockNode | null {
+  const selection = $getSelection()
+  if (!$isRangeSelection(selection)) return null
+  const block = $findBlockAtSelection()
+  if (!$isTicketBlockNode(block) || !$isAtBlockStart(block, selection))
+    return null
+  return blankBlockHeading($blockMarkdown(block, transformers)) === null
+    ? null
+    : block
 }

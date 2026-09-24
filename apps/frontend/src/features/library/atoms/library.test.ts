@@ -24,6 +24,7 @@ import {
   projectLibraryFor,
   projectLibraryRequest,
   removeProjectBlock,
+  updateOrgBlockFromProject,
   updateProjectBlock
 } from "./library"
 
@@ -220,6 +221,53 @@ describe("library atoms", () => {
       expect(blockIn(successValue(registry.get(view)), "triage")?.name).toBe(
         "Intake"
       )
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("shows an org block edited from a project view in that view", async () => {
+    const org = layerWith([contextBlock])
+    let served = libraryWith(EMPTY_LAYER, org)
+    const update = deferred()
+    const calls = serve([
+      {
+        method: "GET",
+        path: PROJECT_PATH,
+        respond: () => Promise.resolve(Response.json(encodeLibrary(served)))
+      },
+      {
+        method: "PATCH",
+        path: `${ORG_PATH}/blocks/context`,
+        respond: () => update.promise
+      }
+    ])
+    const registry = AtomRegistry.make()
+    const view = projectLibraryFor(projectReq)
+    const mutation = updateOrgBlockFromProject({
+      req: projectReq,
+      key: contextBlock.key
+    })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() => expect(registry.get(view)._tag).toBe("Success"))
+
+      registry.set(mutation, { content: "## Context\n\nOurs" })
+      expect(
+        blockIn(successValue(registry.get(view)), "context")
+      ).toMatchObject({ origin: "org", content: "## Context\n\nOurs" })
+
+      served = libraryWith(
+        EMPTY_LAYER,
+        layerWith([{ ...contextBlock, content: "## Context\n\nOurs" }])
+      )
+      update.resolve(Response.json(encodeBlock(blockIn(served, "context")!)))
+      await vi.waitFor(() => expect(registry.get(view).waiting).toBe(false))
+      expect(
+        blockIn(successValue(registry.get(view)), "context")?.content
+      ).toBe("## Context\n\nOurs")
+      expect(calls).toContain(`PATCH /api${ORG_PATH}/blocks/context`)
     } finally {
       registry.dispose()
     }

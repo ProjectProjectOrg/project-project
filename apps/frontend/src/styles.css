@@ -434,6 +434,14 @@
   > .ticket-block:is([data-hovered], [data-active]) {
   background-color: var(--block-editing-fill);
 }
+.prose-md .ticket-block[data-dragging] {
+  background-color: color-mix(in oklch, var(--muted) 70%, transparent);
+  outline: 1px dashed var(--border);
+  outline-offset: -1px;
+}
+.prose-md .ticket-block[data-dragging] > * {
+  visibility: hidden;
+}
 .prose-md .ticket-block[data-flash] {
   animation:
     ticket-block-flash 600ms ease-out,

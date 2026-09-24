@@ -53,7 +53,8 @@ export function DescriptionField({
   const update = useAtomSet(updateTicketDetail(req), { mode: "promiseExit" })
   const updateState = useAtomValue(updateTicketDetail(req))
   const bodyDraft = useAtomValue(ticketBodyDraft(req))
-  const blocks = useEditorBlocks(orgSlug, slug)
+  const [definitionError, setDefinitionError] = useState<string | null>(null)
+  const blocks = useEditorBlocks(orgSlug, slug, setDefinitionError)
   const setBodyDraft = useAtomSet(ticketBodyDraft(req))
   const storageResult = useAtomValue(orgStorage(storageRequest(orgSlug)))
   const orgResult = useAtomValue(orgDetail(orgRequest(orgSlug)))
@@ -170,6 +171,21 @@ export function DescriptionField({
           )}
         />
       </div>
+      {definitionError !== null && (
+        <p
+          role="alert"
+          className="mt-2 flex items-center gap-2 px-3 text-xs text-destructive"
+        >
+          {m.editor_block_make_definition_failed({ reason: definitionError })}
+          <button
+            type="button"
+            onClick={() => setDefinitionError(null)}
+            className="rounded px-1 text-muted-foreground transition-all duration-100 hover:text-foreground active:scale-[0.97]"
+          >
+            {m.editor_block_make_definition_dismiss()}
+          </button>
+        </p>
+      )}
       {!storageActive && canConnectStorage && (
         <div className="mt-2 px-3">
           <Link
