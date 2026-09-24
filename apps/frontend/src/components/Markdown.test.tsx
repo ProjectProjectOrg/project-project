@@ -119,6 +119,31 @@ it("preserves links around compact images without nesting download links", () =>
 })
 
 describe("Markdown ticket blocks", () => {
+  it("resolves a reference link inside a block from a definition outside it", () => {
+    render(
+      <Markdown>
+        {
+          '<block type="notes">\n\n## Notes\n\nSee [spec][1]\n\n</block>\n\n[1]: https://example.com/spec'
+        }
+      </Markdown>
+    )
+    expect(
+      screen.getByRole("link", { name: "spec" }).getAttribute("href")
+    ).toBe("https://example.com/spec")
+    expect(screen.queryByText(/\[spec\]/)).toBeNull()
+  })
+
+  it("does not pick up a reference definition from a fence or a comment", () => {
+    render(
+      <Markdown>
+        {
+          'See [spec][1] and [plan][2]\n\n<block type="notes">\n\nx\n\n</block>\n\n```\n[1]: https://example.com/spec\n```\n\n<!--\n[2]: https://example.com/plan\n-->'
+        }
+      </Markdown>
+    )
+    expect(screen.queryByRole("link")).toBeNull()
+  })
+
   it("renders a block as a labelled container around its markdown", () => {
     const { container } = render(
       <Markdown>
@@ -144,6 +169,16 @@ describe("Markdown ticket blocks", () => {
     expect(container.querySelector(".ticket-block li")?.textContent).toBe(
       "item"
     )
+  })
+
+  it("leaves a block inside an HTML comment to the comment", () => {
+    const { container } = render(
+      <Markdown>
+        {'Intro.\n\n<!--\n<block type="notes">\n\nsecret\n\n</block>\n-->'}
+      </Markdown>
+    )
+    expect(container.querySelector(".ticket-block")).toBeNull()
+    expect(container.textContent).toContain('<block type="notes">')
   })
 
   it("shows a block example inside a code fence as code", () => {

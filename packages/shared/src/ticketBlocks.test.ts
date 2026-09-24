@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   findTicketBlockEnd,
+  flattenTicketBlocks,
   formatTicketBlock,
   parseTicketBlocks,
   serializeTicketBlocks
@@ -179,5 +180,91 @@ describe("findTicketBlockEnd", () => {
   it("returns null when another block opens first", () => {
     const lines = ['<block type="a">', '<block type="b">', "</block>"]
     expect(findTicketBlockEnd(lines, 0)).toBeNull()
+  })
+})
+
+describe("HTML comments", () => {
+  it("leaves a block inside a multi-line comment as markdown", () => {
+    const markdown = [
+      "Intro.",
+      "",
+      "<!--",
+      '<block type="notes">',
+      "hidden",
+      "</block>",
+      "-->",
+      "",
+      "Outro."
+    ].join("\n")
+
+    expect(parseTicketBlocks(markdown)).toEqual([
+      { kind: "markdown", text: markdown }
+    ])
+  })
+
+  it("parses blocks again once a comment closes", () => {
+    const markdown = [
+      "<!-- a note -->",
+      '<block type="notes">',
+      "shown",
+      "</block>",
+      "<!--",
+      "</block>",
+      "-->"
+    ].join("\n")
+
+    expect(parseTicketBlocks(markdown)).toEqual([
+      { kind: "markdown", text: "<!-- a note -->" },
+      { kind: "block", type: "notes", content: "shown" },
+      { kind: "markdown", text: "<!--\n</block>\n-->" }
+    ])
+  })
+
+  it("does not close a block on a closing tag inside a comment", () => {
+    const lines = [
+      '<block type="notes">',
+      "<!--",
+      "</block>",
+      "-->",
+      "</block>"
+    ]
+    expect(findTicketBlockEnd(lines, 0)).toBe(4)
+  })
+
+  it("treats an empty comment as closed on its own line", () => {
+    const markdown = '<!-->\n<block type="notes">\nshown\n</block>'
+
+    expect(parseTicketBlocks(markdown)[1]).toEqual({
+      kind: "block",
+      type: "notes",
+      content: "shown"
+    })
+  })
+})
+
+describe("formatTicketBlock whitespace", () => {
+  it("keeps the indentation of the first content line", () => {
+    const content = "    const x = 1\n    const y = 2"
+
+    expect(formatTicketBlock("notes", `\n\n${content}\n\n`)).toBe(
+      `<block type="notes">\n\n${content}\n\n</block>`
+    )
+    expect(parseTicketBlocks(formatTicketBlock("notes", content))[0]).toEqual({
+      kind: "block",
+      type: "notes",
+      content
+    })
+  })
+})
+
+describe("flattenTicketBlocks", () => {
+  it("drops block tags and keeps the content in order", () => {
+    const markdown = [
+      "Intro.",
+      formatTicketBlock("acceptance-criteria", CRITERIA),
+      formatTicketBlock("notes", "")
+    ].join("\n\n")
+
+    expect(flattenTicketBlocks(markdown)).toBe(`Intro.\n\n${CRITERIA}`)
   })
 })

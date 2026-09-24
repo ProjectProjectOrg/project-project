@@ -7,6 +7,7 @@ import type {
   TicketStatus,
   TicketType
 } from "@pp/shared"
+import { flattenTicketBlocks } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import type { ComponentProps } from "react"
@@ -35,6 +36,11 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
+
+export const previewOverflows = (body: string): boolean => {
+  const text = flattenTicketBlocks(body)
+  return text.split("\n").length > 6 || text.length > 320
+}
 
 type TicketHoverCardScope = {
   readonly orgSlug: string
@@ -88,7 +94,7 @@ export function TicketHoverCard({
         onDefect: () => <TicketHoverCardError />,
         onSuccess: ({ value: ticket }) => {
           const body = ticket.body.trim()
-          const isOverflowing = body.split("\n").length > 6 || body.length > 320
+          const isOverflowing = previewOverflows(body)
           return (
             <div className="space-y-2">
               <div className="line-clamp-2 text-sm leading-snug font-medium">
