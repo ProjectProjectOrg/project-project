@@ -274,11 +274,12 @@ Use the ladder when a surface must sit on another surface — board columns and 
 
 ### Buttons
 
-The single primitive lives in `components/ui/button.tsx`, exposing variants `primary | secondary | destructive | tertiary | ghost | chip | dither` and sizes `xs | sm | md | lg | icon-*`. Shape is shared across the app via a `useShape()` context — round-rectangle by default; the same primitive can adopt other corner shapes without per-callsite styling.
+The single primitive lives in `components/ui/button.tsx`, exposing variants `primary | secondary | destructive | tertiary | ghost | raised | chip | dither` and sizes `xs | sm | md | lg | icon-*`. Shape is shared across the app via a `useShape()` context — round-rectangle by default; the same primitive can adopt other corner shapes without per-callsite styling.
 
 - **Primary:** `bg-foreground text-background`, hover dims to `/90`, active to `/80`. Always pairs with `active:scale-[0.97]` and `transition-all duration-100`.
 - **Tertiary:** transparent + hairline border + foreground text; hover fills with `--muted`.
 - **Ghost:** transparent, `muted-foreground` text; hover swaps text to full foreground and fills with `--muted`. Default for icon-only chrome.
+- **Raised:** `--surface-5` fill with the `--shadow-1` hairline, `--surface-7` on hover. For actions revealed on a card that is itself hovered, where a ghost button's hover fill would match the card.
 - **Destructive:** `bg-destructive text-destructive-foreground`; reserved for delete and irreversible-action confirms.
 - **Chip:** inline, height-auto, `rounded-md`, tight padding — used in filter pills, segmented tabs, status chips on rows.
 - **Dither:** the brand-thread variant — animated dithered backdrop. Reserved for hero / marketing surfaces, not chrome.

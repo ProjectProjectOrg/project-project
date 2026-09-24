@@ -159,7 +159,7 @@ export function LibraryCard({
               <Button
                 key={action}
                 type="button"
-                variant="ghost"
+                variant="raised"
                 size="xs"
                 onClick={() => void onAction(action)}
               >
@@ -179,7 +179,7 @@ function DeleteAction({
 }: Readonly<{ name: string; onConfirm: () => Promise<boolean> }>) {
   return (
     <ConfirmButton.Root>
-      <ConfirmButton.Trigger type="button" variant="ghost" size="xs">
+      <ConfirmButton.Trigger type="button" variant="raised" size="xs">
         {m.templates_settings_action_delete()}
       </ConfirmButton.Trigger>
       <ConfirmButton.Confirm className="gap-1">
@@ -216,7 +216,7 @@ function DeleteConfirmBody({
       </Button>
       <Button
         type="button"
-        variant="ghost"
+        variant="raised"
         size="xs"
         disabled={busy}
         onClick={close}
