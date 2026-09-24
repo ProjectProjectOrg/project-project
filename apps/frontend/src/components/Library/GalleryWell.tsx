@@ -14,14 +14,32 @@ import {
 } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
-import { AnimatePresence, motion } from "motion/react"
-import { useMemo, useState, type ReactNode } from "react"
+import {
+  animate,
+  AnimatePresence,
+  frame,
+  motion,
+  useMotionValue,
+  useReducedMotion
+} from "motion/react"
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode
+} from "react"
 
 import { LibraryContext } from "@/components/blocks/blockChrome"
+import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import { sketchLines, templateSketch, type SketchBlock } from "./blockSketch"
+import {
+  sketchLines,
+  templateSketch,
+  type SketchBlock
+} from "./blockSketchModel"
 import { DitheredBlocks } from "./DitheredBlocks"
 import { GalleryTile, type GalleryItem } from "./GalleryTile"
 import { blockDraftOf, templateDraftOf, type LibraryKind } from "./libraryModel"
@@ -195,30 +213,117 @@ function GalleryWell({
           description={description}
         />
       </motion.div>
-      <div className={cn(LIBRARY_GRID_CLASS, "relative")}>
-        <AnimatePresence mode="popLayout" initial={false}>
-          {shown.map((tile) => (
-            <GalleryTile
-              key={tile.item.key}
-              kind={kind}
-              item={tile.item}
-              badge={tile.badge}
-              sketch={tile.sketch}
-              sketchNames={tile.sketchNames}
-              preview={tile.preview}
-              expanded={focused === tile}
-              canAdd={canAdd}
-              error={error?.key === tile.item.key ? error.message : null}
-              onTogglePreview={() =>
-                setExpanded((current) =>
-                  current === tile.item.key ? null : tile.item.key
-                )
-              }
-              onAdd={() => void add(tile)}
-            />
-          ))}
-        </AnimatePresence>
-      </div>
+      <EasedHeight session={focused?.item.key ?? null}>
+        <div className={cn(LIBRARY_GRID_CLASS, "relative")}>
+          <AnimatePresence mode="popLayout" initial={false}>
+            {shown.map((tile) => (
+              <GalleryTile
+                key={tile.item.key}
+                kind={kind}
+                item={tile.item}
+                badge={tile.badge}
+                sketch={tile.sketch}
+                sketchNames={tile.sketchNames}
+                preview={tile.preview}
+                expanded={focused === tile}
+                canAdd={canAdd}
+                error={error?.key === tile.item.key ? error.message : null}
+                onTogglePreview={() =>
+                  setExpanded((current) =>
+                    current === tile.item.key ? null : tile.item.key
+                  )
+                }
+                onAdd={() => void add(tile)}
+              />
+            ))}
+          </AnimatePresence>
+        </div>
+      </EasedHeight>
     </motion.section>
+  )
+}
+
+type ScrollReturn = Readonly<{
+  scroller: HTMLElement
+  from: number
+  height: number
+  to: number
+}>
+
+function EasedHeight({
+  session,
+  children
+}: Readonly<{ session: string | null; children: ReactNode }>) {
+  const contentRef = useRef<HTMLDivElement>(null)
+  const height = useMotionValue<number | "auto">("auto")
+  const overflowY = useMotionValue<"visible" | "clip">("visible")
+  const reduced = useReducedMotion() === true
+  const savedScroll = useRef<number | null>(null)
+  const scrollReturn = useRef<ScrollReturn | null>(null)
+  const open = session !== null
+
+  useLayoutEffect(() => {
+    const scroller =
+      contentRef.current?.closest<HTMLElement>("[data-scroll-root]") ?? null
+    if (scroller === null) return
+    if (open) {
+      savedScroll.current = scroller.scrollTop
+      scrollReturn.current = null
+      return
+    }
+    const to = savedScroll.current
+    const current = height.get()
+    savedScroll.current = null
+    if (to === null || current === "auto" || scroller.scrollTop >= to) return
+    scrollReturn.current = {
+      scroller,
+      from: scroller.scrollTop,
+      height: current,
+      to
+    }
+  }, [height, open])
+
+  useLayoutEffect(() => {
+    const content = contentRef.current
+    if (content === null) return undefined
+    let width: number | null = null
+    let target: number | null = null
+    const observer = new ResizeObserver(() => {
+      const next = content.offsetHeight
+      const resized = width !== content.offsetWidth
+      width = content.offsetWidth
+      if (next === target && !resized) return
+      target = next
+      if (resized || reduced || height.get() === next) {
+        height.jump(next)
+        overflowY.set("visible")
+        return
+      }
+      overflowY.set("clip")
+      void animate(height, next, transitions.layout)
+    })
+    const unsubscribe = height.on("change", (value) => {
+      overflowY.set(value === target ? "visible" : "clip")
+      const back = scrollReturn.current
+      if (back === null || value === "auto") return
+      if (value === target) scrollReturn.current = null
+      frame.postRender(() => {
+        back.scroller.scrollTop = Math.min(
+          back.to,
+          back.from + Math.max(0, value - back.height)
+        )
+      })
+    })
+    observer.observe(content)
+    return () => {
+      observer.disconnect()
+      unsubscribe()
+    }
+  }, [height, overflowY, reduced])
+
+  return (
+    <motion.div style={{ height, overflowY }}>
+      <div ref={contentRef}>{children}</div>
+    </motion.div>
   )
 }

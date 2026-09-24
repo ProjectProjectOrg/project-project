@@ -13,7 +13,7 @@ import { useMemo, useState } from "react"
 import { m } from "@/paraglide/messages"
 
 import { BlockStrip } from "./BlockSketch"
-import { templateSketch } from "./blockSketch"
+import { templateSketch } from "./blockSketchModel"
 import { LibraryCreateHeader } from "./LibraryCreateHeader"
 import { LibraryEmpty } from "./LibraryEmpty"
 import {
