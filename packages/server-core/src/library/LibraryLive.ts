@@ -370,6 +370,17 @@ export const LibraryLive = Layer.effect(
       return new Set<string>(rows.map((row) => row.name))
     }, Effect.orDie)
 
+    const keyTaken = <Draft extends Keyed>(
+      ops: KindOps<Draft, Keyed>,
+      orgSlug: string,
+      slug: string | null,
+      layers: LibraryLayers,
+      key: string
+    ): Effect.Effect<boolean, MarkdownError> =>
+      hasFileAt(ops, ownLayer(layers), key)
+        ? Effect.succeed(true)
+        : docs.hasFile(orgSlug, slug, ops.kind, key)
+
     const resolvedEntry = <Draft extends Keyed, Definition extends Keyed>(
       ops: KindOps<Draft, Definition>,
       layers: LibraryLayers,
@@ -439,7 +450,7 @@ export const LibraryLive = Layer.effect(
           slug,
           Effect.gen(function* () {
             const layers = yield* layersFor(orgSlug, slug)
-            if (hasFileAt(ops, ownLayer(layers), draft.key))
+            if (yield* keyTaken(ops, orgSlug, slug, layers, draft.key))
               return yield* new Conflict({ reason: "key_taken" })
             return yield* saveDraft(ops, write, orgSlug, slug, layers, draft)
           })
@@ -518,7 +529,10 @@ export const LibraryLive = Layer.effect(
       )
 
     const hideEntry = <Draft extends Keyed>(
-      ops: Pick<KindOps<Draft, Keyed>, "kind" | "isKey" | "definitions">,
+      ops: Pick<
+        KindOps<Draft, Keyed>,
+        "kind" | "isKey" | "definitions" | "hidden"
+      >,
       orgSlug: string,
       userId: string,
       slug: string,
@@ -540,6 +554,10 @@ export const LibraryLive = Layer.effect(
               .definitions(ownLayer(layers))
               .some((definition) => definition.key === key)
             if (customized) return yield* new Conflict({ reason: "customized" })
+            const unreadable =
+              !ops.hidden(ownLayer(layers)).includes(key) &&
+              (yield* docs.hasFile(orgSlug, slug, ops.kind, key))
+            if (unreadable) return yield* new Conflict({ reason: "customized" })
             yield* docs.writeTombstone(orgSlug, slug, ops.kind, key)
           })
         )

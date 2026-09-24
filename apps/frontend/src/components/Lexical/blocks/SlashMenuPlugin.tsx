@@ -631,11 +631,7 @@ function SlashMenuList({
           !hasTabs && "[&_.scroll-divider]:border-t-0"
         )}
       >
-        <CommandMenu
-          items={items}
-          query=""
-          onSelect={(row) => onPick(row.value)}
-        >
+        <CommandMenu items={items} onSelect={(row) => onPick(row.value)}>
           <SlashMenuKeys editor={editor} detachRef={detachRef} />
           {hasTabs ? (
             <CommandMenuTabs

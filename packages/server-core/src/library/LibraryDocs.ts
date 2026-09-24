@@ -37,6 +37,13 @@ export type LibraryDocsShape = Readonly<{
     orgSlug: string,
     defaults: PartialTemplateDefaults
   ) => Effect.Effect<void, MarkdownError>
+
+  hasFile: (
+    orgSlug: string,
+    projectSlug: string | null,
+    kind: LibraryKind,
+    key: string
+  ) => Effect.Effect<boolean, MarkdownError>
   remove: (
     orgSlug: string,
     projectSlug: string | null,

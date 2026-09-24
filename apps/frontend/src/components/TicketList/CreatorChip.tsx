@@ -28,7 +28,7 @@ export function CreatorChip({
       type="button"
       {...props}
       className={cn(
-        "transition-expand inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md",
+        "transition-expand inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md active:scale-[0.97]",
         expanded
           ? cn("px-2", BADGE_TONES[tone])
           : "px-1 hover:bg-accent hover:text-foreground",

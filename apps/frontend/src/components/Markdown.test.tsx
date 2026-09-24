@@ -133,6 +133,17 @@ describe("Markdown ticket blocks", () => {
     expect(screen.queryByText(/\[spec\]/)).toBeNull()
   })
 
+  it("does not pick up a reference definition from a fence or a comment", () => {
+    render(
+      <Markdown>
+        {
+          'See [spec][1] and [plan][2]\n\n<block type="notes">\n\nx\n\n</block>\n\n```\n[1]: https://example.com/spec\n```\n\n<!--\n[2]: https://example.com/plan\n-->'
+        }
+      </Markdown>
+    )
+    expect(screen.queryByRole("link")).toBeNull()
+  })
+
   it("renders a block in a frame around its markdown", () => {
     const { container } = render(
       <Markdown>
@@ -158,6 +169,16 @@ describe("Markdown ticket blocks", () => {
     expect(container.querySelector(".ticket-block li")?.textContent).toBe(
       "item"
     )
+  })
+
+  it("leaves a block inside an HTML comment to the comment", () => {
+    const { container } = render(
+      <Markdown>
+        {'Intro.\n\n<!--\n<block type="notes">\n\nsecret\n\n</block>\n-->'}
+      </Markdown>
+    )
+    expect(container.querySelector(".ticket-block")).toBeNull()
+    expect(container.textContent).toContain('<block type="notes">')
   })
 
   it("shows a block example inside a code fence as code", () => {

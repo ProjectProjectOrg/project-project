@@ -11,6 +11,10 @@ const TICKET_BLOCK_CLOSE = /^ {0,3}<\/block>\s*$/
 
 const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/
 
+const HTML_COMMENT_OPEN = /^ {0,3}<!--/
+
+const HTML_COMMENT = "<!--"
+
 const trimBlankLines = (lines: ReadonlyArray<string>): string => {
   let start = 0
   let end = lines.length
@@ -46,13 +50,29 @@ const closesFence = (line: string, fence: string): boolean => {
   )
 }
 
+const opensHtmlComment = (line: string): boolean => {
+  const match = HTML_COMMENT_OPEN.exec(line)
+  return match !== null && !line.includes("-->", match[0].length - 2)
+}
+
 export const advanceFence = (
   line: string,
   fence: string | null
 ): string | null => {
+  if (fence === HTML_COMMENT) return line.includes("-->") ? null : fence
   if (fence !== null) return closesFence(line, fence) ? null : fence
+  if (opensHtmlComment(line)) return HTML_COMMENT
   const match = FENCE_OPEN.exec(line)
   return match === null ? null : match[1]
+}
+
+export const isInsideFenceOrComment = (
+  lines: ReadonlyArray<string>,
+  index: number
+): boolean => {
+  let fence: string | null = null
+  for (let i = 0; i < index; i++) fence = advanceFence(lines[i], fence)
+  return fence !== null
 }
 
 export const findTicketBlockEnd = (
@@ -121,6 +141,14 @@ export const serializeTicketBlocks = (
             sync: segment.sync
           })
     )
+    .join("\n\n")
+
+export const flattenTicketBlocks = (markdown: string): string =>
+  parseTicketBlocks(markdown)
+    .map((segment) =>
+      segment.kind === "markdown" ? segment.text : segment.content
+    )
+    .filter((text) => text !== "")
     .join("\n\n")
 
 export type BlockIssueCode =

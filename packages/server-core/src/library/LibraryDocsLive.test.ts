@@ -114,6 +114,26 @@ describe("LibraryDocs (real fs)", () => {
     }).pipe(Effect.provide(TestLayer))
   )
 
+  it.effect("refuses to overwrite an org library.md it cannot parse", () =>
+    Effect.gen(function* () {
+      const docs = yield* LibraryDocs
+      const fs = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const file = yield* libraryPath("acme", "library.md")
+      const malformed = "---\nnote: [unclosed\n---\n\nOrg notes.\n"
+      yield* fs.makeDirectory(path.dirname(file), { recursive: true })
+      yield* fs.writeFileString(file, malformed)
+
+      expect(yield* docs.readOrgDefaults("acme")).toEqual({})
+      const failure = yield* docs
+        .writeOrgDefaults("acme", { bug: templateKey("bug-report") })
+        .pipe(Effect.flip)
+
+      expect(failure._tag).toBe("MarkdownError")
+      expect(yield* fs.readFileString(file, "utf8")).toBe(malformed)
+    }).pipe(Effect.provide(TestLayer))
+  )
+
   it.effect("writes org and project files at the documented paths", () =>
     Effect.gen(function* () {
       const docs = yield* LibraryDocs
@@ -264,6 +284,10 @@ describe("LibraryDocs (real fs)", () => {
 
       expect(layer.blocks).toEqual([])
       expect(layer.templates).toEqual([])
+
+      expect(yield* docs.hasFile("acme", null, "blocks", "broken")).toBe(true)
+      expect(yield* docs.hasFile("acme", null, "blocks", "missing")).toBe(false)
+      expect(yield* docs.hasFile("acme", null, "templates", "blank")).toBe(true)
     }).pipe(Effect.provide(TestLayer))
   )
 

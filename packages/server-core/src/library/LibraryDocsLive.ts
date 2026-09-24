@@ -16,6 +16,7 @@ import {
   type PartialTemplateDefaults,
   type TemplateDraft
 } from "@pp/shared"
+import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
@@ -24,9 +25,9 @@ import matter from "gray-matter"
 
 import {
   Markdown,
+  MarkdownError,
   type LibraryFile,
-  type LibraryKind,
-  type MarkdownError
+  type LibraryKind
 } from "../markdown/Markdown"
 import { LibraryDocs, type LibraryDocsShape } from "./LibraryDocs"
 import {
@@ -142,6 +143,30 @@ const classifyFile = <A>(
     })
   })
 }
+
+type OrgLibraryFile = Readonly<{
+  data: Record<string, unknown>
+  body: string
+}>
+
+const EMPTY_ORG_FILE: OrgLibraryFile = { data: {}, body: "" }
+
+class OrgLibraryUnreadable extends Data.TaggedError("OrgLibraryUnreadable")<
+  Readonly<{ cause: unknown; orgSlug: string }>
+> {}
+
+const parseOrgFile = (
+  orgSlug: string,
+  content: string
+): Effect.Effect<OrgLibraryFile, OrgLibraryUnreadable> =>
+  Effect.try({
+    try: () => {
+      // gray-matter caches a failed parse and returns it empty next time; options skip the cache.
+      const parsed = matter(content, {})
+      return { data: parsed.data, body: parsed.content }
+    },
+    catch: (cause) => new OrgLibraryUnreadable({ cause, orgSlug })
+  })
 
 function withLibraryDocTelemetry<A, E>(
   operation: string,
@@ -283,18 +308,18 @@ export const LibraryDocsLive = Layer.effect(
         markdown.writeLibraryFile(orgSlug, projectSlug, kind, key, TOMBSTONE)
       )
 
-    const readOrgFile = (orgSlug: string) =>
-      markdown.readOrgLibraryFile(orgSlug).pipe(
-        Effect.map((content) => {
-          if (content === null) return { data: {}, body: "" }
-          try {
-            const parsed = matter(content)
-            return { data: parsed.data, body: parsed.content }
-          } catch {
-            return { data: {}, body: "" }
-          }
-        })
-      )
+    const readOrgFile = (
+      orgSlug: string
+    ): Effect.Effect<OrgLibraryFile, MarkdownError | OrgLibraryUnreadable> =>
+      markdown
+        .readOrgLibraryFile(orgSlug)
+        .pipe(
+          Effect.flatMap((content) =>
+            content === null
+              ? Effect.succeed(EMPTY_ORG_FILE)
+              : parseOrgFile(orgSlug, content)
+          )
+        )
 
     const readOrgDefaults = (
       orgSlug: string
@@ -305,6 +330,11 @@ export const LibraryDocsLive = Layer.effect(
         null,
         {},
         readOrgFile(orgSlug).pipe(
+          Effect.catchTag("OrgLibraryUnreadable", () =>
+            Effect.logWarning("skipping unreadable org library file").pipe(
+              Effect.as(EMPTY_ORG_FILE)
+            )
+          ),
           Effect.map((file) => templateDefaultsFrom(file.data))
         )
       )
@@ -319,7 +349,16 @@ export const LibraryDocsLive = Layer.effect(
         null,
         {},
         Effect.gen(function* () {
-          const file = yield* readOrgFile(orgSlug)
+          const file = yield* readOrgFile(orgSlug).pipe(
+            Effect.catchTag("OrgLibraryUnreadable", (error) =>
+              Effect.fail(
+                new MarkdownError({
+                  cause: error.cause,
+                  message: `refusing to overwrite unparseable orgs/${orgSlug}/library.md`
+                })
+              )
+            )
+          )
           yield* markdown.writeOrgLibraryFile(
             orgSlug,
             matter.stringify(
@@ -328,6 +367,22 @@ export const LibraryDocsLive = Layer.effect(
             )
           )
         })
+      )
+
+    const hasFile = (
+      orgSlug: string,
+      projectSlug: string | null,
+      kind: LibraryKind,
+      key: string
+    ): Effect.Effect<boolean, MarkdownError> =>
+      withLibraryDocTelemetry(
+        "hasFile",
+        orgSlug,
+        projectSlug,
+        { kind, key },
+        markdown
+          .listLibraryFiles(orgSlug, projectSlug, kind)
+          .pipe(Effect.map((files) => files.some((file) => file.key === key)))
       )
 
     const remove = (
@@ -351,6 +406,7 @@ export const LibraryDocsLive = Layer.effect(
       writeTombstone,
       readOrgDefaults,
       writeOrgDefaults,
+      hasFile,
       remove
     } satisfies LibraryDocsShape
   })
