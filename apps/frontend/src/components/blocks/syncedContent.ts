@@ -31,6 +31,16 @@ export const syncedView = (
   }
 }
 
+const HINT = /\{\{([^{}\n]+)\}\}/g
+
+/**
+ * Shows a definition's `{{hints}}` as emphasis, for read-only previews of what
+ * a block asks for. Stripping them instead leaves bare markers, and a bare
+ * `- [ ]` renders as the literal text "[ ]" rather than a checkbox.
+ */
+export const hintsAsEmphasis = (markdown: string): string =>
+  markdown.replace(HINT, (_, text: string) => `*${text.trim()}*`)
+
 const TASK_MARK = /^(\s*(?:[-*+]|\d{1,9}[.)])\s+\[)([ xX])\]/
 
 export const toggleTaskAtLine = (content: string, line: number): string => {

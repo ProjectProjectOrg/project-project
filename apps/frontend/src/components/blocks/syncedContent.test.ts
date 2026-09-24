@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 
 import { BUILTIN_LIBRARY, lookupFor } from "./blockChrome"
 import {
+  hintsAsEmphasis,
   splitLeadingHeading,
   syncedView,
   toggleTaskAtLine
@@ -46,6 +47,14 @@ describe("syncedView", () => {
       )
     )
     expect(syncedView(lookupFor(library), DOD, SNAPSHOT).kind).toBe("removed")
+  })
+})
+
+describe("hintsAsEmphasis", () => {
+  it("turns each hint into emphasis", () => {
+    expect(hintsAsEmphasis("**Expected:** {{ what should happen }}")).toBe(
+      "**Expected:** *what should happen*"
+    )
   })
 })
 

@@ -362,6 +362,13 @@ describe("hint tab navigation", () => {
     expect(pressTab(single).handled).toBe(false)
   })
 
+  it("leaves Tab to an open slash query", () => {
+    const editor = bugReport()
+    setTextAt(editor, [0, 1, 0], "/bug")
+    caretAt(editor, [0, 1, 0])
+    expect(pressTab(editor).handled).toBe(false)
+  })
+
   it("changes no content and adds no undo step", () => {
     const editor = bugReport()
     const before = markdownOf(editor)

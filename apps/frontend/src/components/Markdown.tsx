@@ -130,14 +130,18 @@ export const withEmptyTaskItems = (markdown: string): string => {
 
 const LinkReferencesContext = createContext("")
 
+export type MarkdownSize = "default" | "compact"
+
 export function Markdown({
   children,
   className,
-  blocks = "frame"
+  blocks = "frame",
+  size = "default"
 }: Readonly<{
   children: string
   className?: string
   blocks?: MarkdownBlocks
+  size?: MarkdownSize
 }>) {
   const morphId = useId()
   const segments = parseTicketBlocks(children)
@@ -147,7 +151,14 @@ export function Markdown({
     segments.length > 1 ? linkReferenceDefinitions(children) : ""
   return (
     <LinkReferencesContext.Provider value={references}>
-      <div className={cn("prose-md", framed && "block-gutter", className)}>
+      <div
+        className={cn(
+          "prose-md",
+          size === "compact" && "prose-compact",
+          framed && "block-gutter",
+          className
+        )}
+      >
         {segments.map((segment, index) => {
           const id = `${morphId}-${index}`
           if (segment.kind === "markdown")
