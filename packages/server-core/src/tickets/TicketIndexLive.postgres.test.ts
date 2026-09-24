@@ -1169,8 +1169,8 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
         )
         yield* withClient((client) =>
           client.query(
-            `insert into comment_index (id, project_slug, ticket_id, author_id)
-               values ($1, $2, 'BE-2', $3)`,
+            `insert into comment_index (id, project_slug, ticket_id, origin, author_kind, author_id)
+               values ($1, $2, 'BE-2', 'native', 'user', $3)`,
             [`comment-${suffix}`, betaSlug, viewerId]
           )
         )

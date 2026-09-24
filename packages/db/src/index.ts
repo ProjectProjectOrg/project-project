@@ -1,3 +1,3 @@
 export { Db } from "./Db"
-export { DbLive, PgLive } from "./live"
+export { DbLive, PgLive, pgTypes } from "./live"
 export { migrationsFolder } from "./migrations"

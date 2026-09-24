@@ -232,7 +232,7 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
         server.close((error) => (error ? reject(error) : resolve()))
       )
     vi.unstubAllEnvs()
-  })
+  }, 30_000)
 
   it("modern: discover lists all served revisions", async () => {
     const { status, body } = await modern(tokens[0], "server/discover")

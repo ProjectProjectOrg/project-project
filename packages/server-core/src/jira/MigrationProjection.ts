@@ -1025,6 +1025,12 @@ export class JiraMigrationProjection extends Context.Service<
         patch: ProjectionPatch
       ) {
         const now = yield* DateTime.nowAsDate
+        const checkpointJson =
+          patch.checkpoint === undefined
+            ? undefined
+            : yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
+                patch.checkpoint ?? {}
+              ).pipe(Effect.mapError(databaseError))
         const rows = yield* db
           .update(jiraMigration)
           .set({
@@ -1032,7 +1038,7 @@ export class JiraMigrationProjection extends Context.Service<
             ...(patch.checkpoint === undefined
               ? {}
               : {
-                  checkpoint: sqlFragment`coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) || (coalesce(${patch.checkpoint}::jsonb, '{}'::jsonb) - 'scanFailureReceipts' - 'scanPages' - 'currentGate' - 'acceptedConfiguration' - 'remoteWritesMayStillCommit' - 'publishedPlan')`
+                  checkpoint: sqlFragment`coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) || (${checkpointJson}::jsonb - 'scanFailureReceipts' - 'scanPages' - 'currentGate' - 'acceptedConfiguration' - 'remoteWritesMayStillCommit' - 'publishedPlan')`
                 }),
             updatedAt: now,
             revision: sqlFragment`${jiraMigration.revision} + 1`
@@ -1505,11 +1511,14 @@ export class JiraMigrationProjection extends Context.Service<
             const acceptedCheckpoint = yield* Schema.encodeEffect(
               JiraMigrationCheckpoint
             )({ acceptedConfiguration }).pipe(Effect.mapError(databaseError))
+            const acceptedCheckpointJson = yield* Schema.encodeEffect(
+              Schema.fromJsonString(Schema.Unknown)
+            )(acceptedCheckpoint).pipe(Effect.mapError(databaseError))
             return yield* updateRevision(row, input.expectedRevision, {
               status: scanRetry ? "scanning" : "migrating",
               phase: scanRetry ? "queued_scan" : "migrate",
               checkpoint:
-                sqlFragment`coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) || ${acceptedCheckpoint}::jsonb` as unknown as JiraMigrationRow["checkpoint"],
+                sqlFragment`coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) || ${acceptedCheckpointJson}::jsonb` as unknown as JiraMigrationRow["checkpoint"],
               failureReason: null,
               failureRetryable: null,
               finishedAt: null,

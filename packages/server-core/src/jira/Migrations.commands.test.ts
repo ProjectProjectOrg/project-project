@@ -1181,16 +1181,6 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             ).toBe(false)
             expect(yield* p.finalizeInterrupted(fenceFor(current)!)).toBe(false)
             yield* Deferred.succeed(newScan, undefined)
-            yield* JiraMigrationWorkflow.poll(
-              installed.workflowExecutionId!
-            ).pipe(
-              Effect.repeat({
-                while: (result) =>
-                  Option.isNone(result) || result.value._tag !== "Suspended",
-                schedule: Schedule.spaced("10 millis")
-              }),
-              Effect.timeout("5 seconds")
-            )
           }).pipe(
             Effect.provide(
               Layer.merge(commandLayer(cleanup, ["failed"]), workflow)

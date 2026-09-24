@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 
 import * as BunServices from "@effect/platform-bun/BunServices"
 import { PgClient } from "@effect/sql-pg"
-import { DbLive } from "@pp/db"
+import { DbLive, pgTypes } from "@pp/db"
 import { JiraClient } from "@pp/server-core/jira/Client"
 import { JiraMigrationProjection } from "@pp/server-core/jira/MigrationProjection"
 import { JiraMigrationWorkflow } from "@pp/server-core/jira/MigrationWorkflow"
@@ -129,7 +129,10 @@ describe.skipIf(!databaseUrl)("Jira SQL workflow restart", () => {
           })
         )
       )
-      const pg = PgClient.layer({ url: Redacted.make(databaseUrl!) })
+      const pg = PgClient.layer({
+        url: Redacted.make(databaseUrl!),
+        types: pgTypes
+      })
       const layer = JiraWorkflowsLive.pipe(
         Layer.provideMerge(DbLive),
         Layer.provideMerge(clientOnly),
