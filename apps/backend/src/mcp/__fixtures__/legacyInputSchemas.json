@@ -1,0 +1,1295 @@
+{
+  "me": {
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {}
+  },
+  "list_orgs": {
+    "type": "object",
+    "properties": {
+      "cursor": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "limit": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "get_org": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "required": ["orgSlug"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "list_projects": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "cursor": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "limit": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": ["orgSlug"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "get_project": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "required": ["orgSlug", "projectSlug"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "list_groups": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "filter": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": ["sprint", "epic", "milestone", "other"]
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "active": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": true
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "cursor": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "limit": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": ["orgSlug", "projectSlug"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "list_sprints": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "state": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": ["active", "planned", "completed"]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "cursor": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "limit": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": ["orgSlug", "projectSlug"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "get_group": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^G-[1-9][0-9]*$"
+      }
+    },
+    "required": ["orgSlug", "projectSlug", "id"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "list_tickets": {
+    "type": "object",
+    "properties": {
+      "status": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9_]+$",
+              "minLength": 1,
+              "maxLength": 40
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "type": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["feat", "bug", "chore", "other"]
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "assignee": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["mine", "unassigned"]
+                },
+                {
+                  "type": "string",
+                  "minLength": 1
+                }
+              ]
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "tags": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9 -]{0,30}$"
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "hasBranch": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "hasPr": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "updatedAfter": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "groupId": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["ungrouped"]
+                },
+                {
+                  "type": "string",
+                  "pattern": "^G-[1-9][0-9]*$"
+                }
+              ]
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "archived": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "sort": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "enum": ["id", "created", "updated", "title", "priority"]
+              },
+              "dir": {
+                "type": "string",
+                "enum": ["asc", "desc"]
+              }
+            },
+            "required": ["key", "dir"],
+            "additionalProperties": true
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "q": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "cursor": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "limit": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": ["orgSlug", "projectSlug"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "get_ticket": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+      }
+    },
+    "required": ["orgSlug", "projectSlug", "id"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "list_statuses": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "required": ["orgSlug", "projectSlug"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "list_tags": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "cursor": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "limit": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": ["orgSlug", "projectSlug"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "list_members": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "cursor": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "limit": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": ["orgSlug", "projectSlug"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "get_git_state": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "ticketId": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": ["orgSlug", "projectSlug"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "get_project_doc": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "required": ["orgSlug", "projectSlug"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "get_group_doc": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^G-[1-9][0-9]*$"
+      }
+    },
+    "required": ["orgSlug", "projectSlug", "id"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "get_ticket_doc": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+      }
+    },
+    "required": ["orgSlug", "projectSlug", "id"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "create_ticket": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "title": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "status": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "type": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": ["feat", "bug", "chore", "other"]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "priority": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": ["low", "med", "high"]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "tags": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9 -]{0,30}$"
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "assignees": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "body": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": ["orgSlug", "projectSlug", "title"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "update_ticket": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+      },
+      "title": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "type": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": ["feat", "bug", "chore", "other"]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "priority": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": ["low", "med", "high"]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "tags": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9 -]{0,30}$"
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "assignees": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "body": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": ["orgSlug", "projectSlug", "id"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "prepare_ticket_attachment": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "ticketId": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+      },
+      "filename": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "contentType": {
+        "type": "string",
+        "minLength": 1
+      },
+      "density": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": ["rich", "compact"]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "width": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "orgSlug",
+      "projectSlug",
+      "ticketId",
+      "filename",
+      "contentType"
+    ],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "create_comment": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "ticketId": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+      },
+      "body": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 20000
+      }
+    },
+    "required": ["orgSlug", "projectSlug", "ticketId", "body"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "attach_branch": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      }
+    },
+    "required": ["orgSlug", "projectSlug", "id", "name"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "create_sprint": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "color": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^#[0-9a-f]{6}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "startsAt": {
+        "anyOf": [
+          {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "endsAt": {
+        "anyOf": [
+          {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "tickets": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": ["orgSlug", "projectSlug", "name"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "update_sprint": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^G-[1-9][0-9]*$"
+      },
+      "name": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "body": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "color": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^#[0-9a-f]{6}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "startsAt": {
+        "anyOf": [
+          {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "endsAt": {
+        "anyOf": [
+          {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": ["orgSlug", "projectSlug", "id"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "complete_sprint": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^G-[1-9][0-9]*$"
+      },
+      "destination": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["sprint"]
+              },
+              "groupId": {
+                "type": "string",
+                "pattern": "^G-[1-9][0-9]*$"
+              }
+            },
+            "required": ["kind", "groupId"],
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["backlog"]
+              }
+            },
+            "required": ["kind"],
+            "additionalProperties": true
+          }
+        ]
+      }
+    },
+    "required": ["orgSlug", "projectSlug", "id", "destination"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "rebuild_ticket_index": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "required": ["orgSlug", "projectSlug"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "add_tickets_to_group": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "groupId": {
+        "type": "string",
+        "pattern": "^G-[1-9][0-9]*$"
+      },
+      "ticketIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+        }
+      }
+    },
+    "required": ["orgSlug", "projectSlug", "groupId", "ticketIds"],
+    "additionalProperties": true,
+    "$defs": {}
+  }
+}
