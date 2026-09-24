@@ -10,9 +10,12 @@ import {
 } from "@/features/library/atoms/library"
 import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
 
+import { useMakeBlockDefinition } from "./useMakeBlockDefinition"
+
 export function useEditorBlocks(
   orgSlug: string,
-  slug: string
+  slug: string,
+  onMakeDefinitionError: (message: string) => void
 ): EditorBlocks | undefined {
   const navigate = useNavigate()
   const libraryResult = useAtomValue(
@@ -25,6 +28,11 @@ export function useEditorBlocks(
   const canEditOrg =
     AsyncResult.isSuccess(orgResult) &&
     (orgResult.value.role === "owner" || orgResult.value.role === "admin")
+  const onMakeDefinition = useMakeBlockDefinition(
+    orgSlug,
+    slug,
+    onMakeDefinitionError
+  )
   const onEditDefinition = useCallback<EditorBlocks["onEditDefinition"]>(
     (_kind, key, origin) => {
       if (origin === "project")
@@ -48,8 +56,9 @@ export function useEditorBlocks(
             mode: "ticket",
             library,
             canEdit: { org: canEditOrg, project: library.canEdit },
-            onEditDefinition
+            onEditDefinition,
+            onMakeDefinition
           },
-    [library, canEditOrg, onEditDefinition]
+    [library, canEditOrg, onEditDefinition, onMakeDefinition]
   )
 }

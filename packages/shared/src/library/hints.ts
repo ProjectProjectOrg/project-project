@@ -354,3 +354,61 @@ export const activeHintSlots = (
   alignedHintSlots(definitionContent, ticket).filter((slot) =>
     isUnfilled(ticket[slot.path[0]], slot)
   )
+
+const isHintOnlyParagraph = (
+  node: BlockOutlineNode
+): node is Readonly<{
+  kind: "paragraph"
+  text: string
+}> =>
+  node.kind === "paragraph" &&
+  HINT.test(node.text) &&
+  stripHints(node.text).trim() === ""
+
+const withHint = (line: string, hint: string): string => {
+  const trimmed = line.trimEnd()
+  return trimmed === "" ? `{{${hint}}}` : `${trimmed} {{${hint}}}`
+}
+
+export const restoreDefinitionHints = (
+  content: string,
+  definitionContent: string
+): string => {
+  const lines = normalizeLineEndings(content).split("\n")
+  const ticket = outlineEntries(lines)
+  const hinted = new Map<number, string>()
+  const inserted = new Map<number, Array<string>>()
+  let cursor = 0
+  for (const [index, node] of outlineBlockContent(
+    definitionContent
+  ).entries()) {
+    const entry = ticket.at(cursor)
+    if (isHintOnlyParagraph(node) && entry?.node.kind !== "paragraph") {
+      const at = entry?.starts[0] ?? lines.length
+      inserted.set(at, [...(inserted.get(at) ?? []), node.text])
+      continue
+    }
+    if (entry === undefined || entry.node.kind !== node.kind) break
+    for (const slot of slotsOfNode(node, index)) {
+      const line = entry.starts[slot.path[1] ?? 0]
+      if (line !== undefined && isUnfilled(entry.node, slot))
+        hinted.set(line, slot.hint)
+    }
+    cursor++
+  }
+  const output: Array<string> = []
+  const insert = (texts: ReadonlyArray<string> | undefined, more: boolean) => {
+    if (texts === undefined) return
+    while (output.at(-1)?.trim() === "") output.pop()
+    for (const text of texts)
+      output.push(...(output.length === 0 ? [] : [""]), text)
+    if (more) output.push("")
+  }
+  for (const [index, line] of lines.entries()) {
+    insert(inserted.get(index), true)
+    const hint = hinted.get(index)
+    output.push(hint === undefined ? line : withHint(line, hint))
+  }
+  insert(inserted.get(lines.length), false)
+  return output.join("\n")
+}

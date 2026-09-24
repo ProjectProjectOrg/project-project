@@ -6,6 +6,7 @@ import {
   HINT,
   hintSlots,
   outlineBlockContent,
+  restoreDefinitionHints,
   stripHints
 } from "./hints"
 
@@ -292,5 +293,74 @@ describe("alignedHintSlots", () => {
       [1, 0],
       [1, 1]
     ])
+  })
+})
+
+describe("restoreDefinitionHints", () => {
+  const RISKS = [
+    "## Risks",
+    "",
+    "- {{What could go wrong, how likely it is, and how we'd notice}}"
+  ].join("\n")
+
+  it("gives every line the ticket left untouched its hint back", () => {
+    for (const definition of [STEPS, RISKS, EXPECTED]) {
+      expect(
+        restoreDefinitionHints(stripHints(definition), definition),
+        definition
+      ).toBe(definition)
+    }
+  })
+
+  it("keeps what the ticket filled in and hints the rest", () => {
+    const ticket = [
+      "## Steps to reproduce",
+      "",
+      "1. Open settings",
+      "2. ",
+      "3. "
+    ].join("\n")
+    expect(restoreDefinitionHints(ticket, STEPS)).toBe(
+      [
+        "## Steps to reproduce",
+        "",
+        "1. Open settings",
+        "2. {{What you do}}",
+        "3. {{What you see}}",
+        "",
+        "{{How often: always, sometimes, only when…}}"
+      ].join("\n")
+    )
+  })
+
+  it("keeps a filled bold prefix and hints the empty one", () => {
+    expect(
+      restoreDefinitionHints(
+        "## Expected vs actual\n\n**Expected:** it works\n\n**Actual:**",
+        EXPECTED
+      )
+    ).toBe(
+      "## Expected vs actual\n\n**Expected:** it works\n\n**Actual:** {{what happens instead}}"
+    )
+  })
+
+  it("puts back a hint-only paragraph the ticket left empty", () => {
+    const definition =
+      "## Approach\n\n{{How you'll solve it}}\n\n- [ ] {{A step}}"
+    expect(restoreDefinitionHints("## Approach\n\n- [ ] ", definition)).toBe(
+      definition
+    )
+    expect(
+      restoreDefinitionHints("## Approach", "## Approach\n\n{{Why}}")
+    ).toBe("## Approach\n\n{{Why}}")
+  })
+
+  it("adds nothing where the ticket rewrote the block", () => {
+    expect(restoreDefinitionHints("## Risks\n\nBattery drain.", RISKS)).toBe(
+      "## Risks\n\nBattery drain."
+    )
+    expect(restoreDefinitionHints("## Risks\n\n- Retry storms", RISKS)).toBe(
+      "## Risks\n\n- Retry storms"
+    )
   })
 })

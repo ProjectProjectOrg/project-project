@@ -8,6 +8,7 @@ import {
   EMPTY_LAYER,
   GALLERY_LAYER,
   blockLookupFor,
+  blockMatchesDefinition,
   galleryBlocksFor,
   type Layer,
   mergeChecklistTicks,
@@ -302,5 +303,26 @@ describe("resolveSyncedBlocks", () => {
         "\n\n"
       )
     )
+  })
+})
+
+describe("blockMatchesDefinition", () => {
+  const definition = blockOf(adoptedAll, "expected-vs-actual")
+
+  it("matches the stripped definition regardless of whitespace", () => {
+    if (definition === undefined) throw new Error("missing definition")
+
+    expect(
+      blockMatchesDefinition(
+        "## Expected vs actual\n**Expected:**   \n\n\n**Actual:**",
+        definition
+      )
+    ).toBe(true)
+    expect(
+      blockMatchesDefinition(
+        "## Expected vs actual\n\n**Expected:** a redirect",
+        definition
+      )
+    ).toBe(false)
   })
 })

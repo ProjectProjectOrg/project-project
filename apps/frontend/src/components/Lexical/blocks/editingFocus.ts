@@ -1,4 +1,4 @@
-const BLOCK_CHROME = "[data-block-gutter]"
+const BLOCK_CHROME = "[data-block-gutter], [data-block-menu]"
 
 export const isBlockChrome = (target: EventTarget | null): boolean =>
   target instanceof Element && target.closest(BLOCK_CHROME) !== null
