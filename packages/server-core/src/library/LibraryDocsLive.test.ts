@@ -1,7 +1,6 @@
 import * as BunServices from "@effect/platform-bun/BunServices"
 import { it } from "@effect/vitest"
 import { BlockDraft } from "@pp/shared"
-import * as Config from "effect/Config"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
@@ -43,11 +42,14 @@ const block = Schema.decodeUnknownSync(BlockDraft)({
     "## Acceptance criteria\n\n- [ ] {{Given a state, then this}}\n- [ ] "
 })
 
-const libraryPath = (...segments: ReadonlyArray<string>) =>
+const libraryPath = (org: string, ...rest: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const path = yield* Path.Path
-    const root = yield* Config.string("PROJECTS_DIR")
-    return path.join(root, "orgs", ...segments)
+    const markdown = yield* Markdown
+    return path.join(
+      path.dirname(markdown.libraryDir(org, null, "blocks")),
+      ...rest
+    )
   })
 
 describe("LibraryDocs (real fs)", () => {
