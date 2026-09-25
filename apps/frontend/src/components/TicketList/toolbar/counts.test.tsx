@@ -93,31 +93,44 @@ it("keeps known status counts during a first fetch without masking other request
 it("keeps sprint counts while the list loads for the first time", () => {
   const sprintId = decodeGroupId("G-1")
   const otherSprintId = decodeGroupId("G-2")
-  const initialProps: Readonly<{ groupId: GroupId; view: "board" | "list" }> = {
+  type Props = Readonly<{
+    groupId: GroupId
+    view: "board" | "list"
+    archived: boolean
+  }>
+  const initialProps: Props = {
     groupId: sprintId,
-    view: "board"
+    view: "board",
+    archived: false
   }
   const { result, rerender } = renderHook(
-    ({
-      groupId,
-      view
-    }: Readonly<{ groupId: GroupId; view: "board" | "list" }>) =>
+    ({ groupId, view, archived }: Props) =>
       useViewTicketCounts({
         orgSlug: "org",
         slug: "project",
         groupId,
         view,
         grouping: "status",
-        query: decodeQuery({ groupId: [groupId] })
+        query: decodeQuery({
+          groupId: [groupId],
+          archived,
+          updatedAfter: "2026-09-01T00:00:00.000Z"
+        })
       }),
     { initialProps }
   )
 
   expect(Result.isSuccess(result.current) && result.current.value.all).toBe(7)
 
-  rerender({ groupId: sprintId, view: "list" })
+  rerender({ groupId: sprintId, view: "list", archived: false })
   expect(Result.isSuccess(result.current) && result.current.value.all).toBe(7)
 
-  rerender({ groupId: otherSprintId, view: "list" })
+  rerender({ groupId: otherSprintId, view: "list", archived: false })
+  expect(Result.isInitial(result.current)).toBe(true)
+
+  rerender({ groupId: sprintId, view: "board", archived: true })
+  expect(Result.isSuccess(result.current)).toBe(true)
+
+  rerender({ groupId: sprintId, view: "list", archived: true })
   expect(Result.isInitial(result.current)).toBe(true)
 })
