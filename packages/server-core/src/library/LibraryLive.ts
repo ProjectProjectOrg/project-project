@@ -6,7 +6,6 @@ import {
   expandTemplate,
   extractAttachmentRefs,
   extractMentionLinks,
-  Forbidden,
   NotFound,
   parseMentionHref,
   parseTicketBlocks,
@@ -35,22 +34,18 @@ import {
   type TicketBlockSegment,
   type UpdateBlockInput,
   type UpdateTemplateDefaultsInput,
-  type UpdateTemplateInput
+  type UpdateTemplateInput,
+  OrgScope,
+  ProjectScope
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
-import * as Semaphore from "effect/Semaphore"
 
 import { validateBodyMentions } from "../comments/BodyMentions"
+import { KeyedLock, LockKey } from "../locks/KeyedLock"
 import type { LibraryKind, MarkdownError } from "../markdown/Markdown"
-import {
-  CurrentOrg,
-  isOrgAdminRole,
-  requireOrgAdmin
-} from "../organizations/CurrentOrg"
 import { ProjectDocs } from "../projects/ProjectDocs"
-import { Projects } from "../projects/Projects"
 import { TicketDocs } from "../tickets/TicketDocs"
 import { Library, type LibraryShape, type TemplateExpansion } from "./Library"
 import { LibraryDocs } from "./LibraryDocs"
@@ -67,8 +62,6 @@ type KindOps<Draft extends Keyed, Definition extends Keyed> = Readonly<{
   contentOf: (draft: Draft) => string
   allowsBlocks: boolean
 }>
-
-const EDITOR_ROLES = ["pm"] as const
 
 const NO_LAYER_DEFAULTS: LayerDefaults = { org: {}, project: null }
 
@@ -184,27 +177,34 @@ const plainMention = (label: string, href: string): string => {
   return label
 }
 
+type LayerTarget = Readonly<{ orgSlug: string; slug: string | null }>
+
 export const LibraryLive = Layer.effect(
   Library,
   Effect.gen(function* () {
     const db = yield* Db
     const docs = yield* LibraryDocs
     const projectDocs = yield* ProjectDocs
-    const projects = yield* Projects
-    const currentOrg = yield* CurrentOrg
     const ticketDocs = yield* TicketDocs
-    const layerLocks = new Map<string, Semaphore.Semaphore>()
+    const keyedLock = yield* KeyedLock
 
     const withLayerLock = <A, E, R>(
       orgSlug: string,
       slug: string | null,
       effect: Effect.Effect<A, E, R>
-    ): Effect.Effect<A, E, R> => {
-      const key = `${orgSlug}/${slug ?? ""}`
-      const lock = layerLocks.get(key) ?? Semaphore.makeUnsafe(1)
-      layerLocks.set(key, lock)
-      return lock.withPermits(1)(effect)
-    }
+    ): Effect.Effect<A, E, R> =>
+      keyedLock.withLock(LockKey.libraryLayer(orgSlug, slug), effect)
+
+    const orgLayer: Effect.Effect<LayerTarget, never, OrgScope> = Effect.map(
+      OrgScope,
+      ({ orgSlug }) => ({ orgSlug, slug: null })
+    )
+
+    const projectLayer: Effect.Effect<
+      Readonly<{ orgSlug: string; slug: string }>,
+      never,
+      ProjectScope
+    > = Effect.map(ProjectScope, ({ orgSlug, slug }) => ({ orgSlug, slug }))
 
     const layersFor = (
       orgSlug: string,
@@ -218,17 +218,6 @@ export const LibraryLive = Layer.effect(
         },
         { concurrency: 2 }
       )
-
-    const requireEditor = (
-      orgSlug: string,
-      userId: string,
-      slug: string | null
-    ): Effect.Effect<void, NotFound | Forbidden> =>
-      slug === null
-        ? Effect.asVoid(requireOrgAdmin(currentOrg, orgSlug, userId))
-        : Effect.asVoid(
-            projects.requireRole(orgSlug, userId, slug, EDITOR_ROLES)
-          )
 
     const projectMemberIds = (
       orgSlug: string,
@@ -244,6 +233,23 @@ export const LibraryLive = Layer.effect(
           Effect.orDie
         )
 
+    const orgMemberIds = (
+      orgSlug: string,
+      userIds: ReadonlyArray<string>
+    ): Effect.Effect<ReadonlySet<string>> =>
+      db.query.member
+        .findMany({
+          columns: { userId: true },
+          where: {
+            userId: { in: [...userIds] },
+            organization: { slug: orgSlug }
+          }
+        })
+        .pipe(
+          Effect.map((rows) => new Set<string>(rows.map((row) => row.userId))),
+          Effect.orDie
+        )
+
     const knownUsers = (
       orgSlug: string,
       slug: string | null,
@@ -252,15 +258,7 @@ export const LibraryLive = Layer.effect(
       userIds.length === 0
         ? Effect.succeed(new Set<string>())
         : slug === null
-          ? Effect.forEach(
-              userIds,
-              (userId) =>
-                currentOrg.resolve(orgSlug, userId).pipe(
-                  Effect.as([userId]),
-                  Effect.catchTag("NotFound", () => Effect.succeed([]))
-                ),
-              { concurrency: 8 }
-            ).pipe(Effect.map((found) => new Set(found.flat())))
+          ? orgMemberIds(orgSlug, userIds)
           : projectMemberIds(orgSlug, slug)
 
     const knownTickets = (
@@ -431,20 +429,13 @@ export const LibraryLive = Layer.effect(
         draft: Draft
       ) => Effect.Effect<void, MarkdownError>,
       orgSlug: string,
-      userId: string,
       slug: string | null,
       draft: Draft
     ): Effect.Effect<
       Definition,
-      | NotFound
-      | Forbidden
-      | Conflict
-      | Validation
-      | MentionInvalid
-      | MarkdownError
+      Conflict | Validation | MentionInvalid | MarkdownError
     > =>
       Effect.gen(function* () {
-        yield* requireEditor(orgSlug, userId, slug)
         return yield* withLayerLock(
           orgSlug,
           slug,
@@ -470,16 +461,14 @@ export const LibraryLive = Layer.effect(
       ) => Effect.Effect<void, MarkdownError>,
       patch: (draft: Draft, input: Patch) => Draft,
       orgSlug: string,
-      userId: string,
       slug: string | null,
       key: string,
       input: Patch
     ): Effect.Effect<
       Definition,
-      NotFound | Forbidden | Validation | MentionInvalid | MarkdownError
+      NotFound | Validation | MentionInvalid | MarkdownError
     > =>
       Effect.gen(function* () {
-        yield* requireEditor(orgSlug, userId, slug)
         if (!ops.isKey(key)) return yield* new NotFound()
         return yield* withLayerLock(
           orgSlug,
@@ -509,12 +498,10 @@ export const LibraryLive = Layer.effect(
     const removeEntry = (
       ops: Pick<KindOps<Keyed, Keyed>, "kind" | "isKey">,
       orgSlug: string,
-      userId: string,
       slug: string | null,
       key: string
-    ): Effect.Effect<void, NotFound | Forbidden | MarkdownError> =>
+    ): Effect.Effect<void, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        yield* requireEditor(orgSlug, userId, slug)
         if (!ops.isKey(key)) return yield* new NotFound()
         const removed = yield* withLayerLock(
           orgSlug,
@@ -534,12 +521,10 @@ export const LibraryLive = Layer.effect(
         "kind" | "isKey" | "definitions" | "hidden"
       >,
       orgSlug: string,
-      userId: string,
       slug: string,
       key: string
-    ): Effect.Effect<void, NotFound | Forbidden | Conflict | MarkdownError> =>
+    ): Effect.Effect<void, NotFound | Conflict | MarkdownError> =>
       Effect.gen(function* () {
-        yield* requireEditor(orgSlug, userId, slug)
         if (!ops.isKey(key)) return yield* new NotFound()
         yield* withLayerLock(
           orgSlug,
@@ -584,81 +569,31 @@ export const LibraryLive = Layer.effect(
         { concurrency: 2 }
       )
 
-    const orgLibrary = Effect.fn("Library.orgLibrary")(function* (
-      orgSlug: string,
-      userId: string
-    ): Effect.fn.Return<LibraryValue, NotFound | MarkdownError> {
-      const org = yield* currentOrg.resolve(orgSlug, userId)
+    const orgLibrary = Effect.fn("Library.orgLibrary")(function* () {
+      const { orgSlug, permissions } = yield* OrgScope
       const [layers, defaults] = yield* Effect.all(
         [layersFor(orgSlug, null), layerDefaultsFor(orgSlug, null)],
         { concurrency: 2 }
       )
-      return resolveLibrary(layers, defaults, isOrgAdminRole(org.role))
+      return resolveLibrary(
+        layers,
+        defaults,
+        permissions.can({ library: ["manage"] })
+      )
     })
 
-    const projectLibrary = Effect.fn("Library.projectLibrary")(function* (
-      orgSlug: string,
-      userId: string,
-      slug: string
-    ): Effect.fn.Return<LibraryValue, NotFound | MarkdownError> {
-      const membership = yield* projects.requireMember(orgSlug, userId, slug)
+    const projectLibrary = Effect.fn("Library.projectLibrary")(function* () {
+      const { orgSlug, slug, permissions } = yield* ProjectScope
       const [layers, defaults] = yield* Effect.all(
         [layersFor(orgSlug, slug), layerDefaultsFor(orgSlug, slug)],
         { concurrency: 2 }
       )
-      return resolveLibrary(layers, defaults, membership.role === "pm")
+      return resolveLibrary(
+        layers,
+        defaults,
+        permissions.can({ library: ["manage"] })
+      )
     })
-
-    const createBlock = (
-      orgSlug: string,
-      userId: string,
-      slug: string | null,
-      input: CreateBlockInput
-    ) => createEntry(blockOps, docs.writeBlock, orgSlug, userId, slug, input)
-
-    const updateBlock = (
-      orgSlug: string,
-      userId: string,
-      slug: string | null,
-      key: string,
-      input: UpdateBlockInput
-    ) =>
-      updateEntry(
-        blockOps,
-        docs.writeBlock,
-        patchBlock,
-        orgSlug,
-        userId,
-        slug,
-        key,
-        input
-      )
-
-    const createTemplate = (
-      orgSlug: string,
-      userId: string,
-      slug: string | null,
-      input: CreateTemplateInput
-    ) =>
-      createEntry(templateOps, docs.writeTemplate, orgSlug, userId, slug, input)
-
-    const updateTemplate = (
-      orgSlug: string,
-      userId: string,
-      slug: string | null,
-      key: string,
-      input: UpdateTemplateInput
-    ) =>
-      updateEntry(
-        templateOps,
-        docs.writeTemplate,
-        patchTemplate,
-        orgSlug,
-        userId,
-        slug,
-        key,
-        input
-      )
 
     const updateDefaults = Effect.fn("Library.updateDefaults")(function* (
       orgSlug: string,
@@ -697,15 +632,8 @@ export const LibraryLive = Layer.effect(
     })
 
     const setOrgTemplateDefaults = Effect.fn("Library.setOrgTemplateDefaults")(
-      function* (
-        orgSlug: string,
-        userId: string,
-        input: UpdateTemplateDefaultsInput
-      ): Effect.fn.Return<
-        LibraryDefaults,
-        NotFound | Forbidden | Validation | MarkdownError
-      > {
-        yield* requireOrgAdmin(currentOrg, orgSlug, userId)
+      function* (input: UpdateTemplateDefaultsInput) {
+        const { orgSlug } = yield* orgLayer
         return yield* withLayerLock(
           orgSlug,
           null,
@@ -717,16 +645,8 @@ export const LibraryLive = Layer.effect(
     )
 
     const setTemplateDefaults = Effect.fn("Library.setTemplateDefaults")(
-      function* (
-        orgSlug: string,
-        userId: string,
-        slug: string,
-        input: UpdateTemplateDefaultsInput
-      ): Effect.fn.Return<
-        LibraryDefaults,
-        NotFound | Forbidden | Validation | MarkdownError
-      > {
-        yield* projects.requireRole(orgSlug, userId, slug, EDITOR_ROLES)
+      function* (input: UpdateTemplateDefaultsInput) {
+        const { orgSlug, slug } = yield* projectLayer
         return yield* withLayerLock(
           orgSlug,
           slug,
@@ -790,21 +710,93 @@ export const LibraryLive = Layer.effect(
       )
     })
 
+    const createBlock = <E, R>(
+      layer: Effect.Effect<LayerTarget, E, R>,
+      input: CreateBlockInput
+    ) =>
+      Effect.flatMap(layer, ({ orgSlug, slug }) =>
+        createEntry(blockOps, docs.writeBlock, orgSlug, slug, input)
+      )
+
+    const updateBlock = <E, R>(
+      layer: Effect.Effect<LayerTarget, E, R>,
+      key: string,
+      input: UpdateBlockInput
+    ) =>
+      Effect.flatMap(layer, ({ orgSlug, slug }) =>
+        updateEntry(
+          blockOps,
+          docs.writeBlock,
+          patchBlock,
+          orgSlug,
+          slug,
+          key,
+          input
+        )
+      )
+
+    const createTemplate = <E, R>(
+      layer: Effect.Effect<LayerTarget, E, R>,
+      input: CreateTemplateInput
+    ) =>
+      Effect.flatMap(layer, ({ orgSlug, slug }) =>
+        createEntry(templateOps, docs.writeTemplate, orgSlug, slug, input)
+      )
+
+    const updateTemplate = <E, R>(
+      layer: Effect.Effect<LayerTarget, E, R>,
+      key: string,
+      input: UpdateTemplateInput
+    ) =>
+      Effect.flatMap(layer, ({ orgSlug, slug }) =>
+        updateEntry(
+          templateOps,
+          docs.writeTemplate,
+          patchTemplate,
+          orgSlug,
+          slug,
+          key,
+          input
+        )
+      )
+
+    const removeFrom = <E, R>(
+      layer: Effect.Effect<LayerTarget, E, R>,
+      ops: Pick<KindOps<Keyed, Keyed>, "kind" | "isKey">,
+      key: string
+    ) =>
+      Effect.flatMap(layer, ({ orgSlug, slug }) =>
+        removeEntry(ops, orgSlug, slug, key)
+      )
+
+    const hideIn = <Draft extends Keyed>(
+      ops: Pick<
+        KindOps<Draft, Keyed>,
+        "kind" | "isKey" | "definitions" | "hidden"
+      >,
+      key: string
+    ) =>
+      Effect.flatMap(projectLayer, ({ orgSlug, slug }) =>
+        hideEntry(ops, orgSlug, slug, key)
+      )
+
     return Library.of({
       orgLibrary,
       projectLibrary,
-      createBlock,
-      updateBlock,
-      removeBlock: (orgSlug, userId, slug, key) =>
-        removeEntry(blockOps, orgSlug, userId, slug, key),
-      hideBlock: (orgSlug, userId, slug, key) =>
-        hideEntry(blockOps, orgSlug, userId, slug, key),
-      createTemplate,
-      updateTemplate,
-      removeTemplate: (orgSlug, userId, slug, key) =>
-        removeEntry(templateOps, orgSlug, userId, slug, key),
-      hideTemplate: (orgSlug, userId, slug, key) =>
-        hideEntry(templateOps, orgSlug, userId, slug, key),
+      createOrgBlock: (input) => createBlock(orgLayer, input),
+      updateOrgBlock: (key, input) => updateBlock(orgLayer, key, input),
+      removeOrgBlock: (key) => removeFrom(orgLayer, blockOps, key),
+      createOrgTemplate: (input) => createTemplate(orgLayer, input),
+      updateOrgTemplate: (key, input) => updateTemplate(orgLayer, key, input),
+      removeOrgTemplate: (key) => removeFrom(orgLayer, templateOps, key),
+      createBlock: (input) => createBlock(projectLayer, input),
+      updateBlock: (key, input) => updateBlock(projectLayer, key, input),
+      removeBlock: (key) => removeFrom(projectLayer, blockOps, key),
+      hideBlock: (key) => hideIn(blockOps, key),
+      createTemplate: (input) => createTemplate(projectLayer, input),
+      updateTemplate: (key, input) => updateTemplate(projectLayer, key, input),
+      removeTemplate: (key) => removeFrom(projectLayer, templateOps, key),
+      hideTemplate: (key) => hideIn(templateOps, key),
       setOrgTemplateDefaults,
       setTemplateDefaults,
       expandForCreate,

@@ -3,7 +3,6 @@ import type {
   Conflict,
   CreateBlockInput,
   CreateTemplateInput,
-  Forbidden,
   Library as LibraryValue,
   MentionInvalid,
   NotFound,
@@ -16,7 +15,9 @@ import type {
   UpdateBlockInput,
   UpdateTemplateDefaultsInput,
   UpdateTemplateInput,
-  Validation
+  Validation,
+  OrgScope,
+  ProjectScope
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
@@ -30,104 +31,84 @@ export type TemplateExpansion = Readonly<{
   tags: ReadonlyArray<TagName>
 }>
 
+type OrgEditError = Validation | MentionInvalid | MarkdownError
+
+type ProjectEditError = NotFound | OrgEditError
+
 export type LibraryShape = Readonly<{
-  orgLibrary: (
-    orgSlug: string,
-    userId: string
-  ) => Effect.Effect<LibraryValue, NotFound | MarkdownError>
-  projectLibrary: (
-    orgSlug: string,
-    userId: string,
-    slug: string
-  ) => Effect.Effect<LibraryValue, NotFound | MarkdownError>
-  createBlock: (
-    orgSlug: string,
-    userId: string,
-    slug: string | null,
-    input: CreateBlockInput
-  ) => Effect.Effect<
-    BlockDefinition,
-    | NotFound
-    | Forbidden
-    | Conflict
-    | Validation
-    | MentionInvalid
-    | MarkdownError
+  orgLibrary: () => Effect.Effect<
+    LibraryValue,
+    NotFound | MarkdownError,
+    OrgScope
   >
-  updateBlock: (
-    orgSlug: string,
-    userId: string,
-    slug: string | null,
+  projectLibrary: () => Effect.Effect<
+    LibraryValue,
+    NotFound | MarkdownError,
+    ProjectScope
+  >
+  createOrgBlock: (
+    input: CreateBlockInput
+  ) => Effect.Effect<BlockDefinition, OrgEditError | Conflict, OrgScope>
+  updateOrgBlock: (
     key: string,
     input: UpdateBlockInput
+  ) => Effect.Effect<BlockDefinition, OrgEditError | NotFound, OrgScope>
+  removeOrgBlock: (
+    key: string
+  ) => Effect.Effect<void, NotFound | MarkdownError, OrgScope>
+  createOrgTemplate: (
+    input: CreateTemplateInput
+  ) => Effect.Effect<TemplateDefinition, OrgEditError | Conflict, OrgScope>
+  updateOrgTemplate: (
+    key: string,
+    input: UpdateTemplateInput
+  ) => Effect.Effect<TemplateDefinition, OrgEditError | NotFound, OrgScope>
+  removeOrgTemplate: (
+    key: string
+  ) => Effect.Effect<void, NotFound | MarkdownError, OrgScope>
+  setOrgTemplateDefaults: (
+    input: UpdateTemplateDefaultsInput
   ) => Effect.Effect<
-    BlockDefinition,
-    NotFound | Forbidden | Validation | MentionInvalid | MarkdownError
+    LibraryDefaults,
+    NotFound | Validation | MarkdownError,
+    OrgScope
   >
+  createBlock: (
+    input: CreateBlockInput
+  ) => Effect.Effect<BlockDefinition, ProjectEditError | Conflict, ProjectScope>
+  updateBlock: (
+    key: string,
+    input: UpdateBlockInput
+  ) => Effect.Effect<BlockDefinition, ProjectEditError, ProjectScope>
   removeBlock: (
-    orgSlug: string,
-    userId: string,
-    slug: string | null,
     key: string
-  ) => Effect.Effect<void, NotFound | Forbidden | MarkdownError>
+  ) => Effect.Effect<void, NotFound | MarkdownError, ProjectScope>
   hideBlock: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     key: string
-  ) => Effect.Effect<void, NotFound | Forbidden | Conflict | MarkdownError>
+  ) => Effect.Effect<void, NotFound | Conflict | MarkdownError, ProjectScope>
   createTemplate: (
-    orgSlug: string,
-    userId: string,
-    slug: string | null,
     input: CreateTemplateInput
   ) => Effect.Effect<
     TemplateDefinition,
-    | NotFound
-    | Forbidden
-    | Conflict
-    | Validation
-    | MentionInvalid
-    | MarkdownError
+    ProjectEditError | Conflict,
+    ProjectScope
   >
   updateTemplate: (
-    orgSlug: string,
-    userId: string,
-    slug: string | null,
     key: string,
     input: UpdateTemplateInput
-  ) => Effect.Effect<
-    TemplateDefinition,
-    NotFound | Forbidden | Validation | MentionInvalid | MarkdownError
-  >
+  ) => Effect.Effect<TemplateDefinition, ProjectEditError, ProjectScope>
   removeTemplate: (
-    orgSlug: string,
-    userId: string,
-    slug: string | null,
     key: string
-  ) => Effect.Effect<void, NotFound | Forbidden | MarkdownError>
+  ) => Effect.Effect<void, NotFound | MarkdownError, ProjectScope>
   hideTemplate: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     key: string
-  ) => Effect.Effect<void, NotFound | Forbidden | Conflict | MarkdownError>
-  setOrgTemplateDefaults: (
-    orgSlug: string,
-    userId: string,
-    input: UpdateTemplateDefaultsInput
-  ) => Effect.Effect<
-    LibraryDefaults,
-    NotFound | Forbidden | Validation | MarkdownError
-  >
+  ) => Effect.Effect<void, NotFound | Conflict | MarkdownError, ProjectScope>
   setTemplateDefaults: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     input: UpdateTemplateDefaultsInput
   ) => Effect.Effect<
     LibraryDefaults,
-    NotFound | Forbidden | Validation | MarkdownError
+    NotFound | Validation | MarkdownError,
+    ProjectScope
   >
   expandForCreate: (
     orgSlug: string,

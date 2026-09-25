@@ -9,10 +9,12 @@ import {
 import {
   extractFigmaRefs,
   figmaRefKey,
+  Forbidden,
   NotFound,
   StorageError,
   type FigmaLinkMetadata,
-  type FigmaRef
+  type FigmaRef,
+  ProjectScope
 } from "@pp/shared"
 import { and, asc, eq, inArray, isNull } from "drizzle-orm"
 import * as Cause from "effect/Cause"
@@ -25,9 +27,8 @@ import * as Layer from "effect/Layer"
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient"
 import { ulid } from "ulid"
 
-import { CurrentOrg, requireOrgAdmin } from "../organizations/CurrentOrg"
+import { Access } from "../access/Access"
 import { projectInOrg } from "../projects/projectLookup"
-import { Projects } from "../projects/Projects"
 import { OrgStorage } from "../storage/OrgStorage"
 import { S3Storage, type S3Connection } from "../storage/S3Storage"
 import { Figma, type FigmaCallError, type FigmaCredential } from "./Figma"
@@ -135,12 +136,11 @@ export const FigmaLinksLive = Layer.effect(
   FigmaLinks,
   Effect.gen(function* () {
     const fetch = yield* Effect.service(Fetch)
-    const currentOrg = yield* CurrentOrg
+    const access = yield* Access
     const db = yield* Db
     const figma = yield* Figma
     const integrations = yield* FigmaIntegrations
     const orgStorage = yield* OrgStorage
-    const projects = yield* Projects
     const s3 = yield* S3Storage
 
     const uploadThumbnail = (
@@ -692,18 +692,9 @@ export const FigmaLinksLive = Layer.effect(
         Effect.asVoid
       )
 
-    const listForTicket: FigmaLinksShape["listForTicket"] = (
-      orgSlug,
-      userId,
-      slug,
-      ticketId
-    ) =>
+    const listForTicket: FigmaLinksShape["listForTicket"] = (ticketId) =>
       Effect.gen(function* () {
-        const { projectId } = yield* projects.requireMember(
-          orgSlug,
-          userId,
-          slug
-        )
+        const { orgSlug, projectId } = yield* ProjectScope
 
         const rows = yield* db
           .select({
@@ -742,7 +733,6 @@ export const FigmaLinksLive = Layer.effect(
 
     const resolveThumbnailUrl: FigmaLinksShape["resolveThumbnailUrl"] = (
       orgSlug,
-      userId,
       linkId
     ) =>
       Effect.gen(function* () {
@@ -779,11 +769,15 @@ export const FigmaLinksLive = Layer.effect(
 
         yield* Effect.firstSuccessOf(
           rows.map((row) =>
-            projects.requireMember(orgSlug, userId, row.projectSlug)
-          )
-        ).pipe(
-          Effect.catchTag("NotFound", () =>
-            requireOrgAdmin(currentOrg, orgSlug, userId)
+            access
+              .project(orgSlug, row.projectSlug)
+              .pipe(
+                Effect.flatMap((scope) =>
+                  scope.permissions.can({ figma: ["read"] })
+                    ? Effect.void
+                    : Effect.fail(new Forbidden())
+                )
+              )
           )
         )
 

@@ -1,12 +1,8 @@
+import { GroupPolicy } from "@pp/access/policies"
 import {
-  ADMIN_GATED_KINDS,
-  CompleteSprintInput,
-  type CompleteSprintOutput,
-  CreateGroupInput,
   Forbidden,
   Group,
   GroupColor,
-  GroupDetail,
   GroupId,
   GroupKind,
   isCarryover,
@@ -17,23 +13,20 @@ import {
   sprintState,
   TAG_DEFAULT_PALETTE,
   TicketId,
-  UpdateGroupInput,
-  UpdateGroupTicketsInput,
   type CursorPayload,
   type GroupFilter,
-  type SprintState,
   UpdateGroupTicketsOutput,
-  UpdateTicketOrderInput,
-  Validation
+  Validation,
+  ProjectScope,
+  type ProjectScopeShape
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
-import * as Semaphore from "effect/Semaphore"
 
+import { KeyedLock, LockKey } from "../locks/KeyedLock"
 import type { MarkdownError } from "../markdown/Markdown"
-import { Projects } from "../projects/Projects"
 import { TicketDocs } from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import { TicketIndex } from "../tickets/TicketIndex"
@@ -43,30 +36,6 @@ import { Groups, type GroupsShape } from "./Groups"
 const MAX_CREATE_ATTEMPTS = 16
 const makeGroupId = Schema.decodeUnknownSync(GroupId)
 const makeGroupColor = Schema.decodeUnknownSync(GroupColor)
-
-const projectMutationLocks = new Map<string, Semaphore.Semaphore>()
-
-const projectLockKey = (orgSlug: string, slug: string) => `${orgSlug}:${slug}`
-
-const projectLockFor = (orgSlug: string, slug: string) =>
-  Effect.gen(function* () {
-    const key = projectLockKey(orgSlug, slug)
-    const cached = projectMutationLocks.get(key)
-    if (cached) return cached
-    const created = yield* Semaphore.make(1)
-    projectMutationLocks.set(key, created)
-    return created
-  })
-
-const withProjectLock = <A, E, R>(
-  orgSlug: string,
-  slug: string,
-  body: Effect.Effect<A, E, R>
-): Effect.Effect<A, E, R> =>
-  Effect.gen(function* () {
-    const sem = yield* projectLockFor(orgSlug, slug)
-    return yield* sem.withPermits(1)(body)
-  })
 
 function nextIdFrom(ids: ReadonlyArray<GroupId>): GroupId {
   let max = 0
@@ -90,14 +59,37 @@ function documentToGroup(document: GroupDocument): Group {
   return group
 }
 
+const requireKindPermission = (
+  kind: GroupKind
+): Effect.Effect<void, Forbidden, ProjectScope> =>
+  Effect.flatMap(ProjectScope, (scope) =>
+    GroupPolicy.canManage(scope, kind)
+      ? Effect.void
+      : Effect.fail(new Forbidden())
+  )
+
 export const GroupsLive = Layer.effect(
   Groups,
   Effect.gen(function* () {
     const groupDocs = yield* GroupDocs
     const ticketDocs = yield* TicketDocs
-    const projects = yield* Projects
     const ticketIndex = yield* TicketIndex
     const ticketDocumentLock = yield* TicketDocumentLock.TicketDocumentLock
+    const keyedLock = yield* KeyedLock
+
+    const withGroupFilesLock = <A, E, R>(
+      orgSlug: string,
+      slug: string,
+      effect: Effect.Effect<A, E, R>
+    ): Effect.Effect<A, E, R> =>
+      keyedLock.withLock(LockKey.groupFiles(orgSlug, slug), effect)
+
+    const lockedInScope = <A, E, R>(
+      body: (scope: ProjectScopeShape) => Effect.Effect<A, E, R>
+    ): Effect.Effect<A, E, R | ProjectScope> =>
+      Effect.flatMap(ProjectScope, (scope) =>
+        withGroupFilesLock(scope.orgSlug, scope.slug, body(scope))
+      )
 
     const validateTicketIds = (
       orgSlug: string,
@@ -138,27 +130,9 @@ export const GroupsLive = Layer.effect(
       return Effect.void
     }
 
-    const requireKindRole = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      kind: GroupKind
-    ): Effect.Effect<void, NotFound | Forbidden> =>
+    const list: GroupsShape["list"] = () =>
       Effect.gen(function* () {
-        if (ADMIN_GATED_KINDS.has(kind)) {
-          yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
-        } else {
-          yield* projects.requireMember(orgSlug, userId, slug)
-        }
-      })
-
-    const list = (
-      orgSlug: string,
-      userId: string,
-      slug: string
-    ): Effect.Effect<ReadonlyArray<Group>, NotFound | MarkdownError> =>
-      Effect.gen(function* () {
-        yield* projects.requireMember(orgSlug, userId, slug)
+        const { orgSlug, slug } = yield* ProjectScope
         const ids = yield* groupDocs.listIds(orgSlug, slug)
         const results = yield* Effect.forEach(
           ids,
@@ -189,13 +163,14 @@ export const GroupsLive = Layer.effect(
     }
 
     const loadFilteredGroups = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
       predicate: (group: Group, now: Date) => boolean
-    ): Effect.Effect<ReadonlyArray<Group>, NotFound | MarkdownError> =>
+    ): Effect.Effect<
+      ReadonlyArray<Group>,
+      NotFound | MarkdownError,
+      ProjectScope
+    > =>
       Effect.gen(function* () {
-        yield* projects.requireMember(orgSlug, userId, slug)
+        const { orgSlug, slug } = yield* ProjectScope
         const ids = yield* groupDocs.listIds(orgSlug, slug)
         const docs = yield* Effect.forEach(
           ids,
@@ -233,43 +208,21 @@ export const GroupsLive = Layer.effect(
         id: (g) => g.id
       })
 
-    const listPaged = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      filter: GroupFilter | undefined,
-      cursor: CursorPayload | undefined,
-      limit: number
-    ): Effect.Effect<
-      { items: ReadonlyArray<Group>; nextCursor: string | null },
-      NotFound | MarkdownError
-    > =>
+    const listPaged: GroupsShape["listPaged"] = (filter, cursor, limit) =>
       Effect.gen(function* () {
-        const sorted = yield* loadFilteredGroups(
-          orgSlug,
-          userId,
-          slug,
-          (g, now) => matchesGroupFilter(g, filter, now)
+        const sorted = yield* loadFilteredGroups((g, now) =>
+          matchesGroupFilter(g, filter, now)
         )
         return paginateGroups(sorted, cursor, limit)
       })
 
-    const listSprintsPaged = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      state: SprintState | undefined,
-      cursor: CursorPayload | undefined,
-      limit: number
-    ): Effect.Effect<
-      { items: ReadonlyArray<Group>; nextCursor: string | null },
-      NotFound | MarkdownError
-    > =>
+    const listSprintsPaged: GroupsShape["listSprintsPaged"] = (
+      state,
+      cursor,
+      limit
+    ) =>
       Effect.gen(function* () {
         const sorted = yield* loadFilteredGroups(
-          orgSlug,
-          userId,
-          slug,
           (g, now) =>
             g.kind === "sprint" &&
             (state === undefined || sprintState(g, now) === state)
@@ -277,32 +230,17 @@ export const GroupsLive = Layer.effect(
         return paginateGroups(sorted, cursor, limit)
       })
 
-    const get = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      id: string
-    ): Effect.Effect<GroupDetail, NotFound | MarkdownError> =>
+    const get: GroupsShape["get"] = (id) =>
       Effect.gen(function* () {
-        yield* projects.requireMember(orgSlug, userId, slug)
+        const { orgSlug, slug } = yield* ProjectScope
         return yield* groupDocs.read(orgSlug, slug, id)
       })
 
-    const create = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      input: CreateGroupInput
-    ): Effect.Effect<
-      Group,
-      NotFound | Forbidden | Validation | MarkdownError
-    > =>
-      withProjectLock(
-        orgSlug,
-        slug,
+    const create: GroupsShape["create"] = (input) =>
+      lockedInScope(({ orgSlug, slug, userId }) =>
         Effect.gen(function* () {
           const kind: GroupKind = input.kind ?? "other"
-          yield* requireKindRole(orgSlug, userId, slug, kind)
+          yield* requireKindPermission(kind)
 
           const requestedTickets = input.tickets ?? []
           yield* validateTicketIds(orgSlug, slug, requestedTickets)
@@ -365,24 +303,11 @@ export const GroupsLive = Layer.effect(
         })
       )
 
-    const update = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      id: string,
-      input: UpdateGroupInput
-    ): Effect.Effect<
-      GroupDetail,
-      NotFound | Forbidden | Validation | MarkdownError
-    > =>
-      withProjectLock(
-        orgSlug,
-        slug,
+    const update: GroupsShape["update"] = (id, input) =>
+      lockedInScope(({ orgSlug, slug }) =>
         Effect.gen(function* () {
-          yield* projects.get(orgSlug, userId, slug)
-
           const existing = yield* groupDocs.read(orgSlug, slug, id)
-          yield* requireKindRole(orgSlug, userId, slug, existing.kind)
+          yield* requireKindPermission(existing.kind)
 
           const now = yield* DateTime.nowAsDate
           const next: GroupDocument = {
@@ -464,23 +389,11 @@ export const GroupsLive = Layer.effect(
         return { target, evicted } satisfies UpdateGroupTicketsOutput
       })
 
-    const updateTickets = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      id: string,
-      input: UpdateGroupTicketsInput
-    ): Effect.Effect<
-      UpdateGroupTicketsOutput,
-      NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
-    > =>
-      withProjectLock(
-        orgSlug,
-        slug,
+    const updateTickets: GroupsShape["updateTickets"] = (id, input) =>
+      lockedInScope(({ orgSlug, slug }) =>
         Effect.gen(function* () {
-          yield* projects.requireMember(orgSlug, userId, slug)
           const existing = yield* groupDocs.read(orgSlug, slug, id)
-          yield* requireKindRole(orgSlug, userId, slug, existing.kind)
+          yield* requireKindPermission(existing.kind)
           if (existing.completedAt !== null) {
             return yield* new SprintCompletedImmutable()
           }
@@ -494,23 +407,11 @@ export const GroupsLive = Layer.effect(
         })
       )
 
-    const addTickets = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      id: string,
-      ticketIds: ReadonlyArray<TicketId>
-    ): Effect.Effect<
-      UpdateGroupTicketsOutput,
-      NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
-    > =>
-      withProjectLock(
-        orgSlug,
-        slug,
+    const addTickets: GroupsShape["addTickets"] = (id, ticketIds) =>
+      lockedInScope(({ orgSlug, slug }) =>
         Effect.gen(function* () {
-          yield* projects.requireMember(orgSlug, userId, slug)
           const existing = yield* groupDocs.read(orgSlug, slug, id)
-          yield* requireKindRole(orgSlug, userId, slug, existing.kind)
+          yield* requireKindPermission(existing.kind)
           if (existing.completedAt !== null) {
             return yield* new SprintCompletedImmutable()
           }
@@ -535,23 +436,11 @@ export const GroupsLive = Layer.effect(
         })
       )
 
-    const removeTickets = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      id: string,
-      ticketIds: ReadonlyArray<TicketId>
-    ): Effect.Effect<
-      UpdateGroupTicketsOutput,
-      NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
-    > =>
-      withProjectLock(
-        orgSlug,
-        slug,
+    const removeTickets: GroupsShape["removeTickets"] = (id, ticketIds) =>
+      lockedInScope(({ orgSlug, slug }) =>
         Effect.gen(function* () {
-          yield* projects.requireMember(orgSlug, userId, slug)
           const existing = yield* groupDocs.read(orgSlug, slug, id)
-          yield* requireKindRole(orgSlug, userId, slug, existing.kind)
+          yield* requireKindPermission(existing.kind)
           if (existing.completedAt !== null) {
             return yield* new SprintCompletedImmutable()
           }
@@ -567,27 +456,11 @@ export const GroupsLive = Layer.effect(
         })
       )
 
-    const updateTicketOrder = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      id: string,
-      input: UpdateTicketOrderInput
-    ): Effect.Effect<
-      GroupDetail,
-      | NotFound
-      | Forbidden
-      | SprintCompletedImmutable
-      | Validation
-      | MarkdownError
-    > =>
-      withProjectLock(
-        orgSlug,
-        slug,
+    const updateTicketOrder: GroupsShape["updateTicketOrder"] = (id, input) =>
+      lockedInScope(({ orgSlug, slug }) =>
         Effect.gen(function* () {
-          yield* projects.requireMember(orgSlug, userId, slug)
           const existing = yield* groupDocs.read(orgSlug, slug, id)
-          yield* requireKindRole(orgSlug, userId, slug, existing.kind)
+          yield* requireKindPermission(existing.kind)
           if (existing.completedAt !== null) {
             return yield* new SprintCompletedImmutable()
           }
@@ -661,27 +534,11 @@ export const GroupsLive = Layer.effect(
         })
       )
 
-    const complete = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      id: string,
-      input: CompleteSprintInput
-    ): Effect.Effect<
-      CompleteSprintOutput,
-      | NotFound
-      | Forbidden
-      | SprintCompletedImmutable
-      | Validation
-      | MarkdownError
-    > =>
-      withProjectLock(
-        orgSlug,
-        slug,
+    const complete: GroupsShape["complete"] = (id, input) =>
+      lockedInScope(({ orgSlug, slug }) =>
         Effect.gen(function* () {
-          yield* projects.requireMember(orgSlug, userId, slug)
           const source = yield* groupDocs.read(orgSlug, slug, id)
-          yield* requireKindRole(orgSlug, userId, slug, source.kind)
+          yield* requireKindPermission(source.kind)
 
           if (source.kind !== "sprint") {
             return yield* new Validation({ reason: "not_a_sprint" })
@@ -754,35 +611,21 @@ export const GroupsLive = Layer.effect(
         })
       )
 
-    const remove = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      id: string
-    ): Effect.Effect<void, NotFound | Forbidden | MarkdownError> =>
-      withProjectLock(
-        orgSlug,
-        slug,
+    const remove: GroupsShape["remove"] = (id) =>
+      lockedInScope(({ orgSlug, slug }) =>
         Effect.gen(function* () {
-          yield* projects.requireMember(orgSlug, userId, slug)
           const existing = yield* groupDocs.read(orgSlug, slug, id)
-          yield* requireKindRole(orgSlug, userId, slug, existing.kind)
+          yield* requireKindPermission(existing.kind)
           yield* groupDocs.remove(orgSlug, slug, id)
         })
       )
 
-    const ensureSprintAssignable = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      sprintIds: ReadonlyArray<GroupId>
-    ): Effect.Effect<
-      void,
-      NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
-    > =>
+    const ensureSprintAssignable: GroupsShape["ensureSprintAssignable"] = (
+      sprintIds
+    ) =>
       Effect.gen(function* () {
-        yield* projects.requireMember(orgSlug, userId, slug)
-        yield* requireKindRole(orgSlug, userId, slug, "sprint")
+        yield* requireKindPermission("sprint")
+        const { orgSlug, slug } = yield* ProjectScope
         yield* Effect.forEach(
           [...new Set(sprintIds)],
           (sprintId) =>
@@ -804,7 +647,7 @@ export const GroupsLive = Layer.effect(
       sprintId: GroupId | null,
       options?: { readonly after?: TicketId | null }
     ): Effect.Effect<void, MarkdownError> =>
-      withProjectLock(
+      withGroupFilesLock(
         orgSlug,
         slug,
         Effect.gen(function* () {
@@ -859,7 +702,7 @@ export const GroupsLive = Layer.effect(
       slug: string,
       ticketId: string
     ): Effect.Effect<void, MarkdownError> =>
-      withProjectLock(
+      withGroupFilesLock(
         orgSlug,
         slug,
         Effect.gen(function* () {

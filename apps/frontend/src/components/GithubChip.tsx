@@ -309,6 +309,7 @@ function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   return (
     <ActiveRepoList
       orgSlug={orgSlug}
+      slug={slug}
       busy={busy}
       errorString={errorString}
       onPick={pick}
@@ -318,19 +319,21 @@ function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
 
 function ActiveRepoList({
   orgSlug,
+  slug,
   busy,
   errorString,
   onPick
 }: {
   orgSlug: string
+  slug: string
   busy: boolean
   errorString: string | null
   onPick: (repo: GithubRepo) => void
 }) {
   const [query, setQuery] = useState("")
   const reposReq = useMemo(
-    () => githubReposRequest(orgSlug, query),
-    [orgSlug, query]
+    () => githubReposRequest(orgSlug, slug, query),
+    [orgSlug, slug, query]
   )
   const repos = useAtomValue(githubRepos(reposReq))
 

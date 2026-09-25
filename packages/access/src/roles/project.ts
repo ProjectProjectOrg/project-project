@@ -21,6 +21,7 @@ export const projectStatement = Statement.make({
   github: Schema.Literals(["read", "write"]),
   time: Schema.Literals(["read", "log"]),
   figma: Schema.Literals(["read"]),
+  attachment: Schema.Literals(["upload"]),
   settings: Schema.Literals(["manage"]),
   members: Schema.Literals(["manage", "invite_client"]),
   project: Schema.Literals(["archive", "delete"])
@@ -37,14 +38,16 @@ export const developer = projectStatement.role({
   docs: ["read", "write"],
   github: ["read", "write"],
   time: ["read", "log"],
-  figma: ["read"]
+  figma: ["read"],
+  attachment: ["upload"]
 })
 
 export const client = projectStatement.role({
   ticket: ["read", "create", "update_own"],
   comment: ["create", "update_own", "delete_own"],
   docs: ["read"],
-  figma: ["read"]
+  figma: ["read"],
+  attachment: ["upload"]
 })
 
 export const ProjectRoleName = Schema.Literals(["pm", "developer", "client"])

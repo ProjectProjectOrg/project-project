@@ -15,19 +15,17 @@ import {
   EverhourApiKeyMissing,
   EverhourConfigMissing,
   EverhourError,
-  Forbidden,
   NotFound,
-  Role,
   type EverhourProjectIntegrationStatus,
   type OrgEverhourConfig,
-  type PersonalEverhour
+  type PersonalEverhour,
+  ProjectScope
 } from "@pp/shared"
 import { and, desc, eq, inArray } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
 import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
 
 import { GroupDocs } from "../groups/GroupDocs"
@@ -65,8 +63,6 @@ type ActiveLink = {
   readonly lastSyncStatus: "ok" | "error" | null
   readonly lastSyncError: string | null
 }
-
-const makeProjectRole = Schema.decodeUnknownSync(Role)
 
 const emptySummary = (): MutableSummary => ({
   sectionsCreated: 0,
@@ -305,48 +301,6 @@ export const EverhourIntegrationsLive = Layer.effect(
           )
         )
 
-    const requireMember = (orgSlug: string, userId: string, slug: string) =>
-      Effect.gen(function* () {
-        const project = yield* projectRow(orgSlug, slug)
-        const explicit = yield* db.query.projectMember
-          .findFirst({
-            columns: { roleId: true },
-            where: {
-              RAW: (table, _operators) =>
-                _operators.and(
-                  _operators.eq(table.projectId, project.projectId),
-                  _operators.eq(table.userId, userId)
-                )!
-            }
-          })
-          .pipe(Effect.orDie)
-        if (explicit) return makeProjectRole(explicit.roleId)
-        const orgRole = yield* db.query.member
-          .findFirst({
-            columns: { role: true },
-            where: {
-              RAW: (table, _operators) =>
-                _operators.and(
-                  _operators.eq(table.organizationId, project.organizationId),
-                  _operators.eq(table.userId, userId)
-                )!
-            }
-          })
-          .pipe(Effect.orDie)
-        if (orgRole?.role === "owner" || orgRole?.role === "admin") {
-          return "pm" as const
-        }
-        return yield* new NotFound()
-      })
-
-    const requireAdmin = (orgSlug: string, userId: string, slug: string) =>
-      Effect.gen(function* () {
-        const role = yield* requireMember(orgSlug, userId, slug)
-        if (role !== "pm") {
-          return yield* new Forbidden()
-        }
-      })
-
     const activeLink = (projectId: string) =>
       db
         .select({
@@ -387,13 +341,15 @@ export const EverhourIntegrationsLive = Layer.effect(
           Effect.map((rows) => rows[0] ?? null)
         )
 
-    const getProjectStatus = (orgSlug: string, userId: string, slug: string) =>
-      Effect.gen(function* () {
-        yield* requireMember(orgSlug, userId, slug)
-        const project = yield* projectRow(orgSlug, slug)
-        const row = yield* activeLink(project.projectId)
-        return toStatus(row)
-      })
+    const projectStatus = (projectId: string) =>
+      activeLink(projectId).pipe(Effect.map(toStatus))
+
+    const getProjectStatus: EverhourIntegrationsShape["getProjectStatus"] =
+      () =>
+        Effect.gen(function* () {
+          const { projectId } = yield* ProjectScope
+          return yield* projectStatus(projectId)
+        })
 
     const recordProjectSync = (
       linkId: string,
@@ -793,7 +749,6 @@ export const EverhourIntegrationsLive = Layer.effect(
       createIfMissing: boolean
     ) =>
       Effect.gen(function* () {
-        yield* requireAdmin(orgSlug, userId, slug)
         const actor = yield* actorApiKey(userId)
         const { apiKey } = actor
         const project = yield* projectRow(orgSlug, slug)
@@ -948,120 +903,122 @@ export const EverhourIntegrationsLive = Layer.effect(
         Effect.catch(() => Effect.void)
       )
 
-    const disconnectProject = (orgSlug: string, userId: string, slug: string) =>
-      Effect.gen(function* () {
-        yield* requireAdmin(orgSlug, userId, slug)
-        const project = yield* projectRow(orgSlug, slug)
-        const link = yield* activeLink(project.projectId)
-        if (link) {
-          const now = yield* DateTime.nowAsDate
-          const integration = yield* db.query.projectEverhourIntegration
-            .findFirst({
-              columns: { webhookId: true },
-              where: {
-                RAW: (table, _operators) =>
-                  _operators.eq(table.projectIntegrationLinkId, link.linkId)
+    const disconnectProject: EverhourIntegrationsShape["disconnectProject"] =
+      () =>
+        Effect.gen(function* () {
+          const { userId, projectId } = yield* ProjectScope
+          const link = yield* activeLink(projectId)
+          if (link) {
+            const now = yield* DateTime.nowAsDate
+            const integration = yield* db.query.projectEverhourIntegration
+              .findFirst({
+                columns: { webhookId: true },
+                where: {
+                  RAW: (table, _operators) =>
+                    _operators.eq(table.projectIntegrationLinkId, link.linkId)
+                }
+              })
+              .pipe(Effect.orDie)
+            if (integration?.webhookId) {
+              yield* actorApiKey(userId).pipe(
+                Effect.flatMap((actor) =>
+                  deleteWebhookBestEffort(
+                    actor.apiKey,
+                    link.linkId,
+                    integration.webhookId!
+                  )
+                ),
+                Effect.catch(() => Effect.void)
+              )
+            }
+            yield* db
+              .update(projectIntegrationLink)
+              .set({
+                status: "disconnected",
+                disconnectedAt: now,
+                updatedAt: now
+              })
+              .where(eq(projectIntegrationLink.id, link.linkId))
+              .pipe(Effect.orDie)
+            yield* db
+              .update(projectEverhourIntegration)
+              .set({ status: "disconnected" })
+              .where(
+                eq(
+                  projectEverhourIntegration.projectIntegrationLinkId,
+                  link.linkId
+                )
+              )
+              .pipe(Effect.orDie)
+          }
+          return yield* projectStatus(projectId)
+        })
+
+    const bestEffortProjectSync: EverhourIntegrationsShape["bestEffortProjectSync"] =
+      () =>
+        Effect.flatMap(
+          ProjectScope,
+          ({ orgSlug, userId, slug, permissions }) =>
+            permissions.can({ settings: ["manage"] })
+              ? runFullSync(orgSlug, userId, slug, false)
+              : Effect.void
+        ).pipe(
+          Effect.timeout(Duration.seconds(5)),
+          Effect.catch((error) =>
+            Effect.logWarning("Everhour best-effort sync failed").pipe(
+              Effect.annotateLogs({
+                errorTag: errorTag(error),
+                error: formatError(error)
+              }),
+              Effect.asVoid
+            )
+          )
+        )
+
+    const connectProject: EverhourIntegrationsShape["connectProject"] = () =>
+      Effect.flatMap(ProjectScope, ({ orgSlug, userId, slug }) =>
+        runFullSync(orgSlug, userId, slug, true).pipe(
+          Effect.catch((error) =>
+            Effect.gen(function* () {
+              const project = yield* projectRow(orgSlug, slug)
+              const link = yield* activeLink(project.projectId)
+              if (!link) return yield* error
+              yield* Effect.logWarning(
+                "Everhour project connected with incomplete initial sync"
+              ).pipe(
+                Effect.annotateLogs({
+                  orgSlug,
+                  slug,
+                  userId,
+                  everhourProjectId: link.everhourProjectId,
+                  errorTag: errorTag(error),
+                  error: formatError(error)
+                })
+              )
+              return {
+                ...emptySummary(),
+                errors: [formatError(error)]
               }
             })
-            .pipe(Effect.orDie)
-          if (integration?.webhookId) {
-            yield* actorApiKey(userId).pipe(
+          ),
+          Effect.tap(() =>
+            actorApiKey(userId).pipe(
               Effect.flatMap((actor) =>
-                deleteWebhookBestEffort(
-                  actor.apiKey,
-                  link.linkId,
-                  integration.webhookId!
-                )
+                Effect.gen(function* () {
+                  const project = yield* projectRow(orgSlug, slug)
+                  const link = yield* activeLink(project.projectId)
+                  if (!link) return
+                  yield* ensureWebhook(
+                    orgSlug,
+                    slug,
+                    actor.apiKey,
+                    link.everhourProjectId,
+                    link.linkId
+                  )
+                })
               ),
               Effect.catch(() => Effect.void)
             )
-          }
-          yield* db
-            .update(projectIntegrationLink)
-            .set({
-              status: "disconnected",
-              disconnectedAt: now,
-              updatedAt: now
-            })
-            .where(eq(projectIntegrationLink.id, link.linkId))
-            .pipe(Effect.orDie)
-          yield* db
-            .update(projectEverhourIntegration)
-            .set({ status: "disconnected" })
-            .where(
-              eq(
-                projectEverhourIntegration.projectIntegrationLinkId,
-                link.linkId
-              )
-            )
-            .pipe(Effect.orDie)
-        }
-        return yield* getProjectStatus(orgSlug, userId, slug)
-      })
-
-    const bestEffortProjectSync = (
-      orgSlug: string,
-      userId: string,
-      slug: string
-    ) =>
-      runFullSync(orgSlug, userId, slug, false).pipe(
-        Effect.timeout(Duration.seconds(5)),
-        Effect.catch((error) =>
-          Effect.logWarning("Everhour best-effort sync failed").pipe(
-            Effect.annotateLogs({
-              orgSlug,
-              slug,
-              userId,
-              errorTag: errorTag(error),
-              error: formatError(error)
-            }),
-            Effect.asVoid
-          )
-        )
-      )
-
-    const connectProject = (orgSlug: string, userId: string, slug: string) =>
-      runFullSync(orgSlug, userId, slug, true).pipe(
-        Effect.catch((error) =>
-          Effect.gen(function* () {
-            const project = yield* projectRow(orgSlug, slug)
-            const link = yield* activeLink(project.projectId)
-            if (!link) return yield* error
-            yield* Effect.logWarning(
-              "Everhour project connected with incomplete initial sync"
-            ).pipe(
-              Effect.annotateLogs({
-                orgSlug,
-                slug,
-                userId,
-                everhourProjectId: link.everhourProjectId,
-                errorTag: errorTag(error),
-                error: formatError(error)
-              })
-            )
-            return {
-              ...emptySummary(),
-              errors: [formatError(error)]
-            }
-          })
-        ),
-        Effect.tap(() =>
-          actorApiKey(userId).pipe(
-            Effect.flatMap((actor) =>
-              Effect.gen(function* () {
-                const project = yield* projectRow(orgSlug, slug)
-                const link = yield* activeLink(project.projectId)
-                if (!link) return
-                yield* ensureWebhook(
-                  orgSlug,
-                  slug,
-                  actor.apiKey,
-                  link.everhourProjectId,
-                  link.linkId
-                )
-              })
-            ),
-            Effect.catch(() => Effect.void)
           )
         )
       )
@@ -1072,8 +1029,10 @@ export const EverhourIntegrationsLive = Layer.effect(
       disconnectProfile,
       getProjectStatus,
       connectProject,
-      syncProject: (orgSlug, userId, slug) =>
-        runFullSync(orgSlug, userId, slug, false),
+      syncProject: () =>
+        Effect.flatMap(ProjectScope, ({ orgSlug, userId, slug }) =>
+          runFullSync(orgSlug, userId, slug, false)
+        ),
       disconnectProject,
       bestEffortProjectSync
     } satisfies EverhourIntegrationsShape

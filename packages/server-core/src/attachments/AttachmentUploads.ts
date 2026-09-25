@@ -5,7 +5,9 @@ import type {
   PrepareAttachmentResult,
   TicketId,
   Unauthorized,
-  Validation
+  Validation,
+  ProjectScope,
+  Forbidden
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
@@ -13,27 +15,28 @@ import type * as Stream from "effect/Stream"
 
 import type { AttachmentUploadError } from "./Attachments"
 
-export interface TicketAttachmentUpload {
-  readonly orgSlug: string
-  readonly projectSlug: string
-  readonly ticketId: TicketId
-}
-
 export class AttachmentUploads extends Context.Service<
   AttachmentUploads,
   {
     readonly prepare: (
-      ticket: TicketAttachmentUpload,
-      userId: string,
+      ticketId: TicketId,
       input: Omit<PrepareAttachmentInput, "byteSize">
-    ) => Effect.Effect<PrepareAttachmentResult, AttachmentUploadError>
+    ) => Effect.Effect<
+      PrepareAttachmentResult,
+      AttachmentUploadError,
+      ProjectScope
+    >
     readonly receive: (
       token: string,
       contentType: string,
       body: Stream.Stream<Uint8Array, Validation>
     ) => Effect.Effect<
       Pick<Attachment, "id" | "url" | "filename" | "contentType">,
-      AttachmentUploadError | AttachmentNotUploaded | Unauthorized | Validation
+      | Forbidden
+      | AttachmentUploadError
+      | AttachmentNotUploaded
+      | Unauthorized
+      | Validation
     >
   }
 >()("@pp/server-core/attachments/AttachmentUploads") {}

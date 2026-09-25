@@ -20,7 +20,9 @@ import {
   type TicketCountQuery,
   type TicketFilter,
   type TicketListQuery,
-  type User
+  type User,
+  ProjectScope,
+  type ProjectScopeShape
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Deferred from "effect/Deferred"
@@ -30,6 +32,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
+import { accessLayer, projectScope } from "../access/testing"
 import { Attachments, type AttachmentsShape } from "../attachments/Attachments"
 import { Comments, type CommentsShape } from "../comments/Comments"
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
@@ -183,14 +186,14 @@ function makeFakeProjects(key: string, overrides: Partial<ProjectsShape> = {}) {
     listMembersPaged: () => unexpected("Projects.listMembersPaged"),
     create: () => unexpected("Projects.create"),
     get: () => unexpected("Projects.get"),
-    getKey: () => Effect.succeed(projectKey(key)),
-    getGithubIntegration: () => Effect.succeed(null),
+    key: () => Effect.succeed(projectKey(key)),
+    githubIntegration: () => Effect.succeed(null),
+    githubBranches: () => unexpected("Projects.githubBranches"),
+    githubRepos: () => unexpected("Projects.githubRepos"),
+    memberIds: () => Effect.succeed(new Set(["user-1", "user-2"])),
     update: () => unexpected("Projects.update"),
     updateSetup: () => unexpected("Projects.updateSetup"),
     remove: () => unexpected("Projects.remove"),
-    requireMember: () =>
-      Effect.succeed({ role: "developer" as const, projectId: "project-1" }),
-    requireRole: () => unexpected("Projects.requireRole"),
     addMember: () => unexpected("Projects.addMember"),
     updateMember: () => unexpected("Projects.updateMember"),
     removeMember: () => unexpected("Projects.removeMember"),
@@ -204,6 +207,23 @@ function makeFakeProjects(key: string, overrides: Partial<ProjectsShape> = {}) {
 
   return Layer.succeed(Projects, service)
 }
+
+const scopeIn = (orgSlug: string, slug: string) =>
+  projectScope("member", "developer", {
+    orgSlug,
+    slug,
+    projectId: slug,
+    organizationId: orgSlug
+  })
+
+const defaultScope = scopeIn("org", "p")
+
+const testInfra = (scope = defaultScope) =>
+  Layer.mergeAll(
+    TicketDocumentLock.layer,
+    accessLayer({}),
+    Layer.succeed(ProjectScope, scope)
+  )
 
 const FakeDb = Layer.succeed(
   Db,
@@ -622,6 +642,7 @@ function makeTicketsLayer(
     readonly ticketIndex?: Layer.Layer<TicketIndex>
     readonly attachments?: Layer.Layer<Attachments>
     readonly figmaLinks?: Layer.Layer<FigmaLinks>
+    readonly scope?: ProjectScopeShape
   } = {}
 ) {
   return TicketsLive.pipe(
@@ -636,7 +657,7 @@ function makeTicketsLayer(
     Layer.provide(options.github ?? makeFakeGitHub()),
     Layer.provide(options.ticketIndex ?? makeFakeTicketIndex(new Map())),
     Layer.provide(FakeDb),
-    Layer.provideMerge(TicketDocumentLock.layer)
+    Layer.provideMerge(testInfra(options.scope))
   )
 }
 
@@ -662,7 +683,7 @@ it.effect("listGitStates fetches only distinct ticket branches", () => {
     Layer.provide(docs.layer),
     Layer.provide(
       makeFakeProjects("T", {
-        getGithubIntegration: () => Effect.succeed(githubIntegration)
+        githubIntegration: () => Effect.succeed(githubIntegration)
       })
     ),
     Layer.provide(FakeGroups),
@@ -689,12 +710,12 @@ it.effect("listGitStates fetches only distinct ticket branches", () => {
     ),
     Layer.provide(makeFakeTicketIndex(docs.documents)),
     Layer.provide(FakeDb),
-    Layer.provideMerge(TicketDocumentLock.layer)
+    Layer.provideMerge(testInfra())
   )
 
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const result = yield* tickets.listGitStates("org", "user-1", "p")
+    const result = yield* tickets.listGitStates()
 
     expect(fetchedBranches).toEqual([["feat/T-1", "bug/T-3"]])
     expect(result.states["T-1"]).toEqual({
@@ -726,7 +747,7 @@ it.effect(
       Layer.provide(docs.layer),
       Layer.provide(
         makeFakeProjects("T", {
-          getGithubIntegration: () => Effect.succeed(githubIntegration)
+          githubIntegration: () => Effect.succeed(githubIntegration)
         })
       ),
       Layer.provide(FakeGroups),
@@ -778,12 +799,12 @@ it.effect(
         })
       ),
       Layer.provide(FakeDb),
-      Layer.provideMerge(TicketDocumentLock.layer)
+      Layer.provideMerge(testInfra())
     )
 
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      const result = yield* tickets.listGitStates("org", "user-1", "p")
+      const result = yield* tickets.listGitStates()
 
       expect(docs.documents.get("T-1")).toMatchObject({
         branch: "feat/T-1-current",
@@ -807,7 +828,7 @@ it.effect("listGitStates links an external branch and its existing PR", () => {
   const queries: Array<string | undefined> = []
   const layer = makeTicketsLayer("T", docs.layer, {
     projects: makeFakeProjects("T", {
-      getGithubIntegration: () => Effect.succeed(githubIntegration)
+      githubIntegration: () => Effect.succeed(githubIntegration)
     }),
     ticketIndex: makeFakeTicketIndex(docs.documents),
     github: makeFakeGitHub({
@@ -844,7 +865,7 @@ it.effect("listGitStates links an external branch and its existing PR", () => {
   })
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const result = yield* tickets.listGitStates("org", "user-1", "p")
+    const result = yield* tickets.listGitStates()
     expect(queries).toEqual(["T-"])
     expect(result.changedTicketIds).toEqual(["T-1"])
     expect(docs.documents.get("T-1")).toMatchObject({
@@ -853,7 +874,7 @@ it.effect("listGitStates links an external branch and its existing PR", () => {
       prState: "open"
     })
     expect(result.states["T-1"]).toMatchObject({ tag: "pr_open", number: 42 })
-    yield* tickets.listGitStates("org", "user-1", "p")
+    yield* tickets.listGitStates()
     expect(queries).toEqual(["T-", undefined])
   }).pipe(Effect.provide(layer))
 })
@@ -865,7 +886,7 @@ it.effect(
     docs.documents.set("T-1", makeTicketDocument("T-1", { branch: "feat/T-1" }))
     const layer = makeTicketsLayer("T", docs.layer, {
       projects: makeFakeProjects("T", {
-        getGithubIntegration: () => Effect.succeed(githubIntegration)
+        githubIntegration: () => Effect.succeed(githubIntegration)
       }),
       ticketIndex: makeFakeTicketIndex(docs.documents),
       github: makeFakeGitHub({
@@ -880,9 +901,9 @@ it.effect(
     })
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      yield* tickets.clearBranch("org", "user-1", "p", "T-1")
-      yield* tickets.update("org", "user-1", "p", "T-1", { title: "Renamed" })
-      const result = yield* tickets.listGitStates("org", "user-1", "p")
+      yield* tickets.clearBranch("T-1")
+      yield* tickets.update("T-1", { title: "Renamed" })
+      const result = yield* tickets.listGitStates()
       expect(docs.documents.get("T-1")).toMatchObject({
         branch: null,
         branchAutoLinkDisabled: true,
@@ -892,7 +913,7 @@ it.effect(
         tag: "no_branch",
         baseBranch: "main"
       })
-      yield* tickets.attachBranch("org", "user-1", "p", "T-1", {
+      yield* tickets.attachBranch("T-1", {
         name: "feat/T-1"
       })
       expect(docs.documents.get("T-1")).toMatchObject({
@@ -909,7 +930,7 @@ it.effect(
     const docs = makeFakeTicketDocs(["T-1"])
     const layer = makeTicketsLayer("T", docs.layer, {
       projects: makeFakeProjects("T", {
-        getGithubIntegration: () => Effect.succeed(githubIntegration)
+        githubIntegration: () => Effect.succeed(githubIntegration)
       }),
       ticketIndex: makeFakeTicketIndex(docs.documents),
       github: makeFakeGitHub({
@@ -929,7 +950,7 @@ it.effect(
     })
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      const result = yield* tickets.listGitStates("org", "user-1", "p")
+      const result = yield* tickets.listGitStates()
       expect(docs.documents.get("T-1")?.branch).toBe("manual-branch")
       expect(result.states["T-1"]).toEqual({
         tag: "branch_pending",
@@ -944,7 +965,7 @@ it.effect("reserved repository branches require manual attachment", () => {
   const docs = makeFakeTicketDocs(["T-1"])
   const layer = makeTicketsLayer("T", docs.layer, {
     projects: makeFakeProjects("T", {
-      getGithubIntegration: () => Effect.succeed(githubIntegration)
+      githubIntegration: () => Effect.succeed(githubIntegration)
     }),
     ticketIndex: makeFakeTicketIndex(docs.documents, {
       isRepositoryBranchAttached: (repoId, branch) => {
@@ -965,11 +986,11 @@ it.effect("reserved repository branches require manual attachment", () => {
   })
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const result = yield* tickets.listGitStates("org", "user-1", "p")
+    const result = yield* tickets.listGitStates()
     expect(result.states["T-1"].tag).toBe("no_branch")
     expect(result.changedTicketIds).toEqual([])
     expect(docs.documents.get("T-1")?.branch).toBeNull()
-    yield* tickets.attachBranch("org", "user-1", "p", "T-1", {
+    yield* tickets.attachBranch("T-1", {
       name: "feat/T-1"
     })
     expect(docs.documents.get("T-1")?.branch).toBe("feat/T-1")
@@ -1009,12 +1030,12 @@ it.effect(
         }),
         {
           projects: makeFakeProjects("T", {
-            getGithubIntegration: (_org, _user, slug) =>
-              Effect.succeed({
+            githubIntegration: () =>
+              Effect.map(ProjectScope, ({ slug }) => ({
                 ...githubIntegration,
                 projectId: slug,
                 projectSlug: slug
-              })
+              }))
           }),
           ticketIndex: makeFakeTicketIndex(new Map(), {
             projectFor: (orgSlug, slug) =>
@@ -1059,8 +1080,12 @@ it.effect(
         const tickets = yield* Tickets
         const scans = yield* Effect.all(
           [
-            tickets.listGitStates("org-a", "user", "a"),
-            tickets.listGitStates("org-b", "user", "b")
+            tickets
+              .listGitStates()
+              .pipe(Effect.provideService(ProjectScope, scopeIn("org-a", "a"))),
+            tickets
+              .listGitStates()
+              .pipe(Effect.provideService(ProjectScope, scopeIn("org-b", "b")))
           ],
           { concurrency: 2 }
         ).pipe(Effect.forkChild)
@@ -1111,7 +1136,7 @@ it.effect("manual unlink waits for a webhook write and remains unlinked", () =>
       Layer.succeed(TicketDocs, coordinatedDocs),
       {
         projects: makeFakeProjects("T", {
-          getGithubIntegration: () => Effect.succeed(githubIntegration)
+          githubIntegration: () => Effect.succeed(githubIntegration)
         }),
         ticketIndex: indexLayer
       }
@@ -1146,9 +1171,7 @@ it.effect("manual unlink waits for a webhook write and remains unlinked", () =>
         )
       )
       yield* Deferred.await(writeStarted)
-      const unlink = yield* Effect.forkChild(
-        tickets.clearBranch("org", "user-1", "p", "T-1")
-      )
+      const unlink = yield* Effect.forkChild(tickets.clearBranch("T-1"))
       yield* Effect.yieldNow
       yield* Deferred.succeed(releaseWrite, undefined)
       yield* Fiber.join(webhook)
@@ -1170,7 +1193,7 @@ it.effect(
     docs.documents.set("T-1", makeTicketDocument("T-1", { branch: "feat/T-1" }))
     const layer = makeTicketsLayer("T", docs.layer, {
       projects: makeFakeProjects("T", {
-        getGithubIntegration: () => Effect.succeed(githubIntegration)
+        githubIntegration: () => Effect.succeed(githubIntegration)
       }),
       ticketIndex: makeFakeTicketIndex(docs.documents),
       github: makeFakeGitHub({
@@ -1180,7 +1203,7 @@ it.effect(
     })
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      const result = yield* tickets.listGitStates("org", "user-1", "p")
+      const result = yield* tickets.listGitStates()
       expect(result).toMatchObject({
         refreshStatus: "rate_limited",
         retryAt: 1234,
@@ -1203,7 +1226,7 @@ it.effect(
     docs.documents.set("T-1", makeTicketDocument("T-1", { branch: "feat/T-1" }))
     const layer = makeTicketsLayer("T", docs.layer, {
       projects: makeFakeProjects("T", {
-        getGithubIntegration: () => Effect.succeed(githubIntegration)
+        githubIntegration: () => Effect.succeed(githubIntegration)
       }),
       ticketIndex: makeFakeTicketIndex(docs.documents),
       github: makeFakeGitHub({
@@ -1233,7 +1256,7 @@ it.effect(
     })
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      const result = yield* tickets.listGitStates("org", "user-1", "p")
+      const result = yield* tickets.listGitStates()
       expect(result).toMatchObject({
         refreshStatus: "stale",
         changedTicketIds: [],
@@ -1268,7 +1291,7 @@ it.effect(
     )
     const layer = makeTicketsLayer("T", docs.layer, {
       projects: makeFakeProjects("T", {
-        getGithubIntegration: () => Effect.succeed(githubIntegration)
+        githubIntegration: () => Effect.succeed(githubIntegration)
       }),
       ticketIndex: makeFakeTicketIndex(docs.documents),
       github: makeFakeGitHub({
@@ -1298,7 +1321,7 @@ it.effect(
     })
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      const result = yield* tickets.listGitStates("org", "user-1", "p")
+      const result = yield* tickets.listGitStates()
       expect(result.changedTicketIds).toEqual([])
       expect(result.states["T-1"]).toMatchObject({
         tag: "pr_merged",
@@ -1325,7 +1348,7 @@ it.effect("createBranch writes markdown and upserts the ticket index", () => {
   }> = []
   const layer = makeTicketsLayer("T", docs.layer, {
     projects: makeFakeProjects("T", {
-      getGithubIntegration: () => Effect.succeed(githubIntegration)
+      githubIntegration: () => Effect.succeed(githubIntegration)
     }),
     github: makeFakeGitHub({
       createBranchAsUser: (owner, repo, branch, base, userId) =>
@@ -1339,7 +1362,7 @@ it.effect("createBranch writes markdown and upserts the ticket index", () => {
 
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const updated = yield* tickets.createBranch("org", "user-1", "p", "T-1", {
+    const updated = yield* tickets.createBranch("T-1", {
       name: "feat/T-1"
     })
 
@@ -1373,12 +1396,18 @@ it.effect(
     const layer = makeTicketsLayer("T", docs.layer, {
       attachments: attachments.layer,
       figmaLinks: figmaLinks.layer,
-      ticketIndex: makeFakeTicketIndex(docs.documents)
+      ticketIndex: makeFakeTicketIndex(docs.documents),
+      scope: projectScope("member", "pm", {
+        orgSlug: "org",
+        slug: "p",
+        projectId: "p",
+        organizationId: "org"
+      })
     })
 
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      yield* tickets.remove("org", "user-1", "p", "T-1")
+      yield* tickets.remove("T-1")
 
       expect(attachments.calls).toEqual([
         { orgSlug: "org", slug: "p", ticketId: "T-1", body: "" }
@@ -1402,14 +1431,14 @@ it.effect(
 
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      const created = yield* tickets.create("org", "user-1", "p", {
+      const created = yield* tickets.create({
         title: "One",
         body: "# One\nhttps://www.figma.com/design/FILEKEY123/Spec\n"
       })
-      const quick = yield* tickets.quickCreate("org", "user-1", "p", {
+      const quick = yield* tickets.quickCreate({
         title: "Two"
       })
-      yield* tickets.update("org", "user-1", "p", created.id, {
+      yield* tickets.update(created.id, {
         body: "# One\nedited\n"
       })
 
@@ -1435,9 +1464,7 @@ it.effect("create propagates ticket index write failures", () => {
 
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const exit = yield* tickets
-      .create("org", "user-1", "p", { title: "Indexed" })
-      .pipe(Effect.exit)
+    const exit = yield* tickets.create({ title: "Indexed" }).pipe(Effect.exit)
 
     expect(exit._tag).toBe("Failure")
   }).pipe(Effect.provide(layer))
@@ -1451,14 +1478,14 @@ it.effect(
     const index = makeRecordingTicketIndex(docs.documents)
     const layer = makeTicketsLayer("T", docs.layer, {
       projects: makeFakeProjects("T", {
-        getGithubIntegration: () => Effect.succeed(githubIntegration)
+        githubIntegration: () => Effect.succeed(githubIntegration)
       }),
       ticketIndex: index.layer
     })
 
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      const updated = yield* tickets.clearBranch("org", "user-1", "p", "T-1")
+      const updated = yield* tickets.clearBranch("T-1")
 
       expect(updated.branch).toBeNull()
       expect(docs.documents.get("T-1")?.branch).toBeNull()
@@ -1485,13 +1512,13 @@ it.effect("get uses persisted prState for the fallback git state", () => {
   )
   const layer = makeTicketsLayer("T", docs.layer, {
     projects: makeFakeProjects("T", {
-      getGithubIntegration: () => Effect.succeed(githubIntegration)
+      githubIntegration: () => Effect.succeed(githubIntegration)
     })
   })
 
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const ticket = yield* tickets.get("org", "user-1", "p", "T-1")
+    const ticket = yield* tickets.get("T-1")
 
     expect(ticket.gitState).toEqual({
       tag: "pr_merged",
@@ -1509,7 +1536,7 @@ it.effect("create allocates the next id from the project key", () => {
   const { documents, layer } = makeTicketsFixture("FOO", ["FOO-1", "FOO-3"])
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const created = yield* tickets.create("org", "user-1", "p", {
+    const created = yield* tickets.create({
       title: "Add project keys"
     })
 
@@ -1523,7 +1550,7 @@ it.effect("create keeps legacy T project ids readable and sequential", () => {
   const { documents, layer } = makeTicketsFixture("T", ["T-1", "T-35"])
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const created = yield* tickets.create("org", "user-1", "p", {
+    const created = yield* tickets.create({
       title: "Keep legacy ids"
     })
 
@@ -1545,7 +1572,7 @@ it.effect(
 
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      const created = yield* tickets.create("org", "user-1", "p", {
+      const created = yield* tickets.create({
         title: "Skip stale collision"
       })
 
@@ -1564,7 +1591,7 @@ it.effect("ticket mention validation trusts the ticket index", () => {
   return Effect.gen(function* () {
     const tickets = yield* Tickets
     const error = yield* tickets
-      .create("org", "user-1", "p", {
+      .create({
         title: "Reference a ticket",
         body: "See [T-1](mention:ticket/T-1)."
       })
@@ -1582,7 +1609,7 @@ it.effect("list reads ticket index rows", () => {
 
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const result = yield* tickets.list("org", "user-1", "project", {
+    const result = yield* tickets.list({
       sort: DEFAULT_TICKET_SORT
     })
 
@@ -1633,7 +1660,7 @@ it.effect(
 
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      const result = yield* tickets.list("org", "user-1", "p", {
+      const result = yield* tickets.list({
         sort: DEFAULT_TICKET_SORT,
         groupId: ["ungrouped"]
       })
@@ -1671,7 +1698,7 @@ it.effect("list ungrouped filter excludes tickets in a planned sprint", () => {
 
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const result = yield* tickets.list("org", "user-1", "p", {
+    const result = yield* tickets.list({
       sort: DEFAULT_TICKET_SORT,
       groupId: ["ungrouped"]
     })
@@ -1713,7 +1740,7 @@ it.effect("list defaults to created desc", () => {
 
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const result = yield* tickets.list("org", "user-1", "p", {
+    const result = yield* tickets.list({
       sort: DEFAULT_TICKET_SORT
     })
 
@@ -1737,7 +1764,7 @@ it.effect("list sorts by title asc", () => {
     const query: TicketListQuery = {
       sort: { key: "title", dir: "asc" }
     }
-    const result = yield* tickets.list("org", "user-1", "p", query)
+    const result = yield* tickets.list(query)
 
     expect(result.items.map((row) => row.ticket.title)).toEqual(["A", "B", "C"])
   }).pipe(Effect.provide(layer))
@@ -1749,17 +1776,17 @@ it.effect("list paginates by cursor", () => {
   return Effect.gen(function* () {
     const tickets = yield* Tickets
     for (let i = 0; i < total; i++) {
-      yield* tickets.create("org", "user-1", "p", { title: `t-${i}` })
+      yield* tickets.create({ title: `t-${i}` })
     }
 
     const sortById: TicketListQuery = {
       sort: { key: "id", dir: "asc" }
     }
-    const page1 = yield* tickets.list("org", "user-1", "p", sortById)
+    const page1 = yield* tickets.list(sortById)
     expect(page1.items.length).toBe(TICKET_LIST_LIMIT)
     expect(page1.nextCursor).not.toBeNull()
 
-    const page2 = yield* tickets.list("org", "user-1", "p", {
+    const page2 = yield* tickets.list({
       ...sortById,
       cursor: page1.nextCursor ?? undefined
     })
@@ -1790,7 +1817,7 @@ it.effect("list paginates by cursor with default created desc sort", () => {
 
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const page1 = yield* tickets.list("org", "user-1", "p", {
+    const page1 = yield* tickets.list({
       sort: DEFAULT_TICKET_SORT
     })
     expect(page1.items.length).toBe(TICKET_LIST_LIMIT)
@@ -1800,7 +1827,7 @@ it.effect("list paginates by cursor with default created desc sort", () => {
       expect(page1Times[i - 1]).toBeGreaterThan(page1Times[i])
     }
 
-    const page2 = yield* tickets.list("org", "user-1", "p", {
+    const page2 = yield* tickets.list({
       sort: DEFAULT_TICKET_SORT,
       cursor: page1.nextCursor ?? undefined
     })
@@ -1823,16 +1850,10 @@ it.effect("list honors an explicit limit override", () => {
   return Effect.gen(function* () {
     const tickets = yield* Tickets
     for (let i = 0; i < 10; i++) {
-      yield* tickets.create("org", "user-1", "p", { title: `t-${i}` })
+      yield* tickets.create({ title: `t-${i}` })
     }
 
-    const page = yield* tickets.list(
-      "org",
-      "user-1",
-      "p",
-      { sort: { key: "id", dir: "asc" } },
-      3
-    )
+    const page = yield* tickets.list({ sort: { key: "id", dir: "asc" } }, 3)
     expect(page.items.length).toBe(3)
     expect(page.nextCursor).not.toBeNull()
   }).pipe(Effect.provide(layer))
@@ -1842,22 +1863,22 @@ it.effect("list filters by q and substitutes mine to viewerId", () => {
   const { layer } = makeTicketsFixture("T", [])
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    yield* tickets.create("org", "user-1", "p", {
+    yield* tickets.create({
       title: "hello world",
       assignees: ["user-1"]
     })
-    yield* tickets.create("org", "user-1", "p", {
+    yield* tickets.create({
       title: "goodbye world",
       assignees: ["user-2"]
     })
 
-    const byQ = yield* tickets.list("org", "user-1", "p", {
+    const byQ = yield* tickets.list({
       sort: DEFAULT_TICKET_SORT,
       q: "hello"
     })
     expect(byQ.items.map((row) => row.ticket.title)).toEqual(["hello world"])
 
-    const mine = yield* tickets.list("org", "user-1", "p", {
+    const mine = yield* tickets.list({
       sort: DEFAULT_TICKET_SORT,
       assignee: ["mine"]
     })
@@ -1869,7 +1890,7 @@ it.effect("count returns zeros for every status on empty project", () => {
   const { layer } = makeTicketsFixture("T", [])
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const result = yield* tickets.count("org", "user-1", "p", {})
+    const result = yield* tickets.count({})
     expect(result).toEqual({
       total: 0,
       byStatus: {}
@@ -1906,7 +1927,7 @@ it.effect("count aggregates byStatus across a mixed-status project", () => {
 
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const result = yield* tickets.count("org", "user-1", "p", {})
+    const result = yield* tickets.count({})
     expect(result).toEqual({
       total: 6,
       byStatus: { todo: 3, in_progress: 2, done: 1 }
@@ -1945,7 +1966,7 @@ it.effect(
 
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      const result = yield* tickets.count("org", "user-1", "p", {
+      const result = yield* tickets.count({
         status: [ticketStatus("done")]
       })
       expect(result).toEqual({
@@ -1987,7 +2008,7 @@ it.effect("count still applies non-status filters", () => {
 
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const result = yield* tickets.count("org", "user-1", "p", {
+    const result = yield* tickets.count({
       type: ["bug"]
     })
     expect(result).toEqual({
@@ -2023,7 +2044,7 @@ it.effect("count substitutes mine to viewerId like list", () => {
 
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const result = yield* tickets.count("org", "user-1", "p", {
+    const result = yield* tickets.count({
       assignee: ["mine"]
     })
     expect(result).toEqual({
@@ -2065,7 +2086,7 @@ for (const scenario of [
       })
       return Effect.gen(function* () {
         const tickets = yield* Tickets
-        const detail = yield* tickets.get("org", "user-1", "p", "T-1")
+        const detail = yield* tickets.get("T-1")
         expect(detail.gitState.tag).toBe(scenario.tag)
         expect(projectReads).toBe(0)
         expect(indexReads).toBe(scenario.indexReads)
@@ -2084,17 +2105,10 @@ it.effect(
     return Effect.gen(function* () {
       const tickets = yield* Tickets
       const sort = { key: "title", dir: "asc" } as const
-      const updated = yield* tickets.update(
-        "org",
-        "user-1",
-        "p",
-        "T-2",
-        { title: "Zulu" },
-        sort
-      )
+      const updated = yield* tickets.update("T-2", { title: "Zulu" }, sort)
       expect(updated.ticket.title).toBe("Zulu")
 
-      const page = yield* tickets.list("org", "user-1", "p", { sort })
+      const page = yield* tickets.list({ sort })
       const row = page.items.find((item) => item.ticket.id === "T-2")
       expect(updated.orderKey).toBe(row?.orderKey)
       expect(page.items.map((item) => item.ticket.id)).toEqual([
@@ -2113,7 +2127,7 @@ it.effect("omits the order key when no sort is asked for", () => {
   })
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const updated = yield* tickets.update("org", "user-1", "p", "T-1", {
+    const updated = yield* tickets.update("T-1", {
       title: "Quiet"
     })
     expect(updated.orderKey).toBeNull()
@@ -2129,22 +2143,14 @@ it.effect(
     })
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      const read = yield* tickets.get("org", "user-1", "p", "T-1")
+      const read = yield* tickets.get("T-1")
       docs.documents.set(
         "T-1",
         makeTicketDocument("T-1", { body: "A concurrent edit" })
       )
 
       const error = yield* tickets
-        .update(
-          "org",
-          "user-1",
-          "p",
-          "T-1",
-          { body: "Template content" },
-          undefined,
-          read.body
-        )
+        .update("T-1", { body: "Template content" }, undefined, read.body)
         .pipe(Effect.flip)
 
       expect(error).toMatchObject({
@@ -2166,12 +2172,12 @@ it.effect(
     })
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      yield* tickets.update("org", "user-1", "p", "T-1", {
+      yield* tickets.update("T-1", {
         title: "New title",
         priority: "high"
       })
       expect(attachments.calls).toEqual([])
-      yield* tickets.update("org", "user-1", "p", "T-1", {
+      yield* tickets.update("T-1", {
         body: "Updated description"
       })
       expect(attachments.calls).toEqual([
@@ -2192,7 +2198,7 @@ it.effect(
     const docs = makeFakeTicketDocs(["T-1"])
     const layer = makeTicketsLayer("T", docs.layer, {
       projects: makeFakeProjects("T", {
-        getGithubIntegration: () => Effect.succeed(githubIntegration)
+        githubIntegration: () => Effect.succeed(githubIntegration)
       }),
       ticketIndex: makeFakeTicketIndex(docs.documents),
       github: makeFakeGitHub({
@@ -2209,7 +2215,7 @@ it.effect(
     })
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      yield* tickets.createBranch("org", "user-1", "p", "T-1", {
+      yield* tickets.createBranch("T-1", {
         name: "feat/T-1"
       })
       expect(docs.documents.get("T-1")).toMatchObject({
@@ -2250,7 +2256,7 @@ it.effect(
     return Effect.gen(function* () {
       const tickets = yield* Tickets
       const query = { q: "needle", sort: { key: "id", dir: "asc" } } as const
-      const snapshot = yield* tickets.sections("org", "user-1", "p", query)
+      const snapshot = yield* tickets.sections(query)
       expect(snapshot.counts).toEqual({
         total: 53,
         byStatus: { todo: 52, in_progress: 1 }
@@ -2263,7 +2269,7 @@ it.effect(
           ({ ticket }) => ticket.id
         )
       ).toEqual(["T-53"])
-      const next = yield* tickets.list("org", "user-1", "p", {
+      const next = yield* tickets.list({
         ...query,
         status: [ticketStatus("todo")],
         cursor: todo.nextCursor ?? undefined
@@ -2273,7 +2279,7 @@ it.effect(
         "T-52"
       ])
       expect(next.nextCursor).toBeNull()
-      const selected = yield* tickets.sections("org", "user-1", "p", {
+      const selected = yield* tickets.sections({
         ...query,
         status: [ticketStatus("in_progress")]
       })
@@ -2311,7 +2317,7 @@ function makeFakeSprintGroups(sprints: ReadonlyArray<GroupDetail>) {
     list: () => Effect.succeed(sprints),
     listPaged: () => unexpected("Groups.listPaged"),
     listSprintsPaged: () => unexpected("Groups.listSprintsPaged"),
-    get: (_orgSlug, _userId, _slug, id) => {
+    get: (id) => {
       if (!isGroupId(id)) return Effect.fail(new NotFound())
       const sprint = byId.get(id)
       return sprint === undefined
@@ -2357,12 +2363,7 @@ it.effect(
     return Effect.gen(function* () {
       const tickets = yield* Tickets
       const query = { sort: { key: "id", dir: "asc" } } as const
-      const snapshot = yield* tickets.sprintSections(
-        "org",
-        "user-1",
-        "p",
-        query
-      )
+      const snapshot = yield* tickets.sprintSections(query)
       expect(snapshot.total).toBe(53)
       const g1Section = snapshot.sections.find(
         (section) => section.key === g1.id
@@ -2380,7 +2381,7 @@ it.effect(
       expect(unscheduled?.page.items.map(({ ticket }) => ticket.id)).toEqual([
         "T-53"
       ])
-      const next = yield* tickets.list("org", "user-1", "p", {
+      const next = yield* tickets.list({
         ...query,
         groupId: [g1.id],
         cursor: g1Section?.page.nextCursor ?? undefined
@@ -2390,7 +2391,7 @@ it.effect(
         "T-52"
       ])
       expect(next.nextCursor).toBeNull()
-      const selected = yield* tickets.sprintSections("org", "user-1", "p", {
+      const selected = yield* tickets.sprintSections({
         ...query,
         groupId: [g2.id]
       })
@@ -2427,13 +2428,13 @@ it.effect(
         sort: { key: "id", dir: "asc" },
         status: [ticketStatus("review")]
       } as const
-      const all = yield* tickets.sprintSections("org", "user-1", "p", query)
+      const all = yield* tickets.sprintSections(query)
       expect(all.total).toBe(2)
       expect(all.counts).toEqual({
         total: 4,
         byStatus: { todo: 2, review: 2 }
       })
-      const selected = yield* tickets.sprintSections("org", "user-1", "p", {
+      const selected = yield* tickets.sprintSections({
         ...query,
         groupId: [g1.id]
       })
@@ -2444,7 +2445,7 @@ it.effect(
         total: 2,
         byStatus: { todo: 1, review: 1 }
       })
-      const repeated = yield* tickets.sprintSections("org", "user-1", "p", {
+      const repeated = yield* tickets.sprintSections({
         ...query,
         status: [ticketStatus("review"), ticketStatus("review")],
         groupId: [g1.id, g1.id]
@@ -2475,7 +2476,7 @@ it.effect("sprintSections assigns each ticket to one section", () => {
   })
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const snapshot = yield* tickets.sprintSections("org", "user-1", "p", {
+    const snapshot = yield* tickets.sprintSections({
       sort: { key: "id", dir: "asc" }
     })
     const doneSection = snapshot.sections.find(
@@ -2502,25 +2503,15 @@ it.effect("sprintSections assigns each ticket to one section", () => {
       sort: { key: "id", dir: "asc" },
       groupId: ["ungrouped"]
     } as const
-    const ungroupedList = yield* tickets.list(
-      "org",
-      "user-1",
-      "p",
-      ungroupedQuery
-    )
-    const ungroupedSections = yield* tickets.sprintSections(
-      "org",
-      "user-1",
-      "p",
-      ungroupedQuery
-    )
+    const ungroupedList = yield* tickets.list(ungroupedQuery)
+    const ungroupedSections = yield* tickets.sprintSections(ungroupedQuery)
     expect(ungroupedSections.sections).toHaveLength(1)
     expect(
       ungroupedSections.sections[0]?.page.items.map(({ ticket }) => ticket.id)
     ).toEqual(ungroupedList.items.map(({ ticket }) => ticket.id))
     expect(ungroupedSections.counts.total).toBe(2)
 
-    const completedOnly = yield* tickets.sprintSections("org", "user-1", "p", {
+    const completedOnly = yield* tickets.sprintSections({
       ...ungroupedQuery,
       groupId: [done.id]
     })
@@ -2528,7 +2519,7 @@ it.effect("sprintSections assigns each ticket to one section", () => {
       completedOnly.sections[0]?.page.items.map(({ ticket }) => ticket.id)
     ).toEqual(["T-1", "T-2"])
 
-    const both = yield* tickets.sprintSections("org", "user-1", "p", {
+    const both = yield* tickets.sprintSections({
       ...ungroupedQuery,
       groupId: ["ungrouped", done.id]
     })
@@ -2538,5 +2529,136 @@ it.effect("sprintSections assigns each ticket to one section", () => {
         section.page.items.map(({ ticket }) => ticket.id)
       )
     ).toEqual(["T-3", "T-1", "T-2"])
+  }).pipe(Effect.provide(layer))
+})
+
+const scopeAs = (
+  orgRole: "owner" | "admin" | "member" | "guest",
+  role: "pm" | "developer" | "client" | null,
+  userId: string
+) =>
+  projectScope(orgRole, role, {
+    userId,
+    orgSlug: "org",
+    slug: "p",
+    projectId: "p",
+    organizationId: "org"
+  })
+
+const permissionFixture = () => {
+  const docs = makeFakeTicketDocs([])
+  docs.documents.set(
+    "T-1",
+    makeTicketDocument("T-1", { createdBy: "user-2", branch: "feat/T-1" })
+  )
+  docs.documents.set(
+    "T-2",
+    makeTicketDocument("T-2", { createdBy: "client-1" })
+  )
+  const layer = makeTicketsLayer("T", docs.layer, {
+    ticketIndex: makeFakeTicketIndex(docs.documents),
+    projects: makeFakeProjects("T", {
+      githubIntegration: () => Effect.succeed(githubIntegration),
+      memberIds: () => Effect.succeed(new Set(["user-1", "user-2", "client-1"]))
+    })
+  })
+  return { docs, layer }
+}
+
+const as = (scope: ProjectScopeShape) =>
+  Effect.provideService(ProjectScope, scope)
+
+it.effect(
+  "lets a client edit their own ticket's content but not its status or assignees",
+  () => {
+    const { docs, layer } = permissionFixture()
+    const client = as(scopeAs("guest", "client", "client-1"))
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const renamed = yield* tickets
+        .update("T-2", { title: "Clearer title" })
+        .pipe(client)
+      expect(renamed.ticket.title).toBe("Clearer title")
+      const status = yield* Effect.flip(
+        tickets.update("T-2", { status: ticketStatus("done") }).pipe(client)
+      )
+      const assignees = yield* Effect.flip(
+        tickets.update("T-2", { assignees: ["user-1"] }).pipe(client)
+      )
+      const others = yield* Effect.flip(
+        tickets.update("T-1", { title: "Not mine" }).pipe(client)
+      )
+      expect([status._tag, assignees._tag, others._tag]).toStrictEqual([
+        "Forbidden",
+        "Forbidden",
+        "Forbidden"
+      ])
+      expect(docs.documents.get("T-2")?.status).toBe("todo")
+      expect(docs.documents.get("T-1")?.title).toBe("T-1")
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "lets a client create tickets only in the default status without assignees",
+  () => {
+    const { layer } = permissionFixture()
+    const client = as(scopeAs("guest", "client", "client-1"))
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const created = yield* tickets.create({ title: "Bug" }).pipe(client)
+      expect(created.createdBy).toBe("client-1")
+      const placed = yield* Effect.flip(
+        tickets
+          .quickCreate({ title: "Now", status: ticketStatus("done") })
+          .pipe(client)
+      )
+      const assigned = yield* Effect.flip(
+        tickets.create({ title: "Mine", assignees: ["user-1"] }).pipe(client)
+      )
+      expect([placed._tag, assigned._tag]).toStrictEqual([
+        "Forbidden",
+        "Forbidden"
+      ])
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect("hides GitHub state from anyone without github:read", () => {
+  const { layer } = permissionFixture()
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const developerView = yield* tickets
+      .get("T-1")
+      .pipe(as(scopeAs("member", "developer", "user-1")))
+    const clientView = yield* tickets
+      .get("T-1")
+      .pipe(as(scopeAs("guest", "client", "client-1")))
+    expect(developerView.branch).toBe("feat/T-1")
+    expect(clientView).toMatchObject({
+      branch: null,
+      pr: null,
+      prState: null,
+      lastTransitionedPr: null,
+      gitState: { tag: "no_branch" }
+    })
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("keeps org admins without a role from editing", () => {
+  const { docs, layer } = permissionFixture()
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const adminView = yield* tickets
+      .get("T-1")
+      .pipe(as(scopeAs("admin", null, "admin-1")))
+    const adminEdit = yield* Effect.flip(
+      tickets
+        .update("T-1", { title: "Admin" })
+        .pipe(as(scopeAs("admin", null, "admin-1")))
+    )
+    expect(adminView.id).toBe("T-1")
+    expect(adminEdit._tag).toBe("Forbidden")
+    expect(docs.documents.has("T-1")).toBe(true)
   }).pipe(Effect.provide(layer))
 })

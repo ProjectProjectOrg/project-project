@@ -398,12 +398,15 @@ Both role sets and their permissions are defined in `@pp/access` (`packages/acce
 | Delete tickets, plan sprints                             | ✓  | –         | –           |
 | Comment; edit and delete own comments                    | ✓  | ✓         | ✓           |
 | Edit or delete others' comments                          | ✓  | –         | –           |
-| Epics, edit docs, GitHub, Everhour                       | ✓  | ✓         | –           |
+| Epics, edit docs, Everhour                               | ✓  | ✓         | –           |
+| GitHub: state, branches, PRs, connect the repo           | ✓  | ✓         | –           |
 | Figma links                                              | ✓  | ✓         | ✓           |
 | Tags, statuses, workflow, blocks and templates           | ✓  | –         | –           |
 | Project settings and integrations, members, archive/delete | ✓ | –        | –           |
 
-A project always keeps at least one PM.
+A project always keeps at least one PM. Org owners and admins without a project role can read every project's content, GitHub state and time totals, manage its members and archive or delete it, but can't change its content.
+
+Clients never see GitHub data: tickets come back with `branch`, `pr`, `prState` and `lastTransitionedPr` as null and an empty `gitState`, and project detail comes back without its `github` connection.
 
 The `Access` service in `server-core` resolves the caller's roles into an `OrgScope` or `ProjectScope`. Every org and project endpoint in `packages/shared/src/api.ts` declares what it needs with a `RequiresOrg` or `RequiresProject` annotation, and the `OrgAccess` / `ProjectAccess` middleware resolves the scope, checks the annotation and hands the scope to the handler, failing with a tagged `Forbidden`. MCP tools declare the same requirement next to the tool. Services read the scope from context, so a service can't run without one, and only checks that depend on the data itself stay in the service. A caller who isn't in the org, or has no access to the project, gets `NotFound`.
 

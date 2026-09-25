@@ -3,104 +3,56 @@
 // Every method that touches markdown collapses `MarkdownError` into a defect
 // (HTTP 500). It represents corruption (decode failure, fs blip), not a
 // routine outcome the wire needs to model.
-//
-// Org gate: each handler resolves `(orgSlug, user.id)` via CurrentOrg before
-// hitting any project-level logic. A miss collapses to NotFound — same wire
-// response as "no such project", so we never leak which orgs exist.
 
 import { Attachments } from "@pp/server-core/attachments/Attachments"
-import { EverhourIntegrations } from "@pp/server-core/everhour/EverhourIntegrations"
-import { GitHub } from "@pp/server-core/github/GitHub"
 import { GitHubIntegrations } from "@pp/server-core/github/GitHubIntegrations"
-import { CurrentOrg } from "@pp/server-core/organizations/CurrentOrg"
 import { Projects } from "@pp/server-core/projects/Projects"
 import { Tickets } from "@pp/server-core/tickets/Tickets"
-import { AppApi, CurrentUser } from "@pp/shared"
+import { AppApi, ProjectScope } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
+
+import { dieOnMarkdown, thenSyncEverhour } from "./lib"
 
 export const ProjectsHandlerLive = HttpApiBuilder.group(
   AppApi,
   "projects",
   (handlers) =>
     handlers
-      .handle("list", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const projects = yield* Projects
-          return yield* projects.list(org.orgSlug, user.id)
-        })
+      .handle("list", () =>
+        Effect.flatMap(Projects, (projects) => projects.list()).pipe(
+          dieOnMarkdown
+        )
       )
-      .handle("create", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const projects = yield* Projects
-          return yield* projects.create(org.orgSlug, user.id, payload)
-        }).pipe(Effect.catchTag("NotFound", (cause) => Effect.die(cause)))
+      .handle("create", ({ payload }) =>
+        Effect.flatMap(Projects, (projects) => projects.create(payload)).pipe(
+          dieOnMarkdown
+        )
       )
-      .handle("get", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const projects = yield* Projects
-          return yield* projects.get(org.orgSlug, user.id, params.slug)
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
+      .handle("get", () =>
+        Effect.flatMap(Projects, (projects) => projects.get()).pipe(
+          dieOnMarkdown
+        )
       )
-      .handle("update", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const projects = yield* Projects
-          const result = yield* projects.update(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            payload
-          )
-          if (payload.name !== undefined) {
-            const everhour = yield* EverhourIntegrations
-            yield* everhour.bestEffortProjectSync(
-              org.orgSlug,
-              user.id,
-              params.slug
-            )
-          }
-          return result
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
+      .handle("update", ({ payload }) =>
+        Effect.flatMap(Projects, (projects) => projects.update(payload)).pipe(
+          (updated) =>
+            payload.name === undefined ? updated : thenSyncEverhour(updated),
+          dieOnMarkdown
+        )
       )
-      .handle("updateSetup", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const projects = yield* Projects
-          return yield* projects.updateSetup(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            payload
-          )
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
+      .handle("updateSetup", ({ payload }) =>
+        Effect.flatMap(Projects, (projects) =>
+          projects.updateSetup(payload)
+        ).pipe(dieOnMarkdown)
       )
-      .handle("delete", ({ params }) =>
+      .handle("delete", () =>
         Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
+          const { orgSlug, slug } = yield* ProjectScope
           const projects = yield* Projects
           const attachments = yield* Attachments
-          yield* attachments.orphanProject(
-            org.orgSlug,
-            params.slug,
-            projects.remove(org.orgSlug, user.id, params.slug)
-          )
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
+          yield* attachments.orphanProject(orgSlug, slug, projects.remove())
+        }).pipe(dieOnMarkdown)
       )
       .handle("githubIntegration", () =>
         Effect.flatMap(GitHubIntegrations, (integrations) =>
@@ -117,126 +69,49 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           integrations.listRepos(query.q, query.page ?? 1)
         )
       )
-      .handle("addMember", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const projects = yield* Projects
-          return yield* projects.addMember(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            payload
-          )
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
+      .handle("listGithubRepos", ({ query }) =>
+        Effect.flatMap(Projects, (projects) =>
+          projects.githubRepos(query.q, query.page ?? 1)
+        ).pipe(dieOnMarkdown)
+      )
+      .handle("addMember", ({ payload }) =>
+        Effect.flatMap(Projects, (projects) =>
+          projects.addMember(payload)
+        ).pipe(dieOnMarkdown)
       )
       .handle("updateMember", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const projects = yield* Projects
-          return yield* projects.updateMember(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.userId,
-            payload.role
-          )
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
+        Effect.flatMap(Projects, (projects) =>
+          projects.updateMember(params.userId, payload.role)
+        ).pipe(dieOnMarkdown)
       )
       .handle("removeMember", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const projects = yield* Projects
-          return yield* projects.removeMember(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.userId
-          )
-        }).pipe(
-          Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)),
-          Effect.catchTag("MalformedTicketDocument", (cause) =>
-            Effect.die(cause)
-          )
-        )
+        Effect.flatMap(Projects, (projects) =>
+          projects.removeMember(params.userId)
+        ).pipe(dieOnMarkdown)
       )
       .handle("cancelPendingMember", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const projects = yield* Projects
-          return yield* projects.cancelPendingMember(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.invitationId
-          )
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
+        Effect.flatMap(Projects, (projects) =>
+          projects.cancelPendingMember(params.invitationId)
+        ).pipe(dieOnMarkdown)
       )
-      .handle("connectGithub", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const projects = yield* Projects
-          return yield* projects.connectGithub(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            payload
-          )
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
+      .handle("connectGithub", ({ payload }) =>
+        Effect.flatMap(Projects, (projects) =>
+          projects.connectGithub(payload)
+        ).pipe(dieOnMarkdown)
       )
-      .handle("disconnectGithub", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const projects = yield* Projects
-          return yield* projects.disconnectGithub(
-            org.orgSlug,
-            user.id,
-            params.slug
-          )
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
+      .handle("disconnectGithub", () =>
+        Effect.flatMap(Projects, (projects) =>
+          projects.disconnectGithub()
+        ).pipe(dieOnMarkdown)
       )
-      .handle("gitStates", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.listGitStates(org.orgSlug, user.id, params.slug)
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
+      .handle("gitStates", () =>
+        Effect.flatMap(Tickets, (tickets) => tickets.listGitStates()).pipe(
+          dieOnMarkdown
+        )
       )
-      .handle("listBranches", ({ params, query }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const projects = yield* Projects
-          const github = yield* GitHub
-          const projectGithub = yield* projects.getGithubIntegration(
-            org.orgSlug,
-            user.id,
-            params.slug
-          )
-          if (!projectGithub) {
-            return { items: [], hasMore: false }
-          }
-          return yield* github.listInstallationBranches(
-            projectGithub.installationId,
-            projectGithub.repoOwner,
-            projectGithub.repoName,
-            query.q,
-            query.first ?? 30
-          )
-        })
+      .handle("listBranches", ({ query }) =>
+        Effect.flatMap(Projects, (projects) =>
+          projects.githubBranches(query.q, query.first ?? 30)
+        ).pipe(dieOnMarkdown)
       )
 )

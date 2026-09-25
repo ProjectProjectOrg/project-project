@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./roles": "./src/roles/index.ts"
+    "./roles": "./src/roles/index.ts",
+    "./policies": "./src/policies/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

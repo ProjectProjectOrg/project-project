@@ -20,6 +20,7 @@ import {
   isPristineTemplateBody,
   isRasterImageContentType,
   parseTicketBlocks,
+  ProjectScope,
   serializeTicketBlocks,
   stripDefinitionHints,
   stripHints,
@@ -48,7 +49,7 @@ import type * as Layer from "effect/Layer"
 import type * as Schema from "effect/Schema"
 import { Tool } from "effect/unstable/ai"
 
-import { orgTool } from "./access"
+import { orgTool, projectTool } from "./access"
 import { McpCurrentUser } from "./McpRequestUser"
 import {
   McpToolkit,
@@ -60,7 +61,7 @@ import {
 
 const DEFAULT_LIMIT = 50
 
-const sanitizeMcpBody = (orgSlug: string, projectSlug: string, body: string) =>
+const sanitizeMcpBody = (body: string) =>
   Effect.gen(function* () {
     const [firstIssue] = validateTicketBlocks(body)
     if (firstIssue !== undefined) {
@@ -70,11 +71,8 @@ const sanitizeMcpBody = (orgSlug: string, projectSlug: string, body: string) =>
     }
     const segments = parseTicketBlocks(body)
     if (!segments.some((segment) => segment.kind === "block")) return body
-    const current = yield* McpCurrentUser
     const library = yield* Library
-    const lookup = blockLookupFor(
-      yield* library.projectLibrary(orgSlug, current.id, projectSlug)
-    )
+    const lookup = blockLookupFor(yield* library.projectLibrary())
     return serializeTicketBlocks(
       segments.map((segment) => {
         if (segment.kind === "markdown") return segment
@@ -152,23 +150,15 @@ const get_org = Effect.fn("get_org")(function* (input: { orgSlug: string }) {
 })
 
 const list_projects = (input: { orgSlug: string } & Pagination) =>
-  Effect.gen(function* () {
-    const current = yield* McpCurrentUser
-    const projects = yield* Projects.Projects
-    return yield* projects.listPaged(
-      input.orgSlug,
-      current.id,
+  Effect.flatMap(Projects.Projects, (projects) =>
+    projects.listPaged(
       tryDecodeCursor(input.cursor),
       input.limit ?? DEFAULT_LIMIT
     )
-  })
+  )
 
-const get_project = (input: { orgSlug: string; projectSlug: string }) =>
-  Effect.gen(function* () {
-    const current = yield* McpCurrentUser
-    const projects = yield* Projects.Projects
-    return yield* projects.get(input.orgSlug, current.id, input.projectSlug)
-  })
+const get_project = (_input: { orgSlug: string; projectSlug: string }) =>
+  Effect.flatMap(Projects.Projects, (projects) => projects.get())
 
 const list_groups = (
   input: {
@@ -177,18 +167,13 @@ const list_groups = (
     filter?: GroupFilter
   } & Pagination
 ) =>
-  Effect.gen(function* () {
-    const current = yield* McpCurrentUser
-    const groups = yield* Groups
-    return yield* groups.listPaged(
-      input.orgSlug,
-      current.id,
-      input.projectSlug,
+  Effect.flatMap(Groups, (groups) =>
+    groups.listPaged(
       input.filter,
       tryDecodeCursor(input.cursor),
       input.limit ?? DEFAULT_LIMIT
     )
-  })
+  )
 
 const list_sprints = (
   input: {
@@ -197,34 +182,19 @@ const list_sprints = (
     state?: SprintState
   } & Pagination
 ) =>
-  Effect.gen(function* () {
-    const current = yield* McpCurrentUser
-    const groups = yield* Groups
-    return yield* groups.listSprintsPaged(
-      input.orgSlug,
-      current.id,
-      input.projectSlug,
+  Effect.flatMap(Groups, (groups) =>
+    groups.listSprintsPaged(
       input.state,
       tryDecodeCursor(input.cursor),
       input.limit ?? DEFAULT_LIMIT
     )
-  })
+  )
 
 const get_group = (input: {
   orgSlug: string
   projectSlug: string
   id: string
-}) =>
-  Effect.gen(function* () {
-    const current = yield* McpCurrentUser
-    const groups = yield* Groups
-    return yield* groups.get(
-      input.orgSlug,
-      current.id,
-      input.projectSlug,
-      input.id
-    )
-  })
+}) => Effect.flatMap(Groups, (groups) => groups.get(input.id))
 
 const list_tickets = (
   input: {
@@ -234,16 +204,8 @@ const list_tickets = (
     Pick<Pagination, "limit">
 ) =>
   Effect.gen(function* () {
-    const current = yield* McpCurrentUser
     const tickets = yield* Tickets
-    const query = TicketListQuery.make(input)
-    const page = yield* tickets.list(
-      input.orgSlug,
-      current.id,
-      input.projectSlug,
-      query,
-      input.limit
-    )
+    const page = yield* tickets.list(TicketListQuery.make(input), input.limit)
     return {
       items: page.items.map((row) => row.ticket),
       nextCursor: page.nextCursor
@@ -256,75 +218,39 @@ const get_ticket = (input: {
   id: string
 }) =>
   Effect.gen(function* () {
-    const current = yield* McpCurrentUser
     const tickets = yield* Tickets
-    const detail = yield* tickets.get(
-      input.orgSlug,
-      current.id,
-      input.projectSlug,
-      input.id
-    )
+    const detail = yield* tickets.get(input.id)
     return withBlocks(detail)
   })
 
-const list_statuses = (input: { orgSlug: string; projectSlug: string }) =>
-  Effect.gen(function* () {
-    const current = yield* McpCurrentUser
-    const statuses = yield* ProjectStatuses
-    return yield* statuses.list(input.orgSlug, current.id, input.projectSlug)
-  })
+const list_statuses = (_input: { orgSlug: string; projectSlug: string }) =>
+  Effect.flatMap(ProjectStatuses, (statuses) => statuses.list())
 
 const list_tags = (
   input: { orgSlug: string; projectSlug: string } & Pagination
 ) =>
-  Effect.gen(function* () {
-    const current = yield* McpCurrentUser
-    const tags = yield* Tags
-    return yield* tags.listPaged(
-      input.orgSlug,
-      current.id,
-      input.projectSlug,
-      tryDecodeCursor(input.cursor),
-      input.limit ?? DEFAULT_LIMIT
-    )
-  })
+  Effect.flatMap(Tags, (tags) =>
+    tags.listPaged(tryDecodeCursor(input.cursor), input.limit ?? DEFAULT_LIMIT)
+  )
 
 const list_members = (
   input: { orgSlug: string; projectSlug: string } & Pagination
 ) =>
-  Effect.gen(function* () {
-    const current = yield* McpCurrentUser
-    const projects = yield* Projects.Projects
-    return yield* projects.listMembersPaged(
-      input.orgSlug,
-      current.id,
-      input.projectSlug,
+  Effect.flatMap(Projects.Projects, (projects) =>
+    projects.listMembersPaged(
       tryDecodeCursor(input.cursor),
       input.limit ?? DEFAULT_LIMIT
     )
-  })
+  )
 
 const get_git_state = (input: {
   orgSlug: string
   projectSlug: string
   ticketId?: string
-}) =>
-  Effect.gen(function* () {
-    const current = yield* McpCurrentUser
-    const tickets = yield* Tickets
-    return yield* tickets.getGitState(
-      input.orgSlug,
-      current.id,
-      input.projectSlug,
-      input.ticketId
-    )
-  })
+}) => Effect.flatMap(Tickets, (tickets) => tickets.getGitState(input.ticketId))
 
 const get_project_doc = (input: { orgSlug: string; projectSlug: string }) =>
   Effect.gen(function* () {
-    const current = yield* McpCurrentUser
-    const projects = yield* Projects.Projects
-    yield* projects.requireMember(input.orgSlug, current.id, input.projectSlug)
     const docs = yield* ProjectDocs
     return yield* docs.readRaw(input.orgSlug, input.projectSlug)
   })
@@ -335,9 +261,6 @@ const get_group_doc = (input: {
   id: string
 }) =>
   Effect.gen(function* () {
-    const current = yield* McpCurrentUser
-    const projects = yield* Projects.Projects
-    yield* projects.requireMember(input.orgSlug, current.id, input.projectSlug)
     const docs = yield* GroupDocs
     return yield* docs.readRaw(input.orgSlug, input.projectSlug, input.id)
   })
@@ -348,22 +271,14 @@ const get_ticket_doc = (input: {
   id: string
 }) =>
   Effect.gen(function* () {
-    const current = yield* McpCurrentUser
-    const projects = yield* Projects.Projects
-    yield* projects.requireMember(input.orgSlug, current.id, input.projectSlug)
     const docs = yield* TicketDocs.TicketDocs
     return yield* docs.readRaw(input.orgSlug, input.projectSlug, input.id)
   })
 
-const list_blocks = (input: { orgSlug: string; projectSlug: string }) =>
+const list_blocks = (_input: { orgSlug: string; projectSlug: string }) =>
   Effect.gen(function* () {
-    const current = yield* McpCurrentUser
     const library = yield* Library
-    const result = yield* library.projectLibrary(
-      input.orgSlug,
-      current.id,
-      input.projectSlug
-    )
+    const result = yield* library.projectLibrary()
     return result.blocks
       .filter((block) => !block.hidden)
       .map((block) => ({
@@ -376,15 +291,10 @@ const list_blocks = (input: { orgSlug: string; projectSlug: string }) =>
       }))
   })
 
-const list_templates = (input: { orgSlug: string; projectSlug: string }) =>
+const list_templates = (_input: { orgSlug: string; projectSlug: string }) =>
   Effect.gen(function* () {
-    const current = yield* McpCurrentUser
     const library = yield* Library
-    const result = yield* library.projectLibrary(
-      input.orgSlug,
-      current.id,
-      input.projectSlug
-    )
+    const result = yield* library.projectLibrary()
     const lookup = blockLookupFor(result)
     return result.templates
       .filter((template) => !template.hidden)
@@ -405,42 +315,30 @@ const create_ticket = (
   input: { orgSlug: string; projectSlug: string } & CreateTicketInput
 ) =>
   Effect.gen(function* () {
-    const current = yield* McpCurrentUser
     const tickets = yield* Tickets
-    const { orgSlug, projectSlug, body, ...payload } = input
+    const {
+      orgSlug: _orgSlug,
+      projectSlug: _projectSlug,
+      body,
+      ...payload
+    } = input
     const sanitizedBody =
-      body === undefined
-        ? undefined
-        : yield* sanitizeMcpBody(orgSlug, projectSlug, body)
-    const created = yield* tickets.create(orgSlug, current.id, projectSlug, {
+      body === undefined ? undefined : yield* sanitizeMcpBody(body)
+    const created = yield* tickets.create({
       ...payload,
       ...(sanitizedBody === undefined ? {} : { body: sanitizedBody })
     })
     return withBlocks(created)
   })
 
-const templateBodyFor = (
-  orgSlug: string,
-  projectSlug: string,
-  id: TicketId,
-  template: TemplateKey
-) =>
+const templateBodyFor = (id: TicketId, template: TemplateKey) =>
   Effect.gen(function* () {
-    const current = yield* McpCurrentUser
-    const projects = yield* Projects.Projects
+    const { orgSlug, slug } = yield* ProjectScope
     const tickets = yield* Tickets
     const library = yield* Library
-    yield* projects.requireMember(orgSlug, current.id, projectSlug)
-    const expansion = yield* library.expandForCreate(
-      orgSlug,
-      projectSlug,
-      template
-    )
+    const expansion = yield* library.expandForCreate(orgSlug, slug, template)
     const [ticket, projectLibrary] = yield* Effect.all(
-      [
-        tickets.get(orgSlug, current.id, projectSlug, id),
-        library.projectLibrary(orgSlug, current.id, projectSlug)
-      ],
+      [tickets.get(id), library.projectLibrary()],
       { concurrency: 2 }
     )
     if (!isUntouchedBody(ticket.body, projectLibrary)) {
@@ -460,22 +358,23 @@ const update_ticket = (
   } & UpdateTicketInput
 ) =>
   Effect.gen(function* () {
-    const current = yield* McpCurrentUser
     const tickets = yield* Tickets
-    const { orgSlug, projectSlug, id, body, template, ...payload } = input
+    const {
+      orgSlug: _orgSlug,
+      projectSlug: _projectSlug,
+      id,
+      body,
+      template,
+      ...payload
+    } = input
     const templateBody =
       body === undefined && template !== undefined && template !== null
-        ? yield* templateBodyFor(orgSlug, projectSlug, id, template)
+        ? yield* templateBodyFor(id, template)
         : undefined
     const sanitizedBody =
-      body !== undefined
-        ? yield* sanitizeMcpBody(orgSlug, projectSlug, body)
-        : templateBody?.body
+      body !== undefined ? yield* sanitizeMcpBody(body) : templateBody?.body
     const updated = yield* tickets
       .update(
-        orgSlug,
-        current.id,
-        projectSlug,
         id,
         {
           ...payload,
@@ -500,14 +399,16 @@ const prepare_ticket_attachment = (
   input: Schema.Schema.Type<typeof McpTools.prepare_ticket_attachment.input>
 ) =>
   Effect.gen(function* () {
-    const current = yield* McpCurrentUser
     const uploads = yield* AttachmentUploads.AttachmentUploads
-    const { orgSlug, projectSlug, ticketId, density, width, ...payload } = input
-    const prepared = yield* uploads.prepare(
-      { orgSlug, projectSlug, ticketId },
-      current.id,
-      payload
-    )
+    const {
+      orgSlug: _orgSlug,
+      projectSlug: _projectSlug,
+      ticketId,
+      density,
+      width,
+      ...payload
+    } = input
+    const prepared = yield* uploads.prepare(ticketId, payload)
     return {
       ...prepared,
       markdown: formatAttachmentMarkdown({
@@ -526,19 +427,13 @@ const create_comment = (input: {
   ticketId: TicketId
   body: string
 }) =>
-  Effect.gen(function* () {
-    const current = yield* McpCurrentUser
-    const comments = yield* Comments
-    return yield* comments
-      .create(input.orgSlug, current.id, input.projectSlug, input.ticketId, {
-        body: input.body
-      })
-      .pipe(
-        Effect.catchTag("InvalidCommentBody", (error) =>
-          Effect.fail(new Validation({ reason: error.reason }))
-        )
-      )
-  })
+  Effect.flatMap(Comments, (comments) =>
+    comments.create(input.ticketId, { body: input.body })
+  ).pipe(
+    Effect.catchTag("InvalidCommentBody", (error) =>
+      Effect.fail(new Validation({ reason: error.reason }))
+    )
+  )
 
 const attach_branch = (
   input: {
@@ -548,16 +443,14 @@ const attach_branch = (
   } & AttachBranchInput
 ) =>
   Effect.gen(function* () {
-    const current = yield* McpCurrentUser
     const tickets = yield* Tickets
-    const { orgSlug, projectSlug, id, ...payload } = input
-    return yield* tickets.attachBranch(
-      orgSlug,
-      current.id,
-      projectSlug,
+    const {
+      orgSlug: _orgSlug,
+      projectSlug: _projectSlug,
       id,
-      payload
-    )
+      ...payload
+    } = input
+    return yield* tickets.attachBranch(id, payload)
   })
 
 const create_sprint = (
@@ -567,24 +460,15 @@ const create_sprint = (
   >
 ) =>
   Effect.gen(function* () {
-    const current = yield* McpCurrentUser
     const groups = yield* Groups
-    const { orgSlug, projectSlug, ...rest } = input
-    return yield* groups.create(orgSlug, current.id, projectSlug, {
-      ...rest,
-      kind: "sprint"
-    })
+    const { orgSlug: _orgSlug, projectSlug: _projectSlug, ...rest } = input
+    return yield* groups.create({ ...rest, kind: "sprint" })
   })
 
-const requireSprintKind = (
-  orgSlug: string,
-  userId: string,
-  projectSlug: string,
-  id: GroupId
-) =>
+const requireSprintKind = (id: GroupId) =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const group = yield* groups.get(orgSlug, userId, projectSlug, id)
+    const group = yield* groups.get(id)
     if (group.kind !== "sprint") {
       return yield* new Validation({ reason: `not_a_sprint:${id}` })
     }
@@ -599,11 +483,15 @@ const update_sprint = (
   } & Omit<UpdateGroupInput, "completedAt">
 ) =>
   Effect.gen(function* () {
-    const current = yield* McpCurrentUser
     const groups = yield* Groups
-    const { orgSlug, projectSlug, id, ...payload } = input
-    yield* requireSprintKind(orgSlug, current.id, projectSlug, id)
-    return yield* groups.update(orgSlug, current.id, projectSlug, id, payload)
+    const {
+      orgSlug: _orgSlug,
+      projectSlug: _projectSlug,
+      id,
+      ...payload
+    } = input
+    yield* requireSprintKind(id)
+    return yield* groups.update(id, payload)
   })
 
 const complete_sprint = (
@@ -614,11 +502,15 @@ const complete_sprint = (
   } & CompleteSprintInput
 ) =>
   Effect.gen(function* () {
-    const current = yield* McpCurrentUser
     const groups = yield* Groups
-    const { orgSlug, projectSlug, id, ...payload } = input
-    yield* requireSprintKind(orgSlug, current.id, projectSlug, id)
-    return yield* groups.complete(orgSlug, current.id, projectSlug, id, payload)
+    const {
+      orgSlug: _orgSlug,
+      projectSlug: _projectSlug,
+      id,
+      ...payload
+    } = input
+    yield* requireSprintKind(id)
+    return yield* groups.complete(id, payload)
   })
 
 const rebuild_ticket_index = (input: {
@@ -626,11 +518,6 @@ const rebuild_ticket_index = (input: {
   projectSlug: string
 }) =>
   Effect.gen(function* () {
-    const current = yield* McpCurrentUser
-    const projects = yield* Projects.Projects
-    yield* projects.requireRole(input.orgSlug, current.id, input.projectSlug, [
-      "pm"
-    ])
     const ticketIndex = yield* TicketIndex
     const project = yield* ticketIndex.projectFor(
       input.orgSlug,
@@ -659,48 +546,52 @@ const add_tickets_to_group = (input: {
   groupId: GroupId
   ticketIds: ReadonlyArray<TicketId>
 }) =>
-  Effect.gen(function* () {
-    const current = yield* McpCurrentUser
-    const groups = yield* Groups
-    return yield* groups.addTickets(
-      input.orgSlug,
-      current.id,
-      input.projectSlug,
-      input.groupId,
-      input.ticketIds
-    )
-  })
+  Effect.flatMap(Groups, (groups) =>
+    groups.addTickets(input.groupId, input.ticketIds)
+  )
 
 export const handlers: McpHandlers<McpHandlerEnv> = {
   me,
   list_orgs,
   get_org: orgTool("membership", get_org),
   list_projects: orgTool("membership", list_projects),
-  get_project: orgTool("membership", get_project),
-  list_groups: orgTool("membership", list_groups),
-  list_sprints: orgTool("membership", list_sprints),
-  get_group: orgTool("membership", get_group),
-  list_tickets: orgTool("membership", list_tickets),
-  get_ticket: orgTool("membership", get_ticket),
-  list_statuses: orgTool("membership", list_statuses),
-  list_tags: orgTool("membership", list_tags),
-  list_members: orgTool("membership", list_members),
-  get_git_state: orgTool("membership", get_git_state),
-  get_project_doc: orgTool("membership", get_project_doc),
-  get_group_doc: orgTool("membership", get_group_doc),
-  get_ticket_doc: orgTool("membership", get_ticket_doc),
-  list_blocks: orgTool("membership", list_blocks),
-  list_templates: orgTool("membership", list_templates),
-  create_ticket: orgTool("membership", create_ticket),
-  update_ticket: orgTool("membership", update_ticket),
-  prepare_ticket_attachment: orgTool("membership", prepare_ticket_attachment),
-  create_comment: orgTool("membership", create_comment),
-  attach_branch: orgTool("membership", attach_branch),
-  rebuild_ticket_index: orgTool("membership", rebuild_ticket_index),
-  add_tickets_to_group: orgTool("membership", add_tickets_to_group),
-  create_sprint: orgTool("membership", create_sprint),
-  update_sprint: orgTool("membership", update_sprint),
-  complete_sprint: orgTool("membership", complete_sprint)
+  get_project: projectTool({ docs: ["read"] }, get_project),
+  list_groups: projectTool({ ticket: ["read"] }, list_groups),
+  list_sprints: projectTool({ ticket: ["read"] }, list_sprints),
+  get_group: projectTool({ ticket: ["read"] }, get_group),
+  list_tickets: projectTool({ ticket: ["read"] }, list_tickets),
+  get_ticket: projectTool({ ticket: ["read"] }, get_ticket),
+  list_statuses: projectTool({ ticket: ["read"] }, list_statuses),
+  list_tags: projectTool({ ticket: ["read"] }, list_tags),
+  list_members: projectTool({ ticket: ["read"] }, list_members),
+  get_git_state: projectTool({ github: ["read"] }, get_git_state),
+  get_project_doc: projectTool(
+    { docs: ["read"], github: ["read"] },
+    get_project_doc
+  ),
+  get_group_doc: projectTool({ ticket: ["read"] }, get_group_doc),
+  get_ticket_doc: projectTool(
+    { ticket: ["read"], github: ["read"] },
+    get_ticket_doc
+  ),
+  list_blocks: projectTool({ ticket: ["read"] }, list_blocks),
+  list_templates: projectTool({ ticket: ["read"] }, list_templates),
+  create_ticket: projectTool({ ticket: ["create"] }, create_ticket),
+  update_ticket: projectTool("membership", update_ticket),
+  prepare_ticket_attachment: projectTool(
+    { attachment: ["upload"] },
+    prepare_ticket_attachment
+  ),
+  create_comment: projectTool({ comment: ["create"] }, create_comment),
+  attach_branch: projectTool({ github: ["write"] }, attach_branch),
+  rebuild_ticket_index: projectTool(
+    { settings: ["manage"] },
+    rebuild_ticket_index
+  ),
+  add_tickets_to_group: projectTool("membership", add_tickets_to_group),
+  create_sprint: projectTool({ sprint: ["manage"] }, create_sprint),
+  update_sprint: projectTool({ sprint: ["manage"] }, update_sprint),
+  complete_sprint: projectTool({ sprint: ["manage"] }, complete_sprint)
 }
 
 export const toolkitHandlers = McpToolkit.of(toToolkitHandlers(handlers))

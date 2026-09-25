@@ -1,6 +1,7 @@
 import type {
   CurrentUser,
   NotFound,
+  OrgScope,
   OrgScopeShape,
   ProjectScopeShape
 } from "@pp/shared"
@@ -18,6 +19,11 @@ export type AccessShape = Readonly<{
     orgSlug: string,
     slug: string
   ) => Effect.Effect<ProjectScopeShape, NotFound, CurrentUser>
+  projectsInOrg: () => Effect.Effect<
+    ReadonlyArray<ProjectScopeShape>,
+    never,
+    OrgScope
+  >
 }>
 
 export class Access extends Context.Service<Access, AccessShape>()(

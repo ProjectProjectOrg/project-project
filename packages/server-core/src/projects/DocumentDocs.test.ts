@@ -20,6 +20,7 @@ import {
 
 import { GroupDocs } from "../groups/GroupDocs"
 import { GroupDocsLive } from "../groups/GroupDocsLive"
+import * as KeyedLock from "../locks/KeyedLock"
 import { Markdown, type MarkdownShape } from "../markdown/Markdown"
 import { TicketDocs } from "../tickets/TicketDocs"
 import { TicketDocsLive } from "../tickets/TicketDocsLive"
@@ -101,6 +102,7 @@ it.effect("TicketDocs reads ticket frontmatter as a typed document", () =>
   }).pipe(
     Effect.provide(
       TicketDocsLive.pipe(
+        Layer.provide(KeyedLock.layer),
         Layer.provide(
           makeMarkdown({
             readTicketParts: () =>
@@ -160,6 +162,7 @@ it.effect(
     }).pipe(
       Effect.provide(
         TicketDocsLive.pipe(
+          Layer.provide(KeyedLock.layer),
           Layer.provide(
             makeMarkdown({
               createTicketFile: (
@@ -239,6 +242,7 @@ it.effect(
     }).pipe(
       Effect.provide(
         TicketDocsLive.pipe(
+          Layer.provide(KeyedLock.layer),
           Layer.provide(
             makeMarkdown({
               writeTicketWithRegion: (
@@ -325,6 +329,7 @@ it.effect("TicketDocs serializes concurrent document updates", () => {
   }).pipe(
     Effect.provide(
       TicketDocsLive.pipe(
+        Layer.provide(KeyedLock.layer),
         Layer.provide(
           makeMarkdown({
             readTicketParts: () => Effect.succeed(stored),
@@ -429,6 +434,7 @@ it.effect(
     }).pipe(
       Effect.provide(
         TicketDocsLive.pipe(
+          Layer.provide(KeyedLock.layer),
           Layer.provide(
             makeMarkdown({
               readTicketParts: () => Effect.succeed(stored),
@@ -709,6 +715,7 @@ it.effect(
     }).pipe(
       Effect.provide(
         TicketDocsLive.pipe(
+          Layer.provide(KeyedLock.layer),
           Layer.provide(
             makeMarkdown({
               readTicketFileRaw: (_org, _slug, _id) =>
