@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./auth-schema": "./src/auth-schema.ts",
+    "./projectVisibility": "./src/projectVisibility.ts",
     "./schema": "./src/schema.ts"
   },
   "scripts": {

@@ -10,7 +10,7 @@ import {
   type MentionInvalid,
   type TicketId
 } from "@pp/shared"
-import { eq } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -23,7 +23,14 @@ import { type MalformedTicketDocument, TicketDocs } from "../tickets/TicketDocs"
 import { TicketIndex } from "../tickets/TicketIndex"
 import { Users } from "../users/Users"
 import { validateBodyMentionsWithLookups } from "./BodyMentions"
-import { Comments, InvalidCommentBody, type CommentsShape } from "./Comments"
+import {
+  Comments,
+  HistoricalCommentAuthor,
+  InvalidCommentAuthor,
+  InvalidCommentBody,
+  type HistoricalCommentInput,
+  type CommentsShape
+} from "./Comments"
 import {
   type CommentBlock,
   parseCommentsRegion,
@@ -79,21 +86,36 @@ export const CommentsLive = Layer.effect(
       transform: (
         blocks: ReadonlyArray<CommentBlock>
       ) => ReadonlyArray<CommentBlock>,
-      onPersist?: Effect.Effect<void>
-    ) =>
-      ticketDocs.update(
+      onPersist?: Effect.Effect<void, MarkdownError>
+    ) => {
+      let previous: Parameters<typeof ticketDocs.write>[3] | undefined
+      return ticketDocs.update(
         orgSlug,
         slug,
         ticketId,
-        (document) =>
-          Effect.succeed({
+        (document) => {
+          previous = document
+          return Effect.succeed({
             ...document,
             commentsRegion: serializeCommentsRegion(
               transform(parseCommentsRegion(document.commentsRegion))
             )
-          }),
-        () => onPersist ?? Effect.void
+          })
+        },
+        () =>
+          onPersist
+            ? onPersist.pipe(
+                Effect.onError(() =>
+                  previous
+                    ? ticketDocs
+                        .write(orgSlug, slug, ticketId, previous)
+                        .pipe(Effect.orDie)
+                    : Effect.void
+                )
+              )
+            : Effect.void
       )
+    }
 
     const list = (
       orgSlug: string,
@@ -122,20 +144,53 @@ export const CommentsLive = Layer.effect(
         const document = yield* ticketDocs.read(orgSlug, slug, ticketId)
         const blocks = parseCommentsRegion(document.commentsRegion)
         const blockById = new Map(blocks.map((b) => [b.id, b]))
-        const authors = yield* users.fullByIds(rows.map((r) => r.authorId))
+        const authors = yield* users.fullByIds(
+          rows.flatMap((r) => (r.authorId === null ? [] : [r.authorId]))
+        )
         const authorById = new Map<string, (typeof authors)[number]>(
           authors.map((user) => [user.id, user])
         )
         return rows.flatMap((r): Comment[] => {
           const block = blockById.get(r.id)
-          const author = authorById.get(r.authorId)
-          if (!block || !author) return []
+          if (!block) return []
+          const author =
+            r.authorKind === "user"
+              ? (() => {
+                  const user = r.authorId
+                    ? authorById.get(r.authorId)
+                    : undefined
+                  return user ? ({ kind: "user", user } as const) : null
+                })()
+              : r.jiraDisplayName && r.jiraAccountId
+                ? ({
+                    kind: "jira",
+                    displayName: r.jiraDisplayName,
+                    accountId: r.jiraAccountId
+                  } as const)
+                : null
+          if (!author) return []
+          if (r.origin === "native") {
+            if (author.kind !== "user") return []
+            return [
+              {
+                id: decodeCommentId(r.id),
+                ticketId,
+                projectSlug: slug,
+                author,
+                origin: "native",
+                body: block.body,
+                createdAt: r.createdAt,
+                editedAt: r.editedAt ?? null
+              }
+            ]
+          }
           return [
             {
               id: decodeCommentId(r.id),
               ticketId,
               projectSlug: slug,
               author,
+              origin: "jira",
               body: block.body,
               createdAt: r.createdAt,
               editedAt: r.editedAt ?? null
@@ -175,6 +230,10 @@ export const CommentsLive = Layer.effect(
             projectSlug: slug,
             ticketId,
             authorId: userId,
+            authorKind: "user",
+            origin: "native",
+            jiraDisplayName: null,
+            jiraAccountId: null,
             createdAt: now,
             editedAt: null
           })
@@ -182,7 +241,8 @@ export const CommentsLive = Layer.effect(
 
         const next: CommentBlock = {
           id,
-          author: userId,
+          author: { kind: "user", userId },
+          origin: "native",
           createdAt: now,
           editedAt: null,
           body: input.body
@@ -191,7 +251,7 @@ export const CommentsLive = Layer.effect(
           ...blocks,
           next
         ]).pipe(
-          Effect.tapError(() =>
+          Effect.onError(() =>
             db
               .delete(commentIndex)
               .where(eq(commentIndex.id, id))
@@ -205,11 +265,119 @@ export const CommentsLive = Layer.effect(
           id,
           ticketId,
           projectSlug: slug,
-          author,
+          author: { kind: "user", user: author },
+          origin: "native",
           body: input.body,
           createdAt: now,
           editedAt: null
         }
+      })
+
+    const importHistorical = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      ticketId: TicketId,
+      input: ReadonlyArray<HistoricalCommentInput>
+    ) =>
+      Effect.gen(function* () {
+        yield* ensureMember(orgSlug, userId, slug)
+        yield* Effect.forEach(input, (comment) =>
+          Effect.gen(function* () {
+            if (!Schema.is(HistoricalCommentAuthor)(comment.author)) {
+              return yield* new InvalidCommentAuthor({
+                reason: "invalid_attribution"
+              })
+            }
+            const validation = validateCommentBody(comment.body)
+            if (!validation.ok) {
+              return yield* new InvalidCommentBody({
+                reason: validation.reason
+              })
+            }
+            yield* validateBody(orgSlug, userId, slug, comment.body)
+          })
+        )
+
+        const linkedUserIds = [
+          ...new Set(
+            input.flatMap((comment) =>
+              comment.author.kind === "user" ? [comment.author.userId] : []
+            )
+          )
+        ]
+        const linkedUsers = yield* users.fullByIds(linkedUserIds)
+        const linkedUserById = new Map<string, (typeof linkedUsers)[number]>(
+          linkedUsers.map((user) => [user.id, user])
+        )
+        for (const linkedUserId of linkedUserIds) {
+          if (!linkedUserById.has(linkedUserId)) {
+            return yield* new InvalidCommentAuthor({
+              reason: `unknown_user:${linkedUserId}`
+            })
+          }
+        }
+
+        const blocks = input.map(
+          (comment): CommentBlock => ({
+            id: newCommentId(),
+            author: comment.author,
+            origin: "jira",
+            body: comment.body,
+            createdAt: comment.createdAt,
+            editedAt: comment.editedAt
+          })
+        )
+        if (blocks.length === 0) return []
+        const ids = blocks.map((block) => block.id)
+        yield* db
+          .insert(commentIndex)
+          .values(
+            blocks.map((block) => ({
+              id: block.id,
+              projectSlug: slug,
+              ticketId,
+              origin: "jira" as const,
+              authorKind: block.author.kind,
+              authorId:
+                block.author.kind === "user" ? block.author.userId : null,
+              jiraDisplayName:
+                block.author.kind === "jira" ? block.author.displayName : null,
+              jiraAccountId:
+                block.author.kind === "jira" ? block.author.accountId : null,
+              createdAt: block.createdAt,
+              editedAt: block.editedAt
+            }))
+          )
+          .pipe(Effect.orDie)
+        yield* updateBlocks(orgSlug, slug, ticketId, (current) => [
+          ...current,
+          ...blocks
+        ]).pipe(
+          Effect.onError(() =>
+            db
+              .delete(commentIndex)
+              .where(inArray(commentIndex.id, ids))
+              .pipe(Effect.orDie)
+          )
+        )
+
+        return blocks.map((block) => ({
+          id: decodeCommentId(block.id),
+          ticketId,
+          projectSlug: slug,
+          author:
+            block.author.kind === "user"
+              ? {
+                  kind: "user" as const,
+                  user: linkedUserById.get(block.author.userId)!
+                }
+              : block.author,
+          origin: "jira" as const,
+          body: block.body,
+          createdAt: block.createdAt,
+          editedAt: block.editedAt
+        }))
       })
 
     const requireAuthor = (
@@ -235,7 +403,9 @@ export const CommentsLive = Layer.effect(
           })
           .pipe(Effect.orDie)
         if (!row) return yield* new NotFound()
-        if (row.authorId !== userId) return yield* new Forbidden()
+        if (row.origin === "jira" || row.authorId !== userId) {
+          return yield* new Forbidden()
+        }
         return { authorId: row.authorId, createdAt: row.createdAt }
       })
 
@@ -287,7 +457,8 @@ export const CommentsLive = Layer.effect(
           id: commentId,
           ticketId,
           projectSlug: slug,
-          author,
+          author: { kind: "user", user: author },
+          origin: "native",
           body: input.body,
           createdAt: meta.createdAt,
           editedAt
@@ -319,6 +490,12 @@ export const CommentsLive = Layer.effect(
         )
       })
 
-    return { list, create, edit, remove } satisfies CommentsShape
+    return {
+      list,
+      create,
+      importHistorical,
+      edit,
+      remove
+    } satisfies CommentsShape
   })
 )

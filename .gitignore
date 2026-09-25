@@ -51,3 +51,4 @@ opensrc/
 .benchmark-results/
 docs/benchmarks/*.json
 docs/benchmarks/*.jsonl
+packages/backend/.tmp/jira-browser-projects/

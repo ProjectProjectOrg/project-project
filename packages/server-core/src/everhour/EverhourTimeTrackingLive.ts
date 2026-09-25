@@ -1,4 +1,5 @@
 import { Db } from "@pp/db"
+import { publishedProject } from "@pp/db/projectVisibility"
 import {
   everhourActiveTimer,
   everhourTimeAttribution,
@@ -353,7 +354,10 @@ export const EverhourTimeTrackingLive = Layer.effect(
               columns: { slug: true },
               where: {
                 RAW: (table, _operators) =>
-                  _operators.eq(table.id, link.projectId)
+                  _operators.and(
+                    _operators.eq(table.id, link.projectId),
+                    publishedProject(table)
+                  )!
               }
             })
             .pipe(Effect.orDie)

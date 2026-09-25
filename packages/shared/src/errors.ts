@@ -1,5 +1,7 @@
 import * as Schema from "effect/Schema"
 
+import { JiraFailureReason, JiraReconnectReason } from "./schemas/JiraMigration"
+
 export class Unauthorized extends Schema.TaggedError<Unauthorized>()(
   "Unauthorized",
   {},
@@ -279,4 +281,46 @@ export class FigmaError extends Schema.TaggedError<FigmaError>()(
   "FigmaError",
   { reason: Schema.String },
   { httpApiStatus: 502 }
+) {}
+
+export class JiraNotConnected extends Schema.TaggedError<JiraNotConnected>()(
+  "JiraNotConnected",
+  {},
+  { httpApiStatus: 409 }
+) {}
+
+export class JiraReconnectRequired extends Schema.TaggedError<JiraReconnectRequired>()(
+  "JiraReconnectRequired",
+  { reason: JiraReconnectReason },
+  { httpApiStatus: 401 }
+) {}
+
+export class JiraAccessDenied extends Schema.TaggedError<JiraAccessDenied>()(
+  "JiraAccessDenied",
+  {},
+  { httpApiStatus: 403 }
+) {}
+
+export class JiraResourceNotFound extends Schema.TaggedError<JiraResourceNotFound>()(
+  "JiraResourceNotFound",
+  {},
+  { httpApiStatus: 404 }
+) {}
+
+export class JiraRateLimited extends Schema.TaggedError<JiraRateLimited>()(
+  "JiraRateLimited",
+  { retryAfterSeconds: Schema.Finite },
+  { httpApiStatus: 429 }
+) {}
+
+export class JiraError extends Schema.TaggedError<JiraError>()(
+  "JiraError",
+  { reason: JiraFailureReason },
+  { httpApiStatus: 502 }
+) {}
+
+export class JiraMigrationUnavailable extends Schema.TaggedError<JiraMigrationUnavailable>()(
+  "JiraMigrationUnavailable",
+  { reason: Schema.Literals(["worker_unavailable", "storage_unavailable"]) },
+  { httpApiStatus: 503 }
 ) {}

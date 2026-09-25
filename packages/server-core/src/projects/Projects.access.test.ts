@@ -1,5 +1,8 @@
 import { it } from "@effect/vitest"
 import { Db } from "@pp/db"
+import { publishedProject } from "@pp/db/projectVisibility"
+import { projectIndex } from "@pp/db/schema"
+import { PgDialect } from "drizzle-orm/pg-core"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
@@ -14,6 +17,14 @@ import { BannerPlaceholders } from "./BannerPlaceholders"
 import { ProjectDocs } from "./ProjectDocs"
 import { Projects } from "./Projects"
 import { ProjectsLive } from "./ProjectsLive"
+
+it("builds the public project visibility predicate", () => {
+  const dialect = new PgDialect()
+  expect(dialect.sqlToQuery(publishedProject()).sql).toBe(
+    '("project_index"."published_at" is not null)'
+  )
+  expect(projectIndex.publishedAt).toBeDefined()
+})
 
 for (const scenario of [
   { projectRole: "owner", orgRole: null, allowed: true, queries: 4 },

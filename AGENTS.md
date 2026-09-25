@@ -129,6 +129,7 @@ If extending the primitive feels disruptive (touches public API, would conflict 
 | `apps/frontend/messages/en/sprints.json`  | `sprints_`, `error_sprint_`                            |
 | `apps/frontend/messages/en/time.json`     | `time_`                                                |
 | `apps/frontend/messages/en/figma.json`    | `figma_`                                               |
+| `apps/frontend/messages/en/jira.json`     | `jira_`                                                |
 | `apps/frontend/messages/en/templates.json` | `templates_`                                          |
 
 Within each message file, group keys by prefix in the order listed above, then sort alphabetically inside each prefix group.

@@ -1,4 +1,6 @@
 import { Db } from "@pp/db"
+import { publishedProject } from "@pp/db/projectVisibility"
+import { projectIndex } from "@pp/db/schema"
 import { figmaLinkIndex, figmaReference } from "@pp/db/schema"
 import {
   extractFigmaRefs,
@@ -475,7 +477,10 @@ export const FigmaLinksLive = Layer.effect(
         const existing = found[0]
         if (existing !== undefined) {
           const now = yield* DateTime.nowAsDate
-          return { id: existing.id, resolve: needsFigmaMetadata(existing, now) }
+          return {
+            id: existing.id,
+            resolve: needsFigmaMetadata(existing, now)
+          }
         }
 
         const inserted = yield* db
@@ -600,7 +605,11 @@ export const FigmaLinksLive = Layer.effect(
           const project = yield* db.query.projectIndex.findFirst({
             columns: { organizationId: true },
             where: {
-              RAW: (table, operators) => operators.eq(table.slug, slug)
+              RAW: (table, operators) =>
+                operators.and(
+                  operators.eq(table.slug, slug),
+                  publishedProject(table)
+                )!
             }
           })
           if (project === undefined) return yield* new NotFound()
@@ -749,10 +758,15 @@ export const FigmaLinksLive = Layer.effect(
             figmaReference,
             eq(figmaReference.linkId, figmaLinkIndex.id)
           )
+          .innerJoin(
+            projectIndex,
+            eq(projectIndex.slug, figmaReference.projectSlug)
+          )
           .where(
             and(
               eq(figmaLinkIndex.id, linkId),
-              eq(figmaLinkIndex.orgSlug, orgSlug)
+              eq(figmaLinkIndex.orgSlug, orgSlug),
+              publishedProject(projectIndex)
             )
           )
           .pipe(Effect.orDie)

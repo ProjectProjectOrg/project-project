@@ -1,6 +1,5 @@
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
-import * as SchemaTransformation from "effect/SchemaTransformation"
 import matter from "gray-matter"
 
 export const COMMENTS_START = "<!-- comments:start -->"
@@ -8,56 +7,70 @@ export const COMMENTS_END = "<!-- comments:end -->"
 const COMMENT_MARKER = /^<!--\s*comment:([A-Za-z0-9_-]+)\s*-->$/
 const FORBIDDEN_BODY = /<!--\s*comment(s)?:/
 
-const YamlDate = Schema.Union([Schema.DateFromString, Schema.Date])
+export type CommentBlock = Readonly<{
+  id: string
+  author: CommentBlockAuthor
+  origin: "native" | "jira"
+  createdAt: Date
+  editedAt: Date | null
+  body: string
+}>
+
+export type CommentBlockAuthor =
+  | Readonly<{ kind: "user"; userId: string }>
+  | Readonly<{
+      kind: "jira"
+      displayName: string
+      accountId: string
+    }>
+
+const CommentBlockDate = Schema.Union([Schema.DateFromString, Schema.Date])
 const decodeEditedAt = (value: unknown): Date | null => {
   if (value == null) return null
-  return Option.getOrNull(Schema.decodeUnknownOption(YamlDate)(value))
+  return Option.getOrNull(Schema.decodeUnknownOption(CommentBlockDate)(value))
 }
-const CommentMetadataOnDisk = Schema.Struct({
-  author: Schema.String,
-  createdAt: YamlDate,
+const UserBlockAuthor = Schema.Struct({
+  kind: Schema.Literal("user"),
+  userId: Schema.NonEmptyString
+})
+const JiraBlockAuthor = Schema.Struct({
+  kind: Schema.Literal("jira"),
+  displayName: Schema.NonEmptyString,
+  accountId: Schema.NonEmptyString
+})
+const LegacyCommentData = Schema.Struct({
+  author: Schema.NonEmptyString,
+  createdAt: CommentBlockDate,
   editedAt: Schema.optionalKey(Schema.Unknown)
 })
-const CommentMetadata = CommentMetadataOnDisk.pipe(
-  Schema.decodeTo(
-    Schema.toType(
-      Schema.Struct({
-        author: Schema.String,
-        createdAt: Schema.Date,
-        editedAt: Schema.NullOr(Schema.Date)
-      })
-    ),
-    SchemaTransformation.transform({
-      decode: (input) => ({
-        author: input.author,
-        createdAt: input.createdAt,
-        editedAt: decodeEditedAt(input.editedAt)
-      }),
-      encode: (input) =>
-        input.editedAt === null
-          ? { author: input.author, createdAt: input.createdAt }
-          : {
-              author: input.author,
-              createdAt: input.createdAt,
-              editedAt: input.editedAt
-            }
-    })
-  )
-)
-const decodeCommentMetadata = Schema.decodeUnknownOption(CommentMetadata)
-const encodeCommentMetadata = Schema.encodeSync(CommentMetadata)
-
-export interface CommentBlock {
-  readonly id: string
-  readonly author: string
-  readonly createdAt: Date
-  readonly editedAt: Date | null
-  readonly body: string
-}
+const NativeCommentData = Schema.Struct({
+  author: UserBlockAuthor,
+  origin: Schema.Literal("native"),
+  createdAt: CommentBlockDate,
+  editedAt: Schema.optionalKey(Schema.Unknown)
+})
+const LinkedJiraCommentData = Schema.Struct({
+  author: UserBlockAuthor,
+  origin: Schema.Literal("jira"),
+  createdAt: CommentBlockDate,
+  editedAt: Schema.optionalKey(Schema.Unknown)
+})
+const SnapshotJiraCommentData = Schema.Struct({
+  author: JiraBlockAuthor,
+  origin: Schema.Literal("jira"),
+  createdAt: CommentBlockDate,
+  editedAt: Schema.optionalKey(Schema.Unknown)
+})
+const CommentBlockData = Schema.Union([
+  LegacyCommentData,
+  NativeCommentData,
+  LinkedJiraCommentData,
+  SnapshotJiraCommentData
+])
 
 export type ValidationResult =
-  | { readonly ok: true }
-  | { readonly ok: false; readonly reason: string }
+  | Readonly<{ ok: true }>
+  | Readonly<{ ok: false; reason: string }>
 
 export function validateCommentBody(body: string): ValidationResult {
   if (!body.trim()) return { ok: false, reason: "empty" }
@@ -67,10 +80,10 @@ export function validateCommentBody(body: string): ValidationResult {
   return { ok: true }
 }
 
-export function splitDescriptionAndCommentsRegion(full: string): {
+export function splitDescriptionAndCommentsRegion(full: string): Readonly<{
   description: string
   region: string
-} {
+}> {
   const idx = full.indexOf(COMMENTS_START)
   if (idx === -1) return { description: full, region: "" }
   const before = full.slice(0, idx)
@@ -101,13 +114,24 @@ export function parseCommentsRegion(
     while (end < lines.length && !COMMENT_MARKER.test(lines[end].trim())) end++
     const blockText = lines.slice(i, end).join("\n").trim()
     const parsed = matter(blockText)
-    const metadata = decodeCommentMetadata(parsed.data)
-    if (Option.isSome(metadata)) {
+    const decoded = Schema.decodeUnknownOption(CommentBlockData)(parsed.data)
+    if (Option.isSome(decoded)) {
+      const data = decoded.value
+      let author: CommentBlockAuthor
+      let origin: CommentBlock["origin"]
+      if ("origin" in data) {
+        author = data.author
+        origin = data.origin
+      } else {
+        author = { kind: "user", userId: data.author }
+        origin = "native"
+      }
       blocks.push({
         id,
-        author: metadata.value.author,
-        createdAt: metadata.value.createdAt,
-        editedAt: metadata.value.editedAt,
+        author,
+        origin,
+        createdAt: data.createdAt,
+        editedAt: decodeEditedAt(data.editedAt),
         body: parsed.content.replace(/^\n+/, "").replace(/\s+$/, "")
       })
     }
@@ -122,12 +146,14 @@ export function serializeCommentsRegion(
   if (blocks.length === 0) return ""
   const out: string[] = [COMMENTS_START]
   for (const b of blocks) {
+    const fm: Record<string, unknown> = {
+      author: b.author,
+      origin: b.origin,
+      createdAt: b.createdAt.toISOString()
+    }
+    if (b.editedAt) fm.editedAt = b.editedAt.toISOString()
     out.push(`<!-- comment:${b.id} -->`)
-    out.push(
-      matter
-        .stringify(b.body.replace(/\s+$/, "") + "\n", encodeCommentMetadata(b))
-        .trimEnd()
-    )
+    out.push(matter.stringify(b.body.replace(/\s+$/, "") + "\n", fm).trimEnd())
   }
   out.push(COMMENTS_END)
   return out.join("\n") + "\n"

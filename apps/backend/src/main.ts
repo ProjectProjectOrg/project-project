@@ -58,6 +58,7 @@ import { createHmac, timingSafeEqual } from "node:crypto"
 //   exit-code mapping.
 
 import { Db } from "@pp/db"
+import { publishedProject } from "@pp/db/projectVisibility"
 import { projectIndex } from "@pp/db/schema"
 import { AttachmentReaperLive } from "@pp/server-core/attachments/AttachmentReaperLive"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
@@ -105,6 +106,9 @@ import { attachmentRoutes } from "./http/attachmentRoutes"
 import { attachmentUploadRoute } from "./http/attachmentUploadRoutes"
 import { figmaOauthRoutes } from "./http/figmaOauthRoutes"
 import { figmaThumbnailRoutes } from "./http/figmaThumbnailRoutes"
+import { JiraHandlerLive } from "./jira/Handlers"
+import { JiraMigrationsHandlerLive } from "./jira/MigrationHandlers"
+import { jiraOauthRoutes } from "./jira/OAuthRoutes"
 import { McpLive } from "./Layers/Mcp"
 import { BackendHttpServicesLive, BackendInfrastructureLive } from "./runtime"
 
@@ -123,6 +127,7 @@ export const DbHandlerLive = HttpApiBuilder.group(AppApi, "db", (handlers) =>
       const [{ value }] = yield* db
         .select({ value: count() })
         .from(projectIndex)
+        .where(publishedProject())
       return { projectCount: value }
     }).pipe(Effect.orDie)
   )
@@ -143,7 +148,7 @@ const betterAuthApp = Effect.gen(function* () {
   )
 )
 
-export const ApiLive = HttpApiBuilder.layer(AppApi).pipe(
+export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(HealthHandlerLive),
   Layer.provide(DbHandlerLive),
   Layer.provide(AuthHandlerLive),
@@ -152,6 +157,8 @@ export const ApiLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(ProjectsHandlerLive),
   Layer.provide(EverhourHandlerLive),
   Layer.provide(FigmaHandlerLive),
+  Layer.provide(JiraHandlerLive),
+  Layer.provide(JiraMigrationsHandlerLive),
   Layer.provide(TicketsHandlerLive),
   Layer.provide(CommentsHandlerLive),
   Layer.provide(TagsHandlerLive),
@@ -161,7 +168,10 @@ export const ApiLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(OAuthApplicationsHandlerLive),
   Layer.provide(PublicOAuthHandlerLive),
   Layer.provide(StorageHandlerLive),
-  Layer.provide(AttachmentsHandlerLive),
+  Layer.provide(AttachmentsHandlerLive)
+)
+
+export const ApiLive = ApiRoutesLive.pipe(
   Layer.provide(BackendHttpServicesLive)
 )
 
@@ -409,12 +419,13 @@ export const ApiRouterLive = Layer.effect(
   Effect.map(HttpRouter.HttpRouter, (router) => router.prefixed("/api"))
 )
 
-const RouteLive = Layer.mergeAll(
+export const RouteLive = Layer.mergeAll(
   HttpRouter.add("*", "/api/auth/*", betterAuthApp),
   HttpRouter.add("*", "/.well-known/*", betterAuthApp),
   githubIntegrationRoutes,
   everhourIntegrationRoutes,
   figmaOauthRoutes,
+  jiraOauthRoutes,
   HttpRouter.add(
     "GET",
     "/api/figma-thumbnails/:orgSlug/:linkId",

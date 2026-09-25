@@ -1,6 +1,7 @@
+import { S3Client } from "@aws-sdk/client-s3"
 import { it } from "@effect/vitest"
 import * as Effect from "effect/Effect"
-import { describe, expect } from "vitest"
+import { describe, expect, vi } from "vitest"
 
 import { S3Storage } from "./S3Storage"
 import {
@@ -144,4 +145,70 @@ describe("S3 endpoint transport", () => {
       expect(new URL(url).origin).toBe(endpoint)
     }).pipe(Effect.provide(S3StorageLive))
   )
+})
+
+describe("listObjectKeys", () => {
+  const connection = {
+    endpoint: "https://storage.example.test",
+    bucket: "test",
+    region: "auto",
+    keyPrefix: null,
+    forcePathStyle: true,
+    accessKeyId: "test",
+    secretAccessKey: "test"
+  }
+
+  it.effect("follows every continuation token", () => {
+    const send = vi
+      .spyOn(S3Client.prototype, "send")
+      .mockImplementation(((command: {
+        input: { ContinuationToken?: string }
+      }) => {
+        if (command.input.ContinuationToken === undefined) {
+          return Promise.resolve({
+            Contents: [{ Key: "prefix/a" }],
+            IsTruncated: true,
+            NextContinuationToken: "page-2"
+          })
+        }
+        return Promise.resolve({
+          Contents: [{ Key: "prefix/b" }, {}],
+          IsTruncated: false
+        })
+      }) as never)
+
+    return Effect.gen(function* () {
+      const storage = yield* S3Storage
+      const keys = yield* storage.listObjectKeys(connection, "prefix/")
+      expect(keys).toEqual(["prefix/a", "prefix/b"])
+      expect(send).toHaveBeenCalledTimes(2)
+    }).pipe(
+      Effect.provide(S3StorageLive),
+      Effect.ensuring(Effect.sync(() => send.mockRestore()))
+    )
+  })
+
+  it.effect("fails instead of looping on a repeated continuation token", () => {
+    const send = vi.spyOn(S3Client.prototype, "send").mockResolvedValue({
+      Contents: [],
+      IsTruncated: true,
+      NextContinuationToken: "same-token"
+    } as never)
+
+    return Effect.gen(function* () {
+      const storage = yield* S3Storage
+      const error = yield* Effect.flip(
+        storage.listObjectKeys(connection, "prefix/")
+      )
+      expect(error).toMatchObject({
+        _tag: "S3Unavailable",
+        reason: "repeated_continuation_token",
+        retryable: false
+      })
+      expect(send).toHaveBeenCalledTimes(2)
+    }).pipe(
+      Effect.provide(S3StorageLive),
+      Effect.ensuring(Effect.sync(() => send.mockRestore()))
+    )
+  })
 })

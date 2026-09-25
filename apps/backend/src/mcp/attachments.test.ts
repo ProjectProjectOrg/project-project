@@ -571,7 +571,10 @@ describe.skipIf(!databaseUrl)("MCP attachment upload with Postgres", () => {
       const f = yield* fixture()
       expect(
         (yield* Effect.flip(
-          f.prepare({ ...upload, contentType: "text/plain" })
+          f.prepare({
+            filename: "payload.exe",
+            contentType: "application/x-msdownload"
+          })
         ))._tag
       ).toBe("AttachmentTypeRejected")
       expect(yield* f.rows).toEqual([])

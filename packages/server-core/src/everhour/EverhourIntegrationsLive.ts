@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto"
 
 import { Db } from "@pp/db"
+import { publishedProject } from "@pp/db/projectVisibility"
 import {
   everhourSectionLink,
   everhourWorkTypeTaskLink,
@@ -286,7 +287,11 @@ export const EverhourIntegrationsLive = Layer.effect(
       db.query.projectIndex
         .findFirst({
           where: {
-            RAW: (table, _operators) => _operators.eq(table.id, projectId)
+            RAW: (table, _operators) =>
+              _operators.and(
+                _operators.eq(table.id, projectId),
+                publishedProject(table)
+              )!
           }
         })
         .pipe(

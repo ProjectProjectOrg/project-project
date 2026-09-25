@@ -195,7 +195,8 @@ const FakeComments = Layer.succeed(Comments, {
   list: () => unexpected("Comments.list"),
   create: () => unexpected("Comments.create"),
   edit: () => unexpected("Comments.edit"),
-  remove: () => unexpected("Comments.remove")
+  remove: () => unexpected("Comments.remove"),
+  importHistorical: () => unexpected("Comments.importHistorical")
 } satisfies CommentsShape)
 
 const fakeUser = (id: string): User => ({

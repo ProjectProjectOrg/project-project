@@ -1,4 +1,5 @@
 import { Db } from "@pp/db"
+import { publishedProject } from "@pp/db/projectVisibility"
 import {
   AttachBranchInput,
   BranchExists,
@@ -815,7 +816,11 @@ export const TicketsLive = Layer.effect(
           .findFirst({
             columns: { id: true },
             where: {
-              RAW: (table, _operators) => _operators.eq(table.slug, slug)
+              RAW: (table, _operators) =>
+                _operators.and(
+                  _operators.eq(table.slug, slug),
+                  publishedProject(table)
+                )!
             }
           })
           .pipe(Effect.orDie)
@@ -847,7 +852,11 @@ export const TicketsLive = Layer.effect(
           .findFirst({
             columns: { id: true },
             where: {
-              RAW: (table, _operators) => _operators.eq(table.slug, slug)
+              RAW: (table, _operators) =>
+                _operators.and(
+                  _operators.eq(table.slug, slug),
+                  publishedProject(table)
+                )!
             }
           })
           .pipe(Effect.orDie)

@@ -154,7 +154,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     )
     if (errors.length)
       throw new AggregateError(errors, "OAuth test cleanup failed")
-  })
+  }, 30_000)
 
   it("links migrated clients once across repeated auth initialization", async () => {
     const before = await pool.query(

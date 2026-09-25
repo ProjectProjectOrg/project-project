@@ -57,13 +57,32 @@ export const ATTACHMENT_CONTENT_TYPES = [
   "application/pdf",
   "application/zip",
   "application/gzip",
-  "application/x-tar"
+  "application/x-tar",
+  "text/plain",
+  "text/markdown"
 ] as const
 
 export type AttachmentContentType = (typeof ATTACHMENT_CONTENT_TYPES)[number]
 
 const normalizeContentType = (value: string) =>
   value.split(";")[0].trim().toLowerCase()
+
+export const attachmentUploadContentType = (
+  filename: string,
+  declaredType: string
+): string => {
+  const contentType = normalizeContentType(declaredType)
+  if (
+    contentType !== "" &&
+    contentType !== "application/octet-stream" &&
+    contentType !== "text/x-markdown"
+  )
+    return contentType
+  const extension = filename.toLowerCase().split(".").at(-1)
+  if (extension === "md" || extension === "markdown") return "text/markdown"
+  if (extension === "txt") return "text/plain"
+  return contentType
+}
 
 export const isAllowedAttachmentContentType = (value: string): boolean =>
   (ATTACHMENT_CONTENT_TYPES as readonly string[]).includes(

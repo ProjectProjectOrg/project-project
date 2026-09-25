@@ -2,6 +2,7 @@ import { cimd } from "@better-auth/cimd"
 import { mcp } from "@better-auth/mcp"
 import * as BunServices from "@effect/platform-bun/BunServices"
 import * as authSchema from "@pp/db/auth-schema"
+import { publishedProject } from "@pp/db/projectVisibility"
 import * as schema from "@pp/db/schema"
 import {
   projectIndex,
@@ -109,7 +110,9 @@ async function projectOwnerSlugs(organizationId: string, userId: string) {
         eq(projectMember.role, "owner")
       )
     )
-    .where(eq(projectIndex.organizationId, organizationId))
+    .where(
+      and(eq(projectIndex.organizationId, organizationId), publishedProject())
+    )
 }
 
 function projectsRoot() {
@@ -200,7 +203,9 @@ async function cleanupRemovedOrgMemberProjectAccess(
         eq(projectMember.userId, userId)
       )
     )
-    .where(eq(projectIndex.organizationId, organizationId))
+    .where(
+      and(eq(projectIndex.organizationId, organizationId), publishedProject())
+    )
   const slugs = rows.map((row) => row.slug)
   await Promise.all(
     slugs.map((slug) =>
@@ -232,7 +237,11 @@ export const auth = betterAuth({
   }),
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL,
-  trustedOrigins: ["http://localhost:5173", "http://localhost:3000"],
+  trustedOrigins: [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    ...(process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL] : [])
+  ],
   // `username` is a human-readable handle used in markdown frontmatter and
   // the members UI. Better Auth's CLI doesn't know about it from the schema
   // alone — declaring it here lets `auth.api.updateUser` etc. round-trip
@@ -396,7 +405,8 @@ export const auth = betterAuth({
                 projectIndex,
                 and(
                   eq(projectIndex.slug, projectInviteGrant.projectSlug),
-                  eq(projectIndex.id, projectInviteGrant.projectId)
+                  eq(projectIndex.id, projectInviteGrant.projectId),
+                  publishedProject()
                 )
               )
               .where(eq(projectInviteGrant.invitationId, invitation.id))

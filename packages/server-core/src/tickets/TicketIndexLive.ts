@@ -1,4 +1,5 @@
 import { Db } from "@pp/db"
+import { publishedProject } from "@pp/db/projectVisibility"
 import {
   commentIndex,
   organization,
@@ -49,6 +50,7 @@ import * as Schedule from "effect/Schedule"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
 
+import { parseCommentsRegion } from "../comments/comments-region"
 import type { MarkdownError } from "../markdown/Markdown"
 import { TicketDocs, type TicketDocument } from "./TicketDocs"
 import {
@@ -73,6 +75,64 @@ import {
 
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
 const makeTagName = Schema.decodeUnknownSync(TagName)
+
+const ticketIndexRowFor = (
+  project: TicketIndexProject,
+  document: TicketDocument
+): typeof ticketIndex.$inferInsert => ({
+  organizationId: project.organizationId,
+  orgSlug: project.orgSlug,
+  projectId: project.projectId,
+  projectSlug: project.projectSlug,
+  ticketId: document.id,
+  title: document.title,
+  status: document.status,
+  type: document.type,
+  priority: document.priority,
+  tags: [...document.tags],
+  assignees: [...document.assignees],
+  branch: document.branch,
+  pr: document.pr,
+  prState: document.prState,
+  lastTransitionedPr: document.lastTransitionedPr,
+  archivedAt: document.archivedAt,
+  createdBy: document.createdBy,
+  createdAt: document.createdAt,
+  updatedAt: document.updatedAt
+})
+
+export const ticketIndexRowsFor = (
+  project: TicketIndexProject,
+  documents: ReadonlyArray<TicketDocument>
+): ReadonlyArray<typeof ticketIndex.$inferInsert> =>
+  documents.map((document) => ticketIndexRowFor(project, document))
+
+const commentIndexRowsForDocument = (
+  project: TicketIndexProject,
+  document: TicketDocument
+): ReadonlyArray<typeof commentIndex.$inferInsert> =>
+  parseCommentsRegion(document.commentsRegion).map((comment) => ({
+    id: comment.id,
+    projectSlug: project.projectSlug,
+    ticketId: document.id,
+    origin: comment.origin,
+    authorKind: comment.author.kind,
+    authorId: comment.author.kind === "user" ? comment.author.userId : null,
+    jiraDisplayName:
+      comment.author.kind === "jira" ? comment.author.displayName : null,
+    jiraAccountId:
+      comment.author.kind === "jira" ? comment.author.accountId : null,
+    createdAt: comment.createdAt,
+    editedAt: comment.editedAt
+  }))
+
+export const commentIndexRowsFor = (
+  project: TicketIndexProject,
+  documents: ReadonlyArray<TicketDocument>
+): ReadonlyArray<typeof commentIndex.$inferInsert> =>
+  documents.flatMap((document) =>
+    commentIndexRowsForDocument(project, document)
+  )
 
 const ticketIdSortExpression = drizzleSql<string>`case
   when ${ticketIndex.ticketId} ~ '-[0-9]+$' then
@@ -415,35 +475,17 @@ export const TicketIndexLive = Layer.effect(
             eq(organization.id, projectIndex.organizationId)
           )
           .where(
-            and(eq(organization.slug, orgSlug), eq(projectIndex.slug, slug))
+            and(
+              eq(organization.slug, orgSlug),
+              eq(projectIndex.slug, slug),
+              publishedProject()
+            )
           )
           .limit(1)
           .pipe(Effect.orDie)
         const row = rows[0]
         return row ?? (yield* new NotFound())
       })
-
-    const rowFor = (project: TicketIndexProject, document: TicketDocument) => ({
-      organizationId: project.organizationId,
-      orgSlug: project.orgSlug,
-      projectId: project.projectId,
-      projectSlug: project.projectSlug,
-      ticketId: document.id,
-      title: document.title,
-      status: document.status,
-      type: document.type,
-      priority: document.priority,
-      tags: [...document.tags],
-      assignees: [...document.assignees],
-      branch: document.branch,
-      pr: document.pr,
-      prState: document.prState,
-      lastTransitionedPr: document.lastTransitionedPr,
-      archivedAt: document.archivedAt,
-      createdBy: document.createdBy,
-      createdAt: document.createdAt,
-      updatedAt: document.updatedAt
-    })
 
     const toEntry = (
       row: typeof ticketIndex.$inferSelect
@@ -1021,6 +1063,7 @@ export const TicketIndexLive = Layer.effect(
           and(
             eq(organization.slug, orgSlug),
             eq(projectIndex.slug, slug),
+            publishedProject(),
             eq(ticketIndex.ticketId, id)
           )
         )
@@ -1036,10 +1079,10 @@ export const TicketIndexLive = Layer.effect(
     ): Effect.Effect<void> =>
       db
         .insert(ticketIndex)
-        .values(rowFor(project, document))
+        .values(ticketIndexRowFor(project, document))
         .onConflictDoUpdate({
           target: [ticketIndex.projectId, ticketIndex.ticketId],
-          set: rowFor(project, document)
+          set: ticketIndexRowFor(project, document)
         })
         .pipe(
           Effect.asVoid,
@@ -1191,18 +1234,30 @@ export const TicketIndexLive = Layer.effect(
     const writeProjectIndex = (
       project: TicketIndexProject,
       documents: ReadonlyArray<TicketDocument>
-    ): Effect.Effect<void> =>
-      sql
+    ): Effect.Effect<void> => {
+      const tickets = ticketIndexRowsFor(project, documents)
+      const comments = commentIndexRowsFor(project, documents)
+      return sql
         .withTransaction(
           Effect.gen(function* () {
             yield* db
               .delete(ticketIndex)
               .where(eq(ticketIndex.projectId, project.projectId))
               .pipe(Effect.asVoid, Effect.orDie)
-            if (documents.length > 0) {
+            if (tickets.length > 0) {
               yield* db
                 .insert(ticketIndex)
-                .values(documents.map((document) => rowFor(project, document)))
+                .values([...tickets])
+                .pipe(Effect.asVoid, Effect.orDie)
+            }
+            yield* db
+              .delete(commentIndex)
+              .where(eq(commentIndex.projectSlug, project.projectSlug))
+              .pipe(Effect.asVoid, Effect.orDie)
+            if (comments.length > 0) {
+              yield* db
+                .insert(commentIndex)
+                .values([...comments])
                 .pipe(Effect.asVoid, Effect.orDie)
             }
             yield* db
@@ -1215,6 +1270,7 @@ export const TicketIndexLive = Layer.effect(
           })
         )
         .pipe(Effect.catchTag("SqlError", Effect.die), Effect.asVoid)
+    }
 
     const indexedRefs = (project: TicketIndexProject) =>
       db
@@ -1235,6 +1291,7 @@ export const TicketIndexLive = Layer.effect(
       })
       .from(projectIndex)
       .innerJoin(organization, eq(organization.id, projectIndex.organizationId))
+      .where(publishedProject())
       .pipe(Effect.orDie)
 
     const rebuildProject = (project: TicketIndexProject) =>

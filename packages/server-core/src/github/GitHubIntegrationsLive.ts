@@ -1,6 +1,7 @@
 import { randomBytes, createHash } from "node:crypto"
 
 import { Db } from "@pp/db"
+import { publishedProject } from "@pp/db/projectVisibility"
 import {
   githubAppInstallSession,
   organizationGithubIntegration,
@@ -153,7 +154,8 @@ export const GitHubIntegrationsLive = Layer.effect(
                     RAW: (table, _operators) =>
                       _operators.and(
                         _operators.eq(table.organizationId, org.organizationId),
-                        _operators.eq(table.slug, returnProjectSlug)
+                        _operators.eq(table.slug, returnProjectSlug),
+                        publishedProject(table)
                       )!
                   }
                 })
@@ -428,7 +430,8 @@ export const GitHubIntegrationsLive = Layer.effect(
                         _operators.eq(
                           table.organizationId,
                           session.organizationId
-                        )
+                        ),
+                        publishedProject(table)
                       )!
                   }
                 })

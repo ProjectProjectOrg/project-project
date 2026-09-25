@@ -101,5 +101,8 @@ export const Keys = {
   /** OAuth applications managed by the current user. */
   oauthApplications: (): string => "oauth-applications",
   /** One public OAuth client's metadata. */
-  oauthClient: (clientId: string): string => `oauth-client/${clientId}`
+  oauthClient: (clientId: string): string => `oauth-client/${clientId}`,
+  jiraMigrations: (orgSlug: string): string => `jira-migrations/${orgSlug}`,
+  jiraMigration: (orgSlug: string, migrationId: string): string =>
+    `jira-migration/${orgSlug}/${migrationId}`
 } as const
