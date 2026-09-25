@@ -53,6 +53,15 @@ const catalogMessages: Messages<McpToolError> = {
         "ticket."
       )
     }
+    const needsBody = reason?.match(/^template_needs_body:(.*)$/s)
+    if (needsBody) {
+      return (
+        `Template "${needsBody[1]}" can only fill an empty or untouched ` +
+        "description, and this ticket already has content. Read the " +
+        "template's body from list_templates, fill it in around the " +
+        "existing content, and pass it to update_ticket as body."
+      )
+    }
     return reason ? `Validation error (${reason}).` : "Validation error."
   },
   MentionInvalid: ({ kind, href }) => {

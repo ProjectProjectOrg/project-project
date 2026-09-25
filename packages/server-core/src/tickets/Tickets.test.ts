@@ -2121,6 +2121,42 @@ it.effect("omits the order key when no sort is asked for", () => {
 })
 
 it.effect(
+  "rejects a template body when the ticket changed after it was read",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    const layer = makeTicketsLayer("T", docs.layer, {
+      ticketIndex: makeFakeTicketIndex(docs.documents)
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const read = yield* tickets.get("org", "user-1", "p", "T-1")
+      docs.documents.set(
+        "T-1",
+        makeTicketDocument("T-1", { body: "A concurrent edit" })
+      )
+
+      const error = yield* tickets
+        .update(
+          "org",
+          "user-1",
+          "p",
+          "T-1",
+          { body: "Template content" },
+          undefined,
+          read.body
+        )
+        .pipe(Effect.flip)
+
+      expect(error).toMatchObject({
+        _tag: "Validation",
+        reason: "ticket_body_changed"
+      })
+      expect(docs.documents.get("T-1")?.body).toBe("A concurrent edit")
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
   "metadata edits skip attachment reconciliation while body edits retain it",
   () => {
     const docs = makeFakeTicketDocs(["T-1"])

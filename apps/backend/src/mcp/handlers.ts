@@ -17,10 +17,12 @@ import {
   expandTemplateKeepingHints,
   formatAttachmentMarkdown,
   formatBlockIssue,
+  isPristineTemplateBody,
   isRasterImageContentType,
   parseTicketBlocks,
   serializeTicketBlocks,
   stripDefinitionHints,
+  stripHints,
   type McpTools,
   TicketListQuery,
   Validation,
@@ -33,7 +35,9 @@ import {
   type GroupFilter,
   type GroupId,
   type Pagination,
+  type Library as LibraryValue,
   type SprintState,
+  type TemplateKey,
   type TicketId,
   type TicketType,
   type UpdateGroupInput,
@@ -83,6 +87,30 @@ const sanitizeMcpBody = (orgSlug: string, projectSlug: string, body: string) =>
       })
     )
   })
+
+const withBlocks = <T extends Readonly<{ body: string }>>(detail: T) => ({
+  ...detail,
+  blocks: parseTicketBlocks(detail.body).flatMap((segment) =>
+    segment.kind === "block"
+      ? [
+          {
+            type: segment.type,
+            sync: segment.sync === true,
+            content: segment.content
+          }
+        ]
+      : []
+  )
+})
+
+const isUntouchedBody = (body: string, library: LibraryValue): boolean => {
+  if (body.trim() === "") return true
+  const lookup = blockLookupFor(library)
+  const comparable = stripHints(body)
+  return library.templates.some((template) =>
+    isPristineTemplateBody(comparable, template, lookup)
+  )
+}
 
 const TICKET_TYPES: ReadonlyArray<TicketType> = [
   "feat",
@@ -238,20 +266,7 @@ const get_ticket = (input: {
       input.projectSlug,
       input.id
     )
-    return {
-      ...detail,
-      blocks: parseTicketBlocks(detail.body).flatMap((segment) =>
-        segment.kind === "block"
-          ? [
-              {
-                type: segment.type,
-                sync: segment.sync === true,
-                content: segment.content
-              }
-            ]
-          : []
-      )
-    }
+    return withBlocks(detail)
   })
 
 const list_statuses = (input: { orgSlug: string; projectSlug: string }) =>
@@ -399,10 +414,43 @@ const create_ticket = (
       body === undefined
         ? undefined
         : yield* sanitizeMcpBody(orgSlug, projectSlug, body)
-    return yield* tickets.create(orgSlug, current.id, projectSlug, {
+    const created = yield* tickets.create(orgSlug, current.id, projectSlug, {
       ...payload,
       ...(sanitizedBody === undefined ? {} : { body: sanitizedBody })
     })
+    return withBlocks(created)
+  })
+
+const templateBodyFor = (
+  orgSlug: string,
+  projectSlug: string,
+  id: TicketId,
+  template: TemplateKey
+) =>
+  Effect.gen(function* () {
+    const current = yield* McpCurrentUser
+    const projects = yield* Projects.Projects
+    const tickets = yield* Tickets
+    const library = yield* Library
+    yield* projects.requireMember(orgSlug, current.id, projectSlug)
+    const expansion = yield* library.expandForCreate(
+      orgSlug,
+      projectSlug,
+      template
+    )
+    const [ticket, projectLibrary] = yield* Effect.all(
+      [
+        tickets.get(orgSlug, current.id, projectSlug, id),
+        library.projectLibrary(orgSlug, current.id, projectSlug)
+      ],
+      { concurrency: 2 }
+    )
+    if (!isUntouchedBody(ticket.body, projectLibrary)) {
+      return yield* new Validation({
+        reason: `template_needs_body:${template}`
+      })
+    }
+    return { body: expansion.body, expectedBody: ticket.body }
   })
 
 const update_ticket = (
@@ -410,27 +458,44 @@ const update_ticket = (
     orgSlug: string
     projectSlug: string
     id: TicketId
+    template?: TemplateKey | null
   } & UpdateTicketInput
 ) =>
   Effect.gen(function* () {
     const current = yield* McpCurrentUser
     const tickets = yield* Tickets
-    const { orgSlug, projectSlug, id, body, ...payload } = input
+    const { orgSlug, projectSlug, id, body, template, ...payload } = input
+    const templateBody =
+      body === undefined && template !== undefined && template !== null
+        ? yield* templateBodyFor(orgSlug, projectSlug, id, template)
+        : undefined
     const sanitizedBody =
-      body === undefined
-        ? undefined
-        : yield* sanitizeMcpBody(orgSlug, projectSlug, body)
-    const updated = yield* tickets.update(
-      orgSlug,
-      current.id,
-      projectSlug,
-      id,
-      {
-        ...payload,
-        ...(sanitizedBody === undefined ? {} : { body: sanitizedBody })
-      }
-    )
-    return updated.ticket
+      body !== undefined
+        ? yield* sanitizeMcpBody(orgSlug, projectSlug, body)
+        : templateBody?.body
+    const updated = yield* tickets
+      .update(
+        orgSlug,
+        current.id,
+        projectSlug,
+        id,
+        {
+          ...payload,
+          ...(sanitizedBody === undefined ? {} : { body: sanitizedBody })
+        },
+        undefined,
+        templateBody?.expectedBody
+      )
+      .pipe(
+        Effect.catchTag("Validation", (error) =>
+          error.reason === "ticket_body_changed" && template != null
+            ? Effect.fail(
+                new Validation({ reason: `template_needs_body:${template}` })
+              )
+            : Effect.fail(error)
+        )
+      )
+    return withBlocks(updated.ticket)
   })
 
 const prepare_ticket_attachment = (

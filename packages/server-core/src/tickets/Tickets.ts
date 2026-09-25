@@ -134,7 +134,8 @@ export interface TicketsShape {
     slug: string,
     id: string,
     input: UpdateTicketInput,
-    sort?: TicketSort
+    sort?: TicketSort,
+    expectedBody?: string
   ) => Effect.Effect<
     TicketUpdateResult,
     TicketReadError | Validation | MentionInvalid
