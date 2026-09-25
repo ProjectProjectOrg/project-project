@@ -67,8 +67,12 @@ export function ProjectTicketLayout({
     slug,
     `${orgSlug}/${slug}/${scope}/${view}`
   )
-  const counts = useServerTicketCounts(orgSlug, slug, query)
   const isBoard = view === "board"
+  const counts = useServerTicketCounts(
+    orgSlug,
+    slug,
+    isBoard ? { ...query, archived: undefined } : query
+  )
   return (
     <PageContainer className="group/list gap-3">
       <Activity mode={view === "description" ? "hidden" : "visible"}>

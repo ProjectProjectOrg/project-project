@@ -245,6 +245,16 @@ function SectionPagination({
   )
 }
 
+type TicketPaginationProps = Readonly<{
+  requestKey: string
+  nextCursor: string | null
+  remaining: number
+  collapsed: boolean
+  loadingMore: boolean
+  failed: boolean
+  loadMore: () => void
+}>
+
 export function TicketPagination({
   requestKey,
   nextCursor,
@@ -253,15 +263,7 @@ export function TicketPagination({
   loadingMore,
   failed,
   loadMore
-}: {
-  requestKey: string
-  nextCursor: string | null
-  remaining: number
-  collapsed: boolean
-  loadingMore: boolean
-  failed: boolean
-  loadMore: () => void
-}) {
+}: TicketPaginationProps) {
   return (
     <>
       {nextCursor !== null && (
