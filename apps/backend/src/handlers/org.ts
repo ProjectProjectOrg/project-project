@@ -10,22 +10,22 @@ import {
   Forbidden,
   NotFound,
   type OrgInvitation,
-  type OrgRole,
+  OrgRole,
   LastProjectPmBlocked,
   Validation
 } from "@pp/shared"
 import { isAPIError } from "better-auth/api"
 import * as Effect from "effect/Effect"
-import { HttpServerRequest } from "effect/unstable/http"
+import * as Schema from "effect/Schema"
+import {
+  Cookies,
+  HttpEffect,
+  HttpServerRequest,
+  HttpServerResponse
+} from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 
-export const collapseRole = (role: string): OrgRole => {
-  const roles = new Set(role.split(",").map((entry) => entry.trim()))
-  if (roles.has("owner")) return "owner"
-  if (roles.has("admin")) return "admin"
-  if (roles.has("member")) return "member"
-  return "guest"
-}
+export const orgRoleOf = Schema.decodeUnknownSync(OrgRole)
 
 type RawInvitation = Readonly<{
   id: string
@@ -43,7 +43,7 @@ export const pendingInvitations = (
           {
             id: invitation.id,
             email: invitation.email,
-            role: collapseRole(invitation.role ?? "member"),
+            role: orgRoleOf(invitation.role ?? "member"),
             status: "pending" as const
           }
         ]
@@ -287,6 +287,20 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
         return yield* ba
           .transferOwnership(request, params.orgSlug, payload.userId, user.id)
           .pipe(Effect.catchTag("BetterAuthError", transferErrorToFailure))
+      })
+    )
+    .handle("setActive", ({ params }) =>
+      Effect.gen(function* () {
+        const ba = yield* BetterAuth
+        const request = yield* webRequest
+        const cookies = Cookies.fromSetCookie(
+          yield* ba
+            .setActiveOrganization(request, params.orgSlug)
+            .pipe(Effect.catchTag("BetterAuthError", opaqueErrorToFailure))
+        )
+        yield* HttpEffect.appendPreResponseHandler((_request, response) =>
+          Effect.succeed(HttpServerResponse.mergeCookies(response, cookies))
+        )
       })
     )
     .handle("leave", ({ params }) =>

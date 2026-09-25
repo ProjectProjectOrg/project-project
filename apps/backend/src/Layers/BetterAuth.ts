@@ -31,8 +31,13 @@ import * as Layer from "effect/Layer"
 import * as Match from "effect/Match"
 import * as Schema from "effect/Schema"
 
-import { assertNotLastProjectPm, auth, unassignRemovedOrgMember } from "../auth"
-import { collapseRole, pendingInvitations } from "../handlers/org"
+import {
+  assertNotLastProjectPm,
+  auth,
+  keepingAProjectPm,
+  unassignRemovedOrgMember
+} from "../auth"
+import { orgRoleOf, pendingInvitations } from "../handlers/org"
 
 export const BetterAuthLive = Layer.effect(
   BetterAuth,
@@ -101,7 +106,7 @@ export const BetterAuthLive = Layer.effect(
       if (!first) return yield* new NotFound()
       return yield* Schema.decodeEffect(OrgMember)({
         userId: first.userId,
-        role: collapseRole(first.role),
+        role: orgRoleOf(first.role),
         name: first.name,
         email: first.email,
         image: first.image ?? null
@@ -125,7 +130,7 @@ export const BetterAuthLive = Layer.effect(
       return yield* Schema.decodeEffect(OrgMembers)({
         members: full.members.map((row) => ({
           userId: row.userId,
-          role: collapseRole(row.role),
+          role: orgRoleOf(row.role),
           name: row.user.name,
           email: row.user.email,
           image: row.user.image ?? null
@@ -177,10 +182,10 @@ export const BetterAuthLive = Layer.effect(
                 if (!organizationId || !self || !target) {
                   return { _tag: "not_found" as const }
                 }
-                if (collapseRole(self.role) !== "owner") {
+                if (orgRoleOf(self.role) !== "owner") {
                   return { _tag: "forbidden" as const }
                 }
-                if (collapseRole(target.role) !== "admin") {
+                if (orgRoleOf(target.role) !== "admin") {
                   return { _tag: "invalid" as const }
                 }
 
@@ -330,7 +335,7 @@ export const BetterAuthLive = Layer.effect(
             })
           )({
             orgSlug: row.slug,
-            role: collapseRole(row.role)
+            role: orgRoleOf(row.role)
           }).pipe(Effect.orDie)
         )
       }),
@@ -360,7 +365,7 @@ export const BetterAuthLive = Layer.effect(
             Schema.decodeEffect(Org)({
               slug: row.slug,
               name: row.name,
-              role: collapseRole(row.role)
+              role: orgRoleOf(row.role)
             }).pipe(Effect.orDie)
           )
           const sorted = [...orgs].toSorted(
@@ -402,7 +407,7 @@ export const BetterAuthLive = Layer.effect(
         return yield* Schema.decodeEffect(Org)({
           slug: first.slug,
           name: first.name,
-          role: collapseRole(first.role)
+          role: orgRoleOf(first.role)
         }).pipe(Effect.orDie)
       }),
       getOrgSlugById: Effect.fn("BetterAuth.getOrgSlugById")(function* (
@@ -465,7 +470,7 @@ export const BetterAuthLive = Layer.effect(
         return yield* Schema.decodeEffect(OrgInvitation)({
           id: created.id,
           email: created.email,
-          role: collapseRole(created.role ?? ""),
+          role: orgRoleOf(created.role),
           status: "pending"
         }).pipe(Effect.orDie)
       }),
@@ -479,11 +484,13 @@ export const BetterAuthLive = Layer.effect(
         const organizationId = yield* resolveOrgId(orgSlug)
         const memberId = yield* resolveMemberId(organizationId, userId)
         yield* attempt(() =>
-          auth.api.removeMember({
-            body: { memberIdOrEmail: memberId, organizationId },
-            headers: request.headers,
-            request
-          })
+          keepingAProjectPm(organizationId, userId, () =>
+            auth.api.removeMember({
+              body: { memberIdOrEmail: memberId, organizationId },
+              headers: request.headers,
+              request
+            })
+          )
         )
       }),
       cancelInvitation: Effect.fn("BetterAuth.cancelInvitation")(function* (
@@ -543,6 +550,19 @@ export const BetterAuthLive = Layer.effect(
         yield* transferRoles(orgSlug, toUserId, selfUserId)
         return yield* readMembers(request, orgSlug)
       }),
+      setActiveOrganization: Effect.fn("BetterAuth.setActiveOrganization")(
+        function* (request: Request, orgSlug: string) {
+          const organizationId = yield* resolveOrgId(orgSlug)
+          const { headers } = yield* attempt(() =>
+            auth.api.setActiveOrganization({
+              body: { organizationId },
+              headers: request.headers,
+              returnHeaders: true
+            })
+          )
+          return headers.getSetCookie()
+        }
+      ),
       leaveOrg: Effect.fn("BetterAuth.leaveOrg")(function* (
         request: Request,
         orgSlug: string,
@@ -551,11 +571,13 @@ export const BetterAuthLive = Layer.effect(
         const organizationId = yield* resolveOrgId(orgSlug)
         yield* attempt(() => assertNotLastProjectPm(organizationId, userId))
         yield* attempt(() =>
-          auth.api.leaveOrganization({
-            body: { organizationId },
-            headers: request.headers,
-            request
-          })
+          keepingAProjectPm(organizationId, userId, () =>
+            auth.api.leaveOrganization({
+              body: { organizationId },
+              headers: request.headers,
+              request
+            })
+          )
         )
         yield* attempt(() =>
           unassignRemovedOrgMember(orgSlug, organizationId, userId)
@@ -605,7 +627,7 @@ export const BetterAuthLive = Layer.effect(
                 id: invitation.id,
                 orgSlug: org.slug,
                 orgName: org.name,
-                role: collapseRole(invitation.role ?? ""),
+                role: orgRoleOf(invitation.role),
                 inviterEmail: inviterById.get(invitation.inviterId) ?? null,
                 expiresAt: invitation.expiresAt.toISOString(),
                 createdAt: invitation.createdAt.toISOString()
@@ -630,7 +652,7 @@ export const BetterAuthLive = Layer.effect(
           id: found.id,
           orgSlug: found.organizationSlug,
           orgName: found.organizationName,
-          role: collapseRole(found.role ?? ""),
+          role: orgRoleOf(found.role),
           inviterEmail: found.inviterEmail ?? null,
           expiresAt: found.expiresAt.toISOString(),
           createdAt: found.createdAt.toISOString()
@@ -677,7 +699,7 @@ export const BetterAuthLive = Layer.effect(
         return yield* Schema.decodeEffect(Org)({
           slug: org.slug,
           name: org.name,
-          role: collapseRole(acceptedMember.role ?? "")
+          role: orgRoleOf(acceptedMember.role)
         }).pipe(Effect.orDie)
       }),
       rejectInvitation: (request, invitationId) =>

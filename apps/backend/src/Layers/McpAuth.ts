@@ -1,12 +1,12 @@
 import { createResourceServerChallenge } from "@better-auth/oauth-provider"
 import { Db } from "@pp/db"
-import { oauthConsent, user } from "@pp/db/auth-schema"
+import { oauthClient, oauthConsent, user } from "@pp/db/auth-schema"
 import { Users } from "@pp/server-core/users/Users"
 import {
   createDpopReplayStore,
   verifyAccessTokenRequest
 } from "better-auth/oauth2"
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq, inArray, isNull, or } from "drizzle-orm"
 import * as Data from "effect/Data"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -122,11 +122,13 @@ export const McpAuthMiddlewareLive = HttpRouter.middleware(
       const consents = yield* db
         .select({ id: oauthConsent.id })
         .from(oauthConsent)
+        .innerJoin(oauthClient, eq(oauthClient.clientId, oauthConsent.clientId))
         .where(
           and(
             eq(oauthConsent.userId, decoded.sub),
             eq(oauthConsent.clientId, decoded.client_id),
-            inArray(oauthConsent.id, decoded.pp_consent_ids)
+            inArray(oauthConsent.id, decoded.pp_consent_ids),
+            or(isNull(oauthClient.disabled), eq(oauthClient.disabled, false))
           )
         )
         .limit(1)

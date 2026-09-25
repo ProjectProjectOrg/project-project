@@ -300,4 +300,87 @@ describe.skipIf(!databaseUrl)("BetterAuth live", () => {
       )
     })
   )
+
+  it.live("switches the active org and hands back the refreshed session", () =>
+    Effect.gen(function* () {
+      const otherOrgId = randomUUID()
+      const otherSlug = `active-test-${otherOrgId}`
+      yield* Effect.addFinalizer(() =>
+        Effect.promise(() =>
+          pool.query('DELETE FROM "organization" WHERE id = $1', [otherOrgId])
+        )
+      )
+      let signInUrl = ""
+      const writeSpy = vi
+        .spyOn(process.stdout, "write")
+        .mockImplementation((chunk: string | Uint8Array) => {
+          const text = String(chunk)
+          if (text.includes("[magic-link]")) signInUrl = text
+          return true
+        })
+      const cookieOf = (headers: Headers) =>
+        headers
+          .getSetCookie()
+          .map((value) => value.split(";")[0])
+          .join("; ")
+      const requestWith = (cookie: string) =>
+        new Request("http://localhost:15999/api/auth", {
+          headers: { cookie, origin: "http://localhost:15999" }
+        })
+      const signedIn = yield* Effect.promise(async () => {
+        const db = drizzle({ client: pool })
+        await db.insert(organization).values({
+          id: otherOrgId,
+          name: "Active Test Org",
+          slug: otherSlug,
+          createdAt: DateTime.toDate(DateTime.nowUnsafe())
+        })
+        await db.insert(member).values({
+          id: randomUUID(),
+          organizationId: otherOrgId,
+          userId: ownerId,
+          role: "owner",
+          createdAt: DateTime.toDate(DateTime.nowUnsafe())
+        })
+        await auth.api.signInMagicLink({
+          body: { email: ownerEmail },
+          headers: new Headers({ origin: "http://localhost:15999" })
+        })
+        const url = signInUrl.match(/url=(?<url>\S+)/)?.groups?.url
+        const response = await auth.handler(new Request(url!))
+        return requestWith(cookieOf(response.headers))
+      }).pipe(Effect.ensuring(Effect.sync(() => writeSpy.mockRestore())))
+      const merged = (request: Request, setCookies: ReadonlyArray<string>) =>
+        requestWith(
+          [
+            ...new Map(
+              [
+                ...(request.headers.get("cookie") ?? "").split("; "),
+                ...setCookies.map((value) => value.split(";")[0])
+              ].map((pair) => [pair.split("=")[0], pair] as const)
+            ).values()
+          ].join("; ")
+        )
+      const activate = (orgSlugToActivate: string, request: Request) =>
+        Effect.gen(function* () {
+          const betterAuth = yield* BetterAuth
+          const refreshed = merged(
+            request,
+            yield* betterAuth.setActiveOrganization(request, orgSlugToActivate)
+          )
+          const session = yield* Effect.promise(() =>
+            auth.api.getSession({ headers: refreshed.headers })
+          )
+          return {
+            request: refreshed,
+            active: session?.session.activeOrganizationId
+          }
+        }).pipe(Effect.provide(betterAuthLive))
+
+      const other = yield* activate(otherSlug, signedIn)
+      expect(other.active).toBe(otherOrgId)
+      const back = yield* activate(orgSlug, other.request)
+      expect(back.active).toBe(orgId)
+    }).pipe(Effect.scoped)
+  )
 })
