@@ -100,7 +100,7 @@ export const AccessLive = Layer.effect(
         if (!row) return yield* new NotFound()
         const orgRole = yield* decodeOrgRole(row.orgRole).pipe(Effect.orDie)
         const role = yield* decodeRole(row.role).pipe(Effect.orDie)
-        const permissions = Effective.projectPermissions(orgRole, role)
+        const permissions = Effective.roleOnProject(orgRole, role)
         if (Option.isNone(permissions)) return yield* new NotFound()
         return {
           userId: user.id,
@@ -145,7 +145,7 @@ export const AccessLive = Layer.effect(
           Effect.orDie,
           Effect.map((role) =>
             Option.map(
-              Effective.projectPermissions(scope.role, role),
+              Effective.roleOnProject(scope.role, role),
               (permissions) => ({
                 userId: scope.userId,
                 organizationId: scope.organizationId,

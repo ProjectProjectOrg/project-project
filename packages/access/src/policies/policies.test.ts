@@ -15,7 +15,7 @@ const actor = (
   role: Project.ProjectRoleName | null
 ) => ({
   userId: "me",
-  permissions: Option.getOrThrow(Effective.projectPermissions(orgRole, role))
+  permissions: Option.getOrThrow(Effective.roleOnProject(orgRole, role))
 })
 
 const actors = {

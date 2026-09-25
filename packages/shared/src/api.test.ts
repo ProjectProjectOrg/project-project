@@ -152,10 +152,10 @@ const routeNamed = (name: string) => {
 }
 
 const projectActors = {
-  pm: Effective.projectPermissions("member", "pm"),
-  developer: Effective.projectPermissions("member", "developer"),
-  client: Effective.projectPermissions("member", "client"),
-  orgAdmin: Effective.projectPermissions("admin", null)
+  pm: Effective.roleOnProject("member", "pm"),
+  developer: Effective.roleOnProject("member", "developer"),
+  client: Effective.roleOnProject("member", "client"),
+  orgAdmin: Effective.roleOnProject("admin", null)
 }
 
 type ProjectActor = keyof typeof projectActors

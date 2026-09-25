@@ -66,7 +66,7 @@ export const projectScope = (
   ...overrides,
   orgRole,
   role,
-  permissions: Option.getOrThrow(Effective.projectPermissions(orgRole, role))
+  permissions: Option.getOrThrow(Effective.roleOnProject(orgRole, role))
 })
 
 export const accessLayer = (
