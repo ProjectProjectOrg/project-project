@@ -156,17 +156,21 @@ export const AttachmentUploadsLive = Layer.effect(
             return undefined
           })
           yield* checkExpiry
-          const [uploader] = yield* users.fullByIds([grant.userId])
-          if (uploader === undefined) return yield* new Unauthorized()
-          const scope = yield* access
-            .project(grant.orgSlug, grant.projectSlug)
-            .pipe(Effect.provideService(CurrentUser, uploader))
-          if (!scope.permissions.can({ attachment: ["upload"] })) {
-            return yield* new Forbidden()
-          }
-          const asUploader = Effect.provideService(ProjectScope, scope)
-          const { projectId } = scope
-          yield* requireTicket(grant.ticketId).pipe(asUploader)
+          const uploaderScope = Effect.gen(function* () {
+            const [uploader] = yield* users.fullByIds([grant.userId])
+            if (uploader === undefined) return yield* new Unauthorized()
+            const scope = yield* access
+              .project(grant.orgSlug, grant.projectSlug)
+              .pipe(Effect.provideService(CurrentUser, uploader))
+            if (!scope.permissions.can({ attachment: ["upload"] })) {
+              return yield* new Forbidden()
+            }
+            return scope
+          })
+          const { projectId } = yield* uploaderScope
+          yield* requireTicket(grant.ticketId).pipe(
+            Effect.provideServiceEffect(ProjectScope, uploaderScope)
+          )
           const query = () =>
             db
               .select()
@@ -217,6 +221,7 @@ export const AttachmentUploadsLive = Layer.effect(
                 if (!row || row.status === "orphaned")
                   return yield* new NotFound()
                 yield* checkExpiry
+                yield* requireTicket(grant.ticketId)
                 if (row.status === "pending") {
                   yield* db
                     .update(attachmentIndex)
@@ -239,15 +244,10 @@ export const AttachmentUploadsLive = Layer.effect(
                       )
                     )
                 }
-                const { id, url, filename, contentType } = yield* requireTicket(
-                  grant.ticketId
-                ).pipe(
-                  Effect.andThen(
-                    attachments.commit(grant.ticketId, grant.attachmentId)
-                  )
-                )
+                const { id, url, filename, contentType } =
+                  yield* attachments.commit(grant.ticketId, grant.attachmentId)
                 return { id, url, filename, contentType }
-              }).pipe(asUploader)
+              }).pipe(Effect.provideServiceEffect(ProjectScope, uploaderScope))
             )
             .pipe(Effect.catchTag("SqlError", Effect.die))
         },

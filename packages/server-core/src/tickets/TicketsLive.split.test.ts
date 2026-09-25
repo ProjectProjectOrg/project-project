@@ -433,15 +433,13 @@ it.effect("split retains the original and creates the remaining tickets", () =>
       expect(stored.branch).toBeNull()
     }
 
-    expect(sprintAssignments).toEqual([
-      { ticketId: original.id, sprintId: null },
-      ...outcome.created.map((created) => ({
+    expect(sprintAssignments).toEqual(
+      outcome.created.map((created) => ({
         ticketId: created.id,
         sprintId: null
       }))
-    ])
+    )
     expect(sprintAssignmentAnchors).toEqual([
-      original.id,
       original.id,
       outcome.created[0].id
     ])

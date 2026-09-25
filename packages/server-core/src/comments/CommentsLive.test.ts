@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 
 import { it } from "@effect/vitest"
 import { Db } from "@pp/db"
-import { DbLive, PgLive } from "@pp/db"
+import { DbLive, migrationsFolder, PgLive } from "@pp/db"
 import {
   CommentId,
   TicketId,
@@ -10,12 +10,14 @@ import {
   UserId,
   ProjectScope
 } from "@pp/shared"
+import { drizzle } from "drizzle-orm/node-postgres"
+import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import pg from "pg"
-import { describe, expect } from "vitest"
+import { beforeAll, describe, expect } from "vitest"
 
 import { projectScope } from "../access/testing"
 import { MarkdownError } from "../markdown/Markdown"
@@ -598,6 +600,12 @@ it.effect("keeps malformed ticket documents in the typed error channel", () => {
 })
 
 describe.skipIf(!databaseUrl)("comment persistence failure", () => {
+  beforeAll(async () => {
+    const pool = new pg.Pool({ connectionString: databaseUrl })
+    await migrate(drizzle({ client: pool }), { migrationsFolder })
+    await pool.end()
+  })
+
   for (const operation of ["edit", "remove"] as const) {
     it.effect(
       `preserves ${operation} metadata when the markdown write fails`,

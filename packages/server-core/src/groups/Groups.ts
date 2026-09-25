@@ -1,5 +1,6 @@
 import type {
   CompleteSprintInput,
+  Conflict,
   CompleteSprintOutput,
   GroupId,
   CreateGroupInput,
@@ -129,8 +130,11 @@ export interface GroupsShape {
     slug: string,
     ticketId: TicketId,
     sprintId: GroupId | null,
-    options?: { readonly after?: TicketId | null }
-  ) => Effect.Effect<void, MarkdownError>
+    options?: {
+      readonly after?: TicketId | null
+      readonly from?: GroupId | null
+    }
+  ) => Effect.Effect<void, Conflict | MarkdownError>
   readonly removeTicketFromAllGroups: (
     orgSlug: string,
     slug: string,
