@@ -711,23 +711,25 @@ it.effect(
     }).pipe(Effect.provide(TestLayer))
 )
 
-it.effect("split needs github:write to detach the original's branch", () =>
-  Effect.gen(function* () {
-    yield* resetFakes
-    const tickets = yield* Tickets
-    const docs = yield* TicketDocs
-    const { ticket: original } = yield* seedClientTicket
-    yield* docs.update("org", "p", original.id, (existing) =>
-      Effect.succeed({
-        ...existing,
-        status: decodeStatus("todo"),
-        assignees: [],
-        branch: "feat/client"
-      })
-    )
+it.effect(
+  "split keeps the original's branch and PR on the retained ticket",
+  () =>
+    Effect.gen(function* () {
+      yield* resetFakes
+      const tickets = yield* Tickets
+      const docs = yield* TicketDocs
+      const { ticket: original } = yield* seedClientTicket
+      yield* docs.update("org", "p", original.id, (existing) =>
+        Effect.succeed({
+          ...existing,
+          status: decodeStatus("todo"),
+          assignees: [],
+          branch: "feat/client",
+          pr: 12
+        })
+      )
 
-    const attempt = yield* Effect.flip(
-      tickets
+      const outcome = yield* tickets
         .split(original.id, {
           results: [
             {
@@ -738,10 +740,15 @@ it.effect("split needs github:write to detach the original's branch", () =>
           ]
         })
         .pipe(scopedAs("client", "client-1"))
-    )
-    expect(attempt._tag).toBe("Forbidden")
-    expect((yield* docs.read("org", "p", original.id)).branch).toBe(
-      "feat/client"
-    )
-  }).pipe(Effect.provide(TestLayer))
+
+      const retained = yield* docs.read("org", "p", original.id)
+      expect(retained).toMatchObject({ branch: "feat/client", pr: 12 })
+      expect(retained.branchAutoLinkDisabled).toBeUndefined()
+      const [created] = outcome.created
+      expect(yield* docs.read("org", "p", created.id)).toMatchObject({
+        branch: null,
+        pr: null,
+        branchAutoLinkDisabled: true
+      })
+    }).pipe(Effect.provide(TestLayer))
 )

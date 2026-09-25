@@ -154,31 +154,6 @@
       }
     }
   ],
-  "tickets_split_warning_branch_pr_suffix": [
-    {
-      "declarations": [
-        "input count",
-        "input number",
-        "local countPlural = count: plural"
-      ],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "and PR #{number} are detached from the resulting ticket. Reattach them afterwards.",
-        "countPlural=*": "and PR #{number} are detached from all {count} tickets. Reattach them afterwards."
-      }
-    }
-  ],
-  "tickets_split_warning_branch_prefix": "Branch",
-  "tickets_split_warning_branch_suffix": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "is detached from the resulting ticket. Reattach it afterwards.",
-        "countPlural=*": "is detached from all {count} tickets. Reattach it afterwards."
-      }
-    }
-  ],
   "tickets_split_warning_comments": [
     {
       "declarations": [

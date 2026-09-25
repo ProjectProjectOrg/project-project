@@ -15,7 +15,6 @@ export type Split = Readonly<{
   retained: Fields
   created: ReadonlyArray<Fields>
   defaultStatus: string
-  detachesGit: boolean
 }>
 
 export type Query = Readonly<{ hasBranch?: boolean; hasPr?: boolean }>
@@ -48,8 +47,7 @@ const splitChange = (split: Split) => {
 }
 
 export const canSplit = (actor: ProjectActor, split: Split) =>
-  canChange(actor, splitChange(split)) &&
-  (!split.detachesGit || actor.permissions.can({ github: ["write"] }))
+  canChange(actor, splitChange(split))
 
 export const canQuery = (actor: ProjectActor, query: Query) =>
   (query.hasBranch === undefined && query.hasPr === undefined) ||
