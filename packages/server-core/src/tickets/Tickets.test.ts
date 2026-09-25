@@ -2461,5 +2461,46 @@ it.effect("sprintSections assigns each ticket to one section", () => {
       "T-3"
     ])
     expect(snapshot.total).toBe(3)
+
+    const ungroupedQuery = {
+      sort: { key: "id", dir: "asc" },
+      groupId: ["ungrouped"]
+    } as const
+    const ungroupedList = yield* tickets.list(
+      "org",
+      "user-1",
+      "p",
+      ungroupedQuery
+    )
+    const ungroupedSections = yield* tickets.sprintSections(
+      "org",
+      "user-1",
+      "p",
+      ungroupedQuery
+    )
+    expect(ungroupedSections.sections).toHaveLength(1)
+    expect(
+      ungroupedSections.sections[0]?.page.items.map(({ ticket }) => ticket.id)
+    ).toEqual(ungroupedList.items.map(({ ticket }) => ticket.id))
+    expect(ungroupedSections.counts.total).toBe(2)
+
+    const completedOnly = yield* tickets.sprintSections("org", "user-1", "p", {
+      ...ungroupedQuery,
+      groupId: [done.id]
+    })
+    expect(
+      completedOnly.sections[0]?.page.items.map(({ ticket }) => ticket.id)
+    ).toEqual(["T-1", "T-2"])
+
+    const both = yield* tickets.sprintSections("org", "user-1", "p", {
+      ...ungroupedQuery,
+      groupId: ["ungrouped", done.id]
+    })
+    expect(both.counts.total).toBe(3)
+    expect(
+      both.sections.flatMap((section) =>
+        section.page.items.map(({ ticket }) => ticket.id)
+      )
+    ).toEqual(["T-3", "T-1", "T-2"])
   }).pipe(Effect.provide(layer))
 })

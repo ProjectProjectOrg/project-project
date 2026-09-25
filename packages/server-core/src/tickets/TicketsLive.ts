@@ -690,6 +690,7 @@ export const TicketsLive = Layer.effect(
         userId,
         slug
       )
+      const selectedSections = new Set(sectionIds)
       const claimed = new Set<string>()
       const bySprint = new Map<GroupId, Array<string>>()
       const takeUnclaimed = (tickets: ReadonlyArray<string>) => {
@@ -702,16 +703,21 @@ export const TicketsLive = Layer.effect(
         return ids
       }
       for (const sprint of sprints) {
-        if (sprint.completedAt === null) {
+        if (sprint.completedAt === null && selectedSections.has(sprint.id)) {
           bySprint.set(sprint.id, takeUnclaimed(sprint.tickets))
         }
       }
       for (const sprint of sprints) {
-        if (sprint.completedAt !== null) {
+        if (sprint.completedAt !== null && selectedSections.has(sprint.id)) {
           bySprint.set(sprint.id, takeUnclaimed(sprint.tickets))
         }
       }
       const claimedIds = [...claimed]
+      const ungroupedMembers = query.groupId?.includes("ungrouped")
+        ? yield* resolveGroupMembers(project, orgSlug, userId, slug, [
+            "ungrouped"
+          ])
+        : null
       const countQuery = { ...query, groupId: undefined, status: undefined }
       const pages = yield* Effect.forEach(
         sectionIds,
@@ -721,7 +727,9 @@ export const TicketsLive = Layer.effect(
               groupId === "ungrouped" ? undefined : bySprint.get(groupId)
             const ticketIds =
               groupId === "ungrouped"
-                ? undefined
+                ? ungroupedMembers === null
+                  ? undefined
+                  : [...ungroupedMembers].filter((id) => !claimed.has(id))
                 : known !== undefined
                   ? known
                   : yield* resolveGroupMembers(project, orgSlug, userId, slug, [
@@ -734,7 +742,9 @@ export const TicketsLive = Layer.effect(
                       )
                     )
             const excludeTicketIds =
-              groupId === "ungrouped" && claimedIds.length > 0
+              groupId === "ungrouped" &&
+              ungroupedMembers === null &&
+              claimedIds.length > 0
                 ? claimedIds
                 : undefined
             const counts = yield* ticketIndex.count(project, countQuery, {
