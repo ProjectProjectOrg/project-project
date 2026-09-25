@@ -263,4 +263,42 @@ describe("ticket sprint sections", () => {
       registry.dispose()
     }
   })
+
+  it("does not count a quick-create excluded by search", async () => {
+    const filteredReq = sprintSectionsRequest("org", "project", {
+      ...query,
+      q: "other"
+    })
+    fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) =>
+      init?.method === "POST"
+        ? new Promise<Response>(() => {})
+        : Promise.resolve(snapshot([]))
+    )
+    const registry = AtomRegistry.make()
+    const view = sprintSections(filteredReq)
+    const mutation = quickCreateSprintSectionsTicket({
+      req: filteredReq,
+      key: groupId
+    })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
+      )
+      registry.set(mutation, {
+        clientId: "new-ticket",
+        ticket: { title: "New", type: "chore" },
+        viewerId: "user-1",
+        projectPrefix: "T"
+      })
+      const result = registry.get(view)
+      if (!AsyncResult.isSuccess(result)) throw new Error("no optimistic value")
+      expect(result.value.total).toBe(0)
+      expect(result.value.counts).toEqual({ total: 0, byStatus: {} })
+      expect(sprintSection(result, groupId)?.page.items).toEqual([])
+    } finally {
+      registry.dispose()
+    }
+  })
 })

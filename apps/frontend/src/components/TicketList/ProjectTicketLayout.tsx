@@ -80,30 +80,12 @@ export function ProjectTicketLayout({
   } as const
   const counts = useViewTicketCounts(countsSource)
   const refreshCounts = useAtomRefresh(viewCounts(countsSource))
-  const toolbar = (value: Record<string, number>) => (
-    <TicketToolbar
-      orgSlug={orgSlug}
-      slug={slug}
-      scopeKey={scope}
-      query={query}
-      onQueryChange={onQueryChange}
-      members={project.members}
-      counts={value}
-      filters={
-        groupId
-          ? isBoard
-            ? ["type", "assignee", "tags"]
-            : ["archived", "type", "assignee", "tags"]
-          : ["archived", "type", "assignee", "sprint", "tags"]
-      }
-      showSort={!groupId || !isBoard}
-      viewControls={<ViewSwitcher orgSlug={orgSlug} slug={slug} />}
-    >
-      {!groupId && !isBoard && (
-        <BacklogGroupingControl value={grouping} onChange={setGrouping} />
-      )}
-    </TicketToolbar>
-  )
+  const countError = Result.matchWithError(counts, {
+    onInitial: () => null,
+    onError: (error) => ({ error }),
+    onDefect: (error) => ({ error }),
+    onSuccess: () => null
+  })
   return (
     <PageContainer className="group/list gap-3">
       <Activity mode={view === "description" ? "hidden" : "visible"}>
@@ -154,16 +136,38 @@ export function ProjectTicketLayout({
             inert={reorder.reorderMode}
             aria-hidden={reorder.reorderMode}
           >
-            {Result.matchWithError(counts, {
-              onInitial: () => toolbar({}),
-              onError: (error) => (
-                <ErrorPage error={error} reset={refreshCounts} contained />
-              ),
-              onDefect: (defect) => (
-                <ErrorPage error={defect} reset={refreshCounts} contained />
-              ),
-              onSuccess: ({ value }) => toolbar(value)
-            })}
+            <TicketToolbar
+              orgSlug={orgSlug}
+              slug={slug}
+              scopeKey={scope}
+              query={query}
+              onQueryChange={onQueryChange}
+              members={project.members}
+              counts={Result.isSuccess(counts) ? counts.value : null}
+              filters={
+                groupId
+                  ? isBoard
+                    ? ["type", "assignee", "tags"]
+                    : ["archived", "type", "assignee", "tags"]
+                  : ["archived", "type", "assignee", "sprint", "tags"]
+              }
+              showSort={!groupId || !isBoard}
+              viewControls={<ViewSwitcher orgSlug={orgSlug} slug={slug} />}
+            >
+              {!groupId && !isBoard && (
+                <BacklogGroupingControl
+                  value={grouping}
+                  onChange={setGrouping}
+                />
+              )}
+            </TicketToolbar>
+            {groupId && isBoard && countError && (
+              <ErrorPage
+                error={countError.error}
+                reset={refreshCounts}
+                contained
+              />
+            )}
           </motion.div>
         </Activity>
         {children({ grouping, preferencesKey, reorder })}

@@ -1,4 +1,5 @@
 import {
+  matchesTicketQuery,
   padNumericIdSort,
   SPRINT_SECTION_UNSCHEDULED,
   type GroupId,
@@ -500,6 +501,19 @@ export const quickCreateSprintSectionsTicket = Atom.family(
           const existing = value.sections.find((section) => section.key === key)
           const page = existing?.page ?? { items: [], nextCursor: null }
           const status = input.ticket.status ?? ("todo" as TicketStatus)
+          const predicted = predictedTicket(
+            input,
+            placeholderId(page.items, input.projectPrefix),
+            status
+          )
+          if (
+            !matchesTicketQuery(
+              predicted,
+              { ...req.query, status: undefined },
+              undefined
+            )
+          )
+            return value
           const isVisible =
             !req.query.status?.length || req.query.status.includes(status)
           const counts = {
@@ -510,13 +524,6 @@ export const quickCreateSprintSectionsTicket = Atom.family(
             }
           }
           if (!isVisible) return { ...value, counts }
-          const predicted = predictedTicket(
-            input,
-
-            placeholderId(page.items, input.projectPrefix),
-
-            status
-          )
           const nextSection: SprintSectionValue = {
             key,
             count: (existing?.count ?? 0) + 1,
