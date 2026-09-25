@@ -7,28 +7,34 @@ export function effectiveTicketSearch(draft: string) {
   return draft.length >= MIN_SEARCH_CHARS ? draft : undefined
 }
 
-type SearchDraft = {
-  readonly draft: string
-  readonly query: string | undefined
-  readonly submitted: { readonly query: string | undefined } | null
-  readonly revision: number
-}
+type SearchDraft = Readonly<{
+  scopeKey: string | undefined
+  draft: string
+  query: string | undefined
+  submitted: Readonly<{ query: string | undefined }> | null
+  revision: number
+}>
 
 export function useTicketSearch(
   query: string | undefined,
-  onCommit: (query: string | undefined) => void
+  onCommit: (query: string | undefined) => void,
+  scopeKey?: string
 ) {
   const [state, setState] = useState<SearchDraft>({
+    scopeKey,
     draft: query ?? "",
     query,
     submitted: null,
     revision: 0
   })
 
-  if (state.query !== query) {
+  if (state.query !== query || state.scopeKey !== scopeKey) {
     const ownUpdate =
-      state.submitted?.query === query && state.submitted !== null
+      state.scopeKey === scopeKey &&
+      state.submitted?.query === query &&
+      state.submitted !== null
     setState({
+      scopeKey,
       draft: ownUpdate ? state.draft : (query ?? ""),
       query,
       submitted: null,

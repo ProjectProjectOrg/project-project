@@ -16,6 +16,7 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { backlog, backlogRequest } from "@/features/tickets/atoms/backlog"
+import { readViewPreference } from "@/hooks/useViewPreference"
 
 const decodeGroupId = Schema.decodeUnknownSync(GroupId)
 
@@ -39,7 +40,7 @@ export const Route = createFileRoute(
   }) => {
     const id = decodeGroupId(groupId)
     const query = sprintListQuery(search, id)
-    const view = search.view ?? "board"
+    const view = search.view ?? readViewPreference(orgSlug, slug, "sprints")
     registry.mount(sprintDetail(sprintRequest(orgSlug, slug, id)))()
     registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
     registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()

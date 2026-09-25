@@ -48,6 +48,22 @@ describe("ticket search draft", () => {
     expect(commit).not.toHaveBeenCalled()
   })
 
+  it("discards pending typing when the scope changes with the same URL query", () => {
+    const commit = vi.fn()
+    const { result, rerender } = renderHook(
+      ({ scope }: Readonly<{ scope: string }>) =>
+        useTicketSearch(undefined, commit, scope),
+      { initialProps: { scope: "backlog" } }
+    )
+    act(() => result.current.change("unfinished search"))
+    rerender({ scope: "G-5" })
+    expect(result.current.draft).toBe("")
+    act(() => {
+      vi.advanceTimersByTime(200)
+    })
+    expect(commit).not.toHaveBeenCalled()
+  })
+
   it("commits the latest draft once on blur", () => {
     const commit = vi.fn()
     const { result } = renderHook(() => useTicketSearch(undefined, commit))

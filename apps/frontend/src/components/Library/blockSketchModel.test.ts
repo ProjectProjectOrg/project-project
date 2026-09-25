@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 
 import { BUILTIN_LIBRARY } from "@/components/blocks/blockChrome"
 
-import { sketchLines, templateSketch } from "./blockSketch"
+import { sketchLines, templateSketch } from "./blockSketchModel"
 
 describe("sketchLines", () => {
   it("drops the heading and maps list items to their markers", () => {

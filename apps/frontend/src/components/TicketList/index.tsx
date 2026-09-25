@@ -6,6 +6,7 @@ import type {
   TicketId,
   TicketListQuery
 } from "@pp/shared"
+import * as Option from "effect/Option"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { Activity, useMemo, useState, type ReactNode } from "react"
 
@@ -47,7 +48,6 @@ export function TicketList({
   showSections = false,
   ...props
 }: TicketListProps) {
-  const statusSections = <StatusSections {...props} />
   return (
     <div className="group/list flex flex-col gap-3">
       {creator ?? (
@@ -59,20 +59,31 @@ export function TicketList({
       )}
       <div className="flex flex-col gap-3 transition-opacity duration-200 ease-out group-has-[form[data-active]]/list:opacity-35">
         {toolbar}
-        {sections ? (
-          <>
-            <Activity mode={showSections ? "hidden" : "visible"}>
-              {statusSections}
-            </Activity>
-            <Activity mode={showSections ? "visible" : "hidden"}>
-              {sections}
-            </Activity>
-          </>
-        ) : (
-          statusSections
-        )}
+        <TicketListContent
+          {...props}
+          sections={sections}
+          showSections={showSections}
+        />
       </div>
     </div>
+  )
+}
+
+export function TicketListContent({
+  sections,
+  showSections = false,
+  ...props
+}: Omit<TicketListProps, "creator" | "toolbar">) {
+  const statusSections = <StatusSections {...props} />
+  return sections ? (
+    <>
+      <Activity mode={showSections ? "hidden" : "visible"}>
+        {statusSections}
+      </Activity>
+      <Activity mode={showSections ? "visible" : "hidden"}>{sections}</Activity>
+    </>
+  ) : (
+    statusSections
   )
 }
 
@@ -103,17 +114,24 @@ function StatusSections({
   ) {
     setPrevious({ req, query, value: result.value })
   }
+  const retainedResult = useAtomValue(backlog(previous?.req ?? req))
   const active = Result.isSuccess(result)
     ? { req, query, value: result.value }
     : Result.isFailure(result) && previous?.req !== req
       ? null
-      : previous
+      : previous && {
+          ...previous,
+          value: Option.getOrElse(
+            Result.value(retainedResult),
+            () => previous.value
+          )
+        }
   const renderSections = () =>
     active ? (
       <>
         <Activity mode={showAlternate ? "hidden" : "visible"}>
           <SegmentedList
-            key={`${orgSlug}/${slug}/${encodeTicketListQuery(active.query)}`}
+            key={`${orgSlug}/${slug}`}
             orgSlug={orgSlug}
             slug={slug}
             query={active.query}

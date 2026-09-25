@@ -40,7 +40,7 @@ import { m } from "@/paraglide/messages"
 import { MIN_SEARCH_CHARS } from "../search"
 import { SORT_LABELS } from "../sort"
 import { useTicketToolbar } from "./context"
-import { ControlSlot, ToolbarButton } from "./shared"
+import { ControlSlot, OptionPicker, ToolbarButton } from "./shared"
 
 export function SearchInput() {
   const { search, searchActive: compact, setFocused } = useTicketToolbar()
@@ -89,7 +89,9 @@ export function SearchInput() {
   )
 }
 
-export function Status() {
+export function Status({
+  variant = "toolbar"
+}: Readonly<{ variant?: "toolbar" | "panel" }>) {
   const { query, patchFilter, counts, orgSlug, slug, controlsCompact } =
     useTicketToolbar()
   const selected = query.status
@@ -106,6 +108,63 @@ export function Status() {
     ? statusLabelFor(status, statuses)
     : m.tickets_status_all()
   const CurrentIcon = currentMeta?.icon ?? Circle
+
+  const items = (
+    <>
+      <DropdownMenuItem
+        onClick={() => setStatus("all")}
+        className="cursor-pointer"
+      >
+        <Circle className="size-4 text-muted-foreground" strokeWidth={1.75} />
+        <span>{m.tickets_status_all()}</span>
+        <span className="ml-auto inline-flex items-center gap-2">
+          <span className="rounded-full bg-muted px-1.5 font-mono text-[10px] text-muted-foreground tabular-nums">
+            {counts.all ?? 0}
+          </span>
+          {status === "all" && (
+            <Check className="size-3.5 text-muted-foreground" />
+          )}
+        </span>
+      </DropdownMenuItem>
+      {slugs.length > 0 && <div className="my-1 h-px bg-border" />}
+      {slugs.map((s) => {
+        const meta = statusMetaFor(s, statuses)
+        const SIcon = meta.icon
+        return (
+          <DropdownMenuItem
+            key={s}
+            onClick={() => setStatus(s as TicketStatus)}
+            className="cursor-pointer"
+          >
+            <SIcon
+              className={cn("size-4", meta.className)}
+              style={meta.color ? { color: meta.color } : undefined}
+              strokeWidth={1.75}
+            />
+            <span className="truncate">{statusLabelFor(s, statuses)}</span>
+            <span className="ml-auto inline-flex items-center gap-2">
+              <span className="rounded-full bg-muted px-1.5 font-mono text-[10px] text-muted-foreground tabular-nums">
+                {counts[s] ?? 0}
+              </span>
+              {status === s && (
+                <Check className="size-3.5 text-muted-foreground" />
+              )}
+            </span>
+          </DropdownMenuItem>
+        )
+      })}
+    </>
+  )
+
+  if (variant === "panel")
+    return (
+      <OptionPicker
+        label={m.tickets_filters_section_status()}
+        value={currentLabel}
+      >
+        {items}
+      </OptionPicker>
+    )
 
   return (
     <ControlSlot>
@@ -146,51 +205,7 @@ export function Status() {
           className="w-52"
           finalFocus={false}
         >
-          <DropdownMenuItem
-            onClick={() => setStatus("all")}
-            className="cursor-pointer"
-          >
-            <Circle
-              className="size-4 text-muted-foreground"
-              strokeWidth={1.75}
-            />
-            <span>{m.tickets_status_all()}</span>
-            <span className="ml-auto inline-flex items-center gap-2">
-              <span className="rounded-full bg-muted px-1.5 font-mono text-[10px] text-muted-foreground tabular-nums">
-                {counts.all ?? 0}
-              </span>
-              {status === "all" && (
-                <Check className="size-3.5 text-muted-foreground" />
-              )}
-            </span>
-          </DropdownMenuItem>
-          {slugs.length > 0 && <div className="my-1 h-px bg-border" />}
-          {slugs.map((s) => {
-            const meta = statusMetaFor(s, statuses)
-            const SIcon = meta.icon
-            return (
-              <DropdownMenuItem
-                key={s}
-                onClick={() => setStatus(s as TicketStatus)}
-                className="cursor-pointer"
-              >
-                <SIcon
-                  className={cn("size-4", meta.className)}
-                  style={meta.color ? { color: meta.color } : undefined}
-                  strokeWidth={1.75}
-                />
-                <span className="truncate">{statusLabelFor(s, statuses)}</span>
-                <span className="ml-auto inline-flex items-center gap-2">
-                  <span className="rounded-full bg-muted px-1.5 font-mono text-[10px] text-muted-foreground tabular-nums">
-                    {counts[s] ?? 0}
-                  </span>
-                  {status === s && (
-                    <Check className="size-3.5 text-muted-foreground" />
-                  )}
-                </span>
-              </DropdownMenuItem>
-            )
-          })}
+          {items}
         </DropdownMenuContent>
       </DropdownMenu>
     </ControlSlot>

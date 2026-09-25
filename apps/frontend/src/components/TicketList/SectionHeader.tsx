@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react"
 import { forwardRef, type ReactNode, type Ref } from "react"
 
 import { Hitbox } from "@/components/ui/hitbox"
+import { keepInPlace } from "@/lib/keepInPlace"
 import { transitions } from "@/lib/springs"
 import { statusLabelFor, statusMetaFor } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
@@ -120,7 +121,11 @@ const StickySectionHeader = forwardRef<HTMLDivElement, StickyProps>(
     return (
       <div
         ref={ref}
-        onClick={creating ? undefined : onToggleCollapsed}
+        onClick={
+          creating
+            ? undefined
+            : (e) => keepInPlace(e.currentTarget, onToggleCollapsed)
+        }
         className={cn(
           "sticky top-0 z-10 flex items-center gap-3 rounded-lg bg-muted px-3 py-2 transition-colors",
           !creating &&
@@ -131,7 +136,7 @@ const StickySectionHeader = forwardRef<HTMLDivElement, StickyProps>(
           type="button"
           onClick={(e) => {
             e.stopPropagation()
-            onToggleCollapsed()
+            keepInPlace(e.currentTarget, onToggleCollapsed)
           }}
           aria-expanded={!collapsed}
           aria-label={m.tickets_section_collapse_aria_label({ label })}

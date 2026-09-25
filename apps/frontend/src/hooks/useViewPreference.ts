@@ -1,21 +1,36 @@
 import * as Schema from "effect/Schema"
 import { useLayoutEffect, useRef } from "react"
 
-import { useLocalStorageState } from "./useLocalStorageState"
+import { readLocalStorage, useLocalStorageState } from "./useLocalStorageState"
 
 const ViewPreference = Schema.Literals(["list", "board"])
 
 export type ViewPreference = typeof ViewPreference.Type
 
-const viewPreferenceKey = (orgSlug: string, slug: string) =>
-  `projectproject:view-preference:${orgSlug}/${slug}`
+type ViewScope = "backlog" | "sprints"
+
+const viewPreferenceKey = (orgSlug: string, slug: string, scope: ViewScope) =>
+  `projectproject:view-preference:${orgSlug}/${slug}/${scope}`
+
+export function readViewPreference(
+  orgSlug: string,
+  slug: string,
+  scope: ViewScope
+): ViewPreference {
+  return readLocalStorage(
+    viewPreferenceKey(orgSlug, slug, scope),
+    ViewPreference,
+    "list"
+  )
+}
 
 export function useViewPreference(
   orgSlug: string,
-  slug: string
+  slug: string,
+  scope: ViewScope
 ): readonly [ViewPreference, (next: ViewPreference) => void] {
   return useLocalStorageState(
-    viewPreferenceKey(orgSlug, slug),
+    viewPreferenceKey(orgSlug, slug, scope),
     ViewPreference,
     "list"
   )
@@ -26,22 +41,24 @@ export type ProjectView = ViewPreference | "description"
 export function useProjectView(
   orgSlug: string,
   slug: string,
-  searchView: string | undefined
-): {
-  readonly view: ProjectView
-  readonly setPreference: (next: ViewPreference) => void
-} {
-  const [preference, setPreference] = useViewPreference(orgSlug, slug)
+  searchView: string | undefined,
+  scope: ViewScope
+): Readonly<{
+  view: ProjectView
+  setPreference: (next: ViewPreference) => void
+}> {
+  const [preference, setPreference] = useViewPreference(orgSlug, slug, scope)
   const fromSearch: ViewPreference | undefined =
     searchView === "list" || searchView === "board" ? searchView : undefined
 
-  const adoptedSearchView = useRef<ViewPreference | undefined>(undefined)
+  const adoptedSearchView = useRef<string | undefined>(undefined)
   useLayoutEffect(() => {
-    if (fromSearch === undefined || fromSearch === adoptedSearchView.current)
-      return
-    adoptedSearchView.current = fromSearch
+    if (fromSearch === undefined) return
+    const adoptionKey = `${viewPreferenceKey(orgSlug, slug, scope)}:${fromSearch}`
+    if (adoptionKey === adoptedSearchView.current) return
+    adoptedSearchView.current = adoptionKey
     setPreference(fromSearch)
-  }, [fromSearch, setPreference])
+  }, [fromSearch, orgSlug, slug, scope, setPreference])
 
   return {
     view: searchView === "description" ? "description" : preference,

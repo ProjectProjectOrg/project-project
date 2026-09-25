@@ -9,7 +9,7 @@ import { m } from "@/paraglide/messages"
 
 import { BlockIconGlyph } from "./BlockIconGlyph"
 import { BlockSketch } from "./BlockSketch"
-import type { SketchBlock } from "./blockSketch"
+import type { SketchBlock } from "./blockSketchModel"
 import { layoutIdFor, type LibraryKind } from "./libraryModel"
 
 export type GalleryItem = Readonly<{

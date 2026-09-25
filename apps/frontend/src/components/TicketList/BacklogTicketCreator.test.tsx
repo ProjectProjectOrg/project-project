@@ -10,7 +10,7 @@ import {
 import * as Schema from "effect/Schema"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import type { ComponentProps } from "react"
-import { afterEach, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
 import { BUILTIN_LIBRARY } from "@/components/blocks/blockChrome"
@@ -31,8 +31,19 @@ const fetchStub = stubFetch()
 const encodeLibrary = Schema.encodeSync(Library)
 const query: TicketListQuery = { sort: { key: "id", dir: "asc" } }
 
+beforeEach(() => {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      disconnect() {}
+    }
+  )
+})
+
 afterEach(() => {
   cleanup()
+  vi.unstubAllGlobals()
 })
 
 type Posted = Readonly<Record<string, unknown>>

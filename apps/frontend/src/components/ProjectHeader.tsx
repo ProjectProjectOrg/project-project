@@ -3,7 +3,12 @@ import type { ProjectDetail as ProjectDetailType } from "@pp/shared"
 import { Link, useMatches } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { MoreHorizontal, SlidersHorizontal } from "lucide-react"
+import {
+  ArrowLeft,
+  FileText,
+  MoreHorizontal,
+  SlidersHorizontal
+} from "lucide-react"
 import {
   AnimatePresence,
   LayoutGroup,
@@ -27,6 +32,7 @@ import {
   SprintStatusSelect,
   SprintSubtitle
 } from "@/components/sprints/SprintHeaderFields"
+import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -168,16 +174,45 @@ export function ProjectHeader({
             slotKey={mode}
             layoutId="project-header-title"
             reduce={reduce}
-            className="flex h-8 max-w-full min-w-0 items-center"
+            className="flex h-8 max-w-full min-w-0 items-baseline gap-2"
           >
             {sprintGroupId ? (
               sprint ? (
-                <SprintNameField
-                  orgSlug={orgSlug}
-                  slug={slug}
-                  sprint={sprint}
-                  disabled={isCompleted}
-                />
+                <>
+                  <SprintNameField
+                    orgSlug={orgSlug}
+                    slug={slug}
+                    sprint={sprint}
+                    disabled={isCompleted}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    leadingIcon={
+                      sprintMatch?.search.view === "description"
+                        ? ArrowLeft
+                        : FileText
+                    }
+                    render={
+                      <Link
+                        to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
+                        params={{ orgSlug, slug, groupId: sprint.id }}
+                        search={(previous) => ({
+                          ...previous,
+                          updatedAfter: previous.updatedAfter?.toISOString(),
+                          view:
+                            previous.view === "description"
+                              ? undefined
+                              : "description"
+                        })}
+                      />
+                    }
+                  >
+                    {sprintMatch?.search.view === "description"
+                      ? m.sprints_back_to_tickets()
+                      : m.sprints_about_button()}
+                  </Button>
+                </>
               ) : sprintMissing ? (
                 <span className="truncate text-2xl font-semibold tracking-tight text-muted-foreground">
                   {m.sprints_not_found_title()}

@@ -15,7 +15,6 @@ import {
   useRef,
   useState,
   type ReactNode,
-  type ComponentType,
   type ComponentProps
 } from "react"
 
@@ -38,6 +37,10 @@ import { SectionHeader, type SectionHeading } from "./SectionHeader"
 import { SectionTicketCreator } from "./SectionTicketCreator"
 import { AutoLoad, VirtualRows } from "./VirtualRows"
 
+const renderDefaultRow = (props: ComponentProps<typeof Row>) => (
+  <Row {...props} />
+)
+
 export function SectionList({
   orgSlug,
   slug,
@@ -59,16 +62,14 @@ export function SectionList({
   heading,
   canCreate = true,
   pagination,
-  listKey,
-  rowComponent: RowComponent = Row,
+  renderRow = renderDefaultRow,
   emptyMessage,
   creationVariant = "status"
 }: {
   heading?: SectionHeading
-  listKey?: string
   canCreate?: boolean
   pagination?: ReactNode
-  rowComponent?: ComponentType<ComponentProps<typeof Row>>
+  renderRow?: (props: ComponentProps<typeof Row>) => ReactNode
   creationVariant?: "status" | "flat"
   emptyMessage?: string
   orgSlug: string
@@ -96,9 +97,6 @@ export function SectionList({
         : backlogRequest(orgSlug, slug, query),
     [creationVariant, orgSlug, slug, query]
   )
-  const sectionKey =
-    listKey ??
-    `${orgSlug}/${slug}/${status}/${encodeTicketListQuery(req.query)}`
   const [creating, setCreating] = useState(false)
 
   const { items } = page
@@ -151,7 +149,6 @@ export function SectionList({
           </div>
         ) : (
           <VirtualRows
-            key={sectionKey}
             className={gridCols}
             rowKeys={items.map((row) => row.key)}
             activeIndex={items.findIndex(
@@ -169,21 +166,21 @@ export function SectionList({
                     pending && "pointer-events-none animate-pulse"
                   )}
                 >
-                  <RowComponent
-                    orgSlug={orgSlug}
-                    slug={slug}
-                    ticket={ticket}
-                    req={req}
-                    members={members}
-                    showSprintCol={showSprintCol}
-                    showExtraActionsCol={showExtraActionsCol}
-                    sprintMembership={sprintMembership?.get(ticket.id) ?? null}
-                    extraRowActions={extraRowActions}
-                    pending={pending}
-                    previewOpen={activePreviewId === ticket.id}
-                    onPreviewPointerEnter={onPreviewPointerEnter}
-                    onPreviewOpenChange={onPreviewOpenChange}
-                  />
+                  {renderRow({
+                    orgSlug,
+                    slug,
+                    ticket,
+                    req,
+                    members,
+                    showSprintCol,
+                    showExtraActionsCol,
+                    sprintMembership: sprintMembership?.get(ticket.id) ?? null,
+                    extraRowActions,
+                    pending,
+                    previewOpen: activePreviewId === ticket.id,
+                    onPreviewPointerEnter,
+                    onPreviewOpenChange
+                  })}
                 </div>
               )
             }}
@@ -236,6 +233,7 @@ function SectionPagination({
         onSuccess: () => null
       })}
       <TicketPagination
+        requestKey={`${req.params.orgSlug}/${req.params.slug}:${encodeTicketListQuery(req.query)}`}
         nextCursor={nextCursor}
         remaining={remaining}
         collapsed={collapsed}
@@ -247,26 +245,30 @@ function SectionPagination({
   )
 }
 
-export function TicketPagination({
-  nextCursor,
-  remaining,
-  collapsed,
-  loadingMore,
-  failed,
-  loadMore
-}: {
+type TicketPaginationProps = Readonly<{
+  requestKey: string
   nextCursor: string | null
   remaining: number
   collapsed: boolean
   loadingMore: boolean
   failed: boolean
   loadMore: () => void
-}) {
+}>
+
+export function TicketPagination({
+  requestKey,
+  nextCursor,
+  remaining,
+  collapsed,
+  loadingMore,
+  failed,
+  loadMore
+}: TicketPaginationProps) {
   return (
     <>
       {nextCursor !== null && (
         <AutoLoad
-          key={nextCursor}
+          key={`${requestKey}:${nextCursor}`}
           cursor={nextCursor}
           enabled={!collapsed && !loadingMore && !failed}
           loadMore={loadMore}

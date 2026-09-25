@@ -13,7 +13,7 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { Inbox } from "lucide-react"
-import { useMemo, type ReactNode, type ComponentProps } from "react"
+import { useMemo, useState, type ReactNode, type ComponentProps } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
 import { SprintStateIcon } from "@/components/sprints/SprintChip"
@@ -82,23 +82,56 @@ export function SprintSections(props: Props) {
   const refreshGroups = useAtomRefresh(sprintList(groupsReq))
   const refreshSnapshot = useAtomRefresh(sprintSections(snapshotReq))
   const groups = Option.getOrUndefined(Result.value(groupsResult))
-  const snapshot = Option.getOrUndefined(Result.value(snapshotResult))
+  const [previous, setPrevious] = useState<Readonly<{
+    req: BacklogRequest
+    query: TicketListQuery
+    value: SprintSectionsValue
+  }> | null>(null)
+  if (
+    Result.isSuccess(snapshotResult) &&
+    (previous?.req !== snapshotReq || previous.value !== snapshotResult.value)
+  ) {
+    setPrevious({
+      req: snapshotReq,
+      query: props.query,
+      value: snapshotResult.value
+    })
+  }
+  const retainedResult = useAtomValue(
+    sprintSections(previous?.req ?? snapshotReq)
+  )
+  const active = Result.isSuccess(snapshotResult)
+    ? { req: snapshotReq, query: props.query, value: snapshotResult.value }
+    : previous?.req.params.orgSlug === props.orgSlug &&
+        previous.req.params.slug === props.slug &&
+        !Result.isFailure(snapshotResult)
+      ? {
+          ...previous,
+          value: Option.getOrElse(
+            Result.value(retainedResult),
+            () => previous.value
+          )
+        }
+      : null
   const waiting = groupsResult.waiting || snapshotResult.waiting
   const renderSections = () =>
-    groups && snapshot ? (
+    groups && active ? (
       <div
         style={{ overflowAnchor: "none" }}
         className="flex flex-col gap-1 has-[[data-creating]]:[&>:not(:has([data-creating]))]:opacity-35"
       >
-        {backlogSprintSections(groups, props.query.groupId).map((sprint) => {
+        {backlogSprintSections(groups, active.query.groupId).map((sprint) => {
           const id = sprintSectionKey(sprint?.id ?? null)
-          const section = snapshot.sections.find((entry) => entry.key === id)
+          const section = active.value.sections.find(
+            (entry) => entry.key === id
+          )
           return (
             <SprintSection
               key={id}
               {...props}
               persistKey={persistKey}
-              snapshotReq={snapshotReq}
+              query={active.query}
+              snapshotReq={active.req}
               sprint={sprint}
               page={section?.page ?? EMPTY_PAGE}
               count={section?.count ?? 0}
@@ -123,7 +156,7 @@ export function SprintSections(props: Props) {
   const renderFailure = (error: unknown) => (
     <>
       <ErrorPage error={error} reset={refresh} contained />
-      {groups && snapshot && renderSections()}
+      {groups && active && renderSections()}
     </>
   )
   return Result.matchWithError(groupsResult, {
@@ -178,7 +211,6 @@ function SprintSection({
     groupId: [sprint?.id ?? "ungrouped"] as TicketListQuery["groupId"],
     cursor: undefined
   }
-  const listKey = encodeTicketListQuery(query)
   const label = sprint?.name ?? m.tickets_grouping_unscheduled()
   const state = sprint ? sprintState(sprint) : null
   const stateLabel =
@@ -202,7 +234,6 @@ function SprintSection({
   return (
     <div aria-busy={waiting}>
       <SectionList
-        listKey={listKey}
         orgSlug={orgSlug}
         slug={slug}
         query={query}
@@ -244,7 +275,7 @@ function SprintSection({
             collapsed={collapsed}
           />
         }
-        rowComponent={(rowProps) => (
+        renderRow={(rowProps) => (
           <SprintRow {...rowProps} snapshotReq={snapshotReq} />
         )}
         creationVariant="flat"
@@ -315,6 +346,7 @@ function SprintSectionPagination({
   const state = useAtomValue(loadMoreSprintSections({ req, key: sectionKey }))
   return (
     <TicketPagination
+      requestKey={`${req.params.orgSlug}/${req.params.slug}:${encodeTicketListQuery(req.query)}`}
       nextCursor={nextCursor}
       remaining={Math.max(0, count - loaded)}
       collapsed={collapsed}

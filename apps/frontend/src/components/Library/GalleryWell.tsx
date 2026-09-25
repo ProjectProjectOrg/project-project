@@ -21,7 +21,11 @@ import { LibraryContext } from "@/components/blocks/blockChrome"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import { sketchLines, templateSketch, type SketchBlock } from "./blockSketch"
+import {
+  sketchLines,
+  templateSketch,
+  type SketchBlock
+} from "./blockSketchModel"
 import { DitheredBlocks } from "./DitheredBlocks"
 import { GalleryTile, type GalleryItem } from "./GalleryTile"
 import { blockDraftOf, templateDraftOf, type LibraryKind } from "./libraryModel"

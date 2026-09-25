@@ -8,6 +8,7 @@ import {
   loadMoreMyTickets,
   type OrgTicketsRequest
 } from "@/features/tickets/atoms/myTickets"
+import { keepInPlace } from "@/lib/keepInPlace"
 import { m } from "@/paraglide/messages"
 
 type MyTicketsPaginationProps = Readonly<{
@@ -38,6 +39,7 @@ export function MyTicketsPagination({
         )
       })}
       <TicketPagination
+        requestKey={req.params.orgSlug}
         nextCursor={nextCursor}
         remaining={Math.max(0, total - loaded)}
         collapsed={false}
@@ -56,7 +58,18 @@ export function ShowLessButton({
 }: Readonly<{ onCollapse: () => void }>) {
   return (
     <div className="flex justify-center py-2">
-      <Button type="button" variant="tertiary" size="sm" onClick={onCollapse}>
+      <Button
+        type="button"
+        variant="tertiary"
+        size="sm"
+        onClick={(e) =>
+          keepInPlace(
+            e.currentTarget.closest("section") ?? e.currentTarget,
+            onCollapse,
+            "bottom"
+          )
+        }
+      >
         {m.org_dashboard_show_less()}
       </Button>
     </div>

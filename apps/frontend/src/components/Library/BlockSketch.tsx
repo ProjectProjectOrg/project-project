@@ -4,7 +4,7 @@ import { MarqueeIfOverflow } from "@/components/MarqueeIfOverflow"
 import { cn } from "@/lib/utils"
 
 import { BlockIconGlyph } from "./BlockIconGlyph"
-import type { SketchBlock, SketchLine } from "./blockSketch"
+import type { SketchBlock, SketchLine } from "./blockSketchModel"
 
 const BAR_WIDTHS = ["w-[82%]", "w-[58%]", "w-[70%]", "w-[46%]"] as const
 

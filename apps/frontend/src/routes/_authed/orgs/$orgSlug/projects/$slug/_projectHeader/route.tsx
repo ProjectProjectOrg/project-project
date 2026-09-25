@@ -19,15 +19,7 @@ import {
 } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import {
-  CalendarRange,
-  Columns3,
-  FileText,
-  Info,
-  ListChecks,
-  Rows3,
-  type LucideIcon
-} from "lucide-react"
+import { CalendarRange, Info, ListChecks, type LucideIcon } from "lucide-react"
 import { startTransition, useOptimistic, type MouseEvent, useMemo } from "react"
 import { flushSync } from "react-dom"
 
@@ -53,7 +45,6 @@ import {
   countsRequest,
   ticketCounts
 } from "@/features/tickets/atoms/ticketCounts"
-import { useProjectView } from "@/hooks/useViewPreference"
 import { statusMetaFor } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -310,7 +301,6 @@ function TabsNav({
           )
         }}
       />
-      <ViewSwitcher orgSlug={orgSlug} slug={slug} />
     </div>
   )
 }
@@ -330,119 +320,6 @@ function pickSprintNavigationTarget(
     )
   return completed[0] ?? null
 }
-
-function ViewSwitcher({ orgSlug, slug }: { orgSlug: string; slug: string }) {
-  const navigate = useNavigate()
-  const matches = useMatches()
-  const sprintMatch = matches.find(
-    (m) =>
-      m.routeId ===
-      "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId"
-  )
-  const backlogMatch = matches.find(
-    (m) => m.routeId === "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/"
-  )
-  const search = (sprintMatch ?? backlogMatch)?.search as
-    | { view?: "list" | "board" | "description" }
-    | undefined
-  const { view, setPreference } = useProjectView(orgSlug, slug, search?.view)
-  if (!sprintMatch && !backlogMatch) return null
-
-  const select = (next: "list" | "board" | "description", to: () => void) => {
-    if (next !== "description") flushSync(() => setPreference(next))
-    startTransition(to)
-  }
-
-  if (sprintMatch) {
-    const { groupId } = sprintMatch.params as { groupId: string }
-    return (
-      <SwitcherTabs
-        ariaLabel={m.sprints_view_tabs_aria_label()}
-        current={view}
-        items={[
-          { key: "list", label: m.sprints_view_list(), icon: Rows3 },
-          { key: "board", label: m.sprints_view_board(), icon: Columns3 },
-          {
-            key: "description",
-            label: m.sprints_view_description(),
-            icon: FileText
-          }
-        ]}
-        onSelect={(next) =>
-          select(next, () => {
-            void navigate({
-              to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
-              params: { orgSlug, slug, groupId },
-              search: (prev) => ({
-                ...prev,
-                updatedAfter: prev.updatedAfter?.toISOString(),
-                view: next
-              })
-            })
-          })
-        }
-      />
-    )
-  }
-
-  return (
-    <SwitcherTabs
-      ariaLabel={m.tickets_view_tabs_aria_label()}
-      current={view === "description" ? "list" : view}
-      items={[
-        { key: "list", label: m.tickets_view_list(), icon: Rows3 },
-        { key: "board", label: m.tickets_view_board(), icon: Columns3 }
-      ]}
-      onSelect={(next) =>
-        select(next, () => {
-          void navigate({
-            to: "/orgs/$orgSlug/projects/$slug",
-            params: { orgSlug, slug },
-            search: (prev) => ({
-              ...prev,
-              updatedAfter: prev.updatedAfter?.toISOString(),
-              view: next
-            })
-          })
-        })
-      }
-    />
-  )
-}
-
-function SwitcherTabs<K extends string>({
-  ariaLabel,
-  current,
-  items,
-  onSelect
-}: {
-  ariaLabel: string
-  current: K
-  items: ReadonlyArray<SegmentedItem<K>>
-  onSelect: (next: K) => void
-}) {
-  return (
-    <div role="group" aria-label={ariaLabel} className="ml-auto">
-      <SegmentedTabs
-        items={items}
-        isActive={(k) => k === current}
-        renderItem={(item, content, { active }) => (
-          <button
-            type="button"
-            onClick={() => {
-              if (item.key !== current) onSelect(item.key)
-            }}
-            aria-pressed={active}
-            className={SEGMENTED_ITEM_CLASS(active)}
-          >
-            {content}
-          </button>
-        )}
-      />
-    </div>
-  )
-}
-
 function TicketsBreakdown({
   counts,
   statuses

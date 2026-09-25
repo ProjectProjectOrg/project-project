@@ -37,6 +37,13 @@ function snapshot<
   return value
 }
 
+export function readLocalStorage<
+  S extends Schema.ConstraintDecoder<unknown> &
+    Schema.ConstraintEncoder<unknown>
+>(key: string, schema: S, initial: S["Type"]): S["Type"] {
+  return snapshot(key, schema, initial)
+}
+
 function notify(key: string): void {
   const set = listeners.get(key)
   if (set) for (const listener of set) listener()
