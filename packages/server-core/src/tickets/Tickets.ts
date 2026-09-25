@@ -73,21 +73,33 @@ export interface TicketsShape {
   >
   readonly sections: (
     query: TicketListQuery
-  ) => Effect.Effect<TicketSections, NotFound | MarkdownError, ProjectScope>
+  ) => Effect.Effect<
+    TicketSections,
+    Forbidden | NotFound | MarkdownError,
+    ProjectScope
+  >
   readonly sprintSections: (
     query: TicketListQuery
   ) => Effect.Effect<
     TicketSprintSections,
-    NotFound | MarkdownError,
+    Forbidden | NotFound | MarkdownError,
     ProjectScope
   >
   readonly list: (
     query: TicketListQuery,
     limit?: number
-  ) => Effect.Effect<TicketListPage, NotFound | MarkdownError, ProjectScope>
+  ) => Effect.Effect<
+    TicketListPage,
+    Forbidden | NotFound | MarkdownError,
+    ProjectScope
+  >
   readonly count: (
     query: TicketCountQuery
-  ) => Effect.Effect<TicketCounts, NotFound | MarkdownError, ProjectScope>
+  ) => Effect.Effect<
+    TicketCounts,
+    Forbidden | NotFound | MarkdownError,
+    ProjectScope
+  >
   readonly search: (
     options: TicketSearchQuery
   ) => Effect.Effect<

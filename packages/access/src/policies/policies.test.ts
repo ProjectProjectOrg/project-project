@@ -95,3 +95,75 @@ describe("GroupPolicy.canManage", () => {
     ).toStrictEqual(expected)
   })
 })
+
+const fields = (status: string, assignees: ReadonlyArray<string> = []) => ({
+  status,
+  assignees
+})
+
+const split = (overrides: Partial<TicketPolicy.Split>) => ({
+  ownerId: "someone-else",
+  source: fields("in_progress", ["dev-1"]),
+  retained: fields("in_progress", ["dev-1"]),
+  created: [fields("todo")],
+  defaultStatus: "todo",
+  detachesGit: false,
+  ...overrides
+})
+
+describe("TicketPolicy.canSplit", () => {
+  it.each<readonly [string, TicketPolicy.Split, ReadonlyArray<ActorName>]>([
+    ["someone else's ticket", split({}), ["pm", "developer"]],
+    [
+      "their own ticket",
+      split({ ownerId: "me" }),
+      ["pm", "developer", "client"]
+    ],
+    [
+      "their own ticket into pieces with a new status",
+      split({ ownerId: "me", created: [fields("in_progress")] }),
+      ["pm", "developer"]
+    ],
+    [
+      "their own ticket into pieces with assignees",
+      split({ ownerId: "me", created: [fields("todo", ["dev-1"])] }),
+      ["pm", "developer"]
+    ],
+    [
+      "their own ticket, keeping a different status",
+      split({ ownerId: "me", retained: fields("done", ["dev-1"]) }),
+      ["pm", "developer"]
+    ],
+    [
+      "their own ticket, dropping an assignee",
+      split({ ownerId: "me", retained: fields("in_progress") }),
+      ["pm", "developer"]
+    ],
+    [
+      "a ticket with a branch",
+      split({ detachesGit: true }),
+      ["pm", "developer"]
+    ],
+    [
+      "their own ticket with a branch",
+      split({ ownerId: "me", detachesGit: true }),
+      ["pm", "developer"]
+    ]
+  ])("who may split %s", (_, subject, expected) => {
+    expect(
+      allowed((candidate) => TicketPolicy.canSplit(candidate, subject))
+    ).toStrictEqual(expected)
+  })
+})
+
+describe("TicketPolicy.canQuery", () => {
+  it.each<readonly [string, TicketPolicy.Query, ReadonlyArray<ActorName>]>([
+    ["no GitHub filter", {}, ["pm", "developer", "client", "orgAdmin"]],
+    ["hasBranch", { hasBranch: true }, ["pm", "developer", "orgAdmin"]],
+    ["hasPr", { hasPr: false }, ["pm", "developer", "orgAdmin"]]
+  ])("who may filter by %s", (_, query, expected) => {
+    expect(
+      allowed((candidate) => TicketPolicy.canQuery(candidate, query))
+    ).toStrictEqual(expected)
+  })
+})

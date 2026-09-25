@@ -124,6 +124,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
     Layer.provideMerge(GroupsLive),
     Layer.provideMerge(ProjectsLive),
     Layer.provideMerge(OrgLive),
+    Layer.provideMerge(EverhourTimeTrackingLive),
     Layer.provideMerge(AccessLive),
     Layer.provideMerge(GitHubLive),
     Layer.provideMerge(EverhourLive)
@@ -137,9 +138,6 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       ),
       Layer.provideMerge(
         FigmaIntegrationsLive.pipe(Layer.provideMerge(FigmaLive))
-      ),
-      Layer.provideMerge(
-        EverhourTimeTrackingLive.pipe(Layer.provideMerge(EverhourLive))
       ),
       Layer.provideMerge(BannerPlaceholdersLive),
       Layer.provideMerge(UsersLive),

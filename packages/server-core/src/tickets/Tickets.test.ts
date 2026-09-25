@@ -2645,6 +2645,46 @@ it.effect("hides GitHub state from anyone without github:read", () => {
   }).pipe(Effect.provide(layer))
 })
 
+it.effect("refuses GitHub filters to anyone without github:read", () => {
+  const { layer } = permissionFixture()
+  const client = as(scopeAs("guest", "client", "client-1"))
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const withBranch = yield* tickets
+      .list({ sort: DEFAULT_TICKET_SORT, hasBranch: true })
+      .pipe(as(scopeAs("member", "developer", "user-1")))
+    expect(withBranch.items.map(({ ticket }) => ticket.id)).toEqual(["T-1"])
+    const refused = [
+      yield* Effect.flip(
+        tickets
+          .list({ sort: DEFAULT_TICKET_SORT, hasBranch: true })
+          .pipe(client)
+      ),
+      yield* Effect.flip(tickets.count({ hasPr: false }).pipe(client)),
+      yield* Effect.flip(
+        tickets
+          .sections({ sort: DEFAULT_TICKET_SORT, hasPr: true })
+          .pipe(client)
+      ),
+      yield* Effect.flip(
+        tickets
+          .sprintSections({ sort: DEFAULT_TICKET_SORT, hasBranch: false })
+          .pipe(client)
+      )
+    ]
+    expect(refused.map((error) => error._tag)).toStrictEqual([
+      "Forbidden",
+      "Forbidden",
+      "Forbidden",
+      "Forbidden"
+    ])
+    const unfiltered = yield* tickets
+      .list({ sort: DEFAULT_TICKET_SORT })
+      .pipe(client)
+    expect(unfiltered.items).toHaveLength(2)
+  }).pipe(Effect.provide(layer))
+})
+
 it.effect("keeps org admins without a role from editing", () => {
   const { docs, layer } = permissionFixture()
   return Effect.gen(function* () {

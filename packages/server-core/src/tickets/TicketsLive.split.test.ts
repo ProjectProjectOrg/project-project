@@ -599,3 +599,149 @@ it.effect(
       expect(yield* fs.exists(ticketFile(root, path, "T-3"))).toBe(false)
     }).pipe(Effect.provide(TestLayer))
 )
+
+const scopedAs = (role: "developer" | "client", userId: string) =>
+  Effect.provideService(
+    ProjectScope,
+    projectScope(role === "client" ? "guest" : "member", role, {
+      userId,
+      orgSlug: "org",
+      slug: "p",
+      projectId: "p",
+      organizationId: "org"
+    })
+  )
+
+const seedClientTicket = Effect.gen(function* () {
+  const tickets = yield* Tickets
+  const created = yield* tickets
+    .create({ title: "Client request", type: "feat" })
+    .pipe(scopedAs("client", "client-1"))
+  return yield* tickets.update(created.id, {
+    status: decodeStatus("in_progress"),
+    assignees: ["user-1"]
+  })
+})
+
+it.effect(
+  "split authorizes new tickets against the create defaults, not the source",
+  () =>
+    Effect.gen(function* () {
+      yield* resetFakes
+      const tickets = yield* Tickets
+      const fs = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const root = yield* Config.String("PROJECTS_DIR")
+      const { ticket: original } = yield* seedClientTicket
+      const client = scopedAs("client", "client-1")
+      const retained = result("Client request", "feat", ["user-1"])
+
+      const assigned = yield* Effect.flip(
+        tickets
+          .split(original.id, {
+            results: [
+              retained,
+              {
+                ...result("Copy", "feat", ["user-1"]),
+                status: decodeStatus("todo")
+              }
+            ]
+          })
+          .pipe(client)
+      )
+      const transitioned = yield* Effect.flip(
+        tickets
+          .split(original.id, {
+            results: [retained, result("Copy", "feat")]
+          })
+          .pipe(client)
+      )
+      expect([assigned._tag, transitioned._tag]).toStrictEqual([
+        "Forbidden",
+        "Forbidden"
+      ])
+      expect(yield* fs.exists(ticketFile(root, path, "T-2"))).toBe(false)
+
+      const outcome = yield* tickets
+        .split(original.id, {
+          results: [
+            retained,
+            { ...result("Follow-up", "feat"), status: decodeStatus("todo") }
+          ]
+        })
+        .pipe(client)
+      expect(outcome.created.map((ticket) => ticket.status)).toEqual(["todo"])
+    }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect(
+  "split needs sprint:manage to take the original out of its sprint",
+  () =>
+    Effect.gen(function* () {
+      yield* resetFakes
+      const tickets = yield* Tickets
+      const original = yield* seedOriginal
+      const sprintId = decodeGroupId("G-1")
+      sprintMemberships.set(original.id, sprintId)
+      sprintTicketOrders.set(sprintId, [original.id])
+      const developer = scopedAs("developer", "user-2")
+
+      const removed = yield* Effect.flip(
+        tickets
+          .split(original.id, {
+            results: [
+              result("Detail page layout", "feat", ["user-1"]),
+              result("Sidebar API", "feat")
+            ]
+          })
+          .pipe(developer)
+      )
+      expect(removed._tag).toBe("Forbidden")
+      expect(sprintAssignments).toEqual([])
+
+      yield* tickets
+        .split(original.id, {
+          results: [
+            { ...result("Detail page layout", "feat", ["user-1"]), sprintId },
+            result("Sidebar API", "feat")
+          ]
+        })
+        .pipe(developer)
+      expect(sprintMemberships.get(original.id)).toBe(sprintId)
+    }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect("split needs github:write to detach the original's branch", () =>
+  Effect.gen(function* () {
+    yield* resetFakes
+    const tickets = yield* Tickets
+    const docs = yield* TicketDocs
+    const { ticket: original } = yield* seedClientTicket
+    yield* docs.update("org", "p", original.id, (existing) =>
+      Effect.succeed({
+        ...existing,
+        status: decodeStatus("todo"),
+        assignees: [],
+        branch: "feat/client"
+      })
+    )
+
+    const attempt = yield* Effect.flip(
+      tickets
+        .split(original.id, {
+          results: [
+            {
+              ...result("Client request", "feat"),
+              status: decodeStatus("todo")
+            },
+            { ...result("Follow-up", "feat"), status: decodeStatus("todo") }
+          ]
+        })
+        .pipe(scopedAs("client", "client-1"))
+    )
+    expect(attempt._tag).toBe("Forbidden")
+    expect((yield* docs.read("org", "p", original.id)).branch).toBe(
+      "feat/client"
+    )
+  }).pipe(Effect.provide(TestLayer))
+)
