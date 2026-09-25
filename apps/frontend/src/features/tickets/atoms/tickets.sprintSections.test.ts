@@ -4,7 +4,8 @@ import {
   SPRINT_SECTION_UNSCHEDULED,
   Ticket,
   TicketId,
-  TicketStatus
+  TicketStatus,
+  UserId
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
@@ -43,6 +44,7 @@ const ticket = {
 } satisfies Ticket
 
 const doing = Schema.decodeSync(TicketStatus)("in_progress")
+const viewerId = Schema.decodeSync(UserId)("user-1")
 const query = { sort: { key: "id", dir: "asc" } } as const
 const groupId = Schema.decodeSync(GroupId)("G-1")
 const req = sprintSectionsRequest("org", "project", query)
@@ -163,7 +165,11 @@ describe("ticket sprint sections", () => {
     )
     const registry = AtomRegistry.make()
     const view = sprintSections(req)
-    const mutation = updateSprintSectionsTicket({ req, id: ticket.id })
+    const mutation = updateSprintSectionsTicket({
+      req,
+      id: ticket.id,
+      viewerId
+    })
     registry.mount(view)
     registry.mount(mutation)
     try {
@@ -199,7 +205,8 @@ describe("ticket sprint sections", () => {
     const view = sprintSections(filteredReq)
     const mutation = updateSprintSectionsTicket({
       req: filteredReq,
-      id: ticket.id
+      id: ticket.id,
+      viewerId
     })
     registry.mount(view)
     registry.mount(mutation)
@@ -221,6 +228,65 @@ describe("ticket sprint sections", () => {
       registry.dispose()
     }
   })
+
+  it.each([
+    {
+      filter: { type: ["chore"] },
+      patch: { type: "bug" },
+      count: 0
+    },
+    {
+      filter: { assignee: ["mine"] },
+      patch: { assignees: [] },
+      count: 0
+    },
+    {
+      filter: { assignee: ["mine"] },
+      patch: { title: "After" },
+      count: 1
+    }
+  ] as const)(
+    "updates matching rows and counts for $filter after $patch",
+    async ({ filter, patch, count }) => {
+      const assigned = { ...ticket, assignees: [viewerId] }
+      const filteredReq = sprintSectionsRequest("org", "project", {
+        ...query,
+        ...filter
+      })
+      fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) =>
+        init?.method === "PATCH"
+          ? new Promise<Response>(() => {})
+          : Promise.resolve(snapshot([assigned]))
+      )
+      const registry = AtomRegistry.make()
+      const view = sprintSections(filteredReq)
+      const mutation = updateSprintSectionsTicket({
+        req: filteredReq,
+        id: ticket.id,
+        viewerId
+      })
+      registry.mount(view)
+      registry.mount(mutation)
+      try {
+        await vi.waitFor(() =>
+          expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
+        )
+        registry.set(mutation, patch)
+        const result = registry.get(view)
+        if (!AsyncResult.isSuccess(result))
+          throw new Error("no optimistic value")
+        expect(result.value.total).toBe(count)
+        expect(result.value.counts).toEqual({
+          total: count,
+          byStatus: { [ticket.status]: count }
+        })
+        expect(sprintSection(result, groupId)?.count).toBe(count)
+        expect(sprintSection(result, groupId)?.page.items).toHaveLength(count)
+      } finally {
+        registry.dispose()
+      }
+    }
+  )
 
   it("keeps an excluded quick-create out of filtered sections", async () => {
     const filteredReq = sprintSectionsRequest("org", "project", {

@@ -17,6 +17,7 @@ import { useMemo, useState, type ReactNode, type ComponentProps } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
 import { SprintStateIcon } from "@/components/sprints/SprintChip"
+import { me } from "@/features/auth/atoms/auth"
 import {
   sprintList,
   sprintListRequest
@@ -301,12 +302,15 @@ function SprintRow({
   snapshotReq,
   ...props
 }: ComponentProps<typeof Row> & { snapshotReq: BacklogRequest }) {
-  const update = useAtomSet(
-    updateSprintSectionsTicket({ req: snapshotReq, id: props.ticket.id })
-  )
-  const state = useAtomValue(
-    updateSprintSectionsTicket({ req: snapshotReq, id: props.ticket.id })
-  )
+  const viewer = useAtomValue(me())
+  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : undefined
+  const mutation = updateSprintSectionsTicket({
+    req: snapshotReq,
+    id: props.ticket.id,
+    viewerId
+  })
+  const update = useAtomSet(mutation)
+  const state = useAtomValue(mutation)
   return (
     <>
       <Row {...props} onUpdate={update} />

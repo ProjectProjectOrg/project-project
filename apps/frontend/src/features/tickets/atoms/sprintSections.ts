@@ -14,7 +14,8 @@ import {
   type TicketSort,
   type TicketStatus,
   type Unauthorized,
-  type UpdateTicketInput
+  type UpdateTicketInput,
+  type UserId
 } from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
@@ -317,12 +318,14 @@ const patchRow = (
   value: SprintSectionsValue,
   id: TicketId,
   patch: UpdateTicketInput,
-  sort: TicketSort,
-  visibleStatuses: ReadonlyArray<TicketStatus> | undefined,
+  query: TicketListQuery,
+  viewerId: UserId | undefined,
   now: Date
 ): SprintSectionsValue => {
   let patched: BacklogRow | undefined
   let from: TicketStatus | undefined
+  let staysCounted = true
+  let staysVisible = true
   const sections = value.sections.map((section) => {
     const items: Array<BacklogRow> = []
     let found: BacklogRow | undefined
@@ -337,36 +340,45 @@ const patchRow = (
         ticket: { ...applyTicketPatch(row.ticket, patch), updatedAt: now },
         pending: true
       }
-      if (sort.key === "updated" || patchesSortedField(patch, sort.key)) {
-        found = { ...found, orderKey: localOrderKey(found.ticket, sort) }
+      if (
+        query.sort.key === "updated" ||
+        patchesSortedField(patch, query.sort.key)
+      ) {
+        found = { ...found, orderKey: localOrderKey(found.ticket, query.sort) }
       }
       patched = found
+      staysCounted = matchesTicketQuery(
+        found.ticket,
+        { ...query, status: undefined },
+        viewerId
+      )
+      staysVisible = matchesTicketQuery(found.ticket, query, viewerId)
     }
     if (found === undefined) return section
-    const leavesFilter =
-      visibleStatuses?.length &&
-      patch.status !== undefined &&
-      !visibleStatuses.includes(patch.status)
     return {
       ...section,
-      count: section.count - (leavesFilter ? 1 : 0),
+      count: section.count - (staysVisible ? 0 : 1),
       page: {
         ...section.page,
-        items: leavesFilter ? items : insertByOrderKey(items, found, sort.dir)
+        items: staysVisible
+          ? insertByOrderKey(items, found, query.sort.dir)
+          : items
       }
     }
   })
   if (!patched || from === undefined) return value
-  const to = patch.status ?? from
-  if (to === from) return { ...value, sections }
+  const to = patched.ticket.status
+  if (to === from && staysCounted && staysVisible) return { ...value, sections }
   const byStatus = { ...value.counts.byStatus }
   byStatus[from] = Math.max(0, (byStatus[from] ?? 0) - 1)
-  byStatus[to] = (byStatus[to] ?? 0) + 1
-  const leavesFilter = visibleStatuses?.length && !visibleStatuses.includes(to)
+  if (staysCounted) byStatus[to] = (byStatus[to] ?? 0) + 1
   return {
     ...value,
-    total: value.total - (leavesFilter ? 1 : 0),
-    counts: { ...value.counts, byStatus },
+    total: value.total - (staysVisible ? 0 : 1),
+    counts: {
+      total: value.counts.total - (staysCounted ? 0 : 1),
+      byStatus
+    },
     sections
   }
 }
@@ -416,7 +428,15 @@ const unsavedPatchAtom = Atom.family(
 )
 
 export const updateSprintSectionsTicket = Atom.family(
-  ({ req, id }: Readonly<{ req: BacklogRequest; id: TicketId }>) =>
+  ({
+    req,
+    id,
+    viewerId
+  }: Readonly<{
+    req: BacklogRequest
+    id: TicketId
+    viewerId: UserId | undefined
+  }>) =>
     Atom.optimisticFn(sprintSections(req), {
       reducer: (current, patch: UpdateTicketInput) =>
         AsyncResult.map(current, (value) =>
@@ -424,8 +444,8 @@ export const updateSprintSectionsTicket = Atom.family(
             value,
             id,
             patch,
-            req.query.sort,
-            req.query.status,
+            req.query,
+            viewerId,
             DateTime.toDate(DateTime.nowUnsafe())
           )
         ),
