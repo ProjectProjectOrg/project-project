@@ -14,8 +14,7 @@ import * as Schema from "effect/Schema"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { CurrentOrg } from "../organizations/CurrentOrg"
-import { Projects } from "../projects/Projects"
+import { Access } from "../access/Access"
 import { OrgStorage } from "../storage/OrgStorage"
 import { S3Storage } from "../storage/S3Storage"
 import { Attachments } from "./Attachments"
@@ -109,10 +108,9 @@ describe.skipIf(!databaseUrl)("orphanProject", () => {
     )
     layer = AttachmentsLive.pipe(
       Layer.provideMerge(db),
-      Layer.provide(Layer.succeed(CurrentOrg, {} as never)),
+      Layer.provide(Layer.succeed(Access, {} as never)),
       Layer.provide(Layer.succeed(OrgStorage, {} as never)),
       Layer.provide(Layer.succeed(S3Storage, {} as never)),
-      Layer.provide(Layer.succeed(Projects, {} as never)),
       Layer.orDie
     )
   })

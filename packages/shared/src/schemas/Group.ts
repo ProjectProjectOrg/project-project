@@ -13,11 +13,6 @@ export const GroupKind = Schema.Literals([
 ])
 export type GroupKind = typeof GroupKind.Type
 
-export const ADMIN_GATED_KINDS: ReadonlySet<GroupKind> = new Set([
-  "sprint",
-  "milestone"
-])
-
 export const GroupColor = Schema.String.pipe(
   Schema.check(Schema.isPattern(/^#[0-9a-f]{6}$/i)),
   Schema.brand("GroupColor")

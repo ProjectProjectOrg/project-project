@@ -1,14 +1,13 @@
+import { CommentPolicy } from "@pp/access/policies"
 import { Db } from "@pp/db"
 import { commentIndex } from "@pp/db/schema"
 import {
   Comment,
   CommentId,
-  CreateCommentInput,
   Forbidden,
   NotFound,
-  UpdateCommentInput,
-  type MentionInvalid,
-  type TicketId
+  ProjectScope,
+  type ProjectScopeShape
 } from "@pp/shared"
 import { eq, inArray } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
@@ -19,7 +18,7 @@ import { ulid } from "ulid"
 
 import type { MarkdownError } from "../markdown/Markdown"
 import { Projects } from "../projects/Projects"
-import { type MalformedTicketDocument, TicketDocs } from "../tickets/TicketDocs"
+import { TicketDocs } from "../tickets/TicketDocs"
 import { TicketIndex } from "../tickets/TicketIndex"
 import { Users } from "../users/Users"
 import { validateBodyMentionsWithLookups } from "./BodyMentions"
@@ -28,7 +27,6 @@ import {
   HistoricalCommentAuthor,
   InvalidCommentAuthor,
   InvalidCommentBody,
-  type HistoricalCommentInput,
   type CommentsShape
 } from "./Comments"
 import {
@@ -50,15 +48,7 @@ export const CommentsLive = Layer.effect(
     const ticketDocs = yield* TicketDocs
     const users = yield* Users
 
-    const ensureMember = (orgSlug: string, userId: string, slug: string) =>
-      projects.requireMember(orgSlug, userId, slug)
-
-    const validateBody = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      body: string
-    ) =>
+    const validateBody = (orgSlug: string, slug: string, body: string) =>
       validateBodyMentionsWithLookups(body, {
         existingTicketIds: (ticketIds) =>
           ticketIndex
@@ -68,15 +58,7 @@ export const CommentsLive = Layer.effect(
                 ticketIndex.existingIds(project, ticketIds)
               )
             ),
-        memberIds: () =>
-          projects
-            .get(orgSlug, userId, slug)
-            .pipe(
-              Effect.map(
-                (project) =>
-                  new Set<string>(project.members.map((member) => member.id))
-              )
-            )
+        memberIds: () => projects.memberIds()
       })
 
     const updateBlocks = (
@@ -117,17 +99,9 @@ export const CommentsLive = Layer.effect(
       )
     }
 
-    const list = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      ticketId: TicketId
-    ): Effect.Effect<
-      ReadonlyArray<Comment>,
-      NotFound | MarkdownError | MalformedTicketDocument
-    > =>
+    const list: CommentsShape["list"] = (ticketId) =>
       Effect.gen(function* () {
-        const { projectId } = yield* ensureMember(orgSlug, userId, slug)
+        const { orgSlug, slug, projectId } = yield* ProjectScope
         const rows = yield* db.query.commentIndex
           .findMany({
             where: {
@@ -199,27 +173,14 @@ export const CommentsLive = Layer.effect(
         })
       })
 
-    const create = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      ticketId: TicketId,
-      input: CreateCommentInput
-    ): Effect.Effect<
-      Comment,
-      | NotFound
-      | InvalidCommentBody
-      | MentionInvalid
-      | MarkdownError
-      | MalformedTicketDocument
-    > =>
+    const create: CommentsShape["create"] = (ticketId, input) =>
       Effect.gen(function* () {
-        const { projectId } = yield* ensureMember(orgSlug, userId, slug)
+        const { orgSlug, slug, userId, projectId } = yield* ProjectScope
         const validation = validateCommentBody(input.body)
         if (!validation.ok) {
           return yield* new InvalidCommentBody({ reason: validation.reason })
         }
-        yield* validateBody(orgSlug, userId, slug, input.body)
+        yield* validateBody(orgSlug, slug, input.body)
         const id = newCommentId()
         const now = yield* DateTime.nowAsDate
 
@@ -273,15 +234,12 @@ export const CommentsLive = Layer.effect(
         }
       })
 
-    const importHistorical = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      ticketId: TicketId,
-      input: ReadonlyArray<HistoricalCommentInput>
+    const importHistorical: CommentsShape["importHistorical"] = (
+      ticketId,
+      input
     ) =>
       Effect.gen(function* () {
-        const { projectId } = yield* ensureMember(orgSlug, userId, slug)
+        const { orgSlug, slug, projectId } = yield* ProjectScope
         yield* Effect.forEach(input, (comment) =>
           Effect.gen(function* () {
             if (!Schema.is(HistoricalCommentAuthor)(comment.author)) {
@@ -295,7 +253,7 @@ export const CommentsLive = Layer.effect(
                 reason: validation.reason
               })
             }
-            yield* validateBody(orgSlug, userId, slug, comment.body)
+            yield* validateBody(orgSlug, slug, comment.body)
           })
         )
 
@@ -380,64 +338,57 @@ export const CommentsLive = Layer.effect(
         }))
       })
 
-    const requireAuthor = (
-      projectId: string,
+    const authorizedComment = (
       ticketId: string,
       commentId: string,
-      userId: string
+      allowed: (
+        actor: ProjectScopeShape,
+        comment: CommentPolicy.Authored
+      ) => boolean
     ): Effect.Effect<
       { authorId: string; createdAt: Date },
-      NotFound | Forbidden
+      NotFound | Forbidden,
+      ProjectScope
     > =>
       Effect.gen(function* () {
+        const scope = yield* ProjectScope
         const row = yield* db.query.commentIndex
           .findFirst({
             where: {
               RAW: (table, _operators) =>
                 _operators.and(
                   _operators.eq(table.id, commentId),
-                  _operators.eq(table.projectId, projectId),
+                  _operators.eq(table.projectId, scope.projectId),
                   _operators.eq(table.ticketId, ticketId)
                 )!
             }
           })
           .pipe(Effect.orDie)
         if (!row) return yield* new NotFound()
-        if (row.origin === "jira" || row.authorId !== userId) {
+        const authorId = row.authorId
+        if (
+          row.origin === "jira" ||
+          authorId === null ||
+          !allowed(scope, { authorId })
+        ) {
           return yield* new Forbidden()
         }
-        return { authorId: row.authorId, createdAt: row.createdAt }
+        return { authorId, createdAt: row.createdAt }
       })
 
-    const edit = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      ticketId: TicketId,
-      commentId: CommentId,
-      input: UpdateCommentInput
-    ): Effect.Effect<
-      Comment,
-      | NotFound
-      | Forbidden
-      | InvalidCommentBody
-      | MentionInvalid
-      | MarkdownError
-      | MalformedTicketDocument
-    > =>
+    const edit: CommentsShape["edit"] = (ticketId, commentId, input) =>
       Effect.gen(function* () {
-        const { projectId } = yield* ensureMember(orgSlug, userId, slug)
+        const { orgSlug, slug } = yield* ProjectScope
         const validation = validateCommentBody(input.body)
         if (!validation.ok) {
           return yield* new InvalidCommentBody({ reason: validation.reason })
         }
-        const meta = yield* requireAuthor(
-          projectId,
+        const meta = yield* authorizedComment(
           ticketId,
           commentId,
-          userId
+          CommentPolicy.canEdit
         )
-        yield* validateBody(orgSlug, userId, slug, input.body)
+        yield* validateBody(orgSlug, slug, input.body)
         const editedAt = yield* DateTime.nowAsDate
         yield* updateBlocks(
           orgSlug,
@@ -456,7 +407,7 @@ export const CommentsLive = Layer.effect(
             .pipe(Effect.asVoid, Effect.orDie)
         )
         const author = yield* users
-          .fullByIds([userId])
+          .fullByIds([meta.authorId])
           .pipe(Effect.map((xs) => xs[0]))
         return {
           id: commentId,
@@ -470,19 +421,10 @@ export const CommentsLive = Layer.effect(
         }
       })
 
-    const remove = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      ticketId: TicketId,
-      commentId: CommentId
-    ): Effect.Effect<
-      void,
-      NotFound | Forbidden | MarkdownError | MalformedTicketDocument
-    > =>
+    const remove: CommentsShape["remove"] = (ticketId, commentId) =>
       Effect.gen(function* () {
-        const { projectId } = yield* ensureMember(orgSlug, userId, slug)
-        yield* requireAuthor(projectId, ticketId, commentId, userId)
+        const { orgSlug, slug } = yield* ProjectScope
+        yield* authorizedComment(ticketId, commentId, CommentPolicy.canDelete)
         yield* updateBlocks(
           orgSlug,
           slug,

@@ -4,7 +4,6 @@ import type {
   GroupId,
   CreateGroupInput,
   CursorPayload,
-  Forbidden,
   Group,
   GroupDetail,
   GroupFilter,
@@ -16,7 +15,9 @@ import type {
   UpdateGroupTicketsInput,
   UpdateGroupTicketsOutput,
   UpdateTicketOrderInput,
-  Validation
+  Validation,
+  ProjectScope,
+  Forbidden
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
@@ -24,119 +25,104 @@ import type * as Effect from "effect/Effect"
 import type { MarkdownError } from "../markdown/Markdown"
 
 export interface GroupsShape {
-  readonly list: (
-    orgSlug: string,
-    userId: string,
-    slug: string
-  ) => Effect.Effect<ReadonlyArray<Group>, NotFound | MarkdownError>
+  readonly list: () => Effect.Effect<
+    ReadonlyArray<Group>,
+    NotFound | MarkdownError,
+    ProjectScope
+  >
   readonly listPaged: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     filter: GroupFilter | undefined,
     cursor: CursorPayload | undefined,
     limit: number
   ) => Effect.Effect<
     { items: ReadonlyArray<Group>; nextCursor: string | null },
-    NotFound | MarkdownError
+    NotFound | MarkdownError,
+    ProjectScope
   >
   readonly listSprintsPaged: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     state: SprintState | undefined,
     cursor: CursorPayload | undefined,
     limit: number
   ) => Effect.Effect<
     { items: ReadonlyArray<Group>; nextCursor: string | null },
-    NotFound | MarkdownError
+    NotFound | MarkdownError,
+    ProjectScope
   >
   readonly get: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     id: string
-  ) => Effect.Effect<GroupDetail, NotFound | MarkdownError>
+  ) => Effect.Effect<GroupDetail, NotFound | MarkdownError, ProjectScope>
   readonly create: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     input: CreateGroupInput
-  ) => Effect.Effect<Group, NotFound | Forbidden | Validation | MarkdownError>
+  ) => Effect.Effect<
+    Group,
+    Forbidden | NotFound | Validation | MarkdownError,
+    ProjectScope
+  >
   readonly update: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     id: string,
     input: UpdateGroupInput
   ) => Effect.Effect<
     GroupDetail,
-    NotFound | Forbidden | Validation | MarkdownError
+    Forbidden | NotFound | Validation | MarkdownError,
+    ProjectScope
   >
   readonly updateTickets: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     id: string,
     input: UpdateGroupTicketsInput
   ) => Effect.Effect<
     UpdateGroupTicketsOutput,
-    NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+    Forbidden | NotFound | SprintCompletedImmutable | MarkdownError,
+    ProjectScope
   >
   readonly addTickets: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     id: string,
     ticketIds: ReadonlyArray<TicketId>
   ) => Effect.Effect<
     UpdateGroupTicketsOutput,
-    NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+    Forbidden | NotFound | SprintCompletedImmutable | MarkdownError,
+    ProjectScope
   >
   readonly removeTickets: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     id: string,
     ticketIds: ReadonlyArray<TicketId>
   ) => Effect.Effect<
     UpdateGroupTicketsOutput,
-    NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+    Forbidden | NotFound | SprintCompletedImmutable | MarkdownError,
+    ProjectScope
   >
   readonly updateTicketOrder: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     id: string,
     input: UpdateTicketOrderInput
   ) => Effect.Effect<
     GroupDetail,
-    NotFound | Forbidden | SprintCompletedImmutable | Validation | MarkdownError
+    | Forbidden
+    | NotFound
+    | SprintCompletedImmutable
+    | Validation
+    | MarkdownError,
+    ProjectScope
   >
   readonly complete: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     id: string,
     input: CompleteSprintInput
   ) => Effect.Effect<
     CompleteSprintOutput,
-    NotFound | Forbidden | SprintCompletedImmutable | Validation | MarkdownError
+    | Forbidden
+    | NotFound
+    | SprintCompletedImmutable
+    | Validation
+    | MarkdownError,
+    ProjectScope
   >
   readonly remove: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     id: string
-  ) => Effect.Effect<void, NotFound | Forbidden | MarkdownError>
+  ) => Effect.Effect<void, Forbidden | NotFound | MarkdownError, ProjectScope>
   readonly ensureSprintAssignable: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     sprintIds: ReadonlyArray<GroupId>
   ) => Effect.Effect<
     void,
-    NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+    Forbidden | NotFound | SprintCompletedImmutable | MarkdownError,
+    ProjectScope
   >
   readonly setSprintMembership: (
     orgSlug: string,

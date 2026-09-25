@@ -1,6 +1,5 @@
 import type {
   AttachBranchInput,
-  Forbidden,
   SprintCompletedImmutable,
   BranchExists,
   BranchNotFound,
@@ -37,7 +36,10 @@ import type {
   TicketSprintSections,
   TicketUpdateResult,
   UpdateTicketInput,
-  Validation
+  Validation,
+  OrgScope,
+  ProjectScope,
+  Forbidden
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
@@ -48,134 +50,116 @@ import type { MalformedTicketDocument } from "./TicketDocs"
 
 type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
 
+type GitHubFailure =
+  | GitHubTokenExpired
+  | GitHubScopeInsufficient
+  | RepoGone
+  | RateLimited
+  | GitHubError
+
 export interface TicketsShape {
   readonly mine: (
-    orgSlug: string,
-    userId: string,
     query: MyTicketsQuery
-  ) => Effect.Effect<OrgTicketPage, NotFound>
-  readonly mineByProject: (
-    orgSlug: string,
-    userId: string
-  ) => Effect.Effect<ReadonlyArray<ProjectTicketsPreview>, NotFound>
-  readonly recent: (
-    orgSlug: string,
-    userId: string
-  ) => Effect.Effect<ReadonlyArray<RecentTicketRow>, NotFound>
+  ) => Effect.Effect<OrgTicketPage, never, OrgScope>
+  readonly mineByProject: () => Effect.Effect<
+    ReadonlyArray<ProjectTicketsPreview>,
+    never,
+    OrgScope
+  >
+  readonly recent: () => Effect.Effect<
+    ReadonlyArray<RecentTicketRow>,
+    never,
+    OrgScope
+  >
   readonly sections: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     query: TicketListQuery
-  ) => Effect.Effect<TicketSections, NotFound | MarkdownError>
+  ) => Effect.Effect<TicketSections, NotFound | MarkdownError, ProjectScope>
   readonly sprintSections: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     query: TicketListQuery
-  ) => Effect.Effect<TicketSprintSections, NotFound | MarkdownError>
+  ) => Effect.Effect<
+    TicketSprintSections,
+    NotFound | MarkdownError,
+    ProjectScope
+  >
   readonly list: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     query: TicketListQuery,
     limit?: number
-  ) => Effect.Effect<TicketListPage, NotFound | MarkdownError>
+  ) => Effect.Effect<TicketListPage, NotFound | MarkdownError, ProjectScope>
   readonly count: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     query: TicketCountQuery
-  ) => Effect.Effect<TicketCounts, NotFound | MarkdownError>
+  ) => Effect.Effect<TicketCounts, NotFound | MarkdownError, ProjectScope>
   readonly search: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     options: TicketSearchQuery
-  ) => Effect.Effect<ReadonlyArray<Ticket>, NotFound | MarkdownError>
+  ) => Effect.Effect<
+    ReadonlyArray<Ticket>,
+    NotFound | MarkdownError,
+    ProjectScope
+  >
   readonly listInGroup: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     groupId: string
-  ) => Effect.Effect<ReadonlyArray<Ticket>, NotFound | MarkdownError>
-  readonly tagUsageCounts: (
-    orgSlug: string,
-    userId: string,
-    slug: string
-  ) => Effect.Effect<Readonly<Record<string, number>>, NotFound | MarkdownError>
+  ) => Effect.Effect<
+    ReadonlyArray<Ticket>,
+    NotFound | MarkdownError,
+    ProjectScope
+  >
+  readonly tagUsageCounts: () => Effect.Effect<
+    Readonly<Record<string, number>>,
+    never,
+    ProjectScope
+  >
   readonly get: (
-    orgSlug: string,
-    ownerId: string,
-    slug: string,
     id: string
-  ) => Effect.Effect<TicketDetail, TicketReadError>
+  ) => Effect.Effect<TicketDetail, TicketReadError, ProjectScope>
   readonly quickCreate: (
-    orgSlug: string,
-    ownerId: string,
-    slug: string,
     input: QuickCreateTicketInput
   ) => Effect.Effect<
     TicketDetail,
-    NotFound | Validation | MentionInvalid | MarkdownError
+    Forbidden | NotFound | Validation | MentionInvalid | MarkdownError,
+    ProjectScope
   >
   readonly create: (
-    orgSlug: string,
-    ownerId: string,
-    slug: string,
     input: CreateTicketInput
   ) => Effect.Effect<
     TicketDetail,
-    NotFound | Validation | MentionInvalid | MarkdownError
+    Forbidden | NotFound | Validation | MentionInvalid | MarkdownError,
+    ProjectScope
   >
   readonly update: (
-    orgSlug: string,
-    ownerId: string,
-    slug: string,
     id: string,
     input: UpdateTicketInput,
     sort?: TicketSort,
     expectedBody?: string
   ) => Effect.Effect<
     TicketUpdateResult,
-    TicketReadError | Validation | MentionInvalid
+    Forbidden | TicketReadError | Validation | MentionInvalid,
+    ProjectScope
   >
   readonly split: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     id: string,
     input: SplitTicketInput
   ) => Effect.Effect<
     SplitTicketResult,
+    | Forbidden
     | TicketReadError
     | Validation
     | MentionInvalid
-    | Forbidden
-    | SprintCompletedImmutable
+    | SprintCompletedImmutable,
+    ProjectScope
   >
   readonly remove: (
-    orgSlug: string,
-    ownerId: string,
-    slug: string,
     id: string
-  ) => Effect.Effect<void, NotFound | MarkdownError>
+  ) => Effect.Effect<void, NotFound | MarkdownError, ProjectScope>
   readonly archive: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     id: string,
     reason?: string
   ) => Effect.Effect<
     TicketDetail,
-    TicketReadError | MentionInvalid | InvalidCommentBody
+    Forbidden | TicketReadError | MentionInvalid | InvalidCommentBody,
+    ProjectScope
   >
   readonly unarchive: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     id: string
-  ) => Effect.Effect<TicketDetail, TicketReadError>
+  ) => Effect.Effect<TicketDetail, Forbidden | TicketReadError, ProjectScope>
   readonly replaceTag: (
     orgSlug: string,
     slug: string,
@@ -190,80 +174,40 @@ export interface TicketsShape {
     newStatus: string
   ) => Effect.Effect<boolean, TicketReadError>
   readonly createBranch: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     id: string,
     input: CreateBranchInput
   ) => Effect.Effect<
     TicketDetail,
-    | NotFound
-    | Conflict
-    | BranchExists
-    | BranchProtected
-    | GitHubTokenExpired
-    | GitHubScopeInsufficient
-    | RepoGone
-    | RateLimited
-    | GitHubError
-    | MarkdownError
-    | MalformedTicketDocument
+    TicketReadError | Conflict | BranchExists | BranchProtected | GitHubFailure,
+    ProjectScope
   >
   readonly attachBranch: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     id: string,
     input: AttachBranchInput
   ) => Effect.Effect<
     TicketDetail,
-    | NotFound
-    | Conflict
-    | BranchNotFound
-    | GitHubTokenExpired
-    | GitHubScopeInsufficient
-    | RepoGone
-    | RateLimited
-    | GitHubError
-    | MarkdownError
-    | MalformedTicketDocument
+    TicketReadError | Conflict | BranchNotFound | GitHubFailure,
+    ProjectScope
   >
   readonly openPr: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     id: string,
     input: OpenPrInput
   ) => Effect.Effect<
     OpenPrResult,
-    | NotFound
-    | Conflict
-    | BranchProtected
-    | GitHubTokenExpired
-    | GitHubScopeInsufficient
-    | RepoGone
-    | RateLimited
-    | GitHubError
-    | MarkdownError
-    | MalformedTicketDocument
+    TicketReadError | Conflict | BranchProtected | GitHubFailure,
+    ProjectScope
   >
   readonly clearBranch: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     id: string
-  ) => Effect.Effect<TicketDetail, TicketReadError>
+  ) => Effect.Effect<TicketDetail, TicketReadError, ProjectScope>
   readonly getGitState: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     ticketId: string | undefined
-  ) => Effect.Effect<GitStatesResponse, NotFound | MarkdownError>
-  readonly listGitStates: (
-    orgSlug: string,
-    userId: string,
-    slug: string
-  ) => Effect.Effect<GitStatesResponse, NotFound | MarkdownError>
+  ) => Effect.Effect<GitStatesResponse, NotFound | MarkdownError, ProjectScope>
+  readonly listGitStates: () => Effect.Effect<
+    GitStatesResponse,
+    NotFound | MarkdownError,
+    ProjectScope
+  >
 }
 
 export class Tickets extends Context.Service<Tickets, TicketsShape>()(

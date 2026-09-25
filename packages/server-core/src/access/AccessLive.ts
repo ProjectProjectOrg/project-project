@@ -7,8 +7,9 @@ import {
   projectIndex,
   projectMember
 } from "@pp/db/schema"
-import { CurrentUser, NotFound, OrgRole, Role } from "@pp/shared"
+import { CurrentUser, NotFound, OrgRole, OrgScope, Role } from "@pp/shared"
 import { and, eq, isNull } from "drizzle-orm"
+import * as Arr from "effect/Array"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
@@ -114,6 +115,53 @@ export const AccessLive = Layer.effect(
       }
     )
 
-    return { org, project } satisfies AccessShape
+    const projectsInOrg: AccessShape["projectsInOrg"] = Effect.fn(
+      "Access.projectsInOrg"
+    )(function* () {
+      const scope = yield* OrgScope
+      const rows = yield* db
+        .select({
+          projectId: projectIndex.id,
+          slug: projectIndex.slug,
+          role: projectMember.roleId
+        })
+        .from(projectIndex)
+        .leftJoin(
+          projectMember,
+          and(
+            eq(projectMember.projectId, projectIndex.id),
+            eq(projectMember.userId, scope.userId)
+          )
+        )
+        .where(
+          and(
+            eq(projectIndex.organizationId, scope.organizationId),
+            publishedProject()
+          )
+        )
+        .pipe(Effect.orDie)
+      return yield* Effect.forEach(rows, (row) =>
+        decodeRole(row.role).pipe(
+          Effect.orDie,
+          Effect.map((role) =>
+            Option.map(
+              Effective.projectPermissions(scope.role, role),
+              (permissions) => ({
+                userId: scope.userId,
+                organizationId: scope.organizationId,
+                orgSlug: scope.orgSlug,
+                orgRole: scope.role,
+                projectId: row.projectId,
+                slug: row.slug,
+                role,
+                permissions
+              })
+            )
+          )
+        )
+      ).pipe(Effect.map(Arr.getSomes))
+    })
+
+    return { org, project, projectsInOrg } satisfies AccessShape
   })
 )

@@ -12,7 +12,8 @@ import {
   TemplateKey,
   type TicketStatus,
   type User,
-  UserId
+  UserId,
+  ProjectScope
 } from "@pp/shared"
 import * as Config from "effect/Config"
 import * as ConfigProvider from "effect/ConfigProvider"
@@ -24,6 +25,7 @@ import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
+import { accessLayer, projectScope } from "../access/testing"
 import { Attachments, type AttachmentsShape } from "../attachments/Attachments"
 import { Comments, type CommentsShape } from "../comments/Comments"
 import {
@@ -36,9 +38,9 @@ import { Groups, type GroupsShape } from "../groups/Groups"
 import { LibraryDocs } from "../library/LibraryDocs"
 import { LibraryDocsLive } from "../library/LibraryDocsLive"
 import { LibraryLive } from "../library/LibraryLive"
+import * as KeyedLock from "../locks/KeyedLock"
 import { Markdown } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
-import { CurrentOrg } from "../organizations/CurrentOrg"
 import { ProjectDocs } from "../projects/ProjectDocs"
 import { Projects, type ProjectsShape } from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
@@ -61,14 +63,14 @@ const FakeProjects = Layer.succeed(Projects, {
   listMembersPaged: () => unexpected("Projects.listMembersPaged"),
   create: () => unexpected("Projects.create"),
   get: () => unexpected("Projects.get"),
-  getKey: () => Effect.succeed(decodeProjectKey("T")),
-  getGithubIntegration: () => Effect.succeed(null),
+  key: () => Effect.succeed(decodeProjectKey("T")),
+  githubIntegration: () => Effect.succeed(null),
+  githubBranches: () => unexpected("Projects.githubBranches"),
+  githubRepos: () => unexpected("Projects.githubRepos"),
+  memberIds: () => Effect.succeed(new Set(["user-1", "user-2"])),
   update: () => unexpected("Projects.update"),
   updateSetup: () => unexpected("Projects.updateSetup"),
   remove: () => unexpected("Projects.remove"),
-  requireMember: () =>
-    Effect.succeed({ role: "developer" as const, projectId: "project-1" }),
-  requireRole: () => unexpected("Projects.requireRole"),
   addMember: () => unexpected("Projects.addMember"),
   updateMember: () => unexpected("Projects.updateMember"),
   removeMember: () => unexpected("Projects.removeMember"),
@@ -148,8 +150,9 @@ const FakeComments = Layer.effect(
     const markdown = yield* Markdown
     return {
       list: () => unexpected("Comments.list"),
-      create: (orgSlug, _userId, slug, ticketId, input) =>
+      create: (ticketId, input) =>
         Effect.gen(function* () {
+          const { orgSlug, slug } = yield* ProjectScope
           recordedCommentBodies.push(input.body)
           const file = yield* markdown.readTicketParts(orgSlug, slug, ticketId)
           yield* markdown.writeTicketWithRegion(
@@ -283,7 +286,6 @@ const TestLayer = Layer.unwrap(
           read: () => Effect.succeed({ templateDefaults: {} } as never)
         })
       ),
-      Layer.provide(Layer.mock(CurrentOrg, {})),
       Layer.provideMerge(TicketDocsLive),
       Layer.provide(FakeAttachments),
       Layer.provide(FakeFigmaLinks),
@@ -295,6 +297,19 @@ const TestLayer = Layer.unwrap(
       Layer.provide(FakeTicketIndex),
       Layer.provide(FakeDb),
       Layer.provide(TicketDocumentLock.layer),
+      Layer.provide(KeyedLock.layer),
+      Layer.provide(accessLayer({})),
+      Layer.merge(
+        Layer.succeed(
+          ProjectScope,
+          projectScope("member", "pm", {
+            orgSlug: "org",
+            slug: "p",
+            projectId: "p",
+            organizationId: "org"
+          })
+        )
+      ),
       Layer.provide(MarkdownLive),
       Layer.provideMerge(
         ConfigProvider.layer(
@@ -312,11 +327,11 @@ it.effect("deleting a ticket removes its markdown file from disk", () =>
     const path = yield* Path.Path
     const root = yield* Config.String("PROJECTS_DIR")
 
-    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+    const created = yield* tickets.quickCreate({
       title: "first"
     })
     expect(created.id).toBe("T-1")
-    yield* tickets.update("org", "user-1", "p", created.id, {
+    yield* tickets.update(created.id, {
       body: "# first\n\nimportant context only this ticket should know."
     })
 
@@ -331,7 +346,7 @@ it.effect("deleting a ticket removes its markdown file from disk", () =>
     )
     expect(yield* fs.exists(filePath)).toBe(true)
 
-    yield* tickets.remove("org", "user-1", "p", created.id)
+    yield* tickets.remove(created.id)
 
     expect(yield* fs.exists(filePath)).toBe(false)
   }).pipe(Effect.provide(TestLayer))
@@ -340,7 +355,7 @@ it.effect("deleting a ticket removes its markdown file from disk", () =>
 it.effect("honors a custom status on quickCreate", () =>
   Effect.gen(function* () {
     const tickets = yield* Tickets
-    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+    const created = yield* tickets.quickCreate({
       title: "in progress at birth",
       status: "in_progress" as TicketStatus
     })
@@ -351,7 +366,7 @@ it.effect("honors a custom status on quickCreate", () =>
 it.effect("falls back to 'todo' when status is omitted on quickCreate", () =>
   Effect.gen(function* () {
     const tickets = yield* Tickets
-    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+    const created = yield* tickets.quickCreate({
       title: "no status given"
     })
     expect(created.status).toBe("todo")
@@ -362,7 +377,7 @@ it.effect("rejects an unknown status on quickCreate", () =>
   Effect.gen(function* () {
     const tickets = yield* Tickets
     const result = yield* Effect.result(
-      tickets.quickCreate("org", "user-1", "p", {
+      tickets.quickCreate({
         title: "bogus",
         status: "not_a_real_status" as never
       })
@@ -378,18 +393,12 @@ it.effect("archiving sets archivedAt and records the reason as a comment", () =>
   Effect.gen(function* () {
     recordedCommentBodies.length = 0
     const tickets = yield* Tickets
-    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+    const created = yield* tickets.quickCreate({
       title: "archive me"
     })
     expect(created.archivedAt).toBeNull()
 
-    const archived = yield* tickets.archive(
-      "org",
-      "user-1",
-      "p",
-      created.id,
-      "no longer relevant"
-    )
+    const archived = yield* tickets.archive(created.id, "no longer relevant")
     expect(archived.archivedAt).not.toBeNull()
     expect(recordedCommentBodies).toEqual(["no longer relevant"])
 
@@ -397,12 +406,7 @@ it.effect("archiving sets archivedAt and records the reason as a comment", () =>
     const stored = yield* docs.read("org", "p", created.id)
     expect(stored.commentsRegion).toContain("no longer relevant")
 
-    const unarchived = yield* tickets.unarchive(
-      "org",
-      "user-1",
-      "p",
-      created.id
-    )
+    const unarchived = yield* tickets.unarchive(created.id)
     expect(unarchived.archivedAt).toBeNull()
   }).pipe(Effect.provide(TestLayer))
 )
@@ -411,10 +415,10 @@ it.effect("archiving without a reason posts no comment", () =>
   Effect.gen(function* () {
     recordedCommentBodies.length = 0
     const tickets = yield* Tickets
-    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+    const created = yield* tickets.quickCreate({
       title: "silent archive"
     })
-    yield* tickets.archive("org", "user-1", "p", created.id, "   ")
+    yield* tickets.archive(created.id, "   ")
     expect(recordedCommentBodies).toEqual([])
   }).pipe(Effect.provide(TestLayer))
 )
@@ -425,18 +429,18 @@ it.effect(
     Effect.gen(function* () {
       const tickets = yield* Tickets
 
-      const original = yield* tickets.quickCreate("org", "user-1", "p", {
+      const original = yield* tickets.quickCreate({
         title: "foo"
       })
-      yield* tickets.update("org", "user-1", "p", original.id, {
+      yield* tickets.update(original.id, {
         body: "# foo\n\nold secret description"
       })
-      yield* tickets.remove("org", "user-1", "p", original.id)
+      yield* tickets.remove(original.id)
 
-      const reborn = yield* tickets.quickCreate("org", "user-1", "p", {
+      const reborn = yield* tickets.quickCreate({
         title: "foo"
       })
-      const fetched = yield* tickets.get("org", "user-1", "p", reborn.id)
+      const fetched = yield* tickets.get(reborn.id)
 
       expect(fetched.body).not.toContain("old secret description")
       expect(fetched.body.trim()).toBe("")
@@ -520,7 +524,7 @@ it.effect("quickCreate with a template writes its expanded body and type", () =>
   Effect.gen(function* () {
     yield* adoptAtOrg(BUG_REPORT_KIT)
     const tickets = yield* Tickets
-    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+    const created = yield* tickets.quickCreate({
       title: "login loops",
       template: templateKey("bug-report")
     })
@@ -531,7 +535,7 @@ it.effect("quickCreate with a template writes its expanded body and type", () =>
     expect(created.body).toContain("**Expected:**")
     expect(created.body).not.toContain("{{")
 
-    const fetched = yield* tickets.get("org", "user-1", "p", created.id)
+    const fetched = yield* tickets.get(created.id)
     expect(fetched.body).toBe(created.body)
   }).pipe(Effect.provide(TestLayer))
 )
@@ -540,7 +544,7 @@ it.effect("quickCreate keeps an explicit type over the template's", () =>
   Effect.gen(function* () {
     yield* adoptAtOrg(BUG_REPORT_KIT)
     const tickets = yield* Tickets
-    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+    const created = yield* tickets.quickCreate({
       title: "typed",
       type: "chore",
       template: templateKey("bug-report")
@@ -553,11 +557,11 @@ it.effect("quickCreate keeps an explicit type over the template's", () =>
 it.effect("no template or a null template creates a blank ticket", () =>
   Effect.gen(function* () {
     const tickets = yield* Tickets
-    const omitted = yield* tickets.quickCreate("org", "user-1", "p", {
+    const omitted = yield* tickets.quickCreate({
       title: "bug without template",
       type: "bug"
     })
-    const blank = yield* tickets.create("org", "user-1", "p", {
+    const blank = yield* tickets.create({
       title: "explicit blank",
       type: "feat",
       template: null
@@ -573,7 +577,7 @@ it.effect("create lets explicit fields win and filters template tags", () =>
     yield* adoptAtOrg(["context"])
     yield* (yield* LibraryDocs).writeTemplate("org", "p", projectTemplate({}))
     const tickets = yield* Tickets
-    const defaults = yield* tickets.create("org", "user-1", "p", {
+    const defaults = yield* tickets.create({
       title: "from template",
       template: templateKey("incident-lite")
     })
@@ -582,7 +586,7 @@ it.effect("create lets explicit fields win and filters template tags", () =>
     expect(defaults.tags).toEqual(["frontend"])
     expect(defaults.body).toContain('<block type="context">')
 
-    const explicit = yield* tickets.create("org", "user-1", "p", {
+    const explicit = yield* tickets.create({
       title: "explicit fields",
       type: "chore",
       priority: "low",
@@ -601,13 +605,13 @@ it.effect("an unknown template fails with Validation", () =>
   Effect.gen(function* () {
     const tickets = yield* Tickets
     const quick = yield* Effect.flip(
-      tickets.quickCreate("org", "user-1", "p", {
+      tickets.quickCreate({
         title: "nope",
         template: templateKey("nope")
       })
     )
     const full = yield* Effect.flip(
-      tickets.create("org", "user-1", "p", {
+      tickets.create({
         title: "nope",
         body: "body wins but the key is still checked",
         template: templateKey("nope")
@@ -634,7 +638,7 @@ it.effect("unresolvable template mentions become plain text on create", () =>
       })
     )
     const tickets = yield* Tickets
-    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+    const created = yield* tickets.quickCreate({
       title: "mentions",
       template: templateKey("incident-lite")
     })
@@ -646,13 +650,13 @@ it.effect("get resolves synced blocks without rewriting the file", () =>
   Effect.gen(function* () {
     yield* adoptAtOrg(["definition-of-done"])
     const tickets = yield* Tickets
-    const created = yield* tickets.create("org", "user-1", "p", {
+    const created = yield* tickets.create({
       title: "synced",
       body: SYNCED_DONE
     })
     yield* (yield* LibraryDocs).writeBlock("org", "p", projectDoneBlock)
 
-    const fetched = yield* tickets.get("org", "user-1", "p", created.id)
+    const fetched = yield* tickets.get(created.id)
     expect(fetched.body).toContain("- [x] Reviewed and merged")
     expect(fetched.body).toContain("- [ ] Released")
     expect(fetched.body).not.toContain("Tests cover the change")
@@ -666,11 +670,11 @@ it.effect("get resolves synced blocks without rewriting the file", () =>
 it.effect("update refreshes the stored synced snapshot", () =>
   Effect.gen(function* () {
     const tickets = yield* Tickets
-    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+    const created = yield* tickets.quickCreate({
       title: "stale snapshot"
     })
     yield* (yield* LibraryDocs).writeBlock("org", "p", projectDoneBlock)
-    yield* tickets.update("org", "user-1", "p", created.id, {
+    yield* tickets.update(created.id, {
       body: `Intro\n\n${SYNCED_DONE}`
     })
 
@@ -700,15 +704,15 @@ it.effect("a body without synced blocks is stored and read byte for byte", () =>
       "trailing *md*"
     ].join("\n")
     const tickets = yield* Tickets
-    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+    const created = yield* tickets.quickCreate({
       title: "plain"
     })
-    const updated = yield* tickets.update("org", "user-1", "p", created.id, {
+    const updated = yield* tickets.update(created.id, {
       body
     })
 
     const stored = yield* (yield* TicketDocs).read("org", "p", created.id)
-    const fetched = yield* tickets.get("org", "user-1", "p", created.id)
+    const fetched = yield* tickets.get(created.id)
     expect(updated.ticket.body).toBe(body)
     expect(fetched.body).toBe(stored.body)
   }).pipe(Effect.provide(TestLayer))

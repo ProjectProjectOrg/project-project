@@ -11,7 +11,8 @@ import {
   TicketId,
   TicketStatus,
   type User,
-  UserId
+  UserId,
+  ProjectScope
 } from "@pp/shared"
 import * as Config from "effect/Config"
 import * as ConfigProvider from "effect/ConfigProvider"
@@ -23,12 +24,14 @@ import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
+import { accessLayer, projectScope } from "../access/testing"
 import { Attachments, type AttachmentsShape } from "../attachments/Attachments"
 import { Comments, type CommentsShape } from "../comments/Comments"
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
 import { GitHub, type GitHubShape } from "../github/GitHub"
 import { Groups, type GroupsShape } from "../groups/Groups"
 import { Library } from "../library/Library"
+import * as KeyedLock from "../locks/KeyedLock"
 import { MarkdownError } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
 import { Projects, type ProjectsShape } from "../projects/Projects"
@@ -83,14 +86,14 @@ const FakeProjects = Layer.succeed(Projects, {
   listMembersPaged: () => unexpected("Projects.listMembersPaged"),
   create: () => unexpected("Projects.create"),
   get: () => unexpected("Projects.get"),
-  getKey: () => Effect.succeed(decodeProjectKey("T")),
-  getGithubIntegration: () => Effect.succeed(null),
+  key: () => Effect.succeed(decodeProjectKey("T")),
+  githubIntegration: () => Effect.succeed(null),
+  githubBranches: () => unexpected("Projects.githubBranches"),
+  githubRepos: () => unexpected("Projects.githubRepos"),
+  memberIds: () => Effect.succeed(new Set(["user-1", "user-2"])),
   update: () => unexpected("Projects.update"),
   updateSetup: () => unexpected("Projects.updateSetup"),
   remove: () => unexpected("Projects.remove"),
-  requireMember: () =>
-    Effect.succeed({ role: "developer" as const, projectId: "project-1" }),
-  requireRole: () => unexpected("Projects.requireRole"),
   addMember: () => unexpected("Projects.addMember"),
   updateMember: () => unexpected("Projects.updateMember"),
   removeMember: () => unexpected("Projects.removeMember"),
@@ -328,6 +331,19 @@ const TestLayer = Layer.unwrap(
       Layer.provide(FakeTicketIndex),
       Layer.provide(FakeDb),
       Layer.provide(TicketDocumentLock.layer),
+      Layer.provide(KeyedLock.layer),
+      Layer.provide(accessLayer({})),
+      Layer.merge(
+        Layer.succeed(
+          ProjectScope,
+          projectScope("member", "pm", {
+            orgSlug: "org",
+            slug: "p",
+            projectId: "p",
+            organizationId: "org"
+          })
+        )
+      ),
       Layer.provide(MarkdownLive),
       Layer.provideMerge(
         ConfigProvider.layer(
@@ -369,7 +385,7 @@ const result = (
 
 const seedOriginal = Effect.gen(function* () {
   const tickets = yield* Tickets
-  return yield* tickets.create("org", "user-1", "p", {
+  return yield* tickets.create({
     title: "Rework the detail page",
     type: "feat",
     priority: "high",
@@ -387,7 +403,7 @@ it.effect("split retains the original and creates the remaining tickets", () =>
     const docs = yield* TicketDocs
     const original = yield* seedOriginal
 
-    const outcome = yield* tickets.split("org", "user-1", "p", original.id, {
+    const outcome = yield* tickets.split(original.id, {
       results: [
         result("Detail page layout", "feat", ["user-1"]),
         result("Sidebar API", "feat"),
@@ -439,7 +455,7 @@ it.effect("split rejects fewer than two results", () =>
     const original = yield* seedOriginal
 
     const attempt = yield* Effect.result(
-      tickets.split("org", "user-1", "p", original.id, {
+      tickets.split(original.id, {
         results: [result("Only one", "feat")]
       })
     )
@@ -462,7 +478,7 @@ it.effect("split refuses a sprint the caller may not change", () =>
     const original = yield* seedOriginal
 
     const attempt = yield* Effect.result(
-      tickets.split("org", "user-1", "p", original.id, {
+      tickets.split(original.id, {
         results: [
           {
             ...result("Detail page layout", "feat"),
@@ -492,7 +508,7 @@ it.effect("split restores the original when a later write fails", () =>
     failUpsertAfter = upserts + 2
 
     yield* Effect.exit(
-      tickets.split("org", "user-1", "p", original.id, {
+      tickets.split(original.id, {
         results: [
           result("Detail page layout", "feat"),
           result("Sidebar API", "feat"),
@@ -520,7 +536,7 @@ it.effect("split removes created tickets when the original update fails", () =>
     failUpsertAfter = upserts + 2
 
     const outcome = yield* Effect.exit(
-      tickets.split("org", "user-1", "p", original.id, {
+      tickets.split(original.id, {
         results: [
           result("Detail page layout", "feat"),
           result("Sidebar API", "feat"),
@@ -553,7 +569,7 @@ it.effect(
       failSprintAssignmentAt = 2
 
       const outcome = yield* Effect.result(
-        tickets.split("org", "user-1", "p", original.id, {
+        tickets.split(original.id, {
           results: [
             result("Detail page layout", "feat"),
             { ...result("Sidebar API", "feat"), sprintId: originalSprintId },

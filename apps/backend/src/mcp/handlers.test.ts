@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Access } from "@pp/server-core/access/Access"
-import { orgScope } from "@pp/server-core/access/testing"
+import { orgScope, projectScope } from "@pp/server-core/access/testing"
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { Comments, type CommentsShape } from "@pp/server-core/comments/Comments"
@@ -40,13 +40,15 @@ import {
   McpTools,
   type McpToolName,
   BranchNotFound,
-  Forbidden,
+  CurrentUser,
   GroupId,
   NotFound,
+  type Role,
   SprintCompletedImmutable,
   TicketId,
   type TicketListQuery,
   type User,
+  ProjectScope,
   Validation
 } from "@pp/shared"
 import * as Context from "effect/Context"
@@ -132,13 +134,7 @@ const capturedListLimits: Array<number | undefined> = []
 const capturedListQueries: Array<TicketListQuery> = []
 
 const TicketsStub = Layer.succeed(Tickets, {
-  list: (
-    _orgSlug: string,
-    _userId: string,
-    _slug: string,
-    query: TicketListQuery,
-    limit?: number
-  ) => {
+  list: (query: TicketListQuery, limit?: number) => {
     capturedListLimits.push(limit)
     capturedListQueries.push(query)
     const all = Array.from({ length: 25 }, (_, i) => ({
@@ -155,19 +151,35 @@ const TicketsStub = Layer.succeed(Tickets, {
 
 const fakeUser = { id: "u-1" } as User
 
-const AccessStub = Layer.succeed(Access, {
-  org: (orgSlug) =>
-    Effect.succeed(orgScope("member", { orgSlug, userId: fakeUser.id })),
-  project: () => Effect.die("Access.project is not used by MCP tools yet")
-})
+const accessAs = (role: Role | null) =>
+  Layer.succeed(Access, {
+    org: (orgSlug) =>
+      Effect.map(CurrentUser, (current) =>
+        orgScope("member", { orgSlug, userId: current.id })
+      ),
+    project: (orgSlug, slug) =>
+      Effect.flatMap(CurrentUser, (current) =>
+        role === null
+          ? Effect.fail(new NotFound())
+          : Effect.succeed(
+              projectScope("member", role, {
+                orgSlug,
+                slug,
+                userId: current.id,
+                projectId: slug
+              })
+            )
+      ),
+    projectsInOrg: () => Effect.succeed([])
+  })
+
+const AccessStub = accessAs("pm")
 const withFakeUser = <T>(fn: () => Effect.Effect<T>) => Effect.suspend(fn)
 const EmptyStub = <T>(tag: T) => Layer.succeed(tag as any, {})
 
 const ProjectsStub = Layer.succeed(Projects, {
-  requireMember: (_o: any, _u: any, _s: any) =>
-    Effect.succeed({ role: "admin" } as any),
-  requireRole: (_o: any, _u: any, _s: any) =>
-    Effect.succeed({ role: "admin" } as any)
+  requireMember: () => Effect.succeed({ role: "admin" } as any),
+  requireRole: () => Effect.succeed({ role: "admin" } as any)
 } as unknown as ProjectsShape)
 
 const ticketIndexProject: TicketIndexProject = {
@@ -219,7 +231,7 @@ const TicketDocsStub = Layer.succeed(TicketDocs, {
 } as unknown as TicketDocsShape)
 
 const ProjectStatusesStub = Layer.succeed(ProjectStatuses, {
-  list: (_o: string, _u: string, _s: string) =>
+  list: () =>
     Effect.succeed(
       Schema.decodeSync(McpTools.list_statuses.output)([
         {
@@ -416,8 +428,7 @@ const fakeLibrary = Schema.decodeUnknownSync(LibrarySchema)({
 })
 
 const LibraryStub = Layer.succeed(Library, {
-  projectLibrary: (_orgSlug: string, _userId: string, _slug: string) =>
-    Effect.succeed(fakeLibrary)
+  projectLibrary: () => Effect.succeed(fakeLibrary)
 } as unknown as LibraryShape)
 
 describe("MCP handlers → list_blocks / list_templates", () => {
@@ -525,7 +536,7 @@ describe("MCP handlers → write tools", () => {
   } = {}
 
   const WriteTicketsStub = Layer.succeed(Tickets, {
-    get: (_o: any, _u: any, _s: any, _id: any) =>
+    get: (_id: any) =>
       Effect.succeed({
         ...fakeTicketDetail,
         body: [
@@ -541,11 +552,11 @@ describe("MCP handlers → write tools", () => {
           )
         ].join("\n\n")
       }),
-    create: (_o: any, _u: any, _s: any, input: any) => {
+    create: (input: any) => {
       captured.create = input
       return Effect.succeed({ ...fakeTicketDetail, ...input })
     },
-    update: (_o: any, _u: any, _s: any, _id: any, input: any) => {
+    update: (_id: any, input: any) => {
       captured.update = input
       return Effect.succeed({
         ticket: {
@@ -556,7 +567,7 @@ describe("MCP handlers → write tools", () => {
         orderKey: null
       })
     },
-    attachBranch: (_o: any, _u: any, _s: any, _id: any, input: any) => {
+    attachBranch: (_id: any, input: any) => {
       captured.attach = input
       if (input.name === "missing/branch") {
         return Effect.fail(new BranchNotFound({ name: input.name }))
@@ -566,13 +577,7 @@ describe("MCP handlers → write tools", () => {
   } as unknown as TicketsShape)
 
   const WriteCommentsStub = Layer.succeed(Comments, {
-    create: (
-      _o: any,
-      _u: any,
-      _s: any,
-      ticketId: any,
-      input: { body: string }
-    ) => {
+    create: (ticketId: any, input: { body: string }) => {
       captured.createComment = { ticketId, body: input.body }
       return Effect.succeed({
         id: "c_test1234",
@@ -896,16 +901,13 @@ describe("MCP handlers → write tools", () => {
     }).pipe(Effect.provide(WriteTestLayer))
   )
 
-  const ForbiddenProjectsStub = Layer.succeed(Projects, {
-    requireRole: (_o: any, _u: any, _s: any) => Effect.fail(new Forbidden())
-  } as unknown as ProjectsShape)
   const ForbiddenLayer = Layer.mergeAll(
-    AccessStub,
+    accessAs("developer"),
     EmptyStub(AttachmentUploads.AttachmentUploads),
     EmptyStub(OrgStorage.OrgStorage),
     WriteTicketsStub,
     WriteCommentsStub,
-    ForbiddenProjectsStub,
+    ProjectsStub,
     EmptyStub(Groups),
     EmptyStub(Tags),
     EmptyStub(Users),
@@ -972,7 +974,7 @@ describe("MCP handlers → update_ticket with a template", () => {
   } = { currentBody: "" }
 
   const TemplateTicketsStub = Layer.succeed(Tickets, {
-    get: (_o: any, _u: any, _s: any, _id: any) => {
+    get: (_id: any) => {
       const body = state.currentBody
       if (state.concurrentBody !== undefined) {
         state.currentBody = state.concurrentBody
@@ -984,7 +986,7 @@ describe("MCP handlers → update_ticket with a template", () => {
         body
       })
     },
-    create: (_o: any, _u: any, _s: any, input: any) =>
+    create: (input: any) =>
       Effect.succeed({
         ...fakeTicket,
         creator: null,
@@ -992,15 +994,7 @@ describe("MCP handlers → update_ticket with a template", () => {
         title: input.title,
         body: input.body ?? ""
       }),
-    update: (
-      _o: any,
-      _u: any,
-      _s: any,
-      _id: any,
-      input: any,
-      _sort: any,
-      expectedBody?: string
-    ) => {
+    update: (_id: any, input: any, _sort: any, expectedBody?: string) => {
       state.update = input
       if (expectedBody !== undefined && state.currentBody !== expectedBody) {
         return Effect.fail(new Validation({ reason: "ticket_body_changed" }))
@@ -1120,9 +1114,6 @@ describe("MCP handlers → update_ticket with a template", () => {
 
   it.effect("checks membership before looking up a template", () => {
     let expanded = false
-    const DeniedProjectsStub = Layer.succeed(Projects, {
-      requireMember: () => Effect.fail(new NotFound())
-    } as unknown as ProjectsShape)
     const ProbedLibraryStub = Layer.succeed(Library, {
       expandForCreate: () => {
         expanded = true
@@ -1140,8 +1131,8 @@ describe("MCP handlers → update_ticket with a template", () => {
         Layer.mergeAll(
           TestLayer,
           TemplateTicketsStub,
-          DeniedProjectsStub,
-          ProbedLibraryStub
+          ProbedLibraryStub,
+          accessAs(null)
         )
       )
     )
@@ -1191,39 +1182,34 @@ describe("MCP handlers → add_tickets_to_group", () => {
       ticketIds?: ReadonlyArray<string>
     } = {}
     const stub = Layer.succeed(Groups, {
-      addTickets: (
-        orgSlug: any,
-        userId: any,
-        slug: any,
-        groupId: any,
-        ticketIds: ReadonlyArray<string>
-      ) => {
-        captured.orgSlug = orgSlug
-        captured.userId = userId
-        captured.slug = slug
-        captured.groupId = groupId
-        captured.ticketIds = ticketIds
-        if (behaviour === "completed") {
-          return Effect.fail(new SprintCompletedImmutable())
-        }
-        return Effect.succeed({
-          target: {
-            id: decodeGroupId(groupId),
-            name: "Sprint 1",
-            kind: "sprint" as const,
-            tickets: ticketIds.map((id) => decodeTicketId(id)),
-            color: "#3366ff" as any,
-            startsAt: null,
-            endsAt: null,
-            completedAt: null,
-            createdBy: "u-1",
-            createdAt: isoDate("2026-04-01T00:00:00.000Z"),
-            updatedAt: isoDate("2026-05-13T00:00:00.000Z"),
-            body: "# Sprint 1\n"
-          },
-          evicted: []
+      addTickets: (groupId: string, ticketIds: ReadonlyArray<string>) =>
+        Effect.flatMap(ProjectScope, (scope) => {
+          captured.orgSlug = scope.orgSlug
+          captured.userId = scope.userId
+          captured.slug = scope.slug
+          captured.groupId = groupId
+          captured.ticketIds = ticketIds
+          if (behaviour === "completed") {
+            return Effect.fail(new SprintCompletedImmutable())
+          }
+          return Effect.succeed({
+            target: {
+              id: decodeGroupId(groupId),
+              name: "Sprint 1",
+              kind: "sprint" as const,
+              tickets: ticketIds.map((id) => decodeTicketId(id)),
+              color: "#3366ff" as any,
+              startsAt: null,
+              endsAt: null,
+              completedAt: null,
+              createdBy: "u-1",
+              createdAt: isoDate("2026-04-01T00:00:00.000Z"),
+              updatedAt: isoDate("2026-05-13T00:00:00.000Z"),
+              body: "# Sprint 1\n"
+            },
+            evicted: []
+          })
         })
-      }
     } as any)
     return { stub, captured }
   }
@@ -1334,9 +1320,8 @@ describe("MCP handlers → sprint writes", () => {
       completeInput?: any
     } = {}
     const stub = Layer.succeed(Groups, {
-      get: (_o: any, _u: any, _s: any, id: any) =>
-        Effect.succeed(baseGroup({ id, kind: options.kind })),
-      create: (_o: any, _u: any, _s: any, input: any) => {
+      get: (id: any) => Effect.succeed(baseGroup({ id, kind: options.kind })),
+      create: (input: any) => {
         captured.createInput = input
         return Effect.succeed({
           id: decodeGroupId("G-9"),
@@ -1352,14 +1337,14 @@ describe("MCP handlers → sprint writes", () => {
           updatedAt: isoDate("2026-05-13T00:00:00.000Z")
         })
       },
-      update: (_o: any, _u: any, _s: any, id: any, input: any) => {
+      update: (id: any, input: any) => {
         captured.updateInput = input
         return Effect.succeed({
           ...baseGroup({ id, kind: options.kind }),
           ...input
         })
       },
-      complete: (_o: any, _u: any, _s: any, id: any, input: any) => {
+      complete: (id: any, input: any) => {
         captured.completeInput = input
         if (options.completed) {
           return Effect.fail(new SprintCompletedImmutable())
@@ -1542,16 +1527,12 @@ describe("MCP handlers → sprint writes", () => {
 })
 
 describe("MCP handlers → NotFound retained", () => {
-  const HiddenProjectsStub = Layer.succeed(Projects, {
-    requireMember: (_o: any, _u: any, _s: any) => Effect.fail(new NotFound())
-  } as unknown as ProjectsShape)
-
   const HiddenLayer = Layer.mergeAll(
-    AccessStub,
+    accessAs(null),
     EmptyStub(AttachmentUploads.AttachmentUploads),
     EmptyStub(OrgStorage.OrgStorage),
     TicketsStub,
-    HiddenProjectsStub,
+    ProjectsStub,
     EmptyStub(Groups),
     EmptyStub(Tags),
     EmptyStub(Users),

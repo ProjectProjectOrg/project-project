@@ -15,7 +15,6 @@ import {
 import { JiraCredentials } from "@pp/server-core/jira/Credentials"
 import { JiraMigrations } from "@pp/server-core/jira/Migrations"
 import { Markdown, type MarkdownShape } from "@pp/server-core/markdown/Markdown"
-import { CurrentOrg } from "@pp/server-core/organizations/CurrentOrg"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import {
   AppApi,
@@ -98,16 +97,6 @@ const dependenciesFor = (
       accessTokenFor: unused,
       disconnect: unused,
       markReconnectRequired: unused
-    }),
-    Layer.succeed(CurrentOrg)({
-      resolve: (orgSlug, userId) => {
-        expect([orgSlug, userId]).toEqual(["organization", "user-1"])
-        return Effect.succeed({
-          organizationId: "org-1",
-          orgSlug,
-          role: "admin" as const
-        })
-      }
     }),
     Layer.succeed(OrgStorage)({
       getStatus: unused,

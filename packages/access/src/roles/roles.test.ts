@@ -97,6 +97,7 @@ const projectMatrix: ReadonlyArray<
   ["create branches and PRs", { github: ["write"] }, ["pm", "developer"]],
   ["log time and see totals", { time: ["read", "log"] }, ["pm", "developer"]],
   ["see Figma links", { figma: ["read"] }, ["pm", "developer", "client"]],
+  ["attach files", { attachment: ["upload"] }, ["pm", "developer", "client"]],
   ["edit docs", { docs: ["write"] }, ["pm", "developer"]],
   ["manage tags, statuses and workflow", { workflow: ["manage"] }, ["pm"]],
   ["manage project blocks and templates", { library: ["manage"] }, ["pm"]],

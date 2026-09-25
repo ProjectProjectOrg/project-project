@@ -33,15 +33,16 @@ export const githubOrgRequest = (orgSlug: string): GithubOrgRequest => ({
 })
 
 export type GithubReposRequest = Readonly<{
-  params: Readonly<{ orgSlug: string }>
+  params: Readonly<{ orgSlug: string; slug: string }>
   query: Readonly<{ q: string | undefined }>
 }>
 
 export const githubReposRequest = (
   orgSlug: string,
+  slug: string,
   q: string
 ): GithubReposRequest => ({
-  params: { orgSlug },
+  params: { orgSlug, slug },
   query: { q: q.trim() === "" ? undefined : q.trim() }
 })
 
@@ -171,7 +172,7 @@ export const githubRepos = Atom.family((req: GithubReposRequest) =>
       .atom(
         Effect.gen(function* () {
           const first = yield* Api.use((client) =>
-            client.projects.listGithubInstallationRepos({
+            client.projects.listGithubRepos({
               params: req.params,
               query: { q: req.query.q, page: 1 }
             })
@@ -182,7 +183,7 @@ export const githubRepos = Atom.family((req: GithubReposRequest) =>
           let page = 2
           while (hasMore) {
             const next = yield* Api.use((client) =>
-              client.projects.listGithubInstallationRepos({
+              client.projects.listGithubRepos({
                 params: req.params,
                 query: { q: req.query.q, page }
               })

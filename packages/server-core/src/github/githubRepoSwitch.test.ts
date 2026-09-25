@@ -4,7 +4,11 @@ import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { migrationsFolder } from "@pp/db"
 import { DbLive } from "@pp/db"
+import { Access } from "@pp/server-core/access/Access"
+import { AccessLive } from "@pp/server-core/access/AccessLive"
+import { testUser } from "@pp/server-core/access/testing"
 import { GitHub } from "@pp/server-core/github/GitHub"
+import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownError } from "@pp/server-core/markdown/Markdown"
 import { BannerPlaceholders } from "@pp/server-core/projects/BannerPlaceholders"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
@@ -17,7 +21,13 @@ import {
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
 import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
 import { Users } from "@pp/server-core/users/Users"
-import { Slug, TicketId, TicketStatus } from "@pp/shared"
+import {
+  CurrentUser,
+  ProjectScope,
+  Slug,
+  TicketId,
+  TicketStatus
+} from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as DateTime from "effect/DateTime"
@@ -75,7 +85,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
   let failWrite = false
   let lockChecks = 0
   let pool: Pool
-  let projectsLayer: Layer.Layer<Projects>
+  let projectsLayer: Layer.Layer<Projects | Access>
 
   beforeAll(async () => {
     if (!databaseUrl) throw new Error("Test database URL is required")
@@ -105,6 +115,10 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
     await pool.query(
       "INSERT INTO project_index (id,slug,organization_id,key,name,icon,color,created_by,banner) VALUES ($1,$2,$3,'T','Switch','folder','#3b82f6',$4,$5)",
       [projectId, slug, organizationId, userId, JSON.stringify(banner)]
+    )
+    await pool.query(
+      "INSERT INTO project_member (project_id,organization_id,user_id,role_id) VALUES ($1,$2,$3,'developer')",
+      [projectId, organizationId, userId]
     )
     await pool.query(
       "INSERT INTO organization_integration (id,organization_id,provider,status) VALUES ($1,$2,'github','active')",
@@ -165,7 +179,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
       TicketDocumentLock.TicketDocumentLock,
       Effect.gen(function* () {
         const sql = yield* SqlClient.SqlClient
-        const delegate = TicketDocumentLock.make()
+        const delegate = TicketDocumentLock.make(yield* KeyedLock.KeyedLock)
         return TicketDocumentLock.TicketDocumentLock.of({
           withRepositoryBranchLock: delegate.withRepositoryBranchLock,
           withTicketDocumentLock: (org, project, id, effect) =>
@@ -184,8 +198,9 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
             })
         })
       })
-    ).pipe(Layer.provide(db))
+    ).pipe(Layer.provide(db), Layer.provide(KeyedLock.layer))
     projectsLayer = ProjectsLive.pipe(
+      Layer.provideMerge(AccessLive.pipe(Layer.provide(db))),
       Layer.provide(
         TicketIndexLive.pipe(Layer.provide(db), Layer.provide(docs))
       ),
@@ -262,12 +277,20 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
 
   const connect = () =>
     Effect.flatMap(Projects, (projects) =>
-      projects.connectGithub(organizationId, userId, slug, {
+      projects.connectGithub({
         repoId: "new-repo",
         repoOwner: "acme",
         repoName: "new"
       })
-    ).pipe(Effect.provide(projectsLayer))
+    ).pipe(
+      Effect.provideServiceEffect(
+        ProjectScope,
+        Effect.flatMap(Access, (access) =>
+          access.project(organizationId, slug)
+        ).pipe(Effect.provideService(CurrentUser, testUser(userId)))
+      ),
+      Effect.provide(projectsLayer)
+    )
 
   it.effect(
     "keeps the old connection on cleanup failure and retries outside a transaction",

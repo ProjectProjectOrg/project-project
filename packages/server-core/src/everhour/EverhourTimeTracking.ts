@@ -10,7 +10,9 @@ import type {
   StartSprintTimerInput,
   StartTimerInput,
   TicketTimeSummary,
-  WorkTypeOption
+  WorkTypeOption,
+  OrgScope,
+  ProjectScope
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
@@ -27,45 +29,36 @@ export type EverhourTimeTrackingError =
 
 export interface EverhourTimeTrackingShape {
   readonly workTypesForTicket: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     ticketId: string
-  ) => Effect.Effect<ReadonlyArray<WorkTypeOption>, NotFound>
+  ) => Effect.Effect<ReadonlyArray<WorkTypeOption>, NotFound, ProjectScope>
   readonly startTicketTimer: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     ticketId: string,
     input: StartTimerInput
-  ) => Effect.Effect<ActiveTimer, EverhourTimeTrackingError>
+  ) => Effect.Effect<ActiveTimer, EverhourTimeTrackingError, ProjectScope>
   readonly startSprintTimer: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     groupId: string,
     input: StartSprintTimerInput
-  ) => Effect.Effect<ActiveTimer, EverhourTimeTrackingError>
-  readonly stopTimer: (
-    orgSlug: string,
-    userId: string
-  ) => Effect.Effect<ActiveTimer | null, EverhourTimeTrackingError>
-  readonly currentTimer: (
-    orgSlug: string,
-    userId: string
-  ) => Effect.Effect<ActiveTimer | null, EverhourTimeTrackingError>
+  ) => Effect.Effect<ActiveTimer, EverhourTimeTrackingError, ProjectScope>
+  readonly stopTimer: () => Effect.Effect<
+    ActiveTimer | null,
+    EverhourTimeTrackingError,
+    OrgScope
+  >
+  readonly currentTimer: () => Effect.Effect<
+    ActiveTimer | null,
+    EverhourTimeTrackingError,
+    OrgScope
+  >
   readonly logTime: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     input: LogTimeInput
-  ) => Effect.Effect<TicketTimeSummary | null, EverhourTimeTrackingError>
+  ) => Effect.Effect<
+    TicketTimeSummary | null,
+    EverhourTimeTrackingError,
+    ProjectScope
+  >
   readonly ticketTimeSummary: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     ticketId: string
-  ) => Effect.Effect<TicketTimeSummary, NotFound>
+  ) => Effect.Effect<TicketTimeSummary, NotFound, ProjectScope>
   readonly applyWebhookTimeEvent: (
     projectIntegrationLinkId: string,
     record: EverhourTimeRecord

@@ -4,8 +4,10 @@ import {
   deriveAttachmentEtag
 } from "@pp/server-core/attachments/Attachments"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import { Users } from "@pp/server-core/users/Users"
 import {
   attachmentViewParams,
+  CurrentUser,
   parseAttachmentUrl,
   resolveAttachmentWidthRung
 } from "@pp/shared"
@@ -141,7 +143,13 @@ const serveAttachment = Effect.gen(function* () {
   const session = yield* ba
     .getSession(toWebHeaders(req.headers))
     .pipe(Effect.orElseSucceed(() => null))
-  if (session === null) {
+  const [viewer] =
+    session === null
+      ? []
+      : yield* Effect.flatMap(Users, (users) =>
+          users.fullByIds([session.user.id])
+        )
+  if (viewer === undefined) {
     return HttpServerResponse.text("Unauthorized", { status: 401 })
   }
 
@@ -152,12 +160,9 @@ const serveAttachment = Effect.gen(function* () {
   const view = attachmentViewParams(webReq.url)
 
   const attachments = yield* Attachments
-  const { url: signed, contentType } = yield* attachments.resolveForServing(
-    ref.orgSlug,
-    ref.id,
-    session.user.id,
-    { download }
-  )
+  const { url: signed, contentType } = yield* attachments
+    .resolveForServing(ref.orgSlug, ref.id, { download })
+    .pipe(Effect.provideService(CurrentUser, viewer))
 
   if (!attachmentServesInline({ contentType, download })) {
     return HttpServerResponse.redirect(signed, {

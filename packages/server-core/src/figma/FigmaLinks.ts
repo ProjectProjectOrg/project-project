@@ -2,11 +2,13 @@ import {
   AttachmentId,
   Slug,
   type FigmaLinkMetadata,
-  type Forbidden,
   type NotFound,
   type StorageConfigMissing,
   type StorageError,
-  type StorageNotConnected
+  type StorageNotConnected,
+  type ProjectScope,
+  type CurrentUser,
+  type Forbidden
 } from "@pp/shared"
 import { Option, Schema } from "effect"
 import * as Context from "effect/Context"
@@ -75,22 +77,19 @@ export interface FigmaLinksShape {
     body: string
   ) => Effect.Effect<void>
   readonly listForTicket: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     ticketId: string
-  ) => Effect.Effect<ReadonlyArray<FigmaLinkMetadata>, NotFound | Forbidden>
+  ) => Effect.Effect<ReadonlyArray<FigmaLinkMetadata>, never, ProjectScope>
   readonly resolveThumbnailUrl: (
     orgSlug: string,
-    userId: string,
     linkId: string
   ) => Effect.Effect<
     string,
-    | NotFound
     | Forbidden
+    | NotFound
     | StorageNotConnected
     | StorageConfigMissing
-    | StorageError
+    | StorageError,
+    CurrentUser
   >
 }
 
