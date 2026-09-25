@@ -1,10 +1,11 @@
-import { useAtomValue } from "@effect/atom-react"
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import type { GroupId, TicketListQuery } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { motion } from "motion/react"
 import { Activity, type ReactNode } from "react"
 
+import { ErrorPage } from "@/components/ErrorPage"
 import { PageContainer } from "@/components/page"
 import { ReorderBoardBanner } from "@/components/sprints/ReorderBoardBanner"
 import {
@@ -16,6 +17,7 @@ import {
   sprintDetail,
   sprintRequest
 } from "@/features/sprints/atoms/sprintDetail"
+import { viewCounts } from "@/features/tickets/atoms/viewCounts"
 import { useLocalStorageState } from "@/hooks/useLocalStorageState"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
@@ -68,14 +70,40 @@ export function ProjectTicketLayout({
     `${orgSlug}/${slug}/${scope}/${view}`
   )
   const isBoard = view === "board"
-  const counts = useViewTicketCounts({
+  const countsSource = {
     orgSlug,
     slug,
     groupId,
     view,
     grouping,
     query
-  })
+  } as const
+  const counts = useViewTicketCounts(countsSource)
+  const refreshCounts = useAtomRefresh(viewCounts(countsSource))
+  const toolbar = (value: Record<string, number>) => (
+    <TicketToolbar
+      orgSlug={orgSlug}
+      slug={slug}
+      scopeKey={scope}
+      query={query}
+      onQueryChange={onQueryChange}
+      members={project.members}
+      counts={value}
+      filters={
+        groupId
+          ? isBoard
+            ? ["type", "assignee", "tags"]
+            : ["archived", "type", "assignee", "tags"]
+          : ["archived", "type", "assignee", "sprint", "tags"]
+      }
+      showSort={!groupId || !isBoard}
+      viewControls={<ViewSwitcher orgSlug={orgSlug} slug={slug} />}
+    >
+      {!groupId && !isBoard && (
+        <BacklogGroupingControl value={grouping} onChange={setGrouping} />
+      )}
+    </TicketToolbar>
+  )
   return (
     <PageContainer className="group/list gap-3">
       <Activity mode={view === "description" ? "hidden" : "visible"}>
@@ -126,35 +154,16 @@ export function ProjectTicketLayout({
             inert={reorder.reorderMode}
             aria-hidden={reorder.reorderMode}
           >
-            {counts ? (
-              <TicketToolbar
-                orgSlug={orgSlug}
-                slug={slug}
-                scopeKey={scope}
-                query={query}
-                onQueryChange={onQueryChange}
-                members={project.members}
-                counts={counts}
-                filters={
-                  groupId
-                    ? isBoard
-                      ? ["type", "assignee", "tags"]
-                      : ["archived", "type", "assignee", "tags"]
-                    : ["archived", "type", "assignee", "sprint", "tags"]
-                }
-                showSort={!groupId || !isBoard}
-                viewControls={<ViewSwitcher orgSlug={orgSlug} slug={slug} />}
-              >
-                {!groupId && !isBoard && (
-                  <BacklogGroupingControl
-                    value={grouping}
-                    onChange={setGrouping}
-                  />
-                )}
-              </TicketToolbar>
-            ) : (
-              <div className="h-9" />
-            )}
+            {Result.matchWithError(counts, {
+              onInitial: () => toolbar({}),
+              onError: (error) => (
+                <ErrorPage error={error} reset={refreshCounts} contained />
+              ),
+              onDefect: (defect) => (
+                <ErrorPage error={defect} reset={refreshCounts} contained />
+              ),
+              onSuccess: ({ value }) => toolbar(value)
+            })}
           </motion.div>
         </Activity>
         {children({ grouping, preferencesKey, reorder })}

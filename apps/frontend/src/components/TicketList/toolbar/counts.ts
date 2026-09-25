@@ -16,19 +16,16 @@ export function useViewTicketCounts(source: ViewCountsSource) {
   const statusesResult = useAtomValue(
     statusesFor(statusesRequest(source.orgSlug, source.slug))
   )
-  if (!Result.isSuccess(result) && !Result.isFailure(result)) return undefined
-
-  const counts = Result.isSuccess(result)
-    ? result.value
-    : { total: 0, byStatus: {} }
   const statuses = Result.isSuccess(statusesResult)
     ? boardStatusesFor(statusesResult.value)
     : []
-  const byStatus: Record<string, number> = counts.byStatus
-  return {
-    all: counts.total,
-    ...Object.fromEntries(
-      statuses.map((status) => [status, byStatus[status] ?? 0])
-    )
-  }
+  return Result.map(result, (counts) => {
+    const byStatus: Record<string, number> = counts.byStatus
+    return {
+      all: counts.total,
+      ...Object.fromEntries(
+        statuses.map((status) => [status, byStatus[status] ?? 0])
+      )
+    }
+  })
 }
