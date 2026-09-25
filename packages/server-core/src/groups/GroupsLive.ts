@@ -28,8 +28,6 @@ import * as Schema from "effect/Schema"
 import { KeyedLock, LockKey } from "../locks/KeyedLock"
 import type { MarkdownError } from "../markdown/Markdown"
 import { TicketDocs } from "../tickets/TicketDocs"
-import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
-import { TicketIndex } from "../tickets/TicketIndex"
 import { GroupDocs, type GroupDocument } from "./GroupDocs"
 import { Groups, type GroupsShape } from "./Groups"
 
@@ -59,22 +57,21 @@ function documentToGroup(document: GroupDocument): Group {
   return group
 }
 
-const requireKindPermission = (
-  kind: GroupKind
+const requireGroupPolicy = (
+  allowed: (scope: ProjectScopeShape) => boolean
 ): Effect.Effect<void, Forbidden, ProjectScope> =>
   Effect.flatMap(ProjectScope, (scope) =>
-    GroupPolicy.canManage(scope, kind)
-      ? Effect.void
-      : Effect.fail(new Forbidden())
+    allowed(scope) ? Effect.void : Effect.fail(new Forbidden())
   )
+
+const requireGroupAction = (kind: GroupKind, action: GroupPolicy.Action) =>
+  requireGroupPolicy((scope) => GroupPolicy.can(scope, kind, action))
 
 export const GroupsLive = Layer.effect(
   Groups,
   Effect.gen(function* () {
     const groupDocs = yield* GroupDocs
     const ticketDocs = yield* TicketDocs
-    const ticketIndex = yield* TicketIndex
-    const ticketDocumentLock = yield* TicketDocumentLock.TicketDocumentLock
     const keyedLock = yield* KeyedLock
 
     const withGroupFilesLock = <A, E, R>(
@@ -240,7 +237,7 @@ export const GroupsLive = Layer.effect(
       lockedInScope(({ orgSlug, slug, userId }) =>
         Effect.gen(function* () {
           const kind: GroupKind = input.kind ?? "other"
-          yield* requireKindPermission(kind)
+          yield* requireGroupAction(kind, "manage")
 
           const requestedTickets = input.tickets ?? []
           yield* validateTicketIds(orgSlug, slug, requestedTickets)
@@ -283,6 +280,11 @@ export const GroupsLive = Layer.effect(
             body: `# ${input.name}\n`
           }
 
+          const evictions =
+            kind === "sprint"
+              ? yield* planEvictions(orgSlug, slug, null, requestedTickets)
+              : []
+
           for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
             const next: GroupDocument = { ...document, id: candidate }
             const result = yield* groupDocs.create(orgSlug, slug, next).pipe(
@@ -292,6 +294,7 @@ export const GroupsLive = Layer.effect(
               )
             )
             if (result === "ok") {
+              yield* writeEvictions(orgSlug, slug, evictions, now)
               return documentToGroup(next)
             }
             const freshIds = yield* groupDocs.listIds(orgSlug, slug)
@@ -307,7 +310,7 @@ export const GroupsLive = Layer.effect(
       lockedInScope(({ orgSlug, slug }) =>
         Effect.gen(function* () {
           const existing = yield* groupDocs.read(orgSlug, slug, id)
-          yield* requireKindPermission(existing.kind)
+          yield* requireGroupAction(existing.kind, "manage")
 
           const now = yield* DateTime.nowAsDate
           const next: GroupDocument = {
@@ -335,56 +338,97 @@ export const GroupsLive = Layer.effect(
         })
       )
 
-    const applyTicketsChange = (
+    const planEvictions = (
+      orgSlug: string,
+      slug: string,
+      groupId: GroupId | null,
+      incoming: ReadonlyArray<TicketId>
+    ): Effect.Effect<
+      ReadonlyArray<
+        Readonly<{ group: GroupDocument; overlap: ReadonlyArray<TicketId> }>
+      >,
+      MarkdownError
+    > =>
+      Effect.gen(function* () {
+        if (incoming.length === 0) return []
+        const incomingSet = new Set<string>(incoming)
+        const allIds = yield* groupDocs.listIds(orgSlug, slug)
+        const others = yield* Effect.forEach(
+          allIds.filter((otherId) => otherId !== groupId),
+          (otherId) =>
+            groupDocs
+              .read(orgSlug, slug, otherId)
+              .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null))),
+          { concurrency: 8 }
+        )
+        return others.flatMap((group) => {
+          if (group === null) return []
+          if (group.kind !== "sprint" || group.completedAt !== null) return []
+          const overlap = group.tickets.filter((tid) => incomingSet.has(tid))
+          return overlap.length === 0 ? [] : [{ group, overlap }]
+        })
+      })
+
+    const writeEvictions = (
+      orgSlug: string,
+      slug: string,
+      evictions: ReadonlyArray<
+        Readonly<{ group: GroupDocument; overlap: ReadonlyArray<TicketId> }>
+      >,
+      now: Date
+    ) =>
+      Effect.forEach(
+        evictions,
+        ({ group, overlap }) => {
+          const dropped = new Set<string>(overlap)
+          return groupDocs
+            .write(orgSlug, slug, group.id, {
+              ...group,
+              tickets: group.tickets.filter((tid) => !dropped.has(tid)),
+              updatedAt: now
+            })
+            .pipe(Effect.as({ groupId: group.id, ticketIds: overlap }))
+        },
+        { concurrency: 1 }
+      )
+
+    const changeTickets = (
       orgSlug: string,
       slug: string,
       current: GroupDocument,
       nextTickets: ReadonlyArray<TicketId>
-    ): Effect.Effect<UpdateGroupTicketsOutput, MarkdownError> =>
+    ): Effect.Effect<
+      UpdateGroupTicketsOutput,
+      Forbidden | MarkdownError,
+      ProjectScope
+    > =>
       Effect.gen(function* () {
+        if (
+          GroupPolicy.ticketActions(current.tickets, nextTickets).length === 0
+        ) {
+          return {
+            target: current,
+            evicted: []
+          } satisfies UpdateGroupTicketsOutput
+        }
+        const evictions =
+          current.kind === "sprint"
+            ? yield* planEvictions(orgSlug, slug, current.id, nextTickets)
+            : []
+        yield* requireGroupPolicy((scope) =>
+          GroupPolicy.canChangeTickets(scope, current.kind, {
+            current: current.tickets,
+            next: nextTickets,
+            evicts: evictions.length > 0
+          })
+        )
         const now = yield* DateTime.nowAsDate
+        const evicted = yield* writeEvictions(orgSlug, slug, evictions, now)
         const target: GroupDocument = {
           ...current,
           tickets: nextTickets,
           updatedAt: now
         }
-
-        const evicted: Array<{
-          groupId: GroupId
-          ticketIds: ReadonlyArray<TicketId>
-        }> = []
-
-        if (current.kind === "sprint" && nextTickets.length > 0) {
-          const incoming = new Set<string>(nextTickets)
-          const allIds = yield* groupDocs.listIds(orgSlug, slug)
-          const others = yield* Effect.forEach(
-            allIds.filter((otherId) => otherId !== current.id),
-            (otherId) =>
-              groupDocs
-                .read(orgSlug, slug, otherId)
-                .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null))),
-            { concurrency: 8 }
-          )
-          for (const other of others) {
-            if (other === null) continue
-            if (other.kind !== "sprint") continue
-            if (other.completedAt !== null) continue
-            const overlap = other.tickets.filter((tid) => incoming.has(tid))
-            if (overlap.length === 0) continue
-            const remaining = other.tickets.filter((tid) => !incoming.has(tid))
-            const nextOther: GroupDocument = {
-              ...other,
-              tickets: remaining,
-              updatedAt: now
-            }
-            yield* groupDocs.write(orgSlug, slug, other.id, nextOther)
-            evicted.push({
-              groupId: other.id,
-              ticketIds: overlap
-            })
-          }
-        }
-
         yield* groupDocs.write(orgSlug, slug, current.id, target)
         return { target, evicted } satisfies UpdateGroupTicketsOutput
       })
@@ -393,17 +437,11 @@ export const GroupsLive = Layer.effect(
       lockedInScope(({ orgSlug, slug }) =>
         Effect.gen(function* () {
           const existing = yield* groupDocs.read(orgSlug, slug, id)
-          yield* requireKindPermission(existing.kind)
           if (existing.completedAt !== null) {
             return yield* new SprintCompletedImmutable()
           }
           yield* validateTicketIds(orgSlug, slug, input.tickets)
-          return yield* applyTicketsChange(
-            orgSlug,
-            slug,
-            existing,
-            input.tickets
-          )
+          return yield* changeTickets(orgSlug, slug, existing, input.tickets)
         })
       )
 
@@ -411,7 +449,7 @@ export const GroupsLive = Layer.effect(
       lockedInScope(({ orgSlug, slug }) =>
         Effect.gen(function* () {
           const existing = yield* groupDocs.read(orgSlug, slug, id)
-          yield* requireKindPermission(existing.kind)
+          yield* requireGroupAction(existing.kind, "add_ticket")
           if (existing.completedAt !== null) {
             return yield* new SprintCompletedImmutable()
           }
@@ -432,7 +470,7 @@ export const GroupsLive = Layer.effect(
 
           yield* validateTicketIds(orgSlug, slug, additions)
           const merged = [...existing.tickets, ...additions]
-          return yield* applyTicketsChange(orgSlug, slug, existing, merged)
+          return yield* changeTickets(orgSlug, slug, existing, merged)
         })
       )
 
@@ -440,7 +478,7 @@ export const GroupsLive = Layer.effect(
       lockedInScope(({ orgSlug, slug }) =>
         Effect.gen(function* () {
           const existing = yield* groupDocs.read(orgSlug, slug, id)
-          yield* requireKindPermission(existing.kind)
+          yield* requireGroupAction(existing.kind, "remove_ticket")
           if (existing.completedAt !== null) {
             return yield* new SprintCompletedImmutable()
           }
@@ -452,7 +490,7 @@ export const GroupsLive = Layer.effect(
               evicted: []
             } satisfies UpdateGroupTicketsOutput
           }
-          return yield* applyTicketsChange(orgSlug, slug, existing, remaining)
+          return yield* changeTickets(orgSlug, slug, existing, remaining)
         })
       )
 
@@ -460,7 +498,7 @@ export const GroupsLive = Layer.effect(
       lockedInScope(({ orgSlug, slug }) =>
         Effect.gen(function* () {
           const existing = yield* groupDocs.read(orgSlug, slug, id)
-          yield* requireKindPermission(existing.kind)
+          yield* requireGroupAction(existing.kind, "reorder")
           if (existing.completedAt !== null) {
             return yield* new SprintCompletedImmutable()
           }
@@ -487,43 +525,6 @@ export const GroupsLive = Layer.effect(
 
           const now = yield* DateTime.nowAsDate
 
-          if (input.status !== undefined) {
-            const status = input.status
-            const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
-            let changed = false
-            yield* ticketDocumentLock.withTicketDocumentLock(
-              orgSlug,
-              slug,
-              input.ticketId,
-              ticketDocs
-                .update(
-                  orgSlug,
-                  slug,
-                  input.ticketId,
-                  (ticket) => {
-                    if (ticket.status === status) {
-                      return Effect.succeed(ticket)
-                    }
-                    changed = true
-                    return Effect.succeed({
-                      ...ticket,
-                      status,
-                      updatedAt: now
-                    })
-                  },
-                  (next) =>
-                    changed
-                      ? ticketIndex.upsertTicket(indexProject, next)
-                      : Effect.void
-                )
-                .pipe(
-                  Effect.catchTag("MalformedTicketDocument", () =>
-                    Effect.fail(new NotFound())
-                  )
-                )
-            )
-          }
-
           const target: GroupDocument = {
             ...existing,
             tickets: nextTickets,
@@ -538,7 +539,7 @@ export const GroupsLive = Layer.effect(
       lockedInScope(({ orgSlug, slug }) =>
         Effect.gen(function* () {
           const source = yield* groupDocs.read(orgSlug, slug, id)
-          yield* requireKindPermission(source.kind)
+          yield* requireGroupAction(source.kind, "manage")
 
           if (source.kind !== "sprint") {
             return yield* new Validation({ reason: "not_a_sprint" })
@@ -615,7 +616,7 @@ export const GroupsLive = Layer.effect(
       lockedInScope(({ orgSlug, slug }) =>
         Effect.gen(function* () {
           const existing = yield* groupDocs.read(orgSlug, slug, id)
-          yield* requireKindPermission(existing.kind)
+          yield* requireGroupAction(existing.kind, "manage")
           yield* groupDocs.remove(orgSlug, slug, id)
         })
       )
@@ -624,7 +625,7 @@ export const GroupsLive = Layer.effect(
       sprintIds
     ) =>
       Effect.gen(function* () {
-        yield* requireKindPermission("sprint")
+        yield* requireGroupAction("sprint", "add_ticket")
         const { orgSlug, slug } = yield* ProjectScope
         yield* Effect.forEach(
           [...new Set(sprintIds)],

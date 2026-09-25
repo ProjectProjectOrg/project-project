@@ -21,7 +21,8 @@ import type {
   UpdateProjectInput,
   UpdateProjectSetupInput,
   OrgScope,
-  ProjectScope
+  ProjectScope,
+  Forbidden
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
@@ -96,7 +97,11 @@ export interface ProjectsShape {
   >
   readonly update: (
     input: UpdateProjectInput
-  ) => Effect.Effect<ProjectDetail, NotFound | MarkdownError, ProjectScope>
+  ) => Effect.Effect<
+    ProjectDetail,
+    Forbidden | NotFound | MarkdownError,
+    ProjectScope
+  >
   readonly updateSetup: (
     input: UpdateProjectSetupInput
   ) => Effect.Effect<ProjectDetail, NotFound | MarkdownError, ProjectScope>

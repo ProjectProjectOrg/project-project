@@ -390,21 +390,26 @@ Both role sets and their permissions are defined in `@pp/access` (`packages/acce
 | Create projects (creator becomes PM)                     | ✓     | ✓     | ✓      | –     |
 | See the org member directory                             | ✓     | ✓     | ✓      | –     |
 
-| Project action                                           | pm | developer | client      |
-| -------------------------------------------------------- | -- | --------- | ----------- |
-| View board, tickets, sprints, docs; create tickets       | ✓  | ✓         | ✓           |
-| Edit ticket content                                      | ✓  | ✓         | own tickets |
-| Change status and assignee                               | ✓  | ✓         | –           |
-| Delete tickets, plan sprints                             | ✓  | –         | –           |
-| Comment; edit and delete own comments                    | ✓  | ✓         | ✓           |
-| Edit or delete others' comments                          | ✓  | –         | –           |
-| Epics, edit docs, Everhour                               | ✓  | ✓         | –           |
-| GitHub: state, branches, PRs, connect the repo           | ✓  | ✓         | –           |
-| Figma links                                              | ✓  | ✓         | ✓           |
-| Tags, statuses, workflow, blocks and templates           | ✓  | –         | –           |
-| Project settings and integrations, members, archive/delete | ✓ | –        | –           |
+| Project action                                                  | pm | developer | client |
+| --------------------------------------------------------------- | -- | --------- | ------ |
+| View board, tickets, sprints, docs; create tickets              | ✓  | ✓         | ✓      |
+| Edit tickets, change their status and assignees                 | ✓  | ✓         | ✓      |
+| Delete tickets                                                  | ✓  | –         | –      |
+| Plan sprints: create, edit, complete, delete                    | ✓  | –         | –      |
+| Add tickets to a sprint and reorder it                          | ✓  | ✓         | ✓      |
+| Take tickets out of a sprint or move them to another            | ✓  | –         | –      |
+| Comment; edit and delete own comments                           | ✓  | ✓         | ✓      |
+| Edit or delete others' comments                                 | ✓  | –         | –      |
+| Epics, edit docs                                                | ✓  | ✓         | –      |
+| Log time (after connecting your own Everhour), see time totals  | ✓  | ✓         | –      |
+| GitHub: state, branches, PRs, connect the repo                  | ✓  | ✓         | –      |
+| Figma links                                                     | ✓  | ✓         | ✓      |
+| Tags, statuses, workflow, blocks and templates                  | ✓  | –         | –      |
+| Project settings and integrations, members, archive/delete      | ✓  | –         | –      |
 
-A project always keeps at least one PM. Org owners and admins without a project role can read every project's content, GitHub state and time totals, manage its members and archive or delete it, but can't change its content.
+A project always keeps at least one PM. Org owners and admins without a project role can read every project's content, GitHub state and time totals, manage its members and archive or delete it, but can't change its content. Because they manage members, they can add themselves as PM and work on the project from then on.
+
+Changing a ticket's status on the sprint board is a status change like any other; reordering the sprint doesn't change status. When a ticket is split, the new tickets may copy the original's status and sprint; choosing anything else needs the same permission as changing it.
 
 Clients never see GitHub data: tickets come back with `branch`, `pr`, `prState` and `lastTransitionedPr` as null and an empty `gitState`, and project detail comes back without its `github` connection.
 

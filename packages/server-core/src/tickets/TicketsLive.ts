@@ -249,7 +249,6 @@ const requireSplit = (
 ) =>
   requirePolicy((scope) =>
     TicketPolicy.canSplit(scope, {
-      ownerId: source.createdBy,
       source,
       retained,
       created,
@@ -934,7 +933,6 @@ export const TicketsLive = Layer.effect(
         const scope = yield* ProjectScope
         const { orgSlug, slug, userId: ownerId, projectId } = scope
         yield* requireTicketChange({
-          ownerId,
           content: false,
           status: input.status !== undefined && input.status !== DEFAULT_STATUS,
           assignees: false
@@ -986,11 +984,13 @@ export const TicketsLive = Layer.effect(
         const scope = yield* ProjectScope
         const { orgSlug, slug, userId: ownerId, projectId } = scope
         yield* requireTicketChange({
-          ownerId,
           content: false,
           status: input.status !== undefined && input.status !== DEFAULT_STATUS,
           assignees: (input.assignees ?? []).length > 0
         })
+        if (input.status !== undefined) {
+          yield* validateStatusExists(projectId, input.status)
+        }
         const expansion = yield* expansionFor(orgSlug, slug, input.template)
         const indexProject = indexProjectOf(scope)
         const projectKey = yield* projects.key()
@@ -1050,6 +1050,9 @@ export const TicketsLive = Layer.effect(
             const view = yield* gitView
             const indexProject = indexProjectOf(scope)
 
+            if (input.status !== undefined) {
+              yield* validateStatusExists(projectId, input.status)
+            }
             if (input.tags !== undefined) {
               yield* validateTagsExist(projectId, input.tags)
             }
@@ -1093,7 +1096,6 @@ export const TicketsLive = Layer.effect(
                     existing.assignees
                   )
                   yield* requireTicketChange({
-                    ownerId: existing.createdBy,
                     content: content || (!status && !assignees),
                     status,
                     assignees
@@ -1160,6 +1162,55 @@ export const TicketsLive = Layer.effect(
         )
       })
 
+    const moveInGroup: TicketsShape["moveInGroup"] = (
+      groupId,
+      { status, ...position }
+    ) =>
+      Effect.gen(function* () {
+        const scope = yield* ProjectScope
+        const { orgSlug, slug, userId, projectId } = scope
+        if (status !== undefined) {
+          yield* requireTicketChange({
+            content: false,
+            status: true,
+            assignees: false
+          })
+          yield* validateStatusExists(projectId, status)
+        }
+        const group = yield* groups.updateTicketOrder(groupId, position)
+        if (status === undefined) return group
+        const indexProject = indexProjectOf(scope)
+        yield* withTicketDocumentLock(
+          orgSlug,
+          slug,
+          position.ticketId,
+          ticketDocs
+            .update(
+              orgSlug,
+              slug,
+              position.ticketId,
+              (existing) =>
+                existing.status === status
+                  ? Effect.succeed(existing)
+                  : DateTime.nowAsDate.pipe(
+                      Effect.map((now) => ({
+                        ...existing,
+                        status,
+                        updatedBy: userId,
+                        updatedAt: now
+                      }))
+                    ),
+              (next) => ticketIndex.upsertTicket(indexProject, next)
+            )
+            .pipe(
+              Effect.catchTag("MalformedTicketDocument", () =>
+                Effect.fail(new NotFound())
+              )
+            )
+        )
+        return group
+      })
+
     const discardSplitResult = (
       orgSlug: string,
       slug: string,
@@ -1218,17 +1269,15 @@ export const TicketsLive = Layer.effect(
         const indexProject = indexProjectOf(scope)
         const projectKey = yield* projects.key()
         const view = yield* gitView
-        yield* requireSplit(
-          yield* readTicket(orgSlug, slug, id),
-          retainedInput,
-          newInputs
-        )
+        const source = yield* readTicket(orgSlug, slug, id)
+        yield* requireSplit(source, retainedInput, newInputs)
 
-        const assignees = [
+        const sourceAssignees = new Set(source.assignees)
+        const newcomers = [
           ...new Set(input.results.flatMap((result) => result.assignees))
-        ]
-        if (assignees.length > 0) {
-          yield* validateAssigneesAreMembers(assignees)
+        ].filter((assignee) => !sourceAssignees.has(assignee))
+        if (newcomers.length > 0) {
+          yield* validateAssigneesAreMembers(newcomers)
         }
         yield* Effect.forEach(
           [...new Set(input.results.map((result) => result.status))],
@@ -1245,17 +1294,16 @@ export const TicketsLive = Layer.effect(
         )
         const originalSprintId = originalSprint?.id ?? null
         const retainedMoves = retainedInput.sprintId !== originalSprintId
-        if (
-          retainedMoves ||
-          newInputs.some((result) => result.sprintId !== null)
-        ) {
+        if (retainedMoves && originalSprintId !== null) {
           yield* requirePolicy((scope) =>
-            GroupPolicy.canManage(scope, "sprint")
+            GroupPolicy.can(scope, "sprint", "remove_ticket")
           )
         }
         const sprintTargets = [
           retainedMoves ? retainedInput.sprintId : null,
-          ...newInputs.map((result) => result.sprintId)
+          ...newInputs.map((result) =>
+            result.sprintId === originalSprintId ? null : result.sprintId
+          )
         ].filter((sprintId) => sprintId !== null)
         if (sprintTargets.length > 0) {
           yield* groups.ensureSprintAssignable(sprintTargets)
@@ -1455,18 +1503,6 @@ export const TicketsLive = Layer.effect(
         )
       })
 
-    const requireArchivable = (orgSlug: string, slug: string, id: string) =>
-      readTicket(orgSlug, slug, id).pipe(
-        Effect.flatMap((ticket) =>
-          requireTicketChange({
-            ownerId: ticket.createdBy,
-            content: true,
-            status: false,
-            assignees: false
-          })
-        )
-      )
-
     const archive: TicketsShape["archive"] = (id, reason) =>
       Effect.gen(function* () {
         const scope = yield* ProjectScope
@@ -1476,7 +1512,7 @@ export const TicketsLive = Layer.effect(
           slug,
           id,
           Effect.gen(function* () {
-            yield* requireArchivable(orgSlug, slug, id)
+            yield* readTicket(orgSlug, slug, id)
             const indexProject = indexProjectOf(scope)
             const trimmed = reason?.trim()
             if (trimmed !== undefined && trimmed.length > 0) {
@@ -1512,7 +1548,7 @@ export const TicketsLive = Layer.effect(
           slug,
           id,
           Effect.gen(function* () {
-            yield* requireArchivable(orgSlug, slug, id)
+            yield* readTicket(orgSlug, slug, id)
             const indexProject = indexProjectOf(scope)
             const next = yield* ticketDocs.update(
               orgSlug,
@@ -2122,6 +2158,7 @@ export const TicketsLive = Layer.effect(
       create,
       update,
       split,
+      moveInGroup,
       remove,
       archive,
       unarchive,

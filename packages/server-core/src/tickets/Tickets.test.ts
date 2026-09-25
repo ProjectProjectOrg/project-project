@@ -8,6 +8,7 @@ import {
   padNumericIdSort,
   paginateSorted,
   GroupColor,
+  GroupDetail,
   GroupId,
   ProjectKey,
   RateLimited,
@@ -16,7 +17,6 @@ import {
   TicketStatus,
   UserId,
   tryDecodeCursor,
-  type GroupDetail,
   type TicketCountQuery,
   type TicketFilter,
   type TicketListQuery,
@@ -230,10 +230,20 @@ const FakeDb = Layer.succeed(
   new Proxy(
     {},
     {
-      get:
-        (_target, prop) =>
-        (..._args: ReadonlyArray<unknown>) =>
-          unexpected(`Db.${String(prop)}`)
+      get: (_target, prop) =>
+        prop === "query"
+          ? {
+              projectStatus: {
+                findMany: () =>
+                  Effect.succeed([
+                    { slug: "todo" },
+                    { slug: "in_progress" },
+                    { slug: "done" }
+                  ])
+              }
+            }
+          : (..._args: ReadonlyArray<unknown>) =>
+              unexpected(`Db.${String(prop)}`)
     }
   ) as never
 )
@@ -2569,57 +2579,113 @@ const as = (scope: ProjectScopeShape) =>
   Effect.provideService(ProjectScope, scope)
 
 it.effect(
-  "lets a client edit their own ticket's content but not its status or assignees",
+  "lets a client edit any ticket and change its status and assignees",
   () => {
     const { docs, layer } = permissionFixture()
     const client = as(scopeAs("guest", "client", "client-1"))
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      const renamed = yield* tickets
-        .update("T-2", { title: "Clearer title" })
+      yield* tickets
+        .update("T-1", {
+          title: "Clearer title",
+          status: ticketStatus("done"),
+          assignees: ["user-1"]
+        })
         .pipe(client)
-      expect(renamed.ticket.title).toBe("Clearer title")
-      const status = yield* Effect.flip(
-        tickets.update("T-2", { status: ticketStatus("done") }).pipe(client)
-      )
-      const assignees = yield* Effect.flip(
-        tickets.update("T-2", { assignees: ["user-1"] }).pipe(client)
-      )
-      const others = yield* Effect.flip(
-        tickets.update("T-1", { title: "Not mine" }).pipe(client)
-      )
-      expect([status._tag, assignees._tag, others._tag]).toStrictEqual([
-        "Forbidden",
-        "Forbidden",
-        "Forbidden"
-      ])
-      expect(docs.documents.get("T-2")?.status).toBe("todo")
-      expect(docs.documents.get("T-1")?.title).toBe("T-1")
+      expect(docs.documents.get("T-1")).toMatchObject({
+        title: "Clearer title",
+        status: "done",
+        assignees: ["user-1"],
+        updatedBy: "client-1"
+      })
+      const created = yield* tickets
+        .create({
+          title: "Placed",
+          status: ticketStatus("in_progress"),
+          assignees: ["user-1"]
+        })
+        .pipe(client)
+      expect(created.status).toBe("in_progress")
     }).pipe(Effect.provide(layer))
   }
 )
 
+it.effect("rejects statuses the project doesn't have", () => {
+  const { docs, layer } = permissionFixture()
+  const pm = as(scopeAs("member", "pm", "user-1"))
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const updating = yield* Effect.flip(
+      tickets.update("T-1", { status: ticketStatus("bogus") }).pipe(pm)
+    )
+    const creating = yield* Effect.flip(
+      tickets.create({ title: "New", status: ticketStatus("bogus") }).pipe(pm)
+    )
+    expect([updating._tag, creating._tag]).toStrictEqual([
+      "Validation",
+      "Validation"
+    ])
+    expect(docs.documents.get("T-1")?.status).toBe("todo")
+  }).pipe(Effect.provide(layer))
+})
+
 it.effect(
-  "lets a client create tickets only in the default status without assignees",
+  "moves a ticket on the sprint board only with permission to transition it",
   () => {
-    const { layer } = permissionFixture()
-    const client = as(scopeAs("guest", "client", "client-1"))
+    const docs = makeFakeTicketDocs([])
+    docs.documents.set("T-1", makeTicketDocument("T-1"))
+    const orders: Array<unknown> = []
+    const sprint = Schema.decodeSync(GroupDetail)({
+      id: "G-1",
+      name: "Sprint",
+      kind: "sprint",
+      tickets: ["T-1"],
+      color: "#123456",
+      startsAt: null,
+      endsAt: null,
+      completedAt: null,
+      createdBy: "user-1",
+      createdAt: "2026-04-01T00:00:00.000Z",
+      updatedAt: "2026-04-01T00:00:00.000Z",
+      body: ""
+    })
+    const layer = makeTicketsLayer("T", docs.layer, {
+      ticketIndex: makeFakeTicketIndex(docs.documents),
+      groups: makeFakeGroups({
+        updateTicketOrder: (_id, input) =>
+          Effect.sync(() => {
+            orders.push(input)
+            return sprint
+          })
+      })
+    })
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      const created = yield* tickets.create({ title: "Bug" }).pipe(client)
-      expect(created.createdBy).toBe("client-1")
-      const placed = yield* Effect.flip(
+      const move = { ticketId: ticketId("T-1"), after: null }
+      const readOnly = yield* Effect.flip(
         tickets
-          .quickCreate({ title: "Now", status: ticketStatus("done") })
-          .pipe(client)
+          .moveInGroup("G-1", { ...move, status: ticketStatus("done") })
+          .pipe(as(scopeAs("admin", null, "admin-1")))
       )
-      const assigned = yield* Effect.flip(
-        tickets.create({ title: "Mine", assignees: ["user-1"] }).pipe(client)
+      const unknown = yield* Effect.flip(
+        tickets
+          .moveInGroup("G-1", { ...move, status: ticketStatus("bogus") })
+          .pipe(as(scopeAs("guest", "client", "client-1")))
       )
-      expect([placed._tag, assigned._tag]).toStrictEqual([
+      expect([readOnly._tag, unknown._tag]).toStrictEqual([
         "Forbidden",
-        "Forbidden"
+        "Validation"
       ])
+      expect(orders).toStrictEqual([])
+
+      yield* tickets
+        .moveInGroup("G-1", { ...move, status: ticketStatus("in_progress") })
+        .pipe(as(scopeAs("guest", "client", "client-1")))
+      expect(orders).toStrictEqual([move])
+      expect(docs.documents.get("T-1")).toMatchObject({
+        status: "in_progress",
+        updatedBy: "client-1"
+      })
     }).pipe(Effect.provide(layer))
   }
 )
