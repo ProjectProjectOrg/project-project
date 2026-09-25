@@ -17,6 +17,7 @@ export function useViewTicketCounts(source: ViewCountsSource) {
   const result = useAtomValue(viewCounts(source))
   const countsKey = viewCounts({
     ...source,
+    view: "list",
     query: { ...source.query, status: undefined }
   })
   const [previous, setPrevious] = useState<
