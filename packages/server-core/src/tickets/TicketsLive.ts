@@ -708,7 +708,7 @@ export const TicketsLive = Layer.effect(
         }
       }
       const claimedIds = [...claimed]
-      const countQuery = { ...query, groupId: undefined }
+      const countQuery = { ...query, groupId: undefined, status: undefined }
       const pages = yield* Effect.forEach(
         sectionIds,
         (groupId) =>
@@ -753,16 +753,40 @@ export const TicketsLive = Layer.effect(
               }
             )
             return {
-              key: sprintSectionKey(groupId === "ungrouped" ? null : groupId),
-              count: counts.total,
-              page: ticketPage(entries, query, projectGithub, TICKET_LIST_LIMIT)
+              section: {
+                key: sprintSectionKey(groupId === "ungrouped" ? null : groupId),
+                count: query.status?.length
+                  ? query.status.reduce(
+                      (sum, status) => sum + (counts.byStatus[status] ?? 0),
+                      0
+                    )
+                  : counts.total,
+                page: ticketPage(
+                  entries,
+                  query,
+                  projectGithub,
+                  TICKET_LIST_LIMIT
+                )
+              },
+              counts
             }
           }),
         { concurrency: 4 }
       )
+      const byStatus: Record<string, number> = {}
+      for (const { counts } of pages) {
+        for (const [status, count] of Object.entries(counts.byStatus)) {
+          byStatus[status] = (byStatus[status] ?? 0) + count
+        }
+      }
+      const sections = pages.map(({ section }) => section)
       return {
-        total: pages.reduce((sum, section) => sum + section.count, 0),
-        sections: pages
+        total: sections.reduce((sum, section) => sum + section.count, 0),
+        counts: {
+          total: pages.reduce((sum, { counts }) => sum + counts.total, 0),
+          byStatus
+        },
+        sections
       }
     })
 

@@ -50,6 +50,7 @@ vi.mock("@/components/ErrorPage", () => ({
 
 const snapshot = (count: number): SprintSectionsValue => ({
   total: count,
+  counts: { total: count, byStatus: {} },
   sections: [
     { key: "unscheduled", count, page: { items: [], nextCursor: null } }
   ]

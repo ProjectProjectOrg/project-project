@@ -2364,6 +2364,54 @@ it.effect(
   }
 )
 
+it.effect(
+  "sprintSections counts the selected sections across every status",
+  () => {
+    const docs = makeFakeTicketDocs([])
+    const { documents } = docs
+    documents.set("T-1", makeTicketDocument("T-1"))
+    documents.set(
+      "T-2",
+      makeTicketDocument("T-2", { status: ticketStatus("review") })
+    )
+    documents.set(
+      "T-3",
+      makeTicketDocument("T-3", { status: ticketStatus("review") })
+    )
+    documents.set("T-4", makeTicketDocument("T-4"))
+    const g1 = sprintGroup("G-1", ["T-1", "T-2"])
+    const g2 = sprintGroup("G-2", ["T-3"])
+    const layer = makeTicketsLayer("T", docs.layer, {
+      ticketIndex: makeFakeTicketIndex(documents),
+      groups: makeFakeSprintGroups([g1, g2])
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const query = {
+        sort: { key: "id", dir: "asc" },
+        status: [ticketStatus("review")]
+      } as const
+      const all = yield* tickets.sprintSections("org", "user-1", "p", query)
+      expect(all.total).toBe(2)
+      expect(all.counts).toEqual({
+        total: 4,
+        byStatus: { todo: 2, review: 2 }
+      })
+      const selected = yield* tickets.sprintSections("org", "user-1", "p", {
+        ...query,
+        groupId: [g1.id]
+      })
+      expect(
+        selected.sections.map(({ key, count }) => ({ key, count }))
+      ).toEqual([{ key: g1.id, count: 1 }])
+      expect(selected.counts).toEqual({
+        total: 2,
+        byStatus: { todo: 1, review: 1 }
+      })
+    }).pipe(Effect.provide(layer))
+  }
+)
+
 it.effect("sprintSections assigns each ticket to one section", () => {
   const docs = makeFakeTicketDocs([])
   const { documents } = docs

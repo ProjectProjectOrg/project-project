@@ -279,6 +279,7 @@ function SprintSection({
           <SprintRow {...rowProps} snapshotReq={snapshotReq} />
         )}
         creationVariant="flat"
+        snapshotReq={snapshotReq}
         collapsed={collapsed}
         onToggleCollapsed={onToggleCollapsed}
         members={members}

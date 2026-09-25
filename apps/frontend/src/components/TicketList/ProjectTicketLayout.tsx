@@ -24,7 +24,7 @@ import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-conte
 import { BacklogGroupingControl } from "./BacklogGroupingControl"
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { SprintTicketCreator } from "./SprintTicketCreator"
-import { TicketToolbar, useServerTicketCounts } from "./toolbar"
+import { TicketToolbar, useViewTicketCounts } from "./toolbar"
 import { ViewSwitcher } from "./ViewSwitcher"
 
 const GroupingSchema = Schema.Literals(["status", "sprint"])
@@ -68,11 +68,14 @@ export function ProjectTicketLayout({
     `${orgSlug}/${slug}/${scope}/${view}`
   )
   const isBoard = view === "board"
-  const counts = useServerTicketCounts(
+  const counts = useViewTicketCounts({
     orgSlug,
     slug,
-    isBoard ? { ...query, archived: undefined } : query
-  )
+    groupId,
+    view,
+    grouping,
+    query
+  })
   return (
     <PageContainer className="group/list gap-3">
       <Activity mode={view === "description" ? "hidden" : "visible"}>
@@ -123,31 +126,35 @@ export function ProjectTicketLayout({
             inert={reorder.reorderMode}
             aria-hidden={reorder.reorderMode}
           >
-            <TicketToolbar
-              orgSlug={orgSlug}
-              slug={slug}
-              scopeKey={scope}
-              query={query}
-              onQueryChange={onQueryChange}
-              members={project.members}
-              counts={counts}
-              filters={
-                groupId
-                  ? isBoard
-                    ? ["type", "assignee", "tags"]
-                    : ["archived", "type", "assignee", "tags"]
-                  : ["archived", "type", "assignee", "sprint", "tags"]
-              }
-              showSort={!groupId || !isBoard}
-              viewControls={<ViewSwitcher orgSlug={orgSlug} slug={slug} />}
-            >
-              {!groupId && !isBoard && (
-                <BacklogGroupingControl
-                  value={grouping}
-                  onChange={setGrouping}
-                />
-              )}
-            </TicketToolbar>
+            {counts ? (
+              <TicketToolbar
+                orgSlug={orgSlug}
+                slug={slug}
+                scopeKey={scope}
+                query={query}
+                onQueryChange={onQueryChange}
+                members={project.members}
+                counts={counts}
+                filters={
+                  groupId
+                    ? isBoard
+                      ? ["type", "assignee", "tags"]
+                      : ["archived", "type", "assignee", "tags"]
+                    : ["archived", "type", "assignee", "sprint", "tags"]
+                }
+                showSort={!groupId || !isBoard}
+                viewControls={<ViewSwitcher orgSlug={orgSlug} slug={slug} />}
+              >
+                {!groupId && !isBoard && (
+                  <BacklogGroupingControl
+                    value={grouping}
+                    onChange={setGrouping}
+                  />
+                )}
+              </TicketToolbar>
+            ) : (
+              <div className="h-9" />
+            )}
           </motion.div>
         </Activity>
         {children({ grouping, preferencesKey, reorder })}

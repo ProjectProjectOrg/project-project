@@ -6,6 +6,7 @@ import {
   type NotFound,
   type SprintSectionKey,
   type Ticket,
+  type TicketCounts,
   type TicketId,
   type TicketListQuery,
   type TicketListRow,
@@ -49,11 +50,7 @@ export const sprintSectionsRequest = (
   query: QueryWithView
 ): BacklogRequest => ({
   params: { orgSlug, slug },
-  query: {
-    ...ticketListQueryOf(query),
-    groupId: undefined,
-    cursor: undefined
-  }
+  query: { ...ticketListQueryOf(query), cursor: undefined }
 })
 
 const scopeOf = (req: BacklogRequest) =>
@@ -67,6 +64,7 @@ export type SprintSectionValue = Readonly<{
 
 export type SprintSectionsValue = Readonly<{
   total: number
+  counts: TicketCounts
   sections: ReadonlyArray<SprintSectionValue>
 }>
 
@@ -134,6 +132,7 @@ const dedupeById = (
 
 const emptySprintSections = (): SprintSectionsValue => ({
   total: 0,
+  counts: { total: 0, byStatus: {} },
   sections: []
 })
 
@@ -179,7 +178,7 @@ const sprintSectionsView = (req: BacklogRequest) =>
         }
       })
       return AsyncResult.success<SprintSectionsValue>(
-        { total: base.value.total, sections },
+        { total: base.value.total, counts: base.value.counts, sections },
         { waiting: parts.some((part) => part.waiting) }
       )
     },
@@ -321,6 +320,7 @@ const patchRow = (
   now: Date
 ): SprintSectionsValue => {
   let patched: BacklogRow | undefined
+  let from: TicketStatus | undefined
   const sections = value.sections.map((section) => {
     const items: Array<BacklogRow> = []
     let found: BacklogRow | undefined
@@ -329,6 +329,7 @@ const patchRow = (
         items.push(row)
         continue
       }
+      from = row.ticket.status
       found = {
         ...row,
         ticket: { ...applyTicketPatch(row.ticket, patch), updatedAt: now },
@@ -348,8 +349,13 @@ const patchRow = (
       }
     }
   })
-  if (!patched) return value
-  return { ...value, sections }
+  if (!patched || from === undefined) return value
+  const to = patch.status ?? from
+  if (to === from) return { ...value, sections }
+  const byStatus = { ...value.counts.byStatus }
+  byStatus[from] = Math.max(0, (byStatus[from] ?? 0) - 1)
+  byStatus[to] = (byStatus[to] ?? 0) + 1
+  return { ...value, counts: { ...value.counts, byStatus }, sections }
 }
 
 const replaceRow = (
@@ -506,6 +512,13 @@ export const quickCreateSprintSectionsTicket = Atom.family(
           }
           return {
             total: value.total + 1,
+            counts: {
+              total: value.counts.total + 1,
+              byStatus: {
+                ...value.counts.byStatus,
+                [status]: (value.counts.byStatus[status] ?? 0) + 1
+              }
+            },
             sections: existing
               ? value.sections.map((section) =>
                   section.key === key ? nextSection : section

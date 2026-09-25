@@ -54,7 +54,10 @@ import { useProject } from "../-context"
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader"
 )({
-  component: ProjectHeaderLayout
+  component: ProjectHeaderLayout,
+  loader: ({ context: { registry }, params: { orgSlug, slug } }) => {
+    registry.mount(ticketCounts(countsRequest(orgSlug, slug, {})))()
+  }
 })
 
 function ProjectHeaderLayout() {

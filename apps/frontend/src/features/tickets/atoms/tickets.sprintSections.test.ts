@@ -18,7 +18,8 @@ import {
   loadMoreSprintSections,
   sprintSections,
   sprintSectionsRequest,
-  type SprintSectionsValue
+  type SprintSectionsValue,
+  updateSprintSectionsTicket
 } from "./sprintSections"
 
 const ticket = {
@@ -55,8 +56,12 @@ function snapshot(
   items: ReadonlyArray<Ticket>,
   nextCursor: string | null = null
 ) {
+  const byStatus: Record<string, number> = {}
+  for (const item of items)
+    byStatus[item.status] = (byStatus[item.status] ?? 0) + 1
   return Response.json({
     total: items.length,
+    counts: { total: items.length, byStatus },
     sections: [
       {
         key: groupId,
@@ -135,6 +140,44 @@ describe("ticket sprint sections", () => {
           (row) => row.key
         )
       ).toEqual(["T-1", "T-2"])
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("sends the sprint filter with the snapshot request", () => {
+    expect(
+      sprintSectionsRequest("org", "project", { ...query, groupId: [groupId] })
+        .query.groupId
+    ).toEqual([groupId])
+  })
+
+  it("moves status counts with an optimistic status change", async () => {
+    const doing = Schema.decodeSync(TicketStatus)("in_progress")
+    fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) =>
+      init?.method === "PATCH"
+        ? new Promise<Response>(() => {})
+        : Promise.resolve(snapshot([ticket]))
+    )
+    const registry = AtomRegistry.make()
+    const view = sprintSections(req)
+    const mutation = updateSprintSectionsTicket({ req, id: ticket.id })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(mutation, { status: doing })
+      const moved = registry.get(view)
+      if (!AsyncResult.isSuccess(moved)) throw new Error("no optimistic value")
+      expect(moved.value.counts).toEqual({
+        total: 1,
+        byStatus: { [ticket.status]: 0, [doing]: 1 }
+      })
     } finally {
       registry.dispose()
     }

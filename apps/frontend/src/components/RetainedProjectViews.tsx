@@ -102,45 +102,47 @@ export function RetainedProjectViews({
 
   return (
     <Activity mode={backlog || sprint ? "visible" : "hidden"}>
-      <ProjectTicketLayout
-        orgSlug={orgSlug}
-        slug={slug}
-        groupId={sprint ? sprintId : null}
-        view={sprint ? sprintView : backlogView}
-        query={sprint ? sprintQuery : backlogQuery}
-        onQueryChange={updateQuery}
-      >
-        {({ grouping, preferencesKey, reorder }) => (
-          <>
-            <Activity mode={backlog ? "visible" : "hidden"}>
-              {lastBacklog && (
-                <BacklogView
-                  orgSlug={orgSlug}
-                  slug={slug}
-                  view={backlogView === "board" ? "board" : "list"}
-                  query={backlogQuery}
-                  grouping={grouping}
-                  preferencesKey={preferencesKey}
-                  reorder={reorder}
-                />
-              )}
-            </Activity>
-            <Activity mode={sprint ? "visible" : "hidden"}>
-              {lastSprint && sprintId && (
-                <SprintDetail
-                  key={sprintId}
-                  orgSlug={orgSlug}
-                  slug={slug}
-                  groupId={sprintId}
-                  view={sprintView}
-                  listQuery={sprintQuery}
-                  reorder={reorder}
-                />
-              )}
-            </Activity>
-          </>
-        )}
-      </ProjectTicketLayout>
+      {(lastBacklog || lastSprint) && (
+        <ProjectTicketLayout
+          orgSlug={orgSlug}
+          slug={slug}
+          groupId={sprint ? sprintId : null}
+          view={sprint ? sprintView : backlogView}
+          query={sprint ? sprintQuery : backlogQuery}
+          onQueryChange={updateQuery}
+        >
+          {({ grouping, preferencesKey, reorder }) => (
+            <>
+              <Activity mode={backlog ? "visible" : "hidden"}>
+                {lastBacklog && (
+                  <BacklogView
+                    orgSlug={orgSlug}
+                    slug={slug}
+                    view={backlogView === "board" ? "board" : "list"}
+                    query={backlogQuery}
+                    grouping={grouping}
+                    preferencesKey={preferencesKey}
+                    reorder={reorder}
+                  />
+                )}
+              </Activity>
+              <Activity mode={sprint ? "visible" : "hidden"}>
+                {lastSprint && sprintId && (
+                  <SprintDetail
+                    key={sprintId}
+                    orgSlug={orgSlug}
+                    slug={slug}
+                    groupId={sprintId}
+                    view={sprintView}
+                    listQuery={sprintQuery}
+                    reorder={reorder}
+                  />
+                )}
+              </Activity>
+            </>
+          )}
+        </ProjectTicketLayout>
+      )}
     </Activity>
   )
 }
