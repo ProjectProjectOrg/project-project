@@ -1,14 +1,17 @@
 import { useAtomSet } from "@effect/atom-react"
+import { ProjectPolicy } from "@pp/access/policies"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
+import { Markdown } from "@/components/Markdown"
 import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
 import { PageContainer } from "@/components/page"
 import {
   projectRequest,
   updateProject
 } from "@/features/projects/atoms/projects"
+import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
 import { useProject } from "../-context"
@@ -29,6 +32,18 @@ function AboutTab() {
     updateProject(projectRequest(orgSlug, project.slug))
   )
   const [status, setStatus] = useState<SaveStatus>("idle")
+  const canEdit = ProjectPolicy.canUpdate(useProjectActor(), {
+    body: true,
+    settings: false
+  })
+
+  if (!canEdit) {
+    return (
+      <PageContainer>
+        <Markdown>{project.body}</Markdown>
+      </PageContainer>
+    )
+  }
 
   return (
     <PageContainer>

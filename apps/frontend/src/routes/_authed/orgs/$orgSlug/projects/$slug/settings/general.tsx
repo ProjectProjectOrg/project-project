@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { ProjectPolicy } from "@pp/access/policies"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
@@ -15,7 +16,7 @@ import {
   projectRequest,
   updateProject
 } from "@/features/projects/atoms/projects"
-import { useProjectRole } from "@/lib/projectRole"
+import { useProjectActor, useProjectCan } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
 import { useProject } from "../-context"
@@ -38,7 +39,16 @@ function GeneralSettings() {
   const remove = useAtomSet(deleteProject(req), { mode: "promiseExit" })
   const removeState = useAtomValue(deleteProject(req))
   const navigate = useNavigate()
-  const { isPm: canEdit } = useProjectRole()
+  const actor = useProjectActor()
+  const canEdit = ProjectPolicy.canUpdate(actor, {
+    body: false,
+    settings: true
+  })
+  const canEditBody = ProjectPolicy.canUpdate(actor, {
+    body: true,
+    settings: false
+  })
+  const canDelete = useProjectCan()("projects", "delete")
   const [name, setName] = useState(project.name)
   const [status, setStatus] = useState<SaveStatus>("idle")
 
@@ -109,7 +119,7 @@ function GeneralSettings() {
         <span className="text-sm font-medium">
           {m.project_settings_description_heading()}
         </span>
-        {canEdit ? (
+        {canEditBody ? (
           <>
             <LexicalEditor
               key={project.slug}
@@ -130,7 +140,7 @@ function GeneralSettings() {
         )}
       </section>
 
-      {canEdit ? (
+      {canDelete ? (
         <section className="flex items-center justify-between gap-4 border-t border-border pt-6">
           <div>
             <h2 className="text-lg font-semibold tracking-tight text-destructive">

@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { CreatableProjectKey, type Project } from "@pp/shared"
+import { CreatableProjectKey, canCallOrg, type Project } from "@pp/shared"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
@@ -14,6 +14,7 @@ import { ProjectBanner } from "@/components/ProjectBanner"
 import { ProjectTile } from "@/components/ProjectTile"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
+import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
 import {
   createProject,
   projectsFor,
@@ -42,6 +43,12 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/")({
 function Projects() {
   const { orgSlug } = Route.useParams()
   const list = useAtomValue(projectsFor(projectsRequest(orgSlug)))
+  const org = useAtomValue(orgDetail(orgRequest(orgSlug)))
+  const canCreate =
+    !Result.isSuccess(org) || canCallOrg(org.value.role)("projects", "create")
+  const canMigrate =
+    Result.isSuccess(org) &&
+    canCallOrg(org.value.role)("jiraMigrations", "create")
   const [creating, setCreating] = useState(false)
 
   const content = Result.matchWithError(list, {
@@ -70,7 +77,7 @@ function Projects() {
           transition={transitions.presence}
         >
           {value.length === 0 ? (
-            <EmptyProjects />
+            <EmptyProjects canCreate={canCreate} />
           ) : (
             <ul className="flex flex-col gap-2">
               {value.map((project) => (
@@ -89,19 +96,25 @@ function Projects() {
     <PageContainer>
       <PageHeader>
         <h1>{m.projects_page_title()}</h1>
-        <p>{m.projects_page_subtitle()}</p>
+        <p>
+          {canCreate
+            ? m.projects_page_subtitle()
+            : m.projects_page_subtitle_invited()}
+        </p>
       </PageHeader>
 
-      <div className="flex justify-end">
-        <Button
-          variant="tertiary"
-          render={
-            <Link to="/orgs/$orgSlug/migrations/jira" params={{ orgSlug }} />
-          }
-        >
-          {m.jira_migration_projects_entry()}
-        </Button>
-      </div>
+      {canMigrate && (
+        <div className="flex justify-end">
+          <Button
+            variant="tertiary"
+            render={
+              <Link to="/orgs/$orgSlug/migrations/jira" params={{ orgSlug }} />
+            }
+          >
+            {m.jira_migration_projects_entry()}
+          </Button>
+        </div>
+      )}
 
       {content}
     </PageContainer>
@@ -115,6 +128,9 @@ function CreateRow({
   orgSlug: string
   onFocusChange?: (focused: boolean) => void
 }) {
+  const org = useAtomValue(orgDetail(orgRequest(orgSlug)))
+  const canCreate =
+    !Result.isSuccess(org) || canCallOrg(org.value.role)("projects", "create")
   const req = projectsRequest(orgSlug)
   const create = useAtomSet(createProject(req), {
     mode: "promiseExit"
@@ -193,6 +209,8 @@ function CreateRow({
       }
     }
   }
+
+  if (!canCreate) return null
 
   return (
     <form ref={formRef} onSubmit={onSubmit}>
@@ -392,7 +410,7 @@ function ListMessage({ children }: { children: React.ReactNode }) {
   )
 }
 
-function EmptyProjects() {
+function EmptyProjects({ canCreate }: Readonly<{ canCreate: boolean }>) {
   return (
     <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-background/50 px-4 py-10 text-center">
       <div className="grid size-10 place-items-center rounded-lg bg-muted text-muted-foreground">
@@ -400,7 +418,9 @@ function EmptyProjects() {
       </div>
       <div className="text-sm font-medium">{m.projects_list_empty()}</div>
       <p className="max-w-xs text-xs text-muted-foreground">
-        {m.projects_list_empty_body()}
+        {canCreate
+          ? m.projects_list_empty_body()
+          : m.projects_list_empty_body_invited()}
       </p>
     </div>
   )

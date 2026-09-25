@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
+import { canCallOrg } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 
@@ -25,7 +26,7 @@ function AttachmentsSettings() {
     onError: (error) => <ErrorPage error={error} contained />,
     onDefect: (defect) => <ErrorPage error={defect} contained />,
     onSuccess: ({ value: org }) =>
-      org.role !== "owner" && org.role !== "admin" ? (
+      !canCallOrg(org.role)("attachments", "list") ? (
         <p className="text-sm text-destructive">
           {m.attachments_error_forbidden()}
         </p>

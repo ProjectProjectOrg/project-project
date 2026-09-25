@@ -1,5 +1,8 @@
+import { useAtomValue } from "@effect/atom-react"
+import { canCallOrg } from "@pp/shared"
 import { Link, Outlet, useLocation } from "@tanstack/react-router"
 import { createFileRoute } from "@tanstack/react-router"
+import * as Result from "effect/unstable/reactivity/AsyncResult"
 import {
   Files,
   HardDrive,
@@ -13,6 +16,7 @@ import { useCallback } from "react"
 import { PageContainer, PageHeader } from "@/components/page"
 import { RailBackLink } from "@/components/RailBackLink"
 import { useSidebarSlot } from "@/components/SidebarSlot"
+import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -119,6 +123,9 @@ function SettingsLayout() {
 
 function SettingsRail({ orgSlug }: { orgSlug: string }) {
   const location = useLocation()
+  const org = useAtomValue(orgDetail(orgRequest(orgSlug)))
+  const canSeeMembers =
+    Result.isSuccess(org) && canCallOrg(org.value.role)("org", "members")
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -128,7 +135,9 @@ function SettingsRail({ orgSlug }: { orgSlug: string }) {
         label={m.org_settings_crumb()}
       />
       <nav className="flex flex-col gap-1">
-        {SECTIONS.map((section) => {
+        {SECTIONS.filter(
+          (section) => section.key !== "members" || canSeeMembers
+        ).map((section) => {
           const Icon = section.icon
           const active = isSectionActive(
             location.pathname,

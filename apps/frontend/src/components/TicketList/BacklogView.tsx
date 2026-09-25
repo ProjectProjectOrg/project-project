@@ -3,7 +3,10 @@ import type { Ticket, TicketListQuery } from "@pp/shared"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useCallback, useMemo } from "react"
 
-import type { StatusReorder } from "@/components/sprints/useStatusReorder"
+import {
+  ignoreReorder,
+  type StatusReorder
+} from "@/components/sprints/useStatusReorder"
 import { TicketListContent } from "@/components/TicketList"
 import { BacklogBoard } from "@/components/TicketList/BacklogBoard"
 import { TicketRowActions } from "@/components/TicketList/RowActions"
@@ -11,6 +14,7 @@ import {
   sprintListRequest,
   sprintMembership
 } from "@/features/sprints/atoms/sprintList"
+import { useProjectCan } from "@/lib/access"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 
 import { SprintSections } from "./SprintSections"
@@ -33,6 +37,7 @@ export function BacklogView({
   reorder: StatusReorder
 }>) {
   const project = useProject()
+  const canReorder = useProjectCan()("statuses", "reorder")
   const sprintReq = useMemo(
     () => sprintListRequest(orgSlug, slug),
     [orgSlug, slug]
@@ -73,7 +78,7 @@ export function BacklogView({
           members={project.members}
           snapshot={snapshot}
           reorderMode={reorderMode}
-          onEnterReorder={enterReorder}
+          onEnterReorder={canReorder ? enterReorder : ignoreReorder}
           onExitReorder={cancelReorder}
           dragOrder={dragOrder}
           setDragOrder={setDragOrder}

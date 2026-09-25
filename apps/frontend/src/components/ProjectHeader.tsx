@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { GroupPolicy, ProjectPolicy } from "@pp/access/policies"
 import type { ProjectDetail as ProjectDetailType } from "@pp/shared"
 import { Link, useMatches } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
@@ -47,7 +48,7 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
-import { useProjectRole } from "@/lib/projectRole"
+import { useProjectActor, useProjectCan } from "@/lib/access"
 import { springs, transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -105,7 +106,12 @@ export function ProjectHeader({
   name: string
   project: ProjectDetailType
 }) {
-  const { role: myRole, isPm: canEdit } = useProjectRole()
+  const can = useProjectCan()
+  const actor = useProjectActor()
+  const canEdit = ProjectPolicy.canUpdate(actor, {
+    body: false,
+    settings: true
+  })
   const reduce = useReducedMotion() ?? false
 
   const matches = useMatches()
@@ -132,6 +138,7 @@ export function ProjectHeader({
 
   const mode = sprintGroupId ? `sprint:${sprintGroupId}` : "project"
   const isCompleted = sprint?.completedAt != null
+  const canPlan = GroupPolicy.can(actor, "sprint", "manage")
 
   return (
     <LayoutGroup id={`project-header-${slug}`}>
@@ -143,12 +150,14 @@ export function ProjectHeader({
         >
           {sprintGroupId ? (
             sprint ? (
-              <SprintStatusSelect
-                orgSlug={orgSlug}
-                slug={slug}
-                sprint={sprint}
-                sprints={sprints}
-              />
+              <fieldset disabled={!canPlan} className="contents">
+                <SprintStatusSelect
+                  orgSlug={orgSlug}
+                  slug={slug}
+                  sprint={sprint}
+                  sprints={sprints}
+                />
+              </fieldset>
             ) : sprintMissing ? (
               <div className="-mt-1 size-10 shrink-0 rounded-lg bg-muted/40" />
             ) : (
@@ -182,7 +191,7 @@ export function ProjectHeader({
                     orgSlug={orgSlug}
                     slug={slug}
                     sprint={sprint}
-                    disabled={isCompleted}
+                    disabled={isCompleted || !canPlan}
                   />
                   <Button
                     variant="ghost"
@@ -240,7 +249,7 @@ export function ProjectHeader({
                   orgSlug={orgSlug}
                   slug={slug}
                   sprint={sprint}
-                  disabled={isCompleted}
+                  disabled={isCompleted || !canPlan}
                 />
               ) : sprintMissing ? null : (
                 <div className="h-3.5 w-28 animate-pulse rounded bg-muted/60" />
@@ -254,23 +263,26 @@ export function ProjectHeader({
         <MorphSlot slotKey={mode} reduce={reduce}>
           {sprintGroupId ? (
             sprint ? (
-              <SprintDeleteMenu
-                orgSlug={orgSlug}
-                slug={slug}
-                sprint={sprint}
-                sprints={sprints}
-              />
+              canPlan ? (
+                <SprintDeleteMenu
+                  orgSlug={orgSlug}
+                  slug={slug}
+                  sprint={sprint}
+                  sprints={sprints}
+                />
+              ) : null
             ) : sprintMissing ? null : (
               <div className="size-8" />
             )
           ) : (
             <div className="flex items-center gap-3">
-              <GithubChip
-                orgSlug={orgSlug}
-                slug={slug}
-                github={project.github}
-                callerRole={myRole}
-              />
+              {can("projects", "gitStates") && (
+                <GithubChip
+                  orgSlug={orgSlug}
+                  slug={slug}
+                  github={project.github}
+                />
+              )}
               <ProjectMenu orgSlug={orgSlug} slug={slug} />
             </div>
           )}

@@ -22,8 +22,10 @@ vi.mock("@tanstack/react-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@tanstack/react-router")>()),
   useLocation: () => ({ pathname: "/orgs/org/projects/project/tickets/T-1" })
 }))
-vi.mock("@/lib/projectRole", () => ({
-  useProjectRole: () => ({ isOwner: false, isAdmin: false })
+const access = vi.hoisted(() => ({ canLog: true }))
+vi.mock("@/lib/access", () => ({
+  useProjectCan: () => (_group: string, endpoint: string) =>
+    endpoint !== "connectProject" && (endpoint !== "logTime" || access.canLog)
 }))
 vi.mock("@/components/ErrorPage", () => ({
   ErrorPage: () => null
@@ -56,6 +58,7 @@ const fetchStub = stubFetch()
 
 beforeEach(() => {
   registry = Registry.make()
+  access.canLog = true
 })
 
 afterEach(() => {
@@ -129,6 +132,43 @@ it.each(["not_connected", "active", "broken", "failed"] as const)(
     }
   }
 )
+
+it("shows a read-only viewer the ticket's time without loading the timer", async () => {
+  access.canLog = false
+  const requests: string[] = []
+  fetchStub.set(async (input: RequestInfo | URL) => {
+    const path = new URL(
+      input instanceof Request ? input.url : String(input),
+      "http://localhost"
+    ).pathname
+    requests.push(path)
+    if (path.endsWith("/integrations/everhour")) {
+      return Response.json({
+        status: "active",
+        everhourProjectId: "project-1",
+        everhourProjectName: null,
+        lastSyncedAt: null,
+        lastSyncStatus: null,
+        lastSyncError: null,
+        needsSync: false
+      })
+    }
+    return new Promise<Response>(() => {})
+  })
+  render(
+    <RegistryContext.Provider value={registry}>
+      <TicketTimeSection orgSlug="org" slug="project" ticket={ticket} />
+    </RegistryContext.Provider>
+  )
+  await waitFor(
+    () =>
+      expect(requests.toSorted()).toEqual([
+        "/api/orgs/org/projects/project/integrations/everhour",
+        "/api/orgs/org/projects/project/tickets/T-1/everhour/time"
+      ]),
+    { timeout: 5000 }
+  )
+})
 
 it("loads tag usage counts when management opens", async () => {
   const requests: string[] = []

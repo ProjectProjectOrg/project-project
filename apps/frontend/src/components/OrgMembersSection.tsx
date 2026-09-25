@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { canCallOrg } from "@pp/shared"
 import type {
   OrgAssignableRole,
   OrgInvitation,
@@ -88,7 +89,7 @@ export function OrgMembersSection({
   callerRole: OrgRole
   callerUserId: string
 }) {
-  const canManage = callerRole === "owner" || callerRole === "admin"
+  const canManage = canCallOrg(callerRole)("org", "inviteMember")
   const ownerCount = members.filter((member) => member.role === "owner").length
   const isLastOwner = callerRole === "owner" && ownerCount <= 1
   const [adding, setAdding] = useState(false)
@@ -467,12 +468,14 @@ function MemberMenu({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<OrgActionError | null>(null)
 
-  const canManage = callerRole === "owner" || callerRole === "admin"
+  const can = canCallOrg(callerRole)
   const isLastOwner = callerRole === "owner" && ownerCount <= 1
-  const canChangeRole = canManage && member.role !== "owner" && !isSelf
+  const canChangeRole =
+    can("org", "updateMemberRole") && member.role !== "owner" && !isSelf
   const canTransfer =
-    callerRole === "owner" && member.role === "admin" && !isSelf
-  const canRemove = canManage && !isSelf && member.role !== "owner"
+    can("org", "transferOwnership") && member.role === "admin" && !isSelf
+  const canRemove =
+    can("org", "removeMember") && !isSelf && member.role !== "owner"
   const canLeave = isSelf && !isLastOwner
 
   if (!canChangeRole && !canTransfer && !canRemove && !canLeave) {

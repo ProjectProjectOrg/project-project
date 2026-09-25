@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
+import { canCallOrg } from "@pp/shared"
 import type { TicketType } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
@@ -29,7 +30,7 @@ export function useEditorBlocks(
     : null
   const canEditOrg =
     AsyncResult.isSuccess(orgResult) &&
-    (orgResult.value.role === "owner" || orgResult.value.role === "admin")
+    canCallOrg(orgResult.value.role)("library", "createOrgBlock")
   const onMakeDefinition = useMakeBlockDefinition(
     orgSlug,
     slug,

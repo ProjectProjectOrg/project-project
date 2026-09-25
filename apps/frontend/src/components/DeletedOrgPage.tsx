@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { canCallOrg } from "@pp/shared"
 import type { OrgDetail } from "@pp/shared"
 import { useRouter } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
@@ -45,7 +46,7 @@ function DeletedBody({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
   const [error, setError] = useState<string | null>(null)
 
   const restoring = restoreState.waiting
-  const isOwner = org.role === "owner"
+  const isOwner = canCallOrg(org.role)("org", "restore")
 
   async function onRestore() {
     setError(null)

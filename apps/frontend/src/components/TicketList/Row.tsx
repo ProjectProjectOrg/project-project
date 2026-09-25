@@ -50,6 +50,7 @@ type RowProps = RowPatchSource &
     sprintMembership: Group | null
     extraRowActions?: (ticket: Ticket) => ReactNode
     pending?: boolean
+    editable?: boolean
     previewOpen: boolean
     onPreviewPointerEnter: (ticketId: Ticket["id"]) => void
     onPreviewOpenChange: (ticketId: Ticket["id"], open: boolean) => void
@@ -82,6 +83,7 @@ function RowView({
   sprintMembership,
   extraRowActions,
   pending,
+  editable = true,
   previewOpen,
   onPreviewPointerEnter,
   onPreviewOpenChange,
@@ -152,54 +154,60 @@ function RowView({
                 </span>
               </PopoverTrigger>
             </Link>
-            <StatusButton
-              orgSlug={orgSlug}
-              slug={slug}
-              ticket={ticket}
-              stopPropagation
-              onPatch={onPatch}
-            />
-            <PriorityButton ticket={ticket} stopPropagation onPatch={onPatch} />
-            <span className="inline-flex shrink-0 items-center font-mono text-xs text-muted-foreground tabular-nums">
-              <span>{idPrefix}-</span>
-              <AnimatePresence initial={false} mode="popLayout">
-                {!pending && (
-                  <motion.span
-                    key={idTail}
-                    initial={{ opacity: 0, filter: "blur(4px)" }}
-                    animate={{ opacity: 1, filter: "blur(0px)" }}
-                    exit={{ opacity: 0, filter: "blur(4px)" }}
-                    transition={transitions.presence}
-                    className="inline-block"
-                  >
-                    {idTail}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </span>
-            <div className="flex shrink-0 items-center justify-end gap-2">
-              <TicketGitChip orgSlug={orgSlug} slug={slug} ticket={ticket} />
-              {showSprintCol && (
-                <SprintField
-                  variant="responsive"
-                  orgSlug={orgSlug}
-                  slug={slug}
-                  ticketId={ticket.id}
-                  membership={sprintMembership}
-                />
-              )}
-              <AssigneeField
+            <fieldset disabled={!editable} className="contents">
+              <StatusButton
+                orgSlug={orgSlug}
+                slug={slug}
                 ticket={ticket}
-                members={members}
+                stopPropagation
+                onPatch={onPatch}
+              />
+              <PriorityButton
+                ticket={ticket}
+                stopPropagation
+                onPatch={onPatch}
+              />
+              <span className="inline-flex shrink-0 items-center font-mono text-xs text-muted-foreground tabular-nums">
+                <span>{idPrefix}-</span>
+                <AnimatePresence initial={false} mode="popLayout">
+                  {!pending && (
+                    <motion.span
+                      key={idTail}
+                      initial={{ opacity: 0, filter: "blur(4px)" }}
+                      animate={{ opacity: 1, filter: "blur(0px)" }}
+                      exit={{ opacity: 0, filter: "blur(4px)" }}
+                      transition={transitions.presence}
+                      className="inline-block"
+                    >
+                      {idTail}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </span>
+              <div className="flex shrink-0 items-center justify-end gap-2">
+                <TicketGitChip orgSlug={orgSlug} slug={slug} ticket={ticket} />
+                {showSprintCol && (
+                  <SprintField
+                    variant="responsive"
+                    orgSlug={orgSlug}
+                    slug={slug}
+                    ticketId={ticket.id}
+                    membership={sprintMembership}
+                  />
+                )}
+                <AssigneeField
+                  ticket={ticket}
+                  members={members}
+                  onPatch={onPatch}
+                  className="hidden sm:inline-flex"
+                />
+              </div>
+              <TypeButton
+                ticket={ticket}
                 onPatch={onPatch}
                 className="hidden sm:inline-flex"
               />
-            </div>
-            <TypeButton
-              ticket={ticket}
-              onPatch={onPatch}
-              className="hidden sm:inline-flex"
-            />
+            </fieldset>
             {showExtraActionsCol && (
               <span className="relative z-20 inline-flex shrink-0 items-center">
                 {extraRowActions?.(ticket)}

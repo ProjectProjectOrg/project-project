@@ -5,7 +5,8 @@ import {
   ticketTypeForTemplate,
   type Library,
   type TemplateDefinition,
-  type UpdateTemplateInput
+  type UpdateTemplateInput,
+  canCallOrg
 } from "@pp/shared"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import { useCallback, useMemo, useState } from "react"
@@ -50,7 +51,7 @@ export function useLayerPermissions(
   )
   const orgAdmin =
     AsyncResult.isSuccess(orgResult) &&
-    (orgResult.value.role === "owner" || orgResult.value.role === "admin")
+    canCallOrg(orgResult.value.role)("library", "updateOrgTemplate")
   return useMemo(
     () =>
       scope.layer === "org"

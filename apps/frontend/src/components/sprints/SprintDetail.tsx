@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
+import { GroupPolicy } from "@pp/access/policies"
 import { type GroupId, type TicketListQuery } from "@pp/shared"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useMemo } from "react"
@@ -9,6 +10,7 @@ import {
   sprintDetail,
   sprintRequest
 } from "@/features/sprints/atoms/sprintDetail"
+import { useProjectActor, useProjectCan } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 
@@ -16,7 +18,7 @@ import { SprintBoard } from "./SprintBoard"
 import { SprintDescription } from "./SprintDescription"
 import { SprintDetailSkeleton } from "./SprintDetailSkeleton"
 import { SprintTicketList } from "./SprintTicketList"
-import type { StatusReorder } from "./useStatusReorder"
+import { ignoreReorder, type StatusReorder } from "./useStatusReorder"
 
 export function SprintDetail({
   orgSlug,
@@ -34,6 +36,8 @@ export function SprintDetail({
   reorder: StatusReorder
 }>) {
   const project = useProject()
+  const canPlan = GroupPolicy.can(useProjectActor(), "sprint", "manage")
+  const canReorder = useProjectCan()("statuses", "reorder")
   const req = useMemo(
     () => sprintRequest(orgSlug, slug, groupId),
     [orgSlug, slug, groupId]
@@ -77,7 +81,7 @@ export function SprintDetail({
           orgSlug={orgSlug}
           slug={slug}
           sprint={value}
-          disabled={isCompleted}
+          disabled={isCompleted || !canPlan}
         />
       ) : isBoard ? (
         <SprintBoard
@@ -88,7 +92,7 @@ export function SprintDetail({
           members={project.members}
           isCompleted={isCompleted}
           reorderMode={reorderMode}
-          onEnterReorder={enterReorder}
+          onEnterReorder={canReorder ? enterReorder : ignoreReorder}
           onExitReorder={cancelReorder}
           dragOrder={dragOrder}
           setDragOrder={setDragOrder}

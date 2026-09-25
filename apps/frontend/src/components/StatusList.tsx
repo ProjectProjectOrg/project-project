@@ -16,6 +16,7 @@ import {
   countsRequest,
   ticketCounts
 } from "@/features/tickets/atoms/ticketCounts"
+import { useProjectCan } from "@/lib/access"
 import { compareByOrderKey } from "@/lib/orderKey"
 import { m } from "@/paraglide/messages"
 
@@ -48,6 +49,7 @@ type OrderedProps = Props & {
 
 function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
   useAtomValue(ticketCounts(countsRequest(orgSlug, slug, {})))
+  const canManage = useProjectCan()("statuses", "update")
 
   const sorted = useMemo(
     () => [...statuses].toSorted(compareByOrderKey),
@@ -96,32 +98,34 @@ function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
 
   return (
     <section className="flex w-full flex-col gap-4">
-      <Reorder.Group
-        as="ul"
-        axis="y"
-        values={order as ProjectStatus[]}
-        onReorder={(next) => setDragOrder(next)}
-        className="flex flex-col gap-0.5"
-      >
-        {order.map((s, i) => (
-          <StatusRow
-            key={s.slug}
-            status={s}
-            statuses={order}
-            orgSlug={orgSlug}
-            slug={slug}
-            onDragStart={() => {
-              if (dragOrder === null) setDragOrder(sorted)
-            }}
-            onDragEnd={() => commitDrop(s.slug)}
-            onMoveUp={i > 0 ? () => moveBy(s.slug, -1) : undefined}
-            onMoveDown={
-              i < order.length - 1 ? () => moveBy(s.slug, +1) : undefined
-            }
-          />
-        ))}
-      </Reorder.Group>
-      <StatusCreateRow orgSlug={orgSlug} slug={slug} />
+      <fieldset disabled={!canManage} className="contents">
+        <Reorder.Group
+          as="ul"
+          axis="y"
+          values={order as ProjectStatus[]}
+          onReorder={(next) => setDragOrder(next)}
+          className="flex flex-col gap-0.5"
+        >
+          {order.map((s, i) => (
+            <StatusRow
+              key={s.slug}
+              status={s}
+              statuses={order}
+              orgSlug={orgSlug}
+              slug={slug}
+              onDragStart={() => {
+                if (dragOrder === null) setDragOrder(sorted)
+              }}
+              onDragEnd={() => commitDrop(s.slug)}
+              onMoveUp={i > 0 ? () => moveBy(s.slug, -1) : undefined}
+              onMoveDown={
+                i < order.length - 1 ? () => moveBy(s.slug, +1) : undefined
+              }
+            />
+          ))}
+        </Reorder.Group>
+      </fieldset>
+      {canManage && <StatusCreateRow orgSlug={orgSlug} slug={slug} />}
     </section>
   )
 }

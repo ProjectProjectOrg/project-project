@@ -20,7 +20,7 @@ import {
   startSprintTimerAtom,
   stopTimerAtom
 } from "@/features/everhour/atoms/timeTracking"
-import { useProjectRole } from "@/lib/projectRole"
+import { useProjectCan } from "@/lib/access"
 
 const options = DEFAULT_WORK_TYPES.map((workType) => ({
   key: workType.key,
@@ -42,7 +42,7 @@ export function SprintTimePanel({
   const statusResult = useAtomValue(
     everhourProjectStatusAtom(everhourProjectRequest(orgSlug, slug))
   )
-  const { isPm } = useProjectRole()
+  const canManage = useProjectCan()("everhour", "connectProject")
   const profileResult = useAtomValue(everhourProfileAtom)
   const activeTimerResult = useAtomValue(activeTimerAtom(timerReq))
   const start = useAtomSet(startSprintTimerAtom(startKey), {
@@ -58,7 +58,9 @@ export function SprintTimePanel({
     Result.isSuccess(statusResult) &&
     statusResult.value.status === "not_connected"
   if (notConnected) {
-    return isPm ? <EverhourSetupHint orgSlug={orgSlug} slug={slug} /> : null
+    return canManage ? (
+      <EverhourSetupHint orgSlug={orgSlug} slug={slug} />
+    ) : null
   }
   if (Result.isInitial(statusResult) || Result.isInitial(profileResult)) {
     return <div className="h-8 animate-pulse rounded bg-muted/40" />

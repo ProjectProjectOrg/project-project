@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { GithubConnection, GithubRepo, Role } from "@pp/shared"
+import type { GithubConnection, GithubRepo } from "@pp/shared"
 import * as Match from "effect/Match"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import {
@@ -30,6 +30,7 @@ import {
   startGithubInstall
 } from "@/features/github/atoms/github"
 import { projectRequest } from "@/features/projects/atoms/projects"
+import { useProjectCan } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -37,13 +38,12 @@ type Props = {
   orgSlug: string
   slug: string
   github: GithubConnection | null
-  callerRole: Role
 }
 
-export function GithubChip({ orgSlug, slug, github, callerRole }: Props) {
+export function GithubChip({ orgSlug, slug, github }: Props) {
   const viewer = useAtomValue(me())
   const canManage =
-    callerRole === "pm" &&
+    useProjectCan()("projects", "connectGithub") &&
     Result.isSuccess(viewer) &&
     viewer.value.activeOrgSlug === orgSlug
   const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])

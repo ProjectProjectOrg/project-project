@@ -22,10 +22,11 @@ import {
 import {
   startTicketTimerAtom,
   stopTicketTimerAtom,
+  ticketTimeAtom,
   ticketTimePanelAtom,
   ticketTimeRequest
 } from "@/features/everhour/atoms/timeTracking"
-import { useProjectRole } from "@/lib/projectRole"
+import { useProjectCan } from "@/lib/access"
 import * as m from "@/paraglide/messages"
 
 export const formatDuration = (seconds: number): string => {
@@ -52,7 +53,9 @@ export function TicketTimeSection({
   const statusResult = useAtomValue(
     everhourProjectStatusAtom(everhourProjectRequest(orgSlug, slug))
   )
-  const { isPm: canManage } = useProjectRole()
+  const can = useProjectCan()
+  const canManage = can("everhour", "connectProject")
+  const canLog = can("everhour", "logTime")
 
   const notConnected =
     Result.isSuccess(statusResult) &&
@@ -70,8 +73,10 @@ export function TicketTimeSection({
         onSuccess: ({ value }) =>
           value.status === "not_connected" ? (
             <EverhourSetupHint orgSlug={orgSlug} slug={slug} />
-          ) : (
+          ) : canLog ? (
             <TicketTimePanel orgSlug={orgSlug} slug={slug} ticket={ticket} />
+          ) : (
+            <TicketTimeTotal orgSlug={orgSlug} slug={slug} ticket={ticket} />
           )
       })}
     </MetaRow>
@@ -173,6 +178,31 @@ export function TicketTimePanel({
         </div>
       )
     }
+  })
+}
+
+function TicketTimeTotal({
+  orgSlug,
+  slug,
+  ticket
+}: {
+  orgSlug: string
+  slug: string
+  ticket: TicketDetail
+}) {
+  const result = useAtomValue(
+    ticketTimeAtom(ticketTimeRequest(orgSlug, slug, ticket.id))
+  )
+  return Result.matchWithError(result, {
+    onInitial: () => <div className="h-8 animate-pulse rounded bg-muted/40" />,
+    onError: (error) => <ErrorPage error={error} contained />,
+    onDefect: (defect) => <ErrorPage error={defect} contained />,
+    onSuccess: ({ value }) => (
+      <TrackedFigure
+        label={m.time_tracked_total()}
+        seconds={value.totalSeconds}
+      />
+    )
   })
 }
 

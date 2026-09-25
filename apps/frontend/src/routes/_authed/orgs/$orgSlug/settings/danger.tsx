@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { ORG_DELETE_GRACE_DAYS, type OrgDetail } from "@pp/shared"
+import { ORG_DELETE_GRACE_DAYS, type OrgDetail, canCallOrg } from "@pp/shared"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
@@ -34,7 +34,7 @@ function DangerSettings() {
     onError: (error) => <ErrorPage error={error} contained />,
     onDefect: (defect) => <ErrorPage error={defect} contained />,
     onSuccess: ({ value }) =>
-      value.role === "owner" ? (
+      canCallOrg(value.role)("org", "softDelete") ? (
         <DeleteCard orgSlug={orgSlug} org={value} />
       ) : (
         <div className="rounded-xl border border-border bg-background p-5 text-sm text-muted-foreground">
