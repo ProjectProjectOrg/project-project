@@ -1326,6 +1326,42 @@ it.effect("setSprintMembership places a ticket at the start", () =>
   )
 )
 
+it.effect(
+  "setSprintMembership refuses to move a ticket whose sprint changed since it was read",
+  () =>
+    Effect.gen(function* () {
+      const groups = yield* Groups
+      const planned = yield* groups.create({ name: "Planned", kind: "sprint" })
+      const other = yield* groups.create({
+        name: "Other",
+        kind: "sprint",
+        tickets: [ticketId("T-1")]
+      })
+
+      const error = yield* Effect.flip(
+        groups.setSprintMembership("org", "p", ticketId("T-1"), planned.id, {
+          from: null
+        })
+      )
+      expect(error._tag).toBe("Conflict")
+      expect((yield* groups.get(other.id)).tickets).toEqual(["T-1"])
+
+      yield* groups.setSprintMembership(
+        "org",
+        "p",
+        ticketId("T-1"),
+        planned.id,
+        {
+          from: other.id
+        }
+      )
+      expect((yield* groups.get(planned.id)).tickets).toEqual(["T-1"])
+      expect((yield* groups.get(other.id)).tickets).toEqual([])
+    }).pipe(
+      Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "pm" }))
+    )
+)
+
 it.effect("lets a client read groups but not create or change them", () =>
   Effect.gen(function* () {
     const groups = yield* Groups

@@ -1,5 +1,6 @@
 import { GroupPolicy } from "@pp/access/policies"
 import {
+  Conflict,
   Forbidden,
   Group,
   GroupColor,
@@ -646,24 +647,44 @@ export const GroupsLive = Layer.effect(
       slug: string,
       ticketId: TicketId,
       sprintId: GroupId | null,
-      options?: { readonly after?: TicketId | null }
-    ): Effect.Effect<void, MarkdownError> =>
+      options?: {
+        readonly after?: TicketId | null
+        readonly from?: GroupId | null
+      }
+    ) =>
       withGroupFilesLock(
         orgSlug,
         slug,
         Effect.gen(function* () {
           const ids = yield* groupDocs.listIds(orgSlug, slug)
-          yield* Effect.forEach(
+          const groups = yield* Effect.forEach(
             ids,
             (id) =>
+              groupDocs
+                .read(orgSlug, slug, id)
+                .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null))),
+            { concurrency: 1 }
+          )
+          const activeSprints = groups.filter(
+            (group): group is GroupDocument =>
+              group !== null &&
+              group.kind === "sprint" &&
+              group.completedAt === null
+          )
+          if (options?.from !== undefined) {
+            const current =
+              activeSprints.find((group) => group.tickets.includes(ticketId))
+                ?.id ?? null
+            if (current !== options.from) {
+              return yield* new Conflict({
+                reason: "sprint_membership_changed"
+              })
+            }
+          }
+          yield* Effect.forEach(
+            activeSprints,
+            (group) =>
               Effect.gen(function* () {
-                const group = yield* groupDocs
-                  .read(orgSlug, slug, id)
-                  .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)))
-                if (group === null) return
-                if (group.kind !== "sprint" || group.completedAt !== null) {
-                  return
-                }
                 const present = group.tickets.includes(ticketId)
                 const wanted = group.id === sprintId
                 if (present === wanted) return
@@ -690,7 +711,7 @@ export const GroupsLive = Layer.effect(
                   updatedAt: yield* DateTime.nowAsDate
                 }
                 yield* groupDocs
-                  .writeIfExists(orgSlug, slug, id, next)
+                  .writeIfExists(orgSlug, slug, group.id, next)
                   .pipe(Effect.catchTag("NotFound", () => Effect.void))
               }),
             { concurrency: 1 }

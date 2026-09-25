@@ -586,6 +586,25 @@ describe.skipIf(!databaseUrl)("MCP attachment upload with Postgres", () => {
       }).pipe(Effect.scoped, Effect.provide(dbLayer))
   )
 
+  it.effect("rechecks access after the body has been received", () =>
+    Effect.gen(function* () {
+      const f = yield* fixture()
+      const prepared = yield* f.prepare()
+      const revokedWhileStreaming = Stream.fromEffect(
+        Effect.sync(() => {
+          f.options.denied = true
+          return bytes
+        })
+      )
+      const error = yield* Effect.flip(
+        f.receive(prepared.uploadUrl, revokedWhileStreaming)
+      )
+      expect(error._tag).toBe("NotFound")
+      expect(f.writes).toHaveLength(0)
+      expect(yield* f.rows).toMatchObject([{ status: "pending" }])
+    }).pipe(Effect.scoped, Effect.provide(dbLayer))
+  )
+
   it.effect("rejects unsupported types before persistence", () =>
     Effect.gen(function* () {
       const f = yield* fixture()

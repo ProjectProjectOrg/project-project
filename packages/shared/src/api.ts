@@ -1684,6 +1684,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
           Unauthorized,
           NotFound,
           Forbidden,
+          Conflict,
           Validation,
           MentionInvalid,
           SprintCompletedImmutable

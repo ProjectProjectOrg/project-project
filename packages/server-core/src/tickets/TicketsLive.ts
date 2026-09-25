@@ -1401,18 +1401,28 @@ export const TicketsLive = Layer.effect(
 
         let sprintAnchor = originalId
         const sprintAssignments = [
-          { ticketId: originalId, sprintId: retainedInput.sprintId },
+          ...(retainedMoves
+            ? [
+                {
+                  ticketId: originalId,
+                  sprintId: retainedInput.sprintId,
+                  from: originalSprintId
+                }
+              ]
+            : []),
           ...written.createdDocuments.map((document, index) => ({
             ticketId: document.id,
-            sprintId: newInputs[index].sprintId
+            sprintId: newInputs[index].sprintId,
+            from: null
           }))
         ]
         yield* Effect.forEach(
           sprintAssignments,
-          ({ ticketId, sprintId }) =>
+          ({ ticketId, sprintId, from }) =>
             groups
               .setSprintMembership(orgSlug, slug, ticketId, sprintId, {
-                after: sprintAnchor
+                after: sprintAnchor,
+                from
               })
               .pipe(
                 Effect.tap(() =>
@@ -1437,19 +1447,24 @@ export const TicketsLive = Layer.effect(
               { discard: true }
             ).pipe(
               Effect.andThen(
-                groups
-                  .setSprintMembership(
-                    orgSlug,
-                    slug,
-                    originalId,
-                    originalSprintId,
-                    { after: originalSprintAnchor }
-                  )
-                  .pipe(
-                    Effect.catchCause((cause) =>
-                      Effect.logError("split: sprint rollback failed", cause)
-                    )
-                  )
+                retainedMoves
+                  ? groups
+                      .setSprintMembership(
+                        orgSlug,
+                        slug,
+                        originalId,
+                        originalSprintId,
+                        { after: originalSprintAnchor }
+                      )
+                      .pipe(
+                        Effect.catchCause((cause) =>
+                          Effect.logError(
+                            "split: sprint rollback failed",
+                            cause
+                          )
+                        )
+                      )
+                  : Effect.void
               ),
               Effect.andThen(
                 restoreSplitDocuments(

@@ -165,6 +165,7 @@ export interface TicketsShape {
     input: SplitTicketInput
   ) => Effect.Effect<
     SplitTicketResult,
+    | Conflict
     | Forbidden
     | TicketReadError
     | Validation
