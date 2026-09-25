@@ -1,8 +1,10 @@
 import { ProjectPolicy } from "@pp/access/policies"
+import { Org } from "@pp/access/roles"
 import {
   BASELINE_STATUS_SEED,
   Conflict,
   deriveProjectIdentity,
+  INVITATION_VALID_DAYS,
   Forbidden,
   NotFound,
   paginateSorted,
@@ -131,6 +133,9 @@ const presentDetail = (
 ): ProjectDetail => ({
   ...detail,
   github: scope.permissions.can({ github: ["read"] }) ? detail.github : null,
+  pendingMembers: scope.permissions.can({ members: ["manage"] })
+    ? detail.pendingMembers
+    : [],
   permissions: scope.permissions.grants
 })
 
@@ -1114,8 +1119,8 @@ export const ProjectsLive = Layer.effect(
       Effect.gen(function* () {
         const organizationId = indexRow.organizationId
         const normalizedEmail = email.toLowerCase()
+        const orgRole = ProjectPolicy.inviteOrgRole(role)
         const now = yield* DateTime.now
-        const expiresAt = DateTime.toDate(DateTime.add(now, { hours: 48 }))
         const existing = yield* db.query.invitation
           .findFirst({
             where: {
@@ -1123,7 +1128,8 @@ export const ProjectsLive = Layer.effect(
                 _operators.and(
                   _operators.eq(table.organizationId, organizationId),
                   _operators.eq(table.email, normalizedEmail),
-                  _operators.eq(table.status, "pending")
+                  _operators.eq(table.status, "pending"),
+                  _operators.gt(table.expiresAt, DateTime.toDate(now))
                 )!
             }
           })
@@ -1131,16 +1137,17 @@ export const ProjectsLive = Layer.effect(
         const invite =
           existing ??
           (yield* Effect.gen(function* () {
-            const id = yield* Effect.sync(() => ulid())
             const [created] = yield* db
               .insert(invitation)
               .values({
-                id,
+                id: yield* Effect.sync(() => ulid()),
                 organizationId,
                 email: normalizedEmail,
-                role: "member",
+                role: orgRole,
                 status: "pending",
-                expiresAt,
+                expiresAt: DateTime.toDate(
+                  DateTime.add(now, { days: INVITATION_VALID_DAYS })
+                ),
                 inviterId
               })
               .returning()
@@ -1148,18 +1155,20 @@ export const ProjectsLive = Layer.effect(
             yield* Effect.logInfo("invitation issued").pipe(
               Effect.annotateLogs({
                 orgSlug,
-                role: "member",
+                role: orgRole,
                 inviteId: created.id
               })
             )
             return created
           }))
 
-        yield* db
-          .update(invitation)
-          .set({ expiresAt })
-          .where(eq(invitation.id, invite.id))
-          .pipe(Effect.orDie)
+        if (invite.role === "guest" && orgRole === "member") {
+          yield* db
+            .update(invitation)
+            .set({ role: orgRole })
+            .where(eq(invitation.id, invite.id))
+            .pipe(Effect.orDie)
+        }
 
         yield* db
           .insert(projectInviteGrant)
@@ -1229,7 +1238,8 @@ export const ProjectsLive = Layer.effect(
 
     const addMember: ProjectsShape["addMember"] = (input) =>
       Effect.gen(function* () {
-        const { orgSlug, slug, userId } = yield* ProjectScope
+        const scope = yield* ProjectScope
+        const { orgSlug, slug, userId } = scope
         return yield* withProjectTelemetry(
           "addMember",
           orgSlug,
@@ -1258,6 +1268,15 @@ export const ProjectsLive = Layer.effect(
                     .pipe(Effect.orDie)
 
             if (target === null || targetOrgMember == null) {
+              if (
+                !ProjectPolicy.canInviteOutsider(
+                  scope,
+                  Org.orgRoles[scope.orgRole],
+                  input.role
+                )
+              ) {
+                return yield* new Forbidden()
+              }
               yield* attachProjectInviteGrant(
                 orgSlug,
                 userId,
@@ -1307,7 +1326,8 @@ export const ProjectsLive = Layer.effect(
       invitationId
     ) =>
       Effect.gen(function* () {
-        const { orgSlug, slug, userId } = yield* ProjectScope
+        const scope = yield* ProjectScope
+        const { orgSlug, slug, userId } = scope
         return yield* withProjectTelemetry(
           "cancelPendingMember",
           orgSlug,
@@ -1315,7 +1335,7 @@ export const ProjectsLive = Layer.effect(
           Effect.gen(function* () {
             const { indexRow } = yield* inScope
             const existing = yield* db
-              .select({ status: invitation.status })
+              .select({ status: invitation.status, role: invitation.role })
               .from(projectInviteGrant)
               .innerJoin(
                 invitation,
@@ -1351,7 +1371,13 @@ export const ProjectsLive = Layer.effect(
                 }
               })
               .pipe(Effect.orDie)
-            if (!remaining) {
+            if (
+              !remaining &&
+              ProjectPolicy.canCancelInvitation(
+                Org.orgRoles[scope.orgRole],
+                pending.role ?? "member"
+              )
+            ) {
               yield* db
                 .update(invitation)
                 .set({ status: "canceled" })

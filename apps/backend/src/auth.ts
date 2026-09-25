@@ -2,6 +2,7 @@ import { cimd } from "@better-auth/cimd"
 import { mcp } from "@better-auth/mcp"
 import * as BunServices from "@effect/platform-bun/BunServices"
 import * as authSchema from "@pp/db/auth-schema"
+import { invitation, member } from "@pp/db/auth-schema"
 import { publishedProject } from "@pp/db/projectVisibility"
 import * as schema from "@pp/db/schema"
 import {
@@ -11,11 +12,12 @@ import {
   user
 } from "@pp/db/schema"
 import { TicketFrontmatter } from "@pp/server-core/tickets/TicketDocs"
+import { INVITATION_VALID_DAYS } from "@pp/shared"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { APIError } from "better-auth/api"
 import { admin, jwt, magicLink, organization } from "better-auth/plugins"
-import { and, eq, isNull, ne } from "drizzle-orm"
+import { and, eq, gt, isNull, ne } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { alias } from "drizzle-orm/pg-core"
 import { FileSystem, Path, Schema, Struct } from "effect"
@@ -261,6 +263,89 @@ export async function unassignRemovedOrgMember(
   )
 }
 
+type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+async function applyProjectInviteGrants(
+  tx: Transaction,
+  invite: Readonly<{ id: string; organizationId: string }>,
+  userId: string
+) {
+  const grants = await tx
+    .select({
+      projectId: projectInviteGrant.projectId,
+      roleId: projectInviteGrant.roleId
+    })
+    .from(projectInviteGrant)
+    .innerJoin(
+      projectIndex,
+      and(
+        eq(projectIndex.id, projectInviteGrant.projectId),
+        eq(projectIndex.organizationId, invite.organizationId),
+        publishedProject()
+      )
+    )
+    .where(eq(projectInviteGrant.invitationId, invite.id))
+  if (grants.length > 0) {
+    await tx
+      .insert(projectMember)
+      .values(
+        grants.map((grant) => ({
+          projectId: grant.projectId,
+          organizationId: invite.organizationId,
+          userId,
+          roleId: grant.roleId
+        }))
+      )
+      .onConflictDoNothing({
+        target: [projectMember.projectId, projectMember.userId]
+      })
+  }
+  await tx
+    .delete(projectInviteGrant)
+    .where(eq(projectInviteGrant.invitationId, invite.id))
+}
+
+export async function acceptAsExistingMember(
+  invitationId: string,
+  account: Readonly<{ id: string; email: string; emailVerified: boolean }>
+) {
+  if (!account.emailVerified) return null
+  return db.transaction(async (tx) => {
+    const [invite] = await tx
+      .select({
+        id: invitation.id,
+        organizationId: invitation.organizationId
+      })
+      .from(invitation)
+      .where(
+        and(
+          eq(invitation.id, invitationId),
+          eq(invitation.status, "pending"),
+          gt(invitation.expiresAt, DateTime.toDate(DateTime.nowUnsafe())),
+          eq(invitation.email, account.email.toLowerCase())
+        )
+      )
+      .for("update")
+    if (!invite) return null
+    const [existing] = await tx
+      .select({ role: member.role })
+      .from(member)
+      .where(
+        and(
+          eq(member.organizationId, invite.organizationId),
+          eq(member.userId, account.id)
+        )
+      )
+    if (!existing) return null
+    await applyProjectInviteGrants(tx, invite, account.id)
+    await tx
+      .update(invitation)
+      .set({ status: "accepted" })
+      .where(eq(invitation.id, invite.id))
+    return { organizationId: invite.organizationId, role: existing.role }
+  })
+}
+
 export const mcpResource = new URL(
   "/mcp",
   process.env.MCP_RESOURCE_URL ??
@@ -378,6 +463,7 @@ export const auth = betterAuth({
       ac: orgAccessControl,
       roles: orgRoles,
       disableOrganizationDeletion: true,
+      invitationExpiresIn: INVITATION_VALID_DAYS * 24 * 60 * 60,
       requireEmailVerificationOnInvitation: true,
       allowUserToCreateOrganization: false,
       schema: {
@@ -446,43 +532,9 @@ export const auth = betterAuth({
           )
         },
         afterAcceptInvitation: async ({ invitation, user }) => {
-          await db.transaction(async (tx) => {
-            const grants = await tx
-              .select({
-                projectId: projectInviteGrant.projectId,
-                roleId: projectInviteGrant.roleId
-              })
-              .from(projectInviteGrant)
-              .innerJoin(
-                projectIndex,
-                and(
-                  eq(projectIndex.id, projectInviteGrant.projectId),
-                  eq(projectIndex.organizationId, invitation.organizationId),
-                  publishedProject()
-                )
-              )
-              .where(eq(projectInviteGrant.invitationId, invitation.id))
-
-            if (grants.length > 0) {
-              await tx
-                .insert(projectMember)
-                .values(
-                  grants.map((grant) => ({
-                    projectId: grant.projectId,
-                    organizationId: invitation.organizationId,
-                    userId: user.id,
-                    roleId: grant.roleId
-                  }))
-                )
-                .onConflictDoNothing({
-                  target: [projectMember.projectId, projectMember.userId]
-                })
-            }
-
-            await tx
-              .delete(projectInviteGrant)
-              .where(eq(projectInviteGrant.invitationId, invitation.id))
-          })
+          await db.transaction((tx) =>
+            applyProjectInviteGrants(tx, invitation, user.id)
+          )
         },
         afterRejectInvitation: async ({ invitation }) => {
           await db
