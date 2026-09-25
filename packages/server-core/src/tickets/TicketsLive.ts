@@ -1101,7 +1101,8 @@ export const TicketsLive = Layer.effect(
       slug: string,
       id: string,
       input: UpdateTicketInput,
-      sort?: TicketSort
+      sort?: TicketSort,
+      expectedBody?: string
     ): Effect.Effect<
       TicketUpdateResult,
       TicketReadError | Validation | MentionInvalid
@@ -1141,6 +1142,14 @@ export const TicketsLive = Layer.effect(
             id,
             (existing) =>
               Effect.gen(function* () {
+                if (
+                  expectedBody !== undefined &&
+                  existing.body !== expectedBody
+                ) {
+                  return yield* new Validation({
+                    reason: "ticket_body_changed"
+                  })
+                }
                 if (input.assignees !== undefined) {
                   const existingSet = new Set(existing.assignees)
                   const newcomers = input.assignees.filter(

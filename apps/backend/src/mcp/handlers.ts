@@ -429,8 +429,10 @@ const templateBodyFor = (
 ) =>
   Effect.gen(function* () {
     const current = yield* McpCurrentUser
+    const projects = yield* Projects.Projects
     const tickets = yield* Tickets
     const library = yield* Library
+    yield* projects.requireMember(orgSlug, current.id, projectSlug)
     const expansion = yield* library.expandForCreate(
       orgSlug,
       projectSlug,
@@ -448,7 +450,7 @@ const templateBodyFor = (
         reason: `template_needs_body:${template}`
       })
     }
-    return expansion.body
+    return { body: expansion.body, expectedBody: ticket.body }
   })
 
 const update_ticket = (
@@ -463,22 +465,36 @@ const update_ticket = (
     const current = yield* McpCurrentUser
     const tickets = yield* Tickets
     const { orgSlug, projectSlug, id, body, template, ...payload } = input
+    const templateBody =
+      body === undefined && template !== undefined && template !== null
+        ? yield* templateBodyFor(orgSlug, projectSlug, id, template)
+        : undefined
     const sanitizedBody =
       body !== undefined
         ? yield* sanitizeMcpBody(orgSlug, projectSlug, body)
-        : template === undefined || template === null
-          ? undefined
-          : yield* templateBodyFor(orgSlug, projectSlug, id, template)
-    const updated = yield* tickets.update(
-      orgSlug,
-      current.id,
-      projectSlug,
-      id,
-      {
-        ...payload,
-        ...(sanitizedBody === undefined ? {} : { body: sanitizedBody })
-      }
-    )
+        : templateBody?.body
+    const updated = yield* tickets
+      .update(
+        orgSlug,
+        current.id,
+        projectSlug,
+        id,
+        {
+          ...payload,
+          ...(sanitizedBody === undefined ? {} : { body: sanitizedBody })
+        },
+        undefined,
+        templateBody?.expectedBody
+      )
+      .pipe(
+        Effect.catchTag("Validation", (error) =>
+          error.reason === "ticket_body_changed" && template != null
+            ? Effect.fail(
+                new Validation({ reason: `template_needs_body:${template}` })
+              )
+            : Effect.fail(error)
+        )
+      )
     return withBlocks(updated.ticket)
   })
 

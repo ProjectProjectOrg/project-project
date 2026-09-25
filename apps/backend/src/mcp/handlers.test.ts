@@ -957,16 +957,25 @@ describe("MCP handlers → update_ticket with a template", () => {
     bugReportTemplate,
     blockLookupFor(fakeLibrary)
   )
-  const state: { currentBody: string; update?: any } = { currentBody: "" }
+  const state: {
+    currentBody: string
+    concurrentBody?: string
+    update?: any
+  } = { currentBody: "" }
 
   const TemplateTicketsStub = Layer.succeed(Tickets, {
-    get: (_o: any, _u: any, _s: any, _id: any) =>
-      Effect.succeed({
+    get: (_o: any, _u: any, _s: any, _id: any) => {
+      const body = state.currentBody
+      if (state.concurrentBody !== undefined) {
+        state.currentBody = state.concurrentBody
+      }
+      return Effect.succeed({
         ...fakeTicket,
         creator: null,
         updater: null,
-        body: state.currentBody
-      }),
+        body
+      })
+    },
     create: (_o: any, _u: any, _s: any, input: any) =>
       Effect.succeed({
         ...fakeTicket,
@@ -975,8 +984,19 @@ describe("MCP handlers → update_ticket with a template", () => {
         title: input.title,
         body: input.body ?? ""
       }),
-    update: (_o: any, _u: any, _s: any, _id: any, input: any) => {
+    update: (
+      _o: any,
+      _u: any,
+      _s: any,
+      _id: any,
+      input: any,
+      _sort: any,
+      expectedBody?: string
+    ) => {
       state.update = input
+      if (expectedBody !== undefined && state.currentBody !== expectedBody) {
+        return Effect.fail(new Validation({ reason: "ticket_body_changed" }))
+      }
       return Effect.succeed({
         ticket: {
           ...fakeTicket,
@@ -1008,9 +1028,14 @@ describe("MCP handlers → update_ticket with a template", () => {
     TemplateLibraryStub
   )
 
-  const updateWith = (currentBody: string, input: Record<string, unknown>) =>
+  const updateWith = (
+    currentBody: string,
+    input: Record<string, unknown>,
+    concurrentBody?: string
+  ) =>
     Effect.gen(function* () {
       state.currentBody = currentBody
+      state.concurrentBody = concurrentBody
       state.update = undefined
       const registered = register(yield* Effect.context<HandlerServices>())
       return yield* withFakeUser(() =>
@@ -1061,6 +1086,20 @@ describe("MCP handlers → update_ticket with a template", () => {
     }).pipe(Effect.provide(TemplateTestLayer))
   )
 
+  it.effect("preserves a description edited after template validation", () =>
+    Effect.gen(function* () {
+      const result = yield* updateWith(
+        "",
+        { template: "bug-report" },
+        "A concurrent edit"
+      )
+
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toContain("as body")
+      expect(state.currentBody).toBe("A concurrent edit")
+    }).pipe(Effect.provide(TemplateTestLayer))
+  )
+
   it.effect("surfaces an unknown template key", () =>
     Effect.gen(function* () {
       const result = yield* updateWith("", { template: "nope" })
@@ -1070,6 +1109,35 @@ describe("MCP handlers → update_ticket with a template", () => {
       expect(state.update).toBeUndefined()
     }).pipe(Effect.provide(TemplateTestLayer))
   )
+
+  it.effect("checks membership before looking up a template", () => {
+    let expanded = false
+    const DeniedProjectsStub = Layer.succeed(Projects, {
+      requireMember: () => Effect.fail(new NotFound())
+    } as unknown as ProjectsShape)
+    const ProbedLibraryStub = Layer.succeed(Library, {
+      expandForCreate: () => {
+        expanded = true
+        return Effect.fail(new Validation({ reason: "unknown_template:nope" }))
+      }
+    } as unknown as LibraryShape)
+    return Effect.gen(function* () {
+      const result = yield* updateWith("", { template: "nope" })
+
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toBe("Not found.")
+      expect(expanded).toBe(false)
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          TestLayer,
+          TemplateTicketsStub,
+          DeniedProjectsStub,
+          ProbedLibraryStub
+        )
+      )
+    )
+  })
 
   it.effect("lets an explicit body win over the template", () =>
     Effect.gen(function* () {
