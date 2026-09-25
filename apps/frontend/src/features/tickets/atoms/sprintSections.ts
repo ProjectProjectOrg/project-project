@@ -1,4 +1,5 @@
 import {
+  matchesTicketQuery,
   padNumericIdSort,
   SPRINT_SECTION_UNSCHEDULED,
   type GroupId,
@@ -6,13 +7,15 @@ import {
   type NotFound,
   type SprintSectionKey,
   type Ticket,
+  type TicketCounts,
   type TicketId,
   type TicketListQuery,
   type TicketListRow,
   type TicketSort,
   type TicketStatus,
   type Unauthorized,
-  type UpdateTicketInput
+  type UpdateTicketInput,
+  type UserId
 } from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
@@ -49,11 +52,7 @@ export const sprintSectionsRequest = (
   query: QueryWithView
 ): BacklogRequest => ({
   params: { orgSlug, slug },
-  query: {
-    ...ticketListQueryOf(query),
-    groupId: undefined,
-    cursor: undefined
-  }
+  query: { ...ticketListQueryOf(query), cursor: undefined }
 })
 
 const scopeOf = (req: BacklogRequest) =>
@@ -67,6 +66,7 @@ export type SprintSectionValue = Readonly<{
 
 export type SprintSectionsValue = Readonly<{
   total: number
+  counts: TicketCounts
   sections: ReadonlyArray<SprintSectionValue>
 }>
 
@@ -134,6 +134,7 @@ const dedupeById = (
 
 const emptySprintSections = (): SprintSectionsValue => ({
   total: 0,
+  counts: { total: 0, byStatus: {} },
   sections: []
 })
 
@@ -179,7 +180,7 @@ const sprintSectionsView = (req: BacklogRequest) =>
         }
       })
       return AsyncResult.success<SprintSectionsValue>(
-        { total: base.value.total, sections },
+        { total: base.value.total, counts: base.value.counts, sections },
         { waiting: parts.some((part) => part.waiting) }
       )
     },
@@ -317,10 +318,14 @@ const patchRow = (
   value: SprintSectionsValue,
   id: TicketId,
   patch: UpdateTicketInput,
-  sort: TicketSort,
+  query: TicketListQuery,
+  viewerId: UserId | undefined,
   now: Date
 ): SprintSectionsValue => {
   let patched: BacklogRow | undefined
+  let from: TicketStatus | undefined
+  let staysCounted = true
+  let staysVisible = true
   const sections = value.sections.map((section) => {
     const items: Array<BacklogRow> = []
     let found: BacklogRow | undefined
@@ -329,27 +334,53 @@ const patchRow = (
         items.push(row)
         continue
       }
+      from = row.ticket.status
       found = {
         ...row,
         ticket: { ...applyTicketPatch(row.ticket, patch), updatedAt: now },
         pending: true
       }
-      if (sort.key === "updated" || patchesSortedField(patch, sort.key)) {
-        found = { ...found, orderKey: localOrderKey(found.ticket, sort) }
+      if (
+        query.sort.key === "updated" ||
+        patchesSortedField(patch, query.sort.key)
+      ) {
+        found = { ...found, orderKey: localOrderKey(found.ticket, query.sort) }
       }
       patched = found
+      staysCounted = matchesTicketQuery(
+        found.ticket,
+        { ...query, status: undefined },
+        viewerId
+      )
+      staysVisible = matchesTicketQuery(found.ticket, query, viewerId)
     }
     if (found === undefined) return section
     return {
       ...section,
+      count: section.count - (staysVisible ? 0 : 1),
       page: {
         ...section.page,
-        items: insertByOrderKey(items, found, sort.dir)
+        items: staysVisible
+          ? insertByOrderKey(items, found, query.sort.dir)
+          : items
       }
     }
   })
-  if (!patched) return value
-  return { ...value, sections }
+  if (!patched || from === undefined) return value
+  const to = patched.ticket.status
+  if (to === from && staysCounted && staysVisible) return { ...value, sections }
+  const byStatus = { ...value.counts.byStatus }
+  byStatus[from] = Math.max(0, (byStatus[from] ?? 0) - 1)
+  if (staysCounted) byStatus[to] = (byStatus[to] ?? 0) + 1
+  return {
+    ...value,
+    total: value.total - (staysVisible ? 0 : 1),
+    counts: {
+      total: value.counts.total - (staysCounted ? 0 : 1),
+      byStatus
+    },
+    sections
+  }
 }
 
 const replaceRow = (
@@ -397,7 +428,15 @@ const unsavedPatchAtom = Atom.family(
 )
 
 export const updateSprintSectionsTicket = Atom.family(
-  ({ req, id }: Readonly<{ req: BacklogRequest; id: TicketId }>) =>
+  ({
+    req,
+    id,
+    viewerId
+  }: Readonly<{
+    req: BacklogRequest
+    id: TicketId
+    viewerId: UserId | undefined
+  }>) =>
     Atom.optimisticFn(sprintSections(req), {
       reducer: (current, patch: UpdateTicketInput) =>
         AsyncResult.map(current, (value) =>
@@ -405,7 +444,8 @@ export const updateSprintSectionsTicket = Atom.family(
             value,
             id,
             patch,
-            req.query.sort,
+            req.query,
+            viewerId,
             DateTime.toDate(DateTime.nowUnsafe())
           )
         ),
@@ -483,11 +523,27 @@ export const quickCreateSprintSectionsTicket = Atom.family(
           const status = input.ticket.status ?? ("todo" as TicketStatus)
           const predicted = predictedTicket(
             input,
-
             placeholderId(page.items, input.projectPrefix),
-
             status
           )
+          if (
+            !matchesTicketQuery(
+              predicted,
+              { ...req.query, status: undefined },
+              undefined
+            )
+          )
+            return value
+          const isVisible =
+            !req.query.status?.length || req.query.status.includes(status)
+          const counts = {
+            total: value.counts.total + 1,
+            byStatus: {
+              ...value.counts.byStatus,
+              [status]: (value.counts.byStatus[status] ?? 0) + 1
+            }
+          }
+          if (!isVisible) return { ...value, counts }
           const nextSection: SprintSectionValue = {
             key,
             count: (existing?.count ?? 0) + 1,
@@ -506,6 +562,7 @@ export const quickCreateSprintSectionsTicket = Atom.family(
           }
           return {
             total: value.total + 1,
+            counts,
             sections: existing
               ? value.sections.map((section) =>
                   section.key === key ? nextSection : section

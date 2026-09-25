@@ -49,12 +49,10 @@ import {
 } from "@/features/sprints/atoms/sprintList"
 import {
   backlogRequest,
-  quickCreateBacklogTicket
+  quickCreateBacklogTicket,
+  type BacklogRequest
 } from "@/features/tickets/atoms/backlog"
-import {
-  quickCreateSprintSectionsTicket,
-  sprintSectionsRequest
-} from "@/features/tickets/atoms/sprintSections"
+import { quickCreateSprintSectionsTicket } from "@/features/tickets/atoms/sprintSections"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -69,6 +67,7 @@ export function SectionTicketCreator({
   slug,
   status,
   query,
+  snapshotReq,
   variant = "status",
   containerRef,
   onDone
@@ -77,6 +76,7 @@ export function SectionTicketCreator({
   slug: string
   status: TicketStatus
   query: TicketListQuery
+  snapshotReq?: BacklogRequest
   variant?: "status" | "flat"
   containerRef: RefObject<HTMLDivElement | null>
   onDone: () => void
@@ -86,10 +86,7 @@ export function SectionTicketCreator({
     () => backlogRequest(orgSlug, slug, query),
     [orgSlug, slug, query]
   )
-  const sprintReqForCreate = useMemo(
-    () => sprintSectionsRequest(orgSlug, slug, query),
-    [orgSlug, slug, query]
-  )
+  const sprintReqForCreate = snapshotReq ?? sectionsReq
   const sprintKey = sprintSectionKey(
     Schema.is(GroupId)(query.groupId?.[0]) ? query.groupId[0] : null
   )

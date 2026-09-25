@@ -118,9 +118,11 @@ export function Status({
         <Circle className="size-4 text-muted-foreground" strokeWidth={1.75} />
         <span>{m.tickets_status_all()}</span>
         <span className="ml-auto inline-flex items-center gap-2">
-          <span className="rounded-full bg-muted px-1.5 font-mono text-[10px] text-muted-foreground tabular-nums">
-            {counts.all ?? 0}
-          </span>
+          {counts && (
+            <span className="rounded-full bg-muted px-1.5 font-mono text-[10px] text-muted-foreground tabular-nums">
+              {counts.all ?? 0}
+            </span>
+          )}
           {status === "all" && (
             <Check className="size-3.5 text-muted-foreground" />
           )}
@@ -143,9 +145,11 @@ export function Status({
             />
             <span className="truncate">{statusLabelFor(s, statuses)}</span>
             <span className="ml-auto inline-flex items-center gap-2">
-              <span className="rounded-full bg-muted px-1.5 font-mono text-[10px] text-muted-foreground tabular-nums">
-                {counts[s] ?? 0}
-              </span>
+              {counts && (
+                <span className="rounded-full bg-muted px-1.5 font-mono text-[10px] text-muted-foreground tabular-nums">
+                  {counts[s] ?? 0}
+                </span>
+              )}
               {status === s && (
                 <Check className="size-3.5 text-muted-foreground" />
               )}
@@ -185,16 +189,18 @@ export function Status({
               <CollapsingLabel show={!controlsCompact}>
                 {currentLabel}
               </CollapsingLabel>
-              <span
-                className={cn(
-                  "min-w-6 rounded-full px-1.5 text-center font-mono text-[10px] tabular-nums",
-                  active
-                    ? "bg-foreground/10 text-foreground"
-                    : "bg-muted text-muted-foreground"
-                )}
-              >
-                {counts[status] ?? 0}
-              </span>
+              {counts && (
+                <span
+                  className={cn(
+                    "min-w-6 rounded-full px-1.5 text-center font-mono text-[10px] tabular-nums",
+                    active
+                      ? "bg-foreground/10 text-foreground"
+                      : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {counts[status] ?? 0}
+                </span>
+              )}
               <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
             </ToolbarButton>
           }

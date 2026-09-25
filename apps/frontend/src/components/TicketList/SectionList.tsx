@@ -64,13 +64,15 @@ export function SectionList({
   pagination,
   renderRow = renderDefaultRow,
   emptyMessage,
-  creationVariant = "status"
+  creationVariant = "status",
+  snapshotReq
 }: {
   heading?: SectionHeading
   canCreate?: boolean
   pagination?: ReactNode
   renderRow?: (props: ComponentProps<typeof Row>) => ReactNode
   creationVariant?: "status" | "flat"
+  snapshotReq?: BacklogRequest
   emptyMessage?: string
   orgSlug: string
   slug: string
@@ -136,6 +138,7 @@ export function SectionList({
             slug={slug}
             status={status}
             query={query}
+            snapshotReq={snapshotReq}
             containerRef={shellRef}
             onDone={onDismissCreate}
           />

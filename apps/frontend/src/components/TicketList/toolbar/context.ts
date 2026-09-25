@@ -10,7 +10,7 @@ export type TicketToolbarProps = Readonly<{
   query: TicketListQuery
   onQueryChange: (query: TicketListQuery) => void
   members: ReadonlyArray<Member>
-  counts: Record<string, number>
+  counts: Record<string, number> | null
   filters: ReadonlyArray<FilterDimension>
   scopeKey?: string
   viewOptionsVariant?: "legacy" | "panel"

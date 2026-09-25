@@ -31,10 +31,6 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
-import {
-  countsRequest,
-  ticketCounts
-} from "@/features/tickets/atoms/ticketCounts"
 import { useProjectGitStatePolling } from "@/hooks/useProjectGitStatePolling"
 import { useProjectRole } from "@/lib/projectRole"
 import { cn } from "@/lib/utils"
@@ -48,7 +44,6 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
     const { orgSlug, slug } = params
     const { registry } = context
     registry.mount(project(projectRequest(orgSlug, slug)))()
-    registry.mount(ticketCounts(countsRequest(orgSlug, slug, {})))()
     registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
     registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
     registry.mount(

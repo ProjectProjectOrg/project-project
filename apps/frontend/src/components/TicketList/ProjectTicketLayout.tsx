@@ -1,10 +1,11 @@
-import { useAtomValue } from "@effect/atom-react"
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import type { GroupId, TicketListQuery } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { motion } from "motion/react"
 import { Activity, type ReactNode } from "react"
 
+import { ErrorPage } from "@/components/ErrorPage"
 import { PageContainer } from "@/components/page"
 import { ReorderBoardBanner } from "@/components/sprints/ReorderBoardBanner"
 import {
@@ -16,6 +17,7 @@ import {
   sprintDetail,
   sprintRequest
 } from "@/features/sprints/atoms/sprintDetail"
+import { viewCounts } from "@/features/tickets/atoms/viewCounts"
 import { useLocalStorageState } from "@/hooks/useLocalStorageState"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
@@ -24,7 +26,7 @@ import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-conte
 import { BacklogGroupingControl } from "./BacklogGroupingControl"
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { SprintTicketCreator } from "./SprintTicketCreator"
-import { TicketToolbar, useServerTicketCounts } from "./toolbar"
+import { TicketToolbar, useViewTicketCounts } from "./toolbar"
 import { ViewSwitcher } from "./ViewSwitcher"
 
 const GroupingSchema = Schema.Literals(["status", "sprint"])
@@ -68,11 +70,22 @@ export function ProjectTicketLayout({
     `${orgSlug}/${slug}/${scope}/${view}`
   )
   const isBoard = view === "board"
-  const counts = useServerTicketCounts(
+  const countsSource = {
     orgSlug,
     slug,
-    isBoard ? { ...query, archived: undefined } : query
-  )
+    groupId,
+    view,
+    grouping,
+    query
+  } as const
+  const counts = useViewTicketCounts(countsSource)
+  const refreshCounts = useAtomRefresh(viewCounts(countsSource))
+  const countError = Result.matchWithError(counts, {
+    onInitial: () => null,
+    onError: (error) => ({ error }),
+    onDefect: (error) => ({ error }),
+    onSuccess: () => null
+  })
   return (
     <PageContainer className="group/list gap-3">
       <Activity mode={view === "description" ? "hidden" : "visible"}>
@@ -130,7 +143,7 @@ export function ProjectTicketLayout({
               query={query}
               onQueryChange={onQueryChange}
               members={project.members}
-              counts={counts}
+              counts={Result.isSuccess(counts) ? counts.value : null}
               filters={
                 groupId
                   ? isBoard
@@ -148,6 +161,13 @@ export function ProjectTicketLayout({
                 />
               )}
             </TicketToolbar>
+            {groupId && isBoard && countError && (
+              <ErrorPage
+                error={countError.error}
+                reset={refreshCounts}
+                contained
+              />
+            )}
           </motion.div>
         </Activity>
         {children({ grouping, preferencesKey, reorder })}

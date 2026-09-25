@@ -1,3 +1,3 @@
 export { TicketToolbar } from "./TicketToolbar"
-export { useServerTicketCounts } from "./counts"
+export { useViewTicketCounts } from "./counts"
 export type { FilterDimension, SprintFilterValue } from "./model"

@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { ProjectStatus, TicketListQuery } from "@pp/shared"
+import type { TicketCounts } from "@pp/shared"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { useMemo } from "react"
+import { useState } from "react"
 
 import { boardStatusesFor } from "@/components/sprints/board-utils"
 import {
@@ -9,38 +9,42 @@ import {
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
 import {
-  countsRequest,
-  ticketCounts
-} from "@/features/tickets/atoms/ticketCounts"
-const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
+  viewCounts,
+  type ViewCountsSource
+} from "@/features/tickets/atoms/viewCounts"
 
-export function useServerTicketCounts(
-  orgSlug: string,
-  slug: string,
-  query: TicketListQuery
-): Record<string, number> {
-  const req = useMemo(
-    () => countsRequest(orgSlug, slug, query),
-    [orgSlug, slug, query]
+export function useViewTicketCounts(source: ViewCountsSource) {
+  const result = useAtomValue(viewCounts(source))
+  const countsKey = viewCounts({
+    ...source,
+    query: { ...source.query, status: undefined }
+  })
+  const [previous, setPrevious] = useState<
+    Readonly<{ key: typeof countsKey; value: TicketCounts }> | undefined
+  >()
+  if (
+    Result.isSuccess(result) &&
+    (previous?.key !== countsKey || previous.value !== result.value)
+  ) {
+    setPrevious({ key: countsKey, value: result.value })
+  }
+  const counts =
+    Result.isInitial(result) && previous?.key === countsKey
+      ? Result.success(previous.value)
+      : result
+  const statusesResult = useAtomValue(
+    statusesFor(statusesRequest(source.orgSlug, source.slug))
   )
-  const countsResult = useAtomValue(ticketCounts(req))
-  const statusReq = useMemo(
-    () => statusesRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
-  const statusesResult = useAtomValue(statusesFor(statusReq))
-  const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(
-    statusesResult
-  )
-    ? statusesResult.value
-    : EMPTY_STATUSES
-  return useMemo<Record<string, number>>(() => {
-    if (!Result.isSuccess(countsResult)) return { all: 0 }
-    const byStatus = countsResult.value.byStatus as Record<string, number>
-    const next: Record<string, number> = { all: countsResult.value.total }
-    for (const s of boardStatusesFor(statuses)) {
-      next[s] = byStatus[s] ?? 0
+  const statuses = Result.isSuccess(statusesResult)
+    ? boardStatusesFor(statusesResult.value)
+    : []
+  return Result.map(counts, (value) => {
+    const byStatus: Record<string, number> = value.byStatus
+    return {
+      all: value.total,
+      ...Object.fromEntries(
+        statuses.map((status) => [status, byStatus[status] ?? 0])
+      )
     }
-    return next
-  }, [countsResult, statuses])
+  })
 }

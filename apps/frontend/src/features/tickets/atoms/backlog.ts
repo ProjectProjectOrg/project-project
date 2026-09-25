@@ -1,4 +1,5 @@
 import {
+  matchesTicketQuery,
   padNumericIdSort,
   type GroupId,
   type QuickCreateTicketInput,
@@ -539,6 +540,16 @@ export const quickCreateBacklogTicket = Atom.family((req: BacklogRequest) =>
 
           status
         )
+        if (
+          !matchesTicketQuery(
+            predicted,
+            { ...req.query, status: undefined },
+            undefined
+          ) ||
+          (req.query.groupId?.length &&
+            !req.query.groupId.includes("ungrouped"))
+        )
+          return value
         return {
           counts: {
             total: value.counts.total + 1,

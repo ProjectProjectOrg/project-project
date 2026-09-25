@@ -215,6 +215,7 @@ export type TicketSprintSection = typeof TicketSprintSection.Type
 
 export const TicketSprintSections = Schema.Struct({
   total: Schema.Finite,
+  counts: TicketCounts,
   sections: Schema.Array(TicketSprintSection)
 })
 export type TicketSprintSections = typeof TicketSprintSections.Type

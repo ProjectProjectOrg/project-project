@@ -1,5 +1,6 @@
 import {
   DEFAULT_TICKET_SORT,
+  GroupId,
   padNumericIdSort,
   Ticket,
   TicketDetail,
@@ -889,6 +890,52 @@ describe("backlog pagination", () => {
 })
 
 describe("backlog quick create", () => {
+  it.each([
+    { filter: { q: "missing" } },
+    { filter: { type: ["bug"] } },
+    { filter: { assignee: ["mine"] } },
+    { filter: { groupId: [Schema.decodeSync(GroupId)("G-1")] } }
+  ] as const)(
+    "does not count a creation excluded by $filter",
+    async ({ filter }) => {
+      const filteredReq = backlogRequest("acme", "web", {
+        sort: { key: "id", dir: "asc" },
+        ...filter
+      })
+      fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) =>
+        init?.method === "POST"
+          ? new Promise<Response>(() => {})
+          : Promise.resolve(sections([]))
+      )
+      const registry = AtomRegistry.make()
+      const view = backlog(filteredReq)
+      const create = quickCreateBacklogTicket(filteredReq)
+      registry.mount(view)
+      registry.mount(create)
+      try {
+        await vi.waitFor(() =>
+          expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
+        )
+        registry.set(create, {
+          ticket: { title: "Created", type: "chore" },
+          viewerId: "user-1",
+          projectPrefix: "T",
+          clientId: "creation-filtered"
+        })
+        const optimistic = registry.get(view)
+        if (!AsyncResult.isSuccess(optimistic))
+          throw new Error("no optimistic value")
+        expect(optimistic.value.counts).toEqual({
+          total: 0,
+          byStatus: { todo: 0 }
+        })
+        expect(optimistic.value.sections.todo?.items).toEqual([])
+      } finally {
+        registry.dispose()
+      }
+    }
+  )
+
   it("sends the template and predicts the template's priority and tags", async () => {
     const payloads: Array<unknown> = []
     fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
