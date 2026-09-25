@@ -1,4 +1,4 @@
-import { TicketPolicy } from "@pp/access/policies"
+import { GroupPolicy, TicketPolicy } from "@pp/access/policies"
 import { Db } from "@pp/db"
 import {
   BranchNotFound,
@@ -32,6 +32,7 @@ import {
   type ProjectTicketsPreview,
   type RecentTicketActivity,
   type RecentTicketRow,
+  type SplitTicketResultInput,
   type TicketCountQuery,
   type TicketListPage,
   type TicketListQuery,
@@ -231,13 +232,30 @@ const indexProjectOf = (scope: ProjectScopeShape): TicketIndexProject => ({
   projectSlug: scope.slug
 })
 
-const requireTicketChange = (
-  change: TicketPolicy.Change
+const requirePolicy = (
+  allowed: (scope: ProjectScopeShape) => boolean
 ): Effect.Effect<void, Forbidden, ProjectScope> =>
   Effect.flatMap(ProjectScope, (scope) =>
-    TicketPolicy.canChange(scope, change)
-      ? Effect.void
-      : Effect.fail(new Forbidden())
+    allowed(scope) ? Effect.void : Effect.fail(new Forbidden())
+  )
+
+const requireTicketChange = (change: TicketPolicy.Change) =>
+  requirePolicy((scope) => TicketPolicy.canChange(scope, change))
+
+const requireSplit = (
+  source: TicketDocument,
+  retained: SplitTicketResultInput,
+  created: ReadonlyArray<SplitTicketResultInput>
+) =>
+  requirePolicy((scope) =>
+    TicketPolicy.canSplit(scope, {
+      ownerId: source.createdBy,
+      source,
+      retained,
+      created,
+      defaultStatus: DEFAULT_STATUS,
+      detachesGit: source.branch !== null || source.pr !== null
+    })
   )
 
 const changed = <A>(next: A | undefined, current: A) =>
@@ -278,6 +296,11 @@ export const TicketsLive = Layer.effect(
         : Effect.succeed({ integration: null, visible: false })
 
     const gitView = Effect.flatMap(ProjectScope, gitViewOf)
+
+    const queryable = (query: TicketPolicy.Query) =>
+      requirePolicy((scope) => TicketPolicy.canQuery(scope, query)).pipe(
+        Effect.andThen(ProjectScope)
+      )
 
     const detailOf = (
       document: TicketDocument,
@@ -356,7 +379,7 @@ export const TicketsLive = Layer.effect(
 
     const list: TicketsShape["list"] = (query, limit) =>
       Effect.gen(function* () {
-        const scope = yield* ProjectScope
+        const scope = yield* queryable(query)
         const { userId } = scope
         const project = indexProjectOf(scope)
         const groupMemberSet = yield* resolveGroupMembers(
@@ -558,7 +581,7 @@ export const TicketsLive = Layer.effect(
 
     const count: TicketsShape["count"] = (query) =>
       Effect.gen(function* () {
-        const scope = yield* ProjectScope
+        const scope = yield* queryable(query)
         const { userId } = scope
         const project = indexProjectOf(scope)
         const groupMemberSet = yield* resolveGroupMembers(
@@ -582,7 +605,7 @@ export const TicketsLive = Layer.effect(
     const sections = Effect.fn("Tickets.sections")(function* (
       query: TicketListQuery
     ) {
-      const scope = yield* ProjectScope
+      const scope = yield* queryable(query)
       const { userId } = scope
       const project = indexProjectOf(scope)
       const groupMemberSet = yield* resolveGroupMembers(project, query.groupId)
@@ -634,7 +657,7 @@ export const TicketsLive = Layer.effect(
     const sprintSections = Effect.fn("Tickets.sprintSections")(function* (
       query: TicketListQuery
     ) {
-      const scope = yield* ProjectScope
+      const scope = yield* queryable(query)
       const { userId } = scope
       const project = indexProjectOf(scope)
       const sprints = (yield* groups.list()).filter(
@@ -1196,22 +1219,11 @@ export const TicketsLive = Layer.effect(
         const indexProject = indexProjectOf(scope)
         const projectKey = yield* projects.key()
         const view = yield* gitView
-        const source = yield* readTicket(orgSlug, slug, id)
-        const sourceAssignees = new Set(source.assignees)
-        yield* requireTicketChange({
-          ownerId: source.createdBy,
-          content: true,
-          status: input.results.some(
-            (result) => result.status !== source.status
-          ),
-          assignees: input.results.some(
-            (result) =>
-              result.assignees.length !== sourceAssignees.size ||
-              result.assignees.some(
-                (assignee) => !sourceAssignees.has(assignee)
-              )
-          )
-        })
+        yield* requireSplit(
+          yield* readTicket(orgSlug, slug, id),
+          retainedInput,
+          newInputs
+        )
 
         const assignees = [
           ...new Set(input.results.flatMap((result) => result.assignees))
@@ -1226,12 +1238,6 @@ export const TicketsLive = Layer.effect(
         )
 
         const originalId = makeTicketId(id)
-        const sprintTargets = input.results
-          .map((result) => result.sprintId)
-          .filter((sprintId) => sprintId !== null)
-        if (sprintTargets.length > 0) {
-          yield* groups.ensureSprintAssignable(sprintTargets)
-        }
         const originalSprint = (yield* groups.list()).find(
           (group) =>
             group.kind === "sprint" &&
@@ -1239,6 +1245,22 @@ export const TicketsLive = Layer.effect(
             group.tickets.includes(originalId)
         )
         const originalSprintId = originalSprint?.id ?? null
+        const retainedMoves = retainedInput.sprintId !== originalSprintId
+        if (
+          retainedMoves ||
+          newInputs.some((result) => result.sprintId !== null)
+        ) {
+          yield* requirePolicy((scope) =>
+            GroupPolicy.canManage(scope, "sprint")
+          )
+        }
+        const sprintTargets = [
+          retainedMoves ? retainedInput.sprintId : null,
+          ...newInputs.map((result) => result.sprintId)
+        ].filter((sprintId) => sprintId !== null)
+        if (sprintTargets.length > 0) {
+          yield* groups.ensureSprintAssignable(sprintTargets)
+        }
         const originalSprintIndex =
           originalSprint?.tickets.indexOf(originalId) ?? -1
         const originalSprintAnchor = originalSprint
@@ -1253,6 +1275,7 @@ export const TicketsLive = Layer.effect(
           id,
           Effect.gen(function* () {
             const original = yield* ticketDocs.read(orgSlug, slug, id)
+            yield* requireSplit(original, retainedInput, newInputs)
             const now = yield* DateTime.nowAsDate
             const persisted: Array<TicketDocument> = []
 
