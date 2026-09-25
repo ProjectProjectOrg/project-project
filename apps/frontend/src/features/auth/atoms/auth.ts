@@ -82,8 +82,8 @@ export const updateEditorPreference = Api.runtime.fn(
 
 export const setActiveOrganization = Api.runtime.fn(
   Effect.fn("setActiveOrganization")(function* (organizationSlug: string) {
-    yield* Effect.tryPromise(() =>
-      authData(authClient.organization.setActive({ organizationSlug }))
+    yield* Api.use((client) =>
+      client.org.setActive({ params: { orgSlug: organizationSlug } })
     )
     yield* Reactivity.invalidate([Keys.me()])
   })

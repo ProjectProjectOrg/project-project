@@ -24,7 +24,9 @@ import { createHmac, timingSafeEqual } from "node:crypto"
 //
 //   - `/api/auth/*` — handed off to Better Auth's own request handler,
 //                     mounted as a raw web app (it has its own routing,
-//                     schemas, and cookie management).
+//                     schemas, and cookie management). Its
+//                     `/organization/*` endpoints are closed: org changes go
+//                     through our HttpApi, which calls `auth.api.*`.
 //   - `/api/integrations/github/*` — GitHub App setup, OAuth callback, and
 //                                    webhook endpoints.
 //   - `/api/*`      — handled by the typed HttpApi pipeline (`/api/me`,
@@ -84,6 +86,7 @@ import {
 } from "effect/unstable/http"
 import { HttpApiBuilder, HttpApiSwagger } from "effect/unstable/httpapi"
 
+import { isClosedAuthPath } from "./auth/orgAccess"
 import { AttachmentsHandlerLive } from "./handlers/attachments"
 import { AuthHandlerLive } from "./handlers/auth"
 import { CommentsHandlerLive } from "./handlers/comments"
@@ -137,6 +140,9 @@ const betterAuthApp = Effect.gen(function* () {
   const ba = yield* BetterAuth
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
+  if (isClosedAuthPath(new URL(webReq.url).pathname)) {
+    return HttpServerResponse.text("Not Found", { status: 404 })
+  }
   const webRes = yield* ba.handler(webReq)
   return HttpServerResponse.fromWeb(webRes)
 }).pipe(
