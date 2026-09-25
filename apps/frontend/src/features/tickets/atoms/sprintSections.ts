@@ -317,6 +317,7 @@ const patchRow = (
   id: TicketId,
   patch: UpdateTicketInput,
   sort: TicketSort,
+  visibleStatuses: ReadonlyArray<TicketStatus> | undefined,
   now: Date
 ): SprintSectionsValue => {
   let patched: BacklogRow | undefined
@@ -341,11 +342,16 @@ const patchRow = (
       patched = found
     }
     if (found === undefined) return section
+    const leavesFilter =
+      visibleStatuses?.length &&
+      patch.status !== undefined &&
+      !visibleStatuses.includes(patch.status)
     return {
       ...section,
+      count: section.count - (leavesFilter ? 1 : 0),
       page: {
         ...section.page,
-        items: insertByOrderKey(items, found, sort.dir)
+        items: leavesFilter ? items : insertByOrderKey(items, found, sort.dir)
       }
     }
   })
@@ -355,7 +361,13 @@ const patchRow = (
   const byStatus = { ...value.counts.byStatus }
   byStatus[from] = Math.max(0, (byStatus[from] ?? 0) - 1)
   byStatus[to] = (byStatus[to] ?? 0) + 1
-  return { ...value, counts: { ...value.counts, byStatus }, sections }
+  const leavesFilter = visibleStatuses?.length && !visibleStatuses.includes(to)
+  return {
+    ...value,
+    total: value.total - (leavesFilter ? 1 : 0),
+    counts: { ...value.counts, byStatus },
+    sections
+  }
 }
 
 const replaceRow = (
@@ -412,6 +424,7 @@ export const updateSprintSectionsTicket = Atom.family(
             id,
             patch,
             req.query.sort,
+            req.query.status,
             DateTime.toDate(DateTime.nowUnsafe())
           )
         ),
@@ -487,6 +500,16 @@ export const quickCreateSprintSectionsTicket = Atom.family(
           const existing = value.sections.find((section) => section.key === key)
           const page = existing?.page ?? { items: [], nextCursor: null }
           const status = input.ticket.status ?? ("todo" as TicketStatus)
+          const isVisible =
+            !req.query.status?.length || req.query.status.includes(status)
+          const counts = {
+            total: value.counts.total + 1,
+            byStatus: {
+              ...value.counts.byStatus,
+              [status]: (value.counts.byStatus[status] ?? 0) + 1
+            }
+          }
+          if (!isVisible) return { ...value, counts }
           const predicted = predictedTicket(
             input,
 
@@ -512,13 +535,7 @@ export const quickCreateSprintSectionsTicket = Atom.family(
           }
           return {
             total: value.total + 1,
-            counts: {
-              total: value.counts.total + 1,
-              byStatus: {
-                ...value.counts.byStatus,
-                [status]: (value.counts.byStatus[status] ?? 0) + 1
-              }
-            },
+            counts,
             sections: existing
               ? value.sections.map((section) =>
                   section.key === key ? nextSection : section

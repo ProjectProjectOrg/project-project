@@ -678,9 +678,13 @@ export const TicketsLive = Layer.effect(
       const sprints = (yield* groups.list(orgSlug, userId, slug)).filter(
         (group) => group.kind === "sprint"
       )
-      const sectionIds: ReadonlyArray<GroupIdFilter> = query.groupId?.length
-        ? query.groupId
-        : ["ungrouped", ...sprints.map((sprint) => sprint.id)]
+      const sectionIds: ReadonlyArray<GroupIdFilter> = [
+        ...new Set<GroupIdFilter>(
+          query.groupId?.length
+            ? query.groupId
+            : ["ungrouped", ...sprints.map((sprint) => sprint.id)]
+        )
+      ]
       const projectGithub = yield* projects.getGithubIntegration(
         orgSlug,
         userId,
@@ -756,7 +760,7 @@ export const TicketsLive = Layer.effect(
               section: {
                 key: sprintSectionKey(groupId === "ungrouped" ? null : groupId),
                 count: query.status?.length
-                  ? query.status.reduce(
+                  ? [...new Set(query.status)].reduce(
                       (sum, status) => sum + (counts.byStatus[status] ?? 0),
                       0
                     )

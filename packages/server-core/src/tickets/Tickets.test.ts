@@ -2408,6 +2408,15 @@ it.effect(
         total: 2,
         byStatus: { todo: 1, review: 1 }
       })
+      const repeated = yield* tickets.sprintSections("org", "user-1", "p", {
+        ...query,
+        status: [ticketStatus("review"), ticketStatus("review")],
+        groupId: [g1.id, g1.id]
+      })
+      expect(repeated.total).toBe(1)
+      expect(repeated.sections).toHaveLength(1)
+      expect(repeated.sections[0]?.count).toBe(1)
+      expect(repeated.counts).toEqual(selected.counts)
     }).pipe(Effect.provide(layer))
   }
 )
