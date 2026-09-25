@@ -1,4 +1,4 @@
-import { TicketListQuery } from "@pp/shared"
+import { GroupId, TicketListQuery } from "@pp/shared"
 import { cleanup, renderHook } from "@testing-library/react"
 import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
@@ -33,7 +33,9 @@ vi.mock("@/features/tickets/atoms/viewCounts", async () => {
       Atom.make(
         source.query.status?.some((status) => status === "in_progress")
           ? AsyncResult.fail(new Error("count failed"))
-          : source.query.status?.length || source.query.type?.length
+          : source.query.status?.length ||
+              source.query.type?.length ||
+              (source.groupId && source.view === "list")
             ? AsyncResult.initial()
             : AsyncResult.success({
                 total: 7,
@@ -45,6 +47,7 @@ vi.mock("@/features/tickets/atoms/viewCounts", async () => {
 })
 
 const decodeQuery = Schema.decodeSync(TicketListQuery)
+const decodeGroupId = Schema.decodeSync(GroupId)
 
 afterEach(cleanup)
 
@@ -84,5 +87,50 @@ it("keeps known status counts during a first fetch without masking other request
   expect(Result.isFailure(result.current)).toBe(true)
 
   rerender({ status: "done", type: "bug" })
+  expect(Result.isInitial(result.current)).toBe(true)
+})
+
+it("keeps sprint counts while the list loads for the first time", () => {
+  const sprintId = decodeGroupId("G-1")
+  const otherSprintId = decodeGroupId("G-2")
+  type Props = Readonly<{
+    groupId: GroupId
+    view: "board" | "list"
+    archived: boolean
+  }>
+  const initialProps: Props = {
+    groupId: sprintId,
+    view: "board",
+    archived: false
+  }
+  const { result, rerender } = renderHook(
+    ({ groupId, view, archived }: Props) =>
+      useViewTicketCounts({
+        orgSlug: "org",
+        slug: "project",
+        groupId,
+        view,
+        grouping: "status",
+        query: decodeQuery({
+          groupId: [groupId],
+          archived,
+          updatedAfter: "2026-09-01T00:00:00.000Z"
+        })
+      }),
+    { initialProps }
+  )
+
+  expect(Result.isSuccess(result.current) && result.current.value.all).toBe(7)
+
+  rerender({ groupId: sprintId, view: "list", archived: false })
+  expect(Result.isSuccess(result.current) && result.current.value.all).toBe(7)
+
+  rerender({ groupId: otherSprintId, view: "list", archived: false })
+  expect(Result.isInitial(result.current)).toBe(true)
+
+  rerender({ groupId: sprintId, view: "board", archived: true })
+  expect(Result.isSuccess(result.current)).toBe(true)
+
+  rerender({ groupId: sprintId, view: "list", archived: true })
   expect(Result.isInitial(result.current)).toBe(true)
 })
