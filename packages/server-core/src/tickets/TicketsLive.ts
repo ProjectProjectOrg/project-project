@@ -253,8 +253,7 @@ const requireSplit = (
       source,
       retained,
       created,
-      defaultStatus: DEFAULT_STATUS,
-      detachesGit: source.branch !== null || source.pr !== null
+      defaultStatus: DEFAULT_STATUS
     })
   )
 
@@ -1328,11 +1327,6 @@ export const TicketsLive = Layer.effect(
                     status: retainedInput.status,
                     priority: retainedInput.priority,
                     assignees: [...retainedInput.assignees],
-                    branch: null,
-                    branchAutoLinkDisabled: true,
-                    pr: null,
-                    prState: null,
-                    lastTransitionedPr: null,
                     updatedBy: userId,
                     updatedAt: now
                   }),

@@ -107,7 +107,6 @@ const split = (overrides: Partial<TicketPolicy.Split>) => ({
   retained: fields("in_progress", ["dev-1"]),
   created: [fields("todo")],
   defaultStatus: "todo",
-  detachesGit: false,
   ...overrides
 })
 
@@ -137,16 +136,6 @@ describe("TicketPolicy.canSplit", () => {
     [
       "their own ticket, dropping an assignee",
       split({ ownerId: "me", retained: fields("in_progress") }),
-      ["pm", "developer"]
-    ],
-    [
-      "a ticket with a branch",
-      split({ detachesGit: true }),
-      ["pm", "developer"]
-    ],
-    [
-      "their own ticket with a branch",
-      split({ ownerId: "me", detachesGit: true }),
       ["pm", "developer"]
     ]
   ])("who may split %s", (_, subject, expected) => {

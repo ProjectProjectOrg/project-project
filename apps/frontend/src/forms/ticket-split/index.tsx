@@ -216,7 +216,6 @@ export function TicketSplitForm({
               <SplitWarnings
                 ticket={ticket}
                 commentCount={commentCount}
-                resultCount={field.value.length}
                 error={
                   Result.isFailure(splitState)
                     ? m.tickets_split_error_fallback()
