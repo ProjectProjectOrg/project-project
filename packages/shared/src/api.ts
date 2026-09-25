@@ -46,6 +46,13 @@ import {
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
+  JiraAccessDenied,
+  JiraError,
+  JiraMigrationUnavailable,
+  JiraNotConnected,
+  JiraRateLimited,
+  JiraReconnectRequired,
+  JiraResourceNotFound,
   InvitationNotAcceptable,
   MentionInvalid,
   NotFound,
@@ -125,6 +132,31 @@ import {
   UpdateGroupTicketsOutput,
   UpdateTicketOrderInput
 } from "./schemas/Group"
+import {
+  ConfigureJiraMigrationInput,
+  CreateJiraMigrationInput,
+  JiraConnection,
+  JiraMigrationDetail,
+  JiraMigrationDestinationConflict,
+  JiraMigrationRevisionInput,
+  JiraMigrationSummary,
+  JiraProjectChoice,
+  JiraSite,
+  JiraSkippedAttachment
+} from "./schemas/JiraMigration"
+import {
+  BlockDefinition,
+  BlockKey,
+  CreateBlockInput,
+  CreateTemplateInput,
+  Library,
+  LibraryDefaults,
+  TemplateDefinition,
+  TemplateKey,
+  UpdateBlockInput,
+  UpdateTemplateDefaultsInput,
+  UpdateTemplateInput
+} from "./schemas/Library"
 import { OAuthApplication } from "./schemas/OAuthApplication"
 import {
   InviteMemberInput,
@@ -900,6 +932,188 @@ const FigmaGroup = HttpApiGroup.make("figma")
   )
   .middleware(Authentication)
 
+const JiraErrors = [
+  Unauthorized,
+  JiraNotConnected,
+  JiraReconnectRequired,
+  JiraAccessDenied,
+  JiraRateLimited,
+  JiraError
+] as const
+
+const JiraGroup = HttpApiGroup.make("jira")
+  .add(
+    HttpApiEndpoint.get("profile", "/integrations/jira/profile", {
+      success: JiraConnection,
+      error: Unauthorized
+    })
+  )
+  .add(
+    HttpApiEndpoint.delete("disconnectProfile", "/integrations/jira/profile", {
+      success: JiraConnection,
+      error: Unauthorized
+    })
+  )
+  .add(
+    HttpApiEndpoint.get("sites", "/integrations/jira/sites", {
+      success: Schema.Array(JiraSite),
+      error: JiraErrors
+    })
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "projects",
+      "/integrations/jira/sites/:cloudId/projects",
+      {
+        params: Schema.Struct({ cloudId: Schema.String }),
+        success: Schema.Array(JiraProjectChoice),
+        error: [...JiraErrors, JiraResourceNotFound]
+      }
+    )
+  )
+  .middleware(Authentication)
+
+const JiraMigrationPath = Schema.Struct({
+  orgSlug: Slug,
+  migrationId: Schema.NonEmptyString
+})
+
+const JiraMigrationReadErrors = [
+  Unauthorized,
+  NotFound,
+  Forbidden,
+  JiraError,
+  JiraMigrationUnavailable
+] as const
+
+const JiraMigrationWriteErrors = [
+  ...JiraMigrationReadErrors,
+  Validation,
+  Conflict,
+  JiraNotConnected,
+  JiraReconnectRequired,
+  JiraAccessDenied,
+  JiraResourceNotFound,
+  JiraRateLimited,
+  JiraError
+] as const
+
+const JiraMigrationAcceptedDetail = JiraMigrationDetail.pipe(
+  HttpApiSchema.status(202)
+)
+
+const JiraMigrationsGroup = HttpApiGroup.make("jiraMigrations")
+  .add(
+    HttpApiEndpoint.get("list", "/orgs/:orgSlug/jira-migrations", {
+      params: OrgPath,
+      success: Schema.Array(JiraMigrationSummary),
+      error: JiraMigrationReadErrors
+    })
+  )
+  .add(
+    HttpApiEndpoint.post("create", "/orgs/:orgSlug/jira-migrations", {
+      params: OrgPath,
+      payload: CreateJiraMigrationInput,
+      success: JiraMigrationAcceptedDetail,
+      error: JiraMigrationWriteErrors
+    })
+  )
+  .add(
+    HttpApiEndpoint.get("get", "/orgs/:orgSlug/jira-migrations/:migrationId", {
+      params: JiraMigrationPath,
+      success: JiraMigrationDetail,
+      error: JiraMigrationReadErrors
+    })
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "destinationConflicts",
+      "/orgs/:orgSlug/jira-migrations/:migrationId/destination-conflicts",
+      {
+        params: JiraMigrationPath,
+        query: Schema.Struct({
+          expectedRevision: Schema.FiniteFromString.pipe(
+            Schema.check(Schema.isInt()),
+            Schema.check(Schema.isGreaterThanOrEqualTo(0))
+          )
+        }),
+        success: Schema.Array(JiraMigrationDestinationConflict),
+        error: JiraMigrationWriteErrors
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "skippedAttachments",
+      "/orgs/:orgSlug/jira-migrations/:migrationId/skipped-attachments",
+      {
+        params: JiraMigrationPath,
+        success: Schema.Array(JiraSkippedAttachment),
+        error: JiraMigrationReadErrors
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "rescan",
+      "/orgs/:orgSlug/jira-migrations/:migrationId/rescan",
+      {
+        params: JiraMigrationPath,
+        payload: JiraMigrationRevisionInput,
+        success: JiraMigrationAcceptedDetail,
+        error: JiraMigrationWriteErrors
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.put(
+      "configure",
+      "/orgs/:orgSlug/jira-migrations/:migrationId/configuration",
+      {
+        params: JiraMigrationPath,
+        payload: ConfigureJiraMigrationInput,
+        success: JiraMigrationDetail,
+        error: JiraMigrationWriteErrors
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "run",
+      "/orgs/:orgSlug/jira-migrations/:migrationId/run",
+      {
+        params: JiraMigrationPath,
+        payload: JiraMigrationRevisionInput,
+        success: JiraMigrationAcceptedDetail,
+        error: JiraMigrationWriteErrors
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "cancel",
+      "/orgs/:orgSlug/jira-migrations/:migrationId/cancel",
+      {
+        params: JiraMigrationPath,
+        payload: JiraMigrationRevisionInput,
+        success: JiraMigrationAcceptedDetail,
+        error: JiraMigrationWriteErrors
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "discard",
+      "/orgs/:orgSlug/jira-migrations/:migrationId",
+      {
+        params: JiraMigrationPath,
+        success: HttpApiSchema.NoContent,
+        error: JiraMigrationWriteErrors
+      }
+    )
+  )
+  .middleware(Authentication)
+
 const StorageGroup = HttpApiGroup.make("storage")
   .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/storage", {
@@ -1160,7 +1374,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
         params: ProjectPath,
         payload: QuickCreateTicketInput,
         success: TicketDetail,
-        error: [Unauthorized, NotFound, Validation]
+        error: [Unauthorized, NotFound, Validation, MentionInvalid]
       }
     )
   )
@@ -1619,6 +1833,246 @@ const GroupsGroup = HttpApiGroup.make("groups")
   )
   .middleware(Authentication)
 
+const OrgBlockPath = Schema.Struct({ orgSlug: Slug, key: BlockKey })
+const OrgTemplatePath = Schema.Struct({ orgSlug: Slug, key: TemplateKey })
+const ProjectBlockPath = Schema.Struct({
+  orgSlug: Slug,
+  slug: Slug,
+  key: BlockKey
+})
+const ProjectTemplatePath = Schema.Struct({
+  orgSlug: Slug,
+  slug: Slug,
+  key: TemplateKey
+})
+
+const LibraryGroup = HttpApiGroup.make("library")
+  .add(
+    HttpApiEndpoint.get("org", "/orgs/:orgSlug/library", {
+      params: OrgPath,
+      success: Library,
+      error: [Unauthorized, NotFound]
+    })
+  )
+  .add(
+    HttpApiEndpoint.get("project", "/orgs/:orgSlug/projects/:slug/library", {
+      params: ProjectPath,
+      success: Library,
+      error: [Unauthorized, NotFound]
+    })
+  )
+  .add(
+    HttpApiEndpoint.post("createOrgBlock", "/orgs/:orgSlug/library/blocks", {
+      params: OrgPath,
+      payload: CreateBlockInput,
+      success: BlockDefinition,
+      error: [
+        Unauthorized,
+        NotFound,
+        Forbidden,
+        Conflict,
+        Validation,
+        MentionInvalid
+      ]
+    })
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "updateOrgBlock",
+      "/orgs/:orgSlug/library/blocks/:key",
+      {
+        params: OrgBlockPath,
+        payload: UpdateBlockInput,
+        success: BlockDefinition,
+        error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "removeOrgBlock",
+      "/orgs/:orgSlug/library/blocks/:key",
+      {
+        params: OrgBlockPath,
+        success: HttpApiSchema.NoContent,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "createOrgTemplate",
+      "/orgs/:orgSlug/library/templates",
+      {
+        params: OrgPath,
+        payload: CreateTemplateInput,
+        success: TemplateDefinition,
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          Conflict,
+          Validation,
+          MentionInvalid
+        ]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "updateOrgTemplate",
+      "/orgs/:orgSlug/library/templates/:key",
+      {
+        params: OrgTemplatePath,
+        payload: UpdateTemplateInput,
+        success: TemplateDefinition,
+        error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "removeOrgTemplate",
+      "/orgs/:orgSlug/library/templates/:key",
+      {
+        params: OrgTemplatePath,
+        success: HttpApiSchema.NoContent,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "createProjectBlock",
+      "/orgs/:orgSlug/projects/:slug/library/blocks",
+      {
+        params: ProjectPath,
+        payload: CreateBlockInput,
+        success: BlockDefinition,
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          Conflict,
+          Validation,
+          MentionInvalid
+        ]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "updateProjectBlock",
+      "/orgs/:orgSlug/projects/:slug/library/blocks/:key",
+      {
+        params: ProjectBlockPath,
+        payload: UpdateBlockInput,
+        success: BlockDefinition,
+        error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "removeProjectBlock",
+      "/orgs/:orgSlug/projects/:slug/library/blocks/:key",
+      {
+        params: ProjectBlockPath,
+        success: HttpApiSchema.NoContent,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "hideProjectBlock",
+      "/orgs/:orgSlug/projects/:slug/library/blocks/:key/hide",
+      {
+        params: ProjectBlockPath,
+        success: HttpApiSchema.NoContent,
+        error: [Unauthorized, NotFound, Forbidden, Conflict]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "createProjectTemplate",
+      "/orgs/:orgSlug/projects/:slug/library/templates",
+      {
+        params: ProjectPath,
+        payload: CreateTemplateInput,
+        success: TemplateDefinition,
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          Conflict,
+          Validation,
+          MentionInvalid
+        ]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "updateProjectTemplate",
+      "/orgs/:orgSlug/projects/:slug/library/templates/:key",
+      {
+        params: ProjectTemplatePath,
+        payload: UpdateTemplateInput,
+        success: TemplateDefinition,
+        error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "removeProjectTemplate",
+      "/orgs/:orgSlug/projects/:slug/library/templates/:key",
+      {
+        params: ProjectTemplatePath,
+        success: HttpApiSchema.NoContent,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "hideProjectTemplate",
+      "/orgs/:orgSlug/projects/:slug/library/templates/:key/hide",
+      {
+        params: ProjectTemplatePath,
+        success: HttpApiSchema.NoContent,
+        error: [Unauthorized, NotFound, Forbidden, Conflict]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "setOrgTemplateDefaults",
+      "/orgs/:orgSlug/library/defaults",
+      {
+        params: OrgPath,
+        payload: UpdateTemplateDefaultsInput,
+        success: LibraryDefaults,
+        error: [Unauthorized, NotFound, Forbidden, Validation]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "setTemplateDefaults",
+      "/orgs/:orgSlug/projects/:slug/library/defaults",
+      {
+        params: ProjectPath,
+        payload: UpdateTemplateDefaultsInput,
+        success: LibraryDefaults,
+        error: [Unauthorized, NotFound, Forbidden, Validation]
+      }
+    )
+  )
+  .middleware(Authentication)
+
 const OAuthApplicationsGroup = HttpApiGroup.make("oauthApplications")
   .add(
     HttpApiEndpoint.get("list", "/oauth-applications", {
@@ -1662,6 +2116,8 @@ const AppApi = HttpApi.make("projectproject")
   .add(ProjectsGroup)
   .add(EverhourGroup)
   .add(FigmaGroup)
+  .add(JiraGroup)
+  .add(JiraMigrationsGroup)
   .add(StorageGroup)
   .add(AttachmentsGroup)
   .add(TicketsGroup)
@@ -1669,6 +2125,7 @@ const AppApi = HttpApi.make("projectproject")
   .add(TagsGroup)
   .add(StatusesGroup)
   .add(GroupsGroup)
+  .add(LibraryGroup)
   .add(OAuthApplicationsGroup)
   .add(PublicOAuthGroup)
   .annotateMerge(OpenApi.annotations({ servers: [{ url: "/api" }] }))

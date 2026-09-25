@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./auth-schema": "./src/auth-schema.ts",
+    "./projectVisibility": "./src/projectVisibility.ts",
     "./schema": "./src/schema.ts"
   },
   "scripts": {
@@ -19,14 +20,14 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@effect/sql-pg": "4.0.0-rc.112",
+    "@effect/sql-pg": "4.0.0-rc.116",
     "@pp/shared": "workspace:*",
     "drizzle-orm": "1.0.0-rc.5-169397b",
-    "effect": "4.0.0-rc.112",
+    "effect": "4.0.0-rc.116",
     "pg": "^8.20.0"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-rc.112",
+    "@effect/vitest": "4.0.0-rc.116",
     "@types/pg": "^8.20.0",
     "better-auth": "1.7.3",
     "dotenv": "^17.4.2",

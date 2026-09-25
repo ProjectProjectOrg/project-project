@@ -130,6 +130,16 @@
         "vitest/require-to-throw-message": "off",
         "vitest/valid-expect": "off"
       }
+    },
+    {
+      "files": [
+        "apps/backend/src/projectVisibility.test.ts",
+        "apps/backend/src/jira/**/*.test.ts",
+        "packages/server-core/src/jira/**/*.test.ts"
+      ],
+      "rules": {
+        "anti-slop-effect/no-manual-effect-runtime-in-tests": "warn"
+      }
     }
   ],
   "ignorePatterns": [

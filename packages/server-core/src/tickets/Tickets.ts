@@ -115,7 +115,10 @@ export interface TicketsShape {
     ownerId: string,
     slug: string,
     input: QuickCreateTicketInput
-  ) => Effect.Effect<TicketDetail, NotFound | Validation | MarkdownError>
+  ) => Effect.Effect<
+    TicketDetail,
+    NotFound | Validation | MentionInvalid | MarkdownError
+  >
   readonly create: (
     orgSlug: string,
     ownerId: string,

@@ -1,4 +1,5 @@
 import { Db } from "@pp/db"
+import { publishedProject } from "@pp/db/projectVisibility"
 import { projectTag } from "@pp/db/schema"
 import {
   Conflict,
@@ -48,7 +49,11 @@ export const TagsLive = Layer.effect(
         .findFirst({
           columns: { id: true },
           where: {
-            RAW: (table, _operators) => _operators.eq(table.slug, slug)
+            RAW: (table, _operators) =>
+              _operators.and(
+                _operators.eq(table.slug, slug),
+                publishedProject(table)
+              )!
           }
         })
         .pipe(

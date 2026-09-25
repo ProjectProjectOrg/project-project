@@ -54,11 +54,20 @@ const buttonVariants = cva(
           "border border-border bg-transparent text-foreground hover:bg-muted active:bg-muted/60",
         ghost:
           "bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground active:bg-muted/60",
+        step: "w-full justify-start rounded-xl bg-transparent text-left text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+        raised:
+          "bg-surface-5 text-foreground shadow-surface-1 hover:bg-surface-7 hover:shadow-surface-1-hover active:bg-surface-6",
         "sidebar-link":
           "w-fit max-w-full justify-start bg-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground active:bg-accent",
         "inline-help":
           "ml-1 bg-transparent align-middle text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground active:bg-muted/60",
         chip: "bg-transparent text-foreground hover:bg-accent hover:text-foreground active:bg-accent/80",
+        "block-grip":
+          "bg-transparent text-muted-foreground hover:bg-accent active:bg-accent/80",
+        "template-start":
+          "border border-border/70 bg-background/60 text-foreground hover:border-border hover:bg-accent active:bg-accent/80",
+        "template-more":
+          "bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground active:bg-accent/80",
         overlay:
           "bg-background text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground active:bg-accent/80",
         "overlay-destructive":
@@ -74,11 +83,13 @@ const buttonVariants = cva(
         "image-option": "aspect-[3/1] h-auto w-full p-0",
         "image-strip": "h-12 w-full p-0",
         "banner-add": "h-12 w-full justify-start gap-1.5 px-4 text-[13px]",
+        step: "h-auto min-h-8 gap-3 px-3 text-[13px]",
         xs: "h-5 gap-1 px-1.5 text-[11px]",
         sm: "h-7 gap-1 px-3 text-[12px]",
         md: "h-8 gap-1.5 px-4 text-[13px]",
         lg: "h-9 gap-1.5 px-5 text-[14px]",
         "icon-xs": "h-5 w-5 p-0 [&_svg]:h-3 [&_svg]:w-3",
+        "block-grip": "size-5 p-0",
         "icon-sm": "h-8 w-8 p-0 [&_svg]:h-3.5 [&_svg]:w-3.5",
         icon: "h-9 w-9 p-0 [&_svg]:h-4 [&_svg]:w-4",
         "icon-lg": "h-10 w-10 p-0 [&_svg]:h-5 [&_svg]:w-5"
@@ -100,6 +111,10 @@ const buttonVariants = cva(
       {
         variant: "chip",
         className: "h-auto gap-1.5 rounded-md px-1.5 py-0.5 text-[13px]"
+      },
+      {
+        variant: ["template-start", "template-more"],
+        className: "h-6 gap-1.5 px-2 text-xs"
       }
     ],
     defaultVariants: {

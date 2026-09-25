@@ -12,6 +12,7 @@ import { useRef, useState, type FormEvent } from "react"
 import { PageContainer, PageHeader } from "@/components/page"
 import { ProjectBanner } from "@/components/ProjectBanner"
 import { ProjectTile } from "@/components/ProjectTile"
+import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
 import {
   createProject,
@@ -90,6 +91,17 @@ function Projects() {
         <h1>{m.projects_page_title()}</h1>
         <p>{m.projects_page_subtitle()}</p>
       </PageHeader>
+
+      <div className="flex justify-end">
+        <Button
+          variant="tertiary"
+          render={
+            <Link to="/orgs/$orgSlug/migrations/jira" params={{ orgSlug }} />
+          }
+        >
+          {m.jira_migration_projects_entry()}
+        </Button>
+      </div>
 
       {content}
     </PageContainer>

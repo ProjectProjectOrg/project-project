@@ -1,6 +1,8 @@
+import { cimd } from "@better-auth/cimd"
 import { mcp } from "@better-auth/mcp"
 import * as BunServices from "@effect/platform-bun/BunServices"
 import * as authSchema from "@pp/db/auth-schema"
+import { publishedProject } from "@pp/db/projectVisibility"
 import * as schema from "@pp/db/schema"
 import {
   projectIndex,
@@ -13,13 +15,16 @@ import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { APIError } from "better-auth/api"
 import { admin, jwt, magicLink, organization } from "better-auth/plugins"
-import { and, eq, inArray, sql } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { FileSystem, Path, Schema, Struct } from "effect"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import matter from "gray-matter"
+
+import { fetchClientMetadataResource } from "./auth/cimdTransport"
+import { legacyMcpResources } from "./auth/legacyMcpResources"
 
 const db = drizzle(process.env.DATABASE_URL!, { relations: schema.relations })
 
@@ -105,7 +110,9 @@ async function projectOwnerSlugs(organizationId: string, userId: string) {
         eq(projectMember.role, "owner")
       )
     )
-    .where(eq(projectIndex.organizationId, organizationId))
+    .where(
+      and(eq(projectIndex.organizationId, organizationId), publishedProject())
+    )
 }
 
 function projectsRoot() {
@@ -196,7 +203,9 @@ async function cleanupRemovedOrgMemberProjectAccess(
         eq(projectMember.userId, userId)
       )
     )
-    .where(eq(projectIndex.organizationId, organizationId))
+    .where(
+      and(eq(projectIndex.organizationId, organizationId), publishedProject())
+    )
   const slugs = rows.map((row) => row.slug)
   await Promise.all(
     slugs.map((slug) =>
@@ -228,7 +237,11 @@ export const auth = betterAuth({
   }),
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL,
-  trustedOrigins: ["http://localhost:5173", "http://localhost:3000"],
+  trustedOrigins: [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    ...(process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL] : [])
+  ],
   // `username` is a human-readable handle used in markdown frontmatter and
   // the members UI. Better Auth's CLI doesn't know about it from the schema
   // alone — declaring it here lets `auth.api.updateUser` etc. round-trip
@@ -392,7 +405,8 @@ export const auth = betterAuth({
                 projectIndex,
                 and(
                   eq(projectIndex.slug, projectInviteGrant.projectSlug),
-                  eq(projectIndex.id, projectInviteGrant.projectId)
+                  eq(projectIndex.id, projectInviteGrant.projectId),
+                  publishedProject()
                 )
               )
               .where(eq(projectInviteGrant.invitationId, invitation.id))
@@ -445,7 +459,13 @@ export const auth = betterAuth({
       consentPage: "/oauth/consent",
       allowDynamicClientRegistration: true,
       allowUnauthenticatedClientRegistration: true,
-      refreshTokenReuseInterval: 0,
+      // Refresh tokens rotate on every use. Without an overlap window, a
+      // second presentation of an already-rotated token is treated as a
+      // breach and `invalidateRefreshFamily` deletes *every* refresh token
+      // for that client/user pair — forcing a full browser re-auth. MCP
+      // clients run as several long-lived processes sharing one credential,
+      // so concurrent refreshes across the access-token expiry are routine.
+      refreshTokenReuseInterval: 60,
       extensions: [
         {
           claims: {
@@ -468,19 +488,11 @@ export const auth = betterAuth({
         }
       ]
     }),
-    {
-      id: "legacy-mcp-resources",
-      init: async () => {
-        await db.execute(sql`
-          INSERT INTO oauth_client_resource (id, client_id, resource_id, created_at)
-          SELECT gen_random_uuid()::text, client.client_id, ${mcpResource}, now()
-          FROM oauth_client AS client
-          INNER JOIN oauth_application AS legacy
-            ON legacy.id = client.id AND legacy.client_id = client.client_id
-          ON CONFLICT (client_id, resource_id) DO NOTHING
-        `)
-      }
-    }
+    cimd({
+      fetchClientMetadataResource,
+      metadataProfile: "mcp-2026-07-28"
+    }),
+    legacyMcpResources({ db, resource: mcpResource })
   ]
 })
 

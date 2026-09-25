@@ -1,6 +1,7 @@
 import {
   deriveProjectIdentity,
   NotFound,
+  type PartialTemplateDefaults,
   ProjectKey,
   Role,
   Slug
@@ -12,6 +13,10 @@ import * as Schema from "effect/Schema"
 import * as SchemaTransformation from "effect/SchemaTransformation"
 import * as Struct from "effect/Struct"
 
+import {
+  templateDefaultsFrom,
+  withTemplateDefaults
+} from "../library/templateDefaultsFrontmatter"
 import { Markdown, type MarkdownError } from "../markdown/Markdown"
 import {
   ProjectDocs,
@@ -157,6 +162,7 @@ export const ProjectDocsLive = Layer.effect(
             ...frontmatter,
             icon: frontmatter.icon ?? fallback.icon,
             color: frontmatter.color ?? fallback.color,
+            templateDefaults: templateDefaultsFrom(file.data),
             body: file.body
           }
         })
@@ -171,12 +177,38 @@ export const ProjectDocsLive = Layer.effect(
         "write",
         orgSlug,
         slug,
-        markdown.writeProjectFile(
-          orgSlug,
-          slug,
-          encodeProjectFrontmatter(document),
-          document.body
-        )
+        Effect.gen(function* () {
+          const existing = yield* markdown.readProjectFile(orgSlug, slug).pipe(
+            Effect.map((file) => templateDefaultsFrom(file.data)),
+            Effect.catchTag("NotFound", () => Effect.succeed({}))
+          )
+          yield* markdown.writeProjectFile(
+            orgSlug,
+            slug,
+            withTemplateDefaults(encodeProjectFrontmatter(document), existing),
+            document.body
+          )
+        })
+      )
+
+    const writeTemplateDefaults = (
+      orgSlug: string,
+      slug: string,
+      defaults: PartialTemplateDefaults
+    ): Effect.Effect<void, NotFound | MarkdownError> =>
+      withProjectDocTelemetry(
+        "writeTemplateDefaults",
+        orgSlug,
+        slug,
+        Effect.gen(function* () {
+          const file = yield* markdown.readProjectFile(orgSlug, slug)
+          yield* markdown.writeProjectFile(
+            orgSlug,
+            slug,
+            withTemplateDefaults(file.data, defaults),
+            file.body
+          )
+        })
       )
 
     const removeDir = (
@@ -204,6 +236,12 @@ export const ProjectDocsLive = Layer.effect(
         markdown.readProjectFileRaw(orgSlug, slug)
       )
 
-    return { read, write, removeDir, readRaw } satisfies ProjectDocsShape
+    return {
+      read,
+      write,
+      writeTemplateDefaults,
+      removeDir,
+      readRaw
+    } satisfies ProjectDocsShape
   })
 )

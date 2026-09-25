@@ -24,24 +24,28 @@ it("inserts a comment placeholder immediately and swaps in the response", async 
     ticketId: decodeTicketId("T-1"),
     projectSlug: "project",
     author: {
-      id: decodeUserId("user-1"),
-      email: "luuk@example.com",
-      name: "Luuk",
-      username: "luuk",
-      image: null,
-      createdAt: "2026-01-01T00:00:00.000Z",
-      activeOrgSlug: "org",
-      personalGithub: { connected: true },
-      editorPreference: "cursor",
-      personalEverhour: {
-        connected: false,
-        everhourUserId: null,
-        name: null,
-        email: null,
-        lastVerifiedAt: null,
-        lastCheckError: null
+      kind: "user",
+      user: {
+        id: decodeUserId("user-1"),
+        email: "luuk@example.com",
+        name: "Luuk",
+        username: "luuk",
+        image: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        activeOrgSlug: "org",
+        personalGithub: { connected: true },
+        editorPreference: "cursor",
+        personalEverhour: {
+          connected: false,
+          everhourUserId: null,
+          name: null,
+          email: null,
+          lastVerifiedAt: null,
+          lastCheckError: null
+        }
       }
     },
+    origin: "native",
     body: "Immediate comment",
     createdAt: "2026-09-15T10:00:01.000Z",
     editedAt: null

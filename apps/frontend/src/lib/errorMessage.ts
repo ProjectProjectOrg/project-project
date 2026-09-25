@@ -7,6 +7,7 @@ import {
 } from "@pp/shared"
 import type {
   AttachmentNotUploaded,
+  BlockIssueCode,
   AttachmentTooLarge,
   AttachmentTypeRejected,
   BranchExists,
@@ -33,7 +34,8 @@ import type {
   StorageConfigMissing,
   StorageError,
   StorageNotConnected,
-  Unauthorized
+  Unauthorized,
+  Validation
 } from "@pp/shared"
 import * as Match from "effect/Match"
 
@@ -74,6 +76,7 @@ export type AppError =
   | FigmaRateLimited
   | FigmaFileNotFound
   | FigmaError
+  | Validation
 
 const invitationNotAcceptableMessage = (
   reason: InvitationNotAcceptableReason
@@ -87,6 +90,56 @@ const invitationNotAcceptableMessage = (
       return m.auth_invites_accept_error_email_verification_required()
     case "membership_limit_reached":
       return m.auth_invites_accept_error_membership_limit_reached()
+  }
+}
+
+const BLOCK_ISSUE_MESSAGES = {
+  unclosed: m.templates_error_block_unclosed,
+  stray_close: m.templates_error_block_stray_close,
+  nested: m.templates_error_block_nested,
+  malformed_open: m.templates_error_block_malformed_open,
+  invalid_type: m.templates_error_block_invalid_type
+} satisfies Record<
+  BlockIssueCode,
+  (inputs: Readonly<{ line: string }>) => string
+>
+
+const isBlockIssueCode = (code: string): code is BlockIssueCode =>
+  Object.hasOwn(BLOCK_ISSUE_MESSAGES, code)
+
+const invalidBlocksMessage = (detail: string): string => {
+  const [code = "", line = "?"] = detail.split(":")
+  return isBlockIssueCode(code)
+    ? BLOCK_ISSUE_MESSAGES[code]({ line })
+    : m.templates_error_invalid_blocks({ line })
+}
+
+const validationMessage = (reason: string): string => {
+  const separator = reason.indexOf(":")
+  const kind = separator === -1 ? reason : reason.slice(0, separator)
+  const detail = separator === -1 ? "" : reason.slice(separator + 1)
+  switch (kind) {
+    case "attachments_not_allowed":
+      return m.templates_error_attachments_not_allowed()
+    case "blocks_not_allowed":
+      return m.templates_error_blocks_not_allowed()
+    case "invalid_blocks":
+      return invalidBlocksMessage(detail)
+    case "unknown_template":
+      return m.templates_error_unknown_template({ key: detail })
+    default:
+      return m.error_unknown()
+  }
+}
+
+const conflictMessage = (reason: string): string => {
+  switch (reason) {
+    case "project_key_taken":
+      return m.projects_create_key_taken_error()
+    case "key_taken":
+      return m.templates_error_key_taken()
+    default:
+      return m.error_unknown()
   }
 }
 
@@ -110,11 +163,7 @@ export const errorMessage = (error: AppError): string =>
       Match.tag("SprintCompletedImmutable", () =>
         m.error_sprint_completed_immutable()
       ),
-      Match.tag("Conflict", (error) =>
-        error.reason === "project_key_taken"
-          ? m.projects_create_key_taken_error()
-          : m.error_unknown()
-      ),
+      Match.tag("Conflict", (error) => conflictMessage(error.reason)),
       Match.tag("MentionInvalid", () => m.error_mention_invalid()),
       Match.tag("EverhourApiKeyMissing", () =>
         m.error_everhour_api_key_missing()
@@ -151,6 +200,7 @@ export const errorMessage = (error: AppError): string =>
       Match.tag("FigmaRateLimited", () => m.figma_error_rate_limited()),
       Match.tag("FigmaFileNotFound", () => m.figma_error_file_not_found()),
       Match.tag("FigmaError", () => m.figma_error_generic()),
+      Match.tag("Validation", (error) => validationMessage(error.reason)),
       Match.orElse(() => m.error_unknown())
     )
 
@@ -219,6 +269,18 @@ export const ticketListErrorMessage = (error: unknown): string => {
 
 export const ticketListDefectMessage = (defect: unknown): string =>
   m.tickets_list_defect({ defect: String(defect) })
+
+export const jiraMigrationSaveErrorMessage = (error: unknown): string =>
+  Match.value(error).pipe(
+    Match.when(
+      { _tag: "Conflict", reason: "jira_migration_revision_conflict" },
+      () => m.jira_migration_save_conflict()
+    ),
+    Match.when({ _tag: "JiraReconnectRequired" }, () =>
+      m.jira_migration_reconnect_description()
+    ),
+    Match.orElse(() => m.jira_migration_error_generic())
+  )
 
 export const oauthConsentErrorMessage = (error: unknown): string =>
   Match.value(error).pipe(

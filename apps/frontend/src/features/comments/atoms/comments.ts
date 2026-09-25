@@ -92,10 +92,11 @@ const placeholderComment = (
   ),
   ticketId: key.req.params.id,
   projectSlug: decodeSlug(key.req.params.slug),
-  author: key.author,
+  author: { kind: "user", user: key.author },
   body: input.body,
   createdAt: key.createdAt,
-  editedAt: null
+  editedAt: null,
+  origin: "native"
 })
 
 export const createComment = Atom.family((key: CreateCommentKey) =>

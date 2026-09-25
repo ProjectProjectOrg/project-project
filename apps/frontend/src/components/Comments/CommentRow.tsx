@@ -36,10 +36,18 @@ export function CommentRow({
   ticketId: TicketId
 }) {
   const viewer = useAtomValue(me())
+  const linkedAuthor =
+    comment.author.kind === "user" ? comment.author.user : null
+  const authorName =
+    comment.author.kind === "user"
+      ? (comment.author.user.name ?? comment.author.user.email)
+      : comment.author.displayName
   const isAuthor =
     !pending &&
+    comment.origin === "native" &&
+    linkedAuthor !== null &&
     Result.isSuccess(viewer) &&
-    viewer.value.id === comment.author.id
+    viewer.value.id === linkedAuthor.id
   const req = commentsRequest(orgSlug, slug, ticketId)
   const key = { req, commentId: comment.id }
   const editState = useAtomValue(editComment(key))
@@ -49,15 +57,16 @@ export function CommentRow({
 
   return (
     <InlineForm.Root<Mode>
-      className={cn("rounded-md p-3", waiting && "animate-pulse")}
+      className={cn(
+        "ticket-comment rounded-md p-(--ticket-comment-pad)",
+        waiting && "animate-pulse"
+      )}
     >
       <InlineForm.Idle block>
         <header className="flex items-center justify-between gap-2 text-sm">
           <div className="flex items-center gap-2">
-            <MemberAvatar member={comment.author} size={20} />
-            <span className="font-medium">
-              {comment.author.name ?? comment.author.email}
-            </span>
+            {linkedAuthor && <MemberAvatar member={linkedAuthor} size={20} />}
+            <span className="font-medium">{authorName}</span>
             <time className="text-muted-foreground">
               {DateTime.toDate(
                 DateTime.makeUnsafe(comment.createdAt)
@@ -66,6 +75,11 @@ export function CommentRow({
             {comment.editedAt && (
               <span className="text-xs text-muted-foreground">
                 {m.comments_edited_marker()}
+              </span>
+            )}
+            {comment.origin === "jira" && (
+              <span className="text-xs text-muted-foreground">
+                {m.comments_imported_from_jira()}
               </span>
             )}
           </div>
@@ -138,9 +152,13 @@ function EditForm({
   return (
     <>
       <header className="mt-1.5 flex items-center gap-2 text-sm">
-        <MemberAvatar member={comment.author} size={20} />
+        {comment.author.kind === "user" && (
+          <MemberAvatar member={comment.author.user} size={20} />
+        )}
         <span className="font-medium">
-          {comment.author.name ?? comment.author.email}
+          {comment.author.kind === "user"
+            ? (comment.author.user.name ?? comment.author.user.email)
+            : comment.author.displayName}
         </span>
         <span className="text-muted-foreground">
           {m.comments_editing_marker()}

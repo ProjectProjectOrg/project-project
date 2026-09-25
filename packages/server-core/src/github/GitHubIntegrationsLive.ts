@@ -1,6 +1,7 @@
 import { randomBytes, createHash } from "node:crypto"
 
 import { Db } from "@pp/db"
+import { publishedProject } from "@pp/db/projectVisibility"
 import {
   githubAppInstallSession,
   organizationGithubIntegration,
@@ -38,7 +39,7 @@ const configError = new GitHubError({
   message: "missing GitHub App configuration"
 })
 
-const publicBaseUrl = Config.string("BETTER_AUTH_URL").pipe(
+const publicBaseUrl = Config.String("BETTER_AUTH_URL").pipe(
   Config.withDefault("http://localhost:5173")
 )
 
@@ -46,7 +47,7 @@ const githubAuthorizeUrl = (
   state: string
 ): Effect.Effect<string, GitHubError> =>
   Effect.gen(function* () {
-    const clientId = yield* Config.string("GITHUB_APP_CLIENT_ID")
+    const clientId = yield* Config.String("GITHUB_APP_CLIENT_ID")
     const url = new URL("https://github.com/login/oauth/authorize")
     url.searchParams.set("client_id", clientId)
     url.searchParams.set("state", state)
@@ -55,7 +56,7 @@ const githubAuthorizeUrl = (
 
 const githubInstallUrl = (state: string): Effect.Effect<string, GitHubError> =>
   Effect.gen(function* () {
-    const raw = yield* Config.string("GITHUB_APP_INSTALL_URL")
+    const raw = yield* Config.String("GITHUB_APP_INSTALL_URL")
     const url = new URL(raw)
     url.searchParams.set("state", state)
     return url.toString()
@@ -153,7 +154,8 @@ export const GitHubIntegrationsLive = Layer.effect(
                     RAW: (table, _operators) =>
                       _operators.and(
                         _operators.eq(table.organizationId, org.organizationId),
-                        _operators.eq(table.slug, returnProjectSlug)
+                        _operators.eq(table.slug, returnProjectSlug),
+                        publishedProject(table)
                       )!
                   }
                 })
@@ -428,7 +430,8 @@ export const GitHubIntegrationsLive = Layer.effect(
                         _operators.eq(
                           table.organizationId,
                           session.organizationId
-                        )
+                        ),
+                        publishedProject(table)
                       )!
                   }
                 })

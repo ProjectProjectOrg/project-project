@@ -20,18 +20,10 @@ import {
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { CalendarRange, Info, ListChecks, type LucideIcon } from "lucide-react"
-import {
-  startTransition,
-  useOptimistic,
-  type MouseEvent,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode
-} from "react"
+import { startTransition, useOptimistic, type MouseEvent, useMemo } from "react"
 import { flushSync } from "react-dom"
 
+import { MarqueeIfOverflow } from "@/components/MarqueeIfOverflow"
 import { PageContainer } from "@/components/page"
 import { ProjectHeader } from "@/components/ProjectHeader"
 import {
@@ -328,80 +320,6 @@ function pickSprintNavigationTarget(
     )
   return completed[0] ?? null
 }
-
-function MarqueeIfOverflow({
-  children,
-  speedPxPerSec = 35
-}: {
-  children: ReactNode
-  speedPxPerSec?: number
-}) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const measureRef = useRef<HTMLDivElement>(null)
-  const [state, setState] = useState<{ overflow: boolean; duration: number }>({
-    overflow: false,
-    duration: 20
-  })
-
-  useLayoutEffect(() => {
-    const container = containerRef.current
-    const measure = measureRef.current
-    if (!container || !measure) return
-    const update = () => {
-      const cw = container.clientWidth
-      const iw = measure.scrollWidth
-      if (cw === 0 || iw === 0) return
-      const overflow = iw > cw
-      const duration = Math.max(8, iw / speedPxPerSec)
-      setState((prev) =>
-        prev.overflow === overflow && Math.abs(prev.duration - duration) < 0.5
-          ? prev
-          : { overflow, duration }
-      )
-    }
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(container)
-    ro.observe(measure)
-    return () => ro.disconnect()
-  }, [speedPxPerSec, children])
-
-  return (
-    <div
-      ref={containerRef}
-      className={cn(
-        "flex h-full w-full items-center overflow-hidden",
-        state.overflow &&
-          "[mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)]"
-      )}
-    >
-      {state.overflow ? (
-        <div
-          className="animate-marquee-x flex w-max items-center [animation-play-state:paused] group-hover/seg-item:[animation-play-state:running]"
-          style={{ animationDuration: `${state.duration}s` }}
-        >
-          <div
-            ref={measureRef}
-            className="flex shrink-0 items-center gap-2 pr-2"
-          >
-            {children}
-          </div>
-          <div aria-hidden className="flex shrink-0 items-center gap-2 pr-2">
-            {children}
-          </div>
-        </div>
-      ) : (
-        <div
-          ref={measureRef}
-          className="flex w-full items-center justify-center gap-2 whitespace-nowrap"
-        >
-          {children}
-        </div>
-      )}
-    </div>
-  )
-}
-
 function TicketsBreakdown({
   counts,
   statuses

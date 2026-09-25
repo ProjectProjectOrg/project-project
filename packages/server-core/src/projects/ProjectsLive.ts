@@ -1,4 +1,6 @@
+import { publishedProject } from "@pp/db/projectVisibility"
 import {
+  BASELINE_STATUS_SEED,
   Conflict,
   deriveProjectIdentity,
   Forbidden,
@@ -190,7 +192,8 @@ export const ProjectsLive = Layer.effect(
               RAW: (table, _operators) =>
                 _operators.and(
                   _operators.eq(table.slug, slug),
-                  _operators.eq(table.organizationId, organizationId)
+                  _operators.eq(table.organizationId, organizationId),
+                  publishedProject(table)
                 )!
             }
           })
@@ -443,7 +446,12 @@ export const ProjectsLive = Layer.effect(
               ? yield* db
                   .select(baseSelect)
                   .from(projectIndex)
-                  .where(eq(projectIndex.organizationId, organizationId))
+                  .where(
+                    and(
+                      eq(projectIndex.organizationId, organizationId),
+                      publishedProject()
+                    )
+                  )
                   .orderBy(asc(projectIndex.createdAt))
                   .pipe(Effect.orDie)
               : yield* db
@@ -456,7 +464,12 @@ export const ProjectsLive = Layer.effect(
                       eq(projectMember.userId, userId)
                     )
                   )
-                  .where(eq(projectIndex.organizationId, organizationId))
+                  .where(
+                    and(
+                      eq(projectIndex.organizationId, organizationId),
+                      publishedProject()
+                    )
+                  )
                   .orderBy(asc(projectIndex.createdAt))
                   .pipe(Effect.orDie)
           const healable = rows.filter((r) => bannerNeedsPlaceholder(r.banner))
@@ -710,6 +723,7 @@ export const ProjectsLive = Layer.effect(
               color: identity.color,
               createdBy,
               createdAt,
+              publishedAt: createdAt,
               organizationId
             })
             .returning()
@@ -733,35 +747,17 @@ export const ProjectsLive = Layer.effect(
 
           yield* db
             .insert(projectStatus)
-            .values([
-              {
+            .values(
+              BASELINE_STATUS_SEED.map((baseline) => ({
                 projectId: row.id,
-                slug: "todo",
-                label: "Todo",
-                icon: "CircleDashed",
-                color: "#a3a3a3",
-                orderKey: "a0",
+                slug: baseline.slug,
+                label: baseline.label,
+                icon: baseline.icon,
+                color: baseline.color,
+                orderKey: baseline.orderKey,
                 createdBy
-              },
-              {
-                projectId: row.id,
-                slug: "in_progress",
-                label: "In progress",
-                icon: "CircleDot",
-                color: "#3b82f6",
-                orderKey: "a1",
-                createdBy
-              },
-              {
-                projectId: row.id,
-                slug: "done",
-                label: "Done",
-                icon: "CircleCheck",
-                color: "#22c55e",
-                orderKey: "a2",
-                createdBy
-              }
-            ])
+              }))
+            )
             .pipe(Effect.orDie)
 
           const rollback = db

@@ -231,11 +231,9 @@ describe("Better Auth plugin wiring", () => {
   })
 
   it("disables public self-serve organization creation", () => {
-    const orgPlugin = auth.options.plugins?.find(
-      (plugin) => plugin.id === "organization"
-    )
-    expect(orgPlugin?.options?.allowUserToCreateOrganization).toBe(false)
-    expect(orgPlugin?.options?.requireEmailVerificationOnInvitation).toBe(true)
+    const orgPlugin = configuredPlugin("organization")
+    expect(orgPlugin.options?.allowUserToCreateOrganization).toBe(false)
+    expect(orgPlugin.options?.requireEmailVerificationOnInvitation).toBe(true)
   })
 
   it("allows GitHub account linking for users with a different profile email", () => {
@@ -473,10 +471,14 @@ describe("organization role assignment access control", () => {
   })
 })
 
-function configuredPlugin(id: string) {
+type ConfiguredPlugin = NonNullable<typeof auth.options.plugins>[number]
+
+function configuredPlugin<Id extends ConfiguredPlugin["id"]>(
+  id: Id
+): Extract<ConfiguredPlugin, { readonly id: Id }> {
   const plugin = auth.options.plugins?.find((plugin) => plugin.id === id)
   if (!plugin) throw new Error(`Missing Better Auth plugin: ${id}`)
-  return plugin
+  return plugin as Extract<ConfiguredPlugin, { readonly id: Id }>
 }
 
 function testOrganizationPlugin() {

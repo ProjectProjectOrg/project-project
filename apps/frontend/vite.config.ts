@@ -51,15 +51,15 @@ export default defineConfig(({ mode }) => ({
     port: 5173,
     proxy: {
       "/api": {
-        target: "http://localhost:3000",
+        target: process.env.JIRA_BROWSER_API_TARGET ?? "http://localhost:3000",
         changeOrigin: true
       },
       "/mcp": {
-        target: "http://localhost:3000",
+        target: process.env.JIRA_BROWSER_API_TARGET ?? "http://localhost:3000",
         changeOrigin: true
       },
       "/.well-known/": {
-        target: "http://localhost:3000",
+        target: process.env.JIRA_BROWSER_API_TARGET ?? "http://localhost:3000",
         changeOrigin: true
       }
     }

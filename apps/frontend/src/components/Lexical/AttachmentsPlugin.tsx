@@ -2,6 +2,7 @@ import { useAtomSet } from "@effect/atom-react"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import {
   ATTACHMENT_MAX_BYTES,
+  attachmentUploadContentType,
   attachmentSrc,
   attachmentViewParams,
   isAllowedAttachmentContentType,
@@ -113,7 +114,8 @@ export function AttachmentsPlugin({
       if (list.length === 0) return
       setRejection(null)
       for (const file of list) {
-        if (!isAllowedAttachmentContentType(file.type)) {
+        const contentType = attachmentUploadContentType(file.name, file.type)
+        if (!isAllowedAttachmentContentType(contentType)) {
           setRejection(m.editor_attachment_type_rejected())
           continue
         }
@@ -130,7 +132,7 @@ export function AttachmentsPlugin({
               url: "",
               alt: file.name,
               filename: file.name,
-              kind: isRasterImageContentType(file.type) ? "image" : "file",
+              kind: isRasterImageContentType(contentType) ? "image" : "file",
               uploadId,
               progress: 0
             })

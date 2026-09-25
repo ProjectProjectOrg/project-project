@@ -1,4 +1,5 @@
 import { Db } from "@pp/db"
+import { publishedProject } from "@pp/db/projectVisibility"
 import {
   AttachBranchInput,
   BranchExists,
@@ -37,6 +38,7 @@ import {
   TicketId,
   UpdateTicketInput,
   UserId,
+  normalizeLineEndings,
   Validation,
   type ProjectKey,
   type GroupId,
@@ -54,6 +56,7 @@ import {
   type TicketSearchQuery,
   type TicketSections,
   type TicketSort,
+  type TemplateKey,
   type TicketSprintSections,
   type TicketStatus,
   type TicketUpdateResult,
@@ -72,6 +75,7 @@ import { Comments, type InvalidCommentBody } from "../comments/Comments"
 import { FigmaLinks } from "../figma/FigmaLinks"
 import * as GitHub from "../github/GitHub"
 import { Groups } from "../groups/Groups"
+import { Library, type TemplateExpansion } from "../library/Library"
 import type { MarkdownError } from "../markdown/Markdown"
 import { Projects } from "../projects/Projects"
 import type { ProjectGithubIntegration } from "../projects/Projects"
@@ -239,6 +243,7 @@ export const TicketsLive = Layer.effect(
     const attachments = yield* Attachments
     const figmaLinks = yield* FigmaLinks
     const users = yield* Users
+    const library = yield* Library
 
     const detailOf = (
       document: TicketDocument,
@@ -774,6 +779,7 @@ export const TicketsLive = Layer.effect(
           slug
         )
         const ticket = yield* readTicket(orgSlug, slug, id)
+        const body = yield* library.resolveSynced(orgSlug, slug, ticket.body)
         const branchDeletedAt = yield* ticketIndex.getBranchDeletedAt(
           orgSlug,
           slug,
@@ -781,7 +787,7 @@ export const TicketsLive = Layer.effect(
         )
         return yield* withMissingAttachments(
           orgSlug,
-          yield* detailOf(ticket, projectGithub, branchDeletedAt)
+          yield* detailOf({ ...ticket, body }, projectGithub, branchDeletedAt)
         )
       })
 
@@ -810,7 +816,11 @@ export const TicketsLive = Layer.effect(
           .findFirst({
             columns: { id: true },
             where: {
-              RAW: (table, _operators) => _operators.eq(table.slug, slug)
+              RAW: (table, _operators) =>
+                _operators.and(
+                  _operators.eq(table.slug, slug),
+                  publishedProject(table)
+                )!
             }
           })
           .pipe(Effect.orDie)
@@ -842,7 +852,11 @@ export const TicketsLive = Layer.effect(
           .findFirst({
             columns: { id: true },
             where: {
-              RAW: (table, _operators) => _operators.eq(table.slug, slug)
+              RAW: (table, _operators) =>
+                _operators.and(
+                  _operators.eq(table.slug, slug),
+                  publishedProject(table)
+                )!
             }
           })
           .pipe(Effect.orDie)
@@ -957,18 +971,40 @@ export const TicketsLive = Layer.effect(
         }
       })
 
+    const expansionFor = (
+      orgSlug: string,
+      slug: string,
+      template: TemplateKey | null | undefined
+    ): Effect.Effect<
+      TemplateExpansion | null,
+      NotFound | Validation | MarkdownError
+    > =>
+      template === undefined || template === null
+        ? Effect.succeed(null)
+        : library.expandForCreate(orgSlug, slug, template)
+
     const quickCreate = (
       orgSlug: string,
       ownerId: string,
       slug: string,
       input: QuickCreateTicketInput
-    ): Effect.Effect<TicketDetail, NotFound | Validation | MarkdownError> =>
+    ): Effect.Effect<
+      TicketDetail,
+      NotFound | Validation | MentionInvalid | MarkdownError
+    > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
         if (input.status !== undefined) {
           yield* validateStatusExists(slug, input.status)
         }
+        const expansion = yield* expansionFor(orgSlug, slug, input.template)
+        const tags = expansion?.tags ?? []
+        const body = expansion?.body ?? ""
+        yield* validateTagsExist(slug, tags)
         const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
+        if (body !== "") {
+          yield* validateBody(orgSlug, ownerId, slug, body, indexProject)
+        }
         const projectKey = yield* projects.getKey(orgSlug, ownerId, slug)
         const now = yield* DateTime.nowAsDate
         const document = yield* writeWithIdAllocation(
@@ -980,9 +1016,9 @@ export const TicketsLive = Layer.effect(
             id,
             title: input.title,
             status: (input.status ?? "todo") as TicketStatus,
-            type: input.type ?? "other",
-            priority: "med",
-            tags: [],
+            type: input.type ?? expansion?.type ?? "other",
+            priority: expansion?.priority ?? "med",
+            tags: [...tags],
             branch: null,
             pr: null,
             prState: null,
@@ -993,7 +1029,7 @@ export const TicketsLive = Layer.effect(
             createdAt: now,
             updatedBy: ownerId,
             updatedAt: now,
-            body: "",
+            body,
             commentsRegion: ""
           })
         )
@@ -1016,16 +1052,21 @@ export const TicketsLive = Layer.effect(
     > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
+        const expansion = yield* expansionFor(orgSlug, slug, input.template)
         const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
         const projectKey = yield* projects.getKey(orgSlug, ownerId, slug)
-        if (input.tags !== undefined) {
-          yield* validateTagsExist(slug, input.tags)
-        }
+        const tags = input.tags ?? expansion?.tags ?? []
+        yield* validateTagsExist(slug, tags)
         if (input.assignees !== undefined && input.assignees.length > 0) {
           yield* validateAssigneesAreMembers(orgSlug, slug, input.assignees)
         }
-        if (input.body !== undefined) {
-          yield* validateBody(orgSlug, ownerId, slug, input.body, indexProject)
+        const body = yield* library.resolveSynced(
+          orgSlug,
+          slug,
+          normalizeLineEndings(input.body ?? expansion?.body ?? "")
+        )
+        if (body !== "") {
+          yield* validateBody(orgSlug, ownerId, slug, body, indexProject)
         }
         const now = yield* DateTime.nowAsDate
         const document = yield* writeWithIdAllocation(
@@ -1037,9 +1078,9 @@ export const TicketsLive = Layer.effect(
             id,
             title: input.title,
             status: (input.status ?? "todo") as TicketStatus,
-            type: input.type ?? "other",
-            priority: input.priority ?? "med",
-            tags: input.tags !== undefined ? [...input.tags] : [],
+            type: input.type ?? expansion?.type ?? "other",
+            priority: input.priority ?? expansion?.priority ?? "med",
+            tags: [...tags],
             branch: null,
             pr: null,
             prState: null,
@@ -1051,7 +1092,7 @@ export const TicketsLive = Layer.effect(
             createdAt: now,
             updatedBy: ownerId,
             updatedAt: now,
-            body: input.body ?? "",
+            body,
             commentsRegion: ""
           })
         )
@@ -1090,14 +1131,17 @@ export const TicketsLive = Layer.effect(
             yield* validateTagsExist(slug, input.tags)
           }
 
-          if (input.body !== undefined) {
-            yield* validateBody(
-              orgSlug,
-              ownerId,
-              slug,
-              input.body,
-              indexProject
-            )
+          const body =
+            input.body === undefined
+              ? undefined
+              : yield* library.resolveSynced(
+                  orgSlug,
+                  slug,
+                  normalizeLineEndings(input.body)
+                )
+
+          if (body !== undefined) {
+            yield* validateBody(orgSlug, ownerId, slug, body, indexProject)
           }
 
           const next = yield* ticketDocs.update(
@@ -1129,7 +1173,7 @@ export const TicketsLive = Layer.effect(
                       : existing.assignees,
                   updatedBy: ownerId,
                   updatedAt: yield* DateTime.nowAsDate,
-                  body: input.body ?? existing.body
+                  body: body ?? existing.body
                 }
               }),
             (next) =>

@@ -21,7 +21,7 @@ export function TicketPageHeader({
 }) {
   return (
     <header className="flex items-start gap-2">
-      <div className="mt-1.5 flex h-[1lh] shrink-0 items-center text-xl">
+      <div className="mt-1.5 flex h-[1lh] w-(--ticket-status-column) shrink-0 items-center justify-center text-xl">
         <StatusButton
           orgSlug={orgSlug}
           slug={slug}

@@ -5,6 +5,30 @@ import { TagColor } from "./Tag"
 export const BASELINE_STATUS_SLUGS = ["todo", "in_progress", "done"] as const
 export type BaselineStatusSlug = (typeof BASELINE_STATUS_SLUGS)[number]
 
+export const BASELINE_STATUS_SEED = [
+  {
+    slug: "todo",
+    label: "Todo",
+    icon: "CircleDashed",
+    color: "#a3a3a3",
+    orderKey: "a0"
+  },
+  {
+    slug: "in_progress",
+    label: "In progress",
+    icon: "CircleDot",
+    color: "#3b82f6",
+    orderKey: "a1"
+  },
+  {
+    slug: "done",
+    label: "Done",
+    icon: "CircleCheck",
+    color: "#22c55e",
+    orderKey: "a2"
+  }
+] as const
+
 export const StatusSlug = Schema.String.pipe(
   Schema.check(Schema.isPattern(/^[a-z0-9_]+$/)),
   Schema.check(Schema.isMinLength(1)),

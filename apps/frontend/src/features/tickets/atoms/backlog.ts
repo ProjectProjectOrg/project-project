@@ -2,11 +2,13 @@ import {
   padNumericIdSort,
   type GroupId,
   type QuickCreateTicketInput,
+  type TagName,
   type Ticket,
   type TicketCounts,
   type TicketId,
   type TicketListRow,
   TicketListQuery,
+  type TicketPriority,
   type TicketSort,
   type TicketStatus,
   type Unauthorized,
@@ -472,11 +474,17 @@ const createdKeysAtom = Atom.family((_scope: string) =>
   )
 )
 
+export type QuickCreatePrediction = Readonly<{
+  priority: TicketPriority | null
+  tags: ReadonlyArray<TagName>
+}>
+
 export type QuickCreateArg = Readonly<{
   ticket: QuickCreateTicketInput
   viewerId: string
   projectPrefix: string
   clientId: string
+  prediction?: QuickCreatePrediction
 }>
 
 const placeholderId = (
@@ -489,6 +497,32 @@ const placeholderId = (
   return `${prefix}-${n}` as TicketId
 }
 
+export const predictedTicket = (
+  input: QuickCreateArg,
+  id: TicketId,
+  status: TicketStatus
+): Ticket => {
+  const now = DateTime.toDate(DateTime.nowUnsafe())
+  return {
+    id,
+    title: input.ticket.title,
+    status,
+    type: input.ticket.type ?? "other",
+    priority: input.prediction?.priority ?? "med",
+    tags: input.prediction?.tags ?? [],
+    branch: null,
+    pr: null,
+    prState: null,
+    lastTransitionedPr: null,
+    gitState: { tag: "no_branch", baseBranch: "" },
+    assignees: [],
+    archivedAt: null,
+    createdBy: input.viewerId,
+    createdAt: now,
+    updatedAt: now
+  }
+}
+
 export const quickCreateBacklogTicket = Atom.family((req: BacklogRequest) =>
   Atom.optimisticFn(backlog(req), {
     reducer: (current, input: QuickCreateArg) =>
@@ -498,25 +532,13 @@ export const quickCreateBacklogTicket = Atom.family((req: BacklogRequest) =>
           items: [],
           nextCursor: null
         }
-        const now = DateTime.toDate(DateTime.nowUnsafe())
-        const predicted: Ticket = {
-          id: placeholderId(section.items, input.projectPrefix),
-          title: input.ticket.title,
-          status,
-          type: input.ticket.type ?? "other",
-          priority: "med",
-          tags: [],
-          branch: null,
-          pr: null,
-          prState: null,
-          lastTransitionedPr: null,
-          gitState: { tag: "no_branch", baseBranch: "" },
-          assignees: [],
-          archivedAt: null,
-          createdBy: input.viewerId,
-          createdAt: now,
-          updatedAt: now
-        }
+        const predicted = predictedTicket(
+          input,
+
+          placeholderId(section.items, input.projectPrefix),
+
+          status
+        )
         return {
           counts: {
             total: value.counts.total + 1,
@@ -850,25 +872,13 @@ export const quickCreateFlatBacklogTicket = Atom.family((req: BacklogRequest) =>
     reducer: (current, input: QuickCreateArg) =>
       AsyncResult.map(current, (value) => {
         const status = input.ticket.status ?? ("todo" as TicketStatus)
-        const now = DateTime.toDate(DateTime.nowUnsafe())
-        const predicted: Ticket = {
-          id: placeholderId(value.items, input.projectPrefix),
-          title: input.ticket.title,
-          status,
-          type: input.ticket.type ?? "other",
-          priority: "med",
-          tags: [],
-          branch: null,
-          pr: null,
-          prState: null,
-          lastTransitionedPr: null,
-          gitState: { tag: "no_branch", baseBranch: "" },
-          assignees: [],
-          archivedAt: null,
-          createdBy: input.viewerId,
-          createdAt: now,
-          updatedAt: now
-        }
+        const predicted = predictedTicket(
+          input,
+
+          placeholderId(value.items, input.projectPrefix),
+
+          status
+        )
         return {
           count: value.count + 1,
           nextCursor: value.nextCursor,

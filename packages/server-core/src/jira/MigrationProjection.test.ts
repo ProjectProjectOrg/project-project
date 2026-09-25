@@ -1,0 +1,1476 @@
+import { randomUUID } from "node:crypto"
+
+import { PgClient } from "@effect/sql-pg"
+import { DbLive } from "@pp/db"
+import {
+  JiraMigrationConfiguration,
+  JiraMigrationRequirements
+} from "@pp/shared"
+import { drizzle } from "drizzle-orm/node-postgres"
+import { migrate } from "drizzle-orm/node-postgres/migrator"
+import { DateTime, Effect, Layer, Redacted, Schema } from "effect"
+import { Pool } from "pg"
+import { afterAll, beforeAll, describe, expect, it } from "vitest"
+
+import type { JiraClientShape } from "./Client"
+import type { JiraMigrationArtifactsShape } from "./MigrationArtifacts"
+import {
+  JiraMigrationProjection,
+  type AttemptFence
+} from "./MigrationProjection"
+import {
+  makeProjectionScanDependencies,
+  withJiraRemoteWriteIntent
+} from "./MigrationWorkflow"
+
+const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
+const source = {
+  cloudId: "cloud-1",
+  siteName: "Example",
+  siteUrl: "https://example.atlassian.net",
+  projectId: "10000",
+  projectKey: "APP",
+  projectName: "Application"
+}
+
+describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
+  let pool: Pool
+  let layer: Layer.Layer<JiraMigrationProjection>
+  const owners: Array<{ organizationId: string; userId: string }> = []
+  beforeAll(async () => {
+    const url = new URL(databaseUrl!)
+    if (
+      !["127.0.0.1", "localhost"].includes(url.hostname) ||
+      !url.pathname.startsWith("/projectproject_effect_v4_")
+    )
+      throw new Error("Isolated database required")
+    pool = new Pool({ connectionString: databaseUrl })
+    await migrate(drizzle({ client: pool }), {
+      migrationsFolder: `${import.meta.dirname}/../../../db/src/migrations`
+    })
+    layer = JiraMigrationProjection.layer.pipe(
+      Layer.provide(
+        DbLive.pipe(
+          Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
+        )
+      ),
+      Layer.orDie
+    )
+  })
+  afterAll(async () => {
+    for (const owner of owners) {
+      await pool.query('delete from "organization" where id = $1', [
+        owner.organizationId
+      ])
+      await pool.query('delete from "user" where id = $1', [owner.userId])
+    }
+    await pool.end()
+  })
+  const fixture = async () => {
+    const owner = { organizationId: randomUUID(), userId: randomUUID() }
+    owners.push(owner)
+    await pool.query(
+      'insert into "user" (id,name,email,email_verified,created_at,updated_at) values ($1,$1,$2,false,now(),now())',
+      [owner.userId, `${owner.userId}@example.test`]
+    )
+    await pool.query(
+      'insert into "organization" (id,name,slug,created_at) values ($1,$1,$1,now())',
+      [owner.organizationId]
+    )
+    return {
+      ...owner,
+      requestId: randomUUID(),
+      source,
+      executionId: randomUUID()
+    }
+  }
+  const fence = (row: {
+    id: string
+    workflowExecutionId: string | null
+    workflowAttempt: number
+  }): AttemptFence => ({
+    migrationId: row.id,
+    workflowExecutionId: row.workflowExecutionId!,
+    workflowAttempt: row.workflowAttempt
+  })
+
+  it("retains only failed attachment IDs for the current fenced configuration", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        const current = fence(created)
+        yield* p.completeScan(current, {
+          ...emptyScan,
+          requirements: {
+            ...emptyScan.requirements,
+            attachments: [
+              {
+                jiraAttachmentId: "a-1",
+                filename: "one.txt",
+                byteSize: 1,
+                forcedSkipReason: null
+              },
+              {
+                jiraAttachmentId: "a-2",
+                filename: "two.txt",
+                byteSize: 1,
+                forcedSkipReason: null
+              }
+            ]
+          }
+        })
+        const scanned = yield* p.owned(input, created.id)
+        const ready = yield* p.saveConfiguration({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: scanned.revision,
+          configuration: emptyConfiguration
+        })
+        const running = yield* p.transition({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: ready.revision,
+          action: "run"
+        })
+        yield* p.advance(current, { destinationProjectId: randomUUID() })
+        expect(
+          yield* p.recordAttachmentFailure(current, running.revision, "a-1")
+        ).toBe(true)
+        expect(
+          yield* p.recordAttachmentFailure(current, running.revision, "a-2")
+        ).toBe(true)
+        expect(
+          yield* p.recordAttachmentSuccess(current, running.revision, "a-1")
+        ).toBe(true)
+        const row = yield* p.owned(input, created.id)
+        expect(
+          yield* p.unresolvedFailedAttachments({
+            ...current,
+            expectedRevision: row.revision
+          })
+        ).toEqual(["a-2"])
+        expect(
+          yield* p.recordAttachmentFailure(
+            current,
+            running.revision - 1,
+            "stale"
+          )
+        ).toBe(false)
+        expect(
+          (yield* Effect.result(
+            p.unresolvedFailedAttachments({
+              ...current,
+              expectedRevision: row.revision - 1
+            })
+          ))._tag
+        ).toBe("Failure")
+        yield* p.recordFailure(current, {
+          reason: "jira_migration_materialization_failed",
+          retryable: true
+        })
+        const failed = yield* p.owned(input, created.id)
+        expect((yield* p.toDetail(failed)).failedAttachmentIds).toEqual(["a-2"])
+        const unresolved = yield* p.unresolvedFailedAttachments({
+          ...current,
+          expectedRevision: failed.revision
+        })
+        const corrected = {
+          ...emptyConfiguration,
+          skippedAttachmentIds: ["a-2"],
+          attachmentSkipsAccepted: true
+        }
+        expect(
+          (yield* Effect.result(
+            p.saveConfiguration({
+              owner: input,
+              migrationId: created.id,
+              expectedRevision: failed.revision,
+              configuration: { ...corrected, skippedAttachmentIds: ["a-1"] },
+              unresolvedFailedAttachmentIds: unresolved
+            })
+          ))._tag
+        ).toBe("Failure")
+        const correctedRow = yield* p.saveConfiguration({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: failed.revision,
+          configuration: corrected,
+          unresolvedFailedAttachmentIds: unresolved
+        })
+        expect(correctedRow.status).toBe("ready")
+        const resumed = yield* p.transition({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: correctedRow.revision,
+          action: "run"
+        })
+        expect(resumed.failedAttachmentIds).toEqual([])
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("keeps preparation failures configurable without offering a blind retry", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        const current = fence(created)
+        yield* p.completeScan(current, emptyScan)
+        const scanned = yield* p.owned(input, created.id)
+        const ready = yield* p.saveConfiguration({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: scanned.revision,
+          configuration: emptyConfiguration
+        })
+        yield* p.transition({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: ready.revision,
+          action: "run"
+        })
+        yield* p.recordFailure(current, {
+          reason: "jira_migration_preparation_invalid",
+          retryable: true
+        })
+        const failed = yield* p.owned(input, created.id)
+        const detail = yield* p.toDetail(failed)
+        expect(detail.actions.canConfigure).toBe(true)
+        expect(detail.actions.canRetry).toBe(false)
+        expect(detail.actions.canRescan).toBe(true)
+        expect(failed.checkpoint).not.toHaveProperty(
+          "remoteWritesMayStillCommit"
+        )
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("retains a recovery handle until remote writes have a known terminal outcome", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        const current = fence(created)
+        expect(yield* p.beginRemoteWrites(current)).toBe(true)
+        expect(yield* p.beginRemoteWrites(current)).toBe(true)
+        expect((yield* p.owned(input, created.id)).revision).toBe(
+          created.revision
+        )
+        yield* p.recordFailure(current, {
+          reason: "ambiguous_upload",
+          retryable: true
+        })
+        const failed = yield* p.owned(input, created.id)
+        expect(p.actionsFor(failed).canDiscard).toBe(false)
+        expect(p.actionsFor(failed).canRescan).toBe(false)
+        expect(failed.checkpoint).toMatchObject({
+          remoteWritesMayStillCommit: {
+            workflowExecutionId: current.workflowExecutionId,
+            workflowAttempt: current.workflowAttempt
+          }
+        })
+        expect(yield* p.beginRemoteWrites(current)).toBe(true)
+        expect((yield* p.owned(input, created.id)).revision).toBe(
+          failed.revision
+        )
+        expect(
+          yield* Effect.result(
+            p.beginRescan({
+              migrationId: created.id,
+              supersededExecutionId: input.executionId,
+              expectedRevision: failed.revision,
+              workflowAttempt: 2,
+              scanRevision: 2,
+              executionId: "rescan-before-settle"
+            })
+          )
+        ).toMatchObject({ _tag: "Failure", failure: { _tag: "Conflict" } })
+        expect(
+          yield* p.claimCleanup(current, {
+            mode: "discard",
+            expectedRevision: failed.revision,
+            executionId: "cleanup"
+          })
+        ).toBe(false)
+        const pending = yield* p.owned(input, created.id)
+        expect(pending.cleanupExecutionId).toBeNull()
+        expect(pending.revision).toBe(failed.revision)
+        expect(pending.checkpoint).toMatchObject({
+          remoteWritesMayStillCommit: {
+            workflowExecutionId: current.workflowExecutionId,
+            workflowAttempt: current.workflowAttempt
+          }
+        })
+        expect(
+          yield* p.settleRemoteWrites({
+            ...current,
+            workflowAttempt: current.workflowAttempt - 1
+          })
+        ).toBe(false)
+        expect(yield* p.settleRemoteWrites(current)).toBe(true)
+        const settled = yield* p.owned(input, created.id)
+        expect(settled.revision).toBe(failed.revision)
+        expect(p.actionsFor(settled).canDiscard).toBe(true)
+        expect(p.actionsFor(settled).canRescan).toBe(true)
+        expect(
+          yield* p.claimCleanup(current, {
+            mode: "discard",
+            expectedRevision: failed.revision,
+            executionId: "cleanup-retry"
+          })
+        ).toBe(true)
+        const claimed = yield* p.owned(input, created.id)
+        expect(claimed.cleanupExecutionId).toBe("cleanup-retry")
+        expect(yield* p.deleteAfterCleanup(current, "cleanup-retry")).toBe(true)
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("keeps an import retry gate tied to the failed operation", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        const current = fence(created)
+        expect(yield* p.completeScan(current, emptyScan)).toBe(true)
+        const scanned = yield* p.owned(input, created.id)
+        const ready = yield* p.saveConfiguration({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: scanned.revision,
+          configuration: emptyConfiguration
+        })
+        yield* p.transition({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: ready.revision,
+          action: "run"
+        })
+        expect(
+          yield* p.recordImportFailure(current, "materialize/0", {
+            reason: "temporary_error",
+            retryable: true
+          })
+        ).toBe(1)
+        expect(
+          yield* p.recordImportFailure(current, "materialize/0", {
+            reason: "temporary_error",
+            retryable: true
+          })
+        ).toBe(1)
+        const failed = yield* p.owned(input, created.id)
+        expect(failed.status).toBe("failed")
+        expect(failed.failureSequence).toBe(1)
+        expect(yield* p.resumeImport(current, 1)).toEqual({ _tag: "Rejected" })
+        yield* p.transition({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: failed.revision,
+          action: "run"
+        })
+        expect(yield* p.resumeImport(current, 1)).toEqual({ _tag: "Resumed" })
+        expect(
+          yield* p.recordImportFailure(current, "materialize/1", {
+            reason: "jira_reconnect_required",
+            retryable: true,
+            reconnect: true
+          })
+        ).toBe(2)
+        const reconnect = yield* p.owned(input, created.id)
+        expect(reconnect.status).toBe("reconnect_required")
+        expect(yield* p.resumeImport(current, 2)).toEqual({ _tag: "Rejected" })
+        yield* p.transition({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: reconnect.revision,
+          action: "run"
+        })
+        expect(yield* p.resumeImport(current, 2)).toEqual({ _tag: "Resumed" })
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("allows cleanup after a scan fails before any remote write", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        const current = fence(created)
+        expect(
+          yield* p.recordScanFailure(current, "page/0", {
+            reason: "jira_reconnect_required",
+            retryable: true,
+            reconnect: true
+          })
+        ).toBe(1)
+        const failed = yield* p.owned(input, created.id)
+        expect(failed.checkpoint).not.toHaveProperty(
+          "remoteWritesMayStillCommit"
+        )
+        yield* p.transition({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: failed.revision,
+          action: "cancel"
+        })
+        expect(p.actionsFor(yield* p.owned(input, created.id)).canDiscard).toBe(
+          true
+        )
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("settles each completed scan artifact write", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        const current = fence(created)
+        const ref = {
+          key: "scan.json",
+          contentType: "application/json",
+          byteSize: 2,
+          sha256: "a".repeat(64)
+        }
+        const artifacts: JiraMigrationArtifactsShape = {
+          writeJson: () =>
+            Effect.gen(function* () {
+              expect(
+                (yield* p.owned(input, created.id).pipe(Effect.orDie))
+                  .checkpoint
+              ).toHaveProperty("remoteWritesMayStillCommit")
+              return ref
+            }),
+          readJson: () => Effect.die("unused"),
+          verify: () => Effect.die("unused"),
+          listPrefix: () => Effect.die("unused"),
+          deletePrefix: () => Effect.die("unused")
+        }
+        const dependencies = makeProjectionScanDependencies(
+          p,
+          {
+            client: {} as JiraClientShape,
+            artifacts,
+            identityOptions: Effect.succeed([])
+          },
+          current
+        )
+        expect(
+          yield* dependencies.artifacts.writeJson(
+            "org",
+            {
+              migrationId: created.id,
+              scanRevision: 1,
+              area: "raw",
+              kind: "issues",
+              identity: "page-0"
+            },
+            []
+          )
+        ).toEqual(ref)
+        expect(
+          (yield* p.owned(input, created.id)).checkpoint
+        ).not.toHaveProperty("remoteWritesMayStillCommit")
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("claims expiry and post-success cleanup without downgrading a published migration", async () => {
+    const expiredInput = await fixture()
+    const succeededInput = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const expired = yield* p.ensureCreated(expiredInput)
+        yield* p.recordFailure(fence(expired), {
+          reason: "retryable",
+          retryable: true
+        })
+        const failed = yield* p.owned(expiredInput, expired.id)
+        expect(
+          yield* p.claimCleanup(fence(failed), {
+            expectedRevision: failed.revision,
+            executionId: "expire-claim",
+            mode: "expire"
+          })
+        ).toBe(true)
+        expect(yield* p.deleteAfterCleanup(fence(failed), "expire-claim")).toBe(
+          true
+        )
+
+        const published = yield* p.ensureCreated(succeededInput)
+        yield* Effect.promise(() =>
+          pool.query(
+            "update jira_migration set status = 'succeeded', phase = 'succeeded' where id = $1",
+            [published.id]
+          )
+        )
+        const succeeded = yield* p.owned(succeededInput, published.id)
+        expect(
+          yield* p.claimCleanup(fence(succeeded), {
+            expectedRevision: succeeded.revision,
+            executionId: "post-success-claim",
+            mode: "post_success"
+          })
+        ).toBe(true)
+        expect(
+          yield* p.releaseCleanup(
+            fence(succeeded),
+            "post-success-claim",
+            "post_success"
+          )
+        ).toBe(true)
+        expect((yield* p.owned(succeededInput, published.id)).status).toBe(
+          "succeeded"
+        )
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("completes reset only after hidden project deletion and preserves scan data", async () => {
+    const input = await fixture()
+    const projectId = randomUUID()
+    const projectSlug = `hidden-${randomUUID()}`
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        const current = fence(created)
+        const scannedAt = DateTime.toDate(
+          DateTime.makeUnsafe("2026-09-22T12:00:00Z")
+        )
+        yield* p.advance(current, {
+          status: "ready",
+          destinationProjectId: projectId,
+          destinationProjectSlug: projectSlug,
+          scanAt: scannedAt
+        })
+        yield* Effect.promise(() =>
+          pool.query(
+            "insert into project_index (id,slug,organization_id,key,name,icon,color,created_by,published_at) values ($1,$2,$3,$4,$5,$6,$7,$8,null)",
+            [
+              projectId,
+              projectSlug,
+              input.organizationId,
+              `H${projectId.slice(0, 8)}`,
+              "Hidden",
+              "📦",
+              "#777777",
+              input.userId
+            ]
+          )
+        )
+        const ready = yield* p.owned(input, created.id)
+        expect(
+          yield* p.claimCleanup(current, {
+            mode: "reset_import",
+            expectedRevision: ready.revision,
+            executionId: "reset-cleanup"
+          })
+        ).toBe(true)
+        expect(yield* p.completeResetCleanup(current, "reset-cleanup")).toBe(
+          false
+        )
+        yield* Effect.promise(() =>
+          pool.query("delete from project_index where id = $1", [projectId])
+        )
+        expect(yield* p.completeResetCleanup(current, "reset-cleanup")).toBe(
+          true
+        )
+        const reset = yield* p.owned(input, created.id)
+        expect(reset.destinationProjectId).toBeNull()
+        expect(reset.destinationProjectSlug).toBeNull()
+        expect(reset.cleanupExecutionId).toBeNull()
+        expect(reset.scanAt).toEqual(scannedAt)
+        expect(reset.status).toBe("ready")
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("records remote write intent before a remote callback and settles it afterward", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        const current = fence(created)
+        yield* withJiraRemoteWriteIntent(
+          p,
+          current,
+          Effect.gen(function* () {
+            expect(
+              (yield* p.owned(input, created.id)).checkpoint
+            ).toMatchObject({
+              remoteWritesMayStillCommit: {
+                workflowExecutionId: current.workflowExecutionId,
+                workflowAttempt: current.workflowAttempt
+              }
+            })
+          }).pipe(Effect.orDie)
+        )
+        expect((yield* p.owned(input, created.id)).checkpoint).toEqual({})
+        expect(yield* p.completeScan(current, emptyScan)).toBe(true)
+        expect(yield* p.beginRemoteWrites(current)).toBe(true)
+        const scanned = yield* p.owned(input, created.id)
+        expect(scanned.checkpoint).not.toHaveProperty(
+          "remoteWritesMayStillCommit"
+        )
+        yield* p.advance(current, { status: "migrating" })
+        yield* withJiraRemoteWriteIntent(p, current, Effect.void)
+        expect(
+          (yield* p.owned(input, created.id)).checkpoint
+        ).not.toHaveProperty("remoteWritesMayStillCommit")
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("converges repeated creation and rejects every changed source field", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const rows = yield* Effect.all(
+          Array.from({ length: 4 }, () => p.ensureCreated(input)),
+          { concurrency: "unbounded" }
+        )
+        expect(rows.map((row) => row.id)).toEqual(
+          Array(4).fill(input.executionId)
+        )
+        expect(rows[0]).toMatchObject({ workflowAttempt: 1, scanRevision: 1 })
+        for (const key of Object.keys(source) as Array<keyof typeof source>) {
+          expect(
+            yield* Effect.result(
+              p.ensureCreated({
+                ...input,
+                source: { ...source, [key]: `${source[key]}-different` }
+              })
+            )
+          ).toMatchObject({ _tag: "Failure", failure: { _tag: "Conflict" } })
+        }
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("does not adopt a legacy row as a workflow execution", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        yield* p.ensureCreated(input)
+      }).pipe(Effect.provide(layer))
+    )
+    await pool.query(
+      "update jira_migration set workflow_execution_id = null, workflow_attempt = 0, scan_revision = 0 where id = $1",
+      [input.executionId]
+    )
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        expect(yield* Effect.result(p.ensureCreated(input))).toMatchObject({
+          _tag: "Failure",
+          failure: { _tag: "Conflict" }
+        })
+        expect(
+          yield* Effect.result(
+            p.beginRescan({
+              migrationId: input.executionId,
+              supersededExecutionId: "legacy-execution",
+              expectedRevision: 0,
+              workflowAttempt: 1,
+              scanRevision: 1,
+              executionId: "adoption"
+            })
+          )
+        ).toMatchObject({ _tag: "Failure", failure: { _tag: "Conflict" } })
+        expect(
+          (yield* p.owned(input, input.executionId)).workflowExecutionId
+        ).toBeNull()
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("converges rescans and fences old progress and finalizers", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const old = yield* p.ensureCreated(input)
+        yield* p.advance(fence(old), {
+          status: "needs_configuration",
+          phase: "configuration"
+        })
+        const ready = yield* p.owned(input, old.id)
+        const next = {
+          migrationId: old.id,
+          supersededExecutionId: input.executionId,
+          expectedRevision: ready.revision,
+          workflowAttempt: 2,
+          scanRevision: 2,
+          executionId: "rescan-execution"
+        }
+        expect(
+          yield* Effect.result(
+            p.beginRescan({
+              ...next,
+              supersededExecutionId: "wrong-predecessor"
+            })
+          )
+        ).toMatchObject({ _tag: "Failure", failure: { _tag: "Conflict" } })
+        const rescans = yield* Effect.all(
+          [p.beginRescan(next), p.beginRescan(next)],
+          { concurrency: "unbounded" }
+        )
+        expect(rescans.map((row) => row.workflowAttempt)).toEqual([2, 2])
+        expect(rescans.map((row) => row.supersededExecutionId)).toEqual([
+          input.executionId,
+          input.executionId
+        ])
+        expect((yield* p.beginRescan(next)).supersededExecutionId).toBe(
+          input.executionId
+        )
+        expect(yield* p.advance(fence(old), { progressDone: 99 })).toBe(false)
+        expect(
+          yield* p.advance(
+            {
+              migrationId: old.id,
+              workflowExecutionId: "rescan-execution",
+              workflowAttempt: 1
+            },
+            { progressDone: 98 }
+          )
+        ).toBe(false)
+        expect(
+          yield* p.advance(
+            {
+              migrationId: old.id,
+              workflowExecutionId: input.executionId,
+              workflowAttempt: 2
+            },
+            { progressDone: 97 }
+          )
+        ).toBe(false)
+        expect(
+          yield* p.recordFailure(fence(old), {
+            reason: "old-finalizer",
+            retryable: false
+          })
+        ).toBe(false)
+        expect(yield* p.owned(input, old.id)).toMatchObject({
+          workflowAttempt: 2,
+          scanRevision: 2,
+          workflowExecutionId: "rescan-execution",
+          progressDone: 0,
+          status: "scanning",
+          failureReason: null
+        })
+        expect(
+          yield* Effect.result(p.beginRescan({ ...next, executionId: "other" }))
+        ).toMatchObject({ _tag: "Failure", failure: { _tag: "Conflict" } })
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("reserves hidden ready and reconnect imports for reset while rejecting discard and competing commands", async () => {
+    for (const status of ["ready", "reconnect_required"] as const) {
+      const input = await fixture()
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const p = yield* JiraMigrationProjection
+          const created = yield* p.ensureCreated(input)
+          yield* p.completeScan(fence(created), emptyScan)
+          const scanned = yield* p.owned(input, created.id)
+          const ready = yield* p.saveConfiguration({
+            owner: input,
+            migrationId: created.id,
+            expectedRevision: scanned.revision,
+            configuration: emptyConfiguration
+          })
+          yield* p.transition({
+            owner: input,
+            migrationId: created.id,
+            expectedRevision: ready.revision,
+            action: "run"
+          })
+          yield* p.advance(fence(created), {
+            status,
+            destinationProjectId: randomUUID()
+          })
+          const current = yield* p.owned(input, created.id)
+          const discard = {
+            expectedRevision: current.revision,
+            executionId: "discard-ineligible",
+            mode: "discard" as const
+          }
+          expect(yield* p.claimCleanup(fence(current), discard)).toBe(false)
+          const reset = {
+            expectedRevision: current.revision,
+            executionId: "reset-import",
+            mode: "reset_import" as const
+          }
+          expect(yield* p.claimCleanup(fence(current), reset)).toBe(true)
+          expect(yield* p.claimCleanup(fence(current), reset)).toBe(true)
+          expect(
+            yield* p.claimCleanup(fence(current), {
+              ...reset,
+              executionId: "competing-reset"
+            })
+          ).toBe(false)
+          expect(
+            yield* Effect.result(
+              p.transition({
+                owner: input,
+                migrationId: current.id,
+                expectedRevision: current.revision,
+                action: "run"
+              })
+            )
+          ).toMatchObject({ _tag: "Failure", failure: { _tag: "Conflict" } })
+          expect(
+            yield* p.deleteAfterCleanup(fence(current), "reset-import")
+          ).toBe(false)
+          expect(
+            yield* p.releaseCleanup(
+              fence(current),
+              "wrong-reset",
+              "reset_import"
+            )
+          ).toBe(false)
+          expect(
+            yield* p.releaseCleanup(
+              fence(current),
+              "reset-import",
+              "reset_import"
+            )
+          ).toBe(true)
+          const released = yield* p.owned(input, current.id)
+          expect(released).toMatchObject({
+            status,
+            cleanupExecutionId: null,
+            revision: current.revision + 2
+          })
+          expect(yield* p.claimCleanup(fence(released), reset)).toBe(false)
+        }).pipe(Effect.provide(layer))
+      )
+    }
+  })
+
+  it("allows only one winner between cleanup and retry", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        yield* p.recordFailure(fence(created), {
+          reason: "network_error",
+          retryable: true
+        })
+        const failed = yield* p.owned(input, created.id)
+        expect(failed.failureSequence).toBe(1)
+        expect(
+          yield* p.recordFailure(fence(created), {
+            reason: "duplicate-finalizer",
+            retryable: false
+          })
+        ).toBe(false)
+        expect((yield* p.owned(input, created.id)).failureSequence).toBe(1)
+        expect(failed.retainedUntil).not.toBeNull()
+        const results = yield* Effect.all(
+          [
+            p.claimCleanup(fence(failed), {
+              mode: "discard",
+              expectedRevision: failed.revision,
+              executionId: "cleanup-1"
+            }),
+            p
+              .transition({
+                owner: input,
+                migrationId: failed.id,
+                expectedRevision: failed.revision,
+                action: "run"
+              })
+              .pipe(
+                Effect.as(true),
+                Effect.orElseSucceed(() => false)
+              )
+          ],
+          { concurrency: "unbounded" }
+        )
+        expect(results.filter(Boolean)).toHaveLength(1)
+        const current = yield* p.owned(input, created.id)
+        if (results[0]) {
+          expect(current.cleanupExecutionId).toBe("cleanup-1")
+          expect(yield* p.deleteAfterCleanup(fence(failed), "wrong")).toBe(
+            false
+          )
+          expect(
+            yield* p.releaseCleanup(fence(failed), "wrong", "discard")
+          ).toBe(false)
+          expect(
+            yield* p.releaseCleanup(fence(failed), "cleanup-1", "discard")
+          ).toBe(true)
+          const released = yield* p.owned(input, created.id)
+          expect(
+            yield* p.claimCleanup(fence(released), {
+              mode: "discard",
+              expectedRevision: released.revision,
+              executionId: "cleanup-2"
+            })
+          ).toBe(true)
+          expect(
+            yield* p.deleteAfterCleanup(fence(released), "cleanup-2")
+          ).toBe(true)
+        } else
+          expect(current).toMatchObject({
+            status: "scanning",
+            cleanupExecutionId: null,
+            retainedUntil: null
+          })
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("saves incomplete drafts, rejects stale revisions, and protects cleanup ownership", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const row = yield* p.ensureCreated(input)
+        const requirements = {
+          destination: {
+            suggestedName: "Application",
+            suggestedSlug: "application",
+            suggestedKey: "APP"
+          },
+          identities: [],
+          identityOptions: [],
+          statuses: [],
+          statusOptions: [],
+          issueTypes: [
+            {
+              jiraIssueTypeId: "bug",
+              name: "Bug",
+              isSubtask: false,
+              suggestedProjectType: "bug"
+            }
+          ],
+          priorities: [],
+          tags: [],
+          activeFutureSprintChoices: [],
+          restrictedContent: {
+            issueCount: 0,
+            commentCount: 0,
+            worklogCount: 0
+          },
+          attachments: []
+        }
+        const configuration = yield* Schema.decodeEffect(
+          JiraMigrationConfiguration
+        )({
+          destination: { name: "Application", slug: "application", key: "APP" },
+          identities: [],
+          statuses: [],
+          issueTypes: [],
+          priorities: [],
+          tags: [],
+          activeFutureSprintChoices: [],
+          restrictedContent: { policy: "exclude" },
+          skippedAttachmentIds: [],
+          attachmentSkipsAccepted: false
+        })
+        const scan = {
+          manifest: {
+            key: `migrations/jira/${row.id}/scan-1/manifest/manifest-v2/snapshot.json`,
+            sha256: "a".repeat(64),
+            byteSize: 10,
+            contentType: "application/json"
+          },
+          requirements: yield* Schema.decodeUnknownEffect(
+            JiraMigrationRequirements
+          )(requirements),
+          summary: {
+            siteName: source.siteName,
+            siteUrl: source.siteUrl,
+            projectName: source.projectName,
+            projectKey: source.projectKey,
+            scannedAt: DateTime.makeUnsafe("2026-09-22T00:00:00Z"),
+            counts: {
+              identities: 0,
+              statuses: 0,
+              issueTypes: 1,
+              priorities: 0,
+              tags: 0,
+              issues: 0,
+              comments: 0,
+              attachments: 0,
+              groups: 0,
+              restrictions: 0
+            },
+            visibilityWarnings: []
+          }
+        }
+        yield* p.recordScanFailure(fence(row), "metadata/0", {
+          reason: "network",
+          retryable: true,
+          reconnect: false
+        })
+        yield* p.resumeScan(fence(row), 1)
+        expect(yield* p.completeScan(fence(row), scan)).toBe(true)
+        const scanned = yield* p.owned(input, row.id)
+        const save = {
+          owner: input,
+          migrationId: row.id,
+          expectedRevision: scanned.revision,
+          configuration
+        }
+        const unchosen = yield* p.saveConfiguration({
+          ...save,
+          configuration: {
+            ...configuration,
+            issueTypes: [{ jiraIssueTypeId: "bug", projectType: "bug" }],
+            restrictedContent: null
+          }
+        })
+        expect(unchosen).toMatchObject({
+          status: "needs_configuration",
+          configuration: { restrictedContent: null }
+        })
+        const draft = yield* p.saveConfiguration({
+          ...save,
+          expectedRevision: unchosen.revision
+        })
+        expect(draft).toMatchObject({
+          status: "needs_configuration",
+          configuration: { issueTypes: [] }
+        })
+        expect(yield* Effect.result(p.saveConfiguration(save))).toMatchObject({
+          _tag: "Failure",
+          failure: { _tag: "Conflict" }
+        })
+        const complete = yield* p.saveConfiguration({
+          ...save,
+          expectedRevision: draft.revision,
+          configuration: {
+            ...configuration,
+            issueTypes: [{ jiraIssueTypeId: "bug", projectType: "bug" }]
+          }
+        })
+        expect(complete.status).toBe("ready")
+        expect(yield* p.completeScan(fence(row), scan)).toBe(true)
+        const replayed = yield* p.owned(input, row.id)
+        expect(replayed.status).toBe("ready")
+        expect(replayed.checkpoint).toMatchObject({
+          scanFailureReceipts: { "metadata/0": 1 }
+        })
+        expect(
+          yield* p.completeScan(fence(row), {
+            ...scan,
+            manifest: { ...scan.manifest, sha256: "b".repeat(64) }
+          })
+        ).toBe(false)
+        yield* p.transition({
+          owner: input,
+          migrationId: row.id,
+          expectedRevision: replayed.revision,
+          action: "run"
+        })
+        expect(yield* p.completeScan(fence(row), scan)).toBe(true)
+        expect((yield* p.owned(input, row.id)).status).toBe("migrating")
+        expect(yield* p.resumeScan(fence(row), 1)).toEqual({ _tag: "Resumed" })
+        expect(yield* p.resumeScan(fence(row), 0)).toEqual({
+          _tag: "AwaitRetry",
+          failureSequence: 1
+        })
+        expect((yield* p.owned(input, row.id)).status).toBe("migrating")
+
+        yield* p.recordFailure(fence(row), {
+          reason: "network",
+          retryable: true
+        })
+        const failed = yield* p.owned(input, row.id)
+        expect(
+          yield* p.claimCleanup(fence(row), {
+            mode: "discard",
+            expectedRevision: failed.revision,
+            executionId: "cleanup"
+          })
+        ).toBe(true)
+        expect(yield* p.advance(fence(row), { status: "ready" })).toBe(false)
+        expect(
+          yield* p.recordFailure(fence(row), {
+            reason: "late",
+            retryable: true
+          })
+        ).toBe(false)
+        expect(
+          yield* Effect.result(
+            p.saveConfiguration({
+              ...save,
+              expectedRevision: failed.revision + 1
+            })
+          )
+        ).toMatchObject({ _tag: "Failure", failure: { _tag: "Validation" } })
+        expect(
+          yield* p.releaseCleanup(
+            { ...fence(row), workflowAttempt: 0 },
+            "cleanup",
+            "discard"
+          )
+        ).toBe(false)
+        expect(
+          yield* p.deleteAfterCleanup(
+            { ...fence(row), workflowExecutionId: "old" },
+            "cleanup"
+          )
+        ).toBe(false)
+        expect(yield* p.releaseCleanup(fence(row), "cleanup", "discard")).toBe(
+          true
+        )
+        const released = yield* p.owned(input, row.id)
+        expect(p.actionsFor(released).canDiscard).toBe(true)
+        expect(
+          yield* p.claimCleanup(fence(row), {
+            mode: "discard",
+            expectedRevision: released.revision,
+            executionId: "cleanup-next"
+          })
+        ).toBe(true)
+        expect(yield* p.deleteAfterCleanup(fence(row), "cleanup")).toBe(false)
+        expect(yield* p.deleteAfterCleanup(fence(row), "cleanup-next")).toBe(
+          true
+        )
+        expect(yield* Effect.result(p.owned(input, row.id))).toMatchObject({
+          _tag: "Failure",
+          failure: { _tag: "NotFound" }
+        })
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("freezes accepted configuration and routes corrected drafts through a fresh retry gate", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const row = yield* p.ensureCreated(input)
+        yield* p.recordScanFailure(fence(row), "metadata/0", {
+          reason: "network",
+          retryable: true,
+          reconnect: false
+        })
+        yield* p.resumeScan(fence(row), 1)
+        yield* p.completeScan(fence(row), emptyScan)
+        const scanned = yield* p.owned(input, row.id)
+        expect(scanned.checkpoint).toMatchObject({
+          currentGate: { version: 1, _tag: "StartImport", scanRevision: 1 }
+        })
+        const saved = yield* p.saveConfiguration({
+          owner: input,
+          migrationId: row.id,
+          expectedRevision: scanned.revision,
+          configuration: emptyConfiguration
+        })
+        yield* p.transition({
+          owner: input,
+          migrationId: row.id,
+          expectedRevision: saved.revision,
+          action: "run"
+        })
+        const accepted = yield* p.owned(input, row.id)
+        expect(accepted.checkpoint).toMatchObject({
+          acceptedConfiguration: {
+            configurationRevision: saved.revision + 1,
+            configuration: emptyConfiguration
+          },
+          scanFailureReceipts: { "metadata/0": 1 }
+        })
+        yield* p.recordFailure(fence(row), {
+          reason: "preflight_blocked",
+          retryable: false
+        })
+        const failed = yield* p.owned(input, row.id)
+        expect(failed.checkpoint).toMatchObject({
+          currentGate: {
+            version: 1,
+            _tag: "Retry",
+            failureSequence: 2,
+            phase: "import"
+          }
+        })
+        const corrected = {
+          ...emptyConfiguration,
+          destination: { ...emptyConfiguration.destination, name: "Corrected" }
+        }
+        const ready = yield* p.saveConfiguration({
+          owner: input,
+          migrationId: row.id,
+          expectedRevision: failed.revision,
+          configuration: corrected
+        })
+        expect(ready.status).toBe("ready")
+        yield* p.transition({
+          owner: input,
+          migrationId: row.id,
+          expectedRevision: ready.revision,
+          action: "run"
+        })
+        const retried = yield* p.owned(input, row.id)
+        expect(retried.checkpoint).toMatchObject({
+          currentGate: { _tag: "Retry", failureSequence: 2 },
+          acceptedConfiguration: {
+            configurationRevision: ready.revision + 1,
+            configuration: corrected
+          }
+        })
+        yield* p.recordFailure(fence(row), {
+          reason: "network",
+          retryable: true
+        })
+        const retry = yield* p.owned(input, row.id)
+        yield* p.transition({
+          owner: input,
+          migrationId: row.id,
+          expectedRevision: retry.revision,
+          action: "run"
+        })
+        expect((yield* p.owned(input, row.id)).checkpoint).toMatchObject({
+          acceptedConfiguration: { configurationRevision: ready.revision + 1 }
+        })
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("accepts reconnect scan retry and finalizes only the current cancelling attempt", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const row = yield* p.ensureCreated(input)
+        yield* p.recordScanFailure(fence(row), "network/0", {
+          reason: "reconnect_required",
+          retryable: true,
+          reconnect: true
+        })
+        const failed = yield* p.owned(input, row.id)
+        const resumed = yield* p.transition({
+          owner: input,
+          migrationId: row.id,
+          expectedRevision: failed.revision,
+          action: "run"
+        })
+        expect(resumed.status).toBe("scanning")
+        expect((yield* p.owned(input, row.id)).retainedUntil).toBeNull()
+        yield* p.transition({
+          owner: input,
+          migrationId: row.id,
+          expectedRevision: resumed.revision,
+          action: "cancel"
+        })
+        expect(
+          yield* p.finalizeInterrupted({ ...fence(row), workflowAttempt: 0 })
+        ).toBe(false)
+        expect(yield* p.finalizeInterrupted(fence(row))).toBe(true)
+        const cancelled = yield* p.owned(input, row.id)
+        expect(cancelled.status).toBe("cancelled")
+        expect(
+          cancelled.retainedUntil!.getTime() - cancelled.finishedAt!.getTime()
+        ).toBe(30 * 86400000)
+        expect(yield* p.finalizeInterrupted(fence(row))).toBe(false)
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
+  it("does not let a late failure downgrade success and enforces ownership", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const row = yield* p.ensureCreated(input)
+        yield* p.advance(fence(row), { status: "succeeded", phase: "done" })
+        expect(
+          yield* p.recordFailure(fence(row), {
+            reason: "late-finalizer",
+            retryable: false
+          })
+        ).toBe(false)
+        expect((yield* p.listOwned(input)).map((row) => row.status)).toEqual([
+          "succeeded"
+        ])
+        expect(
+          yield* Effect.result(
+            p.owned({ ...input, userId: "someone-else" }, row.id)
+          )
+        ).toMatchObject({ _tag: "Failure", failure: { _tag: "NotFound" } })
+      }).pipe(Effect.provide(layer))
+    )
+  })
+  it("retains failure receipts across concurrent failures, retry acceptance, and checkpoint writes", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const row = yield* p.ensureCreated(input)
+        const current = fence(row)
+        const failure = {
+          reason: "jira_network",
+          retryable: true,
+          reconnect: false
+        }
+        const sequences = yield* Effect.all(
+          [
+            p.recordScanFailure(current, "issues/0/0", failure),
+            p.recordScanFailure(current, "comments/1/0", failure)
+          ],
+          { concurrency: 2 }
+        )
+        expect(sequences).toEqual([1, 1])
+        expect(yield* p.resumeScan(current, 1)).toEqual({ _tag: "Resumed" })
+        expect(yield* p.resumeScan(current, 1)).toEqual({ _tag: "Resumed" })
+        yield* p.advance(current, { checkpoint: {}, progressDone: 4 })
+        expect(yield* p.recordScanFailure(current, "issues/0/0", failure)).toBe(
+          1
+        )
+        expect((yield* p.owned(input, row.id)).status).toBe("scanning")
+        expect(yield* p.recordScanFailure(current, "issues/0/1", failure)).toBe(
+          2
+        )
+        expect(yield* p.resumeScan(current, 1)).toEqual({
+          _tag: "AwaitRetry",
+          failureSequence: 2
+        })
+        expect((yield* p.owned(input, row.id)).failureSequence).toBe(2)
+        expect(
+          yield* p.resumeScan({ ...current, workflowAttempt: 99 }, 2)
+        ).toEqual({ _tag: "Rejected" })
+        expect(
+          yield* p.resumeScan({ ...current, workflowExecutionId: "other" }, 1)
+        ).toEqual({ _tag: "Rejected" })
+        expect((yield* p.owned(input, row.id)).status).toBe("failed")
+        expect(yield* p.resumeScan(current, 2)).toEqual({ _tag: "Resumed" })
+        expect(yield* p.resumeScan(current, 1)).toEqual({
+          _tag: "AwaitRetry",
+          failureSequence: 2
+        })
+        expect((yield* p.owned(input, row.id)).status).toBe("scanning")
+        yield* p.recordScanFailure(current, "issues/0/2", failure)
+        yield* p.claimCleanup(current, {
+          mode: "discard",
+          executionId: "cleanup",
+          expectedRevision: (yield* p.owned(input, row.id)).revision
+        })
+        expect(yield* p.resumeScan(current, 2)).toEqual({ _tag: "Rejected" })
+        expect(
+          yield* p.recordScanFailure(current, "issues/0/2", failure)
+        ).toBeNull()
+      }).pipe(Effect.provide(layer))
+    )
+  })
+  it("merges checkpoint progress and failure receipts atomically under concurrent writes", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const row = yield* p.ensureCreated(input)
+        const current = fence(row)
+        yield* Effect.all(
+          [
+            p.recordScanFailure(current, "page/0", {
+              reason: "network",
+              retryable: true,
+              reconnect: false
+            }),
+            p.advance(current, {
+              checkpoint: { scanFailureReceipts: { stale: 99 } }
+            }),
+            p.recordScanProgress(current, "page1", 5)
+          ],
+          { concurrency: 3 }
+        )
+        expect(yield* p.recordScanProgress(current, "page1", 50)).toBe(true)
+        yield* p.advance(current, { checkpoint: null })
+        const failed = yield* p.owned(input, row.id)
+        expect(failed.progressDone).toBe(5)
+        expect(failed.checkpoint).toMatchObject({
+          scanFailureReceipts: { "page/0": 1 },
+          scanPages: { page1: 5 }
+        })
+        expect(failed.status).toBe("failed")
+        yield* p.resumeScan(current, 1)
+        expect(
+          yield* p.recordScanFailure(current, "page/0", {
+            reason: "network",
+            retryable: true,
+            reconnect: false
+          })
+        ).toBe(1)
+        expect((yield* p.owned(input, row.id)).status).toBe("scanning")
+      }).pipe(Effect.provide(layer))
+    )
+  })
+})
+
+const emptyConfiguration = Schema.decodeUnknownSync(JiraMigrationConfiguration)(
+  {
+    destination: { name: "Application", slug: "application", key: "APP" },
+    identities: [],
+    statuses: [],
+    issueTypes: [],
+    priorities: [],
+    tags: [],
+    activeFutureSprintChoices: [],
+    restrictedContent: { policy: "exclude" },
+    skippedAttachmentIds: [],
+    attachmentSkipsAccepted: false
+  }
+)
+const emptyScan = {
+  manifest: {
+    key: "manifest.json",
+    sha256: "a".repeat(64),
+    byteSize: 10,
+    contentType: "application/json"
+  },
+  requirements: Schema.decodeUnknownSync(JiraMigrationRequirements)({
+    destination: {
+      suggestedName: "Application",
+      suggestedSlug: "application",
+      suggestedKey: "APP"
+    },
+    identities: [],
+    identityOptions: [],
+    statuses: [],
+    statusOptions: [],
+    issueTypes: [],
+    priorities: [],
+    tags: [],
+    activeFutureSprintChoices: [],
+    restrictedContent: { issueCount: 0, commentCount: 0, worklogCount: 0 },
+    attachments: []
+  }),
+  summary: {
+    siteName: "Example",
+    siteUrl: "https://example.atlassian.net",
+    projectName: "Application",
+    projectKey: "APP",
+    scannedAt: DateTime.makeUnsafe("2026-09-22T00:00:00Z"),
+    counts: {
+      identities: 0,
+      statuses: 0,
+      issueTypes: 0,
+      priorities: 0,
+      tags: 0,
+      issues: 0,
+      comments: 0,
+      attachments: 0,
+      groups: 0,
+      restrictions: 0
+    },
+    visibilityWarnings: []
+  }
+}

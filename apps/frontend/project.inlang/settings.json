@@ -17,7 +17,9 @@
       "./messages/{locale}/comments.json",
       "./messages/{locale}/sprints.json",
       "./messages/{locale}/time.json",
-      "./messages/{locale}/figma.json"
+      "./messages/{locale}/figma.json",
+      "./messages/{locale}/jira.json",
+      "./messages/{locale}/templates.json"
     ]
   }
 }

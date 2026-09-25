@@ -31,6 +31,7 @@ import {
   type BacklogRequest,
   type BacklogRow,
   type BacklogSection,
+  predictedTicket,
   type QuickCreateArg
 } from "./backlog"
 import { applyTicketPatch } from "./ticketPatch"
@@ -480,25 +481,13 @@ export const quickCreateSprintSectionsTicket = Atom.family(
           const existing = value.sections.find((section) => section.key === key)
           const page = existing?.page ?? { items: [], nextCursor: null }
           const status = input.ticket.status ?? ("todo" as TicketStatus)
-          const now = DateTime.toDate(DateTime.nowUnsafe())
-          const predicted: Ticket = {
-            id: placeholderId(page.items, input.projectPrefix),
-            title: input.ticket.title,
-            status,
-            type: input.ticket.type ?? "other",
-            priority: "med",
-            tags: [],
-            branch: null,
-            pr: null,
-            prState: null,
-            lastTransitionedPr: null,
-            gitState: { tag: "no_branch", baseBranch: "" },
-            assignees: [],
-            archivedAt: null,
-            createdBy: input.viewerId,
-            createdAt: now,
-            updatedAt: now
-          }
+          const predicted = predictedTicket(
+            input,
+
+            placeholderId(page.items, input.projectPrefix),
+
+            status
+          )
           const nextSection: SprintSectionValue = {
             key,
             count: (existing?.count ?? 0) + 1,

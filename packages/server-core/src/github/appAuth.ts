@@ -40,10 +40,10 @@ const normalizePrivateKey = (raw: string): string => {
 export const appAuth = (): Effect.Effect<GitHubAppAuth, GitHubError> =>
   Effect.gen(function* () {
     const fetch = yield* Effect.service(Fetch)
-    const appId = yield* Config.string("GITHUB_APP_ID")
-    const privateKey = yield* Config.redacted("GITHUB_APP_PRIVATE_KEY")
-    const clientId = yield* Config.string("GITHUB_APP_CLIENT_ID")
-    const clientSecret = yield* Config.redacted("GITHUB_APP_CLIENT_SECRET")
+    const appId = yield* Config.String("GITHUB_APP_ID")
+    const privateKey = yield* Config.Redacted("GITHUB_APP_PRIVATE_KEY")
+    const clientId = yield* Config.String("GITHUB_APP_CLIENT_ID")
+    const clientSecret = yield* Config.Redacted("GITHUB_APP_CLIENT_SECRET")
     const githubAuthRequest = new Octokit({
       retry: { enabled: false }
     }).request.defaults({

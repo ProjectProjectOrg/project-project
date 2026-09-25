@@ -40,7 +40,9 @@ export const ticketQuery = (req: TicketRequest) =>
     reactivityKeys: [
       Keys.ticket(scopeOf(req), req.params.id),
       Keys.ticketsIn(scopeOf(req)),
-      Keys.orgMembers(req.params.orgSlug)
+      Keys.orgMembers(req.params.orgSlug),
+      Keys.orgLibrary(req.params.orgSlug),
+      Keys.projectLibrary(scopeOf(req))
     ]
   })
 

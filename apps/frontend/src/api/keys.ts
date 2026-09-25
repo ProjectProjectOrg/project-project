@@ -45,6 +45,10 @@ export const Keys = {
   tags: (scope: string): string => `tags/${scope}`,
   /** Ticket-derived tag usage in this project. */
   tagUsage: (scope: string): string => `tag-usage/${scope}`,
+  /** One organization's block and template library. */
+  orgLibrary: (orgSlug: string): string => `org-library/${orgSlug}`,
+  /** This project's effective block and template library. */
+  projectLibrary: (scope: string): string => `project-library/${scope}`,
   /** This project's workflow statuses. */
   statuses: (scope: string): string => `statuses/${scope}`,
   /** One project's content. */
@@ -97,5 +101,8 @@ export const Keys = {
   /** OAuth applications managed by the current user. */
   oauthApplications: (): string => "oauth-applications",
   /** One public OAuth client's metadata. */
-  oauthClient: (clientId: string): string => `oauth-client/${clientId}`
+  oauthClient: (clientId: string): string => `oauth-client/${clientId}`,
+  jiraMigrations: (orgSlug: string): string => `jira-migrations/${orgSlug}`,
+  jiraMigration: (orgSlug: string, migrationId: string): string =>
+    `jira-migration/${orgSlug}/${migrationId}`
 } as const
