@@ -67,17 +67,15 @@ const projectMatrix: ReadonlyArray<
     ["pm", "developer", "client"]
   ],
   ["create tickets", { ticket: ["create"] }, ["pm", "developer", "client"]],
-  ["edit any ticket's content", { ticket: ["update"] }, ["pm", "developer"]],
   [
-    "edit their own ticket's content",
-    { ticket: ["update", "update_own"] },
-    ["pm", "developer", "client"],
-    "OR"
+    "edit any ticket's content",
+    { ticket: ["update"] },
+    ["pm", "developer", "client"]
   ],
   [
     "change status and assignee",
     { ticket: ["transition", "assign"] },
-    ["pm", "developer"]
+    ["pm", "developer", "client"]
   ],
   ["delete tickets", { ticket: ["delete"] }, ["pm"]],
   ["comment", { comment: ["create"] }, ["pm", "developer", "client"]],
@@ -89,6 +87,12 @@ const projectMatrix: ReadonlyArray<
   ["edit or delete others' comments", { comment: ["moderate"] }, ["pm"]],
   ["manage epics", { epic: ["manage"] }, ["pm", "developer"]],
   ["plan sprints and milestones", { sprint: ["manage"] }, ["pm"]],
+  [
+    "add tickets to a sprint and reorder it",
+    { sprint: ["add_ticket", "reorder"] },
+    ["pm", "developer", "client"]
+  ],
+  ["take tickets out of a sprint", { sprint: ["remove_ticket"] }, ["pm"]],
   [
     "see GitHub state, branches and PRs",
     { github: ["read"] },

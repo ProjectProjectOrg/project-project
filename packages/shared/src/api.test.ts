@@ -163,10 +163,11 @@ type ProjectActor = keyof typeof projectActors
 const projectMatrix: ReadonlyArray<
   readonly [endpoint: string, allowed: ReadonlyArray<ProjectActor>]
 > = [
-  ["projects.update", ["pm"]],
+  ["projects.update", ["pm", "developer"]],
   ["projects.updateMember", ["pm", "orgAdmin"]],
   ["projects.connectGithub", ["pm", "developer"]],
   ["projects.gitStates", ["pm", "developer", "orgAdmin"]],
+  ["tickets.archive", ["pm", "developer", "client"]],
   ["tickets.delete", ["pm"]],
   ["library.createProjectTemplate", ["pm"]],
   ["library.hideProjectTemplate", ["pm"]],

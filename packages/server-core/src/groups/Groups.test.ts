@@ -268,8 +268,6 @@ function groupsLayer(docs?: Parameters<typeof makeFakeDocs>[0]) {
   return GroupsLive.pipe(
     Layer.provide(fakeDocs.groupLayer),
     Layer.provide(fakeDocs.ticketLayer),
-    Layer.provide(fakeDocs.ticketIndexLayer),
-    Layer.provide(TicketDocumentLock.layer),
     Layer.provide(KeyedLock.layer)
   )
 }
@@ -581,56 +579,56 @@ it.effect(
     )
 )
 
-it.effect(
-  "complete to sprint: carryover tickets land on the destination, deduped",
-  () =>
-    Effect.gen(function* () {
-      yield* setTestNow
-      const groups = yield* Groups
-      const source = yield* groups.create({
-        name: "Source",
-        kind: "sprint",
-        startsAt: isoDate("2026-03-01"),
-        endsAt: isoDate("2026-03-15"),
-        tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")]
-      })
-      const dest = yield* groups.create({
-        name: "Dest",
-        kind: "sprint",
-        startsAt: isoDate("2026-03-15"),
-        endsAt: isoDate("2026-03-29"),
-        tickets: [ticketId("T-3"), ticketId("T-4")]
-      })
+it.effect("complete to sprint: carryover tickets land on the destination", () =>
+  Effect.gen(function* () {
+    yield* setTestNow
+    const groups = yield* Groups
+    const source = yield* groups.create({
+      name: "Source",
+      kind: "sprint",
+      startsAt: isoDate("2026-03-01"),
+      endsAt: isoDate("2026-03-15"),
+      tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")]
+    })
+    const dest = yield* groups.create({
+      name: "Dest",
+      kind: "sprint",
+      startsAt: isoDate("2026-03-15"),
+      endsAt: isoDate("2026-03-29"),
+      tickets: [ticketId("T-3"), ticketId("T-4")]
+    })
 
-      const result = yield* groups.complete(source.id, {
-        destination: { kind: "sprint", groupId: dest.id }
-      })
+    expect((yield* groups.get(source.id)).tickets).toEqual(["T-1", "T-2"])
 
-      expect(result.carried.toSorted()).toEqual(["T-1", "T-3"])
+    const result = yield* groups.complete(source.id, {
+      destination: { kind: "sprint", groupId: dest.id }
+    })
 
-      const sourceAfter = yield* groups.get(source.id)
-      expect(sourceAfter.tickets).toEqual(["T-2"])
-      expect(sourceAfter.completedAt).not.toBeNull()
+    expect(result.carried).toEqual(["T-1"])
 
-      const destAfter = yield* groups.get(dest.id)
-      expect(destAfter.tickets).toEqual(["T-3", "T-4", "T-1"])
-      expect(destAfter.completedAt).toBeNull()
-    }).pipe(
-      Effect.provide(
-        makeGroupsLayer(
-          {
-            ticketIds: ["T-1", "T-2", "T-3", "T-4"],
-            ticketStatuses: {
-              "T-1": ticketStatus("todo"),
-              "T-2": ticketStatus("done"),
-              "T-3": ticketStatus("in_progress"),
-              "T-4": ticketStatus("todo")
-            }
-          },
-          { role: "pm" }
-        )
+    const sourceAfter = yield* groups.get(source.id)
+    expect(sourceAfter.tickets).toEqual(["T-2"])
+    expect(sourceAfter.completedAt).not.toBeNull()
+
+    const destAfter = yield* groups.get(dest.id)
+    expect(destAfter.tickets).toEqual(["T-3", "T-4", "T-1"])
+    expect(destAfter.completedAt).toBeNull()
+  }).pipe(
+    Effect.provide(
+      makeGroupsLayer(
+        {
+          ticketIds: ["T-1", "T-2", "T-3", "T-4"],
+          ticketStatuses: {
+            "T-1": ticketStatus("todo"),
+            "T-2": ticketStatus("done"),
+            "T-3": ticketStatus("in_progress"),
+            "T-4": ticketStatus("todo")
+          }
+        },
+        { role: "pm" }
       )
     )
+  )
 )
 
 it.effect(
@@ -801,35 +799,6 @@ it.effect("updateTicketOrder places at the start when after is null", () =>
     Effect.provide(
       makeGroupsLayer(
         { ticketIds: ["T-1", "T-2", "T-3"] },
-        { role: "developer" }
-      )
-    )
-  )
-)
-
-it.effect("updateTicketOrder patches ticket status when provided", () =>
-  Effect.gen(function* () {
-    const groups = yield* Groups
-    const created = yield* groups.create({
-      name: "G",
-      tickets: [ticketId("T-1"), ticketId("T-2")]
-    })
-    const updated = yield* groups.updateTicketOrder(created.id, {
-      ticketId: ticketId("T-1"),
-      status: ticketStatus("in_progress"),
-      after: ticketId("T-2")
-    })
-    expect(updated.tickets).toEqual(["T-2", "T-1"])
-  }).pipe(
-    Effect.provide(
-      makeGroupsLayer(
-        {
-          ticketIds: ["T-1", "T-2"],
-          ticketStatuses: {
-            "T-1": ticketStatus("todo"),
-            "T-2": ticketStatus("in_progress")
-          }
-        },
         { role: "developer" }
       )
     )
@@ -1376,6 +1345,76 @@ it.effect("lets a client read groups but not create or change them", () =>
     Effect.provide(groupsLayer()),
     Effect.provideService(ProjectScope, asScope("guest", "client"))
   )
+)
+
+it.effect(
+  "lets developers and clients add to a sprint and reorder it but not take tickets out",
+  () =>
+    Effect.gen(function* () {
+      const groups = yield* Groups
+      const pm = Effect.provideService(ProjectScope, asScope("member", "pm"))
+      const developer = Effect.provideService(
+        ProjectScope,
+        asScope("member", "developer")
+      )
+      const client = Effect.provideService(
+        ProjectScope,
+        asScope("guest", "client")
+      )
+      const sprint = yield* groups
+        .create({ name: "S", kind: "sprint", tickets: [ticketId("T-1")] })
+        .pipe(pm)
+      const other = yield* groups
+        .create({ name: "O", kind: "sprint", tickets: [ticketId("T-4")] })
+        .pipe(pm)
+
+      yield* groups.addTickets(sprint.id, [ticketId("T-2")]).pipe(developer)
+      yield* groups.addTickets(sprint.id, [ticketId("T-3")]).pipe(client)
+      const reordered = yield* groups
+        .updateTicketOrder(sprint.id, {
+          ticketId: ticketId("T-3"),
+          after: null
+        })
+        .pipe(client)
+      expect(reordered.tickets).toEqual(["T-3", "T-1", "T-2"])
+
+      const refused = [
+        yield* Effect.flip(
+          groups.removeTickets(sprint.id, [ticketId("T-1")]).pipe(developer)
+        ),
+        yield* Effect.flip(
+          groups.addTickets(sprint.id, [ticketId("T-4")]).pipe(developer)
+        ),
+        yield* Effect.flip(
+          groups
+            .updateTickets(sprint.id, { tickets: [ticketId("T-3")] })
+            .pipe(client)
+        ),
+        yield* Effect.flip(
+          groups.create({ name: "New", kind: "sprint" }).pipe(developer)
+        ),
+        yield* Effect.flip(
+          groups
+            .complete(sprint.id, { destination: { kind: "backlog" } })
+            .pipe(client)
+        )
+      ]
+      expect(refused.map((error) => error._tag)).toStrictEqual([
+        "Forbidden",
+        "Forbidden",
+        "Forbidden",
+        "Forbidden",
+        "Forbidden"
+      ])
+      expect((yield* groups.get(other.id).pipe(pm)).tickets).toEqual(["T-4"])
+
+      const moved = yield* groups
+        .addTickets(sprint.id, [ticketId("T-4")])
+        .pipe(pm)
+      expect(moved.evicted).toEqual([{ groupId: other.id, ticketIds: ["T-4"] }])
+    }).pipe(
+      Effect.provide(groupsLayer({ ticketIds: ["T-1", "T-2", "T-3", "T-4"] }))
+    )
 )
 
 it.effect(

@@ -624,58 +624,34 @@ const seedClientTicket = Effect.gen(function* () {
 })
 
 it.effect(
-  "split authorizes new tickets against the create defaults, not the source",
+  "split lets the new tickets copy the original's status and sprint",
   () =>
     Effect.gen(function* () {
       yield* resetFakes
+      sprintAssignable = false
       const tickets = yield* Tickets
-      const fs = yield* FileSystem.FileSystem
-      const path = yield* Path.Path
-      const root = yield* Config.String("PROJECTS_DIR")
-      const { ticket: original } = yield* seedClientTicket
-      const client = scopedAs("client", "client-1")
-      const retained = result("Client request", "feat", ["user-1"])
-
-      const assigned = yield* Effect.flip(
-        tickets
-          .split(original.id, {
-            results: [
-              retained,
-              {
-                ...result("Copy", "feat", ["user-1"]),
-                status: decodeStatus("todo")
-              }
-            ]
-          })
-          .pipe(client)
-      )
-      const transitioned = yield* Effect.flip(
-        tickets
-          .split(original.id, {
-            results: [retained, result("Copy", "feat")]
-          })
-          .pipe(client)
-      )
-      expect([assigned._tag, transitioned._tag]).toStrictEqual([
-        "Forbidden",
-        "Forbidden"
-      ])
-      expect(yield* fs.exists(ticketFile(root, path, "T-2"))).toBe(false)
+      const original = yield* seedOriginal
+      const sprintId = decodeGroupId("G-1")
+      sprintMemberships.set(original.id, sprintId)
+      sprintTicketOrders.set(sprintId, [original.id])
 
       const outcome = yield* tickets
         .split(original.id, {
           results: [
-            retained,
-            { ...result("Follow-up", "feat"), status: decodeStatus("todo") }
+            { ...result("Detail page layout", "feat", ["user-1"]), sprintId },
+            { ...result("Sidebar API", "feat"), sprintId }
           ]
         })
-        .pipe(client)
-      expect(outcome.created.map((ticket) => ticket.status)).toEqual(["todo"])
+        .pipe(scopedAs("developer", "user-2"))
+
+      const [created] = outcome.created
+      expect(created.status).toBe("in_progress")
+      expect(sprintMemberships.get(created.id)).toBe(sprintId)
     }).pipe(Effect.provide(TestLayer))
 )
 
 it.effect(
-  "split needs sprint:manage to take the original out of its sprint",
+  "split needs sprint:remove_ticket to take the original out of its sprint",
   () =>
     Effect.gen(function* () {
       yield* resetFakes

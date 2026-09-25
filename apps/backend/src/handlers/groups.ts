@@ -51,8 +51,8 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
         ).pipe(dieOnMarkdown)
       )
       .handle("updateTicketOrder", ({ params, payload }) =>
-        Effect.flatMap(Groups, (groups) =>
-          groups.updateTicketOrder(params.id, payload)
+        Effect.flatMap(Tickets, (tickets) =>
+          tickets.moveInGroup(params.id, payload)
         ).pipe(dieOnMarkdown)
       )
       .handle("complete", ({ params, payload }) =>

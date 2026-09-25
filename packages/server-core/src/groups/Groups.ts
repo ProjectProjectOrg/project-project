@@ -92,7 +92,7 @@ export interface GroupsShape {
   >
   readonly updateTicketOrder: (
     id: string,
-    input: UpdateTicketOrderInput
+    input: Omit<UpdateTicketOrderInput, "status">
   ) => Effect.Effect<
     GroupDetail,
     | Forbidden

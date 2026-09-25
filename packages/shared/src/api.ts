@@ -295,7 +295,7 @@ const OrgGroup = HttpApiGroup.make("org")
     HttpApiEndpoint.get("members", "/orgs/:orgSlug/members", {
       params: OrgPath,
       success: OrgMembers,
-      error: [Unauthorized, NotFound]
+      error: [Unauthorized, NotFound, Forbidden]
     })
       .annotate(RequiresOrg, { member: ["read"] })
       .middleware(OrgAccess)
@@ -486,7 +486,7 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       success: ProjectDetail,
       error: [Unauthorized, NotFound, Forbidden]
     })
-      .annotate(RequiresProject, { settings: ["manage"] })
+      .annotate(RequiresProject, { docs: ["write"] })
       .middleware(ProjectAccess)
   )
   .add(
@@ -1592,7 +1592,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
         error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
       }
     )
-      .annotate(RequiresProject, "membership")
+      .annotate(RequiresProject, { ticket: ["update"] })
       .middleware(ProjectAccess)
   )
   .add(
@@ -1605,7 +1605,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
         error: [Unauthorized, NotFound, Forbidden]
       }
     )
-      .annotate(RequiresProject, "membership")
+      .annotate(RequiresProject, { ticket: ["update"] })
       .middleware(ProjectAccess)
   )
   .add(

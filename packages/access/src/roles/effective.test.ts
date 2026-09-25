@@ -48,7 +48,7 @@ describe("projectPermissions", () => {
         {
           ticket: ["create", "update", "transition", "assign", "delete"],
           comment: ["create"],
-          sprint: ["manage"],
+          sprint: ["manage", "add_ticket", "remove_ticket", "reorder"],
           epic: ["manage"],
           workflow: ["manage"],
           library: ["manage"],

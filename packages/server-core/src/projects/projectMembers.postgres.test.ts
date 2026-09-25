@@ -147,6 +147,43 @@ describe.skipIf(!databaseUrl)("project members", () => {
       })
   )
 
+  it.effect("lets a developer edit the project docs but not its settings", () =>
+    Effect.gen(function* () {
+      const edited = yield* run(developer)((projects) =>
+        projects.update({ body: "# About\n\nWritten by a developer.\n" })
+      )
+      expect(edited.body).toContain("Written by a developer.")
+      const refused = [
+        yield* Effect.flip(
+          run(developer)((projects) => projects.update({ name: "Renamed" }))
+        ),
+        yield* Effect.flip(
+          run(developer)((projects) =>
+            projects.update({ body: "# About\n", name: "Renamed" })
+          )
+        )
+      ]
+      expect(refused.map((error) => error._tag)).toStrictEqual([
+        "Forbidden",
+        "Forbidden"
+      ])
+    })
+  )
+
+  it.effect("lets an org admin add themselves as pm and then edit", () =>
+    Effect.gen(function* () {
+      yield* run(admin)((projects) =>
+        projects.addMember({ email: `${admin}@example.test`, role: "pm" })
+      )
+      const renamed = yield* run(admin)((projects) =>
+        projects.update({ name: "Renamed by admin" })
+      )
+      expect(renamed.name).toBe("Renamed by admin")
+      yield* run(admin)((projects) => projects.removeMember(admin))
+      expect((yield* roles())[admin]).toBeUndefined()
+    })
+  )
+
   it.effect("hides GitHub from a client's project detail", () =>
     Effect.gen(function* () {
       yield* run(pm)((projects) => projects.updateMember(developer, "client"))

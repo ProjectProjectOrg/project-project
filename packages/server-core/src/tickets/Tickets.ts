@@ -8,6 +8,7 @@ import type {
   CreateBranchInput,
   CreateTicketInput,
   GitHubError,
+  GroupDetail,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
   GitStatesResponse,
@@ -36,6 +37,7 @@ import type {
   TicketSprintSections,
   TicketUpdateResult,
   UpdateTicketInput,
+  UpdateTicketOrderInput,
   Validation,
   OrgScope,
   ProjectScope,
@@ -144,6 +146,18 @@ export interface TicketsShape {
   ) => Effect.Effect<
     TicketUpdateResult,
     Forbidden | TicketReadError | Validation | MentionInvalid,
+    ProjectScope
+  >
+  readonly moveInGroup: (
+    groupId: string,
+    input: UpdateTicketOrderInput
+  ) => Effect.Effect<
+    GroupDetail,
+    | NotFound
+    | Forbidden
+    | SprintCompletedImmutable
+    | Validation
+    | MarkdownError,
     ProjectScope
   >
   readonly split: (

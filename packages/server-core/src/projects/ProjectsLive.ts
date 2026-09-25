@@ -1,7 +1,9 @@
+import { ProjectPolicy } from "@pp/access/policies"
 import {
   BASELINE_STATUS_SEED,
   Conflict,
   deriveProjectIdentity,
+  Forbidden,
   NotFound,
   paginateSorted,
   ProjectColor,
@@ -720,6 +722,14 @@ export const ProjectsLive = Layer.effect(
     const update: ProjectsShape["update"] = (input) =>
       Effect.gen(function* () {
         const scope = yield* ProjectScope
+        const { body, ...settings } = input
+        const allowed = ProjectPolicy.canUpdate(scope, {
+          body: body !== undefined,
+          settings:
+            body === undefined ||
+            Object.values(settings).some((value) => value !== undefined)
+        })
+        if (!allowed) return yield* new Forbidden()
         const { orgSlug, slug, userId, projectId } = scope
         return yield* withProjectTelemetry(
           "update",
