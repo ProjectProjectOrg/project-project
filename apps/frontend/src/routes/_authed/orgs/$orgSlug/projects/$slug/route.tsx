@@ -12,10 +12,6 @@ import { PageContainer } from "@/components/page"
 import { ProjectBanner } from "@/components/ProjectBanner"
 import { RetainedProjectViews } from "@/components/RetainedProjectViews"
 import { useSidebarSection } from "@/components/SidebarSlot"
-import {
-  everhourProjectRequest,
-  everhourProjectStatusAtom
-} from "@/features/everhour/atoms/everhour"
 import { projectGitStates } from "@/features/github/atoms/github"
 import {
   project,
@@ -32,7 +28,7 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { useProjectGitStatePolling } from "@/hooks/useProjectGitStatePolling"
-import { useProjectRole } from "@/lib/projectRole"
+import { useProjectCan } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -46,9 +42,6 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
     registry.mount(project(projectRequest(orgSlug, slug)))()
     registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
     registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
-    registry.mount(
-      everhourProjectStatusAtom(everhourProjectRequest(orgSlug, slug))
-    )()
     return {
       crumb: [
         {
@@ -151,16 +144,12 @@ function ProjectSetupSlot({
   slug: string
   project: ProjectDetailType
 }) {
-  const { isPm: canManage } = useProjectRole()
+  const canManage = useProjectCan()("projects", "updateSetup")
   const render = useCallback(
-    () => (
-      <ProjectSetupRail
-        orgSlug={orgSlug}
-        slug={slug}
-        project={project}
-        canManage={canManage}
-      />
-    ),
+    () =>
+      canManage ? (
+        <ProjectSetupRail orgSlug={orgSlug} slug={slug} project={project} />
+      ) : null,
     [orgSlug, slug, project, canManage]
   )
   useSidebarSection(`project-setup:${orgSlug}/${slug}`, render)
@@ -170,18 +159,15 @@ function ProjectSetupSlot({
 function ProjectSetupRail({
   orgSlug,
   slug,
-  project,
-  canManage
+  project
 }: {
   orgSlug: string
   slug: string
   project: ProjectDetailType
-  canManage: boolean
 }) {
   const req = projectRequest(orgSlug, slug)
   const gitStates = useAtomValue(projectGitStates(req))
   const updateSetup = useAtomSet(updateProjectSetup(req))
-  if (!canManage) return null
 
   const brokenGithub =
     Result.isSuccess(gitStates) &&

@@ -1,5 +1,4 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { Member, Role } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 
@@ -11,6 +10,7 @@ import {
   projectRequest,
   updateProjectSetup
 } from "@/features/projects/atoms/projects"
+import { useProjectCan } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
 import { useProject } from "../-context"
@@ -31,10 +31,9 @@ function TeamSettings() {
   const projectResult = useAtomValue(project(req))
   const viewer = useAtomValue(me())
   const setup = useAtomSet(updateProjectSetup(req))
+  const canManage = useProjectCan()("projects", "addMember")
   if (!Result.isSuccess(viewer)) return null
   const callerId = viewer.value.id
-  const callerRole = roleOf(projectDetail.members, callerId)
-  if (!callerRole) return null
 
   return (
     <section className="flex w-full flex-col gap-4">
@@ -44,7 +43,7 @@ function TeamSettings() {
         members={projectDetail.members}
         pendingMembers={projectDetail.pendingMembers}
         waiting={projectResult.waiting}
-        callerRole={callerRole}
+        canManage={canManage}
         callerId={callerId}
       />
       {projectDetail.setup.invitePeopleDismissedAt ? (
@@ -63,9 +62,4 @@ function TeamSettings() {
       ) : null}
     </section>
   )
-}
-
-function roleOf(members: ReadonlyArray<Member>, userId: string): Role | null {
-  for (const member of members) if (member.id === userId) return member.role
-  return null
 }

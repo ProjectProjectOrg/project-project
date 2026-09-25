@@ -5,7 +5,9 @@ import type {
   PendingProjectMember,
   Role
 } from "@pp/shared"
+import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
+import * as Option from "effect/Option"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import {
   Briefcase,
@@ -62,7 +64,8 @@ const ROLE_META: Record<
 }
 const ASSIGNABLE_ROLES = [
   "pm",
-  "developer"
+  "developer",
+  "client"
 ] satisfies ReadonlyArray<AssignableRole>
 
 export function MembersSection({
@@ -71,7 +74,7 @@ export function MembersSection({
   members,
   pendingMembers,
   waiting,
-  callerRole,
+  canManage,
   callerId
 }: {
   orgSlug: string
@@ -79,10 +82,9 @@ export function MembersSection({
   members: ReadonlyArray<Member>
   pendingMembers: ReadonlyArray<PendingProjectMember>
   waiting: boolean
-  callerRole: Role
+  canManage: boolean
   callerId: string
 }) {
-  const canManage = callerRole === "pm"
   const pmCount = members.filter((member) => member.role === "pm").length
   const [adding, setAdding] = useState(false)
 
@@ -145,7 +147,13 @@ function AddMemberRow({
   const addState = useAtomValue(memberMutation)
   const submitting = addState.waiting
   const error = Result.isFailure(addState)
-    ? m.members_add_error_fallback()
+    ? Option.match(Cause.findErrorOption(addState.cause), {
+        onNone: () => m.members_add_error_fallback(),
+        onSome: (failure) =>
+          failure._tag === "Forbidden"
+            ? m.members_add_error_outsider_client_only()
+            : m.members_add_error_fallback()
+      })
     : null
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {

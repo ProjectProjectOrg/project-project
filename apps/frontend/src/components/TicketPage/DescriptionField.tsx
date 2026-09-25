@@ -5,7 +5,8 @@ import {
   type Member,
   type TemplateDefinition,
   type TicketDetail,
-  type TicketType
+  type TicketType,
+  canCallOrg
 } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
@@ -111,7 +112,7 @@ export function DescriptionField({
     Result.isSuccess(storageResult) && storageResult.value.status === "active"
   const canConnectStorage =
     Result.isSuccess(orgResult) &&
-    (orgResult.value.role === "owner" || orgResult.value.role === "admin")
+    canCallOrg(orgResult.value.role)("storage", "connect")
   const attachments = attachmentsForDescription({
     orgSlug,
     slug,

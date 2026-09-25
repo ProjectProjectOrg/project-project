@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { GroupPolicy } from "@pp/access/policies"
 import { type Group, type GroupId, type TicketId } from "@pp/shared"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { Plus } from "lucide-react"
@@ -15,6 +16,7 @@ import {
   sprintListRequest,
   sprintMembership
 } from "@/features/sprints/atoms/sprintList"
+import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -40,6 +42,7 @@ export function SprintField({
   const removeTickets = useAtomSet(removeTicketsFromSprint({ req, ticketId }))
   const removeState = useAtomValue(removeTicketsFromSprint({ req, ticketId }))
   const [open, setOpen] = useState(false)
+  const canMove = GroupPolicy.can(useProjectActor(), "sprint", "remove_ticket")
 
   if (!membership) return null
 
@@ -47,47 +50,49 @@ export function SprintField({
   const failed = Result.isFailure(addState) || Result.isFailure(removeState)
 
   return (
-    <SprintAssignMenu
-      open={open}
-      onOpenChange={setOpen}
-      sprints={sprints}
-      selectedId={membership.id}
-      onSelect={(s) => addTickets({ groupId: s.id })}
-      onClear={() => removeTickets({ groupId: membership.id })}
-      onRequestNewSprint={onRequestNewSprint}
-      trigger={
-        <Hitbox
-          mode="inline"
-          margin="2"
-          onClick={(e) => e.stopPropagation()}
-          aria-label={
-            failed
-              ? m.tickets_sprint_assign_error_fallback()
-              : m.tickets_sprint_chip_aria({ name: membership.name })
-          }
-          className="min-w-0"
-        >
-          <span
-            className={cn(
-              "inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs transition-colors group-hover/hitbox:bg-foreground/5",
+    <fieldset disabled={!canMove} className="contents">
+      <SprintAssignMenu
+        open={open}
+        onOpenChange={setOpen}
+        sprints={sprints}
+        selectedId={membership.id}
+        onSelect={(s) => addTickets({ groupId: s.id })}
+        onClear={() => removeTickets({ groupId: membership.id })}
+        onRequestNewSprint={onRequestNewSprint}
+        trigger={
+          <Hitbox
+            mode="inline"
+            margin="2"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={
               failed
-                ? "text-destructive"
-                : "text-muted-foreground group-hover/hitbox:text-foreground"
-            )}
+                ? m.tickets_sprint_assign_error_fallback()
+                : m.tickets_sprint_chip_aria({ name: membership.name })
+            }
+            className="min-w-0"
           >
-            <SprintStateIcon sprint={membership} size="xs" />
             <span
               className={cn(
-                "truncate",
-                variant === "responsive" && "hidden sm:inline"
+                "inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs transition-colors group-hover/hitbox:bg-foreground/5",
+                failed
+                  ? "text-destructive"
+                  : "text-muted-foreground group-hover/hitbox:text-foreground"
               )}
             >
-              {membership.name}
+              <SprintStateIcon sprint={membership} size="xs" />
+              <span
+                className={cn(
+                  "truncate",
+                  variant === "responsive" && "hidden sm:inline"
+                )}
+              >
+                {membership.name}
+              </span>
             </span>
-          </span>
-        </Hitbox>
-      }
-    />
+          </Hitbox>
+        }
+      />
+    </fieldset>
   )
 }
 
@@ -174,6 +179,7 @@ export function SprintBadgeTrigger({
     ? (membership.value.get(ticketId) ?? null)
     : null
   const failed = Result.isFailure(addState) || Result.isFailure(removeState)
+  const canMove = GroupPolicy.can(useProjectActor(), "sprint", "remove_ticket")
   const label = failed
     ? m.tickets_sprint_assign_error_fallback()
     : (current?.name ?? m.tickets_assign_sprint_chip())
@@ -181,37 +187,39 @@ export function SprintBadgeTrigger({
   if (!hasAnyEligible) return null
 
   return (
-    <SprintAssignMenu
-      open={open}
-      onOpenChange={setOpen}
-      sprints={sprints}
-      selectedId={current?.id ?? null}
-      onSelect={(s) => addTickets({ groupId: s.id })}
-      onClear={
-        current ? () => removeTickets({ groupId: current.id }) : undefined
-      }
-      trigger={
-        <Button
-          type="button"
-          variant="chip"
-          onClick={(e) => e.stopPropagation()}
-          aria-label={
-            failed
-              ? m.tickets_sprint_assign_error_fallback()
-              : current
-                ? m.tickets_sprint_chip_aria({ name: current.name })
-                : m.tickets_assign_sprint_chip()
-          }
-          className={cn(failed && "text-destructive", className)}
-        >
-          {current ? (
-            <SprintStateIcon sprint={current} size="xs" />
-          ) : (
-            <Plus className="size-3.5" strokeWidth={1.75} />
-          )}
-          <span className="max-w-[14ch] truncate">{label}</span>
-        </Button>
-      }
-    />
+    <fieldset disabled={current !== null && !canMove} className="contents">
+      <SprintAssignMenu
+        open={open}
+        onOpenChange={setOpen}
+        sprints={sprints}
+        selectedId={current?.id ?? null}
+        onSelect={(s) => addTickets({ groupId: s.id })}
+        onClear={
+          current ? () => removeTickets({ groupId: current.id }) : undefined
+        }
+        trigger={
+          <Button
+            type="button"
+            variant="chip"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={
+              failed
+                ? m.tickets_sprint_assign_error_fallback()
+                : current
+                  ? m.tickets_sprint_chip_aria({ name: current.name })
+                  : m.tickets_assign_sprint_chip()
+            }
+            className={cn(failed && "text-destructive", className)}
+          >
+            {current ? (
+              <SprintStateIcon sprint={current} size="xs" />
+            ) : (
+              <Plus className="size-3.5" strokeWidth={1.75} />
+            )}
+            <span className="max-w-[14ch] truncate">{label}</span>
+          </Button>
+        }
+      />
+    </fieldset>
   )
 }

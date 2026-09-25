@@ -228,7 +228,9 @@ function DragHandle({
     <button
       type="button"
       aria-label={ariaLabel}
-      onPointerDown={(e) => controls.start(e)}
+      onPointerDown={(e) => {
+        if (!e.currentTarget.matches(":disabled")) controls.start(e)
+      }}
       onKeyDown={(e) => {
         if (e.key === "ArrowUp" && onMoveUp) {
           e.preventDefault()
