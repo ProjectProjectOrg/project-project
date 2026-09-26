@@ -103,6 +103,7 @@ import { StatusesHandlerLive } from "./handlers/statuses"
 import { StorageHandlerLive } from "./handlers/storage"
 import { TagsHandlerLive } from "./handlers/tags"
 import { TicketsHandlerLive } from "./handlers/tickets"
+import { ApiRouterLive } from "./http/apiRouter"
 import { attachmentRoutes } from "./http/attachmentRoutes"
 import { attachmentUploadRoute } from "./http/attachmentUploadRoutes"
 import { figmaOauthRoutes } from "./http/figmaOauthRoutes"
@@ -420,10 +421,7 @@ const everhourIntegrationRoutes = HttpRouter.add(
   everhourWebhookRoute
 )
 
-export const ApiRouterLive = Layer.effect(
-  HttpRouter.HttpRouter,
-  Effect.map(HttpRouter.HttpRouter, (router) => router.prefixed("/api"))
-)
+export { ApiRouterLive }
 
 export const RouteLive = Layer.mergeAll(
   HttpRouter.add("*", "/api/auth/*", betterAuthApp),

@@ -44,10 +44,12 @@ const serverVersion = nonBlank("APP_VERSION").pipe(
   Config.map(Option.getOrElse(() => "dev"))
 )
 
-export const InstanceLive = Layer.effect(
-  Instance,
+export const activeOrganization = isNull(organization.deletedAt)
+
+export const makeInstance = (
+  activeOrgs: Effect.Effect<ReadonlyArray<OrgIdentity>>
+) =>
   Effect.gen(function* () {
-    const db = yield* Db
     const instanceId = yield* nonBlank("INSTANCE_ID")
     const configuredName = yield* nonBlank("INSTANCE_NAME")
     const host = yield* publicHost
@@ -63,12 +65,7 @@ export const InstanceLive = Layer.effect(
       if (Option.isNone(instanceId)) {
         return yield* new InstanceNotConfigured()
       }
-      const orgs = yield* db
-        .select({ name: organization.name, logo: organization.logo })
-        .from(organization)
-        .where(isNull(organization.deletedAt))
-        .limit(2)
-        .pipe(Effect.orDie)
+      const orgs = yield* activeOrgs
       return {
         instanceId: instanceId.value,
         ...resolveInstanceIdentity({ configuredName, orgs, host }),
@@ -78,5 +75,19 @@ export const InstanceLive = Layer.effect(
     }).pipe(Effect.withSpan("Instance.describe"))
 
     return Instance.of({ describe })
+  })
+
+export const InstanceLive = Layer.effect(
+  Instance,
+  Effect.gen(function* () {
+    const db = yield* Db
+    return yield* makeInstance(
+      db
+        .select({ name: organization.name, logo: organization.logo })
+        .from(organization)
+        .where(activeOrganization)
+        .limit(2)
+        .pipe(Effect.orDie)
+    )
   })
 )

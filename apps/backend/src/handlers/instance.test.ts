@@ -6,19 +6,13 @@ import {
   type InstanceDescriptor,
   InstanceNotConfigured
 } from "@pp/shared"
-import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { FetchHttpClient, HttpRouter, HttpServer } from "effect/unstable/http"
 import { HttpApi, HttpApiBuilder, HttpApiClient } from "effect/unstable/httpapi"
-import { expect, vi } from "vitest"
+import { expect } from "vitest"
 
-vi.mock("../auth", () => ({
-  auth: {},
-  mcpResource: "http://localhost:3000/mcp"
-}))
-
-import { ApiRouterLive } from "../main"
+import { ApiRouterLive } from "../http/apiRouter"
 import { InstanceHandlerLive } from "./instance"
 
 const descriptor: InstanceDescriptor = {
@@ -37,7 +31,7 @@ const clientFor = Effect.fnUntraced(function* (instance: InstanceShape) {
           HttpApi.make(AppApi.identifier).add(AppApi.groups.instance)
         ).pipe(
           Layer.provide(InstanceHandlerLive),
-          Layer.provide(Layer.succeed(Instance, instance)),
+          HttpRouter.provideRequest(Layer.succeed(Instance, instance)),
           Layer.provide(ApiRouterLive),
           Layer.provideMerge(HttpServer.layerServices)
         )
@@ -45,12 +39,13 @@ const clientFor = Effect.fnUntraced(function* (instance: InstanceShape) {
     ),
     (web) => Effect.promise(() => web.dispose())
   )
-  const context = Context.make(Instance, instance)
-  const fetch = ((input, init) =>
-    web.handler(
-      input instanceof Request ? input : new Request(String(input), init),
-      context
-    )) as typeof globalThis.fetch
+  const fetch = Object.assign(
+    (input: string | URL | Request, init?: RequestInit) =>
+      web.handler(
+        input instanceof Request ? input : new Request(String(input), init)
+      ),
+    { preconnect: globalThis.fetch.preconnect }
+  )
   return yield* HttpApiClient.make(AppApi, {
     baseUrl: "http://localhost/api"
   }).pipe(

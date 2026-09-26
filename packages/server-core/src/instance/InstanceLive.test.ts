@@ -1,5 +1,4 @@
 import { it } from "@effect/vitest"
-import { Db } from "@pp/db"
 import { appProtocolVersion } from "@pp/shared"
 import { PgDialect } from "drizzle-orm/pg-core"
 import * as ConfigProvider from "effect/ConfigProvider"
@@ -10,47 +9,19 @@ import * as Option from "effect/Option"
 import { expect } from "vitest"
 
 import { Instance } from "./Instance"
-import { InstanceLive, resolveInstanceIdentity } from "./InstanceLive"
+import {
+  activeOrganization,
+  makeInstance,
+  resolveInstanceIdentity
+} from "./InstanceLive"
 
-type OrgRow = Readonly<{
-  name: string
-  logo: string | null
-  deleted?: boolean
-}>
-
-const dialect = new PgDialect()
-
-const excludesDeletedOrgs = (condition: unknown) =>
-  dialect
-    .sqlToQuery(condition as never)
-    .sql.includes('"organization"."deleted_at" is null')
-
-const makeDb = (orgs: ReadonlyArray<OrgRow>) =>
-  Layer.succeed(Db, {
-    select: () => ({
-      from: () => ({
-        where: (condition: unknown) => ({
-          limit: (count: number) =>
-            Effect.succeed(
-              orgs
-                .filter(
-                  (org) =>
-                    !excludesDeletedOrgs(condition) || org.deleted !== true
-                )
-                .slice(0, count)
-                .map(({ name, logo }) => ({ name, logo }))
-            )
-        })
-      })
-    })
-  } as never)
+type OrgRow = Readonly<{ name: string; logo: string | null }>
 
 const instanceLayer = (
   env: Readonly<Record<string, string>>,
   orgs: ReadonlyArray<OrgRow> = []
 ) =>
-  InstanceLive.pipe(
-    Layer.provide(makeDb(orgs)),
+  Layer.effect(Instance, makeInstance(Effect.succeed(orgs))).pipe(
     Layer.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(env)))
   )
 
@@ -181,14 +152,8 @@ it.effect("refuses to build with a malformed BETTER_AUTH_URL", () =>
   )
 )
 
-it.effect("ignores deleted orgs when picking the only org", () =>
-  describe.pipe(
-    Effect.map((descriptor) => expect(descriptor.name).toBe("Igne")),
-    Effect.provide(
-      instanceLayer(configured, [
-        { name: "Old Igne", logo: null, deleted: true },
-        { name: "Igne", logo: null }
-      ])
-    )
+it("only counts organizations that aren't deleted", () => {
+  expect(new PgDialect().sqlToQuery(activeOrganization).sql).toBe(
+    '("organization"."deleted_at" is null)'
   )
-)
+})
