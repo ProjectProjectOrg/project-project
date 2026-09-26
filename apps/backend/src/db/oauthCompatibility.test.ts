@@ -520,6 +520,12 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     )
     expect(callback.searchParams.get("state")).toBe("state-first")
 
+    const replayed = await authorize("first", { prompt: "none" })
+    expect(replayed.status).toBe(302)
+    const replayedRedirect = new URL(replayed.headers.get("location")!)
+    expect(replayedRedirect.searchParams.get("error")).toBe("consent_required")
+    expect(replayedRedirect.searchParams.has("code")).toBe(false)
+    consentPage(await authorize("first"))
     consentPage(await authorize("second"))
     consentPage(await authorize("forged", { sig: "forged-signature" }))
     const silent = await authorize("silent", { prompt: "none" })

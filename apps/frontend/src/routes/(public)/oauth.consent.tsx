@@ -92,12 +92,15 @@ function useConsentSubmit(oauthQuery: string) {
 function AppSignIn({ oauthQuery }: Readonly<{ oauthQuery: string }>) {
   const viewer = useAtomValue(me())
   const { onSubmit, pending, error } = useConsentSubmit(oauthQuery)
-  const name = Result.isSuccess(viewer) ? viewer.value.name : ""
+
+  if (!Result.isSuccess(viewer)) {
+    return <ConsentShell title={m.auth_app_signin_title()} />
+  }
 
   return (
     <ConsentShell title={m.auth_app_signin_title()}>
       <p className="text-center text-sm wrap-anywhere text-muted-foreground">
-        {m.auth_app_signin_subtitle({ name })}
+        {m.auth_app_signin_subtitle({ name: viewer.value.name })}
       </p>
       <div className="flex w-full flex-col gap-2">
         <Button

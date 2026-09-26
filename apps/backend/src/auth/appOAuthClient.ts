@@ -32,29 +32,42 @@ const SignedOAuthQuery = Schema.Struct({ oauth_query: Schema.String })
 
 const decodeSignedOAuthQuery = Schema.decodeUnknownOption(SignedOAuthQuery)
 
-const currentAuthorizationParameters = () => {
-  const endpoint = decodeEndpointParameters(tryGetCurrentAuthEndpointContext())
-  if (Option.isNone(endpoint)) return Option.none()
-  const signedQuery = decodeSignedOAuthQuery(endpoint.value.body).pipe(
-    Option.map((body) =>
-      Object.fromEntries(new URLSearchParams(body.oauth_query))
-    )
+const signedQueryIssuedAtParam = "ba_iat"
+
+const currentAuthorization = () =>
+  decodeEndpointParameters(tryGetCurrentAuthEndpointContext()).pipe(
+    Option.flatMap((endpoint) => {
+      const signed = decodeSignedOAuthQuery(endpoint.body).pipe(
+        Option.map((body) => new URLSearchParams(body.oauth_query))
+      )
+      return decodeAuthorizationParameters(endpoint.query).pipe(
+        Option.orElse(() => decodeAuthorizationParameters(endpoint.body)),
+        Option.orElse(() =>
+          Option.flatMap(signed, (query) =>
+            decodeAuthorizationParameters(Object.fromEntries(query))
+          )
+        ),
+        Option.map((parameters) => ({
+          parameters,
+          signedIssuedAt: Option.flatMap(signed, (query) =>
+            Option.fromNullishOr(query.get(signedQueryIssuedAtParam))
+          )
+        }))
+      )
+    })
   )
-  return decodeAuthorizationParameters(endpoint.value.query).pipe(
-    Option.orElse(() => decodeAuthorizationParameters(endpoint.value.body)),
-    Option.orElse(() =>
-      Option.flatMap(signedQuery, decodeAuthorizationParameters)
-    )
-  )
-}
 
 export const appConsentReferenceId = () =>
-  Option.match(currentAuthorizationParameters(), {
+  Option.match(currentAuthorization(), {
     onNone: () => undefined,
-    onSome: (parameters) =>
+    onSome: ({ parameters, signedIssuedAt }) =>
       parameters.client_id !== appOAuthClientId
         ? undefined
-        : `app:${parameters.code_challenge ?? randomUUID()}`
+        : Option.match(signedIssuedAt, {
+            onNone: () => `app:${randomUUID()}`,
+            onSome: (issuedAt) =>
+              `app:${issuedAt}:${parameters.code_challenge ?? randomUUID()}`
+          })
   })
 
 export const appOAuthClient = (input: AppOAuthClientInput) => ({

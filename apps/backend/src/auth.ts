@@ -478,7 +478,7 @@ export const auth = betterAuth({
       extensions: [
         {
           claims: {
-            accessToken: async ({ user, client }) => ({
+            accessToken: async ({ user, client, referenceId }) => ({
               pp_consent_ids: user
                 ? (
                     await db
@@ -487,7 +487,13 @@ export const auth = betterAuth({
                       .where(
                         and(
                           eq(authSchema.oauthConsent.userId, user.id),
-                          eq(authSchema.oauthConsent.clientId, client.clientId)
+                          eq(authSchema.oauthConsent.clientId, client.clientId),
+                          client.clientId === appOAuthClientId && referenceId
+                            ? eq(
+                                authSchema.oauthConsent.referenceId,
+                                referenceId
+                              )
+                            : undefined
                         )
                       )
                   ).map((consent) => consent.id)
