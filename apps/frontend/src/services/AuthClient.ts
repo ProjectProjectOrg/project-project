@@ -1,4 +1,5 @@
 import {
+  emailOTPClient,
   inferAdditionalFields,
   magicLinkClient,
   organizationClient
@@ -9,6 +10,7 @@ export const authClient = createAuthClient({
   plugins: [
     organizationClient(),
     magicLinkClient(),
+    emailOTPClient(),
     inferAdditionalFields({
       user: {
         editorPreference: { type: "string", required: false, input: true }

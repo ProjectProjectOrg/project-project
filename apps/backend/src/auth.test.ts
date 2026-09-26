@@ -1,5 +1,9 @@
 import { APIError } from "better-auth/api"
-import { magicLinkClient, organizationClient } from "better-auth/client/plugins"
+import {
+  emailOTPClient,
+  magicLinkClient,
+  organizationClient
+} from "better-auth/client/plugins"
 import { organization } from "better-auth/plugins"
 import { getTestInstance } from "better-auth/test"
 import * as DateTime from "effect/DateTime"
@@ -66,6 +70,59 @@ describe("Better Auth plugin wiring", () => {
       const user = await db.findOne<{ emailVerified: boolean }>({
         model: "user",
         where: [{ field: "email", value: "invited@example.com" }],
+        select: ["emailVerified"]
+      })
+      expect(user?.emailVerified).toBe(true)
+    } finally {
+      writeSpy.mockRestore()
+    }
+  })
+
+  it("signs users in with an emailed code and marks the email verified", async () => {
+    const emailOtpPlugin = configuredPlugin("email-otp")
+    const writes: Array<string> = []
+    const writeSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation((chunk: string | Uint8Array) => {
+        writes.push(String(chunk))
+        return true
+      })
+
+    try {
+      const { client, db } = await getTestInstance(
+        { plugins: [emailOtpPlugin] },
+        {
+          disableTestUser: true,
+          clientOptions: { plugins: [emailOTPClient()] }
+        }
+      )
+
+      const sent = await client.emailOtp.sendVerificationOtp({
+        email: "code@example.com",
+        type: "sign-in"
+      })
+      expect(sent.error).toBeNull()
+
+      const otp = writes.join("").match(/type=sign-in otp=(?<otp>\d{6})/)
+        ?.groups?.otp
+      expect(otp).toBeDefined()
+
+      const wrong = await client.signIn.emailOtp({
+        email: "code@example.com",
+        otp: otp === "000000" ? "111111" : "000000"
+      })
+      expect(wrong.error).not.toBeNull()
+
+      const signedIn = await client.signIn.emailOtp({
+        email: "code@example.com",
+        otp: otp!
+      })
+      expect(signedIn.error).toBeNull()
+      expect(signedIn.data?.user.email).toBe("code@example.com")
+
+      const user = await db.findOne<{ emailVerified: boolean }>({
+        model: "user",
+        where: [{ field: "email", value: "code@example.com" }],
         select: ["emailVerified"]
       })
       expect(user?.emailVerified).toBe(true)

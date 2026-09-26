@@ -55,6 +55,11 @@ function LoginPage() {
   const [email, setEmail] = useState("")
   const [magicLinkSent, setMagicLinkSent] = useState(false)
   const [magicLinkPending, setMagicLinkPending] = useState(false)
+  const [codeRequested, setCodeRequested] = useState(false)
+  const [code, setCode] = useState("")
+  const [codeSending, setCodeSending] = useState(false)
+  const [codePending, setCodePending] = useState(false)
+  const emailMethod = useRef<"link" | "code">("link")
   const [authError, setAuthError] = useState<string | null>(null)
   const cardRef = useRef<HTMLDivElement | null>(null)
 
@@ -78,8 +83,12 @@ function LoginPage() {
     return <Navigate to={pathname as never} search={search as never} />
   }
 
-  async function handleMagicLinkSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleEmailSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (emailMethod.current === "code") {
+      await sendCode()
+      return
+    }
     setMagicLinkPending(true)
     setAuthError(null)
     setMagicLinkSent(false)
@@ -98,6 +107,51 @@ function LoginPage() {
     } finally {
       setMagicLinkPending(false)
     }
+  }
+
+  async function sendCode() {
+    setCodeSending(true)
+    setAuthError(null)
+    setMagicLinkSent(false)
+    try {
+      const { error } = await authClient.emailOtp.sendVerificationOtp({
+        email,
+        type: "sign-in"
+      })
+      if (error) {
+        setAuthError(m.auth_email_code_send_error())
+        return
+      }
+      setCodeRequested(true)
+    } catch {
+      setAuthError(m.auth_email_code_send_error())
+    } finally {
+      setCodeSending(false)
+    }
+  }
+
+  async function handleCodeSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setCodePending(true)
+    setAuthError(null)
+    try {
+      const { error } = await authClient.signIn.emailOtp({ email, otp: code })
+      if (error) {
+        setAuthError(m.auth_email_code_invalid())
+        return
+      }
+      window.location.replace(oauthContinuationTarget ?? redirectTarget)
+    } catch {
+      setAuthError(m.auth_email_code_invalid())
+    } finally {
+      setCodePending(false)
+    }
+  }
+
+  function changeEmail() {
+    setCodeRequested(false)
+    setCode("")
+    setAuthError(null)
   }
 
   async function handleGoogleSignIn() {
@@ -150,29 +204,84 @@ function LoginPage() {
         </div>
 
         <div className="flex w-full flex-col gap-3 px-8 pb-8">
-          <form
-            className="flex flex-col gap-2"
-            onSubmit={handleMagicLinkSubmit}
-          >
-            <Input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder={m.auth_email_placeholder()}
-              aria-label={m.auth_email_aria_label()}
-              required
-            />
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              className="w-full"
-              leadingIcon={Mail}
-              loading={magicLinkPending}
-            >
-              {m.auth_continue_with_email_button()}
-            </Button>
-          </form>
+          {codeRequested ? (
+            <form className="flex flex-col gap-2" onSubmit={handleCodeSubmit}>
+              <p className="text-center text-xs leading-5 text-muted-foreground">
+                {m.auth_email_code_sent({ email })}
+              </p>
+              <Input
+                value={code}
+                onChange={(event) =>
+                  setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+                }
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder={m.auth_email_code_placeholder()}
+                aria-label={m.auth_email_code_label()}
+                autoFocus
+                required
+              />
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                className="w-full"
+                loading={codePending}
+                disabled={code.length !== 6}
+              >
+                {m.auth_email_code_submit_button()}
+              </Button>
+              <div className="flex justify-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={sendCode}
+                  loading={codeSending}
+                >
+                  {m.auth_email_code_resend_button()}
+                </Button>
+                <Button type="button" variant="ghost" onClick={changeEmail}>
+                  {m.auth_email_code_change_email_button()}
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <form className="flex flex-col gap-2" onSubmit={handleEmailSubmit}>
+              <Input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder={m.auth_email_placeholder()}
+                aria-label={m.auth_email_aria_label()}
+                required
+              />
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                className="w-full"
+                leadingIcon={Mail}
+                loading={magicLinkPending}
+                onClick={() => {
+                  emailMethod.current = "link"
+                }}
+              >
+                {m.auth_continue_with_email_button()}
+              </Button>
+              <Button
+                type="submit"
+                variant="tertiary"
+                size="lg"
+                className="w-full"
+                loading={codeSending}
+                onClick={() => {
+                  emailMethod.current = "code"
+                }}
+              >
+                {m.auth_email_code_button()}
+              </Button>
+            </form>
+          )}
 
           {magicLinkSent ? (
             <p className="text-center text-xs leading-5 text-muted-foreground">
