@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "motion/react"
 import { useState } from "react"
 
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
+import { useProjectCan } from "@/lib/access"
 import { transitions } from "@/lib/springs"
 import { MentionScopeProvider } from "@/mentions/scope"
 import { m } from "@/paraglide/messages"
@@ -28,6 +29,7 @@ export function CommentsSection({
   const req = commentsRequest(orgSlug, slug, ticketId)
   const result = useAtomValue(comments(req))
   const project = useProject()
+  const canComment = useProjectCan()("ticketComments", "create")
   const [collapsed, setCollapsed] = useState(false)
   const [showAll, setShowAll] = useState(false)
 
@@ -72,13 +74,15 @@ export function CommentsSection({
               transition={transitions.layout}
               className="overflow-y-clip"
             >
-              <div className="mb-3">
-                <CommentComposer
-                  orgSlug={orgSlug}
-                  slug={slug}
-                  ticketId={ticketId}
-                />
-              </div>
+              {canComment && (
+                <div className="mb-3">
+                  <CommentComposer
+                    orgSlug={orgSlug}
+                    slug={slug}
+                    ticketId={ticketId}
+                  />
+                </div>
+              )}
               <div className="space-y-3">
                 {Result.isSuccess(result) && total === 0 && (
                   <p className="text-sm text-muted-foreground">

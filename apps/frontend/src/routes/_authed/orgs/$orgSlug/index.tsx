@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { Project } from "@pp/shared"
+import { canCallOrg, type Project } from "@pp/shared"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -19,6 +19,7 @@ import { PageContainer, PageHeader } from "@/components/page"
 import { ProjectBanner } from "@/components/ProjectBanner"
 import { ProjectTile as ProjectIconTile } from "@/components/ProjectTile"
 import { me } from "@/features/auth/atoms/auth"
+import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
 import {
   project,
   projectRequest,
@@ -125,6 +126,10 @@ function Dashboard() {
   }
   const viewer = useAtomValue(me())
   const list = useAtomValue(projectsFor(projectsRequest(orgSlug)))
+  const org = useAtomValue(orgDetail(orgRequest(orgSlug)))
+  const canCreate =
+    Result.isSuccess(org) && canCallOrg(org.value.role)("projects", "create")
+  const createCta = canCreate ? <NewProjectCTA orgSlug={orgSlug} /> : null
   const name = Result.isSuccess(viewer)
     ? viewer.value.name.split(" ")[0]
     : m.org_dashboard_greeting_fallback_name()
@@ -141,13 +146,17 @@ function Dashboard() {
         <div className="flex flex-col gap-6 @5xl/dashboard:gap-12">
           {Result.matchWithError(list, {
             onInitial: () => <TilesSkeleton />,
-            onError: () => <NewProjectCTA orgSlug={orgSlug} />,
-            onDefect: () => <NewProjectCTA orgSlug={orgSlug} />,
+            onError: () => createCta,
+            onDefect: () => createCta,
             onSuccess: ({ value }) =>
               value.length === 0 ? (
-                <NewProjectCTA orgSlug={orgSlug} />
+                createCta
               ) : (
-                <RecentProjects orgSlug={orgSlug} projects={value} />
+                <RecentProjects
+                  orgSlug={orgSlug}
+                  projects={value}
+                  canCreate={canCreate}
+                />
               )
           })}
           <div className="grid grid-cols-[minmax(0,1fr)] gap-6 @5xl/dashboard:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] @5xl/dashboard:items-start @5xl/dashboard:gap-12">
@@ -175,10 +184,12 @@ function greet(): string {
 
 function RecentProjects({
   orgSlug,
-  projects
+  projects,
+  canCreate
 }: {
   orgSlug: string
   projects: ReadonlyArray<Project>
+  canCreate: boolean
 }) {
   const sorted = [...projects].toSorted(
     (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
@@ -206,7 +217,9 @@ function RecentProjects({
         {top.map((p) => (
           <ProjectTile key={p.slug} orgSlug={orgSlug} project={p} />
         ))}
-        <NewProjectTile orgSlug={orgSlug} compact={top.length > 0} />
+        {canCreate && (
+          <NewProjectTile orgSlug={orgSlug} compact={top.length > 0} />
+        )}
       </div>
 
       {hasMore && (

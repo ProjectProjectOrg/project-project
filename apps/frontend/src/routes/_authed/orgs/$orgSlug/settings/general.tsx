@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { canCallOrg } from "@pp/shared"
 import type { OrgDetail } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
@@ -39,7 +40,7 @@ function GeneralForm({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
   const req = orgRequest(orgSlug)
   const rename = useAtomSet(renameOrg(req), { mode: "promiseExit" })
   const renameState = useAtomValue(renameOrg(req))
-  const canEdit = org.role === "owner" || org.role === "admin"
+  const canEdit = canCallOrg(org.role)("org", "rename")
   const [name, setName] = useState(org.name)
 
   useEffect(() => setName(org.name), [org.name])

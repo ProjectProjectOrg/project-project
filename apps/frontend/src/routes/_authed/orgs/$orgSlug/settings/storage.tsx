@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { canCallOrg } from "@pp/shared"
 import type { OrgDetail, OrgStorageStatus } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
@@ -69,7 +70,7 @@ function StorageForm({
   status: OrgStorageStatus
   waiting: boolean
 }) {
-  const canEdit = role === "owner" || role === "admin"
+  const canEdit = canCallOrg(role)("storage", "connect")
 
   if (!canEdit) {
     return (

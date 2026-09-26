@@ -84,12 +84,33 @@ export function TicketGitChip({
   slug: string
   ticket: Pick<Ticket, "id" | "gitState">
 }) {
-  const { state, waiting } = useGitState(orgSlug, slug, ticket)
   const projectResult = useAtomValue(project(projectRequest(orgSlug, slug)))
   const github = Result.isSuccess(projectResult)
     ? projectResult.value.github
     : null
   if (!github) return <span aria-hidden />
+  return (
+    <ConnectedGitChip
+      orgSlug={orgSlug}
+      slug={slug}
+      ticket={ticket}
+      github={github}
+    />
+  )
+}
+
+function ConnectedGitChip({
+  orgSlug,
+  slug,
+  ticket,
+  github
+}: {
+  orgSlug: string
+  slug: string
+  ticket: Pick<Ticket, "id" | "gitState">
+  github: GithubConnection
+}) {
+  const { state, waiting } = useGitState(orgSlug, slug, ticket)
   if (!state || state.tag === "no_branch") return <span aria-hidden />
   const pending = state.tag === "branch_pending" || state.tag === "pr_pending"
   const pulse = (waiting || pending) && "animate-pulse"

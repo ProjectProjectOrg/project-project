@@ -1,3 +1,4 @@
+import { Project } from "@pp/access/roles"
 import { UserId, type Comment, type User } from "@pp/shared"
 import { cleanup, render, screen } from "@testing-library/react"
 import * as DateTime from "effect/DateTime"
@@ -21,6 +22,12 @@ vi.mock("@effect/atom-react", () => ({
 }))
 
 vi.mock("@/features/auth/atoms/auth", () => ({ me: () => "me" }))
+vi.mock("@/lib/access", () => ({
+  useProjectActor: () => ({
+    userId: state.me?.id ?? "",
+    permissions: Project.developer
+  })
+}))
 vi.mock("@/features/comments/atoms/comments", () => ({
   commentsRequest: () => "comment-key",
   deleteComment: () => "delete",
