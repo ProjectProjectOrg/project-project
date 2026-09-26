@@ -15,6 +15,7 @@
   "auth_email_code_sent": "We emailed a 6-digit code to {email}.",
   "auth_email_code_submit_button": "Sign in",
   "auth_email_code_too_many_attempts": "Too many wrong codes. Send a new code and try again.",
+  "auth_email_code_verify_error": "Couldn’t sign you in. Try again.",
   "auth_email_placeholder": "Email address",
   "auth_google_sign_in_error": "Couldn't start Google sign-in.",
   "auth_invite_accept_error": "Couldn't accept this invitation. Try again.",

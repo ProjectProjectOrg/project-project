@@ -2,6 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as Atom from "effect/unstable/reactivity/Atom"
 import { Mail } from "lucide-react"
 import { useState } from "react"
 
@@ -36,11 +37,12 @@ export function SignInWithEmail({ callbackURL }: SignInWithEmailProps) {
   const sendLink = useAtomSet(sendMagicLink, { mode: "promiseExit" })
   const sendCode = useAtomSet(sendSignInCode, { mode: "promiseExit" })
   const verify = useAtomSet(signInWithCode, { mode: "promiseExit" })
+  const resetVerify = useAtomSet(signInWithCode)
   const linkState = useAtomValue(sendMagicLink)
   const codeState = useAtomValue(sendSignInCode)
   const verifyState = useAtomValue(signInWithCode)
   const [step, setStep] = useState<"email" | "code">("email")
-  const sentTo = AsyncResult.isSuccess(codeState) ? codeState.value : ""
+  const sentTo = Option.getOrElse(AsyncResult.value(codeState), () => "")
   const busy = linkState.waiting || codeState.waiting || verifyState.waiting
 
   const form = useAppForm({
@@ -68,15 +70,21 @@ export function SignInWithEmail({ callbackURL }: SignInWithEmailProps) {
     form.setFieldValue("method", method)
   }
 
+  const resend = () => {
+    resetVerify(Atom.Reset)
+    void sendCode(sentTo)
+  }
+
   const changeEmail = () => {
+    resetVerify(Atom.Reset)
     form.setFieldValue("code", "")
     setStep("email")
   }
 
   if (step === "code") {
     const error =
-      failureMessage(verifyState, m.auth_email_code_invalid(), (failure) =>
-        signInErrorMessage(failure, m.auth_email_code_invalid())
+      failureMessage(verifyState, m.auth_email_code_verify_error(), (failure) =>
+        signInErrorMessage(failure, m.auth_email_code_verify_error())
       ) ??
       failureMessage(codeState, m.auth_email_code_send_error(), (failure) =>
         signInErrorMessage(failure, m.auth_email_code_send_error())
@@ -130,7 +138,7 @@ export function SignInWithEmail({ callbackURL }: SignInWithEmailProps) {
           <Button
             type="button"
             variant="ghost"
-            onClick={() => void sendCode(sentTo)}
+            onClick={resend}
             loading={codeState.waiting}
             disabled={busy}
           >
