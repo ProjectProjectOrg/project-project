@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema"
 
-import { AssignableRole, Slug } from "./Project"
+import { Slug } from "./Project"
 
 export const ORG_DELETE_GRACE_DAYS = 14
 
@@ -78,14 +78,17 @@ export const InviteEmail = Schema.String.pipe(
 )
 export type InviteEmail = typeof InviteEmail.Type
 
+export const OrgAssignableRole = Schema.Literals(["admin", "member"])
+export type OrgAssignableRole = typeof OrgAssignableRole.Type
+
 export const InviteMemberInput = Schema.Struct({
   email: InviteEmail,
-  role: AssignableRole
+  role: OrgAssignableRole
 })
 export type InviteMemberInput = typeof InviteMemberInput.Type
 
 export const UpdateMemberRoleInput = Schema.Struct({
-  role: AssignableRole
+  role: OrgAssignableRole
 })
 export type UpdateMemberRoleInput = typeof UpdateMemberRoleInput.Type
 

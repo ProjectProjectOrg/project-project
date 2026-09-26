@@ -308,7 +308,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         Layer.mergeAll(
           ticketDocs,
           Layer.mock(Projects, {
-            requireMember: () => Effect.succeed({ role: "member" as const })
+            requireMember: () => Effect.succeed({ role: "developer" as const })
           }),
           Layer.mock(TicketIndex, {}),
           Layer.mock(Users, {

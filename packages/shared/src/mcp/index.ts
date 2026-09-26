@@ -605,7 +605,7 @@ export const McpTools = {
       "in sync on every write and reconciled on backend boot, so this repair " +
       "action is only needed when drift is suspected. The rebuild is " +
       "transactional (the project's rows are replaced atomically) and " +
-      "idempotent. Requires an owner or admin role on the project. Returns " +
+      "idempotent. Requires the PM role on the project. Returns " +
       "the drift that was detected (ticket ids `missing` from the index, " +
       "`orphaned` rows with no backing document, and `stale` rows whose " +
       "content was out of date), the number of documents `indexed`, the " +

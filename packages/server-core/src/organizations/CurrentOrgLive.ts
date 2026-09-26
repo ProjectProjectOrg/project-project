@@ -21,7 +21,7 @@
 
 import { Db } from "@pp/db"
 import { member, organization } from "@pp/db/schema"
-import { NotFound, Role } from "@pp/shared"
+import { NotFound, OrgRole } from "@pp/shared"
 import { and, eq, isNull } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -29,7 +29,7 @@ import * as Schema from "effect/Schema"
 
 import { CurrentOrg, type CurrentOrgShape } from "./CurrentOrg"
 
-const makeRole = Schema.decodeUnknownSync(Role)
+const makeRole = Schema.decodeUnknownSync(OrgRole)
 
 export const CurrentOrgLive = Layer.effect(
   CurrentOrg,
@@ -40,7 +40,7 @@ export const CurrentOrgLive = Layer.effect(
       orgSlug: string,
       userId: string
     ): Effect.Effect<
-      { organizationId: string; orgSlug: string; role: Role },
+      { organizationId: string; orgSlug: string; role: OrgRole },
       NotFound
     > =>
       db

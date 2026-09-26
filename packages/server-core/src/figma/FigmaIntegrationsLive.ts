@@ -15,6 +15,7 @@ import {
   FigmaNotConnected,
   Forbidden,
   NotFound,
+  Role,
   StorageNotConnected,
   type FigmaProjectIntegrationStatus,
   type PersonalFigma
@@ -42,6 +43,8 @@ import {
   isTokenExpired,
   type FigmaIntegrationsShape
 } from "./FigmaIntegrations"
+
+const makeProjectRole = Schema.decodeUnknownSync(Role)
 
 export const FIGMA_SCOPES =
   "current_user:read file_content:read file_metadata:read file_dev_resources:read file_dev_resources:write"
@@ -553,17 +556,17 @@ export const FigmaIntegrationsLive = Layer.effect(
         const project = yield* projectRow(orgSlug, slug)
         const explicit = yield* db.query.projectMember
           .findFirst({
-            columns: { role: true },
+            columns: { roleId: true },
             where: {
               RAW: (table, operators) =>
                 operators.and(
-                  operators.eq(table.projectSlug, slug),
+                  operators.eq(table.projectId, project.projectId),
                   operators.eq(table.userId, userId)
                 )!
             }
           })
           .pipe(Effect.orDie)
-        if (explicit) return explicit.role
+        if (explicit) return makeProjectRole(explicit.roleId)
         const orgRole = yield* db.query.member
           .findFirst({
             columns: { role: true },
@@ -577,7 +580,7 @@ export const FigmaIntegrationsLive = Layer.effect(
           })
           .pipe(Effect.orDie)
         if (orgRole?.role === "owner" || orgRole?.role === "admin") {
-          return "admin" as const
+          return "pm" as const
         }
         return yield* new NotFound()
       })
@@ -585,7 +588,7 @@ export const FigmaIntegrationsLive = Layer.effect(
     const requireAdmin = (orgSlug: string, userId: string, slug: string) =>
       Effect.gen(function* () {
         const role = yield* requireMember(orgSlug, userId, slug)
-        if (role !== "owner" && role !== "admin") {
+        if (role !== "pm") {
           return yield* new Forbidden()
         }
       })

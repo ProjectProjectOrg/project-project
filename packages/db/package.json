@@ -27,6 +27,7 @@
     "pg": "^8.20.0"
   },
   "devDependencies": {
+    "@effect/platform-bun": "4.0.0-rc.116",
     "@effect/vitest": "4.0.0-rc.116",
     "@types/pg": "^8.20.0",
     "better-auth": "1.7.3",

@@ -27,8 +27,8 @@ it("builds the public project visibility predicate", () => {
 })
 
 for (const scenario of [
-  { projectRole: "owner", orgRole: null, allowed: true, queries: 4 },
-  { projectRole: "member", orgRole: "member", allowed: true, queries: 5 },
+  { projectRole: "pm", orgRole: null, allowed: true, queries: 4 },
+  { projectRole: "developer", orgRole: "member", allowed: true, queries: 5 },
   { projectRole: null, orgRole: "admin", allowed: true, queries: 5 },
   { projectRole: null, orgRole: "member", allowed: false, queries: 4 }
 ] as const) {
@@ -62,7 +62,7 @@ for (const scenario of [
                     query(
                       "project-member",
                       scenario.projectRole
-                        ? { role: scenario.projectRole }
+                        ? { roleId: scenario.projectRole }
                         : undefined
                     )
                 },

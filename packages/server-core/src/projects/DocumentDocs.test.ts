@@ -562,10 +562,10 @@ it.effect("ProjectDocs reads project frontmatter with typed defaults", () =>
       org: "org",
       slug: "project",
       name: "Project",
-      members: [],
       github: null,
       body: "# Project\n"
     })
+    expect("members" in document).toBe(false)
     expect(document.createdAt.toISOString()).toBe("2026-05-01T00:00:00.000Z")
   }).pipe(
     Effect.provide(
@@ -578,7 +578,8 @@ it.effect("ProjectDocs reads project frontmatter with typed defaults", () =>
                   org: "org",
                   slug: "project",
                   name: "Project",
-                  createdAt: "2026-05-01T00:00:00.000Z"
+                  createdAt: "2026-05-01T00:00:00.000Z",
+                  members: [{ username: "wouter", role: "owner" }]
                 },
                 body: "# Project\n"
               })
@@ -611,7 +612,6 @@ it.effect(
         color: "#53a0ff",
         createdBy: "user-1",
         createdAt: isoDate("2026-05-02T00:00:00.000Z"),
-        members: [{ username: "wouter", role: "owner" }],
         github: {
           repoId: "repo-1",
           repoOwner: "wouter",
@@ -637,7 +637,6 @@ it.effect(
           color: "#53a0ff",
           createdBy: "user-1",
           createdAt: "2026-05-02T00:00:00.000Z",
-          members: [{ username: "wouter", role: "owner" }],
           github: {
             repoId: "repo-1",
             repoOwner: "wouter",

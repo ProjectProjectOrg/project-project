@@ -146,7 +146,7 @@ export const GroupsLive = Layer.effect(
     ): Effect.Effect<void, NotFound | Forbidden> =>
       Effect.gen(function* () {
         if (ADMIN_GATED_KINDS.has(kind)) {
-          yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
+          yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
         } else {
           yield* projects.requireMember(orgSlug, userId, slug)
         }

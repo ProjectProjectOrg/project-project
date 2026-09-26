@@ -101,7 +101,7 @@ const benchmarkProject = decodeProjectDetail({
       name: "Benchmark User",
       email: "benchmark@example.com",
       image: null,
-      role: "owner"
+      role: "pm"
     }
   ],
   pendingMembers: []
@@ -355,11 +355,10 @@ const FakeProjects = Layer.succeed(Projects, {
   update: () => unexpected("Projects.update"),
   updateSetup: () => unexpected("Projects.updateSetup"),
   remove: () => unexpected("Projects.remove"),
-  requireMember: () => Effect.succeed({ role: "member" as const }),
+  requireMember: () => Effect.succeed({ role: "developer" as const }),
   requireRole: () => unexpected("Projects.requireRole"),
   addMember: () => unexpected("Projects.addMember"),
   updateMember: () => unexpected("Projects.updateMember"),
-  transferOwnership: () => unexpected("Projects.transferOwnership"),
   removeMember: () => unexpected("Projects.removeMember"),
   cancelPendingMember: () => unexpected("Projects.cancelPendingMember"),
   unassignUserFromActiveTickets: () =>

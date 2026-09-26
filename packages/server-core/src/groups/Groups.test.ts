@@ -302,7 +302,7 @@ function unexpectedProjectCall(method: string): Effect.Effect<never> {
 }
 
 function makeFakeProjects(opts: { role?: Role } = {}) {
-  const role = opts.role ?? "member"
+  const role = opts.role ?? "developer"
   const service = {
     list: () => Effect.succeed([]),
     listPaged: () => unexpectedProjectCall("listPaged"),
@@ -326,7 +326,6 @@ function makeFakeProjects(opts: { role?: Role } = {}) {
     remove: () => unexpectedProjectCall("remove"),
     addMember: () => unexpectedProjectCall("addMember"),
     updateMember: () => unexpectedProjectCall("updateMember"),
-    transferOwnership: () => unexpectedProjectCall("transferOwnership"),
     removeMember: () => unexpectedProjectCall("removeMember"),
     cancelPendingMember: () => unexpectedProjectCall("cancelPendingMember"),
     unassignUserFromActiveTickets: () =>
@@ -364,7 +363,7 @@ it.effect("create + list returns the new group", () =>
     const list = yield* groups.list("org", "user-1", "p")
     expect(list).toHaveLength(1)
     expect(list[0].name).toBe("Backlog cleanup")
-  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
 it.effect("create with kind=sprint fails for non-admin member", () =>
@@ -380,7 +379,7 @@ it.effect("create with kind=sprint fails for non-admin member", () =>
     if (result._tag === "Failure") {
       expect(result.failure._tag).toBe("Forbidden")
     }
-  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
 it.effect("create with kind=sprint succeeds for admin", () =>
@@ -391,7 +390,7 @@ it.effect("create with kind=sprint succeeds for admin", () =>
       kind: "sprint"
     })
     expect(created.kind).toBe("sprint")
-  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "admin" })))
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "pm" })))
 )
 
 it.effect("updateTickets rejects unknown ticket ids", () =>
@@ -410,7 +409,9 @@ it.effect("updateTickets rejects unknown ticket ids", () =>
       expect(result.failure._tag).toBe("NotFound")
     }
   }).pipe(
-    Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "member" }))
+    Effect.provide(
+      makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "developer" })
+    )
   )
 )
 
@@ -427,7 +428,9 @@ it.effect("updateTickets returns NotFound before validating tickets", () =>
       expect(result.failure._tag).toBe("NotFound")
     }
   }).pipe(
-    Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "member" }))
+    Effect.provide(
+      makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "developer" })
+    )
   )
 )
 
@@ -445,7 +448,7 @@ it.effect("create rejects endsAt before startsAt", () =>
     if (result._tag === "Failure") {
       expect(result.failure._tag).toBe("Validation")
     }
-  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
 it.effect("update rejects endsAt before existing startsAt", () =>
@@ -465,7 +468,7 @@ it.effect("update rejects endsAt before existing startsAt", () =>
     if (result._tag === "Failure") {
       expect(result.failure._tag).toBe("Validation")
     }
-  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
 it.effect("update rejects completedAt in the future", () =>
@@ -484,7 +487,7 @@ it.effect("update rejects completedAt in the future", () =>
     if (result._tag === "Failure") {
       expect(result.failure._tag).toBe("Validation")
     }
-  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
 it.effect("update rejects completedAt before startsAt", () =>
@@ -504,7 +507,7 @@ it.effect("update rejects completedAt before startsAt", () =>
     if (result._tag === "Failure") {
       expect(result.failure._tag).toBe("Validation")
     }
-  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
 it.effect(
@@ -547,7 +550,7 @@ it.effect(
       expect(epicAfter.tickets).toEqual(["T-1"])
     }).pipe(
       Effect.provide(
-        makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "admin" })
+        makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "pm" })
       )
     )
 )
@@ -577,7 +580,7 @@ it.effect(
         expect(result.failure._tag).toBe("SprintCompletedImmutable")
       }
     }).pipe(
-      Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "admin" }))
+      Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "pm" }))
     )
 )
 
@@ -619,7 +622,7 @@ it.effect(
       )
       expect(completedAfter.tickets).toEqual(["T-1"])
     }).pipe(
-      Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "admin" }))
+      Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "pm" }))
     )
 )
 
@@ -655,7 +658,7 @@ it.effect(
               "T-3": ticketStatus("in_progress")
             }
           },
-          { role: "admin" }
+          { role: "pm" }
         )
       )
     )
@@ -707,7 +710,7 @@ it.effect(
               "T-4": ticketStatus("todo")
             }
           },
-          { role: "admin" }
+          { role: "pm" }
         )
       )
     )
@@ -739,9 +742,7 @@ it.effect(
       if (result._tag === "Failure") {
         expect(result.failure._tag).toBe("SprintCompletedImmutable")
       }
-    }).pipe(
-      Effect.provide(makeGroupsLayer({ ticketIds: [] }, { role: "admin" }))
-    )
+    }).pipe(Effect.provide(makeGroupsLayer({ ticketIds: [] }, { role: "pm" })))
 )
 
 it.effect(
@@ -776,9 +777,7 @@ it.effect(
       if (result._tag === "Failure") {
         expect(result.failure._tag).toBe("SprintCompletedImmutable")
       }
-    }).pipe(
-      Effect.provide(makeGroupsLayer({ ticketIds: [] }, { role: "admin" }))
-    )
+    }).pipe(Effect.provide(makeGroupsLayer({ ticketIds: [] }, { role: "pm" })))
 )
 
 it.effect("complete fails with Validation when source is not a sprint", () =>
@@ -799,7 +798,7 @@ it.effect("complete fails with Validation when source is not a sprint", () =>
     if (result._tag === "Failure") {
       expect(result.failure._tag).toBe("Validation")
     }
-  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "admin" })))
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "pm" })))
 )
 
 it.effect(
@@ -828,7 +827,7 @@ it.effect(
       if (result._tag === "Failure") {
         expect(result.failure._tag).toBe("Validation")
       }
-    }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "admin" })))
+    }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "pm" })))
 )
 
 it.effect("complete fails for non-admin members", () =>
@@ -844,7 +843,7 @@ it.effect("complete fails for non-admin members", () =>
     if (result._tag === "Failure") {
       expect(["Forbidden", "NotFound"]).toContain(result.failure._tag)
     }
-  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
 it.effect("updateTicketOrder reorders within the same status", () =>
@@ -864,7 +863,10 @@ it.effect("updateTicketOrder reorders within the same status", () =>
     expect(updated.tickets).toEqual(["T-2", "T-1", "T-3"])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "member" })
+      makeGroupsLayer(
+        { ticketIds: ["T-1", "T-2", "T-3"] },
+        { role: "developer" }
+      )
     )
   )
 )
@@ -886,7 +888,10 @@ it.effect("updateTicketOrder places at the start when after is null", () =>
     expect(updated.tickets).toEqual(["T-3", "T-1", "T-2"])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "member" })
+      makeGroupsLayer(
+        { ticketIds: ["T-1", "T-2", "T-3"] },
+        { role: "developer" }
+      )
     )
   )
 )
@@ -920,7 +925,7 @@ it.effect("updateTicketOrder patches ticket status when provided", () =>
             "T-2": ticketStatus("in_progress")
           }
         },
-        { role: "member" }
+        { role: "developer" }
       )
     )
   )
@@ -945,7 +950,7 @@ it.effect("updateTicketOrder rejects when ticket is not in the group", () =>
     }
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "member" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "developer" })
     )
   )
 )
@@ -969,7 +974,7 @@ it.effect("updateTicketOrder rejects when after refers to itself", () =>
     }
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "member" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "developer" })
     )
   )
 )
@@ -1005,7 +1010,7 @@ it.effect("updateTicketOrder rejects on completed sprint", () =>
             "T-2": ticketStatus("done")
           }
         },
-        { role: "admin" }
+        { role: "pm" }
       )
     )
   )
@@ -1055,7 +1060,7 @@ it.effect("listPaged filters by kind", () =>
             "G-3": makeSprintDoc("G-3")
           }
         },
-        { role: "admin" }
+        { role: "pm" }
       )
     )
   )
@@ -1085,7 +1090,7 @@ it.effect("listPaged active=true keeps only running sprints", () =>
             "G-3": makeSprintDoc("G-3", { kind: "epic" })
           }
         },
-        { role: "admin" }
+        { role: "pm" }
       )
     )
   )
@@ -1118,7 +1123,7 @@ it.effect("listSprintsPaged filters by state=active", () =>
             "G-4": makeSprintDoc("G-4", { kind: "epic" })
           }
         },
-        { role: "admin" }
+        { role: "pm" }
       )
     )
   )
@@ -1150,7 +1155,7 @@ it.effect("listSprintsPaged filters by state=completed", () =>
             })
           }
         },
-        { role: "admin" }
+        { role: "pm" }
       )
     )
   )
@@ -1180,7 +1185,7 @@ it.effect("listSprintsPaged with no state returns all sprints, no epics", () =>
             "G-3": makeSprintDoc("G-3", { kind: "epic" })
           }
         },
-        { role: "admin" }
+        { role: "pm" }
       )
     )
   )
@@ -1198,7 +1203,7 @@ it.effect("removeTicketFromAllGroups strips the id", () =>
     expect(after.tickets).toEqual(["T-2"])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "member" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "developer" })
     )
   )
 )
@@ -1224,7 +1229,7 @@ it.effect(
       expect(result.evicted).toEqual([])
     }).pipe(
       Effect.provide(
-        makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
+        makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "pm" })
       )
     )
 )
@@ -1244,7 +1249,7 @@ it.effect("addTickets deduplicates against current membership", () =>
     expect(result.target.tickets).toEqual(["T-1", "T-2", "T-3"])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "pm" })
     )
   )
 )
@@ -1267,7 +1272,7 @@ it.effect("addTickets deduplicates within the request payload", () =>
     expect(result.target.tickets).toEqual(["T-1", "T-2", "T-3"])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "pm" })
     )
   )
 )
@@ -1280,7 +1285,7 @@ it.effect(
       Layer.provide(fakeDocs.groupLayer),
       Layer.provide(fakeDocs.ticketLayer),
       Layer.provide(fakeDocs.ticketIndexLayer),
-      Layer.provide(makeFakeProjects({ role: "admin" })),
+      Layer.provide(makeFakeProjects({ role: "pm" })),
       Layer.provide(TicketDocumentLock.layer)
     )
     return Effect.gen(function* () {
@@ -1328,7 +1333,7 @@ it.effect("addTickets evicts overlap from other active sprints", () =>
     expect(a.tickets).toEqual(["T-1"])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "admin" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "pm" })
     )
   )
 )
@@ -1353,7 +1358,7 @@ it.effect("addTickets refuses to mutate a completed sprint", () =>
     }
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "admin" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "pm" })
     )
   )
 )
@@ -1377,7 +1382,7 @@ it.effect("addTickets serializes concurrent calls on the same project", () =>
     expect([...after.tickets].sort()).toEqual(["T-1", "T-2", "T-3"])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "pm" })
     )
   )
 )
@@ -1403,7 +1408,7 @@ it.effect(
       expect(result.evicted).toEqual([])
     }).pipe(
       Effect.provide(
-        makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
+        makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "pm" })
       )
     )
 )
@@ -1427,7 +1432,7 @@ it.effect("removeTickets is a no-op when none of the ids are members", () =>
     expect(result.evicted).toEqual([])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "admin" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "pm" })
     )
   )
 )
@@ -1453,7 +1458,7 @@ it.effect("removeTickets serializes with concurrent addTickets", () =>
     expect([...after.tickets].sort()).toEqual(["T-2", "T-3"])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "pm" })
     )
   )
 )
@@ -1477,7 +1482,7 @@ it.effect("removeTickets refuses to mutate a completed sprint", () =>
       expect(outcome.failure._tag).toBe("SprintCompletedImmutable")
     }
   }).pipe(
-    Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "admin" }))
+    Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "pm" }))
   )
 )
 
@@ -1498,7 +1503,7 @@ it.effect("setSprintMembership places a ticket at the start", () =>
     expect(updated.tickets).toEqual(["T-3", "T-1", "T-2"])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "pm" })
     )
   )
 )

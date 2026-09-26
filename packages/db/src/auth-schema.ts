@@ -9,7 +9,9 @@
 // only the *new* table definitions onto the existing customized base.
 // Don't blindly accept the CLI output.
 
+import { sql } from "drizzle-orm"
 import {
+  check,
   pgTable,
   text,
   timestamp,
@@ -125,7 +127,15 @@ export const member = pgTable(
   },
   (table) => [
     index("member_organizationId_idx").on(table.organizationId),
-    index("member_userId_idx").on(table.userId)
+    index("member_userId_idx").on(table.userId),
+    uniqueIndex("member_organization_user_uidx").on(
+      table.organizationId,
+      table.userId
+    ),
+    check(
+      "member_role_check",
+      sql`${table.role} in ('owner', 'admin', 'member', 'guest')`
+    )
   ]
 )
 
@@ -147,7 +157,11 @@ export const invitation = pgTable(
   },
   (table) => [
     index("invitation_organizationId_idx").on(table.organizationId),
-    index("invitation_email_idx").on(table.email)
+    index("invitation_email_idx").on(table.email),
+    check(
+      "invitation_role_check",
+      sql`${table.role} is null or ${table.role} in ('owner', 'admin', 'member', 'guest')`
+    )
   ]
 )
 

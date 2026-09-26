@@ -132,7 +132,7 @@ export const AttachmentsLive = Layer.effect(
         const { organizationId } = yield* requireProject(orgSlug, userId, slug)
 
         if (ticketId === null) {
-          yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
+          yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
           if (!isRasterImageContentType(input.contentType))
             return yield* new AttachmentTypeRejected({
               contentType: input.contentType
@@ -209,7 +209,7 @@ export const AttachmentsLive = Layer.effect(
       Effect.gen(function* () {
         yield* requireProject(orgSlug, userId, slug)
         if (ticketId === null)
-          yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
+          yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
 
         const rows = yield* db
           .select()

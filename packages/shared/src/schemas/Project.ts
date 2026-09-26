@@ -7,6 +7,7 @@
 //
 // `Project` is the full record (used by list responses for now; later by /get).
 
+import { Project as ProjectAccess } from "@pp/access/roles"
 import * as Schema from "effect/Schema"
 
 import { AttachmentId } from "./Attachment"
@@ -33,11 +34,7 @@ export const ProjectKey = Schema.Union([
 ]).pipe(Schema.brand("ProjectKey"))
 export type ProjectKey = typeof ProjectKey.Type
 
-// Three-tier role model (spec §"Permission model").
-//   owner  — created the project. Sole role with delete + role-change rights.
-//   admin  — can manage members; can edit everything.
-//   member — read/write tickets and the project body.
-export const Role = Schema.Literals(["owner", "admin", "member"])
+export const Role = ProjectAccess.ProjectRoleName
 export type Role = typeof Role.Type
 
 export const ProjectIcon = Schema.String.pipe(
@@ -53,10 +50,7 @@ export const ProjectColor = Schema.String.pipe(
 )
 export type ProjectColor = typeof ProjectColor.Type
 
-// A role assignable through the API. Owner is set on create and transferred
-// only via a future "transfer ownership" flow; we don't expose it as a value
-// the user can pick from a dropdown.
-export const AssignableRole = Schema.Literals(["admin", "member"])
+export const AssignableRole = Schema.Literals(["pm", "developer"])
 export type AssignableRole = typeof AssignableRole.Type
 
 // Wire shape for a project member. Includes everything the UI needs to
@@ -218,9 +212,8 @@ export type CreateProjectInput = typeof CreateProjectInput.Type
 
 // Returned by GET /projects/:slug. The list endpoint stays index-shaped (no
 // body); this one carries the markdown body so the detail view can render it
-// without a second round trip. `members` reflects the frontmatter source of
-// truth; `createdBy` is the immutable creator of the project (audit only —
-// the owner-role member in `members` is the current owner and may differ).
+// without a second round trip. `createdBy` is the immutable creator of the
+// project, kept for audit only.
 // `github` is the connection block from project.md; null when no repo is
 // connected.
 export const ProjectDetail = Schema.Struct({
@@ -246,11 +239,6 @@ export const UpdateMemberInput = Schema.Struct({
   role: AssignableRole
 })
 export type UpdateMemberInput = typeof UpdateMemberInput.Type
-
-export const TransferOwnershipInput = Schema.Struct({
-  userId: Schema.String
-})
-export type TransferOwnershipInput = typeof TransferOwnershipInput.Type
 
 // Partial update payload. Both fields optional — the client sends only what
 // changed. Empty object is allowed but a no-op on the server.

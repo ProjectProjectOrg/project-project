@@ -29,8 +29,7 @@ function WorkflowSettings() {
   const req = projectRequest(orgSlug, project.slug)
   const update = useAtomSet(updateProjectSetup(req))
   const updateState = useAtomValue(updateProjectSetup(req))
-  const { role } = useProjectRole()
-  const canEdit = role === "owner" || role === "admin"
+  const { isPm: canEdit } = useProjectRole()
   const reviewedAt = project.setup.workflowReviewedAt
 
   return (

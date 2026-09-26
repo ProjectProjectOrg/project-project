@@ -879,7 +879,10 @@ export const publishJiraMigrationAtomically = Effect.fn(
         if (plan.indexes.members.length > 0)
           yield* tx.insert(projectMember).values(
             plan.indexes.members.map((row) => ({
-              ...row,
+              projectId: row.projectId,
+              organizationId: migration.organizationId,
+              userId: row.userId,
+              roleId: row.role === "owner" ? "pm" : "developer",
               createdAt: toDate(row.createdAt)
             }))
           )
@@ -1562,8 +1565,7 @@ export const writeJiraStagedDocuments = Effect.fn("JiraImport.writeDocuments")(
     deps: JiraImportDependencies,
     orgSlug: string,
     ownerId: string,
-    plan: JiraPublicationPlan,
-    members: ReadonlyArray<JiraImportMember>
+    plan: JiraPublicationPlan
   ) {
     const now = yield* DateTime.nowAsDate
     const identity = deriveProjectIdentity(plan.project.slug)
@@ -1576,7 +1578,6 @@ export const writeJiraStagedDocuments = Effect.fn("JiraImport.writeDocuments")(
       color: identity.color,
       createdBy: ownerId,
       createdAt: now,
-      members: members.map(({ username, role }) => ({ username, role })),
       github: null,
       setup: {
         workflowReviewedAt: null,

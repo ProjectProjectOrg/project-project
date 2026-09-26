@@ -1,4 +1,4 @@
-import { Conflict, ProjectOwnerRemovalBlocked, Validation } from "@pp/shared"
+import { Conflict, LastProjectPmBlocked, Validation } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import { describe, expect, it } from "vitest"
 
@@ -7,7 +7,7 @@ import { orgActionError, orgActionErrorFromExit } from "./orgErrors"
 describe("orgActionError", () => {
   it("surfaces project slugs for a blocked owner removal", () => {
     const result = orgActionError({
-      code: "PROJECT_OWNER_REMOVAL_BLOCKED",
+      code: "LAST_PROJECT_PM_BLOCKED",
       projectSlugs: ["alpha", "beta"]
     })
     expect(result.projectSlugs).toEqual(["alpha", "beta"])
@@ -50,7 +50,7 @@ describe("orgActionError", () => {
 
   it("surfaces project slugs from the tagged removal block", () => {
     const result = orgActionError(
-      new ProjectOwnerRemovalBlocked({ projectSlugs: ["alpha", "beta"] })
+      new LastProjectPmBlocked({ projectSlugs: ["alpha", "beta"] })
     )
     expect(result.projectSlugs).toEqual(["alpha", "beta"])
     expect(result.message).not.toBe(
@@ -60,7 +60,7 @@ describe("orgActionError", () => {
 
   it("unwraps a tagged removal block from a failed exit", () => {
     const result = orgActionErrorFromExit(
-      Exit.fail(new ProjectOwnerRemovalBlocked({ projectSlugs: ["alpha"] }))
+      Exit.fail(new LastProjectPmBlocked({ projectSlugs: ["alpha"] }))
     )
     expect(result?.projectSlugs).toEqual(["alpha"])
   })
@@ -80,7 +80,7 @@ describe("orgActionErrorFromExit", () => {
   it("unwraps a wrapped better-auth error (UnknownException shape)", () => {
     const exit = Exit.fail({
       _tag: "UnknownException",
-      error: { code: "PROJECT_OWNER_REMOVAL_BLOCKED", projectSlugs: ["x"] }
+      error: { code: "LAST_PROJECT_PM_BLOCKED", projectSlugs: ["x"] }
     })
     const result = orgActionErrorFromExit(exit)
     expect(result?.projectSlugs).toEqual(["x"])
