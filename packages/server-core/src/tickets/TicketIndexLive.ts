@@ -81,9 +81,7 @@ const ticketIndexRowFor = (
   document: TicketDocument
 ): typeof ticketIndex.$inferInsert => ({
   organizationId: project.organizationId,
-  orgSlug: project.orgSlug,
   projectId: project.projectId,
-  projectSlug: project.projectSlug,
   ticketId: document.id,
   title: document.title,
   status: document.status,
@@ -113,7 +111,7 @@ const commentIndexRowsForDocument = (
 ): ReadonlyArray<typeof commentIndex.$inferInsert> =>
   parseCommentsRegion(document.commentsRegion).map((comment) => ({
     id: comment.id,
-    projectSlug: project.projectSlug,
+    projectId: project.projectId,
     ticketId: document.id,
     origin: comment.origin,
     authorKind: comment.author.kind,
@@ -765,7 +763,7 @@ export const TicketIndexLive = Layer.effect(
       if (projects.length === 0) return Effect.succeed([])
       const viewerComments = and(
         eq(commentIndex.authorId, options.viewerId),
-        eq(commentIndex.projectSlug, ticketIndex.projectSlug),
+        eq(commentIndex.projectId, ticketIndex.projectId),
         eq(commentIndex.ticketId, ticketIndex.ticketId)
       )
       const lastCommentAt = drizzleSql<Date | null>`(
@@ -993,14 +991,19 @@ export const TicketIndexLive = Layer.effect(
     > =>
       db
         .select({
-          orgSlug: ticketIndex.orgSlug,
+          orgSlug: organization.slug,
           organizationId: ticketIndex.organizationId,
           projectId: ticketIndex.projectId,
-          projectSlug: ticketIndex.projectSlug,
+          projectSlug: projectIndex.slug,
           ticketId: ticketIndex.ticketId,
           branch: ticketIndex.branch
         })
         .from(ticketIndex)
+        .innerJoin(projectIndex, eq(projectIndex.id, ticketIndex.projectId))
+        .innerJoin(
+          organization,
+          eq(organization.id, ticketIndex.organizationId)
+        )
         .where(
           and(
             eq(ticketIndex.projectId, projectId),
@@ -1252,7 +1255,7 @@ export const TicketIndexLive = Layer.effect(
             }
             yield* db
               .delete(commentIndex)
-              .where(eq(commentIndex.projectSlug, project.projectSlug))
+              .where(eq(commentIndex.projectId, project.projectId))
               .pipe(Effect.asVoid, Effect.orDie)
             if (comments.length > 0) {
               yield* db

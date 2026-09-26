@@ -378,7 +378,7 @@ const servingRow = {
   id: "att-1",
   organizationId: "org-1",
   orgSlug: "acme",
-  projectSlug: "apollo",
+  projectId: "project-1",
   ticketId: "T-1",
   objectKey: "orgs/acme/projects/apollo/tickets/T-1/att-1-shot.png",
   filename: "shot.png",
@@ -397,7 +397,8 @@ const servingDb = Layer.succeed(Db, {
       const query = {
         leftJoin: () => query,
         where: () => ({
-          limit: () => Effect.succeed([{ attachment: servingRow }])
+          limit: () =>
+            Effect.succeed([{ row: servingRow, projectSlug: "apollo" }])
         })
       }
       return query
@@ -686,47 +687,43 @@ const listHarness = (input: {
   const layer = AttachmentsLive.pipe(
     Layer.provide(
       Layer.succeed(Db, {
-        select: (shape?: Record<string, unknown>) => ({
-          from: () => {
-            const query = {
-              leftJoin: () => query,
-              innerJoin: () => query,
-              where: (cond: unknown) => {
-                capture.where = cond
-                const isReferenceQuery =
-                  shape !== undefined && "attachmentId" in shape
-                const isSummaryQuery =
-                  shape !== undefined && "objectKey" in shape
-                const settled = Effect.succeed(
-                  isReferenceQuery
-                    ? (input.references ?? [])
-                    : isSummaryQuery
-                      ? rows
-                      : [{ total: input.total ?? 0 }]
-                ) as unknown as Record<string, unknown>
-                settled["orderBy"] = () => ({
-                  limit: (n: number) => {
-                    capture.limit = n
-                    return {
-                      offset: (o: number) => {
-                        capture.offset = o
-                        return Effect.succeed(
-                          rows.map((row) => ({ attachment: row }))
-                        )
-                      }
+        select: (shape?: Record<string, unknown>) => {
+          const listed = rows.map((row) => ({ row, projectSlug: "apollo" }))
+          const chain = {
+            leftJoin: () => chain,
+            innerJoin: () => chain,
+            where: (cond: unknown) => {
+              capture.where = cond
+              const isReferenceQuery =
+                shape !== undefined && "attachmentId" in shape
+              const isSummaryQuery = shape !== undefined && "objectKey" in shape
+              const settled = Effect.succeed(
+                isReferenceQuery
+                  ? (input.references ?? [])
+                  : isSummaryQuery
+                    ? rows
+                    : [{ total: input.total ?? 0 }]
+              ) as unknown as Record<string, unknown>
+              settled["orderBy"] = () => ({
+                limit: (n: number) => {
+                  capture.limit = n
+                  return {
+                    offset: (o: number) => {
+                      capture.offset = o
+                      return Effect.succeed(listed)
                     }
                   }
-                })
-                settled["groupBy"] = (grouped: unknown) => {
-                  capture.groupBy = grouped
-                  return Effect.succeed(rows)
                 }
-                return settled
+              })
+              settled["groupBy"] = (grouped: unknown) => {
+                capture.groupBy = grouped
+                return Effect.succeed(rows)
               }
+              return settled
             }
-            return query
           }
-        })
+          return { from: () => chain }
+        }
       } as never)
     ),
     Layer.provide(stubOrgStorage),
@@ -778,7 +775,7 @@ describe("listForOrg", () => {
       )
       const where = sqlOf(capture.where)
       expect(where).toContain("status")
-      expect(where).toContain("project_slug")
+      expect(where).toContain('"project_index"."slug"')
     })
   )
 

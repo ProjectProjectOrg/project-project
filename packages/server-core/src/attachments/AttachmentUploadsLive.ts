@@ -66,7 +66,7 @@ export const AttachmentUploadsLive = Layer.effect(
         ticket: AttachmentUploads.TicketAttachmentUpload,
         userId: string
       ) {
-        yield* projects.requireMember(
+        const { projectId } = yield* projects.requireMember(
           ticket.orgSlug,
           userId,
           ticket.projectSlug
@@ -79,6 +79,7 @@ export const AttachmentUploadsLive = Layer.effect(
               MalformedTicketDocument: Effect.die
             })
           )
+        return projectId
       }
     )
 
@@ -165,7 +166,7 @@ export const AttachmentUploadsLive = Layer.effect(
             return undefined
           })
           yield* checkExpiry
-          yield* requireTicket(grant, grant.userId)
+          const projectId = yield* requireTicket(grant, grant.userId)
           const query = () =>
             db
               .select()
@@ -174,7 +175,7 @@ export const AttachmentUploadsLive = Layer.effect(
                 and(
                   eq(attachmentIndex.id, grant.attachmentId),
                   eq(attachmentIndex.orgSlug, grant.orgSlug),
-                  eq(attachmentIndex.projectSlug, grant.projectSlug),
+                  eq(attachmentIndex.projectId, projectId),
                   eq(attachmentIndex.ticketId, grant.ticketId),
                   eq(attachmentIndex.uploadedBy, grant.userId)
                 )

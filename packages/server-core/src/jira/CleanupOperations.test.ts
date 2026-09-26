@@ -188,12 +188,12 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
         )
         yield* Effect.promise(() =>
           pool.query(
-            "insert into attachment_index (id,organization_id,org_slug,project_slug,object_key,filename,content_type,byte_size,status,uploaded_by) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
+            "insert into attachment_index (id,organization_id,org_slug,project_id,object_key,filename,content_type,byte_size,status,uploaded_by) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
             [
               "attachment-" + randomUUID(),
               owner.organizationId,
               owner.organizationId,
-              slug,
+              projectId,
               "copied-object",
               "file.txt",
               "text/plain",

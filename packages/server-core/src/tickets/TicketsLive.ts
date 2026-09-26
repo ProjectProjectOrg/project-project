@@ -1,5 +1,4 @@
 import { Db } from "@pp/db"
-import { publishedProject } from "@pp/db/projectVisibility"
 import {
   AttachBranchInput,
   BranchExists,
@@ -77,6 +76,7 @@ import * as GitHub from "../github/GitHub"
 import { Groups } from "../groups/Groups"
 import { Library, type TemplateExpansion } from "../library/Library"
 import type { MarkdownError } from "../markdown/Markdown"
+import { projectInOrg } from "../projects/projectLookup"
 import { Projects } from "../projects/Projects"
 import type { ProjectGithubIntegration } from "../projects/Projects"
 import { Users } from "../users/Users"
@@ -845,24 +845,13 @@ export const TicketsLive = Layer.effect(
         )
 
     const validateTagsExist = (
+      orgSlug: string,
       slug: string,
       requested: ReadonlyArray<string>
     ): Effect.Effect<void, NotFound | Validation> =>
       Effect.gen(function* () {
         if (requested.length === 0) return
-        const projectRow = yield* db.query.projectIndex
-          .findFirst({
-            columns: { id: true },
-            where: {
-              RAW: (table, _operators) =>
-                _operators.and(
-                  _operators.eq(table.slug, slug),
-                  publishedProject(table)
-                )!
-            }
-          })
-          .pipe(Effect.orDie)
-        if (!projectRow) return yield* new NotFound()
+        const projectRow = yield* projectInOrg(db, orgSlug, slug)
         const rows = yield* db.query.projectTag
           .findMany({
             columns: { name: true },
@@ -882,23 +871,12 @@ export const TicketsLive = Layer.effect(
       })
 
     const validateStatusExists = (
+      orgSlug: string,
       slug: string,
       requested: TicketStatus
     ): Effect.Effect<void, NotFound | Validation> =>
       Effect.gen(function* () {
-        const projectRow = yield* db.query.projectIndex
-          .findFirst({
-            columns: { id: true },
-            where: {
-              RAW: (table, _operators) =>
-                _operators.and(
-                  _operators.eq(table.slug, slug),
-                  publishedProject(table)
-                )!
-            }
-          })
-          .pipe(Effect.orDie)
-        if (!projectRow) return yield* new NotFound()
+        const projectRow = yield* projectInOrg(db, orgSlug, slug)
         const rows = yield* db.query.projectStatus
           .findMany({
             columns: { slug: true },
@@ -1033,12 +1011,12 @@ export const TicketsLive = Layer.effect(
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
         if (input.status !== undefined) {
-          yield* validateStatusExists(slug, input.status)
+          yield* validateStatusExists(orgSlug, slug, input.status)
         }
         const expansion = yield* expansionFor(orgSlug, slug, input.template)
         const tags = expansion?.tags ?? []
         const body = expansion?.body ?? ""
-        yield* validateTagsExist(slug, tags)
+        yield* validateTagsExist(orgSlug, slug, tags)
         const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
         if (body !== "") {
           yield* validateBody(orgSlug, ownerId, slug, body, indexProject)
@@ -1094,7 +1072,7 @@ export const TicketsLive = Layer.effect(
         const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
         const projectKey = yield* projects.getKey(orgSlug, ownerId, slug)
         const tags = input.tags ?? expansion?.tags ?? []
-        yield* validateTagsExist(slug, tags)
+        yield* validateTagsExist(orgSlug, slug, tags)
         if (input.assignees !== undefined && input.assignees.length > 0) {
           yield* validateAssigneesAreMembers(orgSlug, slug, input.assignees)
         }
@@ -1167,7 +1145,7 @@ export const TicketsLive = Layer.effect(
           const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
 
           if (input.tags !== undefined) {
-            yield* validateTagsExist(slug, input.tags)
+            yield* validateTagsExist(orgSlug, slug, input.tags)
           }
 
           const body =
@@ -1339,7 +1317,7 @@ export const TicketsLive = Layer.effect(
         }
         yield* Effect.forEach(
           [...new Set(input.results.map((result) => result.status))],
-          (status) => validateStatusExists(slug, status),
+          (status) => validateStatusExists(orgSlug, slug, status),
           { discard: true }
         )
 

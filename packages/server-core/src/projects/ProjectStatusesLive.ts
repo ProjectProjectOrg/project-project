@@ -1,5 +1,4 @@
 import { Db } from "@pp/db"
-import { publishedProject } from "@pp/db/projectVisibility"
 import { projectStatus } from "@pp/db/schema"
 import {
   Conflict,
@@ -21,6 +20,7 @@ import { generateKeyBetween } from "fractional-indexing"
 
 import { TicketIndex } from "../tickets/TicketIndex"
 import { Tickets } from "../tickets/Tickets"
+import { projectInOrg } from "./projectLookup"
 import { Projects } from "./Projects"
 import { ProjectStatuses, type ProjectStatusesShape } from "./ProjectStatuses"
 
@@ -46,29 +46,13 @@ export const ProjectStatusesLive = Layer.effect(
     const ticketIndex = yield* TicketIndex
     const tickets = yield* Tickets
 
-    const projectIdFromSlug = (slug: string) =>
-      db.query.projectIndex
-        .findFirst({
-          columns: { id: true },
-          where: {
-            RAW: (table, _operators) =>
-              _operators.and(
-                _operators.eq(table.slug, slug),
-                publishedProject(table)
-              )!
-          }
-        })
-        .pipe(
-          Effect.orDie,
-          Effect.flatMap((row) =>
-            row ? Effect.succeed(row.id) : Effect.fail(new NotFound())
-          )
-        )
+    const projectIdFromSlug = (orgSlug: string, slug: string) =>
+      projectInOrg(db, orgSlug, slug).pipe(Effect.map((project) => project.id))
 
     const list: ProjectStatusesShape["list"] = (orgSlug, userId, slug) =>
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
-        const projectId = yield* projectIdFromSlug(slug)
+        const projectId = yield* projectIdFromSlug(orgSlug, slug)
         const rows = yield* db.query.projectStatus
           .findMany({
             where: {
@@ -109,7 +93,7 @@ export const ProjectStatusesLive = Layer.effect(
     ) =>
       Effect.gen(function* () {
         yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
-        const projectId = yield* projectIdFromSlug(slug)
+        const projectId = yield* projectIdFromSlug(orgSlug, slug)
 
         const derived = deriveStatusSlug(input.label)
         if (derived.length === 0)
@@ -163,7 +147,7 @@ export const ProjectStatusesLive = Layer.effect(
     ) =>
       Effect.gen(function* () {
         yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
-        const projectId = yield* projectIdFromSlug(slug)
+        const projectId = yield* projectIdFromSlug(orgSlug, slug)
 
         const current = yield* db.query.projectStatus
           .findFirst({
@@ -260,7 +244,7 @@ export const ProjectStatusesLive = Layer.effect(
     ) =>
       Effect.gen(function* () {
         yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
-        const projectId = yield* projectIdFromSlug(slug)
+        const projectId = yield* projectIdFromSlug(orgSlug, slug)
         const updated = yield* db
           .update(projectStatus)
           .set({ orderKey: input.orderKey })
@@ -286,7 +270,7 @@ export const ProjectStatusesLive = Layer.effect(
       Effect.gen(function* () {
         yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
         if (isReservedStatusSlug(statusSlug)) return yield* new Forbidden()
-        const projectId = yield* projectIdFromSlug(slug)
+        const projectId = yield* projectIdFromSlug(orgSlug, slug)
 
         const current = yield* db.query.projectStatus
           .findFirst({
