@@ -86,6 +86,19 @@ const config: ExpoConfig = {
     typedRoutes: true
   },
   plugins: [
+    [
+      "expo-font",
+      {
+        fonts: [
+          "./node_modules/geist/dist/fonts/geist-sans/Geist-Regular.ttf",
+          "./node_modules/geist/dist/fonts/geist-sans/Geist-Medium.ttf",
+          "./node_modules/geist/dist/fonts/geist-sans/Geist-SemiBold.ttf",
+          "./node_modules/geist/dist/fonts/geist-sans/Geist-Bold.ttf",
+          "./node_modules/geist/dist/fonts/geist-mono/GeistMono-Regular.ttf",
+          "./node_modules/geist/dist/fonts/geist-mono/GeistMono-Medium.ttf"
+        ]
+      }
+    ],
     "expo-router",
     "expo-secure-store",
     "expo-sqlite",

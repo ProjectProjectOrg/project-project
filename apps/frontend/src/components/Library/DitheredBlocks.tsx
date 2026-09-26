@@ -9,8 +9,8 @@ const BAYER = [
   [15, 7, 13, 5]
 ]
 
-const FG = "var(--foreground, #FEFEFE)"
-const MUTED = "var(--muted-foreground, #807F7F)"
+const FG = "var(--color-foreground, #FEFEFE)"
+const MUTED = "var(--color-muted-foreground, #807F7F)"
 
 type Shelf = Readonly<{ row: number; icon: number; bar: number; width: number }>
 

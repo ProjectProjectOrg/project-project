@@ -1,33 +1,30 @@
-import { Button, Column, Host, Text } from "@expo/ui"
-import { GlassView } from "expo-glass-effect"
 import { router } from "expo-router"
-import { StyleSheet, View } from "react-native"
+import { View } from "react-native"
 
+import { Logo } from "@/components/Logo"
+import { Button } from "@/components/ui/button"
+import { Text } from "@/components/ui/text"
 import { copy } from "@/copy"
 
-export default function Onboarding() {
+export default function Welcome() {
   return (
-    <View style={styles.screen}>
-      <GlassView style={styles.card} glassEffectStyle="regular">
-        <Host matchContents>
-          <Column spacing={12} alignment="center">
-            <Text textStyle={{ fontSize: 22, fontWeight: "600" }}>
-              {copy.welcomeTitle}
-            </Text>
-            <Text textStyle={{ textAlign: "center" }}>{copy.welcomeBody}</Text>
-            <Button
-              variant="filled"
-              label={copy.welcomeStart}
-              onPress={() => router.push("/sign-in")}
-            />
-          </Column>
-        </Host>
-      </GlassView>
+    <View className="flex-1 bg-background px-5 pt-safe pb-safe-offset-2">
+      <View className="flex-[42] justify-end items-center">
+        <Logo size={96} />
+      </View>
+      <View className="flex-[58] items-center pt-6">
+        <Text variant="muted">{copy.welcomeEyebrow}</Text>
+        <Text className="text-[28px] font-semibold tracking-[-0.28px]">
+          {copy.appName}
+        </Text>
+        <Text variant="muted" className="mt-2 text-center">
+          {copy.welcomeBody}
+        </Text>
+      </View>
+      <Button
+        label={copy.welcomeStart}
+        onPress={() => router.push("/sign-in")}
+      />
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, justifyContent: "center", padding: 24 },
-  card: { borderRadius: 28, padding: 24 }
-})

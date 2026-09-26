@@ -841,7 +841,7 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
           />
           {/* Focus ring */}
           <motion.span
-            className="pointer-events-none absolute rounded-full border border-[color:var(--focus-ring,#6B97FF)]"
+            className="pointer-events-none absolute rounded-full border border-[color:var(--color-focus-ring,#6B97FF)]"
             initial={false}
             animate={{
               opacity: focusedThumb === index ? 1 : 0,
@@ -1121,7 +1121,7 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
                       }}
                       transition={spring.moderate}
                       style={{
-                        backgroundColor: "var(--muted-foreground)",
+                        backgroundColor: "var(--color-muted-foreground)",
                         opacity: 0.3
                       }}
                     />
@@ -1566,7 +1566,7 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
           initial={false}
           animate={{
             outline: isFocused
-              ? "1px solid var(--focus-ring, #6B97FF)"
+              ? "1px solid var(--color-focus-ring, #6B97FF)"
               : "1px solid transparent"
           }}
           transition={spring.fast}
@@ -1643,8 +1643,8 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
                       initial={false}
                       animate={{
                         backgroundColor: isActivePip
-                          ? "var(--foreground)"
-                          : "var(--muted-foreground)",
+                          ? "var(--color-foreground)"
+                          : "var(--color-muted-foreground)",
                         opacity: isActivePip ? 1 : 0.3
                       }}
                       transition={spring.fast}
@@ -1682,7 +1682,7 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
               className="pointer-events-none absolute top-0 bottom-0 left-0 z-[3]"
               style={{
                 width: pipsFillWidthStyle,
-                backgroundColor: "var(--active)"
+                backgroundColor: "var(--color-active)"
               }}
             />
           )}
@@ -1696,10 +1696,10 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
                 top: isActive ? 7 : 8,
                 bottom: isActive ? 7 : 8,
                 backgroundColor: isFocused
-                  ? "var(--foreground)"
+                  ? "var(--color-foreground)"
                   : isHovered
-                    ? "color-mix(in srgb, var(--foreground) 50%, transparent)"
-                    : "color-mix(in srgb, var(--foreground) 25%, transparent)"
+                    ? "color-mix(in srgb, var(--color-foreground) 50%, transparent)"
+                    : "color-mix(in srgb, var(--color-foreground) 25%, transparent)"
               }}
               transition={spring.fast}
               style={{
@@ -1718,8 +1718,8 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
                   initial={false}
                   animate={{
                     color: isActive
-                      ? "var(--foreground)"
-                      : "var(--muted-foreground)"
+                      ? "var(--color-foreground)"
+                      : "var(--color-muted-foreground)"
                   }}
                   transition={spring.fast}
                 >
@@ -1731,8 +1731,8 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
                 initial={false}
                 animate={{
                   color: isActive
-                    ? "var(--foreground)"
-                    : "var(--muted-foreground)"
+                    ? "var(--color-foreground)"
+                    : "var(--color-muted-foreground)"
                 }}
                 transition={spring.fast}
                 style={{
@@ -1751,7 +1751,7 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
               className="pointer-events-none absolute top-0 bottom-0 left-0"
               style={{
                 width: fillWidthStyle,
-                backgroundColor: "var(--active)"
+                backgroundColor: "var(--color-active)"
               }}
             />
           )}
@@ -1765,10 +1765,10 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
                 top: isActive ? 7 : 8,
                 bottom: isActive ? 7 : 8,
                 backgroundColor: isFocused
-                  ? "var(--foreground)"
+                  ? "var(--color-foreground)"
                   : isHovered
-                    ? "color-mix(in srgb, var(--foreground) 50%, transparent)"
-                    : "color-mix(in srgb, var(--foreground) 25%, transparent)"
+                    ? "color-mix(in srgb, var(--color-foreground) 50%, transparent)"
+                    : "color-mix(in srgb, var(--color-foreground) 25%, transparent)"
               }}
               transition={spring.fast}
               style={{
@@ -1785,8 +1785,8 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
               initial={false}
               animate={{
                 color: isActive
-                  ? "var(--foreground)"
-                  : "var(--muted-foreground)"
+                  ? "var(--color-foreground)"
+                  : "var(--color-muted-foreground)"
               }}
               transition={spring.fast}
             >
@@ -1803,8 +1803,8 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
                 initial={false}
                 animate={{
                   color: isActive
-                    ? "var(--foreground)"
-                    : "var(--muted-foreground)"
+                    ? "var(--color-foreground)"
+                    : "var(--color-muted-foreground)"
                 }}
                 transition={spring.fast}
                 style={{ minWidth: `${String(formatValue(max)).length}ch` }}

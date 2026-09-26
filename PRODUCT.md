@@ -24,7 +24,7 @@ Concretely: an engineer's tool that gets out of the way. No decoration for decor
 - Decorative drop shadows on rectangles.
 - Avatars and metadata stacked four-high on every row.
 
-**Theme:** Light and dark are equal. Whichever the user picks should feel finished, not adapted. The OKLCH grayscale palette in `styles.css` is the foundation for chrome — `--foreground`, `--muted-foreground`, `--background`, `--accent`. The chromatic palette in `packages/shared/src/colors.ts` (`TAG_COLOR_WHEEL`, two OKLCH rings at fixed L/C) is the foundation for _user-assigned_ color — tags today, anything categorical the user controls in the future. Don't introduce a brand hue and don't invent ad-hoc colors when the wheel already covers the space.
+**Theme:** Light and dark are equal. Whichever the user picks should feel finished, not adapted. The OKLCH grayscale palette in `packages/theme/theme.css` (`@pp/theme`, shared by the web and the app) is the foundation for chrome — `--color-foreground`, `--color-muted-foreground`, `--color-background`, `--color-accent`. The chromatic palette in `packages/shared/src/colors.ts` (`TAG_COLOR_WHEEL`, two OKLCH rings at fixed L/C) is the foundation for _user-assigned_ color — tags today, anything categorical the user controls in the future. Don't introduce a brand hue and don't invent ad-hoc colors when the wheel already covers the space.
 
 **Typography:** Geist (sans), Geist Mono (mono), Geist Pixel (display/decorative) are already loaded. Geist Sans for everything UI. Geist Mono for IDs, branches, slugs, code, anywhere "this is a literal." Geist Pixel exists for moments where the dithering brand thread surfaces — empty-state graphics, brand marks, occasional decorative labels — never for body text or running UI.
 

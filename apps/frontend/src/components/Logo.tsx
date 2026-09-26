@@ -1,5 +1,5 @@
-import logoSvg from "../public/logo/logo.svg?raw"
-import wordmarkSvg from "../public/logo/wordmark.svg?raw"
+import logoSvg from "@pp/theme/brand/logo.svg?raw"
+import wordmarkSvg from "@pp/theme/brand/wordmark.svg?raw"
 
 // SVGs imported via Vite `?raw` at build time — static asset, never user input.
 
@@ -10,16 +10,16 @@ type ThemePalette = {
 }
 
 const defaultPalette: ThemePalette = {
-  drawn: "var(--foreground)",
-  drawnMuted: "var(--muted-foreground)",
-  canvas: "var(--background)"
+  drawn: "var(--color-foreground)",
+  drawnMuted: "var(--color-muted-foreground)",
+  canvas: "var(--color-background)"
 }
 
 const invertedPalette: ThemePalette = {
-  drawn: "var(--primary-foreground)",
+  drawn: "var(--color-primary-foreground)",
   drawnMuted:
-    "color-mix(in oklch, var(--primary-foreground) 60%, var(--primary) 40%)",
-  canvas: "var(--primary)"
+    "color-mix(in oklch, var(--color-primary-foreground) 60%, var(--color-primary) 40%)",
+  canvas: "var(--color-primary)"
 }
 
 function themeSvg(raw: string, palette: ThemePalette) {

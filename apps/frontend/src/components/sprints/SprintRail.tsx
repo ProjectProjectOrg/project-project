@@ -265,8 +265,8 @@ function NewSprintForm({ orgSlug, slug }: { orgSlug: string; slug: string }) {
           variant="dither"
           className="w-full justify-start text-primary-foreground"
           leadingIcon={Plus}
-          ditherFrom="var(--primary)"
-          ditherTo="var(--background)"
+          ditherFrom="var(--color-primary)"
+          ditherTo="var(--color-background)"
           ditherDirection="r"
           ditherStops={[0.7, 1]}
           ditherHoverStops={[0.5, 1]}

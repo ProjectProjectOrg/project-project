@@ -48,7 +48,7 @@ export function DitherShell({
   return (
     <Wrapper
       className={cn(
-        "relative grid place-items-center overflow-hidden bg-[color-mix(in_oklch,var(--background)_82%,var(--muted)_18%)] p-6",
+        "relative grid place-items-center overflow-hidden bg-[color-mix(in_oklch,var(--color-background)_82%,var(--color-muted)_18%)] p-6",
         contained ? "-m-6 min-h-full flex-1 rounded-xl" : "min-h-screen"
       )}
     >
@@ -76,7 +76,7 @@ export function DitherShell({
       <div
         ref={cardRef}
         className={cn(
-          "relative flex w-full max-w-sm animate-in flex-col overflow-hidden rounded-2xl bg-[color-mix(in_oklch,var(--background)_45%,var(--muted)_55%)] duration-700 zoom-in-95 fade-in",
+          "relative flex w-full max-w-sm animate-in flex-col overflow-hidden rounded-2xl bg-[color-mix(in_oklch,var(--color-background)_45%,var(--color-muted)_55%)] duration-700 zoom-in-95 fade-in",
           cardClassName
         )}
       >

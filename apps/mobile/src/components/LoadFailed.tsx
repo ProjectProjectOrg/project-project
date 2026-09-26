@@ -1,11 +1,6 @@
-import { Host, Text } from "@expo/ui"
-
+import { Placeholder } from "@/components/Placeholder"
 import { copy } from "@/copy"
 
 export function LoadFailed() {
-  return (
-    <Host style={{ flex: 1 }}>
-      <Text>{copy.loadFailed}</Text>
-    </Host>
-  )
+  return <Placeholder title={copy.loadFailed} />
 }

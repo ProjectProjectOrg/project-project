@@ -129,7 +129,7 @@ const StickySectionHeader = forwardRef<HTMLDivElement, StickyProps>(
         className={cn(
           "sticky top-0 z-10 flex items-center gap-3 rounded-lg bg-muted px-3 py-2 transition-colors",
           !creating &&
-            "cursor-pointer select-none hover:bg-[color-mix(in_oklch,var(--muted)_95%,var(--foreground)_5%)]"
+            "cursor-pointer select-none hover:bg-[color-mix(in_oklch,var(--color-muted)_95%,var(--color-foreground)_5%)]"
         )}
       >
         <button

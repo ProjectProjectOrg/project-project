@@ -1,11 +1,6 @@
-import { Host, Text } from "@expo/ui"
-
+import { Placeholder } from "@/components/Placeholder"
 import { copy } from "@/copy"
 
 export default function Servers() {
-  return (
-    <Host style={{ flex: 1 }}>
-      <Text>{copy.serversTitle}</Text>
-    </Host>
-  )
+  return <Placeholder title={copy.serversTitle} />
 }

@@ -1,7 +1,7 @@
 export const copy = {
   appName: "ProjectProject",
-  welcomeTitle: "Your projects, in your pocket",
-  welcomeBody: "Connect to the ProjectProject server your team uses.",
+  welcomeEyebrow: "Welcome to",
+  welcomeBody: "Connect to your self-hosted server.",
   welcomeStart: "Get started",
   signInTitle: "Sign in",
   serversTitle: "Servers",

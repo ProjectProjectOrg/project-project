@@ -57,7 +57,7 @@ function EmptyDithered({
       data-slot="empty"
       data-variant="default"
       className={cn(
-        "relative grid min-h-[280px] animate-in place-items-center overflow-hidden rounded-xl bg-[color-mix(in_oklch,var(--background)_82%,var(--muted)_18%)] p-8 duration-500 fade-in",
+        "relative grid min-h-[280px] animate-in place-items-center overflow-hidden rounded-xl bg-[color-mix(in_oklch,var(--color-background)_82%,var(--color-muted)_18%)] p-8 duration-500 fade-in",
         className
       )}
       {...props}

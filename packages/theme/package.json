@@ -1,0 +1,19 @@
+{
+  "name": "@pp/theme",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./theme.css": "./theme.css",
+    "./brand/*": "./brand/*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint . --fix"
+  },
+  "devDependencies": {
+    "vitest": "4.1.11"
+  }
+}

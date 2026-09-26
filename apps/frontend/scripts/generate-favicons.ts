@@ -1,4 +1,4 @@
-// Generates the favicon set from src/public/logo/logo.svg into src/public/icon/.
+// Generates the favicon set from packages/theme/brand/logo.svg into src/public/icon/.
 // Run with: bun run favicons
 //
 // What this produces (and why):
@@ -22,7 +22,7 @@ import pngToIco from "png-to-ico"
 import sharp from "sharp"
 
 const ROOT = resolve(import.meta.dir, "..")
-const LOGO_PATH = resolve(ROOT, "src/public/logo/logo.svg")
+const LOGO_PATH = resolve(ROOT, "../../packages/theme/brand/logo.svg")
 const OUT_DIR = resolve(ROOT, "src/public/icon")
 
 // Backdrop color = oklch(0.145 0 0), the light-mode --foreground from styles.css.

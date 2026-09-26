@@ -113,7 +113,7 @@ function LoginPage() {
   }
 
   return (
-    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[color-mix(in_oklch,var(--background)_82%,var(--muted)_18%)] p-6">
+    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[color-mix(in_oklch,var(--color-background)_82%,var(--color-muted)_18%)] p-6">
       <div className="pointer-events-none absolute inset-0">
         <Dither
           disableAnimation
@@ -137,7 +137,7 @@ function LoginPage() {
       </div>
       <div
         ref={cardRef}
-        className="relative flex w-full max-w-sm flex-col overflow-hidden rounded-2xl bg-[color-mix(in_oklch,var(--background)_45%,var(--muted)_55%)]"
+        className="relative flex w-full max-w-sm flex-col overflow-hidden rounded-2xl bg-[color-mix(in_oklch,var(--color-background)_45%,var(--color-muted)_55%)]"
       >
         <div className="relative flex flex-col items-center gap-4 px-8 pt-10 pb-8 text-foreground">
           <div className="relative flex size-16 items-center justify-center rounded-2xl bg-primary corner-squircle">
