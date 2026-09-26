@@ -49,6 +49,7 @@ jobs:
         run: |
           OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           echo "name=${{ env.REGISTRY }}/${OWNER_LC}/projectproject-${{ matrix.target.name }}" >> $GITHUB_OUTPUT
+          echo "version=sha-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       - name: Extract metadata
         id: meta
@@ -67,5 +68,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: APP_VERSION=${{ steps.img.outputs.version }}
           cache-from: type=gha,scope=${{ matrix.target.name }}
           cache-to: type=gha,scope=${{ matrix.target.name }},mode=max
