@@ -11,6 +11,7 @@ import { arch, cpus, platform, tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 
 import * as BunServices from "@effect/platform-bun/BunServices"
+import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import {
   TicketDocs,
@@ -352,6 +353,7 @@ const benchmarkProgram = (options: Options, scratchRoot: string) =>
   }).pipe(
     Effect.provide(
       TicketDocsLive.pipe(
+        Layer.provide(KeyedLock.layer),
         Layer.provide(MarkdownLive),
         Layer.provideMerge(
           ConfigProvider.layer(

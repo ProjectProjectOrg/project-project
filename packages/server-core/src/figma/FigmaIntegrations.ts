@@ -4,10 +4,10 @@ import type {
   FigmaNotConnected,
   FigmaProjectIntegrationStatus,
   FigmaRateLimited,
-  Forbidden,
   NotFound,
   PersonalFigma,
-  StorageNotConnected
+  StorageNotConnected,
+  ProjectScope
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
@@ -34,7 +34,6 @@ export const chooseCredential = (input: {
 
 export type FigmaIntegrationError =
   | NotFound
-  | Forbidden
   | FigmaNotConnected
   | FigmaAuthInvalid
   | FigmaRateLimited
@@ -54,25 +53,23 @@ export interface FigmaIntegrationsShape {
     state: string
   ) => Effect.Effect<PersonalFigma, FigmaAuthInvalid | FigmaError>
   readonly disconnectProfile: (userId: string) => Effect.Effect<PersonalFigma>
-  readonly getProjectStatus: (
-    orgSlug: string,
-    userId: string,
-    slug: string
-  ) => Effect.Effect<FigmaProjectIntegrationStatus, NotFound>
+  readonly getProjectStatus: () => Effect.Effect<
+    FigmaProjectIntegrationStatus,
+    never,
+    ProjectScope
+  >
   readonly connectProject: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     accessToken: string
   ) => Effect.Effect<
     FigmaProjectIntegrationStatus,
-    FigmaIntegrationError | StorageNotConnected
+    FigmaIntegrationError | StorageNotConnected,
+    ProjectScope
   >
-  readonly disconnectProject: (
-    orgSlug: string,
-    userId: string,
-    slug: string
-  ) => Effect.Effect<FigmaProjectIntegrationStatus, NotFound | Forbidden>
+  readonly disconnectProject: () => Effect.Effect<
+    FigmaProjectIntegrationStatus,
+    never,
+    ProjectScope
+  >
   readonly credentialFor: (
     orgSlug: string,
     slug: string,

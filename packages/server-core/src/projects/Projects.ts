@@ -1,11 +1,12 @@
 import type {
   AddMemberInput,
+  BranchListResponse,
+  GithubRepoPage,
   AssignableRole,
   ConnectGithubInput,
   Conflict,
   CreateProjectInput,
   CursorPayload,
-  Forbidden,
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
@@ -17,20 +18,17 @@ import type {
   LastProjectPmBlocked,
   RateLimited,
   RepoGone,
-  Role,
   UpdateProjectInput,
-  UpdateProjectSetupInput
+  UpdateProjectSetupInput,
+  OrgScope,
+  ProjectScope,
+  Forbidden
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 
 import type { MarkdownError } from "../markdown/Markdown"
 import type { MalformedTicketDocument } from "../tickets/TicketDocs"
-
-export interface ProjectMembership {
-  readonly role: Role
-  readonly projectId: string
-}
 
 export interface ProjectGithubIntegration {
   readonly projectIntegrationLinkId: string
@@ -45,145 +43,118 @@ export interface ProjectGithubIntegration {
 }
 
 export interface ProjectsShape {
-  readonly list: (
-    orgSlug: string,
-    userId: string
-  ) => Effect.Effect<ReadonlyArray<Project>, NotFound>
+  readonly list: () => Effect.Effect<ReadonlyArray<Project>, never, OrgScope>
   readonly listPaged: (
-    orgSlug: string,
-    userId: string,
     cursor: CursorPayload | undefined,
     limit: number
   ) => Effect.Effect<
-    {
-      items: ReadonlyArray<Project>
-      nextCursor: string | null
-    },
-    NotFound
+    { items: ReadonlyArray<Project>; nextCursor: string | null },
+    never,
+    OrgScope
+  >
+  readonly create: (
+    input: CreateProjectInput
+  ) => Effect.Effect<Project, Conflict, OrgScope>
+  readonly get: () => Effect.Effect<
+    ProjectDetail,
+    NotFound | MarkdownError,
+    ProjectScope
   >
   readonly listMembersPaged: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     cursor: CursorPayload | undefined,
     limit: number
   ) => Effect.Effect<
     { items: ReadonlyArray<Member>; nextCursor: string | null },
-    NotFound
+    never,
+    ProjectScope
   >
-  readonly create: (
-    orgSlug: string,
-    createdBy: string,
-    input: CreateProjectInput
-  ) => Effect.Effect<Project, NotFound | Conflict>
-  readonly get: (
-    orgSlug: string,
-    userId: string,
-    slug: string
-  ) => Effect.Effect<ProjectDetail, NotFound | MarkdownError>
-  readonly getKey: (
-    orgSlug: string,
-    userId: string,
-    slug: string
-  ) => Effect.Effect<ProjectKey, NotFound>
-  readonly getGithubIntegration: (
-    orgSlug: string,
-    userId: string,
-    slug: string
-  ) => Effect.Effect<ProjectGithubIntegration | null, NotFound>
+  readonly key: () => Effect.Effect<ProjectKey, NotFound, ProjectScope>
+  readonly githubIntegration: () => Effect.Effect<
+    ProjectGithubIntegration | null,
+    never,
+    ProjectScope
+  >
+  readonly githubBranches: (
+    query: string | undefined,
+    first: number
+  ) => Effect.Effect<
+    BranchListResponse,
+    RepoGone | RateLimited | GitHubError,
+    ProjectScope
+  >
+  readonly githubRepos: (
+    query: string | undefined,
+    page: number
+  ) => Effect.Effect<
+    GithubRepoPage,
+    NotFound | RepoGone | RateLimited | GitHubError,
+    ProjectScope
+  >
+  readonly memberIds: () => Effect.Effect<
+    ReadonlySet<string>,
+    never,
+    ProjectScope
+  >
   readonly update: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     input: UpdateProjectInput
-  ) => Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError>
+  ) => Effect.Effect<
+    ProjectDetail,
+    Forbidden | NotFound | MarkdownError,
+    ProjectScope
+  >
   readonly updateSetup: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     input: UpdateProjectSetupInput
-  ) => Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError>
-  readonly remove: (
-    orgSlug: string,
-    userId: string,
-    slug: string
-  ) => Effect.Effect<void, NotFound | Forbidden | MarkdownError>
-  readonly requireMember: (
-    orgSlug: string,
-    userId: string,
-    slug: string
-  ) => Effect.Effect<ProjectMembership, NotFound>
-  readonly requireRole: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
-    allowed: ReadonlyArray<Role>
-  ) => Effect.Effect<ProjectMembership, NotFound | Forbidden>
+  ) => Effect.Effect<ProjectDetail, NotFound | MarkdownError, ProjectScope>
+  readonly remove: () => Effect.Effect<void, MarkdownError, ProjectScope>
   readonly addMember: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     input: AddMemberInput
   ) => Effect.Effect<
     ProjectDetail,
-    NotFound | Forbidden | MarkdownError | LastProjectPmBlocked
+    NotFound | MarkdownError | LastProjectPmBlocked,
+    ProjectScope
   >
   readonly updateMember: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     targetUserId: string,
     nextRole: AssignableRole
   ) => Effect.Effect<
     ProjectDetail,
-    NotFound | Forbidden | MarkdownError | LastProjectPmBlocked
+    NotFound | MarkdownError | LastProjectPmBlocked,
+    ProjectScope
   >
   readonly removeMember: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     targetUserId: string
   ) => Effect.Effect<
     ProjectDetail,
-    | NotFound
-    | Forbidden
-    | MarkdownError
-    | MalformedTicketDocument
-    | LastProjectPmBlocked
+    NotFound | MarkdownError | MalformedTicketDocument | LastProjectPmBlocked,
+    ProjectScope
   >
   readonly cancelPendingMember: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     invitationId: string
-  ) => Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError>
+  ) => Effect.Effect<ProjectDetail, NotFound | MarkdownError, ProjectScope>
   readonly unassignUserFromActiveTickets: (
     orgSlug: string,
     slug: string,
     userId: string
   ) => Effect.Effect<void, MarkdownError | MalformedTicketDocument>
   readonly connectGithub: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     input: ConnectGithubInput
   ) => Effect.Effect<
     ProjectDetail,
     | NotFound
-    | Forbidden
     | Conflict
     | GitHubTokenExpired
     | GitHubScopeInsufficient
     | RepoGone
     | RateLimited
     | GitHubError
-    | MarkdownError
+    | MarkdownError,
+    ProjectScope
   >
-  readonly disconnectGithub: (
-    orgSlug: string,
-    userId: string,
-    slug: string
-  ) => Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError>
+  readonly disconnectGithub: () => Effect.Effect<
+    ProjectDetail,
+    NotFound | MarkdownError,
+    ProjectScope
+  >
 }
 
 export class Projects extends Context.Service<Projects, ProjectsShape>()(

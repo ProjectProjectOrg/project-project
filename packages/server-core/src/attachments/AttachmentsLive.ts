@@ -21,7 +21,8 @@ import {
   StorageError,
   type Attachment,
   type AttachmentRow,
-  type AttachmentTicketRef
+  type AttachmentTicketRef,
+  ProjectScope
 } from "@pp/shared"
 import {
   and,
@@ -40,9 +41,8 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { ulid } from "ulid"
 
-import { CurrentOrg, requireOrgAdmin } from "../organizations/CurrentOrg"
+import { Access } from "../access/Access"
 import { projectInOrg } from "../projects/projectLookup"
-import { Projects } from "../projects/Projects"
 import { OrgStorage } from "../storage/OrgStorage"
 import {
   attachmentObjectKey,
@@ -73,29 +73,9 @@ export const AttachmentsLive = Layer.effect(
   Attachments,
   Effect.gen(function* () {
     const db = yield* Db
-    const currentOrg = yield* CurrentOrg
+    const access = yield* Access
     const orgStorage = yield* OrgStorage
     const s3 = yield* S3Storage
-    const projects = yield* Projects
-
-    const requireProject = (orgSlug: string, userId: string, slug: string) =>
-      Effect.gen(function* () {
-        const { projectId } = yield* projects.requireMember(
-          orgSlug,
-          userId,
-          slug
-        )
-        const row = yield* db.query.projectIndex
-          .findFirst({
-            columns: { organizationId: true },
-            where: {
-              RAW: (table, _operators) => _operators.eq(table.id, projectId)
-            }
-          })
-          .pipe(Effect.orDie)
-        if (!row) return yield* new NotFound()
-        return { organizationId: row.organizationId, projectId }
-      })
 
     const toAttachment = (
       row: typeof attachmentIndex.$inferSelect
@@ -124,22 +104,12 @@ export const AttachmentsLive = Layer.effect(
     const libraryAttachmentIsVisible = () =>
       or(publishedProject(projectIndex), isNull(projectIndex.slug))!
 
-    const prepare: AttachmentsShape["prepare"] = (
-      orgSlug,
-      slug,
-      ticketId,
-      userId,
-      input
-    ) =>
+    const prepare: AttachmentsShape["prepare"] = (ticketId, input) =>
       Effect.gen(function* () {
-        const { organizationId, projectId } = yield* requireProject(
-          orgSlug,
-          userId,
-          slug
-        )
+        const { orgSlug, slug, userId, organizationId, projectId } =
+          yield* ProjectScope
 
         if (ticketId === null) {
-          yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
           if (!isRasterImageContentType(input.contentType))
             return yield* new AttachmentTypeRejected({
               contentType: input.contentType
@@ -206,17 +176,9 @@ export const AttachmentsLive = Layer.effect(
         }
       })
 
-    const commit: AttachmentsShape["commit"] = (
-      orgSlug,
-      slug,
-      ticketId,
-      userId,
-      attachmentId
-    ) =>
+    const commit: AttachmentsShape["commit"] = (ticketId, attachmentId) =>
       Effect.gen(function* () {
-        const { projectId } = yield* requireProject(orgSlug, userId, slug)
-        if (ticketId === null)
-          yield* projects.requireRole(orgSlug, userId, slug, ["pm"])
+        const { orgSlug, projectId } = yield* ProjectScope
 
         const rows = yield* db
           .select()
@@ -354,7 +316,6 @@ export const AttachmentsLive = Layer.effect(
     const resolveForServing: AttachmentsShape["resolveForServing"] = (
       orgSlug,
       attachmentId,
-      userId,
       options
     ) =>
       Effect.gen(function* () {
@@ -381,15 +342,16 @@ export const AttachmentsLive = Layer.effect(
           return yield* new NotFound()
         }
 
-        yield* found.projectSlug === null
-          ? requireOrgAdmin(currentOrg, orgSlug, userId)
-          : projects
-              .requireMember(orgSlug, userId, found.projectSlug)
-              .pipe(
-                Effect.catchTag("NotFound", () =>
-                  requireOrgAdmin(currentOrg, orgSlug, userId)
-                )
-              )
+        const permitted =
+          found.projectSlug === null
+            ? (yield* access.org(orgSlug)).permissions.can({
+                storage: ["manage"]
+              })
+            : (yield* access.project(
+                orgSlug,
+                found.projectSlug
+              )).permissions.can({ ticket: ["read"] })
+        if (!permitted) return yield* new Forbidden()
 
         const connection = yield* orgStorage.requireConnection(orgSlug)
 

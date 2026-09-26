@@ -1,188 +1,69 @@
-import { EverhourIntegrations } from "@pp/server-core/everhour/EverhourIntegrations"
 import { Groups } from "@pp/server-core/groups/Groups"
-import { CurrentOrg } from "@pp/server-core/organizations/CurrentOrg"
 import { Tickets } from "@pp/server-core/tickets/Tickets"
-import { AppApi, CurrentUser } from "@pp/shared"
+import { AppApi } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 
-import { dieOnMarkdown } from "./lib"
+import { dieOnMarkdown, thenSyncEverhour } from "./lib"
 
 export const GroupsHandlerLive = HttpApiBuilder.group(
   AppApi,
   "groups",
   (handlers) =>
     handlers
-      .handle("list", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const groups = yield* Groups
-          return yield* groups.list(org.orgSlug, user.id, params.slug)
-        }).pipe(dieOnMarkdown)
+      .handle("list", () =>
+        Effect.flatMap(Groups, (groups) => groups.list()).pipe(dieOnMarkdown)
       )
-      .handle("create", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const groups = yield* Groups
-          const result = yield* groups.create(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            payload
-          )
-          const everhour = yield* EverhourIntegrations
-          yield* everhour.bestEffortProjectSync(
-            org.orgSlug,
-            user.id,
-            params.slug
-          )
-          return result
-        }).pipe(dieOnMarkdown)
+      .handle("create", ({ payload }) =>
+        Effect.flatMap(Groups, (groups) => groups.create(payload)).pipe(
+          thenSyncEverhour,
+          dieOnMarkdown
+        )
       )
       .handle("get", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const groups = yield* Groups
-          return yield* groups.get(org.orgSlug, user.id, params.slug, params.id)
-        }).pipe(dieOnMarkdown)
+        Effect.flatMap(Groups, (groups) => groups.get(params.id)).pipe(
+          dieOnMarkdown
+        )
       )
       .handle("listTickets", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.listInGroup(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id
-          )
-        }).pipe(dieOnMarkdown)
+        Effect.flatMap(Tickets, (tickets) =>
+          tickets.listInGroup(params.id)
+        ).pipe(dieOnMarkdown)
       )
       .handle("update", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const groups = yield* Groups
-          const result = yield* groups.update(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id,
-            payload
-          )
-          const everhour = yield* EverhourIntegrations
-          yield* everhour.bestEffortProjectSync(
-            org.orgSlug,
-            user.id,
-            params.slug
-          )
-          return result
-        }).pipe(dieOnMarkdown)
+        Effect.flatMap(Groups, (groups) =>
+          groups.update(params.id, payload)
+        ).pipe(thenSyncEverhour, dieOnMarkdown)
       )
       .handle("updateTickets", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const groups = yield* Groups
-          return yield* groups.updateTickets(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id,
-            payload
-          )
-        }).pipe(dieOnMarkdown)
+        Effect.flatMap(Groups, (groups) =>
+          groups.updateTickets(params.id, payload)
+        ).pipe(dieOnMarkdown)
       )
       .handle("addTickets", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const groups = yield* Groups
-          return yield* groups.addTickets(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id,
-            payload.tickets
-          )
-        }).pipe(dieOnMarkdown)
+        Effect.flatMap(Groups, (groups) =>
+          groups.addTickets(params.id, payload.tickets)
+        ).pipe(dieOnMarkdown)
       )
       .handle("removeTickets", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const groups = yield* Groups
-          return yield* groups.removeTickets(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id,
-            payload.tickets
-          )
-        }).pipe(dieOnMarkdown)
+        Effect.flatMap(Groups, (groups) =>
+          groups.removeTickets(params.id, payload.tickets)
+        ).pipe(dieOnMarkdown)
       )
       .handle("updateTicketOrder", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const groups = yield* Groups
-          return yield* groups.updateTicketOrder(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id,
-            payload
-          )
-        }).pipe(dieOnMarkdown)
+        Effect.flatMap(Tickets, (tickets) =>
+          tickets.moveInGroup(params.id, payload)
+        ).pipe(dieOnMarkdown)
       )
       .handle("complete", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const groups = yield* Groups
-          const result = yield* groups.complete(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id,
-            payload
-          )
-          const everhour = yield* EverhourIntegrations
-          yield* everhour.bestEffortProjectSync(
-            org.orgSlug,
-            user.id,
-            params.slug
-          )
-          return result
-        }).pipe(dieOnMarkdown)
+        Effect.flatMap(Groups, (groups) =>
+          groups.complete(params.id, payload)
+        ).pipe(thenSyncEverhour, dieOnMarkdown)
       )
       .handle("delete", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const groups = yield* Groups
-          yield* groups.remove(org.orgSlug, user.id, params.slug, params.id)
-          const everhour = yield* EverhourIntegrations
-          yield* everhour.bestEffortProjectSync(
-            org.orgSlug,
-            user.id,
-            params.slug
-          )
-        }).pipe(dieOnMarkdown)
+        Effect.flatMap(Groups, (groups) => groups.remove(params.id)).pipe(
+          thenSyncEverhour,
+          dieOnMarkdown
+        )
       )
 )

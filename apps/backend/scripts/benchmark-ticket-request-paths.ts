@@ -5,6 +5,7 @@ import { join, resolve } from "node:path"
 
 import * as BunServices from "@effect/platform-bun/BunServices"
 import { DbLive, PgLive } from "@pp/db"
+import { accessLayer, projectScope } from "@pp/server-core/access/testing"
 import {
   Attachments,
   type AttachmentsShape
@@ -17,6 +18,7 @@ import {
 import { GitHub, type GitHubShape } from "@pp/server-core/github/GitHub"
 import { Groups, type GroupsShape } from "@pp/server-core/groups/Groups"
 import { Library } from "@pp/server-core/library/Library"
+import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { Projects, type ProjectsShape } from "@pp/server-core/projects/Projects"
 import { TicketDocsLive } from "@pp/server-core/tickets/TicketDocsLive"
@@ -33,7 +35,8 @@ import {
   ProjectDetail,
   ProjectKey,
   TagName,
-  TicketStatus
+  TicketStatus,
+  ProjectScope
 } from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as Clock from "effect/Clock"
@@ -350,14 +353,14 @@ const FakeProjects = Layer.succeed(Projects, {
   listMembersPaged: () => unexpected("Projects.listMembersPaged"),
   create: () => unexpected("Projects.create"),
   get: () => Effect.succeed(benchmarkProject),
-  getKey: () => Effect.succeed(decodeProjectKey("T")),
-  getGithubIntegration: () => Effect.succeed(null),
+  key: () => Effect.succeed(decodeProjectKey("T")),
+  githubIntegration: () => Effect.succeed(null),
+  githubBranches: () => unexpected("Projects.githubBranches"),
+  githubRepos: () => unexpected("Projects.githubRepos"),
+  memberIds: () => Effect.succeed(new Set([userId])),
   update: () => unexpected("Projects.update"),
   updateSetup: () => unexpected("Projects.updateSetup"),
   remove: () => unexpected("Projects.remove"),
-  requireMember: () =>
-    Effect.succeed({ role: "developer" as const, projectId: "project-1" }),
-  requireRole: () => unexpected("Projects.requireRole"),
   addMember: () => unexpected("Projects.addMember"),
   updateMember: () => unexpected("Projects.updateMember"),
   removeMember: () => unexpected("Projects.removeMember"),
@@ -459,6 +462,7 @@ const PassthroughLibrary = Layer.mock(Library, {
 })
 
 const DocsLive = TicketDocsLive.pipe(
+  Layer.provide(KeyedLock.layer),
   Layer.provide(MarkdownLive),
   Layer.provideMerge(BunServices.layer)
 )
@@ -482,7 +486,8 @@ const BenchmarkLive = (options: Options) =>
         FakeAttachments,
         FakeFigmaLinks,
         FakeUsers,
-        TicketDocumentLock.layer
+        TicketDocumentLock.layer,
+        accessLayer({})
       )
     )
   )
@@ -629,18 +634,23 @@ const cleanupFixture = async (
   )
 }
 
-const verify = <A, E>(
-  effect: Effect.Effect<A, E>,
+const verify = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
   predicate: (value: A) => boolean,
   message: string
-): Effect.Effect<void, E | Error> =>
+): Effect.Effect<void, E | Error, R> =>
   effect.pipe(
     Effect.flatMap((value) =>
       predicate(value) ? Effect.void : Effect.fail(new Error(message))
     )
   )
 
-const benchmarkProgram = (options: Options, projectSlug: string) =>
+const benchmarkProgram = (
+  options: Options,
+  projectSlug: string,
+  organizationId: string,
+  projectId: string
+) =>
   Effect.gen(function* () {
     const tickets = yield* Tickets
     const results: Array<BenchmarkResult> = []
@@ -666,9 +676,16 @@ const benchmarkProgram = (options: Options, projectSlug: string) =>
     let targetOffset = 0
     const targetId = (sample: number) =>
       `T-${((targetOffset + sample) % options.ticketCount) + 1}`
+    const scope = projectScope("member", "developer", {
+      userId,
+      orgSlug,
+      slug: projectSlug,
+      organizationId,
+      projectId
+    })
     const measure = <A, E>(
       operation: string,
-      effectFor: (sample: number) => Effect.Effect<A, E>
+      effectFor: (sample: number) => Effect.Effect<A, E, ProjectScope>
     ) =>
       options.operation !== undefined && options.operation !== operation
         ? Effect.void
@@ -679,7 +696,10 @@ const benchmarkProgram = (options: Options, projectSlug: string) =>
                 operation,
                 concurrency,
                 options.sampleCount,
-                effectFor
+                (sample) =>
+                  effectFor(sample).pipe(
+                    Effect.provideService(ProjectScope, scope)
+                  )
               ).pipe(
                 Effect.tap((result) =>
                   Effect.sync(() => {
@@ -694,7 +714,7 @@ const benchmarkProgram = (options: Options, projectSlug: string) =>
 
     yield* measure("list-default", () =>
       verify(
-        tickets.list(orgSlug, userId, projectSlug, {
+        tickets.list({
           sort: { key: "created", dir: "desc" }
         }),
         (page) =>
@@ -705,7 +725,7 @@ const benchmarkProgram = (options: Options, projectSlug: string) =>
     )
     yield* measure("list-deep-cursor", () =>
       verify(
-        tickets.list(orgSlug, userId, projectSlug, {
+        tickets.list({
           sort: { key: "id", dir: "asc" },
           cursor: deepCursor
         }),
@@ -719,7 +739,7 @@ const benchmarkProgram = (options: Options, projectSlug: string) =>
     )
     yield* measure("list-filter-status", () =>
       verify(
-        tickets.list(orgSlug, userId, projectSlug, {
+        tickets.list({
           status: [inProgress],
           sort: { key: "created", dir: "desc" }
         }),
@@ -734,7 +754,7 @@ const benchmarkProgram = (options: Options, projectSlug: string) =>
     )
     yield* measure("list-filter-tag", () =>
       verify(
-        tickets.list(orgSlug, userId, projectSlug, {
+        tickets.list({
           tags: [performanceTag],
           sort: { key: "created", dir: "desc" }
         }),
@@ -748,7 +768,7 @@ const benchmarkProgram = (options: Options, projectSlug: string) =>
     )
     yield* measure("list-filter-assignee", () =>
       verify(
-        tickets.list(orgSlug, userId, projectSlug, {
+        tickets.list({
           assignee: ["mine"],
           sort: { key: "created", dir: "desc" }
         }),
@@ -760,7 +780,7 @@ const benchmarkProgram = (options: Options, projectSlug: string) =>
     )
     yield* measure("list-archived", () =>
       verify(
-        tickets.list(orgSlug, userId, projectSlug, {
+        tickets.list({
           archived: true,
           sort: { key: "created", dir: "desc" }
         }),
@@ -772,7 +792,7 @@ const benchmarkProgram = (options: Options, projectSlug: string) =>
     )
     yield* measure("list-filter-group", () =>
       verify(
-        tickets.list(orgSlug, userId, projectSlug, {
+        tickets.list({
           groupId: [groupId],
           sort: { key: "created", dir: "desc" }
         }),
@@ -786,7 +806,7 @@ const benchmarkProgram = (options: Options, projectSlug: string) =>
     )
     yield* measure("count-filtered", () =>
       verify(
-        tickets.count(orgSlug, userId, projectSlug, {
+        tickets.count({
           type: ["bug"]
         }),
         (counts) =>
@@ -800,7 +820,7 @@ const benchmarkProgram = (options: Options, projectSlug: string) =>
     )
     yield* measure("search-common", () =>
       verify(
-        tickets.search(orgSlug, userId, projectSlug, {
+        tickets.search({
           q: "benchmark",
           limit: 100
         }),
@@ -814,7 +834,7 @@ const benchmarkProgram = (options: Options, projectSlug: string) =>
     )
     yield* measure("search-rare", () =>
       verify(
-        tickets.search(orgSlug, userId, projectSlug, {
+        tickets.search({
           q: "unique latency sentinel",
           limit: 100
         }),
@@ -826,7 +846,7 @@ const benchmarkProgram = (options: Options, projectSlug: string) =>
     )
     yield* measure("search-empty", () =>
       verify(
-        tickets.search(orgSlug, userId, projectSlug, {
+        tickets.search({
           q: "no-ticket-has-this-title",
           limit: 100
         }),
@@ -837,7 +857,7 @@ const benchmarkProgram = (options: Options, projectSlug: string) =>
     yield* measure("detail", (sample) => {
       const id = targetId(sample)
       return verify(
-        tickets.get(orgSlug, userId, projectSlug, id),
+        tickets.get(id),
         (ticket) => ticket.id === id,
         `ticket detail returned the wrong ticket for ${id}`
       )
@@ -845,7 +865,7 @@ const benchmarkProgram = (options: Options, projectSlug: string) =>
     yield* measure("update-metadata", (sample) => {
       const title = `Updated benchmark ticket ${sample}`
       return verify(
-        tickets.update(orgSlug, userId, projectSlug, targetId(sample), {
+        tickets.update(targetId(sample), {
           title
         }),
         ({ ticket }) => ticket.title === title,
@@ -855,7 +875,7 @@ const benchmarkProgram = (options: Options, projectSlug: string) =>
     yield* measure("update-body", (sample) => {
       const body = makeBody(sample)
       return verify(
-        tickets.update(orgSlug, userId, projectSlug, targetId(sample), {
+        tickets.update(targetId(sample), {
           body
         }),
         ({ ticket }) => ticket.body === body,
@@ -865,7 +885,7 @@ const benchmarkProgram = (options: Options, projectSlug: string) =>
     yield* measure("update-body-with-ticket-mentions", (sample) => {
       const body = `${makeBody(sample)}\n\nSee [first](mention:ticket/T-1), [middle](mention:ticket/T-${Math.max(1, Math.floor(options.ticketCount / 2))}), and [last](mention:ticket/T-${options.ticketCount}).\n`
       return verify(
-        tickets.update(orgSlug, userId, projectSlug, targetId(sample), {
+        tickets.update(targetId(sample), {
           body
         }),
         ({ ticket }) => ticket.body === body,
@@ -877,7 +897,7 @@ const benchmarkProgram = (options: Options, projectSlug: string) =>
       const title = `Created benchmark ticket ${sample}`
       const body = makeBody(sample)
       return verify(
-        tickets.create(orgSlug, userId, projectSlug, { title, body }),
+        tickets.create({ title, body }),
         (ticket) => {
           const unique = !createdIds.has(ticket.id)
           createdIds.add(ticket.id)
@@ -933,7 +953,7 @@ async function main() {
     await seedFixture(options, projectSlug, organizationId, projectId)
     const seedTimeMs = round(performance.now() - seedStartedAt)
     const results = await Effect.runPromise(
-      benchmarkProgram(options, projectSlug)
+      benchmarkProgram(options, projectSlug, organizationId, projectId)
     )
     const host = await Effect.runPromise(
       Effect.gen(function* () {

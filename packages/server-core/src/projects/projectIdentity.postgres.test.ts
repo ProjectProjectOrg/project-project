@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto"
 
 import { it } from "@effect/vitest"
 import { migrationsFolder } from "@pp/db"
-import { CreatableProjectKey } from "@pp/shared"
+import {
+  CreatableProjectKey,
+  CurrentUser,
+  OrgScope,
+  ProjectScope
+} from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as Effect from "effect/Effect"
@@ -11,6 +16,8 @@ import * as Schema from "effect/Schema"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
+import { Access } from "../access/Access"
+import { testUser } from "../access/testing"
 import { TicketIndex } from "../tickets/TicketIndex"
 import { Projects } from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
@@ -23,15 +30,28 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
   const orgs = [`alpha-${suffix}`, `beta-${suffix}`]
   const users = [randomUUID(), randomUUID()]
   let pool: Pool
-  let layer: Layer.Layer<Projects | TicketIndex>
+  let layer: Layer.Layer<Projects | TicketIndex | Access>
 
   const create = (index: number, name: string, key: string) =>
     Effect.flatMap(Projects, (projects) =>
-      projects.create(orgs[index], users[index], {
-        name,
-        key: projectKey(key)
-      })
-    ).pipe(Effect.provide(layer))
+      projects.create({ name, key: projectKey(key) })
+    ).pipe(
+      Effect.provideServiceEffect(
+        OrgScope,
+        Effect.flatMap(Access, (access) => access.org(orgs[index])).pipe(
+          Effect.provideService(CurrentUser, testUser(users[index]))
+        )
+      ),
+      Effect.provide(layer)
+    )
+
+  const inProject = (index: number, orgIndex: number, slug: string) =>
+    Effect.provideServiceEffect(
+      ProjectScope,
+      Effect.flatMap(Access, (access) =>
+        access.project(orgs[orgIndex], slug)
+      ).pipe(Effect.provideService(CurrentUser, testUser(users[index])))
+    )
 
   beforeAll(async () => {
     if (!databaseUrl) throw new Error("Test database URL is required")
@@ -90,8 +110,8 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
     Effect.gen(function* () {
       const projects = yield* Projects
       const index = yield* TicketIndex
-      const alpha = yield* projects.get(orgs[0], users[0], "website")
-      const beta = yield* projects.get(orgs[1], users[1], "website")
+      const alpha = yield* projects.get().pipe(inProject(0, 0, "website"))
+      const beta = yield* projects.get().pipe(inProject(1, 1, "website"))
       const alphaIndex = yield* index.projectFor(orgs[0], "website")
       const betaIndex = yield* index.projectFor(orgs[1], "website")
       expect(alpha.members.map((member) => member.id)).toStrictEqual([users[0]])
@@ -105,7 +125,7 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
     Effect.gen(function* () {
       const projects = yield* Projects
       const error = yield* Effect.flip(
-        projects.get(orgs[1], users[0], "website")
+        projects.get().pipe(inProject(0, 1, "website"))
       )
       expect(error._tag).toBe("NotFound")
     }).pipe(Effect.provide(layer))
@@ -114,8 +134,8 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
   it.effect("deletes one org's project without touching the other", () =>
     Effect.gen(function* () {
       const projects = yield* Projects
-      yield* projects.remove(orgs[0], users[0], "website")
-      const beta = yield* projects.get(orgs[1], users[1], "website")
+      yield* projects.remove().pipe(inProject(0, 0, "website"))
+      const beta = yield* projects.get().pipe(inProject(1, 1, "website"))
       expect(beta.slug).toBe("website")
     }).pipe(Effect.provide(layer))
   )

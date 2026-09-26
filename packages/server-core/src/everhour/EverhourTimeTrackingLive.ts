@@ -1,5 +1,4 @@
 import { Db } from "@pp/db"
-import { publishedProject } from "@pp/db/projectVisibility"
 import {
   everhourActiveTimer,
   everhourTimeAttribution,
@@ -10,26 +9,34 @@ import {
   DEFAULT_WORK_TYPES,
   EverhourApiKeyMissing,
   EverhourConfigMissing,
+  GroupId,
   NotFound,
+  TicketId,
   type ActiveTimer,
   type OrgEverhourConfig,
   type TicketTimeSummary,
-  type WorkTypeOption
+  type WorkTypeOption,
+  OrgScope,
+  ProjectScope
 } from "@pp/shared"
 import { and, desc, eq, inArray } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 
+import { Access } from "../access/Access"
 import { GroupDocs } from "../groups/GroupDocs"
 import { SecretCrypto } from "../storage/SecretCrypto"
 import { TicketDocs } from "../tickets/TicketDocs"
-import { TicketIndex } from "../tickets/TicketIndex"
 import { Everhour, type EverhourTimeRecord } from "./Everhour"
 import {
   EverhourTimeTracking,
   type EverhourTimeTrackingShape
 } from "./EverhourTimeTracking"
+
+const makeTicketId = Schema.decodeSync(TicketId)
+const makeGroupId = Schema.decodeSync(GroupId)
 
 export const timerComment = (
   ticketId: string | null,
@@ -88,45 +95,8 @@ export const EverhourTimeTrackingLive = Layer.effect(
     const everhour = yield* Everhour
     const groupDocs = yield* GroupDocs
     const ticketDocs = yield* TicketDocs
-    const ticketIndex = yield* TicketIndex
     const secrets = yield* SecretCrypto
-
-    const projectRow = (orgSlug: string, slug: string) =>
-      ticketIndex.projectFor(orgSlug, slug)
-
-    const requireMember = (orgSlug: string, userId: string, slug: string) =>
-      Effect.gen(function* () {
-        const project = yield* projectRow(orgSlug, slug)
-        const explicit = yield* db.query.projectMember
-          .findFirst({
-            columns: { roleId: true },
-            where: {
-              RAW: (table, _operators) =>
-                _operators.and(
-                  _operators.eq(table.projectId, project.projectId),
-                  _operators.eq(table.userId, userId)
-                )!
-            }
-          })
-          .pipe(Effect.orDie)
-        if (explicit) return project
-        const orgRole = yield* db.query.member
-          .findFirst({
-            columns: { role: true },
-            where: {
-              RAW: (table, _operators) =>
-                _operators.and(
-                  _operators.eq(table.organizationId, project.organizationId),
-                  _operators.eq(table.userId, userId)
-                )!
-            }
-          })
-          .pipe(Effect.orDie)
-        if (orgRole?.role === "owner" || orgRole?.role === "admin") {
-          return project
-        }
-        return yield* new NotFound()
-      })
+    const access = yield* Access
 
     const activeLink = (projectId: string) =>
       db
@@ -326,11 +296,9 @@ export const EverhourTimeTrackingLive = Layer.effect(
         })
         .pipe(Effect.orDie)
 
-    const hydrateActiveTimer = (
-      orgSlug: string,
-      row: typeof everhourActiveTimer.$inferSelect
-    ) =>
+    const visibleTimer = (row: typeof everhourActiveTimer.$inferSelect) =>
       Effect.gen(function* () {
+        const { organizationId, orgSlug } = yield* OrgScope
         const link = yield* db.query.projectIntegrationLink
           .findFirst({
             columns: { organizationId: true, projectId: true },
@@ -340,44 +308,29 @@ export const EverhourTimeTrackingLive = Layer.effect(
             }
           })
           .pipe(Effect.orDie)
-        let workTypeLabel = row.workTypeKey
-        let title: string | null = null
-        let slug = ""
-        if (link) {
-          const config = yield* loadConfig(link.organizationId)
-          workTypeLabel =
-            config.workTypes.find(
-              (workType) => workType.key === row.workTypeKey
-            )?.label ?? row.workTypeKey
-          const index = yield* db.query.projectIndex
-            .findFirst({
-              columns: { slug: true },
-              where: {
-                RAW: (table, _operators) =>
-                  _operators.and(
-                    _operators.eq(table.id, link.projectId),
-                    publishedProject(table)
-                  )!
-              }
-            })
-            .pipe(Effect.orDie)
-          if (index) {
-            slug = index.slug
-            if (row.ticketId) {
-              title = yield* ticketTitle(orgSlug, index.slug, row.ticketId)
-            }
-          }
-        }
-        return {
-          slug,
-          ticketId: row.ticketId,
+        if (!link || link.organizationId !== organizationId) return null
+        const project = (yield* access.projectsInOrg()).find(
+          (scope) => scope.projectId === link.projectId
+        )
+        if (!project?.permissions.can({ time: ["read"] })) return null
+        const config = yield* loadConfig(link.organizationId)
+        const workTypeLabel =
+          config.workTypes.find((workType) => workType.key === row.workTypeKey)
+            ?.label ?? row.workTypeKey
+        const title = row.ticketId
+          ? yield* ticketTitle(orgSlug, project.slug, row.ticketId)
+          : null
+        const timer: ActiveTimer = {
+          slug: project.slug,
+          ticketId: row.ticketId === null ? null : makeTicketId(row.ticketId),
           ticketTitle: title,
-          groupId: row.groupId,
+          groupId: makeGroupId(row.groupId),
           workTypeKey: row.workTypeKey,
           workTypeLabel,
           everhourTaskId: row.everhourTaskId,
           startedAt: row.startedAt
-        } as ActiveTimer
+        }
+        return timer
       })
 
     const finalizeRunning = (apiKey: string, everhourUserId: string) =>
@@ -404,16 +357,14 @@ export const EverhourTimeTrackingLive = Layer.effect(
       })
 
     const startTimer = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
       ticketId: string | null,
       groupId: string,
       workTypeKey: string,
       note: string | undefined
     ) =>
       Effect.gen(function* () {
-        const project = yield* requireMember(orgSlug, userId, slug)
+        const project = yield* ProjectScope
+        const { orgSlug, slug, userId } = project
         const actor = yield* actorApiKey(userId)
         const link = yield* activeLink(project.projectId).pipe(
           Effect.flatMap((row) =>
@@ -477,9 +428,10 @@ export const EverhourTimeTrackingLive = Layer.effect(
       })
 
     const workTypesForTicket: EverhourTimeTrackingShape["workTypesForTicket"] =
-      (orgSlug, userId, slug, ticketId) =>
+      (ticketId) =>
         Effect.gen(function* () {
-          const project = yield* requireMember(orgSlug, userId, slug)
+          const project = yield* ProjectScope
+          const { orgSlug, slug } = project
           const link = yield* activeLink(project.projectId)
           if (!link) return []
           const sprints = yield* loadSprints(orgSlug, slug)
@@ -490,20 +442,15 @@ export const EverhourTimeTrackingLive = Layer.effect(
         })
 
     const startTicketTimer: EverhourTimeTrackingShape["startTicketTimer"] = (
-      orgSlug,
-      userId,
-      slug,
       ticketId,
       input
     ) =>
       Effect.gen(function* () {
+        const { orgSlug, slug } = yield* ProjectScope
         const sprints = yield* loadSprints(orgSlug, slug)
         const groupId = resolveSprintForTicket(sprints, ticketId)
         if (groupId === null) return yield* new NotFound()
         return yield* startTimer(
-          orgSlug,
-          userId,
-          slug,
           ticketId,
           groupId,
           input.workTypeKey,
@@ -512,27 +459,13 @@ export const EverhourTimeTrackingLive = Layer.effect(
       })
 
     const startSprintTimer: EverhourTimeTrackingShape["startSprintTimer"] = (
-      orgSlug,
-      userId,
-      slug,
       groupId,
       input
-    ) =>
-      startTimer(
-        orgSlug,
-        userId,
-        slug,
-        null,
-        groupId,
-        input.workTypeKey,
-        input.comment
-      )
+    ) => startTimer(null, groupId, input.workTypeKey, input.comment)
 
-    const stopTimer: EverhourTimeTrackingShape["stopTimer"] = (
-      orgSlug,
-      userId
-    ) =>
+    const stopTimer: EverhourTimeTrackingShape["stopTimer"] = () =>
       Effect.gen(function* () {
+        const { userId } = yield* OrgScope
         const actor = yield* actorApiKey(userId)
         const row = yield* activeTimerRowFor(actor.everhourUserId)
         const record = yield* everhour.stopTimer(actor.apiKey)
@@ -552,31 +485,25 @@ export const EverhourTimeTrackingLive = Layer.effect(
             now
           )
         }
-        const hydrated = yield* hydrateActiveTimer(orgSlug, row)
+        const timer = yield* visibleTimer(row)
         yield* clearActiveTimer(actor.everhourUserId)
-        return hydrated
+        return timer
       })
 
-    const currentTimer: EverhourTimeTrackingShape["currentTimer"] = (
-      orgSlug,
-      userId
-    ) =>
+    const currentTimer: EverhourTimeTrackingShape["currentTimer"] = () =>
       Effect.gen(function* () {
+        const { userId } = yield* OrgScope
         const everhourUserId = yield* everhourUserIdFor(userId)
         if (everhourUserId === null) return null
         const row = yield* activeTimerRowFor(everhourUserId)
         if (!row) return null
-        return yield* hydrateActiveTimer(orgSlug, row)
+        return yield* visibleTimer(row)
       })
 
-    const logTime: EverhourTimeTrackingShape["logTime"] = (
-      orgSlug,
-      userId,
-      slug,
-      input
-    ) =>
+    const logTime: EverhourTimeTrackingShape["logTime"] = (input) =>
       Effect.gen(function* () {
-        const project = yield* requireMember(orgSlug, userId, slug)
+        const project = yield* ProjectScope
+        const { orgSlug, slug, userId } = project
         const actor = yield* actorApiKey(userId)
         const link = yield* activeLink(project.projectId).pipe(
           Effect.flatMap((row) =>
@@ -621,17 +548,15 @@ export const EverhourTimeTrackingLive = Layer.effect(
           now
         )
         if (ticketId === null) return null
-        return yield* ticketTimeSummary(orgSlug, userId, slug, ticketId)
+        return yield* ticketTimeSummary(ticketId)
       })
 
     const ticketTimeSummary: EverhourTimeTrackingShape["ticketTimeSummary"] = (
-      orgSlug,
-      userId,
-      slug,
       ticketId
     ) =>
       Effect.gen(function* () {
-        const project = yield* requireMember(orgSlug, userId, slug)
+        const project = yield* ProjectScope
+        const { userId } = project
         const link = yield* activeLink(project.projectId)
         if (!link) {
           return {

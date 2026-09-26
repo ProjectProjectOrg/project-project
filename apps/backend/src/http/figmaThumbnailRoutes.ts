@@ -1,6 +1,8 @@
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { FigmaLinks } from "@pp/server-core/figma/FigmaLinks"
 import { parseFigmaThumbnailUrl } from "@pp/server-core/figma/FigmaLinks"
+import { Users } from "@pp/server-core/users/Users"
+import { CurrentUser } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 
@@ -19,16 +21,20 @@ const serveFigmaThumbnail = Effect.gen(function* () {
   const session = yield* ba
     .getSession(toWebHeaders(req.headers))
     .pipe(Effect.orElseSucceed(() => null))
-  if (session === null) {
+  const [viewer] =
+    session === null
+      ? []
+      : yield* Effect.flatMap(Users, (users) =>
+          users.fullByIds([session.user.id])
+        )
+  if (viewer === undefined) {
     return HttpServerResponse.text("Unauthorized", { status: 401 })
   }
 
   const figmaLinks = yield* FigmaLinks
-  const signed = yield* figmaLinks.resolveThumbnailUrl(
-    ref.orgSlug,
-    session.user.id,
-    ref.linkId
-  )
+  const signed = yield* figmaLinks
+    .resolveThumbnailUrl(ref.orgSlug, ref.linkId)
+    .pipe(Effect.provideService(CurrentUser, viewer))
   return HttpServerResponse.redirect(signed, {
     status: 302,
     headers: { "cache-control": "private, no-store" }

@@ -1,9 +1,12 @@
+import { Effective, Org } from "@pp/access/roles"
 import * as Context from "effect/Context"
+import * as Option from "effect/Option"
 import { HttpApi } from "effect/unstable/httpapi"
 import { describe, expect, it } from "vitest"
 
 import { IncludeDeletedOrg, OrgAccess, RequiresOrg } from "./access/OrgAccess"
 import { ProjectAccess, RequiresProject } from "./access/ProjectAccess"
+import { permits } from "./access/Requirement"
 import { AppApi } from "./api"
 import { Authentication } from "./Authentication"
 
@@ -58,7 +61,10 @@ const projectAccess: Access = {
 
 const access = [orgAccess, projectAccess]
 
-const scoped = [{ ...orgAccess, covers: isOrgPath }]
+const scoped = [
+  { ...orgAccess, covers: isOrgPath },
+  { ...projectAccess, covers: isProjectPath }
+]
 
 const names = (matching: ReadonlyArray<Route>) =>
   matching.map((route) => route.name)
@@ -136,5 +142,65 @@ describe("deleted orgs", () => {
         )
       )
     ).toStrictEqual(["org.get", "org.restore"])
+  })
+})
+
+const routeNamed = (name: string) => {
+  const route = routes.find((candidate) => candidate.name === name)
+  if (route === undefined) throw new Error(`no endpoint ${name}`)
+  return route
+}
+
+const projectActors = {
+  pm: Effective.roleOnProject("member", "pm"),
+  developer: Effective.roleOnProject("member", "developer"),
+  client: Effective.roleOnProject("member", "client"),
+  orgAdmin: Effective.roleOnProject("admin", null)
+}
+
+type ProjectActor = keyof typeof projectActors
+
+const projectMatrix: ReadonlyArray<
+  readonly [endpoint: string, allowed: ReadonlyArray<ProjectActor>]
+> = [
+  ["projects.update", ["pm", "developer"]],
+  ["projects.updateMember", ["pm", "orgAdmin"]],
+  ["projects.connectGithub", ["pm", "developer"]],
+  ["projects.gitStates", ["pm", "developer", "orgAdmin"]],
+  ["tickets.archive", ["pm", "developer", "client"]],
+  ["tickets.delete", ["pm"]],
+  ["library.createProjectTemplate", ["pm"]],
+  ["library.hideProjectTemplate", ["pm"]],
+  ["library.setTemplateDefaults", ["pm"]]
+]
+
+const orgMatrix: ReadonlyArray<
+  readonly [endpoint: string, allowed: ReadonlyArray<Org.OrgRoleName>]
+> = [
+  ["library.createOrgBlock", ["owner", "admin"]],
+  ["library.setOrgTemplateDefaults", ["owner", "admin"]]
+]
+
+describe("who gets past the access middleware", () => {
+  it.each(projectMatrix)("%s lets through %j", (endpoint, allowed) => {
+    const requirement = Option.getOrThrow(
+      Context.getOption(routeNamed(endpoint).annotations, RequiresProject)
+    )
+    expect(
+      Object.entries(projectActors).flatMap(([actor, permissions]) =>
+        permits(Option.getOrThrow(permissions), requirement) ? [actor] : []
+      )
+    ).toStrictEqual(allowed)
+  })
+
+  it.each(orgMatrix)("%s lets through %j", (endpoint, allowed) => {
+    const requirement = Option.getOrThrow(
+      Context.getOption(routeNamed(endpoint).annotations, RequiresOrg)
+    )
+    expect(
+      Object.entries(Org.orgRoles).flatMap(([role, permissions]) =>
+        permits(permissions, requirement) ? [role] : []
+      )
+    ).toStrictEqual(allowed)
   })
 })

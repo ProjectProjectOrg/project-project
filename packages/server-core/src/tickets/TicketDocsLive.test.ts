@@ -9,6 +9,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { describe, expect } from "vitest"
 
+import * as KeyedLock from "../locks/KeyedLock"
 import { Markdown } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
 import { TicketDocs, type TicketDocument } from "./TicketDocs"
@@ -21,6 +22,7 @@ const TestLayer = Layer.unwrap(
       prefix: "projectproject-ticket-docs-"
     })
     return TicketDocsLive.pipe(
+      Layer.provide(KeyedLock.layer),
       Layer.provideMerge(
         MarkdownLive.pipe(
           Layer.provideMerge(

@@ -1,11 +1,22 @@
 import { describe, expect, it } from "@effect/vitest"
-import { accessLayer, orgScope } from "@pp/server-core/access/testing"
-import { CurrentUser, OrgScope, User, type OrgRole } from "@pp/shared"
+import {
+  accessLayer,
+  orgScope,
+  projectScope
+} from "@pp/server-core/access/testing"
+import {
+  CurrentUser,
+  OrgScope,
+  ProjectScope,
+  User,
+  type OrgRole,
+  type Role
+} from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
-import { orgTool } from "./access"
+import { orgTool, projectTool } from "./access"
 import { McpRequestUser } from "./McpRequestUser"
 
 const user = Schema.decodeSync(User)({
@@ -61,6 +72,44 @@ describe("orgTool", () => {
   it.effect("hides an org the caller does not belong to", () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(runAs("owner", "elsewhere"))
+      expect(error._tag).toBe("NotFound")
+    })
+  )
+})
+
+const deleteTicket = projectTool(
+  { ticket: ["delete"] },
+  (input: Readonly<{ orgSlug: string; projectSlug: string }>) =>
+    Effect.gen(function* () {
+      const scope = yield* ProjectScope
+      const caller = yield* CurrentUser
+      return `${caller.id}:${input.projectSlug}:${scope.role}`
+    })
+)
+
+const deleteAs = (role: Role, projectSlug: string) =>
+  deleteTicket({ orgSlug: "acme", projectSlug }).pipe(
+    Effect.provide(accessLayer({ projects: [projectScope("member", role)] })),
+    Effect.provideService(McpRequestUser, Option.some(user))
+  )
+
+describe("projectTool", () => {
+  it.effect("runs the tool in the caller's project scope", () =>
+    Effect.gen(function* () {
+      expect(yield* deleteAs("pm", "website")).toBe("user-1:website:pm")
+    })
+  )
+
+  it.effect("refuses a caller without the tool's grants", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(deleteAs("developer", "website"))
+      expect(error._tag).toBe("Forbidden")
+    })
+  )
+
+  it.effect("hides a project the caller cannot see", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(deleteAs("pm", "elsewhere"))
       expect(error._tag).toBe("NotFound")
     })
   )

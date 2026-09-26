@@ -1,12 +1,9 @@
-import { publishedProject } from "@pp/db/projectVisibility"
+import { ProjectPolicy } from "@pp/access/policies"
 import {
   BASELINE_STATUS_SEED,
   Conflict,
   deriveProjectIdentity,
   Forbidden,
-  GitHubError,
-  GitHubScopeInsufficient,
-  GitHubTokenExpired,
   NotFound,
   paginateSorted,
   ProjectColor,
@@ -14,12 +11,13 @@ import {
   LastProjectPmBlocked,
   ProjectKey,
   RepoGone,
-  RateLimited,
-  OrgRole,
   Role,
-  UserId
+  UserId,
+  OrgScope,
+  ProjectScope,
+  type ProjectScopeShape
 } from "@pp/shared"
-import { and, asc, eq, sql as sqlFragment } from "drizzle-orm"
+import { and, asc, eq, inArray } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -40,22 +38,16 @@ import {
   projectMember,
   projectStatus
 } from "@pp/db/schema"
-import type { CursorPayload } from "@pp/shared"
 import { AssignableRole } from "@pp/shared"
 import type {
-  AddMemberInput,
-  ConnectGithubInput,
-  CreateProjectInput,
   GithubConnection,
   Member,
   PendingProjectMember,
-  Project,
   ProjectDetail,
-  ProjectSetup,
-  UpdateProjectInput,
-  UpdateProjectSetupInput
+  ProjectSetup
 } from "@pp/shared"
 
+import { Access } from "../access/Access"
 import { GitHub } from "../github/GitHub"
 import type { MarkdownError } from "../markdown/Markdown"
 import type {
@@ -76,13 +68,11 @@ import {
 import {
   Projects,
   type ProjectGithubIntegration,
-  type ProjectMembership,
   type ProjectsShape
 } from "./Projects"
 
 const MAX_SLUG_ATTEMPTS = 100
 const makeRole = Schema.decodeUnknownSync(Role)
-const makeOrgRole = Schema.decodeUnknownSync(OrgRole)
 const makeAssignableRole = Schema.decodeUnknownSync(AssignableRole)
 const makeProjectKey = Schema.decodeUnknownSync(ProjectKey)
 const makeProjectIcon = Schema.decodeUnknownSync(ProjectIcon)
@@ -93,12 +83,12 @@ const defaultSetup = (): ProjectSetup => ({
   connectGithubDismissedAt: null
 })
 
-function withProjectTelemetry<A, E>(
+function withProjectTelemetry<A, E, R>(
   operation: string,
   orgSlug: string,
   attributes: Record<string, unknown>,
-  effect: Effect.Effect<A, E>
-): Effect.Effect<A, E> {
+  effect: Effect.Effect<A, E, R>
+): Effect.Effect<A, E, R> {
   const annotations = { module: "Projects", operation, orgSlug, ...attributes }
   return effect.pipe(
     Effect.withSpan(`Projects.${operation}`, { attributes: annotations }),
@@ -135,22 +125,32 @@ function uniqueConstraint(error: unknown, constraint: string): boolean {
   return typeof error === "string" && error.includes(constraint)
 }
 
+const presentDetail = (
+  scope: ProjectScopeShape,
+  detail: Omit<ProjectDetail, "permissions">
+): ProjectDetail => ({
+  ...detail,
+  github: scope.permissions.can({ github: ["read"] }) ? detail.github : null,
+  permissions: scope.permissions.grants
+})
+
 export const ProjectsLive = Layer.effect(
   Projects,
   Effect.gen(function* () {
     const db = yield* Db
+    const access = yield* Access
     const withProjectWriteLock = <A, E, R>(
-      orgSlug: string,
-      slug: string,
+      projectId: string,
       effect: Effect.Effect<A, E, R>
     ) =>
       db
         .transaction(() =>
           Effect.gen(function* () {
             yield* db
-              .execute(
-                sqlFragment`select p.id from project_index p join organization o on o.id = p.organization_id where o.slug = ${orgSlug} and p.slug = ${slug} for update of p`
-              )
+              .select({ id: projectIndex.id })
+              .from(projectIndex)
+              .where(eq(projectIndex.id, projectId))
+              .for("update")
               .pipe(Effect.orDie)
             return yield* effect
           })
@@ -166,61 +166,13 @@ export const ProjectsLive = Layer.effect(
     const github = yield* GitHub
     const ticketDocumentLock = yield* TicketDocumentLock.TicketDocumentLock
 
-    const orgIdFromSlug = (orgSlug: string): Effect.Effect<string, NotFound> =>
-      db.query.organization
-        .findFirst({
-          columns: { id: true },
-          where: {
-            RAW: (table, _operators) => _operators.eq(table.slug, orgSlug)
-          }
-        })
-        .pipe(
-          Effect.orDie,
-          Effect.flatMap((row) =>
-            row ? Effect.succeed(row.id) : Effect.fail(new NotFound())
-          )
-        )
-
-    const getIndexRowInOrg = (
-      orgSlug: string,
-      slug: string
-    ): Effect.Effect<typeof projectIndex.$inferSelect, NotFound> =>
-      Effect.gen(function* () {
-        const organizationId = yield* orgIdFromSlug(orgSlug)
-        const row = yield* db.query.projectIndex
-          .findFirst({
-            where: {
-              RAW: (table, _operators) =>
-                _operators.and(
-                  _operators.eq(table.slug, slug),
-                  _operators.eq(table.organizationId, organizationId),
-                  publishedProject(table)
-                )!
-            }
-          })
-          .pipe(Effect.orDie)
-        return row ?? (yield* new NotFound())
-      })
-
-    const orgRoleForUser = (
-      organizationId: string,
-      userId: string
-    ): Effect.Effect<OrgRole | null> =>
-      db.query.member
-        .findFirst({
-          columns: { role: true },
-          where: {
-            RAW: (table, _operators) =>
-              _operators.and(
-                _operators.eq(table.organizationId, organizationId),
-                _operators.eq(table.userId, userId)
-              )!
-          }
-        })
-        .pipe(
-          Effect.map((row) => (row ? makeOrgRole(row.role) : null)),
-          Effect.orDie
-        )
+    const inScope = Effect.gen(function* () {
+      const scope = yield* ProjectScope
+      const indexRow = yield* db.query.projectIndex
+        .findFirst({ where: { id: scope.projectId } })
+        .pipe(Effect.orDie)
+      return indexRow ? { scope, indexRow } : yield* new NotFound()
+    })
 
     const findFreeSlug = (
       organizationId: string,
@@ -322,7 +274,7 @@ export const ProjectsLive = Layer.effect(
         )
 
     const loadGithubIntegration = (
-      indexRow: typeof projectIndex.$inferSelect
+      projectId: string
     ): Effect.Effect<ProjectGithubIntegration | null> =>
       db
         .select({
@@ -364,7 +316,7 @@ export const ProjectsLive = Layer.effect(
         )
         .where(
           and(
-            eq(projectIntegrationLink.projectId, indexRow.id),
+            eq(projectIntegrationLink.projectId, projectId),
             eq(projectIntegrationLink.provider, "github"),
             eq(projectIntegrationLink.status, "active"),
             eq(projectGithubRepository.status, "active"),
@@ -380,7 +332,7 @@ export const ProjectsLive = Layer.effect(
     const loadGithubConnection = (
       indexRow: typeof projectIndex.$inferSelect
     ): Effect.Effect<GithubConnection | null> =>
-      loadGithubIntegration(indexRow).pipe(
+      loadGithubIntegration(indexRow.id).pipe(
         Effect.map((row) =>
           row === null
             ? null
@@ -390,16 +342,6 @@ export const ProjectsLive = Layer.effect(
                 repoName: row.repoName,
                 defaultBaseBranch: row.defaultBaseBranch
               }
-        )
-      )
-
-    const requireOrgOwner = (
-      organizationId: string,
-      userId: string
-    ): Effect.Effect<void, Forbidden> =>
-      orgRoleForUser(organizationId, userId).pipe(
-        Effect.flatMap((role) =>
-          role === "owner" ? Effect.void : Effect.fail(new Forbidden())
         )
       )
 
@@ -430,99 +372,75 @@ export const ProjectsLive = Layer.effect(
           Effect.orDie
         )
 
-    const list = (
-      orgSlug: string,
-      userId: string
-    ): Effect.Effect<ReadonlyArray<Project>, NotFound> =>
-      withProjectTelemetry(
-        "list",
-        orgSlug,
-        { userId },
-        Effect.gen(function* () {
-          const organizationId = yield* orgIdFromSlug(orgSlug)
-          const orgRole = yield* orgRoleForUser(organizationId, userId)
-          const baseSelect = {
-            banner: projectIndex.banner,
-            iconImage: projectIndex.iconImage,
-            slug: projectIndex.slug,
-            key: projectIndex.key,
-            name: projectIndex.name,
-            icon: projectIndex.icon,
-            color: projectIndex.color,
-            createdBy: projectIndex.createdBy,
-            createdAt: projectIndex.createdAt
-          }
-          const rows =
-            orgRole === "owner" || orgRole === "admin"
-              ? yield* db
-                  .select(baseSelect)
-                  .from(projectIndex)
-                  .where(
-                    and(
-                      eq(projectIndex.organizationId, organizationId),
-                      publishedProject()
+    const list: ProjectsShape["list"] = () =>
+      Effect.gen(function* () {
+        const { orgSlug, userId } = yield* OrgScope
+        return yield* withProjectTelemetry(
+          "list",
+          orgSlug,
+          { userId },
+          Effect.gen(function* () {
+            const baseSelect = {
+              banner: projectIndex.banner,
+              iconImage: projectIndex.iconImage,
+              slug: projectIndex.slug,
+              key: projectIndex.key,
+              name: projectIndex.name,
+              icon: projectIndex.icon,
+              color: projectIndex.color,
+              createdBy: projectIndex.createdBy,
+              createdAt: projectIndex.createdAt
+            }
+            const visible = yield* access.projectsInOrg()
+            const rows =
+              visible.length === 0
+                ? []
+                : yield* db
+                    .select(baseSelect)
+                    .from(projectIndex)
+                    .where(
+                      inArray(
+                        projectIndex.id,
+                        visible.map((scope) => scope.projectId)
+                      )
                     )
-                  )
-                  .orderBy(asc(projectIndex.createdAt))
-                  .pipe(Effect.orDie)
-              : yield* db
-                  .select(baseSelect)
-                  .from(projectIndex)
-                  .innerJoin(
-                    projectMember,
-                    and(
-                      eq(projectMember.projectId, projectIndex.id),
-                      eq(projectMember.userId, userId)
-                    )
-                  )
-                  .where(
-                    and(
-                      eq(projectIndex.organizationId, organizationId),
-                      publishedProject()
-                    )
-                  )
-                  .orderBy(asc(projectIndex.createdAt))
-                  .pipe(Effect.orDie)
-          const healable = rows.filter((r) => bannerNeedsPlaceholder(r.banner))
-          if (healable.length > 0)
-            yield* Effect.forkDetach(
-              Effect.forEach(
-                healable,
-                (r) => bannerPlaceholders.ensure(orgSlug, r.slug, r.banner),
-                { concurrency: 2, discard: true }
-              )
+                    .orderBy(asc(projectIndex.createdAt))
+                    .pipe(Effect.orDie)
+            const healable = rows.filter((r) =>
+              bannerNeedsPlaceholder(r.banner)
             )
-          return rows.map((r) => ({
-            banner: r.banner ?? null,
-            iconImage: r.iconImage ?? null,
-            org: orgSlug,
-            slug: r.slug,
-            key: makeProjectKey(r.key),
-            name: r.name,
-            icon: makeProjectIcon(r.icon),
-            color: makeProjectColor(r.color),
-            createdBy: r.createdBy,
-            createdAt: r.createdAt
-          }))
-        })
-      )
+            if (healable.length > 0)
+              yield* Effect.forkDetach(
+                Effect.forEach(
+                  healable,
+                  (r) => bannerPlaceholders.ensure(orgSlug, r.slug, r.banner),
+                  { concurrency: 2, discard: true }
+                )
+              )
+            return rows.map((r) => ({
+              banner: r.banner ?? null,
+              iconImage: r.iconImage ?? null,
+              org: orgSlug,
+              slug: r.slug,
+              key: makeProjectKey(r.key),
+              name: r.name,
+              icon: makeProjectIcon(r.icon),
+              color: makeProjectColor(r.color),
+              createdBy: r.createdBy,
+              createdAt: r.createdAt
+            }))
+          })
+        )
+      })
 
     const projectSortKey = (p: { createdAt: Date; slug: string }) =>
       `${(Number.MAX_SAFE_INTEGER - p.createdAt.getTime())
         .toString()
         .padStart(20, "0")}|${p.slug}`
 
-    const listPaged = (
-      orgSlug: string,
-      userId: string,
-      cursor: CursorPayload | undefined,
-      limit: number
-    ): Effect.Effect<
-      { items: ReadonlyArray<Project>; nextCursor: string | null },
-      NotFound
-    > =>
+    const listPaged: ProjectsShape["listPaged"] = (cursor, limit) =>
       Effect.gen(function* () {
-        const all = yield* list(orgSlug, userId)
+        const all = yield* list()
         const sorted = [...all].toSorted((a, b) => {
           const dt = b.createdAt.getTime() - a.createdAt.getTime()
           if (dt !== 0) return dt
@@ -536,21 +454,14 @@ export const ProjectsLive = Layer.effect(
         })
       })
 
-    const listMembersPaged = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      cursor: CursorPayload | undefined,
-      limit: number
-    ): Effect.Effect<
-      { items: ReadonlyArray<Member>; nextCursor: string | null },
-      NotFound
-    > =>
+    const listMembersPaged: ProjectsShape["listMembersPaged"] = (
+      cursor,
+      limit
+    ) =>
       Effect.gen(function* () {
-        const detail = yield* get(orgSlug, userId, slug).pipe(
-          Effect.catchTag("MarkdownError", (e) => Effect.die(e))
-        )
-        const sorted = [...detail.members].toSorted((a, b) =>
+        const { projectId } = yield* ProjectScope
+        const members = yield* loadMembers(projectId)
+        const sorted = [...members].toSorted((a, b) =>
           a.name < b.name
             ? -1
             : a.name > b.name
@@ -569,92 +480,56 @@ export const ProjectsLive = Layer.effect(
         })
       })
 
-    const requireMemberContext = (
-      orgSlug: string,
-      userId: string,
-      slug: string
-    ): Effect.Effect<
-      { role: Role; indexRow: typeof projectIndex.$inferSelect },
-      NotFound
-    > =>
-      withProjectTelemetry(
-        "requireMember",
-        orgSlug,
-        { slug, userId },
-        Effect.gen(function* () {
-          const indexRow = yield* getIndexRowInOrg(orgSlug, slug)
-          const explicit = yield* db.query.projectMember
-            .findFirst({
-              columns: { roleId: true },
-              where: {
-                RAW: (table, _operators) =>
-                  _operators.and(
-                    _operators.eq(table.projectId, indexRow.id),
-                    _operators.eq(table.userId, userId)
-                  )!
-              }
-            })
-            .pipe(Effect.orDie)
-          const explicitRole = explicit ? makeRole(explicit.roleId) : null
-          if (explicitRole === "pm") return { role: "pm" as const, indexRow }
-          const orgRole = yield* orgRoleForUser(indexRow.organizationId, userId)
-          if (orgRole === "owner" || orgRole === "admin") {
-            return { role: "pm" as const, indexRow }
-          }
-          if (explicitRole) return { role: explicitRole, indexRow }
-          return yield* new NotFound()
-        })
+    const key: ProjectsShape["key"] = () =>
+      inScope.pipe(
+        Effect.flatMap(({ indexRow }) =>
+          Effect.sync(() => makeProjectKey(indexRow.key))
+        )
       )
 
-    const requireMember = (orgSlug: string, userId: string, slug: string) =>
-      requireMemberContext(orgSlug, userId, slug).pipe(
-        Effect.map(({ role, indexRow }) => ({ role, projectId: indexRow.id }))
+    const githubIntegration: ProjectsShape["githubIntegration"] = () =>
+      Effect.flatMap(ProjectScope, (scope) =>
+        loadGithubIntegration(scope.projectId)
       )
 
-    const requireRole = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      allowed: ReadonlyArray<Role>
-    ): Effect.Effect<ProjectMembership, NotFound | Forbidden> =>
+    const githubBranches: ProjectsShape["githubBranches"] = (query, first) =>
       Effect.gen(function* () {
-        const ctx = yield* requireMember(orgSlug, userId, slug)
-        if (!allowed.includes(ctx.role)) {
-          return yield* new Forbidden()
-        }
-        return ctx
+        const { projectId } = yield* ProjectScope
+        const integration = yield* loadGithubIntegration(projectId)
+        if (!integration) return { items: [], hasMore: false }
+        return yield* github.listInstallationBranches(
+          integration.installationId,
+          integration.repoOwner,
+          integration.repoName,
+          query,
+          first
+        )
       })
 
-    const getKey = (
-      orgSlug: string,
-      userId: string,
-      slug: string
-    ): Effect.Effect<ProjectKey, NotFound> =>
-      withProjectTelemetry(
-        "getKey",
-        orgSlug,
-        { slug, userId },
-        Effect.gen(function* () {
-          const { indexRow } = yield* requireMemberContext(
-            orgSlug,
-            userId,
-            slug
-          )
-          return yield* Effect.sync(() => makeProjectKey(indexRow.key)).pipe(
+    const githubRepos: ProjectsShape["githubRepos"] = (query, page) =>
+      Effect.gen(function* () {
+        const { organizationId } = yield* ProjectScope
+        const installation = yield* activeOrganizationGithub(organizationId)
+        if (!installation) return yield* new NotFound()
+        return yield* github.listInstallationRepos(
+          installation.installationId,
+          query,
+          page
+        )
+      })
+
+    const memberIds: ProjectsShape["memberIds"] = () =>
+      Effect.flatMap(ProjectScope, (scope) =>
+        db.query.projectMember
+          .findMany({
+            columns: { userId: true },
+            where: { projectId: scope.projectId }
+          })
+          .pipe(
+            Effect.map((rows) => new Set(rows.map((row) => row.userId))),
             Effect.orDie
           )
-        })
       )
-
-    const getGithubIntegration = (
-      orgSlug: string,
-      userId: string,
-      slug: string
-    ): Effect.Effect<ProjectGithubIntegration | null, NotFound> =>
-      Effect.gen(function* () {
-        const { indexRow } = yield* requireMemberContext(orgSlug, userId, slug)
-        return yield* loadGithubIntegration(indexRow)
-      })
 
     const syncFrontmatter = (
       orgSlug: string,
@@ -683,303 +558,363 @@ export const ProjectsLive = Layer.effect(
         body
       })
 
-    const create = (
-      orgSlug: string,
-      createdBy: string,
-      input: CreateProjectInput
-    ): Effect.Effect<Project, NotFound | Conflict> =>
-      withProjectTelemetry(
-        "create",
-        orgSlug,
-        { createdBy, projectName: input.name, projectKey: input.key },
-        Effect.gen(function* () {
-          const organizationId = yield* orgIdFromSlug(orgSlug)
-          const slug = yield* findFreeSlug(organizationId, slugify(input.name))
-          const createdAt = yield* DateTime.nowAsDate
-          const key = makeProjectKey(input.key)
-          const identityRaw = deriveProjectIdentity(slug)
-          const identity = {
-            icon: makeProjectIcon(identityRaw.icon),
-            color: makeProjectColor(identityRaw.color)
-          }
-          const existingKey = yield* db.query.projectIndex
-            .findFirst({
-              columns: { slug: true },
-              where: {
-                RAW: (table, _operators) =>
-                  _operators.and(
-                    _operators.eq(table.organizationId, organizationId),
-                    _operators.eq(table.key, input.key)
-                  )!
-              }
-            })
-            .pipe(Effect.orDie)
-          if (existingKey) {
-            return yield* new Conflict({ reason: "project_key_taken" })
-          }
+    const create: ProjectsShape["create"] = (input) =>
+      Effect.gen(function* () {
+        const { organizationId, orgSlug, userId: createdBy } = yield* OrgScope
+        return yield* withProjectTelemetry(
+          "create",
+          orgSlug,
+          { createdBy, projectName: input.name, projectKey: input.key },
+          Effect.gen(function* () {
+            const slug = yield* findFreeSlug(
+              organizationId,
+              slugify(input.name)
+            )
+            const createdAt = yield* DateTime.nowAsDate
+            const key = makeProjectKey(input.key)
+            const identityRaw = deriveProjectIdentity(slug)
+            const identity = {
+              icon: makeProjectIcon(identityRaw.icon),
+              color: makeProjectColor(identityRaw.color)
+            }
+            const existingKey = yield* db.query.projectIndex
+              .findFirst({
+                columns: { slug: true },
+                where: {
+                  RAW: (table, _operators) =>
+                    _operators.and(
+                      _operators.eq(table.organizationId, organizationId),
+                      _operators.eq(table.key, input.key)
+                    )!
+                }
+              })
+              .pipe(Effect.orDie)
+            if (existingKey) {
+              return yield* new Conflict({ reason: "project_key_taken" })
+            }
 
-          const [row] = yield* db
-            .insert(projectIndex)
-            .values({
+            const [row] = yield* db
+              .insert(projectIndex)
+              .values({
+                slug,
+                key,
+                name: input.name,
+                icon: identity.icon,
+                color: identity.color,
+                createdBy,
+                createdAt,
+                publishedAt: createdAt,
+                organizationId
+              })
+              .returning()
+              .pipe(
+                Effect.catch((cause) =>
+                  uniqueConstraint(cause, "project_index_organization_key_uidx")
+                    ? Effect.fail(new Conflict({ reason: "project_key_taken" }))
+                    : Effect.die(cause)
+                )
+              )
+
+            yield* db
+              .insert(projectMember)
+              .values({
+                projectId: row.id,
+                organizationId,
+                userId: createdBy,
+                roleId: "pm"
+              })
+              .pipe(Effect.orDie)
+
+            yield* db
+              .insert(projectStatus)
+              .values(
+                BASELINE_STATUS_SEED.map((baseline) => ({
+                  projectId: row.id,
+                  slug: baseline.slug,
+                  label: baseline.label,
+                  icon: baseline.icon,
+                  color: baseline.color,
+                  orderKey: baseline.orderKey,
+                  createdBy
+                }))
+              )
+              .pipe(Effect.orDie)
+
+            const rollback = db
+              .delete(projectIndex)
+              .where(eq(projectIndex.id, row.id))
+              .pipe(Effect.orDie)
+
+            yield* syncFrontmatter(
+              orgSlug,
               slug,
-              key,
-              name: input.name,
-              icon: identity.icon,
-              color: identity.color,
+              input.name,
+              identity.icon,
+              identity.color,
               createdBy,
               createdAt,
-              publishedAt: createdAt,
-              organizationId
-            })
-            .returning()
-            .pipe(
+              key,
+              `# ${input.name}\n`,
+              null,
+              defaultSetup()
+            ).pipe(
               Effect.catch((cause) =>
-                uniqueConstraint(cause, "project_index_organization_key_uidx")
-                  ? Effect.fail(new Conflict({ reason: "project_key_taken" }))
-                  : Effect.die(cause)
+                rollback.pipe(Effect.andThen(Effect.die(cause)))
               )
             )
 
-          yield* db
-            .insert(projectMember)
-            .values({
-              projectId: row.id,
-              organizationId,
-              userId: createdBy,
-              roleId: "pm"
-            })
-            .pipe(Effect.orDie)
+            return {
+              org: orgSlug,
+              slug: row.slug,
+              key: makeProjectKey(row.key),
+              name: row.name,
+              icon: makeProjectIcon(row.icon),
+              color: makeProjectColor(row.color),
+              createdBy: row.createdBy,
+              createdAt: row.createdAt,
+              banner: null,
+              iconImage: null
+            }
+          })
+        )
+      })
 
-          yield* db
-            .insert(projectStatus)
-            .values(
-              BASELINE_STATUS_SEED.map((baseline) => ({
-                projectId: row.id,
-                slug: baseline.slug,
-                label: baseline.label,
-                icon: baseline.icon,
-                color: baseline.color,
-                orderKey: baseline.orderKey,
-                createdBy
-              }))
+    const get: ProjectsShape["get"] = () =>
+      Effect.gen(function* () {
+        const { scope, indexRow } = yield* inScope
+        const { orgSlug, slug, userId } = scope
+        return yield* withProjectTelemetry(
+          "get",
+          orgSlug,
+          { slug, userId },
+          Effect.gen(function* () {
+            const file = yield* projectDocs.read(orgSlug, slug)
+            const members = yield* loadMembers(indexRow.id)
+            const pendingMembers = yield* loadPendingMembers(indexRow.id)
+            const connection = yield* loadGithubConnection(indexRow)
+            const banner = yield* bannerPlaceholders.ensure(
+              orgSlug,
+              slug,
+              indexRow.banner
             )
-            .pipe(Effect.orDie)
-
-          const rollback = db
-            .delete(projectIndex)
-            .where(eq(projectIndex.id, row.id))
-            .pipe(Effect.orDie)
-
-          yield* syncFrontmatter(
-            orgSlug,
-            slug,
-            input.name,
-            identity.icon,
-            identity.color,
-            createdBy,
-            createdAt,
-            key,
-            `# ${input.name}\n`,
-            null,
-            defaultSetup()
-          ).pipe(
-            Effect.catch((cause) =>
-              rollback.pipe(Effect.andThen(Effect.die(cause)))
-            )
-          )
-
-          return {
-            org: orgSlug,
-            slug: row.slug,
-            key: makeProjectKey(row.key),
-            name: row.name,
-            icon: makeProjectIcon(row.icon),
-            color: makeProjectColor(row.color),
-            createdBy: row.createdBy,
-            createdAt: row.createdAt,
-            banner: null,
-            iconImage: null
-          }
-        })
-      )
-
-    const get = (
-      orgSlug: string,
-      userId: string,
-      slug: string
-    ): Effect.Effect<ProjectDetail, NotFound | MarkdownError> =>
-      withProjectTelemetry(
-        "get",
-        orgSlug,
-        { slug, userId },
-        Effect.gen(function* () {
-          const { indexRow } = yield* requireMemberContext(
-            orgSlug,
-            userId,
-            slug
-          )
-          const file = yield* projectDocs.read(orgSlug, slug)
-          const members = yield* loadMembers(indexRow.id)
-          const pendingMembers = yield* loadPendingMembers(indexRow.id)
-          const connection = yield* loadGithubConnection(indexRow)
-          const banner = yield* bannerPlaceholders.ensure(
-            orgSlug,
-            slug,
-            indexRow.banner
-          )
-          const key = makeProjectKey(indexRow.key)
-          return {
-            org: orgSlug,
-            slug: indexRow.slug,
-            key,
-            name: indexRow.name,
-            icon: makeProjectIcon(indexRow.icon),
-            color: makeProjectColor(indexRow.color),
-            createdBy: indexRow.createdBy,
-            createdAt: indexRow.createdAt,
-            github: connection,
-            banner,
-            iconImage: indexRow.iconImage ?? null,
-            setup: file.setup,
-            body: file.body,
-            members,
-            pendingMembers
-          }
-        })
-      )
-
-    const update = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      input: UpdateProjectInput
-    ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
-      withProjectTelemetry(
-        "update",
-        orgSlug,
-        { slug, userId },
-        Effect.gen(function* () {
-          yield* requireRole(orgSlug, userId, slug, ["pm"])
-          const indexRow = yield* getIndexRowInOrg(orgSlug, slug)
-          const file = yield* projectDocs.read(orgSlug, slug)
-          const connection = yield* loadGithubConnection(indexRow)
-
-          const nextBanner =
-            input.banner === undefined
-              ? (indexRow.banner ?? null)
-              : (input.banner ?? null)
-          if (input.banner !== undefined) {
-            yield* replaceProjectImageReference(db, {
-              projectId: indexRow.id,
-              slot: "banner",
-              attachmentId:
-                nextBanner?.type === "attachment"
-                  ? nextBanner.attachmentId
-                  : null
+            const key = makeProjectKey(indexRow.key)
+            return presentDetail(scope, {
+              org: orgSlug,
+              slug: indexRow.slug,
+              key,
+              name: indexRow.name,
+              icon: makeProjectIcon(indexRow.icon),
+              color: makeProjectColor(indexRow.color),
+              createdBy: indexRow.createdBy,
+              createdAt: indexRow.createdAt,
+              github: connection,
+              banner,
+              iconImage: indexRow.iconImage ?? null,
+              setup: file.setup,
+              body: file.body,
+              members,
+              pendingMembers
             })
-          }
+          })
+        )
+      })
 
-          const nextIconImage =
-            input.iconImage === undefined
-              ? (indexRow.iconImage ?? null)
-              : input.iconImage
-          if (input.iconImage !== undefined) {
-            const slots = iconImageSlots(nextIconImage)
-            yield* db.transaction(() =>
-              Effect.gen(function* () {
-                yield* replaceProjectImageReference(db, {
-                  projectId: indexRow.id,
-                  slot: "icon",
-                  attachmentId: slots.icon
-                })
-                yield* replaceProjectImageReference(db, {
-                  projectId: indexRow.id,
-                  slot: "icon_source",
-                  attachmentId: slots.iconSource
-                })
+    const update: ProjectsShape["update"] = (input) =>
+      Effect.gen(function* () {
+        const scope = yield* ProjectScope
+        const { body, ...settings } = input
+        const allowed = ProjectPolicy.canUpdate(scope, {
+          body: body !== undefined,
+          settings:
+            body === undefined ||
+            Object.values(settings).some((value) => value !== undefined)
+        })
+        if (!allowed) return yield* new Forbidden()
+        const { orgSlug, slug, userId, projectId } = scope
+        return yield* withProjectTelemetry(
+          "update",
+          orgSlug,
+          { slug, userId },
+          Effect.gen(function* () {
+            const { indexRow } = yield* inScope
+            const file = yield* projectDocs.read(orgSlug, slug)
+            const connection = yield* loadGithubConnection(indexRow)
+
+            const nextBanner =
+              input.banner === undefined
+                ? (indexRow.banner ?? null)
+                : (input.banner ?? null)
+            if (input.banner !== undefined) {
+              yield* replaceProjectImageReference(db, {
+                projectId: indexRow.id,
+                slot: "banner",
+                attachmentId:
+                  nextBanner?.type === "attachment"
+                    ? nextBanner.attachmentId
+                    : null
               })
+            }
+
+            const nextIconImage =
+              input.iconImage === undefined
+                ? (indexRow.iconImage ?? null)
+                : input.iconImage
+            if (input.iconImage !== undefined) {
+              const slots = iconImageSlots(nextIconImage)
+              yield* db.transaction(() =>
+                Effect.gen(function* () {
+                  yield* replaceProjectImageReference(db, {
+                    projectId: indexRow.id,
+                    slot: "icon",
+                    attachmentId: slots.icon
+                  })
+                  yield* replaceProjectImageReference(db, {
+                    projectId: indexRow.id,
+                    slot: "icon_source",
+                    attachmentId: slots.iconSource
+                  })
+                })
+              )
+            }
+
+            const nextName = input.name ?? indexRow.name
+            const nextBody = input.body ?? file.body
+            const nextIcon = input.icon ?? makeProjectIcon(indexRow.icon)
+            const nextColor = input.color ?? makeProjectColor(indexRow.color)
+
+            const dbPatch: Partial<typeof projectIndex.$inferInsert> = {}
+            if (input.banner !== undefined) dbPatch.banner = nextBanner
+            if (input.iconImage !== undefined) dbPatch.iconImage = nextIconImage
+            if (input.name !== undefined && input.name !== indexRow.name) {
+              dbPatch.name = nextName
+            }
+            if (input.icon !== undefined && input.icon !== indexRow.icon) {
+              dbPatch.icon = nextIcon
+            }
+            if (input.color !== undefined && input.color !== indexRow.color) {
+              dbPatch.color = nextColor
+            }
+            if (Object.keys(dbPatch).length > 0) {
+              yield* db
+                .update(projectIndex)
+                .set(dbPatch)
+                .where(eq(projectIndex.id, indexRow.id))
+                .pipe(Effect.orDie)
+            }
+
+            const members = yield* loadMembers(indexRow.id)
+            const pendingMembers = yield* loadPendingMembers(indexRow.id)
+            yield* syncFrontmatter(
+              orgSlug,
+              slug,
+              nextName,
+              nextIcon,
+              nextColor,
+              indexRow.createdBy,
+              indexRow.createdAt,
+              makeProjectKey(indexRow.key),
+              nextBody,
+              connection,
+              file.setup
             )
-          }
 
-          const nextName = input.name ?? indexRow.name
-          const nextBody = input.body ?? file.body
-          const nextIcon = input.icon ?? makeProjectIcon(indexRow.icon)
-          const nextColor = input.color ?? makeProjectColor(indexRow.color)
+            return presentDetail(scope, {
+              org: orgSlug,
+              slug,
+              key: makeProjectKey(indexRow.key),
+              name: nextName,
+              icon: nextIcon,
+              color: nextColor,
+              createdBy: indexRow.createdBy,
+              createdAt: indexRow.createdAt,
+              github: connection,
+              banner: nextBanner,
+              iconImage: nextIconImage,
+              setup: file.setup,
+              body: nextBody,
+              members,
+              pendingMembers
+            })
+          }).pipe((effect) => withProjectWriteLock(projectId, effect))
+        )
+      })
 
-          const dbPatch: Partial<typeof projectIndex.$inferInsert> = {}
-          if (input.banner !== undefined) dbPatch.banner = nextBanner
-          if (input.iconImage !== undefined) dbPatch.iconImage = nextIconImage
-          if (input.name !== undefined && input.name !== indexRow.name) {
-            dbPatch.name = nextName
-          }
-          if (input.icon !== undefined && input.icon !== indexRow.icon) {
-            dbPatch.icon = nextIcon
-          }
-          if (input.color !== undefined && input.color !== indexRow.color) {
-            dbPatch.color = nextColor
-          }
-          if (Object.keys(dbPatch).length > 0) {
+    const updateSetup: ProjectsShape["updateSetup"] = (input) =>
+      Effect.gen(function* () {
+        const scope = yield* ProjectScope
+        const { orgSlug, slug, userId, projectId } = scope
+        return yield* withProjectTelemetry(
+          "updateSetup",
+          orgSlug,
+          { slug, userId },
+          Effect.gen(function* () {
+            const { indexRow } = yield* inScope
+            const file = yield* projectDocs.read(orgSlug, slug)
+            const connection = yield* loadGithubConnection(indexRow)
+            const members = yield* loadMembers(indexRow.id)
+            const pendingMembers = yield* loadPendingMembers(indexRow.id)
+            const setup = { ...file.setup, ...input }
+            yield* syncFrontmatter(
+              orgSlug,
+              slug,
+              indexRow.name,
+              indexRow.icon,
+              indexRow.color,
+              indexRow.createdBy,
+              indexRow.createdAt,
+              makeProjectKey(indexRow.key),
+              file.body,
+              connection,
+              setup
+            )
+            return presentDetail(scope, {
+              org: orgSlug,
+              slug,
+              key: makeProjectKey(indexRow.key),
+              name: indexRow.name,
+              icon: makeProjectIcon(indexRow.icon),
+              color: makeProjectColor(indexRow.color),
+              createdBy: indexRow.createdBy,
+              createdAt: indexRow.createdAt,
+              github: connection,
+              setup,
+              banner: indexRow.banner ?? null,
+              iconImage: indexRow.iconImage ?? null,
+              body: file.body,
+              members,
+              pendingMembers
+            })
+          }).pipe((effect) => withProjectWriteLock(projectId, effect))
+        )
+      })
+
+    const remove: ProjectsShape["remove"] = () =>
+      Effect.gen(function* () {
+        const { orgSlug, slug, userId, projectId } = yield* ProjectScope
+        yield* withProjectTelemetry(
+          "remove",
+          orgSlug,
+          { slug, userId },
+          Effect.gen(function* () {
+            yield* projectDocs.removeDir(orgSlug, slug)
             yield* db
-              .update(projectIndex)
-              .set(dbPatch)
-              .where(eq(projectIndex.id, indexRow.id))
+              .delete(projectIndex)
+              .where(eq(projectIndex.id, projectId))
               .pipe(Effect.orDie)
-          }
+          })
+        )
+      })
 
-          const members = yield* loadMembers(indexRow.id)
-          const pendingMembers = yield* loadPendingMembers(indexRow.id)
-          yield* syncFrontmatter(
-            orgSlug,
-            slug,
-            nextName,
-            nextIcon,
-            nextColor,
-            indexRow.createdBy,
-            indexRow.createdAt,
-            makeProjectKey(indexRow.key),
-            nextBody,
-            connection,
-            file.setup
-          )
-
-          return {
-            org: orgSlug,
-            slug,
-            key: makeProjectKey(indexRow.key),
-            name: nextName,
-            icon: nextIcon,
-            color: nextColor,
-            createdBy: indexRow.createdBy,
-            createdAt: indexRow.createdAt,
-            github: connection,
-            banner: nextBanner,
-            iconImage: nextIconImage,
-            setup: file.setup,
-            body: nextBody,
-            members,
-            pendingMembers
-          }
-        }).pipe((effect) => withProjectWriteLock(orgSlug, slug, effect))
-      )
-
-    const updateSetup = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      input: UpdateProjectSetupInput
-    ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
-      withProjectTelemetry(
-        "updateSetup",
-        orgSlug,
-        { slug, userId },
+    const replayDetail = Effect.flatMap(ProjectScope, (current) =>
+      withProjectWriteLock(
+        current.projectId,
         Effect.gen(function* () {
-          yield* requireRole(orgSlug, userId, slug, ["pm"])
-          const indexRow = yield* getIndexRowInOrg(orgSlug, slug)
+          const { scope, indexRow } = yield* inScope
+          const { orgSlug, slug } = scope
           const file = yield* projectDocs.read(orgSlug, slug)
           const connection = yield* loadGithubConnection(indexRow)
           const members = yield* loadMembers(indexRow.id)
           const pendingMembers = yield* loadPendingMembers(indexRow.id)
-          const setup = { ...file.setup, ...input }
           yield* syncFrontmatter(
             orgSlug,
             slug,
@@ -991,11 +926,11 @@ export const ProjectsLive = Layer.effect(
             makeProjectKey(indexRow.key),
             file.body,
             connection,
-            setup
+            file.setup
           )
-          return {
+          return presentDetail(scope, {
             org: orgSlug,
-            slug,
+            slug: indexRow.slug,
             key: makeProjectKey(indexRow.key),
             name: indexRow.name,
             icon: makeProjectIcon(indexRow.icon),
@@ -1003,78 +938,16 @@ export const ProjectsLive = Layer.effect(
             createdBy: indexRow.createdBy,
             createdAt: indexRow.createdAt,
             github: connection,
-            setup,
             banner: indexRow.banner ?? null,
             iconImage: indexRow.iconImage ?? null,
+            setup: file.setup,
             body: file.body,
             members,
             pendingMembers
-          }
-        }).pipe((effect) => withProjectWriteLock(orgSlug, slug, effect))
-      )
-
-    const remove = (
-      orgSlug: string,
-      userId: string,
-      slug: string
-    ): Effect.Effect<void, NotFound | Forbidden | MarkdownError> =>
-      withProjectTelemetry(
-        "remove",
-        orgSlug,
-        { slug, userId },
-        Effect.gen(function* () {
-          const { projectId } = yield* requireRole(orgSlug, userId, slug, [
-            "pm"
-          ])
-          yield* projectDocs.removeDir(orgSlug, slug)
-          yield* db
-            .delete(projectIndex)
-            .where(eq(projectIndex.id, projectId))
-            .pipe(Effect.orDie)
+          })
         })
       )
-
-    const replayDetail = (
-      orgSlug: string,
-      slug: string
-    ): Effect.Effect<ProjectDetail, NotFound | MarkdownError> =>
-      Effect.gen(function* () {
-        const indexRow = yield* getIndexRowInOrg(orgSlug, slug)
-        const file = yield* projectDocs.read(orgSlug, slug)
-        const connection = yield* loadGithubConnection(indexRow)
-        const members = yield* loadMembers(indexRow.id)
-        const pendingMembers = yield* loadPendingMembers(indexRow.id)
-        yield* syncFrontmatter(
-          orgSlug,
-          slug,
-          indexRow.name,
-          indexRow.icon,
-          indexRow.color,
-          indexRow.createdBy,
-          indexRow.createdAt,
-          makeProjectKey(indexRow.key),
-          file.body,
-          connection,
-          file.setup
-        )
-        return {
-          org: orgSlug,
-          slug: indexRow.slug,
-          key: makeProjectKey(indexRow.key),
-          name: indexRow.name,
-          icon: makeProjectIcon(indexRow.icon),
-          color: makeProjectColor(indexRow.color),
-          createdBy: indexRow.createdBy,
-          createdAt: indexRow.createdAt,
-          github: connection,
-          banner: indexRow.banner ?? null,
-          iconImage: indexRow.iconImage ?? null,
-          setup: file.setup,
-          body: file.body,
-          members,
-          pendingMembers
-        }
-      }).pipe((effect) => withProjectWriteLock(orgSlug, slug, effect))
+    )
 
     const unassignUserFromActiveTickets = (
       orgSlug: string,
@@ -1237,9 +1110,9 @@ export const ProjectsLive = Layer.effect(
       email: string,
       indexRow: typeof projectIndex.$inferSelect,
       role: AssignableRole
-    ): Effect.Effect<void, NotFound> =>
+    ): Effect.Effect<void> =>
       Effect.gen(function* () {
-        const organizationId = yield* orgIdFromSlug(orgSlug)
+        const organizationId = indexRow.organizationId
         const normalizedEmail = email.toLowerCase()
         const now = yield* DateTime.now
         const expiresAt = DateTime.toDate(DateTime.add(now, { hours: 48 }))
@@ -1354,452 +1227,412 @@ export const ProjectsLive = Layer.effect(
         })
       })
 
-    const addMember = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      input: AddMemberInput
-    ): Effect.Effect<
-      ProjectDetail,
-      NotFound | Forbidden | MarkdownError | LastProjectPmBlocked
-    > =>
-      withProjectTelemetry(
-        "addMember",
-        orgSlug,
-        { slug, userId, targetEmail: input.email, targetRole: input.role },
-        Effect.gen(function* () {
-          yield* requireRole(orgSlug, userId, slug, ["pm"])
-          const indexRow = yield* getIndexRowInOrg(orgSlug, slug)
-          const email = input.email.trim().toLowerCase()
-          const target = yield* users.findByEmail(email)
-          const targetOrgMember =
-            target === null
-              ? null
-              : yield* db.query.member
-                  .findFirst({
-                    columns: { id: true },
-                    where: {
-                      RAW: (table, _operators) =>
-                        _operators.and(
-                          _operators.eq(
-                            table.organizationId,
-                            indexRow.organizationId
-                          ),
-                          _operators.eq(table.userId, target.id)
-                        )!
-                    }
-                  })
-                  .pipe(Effect.orDie)
+    const addMember: ProjectsShape["addMember"] = (input) =>
+      Effect.gen(function* () {
+        const { orgSlug, slug, userId } = yield* ProjectScope
+        return yield* withProjectTelemetry(
+          "addMember",
+          orgSlug,
+          { slug, userId, targetEmail: input.email, targetRole: input.role },
+          Effect.gen(function* () {
+            const { indexRow } = yield* inScope
+            const email = input.email.trim().toLowerCase()
+            const target = yield* users.findByEmail(email)
+            const targetOrgMember =
+              target === null
+                ? null
+                : yield* db.query.member
+                    .findFirst({
+                      columns: { id: true },
+                      where: {
+                        RAW: (table, _operators) =>
+                          _operators.and(
+                            _operators.eq(
+                              table.organizationId,
+                              indexRow.organizationId
+                            ),
+                            _operators.eq(table.userId, target.id)
+                          )!
+                      }
+                    })
+                    .pipe(Effect.orDie)
 
-          if (target === null || targetOrgMember == null) {
-            yield* attachProjectInviteGrant(
-              orgSlug,
-              userId,
-              email,
-              indexRow,
-              input.role
+            if (target === null || targetOrgMember == null) {
+              yield* attachProjectInviteGrant(
+                orgSlug,
+                userId,
+                email,
+                indexRow,
+                input.role
+              )
+              return yield* replayDetail
+            }
+
+            yield* withProjectWriteLock(
+              indexRow.id,
+              Effect.gen(function* () {
+                const currentRole = yield* memberRole(indexRow.id, target.id)
+                if (currentRole === null) {
+                  yield* db
+                    .insert(projectMember)
+                    .values({
+                      projectId: indexRow.id,
+                      organizationId: indexRow.organizationId,
+                      userId: target.id,
+                      roleId: input.role
+                    })
+                    .pipe(Effect.orDie)
+                } else if (currentRole !== input.role) {
+                  yield* requireAnotherPm(indexRow, currentRole)
+                  yield* db
+                    .update(projectMember)
+                    .set({ roleId: input.role })
+                    .where(
+                      and(
+                        eq(projectMember.projectId, indexRow.id),
+                        eq(projectMember.userId, target.id)
+                      )
+                    )
+                    .pipe(Effect.orDie)
+                }
+              })
             )
-            return yield* replayDetail(orgSlug, slug)
-          }
 
-          yield* withProjectWriteLock(
-            orgSlug,
-            slug,
-            Effect.gen(function* () {
-              const currentRole = yield* memberRole(indexRow.id, target.id)
-              if (currentRole === null) {
-                yield* db
-                  .insert(projectMember)
-                  .values({
-                    projectId: indexRow.id,
-                    organizationId: indexRow.organizationId,
-                    userId: target.id,
-                    roleId: input.role
-                  })
-                  .pipe(Effect.orDie)
-              } else if (currentRole !== input.role) {
-                yield* requireAnotherPm(indexRow, currentRole)
+            return yield* replayDetail
+          })
+        )
+      })
+
+    const cancelPendingMember: ProjectsShape["cancelPendingMember"] = (
+      invitationId
+    ) =>
+      Effect.gen(function* () {
+        const { orgSlug, slug, userId } = yield* ProjectScope
+        return yield* withProjectTelemetry(
+          "cancelPendingMember",
+          orgSlug,
+          { slug, userId, invitationId },
+          Effect.gen(function* () {
+            const { indexRow } = yield* inScope
+            const existing = yield* db
+              .select({ status: invitation.status })
+              .from(projectInviteGrant)
+              .innerJoin(
+                invitation,
+                eq(invitation.id, projectInviteGrant.invitationId)
+              )
+              .where(
+                and(
+                  eq(projectInviteGrant.projectId, indexRow.id),
+                  eq(projectInviteGrant.invitationId, invitationId)
+                )
+              )
+              .limit(1)
+              .pipe(Effect.orDie)
+            const pending = existing[0]
+            if (!pending || pending.status !== "pending") {
+              return yield* new NotFound()
+            }
+            yield* db
+              .delete(projectInviteGrant)
+              .where(
+                and(
+                  eq(projectInviteGrant.projectId, indexRow.id),
+                  eq(projectInviteGrant.invitationId, invitationId)
+                )
+              )
+              .pipe(Effect.orDie)
+            const remaining = yield* db.query.projectInviteGrant
+              .findFirst({
+                columns: { invitationId: true },
+                where: {
+                  RAW: (table, _operators) =>
+                    _operators.eq(table.invitationId, invitationId)
+                }
+              })
+              .pipe(Effect.orDie)
+            if (!remaining) {
+              yield* db
+                .update(invitation)
+                .set({ status: "canceled" })
+                .where(eq(invitation.id, invitationId))
+                .pipe(Effect.orDie)
+            }
+            return yield* replayDetail
+          })
+        )
+      })
+
+    const updateMember: ProjectsShape["updateMember"] = (
+      targetUserId,
+      nextRole
+    ) =>
+      Effect.gen(function* () {
+        const { orgSlug, slug, userId } = yield* ProjectScope
+        return yield* withProjectTelemetry(
+          "updateMember",
+          orgSlug,
+          { slug, userId, targetUserId, nextRole },
+          Effect.gen(function* () {
+            const { indexRow } = yield* inScope
+            yield* withProjectWriteLock(
+              indexRow.id,
+              Effect.gen(function* () {
+                const currentRole = yield* memberRole(indexRow.id, targetUserId)
+                if (currentRole === null) return yield* new NotFound()
+                if (currentRole !== nextRole) {
+                  yield* requireAnotherPm(indexRow, currentRole)
+                }
                 yield* db
                   .update(projectMember)
-                  .set({ roleId: input.role })
+                  .set({ roleId: nextRole })
                   .where(
                     and(
                       eq(projectMember.projectId, indexRow.id),
-                      eq(projectMember.userId, target.id)
+                      eq(projectMember.userId, targetUserId)
                     )
                   )
                   .pipe(Effect.orDie)
-              }
-            })
-          )
-
-          return yield* replayDetail(orgSlug, slug)
-        })
-      )
-
-    const cancelPendingMember = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      invitationId: string
-    ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
-      withProjectTelemetry(
-        "cancelPendingMember",
-        orgSlug,
-        { slug, userId, invitationId },
-        Effect.gen(function* () {
-          yield* requireRole(orgSlug, userId, slug, ["pm"])
-          const indexRow = yield* getIndexRowInOrg(orgSlug, slug)
-          const existing = yield* db
-            .select({ status: invitation.status })
-            .from(projectInviteGrant)
-            .innerJoin(
-              invitation,
-              eq(invitation.id, projectInviteGrant.invitationId)
+              })
             )
-            .where(
-              and(
-                eq(projectInviteGrant.projectId, indexRow.id),
-                eq(projectInviteGrant.invitationId, invitationId)
-              )
-            )
-            .limit(1)
-            .pipe(Effect.orDie)
-          const pending = existing[0]
-          if (!pending || pending.status !== "pending") {
-            return yield* new NotFound()
-          }
-          yield* db
-            .delete(projectInviteGrant)
-            .where(
-              and(
-                eq(projectInviteGrant.projectId, indexRow.id),
-                eq(projectInviteGrant.invitationId, invitationId)
-              )
-            )
-            .pipe(Effect.orDie)
-          const remaining = yield* db.query.projectInviteGrant
-            .findFirst({
-              columns: { invitationId: true },
-              where: {
-                RAW: (table, _operators) =>
-                  _operators.eq(table.invitationId, invitationId)
-              }
-            })
-            .pipe(Effect.orDie)
-          if (!remaining) {
-            yield* db
-              .update(invitation)
-              .set({ status: "canceled" })
-              .where(eq(invitation.id, invitationId))
-              .pipe(Effect.orDie)
-          }
-          return yield* replayDetail(orgSlug, slug)
-        })
-      )
+            return yield* replayDetail
+          })
+        )
+      })
 
-    const updateMember = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      targetUserId: string,
-      nextRole: AssignableRole
-    ): Effect.Effect<
-      ProjectDetail,
-      NotFound | Forbidden | MarkdownError | LastProjectPmBlocked
-    > =>
-      withProjectTelemetry(
-        "updateMember",
-        orgSlug,
-        { slug, userId, targetUserId, nextRole },
-        Effect.gen(function* () {
-          yield* requireRole(orgSlug, userId, slug, ["pm"])
-          const indexRow = yield* getIndexRowInOrg(orgSlug, slug)
-          yield* withProjectWriteLock(
-            orgSlug,
-            slug,
-            Effect.gen(function* () {
-              const currentRole = yield* memberRole(indexRow.id, targetUserId)
-              if (currentRole === null) return yield* new NotFound()
-              if (currentRole !== nextRole) {
-                yield* requireAnotherPm(indexRow, currentRole)
-              }
-              yield* db
-                .update(projectMember)
-                .set({ roleId: nextRole })
-                .where(
-                  and(
-                    eq(projectMember.projectId, indexRow.id),
-                    eq(projectMember.userId, targetUserId)
-                  )
-                )
-                .pipe(Effect.orDie)
-            })
-          )
-          return yield* replayDetail(orgSlug, slug)
-        })
-      )
-
-    const removeMember = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      targetUserId: string
-    ): Effect.Effect<
-      ProjectDetail,
-      | NotFound
-      | Forbidden
-      | MarkdownError
-      | MalformedTicketDocument
-      | LastProjectPmBlocked
-    > =>
-      withProjectTelemetry(
-        "removeMember",
-        orgSlug,
-        { slug, userId, targetUserId },
-        Effect.gen(function* () {
-          yield* requireRole(orgSlug, userId, slug, ["pm"])
-          const indexRow = yield* getIndexRowInOrg(orgSlug, slug)
-          const currentRole = yield* memberRole(indexRow.id, targetUserId)
-          if (currentRole === null) return yield* new NotFound()
-          yield* requireAnotherPm(indexRow, currentRole)
-          yield* unassignUserFromActiveTickets(orgSlug, slug, targetUserId)
-          yield* withProjectWriteLock(
-            orgSlug,
-            slug,
-            Effect.gen(function* () {
-              const lockedRole = yield* memberRole(indexRow.id, targetUserId)
-              if (lockedRole === null) return
-              yield* requireAnotherPm(indexRow, lockedRole)
-              yield* db
-                .delete(projectMember)
-                .where(
-                  and(
-                    eq(projectMember.projectId, indexRow.id),
-                    eq(projectMember.userId, targetUserId)
-                  )
-                )
-                .pipe(Effect.orDie)
-            })
-          )
-          return yield* replayDetail(orgSlug, slug)
-        })
-      )
-
-    const connectGithub = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      input: ConnectGithubInput
-    ): Effect.Effect<
-      ProjectDetail,
-      | NotFound
-      | Forbidden
-      | Conflict
-      | GitHubTokenExpired
-      | GitHubScopeInsufficient
-      | RepoGone
-      | RateLimited
-      | GitHubError
-      | MarkdownError
-    > =>
-      withProjectTelemetry(
-        "connectGithub",
-        orgSlug,
-        {
-          slug,
-          userId,
-          repoOwner: input.repoOwner,
-          repoName: input.repoName
-        },
-        Effect.gen(function* () {
-          const indexRow = yield* getIndexRowInOrg(orgSlug, slug)
-          yield* requireOrgOwner(indexRow.organizationId, userId)
-          const orgGithub = yield* activeOrganizationGithub(
-            indexRow.organizationId
-          )
-          if (!orgGithub) return yield* new NotFound()
-          const currentConnection = yield* loadGithubConnection(indexRow)
-
-          const verified = yield* github.verifyInstallationRepo(
-            orgGithub.installationId,
-            input.repoOwner,
-            input.repoName
-          )
-          if (verified.repoId !== input.repoId) {
-            return yield* new RepoGone()
-          }
-
-          const next: GithubConnection = {
-            repoId: verified.repoId,
-            repoOwner: verified.owner,
-            repoName: verified.name,
-            defaultBaseBranch:
-              input.defaultBaseBranch === undefined
-                ? verified.defaultBranch
-                : input.defaultBaseBranch
-          }
-
-          const now = yield* DateTime.nowAsDate
-          const repoChanged =
-            currentConnection !== null &&
-            (currentConnection.repoId !== next.repoId ||
-              currentConnection.repoOwner !== next.repoOwner ||
-              currentConnection.repoName !== next.repoName)
-          const switchRepository = sql
-            .withTransaction(
+    const removeMember: ProjectsShape["removeMember"] = (targetUserId) =>
+      Effect.gen(function* () {
+        const { orgSlug, slug, userId } = yield* ProjectScope
+        return yield* withProjectTelemetry(
+          "removeMember",
+          orgSlug,
+          { slug, userId, targetUserId },
+          Effect.gen(function* () {
+            const { indexRow } = yield* inScope
+            const currentRole = yield* memberRole(indexRow.id, targetUserId)
+            if (currentRole === null) return yield* new NotFound()
+            yield* requireAnotherPm(indexRow, currentRole)
+            yield* unassignUserFromActiveTickets(orgSlug, slug, targetUserId)
+            yield* withProjectWriteLock(
+              indexRow.id,
               Effect.gen(function* () {
-                const activeLinks = yield* db
-                  .update(projectIntegrationLink)
-                  .set({
-                    status: "disconnected",
-                    disconnectedAt: now,
-                    updatedAt: now
-                  })
-                  .where(
-                    and(
-                      eq(projectIntegrationLink.projectId, indexRow.id),
-                      eq(projectIntegrationLink.provider, "github"),
-                      eq(projectIntegrationLink.status, "active")
-                    )
-                  )
-                  .returning({ id: projectIntegrationLink.id })
-                  .pipe(Effect.orDie)
-
-                yield* Effect.forEach(
-                  activeLinks,
-                  (link) =>
-                    db
-                      .update(projectGithubRepository)
-                      .set({ status: "disconnected" })
-                      .where(
-                        eq(
-                          projectGithubRepository.projectIntegrationLinkId,
-                          link.id
-                        )
-                      )
-                      .pipe(Effect.asVoid, Effect.orDie),
-                  { concurrency: 1 }
-                )
-
-                const [link] = yield* db
-                  .insert(projectIntegrationLink)
-                  .values({
-                    projectId: indexRow.id,
-                    organizationId: indexRow.organizationId,
-                    organizationIntegrationId: orgGithub.integrationId,
-                    provider: "github",
-                    status: "active",
-                    lastCheckedAt: now,
-                    lastCheckStatus: "ok"
-                  })
-                  .returning()
-                  .pipe(
-                    Effect.catch((cause) =>
-                      uniqueConstraint(
-                        cause,
-                        "project_integration_link_active_provider_uidx"
-                      )
-                        ? Effect.fail(
-                            new Conflict({
-                              reason: "github_repo_already_connected"
-                            })
-                          )
-                        : Effect.die(cause)
-                    )
-                  )
-
+                const lockedRole = yield* memberRole(indexRow.id, targetUserId)
+                if (lockedRole === null) return
+                yield* requireAnotherPm(indexRow, lockedRole)
                 yield* db
-                  .insert(projectGithubRepository)
-                  .values({
-                    projectIntegrationLinkId: link.id,
-                    organizationId: indexRow.organizationId,
-                    status: "active",
-                    repoId: verified.repoId,
-                    repoOwner: verified.owner,
-                    repoName: verified.name,
-                    defaultBranch:
-                      next.defaultBaseBranch ?? verified.defaultBranch
-                  })
-                  .pipe(
-                    Effect.catch((cause) =>
-                      uniqueConstraint(
-                        cause,
-                        "project_github_repository_active_repo_uidx"
-                      )
-                        ? Effect.fail(
-                            new Conflict({
-                              reason: "github_repo_already_connected"
-                            })
-                          )
-                        : Effect.die(cause)
-                    )
-                  )
-              })
-            )
-            .pipe(Effect.catchTag("SqlError", Effect.die))
-
-          yield* repoChanged
-            ? withClearedTicketPrMetadata(orgSlug, slug, switchRepository)
-            : switchRepository
-
-          return yield* replayDetail(orgSlug, slug)
-        })
-      )
-
-    const disconnectGithub = (
-      orgSlug: string,
-      userId: string,
-      slug: string
-    ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
-      withProjectTelemetry(
-        "disconnectGithub",
-        orgSlug,
-        { slug, userId },
-        Effect.gen(function* () {
-          const indexRow = yield* getIndexRowInOrg(orgSlug, slug)
-          yield* requireOrgOwner(indexRow.organizationId, userId)
-          const now = yield* DateTime.nowAsDate
-          yield* sql
-            .withTransaction(
-              Effect.gen(function* () {
-                const activeLinks = yield* db
-                  .update(projectIntegrationLink)
-                  .set({
-                    status: "disconnected",
-                    disconnectedAt: now,
-                    updatedAt: now
-                  })
+                  .delete(projectMember)
                   .where(
                     and(
-                      eq(projectIntegrationLink.projectId, indexRow.id),
-                      eq(projectIntegrationLink.provider, "github"),
-                      eq(projectIntegrationLink.status, "active")
+                      eq(projectMember.projectId, indexRow.id),
+                      eq(projectMember.userId, targetUserId)
                     )
                   )
-                  .returning({ id: projectIntegrationLink.id })
                   .pipe(Effect.orDie)
-                yield* Effect.forEach(
-                  activeLinks,
-                  (link) =>
-                    db
-                      .update(projectGithubRepository)
-                      .set({ status: "disconnected" })
-                      .where(
-                        eq(
-                          projectGithubRepository.projectIntegrationLinkId,
-                          link.id
-                        )
-                      )
-                      .pipe(Effect.asVoid, Effect.orDie),
-                  { concurrency: 1 }
-                )
               })
             )
-            .pipe(Effect.catchTag("SqlError", Effect.die))
-          return yield* replayDetail(orgSlug, slug)
-        })
-      )
+            return yield* replayDetail
+          })
+        )
+      })
+
+    const connectGithub: ProjectsShape["connectGithub"] = (input) =>
+      Effect.gen(function* () {
+        const { orgSlug, slug, userId } = yield* ProjectScope
+        return yield* withProjectTelemetry(
+          "connectGithub",
+          orgSlug,
+          {
+            slug,
+            userId,
+            repoOwner: input.repoOwner,
+            repoName: input.repoName
+          },
+          Effect.gen(function* () {
+            const { indexRow } = yield* inScope
+            const orgGithub = yield* activeOrganizationGithub(
+              indexRow.organizationId
+            )
+            if (!orgGithub) return yield* new NotFound()
+            const currentConnection = yield* loadGithubConnection(indexRow)
+
+            const verified = yield* github.verifyInstallationRepo(
+              orgGithub.installationId,
+              input.repoOwner,
+              input.repoName
+            )
+            if (verified.repoId !== input.repoId) {
+              return yield* new RepoGone()
+            }
+
+            const next: GithubConnection = {
+              repoId: verified.repoId,
+              repoOwner: verified.owner,
+              repoName: verified.name,
+              defaultBaseBranch:
+                input.defaultBaseBranch === undefined
+                  ? verified.defaultBranch
+                  : input.defaultBaseBranch
+            }
+
+            const now = yield* DateTime.nowAsDate
+            const repoChanged =
+              currentConnection !== null &&
+              (currentConnection.repoId !== next.repoId ||
+                currentConnection.repoOwner !== next.repoOwner ||
+                currentConnection.repoName !== next.repoName)
+            const switchRepository = sql
+              .withTransaction(
+                Effect.gen(function* () {
+                  const activeLinks = yield* db
+                    .update(projectIntegrationLink)
+                    .set({
+                      status: "disconnected",
+                      disconnectedAt: now,
+                      updatedAt: now
+                    })
+                    .where(
+                      and(
+                        eq(projectIntegrationLink.projectId, indexRow.id),
+                        eq(projectIntegrationLink.provider, "github"),
+                        eq(projectIntegrationLink.status, "active")
+                      )
+                    )
+                    .returning({ id: projectIntegrationLink.id })
+                    .pipe(Effect.orDie)
+
+                  yield* Effect.forEach(
+                    activeLinks,
+                    (link) =>
+                      db
+                        .update(projectGithubRepository)
+                        .set({ status: "disconnected" })
+                        .where(
+                          eq(
+                            projectGithubRepository.projectIntegrationLinkId,
+                            link.id
+                          )
+                        )
+                        .pipe(Effect.asVoid, Effect.orDie),
+                    { concurrency: 1 }
+                  )
+
+                  const [link] = yield* db
+                    .insert(projectIntegrationLink)
+                    .values({
+                      projectId: indexRow.id,
+                      organizationId: indexRow.organizationId,
+                      organizationIntegrationId: orgGithub.integrationId,
+                      provider: "github",
+                      status: "active",
+                      lastCheckedAt: now,
+                      lastCheckStatus: "ok"
+                    })
+                    .returning()
+                    .pipe(
+                      Effect.catch((cause) =>
+                        uniqueConstraint(
+                          cause,
+                          "project_integration_link_active_provider_uidx"
+                        )
+                          ? Effect.fail(
+                              new Conflict({
+                                reason: "github_repo_already_connected"
+                              })
+                            )
+                          : Effect.die(cause)
+                      )
+                    )
+
+                  yield* db
+                    .insert(projectGithubRepository)
+                    .values({
+                      projectIntegrationLinkId: link.id,
+                      organizationId: indexRow.organizationId,
+                      status: "active",
+                      repoId: verified.repoId,
+                      repoOwner: verified.owner,
+                      repoName: verified.name,
+                      defaultBranch:
+                        next.defaultBaseBranch ?? verified.defaultBranch
+                    })
+                    .pipe(
+                      Effect.catch((cause) =>
+                        uniqueConstraint(
+                          cause,
+                          "project_github_repository_active_repo_uidx"
+                        )
+                          ? Effect.fail(
+                              new Conflict({
+                                reason: "github_repo_already_connected"
+                              })
+                            )
+                          : Effect.die(cause)
+                      )
+                    )
+                })
+              )
+              .pipe(Effect.catchTag("SqlError", Effect.die))
+
+            yield* repoChanged
+              ? withClearedTicketPrMetadata(orgSlug, slug, switchRepository)
+              : switchRepository
+
+            return yield* replayDetail
+          })
+        )
+      })
+
+    const disconnectGithub: ProjectsShape["disconnectGithub"] = () =>
+      Effect.gen(function* () {
+        const { orgSlug, slug, userId } = yield* ProjectScope
+        return yield* withProjectTelemetry(
+          "disconnectGithub",
+          orgSlug,
+          { slug, userId },
+          Effect.gen(function* () {
+            const { indexRow } = yield* inScope
+            const now = yield* DateTime.nowAsDate
+            yield* sql
+              .withTransaction(
+                Effect.gen(function* () {
+                  const activeLinks = yield* db
+                    .update(projectIntegrationLink)
+                    .set({
+                      status: "disconnected",
+                      disconnectedAt: now,
+                      updatedAt: now
+                    })
+                    .where(
+                      and(
+                        eq(projectIntegrationLink.projectId, indexRow.id),
+                        eq(projectIntegrationLink.provider, "github"),
+                        eq(projectIntegrationLink.status, "active")
+                      )
+                    )
+                    .returning({ id: projectIntegrationLink.id })
+                    .pipe(Effect.orDie)
+                  yield* Effect.forEach(
+                    activeLinks,
+                    (link) =>
+                      db
+                        .update(projectGithubRepository)
+                        .set({ status: "disconnected" })
+                        .where(
+                          eq(
+                            projectGithubRepository.projectIntegrationLinkId,
+                            link.id
+                          )
+                        )
+                        .pipe(Effect.asVoid, Effect.orDie),
+                    { concurrency: 1 }
+                  )
+                })
+              )
+              .pipe(Effect.catchTag("SqlError", Effect.die))
+            return yield* replayDetail
+          })
+        )
+      })
 
     return {
       list,
@@ -1807,13 +1640,14 @@ export const ProjectsLive = Layer.effect(
       listMembersPaged,
       create,
       get,
-      getKey,
-      getGithubIntegration,
+      key,
+      githubIntegration,
+      memberIds,
+      githubBranches,
+      githubRepos,
       update,
       updateSetup,
       remove,
-      requireMember,
-      requireRole,
       addMember,
       updateMember,
       removeMember,

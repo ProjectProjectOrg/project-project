@@ -3,8 +3,8 @@ import { Db } from "@pp/db"
 import { projectImageReference } from "@pp/db/schema"
 import {
   ATTACHMENT_MAX_BYTES,
+  CurrentUser,
   isAttachmentDeletable,
-  NotFound,
   OrgScope,
   type OrgRole as Role
 } from "@pp/shared"
@@ -14,9 +14,12 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { describe, expect } from "vitest"
 
-import { orgScope } from "../access/testing"
-import { CurrentOrg } from "../organizations/CurrentOrg"
-import { Projects } from "../projects/Projects"
+import {
+  accessLayer,
+  orgScope,
+  projectScope,
+  testUser
+} from "../access/testing"
 import { OrgStorage } from "../storage/OrgStorage"
 import { S3Storage } from "../storage/S3Storage"
 import { Attachments } from "./Attachments"
@@ -426,31 +429,30 @@ const stubS3 = Layer.succeed(S3Storage, {
   presignGet: () => Effect.succeed("https://signed.example/shot.png")
 } as never)
 
-const nonMemberProjects = Layer.succeed(Projects, {
-  requireMember: () => Effect.fail(new NotFound())
-} as never)
-
-const stubCurrentOrg = (role: Role) =>
-  Layer.succeed(CurrentOrg, {
-    resolve: () =>
-      Effect.succeed({ organizationId: "org-1", orgSlug: "acme", role })
-  } as never)
+const stubAccess = (role: Role) =>
+  accessLayer({
+    org: orgScope(role, { orgSlug: "acme" }),
+    projects:
+      role === "owner" || role === "admin"
+        ? [projectScope(role, null, { orgSlug: "acme", slug: "apollo" })]
+        : []
+  })
 
 const servingLayer = (role: Role) =>
   AttachmentsLive.pipe(
     Layer.provide(servingDb),
     Layer.provide(stubOrgStorage),
     Layer.provide(stubS3),
-    Layer.provide(nonMemberProjects),
-    Layer.provide(stubCurrentOrg(role))
+    Layer.provide(stubAccess(role))
   )
 
 const resolveAs = (role: Role) =>
   Attachments.pipe(
     Effect.flatMap((attachments) =>
-      Effect.result(attachments.resolveForServing("acme", "att-1", "user-1"))
+      Effect.result(attachments.resolveForServing("acme", "att-1"))
     ),
-    Effect.provide(servingLayer(role))
+    Effect.provide(servingLayer(role)),
+    Effect.provideService(CurrentUser, testUser("user-1"))
   )
 
 describe("resolveForServing beyond project membership", () => {
@@ -470,14 +472,16 @@ describe("resolveForServing beyond project membership", () => {
     })
   )
 
-  it.effect("refuses a plain member who is not on the owning project", () =>
-    Effect.gen(function* () {
-      const result = yield* resolveAs("member")
-      expect(result._tag).toBe("Failure")
-      if (result._tag === "Failure") {
-        expect(result.failure._tag).toBe("Forbidden")
-      }
-    })
+  it.effect(
+    "hides it from a plain member who is not on the owning project",
+    () =>
+      Effect.gen(function* () {
+        const result = yield* resolveAs("member")
+        expect(result._tag).toBe("Failure")
+        if (result._tag === "Failure") {
+          expect(result.failure._tag).toBe("NotFound")
+        }
+      })
   )
 })
 
@@ -557,8 +561,7 @@ const deletionHarness = (input: {
         }
       } as never)
     ),
-    Layer.provide(nonMemberProjects),
-    Layer.provide(stubCurrentOrg(input.role)),
+    Layer.provide(stubAccess(input.role)),
     Layer.merge(Layer.succeed(OrgScope, orgScope(input.role)))
   )
   const run = Attachments.pipe(
@@ -720,8 +723,7 @@ const listHarness = (input: {
     ),
     Layer.provide(stubOrgStorage),
     Layer.provide(stubS3),
-    Layer.provide(nonMemberProjects),
-    Layer.provide(stubCurrentOrg(input.role)),
+    Layer.provide(stubAccess(input.role)),
     Layer.merge(Layer.succeed(OrgScope, orgScope(input.role)))
   )
   return { capture, layer }
@@ -1165,8 +1167,7 @@ describe("missingIds", () => {
         ),
         Layer.provide(stubOrgStorage),
         Layer.provide(stubS3),
-        Layer.provide(nonMemberProjects),
-        Layer.provide(stubCurrentOrg("owner"))
+        Layer.provide(stubAccess("owner"))
       )
     }
   }

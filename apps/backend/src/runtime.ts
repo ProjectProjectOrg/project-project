@@ -36,9 +36,9 @@ import {
 import { JiraMigrationRetentionLive } from "@pp/server-core/jira/Retention"
 import { LibraryDocsLive } from "@pp/server-core/library/LibraryDocsLive"
 import { LibraryLive } from "@pp/server-core/library/LibraryLive"
+import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { OAuthApplicationsLive } from "@pp/server-core/oauth/OAuthApplicationsLive"
-import { CurrentOrgLive } from "@pp/server-core/organizations/CurrentOrgLive"
 import { OrgLive } from "@pp/server-core/organizations/OrgLive"
 import { BannerPlaceholdersLive } from "@pp/server-core/projects/BannerPlaceholdersLive"
 import { ProjectDocsLive } from "@pp/server-core/projects/ProjectDocsLive"
@@ -96,6 +96,7 @@ const JiraDurableServicesLive = Layer.unwrap(
 )
 
 export const BackendInfrastructureLive = Layer.mergeAll(
+  KeyedLock.layer,
   GitHubProjectStateCache.layer,
   GitHubRequest.layer,
   TicketDocumentLock.layer,
@@ -122,8 +123,8 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
     Layer.provideMerge(CommentsLive),
     Layer.provideMerge(GroupsLive),
     Layer.provideMerge(ProjectsLive),
-    Layer.provideMerge(CurrentOrgLive),
     Layer.provideMerge(OrgLive),
+    Layer.provideMerge(EverhourTimeTrackingLive),
     Layer.provideMerge(AccessLive),
     Layer.provideMerge(GitHubLive),
     Layer.provideMerge(EverhourLive)
@@ -137,9 +138,6 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       ),
       Layer.provideMerge(
         FigmaIntegrationsLive.pipe(Layer.provideMerge(FigmaLive))
-      ),
-      Layer.provideMerge(
-        EverhourTimeTrackingLive.pipe(Layer.provideMerge(EverhourLive))
       ),
       Layer.provideMerge(BannerPlaceholdersLive),
       Layer.provideMerge(UsersLive),
@@ -162,8 +160,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(
         OrgStorageLive.pipe(
           Layer.provideMerge(S3StorageLive),
-          Layer.provideMerge(SecretCryptoLive),
-          Layer.provideMerge(CurrentOrgLive)
+          Layer.provideMerge(SecretCryptoLive)
         )
       )
     )

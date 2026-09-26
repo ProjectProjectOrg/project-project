@@ -37,6 +37,9 @@ export type ProjectKey = typeof ProjectKey.Type
 export const Role = ProjectAccess.ProjectRoleName
 export type Role = typeof Role.Type
 
+export const ProjectPermissions = ProjectAccess.projectStatement.schema
+export type ProjectPermissions = typeof ProjectPermissions.Type
+
 export const ProjectIcon = Schema.String.pipe(
   Schema.check(Schema.isMinLength(1)),
   Schema.check(Schema.isMaxLength(16)),
@@ -50,7 +53,7 @@ export const ProjectColor = Schema.String.pipe(
 )
 export type ProjectColor = typeof ProjectColor.Type
 
-export const AssignableRole = Schema.Literals(["pm", "developer"])
+export const AssignableRole = Role
 export type AssignableRole = typeof AssignableRole.Type
 
 // Wire shape for a project member. Includes everything the UI needs to
@@ -222,7 +225,8 @@ export const ProjectDetail = Schema.Struct({
   setup: ProjectSetup,
   body: Schema.String,
   members: Schema.Array(Member),
-  pendingMembers: Schema.Array(PendingProjectMember)
+  pendingMembers: Schema.Array(PendingProjectMember),
+  permissions: ProjectPermissions
 })
 export type ProjectDetail = typeof ProjectDetail.Type
 

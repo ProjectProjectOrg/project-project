@@ -13,6 +13,7 @@ import {
   type TicketSort,
   type TicketStatus,
   type Unauthorized,
+  type Forbidden,
   type NotFound,
   type UpdateTicketInput
 } from "@pp/shared"
@@ -228,29 +229,27 @@ export const loadMoreBacklog = Atom.family(
           if (pageCursor === null) break
           const page = pageQuery(req, status, pageCursor)
           if (pageCursor === cursor) {
-            return yield* Effect.callback<unknown, NotFound | Unauthorized>(
-              (resume) => {
-                let cancel: (() => void) | undefined
-                cancel = get.registry.subscribe(
-                  page,
-                  (result) => {
-                    if (AsyncResult.isSuccess(result) && !result.waiting) {
-                      cancel?.()
-                      resume(Effect.succeed(result.value))
-                    } else if (
-                      AsyncResult.isFailure(result) &&
-                      !result.waiting
-                    ) {
-                      cancel?.()
-                      resume(Effect.failCause(result.cause))
-                    }
-                  },
-                  { immediate: false }
-                )
-                get.refresh(page)
-                return Effect.sync(() => cancel?.())
-              }
-            )
+            return yield* Effect.callback<
+              unknown,
+              NotFound | Forbidden | Unauthorized
+            >((resume) => {
+              let cancel: (() => void) | undefined
+              cancel = get.registry.subscribe(
+                page,
+                (result) => {
+                  if (AsyncResult.isSuccess(result) && !result.waiting) {
+                    cancel?.()
+                    resume(Effect.succeed(result.value))
+                  } else if (AsyncResult.isFailure(result) && !result.waiting) {
+                    cancel?.()
+                    resume(Effect.failCause(result.cause))
+                  }
+                },
+                { immediate: false }
+              )
+              get.refresh(page)
+              return Effect.sync(() => cancel?.())
+            })
           }
           const result = get(page)
           if (!AsyncResult.isSuccess(result)) return yield* Effect.void
@@ -724,26 +723,27 @@ export const loadMoreFlatBacklog = Atom.family((req: BacklogRequest) =>
         if (pageCursor === null) break
         const page = flatPageQuery(req, pageCursor)
         if (pageCursor === cursor) {
-          return yield* Effect.callback<unknown, NotFound | Unauthorized>(
-            (resume) => {
-              let cancel: (() => void) | undefined
-              cancel = get.registry.subscribe(
-                page,
-                (result) => {
-                  if (AsyncResult.isSuccess(result) && !result.waiting) {
-                    cancel?.()
-                    resume(Effect.succeed(result.value))
-                  } else if (AsyncResult.isFailure(result) && !result.waiting) {
-                    cancel?.()
-                    resume(Effect.failCause(result.cause))
-                  }
-                },
-                { immediate: false }
-              )
-              get.refresh(page)
-              return Effect.sync(() => cancel?.())
-            }
-          )
+          return yield* Effect.callback<
+            unknown,
+            NotFound | Forbidden | Unauthorized
+          >((resume) => {
+            let cancel: (() => void) | undefined
+            cancel = get.registry.subscribe(
+              page,
+              (result) => {
+                if (AsyncResult.isSuccess(result) && !result.waiting) {
+                  cancel?.()
+                  resume(Effect.succeed(result.value))
+                } else if (AsyncResult.isFailure(result) && !result.waiting) {
+                  cancel?.()
+                  resume(Effect.failCause(result.cause))
+                }
+              },
+              { immediate: false }
+            )
+            get.refresh(page)
+            return Effect.sync(() => cancel?.())
+          })
         }
         const result = get(page)
         if (!AsyncResult.isSuccess(result)) return yield* Effect.void

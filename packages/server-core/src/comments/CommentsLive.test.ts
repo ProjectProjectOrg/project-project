@@ -2,15 +2,24 @@ import { randomUUID } from "node:crypto"
 
 import { it } from "@effect/vitest"
 import { Db } from "@pp/db"
-import { DbLive, PgLive } from "@pp/db"
-import { CommentId, TicketId, TicketStatus, UserId } from "@pp/shared"
+import { DbLive, migrationsFolder, PgLive } from "@pp/db"
+import {
+  CommentId,
+  TicketId,
+  TicketStatus,
+  UserId,
+  ProjectScope
+} from "@pp/shared"
+import { drizzle } from "drizzle-orm/node-postgres"
+import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import pg from "pg"
-import { describe, expect } from "vitest"
+import { beforeAll, describe, expect } from "vitest"
 
+import { projectScope } from "../access/testing"
 import { MarkdownError } from "../markdown/Markdown"
 import { Projects, type ProjectsShape } from "../projects/Projects"
 import {
@@ -75,14 +84,14 @@ const FakeProjects = Layer.succeed(Projects, {
   listMembersPaged: () => unexpected("Projects.listMembersPaged"),
   create: () => unexpected("Projects.create"),
   get: () => unexpected("Projects.get"),
-  getKey: () => unexpected("Projects.getKey"),
-  getGithubIntegration: () => unexpected("Projects.getGithubIntegration"),
+  key: () => unexpected("Projects.key"),
+  githubIntegration: () => unexpected("Projects.githubIntegration"),
+  githubBranches: () => unexpected("Projects.githubBranches"),
+  githubRepos: () => unexpected("Projects.githubRepos"),
+  memberIds: () => Effect.succeed(new Set(["user-1", "user-2"])),
   update: () => unexpected("Projects.update"),
   updateSetup: () => unexpected("Projects.updateSetup"),
   remove: () => unexpected("Projects.remove"),
-  requireMember: () =>
-    Effect.succeed({ role: "developer" as const, projectId }),
-  requireRole: () => unexpected("Projects.requireRole"),
   addMember: () => unexpected("Projects.addMember"),
   updateMember: () => unexpected("Projects.updateMember"),
   removeMember: () => unexpected("Projects.removeMember"),
@@ -155,6 +164,17 @@ const FakeDb = Layer.succeed(Db, {
   delete: () => ({ where: () => Effect.void })
 } as never)
 
+const scopeFor = (
+  userId: string,
+  role: "pm" | "developer" | "client" = "developer"
+) =>
+  projectScope(role === "client" ? "guest" : "member", role, {
+    userId,
+    orgSlug: "org",
+    slug: "project",
+    projectId
+  })
+
 const makeLayer = (ticketDocs: TicketDocsShape, database = FakeDb) =>
   CommentsLive.pipe(
     Layer.provide(
@@ -165,7 +185,8 @@ const makeLayer = (ticketDocs: TicketDocsShape, database = FakeDb) =>
         FakeUsers,
         database
       )
-    )
+    ),
+    Layer.merge(Layer.succeed(ProjectScope, scopeFor("user-1")))
   )
 
 const makeTicketDocs = (
@@ -205,15 +226,9 @@ it.effect("creates comments through TicketDocs", () => {
 
   return Effect.gen(function* () {
     const comments = yield* Comments
-    const created = yield* comments.create(
-      "org",
-      "user-1",
-      "project",
-      ticketId("T-1"),
-      {
-        body: "A useful comment"
-      }
-    )
+    const created = yield* comments.create(ticketId("T-1"), {
+      body: "A useful comment"
+    })
 
     expect(created.author).toEqual({ kind: "user", user: author })
     expect(created.origin).toBe("native")
@@ -277,36 +292,25 @@ it.effect(
 
     return Effect.gen(function* () {
       const comments = yield* Comments
-      const imported = yield* comments.importHistorical(
-        "org",
-        "user-1",
-        "project",
-        ticketId("T-1"),
-        [
-          {
-            author: { kind: "user", userId: "user-1" },
-            body,
-            createdAt,
-            editedAt
+      const imported = yield* comments.importHistorical(ticketId("T-1"), [
+        {
+          author: { kind: "user", userId: "user-1" },
+          body,
+          createdAt,
+          editedAt
+        },
+        {
+          author: {
+            kind: "jira",
+            displayName: "Former Jira User",
+            accountId: "jira-account-1"
           },
-          {
-            author: {
-              kind: "jira",
-              displayName: "Former Jira User",
-              accountId: "jira-account-1"
-            },
-            body: "Snapshot body",
-            createdAt,
-            editedAt: null
-          }
-        ]
-      )
-      const listed = yield* comments.list(
-        "org",
-        "user-1",
-        "project",
-        ticketId("T-1")
-      )
+          body: "Snapshot body",
+          createdAt,
+          editedAt: null
+        }
+      ])
+      const listed = yield* comments.list(ticketId("T-1"))
 
       expect(imported).toEqual(listed)
       expect(listed[0]).toMatchObject({
@@ -346,7 +350,7 @@ it.effect("rejects reserved markers without writing imported history", () => {
   return Effect.gen(function* () {
     const comments = yield* Comments
     const result = yield* Effect.exit(
-      comments.importHistorical("org", "user-1", "project", ticketId("T-1"), [
+      comments.importHistorical(ticketId("T-1"), [
         {
           author: {
             kind: "jira",
@@ -380,7 +384,7 @@ it.effect("rejects incomplete Jira snapshot attribution", () => {
   return Effect.gen(function* () {
     const comments = yield* Comments
     const result = yield* Effect.exit(
-      comments.importHistorical("org", "user-1", "project", ticketId("T-1"), [
+      comments.importHistorical(ticketId("T-1"), [
         {
           author: {
             kind: "jira",
@@ -427,7 +431,7 @@ it.effect("removes imported index rows when the markdown write fails", () => {
   return Effect.gen(function* () {
     const comments = yield* Comments
     const result = yield* Effect.exit(
-      comments.importHistorical("org", "user-1", "project", ticketId("T-1"), [
+      comments.importHistorical(ticketId("T-1"), [
         {
           author: { kind: "user", userId: "user-1" },
           body: "Imported body",
@@ -507,7 +511,7 @@ it.effect("restores markdown when an edit index update fails", () => {
   return Effect.gen(function* () {
     const comments = yield* Comments
     const result = yield* Effect.exit(
-      comments.edit("org", "user-1", "project", ticketId("T-1"), id, {
+      comments.edit(ticketId("T-1"), id, {
         body: "Changed body"
       })
     )
@@ -555,12 +559,12 @@ it.effect(
     return Effect.gen(function* () {
       const comments = yield* Comments
       const editResult = yield* Effect.exit(
-        comments.edit("org", "user-1", "project", ticketId("T-1"), id, {
+        comments.edit(ticketId("T-1"), id, {
           body: "Changed"
         })
       )
       const removeResult = yield* Effect.exit(
-        comments.remove("org", "user-1", "project", ticketId("T-1"), id)
+        comments.remove(ticketId("T-1"), id)
       )
 
       expect(editResult._tag).toBe("Failure")
@@ -586,7 +590,7 @@ it.effect("keeps malformed ticket documents in the typed error channel", () => {
   return Effect.gen(function* () {
     const comments = yield* Comments
     const error = yield* Effect.flip(
-      comments.create("org", "user-1", "project", ticketId("T-1"), {
+      comments.create(ticketId("T-1"), {
         body: "A useful comment"
       })
     )
@@ -596,6 +600,12 @@ it.effect("keeps malformed ticket documents in the typed error channel", () => {
 })
 
 describe.skipIf(!databaseUrl)("comment persistence failure", () => {
+  beforeAll(async () => {
+    const pool = new pg.Pool({ connectionString: databaseUrl })
+    await migrate(drizzle({ client: pool }), { migrationsFolder })
+    await pool.end()
+  })
+
   for (const operation of ["edit", "remove"] as const) {
     it.effect(
       `preserves ${operation} metadata when the markdown write fails`,
@@ -656,13 +666,14 @@ describe.skipIf(!databaseUrl)("comment persistence failure", () => {
           const result = yield* Effect.gen(function* () {
             const comments = yield* Comments
             return yield* Effect.flip(
-              operation === "edit"
+              (operation === "edit"
                 ? comments
-                    .edit("org", userId, "project", ticketId("T-1"), id, {
+                    .edit(ticketId("T-1"), id, {
                       body: "Changed"
                     })
                     .pipe(Effect.asVoid)
-                : comments.remove("org", userId, "project", ticketId("T-1"), id)
+                : comments.remove(ticketId("T-1"), id)
+              ).pipe(Effect.provideService(ProjectScope, scopeFor(userId)))
             )
           }).pipe(Effect.provide(layer))
           expect(result._tag).toBe("MarkdownError")
@@ -676,4 +687,67 @@ describe.skipIf(!databaseUrl)("comment persistence failure", () => {
         })
     )
   }
+})
+
+const moderatedComment = Schema.decodeUnknownSync(CommentId)("c_moderation")
+
+describe("comment moderation", () => {
+  const commentId = moderatedComment
+  const authoredBy = (authorId: string) =>
+    Layer.succeed(Db, {
+      query: {
+        commentIndex: {
+          findFirst: () =>
+            Effect.succeed({
+              authorId,
+              createdAt: at("2026-01-01T00:00:00.000Z")
+            })
+        }
+      },
+      update: () => ({ set: () => ({ where: () => Effect.void }) }),
+      delete: () => ({ where: () => Effect.void })
+    } as never)
+
+  const attempt = (
+    operation: "edit" | "remove",
+    authorId: string,
+    caller: ReturnType<typeof scopeFor>
+  ) =>
+    Effect.flatMap(Comments, (comments) =>
+      operation === "edit"
+        ? comments
+            .edit(ticketId("T-1"), commentId, { body: "Changed" })
+            .pipe(Effect.asVoid)
+        : comments.remove(ticketId("T-1"), commentId)
+    ).pipe(
+      Effect.provideService(ProjectScope, caller),
+      Effect.provide(makeLayer(makeTicketDocs(), authoredBy(authorId))),
+      Effect.exit
+    )
+
+  it.effect("lets a PM edit and delete someone else's comment", () =>
+    Effect.gen(function* () {
+      const pm = scopeFor("user-1", "pm")
+      expect((yield* attempt("edit", "user-2", pm))._tag).toBe("Success")
+      expect((yield* attempt("remove", "user-2", pm))._tag).toBe("Success")
+    })
+  )
+
+  it.effect("keeps developers and clients to their own comments", () =>
+    Effect.gen(function* () {
+      for (const caller of [
+        scopeFor("user-1", "developer"),
+        scopeFor("user-1", "client")
+      ]) {
+        expect((yield* attempt("edit", "user-1", caller))._tag).toBe("Success")
+        expect((yield* attempt("remove", "user-1", caller))._tag).toBe(
+          "Success"
+        )
+        const editing = yield* attempt("edit", "user-2", caller)
+        const removing = yield* attempt("remove", "user-2", caller)
+        expect(String(editing)).toContain("Forbidden")
+        expect(String(removing)).toContain("Forbidden")
+      }
+    })
+  )
 })

@@ -151,7 +151,8 @@ const projectDetail = (
   },
   body: "",
   members: [],
-  pendingMembers: []
+  pendingMembers: [],
+  permissions: {}
 })
 
 const repoA = {

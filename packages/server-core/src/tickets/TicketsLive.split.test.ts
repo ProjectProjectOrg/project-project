@@ -11,7 +11,8 @@ import {
   TicketId,
   TicketStatus,
   type User,
-  UserId
+  UserId,
+  ProjectScope
 } from "@pp/shared"
 import * as Config from "effect/Config"
 import * as ConfigProvider from "effect/ConfigProvider"
@@ -23,12 +24,14 @@ import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
+import { accessLayer, projectScope } from "../access/testing"
 import { Attachments, type AttachmentsShape } from "../attachments/Attachments"
 import { Comments, type CommentsShape } from "../comments/Comments"
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
 import { GitHub, type GitHubShape } from "../github/GitHub"
 import { Groups, type GroupsShape } from "../groups/Groups"
 import { Library } from "../library/Library"
+import * as KeyedLock from "../locks/KeyedLock"
 import { MarkdownError } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
 import { Projects, type ProjectsShape } from "../projects/Projects"
@@ -83,14 +86,14 @@ const FakeProjects = Layer.succeed(Projects, {
   listMembersPaged: () => unexpected("Projects.listMembersPaged"),
   create: () => unexpected("Projects.create"),
   get: () => unexpected("Projects.get"),
-  getKey: () => Effect.succeed(decodeProjectKey("T")),
-  getGithubIntegration: () => Effect.succeed(null),
+  key: () => Effect.succeed(decodeProjectKey("T")),
+  githubIntegration: () => Effect.succeed(null),
+  githubBranches: () => unexpected("Projects.githubBranches"),
+  githubRepos: () => unexpected("Projects.githubRepos"),
+  memberIds: () => Effect.succeed(new Set(["user-1", "user-2"])),
   update: () => unexpected("Projects.update"),
   updateSetup: () => unexpected("Projects.updateSetup"),
   remove: () => unexpected("Projects.remove"),
-  requireMember: () =>
-    Effect.succeed({ role: "developer" as const, projectId: "project-1" }),
-  requireRole: () => unexpected("Projects.requireRole"),
   addMember: () => unexpected("Projects.addMember"),
   updateMember: () => unexpected("Projects.updateMember"),
   removeMember: () => unexpected("Projects.removeMember"),
@@ -328,6 +331,19 @@ const TestLayer = Layer.unwrap(
       Layer.provide(FakeTicketIndex),
       Layer.provide(FakeDb),
       Layer.provide(TicketDocumentLock.layer),
+      Layer.provide(KeyedLock.layer),
+      Layer.provide(accessLayer({})),
+      Layer.merge(
+        Layer.succeed(
+          ProjectScope,
+          projectScope("member", "pm", {
+            orgSlug: "org",
+            slug: "p",
+            projectId: "p",
+            organizationId: "org"
+          })
+        )
+      ),
       Layer.provide(MarkdownLive),
       Layer.provideMerge(
         ConfigProvider.layer(
@@ -369,7 +385,7 @@ const result = (
 
 const seedOriginal = Effect.gen(function* () {
   const tickets = yield* Tickets
-  return yield* tickets.create("org", "user-1", "p", {
+  return yield* tickets.create({
     title: "Rework the detail page",
     type: "feat",
     priority: "high",
@@ -387,7 +403,7 @@ it.effect("split retains the original and creates the remaining tickets", () =>
     const docs = yield* TicketDocs
     const original = yield* seedOriginal
 
-    const outcome = yield* tickets.split("org", "user-1", "p", original.id, {
+    const outcome = yield* tickets.split(original.id, {
       results: [
         result("Detail page layout", "feat", ["user-1"]),
         result("Sidebar API", "feat"),
@@ -417,15 +433,13 @@ it.effect("split retains the original and creates the remaining tickets", () =>
       expect(stored.branch).toBeNull()
     }
 
-    expect(sprintAssignments).toEqual([
-      { ticketId: original.id, sprintId: null },
-      ...outcome.created.map((created) => ({
+    expect(sprintAssignments).toEqual(
+      outcome.created.map((created) => ({
         ticketId: created.id,
         sprintId: null
       }))
-    ])
+    )
     expect(sprintAssignmentAnchors).toEqual([
-      original.id,
       original.id,
       outcome.created[0].id
     ])
@@ -439,7 +453,7 @@ it.effect("split rejects fewer than two results", () =>
     const original = yield* seedOriginal
 
     const attempt = yield* Effect.result(
-      tickets.split("org", "user-1", "p", original.id, {
+      tickets.split(original.id, {
         results: [result("Only one", "feat")]
       })
     )
@@ -462,7 +476,7 @@ it.effect("split refuses a sprint the caller may not change", () =>
     const original = yield* seedOriginal
 
     const attempt = yield* Effect.result(
-      tickets.split("org", "user-1", "p", original.id, {
+      tickets.split(original.id, {
         results: [
           {
             ...result("Detail page layout", "feat"),
@@ -492,7 +506,7 @@ it.effect("split restores the original when a later write fails", () =>
     failUpsertAfter = upserts + 2
 
     yield* Effect.exit(
-      tickets.split("org", "user-1", "p", original.id, {
+      tickets.split(original.id, {
         results: [
           result("Detail page layout", "feat"),
           result("Sidebar API", "feat"),
@@ -520,7 +534,7 @@ it.effect("split removes created tickets when the original update fails", () =>
     failUpsertAfter = upserts + 2
 
     const outcome = yield* Effect.exit(
-      tickets.split("org", "user-1", "p", original.id, {
+      tickets.split(original.id, {
         results: [
           result("Detail page layout", "feat"),
           result("Sidebar API", "feat"),
@@ -553,7 +567,7 @@ it.effect(
       failSprintAssignmentAt = 2
 
       const outcome = yield* Effect.result(
-        tickets.split("org", "user-1", "p", original.id, {
+        tickets.split(original.id, {
           results: [
             result("Detail page layout", "feat"),
             { ...result("Sidebar API", "feat"), sprintId: originalSprintId },
@@ -581,5 +595,134 @@ it.effect(
       ])
       expect(yield* fs.exists(ticketFile(root, path, "T-2"))).toBe(false)
       expect(yield* fs.exists(ticketFile(root, path, "T-3"))).toBe(false)
+    }).pipe(Effect.provide(TestLayer))
+)
+
+const scopedAs = (role: "developer" | "client", userId: string) =>
+  Effect.provideService(
+    ProjectScope,
+    projectScope(role === "client" ? "guest" : "member", role, {
+      userId,
+      orgSlug: "org",
+      slug: "p",
+      projectId: "p",
+      organizationId: "org"
+    })
+  )
+
+const seedClientTicket = Effect.gen(function* () {
+  const tickets = yield* Tickets
+  const created = yield* tickets
+    .create({ title: "Client request", type: "feat" })
+    .pipe(scopedAs("client", "client-1"))
+  return yield* tickets.update(created.id, {
+    status: decodeStatus("in_progress"),
+    assignees: ["user-1"]
+  })
+})
+
+it.effect(
+  "split lets the new tickets copy the original's status and sprint",
+  () =>
+    Effect.gen(function* () {
+      yield* resetFakes
+      sprintAssignable = false
+      const tickets = yield* Tickets
+      const original = yield* seedOriginal
+      const sprintId = decodeGroupId("G-1")
+      sprintMemberships.set(original.id, sprintId)
+      sprintTicketOrders.set(sprintId, [original.id])
+
+      const outcome = yield* tickets
+        .split(original.id, {
+          results: [
+            { ...result("Detail page layout", "feat", ["user-1"]), sprintId },
+            { ...result("Sidebar API", "feat"), sprintId }
+          ]
+        })
+        .pipe(scopedAs("developer", "user-2"))
+
+      const [created] = outcome.created
+      expect(created.status).toBe("in_progress")
+      expect(sprintMemberships.get(created.id)).toBe(sprintId)
+    }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect(
+  "split needs sprint:remove_ticket to take the original out of its sprint",
+  () =>
+    Effect.gen(function* () {
+      yield* resetFakes
+      const tickets = yield* Tickets
+      const original = yield* seedOriginal
+      const sprintId = decodeGroupId("G-1")
+      sprintMemberships.set(original.id, sprintId)
+      sprintTicketOrders.set(sprintId, [original.id])
+      const developer = scopedAs("developer", "user-2")
+
+      const removed = yield* Effect.flip(
+        tickets
+          .split(original.id, {
+            results: [
+              result("Detail page layout", "feat", ["user-1"]),
+              result("Sidebar API", "feat")
+            ]
+          })
+          .pipe(developer)
+      )
+      expect(removed._tag).toBe("Forbidden")
+      expect(sprintAssignments).toEqual([])
+
+      yield* tickets
+        .split(original.id, {
+          results: [
+            { ...result("Detail page layout", "feat", ["user-1"]), sprintId },
+            result("Sidebar API", "feat")
+          ]
+        })
+        .pipe(developer)
+      expect(sprintMemberships.get(original.id)).toBe(sprintId)
+    }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect(
+  "split keeps the original's branch and PR on the retained ticket",
+  () =>
+    Effect.gen(function* () {
+      yield* resetFakes
+      const tickets = yield* Tickets
+      const docs = yield* TicketDocs
+      const { ticket: original } = yield* seedClientTicket
+      yield* docs.update("org", "p", original.id, (existing) =>
+        Effect.succeed({
+          ...existing,
+          status: decodeStatus("todo"),
+          assignees: [],
+          branch: "feat/client",
+          pr: 12
+        })
+      )
+
+      const outcome = yield* tickets
+        .split(original.id, {
+          results: [
+            {
+              ...result("Client request", "feat"),
+              status: decodeStatus("todo")
+            },
+            { ...result("Follow-up", "feat"), status: decodeStatus("todo") }
+          ]
+        })
+        .pipe(scopedAs("client", "client-1"))
+
+      const retained = yield* docs.read("org", "p", original.id)
+      expect(retained).toMatchObject({ branch: "feat/client", pr: 12 })
+      expect(retained.branchAutoLinkDisabled).toBeUndefined()
+      const [created] = outcome.created
+      expect(yield* docs.read("org", "p", created.id)).toMatchObject({
+        branch: null,
+        pr: null,
+        branchAutoLinkDisabled: true
+      })
     }).pipe(Effect.provide(TestLayer))
 )

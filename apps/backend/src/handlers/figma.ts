@@ -1,9 +1,10 @@
 import { FigmaIntegrations } from "@pp/server-core/figma/FigmaIntegrations"
 import { FigmaLinks } from "@pp/server-core/figma/FigmaLinks"
-import { CurrentOrg } from "@pp/server-core/organizations/CurrentOrg"
 import { AppApi, CurrentUser } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
+
+import { dieOnMarkdown } from "./lib"
 
 export const FigmaHandlerLive = HttpApiBuilder.group(
   AppApi,
@@ -24,58 +25,24 @@ export const FigmaHandlerLive = HttpApiBuilder.group(
           return yield* integrations.disconnectProfile(user.id)
         })
       )
-      .handle("projectStatus", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const integrations = yield* FigmaIntegrations
-          return yield* integrations.getProjectStatus(
-            org.orgSlug,
-            user.id,
-            params.slug
-          )
-        })
+      .handle("projectStatus", () =>
+        Effect.flatMap(FigmaIntegrations, (integrations) =>
+          integrations.getProjectStatus()
+        ).pipe(dieOnMarkdown)
       )
-      .handle("connectProject", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const integrations = yield* FigmaIntegrations
-          return yield* integrations.connectProject(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            payload.accessToken
-          )
-        })
+      .handle("connectProject", ({ payload }) =>
+        Effect.flatMap(FigmaIntegrations, (integrations) =>
+          integrations.connectProject(payload.accessToken)
+        ).pipe(dieOnMarkdown)
       )
-      .handle("disconnectProject", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const integrations = yield* FigmaIntegrations
-          return yield* integrations.disconnectProject(
-            org.orgSlug,
-            user.id,
-            params.slug
-          )
-        })
+      .handle("disconnectProject", () =>
+        Effect.flatMap(FigmaIntegrations, (integrations) =>
+          integrations.disconnectProject()
+        ).pipe(dieOnMarkdown)
       )
       .handle("ticketLinks", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const figmaLinks = yield* FigmaLinks
-          return yield* figmaLinks.listForTicket(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id
-          )
-        })
+        Effect.flatMap(FigmaLinks, (figmaLinks) =>
+          figmaLinks.listForTicket(params.id)
+        ).pipe(dieOnMarkdown)
       )
 )

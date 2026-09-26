@@ -5,8 +5,6 @@ import {
   BUILTIN_BLOCKS,
   BUILTIN_TEMPLATES,
   EMPTY_LAYER,
-  Forbidden,
-  NotFound,
   TemplateDraft,
   TemplateKey,
   TicketId,
@@ -14,7 +12,9 @@ import {
   type PartialTemplateDefaults,
   Slug,
   type OrgRole,
-  type Role
+  type Role,
+  OrgScope,
+  ProjectScope
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -22,10 +22,10 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { describe, expect } from "vitest"
 
+import { orgScope, projectScope } from "../access/testing"
+import * as KeyedLock from "../locks/KeyedLock"
 import type { LibraryKind } from "../markdown/Markdown"
-import { CurrentOrg } from "../organizations/CurrentOrg"
 import { ProjectDocs, type ProjectDocument } from "../projects/ProjectDocs"
-import { Projects } from "../projects/Projects"
 import { TicketDocs } from "../tickets/TicketDocs"
 import { Library } from "./Library"
 import { LibraryDocs, type LibraryDocsShape } from "./LibraryDocs"
@@ -175,6 +175,16 @@ const fakeDb = Layer.succeed(Db, {
     projectMember: {
       findMany: () =>
         Effect.succeed([{ userId: "project-admin" }, { userId: "member" }])
+    },
+    member: {
+      findMany: (query: {
+        readonly where: { readonly userId: { readonly in: Array<string> } }
+      }) =>
+        Effect.succeed(
+          query.where.userId.in
+            .filter((userId) => userId in ORG_ROLES)
+            .map((userId) => ({ userId }))
+        )
     }
   }
 } as never)
@@ -199,42 +209,29 @@ const makeLayer = (world: World) =>
           })
       })
     ),
-    Layer.provide(
-      Layer.mock(Projects, {
-        requireMember: (_org, userId) =>
-          userId in PROJECT_ROLES
-            ? Effect.succeed({
-                role: PROJECT_ROLES[userId],
-                projectId: "project-1"
-              })
-            : Effect.fail(new NotFound()),
-        requireRole: (_org, userId, _slug, allowed) => {
-          if (!(userId in PROJECT_ROLES)) return Effect.fail(new NotFound())
-          const role = PROJECT_ROLES[userId]
-          return allowed.includes(role)
-            ? Effect.succeed({ role, projectId: "project-1" })
-            : Effect.fail(new Forbidden())
-        }
-      })
-    ),
-    Layer.provide(
-      Layer.succeed(CurrentOrg, {
-        resolve: (orgSlug, userId) =>
-          userId in ORG_ROLES
-            ? Effect.succeed({
-                organizationId: "org-1",
-                orgSlug,
-                role: ORG_ROLES[userId]
-              })
-            : Effect.fail(new NotFound())
-      })
-    ),
+    Layer.provide(KeyedLock.layer),
     Layer.provide(
       Layer.mock(TicketDocs, {
         listIds: () => Effect.succeed([ticketId("T-1")])
       })
     ),
     Layer.provide(fakeDb)
+  )
+
+const asOrg = (user: string) =>
+  Effect.provideService(
+    OrgScope,
+    orgScope(ORG_ROLES[user], { userId: user, orgSlug: "acme" })
+  )
+
+const asProject = (user: string) =>
+  Effect.provideService(
+    ProjectScope,
+    projectScope(ORG_ROLES[user], PROJECT_ROLES[user], {
+      userId: user,
+      orgSlug: "acme",
+      slug: "web"
+    })
   )
 
 const run = <A, E>(
@@ -306,8 +303,8 @@ describe("reading", () => {
     return run(
       Effect.gen(function* () {
         const library = yield* Library
-        const org = yield* library.orgLibrary("acme", "member")
-        const admin = yield* library.orgLibrary("acme", "org-admin")
+        const org = yield* library.orgLibrary().pipe(asOrg("member"))
+        const admin = yield* library.orgLibrary().pipe(asOrg("org-admin"))
 
         expect(org.canEdit).toBe(false)
         expect(admin.canEdit).toBe(true)
@@ -321,7 +318,7 @@ describe("reading", () => {
         })
 
         adopt(world, null, ["context", "chore"])
-        const adopted = yield* library.orgLibrary("acme", "member")
+        const adopted = yield* library.orgLibrary().pipe(asOrg("member"))
         expect(adopted.blocks.map((block) => block.origin)).toEqual(["org"])
         expect(adopted.templates.map((template) => template.key)).toEqual([
           "chore"
@@ -330,20 +327,6 @@ describe("reading", () => {
       world
     )
   })
-
-  it.effect("hides org and project libraries from non-members", () =>
-    run(
-      Effect.gen(function* () {
-        const library = yield* Library
-        expect(yield* failureTag(library.orgLibrary("acme", "stranger"))).toBe(
-          "NotFound"
-        )
-        expect(
-          yield* failureTag(library.projectLibrary("acme", "stranger", "web"))
-        ).toBe("NotFound")
-      })
-    )
-  )
 
   it.effect("resolves project defaults over org defaults", () => {
     const world = makeWorld()
@@ -356,13 +339,13 @@ describe("reading", () => {
     return run(
       Effect.gen(function* () {
         const library = yield* Library
-        const org = yield* library.orgLibrary("acme", "member")
-        const project = yield* library.projectLibrary("acme", "member", "web")
-        const admin = yield* library.projectLibrary(
-          "acme",
-          "project-admin",
-          "web"
-        )
+        const org = yield* library.orgLibrary().pipe(asOrg("member"))
+        const project = yield* library
+          .projectLibrary()
+          .pipe(asProject("member"))
+        const admin = yield* library
+          .projectLibrary()
+          .pipe(asProject("project-admin"))
 
         expect(org.defaults).toEqual({
           feat: null,
@@ -386,85 +369,20 @@ describe("reading", () => {
   })
 })
 
-describe("role gating", () => {
-  it.effect("requires an org admin for the org layer", () =>
-    run(
-      Effect.gen(function* () {
-        const library = yield* Library
-        expect(
-          yield* failureTag(
-            library.createBlock("acme", "project-admin", null, blockInput())
-          )
-        ).toBe("Forbidden")
-        expect(
-          yield* failureTag(
-            library.setOrgTemplateDefaults("acme", "project-admin", {
-              defaults: {}
-            })
-          )
-        ).toBe("Forbidden")
-        const created = yield* library.createBlock(
-          "acme",
-          "org-admin",
-          null,
-          blockInput()
-        )
-        expect(created.origin).toBe("org")
-      })
-    )
-  )
-
-  it.effect("requires a project admin for the project layer", () =>
-    run(
-      Effect.gen(function* () {
-        const library = yield* Library
-        expect(
-          yield* failureTag(
-            library.createTemplate("acme", "member", "web", templateInput())
-          )
-        ).toBe("Forbidden")
-        expect(
-          yield* failureTag(
-            library.createTemplate("acme", "stranger", "web", templateInput())
-          )
-        ).toBe("NotFound")
-        expect(
-          yield* failureTag(
-            library.hideTemplate("acme", "member", "web", "chore")
-          )
-        ).toBe("Forbidden")
-        const created = yield* library.createTemplate(
-          "acme",
-          "project-admin",
-          "web",
-          templateInput()
-        )
-        expect(created.origin).toBe("project")
-      })
-    )
-  )
-})
-
 describe("keys per layer", () => {
   it.effect("lets a project shadow an org key once", () =>
     run(
       Effect.gen(function* () {
         const library = yield* Library
-        const org = yield* library.createBlock(
-          "acme",
-          "org-admin",
-          null,
-          blockInput()
-        )
+        const org = yield* library
+          .createOrgBlock(blockInput())
+          .pipe(asOrg("org-admin"))
         const again = yield* failureTag(
-          library.createBlock("acme", "org-admin", null, blockInput())
+          library.createOrgBlock(blockInput()).pipe(asOrg("org-admin"))
         )
-        const project = yield* library.createBlock(
-          "acme",
-          "project-admin",
-          "web",
-          blockInput({ name: "Project context" })
-        )
+        const project = yield* library
+          .createBlock(blockInput({ name: "Project context" }))
+          .pipe(asProject("project-admin"))
 
         expect(org.shadows).toBeNull()
         expect(again).toBe("Conflict")
@@ -482,12 +400,9 @@ describe("keys per layer", () => {
         const done = BUILTIN_BLOCKS.find(
           (block) => block.key === "definition-of-done"
         )!
-        const adopted = yield* library.createBlock(
-          "acme",
-          "org-admin",
-          null,
-          done
-        )
+        const adopted = yield* library
+          .createOrgBlock(done)
+          .pipe(asOrg("org-admin"))
         expect(adopted).toMatchObject({ sync: true, origin: "org" })
       })
     )
@@ -499,35 +414,31 @@ describe("keys per layer", () => {
         const library = yield* Library
         expect(
           yield* failureTag(
-            library.updateBlock("acme", "org-admin", null, "context", {
-              name: "Nope"
-            })
+            library
+              .updateOrgBlock("context", {
+                name: "Nope"
+              })
+              .pipe(asOrg("org-admin"))
           )
         ).toBe("NotFound")
-        yield* library.createBlock("acme", "org-admin", null, blockInput())
-        const updated = yield* library.updateBlock(
-          "acme",
-          "org-admin",
-          null,
-          "context",
-          { name: "Renamed", color: "#70b445" }
-        )
+        yield* library.createOrgBlock(blockInput()).pipe(asOrg("org-admin"))
+        const updated = yield* library
+          .updateOrgBlock("context", { name: "Renamed", color: "#70b445" })
+          .pipe(asOrg("org-admin"))
         expect(updated.name).toBe("Renamed")
         expect(updated.color).toBe("#70b445")
         expect(updated.content).toBe(blockInput().content)
-        const cleared = yield* library.updateBlock(
-          "acme",
-          "org-admin",
-          null,
-          "context",
-          { color: null }
-        )
+        const cleared = yield* library
+          .updateOrgBlock("context", { color: null })
+          .pipe(asOrg("org-admin"))
         expect(cleared.color).toBeNull()
         expect(
           yield* failureTag(
-            library.updateBlock("acme", "org-admin", "web", "context", {
-              name: "Project"
-            })
+            library
+              .updateBlock("context", {
+                name: "Project"
+              })
+              .pipe(asProject("org-admin"))
           )
         ).toBe("NotFound")
       })
@@ -540,23 +451,22 @@ describe("keys per layer", () => {
         const library = yield* Library
         expect(
           yield* failureTag(
-            library.removeBlock("acme", "org-admin", null, "context")
+            library.removeOrgBlock("context").pipe(asOrg("org-admin"))
           )
         ).toBe("NotFound")
-        yield* library.createBlock("acme", "org-admin", null, blockInput())
-        yield* library.createBlock(
-          "acme",
-          "project-admin",
-          "web",
-          blockInput({ name: "Project context" })
-        )
-        yield* library.removeBlock("acme", "project-admin", "web", "context")
-        const project = yield* library.projectLibrary("acme", "member", "web")
+        yield* library.createOrgBlock(blockInput()).pipe(asOrg("org-admin"))
+        yield* library
+          .createBlock(blockInput({ name: "Project context" }))
+          .pipe(asProject("project-admin"))
+        yield* library.removeBlock("context").pipe(asProject("project-admin"))
+        const project = yield* library
+          .projectLibrary()
+          .pipe(asProject("member"))
         expect(
           project.blocks.find((block) => block.key === "context")
         ).toMatchObject({ origin: "org", name: "Background" })
-        yield* library.removeBlock("acme", "org-admin", null, "context")
-        const org = yield* library.orgLibrary("acme", "member")
+        yield* library.removeOrgBlock("context").pipe(asOrg("org-admin"))
+        const org = yield* library.orgLibrary().pipe(asOrg("member"))
         expect(org.blocks).toEqual([])
       })
     )
@@ -568,23 +478,27 @@ describe("keys per layer", () => {
         const library = yield* Library
         expect(
           yield* failureTag(
-            library.hideBlock("acme", "project-admin", "web", "context")
+            library.hideBlock("context").pipe(asProject("project-admin"))
           )
         ).toBe("NotFound")
-        yield* library.createBlock("acme", "org-admin", null, blockInput())
-        yield* library.hideBlock("acme", "project-admin", "web", "context")
-        const project = yield* library.projectLibrary("acme", "member", "web")
+        yield* library.createOrgBlock(blockInput()).pipe(asOrg("org-admin"))
+        yield* library.hideBlock("context").pipe(asProject("project-admin"))
+        const project = yield* library
+          .projectLibrary()
+          .pipe(asProject("member"))
         const context = project.blocks.find((block) => block.key === "context")
 
         expect(context?.hidden).toBe(true)
         expect(context?.origin).toBe("project")
         expect(
           yield* failureTag(
-            library.hideTemplate("acme", "project-admin", "web", "incident")
+            library.hideTemplate("incident").pipe(asProject("project-admin"))
           )
         ).toBe("NotFound")
-        yield* library.removeBlock("acme", "project-admin", "web", "context")
-        const restored = yield* library.projectLibrary("acme", "member", "web")
+        yield* library.removeBlock("context").pipe(asProject("project-admin"))
+        const restored = yield* library
+          .projectLibrary()
+          .pipe(asProject("member"))
         expect(
           restored.blocks.find((block) => block.key === "context")?.hidden
         ).toBe(false)
@@ -600,8 +514,8 @@ describe("keys per layer", () => {
       Effect.gen(function* () {
         const library = yield* Library
         const created = yield* library
-          .createBlock("acme", "org-admin", null, blockInput())
-          .pipe(Effect.flip)
+          .createOrgBlock(blockInput())
+          .pipe(asOrg("org-admin"), Effect.flip)
         expect(created).toMatchObject({ _tag: "Conflict", reason: "key_taken" })
 
         updateLayer(world, "acme", null, (layer) => ({
@@ -609,8 +523,8 @@ describe("keys per layer", () => {
           blocks: [blockInput()]
         }))
         const hidden = yield* library
-          .hideBlock("acme", "project-admin", "web", "context")
-          .pipe(Effect.flip)
+          .hideBlock("context")
+          .pipe(asProject("project-admin"), Effect.flip)
         expect(hidden).toMatchObject({ _tag: "Conflict", reason: "customized" })
         expect(world.layers.get("acme/web")).toBeUndefined()
       }),
@@ -625,8 +539,8 @@ describe("keys per layer", () => {
       Effect.gen(function* () {
         const library = yield* Library
         const created = yield* library
-          .createTemplate("acme", "project-admin", "web", templateInput())
-          .pipe(Effect.flip)
+          .createTemplate(templateInput())
+          .pipe(asProject("project-admin"), Effect.flip)
         expect(created).toMatchObject({ _tag: "Conflict", reason: "key_taken" })
         expect(world.layers.get("acme/web")).toBeUndefined()
       }),
@@ -638,18 +552,17 @@ describe("keys per layer", () => {
     run(
       Effect.gen(function* () {
         const library = yield* Library
-        yield* library.createBlock("acme", "org-admin", null, blockInput())
-        yield* library.createBlock(
-          "acme",
-          "project-admin",
-          "web",
-          blockInput({ content: "## Background\n\nOurs" })
-        )
+        yield* library.createOrgBlock(blockInput()).pipe(asOrg("org-admin"))
+        yield* library
+          .createBlock(blockInput({ content: "## Background\n\nOurs" }))
+          .pipe(asProject("project-admin"))
 
         const refused = yield* library
-          .hideBlock("acme", "project-admin", "web", "context")
-          .pipe(Effect.flip)
-        const project = yield* library.projectLibrary("acme", "member", "web")
+          .hideBlock("context")
+          .pipe(asProject("project-admin"), Effect.flip)
+        const project = yield* library
+          .projectLibrary()
+          .pipe(asProject("member"))
 
         expect(refused).toMatchObject({
           _tag: "Conflict",
@@ -678,14 +591,13 @@ describe("content validation", () => {
         const library = yield* Library
         expect(
           yield* reason(
-            library.createBlock(
-              "acme",
-              "org-admin",
-              null,
-              blockInput({
-                content: '<block type="context">\n\nx\n\n</block>'
-              })
-            )
+            library
+              .createOrgBlock(
+                blockInput({
+                  content: '<block type="context">\n\nx\n\n</block>'
+                })
+              )
+              .pipe(asOrg("org-admin"))
           )
         ).toBe("blocks_not_allowed")
       })
@@ -698,14 +610,13 @@ describe("content validation", () => {
         const library = yield* Library
         expect(
           yield* reason(
-            library.createTemplate(
-              "acme",
-              "org-admin",
-              null,
-              templateInput({
-                body: '<block type="a">\n\n<block type="b">\n\n</block>\n\n</block>'
-              })
-            )
+            library
+              .createOrgTemplate(
+                templateInput({
+                  body: '<block type="a">\n\n<block type="b">\n\n</block>\n\n</block>'
+                })
+              )
+              .pipe(asOrg("org-admin"))
           )
         ).toBe("invalid_blocks:nested:3")
       })
@@ -718,15 +629,14 @@ describe("content validation", () => {
         const library = yield* Library
         expect(
           yield* reason(
-            library.createBlock(
-              "acme",
-              "org-admin",
-              null,
-              blockInput({
-                content:
-                  "## Context\n\n![shot](/api/attachments/acme/01JBQ8Z3X4Y5W6V7T8S9R0Q1M4)"
-              })
-            )
+            library
+              .createOrgBlock(
+                blockInput({
+                  content:
+                    "## Context\n\n![shot](/api/attachments/acme/01JBQ8Z3X4Y5W6V7T8S9R0Q1M4)"
+                })
+              )
+              .pipe(asOrg("org-admin"))
           )
         ).toBe("attachments_not_allowed")
       })
@@ -741,38 +651,22 @@ describe("content validation", () => {
           blockInput({ content: `## Context\n\nAsk ${mention}` })
 
         const orgTicket = yield* library
-          .createBlock(
-            "acme",
-            "org-admin",
-            null,
-            withMention("[T-1](mention:ticket/T-1)")
-          )
-          .pipe(Effect.flip)
+          .createOrgBlock(withMention("[T-1](mention:ticket/T-1)"))
+          .pipe(asOrg("org-admin"), Effect.flip)
         const orgStranger = yield* library
-          .createBlock(
-            "acme",
-            "org-admin",
-            null,
-            withMention("[Nobody](mention:user/stranger)")
-          )
-          .pipe(Effect.flip)
-        const orgMember = yield* library.createBlock(
-          "acme",
-          "org-admin",
-          null,
-          withMention("[Member](mention:user/member)")
-        )
-        const projectTicket = yield* library.createBlock(
-          "acme",
-          "project-admin",
-          "web",
-          withMention("[T-1](mention:ticket/T-1)")
-        )
+          .createOrgBlock(withMention("[Nobody](mention:user/stranger)"))
+          .pipe(asOrg("org-admin"), Effect.flip)
+        const orgMember = yield* library
+          .createOrgBlock(withMention("[Member](mention:user/member)"))
+          .pipe(asOrg("org-admin"))
+        const projectTicket = yield* library
+          .createBlock(withMention("[T-1](mention:ticket/T-1)"))
+          .pipe(asProject("project-admin"))
         const projectMissing = yield* library
-          .updateBlock("acme", "project-admin", "web", "context", {
+          .updateBlock("context", {
             content: "## Context\n\nSee [T-9](mention:ticket/T-9)"
           })
-          .pipe(Effect.flip)
+          .pipe(asProject("project-admin"), Effect.flip)
 
         expect(orgTicket).toMatchObject({
           _tag: "MentionInvalid",
@@ -803,29 +697,21 @@ describe("template defaults", () => {
       return run(
         Effect.gen(function* () {
           const library = yield* Library
-          expect(
-            yield* failureTag(
-              library.setTemplateDefaults("acme", "member", "web", {
-                defaults: { bug: null }
-              })
-            )
-          ).toBe("Forbidden")
           const unknown = yield* library
-            .setTemplateDefaults("acme", "project-admin", "web", {
+            .setTemplateDefaults({
               defaults: { bug: templateKey("feature") }
             })
-            .pipe(Effect.flip)
+            .pipe(asProject("project-admin"), Effect.flip)
           expect(unknown).toMatchObject({
             _tag: "Validation",
             reason: "unknown_template:feature"
           })
 
-          const overridden = yield* library.setTemplateDefaults(
-            "acme",
-            "project-admin",
-            "web",
-            { defaults: { bug: null, other: templateKey("spike") } }
-          )
+          const overridden = yield* library
+            .setTemplateDefaults({
+              defaults: { bug: null, other: templateKey("spike") }
+            })
+            .pipe(asProject("project-admin"))
           expect(overridden.defaults).toEqual({
             feat: null,
             bug: null,
@@ -835,12 +721,9 @@ describe("template defaults", () => {
           expect(overridden.inheritedDefaults.bug).toBe("bug-report")
           expect(world.defaults.current).toEqual({ bug: null, other: "spike" })
 
-          const reset = yield* library.setTemplateDefaults(
-            "acme",
-            "project-admin",
-            "web",
-            { defaults: {}, reset: ["bug"] }
-          )
+          const reset = yield* library
+            .setTemplateDefaults({ defaults: {}, reset: ["bug"] })
+            .pipe(asProject("project-admin"))
           expect(reset.defaults.bug).toBe("bug-report")
           expect(world.defaults.current).toEqual({ other: "spike" })
         }),
@@ -856,21 +739,25 @@ describe("template defaults", () => {
       Effect.gen(function* () {
         const library = yield* Library
         const unknown = yield* library
-          .setOrgTemplateDefaults("acme", "org-admin", {
+          .setOrgTemplateDefaults({
             defaults: { bug: templateKey("bug-report") }
           })
-          .pipe(Effect.flip)
+          .pipe(asOrg("org-admin"), Effect.flip)
         expect(unknown).toMatchObject({
           _tag: "Validation",
           reason: "unknown_template:bug-report"
         })
-        const set = yield* library.setOrgTemplateDefaults("acme", "org-admin", {
-          defaults: { feat: templateKey("feature") }
-        })
+        const set = yield* library
+          .setOrgTemplateDefaults({
+            defaults: { feat: templateKey("feature") }
+          })
+          .pipe(asOrg("org-admin"))
         expect(set.defaults.feat).toBe("feature")
         expect(set.ownDefaults).toEqual({ feat: "feature" })
         expect(world.orgDefaults.current).toEqual({ feat: "feature" })
-        const project = yield* library.projectLibrary("acme", "member", "web")
+        const project = yield* library
+          .projectLibrary()
+          .pipe(asProject("member"))
         expect(project.defaults.feat).toBe("feature")
       }),
       world
@@ -972,12 +859,9 @@ describe("expandForCreate", () => {
         const library = yield* Library
         const rejected = yield* library
           .createTemplate(
-            "acme",
-            "project-admin",
-            "web",
             templateInput({ body: "Ask [Admin](mention:user/org-admin)" })
           )
-          .pipe(Effect.flip)
+          .pipe(asProject("project-admin"), Effect.flip)
         updateLayer(world, "acme", null, (layer) => ({
           ...layer,
           templates: [
