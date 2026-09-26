@@ -82,7 +82,8 @@ const ApiUnderTestLive = HttpApiBuilder.layer(
   Layer.provide(AuthHandlerLive),
   Layer.provide(
     Layer.succeed(Authentication, {
-      sessionCookie: () => Effect.fail(new Unauthorized())
+      sessionCookie: () => Effect.fail(new Unauthorized()),
+      bearer: () => Effect.fail(new Unauthorized())
     })
   ),
   Layer.provide(ApiRouterLive)

@@ -232,6 +232,11 @@ export const mcpResource = new URL(
     "http://localhost:3000"
 ).href
 
+export const apiResource = new URL(
+  "/api",
+  process.env.BETTER_AUTH_URL ?? "http://localhost:3000"
+).href
+
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
@@ -458,6 +463,7 @@ export const auth = betterAuth({
     mcp({
       loginPage: "/login",
       resource: mcpResource,
+      resources: [apiResource],
       consentPage: "/oauth/consent",
       allowDynamicClientRegistration: true,
       allowUnauthenticatedClientRegistration: true,
@@ -508,7 +514,7 @@ export const auth = betterAuth({
       metadataProfile: "mcp-2026-07-28"
     }),
     legacyMcpResources({ db, resource: mcpResource }),
-    appOAuthClient({ db })
+    appOAuthClient({ db, resources: [apiResource] })
   ]
 })
 

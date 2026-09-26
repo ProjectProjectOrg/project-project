@@ -5,14 +5,15 @@ import { CurrentOrg } from "@pp/server-core/organizations/CurrentOrg"
 import {
   AppApi,
   Authentication,
+  type BlockDefinition,
   BUILTIN_BLOCKS,
   Conflict,
   CurrentUser,
   Forbidden,
-  NotFound,
-  type BlockDefinition,
   type Library as LibraryValue,
+  NotFound,
   type TemplateDefinition,
+  Unauthorized,
   type UserId
 } from "@pp/shared"
 import * as Context from "effect/Context"
@@ -157,6 +158,7 @@ const ApiUnderTestLive = HttpApiBuilder.layer(TestApi).pipe(
   Layer.provide(LibraryHandlerLive),
   Layer.provide(
     Layer.succeed(Authentication, {
+      bearer: () => Effect.fail(new Unauthorized()),
       sessionCookie: (httpEffect) =>
         Effect.provideService(httpEffect, CurrentUser, {
           id: USER_ID as UserId,

@@ -148,28 +148,38 @@ const betterAuthApp = Effect.gen(function* () {
   )
 )
 
-export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
-  Layer.provide(HealthHandlerLive),
-  Layer.provide(DbHandlerLive),
-  Layer.provide(AuthHandlerLive),
-  Layer.provide(OrgHandlerLive),
-  Layer.provide(InvitationsHandlerLive),
-  Layer.provide(ProjectsHandlerLive),
-  Layer.provide(EverhourHandlerLive),
-  Layer.provide(FigmaHandlerLive),
-  Layer.provide(JiraHandlerLive),
-  Layer.provide(JiraMigrationsHandlerLive),
-  Layer.provide(TicketsHandlerLive),
-  Layer.provide(CommentsHandlerLive),
-  Layer.provide(TagsHandlerLive),
-  Layer.provide(StatusesHandlerLive),
-  Layer.provide(GroupsHandlerLive),
-  Layer.provide(LibraryHandlerLive),
-  Layer.provide(OAuthApplicationsHandlerLive),
-  Layer.provide(PublicOAuthHandlerLive),
-  Layer.provide(StorageHandlerLive),
-  Layer.provide(AttachmentsHandlerLive)
-)
+const BearerChallengeLive = HttpRouter.middleware((httpEffect) =>
+  Effect.map(httpEffect, (response) =>
+    response.status === 401
+      ? HttpServerResponse.setHeader(response, "www-authenticate", "Bearer")
+      : response
+  )
+).layer
+
+export const ApiRoutesLive = HttpApiBuilder.layer(AppApi)
+  .pipe(
+    Layer.provide(HealthHandlerLive),
+    Layer.provide(DbHandlerLive),
+    Layer.provide(AuthHandlerLive),
+    Layer.provide(OrgHandlerLive),
+    Layer.provide(InvitationsHandlerLive),
+    Layer.provide(ProjectsHandlerLive),
+    Layer.provide(EverhourHandlerLive),
+    Layer.provide(FigmaHandlerLive),
+    Layer.provide(JiraHandlerLive),
+    Layer.provide(JiraMigrationsHandlerLive),
+    Layer.provide(TicketsHandlerLive),
+    Layer.provide(CommentsHandlerLive),
+    Layer.provide(TagsHandlerLive),
+    Layer.provide(StatusesHandlerLive),
+    Layer.provide(GroupsHandlerLive),
+    Layer.provide(LibraryHandlerLive),
+    Layer.provide(OAuthApplicationsHandlerLive),
+    Layer.provide(PublicOAuthHandlerLive),
+    Layer.provide(StorageHandlerLive),
+    Layer.provide(AttachmentsHandlerLive)
+  )
+  .pipe(Layer.provide(BearerChallengeLive))
 
 export const ApiLive = ApiRoutesLive.pipe(
   Layer.provide(BackendHttpServicesLive)

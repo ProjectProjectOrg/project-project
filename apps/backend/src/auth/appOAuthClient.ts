@@ -12,6 +12,7 @@ type AppOAuthClientInput = Readonly<{
       query: ReturnType<typeof sql>
     ) => Promise<Readonly<{ rowCount: number | null }>>
   }>
+  resources: ReadonlyArray<string>
 }>
 
 const AuthorizationParameters = Schema.Struct({
@@ -100,5 +101,12 @@ export const appOAuthClient = (input: AppOAuthClientInput) => ({
         disabled = EXCLUDED.disabled,
         updated_at = now()
     `)
+    for (const resource of input.resources) {
+      await input.db.execute(sql`
+        INSERT INTO oauth_client_resource (id, client_id, resource_id, created_at)
+        VALUES (gen_random_uuid()::text, ${appOAuthClientId}, ${resource}, now())
+        ON CONFLICT (client_id, resource_id) DO NOTHING
+      `)
+    }
   }
 })

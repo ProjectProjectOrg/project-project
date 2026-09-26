@@ -16,7 +16,8 @@ import { toNodeHandler } from "better-auth/node"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { Layer, Schema } from "effect"
-import { HttpRouter } from "effect/unstable/http"
+import * as Context from "effect/Context"
+import { HttpRouter, HttpServer } from "effect/unstable/http"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 
@@ -49,6 +50,8 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
   let projectsDir: string
   let handleMcp: (request: Request) => Promise<Response>
   let disposeMcp = async () => {}
+  let handleApi: (request: Request) => Promise<Response>
+  let disposeApi = async () => {}
   const migratedClientId = randomUUID()
   const unrelatedClientId = randomUUID()
   const cimdClientId = "https://agent.example/oauth/client.json"
@@ -112,6 +115,17 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     const built = HttpRouter.toWebHandler(app, { disableLogger: true })
     handleMcp = built.handler
     disposeMcp = built.dispose
+    const { ApiLive, ApiRouterLive } = await import("../main")
+    const api = HttpRouter.toWebHandler(
+      ApiLive.pipe(
+        Layer.provide(ApiRouterLive),
+        Layer.provide(BackendInfrastructureLive),
+        Layer.provideMerge(HttpServer.layerServices)
+      ),
+      { disableLogger: true }
+    )
+    handleApi = (request) => api.handler(request, Context.empty() as never)
+    disposeApi = api.dispose
     server.on("request", toNodeHandler(auth))
     await pool.query(
       'INSERT INTO "user" (id,name,email,email_verified,created_at,updated_at) VALUES ($1,$2,$3,true,now(),now())',
@@ -126,6 +140,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
   afterAll(async () => {
     const results = await Promise.allSettled([
       disposeMcp(),
+      disposeApi(),
       projectsDir
         ? rm(projectsDir, { recursive: true, force: true })
         : Promise.resolve(),
@@ -577,6 +592,94 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       [appOAuthClientId, userId]
     )
     expect(Number(refresh.rows[0].days)).toBeCloseTo(90, 0)
+  })
+
+  it("accepts app access tokens on /api independently of the web session", async () => {
+    const resource = `${baseUrl}/api`
+    const verifier =
+      "app-client-api-pkce-verifier-0123456789-abcdefghijklmnopqrstuvwxyz"
+    const query = new URLSearchParams({
+      client_id: appOAuthClientId,
+      redirect_uri: appOAuthRedirectUri,
+      response_type: "code",
+      scope: "openid profile offline_access",
+      state: "api-state",
+      resource,
+      code_challenge_method: "S256",
+      code_challenge: createHash("sha256").update(verifier).digest("base64url")
+    })
+    const context = await auth.$context
+    const session = await context.internalAdapter.createSession(userId)
+    if (!session) throw new Error("Failed to create test session")
+    const appSessionCookie = `better-auth.session_token=${encodeURIComponent(`${session.token}.${await makeSignature(session.token, secret)}`)}`
+    const authorization = await auth.handler(
+      new Request(`${baseUrl}/api/auth/oauth2/authorize?${query.toString()}`, {
+        headers: {
+          cookie: appSessionCookie,
+          accept: "text/html",
+          "sec-fetch-mode": "navigate",
+          "sec-fetch-dest": "document"
+        }
+      })
+    )
+    expect(authorization.status).toBe(302)
+    const consentUrl = new URL(authorization.headers.get("location")!, baseUrl)
+    expect(consentUrl.pathname).toBe("/oauth/consent")
+    const consent = await httpFetch(`${baseUrl}/api/auth/oauth2/consent`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: appSessionCookie,
+        origin: baseUrl
+      },
+      body: JSON.stringify({
+        accept: true,
+        oauth_query: consentUrl.search.slice(1)
+      })
+    })
+    expect(consent.status, await consent.clone().text()).toBe(200)
+    const code = new URL(
+      Schema.decodeUnknownSync(Redirect)(await consent.json()).url
+    ).searchParams.get("code")
+    expect(code).toBeTruthy()
+    const tokenResponse = await httpFetch(`${baseUrl}/api/auth/oauth2/token`, {
+      method: "POST",
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: appOAuthClientId,
+        code: code!,
+        redirect_uri: appOAuthRedirectUri,
+        code_verifier: verifier,
+        resource
+      })
+    })
+    expect(tokenResponse.status, await tokenResponse.clone().text()).toBe(200)
+    const token = Schema.decodeUnknownSync(Token)(await tokenResponse.json())
+    const me = (headers: Readonly<Record<string, string>>) =>
+      handleApi(new Request(`${baseUrl}/api/me`, { headers }))
+    const Me = Schema.Struct({ id: Schema.String })
+    const bearer = { authorization: `Bearer ${token.access_token}` }
+
+    const viaBearer = await me(bearer)
+    expect(viaBearer.status, await viaBearer.clone().text()).toBe(200)
+    expect(Schema.decodeUnknownSync(Me)(await viaBearer.json()).id).toBe(userId)
+
+    await pool.query("DELETE FROM session WHERE token=$1", [session.token])
+    expect((await me(bearer)).status).toBe(200)
+
+    const invalid = await me({ authorization: "Bearer not-a-token" })
+    expect(invalid.status).toBe(401)
+    expect(invalid.headers.get("www-authenticate")).toBe("Bearer")
+
+    const viaCookie = await me({ cookie })
+    expect(viaCookie.status).toBe(200)
+    expect(Schema.decodeUnknownSync(Me)(await viaCookie.json()).id).toBe(userId)
+
+    await pool.query(
+      "UPDATE oauth_provider_consent SET id=gen_random_uuid()::text WHERE user_id=$1 AND client_id=$2",
+      [userId, appOAuthClientId]
+    )
+    expect((await me(bearer)).status).toBe(401)
   })
 
   it("advertises Client ID Metadata Document support", async () => {
