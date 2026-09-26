@@ -68,7 +68,8 @@ export const OAuthAccessTokensLive = Layer.effect(
               authorizationHeader: request.headers["authorization"],
               dpopProofJwt: request.headers["dpop"],
               method: request.method,
-              url: resource
+              url: new URL(new URL(request.url, resource).pathname, resource)
+                .href
             },
             {
               verifyOptions: { issuer: baseURL, audience: resource },

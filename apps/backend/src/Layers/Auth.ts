@@ -43,6 +43,7 @@
 // in the `Layer.provide` chain.
 
 import { Db } from "@pp/db"
+import { member, organization } from "@pp/db/auth-schema"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import {
   Authentication,
@@ -50,6 +51,7 @@ import {
   type EditorPreference,
   Unauthorized
 } from "@pp/shared"
+import { and, asc, eq, isNull } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { HttpServerRequest } from "effect/unstable/http"
@@ -163,10 +165,21 @@ export const AuthenticationLive = Layer.effect(
           if (!row) {
             return yield* new Unauthorized()
           }
-          const current = yield* toCurrentUser(
-            row,
-            row.lastActiveOrganizationId
-          )
+          const memberships = yield* db
+            .select({ organizationId: member.organizationId })
+            .from(member)
+            .innerJoin(organization, eq(member.organizationId, organization.id))
+            .where(
+              and(eq(member.userId, row.id), isNull(organization.deletedAt))
+            )
+            .orderBy(asc(member.createdAt))
+            .pipe(Effect.orDie)
+          const activeOrganizationId =
+            memberships.find(
+              (membership) =>
+                membership.organizationId === row.lastActiveOrganizationId
+            )?.organizationId ?? memberships[0]?.organizationId
+          const current = yield* toCurrentUser(row, activeOrganizationId)
           return yield* Effect.provideService(httpEffect, CurrentUser, current)
         }).pipe(
           Effect.catchTags({

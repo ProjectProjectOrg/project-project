@@ -424,6 +424,12 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
         })
       )
     expect((await listTools()).status).toBe(200)
+    const apiWithMcpToken = await handleApi(
+      new Request(`${baseUrl}/api/me`, {
+        headers: { authorization: `Bearer ${token.access_token}` }
+      })
+    )
+    expect(apiWithMcpToken.status).toBe(401)
     await pool.query(
       "UPDATE oauth_provider_consent SET id=$1 WHERE user_id=$2 AND client_id=$3",
       [randomUUID(), userId, clientId]
@@ -666,6 +672,37 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
 
     await pool.query("DELETE FROM session WHERE token=$1", [session.token])
     expect((await me(bearer)).status).toBe(200)
+
+    const staleCookie = await me({
+      ...bearer,
+      cookie: "better-auth.session_token=stale.signature"
+    })
+    expect(staleCookie.status).toBe(200)
+    expect(Schema.decodeUnknownSync(Me)(await staleCookie.json()).id).toBe(
+      userId
+    )
+
+    const orgs = await handleApi(
+      new Request(`${baseUrl}/api/orgs`, { headers: bearer })
+    )
+    expect(orgs.status, await orgs.clone().text()).toBe(200)
+    const invitations = await handleApi(
+      new Request(`${baseUrl}/api/invitations`, { headers: bearer })
+    )
+    expect(invitations.status).toBe(401)
+
+    const mcpWithApiToken = await handleMcp(
+      new Request(`${baseUrl}/mcp`, {
+        method: "POST",
+        headers: {
+          ...bearer,
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream"
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" })
+      })
+    )
+    expect(mcpWithApiToken.status).toBe(401)
 
     const invalid = await me({ authorization: "Bearer not-a-token" })
     expect(invalid.status).toBe(401)
