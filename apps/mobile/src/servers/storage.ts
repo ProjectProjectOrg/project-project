@@ -16,9 +16,9 @@ export type StringStorage = Readonly<{
 export class KeyValueStorage extends Context.Service<
   KeyValueStorage,
   StringStorage
->()("@pp/mobile/servers/KeyValueStorage") {}
+>()("@pp/mobile/servers/storage/KeyValueStorage") {}
 
 export class SecureStorage extends Context.Service<
   SecureStorage,
   StringStorage
->()("@pp/mobile/servers/SecureStorage") {}
+>()("@pp/mobile/servers/storage/SecureStorage") {}

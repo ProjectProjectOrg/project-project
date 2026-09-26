@@ -5,6 +5,7 @@ import { Redirect } from "expo-router"
 
 import { LoadFailed } from "@/components/LoadFailed"
 import { lastUsedOrg, savedServers } from "@/servers/atoms"
+import { startLocation } from "@/servers/startLocation"
 
 export default function Index() {
   const servers = useAtomValue(savedServers)
@@ -16,18 +17,24 @@ export default function Index() {
     onDefect: () => <LoadFailed />,
     onSuccess: ({ value: [saved, last] }) => {
       if (saved.length === 0) return <Redirect href="/onboarding" />
-      const location = Option.getOrElse(last, () => ({
-        instanceId: saved[0].instanceId,
-        orgSlug: saved[0].orgs[0]?.slug ?? ""
-      }))
-      return (
-        <Redirect
-          href={{
-            pathname: "/orgs/[instanceId]/[orgSlug]",
-            params: location
-          }}
-        />
-      )
+      return Option.match(startLocation(saved, last), {
+        onNone: () => (
+          <Redirect
+            href={{
+              pathname: "/sign-in",
+              params: { instanceId: saved[0].instanceId }
+            }}
+          />
+        ),
+        onSome: (location) => (
+          <Redirect
+            href={{
+              pathname: "/orgs/[instanceId]/[orgSlug]",
+              params: location
+            }}
+          />
+        )
+      })
     }
   })
 }

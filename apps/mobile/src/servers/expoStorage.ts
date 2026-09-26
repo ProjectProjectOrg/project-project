@@ -1,8 +1,8 @@
-import * as SecureStore from "expo-secure-store"
-import Storage from "expo-sqlite/kv-store"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
+import * as SecureStore from "expo-secure-store"
+import Storage from "expo-sqlite/kv-store"
 
 import {
   KeyValueStorage,
@@ -11,10 +11,7 @@ import {
   type StringStorage
 } from "./storage"
 
-const attempt = <A>(
-  operation: "read" | "write",
-  run: () => Promise<A>
-) =>
+const attempt = <A>(operation: "read" | "write", run: () => Promise<A>) =>
   Effect.tryPromise({
     try: run,
     catch: (cause) => new StorageFailure({ operation, cause })
@@ -39,7 +36,9 @@ const secureStorage: StringStorage = {
       Effect.map(Option.fromNullishOr)
     ),
   set: (key, value) =>
-    attempt("write", () => SecureStore.setItemAsync(key, value, keychainOptions)),
+    attempt("write", () =>
+      SecureStore.setItemAsync(key, value, keychainOptions)
+    ),
   remove: (key) =>
     attempt("write", () => SecureStore.deleteItemAsync(key, keychainOptions))
 }
