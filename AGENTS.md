@@ -43,6 +43,16 @@ When you hit one of these, **stop and ask**. Present the options with tradeoffs;
 - Show the why before the what when something is non-obvious.
 - No emoji unless asked.
 
+## Mobile app
+
+The native app lives in `apps/mobile` (`@pp/mobile`): Expo SDK 57 with Expo Router (routes in `apps/mobile/src/app`), Expo UI (`@expo/ui`, native SwiftUI and Jetpack Compose) and Liquid Glass (`expo-glass-effect`). Prefer Expo UI components over hand-built React Native views, and keep the app fast: native components first, no web views for app screens.
+
+- State follows the web: Effect with `@effect/atom-react`, and schemas from `@pp/shared`. `apps/mobile/src/runtime.ts` builds the one atom runtime.
+- **Server store.** `apps/mobile/src/servers/ServerStore.ts` owns the saved servers, keyed by instance id: origin, name, logo, protocol version, signed-in user, cached orgs, plus the last-used org. Tokens live in the keychain (this device only) through `SecureStorage`; everything else in `expo-sqlite` key-value storage through `KeyValueStorage`. Screens and other tickets read and write servers only through this store, and link to each other by route.
+- Set `EXPO_PUBLIC_SEED_SERVERS=1` in a dev build to fill an empty store with sample servers.
+- Bundle identifier `nl.igne.projectproject`, URL scheme `projectproject` (OAuth callback `projectproject://oauth/callback`). Builds run locally with `bun run --filter @pp/mobile ios` / `android`; EAS is not set up yet.
+- Run it with `bun run dev:mobile` against a dev client.
+
 ## Frontend stack
 
 - **TanStack Start + TanStack Router** as already wired up.
