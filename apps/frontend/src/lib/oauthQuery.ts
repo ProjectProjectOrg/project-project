@@ -6,6 +6,3 @@ export const hasSignedOAuthQuery = (query: string): boolean =>
 
 export const oauthAuthorizeUrl = (query: string): string =>
   `/api/auth/oauth2/authorize?${query}`
-
-export const requiresFreshLogin = (query: string): boolean =>
-  (new URLSearchParams(query).get("prompt") ?? "").split(" ").includes("login")

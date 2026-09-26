@@ -1,5 +1,7 @@
+import { randomUUID } from "node:crypto"
+
+import { tryGetCurrentAuthEndpointContext } from "@better-auth/core/context"
 import { appOAuthClientId, appOAuthRedirectUri } from "@pp/shared"
-import { createAuthMiddleware } from "better-auth/api"
 import { sql } from "drizzle-orm"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
@@ -10,26 +12,50 @@ type AppOAuthClientInput = Readonly<{
   }>
 }>
 
-const AuthorizeQuery = Schema.Struct({
+const AuthorizationParameters = Schema.Struct({
   client_id: Schema.String,
-  sig: Schema.optional(Schema.String)
+  code_challenge: Schema.optional(Schema.String)
 })
 
-const decodeAuthorizeQuery = Schema.decodeUnknownOption(AuthorizeQuery)
+const decodeAuthorizationParameters = Schema.decodeUnknownOption(
+  AuthorizationParameters
+)
 
-type AuthorizeContext = Readonly<{
-  query?: Readonly<Record<string, string | ReadonlyArray<string>>>
-  request?: Request
-}>
+const EndpointParameters = Schema.Struct({
+  query: Schema.optional(Schema.Unknown),
+  body: Schema.optional(Schema.Unknown)
+})
 
-const initialAppAuthorizeRequest = ({ query, request }: AuthorizeContext) =>
-  request !== undefined &&
-  new URL(request.url).pathname.endsWith("/oauth2/authorize") &&
-  Option.exists(
-    decodeAuthorizeQuery(query),
-    (decoded) =>
-      decoded.client_id === appOAuthClientId && decoded.sig === undefined
+const decodeEndpointParameters = Schema.decodeUnknownOption(EndpointParameters)
+
+const SignedOAuthQuery = Schema.Struct({ oauth_query: Schema.String })
+
+const decodeSignedOAuthQuery = Schema.decodeUnknownOption(SignedOAuthQuery)
+
+const currentAuthorizationParameters = () => {
+  const endpoint = decodeEndpointParameters(tryGetCurrentAuthEndpointContext())
+  if (Option.isNone(endpoint)) return Option.none()
+  const signedQuery = decodeSignedOAuthQuery(endpoint.value.body).pipe(
+    Option.map((body) =>
+      Object.fromEntries(new URLSearchParams(body.oauth_query))
+    )
   )
+  return decodeAuthorizationParameters(endpoint.value.query).pipe(
+    Option.orElse(() => decodeAuthorizationParameters(endpoint.value.body)),
+    Option.orElse(() =>
+      Option.flatMap(signedQuery, decodeAuthorizationParameters)
+    )
+  )
+}
+
+export const appConsentReferenceId = () =>
+  Option.match(currentAuthorizationParameters(), {
+    onNone: () => undefined,
+    onSome: (parameters) =>
+      parameters.client_id !== appOAuthClientId
+        ? undefined
+        : `app:${parameters.code_challenge ?? randomUUID()}`
+  })
 
 export const appOAuthClient = (input: AppOAuthClientInput) => ({
   id: "app-oauth-client",
@@ -59,18 +85,5 @@ export const appOAuthClient = (input: AppOAuthClientInput) => ({
         disabled = EXCLUDED.disabled,
         updated_at = now()
     `)
-  },
-  hooks: {
-    before: [
-      {
-        matcher: (context: Readonly<{ path?: string }>) =>
-          context.path === "/oauth2/authorize",
-        handler: createAuthMiddleware(async (ctx) =>
-          initialAppAuthorizeRequest(ctx)
-            ? { context: { query: { ...ctx.query, prompt: "login consent" } } }
-            : undefined
-        )
-      }
-    ]
   }
 })

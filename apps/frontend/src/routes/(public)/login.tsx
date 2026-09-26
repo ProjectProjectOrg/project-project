@@ -14,8 +14,7 @@ import { me } from "@/features/auth/atoms/auth"
 import {
   hasSignedOAuthQuery,
   oauthAuthorizeUrl,
-  rawQueryFromSearch,
-  requiresFreshLogin
+  rawQueryFromSearch
 } from "@/lib/oauthQuery"
 import { safeInternalPath } from "@/lib/safeRedirect"
 import { m } from "@/paraglide/messages"
@@ -53,8 +52,6 @@ function LoginPage() {
   const oauthContinuationTarget =
     oauthAuthorizeTarget ??
     (redirectTarget.startsWith("/oauth/consent?") ? redirectTarget : null)
-  const continueWhenSignedIn =
-    oauthContinuationTarget !== null && !requiresFreshLogin(signedOauthQuery)
   const [email, setEmail] = useState("")
   const [magicLinkSent, setMagicLinkSent] = useState(false)
   const [magicLinkPending, setMagicLinkPending] = useState(false)
@@ -62,12 +59,12 @@ function LoginPage() {
   const cardRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    if (Result.isSuccess(viewer) && continueWhenSignedIn) {
+    if (Result.isSuccess(viewer) && oauthContinuationTarget) {
       window.location.replace(oauthContinuationTarget)
     }
-  }, [viewer, continueWhenSignedIn, oauthContinuationTarget])
+  }, [viewer, oauthContinuationTarget])
 
-  if (Result.isSuccess(viewer) && !requiresFreshLogin(signedOauthQuery)) {
+  if (Result.isSuccess(viewer)) {
     if (oauthContinuationTarget) return null
     const queryIndex = redirectTarget.indexOf("?")
     const pathname =

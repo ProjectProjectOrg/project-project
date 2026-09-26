@@ -445,7 +445,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     expect(replay.status).toBe(400)
   })
 
-  it("makes the built-in app client sign in fresh for every authorization", async () => {
+  it("asks for consent on every authorization of the built-in app client", async () => {
     const seeded = await pool.query(
       "SELECT redirect_uris, token_endpoint_auth_method, require_pkce, skip_consent FROM oauth_client WHERE client_id=$1",
       [appOAuthClientId]
@@ -458,77 +458,89 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
         skip_consent: false
       }
     ])
-    const verifier =
-      "app-client-pkce-verifier-0123456789-abcdefghijklmnopqrstuvwxyz-0123"
-    const authorize = (sessionCookie: string, prompt?: string) => {
-      const query = new URLSearchParams({
+    const verifierFor = (flow: string) =>
+      `app-client-pkce-verifier-${flow}-0123456789-abcdefghijklmnopqrstuvwxyz`
+    const parameters = (
+      flow: string,
+      extra: Readonly<Record<string, string>> = {}
+    ) =>
+      new URLSearchParams({
         client_id: appOAuthClientId,
         redirect_uri: appOAuthRedirectUri,
         response_type: "code",
         scope: "openid profile offline_access",
-        state: "app-state",
+        state: `state-${flow}`,
         code_challenge_method: "S256",
         code_challenge: createHash("sha256")
-          .update(verifier)
+          .update(verifierFor(flow))
           .digest("base64url"),
-        ...(prompt ? { prompt } : {})
+        ...extra
       })
-      return auth.handler(
+    const navigation = {
+      cookie,
+      accept: "text/html",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-dest": "document"
+    }
+    const authorize = (
+      flow: string,
+      extra: Readonly<Record<string, string>> = {}
+    ) =>
+      auth.handler(
         new Request(
-          `${baseUrl}/api/auth/oauth2/authorize?${query.toString()}`,
-          {
-            headers: {
-              cookie: sessionCookie,
-              accept: "text/html",
-              "sec-fetch-mode": "navigate",
-              "sec-fetch-dest": "document"
-            }
-          }
+          `${baseUrl}/api/auth/oauth2/authorize?${parameters(flow, extra).toString()}`,
+          { headers: navigation }
         )
       )
+    const consentPage = (response: Response) => {
+      expect(response.status).toBe(302)
+      const location = new URL(response.headers.get("location")!, baseUrl)
+      expect(location.pathname).toBe("/oauth/consent")
+      return location.search.slice(1)
     }
-    const signIn = async () => {
-      const context = await auth.$context
-      const session = await context.internalAdapter.createSession(userId)
-      if (!session) throw new Error("Failed to create test session")
-      return `better-auth.session_token=${encodeURIComponent(`${session.token}.${await makeSignature(session.token, secret)}`)}`
-    }
-    const submitConsent = (sessionCookie: string, oauthQuery: string) =>
-      httpFetch(`${baseUrl}/api/auth/oauth2/consent`, {
+    const accept = async (oauthQuery: string) => {
+      const consent = await httpFetch(`${baseUrl}/api/auth/oauth2/consent`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          cookie: sessionCookie,
+          cookie,
           origin: baseUrl
         },
         body: JSON.stringify({ accept: true, oauth_query: oauthQuery })
       })
-    const expectLoginRedirect = (response: Response) => {
-      expect(response.status).toBe(302)
-      const location = new URL(response.headers.get("location")!, baseUrl)
-      expect(location.pathname).toBe("/login")
-      expect(location.searchParams.get("prompt")?.split(" ")).toEqual(
-        expect.arrayContaining(["login", "consent"])
+      expect(consent.status, await consent.clone().text()).toBe(200)
+      return new URL(
+        Schema.decodeUnknownSync(Redirect)(await consent.json()).url
       )
-      return location.search.slice(1)
     }
 
-    const loginQuery = expectLoginRedirect(await authorize(cookie, "none"))
-    const stale = await submitConsent(cookie, loginQuery)
-    expect(await stale.clone().text()).not.toContain("code=")
-
-    const freshCookie = await signIn()
-    const consent = await submitConsent(freshCookie, loginQuery)
-    expect(consent.status, await consent.clone().text()).toBe(200)
-    const callback = new URL(
-      Schema.decodeUnknownSync(Redirect)(await consent.json()).url
-    )
+    const callback = await accept(consentPage(await authorize("first")))
     expect(`${callback.protocol}//${callback.host}${callback.pathname}`).toBe(
       appOAuthRedirectUri
     )
-    expect(callback.searchParams.get("state")).toBe("app-state")
+    expect(callback.searchParams.get("state")).toBe("state-first")
 
-    expectLoginRedirect(await authorize(freshCookie))
+    consentPage(await authorize("second"))
+    consentPage(await authorize("forged", { sig: "forged-signature" }))
+    const silent = await authorize("silent", { prompt: "none" })
+    expect(silent.status).toBe(302)
+    const silentRedirect = new URL(silent.headers.get("location")!)
+    expect(silentRedirect.searchParams.get("error")).toBe("consent_required")
+    expect(silentRedirect.searchParams.has("code")).toBe(false)
+    const posted = await auth.handler(
+      new Request(`${baseUrl}/api/auth/oauth2/authorize`, {
+        method: "POST",
+        headers: {
+          ...navigation,
+          origin: baseUrl,
+          "content-type": "application/x-www-form-urlencoded"
+        },
+        body: parameters("posted")
+      })
+    )
+    const postedLocation = posted.headers.get("location") ?? ""
+    expect(postedLocation).not.toContain("code=")
+    expect(await posted.clone().text()).not.toContain("code=")
 
     const tokenResponse = await httpFetch(`${baseUrl}/api/auth/oauth2/token`, {
       method: "POST",
@@ -537,16 +549,11 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
         client_id: appOAuthClientId,
         code: callback.searchParams.get("code")!,
         redirect_uri: appOAuthRedirectUri,
-        code_verifier: verifier
+        code_verifier: verifierFor("first")
       })
     })
     expect(tokenResponse.status, await tokenResponse.clone().text()).toBe(200)
     const token = Schema.decodeUnknownSync(Token)(await tokenResponse.json())
-    const consents = await pool.query(
-      "SELECT count(*)::int AS count FROM oauth_provider_consent WHERE client_id=$1 AND user_id=$2",
-      [appOAuthClientId, userId]
-    )
-    expect(consents.rows).toEqual([{ count: 1 }])
     await pool.query(
       "UPDATE oauth_refresh_token SET expires_at = now() + interval '1 day' WHERE client_id=$1 AND user_id=$2",
       [appOAuthClientId, userId]

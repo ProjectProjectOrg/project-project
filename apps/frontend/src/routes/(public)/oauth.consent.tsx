@@ -4,7 +4,7 @@ import { createFileRoute, Navigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 
 import { Logo, Wordmark } from "@/components/Logo"
 import { Button } from "@/components/ui/button"
@@ -92,24 +92,6 @@ function useConsentSubmit(oauthQuery: string) {
 function AppSignIn({ oauthQuery }: Readonly<{ oauthQuery: string }>) {
   const viewer = useAtomValue(me())
   const { onSubmit, pending, error } = useConsentSubmit(oauthQuery)
-  const autoApproved = useRef(false)
-
-  useEffect(() => {
-    if (autoApproved.current) return
-    autoApproved.current = true
-    void onSubmit(true)
-  })
-
-  if (error === null) {
-    return (
-      <ConsentShell title={m.auth_app_signin_title()}>
-        <p className="text-center text-sm text-muted-foreground">
-          {m.auth_app_signin_signing_in()}
-        </p>
-      </ConsentShell>
-    )
-  }
-
   const name = Result.isSuccess(viewer) ? viewer.value.name : ""
 
   return (
@@ -138,12 +120,14 @@ function AppSignIn({ oauthQuery }: Readonly<{ oauthQuery: string }>) {
           {m.auth_app_signin_cancel_button()}
         </Button>
       </div>
-      <p
-        role="alert"
-        className="text-center text-xs leading-relaxed text-destructive"
-      >
-        {error}
-      </p>
+      {error ? (
+        <p
+          role="alert"
+          className="text-center text-xs leading-relaxed text-destructive"
+        >
+          {error}
+        </p>
+      ) : null}
     </ConsentShell>
   )
 }

@@ -24,7 +24,7 @@ import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import matter from "gray-matter"
 
-import { appOAuthClient } from "./auth/appOAuthClient"
+import { appConsentReferenceId, appOAuthClient } from "./auth/appOAuthClient"
 import { fetchClientMetadataResource } from "./auth/cimdTransport"
 import { legacyMcpResources } from "./auth/legacyMcpResources"
 
@@ -470,6 +470,11 @@ export const auth = betterAuth({
       refreshTokenReuseInterval: 60,
       refreshTokenExpiresIn: 90 * 24 * 60 * 60,
       cachedTrustedClients: new Set([appOAuthClientId]),
+      postLogin: {
+        page: "/login",
+        shouldRedirect: () => false,
+        consentReferenceId: appConsentReferenceId
+      },
       extensions: [
         {
           claims: {
