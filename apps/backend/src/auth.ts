@@ -11,6 +11,7 @@ import {
   user
 } from "@pp/db/schema"
 import { TicketFrontmatter } from "@pp/server-core/tickets/TicketDocs"
+import { appOAuthClientId } from "@pp/shared"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { APIError } from "better-auth/api"
@@ -23,6 +24,7 @@ import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import matter from "gray-matter"
 
+import { appOAuthClient } from "./auth/appOAuthClient"
 import { fetchClientMetadataResource } from "./auth/cimdTransport"
 import { legacyMcpResources } from "./auth/legacyMcpResources"
 
@@ -466,6 +468,8 @@ export const auth = betterAuth({
       // clients run as several long-lived processes sharing one credential,
       // so concurrent refreshes across the access-token expiry are routine.
       refreshTokenReuseInterval: 60,
+      refreshTokenExpiresIn: 90 * 24 * 60 * 60,
+      cachedTrustedClients: new Set([appOAuthClientId]),
       extensions: [
         {
           claims: {
@@ -492,7 +496,8 @@ export const auth = betterAuth({
       fetchClientMetadataResource,
       metadataProfile: "mcp-2026-07-28"
     }),
-    legacyMcpResources({ db, resource: mcpResource })
+    legacyMcpResources({ db, resource: mcpResource }),
+    appOAuthClient({ db })
   ]
 })
 

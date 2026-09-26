@@ -9,6 +9,7 @@ import { join } from "node:path"
 
 import { requireMcpAuth } from "@better-auth/mcp"
 import { migrationsFolder } from "@pp/db"
+import { appOAuthClientId, appOAuthRedirectUri } from "@pp/shared"
 import { betterAuth } from "better-auth"
 import { makeSignature } from "better-auth/crypto"
 import { toNodeHandler } from "better-auth/node"
@@ -442,6 +443,84 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       body: tokenBody
     })
     expect(replay.status).toBe(400)
+  })
+
+  it("signs the built-in app client in through consent with 90-day refresh tokens", async () => {
+    const seeded = await pool.query(
+      "SELECT redirect_uris, token_endpoint_auth_method, require_pkce, skip_consent FROM oauth_client WHERE client_id=$1",
+      [appOAuthClientId]
+    )
+    expect(seeded.rows).toEqual([
+      {
+        redirect_uris: [appOAuthRedirectUri],
+        token_endpoint_auth_method: "none",
+        require_pkce: true,
+        skip_consent: false
+      }
+    ])
+    const verifier =
+      "app-client-pkce-verifier-0123456789-abcdefghijklmnopqrstuvwxyz-0123"
+    const query = new URLSearchParams({
+      client_id: appOAuthClientId,
+      redirect_uri: appOAuthRedirectUri,
+      response_type: "code",
+      scope: "openid profile offline_access",
+      state: "app-state",
+      code_challenge_method: "S256",
+      code_challenge: createHash("sha256").update(verifier).digest("base64url")
+    })
+    const authorization = await auth.handler(
+      new Request(`${baseUrl}/api/auth/oauth2/authorize?${query.toString()}`, {
+        headers: {
+          cookie,
+          accept: "text/html",
+          "sec-fetch-mode": "navigate",
+          "sec-fetch-dest": "document"
+        }
+      })
+    )
+    expect(authorization.status).toBe(302)
+    const consentUrl = new URL(authorization.headers.get("location")!, baseUrl)
+    expect(consentUrl.pathname).toBe("/oauth/consent")
+    const consent = await httpFetch(`${baseUrl}/api/auth/oauth2/consent`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie, origin: baseUrl },
+      body: JSON.stringify({
+        accept: true,
+        oauth_query: consentUrl.search.slice(1)
+      })
+    })
+    expect(consent.status, await consent.clone().text()).toBe(200)
+    const callback = new URL(
+      Schema.decodeUnknownSync(Redirect)(await consent.json()).url
+    )
+    expect(`${callback.protocol}//${callback.host}${callback.pathname}`).toBe(
+      appOAuthRedirectUri
+    )
+    expect(callback.searchParams.get("state")).toBe("app-state")
+    const tokenResponse = await httpFetch(`${baseUrl}/api/auth/oauth2/token`, {
+      method: "POST",
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: appOAuthClientId,
+        code: callback.searchParams.get("code")!,
+        redirect_uri: appOAuthRedirectUri,
+        code_verifier: verifier
+      })
+    })
+    expect(tokenResponse.status, await tokenResponse.clone().text()).toBe(200)
+    Schema.decodeUnknownSync(Token)(await tokenResponse.json())
+    const consents = await pool.query(
+      "SELECT count(*)::int AS count FROM oauth_provider_consent WHERE client_id=$1 AND user_id=$2",
+      [appOAuthClientId, userId]
+    )
+    expect(consents.rows).toEqual([{ count: 1 }])
+    const refresh = await pool.query(
+      "SELECT extract(epoch FROM expires_at - now()) / 86400 AS days FROM oauth_refresh_token WHERE client_id=$1 AND user_id=$2",
+      [appOAuthClientId, userId]
+    )
+    expect(refresh.rows).toHaveLength(1)
+    expect(Number(refresh.rows[0].days)).toBeCloseTo(90, 0)
   })
 
   it("advertises Client ID Metadata Document support", async () => {
