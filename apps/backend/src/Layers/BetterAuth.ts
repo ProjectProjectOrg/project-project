@@ -32,6 +32,7 @@ import * as Match from "effect/Match"
 import * as Schema from "effect/Schema"
 
 import {
+  acceptAsExistingMember,
   assertNotLastProjectPm,
   auth,
   keepingAProjectPm,
@@ -247,6 +248,7 @@ export const BetterAuthLive = Layer.effect(
       const memberId = yield* resolveMemberId(organizationId, userId)
       yield* attempt(() =>
         auth.api.updateMemberRole({
+          asResponse: false,
           body: { role, memberId, organizationId },
           headers: request.headers,
           request
@@ -444,6 +446,7 @@ export const BetterAuthLive = Layer.effect(
         const organizationId = yield* resolveOrgId(orgSlug)
         yield* attempt(() =>
           auth.api.updateOrganization({
+            asResponse: false,
             body: { data: { name }, organizationId },
             headers: request.headers,
             request
@@ -458,6 +461,7 @@ export const BetterAuthLive = Layer.effect(
         const organizationId = yield* resolveOrgId(orgSlug)
         const created = yield* attempt(() =>
           auth.api.createInvitation({
+            asResponse: false,
             body: {
               email: input.email,
               role: input.role,
@@ -486,6 +490,7 @@ export const BetterAuthLive = Layer.effect(
         yield* attempt(() =>
           keepingAProjectPm(organizationId, userId, () =>
             auth.api.removeMember({
+              asResponse: false,
               body: { memberIdOrEmail: memberId, organizationId },
               headers: request.headers,
               request
@@ -510,6 +515,7 @@ export const BetterAuthLive = Layer.effect(
         }
         yield* attempt(() =>
           auth.api.cancelInvitation({
+            asResponse: false,
             body: { invitationId },
             headers: request.headers,
             request
@@ -573,6 +579,7 @@ export const BetterAuthLive = Layer.effect(
         yield* attempt(() =>
           keepingAProjectPm(organizationId, userId, () =>
             auth.api.leaveOrganization({
+              asResponse: false,
               body: { organizationId },
               headers: request.headers,
               request
@@ -643,6 +650,7 @@ export const BetterAuthLive = Layer.effect(
       ) {
         const found = yield* attempt(() =>
           auth.api.getInvitation({
+            asResponse: false,
             query: { id: invitationId },
             headers: request.headers,
             request
@@ -678,14 +686,23 @@ export const BetterAuthLive = Layer.effect(
         request: Request,
         invitationId: string
       ) {
-        const accepted = yield* attempt(() =>
-          auth.api.acceptInvitation({
-            body: { invitationId },
-            headers: request.headers,
-            request
-          })
+        const session = yield* attempt(() =>
+          auth.api.getSession({ headers: request.headers })
         )
-        const acceptedMember = accepted?.member
+        if (!session) return yield* new NotFound()
+        const alreadyMember = yield* attempt(() =>
+          acceptAsExistingMember(invitationId, session.user)
+        )
+        const acceptedMember =
+          alreadyMember ??
+          (yield* attempt(() =>
+            auth.api.acceptInvitation({
+              asResponse: false,
+              body: { invitationId },
+              headers: request.headers,
+              request
+            })
+          ))?.member
         if (!acceptedMember) return yield* new NotFound()
         const rows = yield* attempt(() =>
           db
@@ -705,6 +722,7 @@ export const BetterAuthLive = Layer.effect(
       rejectInvitation: (request, invitationId) =>
         attempt(() =>
           auth.api.rejectInvitation({
+            asResponse: false,
             body: { invitationId },
             headers: request.headers,
             request

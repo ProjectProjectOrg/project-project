@@ -5,6 +5,8 @@ import { migrationsFolder } from "@pp/db"
 import { CurrentUser, ProjectScope, Slug } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
+import * as Clock from "effect/Clock"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import type * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
@@ -194,6 +196,119 @@ describe.skipIf(!databaseUrl)("project members", () => {
         projects.updateMember(developer, "developer")
       )
     })
+  )
+
+  const outsider = () => `${randomUUID()}@example.test`
+
+  const invitationsFor = (email: string) =>
+    Effect.promise(async () => {
+      const { rows } = await pool.query<{
+        id: string
+        role: string
+        status: string
+        expires_at: Date
+        grant_role: string | null
+      }>(
+        `SELECT i.id, i.role, i.status, i.expires_at, g.role_id AS grant_role
+         FROM invitation i
+         LEFT JOIN project_invite_grant g ON g.invitation_id = i.id
+         WHERE i.organization_id = $1 AND i.email = $2
+         ORDER BY i.created_at`,
+        [organizationId, email]
+      )
+      return rows
+    })
+
+  it.effect("lets a pm invite an outsider only as a client", () =>
+    Effect.gen(function* () {
+      const client = outsider()
+      const dev = outsider()
+      yield* run(pm)((projects) =>
+        projects.addMember({ email: client, role: "client" })
+      )
+      const [invite] = yield* invitationsFor(client)
+      expect(invite).toMatchObject({
+        role: "guest",
+        status: "pending",
+        grant_role: "client"
+      })
+      const now = yield* Clock.currentTimeMillis
+      const days = (invite.expires_at.getTime() - now) / 86_400_000
+      expect(days).toBeGreaterThan(6.9)
+      expect(days).toBeLessThanOrEqual(7)
+
+      const refused = yield* Effect.flip(
+        run(pm)((projects) =>
+          projects.addMember({ email: dev, role: "developer" })
+        )
+      )
+      expect(refused._tag).toBe("Forbidden")
+      expect(yield* invitationsFor(dev)).toStrictEqual([])
+
+      yield* run(admin)((projects) =>
+        projects.addMember({ email: dev, role: "developer" })
+      )
+      expect(yield* invitationsFor(dev)).toMatchObject([
+        { role: "member", grant_role: "developer" }
+      ])
+    })
+  )
+
+  it.effect("never revives an expired invitation", () =>
+    Effect.gen(function* () {
+      const email = outsider()
+      const expiredAt = DateTime.toDate(
+        DateTime.subtract(yield* DateTime.now, { days: 1 })
+      )
+      yield* Effect.promise(() =>
+        pool.query(
+          "INSERT INTO invitation (id,organization_id,email,role,status,expires_at,inviter_id) VALUES ($1,$2,$3,'member','pending',$4,$5)",
+          [randomUUID(), organizationId, email, expiredAt, admin]
+        )
+      )
+      yield* run(pm)((projects) =>
+        projects.addMember({ email, role: "client" })
+      )
+      const [expired, fresh] = yield* invitationsFor(email)
+      expect(expired).toMatchObject({ role: "member", grant_role: null })
+      expect(expired.expires_at.getTime()).toBe(expiredAt.getTime())
+      expect(fresh).toMatchObject({ role: "guest", grant_role: "client" })
+    })
+  )
+
+  it.effect(
+    "lets a pm cancel only client invitations and hides invitees from non-managers",
+    () =>
+      Effect.gen(function* () {
+        const client = outsider()
+        const dev = outsider()
+        yield* run(pm)((projects) =>
+          projects.addMember({ email: client, role: "client" })
+        )
+        yield* run(admin)((projects) =>
+          projects.addMember({ email: dev, role: "developer" })
+        )
+        const detail = yield* run(pm)((projects) => projects.get())
+        const pending = (email: string) =>
+          detail.pendingMembers.find((member) => member.email === email)!
+        const developerView = yield* run(developer)((projects) =>
+          projects.get()
+        )
+        expect(developerView.pendingMembers).toStrictEqual([])
+
+        yield* run(pm)((projects) =>
+          projects.cancelPendingMember(pending(dev).invitationId)
+        )
+        yield* run(pm)((projects) =>
+          projects.cancelPendingMember(pending(client).invitationId)
+        )
+        expect(yield* invitationsFor(dev)).toMatchObject([
+          { status: "pending", grant_role: null }
+        ])
+        expect(yield* invitationsFor(client)).toMatchObject([
+          { status: "canceled", grant_role: null }
+        ])
+      })
   )
 
   it.effect("lets a pm step down while another pm remains", () =>

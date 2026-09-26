@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto"
 
 import { it } from "@effect/vitest"
 import { invitation, member, organization, user } from "@pp/db/auth-schema"
+import { projectIndex, projectInviteGrant, projectMember } from "@pp/db/schema"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { APIError } from "better-auth/api"
 import { drizzle } from "drizzle-orm/node-postgres"
@@ -382,5 +383,197 @@ describe.skipIf(!databaseUrl)("BetterAuth live", () => {
       const back = yield* activate(orgSlug, other.request)
       expect(back.active).toBe(orgId)
     }).pipe(Effect.scoped)
+  )
+
+  it.live(
+    "joins a newcomer as guest and never changes an existing member's org role",
+    () =>
+      Effect.gen(function* () {
+        const projectId = randomUUID()
+        const newcomerEmail = `${randomUUID()}@example.test`
+        const targetEmail = `${targetId}@example.test`
+        const newcomerInvite = randomUUID()
+        const memberInvite = randomUUID()
+        yield* Effect.addFinalizer(() =>
+          Effect.promise(async () => {
+            await pool.query('DELETE FROM "project_index" WHERE id = $1', [
+              projectId
+            ])
+            await pool.query('DELETE FROM "user" WHERE email = $1', [
+              newcomerEmail
+            ])
+          })
+        )
+        const later = DateTime.toDate(
+          DateTime.add(DateTime.nowUnsafe(), { days: 7 })
+        )
+        yield* Effect.promise(async () => {
+          const db = drizzle({ client: pool })
+          await db.insert(projectIndex).values({
+            id: projectId,
+            slug: `invites-${projectId}`,
+            organizationId: orgId,
+            key: "INV",
+            name: "Invites",
+            icon: "x",
+            color: "#000000",
+            createdBy: ownerId
+          })
+          await db.insert(projectMember).values({
+            projectId,
+            organizationId: orgId,
+            userId: ownerId,
+            roleId: "pm"
+          })
+          await db.insert(invitation).values([
+            {
+              id: newcomerInvite,
+              organizationId: orgId,
+              email: newcomerEmail,
+              role: "guest",
+              status: "pending",
+              expiresAt: later,
+              inviterId: ownerId
+            },
+            {
+              id: memberInvite,
+              organizationId: orgId,
+              email: targetEmail,
+              role: "guest",
+              status: "pending",
+              expiresAt: later,
+              inviterId: ownerId
+            }
+          ])
+          await db.insert(projectInviteGrant).values([
+            { invitationId: newcomerInvite, projectId, roleId: "client" },
+            { invitationId: memberInvite, projectId, roleId: "developer" }
+          ])
+        })
+        const signIn = (email: string) =>
+          Effect.promise(async () => {
+            let signInUrl = ""
+            const writeSpy = vi
+              .spyOn(process.stdout, "write")
+              .mockImplementation((chunk: string | Uint8Array) => {
+                const text = String(chunk)
+                if (text.includes("[magic-link]")) signInUrl = text
+                return true
+              })
+            try {
+              await auth.api.signInMagicLink({
+                body: { email },
+                headers: new Headers({ origin: "http://localhost:15999" })
+              })
+              const url = signInUrl.match(/url=(?<url>\S+)/)?.groups?.url
+              const response = await auth.handler(new Request(url!))
+              const cookie = response.headers
+                .getSetCookie()
+                .map((value) => value.split(";")[0])
+                .join("; ")
+              return new Request("http://localhost:15999/api/auth", {
+                headers: { cookie, origin: "http://localhost:15999" }
+              })
+            } finally {
+              writeSpy.mockRestore()
+            }
+          })
+        const accept = (request: Request, invitationId: string) =>
+          Effect.flatMap(BetterAuth, (betterAuth) =>
+            betterAuth.acceptInvitation(request, invitationId)
+          ).pipe(Effect.provide(betterAuthLive))
+        const projectRoles = Effect.promise(async () => {
+          const { rows } = await pool.query<{
+            user_id: string
+            role_id: string
+          }>(
+            "SELECT user_id, role_id FROM project_member WHERE project_id = $1 ORDER BY role_id",
+            [projectId]
+          )
+          return rows
+        })
+
+        const newcomer = yield* signIn(newcomerEmail)
+        expect(yield* accept(newcomer, newcomerInvite)).toMatchObject({
+          role: "guest"
+        })
+        const roleOf = (userId: string) =>
+          Effect.promise(async () => {
+            const { rows } = await pool.query<{ role: string }>(
+              "SELECT role FROM member WHERE organization_id = $1 AND user_id = $2",
+              [orgId, userId]
+            )
+            return rows.map((row) => row.role)
+          })
+        const [targetRole] = yield* roleOf(targetId)
+        const target = yield* signIn(targetEmail)
+        expect(yield* accept(target, memberInvite)).toMatchObject({
+          role: targetRole
+        })
+        const again = yield* Effect.exit(accept(target, memberInvite))
+        expect(again._tag).toBe("Failure")
+
+        expect(yield* roleOf(targetId)).toStrictEqual([targetRole])
+        const roles = yield* projectRoles
+        expect(roles.map((row) => row.role_id)).toStrictEqual([
+          "client",
+          "developer",
+          "pm"
+        ])
+        expect(roles.find((row) => row.role_id === "developer")?.user_id).toBe(
+          targetId
+        )
+      }).pipe(Effect.scoped)
+  )
+
+  it.live(
+    "reports Better Auth's refusals instead of treating them as done",
+    () =>
+      Effect.gen(function* () {
+        const [soleOwner] = (yield* Effect.promise(() =>
+          pool.query<{ user_id: string; email: string }>(
+            `SELECT m.user_id, u.email FROM member m JOIN "user" u ON u.id = m.user_id
+           WHERE m.organization_id = $1 AND m.role = 'owner'`,
+            [orgId]
+          )
+        )).rows
+        let signInUrl = ""
+        const writeSpy = vi
+          .spyOn(process.stdout, "write")
+          .mockImplementation((chunk: string | Uint8Array) => {
+            const text = String(chunk)
+            if (text.includes("[magic-link]")) signInUrl = text
+            return true
+          })
+        const request = yield* Effect.promise(async () => {
+          await auth.api.signInMagicLink({
+            body: { email: soleOwner.email },
+            headers: new Headers({ origin: "http://localhost:15999" })
+          })
+          const url = signInUrl.match(/url=(?<url>\S+)/)?.groups?.url
+          const response = await auth.handler(new Request(url!))
+          const cookie = response.headers
+            .getSetCookie()
+            .map((value) => value.split(";")[0])
+            .join("; ")
+          return new Request("http://localhost:15999/api/auth", {
+            headers: { cookie, origin: "http://localhost:15999" }
+          })
+        }).pipe(Effect.ensuring(Effect.sync(() => writeSpy.mockRestore())))
+
+        const leaving = yield* Effect.flip(
+          Effect.flatMap(BetterAuth, (betterAuth) =>
+            betterAuth.leaveOrg(request, orgSlug, soleOwner.user_id)
+          ).pipe(Effect.provide(betterAuthLive))
+        )
+        expect(leaving._tag).toBe("BetterAuthError")
+        const { rows } = yield* Effect.promise(() =>
+          pool.query(
+            "SELECT role FROM member WHERE organization_id = $1 AND user_id = $2",
+            [orgId, soleOwner.user_id]
+          )
+        )
+        expect(rows).toStrictEqual([{ role: "owner" }])
+      })
   )
 })
