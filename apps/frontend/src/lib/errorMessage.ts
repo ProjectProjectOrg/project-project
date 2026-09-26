@@ -39,6 +39,7 @@ import type {
 } from "@pp/shared"
 import * as Match from "effect/Match"
 
+import type { SignInFailed } from "@/features/auth/atoms/signIn"
 import type { InviteAcceptError } from "@/lib/invitations"
 import { m } from "@/paraglide/messages"
 
@@ -291,4 +292,14 @@ export const oauthConsentErrorMessage = (error: unknown): string =>
       m.auth_oauth_consent_error_session()
     ),
     Match.orElse(() => m.auth_oauth_consent_error_retry())
+  )
+
+export const signInErrorMessage = (error: SignInFailed, fallback: string) =>
+  Match.value(error.reason).pipe(
+    Match.when("rate_limited", () => m.auth_email_code_rate_limited()),
+    Match.when("too_many_attempts", () =>
+      m.auth_email_code_too_many_attempts()
+    ),
+    Match.when("invalid_code", () => m.auth_email_code_invalid()),
+    Match.orElse(() => fallback)
   )

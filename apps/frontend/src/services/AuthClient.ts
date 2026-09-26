@@ -1,3 +1,4 @@
+import { oauthProviderClient } from "@better-auth/oauth-provider/client"
 import {
   emailOTPClient,
   inferAdditionalFields,
@@ -11,6 +12,7 @@ export const authClient = createAuthClient({
     organizationClient(),
     magicLinkClient(),
     emailOTPClient(),
+    oauthProviderClient(),
     inferAdditionalFields({
       user: {
         editorPreference: { type: "string", required: false, input: true }
