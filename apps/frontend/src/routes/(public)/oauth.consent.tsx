@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button"
 import { DitherShell } from "@/components/ui/dither-shell"
 import { me } from "@/features/auth/atoms/auth"
 import {
-  freshSignInAtom,
   oauthClientNameAtom,
   oauthClientRequest,
   oauthConsentRequest,
@@ -92,19 +91,16 @@ function useConsentSubmit(oauthQuery: string) {
 
 function AppSignIn({ oauthQuery }: Readonly<{ oauthQuery: string }>) {
   const viewer = useAtomValue(me())
-  const freshSignIn = useAtomValue(freshSignInAtom)
   const { onSubmit, pending, error } = useConsentSubmit(oauthQuery)
   const autoApproved = useRef(false)
-  const approveAutomatically =
-    Result.isSuccess(freshSignIn) && freshSignIn.value && error === null
 
   useEffect(() => {
-    if (!approveAutomatically || autoApproved.current) return
+    if (autoApproved.current) return
     autoApproved.current = true
     void onSubmit(true)
   })
 
-  if (!Result.isSuccess(freshSignIn) || approveAutomatically) {
+  if (error === null) {
     return (
       <ConsentShell title={m.auth_app_signin_title()}>
         <p className="text-center text-sm text-muted-foreground">
@@ -142,14 +138,12 @@ function AppSignIn({ oauthQuery }: Readonly<{ oauthQuery: string }>) {
           {m.auth_app_signin_cancel_button()}
         </Button>
       </div>
-      {error ? (
-        <p
-          role="alert"
-          className="text-center text-xs leading-relaxed text-destructive"
-        >
-          {error}
-        </p>
-      ) : null}
+      <p
+        role="alert"
+        className="text-center text-xs leading-relaxed text-destructive"
+      >
+        {error}
+      </p>
     </ConsentShell>
   )
 }

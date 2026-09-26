@@ -445,7 +445,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     expect(replay.status).toBe(400)
   })
 
-  it("signs the built-in app client in through consent with 90-day refresh tokens", async () => {
+  it("makes the built-in app client sign in fresh for every authorization", async () => {
     const seeded = await pool.query(
       "SELECT redirect_uris, token_endpoint_auth_method, require_pkce, skip_consent FROM oauth_client WHERE client_id=$1",
       [appOAuthClientId]
@@ -460,36 +460,65 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     ])
     const verifier =
       "app-client-pkce-verifier-0123456789-abcdefghijklmnopqrstuvwxyz-0123"
-    const query = new URLSearchParams({
-      client_id: appOAuthClientId,
-      redirect_uri: appOAuthRedirectUri,
-      response_type: "code",
-      scope: "openid profile offline_access",
-      state: "app-state",
-      code_challenge_method: "S256",
-      code_challenge: createHash("sha256").update(verifier).digest("base64url")
-    })
-    const authorization = await auth.handler(
-      new Request(`${baseUrl}/api/auth/oauth2/authorize?${query.toString()}`, {
+    const authorize = (sessionCookie: string, prompt?: string) => {
+      const query = new URLSearchParams({
+        client_id: appOAuthClientId,
+        redirect_uri: appOAuthRedirectUri,
+        response_type: "code",
+        scope: "openid profile offline_access",
+        state: "app-state",
+        code_challenge_method: "S256",
+        code_challenge: createHash("sha256")
+          .update(verifier)
+          .digest("base64url"),
+        ...(prompt ? { prompt } : {})
+      })
+      return auth.handler(
+        new Request(
+          `${baseUrl}/api/auth/oauth2/authorize?${query.toString()}`,
+          {
+            headers: {
+              cookie: sessionCookie,
+              accept: "text/html",
+              "sec-fetch-mode": "navigate",
+              "sec-fetch-dest": "document"
+            }
+          }
+        )
+      )
+    }
+    const signIn = async () => {
+      const context = await auth.$context
+      const session = await context.internalAdapter.createSession(userId)
+      if (!session) throw new Error("Failed to create test session")
+      return `better-auth.session_token=${encodeURIComponent(`${session.token}.${await makeSignature(session.token, secret)}`)}`
+    }
+    const submitConsent = (sessionCookie: string, oauthQuery: string) =>
+      httpFetch(`${baseUrl}/api/auth/oauth2/consent`, {
+        method: "POST",
         headers: {
-          cookie,
-          accept: "text/html",
-          "sec-fetch-mode": "navigate",
-          "sec-fetch-dest": "document"
-        }
+          "content-type": "application/json",
+          cookie: sessionCookie,
+          origin: baseUrl
+        },
+        body: JSON.stringify({ accept: true, oauth_query: oauthQuery })
       })
-    )
-    expect(authorization.status).toBe(302)
-    const consentUrl = new URL(authorization.headers.get("location")!, baseUrl)
-    expect(consentUrl.pathname).toBe("/oauth/consent")
-    const consent = await httpFetch(`${baseUrl}/api/auth/oauth2/consent`, {
-      method: "POST",
-      headers: { "content-type": "application/json", cookie, origin: baseUrl },
-      body: JSON.stringify({
-        accept: true,
-        oauth_query: consentUrl.search.slice(1)
-      })
-    })
+    const expectLoginRedirect = (response: Response) => {
+      expect(response.status).toBe(302)
+      const location = new URL(response.headers.get("location")!, baseUrl)
+      expect(location.pathname).toBe("/login")
+      expect(location.searchParams.get("prompt")?.split(" ")).toEqual(
+        expect.arrayContaining(["login", "consent"])
+      )
+      return location.search.slice(1)
+    }
+
+    const loginQuery = expectLoginRedirect(await authorize(cookie, "none"))
+    const stale = await submitConsent(cookie, loginQuery)
+    expect(await stale.clone().text()).not.toContain("code=")
+
+    const freshCookie = await signIn()
+    const consent = await submitConsent(freshCookie, loginQuery)
     expect(consent.status, await consent.clone().text()).toBe(200)
     const callback = new URL(
       Schema.decodeUnknownSync(Redirect)(await consent.json()).url
@@ -498,6 +527,9 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       appOAuthRedirectUri
     )
     expect(callback.searchParams.get("state")).toBe("app-state")
+
+    expectLoginRedirect(await authorize(freshCookie))
+
     const tokenResponse = await httpFetch(`${baseUrl}/api/auth/oauth2/token`, {
       method: "POST",
       body: new URLSearchParams({
@@ -509,17 +541,29 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       })
     })
     expect(tokenResponse.status, await tokenResponse.clone().text()).toBe(200)
-    Schema.decodeUnknownSync(Token)(await tokenResponse.json())
+    const token = Schema.decodeUnknownSync(Token)(await tokenResponse.json())
     const consents = await pool.query(
       "SELECT count(*)::int AS count FROM oauth_provider_consent WHERE client_id=$1 AND user_id=$2",
       [appOAuthClientId, userId]
     )
     expect(consents.rows).toEqual([{ count: 1 }])
-    const refresh = await pool.query(
-      "SELECT extract(epoch FROM expires_at - now()) / 86400 AS days FROM oauth_refresh_token WHERE client_id=$1 AND user_id=$2",
+    await pool.query(
+      "UPDATE oauth_refresh_token SET expires_at = now() + interval '1 day' WHERE client_id=$1 AND user_id=$2",
       [appOAuthClientId, userId]
     )
-    expect(refresh.rows).toHaveLength(1)
+    const refreshed = await httpFetch(`${baseUrl}/api/auth/oauth2/token`, {
+      method: "POST",
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: appOAuthClientId,
+        refresh_token: token.refresh_token
+      })
+    })
+    expect(refreshed.status, await refreshed.clone().text()).toBe(200)
+    const refresh = await pool.query(
+      "SELECT max(extract(epoch FROM expires_at - now()) / 86400) AS days FROM oauth_refresh_token WHERE client_id=$1 AND user_id=$2 AND revoked IS NULL",
+      [appOAuthClientId, userId]
+    )
     expect(Number(refresh.rows[0].days)).toBeCloseTo(90, 0)
   })
 

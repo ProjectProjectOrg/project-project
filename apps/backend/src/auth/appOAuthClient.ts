@@ -1,11 +1,37 @@
 import { appOAuthClientId, appOAuthRedirectUri } from "@pp/shared"
+import { createAuthMiddleware } from "better-auth/api"
 import { sql } from "drizzle-orm"
+import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
 
-export const appOAuthClient = (input: {
-  readonly db: {
-    readonly execute: (query: ReturnType<typeof sql>) => Promise<unknown>
-  }
-}) => ({
+type AppOAuthClientInput = Readonly<{
+  db: Readonly<{
+    execute: (query: ReturnType<typeof sql>) => Promise<unknown>
+  }>
+}>
+
+const AuthorizeQuery = Schema.Struct({
+  client_id: Schema.String,
+  sig: Schema.optional(Schema.String)
+})
+
+const decodeAuthorizeQuery = Schema.decodeUnknownOption(AuthorizeQuery)
+
+type AuthorizeContext = Readonly<{
+  query?: Readonly<Record<string, string | ReadonlyArray<string>>>
+  request?: Request
+}>
+
+const initialAppAuthorizeRequest = ({ query, request }: AuthorizeContext) =>
+  request !== undefined &&
+  new URL(request.url).pathname.endsWith("/oauth2/authorize") &&
+  Option.exists(
+    decodeAuthorizeQuery(query),
+    (decoded) =>
+      decoded.client_id === appOAuthClientId && decoded.sig === undefined
+  )
+
+export const appOAuthClient = (input: AppOAuthClientInput) => ({
   id: "app-oauth-client",
   init: async () => {
     await input.db.execute(sql`
@@ -33,5 +59,18 @@ export const appOAuthClient = (input: {
         disabled = EXCLUDED.disabled,
         updated_at = now()
     `)
+  },
+  hooks: {
+    before: [
+      {
+        matcher: (context: Readonly<{ path?: string }>) =>
+          context.path === "/oauth2/authorize",
+        handler: createAuthMiddleware(async (ctx) =>
+          initialAppAuthorizeRequest(ctx)
+            ? { context: { query: { ...ctx.query, prompt: "login consent" } } }
+            : undefined
+        )
+      }
+    ]
   }
 })
