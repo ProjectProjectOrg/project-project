@@ -50,8 +50,9 @@ The native app lives in `apps/mobile` (`@pp/mobile`): Expo SDK 57 with Expo Rout
 - State follows the web: Effect with `@effect/atom-react`, and schemas from `@pp/shared`. `apps/mobile/src/runtime.ts` builds the one atom runtime.
 - **Server store.** `apps/mobile/src/servers/ServerStore.ts` owns the saved servers, keyed by instance id: origin, name, logo, protocol version, signed-in user, cached orgs, plus the last-used org. Tokens live in the keychain (this device only) through `SecureStorage`; everything else in `expo-sqlite` key-value storage through `KeyValueStorage`. Screens and other tickets read and write servers only through this store, and link to each other by route.
 - Set `EXPO_PUBLIC_SEED_SERVERS=1` in a dev build to fill an empty store with sample servers.
-- Bundle identifier `nl.igne.projectproject`, URL scheme `projectproject` (OAuth callback `projectproject://oauth/callback`). Builds run locally with `bun run --filter @pp/mobile ios` / `android`; EAS is not set up yet.
-- Run it with `bun run dev:mobile` against a dev client.
+- Bundle identifier `nl.igne.projectproject`, URL scheme `projectproject` (OAuth callback `projectproject://oauth/callback`). iOS only for now; builds run locally, EAS is not set up yet.
+- `bun run dev:mobile` starts Metro and, next to it, builds and installs the iOS dev client (turbo `dev` runs `app:ios`, which depends on `prebuild`), like Ref-Connect.
+- `bun run build:mobile:ios` makes a standalone Release build with the JS bundle embedded, so it runs without Metro.
 
 ## Frontend stack
 
