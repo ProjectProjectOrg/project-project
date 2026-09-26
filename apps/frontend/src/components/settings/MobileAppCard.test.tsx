@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { MobileAppCard } from "./MobileAppCard"
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
 
 describe("MobileAppCard", () => {
   it("shows the server address and copies it", async () => {
@@ -16,6 +19,5 @@ describe("MobileAppCard", () => {
     expect(screen.queryByText("pp.igne.nl")).not.toBeNull()
     fireEvent.click(screen.getByRole("button", { name: "Copy address" }))
     await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith("pp.igne.nl"))
-    vi.unstubAllGlobals()
   })
 })

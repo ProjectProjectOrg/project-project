@@ -80,7 +80,6 @@ export const updateEditorPreference = Atom.optimisticFn(me(), {
       yield* Effect.tryPromise(() =>
         authData(authClient.updateUser({ editorPreference }))
       )
-      yield* Reactivity.invalidate([Keys.me()])
     })
   )
 })
