@@ -21,7 +21,7 @@ export default function Welcome() {
       </View>
       <Button
         label={copy.welcomeStart}
-        onPress={() => router.push("/sign-in")}
+        onPress={() => router.push("/onboarding/address")}
       />
     </View>
   )

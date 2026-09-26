@@ -24,6 +24,11 @@ export const SavedServer = Schema.Struct({
 })
 export type SavedServer = typeof SavedServer.Type
 
+export type ServerIdentity = Pick<
+  SavedServer,
+  "instanceId" | "origin" | "name" | "logo" | "protocolVersion"
+>
+
 export const ServerTokens = Schema.Struct({
   accessToken: Schema.String,
   refreshToken: Schema.String,

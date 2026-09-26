@@ -129,3 +129,49 @@ it("stores tokens under keys SecureStore accepts, one per instance id", () => {
   for (const key of keys) expect(key).toMatch(/^[\w.-]+$/)
   expect(new Set(keys).size).toBe(keys.length)
 })
+
+it.effect("keeps the signed-in account when a server is added again", () =>
+  withStore((store) =>
+    Effect.gen(function* () {
+      yield* store.save({
+        ...server("a", "Igne"),
+        user: { id: "u", name: "Luuk", email: "luuk@igne.nl" }
+      })
+      yield* store.register({
+        instanceId: "a",
+        origin: "https://igne.example",
+        name: "Igne renamed",
+        logo: null,
+        protocolVersion: 1
+      })
+      const [saved] = yield* store.list
+      expect(saved?.name).toBe("Igne renamed")
+      expect(saved?.user?.id).toBe("u")
+      expect(saved?.orgs).toEqual([{ slug: "igne", name: "Igne" }])
+    })
+  )
+)
+
+it.effect(
+  "replaces a server whose address now answers as another instance",
+  () =>
+    withStore((store) =>
+      Effect.gen(function* () {
+        yield* store.save(server("old", "Igne"))
+        yield* store.attachTokens("old", tokens)
+        yield* store.setLastUsedOrg({ instanceId: "old", orgSlug: "igne" })
+        yield* store.register({
+          instanceId: "new",
+          origin: "https://igne.example",
+          name: "Igne",
+          logo: null,
+          protocolVersion: 1
+        })
+        expect((yield* store.list).map((entry) => entry.instanceId)).toEqual([
+          "new"
+        ])
+        expect(yield* store.tokens("old")).toEqual(Option.none())
+        expect(yield* store.lastUsedOrg).toEqual(Option.none())
+      })
+    )
+)

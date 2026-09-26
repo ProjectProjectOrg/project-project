@@ -12,6 +12,7 @@ import {
   type OrgLocation,
   type SavedServer,
   ServerCatalog,
+  type ServerIdentity,
   ServerTokens
 } from "./model"
 import { KeyValueStorage, SecureStorage, type StorageFailure } from "./storage"
@@ -29,6 +30,7 @@ export type CatalogFailure = StorageFailure | CatalogUnreadable
 export type ServerStoreShape = Readonly<{
   list: Effect.Effect<ReadonlyArray<SavedServer>, CatalogFailure>
   save: (server: SavedServer) => Effect.Effect<void, CatalogFailure>
+  register: (identity: ServerIdentity) => Effect.Effect<void, CatalogFailure>
   remove: (instanceId: string) => Effect.Effect<void, CatalogFailure>
   tokens: (
     instanceId: string
@@ -97,6 +99,50 @@ export const ServerStoreLive = Layer.effect(
         }))
       )
 
+    const register = (identity: ServerIdentity) =>
+      serialized(
+        Effect.gen(function* () {
+          const catalog = yield* readCatalog
+          const displaced = catalog.servers.filter(
+            (saved) =>
+              saved.origin === identity.origin &&
+              saved.instanceId !== identity.instanceId
+          )
+          yield* Effect.forEach(
+            displaced,
+            (saved) => secure.remove(tokensKey(saved.instanceId)),
+            { discard: true }
+          )
+          const existing = catalog.servers.find(
+            (saved) => saved.instanceId === identity.instanceId
+          )
+          const kept = catalog.servers.filter(
+            (saved) =>
+              saved.instanceId !== identity.instanceId &&
+              !displaced.includes(saved)
+          )
+          yield* storage.set(
+            catalogKey,
+            encodeCatalog({
+              ...catalog,
+              servers: [
+                ...kept,
+                {
+                  user: existing?.user ?? null,
+                  orgs: existing?.orgs ?? [],
+                  ...identity
+                }
+              ],
+              lastUsedOrg: displaced.some(
+                (saved) => saved.instanceId === catalog.lastUsedOrg?.instanceId
+              )
+                ? null
+                : catalog.lastUsedOrg
+            })
+          )
+        })
+      )
+
     const remove = (instanceId: string) =>
       serialized(
         Effect.andThen(
@@ -142,6 +188,7 @@ export const ServerStoreLive = Layer.effect(
     return ServerStore.of({
       list: Effect.map(readCatalog, (catalog) => catalog.servers),
       save,
+      register,
       remove,
       tokens,
       attachTokens,

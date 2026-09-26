@@ -15,7 +15,9 @@ export default function RootLayout() {
             headerShown: false,
             contentStyle: { backgroundColor: String(background) }
           }}
-        />
+        >
+          <Stack.Screen name="add-server" options={{ presentation: "modal" }} />
+        </Stack>
       </RegistryProvider>
     </SafeAreaListener>
   )
