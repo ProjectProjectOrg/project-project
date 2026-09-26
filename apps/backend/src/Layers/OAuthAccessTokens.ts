@@ -1,5 +1,5 @@
 import { Db } from "@pp/db"
-import { oauthConsent } from "@pp/db/auth-schema"
+import { oauthConsent, user } from "@pp/db/auth-schema"
 import {
   createDpopReplayStore,
   verifyAccessTokenRequest
@@ -7,6 +7,7 @@ import {
 import { and, eq, inArray } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as Data from "effect/Data"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
@@ -24,11 +25,15 @@ export class InvalidAccessToken extends Data.TaggedError(
 
 export class ConsentRevoked extends Data.TaggedError("ConsentRevoked")<{}> {}
 
+export class SubjectBanned extends Data.TaggedError("SubjectBanned")<{}> {}
+
 const AccessTokenClaims = Schema.Struct({
   sub: Schema.String,
   client_id: Schema.String,
   pp_consent_ids: Schema.NonEmptyArray(Schema.String)
 })
+
+export type OAuthAccessTokenClaims = typeof AccessTokenClaims.Type
 
 const decodeClaims = Schema.decodeUnknownEffect(AccessTokenClaims)
 
@@ -38,10 +43,13 @@ export class OAuthAccessTokens extends Context.Service<
     verify: (
       request: HttpServerRequest.HttpServerRequest,
       resource: string
-    ) => Effect.Effect<unknown, TokenRejected>
+    ) => Effect.Effect<
+      OAuthAccessTokenClaims,
+      TokenRejected | InvalidAccessToken
+    >
     consentedSubject: (
-      claims: unknown
-    ) => Effect.Effect<string, InvalidAccessToken | ConsentRevoked>
+      claims: OAuthAccessTokenClaims
+    ) => Effect.Effect<string, ConsentRevoked | SubjectBanned>
   }>
 >()("@pp/backend/Layers/OAuthAccessTokens") {}
 
@@ -68,8 +76,10 @@ export const OAuthAccessTokensLive = Layer.effect(
               authorizationHeader: request.headers["authorization"],
               dpopProofJwt: request.headers["dpop"],
               method: request.method,
-              url: new URL(new URL(request.url, resource).pathname, resource)
-                .href
+              url: new URL(
+                new URL(request.originalUrl, resource).pathname,
+                resource
+              ).href
             },
             {
               verifyOptions: { issuer: baseURL, audience: resource },
@@ -78,14 +88,17 @@ export const OAuthAccessTokensLive = Layer.effect(
             }
           ),
         catch: (cause) => new TokenRejected({ cause })
-      })
+      }).pipe(
+        Effect.flatMap((payload) =>
+          decodeClaims(payload).pipe(
+            Effect.mapError(() => new InvalidAccessToken())
+          )
+        )
+      )
     })
 
     const consentedSubject = Effect.fn("OAuthAccessTokens.consentedSubject")(
-      function* (claims: unknown) {
-        const decoded = yield* decodeClaims(claims).pipe(
-          Effect.mapError(() => new InvalidAccessToken())
-        )
+      function* (decoded: OAuthAccessTokenClaims) {
         const consents = yield* db
           .select({ id: oauthConsent.id })
           .from(oauthConsent)
@@ -100,6 +113,23 @@ export const OAuthAccessTokensLive = Layer.effect(
           .pipe(Effect.orDie)
         if (consents.length === 0) {
           return yield* new ConsentRevoked()
+        }
+        const subjects = yield* db
+          .select({ banned: user.banned, banExpires: user.banExpires })
+          .from(user)
+          .where(eq(user.id, decoded.sub))
+          .limit(1)
+          .pipe(Effect.orDie)
+        const now = yield* DateTime.now
+        const banned =
+          subjects[0]?.banned === true &&
+          (subjects[0].banExpires === null ||
+            DateTime.isGreaterThan(
+              DateTime.fromDateUnsafe(subjects[0].banExpires),
+              now
+            ))
+        if (subjects.length === 0 || banned) {
+          return yield* new SubjectBanned()
         }
         return decoded.sub
       }

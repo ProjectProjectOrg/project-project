@@ -93,15 +93,9 @@ export const AuthenticationLive = Layer.effect(
       user: UserIdentity,
       activeOrganizationId: string | null | undefined
     ) {
-      const activeOrgSlug = yield* ba
-        .getOrgSlugById(activeOrganizationId)
-        .pipe(Effect.orDie)
-      const personalGithub = yield* ba
-        .getPersonalGithub(user.id)
-        .pipe(Effect.orDie)
-      const personalEverhour = yield* ba
-        .getPersonalEverhour(user.id)
-        .pipe(Effect.orDie)
+      const activeOrgSlug = yield* ba.getOrgSlugById(activeOrganizationId)
+      const personalGithub = yield* ba.getPersonalGithub(user.id)
+      const personalEverhour = yield* ba.getPersonalEverhour(user.id)
       return {
         id: user.id,
         email: user.email,
@@ -114,7 +108,7 @@ export const AuthenticationLive = Layer.effect(
         editorPreference: normalizeEditorPreference(user.editorPreference),
         personalEverhour
       }
-    })
+    }, Effect.orDie)
 
     return Authentication.of({
       sessionCookie: (httpEffect, _options) =>
@@ -185,7 +179,8 @@ export const AuthenticationLive = Layer.effect(
           Effect.catchTags({
             TokenRejected: () => Effect.fail(new Unauthorized()),
             InvalidAccessToken: () => Effect.fail(new Unauthorized()),
-            ConsentRevoked: () => Effect.fail(new Unauthorized())
+            ConsentRevoked: () => Effect.fail(new Unauthorized()),
+            SubjectBanned: () => Effect.fail(new Unauthorized())
           })
         )
     })

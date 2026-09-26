@@ -11,7 +11,10 @@ import {
 
 import { mcpResource } from "../auth"
 import { McpRequestUser } from "../mcp/McpRequestUser"
-import { OAuthAccessTokens } from "./OAuthAccessTokens"
+import {
+  type OAuthAccessTokenClaims,
+  OAuthAccessTokens
+} from "./OAuthAccessTokens"
 
 const resourceMetadataUrl = new URL(
   "/.well-known/oauth-protected-resource/mcp",
@@ -58,7 +61,7 @@ export const McpAuthMiddlewareLive = HttpRouter.middleware(
     const tokens = yield* OAuthAccessTokens
 
     const resolveUser = Effect.fn("McpAuth.resolveUser")(function* (
-      claims: unknown
+      claims: OAuthAccessTokenClaims
     ) {
       const userId = yield* tokens.consentedSubject(claims)
       const found = yield* users.fullByIds([userId])
@@ -82,7 +85,8 @@ export const McpAuthMiddlewareLive = HttpRouter.middleware(
         Effect.catchTags({
           TokenRejected: (e) => challenge(e.cause),
           InvalidAccessToken: () => Effect.succeed(unauthorized),
-          ConsentRevoked: () => Effect.succeed(unauthorized)
+          ConsentRevoked: () => Effect.succeed(unauthorized),
+          SubjectBanned: () => Effect.succeed(unauthorized)
         })
       )
   })

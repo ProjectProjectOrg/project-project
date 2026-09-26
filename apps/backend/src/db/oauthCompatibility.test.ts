@@ -16,7 +16,7 @@ import { toNodeHandler } from "better-auth/node"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { Layer, Schema } from "effect"
-import * as Context from "effect/Context"
+import * as DateTime from "effect/DateTime"
 import { HttpRouter, HttpServer } from "effect/unstable/http"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
@@ -34,6 +34,13 @@ const decodeRedirect = Schema.decodeUnknownSync(Redirect)
 
 const verifierFor = (flow: string) =>
   `app-client-pkce-verifier-${flow}-0123456789-abcdefghijklmnopqrstuvwxyz`
+const MeResponse = Schema.Struct({ id: Schema.String })
+const decodeMe = Schema.decodeUnknownSync(MeResponse)
+const noop = async () => {}
+
+const encodeBase64Url = (value: string | Uint8Array) =>
+  Buffer.from(value).toString("base64url")
+
 const Token = Schema.Struct({
   access_token: Schema.String,
   refresh_token: Schema.String
@@ -49,9 +56,9 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
   let clientId: string | undefined
   let projectsDir: string
   let handleMcp: (request: Request) => Promise<Response>
-  let disposeMcp = async () => {}
+  let disposeMcp = noop
   let handleApi: (request: Request) => Promise<Response>
-  let disposeApi = async () => {}
+  let disposeApi = noop
   const migratedClientId = randomUUID()
   const unrelatedClientId = randomUUID()
   const cimdClientId = "https://agent.example/oauth/client.json"
@@ -105,8 +112,11 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     )
     auth = (await import("../auth")).auth
     const { McpLive } = await import("../Layers/Mcp")
-    const { BackendServicesLive, BackendInfrastructureLive } =
-      await import("../runtime")
+    const {
+      BackendHttpServicesLive,
+      BackendServicesLive,
+      BackendInfrastructureLive
+    } = await import("../runtime")
     const app = McpLive.pipe(
       Layer.provide(
         BackendServicesLive.pipe(Layer.provideMerge(BackendInfrastructureLive))
@@ -119,12 +129,17 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     const api = HttpRouter.toWebHandler(
       ApiLive.pipe(
         Layer.provide(ApiRouterLive),
+        HttpRouter.provideRequest(
+          BackendHttpServicesLive.pipe(
+            Layer.provideMerge(BackendInfrastructureLive)
+          )
+        ),
         Layer.provide(BackendInfrastructureLive),
         Layer.provideMerge(HttpServer.layerServices)
       ),
       { disableLogger: true }
     )
-    handleApi = (request) => api.handler(request, Context.empty() as never)
+    handleApi = api.handler
     disposeApi = api.dispose
     server.on("request", toNodeHandler(auth))
     await pool.query(
@@ -600,16 +615,18 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     expect(Number(refresh.rows[0].days)).toBeCloseTo(90, 0)
   })
 
-  it("accepts app access tokens on /api independently of the web session", async () => {
+  const issueApiToken = async (
+    flow: string,
+    tokenHeaders: Readonly<Record<string, string>> = {}
+  ) => {
     const resource = `${baseUrl}/api`
-    const verifier =
-      "app-client-api-pkce-verifier-0123456789-abcdefghijklmnopqrstuvwxyz"
+    const verifier = `app-client-api-pkce-verifier-${flow}-0123456789-abcdefghijklmnopqrstuvwxyz`
     const query = new URLSearchParams({
       client_id: appOAuthClientId,
       redirect_uri: appOAuthRedirectUri,
       response_type: "code",
       scope: "openid profile offline_access",
-      state: "api-state",
+      state: `api-${flow}`,
       resource,
       code_challenge_method: "S256",
       code_challenge: createHash("sha256").update(verifier).digest("base64url")
@@ -617,11 +634,11 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     const context = await auth.$context
     const session = await context.internalAdapter.createSession(userId)
     if (!session) throw new Error("Failed to create test session")
-    const appSessionCookie = `better-auth.session_token=${encodeURIComponent(`${session.token}.${await makeSignature(session.token, secret)}`)}`
+    const sessionCookie = `better-auth.session_token=${encodeURIComponent(`${session.token}.${await makeSignature(session.token, secret)}`)}`
     const authorization = await auth.handler(
       new Request(`${baseUrl}/api/auth/oauth2/authorize?${query.toString()}`, {
         headers: {
-          cookie: appSessionCookie,
+          cookie: sessionCookie,
           accept: "text/html",
           "sec-fetch-mode": "navigate",
           "sec-fetch-dest": "document"
@@ -635,7 +652,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        cookie: appSessionCookie,
+        cookie: sessionCookie,
         origin: baseUrl
       },
       body: JSON.stringify({
@@ -645,11 +662,12 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     })
     expect(consent.status, await consent.clone().text()).toBe(200)
     const code = new URL(
-      Schema.decodeUnknownSync(Redirect)(await consent.json()).url
+      decodeRedirect(await consent.json()).url
     ).searchParams.get("code")
     expect(code).toBeTruthy()
     const tokenResponse = await httpFetch(`${baseUrl}/api/auth/oauth2/token`, {
       method: "POST",
+      headers: tokenHeaders,
       body: new URLSearchParams({
         grant_type: "authorization_code",
         client_id: appOAuthClientId,
@@ -660,36 +678,35 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       })
     })
     expect(tokenResponse.status, await tokenResponse.clone().text()).toBe(200)
-    const token = Schema.decodeUnknownSync(Token)(await tokenResponse.json())
-    const me = (headers: Readonly<Record<string, string>>) =>
-      handleApi(new Request(`${baseUrl}/api/me`, { headers }))
-    const Me = Schema.Struct({ id: Schema.String })
+    return {
+      token: decodeToken(await tokenResponse.json()),
+      sessionToken: session.token
+    }
+  }
+
+  const callApi = (path: string, headers: Readonly<Record<string, string>>) =>
+    handleApi(new Request(`${baseUrl}${path}`, { headers }))
+
+  it("accepts app access tokens on /api independently of the web session", async () => {
+    const { token, sessionToken } = await issueApiToken("bearer")
     const bearer = { authorization: `Bearer ${token.access_token}` }
 
-    const viaBearer = await me(bearer)
+    const viaBearer = await callApi("/api/me", bearer)
     expect(viaBearer.status, await viaBearer.clone().text()).toBe(200)
-    expect(Schema.decodeUnknownSync(Me)(await viaBearer.json()).id).toBe(userId)
+    expect(decodeMe(await viaBearer.json()).id).toBe(userId)
 
-    await pool.query("DELETE FROM session WHERE token=$1", [session.token])
-    expect((await me(bearer)).status).toBe(200)
+    await pool.query("DELETE FROM session WHERE token=$1", [sessionToken])
+    expect((await callApi("/api/me", bearer)).status).toBe(200)
 
-    const staleCookie = await me({
+    const staleCookie = await callApi("/api/me", {
       ...bearer,
       cookie: "better-auth.session_token=stale.signature"
     })
     expect(staleCookie.status).toBe(200)
-    expect(Schema.decodeUnknownSync(Me)(await staleCookie.json()).id).toBe(
-      userId
-    )
 
-    const orgs = await handleApi(
-      new Request(`${baseUrl}/api/orgs`, { headers: bearer })
-    )
+    const orgs = await callApi("/api/orgs", bearer)
     expect(orgs.status, await orgs.clone().text()).toBe(200)
-    const invitations = await handleApi(
-      new Request(`${baseUrl}/api/invitations`, { headers: bearer })
-    )
-    expect(invitations.status).toBe(401)
+    expect((await callApi("/api/invitations", bearer)).status).toBe(401)
 
     const mcpWithApiToken = await handleMcp(
       new Request(`${baseUrl}/mcp`, {
@@ -704,19 +721,75 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     )
     expect(mcpWithApiToken.status).toBe(401)
 
-    const invalid = await me({ authorization: "Bearer not-a-token" })
+    const invalid = await callApi("/api/me", {
+      authorization: "Bearer not-a-token"
+    })
     expect(invalid.status).toBe(401)
     expect(invalid.headers.get("www-authenticate")).toBe("Bearer")
 
-    const viaCookie = await me({ cookie })
+    const viaCookie = await callApi("/api/me", { cookie })
     expect(viaCookie.status).toBe(200)
-    expect(Schema.decodeUnknownSync(Me)(await viaCookie.json()).id).toBe(userId)
+
+    await pool.query('UPDATE "user" SET banned=true WHERE id=$1', [userId])
+    expect((await callApi("/api/me", bearer)).status).toBe(401)
+    await pool.query('UPDATE "user" SET banned=false WHERE id=$1', [userId])
+    expect((await callApi("/api/me", bearer)).status).toBe(200)
 
     await pool.query(
       "UPDATE oauth_provider_consent SET id=gen_random_uuid()::text WHERE user_id=$1 AND client_id=$2",
       [userId, appOAuthClientId]
     )
-    expect((await me(bearer)).status).toBe(401)
+    expect((await callApi("/api/me", bearer)).status).toBe(401)
+  })
+
+  it("verifies DPoP proofs on /api against the requested endpoint", async () => {
+    const keys = await crypto.subtle.generateKey(
+      { name: "ECDSA", namedCurve: "P-256" },
+      true,
+      ["sign", "verify"]
+    )
+    const jwk = await crypto.subtle.exportKey("jwk", keys.publicKey)
+    const proof = async (method: string, url: string, accessToken?: string) => {
+      const header = encodeBase64Url(
+        JSON.stringify({
+          typ: "dpop+jwt",
+          alg: "ES256",
+          jwk: { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y }
+        })
+      )
+      const claims = {
+        htm: method,
+        htu: url,
+        iat: Math.floor(DateTime.toEpochMillis(DateTime.nowUnsafe()) / 1000),
+        jti: randomUUID()
+      }
+      const payload = encodeBase64Url(
+        JSON.stringify(
+          accessToken
+            ? {
+                ...claims,
+                ath: createHash("sha256")
+                  .update(accessToken)
+                  .digest("base64url")
+              }
+            : claims
+        )
+      )
+      const signature = await crypto.subtle.sign(
+        { name: "ECDSA", hash: "SHA-256" },
+        keys.privateKey,
+        new TextEncoder().encode(`${header}.${payload}`)
+      )
+      return `${header}.${payload}.${encodeBase64Url(new Uint8Array(signature))}`
+    }
+
+    const { token } = await issueApiToken("dpop", {
+      dpop: await proof("POST", `${baseUrl}/api/auth/oauth2/token`)
+    })
+    const authorization = `DPoP ${token.access_token}`
+    const valid = await proof("GET", `${baseUrl}/api/me`, token.access_token)
+    const viaDpop = await callApi("/api/me", { authorization, dpop: valid })
+    expect(viaDpop.status, await viaDpop.clone().text()).toBe(200)
   })
 
   it("advertises Client ID Metadata Document support", async () => {
