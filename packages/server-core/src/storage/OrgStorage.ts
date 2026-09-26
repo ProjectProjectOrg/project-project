@@ -1,7 +1,6 @@
 import type {
   ConnectStorageInput,
-  Forbidden,
-  NotFound,
+  OrgScope,
   OrgStorageStatus,
   StorageAuthInvalid,
   StorageConfigMissing,
@@ -19,26 +18,16 @@ export const maskAccessKeyId = (value: string): string => {
 }
 
 export type OrgStorageConnectError =
-  | NotFound
-  | Forbidden
   | StorageAuthInvalid
   | StorageConfigMissing
   | StorageError
 
 export type OrgStorageShape = Readonly<{
-  getStatus: (
-    orgSlug: string,
-    userId: string
-  ) => Effect.Effect<OrgStorageStatus, NotFound>
+  getStatus: () => Effect.Effect<OrgStorageStatus, never, OrgScope>
   connect: (
-    orgSlug: string,
-    userId: string,
     input: ConnectStorageInput
-  ) => Effect.Effect<OrgStorageStatus, OrgStorageConnectError>
-  disconnect: (
-    orgSlug: string,
-    userId: string
-  ) => Effect.Effect<OrgStorageStatus, NotFound | Forbidden>
+  ) => Effect.Effect<OrgStorageStatus, OrgStorageConnectError, OrgScope>
+  disconnect: () => Effect.Effect<OrgStorageStatus, never, OrgScope>
   requireConnection: (
     orgSlug: string
   ) => Effect.Effect<S3Connection, StorageNotConnected | StorageConfigMissing>

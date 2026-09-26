@@ -1,4 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
+import { Access } from "@pp/server-core/access/Access"
+import { orgScope } from "@pp/server-core/access/testing"
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { Comments, type CommentsShape } from "@pp/server-core/comments/Comments"
@@ -54,23 +56,16 @@ import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
-import { handlers, toolkitHandlers } from "./handlers"
+import { toolkitHandlers } from "./handlers"
 import { McpRequestUser } from "./McpRequestUser"
-import { toolFailure, type McpToolFailure } from "./toolkit"
+import { toolFailure, type McpHandlerEnv, type McpToolFailure } from "./toolkit"
 
 type ToolResult = {
   content: ReadonlyArray<{ type: "text"; text: string }>
   isError?: boolean
 }
 
-type HandlerServices =
-  ReturnType<typeof handlers.me> extends Effect.Effect<
-    infer _A,
-    infer _E,
-    infer R
-  >
-    ? R
-    : never
+type HandlerServices = McpHandlerEnv
 
 type Registered = Map<string, (input: unknown) => Effect.Effect<ToolResult>>
 
@@ -159,6 +154,12 @@ const TicketsStub = Layer.succeed(Tickets, {
 } as unknown as TicketsShape)
 
 const fakeUser = { id: "u-1" } as User
+
+const AccessStub = Layer.succeed(Access, {
+  org: (orgSlug) =>
+    Effect.succeed(orgScope("member", { orgSlug, userId: fakeUser.id })),
+  project: () => Effect.die("Access.project is not used by MCP tools yet")
+})
 const withFakeUser = <T>(fn: () => Effect.Effect<T>) => Effect.suspend(fn)
 const EmptyStub = <T>(tag: T) => Layer.succeed(tag as any, {})
 
@@ -235,6 +236,7 @@ const ProjectStatusesStub = Layer.succeed(ProjectStatuses, {
 } as unknown as ProjectStatusesShape)
 
 const TestLayer = Layer.mergeAll(
+  AccessStub,
   EmptyStub(AttachmentUploads.AttachmentUploads),
   EmptyStub(OrgStorage.OrgStorage),
   TicketsStub,
@@ -611,6 +613,7 @@ describe("MCP handlers → write tools", () => {
   const WriteTestLayer = Layer.mergeAll(
     WriteTicketsStub,
     WriteCommentsStub,
+    AccessStub,
     EmptyStub(AttachmentUploads.AttachmentUploads),
     EmptyStub(OrgStorage.OrgStorage),
     ProjectsStub,
@@ -897,6 +900,7 @@ describe("MCP handlers → write tools", () => {
     requireRole: (_o: any, _u: any, _s: any) => Effect.fail(new Forbidden())
   } as unknown as ProjectsShape)
   const ForbiddenLayer = Layer.mergeAll(
+    AccessStub,
     EmptyStub(AttachmentUploads.AttachmentUploads),
     EmptyStub(OrgStorage.OrgStorage),
     WriteTicketsStub,
@@ -1226,6 +1230,7 @@ describe("MCP handlers → add_tickets_to_group", () => {
 
   const makeLayer = (groupsLayer: Layer.Layer<Groups>) =>
     Layer.mergeAll(
+      AccessStub,
       EmptyStub(AttachmentUploads.AttachmentUploads),
       EmptyStub(OrgStorage.OrgStorage),
       EmptyStub(Tickets),
@@ -1373,6 +1378,7 @@ describe("MCP handlers → sprint writes", () => {
 
   const makeLayer = (groupsLayer: Layer.Layer<Groups>) =>
     Layer.mergeAll(
+      AccessStub,
       EmptyStub(AttachmentUploads.AttachmentUploads),
       EmptyStub(OrgStorage.OrgStorage),
       EmptyStub(Tickets),
@@ -1541,6 +1547,7 @@ describe("MCP handlers → NotFound retained", () => {
   } as unknown as ProjectsShape)
 
   const HiddenLayer = Layer.mergeAll(
+    AccessStub,
     EmptyStub(AttachmentUploads.AttachmentUploads),
     EmptyStub(OrgStorage.OrgStorage),
     TicketsStub,

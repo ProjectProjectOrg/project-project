@@ -5,7 +5,8 @@ import {
   organizationS3Integration
 } from "@pp/db/schema"
 import {
-  NotFound,
+  type ConnectStorageInput,
+  OrgScope,
   StorageAuthInvalid,
   StorageConfigMissing,
   StorageError,
@@ -23,7 +24,6 @@ import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
 import { ulid } from "ulid"
 
-import { CurrentOrg, requireOrgAdmin } from "../organizations/CurrentOrg"
 import { maskAccessKeyId, OrgStorage, type OrgStorageShape } from "./OrgStorage"
 import { S3Endpoint, S3Storage, type S3Connection } from "./S3Storage"
 import { SecretCrypto } from "./SecretCrypto"
@@ -46,7 +46,6 @@ export const OrgStorageLive = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db
     const sql = yield* SqlClient.SqlClient
-    const currentOrg = yield* CurrentOrg
     const httpClient = yield* HttpClient.HttpClient
     const s3 = yield* S3Storage
     const secrets = yield* SecretCrypto
@@ -86,28 +85,35 @@ export const OrgStorageLive = Layer.effect(
           Effect.map((rows) => rows[0] ?? null)
         )
 
-    const getStatus = (
-      orgSlug: string,
-      userId: string
-    ): Effect.Effect<OrgStorageStatus, NotFound> =>
-      Effect.gen(function* () {
-        const org = yield* currentOrg.resolve(orgSlug, userId)
-        const row = yield* activeOrBrokenS3Row(org.organizationId)
-        if (!row) return notConnectedStatus
+    const getStatus: OrgStorageShape["getStatus"] = Effect.fn(
+      "OrgStorage.getStatus"
+    )(function* () {
+      const scope = yield* OrgScope
+      const row = yield* activeOrBrokenS3Row(scope.organizationId)
+      if (!row) return notConnectedStatus
+      const status = row.status === "active" ? "active" : "broken"
+      if (!scope.permissions.can({ storage: ["manage"] })) {
         return {
-          status: row.status === "active" ? "active" : "broken",
-          endpoint: row.endpoint,
-          bucket: row.bucket,
-          region: row.region,
-          keyPrefix: row.keyPrefix,
-          accessKeyIdMasked:
-            row.accessKeyId == null ? null : maskAccessKeyId(row.accessKeyId),
-          forcePathStyle: row.forcePathStyle ?? true,
+          ...notConnectedStatus,
+          status,
           connectedAt: row.connectedAt,
-          lastCheckedAt: row.lastCheckedAt,
-          lastCheckError: row.lastCheckError
+          lastCheckedAt: row.lastCheckedAt
         }
-      })
+      }
+      return {
+        status,
+        endpoint: row.endpoint,
+        bucket: row.bucket,
+        region: row.region,
+        keyPrefix: row.keyPrefix,
+        accessKeyIdMasked:
+          row.accessKeyId == null ? null : maskAccessKeyId(row.accessKeyId),
+        forcePathStyle: row.forcePathStyle ?? true,
+        connectedAt: row.connectedAt,
+        lastCheckedAt: row.lastCheckedAt,
+        lastCheckError: row.lastCheckError
+      }
+    })
 
     const connectionCheckKey = (keyPrefix: string | null) => {
       const prefix = (keyPrefix ?? "").replace(/^\/+|\/+$/g, "")
@@ -161,21 +167,9 @@ export const OrgStorageLive = Layer.effect(
         )
       )
 
-    const connect = (
-      orgSlug: string,
-      userId: string,
-      input: {
-        readonly endpoint: string
-        readonly bucket: string
-        readonly region: string
-        readonly accessKeyId: string
-        readonly secretAccessKey: string
-        readonly keyPrefix: string | null
-        readonly forcePathStyle: boolean
-      }
-    ) =>
+    const connect = (input: ConnectStorageInput) =>
       Effect.gen(function* () {
-        const org = yield* requireOrgAdmin(currentOrg, orgSlug, userId)
+        const org = yield* OrgScope
 
         const connection: S3Connection = {
           endpoint: input.endpoint,
@@ -256,12 +250,12 @@ export const OrgStorageLive = Layer.effect(
           )
           .pipe(Effect.catchTag("SqlError", Effect.die))
 
-        return yield* getStatus(orgSlug, userId)
+        return yield* getStatus()
       })
 
-    const disconnect = (orgSlug: string, userId: string) =>
+    const disconnect = () =>
       Effect.gen(function* () {
-        const org = yield* requireOrgAdmin(currentOrg, orgSlug, userId)
+        const org = yield* OrgScope
         const now = yield* DateTime.nowAsDate
         yield* db
           .update(organizationIntegration)
@@ -278,7 +272,7 @@ export const OrgStorageLive = Layer.effect(
             )
           )
           .pipe(Effect.orDie)
-        return yield* getStatus(orgSlug, userId)
+        return yield* getStatus()
       })
 
     const requireConnection = (orgSlug: string) =>

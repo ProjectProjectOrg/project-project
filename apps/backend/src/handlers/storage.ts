@@ -1,5 +1,5 @@
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
-import { AppApi, CurrentUser } from "@pp/shared"
+import { AppApi } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 
@@ -8,25 +8,13 @@ export const StorageHandlerLive = HttpApiBuilder.group(
   "storage",
   (handlers) =>
     handlers
-      .handle("get", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const storage = yield* OrgStorage
-          return yield* storage.getStatus(params.orgSlug, user.id)
-        })
+      .handle("get", () =>
+        Effect.flatMap(OrgStorage, (storage) => storage.getStatus())
       )
-      .handle("connect", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const storage = yield* OrgStorage
-          return yield* storage.connect(params.orgSlug, user.id, payload)
-        })
+      .handle("connect", ({ payload }) =>
+        Effect.flatMap(OrgStorage, (storage) => storage.connect(payload))
       )
-      .handle("disconnect", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const storage = yield* OrgStorage
-          return yield* storage.disconnect(params.orgSlug, user.id)
-        })
+      .handle("disconnect", () =>
+        Effect.flatMap(OrgStorage, (storage) => storage.disconnect())
       )
 )

@@ -12,6 +12,7 @@ export const orgStatement = Statement.make({
   project: Schema.Literals([
     "create",
     "list_all",
+    "read_all",
     "manage_members",
     "archive",
     "delete"
@@ -31,7 +32,14 @@ export const admin = orgStatement.role({
   invitation: ["create", "cancel"],
   team: ["create", "update", "delete"],
   ac: ["create", "read", "update", "delete"],
-  project: ["create", "list_all", "manage_members", "archive", "delete"],
+  project: [
+    "create",
+    "list_all",
+    "read_all",
+    "manage_members",
+    "archive",
+    "delete"
+  ],
   integration: ["manage"],
   storage: ["manage"],
   library: ["manage"]

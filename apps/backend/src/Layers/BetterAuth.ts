@@ -318,7 +318,9 @@ export const BetterAuthLive = Layer.effect(
             .select({ slug: organization.slug, role: member.role })
             .from(member)
             .innerJoin(organization, eq(member.organizationId, organization.id))
-            .where(eq(member.userId, userId))
+            .where(
+              and(eq(member.userId, userId), isNull(organization.deletedAt))
+            )
         )
         return yield* Effect.forEach(rows, (row) =>
           Schema.decodeEffect(
@@ -350,7 +352,9 @@ export const BetterAuthLive = Layer.effect(
                 organization,
                 eq(member.organizationId, organization.id)
               )
-              .where(eq(member.userId, userId))
+              .where(
+                and(eq(member.userId, userId), isNull(organization.deletedAt))
+              )
           )
           const orgs = yield* Effect.forEach(rows, (row) =>
             Schema.decodeEffect(Org)({
@@ -385,7 +389,11 @@ export const BetterAuthLive = Layer.effect(
             .from(member)
             .innerJoin(organization, eq(member.organizationId, organization.id))
             .where(
-              and(eq(member.userId, userId), eq(organization.slug, orgSlug))
+              and(
+                eq(member.userId, userId),
+                eq(organization.slug, orgSlug),
+                isNull(organization.deletedAt)
+              )
             )
             .limit(1)
         )

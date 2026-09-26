@@ -51,6 +51,7 @@ it("collapses a single role to itself", () => {
   expect(collapseRole("owner")).toBe("owner")
   expect(collapseRole("admin")).toBe("admin")
   expect(collapseRole("member")).toBe("member")
+  expect(collapseRole("guest")).toBe("guest")
 })
 
 it("collapses comma-separated roles to the highest one", () => {
@@ -65,10 +66,14 @@ it("ignores whitespace around comma-separated roles", () => {
   expect(collapseRole(" owner , admin ")).toBe("owner")
 })
 
-it("falls back to member for unknown or empty roles", () => {
-  expect(collapseRole("")).toBe("member")
-  expect(collapseRole("billing")).toBe("member")
-  expect(collapseRole("ownerish")).toBe("member")
+it("ranks member above guest", () => {
+  expect(collapseRole("guest,member")).toBe("member")
+})
+
+it("falls back to guest for unknown or empty roles", () => {
+  expect(collapseRole("")).toBe("guest")
+  expect(collapseRole("billing")).toBe("guest")
+  expect(collapseRole("ownerish")).toBe("guest")
 })
 
 it.effect("hides non-membership behind NotFound on both statuses", () =>

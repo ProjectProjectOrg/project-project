@@ -35,6 +35,7 @@ export type Statement<S extends Resources> = Readonly<{
   resources: S
   schema: GrantsSchema<S>
   all: Grants<S>
+  merge: (...grants: ReadonlyArray<Grants<S>>) => Grants<S>
   role: (grants: Grants<S>) => Role<S>
 }>
 
@@ -43,6 +44,15 @@ type AnyGrants = Readonly<Record<string, ReadonlyArray<string> | undefined>>
 const permissions = (grants: AnyGrants) =>
   Arr.flatMap(Record.toEntries(grants), ([resource, actions = []]) =>
     Arr.map(actions, (action) => ({ resource, action }))
+  )
+
+const union = (grants: ReadonlyArray<AnyGrants>) =>
+  Record.map(
+    Arr.groupBy(
+      Arr.flatMap(grants, permissions),
+      (permission) => permission.resource
+    ),
+    (group) => Arr.dedupe(Arr.map(group, (permission) => permission.action))
   )
 
 const can = (grants: AnyGrants, request: AnyGrants, connector: Connector) => {
@@ -70,6 +80,7 @@ export const make = <S extends Resources>(resources: S): Statement<S> => {
     resources,
     schema,
     all: decodeGrants(Record.map(resources, (actions) => actions.literals)),
+    merge: (...grants) => decodeGrants(union(grants)),
     role: makeRole
   }
 }
