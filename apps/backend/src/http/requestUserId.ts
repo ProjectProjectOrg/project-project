@@ -7,6 +7,8 @@ import { apiResource } from "../auth"
 import { OAuthAccessTokens } from "../Layers/OAuthAccessTokens"
 import { toWebHeaders } from "./toWebHeaders"
 
+export const bearerChallenge = "Bearer, DPoP"
+
 export const requestUserId = Effect.gen(function* () {
   const req = yield* HttpServerRequest.HttpServerRequest
   const ba = yield* BetterAuth

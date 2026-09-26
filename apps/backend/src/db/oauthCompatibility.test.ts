@@ -725,7 +725,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       authorization: "Bearer not-a-token"
     })
     expect(invalid.status).toBe(401)
-    expect(invalid.headers.get("www-authenticate")).toBe("Bearer")
+    expect(invalid.headers.get("www-authenticate")).toBe("Bearer, DPoP")
 
     const viaCookie = await callApi("/api/me", { cookie })
     expect(viaCookie.status).toBe(200)

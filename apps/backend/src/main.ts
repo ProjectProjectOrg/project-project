@@ -106,6 +106,7 @@ import { attachmentRoutes } from "./http/attachmentRoutes"
 import { attachmentUploadRoute } from "./http/attachmentUploadRoutes"
 import { figmaOauthRoutes } from "./http/figmaOauthRoutes"
 import { figmaThumbnailRoutes } from "./http/figmaThumbnailRoutes"
+import { bearerChallenge } from "./http/requestUserId"
 import { JiraHandlerLive } from "./jira/Handlers"
 import { JiraMigrationsHandlerLive } from "./jira/MigrationHandlers"
 import { jiraOauthRoutes } from "./jira/OAuthRoutes"
@@ -151,7 +152,11 @@ const betterAuthApp = Effect.gen(function* () {
 const BearerChallengeLive = HttpRouter.middleware((httpEffect) =>
   Effect.map(httpEffect, (response) =>
     response.status === 401
-      ? HttpServerResponse.setHeader(response, "www-authenticate", "Bearer")
+      ? HttpServerResponse.setHeader(
+          response,
+          "www-authenticate",
+          bearerChallenge
+        )
       : response
   )
 ).layer

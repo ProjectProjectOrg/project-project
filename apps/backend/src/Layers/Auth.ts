@@ -121,18 +121,21 @@ export const AuthenticationLive = Layer.effect(
           if (session === null) {
             return yield* new Unauthorized()
           }
-          const extra = session.user as {
+          const extra = session.user as Readonly<{
             username?: string | null
             editorPreference?: string | null
-          }
+          }>
           const current = yield* toCurrentUser(
             {
               ...session.user,
               username: extra.username,
               editorPreference: extra.editorPreference
             },
-            (session.session as { activeOrganizationId?: string | null })
-              .activeOrganizationId
+            (
+              session.session as Readonly<{
+                activeOrganizationId?: string | null
+              }>
+            ).activeOrganizationId
           )
           return yield* Effect.provideService(httpEffect, CurrentUser, current)
         }),

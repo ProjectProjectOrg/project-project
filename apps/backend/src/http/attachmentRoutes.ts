@@ -19,7 +19,7 @@ import {
 } from "effect/unstable/http"
 import sharp from "sharp"
 
-import { requestUserId } from "./requestUserId"
+import { bearerChallenge, requestUserId } from "./requestUserId"
 
 const notFound = HttpServerResponse.text("Not Found", { status: 404 })
 
@@ -138,7 +138,10 @@ const serveAttachment = Effect.gen(function* () {
 
   const userId = yield* requestUserId
   if (Option.isNone(userId)) {
-    return HttpServerResponse.text("Unauthorized", { status: 401 })
+    return HttpServerResponse.text("Unauthorized", {
+      status: 401,
+      headers: { "www-authenticate": bearerChallenge }
+    })
   }
 
   const downloadQuery = decodeAttachmentDownloadQuery(url.searchParams)

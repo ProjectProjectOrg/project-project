@@ -1,3 +1,4 @@
+import { createResourceServerChallenge } from "@better-auth/oauth-provider"
 import { Db } from "@pp/db"
 import { oauthConsent, user } from "@pp/db/auth-schema"
 import {
@@ -15,9 +16,9 @@ import type { HttpServerRequest } from "effect/unstable/http"
 
 import { auth } from "../auth"
 
-export class TokenRejected extends Data.TaggedError("TokenRejected")<{
-  readonly cause: unknown
-}> {}
+export class TokenRejected extends Data.TaggedError("TokenRejected")<
+  Readonly<{ cause: unknown }>
+> {}
 
 export class InvalidAccessToken extends Data.TaggedError(
   "InvalidAccessToken"
@@ -89,6 +90,14 @@ export const OAuthAccessTokensLive = Layer.effect(
           ),
         catch: (cause) => new TokenRejected({ cause })
       }).pipe(
+        Effect.catchTag("TokenRejected", (rejected) =>
+          createResourceServerChallenge(rejected.cause, resource)
+            ? Effect.fail(rejected)
+            : Effect.logError(
+                "OAuth access token verification failed",
+                rejected.cause
+              ).pipe(Effect.andThen(Effect.die(rejected.cause)))
+        ),
         Effect.flatMap((payload) =>
           decodeClaims(payload).pipe(
             Effect.mapError(() => new InvalidAccessToken())

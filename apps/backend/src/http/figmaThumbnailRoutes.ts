@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 
-import { requestUserId } from "./requestUserId"
+import { bearerChallenge, requestUserId } from "./requestUserId"
 
 const notFound = HttpServerResponse.text("Not Found", { status: 404 })
 
@@ -17,7 +17,10 @@ const serveFigmaThumbnail = Effect.gen(function* () {
 
   const userId = yield* requestUserId
   if (Option.isNone(userId)) {
-    return HttpServerResponse.text("Unauthorized", { status: 401 })
+    return HttpServerResponse.text("Unauthorized", {
+      status: 401,
+      headers: { "www-authenticate": bearerChallenge }
+    })
   }
 
   const figmaLinks = yield* FigmaLinks
