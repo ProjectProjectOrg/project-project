@@ -5,7 +5,7 @@ import { Cause, Effect, Exit } from "effect"
 import { expect } from "vitest"
 
 import {
-  collapseRole,
+  orgRoleOf,
   leaveErrorToFailure,
   memberAccessErrorToFailure,
   memberChangeErrorToFailure,
@@ -47,33 +47,10 @@ const bodiedError = (
 const failureOf = <E>(effect: Effect.Effect<never, E>) =>
   effect.pipe(Effect.flip)
 
-it("collapses a single role to itself", () => {
-  expect(collapseRole("owner")).toBe("owner")
-  expect(collapseRole("admin")).toBe("admin")
-  expect(collapseRole("member")).toBe("member")
-  expect(collapseRole("guest")).toBe("guest")
-})
-
-it("collapses comma-separated roles to the highest one", () => {
-  expect(collapseRole("admin,member")).toBe("admin")
-  expect(collapseRole("owner,admin")).toBe("owner")
-  expect(collapseRole("owner,admin,member")).toBe("owner")
-  expect(collapseRole("member,owner")).toBe("owner")
-})
-
-it("ignores whitespace around comma-separated roles", () => {
-  expect(collapseRole("admin, member")).toBe("admin")
-  expect(collapseRole(" owner , admin ")).toBe("owner")
-})
-
-it("ranks member above guest", () => {
-  expect(collapseRole("guest,member")).toBe("member")
-})
-
-it("falls back to guest for unknown or empty roles", () => {
-  expect(collapseRole("")).toBe("guest")
-  expect(collapseRole("billing")).toBe("guest")
-  expect(collapseRole("ownerish")).toBe("guest")
+it("reads an org role strictly", () => {
+  expect(orgRoleOf("guest")).toBe("guest")
+  expect(() => orgRoleOf("admin,member")).toThrow()
+  expect(() => orgRoleOf("")).toThrow()
 })
 
 it.effect("hides non-membership behind NotFound on both statuses", () =>
@@ -420,13 +397,13 @@ it("returns only pending invitations to the members view", () => {
   expect(result.map((invitation) => invitation.id)).toEqual(["a", "e"])
 })
 
-it("collapses invitation roles and drops rows with no role", () => {
+it("reads invitation roles and treats a missing role as member", () => {
   const result = pendingInvitations([
-    { id: "a", email: "a@example.com", role: "owner,admin", status: "pending" },
+    { id: "a", email: "a@example.com", role: "admin", status: "pending" },
     { id: "b", email: "b@example.com", role: null, status: "pending" }
   ])
   expect(result).toEqual([
-    { id: "a", email: "a@example.com", role: "owner", status: "pending" },
+    { id: "a", email: "a@example.com", role: "admin", status: "pending" },
     { id: "b", email: "b@example.com", role: "member", status: "pending" }
   ])
 })

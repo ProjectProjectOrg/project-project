@@ -371,6 +371,15 @@ const OrgGroup = HttpApiGroup.make("org")
       .middleware(OrgAccess)
   )
   .add(
+    HttpApiEndpoint.post("setActive", "/orgs/:orgSlug/active", {
+      params: OrgPath,
+      success: HttpApiSchema.NoContent,
+      error: [Unauthorized, NotFound]
+    })
+      .annotate(RequiresOrg, "membership")
+      .middleware(OrgAccess)
+  )
+  .add(
     HttpApiEndpoint.post("leave", "/orgs/:orgSlug/leave", {
       params: OrgPath,
       success: HttpApiSchema.NoContent,
