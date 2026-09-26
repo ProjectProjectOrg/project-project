@@ -29,10 +29,15 @@ const httpFetch = globalThis.fetch.bind(globalThis)
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const Client = Schema.Struct({ client_id: Schema.String })
 const Redirect = Schema.Struct({ url: Schema.String })
+const decodeRedirect = Schema.decodeUnknownSync(Redirect)
+
+const verifierFor = (flow: string) =>
+  `app-client-pkce-verifier-${flow}-0123456789-abcdefghijklmnopqrstuvwxyz`
 const Token = Schema.Struct({
   access_token: Schema.String,
   refresh_token: Schema.String
 })
+const decodeToken = Schema.decodeUnknownSync(Token)
 
 describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
   let server: Server
@@ -327,9 +332,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       })
     })
     expect(consent.status).toBe(200)
-    const callback = new URL(
-      Schema.decodeUnknownSync(Redirect)(await consent.json()).url
-    )
+    const callback = new URL(decodeRedirect(await consent.json()).url)
     expect(callback.searchParams.get("state")).toBe("roundtrip-state")
     const code = callback.searchParams.get("code")
     expect(code).toBeTruthy()
@@ -346,7 +349,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       body: tokenBody
     })
     expect(tokenResponse.status, await tokenResponse.clone().text()).toBe(200)
-    const token = Schema.decodeUnknownSync(Token)(await tokenResponse.json())
+    const token = decodeToken(await tokenResponse.json())
     const protectedHandler = requireMcpAuth(
       auth,
       async (_request, claims) => {
@@ -426,7 +429,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       body: refreshBody
     })
     expect(refreshed.status, await refreshed.clone().text()).toBe(200)
-    const rotated = Schema.decodeUnknownSync(Token)(await refreshed.json())
+    const rotated = decodeToken(await refreshed.json())
     expect(rotated.refresh_token).not.toBe(token.refresh_token)
     // Within `refreshTokenReuseInterval` a retried refresh replays the rotated
     // response instead of tripping breach detection, which would delete every
@@ -436,7 +439,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       body: refreshBody
     })
     expect(refreshReplay.status, await refreshReplay.clone().text()).toBe(200)
-    const replayed = Schema.decodeUnknownSync(Token)(await refreshReplay.json())
+    const replayed = decodeToken(await refreshReplay.json())
     expect(replayed.refresh_token).toBe(rotated.refresh_token)
     const replay = await httpFetch(metadata.token_endpoint, {
       method: "POST",
@@ -458,8 +461,6 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
         skip_consent: false
       }
     ])
-    const verifierFor = (flow: string) =>
-      `app-client-pkce-verifier-${flow}-0123456789-abcdefghijklmnopqrstuvwxyz`
     const parameters = (
       flow: string,
       extra: Readonly<Record<string, string>> = {}
@@ -509,9 +510,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
         body: JSON.stringify({ accept: true, oauth_query: oauthQuery })
       })
       expect(consent.status, await consent.clone().text()).toBe(200)
-      return new URL(
-        Schema.decodeUnknownSync(Redirect)(await consent.json()).url
-      )
+      return new URL(decodeRedirect(await consent.json()).url)
     }
 
     const callback = await accept(consentPage(await authorize("first")))
@@ -559,7 +558,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       })
     })
     expect(tokenResponse.status, await tokenResponse.clone().text()).toBe(200)
-    const token = Schema.decodeUnknownSync(Token)(await tokenResponse.json())
+    const token = decodeToken(await tokenResponse.json())
     await pool.query(
       "UPDATE oauth_refresh_token SET expires_at = now() + interval '1 day' WHERE client_id=$1 AND user_id=$2",
       [appOAuthClientId, userId]

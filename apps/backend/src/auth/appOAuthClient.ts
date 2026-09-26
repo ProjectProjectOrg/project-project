@@ -8,7 +8,9 @@ import * as Schema from "effect/Schema"
 
 type AppOAuthClientInput = Readonly<{
   db: Readonly<{
-    execute: (query: ReturnType<typeof sql>) => Promise<unknown>
+    execute: (
+      query: ReturnType<typeof sql>
+    ) => Promise<Readonly<{ rowCount: number | null }>>
   }>
 }>
 
