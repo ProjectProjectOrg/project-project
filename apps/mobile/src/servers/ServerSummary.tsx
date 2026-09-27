@@ -4,15 +4,21 @@ import { Logo } from "@/components/Logo"
 import { Text } from "@/components/ui/text"
 import { hostOf } from "@/onboarding/address"
 
-function ServerMark({ logo }: Readonly<{ logo: string | null }>) {
+export function ServerMark({
+  logo,
+  small = false
+}: Readonly<{ logo: string | null; small?: boolean }>) {
+  const frame = small
+    ? "size-9 rounded-sm border border-border"
+    : "size-16 rounded-md border border-border"
   return logo === null ? (
-    <View className="size-16 items-center justify-center rounded-md border border-border">
-      <Logo size={40} />
+    <View className={`${frame} items-center justify-center`}>
+      <Logo size={small ? 22 : 40} />
     </View>
   ) : (
     <Image
       source={{ uri: logo }}
-      className="size-16 rounded-md border border-border"
+      className={frame}
       accessibilityIgnoresInvertColors
     />
   )

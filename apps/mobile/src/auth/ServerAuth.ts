@@ -319,24 +319,40 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
           Effect.ignore
         )
 
+      const signOutLocked = (server: SavedServer) =>
+        store.tokens(server.instanceId).pipe(
+          Effect.tap(() =>
+            forgetTokens(server.instanceId).pipe(Effect.uninterruptible)
+          ),
+          Effect.flatMap(
+            Option.match({
+              onNone: () => Effect.void,
+              onSome: (tokens) => revoke(server, tokens)
+            })
+          )
+        )
+
       const signOut = Effect.fn("signOut")(function* (instanceId: string) {
         const server = yield* savedServer(instanceId)
+        yield* exclusively(instanceId)(signOutLocked(server))
+      })
+
+      const remove = Effect.fn("remove")(function* (instanceId: string) {
+        const server = yield* savedServer(instanceId)
         yield* exclusively(instanceId)(
-          store.tokens(instanceId).pipe(
-            Effect.tap(() =>
-              forgetTokens(instanceId).pipe(Effect.uninterruptible)
-            ),
-            Effect.flatMap(
-              Option.match({
-                onNone: () => Effect.void,
-                onSome: (tokens) => revoke(server, tokens)
-              })
+          signOutLocked(server).pipe(
+            Effect.andThen(store.remove(instanceId)),
+            Effect.andThen(
+              Effect.sync(() =>
+                MutableHashSet.remove(verified, identity(server))
+              )
             )
           )
         )
+        yield* publish
       })
 
-      return { signIn, signOut, refreshAccount, accessToken, api }
+      return { signIn, signOut, remove, refreshAccount, accessToken, api }
     })
   }
 ) {

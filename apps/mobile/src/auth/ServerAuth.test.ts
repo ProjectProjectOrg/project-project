@@ -446,3 +446,18 @@ it.effect("an interrupted sign-out still forgets the tokens", () => {
     expect(yield* store.tokens(server.instanceId)).toEqual(Option.none())
   }).pipe(Effect.provide(fake.layer))
 })
+
+it.effect("removing a server signs out and forgets it", () => {
+  const fake = fakeServer()
+  return Effect.gen(function* () {
+    const store = yield* withSavedServer
+    const auth = yield* ServerAuth
+    yield* auth.signIn(server.instanceId)
+    yield* auth.remove(server.instanceId)
+    expect(yield* store.tokens(server.instanceId)).toEqual(Option.none())
+    expect(yield* store.list).toEqual([])
+    expect(
+      fake.calls.some((call) => call.url === "/api/auth/oauth2/revoke")
+    ).toBe(true)
+  }).pipe(Effect.provide(fake.layer))
+})

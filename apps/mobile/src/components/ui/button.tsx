@@ -9,8 +9,6 @@ import {
   Text
 } from "react-native"
 
-import { cn } from "@/lib/cn"
-
 const buttonVariants = cva(
   "flex-row items-center justify-center gap-2 rounded-md disabled:opacity-50",
   {
@@ -88,7 +86,7 @@ export function Button({
     Animated.timing(scale, { toValue, duration, useNativeDriver: true }).start()
 
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
+    <Animated.View className={className} style={{ transform: [{ scale }] }}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={label}
@@ -97,7 +95,7 @@ export function Button({
           busy: loading
         }}
         disabled={disabled === true || loading}
-        className={cn(buttonVariants({ variant, size }), className)}
+        className={buttonVariants({ variant, size })}
         onPressIn={(event: GestureResponderEvent) => {
           pressTo(0.97, pressDuration.in)
           onPressIn?.(event)

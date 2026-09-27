@@ -41,6 +41,33 @@ export const copy = {
   noOrgsBody:
     "You aren’t in any organization on this server yet. Ask someone there to invite you, then check again.",
   noOrgsCheckAgain: "Check again",
+  serversFooter:
+    "Each server is its own account. The app opens on the organization you used last.",
+  serverRowSubtitle: (userName: string | null, host: string) =>
+    userName === null ? `Signed out · ${host}` : `${userName} · ${host}`,
+  addServer: "Add server",
+  serverDetailLead: "Server",
+  serverStatusTitle: "Status",
+  serverStatusChecking: "Checking…",
+  serverStatus: {
+    connected: "Connected",
+    signed_out: "Signed out",
+    unreachable: "Can’t reach this server",
+    moved: "This address now belongs to a different server",
+    not_configured: "Not set up for the app",
+    server_outdated: "Server update required",
+    app_outdated: "App update required"
+  },
+  accountTitle: "Account",
+  notSignedIn: "Not signed in",
+  signingIn: "Signing in…",
+  signingOut: "Signing out…",
+  organizationsTitle: "Organizations",
+  removeServer: "Remove server",
+  removeServerConfirm: (name: string) =>
+    `Remove ${name} from this phone? You’ll be signed out and its cached data is deleted.`,
+  removeServerFailed: "Couldn’t remove this server. Try again.",
+  cancel: "Cancel",
   signInFailed: "Sign-in didn’t finish. Try again.",
   signInUnreachable: "Can’t reach this server right now. Try again.",
   signInInstanceChanged:
