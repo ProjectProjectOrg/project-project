@@ -62,6 +62,7 @@ export const copy = {
   notSignedIn: "Not signed in",
   signingIn: "Signing in…",
   signingOut: "Signing out…",
+  signOutFailed: "Couldn’t sign out. Try again.",
   organizationsTitle: "Organizations",
   removeServer: "Remove server",
   removeServerConfirm: (name: string) =>

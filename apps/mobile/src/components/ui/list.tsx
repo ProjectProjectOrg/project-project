@@ -36,6 +36,8 @@ export function ListRow({
   trailing,
   destructive = false,
   first = false,
+  disabled = false,
+  busy = false,
   onPress
 }: Readonly<{
   title: string
@@ -44,6 +46,8 @@ export function ListRow({
   trailing?: ReactNode
   destructive?: boolean
   first?: boolean
+  disabled?: boolean
+  busy?: boolean
   onPress?: () => void
 }>) {
   const content = (
@@ -78,8 +82,10 @@ export function ListRow({
       accessibilityLabel={
         subtitle === undefined ? title : `${title}, ${subtitle}`
       }
+      accessibilityState={{ disabled: disabled || busy, busy }}
+      disabled={disabled || busy}
       onPress={onPress}
-      className="active:bg-accent"
+      className="active:bg-accent disabled:opacity-50"
     >
       {content}
     </Pressable>

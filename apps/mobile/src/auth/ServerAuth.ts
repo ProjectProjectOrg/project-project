@@ -296,7 +296,7 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
       ) {
         const server = yield* savedServer(instanceId)
         const token = yield* accessToken(instanceId)
-        yield* store.save(yield* fetchAccount(server, token))
+        yield* store.updateAccount(yield* fetchAccount(server, token))
         yield* publish
       })
 

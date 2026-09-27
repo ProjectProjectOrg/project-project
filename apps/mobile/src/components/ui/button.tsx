@@ -1,13 +1,7 @@
 import { cva, type VariantProps } from "class-variance-authority"
-import { useState } from "react"
-import {
-  ActivityIndicator,
-  Animated,
-  type GestureResponderEvent,
-  Pressable,
-  type PressableProps,
-  Text
-} from "react-native"
+import { ActivityIndicator, type PressableProps, Text } from "react-native"
+
+import { PressScale } from "./press-scale"
 
 const buttonVariants = cva(
   "flex-row items-center justify-center gap-2 rounded-md disabled:opacity-50",
@@ -68,8 +62,6 @@ export type ButtonProps = Readonly<
     }
 >
 
-const pressDuration = { in: 100, out: 150 } as const
-
 export function Button({
   label,
   loading = false,
@@ -77,41 +69,26 @@ export function Button({
   size,
   className,
   disabled,
-  onPressIn,
-  onPressOut,
   ...props
 }: ButtonProps) {
-  const [scale] = useState(() => new Animated.Value(1))
-  const pressTo = (toValue: number, duration: number) =>
-    Animated.timing(scale, { toValue, duration, useNativeDriver: true }).start()
-
   return (
-    <Animated.View className={className} style={{ transform: [{ scale }] }}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        accessibilityState={{
-          disabled: disabled === true || loading,
-          busy: loading
-        }}
-        disabled={disabled === true || loading}
-        className={buttonVariants({ variant, size })}
-        onPressIn={(event: GestureResponderEvent) => {
-          pressTo(0.97, pressDuration.in)
-          onPressIn?.(event)
-        }}
-        onPressOut={(event: GestureResponderEvent) => {
-          pressTo(1, pressDuration.out)
-          onPressOut?.(event)
-        }}
-        {...props}
-      >
-        {loading ? (
-          <ActivityIndicator colorClassName={spinnerVariants({ variant })} />
-        ) : (
-          <Text className={labelVariants({ variant, size })}>{label}</Text>
-        )}
-      </Pressable>
-    </Animated.View>
+    <PressScale
+      wrapperClassName={className}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{
+        disabled: disabled === true || loading,
+        busy: loading
+      }}
+      disabled={disabled === true || loading}
+      className={buttonVariants({ variant, size })}
+      {...props}
+    >
+      {loading ? (
+        <ActivityIndicator colorClassName={spinnerVariants({ variant })} />
+      ) : (
+        <Text className={labelVariants({ variant, size })}>{label}</Text>
+      )}
+    </PressScale>
   )
 }

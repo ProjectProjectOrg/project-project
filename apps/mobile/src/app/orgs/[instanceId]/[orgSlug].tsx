@@ -1,20 +1,20 @@
 import { router, Stack, useLocalSearchParams } from "expo-router"
-import { Pressable } from "react-native"
 
 import { Symbol } from "@/components/icons/Symbol"
 import { Placeholder } from "@/components/Placeholder"
+import { PressScale } from "@/components/ui/press-scale"
 import { copy } from "@/copy"
 
 function SettingsButton() {
   return (
-    <Pressable
+    <PressScale
       accessibilityRole="button"
       accessibilityLabel={copy.serversTitle}
       hitSlop={8}
       onPress={() => router.push("/settings/servers")}
     >
       <Symbol name="gearshape" size={20} />
-    </Pressable>
+    </PressScale>
   )
 }
 

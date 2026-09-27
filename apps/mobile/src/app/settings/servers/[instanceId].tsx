@@ -2,15 +2,20 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
-import { router, useLocalSearchParams } from "expo-router"
+import {
+  type NativeStackNavigationProp,
+  useLocalSearchParams,
+  useNavigation
+} from "expo-router"
 import { useState } from "react"
 import { ScrollView, View } from "react-native"
 
-import { signInAtom, signOutAtom } from "@/auth/atoms"
+import { signInAtom, signInProblem, signOutAtom } from "@/auth/atoms"
 import { LoadFailed } from "@/components/LoadFailed"
 import { Button } from "@/components/ui/button"
 import { ListRow, ListSection } from "@/components/ui/list"
 import { Text } from "@/components/ui/text"
+import { useAnnouncement } from "@/components/ui/useAnnouncement"
 import { copy } from "@/copy"
 import {
   removeServerAtom,
@@ -42,9 +47,20 @@ function RemoveServer({ server }: Readonly<{ server: SavedServer }>) {
   })
   const removeState = useAtomValue(removeServerAtom(server.instanceId))
 
+  const navigation =
+    useNavigation<
+      NativeStackNavigationProp<Readonly<Record<string, undefined>>>
+    >()
+  const removeFailed = AsyncResult.isFailure(removeState)
+    ? copy.removeServerFailed
+    : null
+  useAnnouncement(removeFailed)
+
   const confirm = async () => {
     const exit = await remove()
-    if (Exit.isSuccess(exit)) router.dismissTo("/")
+    if (Exit.isSuccess(exit)) {
+      navigation.reset({ index: 0, routes: [{ name: "index" }] })
+    }
   }
 
   if (!confirming) {
@@ -62,9 +78,9 @@ function RemoveServer({ server }: Readonly<{ server: SavedServer }>) {
   return (
     <View className="gap-3 rounded-lg border border-border bg-card p-4">
       <Text>{copy.removeServerConfirm(server.name)}</Text>
-      {AsyncResult.isFailure(removeState) ? (
-        <Text variant="error">{copy.removeServerFailed}</Text>
-      ) : null}
+      {removeFailed === null ? null : (
+        <Text variant="error">{removeFailed}</Text>
+      )}
       <View className="flex-row gap-2">
         <Button
           className="flex-1"
@@ -92,12 +108,22 @@ function ServerDetail({ server }: Readonly<{ server: SavedServer }>) {
   const signInState = useAtomValue(signInAtom(server.instanceId))
   const signOut = useAtomSet(signOutAtom(server.instanceId))
   const signOutState = useAtomValue(signOutAtom(server.instanceId))
+  const removing = useAtomValue(removeServerAtom(server.instanceId)).waiting
+  const busy = signInState.waiting || signOutState.waiting || removing
   const signedIn = AsyncResult.getOrElse(
     AsyncResult.map(useAtomValue(signedInServers), (ids) =>
       ids.includes(server.instanceId)
     ),
     () => false
   )
+  const problem =
+    AsyncResult.matchWithError(signInState, {
+      onInitial: () => null,
+      onSuccess: () => null,
+      onError: signInProblem,
+      onDefect: () => copy.signInFailed
+    }) ?? (AsyncResult.isFailure(signOutState) ? copy.signOutFailed : null)
+  useAnnouncement(problem)
 
   return (
     <ScrollView
@@ -113,7 +139,7 @@ function ServerDetail({ server }: Readonly<{ server: SavedServer }>) {
       <ListSection title={copy.serverStatusTitle}>
         <StatusRow instanceId={server.instanceId} />
       </ListSection>
-      <ListSection title={copy.accountTitle}>
+      <ListSection title={copy.accountTitle} footer={problem ?? undefined}>
         {server.user === null ? (
           <ListRow first title={copy.notSignedIn} />
         ) : (
@@ -126,11 +152,15 @@ function ServerDetail({ server }: Readonly<{ server: SavedServer }>) {
         {signedIn ? (
           <ListRow
             title={signOutState.waiting ? copy.signingOut : copy.signOut}
+            busy={signOutState.waiting}
+            disabled={busy}
             onPress={() => signOut()}
           />
         ) : (
           <ListRow
             title={signInState.waiting ? copy.signingIn : copy.confirmSignIn}
+            busy={signInState.waiting}
+            disabled={busy}
             onPress={() => signIn()}
           />
         )}

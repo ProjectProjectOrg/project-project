@@ -190,7 +190,14 @@ it.effect("leaves no new tokens when the account can't be saved", () =>
         Layer.provide(
           Layer.mergeAll(
             Layer.succeed(KeyValueStorage, {
-              get: () => Effect.succeedNone,
+              get: () =>
+                Effect.succeedSome(
+                  JSON.stringify({
+                    version: 1,
+                    servers: [server("a", "Igne")],
+                    lastUsedOrg: null
+                  })
+                ),
               set: () =>
                 Effect.fail(
                   new StorageFailure({ operation: "write", cause: "full" })
@@ -202,5 +209,18 @@ it.effect("leaves no new tokens when the account can't be saved", () =>
         )
       )
     )
+  )
+)
+
+it.effect("won't bring back a server that was removed during sign-in", () =>
+  withStore((store) =>
+    Effect.gen(function* () {
+      const failure = yield* Effect.flip(
+        store.completeSignIn(server("gone", "Igne"), tokens)
+      )
+      expect(failure).toEqual(new ServerNotSaved({ instanceId: "gone" }))
+      expect(yield* store.tokens("gone")).toEqual(Option.none())
+      expect(yield* store.list).toEqual([])
+    })
   )
 )
