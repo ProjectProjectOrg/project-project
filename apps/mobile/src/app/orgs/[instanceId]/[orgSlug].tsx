@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import {
+  Redirect,
   router,
   Stack,
   useFocusEffect,
@@ -15,7 +16,7 @@ import { PressScale } from "@/components/ui/press-scale"
 import { Text } from "@/components/ui/text"
 import { copy } from "@/copy"
 import { orgProjects, rememberOrg } from "@/orgs/atoms"
-import { savedServers } from "@/servers/atoms"
+import { savedServers, signedInServers } from "@/servers/atoms"
 import type { OrgLocation } from "@/servers/model"
 
 function SettingsButton() {
@@ -49,16 +50,14 @@ const useOrgName = (location: OrgLocation) =>
     () => location.orgSlug
   )
 
-function OrgTitle() {
-  const location = useOrgLocation()
-  const name = useOrgName(location)
+function OrgTitle({ name }: Readonly<{ name: string }>) {
   return (
     <PressScale
       accessibilityRole="button"
       accessibilityLabel={copy.switchOrgLabel(name)}
       hitSlop={8}
       className="flex-row items-center gap-1.5"
-      onPress={() => router.push({ pathname: "/switch-org", params: location })}
+      onPress={() => router.push("/switch-org")}
     >
       <Text className="font-semibold">{name}</Text>
       <Symbol name="chevron.down" size={12} muted />
@@ -66,7 +65,9 @@ function OrgTitle() {
   )
 }
 
-const orgHeaderLeft = () => <OrgTitle />
+const orgHeaderTitle = ({ children }: Readonly<{ children: string }>) => (
+  <OrgTitle name={children} />
+)
 
 function Projects({ location }: Readonly<{ location: OrgLocation }>) {
   const projects = useAtomValue(orgProjects(location))
@@ -98,6 +99,14 @@ function Projects({ location }: Readonly<{ location: OrgLocation }>) {
 
 export default function OrgHome() {
   const location = useOrgLocation()
+  const name = useOrgName(location)
+  const signedOut = AsyncResult.getOrElse(
+    AsyncResult.map(
+      useAtomValue(signedInServers),
+      (ids) => !ids.includes(location.instanceId)
+    ),
+    () => false
+  )
   const remember = useAtomSet(rememberOrg)
 
   useFocusEffect(
@@ -106,14 +115,25 @@ export default function OrgHome() {
     }, [remember, location.instanceId, location.orgSlug])
   )
 
+  if (signedOut) {
+    return (
+      <Redirect
+        href={{
+          pathname: "/sign-in",
+          params: { instanceId: location.instanceId }
+        }}
+      />
+    )
+  }
+
   return (
     <>
       <Stack.Screen
         options={{
           headerShown: true,
           headerTransparent: true,
-          title: "",
-          headerLeft: orgHeaderLeft,
+          title: name,
+          headerTitle: orgHeaderTitle,
           headerRight: settingsHeaderRight
         }}
       />
