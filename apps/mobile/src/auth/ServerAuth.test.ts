@@ -237,6 +237,9 @@ it.effect("signs in, keeps the tokens and caches the account", () => {
     const [saved] = yield* store.list
     expect(saved?.user?.email).toBe("luuk@igne.nl")
     expect(saved?.orgs).toEqual([{ slug: "igne", name: "Igne" }])
+    expect(yield* store.lastUsedOrg).toEqual(
+      Option.some({ instanceId: server.instanceId, orgSlug: "igne" })
+    )
     expect(
       fake.calls.find((call) => call.url === "/api/me")?.authorization
     ).toBe("Bearer access-1")

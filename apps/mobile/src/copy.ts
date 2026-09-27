@@ -69,6 +69,10 @@ export const copy = {
     `Remove ${name} from this phone? You’ll be signed out and its cached data is deleted.`,
   removeServerFailed: "Couldn’t remove this server. Try again.",
   cancel: "Cancel",
+  switchOrgLabel: (name: string) => `${name}, switch organization`,
+  projectsTitle: "Projects",
+  noProjects: "No projects in this organization yet.",
+  projectsFailed: "Couldn’t load the projects.",
   signInFailed: "Sign-in didn’t finish. Try again.",
   signInUnreachable: "Can’t reach this server right now. Try again.",
   signInInstanceChanged:

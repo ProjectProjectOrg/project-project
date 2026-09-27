@@ -34,6 +34,14 @@ export default function RootLayout() {
         >
           <Stack.Screen name="add-server" options={{ presentation: "modal" }} />
           <Stack.Screen
+            name="switch-org"
+            options={{
+              presentation: "formSheet",
+              sheetAllowedDetents: [0.5, 1],
+              sheetGrabberVisible: true
+            }}
+          />
+          <Stack.Screen
             name="settings/servers/index"
             options={{
               ...nativeHeader,

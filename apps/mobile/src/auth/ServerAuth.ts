@@ -204,11 +204,12 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
             [client.auth.me(), client.org.myOrgs()],
             { concurrency: 2 }
           ).pipe(Effect.mapError((cause) => new AuthUnavailable({ cause })))
-          return {
+          const account: SavedServer = {
             ...server,
             user: { id: user.id, name: user.name, email: user.email },
             orgs: orgs.map((org) => ({ slug: org.slug, name: org.name }))
-          } satisfies SavedServer
+          }
+          return { account, activeOrgSlug: user.activeOrgSlug }
         },
         Effect.timeoutOrElse({
           duration: authTimeout,
@@ -286,8 +287,17 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
           code_verifier: pkce.verifier,
           redirect_uri: appRedirectUri
         })
-        const account = yield* fetchAccount(server, tokens.accessToken)
+        const { account, activeOrgSlug } = yield* fetchAccount(
+          server,
+          tokens.accessToken
+        )
         yield* exclusively(instanceId)(store.completeSignIn(account, tokens))
+        const start =
+          account.orgs.find((org) => org.slug === activeOrgSlug) ??
+          account.orgs[0]
+        if (start !== undefined) {
+          yield* store.setLastUsedOrg({ instanceId, orgSlug: start.slug })
+        }
         yield* publish
       })
 
@@ -296,7 +306,8 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
       ) {
         const server = yield* savedServer(instanceId)
         const token = yield* accessToken(instanceId)
-        yield* store.updateAccount(yield* fetchAccount(server, token))
+        const { account } = yield* fetchAccount(server, token)
+        yield* store.updateAccount(account)
         yield* publish
       })
 
