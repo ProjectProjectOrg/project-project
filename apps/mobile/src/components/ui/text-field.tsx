@@ -1,9 +1,10 @@
-import type { Ref } from "react"
+import type { ComponentRef, Ref } from "react"
 import { TextInput, type TextInputProps, View } from "react-native"
 
 import { cn } from "@/lib/cn"
 
 import { Text } from "./text"
+import { useAnnouncement } from "./useAnnouncement"
 
 export type TextFieldProps = Readonly<
   TextInputProps & {
@@ -11,7 +12,7 @@ export type TextFieldProps = Readonly<
     hint?: string | null
     error?: string | null
     mono?: boolean
-    ref?: Ref<TextInput>
+    ref?: Ref<ComponentRef<typeof TextInput>>
   }
 >
 
@@ -24,6 +25,7 @@ export function TextField({
   ...props
 }: TextFieldProps) {
   const invalid = error !== null && error !== undefined
+  useAnnouncement(error)
   return (
     <View className="gap-2">
       <Text
@@ -48,9 +50,7 @@ export function TextField({
         {...props}
       />
       {invalid ? (
-        <Text variant="error" accessibilityLiveRegion="polite">
-          {error}
-        </Text>
+        <Text variant="error">{error}</Text>
       ) : hint === null || hint === undefined ? null : (
         <Text variant="caption">{hint}</Text>
       )}

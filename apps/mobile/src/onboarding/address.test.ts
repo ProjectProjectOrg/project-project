@@ -25,6 +25,20 @@ describe("normalizeAddress", () => {
     expect(origin("pp.example:0443")).toBe("https://pp.example")
   })
 
+  it("maps full-width and compatibility characters like a browser", () => {
+    expect(origin("ｅxample.com")).toBe("https://example.com")
+  })
+
+  it("rejects a half-typed scheme instead of guessing", () => {
+    expect(normalizeAddress("https:/pp.example", false)).toEqual(
+      Result.fail("invalid")
+    )
+    expect(normalizeAddress("https:pp.example", false)).toEqual(
+      Result.fail("invalid")
+    )
+    expect(origin("pp.example:8443")).toBe("https://pp.example:8443")
+  })
+
   it("rejects ports out of range, empty labels and sign-in details", () => {
     expect(normalizeAddress("pp.example:65536", false)).toEqual(
       Result.fail("invalid")

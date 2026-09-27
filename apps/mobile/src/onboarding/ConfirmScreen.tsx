@@ -2,11 +2,14 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
-import { Image, View } from "react-native"
+import { useFocusEffect } from "expo-router"
+import { useCallback, useRef } from "react"
+import { Image, ScrollView, View } from "react-native"
 
 import { Logo } from "@/components/Logo"
 import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
+import { useAnnouncement } from "@/components/ui/useAnnouncement"
 import { copy } from "@/copy"
 
 import { hostOf } from "./address"
@@ -39,15 +42,32 @@ function Confirm({
   const save = useAtomSet(saveCheckedServer, { mode: "promiseExit" })
   const saveState = useAtomValue(saveCheckedServer)
   const { descriptor, origin } = checked
+  const attempt = useRef(0)
+  const saveFailed = AsyncResult.isFailure(saveState) ? copy.saveFailed : null
+  useAnnouncement(saveFailed)
+
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        attempt.current += 1
+      },
+      []
+    )
+  )
 
   const confirm = async () => {
+    const current = ++attempt.current
     const exit = await save(checked)
-    if (Exit.isSuccess(exit)) onSaved(exit.value)
+    if (current === attempt.current && Exit.isSuccess(exit)) onSaved(exit.value)
   }
 
   return (
-    <View className="flex-1 bg-background px-5 pt-safe-offset-14 pb-safe-offset-2">
-      <View className="flex-1 gap-4">
+    <View className="flex-1 bg-background pb-safe-offset-2">
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="gap-4 px-5 pt-4"
+        contentInsetAdjustmentBehavior="automatic"
+      >
         <Text variant="muted">{copy.confirmLead}</Text>
         <ServerMark logo={descriptor.logo} />
         <View className="gap-1">
@@ -59,17 +79,13 @@ function Confirm({
             {copy.confirmVersion(descriptor.serverVersion)}
           </Text>
         </View>
-      </View>
-      <View className="gap-1">
-        {AsyncResult.isFailure(saveState) ? (
-          <Text
-            variant="error"
-            className="mb-2"
-            accessibilityLiveRegion="polite"
-          >
-            {copy.saveFailed}
+      </ScrollView>
+      <View className="gap-1 px-5 pt-3">
+        {saveFailed === null ? null : (
+          <Text variant="error" className="mb-2">
+            {saveFailed}
           </Text>
-        ) : null}
+        )}
         <Button
           label={copy.confirmSignIn}
           loading={saveState.waiting}
@@ -78,6 +94,7 @@ function Confirm({
         <Button
           variant="ghost"
           label={copy.confirmChangeServer}
+          disabled={saveState.waiting}
           onPress={onChangeServer}
         />
       </View>

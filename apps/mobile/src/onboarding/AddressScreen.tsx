@@ -4,13 +4,8 @@ import * as Result from "effect/Result"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
 import { useFocusEffect } from "expo-router"
-import { useCallback, useRef, useState } from "react"
-import {
-  KeyboardAvoidingView,
-  ScrollView,
-  type TextInput,
-  View
-} from "react-native"
+import { type ComponentRef, useCallback, useRef, useState } from "react"
+import { KeyboardAvoidingView, ScrollView, TextInput, View } from "react-native"
 
 import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
@@ -34,24 +29,35 @@ export function AddressScreen({
   const check = useAtomSet(checkServerAtom, { mode: "promiseExit" })
   const resetCheck = useAtomSet(checkServerAtom)
   const checkState = useAtomValue(checkServerAtom)
-  const field = useRef<TextInput>(null)
+  const field = useRef<ComponentRef<typeof TextInput>>(null)
+  const attempt = useRef(0)
   const [address, setAddress] = useState("")
   const [submitted, setSubmitted] = useState(false)
   const origin = normalizeAddress(address, __DEV__)
 
-  useFocusEffect(useCallback(() => field.current?.focus(), []))
+  useFocusEffect(
+    useCallback(() => {
+      field.current?.focus()
+      return () => {
+        attempt.current += 1
+      }
+    }, [])
+  )
 
   const edit = (next: string) => {
     setAddress(next)
     setSubmitted(false)
+    attempt.current += 1
+    resetCheck(Atom.Interrupt)
     resetCheck(Atom.Reset)
   }
 
   const submit = async () => {
     setSubmitted(true)
     if (Result.isFailure(origin)) return
+    const current = ++attempt.current
     const exit = await check(origin.success)
-    if (Exit.isSuccess(exit)) onChecked()
+    if (current === attempt.current && Exit.isSuccess(exit)) onChecked()
   }
 
   const error =

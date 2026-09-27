@@ -4,20 +4,26 @@ import { URL } from "whatwg-url-minimum"
 
 export type AddressProblem = "empty" | "invalid" | "insecure"
 
-const schemePattern = /^[a-z][a-z\d+.-]*:\/\//i
+const explicitScheme = /^[a-z][a-z\d+.-]*:\/\//i
+const partialScheme = /^[a-z][a-z\d+.-]*:(?!\d)/i
 
 const parse = (address: string) =>
-  Result.try({
-    try: () =>
-      new URL(schemePattern.test(address) ? address : `https://${address}`),
-    catch: (): AddressProblem => "invalid"
-  })
+  !explicitScheme.test(address) && partialScheme.test(address)
+    ? Result.fail<AddressProblem>("invalid")
+    : Result.try({
+        try: () =>
+          new URL(
+            explicitScheme.test(address) ? address : `https://${address}`
+          ),
+        catch: (): AddressProblem => "invalid"
+      })
 
 const asciiHost = (hostname: string) =>
   hostname.startsWith("[")
     ? Result.succeed(hostname)
     : Result.try({
-        try: () => toASCII(hostname.toLowerCase().replace(/\.$/, "")),
+        try: () =>
+          toASCII(hostname.normalize("NFKC").toLowerCase().replace(/\.$/, "")),
         catch: (): AddressProblem => "invalid"
       }).pipe(
         Result.filterOrFail(
