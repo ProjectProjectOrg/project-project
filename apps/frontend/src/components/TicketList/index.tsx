@@ -113,7 +113,7 @@ function StatusSections({
       <>
         <Activity mode={showAlternate ? "hidden" : "visible"}>
           <SegmentedList
-            key={`${orgSlug}/${slug}/${encodeTicketListQuery(active.query)}`}
+            key={`${orgSlug}/${slug}`}
             orgSlug={orgSlug}
             slug={slug}
             query={active.query}
