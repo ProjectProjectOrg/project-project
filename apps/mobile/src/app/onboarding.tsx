@@ -14,9 +14,7 @@ export default function Welcome() {
       </View>
       <View className="flex-[58] items-center pt-6">
         <Text variant="muted">{copy.welcomeEyebrow}</Text>
-        <Text className="text-[28px] font-semibold tracking-[-0.28px]">
-          {copy.appName}
-        </Text>
+        <Text variant="display">{copy.appName}</Text>
         <Text variant="muted" className="mt-2 text-center">
           {copy.welcomeBody}
         </Text>

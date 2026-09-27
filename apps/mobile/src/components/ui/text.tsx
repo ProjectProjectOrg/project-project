@@ -9,20 +9,23 @@ import { cn } from "@/lib/cn"
 export const textVariants = cva("font-sans text-foreground", {
   variants: {
     variant: {
-      headline: "text-2xl font-semibold tracking-[-0.24px]",
-      title: "text-lg font-semibold",
+      display: "text-[28px] leading-[34px] font-semibold tracking-[-0.28px]",
+      headline: "text-2xl leading-[30px] font-semibold tracking-[-0.24px]",
+      title: "text-lg leading-6 font-semibold",
       body: "text-[15px] leading-[22px]",
       muted: "text-[15px] leading-[22px] text-muted-foreground",
-      label: "text-[13px] font-medium",
+      label: "text-[13px] leading-[18px] font-medium",
       caption: "text-[13px] leading-[18px] text-muted-foreground",
       error: "text-[13px] leading-[18px] text-destructive",
-      mono: "font-mono text-[15px]"
+      mono: "font-mono text-[15px] leading-[22px]"
     }
   },
   defaultVariants: { variant: "body" }
 })
 
-export type TextProps = NativeTextProps & VariantProps<typeof textVariants>
+export type TextProps = Readonly<
+  NativeTextProps & VariantProps<typeof textVariants>
+>
 
 export function Text({ variant, className, ...props }: TextProps) {
   return (
