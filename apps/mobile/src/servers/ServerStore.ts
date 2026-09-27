@@ -183,19 +183,27 @@ export const ServerStoreLive = Layer.effect(
 
     const completeSignIn = (server: SavedServer, value: ServerTokens) =>
       serialized(
-        secure.set(tokensKey(server.instanceId), encodeTokens(value)).pipe(
-          Effect.andThen(
-            writeCatalog((catalog) => ({
-              ...catalog,
-              servers: [
-                ...catalog.servers.filter(
-                  (saved) => saved.instanceId !== server.instanceId
-                ),
-                server
-              ]
-            }))
+        Effect.gen(function* () {
+          const key = tokensKey(server.instanceId)
+          const previous = yield* secure.get(key)
+          yield* secure.set(key, encodeTokens(value))
+          yield* writeCatalog((catalog) => ({
+            ...catalog,
+            servers: [
+              ...catalog.servers.filter(
+                (saved) => saved.instanceId !== server.instanceId
+              ),
+              server
+            ]
+          })).pipe(
+            Effect.tapError(() =>
+              Option.match(previous, {
+                onNone: () => secure.remove(key),
+                onSome: (raw) => secure.set(key, raw)
+              }).pipe(Effect.ignore)
+            )
           )
-        )
+        }).pipe(Effect.uninterruptible)
       )
 
     const clearTokens = (instanceId: string) =>

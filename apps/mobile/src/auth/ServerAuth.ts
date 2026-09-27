@@ -197,21 +197,24 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
             )
         }).pipe(Effect.provideService(HttpClient.HttpClient, http))
 
-      const fetchAccount = Effect.fn("fetchAccount")(function* (
-        server: SavedServer,
-        token: string
-      ) {
-        const client = yield* clientFor(server, token)
-        const [user, orgs] = yield* Effect.all(
-          [client.auth.me(), client.org.myOrgs()],
-          { concurrency: 2 }
-        ).pipe(Effect.mapError((cause) => new AuthUnavailable({ cause })))
-        return {
-          ...server,
-          user: { id: user.id, name: user.name, email: user.email },
-          orgs: orgs.map((org) => ({ slug: org.slug, name: org.name }))
-        } satisfies SavedServer
-      })
+      const fetchAccount = Effect.fn("fetchAccount")(
+        function* (server: SavedServer, token: string) {
+          const client = yield* clientFor(server, token)
+          const [user, orgs] = yield* Effect.all(
+            [client.auth.me(), client.org.myOrgs()],
+            { concurrency: 2 }
+          ).pipe(Effect.mapError((cause) => new AuthUnavailable({ cause })))
+          return {
+            ...server,
+            user: { id: user.id, name: user.name, email: user.email },
+            orgs: orgs.map((org) => ({ slug: org.slug, name: org.name }))
+          } satisfies SavedServer
+        },
+        Effect.timeoutOrElse({
+          duration: authTimeout,
+          orElse: () => Effect.fail(new AuthUnavailable({ cause: "timeout" }))
+        })
+      )
 
       const refresh = (server: SavedServer, tokens: ServerTokens) =>
         requestTokens(server.origin, {
@@ -320,13 +323,15 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
         const server = yield* savedServer(instanceId)
         yield* exclusively(instanceId)(
           store.tokens(instanceId).pipe(
+            Effect.tap(() =>
+              forgetTokens(instanceId).pipe(Effect.uninterruptible)
+            ),
             Effect.flatMap(
               Option.match({
                 onNone: () => Effect.void,
                 onSome: (tokens) => revoke(server, tokens)
               })
-            ),
-            Effect.andThen(forgetTokens(instanceId))
+            )
           )
         )
       })

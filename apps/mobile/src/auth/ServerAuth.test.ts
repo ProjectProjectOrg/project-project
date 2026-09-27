@@ -61,6 +61,7 @@ const fakeServer = (
     ) => Response | Promise<Response>
     browser?: (url: string) => Option.Option<string>
     me?: () => Response
+    revoke?: () => Promise<Response>
   }> = {}
 ) => {
   const calls: Array<Call> = []
@@ -115,6 +116,8 @@ const fakeServer = (
             lastCheckError: null
           }
         })
+      case "/api/auth/oauth2/revoke":
+        return (options.revoke ?? (async () => json({})))()
       case "/api/orgs":
         return json([{ slug: "igne", name: "Igne", role: "owner" }])
       default:
@@ -427,6 +430,19 @@ it.effect("keeps no tokens when the account can't be loaded", () => {
     expect((yield* Effect.flip(auth.signIn(server.instanceId)))._tag).toBe(
       "AuthUnavailable"
     )
+    expect(yield* store.tokens(server.instanceId)).toEqual(Option.none())
+  }).pipe(Effect.provide(fake.layer))
+})
+
+it.effect("an interrupted sign-out still forgets the tokens", () => {
+  const fake = fakeServer({ revoke: () => new Promise<Response>(() => {}) })
+  return Effect.gen(function* () {
+    const store = yield* withSavedServer
+    const auth = yield* ServerAuth
+    yield* auth.signIn(server.instanceId)
+    const signingOut = yield* Effect.forkChild(auth.signOut(server.instanceId))
+    yield* Effect.yieldNow
+    yield* Fiber.interrupt(signingOut)
     expect(yield* store.tokens(server.instanceId)).toEqual(Option.none())
   }).pipe(Effect.provide(fake.layer))
 })

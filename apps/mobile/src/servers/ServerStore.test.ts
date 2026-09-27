@@ -4,7 +4,7 @@ import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import { expect } from "vitest"
 
-import { MemoryStorageLive } from "./memoryStorage"
+import { memoryStorage, MemoryStorageLive } from "./memoryStorage"
 import type { SavedServer } from "./model"
 import {
   catalogKey,
@@ -14,7 +14,7 @@ import {
   ServerStoreLive,
   tokensKey
 } from "./ServerStore"
-import { KeyValueStorage } from "./storage"
+import { KeyValueStorage, SecureStorage, StorageFailure } from "./storage"
 
 const server = (instanceId: string, name: string): SavedServer => ({
   instanceId,
@@ -174,4 +174,33 @@ it.effect(
         expect(yield* store.lastUsedOrg).toEqual(Option.none())
       })
     )
+)
+
+it.effect("leaves no new tokens when the account can't be saved", () =>
+  Effect.gen(function* () {
+    const store = yield* ServerStore
+    const failure = yield* Effect.flip(
+      store.completeSignIn(server("a", "Igne"), tokens)
+    )
+    expect(failure._tag).toBe("StorageFailure")
+    expect(yield* store.tokens("a")).toEqual(Option.none())
+  }).pipe(
+    Effect.provide(
+      ServerStoreLive.pipe(
+        Layer.provide(
+          Layer.mergeAll(
+            Layer.succeed(KeyValueStorage, {
+              get: () => Effect.succeedNone,
+              set: () =>
+                Effect.fail(
+                  new StorageFailure({ operation: "write", cause: "full" })
+                ),
+              remove: () => Effect.void
+            }),
+            Layer.sync(SecureStorage, memoryStorage)
+          )
+        )
+      )
+    )
+  )
 )

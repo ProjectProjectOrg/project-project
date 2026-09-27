@@ -4,7 +4,7 @@ import * as Option from "effect/Option"
 
 import { KeyValueStorage, SecureStorage, type StringStorage } from "./storage"
 
-const memoryStorage = (): StringStorage => {
+export const memoryStorage = (): StringStorage => {
   const values = new Map<string, string>()
   return {
     get: (key) => Effect.sync(() => Option.fromNullishOr(values.get(key))),
