@@ -34,5 +34,10 @@ export const copy = {
   confirmVersion: (version: string) => `Version ${version}`,
   confirmSignIn: "Sign in",
   confirmChangeServer: "Use a different server",
-  saveFailed: "Couldn’t save this server. Try again."
+  saveFailed: "Couldn’t save this server. Try again.",
+  signedOutLead: "You were signed out of",
+  signInFailed: "Sign-in didn’t finish. Try again.",
+  signInUnreachable: "Can’t reach this server right now. Try again.",
+  signInInstanceChanged:
+    "This address now belongs to a different ProjectProject server. Add it again to continue."
 } as const

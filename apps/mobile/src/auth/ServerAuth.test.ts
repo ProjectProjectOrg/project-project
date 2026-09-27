@@ -1,0 +1,328 @@
+import { it } from "@effect/vitest"
+import { appProtocolVersion } from "@pp/shared"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
+import * as TestClock from "effect/testing/TestClock"
+import { FetchHttpClient } from "effect/unstable/http"
+import * as Reactivity from "effect/unstable/reactivity/Reactivity"
+import { describe, expect } from "vitest"
+
+import { MemoryStorageLive } from "@/servers/memoryStorage"
+import type { SavedServer } from "@/servers/model"
+import { ServerStore, ServerStoreLive } from "@/servers/ServerStore"
+
+import { authorizationCode, authorizeUrl } from "./oauth"
+import { AuthBrowser, PkceSource } from "./ports"
+import { ServerAuth } from "./ServerAuth"
+
+const origin = "https://pp.example"
+
+const server: SavedServer = {
+  instanceId: "instance-1",
+  origin,
+  name: "Igne",
+  logo: null,
+  protocolVersion: appProtocolVersion,
+  user: null,
+  orgs: []
+}
+
+const pkce = { verifier: "verifier", challenge: "challenge", state: "state-1" }
+
+type Call = Readonly<{
+  url: string
+  body: string
+  authorization: string | null
+}>
+
+type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | ReadonlyArray<Json>
+  | Readonly<{ [key: string]: Json }>
+
+const json = (body: Json, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" }
+  })
+
+const fakeServer = (
+  options: Readonly<{
+    instanceId?: string
+    token?: (
+      body: URLSearchParams,
+      attempt: number
+    ) => Response | Promise<Response>
+    browser?: (url: string) => Option.Option<string>
+  }> = {}
+) => {
+  const calls: Array<Call> = []
+  let tokenAttempts = 0
+  const fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = new Request(input, init)
+    const url = new URL(request.url)
+    const body = await request.text()
+    calls.push({
+      url: url.pathname,
+      body,
+      authorization: request.headers.get("authorization")
+    })
+    switch (url.pathname) {
+      case "/api/instance":
+        return json({
+          instanceId: options.instanceId ?? server.instanceId,
+          name: "Igne",
+          logo: null,
+          serverVersion: "dev",
+          protocolVersion: appProtocolVersion
+        })
+      case "/api/auth/oauth2/token":
+        tokenAttempts += 1
+        return (
+          options.token ??
+          (() =>
+            json({
+              access_token: "access-1",
+              refresh_token: "refresh-1",
+              expires_in: 3600
+            }))
+        )(new URLSearchParams(body), tokenAttempts)
+      case "/api/me":
+        return json({
+          id: "user-1",
+          email: "luuk@igne.nl",
+          name: "Luuk",
+          username: null,
+          image: null,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          activeOrgSlug: "igne",
+          personalGithub: { connected: false },
+          editorPreference: "github",
+          personalEverhour: {
+            connected: false,
+            everhourUserId: null,
+            name: null,
+            email: null,
+            lastVerifiedAt: null,
+            lastCheckError: null
+          }
+        })
+      case "/api/orgs":
+        return json([{ slug: "igne", name: "Igne", role: "owner" }])
+      default:
+        return json({}, 401)
+    }
+  }
+  const layer = ServerAuth.layer.pipe(
+    Layer.provideMerge(ServerStoreLive),
+    Layer.provideMerge(MemoryStorageLive),
+    Layer.provide(
+      FetchHttpClient.layer.pipe(
+        Layer.provide(
+          Layer.succeed(
+            FetchHttpClient.Fetch,
+            Object.assign(fetch, { preconnect: () => {} })
+          )
+        )
+      )
+    ),
+    Layer.provide(
+      Layer.mergeAll(
+        Layer.succeed(AuthBrowser, {
+          authorize: (url) =>
+            Effect.succeed(
+              (
+                options.browser ??
+                (() =>
+                  Option.some(
+                    `projectproject://oauth/callback?code=code-1&state=${pkce.state}`
+                  ))
+              )(url)
+            )
+        }),
+        Layer.succeed(PkceSource, { create: Effect.succeed(pkce) }),
+        Reactivity.layer
+      )
+    )
+  )
+  return { calls, layer }
+}
+
+const withSavedServer = Effect.gen(function* () {
+  const store = yield* ServerStore
+  yield* store.save(server)
+  return store
+})
+
+describe("authorize request", () => {
+  it("asks for the app client, PKCE S256, state and the /api resource", () => {
+    const params = new URL(authorizeUrl(origin, pkce)).searchParams
+    expect(Object.fromEntries(params)).toEqual({
+      response_type: "code",
+      client_id: "projectproject-app",
+      redirect_uri: "projectproject://oauth/callback",
+      scope: "openid profile email offline_access",
+      state: "state-1",
+      code_challenge: "challenge",
+      code_challenge_method: "S256",
+      resource: "https://pp.example/api"
+    })
+  })
+
+  it("only accepts a callback carrying the state it sent", () => {
+    expect(
+      authorizationCode(
+        "projectproject://oauth/callback?code=c&state=other",
+        "state-1"
+      )
+    ).toMatchObject({
+      failure: { reason: "state_mismatch" }
+    })
+    expect(
+      authorizationCode(
+        "projectproject://oauth/callback?error=access_denied&state=state-1",
+        "state-1"
+      )
+    ).toMatchObject({ failure: { reason: "denied" } })
+  })
+})
+
+it.effect("signs in, keeps the tokens and caches the account", () => {
+  const fake = fakeServer()
+  return Effect.gen(function* () {
+    const store = yield* withSavedServer
+    const auth = yield* ServerAuth
+    yield* auth.signIn(server.instanceId)
+
+    const exchange = new URLSearchParams(
+      fake.calls.find((call) => call.url === "/api/auth/oauth2/token")?.body
+    )
+    expect(Object.fromEntries(exchange)).toMatchObject({
+      grant_type: "authorization_code",
+      code: "code-1",
+      code_verifier: "verifier",
+      client_id: "projectproject-app",
+      resource: "https://pp.example/api"
+    })
+    expect(yield* store.tokens(server.instanceId)).toEqual(
+      Option.some({
+        accessToken: "access-1",
+        refreshToken: "refresh-1",
+        expiresAt: 3_600_000
+      })
+    )
+    const [saved] = yield* store.list
+    expect(saved?.user?.email).toBe("luuk@igne.nl")
+    expect(saved?.orgs).toEqual([{ slug: "igne", name: "Igne" }])
+    expect(
+      fake.calls.find((call) => call.url === "/api/me")?.authorization
+    ).toBe("Bearer access-1")
+  }).pipe(Effect.provide(fake.layer))
+})
+
+it.effect(
+  "stops before sending anything when the address now answers as another instance",
+  () => {
+    const fake = fakeServer({ instanceId: "someone-else" })
+    return Effect.gen(function* () {
+      yield* withSavedServer
+      const auth = yield* ServerAuth
+      const error = yield* Effect.flip(auth.signIn(server.instanceId))
+      expect(error._tag).toBe("InstanceChanged")
+      expect(fake.calls.map((call) => call.url)).toEqual(["/api/instance"])
+    }).pipe(Effect.provide(fake.layer))
+  }
+)
+
+it.effect("treats a closed sheet as cancelled", () => {
+  const fake = fakeServer({ browser: () => Option.none() })
+  return Effect.gen(function* () {
+    yield* withSavedServer
+    const auth = yield* ServerAuth
+    expect((yield* Effect.flip(auth.signIn(server.instanceId)))._tag).toBe(
+      "SignInCancelled"
+    )
+  }).pipe(Effect.provide(fake.layer))
+})
+
+it.effect(
+  "refreshes once for concurrent callers and retries a dropped connection",
+  () => {
+    const fake = fakeServer({
+      token: (body, attempt) => {
+        if (body.get("grant_type") !== "refresh_token") {
+          return json({
+            access_token: "access-1",
+            refresh_token: "refresh-1",
+            expires_in: 60
+          })
+        }
+        if (attempt === 2)
+          return Promise.reject(new TypeError("Network request failed"))
+        return json({
+          access_token: "access-2",
+          refresh_token: "refresh-2",
+          expires_in: 3600
+        })
+      }
+    })
+    return Effect.gen(function* () {
+      yield* withSavedServer
+      const auth = yield* ServerAuth
+      yield* auth.signIn(server.instanceId)
+      yield* TestClock.adjust("1 minute")
+      const tokens = yield* Effect.all(
+        [
+          auth.accessToken(server.instanceId),
+          auth.accessToken(server.instanceId)
+        ],
+        { concurrency: "unbounded" }
+      )
+      expect(tokens).toEqual(["access-2", "access-2"])
+      const refreshes = fake.calls.filter(
+        (call) =>
+          new URLSearchParams(call.body).get("grant_type") === "refresh_token"
+      )
+      expect(refreshes.length).toBe(2)
+    }).pipe(Effect.provide(fake.layer))
+  }
+)
+
+it.effect("signs out when the refresh token is refused", () => {
+  const fake = fakeServer({
+    token: (body) =>
+      body.get("grant_type") === "refresh_token"
+        ? json({ error: "invalid_grant" }, 400)
+        : json({
+            access_token: "access-1",
+            refresh_token: "refresh-1",
+            expires_in: 60
+          })
+  })
+  return Effect.gen(function* () {
+    const store = yield* withSavedServer
+    const auth = yield* ServerAuth
+    yield* auth.signIn(server.instanceId)
+    yield* TestClock.adjust("1 minute")
+    expect((yield* Effect.flip(auth.accessToken(server.instanceId)))._tag).toBe(
+      "SignedOut"
+    )
+    expect(yield* store.tokens(server.instanceId)).toEqual(Option.none())
+  }).pipe(Effect.provide(fake.layer))
+})
+
+it.effect("forgets the tokens when the server answers 401", () => {
+  const fake = fakeServer()
+  return Effect.gen(function* () {
+    const store = yield* withSavedServer
+    const auth = yield* ServerAuth
+    yield* auth.signIn(server.instanceId)
+    const api = yield* auth.api(server.instanceId)
+    yield* Effect.flip(api.org.get({ params: { orgSlug: "igne" } }))
+    expect(yield* store.tokens(server.instanceId)).toEqual(Option.none())
+  }).pipe(Effect.provide(fake.layer))
+})

@@ -4,47 +4,38 @@ import * as Option from "effect/Option"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import { useFocusEffect } from "expo-router"
 import { useCallback, useRef } from "react"
-import { Image, ScrollView, View } from "react-native"
+import { ScrollView, View } from "react-native"
 
-import { Logo } from "@/components/Logo"
+import { signInProblem } from "@/auth/atoms"
 import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
 import { useAnnouncement } from "@/components/ui/useAnnouncement"
 import { copy } from "@/copy"
+import { ServerSummary } from "@/servers/ServerSummary"
 
-import { hostOf } from "./address"
-import { checkServerAtom, saveCheckedServer } from "./atoms"
+import { checkServerAtom, connectCheckedServer } from "./atoms"
 import type { CheckedServer } from "./checkServer"
-
-function ServerMark({ logo }: Readonly<{ logo: string | null }>) {
-  return logo === null ? (
-    <View className="size-16 items-center justify-center rounded-md border border-border">
-      <Logo size={40} />
-    </View>
-  ) : (
-    <Image
-      source={{ uri: logo }}
-      className="size-16 rounded-md border border-border"
-      accessibilityIgnoresInvertColors
-    />
-  )
-}
 
 function Confirm({
   checked,
-  onSaved,
+  onSignedIn,
   onChangeServer
 }: Readonly<{
   checked: CheckedServer
-  onSaved: (instanceId: string) => void
+  onSignedIn: (instanceId: string) => void
   onChangeServer: () => void
 }>) {
-  const save = useAtomSet(saveCheckedServer, { mode: "promiseExit" })
-  const saveState = useAtomValue(saveCheckedServer)
+  const connect = useAtomSet(connectCheckedServer, { mode: "promiseExit" })
+  const connectState = useAtomValue(connectCheckedServer)
   const { descriptor, origin } = checked
   const attempt = useRef(0)
-  const saveFailed = AsyncResult.isFailure(saveState) ? copy.saveFailed : null
-  useAnnouncement(saveFailed)
+  const problem = AsyncResult.matchWithError(connectState, {
+    onInitial: () => null,
+    onSuccess: () => null,
+    onError: signInProblem,
+    onDefect: () => copy.signInFailed
+  })
+  useAnnouncement(problem)
 
   useFocusEffect(
     useCallback(
@@ -57,44 +48,41 @@ function Confirm({
 
   const confirm = async () => {
     const current = ++attempt.current
-    const exit = await save(checked)
-    if (current === attempt.current && Exit.isSuccess(exit)) onSaved(exit.value)
+    const exit = await connect(checked)
+    if (current === attempt.current && Exit.isSuccess(exit))
+      onSignedIn(exit.value)
   }
 
   return (
     <View className="flex-1 bg-background pb-safe-offset-2">
       <ScrollView
         className="flex-1"
-        contentContainerClassName="gap-4 px-5 pt-4"
+        contentContainerClassName="px-5 pt-4"
         contentInsetAdjustmentBehavior="automatic"
       >
-        <Text variant="muted">{copy.confirmLead}</Text>
-        <ServerMark logo={descriptor.logo} />
-        <View className="gap-1">
-          <Text variant="headline">{descriptor.name}</Text>
-          <Text variant="mono" className="text-muted-foreground">
-            {hostOf(origin)}
-          </Text>
-          <Text variant="caption">
-            {copy.confirmVersion(descriptor.serverVersion)}
-          </Text>
-        </View>
+        <ServerSummary
+          lead={copy.confirmLead}
+          name={descriptor.name}
+          logo={descriptor.logo}
+          origin={origin}
+          detail={copy.confirmVersion(descriptor.serverVersion)}
+        />
       </ScrollView>
       <View className="gap-1 px-5 pt-3">
-        {saveFailed === null ? null : (
+        {problem === null ? null : (
           <Text variant="error" className="mb-2">
-            {saveFailed}
+            {problem}
           </Text>
         )}
         <Button
           label={copy.confirmSignIn}
-          loading={saveState.waiting}
+          loading={connectState.waiting}
           onPress={() => void confirm()}
         />
         <Button
           variant="ghost"
           label={copy.confirmChangeServer}
-          disabled={saveState.waiting}
+          disabled={connectState.waiting}
           onPress={onChangeServer}
         />
       </View>
@@ -104,7 +92,7 @@ function Confirm({
 
 export function ConfirmScreen(
   props: Readonly<{
-    onSaved: (instanceId: string) => void
+    onSignedIn: (instanceId: string) => void
     onChangeServer: () => void
   }>
 ) {

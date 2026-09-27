@@ -5,9 +5,7 @@ import { ConfirmScreen } from "@/onboarding/ConfirmScreen"
 export default function OnboardingConfirm() {
   return (
     <ConfirmScreen
-      onSaved={(instanceId) =>
-        router.replace({ pathname: "/sign-in", params: { instanceId } })
-      }
+      onSignedIn={() => router.replace("/")}
       onChangeServer={() => router.back()}
     />
   )

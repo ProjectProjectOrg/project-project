@@ -4,6 +4,8 @@ import { FetchHttpClient } from "effect/unstable/http"
 import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 
+import { ExpoAuthLive } from "@/auth/expoAuth"
+import { ServerAuth } from "@/auth/ServerAuth"
 import { seedSampleServers } from "@/servers/devSeed"
 import { ExpoStorageLive } from "@/servers/expoStorage"
 import { ServerStoreLive } from "@/servers/ServerStore"
@@ -22,11 +24,21 @@ const DevSeedLive = Layer.effectDiscard(
     : Effect.void
 ).pipe(Layer.provide(StoreLive))
 
+const AuthLive = ServerAuth.layer.pipe(
+  Layer.provide([
+    StoreLive,
+    FetchHttpClient.layer,
+    ExpoAuthLive,
+    Reactivity.layer
+  ])
+)
+
 export const appRuntime = Atom.runtime(
   Layer.mergeAll(
     StoreLive,
     Reactivity.layer,
     DevSeedLive,
-    FetchHttpClient.layer
+    FetchHttpClient.layer,
+    AuthLive
   )
 )
