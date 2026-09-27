@@ -10,13 +10,12 @@ import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
 import { useAnnouncement } from "@/components/ui/useAnnouncement"
 import { copy } from "@/copy"
-import { useOpenStart } from "@/navigation/openStart"
+import { openStart } from "@/navigation/openStart"
 import { savedServers } from "@/servers/atoms"
 import type { SavedServer } from "@/servers/model"
 import { ServerSummary } from "@/servers/ServerSummary"
 
 function SignInTo({ server }: Readonly<{ server: SavedServer }>) {
-  const openStart = useOpenStart()
   const signIn = useAtomSet(signInAtom(server.instanceId), {
     mode: "promiseExit"
   })

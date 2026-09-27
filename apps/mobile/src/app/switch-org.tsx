@@ -89,7 +89,7 @@ export default function SwitchOrg() {
           first
           leading={<Symbol name="plus" />}
           title={copy.addServer}
-          onPress={() => router.push("/add-server")}
+          onPress={() => router.replace("/add-server")}
         />
       </ListSection>
     </ScrollView>
