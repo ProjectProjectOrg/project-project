@@ -1,6 +1,7 @@
 import { Switch } from "@base-ui/react/switch"
 import { useAtomValue } from "@effect/atom-react"
 import {
+  DEFAULT_TICKET_SORT,
   sprintState,
   SortKey,
   type AssigneeFilter,
@@ -17,6 +18,7 @@ import {
   Check,
   ChevronDown,
   SlidersHorizontal,
+  RotateCcw,
   UserRound
 } from "lucide-react"
 import { useMemo, useRef, useState, type ComponentProps } from "react"
@@ -476,6 +478,9 @@ function FilterTags({
 
 function Ordering() {
   const { query, onQueryChange } = useTicketToolbar()
+  const customSort =
+    query.sort.key !== DEFAULT_TICKET_SORT.key ||
+    query.sort.dir !== DEFAULT_TICKET_SORT.dir
   const ascending = query.sort.dir === "asc"
   const DirectionIcon = ascending ? ArrowUp : ArrowDown
   return (
@@ -484,28 +489,47 @@ function Ordering() {
         label={m.tickets_view_options_ordering()}
         value={SORT_FIELD_LABELS[query.sort.key]()}
         action={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            title={
-              ascending
-                ? m.tickets_view_options_ascending()
-                : m.tickets_view_options_descending()
-            }
-            aria-label={
-              ascending
-                ? m.tickets_view_options_set_descending()
-                : m.tickets_view_options_set_ascending()
-            }
-            onClick={() =>
-              onQueryChange({
-                ...query,
-                sort: { ...query.sort, dir: ascending ? "desc" : "asc" }
-              })
-            }
-          >
-            <DirectionIcon />
-          </Button>
+          <>
+            <span className="inline-flex size-8 shrink-0">
+              {customSort && (
+                <span className="inline-flex animate-in fade-in-0 zoom-in-95 duration-150 motion-reduce:animate-none">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    title={m.tickets_view_options_reset_ordering()}
+                    aria-label={m.tickets_view_options_reset_ordering()}
+                    onClick={() =>
+                      onQueryChange({ ...query, sort: DEFAULT_TICKET_SORT })
+                    }
+                  >
+                    <RotateCcw />
+                  </Button>
+                </span>
+              )}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title={
+                ascending
+                  ? m.tickets_view_options_ascending()
+                  : m.tickets_view_options_descending()
+              }
+              aria-label={
+                ascending
+                  ? m.tickets_view_options_set_descending()
+                  : m.tickets_view_options_set_ascending()
+              }
+              onClick={() =>
+                onQueryChange({
+                  ...query,
+                  sort: { ...query.sort, dir: ascending ? "desc" : "asc" }
+                })
+              }
+            >
+              <DirectionIcon />
+            </Button>
+          </>
         }
       >
         {SortKey.literals.map((key) => (
