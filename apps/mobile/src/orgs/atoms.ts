@@ -25,7 +25,12 @@ export const orgProjects = Atom.family((location: OrgLocation) =>
         })
       })
     )
-    .pipe(Atom.withReactivity(orgKeys.projects(location)))
+    .pipe(
+      Atom.withReactivity([
+        ...orgKeys.projects(location),
+        ...serverKeys.session(location.instanceId)
+      ])
+    )
 )
 
 export const rememberOrg = appRuntime.fn(

@@ -1,18 +1,25 @@
 import * as Option from "effect/Option"
-import { router } from "expo-router"
+import { useNavigationContainerRef } from "expo-router"
+import { useCallback } from "react"
 
 import type { OrgLocation } from "@/servers/model"
 
-export const openStart = (
-  instanceId: string,
-  start: Option.Option<OrgLocation>
-) =>
-  Option.match(start, {
-    onNone: () =>
-      router.replace({ pathname: "/no-orgs", params: { instanceId } }),
-    onSome: (location) =>
-      router.replace({
-        pathname: "/orgs/[instanceId]/[orgSlug]",
-        params: location
-      })
-  })
+export const useOpenStart = () => {
+  const navigation = useNavigationContainerRef()
+  return useCallback(
+    (instanceId: string, start: Option.Option<OrgLocation>) =>
+      navigation.reset({
+        index: 0,
+        routes: [
+          Option.match(start, {
+            onNone: () => ({ name: "no-orgs", params: { instanceId } }),
+            onSome: (location) => ({
+              name: "orgs/[instanceId]/[orgSlug]",
+              params: location
+            })
+          })
+        ]
+      }),
+    [navigation]
+  )
+}

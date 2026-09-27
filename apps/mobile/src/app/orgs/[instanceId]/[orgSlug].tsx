@@ -1,4 +1,5 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
+import * as Exit from "effect/Exit"
 import * as Predicate from "effect/Predicate"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import {
@@ -72,14 +73,26 @@ const orgHeaderTitle = ({ children }: Readonly<{ children: string }>) => (
   <OrgTitle name={children} />
 )
 
-function OrgGone({ location }: Readonly<{ location: OrgLocation }>) {
+function OrgGone({
+  location,
+  onRetry
+}: Readonly<{ location: OrgLocation; onRetry: () => void }>) {
   const refresh = useAtomSet(refreshAccountAtom(location.instanceId), {
     mode: "promiseExit"
   })
+  const refreshState = useAtomValue(refreshAccountAtom(location.instanceId))
   useEffect(() => {
-    void refresh().then(() => router.replace("/"))
+    let active = true
+    void refresh().then((exit) => {
+      if (active && Exit.isSuccess(exit)) router.replace("/")
+    })
+    return () => {
+      active = false
+    }
   }, [refresh])
-  return null
+  return AsyncResult.isFailure(refreshState) ? (
+    <ProjectsFailed onRetry={onRetry} />
+  ) : null
 }
 
 function ProjectsFailed({ onRetry }: Readonly<{ onRetry: () => void }>) {
@@ -105,7 +118,7 @@ function Projects({
     onInitial: () => null,
     onError: (error) =>
       Predicate.isTagged(error, "NotFound") ? (
-        <OrgGone location={location} />
+        <OrgGone location={location} onRetry={onRetry} />
       ) : (
         <ProjectsFailed onRetry={onRetry} />
       ),
@@ -135,13 +148,11 @@ function Projects({
 export default function OrgHome() {
   const location = useOrgLocation()
   const name = useOrgName(location)
-  const signedOut = AsyncResult.getOrElse(
-    AsyncResult.map(
-      useAtomValue(signedInServers),
-      (ids) => !ids.includes(location.instanceId)
-    ),
-    () => false
-  )
+  const signedInState = useAtomValue(signedInServers)
+  const signedOut =
+    AsyncResult.isSuccess(signedInState) &&
+    !signedInState.waiting &&
+    !signedInState.value.includes(location.instanceId)
   const remember = useAtomSet(rememberOrg)
   const orgLocation = {
     instanceId: location.instanceId,

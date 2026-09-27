@@ -93,7 +93,11 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
             lock.withPermits(1)(effect)
           )
 
-      const publish = reactivity.invalidate(serverKeys.catalog())
+      const publish = (instanceId: string) =>
+        reactivity.invalidate([
+          ...serverKeys.catalog(),
+          ...serverKeys.session(instanceId)
+        ])
 
       const savedServer = (instanceId: string) =>
         store.list.pipe(
@@ -165,7 +169,7 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
       )
 
       const forgetTokens = (instanceId: string) =>
-        store.clearTokens(instanceId).pipe(Effect.andThen(publish))
+        store.clearTokens(instanceId).pipe(Effect.andThen(publish(instanceId)))
 
       const forgetIfCurrent = (instanceId: string, accessToken: string) =>
         exclusively(instanceId)(
@@ -302,7 +306,7 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
         if (Option.isSome(location)) {
           yield* store.setLastUsedOrg(location.value)
         }
-        yield* publish
+        yield* publish(instanceId)
         return location
       })
 
@@ -313,7 +317,7 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
         const token = yield* accessToken(instanceId)
         const { account } = yield* fetchAccount(server, token)
         yield* store.updateAccount(account)
-        yield* publish
+        yield* publish(instanceId)
       })
 
       const revoke = (server: SavedServer, tokens: ServerTokens) =>
@@ -365,7 +369,7 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
             )
           )
         )
-        yield* publish
+        yield* publish(instanceId)
       })
 
       return { signIn, signOut, remove, refreshAccount, accessToken, api }
