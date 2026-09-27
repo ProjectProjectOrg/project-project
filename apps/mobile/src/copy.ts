@@ -74,6 +74,7 @@ export const copy = {
   switchOrgEmpty: "You’re not signed in to any organization yet.",
   noProjects: "No projects in this organization yet.",
   projectsFailed: "Couldn’t load the projects.",
+  tryAgain: "Try again",
   signInFailed: "Sign-in didn’t finish. Try again.",
   signInUnreachable: "Can’t reach this server right now. Try again.",
   signInInstanceChanged:

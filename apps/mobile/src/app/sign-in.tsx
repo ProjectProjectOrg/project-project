@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
 import { useAnnouncement } from "@/components/ui/useAnnouncement"
 import { copy } from "@/copy"
+import { openStart } from "@/navigation/openStart"
 import { savedServers } from "@/servers/atoms"
 import type { SavedServer } from "@/servers/model"
 import { ServerSummary } from "@/servers/ServerSummary"
@@ -29,7 +30,7 @@ function SignInTo({ server }: Readonly<{ server: SavedServer }>) {
 
   const start = async () => {
     const exit = await signIn()
-    if (Exit.isSuccess(exit)) router.replace("/")
+    if (Exit.isSuccess(exit)) openStart(server.instanceId, exit.value)
   }
 
   return (

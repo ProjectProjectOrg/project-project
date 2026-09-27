@@ -1,4 +1,5 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
+import * as Predicate from "effect/Predicate"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import {
   Redirect,
@@ -7,10 +8,12 @@ import {
   useFocusEffect,
   useLocalSearchParams
 } from "expo-router"
-import { useCallback } from "react"
-import { ScrollView, View } from "react-native"
+import { useCallback, useEffect } from "react"
+import { RefreshControl, ScrollView, View } from "react-native"
 
+import { refreshAccountAtom } from "@/auth/atoms"
 import { Symbol } from "@/components/icons/Symbol"
+import { Button } from "@/components/ui/button"
 import { ListRow, ListSection } from "@/components/ui/list"
 import { PressScale } from "@/components/ui/press-scale"
 import { Text } from "@/components/ui/text"
@@ -69,12 +72,44 @@ const orgHeaderTitle = ({ children }: Readonly<{ children: string }>) => (
   <OrgTitle name={children} />
 )
 
-function Projects({ location }: Readonly<{ location: OrgLocation }>) {
+function OrgGone({ location }: Readonly<{ location: OrgLocation }>) {
+  const refresh = useAtomSet(refreshAccountAtom(location.instanceId), {
+    mode: "promiseExit"
+  })
+  useEffect(() => {
+    void refresh().then(() => router.replace("/"))
+  }, [refresh])
+  return null
+}
+
+function ProjectsFailed({ onRetry }: Readonly<{ onRetry: () => void }>) {
+  return (
+    <View className="items-start gap-3">
+      <Text variant="error">{copy.projectsFailed}</Text>
+      <Button
+        size="md"
+        variant="tertiary"
+        label={copy.tryAgain}
+        onPress={onRetry}
+      />
+    </View>
+  )
+}
+
+function Projects({
+  location,
+  onRetry
+}: Readonly<{ location: OrgLocation; onRetry: () => void }>) {
   const projects = useAtomValue(orgProjects(location))
   return AsyncResult.matchWithError(projects, {
     onInitial: () => null,
-    onError: () => <Text variant="error">{copy.projectsFailed}</Text>,
-    onDefect: () => <Text variant="error">{copy.projectsFailed}</Text>,
+    onError: (error) =>
+      Predicate.isTagged(error, "NotFound") ? (
+        <OrgGone location={location} />
+      ) : (
+        <ProjectsFailed onRetry={onRetry} />
+      ),
+    onDefect: () => <ProjectsFailed onRetry={onRetry} />,
     onSuccess: ({ value }) =>
       value.length === 0 ? (
         <Text variant="muted">{copy.noProjects}</Text>
@@ -108,6 +143,12 @@ export default function OrgHome() {
     () => false
   )
   const remember = useAtomSet(rememberOrg)
+  const orgLocation = {
+    instanceId: location.instanceId,
+    orgSlug: location.orgSlug
+  }
+  const refreshProjects = useAtomRefresh(orgProjects(orgLocation))
+  const projectsWaiting = useAtomValue(orgProjects(orgLocation)).waiting
 
   useFocusEffect(
     useCallback(() => {
@@ -141,9 +182,15 @@ export default function OrgHome() {
         className="flex-1 bg-background"
         contentInsetAdjustmentBehavior="automatic"
         contentContainerClassName="gap-6 px-5 py-4"
+        refreshControl={
+          <RefreshControl
+            refreshing={projectsWaiting}
+            onRefresh={refreshProjects}
+          />
+        }
       >
         <View>
-          <Projects location={location} />
+          <Projects location={orgLocation} onRetry={refreshProjects} />
         </View>
       </ScrollView>
     </>

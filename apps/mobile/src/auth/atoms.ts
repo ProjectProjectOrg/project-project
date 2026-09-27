@@ -12,7 +12,7 @@ export const signInAtom = Atom.family((instanceId: string) =>
   appRuntime.fn(() =>
     Effect.gen(function* () {
       const auth = yield* ServerAuth
-      yield* auth.signIn(instanceId)
+      return yield* auth.signIn(instanceId)
     })
   )
 )

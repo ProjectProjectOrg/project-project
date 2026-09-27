@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
 import { useAnnouncement } from "@/components/ui/useAnnouncement"
 import { copy } from "@/copy"
+import type { OrgLocation } from "@/servers/model"
 import { ServerSummary } from "@/servers/ServerSummary"
 
 import { checkServerAtom, connectCheckedServer } from "./atoms"
@@ -22,7 +23,7 @@ function Confirm({
   onChangeServer
 }: Readonly<{
   checked: CheckedServer
-  onSignedIn: (instanceId: string) => void
+  onSignedIn: (instanceId: string, start: Option.Option<OrgLocation>) => void
   onChangeServer: () => void
 }>) {
   const connect = useAtomSet(connectCheckedServer, { mode: "promiseExit" })
@@ -50,7 +51,7 @@ function Confirm({
     const current = ++attempt.current
     const exit = await connect(checked)
     if (current === attempt.current && Exit.isSuccess(exit))
-      onSignedIn(exit.value)
+      onSignedIn(checked.descriptor.instanceId, exit.value)
   }
 
   return (
@@ -92,7 +93,7 @@ function Confirm({
 
 export function ConfirmScreen(
   props: Readonly<{
-    onSignedIn: (instanceId: string) => void
+    onSignedIn: (instanceId: string, start: Option.Option<OrgLocation>) => void
     onChangeServer: () => void
   }>
 ) {

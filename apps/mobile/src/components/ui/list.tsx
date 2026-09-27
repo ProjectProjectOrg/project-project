@@ -38,6 +38,7 @@ export function ListRow({
   first = false,
   disabled = false,
   busy = false,
+  selected = false,
   onPress
 }: Readonly<{
   title: string
@@ -48,6 +49,7 @@ export function ListRow({
   first?: boolean
   disabled?: boolean
   busy?: boolean
+  selected?: boolean
   onPress?: () => void
 }>) {
   const content = (
@@ -82,7 +84,7 @@ export function ListRow({
       accessibilityLabel={
         subtitle === undefined ? title : `${title}, ${subtitle}`
       }
-      accessibilityState={{ disabled: disabled || busy, busy }}
+      accessibilityState={{ disabled: disabled || busy, busy, selected }}
       disabled={disabled || busy}
       onPress={onPress}
       className="active:bg-accent disabled:opacity-50"

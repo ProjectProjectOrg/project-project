@@ -25,8 +25,6 @@ export const connectCheckedServer = appRuntime.fn(
     })
     yield* Reactivity.invalidate(serverKeys.catalog())
     const auth = yield* ServerAuth
-    yield* auth.signIn(descriptor.instanceId)
-    yield* Reactivity.invalidate(serverKeys.catalog())
-    return descriptor.instanceId
+    return yield* auth.signIn(descriptor.instanceId)
   })
 )

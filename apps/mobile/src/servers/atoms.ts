@@ -27,7 +27,9 @@ export const lastUsedOrg = appRuntime
       return yield* store.lastUsedOrg
     })
   )
-  .pipe(Atom.withReactivity(serverKeys.catalog()))
+  .pipe(
+    Atom.withReactivity([...serverKeys.catalog(), ...serverKeys.lastUsed()])
+  )
 
 export const signedInServers = appRuntime
   .atom(

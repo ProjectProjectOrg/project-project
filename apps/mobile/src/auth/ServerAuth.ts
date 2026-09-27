@@ -20,7 +20,7 @@ import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 
 import { checkServer } from "@/onboarding/checkServer"
 import { serverKeys } from "@/servers/keys"
-import type { SavedServer, ServerTokens } from "@/servers/model"
+import type { OrgLocation, SavedServer, ServerTokens } from "@/servers/model"
 import { ServerNotSaved, ServerStore } from "@/servers/ServerStore"
 
 import {
@@ -295,10 +295,15 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
         const start =
           account.orgs.find((org) => org.slug === activeOrgSlug) ??
           account.orgs[0]
-        if (start !== undefined) {
-          yield* store.setLastUsedOrg({ instanceId, orgSlug: start.slug })
+        const location = Option.map(
+          Option.fromUndefinedOr(start),
+          (org): OrgLocation => ({ instanceId, orgSlug: org.slug })
+        )
+        if (Option.isSome(location)) {
+          yield* store.setLastUsedOrg(location.value)
         }
         yield* publish
+        return location
       })
 
       const refreshAccount = Effect.fn("refreshAccount")(function* (

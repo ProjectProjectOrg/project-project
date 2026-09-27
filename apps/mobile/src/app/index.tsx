@@ -12,44 +12,43 @@ export default function Index() {
   const lastOrg = useAtomValue(lastUsedOrg)
   const signedIn = useAtomValue(signedInServers)
 
-  return AsyncResult.matchWithError(
-    AsyncResult.all([servers, lastOrg, signedIn]),
-    {
-      onInitial: () => null,
-      onError: () => <LoadFailed />,
-      onDefect: () => <LoadFailed />,
-      onSuccess: ({ value: [saved, last, signedInIds] }) => {
-        if (saved.length === 0) return <Redirect href="/onboarding" />
-        const signedIn = saved.filter((server) =>
-          signedInIds.includes(server.instanceId)
-        )
-        return Option.match(startLocation(signedIn, last), {
-          onSome: (location) => (
+  const start = AsyncResult.all([servers, lastOrg, signedIn])
+  if (start.waiting) return null
+  return AsyncResult.matchWithError(start, {
+    onInitial: () => null,
+    onError: () => <LoadFailed />,
+    onDefect: () => <LoadFailed />,
+    onSuccess: ({ value: [saved, last, signedInIds] }) => {
+      if (saved.length === 0) return <Redirect href="/onboarding" />
+      const signedIn = saved.filter((server) =>
+        signedInIds.includes(server.instanceId)
+      )
+      return Option.match(startLocation(signedIn, last), {
+        onSome: (location) => (
+          <Redirect
+            href={{
+              pathname: "/orgs/[instanceId]/[orgSlug]",
+              params: location
+            }}
+          />
+        ),
+        onNone: () =>
+          signedIn.length > 0 ? (
             <Redirect
               href={{
-                pathname: "/orgs/[instanceId]/[orgSlug]",
-                params: location
+                pathname: "/no-orgs",
+                params: { instanceId: signedIn[0].instanceId }
               }}
             />
-          ),
-          onNone: () =>
-            signedIn.length > 0 ? (
-              <Redirect
-                href={{
-                  pathname: "/no-orgs",
-                  params: { instanceId: signedIn[0].instanceId }
-                }}
-              />
-            ) : (
-              <Redirect
-                href={{
-                  pathname: "/sign-in",
-                  params: { instanceId: saved[0].instanceId }
-                }}
-              />
-            )
-        })
-      }
+          ) : (
+            <Redirect
+              href={{
+                pathname: "/sign-in",
+                params: { instanceId: saved[0].instanceId }
+              }}
+            />
+          )
+      })
     }
-  )
+  })
 }
