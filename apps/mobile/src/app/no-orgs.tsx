@@ -4,68 +4,68 @@ import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import { router, useLocalSearchParams } from "expo-router"
 import { ScrollView, View } from "react-native"
 
-import { signInAtom, signInProblem } from "@/auth/atoms"
+import { refreshAccountAtom, signOutAtom } from "@/auth/atoms"
 import { LoadFailed } from "@/components/LoadFailed"
 import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
-import { useAnnouncement } from "@/components/ui/useAnnouncement"
 import { copy } from "@/copy"
 import { savedServers } from "@/servers/atoms"
 import type { SavedServer } from "@/servers/model"
 import { ServerSummary } from "@/servers/ServerSummary"
 
-function SignInTo({ server }: Readonly<{ server: SavedServer }>) {
-  const signIn = useAtomSet(signInAtom(server.instanceId), {
+function NoOrgs({ server }: Readonly<{ server: SavedServer }>) {
+  const refresh = useAtomSet(refreshAccountAtom(server.instanceId), {
     mode: "promiseExit"
   })
-  const state = useAtomValue(signInAtom(server.instanceId))
-  const problem = AsyncResult.matchWithError(state, {
-    onInitial: () => null,
-    onSuccess: () => null,
-    onError: signInProblem,
-    onDefect: () => copy.signInFailed
+  const refreshState = useAtomValue(refreshAccountAtom(server.instanceId))
+  const signOut = useAtomSet(signOutAtom(server.instanceId), {
+    mode: "promiseExit"
   })
-  useAnnouncement(problem)
+  const signOutState = useAtomValue(signOutAtom(server.instanceId))
 
-  const start = async () => {
-    const exit = await signIn()
+  const checkAgain = async () => {
+    const exit = await refresh()
     if (Exit.isSuccess(exit)) router.replace("/")
   }
 
   return (
     <View className="flex-1 bg-background pt-safe pb-safe-offset-2">
-      <ScrollView className="flex-1" contentContainerClassName="px-5 pt-14">
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="gap-6 px-5 pt-14"
+      >
         <ServerSummary
-          lead={server.user === null ? copy.confirmLead : copy.signedOutLead}
+          lead={copy.noOrgsLead}
           name={server.name}
           logo={server.logo}
           origin={server.origin}
           detail={server.user?.email}
         />
+        <Text variant="muted">{copy.noOrgsBody}</Text>
       </ScrollView>
       <View className="gap-1 px-5 pt-3">
-        {problem === null ? null : (
+        {AsyncResult.isFailure(refreshState) ? (
           <Text variant="error" className="mb-2">
-            {problem}
+            {copy.signInUnreachable}
           </Text>
-        )}
+        ) : null}
         <Button
-          label={copy.confirmSignIn}
-          loading={state.waiting}
-          onPress={() => void start()}
+          label={copy.noOrgsCheckAgain}
+          loading={refreshState.waiting}
+          onPress={() => void checkAgain()}
         />
         <Button
           variant="ghost"
-          label={copy.confirmChangeServer}
-          disabled={state.waiting}
-          onPress={() => router.push("/add-server")}
+          label={copy.signOut}
+          loading={signOutState.waiting}
+          onPress={() => void signOut().then(() => router.replace("/"))}
         />
       </View>
     </View>
   )
 }
 
-export default function SignIn() {
+export default function NoOrganizations() {
   const { instanceId } = useLocalSearchParams<{ instanceId?: string }>()
   const servers = useAtomValue(savedServers)
   return AsyncResult.matchWithError(servers, {
@@ -73,9 +73,8 @@ export default function SignIn() {
     onError: () => <LoadFailed />,
     onDefect: () => <LoadFailed />,
     onSuccess: ({ value }) => {
-      const server =
-        value.find((saved) => saved.instanceId === instanceId) ?? value[0]
-      return server === undefined ? null : <SignInTo server={server} />
+      const server = value.find((saved) => saved.instanceId === instanceId)
+      return server === undefined ? null : <NoOrgs server={server} />
     }
   })
 }

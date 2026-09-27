@@ -20,30 +20,35 @@ export default function Index() {
       onDefect: () => <LoadFailed />,
       onSuccess: ({ value: [saved, last, signedInIds] }) => {
         if (saved.length === 0) return <Redirect href="/onboarding" />
-        return Option.match(
-          startLocation(
-            saved.filter((server) => signedInIds.includes(server.instanceId)),
-            last
+        const signedIn = saved.filter((server) =>
+          signedInIds.includes(server.instanceId)
+        )
+        return Option.match(startLocation(signedIn, last), {
+          onSome: (location) => (
+            <Redirect
+              href={{
+                pathname: "/orgs/[instanceId]/[orgSlug]",
+                params: location
+              }}
+            />
           ),
-          {
-            onNone: () => (
+          onNone: () =>
+            signedIn.length > 0 ? (
+              <Redirect
+                href={{
+                  pathname: "/no-orgs",
+                  params: { instanceId: signedIn[0].instanceId }
+                }}
+              />
+            ) : (
               <Redirect
                 href={{
                   pathname: "/sign-in",
                   params: { instanceId: saved[0].instanceId }
                 }}
               />
-            ),
-            onSome: (location) => (
-              <Redirect
-                href={{
-                  pathname: "/orgs/[instanceId]/[orgSlug]",
-                  params: location
-                }}
-              />
             )
-          }
-        )
+        })
       }
     }
   )

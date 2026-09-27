@@ -39,6 +39,10 @@ export type ServerStoreShape = Readonly<{
     instanceId: string,
     tokens: ServerTokens
   ) => Effect.Effect<void, CatalogFailure | ServerNotSaved>
+  completeSignIn: (
+    server: SavedServer,
+    tokens: ServerTokens
+  ) => Effect.Effect<void, CatalogFailure>
   clearTokens: (instanceId: string) => Effect.Effect<void, StorageFailure>
   lastUsedOrg: Effect.Effect<Option.Option<OrgLocation>, CatalogFailure>
   setLastUsedOrg: (location: OrgLocation) => Effect.Effect<void, CatalogFailure>
@@ -177,6 +181,23 @@ export const ServerStoreLive = Layer.effect(
         )
       )
 
+    const completeSignIn = (server: SavedServer, value: ServerTokens) =>
+      serialized(
+        secure.set(tokensKey(server.instanceId), encodeTokens(value)).pipe(
+          Effect.andThen(
+            writeCatalog((catalog) => ({
+              ...catalog,
+              servers: [
+                ...catalog.servers.filter(
+                  (saved) => saved.instanceId !== server.instanceId
+                ),
+                server
+              ]
+            }))
+          )
+        )
+      )
+
     const clearTokens = (instanceId: string) =>
       serialized(secure.remove(tokensKey(instanceId)))
 
@@ -192,6 +213,7 @@ export const ServerStoreLive = Layer.effect(
       remove,
       tokens,
       attachTokens,
+      completeSignIn,
       clearTokens,
       lastUsedOrg: Effect.map(readCatalog, (catalog) =>
         Option.fromNullishOr(catalog.lastUsedOrg)

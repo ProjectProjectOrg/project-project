@@ -5,6 +5,7 @@ import * as Data from "effect/Data"
 import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as MutableHashMap from "effect/MutableHashMap"
 import * as MutableHashSet from "effect/MutableHashSet"
 import * as Option from "effect/Option"
 import * as Predicate from "effect/Predicate"
@@ -61,6 +62,9 @@ export const authTimeout = Duration.seconds(15)
 const decodeTokens = HttpClientResponse.schemaBodyJson(TokenResponse)
 const decodeTokenError = HttpClientResponse.schemaBodyJson(TokenError)
 
+const identity = (server: SavedServer) =>
+  `${server.instanceId} ${server.origin}`
+
 export class ServerAuth extends Context.Service<ServerAuth>()(
   "@pp/mobile/auth/ServerAuth",
   {
@@ -70,13 +74,26 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
       const browser = yield* AuthBrowser
       const pkceSource = yield* PkceSource
       const reactivity = yield* Reactivity.Reactivity
-      const refreshLock = yield* Semaphore.make(1)
-
-      const forgetTokens = (instanceId: string) =>
-        store
-          .clearTokens(instanceId)
-          .pipe(Effect.andThen(reactivity.invalidate(serverKeys.catalog())))
+      const locks = MutableHashMap.empty<string, Semaphore.Semaphore>()
       const verified = MutableHashSet.empty<string>()
+
+      const lockFor = (instanceId: string) =>
+        Effect.sync(() =>
+          Option.getOrElse(MutableHashMap.get(locks, instanceId), () => {
+            const lock = Semaphore.makeUnsafe(1)
+            MutableHashMap.set(locks, instanceId, lock)
+            return lock
+          })
+        )
+
+      const exclusively =
+        (instanceId: string) =>
+        <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+          Effect.flatMap(lockFor(instanceId), (lock) =>
+            lock.withPermits(1)(effect)
+          )
+
+      const publish = reactivity.invalidate(serverKeys.catalog())
 
       const savedServer = (instanceId: string) =>
         store.list.pipe(
@@ -101,45 +118,99 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
             () => new InstanceChanged({ instanceId: server.instanceId })
           ),
           Effect.andThen(
-            Effect.sync(() => MutableHashSet.add(verified, server.instanceId))
+            Effect.sync(() => MutableHashSet.add(verified, identity(server)))
           ),
           Effect.asVoid
         )
 
-      const requestTokens = Effect.fn("requestTokens")(function* (
-        origin: string,
-        params: Readonly<Record<string, string>>
-      ) {
-        const response = yield* http
-          .execute(
-            HttpClientRequest.post(`${origin}/api/auth/oauth2/token`).pipe(
-              HttpClientRequest.acceptJson,
-              HttpClientRequest.bodyUrlParams({
-                client_id: appClientId,
-                resource: apiResource(origin),
-                ...params
-              })
+      const ensureVerified = (server: SavedServer) =>
+        MutableHashSet.has(verified, identity(server))
+          ? Effect.void
+          : verifyInstance(server)
+
+      const requestTokens = Effect.fn("requestTokens")(
+        function* (origin: string, params: Readonly<Record<string, string>>) {
+          const response = yield* http
+            .execute(
+              HttpClientRequest.post(`${origin}/api/auth/oauth2/token`).pipe(
+                HttpClientRequest.acceptJson,
+                HttpClientRequest.bodyUrlParams({
+                  client_id: appClientId,
+                  resource: apiResource(origin),
+                  ...params
+                })
+              )
             )
-          )
-          .pipe(
-            Effect.timeout(authTimeout),
+            .pipe(Effect.mapError((cause) => new AuthUnavailable({ cause })))
+          if (response.status >= 400 && response.status < 500) {
+            const rejection = yield* decodeTokenError(response).pipe(
+              Effect.mapError((cause) => new AuthUnavailable({ cause }))
+            )
+            return yield* new TokenRejected({ error: rejection.error })
+          }
+          const body = yield* decodeTokens(response).pipe(
             Effect.mapError((cause) => new AuthUnavailable({ cause }))
           )
-        if (response.status >= 400 && response.status < 500) {
-          const rejection = yield* decodeTokenError(response).pipe(
-            Effect.mapError((cause) => new AuthUnavailable({ cause }))
-          )
-          return yield* new TokenRejected({ error: rejection.error })
-        }
-        const body = yield* decodeTokens(response).pipe(
-          Effect.mapError((cause) => new AuthUnavailable({ cause }))
-        )
-        const now = yield* Clock.currentTimeMillis
+          const now = yield* Clock.currentTimeMillis
+          return {
+            accessToken: body.access_token,
+            refreshToken: body.refresh_token,
+            expiresAt: now + body.expires_in * 1000
+          } satisfies ServerTokens
+        },
+        Effect.timeoutOrElse({
+          duration: authTimeout,
+          orElse: () => Effect.fail(new AuthUnavailable({ cause: "timeout" }))
+        })
+      )
+
+      const forgetTokens = (instanceId: string) =>
+        store.clearTokens(instanceId).pipe(Effect.andThen(publish))
+
+      const forgetIfCurrent = (instanceId: string, accessToken: string) =>
+        exclusively(instanceId)(
+          store
+            .tokens(instanceId)
+            .pipe(
+              Effect.flatMap((stored) =>
+                Option.exists(
+                  stored,
+                  (tokens) => tokens.accessToken === accessToken
+                )
+                  ? forgetTokens(instanceId)
+                  : Effect.void
+              )
+            )
+        ).pipe(Effect.ignore)
+
+      const clientFor = (server: SavedServer, token: string) =>
+        HttpApiClient.make(AppApi, {
+          baseUrl: `${server.origin}/api`,
+          transformClient: (client) =>
+            client.pipe(
+              HttpClient.mapRequest(HttpClientRequest.bearerToken(token)),
+              HttpClient.tap((response) =>
+                response.status === 401
+                  ? forgetIfCurrent(server.instanceId, token)
+                  : Effect.void
+              )
+            )
+        }).pipe(Effect.provideService(HttpClient.HttpClient, http))
+
+      const fetchAccount = Effect.fn("fetchAccount")(function* (
+        server: SavedServer,
+        token: string
+      ) {
+        const client = yield* clientFor(server, token)
+        const [user, orgs] = yield* Effect.all(
+          [client.auth.me(), client.org.myOrgs()],
+          { concurrency: 2 }
+        ).pipe(Effect.mapError((cause) => new AuthUnavailable({ cause })))
         return {
-          accessToken: body.access_token,
-          refreshToken: body.refresh_token,
-          expiresAt: now + body.expires_in * 1000
-        } satisfies ServerTokens
+          ...server,
+          user: { id: user.id, name: user.name, email: user.email },
+          orgs: orgs.map((org) => ({ slug: org.slug, name: org.name }))
+        } satisfies SavedServer
       })
 
       const refresh = (server: SavedServer, tokens: ServerTokens) =>
@@ -166,10 +237,8 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
         instanceId: string
       ) {
         const server = yield* savedServer(instanceId)
-        if (!MutableHashSet.has(verified, instanceId)) {
-          yield* verifyInstance(server)
-        }
-        return yield* refreshLock.withPermits(1)(
+        yield* ensureVerified(server)
+        return yield* exclusively(instanceId)(
           Effect.gen(function* () {
             const stored = yield* store.tokens(instanceId)
             if (Option.isNone(stored)) {
@@ -184,20 +253,6 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
           })
         )
       })
-
-      const clientFor = (server: SavedServer, token: string) =>
-        HttpApiClient.make(AppApi, {
-          baseUrl: `${server.origin}/api`,
-          transformClient: (client) =>
-            client.pipe(
-              HttpClient.mapRequest(HttpClientRequest.bearerToken(token)),
-              HttpClient.tap((response) =>
-                response.status === 401
-                  ? forgetTokens(server.instanceId).pipe(Effect.ignore)
-                  : Effect.void
-              )
-            )
-        }).pipe(Effect.provideService(HttpClient.HttpClient, http))
 
       const api = Effect.fn("api")(function* (instanceId: string) {
         const server = yield* savedServer(instanceId)
@@ -228,41 +283,55 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
           code_verifier: pkce.verifier,
           redirect_uri: appRedirectUri
         })
-        yield* store.attachTokens(instanceId, tokens)
-        const client = yield* clientFor(server, tokens.accessToken)
-        const [user, orgs] = yield* Effect.all(
-          [client.auth.me(), client.org.myOrgs()],
-          { concurrency: 2 }
-        ).pipe(Effect.mapError((cause) => new AuthUnavailable({ cause })))
-        yield* store.save({
-          ...server,
-          user: { id: user.id, name: user.name, email: user.email },
-          orgs: orgs.map((org) => ({ slug: org.slug, name: org.name }))
-        })
+        const account = yield* fetchAccount(server, tokens.accessToken)
+        yield* exclusively(instanceId)(store.completeSignIn(account, tokens))
+        yield* publish
       })
 
-      const signOut = Effect.fn("signOut")(function* (instanceId: string) {
+      const refreshAccount = Effect.fn("refreshAccount")(function* (
+        instanceId: string
+      ) {
         const server = yield* savedServer(instanceId)
-        const stored = yield* store.tokens(instanceId)
-        if (Option.isSome(stored)) {
-          yield* http
-            .execute(
+        const token = yield* accessToken(instanceId)
+        yield* store.save(yield* fetchAccount(server, token))
+        yield* publish
+      })
+
+      const revoke = (server: SavedServer, tokens: ServerTokens) =>
+        verifyInstance(server).pipe(
+          Effect.andThen(
+            http.execute(
               HttpClientRequest.post(
                 `${server.origin}/api/auth/oauth2/revoke`
               ).pipe(
                 HttpClientRequest.bodyUrlParams({
                   client_id: appClientId,
-                  token: stored.value.refreshToken,
+                  token: tokens.refreshToken,
                   token_type_hint: "refresh_token"
                 })
               )
             )
-            .pipe(Effect.timeout(authTimeout), Effect.ignore)
-        }
-        yield* store.clearTokens(instanceId)
+          ),
+          Effect.timeout(authTimeout),
+          Effect.ignore
+        )
+
+      const signOut = Effect.fn("signOut")(function* (instanceId: string) {
+        const server = yield* savedServer(instanceId)
+        yield* exclusively(instanceId)(
+          store.tokens(instanceId).pipe(
+            Effect.flatMap(
+              Option.match({
+                onNone: () => Effect.void,
+                onSome: (tokens) => revoke(server, tokens)
+              })
+            ),
+            Effect.andThen(forgetTokens(instanceId))
+          )
+        )
       })
 
-      return { signIn, signOut, accessToken, api }
+      return { signIn, signOut, refreshAccount, accessToken, api }
     })
   }
 ) {

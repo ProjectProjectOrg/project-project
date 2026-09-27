@@ -36,6 +36,11 @@ export const copy = {
   confirmChangeServer: "Use a different server",
   saveFailed: "Couldn’t save this server. Try again.",
   signedOutLead: "You were signed out of",
+  signOut: "Sign out",
+  noOrgsLead: "You’re signed in to",
+  noOrgsBody:
+    "You aren’t in any organization on this server yet. Ask someone there to invite you, then check again.",
+  noOrgsCheckAgain: "Check again",
   signInFailed: "Sign-in didn’t finish. Try again.",
   signInUnreachable: "Can’t reach this server right now. Try again.",
   signInInstanceChanged:

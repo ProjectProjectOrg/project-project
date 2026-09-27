@@ -28,25 +28,41 @@ export const authorizeUrl = (origin: string, pkce: Pkce) =>
   }).toString()}`
 
 export class SignInRejected extends Data.TaggedError("SignInRejected")<
-  Readonly<{ reason: "state_mismatch" | "denied" | "no_code" }>
+  Readonly<{
+    reason: "bad_redirect" | "state_mismatch" | "denied" | "no_code"
+  }>
 > {}
 
-export const authorizationCode = (
-  callbackUrl: string,
-  expectedState: string
-) => {
-  const params = new URL(callbackUrl).searchParams
-  if (params.get("state") !== expectedState) {
-    return Result.fail(new SignInRejected({ reason: "state_mismatch" }))
-  }
-  if (params.has("error")) {
-    return Result.fail(new SignInRejected({ reason: "denied" }))
-  }
-  const code = params.get("code")
-  return code === null
-    ? Result.fail(new SignInRejected({ reason: "no_code" }))
-    : Result.succeed(code)
-}
+const expectedRedirect = new URL(appRedirectUri)
+
+const parseRedirect = (callbackUrl: string) =>
+  Result.try({
+    try: () => new URL(callbackUrl),
+    catch: () => new SignInRejected({ reason: "bad_redirect" })
+  }).pipe(
+    Result.filterOrFail(
+      (url) =>
+        url.protocol === expectedRedirect.protocol &&
+        url.host === expectedRedirect.host &&
+        url.pathname === expectedRedirect.pathname,
+      () => new SignInRejected({ reason: "bad_redirect" })
+    )
+  )
+
+export const authorizationCode = (callbackUrl: string, expectedState: string) =>
+  Result.flatMap(parseRedirect(callbackUrl), (url) => {
+    const params = url.searchParams
+    if (params.get("state") !== expectedState) {
+      return Result.fail(new SignInRejected({ reason: "state_mismatch" }))
+    }
+    if (params.has("error")) {
+      return Result.fail(new SignInRejected({ reason: "denied" }))
+    }
+    const code = params.get("code")
+    return code === null
+      ? Result.fail(new SignInRejected({ reason: "no_code" }))
+      : Result.succeed(code)
+  })
 
 export const TokenResponse = Schema.Struct({
   access_token: Schema.NonEmptyString,

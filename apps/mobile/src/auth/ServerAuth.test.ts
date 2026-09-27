@@ -1,6 +1,7 @@
 import { it } from "@effect/vitest"
 import { appProtocolVersion } from "@pp/shared"
 import * as Effect from "effect/Effect"
+import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as TestClock from "effect/testing/TestClock"
@@ -14,6 +15,7 @@ import { ServerStore, ServerStoreLive } from "@/servers/ServerStore"
 
 import { authorizationCode, authorizeUrl } from "./oauth"
 import { AuthBrowser, PkceSource } from "./ports"
+import { authTimeout } from "./ServerAuth"
 import { ServerAuth } from "./ServerAuth"
 
 const origin = "https://pp.example"
@@ -58,6 +60,7 @@ const fakeServer = (
       attempt: number
     ) => Response | Promise<Response>
     browser?: (url: string) => Option.Option<string>
+    me?: () => Response
   }> = {}
 ) => {
   const calls: Array<Call> = []
@@ -92,6 +95,7 @@ const fakeServer = (
             }))
         )(new URLSearchParams(body), tokenAttempts)
       case "/api/me":
+        if (options.me !== undefined) return options.me()
         return json({
           id: "user-1",
           email: "luuk@igne.nl",
@@ -170,6 +174,18 @@ describe("authorize request", () => {
       code_challenge: "challenge",
       code_challenge_method: "S256",
       resource: "https://pp.example/api"
+    })
+  })
+
+  it("only accepts the app's own redirect", () => {
+    expect(
+      authorizationCode(
+        "https://evil.example/oauth/callback?code=c&state=state-1",
+        "state-1"
+      )
+    ).toMatchObject({ failure: { reason: "bad_redirect" } })
+    expect(authorizationCode("not a url", "state-1")).toMatchObject({
+      failure: { reason: "bad_redirect" }
     })
   })
 
@@ -323,6 +339,94 @@ it.effect("forgets the tokens when the server answers 401", () => {
     yield* auth.signIn(server.instanceId)
     const api = yield* auth.api(server.instanceId)
     yield* Effect.flip(api.org.get({ params: { orgSlug: "igne" } }))
+    expect(yield* store.tokens(server.instanceId)).toEqual(Option.none())
+  }).pipe(Effect.provide(fake.layer))
+})
+
+const tokenPair = (access: string, refresh: string, expiresIn: number) =>
+  json({ access_token: access, refresh_token: refresh, expires_in: expiresIn })
+
+it.effect("keeps newer tokens when an older request comes back 401", () => {
+  const fake = fakeServer({
+    token: (body) =>
+      body.get("grant_type") === "refresh_token"
+        ? tokenPair("access-2", "refresh-2", 3600)
+        : tokenPair("access-1", "refresh-1", 180)
+  })
+  return Effect.gen(function* () {
+    const store = yield* withSavedServer
+    const auth = yield* ServerAuth
+    yield* auth.signIn(server.instanceId)
+    const stale = yield* auth.api(server.instanceId)
+    yield* TestClock.adjust("3 minutes")
+    expect(yield* auth.accessToken(server.instanceId)).toBe("access-2")
+    yield* Effect.flip(stale.org.get({ params: { orgSlug: "igne" } }))
+    expect(
+      Option.map(
+        yield* store.tokens(server.instanceId),
+        (tokens) => tokens.accessToken
+      )
+    ).toEqual(Option.some("access-2"))
+  }).pipe(Effect.provide(fake.layer))
+})
+
+it.effect("signing out during a refresh leaves no tokens behind", () => {
+  const gate = Promise.withResolvers<Response>()
+  const fake = fakeServer({
+    token: (body) =>
+      body.get("grant_type") === "refresh_token"
+        ? gate.promise
+        : tokenPair("access-1", "refresh-1", 60)
+  })
+  return Effect.gen(function* () {
+    const store = yield* withSavedServer
+    const auth = yield* ServerAuth
+    yield* auth.signIn(server.instanceId)
+    yield* TestClock.adjust("1 minute")
+    const refreshing = yield* Effect.forkChild(
+      auth.accessToken(server.instanceId)
+    )
+    yield* Effect.yieldNow
+    const signingOut = yield* Effect.forkChild(auth.signOut(server.instanceId))
+    yield* Effect.yieldNow
+    gate.resolve(tokenPair("access-2", "refresh-2", 3600))
+    yield* Fiber.join(refreshing)
+    yield* Fiber.join(signingOut)
+    expect(yield* store.tokens(server.instanceId)).toEqual(Option.none())
+  }).pipe(Effect.provide(fake.layer))
+})
+
+it.effect("gives up on a token response that never finishes", () => {
+  const fake = fakeServer({
+    token: (body) =>
+      body.get("grant_type") === "refresh_token"
+        ? new Response(new ReadableStream({ start: () => {} }), {
+            headers: { "content-type": "application/json" }
+          })
+        : tokenPair("access-1", "refresh-1", 60)
+  })
+  return Effect.gen(function* () {
+    yield* withSavedServer
+    const auth = yield* ServerAuth
+    yield* auth.signIn(server.instanceId)
+    yield* TestClock.adjust("1 minute")
+    const fiber = yield* Effect.forkChild(
+      Effect.flip(auth.accessToken(server.instanceId))
+    )
+    yield* TestClock.adjust(authTimeout)
+    yield* TestClock.adjust(authTimeout)
+    expect((yield* Fiber.join(fiber))._tag).toBe("AuthUnavailable")
+  }).pipe(Effect.provide(fake.layer))
+})
+
+it.effect("keeps no tokens when the account can't be loaded", () => {
+  const fake = fakeServer({ me: () => json({}, 500) })
+  return Effect.gen(function* () {
+    const store = yield* withSavedServer
+    const auth = yield* ServerAuth
+    expect((yield* Effect.flip(auth.signIn(server.instanceId)))._tag).toBe(
+      "AuthUnavailable"
+    )
     expect(yield* store.tokens(server.instanceId)).toEqual(Option.none())
   }).pipe(Effect.provide(fake.layer))
 })
