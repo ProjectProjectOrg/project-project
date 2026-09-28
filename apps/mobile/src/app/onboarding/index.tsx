@@ -122,6 +122,10 @@ export default function Welcome() {
   const addressHeight = useSharedValue(0)
   const addressTop = header + stepInset
   const toAddress = useSharedValue(0)
+  // The texture's dissolve runs on its own, linear clock: its 16 steps then
+  // come at an even pace and end with the rest. On the pieces' ease-out, the
+  // last steps trailed well behind, so the texture settled late.
+  const dissolve = useSharedValue(0)
   const { form, field } = useAddressForm(() =>
     router.push("/onboarding/confirm")
   )
@@ -226,11 +230,13 @@ export default function Welcome() {
     setStep("address")
     focusField()
     toAddress.set(withTiming(1, { duration: 650, easing: ease }))
+    dissolve.set(withTiming(1, { duration: 450, easing: Easing.linear }))
   }
   const backToWelcome = () => {
     Keyboard.dismiss()
     setStep("welcome")
     toAddress.set(withTiming(0, { duration: 550, easing: ease }))
+    dissolve.set(withTiming(0, { duration: 400, easing: Easing.linear }))
   }
   // Back, from the header or the edge swipe, steps back to the welcome
   // instead of leaving the screen.
@@ -250,14 +256,18 @@ export default function Welcome() {
     },
     onUpdate: ({ translationX }) => {
       "worklet"
-      toAddress.set(clamp(1 - translationX / width, 0, 1))
+      const progress = clamp(1 - translationX / width, 0, 1)
+      toAddress.set(progress)
+      dissolve.set(progress)
     },
     onDeactivate: ({ translationX, velocityX }) => {
       "worklet"
       if (translationX > width / 3 || velocityX > 600) {
         toAddress.set(withTiming(0, { duration: 350, easing: ease }))
+        dissolve.set(withTiming(0, { duration: 250, easing: Easing.linear }))
         scheduleOnRN(setStep, "welcome")
       } else {
+        dissolve.set(withTiming(1, { duration: 220, easing: Easing.linear }))
         toAddress.set(
           withTiming(1, { duration: 300, easing: ease }, (finished) => {
             if (finished === true) scheduleOnRN(focusField)
@@ -291,7 +301,7 @@ export default function Welcome() {
         <Dither
           well={well}
           reveal={reveal}
-          next={{ well: addressWell, step: toAddress }}
+          next={{ well: addressWell, step: dissolve }}
           className="absolute inset-0"
         />
         <View
