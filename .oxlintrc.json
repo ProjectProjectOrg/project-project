@@ -126,6 +126,12 @@
       }
     },
     {
+      "files": ["apps/mobile/**/*.{js,jsx,ts,tsx}"],
+      "rules": {
+        "jsx-a11y/prefer-tag-over-role": "off"
+      }
+    },
+    {
       "files": ["**/*.{spec,test}.{js,jsx,ts,tsx}"],
       "env": {
         "vitest": true

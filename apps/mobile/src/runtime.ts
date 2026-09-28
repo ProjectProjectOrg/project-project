@@ -6,11 +6,14 @@ import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 
 import { ExpoAuthLive } from "@/auth/expoAuth"
 import { ServerAuth } from "@/auth/ServerAuth"
+import { ViewCacheLive } from "@/cache/ViewCache"
 import { seedSampleServers } from "@/servers/devSeed"
 import { ExpoStorageLive } from "@/servers/expoStorage"
 import { ServerStoreLive } from "@/servers/ServerStore"
 
 const StoreLive = ServerStoreLive.pipe(Layer.provide(ExpoStorageLive))
+
+const CacheLive = ViewCacheLive.pipe(Layer.provide(ExpoStorageLive))
 
 const seedEnabled = __DEV__ && process.env.EXPO_PUBLIC_SEED_SERVERS === "1"
 
@@ -27,6 +30,7 @@ const DevSeedLive = Layer.effectDiscard(
 const AuthLive = ServerAuth.layer.pipe(
   Layer.provide([
     StoreLive,
+    CacheLive,
     FetchHttpClient.layer,
     ExpoAuthLive,
     Reactivity.layer
@@ -36,6 +40,7 @@ const AuthLive = ServerAuth.layer.pipe(
 export const appRuntime = Atom.runtime(
   Layer.mergeAll(
     StoreLive,
+    CacheLive,
     Reactivity.layer,
     DevSeedLive,
     FetchHttpClient.layer,

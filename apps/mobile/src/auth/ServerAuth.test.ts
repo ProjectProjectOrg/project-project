@@ -9,6 +9,7 @@ import { FetchHttpClient } from "effect/unstable/http"
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import { describe, expect } from "vitest"
 
+import { ViewCacheLive } from "@/cache/ViewCache"
 import { MemoryStorageLive } from "@/servers/memoryStorage"
 import type { SavedServer } from "@/servers/model"
 import { ServerStore, ServerStoreLive } from "@/servers/ServerStore"
@@ -125,7 +126,7 @@ const fakeServer = (
     }
   }
   const layer = ServerAuth.layer.pipe(
-    Layer.provideMerge(ServerStoreLive),
+    Layer.provideMerge(Layer.merge(ServerStoreLive, ViewCacheLive)),
     Layer.provideMerge(MemoryStorageLive),
     Layer.provide(
       FetchHttpClient.layer.pipe(

@@ -16,10 +16,9 @@ import {
 import { Uniwind, useCSSVariable, useUniwind } from "uniwind"
 
 import { copy } from "@/copy"
+import { useNativeHeader } from "@/navigation/nativeHeader"
 
 import "../global.css"
-
-const headerFont = { fontFamily: "Geist", fontWeight: "600" } as const
 
 // The start screen redirects once the server store has loaded. Until the
 // screen it redirects to has appeared, the root stack doesn't animate and
@@ -63,15 +62,7 @@ export default function RootLayout() {
   useEffect(() => {
     void SystemUI.setBackgroundColorAsync(String(background))
   }, [background])
-  const nativeHeader = {
-    headerShown: true,
-    headerTransparent: true,
-    headerShadowVisible: false,
-    headerBackButtonDisplayMode: "minimal",
-    headerTintColor: String(foreground),
-    headerTitleStyle: headerFont,
-    headerLargeTitleStyle: headerFont
-  } as const
+  const nativeHeader = useNativeHeader()
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaListener onChange={({ insets }) => Uniwind.updateInsets(insets)}>
@@ -84,9 +75,13 @@ export default function RootLayout() {
                 transitionEnd: () => {
                   if (route.name === "index") return
                   setStarted(true)
-                  // The welcome screen grows out of the splash, so it hides
-                  // the splash itself once its first frame matches it.
-                  if (route.name !== "onboarding") SplashScreen.hide()
+                  // The welcome screen grows out of the splash and My work
+                  // waits for its tickets, so both hide the splash themselves.
+                  if (
+                    route.name !== "onboarding" &&
+                    !route.name.startsWith("orgs/")
+                  )
+                    SplashScreen.hide()
                 }
               })}
               screenOptions={{

@@ -3,7 +3,8 @@ import {
   HStack,
   Host,
   ProgressView,
-  Text as NativeText
+  Text as NativeText,
+  ZStack
 } from "@expo/ui/swift-ui"
 import {
   buttonStyle,
@@ -11,7 +12,9 @@ import {
   disabled as nativeDisabled,
   font,
   foregroundStyle,
-  frame
+  frame,
+  opacity,
+  tint
 } from "@expo/ui/swift-ui/modifiers"
 import { cva, type VariantProps } from "class-variance-authority"
 import {
@@ -116,18 +119,22 @@ function GlassButton({
           ]}
         >
           <HStack modifiers={[frame({ maxWidth: Number.POSITIVE_INFINITY })]}>
-            {loading ? (
-              <ProgressView />
-            ) : (
+            <ZStack>
               <NativeText
                 modifiers={[
                   font({ family: "Geist-Medium", size: nativeLabelSize[size] }),
-                  foregroundStyle(String(foreground))
+                  foregroundStyle(String(foreground)),
+                  opacity(loading ? 0 : 1)
                 ]}
               >
                 {label}
               </NativeText>
-            )}
+              {loading ? (
+                <ProgressView
+                  modifiers={[controlSize("small"), tint(String(foreground))]}
+                />
+              ) : null}
+            </ZStack>
           </HStack>
         </NativeButton>
       </Host>

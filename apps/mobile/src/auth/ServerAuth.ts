@@ -18,6 +18,7 @@ import {
 import { HttpApiClient } from "effect/unstable/httpapi"
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 
+import { ViewCache } from "@/cache/ViewCache"
 import { checkServer } from "@/onboarding/checkServer"
 import { serverKeys } from "@/servers/keys"
 import type { OrgLocation, SavedServer, ServerTokens } from "@/servers/model"
@@ -70,6 +71,7 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
   {
     make: Effect.gen(function* () {
       const store = yield* ServerStore
+      const cache = yield* ViewCache
       const http = yield* HttpClient.HttpClient
       const browser = yield* AuthBrowser
       const pkceSource = yield* PkceSource
@@ -169,7 +171,12 @@ export class ServerAuth extends Context.Service<ServerAuth>()(
       )
 
       const forgetTokens = (instanceId: string) =>
-        store.clearTokens(instanceId).pipe(Effect.andThen(publish(instanceId)))
+        store
+          .clearTokens(instanceId)
+          .pipe(
+            Effect.andThen(cache.clear(instanceId)),
+            Effect.andThen(publish(instanceId))
+          )
 
       const forgetIfCurrent = (instanceId: string, accessToken: string) =>
         exclusively(instanceId)(

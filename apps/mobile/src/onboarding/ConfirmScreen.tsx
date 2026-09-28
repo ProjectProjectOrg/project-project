@@ -2,8 +2,6 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
-import { useFocusEffect } from "expo-router"
-import { useCallback, useRef } from "react"
 import { ScrollView, View } from "react-native"
 
 import { signInProblem } from "@/auth/atoms"
@@ -30,7 +28,6 @@ function Confirm({
   const connect = useAtomSet(connectCheckedServer, { mode: "promiseExit" })
   const connectState = useAtomValue(connectCheckedServer)
   const { descriptor, origin } = checked
-  const attempt = useRef(0)
   const problem = AsyncResult.matchWithError(connectState, {
     onInitial: () => null,
     onSuccess: () => null,
@@ -39,19 +36,9 @@ function Confirm({
   })
   useAnnouncement(problem)
 
-  useFocusEffect(
-    useCallback(
-      () => () => {
-        attempt.current += 1
-      },
-      []
-    )
-  )
-
   const confirm = async () => {
-    const current = ++attempt.current
     const exit = await connect(checked)
-    if (current === attempt.current && Exit.isSuccess(exit))
+    if (Exit.isSuccess(exit))
       onSignedIn(checked.descriptor.instanceId, exit.value)
   }
 
