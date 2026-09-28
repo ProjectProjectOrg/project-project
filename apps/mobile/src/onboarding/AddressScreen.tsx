@@ -16,9 +16,8 @@ import {
   useRef,
   useState
 } from "react"
-import { type TextInput, View } from "react-native"
+import { ScrollView, type TextInput, View } from "react-native"
 import {
-  KeyboardAwareScrollView,
   KeyboardController,
   KeyboardStickyView
 } from "react-native-keyboard-controller"
@@ -51,8 +50,8 @@ export function AddressScreen({
   const [address, setAddress] = useState("")
   const [submitted, setSubmitted] = useState(false)
   const origin = normalizeAddress(address, __DEV__)
-  // The footer already pads for the home indicator, so it rises by the
-  // keyboard minus that inset and sits the same 8 pt above the keyboard.
+  // The footer pads for the home indicator, which the keyboard covers, so it
+  // rises by the keyboard minus that inset and keeps 8 pt above the keyboard.
   const { bottom } = useSafeAreaInsets()
 
   const navigation =
@@ -120,8 +119,7 @@ export function AddressScreen({
 
   return (
     <View className="flex-1 bg-background">
-      <KeyboardAwareScrollView
-        mode="layout"
+      <ScrollView
         className="flex-1"
         contentContainerClassName="px-5 pt-4"
         contentInsetAdjustmentBehavior="automatic"
@@ -155,10 +153,12 @@ export function AddressScreen({
             hint={hint}
           />
         </View>
-      </KeyboardAwareScrollView>
+      </ScrollView>
+      {/* An overlay pinned to the bottom, so only the sticky view's own
+          transform moves it and no layout change adds to that. */}
       <KeyboardStickyView
-        offset={{ opened: bottom }}
-        className="px-5 pt-3 pb-safe-offset-2"
+        offset={{ closed: 0, opened: bottom }}
+        className="absolute inset-x-0 bottom-0 px-5 pt-3 pb-safe-offset-2"
       >
         <Button
           label={copy.addressContinue}
