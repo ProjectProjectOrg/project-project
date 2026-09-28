@@ -42,16 +42,37 @@ diagnostics. Install the recommended TypeScript native preview extension and
 select the workspace TypeScript version when prompted.
 
 ```bash
-bun run dev           # Postgres, then backend + frontend in parallel
+bun run dev           # Postgres, backend, web and the app's Metro, on Tailscale
+bun run dev:local     # The same stack on localhost, without Tailscale
 bun run check         # Format, lint, and typecheck
 bun run test          # Backend, frontend, and shared suites
 bun run build         # Frontend production build
 ```
 
-`bun run dev` waits for the Postgres container to report healthy
-(`docker compose up --wait`), then runs the frontend (`vite`) and backend
-(`bun --watch`) dev scripts in parallel. Postgres stays up after you exit;
+`bun run dev` serves everything on this Mac's Tailscale HTTPS address
+(`https://<machine>.<tailnet>.ts.net`), so the browser, the iOS simulator and a
+phone on your tailnet all reach the same server. Better Auth, the OAuth issuer
+and the app's `/api` tokens only agree on one URL, so this is the address to
+open in the browser and to add in the app. Once per tailnet, enable MagicDNS
+and HTTPS certificates at <https://login.tailscale.com/admin/dns>. A phone needs
+the Tailscale app signed in to the same tailnet. The stack uses Tailscale
+Serve, which is private to your tailnet; nothing is exposed to the internet,
+and stopping `bun run dev` removes the Serve configuration again. Local
+Google and GitHub sign-in need their callback URLs registered for that
+address; the email code works without.
+
+The script checks Tailscale first and fails with what to fix. Then it waits for
+the Postgres container to report healthy (`docker compose up --wait`), starts
+`tailscale serve` in front of the frontend, and runs the frontend (`vite`),
+backend (`bun --watch`) and the app's Metro dev scripts in parallel with
+`BETTER_AUTH_URL` set to the Tailscale address. `bun run dev:local` runs the
+same dev scripts on `localhost` with your `.env` as is; the simulator can use
+`http://localhost:5173` there, a phone can't. Postgres stays up after you exit;
 stop it with `bun run dev:stop`.
+
+The app's dev client is a native build, so it's only rebuilt when native code
+changes: `bun run dev:mobile` builds it for the simulator (and starts Metro),
+`bun run app:ios:device` builds and installs it on a connected iPhone.
 
 ## Tooling
 

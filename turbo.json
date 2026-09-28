@@ -10,7 +10,8 @@
     "dev": {
       "persistent": true,
       "cache": false,
-      "interactive": true
+      "interactive": true,
+      "passThroughEnv": ["BETTER_AUTH_URL"]
     },
     "lint": {
       "inputs": ["$TURBO_DEFAULT$", "!**/*.md"],

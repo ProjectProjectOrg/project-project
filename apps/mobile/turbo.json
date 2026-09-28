@@ -8,11 +8,16 @@
     "dev": {
       "persistent": true,
       "cache": false,
-      "env": ["EXPO_PUBLIC_SEED_SERVERS"],
-      "with": ["app:ios"]
+      "env": ["EXPO_PUBLIC_SEED_SERVERS"]
     },
     "app:ios": {
       "cache": false,
+      "passThroughEnv": ["*"],
+      "dependsOn": ["prebuild"]
+    },
+    "app:ios:device": {
+      "cache": false,
+      "interactive": true,
       "passThroughEnv": ["*"],
       "dependsOn": ["prebuild"]
     },

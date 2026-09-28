@@ -49,6 +49,8 @@ export default defineConfig(({ mode }) => ({
   },
   server: {
     port: 5173,
+    // `bun run dev` serves the web app on this Mac's Tailscale HTTPS name.
+    allowedHosts: [".ts.net"],
     proxy: {
       "/api": {
         target: process.env.JIRA_BROWSER_API_TARGET ?? "http://localhost:3000",

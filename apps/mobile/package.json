@@ -7,6 +7,7 @@
     "dev": "EXPO_NO_GIT_STATUS=1 expo start --dev-client --port ${PORT:-8081}",
     "prebuild": "EXPO_NO_GIT_STATUS=1 expo prebuild --platform ios",
     "app:ios": "expo run:ios --no-bundler",
+    "app:ios:device": "expo run:ios --device --no-bundler",
     "app:ios:standalone": "expo run:ios --configuration Release --no-bundler",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
