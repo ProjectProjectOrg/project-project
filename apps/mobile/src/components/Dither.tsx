@@ -119,9 +119,11 @@ half4 main(float2 cell) {
 // texture around the content and fades into it. While u_reveal runs from 0
 // to 1 the texture spreads outward from the well's edge, over u_spread cells,
 // so it grows out of whatever the well holds.
-// A second well, u_next, is the next step's content: a tight well that keeps
-// its text clear, and around it the texture thins out, sparse near the
-// content and dense at the edges. It thins by shrinking the texture's blobs,
+// A second look is the next step's: its elements, up to eight boxes in
+// u_e0 to u_e7 (a text line each, sized to where the text ends, or a
+// control), each get a tight clear well, and around them the texture thins
+// out, sparse near the content and dense at the edges. Beside a short line
+// the texture comes in close, so it follows where the content really is. It thins by shrinking the texture's blobs,
 // not by dimming it: a dimmed field leaves wide areas on the Bayer matrix's
 // lowest levels, which read as a rigid grid of dots and lines. The cut rises
 // steadily toward the content, so the blobs shrink bit by bit until nothing
@@ -141,8 +143,15 @@ uniform float u_reveal;
 uniform float u_spread;
 uniform half4 u_front;
 uniform half4 u_back;
-uniform float4 u_next;
-uniform float3 u_nextShape;
+uniform float4 u_e0;
+uniform float4 u_e1;
+uniform float4 u_e2;
+uniform float4 u_e3;
+uniform float4 u_e4;
+uniform float4 u_e5;
+uniform float4 u_e6;
+uniform float4 u_e7;
+uniform float4 u_nextShape;
 uniform float u_step;
 
 // Same values as the web's 4x4 Bayer table, computed instead of indexed.
@@ -158,6 +167,18 @@ float roundedBoxSdf(float2 p, float2 b, float r) {
   return min(max(q.x, q.y), 0.0) + length(max(q, float2(0.0))) - r;
 }
 
+// The distance to the nearest of the next step's elements.
+float elements(float2 c, float r) {
+  float d = roundedBoxSdf(c - u_e0.xy, u_e0.zw, r);
+  d = min(d, roundedBoxSdf(c - u_e1.xy, u_e1.zw, r));
+  d = min(d, roundedBoxSdf(c - u_e2.xy, u_e2.zw, r));
+  d = min(d, roundedBoxSdf(c - u_e3.xy, u_e3.zw, r));
+  d = min(d, roundedBoxSdf(c - u_e4.xy, u_e4.zw, r));
+  d = min(d, roundedBoxSdf(c - u_e5.xy, u_e5.zw, r));
+  d = min(d, roundedBoxSdf(c - u_e6.xy, u_e6.zw, r));
+  return min(d, roundedBoxSdf(c - u_e7.xy, u_e7.zw, r));
+}
+
 half4 main(float2 point) {
   float2 cell = floor(point / u_cellSize);
   float shape = field.eval(cell + 0.5).r;
@@ -170,7 +191,7 @@ half4 main(float2 point) {
   bool on = step(0.5, first + threshold) > 0.5;
 
   if (u_step > 0.0) {
-    float nextSdf = roundedBoxSdf(cell - u_next.xy, u_next.zw, u_wellShape.x)
+    float nextSdf = elements(cell, u_nextShape.w)
       - (shape - 0.5) * u_nextShape.x * 1.5;
     float sparse = 1.0 - smoothstep(0.0, u_nextShape.y, max(nextSdf, 0.0));
     float cut = u_nextShape.z * sparse;
@@ -254,13 +275,26 @@ const renderField = ({ cols, rows }: Grid) => {
   return surface.makeImageSnapshot()
 }
 
-// Around the next step's content: how far its tight well fades, how far out
-// the texture thins, and how much it thins right by the content.
-const next = { falloff: 40, thinReach: 130, thinDepth: 0.9 } as const
+// Around the next step's elements: how far their tight wells fade, how far
+// out the texture thins, how much it thins right by them, and how round the
+// wells' corners are.
+const next = {
+  falloff: 40,
+  thinReach: 130,
+  thinDepth: 0.9,
+  radius: 8
+} as const
+
+// How many elements the next look takes. An element with no size is left
+// out: its well sits far off the screen.
+export const ditherElements = 8
+const nowhere = [-10000, -10000, 0, 0]
 
 // `well` is in the dither's own coordinates. `reveal` runs from 0, the bare
 // dither-back ground, to 1, the full field. `next` is the next step's
-// content and how far the dissolve to it has gone, from 0 to 1.
+// elements, flat as x, y, width and height per element, `ditherElements` of
+// them, in the dither's coordinates, and how far the dissolve to it has
+// gone, from 0 to 1.
 export function Dither({
   well,
   reveal,
@@ -270,7 +304,7 @@ export function Dither({
   well: DerivedValue<DitherWell>
   reveal: DerivedValue<number>
   next?: Readonly<{
-    well: DerivedValue<DitherWell>
+    elements: DerivedValue<Array<number>>
     step: DerivedValue<number>
   }>
   className?: string
@@ -296,17 +330,24 @@ export function Dither({
   )
   const uniforms = useDerivedValue(() => {
     const box = well.value
-    const nextBox = nextStep?.well.value ?? box
+    const flat = nextStep?.elements.value ?? []
+    const elements: Record<string, Array<number>> = {}
+    for (let i = 0; i < ditherElements; i++) {
+      const [x = 0, y = 0, width = 0, height = 0] = flat.slice(i * 4, i * 4 + 4)
+      elements[`u_e${i}`] =
+        width > 0 && height > 0 ? wellUniform({ x, y, width, height }) : nowhere
+    }
     return {
       u_cells: grid === null ? [0, 0] : [grid.cols, grid.rows],
       u_cellSize: cellSize,
       u_well: wellUniform(box),
       u_wellShape: [login.wellRadius / cellSize, login.wellFalloff / cellSize],
-      u_next: wellUniform(nextBox),
+      ...elements,
       u_nextShape: [
         next.falloff / cellSize,
         next.thinReach / cellSize,
-        next.thinDepth
+        next.thinDepth,
+        next.radius / cellSize
       ],
       u_step: nextStep?.step.value ?? 0,
       u_reveal: reveal.value,

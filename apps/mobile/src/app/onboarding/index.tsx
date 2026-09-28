@@ -32,14 +32,13 @@ import Animated, {
 } from "react-native-reanimated"
 import { scheduleOnRN, scheduleOnUI } from "react-native-worklets"
 
-import { Dither } from "@/components/Dither"
+import { Dither, ditherElements } from "@/components/Dither"
 import { KeyboardDock } from "@/components/KeyboardDock"
 import { Logo } from "@/components/Logo"
 import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
 import { copy } from "@/copy"
 import { AddressFields, useAddressForm } from "@/onboarding/AddressForm"
-import { aroundContent } from "@/onboarding/DitherBand"
 
 const logoSize = 96
 const ease = Easing.bezier(0.22, 1, 0.36, 1)
@@ -59,6 +58,8 @@ const stepInset = 48
 const aboveContinue = 16
 // Continue sits this far above the keyboard.
 const dockGap = 8
+// The clear room around each of the step's elements.
+const elementRoom = 6
 
 type Box = Readonly<{ x: number; y: number; width: number; height: number }>
 
@@ -182,9 +183,16 @@ export default function Welcome() {
       for (const listener of listeners) listener.remove()
     }
   }, [addressTop, addressHeight, actionHeight, height, scrollRef])
-  const addressWell = useDerivedValue(() =>
-    aroundContent(width, addressTop - scrolled.value, addressHeight.value)
+  // The step's elements, where the texture clears: relative to the fields,
+  // flat as the dither takes them, and moved with the step as it scrolls.
+  const [fieldsLeft, setFieldsLeft] = useState(0)
+  const elements = useSharedValue<Array<number>>(
+    Array.from({ length: ditherElements * 4 }, () => 0)
   )
+  const placedElements = useDerivedValue(() => {
+    const shift = [fieldsLeft, addressTop - scrolled.value, 0, 0]
+    return elements.value.map((value, i) => value + (shift[i % 4] ?? 0))
+  })
   // The welcome's pieces clear out over the first half of the change, and
   // the address step comes in over the second, so they never overlap.
   const away = useDerivedValue(() =>
@@ -212,14 +220,24 @@ export default function Welcome() {
     transform: [{ translateY: 16 * (1 - arrive.value) }]
   }))
 
-  // The step grows when a hint or an error shows under the field. The well
-  // eases to the new height, so the texture makes room smoothly; only the
-  // first layout lands at once.
-  const resizeAddress = (next: number) => {
-    addressHeight.set(
-      addressHeight.get() === 0
-        ? next
-        : withTiming(next, { duration: 220, easing: ease })
+  // When a hint or an error shows under the field, the field's box grows.
+  // The boxes ease to their new places, so the texture makes room smoothly;
+  // only the first layout lands at once. Each gets a little room around it.
+  const placeElements = (boxes: ReadonlyArray<Box>) => {
+    const flat = Array.from({ length: ditherElements }, (_, i) => {
+      const box = boxes[i]
+      return box === undefined
+        ? [0, 0, 0, 0]
+        : [
+            box.x - elementRoom,
+            box.y - elementRoom,
+            box.width + 2 * elementRoom,
+            box.height + 2 * elementRoom
+          ]
+    }).flat()
+    const placed = elements.get().some((value) => value !== 0)
+    elements.set(
+      placed ? withTiming(flat, { duration: 220, easing: ease }) : flat
     )
   }
 
@@ -301,7 +319,7 @@ export default function Welcome() {
         <Dither
           well={well}
           reveal={reveal}
-          next={{ well: addressWell, step: dissolve }}
+          next={{ elements: placedElements, step: dissolve }}
           className="absolute inset-0"
         />
         <View
@@ -347,11 +365,16 @@ export default function Welcome() {
           scrollEventThrottle={16}
         >
           <View
-            onLayout={({ nativeEvent }) =>
-              resizeAddress(nativeEvent.layout.height)
-            }
+            onLayout={({ nativeEvent }) => {
+              addressHeight.set(nativeEvent.layout.height)
+              setFieldsLeft(nativeEvent.layout.x)
+            }}
           >
-            <AddressFields form={form} field={field} />
+            <AddressFields
+              form={form}
+              field={field}
+              onElements={placeElements}
+            />
           </View>
         </Animated.ScrollView>
         <KeyboardDock>
