@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { ProjectStatus } from "@pp/shared"
+import { compareByOrderKey, type ProjectStatus } from "@pp/shared"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { generateKeyBetween } from "fractional-indexing"
 import { Reorder } from "motion/react"
@@ -16,7 +16,6 @@ import {
   countsRequest,
   ticketCounts
 } from "@/features/tickets/atoms/ticketCounts"
-import { compareByOrderKey } from "@/lib/orderKey"
 import { m } from "@/paraglide/messages"
 
 type Props = {

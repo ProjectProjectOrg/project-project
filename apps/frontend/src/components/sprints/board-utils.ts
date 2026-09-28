@@ -1,6 +1,9 @@
-import type { ProjectStatus, Ticket, TicketId } from "@pp/shared"
-
-import { compareByOrderKey } from "@/lib/orderKey"
+import {
+  compareByOrderKey,
+  type ProjectStatus,
+  type Ticket,
+  type TicketId
+} from "@pp/shared"
 
 export type DragData = {
   type: "card"

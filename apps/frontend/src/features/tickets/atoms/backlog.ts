@@ -1,19 +1,20 @@
 import {
-  matchesTicketQuery,
-  padNumericIdSort,
+  compareCodePoints,
   type GroupId,
+  matchesTicketQuery,
+  type NotFound,
+  padNumericIdSort,
   type QuickCreateTicketInput,
   type TagName,
   type Ticket,
   type TicketCounts,
   type TicketId,
-  type TicketListRow,
   TicketListQuery,
+  type TicketListRow,
   type TicketPriority,
   type TicketSort,
   type TicketStatus,
   type Unauthorized,
-  type NotFound,
   type UpdateTicketInput
 } from "@pp/shared"
 import * as Cause from "effect/Cause"
@@ -27,7 +28,6 @@ import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
-import { compareCodePoints } from "@/lib/orderKey"
 import { PRIORITY_META } from "@/lib/priority-meta"
 
 import { countsRequest, ticketCounts } from "./ticketCounts"

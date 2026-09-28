@@ -1,13 +1,16 @@
-import type {
-  AssignedStatusCount,
-  NotFound,
-  OrgTicketRow,
-  Project,
-  RecentTicketActivity,
-  Ticket,
-  TicketId,
-  Unauthorized,
-  UpdateTicketInput
+import {
+  mergeStatusColumns,
+  placeInColumns,
+  type AssignedStatusCount,
+  type NotFound,
+  type OrgTicketRow,
+  type PlacedColumn,
+  type Project,
+  type RecentTicketActivity,
+  type Ticket,
+  type TicketId,
+  type Unauthorized,
+  type UpdateTicketInput
 } from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
@@ -25,11 +28,6 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
-import {
-  mergeStatusColumns,
-  placeInColumns,
-  type PlacedColumn
-} from "@/lib/statusColumns"
 import { getLocale } from "@/paraglide/runtime"
 
 import { applyTicketPatch } from "./ticketPatch"

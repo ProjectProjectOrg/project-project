@@ -1,3 +1,6 @@
+import * as Arr from "effect/Array"
+import * as Order from "effect/Order"
+
 export type TicketBlockSegment =
   | Readonly<{ kind: "markdown"; text: string }>
   | Readonly<{ kind: "block"; type: string; content: string; sync?: boolean }>
@@ -209,7 +212,10 @@ export const validateTicketBlocks = (
     fence = advanceFence(line, fence)
   }
   for (const opener of openers) issues.push(issueAt(lines, opener, "unclosed"))
-  return issues.toSorted((a, b) => a.line - b.line)
+  return Arr.sort(
+    issues,
+    Order.mapInput(Order.Number, (issue: BlockIssue) => issue.line)
+  )
 }
 
 const BLOCK_ISSUE_MESSAGES: Readonly<Record<BlockIssueCode, string>> = {

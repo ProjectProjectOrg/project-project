@@ -1,3 +1,6 @@
+import * as Arr from "effect/Array"
+import * as Order from "effect/Order"
+
 import type {
   BlockDefinition,
   BlockDraft,
@@ -124,10 +127,21 @@ const resolveKey = <A extends Keyed>(
     : { ...hiddenContent, origin: deciding.origin, shadows, hidden: true }
 }
 
-const byNameThenKey = (
-  a: Readonly<{ name: string; key: string }>,
-  b: Readonly<{ name: string; key: string }>
-) => a.name.localeCompare(b.name, "en") || a.key.localeCompare(b.key, "en")
+const byLocale = Order.make<string>((a, b) => {
+  const compared = a.localeCompare(b, "en")
+  return compared < 0 ? -1 : compared > 0 ? 1 : 0
+})
+
+const byNameThenKey = Order.combine(
+  Order.mapInput(
+    byLocale,
+    (entry: Readonly<{ name: string; key: string }>) => entry.name
+  ),
+  Order.mapInput(
+    byLocale,
+    (entry: Readonly<{ name: string; key: string }>) => entry.key
+  )
+)
 
 const resolveEntries = <A extends Keyed & Readonly<{ name: string }>>(
   stack: ReadonlyArray<LayerView<A>>
@@ -138,9 +152,10 @@ const resolveEntries = <A extends Keyed & Readonly<{ name: string }>>(
       ...view.hidden
     ])
   )
-  return [...keys]
-    .flatMap((key) => resolveKey(key, stack) ?? [])
-    .toSorted(byNameThenKey)
+  return Arr.sort(
+    [...keys].flatMap((key) => resolveKey(key, stack) ?? []),
+    byNameThenKey
+  )
 }
 
 const layerStack = (

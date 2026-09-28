@@ -1,8 +1,9 @@
 import {
-  deriveStatusSlug,
-  pickStatusColor,
+  compareByOrderKey,
   type CreateStatusInput,
   type DeleteStatusInput,
+  deriveStatusSlug,
+  pickStatusColor,
   type ProjectStatus,
   type ReorderStatusInput,
   type StatusSlug,
@@ -17,7 +18,6 @@ import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
-import { compareByOrderKey } from "@/lib/orderKey"
 
 export type StatusesRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>

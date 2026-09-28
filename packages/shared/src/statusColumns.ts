@@ -1,11 +1,14 @@
+import * as Arr from "effect/Array"
+import * as Option from "effect/Option"
+import * as Order from "effect/Order"
+
+import { compareByOrderKey, compareCodePoints } from "./orderKey"
 import {
   BASELINE_STATUS_SLUGS,
   type BaselineStatusSlug,
   type ProjectStatus,
   type StatusSlug
-} from "@pp/shared"
-
-import { compareByOrderKey, compareCodePoints } from "./orderKey"
+} from "./schemas/Status"
 
 export type ProjectStatuses = Readonly<{
   projectSlug: string
@@ -86,7 +89,7 @@ const columnKeyOf = (
 const positionsIn = (
   statuses: ReadonlyArray<ProjectStatus>
 ): ReadonlyArray<readonly [ProjectStatus, number]> => {
-  const ordered = [...statuses].toSorted(compareByOrderKey)
+  const ordered = Arr.sort(statuses, compareByOrderKey)
   const anchors = ordered.flatMap((status, index) => {
     const value = BASELINE_ANCHORS.get(status.slug)
     return value === undefined ? [] : [{ index, value }]
@@ -94,7 +97,9 @@ const positionsIn = (
   return ordered.map((status, index) => {
     const anchor = BASELINE_ANCHORS.get(status.slug)
     if (anchor !== undefined) return [status, anchor] as const
-    const before = anchors.findLast((anchor) => anchor.index < index)
+    const before = Option.getOrUndefined(
+      Arr.findLast(anchors, (anchor) => anchor.index < index)
+    )
     const after = anchors.find((anchor) => anchor.index > index)
     if (before && after) {
       const share = (index - before.index) / (after.index - before.index)
@@ -119,6 +124,16 @@ const mostCommonLabel = (
       : best
   )
 }
+
+const byColumnPosition = Order.combine(
+  Order.mapInput(Order.Number, (column: StatusColumn) => column.position),
+  Order.combine(
+    Order.mapInput(compareCodePoints, (column: StatusColumn) =>
+      normalizeStatusLabel(column.label)
+    ),
+    Order.mapInput(compareCodePoints, (column: StatusColumn) => column.key)
+  )
+)
 
 export const mergeStatusColumns = (
   projects: ReadonlyArray<ProjectStatuses>
@@ -152,15 +167,7 @@ export const mergeStatusColumns = (
     }
   })
   return {
-    columns: columns.toSorted(
-      (a, b) =>
-        a.position - b.position ||
-        compareCodePoints(
-          normalizeStatusLabel(a.label),
-          normalizeStatusLabel(b.label)
-        ) ||
-        compareCodePoints(a.key, b.key)
-    ),
+    columns: Arr.sort(columns, byColumnPosition),
     columnKeyFor: (projectSlug, status) =>
       keyById.get(memberId(projectSlug, status))
   }

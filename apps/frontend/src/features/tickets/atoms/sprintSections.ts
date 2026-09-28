@@ -1,10 +1,11 @@
 import {
-  matchesTicketQuery,
-  padNumericIdSort,
-  SPRINT_SECTION_UNSCHEDULED,
+  compareCodePoints,
   type GroupId,
   type GroupIdFilter,
+  matchesTicketQuery,
   type NotFound,
+  padNumericIdSort,
+  SPRINT_SECTION_UNSCHEDULED,
   type SprintSectionKey,
   type Ticket,
   type TicketCounts,
@@ -27,7 +28,6 @@ import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
-import { compareCodePoints } from "@/lib/orderKey"
 import { PRIORITY_META } from "@/lib/priority-meta"
 
 import {

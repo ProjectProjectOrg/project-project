@@ -1,4 +1,6 @@
-export const compareCodePoints = (a: string, b: string): number => {
+import * as Order from "effect/Order"
+
+export const compareCodePoints = Order.make<string>((a, b) => {
   let leftIndex = 0
   let rightIndex = 0
   while (leftIndex < a.length && rightIndex < b.length) {
@@ -15,9 +17,9 @@ export const compareCodePoints = (a: string, b: string): number => {
     : leftIndex === a.length
       ? -1
       : 1
-}
+})
 
-export const compareByOrderKey = <T extends { orderKey: string }>(
-  a: T,
-  b: T
-): number => (a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : 0)
+export const compareByOrderKey = Order.mapInput(
+  Order.String,
+  (item: Readonly<{ orderKey: string }>) => item.orderKey
+)

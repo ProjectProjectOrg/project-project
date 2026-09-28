@@ -1,7 +1,7 @@
-import { ProjectStatus, StatusSlug } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
+import { ProjectStatus, StatusSlug } from "./schemas/Status"
 import {
   mergeStatusColumns,
   normalizeStatusLabel,
