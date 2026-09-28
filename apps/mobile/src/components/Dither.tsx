@@ -121,7 +121,11 @@ half4 main(float2 cell) {
 // so it grows out of whatever the well holds.
 // A second well, u_next, is the next step's content: a tight well that keeps
 // its text clear, and around it the texture thins out, sparse near the
-// content and dense at the edges. The texture never moves between the two.
+// content and dense at the edges. It thins by shrinking the texture's blobs,
+// not by dimming it: a dimmed field leaves wide areas on the Bayer matrix's
+// lowest levels, which read as a rigid grid of dots and lines. The well's
+// edge is pushed in and out by the field too, so it follows the texture
+// instead of running straight. The texture never moves between the two.
 // As u_step runs from 0 to 1, blocks of 2x2 cells switch from the first look
 // to the next in Bayer order, 16 steps, like a 1-bit screen dissolving.
 const ground = Skia.RuntimeEffect.Make(`
@@ -163,11 +167,12 @@ half4 main(float2 point) {
   bool on = step(0.5, first + threshold) > 0.5;
 
   if (u_step > 0.0) {
-    float nextSdf = roundedBoxSdf(cell - u_next.xy, u_next.zw, u_wellShape.x);
+    float nextSdf = roundedBoxSdf(cell - u_next.xy, u_next.zw, u_wellShape.x)
+      - (shape - 0.5) * u_nextShape.x * 1.5;
     float sparse = 1.0 - smoothstep(0.0, u_nextShape.y, max(nextSdf, 0.0));
-    float next = shape
-      - (1.0 - smoothstep(0.0, u_nextShape.x, nextSdf))
-      - u_nextShape.z * sparse;
+    float cut = u_nextShape.z * sparse;
+    float thinned = mix(shape, smoothstep(cut, cut + 0.15, shape), sparse);
+    float next = thinned - (1.0 - smoothstep(0.0, u_nextShape.x, nextSdf));
     if (bayer4(floor(cell / 2.0)) < u_step) on = step(0.5, next + threshold) > 0.5;
   }
 

@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from "react"
 import {
   Keyboard,
   type LayoutRectangle,
+  StyleSheet,
   useWindowDimensions,
   View
 } from "react-native"
@@ -19,6 +20,9 @@ import Animated, {
   clamp,
   Easing,
   interpolate,
+  scrollTo,
+  useAnimatedRef,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
@@ -26,7 +30,7 @@ import Animated, {
   withSpring,
   withTiming
 } from "react-native-reanimated"
-import { scheduleOnRN } from "react-native-worklets"
+import { scheduleOnRN, scheduleOnUI } from "react-native-worklets"
 
 import { Dither } from "@/components/Dither"
 import { KeyboardDock } from "@/components/KeyboardDock"
@@ -35,7 +39,7 @@ import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
 import { copy } from "@/copy"
 import { AddressFields, useAddressForm } from "@/onboarding/AddressForm"
-import { aroundContent, bandContentInset } from "@/onboarding/DitherBand"
+import { aroundContent } from "@/onboarding/DitherBand"
 
 const logoSize = 96
 const ease = Easing.bezier(0.22, 1, 0.36, 1)
@@ -48,6 +52,13 @@ const spreadEase = Easing.bezier(0.45, 0, 0.2, 1)
 const lift = { duration: 1100, dampingRatio: 1 } as const
 
 const dismissKeyboard = () => Keyboard.dismiss()
+
+// How far below the header the address step starts, and how much room it
+// keeps above Continue when the keyboard is up.
+const stepInset = 48
+const aboveContinue = 16
+// Continue sits this far above the keyboard.
+const dockGap = 8
 
 type Box = Readonly<{ x: number; y: number; width: number; height: number }>
 
@@ -108,8 +119,8 @@ export default function Welcome() {
   const header = useHeaderHeight()
   const [step, setStep] = useState<"welcome" | "address">("welcome")
   // The address step's content, which the well closes in around.
-  const [addressHeight, setAddressHeight] = useState(0)
-  const addressTop = header + bandContentInset
+  const addressHeight = useSharedValue(0)
+  const addressTop = header + stepInset
   const toAddress = useSharedValue(0)
   const { form, field } = useAddressForm(() =>
     router.push("/onboarding/confirm")
@@ -136,8 +147,39 @@ export default function Welcome() {
   const well = useDerivedValue(() =>
     layout === undefined ? splash : mix(splash, layout.well, grow.value)
   )
+  // The well follows the step as it scrolls, so the text never slides over
+  // the texture while the keyboard is dragged away.
+  const scrolled = useSharedValue(0)
+  const followScroll = useAnimatedScrollHandler((event) => {
+    scrolled.set(event.contentOffset.y)
+  })
+  // The step always stays above Continue, whatever the keyboard's height,
+  // like the taller emoji keyboard: when the keyboard comes up or changes,
+  // the step scrolls up by as much as Continue would cover of it, and back
+  // down when the keyboard goes.
+  const scrollRef = useAnimatedRef<Animated.ScrollView>()
+  const [actionHeight, setActionHeight] = useState(0)
+  useEffect(() => {
+    const clear = (keyboardTop: number) => {
+      const stepBottom = addressTop + addressHeight.get() + aboveContinue
+      const y = Math.max(0, stepBottom - (keyboardTop - dockGap - actionHeight))
+      scheduleOnUI(() => {
+        "worklet"
+        scrollTo(scrollRef, 0, y, true)
+      })
+    }
+    const listeners = [
+      Keyboard.addListener("keyboardWillChangeFrame", ({ endCoordinates }) =>
+        clear(endCoordinates.screenY)
+      ),
+      Keyboard.addListener("keyboardWillHide", () => clear(height))
+    ]
+    return () => {
+      for (const listener of listeners) listener.remove()
+    }
+  }, [addressTop, addressHeight, actionHeight, height, scrollRef])
   const addressWell = useDerivedValue(() =>
-    aroundContent(width, addressTop, addressHeight)
+    aroundContent(width, addressTop - scrolled.value, addressHeight.value)
   )
   // The welcome's pieces clear out over the first half of the change, and
   // the address step comes in over the second, so they never overlap.
@@ -165,6 +207,17 @@ export default function Welcome() {
     opacity: arrive.value,
     transform: [{ translateY: 16 * (1 - arrive.value) }]
   }))
+
+  // The step grows when a hint or an error shows under the field. The well
+  // eases to the new height, so the texture makes room smoothly; only the
+  // first layout lands at once.
+  const resizeAddress = (next: number) => {
+    addressHeight.set(
+      addressHeight.get() === 0
+        ? next
+        : withTiming(next, { duration: 220, easing: ease })
+    )
+  }
 
   const focusField = () => field.current?.focus()
   // The field focuses straight away, so the keyboard comes up with the
@@ -264,21 +317,40 @@ export default function Welcome() {
             </Animated.View>
           </View>
         </View>
-        <Animated.View
+        {/* Dragging the step down pulls the keyboard away with the finger,
+            and a tap beside the field closes it, so the whole step shows. */}
+        <Animated.ScrollView
+          ref={scrollRef}
           pointerEvents={step === "address" ? "auto" : "none"}
-          style={[
-            { position: "absolute", left: 0, right: 0, top: addressTop },
-            addressStyle
-          ]}
-          className="px-5"
-          onLayout={({ nativeEvent }) =>
-            setAddressHeight(nativeEvent.layout.height)
-          }
+          style={[StyleSheet.absoluteFill, addressStyle]}
+          contentContainerClassName="px-5"
+          contentContainerStyle={{
+            paddingTop: addressTop,
+            // Room to scroll the step up above a tall keyboard.
+            paddingBottom: height / 2
+          }}
+          contentInsetAdjustmentBehavior="never"
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
+          alwaysBounceVertical
+          onScroll={followScroll}
+          scrollEventThrottle={16}
         >
-          <AddressFields form={form} field={field} />
-        </Animated.View>
+          <View
+            onLayout={({ nativeEvent }) =>
+              resizeAddress(nativeEvent.layout.height)
+            }
+          >
+            <AddressFields form={form} field={field} />
+          </View>
+        </Animated.ScrollView>
         <KeyboardDock>
-          <Animated.View style={actionStyle}>
+          <Animated.View
+            style={actionStyle}
+            onLayout={({ nativeEvent }) =>
+              setActionHeight(nativeEvent.layout.height)
+            }
+          >
             {step === "welcome" ? (
               <Button label={copy.welcomeStart} onPress={start} />
             ) : (
