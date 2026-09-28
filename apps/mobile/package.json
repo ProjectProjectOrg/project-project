@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "../../node_modules/.bin/oxlint .",
-    "lint:fix": "../../node_modules/.bin/oxlint . --fix"
+    "lint:fix": "../../node_modules/.bin/oxlint . --fix",
+    "splash": "bun scripts/generate-splash.ts"
   },
   "dependencies": {
     "@effect/atom-react": "4.0.0-rc.116",
@@ -33,6 +34,7 @@
     "expo-linking": "~58.0.7",
     "expo-router": "~58.0.8",
     "expo-secure-store": "~58.0.0",
+    "expo-splash-screen": "~58.0.1",
     "expo-sqlite": "~58.0.6",
     "expo-status-bar": "~58.0.1",
     "expo-symbols": "~58.0.2",
@@ -55,9 +57,12 @@
   },
   "devDependencies": {
     "@effect/vitest": "4.0.0-rc.116",
+    "@types/culori": "^4.0.1",
     "@types/punycode": "^2.1.4",
     "@types/react": "~19.3.0",
+    "culori": "4.0.2",
     "react-native-svg-transformer": "^1.5.3",
+    "sharp": "^0.34.5",
     "vitest": "4.1.11"
   }
 }

@@ -1,20 +1,28 @@
 import {
   Canvas,
   FilterMode,
-  Image,
+  Fill,
+  ImageShader,
   MipmapMode,
+  Shader,
   Skia,
   type SkImage
 } from "@shopify/react-native-skia"
 import { useMemo, useState } from "react"
-import { type LayoutRectangle, View } from "react-native"
+import { View } from "react-native"
+import { type DerivedValue, useDerivedValue } from "react-native-reanimated"
 import { useCSSVariable } from "uniwind"
 
 // The web's dithered noise field (apps/frontend/src/components/ui/dither.tsx),
-// with the login page's settings. It's static, so it's drawn once per layout
-// and theme. Every 3 pt cell shares one value, so the shader runs once per
-// cell into a small offscreen image that's scaled up with nearest sampling:
-// about 40k shader evaluations on a phone instead of millions of pixels.
+// with the login page's settings, in two passes. The noise is static, so it's
+// drawn once per layout: every 3 pt cell shares one value, so the shader runs
+// once per cell into a small image, about 40k evaluations on a phone instead
+// of millions of pixels. That image is drawn on the CPU: Skia runs the shader
+// there in about 200 ms, where the GPU first spends seconds compiling it into
+// a Metal pipeline, and the welcome screen can't start until it's there.
+// The ground pass reads that image per cell and adds what moves: the well,
+// the reveal and the Bayer shading. It's a texture read and a few sums per
+// pixel, so it can run every frame.
 const field = Skia.RuntimeEffect.Make(`
 uniform float2 u_resolution;
 uniform float u_octaves;
@@ -26,10 +34,6 @@ uniform float u_warpStrength;
 uniform float u_contrast;
 uniform float u_bias;
 uniform float3 u_zone;
-uniform float4 u_well;
-uniform float2 u_wellShape;
-uniform half4 u_front;
-uniform half4 u_back;
 
 float3 mod289_3(float3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
 float4 mod289_4(float4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -94,19 +98,6 @@ float fbm(float3 p) {
   return total > 0.0 ? v / total : 0.0;
 }
 
-// Same values as the web's 4x4 Bayer table, computed instead of indexed.
-float bayer2(float2 a) {
-  a = floor(a);
-  return fract(dot(a, float2(0.5, a.y * 0.75)));
-}
-float bayer4(float2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
-
-float roundedBoxSdf(float2 p, float2 b, float r) {
-  r = min(r, min(b.x, b.y));
-  float2 q = abs(p) - b + r;
-  return min(max(q.x, q.y), 0.0) + length(max(q, float2(0.0))) - r;
-}
-
 half4 main(float2 cell) {
   float2 uv = cell / u_resolution - 0.5;
   uv.x *= u_resolution.x / u_resolution.y;
@@ -120,12 +111,46 @@ half4 main(float2 cell) {
   float n = fbm(p);
 
   float edge = clamp(0.5 - u_contrast, 0.0, 0.5);
-  float shape = smoothstep(edge, 1.0 - edge, clamp(n + u_bias, 0.0, 1.0));
+  return half4(half3(smoothstep(edge, 1.0 - edge, clamp(n + u_bias, 0.0, 1.0))), 1.0);
+}
+`)
 
-  if (u_well.z > 0.0) {
-    float sdf = roundedBoxSdf(cell - u_well.xy, u_well.zw, u_wellShape.x);
-    shape -= 1.0 - smoothstep(0.0, u_wellShape.y, sdf);
-  }
+// The field's shape per cell, put on the dither colours. The well clears the
+// texture around the content and fades into it. While u_reveal runs from 0
+// to 1 the texture spreads outward from the well's edge, over u_spread cells,
+// so it grows out of whatever the well holds.
+const ground = Skia.RuntimeEffect.Make(`
+uniform shader field;
+uniform float2 u_cells;
+uniform float u_cellSize;
+uniform float4 u_well;
+uniform float2 u_wellShape;
+uniform float u_reveal;
+uniform float u_spread;
+uniform half4 u_front;
+uniform half4 u_back;
+
+// Same values as the web's 4x4 Bayer table, computed instead of indexed.
+float bayer2(float2 a) {
+  a = floor(a);
+  return fract(dot(a, float2(0.5, a.y * 0.75)));
+}
+float bayer4(float2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
+
+float roundedBoxSdf(float2 p, float2 b, float r) {
+  r = min(r, min(b.x, b.y));
+  float2 q = abs(p) - b + r;
+  return min(max(q.x, q.y), 0.0) + length(max(q, float2(0.0))) - r;
+}
+
+half4 main(float2 point) {
+  float2 cell = floor(point / u_cellSize);
+  float shape = field.eval(cell + 0.5).r;
+
+  float sdf = roundedBoxSdf(cell - u_well.xy, u_well.zw, u_wellShape.x);
+  float reach = u_reveal * (length(u_cells) + u_spread);
+  shape *= clamp((reach - max(sdf, 0.0)) / u_spread, 0.0, 1.0);
+  shape -= 1.0 - smoothstep(0.0, u_wellShape.y, sdf);
 
   return step(0.5, shape + bayer4(cell) - 0.5) > 0.5 ? u_front : u_back;
 }
@@ -147,31 +172,28 @@ const login = {
   wellRadius: 16
 } as const
 
-type Size = Readonly<{ width: number; height: number }>
+// How far behind its front the revealed texture reaches full strength.
+const spread = 240
 
-const renderField = (
-  size: Size,
-  well: LayoutRectangle | undefined,
-  front: string,
-  back: string
-) => {
+export type DitherWell = Readonly<{
+  x: number
+  y: number
+  width: number
+  height: number
+}>
+
+type Grid = Readonly<{ cols: number; rows: number }>
+
+// A plain array, so the uniforms can be copied to the UI thread.
+const colorUniform = (color: string) => Array.from(Skia.Color(color))
+
+const renderField = ({ cols, rows }: Grid) => {
   if (field === null) return null
-  const cols = Math.ceil(size.width / cellSize)
-  const rows = Math.ceil(size.height / cellSize)
   // Skia aborts instead of failing on an empty texture, and the first layout
   // pass can report a zero size.
   if (cols < 1 || rows < 1) return null
-  const surface = Skia.Surface.MakeOffscreen(cols, rows)
+  const surface = Skia.Surface.Make(cols, rows)
   if (surface === null) return null
-  const wellCells =
-    well === undefined
-      ? [0, 0, 0, 0]
-      : [
-          (well.x + well.width / 2) / cellSize,
-          (well.y + well.height / 2) / cellSize,
-          well.width / 2 / cellSize,
-          well.height / 2 / cellSize
-        ]
   const paint = Skia.Paint()
   paint.setShader(
     field.makeShader([
@@ -187,57 +209,84 @@ const renderField = (
       login.bias,
       login.zone.radius,
       login.zone.strength,
-      login.zone.falloff,
-      ...wellCells,
-      login.wellRadius / cellSize,
-      login.wellFalloff / cellSize,
-      ...Skia.Color(front),
-      ...Skia.Color(back)
+      login.zone.falloff
     ])
   )
   surface.getCanvas().drawPaint(paint)
-  surface.flush()
-  return surface.makeImageSnapshot().makeNonTextureImage()
+  return surface.makeImageSnapshot()
 }
 
+// `well` is in the dither's own coordinates. `reveal` runs from 0, the bare
+// dither-back ground, to 1, the full field.
 export function Dither({
   well,
+  reveal,
   className
-}: Readonly<{ well?: LayoutRectangle; className?: string }>) {
-  const [size, setSize] = useState<Size | null>(null)
+}: Readonly<{
+  well: DerivedValue<DitherWell>
+  reveal: DerivedValue<number>
+  className?: string
+}>) {
+  const [grid, setGrid] = useState<Grid | null>(null)
   const [front, back] = useCSSVariable([
     "--color-dither-front",
     "--color-dither-back"
   ])
   const image = useMemo<SkImage | null>(
-    () =>
-      size === null || front === undefined || back === undefined
-        ? null
-        : renderField(size, well, String(front), String(back)),
-    [size, well, front, back]
+    () => (grid === null ? null : renderField(grid)),
+    [grid]
   )
+  const colors = useMemo(
+    () =>
+      front === undefined || back === undefined
+        ? null
+        : {
+            u_front: colorUniform(String(front)),
+            u_back: colorUniform(String(back))
+          },
+    [front, back]
+  )
+  const uniforms = useDerivedValue(() => {
+    const box = well.value
+    return {
+      u_cells: grid === null ? [0, 0] : [grid.cols, grid.rows],
+      u_cellSize: cellSize,
+      u_well: [
+        (box.x + box.width / 2) / cellSize,
+        (box.y + box.height / 2) / cellSize,
+        box.width / 2 / cellSize,
+        box.height / 2 / cellSize
+      ],
+      u_wellShape: [login.wellRadius / cellSize, login.wellFalloff / cellSize],
+      u_reveal: reveal.value,
+      u_spread: spread / cellSize,
+      ...colors
+    }
+  })
   return (
     <View
       pointerEvents="none"
       className={className}
       onLayout={({ nativeEvent }) =>
-        setSize({
-          width: nativeEvent.layout.width,
-          height: nativeEvent.layout.height
+        setGrid({
+          cols: Math.ceil(nativeEvent.layout.width / cellSize),
+          rows: Math.ceil(nativeEvent.layout.height / cellSize)
         })
       }
     >
-      {image === null || size === null ? null : (
+      {ground === null || image === null || colors === null ? null : (
         <Canvas style={{ flex: 1 }}>
-          <Image
-            image={image}
-            x={0}
-            y={0}
-            width={size.width}
-            height={size.height}
-            fit="fill"
-            sampling={{ filter: FilterMode.Nearest, mipmap: MipmapMode.None }}
-          />
+          <Fill>
+            <Shader source={ground} uniforms={uniforms}>
+              <ImageShader
+                image={image}
+                sampling={{
+                  filter: FilterMode.Nearest,
+                  mipmap: MipmapMode.None
+                }}
+              />
+            </Shader>
+          </Fill>
         </Canvas>
       )}
     </View>

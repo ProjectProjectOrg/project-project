@@ -9,7 +9,10 @@ import {
 import * as SystemUI from "expo-system-ui"
 import { useEffect, useState } from "react"
 import { KeyboardProvider } from "react-native-keyboard-controller"
-import { SafeAreaListener } from "react-native-safe-area-context"
+import {
+  initialWindowMetrics,
+  SafeAreaListener
+} from "react-native-safe-area-context"
 import { Uniwind, useCSSVariable, useUniwind } from "uniwind"
 
 import { copy } from "@/copy"
@@ -25,6 +28,13 @@ const headerFont = { fontFamily: "Geist", fontWeight: "600" } as const
 // client's loading screen, so the animation is what keeps the start steady
 // there.
 void SplashScreen.preventAutoHideAsync()
+
+// Uniwind's safe-area classes start at zero insets until the listener below
+// reports them, so a screen that renders first would shift down a frame
+// later. The window's insets are known before the first render, so they're
+// given to Uniwind straight away.
+if (initialWindowMetrics !== null)
+  Uniwind.updateInsets(initialWindowMetrics.insets)
 
 export default function RootLayout() {
   const [started, setStarted] = useState(false)
@@ -74,7 +84,9 @@ export default function RootLayout() {
                 transitionEnd: () => {
                   if (route.name === "index") return
                   setStarted(true)
-                  SplashScreen.hide()
+                  // The welcome screen grows out of the splash, so it hides
+                  // the splash itself once its first frame matches it.
+                  if (route.name !== "onboarding") SplashScreen.hide()
                 }
               })}
               screenOptions={{
