@@ -33,12 +33,8 @@
 }
 
 :root {
-  --dither-front: var(--color-ring);
-  --dither-back: color-mix(
-    in oklch,
-    var(--color-background) 45%,
-    var(--color-muted) 55%
-  );
+  --dither-front: var(--color-dither-front);
+  --dither-back: var(--color-dither-back);
   --icon-sticker-outline: oklch(0 0 0 / 0.55);
   --shadow-color: oklch(0 0 0 / 0.06);
   --shadow-1: 0 0 0 1px var(--shadow-color);
@@ -53,12 +49,6 @@
 }
 
 .dark {
-  --dither-front: var(--color-ring);
-  --dither-back: color-mix(
-    in oklch,
-    var(--color-background) 45%,
-    var(--color-muted) 55%
-  );
   --icon-sticker-outline: oklch(1 0 0 / 0.9);
   --dm-hi-base: oklch(1 0 0 / 0.01);
   --dm-hi-mid: oklch(1 0 0 / 0.02);

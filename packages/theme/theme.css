@@ -36,6 +36,9 @@
   --color-surface-8: unset;
   --color-hover: unset;
   --color-active: unset;
+  /* Dither: the ring grey on a 45/55 mix of background and muted. */
+  --color-dither-front: unset;
+  --color-dither-back: unset;
 
   --radius-sm: 12px;
   --radius-md: 14px;
@@ -86,6 +89,8 @@
       --color-surface-8: oklch(1 0 0);
       --color-hover: rgb(0 0 0 / 0.04);
       --color-active: rgb(0 0 0 / 0.07);
+      --color-dither-front: oklch(0.708 0 0);
+      --color-dither-back: oklch(0.984 0 0);
     }
 
     @variant dark {
@@ -126,6 +131,8 @@
       --color-surface-8: oklch(0.402 0 0);
       --color-hover: rgb(255 255 255 / 0.06);
       --color-active: rgb(255 255 255 / 0.1);
+      --color-dither-front: oklch(0.556 0 0);
+      --color-dither-back: oklch(0.213 0 0);
     }
   }
 }

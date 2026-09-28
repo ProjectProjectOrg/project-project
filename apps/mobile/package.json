@@ -18,6 +18,7 @@
     "@expo/ui": "~58.0.7",
     "@pp/shared": "workspace:*",
     "@pp/theme": "workspace:*",
+    "@shopify/react-native-skia": "2.11.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "effect": "4.0.0-rc.116",
