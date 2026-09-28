@@ -259,6 +259,26 @@ export const organizationGithubIntegration = pgTable(
   ]
 )
 
+export const organizationEmail = pgTable("organization_email", {
+  organizationId: text("organization_id")
+    .primaryKey()
+    .references(() => organization.id, { onDelete: "cascade" }),
+  revision: uuid("revision").notNull().defaultRandom(),
+  host: text("host").notNull(),
+  port: integer("port").notNull(),
+  security: text("security").$type<"tls" | "starttls">().notNull(),
+  username: text("username").notNull(),
+  senderName: text("sender_name").notNull(),
+  senderEmail: text("sender_email").notNull(),
+  replyTo: text("reply_to"),
+  ciphertext: text("ciphertext").notNull(),
+  nonce: text("nonce").notNull(),
+  tag: text("tag").notNull(),
+  lastTestAt: timestamp("last_test_at", { withTimezone: true }),
+  lastTestError:
+    text("last_test_error").$type<import("@pp/shared").EmailFailureReason>()
+})
+
 export const organizationS3Integration = pgTable(
   "organization_s3_integration",
   {
@@ -1016,6 +1036,7 @@ export const relations = defineRelations(
     organizationIntegration,
     organizationGithubIntegration,
     organizationS3Integration,
+    organizationEmail,
     githubAppInstallSession,
     projectIntegrationLink,
     projectGithubRepository,

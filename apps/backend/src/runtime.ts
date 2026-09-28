@@ -4,6 +4,8 @@ import { DbLive, PgLive } from "@pp/db"
 import { AttachmentsLive } from "@pp/server-core/attachments/AttachmentsLive"
 import { AttachmentUploadsLive } from "@pp/server-core/attachments/AttachmentUploadsLive"
 import { CommentsLive } from "@pp/server-core/comments/CommentsLive"
+import { OrgEmail } from "@pp/server-core/email/OrgEmail"
+import { Smtp } from "@pp/server-core/email/Smtp"
 import { EverhourIntegrationsLive } from "@pp/server-core/everhour/EverhourIntegrationsLive"
 import { EverhourLive } from "@pp/server-core/everhour/EverhourLive"
 import { EverhourTimeTrackingLive } from "@pp/server-core/everhour/EverhourTimeTrackingLive"
@@ -159,6 +161,13 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
     )
     .pipe(
       Layer.provideMerge(S3StorageLive),
+      Layer.provideMerge(
+        OrgEmail.layer.pipe(
+          Layer.provide(Smtp.layer),
+          Layer.provide(SecretCryptoLive),
+          Layer.provide(CurrentOrgLive)
+        )
+      ),
       Layer.provideMerge(
         OrgStorageLive.pipe(
           Layer.provideMerge(S3StorageLive),

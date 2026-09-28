@@ -97,6 +97,7 @@ import {
   PublicOAuthHandlerLive
 } from "./handlers/oauthApplications"
 import { OrgHandlerLive } from "./handlers/org"
+import { OrgEmailHandlerLive } from "./handlers/orgEmail"
 import { ProjectsHandlerLive } from "./handlers/projects"
 import { StatusesHandlerLive } from "./handlers/statuses"
 import { StorageHandlerLive } from "./handlers/storage"
@@ -149,26 +150,31 @@ const betterAuthApp = Effect.gen(function* () {
 )
 
 export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
-  Layer.provide(HealthHandlerLive),
-  Layer.provide(DbHandlerLive),
-  Layer.provide(AuthHandlerLive),
-  Layer.provide(OrgHandlerLive),
-  Layer.provide(InvitationsHandlerLive),
-  Layer.provide(ProjectsHandlerLive),
-  Layer.provide(EverhourHandlerLive),
-  Layer.provide(FigmaHandlerLive),
-  Layer.provide(JiraHandlerLive),
-  Layer.provide(JiraMigrationsHandlerLive),
-  Layer.provide(TicketsHandlerLive),
-  Layer.provide(CommentsHandlerLive),
-  Layer.provide(TagsHandlerLive),
-  Layer.provide(StatusesHandlerLive),
-  Layer.provide(GroupsHandlerLive),
-  Layer.provide(LibraryHandlerLive),
-  Layer.provide(OAuthApplicationsHandlerLive),
-  Layer.provide(PublicOAuthHandlerLive),
-  Layer.provide(StorageHandlerLive),
-  Layer.provide(AttachmentsHandlerLive)
+  Layer.provide(
+    Layer.mergeAll(
+      HealthHandlerLive,
+      DbHandlerLive,
+      AuthHandlerLive,
+      OrgHandlerLive,
+      InvitationsHandlerLive,
+      ProjectsHandlerLive,
+      EverhourHandlerLive,
+      FigmaHandlerLive,
+      JiraHandlerLive,
+      JiraMigrationsHandlerLive,
+      TicketsHandlerLive,
+      CommentsHandlerLive,
+      TagsHandlerLive,
+      StatusesHandlerLive,
+      GroupsHandlerLive,
+      LibraryHandlerLive,
+      OAuthApplicationsHandlerLive,
+      PublicOAuthHandlerLive,
+      StorageHandlerLive,
+      AttachmentsHandlerLive,
+      OrgEmailHandlerLive
+    )
+  )
 )
 
 export const ApiLive = ApiRoutesLive.pipe(

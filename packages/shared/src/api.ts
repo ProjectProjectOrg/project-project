@@ -171,6 +171,11 @@ import {
   UserInvitation
 } from "./schemas/Org"
 import {
+  OrgEmailStatus,
+  SaveOrgEmailInput,
+  OrgEmailError
+} from "./schemas/OrgEmail"
+import {
   AddMemberInput,
   ConnectGithubInput,
   CreateProjectInput,
@@ -1111,6 +1116,38 @@ const JiraMigrationsGroup = HttpApiGroup.make("jiraMigrations")
         error: JiraMigrationWriteErrors
       }
     )
+  )
+  .middleware(Authentication)
+
+const OrgEmailGroup = HttpApiGroup.make("orgEmail")
+  .add(
+    HttpApiEndpoint.get("get", "/orgs/:orgSlug/email", {
+      params: OrgPath,
+      success: OrgEmailStatus,
+      error: [Unauthorized, NotFound, Forbidden]
+    })
+  )
+  .add(
+    HttpApiEndpoint.put("save", "/orgs/:orgSlug/email", {
+      params: OrgPath,
+      payload: SaveOrgEmailInput,
+      success: OrgEmailStatus,
+      error: [Unauthorized, NotFound, Forbidden, OrgEmailError]
+    })
+  )
+  .add(
+    HttpApiEndpoint.post("test", "/orgs/:orgSlug/email/test", {
+      params: OrgPath,
+      success: OrgEmailStatus,
+      error: [Unauthorized, NotFound, Forbidden, OrgEmailError]
+    })
+  )
+  .add(
+    HttpApiEndpoint.delete("disconnect", "/orgs/:orgSlug/email", {
+      params: OrgPath,
+      success: OrgEmailStatus,
+      error: [Unauthorized, NotFound, Forbidden]
+    })
   )
   .middleware(Authentication)
 
@@ -2119,6 +2156,7 @@ const AppApi = HttpApi.make("projectproject")
   .add(JiraGroup)
   .add(JiraMigrationsGroup)
   .add(StorageGroup)
+  .add(OrgEmailGroup)
   .add(AttachmentsGroup)
   .add(TicketsGroup)
   .add(TicketCommentsGroup)
