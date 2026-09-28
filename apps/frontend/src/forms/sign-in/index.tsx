@@ -4,13 +4,13 @@ import * as Option from "effect/Option"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
 import { Mail } from "lucide-react"
-import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   sendMagicLink,
   sendSignInCode,
+  signInCodeSentTo,
   signInWithCode
 } from "@/features/auth/atoms/signIn"
 import { signInErrorMessage } from "@/lib/errorMessage"
@@ -41,16 +41,17 @@ export function SignInWithEmail({ callbackURL }: SignInWithEmailProps) {
   const linkState = useAtomValue(sendMagicLink)
   const codeState = useAtomValue(sendSignInCode)
   const verifyState = useAtomValue(signInWithCode)
-  const [step, setStep] = useState<"email" | "code">("email")
-  const sentTo = Option.getOrElse(AsyncResult.value(codeState), () => "")
+  const codeSentTo = useAtomValue(signInCodeSentTo)
+  const setCodeSentTo = useAtomSet(signInCodeSentTo)
   const busy = linkState.waiting || codeState.waiting || verifyState.waiting
 
   const form = useAppForm({
     ...signInFormOpts,
     onSubmit: async ({ value }) => {
-      if (step === "code") {
-        const exit = await verify({ email: sentTo, otp: value.code })
+      if (codeSentTo !== null) {
+        const exit = await verify({ email: codeSentTo, otp: value.code })
         if (Exit.isSuccess(exit)) {
+          setCodeSentTo(null)
           window.location.replace(
             Option.getOrElse(exit.value, () => callbackURL)
           )
@@ -59,7 +60,7 @@ export function SignInWithEmail({ callbackURL }: SignInWithEmailProps) {
       }
       if (value.method === "code") {
         const exit = await sendCode(value.email)
-        if (Exit.isSuccess(exit)) setStep("code")
+        if (Exit.isSuccess(exit)) setCodeSentTo(exit.value)
         return
       }
       await sendLink({ email: value.email, callbackURL })
@@ -72,16 +73,16 @@ export function SignInWithEmail({ callbackURL }: SignInWithEmailProps) {
 
   const resend = () => {
     resetVerify(Atom.Reset)
-    void sendCode(sentTo)
+    if (codeSentTo !== null) void sendCode(codeSentTo)
   }
 
   const changeEmail = () => {
     resetVerify(Atom.Reset)
     form.setFieldValue("code", "")
-    setStep("email")
+    setCodeSentTo(null)
   }
 
-  if (step === "code") {
+  if (codeSentTo !== null) {
     const error =
       failureMessage(verifyState, m.auth_email_code_verify_error(), (failure) =>
         signInErrorMessage(failure, m.auth_email_code_verify_error())
@@ -98,7 +99,7 @@ export function SignInWithEmail({ callbackURL }: SignInWithEmailProps) {
         }}
       >
         <p className="text-center text-xs leading-5 text-muted-foreground">
-          {m.auth_email_code_sent({ email: sentTo })}
+          {m.auth_email_code_sent({ email: codeSentTo })}
         </p>
         <form.Field name="code">
           {(field) => (

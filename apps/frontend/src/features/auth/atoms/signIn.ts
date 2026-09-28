@@ -2,6 +2,8 @@ import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as KeyValueStore from "effect/unstable/persistence/KeyValueStore"
+import * as Atom from "effect/unstable/reactivity/Atom"
 
 import { Api } from "@/api/Api"
 import { authData } from "@/features/auth/atoms/auth"
@@ -45,6 +47,17 @@ export const toSignInFailed = (cause: unknown) =>
 const Continuation = Schema.Struct({ url: Schema.String })
 
 const decodeContinuation = Schema.decodeUnknownOption(Continuation)
+
+const sessionRuntime = Atom.runtime(
+  KeyValueStore.layerStorage(() => window.sessionStorage)
+)
+
+export const signInCodeSentTo = Atom.kvs({
+  runtime: sessionRuntime,
+  key: "pp:sign-in-code-sent-to",
+  schema: Schema.NullOr(Schema.String),
+  defaultValue: () => null
+})
 
 export type MagicLinkInput = Readonly<{ email: string; callbackURL: string }>
 
