@@ -123,7 +123,10 @@ half4 main(float2 cell) {
 // its text clear, and around it the texture thins out, sparse near the
 // content and dense at the edges. It thins by shrinking the texture's blobs,
 // not by dimming it: a dimmed field leaves wide areas on the Bayer matrix's
-// lowest levels, which read as a rigid grid of dots and lines. The well's
+// lowest levels, which read as a rigid grid of dots and lines. What's under
+// the cut goes, and what's over it is stretched back over the full range, so
+// the blobs keep their dithered shading and soft edges instead of turning
+// into flat, lighter shapes with hard cuts. The well's
 // edge is pushed in and out by the field too, so it follows the texture
 // instead of running straight. The texture never moves between the two.
 // As u_step runs from 0 to 1, blocks of 2x2 cells switch from the first look
@@ -171,7 +174,7 @@ half4 main(float2 point) {
       - (shape - 0.5) * u_nextShape.x * 1.5;
     float sparse = 1.0 - smoothstep(0.0, u_nextShape.y, max(nextSdf, 0.0));
     float cut = u_nextShape.z * sparse;
-    float thinned = mix(shape, smoothstep(cut, cut + 0.15, shape), sparse);
+    float thinned = clamp((shape - cut) / (1.0 - cut), 0.0, 1.0);
     float next = thinned - (1.0 - smoothstep(0.0, u_nextShape.x, nextSdf));
     if (bayer4(floor(cell / 2.0)) < u_step) on = step(0.5, next + threshold) > 0.5;
   }
