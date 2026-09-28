@@ -332,7 +332,9 @@ function CardSlot({
         <motion.div
           key={flashKey ?? 0}
           initial={
-            flashKey ? { boxShadow: "0 0 0 3px var(--foreground)" } : false
+            flashKey
+              ? { boxShadow: "0 0 0 3px var(--color-foreground)" }
+              : false
           }
           animate={{ boxShadow: "0 0 0 0px transparent" }}
           transition={{ duration: 0.6, ease: "easeOut" }}

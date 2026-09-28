@@ -29,26 +29,6 @@ export const TAG_DEFAULT_PALETTE: ReadonlyArray<string> = OUTER_RING.map(
   (c) => c.hex
 )
 
-export type StateColorToken = {
-  readonly light: ColorSwatch
-  readonly dark: ColorSwatch
-}
-
-function monoState(s: ColorSwatch): StateColorToken {
-  return { light: s, dark: s }
-}
-
-export const STATE_COLORS = {
-  danger: monoState(swatch(15, OUTER.L, OUTER.C)),
-  warning: {
-    light: swatch(75, 0.5, 0.16),
-    dark: swatch(75, 0.78, 0.07)
-  },
-  success: monoState(swatch(135, OUTER.L, OUTER.C)),
-  info: monoState(swatch(255, OUTER.L, OUTER.C)),
-  merged: monoState(swatch(285, OUTER.L, OUTER.C))
-} as const satisfies Record<string, StateColorToken>
-
 export const BASELINE_STATUS_COLORS: ReadonlyArray<string> = [
   "#a3a3a3",
   "#3b82f6",

@@ -22,8 +22,8 @@ export function OnboardingShell({
     <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-xl flex-col justify-center gap-6">
       <div className="relative h-28 overflow-hidden rounded-2xl border border-border bg-background">
         <DitherBackdrop
-          from="var(--background)"
-          to="var(--muted-foreground)"
+          from="var(--color-background)"
+          to="var(--color-muted-foreground)"
           direction="tr"
           stops={[0.16, 0.92]}
           matrix="8x8"

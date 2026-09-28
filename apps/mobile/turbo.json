@@ -1,0 +1,25 @@
+{
+  "$schema": "../../node_modules/turbo/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "prebuild": {
+      "cache": false
+    },
+    "dev": {
+      "persistent": true,
+      "cache": false,
+      "env": ["EXPO_PUBLIC_SEED_SERVERS"],
+      "with": ["app:ios"]
+    },
+    "app:ios": {
+      "cache": false,
+      "passThroughEnv": ["*"],
+      "dependsOn": ["prebuild"]
+    },
+    "app:ios:standalone": {
+      "cache": false,
+      "passThroughEnv": ["*"],
+      "dependsOn": ["prebuild"]
+    }
+  }
+}

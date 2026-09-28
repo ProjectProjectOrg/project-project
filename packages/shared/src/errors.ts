@@ -324,3 +324,9 @@ export class JiraMigrationUnavailable extends Schema.TaggedError<JiraMigrationUn
   { reason: Schema.Literals(["worker_unavailable", "storage_unavailable"]) },
   { httpApiStatus: 503 }
 ) {}
+
+export class InstanceNotConfigured extends Schema.TaggedError<InstanceNotConfigured>()(
+  "InstanceNotConfigured",
+  {},
+  { httpApiStatus: 503 }
+) {}

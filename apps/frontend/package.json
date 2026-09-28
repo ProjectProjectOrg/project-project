@@ -39,6 +39,7 @@
     "@paper-design/shaders-react": "^0.0.76",
     "@phosphor-icons/react": "^2.1.10",
     "@pp/shared": "workspace:*",
+    "@pp/theme": "workspace:*",
     "@tabler/icons-react": "^3.41.1",
     "@tanstack/react-form": "2.0.0-alpha.2",
     "@tanstack/react-pacer": "^0.22.1",

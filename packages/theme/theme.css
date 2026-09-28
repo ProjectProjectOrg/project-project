@@ -1,0 +1,131 @@
+@theme {
+  --color-background: unset;
+  --color-foreground: unset;
+  --color-card: unset;
+  --color-card-foreground: unset;
+  --color-popover: unset;
+  --color-popover-foreground: unset;
+  --color-primary: unset;
+  --color-primary-foreground: unset;
+  --color-secondary: unset;
+  --color-secondary-foreground: unset;
+  --color-muted: unset;
+  --color-muted-foreground: unset;
+  --color-accent: unset;
+  --color-accent-foreground: unset;
+  --color-selected: unset;
+  --color-destructive: unset;
+  --color-destructive-light: unset;
+  --color-destructive-foreground: unset;
+  --color-border: unset;
+  --color-input: unset;
+  --color-ring: unset;
+  --color-focus-ring: unset;
+  --color-state-danger: unset;
+  --color-state-warning: unset;
+  --color-state-success: unset;
+  --color-state-info: unset;
+  --color-state-merged: unset;
+  --color-surface-1: unset;
+  --color-surface-2: unset;
+  --color-surface-3: unset;
+  --color-surface-4: unset;
+  --color-surface-5: unset;
+  --color-surface-6: unset;
+  --color-surface-7: unset;
+  --color-surface-8: unset;
+  --color-hover: unset;
+  --color-active: unset;
+
+  --radius-sm: 12px;
+  --radius-md: 14px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  --font-sans: "Geist";
+  --font-mono: "Geist Mono";
+}
+
+@layer theme {
+  :root {
+    @variant light {
+      --color-background: oklch(1 0 0);
+      --color-foreground: oklch(0.145 0 0);
+      --color-card: oklch(1 0 0);
+      --color-card-foreground: oklch(0.145 0 0);
+      --color-popover: oklch(1 0 0);
+      --color-popover-foreground: oklch(0.145 0 0);
+      --color-primary: oklch(0.205 0 0);
+      --color-primary-foreground: oklch(0.985 0 0);
+      --color-secondary: oklch(0.97 0 0);
+      --color-secondary-foreground: oklch(0.205 0 0);
+      --color-muted: oklch(0.97 0 0);
+      --color-muted-foreground: oklch(0.556 0 0);
+      --color-accent: oklch(0.97 0 0);
+      --color-accent-foreground: oklch(0.205 0 0);
+      --color-selected: oklch(0.9 0 0);
+      --color-destructive: oklch(0.577 0.245 27.325);
+      --color-destructive-light: oklch(0.95 0.02 27);
+      --color-destructive-foreground: oklch(0.985 0 0);
+      --color-border: oklch(0.922 0 0);
+      --color-input: oklch(0.922 0 0);
+      --color-ring: oklch(0.708 0 0);
+      --color-focus-ring: oklch(0.693 0.161 265.2);
+      --color-state-danger: oklch(0.7 0.16 15);
+      --color-state-warning: oklch(0.5 0.16 75);
+      --color-state-success: oklch(0.7 0.16 135);
+      --color-state-info: oklch(0.7 0.16 255);
+      --color-state-merged: oklch(0.7 0.16 285);
+      --color-surface-1: oklch(0.955 0 0);
+      --color-surface-2: oklch(0.977 0 0);
+      --color-surface-3: oklch(1 0 0);
+      --color-surface-4: oklch(1 0 0);
+      --color-surface-5: oklch(1 0 0);
+      --color-surface-6: oklch(1 0 0);
+      --color-surface-7: oklch(1 0 0);
+      --color-surface-8: oklch(1 0 0);
+      --color-hover: rgb(0 0 0 / 0.04);
+      --color-active: rgb(0 0 0 / 0.07);
+    }
+
+    @variant dark {
+      --color-background: oklch(0.145 0 0);
+      --color-foreground: oklch(0.985 0 0);
+      --color-card: oklch(0.205 0 0);
+      --color-card-foreground: oklch(0.985 0 0);
+      --color-popover: oklch(0.205 0 0);
+      --color-popover-foreground: oklch(0.985 0 0);
+      --color-primary: oklch(0.922 0 0);
+      --color-primary-foreground: oklch(0.205 0 0);
+      --color-secondary: oklch(0.269 0 0);
+      --color-secondary-foreground: oklch(0.985 0 0);
+      --color-muted: oklch(0.269 0 0);
+      --color-muted-foreground: oklch(0.708 0 0);
+      --color-accent: oklch(0.269 0 0);
+      --color-accent-foreground: oklch(0.985 0 0);
+      --color-selected: oklch(0.4 0 0);
+      --color-destructive: oklch(0.704 0.191 22.216);
+      --color-destructive-light: oklch(0.3 0.05 22);
+      --color-destructive-foreground: oklch(0.985 0 0);
+      --color-border: oklch(1 0 0 / 10%);
+      --color-input: oklch(1 0 0 / 15%);
+      --color-ring: oklch(0.556 0 0);
+      --color-focus-ring: oklch(0.693 0.161 265.2);
+      --color-state-danger: oklch(0.7 0.16 15);
+      --color-state-warning: oklch(0.78 0.07 75);
+      --color-state-success: oklch(0.7 0.16 135);
+      --color-state-info: oklch(0.7 0.16 255);
+      --color-state-merged: oklch(0.7 0.16 285);
+      --color-surface-1: oklch(0.205 0 0);
+      --color-surface-2: oklch(0.235 0 0);
+      --color-surface-3: oklch(0.264 0 0);
+      --color-surface-4: oklch(0.293 0 0);
+      --color-surface-5: oklch(0.321 0 0);
+      --color-surface-6: oklch(0.348 0 0);
+      --color-surface-7: oklch(0.375 0 0);
+      --color-surface-8: oklch(0.402 0 0);
+      --color-hover: rgb(255 255 255 / 0.06);
+      --color-active: rgb(255 255 255 / 0.1);
+    }
+  }
+}

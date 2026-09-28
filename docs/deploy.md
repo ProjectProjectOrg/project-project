@@ -66,6 +66,8 @@ Edit `.env` and fill in:
 - `POSTGRES_PASSWORD` — a strong random string.
 - `BETTER_AUTH_SECRET` — `openssl rand -hex 32`.
 - `BETTER_AUTH_URL` — the public HTTPS URL you'll point at this VM.
+- `INSTANCE_ID` — `openssl rand -hex 16`, generated once and never changed. It identifies this server to the ProjectProject app and is public, not a secret. Without it the app can't connect.
+- `INSTANCE_NAME` (optional) — the name the app shows for this server. Defaults to the only organization's name, or the public host when there are several.
 - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` — from your GitHub OAuth app.
 - `GITHUB_APP_WEBHOOK_SECRET` — the secret configured on the GitHub App webhook.
 - `BOOTSTRAP_ORG_SLUG` / `BOOTSTRAP_ORG_NAME` — the first organization to create.

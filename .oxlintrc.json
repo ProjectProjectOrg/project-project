@@ -52,6 +52,7 @@
     "eslint/no-await-in-loop": "off",
     "eslint/no-underscore-dangle": "off",
     "import/default": "off",
+    "import/no-unassigned-import": ["warn", { "allow": ["**/*.css"] }],
     "jsx-a11y/anchor-has-content": "warn",
     "jsx-a11y/anchor-is-valid": "warn",
     "jsx-a11y/aria-role": "warn",
@@ -99,7 +100,10 @@
   },
   "overrides": [
     {
-      "files": ["apps/frontend/**/*.{js,jsx,ts,tsx}"],
+      "files": [
+        "apps/frontend/**/*.{js,jsx,ts,tsx}",
+        "apps/mobile/**/*.{js,jsx,ts,tsx}"
+      ],
       "env": {
         "browser": true
       },
@@ -156,6 +160,10 @@
     ".superpowers/**",
     ".windsurf/**",
     "opensrc/**",
+    "apps/mobile/ios/**",
+    "apps/mobile/android/**",
+    "apps/mobile/.expo/**",
+    "apps/mobile/src/uniwind-types.d.ts",
     "tools/oxlint/anti-slop/**",
     "node_modules",
     "bun.lock",

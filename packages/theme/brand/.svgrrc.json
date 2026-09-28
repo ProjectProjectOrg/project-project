@@ -1,0 +1,7 @@
+{
+  "replaceAttrValues": {
+    "#FEFEFE": "{props.drawn}",
+    "white": "{props.drawn}",
+    "#807F7F": "{props.drawnMuted}"
+  }
+}

@@ -10,6 +10,8 @@
   "scripts": {
     "dev:backend": "turbo run dev --filter @pp/backend",
     "dev:frontend": "turbo run dev --filter @pp/frontend",
+    "dev:mobile": "turbo run dev --filter @pp/mobile",
+    "build:mobile:ios": "turbo run app:ios:standalone --filter @pp/mobile",
     "dev:db": "docker compose up --wait --wait-timeout 60 postgres",
     "dev:stop": "docker compose stop postgres",
     "dev": "bun run dev:db && turbo run dev --filter @pp/backend --filter @pp/frontend",

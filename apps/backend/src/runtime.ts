@@ -16,6 +16,7 @@ import * as GitHubProjectStateCache from "@pp/server-core/github/projectStateCac
 import * as GitHubRequest from "@pp/server-core/github/request"
 import { GroupDocsLive } from "@pp/server-core/groups/GroupDocsLive"
 import { GroupsLive } from "@pp/server-core/groups/GroupsLive"
+import { InstanceLive } from "@pp/server-core/instance/InstanceLive"
 import * as JiraCleanupWorkflow from "@pp/server-core/jira/CleanupWorkflow"
 import {
   JiraClientLive,
@@ -143,6 +144,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       ),
       Layer.provideMerge(BannerPlaceholdersLive),
       Layer.provideMerge(UsersLive),
+      Layer.provideMerge(InstanceLive),
       Layer.provideMerge(TicketIndexLive),
       Layer.provideMerge(JiraDurableServicesLive),
       Layer.provideMerge(JiraWorkflowsLive),

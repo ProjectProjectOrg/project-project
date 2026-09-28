@@ -1,8 +1,8 @@
-import logoRaw from "@/public/logo/logo.svg?raw"
+import logoRaw from "@pp/theme/brand/logo.svg?raw"
 
 const themedLogo = logoRaw
-  .replace(/fill="#FEFEFE"/g, 'fill="var(--foreground)"')
-  .replace(/fill="#807F7F"/g, 'fill="var(--muted-foreground)"')
+  .replace(/fill="#FEFEFE"/g, 'fill="var(--color-foreground)"')
+  .replace(/fill="#807F7F"/g, 'fill="var(--color-muted-foreground)"')
   .replace(/<svg([^>]*?)\swidth="[^"]*"/, "<svg$1")
   .replace(/<svg([^>]*?)\sheight="[^"]*"/, "<svg$1")
 

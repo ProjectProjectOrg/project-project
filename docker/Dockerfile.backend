@@ -52,6 +52,8 @@ RUN mkdir -p /data
 RUN chmod +x /usr/local/bin/entrypoint.backend.sh
 ENV PROJECTS_DIR=/data
 ENV NODE_ENV=production
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
 
 EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=5 \

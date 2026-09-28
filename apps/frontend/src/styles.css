@@ -1,9 +1,11 @@
 @import "tailwindcss";
+@import "@pp/theme/theme.css";
 @import "tw-animate-css";
 
 @plugin "@toolwind/corner-shape";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is(.dark, .dark *));
+@custom-variant light (&:not(:is(.dark, .dark *)));
 
 @font-face {
   font-family: "Geist";
@@ -31,43 +33,13 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  /* @fluid components reference `bg-selected` for the active/checked indicator
-     in tabs-subtle, dropdown, and select. Distinct from --accent (lighter,
-     used for hover) so the active state has a stronger visual presence. */
-  --selected: oklch(0.9 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-light: oklch(0.95 0.02 27);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --radius: 1rem;
-  --dither-front: var(--ring);
-  --dither-back: color-mix(in oklch, var(--background) 45%, var(--muted) 55%);
-  --focus-ring: oklch(0.693 0.161 265.2);
+  --dither-front: var(--color-ring);
+  --dither-back: color-mix(
+    in oklch,
+    var(--color-background) 45%,
+    var(--color-muted) 55%
+  );
   --icon-sticker-outline: oklch(0 0 0 / 0.55);
-  --surface-1: oklch(0.955 0 0);
-  --surface-2: oklch(0.977 0 0);
-  --surface-3: oklch(1 0 0);
-  --surface-4: oklch(1 0 0);
-  --surface-5: oklch(1 0 0);
-  --surface-6: oklch(1 0 0);
-  --surface-7: oklch(1 0 0);
-  --surface-8: oklch(1 0 0);
   --shadow-color: oklch(0 0 0 / 0.06);
   --shadow-1: 0 0 0 1px var(--shadow-color);
   --shadow-1-hover: 0 0 0 1px oklch(0 0 0 / 0.14);
@@ -78,43 +50,16 @@
   --shadow-6: var(--shadow-5), 0 24px 24px -12px var(--shadow-color);
   --shadow-7: var(--shadow-6), 0 48px 48px -24px var(--shadow-color);
   --shadow-8: var(--shadow-7), 0 96px 96px -48px var(--shadow-color);
-  --hover: rgb(0 0 0 / 0.04);
-  --active: rgb(0 0 0 / 0.07);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --selected: oklch(0.4 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-light: oklch(0.3 0.05 22);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --dither-front: var(--ring);
-  --dither-back: color-mix(in oklch, var(--background) 45%, var(--muted) 55%);
+  --dither-front: var(--color-ring);
+  --dither-back: color-mix(
+    in oklch,
+    var(--color-background) 45%,
+    var(--color-muted) 55%
+  );
   --icon-sticker-outline: oklch(1 0 0 / 0.9);
-  --surface-1: oklch(0.205 0 0);
-  --surface-2: oklch(0.235 0 0);
-  --surface-3: oklch(0.264 0 0);
-  --surface-4: oklch(0.293 0 0);
-  --surface-5: oklch(0.321 0 0);
-  --surface-6: oklch(0.348 0 0);
-  --surface-7: oklch(0.375 0 0);
-  --surface-8: oklch(0.402 0 0);
   --dm-hi-base: oklch(1 0 0 / 0.01);
   --dm-hi-mid: oklch(1 0 0 / 0.02);
   --dm-hi-high: oklch(1 0 0 / 0.04);
@@ -158,56 +103,13 @@
     0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop),
     0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop),
     0 48px 48px -24px var(--dm-drop), 0 96px 96px -48px var(--dm-drop);
-  --hover: rgb(255 255 255 / 0.06);
-  --active: rgb(255 255 255 / 0.1);
 }
 
 @theme inline {
-  --color-hover: var(--hover);
-  --color-active: var(--active);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-selected: var(--selected);
-  --color-destructive: var(--destructive);
-  --color-destructive-light: var(--destructive-light);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-state-success: var(--state-success);
-  --color-state-danger: var(--state-danger);
-  --color-state-warning: var(--state-warning);
-  --color-state-info: var(--state-info);
-  --color-state-merged: var(--state-merged);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
   --font-sans:
     "Geist", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", Helvetica, Arial, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --color-focus-ring: var(--focus-ring);
-  --color-surface-1: var(--surface-1);
-  --color-surface-2: var(--surface-2);
-  --color-surface-3: var(--surface-3);
-  --color-surface-4: var(--surface-4);
-  --color-surface-5: var(--surface-5);
-  --color-surface-6: var(--surface-6);
-  --color-surface-7: var(--surface-7);
-  --color-surface-8: var(--surface-8);
   --shadow-surface-1: var(--shadow-1);
   --shadow-surface-1-hover: var(--shadow-1-hover);
   --shadow-surface-2: var(--shadow-2);
@@ -330,7 +232,7 @@
 .prose-md {
   font-size: 14px;
   line-height: 1.65;
-  color: var(--foreground);
+  color: var(--color-foreground);
 }
 /* Block spacing — applied to non-first siblings. We avoid `margin: 0` on
    block types (.prose-md p, .lexical-paragraph, etc) because that has higher
@@ -395,13 +297,21 @@
   --block-first-line: 1.65em;
 }
 :root {
-  --block-editing-fill: color-mix(in oklch, var(--accent) 30%, transparent);
+  --block-editing-fill: color-mix(
+    in oklch,
+    var(--color-accent) 30%,
+    transparent
+  );
 }
 .dark {
-  --block-editing-fill: color-mix(in oklch, var(--accent) 20%, transparent);
+  --block-editing-fill: color-mix(
+    in oklch,
+    var(--color-accent) 20%,
+    transparent
+  );
 }
 .prose-md .ticket-block[data-sync][data-selected] {
-  outline: 1px solid var(--ring);
+  outline: 1px solid var(--color-ring);
 }
 .prose-md .ticket-block[data-source-removed] > :first-child::after {
   content: var(--source-removed-note);
@@ -411,7 +321,7 @@
   font-weight: 400;
   letter-spacing: normal;
   line-height: 1.5;
-  color: var(--muted-foreground);
+  color: var(--color-muted-foreground);
 }
 .prose-md .ticket-block > .ticket-block-icon {
   position: absolute;
@@ -425,7 +335,7 @@
 .prose-md.block-gutter
   .lexical-content
   > .ticket-block:is([data-hovered], [data-active]) {
-  background-color: color-mix(in oklch, var(--accent) 40%, transparent);
+  background-color: color-mix(in oklch, var(--color-accent) 40%, transparent);
   transition-duration: 0ms;
 }
 [data-editing]
@@ -438,8 +348,8 @@
   background-color: var(--block-editing-fill);
 }
 .prose-md .ticket-block[data-dragging] {
-  background-color: color-mix(in oklch, var(--muted) 70%, transparent);
-  outline: 1px dashed var(--border);
+  background-color: color-mix(in oklch, var(--color-muted) 70%, transparent);
+  outline: 1px dashed var(--color-border);
   outline-offset: -1px;
 }
 .prose-md .ticket-block[data-dragging] > * {
@@ -453,7 +363,7 @@
 }
 @keyframes ticket-block-flash {
   from {
-    background-color: var(--accent);
+    background-color: var(--color-accent);
   }
 }
 @keyframes ticket-block-land {
@@ -487,11 +397,11 @@
   font-size: 12px;
 }
 .prose-md.prose-compact em {
-  color: var(--muted-foreground);
+  color: var(--color-muted-foreground);
 }
 .prose-md .ticket-block [data-hint]::after {
   content: attr(data-hint);
-  color: var(--muted-foreground);
+  color: var(--color-muted-foreground);
   opacity: 0.7;
   pointer-events: none;
   user-select: none;
@@ -500,7 +410,7 @@
   display: none;
 }
 .prose-md .lexical-hint {
-  color: var(--muted-foreground);
+  color: var(--color-muted-foreground);
   font-style: italic;
 }
 .prose-md h1 {
@@ -525,11 +435,11 @@
    — that would override the spacing rule via specificity. */
 .prose-md a:not([data-slot="button"]),
 .prose-md .lexical-link {
-  color: var(--foreground);
+  color: var(--color-foreground);
   text-decoration: underline;
   text-decoration-color: color-mix(
     in oklch,
-    var(--foreground) 38%,
+    var(--color-foreground) 38%,
     transparent
   );
   text-decoration-thickness: 1px;
@@ -550,28 +460,36 @@
 }
 .prose-md a:not([data-slot="button"]):hover,
 .prose-md .lexical-link:hover {
-  background-color: color-mix(in oklch, var(--foreground) 6%, transparent);
-  text-decoration-color: var(--foreground);
+  background-color: color-mix(
+    in oklch,
+    var(--color-foreground) 6%,
+    transparent
+  );
+  text-decoration-color: var(--color-foreground);
 }
 .prose-md a:not([data-slot="button"]):focus-visible,
 .prose-md .lexical-link:focus-visible {
   outline: none;
-  background-color: color-mix(in oklch, var(--foreground) 8%, transparent);
-  box-shadow: 0 0 0 2px var(--ring);
-  text-decoration-color: var(--foreground);
+  background-color: color-mix(
+    in oklch,
+    var(--color-foreground) 8%,
+    transparent
+  );
+  box-shadow: 0 0 0 2px var(--color-ring);
+  text-decoration-color: var(--color-foreground);
 }
 .prose-md code {
   font-family: var(--font-mono);
   font-size: 0.875em;
-  background: var(--muted);
+  background: var(--color-muted);
   padding: 0.1em 0.35em;
   border-radius: 4px;
 }
 .prose-md pre {
   font-family: var(--font-mono);
   font-size: 0.875em;
-  background: var(--muted);
-  border: 1px solid var(--border);
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 0.85em 1em;
   overflow-x: auto;
@@ -588,7 +506,7 @@
    `CodeHighlightNode` (editor), so the colors stay consistent across modes. */
 .prose-md pre[class*="language-"],
 .prose-md code[class*="language-"] {
-  color: var(--foreground);
+  color: var(--color-foreground);
 }
 .prose-md .token.comment,
 .prose-md .token.prolog,
@@ -726,7 +644,7 @@ html.dark .prose-md .token.coord {
    of editor-specific tweaks. The `.lexical-*` classes are emitted by the
    editor's theme dictionary in components/LexicalEditor.tsx. */
 .prose-md .lexical-content {
-  caret-color: var(--foreground);
+  caret-color: var(--color-foreground);
 }
 .prose-md .lexical-h1 {
   font-size: 1.5rem;
@@ -746,9 +664,9 @@ html.dark .prose-md .token.coord {
   line-height: 1.35;
 }
 .prose-md .lexical-quote {
-  border-left: 2px solid var(--border);
+  border-left: 2px solid var(--color-border);
   padding-left: 1em;
-  color: var(--muted-foreground);
+  color: var(--color-muted-foreground);
   font-style: italic;
 }
 .prose-md .lexical-li {
@@ -789,18 +707,18 @@ html.dark .prose-md .token.coord {
   width: 1.15em;
   height: 1.15em;
   border-radius: 3px;
-  background: var(--background);
-  box-shadow: inset 0 0 0 1px var(--border);
+  background: var(--color-background);
+  box-shadow: inset 0 0 0 1px var(--color-border);
   transition:
     background 100ms,
     box-shadow 100ms;
 }
 .prose-md .lexical-li-unchecked:hover::before {
-  box-shadow: inset 0 0 0 1px var(--muted-foreground);
+  box-shadow: inset 0 0 0 1px var(--color-muted-foreground);
 }
 .prose-md .lexical-li-checked::before {
-  background: var(--foreground);
-  box-shadow: inset 0 0 0 1px var(--foreground);
+  background: var(--color-foreground);
+  box-shadow: inset 0 0 0 1px var(--color-foreground);
 }
 .prose-md .lexical-li-checked::after {
   content: "";
@@ -810,22 +728,22 @@ html.dark .prose-md .token.coord {
   width: 0.32em;
   height: 0.6em;
   border-style: solid;
-  border-color: var(--background);
+  border-color: var(--color-background);
   border-width: 0 1.5px 1.5px 0;
   transform: rotate(45deg);
 }
 .prose-md .lexical-li-checked {
-  color: var(--muted-foreground);
+  color: var(--color-muted-foreground);
   text-decoration: line-through;
 }
 .prose-md .lexical-hr {
   border: 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
   margin: 1.5em 0;
   cursor: text;
 }
 .prose-md .lexical-hr.selected {
-  border-top-color: var(--foreground);
+  border-top-color: var(--color-foreground);
 }
 .prose-md .lexical-bold {
   font-weight: 600;
@@ -842,7 +760,7 @@ html.dark .prose-md .token.coord {
 .prose-md .lexical-inline-code {
   font-family: var(--font-mono);
   font-size: 0.875em;
-  background: var(--muted);
+  background: var(--color-muted);
   padding: 0.1em 0.35em;
   border-radius: 4px;
 }
@@ -850,8 +768,8 @@ html.dark .prose-md .token.coord {
   display: block;
   font-family: var(--font-mono);
   font-size: 0.875em;
-  background: var(--muted);
-  border: 1px solid var(--border);
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 0.85em 1em;
   overflow-x: auto;
@@ -859,9 +777,9 @@ html.dark .prose-md .token.coord {
   white-space: pre;
 }
 .prose-md blockquote {
-  border-left: 2px solid var(--border);
+  border-left: 2px solid var(--color-border);
   padding-left: 1em;
-  color: var(--muted-foreground);
+  color: var(--color-muted-foreground);
   font-style: italic;
 }
 .prose-md ul {
@@ -882,7 +800,7 @@ html.dark .prose-md .token.coord {
 .prose-md ol > li::before {
   content: counters(ol-counter, ".") ".";
   margin-right: 0.5em;
-  color: var(--muted-foreground);
+  color: var(--color-muted-foreground);
   font-variant-numeric: tabular-nums;
 }
 .prose-md ol > li.lexical-li-nested {
@@ -906,7 +824,7 @@ html.dark .prose-md .token.coord {
 }
 .prose-md hr {
   border: 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
   margin: 1.5em 0;
 }
 .prose-md table {
@@ -918,7 +836,7 @@ html.dark .prose-md .token.coord {
 .prose-md th,
 .prose-md td {
   border: 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border);
   padding: 0.625rem 0.75rem;
   text-align: left;
   vertical-align: top;
@@ -936,7 +854,7 @@ html.dark .prose-md .token.coord {
   text-align: right;
 }
 .prose-md th {
-  color: var(--muted-foreground);
+  color: var(--color-muted-foreground);
   background: transparent;
   font-weight: 500;
 }
@@ -948,14 +866,14 @@ html.dark .prose-md .token.coord {
   margin: 0;
 }
 .prose-md .lexical-table-cell-selected {
-  background: var(--selected);
+  background: var(--color-selected);
 }
 .lexical-table-selection ::selection {
   background: transparent;
 }
 .prose-md input[type="checkbox"] {
   margin-right: 0.5em;
-  accent-color: var(--foreground);
+  accent-color: var(--color-foreground);
 }
 .prose-md .contains-task-list {
   list-style: none;
@@ -965,7 +883,7 @@ html.dark .prose-md .token.coord {
   margin: 0.15em 0;
 }
 .prose-md .task-list-item:has(> input[type="checkbox"]:checked) {
-  color: var(--muted-foreground);
+  color: var(--color-muted-foreground);
   text-decoration: line-through;
 }
 
@@ -974,7 +892,7 @@ html.dark .prose-md .token.coord {
     @apply border-border;
 
     scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
+    scrollbar-color: var(--color-border) transparent;
   }
   body {
     @apply bg-muted text-foreground antialiased;
@@ -1047,7 +965,7 @@ html.dark .prose-md .token.coord {
   z-index: 60;
   display: grid;
   place-items: center;
-  background: var(--background);
+  background: var(--color-background);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease;
@@ -1174,7 +1092,7 @@ html.dark .prose-md .token.coord {
     left: var(--scroll-divider-inset, 0px);
     right: var(--scroll-divider-inset, 0px);
     height: 1px;
-    background-color: var(--border);
+    background-color: var(--color-border);
     pointer-events: none;
     z-index: 1;
     opacity: 0;

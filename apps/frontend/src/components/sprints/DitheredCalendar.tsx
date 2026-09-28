@@ -11,8 +11,8 @@ export function DitheredCalendar({
   const w = cols * cell
   const h = rows * cell
 
-  const FG = "var(--foreground, #FEFEFE)"
-  const MUTED = "var(--muted-foreground, #807F7F)"
+  const FG = "var(--color-foreground, #FEFEFE)"
+  const MUTED = "var(--color-muted-foreground, #807F7F)"
 
   const mask = [
     [0, 8, 2, 10],
