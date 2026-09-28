@@ -238,7 +238,7 @@ When a new feature needs categorical color the user controls (tags, statuses, la
 
 ## 4. Elevation
 
-The system is **flat by default**. No decorative drop shadows on rectangles, no glassmorphism, no layered glow. Depth is conveyed by:
+The system is **flat by default**. No decorative drop shadows on rectangles, no glassmorphism, no layered glow. The one exception is native iOS chrome in the app: the navigation bar and the primary button use the system's Liquid Glass (the clear `.glass` style), because that is how iOS draws those controls. Depth is conveyed by:
 
 1. **Tonal layering.** The page sits on `--muted`; cards rise to `--card` (light surfaces in light mode; near-black on near-blacker in dark). The contrast is small on purpose.
 2. **Hairline borders.** A single 1px `--border` separates surfaces that share tone.

@@ -1,5 +1,26 @@
+import {
+  Button as NativeButton,
+  HStack,
+  Host,
+  ProgressView,
+  Text as NativeText
+} from "@expo/ui/swift-ui"
+import {
+  buttonStyle,
+  controlSize,
+  disabled as nativeDisabled,
+  font,
+  foregroundStyle,
+  frame
+} from "@expo/ui/swift-ui/modifiers"
 import { cva, type VariantProps } from "class-variance-authority"
-import { ActivityIndicator, type PressableProps, Text } from "react-native"
+import {
+  ActivityIndicator,
+  type PressableProps,
+  Text,
+  View
+} from "react-native"
+import { useCSSVariable } from "uniwind"
 
 import { PressScale } from "./press-scale"
 
@@ -54,13 +75,65 @@ const spinnerVariants = cva("", {
 })
 
 export type ButtonProps = Readonly<
-  Omit<PressableProps, "children"> &
+  Omit<PressableProps, "children" | "onPress"> &
     VariantProps<typeof buttonVariants> & {
       label: string
       loading?: boolean
       className?: string
+      onPress?: () => void
     }
 >
+
+const nativeLabelSize = { md: 15, lg: 16 } as const
+
+// The primary action is iOS's own Liquid Glass button, so it presses and
+// refracts like the system's. The other variants stay flat, per DESIGN.md.
+function GlassButton({
+  label,
+  loading,
+  size,
+  className,
+  disabled,
+  onPress
+}: Readonly<{
+  label: string
+  loading: boolean
+  size: "md" | "lg"
+  className?: string
+  disabled: boolean
+  onPress?: () => void
+}>) {
+  const [foreground] = useCSSVariable(["--color-foreground"])
+  return (
+    <View className={className}>
+      <Host matchContents={{ vertical: true }} style={{ width: "100%" }}>
+        <NativeButton
+          onPress={onPress}
+          modifiers={[
+            buttonStyle("glass"),
+            controlSize(size === "md" ? "regular" : "large"),
+            nativeDisabled(disabled || loading)
+          ]}
+        >
+          <HStack modifiers={[frame({ maxWidth: Number.POSITIVE_INFINITY })]}>
+            {loading ? (
+              <ProgressView />
+            ) : (
+              <NativeText
+                modifiers={[
+                  font({ family: "Geist-Medium", size: nativeLabelSize[size] }),
+                  foregroundStyle(String(foreground))
+                ]}
+              >
+                {label}
+              </NativeText>
+            )}
+          </HStack>
+        </NativeButton>
+      </Host>
+    </View>
+  )
+}
 
 export function Button({
   label,
@@ -69,8 +142,20 @@ export function Button({
   size,
   className,
   disabled,
+  onPress,
   ...props
 }: ButtonProps) {
+  if (variant === undefined || variant === "primary")
+    return (
+      <GlassButton
+        label={label}
+        loading={loading}
+        size={size ?? "lg"}
+        className={className}
+        disabled={disabled === true}
+        onPress={onPress}
+      />
+    )
   return (
     <PressScale
       wrapperClassName={className}
@@ -82,6 +167,7 @@ export function Button({
       }}
       disabled={disabled === true || loading}
       className={buttonVariants({ variant, size })}
+      onPress={onPress}
       {...props}
     >
       {loading ? (
