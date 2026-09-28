@@ -15,7 +15,13 @@ import { appOAuthClientId } from "@pp/shared"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { APIError } from "better-auth/api"
-import { admin, jwt, magicLink, organization } from "better-auth/plugins"
+import {
+  admin,
+  emailOTP,
+  jwt,
+  magicLink,
+  organization
+} from "better-auth/plugins"
 import { and, eq, inArray } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { FileSystem, Path, Schema, Struct } from "effect"
@@ -455,6 +461,13 @@ export const auth = betterAuth({
       sendMagicLink: async (data) => {
         process.stdout.write(
           `[magic-link] email=${data.email} url=${data.url}\n`
+        )
+      }
+    }),
+    emailOTP({
+      sendVerificationOTP: async (data) => {
+        process.stdout.write(
+          `[email-otp] email=${data.email} type=${data.type} otp=${data.otp}\n`
         )
       }
     }),

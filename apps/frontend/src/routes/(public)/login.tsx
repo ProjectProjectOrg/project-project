@@ -2,15 +2,13 @@ import { useAtomValue } from "@effect/atom-react"
 import { createFileRoute, Navigate } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { Mail } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
-import type { FormEvent } from "react"
 
 import { Logo, Wordmark } from "@/components/Logo"
 import { Button } from "@/components/ui/button"
 import { Dither, type TimeWarpZone } from "@/components/ui/dither"
-import { Input } from "@/components/ui/input"
 import { me } from "@/features/auth/atoms/auth"
+import { SignInWithEmail } from "@/forms/sign-in"
 import {
   hasSignedOAuthQuery,
   oauthAuthorizeUrl,
@@ -52,9 +50,6 @@ function LoginPage() {
   const oauthContinuationTarget =
     oauthAuthorizeTarget ??
     (redirectTarget.startsWith("/oauth/consent?") ? redirectTarget : null)
-  const [email, setEmail] = useState("")
-  const [magicLinkSent, setMagicLinkSent] = useState(false)
-  const [magicLinkPending, setMagicLinkPending] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
   const cardRef = useRef<HTMLDivElement | null>(null)
 
@@ -76,28 +71,6 @@ function LoginPage() {
             new URLSearchParams(redirectTarget.slice(queryIndex + 1))
           )
     return <Navigate to={pathname as never} search={search as never} />
-  }
-
-  async function handleMagicLinkSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setMagicLinkPending(true)
-    setAuthError(null)
-    setMagicLinkSent(false)
-    try {
-      const { error } = await authClient.signIn.magicLink({
-        email,
-        callbackURL: oauthContinuationTarget ?? redirectTarget
-      })
-      if (error) {
-        setAuthError(m.auth_magic_link_error())
-        return
-      }
-      setMagicLinkSent(true)
-    } catch {
-      setAuthError(m.auth_magic_link_error())
-    } finally {
-      setMagicLinkPending(false)
-    }
   }
 
   async function handleGoogleSignIn() {
@@ -150,35 +123,10 @@ function LoginPage() {
         </div>
 
         <div className="flex w-full flex-col gap-3 px-8 pb-8">
-          <form
-            className="flex flex-col gap-2"
-            onSubmit={handleMagicLinkSubmit}
-          >
-            <Input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder={m.auth_email_placeholder()}
-              aria-label={m.auth_email_aria_label()}
-              required
-            />
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              className="w-full"
-              leadingIcon={Mail}
-              loading={magicLinkPending}
-            >
-              {m.auth_continue_with_email_button()}
-            </Button>
-          </form>
+          <SignInWithEmail
+            callbackURL={oauthContinuationTarget ?? redirectTarget}
+          />
 
-          {magicLinkSent ? (
-            <p className="text-center text-xs leading-5 text-muted-foreground">
-              {m.auth_magic_link_sent()}
-            </p>
-          ) : null}
           {authError ? (
             <p className="text-center text-xs leading-5 text-destructive">
               {authError}
