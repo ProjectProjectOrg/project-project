@@ -6,8 +6,9 @@ import { OAuthApplications } from "@pp/server-core/oauth/OAuthApplications"
 import { AppApi, CurrentUser, Validation } from "@pp/shared"
 import { isAPIError } from "better-auth/api"
 import * as Effect from "effect/Effect"
-import { HttpServerRequest } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
+
+import { sessionWebRequest } from "../http/sessionWebRequest"
 
 export const consentErrorToFailure = (error: BetterAuthError) => {
   const { cause } = error
@@ -54,8 +55,7 @@ export const OAuthApplicationsHandlerLive = HttpApiBuilder.group(
         Effect.gen(function* () {
           yield* CurrentUser
           const ba = yield* BetterAuth
-          const req = yield* HttpServerRequest.HttpServerRequest
-          const request = yield* HttpServerRequest.toWeb(req).pipe(Effect.orDie)
+          const request = yield* sessionWebRequest
           const result = yield* ba
             .submitConsent(request, payload)
             .pipe(Effect.catchTag("BetterAuthError", consentErrorToFailure))

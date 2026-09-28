@@ -60,6 +60,7 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient"
 import { JiraWorkflowsLive } from "./jira/WorkflowRuntime"
 import { AuthenticationLive } from "./Layers/Auth"
 import { BetterAuthLive } from "./Layers/BetterAuth"
+import { OAuthAccessTokensLive } from "./Layers/OAuthAccessTokens"
 
 const makeJiraServicesLive = <TE, TR, EE, ER, CE, CR>(
   transport: Layer.Layer<JiraTransport, TE, TR>,
@@ -145,6 +146,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(BannerPlaceholdersLive),
       Layer.provideMerge(UsersLive),
       Layer.provideMerge(InstanceLive),
+      Layer.provideMerge(OAuthAccessTokensLive),
       Layer.provideMerge(TicketIndexLive),
       Layer.provideMerge(JiraDurableServicesLive),
       Layer.provideMerge(JiraWorkflowsLive),
@@ -182,7 +184,9 @@ export const makeBackendHttpServicesLive = <TE, TR, EE, ER, CE, CR>(
   oauthConfig: Layer.Layer<JiraOAuthConfig, CE, CR>
 ) =>
   makeBackendServicesLive(transport, tokenEndpoint, oauthConfig).pipe(
-    Layer.provideMerge(AuthenticationLive)
+    Layer.provideMerge(
+      AuthenticationLive.pipe(Layer.provide(OAuthAccessTokensLive))
+    )
   )
 
 export const BackendHttpServicesLive = makeBackendHttpServicesLive(

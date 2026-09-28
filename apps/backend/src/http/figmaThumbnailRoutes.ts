@@ -1,10 +1,10 @@
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { FigmaLinks } from "@pp/server-core/figma/FigmaLinks"
 import { parseFigmaThumbnailUrl } from "@pp/server-core/figma/FigmaLinks"
 import * as Effect from "effect/Effect"
+import * as Option from "effect/Option"
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 
-import { toWebHeaders } from "./toWebHeaders"
+import { bearerChallenge, requestUserId } from "./requestUserId"
 
 const notFound = HttpServerResponse.text("Not Found", { status: 404 })
 
@@ -15,18 +15,18 @@ const serveFigmaThumbnail = Effect.gen(function* () {
   const ref = parseFigmaThumbnailUrl(url.pathname)
   if (!ref) return notFound
 
-  const ba = yield* BetterAuth
-  const session = yield* ba
-    .getSession(toWebHeaders(req.headers))
-    .pipe(Effect.orElseSucceed(() => null))
-  if (session === null) {
-    return HttpServerResponse.text("Unauthorized", { status: 401 })
+  const userId = yield* requestUserId
+  if (Option.isNone(userId)) {
+    return HttpServerResponse.text("Unauthorized", {
+      status: 401,
+      headers: { "www-authenticate": bearerChallenge }
+    })
   }
 
   const figmaLinks = yield* FigmaLinks
   const signed = yield* figmaLinks.resolveThumbnailUrl(
     ref.orgSlug,
-    session.user.id,
+    userId.value,
     ref.linkId
   )
   return HttpServerResponse.redirect(signed, {

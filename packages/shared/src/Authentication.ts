@@ -66,6 +66,7 @@ const sessionCookie = HttpApiSecurity.apiKey({
   key: "better-auth.session_token"
 })
 
+/** @effect-expect-leaking HttpServerRequest | ParsedSearchParams | RouteContext */
 export class Authentication extends HttpApiMiddleware.Service<
   Authentication,
   {
@@ -73,5 +74,5 @@ export class Authentication extends HttpApiMiddleware.Service<
   }
 >()("Authentication", {
   error: Unauthorized,
-  security: { sessionCookie }
+  security: { sessionCookie, bearer: HttpApiSecurity.bearer }
 }) {}

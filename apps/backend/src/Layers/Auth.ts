@@ -42,6 +42,8 @@
 // way is to provide `BetterAuthLive` somewhere underneath `AuthenticationLive`
 // in the `Layer.provide` chain.
 
+import { Db } from "@pp/db"
+import { member, organization } from "@pp/db/auth-schema"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import {
   Authentication,
@@ -49,11 +51,14 @@ import {
   type EditorPreference,
   Unauthorized
 } from "@pp/shared"
+import { and, asc, eq, isNull } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { HttpServerRequest } from "effect/unstable/http"
 
+import { apiResource } from "../auth"
 import { toWebHeaders } from "../http/toWebHeaders"
+import { OAuthAccessTokens } from "./OAuthAccessTokens"
 
 function normalizeEditorPreference(value: unknown): EditorPreference {
   switch (value) {
@@ -67,10 +72,43 @@ function normalizeEditorPreference(value: unknown): EditorPreference {
   }
 }
 
+type UserIdentity = Readonly<{
+  id: string
+  email: string
+  name: string
+  image?: string | null
+  createdAt: Date
+  username: string | null | undefined
+  editorPreference: string | null | undefined
+}>
+
 export const AuthenticationLive = Layer.effect(
   Authentication,
   Effect.gen(function* () {
     const ba = yield* BetterAuth
+    const db = yield* Db
+    const tokens = yield* OAuthAccessTokens
+
+    const toCurrentUser = Effect.fn("Authentication.toCurrentUser")(function* (
+      user: UserIdentity,
+      activeOrganizationId: string | null | undefined
+    ) {
+      const activeOrgSlug = yield* ba.getOrgSlugById(activeOrganizationId)
+      const personalGithub = yield* ba.getPersonalGithub(user.id)
+      const personalEverhour = yield* ba.getPersonalEverhour(user.id)
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        username: user.username ?? null,
+        image: user.image ?? null,
+        createdAt: user.createdAt,
+        activeOrgSlug,
+        personalGithub,
+        editorPreference: normalizeEditorPreference(user.editorPreference),
+        personalEverhour
+      }
+    }, Effect.orDie)
 
     return Authentication.of({
       sessionCookie: (httpEffect, _options) =>
@@ -83,52 +121,71 @@ export const AuthenticationLive = Layer.effect(
           if (session === null) {
             return yield* new Unauthorized()
           }
-          // Shape Better Auth's user into the shared `User` schema. The fields
-          // line up by name, but Better Auth types `image` as
-          // `string | null | undefined` (optional + nullable), whereas our
-          // wire schema is `Schema.NullOr(Schema.String)` — strictly
-          // `string | null`. Normalize `undefined → null` here so the seam
-          // stays narrow. This is exactly the DTO mapping the schema exists
-          // to host: even when the fields look identical, the codec is the
-          // contract, not the source struct.
-          const { id, email, name, image, createdAt } = session.user
-          // `username` was added via Better Auth's `additionalFields`; it
-          // shows up at runtime but isn't on the inferred type. Cast at the
-          // seam — the schema is what guards the wire.
-          const username =
-            (session.user as { username?: string | null }).username ?? null
-          const editorPreference = normalizeEditorPreference(
-            (session.user as { editorPreference?: string | null })
-              .editorPreference
+          const extra = session.user as Readonly<{
+            username?: string | null
+            editorPreference?: string | null
+          }>
+          const current = yield* toCurrentUser(
+            {
+              ...session.user,
+              username: extra.username,
+              editorPreference: extra.editorPreference
+            },
+            (
+              session.session as Readonly<{
+                activeOrganizationId?: string | null
+              }>
+            ).activeOrganizationId
           )
-          // `activeOrganizationId` lives on the session row (organization
-          // plugin). Resolve to a slug here so the wire shape is the
-          // human-readable identifier the frontend builds URLs from.
-          const activeOrganizationId = (
-            session.session as { activeOrganizationId?: string | null }
-          ).activeOrganizationId
-          const activeOrgSlug = yield* ba
-            .getOrgSlugById(activeOrganizationId)
+          return yield* Effect.provideService(httpEffect, CurrentUser, current)
+        }),
+      bearer: (httpEffect, _options) =>
+        Effect.gen(function* () {
+          const req = yield* HttpServerRequest.HttpServerRequest
+          const claims = yield* tokens.verify(req, apiResource)
+          const userId = yield* tokens.consentedSubject(claims)
+          const row = yield* db.query.user
+            .findFirst({
+              columns: {
+                id: true,
+                email: true,
+                name: true,
+                image: true,
+                createdAt: true,
+                username: true,
+                editorPreference: true,
+                lastActiveOrganizationId: true
+              },
+              where: { id: userId }
+            })
             .pipe(Effect.orDie)
-          const personalGithub = yield* ba
-            .getPersonalGithub(id)
+          if (!row) {
+            return yield* new Unauthorized()
+          }
+          const memberships = yield* db
+            .select({ organizationId: member.organizationId })
+            .from(member)
+            .innerJoin(organization, eq(member.organizationId, organization.id))
+            .where(
+              and(eq(member.userId, row.id), isNull(organization.deletedAt))
+            )
+            .orderBy(asc(member.createdAt))
             .pipe(Effect.orDie)
-          const personalEverhour = yield* ba
-            .getPersonalEverhour(id)
-            .pipe(Effect.orDie)
-          return yield* Effect.provideService(httpEffect, CurrentUser, {
-            id,
-            email,
-            name,
-            username,
-            image: image ?? null,
-            createdAt,
-            activeOrgSlug,
-            personalGithub,
-            editorPreference,
-            personalEverhour
+          const activeOrganizationId =
+            memberships.find(
+              (membership) =>
+                membership.organizationId === row.lastActiveOrganizationId
+            )?.organizationId ?? memberships[0]?.organizationId
+          const current = yield* toCurrentUser(row, activeOrganizationId)
+          return yield* Effect.provideService(httpEffect, CurrentUser, current)
+        }).pipe(
+          Effect.catchTags({
+            TokenRejected: () => Effect.fail(new Unauthorized()),
+            InvalidAccessToken: () => Effect.fail(new Unauthorized()),
+            ConsentRevoked: () => Effect.fail(new Unauthorized()),
+            SubjectBanned: () => Effect.fail(new Unauthorized())
           })
-        })
+        )
     })
   })
 )

@@ -11,9 +11,9 @@ import {
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
-import { HttpServerRequest } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 
+import { sessionWebRequest } from "../http/sessionWebRequest"
 import {
   betterAuthErrorCode,
   betterAuthErrorStatus,
@@ -104,11 +104,6 @@ export const listInvitationsErrorToFailure = (
   return Effect.die(error)
 }
 
-const webRequest = Effect.gen(function* () {
-  const req = yield* HttpServerRequest.HttpServerRequest
-  return yield* HttpServerRequest.toWeb(req).pipe(Effect.orDie)
-})
-
 export const InvitationsHandlerLive = HttpApiBuilder.group(
   AppApi,
   "invitations",
@@ -118,7 +113,7 @@ export const InvitationsHandlerLive = HttpApiBuilder.group(
         Effect.gen(function* () {
           yield* CurrentUser
           const ba = yield* BetterAuth
-          const request = yield* webRequest
+          const request = yield* sessionWebRequest
           return yield* ba
             .listInvitations(request)
             .pipe(
@@ -130,7 +125,7 @@ export const InvitationsHandlerLive = HttpApiBuilder.group(
         Effect.gen(function* () {
           yield* CurrentUser
           const ba = yield* BetterAuth
-          const request = yield* webRequest
+          const request = yield* sessionWebRequest
           return yield* ba
             .getInvitation(request, params.invitationId)
             .pipe(Effect.catchTag("BetterAuthError", invitationErrorToFailure))
@@ -140,7 +135,7 @@ export const InvitationsHandlerLive = HttpApiBuilder.group(
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const ba = yield* BetterAuth
-          const request = yield* webRequest
+          const request = yield* sessionWebRequest
           return yield* ba.acceptInvitation(request, params.invitationId).pipe(
             Effect.catchTag("BetterAuthError", (error) =>
               Effect.gen(function* () {
@@ -163,7 +158,7 @@ export const InvitationsHandlerLive = HttpApiBuilder.group(
         Effect.gen(function* () {
           yield* CurrentUser
           const ba = yield* BetterAuth
-          const request = yield* webRequest
+          const request = yield* sessionWebRequest
           yield* ba
             .rejectInvitation(request, params.invitationId)
             .pipe(Effect.catchTag("BetterAuthError", invitationErrorToFailure))

@@ -3,7 +3,6 @@ import {
   attachmentServesInline,
   deriveAttachmentEtag
 } from "@pp/server-core/attachments/Attachments"
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import {
   attachmentViewParams,
   parseAttachmentUrl,
@@ -20,7 +19,7 @@ import {
 } from "effect/unstable/http"
 import sharp from "sharp"
 
-import { toWebHeaders } from "./toWebHeaders"
+import { bearerChallenge, requestUserId } from "./requestUserId"
 
 const notFound = HttpServerResponse.text("Not Found", { status: 404 })
 
@@ -137,12 +136,12 @@ const serveAttachment = Effect.gen(function* () {
   const ref = parseAttachmentUrl(url.pathname)
   if (!ref) return notFound
 
-  const ba = yield* BetterAuth
-  const session = yield* ba
-    .getSession(toWebHeaders(req.headers))
-    .pipe(Effect.orElseSucceed(() => null))
-  if (session === null) {
-    return HttpServerResponse.text("Unauthorized", { status: 401 })
+  const userId = yield* requestUserId
+  if (Option.isNone(userId)) {
+    return HttpServerResponse.text("Unauthorized", {
+      status: 401,
+      headers: { "www-authenticate": bearerChallenge }
+    })
   }
 
   const downloadQuery = decodeAttachmentDownloadQuery(url.searchParams)
@@ -155,7 +154,7 @@ const serveAttachment = Effect.gen(function* () {
   const { url: signed, contentType } = yield* attachments.resolveForServing(
     ref.orgSlug,
     ref.id,
-    session.user.id,
+    userId.value,
     { download }
   )
 

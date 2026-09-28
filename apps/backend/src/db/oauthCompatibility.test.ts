@@ -9,13 +9,15 @@ import { join } from "node:path"
 
 import { requireMcpAuth } from "@better-auth/mcp"
 import { migrationsFolder } from "@pp/db"
+import { appOAuthClientId, appOAuthRedirectUri } from "@pp/shared"
 import { betterAuth } from "better-auth"
 import { makeSignature } from "better-auth/crypto"
 import { toNodeHandler } from "better-auth/node"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { Layer, Schema } from "effect"
-import { HttpRouter } from "effect/unstable/http"
+import * as DateTime from "effect/DateTime"
+import { HttpRouter, HttpServer } from "effect/unstable/http"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 
@@ -28,10 +30,22 @@ const httpFetch = globalThis.fetch.bind(globalThis)
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const Client = Schema.Struct({ client_id: Schema.String })
 const Redirect = Schema.Struct({ url: Schema.String })
+const decodeRedirect = Schema.decodeUnknownSync(Redirect)
+
+const verifierFor = (flow: string) =>
+  `app-client-pkce-verifier-${flow}-0123456789-abcdefghijklmnopqrstuvwxyz`
+const MeResponse = Schema.Struct({ id: Schema.String })
+const decodeMe = Schema.decodeUnknownSync(MeResponse)
+const noop = async () => {}
+
+const encodeBase64Url = (value: string | Uint8Array) =>
+  Buffer.from(value).toString("base64url")
+
 const Token = Schema.Struct({
   access_token: Schema.String,
   refresh_token: Schema.String
 })
+const decodeToken = Schema.decodeUnknownSync(Token)
 
 describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
   let server: Server
@@ -42,7 +56,9 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
   let clientId: string | undefined
   let projectsDir: string
   let handleMcp: (request: Request) => Promise<Response>
-  let disposeMcp = async () => {}
+  let disposeMcp = noop
+  let handleApi: (request: Request) => Promise<Response>
+  let disposeApi = noop
   const migratedClientId = randomUUID()
   const unrelatedClientId = randomUUID()
   const cimdClientId = "https://agent.example/oauth/client.json"
@@ -96,8 +112,11 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     )
     auth = (await import("../auth")).auth
     const { McpLive } = await import("../Layers/Mcp")
-    const { BackendServicesLive, BackendInfrastructureLive } =
-      await import("../runtime")
+    const {
+      BackendHttpServicesLive,
+      BackendServicesLive,
+      BackendInfrastructureLive
+    } = await import("../runtime")
     const app = McpLive.pipe(
       Layer.provide(
         BackendServicesLive.pipe(Layer.provideMerge(BackendInfrastructureLive))
@@ -106,6 +125,22 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     const built = HttpRouter.toWebHandler(app, { disableLogger: true })
     handleMcp = built.handler
     disposeMcp = built.dispose
+    const { ApiLive, ApiRouterLive } = await import("../main")
+    const api = HttpRouter.toWebHandler(
+      ApiLive.pipe(
+        Layer.provide(ApiRouterLive),
+        HttpRouter.provideRequest(
+          BackendHttpServicesLive.pipe(
+            Layer.provideMerge(BackendInfrastructureLive)
+          )
+        ),
+        Layer.provide(BackendInfrastructureLive),
+        Layer.provideMerge(HttpServer.layerServices)
+      ),
+      { disableLogger: true }
+    )
+    handleApi = api.handler
+    disposeApi = api.dispose
     server.on("request", toNodeHandler(auth))
     await pool.query(
       'INSERT INTO "user" (id,name,email,email_verified,created_at,updated_at) VALUES ($1,$2,$3,true,now(),now())',
@@ -120,6 +155,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
   afterAll(async () => {
     const results = await Promise.allSettled([
       disposeMcp(),
+      disposeApi(),
       projectsDir
         ? rm(projectsDir, { recursive: true, force: true })
         : Promise.resolve(),
@@ -326,9 +362,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       })
     })
     expect(consent.status).toBe(200)
-    const callback = new URL(
-      Schema.decodeUnknownSync(Redirect)(await consent.json()).url
-    )
+    const callback = new URL(decodeRedirect(await consent.json()).url)
     expect(callback.searchParams.get("state")).toBe("roundtrip-state")
     const code = callback.searchParams.get("code")
     expect(code).toBeTruthy()
@@ -345,7 +379,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       body: tokenBody
     })
     expect(tokenResponse.status, await tokenResponse.clone().text()).toBe(200)
-    const token = Schema.decodeUnknownSync(Token)(await tokenResponse.json())
+    const token = decodeToken(await tokenResponse.json())
     const protectedHandler = requireMcpAuth(
       auth,
       async (_request, claims) => {
@@ -405,6 +439,12 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
         })
       )
     expect((await listTools()).status).toBe(200)
+    const apiWithMcpToken = await handleApi(
+      new Request(`${baseUrl}/api/me`, {
+        headers: { authorization: `Bearer ${token.access_token}` }
+      })
+    )
+    expect(apiWithMcpToken.status).toBe(401)
     await pool.query(
       "UPDATE oauth_provider_consent SET id=$1 WHERE user_id=$2 AND client_id=$3",
       [randomUUID(), userId, clientId]
@@ -425,7 +465,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       body: refreshBody
     })
     expect(refreshed.status, await refreshed.clone().text()).toBe(200)
-    const rotated = Schema.decodeUnknownSync(Token)(await refreshed.json())
+    const rotated = decodeToken(await refreshed.json())
     expect(rotated.refresh_token).not.toBe(token.refresh_token)
     // Within `refreshTokenReuseInterval` a retried refresh replays the rotated
     // response instead of tripping breach detection, which would delete every
@@ -435,13 +475,321 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       body: refreshBody
     })
     expect(refreshReplay.status, await refreshReplay.clone().text()).toBe(200)
-    const replayed = Schema.decodeUnknownSync(Token)(await refreshReplay.json())
+    const replayed = decodeToken(await refreshReplay.json())
     expect(replayed.refresh_token).toBe(rotated.refresh_token)
     const replay = await httpFetch(metadata.token_endpoint, {
       method: "POST",
       body: tokenBody
     })
     expect(replay.status).toBe(400)
+  })
+
+  it("asks for consent on every authorization of the built-in app client", async () => {
+    const seeded = await pool.query(
+      "SELECT redirect_uris, token_endpoint_auth_method, require_pkce, skip_consent FROM oauth_client WHERE client_id=$1",
+      [appOAuthClientId]
+    )
+    expect(seeded.rows).toEqual([
+      {
+        redirect_uris: [appOAuthRedirectUri],
+        token_endpoint_auth_method: "none",
+        require_pkce: true,
+        skip_consent: false
+      }
+    ])
+    const parameters = (
+      flow: string,
+      extra: Readonly<Record<string, string>> = {}
+    ) =>
+      new URLSearchParams({
+        client_id: appOAuthClientId,
+        redirect_uri: appOAuthRedirectUri,
+        response_type: "code",
+        scope: "openid profile offline_access",
+        state: `state-${flow}`,
+        code_challenge_method: "S256",
+        code_challenge: createHash("sha256")
+          .update(verifierFor(flow))
+          .digest("base64url"),
+        ...extra
+      })
+    const navigation = {
+      cookie,
+      accept: "text/html",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-dest": "document"
+    }
+    const authorize = (
+      flow: string,
+      extra: Readonly<Record<string, string>> = {}
+    ) =>
+      auth.handler(
+        new Request(
+          `${baseUrl}/api/auth/oauth2/authorize?${parameters(flow, extra).toString()}`,
+          { headers: navigation }
+        )
+      )
+    const consentPage = (response: Response) => {
+      expect(response.status).toBe(302)
+      const location = new URL(response.headers.get("location")!, baseUrl)
+      expect(location.pathname).toBe("/oauth/consent")
+      return location.search.slice(1)
+    }
+    const accept = async (oauthQuery: string) => {
+      const consent = await httpFetch(`${baseUrl}/api/auth/oauth2/consent`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: baseUrl
+        },
+        body: JSON.stringify({ accept: true, oauth_query: oauthQuery })
+      })
+      expect(consent.status, await consent.clone().text()).toBe(200)
+      return new URL(decodeRedirect(await consent.json()).url)
+    }
+
+    const callback = await accept(consentPage(await authorize("first")))
+    expect(`${callback.protocol}//${callback.host}${callback.pathname}`).toBe(
+      appOAuthRedirectUri
+    )
+    expect(callback.searchParams.get("state")).toBe("state-first")
+
+    const replayed = await authorize("first", { prompt: "none" })
+    expect(replayed.status).toBe(302)
+    const replayedRedirect = new URL(replayed.headers.get("location")!)
+    expect(replayedRedirect.searchParams.get("error")).toBe("consent_required")
+    expect(replayedRedirect.searchParams.has("code")).toBe(false)
+    consentPage(await authorize("first"))
+    consentPage(await authorize("second"))
+    consentPage(await authorize("forged", { sig: "forged-signature" }))
+    const silent = await authorize("silent", { prompt: "none" })
+    expect(silent.status).toBe(302)
+    const silentRedirect = new URL(silent.headers.get("location")!)
+    expect(silentRedirect.searchParams.get("error")).toBe("consent_required")
+    expect(silentRedirect.searchParams.has("code")).toBe(false)
+    const posted = await auth.handler(
+      new Request(`${baseUrl}/api/auth/oauth2/authorize`, {
+        method: "POST",
+        headers: {
+          ...navigation,
+          origin: baseUrl,
+          "content-type": "application/x-www-form-urlencoded"
+        },
+        body: parameters("posted")
+      })
+    )
+    const postedLocation = posted.headers.get("location") ?? ""
+    expect(postedLocation).not.toContain("code=")
+    expect(await posted.clone().text()).not.toContain("code=")
+
+    const tokenResponse = await httpFetch(`${baseUrl}/api/auth/oauth2/token`, {
+      method: "POST",
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: appOAuthClientId,
+        code: callback.searchParams.get("code")!,
+        redirect_uri: appOAuthRedirectUri,
+        code_verifier: verifierFor("first")
+      })
+    })
+    expect(tokenResponse.status, await tokenResponse.clone().text()).toBe(200)
+    const token = decodeToken(await tokenResponse.json())
+    await pool.query(
+      "UPDATE oauth_refresh_token SET expires_at = now() + interval '1 day' WHERE client_id=$1 AND user_id=$2",
+      [appOAuthClientId, userId]
+    )
+    const refreshed = await httpFetch(`${baseUrl}/api/auth/oauth2/token`, {
+      method: "POST",
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: appOAuthClientId,
+        refresh_token: token.refresh_token
+      })
+    })
+    expect(refreshed.status, await refreshed.clone().text()).toBe(200)
+    const refresh = await pool.query(
+      "SELECT max(extract(epoch FROM expires_at - now()) / 86400) AS days FROM oauth_refresh_token WHERE client_id=$1 AND user_id=$2 AND revoked IS NULL",
+      [appOAuthClientId, userId]
+    )
+    expect(Number(refresh.rows[0].days)).toBeCloseTo(90, 0)
+  })
+
+  const issueApiToken = async (
+    flow: string,
+    tokenHeaders: Readonly<Record<string, string>> = {}
+  ) => {
+    const resource = `${baseUrl}/api`
+    const verifier = `app-client-api-pkce-verifier-${flow}-0123456789-abcdefghijklmnopqrstuvwxyz`
+    const query = new URLSearchParams({
+      client_id: appOAuthClientId,
+      redirect_uri: appOAuthRedirectUri,
+      response_type: "code",
+      scope: "openid profile offline_access",
+      state: `api-${flow}`,
+      resource,
+      code_challenge_method: "S256",
+      code_challenge: createHash("sha256").update(verifier).digest("base64url")
+    })
+    const context = await auth.$context
+    const session = await context.internalAdapter.createSession(userId)
+    if (!session) throw new Error("Failed to create test session")
+    const sessionCookie = `better-auth.session_token=${encodeURIComponent(`${session.token}.${await makeSignature(session.token, secret)}`)}`
+    const authorization = await auth.handler(
+      new Request(`${baseUrl}/api/auth/oauth2/authorize?${query.toString()}`, {
+        headers: {
+          cookie: sessionCookie,
+          accept: "text/html",
+          "sec-fetch-mode": "navigate",
+          "sec-fetch-dest": "document"
+        }
+      })
+    )
+    expect(authorization.status).toBe(302)
+    const consentUrl = new URL(authorization.headers.get("location")!, baseUrl)
+    expect(consentUrl.pathname).toBe("/oauth/consent")
+    const consent = await httpFetch(`${baseUrl}/api/auth/oauth2/consent`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: sessionCookie,
+        origin: baseUrl
+      },
+      body: JSON.stringify({
+        accept: true,
+        oauth_query: consentUrl.search.slice(1)
+      })
+    })
+    expect(consent.status, await consent.clone().text()).toBe(200)
+    const code = new URL(
+      decodeRedirect(await consent.json()).url
+    ).searchParams.get("code")
+    expect(code).toBeTruthy()
+    const tokenResponse = await httpFetch(`${baseUrl}/api/auth/oauth2/token`, {
+      method: "POST",
+      headers: tokenHeaders,
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: appOAuthClientId,
+        code: code!,
+        redirect_uri: appOAuthRedirectUri,
+        code_verifier: verifier,
+        resource
+      })
+    })
+    expect(tokenResponse.status, await tokenResponse.clone().text()).toBe(200)
+    return {
+      token: decodeToken(await tokenResponse.json()),
+      sessionToken: session.token
+    }
+  }
+
+  const callApi = (path: string, headers: Readonly<Record<string, string>>) =>
+    handleApi(new Request(`${baseUrl}${path}`, { headers }))
+
+  it("accepts app access tokens on /api independently of the web session", async () => {
+    const { token, sessionToken } = await issueApiToken("bearer")
+    const bearer = { authorization: `Bearer ${token.access_token}` }
+
+    const viaBearer = await callApi("/api/me", bearer)
+    expect(viaBearer.status, await viaBearer.clone().text()).toBe(200)
+    expect(decodeMe(await viaBearer.json()).id).toBe(userId)
+
+    await pool.query("DELETE FROM session WHERE token=$1", [sessionToken])
+    expect((await callApi("/api/me", bearer)).status).toBe(200)
+
+    const staleCookie = await callApi("/api/me", {
+      ...bearer,
+      cookie: "better-auth.session_token=stale.signature"
+    })
+    expect(staleCookie.status).toBe(200)
+
+    const orgs = await callApi("/api/orgs", bearer)
+    expect(orgs.status, await orgs.clone().text()).toBe(200)
+    expect((await callApi("/api/invitations", bearer)).status).toBe(401)
+
+    const mcpWithApiToken = await handleMcp(
+      new Request(`${baseUrl}/mcp`, {
+        method: "POST",
+        headers: {
+          ...bearer,
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream"
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" })
+      })
+    )
+    expect(mcpWithApiToken.status).toBe(401)
+
+    const invalid = await callApi("/api/me", {
+      authorization: "Bearer not-a-token"
+    })
+    expect(invalid.status).toBe(401)
+    expect(invalid.headers.get("www-authenticate")).toBe("Bearer, DPoP")
+
+    const viaCookie = await callApi("/api/me", { cookie })
+    expect(viaCookie.status).toBe(200)
+
+    await pool.query('UPDATE "user" SET banned=true WHERE id=$1', [userId])
+    expect((await callApi("/api/me", bearer)).status).toBe(401)
+    await pool.query('UPDATE "user" SET banned=false WHERE id=$1', [userId])
+    expect((await callApi("/api/me", bearer)).status).toBe(200)
+
+    await pool.query(
+      "UPDATE oauth_provider_consent SET id=gen_random_uuid()::text WHERE user_id=$1 AND client_id=$2",
+      [userId, appOAuthClientId]
+    )
+    expect((await callApi("/api/me", bearer)).status).toBe(401)
+  })
+
+  it("verifies DPoP proofs on /api against the requested endpoint", async () => {
+    const keys = await crypto.subtle.generateKey(
+      { name: "ECDSA", namedCurve: "P-256" },
+      true,
+      ["sign", "verify"]
+    )
+    const jwk = await crypto.subtle.exportKey("jwk", keys.publicKey)
+    const proof = async (method: string, url: string, accessToken?: string) => {
+      const header = encodeBase64Url(
+        JSON.stringify({
+          typ: "dpop+jwt",
+          alg: "ES256",
+          jwk: { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y }
+        })
+      )
+      const claims = {
+        htm: method,
+        htu: url,
+        iat: Math.floor(DateTime.toEpochMillis(DateTime.nowUnsafe()) / 1000),
+        jti: randomUUID()
+      }
+      const payload = encodeBase64Url(
+        JSON.stringify(
+          accessToken
+            ? {
+                ...claims,
+                ath: createHash("sha256")
+                  .update(accessToken)
+                  .digest("base64url")
+              }
+            : claims
+        )
+      )
+      const signature = await crypto.subtle.sign(
+        { name: "ECDSA", hash: "SHA-256" },
+        keys.privateKey,
+        new TextEncoder().encode(`${header}.${payload}`)
+      )
+      return `${header}.${payload}.${encodeBase64Url(new Uint8Array(signature))}`
+    }
+
+    const { token } = await issueApiToken("dpop", {
+      dpop: await proof("POST", `${baseUrl}/api/auth/oauth2/token`)
+    })
+    const authorization = `DPoP ${token.access_token}`
+    const valid = await proof("GET", `${baseUrl}/api/me`, token.access_token)
+    const viaDpop = await callApi("/api/me", { authorization, dpop: valid })
+    expect(viaDpop.status, await viaDpop.clone().text()).toBe(200)
   })
 
   it("advertises Client ID Metadata Document support", async () => {

@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { appOAuthClientId } from "@pp/shared"
 import { createFileRoute, Navigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
@@ -54,27 +55,19 @@ function OauthConsentPage() {
     return <ConsentShell title={m.auth_oauth_consent_title()} />
   }
 
+  if (clientId === appOAuthClientId) {
+    return <AppSignIn oauthQuery={oauthQuery} />
+  }
+
   return <ConsentForm oauthQuery={oauthQuery} clientId={clientId} />
 }
 
-function ConsentForm({
-  oauthQuery,
-  clientId
-}: {
-  oauthQuery: string
-  clientId: string | undefined
-}) {
+function useConsentSubmit(oauthQuery: string) {
   const consentReq = oauthConsentRequest(oauthQuery)
-  const clientReq = oauthClientRequest(clientId)
   const submit = useAtomSet(submitConsentAtom(consentReq), {
     mode: "promiseExit"
   })
   const submitState = useAtomValue(submitConsentAtom(consentReq))
-  const clientName = useAtomValue(oauthClientNameAtom(clientReq))
-  const displayName =
-    (Result.isSuccess(clientName)
-      ? clientName.value.name?.trim() || null
-      : null) ?? m.auth_oauth_consent_client_fallback()
   const [pending, setPending] = useState<"accept" | "deny" | null>(null)
   const error = Result.matchWithError(submitState, {
     onInitial: () => null,
@@ -93,6 +86,69 @@ function ConsentForm({
     setPending(null)
   }
 
+  return { onSubmit, pending, error }
+}
+
+function AppSignIn({ oauthQuery }: Readonly<{ oauthQuery: string }>) {
+  const viewer = useAtomValue(me())
+  const { onSubmit, pending, error } = useConsentSubmit(oauthQuery)
+
+  if (!Result.isSuccess(viewer)) {
+    return <ConsentShell title={m.auth_app_signin_title()} />
+  }
+
+  return (
+    <ConsentShell title={m.auth_app_signin_title()}>
+      <p className="text-center text-sm wrap-anywhere text-muted-foreground">
+        {m.auth_app_signin_subtitle({ name: viewer.value.name })}
+      </p>
+      <div className="flex w-full flex-col gap-2">
+        <Button
+          onClick={() => onSubmit(true)}
+          disabled={pending !== null}
+          size="lg"
+          className="w-full"
+        >
+          {pending === "accept"
+            ? m.auth_app_signin_continue_pending()
+            : m.auth_app_signin_continue_button()}
+        </Button>
+        <Button
+          variant="tertiary"
+          onClick={() => onSubmit(false)}
+          disabled={pending !== null}
+          size="lg"
+          className="w-full"
+        >
+          {m.auth_app_signin_cancel_button()}
+        </Button>
+      </div>
+      {error ? (
+        <p
+          role="alert"
+          className="text-center text-xs leading-relaxed text-destructive"
+        >
+          {error}
+        </p>
+      ) : null}
+    </ConsentShell>
+  )
+}
+
+function ConsentForm({
+  oauthQuery,
+  clientId
+}: {
+  oauthQuery: string
+  clientId: string | undefined
+}) {
+  const clientReq = oauthClientRequest(clientId)
+  const { onSubmit, pending, error } = useConsentSubmit(oauthQuery)
+  const clientName = useAtomValue(oauthClientNameAtom(clientReq))
+  const displayName =
+    (Result.isSuccess(clientName)
+      ? clientName.value.name?.trim() || null
+      : null) ?? m.auth_oauth_consent_client_fallback()
   const capabilities = [
     m.auth_oauth_consent_capability_read(),
     m.auth_oauth_consent_capability_write_tickets(),

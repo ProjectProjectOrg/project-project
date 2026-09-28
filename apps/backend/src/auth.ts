@@ -11,6 +11,7 @@ import {
   user
 } from "@pp/db/schema"
 import { TicketFrontmatter } from "@pp/server-core/tickets/TicketDocs"
+import { appOAuthClientId } from "@pp/shared"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { APIError } from "better-auth/api"
@@ -23,6 +24,7 @@ import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import matter from "gray-matter"
 
+import { appConsentReferenceId, appOAuthClient } from "./auth/appOAuthClient"
 import { fetchClientMetadataResource } from "./auth/cimdTransport"
 import { legacyMcpResources } from "./auth/legacyMcpResources"
 
@@ -228,6 +230,11 @@ export const mcpResource = new URL(
   process.env.MCP_RESOURCE_URL ??
     process.env.BETTER_AUTH_URL ??
     "http://localhost:3000"
+).href
+
+export const apiResource = new URL(
+  "/api",
+  process.env.BETTER_AUTH_URL ?? "http://localhost:3000"
 ).href
 
 export const auth = betterAuth({
@@ -456,6 +463,7 @@ export const auth = betterAuth({
     mcp({
       loginPage: "/login",
       resource: mcpResource,
+      resources: [apiResource],
       consentPage: "/oauth/consent",
       allowDynamicClientRegistration: true,
       allowUnauthenticatedClientRegistration: true,
@@ -466,10 +474,17 @@ export const auth = betterAuth({
       // clients run as several long-lived processes sharing one credential,
       // so concurrent refreshes across the access-token expiry are routine.
       refreshTokenReuseInterval: 60,
+      refreshTokenExpiresIn: 90 * 24 * 60 * 60,
+      cachedTrustedClients: new Set([appOAuthClientId]),
+      postLogin: {
+        page: "/login",
+        shouldRedirect: () => false,
+        consentReferenceId: appConsentReferenceId
+      },
       extensions: [
         {
           claims: {
-            accessToken: async ({ user, client }) => ({
+            accessToken: async ({ user, client, referenceId }) => ({
               pp_consent_ids: user
                 ? (
                     await db
@@ -478,7 +493,13 @@ export const auth = betterAuth({
                       .where(
                         and(
                           eq(authSchema.oauthConsent.userId, user.id),
-                          eq(authSchema.oauthConsent.clientId, client.clientId)
+                          eq(authSchema.oauthConsent.clientId, client.clientId),
+                          client.clientId === appOAuthClientId && referenceId
+                            ? eq(
+                                authSchema.oauthConsent.referenceId,
+                                referenceId
+                              )
+                            : undefined
                         )
                       )
                   ).map((consent) => consent.id)
@@ -492,7 +513,8 @@ export const auth = betterAuth({
       fetchClientMetadataResource,
       metadataProfile: "mcp-2026-07-28"
     }),
-    legacyMcpResources({ db, resource: mcpResource })
+    legacyMcpResources({ db, resource: mcpResource }),
+    appOAuthClient({ db, resources: [apiResource] })
   ]
 })
 

@@ -17,6 +17,7 @@ import { expect } from "vitest"
 
 import { AppApi } from "./api"
 import { Authentication, CurrentUser } from "./Authentication"
+import { Unauthorized } from "./errors"
 import {
   DEFAULT_TICKET_SORT,
   SortDir,
@@ -76,6 +77,7 @@ const user = Schema.decodeSync(User)({
   }
 })
 const auth = Layer.succeed(Authentication, {
+  bearer: () => Effect.fail(new Unauthorized()),
   sessionCookie: (effect) => Effect.provideService(effect, CurrentUser, user)
 })
 const params = { orgSlug: "acme", slug: "web" }

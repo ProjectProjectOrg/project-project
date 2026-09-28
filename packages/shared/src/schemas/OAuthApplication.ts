@@ -8,3 +8,6 @@ export const OAuthApplication = Schema.Struct({
   lastUsedAt: Schema.NullOr(Schema.DateFromString)
 })
 export type OAuthApplication = typeof OAuthApplication.Type
+
+export const appOAuthClientId = "projectproject-app"
+export const appOAuthRedirectUri = "projectproject://oauth/callback"

@@ -27,7 +27,13 @@ import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
 import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
 import { TicketsLive } from "@pp/server-core/tickets/TicketsLive"
 import { Users } from "@pp/server-core/users/Users"
-import { AppApi, Authentication, CurrentUser, NotFound } from "@pp/shared"
+import {
+  AppApi,
+  Authentication,
+  CurrentUser,
+  NotFound,
+  Unauthorized
+} from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as Context from "effect/Context"
@@ -279,6 +285,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
       Layer.provide(ownerOrg),
       Layer.provide(
         Layer.succeed(Authentication, {
+          bearer: () => Effect.fail(new Unauthorized()),
           sessionCookie: (httpEffect) =>
             Effect.provideService(httpEffect, CurrentUser, {
               id: userId

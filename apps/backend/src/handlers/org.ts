@@ -16,8 +16,9 @@ import {
 } from "@pp/shared"
 import { isAPIError } from "better-auth/api"
 import * as Effect from "effect/Effect"
-import { HttpServerRequest } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
+
+import { sessionWebRequest } from "../http/sessionWebRequest"
 
 export const collapseRole = (role: string): OrgRole => {
   const roles = new Set(role.split(",").map((entry) => entry.trim()))
@@ -191,11 +192,6 @@ export const transferErrorToFailure = (
     Effect.catchTags({ Conflict: () => new Forbidden() })
   )
 
-const webRequest = Effect.gen(function* () {
-  const req = yield* HttpServerRequest.HttpServerRequest
-  return yield* HttpServerRequest.toWeb(req).pipe(Effect.orDie)
-})
-
 export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
   handlers
     .handle("myOrgs", () =>
@@ -230,7 +226,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
       Effect.gen(function* () {
         yield* CurrentUser
         const ba = yield* BetterAuth
-        const request = yield* webRequest
+        const request = yield* sessionWebRequest
         return yield* ba
           .getMembers(request, params.orgSlug)
           .pipe(Effect.catchTag("BetterAuthError", opaqueErrorToFailure))
@@ -241,7 +237,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
         const user = yield* CurrentUser
         const ba = yield* BetterAuth
         const org = yield* Org
-        const request = yield* webRequest
+        const request = yield* sessionWebRequest
         yield* ba
           .renameOrg(request, params.orgSlug, payload.name)
           .pipe(Effect.catchTag("BetterAuthError", memberAccessErrorToFailure))
@@ -252,7 +248,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
       Effect.gen(function* () {
         yield* CurrentUser
         const ba = yield* BetterAuth
-        const request = yield* webRequest
+        const request = yield* sessionWebRequest
         return yield* ba
           .inviteMember(request, params.orgSlug, payload)
           .pipe(Effect.catchTag("BetterAuthError", memberErrorToFailure))
@@ -262,7 +258,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
       Effect.gen(function* () {
         yield* CurrentUser
         const ba = yield* BetterAuth
-        const request = yield* webRequest
+        const request = yield* sessionWebRequest
         return yield* ba
           .updateMemberRole(
             request,
@@ -277,7 +273,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
       Effect.gen(function* () {
         yield* CurrentUser
         const ba = yield* BetterAuth
-        const request = yield* webRequest
+        const request = yield* sessionWebRequest
         yield* ba
           .removeMember(request, params.orgSlug, params.userId)
           .pipe(Effect.catchTag("BetterAuthError", removeMemberErrorToFailure))
@@ -287,7 +283,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
       Effect.gen(function* () {
         yield* CurrentUser
         const ba = yield* BetterAuth
-        const request = yield* webRequest
+        const request = yield* sessionWebRequest
         yield* ba
           .cancelInvitation(request, params.orgSlug, params.invitationId)
           .pipe(Effect.catchTag("BetterAuthError", memberAccessErrorToFailure))
@@ -297,7 +293,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
       Effect.gen(function* () {
         const user = yield* CurrentUser
         const ba = yield* BetterAuth
-        const request = yield* webRequest
+        const request = yield* sessionWebRequest
         return yield* ba
           .transferOwnership(request, params.orgSlug, payload.userId, user.id)
           .pipe(Effect.catchTag("BetterAuthError", transferErrorToFailure))
@@ -307,7 +303,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
       Effect.gen(function* () {
         yield* CurrentUser
         const ba = yield* BetterAuth
-        const request = yield* webRequest
+        const request = yield* sessionWebRequest
         yield* ba
           .leaveOrg(request, params.orgSlug)
           .pipe(Effect.catchTag("BetterAuthError", leaveErrorToFailure))

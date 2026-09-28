@@ -1,5 +1,10 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "auth_app_signin_cancel_button": "Cancel",
+  "auth_app_signin_continue_button": "Continue",
+  "auth_app_signin_continue_pending": "Signing in…",
+  "auth_app_signin_subtitle": "Continue to the ProjectProject app as {name}.",
+  "auth_app_signin_title": "Sign in to the app",
   "auth_consent_notice": "By signing in you authorize this instance to create a session and connect provider accounts you choose.",
   "auth_continue_with_email_button": "Continue with email",
   "auth_continue_with_google_button": "Continue with Google",

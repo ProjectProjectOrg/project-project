@@ -24,8 +24,9 @@ import {
   JiraMigrationConfiguration,
   type JiraMigrationDetail,
   NotFound,
-  UserId,
-  type User
+  Unauthorized,
+  type User,
+  UserId
 } from "@pp/shared"
 import {
   DateTime,
@@ -65,6 +66,7 @@ const user: User = {
   }
 }
 const authentication = Layer.succeed(Authentication)({
+  bearer: () => Effect.fail(new Unauthorized()),
   sessionCookie: (effect) => Effect.provideService(effect, CurrentUser, user)
 })
 const dependenciesFor = (
