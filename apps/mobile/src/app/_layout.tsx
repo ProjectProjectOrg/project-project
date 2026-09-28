@@ -1,5 +1,7 @@
 import { RegistryProvider } from "@effect/atom-react"
 import { SplashScreen, Stack } from "expo-router"
+import * as SystemUI from "expo-system-ui"
+import { useEffect } from "react"
 import { SafeAreaListener } from "react-native-safe-area-context"
 import { Uniwind, useCSSVariable } from "uniwind"
 
@@ -19,6 +21,11 @@ export default function RootLayout() {
     "--color-background",
     "--color-foreground"
   ])
+  // The window behind the screens shows through when a screen is swiped away
+  // or a sheet is dragged, so it takes the theme background too.
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync(String(background))
+  }, [background])
   const nativeHeader = {
     headerShown: true,
     headerTransparent: true,
