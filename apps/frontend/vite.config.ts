@@ -48,6 +48,7 @@ export default defineConfig(({ mode }) => ({
     environmentOptions: { jsdom: { url: "http://localhost/" } }
   },
   server: {
+    host: "127.0.0.1",
     port: 5173,
     // `bun run dev` serves the web app on this Mac's Tailscale HTTPS name.
     allowedHosts: [".ts.net"],

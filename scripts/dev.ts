@@ -53,7 +53,7 @@ await $`bun run dev:db`
 
 // Foreground `tailscale serve` removes its configuration when it exits, so
 // stopping the stack leaves nothing behind.
-const serve = Bun.spawn(["tailscale", "serve", `http://localhost:${webPort}`], {
+const serve = Bun.spawn(["tailscale", "serve", `http://127.0.0.1:${webPort}`], {
   stdout: "ignore",
   stderr: "pipe"
 })
