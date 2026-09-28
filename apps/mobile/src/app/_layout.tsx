@@ -1,5 +1,5 @@
 import { RegistryProvider } from "@effect/atom-react"
-import { Stack } from "expo-router"
+import { SplashScreen, Stack } from "expo-router"
 import { SafeAreaListener } from "react-native-safe-area-context"
 import { Uniwind, useCSSVariable } from "uniwind"
 
@@ -8,6 +8,11 @@ import { copy } from "@/copy"
 import "../global.css"
 
 const headerFont = { fontFamily: "Geist", fontWeight: "600" } as const
+
+// The start screen redirects once the server store has loaded. Keeping the
+// splash up until that first transition has finished means the app opens on
+// its first real screen instead of sliding it in over a blank one.
+void SplashScreen.preventAutoHideAsync()
 
 export default function RootLayout() {
   const [background, foreground] = useCSSVariable([
@@ -27,6 +32,7 @@ export default function RootLayout() {
     <SafeAreaListener onChange={({ insets }) => Uniwind.updateInsets(insets)}>
       <RegistryProvider>
         <Stack
+          screenListeners={{ transitionEnd: () => SplashScreen.hide() }}
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: String(background) }

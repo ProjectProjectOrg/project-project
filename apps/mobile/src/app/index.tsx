@@ -1,7 +1,8 @@
 import { useAtomValue } from "@effect/atom-react"
 import * as Option from "effect/Option"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
-import { Redirect } from "expo-router"
+import { Redirect, SplashScreen } from "expo-router"
+import { useEffect } from "react"
 
 import { LoadFailed } from "@/components/LoadFailed"
 import { lastUsedOrg, savedServers, signedInServers } from "@/servers/atoms"
@@ -16,8 +17,8 @@ export default function Index() {
   if (start.waiting) return null
   return AsyncResult.matchWithError(start, {
     onInitial: () => null,
-    onError: () => <LoadFailed />,
-    onDefect: () => <LoadFailed />,
+    onError: () => <StartFailed />,
+    onDefect: () => <StartFailed />,
     onSuccess: ({ value: [saved, last, signedInIds] }) => {
       if (saved.length === 0) return <Redirect href="/onboarding" />
       const signedIn = saved.filter((server) =>
@@ -51,4 +52,9 @@ export default function Index() {
       })
     }
   })
+}
+
+function StartFailed() {
+  useEffect(() => SplashScreen.hide(), [])
+  return <LoadFailed />
 }
