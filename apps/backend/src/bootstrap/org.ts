@@ -56,7 +56,7 @@ export type BootstrapOrgStore = {
   readonly createMember: (input: {
     organizationId: string
     userId: string
-    role: "owner"
+    role: "owner" | "member"
   }) => Effect.Effect<BootstrapMemberRecord, BootstrapOrgError>
   readonly updateMemberRole: (input: {
     memberId: string

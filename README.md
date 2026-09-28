@@ -160,6 +160,11 @@ by invitation.
    invitation at `/welcome`. Invites match on email, so members sign in with the
    address they were invited under.
 
+For local development, `bun --filter @pp/backend run seed:dev` runs the same
+org bootstrap and then fills the org with two demo projects (`mobile-app` and
+`website`), a teammate, tags, sprints, tickets and comments. It skips any demo
+project whose key already exists in the org, so it's safe to re-run.
+
 For production and Docker specifics (running the seed inside the container,
 migrations, reverse proxy) see [`docs/deploy.md`](docs/deploy.md).
 

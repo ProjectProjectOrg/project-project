@@ -19,6 +19,7 @@
     "benchmark:ticket-requests": "bun --cwd ../.. --env-file=.env \"$PWD/scripts/benchmark-ticket-request-paths.ts\"",
     "benchmark:ticket-compare": "bun scripts/benchmark-ticket-compare.ts",
     "ticket-index:rebuild": "bun --cwd ../.. --env-file=.env \"$PWD/scripts/rebuild-ticket-index.ts\"",
+    "seed:dev": "bun --cwd ../.. --env-file=.env \"$PWD/scripts/seed-dev.ts\"",
     "db:generate": "bun run --cwd ../../packages/db db:generate",
     "db:migrate": "bun run --cwd ../../packages/db db:migrate",
     "db:push": "bun run --cwd ../../packages/db db:push",
@@ -41,6 +42,7 @@
     "better-call": "1.4.0",
     "drizzle-orm": "1.0.0-rc.5-169397b",
     "effect": "4.0.0-rc.116",
+    "fractional-indexing": "^3.2.0",
     "gray-matter": "^4.0.3",
     "pg": "^8.20.0",
     "sharp": "^0.34.4"
