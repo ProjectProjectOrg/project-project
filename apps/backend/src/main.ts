@@ -163,33 +163,35 @@ const BearerChallengeLive = HttpRouter.middleware((httpEffect) =>
   )
 ).layer
 
-export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
-  Layer.provide(
-    Layer.mergeAll(
-      HealthHandlerLive,
-      InstanceHandlerLive,
-      DbHandlerLive,
-      AuthHandlerLive,
-      OrgHandlerLive,
-      InvitationsHandlerLive,
-      ProjectsHandlerLive,
-      EverhourHandlerLive,
-      FigmaHandlerLive,
-      JiraHandlerLive,
-      JiraMigrationsHandlerLive,
-      TicketsHandlerLive,
-      CommentsHandlerLive,
-      TagsHandlerLive,
-      StatusesHandlerLive,
-      GroupsHandlerLive,
-      LibraryHandlerLive,
-      OAuthApplicationsHandlerLive,
-      PublicOAuthHandlerLive,
-      StorageHandlerLive,
-      AttachmentsHandlerLive
+export const ApiRoutesLive = HttpApiBuilder.layer(AppApi)
+  .pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        HealthHandlerLive,
+        InstanceHandlerLive,
+        DbHandlerLive,
+        AuthHandlerLive,
+        OrgHandlerLive,
+        InvitationsHandlerLive,
+        ProjectsHandlerLive,
+        EverhourHandlerLive,
+        FigmaHandlerLive,
+        JiraHandlerLive,
+        JiraMigrationsHandlerLive,
+        TicketsHandlerLive,
+        CommentsHandlerLive,
+        TagsHandlerLive,
+        StatusesHandlerLive,
+        GroupsHandlerLive,
+        LibraryHandlerLive,
+        OAuthApplicationsHandlerLive,
+        PublicOAuthHandlerLive,
+        StorageHandlerLive,
+        AttachmentsHandlerLive
+      )
     )
   )
-).pipe(Layer.provide(BearerChallengeLive))
+  .pipe(Layer.provide(BearerChallengeLive))
 
 export const ApiLive = ApiRoutesLive.pipe(
   Layer.provide(BackendHttpServicesLive)
