@@ -283,8 +283,8 @@ const renderField = ({ cols, rows }: Grid) => {
 // out the texture thins, how much it thins right by them, and how round the
 // wells' corners are.
 const next = {
-  falloff: 28,
-  thinReach: 110,
+  falloff: 16,
+  thinReach: 64,
   thinDepth: 0.9,
   radius: 8
 } as const
