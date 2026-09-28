@@ -7,7 +7,7 @@ import {
   ThemeProvider
 } from "expo-router"
 import * as SystemUI from "expo-system-ui"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { SafeAreaListener } from "react-native-safe-area-context"
 import { Uniwind, useCSSVariable, useUniwind } from "uniwind"
 
@@ -17,12 +17,16 @@ import "../global.css"
 
 const headerFont = { fontFamily: "Geist", fontWeight: "600" } as const
 
-// The start screen redirects once the server store has loaded. Keeping the
-// splash up until that first transition has finished means the app opens on
-// its first real screen instead of sliding it in over a blank one.
+// The start screen redirects once the server store has loaded. Until the
+// screen it redirects to has appeared, the root stack doesn't animate and
+// the splash stays up, so the app opens on its first real screen instead of
+// sliding it in over a blank one. Dev builds replace the splash with the dev
+// client's loading screen, so the animation is what keeps the start steady
+// there.
 void SplashScreen.preventAutoHideAsync()
 
 export default function RootLayout() {
+  const [started, setStarted] = useState(false)
   const { theme } = useUniwind()
   const [background, foreground, border] = useCSSVariable([
     "--color-background",
@@ -62,9 +66,18 @@ export default function RootLayout() {
       <RegistryProvider>
         <ThemeProvider value={navigationTheme}>
           <Stack
-            screenListeners={{ transitionEnd: () => SplashScreen.hide() }}
+            screenListeners={({ route }) => ({
+              // After the transition, not on focus: focus fires before the
+              // native transition starts, so flipping then would animate it.
+              transitionEnd: () => {
+                if (route.name === "index") return
+                setStarted(true)
+                SplashScreen.hide()
+              }
+            })}
             screenOptions={{
               headerShown: false,
+              animation: started ? "default" : "none",
               contentStyle: { backgroundColor: String(background) }
             }}
           >
