@@ -1,8 +1,4 @@
-import {
-  StatusIcon as StatusIconSchema,
-  type ProjectStatus,
-  type StatusIconName
-} from "@pp/shared"
+import { StatusIcon as StatusIconSchema, type StatusIconName } from "@pp/shared"
 import * as Schema from "effect/Schema"
 
 import { Symbol, type SymbolName } from "@/components/icons/Symbol"
@@ -45,17 +41,17 @@ const symbols: Readonly<Record<StatusIconName, SymbolName>> = {
 
 const isStatusIcon = Schema.is(StatusIconSchema)
 
-const symbolFor = (icon: string) =>
+export const statusSymbol = (icon: string) =>
   isStatusIcon(icon) ? symbols[icon] : "circle"
 
 export function StatusIcon({
   status,
   size = 16
 }: Readonly<{
-  status: Pick<ProjectStatus, "icon" | "color">
+  status: Readonly<{ icon: string; color: string }>
   size?: number
 }>) {
   return (
-    <Symbol name={symbolFor(status.icon)} size={size} color={status.color} />
+    <Symbol name={statusSymbol(status.icon)} size={size} color={status.color} />
   )
 }

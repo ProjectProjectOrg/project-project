@@ -1,7 +1,9 @@
-import { View } from "react-native"
+import { router } from "expo-router"
+import { Pressable, View } from "react-native"
 
 import { Text } from "@/components/ui/text"
 import { cn } from "@/lib/cn"
+import { useOrgLocation } from "@/orgs/location"
 import { PriorityIcon } from "@/tickets/PriorityIcon"
 import { StatusIcon } from "@/tickets/StatusIcon"
 
@@ -12,8 +14,23 @@ export function MyWorkRow({
   section,
   first
 }: Readonly<{ item: MyWorkTicket; section: MyWorkSection; first: boolean }>) {
+  const org = useOrgLocation()
+  const open = () =>
+    router.push({
+      pathname: "/orgs/[instanceId]/[orgSlug]/tickets/[projectSlug]/[ticketId]",
+      params: {
+        ...org,
+        projectSlug: item.project.slug,
+        ticketId: item.ticket.id
+      }
+    })
   return (
-    <View className="flex-row items-center gap-3 px-5">
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${item.ticket.id}, ${item.ticket.title}`}
+      onPress={open}
+      className="flex-row items-center gap-3 px-5 active:bg-accent"
+    >
       <StatusIcon status={section} />
       <View
         className={cn(
@@ -36,7 +53,7 @@ export function MyWorkRow({
         </View>
         <PriorityIcon priority={item.ticket.priority} />
       </View>
-    </View>
+    </Pressable>
   )
 }
 
