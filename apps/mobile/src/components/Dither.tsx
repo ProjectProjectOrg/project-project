@@ -119,6 +119,11 @@ half4 main(float2 cell) {
 // texture around the content and fades into it. While u_reveal runs from 0
 // to 1 the texture spreads outward from the well's edge, over u_spread cells,
 // so it grows out of whatever the well holds.
+// A second well, u_next, is the next step's content: a tight well that keeps
+// its text clear, and around it the texture thins out, sparse near the
+// content and dense at the edges. The texture never moves between the two.
+// As u_step runs from 0 to 1, blocks of 2x2 cells switch from the first look
+// to the next in Bayer order, 16 steps, like a 1-bit screen dissolving.
 const ground = Skia.RuntimeEffect.Make(`
 uniform shader field;
 uniform float2 u_cells;
@@ -129,6 +134,9 @@ uniform float u_reveal;
 uniform float u_spread;
 uniform half4 u_front;
 uniform half4 u_back;
+uniform float4 u_next;
+uniform float3 u_nextShape;
+uniform float u_step;
 
 // Same values as the web's 4x4 Bayer table, computed instead of indexed.
 float bayer2(float2 a) {
@@ -146,13 +154,24 @@ float roundedBoxSdf(float2 p, float2 b, float r) {
 half4 main(float2 point) {
   float2 cell = floor(point / u_cellSize);
   float shape = field.eval(cell + 0.5).r;
+  float threshold = bayer4(cell) - 0.5;
 
   float sdf = roundedBoxSdf(cell - u_well.xy, u_well.zw, u_wellShape.x);
   float reach = u_reveal * (length(u_cells) + u_spread);
   shape *= clamp((reach - max(sdf, 0.0)) / u_spread, 0.0, 1.0);
-  shape -= 1.0 - smoothstep(0.0, u_wellShape.y, sdf);
+  float first = shape - (1.0 - smoothstep(0.0, u_wellShape.y, sdf));
+  bool on = step(0.5, first + threshold) > 0.5;
 
-  return step(0.5, shape + bayer4(cell) - 0.5) > 0.5 ? u_front : u_back;
+  if (u_step > 0.0) {
+    float nextSdf = roundedBoxSdf(cell - u_next.xy, u_next.zw, u_wellShape.x);
+    float sparse = 1.0 - smoothstep(0.0, u_nextShape.y, max(nextSdf, 0.0));
+    float next = shape
+      - (1.0 - smoothstep(0.0, u_nextShape.x, nextSdf))
+      - u_nextShape.z * sparse;
+    if (bayer4(floor(cell / 2.0)) < u_step) on = step(0.5, next + threshold) > 0.5;
+  }
+
+  return on ? u_front : u_back;
 }
 `)
 
@@ -183,6 +202,17 @@ export type DitherWell = Readonly<{
 }>
 
 type Grid = Readonly<{ cols: number; rows: number }>
+
+// A well as the shader takes it: its centre and half size, in cells.
+const wellUniform = (box: DitherWell) => {
+  "worklet"
+  return [
+    (box.x + box.width / 2) / cellSize,
+    (box.y + box.height / 2) / cellSize,
+    box.width / 2 / cellSize,
+    box.height / 2 / cellSize
+  ]
+}
 
 // A plain array, so the uniforms can be copied to the UI thread.
 const colorUniform = (color: string) => Array.from(Skia.Color(color))
@@ -216,18 +246,25 @@ const renderField = ({ cols, rows }: Grid) => {
   return surface.makeImageSnapshot()
 }
 
+// Around the next step's content: how far its tight well fades, how far out
+// the texture thins, and how much it thins right by the content.
+const next = { falloff: 24, thinReach: 220, thinDepth: 0.4 } as const
+
 // `well` is in the dither's own coordinates. `reveal` runs from 0, the bare
-// dither-back ground, to 1, the full field. `falloff` is how far out from the
-// well the texture takes to come back, the login's 80 pt unless given.
+// dither-back ground, to 1, the full field. `next` is the next step's
+// content and how far the dissolve to it has gone, from 0 to 1.
 export function Dither({
   well,
   reveal,
-  falloff,
+  next: nextStep,
   className
 }: Readonly<{
   well: DerivedValue<DitherWell>
   reveal: DerivedValue<number>
-  falloff?: DerivedValue<number>
+  next?: Readonly<{
+    well: DerivedValue<DitherWell>
+    step: DerivedValue<number>
+  }>
   className?: string
 }>) {
   const [grid, setGrid] = useState<Grid | null>(null)
@@ -251,19 +288,19 @@ export function Dither({
   )
   const uniforms = useDerivedValue(() => {
     const box = well.value
+    const nextBox = nextStep?.well.value ?? box
     return {
       u_cells: grid === null ? [0, 0] : [grid.cols, grid.rows],
       u_cellSize: cellSize,
-      u_well: [
-        (box.x + box.width / 2) / cellSize,
-        (box.y + box.height / 2) / cellSize,
-        box.width / 2 / cellSize,
-        box.height / 2 / cellSize
+      u_well: wellUniform(box),
+      u_wellShape: [login.wellRadius / cellSize, login.wellFalloff / cellSize],
+      u_next: wellUniform(nextBox),
+      u_nextShape: [
+        next.falloff / cellSize,
+        next.thinReach / cellSize,
+        next.thinDepth
       ],
-      u_wellShape: [
-        login.wellRadius / cellSize,
-        (falloff?.value ?? login.wellFalloff) / cellSize
-      ],
+      u_step: nextStep?.step.value ?? 0,
       u_reveal: reveal.value,
       u_spread: spread / cellSize,
       ...colors

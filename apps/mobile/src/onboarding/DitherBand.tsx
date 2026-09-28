@@ -33,8 +33,6 @@ export const aroundContent = (width: number, top: number, height: number) => {
     height: height + 2 * contentGap
   }
 }
-// How close the texture comes to a step's content.
-export const contentFalloff = 40
 
 // The well that leaves only the band, in window coordinates.
 export const bandWell = (width: number, height: number, header: number) => {

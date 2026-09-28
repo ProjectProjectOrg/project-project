@@ -35,11 +35,7 @@ import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
 import { copy } from "@/copy"
 import { AddressFields, useAddressForm } from "@/onboarding/AddressForm"
-import {
-  aroundContent,
-  bandContentInset,
-  contentFalloff
-} from "@/onboarding/DitherBand"
+import { aroundContent, bandContentInset } from "@/onboarding/DitherBand"
 
 const logoSize = 96
 const ease = Easing.bezier(0.22, 1, 0.36, 1)
@@ -72,9 +68,10 @@ const mix = (from: Box, to: Box, t: number) => {
 // place and the well opens up to hold the text, pushing the texture out to
 // the edges. The text and the button come in last.
 // "Get started" doesn't push a screen: the address step grows out of the
-// welcome. The well opens up until the texture has drawn back into the band
-// the later steps carry, the welcome's logo and text lift away, and the
-// address step comes in after them. The button stays where it is and becomes
+// welcome. The texture stays where it is and dissolves, block by block, from
+// the welcome's look to the address step's: clear around its text and thinned
+// out around it. The welcome's logo and text lift away, and the address step
+// comes in after them. The button stays where it is and becomes
 // Continue, then rides up with the keyboard. Back plays it in reverse.
 // Reanimated skips the timings when the system reduces motion.
 export default function Welcome() {
@@ -136,17 +133,11 @@ export default function Welcome() {
     return () => cancelAnimationFrame(frame)
   }, [ready, reveal, grow, text, action])
 
-  const well = useDerivedValue(() => {
-    const welcome =
-      layout === undefined ? splash : mix(splash, layout.well, grow.value)
-    return mix(
-      welcome,
-      aroundContent(width, addressTop, addressHeight),
-      toAddress.value
-    )
-  })
-  const falloff = useDerivedValue(() =>
-    interpolate(toAddress.value, [0, 1], [80, contentFalloff])
+  const well = useDerivedValue(() =>
+    layout === undefined ? splash : mix(splash, layout.well, grow.value)
+  )
+  const addressWell = useDerivedValue(() =>
+    aroundContent(width, addressTop, addressHeight)
   )
   // The welcome's pieces clear out over the first half of the change, and
   // the address step comes in over the second, so they never overlap.
@@ -247,7 +238,7 @@ export default function Welcome() {
         <Dither
           well={well}
           reveal={reveal}
-          falloff={falloff}
+          next={{ well: addressWell, step: toAddress }}
           className="absolute inset-0"
         />
         <View
