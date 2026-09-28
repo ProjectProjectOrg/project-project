@@ -8,6 +8,7 @@ import {
 } from "expo-router"
 import * as SystemUI from "expo-system-ui"
 import { useEffect, useState } from "react"
+import { GestureHandlerRootView } from "react-native-gesture-handler"
 import {
   initialWindowMetrics,
   SafeAreaListener
@@ -72,54 +73,56 @@ export default function RootLayout() {
     headerLargeTitleStyle: headerFont
   } as const
   return (
-    <SafeAreaListener onChange={({ insets }) => Uniwind.updateInsets(insets)}>
-      <RegistryProvider>
-        <ThemeProvider value={navigationTheme}>
-          <Stack
-            screenListeners={({ route }) => ({
-              // After the transition, not on focus: focus fires before the
-              // native transition starts, so flipping then would animate it.
-              transitionEnd: () => {
-                if (route.name === "index") return
-                setStarted(true)
-                // The welcome screen grows out of the splash, so it hides
-                // the splash itself once its first frame matches it.
-                if (route.name !== "onboarding") SplashScreen.hide()
-              }
-            })}
-            screenOptions={{
-              headerShown: false,
-              animation: started ? "default" : "none",
-              contentStyle: { backgroundColor: String(background) }
-            }}
-          >
-            <Stack.Screen
-              name="add-server"
-              options={{ presentation: "modal" }}
-            />
-            <Stack.Screen
-              name="switch-org"
-              options={{
-                presentation: "formSheet",
-                sheetAllowedDetents: [0.5, 1],
-                sheetGrabberVisible: true
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaListener onChange={({ insets }) => Uniwind.updateInsets(insets)}>
+        <RegistryProvider>
+          <ThemeProvider value={navigationTheme}>
+            <Stack
+              screenListeners={({ route }) => ({
+                // After the transition, not on focus: focus fires before the
+                // native transition starts, so flipping then would animate it.
+                transitionEnd: () => {
+                  if (route.name === "index") return
+                  setStarted(true)
+                  // The welcome screen grows out of the splash, so it hides
+                  // the splash itself once its first frame matches it.
+                  if (route.name !== "onboarding") SplashScreen.hide()
+                }
+              })}
+              screenOptions={{
+                headerShown: false,
+                animation: started ? "default" : "none",
+                contentStyle: { backgroundColor: String(background) }
               }}
-            />
-            <Stack.Screen
-              name="settings/servers/index"
-              options={{
-                ...nativeHeader,
-                title: copy.serversTitle,
-                headerLargeTitle: true
-              }}
-            />
-            <Stack.Screen
-              name="settings/servers/[instanceId]"
-              options={{ ...nativeHeader, title: "" }}
-            />
-          </Stack>
-        </ThemeProvider>
-      </RegistryProvider>
-    </SafeAreaListener>
+            >
+              <Stack.Screen
+                name="add-server"
+                options={{ presentation: "modal" }}
+              />
+              <Stack.Screen
+                name="switch-org"
+                options={{
+                  presentation: "formSheet",
+                  sheetAllowedDetents: [0.5, 1],
+                  sheetGrabberVisible: true
+                }}
+              />
+              <Stack.Screen
+                name="settings/servers/index"
+                options={{
+                  ...nativeHeader,
+                  title: copy.serversTitle,
+                  headerLargeTitle: true
+                }}
+              />
+              <Stack.Screen
+                name="settings/servers/[instanceId]"
+                options={{ ...nativeHeader, title: "" }}
+              />
+            </Stack>
+          </ThemeProvider>
+        </RegistryProvider>
+      </SafeAreaListener>
+    </GestureHandlerRootView>
   )
 }

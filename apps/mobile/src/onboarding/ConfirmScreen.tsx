@@ -16,6 +16,7 @@ import { ServerSummary } from "@/servers/ServerSummary"
 
 import { checkServerAtom, connectCheckedServer } from "./atoms"
 import type { CheckedServer } from "./checkServer"
+import { bandContentInset, DitherBand } from "./DitherBand"
 
 function Confirm({
   checked,
@@ -55,12 +56,17 @@ function Confirm({
   }
 
   return (
-    <View className="flex-1 bg-background pb-safe-offset-2">
+    <View className="flex-1 bg-dither-back pb-safe-offset-2">
+      <DitherBand />
       <ScrollView
         className="flex-1"
-        contentContainerClassName="px-5 pt-4"
+        contentContainerClassName="px-5"
+        contentContainerStyle={{ paddingTop: bandContentInset }}
         contentInsetAdjustmentBehavior="automatic"
       >
+        <Text variant="caption" className="mb-1">
+          {copy.onboardingStep(2, 2)}
+        </Text>
         <ServerSummary
           lead={copy.confirmLead}
           name={descriptor.name}

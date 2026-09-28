@@ -217,14 +217,17 @@ const renderField = ({ cols, rows }: Grid) => {
 }
 
 // `well` is in the dither's own coordinates. `reveal` runs from 0, the bare
-// dither-back ground, to 1, the full field.
+// dither-back ground, to 1, the full field. `falloff` is how far out from the
+// well the texture takes to come back, the login's 80 pt unless given.
 export function Dither({
   well,
   reveal,
+  falloff,
   className
 }: Readonly<{
   well: DerivedValue<DitherWell>
   reveal: DerivedValue<number>
+  falloff?: DerivedValue<number>
   className?: string
 }>) {
   const [grid, setGrid] = useState<Grid | null>(null)
@@ -257,7 +260,10 @@ export function Dither({
         box.width / 2 / cellSize,
         box.height / 2 / cellSize
       ],
-      u_wellShape: [login.wellRadius / cellSize, login.wellFalloff / cellSize],
+      u_wellShape: [
+        login.wellRadius / cellSize,
+        (falloff?.value ?? login.wellFalloff) / cellSize
+      ],
       u_reveal: reveal.value,
       u_spread: spread / cellSize,
       ...colors
