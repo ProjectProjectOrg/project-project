@@ -176,13 +176,12 @@ export default function Welcome() {
   }))
 
   const focusField = () => field.current?.focus()
+  // The field focuses straight away, so the keyboard comes up with the
+  // change instead of after it.
   const start = () => {
     setStep("address")
-    toAddress.set(
-      withTiming(1, { duration: 650, easing: ease }, (finished) => {
-        if (finished === true) scheduleOnRN(focusField)
-      })
-    )
+    focusField()
+    toAddress.set(withTiming(1, { duration: 650, easing: ease }))
   }
   const backToWelcome = () => {
     Keyboard.dismiss()
