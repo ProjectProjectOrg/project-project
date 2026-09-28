@@ -16,13 +16,9 @@ import {
   useRef,
   useState
 } from "react"
-import { ScrollView, type TextInput, View } from "react-native"
-import {
-  KeyboardController,
-  KeyboardStickyView
-} from "react-native-keyboard-controller"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { Keyboard, ScrollView, type TextInput, View } from "react-native"
 
+import { KeyboardDock } from "@/components/KeyboardDock"
 import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
 import { TextField } from "@/components/ui/text-field"
@@ -50,9 +46,6 @@ export function AddressScreen({
   const [address, setAddress] = useState("")
   const [submitted, setSubmitted] = useState(false)
   const origin = normalizeAddress(address, __DEV__)
-  // The footer pads for the home indicator, which the keyboard covers, so it
-  // rises by the keyboard minus that inset and keeps 8 pt above the keyboard.
-  const { bottom } = useSafeAreaInsets()
 
   const navigation =
     useNavigation<
@@ -102,7 +95,7 @@ export function AddressScreen({
     if (Exit.isSuccess(exit)) {
       // Lower the keyboard with the push. Otherwise it stays up until this
       // screen leaves the window, after the transition.
-      void KeyboardController.dismiss()
+      Keyboard.dismiss()
       onChecked()
     }
   }
@@ -154,13 +147,10 @@ export function AddressScreen({
           />
         </View>
       </ScrollView>
-      {/* An overlay pinned to the bottom, so only the sticky view's own
-          transform moves it and no layout change adds to that. It's
-          positioned with style: through the library's Reanimated view, the
-          className's position classes didn't apply and the button collapsed
-          to a narrow pill. */}
-      <KeyboardStickyView
-        offset={{ closed: 0, opened: bottom }}
+      {/* Pinned to the bottom as an overlay, so only the dock's own
+          transform moves it. Positioned with style, since Uniwind's
+          className only reaches React Native's own components. */}
+      <KeyboardDock
         style={{ position: "absolute", left: 0, right: 0, bottom: 0 }}
       >
         <View className="px-5 pt-3 pb-safe-offset-2">
@@ -171,7 +161,7 @@ export function AddressScreen({
             onPress={() => void submit()}
           />
         </View>
-      </KeyboardStickyView>
+      </KeyboardDock>
     </View>
   )
 }
