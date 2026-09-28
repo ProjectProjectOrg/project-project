@@ -11,6 +11,11 @@ const config: ExpoConfig = {
   userInterfaceStyle: "automatic",
   ios: {
     bundleIdentifier: "nl.igne.projectproject",
+    // The team that signs device builds, set per machine as APPLE_TEAM_ID in
+    // apps/mobile/.env.local. Prebuild writes it into the Xcode project;
+    // without it the project has no team, and a non-interactive
+    // `expo run:ios --device` signs with the keychain's first certificate.
+    appleTeamId: process.env.APPLE_TEAM_ID,
     supportsTablet: true
   },
   android: {

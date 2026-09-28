@@ -72,7 +72,11 @@ stop it with `bun run dev:stop`.
 
 The app's dev client is a native build, so it's only rebuilt when native code
 changes: `bun run dev:mobile` builds it for the simulator (and starts Metro),
-`bun run app:ios:device` builds and installs it on a connected iPhone.
+`bun run app:ios:device` builds and installs it on a connected iPhone. Set
+the Apple team that signs it once in `apps/mobile/.env.local`
+(`APPLE_TEAM_ID=…`, the OU of your Apple Development certificate), so prebuild
+writes it into the Xcode project instead of leaving the team to whichever
+certificate the keychain lists first.
 
 ## Tooling
 
