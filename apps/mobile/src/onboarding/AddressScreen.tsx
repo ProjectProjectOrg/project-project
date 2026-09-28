@@ -4,8 +4,18 @@ import * as Result from "effect/Result"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Haptics from "expo-haptics"
-import { useFocusEffect } from "expo-router"
-import { type ComponentRef, useCallback, useRef, useState } from "react"
+import {
+  type NativeStackNavigationProp,
+  useFocusEffect,
+  useNavigation
+} from "expo-router"
+import {
+  type ComponentRef,
+  useCallback,
+  useEffect,
+  useRef,
+  useState
+} from "react"
 import { type TextInput, View } from "react-native"
 import {
   KeyboardAwareScrollView,
@@ -45,13 +55,27 @@ export function AddressScreen({
   // keyboard minus that inset and sits the same 8 pt above the keyboard.
   const { bottom } = useSafeAreaInsets()
 
+  const navigation =
+    useNavigation<
+      NativeStackNavigationProp<Readonly<Record<string, undefined>>>
+    >()
+  // Focus once the push has settled, so the keyboard slides up over the
+  // screen. Focusing on focus runs before the push starts, and the keyboard
+  // is then already up as the screen slides in.
+  useEffect(
+    () =>
+      navigation.addListener("transitionEnd", ({ data }) => {
+        if (!data.closing) field.current?.focus()
+      }),
+    [navigation]
+  )
   useFocusEffect(
-    useCallback(() => {
-      field.current?.focus()
-      return () => {
+    useCallback(
+      () => () => {
         attempt.current += 1
-      }
-    }, [])
+      },
+      []
+    )
   )
 
   const edit = (next: string) => {
