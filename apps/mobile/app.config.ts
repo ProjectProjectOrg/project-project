@@ -1,4 +1,7 @@
 import type { ExpoConfig } from "expo/config"
+
+import splashColors from "./assets/splash/colors.json"
+
 const config: ExpoConfig = {
   name: "ProjectProject",
   slug: "projectproject",
@@ -32,6 +35,19 @@ const config: ExpoConfig = {
     ],
     "expo-router",
     "expo-secure-store",
+    // The welcome screen grows out of this splash (bun run splash).
+    [
+      "expo-splash-screen",
+      {
+        image: "./assets/splash/logo-light.png",
+        imageWidth: 96,
+        backgroundColor: splashColors.light,
+        dark: {
+          image: "./assets/splash/logo-dark.png",
+          backgroundColor: splashColors.dark
+        }
+      }
+    ],
     "expo-sqlite",
     "expo-status-bar",
     "expo-web-browser"
