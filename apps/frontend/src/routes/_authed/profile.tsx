@@ -3,7 +3,7 @@ import { type EditorPreference, FigmaAuthInvalid, FigmaError } from "@pp/shared"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { type FormEvent, useEffect, useRef, useState } from "react"
+import { type FormEvent, useEffect, useState } from "react"
 
 import githubLogo from "@/assets/github.svg"
 import { ConnectedAgentsSection } from "@/components/ConnectedAgentsSection"
@@ -11,6 +11,7 @@ import { MemberAvatar } from "@/components/MemberAvatar"
 import { PageContainer, PageHeader } from "@/components/page"
 import { SEGMENTED_ITEM_CLASS, SegmentedTabs } from "@/components/SegmentedTabs"
 import { FigmaProfileSettings } from "@/components/settings/FigmaProfileSettings"
+import { MobileAppCard } from "@/components/settings/MobileAppCard"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -57,10 +58,12 @@ function Profile() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const viewer = useAtomValue(me())
-  const githubOAuthError = useRef(githubOAuthErrorMessage(search.error)).current
-  const figmaOAuthError = useRef(
+  const [githubOAuthError] = useState(() =>
+    githubOAuthErrorMessage(search.error)
+  )
+  const [figmaOAuthError] = useState(() =>
     figmaOAuthErrorMessage(search.figmaError)
-  ).current
+  )
 
   useEffect(() => {
     if (!search.error && !search.figmaError) return
@@ -127,6 +130,7 @@ function Profile() {
       <PersonalEverhourCard everhour={user.personalEverhour} />
       <FigmaProfileSettings oauthError={figmaOAuthError} />
       <EditorPreferenceCard preference={user.editorPreference} />
+      <MobileAppCard address={window.location.host} />
 
       <Card>
         <CardHeader>
@@ -453,21 +457,14 @@ function EditorPreferenceCard({
 }) {
   const update = useAtomSet(updateEditorPreference, { mode: "promise" })
   const updateState = useAtomValue(updateEditorPreference)
-  const [selected, setSelected] = useState(preference)
-
-  useEffect(() => {
-    setSelected(preference)
-  }, [preference])
-
   const waiting = updateState.waiting
   const error = Result.isFailure(updateState)
     ? m.profile_editor_update_error()
     : null
 
   function choose(next: EditorPreference) {
-    if (next === selected) return
-    setSelected(next)
-    void update(next).catch(() => setSelected(preference))
+    if (next === preference) return
+    void update(next).catch(() => undefined)
   }
 
   return (
@@ -482,7 +479,7 @@ function EditorPreferenceCard({
             key,
             label: label()
           }))}
-          isActive={(key) => key === selected}
+          isActive={(key) => key === preference}
           renderItem={(item, content, { active }) => (
             <button
               type="button"
@@ -504,7 +501,7 @@ function EditorPreferenceCard({
             waiting && "animate-pulse"
           )}
         >
-          {editorHint(selected)}
+          {editorHint(preference)}
         </p>
         {error && (
           <p role="alert" className="text-sm text-destructive">

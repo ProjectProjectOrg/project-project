@@ -1,6 +1,7 @@
 import type { EditorPreference } from "@pp/shared"
 import type { BetterFetchError } from "better-auth/react"
 import * as Effect from "effect/Effect"
+import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 
@@ -69,16 +70,19 @@ export const disconnectPersonalGithub = Api.runtime.fn(
   })
 )
 
-export const updateEditorPreference = Api.runtime.fn(
-  Effect.fn("updateEditorPreference")(function* (
-    editorPreference: EditorPreference
-  ) {
-    yield* Effect.tryPromise(() =>
-      authData(authClient.updateUser({ editorPreference }))
-    )
-    yield* Reactivity.invalidate([Keys.me()])
-  })
-)
+export const updateEditorPreference = Atom.optimisticFn(me(), {
+  reducer: (current, editorPreference: EditorPreference) =>
+    AsyncResult.map(current, (user) => ({ ...user, editorPreference })),
+  fn: Api.runtime.fn(
+    Effect.fn("updateEditorPreference")(function* (
+      editorPreference: EditorPreference
+    ) {
+      yield* Effect.tryPromise(() =>
+        authData(authClient.updateUser({ editorPreference }))
+      )
+    })
+  )
+})
 
 export const setActiveOrganization = Api.runtime.fn(
   Effect.fn("setActiveOrganization")(function* (organizationSlug: string) {
