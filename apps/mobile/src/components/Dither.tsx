@@ -132,7 +132,9 @@ half4 main(float2 cell) {
 // edge is pushed in and out by the field too, so it follows the texture
 // instead of running straight. The texture never moves between the two.
 // As u_step runs from 0 to 1, blocks of 2x2 cells switch from the first look
-// to the next in Bayer order, 16 steps, like a 1-bit screen dissolving.
+// to the next, like a 1-bit screen dissolving: nearest the next step's
+// elements first, so its text is clear almost at once, then outward, each
+// distance in Bayer order.
 const ground = Skia.RuntimeEffect.Make(`
 uniform shader field;
 uniform float2 u_cells;
@@ -197,7 +199,9 @@ half4 main(float2 point) {
     float cut = u_nextShape.z * sparse;
     float thinned = shape * smoothstep(cut - 0.12, cut + 0.12, shape);
     float next = thinned - (1.0 - smoothstep(0.0, u_nextShape.x, nextSdf));
-    if (bayer4(floor(cell / 2.0)) < u_step) on = step(0.5, next + threshold) > 0.5;
+    float away = clamp(max(nextSdf, 0.0) / u_nextShape.y, 0.0, 1.0);
+    float order = bayer4(floor(cell / 2.0)) * 0.2 + away * 0.8;
+    if (order < u_step) on = step(0.5, next + threshold) > 0.5;
   }
 
   return on ? u_front : u_back;
@@ -279,8 +283,8 @@ const renderField = ({ cols, rows }: Grid) => {
 // out the texture thins, how much it thins right by them, and how round the
 // wells' corners are.
 const next = {
-  falloff: 40,
-  thinReach: 130,
+  falloff: 28,
+  thinReach: 110,
   thinDepth: 0.9,
   radius: 8
 } as const

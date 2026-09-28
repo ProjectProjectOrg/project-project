@@ -59,7 +59,7 @@ const aboveContinue = 16
 // Continue sits this far above the keyboard.
 const dockGap = 8
 // The clear room around each of the step's elements.
-const elementRoom = 6
+const elementRoom = 2
 
 type Box = Readonly<{ x: number; y: number; width: number; height: number }>
 
@@ -161,13 +161,17 @@ export default function Welcome() {
   // The step always stays above Continue, whatever the keyboard's height,
   // like the taller emoji keyboard: when the keyboard comes up or changes,
   // the step scrolls up by as much as Continue would cover of it, and back
-  // down when the keyboard goes.
+  // down when the keyboard goes. It only gets that much room to scroll, and
+  // only scrolls when it needs that room; otherwise the step stays put, and a
+  // tap beside the field closes the keyboard.
   const scrollRef = useAnimatedRef<Animated.ScrollView>()
   const [actionHeight, setActionHeight] = useState(0)
+  const [keyboardRoom, setKeyboardRoom] = useState(0)
   useEffect(() => {
     const clear = (keyboardTop: number) => {
       const stepBottom = addressTop + addressHeight.get() + aboveContinue
       const y = Math.max(0, stepBottom - (keyboardTop - dockGap - actionHeight))
+      setKeyboardRoom(y)
       scheduleOnUI(() => {
         "worklet"
         scrollTo(scrollRef, 0, y, true)
@@ -345,8 +349,8 @@ export default function Welcome() {
             </Animated.View>
           </View>
         </View>
-        {/* Dragging the step down pulls the keyboard away with the finger,
-            and a tap beside the field closes it, so the whole step shows. */}
+        {/* A tap beside the field closes the keyboard, so the whole step
+            shows. */}
         <Animated.ScrollView
           ref={scrollRef}
           pointerEvents={step === "address" ? "auto" : "none"}
@@ -354,13 +358,13 @@ export default function Welcome() {
           contentContainerClassName="px-5"
           contentContainerStyle={{
             paddingTop: addressTop,
-            // Room to scroll the step up above a tall keyboard.
-            paddingBottom: height / 2
+            paddingBottom: keyboardRoom
           }}
           contentInsetAdjustmentBehavior="never"
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
-          alwaysBounceVertical
+          scrollEnabled={keyboardRoom > 0}
+          bounces={false}
           onScroll={followScroll}
           scrollEventThrottle={16}
         >
