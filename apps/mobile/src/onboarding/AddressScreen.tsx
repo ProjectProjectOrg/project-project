@@ -155,17 +155,22 @@ export function AddressScreen({
         </View>
       </ScrollView>
       {/* An overlay pinned to the bottom, so only the sticky view's own
-          transform moves it and no layout change adds to that. */}
+          transform moves it and no layout change adds to that. It's
+          positioned with style: through the library's Reanimated view, the
+          className's position classes didn't apply and the button collapsed
+          to a narrow pill. */}
       <KeyboardStickyView
         offset={{ closed: 0, opened: bottom }}
-        className="absolute inset-x-0 bottom-0 px-5 pt-3 pb-safe-offset-2"
+        style={{ position: "absolute", left: 0, right: 0, bottom: 0 }}
       >
-        <Button
-          label={copy.addressContinue}
-          loading={checkState.waiting}
-          disabled={address.trim().length === 0}
-          onPress={() => void submit()}
-        />
+        <View className="px-5 pt-3 pb-safe-offset-2">
+          <Button
+            label={copy.addressContinue}
+            loading={checkState.waiting}
+            disabled={address.trim().length === 0}
+            onPress={() => void submit()}
+          />
+        </View>
       </KeyboardStickyView>
     </View>
   )
