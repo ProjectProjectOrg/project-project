@@ -133,9 +133,9 @@ half4 main(float2 cell) {
 // instead of running straight. The texture never moves between the two.
 // As u_step runs from 0 to 1, blocks of 2x2 cells switch from the first look
 // to the next in Bayer order, 16 steps, like a 1-bit screen dissolving,
-// evenly over the whole texture. Only the blocks on or right by the next
-// step's elements switch within the first steps, so its text is clear almost
-// at once.
+// evenly over the whole texture. Blocks near the next step's elements take
+// their turn a little earlier, easing out with the distance, so its text
+// clears ahead of the rest without a hole popping open around it.
 const ground = Skia.RuntimeEffect.Make(`
 uniform shader field;
 uniform float2 u_cells;
@@ -200,8 +200,8 @@ half4 main(float2 point) {
     float cut = u_nextShape.z * sparse;
     float thinned = shape * smoothstep(cut - 0.12, cut + 0.12, shape);
     float next = thinned - (1.0 - smoothstep(0.0, u_nextShape.x, nextSdf));
-    float order = bayer4(floor(cell / 2.0));
-    if (nextSdf < u_nextShape.x) order *= 0.15;
+    float near = smoothstep(0.0, u_nextShape.y, max(nextSdf, 0.0));
+    float order = bayer4(floor(cell / 2.0)) * mix(0.45, 1.0, near);
     if (order < u_step) on = step(0.5, next + threshold) > 0.5;
   }
 
