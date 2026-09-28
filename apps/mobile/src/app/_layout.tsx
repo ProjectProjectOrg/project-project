@@ -8,6 +8,7 @@ import {
 } from "expo-router"
 import * as SystemUI from "expo-system-ui"
 import { useEffect, useState } from "react"
+import { KeyboardProvider } from "react-native-keyboard-controller"
 import { SafeAreaListener } from "react-native-safe-area-context"
 import { Uniwind, useCSSVariable, useUniwind } from "uniwind"
 
@@ -63,51 +64,53 @@ export default function RootLayout() {
   } as const
   return (
     <SafeAreaListener onChange={({ insets }) => Uniwind.updateInsets(insets)}>
-      <RegistryProvider>
-        <ThemeProvider value={navigationTheme}>
-          <Stack
-            screenListeners={({ route }) => ({
-              // After the transition, not on focus: focus fires before the
-              // native transition starts, so flipping then would animate it.
-              transitionEnd: () => {
-                if (route.name === "index") return
-                setStarted(true)
-                SplashScreen.hide()
-              }
-            })}
-            screenOptions={{
-              headerShown: false,
-              animation: started ? "default" : "none",
-              contentStyle: { backgroundColor: String(background) }
-            }}
-          >
-            <Stack.Screen
-              name="add-server"
-              options={{ presentation: "modal" }}
-            />
-            <Stack.Screen
-              name="switch-org"
-              options={{
-                presentation: "formSheet",
-                sheetAllowedDetents: [0.5, 1],
-                sheetGrabberVisible: true
+      <KeyboardProvider>
+        <RegistryProvider>
+          <ThemeProvider value={navigationTheme}>
+            <Stack
+              screenListeners={({ route }) => ({
+                // After the transition, not on focus: focus fires before the
+                // native transition starts, so flipping then would animate it.
+                transitionEnd: () => {
+                  if (route.name === "index") return
+                  setStarted(true)
+                  SplashScreen.hide()
+                }
+              })}
+              screenOptions={{
+                headerShown: false,
+                animation: started ? "default" : "none",
+                contentStyle: { backgroundColor: String(background) }
               }}
-            />
-            <Stack.Screen
-              name="settings/servers/index"
-              options={{
-                ...nativeHeader,
-                title: copy.serversTitle,
-                headerLargeTitle: true
-              }}
-            />
-            <Stack.Screen
-              name="settings/servers/[instanceId]"
-              options={{ ...nativeHeader, title: "" }}
-            />
-          </Stack>
-        </ThemeProvider>
-      </RegistryProvider>
+            >
+              <Stack.Screen
+                name="add-server"
+                options={{ presentation: "modal" }}
+              />
+              <Stack.Screen
+                name="switch-org"
+                options={{
+                  presentation: "formSheet",
+                  sheetAllowedDetents: [0.5, 1],
+                  sheetGrabberVisible: true
+                }}
+              />
+              <Stack.Screen
+                name="settings/servers/index"
+                options={{
+                  ...nativeHeader,
+                  title: copy.serversTitle,
+                  headerLargeTitle: true
+                }}
+              />
+              <Stack.Screen
+                name="settings/servers/[instanceId]"
+                options={{ ...nativeHeader, title: "" }}
+              />
+            </Stack>
+          </ThemeProvider>
+        </RegistryProvider>
+      </KeyboardProvider>
     </SafeAreaListener>
   )
 }

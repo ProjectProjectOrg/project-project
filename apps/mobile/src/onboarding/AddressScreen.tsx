@@ -5,7 +5,12 @@ import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
 import { useFocusEffect } from "expo-router"
 import { type ComponentRef, useCallback, useRef, useState } from "react"
-import { KeyboardAvoidingView, ScrollView, TextInput, View } from "react-native"
+import { type TextInput, View } from "react-native"
+import {
+  KeyboardAwareScrollView,
+  KeyboardStickyView
+} from "react-native-keyboard-controller"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
@@ -34,6 +39,9 @@ export function AddressScreen({
   const [address, setAddress] = useState("")
   const [submitted, setSubmitted] = useState(false)
   const origin = normalizeAddress(address, __DEV__)
+  // The footer already pads for the home indicator, so it rises by the
+  // keyboard minus that inset and sits the same 8 pt above the keyboard.
+  const { bottom } = useSafeAreaInsets()
 
   useFocusEffect(
     useCallback(() => {
@@ -71,8 +79,9 @@ export function AddressScreen({
     : null
 
   return (
-    <KeyboardAvoidingView behavior="padding" className="flex-1 bg-background">
-      <ScrollView
+    <View className="flex-1 bg-background">
+      <KeyboardAwareScrollView
+        mode="layout"
         className="flex-1"
         contentContainerClassName="px-5 pt-4"
         contentInsetAdjustmentBehavior="automatic"
@@ -102,15 +111,18 @@ export function AddressScreen({
             hint={hint}
           />
         </View>
-      </ScrollView>
-      <View className="px-5 pt-3 pb-safe-offset-2">
+      </KeyboardAwareScrollView>
+      <KeyboardStickyView
+        offset={{ opened: bottom }}
+        className="px-5 pt-3 pb-safe-offset-2"
+      >
         <Button
           label={copy.addressContinue}
           loading={checkState.waiting}
           disabled={address.trim().length === 0}
           onPress={() => void submit()}
         />
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardStickyView>
+    </View>
   )
 }
