@@ -1,4 +1,5 @@
 import {
+  applyTicketPatch,
   compareCodePoints,
   type GroupId,
   type GroupIdFilter,
@@ -37,7 +38,6 @@ import {
   predictedTicket,
   type QuickCreateArg
 } from "./backlog"
-import { applyTicketPatch } from "./ticketPatch"
 
 type QueryWithView = TicketListQuery & Readonly<{ view?: unknown }>
 

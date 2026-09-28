@@ -1,9 +1,10 @@
-import type {
-  GroupId,
-  Ticket,
-  TicketId,
-  UpdateTicketInput,
-  UpdateTicketOrderInput
+import {
+  applyTicketPatch,
+  type GroupId,
+  type Ticket,
+  type TicketId,
+  type UpdateTicketInput,
+  type UpdateTicketOrderInput
 } from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
@@ -13,7 +14,6 @@ import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
-import { applyTicketPatch } from "@/features/tickets/atoms/ticketPatch"
 
 import { sprintQuery } from "./sprintDetail"
 

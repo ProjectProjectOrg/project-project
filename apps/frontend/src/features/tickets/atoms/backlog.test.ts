@@ -1,11 +1,12 @@
 import {
+  applyTicketPatch,
   DEFAULT_TICKET_SORT,
   GroupId,
   padNumericIdSort,
-  Ticket,
-  TicketDetail,
   TagName,
   TemplateKey,
+  Ticket,
+  TicketDetail,
   TicketId,
   type TicketListQuery,
   TicketStatus,
@@ -33,7 +34,6 @@ import {
   updateBacklogTicket,
   updateFlatBacklogTicket
 } from "./backlog"
-import { applyTicketPatch } from "./ticketPatch"
 
 const ticket = {
   id: Schema.decodeSync(TicketId)("T-1"),

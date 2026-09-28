@@ -1,10 +1,11 @@
 import {
-  mergeStatusColumns,
-  placeInColumns,
+  applyTicketPatch,
   type AssignedStatusCount,
+  mergeStatusColumns,
   type NotFound,
   type OrgTicketRow,
   type PlacedColumn,
+  placeInColumns,
   type Project,
   type RecentTicketActivity,
   type Ticket,
@@ -29,8 +30,6 @@ import {
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
 import { getLocale } from "@/paraglide/runtime"
-
-import { applyTicketPatch } from "./ticketPatch"
 
 export type OrgTicketsRequest = Readonly<{
   params: Readonly<{ orgSlug: string }>

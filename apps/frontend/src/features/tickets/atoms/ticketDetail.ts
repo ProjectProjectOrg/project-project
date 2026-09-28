@@ -1,8 +1,9 @@
-import type {
-  ArchiveTicketInput,
-  SplitTicketInput,
-  TicketId,
-  UpdateTicketInput
+import {
+  applyTicketDetailPatch,
+  type ArchiveTicketInput,
+  type SplitTicketInput,
+  type TicketId,
+  type UpdateTicketInput
 } from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
@@ -13,8 +14,6 @@ import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
-
-import { applyTicketDetailPatch } from "./ticketPatch"
 
 export type TicketRequest = Readonly<{
   params: Readonly<{

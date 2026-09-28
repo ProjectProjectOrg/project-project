@@ -1,8 +1,8 @@
-import { TicketId, TicketStatus, type TicketDetail } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
+import { TicketId, TicketStatus, type TicketDetail } from "./schemas/Ticket"
 import { applyTicketDetailPatch, applyTicketPatch } from "./ticketPatch"
 
 const base = {

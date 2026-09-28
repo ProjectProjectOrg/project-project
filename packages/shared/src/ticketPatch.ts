@@ -1,4 +1,4 @@
-import type { Ticket, TicketDetail, UpdateTicketInput } from "@pp/shared"
+import type { Ticket, TicketDetail, UpdateTicketInput } from "./schemas/Ticket"
 
 /** Apply a server patch to a list row. Fields absent from the patch are kept. */
 export function applyTicketPatch(

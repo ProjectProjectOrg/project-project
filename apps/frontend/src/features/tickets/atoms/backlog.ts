@@ -1,4 +1,5 @@
 import {
+  applyTicketPatch,
   compareCodePoints,
   type GroupId,
   matchesTicketQuery,
@@ -31,7 +32,6 @@ import { Keys, projectScope } from "@/api/keys"
 import { PRIORITY_META } from "@/lib/priority-meta"
 
 import { countsRequest, ticketCounts } from "./ticketCounts"
-import { applyTicketPatch } from "./ticketPatch"
 
 export const encodeTicketListQuery = Schema.encodeSync(
   Schema.fromJsonString(TicketListQuery)
