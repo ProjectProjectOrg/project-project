@@ -3,11 +3,13 @@ import * as Exit from "effect/Exit"
 import * as Result from "effect/Result"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
+import * as Haptics from "expo-haptics"
 import { useFocusEffect } from "expo-router"
 import { type ComponentRef, useCallback, useRef, useState } from "react"
 import { type TextInput, View } from "react-native"
 import {
   KeyboardAwareScrollView,
+  KeyboardController,
   KeyboardStickyView
 } from "react-native-keyboard-controller"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -62,10 +64,24 @@ export function AddressScreen({
 
   const submit = async () => {
     setSubmitted(true)
-    if (Result.isFailure(origin)) return
+    if (Result.isFailure(origin)) {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+      return
+    }
     const current = ++attempt.current
     const exit = await check(origin.success)
-    if (current === attempt.current && Exit.isSuccess(exit)) onChecked()
+    if (current !== attempt.current) return
+    void Haptics.notificationAsync(
+      Exit.isSuccess(exit)
+        ? Haptics.NotificationFeedbackType.Success
+        : Haptics.NotificationFeedbackType.Error
+    )
+    if (Exit.isSuccess(exit)) {
+      // Lower the keyboard with the push. Otherwise it stays up until this
+      // screen leaves the window, after the transition.
+      void KeyboardController.dismiss()
+      onChecked()
+    }
   }
 
   const error =
@@ -86,12 +102,16 @@ export function AddressScreen({
         contentContainerClassName="px-5 pt-4"
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
       >
         <Text variant="headline">{copy.addressTitle}</Text>
         <Text variant="muted" className="mt-2">
           {copy.addressBody}
         </Text>
         <View className="mt-6">
+          {/* Return checks the address and keeps the keyboard up. The field
+              stays editable during a check, since typing cancels it and
+              disabling a focused field would drop the keyboard. */}
           <TextField
             label={copy.addressLabel}
             placeholder={copy.addressPlaceholder}
@@ -99,7 +119,7 @@ export function AddressScreen({
             value={address}
             onChangeText={edit}
             onSubmitEditing={() => void submit()}
-            editable={!checkState.waiting}
+            submitBehavior="submit"
             ref={field}
             keyboardType="url"
             textContentType="URL"
