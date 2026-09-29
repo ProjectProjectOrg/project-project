@@ -1,5 +1,6 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { TicketId } from "@pp/shared"
+import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import { Stack, useLocalSearchParams } from "expo-router"
@@ -27,10 +28,18 @@ const useTicketLocation = () => {
   } satisfies TicketLocation
 }
 
-function TicketFailed({ onRetry }: Readonly<{ onRetry: () => void }>) {
+function TicketFailed({
+  detail,
+  onRetry
+}: Readonly<{ detail: string; onRetry: () => void }>) {
   return (
     <View className="items-start gap-3 px-5 pt-4">
-      <Text variant="error">{copy.ticketFailed}</Text>
+      <View className="gap-1">
+        <Text variant="error">{copy.ticketFailed}</Text>
+        <Text variant="caption" selectable>
+          {detail}
+        </Text>
+      </View>
       <Button
         size="md"
         variant="tertiary"
@@ -48,8 +57,19 @@ function TicketContent({ location }: Readonly<{ location: TicketLocation }>) {
   const saveFailed = AsyncResult.isFailure(useAtomValue(updateTicket(location)))
   return AsyncResult.matchWithError(result, {
     onInitial: () => null,
-    onError: () => <TicketFailed onRetry={refresh} />,
-    onDefect: () => <TicketFailed onRetry={refresh} />,
+    onError: (error) => (
+      <TicketFailed
+        detail={
+          Predicate.hasProperty(error, "problem")
+            ? `${error._tag}: ${error.problem}`
+            : error._tag
+        }
+        onRetry={refresh}
+      />
+    ),
+    onDefect: (defect) => (
+      <TicketFailed detail={String(defect)} onRetry={refresh} />
+    ),
     onSuccess: ({ value }) => (
       <Ticket.Provider state={value} actions={{ update }}>
         <Ticket.Header />
