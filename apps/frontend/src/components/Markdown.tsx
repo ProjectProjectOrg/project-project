@@ -1,6 +1,7 @@
 import {
   advanceFence,
   attachmentSrc,
+  blankBlockHeading,
   attachmentViewParams,
   normalizeLineEndings,
   parseAttachmentUrl,
@@ -23,11 +24,7 @@ import "@/lib/prism-langs"
 import remarkGfm from "remark-gfm"
 
 import { AttachmentChip } from "@/components/AttachmentChip"
-import {
-  blankBlockHeading,
-  blockChrome,
-  useBlockLookup
-} from "@/components/blocks/blockChrome"
+import { blockChrome, useBlockLookup } from "@/components/blocks/blockChrome"
 import { BlockFrame } from "@/components/blocks/BlockFrame"
 import {
   SourceRemovedNote,

@@ -7,6 +7,7 @@ import {
 import { $isHeadingNode } from "@lexical/rich-text"
 import { $findMatchingParent } from "@lexical/utils"
 import {
+  blankBlockHeading,
   HINT,
   hintSlots,
   mergeTemplateInto,
@@ -38,8 +39,6 @@ import {
   type NodeKey,
   type RangeSelection
 } from "lexical"
-
-import { blankBlockHeading } from "@/components/blocks/blockChrome"
 
 import { $isTicketBlockNode, type TicketBlockNode } from "../TicketBlockNode"
 import { $isSyncedBlockNode, type SyncedBlockNode } from "./SyncedBlockNode"

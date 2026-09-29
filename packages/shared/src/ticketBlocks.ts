@@ -230,3 +230,17 @@ const BLOCK_ISSUE_MESSAGES: Readonly<Record<BlockIssueCode, string>> = {
 
 export const formatBlockIssue = (issue: BlockIssue): string =>
   `line ${issue.line}: ${issue.source} ${BLOCK_ISSUE_MESSAGES[issue.code]}`
+
+const BLOCK_HEADING_LINE = /^ {0,3}#{1,6}(?:\s|$)/
+const BLOCK_EMPTY_LINE = /^\s*(?:(?:[-*+]|\d{1,9}[.)])(?:\s+\[[ xX]\])?)?\s*$/
+
+export const blankBlockHeading = (content: string): string | null => {
+  const lines = content.split("\n")
+  const first = lines.findIndex((line) => line.trim() !== "")
+  if (first === -1) return ""
+  const heading = BLOCK_HEADING_LINE.test(lines[first]) ? lines[first] : null
+  const rest = lines.slice(heading === null ? first : first + 1)
+  return rest.every((line) => BLOCK_EMPTY_LINE.test(line))
+    ? (heading ?? "")
+    : null
+}

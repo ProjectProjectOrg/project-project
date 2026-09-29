@@ -83,15 +83,3 @@ export const blockTooltip = (chrome: BlockChrome): string =>
         name: chrome.name,
         origin: ORIGIN_LABELS[chrome.origin]()
       })
-
-const HEADING_LINE = /^ {0,3}#{1,6}(?:\s|$)/
-const EMPTY_LINE = /^\s*(?:(?:[-*+]|\d{1,9}[.)])(?:\s+\[[ xX]\])?)?\s*$/
-
-export const blankBlockHeading = (content: string): string | null => {
-  const lines = content.split("\n")
-  const first = lines.findIndex((line) => line.trim() !== "")
-  if (first === -1) return ""
-  const heading = HEADING_LINE.test(lines[first]) ? lines[first] : null
-  const rest = lines.slice(heading === null ? first : first + 1)
-  return rest.every((line) => EMPTY_LINE.test(line)) ? (heading ?? "") : null
-}

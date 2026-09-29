@@ -3,31 +3,10 @@ import { describe, expect, it } from "vitest"
 
 import {
   BUILTIN_LIBRARY,
-  blankBlockHeading,
   blockChrome,
   blockTooltip,
   lookupFor
 } from "./blockChrome"
-
-describe("blankBlockHeading", () => {
-  it("returns the heading of a block with nothing under it", () => {
-    expect(blankBlockHeading("## Context\n\n")).toBe("## Context")
-  })
-
-  it("treats empty list and task items as not filled in", () => {
-    expect(blankBlockHeading("## Steps\n\n1. \n2.\n- [ ] \n")).toBe("## Steps")
-  })
-
-  it("returns an empty heading for an empty block", () => {
-    expect(blankBlockHeading("\n\n")).toBe("")
-  })
-
-  it("returns null once anything is written", () => {
-    expect(blankBlockHeading("## Context\n\nWhy.")).toBeNull()
-    expect(blankBlockHeading("## Steps\n\n1. Sign in")).toBeNull()
-    expect(blankBlockHeading("Loose text")).toBeNull()
-  })
-})
 
 describe("blockChrome", () => {
   const lookup = lookupFor(BUILTIN_LIBRARY)
