@@ -60,6 +60,8 @@ const decodeTicket = Schema.decodeEffect(CreateTicketInput)
 const decodeComment = Schema.decodeEffect(CreateCommentInput)
 const decodeSprint = Schema.decodeEffect(CreateGroupInput)
 
+const DEMO_USER_MENTION = /mention:user\/(owner|teammate)\b/g
+
 const log = (message: string) => Console.log(`[seed-dev] ${message}`)
 
 const ensureTeammate = Effect.fn("ensureTeammate")(function* (
@@ -124,6 +126,13 @@ const addTicket = Effect.fn("addTicket")(function* (
     scope.slug,
     yield* decodeTicket({
       ...demo.ticket,
+      body: demo.ticket.body?.replace(
+        DEMO_USER_MENTION,
+        (mention, person: string) =>
+          person === "owner" || person === "teammate"
+            ? `mention:user/${scope.people[person]}`
+            : mention
+      ),
       assignees: (demo.assignees ?? []).map((person) => scope.people[person])
     })
   )

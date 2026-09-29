@@ -65,6 +65,128 @@ const wheel = {
 
 const md = (...lines: ReadonlyArray<string>) => lines.join("\n")
 
+const mobileBlockTickets: ReadonlyArray<DemoTicket> = [
+  {
+    ticket: {
+      title: "Replay queued edits in the order they were made",
+      status: "in_progress",
+      type: "feat",
+      priority: "high",
+      tags: ["offline"],
+      body: md(
+        '<block type="context">',
+        "",
+        "## Context",
+        "",
+        "[APP-2](mention:ticket/APP-2) queues edits made offline. When the connection comes back they replay in parallel, so two edits to the same ticket can land in the wrong order. [@Sanne Visser](mention:user/teammate) saw a status go back to *Todo* after reconnecting.",
+        "",
+        "</block>",
+        "",
+        '<block type="acceptance-criteria">',
+        "",
+        "## Acceptance criteria",
+        "",
+        "- [x] Edits to one ticket replay one at a time, oldest first",
+        "- [ ] Edits to different tickets still replay in parallel",
+        "- [ ] A failed edit stops the ones after it for that ticket, and says why",
+        "",
+        "</block>",
+        "",
+        '<block type="approach">',
+        "",
+        "## Approach",
+        "",
+        "Group the queue by ticket id and run each group as its own sequence:",
+        "",
+        "```ts",
+        "const replay = (queue: ReadonlyArray<QueuedEdit>) =>",
+        "  Effect.forEach(",
+        "    Object.values(Arr.groupBy(queue, (edit) => edit.ticketId)),",
+        "    (edits) => Effect.forEach(edits, send, { discard: true }),",
+        "    { concurrency: 4, discard: true }",
+        "  )",
+        "```",
+        "",
+        "Reading a ticket from the cache ([APP-1](mention:ticket/APP-1)) stays as it is.",
+        "",
+        "</block>",
+        "",
+        '<block type="open-questions">',
+        "",
+        "## Open questions",
+        "",
+        "- [ ] ",
+        "",
+        "</block>",
+        "",
+        '<block type="definition-of-done" sync>',
+        "",
+        "## Definition of done",
+        "",
+        "- [x] Reviewed and merged",
+        "- [ ] Tests cover the change",
+        "- [ ] Docs updated where behaviour changed",
+        "- [ ] Verified in the target environment",
+        "",
+        "</block>"
+      )
+    },
+    assignees: ["owner", "teammate"],
+    sprint: "active"
+  },
+  {
+    ticket: {
+      title: "Keyboard covers the comment box on small phones",
+      status: "todo",
+      type: "bug",
+      priority: "med",
+      tags: ["design"],
+      body: md(
+        '<block type="steps-to-reproduce">',
+        "",
+        "## Steps to reproduce",
+        "",
+        "1. Open any ticket on an iPhone SE",
+        "2. Scroll to the bottom and tap *Add a comment*",
+        "3. Start typing",
+        "",
+        "Always, in portrait.",
+        "",
+        "</block>",
+        "",
+        '<block type="expected-vs-actual">',
+        "",
+        "## Expected vs actual",
+        "",
+        "| | What happens |",
+        "| --- | --- |",
+        "| Expected | The comment box sits right above the keyboard |",
+        "| Actual | The keyboard covers the box; only the send button peeks out |",
+        "",
+        "</block>",
+        "",
+        '<block type="environment">',
+        "",
+        "## Environment",
+        "",
+        "- iPhone SE (3rd generation), iOS 26.4",
+        "- Build 142 from TestFlight",
+        "",
+        "</block>",
+        "",
+        "Probably the same inset bug as [APP-20](mention:ticket/APP-20).",
+        "",
+        '<block type="findings">',
+        "",
+        "## Findings",
+        "",
+        "</block>"
+      )
+    },
+    assignees: ["owner"]
+  }
+]
+
 const mobileApp: DemoProject = {
   project: { name: "Mobile app", key: "APP" },
   look: {
@@ -527,9 +649,48 @@ const mobileApp: DemoProject = {
           body: "Confirmed that tokens don't come along in an encrypted backup restored to another phone."
         }
       ]
-    }
+    },
+    ...mobileBlockTickets
   ]
 }
+
+const websiteBlockTickets: ReadonlyArray<DemoTicket> = [
+  {
+    ticket: {
+      title: "Download page for the iOS app",
+      status: "todo",
+      type: "feat",
+      priority: "med",
+      body: md(
+        '<block type="user-story">',
+        "",
+        "## User story",
+        "",
+        "As someone who runs their own server, I want one page that links to the app, so that I can send it to my team.",
+        "",
+        "</block>",
+        "",
+        '<block type="designs">',
+        "",
+        "## Designs",
+        "",
+        "</block>",
+        "",
+        "Link it from the pricing page ([WEB-2](mention:ticket/WEB-2)) once there's a public build. [@Sanne Visser](mention:user/teammate) has the App Store screenshots.",
+        "",
+        '<block type="out-of-scope">',
+        "",
+        "## Out of scope",
+        "",
+        "- An Android download, until there's a build",
+        "- Showing the latest version number",
+        "",
+        "</block>"
+      )
+    },
+    assignees: ["owner"]
+  }
+]
 
 const website: DemoProject = {
   project: { name: "Website", key: "WEB" },
@@ -618,7 +779,8 @@ const website: DemoProject = {
         priority: "low",
         tags: ["seo"]
       }
-    }
+    },
+    ...websiteBlockTickets
   ]
 }
 
