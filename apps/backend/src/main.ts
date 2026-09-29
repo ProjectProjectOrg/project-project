@@ -477,7 +477,24 @@ const ReaperLive = AttachmentReaperLive.pipe(
   Layer.provide(BackendInfrastructureLive)
 )
 
-const AppLive = Layer.mergeAll(ServerLive, ReconcilerLive, ReaperLive)
+const AnnounceLive = Layer.effectDiscard(
+  Config.String("BETTER_AUTH_URL").pipe(
+    Config.option,
+    Effect.flatMap(
+      Option.match({
+        onNone: () => Effect.void,
+        onSome: (origin) => Effect.logInfo(`Web and app server: ${origin}`)
+      })
+    )
+  )
+)
+
+const AppLive = Layer.mergeAll(
+  ServerLive,
+  ReconcilerLive,
+  ReaperLive,
+  AnnounceLive
+)
 
 // Only boot the real server when this file is the entry point. When tests
 // import { ApiLive } from this module, `import.meta.main` is false and we

@@ -51,21 +51,13 @@ const origin = `https://${host}`
 
 await $`bun run dev:db`
 
-// Foreground `tailscale serve` removes its configuration when it exits, so
-// stopping the stack leaves nothing behind.
-const serve = Bun.spawn(["tailscale", "serve", `http://127.0.0.1:${webPort}`], {
-  stdout: "ignore",
-  stderr: "pipe"
-})
-const serveFailed = await Promise.race([
-  serve.exited.then(() => true),
-  Bun.sleep(1500).then(() => false)
-])
-if (serveFailed) {
-  fail(
-    `tailscale serve didn't start:\n${await new Response(serve.stderr).text()}`
-  )
+const serve = await $`tailscale serve --bg http://127.0.0.1:${webPort}`
+  .quiet()
+  .nothrow()
+if (serve.exitCode !== 0) {
+  fail(`tailscale serve didn't start:\n${serve.stderr.toString()}`)
 }
+const stopServe = () => $`tailscale serve --https=443 off`.quiet().nothrow()
 
 console.log(`
   ProjectProject dev stack
@@ -91,14 +83,10 @@ const stack = Bun.spawn(
   }
 )
 
-const stop = () => {
-  stack.kill("SIGINT")
-  serve.kill("SIGINT")
-}
+const stop = () => stack.kill("SIGINT")
 process.on("SIGINT", stop)
 process.on("SIGTERM", stop)
 
 const code = await stack.exited
-serve.kill("SIGINT")
-await serve.exited
+await stopServe()
 process.exit(code)
