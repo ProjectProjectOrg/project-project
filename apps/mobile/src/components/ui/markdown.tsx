@@ -1,3 +1,4 @@
+import { parseMentionHref } from "@pp/shared"
 import { Linking } from "react-native"
 import {
   EnrichedMarkdownText,
@@ -35,7 +36,9 @@ const useMarkdownStyle = () => {
     muted,
     subtle,
     border,
+    strongBorder,
     background,
+    info,
     comment,
     punctuation,
     constant,
@@ -49,7 +52,9 @@ const useMarkdownStyle = () => {
     "--color-muted-foreground",
     "--color-muted",
     "--color-border",
+    "--color-border-strong",
     "--color-background",
+    "--color-state-info",
     "--color-syntax-comment",
     "--color-syntax-punctuation",
     "--color-syntax-constant",
@@ -124,6 +129,14 @@ const useMarkdownStyle = () => {
       }
     },
     link: { color: foreground, underline: true },
+    linkVariants: {
+      "^mention:ticket/": {
+        color: foreground,
+        backgroundColor: subtle,
+        underline: false
+      },
+      "^mention:user/": { color: info, underline: false }
+    },
     strong: { fontFamily: fonts.bold, fontWeight: "normal" },
     em: { fontFamily: fonts.italic, fontStyle: "normal" },
     thematicBreak: {
@@ -143,7 +156,7 @@ const useMarkdownStyle = () => {
       headerBackgroundColor: background,
       rowEvenBackgroundColor: background,
       rowOddBackgroundColor: background,
-      borderColor: border,
+      borderColor: strongBorder,
       borderWidth: 1,
       borderRadius: 0,
       cellPaddingHorizontal: 12,
@@ -160,15 +173,28 @@ const useMarkdownStyle = () => {
   return style
 }
 
-export function Markdown({ children }: Readonly<{ children: string }>) {
+export type MentionTarget = NonNullable<ReturnType<typeof parseMentionHref>>
+
+export function Markdown({
+  children,
+  onMentionPress
+}: Readonly<{
+  children: string
+  onMentionPress?: (mention: MentionTarget) => void
+}>) {
   const markdownStyle = useMarkdownStyle()
+  const openLink = (url: string) => {
+    const mention = parseMentionHref(url)
+    if (mention === null) void Linking.openURL(url)
+    else onMentionPress?.(mention)
+  }
   return (
     <EnrichedMarkdownText
       flavor="github"
       markdown={children}
       markdownStyle={markdownStyle}
       enableTaskListItemToggle={false}
-      onLinkPress={({ url }) => void Linking.openURL(url)}
+      onLinkPress={({ url }) => openLink(url)}
     />
   )
 }

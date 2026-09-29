@@ -8,6 +8,7 @@ export const useNativeHeader = () => {
     headerShown: true,
     headerTransparent: true,
     headerShadowVisible: false,
+    scrollEdgeEffects: { top: "soft" },
     headerBackButtonDisplayMode: "minimal",
     headerTintColor: foreground,
     headerTitleStyle: headerFont,

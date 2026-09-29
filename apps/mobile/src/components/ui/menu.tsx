@@ -235,8 +235,8 @@ function MenuBar({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <Host matchContents={{ vertical: true }} style={{ width: "100%" }}>
       <FlowLayout
-        spacing={8}
-        lineSpacing={8}
+        spacing={6}
+        lineSpacing={6}
         duration={transitions.fade.duration / 1000}
       >
         {children}

@@ -29,7 +29,7 @@ public final class MenuButtonViewProps: UIBaseViewProps {
   @Field var textColor: UIColor?
   @Field var fillColor: UIColor?
   @Field var fontFamily: String = "Geist-Medium"
-  @Field var fontSize: Double = 14
+  @Field var fontSize: Double = 13
   @Field var sections: [MenuButtonSection] = []
   @Field var menuAccessibilityLabel: String?
   var onSelect = EventDispatcher()
@@ -44,7 +44,7 @@ public struct MenuButtonView: ExpoSwiftUI.View {
 
   public var body: some View {
     MenuButtonRepresentable(props: props)
-      .frame(height: 32)
+      .frame(height: 28)
   }
 }
 
@@ -79,11 +79,11 @@ struct MenuButtonRepresentable: UIViewRepresentable {
 
   func sizeThatFits(_ proposal: ProposedViewSize, uiView: DeferredMenuButton, context: Context) -> CGSize? {
     let size = uiView.systemLayoutSizeFitting(
-      CGSize(width: UIView.layoutFittingCompressedSize.width, height: 32),
+      CGSize(width: UIView.layoutFittingCompressedSize.width, height: 28),
       withHorizontalFittingPriority: .fittingSizeLevel,
       verticalFittingPriority: .required
     )
-    return CGSize(width: ceil(size.width), height: 32)
+    return CGSize(width: ceil(size.width), height: 28)
   }
 
   private func makeConfiguration() -> UIButton.Configuration {
@@ -91,8 +91,8 @@ struct MenuButtonRepresentable: UIViewRepresentable {
     configuration.cornerStyle = .capsule
     configuration.baseBackgroundColor = props.fillColor ?? .secondarySystemFill
     configuration.baseForegroundColor = props.textColor ?? .label
-    configuration.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12)
-    configuration.imagePadding = 6
+    configuration.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 10, bottom: 0, trailing: 10)
+    configuration.imagePadding = 5
     configuration.imagePlacement = .leading
 
     let font = UIFont(name: props.fontFamily, size: props.fontSize) ?? .systemFont(ofSize: props.fontSize, weight: .medium)
@@ -100,7 +100,7 @@ struct MenuButtonRepresentable: UIViewRepresentable {
     title.font = font
     configuration.attributedTitle = title
 
-    let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 13, weight: .regular)
+    let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 12, weight: .regular)
     let image: UIImage? = if let level = props.imageLevel {
       UIImage(systemName: props.systemImage, variableValue: level, configuration: symbolConfiguration)
     } else {

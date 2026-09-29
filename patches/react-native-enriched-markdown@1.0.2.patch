@@ -1,4 +1,43 @@
+diff --git a/node_modules/react-native-enriched-markdown/.bun-tag-1037c5dcc9cde9f3 b/.bun-tag-1037c5dcc9cde9f3
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/react-native-enriched-markdown/.bun-tag-38836ac7abdc945e b/.bun-tag-38836ac7abdc945e
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/react-native-enriched-markdown/.bun-tag-5ab4703055d3d729 b/.bun-tag-5ab4703055d3d729
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/react-native-enriched-markdown/.bun-tag-5f958976d7e24ff6 b/.bun-tag-5f958976d7e24ff6
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/react-native-enriched-markdown/.bun-tag-616270246e8fe51f b/.bun-tag-616270246e8fe51f
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/react-native-enriched-markdown/.bun-tag-6301951db5df3432 b/.bun-tag-6301951db5df3432
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/react-native-enriched-markdown/.bun-tag-68e0efb5f610ebc7 b/.bun-tag-68e0efb5f610ebc7
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/react-native-enriched-markdown/.bun-tag-ae533922183ac881 b/.bun-tag-ae533922183ac881
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
 diff --git a/node_modules/react-native-enriched-markdown/.bun-tag-bf3e22a65ad7e7bd b/.bun-tag-bf3e22a65ad7e7bd
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/react-native-enriched-markdown/.bun-tag-c27db39e0a549c4 b/.bun-tag-c27db39e0a549c4
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/react-native-enriched-markdown/.bun-tag-c2a7b29b23cc3780 b/.bun-tag-c2a7b29b23cc3780
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/react-native-enriched-markdown/.bun-tag-e70d00b8a2f9d945 b/.bun-tag-e70d00b8a2f9d945
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/react-native-enriched-markdown/.bun-tag-ef350af3a116148a b/.bun-tag-ef350af3a116148a
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/react-native-enriched-markdown/.bun-tag-f33b3156b9c6b7c0 b/.bun-tag-f33b3156b9c6b7c0
 new file mode 100644
 index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
 diff --git a/ios/renderer/CodeRenderer.m b/ios/renderer/CodeRenderer.m
@@ -20,6 +59,205 @@ index 7bc14aed5225eac421b4f3fa2d28b4b07f355e47..3ecada3c5c16f2143eb6fba860bd0c73
    }
  }
  
+diff --git a/ios/renderer/ENRMImageRenderer.h b/ios/renderer/ENRMImageRenderer.h
+index 6ffa0bd3ade91529bef36e4757776b51e6c2a95b..e44099677c2d98115f1cbd4a96e3705fa0d0869a 100644
+--- a/ios/renderer/ENRMImageRenderer.h
++++ b/ios/renderer/ENRMImageRenderer.h
+@@ -3,6 +3,9 @@
+ 
+ NS_ASSUME_NONNULL_BEGIN
+ 
++extern NSString *const ENRMSymbolURLAttributeName;
++extern UIImage *_Nullable ENRMSymbolImage(NSString *url, UIImageSymbolConfiguration *configuration);
++
+ @interface ENRMImageRenderer : BaseRenderer
+ @end
+ 
+diff --git a/ios/renderer/ENRMImageRenderer.m b/ios/renderer/ENRMImageRenderer.m
+index d19cd1396354e7ea417b8a236b59f443f879f991..d0ac02bc09f4843a2e9e27aa6c752c24b6b50a2f 100644
+--- a/ios/renderer/ENRMImageRenderer.m
++++ b/ios/renderer/ENRMImageRenderer.m
+@@ -1,5 +1,6 @@
+ #import "ENRMImageRenderer.h"
+ #import "ENRMImageAttachment.h"
++#import "FontUtils.h"
+ #import "MarkdownASTNode.h"
+ #import "RenderContext.h"
+ #import "RendererFactory.h"
+@@ -8,6 +9,55 @@
+ static const unichar kLineBreak = '\n';
+ static const unichar kZeroWidthSpace = 0x200B;
+ 
++static UIColor *ENRMColorFromHex(NSString *hex)
++{
++  NSString *digits = [hex hasPrefix:@"#"] ? [hex substringFromIndex:1] : hex;
++  if (digits.length != 6)
++    return nil;
++  unsigned int value = 0;
++  if (![[NSScanner scannerWithString:digits] scanHexInt:&value])
++    return nil;
++  return [UIColor colorWithRed:((value >> 16) & 0xFF) / 255.0
++                         green:((value >> 8) & 0xFF) / 255.0
++                          blue:(value & 0xFF) / 255.0
++                         alpha:1.0];
++}
++
++NSString *const ENRMSymbolURLAttributeName = @"ENRMSymbolURL";
++
++// sf:<symbol name>?color=<hex> names an SF Symbol and its tint
++UIImage *_Nullable ENRMSymbolImage(NSString *url, UIImageSymbolConfiguration *configuration)
++{
++  NSURLComponents *components = [NSURLComponents componentsWithString:url];
++  NSString *name = components.path;
++  if (name.length == 0)
++    return nil;
++  UIColor *color = nil;
++  for (NSURLQueryItem *item in components.queryItems) {
++    if ([item.name isEqualToString:@"color"])
++      color = ENRMColorFromHex(item.value);
++  }
++  UIImage *symbol = [UIImage systemImageNamed:name withConfiguration:configuration];
++  if (symbol && color)
++    symbol = [symbol imageWithTintColor:color renderingMode:UIImageRenderingModeAlwaysOriginal];
++  return symbol;
++}
++
++// Made for the surrounding font, so TextKit aligns it like text
++static NSAttributedString *ENRMSymbolString(NSString *url, UIFont *font)
++{
++  UIImage *symbol = ENRMSymbolImage(
++      url, [UIImageSymbolConfiguration configurationWithFont:font scale:UIImageSymbolScaleSmall]);
++  if (!symbol)
++    return nil;
++  NSMutableAttributedString *string =
++      [[NSAttributedString attributedStringWithAttachment:[NSTextAttachment textAttachmentWithImage:symbol]] mutableCopy];
++  NSRange all = NSMakeRange(0, string.length);
++  [string addAttribute:NSFontAttributeName value:font range:all];
++  [string addAttribute:ENRMSymbolURLAttributeName value:url range:all];
++  return string;
++}
++
+ @implementation ENRMImageRenderer
+ 
+ - (void)renderNodeContent:(MarkdownASTNode *)node
+@@ -19,6 +69,14 @@ static const unichar kZeroWidthSpace = 0x200B;
+     return;
+   }
+ 
++  if ([imageURL hasPrefix:@"sf:"]) {
++    NSAttributedString *symbol =
++        ENRMSymbolString(imageURL, cachedFontFromBlockStyle([context getBlockStyle], context));
++    if (symbol)
++      [output appendAttributedString:symbol];
++    return;
++  }
++
+   BOOL isInline = [self isInlineImageInOutput:output];
+   ENRMImageAttachment *attachment = [ENRMImageAttachment attachmentForURL:imageURL config:_config isInline:isInline];
+ 
+diff --git a/ios/renderer/LinkRenderer.m b/ios/renderer/LinkRenderer.m
+index 5fdc4a78b464e58f36ecb8d5b7728eca125dff49..9cd85b1956e9a883f00c243629baa41471307c9c 100644
+--- a/ios/renderer/LinkRenderer.m
++++ b/ios/renderer/LinkRenderer.m
+@@ -1,10 +1,80 @@
+ #import "LinkRenderer.h"
++#import "ENRMImageRenderer.h"
+ #import "FontUtils.h"
+ #import "RenderContext.h"
+ #import "RendererFactory.h"
+ #import "StyleConfig.h"
+ #import <React/RCTFont.h>
+ 
++static const CGFloat kChipHorizontalPadding = 7.0;
++static const CGFloat kChipVerticalPadding = 3.0;
++static const CGFloat kChipGap = 4.0;
++static const CGFloat kChipTextScale = 0.87;
++static const CGFloat kChipSymbolScale = 0.92;
++
++static UIFont *ENRMMediumFont(UIFont *font, CGFloat size)
++{
++  UIFontDescriptor *descriptor = [UIFontDescriptor fontDescriptorWithFontAttributes:@{
++    UIFontDescriptorFamilyAttribute : font.familyName,
++    UIFontDescriptorTraitsAttribute : @{UIFontWeightTrait : @(UIFontWeightMedium)}
++  }];
++  return [UIFont fontWithDescriptor:descriptor size:size] ?: [font fontWithSize:size];
++}
++
++// A link drawn as a chip, like a native capsule button: one inline image, centred on the text's cap height
++static NSAttributedString *ENRMChipString(NSAttributedString *label, UIColor *textColor, UIColor *fillColor)
++{
++  __block NSString *symbolURL = nil;
++  __block UIFont *baseFont = nil;
++  [label enumerateAttributesInRange:NSMakeRange(0, label.length)
++                            options:0
++                         usingBlock:^(NSDictionary<NSAttributedStringKey, id> *attrs, NSRange range, BOOL *stop) {
++                           if (attrs[ENRMSymbolURLAttributeName])
++                             symbolURL = attrs[ENRMSymbolURLAttributeName];
++                           else if (attrs[NSFontAttributeName])
++                             baseFont = attrs[NSFontAttributeName];
++                         }];
++  NSString *text = [[label.string stringByReplacingOccurrencesOfString:@"\uFFFC" withString:@""]
++      stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
++  if (!baseFont || text.length == 0)
++    return nil;
++
++  UIFont *font = ENRMMediumFont(baseFont, round(baseFont.pointSize * kChipTextScale));
++  NSDictionary *textAttributes = @{NSFontAttributeName : font, NSForegroundColorAttributeName : textColor};
++  CGSize textSize = [text sizeWithAttributes:textAttributes];
++  UIImage *symbol =
++      symbolURL ? ENRMSymbolImage(symbolURL, [UIImageSymbolConfiguration
++                                                 configurationWithPointSize:font.pointSize * kChipSymbolScale
++                                                                     weight:UIImageSymbolWeightRegular])
++                : nil;
++  UIEdgeInsets insets = symbol ? symbol.alignmentRectInsets : UIEdgeInsetsZero;
++  CGSize glyph = symbol ? CGSizeMake(symbol.size.width - insets.left - insets.right,
++                                     symbol.size.height - insets.top - insets.bottom)
++                        : CGSizeZero;
++
++  CGFloat height = ceil(font.lineHeight + 2 * kChipVerticalPadding);
++  CGFloat width = ceil(2 * kChipHorizontalPadding + (symbol ? glyph.width + kChipGap : 0) + textSize.width);
++  UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(width, height)];
++  UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
++    [fillColor setFill];
++    [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(0, 0, width, height) cornerRadius:height / 2] fill];
++    CGFloat x = kChipHorizontalPadding;
++    if (symbol) {
++      [symbol drawInRect:CGRectMake(x - insets.left, (height - glyph.height) / 2 - insets.top, symbol.size.width,
++                                    symbol.size.height)];
++      x += glyph.width + kChipGap;
++    }
++    [text drawAtPoint:CGPointMake(x, (height - font.lineHeight) / 2) withAttributes:textAttributes];
++  }];
++
++  NSTextAttachment *attachment = [[NSTextAttachment alloc] init];
++  attachment.image = image;
++  attachment.bounds = CGRectMake(0, round((baseFont.capHeight - height) / 2), width, height);
++  NSMutableAttributedString *chip = [[NSAttributedString attributedStringWithAttachment:attachment] mutableCopy];
++  [chip addAttribute:NSFontAttributeName value:baseFont range:NSMakeRange(0, chip.length)];
++  return chip;
++}
++
+ @implementation LinkRenderer
+ 
+ #pragma mark - Rendering
+@@ -33,6 +103,17 @@
+ 
+   NSNumber *underlineStyle = @(linkUnderline ? NSUnderlineStyleSingle : NSUnderlineStyleNone);
+ 
++  if (backgroundColor && linkColor) {
++    NSAttributedString *chip = ENRMChipString([output attributedSubstringFromRange:range], linkColor, backgroundColor);
++    if (chip) {
++      [output replaceCharactersInRange:range withAttributedString:chip];
++      NSRange chipRange = NSMakeRange(start, chip.length);
++      [output addAttribute:NSLinkAttributeName value:url range:chipRange];
++      [context registerLinkRange:chipRange url:url];
++      return;
++    }
++  }
++
+   // 3. Apply core link functionality (non-destructive)
+   [output addAttribute:NSLinkAttributeName value:url range:range];
+ 
 diff --git a/ios/utils/CodeBackground.h b/ios/utils/CodeBackground.h
 index 17f198248d1de06b8417aa90ba3823a3ec6592b3..7b653f7aa5d8e3c4075e74d8bdfe165fbd7637ae 100644
 --- a/ios/utils/CodeBackground.h
@@ -33,7 +271,7 @@ index 17f198248d1de06b8417aa90ba3823a3ec6592b3..7b653f7aa5d8e3c4075e74d8bdfe165f
  @interface CodeBackground : NSObject
  
 diff --git a/ios/utils/CodeBackground.m b/ios/utils/CodeBackground.m
-index 5e5d5bf06370c9a94ed5645ccba4436894fe2bdb..44d91834a5b8f23ae6dd02cc9d9d1f7f2e4005c5 100644
+index 5e5d5bf06370c9a94ed5645ccba4436894fe2bdb..d8f1ebb0473a07e4bcdff031d49132e4b5659a6d 100644
 --- a/ios/utils/CodeBackground.m
 +++ b/ios/utils/CodeBackground.m
 @@ -3,8 +3,10 @@
@@ -68,17 +306,19 @@ index 5e5d5bf06370c9a94ed5645ccba4436894fe2bdb..44d91834a5b8f23ae6dd02cc9d9d1f7f
  
                                     // For multi-line, extend the first line to the right edge of the fragment
                                     if (isFirst && !isLast) {
-@@ -100,6 +111,18 @@ static const CGFloat kCodeBackgroundBorderWidth = 0.5;
+@@ -100,6 +111,20 @@ static const CGFloat kCodeBackgroundBorderWidth = 0.5;
                                     finalRect.size.height = referenceHeight;
                                   }
  
-+                                 NSUInteger charIndex = [layoutManager characterIndexForGlyphAtIndex:intersect.location];
++                                 // Measure from the span's last glyph: the first can be an inline image with no font
++                                 NSUInteger textGlyph = NSMaxRange(intersect) - 1;
++                                 NSUInteger charIndex = [layoutManager characterIndexForGlyphAtIndex:textGlyph];
 +                                 UIFont *font = [layoutManager.textStorage attribute:NSFontAttributeName
 +                                                                             atIndex:charIndex
 +                                                                      effectiveRange:NULL];
 +                                 if (font) {
 +                                   CGFloat baseline =
-+                                       rect.origin.y + origin.y + [layoutManager locationForGlyphAtIndex:intersect.location].y;
++                                       rect.origin.y + origin.y + [layoutManager locationForGlyphAtIndex:textGlyph].y;
 +                                   finalRect.origin.y = baseline - font.ascender - kCodeBackgroundVerticalPadding;
 +                                   finalRect.size.height =
 +                                       font.ascender - font.descender + 2 * kCodeBackgroundVerticalPadding;
@@ -87,3 +327,151 @@ index 5e5d5bf06370c9a94ed5645ccba4436894fe2bdb..44d91834a5b8f23ae6dd02cc9d9d1f7f
                                   [self drawBackgroundAndBorders:finalRect
                                                  backgroundColor:backgroundColor
                                                      borderColor:borderColor
+diff --git a/node_modules/react-native-enriched-markdown/ios/views/ENRMTableCellPadding.h b/ios/views/ENRMTableCellPadding.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..16c5ec5760b07a544e4725f1465ae5a12828d5a9
+--- /dev/null
++++ b/ios/views/ENRMTableCellPadding.h
+@@ -0,0 +1,14 @@
++#pragma once
++
++#import <Foundation/Foundation.h>
++
++// The outer columns sit flush with the table's edges, so the text lines up with the paragraphs around it
++static inline CGFloat ENRMTableCellLeadingPadding(NSUInteger column, CGFloat padding)
++{
++  return column == 0 ? 0 : padding;
++}
++
++static inline CGFloat ENRMTableCellTrailingPadding(NSUInteger column, NSUInteger columnCount, CGFloat padding)
++{
++  return column + 1 == columnCount ? 0 : padding;
++}
+diff --git a/ios/views/ENRMTableIOSGridView.m b/ios/views/ENRMTableIOSGridView.m
+index 138435033005771ce0bb194f273316a5328e3057..5de55f48e2a68ab749417263504416811f42ea12 100644
+--- a/ios/views/ENRMTableIOSGridView.m
++++ b/ios/views/ENRMTableIOSGridView.m
+@@ -1,4 +1,5 @@
+ #import "ENRMTableIOSGridView.h"
++#import "ENRMTableCellPadding.h"
+ 
+ #if !TARGET_OS_OSX
+ 
+@@ -69,6 +70,14 @@
+ 
+ #pragma mark - Drawing
+ 
++- (CGRect)textRectForColumn:(NSUInteger)column x:(CGFloat)x y:(CGFloat)y width:(CGFloat)width height:(CGFloat)height
++{
++  CGFloat leading = ENRMTableCellLeadingPadding(column, _horizontalCellPadding);
++  CGFloat trailing = ENRMTableCellTrailingPadding(column, _columnWidths.count, _horizontalCellPadding);
++  return CGRectMake(x + leading, y + _verticalCellPadding, width - leading - trailing,
++                    height - _verticalCellPadding * 2);
++}
++
+ - (void)drawRect:(CGRect)dirtyRect
+ {
+   if (!_tableRows.count || !_columnWidths.count || !_rowHeights.count)
+@@ -88,15 +97,9 @@
+       [rowData.backgroundColor setFill];
+       UIRectFill(cellRect);
+ 
+-      [_borderColor setStroke];
+-      UIBezierPath *border = [UIBezierPath bezierPathWithRect:cellRect];
+-      border.lineWidth = _borderWidth;
+-      [border stroke];
+-
+       NSAttributedString *text = rowData.cellTexts[c];
+       if (text.length > 0) {
+-        CGRect textRect = CGRectMake(xOffset + _horizontalCellPadding, yOffset + _verticalCellPadding,
+-                                     columnWidth - _horizontalCellPadding * 2, rowHeight - _verticalCellPadding * 2);
++        CGRect textRect = [self textRectForColumn:c x:xOffset y:yOffset width:columnWidth height:rowHeight];
+         [text drawWithRect:textRect
+                    options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
+                    context:nil];
+@@ -106,11 +109,20 @@
+     }
+     yOffset += rowHeight;
+   }
++
++  // Only a rule under each row, like the web's prose tables. Drawn last, as each row's fill overlaps the row above
++  [_borderColor setFill];
++  CGFloat ruleY = 0;
++  for (NSNumber *rowHeight in _rowHeights) {
++    ruleY += rowHeight.doubleValue;
++    UIRectFill(CGRectMake(0, ruleY, CGRectGetWidth(self.bounds), _borderWidth));
++  }
+ }
+ 
+ #pragma mark - Link hit-testing
+ 
+ - (BOOL)cellAtPoint:(CGPoint)point
++             column:(out NSUInteger *)outColumn
+           rowOrigin:(out CGFloat *)outRowY
+           rowHeight:(out CGFloat *)outRowH
+           colOrigin:(out CGFloat *)outColX
+@@ -128,6 +140,7 @@
+           ENRMTableIOSRowData *rowData = _tableRows[r];
+           if (c >= rowData.cellTexts.count)
+             return NO;
++          *outColumn = c;
+           *outRowY = rowY;
+           *outRowH = rh;
+           *outColX = colX;
+@@ -173,13 +186,13 @@ static NSString *linkInAttributedString(NSAttributedString *text, CGRect textRec
+ 
+ - (NSString *)linkURLAtPoint:(CGPoint)point
+ {
++  NSUInteger column;
+   CGFloat rowY, rowH, colX, colW;
+   NSAttributedString *text;
+-  if (![self cellAtPoint:point rowOrigin:&rowY rowHeight:&rowH colOrigin:&colX colWidth:&colW cellText:&text])
++  if (![self cellAtPoint:point column:&column rowOrigin:&rowY rowHeight:&rowH colOrigin:&colX colWidth:&colW cellText:&text])
+     return nil;
+ 
+-  CGRect textRect = CGRectMake(colX + _horizontalCellPadding, rowY + _verticalCellPadding,
+-                               colW - _horizontalCellPadding * 2, rowH - _verticalCellPadding * 2);
++  CGRect textRect = [self textRectForColumn:column x:colX y:rowY width:colW height:rowH];
+   if (!CGRectContainsPoint(textRect, point))
+     return nil;
+ 
+diff --git a/ios/views/TableContainerView.m b/ios/views/TableContainerView.m
+index b76936d8620a3748be375ec8f3e35f47c03c0edd..0dab6b9d9b8fc06b68822ab9b5d7e31cd74ece05 100644
+--- a/ios/views/TableContainerView.m
++++ b/ios/views/TableContainerView.m
+@@ -1,6 +1,7 @@
+ #import "TableContainerView.h"
+ #import "AttributedRenderer.h"
+ #import "ENRMAccessibilityLabels.h"
++#import "ENRMTableCellPadding.h"
+ #import "HTMLGenerator.h"
+ #import "LinkTapUtils.h"
+ #import "MarkdownASTNode.h"
+@@ -162,7 +163,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+   // TODO: Consider making minColumnWidth / maxColumnWidth configurable via style props
+   const CGFloat minimumColumnWidth = 60.0;
+   const CGFloat maximumColumnWidth = 300.0;
+-  const CGFloat horizontalPadding = config.tableCellPaddingHorizontal * 2;
++  const CGFloat cellPadding = config.tableCellPaddingHorizontal;
+   const CGFloat verticalPadding = config.tableCellPaddingVertical * 2;
+ 
+   NSMutableArray<NSNumber *> *colWidths = [NSMutableArray arrayWithCapacity:colCount];
+@@ -171,6 +172,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+ 
+   for (NSArray<TableCellData *> *row in rows) {
+     for (NSUInteger column = 0; column < row.count; column++) {
++      const CGFloat horizontalPadding = ENRMTableCellLeadingPadding(column, cellPadding) +
++                                        ENRMTableCellTrailingPadding(column, colCount, cellPadding);
+       CGRect boundingRect = [row[column].attributedText
+           boundingRectWithSize:CGSizeMake(maximumColumnWidth, CGFLOAT_MAX)
+                        options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
+@@ -186,7 +189,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+   for (NSArray<TableCellData *> *row in rows) {
+     CGFloat maxHeight = 0;
+     for (NSUInteger column = 0; column < row.count; column++) {
+-      CGFloat availableWidth = [colWidths[column] doubleValue] - horizontalPadding;
++      CGFloat availableWidth = [colWidths[column] doubleValue] - ENRMTableCellLeadingPadding(column, cellPadding) -
++                               ENRMTableCellTrailingPadding(column, colCount, cellPadding);
+       CGRect boundingRect = [row[column].attributedText
+           boundingRectWithSize:CGSizeMake(availableWidth, CGFLOAT_MAX)
+                        options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading

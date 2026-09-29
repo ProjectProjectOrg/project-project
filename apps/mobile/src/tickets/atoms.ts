@@ -1,12 +1,15 @@
 import {
   applyTicketPatch,
+  TicketId,
   type Project,
   type ProjectStatus,
   type Ticket,
   type UpdateTicketInput
 } from "@pp/shared"
+import * as Arr from "effect/Array"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
@@ -139,4 +142,43 @@ export const prefetchTickets = appRuntime.fn(
     const snapshots = yield* TicketSnapshots
     yield* snapshots.prefetch(locations)
   })
+)
+
+export type MentionedTicket = Readonly<{ status: string }>
+
+const isTicketId = Schema.is(TicketId)
+
+export const mentionedTickets = Atom.family(
+  (target: Readonly<{ from: TicketLocation; ids: ReadonlyArray<string> }>) =>
+    appRuntime
+      .atom(
+        Effect.gen(function* () {
+          const cache = yield* ViewCache
+          const snapshots = yield* TicketSnapshots
+          const found = yield* Effect.forEach(
+            target.ids.filter(isTicketId),
+            (ticketId) => {
+              const location = { ...target.from, ticketId }
+              return cache
+                .read(location.instanceId, snapshotSlot(location))
+                .pipe(
+                  Effect.flatMap(
+                    Option.match({
+                      onSome: Effect.succeed,
+                      onNone: () => snapshots.load(location)
+                    })
+                  ),
+                  Effect.map(({ ticket }) => {
+                    const mentioned: MentionedTicket = { status: ticket.status }
+                    return [ticketId, mentioned] as const
+                  }),
+                  Effect.option
+                )
+            },
+            { concurrency: 3 }
+          )
+          return new Map(Arr.getSomes(found))
+        })
+      )
+      .pipe(Atom.setIdleTTL("5 minutes"))
 )

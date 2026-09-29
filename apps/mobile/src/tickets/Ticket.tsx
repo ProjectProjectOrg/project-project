@@ -5,23 +5,36 @@ import {
   type UpdateTicketInput
 } from "@pp/shared"
 import * as Match from "effect/Match"
-import { createContext, type ReactNode, use, useMemo, useState } from "react"
-import { View } from "react-native"
+import * as Option from "effect/Option"
+import {
+  type ComponentProps,
+  createContext,
+  type ReactNode,
+  use,
+  useMemo,
+  useState
+} from "react"
+import { type LayoutChangeEvent, View } from "react-native"
 import Animated, { FadeIn } from "react-native-reanimated"
 
 import type { SymbolName } from "@/components/icons/Symbol"
-import { Markdown } from "@/components/ui/markdown"
+import { Markdown, type MentionTarget } from "@/components/ui/markdown"
 import { Menu } from "@/components/ui/menu"
 import { Text } from "@/components/ui/text"
 import { copy } from "@/copy"
 import { transitions } from "@/lib/motion"
 
-import type { TicketView } from "./atoms"
+import type { MentionedTicket, TicketView } from "./atoms"
 import { statusSymbol } from "./StatusIcon"
+import { type TicketChip, ticketBodyParts } from "./ticketBody"
 
 type TicketContextValue = Readonly<{
   state: TicketView
-  actions: Readonly<{ update: (patch: UpdateTicketInput) => void }>
+  mentions: ReadonlyMap<string, MentionedTicket>
+  actions: Readonly<{
+    update: (patch: UpdateTicketInput) => void
+    openTicket: (ticketId: string) => void
+  }>
   meta: Readonly<{ laidOut: boolean; markLaidOut: () => void }>
 }>
 
@@ -35,18 +48,20 @@ const useTicket = () => {
 
 function TicketProvider({
   state,
+  mentions,
   actions,
   children
-}: Pick<TicketContextValue, "state" | "actions"> &
+}: Pick<TicketContextValue, "state" | "mentions" | "actions"> &
   Readonly<{ children: ReactNode }>) {
   const [laidOut, setLaidOut] = useState(false)
   const value = useMemo(
     () => ({
       state,
+      mentions,
       actions,
       meta: { laidOut, markLaidOut: () => setLaidOut(true) }
     }),
-    [state, actions, laidOut]
+    [state, mentions, actions, laidOut]
   )
   return <TicketContext value={value}>{children}</TicketContext>
 }
@@ -56,10 +71,20 @@ function TicketFrame({ children }: Readonly<{ children: ReactNode }>) {
   return <View style={{ opacity: meta.laidOut ? 1 : 0 }}>{children}</View>
 }
 
-function TicketHeader() {
+function TicketHeader({
+  onLayout,
+  style
+}: Readonly<{
+  onLayout?: (event: LayoutChangeEvent) => void
+  style?: ComponentProps<typeof Animated.View>["style"]
+}>) {
   const { state } = useTicket()
   return (
-    <View className="gap-1.5 px-5 pt-2">
+    <Animated.View
+      className="gap-1.5 px-5 pt-2"
+      onLayout={onLayout}
+      style={style}
+    >
       <View className="flex-row items-center gap-2">
         <Text variant="caption" className="font-mono">
           {state.ticket.id}
@@ -72,7 +97,7 @@ function TicketHeader() {
       <Text variant="headline" selectable>
         {state.ticket.title}
       </Text>
-    </View>
+    </Animated.View>
   )
 }
 
@@ -249,6 +274,38 @@ function TicketGit() {
   )
 }
 
+function TicketBody({ body }: Readonly<{ body: string }>) {
+  const { state, mentions, actions } = useTicket()
+  const parts = useMemo(() => {
+    const describe = (ticketId: string) =>
+      Option.map(Option.fromNullishOr(mentions.get(ticketId)), (mentioned) => {
+        const status = state.statuses.find(
+          ({ slug }) => slug === mentioned.status
+        )
+        const chip: TicketChip = {
+          symbol: statusSymbol(status?.icon ?? ""),
+          color: status?.color ?? null
+        }
+        return chip
+      })
+    return ticketBodyParts(body, describe)
+  }, [body, mentions, state.statuses])
+  const openMention = (mention: MentionTarget) => {
+    if (mention.type === "ticket") actions.openTicket(mention.id)
+  }
+  return parts.map((part) =>
+    part.kind === "markdown" ? (
+      <Markdown key={part.id} onMentionPress={openMention}>
+        {part.text}
+      </Markdown>
+    ) : (
+      <Text key={part.id} variant="muted" className="mb-3">
+        {copy.ticketBlockNotFilledIn}
+      </Text>
+    )
+  )
+}
+
 function TicketDescription() {
   const { state } = useTicket()
   const [arrivedLate] = useState(state.ticket.body === null)
@@ -268,7 +325,7 @@ function TicketDescription() {
       {body.length === 0 ? (
         <Text variant="muted">{copy.ticketNoDescription}</Text>
       ) : (
-        <Markdown>{body}</Markdown>
+        <TicketBody body={body} />
       )}
     </Animated.View>
   )

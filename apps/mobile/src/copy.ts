@@ -86,6 +86,7 @@ export const copy = {
   ticketUnassigned: "Unassigned",
   ticketAssigneeCount: (count: number) => `${count} people`,
   ticketNoDescription: "No description.",
+  ticketBlockNotFilledIn: "Not filled in",
   ticketPullRequest: (pr: number, state: string) => `#${pr} ${state}`,
   ticketPriority: { low: "Low", med: "Medium", high: "High" },
   ticketType: { feat: "Feature", bug: "Bug", chore: "Chore", other: "Other" },
