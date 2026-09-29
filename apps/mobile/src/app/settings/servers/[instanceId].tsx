@@ -2,11 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
-import {
-  type NativeStackNavigationProp,
-  useLocalSearchParams,
-  useNavigation
-} from "expo-router"
+import { router, useLocalSearchParams } from "expo-router"
 import { useState } from "react"
 import { ScrollView, View } from "react-native"
 
@@ -47,10 +43,6 @@ function RemoveServer({ server }: Readonly<{ server: SavedServer }>) {
   })
   const removeState = useAtomValue(removeServerAtom(server.instanceId))
 
-  const navigation =
-    useNavigation<
-      NativeStackNavigationProp<Readonly<Record<string, undefined>>>
-    >()
   const removeFailed = AsyncResult.isFailure(removeState)
     ? copy.removeServerFailed
     : null
@@ -59,7 +51,8 @@ function RemoveServer({ server }: Readonly<{ server: SavedServer }>) {
   const confirm = async () => {
     const exit = await remove()
     if (Exit.isSuccess(exit)) {
-      navigation.reset({ index: 0, routes: [{ name: "index" }] })
+      if (router.canDismiss()) router.dismissAll()
+      router.replace("/")
     }
   }
 
