@@ -6,12 +6,11 @@ import {
 } from "@pp/shared"
 import * as Match from "effect/Match"
 import { createContext, type ReactNode, use, useMemo, useState } from "react"
-import { Linking, View } from "react-native"
-import { EnrichedMarkdownText } from "react-native-enriched-markdown"
+import { View } from "react-native"
 import Animated, { FadeIn } from "react-native-reanimated"
-import { useCSSVariable } from "uniwind"
 
 import type { SymbolName } from "@/components/icons/Symbol"
+import { Markdown } from "@/components/ui/markdown"
 import { Menu } from "@/components/ui/menu"
 import { Text } from "@/components/ui/text"
 import { copy } from "@/copy"
@@ -250,62 +249,8 @@ function TicketGit() {
   )
 }
 
-const useMarkdownStyle = () => {
-  const [foreground, muted, subtle, border] = useCSSVariable([
-    "--color-foreground",
-    "--color-muted-foreground",
-    "--color-muted",
-    "--color-border"
-  ]).map(String)
-  const body = {
-    fontFamily: "Geist",
-    fontSize: 16,
-    lineHeight: 24,
-    color: foreground
-  }
-  const heading = {
-    fontFamily: "Geist-SemiBold",
-    color: foreground,
-    marginTop: 16,
-    marginBottom: 6
-  }
-  return {
-    paragraph: { ...body, marginBottom: 12 },
-    h1: { ...heading, fontSize: 22 },
-    h2: { ...heading, fontSize: 19 },
-    h3: { ...heading, fontSize: 17 },
-    list: { ...body, bulletColor: muted, markerColor: muted, itemSpacing: 4 },
-    blockquote: {
-      ...body,
-      color: muted,
-      borderColor: border,
-      borderWidth: 2,
-      gapWidth: 12
-    },
-    code: {
-      fontFamily: "GeistMono-Regular",
-      color: foreground,
-      backgroundColor: subtle
-    },
-    codeBlock: {
-      fontFamily: "GeistMono-Regular",
-      fontSize: 13,
-      lineHeight: 20,
-      color: foreground,
-      backgroundColor: subtle,
-      borderRadius: 12,
-      padding: 12,
-      marginBottom: 12
-    },
-    link: { color: foreground, underline: true },
-    strong: { fontFamily: "Geist-SemiBold", fontWeight: "normal" },
-    table: { fontSize: 14, borderColor: border, headerBackgroundColor: subtle }
-  } as const
-}
-
 function TicketDescription() {
   const { state } = useTicket()
-  const markdownStyle = useMarkdownStyle()
   const [arrivedLate] = useState(state.ticket.body === null)
   if (state.ticket.body === null) return null
   const body = state.ticket.body.trim()
@@ -323,13 +268,7 @@ function TicketDescription() {
       {body.length === 0 ? (
         <Text variant="muted">{copy.ticketNoDescription}</Text>
       ) : (
-        <EnrichedMarkdownText
-          flavor="github"
-          markdown={body}
-          markdownStyle={markdownStyle}
-          enableTaskListItemToggle={false}
-          onLinkPress={({ url }) => void Linking.openURL(url)}
-        />
+        <Markdown>{body}</Markdown>
       )}
     </Animated.View>
   )

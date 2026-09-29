@@ -65,5 +65,8 @@
     "react-native-svg-transformer": "^1.5.3",
     "sharp": "^0.34.5",
     "vitest": "4.1.11"
+  },
+  "enriched-markdown": {
+    "enableMath": false
   }
 }

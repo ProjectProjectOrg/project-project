@@ -491,7 +491,7 @@
   border-radius: 0;
 }
 
-/* Prism tokens — light palette by default, dark swap under `.dark`. The same
+/* Prism tokens — colors come from the shared `--color-syntax-*` theme tokens. The same
    token classes are emitted by `rehype-prism-plus` (read view) and Lexical's
    `CodeHighlightNode` (editor), so the colors stay consistent across modes. */
 .prose-md pre[class*="language-"],
@@ -501,11 +501,11 @@
 .prose-md .token.comment,
 .prose-md .token.prolog,
 .prose-md .token.cdata {
-  color: #6a737d;
+  color: var(--color-syntax-comment);
   font-style: italic;
 }
 .prose-md .token.punctuation {
-  color: #24292e;
+  color: var(--color-syntax-punctuation);
 }
 .prose-md .token.namespace {
   opacity: 0.7;
@@ -517,7 +517,7 @@
 .prose-md .token.constant,
 .prose-md .token.symbol,
 .prose-md .token.deleted {
-  color: #005cc5;
+  color: var(--color-syntax-constant);
 }
 .prose-md .token.selector,
 .prose-md .token.attr-name,
@@ -525,26 +525,26 @@
 .prose-md .token.char,
 .prose-md .token.builtin,
 .prose-md .token.inserted {
-  color: #032f62;
+  color: var(--color-syntax-string);
 }
 .prose-md .token.operator,
 .prose-md .token.entity,
 .prose-md .token.url {
-  color: #d73a49;
+  color: var(--color-syntax-operator);
 }
 .prose-md .token.atrule,
 .prose-md .token.attr-value,
 .prose-md .token.keyword {
-  color: #d73a49;
+  color: var(--color-syntax-keyword);
 }
 .prose-md .token.function,
 .prose-md .token.class-name {
-  color: #6f42c1;
+  color: var(--color-syntax-function);
 }
 .prose-md .token.regex,
 .prose-md .token.important,
 .prose-md .token.variable {
-  color: #e36209;
+  color: var(--color-syntax-variable);
 }
 .prose-md .token.deleted-sign,
 .prose-md .token.deleted-arrow {
@@ -572,50 +572,6 @@
   font-style: italic;
 }
 
-html.dark .prose-md .token.comment,
-html.dark .prose-md .token.prolog,
-html.dark .prose-md .token.cdata {
-  color: #6a9955;
-}
-html.dark .prose-md .token.punctuation {
-  color: #d4d4d4;
-}
-html.dark .prose-md .token.property,
-html.dark .prose-md .token.tag,
-html.dark .prose-md .token.boolean,
-html.dark .prose-md .token.number,
-html.dark .prose-md .token.constant,
-html.dark .prose-md .token.symbol,
-html.dark .prose-md .token.deleted {
-  color: #b5cea8;
-}
-html.dark .prose-md .token.selector,
-html.dark .prose-md .token.attr-name,
-html.dark .prose-md .token.string,
-html.dark .prose-md .token.char,
-html.dark .prose-md .token.builtin,
-html.dark .prose-md .token.inserted {
-  color: #ce9178;
-}
-html.dark .prose-md .token.operator,
-html.dark .prose-md .token.entity,
-html.dark .prose-md .token.url {
-  color: #d4d4d4;
-}
-html.dark .prose-md .token.atrule,
-html.dark .prose-md .token.attr-value,
-html.dark .prose-md .token.keyword {
-  color: #c586c0;
-}
-html.dark .prose-md .token.function,
-html.dark .prose-md .token.class-name {
-  color: #dcdcaa;
-}
-html.dark .prose-md .token.regex,
-html.dark .prose-md .token.important,
-html.dark .prose-md .token.variable {
-  color: #9cdcfe;
-}
 html.dark .prose-md .token.deleted-sign,
 html.dark .prose-md .token.deleted-arrow {
   background: rgba(248, 81, 73, 0.18);

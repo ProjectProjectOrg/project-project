@@ -256,6 +256,12 @@
       },
     },
   },
+  "trustedDependencies": [
+    "react-native-enriched-markdown",
+  ],
+  "patchedDependencies": {
+    "react-native-enriched-markdown@1.0.2": "patches/react-native-enriched-markdown@1.0.2.patch",
+  },
   "overrides": {
     "@better-auth/oauth-provider": "1.7.3",
     "@effect/platform-node-shared": "4.0.0-rc.116",

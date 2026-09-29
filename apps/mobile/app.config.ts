@@ -30,6 +30,7 @@ const config: ExpoConfig = {
       {
         fonts: [
           "./node_modules/geist/dist/fonts/geist-sans/Geist-Regular.ttf",
+          "./node_modules/geist/dist/fonts/geist-sans/Geist-Italic.ttf",
           "./node_modules/geist/dist/fonts/geist-sans/Geist-Medium.ttf",
           "./node_modules/geist/dist/fonts/geist-sans/Geist-SemiBold.ttf",
           "./node_modules/geist/dist/fonts/geist-sans/Geist-Bold.ttf",

@@ -1,0 +1,89 @@
+diff --git a/node_modules/react-native-enriched-markdown/.bun-tag-bf3e22a65ad7e7bd b/.bun-tag-bf3e22a65ad7e7bd
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/ios/renderer/CodeRenderer.m b/ios/renderer/CodeRenderer.m
+index 7bc14aed5225eac421b4f3fa2d28b4b07f355e47..3ecada3c5c16f2143eb6fba860bd0c7394dec528 100644
+--- a/ios/renderer/CodeRenderer.m
++++ b/ios/renderer/CodeRenderer.m
+@@ -60,6 +60,14 @@
+     codeAttributes[@"BlockLineHeight"] = @(UIFontLineHeight(blockFont));
+ 
+     [output setAttributes:codeAttributes range:range];
++
++    // Room for the background's horizontal padding, so the spaces around the span stay visible
++    if (range.location > 0) {
++      [output addAttribute:NSKernAttributeName
++                     value:@(CodeHorizontalPadding)
++                     range:NSMakeRange(range.location - 1, 1)];
++    }
++    [output addAttribute:NSKernAttributeName value:@(CodeHorizontalPadding) range:NSMakeRange(NSMaxRange(range) - 1, 1)];
+   }
+ }
+ 
+diff --git a/ios/utils/CodeBackground.h b/ios/utils/CodeBackground.h
+index 17f198248d1de06b8417aa90ba3823a3ec6592b3..7b653f7aa5d8e3c4075e74d8bdfe165fbd7637ae 100644
+--- a/ios/utils/CodeBackground.h
++++ b/ios/utils/CodeBackground.h
+@@ -5,6 +5,7 @@
+ NS_ASSUME_NONNULL_BEGIN
+ 
+ extern NSString *const CodeAttributeName;
++extern const CGFloat CodeHorizontalPadding;
+ 
+ @interface CodeBackground : NSObject
+ 
+diff --git a/ios/utils/CodeBackground.m b/ios/utils/CodeBackground.m
+index 5e5d5bf06370c9a94ed5645ccba4436894fe2bdb..44d91834a5b8f23ae6dd02cc9d9d1f7f2e4005c5 100644
+--- a/ios/utils/CodeBackground.m
++++ b/ios/utils/CodeBackground.m
+@@ -3,8 +3,10 @@
+ #import "RenderContext.h"
+ 
+ NSString *const CodeAttributeName = @"Code";
++const CGFloat CodeHorizontalPadding = 3.0;
+ 
+-static const CGFloat kCodeBackgroundCornerRadius = 2.0;
++static const CGFloat kCodeBackgroundCornerRadius = 4.0;
++static const CGFloat kCodeBackgroundVerticalPadding = 1.5;
+ static const CGFloat kCodeBackgroundBorderWidth = 0.5;
+ 
+ @implementation CodeBackground {
+@@ -81,8 +83,17 @@ static const CGFloat kCodeBackgroundBorderWidth = 0.5;
+                                    // Precise bounds are only required for the start and end of the span
+                                    CGRect textRect = [layoutManager boundingRectForGlyphRange:intersect
+                                                                               inTextContainer:textContainer];
+-                                   finalRect = CGRectMake(textRect.origin.x + origin.x, textRect.origin.y + origin.y,
+-                                                          textRect.size.width, textRect.size.height);
++                                   CGFloat left = textRect.origin.x;
++                                   CGFloat right = CGRectGetMaxX(textRect);
++                                   if (isFirst) {
++                                     CGFloat glyphX = rect.origin.x + [layoutManager locationForGlyphAtIndex:intersect.location].x;
++                                     left = MAX(glyphX - CodeHorizontalPadding, rect.origin.x);
++                                   }
++                                   if (isLast && NSMaxRange(intersect) < NSMaxRange(lineRange)) {
++                                     right = rect.origin.x + [layoutManager locationForGlyphAtIndex:NSMaxRange(intersect)].x;
++                                   }
++                                   finalRect = CGRectMake(left + origin.x, textRect.origin.y + origin.y, right - left,
++                                                          textRect.size.height);
+ 
+                                    // For multi-line, extend the first line to the right edge of the fragment
+                                    if (isFirst && !isLast) {
+@@ -100,6 +111,18 @@ static const CGFloat kCodeBackgroundBorderWidth = 0.5;
+                                    finalRect.size.height = referenceHeight;
+                                  }
+ 
++                                 NSUInteger charIndex = [layoutManager characterIndexForGlyphAtIndex:intersect.location];
++                                 UIFont *font = [layoutManager.textStorage attribute:NSFontAttributeName
++                                                                             atIndex:charIndex
++                                                                      effectiveRange:NULL];
++                                 if (font) {
++                                   CGFloat baseline =
++                                       rect.origin.y + origin.y + [layoutManager locationForGlyphAtIndex:intersect.location].y;
++                                   finalRect.origin.y = baseline - font.ascender - kCodeBackgroundVerticalPadding;
++                                   finalRect.size.height =
++                                       font.ascender - font.descender + 2 * kCodeBackgroundVerticalPadding;
++                                 }
++
+                                  [self drawBackgroundAndBorders:finalRect
+                                                 backgroundColor:backgroundColor
+                                                     borderColor:borderColor
