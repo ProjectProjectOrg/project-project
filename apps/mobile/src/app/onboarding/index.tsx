@@ -3,6 +3,7 @@ import {
   router,
   SplashScreen,
   Stack,
+  useIsFocused,
   useNavigation,
   usePreventRemove
 } from "expo-router"
@@ -262,7 +263,8 @@ export default function Welcome() {
   }
   // Back, from the header or the edge swipe, steps back to the welcome
   // instead of leaving the screen.
-  usePreventRemove(step === "address", backToWelcome)
+  const focused = useIsFocused()
+  usePreventRemove(step === "address" && focused, backToWelcome)
   // A pan from the left edge scrubs the change back with the finger, like
   // iOS's interactive back. Let go past a third of the way, or with a
   // flick, and it finishes back to the welcome; otherwise it settles back on
