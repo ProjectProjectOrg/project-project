@@ -5,22 +5,25 @@ import {
   type UpdateTicketInput
 } from "@pp/shared"
 import * as Match from "effect/Match"
-import { createContext, type ReactNode, use, useMemo } from "react"
+import { createContext, type ReactNode, use, useMemo, useState } from "react"
 import { Linking, View } from "react-native"
 import { EnrichedMarkdownText } from "react-native-enriched-markdown"
+import Animated, { FadeIn } from "react-native-reanimated"
 import { useCSSVariable } from "uniwind"
 
 import type { SymbolName } from "@/components/icons/Symbol"
 import { Menu } from "@/components/ui/menu"
 import { Text } from "@/components/ui/text"
 import { copy } from "@/copy"
+import { transitions } from "@/lib/motion"
 
-import type { TicketSnapshot } from "./atoms"
+import type { TicketView } from "./atoms"
 import { statusSymbol } from "./StatusIcon"
 
 type TicketContextValue = Readonly<{
-  state: TicketSnapshot
+  state: TicketView
   actions: Readonly<{ update: (patch: UpdateTicketInput) => void }>
+  meta: Readonly<{ laidOut: boolean; markLaidOut: () => void }>
 }>
 
 const TicketContext = createContext<TicketContextValue | null>(null)
@@ -35,9 +38,23 @@ function TicketProvider({
   state,
   actions,
   children
-}: TicketContextValue & Readonly<{ children: ReactNode }>) {
-  const value = useMemo(() => ({ state, actions }), [state, actions])
+}: Pick<TicketContextValue, "state" | "actions"> &
+  Readonly<{ children: ReactNode }>) {
+  const [laidOut, setLaidOut] = useState(false)
+  const value = useMemo(
+    () => ({
+      state,
+      actions,
+      meta: { laidOut, markLaidOut: () => setLaidOut(true) }
+    }),
+    [state, actions, laidOut]
+  )
   return <TicketContext value={value}>{children}</TicketContext>
+}
+
+function TicketFrame({ children }: Readonly<{ children: ReactNode }>) {
+  const { meta } = useTicket()
+  return <View style={{ opacity: meta.laidOut ? 1 : 0 }}>{children}</View>
 }
 
 function TicketHeader() {
@@ -61,8 +78,14 @@ function TicketHeader() {
 }
 
 function TicketProperties({ children }: Readonly<{ children: ReactNode }>) {
+  const { meta } = useTicket()
   return (
-    <View className="px-5 pt-4">
+    <View
+      className="px-5 pt-4"
+      onLayout={({ nativeEvent }) => {
+        if (!meta.laidOut && nativeEvent.layout.height > 16) meta.markLaidOut()
+      }}
+    >
       <Menu.Bar>{children}</Menu.Bar>
     </View>
   )
@@ -165,13 +188,15 @@ function TicketTypeMenu() {
 
 function TicketAssigneeMenu() {
   const { state, actions } = useTicket()
-  const assigned = state.project.members.filter((member) =>
-    state.ticket.assignees.includes(member.id)
+  const people = state.people ?? []
+  const firstAssigned = people.find((person) =>
+    state.ticket.assignees.includes(person.id)
   )
-  const label = Match.value(assigned.length).pipe(
+  const count = state.ticket.assignees.length
+  const label = Match.value(count).pipe(
     Match.when(0, () => copy.ticketUnassigned),
-    Match.when(1, () => assigned[0].name),
-    Match.orElse((count) => copy.ticketAssigneeCount(count))
+    Match.when(1, () => firstAssigned?.name ?? copy.ticketAssigneeCount(1)),
+    Match.orElse(() => copy.ticketAssigneeCount(count))
   )
   const toggle = (id: string, checked: boolean) =>
     actions.update({
@@ -182,20 +207,16 @@ function TicketAssigneeMenu() {
   return (
     <Menu
       accessibilityLabel={copy.ticketAssigneesLabel}
-      icon={
-        assigned.length === 0
-          ? "person.crop.circle.dashed"
-          : "person.crop.circle"
-      }
+      icon={count === 0 ? "person.crop.circle.dashed" : "person.crop.circle"}
       label={label}
     >
-      {state.project.members.map((member) => (
+      {people.map((person) => (
         <Menu.CheckboxItem
-          key={member.id}
-          checked={state.ticket.assignees.includes(member.id)}
-          onCheckedChange={(checked) => toggle(member.id, checked)}
+          key={person.id}
+          checked={state.ticket.assignees.includes(person.id)}
+          onCheckedChange={(checked) => toggle(person.id, checked)}
         >
-          {member.name}
+          {person.name}
         </Menu.CheckboxItem>
       ))}
     </Menu>
@@ -285,9 +306,20 @@ const useMarkdownStyle = () => {
 function TicketDescription() {
   const { state } = useTicket()
   const markdownStyle = useMarkdownStyle()
+  const [arrivedLate] = useState(state.ticket.body === null)
+  if (state.ticket.body === null) return null
   const body = state.ticket.body.trim()
   return (
-    <View className="px-5 pt-5">
+    <Animated.View
+      className="px-5 pt-5"
+      entering={
+        arrivedLate
+          ? FadeIn.duration(transitions.fade.duration).easing(
+              transitions.fade.easing
+            )
+          : undefined
+      }
+    >
       {body.length === 0 ? (
         <Text variant="muted">{copy.ticketNoDescription}</Text>
       ) : (
@@ -299,12 +331,13 @@ function TicketDescription() {
           onLinkPress={({ url }) => void Linking.openURL(url)}
         />
       )}
-    </View>
+    </Animated.View>
   )
 }
 
 export const Ticket = {
   Provider: TicketProvider,
+  Frame: TicketFrame,
   Header: TicketHeader,
   Properties: TicketProperties,
   Status: TicketStatusMenu,

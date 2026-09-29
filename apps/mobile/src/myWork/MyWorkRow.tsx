@@ -1,9 +1,14 @@
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import * as Option from "effect/Option"
+import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import { router } from "expo-router"
 import { Pressable, View } from "react-native"
 
 import { Text } from "@/components/ui/text"
 import { cn } from "@/lib/cn"
 import { useOrgLocation } from "@/orgs/location"
+import { savedServers } from "@/servers/atoms"
+import { prefetchTickets, ticketPreview } from "@/tickets/atoms"
 import { PriorityIcon } from "@/tickets/PriorityIcon"
 import { StatusIcon } from "@/tickets/StatusIcon"
 
@@ -15,7 +20,31 @@ export function MyWorkRow({
   first
 }: Readonly<{ item: MyWorkTicket; section: MyWorkSection; first: boolean }>) {
   const org = useOrgLocation()
-  const open = () =>
+  const location = {
+    ...org,
+    projectSlug: item.project.slug,
+    ticketId: item.ticket.id
+  }
+  const seed = useAtomSet(ticketPreview(location))
+  const prefetch = useAtomSet(prefetchTickets)
+  const viewer = AsyncResult.getOrElse(
+    AsyncResult.map(
+      useAtomValue(savedServers),
+      (servers) =>
+        servers.find((server) => server.instanceId === org.instanceId)?.user ??
+        null
+    ),
+    () => null
+  )
+  const open = () => {
+    seed(
+      Option.some({
+        ticket: item.ticket,
+        project: item.project,
+        statuses: item.statuses,
+        viewer
+      })
+    )
     router.push({
       pathname: "/orgs/[instanceId]/[orgSlug]/tickets/[projectSlug]/[ticketId]",
       params: {
@@ -24,10 +53,12 @@ export function MyWorkRow({
         ticketId: item.ticket.id
       }
     })
+  }
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${item.ticket.id}, ${item.ticket.title}`}
+      onPressIn={() => prefetch([location])}
       onPress={open}
       className="flex-row items-center gap-3 px-5 active:bg-accent"
     >

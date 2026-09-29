@@ -10,6 +10,7 @@ import { ViewCacheLive } from "@/cache/ViewCache"
 import { seedSampleServers } from "@/servers/devSeed"
 import { ExpoStorageLive } from "@/servers/expoStorage"
 import { ServerStoreLive } from "@/servers/ServerStore"
+import { TicketSnapshots } from "@/tickets/TicketSnapshots"
 
 const StoreLive = ServerStoreLive.pipe(Layer.provide(ExpoStorageLive))
 
@@ -37,6 +38,10 @@ const AuthLive = ServerAuth.layer.pipe(
   ])
 )
 
+const TicketSnapshotsLive = TicketSnapshots.layer.pipe(
+  Layer.provide([AuthLive, CacheLive])
+)
+
 export const appRuntime = Atom.runtime(
   Layer.mergeAll(
     StoreLive,
@@ -44,6 +49,7 @@ export const appRuntime = Atom.runtime(
     Reactivity.layer,
     DevSeedLive,
     FetchHttpClient.layer,
-    AuthLive
+    AuthLive,
+    TicketSnapshotsLive
   )
 )

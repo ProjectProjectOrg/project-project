@@ -1,28 +1,30 @@
 import {
-  applyTicketDetailPatch,
-  ProjectDetail,
-  ProjectStatus,
-  TicketDetail,
-  type TicketId,
+  applyTicketPatch,
+  type Project,
+  type ProjectStatus,
+  type Ticket,
   type UpdateTicketInput
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
-import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 
-import { ServerAuth } from "@/auth/ServerAuth"
-import { cacheSlot, ViewCache } from "@/cache/ViewCache"
+import { ViewCache } from "@/cache/ViewCache"
 import { myWorkKeys } from "@/myWork/atoms"
 import { appRuntime } from "@/runtime"
 import { serverKeys } from "@/servers/keys"
-import type { OrgLocation } from "@/servers/model"
 
-export type TicketLocation = OrgLocation &
-  Readonly<{ projectSlug: string; ticketId: TicketId }>
+import {
+  snapshotSlot,
+  type TicketLocation,
+  type TicketSnapshot,
+  TicketSnapshots
+} from "./TicketSnapshots"
+
+export type { TicketLocation } from "./TicketSnapshots"
 
 export const ticketKeys = {
   ticket: (location: TicketLocation) =>
@@ -31,56 +33,62 @@ export const ticketKeys = {
     ] as const
 }
 
-const TicketSnapshot = Schema.Struct({
-  ticket: TicketDetail,
-  project: ProjectDetail,
-  statuses: Schema.Array(ProjectStatus)
-})
-export type TicketSnapshot = typeof TicketSnapshot.Type
+type Person = Readonly<{ id: string; name: string }>
 
-const snapshotSlot = (location: TicketLocation) =>
-  cacheSlot(
-    `ticket:${location.orgSlug}:${location.projectSlug}:${location.ticketId}`,
-    TicketSnapshot
-  )
+export type TicketView = Readonly<{
+  ticket: Ticket & Readonly<{ body: string | null }>
+  project: Pick<Project, "slug" | "name" | "icon">
+  people: ReadonlyArray<Person> | null
+  statuses: ReadonlyArray<ProjectStatus>
+}>
 
-const pathOf = (location: TicketLocation) => ({
-  orgSlug: location.orgSlug,
-  slug: location.projectSlug
-})
+export type TicketPreview = Readonly<{
+  ticket: Ticket
+  project: Project
+  statuses: ReadonlyArray<ProjectStatus>
+  viewer: Person | null
+}>
 
-const fetchSnapshot = Effect.fn("fetchTicket")(function* (
-  location: TicketLocation
-) {
-  const auth = yield* ServerAuth
-  const api = yield* auth.api(location.instanceId)
-  const params = pathOf(location)
-  const [ticket, project, statuses] = yield* Effect.all(
-    [
-      api.tickets.get({ params: { ...params, id: location.ticketId } }),
-      api.projects.get({ params }),
-      api.statuses.list({ params })
-    ],
-    { concurrency: "unbounded" }
-  )
-  return { ticket, project, statuses } satisfies TicketSnapshot
-})
+export const ticketPreview = Atom.family((_location: TicketLocation) =>
+  Atom.make(Option.none<TicketPreview>()).pipe(Atom.setIdleTTL("1 minute"))
+)
+
+const fromSnapshot = ({ ticket, project, statuses }: TicketSnapshot) => {
+  const view: TicketView = {
+    ticket,
+    project,
+    people: project.members,
+    statuses
+  }
+  return view
+}
+
+const fromPreview = ({ ticket, project, statuses, viewer }: TicketPreview) => {
+  const view: TicketView = {
+    ticket: { ...ticket, body: null },
+    project,
+    people:
+      viewer !== null && ticket.assignees.includes(viewer.id) ? [viewer] : null,
+    statuses
+  }
+  return view
+}
 
 const ticketSource = (location: TicketLocation) =>
   appRuntime
-    .atom(
+    .atom((get) =>
       Stream.unwrap(
         Effect.gen(function* () {
           const cache = yield* ViewCache
           const slot = snapshotSlot(location)
           const cached = yield* cache.read(location.instanceId, slot)
-          const fresh = fetchSnapshot(location).pipe(
-            Effect.tap((snapshot) =>
-              cache.write(location.instanceId, slot, snapshot)
-            )
+          const first = Option.orElse(Option.map(cached, fromSnapshot), () =>
+            Option.map(get.once(ticketPreview(location)), fromPreview)
           )
+          const snapshots = yield* TicketSnapshots
+          const fresh = snapshots.load(location).pipe(Effect.map(fromSnapshot))
           return Stream.concat(
-            Stream.fromIterable(Option.toArray(cached)),
+            Stream.fromIterable(Option.toArray(first)),
             Stream.fromEffect(fresh)
           )
         })
@@ -100,27 +108,35 @@ export const ticketView = Atom.family((location: TicketLocation) =>
 export const updateTicket = Atom.family((location: TicketLocation) =>
   Atom.optimisticFn(ticketView(location), {
     reducer: (current, patch: UpdateTicketInput) =>
-      AsyncResult.map(current, (snapshot) => ({
-        ...snapshot,
-        ticket: applyTicketDetailPatch(snapshot.ticket, patch)
+      AsyncResult.map(current, (view) => ({
+        ...view,
+        ticket: {
+          ...applyTicketPatch(view.ticket, patch),
+          body: patch.body ?? view.ticket.body
+        }
       })),
     fn: (set) =>
       appRuntime.fn(
         Effect.fn("updateTicket")(function* (patch: UpdateTicketInput, get) {
-          const auth = yield* ServerAuth
-          const api = yield* auth.api(location.instanceId)
-          const { ticket } = yield* api.tickets.update({
-            params: { ...pathOf(location), id: location.ticketId },
-            query: {},
-            payload: patch
-          })
+          const snapshots = yield* TicketSnapshots
+          const ticket = yield* snapshots.update(location, patch)
           const current = AsyncResult.value(get(ticketView(location)))
           if (Option.isSome(current)) {
-            set(AsyncResult.success({ ...current.value, ticket }))
+            const view: TicketView = { ...current.value, ticket }
+            set(AsyncResult.success(view))
           }
           yield* Reactivity.invalidate(myWorkKeys.tickets(location))
           return ticket
         })
       )
+  })
+)
+
+export const prefetchTickets = appRuntime.fn(
+  Effect.fn("prefetchTickets")(function* (
+    locations: ReadonlyArray<TicketLocation>
+  ) {
+    const snapshots = yield* TicketSnapshots
+    yield* snapshots.prefetch(locations)
   })
 )

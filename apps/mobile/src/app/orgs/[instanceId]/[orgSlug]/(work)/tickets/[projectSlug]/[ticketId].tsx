@@ -72,20 +72,22 @@ function TicketContent({ location }: Readonly<{ location: TicketLocation }>) {
     ),
     onSuccess: ({ value }) => (
       <Ticket.Provider state={value} actions={{ update }}>
-        <Ticket.Header />
-        <Ticket.Properties>
-          <Ticket.Status />
-          <Ticket.Priority />
-          <Ticket.Assignees />
-          <Ticket.Type />
-        </Ticket.Properties>
-        {saveFailed ? (
-          <Text variant="error" className="px-5 pt-3">
-            {copy.ticketUpdateFailed}
-          </Text>
-        ) : null}
-        <Ticket.Git />
-        <Ticket.Description />
+        <Ticket.Frame>
+          <Ticket.Header />
+          <Ticket.Properties>
+            <Ticket.Status />
+            <Ticket.Priority />
+            <Ticket.Assignees />
+            <Ticket.Type />
+          </Ticket.Properties>
+          {saveFailed ? (
+            <Text variant="error" className="px-5 pt-3">
+              {copy.ticketUpdateFailed}
+            </Text>
+          ) : null}
+          <Ticket.Git />
+          <Ticket.Description />
+        </Ticket.Frame>
       </Ticket.Provider>
     )
   })

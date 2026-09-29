@@ -20,6 +20,9 @@ import { useHideSplashWhen } from "@/navigation/useHideSplashWhen"
 import { useRevealOnLoad } from "@/navigation/useRevealOnLoad"
 import { useOrgLocation } from "@/orgs/location"
 import type { OrgLocation } from "@/servers/model"
+import { prefetchTickets } from "@/tickets/atoms"
+
+const prefetchLimit = 30
 
 function OrgGone({
   location,
@@ -88,6 +91,27 @@ function MyWorkSummary({ location }: Readonly<{ location: OrgLocation }>) {
   ) : null
 }
 
+function usePrefetchMyWork(location: OrgLocation) {
+  const result = useAtomValue(myWork(location))
+  const prefetch = useAtomSet(prefetchTickets)
+  const fresh = result.waiting ? Option.none() : AsyncResult.value(result)
+  const sections = Option.getOrUndefined(fresh)?.sections
+  useEffect(() => {
+    if (sections === undefined) return
+    prefetch(
+      sections
+        .flatMap((section) => section.data)
+        .slice(0, prefetchLimit)
+        .map((item) => ({
+          instanceId: location.instanceId,
+          orgSlug: location.orgSlug,
+          projectSlug: item.project.slug,
+          ticketId: item.ticket.id
+        }))
+    )
+  }, [sections, location, prefetch])
+}
+
 export default function MyWork() {
   const location = useOrgLocation()
   const refreshMyWork = useAtomRefresh(myWork(location))
@@ -96,6 +120,7 @@ export default function MyWork() {
   const loaded = !AsyncResult.isInitial(myWorkResult)
   const reveal = useRevealOnLoad(loaded)
   useHideSplashWhen(loaded)
+  usePrefetchMyWork(location)
   const sections = AsyncResult.value(myWorkResult).pipe(
     Option.map((value) => value.sections),
     Option.getOrElse(Arr.empty<MyWorkSection>)

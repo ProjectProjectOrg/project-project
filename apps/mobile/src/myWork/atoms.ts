@@ -20,7 +20,11 @@ import { appRuntime } from "@/runtime"
 import { serverKeys } from "@/servers/keys"
 import type { OrgLocation } from "@/servers/model"
 
-export type MyWorkTicket = Readonly<{ project: Project; ticket: Ticket }>
+export type MyWorkTicket = Readonly<{
+  project: Project
+  ticket: Ticket
+  statuses: ReadonlyArray<ProjectStatus>
+}>
 
 export type MyWorkSection = StatusColumn &
   Readonly<{ data: ReadonlyArray<MyWorkTicket> }>
@@ -71,9 +75,14 @@ const fetchSnapshot = Effect.fn("fetchMyWork")(function* (
 
 const myWorkView = ({ page, projects, statuses }: MyWorkSnapshot) => {
   const bySlug = new Map(projects.map((project) => [project.slug, project]))
+  const statusesBySlug = new Map(
+    statuses.map((entry) => [entry.projectSlug, entry.statuses])
+  )
   const tickets = page.items.flatMap(({ projectSlug, ticket }) => {
     const project = bySlug.get(projectSlug)
-    return project === undefined ? [] : [{ project, ticket }]
+    return project === undefined
+      ? []
+      : [{ project, ticket, statuses: statusesBySlug.get(projectSlug) ?? [] }]
   })
   const sections = placeInColumns(
     mergeStatusColumns(statuses),
