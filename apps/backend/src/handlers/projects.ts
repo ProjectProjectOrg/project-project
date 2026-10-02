@@ -90,9 +90,7 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
         ).pipe(dieOnMarkdown)
       )
       .handle("leave", () =>
-        Effect.flatMap(Projects, (projects) => projects.leave()).pipe(
-          dieOnMarkdown
-        )
+        Effect.flatMap(Projects, (projects) => projects.leave())
       )
       .handle("cancelPendingMember", ({ params }) =>
         Effect.flatMap(Projects, (projects) =>

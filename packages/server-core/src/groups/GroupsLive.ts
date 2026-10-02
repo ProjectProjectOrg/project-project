@@ -30,7 +30,11 @@ import { KeyedLock, LockKey } from "../locks/KeyedLock"
 import type { MarkdownError } from "../markdown/Markdown"
 import { TicketDocs } from "../tickets/TicketDocs"
 import { GroupDocs, type GroupDocument } from "./GroupDocs"
-import { Groups, type GroupsShape } from "./Groups"
+import {
+  Groups,
+  type GroupsShape,
+  type SprintMembershipOptions
+} from "./Groups"
 
 const MAX_CREATE_ATTEMPTS = 16
 const makeGroupId = Schema.decodeUnknownSync(GroupId)
@@ -673,10 +677,7 @@ export const GroupsLive = Layer.effect(
       slug: string,
       ticketId: TicketId,
       sprintId: GroupId | null,
-      options?: {
-        readonly after?: TicketId | null
-        readonly from?: GroupId | null
-      }
+      options?: SprintMembershipOptions
     ) =>
       withGroupFilesLock(
         orgSlug,

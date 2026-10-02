@@ -25,6 +25,11 @@ import type * as Effect from "effect/Effect"
 
 import type { MarkdownError } from "../markdown/Markdown"
 
+export type SprintMembershipOptions = Readonly<{
+  after?: TicketId | null
+  from?: GroupId | null
+}>
+
 export interface GroupsShape {
   readonly list: () => Effect.Effect<
     ReadonlyArray<Group>,
@@ -132,10 +137,7 @@ export interface GroupsShape {
     slug: string,
     ticketId: TicketId,
     sprintId: GroupId | null,
-    options?: {
-      readonly after?: TicketId | null
-      readonly from?: GroupId | null
-    }
+    options?: SprintMembershipOptions
   ) => Effect.Effect<void, Conflict | MarkdownError>
   readonly removeTicketFromAllGroups: (
     orgSlug: string,

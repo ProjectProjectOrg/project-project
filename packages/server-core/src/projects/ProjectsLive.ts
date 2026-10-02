@@ -53,10 +53,7 @@ import type {
 import { Access } from "../access/Access"
 import { GitHub } from "../github/GitHub"
 import type { MarkdownError } from "../markdown/Markdown"
-import type {
-  MalformedTicketDocument,
-  TicketDocument
-} from "../tickets/TicketDocs"
+import type { TicketDocument } from "../tickets/TicketDocs"
 import { TicketDocs } from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import { TicketIndex } from "../tickets/TicketIndex"

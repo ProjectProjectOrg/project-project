@@ -29,7 +29,6 @@ import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 
 import type { MarkdownError } from "../markdown/Markdown"
-import type { MalformedTicketDocument } from "../tickets/TicketDocs"
 
 export interface ProjectGithubIntegration {
   readonly projectIntegrationLinkId: string
@@ -126,16 +125,12 @@ export interface ProjectsShape {
     targetUserId: string
   ) => Effect.Effect<
     ProjectDetail,
-    | NotFound
-    | Validation
-    | MarkdownError
-    | MalformedTicketDocument
-    | LastProjectPmBlocked,
+    NotFound | Validation | MarkdownError | LastProjectPmBlocked,
     ProjectScope
   >
   readonly leave: () => Effect.Effect<
     void,
-    NotFound | MarkdownError | MalformedTicketDocument | LastProjectPmBlocked,
+    NotFound | LastProjectPmBlocked,
     ProjectScope
   >
   readonly cancelPendingMember: (

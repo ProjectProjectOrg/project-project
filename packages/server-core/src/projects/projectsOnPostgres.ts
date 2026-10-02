@@ -8,7 +8,7 @@ import * as Redacted from "effect/Redacted"
 import type { Access } from "../access/Access"
 import { AccessLive } from "../access/AccessLive"
 import { GitHub } from "../github/GitHub"
-import { TicketDocs } from "../tickets/TicketDocs"
+import { TicketDocs, type TicketDocsShape } from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import { TicketIndex } from "../tickets/TicketIndex"
 import { TicketIndexLive } from "../tickets/TicketIndexLive"
@@ -22,7 +22,8 @@ const unused = () => Effect.die(new Error("Unexpected dependency call"))
 
 export const projectsOnPostgres = (
   databaseUrl: string,
-  userIds: ReadonlyArray<string>
+  userIds: ReadonlyArray<string>,
+  ticketDocs: Partial<TicketDocsShape> = {}
 ): Layer.Layer<Projects | TicketIndex | Access> => {
   const db = DbLive.pipe(
     Layer.provideMerge(
@@ -36,7 +37,8 @@ export const projectsOnPostgres = (
     update: unused,
     create: unused,
     remove: unused,
-    readRaw: unused
+    readRaw: unused,
+    ...ticketDocs
   })
   const ticketIndex = TicketIndexLive.pipe(
     Layer.provide(db),

@@ -2,7 +2,13 @@ import { randomUUID } from "node:crypto"
 
 import { it } from "@effect/vitest"
 import { migrationsFolder } from "@pp/db"
-import { CurrentUser, ProjectScope, Slug, Validation } from "@pp/shared"
+import {
+  CurrentUser,
+  NotFound,
+  ProjectScope,
+  Slug,
+  Validation
+} from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as Effect from "effect/Effect"
@@ -13,6 +19,7 @@ import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import { Access } from "../access/Access"
 import { testUser } from "../access/testing"
+import { MalformedTicketDocument } from "../tickets/TicketDocs"
 import type { TicketIndex } from "../tickets/TicketIndex"
 import { Projects } from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
@@ -31,6 +38,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
   const admin = randomUUID()
   let pool: Pool
   let projectsLayer: Layer.Layer<Projects | TicketIndex | Access>
+  const unassignAttempts: Array<string> = []
 
   const run =
     (as: string) =>
@@ -91,7 +99,26 @@ describe.skipIf(!databaseUrl)("project members", () => {
       [projectId, organizationId, pm]
     )
 
-    projectsLayer = projectsOnPostgres(databaseUrl, [...users, admin])
+    projectsLayer = projectsOnPostgres(databaseUrl, [...users, admin], {
+      update: (orgSlug, projectSlug, ticketId) =>
+        Effect.suspend(
+          (): Effect.Effect<never, MalformedTicketDocument | NotFound> => {
+            unassignAttempts.push(ticketId)
+            return ticketId === "MEM-901"
+              ? Effect.fail(
+                  new MalformedTicketDocument({
+                    orgSlug,
+                    slug: projectSlug,
+                    ticketId,
+                    path: `${ticketId}.md`,
+                    reason: "frontmatter",
+                    cause: null
+                  })
+                )
+              : Effect.fail(new NotFound())
+          }
+        )
+    })
   })
 
   afterAll(async () => {
@@ -242,6 +269,33 @@ describe.skipIf(!databaseUrl)("project members", () => {
         )
         expect(error._tag).toBe("NotFound")
       })
+  )
+
+  it.effect("finishes leaving when a ticket can't be unassigned", () =>
+    Effect.gen(function* () {
+      yield* Effect.promise(() =>
+        pool.query(
+          "INSERT INTO ticket_index (organization_id,project_id,ticket_id,title,status,type,priority,assignees,created_by,created_at,updated_at) VALUES ($1,$2,'MEM-901','Broken','todo','feat','med',ARRAY[$3],$3,now(),now()), ($1,$2,'MEM-902','Fine','todo','feat','med',ARRAY[$3],$3,now(),now())",
+          [organizationId, projectId, developer]
+        )
+      )
+      unassignAttempts.length = 0
+      yield* run(developer)((projects) => projects.leave())
+      expect((yield* roles())[developer]).toBeUndefined()
+      expect(unassignAttempts).toContain("MEM-901")
+      yield* run(pm)((projects) =>
+        projects.addMember({
+          email: `${developer}@example.test`,
+          role: "developer"
+        })
+      )
+      yield* Effect.promise(() =>
+        pool.query(
+          "DELETE FROM ticket_index WHERE project_id = $1 AND ticket_id IN ('MEM-901','MEM-902')",
+          [projectId]
+        )
+      )
+    })
   )
 
   it.effect("ends project access when the org membership goes", () =>
