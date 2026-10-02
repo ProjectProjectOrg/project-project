@@ -1,7 +1,8 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { TicketPolicy } from "@pp/access/policies"
 import type { Member, Ticket } from "@pp/shared"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import type { ReactNode } from "react"
+import { useMemo, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
 import { BOARD_CARD_SLOT_CLASS } from "@/components/sprints/BoardColumnShell"
@@ -9,13 +10,18 @@ import { SprintBoardCard } from "@/components/sprints/SprintBoardCard"
 import { Row, rowGridClassName } from "@/components/TicketList/Row"
 import { useTicketPreview } from "@/components/TicketList/useTicketPreview"
 import { me } from "@/features/auth/atoms/auth"
-import { project, projectRequest } from "@/features/projects/atoms/projects"
+import {
+  project,
+  projectActor,
+  projectRequest
+} from "@/features/projects/atoms/projects"
 import type {
   OrgTicket,
   OrgTicketsRequest,
   updateMyTicket
 } from "@/features/tickets/atoms/myTickets"
 import { cn } from "@/lib/utils"
+import { ProjectContext } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 
 const NO_MEMBERS: ReadonlyArray<Member> = []
 
@@ -61,76 +67,93 @@ export function DashboardRow({
 }: DashboardRowProps) {
   const { orgSlug } = req.params
   const key = useTicketKey(req, item)
+  const projectReq = useMemo(
+    () => projectRequest(orgSlug, item.project.slug),
+    [orgSlug, item.project.slug]
+  )
   const members = useProjectMembers(orgSlug, item.project.slug)
+  const editable = TicketPolicy.canChange(
+    useAtomValue(projectActor(projectReq)),
+    { content: true }
+  )
   const patch = useAtomSet(update(key))
   const state = useAtomValue(update(key))
   return (
-    <div
-      className={cn(
-        "col-span-full grid grid-cols-subgrid",
-        below !== undefined &&
-          "relative isolate rounded-lg border border-border bg-card transition-colors hover:bg-muted/60"
-      )}
-    >
-      <Row
-        variant={below === undefined ? "standalone" : "embedded"}
-        orgSlug={orgSlug}
-        slug={item.project.slug}
-        ticket={item.ticket}
-        members={members}
-        showSprintCol={false}
-        showExtraActionsCol={false}
-        sprintMembership={null}
-        onUpdate={patch}
-        previewOpen={previewOpen}
-        onPreviewPointerEnter={onPreviewPointerEnter}
-        onPreviewOpenChange={onPreviewOpenChange}
-      />
-      {below !== undefined && (
-        <div className="col-span-full -mt-1.5 grid grid-cols-subgrid items-center gap-3 px-3 pb-2.5">
-          {below}
-        </div>
-      )}
-      {Result.matchWithError(state, {
-        onInitial: () => null,
-        onSuccess: () => null,
-        onError: (error) => (
-          <div className="col-span-full">
-            <ErrorPage error={error} contained />
+    <ProjectContext.Provider value={projectReq}>
+      <div
+        className={cn(
+          "col-span-full grid grid-cols-subgrid",
+          below !== undefined &&
+            "relative isolate rounded-lg border border-border bg-card transition-colors hover:bg-muted/60"
+        )}
+      >
+        <Row
+          variant={below === undefined ? "standalone" : "embedded"}
+          orgSlug={orgSlug}
+          slug={item.project.slug}
+          ticket={item.ticket}
+          members={members}
+          showSprintCol={false}
+          showExtraActionsCol={false}
+          sprintMembership={null}
+          editable={editable}
+          onUpdate={patch}
+          previewOpen={previewOpen}
+          onPreviewPointerEnter={onPreviewPointerEnter}
+          onPreviewOpenChange={onPreviewOpenChange}
+        />
+        {below !== undefined && (
+          <div className="col-span-full -mt-1.5 grid grid-cols-subgrid items-center gap-3 px-3 pb-2.5">
+            {below}
           </div>
-        ),
-        onDefect: (defect) => (
-          <div className="col-span-full">
-            <ErrorPage error={defect} contained />
-          </div>
-        )
-      })}
-    </div>
+        )}
+        {Result.matchWithError(state, {
+          onInitial: () => null,
+          onSuccess: () => null,
+          onError: (error) => (
+            <div className="col-span-full">
+              <ErrorPage error={error} contained />
+            </div>
+          ),
+          onDefect: (defect) => (
+            <div className="col-span-full">
+              <ErrorPage error={defect} contained />
+            </div>
+          )
+        })}
+      </div>
+    </ProjectContext.Provider>
   )
 }
 
 export function DashboardCard({ req, item, update }: DashboardTicketProps) {
   const { orgSlug } = req.params
   const key = useTicketKey(req, item)
+  const projectReq = useMemo(
+    () => projectRequest(orgSlug, item.project.slug),
+    [orgSlug, item.project.slug]
+  )
   const members = useProjectMembers(orgSlug, item.project.slug)
   const patch = useAtomSet(update(key))
   const state = useAtomValue(update(key))
   return (
-    <div className={BOARD_CARD_SLOT_CLASS}>
-      <SprintBoardCard
-        orgSlug={orgSlug}
-        slug={item.project.slug}
-        ticket={item.ticket}
-        members={members}
-        onPatch={patch}
-      />
-      {Result.matchWithError(state, {
-        onInitial: () => null,
-        onSuccess: () => null,
-        onError: (error) => <ErrorPage error={error} contained />,
-        onDefect: (defect) => <ErrorPage error={defect} contained />
-      })}
-    </div>
+    <ProjectContext.Provider value={projectReq}>
+      <div className={BOARD_CARD_SLOT_CLASS}>
+        <SprintBoardCard
+          orgSlug={orgSlug}
+          slug={item.project.slug}
+          ticket={item.ticket}
+          members={members}
+          onPatch={patch}
+        />
+        {Result.matchWithError(state, {
+          onInitial: () => null,
+          onSuccess: () => null,
+          onError: (error) => <ErrorPage error={error} contained />,
+          onDefect: (defect) => <ErrorPage error={defect} contained />
+        })}
+      </div>
+    </ProjectContext.Provider>
   )
 }
 
