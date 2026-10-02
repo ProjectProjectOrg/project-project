@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { LastProjectPmBlocked } from "@pp/shared"
 import type {
   AssignableRole,
   Member,
@@ -8,6 +9,7 @@ import type {
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import {
   Briefcase,
@@ -48,20 +50,39 @@ import { m } from "@/paraglide/messages"
 
 const ROLE_META: Record<
   Role,
-  { label: () => string; icon: typeof ShieldCheck; tone: BadgeTone }
+  Readonly<{
+    label: () => string
+    assign: () => string
+    icon: typeof ShieldCheck
+    tone: BadgeTone
+  }>
 > = {
-  pm: { label: () => m.members_role_pm(), icon: ShieldCheck, tone: "blue" },
+  pm: {
+    label: () => m.members_role_pm(),
+    assign: () => m.members_make_pm(),
+    icon: ShieldCheck,
+    tone: "blue"
+  },
   developer: {
     label: () => m.members_role_developer(),
+    assign: () => m.members_make_developer(),
     icon: UserRound,
     tone: "muted"
   },
   client: {
     label: () => m.members_role_client(),
+    assign: () => m.members_make_client(),
     icon: Briefcase,
     tone: "violet"
   }
 }
+
+const isLastProjectPmBlocked = Schema.is(LastProjectPmBlocked)
+
+const memberActionMessage = (failure: unknown) =>
+  isLastProjectPmBlocked(failure)
+    ? errorMessage(failure)
+    : m.members_action_error()
 const ASSIGNABLE_ROLES = [
   "pm",
   "developer",
@@ -287,6 +308,12 @@ function MemberRow({
     updateMember({ req: projectRequest(orgSlug, slug), id: member.id })
   )
   const updating = projectWaiting && updateState.waiting
+  const updateError = Result.isFailure(updateState)
+    ? Option.match(Cause.findErrorOption(updateState.cause), {
+        onNone: () => m.members_action_error(),
+        onSome: memberActionMessage
+      })
+    : null
   return (
     <div
       className={cn(
@@ -313,6 +340,11 @@ function MemberRow({
           ) : null}
           {member.email}
         </div>
+        {updateError && (
+          <div className="text-xs text-destructive" role="alert">
+            {updateError}
+          </div>
+        )}
       </div>
       <Badge tone={meta.tone} size="sm">
         <Icon strokeWidth={1.75} />
@@ -487,6 +519,12 @@ function MemberMenu({
   })
   const removeState = useAtomValue(removeMember(mutationKey))
   const removing = removeState.waiting
+  const removeError = Result.isFailure(removeState)
+    ? Option.match(Cause.findErrorOption(removeState.cause), {
+        onNone: () => m.members_action_error(),
+        onSome: memberActionMessage
+      })
+    : null
   const [confirming, setConfirming] = useState(false)
 
   if (!canManage) return <span className="size-8 shrink-0" />
@@ -518,6 +556,11 @@ function MemberMenu({
             <p className="px-2 pt-1 text-xs text-muted-foreground">
               {m.members_remove_confirm_prompt({ name: member.name })}
             </p>
+            {removeError && (
+              <p className="px-2 text-xs text-destructive" role="alert">
+                {removeError}
+              </p>
+            )}
             <div className="flex gap-1 px-1 pb-1">
               <button
                 type="button"
@@ -551,9 +594,7 @@ function MemberMenu({
                   className="cursor-pointer"
                 >
                   <RIcon className="size-4" strokeWidth={1.75} />
-                  {r === "pm"
-                    ? m.members_make_pm()
-                    : m.members_make_developer()}
+                  {meta.assign()}
                 </DropdownMenuItem>
               )
             })}

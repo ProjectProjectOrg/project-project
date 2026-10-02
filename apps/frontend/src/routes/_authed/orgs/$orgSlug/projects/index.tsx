@@ -45,7 +45,7 @@ function Projects() {
   const list = useAtomValue(projectsFor(projectsRequest(orgSlug)))
   const org = useAtomValue(orgDetail(orgRequest(orgSlug)))
   const canCreate =
-    !Result.isSuccess(org) || canCallOrg(org.value.role)("projects", "create")
+    Result.isSuccess(org) && canCallOrg(org.value.role)("projects", "create")
   const canMigrate =
     Result.isSuccess(org) &&
     canCallOrg(org.value.role)("jiraMigrations", "create")
@@ -55,7 +55,11 @@ function Projects() {
     onInitial: () => <ListSkeleton />,
     onError: (error) => (
       <>
-        <CreateRow orgSlug={orgSlug} onFocusChange={setCreating} />
+        <CreateRow
+          orgSlug={orgSlug}
+          canCreate={canCreate}
+          onFocusChange={setCreating}
+        />
         <ListMessage>
           {m.projects_list_load_error({ tag: error._tag })}
         </ListMessage>
@@ -63,7 +67,11 @@ function Projects() {
     ),
     onDefect: (defect) => (
       <>
-        <CreateRow orgSlug={orgSlug} onFocusChange={setCreating} />
+        <CreateRow
+          orgSlug={orgSlug}
+          canCreate={canCreate}
+          onFocusChange={setCreating}
+        />
         <ListMessage>
           {m.projects_list_defect({ defect: String(defect) })}
         </ListMessage>
@@ -71,7 +79,11 @@ function Projects() {
     ),
     onSuccess: ({ value }) => (
       <>
-        <CreateRow orgSlug={orgSlug} onFocusChange={setCreating} />
+        <CreateRow
+          orgSlug={orgSlug}
+          canCreate={canCreate}
+          onFocusChange={setCreating}
+        />
         <motion.div
           animate={{ opacity: creating ? 0.35 : 1 }}
           transition={transitions.presence}
@@ -123,14 +135,13 @@ function Projects() {
 
 function CreateRow({
   orgSlug,
+  canCreate,
   onFocusChange
-}: {
+}: Readonly<{
   orgSlug: string
+  canCreate: boolean
   onFocusChange?: (focused: boolean) => void
-}) {
-  const org = useAtomValue(orgDetail(orgRequest(orgSlug)))
-  const canCreate =
-    !Result.isSuccess(org) || canCallOrg(org.value.role)("projects", "create")
+}>) {
   const req = projectsRequest(orgSlug)
   const create = useAtomSet(createProject(req), {
     mode: "promiseExit"

@@ -185,11 +185,11 @@ function TicketTimeTotal({
   orgSlug,
   slug,
   ticket
-}: {
+}: Readonly<{
   orgSlug: string
   slug: string
   ticket: TicketDetail
-}) {
+}>) {
   const result = useAtomValue(
     ticketTimeAtom(ticketTimeRequest(orgSlug, slug, ticket.id))
   )

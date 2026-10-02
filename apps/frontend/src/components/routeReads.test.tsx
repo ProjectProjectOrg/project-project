@@ -33,9 +33,12 @@ import { Row } from "./TicketList/Row"
 const decodeTicketListQuery = Schema.decodeSync(TicketListQuery)
 const decodeGroupId = Schema.decodeSync(GroupId)
 
-vi.mock("@/routes/_authed/orgs/$orgSlug/projects/$slug/-context", () => ({
-  useProject: () => ({ github: null })
-}))
+vi.mock("@/routes/_authed/orgs/$orgSlug/projects/$slug/-context", async () => {
+  const { Project } = await import("@pp/access/roles")
+  return {
+    useProject: () => ({ github: null, permissions: Project.pm.grants })
+  }
+})
 
 let registry: Registry.AtomRegistry
 let requests: URL[]

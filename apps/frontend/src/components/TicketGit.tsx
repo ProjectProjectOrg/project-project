@@ -104,12 +104,12 @@ function ConnectedGitChip({
   slug,
   ticket,
   github
-}: {
+}: Readonly<{
   orgSlug: string
   slug: string
   ticket: Pick<Ticket, "id" | "gitState">
   github: GithubConnection
-}) {
+}>) {
   const { state, waiting } = useGitState(orgSlug, slug, ticket)
   if (!state || state.tag === "no_branch") return <span aria-hidden />
   const pending = state.tag === "branch_pending" || state.tag === "pr_pending"
