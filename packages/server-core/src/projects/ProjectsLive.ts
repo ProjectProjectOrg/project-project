@@ -20,7 +20,7 @@ import {
   Validation,
   type ProjectScopeShape
 } from "@pp/shared"
-import { and, asc, eq, gt, inArray } from "drizzle-orm"
+import { and, asc, eq, gt, inArray, sql as sqlFragment } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -931,10 +931,39 @@ export const ProjectsLive = Layer.effect(
           { slug, userId },
           Effect.gen(function* () {
             yield* projectDocs.removeDir(orgSlug, slug)
-            yield* db
-              .delete(projectIndex)
-              .where(eq(projectIndex.id, projectId))
-              .pipe(Effect.orDie)
+            yield* withProjectWriteLock(
+              projectId,
+              Effect.gen(function* () {
+                const affected = yield* db
+                  .select({ id: invitation.id })
+                  .from(invitation)
+                  .innerJoin(
+                    projectInviteGrant,
+                    and(
+                      eq(projectInviteGrant.invitationId, invitation.id),
+                      eq(projectInviteGrant.projectId, projectId)
+                    )
+                  )
+                  .where(
+                    and(
+                      eq(invitation.fromProject, true),
+                      eq(invitation.status, "pending")
+                    )
+                  )
+                  .orderBy(asc(invitation.id))
+                  .for("update", { of: invitation })
+                  .pipe(Effect.orDie)
+                yield* db
+                  .delete(projectIndex)
+                  .where(eq(projectIndex.id, projectId))
+                  .pipe(Effect.orDie)
+                yield* Effect.forEach(
+                  affected,
+                  ({ id }) => syncProjectInvite(id),
+                  { discard: true }
+                )
+              })
+            )
           })
         )
       })
@@ -1152,6 +1181,14 @@ export const ProjectsLive = Layer.effect(
           )
       })
 
+    const lockProjectForGrants = (projectId: string) =>
+      db
+        .select({ id: projectIndex.id })
+        .from(projectIndex)
+        .where(eq(projectIndex.id, projectId))
+        .for("share")
+        .pipe(Effect.orDie)
+
     const syncProjectInvite = (invitationId: string) =>
       Effect.gen(function* () {
         const grants = yield* db
@@ -1186,6 +1223,12 @@ export const ProjectsLive = Layer.effect(
           Effect.gen(function* () {
             const organizationId = indexRow.organizationId
             const normalizedEmail = email.toLowerCase()
+            yield* lockProjectForGrants(indexRow.id)
+            yield* db
+              .execute(
+                sqlFragment`select pg_advisory_xact_lock(hashtextextended(${organizationId} || ':' || ${normalizedEmail}, 0))`
+              )
+              .pipe(Effect.orDie)
             const now = yield* DateTime.now
             const [existing] = yield* db
               .select({
@@ -1408,6 +1451,7 @@ export const ProjectsLive = Layer.effect(
             yield* db
               .transaction(() =>
                 Effect.gen(function* () {
+                  yield* lockProjectForGrants(indexRow.id)
                   const [pending] = yield* db
                     .select({
                       status: invitation.status,

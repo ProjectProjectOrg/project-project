@@ -28,6 +28,23 @@ import { projectsOnPostgres } from "./projectsOnPostgres"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
+type InvitationGrantRow = Readonly<{
+  id: string
+  role: string
+  status: string
+  expires_at: Date
+  grant_role: string | null
+}>
+
+type InvitationRow = Readonly<{
+  id: string
+  role: string
+  status: string
+  from_project: boolean
+}>
+
+type PendingInvitationRow = Readonly<{ role: string; grants: number }>
+
 describe.skipIf(!databaseUrl)("project members", () => {
   const organizationId = randomUUID()
   const orgSlug = `members-${organizationId}`
@@ -42,18 +59,39 @@ describe.skipIf(!databaseUrl)("project members", () => {
   let projectsLayer: Layer.Layer<Projects | TicketIndex | Access>
   const unassignAttempts: Array<string> = []
 
-  const run =
+  const runIn =
+    (
+      projectSlug: string,
+      layer: () => typeof projectsLayer = () => projectsLayer
+    ) =>
     (as: string) =>
     <A, E, R>(f: (projects: Projects["Service"]) => Effect.Effect<A, E, R>) =>
       Effect.flatMap(Projects, f).pipe(
         Effect.provideServiceEffect(
           ProjectScope,
           Effect.flatMap(Access, (access) =>
-            access.project(orgSlug, slug)
+            access.project(orgSlug, projectSlug)
           ).pipe(Effect.provideService(CurrentUser, testUser(as)))
         ),
-        Effect.provide(projectsLayer)
+        Effect.provide(layer())
       )
+
+  const run = runIn(slug)
+
+  const createProject = (key: string) =>
+    Effect.promise(async () => {
+      const id = randomUUID()
+      const projectSlug = `members-${id}`
+      await pool.query(
+        "INSERT INTO project_index (id,slug,organization_id,key,name,icon,color,created_by) VALUES ($1,$2,$3,$4,'Other','folder','#3b82f6',$5)",
+        [id, projectSlug, organizationId, key, pm]
+      )
+      await pool.query(
+        "INSERT INTO project_member (project_id,organization_id,user_id,role_id) VALUES ($1,$2,$3,'pm')",
+        [id, organizationId, pm]
+      )
+      return { id, slug: projectSlug }
+    })
 
   const roles = () =>
     run(pm)((projects) => projects.get()).pipe(
@@ -229,13 +267,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
 
   const invitationsFor = (email: string) =>
     Effect.promise(async () => {
-      const { rows } = await pool.query<{
-        id: string
-        role: string
-        status: string
-        expires_at: Date
-        grant_role: string | null
-      }>(
+      const { rows } = await pool.query<InvitationGrantRow>(
         `SELECT i.id, i.role, i.status, i.expires_at, g.role_id AS grant_role
          FROM invitation i
          LEFT JOIN project_invite_grant g ON g.invitation_id = i.id
@@ -415,12 +447,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
 
   const invitationRow = (email: string) =>
     Effect.promise(async () => {
-      const result = await pool.query<{
-        id: string
-        role: string
-        status: string
-        from_project: boolean
-      }>(
+      const result = await pool.query<InvitationRow>(
         "SELECT id, role, status, from_project FROM invitation WHERE organization_id = $1 AND email = $2 ORDER BY created_at DESC LIMIT 1",
         [organizationId, email]
       )
@@ -492,6 +519,73 @@ describe.skipIf(!databaseUrl)("project members", () => {
           from_project: false
         })
       })
+  )
+
+  it.live("re-derives project invites when a project is deleted", () =>
+    Effect.gen(function* () {
+      const doomed = yield* createProject("DOOM")
+      const mixed = `mixed-${projectId}@example.test`
+      const only = `only-${projectId}@example.test`
+      const orgInvite = `org-invite-${projectId}@example.test`
+      yield* run(admin)((projects) =>
+        projects.addMember({ email: mixed, role: "client" })
+      )
+      yield* runIn(doomed.slug)(admin)((projects) =>
+        projects.addMember({ email: mixed, role: "developer" })
+      )
+      yield* runIn(doomed.slug)(admin)((projects) =>
+        projects.addMember({ email: only, role: "developer" })
+      )
+      yield* Effect.promise(async () => {
+        const id = randomUUID()
+        await pool.query(
+          "INSERT INTO invitation (id,organization_id,email,role,status,expires_at,inviter_id) VALUES ($1,$2,$3,'member','pending',now() + interval '7 days',$4)",
+          [id, organizationId, orgInvite, admin]
+        )
+        await pool.query(
+          "INSERT INTO project_invite_grant (invitation_id,project_id,role_id) VALUES ($1,$2,'developer')",
+          [id, doomed.id]
+        )
+      })
+      expect(yield* invitationRow(mixed)).toMatchObject({ role: "member" })
+      yield* runIn(doomed.slug)(pm)((projects) => projects.remove())
+      expect(yield* invitationRow(mixed)).toMatchObject({
+        role: "guest",
+        status: "pending"
+      })
+      expect(yield* invitationRow(only)).toMatchObject({ status: "canceled" })
+      expect(yield* invitationRow(orgInvite)).toMatchObject({
+        role: "member",
+        status: "pending",
+        from_project: false
+      })
+    })
+  )
+
+  it.live("creates one invitation when two invites race", () =>
+    Effect.gen(function* () {
+      const other = yield* createProject("RACE")
+      const email = `race-${projectId}@example.test`
+      const secondLayer = projectsOnPostgres(databaseUrl!, [...users, admin])
+      yield* Effect.all(
+        [
+          run(admin)((projects) =>
+            projects.addMember({ email, role: "developer" })
+          ),
+          runIn(other.slug, () => secondLayer)(admin)((projects) =>
+            projects.addMember({ email, role: "client" })
+          )
+        ],
+        { concurrency: 2, discard: true }
+      )
+      const pending = yield* Effect.promise(() =>
+        pool.query<PendingInvitationRow>(
+          "SELECT role, (SELECT count(*)::int FROM project_invite_grant g WHERE g.invitation_id = i.id) AS grants FROM invitation i WHERE organization_id = $1 AND email = $2 AND status = 'pending'",
+          [organizationId, email]
+        )
+      )
+      expect(pending.rows).toStrictEqual([{ role: "member", grants: 2 }])
+    })
   )
 
   it.live("leaves expired invites out of the pending members", () =>

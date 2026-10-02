@@ -11,6 +11,12 @@ import * as Effect from "effect/Effect"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, vi } from "vitest"
 
+type ProjectMemberRow = Readonly<{ user_id: string; role_id: string }>
+
+type RoleRow = Readonly<{ role: string }>
+
+type OwnerRow = Readonly<{ user_id: string; email: string }>
+
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
 describe.skipIf(!databaseUrl)("BetterAuth live", () => {
@@ -483,10 +489,7 @@ describe.skipIf(!databaseUrl)("BetterAuth live", () => {
             betterAuth.acceptInvitation(request, invitationId)
           ).pipe(Effect.provide(betterAuthLive))
         const projectRoles = Effect.promise(async () => {
-          const { rows } = await pool.query<{
-            user_id: string
-            role_id: string
-          }>(
+          const { rows } = await pool.query<ProjectMemberRow>(
             "SELECT user_id, role_id FROM project_member WHERE project_id = $1 ORDER BY role_id",
             [projectId]
           )
@@ -499,7 +502,7 @@ describe.skipIf(!databaseUrl)("BetterAuth live", () => {
         })
         const roleOf = (userId: string) =>
           Effect.promise(async () => {
-            const { rows } = await pool.query<{ role: string }>(
+            const { rows } = await pool.query<RoleRow>(
               "SELECT role FROM member WHERE organization_id = $1 AND user_id = $2",
               [orgId, userId]
             )
@@ -531,7 +534,7 @@ describe.skipIf(!databaseUrl)("BetterAuth live", () => {
     () =>
       Effect.gen(function* () {
         const [soleOwner] = (yield* Effect.promise(() =>
-          pool.query<{ user_id: string; email: string }>(
+          pool.query<OwnerRow>(
             `SELECT m.user_id, u.email FROM member m JOIN "user" u ON u.id = m.user_id
            WHERE m.organization_id = $1 AND m.role = 'owner'`,
             [orgId]
