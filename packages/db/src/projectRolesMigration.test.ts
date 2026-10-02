@@ -24,7 +24,8 @@ INSERT INTO "user" (id, name, email) VALUES
   ('dev', 'Dev', 'dev@example.test'),
   ('comma', 'Comma', 'comma@example.test'),
   ('dup', 'Dup', 'dup@example.test'),
-  ('left', 'Left', 'left@example.test');
+  ('left', 'Left', 'left@example.test'),
+  ('guest', 'Guest', 'guest@example.test');
 INSERT INTO "organization" (id, name, slug, created_at) VALUES
   ('o1', 'IGNE', 'igne', now()),
   ('o2', 'Other', 'other', now());
@@ -35,11 +36,14 @@ INSERT INTO "member" (id, organization_id, user_id, role, created_at) VALUES
   ('m4', 'o1', 'comma', 'member,admin', now()),
   ('m5', 'o1', 'dup', 'member', now() - interval '2 days'),
   ('m6', 'o1', 'dup', 'admin', now()),
-  ('m7', 'o2', 'dev', 'member', now());
+  ('m7', 'o2', 'dev', 'member', now()),
+  ('m8', 'o2', 'guest', 'guest', now());
 INSERT INTO "project_index" (slug, organization_id, key, name, icon, color, created_by) VALUES
   ('web', 'o1', 'WEB', 'Web', 'x', '#000000', 'owner'),
   ('app', 'o1', 'APP', 'App', 'x', '#000000', 'admin'),
   ('ext', 'o2', 'EXT', 'Ext', 'x', '#000000', 'dev');
+INSERT INTO "project_index" (slug, organization_id, key, name, icon, color, created_by, published_at) VALUES
+  ('jira', 'o1', 'JIRA', 'Jira', 'x', '#000000', 'owner', null);
 INSERT INTO "project_member" (project_slug, user_id, role) VALUES
   ('web', 'owner', 'owner'),
   ('web', 'dev', 'member'),
@@ -49,7 +53,9 @@ INSERT INTO "project_member" (project_slug, user_id, role) VALUES
   ('ext', 'dev', 'owner');
 INSERT INTO "invitation" (id, organization_id, email, role, status, expires_at, inviter_id) VALUES
   ('i1', 'o1', 'invitee@example.test', 'member', 'pending', now() + interval '7 days', 'admin'),
-  ('i2', 'o1', 'comma@example.test', 'member,admin', 'pending', now() + interval '7 days', 'admin');
+  ('i2', 'o1', 'comma@example.test', 'member,admin', 'pending', now() + interval '7 days', 'admin'),
+  ('i3', 'o1', 'nullrole@example.test', null, 'pending', now() + interval '7 days', 'admin'),
+  ('i4', 'o2', 'guest2@example.test', 'guest', 'pending', now() + interval '7 days', 'dev');
 INSERT INTO "project_invite_grant" (invitation_id, project_slug, project_id, role)
   SELECT 'i1', slug, id, CASE slug WHEN 'web' THEN 'admin' ELSE 'member' END
   FROM "project_index" WHERE slug IN ('web', 'app');
@@ -159,7 +165,8 @@ describe.skipIf(!databaseUrl)("project roles migration", () => {
             { organization_id: "o1", user_id: "dev", role: "member" },
             { organization_id: "o1", user_id: "dup", role: "admin" },
             { organization_id: "o1", user_id: "owner", role: "owner" },
-            { organization_id: "o2", user_id: "dev", role: "member" }
+            { organization_id: "o2", user_id: "dev", role: "member" },
+            { organization_id: "o2", user_id: "guest", role: "guest" }
           ])
         })
     )
@@ -202,14 +209,16 @@ describe.skipIf(!databaseUrl)("project roles migration", () => {
       })
     )
 
-    it.effect("folds comma roles on pending invitations", () =>
+    it.effect("folds comma and missing roles on pending invitations", () =>
       Effect.gen(function* () {
         const database = yield* MigratedDatabase
         expect(
           yield* database.rows(`SELECT id, role FROM "invitation" ORDER BY id`)
         ).toStrictEqual([
           { id: "i1", role: "member" },
-          { id: "i2", role: "admin" }
+          { id: "i2", role: "admin" },
+          { id: "i3", role: "member" },
+          { id: "i4", role: "guest" }
         ])
       })
     )
@@ -234,6 +243,18 @@ describe.skipIf(!databaseUrl)("project roles migration", () => {
           )
         )
         expect(error.message).toContain("member_role_check")
+      })
+    )
+
+    it.effect("rejects an invitation without a role", () =>
+      Effect.gen(function* () {
+        const database = yield* MigratedDatabase
+        const error = yield* Effect.flip(
+          database.execute(
+            `INSERT INTO "invitation" (id, organization_id, email, role, status, expires_at, inviter_id) VALUES ('i5', 'o1', 'none@example.test', null, 'pending', now(), 'admin')`
+          )
+        )
+        expect(error.message).toContain("null value")
       })
     )
 

@@ -147,7 +147,7 @@ export const invitation = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
-    role: text("role"),
+    role: text("role").notNull(),
     status: text("status").default("pending").notNull(),
     expiresAt: timestamp("expires_at").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -160,7 +160,7 @@ export const invitation = pgTable(
     index("invitation_email_idx").on(table.email),
     check(
       "invitation_role_check",
-      sql`${table.role} is null or ${table.role} in ('owner', 'admin', 'member', 'guest')`
+      sql`${table.role} in ('owner', 'admin', 'member', 'guest')`
     )
   ]
 )

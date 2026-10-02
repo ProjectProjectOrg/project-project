@@ -1553,12 +1553,11 @@ export const ProjectsLive = Layer.effect(
           const currentRole = yield* memberRole(indexRow.id, targetUserId)
           if (currentRole === null) return yield* new NotFound()
           yield* requireAnotherPm(indexRow, currentRole)
-          yield* unassignUserFromActiveTickets(orgSlug, slug, targetUserId)
-          yield* withProjectWriteLock(
+          const removed = yield* withProjectWriteLock(
             slug,
             Effect.gen(function* () {
               const lockedRole = yield* memberRole(indexRow.id, targetUserId)
-              if (lockedRole === null) return
+              if (lockedRole === null) return false
               yield* requireAnotherPm(indexRow, lockedRole)
               yield* db
                 .delete(projectMember)
@@ -1569,8 +1568,12 @@ export const ProjectsLive = Layer.effect(
                   )
                 )
                 .pipe(Effect.orDie)
+              return true
             })
           )
+          if (removed) {
+            yield* unassignUserFromActiveTickets(orgSlug, slug, targetUserId)
+          }
           return yield* replayDetail(orgSlug, slug)
         })
       )

@@ -4685,7 +4685,7 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": false,
+      "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -10775,7 +10775,7 @@
       "table": "project_role"
     },
     {
-      "value": "\"role\" is null or \"role\" in ('owner', 'admin', 'member', 'guest')",
+      "value": "\"role\" in ('owner', 'admin', 'member', 'guest')",
       "name": "invitation_role_check",
       "entityType": "checks",
       "schema": "public",

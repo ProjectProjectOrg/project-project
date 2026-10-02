@@ -10,7 +10,7 @@ BEGIN
     WHEN 'admin' = ANY (string_to_array(replace("role", ' ', ''), ',')) THEN 'admin'
     ELSE 'member'
   END
-  WHERE "role" NOT IN ('owner', 'admin', 'member');
+  WHERE "role" NOT IN ('owner', 'admin', 'member', 'guest');
   GET DIAGNOSTICS folded = ROW_COUNT;
 
   UPDATE "invitation"
@@ -19,7 +19,7 @@ BEGIN
     WHEN 'admin' = ANY (string_to_array(replace("role", ' ', ''), ',')) THEN 'admin'
     ELSE 'member'
   END
-  WHERE "role" IS NOT NULL AND "role" NOT IN ('owner', 'admin', 'member');
+  WHERE "role" IS NULL OR "role" NOT IN ('owner', 'admin', 'member', 'guest');
   GET DIAGNOSTICS folded_invitations = ROW_COUNT;
 
   WITH ranked AS (
@@ -45,7 +45,9 @@ CREATE UNIQUE INDEX "member_organization_user_uidx" ON "member" ("organization_i
 --> statement-breakpoint
 ALTER TABLE "member" ADD CONSTRAINT "member_role_check" CHECK ("role" in ('owner', 'admin', 'member', 'guest'));
 --> statement-breakpoint
-ALTER TABLE "invitation" ADD CONSTRAINT "invitation_role_check" CHECK ("role" is null or "role" in ('owner', 'admin', 'member', 'guest'));
+ALTER TABLE "invitation" ALTER COLUMN "role" SET NOT NULL;
+--> statement-breakpoint
+ALTER TABLE "invitation" ADD CONSTRAINT "invitation_role_check" CHECK ("role" in ('owner', 'admin', 'member', 'guest'));
 --> statement-breakpoint
 CREATE TABLE "project_role" (
 	"id" text PRIMARY KEY,
@@ -142,7 +144,7 @@ BEGIN
   SELECT p."id", p."organization_id", m."user_id", 'pm'
   FROM "member" m
   JOIN "project_index" p ON p."organization_id" = m."organization_id"
-  WHERE m."role" IN ('owner', 'admin')
+  WHERE m."role" IN ('owner', 'admin') AND p."published_at" IS NOT NULL
   ON CONFLICT ("project_id", "user_id") DO NOTHING;
   GET DIAGNOSTICS implicit_members = ROW_COUNT;
 
