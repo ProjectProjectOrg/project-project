@@ -2652,11 +2652,15 @@ it.effect(
     const layer = makeTicketsLayer("T", docs.layer, {
       ticketIndex: makeFakeTicketIndex(docs.documents),
       groups: makeFakeGroups({
-        updateTicketOrder: (_id, input) =>
-          Effect.sync(() => {
-            orders.push(input)
-            return sprint
-          })
+        updateTicketOrder: (_id, input, beforeWrite = Effect.void) =>
+          beforeWrite.pipe(
+            Effect.andThen(
+              Effect.sync(() => {
+                orders.push(input)
+                return sprint
+              })
+            )
+          )
       })
     })
     return Effect.gen(function* () {

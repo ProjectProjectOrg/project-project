@@ -198,7 +198,10 @@ describe.skipIf(!databaseUrl)("project members", () => {
 
   it.effect("lets a pm step down while another pm remains", () =>
     Effect.gen(function* () {
-      yield* run(second)((projects) => projects.updateMember(pm, "developer"))
+      const stepped = yield* run(pm)((projects) =>
+        projects.updateMember(pm, "developer")
+      )
+      expect(stepped.permissions.members).toBeUndefined()
       yield* run(second)((projects) => projects.updateMember(pm, "pm"))
       yield* run(pm)((projects) => projects.removeMember(second))
       expect((yield* roles())[pm]).toBe("pm")

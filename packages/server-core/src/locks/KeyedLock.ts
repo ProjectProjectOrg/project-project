@@ -18,15 +18,16 @@ export const LockKey = {
     JSON.stringify(["repository-branch", repoId])
 }
 
-export class KeyedLock extends Context.Service<
-  KeyedLock,
-  {
-    readonly withLock: <A, E, R>(
-      key: string,
-      effect: Effect.Effect<A, E, R>
-    ) => Effect.Effect<A, E, R>
-  }
->()("@pp/server-core/locks/KeyedLock") {}
+export type KeyedLockShape = Readonly<{
+  withLock: <A, E, R>(
+    key: string,
+    effect: Effect.Effect<A, E, R>
+  ) => Effect.Effect<A, E, R>
+}>
+
+export class KeyedLock extends Context.Service<KeyedLock, KeyedLockShape>()(
+  "@pp/server-core/locks/KeyedLock"
+) {}
 
 export const layer = Layer.effect(
   KeyedLock,

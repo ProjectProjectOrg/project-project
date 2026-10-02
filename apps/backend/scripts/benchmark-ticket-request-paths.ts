@@ -91,6 +91,8 @@ const benchmarkProject = decodeProjectDetail({
   createdBy: userId,
   createdAt: "2026-01-01T00:00:00.000Z",
   github: null,
+  banner: null,
+  iconImage: null,
   setup: {
     workflowReviewedAt: null,
     invitePeopleDismissedAt: null,
@@ -107,7 +109,8 @@ const benchmarkProject = decodeProjectDetail({
       role: "pm"
     }
   ],
-  pendingMembers: []
+  pendingMembers: [],
+  permissions: projectScope("member", "pm").permissions.grants
 })
 
 interface Options {

@@ -1177,38 +1177,43 @@ export const TicketsLive = Layer.effect(
           })
           yield* validateStatusExists(projectId, status)
         }
-        const group = yield* groups.updateTicketOrder(groupId, position)
-        if (status === undefined) return group
+        if (status === undefined) {
+          return yield* groups.updateTicketOrder(groupId, position)
+        }
         const indexProject = indexProjectOf(scope)
-        yield* withTicketDocumentLock(
-          orgSlug,
-          slug,
-          position.ticketId,
-          ticketDocs
-            .update(
-              orgSlug,
-              slug,
-              position.ticketId,
-              (existing) =>
-                existing.status === status
-                  ? Effect.succeed(existing)
-                  : DateTime.nowAsDate.pipe(
-                      Effect.map((now) => ({
-                        ...existing,
-                        status,
-                        updatedBy: userId,
-                        updatedAt: now
-                      }))
-                    ),
-              (next) => ticketIndex.upsertTicket(indexProject, next)
-            )
-            .pipe(
-              Effect.catchTag("MalformedTicketDocument", () =>
-                Effect.fail(new NotFound())
+        return yield* groups.updateTicketOrder(
+          groupId,
+          position,
+          withTicketDocumentLock(
+            orgSlug,
+            slug,
+            position.ticketId,
+            ticketDocs
+              .update(
+                orgSlug,
+                slug,
+                position.ticketId,
+                (existing) =>
+                  existing.status === status
+                    ? Effect.succeed(existing)
+                    : DateTime.nowAsDate.pipe(
+                        Effect.map((now) => ({
+                          ...existing,
+                          status,
+                          updatedBy: userId,
+                          updatedAt: now
+                        }))
+                      ),
+                (next) => ticketIndex.upsertTicket(indexProject, next)
               )
-            )
+              .pipe(
+                Effect.asVoid,
+                Effect.catchTag("MalformedTicketDocument", () =>
+                  Effect.fail(new NotFound())
+                )
+              )
+          )
         )
-        return group
       })
 
     const discardSplitResult = (

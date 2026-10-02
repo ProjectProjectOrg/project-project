@@ -295,7 +295,28 @@ export const GroupsLive = Layer.effect(
               )
             )
             if (result === "ok") {
-              yield* writeEvictions(orgSlug, slug, evictions, now)
+              yield* writeEvictions(orgSlug, slug, evictions, now).pipe(
+                Effect.onError(() =>
+                  Effect.forEach(
+                    [
+                      groupDocs.remove(orgSlug, slug, next.id),
+                      ...evictions.map(({ group }) =>
+                        groupDocs.write(orgSlug, slug, group.id, group)
+                      )
+                    ],
+                    (undo) =>
+                      undo.pipe(
+                        Effect.catchCause((cause) =>
+                          Effect.logError(
+                            "group create: rollback failed",
+                            cause
+                          )
+                        )
+                      ),
+                    { discard: true }
+                  )
+                )
+              )
               return documentToGroup(next)
             }
             const freshIds = yield* groupDocs.listIds(orgSlug, slug)
@@ -495,7 +516,11 @@ export const GroupsLive = Layer.effect(
         })
       )
 
-    const updateTicketOrder: GroupsShape["updateTicketOrder"] = (id, input) =>
+    const updateTicketOrder: GroupsShape["updateTicketOrder"] = (
+      id,
+      input,
+      beforeWrite = Effect.void
+    ) =>
       lockedInScope(({ orgSlug, slug }) =>
         Effect.gen(function* () {
           const existing = yield* groupDocs.read(orgSlug, slug, id)
@@ -531,6 +556,7 @@ export const GroupsLive = Layer.effect(
             tickets: nextTickets,
             updatedAt: now
           }
+          yield* beforeWrite
           yield* groupDocs.write(orgSlug, slug, id, target)
           return target
         })

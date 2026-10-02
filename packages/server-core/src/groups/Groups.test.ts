@@ -16,7 +16,7 @@ import { expect } from "vitest"
 
 import { projectScope } from "../access/testing"
 import * as KeyedLock from "../locks/KeyedLock"
-import { GroupIdTaken } from "../markdown/Markdown"
+import { GroupIdTaken, MarkdownError } from "../markdown/Markdown"
 import {
   TicketDocs,
   type TicketDocsShape,
@@ -81,10 +81,16 @@ function ticketIndexEntryFromDocument(ticket: TicketDocument) {
   }
 }
 
+class StatusWriteFailed extends Schema.TaggedError<StatusWriteFailed>()(
+  "StatusWriteFailed",
+  {}
+) {}
+
 function makeFakeDocs(initial?: {
   ticketIds?: ReadonlyArray<string>
   ticketStatuses?: Record<string, TicketStatus>
   groups?: Record<string, GroupDetail>
+  failingWrites?: ReadonlyArray<string>
 }) {
   const groups = new Map<string, GroupDocument>(
     Object.entries(initial?.groups ?? {})
@@ -121,6 +127,11 @@ function makeFakeDocs(initial?: {
       id: string,
       document: GroupDocument
     ) => {
+      if (initial?.failingWrites?.includes(id)) {
+        return Effect.fail(
+          new MarkdownError({ cause: null, message: "write failed" })
+        )
+      }
       groupWrites.push({ id })
       groups.set(id, document)
       return Effect.void
@@ -480,6 +491,44 @@ it.effect(
 )
 
 it.effect(
+  "create rolls back the new sprint and its evictions when an eviction fails",
+  () =>
+    Effect.gen(function* () {
+      const groups = yield* Groups
+      yield* groups.create({
+        name: "Sprint A",
+        kind: "sprint",
+        tickets: [ticketId("T-1")]
+      })
+      yield* groups.create({
+        name: "Sprint B",
+        kind: "sprint",
+        tickets: [ticketId("T-2")]
+      })
+      const failure = yield* Effect.flip(
+        groups.create({
+          name: "Sprint C",
+          kind: "sprint",
+          tickets: [ticketId("T-1"), ticketId("T-2")]
+        })
+      )
+      expect(failure._tag).toBe("MarkdownError")
+      const after = yield* groups.list()
+      expect(after.map((group) => [group.id, group.tickets])).toStrictEqual([
+        ["G-1", ["T-1"]],
+        ["G-2", ["T-2"]]
+      ])
+    }).pipe(
+      Effect.provide(
+        makeGroupsLayer(
+          { ticketIds: ["T-1", "T-2"], failingWrites: ["G-2"] },
+          { role: "pm" }
+        )
+      )
+    )
+)
+
+it.effect(
   "updateTickets against a completed sprint fails with SprintCompletedImmutable",
   () =>
     Effect.gen(function* () {
@@ -803,6 +852,38 @@ it.effect("updateTicketOrder places at the start when after is null", () =>
       )
     )
   )
+)
+
+it.effect(
+  "updateTicketOrder keeps the order when the work before the write fails",
+  () =>
+    Effect.gen(function* () {
+      const groups = yield* Groups
+      const created = yield* groups.create({
+        name: "G",
+        tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")]
+      })
+      const failure = yield* Effect.flip(
+        groups.updateTicketOrder(
+          created.id,
+          { ticketId: ticketId("T-1"), after: ticketId("T-2") },
+          new StatusWriteFailed()
+        )
+      )
+      expect(failure._tag).toBe("StatusWriteFailed")
+      expect((yield* groups.get(created.id)).tickets).toEqual([
+        "T-1",
+        "T-2",
+        "T-3"
+      ])
+    }).pipe(
+      Effect.provide(
+        makeGroupsLayer(
+          { ticketIds: ["T-1", "T-2", "T-3"] },
+          { role: "developer" }
+        )
+      )
+    )
 )
 
 it.effect("updateTicketOrder rejects when ticket is not in the group", () =>

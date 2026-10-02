@@ -1,4 +1,5 @@
 import { ProjectPolicy } from "@pp/access/policies"
+import { Effective, Project } from "@pp/access/roles"
 import {
   BASELINE_STATUS_SEED,
   Conflict,
@@ -21,6 +22,7 @@ import { and, asc, eq, inArray } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
 import { ulid } from "ulid"
@@ -133,6 +135,21 @@ const presentDetail = (
   github: scope.permissions.can({ github: ["read"] }) ? detail.github : null,
   permissions: scope.permissions.grants
 })
+
+const rescoped = (
+  scope: ProjectScopeShape,
+  members: ReadonlyArray<Member>
+): ProjectScopeShape => {
+  const role =
+    members.find((candidate) => candidate.id === scope.userId)?.role ?? null
+  return {
+    ...scope,
+    role,
+    permissions: Effective.roleOnProject(scope.orgRole, role).pipe(
+      Option.getOrElse(() => Project.projectStatement.role({}))
+    )
+  }
+}
 
 export const ProjectsLive = Layer.effect(
   Projects,
@@ -940,7 +957,7 @@ export const ProjectsLive = Layer.effect(
             connection,
             file.setup
           )
-          return presentDetail(scope, {
+          return presentDetail(rescoped(scope, members), {
             org: orgSlug,
             slug: indexRow.slug,
             key: makeProjectKey(indexRow.key),

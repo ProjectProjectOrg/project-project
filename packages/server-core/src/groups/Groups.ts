@@ -91,17 +91,19 @@ export interface GroupsShape {
     Forbidden | NotFound | SprintCompletedImmutable | MarkdownError,
     ProjectScope
   >
-  readonly updateTicketOrder: (
+  readonly updateTicketOrder: <E = never, R = never>(
     id: string,
-    input: Omit<UpdateTicketOrderInput, "status">
+    input: Omit<UpdateTicketOrderInput, "status">,
+    beforeWrite?: Effect.Effect<void, E, R>
   ) => Effect.Effect<
     GroupDetail,
     | Forbidden
     | NotFound
     | SprintCompletedImmutable
     | Validation
-    | MarkdownError,
-    ProjectScope
+    | MarkdownError
+    | E,
+    ProjectScope | R
   >
   readonly complete: (
     id: string,
