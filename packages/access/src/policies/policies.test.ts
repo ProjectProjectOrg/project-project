@@ -263,3 +263,54 @@ describe("ProjectPolicy.canUpdate", () => {
     ).toStrictEqual(expected)
   })
 })
+
+describe("ProjectPolicy.canReinvite", () => {
+  const here = "project-here"
+  const there = "project-there"
+  it.each<
+    readonly [
+      string,
+      string,
+      ReadonlyArray<ProjectPolicy.InviteGrant>,
+      Project.ProjectRoleName,
+      boolean
+    ]
+  >([
+    [
+      "a developer invite here as client",
+      "member",
+      [{ projectId: here, role: "developer" }],
+      "client",
+      false
+    ],
+    [
+      "a developer invite here as client while another project keeps membership",
+      "member",
+      [
+        { projectId: here, role: "developer" },
+        { projectId: there, role: "pm" }
+      ],
+      "client",
+      true
+    ],
+    ["an org-level member invite as client", "member", [], "client", true],
+    [
+      "a guest invite as developer",
+      "guest",
+      [{ projectId: here, role: "client" }],
+      "developer",
+      true
+    ],
+    [
+      "a developer invite here as pm",
+      "member",
+      [{ projectId: here, role: "developer" }],
+      "pm",
+      true
+    ]
+  ])("re-inviting %s", (_, invitationRole, grants, role, expected) => {
+    expect(ProjectPolicy.canReinvite(invitationRole, grants, here, role)).toBe(
+      expected
+    )
+  })
+})

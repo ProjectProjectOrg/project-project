@@ -20,7 +20,7 @@ import {
   Validation,
   type ProjectScopeShape
 } from "@pp/shared"
-import { and, asc, eq, inArray } from "drizzle-orm"
+import { and, asc, eq, gt, inArray } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -261,36 +261,39 @@ export const ProjectsLive = Layer.effect(
     const loadPendingMembers = (
       projectId: string
     ): Effect.Effect<ReadonlyArray<PendingProjectMember>> =>
-      db
-        .select({
-          invitationId: projectInviteGrant.invitationId,
-          email: invitation.email,
-          role: projectInviteGrant.roleId,
-          expiresAt: invitation.expiresAt
-        })
-        .from(projectInviteGrant)
-        .innerJoin(
-          invitation,
-          eq(invitation.id, projectInviteGrant.invitationId)
-        )
-        .where(
-          and(
-            eq(projectInviteGrant.projectId, projectId),
-            eq(invitation.status, "pending")
-          )
-        )
-        .orderBy(asc(invitation.email))
-        .pipe(
-          Effect.map((rows) =>
-            rows.map((row) => ({
-              invitationId: row.invitationId,
-              email: row.email,
-              role: makeAssignableRole(row.role),
-              expiresAt: row.expiresAt
-            }))
-          ),
-          Effect.orDie
-        )
+      DateTime.nowAsDate.pipe(
+        Effect.flatMap((now) =>
+          db
+            .select({
+              invitationId: projectInviteGrant.invitationId,
+              email: invitation.email,
+              role: projectInviteGrant.roleId,
+              expiresAt: invitation.expiresAt
+            })
+            .from(projectInviteGrant)
+            .innerJoin(
+              invitation,
+              eq(invitation.id, projectInviteGrant.invitationId)
+            )
+            .where(
+              and(
+                eq(projectInviteGrant.projectId, projectId),
+                eq(invitation.status, "pending"),
+                gt(invitation.expiresAt, now)
+              )
+            )
+            .orderBy(asc(invitation.email))
+        ),
+        Effect.map((rows) =>
+          rows.map((row) => ({
+            invitationId: row.invitationId,
+            email: row.email,
+            role: makeAssignableRole(row.role),
+            expiresAt: row.expiresAt
+          }))
+        ),
+        Effect.orDie
+      )
 
     const loadGithubIntegration = (
       projectId: string
@@ -1155,7 +1158,7 @@ export const ProjectsLive = Layer.effect(
       email: string,
       indexRow: typeof projectIndex.$inferSelect,
       role: AssignableRole
-    ): Effect.Effect<void> =>
+    ): Effect.Effect<void, Conflict> =>
       Effect.gen(function* () {
         const organizationId = indexRow.organizationId
         const normalizedEmail = email.toLowerCase()
@@ -1202,6 +1205,30 @@ export const ProjectsLive = Layer.effect(
             return created
           }))
 
+        if (existing) {
+          const grants = yield* db
+            .select({
+              projectId: projectInviteGrant.projectId,
+              roleId: projectInviteGrant.roleId
+            })
+            .from(projectInviteGrant)
+            .where(eq(projectInviteGrant.invitationId, invite.id))
+            .pipe(Effect.orDie)
+          if (
+            !ProjectPolicy.canReinvite(
+              invite.role,
+              grants.map((grant) => ({
+                projectId: grant.projectId,
+                role: makeRole(grant.roleId)
+              })),
+              indexRow.id,
+              role
+            )
+          ) {
+            return yield* new Conflict({ reason: "invite_org_role_change" })
+          }
+        }
+
         if (invite.role === "guest" && orgRole === "member") {
           yield* db
             .update(invitation)
@@ -1210,7 +1237,7 @@ export const ProjectsLive = Layer.effect(
             .pipe(Effect.orDie)
         }
 
-        yield* db
+        return yield* db
           .insert(projectInviteGrant)
           .values({
             invitationId: invite.id,
@@ -1224,7 +1251,7 @@ export const ProjectsLive = Layer.effect(
             ],
             set: { roleId: role }
           })
-          .pipe(Effect.orDie)
+          .pipe(Effect.asVoid, Effect.orDie)
       })
 
     const pmCount = (projectId: string): Effect.Effect<number> =>

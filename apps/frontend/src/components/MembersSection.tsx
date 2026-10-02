@@ -1,11 +1,15 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { Conflict } from "@pp/shared"
 import type {
   AssignableRole,
   Member,
   PendingProjectMember,
   Role
 } from "@pp/shared"
+import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
+import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import {
   Briefcase,
@@ -40,9 +44,12 @@ import {
   removeMember,
   updateMember
 } from "@/features/projects/atoms/projects"
+import { errorMessage } from "@/lib/errorMessage"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+
+const isConflict = Schema.is(Conflict)
 
 const ROLE_META: Record<
   Role,
@@ -145,7 +152,13 @@ function AddMemberRow({
   const addState = useAtomValue(memberMutation)
   const submitting = addState.waiting
   const error = Result.isFailure(addState)
-    ? m.members_add_error_fallback()
+    ? Cause.findErrorOption(addState.cause).pipe(
+        Option.filter(isConflict),
+        Option.match({
+          onNone: () => m.members_add_error_fallback(),
+          onSome: errorMessage
+        })
+      )
     : null
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {

@@ -12,6 +12,26 @@ export const canUpdate = (actor: ProjectActor, update: Update) =>
 export const inviteOrgRole = (role: ProjectRoleName) =>
   role === "client" ? "guest" : "member"
 
+export type InviteGrant = Readonly<{ projectId: string; role: ProjectRoleName }>
+
+export const canReinvite = (
+  invitationRole: string,
+  grants: ReadonlyArray<InviteGrant>,
+  projectId: string,
+  role: ProjectRoleName
+) => {
+  if (invitationRole !== "member" || inviteOrgRole(role) === "member") {
+    return true
+  }
+  const membership = grants.filter(
+    (grant) => inviteOrgRole(grant.role) === "member"
+  )
+  return !(
+    membership.length > 0 &&
+    membership.every((grant) => grant.projectId === projectId)
+  )
+}
+
 export const canInviteOutsider = (
   actor: ProjectActor,
   org: Statement.Role<OrgResources>,

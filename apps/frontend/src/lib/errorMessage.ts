@@ -138,6 +138,8 @@ const conflictMessage = (reason: string): string => {
       return m.projects_create_key_taken_error()
     case "key_taken":
       return m.templates_error_key_taken()
+    case "invite_org_role_change":
+      return m.members_invite_org_role_change_error()
     default:
       return m.error_unknown()
   }

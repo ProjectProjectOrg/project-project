@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto"
 import { it } from "@effect/vitest"
 import { migrationsFolder } from "@pp/db"
 import {
+  Conflict,
   CurrentUser,
   NotFound,
   ProjectScope,
@@ -410,6 +411,50 @@ describe.skipIf(!databaseUrl)("project members", () => {
           [projectId]
         )
       )
+    })
+  )
+
+  it.live("refuses to turn a pending developer invite into a client one", () =>
+    Effect.gen(function* () {
+      const email = `outsider-${projectId}@example.test`
+      yield* run(admin)((projects) =>
+        projects.addMember({ email, role: "developer" })
+      )
+      const refused = yield* Effect.flip(
+        run(admin)((projects) => projects.addMember({ email, role: "client" }))
+      )
+      expect(refused).toStrictEqual(
+        new Conflict({ reason: "invite_org_role_change" })
+      )
+      const detail = yield* run(pm)((projects) => projects.get())
+      expect(
+        detail.pendingMembers.map((pending) => [pending.email, pending.role])
+      ).toStrictEqual([[email, "developer"]])
+    })
+  )
+
+  it.live("leaves expired invites out of the pending members", () =>
+    Effect.gen(function* () {
+      const invitationId = randomUUID()
+      yield* Effect.promise(async () => {
+        await pool.query(
+          "INSERT INTO invitation (id,organization_id,email,role,status,expires_at,inviter_id) VALUES ($1,$2,$3,'guest','pending',now() - interval '1 day',$4)",
+          [
+            invitationId,
+            organizationId,
+            `expired-${projectId}@example.test`,
+            pm
+          ]
+        )
+        await pool.query(
+          "INSERT INTO project_invite_grant (invitation_id,project_id,role_id) VALUES ($1,$2,'client')",
+          [invitationId, projectId]
+        )
+      })
+      const detail = yield* run(pm)((projects) => projects.get())
+      expect(
+        detail.pendingMembers.map((pending) => pending.invitationId)
+      ).not.toContain(invitationId)
     })
   )
 
