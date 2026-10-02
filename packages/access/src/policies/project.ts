@@ -3,11 +3,11 @@ import * as Option from "effect/Option"
 import type { OrgResources } from "../roles/org"
 import type { ProjectRoleName } from "../roles/project"
 import type * as Statement from "../Statement"
-import type { ProjectActor } from "./actor"
+import type { PolicyActor } from "./actor"
 
-export type Update = Readonly<{ body: boolean; settings: boolean }>
+export type Update = Readonly<{ body?: boolean; settings?: boolean }>
 
-export const canUpdate = (actor: ProjectActor, update: Update) =>
+export const canUpdate = (actor: PolicyActor, update: Update) =>
   (!update.body || actor.permissions.can({ docs: ["write"] })) &&
   (!update.settings || actor.permissions.can({ settings: ["manage"] }))
 
@@ -24,7 +24,7 @@ export const projectInviteOrgRole = (grants: ReadonlyArray<ProjectRoleName>) =>
       )
 
 export const canInviteOutsider = (
-  actor: ProjectActor,
+  actor: PolicyActor,
   org: Statement.Role<OrgResources>,
   role: ProjectRoleName
 ) =>

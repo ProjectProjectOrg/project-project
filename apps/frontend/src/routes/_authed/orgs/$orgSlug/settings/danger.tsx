@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { ORG_DELETE_GRACE_DAYS, type OrgDetail, canCallOrg } from "@pp/shared"
+import { ORG_DELETE_GRACE_DAYS, type OrgDetail } from "@pp/shared"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
@@ -15,6 +15,7 @@ import {
   softDeleteOrg,
   userOrgs
 } from "@/features/organizations/atoms/orgs"
+import { useOrgActor } from "@/lib/access"
 import { nextActiveOrgSlug } from "@/lib/orgReflow"
 import { m } from "@/paraglide/messages"
 
@@ -28,13 +29,14 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/settings/danger")({
 function DangerSettings() {
   const { orgSlug } = Route.useParams()
   const result = useAtomValue(orgDetail(orgRequest(orgSlug)))
+  const canDelete = useOrgActor(orgSlug).call("org", "softDelete")
 
   return Result.matchWithError(result, {
     onInitial: () => <DangerSkeleton />,
     onError: (error) => <ErrorPage error={error} contained />,
     onDefect: (defect) => <ErrorPage error={defect} contained />,
     onSuccess: ({ value }) =>
-      canCallOrg(value.role)("org", "softDelete") ? (
+      canDelete ? (
         <DeleteCard orgSlug={orgSlug} org={value} />
       ) : (
         <div className="rounded-xl border border-border bg-background p-5 text-sm text-muted-foreground">

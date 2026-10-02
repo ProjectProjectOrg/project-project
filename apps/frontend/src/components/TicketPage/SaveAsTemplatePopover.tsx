@@ -1,5 +1,4 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { canCallOrg } from "@pp/shared"
 import type { Library, TemplateKey, TicketDetail } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
@@ -32,7 +31,7 @@ import {
   projectLibraryFor,
   projectLibraryRequest
 } from "@/features/library/atoms/library"
-import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
+import { useOrgActor } from "@/lib/access"
 import { TYPE_LABELS } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -61,10 +60,10 @@ export function SaveAsTemplatePopover(props: SaveAsTemplateProps) {
   const libraryResult = useAtomValue(
     projectLibraryFor(projectLibraryRequest(props.orgSlug, props.slug))
   )
-  const orgResult = useAtomValue(orgDetail(orgRequest(props.orgSlug)))
-  const orgAdmin =
-    AsyncResult.isSuccess(orgResult) &&
-    canCallOrg(orgResult.value.role)("library", "createOrgTemplate")
+  const orgAdmin = useOrgActor(props.orgSlug).call(
+    "library",
+    "createOrgTemplate"
+  )
   if (!AsyncResult.isSuccess(libraryResult)) return null
   const library = libraryResult.value
   const layers: ReadonlyArray<LibraryLayer> = [

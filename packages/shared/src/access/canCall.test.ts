@@ -1,4 +1,4 @@
-import { Effective } from "@pp/access/roles"
+import { Effective, Org } from "@pp/access/roles"
 import * as Option from "effect/Option"
 import { describe, expect, it } from "vitest"
 
@@ -7,10 +7,9 @@ import { canCallOrg, canCallProject } from "./canCall"
 const project = (
   orgRole: "owner" | "admin" | "member" | "guest",
   role: "pm" | "developer" | "client" | null
-) =>
-  canCallProject(
-    Option.getOrThrow(Effective.roleOnProject(orgRole, role)).grants
-  )
+) => canCallProject(Option.getOrThrow(Effective.roleOnProject(orgRole, role)))
+
+const org = (role: Org.OrgRoleName) => canCallOrg(Org.orgRoles[role])
 
 describe("canCallProject", () => {
   it("answers from each endpoint's own requirement", () => {
@@ -36,10 +35,10 @@ describe("canCallProject", () => {
 })
 
 describe("canCallOrg", () => {
-  it("answers from the org role", () => {
-    expect(canCallOrg("admin")("org", "rename")).toBe(true)
-    expect(canCallOrg("member")("org", "rename")).toBe(false)
-    expect(canCallOrg("guest")("org", "members")).toBe(false)
-    expect(canCallOrg("guest")("org", "leave")).toBe(true)
+  it("answers from the org role's grants", () => {
+    expect(org("admin")("org", "rename")).toBe(true)
+    expect(org("member")("org", "rename")).toBe(false)
+    expect(org("guest")("org", "members")).toBe(false)
+    expect(org("guest")("org", "leave")).toBe(true)
   })
 })

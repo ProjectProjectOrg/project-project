@@ -1,4 +1,5 @@
-import { Org, Project } from "@pp/access/roles"
+import type { Statement } from "@pp/access"
+import type { Org, Project } from "@pp/access/roles"
 import * as Context from "effect/Context"
 import * as Option from "effect/Option"
 import {
@@ -8,8 +9,6 @@ import {
 } from "effect/unstable/httpapi"
 
 import { AppApi } from "../api"
-import type { OrgRole } from "../schemas/Org"
-import type { ProjectPermissions } from "../schemas/Project"
 import { type OrgRequirement, RequiresOrg } from "./OrgAccess"
 import { type ProjectRequirement, RequiresProject } from "./ProjectAccess"
 import { permits } from "./Requirement"
@@ -22,6 +21,11 @@ export type GroupName = HttpApiGroup.Identifier<Groups>
 export type EndpointName<G extends GroupName> = HttpApiEndpoint.Identifier<
   HttpApiGroup.EndpointsWithIdentifier<Groups, G>
 >
+
+export type CanCall = <G extends GroupName>(
+  group: G,
+  endpoint: EndpointName<G>
+) => boolean
 
 const projectRequirements = new Map<string, ProjectRequirement>()
 const orgRequirements = new Map<string, OrgRequirement>()
@@ -39,18 +43,16 @@ HttpApi.reflect(AppApi, {
   }
 })
 
-export const canCallProject = (permissions: ProjectPermissions) => {
-  const role = Project.projectStatement.role(permissions)
-  return <G extends GroupName>(group: G, endpoint: EndpointName<G>) => {
+export const canCallProject =
+  (role: Statement.Role<Project.ProjectResources>): CanCall =>
+  (group, endpoint) => {
     const requirement = projectRequirements.get(`${group}.${endpoint}`)
     return requirement !== undefined && permits(role, requirement)
   }
-}
 
-export const canCallOrg = (orgRole: OrgRole) => {
-  const role = Org.orgRoles[orgRole]
-  return <G extends GroupName>(group: G, endpoint: EndpointName<G>) => {
+export const canCallOrg =
+  (role: Statement.Role<Org.OrgResources>): CanCall =>
+  (group, endpoint) => {
     const requirement = orgRequirements.get(`${group}.${endpoint}`)
     return requirement !== undefined && permits(role, requirement)
   }
-}

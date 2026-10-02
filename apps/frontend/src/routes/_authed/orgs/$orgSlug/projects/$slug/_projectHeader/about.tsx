@@ -32,10 +32,7 @@ function AboutTab() {
     updateProject(projectRequest(orgSlug, project.slug))
   )
   const [status, setStatus] = useState<SaveStatus>("idle")
-  const canEdit = ProjectPolicy.canUpdate(useProjectActor(), {
-    body: true,
-    settings: false
-  })
+  const canEdit = ProjectPolicy.canUpdate(useProjectActor(), { body: true })
 
   if (!canEdit) {
     return (

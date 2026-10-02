@@ -19,7 +19,7 @@ import {
   projectRequest,
   updateProjectSetup
 } from "@/features/projects/atoms/projects"
-import { useProjectCan } from "@/lib/access"
+import { useProjectActor } from "@/lib/access"
 import { type AppError, errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -43,7 +43,7 @@ function IntegrationsSettings() {
   const project = useProject()
   const req = projectRequest(orgSlug, project.slug)
   const update = useAtomSet(updateProjectSetup(req))
-  const can = useProjectCan()
+  const actor = useProjectActor()
 
   return (
     <section className="flex w-full flex-col gap-4">
@@ -58,7 +58,7 @@ function IntegrationsSettings() {
               : m.project_settings_github_not_connected()}
           </p>
         </div>
-        {can("projects", "gitStates") && (
+        {actor.call("projects", "gitStates") && (
           <GithubChip
             orgSlug={orgSlug}
             slug={project.slug}
@@ -67,7 +67,7 @@ function IntegrationsSettings() {
         )}
       </div>
       {project.setup.connectGithubDismissedAt &&
-      can("projects", "updateSetup") ? (
+      actor.call("projects", "updateSetup") ? (
         <div className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2">
           <span className="text-sm text-muted-foreground">
             {m.project_setup_github_dismissed_note()}
@@ -81,17 +81,17 @@ function IntegrationsSettings() {
           </Button>
         </div>
       ) : null}
-      {can("everhour", "projectStatus") && (
+      {actor.call("everhour", "projectStatus") && (
         <EverhourSettingsCard
           orgSlug={orgSlug}
           slug={project.slug}
-          canManage={can("everhour", "connectProject")}
+          canManage={actor.call("everhour", "connectProject")}
         />
       )}
       <FigmaProjectSettings
         orgSlug={orgSlug}
         slug={project.slug}
-        canManage={can("figma", "connectProject")}
+        canManage={actor.call("figma", "connectProject")}
       />
     </section>
   )

@@ -5,8 +5,7 @@ import {
   type Member,
   type TemplateDefinition,
   type TicketDetail,
-  type TicketType,
-  canCallOrg
+  type TicketType
 } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
@@ -40,7 +39,6 @@ import {
   transformersForAttachments,
   type SaveStatus
 } from "@/components/LexicalEditor"
-import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import {
   ticketBodyDraft,
@@ -48,6 +46,7 @@ import {
   updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
 import { useEditorBlocks } from "@/hooks/useEditorBlocks"
+import { useOrgActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { MentionScopeProvider } from "@/mentions/scope"
 import { m } from "@/paraglide/messages"
@@ -107,12 +106,9 @@ export function DescriptionField({
   const blocks = useEditorBlocks(orgSlug, slug, ticket.type, setDefinitionError)
   const setBodyDraft = useAtomSet(ticketBodyDraft(req))
   const storageResult = useAtomValue(orgStorage(storageRequest(orgSlug)))
-  const orgResult = useAtomValue(orgDetail(orgRequest(orgSlug)))
   const storageActive =
     Result.isSuccess(storageResult) && storageResult.value.status === "active"
-  const canConnectStorage =
-    Result.isSuccess(orgResult) &&
-    canCallOrg(orgResult.value.role)("storage", "connect")
+  const canConnectStorage = useOrgActor(orgSlug).call("storage", "connect")
   const attachments = attachmentsForDescription({
     orgSlug,
     slug,

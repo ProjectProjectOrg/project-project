@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import { canCallOrg, type Project } from "@pp/shared"
+import type { Project } from "@pp/shared"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -19,7 +19,6 @@ import { PageContainer, PageHeader } from "@/components/page"
 import { ProjectBanner } from "@/components/ProjectBanner"
 import { ProjectTile as ProjectIconTile } from "@/components/ProjectTile"
 import { me } from "@/features/auth/atoms/auth"
-import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
 import {
   project,
   projectRequest,
@@ -38,6 +37,7 @@ import {
   type MyTicketsByProjectValue,
   type OrgTicketsValue
 } from "@/features/tickets/atoms/myTickets"
+import { useOrgActor } from "@/lib/access"
 import { formatRelative } from "@/lib/relative-time"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -126,9 +126,7 @@ function Dashboard() {
   }
   const viewer = useAtomValue(me())
   const list = useAtomValue(projectsFor(projectsRequest(orgSlug)))
-  const org = useAtomValue(orgDetail(orgRequest(orgSlug)))
-  const canCreate =
-    Result.isSuccess(org) && canCallOrg(org.value.role)("projects", "create")
+  const canCreate = useOrgActor(orgSlug).call("projects", "create")
   const createCta = canCreate ? <NewProjectCTA orgSlug={orgSlug} /> : null
   const name = Result.isSuccess(viewer)
     ? viewer.value.name.split(" ")[0]

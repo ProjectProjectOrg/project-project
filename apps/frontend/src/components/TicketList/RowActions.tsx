@@ -18,7 +18,7 @@ import {
   ticketRequest,
   unarchiveTicket
 } from "@/features/tickets/atoms/ticketDetail"
-import { useProjectCan } from "@/lib/access"
+import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
 export function TicketRowActions({
@@ -42,7 +42,7 @@ export function TicketRowActions({
   const archiveState = useAtomValue(archiveTicket(req))
   const unarchive = useAtomSet(unarchiveTicket(req))
   const unarchiveState = useAtomValue(unarchiveTicket(req))
-  const canArchive = useProjectCan()("tickets", "archive")
+  const canArchive = useProjectActor().call("tickets", "archive")
 
   if (!canArchive) return null
 

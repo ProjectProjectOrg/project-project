@@ -18,7 +18,7 @@ import {
   updateBacklogTicket,
   type BacklogRequest
 } from "@/features/tickets/atoms/backlog"
-import { useProjectActor, useProjectCan } from "@/lib/access"
+import { useProjectActor } from "@/lib/access"
 
 function SprintBoardCardImpl({
   orgSlug,
@@ -145,17 +145,8 @@ function BoardCardFields({
   onPatch: (patch: UpdateTicketInput) => void
 }) {
   const actor = useProjectActor()
-  const can = useProjectCan()
-  const editable = TicketPolicy.canChange(actor, {
-    content: true,
-    status: false,
-    assignees: false
-  })
-  const canAssign = TicketPolicy.canChange(actor, {
-    content: false,
-    status: false,
-    assignees: true
-  })
+  const editable = TicketPolicy.canChange(actor, { content: true })
+  const canAssign = TicketPolicy.canChange(actor, { assignees: true })
   return (
     <DeferredDropdownMenus>
       <div className="group/reveal relative isolate flex flex-col gap-2 rounded-sm bg-surface-3 px-1.5 pt-3 pb-1.5 text-left shadow-surface-1 transition outline-none hover:bg-surface-4 hover:shadow-surface-1-hover [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20">
@@ -186,7 +177,7 @@ function BoardCardFields({
           <div className="flex min-w-0 flex-1 items-center">
             <TicketGitChip orgSlug={orgSlug} slug={slug} ticket={ticket} />
           </div>
-          {editable && can("tickets", "split") && (
+          {editable && actor.call("tickets", "split") && (
             <SplitTicketControl
               orgSlug={orgSlug}
               slug={slug}

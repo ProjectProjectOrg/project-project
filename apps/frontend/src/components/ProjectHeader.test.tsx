@@ -31,10 +31,10 @@ vi.mock("@/components/GithubChip", () => ({
   GithubChip: () => null
 }))
 vi.mock("@/lib/access", () => ({
-  useProjectCan: () => () => true,
   useProjectActor: () => ({
     userId: "user-1",
-    permissions: { can: () => true }
+    permissions: { can: () => true },
+    call: () => true
   })
 }))
 

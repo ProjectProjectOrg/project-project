@@ -110,11 +110,7 @@ function BacklogBoardContent({
     [orgSlug, slug, query]
   )
   const ref = useRef<HTMLDivElement>(null)
-  const canMove = TicketPolicy.canChange(useProjectActor(), {
-    content: false,
-    status: true,
-    assignees: false
-  })
+  const canMove = TicketPolicy.canChange(useProjectActor(), { status: true })
   const groupRef = useRef<HTMLDivElement>(null)
   const [frozenWidth, setFrozenWidth] = useState<number | null>(null)
   const { height, hasRightOverflow } = useBoardViewport(ref)

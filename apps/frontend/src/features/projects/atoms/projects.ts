@@ -1,3 +1,4 @@
+import { Project as Roles } from "@pp/access/roles"
 import {
   attachmentUrl,
   attachmentWidthForCss,
@@ -6,6 +7,7 @@ import {
   type AddMemberInput,
   type CreateProjectInput,
   type Project,
+  ProjectActor,
   type ProjectDetail,
   type UpdateMemberInput,
   type UpdateProjectInput,
@@ -20,6 +22,7 @@ import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { me } from "@/features/auth/atoms/auth"
 import { evictBannerRenders } from "@/lib/bannerRenderCache"
 import { bannerSource } from "@/lib/bannerSource"
 import { preloadImage } from "@/lib/imagePreload"
@@ -117,6 +120,16 @@ export const confirmedProject = (req: ProjectRequest) =>
 
 export const project = Atom.family((req: ProjectRequest) =>
   Atom.optimistic(confirmedProject(req))
+)
+
+export const projectActor = Atom.family((req: ProjectRequest) =>
+  Atom.make((get) => {
+    const detail = get(project(req))
+    const viewer = get(me())
+    return AsyncResult.isSuccess(detail) && AsyncResult.isSuccess(viewer)
+      ? ProjectActor.make(detail.value.permissions, viewer.value.id)
+      : ProjectActor.none
+  })
 )
 
 export const updateProject = Atom.family((req: ProjectRequest) =>
@@ -281,7 +294,9 @@ const withCallerGrants = (
 ): ProjectDetail => ({
   ...current,
   permissions: confirmed.permissions,
-  pendingMembers: canCallProject(confirmed.permissions)("projects", "addMember")
+  pendingMembers: canCallProject(
+    Roles.projectStatement.role(confirmed.permissions)
+  )("projects", "addMember")
     ? current.pendingMembers
     : confirmed.pendingMembers
 })

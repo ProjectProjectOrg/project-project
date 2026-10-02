@@ -8,7 +8,7 @@ import {
   projectRequest,
   updateProjectSetup
 } from "@/features/projects/atoms/projects"
-import { useProjectCan } from "@/lib/access"
+import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -29,7 +29,7 @@ function WorkflowSettings() {
   const req = projectRequest(orgSlug, project.slug)
   const update = useAtomSet(updateProjectSetup(req))
   const updateState = useAtomValue(updateProjectSetup(req))
-  const canEdit = useProjectCan()("statuses", "create")
+  const canEdit = useProjectActor().call("statuses", "create")
   const reviewedAt = project.setup.workflowReviewedAt
 
   return (

@@ -45,7 +45,7 @@ import {
   unarchiveTicket,
   updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
-import { useProjectActor, useProjectCan } from "@/lib/access"
+import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
 const NO_SPLIT_RESULTS: ReadonlyArray<TicketId> = []
@@ -86,12 +86,8 @@ export function TicketPage({
   const bodyDraft = useAtomValue(ticketBodyDraft(req))
   const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
-  const can = useProjectCan()
-  const canEdit = TicketPolicy.canChange(useProjectActor(), {
-    content: true,
-    status: false,
-    assignees: false
-  })
+  const actor = useProjectActor()
+  const canEdit = TicketPolicy.canChange(actor, { content: true })
   const {
     descriptionRef,
     onTypePatch,
@@ -114,10 +110,10 @@ export function TicketPage({
             ticket={ticket}
             body={bodyDraft ?? ticket.body}
           />
-          {canEdit && can("tickets", "split") && (
+          {canEdit && actor.call("tickets", "split") && (
             <SplitTicketControl orgSlug={orgSlug} slug={slug} id={ticket.id} />
           )}
-          {can("tickets", "archive") && (
+          {actor.call("tickets", "archive") && (
             <ArchiveTicketControl
               archived={ticket.archivedAt !== null}
               onArchive={archiveTicketSet}
@@ -134,7 +130,7 @@ export function TicketPage({
               }
             />
           )}
-          {can("tickets", "delete") && (
+          {actor.call("tickets", "delete") && (
             <ConfirmDeleteIcon
               ariaLabel={m.tickets_detail_delete_aria_label()}
               message={m.tickets_detail_delete_confirm()}
@@ -229,7 +225,7 @@ export function TicketPage({
                 orgSlug={orgSlug}
                 slug={slug}
                 ticket={ticket}
-                canManageTags={can("tags", "create")}
+                canManageTags={actor.call("tags", "create")}
               />
             </MetaRow>
           </fieldset>
@@ -246,7 +242,7 @@ export function TicketPage({
             </MetaRow>
           )}
           <TicketDesignLinks orgSlug={orgSlug} slug={slug} ticket={ticket} />
-          {can("everhour", "ticketTime") && (
+          {actor.call("everhour", "ticketTime") && (
             <TicketTimeSection orgSlug={orgSlug} slug={slug} ticket={ticket} />
           )}
           <MetaRow label={m.tickets_page_meta_created()}>

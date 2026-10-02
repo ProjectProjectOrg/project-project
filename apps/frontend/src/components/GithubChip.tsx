@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { canCallOrg, type GithubConnection, type GithubRepo } from "@pp/shared"
+import type { GithubConnection, GithubRepo } from "@pp/shared"
 import * as Match from "effect/Match"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import {
@@ -29,9 +29,8 @@ import {
   projectGitStates,
   startGithubInstall
 } from "@/features/github/atoms/github"
-import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
 import { projectRequest } from "@/features/projects/atoms/projects"
-import { useProjectCan } from "@/lib/access"
+import { useOrgActor, useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -44,7 +43,7 @@ type Props = Readonly<{
 export function GithubChip({ orgSlug, slug, github }: Props) {
   const viewer = useAtomValue(me())
   const canManage =
-    useProjectCan()("projects", "connectGithub") &&
+    useProjectActor().call("projects", "connectGithub") &&
     Result.isSuccess(viewer) &&
     viewer.value.activeOrgSlug === orgSlug
   const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
@@ -193,10 +192,7 @@ function ConnectPanel({
   orgSlug,
   slug
 }: Readonly<{ orgSlug: string; slug: string }>) {
-  const org = useAtomValue(orgDetail(orgRequest(orgSlug)))
-  const canInstall =
-    Result.isSuccess(org) &&
-    canCallOrg(org.value.role)("projects", "startGithubInstall")
+  const canInstall = useOrgActor(orgSlug).call("projects", "startGithubInstall")
   const orgReq = useMemo(() => githubOrgRequest(orgSlug), [orgSlug])
   const orgIntegration = useAtomValue(githubIntegration(orgReq))
   const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])

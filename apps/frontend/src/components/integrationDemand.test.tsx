@@ -1,5 +1,5 @@
 import { RegistryContext } from "@effect/atom-react"
-import { TicketDetail } from "@pp/shared"
+import { ProjectActor, TicketDetail } from "@pp/shared"
 import {
   act,
   cleanup,
@@ -24,8 +24,11 @@ vi.mock("@tanstack/react-router", async (importOriginal) => ({
 }))
 const access = vi.hoisted(() => ({ canLog: true }))
 vi.mock("@/lib/access", () => ({
-  useProjectCan: () => (_group: string, endpoint: string) =>
-    endpoint !== "connectProject" && (endpoint !== "logTime" || access.canLog)
+  useProjectActor: () => ({
+    ...ProjectActor.none,
+    call: (_group: string, endpoint: string) =>
+      endpoint !== "connectProject" && (endpoint !== "logTime" || access.canLog)
+  })
 }))
 vi.mock("@/components/ErrorPage", () => ({
   ErrorPage: () => null

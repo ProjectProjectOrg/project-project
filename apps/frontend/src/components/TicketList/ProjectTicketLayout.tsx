@@ -20,7 +20,7 @@ import {
 } from "@/features/sprints/atoms/sprintDetail"
 import { viewCounts } from "@/features/tickets/atoms/viewCounts"
 import { useLocalStorageState } from "@/hooks/useLocalStorageState"
-import { useProjectActor, useProjectCan } from "@/lib/access"
+import { useProjectActor } from "@/lib/access"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
@@ -57,12 +57,9 @@ export function ProjectTicketLayout({
   children: (state: TicketLayoutState) => ReactNode
 }>) {
   const project = useProject()
-  const canCreate = useProjectCan()("tickets", "quickCreate")
-  const canAddToSprint = GroupPolicy.can(
-    useProjectActor(),
-    "sprint",
-    "add_ticket"
-  )
+  const actor = useProjectActor()
+  const canCreate = actor.call("tickets", "quickCreate")
+  const canAddToSprint = GroupPolicy.can(actor, "sprint", "add_ticket")
   const showCreator = groupId ? canAddToSprint : canCreate
   const viewer = useAtomValue(me())
   const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""

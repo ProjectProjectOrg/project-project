@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { CreatableProjectKey, canCallOrg, type Project } from "@pp/shared"
+import { CreatableProjectKey, type Project } from "@pp/shared"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
@@ -14,12 +14,12 @@ import { ProjectBanner } from "@/components/ProjectBanner"
 import { ProjectTile } from "@/components/ProjectTile"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
-import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
 import {
   createProject,
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
+import { useOrgActor } from "@/lib/access"
 import { errorMessage, type AppError } from "@/lib/errorMessage"
 import { formatRelative } from "@/lib/relative-time"
 import { slugify } from "@/lib/slug"
@@ -43,12 +43,9 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/")({
 function Projects() {
   const { orgSlug } = Route.useParams()
   const list = useAtomValue(projectsFor(projectsRequest(orgSlug)))
-  const org = useAtomValue(orgDetail(orgRequest(orgSlug)))
-  const canCreate =
-    Result.isSuccess(org) && canCallOrg(org.value.role)("projects", "create")
-  const canMigrate =
-    Result.isSuccess(org) &&
-    canCallOrg(org.value.role)("jiraMigrations", "create")
+  const org = useOrgActor(orgSlug)
+  const canCreate = org.call("projects", "create")
+  const canMigrate = org.call("jiraMigrations", "create")
   const [creating, setCreating] = useState(false)
 
   const content = Result.matchWithError(list, {

@@ -1,7 +1,7 @@
 import type { ProjectResources } from "../roles/project"
 import type * as Statement from "../Statement"
 
-export type ProjectActor = Readonly<{
+export type PolicyActor = Readonly<{
   userId: string
   permissions: Statement.Role<ProjectResources>
 }>

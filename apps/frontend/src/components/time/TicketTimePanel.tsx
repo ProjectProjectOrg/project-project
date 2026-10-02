@@ -26,7 +26,7 @@ import {
   ticketTimePanelAtom,
   ticketTimeRequest
 } from "@/features/everhour/atoms/timeTracking"
-import { useProjectCan } from "@/lib/access"
+import { useProjectActor } from "@/lib/access"
 import * as m from "@/paraglide/messages"
 
 export const formatDuration = (seconds: number): string => {
@@ -53,9 +53,9 @@ export function TicketTimeSection({
   const statusResult = useAtomValue(
     everhourProjectStatusAtom(everhourProjectRequest(orgSlug, slug))
   )
-  const can = useProjectCan()
-  const canManage = can("everhour", "connectProject")
-  const canLog = can("everhour", "logTime")
+  const actor = useProjectActor()
+  const canManage = actor.call("everhour", "connectProject")
+  const canLog = actor.call("everhour", "logTime")
 
   const notConnected =
     Result.isSuccess(statusResult) &&

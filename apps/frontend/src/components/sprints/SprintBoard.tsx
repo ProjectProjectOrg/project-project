@@ -125,11 +125,7 @@ function SprintBoardContent({
   const groupRef = useRef<HTMLDivElement>(null)
   const actor = useProjectActor()
   const canReorder = GroupPolicy.can(actor, "sprint", "reorder")
-  const canTransition = TicketPolicy.canChange(actor, {
-    content: false,
-    status: true,
-    assignees: false
-  })
+  const canTransition = TicketPolicy.canChange(actor, { status: true })
   const [frozenWidth, setFrozenWidth] = useState<number | null>(null)
   const { height, hasRightOverflow } = useBoardViewport(ref)
 

@@ -48,7 +48,7 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
-import { useProjectActor, useProjectCan } from "@/lib/access"
+import { useProjectActor } from "@/lib/access"
 import { springs, transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -106,12 +106,8 @@ export function ProjectHeader({
   name: string
   project: ProjectDetailType
 }) {
-  const can = useProjectCan()
   const actor = useProjectActor()
-  const canEdit = ProjectPolicy.canUpdate(actor, {
-    body: false,
-    settings: true
-  })
+  const canEdit = ProjectPolicy.canUpdate(actor, { settings: true })
   const reduce = useReducedMotion() ?? false
 
   const matches = useMatches()
@@ -276,7 +272,7 @@ export function ProjectHeader({
             )
           ) : (
             <div className="flex items-center gap-3">
-              {can("projects", "gitStates") && (
+              {actor.call("projects", "gitStates") && (
                 <GithubChip
                   orgSlug={orgSlug}
                   slug={slug}

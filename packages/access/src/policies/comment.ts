@@ -1,9 +1,9 @@
-import type { ProjectActor } from "./actor"
+import type { PolicyActor } from "./actor"
 
 export type Authored = Readonly<{ authorId: string }>
 
 const canTouch = (
-  actor: ProjectActor,
+  actor: PolicyActor,
   comment: Authored,
   own: "update_own" | "delete_own"
 ) =>
@@ -11,8 +11,8 @@ const canTouch = (
   (actor.userId === comment.authorId &&
     actor.permissions.can({ comment: [own] }))
 
-export const canEdit = (actor: ProjectActor, comment: Authored) =>
+export const canEdit = (actor: PolicyActor, comment: Authored) =>
   canTouch(actor, comment, "update_own")
 
-export const canDelete = (actor: ProjectActor, comment: Authored) =>
+export const canDelete = (actor: PolicyActor, comment: Authored) =>
   canTouch(actor, comment, "delete_own")

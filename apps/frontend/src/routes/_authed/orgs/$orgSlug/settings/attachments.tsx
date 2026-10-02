@@ -1,11 +1,11 @@
 import { useAtomValue } from "@effect/atom-react"
-import { canCallOrg } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 
 import { AttachmentsBrowser } from "@/components/AttachmentsBrowser"
 import { ErrorPage } from "@/components/ErrorPage"
 import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
+import { useOrgActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
 export const Route = createFileRoute(
@@ -20,18 +20,19 @@ export const Route = createFileRoute(
 function AttachmentsSettings() {
   const { orgSlug } = Route.useParams()
   const orgResult = useAtomValue(orgDetail(orgRequest(orgSlug)))
+  const canList = useOrgActor(orgSlug).call("attachments", "list")
 
   return Result.matchWithError(orgResult, {
     onInitial: () => <BrowserSkeleton />,
     onError: (error) => <ErrorPage error={error} contained />,
     onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value: org }) =>
-      !canCallOrg(org.role)("attachments", "list") ? (
+    onSuccess: () =>
+      canList ? (
+        <AttachmentsBrowser orgSlug={orgSlug} />
+      ) : (
         <p className="text-sm text-destructive">
           {m.attachments_error_forbidden()}
         </p>
-      ) : (
-        <AttachmentsBrowser orgSlug={orgSlug} />
       )
   })
 }

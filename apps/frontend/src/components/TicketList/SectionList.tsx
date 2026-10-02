@@ -29,7 +29,7 @@ import {
   type BacklogRequest,
   type BacklogSection
 } from "@/features/tickets/atoms/backlog"
-import { useProjectActor, useProjectCan } from "@/lib/access"
+import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -94,13 +94,9 @@ export function SectionList({
   onPreviewPointerEnter: (ticketId: TicketId) => void
   onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
 }) {
-  const editable = TicketPolicy.canChange(useProjectActor(), {
-    content: true,
-    status: false,
-    assignees: false
-  })
-  const can = useProjectCan()
-  const canCreateTickets = canCreate && can("tickets", "quickCreate")
+  const actor = useProjectActor()
+  const editable = TicketPolicy.canChange(actor, { content: true })
+  const canCreateTickets = canCreate && actor.call("tickets", "quickCreate")
   const req = useMemo(
     () =>
       creationVariant === "flat"

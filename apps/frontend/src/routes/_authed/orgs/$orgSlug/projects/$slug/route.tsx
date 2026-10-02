@@ -28,7 +28,7 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { useProjectGitStatePolling } from "@/hooks/useProjectGitStatePolling"
-import { useProjectCan } from "@/lib/access"
+import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -144,7 +144,7 @@ function ProjectSetupSlot({
   slug: string
   project: ProjectDetailType
 }) {
-  const canManage = useProjectCan()("projects", "updateSetup")
+  const canManage = useProjectActor().call("projects", "updateSetup")
   const render = useCallback(
     () =>
       canManage ? (

@@ -16,7 +16,7 @@ import {
   countsRequest,
   ticketCounts
 } from "@/features/tickets/atoms/ticketCounts"
-import { useProjectCan } from "@/lib/access"
+import { useProjectActor } from "@/lib/access"
 import { compareByOrderKey } from "@/lib/orderKey"
 import { m } from "@/paraglide/messages"
 
@@ -49,7 +49,7 @@ type OrderedProps = Props & {
 
 function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
   useAtomValue(ticketCounts(countsRequest(orgSlug, slug, {})))
-  const canManage = useProjectCan()("statuses", "update")
+  const canManage = useProjectActor().call("statuses", "update")
 
   const sorted = useMemo(
     () => [...statuses].toSorted(compareByOrderKey),

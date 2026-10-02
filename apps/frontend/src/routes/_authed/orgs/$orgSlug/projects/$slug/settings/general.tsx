@@ -16,7 +16,7 @@ import {
   projectRequest,
   updateProject
 } from "@/features/projects/atoms/projects"
-import { useProjectActor, useProjectCan } from "@/lib/access"
+import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
 import { useProject } from "../-context"
@@ -40,15 +40,9 @@ function GeneralSettings() {
   const removeState = useAtomValue(deleteProject(req))
   const navigate = useNavigate()
   const actor = useProjectActor()
-  const canEdit = ProjectPolicy.canUpdate(actor, {
-    body: false,
-    settings: true
-  })
-  const canEditBody = ProjectPolicy.canUpdate(actor, {
-    body: true,
-    settings: false
-  })
-  const canDelete = useProjectCan()("projects", "delete")
+  const canEdit = ProjectPolicy.canUpdate(actor, { settings: true })
+  const canEditBody = ProjectPolicy.canUpdate(actor, { body: true })
+  const canDelete = actor.call("projects", "delete")
   const [name, setName] = useState(project.name)
   const [status, setStatus] = useState<SaveStatus>("idle")
 

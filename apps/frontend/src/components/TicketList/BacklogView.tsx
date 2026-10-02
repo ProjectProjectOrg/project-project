@@ -14,7 +14,7 @@ import {
   sprintListRequest,
   sprintMembership
 } from "@/features/sprints/atoms/sprintList"
-import { useProjectCan } from "@/lib/access"
+import { useProjectActor } from "@/lib/access"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 
 import { SprintSections } from "./SprintSections"
@@ -37,7 +37,7 @@ export function BacklogView({
   reorder: StatusReorder
 }>) {
   const project = useProject()
-  const canReorder = useProjectCan()("statuses", "reorder")
+  const canReorder = useProjectActor().call("statuses", "reorder")
   const sprintReq = useMemo(
     () => sprintListRequest(orgSlug, slug),
     [orgSlug, slug]

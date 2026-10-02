@@ -1,5 +1,4 @@
 import { useAtomValue } from "@effect/atom-react"
-import { canCallOrg } from "@pp/shared"
 import type { TicketType } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
@@ -10,7 +9,7 @@ import {
   projectLibraryFor,
   projectLibraryRequest
 } from "@/features/library/atoms/library"
-import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
+import { useOrgActor } from "@/lib/access"
 
 import { useMakeBlockDefinition } from "./useMakeBlockDefinition"
 
@@ -24,13 +23,10 @@ export function useEditorBlocks(
   const libraryResult = useAtomValue(
     projectLibraryFor(projectLibraryRequest(orgSlug, slug))
   )
-  const orgResult = useAtomValue(orgDetail(orgRequest(orgSlug)))
   const library = AsyncResult.isSuccess(libraryResult)
     ? libraryResult.value
     : null
-  const canEditOrg =
-    AsyncResult.isSuccess(orgResult) &&
-    canCallOrg(orgResult.value.role)("library", "createOrgBlock")
+  const canEditOrg = useOrgActor(orgSlug).call("library", "createOrgBlock")
   const onMakeDefinition = useMakeBlockDefinition(
     orgSlug,
     slug,

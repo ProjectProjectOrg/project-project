@@ -10,7 +10,7 @@ import {
   sprintDetail,
   sprintRequest
 } from "@/features/sprints/atoms/sprintDetail"
-import { useProjectActor, useProjectCan } from "@/lib/access"
+import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 
@@ -36,8 +36,9 @@ export function SprintDetail({
   reorder: StatusReorder
 }>) {
   const project = useProject()
-  const canPlan = GroupPolicy.can(useProjectActor(), "sprint", "manage")
-  const canReorder = useProjectCan()("statuses", "reorder")
+  const actor = useProjectActor()
+  const canPlan = GroupPolicy.can(actor, "sprint", "manage")
+  const canReorder = actor.call("statuses", "reorder")
   const req = useMemo(
     () => sprintRequest(orgSlug, slug, groupId),
     [orgSlug, slug, groupId]

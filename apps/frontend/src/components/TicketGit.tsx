@@ -29,7 +29,7 @@ import { InlineForm } from "@/components/ui/inline-form"
 import { me } from "@/features/auth/atoms/auth"
 import { projectGitStates } from "@/features/github/atoms/github"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
-import { useProjectCan } from "@/lib/access"
+import { useProjectActor } from "@/lib/access"
 import { branchOpensInNewTab, branchUrl } from "@/lib/branchUrl"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -243,7 +243,7 @@ function PanelForState({
   branchTemplate: string | null
   variant: "bordered" | "ghost"
 }) {
-  const canWrite = useProjectCan()("tickets", "createBranch")
+  const canWrite = useProjectActor().call("tickets", "createBranch")
   const repoSlug = `${github.repoOwner}/${github.repoName}`
   const pending = state.tag === "branch_pending" || state.tag === "pr_pending"
   const pulse = (waiting || pending) && "animate-pulse"
