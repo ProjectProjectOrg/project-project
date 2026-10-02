@@ -320,7 +320,6 @@
   "members_add_email_placeholder": "Email to add or invite…",
   "members_add_error_fallback": "Couldn't add or invite member.",
   "members_add_success": "Invite ready.",
-  "members_invite_org_role_change_error": "This invite already gives them org membership. Cancel it and invite them again as a client.",
   "members_make_admin": "Make admin",
   "members_make_developer": "Make developer",
   "members_make_member": "Make member",

@@ -581,7 +581,7 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       params: ProjectPath,
       payload: AddMemberInput,
       success: ProjectDetail,
-      error: [Unauthorized, NotFound, Forbidden, Conflict, LastProjectPmBlocked]
+      error: [Unauthorized, NotFound, Forbidden, LastProjectPmBlocked]
     })
       .annotate(RequiresProject, { members: ["manage"] })
       .middleware(ProjectAccess)

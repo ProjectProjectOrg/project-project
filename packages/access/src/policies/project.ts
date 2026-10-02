@@ -1,3 +1,5 @@
+import * as Option from "effect/Option"
+
 import type { OrgResources } from "../roles/org"
 import type { ProjectRoleName } from "../roles/project"
 import type * as Statement from "../Statement"
@@ -12,25 +14,14 @@ export const canUpdate = (actor: ProjectActor, update: Update) =>
 export const inviteOrgRole = (role: ProjectRoleName) =>
   role === "client" ? "guest" : "member"
 
-export type InviteGrant = Readonly<{ projectId: string; role: ProjectRoleName }>
-
-export const canReinvite = (
-  invitationRole: string,
-  grants: ReadonlyArray<InviteGrant>,
-  projectId: string,
-  role: ProjectRoleName
-) => {
-  if (invitationRole !== "member" || inviteOrgRole(role) === "member") {
-    return true
-  }
-  const membership = grants.filter(
-    (grant) => inviteOrgRole(grant.role) === "member"
-  )
-  return !(
-    membership.length > 0 &&
-    membership.every((grant) => grant.projectId === projectId)
-  )
-}
+export const projectInviteOrgRole = (grants: ReadonlyArray<ProjectRoleName>) =>
+  grants.length === 0
+    ? Option.none()
+    : Option.some(
+        grants.some((role) => inviteOrgRole(role) === "member")
+          ? ("member" as const)
+          : ("guest" as const)
+      )
 
 export const canInviteOutsider = (
   actor: ProjectActor,

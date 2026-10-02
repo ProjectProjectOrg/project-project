@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto"
 import { it } from "@effect/vitest"
 import { migrationsFolder } from "@pp/db"
 import {
-  Conflict,
   CurrentUser,
   NotFound,
   ProjectScope,
@@ -305,7 +304,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
   )
 
   it.effect(
-    "lets a pm cancel only client invitations and hides invitees from non-managers",
+    "lets a pm cancel the project's invitations and hides invitees from non-managers",
     () =>
       Effect.gen(function* () {
         const client = outsider()
@@ -331,7 +330,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
           projects.cancelPendingMember(pending(client).invitationId)
         )
         expect(yield* invitationsFor(dev)).toMatchObject([
-          { status: "pending", grant_role: null }
+          { status: "canceled", grant_role: null }
         ])
         expect(yield* invitationsFor(client)).toMatchObject([
           { status: "canceled", grant_role: null }
@@ -414,23 +413,85 @@ describe.skipIf(!databaseUrl)("project members", () => {
     })
   )
 
-  it.live("refuses to turn a pending developer invite into a client one", () =>
+  const invitationRow = (email: string) =>
+    Effect.promise(async () => {
+      const result = await pool.query<{
+        id: string
+        role: string
+        status: string
+        from_project: boolean
+      }>(
+        "SELECT id, role, status, from_project FROM invitation WHERE organization_id = $1 AND email = $2 ORDER BY created_at DESC LIMIT 1",
+        [organizationId, email]
+      )
+      return result.rows[0]
+    })
+
+  it.live("derives a project invite's org role from its grants", () =>
     Effect.gen(function* () {
-      const email = `outsider-${projectId}@example.test`
+      const email = `sam-${projectId}@example.test`
       yield* run(admin)((projects) =>
         projects.addMember({ email, role: "developer" })
       )
-      const refused = yield* Effect.flip(
-        run(admin)((projects) => projects.addMember({ email, role: "client" }))
+      expect(yield* invitationRow(email)).toMatchObject({
+        role: "member",
+        from_project: true
+      })
+      yield* run(pm)((projects) =>
+        projects.addMember({ email, role: "client" })
       )
-      expect(refused).toStrictEqual(
-        new Conflict({ reason: "invite_org_role_change" })
-      )
+      expect(yield* invitationRow(email)).toMatchObject({
+        role: "guest",
+        status: "pending"
+      })
       const detail = yield* run(pm)((projects) => projects.get())
       expect(
-        detail.pendingMembers.map((pending) => [pending.email, pending.role])
-      ).toStrictEqual([[email, "developer"]])
+        detail.pendingMembers
+          .filter((pending) => pending.email === email)
+          .map((pending) => pending.role)
+      ).toStrictEqual(["client"])
     })
+  )
+
+  it.live("cancels a project invite once its last grant goes", () =>
+    Effect.gen(function* () {
+      const email = `cancel-${projectId}@example.test`
+      yield* run(admin)((projects) =>
+        projects.addMember({ email, role: "developer" })
+      )
+      const invite = yield* invitationRow(email)
+      yield* run(pm)((projects) => projects.cancelPendingMember(invite.id))
+      expect(yield* invitationRow(email)).toMatchObject({ status: "canceled" })
+      yield* run(pm)((projects) =>
+        projects.addMember({ email, role: "client" })
+      )
+      expect(yield* invitationRow(email)).toMatchObject({
+        role: "guest",
+        status: "pending",
+        from_project: true
+      })
+    })
+  )
+
+  it.live(
+    "keeps an org admin's member invite when a pm adds a client grant",
+    () =>
+      Effect.gen(function* () {
+        const email = `org-${projectId}@example.test`
+        yield* Effect.promise(() =>
+          pool.query(
+            "INSERT INTO invitation (id,organization_id,email,role,status,expires_at,inviter_id) VALUES ($1,$2,$3,'member','pending',now() + interval '7 days',$4)",
+            [randomUUID(), organizationId, email, admin]
+          )
+        )
+        yield* run(pm)((projects) =>
+          projects.addMember({ email, role: "client" })
+        )
+        expect(yield* invitationRow(email)).toMatchObject({
+          role: "member",
+          from_project: false
+        })
+      })
   )
 
   it.live("leaves expired invites out of the pending members", () =>

@@ -264,53 +264,19 @@ describe("ProjectPolicy.canUpdate", () => {
   })
 })
 
-describe("ProjectPolicy.canReinvite", () => {
-  const here = "project-here"
-  const there = "project-there"
+describe("ProjectPolicy.projectInviteOrgRole", () => {
   it.each<
     readonly [
       string,
-      string,
-      ReadonlyArray<ProjectPolicy.InviteGrant>,
-      Project.ProjectRoleName,
-      boolean
+      ReadonlyArray<Project.ProjectRoleName>,
+      Option.Option<string>
     ]
   >([
-    [
-      "a developer invite here as client",
-      "member",
-      [{ projectId: here, role: "developer" }],
-      "client",
-      false
-    ],
-    [
-      "a developer invite here as client while another project keeps membership",
-      "member",
-      [
-        { projectId: here, role: "developer" },
-        { projectId: there, role: "pm" }
-      ],
-      "client",
-      true
-    ],
-    ["an org-level member invite as client", "member", [], "client", true],
-    [
-      "a guest invite as developer",
-      "guest",
-      [{ projectId: here, role: "client" }],
-      "developer",
-      true
-    ],
-    [
-      "a developer invite here as pm",
-      "member",
-      [{ projectId: here, role: "developer" }],
-      "pm",
-      true
-    ]
-  ])("re-inviting %s", (_, invitationRole, grants, role, expected) => {
-    expect(ProjectPolicy.canReinvite(invitationRole, grants, here, role)).toBe(
-      expected
-    )
+    ["no grants left", [], Option.none()],
+    ["only client grants", ["client", "client"], Option.some("guest")],
+    ["a developer grant", ["client", "developer"], Option.some("member")],
+    ["a pm grant", ["pm"], Option.some("member")]
+  ])("derives the org role from %s", (_, grants, expected) => {
+    expect(ProjectPolicy.projectInviteOrgRole(grants)).toStrictEqual(expected)
   })
 })
