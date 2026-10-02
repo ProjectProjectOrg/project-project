@@ -52,8 +52,7 @@ export function TicketTimeSection({
   const statusResult = useAtomValue(
     everhourProjectStatusAtom(everhourProjectRequest(orgSlug, slug))
   )
-  const { isOwner, isAdmin } = useProjectRole()
-  const canManage = isOwner || isAdmin
+  const { isPm: canManage } = useProjectRole()
 
   const notConnected =
     Result.isSuccess(statusResult) &&

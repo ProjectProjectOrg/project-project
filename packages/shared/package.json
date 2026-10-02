@@ -13,6 +13,7 @@
     "lint:fix": "oxlint . --fix"
   },
   "dependencies": {
+    "@pp/access": "workspace:*",
     "effect": "4.0.0-rc.116"
   },
   "devDependencies": {

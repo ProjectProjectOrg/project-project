@@ -18,7 +18,7 @@ import {
   PersonalEverhour,
   PersonalGithub,
   UserInvitation,
-  type AssignableRole,
+  type OrgAssignableRole,
   type CursorPayload,
   type InviteMemberInput
 } from "@pp/shared"
@@ -31,7 +31,7 @@ import * as Layer from "effect/Layer"
 import * as Match from "effect/Match"
 import * as Schema from "effect/Schema"
 
-import { auth } from "../auth"
+import { assertNotLastProjectPm, auth, unassignRemovedOrgMember } from "../auth"
 import { collapseRole, pendingInvitations } from "../handlers/org"
 
 export const BetterAuthLive = Layer.effect(
@@ -461,7 +461,7 @@ export const BetterAuthLive = Layer.effect(
           status: "pending"
         }).pipe(Effect.orDie)
       }),
-      updateMemberRole: (request, orgSlug, userId, role: AssignableRole) =>
+      updateMemberRole: (request, orgSlug, userId, role: OrgAssignableRole) =>
         setRole(request, orgSlug, userId, role),
       removeMember: Effect.fn("BetterAuth.removeMember")(function* (
         request: Request,
@@ -537,15 +537,20 @@ export const BetterAuthLive = Layer.effect(
       }),
       leaveOrg: Effect.fn("BetterAuth.leaveOrg")(function* (
         request: Request,
-        orgSlug: string
+        orgSlug: string,
+        userId: string
       ) {
         const organizationId = yield* resolveOrgId(orgSlug)
+        yield* attempt(() => assertNotLastProjectPm(organizationId, userId))
         yield* attempt(() =>
           auth.api.leaveOrganization({
             body: { organizationId },
             headers: request.headers,
             request
           })
+        )
+        yield* attempt(() =>
+          unassignRemovedOrgMember(orgSlug, organizationId, userId)
         )
       }),
       listInvitations: Effect.fn("BetterAuth.listInvitations")(function* (

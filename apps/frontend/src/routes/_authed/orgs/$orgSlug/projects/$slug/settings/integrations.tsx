@@ -43,7 +43,7 @@ function IntegrationsSettings() {
   const project = useProject()
   const req = projectRequest(orgSlug, project.slug)
   const update = useAtomSet(updateProjectSetup(req))
-  const { role } = useProjectRole()
+  const { role, isPm } = useProjectRole()
 
   return (
     <section className="flex w-full flex-col gap-4">
@@ -79,11 +79,15 @@ function IntegrationsSettings() {
           </Button>
         </div>
       ) : null}
-      <EverhourSettingsCard orgSlug={orgSlug} slug={project.slug} role={role} />
+      <EverhourSettingsCard
+        orgSlug={orgSlug}
+        slug={project.slug}
+        canManage={isPm}
+      />
       <FigmaProjectSettings
         orgSlug={orgSlug}
         slug={project.slug}
-        canManage={role === "owner" || role === "admin"}
+        canManage={isPm}
       />
     </section>
   )
@@ -92,11 +96,11 @@ function IntegrationsSettings() {
 function EverhourSettingsCard({
   orgSlug,
   slug,
-  role
+  canManage
 }: {
   orgSlug: string
   slug: string
-  role: "owner" | "admin" | "member"
+  canManage: boolean
 }) {
   const req = everhourProjectRequest(orgSlug, slug)
   const status = useAtomValue(everhourProjectStatusAtom(req))
@@ -113,7 +117,6 @@ function EverhourSettingsCard({
     onSuccess: ({ value, waiting }) => {
       const user = Result.isSuccess(viewer) ? viewer.value : null
       const hasKey = user?.personalEverhour.connected === true
-      const canManage = role === "owner" || role === "admin"
       return (
         <EverhourSettingsContent
           orgSlug={orgSlug}

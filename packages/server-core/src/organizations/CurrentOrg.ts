@@ -1,4 +1,4 @@
-import { Forbidden, NotFound, type Role } from "@pp/shared"
+import { Forbidden, NotFound, type OrgRole } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 
@@ -7,12 +7,12 @@ export interface CurrentOrgShape {
     orgSlug: string,
     userId: string
   ) => Effect.Effect<
-    { organizationId: string; orgSlug: string; role: Role },
+    { organizationId: string; orgSlug: string; role: OrgRole },
     NotFound
   >
 }
 
-export const isOrgAdminRole = (role: Role): boolean =>
+export const isOrgAdminRole = (role: OrgRole): boolean =>
   role === "owner" || role === "admin"
 
 export const requireOrgAdmin = (
@@ -20,7 +20,7 @@ export const requireOrgAdmin = (
   orgSlug: string,
   userId: string
 ): Effect.Effect<
-  { organizationId: string; orgSlug: string; role: Role },
+  { organizationId: string; orgSlug: string; role: OrgRole },
   NotFound | Forbidden
 > =>
   currentOrg

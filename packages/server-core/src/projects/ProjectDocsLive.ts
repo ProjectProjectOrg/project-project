@@ -3,7 +3,6 @@ import {
   NotFound,
   type PartialTemplateDefaults,
   ProjectKey,
-  Role,
   Slug
 } from "@pp/shared"
 import * as Cause from "effect/Cause"
@@ -45,11 +44,6 @@ function checkOrgFrontmatter(
   return Effect.void
 }
 
-const ProjectDocMember = Schema.Struct({
-  username: Schema.String,
-  role: Role
-})
-
 const ProjectDocGithub = Schema.Struct({
   repoId: Schema.String.pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed(""))
@@ -82,9 +76,6 @@ const ProjectFrontmatterOnDisk = Schema.Struct({
   color: Schema.optional(Schema.String),
   createdBy: Schema.optional(Schema.String),
   createdAt: Schema.DateFromString,
-  members: Schema.Array(ProjectDocMember).pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
-  ),
   github: Schema.optionalKey(Schema.NullOr(ProjectDocGithub)),
   setup: ProjectDocSetup.pipe(
     Schema.withDecodingDefaultTypeKey(

@@ -105,8 +105,7 @@ export function ProjectHeader({
   name: string
   project: ProjectDetailType
 }) {
-  const { role: myRole } = useProjectRole()
-  const canEdit = myRole === "owner" || myRole === "admin"
+  const { role: myRole, isPm: canEdit } = useProjectRole()
   const reduce = useReducedMotion() ?? false
 
   const matches = useMatches()

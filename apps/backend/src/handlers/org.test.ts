@@ -258,13 +258,13 @@ it.effect(
     Effect.gen(function* () {
       const result = yield* failureOf(
         removeMemberErrorToFailure(
-          bodiedError(409, "PROJECT_OWNER_REMOVAL_BLOCKED", {
+          bodiedError(409, "LAST_PROJECT_PM_BLOCKED", {
             projectSlugs: ["alpha", "beta"]
           })
         )
       )
       expect(result).toMatchObject({
-        _tag: "ProjectOwnerRemovalBlocked",
+        _tag: "LastProjectPmBlocked",
         projectSlugs: ["alpha", "beta"]
       })
     })
@@ -276,11 +276,11 @@ it.effect(
     Effect.gen(function* () {
       const result = yield* failureOf(
         removeMemberErrorToFailure(
-          orgError("BAD_REQUEST", "PROJECT_OWNER_REMOVAL_BLOCKED")
+          orgError("BAD_REQUEST", "LAST_PROJECT_PM_BLOCKED")
         )
       )
       expect(result).toMatchObject({
-        _tag: "ProjectOwnerRemovalBlocked",
+        _tag: "LastProjectPmBlocked",
         projectSlugs: []
       })
     })
@@ -292,14 +292,14 @@ it.effect("never reports a project-owner removal from a 5xx", () =>
       removeMemberErrorToFailure(
         new BetterAuthError({
           cause: new APIError("INTERNAL_SERVER_ERROR", {
-            code: "PROJECT_OWNER_REMOVAL_BLOCKED",
+            code: "LAST_PROJECT_PM_BLOCKED",
             message: "boom"
           })
         })
       )
     )
     expect(exit._tag).toBe("Failure")
-    expect(describeExit(exit)).not.toContain("ProjectOwnerRemovalBlocked")
+    expect(describeExit(exit)).not.toContain("LastProjectPmBlocked")
   })
 )
 

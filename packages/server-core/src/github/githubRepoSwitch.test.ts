@@ -206,7 +206,6 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
               icon: "folder",
               color: "#3b82f6",
               createdAt: initialTicket.createdAt,
-              members: [],
               github: null,
               setup: {
                 workflowReviewedAt: null,
