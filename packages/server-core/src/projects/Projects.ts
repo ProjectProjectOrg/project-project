@@ -110,7 +110,7 @@ export interface ProjectsShape {
     input: AddMemberInput
   ) => Effect.Effect<
     ProjectDetail,
-    NotFound | MarkdownError | LastProjectPmBlocked,
+    NotFound | Forbidden | MarkdownError | LastProjectPmBlocked,
     ProjectScope
   >
   readonly updateMember: (

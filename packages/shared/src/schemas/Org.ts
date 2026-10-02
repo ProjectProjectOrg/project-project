@@ -4,6 +4,7 @@ import * as Schema from "effect/Schema"
 import { Slug } from "./Project"
 
 export const ORG_DELETE_GRACE_DAYS = 14
+export const INVITATION_VALID_DAYS = 7
 
 export const OrgRole = OrgAccess.OrgRoleName
 export type OrgRole = typeof OrgRole.Type

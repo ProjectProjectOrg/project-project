@@ -263,3 +263,20 @@ describe("ProjectPolicy.canUpdate", () => {
     ).toStrictEqual(expected)
   })
 })
+
+describe("ProjectPolicy.projectInviteOrgRole", () => {
+  it.each<
+    readonly [
+      string,
+      ReadonlyArray<Project.ProjectRoleName>,
+      Option.Option<string>
+    ]
+  >([
+    ["no grants left", [], Option.none()],
+    ["only client grants", ["client", "client"], Option.some("guest")],
+    ["a developer grant", ["client", "developer"], Option.some("member")],
+    ["a pm grant", ["pm"], Option.some("member")]
+  ])("derives the org role from %s", (_, grants, expected) => {
+    expect(ProjectPolicy.projectInviteOrgRole(grants)).toStrictEqual(expected)
+  })
+})
