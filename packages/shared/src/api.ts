@@ -598,10 +598,25 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       {
         params: ProjectMemberPath,
         success: ProjectDetail,
-        error: [Unauthorized, NotFound, Forbidden, LastProjectPmBlocked]
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          Validation,
+          LastProjectPmBlocked
+        ]
       }
     )
       .annotate(RequiresProject, { members: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post("leave", "/orgs/:orgSlug/projects/:slug/leave", {
+      params: ProjectPath,
+      success: HttpApiSchema.NoContent,
+      error: [Unauthorized, NotFound, Forbidden, LastProjectPmBlocked]
+    })
+      .annotate(RequiresProject, "membership")
       .middleware(ProjectAccess)
   )
   .add(

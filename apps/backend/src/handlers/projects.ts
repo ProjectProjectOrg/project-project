@@ -89,6 +89,11 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           projects.removeMember(params.userId)
         ).pipe(dieOnMarkdown)
       )
+      .handle("leave", () =>
+        Effect.flatMap(Projects, (projects) => projects.leave()).pipe(
+          dieOnMarkdown
+        )
+      )
       .handle("cancelPendingMember", ({ params }) =>
         Effect.flatMap(Projects, (projects) =>
           projects.cancelPendingMember(params.invitationId)

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 
 import { it } from "@effect/vitest"
 import { migrationsFolder } from "@pp/db"
-import { CurrentUser, ProjectScope, Slug } from "@pp/shared"
+import { CurrentUser, ProjectScope, Slug, Validation } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as Effect from "effect/Effect"
@@ -170,7 +170,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
     })
   )
 
-  it.effect("lets an org admin add themselves as pm and then edit", () =>
+  it.effect("lets an org admin add themselves as pm, edit, and leave", () =>
     Effect.gen(function* () {
       yield* run(admin)((projects) =>
         projects.addMember({ email: `${admin}@example.test`, role: "pm" })
@@ -179,7 +179,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
         projects.update({ name: "Renamed by admin" })
       )
       expect(renamed.name).toBe("Renamed by admin")
-      yield* run(admin)((projects) => projects.removeMember(admin))
+      yield* run(admin)((projects) => projects.leave())
       expect((yield* roles())[admin]).toBeUndefined()
     })
   )
@@ -208,20 +208,40 @@ describe.skipIf(!databaseUrl)("project members", () => {
     })
   )
 
-  it.effect("never demotes or removes the last pm", () =>
+  it.effect("never demotes the last pm or lets them leave", () =>
     Effect.gen(function* () {
       const demote = yield* Effect.flip(
         run(pm)((projects) => projects.updateMember(pm, "developer"))
       )
-      const remove = yield* Effect.flip(
-        run(pm)((projects) => projects.removeMember(pm))
-      )
+      const leave = yield* Effect.flip(run(pm)((projects) => projects.leave()))
       expect(demote).toMatchObject({
         _tag: "LastProjectPmBlocked",
         projectSlugs: [slug]
       })
-      expect(remove).toMatchObject({ _tag: "LastProjectPmBlocked" })
+      expect(leave).toMatchObject({ _tag: "LastProjectPmBlocked" })
+      expect((yield* roles())[pm]).toBe("pm")
     })
+  )
+
+  it.effect("sends removing yourself through leave", () =>
+    Effect.gen(function* () {
+      const refused = yield* Effect.flip(
+        run(developer)((projects) => projects.removeMember(developer))
+      )
+      expect(refused).toStrictEqual(new Validation({ reason: "remove_self" }))
+      expect((yield* roles())[developer]).toBe("developer")
+    })
+  )
+
+  it.effect(
+    "tells someone without a project role there is nothing to leave",
+    () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(
+          run(admin)((projects) => projects.leave())
+        )
+        expect(error._tag).toBe("NotFound")
+      })
   )
 
   it.effect("ends project access when the org membership goes", () =>

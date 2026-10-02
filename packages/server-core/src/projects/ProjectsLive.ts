@@ -16,6 +16,7 @@ import {
   UserId,
   OrgScope,
   ProjectScope,
+  Validation,
   type ProjectScopeShape
 } from "@pp/shared"
 import { and, asc, eq, inArray } from "drizzle-orm"
@@ -1443,6 +1444,38 @@ export const ProjectsLive = Layer.effect(
         )
       })
 
+    const dropMember = (
+      indexRow: typeof projectIndex.$inferSelect,
+      orgSlug: string,
+      slug: string,
+      targetUserId: string,
+      currentRole: Role
+    ) =>
+      Effect.gen(function* () {
+        yield* requireAnotherPm(indexRow, currentRole)
+        const removed = yield* withProjectWriteLock(
+          indexRow.id,
+          Effect.gen(function* () {
+            const lockedRole = yield* memberRole(indexRow.id, targetUserId)
+            if (lockedRole === null) return false
+            yield* requireAnotherPm(indexRow, lockedRole)
+            yield* db
+              .delete(projectMember)
+              .where(
+                and(
+                  eq(projectMember.projectId, indexRow.id),
+                  eq(projectMember.userId, targetUserId)
+                )
+              )
+              .pipe(Effect.orDie)
+            return true
+          })
+        )
+        if (removed) {
+          yield* unassignUserFromActiveTickets(orgSlug, slug, targetUserId)
+        }
+      })
+
     const removeMember: ProjectsShape["removeMember"] = (targetUserId) =>
       Effect.gen(function* () {
         const { orgSlug, slug, userId } = yield* ProjectScope
@@ -1451,32 +1484,42 @@ export const ProjectsLive = Layer.effect(
           orgSlug,
           { slug, userId, targetUserId },
           Effect.gen(function* () {
+            if (targetUserId === userId) {
+              return yield* new Validation({ reason: "remove_self" })
+            }
             const { indexRow } = yield* inScope
             const currentRole = yield* memberRole(indexRow.id, targetUserId)
             if (currentRole === null) return yield* new NotFound()
-            yield* requireAnotherPm(indexRow, currentRole)
-            const removed = yield* withProjectWriteLock(
-              indexRow.id,
-              Effect.gen(function* () {
-                const lockedRole = yield* memberRole(indexRow.id, targetUserId)
-                if (lockedRole === null) return false
-                yield* requireAnotherPm(indexRow, lockedRole)
-                yield* db
-                  .delete(projectMember)
-                  .where(
-                    and(
-                      eq(projectMember.projectId, indexRow.id),
-                      eq(projectMember.userId, targetUserId)
-                    )
-                  )
-                  .pipe(Effect.orDie)
-                return true
-              })
+            yield* dropMember(
+              indexRow,
+              orgSlug,
+              slug,
+              targetUserId,
+              currentRole
             )
-            if (removed) {
-              yield* unassignUserFromActiveTickets(orgSlug, slug, targetUserId)
-            }
             return yield* replayDetail
+          })
+        )
+      })
+
+    const leave: ProjectsShape["leave"] = () =>
+      Effect.gen(function* () {
+        const { orgSlug, slug, userId } = yield* ProjectScope
+        return yield* withProjectTelemetry(
+          "leave",
+          orgSlug,
+          { slug, userId },
+          Effect.gen(function* () {
+            const { indexRow } = yield* inScope
+            const currentRole = yield* memberRole(indexRow.id, userId)
+            if (currentRole === null) return yield* new NotFound()
+            return yield* dropMember(
+              indexRow,
+              orgSlug,
+              slug,
+              userId,
+              currentRole
+            )
           })
         )
       })
@@ -1697,6 +1740,7 @@ export const ProjectsLive = Layer.effect(
       addMember,
       updateMember,
       removeMember,
+      leave,
       cancelPendingMember,
       unassignUserFromActiveTickets,
       connectGithub,

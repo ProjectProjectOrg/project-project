@@ -97,6 +97,7 @@ const FakeProjects = Layer.succeed(Projects, {
   addMember: () => unexpected("Projects.addMember"),
   updateMember: () => unexpected("Projects.updateMember"),
   removeMember: () => unexpected("Projects.removeMember"),
+  leave: () => unexpected("Projects.leave"),
   cancelPendingMember: () => unexpected("Projects.cancelPendingMember"),
   unassignUserFromActiveTickets: () =>
     unexpected("Projects.unassignUserFromActiveTickets"),

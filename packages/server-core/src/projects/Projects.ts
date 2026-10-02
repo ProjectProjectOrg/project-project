@@ -20,6 +20,7 @@ import type {
   RepoGone,
   UpdateProjectInput,
   UpdateProjectSetupInput,
+  Validation,
   OrgScope,
   ProjectScope,
   Forbidden
@@ -125,6 +126,15 @@ export interface ProjectsShape {
     targetUserId: string
   ) => Effect.Effect<
     ProjectDetail,
+    | NotFound
+    | Validation
+    | MarkdownError
+    | MalformedTicketDocument
+    | LastProjectPmBlocked,
+    ProjectScope
+  >
+  readonly leave: () => Effect.Effect<
+    void,
     NotFound | MarkdownError | MalformedTicketDocument | LastProjectPmBlocked,
     ProjectScope
   >
