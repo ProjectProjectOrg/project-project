@@ -420,13 +420,11 @@ it("returns only pending invitations to the members view", () => {
   expect(result.map((invitation) => invitation.id)).toEqual(["a", "e"])
 })
 
-it("collapses invitation roles and drops rows with no role", () => {
+it("collapses invitation roles", () => {
   const result = pendingInvitations([
-    { id: "a", email: "a@example.com", role: "owner,admin", status: "pending" },
-    { id: "b", email: "b@example.com", role: null, status: "pending" }
+    { id: "a", email: "a@example.com", role: "owner,admin", status: "pending" }
   ])
   expect(result).toEqual([
-    { id: "a", email: "a@example.com", role: "owner", status: "pending" },
-    { id: "b", email: "b@example.com", role: "member", status: "pending" }
+    { id: "a", email: "a@example.com", role: "owner", status: "pending" }
   ])
 })

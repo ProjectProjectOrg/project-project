@@ -465,7 +465,7 @@ export const BetterAuthLive = Layer.effect(
         return yield* Schema.decodeEffect(OrgInvitation)({
           id: created.id,
           email: created.email,
-          role: collapseRole(created.role ?? ""),
+          role: collapseRole(created.role),
           status: "pending"
         }).pipe(Effect.orDie)
       }),
@@ -605,7 +605,7 @@ export const BetterAuthLive = Layer.effect(
                 id: invitation.id,
                 orgSlug: org.slug,
                 orgName: org.name,
-                role: collapseRole(invitation.role ?? ""),
+                role: collapseRole(invitation.role),
                 inviterEmail: inviterById.get(invitation.inviterId) ?? null,
                 expiresAt: invitation.expiresAt.toISOString(),
                 createdAt: invitation.createdAt.toISOString()
@@ -630,7 +630,7 @@ export const BetterAuthLive = Layer.effect(
           id: found.id,
           orgSlug: found.organizationSlug,
           orgName: found.organizationName,
-          role: collapseRole(found.role ?? ""),
+          role: collapseRole(found.role),
           inviterEmail: found.inviterEmail ?? null,
           expiresAt: found.expiresAt.toISOString(),
           createdAt: found.createdAt.toISOString()

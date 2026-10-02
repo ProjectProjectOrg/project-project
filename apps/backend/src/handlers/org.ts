@@ -30,7 +30,7 @@ export const collapseRole = (role: string): OrgRole => {
 type RawInvitation = Readonly<{
   id: string
   email: string
-  role?: string | null
+  role: string
   status: string
 }>
 
@@ -43,7 +43,7 @@ export const pendingInvitations = (
           {
             id: invitation.id,
             email: invitation.email,
-            role: collapseRole(invitation.role ?? "member"),
+            role: collapseRole(invitation.role),
             status: "pending" as const
           }
         ]
