@@ -132,6 +132,10 @@ export type BetterAuthShape = Readonly<{
     toUserId: string,
     selfUserId: string
   ) => Effect.Effect<OrgMembers, BetterAuthError | NotFound>
+  readonly setActiveOrganization: (
+    request: Request,
+    orgSlug: string
+  ) => Effect.Effect<ReadonlyArray<string>, BetterAuthError | NotFound>
   readonly leaveOrg: (
     request: Request,
     orgSlug: string,

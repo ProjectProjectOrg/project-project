@@ -84,6 +84,7 @@ import {
 } from "effect/unstable/http"
 import { HttpApiBuilder, HttpApiSwagger } from "effect/unstable/httpapi"
 
+import { isClosedAuthPath } from "./auth/orgAccess"
 import { AttachmentsHandlerLive } from "./handlers/attachments"
 import { AuthHandlerLive } from "./handlers/auth"
 import { CommentsHandlerLive } from "./handlers/comments"
@@ -137,6 +138,9 @@ const betterAuthApp = Effect.gen(function* () {
   const ba = yield* BetterAuth
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
+  if (isClosedAuthPath(new URL(webReq.url).pathname)) {
+    return HttpServerResponse.text("Not Found", { status: 404 })
+  }
   const webRes = yield* ba.handler(webReq)
   return HttpServerResponse.fromWeb(webRes)
 }).pipe(

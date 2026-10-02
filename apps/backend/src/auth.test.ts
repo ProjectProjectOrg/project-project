@@ -22,7 +22,13 @@ vi.mock("better-auth", async () => {
   }
 })
 
-import { auth, lastOrgOwnerBlocked, lastProjectPmError } from "./auth"
+import {
+  auth,
+  lastOrgOwnerBlocked,
+  lastProjectPmError,
+  violatesProjectKeepsAPm
+} from "./auth"
+import { orgAccessControl, orgRoles } from "./auth/orgAccess"
 
 describe("Better Auth plugin wiring", () => {
   it("signs users in through a magic link and marks the email verified", async () => {
@@ -236,6 +242,50 @@ describe("Better Auth plugin wiring", () => {
     expect(orgPlugin.options?.requireEmailVerificationOnInvitation).toBe(true)
   })
 
+  it("keeps organizations from being hard-deleted or re-slugged", async () => {
+    const options = configuredPlugin("organization").options
+    const hooks = options?.organizationHooks
+    expect(options?.disableOrganizationDeletion).toBe(true)
+    expect(options?.roles).toBe(orgRoles)
+    const update = (organization: Readonly<Record<string, unknown>>) =>
+      hooks?.beforeUpdateOrganization?.({
+        organization,
+        user: {} as never,
+        member: {} as never
+      })
+    await expect(update({ name: "Renamed" })).resolves.toBeUndefined()
+    await expect(update({ slug: "elsewhere" })).rejects.toMatchObject({
+      body: { code: "ORGANIZATION_FIELD_LOCKED" }
+    })
+    await expect(update({ name: "X", logo: "x.png" })).rejects.toMatchObject({
+      body: { code: "ORGANIZATION_FIELD_LOCKED" }
+    })
+  })
+
+  it("stores exactly one org role per member and invitation", async () => {
+    const hooks = configuredPlugin("organization").options?.organizationHooks
+    await expect(
+      hooks?.beforeUpdateMemberRole?.({
+        member: {} as never,
+        newRole: "member,admin",
+        user: {} as never,
+        organization: {} as never
+      })
+    ).rejects.toMatchObject({ body: { code: "ROLE_NOT_FOUND" } })
+    await expect(
+      hooks?.beforeCreateInvitation?.({
+        invitation: {
+          email: "x@example.test",
+          role: "admin,member",
+          organizationId: "o",
+          inviterId: "u"
+        },
+        inviter: {} as never,
+        organization: {} as never
+      })
+    ).rejects.toMatchObject({ body: { code: "ROLE_NOT_FOUND" } })
+  })
+
   it("allows GitHub account linking for users with a different profile email", () => {
     expect(auth.options.account?.accountLinking?.enabled).toBe(true)
     expect(auth.options.account?.accountLinking?.trustedProviders).toContain(
@@ -341,6 +391,19 @@ describe("organization owner guard invariants", () => {
 describe("project-owner removal guard", () => {
   it("does not block when the member owns no projects", () => {
     expect(lastProjectPmError([])).toBeUndefined()
+  })
+
+  it("recognises the database's last-pm guard through wrapped causes", () => {
+    const pgError = { code: "23000", constraint: "project_keeps_a_pm" }
+    expect(
+      violatesProjectKeepsAPm(new Error("query", { cause: pgError }))
+    ).toBe(true)
+    expect(
+      violatesProjectKeepsAPm(
+        new Error("query", { cause: { constraint: "member_role_check" } })
+      )
+    ).toBe(false)
+    expect(violatesProjectKeepsAPm("boom")).toBe(false)
   })
 
   it("blocks with a 409 and the owned project slugs", () => {
@@ -483,6 +546,8 @@ function configuredPlugin<Id extends ConfiguredPlugin["id"]>(
 
 function testOrganizationPlugin() {
   return organization({
+    ac: orgAccessControl,
+    roles: orgRoles,
     requireEmailVerificationOnInvitation: true,
     allowUserToCreateOrganization: true
   })

@@ -426,6 +426,21 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     })
   })
 
+  describe("after the client is disabled", () => {
+    it("auth: disabling the OAuth client locks its tokens out", async () => {
+      await pool.query(
+        "UPDATE oauth_client SET disabled=true WHERE client_id=$1",
+        [clientId]
+      )
+      expect((await modern(tokens[1], "tools/list")).status).toBe(401)
+      await pool.query(
+        "UPDATE oauth_client SET disabled=false WHERE client_id=$1",
+        [clientId]
+      )
+      expect((await modern(tokens[1], "tools/list")).status).toBe(200)
+    })
+  })
+
   describe("after a ban", () => {
     it("auth: an expired ban lets the token through", async () => {
       await pool.query(

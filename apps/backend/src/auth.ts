@@ -26,6 +26,11 @@ import matter from "gray-matter"
 
 import { fetchClientMetadataResource } from "./auth/cimdTransport"
 import { legacyMcpResources } from "./auth/legacyMcpResources"
+import {
+  orgAccessControl,
+  orgRoles,
+  requireSingleOrgRole
+} from "./auth/orgAccess"
 
 const db = drizzle(process.env.DATABASE_URL!, { relations: schema.relations })
 
@@ -225,6 +230,32 @@ export async function assertNotLastProjectPm(
   if (blocked) throw blocked
 }
 
+const constraintOf = (error: unknown): string | undefined => {
+  if (typeof error !== "object" || error === null) return undefined
+  if ("constraint" in error && typeof error.constraint === "string") {
+    return error.constraint
+  }
+  return "cause" in error ? constraintOf(error.cause) : undefined
+}
+
+export const violatesProjectKeepsAPm = (error: unknown) =>
+  constraintOf(error) === "project_keeps_a_pm"
+
+export async function keepingAProjectPm<A>(
+  organizationId: string,
+  userId: string,
+  run: () => Promise<A>
+) {
+  try {
+    return await run()
+  } catch (error) {
+    if (violatesProjectKeepsAPm(error)) {
+      await assertNotLastProjectPm(organizationId, userId)
+    }
+    throw error
+  }
+}
+
 export async function unassignRemovedOrgMember(
   orgSlug: string,
   organizationId: string,
@@ -374,6 +405,9 @@ export const auth = betterAuth({
   },
   plugins: [
     organization({
+      ac: orgAccessControl,
+      roles: orgRoles,
+      disableOrganizationDeletion: true,
       requireEmailVerificationOnInvitation: true,
       allowUserToCreateOrganization: false,
       schema: {
@@ -400,6 +434,24 @@ export const auth = betterAuth({
         )
       },
       organizationHooks: {
+        beforeUpdateOrganization: async ({ organization }) => {
+          if (
+            Object.entries(organization).some(
+              ([field, value]) => field !== "name" && value !== undefined
+            )
+          ) {
+            throw new APIError("BAD_REQUEST", {
+              code: "ORGANIZATION_FIELD_LOCKED",
+              message: "Only the organization name can be changed"
+            })
+          }
+        },
+        beforeCreateInvitation: async ({ invitation }) => {
+          requireSingleOrgRole(invitation.role)
+        },
+        beforeAddMember: async ({ member }) => {
+          requireSingleOrgRole(member.role)
+        },
         beforeRemoveMember: async ({ member }) => {
           await assertNotLastOrgOwner(
             member.organizationId,
@@ -416,6 +468,7 @@ export const auth = betterAuth({
           )
         },
         beforeUpdateMemberRole: async ({ member, newRole }) => {
+          requireSingleOrgRole(newRole)
           await assertNotLastOrgOwner(
             member.organizationId,
             member.userId,
