@@ -1,9 +1,10 @@
 import { EverhourIntegrations } from "@pp/server-core/everhour/EverhourIntegrations"
 import { EverhourTimeTracking } from "@pp/server-core/everhour/EverhourTimeTracking"
-import { CurrentOrg } from "@pp/server-core/organizations/CurrentOrg"
 import { AppApi, CurrentUser } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
+
+import { dieOnMarkdown } from "./lib"
 
 export const EverhourHandlerLive = HttpApiBuilder.group(
   AppApi,
@@ -31,141 +32,59 @@ export const EverhourHandlerLive = HttpApiBuilder.group(
           return yield* integrations.disconnectProfile(user.id)
         })
       )
-      .handle("projectStatus", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const integrations = yield* EverhourIntegrations
-          return yield* integrations.getProjectStatus(
-            org.orgSlug,
-            user.id,
-            params.slug
-          )
-        })
+      .handle("projectStatus", () =>
+        Effect.flatMap(EverhourIntegrations, (integrations) =>
+          integrations.getProjectStatus()
+        ).pipe(dieOnMarkdown)
       )
-      .handle("connectProject", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const integrations = yield* EverhourIntegrations
-          return yield* integrations.connectProject(
-            org.orgSlug,
-            user.id,
-            params.slug
-          )
-        })
+      .handle("connectProject", () =>
+        Effect.flatMap(EverhourIntegrations, (integrations) =>
+          integrations.connectProject()
+        ).pipe(dieOnMarkdown)
       )
-      .handle("syncProject", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const integrations = yield* EverhourIntegrations
-          return yield* integrations.syncProject(
-            org.orgSlug,
-            user.id,
-            params.slug
-          )
-        })
+      .handle("syncProject", () =>
+        Effect.flatMap(EverhourIntegrations, (integrations) =>
+          integrations.syncProject()
+        ).pipe(dieOnMarkdown)
       )
-      .handle("disconnectProject", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const integrations = yield* EverhourIntegrations
-          return yield* integrations.disconnectProject(
-            org.orgSlug,
-            user.id,
-            params.slug
-          )
-        })
+      .handle("disconnectProject", () =>
+        Effect.flatMap(EverhourIntegrations, (integrations) =>
+          integrations.disconnectProject()
+        ).pipe(dieOnMarkdown)
       )
       .handle("ticketWorkTypes", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const time = yield* EverhourTimeTracking
-          return yield* time.workTypesForTicket(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id
-          )
-        })
+        Effect.flatMap(EverhourTimeTracking, (time) =>
+          time.workTypesForTicket(params.id)
+        ).pipe(dieOnMarkdown)
       )
       .handle("startTicketTimer", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const time = yield* EverhourTimeTracking
-          return yield* time.startTicketTimer(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id,
-            payload
-          )
-        })
+        Effect.flatMap(EverhourTimeTracking, (time) =>
+          time.startTicketTimer(params.id, payload)
+        ).pipe(dieOnMarkdown)
       )
       .handle("startSprintTimer", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const time = yield* EverhourTimeTracking
-          return yield* time.startSprintTimer(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id,
-            payload
-          )
-        })
+        Effect.flatMap(EverhourTimeTracking, (time) =>
+          time.startSprintTimer(params.id, payload)
+        ).pipe(dieOnMarkdown)
       )
-      .handle("stopTimer", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const time = yield* EverhourTimeTracking
-          return yield* time.stopTimer(org.orgSlug, user.id)
-        })
+      .handle("stopTimer", () =>
+        Effect.flatMap(EverhourTimeTracking, (time) => time.stopTimer()).pipe(
+          dieOnMarkdown
+        )
       )
-      .handle("currentTimer", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const time = yield* EverhourTimeTracking
-          return yield* time.currentTimer(org.orgSlug, user.id)
-        })
+      .handle("currentTimer", () =>
+        Effect.flatMap(EverhourTimeTracking, (time) =>
+          time.currentTimer()
+        ).pipe(dieOnMarkdown)
       )
-      .handle("logTime", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const time = yield* EverhourTimeTracking
-          return yield* time.logTime(org.orgSlug, user.id, params.slug, payload)
-        })
+      .handle("logTime", ({ payload }) =>
+        Effect.flatMap(EverhourTimeTracking, (time) =>
+          time.logTime(payload)
+        ).pipe(dieOnMarkdown)
       )
       .handle("ticketTime", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const time = yield* EverhourTimeTracking
-          return yield* time.ticketTimeSummary(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id
-          )
-        })
+        Effect.flatMap(EverhourTimeTracking, (time) =>
+          time.ticketTimeSummary(params.id)
+        ).pipe(dieOnMarkdown)
       )
 )

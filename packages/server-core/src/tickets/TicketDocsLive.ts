@@ -2,8 +2,8 @@ import { NotFound, TicketId } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
-import * as Semaphore from "effect/Semaphore"
 
+import * as KeyedLock from "../locks/KeyedLock"
 import {
   Markdown,
   type MarkdownError,
@@ -61,42 +61,18 @@ export const TicketDocsLive = Layer.effect(
   TicketDocs,
   Effect.gen(function* () {
     const markdown = yield* Markdown
-    const mutationLocks = new Map<
-      string,
-      { readonly semaphore: Semaphore.Semaphore; references: number }
-    >()
+    const keyedLock = yield* KeyedLock.KeyedLock
 
     const withMutationLock = <A, E, R>(
       orgSlug: string,
       slug: string,
       id: string,
       effect: Effect.Effect<A, E, R>
-    ): Effect.Effect<A, E, R> => {
-      const key = JSON.stringify([orgSlug, slug, id])
-      return Effect.acquireUseRelease(
-        Effect.sync(() => {
-          const current = mutationLocks.get(key)
-          if (current) {
-            current.references++
-            return current
-          }
-          const created = {
-            semaphore: Semaphore.makeUnsafe(1),
-            references: 1
-          }
-          mutationLocks.set(key, created)
-          return created
-        }),
-        (lock) => lock.semaphore.withPermits(1)(effect),
-        (lock) =>
-          Effect.sync(() => {
-            lock.references--
-            if (lock.references === 0 && mutationLocks.get(key) === lock) {
-              mutationLocks.delete(key)
-            }
-          })
+    ): Effect.Effect<A, E, R> =>
+      keyedLock.withLock(
+        KeyedLock.LockKey.ticketWrite(orgSlug, slug, id),
+        effect
       )
-    }
 
     const listIds = (
       orgSlug: string,

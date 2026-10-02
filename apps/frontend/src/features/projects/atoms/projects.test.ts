@@ -46,7 +46,8 @@ const detail = Schema.decodeSync(ProjectDetail)({
       role: "developer"
     }
   ],
-  pendingMembers: []
+  pendingMembers: [],
+  permissions: {}
 })
 
 const encode = Schema.encodeSync(ProjectDetail)

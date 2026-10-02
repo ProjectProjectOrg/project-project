@@ -5,13 +5,16 @@ import {
   AttachmentId,
   AttachmentTooLarge,
   AttachmentTypeRejected,
+  CurrentUser,
+  Forbidden,
   NotFound,
   Slug,
   StorageConfigMissing,
   StorageError,
   TicketId,
   Unauthorized,
-  Validation
+  Validation,
+  ProjectScope
 } from "@pp/shared"
 import { and, eq } from "drizzle-orm"
 import * as Config from "effect/Config"
@@ -22,11 +25,12 @@ import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
 
-import * as Projects from "../projects/Projects"
+import { Access } from "../access/Access"
 import * as OrgStorage from "../storage/OrgStorage"
 import * as S3Storage from "../storage/S3Storage"
 import * as SecretCrypto from "../storage/SecretCrypto"
 import * as TicketDocs from "../tickets/TicketDocs"
+import { Users } from "../users/Users"
 import * as Attachments from "./Attachments"
 import * as AttachmentUploads from "./AttachmentUploads"
 
@@ -54,38 +58,30 @@ export const AttachmentUploadsLive = Layer.effect(
   Effect.gen(function* () {
     const attachments = yield* Attachments.Attachments
     const db = yield* Db.Db
+    const access = yield* Access
+    const users = yield* Users
     const sql = yield* SqlClient.SqlClient
-    const projects = yield* Projects.Projects
     const docs = yield* TicketDocs.TicketDocs
     const orgStorage = yield* OrgStorage.OrgStorage
     const s3 = yield* S3Storage.S3Storage
     const secrets = yield* SecretCrypto.SecretCrypto
 
     const requireTicket = Effect.fn("AttachmentUploads.requireTicket")(
-      function* (
-        ticket: AttachmentUploads.TicketAttachmentUpload,
-        userId: string
-      ) {
-        const { projectId } = yield* projects.requireMember(
-          ticket.orgSlug,
-          userId,
-          ticket.projectSlug
+      function* (ticketId: string) {
+        const { orgSlug, slug } = yield* ProjectScope
+        yield* docs.read(orgSlug, slug, ticketId).pipe(
+          Effect.catchTags({
+            MarkdownError: Effect.die,
+            MalformedTicketDocument: Effect.die
+          })
         )
-        yield* docs
-          .read(ticket.orgSlug, ticket.projectSlug, ticket.ticketId)
-          .pipe(
-            Effect.catchTags({
-              MarkdownError: Effect.die,
-              MalformedTicketDocument: Effect.die
-            })
-          )
-        return projectId
       }
     )
 
     const prepare: AttachmentUploads.AttachmentUploads["Service"]["prepare"] =
-      Effect.fn("AttachmentUploads.prepare")(function* (ticket, userId, input) {
-        yield* requireTicket(ticket, userId)
+      Effect.fn("AttachmentUploads.prepare")(function* (ticketId, input) {
+        yield* requireTicket(ticketId)
+        const { orgSlug, slug: projectSlug, userId } = yield* ProjectScope
         const baseUrl = yield* Config.String("BETTER_AUTH_URL").pipe(
           Config.withDefault("http://localhost:5173"),
           Effect.mapError(() => new StorageConfigMissing())
@@ -102,21 +98,15 @@ export const AttachmentUploadsLive = Layer.effect(
           )
         )
           return yield* new StorageConfigMissing()
-        const prepared = yield* attachments.prepare(
-          ticket.orgSlug,
-          ticket.projectSlug,
-          ticket.ticketId,
-          userId,
-          input
-        )
+        const prepared = yield* attachments.prepare(ticketId, input)
         const attachmentId = yield* Schema.decodeEffect(AttachmentId)(
           prepared.id
         ).pipe(Effect.orDie)
         const payload = yield* Schema.encodeEffect(UploadGrant)({
           purpose: "ticket-attachment-upload",
-          orgSlug: ticket.orgSlug,
-          projectSlug: ticket.projectSlug,
-          ticketId: ticket.ticketId,
+          orgSlug,
+          projectSlug,
+          ticketId,
           attachmentId,
           userId,
           expiresAt: prepared.expiresAt.getTime()
@@ -166,7 +156,21 @@ export const AttachmentUploadsLive = Layer.effect(
             return undefined
           })
           yield* checkExpiry
-          const projectId = yield* requireTicket(grant, grant.userId)
+          const uploaderScope = Effect.gen(function* () {
+            const [uploader] = yield* users.fullByIds([grant.userId])
+            if (uploader === undefined) return yield* new Unauthorized()
+            const scope = yield* access
+              .project(grant.orgSlug, grant.projectSlug)
+              .pipe(Effect.provideService(CurrentUser, uploader))
+            if (!scope.permissions.can({ attachment: ["upload"] })) {
+              return yield* new Forbidden()
+            }
+            return scope
+          })
+          const { projectId } = yield* uploaderScope
+          yield* requireTicket(grant.ticketId).pipe(
+            Effect.provideServiceEffect(ProjectScope, uploaderScope)
+          )
           const query = () =>
             db
               .select()
@@ -217,7 +221,7 @@ export const AttachmentUploadsLive = Layer.effect(
                 if (!row || row.status === "orphaned")
                   return yield* new NotFound()
                 yield* checkExpiry
-                yield* requireTicket(grant, grant.userId)
+                yield* requireTicket(grant.ticketId)
                 if (row.status === "pending") {
                   yield* db
                     .update(attachmentIndex)
@@ -241,15 +245,9 @@ export const AttachmentUploadsLive = Layer.effect(
                     )
                 }
                 const { id, url, filename, contentType } =
-                  yield* attachments.commit(
-                    grant.orgSlug,
-                    grant.projectSlug,
-                    grant.ticketId,
-                    grant.userId,
-                    grant.attachmentId
-                  )
+                  yield* attachments.commit(grant.ticketId, grant.attachmentId)
                 return { id, url, filename, contentType }
-              })
+              }).pipe(Effect.provideServiceEffect(ProjectScope, uploaderScope))
             )
             .pipe(Effect.catchTag("SqlError", Effect.die))
         },

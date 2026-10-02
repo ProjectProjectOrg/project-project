@@ -2,51 +2,36 @@ import type {
   Conflict,
   CreateTagInput,
   CursorPayload,
-  Forbidden,
   NotFound,
   Tag,
   UpdateTagInput
 } from "@pp/shared"
+import type { ProjectScope } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 
 import type { MarkdownError } from "../markdown/Markdown"
 
 export interface TagsShape {
-  readonly list: (
-    orgSlug: string,
-    userId: string,
-    slug: string
-  ) => Effect.Effect<ReadonlyArray<Tag>, NotFound>
+  readonly list: () => Effect.Effect<ReadonlyArray<Tag>, never, ProjectScope>
   readonly listPaged: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     cursor: CursorPayload | undefined,
     limit: number
   ) => Effect.Effect<
     { items: ReadonlyArray<Tag>; nextCursor: string | null },
-    NotFound
+    never,
+    ProjectScope
   >
   readonly create: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     input: CreateTagInput
-  ) => Effect.Effect<Tag, NotFound | Forbidden | Conflict>
+  ) => Effect.Effect<Tag, NotFound | Conflict, ProjectScope>
   readonly update: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     name: string,
     patch: UpdateTagInput
-  ) => Effect.Effect<Tag, NotFound | Forbidden | Conflict | MarkdownError>
+  ) => Effect.Effect<Tag, NotFound | Conflict | MarkdownError, ProjectScope>
   readonly remove: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     name: string
-  ) => Effect.Effect<void, NotFound | Forbidden | MarkdownError>
+  ) => Effect.Effect<void, NotFound | MarkdownError, ProjectScope>
 }
 
 export class Tags extends Context.Service<Tags, TagsShape>()(

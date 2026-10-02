@@ -1,51 +1,29 @@
 import { Attachments } from "@pp/server-core/attachments/Attachments"
-import { AppApi, CurrentUser } from "@pp/shared"
+import { AppApi } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
+
+import { dieOnMarkdown } from "./lib"
 
 export const AttachmentsHandlerLive = HttpApiBuilder.group(
   AppApi,
   "attachments",
   (handlers) =>
     handlers
-      .handle("prepareProject", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const attachments = yield* Attachments
-          return yield* attachments.prepare(
-            params.orgSlug,
-            params.slug,
-            null,
-            user.id,
-            payload
-          )
-        })
+      .handle("prepareProject", ({ payload }) =>
+        Effect.flatMap(Attachments, (attachments) =>
+          attachments.prepare(null, payload)
+        ).pipe(dieOnMarkdown)
       )
       .handle("commitProject", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const attachments = yield* Attachments
-          return yield* attachments.commit(
-            params.orgSlug,
-            params.slug,
-            null,
-            user.id,
-            params.attachmentId
-          )
-        })
+        Effect.flatMap(Attachments, (attachments) =>
+          attachments.commit(null, params.attachmentId)
+        ).pipe(dieOnMarkdown)
       )
       .handle("prepare", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const attachments = yield* Attachments
-          return yield* attachments.prepare(
-            params.orgSlug,
-            params.slug,
-            params.id,
-            user.id,
-            payload
-          )
-        })
+        Effect.flatMap(Attachments, (attachments) =>
+          attachments.prepare(params.id, payload)
+        ).pipe(dieOnMarkdown)
       )
       .handle("list", ({ query }) =>
         Effect.flatMap(Attachments, (attachments) =>
@@ -63,16 +41,8 @@ export const AttachmentsHandlerLive = HttpApiBuilder.group(
         )
       )
       .handle("commit", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const attachments = yield* Attachments
-          return yield* attachments.commit(
-            params.orgSlug,
-            params.slug,
-            params.id,
-            user.id,
-            params.attachmentId
-          )
-        })
+        Effect.flatMap(Attachments, (attachments) =>
+          attachments.commit(params.id, params.attachmentId)
+        ).pipe(dieOnMarkdown)
       )
 )

@@ -66,7 +66,8 @@ const project = {
   },
   body: "",
   members: [],
-  pendingMembers: []
+  pendingMembers: [],
+  permissions: {}
 } as unknown as ProjectDetail
 
 it("renders the project tile as a display-only element, not an interactive trigger", () => {

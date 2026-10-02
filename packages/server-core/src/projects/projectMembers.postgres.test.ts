@@ -2,7 +2,13 @@ import { randomUUID } from "node:crypto"
 
 import { it } from "@effect/vitest"
 import { migrationsFolder } from "@pp/db"
-import { Slug } from "@pp/shared"
+import {
+  CurrentUser,
+  NotFound,
+  ProjectScope,
+  Slug,
+  Validation
+} from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as Effect from "effect/Effect"
@@ -11,6 +17,9 @@ import * as Schema from "effect/Schema"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
+import { Access } from "../access/Access"
+import { testUser } from "../access/testing"
+import { MalformedTicketDocument } from "../tickets/TicketDocs"
 import type { TicketIndex } from "../tickets/TicketIndex"
 import { Projects } from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
@@ -26,15 +35,26 @@ describe.skipIf(!databaseUrl)("project members", () => {
   const second = randomUUID()
   const developer = randomUUID()
   const users = [pm, second, developer]
+  const admin = randomUUID()
   let pool: Pool
-  let projectsLayer: Layer.Layer<Projects | TicketIndex>
+  let projectsLayer: Layer.Layer<Projects | TicketIndex | Access>
+  const unassignAttempts: Array<string> = []
 
-  const run = <A, E>(
-    f: (projects: Projects["Service"]) => Effect.Effect<A, E>
-  ) => Effect.flatMap(Projects, f).pipe(Effect.provide(projectsLayer))
+  const run =
+    (as: string) =>
+    <A, E, R>(f: (projects: Projects["Service"]) => Effect.Effect<A, E, R>) =>
+      Effect.flatMap(Projects, f).pipe(
+        Effect.provideServiceEffect(
+          ProjectScope,
+          Effect.flatMap(Access, (access) =>
+            access.project(orgSlug, slug)
+          ).pipe(Effect.provideService(CurrentUser, testUser(as)))
+        ),
+        Effect.provide(projectsLayer)
+      )
 
   const roles = () =>
-    run((projects) => projects.get(orgSlug, pm, slug)).pipe(
+    run(pm)((projects) => projects.get()).pipe(
       Effect.map((detail) =>
         Object.fromEntries(detail.members.map((m) => [m.id, m.role]))
       )
@@ -51,7 +71,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
     }
     pool = new Pool({ connectionString: databaseUrl })
     await migrate(drizzle({ client: pool }), { migrationsFolder })
-    for (const id of users) {
+    for (const id of [...users, admin]) {
       await pool.query(
         'INSERT INTO "user" (id,name,email,created_at,updated_at) VALUES ($1,$1,$2,now(),now())',
         [id, `${id}@example.test`]
@@ -61,10 +81,13 @@ describe.skipIf(!databaseUrl)("project members", () => {
       "INSERT INTO organization (id,name,slug,created_at) VALUES ($1,$1,$2,now())",
       [organizationId, orgSlug]
     )
-    for (const id of users) {
+    for (const [id, role] of [
+      ...users.map((id) => [id, "member"] as const),
+      [admin, "admin"] as const
+    ]) {
       await pool.query(
-        "INSERT INTO member (id,organization_id,user_id,role,created_at) VALUES ($1,$2,$3,'member',now())",
-        [randomUUID(), organizationId, id]
+        "INSERT INTO member (id,organization_id,user_id,role,created_at) VALUES ($1,$2,$3,$4,now())",
+        [randomUUID(), organizationId, id, role]
       )
     }
     await pool.query(
@@ -76,34 +99,53 @@ describe.skipIf(!databaseUrl)("project members", () => {
       [projectId, organizationId, pm]
     )
 
-    projectsLayer = projectsOnPostgres(databaseUrl, users)
+    projectsLayer = projectsOnPostgres(databaseUrl, [...users, admin], {
+      update: (orgSlug, projectSlug, ticketId) =>
+        Effect.suspend(
+          (): Effect.Effect<never, MalformedTicketDocument | NotFound> => {
+            unassignAttempts.push(ticketId)
+            return ticketId === "MEM-901"
+              ? Effect.fail(
+                  new MalformedTicketDocument({
+                    orgSlug,
+                    slug: projectSlug,
+                    ticketId,
+                    path: `${ticketId}.md`,
+                    reason: "frontmatter",
+                    cause: null
+                  })
+                )
+              : Effect.fail(new NotFound())
+          }
+        )
+    })
   })
 
   afterAll(async () => {
     if (pool) {
       await pool.query("DELETE FROM organization WHERE id=$1", [organizationId])
-      await pool.query('DELETE FROM "user" WHERE id = ANY($1)', [users])
+      await pool.query('DELETE FROM "user" WHERE id = ANY($1)', [
+        [...users, admin]
+      ])
       await pool.end()
     }
   })
 
   it.effect("adds org members as developer and promotes them to pm", () =>
     Effect.gen(function* () {
-      yield* run((projects) =>
-        projects.addMember(orgSlug, pm, slug, {
+      yield* run(pm)((projects) =>
+        projects.addMember({
           email: `${developer}@example.test`,
           role: "developer"
         })
       )
-      yield* run((projects) =>
-        projects.addMember(orgSlug, pm, slug, {
+      yield* run(pm)((projects) =>
+        projects.addMember({
           email: `${second}@example.test`,
           role: "developer"
         })
       )
-      yield* run((projects) =>
-        projects.updateMember(orgSlug, pm, slug, second, "pm")
-      )
+      yield* run(pm)((projects) => projects.updateMember(second, "pm"))
       expect(yield* roles()).toStrictEqual({
         [pm]: "pm",
         [second]: "pm",
@@ -112,51 +154,153 @@ describe.skipIf(!databaseUrl)("project members", () => {
     })
   )
 
-  it.effect("keeps developers out of member management", () =>
-    Effect.gen(function* () {
-      const error = yield* Effect.flip(
-        run((projects) =>
-          projects.updateMember(orgSlug, developer, slug, second, "developer")
+  it.effect(
+    "lets an org admin without a project role read the project and manage its members",
+    () =>
+      Effect.gen(function* () {
+        const detail = yield* run(admin)((projects) => projects.get())
+        expect(detail.members.map((member) => member.id)).not.toContain(admin)
+        expect(detail.permissions).toMatchObject({
+          ticket: ["read"],
+          members: ["manage"]
+        })
+        yield* run(admin)((projects) =>
+          projects.updateMember(developer, "client")
         )
+        expect((yield* roles())[developer]).toBe("client")
+        yield* run(admin)((projects) =>
+          projects.updateMember(developer, "developer")
+        )
+      })
+  )
+
+  it.effect("lets a developer edit the project docs but not its settings", () =>
+    Effect.gen(function* () {
+      const edited = yield* run(developer)((projects) =>
+        projects.update({ body: "# About\n\nWritten by a developer.\n" })
       )
-      expect(error._tag).toBe("Forbidden")
+      expect(edited.body).toContain("Written by a developer.")
+      const refused = [
+        yield* Effect.flip(
+          run(developer)((projects) => projects.update({ name: "Renamed" }))
+        ),
+        yield* Effect.flip(
+          run(developer)((projects) =>
+            projects.update({ body: "# About\n", name: "Renamed" })
+          )
+        )
+      ]
+      expect(refused.map((error) => error._tag)).toStrictEqual([
+        "Forbidden",
+        "Forbidden"
+      ])
+    })
+  )
+
+  it.effect("lets an org admin add themselves as pm, edit, and leave", () =>
+    Effect.gen(function* () {
+      yield* run(admin)((projects) =>
+        projects.addMember({ email: `${admin}@example.test`, role: "pm" })
+      )
+      const renamed = yield* run(admin)((projects) =>
+        projects.update({ name: "Renamed by admin" })
+      )
+      expect(renamed.name).toBe("Renamed by admin")
+      yield* run(admin)((projects) => projects.leave())
+      expect((yield* roles())[admin]).toBeUndefined()
+    })
+  )
+
+  it.effect("hides GitHub from a client's project detail", () =>
+    Effect.gen(function* () {
+      yield* run(pm)((projects) => projects.updateMember(developer, "client"))
+      const detail = yield* run(developer)((projects) => projects.get())
+      expect(detail.github).toBeNull()
+      expect(detail.permissions.github).toBeUndefined()
+      yield* run(pm)((projects) =>
+        projects.updateMember(developer, "developer")
+      )
     })
   )
 
   it.effect("lets a pm step down while another pm remains", () =>
     Effect.gen(function* () {
-      yield* run((projects) =>
-        projects.updateMember(orgSlug, second, slug, pm, "developer")
+      const stepped = yield* run(pm)((projects) =>
+        projects.updateMember(pm, "developer")
       )
-      yield* run((projects) =>
-        projects.updateMember(orgSlug, second, slug, pm, "pm")
-      )
-      yield* run((projects) => projects.removeMember(orgSlug, pm, slug, second))
+      expect(stepped.permissions.members).toBeUndefined()
+      yield* run(second)((projects) => projects.updateMember(pm, "pm"))
+      yield* run(pm)((projects) => projects.removeMember(second))
       expect((yield* roles())[pm]).toBe("pm")
     })
   )
 
-  it.effect("never demotes or removes the last pm", () =>
+  it.effect("never demotes the last pm or lets them leave", () =>
     Effect.gen(function* () {
       const demote = yield* Effect.flip(
-        run((projects) =>
-          projects.updateMember(orgSlug, pm, slug, pm, "developer")
-        )
+        run(pm)((projects) => projects.updateMember(pm, "developer"))
       )
-      const remove = yield* Effect.flip(
-        run((projects) => projects.removeMember(orgSlug, pm, slug, pm))
-      )
+      const leave = yield* Effect.flip(run(pm)((projects) => projects.leave()))
       expect(demote).toMatchObject({
         _tag: "LastProjectPmBlocked",
         projectSlugs: [slug]
       })
-      expect(remove).toMatchObject({ _tag: "LastProjectPmBlocked" })
+      expect(leave).toMatchObject({ _tag: "LastProjectPmBlocked" })
+      expect((yield* roles())[pm]).toBe("pm")
+    })
+  )
+
+  it.effect("sends removing yourself through leave", () =>
+    Effect.gen(function* () {
+      const refused = yield* Effect.flip(
+        run(developer)((projects) => projects.removeMember(developer))
+      )
+      expect(refused).toStrictEqual(new Validation({ reason: "remove_self" }))
+      expect((yield* roles())[developer]).toBe("developer")
+    })
+  )
+
+  it.effect(
+    "tells someone without a project role there is nothing to leave",
+    () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(
+          run(admin)((projects) => projects.leave())
+        )
+        expect(error._tag).toBe("NotFound")
+      })
+  )
+
+  it.effect("finishes leaving when a ticket can't be unassigned", () =>
+    Effect.gen(function* () {
+      yield* Effect.promise(() =>
+        pool.query(
+          "INSERT INTO ticket_index (organization_id,project_id,ticket_id,title,status,type,priority,assignees,created_by,created_at,updated_at) VALUES ($1,$2,'MEM-901','Broken','todo','feat','med',ARRAY[$3],$3,now(),now()), ($1,$2,'MEM-902','Fine','todo','feat','med',ARRAY[$3],$3,now(),now())",
+          [organizationId, projectId, developer]
+        )
+      )
+      unassignAttempts.length = 0
+      yield* run(developer)((projects) => projects.leave())
+      expect((yield* roles())[developer]).toBeUndefined()
+      expect(unassignAttempts).toContain("MEM-901")
+      yield* run(pm)((projects) =>
+        projects.addMember({
+          email: `${developer}@example.test`,
+          role: "developer"
+        })
+      )
+      yield* Effect.promise(() =>
+        pool.query(
+          "DELETE FROM ticket_index WHERE project_id = $1 AND ticket_id IN ('MEM-901','MEM-902')",
+          [projectId]
+        )
+      )
     })
   )
 
   it.effect("ends project access when the org membership goes", () =>
     Effect.gen(function* () {
-      yield* run((projects) => projects.requireMember(orgSlug, developer, slug))
+      yield* run(developer)((projects) => projects.key())
       yield* Effect.promise(() =>
         pool.query(
           "DELETE FROM member WHERE organization_id=$1 AND user_id=$2",
@@ -164,7 +308,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
         )
       )
       const error = yield* Effect.flip(
-        run((projects) => projects.requireMember(orgSlug, developer, slug))
+        run(developer)((projects) => projects.key())
       )
       expect(error._tag).toBe("NotFound")
     })

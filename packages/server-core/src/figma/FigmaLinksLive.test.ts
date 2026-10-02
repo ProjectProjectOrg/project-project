@@ -3,11 +3,14 @@ import { it } from "@effect/vitest"
 import { Db } from "@pp/db"
 import { relations } from "@pp/db/schema"
 import {
+  CurrentUser,
   FigmaAuthInvalid,
   FigmaError,
   FigmaNotConnected,
-  NotFound,
-  StorageNotConnected
+  type OrgRole,
+  type Role,
+  StorageNotConnected,
+  type ProjectScopeShape
 } from "@pp/shared"
 import { makeWithDefaults } from "drizzle-orm/effect-postgres"
 import * as DateTime from "effect/DateTime"
@@ -16,8 +19,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { describe, expect, vi } from "vitest"
 
-import { CurrentOrg } from "../organizations/CurrentOrg"
-import { Projects } from "../projects/Projects"
+import { accessLayer, projectScope, testUser } from "../access/testing"
 import { OrgStorage } from "../storage/OrgStorage"
 import { S3Storage } from "../storage/S3Storage"
 import { Figma } from "./Figma"
@@ -312,28 +314,26 @@ const failingDb = () => {
   )
 }
 
-const harness = (input: {
-  readonly db: TestDb
-  readonly credential?: Effect.Effect<
-    never,
-    FigmaAuthInvalid | FigmaNotConnected
-  >
-  readonly figma?: Partial<Record<string, unknown>>
-  readonly storage?: Effect.Effect<unknown, FigmaError | StorageNotConnected>
-  readonly currentOrg?: Effect.Effect<unknown, NotFound>
-  readonly projectMember?: Effect.Effect<unknown, NotFound>
-  readonly markProjectCredentialRejected?: (
+type HarnessInput = Readonly<{
+  db: TestDb
+  credential?: Effect.Effect<never, FigmaAuthInvalid | FigmaNotConnected>
+  figma?: Partial<Record<string, unknown>>
+  storage?: Effect.Effect<unknown, FigmaError | StorageNotConnected>
+  viewer?: ProjectScopeShape
+  markProjectCredentialRejected?: (
     orgSlug: string,
     slug: string,
     reason: string
   ) => Effect.Effect<void>
-}) =>
+}>
+
+const harness = (input: HarnessInput) =>
   FigmaLinksLive.pipe(
     Layer.provide(Layer.succeed(Db, input.db as never)),
     Layer.provide(
-      Layer.succeed(CurrentOrg, {
-        resolve: () => input.currentOrg ?? Effect.fail(new NotFound())
-      } as never)
+      accessLayer({
+        projects: input.viewer === undefined ? [] : [input.viewer]
+      })
     ),
     Layer.provide(
       Layer.succeed(FigmaIntegrations, {
@@ -358,11 +358,7 @@ const harness = (input: {
           input.storage ?? Effect.fail(new FigmaError({ reason: "no storage" }))
       } as never)
     ),
-    Layer.provide(
-      Layer.succeed(Projects, {
-        requireMember: () => input.projectMember ?? Effect.fail(new NotFound())
-      } as never)
-    ),
+
     Layer.provide(
       Layer.succeed(S3Storage, {
         presignPut: () => Effect.succeed("https://signed.example/put"),
@@ -877,16 +873,24 @@ describe("reconcileTicket dev mode backlink", () => {
   )
 })
 
+const viewerAs = (orgRole: OrgRole, role: Role | null) =>
+  projectScope(orgRole, role, { orgSlug: "acme", slug: "web" })
+
 describe("resolveThumbnailUrl", () => {
   const resolve = (layer: Layer.Layer<FigmaLinks>) =>
     FigmaLinks.pipe(
       Effect.flatMap((links) =>
-        Effect.exit(links.resolveThumbnailUrl("acme", "user-1", "link-1"))
+        Effect.exit(links.resolveThumbnailUrl("acme", "link-1"))
       ),
-      Effect.provide(layer)
+      Effect.provide(layer),
+      Effect.provideService(CurrentUser, testUser("user-1"))
     )
 
-  it.effect("gives a project member a freshly signed thumbnail URL", () =>
+  it.effect.each([
+    ["a developer", viewerAs("member", "developer")],
+    ["a client", viewerAs("guest", "client")],
+    ["an org admin without a project role", viewerAs("admin", null)]
+  ] as const)("gives %s a freshly signed thumbnail URL", ([, viewer]) =>
     Effect.gen(function* () {
       const { db } = yield* proxyDb((sql) =>
         sql.includes('from "figma_link_index"')
@@ -894,11 +898,7 @@ describe("resolveThumbnailUrl", () => {
           : []
       )
       const exit = yield* resolve(
-        harness({
-          db,
-          projectMember: Effect.succeed({} as never),
-          storage: Effect.succeed({} as never)
-        })
+        harness({ db, viewer, storage: Effect.succeed({} as never) })
       )
       expect(exit._tag).toBe("Success")
       if (exit._tag === "Success") {
@@ -908,7 +908,7 @@ describe("resolveThumbnailUrl", () => {
   )
 
   it.effect(
-    "refuses an org member who is not a member of the referencing project",
+    "hides the thumbnail from anyone without access to a referencing project",
     () =>
       Effect.gen(function* () {
         const { db } = yield* proxyDb((sql) =>
@@ -916,43 +916,12 @@ describe("resolveThumbnailUrl", () => {
             ? [["thumb-key.png", "web"]]
             : []
         )
-        const exit = yield* resolve(
-          harness({
-            db,
-            projectMember: Effect.fail(new NotFound()),
-            currentOrg: Effect.succeed({
-              organizationId: "org-1",
-              orgSlug: "acme",
-              role: "member"
-            })
-          })
-        )
+        const exit = yield* resolve(harness({ db }))
         expect(exit._tag).toBe("Failure")
         if (exit._tag === "Failure") {
-          expect(exit.cause.toString()).toContain("Forbidden")
+          expect(exit.cause.toString()).toContain("NotFound")
         }
       })
-  )
-
-  it.effect("refuses a user who is not a member of the org at all", () =>
-    Effect.gen(function* () {
-      const { db } = yield* proxyDb((sql) =>
-        sql.includes('from "figma_link_index"')
-          ? [["thumb-key.png", "web"]]
-          : []
-      )
-      const exit = yield* resolve(
-        harness({
-          db,
-          projectMember: Effect.fail(new NotFound()),
-          currentOrg: Effect.fail(new NotFound())
-        })
-      )
-      expect(exit._tag).toBe("Failure")
-      if (exit._tag === "Failure") {
-        expect(exit.cause.toString()).toContain("NotFound")
-      }
-    })
   )
 
   it.effect("404s cleanly when the link has no cached thumbnail yet", () =>
@@ -961,7 +930,7 @@ describe("resolveThumbnailUrl", () => {
         sql.includes('from "figma_link_index"') ? [[null, "web"]] : []
       )
       const exit = yield* resolve(
-        harness({ db, projectMember: Effect.succeed({} as never) })
+        harness({ db, viewer: viewerAs("member", "developer") })
       )
       expect(exit._tag).toBe("Failure")
       if (exit._tag === "Failure") {
@@ -982,7 +951,7 @@ describe("resolveThumbnailUrl", () => {
         const exit = yield* resolve(
           harness({
             db,
-            projectMember: Effect.succeed({} as never),
+            viewer: viewerAs("member", "developer"),
             storage: Effect.fail(new StorageNotConnected())
           })
         )

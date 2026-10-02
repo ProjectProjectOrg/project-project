@@ -7,6 +7,7 @@ import {
   UserId,
   encodeCursor,
   padNumericIdSort,
+  ProjectScope,
   TagName,
   TicketId,
   TicketStatus,
@@ -20,6 +21,7 @@ import * as Schema from "effect/Schema"
 import pg from "pg"
 import { describe, expect } from "vitest"
 
+import { projectScope } from "../access/testing"
 import { Comments } from "../comments/Comments"
 import { serializeCommentsRegion } from "../comments/comments-region"
 import { CommentsLive } from "../comments/CommentsLive"
@@ -307,10 +309,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       Layer.provide(
         Layer.mergeAll(
           ticketDocs,
-          Layer.mock(Projects, {
-            requireMember: () =>
-              Effect.succeed({ role: "developer" as const, projectId })
-          }),
+          Layer.mock(Projects, {}),
           Layer.mock(TicketIndex, {}),
           Layer.mock(Users, {
             fullByIds: () => Effect.succeed([author])
@@ -410,13 +409,20 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
 
       const listed = yield* Effect.gen(function* () {
         const comments = yield* Comments
-        return yield* comments.list(
-          orgSlug,
-          userId,
-          projectSlug,
-          rebuildDocument.id
+        return yield* comments.list(rebuildDocument.id)
+      }).pipe(
+        Effect.provide(commentsLayer),
+        Effect.provideService(
+          ProjectScope,
+          projectScope("member", "developer", {
+            userId,
+            organizationId,
+            orgSlug,
+            slug: projectSlug,
+            projectId
+          })
         )
-      }).pipe(Effect.provide(commentsLayer))
+      )
       expect(listed).toEqual([
         {
           id: nativeId,

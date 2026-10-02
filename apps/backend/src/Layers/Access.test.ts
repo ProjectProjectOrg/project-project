@@ -138,7 +138,10 @@ const AuthenticationStub = Layer.succeed(Authentication, {
     Effect.provideService(httpEffect, CurrentUser, user)
 })
 
-type Scopes = Readonly<{ org?: OrgScopeShape; project?: ProjectScopeShape }>
+type Scopes = Readonly<{
+  org?: OrgScopeShape
+  projects?: ReadonlyArray<ProjectScopeShape>
+}>
 
 type Reply = Readonly<{ status: number; body: string }>
 
@@ -260,7 +263,7 @@ describe("ProjectAccess", () => {
   it.effect("provides the caller's project scope to the handler", () =>
     Effect.gen(function* () {
       const reply = yield* send(
-        { project: projectScope("member", "client") },
+        { projects: [projectScope("member", "client")] },
         "GET",
         "/orgs/acme/projects/website/read"
       )
@@ -274,7 +277,7 @@ describe("ProjectAccess", () => {
   it.effect("hides a project the caller cannot see", () =>
     Effect.gen(function* () {
       const reply = yield* send(
-        { project: projectScope("member", "pm") },
+        { projects: [projectScope("member", "pm")] },
         "GET",
         "/orgs/acme/projects/other/read"
       )
@@ -285,12 +288,12 @@ describe("ProjectAccess", () => {
   it.effect("checks the endpoint's grants against the project role", () =>
     Effect.gen(function* () {
       const pm = yield* send(
-        { project: projectScope("member", "pm") },
+        { projects: [projectScope("member", "pm")] },
         "DELETE",
         "/orgs/acme/projects/website/remove"
       )
       const developer = yield* send(
-        { project: projectScope("member", "developer") },
+        { projects: [projectScope("member", "developer")] },
         "DELETE",
         "/orgs/acme/projects/website/remove"
       )

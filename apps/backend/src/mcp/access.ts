@@ -4,7 +4,9 @@ import {
   Forbidden,
   OrgScope,
   permits,
-  type OrgRequirement
+  ProjectScope,
+  type OrgRequirement,
+  type ProjectRequirement
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 
@@ -23,4 +25,21 @@ export const orgTool =
         return yield* new Forbidden()
       }
       return yield* handler(input).pipe(Effect.provideService(OrgScope, scope))
+    }).pipe(Effect.provideServiceEffect(CurrentUser, McpCurrentUser))
+
+export const projectTool =
+  <I extends Readonly<{ orgSlug: string; projectSlug: string }>, A, E, R>(
+    requirement: ProjectRequirement,
+    handler: (input: I) => Effect.Effect<A, E, R>
+  ) =>
+  (input: I) =>
+    Effect.gen(function* () {
+      const access = yield* Access
+      const scope = yield* access.project(input.orgSlug, input.projectSlug)
+      if (!permits(scope.permissions, requirement)) {
+        return yield* new Forbidden()
+      }
+      return yield* handler(input).pipe(
+        Effect.provideService(ProjectScope, scope)
+      )
     }).pipe(Effect.provideServiceEffect(CurrentUser, McpCurrentUser))

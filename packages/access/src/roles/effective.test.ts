@@ -13,7 +13,7 @@ const grantsOf = (
   projectRole: Project.ProjectRoleName | null
 ) =>
   Option.map(
-    Effective.projectPermissions(orgRole, projectRole),
+    Effective.roleOnProject(orgRole, projectRole),
     (role) => role.grants
   )
 
@@ -27,7 +27,7 @@ const orgAdminExtras: Grants = {
   project: ["archive", "delete"]
 }
 
-describe("projectPermissions", () => {
+describe("roleOnProject", () => {
   it("hides the project from org members and guests without a project role", () => {
     expect(grantsOf("member", null)).toStrictEqual(Option.none())
     expect(grantsOf("guest", null)).toStrictEqual(Option.none())
@@ -42,13 +42,13 @@ describe("projectPermissions", () => {
   })
 
   it("lets an org admin without a project role change nothing but members and the project's lifecycle", () => {
-    const role = Option.getOrThrow(Effective.projectPermissions("admin", null))
+    const role = Option.getOrThrow(Effective.roleOnProject("admin", null))
     expect(
       role.can(
         {
           ticket: ["create", "update", "transition", "assign", "delete"],
           comment: ["create"],
-          sprint: ["manage"],
+          sprint: ["manage", "add_ticket", "remove_ticket", "reorder"],
           epic: ["manage"],
           workflow: ["manage"],
           library: ["manage"],
