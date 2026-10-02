@@ -24,9 +24,7 @@ import { createHmac, timingSafeEqual } from "node:crypto"
 //
 //   - `/api/auth/*` — handed off to Better Auth's own request handler,
 //                     mounted as a raw web app (it has its own routing,
-//                     schemas, and cookie management). Its
-//                     `/organization/*` endpoints are closed: org changes go
-//                     through our HttpApi, which calls `auth.api.*`.
+//                     schemas, and cookie management).
 //   - `/api/integrations/github/*` — GitHub App setup, OAuth callback, and
 //                                    webhook endpoints.
 //   - `/api/*`      — handled by the typed HttpApi pipeline (`/api/me`,
