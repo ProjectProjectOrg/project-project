@@ -322,7 +322,11 @@ export const jiraDestinationConflicts = (
     )
   ].toSorted()
   return [
-    ...(otherProjects.some(({ slug }) => slug === input.destination.slug)
+    ...(otherProjects.some(
+      ({ organizationId, slug }) =>
+        organizationId === input.organizationId &&
+        slug === input.destination.slug
+    )
       ? [{ kind: "project_slug" as const, value: input.destination.slug }]
       : []),
     ...(otherProjects.some(

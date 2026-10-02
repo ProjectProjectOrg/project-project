@@ -132,7 +132,9 @@ const fixture = Effect.fn("attachmentFixture")(function* (
   yield* Effect.addFinalizer(() =>
     db.delete(organization).where(eq(organization.id, slug)).pipe(Effect.orDie)
   )
+  const projectId = randomUUID()
   yield* db.insert(projectIndex).values({
+    id: projectId,
     slug,
     organizationId: slug,
     key: "T",
@@ -148,7 +150,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
       expect([orgSlug, userId, projectSlug]).toEqual([slug, user.id, slug])
       return options.denied
         ? Effect.fail(new NotFound())
-        : Effect.succeed({ role: "developer" as const })
+        : Effect.succeed({ role: "developer" as const, projectId })
     }
   })
   const dependencies = Layer.mergeAll(
@@ -464,7 +466,7 @@ describe.skipIf(!databaseUrl)("MCP attachment upload with Postgres", () => {
       }).pipe(Effect.scoped, Effect.provide(dbLayer))
   )
 
-  it.effect.each(["orgSlug", "projectSlug", "ticketId", "uploadedBy"] as const)(
+  it.effect.each(["orgSlug", "projectId", "ticketId", "uploadedBy"] as const)(
     "rejects an attachment outside the grant's %s before reading bytes",
     (field) =>
       Effect.gen(function* () {
@@ -473,7 +475,7 @@ describe.skipIf(!databaseUrl)("MCP attachment upload with Postgres", () => {
         const db = yield* Db.Db
         yield* db
           .update(attachmentIndex)
-          .set({ [field]: "foreign-scope" })
+          .set({ [field]: field === "projectId" ? null : "foreign-scope" })
           .where(eq(attachmentIndex.id, prepared.id))
         expect(
           (yield* Effect.flip(

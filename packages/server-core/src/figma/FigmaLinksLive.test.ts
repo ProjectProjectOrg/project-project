@@ -240,7 +240,11 @@ const effectDb = (
 ) => {
   const client = {
     unsafe: (sql: string, params: ReadonlyArray<unknown>) => {
-      const run = Effect.sync(() => execute(sql, params))
+      const run = Effect.sync(() =>
+        sql.startsWith("select") && sql.includes('from "project_index"')
+          ? [["project-1", "org-1"]]
+          : execute(sql, params)
+      )
       return { values: run, withoutTransform: run, raw: run }
     },
     withTransaction: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect
@@ -547,7 +551,7 @@ describe("reconcileTicket link index lookup", () => {
           sql.startsWith("select") && sql.includes('from "figma_link_index"')
       )
       expect(lookup).toContain('"node_id" = ')
-      expect(lookup).toContain('"project_slug" = ')
+      expect(lookup).toContain('"project_id" = ')
     })
   )
 
@@ -565,7 +569,7 @@ describe("reconcileTicket link index lookup", () => {
           sql.startsWith('insert into "figma_link_index"')
         )
         expect(insert).toContain(
-          'on conflict ("project_slug","file_key","node_id") do update set'
+          'on conflict ("project_id","file_key","node_id") do update set'
         )
       })
   )

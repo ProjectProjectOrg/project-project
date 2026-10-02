@@ -355,7 +355,8 @@ const FakeProjects = Layer.succeed(Projects, {
   update: () => unexpected("Projects.update"),
   updateSetup: () => unexpected("Projects.updateSetup"),
   remove: () => unexpected("Projects.remove"),
-  requireMember: () => Effect.succeed({ role: "developer" as const }),
+  requireMember: () =>
+    Effect.succeed({ role: "developer" as const, projectId: "project-1" }),
   requireRole: () => unexpected("Projects.requireRole"),
   addMember: () => unexpected("Projects.addMember"),
   updateMember: () => unexpected("Projects.updateMember"),
@@ -509,13 +510,13 @@ const seedFixture = async (
     )
     await client.query(
       `insert into ticket_index
-         (organization_id, org_slug, project_id, project_slug, ticket_id,
+         (organization_id, project_id, ticket_id,
           title, status, type, priority, tags, assignees, branch, pr,
           pr_state, last_transitioned_pr, archived_at, created_by, created_at,
           updated_at)
-       select $1, $2, $3, $4, 'T-' || value,
+       select $1, $2, 'T-' || value,
           case
-            when value = $7 then 'Unique latency sentinel'
+            when value = $5 then 'Unique latency sentinel'
             when value % 10 = 0 then 'Performance benchmark ticket ' || value
             else 'Benchmark ticket ' || value
           end,
@@ -542,7 +543,7 @@ const seedFixture = async (
             else '{}'::text[]
           end,
           case
-            when value % 4 = 0 then array[$5]::text[]
+            when value % 4 = 0 then array[$3]::text[]
             when value % 7 = 0 then array['benchmark-user-2']::text[]
             else '{}'::text[]
           end,
@@ -561,18 +562,16 @@ const seedFixture = async (
                 + (value % 30) * interval '1 minute'
             else null
           end,
-          $5,
+          $3,
           '2026-01-01T00:00:00.000Z'::timestamptz
             + value * interval '1 second',
           '2026-01-01T00:00:00.000Z'::timestamptz
             + value * interval '1 second'
             + (value % 30) * interval '1 minute'
-       from generate_series(1, $6) as value`,
+       from generate_series(1, $4) as value`,
       [
         organizationId,
-        orgSlug,
         projectId,
-        projectSlug,
         userId,
         options.ticketCount,
         rareTicketNumber(options.ticketCount)

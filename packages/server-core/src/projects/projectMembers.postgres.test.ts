@@ -1,30 +1,21 @@
 import { randomUUID } from "node:crypto"
 
-import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
-import { DbLive, migrationsFolder } from "@pp/db"
-import { GitHub } from "@pp/server-core/github/GitHub"
-import { BannerPlaceholders } from "@pp/server-core/projects/BannerPlaceholders"
-import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
-import { Projects } from "@pp/server-core/projects/Projects"
-import { ProjectsLive } from "@pp/server-core/projects/ProjectsLive"
-import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
-import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
-import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
-import { Users } from "@pp/server-core/users/Users"
+import { migrationsFolder } from "@pp/db"
 import { Slug } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
-import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
-import * as Layer from "effect/Layer"
-import * as Redacted from "effect/Redacted"
+import type * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
+import type { TicketIndex } from "../tickets/TicketIndex"
+import { Projects } from "./Projects"
+import { projectsOnPostgres } from "./projectsOnPostgres"
+
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
-const unused = () => Effect.die(new Error("Unexpected dependency call"))
 
 describe.skipIf(!databaseUrl)("project members", () => {
   const organizationId = randomUUID()
@@ -36,7 +27,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
   const developer = randomUUID()
   const users = [pm, second, developer]
   let pool: Pool
-  let projectsLayer: Layer.Layer<Projects>
+  let projectsLayer: Layer.Layer<Projects | TicketIndex>
 
   const run = <A, E>(
     f: (projects: Projects["Service"]) => Effect.Effect<A, E>
@@ -85,87 +76,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
       [projectId, organizationId, pm]
     )
 
-    const db = DbLive.pipe(
-      Layer.provideMerge(
-        PgClient.layer({ url: Redacted.make(databaseUrl), maxConnections: 1 })
-      )
-    )
-    const docs = Layer.succeed(TicketDocs, {
-      listIds: () => Effect.succeed([]),
-      read: unused,
-      write: unused,
-      update: unused,
-      create: unused,
-      remove: unused,
-      readRaw: unused
-    })
-    projectsLayer = ProjectsLive.pipe(
-      Layer.provide(
-        TicketIndexLive.pipe(Layer.provide(db), Layer.provide(docs))
-      ),
-      Layer.provide(docs),
-      Layer.provide(TicketDocumentLock.layer),
-      Layer.provide(db),
-      Layer.provide(
-        Layer.succeed(BannerPlaceholders, {
-          ensure: (_org, _slug, current) => Effect.succeed(current)
-        })
-      ),
-      Layer.provide(
-        Layer.succeed(ProjectDocs, {
-          read: () =>
-            Effect.succeed({
-              slug,
-              name: "Members",
-              icon: "folder",
-              color: "#3b82f6",
-              createdAt: DateTime.toDateUtc(
-                DateTime.makeUnsafe("2026-09-24T00:00:00Z")
-              ),
-              github: null,
-              setup: {
-                workflowReviewedAt: null,
-                invitePeopleDismissedAt: null,
-                connectGithubDismissedAt: null
-              },
-              templateDefaults: {},
-              body: "Project body"
-            }),
-          write: () => Effect.void,
-          writeTemplateDefaults: unused,
-          removeDir: unused,
-          readRaw: unused
-        })
-      ),
-      Layer.provide(
-        Layer.succeed(Users, {
-          findByEmail: (email) =>
-            Effect.succeed(
-              users
-                .filter((id) => `${id}@example.test` === email)
-                .map((id) => ({ id, email, name: id, username: null }))[0] ??
-                null
-            ),
-          findManyByIds: unused,
-          fullByIds: unused
-        })
-      ),
-      Layer.provide(
-        Layer.succeed(GitHub, {
-          verifyInstallationRepo: unused,
-          getInstallationAccount: unused,
-          listInstallationRepos: unused,
-          exchangeAppUserCode: unused,
-          appUserCanAccessInstallation: unused,
-          createBranchAsUser: unused,
-          openPullRequestAsUser: unused,
-          fetchInstallationProjectStates: unused,
-          listInstallationBranches: unused,
-          branchExistsInstallation: unused
-        })
-      ),
-      Layer.orDie
-    )
+    projectsLayer = projectsOnPostgres(databaseUrl, users)
   })
 
   afterAll(async () => {

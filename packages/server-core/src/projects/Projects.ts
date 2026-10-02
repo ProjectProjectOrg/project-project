@@ -29,6 +29,7 @@ import type { MalformedTicketDocument } from "../tickets/TicketDocs"
 
 export interface ProjectMembership {
   readonly role: Role
+  readonly projectId: string
 }
 
 export interface ProjectGithubIntegration {

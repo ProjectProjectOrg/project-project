@@ -310,7 +310,7 @@ function makeFakeProjects(opts: { role?: Role } = {}) {
     create: () => unexpectedProjectCall("create"),
     getKey: () => unexpectedProjectCall("getKey"),
     getGithubIntegration: () => unexpectedProjectCall("getGithubIntegration"),
-    requireMember: () => Effect.succeed({ role }),
+    requireMember: () => Effect.succeed({ role, projectId: "project-1" }),
     requireRole: (
       _org: string,
       _userId: string,
@@ -318,7 +318,7 @@ function makeFakeProjects(opts: { role?: Role } = {}) {
       allowed: ReadonlyArray<Role>
     ) =>
       allowed.includes(role)
-        ? Effect.succeed({ role })
+        ? Effect.succeed({ role, projectId: "project-1" })
         : Effect.fail(new Forbidden()),
     get: () => Effect.succeed(makeProjectDetail(role)),
     update: () => unexpectedProjectCall("update"),
