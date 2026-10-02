@@ -196,10 +196,23 @@ async function unassignUserFromActiveTicketsOnDisk(
                 )
               )
             )
-          }),
-        { concurrency: 8 }
+          }).pipe(
+            Effect.catchCause((cause) =>
+              Effect.logWarning("unassign skipped a ticket", { file, cause })
+            )
+          ),
+        { concurrency: 8, discard: true }
       )
-    }).pipe(Effect.provide(BunServices.layer))
+    }).pipe(
+      Effect.catchCause((cause) =>
+        Effect.logWarning("unassign could not read a project's tickets", {
+          orgSlug,
+          projectSlug,
+          cause
+        })
+      ),
+      Effect.provide(BunServices.layer)
+    )
   )
 }
 
@@ -217,12 +230,29 @@ export async function unassignRemovedOrgMember(
   organizationId: string,
   userId: string
 ) {
-  const projects = await db
-    .select({ slug: projectIndex.slug })
-    .from(projectIndex)
-    .where(
-      and(eq(projectIndex.organizationId, organizationId), publishedProject())
+  const projects = await Effect.runPromise(
+    Effect.tryPromise(() =>
+      db
+        .select({ slug: projectIndex.slug })
+        .from(projectIndex)
+        .where(
+          and(
+            eq(projectIndex.organizationId, organizationId),
+            publishedProject()
+          )
+        )
+    ).pipe(
+      Effect.catchCause((cause) =>
+        Effect.as(
+          Effect.logWarning("unassign could not list the org's projects", {
+            orgSlug,
+            cause
+          }),
+          []
+        )
+      )
     )
+  )
   await Promise.all(
     projects.map((project) =>
       unassignUserFromActiveTicketsOnDisk(orgSlug, project.slug, userId)
