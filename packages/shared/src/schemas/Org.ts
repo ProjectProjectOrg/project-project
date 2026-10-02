@@ -1,11 +1,15 @@
+import { Org as OrgAccess } from "@pp/access/roles"
 import * as Schema from "effect/Schema"
 
 import { Slug } from "./Project"
 
 export const ORG_DELETE_GRACE_DAYS = 14
 
-export const OrgRole = Schema.Literals(["owner", "admin", "member"])
+export const OrgRole = OrgAccess.OrgRoleName
 export type OrgRole = typeof OrgRole.Type
+
+export const OrgPermissions = OrgAccess.orgStatement.schema
+export type OrgPermissions = typeof OrgPermissions.Type
 
 export const Org = Schema.Struct({
   slug: Slug,
@@ -19,6 +23,7 @@ export const OrgDetail = Schema.Struct({
   slug: Slug,
   name: Schema.String,
   role: OrgRole,
+  permissions: OrgPermissions,
   createdAt: Schema.DateFromString,
   deletedAt: Schema.NullOr(Schema.DateFromString),
   purgeAt: Schema.NullOr(Schema.DateFromString)

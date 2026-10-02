@@ -318,7 +318,9 @@ export const BetterAuthLive = Layer.effect(
             .select({ slug: organization.slug, role: member.role })
             .from(member)
             .innerJoin(organization, eq(member.organizationId, organization.id))
-            .where(eq(member.userId, userId))
+            .where(
+              and(eq(member.userId, userId), isNull(organization.deletedAt))
+            )
         )
         return yield* Effect.forEach(rows, (row) =>
           Schema.decodeEffect(
@@ -350,7 +352,9 @@ export const BetterAuthLive = Layer.effect(
                 organization,
                 eq(member.organizationId, organization.id)
               )
-              .where(eq(member.userId, userId))
+              .where(
+                and(eq(member.userId, userId), isNull(organization.deletedAt))
+              )
           )
           const orgs = yield* Effect.forEach(rows, (row) =>
             Schema.decodeEffect(Org)({
@@ -385,7 +389,11 @@ export const BetterAuthLive = Layer.effect(
             .from(member)
             .innerJoin(organization, eq(member.organizationId, organization.id))
             .where(
-              and(eq(member.userId, userId), eq(organization.slug, orgSlug))
+              and(
+                eq(member.userId, userId),
+                eq(organization.slug, orgSlug),
+                isNull(organization.deletedAt)
+              )
             )
             .limit(1)
         )
@@ -457,7 +465,7 @@ export const BetterAuthLive = Layer.effect(
         return yield* Schema.decodeEffect(OrgInvitation)({
           id: created.id,
           email: created.email,
-          role: collapseRole(created.role ?? ""),
+          role: collapseRole(created.role),
           status: "pending"
         }).pipe(Effect.orDie)
       }),
@@ -597,7 +605,7 @@ export const BetterAuthLive = Layer.effect(
                 id: invitation.id,
                 orgSlug: org.slug,
                 orgName: org.name,
-                role: collapseRole(invitation.role ?? ""),
+                role: collapseRole(invitation.role),
                 inviterEmail: inviterById.get(invitation.inviterId) ?? null,
                 expiresAt: invitation.expiresAt.toISOString(),
                 createdAt: invitation.createdAt.toISOString()
@@ -622,7 +630,7 @@ export const BetterAuthLive = Layer.effect(
           id: found.id,
           orgSlug: found.organizationSlug,
           orgName: found.organizationName,
-          role: collapseRole(found.role ?? ""),
+          role: collapseRole(found.role),
           inviterEmail: found.inviterEmail ?? null,
           expiresAt: found.expiresAt.toISOString(),
           createdAt: found.createdAt.toISOString()

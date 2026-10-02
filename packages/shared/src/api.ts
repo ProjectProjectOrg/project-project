@@ -24,6 +24,7 @@ import {
   OpenApi
 } from "effect/unstable/httpapi"
 
+import { IncludeDeletedOrg, OrgAccess, RequiresOrg } from "./access/OrgAccess"
 import { Authentication } from "./Authentication"
 import {
   AttachmentNotUploaded,
@@ -245,7 +246,7 @@ const AuthGroup = HttpApiGroup.make("auth")
   )
   .middleware(Authentication)
 
-const OrgPath = Schema.Struct({ orgSlug: Slug })
+export const OrgPath = Schema.Struct({ orgSlug: Slug })
 const OrgMemberPath = Schema.Struct({ orgSlug: Slug, userId: Schema.String })
 const OrgInvitationPath = Schema.Struct({
   orgSlug: Slug,
@@ -266,6 +267,9 @@ const OrgGroup = HttpApiGroup.make("org")
       success: OrgDetail,
       error: [Unauthorized, NotFound]
     })
+      .annotate(RequiresOrg, "membership")
+      .annotate(IncludeDeletedOrg, true)
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.post("softDelete", "/orgs/:orgSlug/soft-delete", {
@@ -273,6 +277,8 @@ const OrgGroup = HttpApiGroup.make("org")
       success: OrgDetail,
       error: [Unauthorized, NotFound, Forbidden]
     })
+      .annotate(RequiresOrg, { organization: ["delete"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.post("restore", "/orgs/:orgSlug/restore", {
@@ -280,6 +286,9 @@ const OrgGroup = HttpApiGroup.make("org")
       success: OrgDetail,
       error: [Unauthorized, NotFound, Forbidden, Conflict]
     })
+      .annotate(RequiresOrg, { organization: ["delete"] })
+      .annotate(IncludeDeletedOrg, true)
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.get("members", "/orgs/:orgSlug/members", {
@@ -287,6 +296,8 @@ const OrgGroup = HttpApiGroup.make("org")
       success: OrgMembers,
       error: [Unauthorized, NotFound]
     })
+      .annotate(RequiresOrg, { member: ["read"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.patch("rename", "/orgs/:orgSlug", {
@@ -295,6 +306,8 @@ const OrgGroup = HttpApiGroup.make("org")
       success: OrgDetail,
       error: [Unauthorized, NotFound, Forbidden]
     })
+      .annotate(RequiresOrg, { organization: ["update"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.post("inviteMember", "/orgs/:orgSlug/members", {
@@ -303,6 +316,8 @@ const OrgGroup = HttpApiGroup.make("org")
       success: OrgInvitation,
       error: [Unauthorized, NotFound, Forbidden, Validation, Conflict]
     })
+      .annotate(RequiresOrg, { invitation: ["create"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.patch(
@@ -315,6 +330,8 @@ const OrgGroup = HttpApiGroup.make("org")
         error: [Unauthorized, NotFound, Forbidden, Conflict]
       }
     )
+      .annotate(RequiresOrg, { member: ["update"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.delete("removeMember", "/orgs/:orgSlug/members/:userId", {
@@ -322,6 +339,8 @@ const OrgGroup = HttpApiGroup.make("org")
       success: HttpApiSchema.NoContent,
       error: [Unauthorized, NotFound, Forbidden, Conflict, LastProjectPmBlocked]
     })
+      .annotate(RequiresOrg, { member: ["delete"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.delete(
@@ -333,6 +352,8 @@ const OrgGroup = HttpApiGroup.make("org")
         error: [Unauthorized, NotFound, Forbidden]
       }
     )
+      .annotate(RequiresOrg, { invitation: ["cancel"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.post(
@@ -345,6 +366,8 @@ const OrgGroup = HttpApiGroup.make("org")
         error: [Unauthorized, NotFound, Forbidden, Validation]
       }
     )
+      .annotate(RequiresOrg, { organization: ["transfer"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.post("leave", "/orgs/:orgSlug/leave", {
@@ -352,6 +375,8 @@ const OrgGroup = HttpApiGroup.make("org")
       success: HttpApiSchema.NoContent,
       error: [Unauthorized, NotFound, Conflict, LastProjectPmBlocked]
     })
+      .annotate(RequiresOrg, "membership")
+      .middleware(OrgAccess)
   )
   .middleware(Authentication)
 
@@ -385,7 +410,7 @@ const InvitationsGroup = HttpApiGroup.make("invitations")
   )
   .middleware(Authentication)
 
-const ProjectPath = Schema.Struct({ orgSlug: Slug, slug: Slug })
+export const ProjectPath = Schema.Struct({ orgSlug: Slug, slug: Slug })
 const ProjectMemberPath = Schema.Struct({
   orgSlug: Slug,
   slug: Slug,
@@ -431,6 +456,8 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       success: Schema.Array(Project),
       error: [Unauthorized, NotFound]
     })
+      .annotate(RequiresOrg, "membership")
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.post("create", "/orgs/:orgSlug/projects", {
@@ -439,6 +466,8 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       success: Project,
       error: [Unauthorized, NotFound, Conflict]
     })
+      .annotate(RequiresOrg, { project: ["create"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/projects/:slug", {
@@ -483,6 +512,8 @@ const ProjectsGroup = HttpApiGroup.make("projects")
         error: [Unauthorized, NotFound]
       }
     )
+      .annotate(RequiresOrg, "membership")
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.post(
@@ -495,6 +526,8 @@ const ProjectsGroup = HttpApiGroup.make("projects")
         error: [Unauthorized, NotFound, Forbidden, GitHubError]
       }
     )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.get(
@@ -522,6 +555,8 @@ const ProjectsGroup = HttpApiGroup.make("projects")
         ]
       }
     )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.post("addMember", "/orgs/:orgSlug/projects/:slug/members", {
@@ -791,6 +826,8 @@ const EverhourGroup = HttpApiGroup.make("everhour")
         EverhourError
       ]
     })
+      .annotate(RequiresOrg, "membership")
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.get(
@@ -810,6 +847,8 @@ const EverhourGroup = HttpApiGroup.make("everhour")
         ]
       }
     )
+      .annotate(RequiresOrg, "membership")
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.post(
@@ -990,6 +1029,8 @@ const JiraMigrationsGroup = HttpApiGroup.make("jiraMigrations")
       success: Schema.Array(JiraMigrationSummary),
       error: JiraMigrationReadErrors
     })
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.post("create", "/orgs/:orgSlug/jira-migrations", {
@@ -998,6 +1039,8 @@ const JiraMigrationsGroup = HttpApiGroup.make("jiraMigrations")
       success: JiraMigrationAcceptedDetail,
       error: JiraMigrationWriteErrors
     })
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/jira-migrations/:migrationId", {
@@ -1005,6 +1048,8 @@ const JiraMigrationsGroup = HttpApiGroup.make("jiraMigrations")
       success: JiraMigrationDetail,
       error: JiraMigrationReadErrors
     })
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.get(
@@ -1022,6 +1067,8 @@ const JiraMigrationsGroup = HttpApiGroup.make("jiraMigrations")
         error: JiraMigrationWriteErrors
       }
     )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.get(
@@ -1033,6 +1080,8 @@ const JiraMigrationsGroup = HttpApiGroup.make("jiraMigrations")
         error: JiraMigrationReadErrors
       }
     )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.post(
@@ -1045,6 +1094,8 @@ const JiraMigrationsGroup = HttpApiGroup.make("jiraMigrations")
         error: JiraMigrationWriteErrors
       }
     )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.put(
@@ -1057,6 +1108,8 @@ const JiraMigrationsGroup = HttpApiGroup.make("jiraMigrations")
         error: JiraMigrationWriteErrors
       }
     )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.post(
@@ -1069,6 +1122,8 @@ const JiraMigrationsGroup = HttpApiGroup.make("jiraMigrations")
         error: JiraMigrationWriteErrors
       }
     )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.post(
@@ -1081,6 +1136,8 @@ const JiraMigrationsGroup = HttpApiGroup.make("jiraMigrations")
         error: JiraMigrationWriteErrors
       }
     )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.delete(
@@ -1092,6 +1149,8 @@ const JiraMigrationsGroup = HttpApiGroup.make("jiraMigrations")
         error: JiraMigrationWriteErrors
       }
     )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
   )
   .middleware(Authentication)
 
@@ -1101,7 +1160,7 @@ const StorageGroup = HttpApiGroup.make("storage")
       params: OrgPath,
       success: OrgStorageStatus,
       error: [Unauthorized, NotFound]
-    })
+    }).annotate(RequiresOrg, "membership")
   )
   .add(
     HttpApiEndpoint.put("connect", "/orgs/:orgSlug/storage", {
@@ -1116,15 +1175,16 @@ const StorageGroup = HttpApiGroup.make("storage")
         StorageConfigMissing,
         StorageError
       ]
-    })
+    }).annotate(RequiresOrg, { storage: ["manage"] })
   )
   .add(
     HttpApiEndpoint.delete("disconnect", "/orgs/:orgSlug/storage", {
       params: OrgPath,
       success: OrgStorageStatus,
       error: [Unauthorized, NotFound, Forbidden]
-    })
+    }).annotate(RequiresOrg, { storage: ["manage"] })
   )
+  .middleware(OrgAccess)
   .middleware(Authentication)
 
 const AttachmentsGroup = HttpApiGroup.make("attachments")
@@ -1222,6 +1282,8 @@ const AttachmentsGroup = HttpApiGroup.make("attachments")
       success: AttachmentListPage,
       error: [Unauthorized, NotFound, Forbidden]
     })
+      .annotate(RequiresOrg, { storage: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.get("summary", "/orgs/:orgSlug/attachments/summary", {
@@ -1229,6 +1291,8 @@ const AttachmentsGroup = HttpApiGroup.make("attachments")
       success: AttachmentSummary,
       error: [Unauthorized, NotFound, Forbidden]
     })
+      .annotate(RequiresOrg, { storage: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.delete(
@@ -1247,6 +1311,8 @@ const AttachmentsGroup = HttpApiGroup.make("attachments")
         ]
       }
     )
+      .annotate(RequiresOrg, { storage: ["manage"] })
+      .middleware(OrgAccess)
   )
   .middleware(Authentication)
 
@@ -1272,6 +1338,8 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       success: OrgTicketPage,
       error: [Unauthorized, NotFound]
     })
+      .annotate(RequiresOrg, "membership")
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.get(
@@ -1283,6 +1351,8 @@ const TicketsGroup = HttpApiGroup.make("tickets")
         error: [Unauthorized, NotFound]
       }
     )
+      .annotate(RequiresOrg, "membership")
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.get("recent", "/orgs/:orgSlug/tickets/recent", {
@@ -1290,6 +1360,8 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       success: Schema.Array(RecentTicketRow),
       error: [Unauthorized, NotFound]
     })
+      .annotate(RequiresOrg, "membership")
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.get(
@@ -1834,6 +1906,8 @@ const LibraryGroup = HttpApiGroup.make("library")
       success: Library,
       error: [Unauthorized, NotFound]
     })
+      .annotate(RequiresOrg, "membership")
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.get("project", "/orgs/:orgSlug/projects/:slug/library", {
@@ -1856,6 +1930,8 @@ const LibraryGroup = HttpApiGroup.make("library")
         MentionInvalid
       ]
     })
+      .annotate(RequiresOrg, { library: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.patch(
@@ -1868,6 +1944,8 @@ const LibraryGroup = HttpApiGroup.make("library")
         error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
       }
     )
+      .annotate(RequiresOrg, { library: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.delete(
@@ -1879,6 +1957,8 @@ const LibraryGroup = HttpApiGroup.make("library")
         error: [Unauthorized, NotFound, Forbidden]
       }
     )
+      .annotate(RequiresOrg, { library: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.post(
@@ -1898,6 +1978,8 @@ const LibraryGroup = HttpApiGroup.make("library")
         ]
       }
     )
+      .annotate(RequiresOrg, { library: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.patch(
@@ -1910,6 +1992,8 @@ const LibraryGroup = HttpApiGroup.make("library")
         error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
       }
     )
+      .annotate(RequiresOrg, { library: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.delete(
@@ -1921,6 +2005,8 @@ const LibraryGroup = HttpApiGroup.make("library")
         error: [Unauthorized, NotFound, Forbidden]
       }
     )
+      .annotate(RequiresOrg, { library: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.post(
@@ -2039,6 +2125,8 @@ const LibraryGroup = HttpApiGroup.make("library")
         error: [Unauthorized, NotFound, Forbidden, Validation]
       }
     )
+      .annotate(RequiresOrg, { library: ["manage"] })
+      .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.patch(

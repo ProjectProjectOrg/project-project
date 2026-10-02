@@ -45,6 +45,11 @@ const orgMatrix: ReadonlyArray<Row<Org.OrgResources, Org.OrgRoleName>> = [
     { project: ["list_all", "manage_members", "archive", "delete"] },
     ["owner", "admin"]
   ],
+  [
+    "read every project's content",
+    { project: ["read_all"] },
+    ["owner", "admin"]
+  ],
   ["create projects", { project: ["create"] }, ["owner", "admin", "member"]],
   [
     "see the org member directory",

@@ -1,6 +1,7 @@
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
 import * as BunPath from "@effect/platform-bun/BunPath"
 import { DbLive, PgLive } from "@pp/db"
+import { AccessLive } from "@pp/server-core/access/AccessLive"
 import { AttachmentsLive } from "@pp/server-core/attachments/AttachmentsLive"
 import { AttachmentUploadsLive } from "@pp/server-core/attachments/AttachmentUploadsLive"
 import { CommentsLive } from "@pp/server-core/comments/CommentsLive"
@@ -57,6 +58,7 @@ import * as Layer from "effect/Layer"
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient"
 
 import { JiraWorkflowsLive } from "./jira/WorkflowRuntime"
+import { OrgAccessLive, ProjectAccessLive } from "./Layers/Access"
 import { AuthenticationLive } from "./Layers/Auth"
 import { BetterAuthLive } from "./Layers/BetterAuth"
 
@@ -121,16 +123,14 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
     Layer.provideMerge(GroupsLive),
     Layer.provideMerge(ProjectsLive),
     Layer.provideMerge(CurrentOrgLive),
-    Layer.provideMerge(OrgLive.pipe(Layer.provideMerge(CurrentOrgLive))),
+    Layer.provideMerge(OrgLive),
+    Layer.provideMerge(AccessLive),
     Layer.provideMerge(GitHubLive),
     Layer.provideMerge(EverhourLive)
   )
     .pipe(
       Layer.provideMerge(
-        GitHubIntegrationsLive.pipe(
-          Layer.provideMerge(CurrentOrgLive),
-          Layer.provideMerge(GitHubLive)
-        )
+        GitHubIntegrationsLive.pipe(Layer.provideMerge(GitHubLive))
       ),
       Layer.provideMerge(
         EverhourIntegrationsLive.pipe(Layer.provideMerge(EverhourLive))
@@ -179,8 +179,10 @@ export const makeBackendHttpServicesLive = <TE, TR, EE, ER, CE, CR>(
   tokenEndpoint: Layer.Layer<JiraTokenEndpoint, EE, ER>,
   oauthConfig: Layer.Layer<JiraOAuthConfig, CE, CR>
 ) =>
-  makeBackendServicesLive(transport, tokenEndpoint, oauthConfig).pipe(
-    Layer.provideMerge(AuthenticationLive)
+  Layer.mergeAll(AuthenticationLive, OrgAccessLive, ProjectAccessLive).pipe(
+    Layer.provideMerge(
+      makeBackendServicesLive(transport, tokenEndpoint, oauthConfig)
+    )
   )
 
 export const BackendHttpServicesLive = makeBackendHttpServicesLive(

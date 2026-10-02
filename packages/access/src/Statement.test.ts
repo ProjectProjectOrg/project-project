@@ -68,6 +68,22 @@ describe("all", () => {
   })
 })
 
+describe("merge", () => {
+  it("unions the grants and drops duplicate actions", () => {
+    expect(
+      statement.merge(
+        { ticket: ["read"] },
+        { ticket: ["read", "delete"], sprint: ["manage"] },
+        {}
+      )
+    ).toStrictEqual({ ticket: ["read", "delete"], sprint: ["manage"] })
+  })
+
+  it("merges nothing into no grants", () => {
+    expect(statement.merge()).toStrictEqual({})
+  })
+})
+
 describe("schema", () => {
   it("decodes a stored permission set", () => {
     expect(decode({ ticket: ["read"], sprint: ["manage"] })).toStrictEqual(

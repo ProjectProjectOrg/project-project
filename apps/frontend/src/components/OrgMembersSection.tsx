@@ -61,6 +61,11 @@ const ROLE_META: Record<
     label: () => m.members_role_member(),
     icon: UserRound,
     tone: "muted"
+  },
+  guest: {
+    label: () => m.members_role_guest(),
+    icon: UserRound,
+    tone: "muted"
   }
 }
 const ASSIGNABLE_ROLES = [

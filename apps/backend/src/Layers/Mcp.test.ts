@@ -299,6 +299,23 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     expect(missing.body.result.content[0].text).toBe("Not found.")
   })
 
+  it("modern: a soft-deleted org is not found", async () => {
+    await pool.query(
+      "INSERT INTO member (id,organization_id,user_id,role,created_at) VALUES ($1,$2,$3,'owner',now())",
+      [randomUUID(), orgId, userIds[1]]
+    )
+    const live = await callTool(tokens[1], "get_org", { orgSlug: orgId })
+    expect(live.body.result.isError).toBe(false)
+    await pool.query("UPDATE organization SET deleted_at=now() WHERE id=$1", [
+      orgId
+    ])
+    const deleted = await callTool(tokens[1], "get_org", { orgSlug: orgId })
+    expect(deleted.body.result.isError).toBe(true)
+    expect(deleted.body.result.content[0].text).toBe("Not found.")
+    const listed = await callTool(tokens[1], "list_orgs")
+    expect(listed.body.result.content[0].text).not.toContain(orgId)
+  })
+
   it("modern: unknown tool is JSON-RPC -32602", async () => {
     const { body } = await callTool(tokens[0], "not_a_tool")
     expect(body.error.code).toBe(-32602)
@@ -406,6 +423,26 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
       expect(status).toBe(401)
       const other = await callTool(tokens[1], "me")
       expect(other.body.result.content[0].text).toContain(userIds[1])
+    })
+  })
+
+  describe("after a ban", () => {
+    it("auth: an expired ban lets the token through", async () => {
+      await pool.query(
+        "UPDATE \"user\" SET banned=true, ban_expires=now() - interval '1 day' WHERE id=$1",
+        [userIds[1]]
+      )
+      const { status } = await modern(tokens[1], "tools/list")
+      expect(status).toBe(200)
+    })
+
+    it("auth: banning a user locks their token out", async () => {
+      await pool.query(
+        'UPDATE "user" SET banned=true, ban_expires=NULL WHERE id=$1',
+        [userIds[1]]
+      )
+      const { status } = await modern(tokens[1], "tools/list")
+      expect(status).toBe(403)
     })
   })
 })

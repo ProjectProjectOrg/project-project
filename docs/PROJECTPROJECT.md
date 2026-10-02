@@ -373,7 +373,7 @@ This is the kind of place where Effect's typed errors really earn their keep.
 
 ### Permission model
 
-Access lives in Postgres, not in markdown. There are two levels, and org roles never grant access to project content.
+Access lives in Postgres, not in markdown. There are two levels. Org owners and admins can read every project's content, but changing it always needs a project role.
 
 - **Org roles** (Better Auth's `member.role`): `owner`, `admin`, `member`, `guest`. They govern the org: its people, integrations and projects.
 - **Project roles** (`project_member.role_id`): `pm`, `developer`, `client`. One per person per project. Only people in the org can be on a project; leaving the org removes their project access.
@@ -386,6 +386,7 @@ Both role sets and their permissions are defined in `@pp/access` (`packages/acce
 | Invite and remove people, change org roles below owner   | ✓     | ✓     | –      | –     |
 | Integrations, storage, org blocks and templates          | ✓     | ✓     | –      | –     |
 | See all projects, manage their members, archive/delete   | ✓     | ✓     | –      | –     |
+| Read every project's content                             | ✓     | ✓     | –      | –     |
 | Create projects (creator becomes PM)                     | ✓     | ✓     | ✓      | –     |
 | See the org member directory                             | ✓     | ✓     | ✓      | –     |
 
@@ -404,7 +405,7 @@ Both role sets and their permissions are defined in `@pp/access` (`packages/acce
 
 A project always keeps at least one PM.
 
-Every service method checks the caller's permissions before it does anything and fails with a tagged `Forbidden`, or `NotFound` when the caller isn't on the project at all.
+The `Access` service in `server-core` resolves the caller's roles into an `OrgScope` or `ProjectScope`. Every org and project endpoint in `packages/shared/src/api.ts` declares what it needs with a `RequiresOrg` or `RequiresProject` annotation, and the `OrgAccess` / `ProjectAccess` middleware resolves the scope, checks the annotation and hands the scope to the handler, failing with a tagged `Forbidden`. MCP tools declare the same requirement next to the tool. Services read the scope from context, so a service can't run without one, and only checks that depend on the data itself stay in the service. A caller who isn't in the org, or has no access to the project, gets `NotFound`.
 
 ---
 
