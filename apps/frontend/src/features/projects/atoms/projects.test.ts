@@ -1,5 +1,12 @@
-import { Member, ProjectDetail, UpdateProjectSetupInput } from "@pp/shared"
+import {
+  Member,
+  NotFound,
+  ProjectDetail,
+  UpdateProjectSetupInput
+} from "@pp/shared"
+import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry"
@@ -53,6 +60,7 @@ const detail = Schema.decodeSync(ProjectDetail)({
 })
 
 const encode = Schema.encodeSync(ProjectDetail)
+const encodeNotFound = Schema.encodeSync(NotFound)
 const fetchStub = stubFetch()
 
 describe("project member mutations", () => {
@@ -395,25 +403,37 @@ describe("leaving a project", () => {
 })
 
 describe("forgetting a left project", () => {
-  it("refetches the project so a cached copy can't be shown again", async () => {
-    let fetched = 0
-    fetchStub.set(() => {
-      fetched += 1
-      return Promise.resolve(Response.json(encode(detail)))
-    })
+  it("ends in not found when the left project is opened again", async () => {
+    let left = false
+    fetchStub.set(() =>
+      Promise.resolve(
+        left
+          ? Response.json(encodeNotFound(new NotFound()), { status: 404 })
+          : Response.json(encode(detail))
+      )
+    )
     const req = projectRequest("acme", "web")
     const view = project(req)
     const forget = forgetProject(req)
     const registry = AtomRegistry.make()
-    registry.mount(view)
+    const unmountView = registry.mount(view)
     registry.mount(forget)
     try {
       await vi.waitFor(() =>
         expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
       )
-      const before = fetched
+      left = true
+      unmountView()
       registry.set(forget, undefined)
-      await vi.waitFor(() => expect(fetched).toBeGreaterThan(before))
+      registry.mount(view)
+      await vi.waitFor(() => {
+        const current = registry.get(view)
+        expect(
+          AsyncResult.isFailure(current)
+            ? Cause.findErrorOption(current.cause)
+            : Option.none()
+        ).toStrictEqual(Option.some(new NotFound()))
+      })
     } finally {
       registry.dispose()
     }
