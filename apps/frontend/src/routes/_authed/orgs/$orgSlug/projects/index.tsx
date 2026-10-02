@@ -19,6 +19,7 @@ import {
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
+import { useOrgActor } from "@/lib/access"
 import { errorMessage, type AppError } from "@/lib/errorMessage"
 import { formatRelative } from "@/lib/relative-time"
 import { slugify } from "@/lib/slug"
@@ -42,13 +43,20 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/")({
 function Projects() {
   const { orgSlug } = Route.useParams()
   const list = useAtomValue(projectsFor(projectsRequest(orgSlug)))
+  const org = useOrgActor(orgSlug)
+  const canCreate = org.call("projects", "create")
+  const canMigrate = org.call("jiraMigrations", "create")
   const [creating, setCreating] = useState(false)
 
   const content = Result.matchWithError(list, {
     onInitial: () => <ListSkeleton />,
     onError: (error) => (
       <>
-        <CreateRow orgSlug={orgSlug} onFocusChange={setCreating} />
+        <CreateRow
+          orgSlug={orgSlug}
+          canCreate={canCreate}
+          onFocusChange={setCreating}
+        />
         <ListMessage>
           {m.projects_list_load_error({ tag: error._tag })}
         </ListMessage>
@@ -56,7 +64,11 @@ function Projects() {
     ),
     onDefect: (defect) => (
       <>
-        <CreateRow orgSlug={orgSlug} onFocusChange={setCreating} />
+        <CreateRow
+          orgSlug={orgSlug}
+          canCreate={canCreate}
+          onFocusChange={setCreating}
+        />
         <ListMessage>
           {m.projects_list_defect({ defect: String(defect) })}
         </ListMessage>
@@ -64,13 +76,17 @@ function Projects() {
     ),
     onSuccess: ({ value }) => (
       <>
-        <CreateRow orgSlug={orgSlug} onFocusChange={setCreating} />
+        <CreateRow
+          orgSlug={orgSlug}
+          canCreate={canCreate}
+          onFocusChange={setCreating}
+        />
         <motion.div
           animate={{ opacity: creating ? 0.35 : 1 }}
           transition={transitions.presence}
         >
           {value.length === 0 ? (
-            <EmptyProjects />
+            <EmptyProjects canCreate={canCreate} />
           ) : (
             <ul className="flex flex-col gap-2">
               {value.map((project) => (
@@ -89,19 +105,25 @@ function Projects() {
     <PageContainer>
       <PageHeader>
         <h1>{m.projects_page_title()}</h1>
-        <p>{m.projects_page_subtitle()}</p>
+        <p>
+          {canCreate
+            ? m.projects_page_subtitle()
+            : m.projects_page_subtitle_invited()}
+        </p>
       </PageHeader>
 
-      <div className="flex justify-end">
-        <Button
-          variant="tertiary"
-          render={
-            <Link to="/orgs/$orgSlug/migrations/jira" params={{ orgSlug }} />
-          }
-        >
-          {m.jira_migration_projects_entry()}
-        </Button>
-      </div>
+      {canMigrate && (
+        <div className="flex justify-end">
+          <Button
+            variant="tertiary"
+            render={
+              <Link to="/orgs/$orgSlug/migrations/jira" params={{ orgSlug }} />
+            }
+          >
+            {m.jira_migration_projects_entry()}
+          </Button>
+        </div>
+      )}
 
       {content}
     </PageContainer>
@@ -110,11 +132,13 @@ function Projects() {
 
 function CreateRow({
   orgSlug,
+  canCreate,
   onFocusChange
-}: {
+}: Readonly<{
   orgSlug: string
+  canCreate: boolean
   onFocusChange?: (focused: boolean) => void
-}) {
+}>) {
   const req = projectsRequest(orgSlug)
   const create = useAtomSet(createProject(req), {
     mode: "promiseExit"
@@ -193,6 +217,8 @@ function CreateRow({
       }
     }
   }
+
+  if (!canCreate) return null
 
   return (
     <form ref={formRef} onSubmit={onSubmit}>
@@ -392,7 +418,7 @@ function ListMessage({ children }: { children: React.ReactNode }) {
   )
 }
 
-function EmptyProjects() {
+function EmptyProjects({ canCreate }: Readonly<{ canCreate: boolean }>) {
   return (
     <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-background/50 px-4 py-10 text-center">
       <div className="grid size-10 place-items-center rounded-lg bg-muted text-muted-foreground">
@@ -400,7 +426,9 @@ function EmptyProjects() {
       </div>
       <div className="text-sm font-medium">{m.projects_list_empty()}</div>
       <p className="max-w-xs text-xs text-muted-foreground">
-        {m.projects_list_empty_body()}
+        {canCreate
+          ? m.projects_list_empty_body()
+          : m.projects_list_empty_body_invited()}
       </p>
     </div>
   )

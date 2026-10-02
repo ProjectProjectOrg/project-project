@@ -413,6 +413,8 @@ Changing a ticket's status on the sprint board is a status change like any other
 
 Clients never see GitHub data: tickets come back with `branch`, `pr`, `prState` and `lastTransitionedPr` as null and an empty `gitState`, and project detail comes back without its `github` connection.
 
+The frontend asks the same sources the server enforces: `canCallProject(permissions)` and `canCallOrg(role)` from `@pp/shared` read each endpoint's required permission from `AppApi`, and rules that depend on the data (comment authors, docs vs settings, sprint moves) call the `@pp/access` policies. Anything the viewer can't do is hidden or rendered read-only; the server still checks every request.
+
 The `Access` service in `server-core` resolves the caller's roles into an `OrgScope` or `ProjectScope`. Every org and project endpoint in `packages/shared/src/api.ts` declares what it needs with a `RequiresOrg` or `RequiresProject` annotation, and the `OrgAccess` / `ProjectAccess` middleware resolves the scope, checks the annotation and hands the scope to the handler, failing with a tagged `Forbidden`. MCP tools declare the same requirement next to the tool. Services read the scope from context, so a service can't run without one, and only checks that depend on the data itself stay in the service. A caller who isn't in the org, or has no access to the project, gets `NotFound`.
 
 ---

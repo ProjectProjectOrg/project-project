@@ -22,6 +22,7 @@ export const pickActiveInvitation = (
 export const invitationRoleLabel = (role: string): string => {
   if (role === "owner") return m.auth_invites_role_owner()
   if (role === "admin") return m.auth_invites_role_admin()
+  if (role === "guest") return m.auth_invites_role_guest()
   return m.auth_invites_role_member()
 }
 

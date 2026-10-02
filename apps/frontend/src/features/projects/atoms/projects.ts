@@ -1,10 +1,13 @@
+import { Project as Roles } from "@pp/access/roles"
 import {
   attachmentUrl,
   attachmentWidthForCss,
+  canCallProject,
   withAttachmentParams,
   type AddMemberInput,
   type CreateProjectInput,
   type Project,
+  ProjectActor,
   type ProjectDetail,
   type UpdateMemberInput,
   type UpdateProjectInput,
@@ -19,6 +22,7 @@ import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { me } from "@/features/auth/atoms/auth"
 import { evictBannerRenders } from "@/lib/bannerRenderCache"
 import { bannerSource } from "@/lib/bannerSource"
 import { preloadImage } from "@/lib/imagePreload"
@@ -116,6 +120,16 @@ export const confirmedProject = (req: ProjectRequest) =>
 
 export const project = Atom.family((req: ProjectRequest) =>
   Atom.optimistic(confirmedProject(req))
+)
+
+export const projectActor = Atom.family((req: ProjectRequest) =>
+  Atom.make((get) => {
+    const detail = get(project(req))
+    const viewer = get(me())
+    return AsyncResult.isSuccess(detail) && AsyncResult.isSuccess(viewer)
+      ? ProjectActor.make(detail.value.permissions, viewer.value.id)
+      : ProjectActor.none
+  })
 )
 
 export const updateProject = Atom.family((req: ProjectRequest) =>
@@ -274,6 +288,19 @@ const confirmSetupUpdate = (
   }
 })
 
+const withCallerGrants = (
+  current: ProjectDetail,
+  confirmed: ProjectDetail
+): ProjectDetail => ({
+  ...current,
+  permissions: confirmed.permissions,
+  pendingMembers: canCallProject(
+    Roles.projectStatement.role(confirmed.permissions)
+  )("projects", "addMember")
+    ? current.pendingMembers
+    : confirmed.pendingMembers
+})
+
 const sameEmail = (left: string, right: string) =>
   left.localeCompare(right, undefined, { sensitivity: "accent" }) === 0
 
@@ -288,6 +315,7 @@ const confirmAddedMember = (
   )
   return {
     ...current,
+    permissions: confirmed.permissions,
     members: member
       ? [
           ...current.members.filter(
@@ -361,14 +389,17 @@ export const updateMember = Atom.family(({ req, id }: MemberMutationRequest) =>
           )
           const member = updated.members.find((item) => item.id === id)
           set(
-            member
-              ? AsyncResult.map(get(project(req)), (current) => ({
-                  ...current,
-                  members: current.members.map((item) =>
-                    item.id === id && item.role === input.role ? member : item
-                  )
-                }))
-              : get(project(req))
+            AsyncResult.map(get(project(req)), (current) => {
+              const confirmed = withCallerGrants(current, updated)
+              return member
+                ? {
+                    ...confirmed,
+                    members: confirmed.members.map((item) =>
+                      item.id === id && item.role === input.role ? member : item
+                    )
+                  }
+                : confirmed
+            })
           )
           return updated
         })
@@ -393,7 +424,7 @@ export const removeMember = Atom.family(({ req, id }: MemberMutationRequest) =>
           )
           set(
             AsyncResult.map(get(project(req)), (current) => ({
-              ...current,
+              ...withCallerGrants(current, updated),
               members: current.members.filter((item) => item.id !== id)
             }))
           )
@@ -401,6 +432,23 @@ export const removeMember = Atom.family(({ req, id }: MemberMutationRequest) =>
         })
       )
   })
+)
+
+export const leaveProject = Atom.family((req: ProjectRequest) =>
+  Api.runtime.fn(
+    Effect.fn("leaveProject")(function* (_input: void) {
+      yield* Api.use((client) => client.projects.leave({ params: req.params }))
+      yield* Reactivity.invalidate([Keys.projects(req.params.orgSlug)])
+    })
+  )
+)
+
+export const forgetProject = Atom.family((req: ProjectRequest) =>
+  Api.runtime.fn(
+    Effect.fn("forgetProject")(function* (_input: void) {
+      yield* Reactivity.invalidate([Keys.project(scopeOf(req))])
+    })
+  )
 )
 
 export const cancelPendingMember = Atom.family(

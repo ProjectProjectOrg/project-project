@@ -6,6 +6,7 @@ import {
   useAtomSet,
   useAtomValue
 } from "@effect/atom-react"
+import { TicketPolicy } from "@pp/access/policies"
 import type {
   Member,
   ProjectStatus,
@@ -41,6 +42,7 @@ import {
   type BacklogRow,
   type BacklogValue
 } from "@/features/tickets/atoms/backlog"
+import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -108,6 +110,7 @@ function BacklogBoardContent({
     [orgSlug, slug, query]
   )
   const ref = useRef<HTMLDivElement>(null)
+  const canMove = TicketPolicy.canChange(useProjectActor(), { status: true })
   const groupRef = useRef<HTMLDivElement>(null)
   const [frozenWidth, setFrozenWidth] = useState<number | null>(null)
   const { height, hasRightOverflow } = useBoardViewport(ref)
@@ -162,7 +165,7 @@ function BacklogBoardContent({
 
   useEffect(() => {
     const el = ref.current
-    if (!el || reorderMode) return
+    if (!el || reorderMode || !canMove) return
     const cleanupAutoScroll = autoScrollForElements({
       element: el,
       getAllowedAxis: () => "horizontal"
@@ -188,7 +191,7 @@ function BacklogBoardContent({
       cleanupAutoScroll()
       cleanupMonitor()
     }
-  }, [reorderMode, req, registry])
+  }, [canMove, reorderMode, req, registry])
 
   return (
     <motion.div
@@ -223,7 +226,7 @@ function BacklogBoardContent({
               tickets={column?.tickets ?? NO_TICKETS}
               count={column?.count ?? 0}
               members={members}
-              isDraggable
+              isDraggable={canMove}
               ordered={false}
               inertTicketIds={inertTicketIds}
               lastFlash={null}

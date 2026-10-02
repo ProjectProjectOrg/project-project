@@ -30,8 +30,12 @@ vi.mock("@/components/sprints/SprintHeaderFields", () => ({
 vi.mock("@/components/GithubChip", () => ({
   GithubChip: () => null
 }))
-vi.mock("@/lib/projectRole", () => ({
-  useProjectRole: () => ({ role: "owner" })
+vi.mock("@/lib/access", () => ({
+  useProjectActor: () => ({
+    userId: "user-1",
+    permissions: { can: () => true },
+    call: () => true
+  })
 }))
 
 import { ProjectHeader } from "./ProjectHeader"

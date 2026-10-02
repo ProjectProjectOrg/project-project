@@ -1,9 +1,9 @@
-import type { ProjectActor } from "./actor"
+import type { PolicyActor } from "./actor"
 
 export type Change = Readonly<{
-  content: boolean
-  status: boolean
-  assignees: boolean
+  content?: boolean
+  status?: boolean
+  assignees?: boolean
 }>
 
 type Fields = Readonly<{ status: string; assignees: ReadonlyArray<string> }>
@@ -17,7 +17,7 @@ export type Split = Readonly<{
 
 export type Query = Readonly<{ hasBranch?: boolean; hasPr?: boolean }>
 
-export const canChange = (actor: ProjectActor, change: Change) =>
+export const canChange = (actor: PolicyActor, change: Change) =>
   (!change.content || actor.permissions.can({ ticket: ["update"] })) &&
   (!change.status || actor.permissions.can({ ticket: ["transition"] })) &&
   (!change.assignees || actor.permissions.can({ ticket: ["assign"] }))
@@ -40,9 +40,9 @@ const splitChange = (split: Split) => {
   }
 }
 
-export const canSplit = (actor: ProjectActor, split: Split) =>
+export const canSplit = (actor: PolicyActor, split: Split) =>
   canChange(actor, splitChange(split))
 
-export const canQuery = (actor: ProjectActor, query: Query) =>
+export const canQuery = (actor: PolicyActor, query: Query) =>
   (query.hasBranch === undefined && query.hasPr === undefined) ||
   actor.permissions.can({ github: ["read"] })

@@ -25,6 +25,7 @@ import type {
   GitHubTokenExpired,
   InvitationNotAcceptable,
   InvitationNotAcceptableReason,
+  LastProjectPmBlocked,
   MentionInvalid,
   NotFound,
   RateLimited,
@@ -64,6 +65,7 @@ export type AppError =
   | SprintCompletedImmutable
   | InvitationNotAcceptable
   | InviteAcceptError
+  | LastProjectPmBlocked
   | StorageAuthInvalid
   | StorageConfigMissing
   | StorageError
@@ -181,6 +183,8 @@ export const errorMessage = (error: AppError): string =>
         m.error_everhour_upstream({ message: error.message })
       ),
       Match.tag("RateLimited", () => m.error_github_rate_limited()),
+      Match.tag("Forbidden", () => m.error_forbidden()),
+      Match.tag("LastProjectPmBlocked", () => m.members_last_pm_error()),
       Match.tag("Unauthorized", () => m.error_unknown())
     )
     .pipe(

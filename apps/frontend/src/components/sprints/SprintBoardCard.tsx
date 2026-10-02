@@ -1,4 +1,5 @@
 import { useAtomSet } from "@effect/atom-react"
+import { TicketPolicy } from "@pp/access/policies"
 import type { Member, Ticket, UpdateTicketInput } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import { memo } from "react"
@@ -17,6 +18,7 @@ import {
   updateBacklogTicket,
   type BacklogRequest
 } from "@/features/tickets/atoms/backlog"
+import { useProjectActor } from "@/lib/access"
 
 function SprintBoardCardImpl({
   orgSlug,
@@ -142,6 +144,9 @@ function BoardCardFields({
   members: ReadonlyArray<Member>
   onPatch: (patch: UpdateTicketInput) => void
 }) {
+  const actor = useProjectActor()
+  const editable = TicketPolicy.canChange(actor, { content: true })
+  const canAssign = TicketPolicy.canChange(actor, { assignees: true })
   return (
     <DeferredDropdownMenus>
       <div className="group/reveal relative isolate flex flex-col gap-2 rounded-sm bg-surface-3 px-1.5 pt-3 pb-1.5 text-left shadow-surface-1 transition outline-none hover:bg-surface-4 hover:shadow-surface-1-hover [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20">
@@ -157,30 +162,38 @@ function BoardCardFields({
             <span className="line-clamp-2">{ticket.title}</span>
           </Link>
           <div className="order-first mt-[calc((1lh-1.5rem)/2)] shrink-0">
-            <TypeButton ticket={ticket} iconOnly onPatch={onPatch} />
+            <fieldset disabled={!editable} className="contents">
+              <TypeButton ticket={ticket} iconOnly onPatch={onPatch} />
+            </fieldset>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <PriorityButton ticket={ticket} stopPropagation onPatch={onPatch} />
+          <fieldset disabled={!editable} className="contents">
+            <PriorityButton ticket={ticket} stopPropagation onPatch={onPatch} />
+          </fieldset>
           <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
             {ticket.id}
           </span>
           <div className="flex min-w-0 flex-1 items-center">
             <TicketGitChip orgSlug={orgSlug} slug={slug} ticket={ticket} />
           </div>
-          <SplitTicketControl
-            orgSlug={orgSlug}
-            slug={slug}
-            id={ticket.id}
-            size="icon-xs"
-            className="opacity-0 group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100"
-          />
-          <AssigneeField
-            ticket={ticket}
-            members={members}
-            variant="card"
-            onPatch={onPatch}
-          />
+          {editable && actor.call("tickets", "split") && (
+            <SplitTicketControl
+              orgSlug={orgSlug}
+              slug={slug}
+              id={ticket.id}
+              size="icon-xs"
+              className="opacity-0 group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100"
+            />
+          )}
+          <fieldset disabled={!canAssign} className="contents">
+            <AssigneeField
+              ticket={ticket}
+              members={members}
+              variant="card"
+              onPatch={onPatch}
+            />
+          </fieldset>
         </div>
       </div>
     </DeferredDropdownMenus>

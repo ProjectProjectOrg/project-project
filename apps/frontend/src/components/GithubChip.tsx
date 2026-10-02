@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { GithubConnection, GithubRepo, Role } from "@pp/shared"
+import type { GithubConnection, GithubRepo } from "@pp/shared"
 import * as Match from "effect/Match"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import {
@@ -30,20 +30,20 @@ import {
   startGithubInstall
 } from "@/features/github/atoms/github"
 import { projectRequest } from "@/features/projects/atoms/projects"
+import { useOrgActor, useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-type Props = {
+type Props = Readonly<{
   orgSlug: string
   slug: string
   github: GithubConnection | null
-  callerRole: Role
-}
+}>
 
-export function GithubChip({ orgSlug, slug, github, callerRole }: Props) {
+export function GithubChip({ orgSlug, slug, github }: Props) {
   const viewer = useAtomValue(me())
   const canManage =
-    callerRole === "pm" &&
+    useProjectActor().call("projects", "connectGithub") &&
     Result.isSuccess(viewer) &&
     viewer.value.activeOrgSlug === orgSlug
   const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
@@ -188,7 +188,11 @@ function ConnectedChip({
   )
 }
 
-function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
+function ConnectPanel({
+  orgSlug,
+  slug
+}: Readonly<{ orgSlug: string; slug: string }>) {
+  const canInstall = useOrgActor(orgSlug).call("projects", "startGithubInstall")
   const orgReq = useMemo(() => githubOrgRequest(orgSlug), [orgSlug])
   const orgIntegration = useAtomValue(githubIntegration(orgReq))
   const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
@@ -265,17 +269,23 @@ function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
         <p className="text-sm text-destructive" role="alert">
           {m.github_chip_install_app_failed_error()}
         </p>
-        <Button
-          type="button"
-          size="sm"
-          onClick={() => void installApp()}
-          disabled={installing}
-          className="w-full"
-        >
-          {installing
-            ? m.github_chip_install_app_loading()
-            : m.github_chip_install_app_button()}
-        </Button>
+        {canInstall ? (
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => void installApp()}
+            disabled={installing}
+            className="w-full"
+          >
+            {installing
+              ? m.github_chip_install_app_loading()
+              : m.github_chip_install_app_button()}
+          </Button>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {m.github_chip_install_app_ask_admin()}
+          </p>
+        )}
       </div>
     )
   }
@@ -291,17 +301,23 @@ function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
             {installError}
           </p>
         )}
-        <Button
-          type="button"
-          size="sm"
-          onClick={() => void installApp()}
-          disabled={installing}
-          className="w-full"
-        >
-          {installing
-            ? m.github_chip_install_app_loading()
-            : m.github_chip_install_app_button()}
-        </Button>
+        {canInstall ? (
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => void installApp()}
+            disabled={installing}
+            className="w-full"
+          >
+            {installing
+              ? m.github_chip_install_app_loading()
+              : m.github_chip_install_app_button()}
+          </Button>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {m.github_chip_install_app_ask_admin()}
+          </p>
+        )}
       </div>
     )
   }

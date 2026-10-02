@@ -1,4 +1,5 @@
 import { RegistryContext } from "@effect/atom-react"
+import { Org } from "@pp/access/roles"
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
@@ -65,7 +66,7 @@ it("starts members while the parent org loader is still waiting", async () => {
   await parent
 })
 
-it.each(["member", "admin", "owner"])(
+it.each(["member", "admin", "owner"] as const)(
   "gates attachment inventory for %s while storage is pending",
   async (role) => {
     const Component = AttachmentsRoute.options.component
@@ -83,7 +84,7 @@ it.each(["member", "admin", "owner"])(
           slug: "test",
           name: "Test",
           role,
-          permissions: {},
+          permissions: Org.orgRoles[role].grants,
           createdAt: "2026-01-01T00:00:00.000Z",
           deletedAt: null,
           purgeAt: null

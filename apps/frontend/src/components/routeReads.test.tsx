@@ -1,5 +1,12 @@
 import { RegistryContext } from "@effect/atom-react"
-import { GroupId, TicketDetail, TicketListQuery } from "@pp/shared"
+import { Project } from "@pp/access/roles"
+import {
+  GroupId,
+  ProjectDetail,
+  TicketDetail,
+  TicketListQuery,
+  User
+} from "@pp/shared"
 import {
   createMemoryHistory,
   createRootRoute,
@@ -16,12 +23,16 @@ import {
   waitFor
 } from "@testing-library/react"
 import * as Schema from "effect/Schema"
+import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
+import { me } from "@/features/auth/atoms/auth"
+import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { boardRequest } from "@/features/sprints/atoms/sprintBoard"
 import { backlogRequest } from "@/features/tickets/atoms/backlog"
+import { ProjectContext } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 import { Route as BacklogRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/index"
 import { Route as SprintRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId"
 import { Route as SprintIndexRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/index"
@@ -33,9 +44,50 @@ import { Row } from "./TicketList/Row"
 const decodeTicketListQuery = Schema.decodeSync(TicketListQuery)
 const decodeGroupId = Schema.decodeSync(GroupId)
 
-vi.mock("@/routes/_authed/orgs/$orgSlug/projects/$slug/-context", () => ({
-  useProject: () => ({ github: null })
-}))
+const viewer = Schema.decodeSync(User)({
+  id: "user-1",
+  email: "pm@example.com",
+  name: "Pat",
+  username: null,
+  image: null,
+  createdAt: "2026-01-01T00:00:00.000Z",
+  activeOrgSlug: "org",
+  personalGithub: { connected: false },
+  editorPreference: "github",
+  personalEverhour: {
+    connected: false,
+    everhourUserId: null,
+    name: null,
+    email: null,
+    lastVerifiedAt: null,
+    lastCheckError: null
+  }
+})
+
+const projectReq = projectRequest("org", "project")
+
+const projectDetail = Schema.decodeSync(ProjectDetail)({
+  org: "org",
+  slug: "project",
+  key: "PRJ",
+  name: "Project",
+  icon: "P",
+  color: "#123456",
+  banner: null,
+  iconImage: null,
+  createdBy: "user-1",
+  createdAt: "2026-01-01T00:00:00.000Z",
+  github: null,
+  setup: {
+    workflowReviewedAt: null,
+    invitePeopleDismissedAt: null,
+    connectGithubDismissedAt: null
+  },
+  body: "",
+  members: [],
+  pendingMembers: [],
+  permissions: Project.pm.grants
+})
 
 let registry: Registry.AtomRegistry
 let requests: URL[]
@@ -52,7 +104,12 @@ function load<A, R>(
 const fetchStub = stubFetch()
 
 beforeEach(() => {
-  registry = Registry.make()
+  registry = Registry.make({
+    initialValues: [
+      [me(), AsyncResult.success(viewer)],
+      [project(projectReq), AsyncResult.success(projectDetail)]
+    ]
+  })
   requests = []
   fetchStub.set((input) => {
     requests.push(
@@ -263,7 +320,9 @@ it.each(["row", "card"] as const)(
     await router.load()
     render(
       <RegistryContext.Provider value={registry}>
-        <RouterProvider router={router} />
+        <ProjectContext.Provider value={projectReq}>
+          <RouterProvider router={router} />
+        </ProjectContext.Provider>
       </RegistryContext.Provider>
     )
     const link = await screen.findByRole("link", { name: "Hover target" })

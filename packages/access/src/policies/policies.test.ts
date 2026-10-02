@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest"
 import * as Effective from "../roles/effective"
 import type * as Org from "../roles/org"
 import * as Project from "../roles/project"
-import type { ProjectActor } from "./actor"
+import type { PolicyActor } from "./actor"
 import * as CommentPolicy from "./comment"
 import * as GroupPolicy from "./group"
 import * as ProjectPolicy from "./project"
@@ -33,39 +33,20 @@ const actors = {
 
 type ActorName = keyof typeof actors
 
-const allowed = (decide: (subject: ProjectActor) => boolean) =>
+const allowed = (decide: (subject: PolicyActor) => boolean) =>
   Object.entries(actors).flatMap(([name, subject]) =>
     decide(subject) ? [name] : []
   )
 
-const change = (overrides: Partial<TicketPolicy.Change>) => ({
-  content: false,
-  status: false,
-  assignees: false,
-  ...overrides
-})
-
 describe("TicketPolicy.canChange", () => {
   it.each<readonly [string, TicketPolicy.Change, ReadonlyArray<ActorName>]>([
-    [
-      "nothing",
-      change({}),
-      ["pm", "developer", "client", "orgAdmin", "editor"]
-    ],
-    [
-      "the content",
-      change({ content: true }),
-      ["pm", "developer", "client", "editor"]
-    ],
-    ["the status", change({ status: true }), ["pm", "developer", "client"]],
-    [
-      "the assignees",
-      change({ assignees: true }),
-      ["pm", "developer", "client"]
-    ],
+    ["nothing", {}, ["pm", "developer", "client", "orgAdmin", "editor"]],
+    ["the content", { content: true }, ["pm", "developer", "client", "editor"]],
+    ["the status", { status: true }, ["pm", "developer", "client"]],
+    ["the assignees", { assignees: true }, ["pm", "developer", "client"]],
     [
       "the content and the status",
-      change({ content: true, status: true }),
+      { content: true, status: true },
       ["pm", "developer", "client"]
     ]
   ])("who may change %s", (_, subject, expected) => {
@@ -156,7 +137,7 @@ describe("CommentPolicy", () => {
   it.each<
     readonly [
       string,
-      (subject: ProjectActor, comment: CommentPolicy.Authored) => boolean,
+      (subject: PolicyActor, comment: CommentPolicy.Authored) => boolean,
       string,
       ReadonlyArray<ActorName>
     ]
@@ -254,8 +235,8 @@ describe("GroupPolicy.canChangeTickets", () => {
 
 describe("ProjectPolicy.canUpdate", () => {
   it.each<readonly [string, ProjectPolicy.Update, ReadonlyArray<ActorName>]>([
-    ["the About doc", { body: true, settings: false }, ["pm", "developer"]],
-    ["its settings", { body: false, settings: true }, ["pm"]],
+    ["the About doc", { body: true }, ["pm", "developer"]],
+    ["its settings", { settings: true }, ["pm"]],
     ["both", { body: true, settings: true }, ["pm"]]
   ])("who may update %s", (_, update, expected) => {
     expect(

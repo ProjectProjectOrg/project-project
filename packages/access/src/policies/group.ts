@@ -1,4 +1,4 @@
-import type { ProjectActor } from "./actor"
+import type { PolicyActor } from "./actor"
 
 export type Kind = "sprint" | "milestone" | "epic" | "other"
 
@@ -10,7 +10,7 @@ export type TicketsChange = Readonly<{
   evicts: boolean
 }>
 
-export const can = (actor: ProjectActor, kind: Kind, action: Action) =>
+export const can = (actor: PolicyActor, kind: Kind, action: Action) =>
   actor.permissions.can(
     kind === "sprint" || kind === "milestone"
       ? { sprint: [action] }
@@ -35,7 +35,7 @@ export const ticketActions = (
 }
 
 export const canChangeTickets = (
-  actor: ProjectActor,
+  actor: PolicyActor,
   kind: Kind,
   change: TicketsChange
 ) =>

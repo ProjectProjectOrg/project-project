@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { TicketPolicy } from "@pp/access/policies"
 import type {
   GithubConnection,
   Member,
@@ -15,6 +16,7 @@ import { useMemo, useState } from "react"
 import { CommentsSection } from "@/components/Comments/CommentsSection"
 import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
 import { type SaveStatus } from "@/components/LexicalEditor"
+import { Markdown } from "@/components/Markdown"
 import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
 import { TagEditor } from "@/components/TagEditor"
 import { TicketGitPanel } from "@/components/TicketGit"
@@ -43,7 +45,7 @@ import {
   unarchiveTicket,
   updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
-import { useProjectRole } from "@/lib/projectRole"
+import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
 const NO_SPLIT_RESULTS: ReadonlyArray<TicketId> = []
@@ -84,7 +86,8 @@ export function TicketPage({
   const bodyDraft = useAtomValue(ticketBodyDraft(req))
   const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
-  const { isPm: canManageTags } = useProjectRole()
+  const actor = useProjectActor()
+  const canEdit = TicketPolicy.canChange(actor, { content: true })
   const {
     descriptionRef,
     onTypePatch,
@@ -107,40 +110,46 @@ export function TicketPage({
             ticket={ticket}
             body={bodyDraft ?? ticket.body}
           />
-          <SplitTicketControl orgSlug={orgSlug} slug={slug} id={ticket.id} />
-          <ArchiveTicketControl
-            archived={ticket.archivedAt !== null}
-            onArchive={archiveTicketSet}
-            onUnarchive={unarchiveTicketSet}
-            waiting={
-              ticket.archivedAt !== null
-                ? unarchiveState.waiting
-                : archiveState.waiting
-            }
-            failed={
-              ticket.archivedAt !== null
-                ? Result.isFailure(unarchiveState)
-                : Result.isFailure(archiveState)
-            }
-          />
-          <ConfirmDeleteIcon
-            ariaLabel={m.tickets_detail_delete_aria_label()}
-            message={m.tickets_detail_delete_confirm()}
-            disabled={deleting}
-            onConfirm={async () => {
-              setDeleting(true)
-              const exit = await remove()
-              if (Exit.isSuccess(exit)) {
-                void navigate({
-                  to: "/orgs/$orgSlug/projects/$slug",
-                  params: { orgSlug, slug }
-                })
-                return
+          {canEdit && actor.call("tickets", "split") && (
+            <SplitTicketControl orgSlug={orgSlug} slug={slug} id={ticket.id} />
+          )}
+          {actor.call("tickets", "archive") && (
+            <ArchiveTicketControl
+              archived={ticket.archivedAt !== null}
+              onArchive={archiveTicketSet}
+              onUnarchive={unarchiveTicketSet}
+              waiting={
+                ticket.archivedAt !== null
+                  ? unarchiveState.waiting
+                  : archiveState.waiting
               }
-              setDeleting(false)
-              throw Cause.squash(exit.cause)
-            }}
-          />
+              failed={
+                ticket.archivedAt !== null
+                  ? Result.isFailure(unarchiveState)
+                  : Result.isFailure(archiveState)
+              }
+            />
+          )}
+          {actor.call("tickets", "delete") && (
+            <ConfirmDeleteIcon
+              ariaLabel={m.tickets_detail_delete_aria_label()}
+              message={m.tickets_detail_delete_confirm()}
+              disabled={deleting}
+              onConfirm={async () => {
+                setDeleting(true)
+                const exit = await remove()
+                if (Exit.isSuccess(exit)) {
+                  void navigate({
+                    to: "/orgs/$orgSlug/projects/$slug",
+                    params: { orgSlug, slug }
+                  })
+                  return
+                }
+                setDeleting(false)
+                throw Cause.squash(exit.cause)
+              }}
+            />
+          )}
         </>
       }
       header={
@@ -148,10 +157,13 @@ export function TicketPage({
           orgSlug={orgSlug}
           slug={slug}
           ticket={ticket}
+          readOnly={!canEdit}
           onPatch={updateTicket}
           meta={
             <>
-              <TypeBadgeTrigger ticket={ticket} onPatch={onTypePatch} />
+              <fieldset disabled={!canEdit} className="contents">
+                <TypeBadgeTrigger ticket={ticket} onPatch={onTypePatch} />
+              </fieldset>
               {swapNote !== null && (
                 <TemplateSwapNote name={swapNote.name} onUndo={undoSwap} />
               )}
@@ -172,45 +184,51 @@ export function TicketPage({
 
       <div className="grid grid-cols-1 gap-x-8 gap-y-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <main className="flex min-w-0 flex-col gap-6 sm:pl-(--ticket-rail-inset)">
-          <DescriptionField
-            ref={descriptionRef}
-            orgSlug={orgSlug}
-            slug={slug}
-            ticket={ticket}
-            members={members}
-            autoFocus={autoFocusBody}
-            onStatusChange={setBodyStatus}
-          />
+          {canEdit ? (
+            <DescriptionField
+              ref={descriptionRef}
+              orgSlug={orgSlug}
+              slug={slug}
+              ticket={ticket}
+              members={members}
+              autoFocus={autoFocusBody}
+              onStatusChange={setBodyStatus}
+            />
+          ) : (
+            <Markdown>{ticket.body}</Markdown>
+          )}
 
           <CommentsSection orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
         </main>
 
-        <aside className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:self-start lg:overflow-y-auto lg:border-l lg:border-border/60 lg:pl-5">
-          <MetaRow label={m.tickets_page_meta_priority()}>
-            <PriorityBadgeTrigger ticket={ticket} onPatch={updateTicket} />
-          </MetaRow>
-          <MetaRow label={m.tickets_page_meta_sprint()}>
-            <SprintBadgeTrigger
-              orgSlug={orgSlug}
-              slug={slug}
-              ticketId={ticket.id}
-            />
-          </MetaRow>
-          <MetaRow label={m.tickets_page_meta_assignees()}>
-            <AssigneePicker
-              ticket={ticket}
-              members={members}
-              onPatch={updateTicket}
-            />
-          </MetaRow>
-          <MetaRow label={m.tickets_page_meta_tags()}>
-            <TagEditor
-              orgSlug={orgSlug}
-              slug={slug}
-              ticket={ticket}
-              canManageTags={canManageTags}
-            />
-          </MetaRow>
+        <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:self-start lg:overflow-y-auto lg:border-l lg:border-border/60 lg:pl-5">
+          <fieldset disabled={!canEdit} className="contents">
+            <MetaRow label={m.tickets_page_meta_priority()}>
+              <PriorityBadgeTrigger ticket={ticket} onPatch={updateTicket} />
+            </MetaRow>
+            <MetaRow label={m.tickets_page_meta_sprint()}>
+              <SprintBadgeTrigger
+                orgSlug={orgSlug}
+                slug={slug}
+                ticketId={ticket.id}
+              />
+            </MetaRow>
+            <MetaRow label={m.tickets_page_meta_assignees()}>
+              <AssigneePicker
+                ticket={ticket}
+                members={members}
+                onPatch={updateTicket}
+              />
+            </MetaRow>
+            <MetaRow label={m.tickets_page_meta_tags()}>
+              <TagEditor
+                orgSlug={orgSlug}
+                slug={slug}
+                ticket={ticket}
+                canManageTags={actor.call("tags", "create")}
+              />
+            </MetaRow>
+          </fieldset>
           {github && (
             <MetaRow label={m.tickets_page_meta_git()}>
               <TicketGitPanel
@@ -224,7 +242,9 @@ export function TicketPage({
             </MetaRow>
           )}
           <TicketDesignLinks orgSlug={orgSlug} slug={slug} ticket={ticket} />
-          <TicketTimeSection orgSlug={orgSlug} slug={slug} ticket={ticket} />
+          {actor.call("everhour", "ticketTime") && (
+            <TicketTimeSection orgSlug={orgSlug} slug={slug} ticket={ticket} />
+          )}
           <MetaRow label={m.tickets_page_meta_created()}>
             <UserTimestamp user={ticket.creator} timestamp={ticket.createdAt} />
           </MetaRow>

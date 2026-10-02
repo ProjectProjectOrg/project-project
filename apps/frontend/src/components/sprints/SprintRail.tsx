@@ -69,10 +69,12 @@ function sortByStart(a: Group, b: Group) {
 
 export function SprintRail({
   orgSlug,
-  slug
+  slug,
+  canPlan
 }: {
   orgSlug: string
   slug: string
+  canPlan: boolean
 }) {
   const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
   const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
@@ -135,7 +137,7 @@ export function SprintRail({
           {projectName}
         </span>
       </motion.div>
-      <NewSprintForm orgSlug={orgSlug} slug={slug} />
+      {canPlan && <NewSprintForm orgSlug={orgSlug} slug={slug} />}
       <div className="flex flex-col gap-5 overflow-y-auto">
         <Section
           label={m.sprints_active_label()}

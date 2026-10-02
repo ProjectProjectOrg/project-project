@@ -43,6 +43,7 @@ import {
   transferOwnership,
   updateMemberRole
 } from "@/features/organizations/atoms/orgs"
+import { useOrgActor } from "@/lib/access"
 import { orgActionErrorFromExit, type OrgActionError } from "@/lib/orgErrors"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
@@ -88,7 +89,7 @@ export function OrgMembersSection({
   callerRole: OrgRole
   callerUserId: string
 }) {
-  const canManage = callerRole === "owner" || callerRole === "admin"
+  const canManage = useOrgActor(orgSlug).call("org", "inviteMember")
   const ownerCount = members.filter((member) => member.role === "owner").length
   const isLastOwner = callerRole === "owner" && ownerCount <= 1
   const [adding, setAdding] = useState(false)
@@ -467,12 +468,14 @@ function MemberMenu({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<OrgActionError | null>(null)
 
-  const canManage = callerRole === "owner" || callerRole === "admin"
+  const actor = useOrgActor(orgSlug)
   const isLastOwner = callerRole === "owner" && ownerCount <= 1
-  const canChangeRole = canManage && member.role !== "owner" && !isSelf
+  const canChangeRole =
+    actor.call("org", "updateMemberRole") && member.role !== "owner" && !isSelf
   const canTransfer =
-    callerRole === "owner" && member.role === "admin" && !isSelf
-  const canRemove = canManage && !isSelf && member.role !== "owner"
+    actor.call("org", "transferOwnership") && member.role === "admin" && !isSelf
+  const canRemove =
+    actor.call("org", "removeMember") && !isSelf && member.role !== "owner"
   const canLeave = isSelf && !isLastOwner
 
   if (!canChangeRole && !canTransfer && !canRemove && !canLeave) {

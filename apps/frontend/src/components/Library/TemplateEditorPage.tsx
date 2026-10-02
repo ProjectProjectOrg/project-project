@@ -15,7 +15,7 @@ import { ErrorPage } from "@/components/ErrorPage"
 import type { EditorBlocks } from "@/components/Lexical/blocks/editorBlocks"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { Markdown } from "@/components/Markdown"
-import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
+import { useOrgActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -45,12 +45,10 @@ export function useLayerPermissions(
   scope: LibraryScope,
   library: Library
 ): EditorBlocks["canEdit"] {
-  const orgResult = useAtomValue(
-    orgDetail(orgRequest(scope.req.params.orgSlug))
+  const orgAdmin = useOrgActor(scope.req.params.orgSlug).call(
+    "library",
+    "updateOrgTemplate"
   )
-  const orgAdmin =
-    AsyncResult.isSuccess(orgResult) &&
-    (orgResult.value.role === "owner" || orgResult.value.role === "admin")
   return useMemo(
     () =>
       scope.layer === "org"

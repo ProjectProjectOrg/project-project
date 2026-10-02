@@ -151,6 +151,7 @@ Two visual languages run in parallel and never compete. The UI itself is **clean
 Light and dark are first-class peers. The user lives in either at any hour; both are reviewed for every surface. Choices that only work in one theme are not done.
 
 **Key Characteristics:**
+
 - Neutral OKLCH chrome; chromatic color is a _user-assigned_ signal (tags), never a designer flourish.
 - Dithering as the brand thread, contained to graphics — never on functional controls.
 - Density without noise: information dense at rest, progressive disclosure on hover.
@@ -250,11 +251,11 @@ Tonal layering runs out of room in light mode: once a surface reaches `--card` t
 
 **Both themes must layer the same way.** A container that recesses in dark recesses in light too, by a comparable perceptual amount. Concretely, against the app's content region (`bg-muted/60`, which composites to `0.222` dark and `0.982` light):
 
-| | dark | light |
-| --- | --- | --- |
-| content region | `0.222` | `0.982` |
+|                               | dark               | light              |
+| ----------------------------- | ------------------ | ------------------ |
+| content region                | `0.222`            | `0.982`            |
 | `--surface-1` — recessed well | `0.205` (`-0.017`) | `0.955` (`-0.027`) |
-| `--surface-3` — raised card | `0.264` (`+0.059`) | `1.000` (`+0.045`) |
+| `--surface-3` — raised card   | `0.264` (`+0.059`) | `1.000` (`+0.045`) |
 
 The container steps **down** off the region and the card steps **up** out of the container, in both themes. Light's upward step is necessarily smaller because white is a hard ceiling, but it stays the same order of magnitude — not the near-flat `0.003` that fluid's stock light ladder would give.
 
@@ -320,6 +321,7 @@ The single primitive lives in `components/ui/button.tsx`, exposing variants `pri
 ### Dithered Brand Surfaces
 
 The brand mark is built from two greys (`--dither-front` and `--dither-back`) on the surface color, rendered as stepped Bayer-matrix shading. The same vocabulary extends to:
+
 - Empty-state illustrations
 - Loading frames (where the dither animates between two stops)
 - Marketing / landing surfaces
@@ -336,9 +338,12 @@ It never appears on functional controls.
 
 **The Variant-Over-Local Rule.** When a one-off styled version of an existing component appears at a callsite, the response is to add a variant to the primitive, not to re-skin the component locally. Local styles compound; typed variant props keep the design language singular.
 
+**The Hide-or-Disable Rule.** A control the viewer's role can never use is not rendered. A control the viewer may use in principle but that the current state blocks (a completed sprint, the last PM, a pending save) is rendered disabled. Role gates read from `useProjectActor` / `useOrgActor`; nothing else decides who may do what.
+
 ## 6. Do's and Don'ts
 
 ### Do
+
 - **Do** use OKLCH for every color token; tint neutrals toward the brand hue (chroma 0.005–0.01).
 - **Do** carry hierarchy with type weight, size, and whitespace — not borders, not chrome, not color.
 - **Do** keep the dithered language in graphics (empty states, brand marks, marketing) and the clean type-driven language in chrome (buttons, inputs, rows, menus).
@@ -351,6 +356,7 @@ It never appears on functional controls.
 - **Do** extend a primitive with a typed variant when you find yourself re-skinning it locally.
 
 ### Don't
+
 - **Don't** ship anything that signals Jira, Azure DevOps, or Trello aesthetics. No colored sidebars, no tinted region panels, no multi-color status badges scattered through every list, no decorative drop shadows on rectangles, no avatars-and-metadata stacked four rows high.
 - **Don't** introduce a brand hue. The chrome has no chromatic primary; chromatic color is user-assigned signal only.
 - **Don't** invent ad-hoc colors when the tag wheel covers the space.

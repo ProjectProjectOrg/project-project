@@ -29,6 +29,7 @@ import { InlineForm } from "@/components/ui/inline-form"
 import { me } from "@/features/auth/atoms/auth"
 import { projectGitStates } from "@/features/github/atoms/github"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
+import { useProjectActor } from "@/lib/access"
 import { branchOpensInNewTab, branchUrl } from "@/lib/branchUrl"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -84,12 +85,33 @@ export function TicketGitChip({
   slug: string
   ticket: Pick<Ticket, "id" | "gitState">
 }) {
-  const { state, waiting } = useGitState(orgSlug, slug, ticket)
   const projectResult = useAtomValue(project(projectRequest(orgSlug, slug)))
   const github = Result.isSuccess(projectResult)
     ? projectResult.value.github
     : null
   if (!github) return <span aria-hidden />
+  return (
+    <ConnectedGitChip
+      orgSlug={orgSlug}
+      slug={slug}
+      ticket={ticket}
+      github={github}
+    />
+  )
+}
+
+function ConnectedGitChip({
+  orgSlug,
+  slug,
+  ticket,
+  github
+}: Readonly<{
+  orgSlug: string
+  slug: string
+  ticket: Pick<Ticket, "id" | "gitState">
+  github: GithubConnection
+}>) {
+  const { state, waiting } = useGitState(orgSlug, slug, ticket)
   if (!state || state.tag === "no_branch") return <span aria-hidden />
   const pending = state.tag === "branch_pending" || state.tag === "pr_pending"
   const pulse = (waiting || pending) && "animate-pulse"
@@ -221,6 +243,7 @@ function PanelForState({
   branchTemplate: string | null
   variant: "bordered" | "ghost"
 }) {
+  const canWrite = useProjectActor().call("tickets", "createBranch")
   const repoSlug = `${github.repoOwner}/${github.repoName}`
   const pending = state.tag === "branch_pending" || state.tag === "pr_pending"
   const pulse = (waiting || pending) && "animate-pulse"
@@ -255,23 +278,25 @@ function PanelForState({
               {m.git_no_branch_yet()}
             </span>
           </InlineForm.Display>
-          <InlineForm.Actions className={ACTIONS_STACK}>
-            <InlineForm.Trigger
-              action="create"
-              size={buttonSize}
-              leadingIcon={Plus}
-            >
-              {m.git_create_branch_button()}
-            </InlineForm.Trigger>
-            <InlineForm.Trigger
-              action="connect"
-              size={buttonSize}
-              variant="tertiary"
-              leadingIcon={GitBranch}
-            >
-              {m.git_connect_branch_button()}
-            </InlineForm.Trigger>
-          </InlineForm.Actions>
+          {canWrite && (
+            <InlineForm.Actions className={ACTIONS_STACK}>
+              <InlineForm.Trigger
+                action="create"
+                size={buttonSize}
+                leadingIcon={Plus}
+              >
+                {m.git_create_branch_button()}
+              </InlineForm.Trigger>
+              <InlineForm.Trigger
+                action="connect"
+                size={buttonSize}
+                variant="tertiary"
+                leadingIcon={GitBranch}
+              >
+                {m.git_connect_branch_button()}
+              </InlineForm.Trigger>
+            </InlineForm.Actions>
+          )}
         </InlineForm.Idle>
         <InlineForm.Form action="create">
           <CreateBranchFields
@@ -313,15 +338,17 @@ function PanelForState({
               </span>
             </div>
           </InlineForm.Display>
-          <InlineForm.Actions className={ACTIONS_STACK}>
-            <InlineForm.Trigger
-              action="clear"
-              size={buttonSize}
-              variant="ghost"
-            >
-              {m.git_clear_branch_button()}
-            </InlineForm.Trigger>
-          </InlineForm.Actions>
+          {canWrite && (
+            <InlineForm.Actions className={ACTIONS_STACK}>
+              <InlineForm.Trigger
+                action="clear"
+                size={buttonSize}
+                variant="ghost"
+              >
+                {m.git_clear_branch_button()}
+              </InlineForm.Trigger>
+            </InlineForm.Actions>
+          )}
         </InlineForm.Idle>
         <InlineForm.Form action="clear">
           <ClearBranchFields
@@ -348,28 +375,30 @@ function PanelForState({
           <InlineForm.Display className={cn(pulse)}>
             <BranchChip slug={repoSlug} name={state.name} />
           </InlineForm.Display>
-          <InlineForm.Actions className={ACTIONS_STACK}>
-            <Button
-              render={
-                <a
-                  href={compareUrl(repoSlug, baseBranch, state.name)}
-                  target="_blank"
-                  rel="noreferrer"
-                />
-              }
-              size={buttonSize}
-              leadingIcon={GitPullRequest}
-            >
-              {m.git_open_pr_button()}
-            </Button>
-            <InlineForm.Trigger
-              action="clear"
-              size={buttonSize}
-              variant="ghost"
-            >
-              {m.git_clear_branch_button()}
-            </InlineForm.Trigger>
-          </InlineForm.Actions>
+          {canWrite && (
+            <InlineForm.Actions className={ACTIONS_STACK}>
+              <Button
+                render={
+                  <a
+                    href={compareUrl(repoSlug, baseBranch, state.name)}
+                    target="_blank"
+                    rel="noreferrer"
+                  />
+                }
+                size={buttonSize}
+                leadingIcon={GitPullRequest}
+              >
+                {m.git_open_pr_button()}
+              </Button>
+              <InlineForm.Trigger
+                action="clear"
+                size={buttonSize}
+                variant="ghost"
+              >
+                {m.git_clear_branch_button()}
+              </InlineForm.Trigger>
+            </InlineForm.Actions>
+          )}
         </InlineForm.Idle>
         <InlineForm.Form action="clear">
           <ClearBranchFields
@@ -476,15 +505,17 @@ function PanelForState({
               </span>
             </div>
           </InlineForm.Display>
-          <InlineForm.Actions className={ACTIONS_STACK}>
-            <InlineForm.Trigger
-              action="clear"
-              size={buttonSize}
-              variant="ghost"
-            >
-              {m.git_clear_branch_button()}
-            </InlineForm.Trigger>
-          </InlineForm.Actions>
+          {canWrite && (
+            <InlineForm.Actions className={ACTIONS_STACK}>
+              <InlineForm.Trigger
+                action="clear"
+                size={buttonSize}
+                variant="ghost"
+              >
+                {m.git_clear_branch_button()}
+              </InlineForm.Trigger>
+            </InlineForm.Actions>
+          )}
         </InlineForm.Idle>
         <InlineForm.Form action="clear">
           <ClearBranchFields
