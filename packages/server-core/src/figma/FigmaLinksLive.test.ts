@@ -314,21 +314,20 @@ const failingDb = () => {
   )
 }
 
-const harness = (input: {
-  readonly db: TestDb
-  readonly credential?: Effect.Effect<
-    never,
-    FigmaAuthInvalid | FigmaNotConnected
-  >
-  readonly figma?: Partial<Record<string, unknown>>
-  readonly storage?: Effect.Effect<unknown, FigmaError | StorageNotConnected>
-  readonly viewer?: ProjectScopeShape
-  readonly markProjectCredentialRejected?: (
+type HarnessInput = Readonly<{
+  db: TestDb
+  credential?: Effect.Effect<never, FigmaAuthInvalid | FigmaNotConnected>
+  figma?: Partial<Record<string, unknown>>
+  storage?: Effect.Effect<unknown, FigmaError | StorageNotConnected>
+  viewer?: ProjectScopeShape
+  markProjectCredentialRejected?: (
     orgSlug: string,
     slug: string,
     reason: string
   ) => Effect.Effect<void>
-}) =>
+}>
+
+const harness = (input: HarnessInput) =>
   FigmaLinksLive.pipe(
     Layer.provide(Layer.succeed(Db, input.db as never)),
     Layer.provide(
