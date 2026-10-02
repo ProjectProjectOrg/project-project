@@ -16,6 +16,7 @@ export const projectScope = (orgSlug: string, slug: string): string =>
  * string churn.
  */
 export const Keys = {
+  orgEmail: (orgSlug: string): string => `org-email/${orgSlug}`,
   /** One ticket's content, wherever it is shown. */
   ticket: (scope: string, id: TicketId): string =>
     `ticket-content/${scope}/${id}`,

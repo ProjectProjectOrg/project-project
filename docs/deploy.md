@@ -276,3 +276,32 @@ published. The old image does not provide the include on its own.
 Watchtower updates images, not host-mounted configuration. This one-time mount
 removal allows future route updates to travel with the image. To roll back to an
 older image without the include, restore the backed-up volume mount as well.
+
+## Organization email connections
+
+Organization owners and admins can configure an outgoing SMTP provider under
+**Organization settings → Email**. Each organization has its own connection.
+The backend uses `USER_SECRET_ENCRYPTION_KEY` (the existing base64-encoded
+32-byte secret encryption key) to encrypt saved SMTP passwords. Keep this key
+stable and back it up alongside the database; changing it makes existing
+credentials unreadable.
+
+Enter the provider's host, port, username, password or API key, and sender
+address. Choose TLS for an immediately encrypted connection (commonly port 465)
+or STARTTLS for a required encryption upgrade (commonly port 587). The sender
+must be permitted by the provider. For Postmark, use a dedicated SMTP token's
+access key and secret; for Resend, use `resend` as the username and an API key
+as the password.
+
+Save settings, then use **Send test email** to send to your account email.
+A successful test means the provider accepted the message, not that it reached
+the inbox. Editing settings clears the previous test result. Leave the password
+blank when editing to retain it; changing the host, port, or username requires
+entering it again. Disconnecting deletes the configuration and credentials.
+
+The backend only connects to public addresses. Hosts that resolve to loopback,
+private, link-local, or other reserved ranges are refused, so an SMTP relay on
+the local network cannot be used.
+
+This configuration currently supports connection testing only. Authentication
+emails, invitations, and notifications are not yet routed through it.

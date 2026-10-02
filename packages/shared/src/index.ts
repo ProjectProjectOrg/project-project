@@ -40,3 +40,5 @@ export * from "./library/icons"
 export * from "./library/gallery"
 export * from "./library/hints"
 export * from "./library/library"
+
+export * from "./schemas/OrgEmail"

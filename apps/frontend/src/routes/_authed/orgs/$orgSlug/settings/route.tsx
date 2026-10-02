@@ -2,6 +2,7 @@ import { Link, Outlet, useLocation } from "@tanstack/react-router"
 import { createFileRoute } from "@tanstack/react-router"
 import {
   Files,
+  Mail,
   HardDrive,
   LayoutTemplate,
   SlidersHorizontal,
@@ -42,6 +43,14 @@ const SECTIONS = [
     description: m.storage_description()
   },
   {
+    key: "email",
+    to: "/orgs/$orgSlug/settings/email",
+    label: m.org_email_heading(),
+    icon: Mail,
+    heading: m.org_email_heading(),
+    description: m.org_email_description()
+  },
+  {
     key: "attachments",
     to: "/orgs/$orgSlug/settings/attachments",
     label: m.attachments_tab(),
@@ -71,6 +80,7 @@ const SECTIONS = [
     | "/orgs/$orgSlug/settings/general"
     | "/orgs/$orgSlug/settings/members"
     | "/orgs/$orgSlug/settings/storage"
+    | "/orgs/$orgSlug/settings/email"
     | "/orgs/$orgSlug/settings/attachments"
     | "/orgs/$orgSlug/settings/templates"
     | "/orgs/$orgSlug/settings/danger"

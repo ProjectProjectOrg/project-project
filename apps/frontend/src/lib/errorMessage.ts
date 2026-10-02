@@ -1,3 +1,4 @@
+import type { OrgEmailError, EmailFailureReason } from "@pp/shared"
 import {
   FigmaAuthInvalid,
   FigmaError,
@@ -43,6 +44,7 @@ import type { InviteAcceptError } from "@/lib/invitations"
 import { m } from "@/paraglide/messages"
 
 export type AppError =
+  | OrgEmailError
   | Unauthorized
   | NotFound
   | Forbidden
@@ -185,6 +187,7 @@ export const errorMessage = (error: AppError): string =>
     )
     .pipe(
       Match.tag("StorageAuthInvalid", () => m.storage_error_auth()),
+      Match.tag("OrgEmailError", (error) => emailFailureMessage(error.reason)),
       Match.tag("StorageConfigMissing", () => m.storage_error_config()),
       Match.tag("StorageError", () => m.storage_error_unreachable()),
       Match.tag("StorageNotConnected", () => m.storage_error_unreachable()),
@@ -292,3 +295,17 @@ export const oauthConsentErrorMessage = (error: unknown): string =>
     ),
     Match.orElse(() => m.auth_oauth_consent_error_retry())
   )
+
+export const emailFailureMessage = (reason: EmailFailureReason): string =>
+  ({
+    authentication: m.org_email_error_authentication,
+    connection: m.org_email_error_connection,
+    host_not_allowed: m.org_email_error_host_not_allowed,
+    tls: m.org_email_error_tls,
+    sender: m.org_email_error_sender,
+    delivery: m.org_email_error_delivery,
+    not_configured: m.org_email_error_not_configured,
+    encryption: m.org_email_error_encryption,
+    password_required: m.org_email_error_password_required,
+    settings_changed: m.org_email_error_settings_changed
+  })[reason]()
