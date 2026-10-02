@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto"
 
 import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
-import { DbLive, migrationsFolder } from "@pp/db"
+import { Db, DbLive, migrationsFolder } from "@pp/db"
+import { projectIndex } from "@pp/db/schema"
+import { eq } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as Effect from "effect/Effect"
@@ -32,7 +34,7 @@ describe.skipIf(!databaseUrl)("orphanProject", () => {
   const doomed = randomUUID()
   const survivor = randomUUID()
   let pool: Pool
-  let layer: Layer.Layer<Attachments>
+  let layer: Layer.Layer<Attachments | Db>
 
   const statuses = () =>
     Effect.promise(async () =>
@@ -46,10 +48,17 @@ describe.skipIf(!databaseUrl)("orphanProject", () => {
       )
     )
 
-  const deleteProject = (projectId: string) =>
-    Effect.promise(() =>
-      pool.query("DELETE FROM project_index WHERE id = $1", [projectId])
-    ).pipe(Effect.asVoid)
+  const deleteProject = (db: Db["Service"], projectId: string) =>
+    db
+      .delete(projectIndex)
+      .where(eq(projectIndex.id, projectId))
+      .pipe(Effect.orDie, Effect.asVoid)
+
+  const insertLive = (id: string, projectId: string) =>
+    pool.query(
+      "INSERT INTO attachment_index (id, organization_id, org_slug, project_id, object_key, filename, content_type, byte_size, status, uploaded_by) VALUES ($1, $2, $3, $4, $1, $1, 'image/png', 1, 'live', 'user-1')",
+      [id, organizationId, orgSlug, projectId]
+    )
 
   beforeAll(async () => {
     if (!databaseUrl) throw new Error("Test database URL is required")
@@ -82,10 +91,7 @@ describe.skipIf(!databaseUrl)("orphanProject", () => {
       ["a4", survivor],
       ["a5", doomed]
     ]) {
-      await pool.query(
-        "INSERT INTO attachment_index (id, organization_id, org_slug, project_id, object_key, filename, content_type, byte_size, status, uploaded_by) VALUES ($1, $2, $3, $4, $1, $1, 'image/png', 1, 'live', 'user-1')",
-        [`${organizationId}-${id}`, organizationId, orgSlug, projectId]
-      )
+      await insertLive(`${organizationId}-${id}`, projectId)
     }
     await pool.query(
       "INSERT INTO project_image_reference (project_id, attachment_id, slot) VALUES ($1, $2, 'banner')",
@@ -102,7 +108,7 @@ describe.skipIf(!databaseUrl)("orphanProject", () => {
       )
     )
     layer = AttachmentsLive.pipe(
-      Layer.provide(db),
+      Layer.provideMerge(db),
       Layer.provide(Layer.succeed(CurrentOrg, {} as never)),
       Layer.provide(Layer.succeed(OrgStorage, {} as never)),
       Layer.provide(Layer.succeed(S3Storage, {} as never)),
@@ -137,16 +143,27 @@ describe.skipIf(!databaseUrl)("orphanProject", () => {
     }).pipe(Effect.provide(layer))
   )
 
-  it.effect(
+  it.live(
     "orphans what the deleted project uploaded or used, and keeps what others still use",
     () =>
       Effect.gen(function* () {
         const attachments = yield* Attachments
+        const db = yield* Db
+        let concurrentUpload: Promise<string> = Promise.resolve("not started")
         const result = yield* attachments.orphanProject(
           orgSlug,
           "doomed",
-          deleteProject(doomed)
+          Effect.sync(() => {
+            concurrentUpload = insertLive(`${organizationId}-a6`, doomed).then(
+              () => "inserted",
+              () => "rejected"
+            )
+          }).pipe(
+            Effect.andThen(Effect.sleep("100 millis")),
+            Effect.andThen(deleteProject(db, doomed))
+          )
         )
+        expect(yield* Effect.promise(() => concurrentUpload)).toBe("rejected")
         const byId = yield* statuses()
         expect(result.orphaned).toBe(4)
         expect([
@@ -154,13 +171,15 @@ describe.skipIf(!databaseUrl)("orphanProject", () => {
           byId[`${organizationId}-a2`],
           byId[`${organizationId}-a3`],
           byId[`${organizationId}-a4`],
-          byId[`${organizationId}-a5`]
+          byId[`${organizationId}-a5`],
+          byId[`${organizationId}-a6`]
         ]).toStrictEqual([
           "orphaned",
           "orphaned",
           "orphaned",
           "live",
-          "orphaned"
+          "orphaned",
+          undefined
         ])
       }).pipe(Effect.provide(layer))
   )

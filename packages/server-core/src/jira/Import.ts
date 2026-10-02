@@ -343,6 +343,7 @@ export const buildJiraPreparedPublicationFromSnapshot = Effect.fn(
       existingProjectSlugs: projects
         .filter(
           (project) =>
+            project.organizationId === input.organizationId &&
             project.id !== projectId &&
             project.slug === input.configuration.destination.slug
         )

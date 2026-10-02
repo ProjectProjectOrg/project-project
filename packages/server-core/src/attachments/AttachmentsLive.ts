@@ -796,16 +796,26 @@ export const AttachmentsLive = Layer.effect(
       removal
     ) =>
       Effect.gen(function* () {
-        const ids = yield* projectInOrg(db, orgSlug, slug).pipe(
-          Effect.flatMap((project) => projectAttachmentIds(project.id)),
-          Effect.catchCause((cause) =>
-            Effect.as(
-              Effect.logError("collecting project attachments failed", cause),
-              []
-            )
+        const ids = yield* db
+          .transaction(() =>
+            Effect.gen(function* () {
+              const ids = yield* projectInOrg(db, orgSlug, slug).pipe(
+                Effect.tap((project) =>
+                  db
+                    .select({ id: projectIndex.id })
+                    .from(projectIndex)
+                    .where(eq(projectIndex.id, project.id))
+                    .for("update")
+                    .pipe(Effect.orDie)
+                ),
+                Effect.flatMap((project) => projectAttachmentIds(project.id)),
+                Effect.catchTag("NotFound", () => Effect.succeed([]))
+              )
+              yield* removal
+              return ids
+            })
           )
-        )
-        yield* removal
+          .pipe(Effect.catchTag("SqlError", Effect.die))
         const orphaned = yield* orphanUnreferenced(orgSlug, ids).pipe(
           Effect.catchCause((cause) =>
             Effect.as(

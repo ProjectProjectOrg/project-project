@@ -10,7 +10,11 @@ BEGIN
   GET DIAGNOSTICS dangling_comments = ROW_COUNT;
 
   DELETE FROM "attachment_reference" r
-  WHERE NOT EXISTS (SELECT 1 FROM "project_index" p WHERE p."slug" = r."project_slug");
+  WHERE NOT EXISTS (
+    SELECT 1 FROM "project_index" p
+    JOIN "attachment_index" a ON a."id" = r."attachment_id"
+    WHERE p."slug" = r."project_slug" AND p."organization_id" = a."organization_id"
+  );
   GET DIAGNOSTICS dangling_attachment_references = ROW_COUNT;
 
   DELETE FROM "figma_reference" f
@@ -37,8 +41,8 @@ WHERE p."slug" = a."project_slug" AND p."organization_id" = a."organization_id";
 ALTER TABLE "attachment_reference" ADD COLUMN "project_id" uuid;
 --> statement-breakpoint
 UPDATE "attachment_reference" r SET "project_id" = p."id"
-FROM "project_index" p
-WHERE p."slug" = r."project_slug";
+FROM "project_index" p, "attachment_index" a
+WHERE a."id" = r."attachment_id" AND p."slug" = r."project_slug" AND p."organization_id" = a."organization_id";
 --> statement-breakpoint
 ALTER TABLE "comment_index" ADD COLUMN "project_id" uuid;
 --> statement-breakpoint

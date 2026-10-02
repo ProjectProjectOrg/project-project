@@ -12,7 +12,7 @@ const web = "00000000-0000-0000-0000-000000000001"
 
 const fixture = `
 INSERT INTO "user" (id, name, email) VALUES ('u1', 'U', 'u@example.test');
-INSERT INTO "organization" (id, name, slug, created_at) VALUES ('o1', 'IGNE', 'igne', now());
+INSERT INTO "organization" (id, name, slug, created_at) VALUES ('o1', 'IGNE', 'igne', now()), ('o3', 'Stale', 'stale', now());
 INSERT INTO "member" (id, organization_id, user_id, role, created_at) VALUES ('m1', 'o1', 'u1', 'owner', now());
 INSERT INTO "project_index" (id, slug, organization_id, key, name, icon, color, created_by) VALUES
   ('00000000-0000-0000-0000-000000000001', 'web', 'o1', 'WEB', 'Web', 'x', '#000000', 'u1');
@@ -22,8 +22,8 @@ INSERT INTO "ticket_index" (organization_id, org_slug, project_id, project_slug,
   VALUES ('o1', 'igne', '00000000-0000-0000-0000-000000000001', 'web', 'WEB-1', 'T', 'todo', 'feat', 'med', 'u1', now(), now());
 INSERT INTO "comment_index" (id, project_slug, ticket_id, author_id, origin, author_kind) VALUES ('c1', 'web', 'WEB-1', 'u1', 'native', 'user'), ('c2', 'test-project', 'T-1', 'u1', 'native', 'user');
 INSERT INTO "attachment_index" (id, organization_id, org_slug, project_slug, ticket_id, object_key, filename, content_type, byte_size, uploaded_by)
-  VALUES ('a1', 'o1', 'igne', 'web', 'WEB-1', 'k1', 'f', 'image/png', 1, 'u1'), ('a2', 'o1', 'igne', 'gone', null, 'k2', 'f', 'image/png', 1, 'u1');
-INSERT INTO "attachment_reference" (attachment_id, org_slug, project_slug, ticket_id) VALUES ('a1', 'igne', 'web', 'WEB-1'), ('a2', 'igne', 'gone', 'G-1');
+  VALUES ('a1', 'o1', 'igne', 'web', 'WEB-1', 'k1', 'f', 'image/png', 1, 'u1'), ('a2', 'o1', 'igne', 'gone', null, 'k2', 'f', 'image/png', 1, 'u1'), ('a3', 'o3', 'stale', 'web', null, 'k3', 'f', 'image/png', 1, 'u1');
+INSERT INTO "attachment_reference" (attachment_id, org_slug, project_slug, ticket_id) VALUES ('a1', 'igne', 'web', 'WEB-1'), ('a2', 'igne', 'gone', 'G-1'), ('a3', 'stale', 'web', 'WEB-9');
 INSERT INTO "project_image_reference" (project_slug, org_slug, attachment_id, slot) VALUES ('web', 'igne', 'a1', 'banner');
 INSERT INTO "figma_link_index" (id, organization_id, org_slug, project_slug, file_key, node_id, kind) VALUES ('f1', 'o1', 'igne', 'web', 'file', '1:2', 'design');
 INSERT INTO "figma_reference" (link_id, org_slug, project_slug, ticket_id) VALUES ('f1', 'igne', 'web', 'WEB-1');
@@ -58,7 +58,7 @@ describe.skipIf(!databaseUrl)("project identity migration", () => {
     )
 
     it.effect(
-      "deletes references to deleted projects but keeps their attachments",
+      "deletes references to deleted projects, also when another org reused the slug, but keeps their attachments",
       () =>
         Effect.gen(function* () {
           const database = yield* MigratedDatabase
@@ -68,7 +68,8 @@ describe.skipIf(!databaseUrl)("project identity migration", () => {
             )
           ).toStrictEqual([
             { id: "a1", project_id: web },
-            { id: "a2", project_id: null }
+            { id: "a2", project_id: null },
+            { id: "a3", project_id: null }
           ])
         })
     )
@@ -114,7 +115,7 @@ describe.skipIf(!databaseUrl)("project identity migration", () => {
               figma_links: "0",
               tickets: "0",
               images: "0",
-              detached: "2"
+              detached: "3"
             }
           ])
         })
