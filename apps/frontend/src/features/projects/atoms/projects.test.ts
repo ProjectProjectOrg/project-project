@@ -12,6 +12,7 @@ import { stubFetch } from "@/api/testFetch"
 import {
   addMember,
   cancelPendingMember,
+  leaveProject,
   project,
   projectRequest,
   updateMember,
@@ -282,6 +283,55 @@ describe("project member mutations", () => {
         expect(registry.get(mutation).waiting).toBe(false)
         expect(fetched.get("orgMembers") ?? 0).toBeGreaterThan(0)
       })
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
+describe("leaving a project", () => {
+  it("refreshes the project list without refetching the project", async () => {
+    const fetched = new Map<string, number>()
+    const count = (key: string) => fetched.set(key, (fetched.get(key) ?? 0) + 1)
+    const probe = Api.query("tickets", "count", {
+      params: { orgSlug: "acme", slug: "web" },
+      query: { q: "projects" },
+      timeToLive: "2 minutes",
+      reactivityKeys: [Keys.projects("acme")]
+    })
+    fetchStub.set((input, init) => {
+      const url = new URL(input instanceof Request ? input.url : String(input))
+      if (init?.method === "POST" && url.pathname.endsWith("/leave")) {
+        count("leave")
+        return Promise.resolve(new Response(null, { status: 204 }))
+      }
+      if (url.pathname.endsWith("/count")) {
+        count("projects")
+        return Promise.resolve(Response.json({ total: 0, byStatus: {} }))
+      }
+      count("detail")
+      return Promise.resolve(Response.json(encode(detail)))
+    })
+    const req = projectRequest("acme", "web")
+    const view = project(req)
+    const mutation = leaveProject(req)
+    const registry = AtomRegistry.make()
+    registry.mount(view)
+    registry.mount(mutation)
+    registry.mount(probe)
+    try {
+      await vi.waitFor(() => {
+        expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
+        expect(AsyncResult.isSuccess(registry.get(probe))).toBe(true)
+      })
+      fetched.clear()
+      registry.set(mutation, undefined)
+      await vi.waitFor(() => {
+        expect(AsyncResult.isSuccess(registry.get(mutation))).toBe(true)
+        expect(fetched.get("projects") ?? 0).toBeGreaterThan(0)
+      })
+      expect(fetched.get("leave")).toBe(1)
+      expect(fetched.get("detail")).toBeUndefined()
     } finally {
       registry.dispose()
     }

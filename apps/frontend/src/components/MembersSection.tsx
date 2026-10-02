@@ -6,6 +6,8 @@ import type {
   PendingProjectMember,
   Role
 } from "@pp/shared"
+import { useNavigate } from "@tanstack/react-router"
+import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
@@ -14,6 +16,7 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import {
   Briefcase,
   Check,
+  LogOut,
   MoreHorizontal,
   Plus,
   ShieldCheck,
@@ -40,6 +43,7 @@ import {
 import {
   addMember,
   cancelPendingMember,
+  leaveProject,
   projectRequest,
   removeMember,
   updateMember
@@ -79,10 +83,18 @@ const ROLE_META: Record<
 
 const isLastProjectPmBlocked = Schema.is(LastProjectPmBlocked)
 
-const memberActionMessage = (failure: unknown) =>
+const memberActionMessage = <E,>(failure: E) =>
   isLastProjectPmBlocked(failure)
     ? errorMessage(failure)
     : m.members_action_error()
+
+const memberActionError = <A, E>(state: Result.AsyncResult<A, E>) =>
+  Result.isFailure(state)
+    ? Option.match(Cause.findErrorOption(state.cause), {
+        onNone: () => m.members_action_error(),
+        onSome: memberActionMessage
+      })
+    : null
 const ASSIGNABLE_ROLES = [
   "pm",
   "developer",
@@ -308,12 +320,7 @@ function MemberRow({
     updateMember({ req: projectRequest(orgSlug, slug), id: member.id })
   )
   const updating = projectWaiting && updateState.waiting
-  const updateError = Result.isFailure(updateState)
-    ? Option.match(Cause.findErrorOption(updateState.cause), {
-        onNone: () => m.members_action_error(),
-        onSome: memberActionMessage
-      })
-    : null
+  const updateError = memberActionError(updateState)
   return (
     <div
       className={cn(
@@ -355,6 +362,8 @@ function MemberRow({
         slug={slug}
         member={member}
         canManage={canManage && !onlyPm}
+        isSelf={isSelf}
+        canLeave={!onlyPm}
       />
     </div>
   )
@@ -504,33 +513,46 @@ function MemberMenu({
   orgSlug,
   slug,
   member,
-  canManage
-}: {
+  canManage,
+  isSelf,
+  canLeave
+}: Readonly<{
   orgSlug: string
   slug: string
   member: Member
   canManage: boolean
-}) {
-  const mutationKey = { req: projectRequest(orgSlug, slug), id: member.id }
+  isSelf: boolean
+  canLeave: boolean
+}>) {
+  const navigate = useNavigate()
+  const req = projectRequest(orgSlug, slug)
+  const mutationKey = { req, id: member.id }
   const updateMutation = updateMember(mutationKey)
   const update = useAtomSet(updateMutation)
   const remove = useAtomSet(removeMember(mutationKey), {
     mode: "promiseExit"
   })
   const removeState = useAtomValue(removeMember(mutationKey))
-  const removing = removeState.waiting
-  const removeError = Result.isFailure(removeState)
-    ? Option.match(Cause.findErrorOption(removeState.cause), {
-        onNone: () => m.members_action_error(),
-        onSome: memberActionMessage
-      })
-    : null
+  const leave = useAtomSet(leaveProject(req), { mode: "promiseExit" })
+  const leaveState = useAtomValue(leaveProject(req))
+  const removing = isSelf ? leaveState.waiting : removeState.waiting
+  const removeError = isSelf
+    ? memberActionError(leaveState)
+    : memberActionError(removeState)
   const [confirming, setConfirming] = useState(false)
+  const canExit = isSelf ? canLeave : canManage
 
-  if (!canManage) return <span className="size-8 shrink-0" />
+  if (!canManage && !canExit) return <span className="size-8 shrink-0" />
 
   async function onRemove() {
-    await remove()
+    if (!isSelf) {
+      await remove()
+      return
+    }
+    const exit = await leave()
+    if (Exit.isSuccess(exit)) {
+      void navigate({ to: "/orgs/$orgSlug/projects", params: { orgSlug } })
+    }
   }
 
   return (
@@ -554,7 +576,9 @@ function MemberMenu({
         {confirming ? (
           <div className="flex flex-col gap-2 p-1">
             <p className="px-2 pt-1 text-xs text-muted-foreground">
-              {m.members_remove_confirm_prompt({ name: member.name })}
+              {isSelf
+                ? m.members_leave_confirm_prompt()
+                : m.members_remove_confirm_prompt({ name: member.name })}
             </p>
             {removeError && (
               <p className="px-2 text-xs text-destructive" role="alert">
@@ -568,9 +592,13 @@ function MemberMenu({
                 onClick={() => void onRemove()}
                 className="flex-1 rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
               >
-                {removing
-                  ? m.members_remove_in_progress()
-                  : m.members_remove_button()}
+                {isSelf
+                  ? removing
+                    ? m.members_leave_in_progress()
+                    : m.members_leave_button()
+                  : removing
+                    ? m.members_remove_in_progress()
+                    : m.members_remove_button()}
               </button>
               <button
                 type="button"
@@ -584,29 +612,36 @@ function MemberMenu({
           </div>
         ) : (
           <>
-            {ASSIGNABLE_ROLES.filter((r) => r !== member.role).map((r) => {
-              const meta = ROLE_META[r]
-              const RIcon = meta.icon
-              return (
-                <DropdownMenuItem
-                  key={r}
-                  onClick={() => update({ role: r })}
-                  className="cursor-pointer"
-                >
-                  <RIcon className="size-4" strokeWidth={1.75} />
-                  {meta.assign()}
-                </DropdownMenuItem>
-              )
-            })}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              closeOnClick={false}
-              onClick={() => setConfirming(true)}
-              className="cursor-pointer text-destructive focus:text-destructive"
-            >
-              <Trash2 className="size-4" strokeWidth={1.75} />
-              {m.members_remove_button()}
-            </DropdownMenuItem>
+            {canManage &&
+              ASSIGNABLE_ROLES.filter((r) => r !== member.role).map((r) => {
+                const meta = ROLE_META[r]
+                const RIcon = meta.icon
+                return (
+                  <DropdownMenuItem
+                    key={r}
+                    onClick={() => update({ role: r })}
+                    className="cursor-pointer"
+                  >
+                    <RIcon className="size-4" strokeWidth={1.75} />
+                    {meta.assign()}
+                  </DropdownMenuItem>
+                )
+              })}
+            {canManage && canExit && <DropdownMenuSeparator />}
+            {canExit && (
+              <DropdownMenuItem
+                closeOnClick={false}
+                onClick={() => setConfirming(true)}
+                className="cursor-pointer text-destructive focus:text-destructive"
+              >
+                {isSelf ? (
+                  <LogOut className="size-4" strokeWidth={1.75} />
+                ) : (
+                  <Trash2 className="size-4" strokeWidth={1.75} />
+                )}
+                {isSelf ? m.members_leave_button() : m.members_remove_button()}
+              </DropdownMenuItem>
+            )}
           </>
         )}
       </DropdownMenuContent>

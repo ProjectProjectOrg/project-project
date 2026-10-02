@@ -403,6 +403,15 @@ export const removeMember = Atom.family(({ req, id }: MemberMutationRequest) =>
   })
 )
 
+export const leaveProject = Atom.family((req: ProjectRequest) =>
+  Api.runtime.fn(
+    Effect.fn("leaveProject")(function* (_input: void) {
+      yield* Api.use((client) => client.projects.leave({ params: req.params }))
+      yield* Reactivity.invalidate([Keys.projects(req.params.orgSlug)])
+    })
+  )
+)
+
 export const cancelPendingMember = Atom.family(
   ({ req, id }: MemberMutationRequest) =>
     Atom.optimisticFn(project(req), {
