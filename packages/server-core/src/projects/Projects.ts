@@ -160,7 +160,7 @@ export interface ProjectsShape {
     orgSlug: string,
     slug: string,
     userId: string
-  ) => Effect.Effect<void, MarkdownError | MalformedTicketDocument>
+  ) => Effect.Effect<void>
   readonly connectGithub: (
     orgSlug: string,
     userId: string,

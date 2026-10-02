@@ -709,52 +709,64 @@ export const ProjectsLive = Layer.effect(
             return yield* new Conflict({ reason: "project_key_taken" })
           }
 
-          const [row] = yield* db
-            .insert(projectIndex)
-            .values({
-              slug,
-              key,
-              name: input.name,
-              icon: identity.icon,
-              color: identity.color,
-              createdBy,
-              createdAt,
-              publishedAt: createdAt,
-              organizationId
-            })
-            .returning()
-            .pipe(
-              Effect.catch((cause) =>
-                uniqueConstraint(cause, "project_index_organization_key_uidx")
-                  ? Effect.fail(new Conflict({ reason: "project_key_taken" }))
-                  : Effect.die(cause)
-              )
-            )
+          const row = yield* db
+            .transaction(() =>
+              Effect.gen(function* () {
+                const [inserted] = yield* db
+                  .insert(projectIndex)
+                  .values({
+                    slug,
+                    key,
+                    name: input.name,
+                    icon: identity.icon,
+                    color: identity.color,
+                    createdBy,
+                    createdAt,
+                    publishedAt: createdAt,
+                    organizationId
+                  })
+                  .returning()
+                  .pipe(
+                    Effect.catch((cause) =>
+                      uniqueConstraint(
+                        cause,
+                        "project_index_organization_key_uidx"
+                      )
+                        ? Effect.fail(
+                            new Conflict({ reason: "project_key_taken" })
+                          )
+                        : Effect.die(cause)
+                    )
+                  )
 
-          yield* db
-            .insert(projectMember)
-            .values({
-              projectId: row.id,
-              organizationId,
-              userId: createdBy,
-              roleId: "pm"
-            })
-            .pipe(Effect.orDie)
+                yield* db
+                  .insert(projectMember)
+                  .values({
+                    projectId: inserted.id,
+                    organizationId,
+                    userId: createdBy,
+                    roleId: "pm"
+                  })
+                  .pipe(Effect.orDie)
 
-          yield* db
-            .insert(projectStatus)
-            .values(
-              BASELINE_STATUS_SEED.map((baseline) => ({
-                projectId: row.id,
-                slug: baseline.slug,
-                label: baseline.label,
-                icon: baseline.icon,
-                color: baseline.color,
-                orderKey: baseline.orderKey,
-                createdBy
-              }))
+                yield* db
+                  .insert(projectStatus)
+                  .values(
+                    BASELINE_STATUS_SEED.map((baseline) => ({
+                      projectId: inserted.id,
+                      slug: baseline.slug,
+                      label: baseline.label,
+                      icon: baseline.icon,
+                      color: baseline.color,
+                      orderKey: baseline.orderKey,
+                      createdBy
+                    }))
+                  )
+                  .pipe(Effect.orDie)
+                return inserted
+              })
             )
-            .pipe(Effect.orDie)
+            .pipe(Effect.catchTag("SqlError", Effect.die))
 
           const rollback = db
             .delete(projectIndex)
@@ -1072,7 +1084,7 @@ export const ProjectsLive = Layer.effect(
       orgSlug: string,
       slug: string,
       userId: string
-    ): Effect.Effect<void, MarkdownError | MalformedTicketDocument> =>
+    ): Effect.Effect<void> =>
       Effect.gen(function* () {
         const project = yield* ticketIndex
           .projectFor(orgSlug, slug)
@@ -1109,8 +1121,22 @@ export const ProjectsLive = Layer.effect(
                 },
                 (next) => ticketIndex.upsertTicket(project, next)
               )
-              .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null))),
-          { concurrency: 8 }
+              .pipe(
+                Effect.catchTag("NotFound", () => Effect.succeed(null)),
+                Effect.catchTags({
+                  MalformedTicketDocument: (error) =>
+                    Effect.logWarning("unassign skipped a malformed ticket", {
+                      ticketId: id,
+                      error
+                    }),
+                  MarkdownError: (error) =>
+                    Effect.logWarning("unassign could not write a ticket", {
+                      ticketId: id,
+                      error
+                    })
+                })
+              ),
+          { concurrency: 8, discard: true }
         )
       })
 
