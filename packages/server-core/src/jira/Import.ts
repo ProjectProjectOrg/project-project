@@ -1076,7 +1076,12 @@ export const ensureHiddenJiraProject = Effect.fn(
       const [existing] = yield* tx
         .select()
         .from(projectIndex)
-        .where(eq(projectIndex.slug, project.slug))
+        .where(
+          and(
+            eq(projectIndex.organizationId, project.organizationId),
+            eq(projectIndex.slug, project.slug)
+          )
+        )
         .limit(1)
       if (
         !existing ||

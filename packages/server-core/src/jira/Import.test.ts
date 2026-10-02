@@ -88,18 +88,24 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
 
   it("creates one hidden row for the current attempt and rejects a stale retry", async () => {
     const organizationId = randomUUID()
+    const otherOrganizationId = randomUUID()
     const userId = randomUUID()
     const migrationId = randomUUID()
     const projectId = randomUUID()
     const slug = `jira-${randomUUID()}`
     owners.push({ organizationId, userId })
+    owners.push({ organizationId: otherOrganizationId, userId })
     await pool.query(
       'insert into "user" (id,name,email,email_verified,created_at,updated_at) values ($1,$1,$2,false,now(),now())',
       [userId, `${userId}@example.test`]
     )
     await pool.query(
-      'insert into "organization" (id,name,slug,created_at) values ($1,$1,$1,now())',
-      [organizationId]
+      'insert into "organization" (id,name,slug,created_at) values ($1,$1,$1,now()), ($2,$2,$2,now())',
+      [organizationId, otherOrganizationId]
+    )
+    await pool.query(
+      "insert into project_index (slug,organization_id,key,name,icon,color,created_by) values ($1,$2,'OTH','Other','x','#000000',$3)",
+      [slug, otherOrganizationId, userId]
     )
     await pool.query(
       `insert into jira_migration (id,request_id,organization_id,initiated_by,source_cloud_id,source_site_name,source_site_url,source_project_id,source_project_key,source_project_name,staging_prefix,workflow_execution_id,workflow_attempt,scan_revision,status,phase,checkpoint) values ($1,$2,$3,$4,'cloud','Site','https://example.test','10000','APP','Application',$5,$1,1,1,'migrating','migrate',$6)`,
@@ -146,8 +152,8 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
       ensureHiddenJiraProject(input).pipe(Effect.provide(layer))
     )
     const rows = await pool.query(
-      "select id,published_at from project_index where slug = $1",
-      [slug]
+      "select id,published_at from project_index where slug = $1 and organization_id = $2",
+      [slug, organizationId]
     )
     expect(rows.rows).toEqual([{ id: projectId, published_at: null }])
     const reserved = await pool.query(
@@ -288,8 +294,8 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
     expect(
       (
         await pool.query(
-          "select count(*)::int as count from project_index where slug = $1",
-          [slug]
+          "select count(*)::int as count from project_index where slug = $1 and organization_id = $2",
+          [slug, organizationId]
         )
       ).rows[0]?.count
     ).toBe(1)
