@@ -66,7 +66,8 @@ function IntegrationsSettings() {
           />
         )}
       </div>
-      {project.setup.connectGithubDismissedAt ? (
+      {project.setup.connectGithubDismissedAt &&
+      can("projects", "updateSetup") ? (
         <div className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2">
           <span className="text-sm text-muted-foreground">
             {m.project_setup_github_dismissed_note()}

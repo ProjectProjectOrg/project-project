@@ -205,35 +205,34 @@ export function TicketPage({
           <CommentsSection orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
         </main>
 
-        <fieldset
-          disabled={!canEdit}
-          className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:self-start lg:overflow-y-auto lg:border-l lg:border-border/60 lg:pl-5"
-        >
-          <MetaRow label={m.tickets_page_meta_priority()}>
-            <PriorityBadgeTrigger ticket={ticket} onPatch={updateTicket} />
-          </MetaRow>
-          <MetaRow label={m.tickets_page_meta_sprint()}>
-            <SprintBadgeTrigger
-              orgSlug={orgSlug}
-              slug={slug}
-              ticketId={ticket.id}
-            />
-          </MetaRow>
-          <MetaRow label={m.tickets_page_meta_assignees()}>
-            <AssigneePicker
-              ticket={ticket}
-              members={members}
-              onPatch={updateTicket}
-            />
-          </MetaRow>
-          <MetaRow label={m.tickets_page_meta_tags()}>
-            <TagEditor
-              orgSlug={orgSlug}
-              slug={slug}
-              ticket={ticket}
-              canManageTags={can("tags", "create")}
-            />
-          </MetaRow>
+        <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:self-start lg:overflow-y-auto lg:border-l lg:border-border/60 lg:pl-5">
+          <fieldset disabled={!canEdit} className="contents">
+            <MetaRow label={m.tickets_page_meta_priority()}>
+              <PriorityBadgeTrigger ticket={ticket} onPatch={updateTicket} />
+            </MetaRow>
+            <MetaRow label={m.tickets_page_meta_sprint()}>
+              <SprintBadgeTrigger
+                orgSlug={orgSlug}
+                slug={slug}
+                ticketId={ticket.id}
+              />
+            </MetaRow>
+            <MetaRow label={m.tickets_page_meta_assignees()}>
+              <AssigneePicker
+                ticket={ticket}
+                members={members}
+                onPatch={updateTicket}
+              />
+            </MetaRow>
+            <MetaRow label={m.tickets_page_meta_tags()}>
+              <TagEditor
+                orgSlug={orgSlug}
+                slug={slug}
+                ticket={ticket}
+                canManageTags={can("tags", "create")}
+              />
+            </MetaRow>
+          </fieldset>
           {github && (
             <MetaRow label={m.tickets_page_meta_git()}>
               <TicketGitPanel
@@ -256,7 +255,7 @@ export function TicketPage({
           <MetaRow label={m.tickets_page_meta_updated()}>
             <UserTimestamp user={ticket.updater} timestamp={ticket.updatedAt} />
           </MetaRow>
-        </fieldset>
+        </aside>
       </div>
     </TicketPageShell>
   )

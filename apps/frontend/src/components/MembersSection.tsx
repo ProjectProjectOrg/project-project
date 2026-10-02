@@ -43,11 +43,13 @@ import {
 import {
   addMember,
   cancelPendingMember,
+  forgetProject,
   leaveProject,
   projectRequest,
   removeMember,
   updateMember
 } from "@/features/projects/atoms/projects"
+import { errorMessage } from "@/lib/errorMessage"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -534,6 +536,7 @@ function MemberMenu({
   })
   const removeState = useAtomValue(removeMember(mutationKey))
   const leave = useAtomSet(leaveProject(req), { mode: "promiseExit" })
+  const forget = useAtomSet(forgetProject(req), { mode: "promise" })
   const leaveState = useAtomValue(leaveProject(req))
   const removing = isSelf ? leaveState.waiting : removeState.waiting
   const removeError = isSelf
@@ -551,7 +554,8 @@ function MemberMenu({
     }
     const exit = await leave()
     if (Exit.isSuccess(exit)) {
-      void navigate({ to: "/orgs/$orgSlug/projects", params: { orgSlug } })
+      await navigate({ to: "/orgs/$orgSlug/projects", params: { orgSlug } })
+      await forget()
     }
   }
 

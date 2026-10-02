@@ -12,6 +12,7 @@ import { stubFetch } from "@/api/testFetch"
 import {
   addMember,
   cancelPendingMember,
+  forgetProject,
   leaveProject,
   project,
   projectRequest,
@@ -91,6 +92,61 @@ describe("project member mutations", () => {
       }
       finish?.(Response.json(encode(served)))
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("takes the caller's new grants from a role change before the refetch lands", async () => {
+    const managed = {
+      ...detail,
+      pendingMembers: [
+        {
+          invitationId: "inv-1",
+          email: "new@example.com",
+          role: "client" as const,
+          expiresAt: DateTime.toDate(
+            DateTime.makeUnsafe("2026-04-02T00:00:00.000Z")
+          )
+        }
+      ],
+      permissions: { members: ["manage" as const], ticket: ["read" as const] }
+    }
+    let patched = false
+    fetchStub.set((_input, init) => {
+      if (init?.method === "PATCH") {
+        patched = true
+        return Promise.resolve(
+          Response.json(
+            encode({
+              ...detail,
+              members: [{ ...detail.members[0], role: "pm" }],
+              permissions: { ticket: ["read"] }
+            })
+          )
+        )
+      }
+      return patched
+        ? new Promise<Response>(() => {})
+        : Promise.resolve(Response.json(encode(managed)))
+    })
+    const req = projectRequest("acme", "web")
+    const view = project(req)
+    const mutation = updateMember({ req, id: "user-2" })
+    const registry = AtomRegistry.make()
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
+      )
+      registry.set(mutation, { role: "pm" })
+      await vi.waitFor(() => {
+        const current = registry.get(view)
+        if (!AsyncResult.isSuccess(current)) throw new Error("no project")
+        expect(current.value.permissions).toStrictEqual({ ticket: ["read"] })
+        expect(current.value.pendingMembers).toStrictEqual([])
+      })
     } finally {
       registry.dispose()
     }
@@ -332,6 +388,32 @@ describe("leaving a project", () => {
       })
       expect(fetched.get("leave")).toBe(1)
       expect(fetched.get("detail")).toBeUndefined()
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
+describe("forgetting a left project", () => {
+  it("refetches the project so a cached copy can't be shown again", async () => {
+    let fetched = 0
+    fetchStub.set(() => {
+      fetched += 1
+      return Promise.resolve(Response.json(encode(detail)))
+    })
+    const req = projectRequest("acme", "web")
+    const view = project(req)
+    const forget = forgetProject(req)
+    const registry = AtomRegistry.make()
+    registry.mount(view)
+    registry.mount(forget)
+    try {
+      await vi.waitFor(() =>
+        expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
+      )
+      const before = fetched
+      registry.set(forget, undefined)
+      await vi.waitFor(() => expect(fetched).toBeGreaterThan(before))
     } finally {
       registry.dispose()
     }

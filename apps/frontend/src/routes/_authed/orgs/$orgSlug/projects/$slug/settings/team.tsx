@@ -31,7 +31,8 @@ function TeamSettings() {
   const projectResult = useAtomValue(project(req))
   const viewer = useAtomValue(me())
   const setup = useAtomSet(updateProjectSetup(req))
-  const canManage = useProjectCan()("projects", "addMember")
+  const can = useProjectCan()
+  const canManage = can("projects", "addMember")
   if (!Result.isSuccess(viewer)) return null
   const callerId = viewer.value.id
 
@@ -46,7 +47,8 @@ function TeamSettings() {
         canManage={canManage}
         callerId={callerId}
       />
-      {projectDetail.setup.invitePeopleDismissedAt ? (
+      {projectDetail.setup.invitePeopleDismissedAt &&
+      can("projects", "updateSetup") ? (
         <div className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2">
           <span className="text-sm text-muted-foreground">
             {m.project_setup_invite_dismissed_note()}

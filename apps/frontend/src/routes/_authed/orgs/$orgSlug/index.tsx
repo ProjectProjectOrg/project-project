@@ -186,11 +186,11 @@ function RecentProjects({
   orgSlug,
   projects,
   canCreate
-}: {
+}: Readonly<{
   orgSlug: string
   projects: ReadonlyArray<Project>
   canCreate: boolean
-}) {
+}>) {
   const sorted = [...projects].toSorted(
     (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
   )

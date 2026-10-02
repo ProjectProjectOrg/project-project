@@ -49,6 +49,7 @@
   "github_chip_disconnect_confirm_prefix": "Disconnect",
   "github_chip_disconnect_confirm_suffix": "?",
   "github_chip_disconnect_repo_button": "Disconnect repo",
+  "github_chip_install_app_ask_admin": "Ask an organization owner or admin to install the GitHub App.",
   "github_chip_install_app_button": "Install GitHub App",
   "github_chip_install_app_failed_error": "Couldn't start GitHub App install.",
   "github_chip_install_app_forbidden_error": "Only an organization owner can install the GitHub App.",
