@@ -39,8 +39,8 @@ const serve = (fetched: Array<string | null>) =>
     return Promise.resolve(
       Response.json(
         cursor === null
-          ? { items: [entry("newest")], nextCursor: "older" }
-          : { items: [entry("oldest")], nextCursor: null }
+          ? { items: [entry("newest")], people: [], nextCursor: "older" }
+          : { items: [entry("oldest")], people: [], nextCursor: null }
       )
     )
   })
