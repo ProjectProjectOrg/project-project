@@ -55,7 +55,10 @@ export const TicketActivityChange = Schema.Union([
   listChange("assignees_changed", UserId),
   listChange("tags_changed", TagName),
   Schema.Struct({ kind: Schema.Literal("description_edited") }),
-  Schema.Struct({ kind: Schema.Literal("archived") }),
+  Schema.Struct({
+    kind: Schema.Literal("archived"),
+    reason: Schema.optional(Schema.String)
+  }),
   Schema.Struct({ kind: Schema.Literal("unarchived") }),
   Schema.Struct({
     kind: Schema.Literal("split"),

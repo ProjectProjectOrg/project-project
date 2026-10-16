@@ -61,7 +61,6 @@ import { ticketChanges } from "../activity/changes"
 import { TicketActivity } from "../activity/TicketActivity"
 import { Attachments } from "../attachments/Attachments"
 import { validateBodyMentionsWithLookups } from "../comments/BodyMentions"
-import { Comments } from "../comments/Comments"
 import { FigmaLinks } from "../figma/FigmaLinks"
 import * as GitHub from "../github/GitHub"
 import { Groups } from "../groups/Groups"
@@ -296,7 +295,6 @@ export const TicketsLive = Layer.effect(
     const ticketIndex = yield* TicketIndex
     const github = yield* GitHub.GitHub
     const groups = yield* Groups
-    const comments = yield* Comments
     const db = yield* Db
     const attachments = yield* Attachments
     const figmaLinks = yield* FigmaLinks
@@ -1704,11 +1702,6 @@ export const TicketsLive = Layer.effect(
             yield* readTicket(orgSlug, slug, id)
             const indexProject = indexProjectOf(scope)
             const trimmed = reason?.trim()
-            if (trimmed !== undefined && trimmed.length > 0) {
-              yield* comments
-                .create(makeTicketId(id), { body: trimmed })
-                .pipe(Effect.asVoid)
-            }
             const next = yield* ticketDocs.update(
               orgSlug,
               slug,
@@ -1721,7 +1714,8 @@ export const TicketsLive = Layer.effect(
                     updatedAt: now
                   }))
                 ),
-              (next) => ticketIndex.upsertTicket(indexProject, next)
+              (next) => ticketIndex.upsertTicket(indexProject, next),
+              trimmed ? { archiveReason: trimmed } : {}
             )
             return yield* detailOf(next, yield* gitView)
           })

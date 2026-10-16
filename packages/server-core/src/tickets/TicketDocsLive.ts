@@ -227,7 +227,10 @@ export const TicketDocsLive = Layer.effect(
               : transformed
             const changes = activity.silent
               ? []
-              : [...ticketChanges(current, next), ...(activity.extra ?? [])]
+              : [
+                  ...ticketChanges(current, next, activity.archiveReason),
+                  ...(activity.extra ?? [])
+                ]
             yield* ticketActivity.record(
               orgSlug,
               slug,

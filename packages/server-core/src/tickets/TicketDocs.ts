@@ -147,6 +147,7 @@ export type TicketActivityOptions = Readonly<{
   cause?: ActivityCause
   extra?: ReadonlyArray<TicketActivityChange>
   silent?: boolean
+  archiveReason?: string
 }>
 
 export interface TicketDocsShape {
