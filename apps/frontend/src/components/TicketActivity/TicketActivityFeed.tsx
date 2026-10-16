@@ -41,9 +41,11 @@ import {
   ticketActivityRequest
 } from "@/features/tickets/atoms/ticketActivity"
 import {
+  activityItems,
   dayKey,
   groupActivity,
-  type ActivityGroup
+  type ActivityGroup,
+  type ActivityItem
 } from "@/lib/activity-groups"
 import { PRIORITY_LABELS, PRIORITY_META } from "@/lib/priority-meta"
 import { formatRelative } from "@/lib/relative-time"
@@ -358,6 +360,36 @@ const changeLines = (
   }
 }
 
+const withCause = (
+  lines: ReadonlyArray<ReactNode>,
+  cause: ActivityCause | null
+): ReadonlyArray<ReactNode> => {
+  if (cause === null) return lines
+  const text = CAUSES[cause]()
+  return lines.map((line) => (
+    <>
+      {line} {text}
+    </>
+  ))
+}
+
+const itemLines = (
+  item: ActivityItem,
+  lookups: Lookups
+): ReadonlyArray<ReactNode> =>
+  item.kind === "entry"
+    ? entryLines(item.entry, lookups)
+    : withCause(
+        [
+          fieldChange(
+            m.tickets_activity_field_sprint(),
+            <Value icon={GROUP_ICONS.sprint}>{item.from}</Value>,
+            <Value icon={GROUP_ICONS.sprint}>{item.to}</Value>
+          )
+        ],
+        item.cause
+      )
+
 const entryLines = (
   entry: TicketActivityEntry,
   lookups: Lookups
@@ -374,14 +406,7 @@ const entryLines = (
           )
     ]
   }
-  const lines = changeLines(entry.change, lookups)
-  if (entry.cause === null) return lines
-  const cause = CAUSES[entry.cause]()
-  return lines.map((line) => (
-    <>
-      {line} {cause}
-    </>
-  ))
+  return withCause(changeLines(entry.change, lookups), entry.cause)
 }
 
 function ActorMark({ actor }: Readonly<{ actor: TicketActivityActor | null }>) {
@@ -480,10 +505,10 @@ function GroupRow({
         </time>
       </div>
       <ul className="col-start-2 mt-1.5 flex flex-col gap-2">
-        {group.entries.flatMap((entry) =>
-          entryLines(entry, lookups).map((line, index) => (
+        {activityItems(group.entries).flatMap((item) =>
+          itemLines(item, lookups).map((line, index) => (
             <li
-              key={`${entry.id}-${index}`}
+              key={`${item.key}-${index}`}
               className="text-sm leading-5 text-muted-foreground"
             >
               {line}

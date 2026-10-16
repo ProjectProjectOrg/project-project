@@ -18,6 +18,7 @@
   "tickets_activity_created": "created this",
   "tickets_activity_description_edited": "edited the description",
   "tickets_activity_field_priority": "priority",
+  "tickets_activity_field_sprint": "sprint",
   "tickets_activity_field_status": "status",
   "tickets_activity_field_to": "to",
   "tickets_activity_field_type": "type",

@@ -1,5 +1,8 @@
 import {
+  GroupId,
   UserId,
+  type ActivityCause,
+  type GroupKind,
   type TicketActivityActor,
   type TicketActivityEntry,
   type User
@@ -8,9 +11,10 @@ import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import { groupActivity } from "./activity-groups"
+import { activityItems, groupActivity } from "./activity-groups"
 
 const userId = Schema.decodeUnknownSync(UserId)
+const groupId = Schema.decodeUnknownSync(GroupId)
 
 const user = (id: string): User => ({
   id: userId(id),
@@ -112,5 +116,72 @@ describe("groupActivity", () => {
         entry("a", "2026-10-15T23:55:00", wouter)
       ])
     ).toEqual([[["b"]], [["a"]]])
+  })
+})
+
+const membership = (
+  id: string,
+  localTime: string,
+  kind: "group_added" | "group_removed",
+  name: string,
+  options: Readonly<{ groupKind?: GroupKind; cause?: ActivityCause }> = {}
+): TicketActivityEntry => ({
+  kind: "change",
+  id,
+  occurredAt: localDate(localTime),
+  actor: wouter,
+  cause: options.cause ?? null,
+  change: {
+    kind,
+    groupId: groupId(`G-${name.length}`),
+    groupKind: options.groupKind ?? "sprint",
+    name
+  }
+})
+
+const lines = (entries: ReadonlyArray<TicketActivityEntry>) =>
+  activityItems(entries).map((item) =>
+    item.kind === "entry"
+      ? item.entry.id
+      : `${item.from} -> ${item.to}${item.cause ? ` (${item.cause})` : ""}`
+  )
+
+describe("activityItems", () => {
+  it("reads leaving one sprint and joining another as one move", () => {
+    expect(
+      lines([
+        entry("edit", "2026-10-16T12:05:00", wouter),
+        membership("in", "2026-10-16T12:00:01", "group_added", "Sprint 13"),
+        membership("out", "2026-10-16T12:00:00", "group_removed", "Sprint 12")
+      ])
+    ).toEqual(["edit", "Sprint 12 -> Sprint 13"])
+  })
+
+  it("keeps the cause of a carryover", () => {
+    expect(
+      lines([
+        membership("in", "2026-10-16T12:00:00", "group_added", "Sprint 13", {
+          cause: "sprint_completed"
+        }),
+        membership("out", "2026-10-16T12:00:00", "group_removed", "Sprint 12", {
+          cause: "sprint_completed"
+        })
+      ])
+    ).toEqual(["Sprint 12 -> Sprint 13 (sprint_completed)"])
+  })
+
+  it("leaves sprint changes apart when they are not one move", () => {
+    expect(
+      lines([
+        membership("later", "2026-10-16T12:05:00", "group_added", "Sprint 13"),
+        membership("out", "2026-10-16T12:00:00", "group_removed", "Sprint 12"),
+        membership("epic", "2026-10-16T11:00:01", "group_added", "Billing", {
+          groupKind: "epic"
+        }),
+        membership("old", "2026-10-16T11:00:00", "group_removed", "Platform", {
+          groupKind: "epic"
+        })
+      ])
+    ).toEqual(["later", "out", "epic", "old"])
   })
 })
