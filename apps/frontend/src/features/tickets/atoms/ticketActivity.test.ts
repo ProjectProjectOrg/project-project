@@ -39,8 +39,8 @@ const serve = (fetched: Array<string | null>) =>
     return Promise.resolve(
       Response.json(
         cursor === null
-          ? { items: [entry("newest")], nextCursor: "older" }
-          : { items: [entry("oldest")], nextCursor: null }
+          ? { items: [entry("newest")], people: [], nextCursor: "older" }
+          : { items: [entry("oldest")], people: [], nextCursor: null }
       )
     )
   })
@@ -93,6 +93,59 @@ describe("ticketActivity", () => {
       await vi.waitFor(() => expect(fetched).toEqual([null]))
       registry.set(publish, undefined)
       await vi.waitFor(() => expect(fetched).toEqual([null, null]))
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("surfaces a failed older page and loads it again on refresh", async () => {
+    const fetched: Array<string | null> = []
+    let olderFails = true
+    fetchStub.set((input) => {
+      const url = new URL(
+        input instanceof Request ? input.url : String(input),
+        "http://localhost"
+      )
+      const cursor = url.searchParams.get("cursor")
+      fetched.push(cursor)
+      if (cursor === null) {
+        return Promise.resolve(
+          Response.json({
+            items: [entry("newest")],
+            people: [],
+            nextCursor: "older"
+          })
+        )
+      }
+      return Promise.resolve(
+        olderFails
+          ? Response.json({ _tag: "NotFound" }, { status: 404 })
+          : Response.json({
+              items: [entry("oldest")],
+              people: [],
+              nextCursor: null
+            })
+      )
+    })
+    const registry = AtomRegistry.make()
+    registry.mount(ticketActivity(req))
+    try {
+      await vi.waitFor(() =>
+        expect(ids(registry)).toEqual({ ids: ["newest"], hasOlder: true })
+      )
+      registry.set(olderActivityPages(req), 1)
+      await vi.waitFor(() =>
+        expect(registry.get(ticketActivity(req))._tag).toBe("Failure")
+      )
+
+      olderFails = false
+      registry.refresh(ticketActivity(req))
+      await vi.waitFor(() =>
+        expect(ids(registry)).toEqual({
+          ids: ["newest", "oldest"],
+          hasOlder: false
+        })
+      )
     } finally {
       registry.dispose()
     }
