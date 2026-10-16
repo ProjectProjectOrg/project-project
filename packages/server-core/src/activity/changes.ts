@@ -52,11 +52,16 @@ const prChange = (
 
 export const ticketChanges = (
   before: TicketChangeSource,
-  after: TicketChangeSource
+  after: TicketChangeSource,
+  archiveReason?: string
 ): ReadonlyArray<TicketActivityChange> => {
   const changes: Array<TicketActivityChange> = []
   if (before.title !== after.title) {
-    changes.push({ kind: "title_changed", from: before.title, to: after.title })
+    changes.push({
+      kind: "title_changed",
+      from: before.title,
+      to: after.title
+    })
   }
   if (before.status !== after.status) {
     changes.push({
@@ -93,7 +98,11 @@ export const ticketChanges = (
   }
   if (before.body !== after.body) changes.push({ kind: "description_edited" })
   if (before.archivedAt === null && after.archivedAt !== null) {
-    changes.push({ kind: "archived" })
+    changes.push(
+      archiveReason === undefined
+        ? { kind: "archived" }
+        : { kind: "archived", reason: archiveReason }
+    )
   }
   if (before.archivedAt !== null && after.archivedAt === null) {
     changes.push({ kind: "unarchived" })
@@ -129,7 +138,11 @@ export const groupMembershipChanges = (
   if (group === null) return []
   const diff = listDiff(before?.tickets ?? [], after?.tickets ?? [])
   if (diff === null) return []
-  const subject = { groupId: group.id, groupKind: group.kind, name: group.name }
+  const subject = {
+    groupId: group.id,
+    groupKind: group.kind,
+    name: group.name
+  }
   return [
     ...diff.removed.map((ticketId) => ({
       ticketId,

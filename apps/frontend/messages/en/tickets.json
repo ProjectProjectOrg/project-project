@@ -46,7 +46,7 @@
   "tickets_archive_description": "Archived tickets are hidden from the backlog and sprints. You can find them again with the Archived filter.",
   "tickets_archive_error_fallback": "Failed to archive ticket",
   "tickets_archive_reason_label": "Reason (optional)",
-  "tickets_archive_reason_placeholder": "Why are you archiving this? Added as a comment.",
+  "tickets_archive_reason_placeholder": "Why are you archiving this? Shown in the activity.",
   "tickets_archive_submit": "Archive",
   "tickets_archived_badge": "Archived",
   "tickets_assign_sprint_chip": "Assign sprint",

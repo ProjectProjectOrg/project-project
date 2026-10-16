@@ -283,7 +283,18 @@ const changeLines = (
     case "description_edited":
       return [m.tickets_activity_description_edited()]
     case "archived":
-      return [m.tickets_activity_archived()]
+      return [
+        change.reason === undefined ? (
+          m.tickets_activity_archived()
+        ) : (
+          <>
+            {m.tickets_activity_archived()}{" "}
+            <span className="mt-1 block border-l-2 border-border pl-2.5 whitespace-pre-line text-foreground">
+              {change.reason}
+            </span>
+          </>
+        )
+      ]
     case "unarchived":
       return [m.tickets_activity_unarchived()]
     case "split":

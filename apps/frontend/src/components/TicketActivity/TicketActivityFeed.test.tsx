@@ -144,6 +144,31 @@ const groups = () =>
   }))
 
 describe("TicketActivityFeed", () => {
+  it("shows the archive reason under the archived line", async () => {
+    serve(
+      [
+        {
+          items: [
+            change(
+              "1",
+              2,
+              { kind: "user", user: user("wouter", "Wouter") },
+              { kind: "archived", reason: "Duplicate of T-3" }
+            )
+          ],
+          people: [],
+          nextCursor: null
+        }
+      ],
+      []
+    )
+    renderFeed()
+    await waitFor(() => expect(groups()).toHaveLength(1))
+    expect(groups()).toEqual([
+      { actor: "Wouter", lines: ["archived this Duplicate of T-3"] }
+    ])
+  })
+
   it("groups each person's changes and reads them as lines", async () => {
     const wouter = { kind: "user", user: user("wouter", "Wouter") }
     serve(
