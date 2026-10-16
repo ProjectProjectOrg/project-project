@@ -75,6 +75,7 @@ const change = (
 
 type Page = Readonly<{
   items: ReadonlyArray<unknown>
+  people: ReadonlyArray<ReturnType<typeof user>>
   nextCursor: string | null
 }>
 
@@ -179,6 +180,7 @@ describe("TicketActivityFeed", () => {
               name: "Sprint 4"
             })
           ],
+          people: [user("luuk", "Luuk")],
           nextCursor: null
         }
       ],
@@ -211,6 +213,7 @@ describe("TicketActivityFeed", () => {
           items: people.map((actor, index) =>
             change(String(index), index, actor, { kind: "description_edited" })
           ),
+          people: [],
           nextCursor: "older"
         },
         {
@@ -222,6 +225,7 @@ describe("TicketActivityFeed", () => {
               { kind: "archived" }
             )
           ],
+          people: [],
           nextCursor: null
         }
       ],
