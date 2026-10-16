@@ -44,10 +44,12 @@ import type {
   JiraMigrationConfiguration,
   OrgEverhourConfig,
   ProjectBanner,
-  ProjectIconImage
+  ProjectIconImage,
+  TicketActivityChangeEncoded
 } from "@pp/shared"
 import { defineRelations, sql } from "drizzle-orm"
 import {
+  bigint,
   boolean,
   check,
   foreignKey,
@@ -685,6 +687,102 @@ export const commentIndex = pgTable(
   ]
 )
 
+export const ticketActivity = pgTable(
+  "ticket_activity",
+  {
+    id: uuid("id").primaryKey(),
+    seq: bigint("seq", { mode: "number" }).generatedAlwaysAsIdentity(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projectIndex.id, { onDelete: "cascade" }),
+    ticketId: text("ticket_id").notNull(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    actorKind: text("actor_kind", {
+      enum: ["user", "agent", "system"]
+    }).notNull(),
+    actorUserId: text("actor_user_id").references(() => user.id, {
+      onDelete: "cascade"
+    }),
+    actorClientId: text("actor_client_id"),
+    actorClientName: text("actor_client_name"),
+    actorSource: text("actor_source", {
+      enum: ["github", "automation", "import"]
+    }),
+    cause: text("cause", {
+      enum: [
+        "status_removed",
+        "tag_deleted",
+        "member_removed",
+        "sprint_completed",
+        "group_deleted"
+      ]
+    }),
+    change: jsonb("change").$type<TicketActivityChangeEncoded>().notNull()
+  },
+  (t) => [
+    check(
+      "ticket_activity_actor_check",
+      sql`(
+        ${t.actorKind} = 'user'
+        and ${t.actorUserId} is not null
+        and ${t.actorClientId} is null
+        and ${t.actorClientName} is null
+        and ${t.actorSource} is null
+      ) or (
+        ${t.actorKind} = 'agent'
+        and ${t.actorUserId} is not null
+        and ${t.actorClientId} is not null
+        and ${t.actorClientName} is not null
+        and ${t.actorSource} is null
+      ) or (
+        ${t.actorKind} = 'system'
+        and ${t.actorUserId} is null
+        and ${t.actorClientId} is null
+        and ${t.actorClientName} is null
+        and ${t.actorSource} is not null
+      )`
+    ),
+    index("ticket_activity_ticket_idx").on(
+      t.projectId,
+      t.ticketId,
+      t.occurredAt,
+      t.seq
+    )
+  ]
+)
+
+export type TicketActivityRow = typeof ticketActivity.$inferInsert
+export type TicketActivityOutboxRow = Omit<TicketActivityRow, "occurredAt"> &
+  Readonly<{ occurredAt: string }>
+
+export const ticketActivityOutbox = pgTable(
+  "ticket_activity_outbox",
+  {
+    batchId: uuid("batch_id").primaryKey(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projectIndex.id, { onDelete: "cascade" }),
+    documentKind: text("document_kind", {
+      enum: ["ticket", "group"]
+    }).notNull(),
+    documentId: text("document_id").notNull(),
+    contentHash: text("content_hash").notNull(),
+    rows: jsonb("rows")
+      .$type<ReadonlyArray<TicketActivityOutboxRow>>()
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    index("ticket_activity_outbox_document_idx").on(
+      t.projectId,
+      t.documentKind,
+      t.documentId
+    )
+  ]
+)
+
 export const attachmentIndex = pgTable(
   "attachment_index",
   {
@@ -1059,6 +1157,8 @@ export const relations = defineRelations(
     everhourTimeAttribution,
     ticketIndex,
     commentIndex,
+    ticketActivity,
+    ticketActivityOutbox,
     attachmentIndex,
     attachmentReference
   },

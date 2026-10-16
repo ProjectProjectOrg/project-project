@@ -6,6 +6,7 @@ import { join, resolve } from "node:path"
 import * as BunServices from "@effect/platform-bun/BunServices"
 import { DbLive, PgLive } from "@pp/db"
 import { accessLayer, projectScope } from "@pp/server-core/access/testing"
+import { passthroughTicketActivity } from "@pp/server-core/activity/testing"
 import {
   Attachments,
   type AttachmentsShape
@@ -28,6 +29,7 @@ import { Tickets } from "@pp/server-core/tickets/Tickets"
 import { TicketsLive } from "@pp/server-core/tickets/TicketsLive"
 import { Users, type UsersShape } from "@pp/server-core/users/Users"
 import {
+  ActivityActor,
   encodeCursor,
   GroupDetail,
   GroupId,
@@ -371,6 +373,8 @@ const FakeProjects = Layer.succeed(Projects, {
   cancelPendingMember: () => unexpected("Projects.cancelPendingMember"),
   unassignUserFromActiveTickets: () =>
     unexpected("Projects.unassignUserFromActiveTickets"),
+  unassignUserFromOrgTickets: () =>
+    unexpected("Projects.unassignUserFromOrgTickets"),
   connectGithub: () => unexpected("Projects.connectGithub"),
   disconnectGithub: () => unexpected("Projects.disconnectGithub")
 } satisfies ProjectsShape)
@@ -467,6 +471,7 @@ const PassthroughLibrary = Layer.mock(Library, {
 
 const DocsLive = TicketDocsLive.pipe(
   Layer.provide(KeyedLock.layer),
+  Layer.provide(passthroughTicketActivity),
   Layer.provide(MarkdownLive),
   Layer.provideMerge(BunServices.layer)
 )
@@ -491,6 +496,7 @@ const BenchmarkLive = (options: Options) =>
         FakeFigmaLinks,
         FakeUsers,
         TicketDocumentLock.layer,
+        passthroughTicketActivity,
         accessLayer({})
       )
     )
@@ -687,7 +693,9 @@ const benchmarkProgram = (
     })
     const measure = <A, E>(
       operation: string,
-      effectFor: (sample: number) => Effect.Effect<A, E, ProjectScope>
+      effectFor: (
+        sample: number
+      ) => Effect.Effect<A, E, ProjectScope | ActivityActor>
     ) =>
       options.operation !== undefined && options.operation !== operation
         ? Effect.void
@@ -700,7 +708,11 @@ const benchmarkProgram = (
                 options.sampleCount,
                 (sample) =>
                   effectFor(sample).pipe(
-                    Effect.provideService(ProjectScope, scope)
+                    Effect.provideService(ProjectScope, scope),
+                    Effect.provideService(
+                      ActivityActor,
+                      ActivityActor.user(userId)
+                    )
                   )
               ).pipe(
                 Effect.tap((result) =>

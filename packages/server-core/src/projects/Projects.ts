@@ -1,4 +1,5 @@
 import type {
+  ActivityActor,
   AddMemberInput,
   BranchListResponse,
   GithubRepoPage,
@@ -126,12 +127,12 @@ export interface ProjectsShape {
   ) => Effect.Effect<
     ProjectDetail,
     NotFound | Validation | MarkdownError | LastProjectPmBlocked,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
   readonly leave: () => Effect.Effect<
     void,
     NotFound | LastProjectPmBlocked,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
   readonly cancelPendingMember: (
     invitationId: string
@@ -140,7 +141,11 @@ export interface ProjectsShape {
     orgSlug: string,
     slug: string,
     userId: string
-  ) => Effect.Effect<void>
+  ) => Effect.Effect<void, never, ActivityActor>
+  readonly unassignUserFromOrgTickets: (
+    orgSlug: string,
+    userId: string
+  ) => Effect.Effect<void, never, ActivityActor>
   readonly connectGithub: (
     input: ConnectGithubInput
   ) => Effect.Effect<
@@ -153,7 +158,7 @@ export interface ProjectsShape {
     | RateLimited
     | GitHubError
     | MarkdownError,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
   readonly disconnectGithub: () => Effect.Effect<
     ProjectDetail,

@@ -7,6 +7,7 @@ import { DbLive } from "@pp/db"
 import { Access } from "@pp/server-core/access/Access"
 import { AccessLive } from "@pp/server-core/access/AccessLive"
 import { testUser } from "@pp/server-core/access/testing"
+import { asUser } from "@pp/server-core/activity/testing"
 import { GitHub } from "@pp/server-core/github/GitHub"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownError } from "@pp/server-core/markdown/Markdown"
@@ -289,6 +290,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
           access.project(organizationId, slug)
         ).pipe(Effect.provideService(CurrentUser, testUser(userId)))
       ),
+      asUser(userId),
       Effect.provide(projectsLayer)
     )
 

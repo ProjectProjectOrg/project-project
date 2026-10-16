@@ -1,4 +1,7 @@
 import {
+  type ActivityActor,
+  type ActivityCause,
+  type TicketActivityChange,
   PullRequestState,
   TagName,
   TicketId,
@@ -14,6 +17,7 @@ import * as Schema from "effect/Schema"
 import * as SchemaTransformation from "effect/SchemaTransformation"
 import * as Struct from "effect/Struct"
 
+import { markdownFileContent, ticketFileBody } from "../markdown/fileContent"
 import type { MarkdownError, TicketIdTaken } from "../markdown/Markdown"
 
 const TicketFrontmatterOnDisk = Schema.Struct({
@@ -110,6 +114,20 @@ export interface TicketDocument extends TicketFrontmatter {
   readonly commentsRegion: string
 }
 
+const encodeTicketFrontmatter = Schema.encodeSync(TicketFrontmatter)
+
+export const ticketFileContent = (document: TicketDocument): string =>
+  markdownFileContent(
+    encodeTicketFrontmatter(document),
+    ticketFileBody(document.body, document.commentsRegion)
+  )
+
+export type TicketActivityOptions = Readonly<{
+  cause?: ActivityCause
+  extra?: ReadonlyArray<TicketActivityChange>
+  silent?: boolean
+}>
+
 export interface TicketDocsShape {
   readonly listIds: (
     orgSlug: string,
@@ -142,11 +160,12 @@ export interface TicketDocsShape {
     transform: (
       document: TicketDocument
     ) => Effect.Effect<TicketDocument, E, R>,
-    onPersist?: (document: TicketDocument) => Effect.Effect<void, E, R>
+    onPersist?: (document: TicketDocument) => Effect.Effect<void, E, R>,
+    activity?: TicketActivityOptions
   ) => Effect.Effect<
     TicketDocument,
     NotFound | MarkdownError | MalformedTicketDocument | E,
-    R
+    R | ActivityActor
   >
   readonly remove: (
     orgSlug: string,

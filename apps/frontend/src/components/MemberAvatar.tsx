@@ -30,7 +30,7 @@ export function MemberAvatar({
   return (
     <span
       className={cn(
-        "relative inline-grid shrink-0 place-items-center overflow-hidden rounded-full bg-muted font-medium text-muted-foreground",
+        "relative inline-grid shrink-0 place-items-center overflow-hidden rounded-full bg-muted leading-none font-medium text-muted-foreground",
         className
       )}
       style={{

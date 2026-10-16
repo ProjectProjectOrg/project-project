@@ -60,6 +60,7 @@ import { createHmac, timingSafeEqual } from "node:crypto"
 import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
 import { projectIndex } from "@pp/db/schema"
+import { TicketActivityRecoveryLive } from "@pp/server-core/activity/TicketActivityLive"
 import { AttachmentReaperLive } from "@pp/server-core/attachments/AttachmentReaperLive"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { EverhourWebhooks } from "@pp/server-core/everhour/EverhourWebhooks"
@@ -85,6 +86,7 @@ import {
 import { HttpApiBuilder, HttpApiSwagger } from "effect/unstable/httpapi"
 
 import { isClosedAuthPath } from "./auth/orgAccess"
+import { TicketActivityHandlerLive } from "./handlers/activity"
 import { AttachmentsHandlerLive } from "./handlers/attachments"
 import { AuthHandlerLive } from "./handlers/auth"
 import { CommentsHandlerLive } from "./handlers/comments"
@@ -154,31 +156,26 @@ const betterAuthApp = Effect.gen(function* () {
 )
 
 export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
-  Layer.provide(
-    Layer.mergeAll(
-      HealthHandlerLive,
-      DbHandlerLive,
-      AuthHandlerLive,
-      OrgHandlerLive,
-      InvitationsHandlerLive,
-      ProjectsHandlerLive,
-      EverhourHandlerLive,
-      FigmaHandlerLive,
-      JiraHandlerLive,
-      JiraMigrationsHandlerLive,
-      TicketsHandlerLive,
-      CommentsHandlerLive,
-      TagsHandlerLive,
-      StatusesHandlerLive,
-      GroupsHandlerLive,
-      LibraryHandlerLive,
-      OAuthApplicationsHandlerLive,
-      PublicOAuthHandlerLive,
-      StorageHandlerLive,
-      AttachmentsHandlerLive,
-      OrgEmailHandlerLive
-    )
-  )
+  Layer.provide(HealthHandlerLive),
+  Layer.provide(DbHandlerLive),
+  Layer.provide(AuthHandlerLive),
+  Layer.provide(OrgHandlerLive),
+  Layer.provide(InvitationsHandlerLive),
+  Layer.provide(ProjectsHandlerLive),
+  Layer.provide(EverhourHandlerLive),
+  Layer.provide(FigmaHandlerLive),
+  Layer.provide(JiraHandlerLive),
+  Layer.provide(JiraMigrationsHandlerLive),
+  Layer.provide(TicketsHandlerLive),
+  Layer.provide(Layer.mergeAll(CommentsHandlerLive, TicketActivityHandlerLive)),
+  Layer.provide(TagsHandlerLive),
+  Layer.provide(StatusesHandlerLive),
+  Layer.provide(GroupsHandlerLive),
+  Layer.provide(LibraryHandlerLive),
+  Layer.provide(OAuthApplicationsHandlerLive),
+  Layer.provide(PublicOAuthHandlerLive),
+  Layer.provide(Layer.mergeAll(StorageHandlerLive, OrgEmailHandlerLive)),
+  Layer.provide(AttachmentsHandlerLive)
 )
 
 export const ApiLive = ApiRoutesLive.pipe(
@@ -452,6 +449,7 @@ export const RouteLive = Layer.mergeAll(
 )
 
 const ServerLive = HttpRouter.serve(RouteLive).pipe(
+  Layer.provide(TicketActivityRecoveryLive),
   Layer.provide(GitHubWebhooksLive),
   Layer.provide(EverhourWebhooksLive),
   Layer.provide(BackendHttpServicesLive),

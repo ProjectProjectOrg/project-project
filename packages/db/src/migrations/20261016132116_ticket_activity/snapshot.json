@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "affdc8a8-23e4-498c-85b6-404c9531784b",
+  "id": "5c5e0e72-e619-4051-bf95-0f7440125f35",
   "prevIds": [
     "05fc00c3-6f56-4374-8c77-2bdee5294e52"
   ],
@@ -69,12 +69,6 @@
     {
       "isRlsEnabled": false,
       "name": "jira_migration",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "organization_email",
       "entityType": "tables",
       "schema": "public"
     },
@@ -159,6 +153,18 @@
     {
       "isRlsEnabled": false,
       "name": "project_tag",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "ticket_activity",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "ticket_activity_outbox",
       "entityType": "tables",
       "schema": "public"
     },
@@ -1932,188 +1938,6 @@
       "table": "jira_migration"
     },
     {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "organization_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "organization_email"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "gen_random_uuid()",
-      "generated": null,
-      "identity": null,
-      "name": "revision",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "organization_email"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "host",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "organization_email"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "port",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "organization_email"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "security",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "organization_email"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "username",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "organization_email"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "sender_name",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "organization_email"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "sender_email",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "organization_email"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "reply_to",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "organization_email"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "ciphertext",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "organization_email"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "nonce",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "organization_email"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "tag",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "organization_email"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "last_test_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "organization_email"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "last_test_error",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "organization_email"
-    },
-    {
       "type": "uuid",
       "typeSchema": null,
       "notNull": true,
@@ -3568,6 +3392,262 @@
       "entityType": "columns",
       "schema": "public",
       "table": "project_tag"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_activity"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": {
+        "type": "always",
+        "name": "ticket_activity_seq_seq",
+        "increment": "1",
+        "startWith": "1",
+        "minValue": "1",
+        "maxValue": "9223372036854775807",
+        "cache": 1,
+        "cycle": false
+      },
+      "name": "seq",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_activity"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_activity"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ticket_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_activity"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "occurred_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_activity"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "actor_kind",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_activity"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "actor_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_activity"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "actor_client_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_activity"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "actor_client_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_activity"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "actor_source",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_activity"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "cause",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_activity"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "change",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_activity"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "batch_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_activity_outbox"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_activity_outbox"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "document_kind",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_activity_outbox"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "document_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_activity_outbox"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "content_hash",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_activity_outbox"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "rows",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_activity_outbox"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_activity_outbox"
     },
     {
       "type": "text",
@@ -8123,6 +8203,83 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "ticket_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "occurred_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "seq",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "ticket_activity_ticket_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "ticket_activity"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "document_kind",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "document_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "ticket_activity_outbox_document_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "ticket_activity_outbox"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "organization_id",
           "isExpression": false,
           "asc": true,
@@ -9238,23 +9395,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "organization_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "organization",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "organization_email_organization_id_organization_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "organization_email"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "organization_integration_id"
       ],
       "schemaTo": "public",
@@ -9707,6 +9847,57 @@
       "entityType": "fks",
       "schema": "public",
       "table": "project_tag"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "project_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "project_index",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "ticket_activity_project_id_project_index_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ticket_activity"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "actor_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "ticket_activity_actor_user_id_user_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ticket_activity"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "project_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "project_index",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "ticket_activity_outbox_project_id_project_index_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ticket_activity_outbox"
     },
     {
       "nameExplicit": true,
@@ -10388,16 +10579,6 @@
     },
     {
       "columns": [
-        "organization_id"
-      ],
-      "nameExplicit": false,
-      "name": "organization_email_pkey",
-      "schema": "public",
-      "table": "organization_email",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
         "organization_integration_id"
       ],
       "nameExplicit": false,
@@ -10484,6 +10665,26 @@
       "name": "project_role_pkey",
       "schema": "public",
       "table": "project_role",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "ticket_activity_pkey",
+      "schema": "public",
+      "table": "ticket_activity",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "batch_id"
+      ],
+      "nameExplicit": false,
+      "name": "ticket_activity_outbox_pkey",
+      "schema": "public",
+      "table": "ticket_activity_outbox",
       "entityType": "pks"
     },
     {
@@ -10939,6 +11140,13 @@
       "entityType": "checks",
       "schema": "public",
       "table": "project_role"
+    },
+    {
+      "value": "(\n        \"actor_kind\" = 'user'\n        and \"actor_user_id\" is not null\n        and \"actor_client_id\" is null\n        and \"actor_client_name\" is null\n        and \"actor_source\" is null\n      ) or (\n        \"actor_kind\" = 'agent'\n        and \"actor_user_id\" is not null\n        and \"actor_client_id\" is not null\n        and \"actor_client_name\" is not null\n        and \"actor_source\" is null\n      ) or (\n        \"actor_kind\" = 'system'\n        and \"actor_user_id\" is null\n        and \"actor_client_id\" is null\n        and \"actor_client_name\" is null\n        and \"actor_source\" is not null\n      )",
+      "name": "ticket_activity_actor_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "ticket_activity"
     },
     {
       "value": "\"role\" in ('owner', 'admin', 'member', 'guest')",

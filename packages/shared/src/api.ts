@@ -211,6 +211,7 @@ import {
   TicketId,
   UpdateTicketInput
 } from "./schemas/Ticket"
+import { TicketActivityPage } from "./schemas/TicketActivity"
 import {
   ActiveTimer,
   LogTimeInput,
@@ -1833,6 +1834,22 @@ const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
   .middleware(ProjectAccess)
   .middleware(Authentication)
 
+const TicketActivityGroup = HttpApiGroup.make("ticketActivity")
+  .add(
+    HttpApiEndpoint.get(
+      "list",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/activity",
+      {
+        params: TicketPath,
+        query: Schema.Struct({ cursor: Schema.optional(Schema.String) }),
+        success: TicketActivityPage,
+        error: [Unauthorized, NotFound, Forbidden, Validation]
+      }
+    ).annotate(RequiresProject, { ticket: ["read"] })
+  )
+  .middleware(ProjectAccess)
+  .middleware(Authentication)
+
 const TagUsageCounts = Schema.Record(TagName, Schema.Finite)
 export type TagUsageCounts = typeof TagUsageCounts.Type
 
@@ -2407,6 +2424,7 @@ const AppApi = HttpApi.make("projectproject")
   .add(AttachmentsGroup)
   .add(TicketsGroup)
   .add(TicketCommentsGroup)
+  .add(TicketActivityGroup)
   .add(TagsGroup)
   .add(StatusesGroup)
   .add(GroupsGroup)
