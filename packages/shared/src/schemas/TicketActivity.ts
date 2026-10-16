@@ -120,6 +120,7 @@ export type TicketActivityEntry = typeof TicketActivityEntry.Type
 
 export const TicketActivityPage = Schema.Struct({
   items: Schema.Array(TicketActivityEntry),
+  people: Schema.Array(User),
   nextCursor: Schema.NullOr(Schema.String)
 })
 export type TicketActivityPage = typeof TicketActivityPage.Type

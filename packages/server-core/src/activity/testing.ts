@@ -57,3 +57,12 @@ export const testActivityLayer = (userId = "user-1") =>
     passthroughTicketActivity,
     Layer.succeed(ActivityActor, ActivityActor.user(userId))
   )
+
+export const recordingActivityLayer = (
+  recorded: Array<RecordedActivity>,
+  userId = "user-1"
+) =>
+  Layer.merge(
+    recordingTicketActivity(recorded),
+    Layer.succeed(ActivityActor, ActivityActor.user(userId))
+  )

@@ -196,7 +196,13 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
           )
         )
 
-      const page = yield* activity.page(project.projectId, "T-1", null, 10)
+      const page = yield* activity.page(
+        project.projectId,
+        "T-1",
+        null,
+        10,
+        true
+      )
       expect(page).toHaveLength(1)
       expect(page[0]).toMatchObject({
         actor: {
@@ -231,9 +237,9 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
         )
 
       expect(Exit.isFailure(exit)).toBe(true)
-      expect(yield* activity.page(project.projectId, "T-1", null, 10)).toEqual(
-        []
-      )
+      expect(
+        yield* activity.page(project.projectId, "T-1", null, 10, true)
+      ).toEqual([])
       expect(yield* outboxCount(project.projectId)).toBe(0)
     }).pipe(Effect.scoped, Effect.provide(TestLayer))
   )
@@ -263,7 +269,7 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
         yield* activity.recover()
 
         expect(
-          yield* activity.page(project.projectId, "T-1", null, 10)
+          yield* activity.page(project.projectId, "T-1", null, 10, true)
         ).toHaveLength(1)
         expect(yield* outboxCount(project.projectId)).toBe(0)
       }).pipe(Effect.scoped, Effect.provide(TestLayer))
@@ -299,7 +305,7 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
       yield* activity.recover()
 
       expect(
-        yield* activity.page(project.projectId, "T-1", null, 10)
+        yield* activity.page(project.projectId, "T-1", null, 10, true)
       ).toHaveLength(2)
     }).pipe(Effect.scoped, Effect.provide(TestLayer))
   )
@@ -333,12 +339,19 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
             )
         }
 
-        const first = yield* activity.page(project.projectId, "T-1", null, 2)
+        const first = yield* activity.page(
+          project.projectId,
+          "T-1",
+          null,
+          2,
+          true
+        )
         const second = yield* activity.page(
           project.projectId,
           "T-1",
           { occurredAt: first[1].occurredAt, seq: first[1].seq },
-          2
+          2,
+          true
         )
         expect(
           [...first, ...second].map((entry) =>
@@ -348,8 +361,88 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
 
         yield* activity.removeTicket(project.orgSlug, project.slug, "T-1")
         expect(
-          yield* activity.page(project.projectId, "T-1", null, 10)
+          yield* activity.page(project.projectId, "T-1", null, 10, true)
         ).toEqual([])
       }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
+  it.live("a later write settles an earlier batch whose write landed", () =>
+    Effect.gen(function* () {
+      const project = yield* seedProject
+      const activity = yield* TicketActivity
+      const landed = yield* writeTicketFile(
+        project.orgSlug,
+        project.slug,
+        "Landed"
+      )
+      yield* seedPendingBatch(
+        project.projectId,
+        project.userId,
+        contentHash(landed)
+      )
+
+      yield* activity
+        .record(
+          project.orgSlug,
+          project.slug,
+          { kind: "ticket", id: "T-1", content: "after" },
+          statusMove,
+          null,
+          writeTicketFile(project.orgSlug, project.slug, "Overwritten")
+        )
+        .pipe(
+          Effect.provideService(
+            ActivityActor,
+            ActivityActor.user(project.userId)
+          )
+        )
+
+      expect(
+        (yield* activity.page(project.projectId, "T-1", null, 10, true)).map(
+          (entry) => entry.change.kind
+        )
+      ).toEqual(["status_changed", "description_edited"])
+      expect(yield* outboxCount(project.projectId)).toBe(0)
+    }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
+  it.live("can leave git activity out of a page", () =>
+    Effect.gen(function* () {
+      const project = yield* seedProject
+      const activity = yield* TicketActivity
+      yield* activity
+        .record(
+          project.orgSlug,
+          project.slug,
+          { kind: "ticket", id: "T-1", content: "after" },
+          [
+            ...statusMove,
+            {
+              ticketId: statusMove[0].ticketId,
+              change: { kind: "pr_merged", number: 12 }
+            },
+            {
+              ticketId: statusMove[0].ticketId,
+              change: { kind: "branch_linked", branch: "feat/T-1" }
+            }
+          ],
+          null,
+          Effect.void
+        )
+        .pipe(
+          Effect.provideService(ActivityActor, ActivityActor.system("github"))
+        )
+
+      const kinds = (includeGit: boolean) =>
+        activity
+          .page(project.projectId, "T-1", null, 10, includeGit)
+          .pipe(Effect.map((page) => page.map((entry) => entry.change.kind)))
+      expect(yield* kinds(true)).toEqual([
+        "branch_linked",
+        "pr_merged",
+        "status_changed"
+      ])
+      expect(yield* kinds(false)).toEqual(["status_changed"])
+    }).pipe(Effect.scoped, Effect.provide(TestLayer))
   )
 })

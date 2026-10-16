@@ -43,6 +43,7 @@ CREATE TABLE "ticket_activity_outbox" (
 );
 --> statement-breakpoint
 CREATE INDEX "ticket_activity_ticket_idx" ON "ticket_activity" ("project_id","ticket_id","occurred_at","seq");--> statement-breakpoint
+CREATE INDEX "ticket_activity_outbox_document_idx" ON "ticket_activity_outbox" ("project_id","document_kind","document_id");--> statement-breakpoint
 ALTER TABLE "ticket_activity" ADD CONSTRAINT "ticket_activity_project_id_project_index_id_fkey" FOREIGN KEY ("project_id") REFERENCES "project_index"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "ticket_activity" ADD CONSTRAINT "ticket_activity_actor_user_id_user_id_fkey" FOREIGN KEY ("actor_user_id") REFERENCES "user"("id");--> statement-breakpoint
+ALTER TABLE "ticket_activity" ADD CONSTRAINT "ticket_activity_actor_user_id_user_id_fkey" FOREIGN KEY ("actor_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "ticket_activity_outbox" ADD CONSTRAINT "ticket_activity_outbox_project_id_project_index_id_fkey" FOREIGN KEY ("project_id") REFERENCES "project_index"("id") ON DELETE CASCADE;

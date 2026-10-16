@@ -11,7 +11,7 @@ import * as Schema from "effect/Schema"
 import { ticketChanges } from "../activity/changes"
 import { TicketActivity } from "../activity/TicketActivity"
 import * as KeyedLock from "../locks/KeyedLock"
-import { markdownFileContent, ticketFileBody } from "../markdown/fileContent"
+import { ticketFileBody } from "../markdown/fileContent"
 import {
   Markdown,
   type MarkdownError,
@@ -21,6 +21,7 @@ import {
   MalformedTicketDocument,
   TicketFrontmatter,
   TicketDocs,
+  ticketFileContent,
   type TicketActivityOptions,
   type TicketDocsShape,
   type TicketDocument,
@@ -42,12 +43,6 @@ function toDocument(
     commentsRegion
   }
 }
-
-const ticketFileContent = (document: TicketDocument): string =>
-  markdownFileContent(
-    encodeFrontmatter(document),
-    ticketFileBody(document.body, document.commentsRegion)
-  )
 
 function withTicketDocTelemetry<A, E, R>(
   operation: string,

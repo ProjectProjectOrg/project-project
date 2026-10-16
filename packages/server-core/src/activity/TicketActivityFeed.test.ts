@@ -7,6 +7,7 @@ import {
   TICKET_ACTIVITY_PAGE_SIZE,
   TicketId,
   TicketStatus,
+  UserId,
   type ProjectScopeShape
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -30,6 +31,7 @@ import {
 
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const status = Schema.decodeUnknownSync(TicketStatus)
+const userId = Schema.decodeUnknownSync(UserId)
 const at = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
 
 const unexpected = (method: string): Effect.Effect<never> =>
@@ -87,6 +89,8 @@ const history: ReadonlyArray<StoredTicketActivity> = [
   stored(1, "2026-10-01T10:00:00Z", { kind: "description_edited" })
 ]
 
+const gitRequests: Array<boolean> = []
+
 const feedLayer = (
   scope: ProjectScopeShape,
   rows: ReadonlyArray<StoredTicketActivity>
@@ -98,8 +102,10 @@ const feedLayer = (
           record: () => unexpected("TicketActivity.record"),
           recover: () => unexpected("TicketActivity.recover"),
           removeTicket: () => unexpected("TicketActivity.removeTicket"),
-          page: (_projectId, _ticketId, _before, limit) =>
-            Effect.succeed(rows.slice(0, limit))
+          page: (_projectId, _ticketId, _before, limit, includeGit) => {
+            gitRequests.push(includeGit)
+            return Effect.succeed(rows.slice(0, limit))
+          }
         }),
         Layer.succeed(TicketDocs, {
           listIds: () => unexpected("TicketDocs.listIds"),
@@ -152,15 +158,34 @@ describe("TicketActivityFeed", () => {
     }).pipe(Effect.provide(feedLayer(projectScope("member", "pm"), history)))
   )
 
-  it.effect("hides git activity from viewers without GitHub access", () =>
+  it.effect("asks for git activity only when the viewer can read GitHub", () =>
+    Effect.gen(function* () {
+      gitRequests.length = 0
+      yield* list().pipe(
+        Effect.provide(feedLayer(projectScope("guest", "client"), history))
+      )
+      yield* list().pipe(
+        Effect.provide(feedLayer(projectScope("member", "pm"), history))
+      )
+      expect(gitRequests).toEqual([false, true])
+    })
+  )
+
+  it.effect("returns the people a change mentions, even ex-members", () =>
     Effect.gen(function* () {
       const page = yield* list()
-      expect(
-        page.items.map((item) =>
-          item.kind === "created" ? "created" : item.change.kind
-        )
-      ).toEqual(["status_changed", "description_edited", "created"])
-    }).pipe(Effect.provide(feedLayer(projectScope("guest", "client"), history)))
+      expect(page.people.map((person) => person.id)).toEqual(["gone-user"])
+    }).pipe(
+      Effect.provide(
+        feedLayer(projectScope("member", "pm"), [
+          stored(1, "2026-10-02T09:00:00Z", {
+            kind: "assignees_changed",
+            added: [],
+            removed: [userId("gone-user")]
+          })
+        ])
+      )
+    )
   )
 
   it.effect(

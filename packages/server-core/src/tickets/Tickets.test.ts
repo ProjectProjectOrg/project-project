@@ -34,7 +34,7 @@ import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
 import { accessLayer, projectScope } from "../access/testing"
-import { asUser } from "../activity/testing"
+import { asUser, passthroughTicketActivity } from "../activity/testing"
 import { Attachments, type AttachmentsShape } from "../attachments/Attachments"
 import { Comments, type CommentsShape } from "../comments/Comments"
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
@@ -663,6 +663,7 @@ function makeTicketsLayer(
 ) {
   return TicketsLive.pipe(
     Layer.provide(PassthroughLibrary),
+    Layer.provide(passthroughTicketActivity),
     Layer.provide(ticketDocsLayer),
     Layer.provide(options.projects ?? makeFakeProjects(key)),
     Layer.provide(options.groups ?? FakeGroups),
@@ -696,6 +697,7 @@ it.effect("listGitStates fetches only distinct ticket branches", () => {
   const fetchedBranches: string[][] = []
   const layer = TicketsLive.pipe(
     Layer.provide(PassthroughLibrary),
+    Layer.provide(passthroughTicketActivity),
     Layer.provide(docs.layer),
     Layer.provide(
       makeFakeProjects("T", {
@@ -760,6 +762,7 @@ it.effect(
     })
     const layer = TicketsLive.pipe(
       Layer.provide(PassthroughLibrary),
+      Layer.provide(passthroughTicketActivity),
       Layer.provide(docs.layer),
       Layer.provide(
         makeFakeProjects("T", {

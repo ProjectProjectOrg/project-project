@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "1ea80859-8c09-4f60-a1aa-785dca9e7dee",
+  "id": "5c5e0e72-e619-4051-bf95-0f7440125f35",
   "prevIds": [
     "05fc00c3-6f56-4374-8c77-2bdee5294e52"
   ],
@@ -8245,6 +8245,41 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "document_kind",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "document_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "ticket_activity_outbox_document_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "ticket_activity_outbox"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "organization_id",
           "isExpression": false,
           "asc": true,
@@ -9841,7 +9876,7 @@
         "id"
       ],
       "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
+      "onDelete": "CASCADE",
       "name": "ticket_activity_actor_user_id_user_id_fkey",
       "entityType": "fks",
       "schema": "public",
