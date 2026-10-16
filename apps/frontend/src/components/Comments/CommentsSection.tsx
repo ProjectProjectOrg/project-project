@@ -72,7 +72,7 @@ export function CommentsSection({
           <button
             type="button"
             onClick={() => setCollapsed((c) => !c)}
-            className="grid size-7 place-items-center rounded-md text-muted-foreground transition-[color,transform] duration-100 hover:text-foreground active:scale-[0.97]"
+            className="-ml-1.5 grid size-7 place-items-center rounded-md text-muted-foreground transition-[color,transform] duration-100 hover:text-foreground active:scale-[0.97]"
             aria-expanded={!collapsed}
             aria-label={headingLabel}
           >
