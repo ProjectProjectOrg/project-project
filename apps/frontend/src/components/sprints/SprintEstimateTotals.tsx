@@ -1,4 +1,4 @@
-import { useAtomValue } from "@effect/atom-react"
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import {
   estimationUnit,
   summarizeEstimates,
@@ -7,6 +7,7 @@ import {
 } from "@pp/shared"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 
+import { ErrorPage } from "@/components/ErrorPage"
 import { boardRequest, sprintBoard } from "@/features/sprints/atoms/sprintBoard"
 import { useEstimationMode } from "@/hooks/useEstimationMode"
 import { formatEstimateSummary } from "@/lib/estimate-meta"
@@ -29,11 +30,15 @@ function SprintEstimateSummary({
   groupId,
   unit
 }: SprintEstimateTotalsProps & Readonly<{ unit: EstimateUnit }>) {
-  const board = useAtomValue(sprintBoard(boardRequest(orgSlug, slug, groupId)))
+  const req = boardRequest(orgSlug, slug, groupId)
+  const board = useAtomValue(sprintBoard(req))
+  const refresh = useAtomRefresh(sprintBoard(req))
   return Result.matchWithError(board, {
     onInitial: () => null,
-    onError: () => null,
-    onDefect: () => null,
+    onError: (error) => <ErrorPage error={error} reset={refresh} contained />,
+    onDefect: (defect) => (
+      <ErrorPage error={defect} reset={refresh} contained />
+    ),
     onSuccess: ({ value, waiting }) => {
       const text = formatEstimateSummary(
         summarizeEstimates(value.tickets, unit)

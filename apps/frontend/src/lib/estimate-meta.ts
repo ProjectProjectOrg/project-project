@@ -60,6 +60,15 @@ export const estimateFilterValues = (
     Match.orElse(() => PRESENCE_FILTERS)
   )
 
+export const normalizeEstimateFilter = (
+  mode: EstimationMode,
+  values: ReadonlyArray<EstimateFilterValue> | undefined
+): ReadonlyArray<EstimateFilterValue> | undefined => {
+  const supported = estimateFilterValues(mode)
+  const normalized = values?.filter((value) => supported.includes(value))
+  return normalized?.length ? normalized : undefined
+}
+
 export const estimateFilterLabel = (value: EstimateFilterValue): string => {
   switch (value) {
     case "none":

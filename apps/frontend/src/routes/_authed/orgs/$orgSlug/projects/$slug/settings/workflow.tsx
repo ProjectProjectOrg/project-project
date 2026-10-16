@@ -27,7 +27,8 @@ import {
 } from "@/features/projects/atoms/projects"
 import {
   clearStaleEstimates,
-  staleEstimateCount
+  staleEstimateCount,
+  staleEstimateCountWaiting
 } from "@/features/tickets/atoms/staleEstimates"
 import { useProjectActor } from "@/lib/access"
 import { errorMessage } from "@/lib/errorMessage"
@@ -181,6 +182,9 @@ function EstimationSettings({
 
 function StaleEstimates({ req }: Readonly<{ req: ProjectRequest }>) {
   const count = useAtomValue(staleEstimateCount(req))
+  const reading = useAtomValue(staleEstimateCountWaiting(req))
+  const updating = useAtomValue(updateProject(req)).waiting
+  const disabled = reading || updating
   const refresh = useAtomRefresh(staleEstimateCount(req))
   return Result.matchWithError(count, {
     onInitial: () => null,
@@ -204,12 +208,12 @@ function StaleEstimates({ req }: Readonly<{ req: ProjectRequest }>) {
             <ConfirmButton.Trigger
               variant="secondary"
               size="sm"
-              disabled={waiting}
+              disabled={waiting || disabled}
             >
               {m.project_settings_estimation_clear_stale({ count: stale })}
             </ConfirmButton.Trigger>
             <ConfirmButton.Confirm>
-              <ClearStaleConfirm req={req} />
+              <ClearStaleConfirm req={req} disabled={disabled} />
             </ConfirmButton.Confirm>
           </ConfirmButton.Root>
         </div>
@@ -218,7 +222,10 @@ function StaleEstimates({ req }: Readonly<{ req: ProjectRequest }>) {
   })
 }
 
-function ClearStaleConfirm({ req }: Readonly<{ req: ProjectRequest }>) {
+function ClearStaleConfirm({
+  req,
+  disabled
+}: Readonly<{ req: ProjectRequest; disabled: boolean }>) {
   const { close, busy, setBusy } = useConfirmButton()
   const clear = useAtomSet(clearStaleEstimates(req), { mode: "promiseExit" })
   const [error, setError] = useState<string | null>(null)
@@ -252,7 +259,7 @@ function ClearStaleConfirm({ req }: Readonly<{ req: ProjectRequest }>) {
       <Button
         size="sm"
         variant="destructive"
-        disabled={busy}
+        disabled={busy || disabled}
         onClick={() => void run()}
       >
         {m.project_settings_estimation_clear_stale_submit()}

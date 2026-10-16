@@ -12,7 +12,7 @@ import { countsRequest, ticketCounts } from "./ticketCounts"
 const scopeOf = (req: ProjectRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-const staleCountQuery = (req: ProjectRequest) => {
+const staleCountQuery = Atom.family((req: ProjectRequest) => {
   const sources = [false, true].map((archived) =>
     ticketCounts(
       countsRequest(req.params.orgSlug, req.params.slug, {
@@ -29,10 +29,14 @@ const staleCountQuery = (req: ProjectRequest) => {
       ),
     (refresh) => sources.forEach((source) => refresh(source))
   )
-}
+})
 
 export const staleEstimateCount = Atom.family((req: ProjectRequest) =>
   Atom.optimistic(staleCountQuery(req))
+)
+
+export const staleEstimateCountWaiting = Atom.family((req: ProjectRequest) =>
+  Atom.readable((get) => get(staleCountQuery(req)).waiting)
 )
 
 export const clearStaleEstimates = Atom.family((req: ProjectRequest) =>

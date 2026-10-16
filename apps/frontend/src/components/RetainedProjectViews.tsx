@@ -4,6 +4,7 @@ import * as Schema from "effect/Schema"
 import { Activity, useEffect, useMemo, useState } from "react"
 
 import { useProjectView } from "@/hooks/useViewPreference"
+import { normalizeEstimateFilter } from "@/lib/estimate-meta"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 
 import { SprintDetail } from "./sprints/SprintDetail"
@@ -65,7 +66,7 @@ export function RetainedProjectViews({
         assignee: nextSearch.assignee,
         tags: nextSearch.tags,
         groupId: nextSearch.groupId,
-        estimate: estimation === "off" ? undefined : nextSearch.estimate,
+        estimate: normalizeEstimateFilter(estimation, nextSearch.estimate),
         hasBranch: nextSearch.hasBranch,
         hasPr: nextSearch.hasPr,
         updatedAfter: nextSearch.updatedAfter,
@@ -80,20 +81,28 @@ export function RetainedProjectViews({
     })
   }
   const activeEstimate = (sprint ?? backlog)?.search.estimate
+  const normalizedEstimate = useMemo(
+    () => normalizeEstimateFilter(estimation, activeEstimate),
+    [estimation, activeEstimate]
+  )
   useEffect(() => {
-    if (estimation !== "off" || !activeEstimate?.length) return
+    if (
+      !activeEstimate?.length ||
+      normalizedEstimate?.length === activeEstimate.length
+    )
+      return
     void navigate({
       to: router.state.location.pathname,
       search: (previous) => ({
         ...previous,
         updatedAfter: previous.updatedAfter?.toISOString(),
-        estimate: undefined,
+        estimate: normalizedEstimate,
         cursor: undefined
       }),
       replace: true,
       resetScroll: false
     })
-  }, [estimation, activeEstimate, navigate, router])
+  }, [normalizedEstimate, activeEstimate, navigate, router])
   const backlogView = useProjectView(
     orgSlug,
     slug,
@@ -111,7 +120,7 @@ export function RetainedProjectViews({
     const { view: _view, ...query } = lastBacklog
     return {
       ...query,
-      estimate: estimation === "off" ? undefined : query.estimate
+      estimate: normalizeEstimateFilter(estimation, query.estimate)
     }
   }, [lastBacklog, estimation])
   const sprintId = lastSprint ? decodeGroupId(lastSprint.groupId) : null
@@ -120,7 +129,7 @@ export function RetainedProjectViews({
     const { view: _view, ...query } = lastSprint.search
     return {
       ...query,
-      estimate: estimation === "off" ? undefined : query.estimate,
+      estimate: normalizeEstimateFilter(estimation, query.estimate),
       groupId: sprintId ? [sprintId] : query.groupId
     }
   }, [lastSprint, sprintId, estimation])

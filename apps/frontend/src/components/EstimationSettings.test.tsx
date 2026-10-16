@@ -23,7 +23,11 @@ import { afterAll, beforeAll, afterEach, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
 import { me } from "@/features/auth/atoms/auth"
-import { project, projectRequest } from "@/features/projects/atoms/projects"
+import {
+  project,
+  projectRequest,
+  updateProject
+} from "@/features/projects/atoms/projects"
 import { staleEstimateCount } from "@/features/tickets/atoms/staleEstimates"
 import { m } from "@/paraglide/messages"
 import { ProjectContext } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
@@ -250,3 +254,100 @@ it("shows a failed stale count and retries both count sources", async () => {
     archivedReads.filter((value) => value === "false").length
   ).toBeGreaterThanOrEqual(2)
 })
+
+it.each([false, true])(
+  "disables stale cleanup through a mode change and both count refreshes (confirming: %s)",
+  async (confirming) => {
+    let served = detail
+    let refreshing = false
+    let finishUpdate = (_response: Response) => {}
+    const updated = new Promise<Response>((resolve) => {
+      finishUpdate = resolve
+    })
+    const counts: Array<
+      Readonly<{ archived: boolean; finish: (response: Response) => void }>
+    > = []
+    fetchStub.set((input, init) => {
+      const url = new URL(
+        input instanceof Request ? input.url : String(input),
+        "http://localhost"
+      )
+      const method =
+        init?.method ?? (input instanceof Request ? input.method : "GET")
+      if (method === "PATCH") return updated
+      if (url.pathname.endsWith("/me"))
+        return Promise.resolve(Response.json(Schema.encodeSync(User)(viewer)))
+      if (url.pathname.endsWith("/statuses"))
+        return Promise.resolve(Response.json([]))
+      if (url.pathname.endsWith("/tickets/count")) {
+        if (url.searchParams.has("estimate") && refreshing) {
+          return new Promise<Response>((finish) =>
+            counts.push({
+              archived: url.searchParams.get("archived") === "true",
+              finish
+            })
+          )
+        }
+        const total =
+          url.searchParams.has("estimate") &&
+          url.searchParams.get("archived") !== "true"
+            ? 2
+            : 0
+        return Promise.resolve(Response.json({ total, byStatus: {} }))
+      }
+      return Promise.resolve(
+        Response.json(Schema.encodeSync(ProjectDetail)(served))
+      )
+    })
+    const registry = await openSettings()
+    const trigger = await screen.findByRole("button", {
+      name: "Clear 2 old estimates"
+    })
+    if (confirming) fireEvent.click(trigger)
+    fireEvent.click(screen.getByRole("button", { name: "Time" }))
+    const name = confirming ? "Clear" : "Clear 2 old estimates"
+    expect(screen.getByRole("button", { name }).hasAttribute("disabled")).toBe(
+      true
+    )
+
+    refreshing = true
+    served = { ...detail, estimation: "time" }
+    await act(async () => {
+      finishUpdate(Response.json(Schema.encodeSync(ProjectDetail)(served)))
+    })
+    await waitFor(() =>
+      expect(registry.get(updateProject(req)).waiting).toBe(false)
+    )
+    expect(counts.some((count) => count.archived)).toBe(true)
+    expect(counts.some((count) => !count.archived)).toBe(true)
+    expect(screen.getByRole("button", { name }).hasAttribute("disabled")).toBe(
+      true
+    )
+    await act(async () => {
+      counts
+        .filter((count) => !count.archived)
+        .forEach(({ finish }) =>
+          finish(Response.json({ total: 7, byStatus: {} }))
+        )
+    })
+    expect(screen.getByRole("button", { name }).hasAttribute("disabled")).toBe(
+      true
+    )
+    await act(async () => {
+      counts
+        .filter((count) => count.archived)
+        .forEach(({ finish }) =>
+          finish(Response.json({ total: 3, byStatus: {} }))
+        )
+    })
+    const readyName = confirming ? "Clear" : "Clear 10 old estimates"
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: readyName }).hasAttribute("disabled")
+      ).toBe(false)
+    )
+    expect(
+      screen.getByText(m.project_settings_estimation_stale({ count: 10 }))
+    ).toBeTruthy()
+  }
+)
