@@ -176,7 +176,13 @@ export class Smtp extends Context.Service<
             ),
             Effect.scoped
           )
-        yield* firstReachable(addresses, sendVia)
+        // Stay inside the proxy's 60 second limit however many addresses don't answer.
+        yield* firstReachable(addresses, sendVia).pipe(
+          Effect.timeoutOrElse({
+            duration: "45 seconds",
+            orElse: () => new OrgEmailError({ reason: "connection" })
+          })
+        )
       })
     })
   )

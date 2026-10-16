@@ -162,8 +162,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(
         OrgEmail.layer.pipe(
           Layer.provide(Smtp.layer),
-          Layer.provide(SecretCryptoLive),
-          Layer.provide(CurrentOrgLive)
+          Layer.provide(SecretCryptoLive)
         )
       ),
       Layer.provideMerge(

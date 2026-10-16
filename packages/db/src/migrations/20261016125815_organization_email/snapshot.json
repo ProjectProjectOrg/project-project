@@ -1,10 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "c9bb4eec-bc62-4fba-abe0-c8d56bf1bcec",
+  "id": "affdc8a8-23e4-498c-85b6-404c9531784b",
   "prevIds": [
-    "1bd07b83-ec65-4c35-89c6-ef3a1638f46f",
-    "b16442ec-0a7f-4028-9274-aedfb7e97baf"
+    "05fc00c3-6f56-4374-8c77-2bdee5294e52"
   ],
   "ddl": [
     {
@@ -142,6 +141,12 @@
     {
       "isRlsEnabled": false,
       "name": "project_member",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "project_role",
       "entityType": "tables",
       "schema": "public"
     },
@@ -341,14 +346,14 @@
       "table": "attachment_index"
     },
     {
-      "type": "text",
+      "type": "uuid",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "project_slug",
+      "name": "project_id",
       "entityType": "columns",
       "schema": "public",
       "table": "attachment_index"
@@ -510,27 +515,14 @@
       "table": "attachment_reference"
     },
     {
-      "type": "text",
+      "type": "uuid",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "org_slug",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "attachment_reference"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "project_slug",
+      "name": "project_id",
       "entityType": "columns",
       "schema": "public",
       "table": "attachment_reference"
@@ -575,14 +567,14 @@
       "table": "comment_index"
     },
     {
-      "type": "text",
+      "type": "uuid",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "project_slug",
+      "name": "project_id",
       "entityType": "columns",
       "schema": "public",
       "table": "comment_index"
@@ -1147,27 +1139,14 @@
       "table": "figma_link_index"
     },
     {
-      "type": "text",
+      "type": "uuid",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "org_slug",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "figma_link_index"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "project_slug",
+      "name": "project_id",
       "entityType": "columns",
       "schema": "public",
       "table": "figma_link_index"
@@ -1329,27 +1308,14 @@
       "table": "figma_reference"
     },
     {
-      "type": "text",
+      "type": "uuid",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "org_slug",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "figma_reference"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "project_slug",
+      "name": "project_id",
       "entityType": "columns",
       "schema": "public",
       "table": "figma_reference"
@@ -2876,27 +2842,14 @@
       "table": "project_github_repository"
     },
     {
-      "type": "text",
+      "type": "uuid",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "project_slug",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "project_image_reference"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "org_slug",
+      "name": "project_id",
       "entityType": "columns",
       "schema": "public",
       "table": "project_image_reference"
@@ -3279,19 +3232,6 @@
       "table": "project_invite_grant"
     },
     {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "project_slug",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "project_invite_grant"
-    },
-    {
       "type": "uuid",
       "typeSchema": null,
       "notNull": true,
@@ -3312,7 +3252,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "role",
+      "name": "role_id",
       "entityType": "columns",
       "schema": "public",
       "table": "project_invite_grant"
@@ -3331,6 +3271,19 @@
       "table": "project_invite_grant"
     },
     {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "project_member"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": true,
@@ -3338,20 +3291,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "project_slug",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "project_member"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "project_id",
+      "name": "organization_id",
       "entityType": "columns",
       "schema": "public",
       "table": "project_member"
@@ -3377,7 +3317,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "role",
+      "name": "role_id",
       "entityType": "columns",
       "schema": "public",
       "table": "project_member"
@@ -3394,6 +3334,71 @@
       "entityType": "columns",
       "schema": "public",
       "table": "project_member"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "project_role"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "organization_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "project_role"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "project_role"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "permissions",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "project_role"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "project_role"
     },
     {
       "type": "uuid",
@@ -3578,19 +3583,6 @@
       "table": "ticket_index"
     },
     {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "org_slug",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ticket_index"
-    },
-    {
       "type": "uuid",
       "typeSchema": null,
       "notNull": true,
@@ -3599,19 +3591,6 @@
       "generated": null,
       "identity": null,
       "name": "project_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ticket_index"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "project_slug",
       "entityType": "columns",
       "schema": "public",
       "table": "ticket_index"
@@ -4815,12 +4794,25 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": false,
+      "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
       "name": "role",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "invitation"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "from_project",
       "entityType": "columns",
       "schema": "public",
       "table": "invitation"
@@ -7221,14 +7213,7 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "org_slug",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "project_slug",
+          "value": "project_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -7298,7 +7283,7 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "org_slug",
+          "value": "organization_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -7326,7 +7311,7 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "org_slug",
+          "value": "organization_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -7410,14 +7395,7 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "org_slug",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "project_slug",
+          "value": "project_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -7445,7 +7423,7 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "project_slug",
+          "value": "project_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -7487,7 +7465,7 @@
           "opclass": null
         },
         {
-          "value": "project_slug",
+          "value": "project_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -7585,7 +7563,7 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "project_slug",
+          "value": "project_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -7613,14 +7591,7 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "org_slug",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "project_slug",
+          "value": "project_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -7914,14 +7885,14 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "slug",
+          "value": "organization_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
           "opclass": null
         },
         {
-          "value": "id",
+          "value": "slug",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -7933,7 +7904,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "project_index_slug_id_uidx",
+      "name": "project_index_organization_slug_uidx",
       "entityType": "indexes",
       "schema": "public",
       "table": "project_index"
@@ -8012,7 +7983,7 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "project_slug",
+          "value": "project_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -8046,6 +8017,34 @@
       "method": "btree",
       "concurrently": false,
       "name": "project_member_user_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "project_member"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "organization_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "project_member_org_user_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "project_member"
@@ -8502,6 +8501,34 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "organization_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "member_organization_user_uidx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "member"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "client_id",
           "isExpression": false,
           "asc": true,
@@ -8903,6 +8930,23 @@
     {
       "nameExplicit": false,
       "columns": [
+        "project_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "project_index",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "name": "attachment_index_project_id_project_index_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "attachment_index"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "attachment_id"
       ],
       "schemaTo": "public",
@@ -8916,6 +8960,40 @@
       "entityType": "fks",
       "schema": "public",
       "table": "attachment_reference"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "project_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "project_index",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "attachment_reference_project_id_project_index_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "attachment_reference"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "project_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "project_index",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "comment_index_project_id_project_index_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "comment_index"
     },
     {
       "nameExplicit": false,
@@ -9022,16 +9100,16 @@
     {
       "nameExplicit": false,
       "columns": [
-        "project_slug"
+        "project_id"
       ],
       "schemaTo": "public",
       "tableTo": "project_index",
       "columnsTo": [
-        "slug"
+        "id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "figma_link_index_project_slug_project_index_slug_fkey",
+      "name": "figma_link_index_project_id_project_index_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "figma_link_index"
@@ -9049,6 +9127,23 @@
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "figma_reference_link_id_figma_link_index_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "figma_reference"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "project_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "project_index",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "figma_reference_project_id_project_index_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "figma_reference"
@@ -9319,16 +9414,16 @@
     {
       "nameExplicit": false,
       "columns": [
-        "project_slug"
+        "project_id"
       ],
       "schemaTo": "public",
       "tableTo": "project_index",
       "columnsTo": [
-        "slug"
+        "id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "project_image_reference_project_slug_project_index_slug_fkey",
+      "name": "project_image_reference_project_id_project_index_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "project_image_reference"
@@ -9440,20 +9535,18 @@
       "table": "project_invite_grant"
     },
     {
-      "nameExplicit": true,
+      "nameExplicit": false,
       "columns": [
-        "project_slug",
         "project_id"
       ],
       "schemaTo": "public",
       "tableTo": "project_index",
       "columnsTo": [
-        "slug",
         "id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "project_invite_grant_project_slug_id_fkey",
+      "name": "project_invite_grant_project_id_project_index_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "project_invite_grant"
@@ -9461,53 +9554,91 @@
     {
       "nameExplicit": false,
       "columns": [
-        "project_slug"
+        "role_id"
       ],
       "schemaTo": "public",
-      "tableTo": "project_index",
-      "columnsTo": [
-        "slug"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "project_member_project_slug_project_index_slug_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "project_member"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "project_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "project_index",
+      "tableTo": "project_role",
       "columnsTo": [
         "id"
       ],
       "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "project_member_project_id_project_index_id_fk",
+      "onDelete": "NO ACTION",
+      "name": "project_invite_grant_role_id_project_role_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "project_invite_grant"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "role_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "project_role",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "project_member_role_id_project_role_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "project_member"
     },
     {
-      "nameExplicit": false,
+      "nameExplicit": true,
       "columns": [
+        "project_id",
+        "organization_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "project_index",
+      "columnsTo": [
+        "id",
+        "organization_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "project_member_project_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "project_member"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "organization_id",
         "user_id"
       ],
       "schemaTo": "public",
-      "tableTo": "user",
+      "tableTo": "member",
+      "columnsTo": [
+        "organization_id",
+        "user_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "project_member_org_member_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "project_member"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "organization_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "organization",
       "columnsTo": [
         "id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "project_member_user_id_user_id_fk",
+      "name": "project_role_organization_id_organization_id_fkey",
       "entityType": "fks",
       "schema": "public",
-      "table": "project_member"
+      "table": "project_role"
     },
     {
       "nameExplicit": false,
@@ -9576,25 +9707,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "project_tag"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "project_slug",
-        "project_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "project_index",
-      "columnsTo": [
-        "slug",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "ticket_index_project_slug_project_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "ticket_index"
     },
     {
       "nameExplicit": true,
@@ -10094,11 +10206,11 @@
     {
       "columns": [
         "attachment_id",
-        "project_slug",
+        "project_id",
         "ticket_id"
       ],
       "nameExplicit": false,
-      "name": "attachment_reference_attachment_id_project_slug_ticket_id_pk",
+      "name": "attachment_reference_pkey",
       "entityType": "pks",
       "schema": "public",
       "table": "attachment_reference"
@@ -10129,7 +10241,7 @@
     {
       "columns": [
         "link_id",
-        "project_slug",
+        "project_id",
         "ticket_id"
       ],
       "nameExplicit": false,
@@ -10140,7 +10252,7 @@
     },
     {
       "columns": [
-        "project_slug",
+        "project_id",
         "slot"
       ],
       "nameExplicit": false,
@@ -10152,21 +10264,21 @@
     {
       "columns": [
         "invitation_id",
-        "project_slug"
+        "project_id"
       ],
       "nameExplicit": false,
-      "name": "project_invite_grant_invitation_id_project_slug_pk",
+      "name": "project_invite_grant_pkey",
       "entityType": "pks",
       "schema": "public",
       "table": "project_invite_grant"
     },
     {
       "columns": [
-        "project_slug",
+        "project_id",
         "user_id"
       ],
       "nameExplicit": false,
-      "name": "project_member_project_slug_user_id_pk",
+      "name": "project_member_pkey",
       "entityType": "pks",
       "schema": "public",
       "table": "project_member"
@@ -10346,7 +10458,7 @@
     },
     {
       "columns": [
-        "slug"
+        "id"
       ],
       "nameExplicit": false,
       "name": "project_index_pkey",
@@ -10362,6 +10474,16 @@
       "name": "project_integration_link_pkey",
       "schema": "public",
       "table": "project_integration_link",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "project_role_pkey",
+      "schema": "public",
+      "table": "project_role",
       "entityType": "pks"
     },
     {
@@ -10597,7 +10719,7 @@
     {
       "nameExplicit": true,
       "columns": [
-        "project_slug",
+        "project_id",
         "file_key",
         "node_id"
       ],
@@ -10652,17 +10774,6 @@
       "name": "github_app_install_session_state_hash_unique",
       "schema": "public",
       "table": "github_app_install_session",
-      "entityType": "uniques"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "id"
-      ],
-      "nullsNotDistinct": false,
-      "name": "project_index_id_unique",
-      "schema": "public",
-      "table": "project_index",
       "entityType": "uniques"
     },
     {
@@ -10823,11 +10934,25 @@
       "table": "comment_index"
     },
     {
-      "value": "\"role\" in ('admin', 'member')",
-      "name": "project_invite_grant_role_check",
+      "value": "(\"organization_id\" is null) = (\"permissions\" is null)",
+      "name": "project_role_permissions_check",
       "entityType": "checks",
       "schema": "public",
-      "table": "project_invite_grant"
+      "table": "project_role"
+    },
+    {
+      "value": "\"role\" in ('owner', 'admin', 'member', 'guest')",
+      "name": "invitation_role_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "invitation"
+    },
+    {
+      "value": "\"role\" in ('owner', 'admin', 'member', 'guest')",
+      "name": "member_role_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "member"
     }
   ],
   "renames": []

@@ -6,6 +6,7 @@ import { ErrorPage } from "@/components/ErrorPage"
 import { emailRequest, orgEmail } from "@/features/organizations/atoms/email"
 import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
 import { OrgEmailForm } from "@/forms/org-email"
+import { useOrgActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/settings/email")({
@@ -22,12 +23,13 @@ function EmailSkeleton() {
 function EmailSettings() {
   const { orgSlug } = Route.useParams()
   const orgResult = useAtomValue(orgDetail(orgRequest(orgSlug)))
+  const canManage = useOrgActor(orgSlug).call("orgEmail", "get")
   return Result.matchWithError(orgResult, {
     onInitial: () => <EmailSkeleton />,
     onError: (error) => <ErrorPage error={error} contained />,
     onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value: org }) =>
-      org.role === "owner" || org.role === "admin" ? (
+    onSuccess: () =>
+      canManage ? (
         <EmailConnection key={orgSlug} orgSlug={orgSlug} />
       ) : (
         <p className="text-sm text-muted-foreground">

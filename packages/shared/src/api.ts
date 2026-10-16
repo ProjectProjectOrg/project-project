@@ -1273,7 +1273,7 @@ const OrgEmailGroup = HttpApiGroup.make("orgEmail")
       params: OrgPath,
       success: OrgEmailStatus,
       error: [Unauthorized, NotFound, Forbidden]
-    })
+    }).annotate(RequiresOrg, { integration: ["manage"] })
   )
   .add(
     HttpApiEndpoint.put("save", "/orgs/:orgSlug/email", {
@@ -1281,22 +1281,23 @@ const OrgEmailGroup = HttpApiGroup.make("orgEmail")
       payload: SaveOrgEmailInput,
       success: OrgEmailStatus,
       error: [Unauthorized, NotFound, Forbidden, OrgEmailError]
-    })
+    }).annotate(RequiresOrg, { integration: ["manage"] })
   )
   .add(
     HttpApiEndpoint.post("test", "/orgs/:orgSlug/email/test", {
       params: OrgPath,
       success: OrgEmailStatus,
       error: [Unauthorized, NotFound, Forbidden, OrgEmailError]
-    })
+    }).annotate(RequiresOrg, { integration: ["manage"] })
   )
   .add(
     HttpApiEndpoint.delete("disconnect", "/orgs/:orgSlug/email", {
       params: OrgPath,
       success: OrgEmailStatus,
       error: [Unauthorized, NotFound, Forbidden]
-    })
+    }).annotate(RequiresOrg, { integration: ["manage"] })
   )
+  .middleware(OrgAccess)
   .middleware(Authentication)
 
 const StorageGroup = HttpApiGroup.make("storage")

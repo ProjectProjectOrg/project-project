@@ -4,9 +4,8 @@ import { Db } from "@pp/db"
 import { organizationEmail } from "@pp/db/schema"
 import {
   OrgEmailError,
+  OrgScope,
   type EmailSettings,
-  type Forbidden,
-  type NotFound,
   type OrgEmailStatus,
   type SaveOrgEmailInput
 } from "@pp/shared"
@@ -18,11 +17,8 @@ import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
 import * as Result from "effect/Result"
 
-import { CurrentOrg, requireOrgAdmin } from "../organizations/CurrentOrg"
 import { SecretCrypto } from "../storage/SecretCrypto"
 import { Smtp } from "./Smtp"
-
-type AccessError = NotFound | Forbidden
 
 type EmailRow = typeof organizationEmail.$inferSelect
 
@@ -49,31 +45,20 @@ const emailStatus = (row: EmailRow | undefined): OrgEmailStatus =>
 export class OrgEmail extends Context.Service<
   OrgEmail,
   Readonly<{
-    get: (
-      orgSlug: string,
-      userId: string
-    ) => Effect.Effect<OrgEmailStatus, AccessError>
+    get: () => Effect.Effect<OrgEmailStatus, never, OrgScope>
     save: (
-      orgSlug: string,
-      userId: string,
       input: SaveOrgEmailInput
-    ) => Effect.Effect<OrgEmailStatus, AccessError | OrgEmailError>
+    ) => Effect.Effect<OrgEmailStatus, OrgEmailError, OrgScope>
     test: (
-      orgSlug: string,
-      userId: string,
       recipient: string
-    ) => Effect.Effect<OrgEmailStatus, AccessError | OrgEmailError>
-    disconnect: (
-      orgSlug: string,
-      userId: string
-    ) => Effect.Effect<OrgEmailStatus, AccessError>
+    ) => Effect.Effect<OrgEmailStatus, OrgEmailError, OrgScope>
+    disconnect: () => Effect.Effect<OrgEmailStatus, never, OrgScope>
   }>
 >()("@pp/server-core/email/OrgEmail") {
   static readonly layer = Layer.effect(
     OrgEmail,
     Effect.gen(function* () {
       const db = yield* Db
-      const currentOrg = yield* CurrentOrg
       const secrets = yield* SecretCrypto
       const smtp = yield* Smtp
 
@@ -102,12 +87,12 @@ export class OrgEmail extends Context.Service<
       })
 
       return OrgEmail.of({
-        get: Effect.fn("OrgEmail.get")(function* (slug, userId) {
-          const org = yield* requireOrgAdmin(currentOrg, slug, userId)
+        get: Effect.fn("OrgEmail.get")(function* () {
+          const org = yield* OrgScope
           return emailStatus(yield* read(org.organizationId))
         }),
-        save: Effect.fn("OrgEmail.save")(function* (slug, userId, input) {
-          const org = yield* requireOrgAdmin(currentOrg, slug, userId)
+        save: Effect.fn("OrgEmail.save")(function* (input) {
+          const org = yield* OrgScope
           const { password, ...settings } = input
           const values = {
             ...settings,
@@ -158,8 +143,8 @@ export class OrgEmail extends Context.Service<
             .pipe(Effect.orDie)
           return emailStatus(saved)
         }),
-        test: Effect.fn("OrgEmail.test")(function* (slug, userId, recipient) {
-          const org = yield* requireOrgAdmin(currentOrg, slug, userId)
+        test: Effect.fn("OrgEmail.test")(function* (recipient) {
+          const org = yield* OrgScope
           const row = yield* read(org.organizationId)
           if (!row)
             return yield* new OrgEmailError({ reason: "not_configured" })
@@ -197,8 +182,8 @@ export class OrgEmail extends Context.Service<
             return yield* new OrgEmailError({ reason: "settings_changed" })
           return emailStatus(tested)
         }),
-        disconnect: Effect.fn("OrgEmail.disconnect")(function* (slug, userId) {
-          const org = yield* requireOrgAdmin(currentOrg, slug, userId)
+        disconnect: Effect.fn("OrgEmail.disconnect")(function* () {
+          const org = yield* OrgScope
           yield* db
             .delete(organizationEmail)
             .where(eq(organizationEmail.organizationId, org.organizationId))

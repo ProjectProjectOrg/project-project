@@ -8,32 +8,17 @@ export const OrgEmailHandlerLive = HttpApiBuilder.group(
   "orgEmail",
   (handlers) =>
     handlers
-      .handle("get", ({ params }) =>
+      .handle("get", () => Effect.flatMap(OrgEmail, (email) => email.get()))
+      .handle("save", ({ payload }) =>
+        Effect.flatMap(OrgEmail, (email) => email.save(payload))
+      )
+      .handle("test", () =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          return yield* (yield* OrgEmail).get(params.orgSlug, user.id)
+          return yield* (yield* OrgEmail).test(user.email)
         })
       )
-      .handle("save", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          return yield* (yield* OrgEmail).save(params.orgSlug, user.id, payload)
-        })
-      )
-      .handle("test", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          return yield* (yield* OrgEmail).test(
-            params.orgSlug,
-            user.id,
-            user.email
-          )
-        })
-      )
-      .handle("disconnect", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          return yield* (yield* OrgEmail).disconnect(params.orgSlug, user.id)
-        })
+      .handle("disconnect", () =>
+        Effect.flatMap(OrgEmail, (email) => email.disconnect())
       )
 )
