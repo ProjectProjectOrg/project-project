@@ -28,8 +28,8 @@ export const Keys = {
   ticketPages: (scope: string): string => `ticket-pages/${scope}`,
   /** Queries whose ordering or matching depends on ticket titles. */
   ticketTitleQuery: (scope: string): string => `ticket-title-query/${scope}`,
-  /** Queries that depend on who commented on this project's tickets. */
-  ticketActivity: (scope: string): string => `ticket-activity/${scope}`,
+  /** Queries that depend on comments on this project's tickets. */
+  ticketComments: (scope: string): string => `ticket-comments/${scope}`,
   /** Queries whose ordering or matching depends on `updatedAt`. */
   ticketUpdatedQuery: (scope: string): string =>
     `ticket-updated-query/${scope}`,

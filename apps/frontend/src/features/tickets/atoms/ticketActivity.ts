@@ -33,7 +33,7 @@ const pageQuery = (req: TicketActivityRequest, cursor: string | null) =>
     query: cursor === null ? {} : { cursor },
     timeToLive: "5 minutes",
     reactivityKeys: [
-      Keys.ticket(scopeOf(req), req.params.id),
+      Keys.ticketsIn(scopeOf(req)),
       Keys.sprintMembership(scopeOf(req))
     ]
   })
