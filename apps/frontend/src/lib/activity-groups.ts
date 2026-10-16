@@ -29,57 +29,66 @@ const actorKey = (actor: TicketActivityActor | null): string => {
 export const dayKey = (date: Date): string =>
   `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
 
-type OpenGroup = {
-  key: string
+type GroupDraft = Readonly<{
+  group: ActivityGroup
   actorKey: string
-  actor: TicketActivityActor | null
-  at: Date
+  dayKey: string
   oldest: number
-  entries: Array<TicketActivityEntry>
+}>
+
+const draftGroups = (
+  newestFirst: ReadonlyArray<TicketActivityEntry>
+): ReadonlyArray<GroupDraft> => {
+  const drafts: Array<GroupDraft> = []
+  for (const entry of newestFirst) {
+    const last = drafts.at(-1)
+    const who = actorKey(entry.actor)
+    const day = dayKey(entry.occurredAt)
+    const at = entry.occurredAt.getTime()
+    if (
+      last !== undefined &&
+      last.dayKey === day &&
+      last.actorKey === who &&
+      last.oldest - at <= ACTIVITY_GROUP_WINDOW_MS
+    ) {
+      drafts[drafts.length - 1] = {
+        ...last,
+        oldest: at,
+        group: { ...last.group, entries: [...last.group.entries, entry] }
+      }
+      continue
+    }
+    drafts.push({
+      actorKey: who,
+      dayKey: day,
+      oldest: at,
+      group: {
+        key: entry.id,
+        actor: entry.actor,
+        at: entry.occurredAt,
+        entries: [entry]
+      }
+    })
+  }
+  return drafts
 }
 
 export const groupActivity = (
   newestFirst: ReadonlyArray<TicketActivityEntry>
 ): ReadonlyArray<ActivityDay> => {
-  const days: Array<{ key: string; day: Date; groups: Array<OpenGroup> }> = []
-  for (const entry of newestFirst) {
-    const key = dayKey(entry.occurredAt)
-    let day = days.at(-1)
-    if (day === undefined || day.key !== key) {
-      day = { key, day: entry.occurredAt, groups: [] }
-      days.push(day)
-    }
-    const who = actorKey(entry.actor)
-    const at = entry.occurredAt.getTime()
-    const group = day.groups.at(-1)
-    if (
-      group !== undefined &&
-      group.actorKey === who &&
-      group.oldest - at <= ACTIVITY_GROUP_WINDOW_MS
-    ) {
-      group.entries.push(entry)
-      group.oldest = at
+  const days: Array<ActivityDay> = []
+  for (const draft of draftGroups(newestFirst)) {
+    const last = days.at(-1)
+    if (last !== undefined && last.key === draft.dayKey) {
+      days[days.length - 1] = {
+        ...last,
+        groups: [...last.groups, draft.group]
+      }
       continue
     }
-    day.groups.push({
-      key: entry.id,
-      actorKey: who,
-      actor: entry.actor,
-      at: entry.occurredAt,
-      oldest: at,
-      entries: [entry]
-    })
+    days.push({ key: draft.dayKey, day: draft.group.at, groups: [draft.group] })
   }
-  return days.map((day) => ({
-    key: day.key,
-    day: day.day,
-    groups: day.groups.map(({ key, actor, at, entries }) => ({
-      key,
-      actor,
-      at,
-      entries
-    }))
-  }))
+  return days
 }
 
 export const SPRINT_MOVE_WINDOW_MS = 10 * 1000

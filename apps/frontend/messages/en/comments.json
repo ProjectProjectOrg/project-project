@@ -9,8 +9,6 @@
   "comments_edited_marker": "(edited)",
   "comments_editing_marker": "editing…",
   "comments_empty": "No comments yet.",
-  "comments_heading": "Comments",
-  "comments_heading_with_count": "Comments · {count}",
   "comments_imported_from_jira": "Imported from Jira",
   "comments_load_failed": "Failed to load comments.",
   "comments_save_button": "Save",

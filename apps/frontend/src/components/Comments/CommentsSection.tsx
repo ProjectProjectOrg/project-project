@@ -60,11 +60,6 @@ export function CommentsSection({
     { key: "activity", label: m.tickets_activity_tab() }
   ]
 
-  const headingLabel =
-    total > 0
-      ? m.comments_heading_with_count({ count: total })
-      : m.comments_heading()
-
   return (
     <MentionScopeProvider scope={{ orgSlug, slug, members: project.members }}>
       <section className="mt-8 space-y-4">
@@ -74,7 +69,7 @@ export function CommentsSection({
             onClick={() => setCollapsed((c) => !c)}
             className="-ml-1.5 grid size-7 place-items-center rounded-md text-muted-foreground transition-[color,transform] duration-100 hover:text-foreground active:scale-[0.97]"
             aria-expanded={!collapsed}
-            aria-label={headingLabel}
+            aria-label={m.tickets_activity_tabs_aria_label()}
           >
             <ChevronRight
               className={

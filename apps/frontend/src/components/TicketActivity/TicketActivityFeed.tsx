@@ -1,4 +1,4 @@
-import { useAtom, useAtomValue } from "@effect/atom-react"
+import { useAtom, useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import type {
   ActivityCause,
   ActivitySystemSource,
@@ -11,7 +11,8 @@ import type {
   TicketActivityEntry,
   TicketId,
   TicketPriority,
-  TicketType
+  TicketType,
+  User
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
@@ -28,6 +29,7 @@ import {
 } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
+import { ErrorPage } from "@/components/ErrorPage"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { TagChip } from "@/components/TagChip"
 import {
@@ -38,7 +40,9 @@ import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import {
   olderActivityPages,
   ticketActivity,
-  ticketActivityRequest
+  ticketActivityRequest,
+  type TicketActivityRequest,
+  type TicketActivityView
 } from "@/features/tickets/atoms/ticketActivity"
 import {
   activityItems,
@@ -85,6 +89,7 @@ const GROUP_ICONS: Readonly<Record<GroupKind, LucideIcon>> = {
 }
 
 type Lookups = Readonly<{
+  people: ReadonlyArray<User>
   members: ReadonlyArray<Member>
   statuses: ReadonlyArray<ProjectStatus>
   tags: ReadonlyArray<Tag>
@@ -94,15 +99,24 @@ function Value({
   icon: Icon,
   iconClassName,
   iconColor,
+  wrap = false,
   children
 }: Readonly<{
   icon?: LucideIcon
   iconClassName?: string
   iconColor?: string | null
+  wrap?: boolean
   children: ReactNode
 }>) {
   return (
-    <span className="inline-flex items-center gap-1 align-bottom whitespace-nowrap text-foreground">
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 align-bottom text-foreground",
+        wrap
+          ? "min-w-0 [overflow-wrap:anywhere] break-words"
+          : "whitespace-nowrap"
+      )}
+    >
       {Icon && (
         <Icon
           className={cn("size-3.5 shrink-0", iconClassName)}
@@ -152,20 +166,22 @@ function TypeValue({ type }: Readonly<{ type: TicketType }>) {
 
 function People({
   ids,
-  members
-}: Readonly<{ ids: ReadonlyArray<string>; members: ReadonlyArray<Member> }>) {
+  lookups
+}: Readonly<{ ids: ReadonlyArray<string>; lookups: Lookups }>) {
   return (
     <span className="inline-flex flex-wrap items-center gap-x-2 align-bottom">
       {ids.map((id) => {
-        const member = members.find((candidate) => candidate.id === id)
+        const person =
+          lookups.people.find((candidate) => candidate.id === id) ??
+          lookups.members.find((candidate) => candidate.id === id)
         return (
           <span
             key={id}
             className="inline-flex items-center gap-1 whitespace-nowrap text-foreground"
           >
-            {member && <MemberAvatar member={member} size={16} />}
-            {member?.name ||
-              member?.email ||
+            {person && <MemberAvatar member={person} size={16} />}
+            {person?.name ||
+              person?.email ||
               m.tickets_activity_actor_unknown()}
           </span>
         )
@@ -216,7 +232,10 @@ const changeLines = (
   switch (change.kind) {
     case "title_changed":
       return [
-        verbWith(m.tickets_activity_title_changed(), <Value>{change.to}</Value>)
+        verbWith(
+          m.tickets_activity_title_changed(),
+          <Value wrap>{change.to}</Value>
+        )
       ]
     case "status_changed":
       return [
@@ -248,7 +267,7 @@ const changeLines = (
           ? [
               verbWith(
                 m.tickets_activity_assignees_added(),
-                <People ids={change.added} members={lookups.members} />
+                <People ids={change.added} lookups={lookups} />
               )
             ]
           : []),
@@ -256,7 +275,7 @@ const changeLines = (
           ? [
               verbWith(
                 m.tickets_activity_assignees_removed(),
-                <People ids={change.removed} members={lookups.members} />
+                <People ids={change.removed} lookups={lookups} />
               )
             ]
           : [])
@@ -299,21 +318,25 @@ const changeLines = (
       return [
         verbWith(
           m.tickets_activity_group_added(),
-          <Value icon={GROUP_ICONS[change.groupKind]}>{change.name}</Value>
+          <Value icon={GROUP_ICONS[change.groupKind]} wrap>
+            {change.name}
+          </Value>
         )
       ]
     case "group_removed":
       return [
         verbWith(
           m.tickets_activity_group_removed(),
-          <Value icon={GROUP_ICONS[change.groupKind]}>{change.name}</Value>
+          <Value icon={GROUP_ICONS[change.groupKind]} wrap>
+            {change.name}
+          </Value>
         )
       ]
     case "branch_linked":
       return [
         verbWith(
           m.tickets_activity_branch_linked(),
-          <Value icon={GitBranch} iconClassName="text-muted-foreground">
+          <Value icon={GitBranch} iconClassName="text-muted-foreground" wrap>
             <Literal>{change.branch}</Literal>
           </Value>
         )
@@ -322,7 +345,7 @@ const changeLines = (
       return [
         verbWith(
           m.tickets_activity_branch_unlinked(),
-          <Value icon={GitBranch} iconClassName="text-muted-foreground">
+          <Value icon={GitBranch} iconClassName="text-muted-foreground" wrap>
             <Literal>{change.branch}</Literal>
           </Value>
         )
@@ -383,8 +406,12 @@ const itemLines = (
         [
           fieldChange(
             m.tickets_activity_field_sprint(),
-            <Value icon={GROUP_ICONS.sprint}>{item.from}</Value>,
-            <Value icon={GROUP_ICONS.sprint}>{item.to}</Value>
+            <Value icon={GROUP_ICONS.sprint} wrap>
+              {item.from}
+            </Value>,
+            <Value icon={GROUP_ICONS.sprint} wrap>
+              {item.to}
+            </Value>
           )
         ],
         item.cause
@@ -525,38 +552,21 @@ function GroupRow({
   )
 }
 
-export function TicketActivityFeed({
-  orgSlug,
-  slug,
-  ticketId
-}: Readonly<{ orgSlug: string; slug: string; ticketId: TicketId }>) {
-  const req = ticketActivityRequest(orgSlug, slug, ticketId)
-  const result = useAtomValue(ticketActivity(req))
+function ActivityList({
+  req,
+  view,
+  waiting,
+  lookups
+}: Readonly<{
+  req: TicketActivityRequest
+  view: TicketActivityView
+  waiting: boolean
+  lookups: Lookups
+}>) {
   const [olderPages, setOlderPages] = useAtom(olderActivityPages(req))
-  const statusesResult = useAtomValue(
-    statusesFor(statusesRequest(orgSlug, slug))
-  )
-  const tagsResult = useAtomValue(tagsFor(tagsRequest(orgSlug, slug)))
-  const project = useProject()
   const [showAll, setShowAll] = useState(false)
-
-  if (AsyncResult.isFailure(result)) {
-    return (
-      <p className="text-sm text-destructive">
-        {m.tickets_activity_load_failed()}
-      </p>
-    )
-  }
-  if (!AsyncResult.isSuccess(result)) return null
-
-  const lookups: Lookups = {
-    members: project.members,
-    statuses: AsyncResult.isSuccess(statusesResult) ? statusesResult.value : [],
-    tags: AsyncResult.isSuccess(tagsResult) ? tagsResult.value : []
-  }
-  const { items, hasOlder } = result.value
-  const visible = showAll ? items : items.slice(0, INITIAL_VISIBLE)
-  const canShowOlder = visible.length < items.length || hasOlder
+  const visible = showAll ? view.items : view.items.slice(0, INITIAL_VISIBLE)
+  const canShowOlder = visible.length < view.items.length || view.hasOlder
   const days = groupActivity(visible)
   const lastGroup = days.at(-1)?.groups.at(-1)
 
@@ -590,16 +600,55 @@ export function TicketActivityFeed({
       {canShowOlder && (
         <button
           type="button"
-          disabled={result.waiting}
+          disabled={waiting}
           onClick={() => {
-            if (visible.length < items.length) setShowAll(true)
+            if (visible.length < view.items.length) setShowAll(true)
             else setOlderPages(olderPages + 1)
           }}
-          className="ml-8 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-70"
+          className="ml-8 text-sm text-muted-foreground transition-[color,transform] duration-100 hover:text-foreground active:scale-[0.97] disabled:opacity-70"
         >
           {m.tickets_activity_show_older()}
         </button>
       )}
     </div>
   )
+}
+
+export function TicketActivityFeed({
+  orgSlug,
+  slug,
+  ticketId
+}: Readonly<{ orgSlug: string; slug: string; ticketId: TicketId }>) {
+  const req = ticketActivityRequest(orgSlug, slug, ticketId)
+  const result = useAtomValue(ticketActivity(req))
+  const refresh = useAtomRefresh(ticketActivity(req))
+  const statusesResult = useAtomValue(
+    statusesFor(statusesRequest(orgSlug, slug))
+  )
+  const tagsResult = useAtomValue(tagsFor(tagsRequest(orgSlug, slug)))
+  const project = useProject()
+
+  return AsyncResult.matchWithError(result, {
+    onInitial: () => null,
+    onError: (error) => <ErrorPage error={error} reset={refresh} contained />,
+    onDefect: (defect) => (
+      <ErrorPage error={defect} reset={refresh} contained />
+    ),
+    onSuccess: ({ value, waiting }) => (
+      <ActivityList
+        key={ticketId}
+        req={req}
+        view={value}
+        waiting={waiting}
+        lookups={{
+          people: value.people,
+          members: project.members,
+          statuses: AsyncResult.isSuccess(statusesResult)
+            ? statusesResult.value
+            : [],
+          tags: AsyncResult.isSuccess(tagsResult) ? tagsResult.value : []
+        }}
+      />
+    )
+  })
 }

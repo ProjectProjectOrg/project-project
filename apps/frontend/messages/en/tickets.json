@@ -24,7 +24,6 @@
   "tickets_activity_field_type": "type",
   "tickets_activity_group_added": "added this to",
   "tickets_activity_group_removed": "removed this from",
-  "tickets_activity_load_failed": "Couldn't load activity.",
   "tickets_activity_pr_closed": "closed",
   "tickets_activity_pr_merged": "merged",
   "tickets_activity_pr_opened": "opened",

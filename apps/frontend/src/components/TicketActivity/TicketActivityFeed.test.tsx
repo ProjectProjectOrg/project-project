@@ -75,6 +75,7 @@ const change = (
 
 type Page = Readonly<{
   items: ReadonlyArray<unknown>
+  people?: ReadonlyArray<unknown>
   nextCursor: string | null
 }>
 
@@ -103,7 +104,8 @@ const serve = (pages: ReadonlyArray<Page>, cursors: Array<string | null>) =>
       return Promise.resolve(Response.json([]))
     }
     cursors.push(url.searchParams.get("cursor"))
-    return Promise.resolve(Response.json(pages[cursors.length - 1]))
+    const page = pages[cursors.length - 1]
+    return Promise.resolve(Response.json({ people: [], ...page }))
   })
 
 let registry: Registry.AtomRegistry
@@ -169,7 +171,7 @@ describe("TicketActivityFeed", () => {
               "2",
               60,
               wouter,
-              { kind: "assignees_changed", added: [], removed: ["luuk"] },
+              { kind: "assignees_changed", added: [], removed: ["gone"] },
               "member_removed"
             ),
             change("1", 61, wouter, {
@@ -179,6 +181,7 @@ describe("TicketActivityFeed", () => {
               name: "Sprint 4"
             })
           ],
+          people: [user("gone", "Former Member")],
           nextCursor: null
         }
       ],
@@ -192,7 +195,7 @@ describe("TicketActivityFeed", () => {
       {
         actor: "Wouter",
         lines: [
-          "unassigned Luuk when a member was removed",
+          "unassigned Former Member when a member was removed",
           "added this to Sprint 4"
         ]
       }
