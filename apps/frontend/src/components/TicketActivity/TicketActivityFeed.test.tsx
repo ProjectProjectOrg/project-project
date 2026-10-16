@@ -144,6 +144,49 @@ const groups = () =>
   }))
 
 describe("TicketActivityFeed", () => {
+  it("renders estimate additions, unit changes and clearing", async () => {
+    const actor = { kind: "user", user: user("luuk", "Luuk") }
+    serve(
+      [
+        {
+          items: [
+            change("3", 1, actor, {
+              kind: "estimate_changed",
+              from: { unit: "time", minutes: 90 },
+              to: null
+            }),
+            change("2", 2, actor, {
+              kind: "estimate_changed",
+              from: { unit: "points", value: 3 },
+              to: { unit: "time", minutes: 90 }
+            }),
+            change("1", 3, actor, {
+              kind: "estimate_changed",
+              from: null,
+              to: { unit: "points", value: 3 }
+            })
+          ],
+          people: [],
+          nextCursor: null
+        }
+      ],
+      []
+    )
+    renderFeed()
+    await waitFor(() =>
+      expect(groups()).toEqual([
+        {
+          actor: "Luuk",
+          lines: [
+            "estimate 1h 30m to Not estimated",
+            "estimate 3 points to 1h 30m",
+            "estimate Not estimated to 3 points"
+          ]
+        }
+      ])
+    )
+  })
+
   it("groups each person's changes and reads them as lines", async () => {
     const wouter = { kind: "user", user: user("wouter", "Wouter") }
     serve(

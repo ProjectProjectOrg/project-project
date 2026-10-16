@@ -17,6 +17,7 @@
   "tickets_activity_cause_tag_deleted": "when the tag was deleted",
   "tickets_activity_created": "created this",
   "tickets_activity_description_edited": "edited the description",
+  "tickets_activity_field_estimate": "estimate",
   "tickets_activity_field_priority": "priority",
   "tickets_activity_field_sprint": "sprint",
   "tickets_activity_field_status": "status",

@@ -1,4 +1,10 @@
-import { GroupId, TagName, TicketId, TicketStatus } from "@pp/shared"
+import {
+  GroupId,
+  TagName,
+  TicketId,
+  TicketStatus,
+  type Estimate
+} from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
@@ -32,6 +38,35 @@ const base: TicketChangeSource = {
 const archivedAt = DateTime.toDate(DateTime.makeUnsafe("2026-10-01T00:00:00Z"))
 
 describe("ticketChanges", () => {
+  it.each<Estimate>([
+    { unit: "points", value: 5 },
+    { unit: "tshirt", value: "M" },
+    { unit: "time", minutes: 90 }
+  ])("records adding and clearing a $unit estimate", (estimate) => {
+    const estimated = { ...base, estimate }
+    expect(ticketChanges(base, estimated)).toEqual([
+      { kind: "estimate_changed", from: null, to: estimate }
+    ])
+    expect(ticketChanges(estimated, base)).toEqual([
+      { kind: "estimate_changed", from: estimate, to: null }
+    ])
+    expect(
+      ticketChanges(estimated, { ...base, estimate: { ...estimate } })
+    ).toEqual([])
+  })
+
+  it("records estimate value and unit changes", () => {
+    const first = { ...base, estimate: { unit: "points", value: 3 } as const }
+    const second = { ...base, estimate: { unit: "points", value: 5 } as const }
+    const third = { ...base, estimate: { unit: "time", minutes: 90 } as const }
+    expect(ticketChanges(first, second)).toEqual([
+      { kind: "estimate_changed", from: first.estimate, to: second.estimate }
+    ])
+    expect(ticketChanges(second, third)).toEqual([
+      { kind: "estimate_changed", from: second.estimate, to: third.estimate }
+    ])
+  })
+
   it.each([
     ["nothing", {}, []],
     [

@@ -1,6 +1,11 @@
 import * as BunServices from "@effect/platform-bun/BunServices"
 import { it } from "@effect/vitest"
-import { ActivityActor, TicketId, TicketStatus } from "@pp/shared"
+import {
+  ActivityActor,
+  TicketId,
+  TicketStatus,
+  type Estimate
+} from "@pp/shared"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -282,6 +287,47 @@ describe("TicketDocs activity capture", () => {
       return { recorded, result }
     }).pipe(Effect.provide(testLayer(recordingTicketActivity(recorded))))
   }
+
+  it.effect("captures estimate-only additions, changes and removals", () =>
+    Effect.gen(function* () {
+      const initial: Estimate = { unit: "points", value: 3 }
+      const changed: Estimate = { unit: "time", minutes: 90 }
+      const { recorded } = yield* capture((docs) =>
+        Effect.gen(function* () {
+          for (const estimate of [
+            initial,
+            { ...initial },
+            changed,
+            undefined
+          ]) {
+            yield* docs.update("acme", "project", "T-1", (ticket) =>
+              Effect.succeed({ ...ticket, estimate, updatedAt: later })
+            )
+          }
+        })
+      )
+      expect(recorded.map((entry) => entry.changes)).toEqual([
+        [
+          {
+            ticketId: "T-1",
+            change: { kind: "estimate_changed", from: null, to: initial }
+          }
+        ],
+        [
+          {
+            ticketId: "T-1",
+            change: { kind: "estimate_changed", from: initial, to: changed }
+          }
+        ],
+        [
+          {
+            ticketId: "T-1",
+            change: { kind: "estimate_changed", from: changed, to: null }
+          }
+        ]
+      ])
+    })
+  )
 
   it.effect("records the diff as the acting user and stamps updatedBy", () =>
     Effect.gen(function* () {
