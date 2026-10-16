@@ -1,6 +1,11 @@
 import * as BunServices from "@effect/platform-bun/BunServices"
 import { it } from "@effect/vitest"
-import { ActivityActor, TicketId, TicketStatus } from "@pp/shared"
+import {
+  ActivityActor,
+  TicketId,
+  TicketStatus,
+  type Estimate
+} from "@pp/shared"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -204,6 +209,67 @@ describe("TicketDocs branch matching persistence", () => {
   )
 })
 
+describe("TicketDocs estimate persistence", () => {
+  it.effect("writes each estimate unit as a self-describing token", () =>
+    Effect.gen(function* () {
+      const docs = yield* TicketDocs
+      const cases = [
+        ["T-11", { unit: "points", value: 5 }, "estimate: 5\n"],
+        ["T-12", { unit: "tshirt", value: "M" }, "estimate: M\n"],
+        ["T-13", { unit: "time", minutes: 90 }, "estimate: 90m\n"]
+      ] as const
+      for (const [id, estimate, token] of cases) {
+        yield* docs.create("acme", "project", {
+          ...ticketDocument(id),
+          estimate
+        })
+        const raw = yield* docs.readRaw("acme", "project", id)
+        const document = yield* docs.read("acme", "project", id)
+        expect(raw.content).toContain(token)
+        expect(document.estimate).toEqual(estimate)
+      }
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("omits the key for an unestimated ticket", () =>
+    Effect.gen(function* () {
+      const docs = yield* TicketDocs
+      yield* docs.create("acme", "project", ticketDocument("T-14"))
+      const raw = yield* docs.readRaw("acme", "project", "T-14")
+      expect(raw.content).not.toContain("estimate")
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("reads a hand-written estimate outside the scales as none", () =>
+    Effect.gen(function* () {
+      const markdown = yield* Markdown
+      const docs = yield* TicketDocs
+      yield* markdown.createTicketFile(
+        "acme",
+        "project",
+        "T-15",
+        {
+          id: "T-15",
+          title: "Ticket",
+          status: "todo",
+          type: "chore",
+          priority: "med",
+          estimate: "XXL",
+          tags: [],
+          branch: null,
+          assignees: [],
+          createdBy: "user-1",
+          createdAt: "2026-09-07T10:00:00Z",
+          updatedAt: "2026-09-07T10:00:00Z"
+        },
+        "# Ticket\n"
+      )
+      const document = yield* docs.read("acme", "project", "T-15")
+      expect(document.estimate).toBeUndefined()
+    }).pipe(Effect.provide(TestLayer))
+  )
+})
+
 describe("TicketDocs activity capture", () => {
   const later = DateTime.toDate(DateTime.makeUnsafe("2026-09-08T10:00:00Z"))
 
@@ -221,6 +287,47 @@ describe("TicketDocs activity capture", () => {
       return { recorded, result }
     }).pipe(Effect.provide(testLayer(recordingTicketActivity(recorded))))
   }
+
+  it.effect("captures estimate-only additions, changes and removals", () =>
+    Effect.gen(function* () {
+      const initial: Estimate = { unit: "points", value: 3 }
+      const changed: Estimate = { unit: "time", minutes: 90 }
+      const { recorded } = yield* capture((docs) =>
+        Effect.gen(function* () {
+          for (const estimate of [
+            initial,
+            { ...initial },
+            changed,
+            undefined
+          ]) {
+            yield* docs.update("acme", "project", "T-1", (ticket) =>
+              Effect.succeed({ ...ticket, estimate, updatedAt: later })
+            )
+          }
+        })
+      )
+      expect(recorded.map((entry) => entry.changes)).toEqual([
+        [
+          {
+            ticketId: "T-1",
+            change: { kind: "estimate_changed", from: null, to: initial }
+          }
+        ],
+        [
+          {
+            ticketId: "T-1",
+            change: { kind: "estimate_changed", from: initial, to: changed }
+          }
+        ],
+        [
+          {
+            ticketId: "T-1",
+            change: { kind: "estimate_changed", from: changed, to: null }
+          }
+        ]
+      ])
+    })
+  )
 
   it.effect("records the diff as the acting user and stamps updatedBy", () =>
     Effect.gen(function* () {

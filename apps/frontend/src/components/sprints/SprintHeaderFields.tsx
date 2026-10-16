@@ -45,6 +45,7 @@ import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
 import { SprintStateIcon } from "./SprintChip"
+import { SprintEstimateTotals } from "./SprintEstimateTotals"
 
 const shortDateFormatter = () =>
   new Intl.DateTimeFormat(getLocale(), {
@@ -277,6 +278,7 @@ export function SprintSubtitle({
           })}
         </span>
       )}
+      <SprintEstimateTotals orgSlug={orgSlug} slug={slug} groupId={sprint.id} />
     </div>
   )
 }

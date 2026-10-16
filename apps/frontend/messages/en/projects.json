@@ -290,6 +290,34 @@
   "project_settings_delete_description": "Remove this project, its tickets, and its markdown folder.",
   "project_settings_delete_heading": "Delete project",
   "project_settings_description_heading": "Description",
+  "project_settings_estimation_clear_stale": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Clear {count} old estimate",
+        "countPlural=*": "Clear {count} old estimates"
+      }
+    }
+  ],
+  "project_settings_estimation_clear_stale_confirm": "Remove estimates in another unit from all tickets, including archived tickets?",
+  "project_settings_estimation_clear_stale_submit": "Clear",
+  "project_settings_estimation_description": "How tickets are sized. Switching units keeps old estimates, but they count as unestimated.",
+  "project_settings_estimation_label": "Estimation",
+  "project_settings_estimation_mode_off": "Off",
+  "project_settings_estimation_mode_points": "Points",
+  "project_settings_estimation_mode_time": "Time",
+  "project_settings_estimation_mode_tshirt": "T-shirt",
+  "project_settings_estimation_stale": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} ticket has an estimate in another unit.",
+        "countPlural=*": "{count} tickets have an estimate in another unit."
+      }
+    }
+  ],
   "project_settings_everhour_action_error": "Everhour sync failed. Try again.",
   "project_settings_everhour_broken": "Everhour is connected, but the last sync failed.",
   "project_settings_everhour_connect_button": "Connect Everhour",

@@ -6,6 +6,7 @@ import {
   withAttachmentParams,
   type AddMemberInput,
   type CreateProjectInput,
+  type EstimationMode,
   type Project,
   ProjectActor,
   type ProjectDetail,
@@ -132,6 +133,13 @@ export const projectActor = Atom.family((req: ProjectRequest) =>
   })
 )
 
+export const projectEstimation = Atom.family((req: ProjectRequest) =>
+  Atom.make((get): EstimationMode => {
+    const detail = get(project(req))
+    return AsyncResult.isSuccess(detail) ? detail.value.estimation : "off"
+  })
+)
+
 export const updateProject = Atom.family((req: ProjectRequest) =>
   Atom.optimisticFn(project(req), {
     reducer: (current, input: UpdateProjectInput) =>
@@ -154,7 +162,16 @@ export const updateProject = Atom.family((req: ProjectRequest) =>
               confirmProjectUpdate(current, updated, input)
             )
           )
-          yield* Reactivity.invalidate([Keys.projects(req.params.orgSlug)])
+          yield* Reactivity.invalidate(
+            input.estimation === undefined
+              ? [Keys.projects(req.params.orgSlug)]
+              : [
+                  Keys.projects(req.params.orgSlug),
+                  Keys.ticketsIn(scopeOf(req)),
+                  Keys.ticketLists(scopeOf(req)),
+                  Keys.ticketPages(scopeOf(req))
+                ]
+          )
           return updated
         })
       )
@@ -259,7 +276,12 @@ const confirmProjectUpdate = (
   name: confirmField(current.name, input.name, confirmed.name),
   body: confirmField(current.body, input.body, confirmed.body),
   icon: confirmField(current.icon, input.icon, confirmed.icon),
-  color: confirmField(current.color, input.color, confirmed.color)
+  color: confirmField(current.color, input.color, confirmed.color),
+  estimation: confirmField(
+    current.estimation,
+    input.estimation,
+    confirmed.estimation
+  )
 })
 
 const confirmSetupUpdate = (

@@ -2,6 +2,8 @@ import { useAtomValue } from "@effect/atom-react"
 import {
   sprintState,
   type AssigneeFilter,
+  type EstimateFilterValue,
+  type EstimationMode,
   type TicketType,
   type TicketFilter,
   type Member
@@ -33,6 +35,7 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
+import { estimateFilterLabel, estimateFilterValues } from "@/lib/estimate-meta"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -57,6 +60,7 @@ export function Filters() {
     members,
     orgSlug,
     slug,
+    estimation,
     searchActive: compact
   } = useTicketToolbar()
   const value = query
@@ -147,6 +151,15 @@ export function Filters() {
                     onChange={(groupId) => onChange({ groupId })}
                     orgSlug={orgSlug}
                     slug={slug}
+                  />
+                )
+              case "estimate":
+                return (
+                  <FilterEstimate
+                    key={dimension}
+                    value={value?.estimate}
+                    onChange={(estimate) => onChange({ estimate })}
+                    estimation={estimation}
                   />
                 )
               case "tags":
@@ -302,6 +315,50 @@ function FilterAssignee({
           <MemberAvatar member={member} size={20} />
           <span className="truncate">{member.name}</span>
           {assigneeFilter === member.id && (
+            <Check className="ml-auto size-3.5 text-muted-foreground" />
+          )}
+        </DropdownMenuItem>
+      ))}
+    </FilterSection>
+  )
+}
+
+function FilterEstimate({
+  value,
+  onChange,
+  estimation
+}: Readonly<{
+  value: TicketFilter["estimate"]
+  onChange: (value: TicketFilter["estimate"]) => void
+  estimation: EstimationMode
+}>) {
+  const options = estimateFilterValues(estimation)
+  if (options.length === 0) return null
+  const selected = value?.length === 1 ? value[0] : "all"
+  const select = (next: EstimateFilterValue | "all") =>
+    onChange(next === "all" ? undefined : [next])
+  return (
+    <FilterSection>
+      <SectionLabel>{m.tickets_filters_section_estimate()}</SectionLabel>
+      <DropdownMenuItem
+        closeOnClick={false}
+        onClick={() => select("all")}
+        className="cursor-pointer"
+      >
+        {m.tickets_filters_estimate_all()}
+        {selected === "all" && (
+          <Check className="ml-auto size-3.5 text-muted-foreground" />
+        )}
+      </DropdownMenuItem>
+      {options.map((option) => (
+        <DropdownMenuItem
+          key={option}
+          closeOnClick={false}
+          onClick={() => select(option)}
+          className="cursor-pointer"
+        >
+          {estimateFilterLabel(option)}
+          {selected === option && (
             <Check className="ml-auto size-3.5 text-muted-foreground" />
           )}
         </DropdownMenuItem>

@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
 import { Page } from "../Pagination"
+import { EstimateFilterValue, EstimateSummary } from "../schemas/Estimate"
 import { GroupId } from "../schemas/Group"
 import { Slug } from "../schemas/Project"
 import { TagName } from "../schemas/Tag"
@@ -14,7 +15,8 @@ export const SortKey = Schema.Literals([
   "created",
   "updated",
   "title",
-  "priority"
+  "priority",
+  "estimate"
 ])
 export type SortKey = typeof SortKey.Type
 
@@ -37,7 +39,8 @@ export const NATURAL_SORT_DIR: Record<SortKey, SortDir> = {
   created: "desc",
   updated: "desc",
   title: "asc",
-  priority: "desc"
+  priority: "desc",
+  estimate: "desc"
 }
 
 export const AssigneeFilter = Schema.Union([
@@ -61,6 +64,7 @@ const TicketFilterFields = {
   hasPr: Schema.optional(Schema.Boolean),
   updatedAfter: Schema.optional(Schema.DateFromString),
   groupId: Schema.optional(Schema.Array(GroupIdFilter)),
+  estimate: Schema.optional(Schema.Array(EstimateFilterValue)),
   archived: Schema.optional(Schema.Boolean)
 } as const
 
@@ -209,7 +213,10 @@ export const sprintSectionKey = (groupId: GroupId | null): SprintSectionKey =>
 export const TicketSprintSection = Schema.Struct({
   key: SprintSectionKey,
   count: Schema.Finite,
-  page: TicketListPage
+  page: TicketListPage,
+  estimates: Schema.NullOr(EstimateSummary).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  )
 })
 export type TicketSprintSection = typeof TicketSprintSection.Type
 

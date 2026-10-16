@@ -1,5 +1,6 @@
 import * as Schema from "effect/Schema"
 
+import { Estimate } from "./Estimate"
 import { GroupKind } from "./Group"
 import { GroupId } from "./GroupId"
 import { TagName } from "./Tag"
@@ -50,6 +51,7 @@ export const TicketActivityChange = Schema.Union([
   valueChange("status_changed", TicketStatus),
   valueChange("priority_changed", TicketPriority),
   valueChange("type_changed", TicketType),
+  valueChange("estimate_changed", Schema.NullOr(Estimate)),
   listChange("assignees_changed", UserId),
   listChange("tags_changed", TagName),
   Schema.Struct({ kind: Schema.Literal("description_edited") }),

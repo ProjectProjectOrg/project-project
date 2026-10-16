@@ -51,7 +51,8 @@ import type {
   Member,
   PendingProjectMember,
   ProjectDetail,
-  ProjectSetup
+  ProjectSetup,
+  EstimationMode
 } from "@pp/shared"
 
 import { Access } from "../access/Access"
@@ -74,6 +75,7 @@ import {
   type ProjectGithubIntegration,
   type ProjectsShape
 } from "./Projects"
+import { readProjectDocument } from "./readProjectDocument"
 
 const MAX_SLUG_ATTEMPTS = 100
 const makeRole = Schema.decodeUnknownSync(Role)
@@ -567,7 +569,8 @@ export const ProjectsLive = Layer.effect(
       key: ProjectKey,
       body: string,
       connection: GithubConnection | null,
-      setup: ProjectSetup
+      setup: ProjectSetup,
+      estimation: EstimationMode
     ): Effect.Effect<void, MarkdownError> =>
       projectDocs.write(orgSlug, slug, {
         org: orgSlug,
@@ -579,6 +582,7 @@ export const ProjectsLive = Layer.effect(
         createdBy,
         createdAt,
         github: connection,
+        estimation,
         setup,
         body
       })
@@ -693,7 +697,8 @@ export const ProjectsLive = Layer.effect(
               key,
               `# ${input.name}\n`,
               null,
-              defaultSetup()
+              defaultSetup(),
+              "off"
             ).pipe(
               Effect.catch((cause) =>
                 rollback.pipe(Effect.andThen(Effect.die(cause)))
@@ -725,7 +730,11 @@ export const ProjectsLive = Layer.effect(
           orgSlug,
           { slug, userId },
           Effect.gen(function* () {
-            const file = yield* projectDocs.read(orgSlug, slug)
+            const file = yield* readProjectDocument({
+              db,
+              docs: projectDocs,
+              project: scope
+            })
             const members = yield* loadMembers(indexRow.id)
             const pendingMembers = yield* loadPendingMembers(indexRow.id)
             const connection = yield* loadGithubConnection(indexRow)
@@ -748,6 +757,7 @@ export const ProjectsLive = Layer.effect(
               banner,
               iconImage: indexRow.iconImage ?? null,
               setup: file.setup,
+              estimation: file.estimation,
               body: file.body,
               members,
               pendingMembers
@@ -774,7 +784,11 @@ export const ProjectsLive = Layer.effect(
           { slug, userId },
           Effect.gen(function* () {
             const { indexRow } = yield* inScope
-            const file = yield* projectDocs.read(orgSlug, slug)
+            const file = yield* readProjectDocument({
+              db,
+              docs: projectDocs,
+              project: scope
+            })
             const connection = yield* loadGithubConnection(indexRow)
 
             const nextBanner =
@@ -818,6 +832,7 @@ export const ProjectsLive = Layer.effect(
             const nextBody = input.body ?? file.body
             const nextIcon = input.icon ?? makeProjectIcon(indexRow.icon)
             const nextColor = input.color ?? makeProjectColor(indexRow.color)
+            const nextEstimation = input.estimation ?? file.estimation
 
             const dbPatch: Partial<typeof projectIndex.$inferInsert> = {}
             if (input.banner !== undefined) dbPatch.banner = nextBanner
@@ -830,6 +845,9 @@ export const ProjectsLive = Layer.effect(
             }
             if (input.color !== undefined && input.color !== indexRow.color) {
               dbPatch.color = nextColor
+            }
+            if (nextEstimation !== file.estimation) {
+              dbPatch.estimation = nextEstimation
             }
             if (Object.keys(dbPatch).length > 0) {
               yield* db
@@ -852,7 +870,8 @@ export const ProjectsLive = Layer.effect(
               makeProjectKey(indexRow.key),
               nextBody,
               connection,
-              file.setup
+              file.setup,
+              nextEstimation
             )
 
             return presentDetail(scope, {
@@ -868,6 +887,7 @@ export const ProjectsLive = Layer.effect(
               banner: nextBanner,
               iconImage: nextIconImage,
               setup: file.setup,
+              estimation: nextEstimation,
               body: nextBody,
               members,
               pendingMembers
@@ -886,7 +906,11 @@ export const ProjectsLive = Layer.effect(
           { slug, userId },
           Effect.gen(function* () {
             const { indexRow } = yield* inScope
-            const file = yield* projectDocs.read(orgSlug, slug)
+            const file = yield* readProjectDocument({
+              db,
+              docs: projectDocs,
+              project: scope
+            })
             const connection = yield* loadGithubConnection(indexRow)
             const members = yield* loadMembers(indexRow.id)
             const pendingMembers = yield* loadPendingMembers(indexRow.id)
@@ -902,7 +926,8 @@ export const ProjectsLive = Layer.effect(
               makeProjectKey(indexRow.key),
               file.body,
               connection,
-              setup
+              setup,
+              file.estimation
             )
             return presentDetail(scope, {
               org: orgSlug,
@@ -915,6 +940,7 @@ export const ProjectsLive = Layer.effect(
               createdAt: indexRow.createdAt,
               github: connection,
               setup,
+              estimation: file.estimation,
               banner: indexRow.banner ?? null,
               iconImage: indexRow.iconImage ?? null,
               body: file.body,
@@ -977,7 +1003,11 @@ export const ProjectsLive = Layer.effect(
         Effect.gen(function* () {
           const { scope, indexRow } = yield* inScope
           const { orgSlug, slug } = scope
-          const file = yield* projectDocs.read(orgSlug, slug)
+          const file = yield* readProjectDocument({
+            db,
+            docs: projectDocs,
+            project: scope
+          })
           const connection = yield* loadGithubConnection(indexRow)
           const members = yield* loadMembers(indexRow.id)
           const pendingMembers = yield* loadPendingMembers(indexRow.id)
@@ -992,7 +1022,8 @@ export const ProjectsLive = Layer.effect(
             makeProjectKey(indexRow.key),
             file.body,
             connection,
-            file.setup
+            file.setup,
+            file.estimation
           )
           return presentDetail(rescoped(scope, members), {
             org: orgSlug,
@@ -1007,6 +1038,7 @@ export const ProjectsLive = Layer.effect(
             banner: indexRow.banner ?? null,
             iconImage: indexRow.iconImage ?? null,
             setup: file.setup,
+            estimation: file.estimation,
             body: file.body,
             members,
             pendingMembers

@@ -1,6 +1,8 @@
 import {
+  estimateRank,
   matchesTicketQuery,
   padNumericIdSort,
+  type EstimationMode,
   type GroupId,
   type QuickCreateTicketInput,
   type TagName,
@@ -292,6 +294,7 @@ const patchesSortedField = (
 ): boolean => {
   if (key === "title") return patch.title !== undefined
   if (key === "priority") return patch.priority !== undefined
+  if (key === "estimate") return patch.estimate !== undefined
   return false
 }
 
@@ -315,6 +318,11 @@ const localOrderKey = (ticket: Ticket, sort: TicketSort): string => {
         2,
         "0"
       )
+      break
+    case "estimate":
+      value = String(
+        ticket.estimate === null ? 0 : estimateRank(ticket.estimate)
+      ).padStart(6, "0")
       break
   }
   return `${value}\u0000${ticket.id}`
@@ -483,6 +491,7 @@ export type QuickCreateArg = Readonly<{
   ticket: QuickCreateTicketInput
   viewerId: string
   projectPrefix: string
+  estimation: EstimationMode
   clientId: string
   prediction?: QuickCreatePrediction
 }>
@@ -509,6 +518,7 @@ export const predictedTicket = (
     status,
     type: input.ticket.type ?? "other",
     priority: input.prediction?.priority ?? "med",
+    estimate: null,
     tags: input.prediction?.tags ?? [],
     branch: null,
     pr: null,
@@ -543,7 +553,8 @@ export const quickCreateBacklogTicket = Atom.family((req: BacklogRequest) =>
           !matchesTicketQuery(
             predicted,
             { ...req.query, status: undefined },
-            undefined
+            undefined,
+            input.estimation
           ) ||
           (req.query.groupId?.length &&
             !req.query.groupId.includes("ungrouped"))

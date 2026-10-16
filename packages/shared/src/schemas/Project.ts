@@ -8,9 +8,11 @@
 // `Project` is the full record (used by list responses for now; later by /get).
 
 import { Project as ProjectAccess } from "@pp/access/roles"
+import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
 import { AttachmentId } from "./Attachment"
+import { EstimationMode } from "./Estimate"
 import { UserId } from "./User"
 
 export const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
@@ -223,6 +225,9 @@ export const ProjectDetail = Schema.Struct({
   ...Project.fields,
   github: Schema.NullOr(GithubConnection),
   setup: ProjectSetup,
+  estimation: EstimationMode.pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed("off" as const))
+  ),
   body: Schema.String,
   members: Schema.Array(Member),
   pendingMembers: Schema.Array(PendingProjectMember),
@@ -257,7 +262,8 @@ export const UpdateProjectInput = Schema.Struct({
   ),
   body: Schema.optional(Schema.String),
   icon: Schema.optional(ProjectIcon),
-  color: Schema.optional(ProjectColor)
+  color: Schema.optional(ProjectColor),
+  estimation: Schema.optional(EstimationMode)
 })
 export type UpdateProjectInput = typeof UpdateProjectInput.Type
 

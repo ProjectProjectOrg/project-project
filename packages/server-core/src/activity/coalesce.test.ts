@@ -50,6 +50,43 @@ const newestFirst = (entries: ReadonlyArray<StoredTicketActivity>) =>
   [...entries].reverse()
 
 describe("coalesceActivity", () => {
+  it("merges successive estimate edits while keeping the initial value", () => {
+    const first = entry(0, {
+      kind: "estimate_changed",
+      from: null,
+      to: { unit: "points", value: 3 }
+    })
+    const second = entry(30, {
+      kind: "estimate_changed",
+      from: { unit: "points", value: 3 },
+      to: { unit: "points", value: 5 }
+    })
+    expect(coalesceActivity(newestFirst([first, second]))).toEqual([
+      {
+        ...second,
+        change: {
+          kind: "estimate_changed",
+          from: null,
+          to: { unit: "points", value: 5 }
+        }
+      }
+    ])
+  })
+
+  it("drops reverted estimate changes using their values", () => {
+    const first = entry(0, {
+      kind: "estimate_changed",
+      from: { unit: "points", value: 3 },
+      to: { unit: "points", value: 5 }
+    })
+    const second = entry(30, {
+      kind: "estimate_changed",
+      from: { unit: "points", value: 5 },
+      to: { unit: "points", value: 3 }
+    })
+    expect(coalesceActivity(newestFirst([first, second]))).toEqual([])
+  })
+
   it("collapses a burst of description edits by one person", () => {
     const first = entry(0, edited)
     const second = entry(5 * 60, edited)

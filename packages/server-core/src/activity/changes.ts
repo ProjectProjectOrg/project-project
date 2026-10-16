@@ -1,4 +1,5 @@
 import {
+  Estimate,
   UserId,
   type GroupDetail,
   type TicketActivityChange,
@@ -9,6 +10,7 @@ import * as Schema from "effect/Schema"
 import type { TicketDocument } from "../tickets/TicketDocs"
 
 const makeUserId = Schema.decodeUnknownSync(UserId)
+const sameEstimate = Schema.toEquivalence(Schema.NullOr(Estimate))
 
 export type TicketChangeSource = Pick<
   TicketDocument,
@@ -16,6 +18,7 @@ export type TicketChangeSource = Pick<
   | "status"
   | "priority"
   | "type"
+  | "estimate"
   | "assignees"
   | "tags"
   | "body"
@@ -79,6 +82,15 @@ export const ticketChanges = (
   }
   if (before.type !== after.type) {
     changes.push({ kind: "type_changed", from: before.type, to: after.type })
+  }
+  const fromEstimate = before.estimate ?? null
+  const toEstimate = after.estimate ?? null
+  if (!sameEstimate(fromEstimate, toEstimate)) {
+    changes.push({
+      kind: "estimate_changed",
+      from: fromEstimate,
+      to: toEstimate
+    })
   }
   const assignees = listDiff(before.assignees, after.assignees)
   if (assignees !== null) {

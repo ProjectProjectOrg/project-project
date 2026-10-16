@@ -47,6 +47,7 @@ import {
   type ActivityGroup,
   type ActivityItem
 } from "@/lib/activity-groups"
+import { formatEstimate } from "@/lib/estimate-meta"
 import { PRIORITY_LABELS, PRIORITY_META } from "@/lib/priority-meta"
 import { formatRelative } from "@/lib/relative-time"
 import { statusMetaFor, TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
@@ -240,6 +241,22 @@ const changeLines = (
           m.tickets_activity_field_type(),
           <TypeValue type={change.from} />,
           <TypeValue type={change.to} />
+        )
+      ]
+    case "estimate_changed":
+      return [
+        fieldChange(
+          m.tickets_activity_field_estimate(),
+          <Value>
+            {change.from === null
+              ? m.tickets_filters_estimate_none()
+              : formatEstimate(change.from)}
+          </Value>,
+          <Value>
+            {change.to === null
+              ? m.tickets_filters_estimate_none()
+              : formatEstimate(change.to)}
+          </Value>
         )
       ]
     case "assignees_changed":

@@ -1,9 +1,15 @@
-import type { ActivityActorShape, TicketActivityChange } from "@pp/shared"
+import {
+  Estimate,
+  type ActivityActorShape,
+  type TicketActivityChange
+} from "@pp/shared"
+import * as Schema from "effect/Schema"
 
 import type { StoredTicketActivity } from "./TicketActivity"
 
 export const DESCRIPTION_EDIT_WINDOW_MS = 10 * 60 * 1000
 export const VALUE_CHANGE_WINDOW_MS = 60 * 1000
+const sameEstimate = Schema.toEquivalence(Schema.NullOr(Estimate))
 
 type ValueChange = Extract<
   TicketActivityChange,
@@ -39,6 +45,9 @@ const startingFrom = (
     return { ...newer, from: older.from }
   }
   if (newer.kind === "type_changed" && older.kind === "type_changed") {
+    return { ...newer, from: older.from }
+  }
+  if (newer.kind === "estimate_changed" && older.kind === "estimate_changed") {
     return { ...newer, from: older.from }
   }
   return newer
@@ -83,8 +92,9 @@ export const coalesceActivity = (
   }
   return output
     .map((run) => run.entry)
-    .filter(
-      (entry) =>
-        !isValueChange(entry.change) || entry.change.from !== entry.change.to
+    .filter((entry) =>
+      entry.change.kind === "estimate_changed"
+        ? !sameEstimate(entry.change.from, entry.change.to)
+        : !isValueChange(entry.change) || entry.change.from !== entry.change.to
     )
 }

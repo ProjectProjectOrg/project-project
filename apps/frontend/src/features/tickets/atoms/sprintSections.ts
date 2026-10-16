@@ -1,7 +1,11 @@
 import {
+  estimateRank,
   matchesTicketQuery,
   padNumericIdSort,
   SPRINT_SECTION_UNSCHEDULED,
+  summarizeEstimates,
+  type EstimateSummary,
+  type EstimationMode,
   type GroupId,
   type GroupIdFilter,
   type Forbidden,
@@ -62,6 +66,7 @@ const scopeOf = (req: BacklogRequest) =>
 export type SprintSectionValue = Readonly<{
   key: SprintSectionKey
   count: number
+  estimates: EstimateSummary | null
   page: BacklogSection
 }>
 
@@ -171,6 +176,7 @@ const sprintSectionsView = (req: BacklogRequest) =>
         return {
           key: section.key,
           count: section.count,
+          estimates: section.estimates,
           page: {
             items: dedupeById(rows).map((row) => ({
               ...row,
@@ -285,6 +291,7 @@ const patchesSortedField = (
 ): boolean => {
   if (key === "title") return patch.title !== undefined
   if (key === "priority") return patch.priority !== undefined
+  if (key === "estimate") return patch.estimate !== undefined
   return false
 }
 
@@ -309,8 +316,52 @@ const localOrderKey = (ticket: Ticket, sort: TicketSort): string => {
         "0"
       )
       break
+    case "estimate":
+      value = String(
+        ticket.estimate === null ? 0 : estimateRank(ticket.estimate)
+      ).padStart(6, "0")
+      break
   }
   return `${value}\u0000${ticket.id}`
+}
+
+const shift = (current: number, out: number, into: number) =>
+  Math.max(0, current - out + into)
+
+const shiftEstimates = (
+  summary: EstimateSummary | null,
+  removed: Ticket | null,
+  added: Ticket | null
+): EstimateSummary | null => {
+  if (summary === null) return null
+  const minus = summarizeEstimates(removed ? [removed] : [], summary.unit)
+  const plus = summarizeEstimates(added ? [added] : [], summary.unit)
+  const unestimated = shift(
+    summary.unestimated,
+    minus.unestimated,
+    plus.unestimated
+  )
+  if (summary.unit === "tshirt") {
+    if (minus.unit !== "tshirt" || plus.unit !== "tshirt") return summary
+    return {
+      ...summary,
+      unestimated,
+      sizes: {
+        XS: shift(summary.sizes.XS, minus.sizes.XS, plus.sizes.XS),
+        S: shift(summary.sizes.S, minus.sizes.S, plus.sizes.S),
+        M: shift(summary.sizes.M, minus.sizes.M, plus.sizes.M),
+        L: shift(summary.sizes.L, minus.sizes.L, plus.sizes.L),
+        XL: shift(summary.sizes.XL, minus.sizes.XL, plus.sizes.XL)
+      }
+    }
+  }
+  if (minus.unit === "tshirt" || plus.unit === "tshirt") return summary
+  return {
+    ...summary,
+    unestimated,
+    committed: shift(summary.committed, minus.committed, plus.committed),
+    done: shift(summary.done, minus.done, plus.done)
+  }
 }
 
 const patchRow = (
@@ -319,6 +370,7 @@ const patchRow = (
   patch: UpdateTicketInput,
   query: TicketListQuery,
   viewerId: UserId | undefined,
+  estimation: EstimationMode,
   now: Date
 ): SprintSectionsValue => {
   let patched: BacklogRow | undefined
@@ -328,11 +380,13 @@ const patchRow = (
   const sections = value.sections.map((section) => {
     const items: Array<BacklogRow> = []
     let found: BacklogRow | undefined
+    let before: Ticket | undefined
     for (const row of section.page.items) {
       if (row.ticket.id !== id) {
         items.push(row)
         continue
       }
+      before = row.ticket
       from = row.ticket.status
       found = {
         ...row,
@@ -349,14 +403,21 @@ const patchRow = (
       staysCounted = matchesTicketQuery(
         found.ticket,
         { ...query, status: undefined },
-        viewerId
+        viewerId,
+        estimation
       )
-      staysVisible = matchesTicketQuery(found.ticket, query, viewerId)
+      staysVisible = matchesTicketQuery(
+        found.ticket,
+        query,
+        viewerId,
+        estimation
+      )
     }
-    if (found === undefined) return section
+    if (found === undefined || before === undefined) return section
     return {
       ...section,
       count: section.count - (staysVisible ? 0 : 1),
+      estimates: shiftEstimates(section.estimates, before, found.ticket),
       page: {
         ...section.page,
         items: staysVisible
@@ -430,11 +491,13 @@ export const updateSprintSectionsTicket = Atom.family(
   ({
     req,
     id,
-    viewerId
+    viewerId,
+    estimation
   }: Readonly<{
     req: BacklogRequest
     id: TicketId
     viewerId: UserId | undefined
+    estimation: EstimationMode
   }>) =>
     Atom.optimisticFn(sprintSections(req), {
       reducer: (current, patch: UpdateTicketInput) =>
@@ -445,6 +508,7 @@ export const updateSprintSectionsTicket = Atom.family(
             patch,
             req.query,
             viewerId,
+            estimation,
             DateTime.toDate(DateTime.nowUnsafe())
           )
         ),
@@ -529,7 +593,8 @@ export const quickCreateSprintSectionsTicket = Atom.family(
             !matchesTicketQuery(
               predicted,
               { ...req.query, status: undefined },
-              undefined
+              undefined,
+              input.estimation
             )
           )
             return value
@@ -546,6 +611,11 @@ export const quickCreateSprintSectionsTicket = Atom.family(
           const nextSection: SprintSectionValue = {
             key,
             count: (existing?.count ?? 0) + 1,
+            estimates: shiftEstimates(
+              existing?.estimates ?? null,
+              null,
+              predicted
+            ),
             page: {
               ...page,
               items: [

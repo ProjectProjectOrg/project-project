@@ -4,7 +4,10 @@ import {
   BranchNotFound,
   Conflict,
   DEFAULT_TICKET_SORT,
+  estimationUnit,
+  isStaleEstimate,
   GitStatesResponse,
+  summarizeEstimates,
   MentionInvalid,
   MY_TICKETS_DONE_WINDOW_DAYS,
   MY_TICKETS_PAGE_SIZE,
@@ -24,6 +27,7 @@ import {
   normalizeLineEndings,
   Validation,
   type ProjectKey,
+  type Estimate,
   type GroupId,
   type GroupIdFilter,
   type MyTicketsQuery,
@@ -48,6 +52,7 @@ import {
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Equal from "effect/Equal"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
@@ -61,8 +66,10 @@ import * as GitHub from "../github/GitHub"
 import { Groups } from "../groups/Groups"
 import { Library, type TemplateExpansion } from "../library/Library"
 import type { MarkdownError } from "../markdown/Markdown"
+import { ProjectDocs } from "../projects/ProjectDocs"
 import { Projects } from "../projects/Projects"
 import type { ProjectGithubIntegration } from "../projects/Projects"
+import { readProjectDocument } from "../projects/readProjectDocument"
 import { Users } from "../users/Users"
 import {
   MalformedTicketDocument,
@@ -163,6 +170,7 @@ function documentToTicket(
   const { body: _body, commentsRegion: _commentsRegion, ...ticket } = document
   return presentTicket(view, {
     ...ticket,
+    estimate: document.estimate ?? null,
     gitState: pendingGitState(document, view.integration, branchDeletedAt)
   })
 }
@@ -262,6 +270,11 @@ const requireSplit = (
 const changed = <A>(next: A | undefined, current: A) =>
   next !== undefined && next !== current
 
+const estimateChanged = (
+  next: Estimate | null | undefined,
+  current: Estimate | undefined
+) => next !== undefined && !Equal.equals(next ?? undefined, current)
+
 const listChanged = (
   next: ReadonlyArray<string> | undefined,
   current: ReadonlyArray<string>
@@ -278,6 +291,7 @@ export const TicketsLive = Layer.effect(
     const { withTicketDocumentLock, withRepositoryBranchLock } =
       yield* TicketDocumentLock.TicketDocumentLock
     const projects = yield* Projects
+    const projectDocs = yield* ProjectDocs
     const ticketIndex = yield* TicketIndex
     const github = yield* GitHub.GitHub
     const groups = yield* Groups
@@ -298,10 +312,19 @@ export const TicketsLive = Layer.effect(
 
     const gitView = Effect.flatMap(ProjectScope, gitViewOf)
 
-    const queryable = (query: TicketPolicy.Query) =>
-      requirePolicy((scope) => TicketPolicy.canQuery(scope, query)).pipe(
-        Effect.andThen(ProjectScope)
-      )
+    const queryable = Effect.fnUntraced(function* (
+      query: TicketCountQuery | TicketListQuery
+    ) {
+      yield* requirePolicy((scope) => TicketPolicy.canQuery(scope, query))
+      const scope = yield* ProjectScope
+      if (
+        query.estimate?.length ||
+        ("sort" in query && query.sort.key === "estimate")
+      ) {
+        yield* readProjectDocument({ db, docs: projectDocs, project: scope })
+      }
+      return scope
+    })
 
     const detailOf = (
       document: TicketDocument,
@@ -664,6 +687,10 @@ export const TicketsLive = Layer.effect(
       const sprints = (yield* groups.list()).filter(
         (group) => group.kind === "sprint"
       )
+      const unit = estimationUnit(
+        (yield* readProjectDocument({ db, docs: projectDocs, project: scope }))
+          .estimation
+      )
       const sectionIds: ReadonlyArray<GroupIdFilter> = [
         ...new Set<GroupIdFilter>(
           query.groupId?.length
@@ -744,6 +771,17 @@ export const TicketsLive = Layer.effect(
                 limit: TICKET_LIST_LIMIT + 1
               }
             )
+            const estimates =
+              unit === null ||
+              groupId === "ungrouped" ||
+              ticketIds === undefined
+                ? null
+                : summarizeEstimates(
+                    (yield* ticketIndex.list(project, ticketIds)).filter(
+                      (entry) => entry.archivedAt === null
+                    ),
+                    unit
+                  )
             return {
               section: {
                 key: sprintSectionKey(groupId === "ungrouped" ? null : groupId),
@@ -753,7 +791,8 @@ export const TicketsLive = Layer.effect(
                       0
                     )
                   : counts.total,
-                page: ticketPage(entries, query, view, TICKET_LIST_LIMIT)
+                page: ticketPage(entries, query, view, TICKET_LIST_LIMIT),
+                estimates
               },
               counts
             }
@@ -848,6 +887,26 @@ export const TicketsLive = Layer.effect(
           })
         }
       })
+
+    const validateEstimate = Effect.fnUntraced(function* (
+      scope: ProjectScopeShape,
+      estimate: Estimate | null | undefined
+    ) {
+      if (estimate === undefined || estimate === null) return
+      const { estimation } = yield* readProjectDocument({
+        db,
+        docs: projectDocs,
+        project: scope
+      })
+      if (estimation === "off") {
+        return yield* new Validation({ reason: "estimation_off" })
+      }
+      if (estimate.unit !== estimation) {
+        return yield* new Validation({
+          reason: `estimate_unit_mismatch:${estimate.unit}:${estimation}`
+        })
+      }
+    })
 
     const validateBody = (
       body: string,
@@ -1002,6 +1061,7 @@ export const TicketsLive = Layer.effect(
         if (input.assignees !== undefined && input.assignees.length > 0) {
           yield* validateAssigneesAreMembers(input.assignees)
         }
+        yield* validateEstimate(scope, input.estimate)
         const body = yield* library.resolveSynced(
           orgSlug,
           slug,
@@ -1022,6 +1082,7 @@ export const TicketsLive = Layer.effect(
             status: input.status ?? DEFAULT_STATUS,
             type: input.type ?? expansion?.type ?? "other",
             priority: input.priority ?? expansion?.priority ?? "med",
+            ...(input.estimate ? { estimate: input.estimate } : {}),
             tags: [...tags],
             branch: null,
             pr: null,
@@ -1045,6 +1106,9 @@ export const TicketsLive = Layer.effect(
       Effect.gen(function* () {
         const scope = yield* ProjectScope
         const { orgSlug, slug, userId, projectId } = scope
+        yield* validateEstimate(scope, input.estimate)
+        if (sort?.key === "estimate")
+          yield* readProjectDocument({ db, docs: projectDocs, project: scope })
         return yield* withTicketDocumentLock(
           orgSlug,
           slug,
@@ -1091,6 +1155,7 @@ export const TicketsLive = Layer.effect(
                     changed(input.title, existing.title) ||
                     changed(input.type, existing.type) ||
                     changed(input.priority, existing.priority) ||
+                    estimateChanged(input.estimate, existing.estimate) ||
                     changed(body, existing.body) ||
                     listChanged(input.tags, existing.tags)
                   const status = changed(input.status, existing.status)
@@ -1118,6 +1183,10 @@ export const TicketsLive = Layer.effect(
                     status: input.status ?? existing.status,
                     type: input.type ?? existing.type,
                     priority: input.priority ?? existing.priority,
+                    estimate:
+                      input.estimate !== undefined
+                        ? (input.estimate ?? undefined)
+                        : existing.estimate,
                     tags:
                       input.tags !== undefined
                         ? [...input.tags]
@@ -1163,6 +1232,76 @@ export const TicketsLive = Layer.effect(
             return { ticket, orderKey }
           })
         )
+      })
+
+    const clearStaleEstimates: TicketsShape["clearStaleEstimates"] = () =>
+      Effect.gen(function* () {
+        const scope = yield* ProjectScope
+        const project = indexProjectOf(scope)
+        yield* requireTicketChange({ content: true })
+        const { estimation } = yield* readProjectDocument({
+          db,
+          docs: projectDocs,
+          project: scope
+        })
+        const batches = yield* Effect.forEach([false, true], (archived) =>
+          Effect.gen(function* () {
+            const query = { estimate: ["stale" as const], archived }
+            const { total } = yield* ticketIndex.count(project, query, {
+              viewerId: scope.userId
+            })
+            if (total === 0) return []
+            return yield* ticketIndex.query(
+              project,
+              { ...query, sort: DEFAULT_TICKET_SORT },
+              { viewerId: scope.userId, limit: total }
+            )
+          })
+        )
+        const stale = batches.flat()
+        let cleared = 0
+        yield* Effect.forEach(
+          stale,
+          ({ entry }) =>
+            withTicketDocumentLock(
+              scope.orgSlug,
+              scope.slug,
+              entry.id,
+              Effect.gen(function* () {
+                let changed = false
+                yield* ticketDocs.update(
+                  scope.orgSlug,
+                  scope.slug,
+                  entry.id,
+                  Effect.fnUntraced(function* (current) {
+                    const latest = yield* projectDocs.read(
+                      scope.orgSlug,
+                      scope.slug
+                    )
+                    if (
+                      latest.estimation !== estimation ||
+                      !isStaleEstimate(
+                        current.estimate ?? null,
+                        latest.estimation
+                      )
+                    )
+                      return current
+                    changed = true
+                    return {
+                      ...current,
+                      estimate: undefined,
+                      updatedBy: scope.userId,
+                      updatedAt: yield* DateTime.nowAsDate
+                    }
+                  }),
+                  (next) => ticketIndex.upsertTicket(project, next)
+                )
+                if (changed) cleared++
+              })
+            ),
+          { concurrency: 4, discard: true }
+        )
+        return { cleared }
       })
 
     const moveInGroup: TicketsShape["moveInGroup"] = (
@@ -2211,6 +2350,7 @@ export const TicketsLive = Layer.effect(
       quickCreate,
       create,
       update,
+      clearStaleEstimates,
       split,
       moveInGroup,
       remove,

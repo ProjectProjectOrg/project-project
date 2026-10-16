@@ -11,6 +11,7 @@ const base = {
   status: Schema.decodeSync(TicketStatus)("todo"),
   type: "chore",
   priority: "med",
+  estimate: null,
   tags: [],
   branch: null,
   pr: null,
@@ -32,6 +33,18 @@ describe("applyTicketPatch", () => {
     const next = applyTicketPatch(base, { priority: "high" })
     expect(next.priority).toBe("high")
     expect(next.title).toBe("Before")
+  })
+
+  it("clears the estimate on null and keeps it when the patch omits it", () => {
+    const estimated = {
+      ...base,
+      estimate: { unit: "tshirt", value: "M" } as const
+    }
+    expect(applyTicketPatch(estimated, { estimate: null }).estimate).toBeNull()
+    expect(applyTicketPatch(estimated, { title: "Next" }).estimate).toEqual({
+      unit: "tshirt",
+      value: "M"
+    })
   })
 
   it("ignores body, which is not part of a list row", () => {

@@ -26,6 +26,7 @@ const buttonVariants = cva(
     "group relative inline-flex cursor-pointer items-center justify-center whitespace-nowrap outline-none",
     "motion-safe:transition-all motion-safe:duration-100 motion-safe:active:scale-[0.97]",
     "disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100",
+    "[&[aria-haspopup]]:active:scale-100",
     "focus-visible:ring-1 focus-visible:ring-ring"
   ],
   {
