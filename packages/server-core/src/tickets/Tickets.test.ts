@@ -677,19 +677,21 @@ const PassthroughLibrary = Layer.mock(Library, {
   resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body)
 })
 
+type TicketsLayerOptions = Readonly<{
+  projectDocs?: Layer.Layer<ProjectDocs>
+  projects?: Layer.Layer<Projects>
+  groups?: Layer.Layer<Groups>
+  github?: Layer.Layer<GitHub>
+  ticketIndex?: Layer.Layer<TicketIndex>
+  attachments?: Layer.Layer<Attachments>
+  figmaLinks?: Layer.Layer<FigmaLinks>
+  scope?: ProjectScopeShape
+}>
+
 function makeTicketsLayer(
   key: string,
   ticketDocsLayer: Layer.Layer<TicketDocs>,
-  options: {
-    readonly projectDocs?: Layer.Layer<ProjectDocs>
-    readonly projects?: Layer.Layer<Projects>
-    readonly groups?: Layer.Layer<Groups>
-    readonly github?: Layer.Layer<GitHub>
-    readonly ticketIndex?: Layer.Layer<TicketIndex>
-    readonly attachments?: Layer.Layer<Attachments>
-    readonly figmaLinks?: Layer.Layer<FigmaLinks>
-    readonly scope?: ProjectScopeShape
-  } = {}
+  options: TicketsLayerOptions = {}
 ) {
   return TicketsLive.pipe(
     Layer.provide(PassthroughLibrary),
