@@ -52,6 +52,8 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
 import { Access } from "../access/Access"
+import { ticketChanges } from "../activity/changes"
+import { TicketActivity } from "../activity/TicketActivity"
 import { Attachments } from "../attachments/Attachments"
 import { validateBodyMentionsWithLookups } from "../comments/BodyMentions"
 import { Comments } from "../comments/Comments"
@@ -66,6 +68,7 @@ import { Users } from "../users/Users"
 import {
   MalformedTicketDocument,
   TicketDocs,
+  ticketFileContent,
   type TicketDocument
 } from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
@@ -272,6 +275,7 @@ export const TicketsLive = Layer.effect(
   Tickets,
   Effect.gen(function* () {
     const ticketDocs = yield* TicketDocs
+    const ticketActivity = yield* TicketActivity
     const { withTicketDocumentLock, withRepositoryBranchLock } =
       yield* TicketDocumentLock.TicketDocumentLock
     const projects = yield* Projects
@@ -1385,14 +1389,7 @@ export const TicketsLive = Layer.effect(
                     updatedAt: now
                   }),
                 (next) => ticketIndex.upsertTicket(indexProject, next),
-                {
-                  extra: [
-                    {
-                      kind: "split",
-                      into: createdDocuments.map((document) => document.id)
-                    }
-                  ]
-                }
+                { silent: true }
               )
 
               return { original, retained, createdDocuments }
@@ -1495,6 +1492,30 @@ export const TicketsLive = Layer.effect(
                 )
               )
             )
+          )
+        )
+
+        yield* withTicketDocumentLock(
+          orgSlug,
+          slug,
+          id,
+          ticketActivity.record(
+            orgSlug,
+            slug,
+            {
+              kind: "ticket",
+              id,
+              content: ticketFileContent(written.retained)
+            },
+            [
+              ...ticketChanges(written.original, written.retained),
+              {
+                kind: "split" as const,
+                into: written.createdDocuments.map((document) => document.id)
+              }
+            ].map((change) => ({ ticketId: written.retained.id, change })),
+            null,
+            Effect.void
           )
         )
 

@@ -17,6 +17,7 @@ import * as Schema from "effect/Schema"
 import * as SchemaTransformation from "effect/SchemaTransformation"
 import * as Struct from "effect/Struct"
 
+import { markdownFileContent, ticketFileBody } from "../markdown/fileContent"
 import type { MarkdownError, TicketIdTaken } from "../markdown/Markdown"
 
 const TicketFrontmatterOnDisk = Schema.Struct({
@@ -112,6 +113,14 @@ export interface TicketDocument extends TicketFrontmatter {
   readonly body: string
   readonly commentsRegion: string
 }
+
+const encodeTicketFrontmatter = Schema.encodeSync(TicketFrontmatter)
+
+export const ticketFileContent = (document: TicketDocument): string =>
+  markdownFileContent(
+    encodeTicketFrontmatter(document),
+    ticketFileBody(document.body, document.commentsRegion)
+  )
 
 export type TicketActivityOptions = Readonly<{
   cause?: ActivityCause

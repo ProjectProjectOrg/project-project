@@ -496,6 +496,7 @@ const BenchmarkLive = (options: Options) =>
         FakeFigmaLinks,
         FakeUsers,
         TicketDocumentLock.layer,
+        passthroughTicketActivity,
         accessLayer({})
       )
     )
