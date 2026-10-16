@@ -1024,13 +1024,7 @@ export const ProjectsLive = Layer.effect(
         const project = yield* ticketIndex
           .projectFor(orgSlug, slug)
           .pipe(Effect.orDie)
-        const tickets = yield* ticketIndex.list(project)
-        const ids = tickets
-          .filter(
-            (ticket) =>
-              ticket.status !== "done" && ticket.assignees.includes(userId)
-          )
-          .map((ticket) => ticket.id)
+        const ids = yield* ticketDocs.listIds(orgSlug, slug).pipe(Effect.orDie)
         yield* Effect.forEach(
           ids,
           (id) =>
