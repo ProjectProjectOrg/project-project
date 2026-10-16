@@ -1,4 +1,5 @@
 import type {
+  EstimationMode,
   GithubConnection,
   NotFound,
   PartialTemplateDefaults,
@@ -21,6 +22,7 @@ export interface ProjectDocument {
   readonly createdBy?: string
   readonly createdAt: Date
   readonly github: GithubConnection | null
+  readonly estimation: EstimationMode
   readonly setup: ProjectSetup
   readonly templateDefaults: PartialTemplateDefaults
   readonly body: string
@@ -36,6 +38,7 @@ export interface ProjectDocumentWrite {
   readonly createdBy: string
   readonly createdAt: Date
   readonly github: GithubConnection | null
+  readonly estimation: EstimationMode
   readonly setup: ProjectSetup
   readonly body: string
 }

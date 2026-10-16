@@ -12,10 +12,12 @@ import {
   updateBacklogTicket,
   type BacklogRequest
 } from "@/features/tickets/atoms/backlog"
+import { useEstimationMode } from "@/hooks/useEstimationMode"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 
 import { AssigneeField } from "./AssigneeField"
+import { EstimateChip } from "./EstimateField"
 import { PriorityButton } from "./PriorityField"
 import { SprintField } from "./SprintField"
 import { StatusButton } from "./StatusField"
@@ -95,6 +97,7 @@ function RowView({
   const idPrefix = dashIdx >= 0 ? ticket.id.slice(0, dashIdx) : ticket.id
   const idTail = dashIdx >= 0 ? ticket.id.slice(dashIdx + 1) : ""
   const rowElement = useRef<HTMLDivElement>(null)
+  const estimation = useEstimationMode()
   const [previewMounted, setPreviewMounted] = useState(false)
   const handleTitlePointerEnter = () => {
     onPreviewPointerEnter(ticket.id)
@@ -186,6 +189,7 @@ function RowView({
               </span>
               <div className="flex shrink-0 items-center justify-end gap-2">
                 <TicketGitChip orgSlug={orgSlug} slug={slug} ticket={ticket} />
+                <EstimateChip ticket={ticket} mode={estimation} />
                 {showSprintCol && (
                   <SprintField
                     variant="responsive"

@@ -102,6 +102,7 @@ import {
   CreateCommentInput,
   UpdateCommentInput
 } from "./schemas/Comment"
+import { ClearStaleEstimatesResult } from "./schemas/Estimate"
 import {
   ConnectEverhourProfileInput,
   EverhourProjectIntegrationStatus,
@@ -1567,6 +1568,19 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
     })
       .annotate(RequiresProject, { ticket: ["create"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "clearStaleEstimates",
+      "/orgs/:orgSlug/projects/:slug/estimates/clear-stale",
+      {
+        params: ProjectPath,
+        success: ClearStaleEstimatesResult,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresProject, { settings: ["manage"] })
       .middleware(ProjectAccess)
   )
   .add(

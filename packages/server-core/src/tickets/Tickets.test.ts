@@ -241,6 +241,9 @@ const FakeDb = Layer.succeed(
                     { slug: "in_progress" },
                     { slug: "done" }
                   ])
+              },
+              projectIndex: {
+                findFirst: () => Effect.succeed({ estimation: "points" })
               }
             }
           : (..._args: ReadonlyArray<unknown>) =>
@@ -393,6 +396,7 @@ const entryFromDocument = (document: TicketDocument) => {
   const { body: _body, commentsRegion: _commentsRegion, ...entry } = document
   return {
     ...entry,
+    estimate: entry.estimate ?? null,
     branchDeletedAt: null,
     checks: null,
     checksHeadSha: null,
@@ -434,7 +438,12 @@ const matchingDocuments = (
     (document) =>
       (included === null || included.has(document.id)) &&
       !excluded.has(document.id) &&
-      matchesTicketQuery(document, query, userId(viewerId))
+      matchesTicketQuery(
+        { ...document, estimate: document.estimate ?? null },
+        query,
+        userId(viewerId),
+        "off"
+      )
   )
 }
 
@@ -2627,6 +2636,32 @@ it.effect("rejects statuses the project doesn't have", () => {
       "Validation"
     ])
     expect(docs.documents.get("T-1")?.status).toBe("todo")
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("only accepts estimates in the project's estimation unit", () => {
+  const { docs, layer } = permissionFixture()
+  const pm = as(scopeAs("member", "pm", "user-1"))
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const mismatched = yield* Effect.flip(
+      tickets
+        .update("T-1", { estimate: { unit: "tshirt", value: "M" } })
+        .pipe(pm)
+    )
+    expect(mismatched._tag).toBe("Validation")
+    expect(docs.documents.get("T-1")?.estimate).toBeUndefined()
+
+    yield* tickets
+      .update("T-1", { estimate: { unit: "points", value: 5 } })
+      .pipe(pm)
+    expect(docs.documents.get("T-1")?.estimate).toEqual({
+      unit: "points",
+      value: 5
+    })
+
+    yield* tickets.update("T-1", { estimate: null }).pipe(pm)
+    expect(docs.documents.get("T-1")?.estimate).toBeUndefined()
   }).pipe(Effect.provide(layer))
 })
 

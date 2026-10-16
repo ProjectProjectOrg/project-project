@@ -141,3 +141,25 @@ it.effect("writes templateDefaults without touching other frontmatter", () => {
     expect(written()).toEqual({ ...base, templateDefaults: { chore: "chore" } })
   }).pipe(Effect.provide(layer))
 })
+
+it.effect("writes estimation only when it is switched on", () => {
+  const { layer, written } = docsWith(base)
+  return Effect.gen(function* () {
+    const docs = yield* ProjectDocs
+    const original = yield* docs.read("demo", "demo")
+    expect(original.estimation).toBe("off")
+    const write = (estimation: typeof original.estimation) =>
+      docs.write("demo", "demo", {
+        ...original,
+        org: "demo",
+        key: original.key!,
+        createdBy: "owner",
+        estimation
+      })
+    yield* write("tshirt")
+    expect(written()).toHaveProperty("estimation", "tshirt")
+    expect((yield* docs.read("demo", "demo")).estimation).toBe("tshirt")
+    yield* write("off")
+    expect(written()).not.toHaveProperty("estimation")
+  }).pipe(Effect.provide(layer))
+})

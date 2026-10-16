@@ -624,6 +624,7 @@ it.effect(
           repoName: "project",
           defaultBaseBranch: null
         },
+        estimation: "off",
         setup: {
           workflowReviewedAt: null,
           invitePeopleDismissedAt: null,

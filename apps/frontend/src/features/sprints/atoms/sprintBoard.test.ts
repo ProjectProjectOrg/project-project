@@ -37,6 +37,7 @@ const makeTicket = (id: TicketId, status: TicketStatus): Ticket => ({
   status,
   type: "chore",
   priority: "med",
+  estimate: null,
   tags: [],
   branch: null,
   pr: null,

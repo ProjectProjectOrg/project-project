@@ -4,7 +4,9 @@ import {
   BranchNotFound,
   Conflict,
   DEFAULT_TICKET_SORT,
+  estimationUnit,
   GitStatesResponse,
+  summarizeEstimates,
   MentionInvalid,
   MY_TICKETS_DONE_WINDOW_DAYS,
   MY_TICKETS_PAGE_SIZE,
@@ -24,6 +26,8 @@ import {
   normalizeLineEndings,
   Validation,
   type ProjectKey,
+  type Estimate,
+  type EstimationMode,
   type GroupId,
   type GroupIdFilter,
   type MyTicketsQuery,
@@ -47,6 +51,7 @@ import {
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Equal from "effect/Equal"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
@@ -160,6 +165,7 @@ function documentToTicket(
   const { body: _body, commentsRegion: _commentsRegion, ...ticket } = document
   return presentTicket(view, {
     ...ticket,
+    estimate: document.estimate ?? null,
     gitState: pendingGitState(document, view.integration, branchDeletedAt)
   })
 }
@@ -258,6 +264,11 @@ const requireSplit = (
 
 const changed = <A>(next: A | undefined, current: A) =>
   next !== undefined && next !== current
+
+const estimateChanged = (
+  next: Estimate | null | undefined,
+  current: Estimate | undefined
+) => next !== undefined && !Equal.equals(next ?? undefined, current)
 
 const listChanged = (
   next: ReadonlyArray<string> | undefined,
@@ -661,6 +672,7 @@ export const TicketsLive = Layer.effect(
       const sprints = (yield* groups.list()).filter(
         (group) => group.kind === "sprint"
       )
+      const unit = estimationUnit(yield* projectEstimation(scope.projectId))
       const sectionIds: ReadonlyArray<GroupIdFilter> = [
         ...new Set<GroupIdFilter>(
           query.groupId?.length
@@ -741,6 +753,17 @@ export const TicketsLive = Layer.effect(
                 limit: TICKET_LIST_LIMIT + 1
               }
             )
+            const estimates =
+              unit === null ||
+              groupId === "ungrouped" ||
+              ticketIds === undefined
+                ? null
+                : summarizeEstimates(
+                    (yield* ticketIndex.list(project, ticketIds)).filter(
+                      (entry) => entry.archivedAt === null
+                    ),
+                    unit
+                  )
             return {
               section: {
                 key: sprintSectionKey(groupId === "ungrouped" ? null : groupId),
@@ -750,7 +773,8 @@ export const TicketsLive = Layer.effect(
                       0
                     )
                   : counts.total,
-                page: ticketPage(entries, query, view, TICKET_LIST_LIMIT)
+                page: ticketPage(entries, query, view, TICKET_LIST_LIMIT),
+                estimates
               },
               counts
             }
@@ -842,6 +866,33 @@ export const TicketsLive = Layer.effect(
         if (!known.has(requested)) {
           return yield* new Validation({
             reason: `unknown_status:${requested}`
+          })
+        }
+      })
+
+    const projectEstimation = (
+      projectId: string
+    ): Effect.Effect<EstimationMode> =>
+      db.query.projectIndex
+        .findFirst({ columns: { estimation: true }, where: { id: projectId } })
+        .pipe(
+          Effect.map((row) => row?.estimation ?? "off"),
+          Effect.orDie
+        )
+
+    const validateEstimate = (
+      projectId: string,
+      estimate: Estimate | null | undefined
+    ): Effect.Effect<void, Validation> =>
+      Effect.gen(function* () {
+        if (estimate === undefined || estimate === null) return
+        const mode = yield* projectEstimation(projectId)
+        if (mode === "off") {
+          return yield* new Validation({ reason: "estimation_off" })
+        }
+        if (estimate.unit !== mode) {
+          return yield* new Validation({
+            reason: `estimate_unit_mismatch:${estimate.unit}:${mode}`
           })
         }
       })
@@ -999,6 +1050,7 @@ export const TicketsLive = Layer.effect(
         if (input.assignees !== undefined && input.assignees.length > 0) {
           yield* validateAssigneesAreMembers(input.assignees)
         }
+        yield* validateEstimate(projectId, input.estimate)
         const body = yield* library.resolveSynced(
           orgSlug,
           slug,
@@ -1019,6 +1071,7 @@ export const TicketsLive = Layer.effect(
             status: input.status ?? DEFAULT_STATUS,
             type: input.type ?? expansion?.type ?? "other",
             priority: input.priority ?? expansion?.priority ?? "med",
+            ...(input.estimate ? { estimate: input.estimate } : {}),
             tags: [...tags],
             branch: null,
             pr: null,
@@ -1056,6 +1109,7 @@ export const TicketsLive = Layer.effect(
             if (input.tags !== undefined) {
               yield* validateTagsExist(projectId, input.tags)
             }
+            yield* validateEstimate(projectId, input.estimate)
 
             const body =
               input.body === undefined
@@ -1088,6 +1142,7 @@ export const TicketsLive = Layer.effect(
                     changed(input.title, existing.title) ||
                     changed(input.type, existing.type) ||
                     changed(input.priority, existing.priority) ||
+                    estimateChanged(input.estimate, existing.estimate) ||
                     changed(body, existing.body) ||
                     listChanged(input.tags, existing.tags)
                   const status = changed(input.status, existing.status)
@@ -1115,6 +1170,10 @@ export const TicketsLive = Layer.effect(
                     status: input.status ?? existing.status,
                     type: input.type ?? existing.type,
                     priority: input.priority ?? existing.priority,
+                    estimate:
+                      input.estimate !== undefined
+                        ? (input.estimate ?? undefined)
+                        : existing.estimate,
                     tags:
                       input.tags !== undefined
                         ? [...input.tags]
@@ -1160,6 +1219,34 @@ export const TicketsLive = Layer.effect(
             return { ticket, orderKey }
           })
         )
+      })
+
+    const clearStaleEstimates: TicketsShape["clearStaleEstimates"] = () =>
+      Effect.gen(function* () {
+        const scope = yield* ProjectScope
+        const project = indexProjectOf(scope)
+        const query = { estimate: ["stale" as const] }
+        const { total } = yield* ticketIndex.count(project, query, {
+          viewerId: scope.userId
+        })
+        if (total === 0) return { cleared: 0 }
+        const stale = yield* ticketIndex.query(
+          project,
+          { ...query, sort: DEFAULT_TICKET_SORT },
+          { viewerId: scope.userId, limit: total }
+        )
+        yield* Effect.forEach(
+          stale,
+          ({ entry }) =>
+            update(entry.id, { estimate: null }).pipe(
+              Effect.catchTags({
+                Validation: Effect.die,
+                MentionInvalid: Effect.die
+              })
+            ),
+          { concurrency: 4, discard: true }
+        )
+        return { cleared: stale.length }
       })
 
     const moveInGroup: TicketsShape["moveInGroup"] = (
@@ -2177,6 +2264,7 @@ export const TicketsLive = Layer.effect(
       quickCreate,
       create,
       update,
+      clearStaleEstimates,
       split,
       moveInGroup,
       remove,

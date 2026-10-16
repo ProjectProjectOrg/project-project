@@ -155,6 +155,7 @@ const projectDocument = (
   color: "#3b82f6",
   createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-01T00:00:00.000Z")),
   github: null,
+  estimation: "off",
   setup: {
     workflowReviewedAt: null,
     invitePeopleDismissedAt: null,

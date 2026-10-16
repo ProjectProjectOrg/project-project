@@ -48,7 +48,8 @@ import type {
   Member,
   PendingProjectMember,
   ProjectDetail,
-  ProjectSetup
+  ProjectSetup,
+  EstimationMode
 } from "@pp/shared"
 
 import { Access } from "../access/Access"
@@ -564,7 +565,8 @@ export const ProjectsLive = Layer.effect(
       key: ProjectKey,
       body: string,
       connection: GithubConnection | null,
-      setup: ProjectSetup
+      setup: ProjectSetup,
+      estimation: EstimationMode
     ): Effect.Effect<void, MarkdownError> =>
       projectDocs.write(orgSlug, slug, {
         org: orgSlug,
@@ -576,6 +578,7 @@ export const ProjectsLive = Layer.effect(
         createdBy,
         createdAt,
         github: connection,
+        estimation,
         setup,
         body
       })
@@ -690,7 +693,8 @@ export const ProjectsLive = Layer.effect(
               key,
               `# ${input.name}\n`,
               null,
-              defaultSetup()
+              defaultSetup(),
+              "off"
             ).pipe(
               Effect.catch((cause) =>
                 rollback.pipe(Effect.andThen(Effect.die(cause)))
@@ -745,6 +749,7 @@ export const ProjectsLive = Layer.effect(
               banner,
               iconImage: indexRow.iconImage ?? null,
               setup: file.setup,
+              estimation: indexRow.estimation,
               body: file.body,
               members,
               pendingMembers
@@ -815,6 +820,7 @@ export const ProjectsLive = Layer.effect(
             const nextBody = input.body ?? file.body
             const nextIcon = input.icon ?? makeProjectIcon(indexRow.icon)
             const nextColor = input.color ?? makeProjectColor(indexRow.color)
+            const nextEstimation = input.estimation ?? indexRow.estimation
 
             const dbPatch: Partial<typeof projectIndex.$inferInsert> = {}
             if (input.banner !== undefined) dbPatch.banner = nextBanner
@@ -827,6 +833,9 @@ export const ProjectsLive = Layer.effect(
             }
             if (input.color !== undefined && input.color !== indexRow.color) {
               dbPatch.color = nextColor
+            }
+            if (nextEstimation !== indexRow.estimation) {
+              dbPatch.estimation = nextEstimation
             }
             if (Object.keys(dbPatch).length > 0) {
               yield* db
@@ -849,7 +858,8 @@ export const ProjectsLive = Layer.effect(
               makeProjectKey(indexRow.key),
               nextBody,
               connection,
-              file.setup
+              file.setup,
+              nextEstimation
             )
 
             return presentDetail(scope, {
@@ -865,6 +875,7 @@ export const ProjectsLive = Layer.effect(
               banner: nextBanner,
               iconImage: nextIconImage,
               setup: file.setup,
+              estimation: nextEstimation,
               body: nextBody,
               members,
               pendingMembers
@@ -899,7 +910,8 @@ export const ProjectsLive = Layer.effect(
               makeProjectKey(indexRow.key),
               file.body,
               connection,
-              setup
+              setup,
+              indexRow.estimation
             )
             return presentDetail(scope, {
               org: orgSlug,
@@ -912,6 +924,7 @@ export const ProjectsLive = Layer.effect(
               createdAt: indexRow.createdAt,
               github: connection,
               setup,
+              estimation: indexRow.estimation,
               banner: indexRow.banner ?? null,
               iconImage: indexRow.iconImage ?? null,
               body: file.body,
@@ -989,7 +1002,8 @@ export const ProjectsLive = Layer.effect(
             makeProjectKey(indexRow.key),
             file.body,
             connection,
-            file.setup
+            file.setup,
+            indexRow.estimation
           )
           return presentDetail(rescoped(scope, members), {
             org: orgSlug,
@@ -1004,6 +1018,7 @@ export const ProjectsLive = Layer.effect(
             banner: indexRow.banner ?? null,
             iconImage: indexRow.iconImage ?? null,
             setup: file.setup,
+            estimation: indexRow.estimation,
             body: file.body,
             members,
             pendingMembers

@@ -6,6 +6,7 @@ import { memo } from "react"
 
 import { TicketGitChip } from "@/components/TicketGit"
 import { AssigneeField } from "@/components/TicketList/AssigneeField"
+import { EstimateChip } from "@/components/TicketList/EstimateField"
 import { PriorityButton } from "@/components/TicketList/PriorityField"
 import { SplitTicketControl } from "@/components/TicketList/SplitControl"
 import { TypeButton } from "@/components/TicketList/TypeField"
@@ -18,6 +19,7 @@ import {
   updateBacklogTicket,
   type BacklogRequest
 } from "@/features/tickets/atoms/backlog"
+import { useEstimationMode } from "@/hooks/useEstimationMode"
 import { useProjectActor } from "@/lib/access"
 
 function SprintBoardCardImpl({
@@ -147,6 +149,7 @@ function BoardCardFields({
   const actor = useProjectActor()
   const editable = TicketPolicy.canChange(actor, { content: true })
   const canAssign = TicketPolicy.canChange(actor, { assignees: true })
+  const estimation = useEstimationMode()
   return (
     <DeferredDropdownMenus>
       <div className="group/reveal relative isolate flex flex-col gap-2 rounded-sm bg-surface-3 px-1.5 pt-3 pb-1.5 text-left shadow-surface-1 transition outline-none hover:bg-surface-4 hover:shadow-surface-1-hover [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20">
@@ -174,6 +177,7 @@ function BoardCardFields({
           <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
             {ticket.id}
           </span>
+          <EstimateChip ticket={ticket} mode={estimation} />
           <div className="flex min-w-0 flex-1 items-center">
             <TicketGitChip orgSlug={orgSlug} slug={slug} ticket={ticket} />
           </div>

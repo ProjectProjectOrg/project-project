@@ -1,4 +1,9 @@
-import type { Member, TicketFilter, TicketListQuery } from "@pp/shared"
+import type {
+  EstimationMode,
+  Member,
+  TicketFilter,
+  TicketListQuery
+} from "@pp/shared"
 import { createContext, use, type ReactNode } from "react"
 
 import type { useTicketSearch } from "../search"
@@ -12,6 +17,7 @@ export type TicketToolbarProps = Readonly<{
   members: ReadonlyArray<Member>
   counts: Record<string, number> | null
   filters: ReadonlyArray<FilterDimension>
+  estimation: EstimationMode
   scopeKey?: string
   viewOptionsVariant?: "legacy" | "panel"
   viewControls?: ReactNode

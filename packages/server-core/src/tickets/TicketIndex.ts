@@ -1,5 +1,6 @@
 import type {
   ChecksStatus,
+  Estimate,
   PullRequestState,
   TagName,
   TicketId,
@@ -48,6 +49,7 @@ export interface TicketIndexEntry {
   readonly status: TicketStatus
   readonly type: TicketType
   readonly priority: TicketPriority
+  readonly estimate: Estimate | null
   readonly tags: ReadonlyArray<TagName>
   readonly branch: string | null
   readonly pr: number | null

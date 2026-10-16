@@ -41,6 +41,7 @@ const ticket = {
   status: Schema.decodeSync(TicketStatus)("todo"),
   type: "chore",
   priority: "med",
+  estimate: null,
   tags: [],
   branch: null,
   pr: null,
@@ -920,6 +921,7 @@ describe("backlog quick create", () => {
           ticket: { title: "Created", type: "chore" },
           viewerId: "user-1",
           projectPrefix: "T",
+          estimation: "off",
           clientId: "creation-filtered"
         })
         const optimistic = registry.get(view)
@@ -964,6 +966,7 @@ describe("backlog quick create", () => {
         },
         viewerId: "user-1",
         projectPrefix: "T",
+        estimation: "off",
         clientId: "creation-1",
         prediction: {
           priority: "high",
@@ -1021,6 +1024,7 @@ describe("backlog quick create", () => {
         ticket: { title: "Created", status: ticket.status },
         viewerId: "user-1",
         projectPrefix: "T",
+        estimation: "off",
         clientId: "creation-1"
       })
 
@@ -1108,6 +1112,7 @@ describe("backlog quick create", () => {
         ticket: { title: "Created", status: ticket.status },
         viewerId: "user-1",
         projectPrefix: "T",
+        estimation: "off",
         clientId: "creation-flat"
       })
 
@@ -1289,6 +1294,7 @@ describe("backlog quick create", () => {
         ticket: { title: created.title, status: ticket.status },
         viewerId: "user-1",
         projectPrefix: "T",
+        estimation: "off",
         clientId: "creation-sibling"
       })
       await vi.waitFor(() => expect(registry.get(create).waiting).toBe(false))
@@ -1363,6 +1369,7 @@ describe("backlog quick create", () => {
         ticket: { title: "Doomed", status: ticket.status },
         viewerId: "user-1",
         projectPrefix: "T",
+        estimation: "off",
         clientId: "creation-doomed"
       })
 
@@ -1709,6 +1716,17 @@ const priorityKey = (t: Ticket) =>
 
 const priorityRow = (t: Ticket): ServedRow => [t, priorityKey(t)]
 
+const pointsKey = (t: Ticket) =>
+  orderKey(
+    String(t.estimate?.unit === "points" ? t.estimate.value : 0).padStart(
+      6,
+      "0"
+    ),
+    t.id
+  )
+
+const pointsRow = (t: Ticket): ServedRow => [t, pointsKey(t)]
+
 type EditOutcome = Readonly<{
   optimistic: ReadonlyArray<string>
   settled: ReadonlyArray<string>
@@ -1808,6 +1826,23 @@ describe("backlog edits to the sorted field move the row", () => {
     expect(outcome.patchUrl.searchParams.get("sort")).toBe(
       '{"key":"priority","dir":"desc"}'
     )
+  })
+
+  it("regroups the row by estimate under `estimate desc`, unestimated last", async () => {
+    const items = [
+      withTicket("T-1", { estimate: { unit: "points", value: 8 } }),
+      withTicket("T-2", { estimate: { unit: "points", value: 3 } }),
+      withTicket("T-3", { estimate: null })
+    ]
+    const outcome = await orderAfterFieldEdit(
+      { sort: { key: "estimate", dir: "desc" } },
+      items.map(pointsRow),
+      items[0].id,
+      { estimate: null },
+      (edited) => asUpdateResult(edited, pointsKey(edited))
+    )
+    expect(outcome.optimistic).toEqual(["T-2", "T-3", "T-1"])
+    expect(outcome.settled).toEqual(["T-2", "T-3", "T-1"])
   })
 
   it("re-alphabetizes the row under `title asc`", async () => {

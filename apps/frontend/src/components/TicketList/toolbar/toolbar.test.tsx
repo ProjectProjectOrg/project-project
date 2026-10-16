@@ -57,6 +57,7 @@ function Toolbar({
       members={[]}
       counts={{ all: 0 }}
       filters={["type"]}
+      estimation="off"
       showSort
       viewOptionsVariant={variant}
     >

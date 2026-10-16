@@ -1,5 +1,6 @@
 import type {
   AttachBranchInput,
+  ClearStaleEstimatesResult,
   SprintCompletedImmutable,
   BranchExists,
   BranchNotFound,
@@ -146,6 +147,11 @@ export interface TicketsShape {
   ) => Effect.Effect<
     TicketUpdateResult,
     Forbidden | TicketReadError | Validation | MentionInvalid,
+    ProjectScope
+  >
+  readonly clearStaleEstimates: () => Effect.Effect<
+    ClearStaleEstimatesResult,
+    Forbidden | TicketReadError,
     ProjectScope
   >
   readonly moveInGroup: (

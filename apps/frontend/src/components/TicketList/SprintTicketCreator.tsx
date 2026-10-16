@@ -97,6 +97,9 @@ export function SprintTicketCreator({
   const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
   const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
   const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
+  const estimation = Result.isSuccess(project)
+    ? project.value.estimation
+    : "off"
   const error = creatorErrorText(createState)
   const projectReq = useMemo(
     () => projectRequest(orgSlug, slug),
@@ -212,6 +215,7 @@ export function SprintTicketCreator({
       ticket: { title: item.label, type, ...templateChoice.payload },
       viewerId,
       projectPrefix,
+      estimation,
       prediction: templateChoice.prediction
     })
     templateChoice.recover(exit)
@@ -235,6 +239,7 @@ export function SprintTicketCreator({
       ticket: { title: trimmed, type, ...templateChoice.payload },
       viewerId,
       projectPrefix,
+      estimation,
       prediction: templateChoice.prediction
     })
     templateChoice.recover(exit)

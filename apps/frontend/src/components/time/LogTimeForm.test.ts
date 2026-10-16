@@ -5,7 +5,7 @@ import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import { createElement } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { LogTimeForm, parseDurationToSeconds } from "./LogTimeForm"
+import { LogTimeForm } from "./LogTimeForm"
 
 const mocks = vi.hoisted(() => ({ logTime: vi.fn() }))
 
@@ -25,21 +25,6 @@ vi.mock("@/components/time/WorkTypeSelect", () => ({
 afterEach(() => {
   cleanup()
   mocks.logTime.mockReset()
-})
-
-describe("parseDurationToSeconds", () => {
-  it.each([
-    ["90", 5400],
-    ["1h 30m", 5400],
-    ["1.5h", 5400],
-    ["45m", 2700]
-  ])("parses %s", (input, expected) => {
-    expect(parseDurationToSeconds(input)).toBe(expected)
-  })
-
-  it.each(["", "0", "later"])("rejects %s", (input) => {
-    expect(parseDurationToSeconds(input)).toBeNull()
-  })
 })
 
 describe("LogTimeForm", () => {

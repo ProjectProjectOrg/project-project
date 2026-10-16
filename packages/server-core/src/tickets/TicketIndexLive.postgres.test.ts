@@ -745,8 +745,8 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         )
         await client.query(
           `insert into project_index
-               (id, slug, organization_id, key, name, icon, color, created_by, created_at)
-             values ($1, $2, $3, 'T', 'Ticket index order', 'folder', 'blue', 'test-user', now())`,
+               (id, slug, organization_id, key, name, icon, color, estimation, created_by, created_at)
+             values ($1, $2, $3, 'T', 'Ticket index order', 'folder', 'blue', 'points', 'test-user', now())`,
           [projectId, projectSlug, organizationId]
         )
       })
@@ -768,18 +768,21 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         indexedDocument("T-1", {
           title: "ab 1",
           priority: "med",
+          estimate: { unit: "points", value: 13 },
           createdAt: earlier,
           updatedAt: later
         }),
         indexedDocument("T-2", {
           title: "ab",
           priority: "med",
+          estimate: { unit: "points", value: 3 },
           createdAt: earlier,
           updatedAt: later
         }),
         indexedDocument("T-3", {
           title: "dup",
           priority: "high",
+          estimate: { unit: "tshirt", value: "XL" },
           createdAt: earlier,
           updatedAt: earlier
         }),
@@ -818,7 +821,9 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         { key: "title", dir: "asc" },
         { key: "title", dir: "desc" },
         { key: "priority", dir: "asc" },
-        { key: "priority", dir: "desc" }
+        { key: "priority", dir: "desc" },
+        { key: "estimate", dir: "asc" },
+        { key: "estimate", dir: "desc" }
       ]
 
       yield* Effect.forEach(sorts, (sort) =>
@@ -864,6 +869,77 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           expect(walked).toEqual(rows.map((row) => row.entry.id))
         })
       )
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("matches estimate filters against the project's current unit", () =>
+    Effect.gen(function* () {
+      const suffix = randomUUID()
+      const organizationId = `ticket-index-estimate-${suffix}`
+      const orgSlug = `ticket-index-estimate-${suffix}`
+      const projectSlug = `ticket-index-estimate-${suffix}`
+      const projectId = randomUUID()
+      yield* withClient(async (client) => {
+        await client.query(
+          `insert into organization (id, name, slug, created_at)
+               values ($1, 'Ticket index estimate', $2, now())`,
+          [organizationId, orgSlug]
+        )
+        await client.query(
+          `insert into project_index
+                 (id, slug, organization_id, key, name, icon, color, estimation, created_by, created_at)
+               values ($1, $2, $3, 'T', 'Ticket index estimate', 'folder', 'blue', 'points', 'test-user', now())`,
+          [projectId, projectSlug, organizationId]
+        )
+      })
+      yield* Effect.addFinalizer(() =>
+        withClient((client) =>
+          client.query("delete from organization where id = $1", [
+            organizationId
+          ])
+        )
+      )
+
+      const index = yield* TicketIndex
+      const project = yield* index.projectFor(orgSlug, projectSlug)
+      yield* Effect.forEach(
+        [
+          indexedDocument("T-1", { estimate: { unit: "points", value: 4 } }),
+          indexedDocument("T-2", { estimate: { unit: "tshirt", value: "M" } }),
+          indexedDocument("T-3", { estimate: { unit: "time", minutes: 90 } }),
+          indexedDocument("T-4")
+        ],
+        (document) => index.upsertTicket(project, document)
+      )
+
+      const matching = (estimate: NonNullable<TicketFilter["estimate"]>) =>
+        index
+          .query(
+            project,
+            { sort: { key: "id", dir: "asc" }, estimate },
+            { viewerId: "viewer", limit: 10 }
+          )
+          .pipe(Effect.map((rows) => rows.map((row) => row.entry.id)))
+
+      expect(yield* matching(["any"])).toEqual(["T-1"])
+      expect(yield* matching(["none"])).toEqual(["T-2", "T-3", "T-4"])
+      expect(yield* matching(["stale"])).toEqual(["T-2", "T-3"])
+      expect(yield* matching(["M"])).toEqual([])
+
+      const entries = yield* index.list(project, ["T-2", "T-3"])
+      expect(entries.map((entry) => entry.estimate)).toEqual([
+        { unit: "tshirt", value: "M" },
+        { unit: "time", minutes: 90 }
+      ])
+
+      yield* withClient((client) =>
+        client.query(
+          "update project_index set estimation = 'tshirt' where id = $1",
+          [projectId]
+        )
+      )
+      expect(yield* matching(["M"])).toEqual(["T-2"])
+      expect(yield* matching(["stale"])).toEqual(["T-1", "T-3"])
     }).pipe(Effect.provide(TestLayer))
   )
 

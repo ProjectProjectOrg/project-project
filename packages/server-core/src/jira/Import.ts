@@ -1593,6 +1593,7 @@ export const writeJiraStagedDocuments = Effect.fn("JiraImport.writeDocuments")(
       createdBy: ownerId,
       createdAt: now,
       github: null,
+      estimation: "off",
       setup: {
         workflowReviewedAt: null,
         invitePeopleDismissedAt: null,
