@@ -46,7 +46,7 @@ export const OrgEmailStatus = Schema.Struct({
   settings: Schema.NullOr(EmailSettings),
   lastTest: Schema.NullOr(
     Schema.Struct({
-      at: Schema.Date,
+      at: Schema.DateFromString,
       error: Schema.NullOr(EmailFailureReason)
     })
   )

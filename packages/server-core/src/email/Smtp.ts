@@ -36,6 +36,7 @@ const nonPublicNetworks = [
   "::/128",
   "::1/128",
   "64:ff9b::/96",
+  "64:ff9b:1::/48",
   "100::/64",
   "2001:db8::/32",
   "fc00::/7",
@@ -50,8 +51,26 @@ const isPublic = (address: string) =>
       !nonPublicNetworks.some(IpNetwork.contains(NetAddress.toCanonical(ip)))
   })
 
-export const publicAddress = (addresses: ReadonlyArray<string>) =>
-  addresses.every(isPublic) ? Arr.head(addresses) : Option.none()
+export const publicAddresses = (addresses: ReadonlyArray<string>) =>
+  Arr.isReadonlyArrayNonEmpty(addresses) && addresses.every(isPublic)
+    ? Option.some(addresses)
+    : Option.none()
+
+// Only an unreachable address moves on, so a rejected login or message is never repeated.
+export const firstReachable = (
+  [first, ...rest]: Arr.NonEmptyReadonlyArray<string>,
+  send: (address: string) => Effect.Effect<void, OrgEmailError>
+) =>
+  rest.reduce(
+    (attempt, address) =>
+      attempt.pipe(
+        Effect.catchIf(
+          (error) => error.reason === "connection",
+          () => send(address)
+        )
+      ),
+    send(first)
+  )
 
 export const transportOptions = (
   { settings, password }: SmtpConnection,
@@ -119,40 +138,46 @@ export class Smtp extends Context.Service<
     Smtp,
     Smtp.of({
       sendTest: Effect.fn("Smtp.sendTest")(function* (connection, recipient) {
-        const addresses = yield* Effect.tryPromise({
+        const resolved = yield* Effect.tryPromise({
           try: () =>
             lookup(connection.settings.host, { all: true, verbatim: true }),
           catch: () => new OrgEmailError({ reason: "connection" })
         })
-        const address = yield* Effect.fromOption(
-          publicAddress(addresses.map(({ address }) => address))
+        const addresses = yield* Effect.fromOption(
+          publicAddresses(resolved.map(({ address }) => address))
         ).pipe(
           Effect.mapError(
             () => new OrgEmailError({ reason: "host_not_allowed" })
           )
         )
-        const transporter = yield* Effect.acquireRelease(
-          Effect.sync(() =>
-            createTransport(transportOptions(connection, address))
-          ),
-          (transport) => Effect.sync(() => transport.close())
-        )
         const { settings } = connection
-        yield* Effect.tryPromise({
-          try: () =>
-            transporter.sendMail({
-              from: {
-                name: settings.senderName,
-                address: settings.senderEmail
-              },
-              to: recipient,
-              replyTo: settings.replyTo ?? undefined,
-              subject: "ProjectProject email connection test",
-              text: "Your organization's outgoing email connection is working. This is a test message from ProjectProject."
-            }),
-          catch: smtpError
-        })
-      }, Effect.scoped)
+        const sendVia = (address: string) =>
+          Effect.acquireRelease(
+            Effect.sync(() =>
+              createTransport(transportOptions(connection, address))
+            ),
+            (transport) => Effect.sync(() => transport.close())
+          ).pipe(
+            Effect.flatMap((transporter) =>
+              Effect.tryPromise({
+                try: () =>
+                  transporter.sendMail({
+                    from: {
+                      name: settings.senderName,
+                      address: settings.senderEmail
+                    },
+                    to: recipient,
+                    replyTo: settings.replyTo ?? undefined,
+                    subject: "ProjectProject email connection test",
+                    text: "Your organization's outgoing email connection is working. This is a test message from ProjectProject."
+                  }),
+                catch: smtpError
+              })
+            ),
+            Effect.scoped
+          )
+        yield* firstReachable(addresses, sendVia)
+      })
     })
   )
 }

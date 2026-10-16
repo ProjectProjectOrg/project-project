@@ -109,30 +109,50 @@ export class OrgEmail extends Context.Service<
         save: Effect.fn("OrgEmail.save")(function* (slug, userId, input) {
           const org = yield* requireOrgAdmin(currentOrg, slug, userId)
           const { password, ...settings } = input
-          const sealed = password
-            ? yield* secrets
-                .seal(password)
-                .pipe(
-                  Effect.mapError(
-                    () => new OrgEmailError({ reason: "encryption" })
-                  )
-                )
-            : yield* savedCredential(org.organizationId, settings)
           const values = {
             ...settings,
             revision: randomUUID(),
-            ciphertext: sealed.ciphertext,
-            nonce: sealed.nonce,
-            tag: sealed.tag,
             lastTestAt: null,
             lastTestError: null
           }
+          if (!password) {
+            const existing = yield* savedCredential(
+              org.organizationId,
+              settings
+            )
+            // Conditional on the revision read, so a concurrent disconnect cannot be undone by restoring the stored credential.
+            const [saved] = yield* db
+              .update(organizationEmail)
+              .set(values)
+              .where(
+                and(
+                  eq(organizationEmail.organizationId, org.organizationId),
+                  eq(organizationEmail.revision, existing.revision)
+                )
+              )
+              .returning()
+              .pipe(Effect.orDie)
+            if (!saved)
+              return yield* new OrgEmailError({ reason: "settings_changed" })
+            return emailStatus(saved)
+          }
+          const sealed = yield* secrets
+            .seal(password)
+            .pipe(
+              Effect.mapError(() => new OrgEmailError({ reason: "encryption" }))
+            )
+          const credential = {
+            ...values,
+            ciphertext: sealed.ciphertext,
+            nonce: sealed.nonce,
+            tag: sealed.tag
+          }
           const [saved] = yield* db
             .insert(organizationEmail)
-            .values({ organizationId: org.organizationId, ...values })
+            .values({ organizationId: org.organizationId, ...credential })
             .onConflictDoUpdate({
               target: organizationEmail.organizationId,
-              set: values
+              set: credential
             })
             .returning()
             .pipe(Effect.orDie)

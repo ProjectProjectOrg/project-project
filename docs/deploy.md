@@ -301,7 +301,8 @@ entering it again. Disconnecting deletes the configuration and credentials.
 
 The backend only connects to public addresses. Hosts that resolve to loopback,
 private, link-local, or other reserved ranges are refused, so an SMTP relay on
-the local network cannot be used.
+the local network cannot be used. When a host has several public addresses, the
+test tries each in turn until one accepts the connection.
 
 This configuration currently supports connection testing only. Authentication
 emails, invitations, and notifications are not yet routed through it.

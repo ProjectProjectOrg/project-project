@@ -54,7 +54,7 @@
   "org_email_error_not_configured": "Save an email connection before testing.",
   "org_email_error_password_required": "Enter the password or API key. It’s needed for a new connection and whenever the host, port, or username changes.",
   "org_email_error_sender": "The provider rejected the sender or recipient. Check your verified sender address.",
-  "org_email_error_settings_changed": "The settings changed while the test was running. Send the test again.",
+  "org_email_error_settings_changed": "The email settings changed in the meantime. Review them and try again.",
   "org_email_error_tls": "Could not establish a secure connection. Check the encryption mode and provider certificate.",
   "org_email_forbidden": "Only owners and admins can manage email settings.",
   "org_email_heading": "Email",

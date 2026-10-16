@@ -31,6 +31,10 @@ export const saveOrgEmail = Atom.family((req: EmailRequest) =>
         Effect.fn("saveOrgEmail")(function* (input: SaveOrgEmailInput) {
           const status = yield* Api.use((client) =>
             client.orgEmail.save({ params: req.params, payload: input })
+          ).pipe(
+            Effect.tapError(() =>
+              Reactivity.invalidate([Keys.orgEmail(req.params.orgSlug)])
+            )
           )
           set(Result.success(status))
           return status
