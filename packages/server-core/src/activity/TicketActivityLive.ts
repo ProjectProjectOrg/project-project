@@ -8,15 +8,17 @@ import {
 } from "@pp/db/schema"
 import {
   ActivityActor,
+  GIT_ACTIVITY_KINDS,
   TicketActivityChange,
   type ActivityActorShape,
   type ActivityCause
 } from "@pp/shared"
-import { and, desc, eq, lt, or } from "drizzle-orm"
+import { and, desc, eq, lt, notInArray, or, sql } from "drizzle-orm"
 import * as Crypto from "effect/Crypto"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Schedule from "effect/Schedule"
 import * as Schema from "effect/Schema"
 
 import { contentHash } from "../markdown/fileContent"
@@ -121,79 +123,33 @@ export const TicketActivityLive = Layer.effect(
       batchId: string,
       rows: ReadonlyArray<TicketActivityOutboxRow>
     ) =>
-      db
-        .transaction(() =>
-          Effect.gen(function* () {
-            yield* db
-              .insert(ticketActivity)
-              .values(
-                rows.map((row) => ({
-                  ...row,
-                  occurredAt: DateTime.toDate(
-                    DateTime.makeUnsafe(row.occurredAt)
-                  )
-                }))
-              )
-              .onConflictDoNothing()
-            yield* db
-              .delete(ticketActivityOutbox)
-              .where(eq(ticketActivityOutbox.batchId, batchId))
-          })
-        )
-        .pipe(Effect.orDie)
+      db.transaction(() =>
+        Effect.gen(function* () {
+          yield* db
+            .insert(ticketActivity)
+            .values(
+              rows.map((row) => ({
+                ...row,
+                occurredAt: DateTime.toDate(DateTime.makeUnsafe(row.occurredAt))
+              }))
+            )
+            .onConflictDoNothing()
+          yield* db
+            .delete(ticketActivityOutbox)
+            .where(eq(ticketActivityOutbox.batchId, batchId))
+        })
+      )
 
-    const record = <A, E, R>(
-      orgSlug: string,
-      slug: string,
-      document: ActivityDocument,
-      changes: ReadonlyArray<TicketScopedChange>,
-      cause: ActivityCause | null,
-      write: Effect.Effect<A, E, R>
-    ): Effect.Effect<A, E, R | ActivityActor> =>
-      changes.length === 0
-        ? write
-        : Effect.gen(function* () {
-            const actor = yield* ActivityActor
-            const projectId = yield* projectIdOf(orgSlug, slug)
-            if (projectId === null) return yield* write
-            const occurredAt = DateTime.formatIso(yield* DateTime.now)
-            const rows: ReadonlyArray<TicketActivityOutboxRow> =
-              yield* Effect.forEach(changes, ({ ticketId, change }) =>
-                Effect.map(newId, (id) => ({
-                  id,
-                  projectId,
-                  ticketId,
-                  occurredAt,
-                  ...actorColumns(actor),
-                  cause,
-                  change: encodeChange(change)
-                }))
-              )
-            const batchId = yield* newId
-            yield* db
-              .insert(ticketActivityOutbox)
-              .values({
-                batchId,
-                projectId,
-                documentKind: document.kind,
-                documentId: document.id,
-                contentHash: documentHash(document.content),
-                rows
-              })
-              .pipe(Effect.orDie)
-            const result = yield* write.pipe(
-              Effect.onError(() => discard(batchId))
-            )
-            yield* commit(batchId, rows).pipe(
-              Effect.catchCause((failure) =>
-                Effect.logError(
-                  "ticket activity commit failed; boot recovery will settle it",
-                  { batchId, failure }
-                )
-              )
-            )
-            return result
-          })
+    type PendingBatch = Readonly<{
+      batchId: string
+      contentHash: string
+      rows: ReadonlyArray<TicketActivityOutboxRow>
+    }>
+
+    const settle = (batch: PendingBatch, content: string | null) =>
+      documentHash(content) === batch.contentHash
+        ? commit(batch.batchId, batch.rows).pipe(Effect.orDie, Effect.as(true))
+        : discard(batch.batchId).pipe(Effect.as(false))
 
     const readDocument = (
       orgSlug: string,
@@ -208,6 +164,95 @@ export const TicketActivityLive = Layer.effect(
         Effect.map((file): string | null => file.content),
         Effect.catchTag("NotFound", () => Effect.succeed(null))
       )
+
+    const settlePending = (
+      orgSlug: string,
+      slug: string,
+      projectId: string,
+      document: ActivityDocument
+    ) =>
+      Effect.gen(function* () {
+        const pending = yield* db
+          .select({
+            batchId: ticketActivityOutbox.batchId,
+            contentHash: ticketActivityOutbox.contentHash,
+            rows: ticketActivityOutbox.rows
+          })
+          .from(ticketActivityOutbox)
+          .where(
+            and(
+              eq(ticketActivityOutbox.projectId, projectId),
+              eq(ticketActivityOutbox.documentKind, document.kind),
+              eq(ticketActivityOutbox.documentId, document.id)
+            )
+          )
+          .pipe(Effect.orDie)
+        if (pending.length === 0) return
+        const content = yield* readDocument(
+          orgSlug,
+          slug,
+          document.kind,
+          document.id
+        ).pipe(Effect.orDie)
+        yield* Effect.forEach(pending, (batch) => settle(batch, content), {
+          discard: true
+        })
+      })
+
+    const record = <A, E, R>(
+      orgSlug: string,
+      slug: string,
+      document: ActivityDocument,
+      changes: ReadonlyArray<TicketScopedChange>,
+      cause: ActivityCause | null,
+      write: Effect.Effect<A, E, R>
+    ): Effect.Effect<A, E, R | ActivityActor> =>
+      Effect.gen(function* () {
+        const projectId = yield* projectIdOf(orgSlug, slug)
+        if (projectId === null) return yield* write
+        yield* settlePending(orgSlug, slug, projectId, document)
+        if (changes.length === 0) return yield* write
+        const actor = yield* ActivityActor
+        const occurredAt = DateTime.formatIso(yield* DateTime.now)
+        const rows: ReadonlyArray<TicketActivityOutboxRow> =
+          yield* Effect.forEach(changes, ({ ticketId, change }) =>
+            Effect.map(newId, (id) => ({
+              id,
+              projectId,
+              ticketId,
+              occurredAt,
+              ...actorColumns(actor),
+              cause,
+              change: encodeChange(change)
+            }))
+          )
+        const batchId = yield* newId
+        yield* db
+          .insert(ticketActivityOutbox)
+          .values({
+            batchId,
+            projectId,
+            documentKind: document.kind,
+            documentId: document.id,
+            contentHash: documentHash(document.content),
+            rows
+          })
+          .pipe(Effect.orDie)
+        const result = yield* write.pipe(Effect.onError(() => discard(batchId)))
+        yield* commit(batchId, rows).pipe(
+          Effect.retry({
+            times: 3,
+            schedule: Schedule.exponential("50 millis")
+          }),
+          Effect.catchCause((failure) =>
+            Effect.logError(
+              "ticket activity commit failed; boot recovery will settle it",
+              { batchId, failure }
+            )
+          )
+        )
+        return result
+      })
 
     const recover: TicketActivityShape["recover"] = () =>
       Effect.gen(function* () {
@@ -242,11 +287,7 @@ export const TicketActivityLive = Layer.effect(
                 batch.documentKind,
                 batch.documentId
               )
-              if (documentHash(content) === batch.contentHash) {
-                committed += 1
-                return yield* commit(batch.batchId, batch.rows)
-              }
-              return yield* discard(batch.batchId)
+              if (yield* settle(batch, content)) committed += 1
             }).pipe(
               Effect.catchCause((failure) =>
                 Effect.logError("ticket activity recovery skipped a batch", {
@@ -288,7 +329,8 @@ export const TicketActivityLive = Layer.effect(
       projectId,
       ticketId,
       before,
-      limit
+      limit,
+      includeGit
     ) =>
       db
         .select()
@@ -297,7 +339,12 @@ export const TicketActivityLive = Layer.effect(
           and(
             eq(ticketActivity.projectId, projectId),
             eq(ticketActivity.ticketId, ticketId),
-            before === null ? undefined : olderThan(before)
+            before === null ? undefined : olderThan(before),
+            includeGit
+              ? undefined
+              : notInArray(sql<string>`${ticketActivity.change}->>'kind'`, [
+                  ...GIT_ACTIVITY_KINDS
+                ])
           )
         )
         .orderBy(desc(ticketActivity.occurredAt), desc(ticketActivity.seq))

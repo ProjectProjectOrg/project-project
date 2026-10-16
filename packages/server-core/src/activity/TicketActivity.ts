@@ -26,8 +26,8 @@ export type StoredTicketActivity = Readonly<{
 
 export type ActivityPageCursor = Readonly<{ occurredAt: Date; seq: number }>
 
-export interface TicketActivityShape {
-  readonly record: <A, E, R>(
+export type TicketActivityShape = Readonly<{
+  record: <A, E, R>(
     orgSlug: string,
     slug: string,
     document: ActivityDocument,
@@ -35,19 +35,20 @@ export interface TicketActivityShape {
     cause: ActivityCause | null,
     write: Effect.Effect<A, E, R>
   ) => Effect.Effect<A, E, R | ActivityActor>
-  readonly recover: () => Effect.Effect<void>
-  readonly removeTicket: (
+  recover: () => Effect.Effect<void>
+  removeTicket: (
     orgSlug: string,
     slug: string,
     ticketId: string
   ) => Effect.Effect<void>
-  readonly page: (
+  page: (
     projectId: string,
     ticketId: string,
     before: ActivityPageCursor | null,
-    limit: number
+    limit: number,
+    includeGit: boolean
   ) => Effect.Effect<ReadonlyArray<StoredTicketActivity>>
-}
+}>
 
 export class TicketActivity extends Context.Service<
   TicketActivity,
