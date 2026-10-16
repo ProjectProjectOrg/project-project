@@ -29,6 +29,7 @@ import {
   PrepareAttachmentResult
 } from "../schemas/Attachment"
 import { Comment, CreateCommentInput } from "../schemas/Comment"
+import { ESTIMATE_MAX_MINUTES } from "../schemas/Estimate"
 import { AttachBranchInput, GitStatesResponse } from "../schemas/GitState"
 import {
   CompleteSprintInput,
@@ -88,6 +89,14 @@ const BLOCK_FORMAT_EXAMPLE =
   "## Acceptance criteria\n\n" +
   "- [ ] Given a starting state, when something happens, then this is true\n\n" +
   "</block>"
+
+const ESTIMATE_GUIDE =
+  "`estimate` must use the project's estimation unit (the `estimation` " +
+  'field of `get_project`): `{ unit: "points", value: <integer 1-999> }`, ' +
+  '`{ unit: "tshirt", value: "XS" | "S" | "M" | "L" | "XL" }`, or ' +
+  `\`{ unit: "time", minutes: <integer 1-${ESTIMATE_MAX_MINUTES}> }\`. An ` +
+  "estimate in another unit, or any estimate while `estimation` is `off`, " +
+  "fails with `Validation`."
 
 const BLOCK_FORMAT_GUIDE =
   "Ticket bodies can contain named blocks: a reusable heading plus content " +
@@ -358,7 +367,9 @@ export const McpTools = {
       "tag names that must already exist on the project — discover them via " +
       "`list_tags`; the call fails if a name is unknown. `assignees` is an " +
       "array of user ids who must be members of the project — discover them " +
-      "via `list_members`. `template` is an optional key from " +
+      "via `list_members`. " +
+      ESTIMATE_GUIDE +
+      " `template` is an optional key from " +
       "`list_templates`; when set, the server applies its priority/tags " +
       "defaults, sets the type the template is the default for when " +
       "`isDefaultFor` names exactly one (an explicit `type` always wins), " +
@@ -396,7 +407,9 @@ export const McpTools = {
       "`type` is " +
       "one of `feat` | `bug` | `chore` | `other`. `priority` is one of " +
       "`low` | `med` | `high`. `tags` entries must already exist on the " +
-      "project; `assignees` entries must be project members. `body` is " +
+      "project; `assignees` entries must be project members. " +
+      ESTIMATE_GUIDE +
+      " Pass `estimate: null` to clear it. `body` is " +
       "CommonMark markdown and replaces the entire description in full — " +
       "read the current body first (`get_ticket`) and edit that, rather " +
       "than writing one from scratch, so existing content is preserved. " +

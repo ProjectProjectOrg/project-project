@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import type {
+  Estimate,
   Member,
   ProjectStatus,
   TicketId,
@@ -16,7 +17,12 @@ import { useMemo } from "react"
 import { Markdown } from "@/components/Markdown"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { TicketGitChip } from "@/components/TicketGit"
+import { EstimateChip } from "@/components/TicketList/EstimateField"
 import { PopoverContent } from "@/components/ui/popover"
+import {
+  projectEstimation,
+  projectRequest
+} from "@/features/projects/atoms/projects"
 import {
   statusesFor,
   statusesRequest
@@ -156,6 +162,7 @@ function MetaRow({
     status: TicketStatus
     type: TicketType
     priority: TicketPriority
+    estimate: Estimate | null
     assignees: ReadonlyArray<string>
   }
   scope: TicketHoverCardScope
@@ -167,6 +174,9 @@ function MetaRow({
   const StatusIcon = statusMeta.icon
   const TypeIcon = type.icon
   const PriorityIcon = priority.icon
+  const estimation = useAtomValue(
+    projectEstimation(projectRequest(scope.orgSlug, scope.slug))
+  )
   const visibleAssignees: Member[] = scope.members
     ? ticket.assignees
         .map((id) => scope.members?.find((member) => member.id === id))
@@ -194,6 +204,7 @@ function MetaRow({
         />
         <span>{PRIORITY_LABELS[ticket.priority]()}</span>
       </span>
+      <EstimateChip ticket={ticket} mode={estimation} />
       {visibleAssignees.length > 0 && (
         <span className="ml-auto inline-flex items-center gap-1">
           {visibleAssignees.map((member) => (

@@ -23,7 +23,8 @@ const unused = () => Effect.die(new Error("Unexpected dependency call"))
 export const projectsOnPostgres = (
   databaseUrl: string,
   userIds: ReadonlyArray<string>,
-  ticketDocs: Partial<TicketDocsShape> = {}
+  ticketDocs: Partial<TicketDocsShape> = {},
+  projectDocs?: Layer.Layer<ProjectDocs>
 ): Layer.Layer<Projects | TicketIndex | Access> => {
   const db = DbLive.pipe(
     Layer.provideMerge(
@@ -56,30 +57,32 @@ export const projectsOnPostgres = (
       })
     ),
     Layer.provide(
-      Layer.succeed(ProjectDocs, {
-        read: (_org, slug) =>
-          Effect.succeed({
-            slug,
-            name: slug,
-            icon: "folder",
-            color: "#3b82f6",
-            createdAt: DateTime.toDateUtc(
-              DateTime.makeUnsafe("2026-09-24T00:00:00Z")
-            ),
-            github: null,
-            setup: {
-              workflowReviewedAt: null,
-              invitePeopleDismissedAt: null,
-              connectGithubDismissedAt: null
-            },
-            templateDefaults: {},
-            body: "Project body"
-          }),
-        write: () => Effect.void,
-        writeTemplateDefaults: unused,
-        removeDir: () => Effect.void,
-        readRaw: unused
-      })
+      projectDocs ??
+        Layer.succeed(ProjectDocs, {
+          read: (_org, slug) =>
+            Effect.succeed({
+              slug,
+              name: slug,
+              icon: "folder",
+              color: "#3b82f6",
+              createdAt: DateTime.toDateUtc(
+                DateTime.makeUnsafe("2026-09-24T00:00:00Z")
+              ),
+              github: null,
+              estimation: "off",
+              setup: {
+                workflowReviewedAt: null,
+                invitePeopleDismissedAt: null,
+                connectGithubDismissedAt: null
+              },
+              templateDefaults: {},
+              body: "Project body"
+            }),
+          write: () => Effect.void,
+          writeTemplateDefaults: unused,
+          removeDir: () => Effect.void,
+          readRaw: unused
+        })
     ),
     Layer.provide(
       Layer.succeed(Users, {

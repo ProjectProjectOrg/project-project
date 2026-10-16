@@ -11,6 +11,10 @@ import * as Atom from "effect/unstable/reactivity/Atom"
 
 import { me } from "@/features/auth/atoms/auth"
 import {
+  projectEstimation,
+  projectRequest
+} from "@/features/projects/atoms/projects"
+import {
   boardRequest,
   sprintBoard,
   type BoardRequest
@@ -58,10 +62,13 @@ const sprintBoardCounts = Atom.family(
       const viewerId = AsyncResult.isSuccess(viewer)
         ? viewer.value.id
         : undefined
+      const estimation = get(
+        projectEstimation(projectRequest(req.params.orgSlug, req.params.slug))
+      )
       return AsyncResult.map(get(sprintBoard(req)), ({ tickets }) =>
         countTickets(
           tickets.filter((ticket) =>
-            matchesTicketQuery(ticket, filter, viewerId)
+            matchesTicketQuery(ticket, filter, viewerId, estimation)
           )
         )
       )

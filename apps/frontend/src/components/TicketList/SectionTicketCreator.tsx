@@ -123,6 +123,9 @@ export function SectionTicketCreator({
 
   const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
   const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
+  const estimation = Result.isSuccess(project)
+    ? project.value.estimation
+    : "off"
 
   const sprintReq = useMemo(
     () => sprintListRequest(orgSlug, slug),
@@ -239,6 +242,7 @@ export function SectionTicketCreator({
       },
       viewerId,
       projectPrefix,
+      estimation,
       prediction: templateChoice.prediction
     })
     if (Exit.isFailure(exit)) {

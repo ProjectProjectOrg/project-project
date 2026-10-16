@@ -26,6 +26,7 @@ const baseTicket = (overrides: Partial<Ticket> = {}): Ticket => ({
   status: s("todo"),
   type: "feat",
   priority: "med",
+  estimate: null,
   tags: [],
   branch: null,
   pr: null,
@@ -41,6 +42,28 @@ const baseTicket = (overrides: Partial<Ticket> = {}): Ticket => ({
 })
 
 describe("matchesTicketFilter", () => {
+  it("estimate filter only counts estimates in the project's current unit", () => {
+    const points = baseTicket({ estimate: { unit: "points", value: 4 } })
+    const stale = baseTicket({ estimate: { unit: "tshirt", value: "M" } })
+    const none = baseTicket()
+    const cases: ReadonlyArray<
+      readonly [NonNullable<TicketFilter["estimate"]>, ReadonlyArray<boolean>]
+    > = [
+      [["M"], [false, false, false]],
+      [["any"], [true, false, false]],
+      [["none"], [false, true, true]],
+      [["stale"], [false, true, false]],
+      [[], [false, false, false]]
+    ]
+    for (const [estimate, expected] of cases) {
+      expect(
+        [points, stale, none].map((t) =>
+          matchesTicketFilter(t, { estimate }, undefined, "points")
+        )
+      ).toEqual(expected)
+    }
+  })
+
   it("undefined filter matches everything", () => {
     expect(matchesTicketFilter(baseTicket(), undefined)).toBe(true)
   })
@@ -156,15 +179,21 @@ describe("matchesTicketFilter", () => {
 
 describe("matchesTicketQuery", () => {
   it("empty query matches everything", () => {
-    expect(matchesTicketQuery(baseTicket(), {}, userId("user-a"))).toBe(true)
+    expect(matchesTicketQuery(baseTicket(), {}, userId("user-a"), "off")).toBe(
+      true
+    )
   })
 
   it("hides archived tickets by default", () => {
     const archived = baseTicket({
       archivedAt: isoDate("2026-05-11T00:00:00.000Z")
     })
-    expect(matchesTicketQuery(archived, {}, userId("user-a"))).toBe(false)
-    expect(matchesTicketQuery(baseTicket(), {}, userId("user-a"))).toBe(true)
+    expect(matchesTicketQuery(archived, {}, userId("user-a"), "off")).toBe(
+      false
+    )
+    expect(matchesTicketQuery(baseTicket(), {}, userId("user-a"), "off")).toBe(
+      true
+    )
   })
 
   it("shows only archived tickets when archived filter is set", () => {
@@ -173,33 +202,37 @@ describe("matchesTicketQuery", () => {
     })
     const active = baseTicket()
     expect(
-      matchesTicketQuery(archived, { archived: true }, userId("user-a"))
+      matchesTicketQuery(archived, { archived: true }, userId("user-a"), "off")
     ).toBe(true)
     expect(
-      matchesTicketQuery(active, { archived: true }, userId("user-a"))
+      matchesTicketQuery(active, { archived: true }, userId("user-a"), "off")
     ).toBe(false)
   })
 
   it("q matches on title case-insensitively", () => {
     const t = baseTicket({ title: "Hello world" })
-    expect(matchesTicketQuery(t, { q: "HELLO" }, userId("user-a"))).toBe(true)
-    expect(matchesTicketQuery(t, { q: "goodbye" }, userId("user-a"))).toBe(
-      false
+    expect(matchesTicketQuery(t, { q: "HELLO" }, userId("user-a"), "off")).toBe(
+      true
     )
+    expect(
+      matchesTicketQuery(t, { q: "goodbye" }, userId("user-a"), "off")
+    ).toBe(false)
   })
 
   it("q matches on id case-insensitively", () => {
     const t = baseTicket({ id: decodeTicketId("T-1"), title: "Something else" })
-    expect(matchesTicketQuery(t, { q: "t-1" }, userId("user-a"))).toBe(true)
+    expect(matchesTicketQuery(t, { q: "t-1" }, userId("user-a"), "off")).toBe(
+      true
+    )
   })
 
   it("'mine' resolves to viewer id in assignee filter", () => {
     const t = baseTicket({ assignees: ["user-a"] })
     expect(
-      matchesTicketQuery(t, { assignee: ["mine"] }, userId("user-a"))
+      matchesTicketQuery(t, { assignee: ["mine"] }, userId("user-a"), "off")
     ).toBe(true)
     expect(
-      matchesTicketQuery(t, { assignee: ["mine"] }, userId("user-b"))
+      matchesTicketQuery(t, { assignee: ["mine"] }, userId("user-b"), "off")
     ).toBe(false)
   })
 
@@ -210,14 +243,16 @@ describe("matchesTicketQuery", () => {
       matchesTicketQuery(
         unassigned,
         { assignee: ["unassigned"] },
-        userId("user-a")
+        userId("user-a"),
+        "off"
       )
     ).toBe(true)
     expect(
       matchesTicketQuery(
         assigned,
         { assignee: ["unassigned"] },
-        userId("user-a")
+        userId("user-a"),
+        "off"
       )
     ).toBe(false)
   })
@@ -228,38 +263,44 @@ describe("matchesTicketQuery", () => {
       status: [s("in_progress")],
       q: "hello"
     }
-    expect(matchesTicketQuery(ticket, both, userId("user-a"))).toBe(true)
+    expect(matchesTicketQuery(ticket, both, userId("user-a"), "off")).toBe(true)
 
     expect(
       matchesTicketQuery(
         ticket,
         { status: [s("todo")], q: "hello" },
-        userId("user-a")
+        userId("user-a"),
+        "off"
       )
     ).toBe(false)
     expect(
       matchesTicketQuery(
         ticket,
         { status: [s("in_progress")], q: "goodbye" },
-        userId("user-a")
+        userId("user-a"),
+        "off"
       )
     ).toBe(false)
   })
 
   it("q does not match across title/id boundary", () => {
     const t = baseTicket({ id: decodeTicketId("T-1"), title: "Hello world" })
-    expect(matchesTicketQuery(t, { q: "world T" }, userId("user-a"))).toBe(
-      false
-    )
-    expect(matchesTicketQuery(t, { q: "world t" }, userId("user-a"))).toBe(
-      false
-    )
+    expect(
+      matchesTicketQuery(t, { q: "world T" }, userId("user-a"), "off")
+    ).toBe(false)
+    expect(
+      matchesTicketQuery(t, { q: "world t" }, userId("user-a"), "off")
+    ).toBe(false)
   })
 
   it("whitespace-only q is a no-op", () => {
     const t = baseTicket({ title: "Hello world" })
-    expect(matchesTicketQuery(t, { q: "   " }, userId("user-a"))).toBe(true)
-    expect(matchesTicketQuery(t, { q: " " }, userId("user-a"))).toBe(true)
+    expect(matchesTicketQuery(t, { q: "   " }, userId("user-a"), "off")).toBe(
+      true
+    )
+    expect(matchesTicketQuery(t, { q: " " }, userId("user-a"), "off")).toBe(
+      true
+    )
   })
 
   it("accepts a MatchableTicket without ticket-only fields", () => {
@@ -273,17 +314,28 @@ describe("matchesTicketQuery", () => {
       pr: null,
       prState: null,
       assignees: [],
+      estimate: null,
       archivedAt: null,
       updatedAt: isoDate("2026-05-10T00:00:00.000Z")
     }
     expect(
-      matchesTicketQuery(predicted, { status: [s("todo")] }, userId("user-a"))
+      matchesTicketQuery(
+        predicted,
+        { status: [s("todo")] },
+        userId("user-a"),
+        "off"
+      )
     ).toBe(true)
     expect(
-      matchesTicketQuery(predicted, { status: [s("done")] }, userId("user-a"))
+      matchesTicketQuery(
+        predicted,
+        { status: [s("done")] },
+        userId("user-a"),
+        "off"
+      )
     ).toBe(false)
     expect(
-      matchesTicketQuery(predicted, { q: "anything" }, userId("user-a"))
+      matchesTicketQuery(predicted, { q: "anything" }, userId("user-a"), "off")
     ).toBe(false)
   })
 })

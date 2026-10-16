@@ -1,5 +1,6 @@
 import {
   deriveProjectIdentity,
+  EstimationMode,
   NotFound,
   type PartialTemplateDefaults,
   ProjectKey,
@@ -77,6 +78,7 @@ const ProjectFrontmatterOnDisk = Schema.Struct({
   createdBy: Schema.optional(Schema.String),
   createdAt: Schema.DateFromString,
   github: Schema.optionalKey(Schema.NullOr(ProjectDocGithub)),
+  estimation: Schema.optionalKey(EstimationMode),
   setup: ProjectDocSetup.pipe(
     Schema.withDecodingDefaultTypeKey(
       Effect.succeed({
@@ -90,7 +92,8 @@ const ProjectFrontmatterOnDisk = Schema.Struct({
 
 const ProjectFrontmatterValue = Schema.Struct(
   Struct.evolve(ProjectFrontmatterOnDisk.fields, {
-    github: () => Schema.NullOr(ProjectDocGithub)
+    github: () => Schema.NullOr(ProjectDocGithub),
+    estimation: () => EstimationMode
   })
 )
 
@@ -99,11 +102,16 @@ const ProjectFrontmatter = ProjectFrontmatterOnDisk.pipe(
     Schema.toType(ProjectFrontmatterValue),
     SchemaTransformation.transform({
       decode: (input) =>
-        Object.assign(Struct.omit(input, ["github"]), {
-          github: input.github ?? null
+        Object.assign(Struct.omit(input, ["github", "estimation"]), {
+          github: input.github ?? null,
+          estimation: input.estimation ?? "off"
         }),
       encode: (input) =>
-        input.github === null ? Struct.omit(input, ["github"]) : input
+        Object.assign(
+          Struct.omit(input, ["github", "estimation"]),
+          input.github === null ? {} : { github: input.github },
+          input.estimation === "off" ? {} : { estimation: input.estimation }
+        )
     })
   )
 )

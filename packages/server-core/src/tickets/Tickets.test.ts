@@ -43,6 +43,7 @@ import { applyPullRequestWebhookToTicket } from "../github/GitHubWebhooksLive"
 import { Groups, type GroupsShape } from "../groups/Groups"
 import { Library } from "../library/Library"
 import { TicketIdTaken } from "../markdown/Markdown"
+import { ProjectDocs } from "../projects/ProjectDocs"
 import {
   Projects,
   type ProjectGithubIntegration,
@@ -225,6 +226,25 @@ const defaultScope = scopeIn("org", "p")
 
 const testInfra = (scope = defaultScope) =>
   Layer.mergeAll(
+    Layer.mock(ProjectDocs, {
+      read: (_org, slug) =>
+        Effect.succeed({
+          slug,
+          name: slug,
+          icon: "folder",
+          color: "#3b82f6",
+          createdAt: isoDate("2026-01-01T00:00:00Z"),
+          github: null,
+          estimation: "points",
+          templateDefaults: {},
+          body: "",
+          setup: {
+            workflowReviewedAt: null,
+            invitePeopleDismissedAt: null,
+            connectGithubDismissedAt: null
+          }
+        })
+    }),
     TicketDocumentLock.layer,
     accessLayer({}),
     Layer.succeed(ProjectScope, scope),
@@ -246,6 +266,9 @@ const FakeDb = Layer.succeed(
                     { slug: "in_progress" },
                     { slug: "done" }
                   ])
+              },
+              projectIndex: {
+                findFirst: () => Effect.succeed({ estimation: "points" })
               }
             }
           : (..._args: ReadonlyArray<unknown>) =>
@@ -398,6 +421,7 @@ const entryFromDocument = (document: TicketDocument) => {
   const { body: _body, commentsRegion: _commentsRegion, ...entry } = document
   return {
     ...entry,
+    estimate: entry.estimate ?? null,
     branchDeletedAt: null,
     checks: null,
     checksHeadSha: null,
@@ -439,7 +463,12 @@ const matchingDocuments = (
     (document) =>
       (included === null || included.has(document.id)) &&
       !excluded.has(document.id) &&
-      matchesTicketQuery(document, query, userId(viewerId))
+      matchesTicketQuery(
+        { ...document, estimate: document.estimate ?? null },
+        query,
+        userId(viewerId),
+        "points"
+      )
   )
 }
 
@@ -648,23 +677,27 @@ const PassthroughLibrary = Layer.mock(Library, {
   resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body)
 })
 
+type TicketsLayerOptions = Readonly<{
+  projectDocs?: Layer.Layer<ProjectDocs>
+  projects?: Layer.Layer<Projects>
+  groups?: Layer.Layer<Groups>
+  github?: Layer.Layer<GitHub>
+  ticketIndex?: Layer.Layer<TicketIndex>
+  attachments?: Layer.Layer<Attachments>
+  figmaLinks?: Layer.Layer<FigmaLinks>
+  scope?: ProjectScopeShape
+}>
+
 function makeTicketsLayer(
   key: string,
   ticketDocsLayer: Layer.Layer<TicketDocs>,
-  options: {
-    readonly projects?: Layer.Layer<Projects>
-    readonly groups?: Layer.Layer<Groups>
-    readonly github?: Layer.Layer<GitHub>
-    readonly ticketIndex?: Layer.Layer<TicketIndex>
-    readonly attachments?: Layer.Layer<Attachments>
-    readonly figmaLinks?: Layer.Layer<FigmaLinks>
-    readonly scope?: ProjectScopeShape
-  } = {}
+  options: TicketsLayerOptions = {}
 ) {
   return TicketsLive.pipe(
     Layer.provide(PassthroughLibrary),
     Layer.provide(passthroughTicketActivity),
     Layer.provide(ticketDocsLayer),
+    Layer.provide(options.projectDocs ?? Layer.empty),
     Layer.provide(options.projects ?? makeFakeProjects(key)),
     Layer.provide(options.groups ?? FakeGroups),
     Layer.provide(FakeComments),
@@ -2639,6 +2672,164 @@ it.effect("rejects statuses the project doesn't have", () => {
       "Validation"
     ])
     expect(docs.documents.get("T-1")?.status).toBe("todo")
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect(
+  "clears old-unit estimates on active and archived tickets while retaining current-unit estimates",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1", "T-2", "T-3", "T-4"])
+    for (const [id, archived, unit] of [
+      ["T-1", false, "time"],
+      ["T-2", true, "time"],
+      ["T-3", false, "points"],
+      ["T-4", true, "points"]
+    ] as const) {
+      docs.documents.set(
+        id,
+        makeTicketDocument(id, {
+          estimate:
+            unit === "time" ? { unit, minutes: 60 } : { unit, value: 5 },
+          archivedAt: archived ? isoDate("2026-04-01T00:00:00Z") : null
+        })
+      )
+    }
+    const layer = makeTicketsLayer("T", docs.layer, {
+      ticketIndex: makeFakeTicketIndex(docs.documents)
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      expect(yield* tickets.clearStaleEstimates()).toEqual({ cleared: 2 })
+      expect(docs.documents.get("T-1")?.estimate).toBeUndefined()
+      expect(docs.documents.get("T-2")?.estimate).toBeUndefined()
+      expect(docs.documents.get("T-2")?.archivedAt).not.toBeNull()
+      expect(docs.documents.get("T-3")?.estimate).toEqual({
+        unit: "points",
+        value: 5
+      })
+      expect(docs.documents.get("T-4")?.estimate).toEqual({
+        unit: "points",
+        value: 5
+      })
+      expect(yield* tickets.clearStaleEstimates()).toEqual({ cleared: 0 })
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "preserves estimates made current by a mode change during bulk cleanup",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    docs.documents.set(
+      "T-1",
+      makeTicketDocument("T-1", { estimate: { unit: "time", minutes: 60 } })
+    )
+    let switched = false
+    const layer = makeTicketsLayer("T", docs.layer, {
+      projectDocs: Layer.mock(ProjectDocs, {
+        read: (_org, slug) =>
+          Effect.succeed({
+            slug,
+            name: slug,
+            icon: "folder",
+            color: "#3b82f6",
+            createdAt: isoDate("2026-01-01T00:00:00Z"),
+            github: null,
+            estimation: switched ? "time" : "points",
+            body: "",
+            templateDefaults: {},
+            setup: {
+              workflowReviewedAt: null,
+              invitePeopleDismissedAt: null,
+              connectGithubDismissedAt: null
+            }
+          })
+      }),
+      ticketIndex: makeFakeTicketIndex(docs.documents, {
+        query: () =>
+          Effect.sync(() => {
+            switched = true
+            const current = docs.documents.get("T-1")
+            if (!current) throw new Error("Ticket fixture missing")
+            return [
+              { entry: entryFromDocument(current), sortValue: "", orderKey: "" }
+            ]
+          })
+      })
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      expect(yield* tickets.clearStaleEstimates()).toEqual({ cleared: 0 })
+      expect(docs.documents.get("T-1")?.estimate).toEqual({
+        unit: "time",
+        minutes: 60
+      })
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "preserves an estimate changed to the current unit after cleanup selection",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    docs.documents.set(
+      "T-1",
+      makeTicketDocument("T-1", { estimate: { unit: "time", minutes: 60 } })
+    )
+    const layer = makeTicketsLayer("T", docs.layer, {
+      ticketIndex: makeFakeTicketIndex(docs.documents, {
+        query: () =>
+          Effect.sync(() => {
+            const previous = docs.documents.get("T-1")
+            if (!previous) throw new Error("Ticket fixture missing")
+            docs.documents.set("T-1", {
+              ...previous,
+              estimate: { unit: "points", value: 8 }
+            })
+            return [
+              {
+                entry: entryFromDocument(previous),
+                sortValue: "",
+                orderKey: ""
+              }
+            ]
+          })
+      })
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      expect(yield* tickets.clearStaleEstimates()).toEqual({ cleared: 0 })
+      expect(docs.documents.get("T-1")?.estimate).toEqual({
+        unit: "points",
+        value: 8
+      })
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect("only accepts estimates in the project's estimation unit", () => {
+  const { docs, layer } = permissionFixture()
+  const pm = as(scopeAs("member", "pm", "user-1"))
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const mismatched = yield* Effect.flip(
+      tickets
+        .update("T-1", { estimate: { unit: "tshirt", value: "M" } })
+        .pipe(pm)
+    )
+    expect(mismatched._tag).toBe("Validation")
+    expect(docs.documents.get("T-1")?.estimate).toBeUndefined()
+
+    yield* tickets
+      .update("T-1", { estimate: { unit: "points", value: 5 } })
+      .pipe(pm)
+    expect(docs.documents.get("T-1")?.estimate).toEqual({
+      unit: "points",
+      value: 5
+    })
+
+    yield* tickets.update("T-1", { estimate: null }).pipe(pm)
+    expect(docs.documents.get("T-1")?.estimate).toBeUndefined()
   }).pipe(Effect.provide(layer))
 })
 

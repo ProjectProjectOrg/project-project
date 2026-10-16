@@ -75,6 +75,7 @@ function ticketIndexEntryFromDocument(ticket: TicketDocument) {
   const { body: _body, commentsRegion: _commentsRegion, ...entry } = ticket
   return {
     ...entry,
+    estimate: entry.estimate ?? null,
     branchDeletedAt: null,
     checks: null,
     checksHeadSha: null,

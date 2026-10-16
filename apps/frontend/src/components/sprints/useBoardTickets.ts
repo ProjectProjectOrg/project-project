@@ -6,6 +6,10 @@ import { useMemo } from "react"
 
 import { me } from "@/features/auth/atoms/auth"
 import {
+  projectEstimation,
+  projectRequest
+} from "@/features/projects/atoms/projects"
+import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
@@ -30,6 +34,9 @@ export function useBoardTickets(
   const statusesResult = useAtomValue(statusesFor(statusReq))
   const viewer = useAtomValue(me())
   const viewerId = Result.isSuccess(viewer) ? viewer.value.id : undefined
+  const estimation = useAtomValue(
+    projectEstimation(projectRequest(orgSlug, slug))
+  )
 
   const boardQuery = useMemo(() => {
     const {
@@ -44,9 +51,9 @@ export function useBoardTickets(
   const matchingTickets = useMemo(
     () =>
       tickets.filter((ticket) =>
-        matchesTicketQuery(ticket, boardQuery, viewerId)
+        matchesTicketQuery(ticket, boardQuery, viewerId, estimation)
       ),
-    [tickets, boardQuery, viewerId]
+    [tickets, boardQuery, viewerId, estimation]
   )
 
   const statusSlugs = useMemo(

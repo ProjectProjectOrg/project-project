@@ -80,6 +80,8 @@ Buttons should scale to **97%** on `:active` with a **100–150ms** transform tr
 
 This applies to every clickable button in the app — not just the obvious primaries. Skip only when the element is non-interactive or the press is already conveyed by another animation (e.g. an inline-form trigger that immediately morphs).
 
+Buttons that open a popup (dropdown, popover, select, dialog) don't scale: the popup anchors to the trigger's box, so a press scale nudges it a pixel or two as it opens and closes. `Button` already turns the scale off for anything carrying `aria-haspopup`, which every Base UI trigger sets.
+
 ### Hover feel — instant in, eased out
 
 Hover (and Radix `[data-highlighted]` / `[data-selected]`) state changes should land **instantly on enter** and **ease out at ~150ms on exit**. That asymmetry is what makes the app feel responsive without feeling twitchy.

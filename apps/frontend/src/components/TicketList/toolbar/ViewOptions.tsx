@@ -2,8 +2,9 @@ import { Switch } from "@base-ui/react/switch"
 import { useAtomValue } from "@effect/atom-react"
 import {
   sprintState,
-  SortKey,
   type AssigneeFilter,
+  type EstimateFilterValue,
+  type EstimationMode,
   TicketType,
   type TicketFilter,
   type Member
@@ -38,11 +39,12 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
+import { estimateFilterLabel, estimateFilterValues } from "@/lib/estimate-meta"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import { SORT_FIELD_LABELS } from "../sort"
+import { SORT_FIELD_LABELS, sortKeysFor } from "../sort"
 import { useTicketToolbar } from "./context"
 import {
   activeFilterCount as countActiveFilters,
@@ -61,6 +63,7 @@ export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
     members,
     orgSlug,
     slug,
+    estimation,
     searchActive: compact
   } = useTicketToolbar()
   const value = query
@@ -156,6 +159,15 @@ export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
                         onChange={(groupId) => onChange({ groupId })}
                         orgSlug={orgSlug}
                         slug={slug}
+                      />
+                    )
+                  case "estimate":
+                    return (
+                      <FilterEstimate
+                        key={dimension}
+                        value={value?.estimate}
+                        onChange={(estimate) => onChange({ estimate })}
+                        estimation={estimation}
                       />
                     )
                   case "tags":
@@ -334,6 +346,54 @@ function FilterAssignee({
   )
 }
 
+function FilterEstimate({
+  value,
+  onChange,
+  estimation
+}: Readonly<{
+  value: TicketFilter["estimate"]
+  onChange: (value: TicketFilter["estimate"]) => void
+  estimation: EstimationMode
+}>) {
+  const options = estimateFilterValues(estimation)
+  if (options.length === 0) return null
+  const selected = value?.length === 1 ? value[0] : "all"
+  const select = (next: EstimateFilterValue | "all") =>
+    onChange(next === "all" ? undefined : [next])
+  return (
+    <OptionPicker
+      label={m.tickets_filters_section_estimate()}
+      value={
+        selected === "all"
+          ? m.tickets_filters_estimate_all()
+          : estimateFilterLabel(selected)
+      }
+    >
+      <DropdownMenuItem
+        onClick={() => select("all")}
+        className="cursor-pointer"
+      >
+        {m.tickets_filters_estimate_all()}
+        {selected === "all" && (
+          <Check className="ml-auto size-3.5 text-muted-foreground" />
+        )}
+      </DropdownMenuItem>
+      {options.map((option) => (
+        <DropdownMenuItem
+          key={option}
+          onClick={() => select(option)}
+          className="cursor-pointer"
+        >
+          {estimateFilterLabel(option)}
+          {selected === option && (
+            <Check className="ml-auto size-3.5 text-muted-foreground" />
+          )}
+        </DropdownMenuItem>
+      ))}
+    </OptionPicker>
+  )
+}
+
 function FilterSprint({
   value,
   onChange,
@@ -475,7 +535,7 @@ function FilterTags({
 }
 
 function Ordering() {
-  const { query, onQueryChange } = useTicketToolbar()
+  const { query, onQueryChange, estimation } = useTicketToolbar()
   const ascending = query.sort.dir === "asc"
   const DirectionIcon = ascending ? ArrowUp : ArrowDown
   return (
@@ -508,7 +568,7 @@ function Ordering() {
           </Button>
         }
       >
-        {SortKey.literals.map((key) => (
+        {sortKeysFor(estimation).map((key) => (
           <DropdownMenuItem
             key={key}
             onClick={() =>

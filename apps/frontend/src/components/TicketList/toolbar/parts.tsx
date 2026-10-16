@@ -38,7 +38,7 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { MIN_SEARCH_CHARS } from "../search"
-import { SORT_LABELS } from "../sort"
+import { SORT_LABELS, sortKeysFor } from "../sort"
 import { useTicketToolbar } from "./context"
 import { ControlSlot, OptionPicker, ToolbarButton } from "./shared"
 
@@ -219,7 +219,8 @@ export function Status({
 }
 
 export function Sort() {
-  const { query, onQueryChange, controlsCompact } = useTicketToolbar()
+  const { query, onQueryChange, controlsCompact, estimation } =
+    useTicketToolbar()
   const sortKey = query.sort.key
   const setSortKey = (key: SortKey) =>
     onQueryChange({ ...query, sort: { key, dir: NATURAL_SORT_DIR[key] } })
@@ -242,7 +243,7 @@ export function Sort() {
           }
         />
         <DropdownMenuContent align="end" sideOffset={6} className="w-44">
-          {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+          {sortKeysFor(estimation).map((k) => (
             <DropdownMenuItem
               key={k}
               onClick={() => setSortKey(k)}

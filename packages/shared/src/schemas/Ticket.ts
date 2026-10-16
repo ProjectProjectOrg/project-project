@@ -5,8 +5,10 @@
 // The frontmatter is the structured data the API returns; the body is the description.
 //
 
+import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
+import { Estimate } from "./Estimate"
 import { GitState } from "./GitState"
 import { GroupId } from "./GroupId"
 import { TemplateKey } from "./LibraryKey"
@@ -50,6 +52,9 @@ export const Ticket = Schema.Struct({
   status: TicketStatus,
   type: TicketType,
   priority: TicketPriority,
+  estimate: Schema.NullOr(Estimate).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  ),
   tags: Schema.Array(TagName),
   branch: Schema.NullOr(Schema.String),
   // The PR number observed for this ticket's branch. Updated by the server
@@ -99,6 +104,7 @@ export const CreateTicketInput = Schema.Struct({
   status: Schema.optional(TicketStatus),
   type: Schema.optional(TicketType),
   priority: Schema.optional(TicketPriority),
+  estimate: Schema.optional(Schema.NullOr(Estimate)),
   tags: Schema.optional(Schema.Array(TagName)),
   assignees: Schema.optional(Schema.Array(Schema.String)),
   body: Schema.optional(Schema.String),
@@ -123,6 +129,7 @@ export const UpdateTicketInput = Schema.Struct({
   status: Schema.optional(TicketStatus),
   type: Schema.optional(TicketType),
   priority: Schema.optional(TicketPriority),
+  estimate: Schema.optional(Schema.NullOr(Estimate)),
   tags: Schema.optional(Schema.Array(TagName)),
   assignees: Schema.optional(Schema.Array(Schema.String)),
   body: Schema.optional(Schema.String)

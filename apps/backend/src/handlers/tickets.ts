@@ -62,6 +62,11 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           dieOnMarkdown
         )
       )
+      .handle("clearStaleEstimates", () =>
+        Effect.flatMap(Tickets, (tickets) =>
+          tickets.clearStaleEstimates()
+        ).pipe(dieOnMarkdown)
+      )
       .handle("get", ({ params }) =>
         Effect.flatMap(Tickets, (tickets) => tickets.get(params.id)).pipe(
           dieOnMarkdown

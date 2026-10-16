@@ -87,6 +87,11 @@ export const projectIndex = pgTable(
     color: text("color").notNull(),
     banner: jsonb("banner").$type<ProjectBanner>(),
     iconImage: jsonb("icon_image").$type<ProjectIconImage>(),
+    estimation: text("estimation", {
+      enum: ["off", "points", "tshirt", "time"]
+    })
+      .notNull()
+      .default("off"),
     nextTicketNumber: integer("next_ticket_number").notNull().default(1),
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -606,6 +611,10 @@ export const ticketIndex = pgTable(
     priority: text("priority", {
       enum: ["low", "med", "high"]
     }).notNull(),
+    estimateUnit: text("estimate_unit", {
+      enum: ["points", "tshirt", "time"]
+    }),
+    estimateValue: integer("estimate_value"),
     tags: text("tags")
       .array()
       .notNull()

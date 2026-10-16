@@ -6,6 +6,7 @@ export type FilterDimension =
   | "assignee"
   | "tags"
   | "sprint"
+  | "estimate"
   | "archived"
 
 export function activeFilterCount(

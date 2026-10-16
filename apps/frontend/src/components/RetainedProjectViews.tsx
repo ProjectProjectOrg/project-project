@@ -1,9 +1,14 @@
 import { GroupId, TicketListQuery } from "@pp/shared"
 import { useMatches, useNavigate, useRouter } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
-import { Activity, useMemo, useState } from "react"
+import { Activity, useEffect, useMemo, useState } from "react"
 
 import { useProjectView } from "@/hooks/useViewPreference"
+import {
+  normalizeEstimateFilter,
+  normalizeEstimateSort
+} from "@/lib/estimate-meta"
+import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 
 import { SprintDetail } from "./sprints/SprintDetail"
 import { BacklogView } from "./TicketList/BacklogView"
@@ -20,6 +25,7 @@ export function RetainedProjectViews({
   orgSlug: string
   slug: string
 }) {
+  const { estimation } = useProject()
   const router = useRouter()
   const navigate = useNavigate()
   const backlog = useMatches({
@@ -63,11 +69,12 @@ export function RetainedProjectViews({
         assignee: nextSearch.assignee,
         tags: nextSearch.tags,
         groupId: nextSearch.groupId,
+        estimate: normalizeEstimateFilter(estimation, nextSearch.estimate),
         hasBranch: nextSearch.hasBranch,
         hasPr: nextSearch.hasPr,
         updatedAfter: nextSearch.updatedAfter,
         archived: nextSearch.archived,
-        sort: nextSearch.sort,
+        sort: normalizeEstimateSort(estimation, query.sort),
         q: nextSearch.q,
         cursor: undefined,
         view: previous.view
@@ -76,6 +83,42 @@ export function RetainedProjectViews({
       resetScroll: false
     })
   }
+  const activeSort = (sprint ?? backlog)?.search.sort
+  const normalizedSort = activeSort
+    ? normalizeEstimateSort(estimation, activeSort)
+    : undefined
+  const activeEstimate = (sprint ?? backlog)?.search.estimate
+  const normalizedEstimate = useMemo(
+    () => normalizeEstimateFilter(estimation, activeEstimate),
+    [estimation, activeEstimate]
+  )
+  useEffect(() => {
+    if (
+      (!activeEstimate?.length ||
+        normalizedEstimate?.length === activeEstimate.length) &&
+      normalizedSort === activeSort
+    )
+      return
+    void navigate({
+      to: router.state.location.pathname,
+      search: (previous) => ({
+        ...previous,
+        updatedAfter: previous.updatedAfter?.toISOString(),
+        estimate: normalizedEstimate,
+        sort: normalizedSort,
+        cursor: undefined
+      }),
+      replace: true,
+      resetScroll: false
+    })
+  }, [
+    normalizedEstimate,
+    activeEstimate,
+    normalizedSort,
+    activeSort,
+    navigate,
+    router
+  ])
   const backlogView = useProjectView(
     orgSlug,
     slug,
@@ -91,14 +134,23 @@ export function RetainedProjectViews({
   const backlogQuery = useMemo(() => {
     if (!lastBacklog) return defaultTicketListQuery
     const { view: _view, ...query } = lastBacklog
-    return query
-  }, [lastBacklog])
+    return {
+      ...query,
+      sort: normalizeEstimateSort(estimation, query.sort),
+      estimate: normalizeEstimateFilter(estimation, query.estimate)
+    }
+  }, [lastBacklog, estimation])
   const sprintId = lastSprint ? decodeGroupId(lastSprint.groupId) : null
   const sprintQuery = useMemo(() => {
     if (!lastSprint) return defaultTicketListQuery
     const { view: _view, ...query } = lastSprint.search
-    return sprintId ? { ...query, groupId: [sprintId] } : query
-  }, [lastSprint, sprintId])
+    return {
+      ...query,
+      sort: normalizeEstimateSort(estimation, query.sort),
+      estimate: normalizeEstimateFilter(estimation, query.estimate),
+      groupId: sprintId ? [sprintId] : query.groupId
+    }
+  }, [lastSprint, sprintId, estimation])
 
   return (
     <Activity mode={backlog || sprint ? "visible" : "hidden"}>

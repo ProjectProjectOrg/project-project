@@ -1,4 +1,7 @@
 import {
+  Estimate,
+  estimateToken,
+  parseEstimateToken,
   type ActivityActor,
   type ActivityCause,
   type TicketActivityChange,
@@ -28,6 +31,7 @@ const TicketFrontmatterOnDisk = Schema.Struct({
   priority: TicketPriority.pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed("med" as const))
   ),
+  estimate: Schema.optionalKey(Schema.Union([Schema.Finite, Schema.String])),
   tags: Schema.Array(TagName).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
   ),
@@ -57,11 +61,21 @@ const TicketFrontmatterOnDisk = Schema.Struct({
 const TicketFrontmatterValue = Schema.Struct(
   Struct.evolve(Struct.omit(TicketFrontmatterOnDisk.fields, ["assignee"]), {
     branchAutoLinkDisabled: () => Schema.optional(Schema.Boolean),
+    estimate: () => Schema.optional(Estimate),
     assignees: () => Schema.Array(Schema.String),
     splitFrom: () => Schema.optional(TicketId),
     updatedBy: () => Schema.String
   })
 )
+
+type DecodedEstimate = Readonly<{ estimate?: Estimate }>
+
+const decodedEstimate = (
+  token: number | string | undefined
+): DecodedEstimate => {
+  const estimate = token === undefined ? null : parseEstimateToken(token)
+  return estimate === null ? {} : { estimate }
+}
 
 export const TicketFrontmatter = TicketFrontmatterOnDisk.pipe(
   Schema.decodeTo(
@@ -73,7 +87,8 @@ export const TicketFrontmatter = TicketFrontmatterOnDisk.pipe(
             "assignee",
             "assignees",
             "updatedBy",
-            "splitFrom"
+            "splitFrom",
+            "estimate"
           ]),
           {
             assignees:
@@ -83,15 +98,21 @@ export const TicketFrontmatter = TicketFrontmatterOnDisk.pipe(
                 : [input.assignee]),
             updatedBy: input.updatedBy ?? input.createdBy,
             ...(input.splitFrom ? { splitFrom: input.splitFrom } : {})
-          }
+          },
+          decodedEstimate(input.estimate)
         ),
       encode: (input) =>
         Object.assign(
-          Struct.omit(input, ["branchAutoLinkDisabled", "splitFrom"]),
+          Struct.omit(input, [
+            "branchAutoLinkDisabled",
+            "splitFrom",
+            "estimate"
+          ]),
           input.branchAutoLinkDisabled
             ? { branchAutoLinkDisabled: true as const }
             : {},
-          input.splitFrom ? { splitFrom: input.splitFrom } : {}
+          input.splitFrom ? { splitFrom: input.splitFrom } : {},
+          input.estimate ? { estimate: estimateToken(input.estimate) } : {}
         )
     })
   )

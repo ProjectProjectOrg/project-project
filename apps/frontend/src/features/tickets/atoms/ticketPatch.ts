@@ -11,6 +11,7 @@ export function applyTicketPatch(
     status: patch.status ?? ticket.status,
     type: patch.type ?? ticket.type,
     priority: patch.priority ?? ticket.priority,
+    estimate: patch.estimate !== undefined ? patch.estimate : ticket.estimate,
     tags: patch.tags ?? ticket.tags,
     assignees: patch.assignees ?? ticket.assignees
   }

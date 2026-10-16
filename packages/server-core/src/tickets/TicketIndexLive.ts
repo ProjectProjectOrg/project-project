@@ -9,10 +9,14 @@ import {
   ticketIndex
 } from "@pp/db/schema"
 import {
+  ESTIMATE_SIZES,
+  Estimate,
+  estimateRank,
   NotFound,
   TagName,
   TicketId,
   tryDecodeCursor,
+  type EstimateFilterValue,
   type ChecksStatus,
   type TicketCountQuery,
   type TicketFilter,
@@ -75,6 +79,21 @@ import {
 
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
 const makeTagName = Schema.decodeUnknownSync(TagName)
+const decodeEstimate = Schema.decodeUnknownOption(Estimate)
+
+const estimateFromIndex = (
+  unit: (typeof ticketIndex.$inferSelect)["estimateUnit"],
+  value: number | null
+): Estimate | null => {
+  if (unit === null || value === null) return null
+  const candidate =
+    unit === "time"
+      ? { unit, minutes: value }
+      : unit === "tshirt"
+        ? { unit, value: ESTIMATE_SIZES[value - 1] }
+        : { unit, value }
+  return Option.getOrNull(decodeEstimate(candidate))
+}
 
 const ticketIndexRowFor = (
   project: TicketIndexProject,
@@ -87,6 +106,8 @@ const ticketIndexRowFor = (
   status: document.status,
   type: document.type,
   priority: document.priority,
+  estimateUnit: document.estimate?.unit ?? null,
+  estimateValue: document.estimate ? estimateRank(document.estimate) : null,
   tags: [...document.tags],
   assignees: [...document.assignees],
   branch: document.branch,
@@ -148,6 +169,31 @@ const ticketPrioritySortExpression = drizzleSql<string>`case ${ticketIndex.prior
   else '01'
 end`
 
+const projectEstimationExpression = drizzleSql`(select ${projectIndex.estimation} from ${projectIndex} where ${projectIndex.id} = ${ticketIndex.projectId})`
+
+const activeEstimateCondition = drizzleSql`${ticketIndex.estimateUnit} = ${projectEstimationExpression}`
+
+const ticketEstimateSortExpression = drizzleSql<string>`case
+  when ${activeEstimateCondition} then lpad(${ticketIndex.estimateValue}::text, 6, '0')
+  else '000000'
+end`
+
+const activeEstimateSizeCondition = (rank: number): SQL =>
+  drizzleSql`(${activeEstimateCondition} and ${ticketIndex.estimateUnit} = 'tshirt' and ${ticketIndex.estimateValue} = ${rank})`
+
+const estimateFilterCondition = (value: EstimateFilterValue): SQL => {
+  switch (value) {
+    case "none":
+      return drizzleSql`${ticketIndex.estimateUnit} is distinct from ${projectEstimationExpression}`
+    case "any":
+      return activeEstimateCondition
+    case "stale":
+      return drizzleSql`(${ticketIndex.estimateUnit} is not null and ${ticketIndex.estimateUnit} is distinct from ${projectEstimationExpression})`
+    default:
+      return activeEstimateSizeCondition(ESTIMATE_SIZES.indexOf(value) + 1)
+  }
+}
+
 export const ticketSortExpression = (sort: TicketSort): SQL<string | Date> => {
   switch (sort.key) {
     case "id":
@@ -160,6 +206,8 @@ export const ticketSortExpression = (sort: TicketSort): SQL<string | Date> => {
       return drizzleSql`lower(${ticketIndex.title}) collate "C"`
     case "priority":
       return ticketPrioritySortExpression
+    case "estimate":
+      return ticketEstimateSortExpression
   }
   throw new Error("unsupported ticket sort key")
 }
@@ -296,6 +344,11 @@ const ticketWhereConditions = (
   }
   if (filter?.updatedAfter !== undefined) {
     conditions.push(gt(ticketIndex.updatedAt, filter.updatedAfter))
+  }
+  if (filter?.estimate !== undefined) {
+    conditions.push(
+      or(...filter.estimate.map(estimateFilterCondition)) ?? drizzleSql`false`
+    )
   }
   const needle = query.q?.trim()
   if (needle) {
@@ -493,6 +546,7 @@ export const TicketIndexLive = Layer.effect(
       status: row.status as TicketStatus,
       type: row.type,
       priority: row.priority,
+      estimate: estimateFromIndex(row.estimateUnit, row.estimateValue),
       tags: row.tags.map((tag) => makeTagName(tag)),
       branch: row.branch,
       pr: row.pr,

@@ -22,6 +22,7 @@ import { TagEditor } from "@/components/TagEditor"
 import { TicketGitPanel } from "@/components/TicketGit"
 import { ArchiveTicketControl } from "@/components/TicketList/ArchiveControl"
 import { AssigneePicker } from "@/components/TicketList/AssigneeField"
+import { EstimateBadgeTrigger } from "@/components/TicketList/EstimateField"
 import { PriorityBadgeTrigger } from "@/components/TicketList/PriorityField"
 import { SplitTicketControl } from "@/components/TicketList/SplitControl"
 import { SprintBadgeTrigger } from "@/components/TicketList/SprintField"
@@ -45,6 +46,7 @@ import {
   unarchiveTicket,
   updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
+import { useEstimationMode } from "@/hooks/useEstimationMode"
 import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
@@ -87,6 +89,7 @@ export function TicketPage({
   const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
   const actor = useProjectActor()
+  const estimation = useEstimationMode()
   const canEdit = TicketPolicy.canChange(actor, { content: true })
   const {
     descriptionRef,
@@ -206,6 +209,15 @@ export function TicketPage({
             <MetaRow label={m.tickets_page_meta_priority()}>
               <PriorityBadgeTrigger ticket={ticket} onPatch={updateTicket} />
             </MetaRow>
+            {estimation !== "off" && (
+              <MetaRow label={m.tickets_page_meta_estimate()}>
+                <EstimateBadgeTrigger
+                  ticket={ticket}
+                  mode={estimation}
+                  onPatch={updateTicket}
+                />
+              </MetaRow>
+            )}
             <MetaRow label={m.tickets_page_meta_sprint()}>
               <SprintBadgeTrigger
                 orgSlug={orgSlug}

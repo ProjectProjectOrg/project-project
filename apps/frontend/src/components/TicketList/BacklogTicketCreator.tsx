@@ -92,6 +92,9 @@ export function BacklogTicketCreator({
 
   const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
   const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
+  const estimation = Result.isSuccess(project)
+    ? project.value.estimation
+    : "off"
 
   const sprintReq = useMemo(
     () => sprintListRequest(orgSlug, slug),
@@ -152,6 +155,7 @@ export function BacklogTicketCreator({
       ticket: { title: trimmed, type, ...templateChoice.payload },
       viewerId,
       projectPrefix,
+      estimation,
       prediction: templateChoice.prediction
     })
     templateChoice.recover(exit)

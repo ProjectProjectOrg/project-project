@@ -1,5 +1,6 @@
 import type {
   ChecksStatus,
+  Estimate,
   PullRequestState,
   TagName,
   TicketId,
@@ -42,27 +43,28 @@ export interface TicketIndexCounts {
   readonly byStatus: Readonly<Record<string, number>>
 }
 
-export interface TicketIndexEntry {
-  readonly id: TicketId
-  readonly title: string
-  readonly status: TicketStatus
-  readonly type: TicketType
-  readonly priority: TicketPriority
-  readonly tags: ReadonlyArray<TagName>
-  readonly branch: string | null
-  readonly pr: number | null
-  readonly prState: PullRequestState | null
-  readonly lastTransitionedPr: number | null
-  readonly branchDeletedAt: Date | null
-  readonly checks: ChecksStatus | null
-  readonly checksHeadSha: string | null
-  readonly checksUpdatedAt: Date | null
-  readonly assignees: ReadonlyArray<string>
-  readonly archivedAt: Date | null
-  readonly createdBy: string
-  readonly createdAt: Date
-  readonly updatedAt: Date
-}
+export type TicketIndexEntry = Readonly<{
+  id: TicketId
+  title: string
+  status: TicketStatus
+  type: TicketType
+  priority: TicketPriority
+  estimate: Estimate | null
+  tags: ReadonlyArray<TagName>
+  branch: string | null
+  pr: number | null
+  prState: PullRequestState | null
+  lastTransitionedPr: number | null
+  branchDeletedAt: Date | null
+  checks: ChecksStatus | null
+  checksHeadSha: string | null
+  checksUpdatedAt: Date | null
+  assignees: ReadonlyArray<string>
+  archivedAt: Date | null
+  createdBy: string
+  createdAt: Date
+  updatedAt: Date
+}>
 
 export type TicketIndexQueryEntry = Readonly<{
   entry: TicketIndexEntry
