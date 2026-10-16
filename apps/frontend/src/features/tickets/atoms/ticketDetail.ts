@@ -59,14 +59,16 @@ const publishFor = (req: TicketRequest, patch: UpdateTicketInput) => {
   const scope = scopeOf(req)
   const fields = Object.keys(patch)
   const contentOnly = fields.every((f) => f === "title" || f === "body")
+  const history = Keys.ticketHistory(scope, req.params.id)
   if (!contentOnly) {
     return [
+      history,
       Keys.ticketsIn(scope),
       Keys.ticketLists(scope),
       Keys.ticketPages(scope)
     ]
   }
-  const keys = [Keys.ticketUpdatedQuery(scope), Keys.ticketsIn(scope)]
+  const keys = [history, Keys.ticketUpdatedQuery(scope), Keys.ticketsIn(scope)]
   if (patch.title !== undefined) {
     keys.push(Keys.ticketTitleQuery(scope))
   }
@@ -132,6 +134,7 @@ export const archiveTicket = Atom.family((req: TicketRequest) =>
           )
           set(AsyncResult.success(updated))
           yield* Reactivity.invalidate([
+            Keys.ticketHistory(scopeOf(req), req.params.id),
             Keys.ticketsIn(scopeOf(req)),
             Keys.ticketLists(scopeOf(req)),
             Keys.ticketPages(scopeOf(req))
@@ -154,6 +157,7 @@ export const unarchiveTicket = Atom.family((req: TicketRequest) =>
           )
           set(AsyncResult.success(updated))
           yield* Reactivity.invalidate([
+            Keys.ticketHistory(scopeOf(req), req.params.id),
             Keys.ticketsIn(scopeOf(req)),
             Keys.ticketLists(scopeOf(req)),
             Keys.ticketPages(scopeOf(req))

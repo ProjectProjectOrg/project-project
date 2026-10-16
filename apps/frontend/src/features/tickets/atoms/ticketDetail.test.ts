@@ -241,7 +241,8 @@ const probeNames = [
   "ticketPages",
   "titleQuery",
   "updatedQuery",
-  "self"
+  "self",
+  "history"
 ] as const
 
 type ProbeName = (typeof probeNames)[number]
@@ -252,7 +253,8 @@ const probes: Readonly<Record<ProbeName, ReturnType<typeof probe>>> = {
   ticketPages: probe("ticketPages", Keys.ticketPages(scope)),
   titleQuery: probe("titleQuery", Keys.ticketTitleQuery(scope)),
   updatedQuery: probe("updatedQuery", Keys.ticketUpdatedQuery(scope)),
-  self: probe("self", Keys.ticket(scope, ticket.id))
+  self: probe("self", Keys.ticket(scope, ticket.id)),
+  history: probe("history", Keys.ticketHistory(scope, ticket.id))
 }
 
 describe("ticket detail invalidation keys", () => {
@@ -322,7 +324,12 @@ describe("ticket detail invalidation keys", () => {
         "updatedQuery"
       ])
       expect(published).toEqual(
-        new Set<ProbeName>(["ticketsIn", "titleQuery", "updatedQuery"])
+        new Set<ProbeName>([
+          "ticketsIn",
+          "titleQuery",
+          "updatedQuery",
+          "history"
+        ])
       )
       expect(published.has("self")).toBe(false)
     } finally {
@@ -338,7 +345,7 @@ describe("ticket detail invalidation keys", () => {
         "updatedQuery"
       ])
       expect(published).toEqual(
-        new Set<ProbeName>(["ticketsIn", "updatedQuery"])
+        new Set<ProbeName>(["ticketsIn", "updatedQuery", "history"])
       )
       expect(published.has("titleQuery")).toBe(false)
       expect(published.has("self")).toBe(false)
@@ -356,7 +363,12 @@ describe("ticket detail invalidation keys", () => {
         "ticketPages"
       ])
       expect(published).toEqual(
-        new Set<ProbeName>(["ticketsIn", "ticketLists", "ticketPages"])
+        new Set<ProbeName>([
+          "ticketsIn",
+          "ticketLists",
+          "ticketPages",
+          "history"
+        ])
       )
       expect(published.has("self")).toBe(false)
     } finally {

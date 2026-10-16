@@ -65,6 +65,9 @@ export const Keys = {
   invitations: (): string => "invitations",
   /** The current user's session profile. */
   me: (): string => "me",
+  /** One ticket's activity history. */
+  ticketHistory: (scope: string, ticketId: TicketId): string =>
+    `ticket-history/${scope}/${ticketId}`,
   /** Comments on one ticket. */
   comments: (scope: string, ticketId: TicketId): string =>
     `comments/${scope}/${ticketId}`,
