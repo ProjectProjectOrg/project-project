@@ -1,26 +1,21 @@
 import { Db } from "@pp/db"
-import { publishedProject } from "@pp/db/projectVisibility"
 import { projectTag } from "@pp/db/schema"
 import {
   Conflict,
-  Forbidden,
   NotFound,
   paginateSorted,
   Tag,
   TagColor,
   TagName,
-  TAG_DEFAULT_PALETTE,
-  type CreateTagInput,
-  type CursorPayload,
-  type UpdateTagInput
+  TAG_DEFAULT_PALETTE
 } from "@pp/shared"
+import { ProjectScope } from "@pp/shared"
 import { and, eq } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
 import type { MarkdownError } from "../markdown/Markdown"
-import { Projects } from "../projects/Projects"
 import { TicketIndex } from "../tickets/TicketIndex"
 import { Tickets } from "../tickets/Tickets"
 import { Tags, type TagsShape } from "./Tags"
@@ -41,27 +36,7 @@ export const TagsLive = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db
     const ticketIndex = yield* TicketIndex
-    const projects = yield* Projects
     const tickets = yield* Tickets
-
-    const projectIdFromSlug = (slug: string): Effect.Effect<string, NotFound> =>
-      db.query.projectIndex
-        .findFirst({
-          columns: { id: true },
-          where: {
-            RAW: (table, _operators) =>
-              _operators.and(
-                _operators.eq(table.slug, slug),
-                publishedProject(table)
-              )!
-          }
-        })
-        .pipe(
-          Effect.orDie,
-          Effect.flatMap((row) =>
-            row ? Effect.succeed(row.id) : Effect.fail(new NotFound())
-          )
-        )
 
     const rewriteTagInTickets = (
       orgSlug: string,
@@ -84,14 +59,9 @@ export const TagsLive = Layer.effect(
         }
       })
 
-    const list = (
-      orgSlug: string,
-      userId: string,
-      slug: string
-    ): Effect.Effect<ReadonlyArray<Tag>, NotFound> =>
+    const list: TagsShape["list"] = () =>
       Effect.gen(function* () {
-        yield* projects.requireMember(orgSlug, userId, slug)
-        const projectId = yield* projectIdFromSlug(slug)
+        const { projectId } = yield* ProjectScope
         const rows = yield* db.query.projectTag
           .findMany({
             where: {
@@ -110,18 +80,9 @@ export const TagsLive = Layer.effect(
         )
       })
 
-    const listPaged = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      cursor: CursorPayload | undefined,
-      limit: number
-    ): Effect.Effect<
-      { items: ReadonlyArray<Tag>; nextCursor: string | null },
-      NotFound
-    > =>
+    const listPaged: TagsShape["listPaged"] = (cursor, limit) =>
       Effect.gen(function* () {
-        const all = yield* list(orgSlug, userId, slug)
+        const all = yield* list()
         const sorted = [...all].toSorted((a, b) =>
           a.name < b.name ? -1 : a.name > b.name ? 1 : 0
         )
@@ -133,15 +94,9 @@ export const TagsLive = Layer.effect(
         })
       })
 
-    const create = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      input: CreateTagInput
-    ): Effect.Effect<Tag, NotFound | Forbidden | Conflict> =>
+    const create: TagsShape["create"] = (input) =>
       Effect.gen(function* () {
-        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
-        const projectId = yield* projectIdFromSlug(slug)
+        const { userId, projectId } = yield* ProjectScope
 
         const existing = yield* db.query.projectTag
           .findMany({
@@ -188,16 +143,9 @@ export const TagsLive = Layer.effect(
         }
       })
 
-    const update = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      name: string,
-      patch: UpdateTagInput
-    ): Effect.Effect<Tag, NotFound | Forbidden | Conflict | MarkdownError> =>
+    const update: TagsShape["update"] = (name, patch) =>
       Effect.gen(function* () {
-        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
-        const projectId = yield* projectIdFromSlug(slug)
+        const { orgSlug, slug, projectId } = yield* ProjectScope
 
         const existing = yield* db.query.projectTag
           .findFirst({
@@ -252,15 +200,9 @@ export const TagsLive = Layer.effect(
         }
       })
 
-    const remove = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      name: string
-    ): Effect.Effect<void, NotFound | Forbidden | MarkdownError> =>
+    const remove: TagsShape["remove"] = (name) =>
       Effect.gen(function* () {
-        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
-        const projectId = yield* projectIdFromSlug(slug)
+        const { orgSlug, slug, projectId } = yield* ProjectScope
 
         const existingRow = yield* db.query.projectTag
           .findFirst({

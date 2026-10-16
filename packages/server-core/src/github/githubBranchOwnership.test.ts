@@ -99,17 +99,8 @@ describe.skipIf(!databaseUrl)("GitHub branch ownership", () => {
       [linkIds[0], organizationIds[0], linkIds[1], organizationIds[1]]
     )
     await pool.query(
-      "INSERT INTO ticket_index (organization_id,org_slug,project_id,project_slug,ticket_id,title,status,type,priority,branch,created_by,created_at,updated_at) VALUES ($1,$2,$3,$4,'T-1','A','todo','feat','med',NULL,'test',now(),now()),($5,$6,$7,$8,'T-1','B','todo','feat','med','feat/T-1','test',now(),now())",
-      [
-        organizationIds[0],
-        organizationIds[0],
-        projectIds[0],
-        `project-a-${suffix}`,
-        organizationIds[1],
-        organizationIds[1],
-        projectIds[1],
-        `project-b-${suffix}`
-      ]
+      "INSERT INTO ticket_index (organization_id,project_id,ticket_id,title,status,type,priority,branch,created_by,created_at,updated_at) VALUES ($1,$2,'T-1','A','todo','feat','med',NULL,'test',now(),now()),($3,$4,'T-1','B','todo','feat','med','feat/T-1','test',now(),now())",
+      [organizationIds[0], projectIds[0], organizationIds[1], projectIds[1]]
     )
   })
 

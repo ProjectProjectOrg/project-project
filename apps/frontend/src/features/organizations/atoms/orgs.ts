@@ -1,5 +1,6 @@
 import {
   ORG_DELETE_GRACE_DAYS,
+  OrgActor,
   type InviteMemberInput,
   type OrgDetail,
   type OrgMember,
@@ -43,6 +44,15 @@ const orgDetailQuery = (req: OrgRequest) =>
 
 export const orgDetail = Atom.family((req: OrgRequest) =>
   Atom.optimistic(orgDetailQuery(req))
+)
+
+export const orgActor = Atom.family((req: OrgRequest) =>
+  Atom.make((get) => {
+    const detail = get(orgDetail(req))
+    return AsyncResult.isSuccess(detail)
+      ? OrgActor.make(detail.value.permissions)
+      : OrgActor.none
+  })
 )
 
 const orgMembersQuery = (req: OrgRequest) =>

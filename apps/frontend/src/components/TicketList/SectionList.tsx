@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { TicketPolicy } from "@pp/access/policies"
 import type {
   Group,
   Member,
@@ -28,6 +29,7 @@ import {
   type BacklogRequest,
   type BacklogSection
 } from "@/features/tickets/atoms/backlog"
+import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -92,6 +94,9 @@ export function SectionList({
   onPreviewPointerEnter: (ticketId: TicketId) => void
   onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
 }) {
+  const actor = useProjectActor()
+  const editable = TicketPolicy.canChange(actor, { content: true })
+  const canCreateTickets = canCreate && actor.call("tickets", "quickCreate")
   const req = useMemo(
     () =>
       creationVariant === "flat"
@@ -122,7 +127,7 @@ export function SectionList({
         ref={shellRef}
         variant="sticky"
         heading={heading}
-        canCreate={canCreate}
+        canCreate={canCreateTickets}
         status={status}
         statuses={statuses}
         count={count}
@@ -180,6 +185,7 @@ export function SectionList({
                     sprintMembership: sprintMembership?.get(ticket.id) ?? null,
                     extraRowActions,
                     pending,
+                    editable,
                     previewOpen: activePreviewId === ticket.id,
                     onPreviewPointerEnter,
                     onPreviewOpenChange

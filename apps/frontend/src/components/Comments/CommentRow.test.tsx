@@ -1,4 +1,5 @@
-import { UserId, type Comment, type User } from "@pp/shared"
+import { Project } from "@pp/access/roles"
+import { ProjectActor, UserId, type Comment, type User } from "@pp/shared"
 import { cleanup, render, screen } from "@testing-library/react"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
@@ -21,6 +22,10 @@ vi.mock("@effect/atom-react", () => ({
 }))
 
 vi.mock("@/features/auth/atoms/auth", () => ({ me: () => "me" }))
+vi.mock("@/lib/access", () => ({
+  useProjectActor: () =>
+    ProjectActor.make(Project.developer.grants, state.me?.id ?? "")
+}))
 vi.mock("@/features/comments/atoms/comments", () => ({
   commentsRequest: () => "comment-key",
   deleteComment: () => "delete",

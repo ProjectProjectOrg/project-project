@@ -1,92 +1,38 @@
-import { EverhourIntegrations } from "@pp/server-core/everhour/EverhourIntegrations"
-import { CurrentOrg } from "@pp/server-core/organizations/CurrentOrg"
 import { ProjectStatuses } from "@pp/server-core/projects/ProjectStatuses"
-import { AppApi, CurrentUser } from "@pp/shared"
+import { AppApi } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 
-import { dieOnMarkdown } from "./lib"
+import { dieOnMarkdown, thenSyncEverhour } from "./lib"
 
 export const StatusesHandlerLive = HttpApiBuilder.group(
   AppApi,
   "statuses",
   (handlers) =>
     handlers
-      .handle("list", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const svc = yield* ProjectStatuses
-          return yield* svc.list(org.orgSlug, user.id, params.slug)
-        })
+      .handle("list", () =>
+        Effect.flatMap(ProjectStatuses, (statuses) => statuses.list()).pipe(
+          dieOnMarkdown
+        )
       )
-      .handle("create", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const svc = yield* ProjectStatuses
-          return yield* svc.create(org.orgSlug, user.id, params.slug, payload)
-        })
+      .handle("create", ({ payload }) =>
+        Effect.flatMap(ProjectStatuses, (statuses) =>
+          statuses.create(payload)
+        ).pipe(dieOnMarkdown)
       )
       .handle("update", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const svc = yield* ProjectStatuses
-          const result = yield* svc
-            .update(
-              org.orgSlug,
-              user.id,
-              params.slug,
-              params.statusSlug,
-              payload
-            )
-            .pipe(dieOnMarkdown)
-          const everhour = yield* EverhourIntegrations
-          yield* everhour.bestEffortProjectSync(
-            org.orgSlug,
-            user.id,
-            params.slug
-          )
-          return result
-        })
+        Effect.flatMap(ProjectStatuses, (statuses) =>
+          statuses.update(params.statusSlug, payload)
+        ).pipe(thenSyncEverhour, dieOnMarkdown)
       )
       .handle("reorder", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const svc = yield* ProjectStatuses
-          return yield* svc.reorder(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.statusSlug,
-            payload
-          )
-        })
+        Effect.flatMap(ProjectStatuses, (statuses) =>
+          statuses.reorder(params.statusSlug, payload)
+        ).pipe(dieOnMarkdown)
       )
       .handle("remove", ({ params, query }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const svc = yield* ProjectStatuses
-          const result = yield* svc
-            .remove(org.orgSlug, user.id, params.slug, params.statusSlug, {
-              reassignTo: query.reassignTo
-            })
-            .pipe(dieOnMarkdown)
-          const everhour = yield* EverhourIntegrations
-          yield* everhour.bestEffortProjectSync(
-            org.orgSlug,
-            user.id,
-            params.slug
-          )
-          return result
-        })
+        Effect.flatMap(ProjectStatuses, (statuses) =>
+          statuses.remove(params.statusSlug, { reassignTo: query.reassignTo })
+        ).pipe(thenSyncEverhour, dieOnMarkdown)
       )
 )

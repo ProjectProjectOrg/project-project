@@ -57,6 +57,7 @@ import { HttpApiMiddleware, HttpApiSecurity } from "effect/unstable/httpapi"
 import { Unauthorized } from "./errors"
 import type { User } from "./schemas/User"
 
+/** @effect-leakable-service */
 export class CurrentUser extends Context.Service<CurrentUser, User>()(
   "@pp/shared/Authentication/CurrentUser"
 ) {}

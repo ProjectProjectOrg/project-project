@@ -12,6 +12,7 @@ COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app
 
 COPY package.json bun.lock* bun.lockb* tsconfig.base.json ./
+COPY packages/access/package.json ./packages/access/
 COPY packages/db/package.json ./packages/db/
 COPY packages/server-core/package.json ./packages/server-core/
 COPY packages/shared/package.json ./packages/shared/
@@ -19,6 +20,7 @@ COPY apps/backend/package.json ./apps/backend/
 COPY apps/frontend/package.json ./apps/frontend/
 RUN bun install --frozen-lockfile
 
+COPY packages/access ./packages/access
 COPY packages/shared ./packages/shared
 COPY apps/frontend ./apps/frontend
 

@@ -36,15 +36,28 @@ export const validateBodyMentions = (
     }
   })
 
-export const validateBodyMentionsWithLookups = <TicketError, MemberError>(
+export const validateBodyMentionsWithLookups = <
+  TicketError,
+  MemberError,
+  TicketContext,
+  MemberContext
+>(
   body: string,
   lookups: {
     readonly existingTicketIds: (
       ticketIds: ReadonlyArray<string>
-    ) => Effect.Effect<ReadonlySet<string>, TicketError>
-    readonly memberIds: () => Effect.Effect<ReadonlySet<string>, MemberError>
+    ) => Effect.Effect<ReadonlySet<string>, TicketError, TicketContext>
+    readonly memberIds: () => Effect.Effect<
+      ReadonlySet<string>,
+      MemberError,
+      MemberContext
+    >
   }
-): Effect.Effect<void, MentionInvalid | TicketError | MemberError> => {
+): Effect.Effect<
+  void,
+  MentionInvalid | TicketError | MemberError,
+  TicketContext | MemberContext
+> => {
   if (!body.includes("](mention:")) return Effect.void
   return Effect.gen(function* () {
     const links = extractMentionLinks(body)

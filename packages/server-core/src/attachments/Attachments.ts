@@ -11,13 +11,16 @@ import {
   type AttachmentNotUploaded,
   type AttachmentTooLarge,
   type AttachmentTypeRejected,
-  type Forbidden,
+  type CurrentUser,
   type NotFound,
+  type OrgScope,
   type PrepareAttachmentInput,
   type PrepareAttachmentResult,
   type StorageConfigMissing,
   type StorageError,
-  type StorageNotConnected
+  type StorageNotConnected,
+  type ProjectScope,
+  type Forbidden
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
@@ -182,7 +185,6 @@ export const validateUploadRequest = (input: {
 
 export type AttachmentUploadError =
   | NotFound
-  | Forbidden
   | AttachmentTooLarge
   | AttachmentTypeRejected
   | StorageNotConnected
@@ -191,33 +193,35 @@ export type AttachmentUploadError =
 
 export interface AttachmentsShape {
   readonly prepare: (
-    orgSlug: string,
-    slug: string,
     ticketId: string | null,
-    userId: string,
     input: Omit<PrepareAttachmentInput, "byteSize"> & {
       readonly byteSize?: number
     }
-  ) => Effect.Effect<PrepareAttachmentResult, AttachmentUploadError>
+  ) => Effect.Effect<
+    PrepareAttachmentResult,
+    AttachmentUploadError,
+    ProjectScope
+  >
   readonly commit: (
-    orgSlug: string,
-    slug: string,
     ticketId: string | null,
-    userId: string,
     attachmentId: string
-  ) => Effect.Effect<Attachment, AttachmentUploadError | AttachmentNotUploaded>
+  ) => Effect.Effect<
+    Attachment,
+    AttachmentUploadError | AttachmentNotUploaded,
+    ProjectScope
+  >
   readonly resolveForServing: (
     orgSlug: string,
     attachmentId: string,
-    userId: string,
     options?: { readonly download?: boolean }
   ) => Effect.Effect<
     { readonly url: string; readonly contentType: string },
-    | NotFound
     | Forbidden
+    | NotFound
     | StorageNotConnected
     | StorageConfigMissing
-    | StorageError
+    | StorageError,
+    CurrentUser
   >
   readonly reconcileTicket: (
     orgSlug: string,
@@ -225,30 +229,29 @@ export interface AttachmentsShape {
     ticketId: string,
     body: string
   ) => Effect.Effect<void>
-  readonly orphanProject: (
+  readonly orphanProject: <E, R>(
     orgSlug: string,
-    slug: string
-  ) => Effect.Effect<{ readonly orphaned: number }>
+    slug: string,
+    removal: Effect.Effect<void, E, R>
+  ) => Effect.Effect<{ readonly orphaned: number }, E, R>
   readonly listForOrg: (
-    orgSlug: string,
-    userId: string,
     params: AttachmentListParams
-  ) => Effect.Effect<AttachmentListPage, NotFound | Forbidden>
-  readonly summarizeForOrg: (
-    orgSlug: string,
-    userId: string
-  ) => Effect.Effect<AttachmentSummary, NotFound | Forbidden>
+  ) => Effect.Effect<AttachmentListPage, never, OrgScope>
+  readonly summarizeForOrg: () => Effect.Effect<
+    AttachmentSummary,
+    never,
+    OrgScope
+  >
   readonly deleteForOrg: (
-    orgSlug: string,
-    attachmentId: string,
-    userId: string
+    attachmentId: string
   ) => Effect.Effect<
     void,
-    | NotFound
     | Forbidden
+    | NotFound
     | StorageNotConnected
     | StorageConfigMissing
-    | StorageError
+    | StorageError,
+    OrgScope
   >
   readonly missingIds: (
     orgSlug: string,

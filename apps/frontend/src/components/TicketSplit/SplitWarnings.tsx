@@ -1,5 +1,5 @@
 import type { TicketDetail } from "@pp/shared"
-import { GitBranch, MessageSquare } from "lucide-react"
+import { MessageSquare } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { m } from "@/paraglide/messages"
@@ -16,28 +16,14 @@ function Line({ icon, children }: { icon: ReactNode; children: ReactNode }) {
 export function SplitWarnings({
   ticket,
   commentCount,
-  resultCount,
   error
 }: {
   ticket: TicketDetail
   commentCount: number
-  resultCount: number
   error: string | null
 }) {
   return (
     <div className="flex flex-col gap-2.5">
-      {ticket.branch !== null && (
-        <Line icon={<GitBranch className="size-3.5" strokeWidth={1.75} />}>
-          {m.tickets_split_warning_branch_prefix()}{" "}
-          <span className="font-mono text-xs">{ticket.branch}</span>{" "}
-          {ticket.pr === null
-            ? m.tickets_split_warning_branch_suffix({ count: resultCount })
-            : m.tickets_split_warning_branch_pr_suffix({
-                number: ticket.pr,
-                count: resultCount
-              })}
-        </Line>
-      )}
       {commentCount > 0 && (
         <Line icon={<MessageSquare className="size-3.5" strokeWidth={1.75} />}>
           {m.tickets_split_warning_comments({

@@ -343,6 +343,7 @@ export const buildJiraPreparedPublicationFromSnapshot = Effect.fn(
       existingProjectSlugs: projects
         .filter(
           (project) =>
+            project.organizationId === input.organizationId &&
             project.id !== projectId &&
             project.slug === input.configuration.destination.slug
         )
@@ -879,34 +880,45 @@ export const publishJiraMigrationAtomically = Effect.fn(
         if (plan.indexes.members.length > 0)
           yield* tx.insert(projectMember).values(
             plan.indexes.members.map((row) => ({
-              ...row,
+              projectId: row.projectId,
+              organizationId: migration.organizationId,
+              userId: row.userId,
+              roleId: row.role === "owner" ? "pm" : "developer",
               createdAt: toDate(row.createdAt)
             }))
           )
         if (plan.indexes.tickets.length > 0)
           yield* tx.insert(ticketIndex).values(
-            plan.indexes.tickets.map((row) => ({
-              ...row,
-              tags: [...row.tags],
-              assignees: [...row.assignees],
-              createdAt: toDate(row.createdAt),
-              updatedAt: toDate(row.updatedAt)
-            }))
+            plan.indexes.tickets.map(
+              ({ orgSlug: _orgSlug, projectSlug: _projectSlug, ...row }) => ({
+                ...row,
+                tags: [...row.tags],
+                assignees: [...row.assignees],
+                createdAt: toDate(row.createdAt),
+                updatedAt: toDate(row.updatedAt)
+              })
+            )
           )
         if (plan.indexes.comments.length > 0)
           yield* tx.insert(commentIndex).values(
-            plan.indexes.comments.map((row) => ({
-              ...row,
-              createdAt: toDate(row.createdAt),
-              editedAt: row.editedAt === null ? null : toDate(row.editedAt)
-            }))
+            plan.indexes.comments.map(
+              ({ projectSlug: _projectSlug, ...row }) => ({
+                ...row,
+                projectId: plannedProject.id,
+                createdAt: toDate(row.createdAt),
+                editedAt: row.editedAt === null ? null : toDate(row.editedAt)
+              })
+            )
           )
         if (plan.indexes.attachmentReferences.length > 0)
           yield* tx.insert(attachmentReference).values(
-            plan.indexes.attachmentReferences.map((row) => ({
-              ...row,
-              createdAt: toDate(row.createdAt)
-            }))
+            plan.indexes.attachmentReferences.map(
+              ({ orgSlug: _orgSlug, projectSlug: _projectSlug, ...row }) => ({
+                ...row,
+                projectId: plannedProject.id,
+                createdAt: toDate(row.createdAt)
+              })
+            )
           )
         for (const planned of plan.indexes.attachments) {
           const [pending] = yield* tx
@@ -919,7 +931,7 @@ export const publishJiraMigrationAtomically = Effect.fn(
             pending.status !== "pending" ||
             pending.organizationId !== planned.organizationId ||
             pending.orgSlug !== planned.orgSlug ||
-            pending.projectSlug !== planned.projectSlug ||
+            pending.projectId !== plannedProject.id ||
             pending.ticketId !== planned.ticketId ||
             pending.objectKey !== planned.objectKey ||
             pending.filename !== planned.filename ||
@@ -1064,7 +1076,12 @@ export const ensureHiddenJiraProject = Effect.fn(
       const [existing] = yield* tx
         .select()
         .from(projectIndex)
-        .where(eq(projectIndex.slug, project.slug))
+        .where(
+          and(
+            eq(projectIndex.organizationId, project.organizationId),
+            eq(projectIndex.slug, project.slug)
+          )
+        )
         .limit(1)
       if (
         !existing ||
@@ -1334,7 +1351,7 @@ export const copyJiraPreparedAttachment = Effect.fn(
           id: attachment.id,
           organizationId: input.organizationId,
           orgSlug: input.orgSlug,
-          projectSlug: input.projectSlug,
+          projectId: input.projectId,
           ticketId: attachment.ticketId,
           objectKey: attachment.objectKey,
           filename: attachment.filename,
@@ -1355,7 +1372,7 @@ export const copyJiraPreparedAttachment = Effect.fn(
         !row ||
         row.organizationId !== input.organizationId ||
         row.orgSlug !== input.orgSlug ||
-        row.projectSlug !== input.projectSlug ||
+        row.projectId !== input.projectId ||
         row.ticketId !== attachment.ticketId ||
         row.objectKey !== attachment.objectKey ||
         row.filename !== attachment.filename ||
@@ -1506,7 +1523,7 @@ export const verifyJiraHiddenMaterialization = Effect.fn(
       !row ||
       row.organizationId !== migration.organizationId ||
       row.orgSlug !== input.orgSlug ||
-      row.projectSlug !== input.projectSlug ||
+      row.projectId !== input.projectId ||
       row.objectKey !== attachment.objectKey ||
       row.byteSize !== attachment.byteSize ||
       row.contentType !== attachment.contentType ||
@@ -1562,8 +1579,7 @@ export const writeJiraStagedDocuments = Effect.fn("JiraImport.writeDocuments")(
     deps: JiraImportDependencies,
     orgSlug: string,
     ownerId: string,
-    plan: JiraPublicationPlan,
-    members: ReadonlyArray<JiraImportMember>
+    plan: JiraPublicationPlan
   ) {
     const now = yield* DateTime.nowAsDate
     const identity = deriveProjectIdentity(plan.project.slug)
@@ -1576,7 +1592,6 @@ export const writeJiraStagedDocuments = Effect.fn("JiraImport.writeDocuments")(
       color: identity.color,
       createdBy: ownerId,
       createdAt: now,
-      members: members.map(({ username, role }) => ({ username, role })),
       github: null,
       setup: {
         workflowReviewedAt: null,
@@ -1724,9 +1739,10 @@ export const jiraImportEnvironment = Effect.fn("JiraImport.environment")(
     const tickets = yield* deps.db
       .select({
         ticketId: ticketIndex.ticketId,
-        projectSlug: ticketIndex.projectSlug
+        projectSlug: projectIndex.slug
       })
       .from(ticketIndex)
+      .innerJoin(projectIndex, eq(projectIndex.id, ticketIndex.projectId))
       .where(eq(ticketIndex.organizationId, organizationId))
       .pipe(Effect.orDie)
     const users = yield* deps.db
@@ -1736,6 +1752,7 @@ export const jiraImportEnvironment = Effect.fn("JiraImport.environment")(
     const reservedSlugs = yield* deps.db
       .select({ slug: projectIndex.slug })
       .from(projectIndex)
+      .where(eq(projectIndex.organizationId, organizationId))
       .pipe(Effect.orDie)
     const owned = projects.filter(({ slug }) => slug === ownedProjectSlug)
     const others = projects.filter(({ slug }) => slug !== ownedProjectSlug)
@@ -1763,6 +1780,7 @@ export const jiraImportEnvironment = Effect.fn("JiraImport.environment")(
 export type JiraAttachmentCopyInput = Readonly<{
   organizationId: string
   orgSlug: string
+  projectId: string
   projectSlug: string
   userId: string
   cloudId: string
@@ -1790,7 +1808,7 @@ export const copyJiraAttachments = Effect.fn("JiraImport.copyAttachments")(
       .where(
         and(
           eq(attachmentIndex.organizationId, input.organizationId),
-          eq(attachmentIndex.projectSlug, input.projectSlug)
+          eq(attachmentIndex.projectId, input.projectId)
         )
       )
       .pipe(Effect.orDie)
@@ -1846,7 +1864,7 @@ export const copyJiraAttachments = Effect.fn("JiraImport.copyAttachments")(
               id,
               organizationId: input.organizationId,
               orgSlug: input.orgSlug,
-              projectSlug: input.projectSlug,
+              projectId: input.projectId,
               ticketId,
               objectKey,
               filename: attachment.filename,
@@ -1868,7 +1886,7 @@ export const markJiraAttachmentsLive = Effect.fn("JiraImport.attachmentsLive")(
   function* (
     deps: JiraImportDependencies,
     organizationId: string,
-    projectSlug: string
+    projectId: string
   ) {
     yield* deps.db
       .update(attachmentIndex)
@@ -1876,7 +1894,7 @@ export const markJiraAttachmentsLive = Effect.fn("JiraImport.attachmentsLive")(
       .where(
         and(
           eq(attachmentIndex.organizationId, organizationId),
-          eq(attachmentIndex.projectSlug, projectSlug),
+          eq(attachmentIndex.projectId, projectId),
           eq(attachmentIndex.status, "pending")
         )
       )

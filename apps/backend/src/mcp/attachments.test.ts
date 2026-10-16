@@ -19,6 +19,8 @@ import {
   organizationIntegration,
   organizationS3Integration
 } from "@pp/db/schema"
+import { Access } from "@pp/server-core/access/Access"
+import { accessLayer, projectScope } from "@pp/server-core/access/testing"
 import * as AttachmentsLayer from "@pp/server-core/attachments/AttachmentsLive"
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import * as AttachmentUploadsLayer from "@pp/server-core/attachments/AttachmentUploadsLive"
@@ -27,7 +29,6 @@ import * as Comments from "@pp/server-core/comments/Comments"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
 import * as Library from "@pp/server-core/library/Library"
-import * as CurrentOrg from "@pp/server-core/organizations/CurrentOrg"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as Projects from "@pp/server-core/projects/Projects"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
@@ -44,6 +45,7 @@ import * as Tickets from "@pp/server-core/tickets/Tickets"
 import * as Users from "@pp/server-core/users/Users"
 import {
   AttachmentTooLarge,
+  CurrentUser,
   McpTools,
   NotFound,
   StorageNotConnected,
@@ -132,7 +134,9 @@ const fixture = Effect.fn("attachmentFixture")(function* (
   yield* Effect.addFinalizer(() =>
     db.delete(organization).where(eq(organization.id, slug)).pipe(Effect.orDie)
   )
+  const projectId = randomUUID()
   yield* db.insert(projectIndex).values({
+    id: projectId,
     slug,
     organizationId: slug,
     key: "T",
@@ -143,20 +147,34 @@ const fixture = Effect.fn("attachmentFixture")(function* (
   })
   const objects = new Map<string, Uint8Array>()
   const writes: Array<string> = []
-  const projects = Layer.mock(Projects.Projects, {
-    requireMember: (orgSlug, userId, projectSlug) => {
-      expect([orgSlug, userId, projectSlug]).toEqual([slug, user.id, slug])
-      return options.denied
-        ? Effect.fail(new NotFound())
-        : Effect.succeed({ role: "member" })
-    }
+  const member = projectScope("member", "developer", {
+    userId: user.id,
+    organizationId: slug,
+    orgSlug: slug,
+    slug,
+    projectId
+  })
+  const access = Layer.succeed(Access, {
+    org: () => Effect.die("Access.org is not used by attachment tools"),
+    project: (orgSlug, projectSlug) =>
+      Effect.flatMap(CurrentUser, (current) =>
+        options.denied ||
+        current.id !== user.id ||
+        orgSlug !== slug ||
+        projectSlug !== slug
+          ? Effect.fail(new NotFound())
+          : Effect.succeed(member)
+      ),
+    projectsInOrg: () => Effect.succeed([])
   })
   const dependencies = Layer.mergeAll(
     Layer.succeed(Db.Db, db),
     Layer.succeed(SqlClient.SqlClient, sql),
-    projects,
+    access,
+    Layer.mock(Users.Users, {
+      fullByIds: (ids) => Effect.succeed(ids.includes(user.id) ? [user] : [])
+    }),
     SecretCryptoLayer.SecretCryptoLive,
-    Layer.mock(CurrentOrg.CurrentOrg, {}),
     Layer.mock(OrgStorage.OrgStorage, {
       requireConnection: () =>
         options.disconnected
@@ -230,7 +248,9 @@ const fixture = Effect.fn("attachmentFixture")(function* (
   const context = yield* Layer.build(
     Layer.mergeAll(
       domain,
+      access,
       Layer.succeed(McpRequestUser, Option.some(user)),
+      Layer.mock(Projects.Projects, {}),
       Layer.mock(Tickets.Tickets, {}),
       Layer.mock(Comments.Comments, {}),
       Layer.mock(Groups.Groups, {}),
@@ -464,7 +484,7 @@ describe.skipIf(!databaseUrl)("MCP attachment upload with Postgres", () => {
       }).pipe(Effect.scoped, Effect.provide(dbLayer))
   )
 
-  it.effect.each(["orgSlug", "projectSlug", "ticketId", "uploadedBy"] as const)(
+  it.effect.each(["orgSlug", "projectId", "ticketId", "uploadedBy"] as const)(
     "rejects an attachment outside the grant's %s before reading bytes",
     (field) =>
       Effect.gen(function* () {
@@ -473,7 +493,7 @@ describe.skipIf(!databaseUrl)("MCP attachment upload with Postgres", () => {
         const db = yield* Db.Db
         yield* db
           .update(attachmentIndex)
-          .set({ [field]: "foreign-scope" })
+          .set({ [field]: field === "projectId" ? null : "foreign-scope" })
           .where(eq(attachmentIndex.id, prepared.id))
         expect(
           (yield* Effect.flip(
@@ -564,6 +584,25 @@ describe.skipIf(!databaseUrl)("MCP attachment upload with Postgres", () => {
         )
         expect(f.writes).toHaveLength(0)
       }).pipe(Effect.scoped, Effect.provide(dbLayer))
+  )
+
+  it.effect("rechecks access after the body has been received", () =>
+    Effect.gen(function* () {
+      const f = yield* fixture()
+      const prepared = yield* f.prepare()
+      const revokedWhileStreaming = Stream.fromEffect(
+        Effect.sync(() => {
+          f.options.denied = true
+          return bytes
+        })
+      )
+      const error = yield* Effect.flip(
+        f.receive(prepared.uploadUrl, revokedWhileStreaming)
+      )
+      expect(error._tag).toBe("NotFound")
+      expect(f.writes).toHaveLength(0)
+      expect(yield* f.rows).toMatchObject([{ status: "pending" }])
+    }).pipe(Effect.scoped, Effect.provide(dbLayer))
   )
 
   it.effect("rejects unsupported types before persistence", () =>
@@ -830,34 +869,41 @@ describe("MCP attachment contracts", () => {
         ticketId: "T-122",
         ...input
       })
-      const result = yield* handlers
-        .prepare_ticket_attachment(decoded)
-        .pipe(
-          Effect.provideService(McpRequestUser, Option.some(user)),
-          Effect.provide(
-            Layer.mergeAll(
-              Layer.mock(AttachmentUploads.AttachmentUploads, { prepare }),
-              Layer.mock(BetterAuth.BetterAuth, {}),
-              Layer.mock(Comments.Comments, {}),
-              Layer.mock(GroupDocs.GroupDocs, {}),
-              Layer.mock(Groups.Groups, {}),
-              Layer.mock(OrgStorage.OrgStorage, {}),
-              Layer.mock(ProjectDocs.ProjectDocs, {}),
-              Layer.mock(Projects.Projects, {}),
-              Layer.mock(ProjectStatuses.ProjectStatuses, {}),
-              Layer.mock(Tags.Tags, {}),
-              Layer.mock(TicketDocs.TicketDocs, {}),
-              Layer.mock(TicketIndex.TicketIndex, {}),
-              Layer.mock(Tickets.Tickets, {}),
-              Layer.mock(Users.Users, {}),
-              Layer.mock(Library.Library, {})
-            )
+      const result = yield* handlers.prepare_ticket_attachment(decoded).pipe(
+        Effect.provideService(McpRequestUser, Option.some(user)),
+        Effect.provide(
+          Layer.mergeAll(
+            accessLayer({
+              projects: [
+                projectScope("member", "developer", {
+                  userId: user.id,
+                  orgSlug: "acme",
+                  slug: "demo"
+                })
+              ]
+            }),
+            Layer.mock(AttachmentUploads.AttachmentUploads, { prepare }),
+            Layer.mock(BetterAuth.BetterAuth, {}),
+            Layer.mock(Comments.Comments, {}),
+            Layer.mock(GroupDocs.GroupDocs, {}),
+            Layer.mock(Groups.Groups, {}),
+            Layer.mock(OrgStorage.OrgStorage, {}),
+            Layer.mock(ProjectDocs.ProjectDocs, {}),
+            Layer.mock(Projects.Projects, {}),
+            Layer.mock(ProjectStatuses.ProjectStatuses, {}),
+            Layer.mock(Tags.Tags, {}),
+            Layer.mock(TicketDocs.TicketDocs, {}),
+            Layer.mock(TicketIndex.TicketIndex, {}),
+            Layer.mock(Tickets.Tickets, {}),
+            Layer.mock(Users.Users, {}),
+            Layer.mock(Library.Library, {})
           )
         )
+      )
       expect(result.markdown).toBe(expected.replace("URL", url))
       expect(result.url).toBe(url)
       expect(result.markdown).not.toContain("secret")
-      expect(prepare.mock.calls[0]?.[2]).toEqual({
+      expect(prepare.mock.calls[0]?.[1]).toEqual({
         filename: input.filename,
         contentType: input.contentType
       })

@@ -17,6 +17,7 @@ WORKDIR /app
 # Copy only manifests first so dep install is cache-friendly when source
 # changes but lockfile doesn't.
 COPY package.json bun.lock* bun.lockb* tsconfig.base.json ./
+COPY packages/access/package.json ./packages/access/
 COPY packages/db/package.json ./packages/db/
 COPY packages/server-core/package.json ./packages/server-core/
 COPY packages/shared/package.json ./packages/shared/
@@ -34,11 +35,13 @@ WORKDIR /app
 # this image only serves the backend HTTP API. Bun's isolated linker keeps
 # each workspace's dependency links beside that workspace.
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/access/node_modules ./packages/access/node_modules
 COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY --from=deps /app/packages/server-core/node_modules ./packages/server-core/node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY --from=deps /app/apps/backend/node_modules ./packages/backend/node_modules
 COPY package.json bun.lock* bun.lockb* tsconfig.base.json ./
+COPY packages/access ./packages/access
 COPY packages/db ./packages/db
 COPY packages/server-core ./packages/server-core
 COPY packages/shared ./packages/shared

@@ -20,6 +20,7 @@ import {
 
 import { GroupDocs } from "../groups/GroupDocs"
 import { GroupDocsLive } from "../groups/GroupDocsLive"
+import * as KeyedLock from "../locks/KeyedLock"
 import { Markdown, type MarkdownShape } from "../markdown/Markdown"
 import { TicketDocs } from "../tickets/TicketDocs"
 import { TicketDocsLive } from "../tickets/TicketDocsLive"
@@ -101,6 +102,7 @@ it.effect("TicketDocs reads ticket frontmatter as a typed document", () =>
   }).pipe(
     Effect.provide(
       TicketDocsLive.pipe(
+        Layer.provide(KeyedLock.layer),
         Layer.provide(
           makeMarkdown({
             readTicketParts: () =>
@@ -160,6 +162,7 @@ it.effect(
     }).pipe(
       Effect.provide(
         TicketDocsLive.pipe(
+          Layer.provide(KeyedLock.layer),
           Layer.provide(
             makeMarkdown({
               createTicketFile: (
@@ -239,6 +242,7 @@ it.effect(
     }).pipe(
       Effect.provide(
         TicketDocsLive.pipe(
+          Layer.provide(KeyedLock.layer),
           Layer.provide(
             makeMarkdown({
               writeTicketWithRegion: (
@@ -325,6 +329,7 @@ it.effect("TicketDocs serializes concurrent document updates", () => {
   }).pipe(
     Effect.provide(
       TicketDocsLive.pipe(
+        Layer.provide(KeyedLock.layer),
         Layer.provide(
           makeMarkdown({
             readTicketParts: () => Effect.succeed(stored),
@@ -429,6 +434,7 @@ it.effect(
     }).pipe(
       Effect.provide(
         TicketDocsLive.pipe(
+          Layer.provide(KeyedLock.layer),
           Layer.provide(
             makeMarkdown({
               readTicketParts: () => Effect.succeed(stored),
@@ -562,10 +568,10 @@ it.effect("ProjectDocs reads project frontmatter with typed defaults", () =>
       org: "org",
       slug: "project",
       name: "Project",
-      members: [],
       github: null,
       body: "# Project\n"
     })
+    expect("members" in document).toBe(false)
     expect(document.createdAt.toISOString()).toBe("2026-05-01T00:00:00.000Z")
   }).pipe(
     Effect.provide(
@@ -578,7 +584,8 @@ it.effect("ProjectDocs reads project frontmatter with typed defaults", () =>
                   org: "org",
                   slug: "project",
                   name: "Project",
-                  createdAt: "2026-05-01T00:00:00.000Z"
+                  createdAt: "2026-05-01T00:00:00.000Z",
+                  members: [{ username: "wouter", role: "owner" }]
                 },
                 body: "# Project\n"
               })
@@ -611,7 +618,6 @@ it.effect(
         color: "#53a0ff",
         createdBy: "user-1",
         createdAt: isoDate("2026-05-02T00:00:00.000Z"),
-        members: [{ username: "wouter", role: "owner" }],
         github: {
           repoId: "repo-1",
           repoOwner: "wouter",
@@ -637,7 +643,6 @@ it.effect(
           color: "#53a0ff",
           createdBy: "user-1",
           createdAt: "2026-05-02T00:00:00.000Z",
-          members: [{ username: "wouter", role: "owner" }],
           github: {
             repoId: "repo-1",
             repoOwner: "wouter",
@@ -710,6 +715,7 @@ it.effect(
     }).pipe(
       Effect.provide(
         TicketDocsLive.pipe(
+          Layer.provide(KeyedLock.layer),
           Layer.provide(
             makeMarkdown({
               readTicketFileRaw: (_org, _slug, _id) =>

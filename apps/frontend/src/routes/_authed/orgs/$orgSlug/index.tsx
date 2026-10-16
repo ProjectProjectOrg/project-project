@@ -37,6 +37,7 @@ import {
   type MyTicketsByProjectValue,
   type OrgTicketsValue
 } from "@/features/tickets/atoms/myTickets"
+import { useOrgActor } from "@/lib/access"
 import { formatRelative } from "@/lib/relative-time"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -125,6 +126,8 @@ function Dashboard() {
   }
   const viewer = useAtomValue(me())
   const list = useAtomValue(projectsFor(projectsRequest(orgSlug)))
+  const canCreate = useOrgActor(orgSlug).call("projects", "create")
+  const createCta = canCreate ? <NewProjectCTA orgSlug={orgSlug} /> : null
   const name = Result.isSuccess(viewer)
     ? viewer.value.name.split(" ")[0]
     : m.org_dashboard_greeting_fallback_name()
@@ -141,13 +144,17 @@ function Dashboard() {
         <div className="flex flex-col gap-6 @5xl/dashboard:gap-12">
           {Result.matchWithError(list, {
             onInitial: () => <TilesSkeleton />,
-            onError: () => <NewProjectCTA orgSlug={orgSlug} />,
-            onDefect: () => <NewProjectCTA orgSlug={orgSlug} />,
+            onError: () => createCta,
+            onDefect: () => createCta,
             onSuccess: ({ value }) =>
               value.length === 0 ? (
-                <NewProjectCTA orgSlug={orgSlug} />
+                createCta
               ) : (
-                <RecentProjects orgSlug={orgSlug} projects={value} />
+                <RecentProjects
+                  orgSlug={orgSlug}
+                  projects={value}
+                  canCreate={canCreate}
+                />
               )
           })}
           <div className="grid grid-cols-[minmax(0,1fr)] gap-6 @5xl/dashboard:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] @5xl/dashboard:items-start @5xl/dashboard:gap-12">
@@ -175,11 +182,13 @@ function greet(): string {
 
 function RecentProjects({
   orgSlug,
-  projects
-}: {
+  projects,
+  canCreate
+}: Readonly<{
   orgSlug: string
   projects: ReadonlyArray<Project>
-}) {
+  canCreate: boolean
+}>) {
   const sorted = [...projects].toSorted(
     (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
   )
@@ -206,7 +215,9 @@ function RecentProjects({
         {top.map((p) => (
           <ProjectTile key={p.slug} orgSlug={orgSlug} project={p} />
         ))}
-        <NewProjectTile orgSlug={orgSlug} compact={top.length > 0} />
+        {canCreate && (
+          <NewProjectTile orgSlug={orgSlug} compact={top.length > 0} />
+        )}
       </div>
 
       {hasMore && (

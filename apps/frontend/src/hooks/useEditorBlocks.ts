@@ -9,7 +9,7 @@ import {
   projectLibraryFor,
   projectLibraryRequest
 } from "@/features/library/atoms/library"
-import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
+import { useOrgActor } from "@/lib/access"
 
 import { useMakeBlockDefinition } from "./useMakeBlockDefinition"
 
@@ -23,13 +23,10 @@ export function useEditorBlocks(
   const libraryResult = useAtomValue(
     projectLibraryFor(projectLibraryRequest(orgSlug, slug))
   )
-  const orgResult = useAtomValue(orgDetail(orgRequest(orgSlug)))
   const library = AsyncResult.isSuccess(libraryResult)
     ? libraryResult.value
     : null
-  const canEditOrg =
-    AsyncResult.isSuccess(orgResult) &&
-    (orgResult.value.role === "owner" || orgResult.value.role === "admin")
+  const canEditOrg = useOrgActor(orgSlug).call("library", "createOrgBlock")
   const onMakeDefinition = useMakeBlockDefinition(
     orgSlug,
     slug,

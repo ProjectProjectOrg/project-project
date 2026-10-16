@@ -4,6 +4,7 @@ import type {
   GithubOrgIntegrationStatus,
   GithubRepoPage,
   NotFound,
+  OrgScope,
   RateLimited,
   RepoGone,
   Slug
@@ -12,15 +13,14 @@ import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 
 export interface GitHubIntegrationsShape {
-  readonly getStatus: (
-    orgSlug: string,
-    userId: string
-  ) => Effect.Effect<GithubOrgIntegrationStatus, NotFound>
+  readonly getStatus: () => Effect.Effect<
+    GithubOrgIntegrationStatus,
+    never,
+    OrgScope
+  >
   readonly startInstall: (
-    orgSlug: string,
-    userId: string,
     returnProjectSlug: Slug | null | undefined
-  ) => Effect.Effect<{ installUrl: string }, NotFound | Forbidden | GitHubError>
+  ) => Effect.Effect<{ installUrl: string }, NotFound | GitHubError, OrgScope>
   readonly completeSetup: (
     state: string,
     installationId: string
@@ -33,13 +33,12 @@ export interface GitHubIntegrationsShape {
     NotFound | Forbidden | RateLimited | GitHubError
   >
   readonly listRepos: (
-    orgSlug: string,
-    userId: string,
     query: string | undefined,
     page: number
   ) => Effect.Effect<
     GithubRepoPage,
-    NotFound | Forbidden | RepoGone | RateLimited | GitHubError
+    NotFound | RepoGone | RateLimited | GitHubError,
+    OrgScope
   >
 }
 

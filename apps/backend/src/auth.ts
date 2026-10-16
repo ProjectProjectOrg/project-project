@@ -2,6 +2,7 @@ import { cimd } from "@better-auth/cimd"
 import { mcp } from "@better-auth/mcp"
 import * as BunServices from "@effect/platform-bun/BunServices"
 import * as authSchema from "@pp/db/auth-schema"
+import { invitation, member } from "@pp/db/auth-schema"
 import { publishedProject } from "@pp/db/projectVisibility"
 import * as schema from "@pp/db/schema"
 import {
@@ -11,12 +12,14 @@ import {
   user
 } from "@pp/db/schema"
 import { TicketFrontmatter } from "@pp/server-core/tickets/TicketDocs"
+import { INVITATION_VALID_DAYS } from "@pp/shared"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { APIError } from "better-auth/api"
 import { admin, jwt, magicLink, organization } from "better-auth/plugins"
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq, gt, isNull, ne } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/node-postgres"
+import { alias } from "drizzle-orm/pg-core"
 import { FileSystem, Path, Schema, Struct } from "effect"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -25,6 +28,11 @@ import matter from "gray-matter"
 
 import { fetchClientMetadataResource } from "./auth/cimdTransport"
 import { legacyMcpResources } from "./auth/legacyMcpResources"
+import {
+  orgAccessControl,
+  orgRoles,
+  requireSingleOrgRole
+} from "./auth/orgAccess"
 
 const db = drizzle(process.env.DATABASE_URL!, { relations: schema.relations })
 
@@ -54,13 +62,14 @@ export function lastOrgOwnerBlocked(input: {
   return input.otherOwnerCount === 0
 }
 
-export function projectOwnerRemovalError(
+export function lastProjectPmError(
   projectSlugs: ReadonlyArray<string>
 ): APIError | undefined {
   if (projectSlugs.length === 0) return undefined
   return new APIError(409, {
-    code: "PROJECT_OWNER_REMOVAL_BLOCKED",
-    message: "Transfer project ownership before removing this member",
+    code: "LAST_PROJECT_PM_BLOCKED",
+    message:
+      "Make someone else PM of these projects before removing this member",
     projectSlugs: [...projectSlugs]
   })
 }
@@ -98,20 +107,33 @@ async function assertNotLastOrgOwner(
   }
 }
 
-async function projectOwnerSlugs(organizationId: string, userId: string) {
+async function lastPmProjectSlugs(organizationId: string, userId: string) {
+  const otherPm = alias(projectMember, "other_pm")
   return db
     .select({ slug: projectIndex.slug })
     .from(projectIndex)
     .innerJoin(
       projectMember,
       and(
-        eq(projectMember.projectSlug, projectIndex.slug),
+        eq(projectMember.projectId, projectIndex.id),
         eq(projectMember.userId, userId),
-        eq(projectMember.role, "owner")
+        eq(projectMember.roleId, "pm")
+      )
+    )
+    .leftJoin(
+      otherPm,
+      and(
+        eq(otherPm.projectId, projectIndex.id),
+        eq(otherPm.roleId, "pm"),
+        ne(otherPm.userId, userId)
       )
     )
     .where(
-      and(eq(projectIndex.organizationId, organizationId), publishedProject())
+      and(
+        eq(projectIndex.organizationId, organizationId),
+        isNull(otherPm.userId),
+        publishedProject()
+      )
     )
 }
 
@@ -181,46 +203,177 @@ async function unassignUserFromActiveTicketsOnDisk(
                 )
               )
             )
-          }),
-        { concurrency: 8 }
+          }).pipe(
+            Effect.catchCause((cause) =>
+              Effect.logWarning("unassign skipped a ticket", { file, cause })
+            )
+          ),
+        { concurrency: 8, discard: true }
       )
-    }).pipe(Effect.provide(BunServices.layer))
+    }).pipe(
+      Effect.catchCause((cause) =>
+        Effect.logWarning("unassign could not read a project's tickets", {
+          orgSlug,
+          projectSlug,
+          cause
+        })
+      ),
+      Effect.provide(BunServices.layer)
+    )
   )
 }
 
-async function cleanupRemovedOrgMemberProjectAccess(
+export async function assertNotLastProjectPm(
+  organizationId: string,
+  userId: string
+) {
+  const lastPm = await lastPmProjectSlugs(organizationId, userId)
+  const blocked = lastProjectPmError(lastPm.map((project) => project.slug))
+  if (blocked) throw blocked
+}
+
+const constraintOf = (error: unknown): string | undefined => {
+  if (typeof error !== "object" || error === null) return undefined
+  if ("constraint" in error && typeof error.constraint === "string") {
+    return error.constraint
+  }
+  return "cause" in error ? constraintOf(error.cause) : undefined
+}
+
+export const violatesProjectKeepsAPm = (error: unknown) =>
+  constraintOf(error) === "project_keeps_a_pm"
+
+export async function keepingAProjectPm<A>(
+  organizationId: string,
+  userId: string,
+  run: () => Promise<A>
+) {
+  try {
+    return await run()
+  } catch (error) {
+    if (violatesProjectKeepsAPm(error)) {
+      await assertNotLastProjectPm(organizationId, userId)
+    }
+    throw error
+  }
+}
+
+export async function unassignRemovedOrgMember(
   orgSlug: string,
   organizationId: string,
   userId: string
 ) {
-  const rows = await db
-    .select({ slug: projectIndex.slug })
-    .from(projectIndex)
-    .innerJoin(
-      projectMember,
-      and(
-        eq(projectMember.projectSlug, projectIndex.slug),
-        eq(projectMember.userId, userId)
+  const projects = await Effect.runPromise(
+    Effect.tryPromise(() =>
+      db
+        .select({ slug: projectIndex.slug })
+        .from(projectIndex)
+        .where(
+          and(
+            eq(projectIndex.organizationId, organizationId),
+            publishedProject()
+          )
+        )
+    ).pipe(
+      Effect.catchCause((cause) =>
+        Effect.as(
+          Effect.logWarning("unassign could not list the org's projects", {
+            orgSlug,
+            cause
+          }),
+          []
+        )
       )
-    )
-    .where(
-      and(eq(projectIndex.organizationId, organizationId), publishedProject())
-    )
-  const slugs = rows.map((row) => row.slug)
-  await Promise.all(
-    slugs.map((slug) =>
-      unassignUserFromActiveTicketsOnDisk(orgSlug, slug, userId)
     )
   )
-  if (slugs.length === 0) return
-  await db
-    .delete(projectMember)
-    .where(
+  await Promise.all(
+    projects.map((project) =>
+      unassignUserFromActiveTicketsOnDisk(orgSlug, project.slug, userId)
+    )
+  )
+}
+
+type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+async function applyProjectInviteGrants(
+  tx: Transaction,
+  invite: Readonly<{ id: string; organizationId: string }>,
+  userId: string
+) {
+  const grants = await tx
+    .select({
+      projectId: projectInviteGrant.projectId,
+      roleId: projectInviteGrant.roleId
+    })
+    .from(projectInviteGrant)
+    .innerJoin(
+      projectIndex,
       and(
-        eq(projectMember.userId, userId),
-        inArray(projectMember.projectSlug, slugs)
+        eq(projectIndex.id, projectInviteGrant.projectId),
+        eq(projectIndex.organizationId, invite.organizationId),
+        publishedProject()
       )
     )
+    .where(eq(projectInviteGrant.invitationId, invite.id))
+  if (grants.length > 0) {
+    await tx
+      .insert(projectMember)
+      .values(
+        grants.map((grant) => ({
+          projectId: grant.projectId,
+          organizationId: invite.organizationId,
+          userId,
+          roleId: grant.roleId
+        }))
+      )
+      .onConflictDoNothing({
+        target: [projectMember.projectId, projectMember.userId]
+      })
+  }
+  await tx
+    .delete(projectInviteGrant)
+    .where(eq(projectInviteGrant.invitationId, invite.id))
+}
+
+export async function acceptAsExistingMember(
+  invitationId: string,
+  account: Readonly<{ id: string; email: string; emailVerified: boolean }>
+) {
+  if (!account.emailVerified) return null
+  return db.transaction(async (tx) => {
+    const [invite] = await tx
+      .select({
+        id: invitation.id,
+        organizationId: invitation.organizationId
+      })
+      .from(invitation)
+      .where(
+        and(
+          eq(invitation.id, invitationId),
+          eq(invitation.status, "pending"),
+          gt(invitation.expiresAt, DateTime.toDate(DateTime.nowUnsafe())),
+          eq(invitation.email, account.email.toLowerCase())
+        )
+      )
+      .for("update")
+    if (!invite) return null
+    const [existing] = await tx
+      .select({ role: member.role })
+      .from(member)
+      .where(
+        and(
+          eq(member.organizationId, invite.organizationId),
+          eq(member.userId, account.id)
+        )
+      )
+    if (!existing) return null
+    await applyProjectInviteGrants(tx, invite, account.id)
+    await tx
+      .update(invitation)
+      .set({ status: "accepted" })
+      .where(eq(invitation.id, invite.id))
+    return { organizationId: invite.organizationId, role: existing.role }
+  })
 }
 
 export const mcpResource = new URL(
@@ -337,6 +490,10 @@ export const auth = betterAuth({
   },
   plugins: [
     organization({
+      ac: orgAccessControl,
+      roles: orgRoles,
+      disableOrganizationDeletion: true,
+      invitationExpiresIn: INVITATION_VALID_DAYS * 24 * 60 * 60,
       requireEmailVerificationOnInvitation: true,
       allowUserToCreateOrganization: false,
       schema: {
@@ -363,29 +520,41 @@ export const auth = betterAuth({
         )
       },
       organizationHooks: {
+        beforeUpdateOrganization: async ({ organization }) => {
+          if (
+            Object.entries(organization).some(
+              ([field, value]) => field !== "name" && value !== undefined
+            )
+          ) {
+            throw new APIError("BAD_REQUEST", {
+              code: "ORGANIZATION_FIELD_LOCKED",
+              message: "Only the organization name can be changed"
+            })
+          }
+        },
+        beforeCreateInvitation: async ({ invitation }) => {
+          requireSingleOrgRole(invitation.role)
+        },
+        beforeAddMember: async ({ member }) => {
+          requireSingleOrgRole(member.role)
+        },
         beforeRemoveMember: async ({ member }) => {
           await assertNotLastOrgOwner(
             member.organizationId,
             member.userId,
             null
           )
-          const owned = await projectOwnerSlugs(
-            member.organizationId,
-            member.userId
-          )
-          const blocked = projectOwnerRemovalError(
-            owned.map((project) => project.slug)
-          )
-          if (blocked) throw blocked
+          await assertNotLastProjectPm(member.organizationId, member.userId)
         },
         afterRemoveMember: async ({ member, organization }) => {
-          await cleanupRemovedOrgMemberProjectAccess(
+          await unassignRemovedOrgMember(
             organization.slug,
             member.organizationId,
             member.userId
           )
         },
         beforeUpdateMemberRole: async ({ member, newRole }) => {
+          requireSingleOrgRole(newRole)
           await assertNotLastOrgOwner(
             member.organizationId,
             member.userId,
@@ -393,44 +562,9 @@ export const auth = betterAuth({
           )
         },
         afterAcceptInvitation: async ({ invitation, user }) => {
-          await db.transaction(async (tx) => {
-            const grants = await tx
-              .select({
-                projectSlug: projectInviteGrant.projectSlug,
-                projectId: projectInviteGrant.projectId,
-                role: projectInviteGrant.role
-              })
-              .from(projectInviteGrant)
-              .innerJoin(
-                projectIndex,
-                and(
-                  eq(projectIndex.slug, projectInviteGrant.projectSlug),
-                  eq(projectIndex.id, projectInviteGrant.projectId),
-                  publishedProject()
-                )
-              )
-              .where(eq(projectInviteGrant.invitationId, invitation.id))
-
-            if (grants.length > 0) {
-              await tx
-                .insert(projectMember)
-                .values(
-                  grants.map((grant) => ({
-                    projectSlug: grant.projectSlug,
-                    projectId: grant.projectId,
-                    userId: user.id,
-                    role: grant.role
-                  }))
-                )
-                .onConflictDoNothing({
-                  target: [projectMember.projectSlug, projectMember.userId]
-                })
-            }
-
-            await tx
-              .delete(projectInviteGrant)
-              .where(eq(projectInviteGrant.invitationId, invitation.id))
-          })
+          await db.transaction((tx) =>
+            applyProjectInviteGrants(tx, invitation, user.id)
+          )
         },
         afterRejectInvitation: async ({ invitation }) => {
           await db

@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { OrgDetail, OrgStorageStatus } from "@pp/shared"
+import type { OrgStorageStatus } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
@@ -18,6 +18,7 @@ import {
   orgStorage,
   storageRequest
 } from "@/features/projects/atoms/storage"
+import { useOrgActor } from "@/lib/access"
 import { type AppError, errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -41,18 +42,13 @@ function StorageSettings() {
     onInitial: () => <StorageSkeleton />,
     onError: (error) => <ErrorPage error={error} contained />,
     onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value: org }) =>
+    onSuccess: () =>
       Result.matchWithError(storageResult, {
         onInitial: () => <StorageSkeleton />,
         onError: (error) => <ErrorPage error={error} contained />,
         onDefect: (defect) => <ErrorPage error={defect} contained />,
         onSuccess: ({ value: status, waiting }) => (
-          <StorageForm
-            orgSlug={orgSlug}
-            role={org.role}
-            status={status}
-            waiting={waiting}
-          />
+          <StorageForm orgSlug={orgSlug} status={status} waiting={waiting} />
         )
       })
   })
@@ -60,16 +56,14 @@ function StorageSettings() {
 
 function StorageForm({
   orgSlug,
-  role,
   status,
   waiting
 }: {
   orgSlug: string
-  role: OrgDetail["role"]
   status: OrgStorageStatus
   waiting: boolean
 }) {
-  const canEdit = role === "owner" || role === "admin"
+  const canEdit = useOrgActor(orgSlug).call("storage", "connect")
 
   if (!canEdit) {
     return (

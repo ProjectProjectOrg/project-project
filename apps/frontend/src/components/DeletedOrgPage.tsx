@@ -15,6 +15,7 @@ import {
   orgRequest,
   restoreOrg
 } from "@/features/organizations/atoms/orgs"
+import { useOrgActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -45,7 +46,7 @@ function DeletedBody({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
   const [error, setError] = useState<string | null>(null)
 
   const restoring = restoreState.waiting
-  const isOwner = org.role === "owner"
+  const canRestore = useOrgActor(orgSlug).call("org", "restore")
 
   async function onRestore() {
     setError(null)
@@ -88,7 +89,7 @@ function DeletedBody({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
         ) : null}
       </div>
 
-      {isOwner ? (
+      {canRestore ? (
         <div className="relative flex w-full max-w-xs flex-col gap-2 px-8 pt-4 pb-8">
           <Button
             variant="primary"

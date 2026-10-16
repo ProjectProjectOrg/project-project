@@ -7,6 +7,7 @@ import {
   UserId,
   encodeCursor,
   padNumericIdSort,
+  ProjectScope,
   TagName,
   TicketId,
   TicketStatus,
@@ -20,6 +21,7 @@ import * as Schema from "effect/Schema"
 import pg from "pg"
 import { describe, expect } from "vitest"
 
+import { projectScope } from "../access/testing"
 import { Comments } from "../comments/Comments"
 import { serializeCommentsRegion } from "../comments/comments-region"
 import { CommentsLive } from "../comments/CommentsLive"
@@ -307,9 +309,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       Layer.provide(
         Layer.mergeAll(
           ticketDocs,
-          Layer.mock(Projects, {
-            requireMember: () => Effect.succeed({ role: "member" as const })
-          }),
+          Layer.mock(Projects, {}),
           Layer.mock(TicketIndex, {}),
           Layer.mock(Users, {
             fullByIds: () => Effect.succeed([author])
@@ -341,8 +341,8 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       yield* Effect.addFinalizer(() =>
         withClient(async (client) => {
           await client.query(
-            "delete from comment_index where project_slug = $1",
-            [projectSlug]
+            "delete from comment_index where project_id = $1",
+            [projectId]
           )
           await client.query("delete from organization where id = $1", [
             organizationId
@@ -369,9 +369,9 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           `select id, origin, author_kind, author_id, jira_display_name,
                     jira_account_id, created_at, edited_at
              from comment_index
-             where project_slug = $1 and ticket_id = $2
+             where project_id = $1 and ticket_id = $2
              order by created_at`,
-          [projectSlug, rebuildDocument.id]
+          [projectId, rebuildDocument.id]
         )
       )
       expect(rows.rows).toEqual([
@@ -409,13 +409,20 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
 
       const listed = yield* Effect.gen(function* () {
         const comments = yield* Comments
-        return yield* comments.list(
-          orgSlug,
-          userId,
-          projectSlug,
-          rebuildDocument.id
+        return yield* comments.list(rebuildDocument.id)
+      }).pipe(
+        Effect.provide(commentsLayer),
+        Effect.provideService(
+          ProjectScope,
+          projectScope("member", "developer", {
+            userId,
+            organizationId,
+            orgSlug,
+            slug: projectSlug,
+            projectId
+          })
         )
-      }).pipe(Effect.provide(commentsLayer))
+      )
       expect(listed).toEqual([
         {
           id: nativeId,
@@ -1169,9 +1176,9 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
         )
         yield* withClient((client) =>
           client.query(
-            `insert into comment_index (id, project_slug, ticket_id, origin, author_kind, author_id)
+            `insert into comment_index (id, project_id, ticket_id, origin, author_kind, author_id)
                values ($1, $2, 'BE-2', 'native', 'user', $3)`,
-            [`comment-${suffix}`, betaSlug, viewerId]
+            [`comment-${suffix}`, beta.projectId, viewerId]
           )
         )
 

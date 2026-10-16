@@ -3,18 +3,17 @@ import { randomUUID } from "node:crypto"
 import { readFile } from "node:fs/promises"
 
 import { PgClient } from "@effect/sql-pg"
-import { Db, DbLive } from "@pp/db"
+import { DbLive } from "@pp/db"
+import { Access } from "@pp/server-core/access/Access"
+import { AccessLive } from "@pp/server-core/access/AccessLive"
+import { orgScope } from "@pp/server-core/access/testing"
 import { Attachments } from "@pp/server-core/attachments/Attachments"
 import { AttachmentsLive } from "@pp/server-core/attachments/AttachmentsLive"
-import { Comments } from "@pp/server-core/comments/Comments"
 import { Figma } from "@pp/server-core/figma/Figma"
 import { FigmaIntegrations } from "@pp/server-core/figma/FigmaIntegrations"
 import { FigmaLinks } from "@pp/server-core/figma/FigmaLinks"
 import { FigmaLinksLive } from "@pp/server-core/figma/FigmaLinksLive"
 import { GitHub } from "@pp/server-core/github/GitHub"
-import { Groups } from "@pp/server-core/groups/Groups"
-import { Library } from "@pp/server-core/library/Library"
-import { CurrentOrg } from "@pp/server-core/organizations/CurrentOrg"
 import { BannerPlaceholders } from "@pp/server-core/projects/BannerPlaceholders"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { Projects } from "@pp/server-core/projects/Projects"
@@ -25,9 +24,9 @@ import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
 import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
 import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
-import { TicketsLive } from "@pp/server-core/tickets/TicketsLive"
+import { Tickets } from "@pp/server-core/tickets/Tickets"
 import { Users } from "@pp/server-core/users/Users"
-import { AppApi, Authentication, CurrentUser, NotFound } from "@pp/shared"
+import { AppApi, Authentication, CurrentUser, OrgScope } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as Context from "effect/Context"
@@ -41,6 +40,7 @@ import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 
 import { TicketsHandlerLive } from "./handlers/tickets"
+import { OrgAccessLive, ProjectAccessLive } from "./Layers/Access"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -50,7 +50,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
   const publishedId = randomUUID()
   const hiddenId = randomUUID()
   let pool: Pool
-  let projectsRuntime: ManagedRuntime.ManagedRuntime<Projects, never>
+  let projectsRuntime: ManagedRuntime.ManagedRuntime<Projects | Access, never>
   let ticketIndexRuntime: ManagedRuntime.ManagedRuntime<TicketIndex, never>
   let reconciledSlugs: ReadonlyArray<string> = []
 
@@ -61,13 +61,10 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
       )
     )
 
-  const ownerOrg = Layer.succeed(CurrentOrg, {
-    resolve: () =>
-      Effect.succeed({
-        organizationId,
-        orgSlug: `visibility-${organizationId}`,
-        role: "owner" as const
-      })
+  const ownerScope = orgScope("owner", {
+    userId,
+    organizationId,
+    orgSlug: `visibility-${organizationId}`
   })
 
   const apiRouter = Layer.effect(
@@ -75,9 +72,10 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
     Effect.map(HttpRouter.HttpRouter, (router) => router.prefixed("/api"))
   )
 
-  const nonMemberProjects = Layer.succeed(Projects, {
-    requireMember: () => Effect.fail(new NotFound())
-  } as never)
+  const access = () => AccessLive.pipe(Layer.provide(dbLayer()))
+
+  const asOwner = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    Effect.provideService(effect, CurrentUser, { id: userId } as never)
 
   const storage = Layer.succeed(OrgStorage, {
     requireConnection: () =>
@@ -92,14 +90,18 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
       })
   } as never)
 
-  const insertAttachment = (id: string, projectSlug: string, status = "live") =>
+  const insertAttachment = (
+    id: string,
+    projectId: string | null,
+    status = "live"
+  ) =>
     pool.query(
-      "insert into attachment_index (id, organization_id, org_slug, project_slug, ticket_id, object_key, filename, content_type, byte_size, status, uploaded_by) values ($1, $2, $3, $4, 'T-1', $5, 'image.png', 'image/png', 10, $6, $7)",
+      "insert into attachment_index (id, organization_id, org_slug, project_id, ticket_id, object_key, filename, content_type, byte_size, status, uploaded_by) values ($1, $2, $3, $4, 'T-1', $5, 'image.png', 'image/png', 10, $6, $7)",
       [
         id,
         organizationId,
         `visibility-${organizationId}`,
-        projectSlug,
+        projectId,
         `visibility/${id}.png`,
         status,
         userId
@@ -150,8 +152,8 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
         ]
       )
       await pool.query(
-        "insert into project_member (project_slug, project_id, user_id, role) values ($1, $2, $3, 'owner')",
-        [slug, id, userId]
+        "insert into project_member (project_id, organization_id, user_id, role_id) values ($1, $2, $3, 'pm')",
+        [id, organizationId, userId]
       )
     }
 
@@ -161,8 +163,9 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
       )
     )
     const ticketDocs = Layer.mock(TicketDocs, {
-      listIds: (_orgSlug, projectSlug) => {
-        reconciledSlugs = [...reconciledSlugs, projectSlug]
+      listIds: (orgSlug, projectSlug) => {
+        if (orgSlug === `visibility-${organizationId}`)
+          reconciledSlugs = [...reconciledSlugs, projectSlug]
         return Effect.succeed([])
       }
     })
@@ -174,6 +177,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
     ticketIndexRuntime = ManagedRuntime.make(ticketIndex)
     projectsRuntime = ManagedRuntime.make(
       ProjectsLive.pipe(
+        Layer.provideMerge(AccessLive),
         Layer.provide(TicketDocumentLock.layer),
         Layer.provide(
           Layer.mergeAll(
@@ -207,30 +211,19 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
     const result = await projectsRuntime.runPromise(
       Effect.gen(function* () {
         const projects = yield* Projects
-        const listed = yield* projects.list(
-          `visibility-${organizationId}`,
-          userId
-        )
+        const access = yield* Access
+        const listed = yield* projects.list()
+        const scopes = yield* access.projectsInOrg()
         const hiddenProject = yield* Effect.result(
-          projects.get(`visibility-${organizationId}`, userId, "hidden")
+          access.project(`visibility-${organizationId}`, "hidden")
         )
-        const hiddenMembership = yield* Effect.result(
-          projects.requireMember(
-            `visibility-${organizationId}`,
-            userId,
-            "hidden"
-          )
-        )
-        return { listed, hiddenProject, hiddenMembership }
-      })
+        return { listed, scopes, hiddenProject }
+      }).pipe(Effect.provideService(OrgScope, ownerScope), asOwner)
     )
 
     expect(result.listed.map((project) => project.slug)).toEqual(["published"])
+    expect(result.scopes.map((scope) => scope.slug)).toEqual(["published"])
     expect(result.hiddenProject).toMatchObject({
-      _tag: "Failure",
-      failure: { _tag: "NotFound" }
-    })
-    expect(result.hiddenMembership).toMatchObject({
       _tag: "Failure",
       failure: { _tag: "NotFound" }
     })
@@ -245,38 +238,16 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
 
   it("returns HTTP 404 for the public hidden-project ticket list route", async () => {
     const ticketsGroup = AppApi.groups.tickets
-    const projects = Layer.succeed(Projects, {
-      requireMember: (orgSlug: string, memberId: string, slug: string) =>
-        Effect.tryPromise({
-          try: () =>
-            projectsRuntime.runPromise(
-              Effect.flatMap(Projects, (service) =>
-                service.requireMember(orgSlug, memberId, slug)
-              )
-            ),
-          catch: (error) => error as NotFound
-        }).pipe(Effect.mapError(() => new NotFound()))
-    } as never)
-    const tickets = TicketsLive.pipe(
-      Layer.provide(Layer.succeed(TicketDocs, {} as never)),
-      Layer.provide(projects),
-      Layer.provide(Layer.succeed(GitHub, {} as never)),
-      Layer.provide(Layer.succeed(Groups, {} as never)),
-      Layer.provide(Layer.succeed(Library, {} as never)),
-      Layer.provide(Layer.succeed(Comments, {} as never)),
-      Layer.provide(Layer.succeed(Attachments, {} as never)),
-      Layer.provide(Layer.succeed(FigmaLinks, {} as never)),
-      Layer.provide(Layer.succeed(Users, {} as never)),
-      Layer.provide(Layer.succeed(Db, {} as never)),
-      Layer.provide(Layer.succeed(TicketIndex, {} as never)),
-      Layer.provideMerge(TicketDocumentLock.layer)
-    )
     const api = HttpApiBuilder.layer(
       HttpApi.make(AppApi.identifier).add(ticketsGroup)
     ).pipe(
       Layer.provide(TicketsHandlerLive),
-      Layer.provide(tickets),
-      Layer.provide(ownerOrg),
+      Layer.provide(Layer.mock(Tickets, {})),
+      Layer.provide(
+        Layer.mergeAll(OrgAccessLive, ProjectAccessLive).pipe(
+          Layer.provide(access())
+        )
+      ),
       Layer.provide(
         Layer.succeed(Authentication, {
           sessionCookie: (httpEffect) =>
@@ -314,9 +285,11 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
       [hiddenId]
     )
 
-    expect(summary.projects.map(({ project }) => project.projectSlug)).toEqual([
-      "published"
-    ])
+    expect(
+      summary.projects
+        .filter(({ project }) => project.organizationId === organizationId)
+        .map(({ project }) => project.projectSlug)
+    ).toEqual(["published"])
     expect(reconciledSlugs).toEqual(["published"])
     expect(hidden.rows).toEqual([{ id: hiddenId }])
   })
@@ -324,14 +297,14 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
   it("keeps hidden-only attachment and thumbnail resources from reaching object signing", async () => {
     const attachmentId = `hidden-attachment-${randomUUID()}`
     const linkId = `hidden-figma-${randomUUID()}`
-    await insertAttachment(attachmentId, "hidden")
+    await insertAttachment(attachmentId, hiddenId)
     await pool.query(
-      "insert into figma_link_index (id, organization_id, org_slug, project_slug, file_key, node_id, kind, thumbnail_key) values ($1, $2, $3, 'hidden', 'file-key', null, 'design', 'visibility/thumbnail.png')",
-      [linkId, organizationId, `visibility-${organizationId}`]
+      "insert into figma_link_index (id, organization_id, project_id, file_key, node_id, kind, thumbnail_key) values ($1, $2, $3, 'file-key', null, 'design', 'visibility/thumbnail.png')",
+      [linkId, organizationId, hiddenId]
     )
     await pool.query(
-      "insert into figma_reference (link_id, org_slug, project_slug, ticket_id) values ($1, $2, 'hidden', 'T-1')",
-      [linkId, `visibility-${organizationId}`]
+      "insert into figma_reference (link_id, project_id, ticket_id) values ($1, $2, 'T-1')",
+      [linkId, hiddenId]
     )
 
     let attachmentSigns = 0
@@ -339,19 +312,19 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
       Attachments.pipe(
         Effect.flatMap((service) =>
           Effect.exit(
-            service.resolveForServing(
-              `visibility-${organizationId}`,
-              attachmentId,
-              userId
+            asOwner(
+              service.resolveForServing(
+                `visibility-${organizationId}`,
+                attachmentId
+              )
             )
           )
         ),
         Effect.provide(
           AttachmentsLive.pipe(
             Layer.provide(dbLayer()),
-            Layer.provide(ownerOrg),
+            Layer.provide(access()),
             Layer.provide(storage),
-            Layer.provide(nonMemberProjects),
             Layer.provide(
               Layer.succeed(S3Storage, {
                 presignGet: () =>
@@ -371,19 +344,19 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
       FigmaLinks.pipe(
         Effect.flatMap((service) =>
           Effect.exit(
-            service.resolveThumbnailUrl(
-              `visibility-${organizationId}`,
-              userId,
-              linkId
+            asOwner(
+              service.resolveThumbnailUrl(
+                `visibility-${organizationId}`,
+                linkId
+              )
             )
           )
         ),
         Effect.provide(
           FigmaLinksLive.pipe(
             Layer.provide(dbLayer()),
-            Layer.provide(ownerOrg),
+            Layer.provide(access()),
             Layer.provide(storage),
-            Layer.provide(nonMemberProjects),
             Layer.provide(Layer.succeed(Figma, {} as never)),
             Layer.provide(Layer.succeed(FigmaIntegrations, {} as never)),
             Layer.provide(
@@ -408,25 +381,25 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
 
   it("serves a genuine orphaned attachment to an organization admin", async () => {
     const attachmentId = `orphaned-serving-${randomUUID()}`
-    await insertAttachment(attachmentId, "deleted-project", "orphaned")
+    await insertAttachment(attachmentId, null, "orphaned")
     let signs = 0
     const result = await Effect.runPromise(
       Attachments.pipe(
         Effect.flatMap((service) =>
           Effect.exit(
-            service.resolveForServing(
-              `visibility-${organizationId}`,
-              attachmentId,
-              userId
+            asOwner(
+              service.resolveForServing(
+                `visibility-${organizationId}`,
+                attachmentId
+              )
             )
           )
         ),
         Effect.provide(
           AttachmentsLive.pipe(
             Layer.provide(dbLayer()),
-            Layer.provide(ownerOrg),
+            Layer.provide(access()),
             Layer.provide(storage),
-            Layer.provide(nonMemberProjects),
             Layer.provide(
               Layer.succeed(S3Storage, {
                 presignGet: () =>
@@ -452,35 +425,28 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
     const publishedAttachment = `published-attachment-${randomUUID()}`
     const hiddenAttachment = `hidden-attachment-${randomUUID()}`
     const orphanedAttachment = `orphaned-attachment-${randomUUID()}`
-    await insertAttachment(publishedAttachment, "published")
-    await insertAttachment(hiddenAttachment, "hidden")
-    await insertAttachment(orphanedAttachment, "deleted-project", "orphaned")
+    await insertAttachment(publishedAttachment, publishedId)
+    await insertAttachment(hiddenAttachment, hiddenId)
+    await insertAttachment(orphanedAttachment, null, "orphaned")
     await pool.query(
-      "insert into attachment_reference (attachment_id, org_slug, project_slug, ticket_id) values ($1, $2, 'published', 'T-1'), ($1, $2, 'hidden', 'T-2')",
-      [publishedAttachment, `visibility-${organizationId}`]
+      "insert into attachment_reference (attachment_id, project_id, ticket_id) values ($1, $2, 'T-1'), ($1, $3, 'T-2')",
+      [publishedAttachment, publishedId, hiddenId]
     )
 
     const result = await Effect.runPromise(
       Attachments.pipe(
         Effect.flatMap((service) =>
           Effect.all({
-            page: service.listForOrg(
-              `visibility-${organizationId}`,
-              userId,
-              {}
-            ),
-            summary: service.summarizeForOrg(
-              `visibility-${organizationId}`,
-              userId
-            )
+            page: service.listForOrg({}),
+            summary: service.summarizeForOrg()
           })
         ),
+        Effect.provideService(OrgScope, ownerScope),
         Effect.provide(
           AttachmentsLive.pipe(
             Layer.provide(dbLayer()),
-            Layer.provide(ownerOrg),
+            Layer.provide(access()),
             Layer.provide(storage),
-            Layer.provide(nonMemberProjects),
             Layer.provide(Layer.succeed(S3Storage, {} as never))
           )
         )
@@ -499,25 +465,19 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
 
   it("refuses to delete a hidden-project attachment from the organization library", async () => {
     const attachmentId = `hidden-delete-${randomUUID()}`
-    await insertAttachment(attachmentId, "hidden")
+    await insertAttachment(attachmentId, hiddenId)
     let deletedObjects = 0
     const result = await Effect.runPromise(
       Attachments.pipe(
         Effect.flatMap((service) =>
-          Effect.exit(
-            service.deleteForOrg(
-              `visibility-${organizationId}`,
-              attachmentId,
-              userId
-            )
-          )
+          Effect.exit(service.deleteForOrg(attachmentId))
         ),
+        Effect.provideService(OrgScope, ownerScope),
         Effect.provide(
           AttachmentsLive.pipe(
             Layer.provide(dbLayer()),
-            Layer.provide(ownerOrg),
+            Layer.provide(access()),
             Layer.provide(storage),
-            Layer.provide(nonMemberProjects),
             Layer.provide(
               Layer.succeed(S3Storage, {
                 deleteObject: () =>

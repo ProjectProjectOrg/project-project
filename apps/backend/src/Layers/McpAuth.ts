@@ -1,13 +1,14 @@
 import { createResourceServerChallenge } from "@better-auth/oauth-provider"
 import { Db } from "@pp/db"
-import { oauthConsent } from "@pp/db/auth-schema"
+import { oauthClient, oauthConsent, user } from "@pp/db/auth-schema"
 import { Users } from "@pp/server-core/users/Users"
 import {
   createDpopReplayStore,
   verifyAccessTokenRequest
 } from "better-auth/oauth2"
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq, inArray, isNull, or } from "drizzle-orm"
 import * as Data from "effect/Data"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
@@ -28,6 +29,8 @@ class TokenRejected extends Data.TaggedError("TokenRejected")<{
 class InvalidAccessToken extends Data.TaggedError("InvalidAccessToken")<{}> {}
 
 class ConsentRevoked extends Data.TaggedError("ConsentRevoked")<{}> {}
+
+class UserBanned extends Data.TaggedError("UserBanned")<{}> {}
 
 const AccessTokenClaims = Schema.Struct({
   sub: Schema.String,
@@ -119,17 +122,32 @@ export const McpAuthMiddlewareLive = HttpRouter.middleware(
       const consents = yield* db
         .select({ id: oauthConsent.id })
         .from(oauthConsent)
+        .innerJoin(oauthClient, eq(oauthClient.clientId, oauthConsent.clientId))
         .where(
           and(
             eq(oauthConsent.userId, decoded.sub),
             eq(oauthConsent.clientId, decoded.client_id),
-            inArray(oauthConsent.id, decoded.pp_consent_ids)
+            inArray(oauthConsent.id, decoded.pp_consent_ids),
+            or(isNull(oauthClient.disabled), eq(oauthClient.disabled, false))
           )
         )
         .limit(1)
         .pipe(Effect.orDie)
       if (consents.length === 0) {
         return yield* new ConsentRevoked()
+      }
+      const [account] = yield* db
+        .select({ banned: user.banned, banExpires: user.banExpires })
+        .from(user)
+        .where(eq(user.id, decoded.sub))
+        .limit(1)
+        .pipe(Effect.orDie)
+      const now = yield* DateTime.nowAsDate
+      if (
+        account?.banned &&
+        (account.banExpires === null || account.banExpires > now)
+      ) {
+        return yield* new UserBanned()
       }
       const found = yield* users.fullByIds([decoded.sub])
       if (!found[0]) {
@@ -142,17 +160,18 @@ export const McpAuthMiddlewareLive = HttpRouter.middleware(
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest
         const claims = yield* verify(request)
-        const user = yield* resolveUser(claims)
+        const caller = yield* resolveUser(claims)
         return yield* Effect.provideService(
           effect,
           McpRequestUser,
-          Option.some(user)
+          Option.some(caller)
         )
       }).pipe(
         Effect.catchTags({
           TokenRejected: (e) => challenge(e.cause),
           InvalidAccessToken: () => Effect.succeed(unauthorized),
-          ConsentRevoked: () => Effect.succeed(unauthorized)
+          ConsentRevoked: () => Effect.succeed(unauthorized),
+          UserBanned: () => Effect.succeed(jsonRpcError("Forbidden", 403))
         })
       )
   })

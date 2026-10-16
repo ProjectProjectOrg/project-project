@@ -79,26 +79,31 @@ export const projectLibraryFor = Atom.family((req: ProjectLibraryRequest) =>
   Atom.optimistic(projectLibraryQuery(req))
 )
 
-type LibraryView = ReturnType<typeof orgLibraryFor>
+type LibraryView<E> = Atom.Writable<
+  AsyncResult.AsyncResult<Library, E>,
+  Atom.Atom<
+    AsyncResult.AsyncResult<AsyncResult.AsyncResult<Library, E>, unknown>
+  >
+>
 
-type LibraryTarget = Readonly<{
-  view: LibraryView
+type LibraryTarget<E> = Readonly<{
+  view: LibraryView<E>
   publish: ReadonlyArray<string>
 }>
 
-const orgTarget = (req: OrgLibraryRequest): LibraryTarget => ({
+const orgTarget = (req: OrgLibraryRequest) => ({
   view: orgLibraryFor(req),
   publish: [Keys.orgLibrary(req.params.orgSlug)]
 })
 
-const projectTarget = (req: ProjectLibraryRequest): LibraryTarget => ({
+const projectTarget = (req: ProjectLibraryRequest) => ({
   view: projectLibraryFor(req),
   publish: [Keys.projectLibrary(scopeOf(req))]
 })
 
-const libraryMutation = <Input, A, E>(
+const libraryMutation = <Input, A, E, ViewError>(
   name: string,
-  target: LibraryTarget,
+  target: LibraryTarget<ViewError>,
   predict: (library: Library, input: Input) => Library,
   call: (input: Input) => Effect.Effect<A, E, Api>,
   confirm: (library: Library, confirmed: A, input: Input) => Library

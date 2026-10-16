@@ -10,14 +10,14 @@ import {
 
 export const ProjectContext = createContext<ProjectRequest | null>(null)
 
-const requireProjectRequest = (req: ProjectRequest | null): ProjectRequest => {
-  if (!req) throw new Error("useProject must be inside ProjectContext")
+export function useProjectRequest(): ProjectRequest {
+  const req = useContext(ProjectContext)
+  if (!req) throw new Error("useProjectRequest must be inside ProjectContext")
   return req
 }
 
 export function useProject(): ProjectDetail {
-  const req = requireProjectRequest(useContext(ProjectContext))
-  const result = useAtomValue(project(req))
+  const result = useAtomValue(project(useProjectRequest()))
   if (!AsyncResult.isSuccess(result)) {
     throw new Error("project is unavailable")
   }

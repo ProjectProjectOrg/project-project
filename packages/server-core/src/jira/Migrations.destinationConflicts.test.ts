@@ -17,7 +17,7 @@ const destination = Schema.decodeUnknownSync(JiraMigrationConfiguration)({
   attachmentSkipsAccepted: false
 }).destination
 
-it("reports exact global slug, organization key, and ticket ID conflicts", () => {
+it("reports exact organization slug, key, and ticket ID conflicts", () => {
   expect(
     jiraDestinationConflicts({
       organizationId: "current-org",
@@ -34,7 +34,7 @@ it("reports exact global slug, organization key, and ticket ID conflicts", () =>
         {
           id: "existing-project",
           organizationId: "current-org",
-          slug: "fixture-application-2",
+          slug: "fixture-application",
           key: "APP"
         },
         {
@@ -55,4 +55,24 @@ it("reports exact global slug, organization key, and ticket ID conflicts", () =>
     { kind: "project_key", value: "APP" },
     { kind: "ticket_id", value: "APP-1" }
   ])
+})
+
+it("ignores a slug taken in another organization", () => {
+  expect(
+    jiraDestinationConflicts({
+      organizationId: "current-org",
+      currentProjectId: "current-project",
+      destination,
+      destinationTicketIds: [],
+      projects: [
+        {
+          id: "another-org-project",
+          organizationId: "another-org",
+          slug: "fixture-application",
+          key: "APP"
+        }
+      ],
+      tickets: []
+    })
+  ).toEqual([])
 })

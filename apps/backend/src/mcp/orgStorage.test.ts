@@ -1,4 +1,5 @@
 import { it } from "@effect/vitest"
+import { accessLayer, orgScope } from "@pp/server-core/access/testing"
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as Comments from "@pp/server-core/comments/Comments"
@@ -14,7 +15,14 @@ import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import * as Tickets from "@pp/server-core/tickets/Tickets"
 import * as Users from "@pp/server-core/users/Users"
-import { McpTools, NotFound, Org, OrgStorageStatus, User } from "@pp/shared"
+import {
+  McpTools,
+  NotFound,
+  Org,
+  OrgScope,
+  OrgStorageStatus,
+  User
+} from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
@@ -80,13 +88,18 @@ const fixture = (
   options: {
     state?: OrgStorageStatus["status"]
     role?: Org["role"]
-    denied?: "organization" | "storage"
+    denied?: "access" | "organization"
   } = {}
 ) => {
   const calls: Array<{ operation: string; userId: string; orgSlug: string }> =
     []
   const layer = Layer.mergeAll(
     unused,
+    accessLayer(
+      options.denied === "access"
+        ? {}
+        : { org: orgScope(options.role ?? org.role, { userId: user.id }) }
+    ),
     Layer.succeed(McpRequestUser, Option.some(user)),
     Layer.mock(BetterAuth.BetterAuth, {
       getOrganization: (userId, orgSlug) => {
@@ -97,17 +110,20 @@ const fixture = (
       }
     }),
     Layer.mock(OrgStorage.OrgStorage, {
-      getStatus: (orgSlug, userId) => {
-        calls.push({ operation: "storage", userId, orgSlug })
-        return options.denied === "storage"
-          ? Effect.fail(new NotFound())
-          : Effect.succeed({
-              ...status,
-              status: options.state ?? status.status,
-              lastCheckedAt:
-                options.state === "not_connected" ? null : status.lastCheckedAt
-            })
-      }
+      getStatus: () =>
+        Effect.map(OrgScope, (scope) => {
+          calls.push({
+            operation: "storage",
+            userId: scope.userId,
+            orgSlug: scope.orgSlug
+          })
+          return {
+            ...status,
+            status: options.state ?? status.status,
+            lastCheckedAt:
+              options.state === "not_connected" ? null : status.lastCheckedAt
+          }
+        })
     })
   )
   return {
@@ -146,7 +162,7 @@ describe("MCP organization storage availability", () => {
       })
   )
 
-  it.effect.each(["owner", "admin", "member"] as const)(
+  it.effect.each(["owner", "admin", "member", "guest"] as const)(
     "preserves the authorized organization role: %s",
     (role) =>
       Effect.gen(function* () {
@@ -156,16 +172,14 @@ describe("MCP organization storage availability", () => {
       })
   )
 
-  it.effect.each(["organization", "storage"] as const)(
-    "propagates denied %s access instead of reporting disconnected storage",
+  it.effect.each(["access", "organization"] as const)(
+    "propagates denied %s instead of reporting disconnected storage",
     (denied) =>
       Effect.gen(function* () {
         const f = fixture({ denied })
         expect((yield* Effect.flip(f.get))._tag).toBe("NotFound")
         expect(f.calls.map((call) => call.operation)).toEqual(
-          denied === "organization"
-            ? ["organization"]
-            : ["organization", "storage"]
+          denied === "access" ? [] : ["organization"]
         )
       })
   )

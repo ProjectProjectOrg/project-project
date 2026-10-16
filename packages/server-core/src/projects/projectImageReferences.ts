@@ -21,16 +21,14 @@ export const replaceProjectImageReference = Effect.fn(
   "replaceProjectImageReference"
 )(function* (
   db: Db["Service"],
-  input: {
-    orgSlug: string
-    projectSlug: string
+  input: Readonly<{
+    projectId: string
     slot: string
     attachmentId: string | null
-  }
+  }>
 ) {
   const ownSlot = and(
-    eq(projectImageReference.orgSlug, input.orgSlug),
-    eq(projectImageReference.projectSlug, input.projectSlug),
+    eq(projectImageReference.projectId, input.projectId),
     eq(projectImageReference.slot, input.slot)
   )
   const previous = yield* db
@@ -45,8 +43,7 @@ export const replaceProjectImageReference = Effect.fn(
       .where(
         and(
           eq(attachmentIndex.id, input.attachmentId),
-          eq(attachmentIndex.orgSlug, input.orgSlug),
-          eq(attachmentIndex.projectSlug, input.projectSlug)
+          eq(attachmentIndex.projectId, input.projectId)
         )
       )
       .for("update")
@@ -60,9 +57,13 @@ export const replaceProjectImageReference = Effect.fn(
       return yield* new NotFound()
     yield* db
       .insert(projectImageReference)
-      .values({ ...input, attachmentId: attachment.id })
+      .values({
+        projectId: input.projectId,
+        slot: input.slot,
+        attachmentId: attachment.id
+      })
       .onConflictDoUpdate({
-        target: [projectImageReference.projectSlug, projectImageReference.slot],
+        target: [projectImageReference.projectId, projectImageReference.slot],
         set: { attachmentId: attachment.id }
       })
       .pipe(Effect.orDie)

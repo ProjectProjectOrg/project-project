@@ -2,57 +2,51 @@ import type {
   Conflict,
   CreateStatusInput,
   DeleteStatusInput,
-  Forbidden,
   NotFound,
   ProjectStatus,
   ReorderStatusInput,
-  UpdateStatusInput
+  UpdateStatusInput,
+  Forbidden
 } from "@pp/shared"
+import type { ProjectScope } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 
 import type { MarkdownError } from "../markdown/Markdown"
 
 export interface ProjectStatusesShape {
-  readonly list: (
-    orgSlug: string,
-    userId: string,
-    slug: string
-  ) => Effect.Effect<ReadonlyArray<ProjectStatus>, NotFound>
+  readonly list: () => Effect.Effect<
+    ReadonlyArray<ProjectStatus>,
+    never,
+    ProjectScope
+  >
 
   readonly create: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     input: CreateStatusInput
-  ) => Effect.Effect<ProjectStatus, NotFound | Forbidden | Conflict>
+  ) => Effect.Effect<ProjectStatus, Conflict, ProjectScope>
 
   readonly update: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     statusSlug: string,
     input: UpdateStatusInput
   ) => Effect.Effect<
     ProjectStatus,
-    NotFound | Forbidden | Conflict | MarkdownError
+    Forbidden | NotFound | Conflict | MarkdownError,
+    ProjectScope
   >
 
   readonly reorder: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     statusSlug: string,
     input: ReorderStatusInput
-  ) => Effect.Effect<ProjectStatus, NotFound | Forbidden>
+  ) => Effect.Effect<ProjectStatus, NotFound, ProjectScope>
 
   readonly remove: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     statusSlug: string,
     input: DeleteStatusInput
-  ) => Effect.Effect<void, NotFound | Forbidden | Conflict | MarkdownError>
+  ) => Effect.Effect<
+    void,
+    Forbidden | NotFound | Conflict | MarkdownError,
+    ProjectScope
+  >
 }
 
 export class ProjectStatuses extends Context.Service<

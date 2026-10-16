@@ -1,5 +1,5 @@
 import { Db } from "@pp/db"
-import { attachmentIndex, projectIndex } from "@pp/db/schema"
+import { attachmentIndex, organization, projectIndex } from "@pp/db/schema"
 import type { ProjectBanner } from "@pp/shared"
 import { and, eq, sql as sqlFragment } from "drizzle-orm"
 import * as Context from "effect/Context"
@@ -80,6 +80,7 @@ export const BannerPlaceholdersLive = Layer.effect(
       )
 
     const persist = (
+      orgSlug: string,
       projectSlug: string,
       attachmentId: string,
       placeholder: string
@@ -92,6 +93,7 @@ export const BannerPlaceholdersLive = Layer.effect(
         .where(
           and(
             eq(projectIndex.slug, projectSlug),
+            sqlFragment`${projectIndex.organizationId} = (select ${organization.id} from ${organization} where ${organization.slug} = ${orgSlug})`,
             sqlFragment`${projectIndex.banner}->>'attachmentId' = ${attachmentId}`,
             sqlFragment`${projectIndex.banner}->>'placeholder' is null`
           )
@@ -112,7 +114,12 @@ export const BannerPlaceholdersLive = Layer.effect(
           unencodable.add(normalized.attachmentId)
           return normalized
         }
-        yield* persist(projectSlug, normalized.attachmentId, placeholder)
+        yield* persist(
+          orgSlug,
+          projectSlug,
+          normalized.attachmentId,
+          placeholder
+        )
         return { ...normalized, placeholder } satisfies ProjectBanner
       })
 

@@ -1,16 +1,14 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { Member, Role } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
 
 import { MembersSection } from "@/components/MembersSection"
 import { Button } from "@/components/ui/button"
-import { me } from "@/features/auth/atoms/auth"
 import {
   project,
   projectRequest,
   updateProjectSetup
 } from "@/features/projects/atoms/projects"
+import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
 import { useProject } from "../-context"
@@ -29,12 +27,8 @@ function TeamSettings() {
   const projectDetail = useProject()
   const req = projectRequest(orgSlug, projectDetail.slug)
   const projectResult = useAtomValue(project(req))
-  const viewer = useAtomValue(me())
   const setup = useAtomSet(updateProjectSetup(req))
-  if (!Result.isSuccess(viewer)) return null
-  const callerId = viewer.value.id
-  const callerRole = roleOf(projectDetail.members, callerId)
-  if (!callerRole) return null
+  const actor = useProjectActor()
 
   return (
     <section className="flex w-full flex-col gap-4">
@@ -44,10 +38,11 @@ function TeamSettings() {
         members={projectDetail.members}
         pendingMembers={projectDetail.pendingMembers}
         waiting={projectResult.waiting}
-        callerRole={callerRole}
-        callerId={callerId}
+        canManage={actor.call("projects", "addMember")}
+        callerId={actor.userId}
       />
-      {projectDetail.setup.invitePeopleDismissedAt ? (
+      {projectDetail.setup.invitePeopleDismissedAt &&
+      actor.call("projects", "updateSetup") ? (
         <div className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2">
           <span className="text-sm text-muted-foreground">
             {m.project_setup_invite_dismissed_note()}
@@ -63,9 +58,4 @@ function TeamSettings() {
       ) : null}
     </section>
   )
-}
-
-function roleOf(members: ReadonlyArray<Member>, userId: string): Role | null {
-  for (const member of members) if (member.id === userId) return member.role
-  return null
 }

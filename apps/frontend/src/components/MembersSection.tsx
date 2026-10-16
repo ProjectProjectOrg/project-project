@@ -1,15 +1,22 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { LastProjectPmBlocked } from "@pp/shared"
 import type {
   AssignableRole,
   Member,
   PendingProjectMember,
   Role
 } from "@pp/shared"
+import { useNavigate } from "@tanstack/react-router"
+import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
+import * as Match from "effect/Match"
+import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import {
+  Briefcase,
   Check,
-  Crown,
+  LogOut,
   MoreHorizontal,
   Plus,
   ShieldCheck,
@@ -36,33 +43,64 @@ import {
 import {
   addMember,
   cancelPendingMember,
+  forgetProject,
+  leaveProject,
   projectRequest,
   removeMember,
   updateMember
 } from "@/features/projects/atoms/projects"
+import { errorMessage } from "@/lib/errorMessage"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const ROLE_META: Record<
   Role,
-  { label: () => string; icon: typeof Crown; tone: BadgeTone }
+  Readonly<{
+    label: () => string
+    assign: () => string
+    icon: typeof ShieldCheck
+    tone: BadgeTone
+  }>
 > = {
-  owner: { label: () => m.members_role_owner(), icon: Crown, tone: "amber" },
-  admin: {
-    label: () => m.members_role_admin(),
+  pm: {
+    label: () => m.members_role_pm(),
+    assign: () => m.members_make_pm(),
     icon: ShieldCheck,
     tone: "blue"
   },
-  member: {
-    label: () => m.members_role_member(),
+  developer: {
+    label: () => m.members_role_developer(),
+    assign: () => m.members_make_developer(),
     icon: UserRound,
     tone: "muted"
+  },
+  client: {
+    label: () => m.members_role_client(),
+    assign: () => m.members_make_client(),
+    icon: Briefcase,
+    tone: "violet"
   }
 }
+
+const isLastProjectPmBlocked = Schema.is(LastProjectPmBlocked)
+
+const memberActionMessage = <E,>(failure: E) =>
+  isLastProjectPmBlocked(failure)
+    ? errorMessage(failure)
+    : m.members_action_error()
+
+const memberActionError = <A, E>(state: Result.AsyncResult<A, E>) =>
+  Result.isFailure(state)
+    ? Option.match(Cause.findErrorOption(state.cause), {
+        onNone: () => m.members_action_error(),
+        onSome: memberActionMessage
+      })
+    : null
 const ASSIGNABLE_ROLES = [
-  "admin",
-  "member"
+  "pm",
+  "developer",
+  "client"
 ] satisfies ReadonlyArray<AssignableRole>
 
 export function MembersSection({
@@ -71,7 +109,7 @@ export function MembersSection({
   members,
   pendingMembers,
   waiting,
-  callerRole,
+  canManage,
   callerId
 }: {
   orgSlug: string
@@ -79,21 +117,16 @@ export function MembersSection({
   members: ReadonlyArray<Member>
   pendingMembers: ReadonlyArray<PendingProjectMember>
   waiting: boolean
-  callerRole: Role
+  canManage: boolean
   callerId: string
 }) {
-  const canManage = callerRole === "owner" || callerRole === "admin"
+  const pmCount = members.filter((member) => member.role === "pm").length
   const [adding, setAdding] = useState(false)
 
   return (
     <div className="flex flex-col gap-3">
       {canManage && (
-        <AddMemberRow
-          orgSlug={orgSlug}
-          slug={slug}
-          callerRole={callerRole}
-          onFocusChange={setAdding}
-        />
+        <AddMemberRow orgSlug={orgSlug} slug={slug} onFocusChange={setAdding} />
       )}
 
       <motion.ul
@@ -107,7 +140,8 @@ export function MembersSection({
               orgSlug={orgSlug}
               slug={slug}
               member={member}
-              callerRole={callerRole}
+              canManage={canManage}
+              onlyPm={member.role === "pm" && pmCount === 1}
               callerId={callerId}
               projectWaiting={waiting}
             />
@@ -119,7 +153,7 @@ export function MembersSection({
               orgSlug={orgSlug}
               slug={slug}
               member={member}
-              callerRole={callerRole}
+              canManage={canManage}
               projectWaiting={waiting}
             />
           </li>
@@ -132,16 +166,14 @@ export function MembersSection({
 function AddMemberRow({
   orgSlug,
   slug,
-  callerRole,
   onFocusChange
 }: {
   orgSlug: string
   slug: string
-  callerRole: Role
   onFocusChange?: (focused: boolean) => void
 }) {
   const [email, setEmail] = useState("")
-  const [role, setRole] = useState<AssignableRole>("member")
+  const [role, setRole] = useState<AssignableRole>("developer")
   const [submitted, setSubmitted] = useState(false)
   const trimmed = email.trim()
   const req = projectRequest(orgSlug, slug)
@@ -150,12 +182,17 @@ function AddMemberRow({
   const addState = useAtomValue(memberMutation)
   const submitting = addState.waiting
   const error = Result.isFailure(addState)
-    ? m.members_add_error_fallback()
+    ? Option.match(Cause.findErrorOption(addState.cause), {
+        onNone: () => m.members_add_error_fallback(),
+        onSome: (failure) =>
+          Match.value(failure).pipe(
+            Match.tag("Forbidden", () =>
+              m.members_add_error_outsider_client_only()
+            ),
+            Match.orElse(() => m.members_add_error_fallback())
+          )
+      })
     : null
-  const availableRoles =
-    callerRole === "owner"
-      ? ASSIGNABLE_ROLES
-      : (["member"] satisfies ReadonlyArray<AssignableRole>)
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -188,7 +225,7 @@ function AddMemberRow({
           aria-label={m.members_add_email_aria_label()}
           disabled={submitting}
         />
-        <RoleSelect value={role} onChange={setRole} roles={availableRoles} />
+        <RoleSelect value={role} onChange={setRole} />
         {error && (
           <span className="shrink-0 text-xs text-destructive">{error}</span>
         )}
@@ -265,14 +302,16 @@ function MemberRow({
   orgSlug,
   slug,
   member,
-  callerRole,
+  canManage,
+  onlyPm,
   callerId,
   projectWaiting
 }: {
   orgSlug: string
   slug: string
   member: Member
-  callerRole: Role
+  canManage: boolean
+  onlyPm: boolean
   callerId: string
   projectWaiting: boolean
 }) {
@@ -283,8 +322,7 @@ function MemberRow({
     updateMember({ req: projectRequest(orgSlug, slug), id: member.id })
   )
   const updating = projectWaiting && updateState.waiting
-  // Display: name (primary), then `@username` if set, fall back to email.
-  // Email shows as the secondary identifier — useful for "remove bob@..".
+  const updateError = memberActionError(updateState)
   return (
     <div
       className={cn(
@@ -311,6 +349,11 @@ function MemberRow({
           ) : null}
           {member.email}
         </div>
+        {updateError && (
+          <div className="text-xs text-destructive" role="alert">
+            {updateError}
+          </div>
+        )}
       </div>
       <Badge tone={meta.tone} size="sm">
         <Icon strokeWidth={1.75} />
@@ -320,7 +363,9 @@ function MemberRow({
         orgSlug={orgSlug}
         slug={slug}
         member={member}
-        callerRole={callerRole}
+        canManage={canManage && !onlyPm}
+        isSelf={isSelf}
+        canLeave={!onlyPm}
       />
     </div>
   )
@@ -330,13 +375,13 @@ function PendingMemberRow({
   orgSlug,
   slug,
   member,
-  callerRole,
+  canManage,
   projectWaiting
 }: {
   orgSlug: string
   slug: string
   member: PendingProjectMember
-  callerRole: Role
+  canManage: boolean
   projectWaiting: boolean
 }) {
   const meta = ROLE_META[member.role]
@@ -374,7 +419,7 @@ function PendingMemberRow({
         orgSlug={orgSlug}
         slug={slug}
         member={member}
-        callerRole={callerRole}
+        canManage={canManage}
       />
     </div>
   )
@@ -384,12 +429,12 @@ function PendingMemberMenu({
   orgSlug,
   slug,
   member,
-  callerRole
+  canManage
 }: {
   orgSlug: string
   slug: string
   member: PendingProjectMember
-  callerRole: Role
+  canManage: boolean
 }) {
   const mutation = cancelPendingMember({
     req: projectRequest(orgSlug, slug),
@@ -401,11 +446,7 @@ function PendingMemberMenu({
   const cancelState = useAtomValue(mutation)
   const canceling = cancelState.waiting
   const [confirming, setConfirming] = useState(false)
-  const canCancel =
-    callerRole === "owner" ||
-    (callerRole === "admin" && member.role !== "admin")
-
-  if (!canCancel) return <span className="size-8 shrink-0" />
+  if (!canManage) return <span className="size-8 shrink-0" />
 
   async function onCancel() {
     await cancel()
@@ -474,35 +515,48 @@ function MemberMenu({
   orgSlug,
   slug,
   member,
-  callerRole
-}: {
+  canManage,
+  isSelf,
+  canLeave
+}: Readonly<{
   orgSlug: string
   slug: string
   member: Member
-  callerRole: Role
-}) {
-  const mutationKey = { req: projectRequest(orgSlug, slug), id: member.id }
+  canManage: boolean
+  isSelf: boolean
+  canLeave: boolean
+}>) {
+  const navigate = useNavigate()
+  const req = projectRequest(orgSlug, slug)
+  const mutationKey = { req, id: member.id }
   const updateMutation = updateMember(mutationKey)
   const update = useAtomSet(updateMutation)
   const remove = useAtomSet(removeMember(mutationKey), {
     mode: "promiseExit"
   })
   const removeState = useAtomValue(removeMember(mutationKey))
-  const removing = removeState.waiting
+  const leave = useAtomSet(leaveProject(req), { mode: "promiseExit" })
+  const forget = useAtomSet(forgetProject(req), { mode: "promise" })
+  const leaveState = useAtomValue(leaveProject(req))
+  const removing = isSelf ? leaveState.waiting : removeState.waiting
+  const removeError = isSelf
+    ? memberActionError(leaveState)
+    : memberActionError(removeState)
   const [confirming, setConfirming] = useState(false)
+  const canExit = isSelf ? canLeave : canManage
 
-  // Only owner can change roles. Admins can remove non-admin members.
-  // Owner row has no actionable menu — ownership transfer isn't modeled.
-  const canChangeRole = callerRole === "owner" && member.role !== "owner"
-  const canRemove =
-    member.role !== "owner" &&
-    (callerRole === "owner" ||
-      (callerRole === "admin" && member.role !== "admin"))
-
-  if (!canChangeRole && !canRemove) return <span className="size-8 shrink-0" />
+  if (!canManage && !canExit) return <span className="size-8 shrink-0" />
 
   async function onRemove() {
-    await remove()
+    if (!isSelf) {
+      await remove()
+      return
+    }
+    const exit = await leave()
+    if (Exit.isSuccess(exit)) {
+      await navigate({ to: "/orgs/$orgSlug/projects", params: { orgSlug } })
+      await forget()
+    }
   }
 
   return (
@@ -526,8 +580,15 @@ function MemberMenu({
         {confirming ? (
           <div className="flex flex-col gap-2 p-1">
             <p className="px-2 pt-1 text-xs text-muted-foreground">
-              {m.members_remove_confirm_prompt({ name: member.name })}
+              {isSelf
+                ? m.members_leave_confirm_prompt()
+                : m.members_remove_confirm_prompt({ name: member.name })}
             </p>
+            {removeError && (
+              <p className="px-2 text-xs text-destructive" role="alert">
+                {removeError}
+              </p>
+            )}
             <div className="flex gap-1 px-1 pb-1">
               <button
                 type="button"
@@ -535,9 +596,13 @@ function MemberMenu({
                 onClick={() => void onRemove()}
                 className="flex-1 rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
               >
-                {removing
-                  ? m.members_remove_in_progress()
-                  : m.members_remove_button()}
+                {isSelf
+                  ? removing
+                    ? m.members_leave_in_progress()
+                    : m.members_leave_button()
+                  : removing
+                    ? m.members_remove_in_progress()
+                    : m.members_remove_button()}
               </button>
               <button
                 type="button"
@@ -551,37 +616,34 @@ function MemberMenu({
           </div>
         ) : (
           <>
-            {canChangeRole && (
-              <>
-                {ASSIGNABLE_ROLES.filter((r) => r !== member.role).map((r) => {
-                  const meta = ROLE_META[r]
-                  const RIcon = meta.icon
-                  const makeLabel =
-                    r === "admin"
-                      ? m.members_make_admin()
-                      : m.members_make_member()
-                  return (
-                    <DropdownMenuItem
-                      key={r}
-                      onClick={() => update({ role: r })}
-                      className="cursor-pointer"
-                    >
-                      <RIcon className="size-4" strokeWidth={1.75} />
-                      {makeLabel}
-                    </DropdownMenuItem>
-                  )
-                })}
-              </>
-            )}
-            {canChangeRole && canRemove && <DropdownMenuSeparator />}
-            {canRemove && (
+            {canManage &&
+              ASSIGNABLE_ROLES.filter((r) => r !== member.role).map((r) => {
+                const meta = ROLE_META[r]
+                const RIcon = meta.icon
+                return (
+                  <DropdownMenuItem
+                    key={r}
+                    onClick={() => update({ role: r })}
+                    className="cursor-pointer"
+                  >
+                    <RIcon className="size-4" strokeWidth={1.75} />
+                    {meta.assign()}
+                  </DropdownMenuItem>
+                )
+              })}
+            {canManage && canExit && <DropdownMenuSeparator />}
+            {canExit && (
               <DropdownMenuItem
                 closeOnClick={false}
                 onClick={() => setConfirming(true)}
                 className="cursor-pointer text-destructive focus:text-destructive"
               >
-                <Trash2 className="size-4" strokeWidth={1.75} />
-                {m.members_remove_button()}
+                {isSelf ? (
+                  <LogOut className="size-4" strokeWidth={1.75} />
+                ) : (
+                  <Trash2 className="size-4" strokeWidth={1.75} />
+                )}
+                {isSelf ? m.members_leave_button() : m.members_remove_button()}
               </DropdownMenuItem>
             )}
           </>

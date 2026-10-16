@@ -13,11 +13,10 @@ import {
   FigmaAuthInvalid,
   FigmaError,
   FigmaNotConnected,
-  Forbidden,
-  NotFound,
   StorageNotConnected,
   type FigmaProjectIntegrationStatus,
-  type PersonalFigma
+  type PersonalFigma,
+  ProjectScope
 } from "@pp/shared"
 import { and, desc, eq, gt, inArray, isNull } from "drizzle-orm"
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres"
@@ -548,48 +547,6 @@ export const FigmaIntegrationsLive = Layer.effect(
     const projectRow = (orgSlug: string, slug: string) =>
       ticketIndex.projectFor(orgSlug, slug)
 
-    const requireMember = (orgSlug: string, userId: string, slug: string) =>
-      Effect.gen(function* () {
-        const project = yield* projectRow(orgSlug, slug)
-        const explicit = yield* db.query.projectMember
-          .findFirst({
-            columns: { role: true },
-            where: {
-              RAW: (table, operators) =>
-                operators.and(
-                  operators.eq(table.projectSlug, slug),
-                  operators.eq(table.userId, userId)
-                )!
-            }
-          })
-          .pipe(Effect.orDie)
-        if (explicit) return explicit.role
-        const orgRole = yield* db.query.member
-          .findFirst({
-            columns: { role: true },
-            where: {
-              RAW: (table, operators) =>
-                operators.and(
-                  operators.eq(table.organizationId, project.organizationId),
-                  operators.eq(table.userId, userId)
-                )!
-            }
-          })
-          .pipe(Effect.orDie)
-        if (orgRole?.role === "owner" || orgRole?.role === "admin") {
-          return "admin" as const
-        }
-        return yield* new NotFound()
-      })
-
-    const requireAdmin = (orgSlug: string, userId: string, slug: string) =>
-      Effect.gen(function* () {
-        const role = yield* requireMember(orgSlug, userId, slug)
-        if (role !== "owner" && role !== "admin") {
-          return yield* new Forbidden()
-        }
-      })
-
     const activeLink = (projectId: string) =>
       db
         .select({
@@ -635,15 +592,10 @@ export const FigmaIntegrationsLive = Layer.effect(
         Effect.catch(() => Effect.succeed(false))
       )
 
-    const getProjectStatus = (
-      orgSlug: string,
-      userId: string,
-      slug: string
-    ): Effect.Effect<FigmaProjectIntegrationStatus, NotFound> =>
+    const getProjectStatus: FigmaIntegrationsShape["getProjectStatus"] = () =>
       Effect.gen(function* () {
-        yield* requireMember(orgSlug, userId, slug)
-        const project = yield* projectRow(orgSlug, slug)
-        const row = yield* activeLink(project.projectId)
+        const { orgSlug, projectId } = yield* ProjectScope
+        const row = yield* activeLink(projectId)
         const storage = yield* storageConnected(orgSlug)
         if (row === null) return notConnectedStatus(storage)
         return {
@@ -686,14 +638,12 @@ export const FigmaIntegrationsLive = Layer.effect(
         return created.id
       })
 
-    const connectProject = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      accessToken: string
+    const connectProject: FigmaIntegrationsShape["connectProject"] = (
+      accessToken
     ) =>
       Effect.gen(function* () {
-        yield* requireAdmin(orgSlug, userId, slug)
+        const project = yield* ProjectScope
+        const { orgSlug } = project
         yield* orgStorage
           .requireConnection(orgSlug)
           .pipe(Effect.mapError(() => new StorageNotConnected()))
@@ -706,7 +656,6 @@ export const FigmaIntegrationsLive = Layer.effect(
               )
             )
           )
-        const project = yield* projectRow(orgSlug, slug)
         const sealed = yield* sealToken(accessToken)
         const now = yield* DateTime.nowAsDate
         const existing = yield* activeLink(project.projectId)
@@ -783,13 +732,12 @@ export const FigmaIntegrationsLive = Layer.effect(
               )
             )
           )
-        return yield* getProjectStatus(orgSlug, userId, slug)
+        return yield* getProjectStatus()
       })
 
-    const disconnectProject = (orgSlug: string, userId: string, slug: string) =>
+    const disconnectProject: FigmaIntegrationsShape["disconnectProject"] = () =>
       Effect.gen(function* () {
-        yield* requireAdmin(orgSlug, userId, slug)
-        const project = yield* projectRow(orgSlug, slug)
+        const project = yield* ProjectScope
         const link = yield* activeLink(project.projectId)
         if (link !== null) {
           const now = yield* DateTime.nowAsDate
@@ -810,7 +758,7 @@ export const FigmaIntegrationsLive = Layer.effect(
             )
             .pipe(Effect.orDie)
         }
-        return yield* getProjectStatus(orgSlug, userId, slug)
+        return yield* getProjectStatus()
       })
 
     const personalCredential = (userId: string) =>

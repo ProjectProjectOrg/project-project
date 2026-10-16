@@ -1,4 +1,5 @@
 import { it } from "@effect/vitest"
+import { Project } from "@pp/access/roles"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -15,6 +16,8 @@ import {
 } from "effect/unstable/httpapi"
 import { expect } from "vitest"
 
+import { ProjectAccess } from "./access/ProjectAccess"
+import { ProjectScope } from "./access/ProjectScope"
 import { AppApi } from "./api"
 import { Authentication, CurrentUser } from "./Authentication"
 import {
@@ -78,6 +81,18 @@ const user = Schema.decodeSync(User)({
 const auth = Layer.succeed(Authentication, {
   sessionCookie: (effect) => Effect.provideService(effect, CurrentUser, user)
 })
+const projectAccess = Layer.succeed(ProjectAccess, (effect) =>
+  Effect.provideService(effect, ProjectScope, {
+    userId: user.id,
+    organizationId: "org-1",
+    orgSlug: "acme",
+    orgRole: "member",
+    projectId: "project-1",
+    slug: "web",
+    role: "pm",
+    permissions: Project.pm
+  })
+)
 const params = { orgSlug: "acme", slug: "web" }
 const page = { items: [], nextCursor: null }
 const makeHarness = Effect.gen(function* () {
@@ -103,7 +118,7 @@ const makeHarness = Effect.gen(function* () {
           Effect.as({ ticket, orderKey: null })
         )
       )
-  ).pipe(Layer.provideMerge(auth))
+  ).pipe(Layer.provideMerge(auth), Layer.provideMerge(projectAccess))
   const client = yield* HttpApiTest.groups(api, ["tickets"]).pipe(
     Effect.provide(Layer.merge(handlers, HttpServer.layerServices))
   )

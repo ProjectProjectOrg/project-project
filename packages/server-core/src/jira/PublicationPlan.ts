@@ -1376,7 +1376,6 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
           color: identity.color,
           createdBy: prepared.ownerId,
           createdAt: project.createdAt,
-          members: members.map(({ username, role }) => ({ username, role })),
           setup: {
             workflowReviewedAt: null,
             invitePeopleDismissedAt: null,

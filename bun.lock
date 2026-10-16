@@ -31,6 +31,7 @@
         "@better-fetch/fetch": "1.3.1",
         "@effect/platform-bun": "4.0.0-rc.116",
         "@effect/sql-pg": "4.0.0-rc.116",
+        "@pp/access": "workspace:*",
         "@pp/db": "workspace:*",
         "@pp/server-core": "workspace:*",
         "@pp/shared": "workspace:*",
@@ -79,6 +80,7 @@
         "@number-flow/react": "^0.6.0",
         "@paper-design/shaders-react": "^0.0.76",
         "@phosphor-icons/react": "^2.1.10",
+        "@pp/access": "workspace:*",
         "@pp/shared": "workspace:*",
         "@tabler/icons-react": "^3.41.1",
         "@tanstack/react-form": "2.0.0-alpha.2",
@@ -132,6 +134,16 @@
         "vitest": "4.1.11",
       },
     },
+    "packages/access": {
+      "name": "@pp/access",
+      "version": "0.0.0",
+      "dependencies": {
+        "effect": "4.0.0-rc.116",
+      },
+      "devDependencies": {
+        "vitest": "4.1.11",
+      },
+    },
     "packages/db": {
       "name": "@pp/db",
       "version": "0.0.0",
@@ -143,6 +155,7 @@
         "pg": "^8.20.0",
       },
       "devDependencies": {
+        "@effect/platform-bun": "4.0.0-rc.116",
         "@effect/vitest": "4.0.0-rc.116",
         "@types/pg": "^8.20.0",
         "better-auth": "1.7.3",
@@ -160,6 +173,7 @@
         "@effect/sql-pg": "4.0.0-rc.116",
         "@octokit/auth-app": "^8.2.0",
         "@octokit/graphql": "^9.0.3",
+        "@pp/access": "workspace:*",
         "@pp/db": "workspace:*",
         "@pp/shared": "workspace:*",
         "drizzle-orm": "1.0.0-rc.5-169397b",
@@ -185,6 +199,7 @@
       "name": "@pp/shared",
       "version": "0.0.0",
       "dependencies": {
+        "@pp/access": "workspace:*",
         "effect": "4.0.0-rc.116",
       },
       "devDependencies": {
@@ -869,6 +884,8 @@
     "@paper-design/shaders-react": ["@paper-design/shaders-react@0.0.76", "", { "dependencies": { "@paper-design/shaders": "0.0.76" }, "peerDependencies": { "@types/react": "^18 || ^19", "react": "^18 || ^19" }, "optionalPeers": ["@types/react"] }, "sha512-uPJWrYRf6cJdO2H+fuXlahaqz0QjYglNAyUTaRfIInpzCa/d6guxBIK003soAZQFuQ035yg9FhtfFzKNWm+a5A=="],
 
     "@phosphor-icons/react": ["@phosphor-icons/react@2.1.10", "", { "peerDependencies": { "react": ">= 16.8", "react-dom": ">= 16.8" } }, "sha512-vt8Tvq8GLjheAZZYa+YG/pW7HDbov8El/MANW8pOAz4eGxrwhnbfrQZq0Cp4q8zBEu8NIhHdnr+r8thnfRSNYA=="],
+
+    "@pp/access": ["@pp/access@workspace:packages/access"],
 
     "@pp/backend": ["@pp/backend@workspace:apps/backend"],
 

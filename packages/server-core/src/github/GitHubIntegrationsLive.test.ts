@@ -12,8 +12,6 @@ import * as Exit from "effect/Exit"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { CurrentOrg } from "../organizations/CurrentOrg"
-import type { CurrentOrgShape } from "../organizations/CurrentOrg"
 import { GitHub } from "./GitHub"
 import type { GitHubShape } from "./GitHub"
 import { GitHubIntegrations } from "./GitHubIntegrations"
@@ -21,10 +19,6 @@ import { GitHubIntegrationsLive } from "./GitHubIntegrationsLive"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const date = (value: string) => DateTime.toDate(DateTime.makeUnsafe(value))
-
-const unavailableCurrentOrg: CurrentOrgShape = {
-  resolve: () => Effect.die("not used in callback tests")
-}
 
 const makeGithub = (
   exchangeAppUserCode: GitHubShape["exchangeAppUserCode"] = (code) =>
@@ -53,7 +47,6 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
   const userIds: string[] = []
   const organizationIds: string[] = []
   const integrationLayer = GitHubIntegrationsLive.pipe(
-    Layer.provide(Layer.succeed(CurrentOrg, unavailableCurrentOrg)),
     Layer.provide(Layer.succeed(GitHub, makeGithub())),
     Layer.provide(
       DbLive.pipe(
@@ -94,7 +87,9 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
     }
   })
 
-  const insertSession = async (role: "owner" | "member" = "owner") => {
+  const insertSession = async (
+    role: "owner" | "admin" | "member" = "owner"
+  ) => {
     const userId = randomUUID()
     const organizationId = randomUUID()
     const sessionId = randomUUID()
@@ -161,6 +156,20 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
     })
   )
 
+  it.effect("accepts a callback from an org admin", () =>
+    Effect.gen(function* () {
+      const fixture = yield* Effect.promise(() => insertSession("admin"))
+      yield* callback(fixture.state, "admin")
+      const result = yield* Effect.promise(() =>
+        pool.query(
+          "SELECT completed_at FROM github_app_install_session WHERE id = $1",
+          [fixture.sessionId]
+        )
+      )
+      expect(result.rows[0]?.completed_at).toBeInstanceOf(Date)
+    })
+  )
+
   it.effect("consumes a state once when callbacks race", () =>
     Effect.gen(function* () {
       const fixture = yield* Effect.promise(() => insertSession())
@@ -178,7 +187,6 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
         })
       )
       const raceLayer = GitHubIntegrationsLive.pipe(
-        Layer.provide(Layer.succeed(CurrentOrg, unavailableCurrentOrg)),
         Layer.provide(Layer.succeed(GitHub, raceGithub)),
         Layer.provide(
           DbLive.pipe(

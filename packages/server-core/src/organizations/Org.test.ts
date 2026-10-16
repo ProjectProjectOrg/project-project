@@ -1,6 +1,7 @@
 import { it } from "@effect/vitest"
 import { Db } from "@pp/db"
 import { member } from "@pp/db/schema"
+import { Conflict, OrgScope, type OrgRole } from "@pp/shared"
 import { PgDialect } from "drizzle-orm/pg-core"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -8,7 +9,7 @@ import * as Layer from "effect/Layer"
 import * as TestClock from "effect/testing/TestClock"
 import { expect } from "vitest"
 
-import { CurrentOrg, type CurrentOrgShape } from "./CurrentOrg"
+import { orgScope } from "../access/testing"
 import { Org } from "./Org"
 import { OrgLive } from "./OrgLive"
 
@@ -27,65 +28,45 @@ const daysBefore = (n: number) =>
 const plusGrace = (d: Date) =>
   DateTime.toDate(DateTime.add(DateTime.fromDateUnsafe(d), { days: 14 }))
 
-interface OrgRowLike {
-  readonly organizationId: string
-  readonly slug: string
-  readonly name: string
-  readonly role: string
-  readonly createdAt: Date
-  readonly deletedAt: Date | null
-}
-
 interface Capture {
   myOrgsWhere?: unknown
-  getWhere?: unknown
   updateSet?: { deletedAt: Date | null }
   updateWhere?: unknown
 }
 
 interface DbState {
-  orgRow?: OrgRowLike | null
-  orgExists?: boolean
   myOrgRows?: ReadonlyArray<{ slug: string; name: string; role: string }>
   capture: Capture
 }
 
-const makeState = (init: Omit<DbState, "capture"> = {}): DbState => ({
-  orgRow: init.orgRow,
-  orgExists: init.orgExists,
-  myOrgRows: init.myOrgRows,
-  capture: {}
-})
+const makeState = (
+  myOrgRows?: ReadonlyArray<{ slug: string; name: string; role: string }>
+): DbState => ({ myOrgRows, capture: {} })
 
 const makeDb = (state: DbState) =>
   Layer.succeed(Db, {
     select: () => ({
-      from: (table: unknown) => {
-        if (table === member) {
-          return {
-            innerJoin: () => ({
-              where: (cond: unknown) => {
-                state.capture.myOrgsWhere = cond
-                return Effect.succeed(state.myOrgRows ?? [])
-              }
-            })
-          }
-        }
-        return {
-          innerJoin: () => ({
-            where: (cond: unknown) => {
-              state.capture.getWhere = cond
-              return {
-                limit: () => Effect.succeed(state.orgRow ? [state.orgRow] : [])
-              }
+      from: (table: unknown) =>
+        table === member
+          ? {
+              innerJoin: () => ({
+                where: (cond: unknown) => {
+                  state.capture.myOrgsWhere = cond
+                  return Effect.succeed(state.myOrgRows ?? [])
+                }
+              })
             }
-          }),
-          where: () => ({
-            limit: () =>
-              Effect.succeed(state.orgExists ? [{ id: "org-1" }] : [])
-          })
-        }
-      }
+          : {
+              where: () => ({
+                limit: () =>
+                  Effect.succeed([
+                    {
+                      name: "Acme",
+                      createdAt: isoDate("2026-01-01T00:00:00.000Z")
+                    }
+                  ])
+              })
+            }
     }),
     update: () => ({
       set: (values: { deletedAt: Date | null }) => {
@@ -100,33 +81,27 @@ const makeDb = (state: DbState) =>
     })
   } as never)
 
-const dieResolve: CurrentOrgShape["resolve"] = () =>
-  Effect.die("unexpected currentOrg.resolve")
-
-const makeOrgLayer = (
+const inScope = (
   state: DbState,
-  resolve: CurrentOrgShape["resolve"] = dieResolve
+  role: OrgRole,
+  deletedAt: Date | null = null
 ) =>
-  OrgLive.pipe(
-    Layer.provide(
-      Layer.merge(makeDb(state), Layer.succeed(CurrentOrg, { resolve }))
+  Effect.provide(
+    Layer.merge(
+      OrgLive.pipe(Layer.provide(makeDb(state))),
+      Layer.succeed(OrgScope, orgScope(role, { deletedAt }))
     )
   )
 
-const ownerResolve: CurrentOrgShape["resolve"] = () =>
-  Effect.succeed({ organizationId: "org-1", orgSlug: "acme", role: "owner" })
-const memberResolve: CurrentOrgShape["resolve"] = () =>
-  Effect.succeed({ organizationId: "org-1", orgSlug: "acme", role: "member" })
-
 it.effect("myOrgs maps rows and filters deleted in the query", () =>
   Effect.gen(function* () {
-    const state = makeState({
-      myOrgRows: [
-        { slug: "acme", name: "Acme", role: "owner" },
-        { slug: "beta", name: "Beta", role: "member" }
-      ]
-    })
-    const org = yield* Org.pipe(Effect.provide(makeOrgLayer(state)))
+    const state = makeState([
+      { slug: "acme", name: "Acme", role: "owner" },
+      { slug: "beta", name: "Beta", role: "member" }
+    ])
+    const org = yield* Org.pipe(
+      Effect.provide(OrgLive.pipe(Layer.provide(makeDb(state))))
+    )
     const orgs = yield* org.myOrgs("user-1")
     expect(orgs).toEqual([
       { slug: "acme", name: "Acme", role: "owner" },
@@ -139,226 +114,76 @@ it.effect("myOrgs maps rows and filters deleted in the query", () =>
 )
 
 it.effect(
-  "get surfaces deletedAt and computed purgeAt for a soft-deleted org",
-  () =>
-    Effect.gen(function* () {
-      const deletedAt = daysBefore(3)
+  "get surfaces the caller's role, permissions, deletedAt and purgeAt",
+  () => {
+    const deletedAt = daysBefore(3)
+    return Effect.gen(function* () {
       const org = yield* Org
-      const detail = yield* org.get("acme", "user-1")
-      expect(detail.id).toBe("org-1")
-      expect(detail.slug).toBe("acme")
-      expect(detail.role).toBe("admin")
-      expect(detail.deletedAt).toEqual(deletedAt)
-      expect(detail.purgeAt).toEqual(plusGrace(deletedAt))
-    }).pipe(
-      Effect.provide(
-        makeOrgLayer(
-          makeState({
-            orgRow: {
-              organizationId: "org-1",
-              slug: "acme",
-              name: "Acme",
-              role: "admin",
-              createdAt: isoDate("2026-01-01T00:00:00.000Z"),
-              deletedAt: daysBefore(3)
-            }
-          })
-        )
-      )
-    )
+      const detail = yield* org.get()
+      expect(detail).toStrictEqual({
+        id: "org-1",
+        slug: "acme",
+        name: "Acme",
+        role: "admin",
+        permissions: orgScope("admin").permissions.grants,
+        createdAt: isoDate("2026-01-01T00:00:00.000Z"),
+        deletedAt,
+        purgeAt: plusGrace(deletedAt)
+      })
+    }).pipe(inScope(makeState(), "admin", deletedAt))
+  }
 )
 
 it.effect("get returns null deletedAt/purgeAt for a live org", () =>
   Effect.gen(function* () {
     const org = yield* Org
-    const detail = yield* org.get("acme", "user-1")
+    const detail = yield* org.get()
     expect(detail.deletedAt).toBeNull()
     expect(detail.purgeAt).toBeNull()
-  }).pipe(
-    Effect.provide(
-      makeOrgLayer(
-        makeState({
-          orgRow: {
-            organizationId: "org-1",
-            slug: "acme",
-            name: "Acme",
-            role: "owner",
-            createdAt: isoDate("2026-01-01T00:00:00.000Z"),
-            deletedAt: null
-          }
-        })
-      )
-    )
-  )
+  }).pipe(inScope(makeState(), "guest"))
 )
 
-it.effect("get requires membership", () =>
-  Effect.gen(function* () {
-    const org = yield* Org
-    const result = yield* Effect.result(org.get("acme", "user-1"))
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("NotFound")
-    }
-  }).pipe(Effect.provide(makeOrgLayer(makeState({ orgRow: null }))))
-)
-
-it.effect("get does not distinguish a non-member from an unknown org", () =>
-  Effect.gen(function* () {
-    const org = yield* Org
-    const result = yield* Effect.result(org.get("acme", "user-1"))
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("NotFound")
-    }
-  }).pipe(
-    Effect.provide(makeOrgLayer(makeState({ orgRow: null, orgExists: true })))
-  )
-)
-
-it.effect("softDelete sets deletedAt for an owner", () =>
-  Effect.gen(function* () {
+it.effect("softDelete sets deletedAt for an owner", () => {
+  const state = makeState()
+  return Effect.gen(function* () {
     yield* setNow
-    const state = makeState({
-      orgRow: {
-        organizationId: "org-1",
-        slug: "acme",
-        name: "Acme",
-        role: "owner",
-        createdAt: isoDate("2026-01-01T00:00:00.000Z"),
-        deletedAt: null
-      }
-    })
-    const org = yield* Org.pipe(
-      Effect.provide(makeOrgLayer(state, ownerResolve))
-    )
-    const detail = yield* org.softDelete("acme", "user-1")
+    const org = yield* Org
+    const detail = yield* org.softDelete()
     expect(detail.deletedAt).toEqual(nowDate)
     expect(detail.purgeAt).toEqual(plusGrace(nowDate))
     expect(state.capture.updateSet?.deletedAt).toEqual(nowDate)
-  })
-)
+  }).pipe(inScope(state, "owner"))
+})
 
-it.effect("softDelete is owner-only", () =>
-  Effect.gen(function* () {
-    const org = yield* Org
-    const result = yield* Effect.result(org.softDelete("acme", "user-1"))
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("Forbidden")
-    }
-  }).pipe(Effect.provide(makeOrgLayer(makeState(), memberResolve)))
-)
-
-it.effect("restore clears deletedAt for an owner within the grace window", () =>
-  Effect.gen(function* () {
-    yield* setNow
-    const state = makeState({
-      orgRow: {
-        organizationId: "org-1",
-        slug: "acme",
-        name: "Acme",
-        role: "owner",
-        createdAt: isoDate("2026-01-01T00:00:00.000Z"),
-        deletedAt: daysBefore(5)
-      }
-    })
-    const org = yield* Org.pipe(Effect.provide(makeOrgLayer(state)))
-    const detail = yield* org.restore("acme", "user-1")
-    expect(detail.deletedAt).toBeNull()
-    expect(detail.purgeAt).toBeNull()
-    expect(state.capture.updateSet?.deletedAt).toBeNull()
-  })
+it.effect(
+  "restore clears deletedAt for an owner within the grace window",
+  () => {
+    const state = makeState()
+    return Effect.gen(function* () {
+      yield* setNow
+      const org = yield* Org
+      const detail = yield* org.restore()
+      expect(detail.deletedAt).toBeNull()
+      expect(detail.purgeAt).toBeNull()
+      expect(state.capture.updateSet?.deletedAt).toBeNull()
+    }).pipe(inScope(state, "owner", daysBefore(5)))
+  }
 )
 
 it.effect("restore rejects a past-grace org with Conflict", () =>
   Effect.gen(function* () {
     yield* setNow
     const org = yield* Org
-    const result = yield* Effect.result(org.restore("acme", "user-1"))
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("Conflict")
-    }
-  }).pipe(
-    Effect.provide(
-      makeOrgLayer(
-        makeState({
-          orgRow: {
-            organizationId: "org-1",
-            slug: "acme",
-            name: "Acme",
-            role: "owner",
-            createdAt: isoDate("2026-01-01T00:00:00.000Z"),
-            deletedAt: daysBefore(20)
-          }
-        })
-      )
-    )
-  )
+    const error = yield* Effect.flip(org.restore())
+    expect(error).toStrictEqual(new Conflict({ reason: "grace_expired" }))
+  }).pipe(inScope(makeState(), "owner", daysBefore(20)))
 )
 
 it.effect("restore rejects a live org with Conflict", () =>
   Effect.gen(function* () {
     yield* setNow
     const org = yield* Org
-    const result = yield* Effect.result(org.restore("acme", "user-1"))
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("Conflict")
-    }
-  }).pipe(
-    Effect.provide(
-      makeOrgLayer(
-        makeState({
-          orgRow: {
-            organizationId: "org-1",
-            slug: "acme",
-            name: "Acme",
-            role: "owner",
-            createdAt: isoDate("2026-01-01T00:00:00.000Z"),
-            deletedAt: null
-          }
-        })
-      )
-    )
-  )
-)
-
-it.effect("restore is owner-only", () =>
-  Effect.gen(function* () {
-    yield* setNow
-    const org = yield* Org
-    const result = yield* Effect.result(org.restore("acme", "user-1"))
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("Forbidden")
-    }
-  }).pipe(
-    Effect.provide(
-      makeOrgLayer(
-        makeState({
-          orgRow: {
-            organizationId: "org-1",
-            slug: "acme",
-            name: "Acme",
-            role: "member",
-            createdAt: isoDate("2026-01-01T00:00:00.000Z"),
-            deletedAt: daysBefore(5)
-          }
-        })
-      )
-    )
-  )
-)
-
-it.effect("restore requires membership", () =>
-  Effect.gen(function* () {
-    const org = yield* Org
-    const result = yield* Effect.result(org.restore("acme", "user-1"))
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("NotFound")
-    }
-  }).pipe(Effect.provide(makeOrgLayer(makeState({ orgRow: null }))))
+    const error = yield* Effect.flip(org.restore())
+    expect(error).toStrictEqual(new Conflict({ reason: "not_deleted" }))
+  }).pipe(inScope(makeState(), "owner"))
 )

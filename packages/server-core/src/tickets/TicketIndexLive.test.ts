@@ -86,9 +86,7 @@ describe("ticketIndexRowsFor", () => {
         expect(rows).toEqual([
           {
             organizationId: "org-1",
-            orgSlug: "acme",
             projectId: "project-1",
-            projectSlug: "demo",
             ticketId: ticketId("T-27"),
             title: "Ship pure index builders",
             status: ticketStatus("in_progress"),
@@ -158,7 +156,7 @@ Missing author
         expect(commentIndexRowsFor(project, [document])).toEqual([
           {
             id: "legacy-comment",
-            projectSlug: "demo",
+            projectId: "project-1",
             ticketId: ticketId("T-28"),
             origin: "native",
             authorKind: "user",
@@ -170,7 +168,7 @@ Missing author
           },
           {
             id: "linked-jira-comment",
-            projectSlug: "demo",
+            projectId: "project-1",
             ticketId: ticketId("T-28"),
             origin: "jira",
             authorKind: "user",
@@ -182,7 +180,7 @@ Missing author
           },
           {
             id: "snapshot-jira-comment",
-            projectSlug: "demo",
+            projectId: "project-1",
             ticketId: ticketId("T-28"),
             origin: "jira",
             authorKind: "jira",

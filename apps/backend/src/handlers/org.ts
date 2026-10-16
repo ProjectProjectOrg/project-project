@@ -10,26 +10,27 @@ import {
   Forbidden,
   NotFound,
   type OrgInvitation,
-  type OrgRole,
-  ProjectOwnerRemovalBlocked,
+  OrgRole,
+  LastProjectPmBlocked,
   Validation
 } from "@pp/shared"
 import { isAPIError } from "better-auth/api"
 import * as Effect from "effect/Effect"
-import { HttpServerRequest } from "effect/unstable/http"
+import * as Schema from "effect/Schema"
+import {
+  Cookies,
+  HttpEffect,
+  HttpServerRequest,
+  HttpServerResponse
+} from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 
-export const collapseRole = (role: string): OrgRole => {
-  const roles = new Set(role.split(",").map((entry) => entry.trim()))
-  if (roles.has("owner")) return "owner"
-  if (roles.has("admin")) return "admin"
-  return "member"
-}
+export const orgRoleOf = Schema.decodeUnknownSync(OrgRole)
 
 type RawInvitation = Readonly<{
   id: string
   email: string
-  role?: string | null
+  role: string
   status: string
 }>
 
@@ -42,7 +43,7 @@ export const pendingInvitations = (
           {
             id: invitation.id,
             email: invitation.email,
-            role: collapseRole(invitation.role ?? ""),
+            role: orgRoleOf(invitation.role),
             status: "pending" as const
           }
         ]
@@ -148,13 +149,13 @@ export const memberChangeErrorToFailure = (
     Effect.catchTags({ Validation: () => new Forbidden() })
   )
 
-const PROJECT_OWNER_REMOVAL_BLOCKED = "PROJECT_OWNER_REMOVAL_BLOCKED"
+const LAST_PROJECT_PM_BLOCKED = "LAST_PROJECT_PM_BLOCKED"
 
 export const blockingProjectSlugs = (
   error: BetterAuthError
 ): ReadonlyArray<string> | null => {
   if (!isClientRefusal(error)) return null
-  if (betterAuthErrorCode(error) !== PROJECT_OWNER_REMOVAL_BLOCKED) return null
+  if (betterAuthErrorCode(error) !== LAST_PROJECT_PM_BLOCKED) return null
   const { cause } = error
   const slugs = isAPIError(cause) ? cause.body?.projectSlugs : undefined
   return Array.isArray(slugs)
@@ -166,23 +167,27 @@ export const removeMemberErrorToFailure = (
   error: BetterAuthError
 ): Effect.Effect<
   never,
-  Forbidden | NotFound | Conflict | ProjectOwnerRemovalBlocked
+  Forbidden | NotFound | Conflict | LastProjectPmBlocked
 > => {
   const projectSlugs = blockingProjectSlugs(error)
   return projectSlugs === null
     ? memberChangeErrorToFailure(error)
-    : Effect.fail(new ProjectOwnerRemovalBlocked({ projectSlugs }))
+    : Effect.fail(new LastProjectPmBlocked({ projectSlugs }))
 }
 
 export const leaveErrorToFailure = (
   error: BetterAuthError
-): Effect.Effect<never, NotFound | Conflict> =>
-  memberErrorToFailure(error).pipe(
-    Effect.catchTags({
-      Forbidden: () => new NotFound(),
-      Validation: () => new NotFound()
-    })
-  )
+): Effect.Effect<never, NotFound | Conflict | LastProjectPmBlocked> => {
+  const projectSlugs = blockingProjectSlugs(error)
+  return projectSlugs === null
+    ? memberErrorToFailure(error).pipe(
+        Effect.catchTags({
+          Forbidden: () => new NotFound(),
+          Validation: () => new NotFound()
+        })
+      )
+    : Effect.fail(new LastProjectPmBlocked({ projectSlugs }))
+}
 
 export const transferErrorToFailure = (
   error: BetterAuthError
@@ -205,27 +210,9 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
         return yield* org.myOrgs(user.id)
       })
     )
-    .handle("get", ({ params }) =>
-      Effect.gen(function* () {
-        const user = yield* CurrentUser
-        const org = yield* Org
-        return yield* org.get(params.orgSlug, user.id)
-      })
-    )
-    .handle("softDelete", ({ params }) =>
-      Effect.gen(function* () {
-        const user = yield* CurrentUser
-        const org = yield* Org
-        return yield* org.softDelete(params.orgSlug, user.id)
-      })
-    )
-    .handle("restore", ({ params }) =>
-      Effect.gen(function* () {
-        const user = yield* CurrentUser
-        const org = yield* Org
-        return yield* org.restore(params.orgSlug, user.id)
-      })
-    )
+    .handle("get", () => Effect.flatMap(Org, (org) => org.get()))
+    .handle("softDelete", () => Effect.flatMap(Org, (org) => org.softDelete()))
+    .handle("restore", () => Effect.flatMap(Org, (org) => org.restore()))
     .handle("members", ({ params }) =>
       Effect.gen(function* () {
         yield* CurrentUser
@@ -238,14 +225,13 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
     )
     .handle("rename", ({ params, payload }) =>
       Effect.gen(function* () {
-        const user = yield* CurrentUser
         const ba = yield* BetterAuth
         const org = yield* Org
         const request = yield* webRequest
         yield* ba
           .renameOrg(request, params.orgSlug, payload.name)
           .pipe(Effect.catchTag("BetterAuthError", memberAccessErrorToFailure))
-        return yield* org.get(params.orgSlug, user.id)
+        return yield* org.get()
       })
     )
     .handle("inviteMember", ({ params, payload }) =>
@@ -303,13 +289,27 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
           .pipe(Effect.catchTag("BetterAuthError", transferErrorToFailure))
       })
     )
+    .handle("setActive", ({ params }) =>
+      Effect.gen(function* () {
+        const ba = yield* BetterAuth
+        const request = yield* webRequest
+        const cookies = Cookies.fromSetCookie(
+          yield* ba
+            .setActiveOrganization(request, params.orgSlug)
+            .pipe(Effect.catchTag("BetterAuthError", opaqueErrorToFailure))
+        )
+        yield* HttpEffect.appendPreResponseHandler((_request, response) =>
+          Effect.succeed(HttpServerResponse.mergeCookies(response, cookies))
+        )
+      })
+    )
     .handle("leave", ({ params }) =>
       Effect.gen(function* () {
-        yield* CurrentUser
+        const user = yield* CurrentUser
         const ba = yield* BetterAuth
         const request = yield* webRequest
         yield* ba
-          .leaveOrg(request, params.orgSlug)
+          .leaveOrg(request, params.orgSlug, user.id)
           .pipe(Effect.catchTag("BetterAuthError", leaveErrorToFailure))
       })
     )

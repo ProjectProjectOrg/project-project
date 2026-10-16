@@ -5,7 +5,7 @@ import { Cause, Effect, Exit } from "effect"
 import { expect } from "vitest"
 
 import {
-  collapseRole,
+  orgRoleOf,
   leaveErrorToFailure,
   memberAccessErrorToFailure,
   memberChangeErrorToFailure,
@@ -47,28 +47,10 @@ const bodiedError = (
 const failureOf = <E>(effect: Effect.Effect<never, E>) =>
   effect.pipe(Effect.flip)
 
-it("collapses a single role to itself", () => {
-  expect(collapseRole("owner")).toBe("owner")
-  expect(collapseRole("admin")).toBe("admin")
-  expect(collapseRole("member")).toBe("member")
-})
-
-it("collapses comma-separated roles to the highest one", () => {
-  expect(collapseRole("admin,member")).toBe("admin")
-  expect(collapseRole("owner,admin")).toBe("owner")
-  expect(collapseRole("owner,admin,member")).toBe("owner")
-  expect(collapseRole("member,owner")).toBe("owner")
-})
-
-it("ignores whitespace around comma-separated roles", () => {
-  expect(collapseRole("admin, member")).toBe("admin")
-  expect(collapseRole(" owner , admin ")).toBe("owner")
-})
-
-it("falls back to member for unknown or empty roles", () => {
-  expect(collapseRole("")).toBe("member")
-  expect(collapseRole("billing")).toBe("member")
-  expect(collapseRole("ownerish")).toBe("member")
+it("reads an org role strictly", () => {
+  expect(orgRoleOf("guest")).toBe("guest")
+  expect(() => orgRoleOf("admin,member")).toThrow()
+  expect(() => orgRoleOf("")).toThrow()
 })
 
 it.effect("hides non-membership behind NotFound on both statuses", () =>
@@ -258,13 +240,13 @@ it.effect(
     Effect.gen(function* () {
       const result = yield* failureOf(
         removeMemberErrorToFailure(
-          bodiedError(409, "PROJECT_OWNER_REMOVAL_BLOCKED", {
+          bodiedError(409, "LAST_PROJECT_PM_BLOCKED", {
             projectSlugs: ["alpha", "beta"]
           })
         )
       )
       expect(result).toMatchObject({
-        _tag: "ProjectOwnerRemovalBlocked",
+        _tag: "LastProjectPmBlocked",
         projectSlugs: ["alpha", "beta"]
       })
     })
@@ -276,11 +258,11 @@ it.effect(
     Effect.gen(function* () {
       const result = yield* failureOf(
         removeMemberErrorToFailure(
-          orgError("BAD_REQUEST", "PROJECT_OWNER_REMOVAL_BLOCKED")
+          orgError("BAD_REQUEST", "LAST_PROJECT_PM_BLOCKED")
         )
       )
       expect(result).toMatchObject({
-        _tag: "ProjectOwnerRemovalBlocked",
+        _tag: "LastProjectPmBlocked",
         projectSlugs: []
       })
     })
@@ -292,14 +274,14 @@ it.effect("never reports a project-owner removal from a 5xx", () =>
       removeMemberErrorToFailure(
         new BetterAuthError({
           cause: new APIError("INTERNAL_SERVER_ERROR", {
-            code: "PROJECT_OWNER_REMOVAL_BLOCKED",
+            code: "LAST_PROJECT_PM_BLOCKED",
             message: "boom"
           })
         })
       )
     )
     expect(exit._tag).toBe("Failure")
-    expect(describeExit(exit)).not.toContain("ProjectOwnerRemovalBlocked")
+    expect(describeExit(exit)).not.toContain("LastProjectPmBlocked")
   })
 )
 
@@ -415,13 +397,11 @@ it("returns only pending invitations to the members view", () => {
   expect(result.map((invitation) => invitation.id)).toEqual(["a", "e"])
 })
 
-it("collapses invitation roles and drops rows with no role", () => {
+it("reads invitation roles", () => {
   const result = pendingInvitations([
-    { id: "a", email: "a@example.com", role: "owner,admin", status: "pending" },
-    { id: "b", email: "b@example.com", role: null, status: "pending" }
+    { id: "a", email: "a@example.com", role: "admin", status: "pending" }
   ])
   expect(result).toEqual([
-    { id: "a", email: "a@example.com", role: "owner", status: "pending" },
-    { id: "b", email: "b@example.com", role: "member", status: "pending" }
+    { id: "a", email: "a@example.com", role: "admin", status: "pending" }
   ])
 })

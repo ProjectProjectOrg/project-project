@@ -6,16 +6,15 @@ import type {
   EverhourProjectIntegrationStatus,
   EverhourRateLimited,
   EverhourSyncSummary,
-  Forbidden,
   NotFound,
-  PersonalEverhour
+  PersonalEverhour,
+  ProjectScope
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 
 export type EverhourIntegrationError =
   | NotFound
-  | Forbidden
   | EverhourApiKeyMissing
   | EverhourAuthInvalid
   | EverhourRateLimited
@@ -37,31 +36,27 @@ export interface EverhourIntegrationsShape {
   readonly disconnectProfile: (
     userId: string
   ) => Effect.Effect<PersonalEverhour>
-  readonly getProjectStatus: (
-    orgSlug: string,
-    userId: string,
-    slug: string
-  ) => Effect.Effect<EverhourProjectIntegrationStatus, NotFound>
-  readonly connectProject: (
-    orgSlug: string,
-    userId: string,
-    slug: string
-  ) => Effect.Effect<EverhourSyncSummary, EverhourIntegrationError>
-  readonly syncProject: (
-    orgSlug: string,
-    userId: string,
-    slug: string
-  ) => Effect.Effect<EverhourSyncSummary, EverhourIntegrationError>
-  readonly disconnectProject: (
-    orgSlug: string,
-    userId: string,
-    slug: string
-  ) => Effect.Effect<EverhourProjectIntegrationStatus, NotFound | Forbidden>
-  readonly bestEffortProjectSync: (
-    orgSlug: string,
-    userId: string,
-    slug: string
-  ) => Effect.Effect<void>
+  readonly getProjectStatus: () => Effect.Effect<
+    EverhourProjectIntegrationStatus,
+    never,
+    ProjectScope
+  >
+  readonly connectProject: () => Effect.Effect<
+    EverhourSyncSummary,
+    EverhourIntegrationError,
+    ProjectScope
+  >
+  readonly syncProject: () => Effect.Effect<
+    EverhourSyncSummary,
+    EverhourIntegrationError,
+    ProjectScope
+  >
+  readonly disconnectProject: () => Effect.Effect<
+    EverhourProjectIntegrationStatus,
+    never,
+    ProjectScope
+  >
+  readonly bestEffortProjectSync: () => Effect.Effect<void, never, ProjectScope>
 }
 
 export class EverhourIntegrations extends Context.Service<

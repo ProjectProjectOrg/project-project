@@ -5,10 +5,6 @@ import {
   skippedAttachmentsForArchive
 } from "@pp/server-core/jira/Report"
 import { Markdown } from "@pp/server-core/markdown/Markdown"
-import {
-  requireOrgAdmin,
-  CurrentOrg
-} from "@pp/server-core/organizations/CurrentOrg"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import {
   AppApi,
@@ -16,7 +12,8 @@ import {
   JiraError,
   JiraMigrationUnavailable,
   JiraResourceNotFound,
-  NotFound
+  NotFound,
+  OrgScope
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
@@ -24,29 +21,27 @@ import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 
-const contextFor = (orgSlug: string) =>
-  Effect.gen(function* () {
-    const user = yield* CurrentUser
-    const currentOrg = yield* CurrentOrg
-    const org = yield* requireOrgAdmin(currentOrg, orgSlug, user.id)
-    return { user, org }
-  })
+const context = Effect.gen(function* () {
+  const user = yield* CurrentUser
+  const org = yield* OrgScope
+  return { user, org }
+})
 
 export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
   AppApi,
   "jiraMigrations",
   (handlers) =>
     handlers
-      .handle("list", ({ params }) =>
+      .handle("list", () =>
         Effect.gen(function* () {
-          const { user, org } = yield* contextFor(params.orgSlug)
+          const { user, org } = yield* context
           const migrations = yield* JiraMigrations
           return yield* migrations.list(org.organizationId, user.id)
         })
       )
-      .handle("create", ({ params, payload }) =>
+      .handle("create", ({ payload }) =>
         Effect.gen(function* () {
-          const { user, org } = yield* contextFor(params.orgSlug)
+          const { user, org } = yield* context
           const storage = yield* OrgStorage
           yield* storage.requireConnection(org.orgSlug).pipe(
             Effect.catchTags({
@@ -93,7 +88,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
       )
       .handle("get", ({ params }) =>
         Effect.gen(function* () {
-          const { user, org } = yield* contextFor(params.orgSlug)
+          const { user, org } = yield* context
           const migrations = yield* JiraMigrations
           return yield* migrations.get(
             org.organizationId,
@@ -104,7 +99,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
       )
       .handle("destinationConflicts", ({ params, query }) =>
         Effect.gen(function* () {
-          const { user, org } = yield* contextFor(params.orgSlug)
+          const { user, org } = yield* context
           const migrations = yield* JiraMigrations
           return yield* migrations.destinationConflicts(
             org.organizationId,
@@ -117,7 +112,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
       )
       .handle("skippedAttachments", ({ params }) =>
         Effect.gen(function* () {
-          const { user, org } = yield* contextFor(params.orgSlug)
+          const { user, org } = yield* context
           const migrations = yield* JiraMigrations
           const detail = yield* migrations.get(
             org.organizationId,
@@ -168,7 +163,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
       )
       .handle("configure", ({ params, payload }) =>
         Effect.gen(function* () {
-          const { user, org } = yield* contextFor(params.orgSlug)
+          const { user, org } = yield* context
           const migrations = yield* JiraMigrations
           return yield* migrations.configure(
             org.organizationId,
@@ -181,7 +176,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
       )
       .handle("rescan", ({ params, payload }) =>
         Effect.gen(function* () {
-          const { user, org } = yield* contextFor(params.orgSlug)
+          const { user, org } = yield* context
           const migrations = yield* JiraMigrations
           return yield* migrations.rescan(
             org.organizationId,
@@ -193,7 +188,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
       )
       .handle("run", ({ params, payload }) =>
         Effect.gen(function* () {
-          const { user, org } = yield* contextFor(params.orgSlug)
+          const { user, org } = yield* context
           const migrations = yield* JiraMigrations
           return yield* migrations.run(
             org.organizationId,
@@ -205,7 +200,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
       )
       .handle("cancel", ({ params, payload }) =>
         Effect.gen(function* () {
-          const { user, org } = yield* contextFor(params.orgSlug)
+          const { user, org } = yield* context
           const migrations = yield* JiraMigrations
           return yield* migrations.cancel(
             org.organizationId,
@@ -217,7 +212,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
       )
       .handle("discard", ({ params }) =>
         Effect.gen(function* () {
-          const { user, org } = yield* contextFor(params.orgSlug)
+          const { user, org } = yield* context
           const migrations = yield* JiraMigrations
           yield* migrations.discard(
             org.organizationId,

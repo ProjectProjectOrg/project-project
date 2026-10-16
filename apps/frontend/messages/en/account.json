@@ -26,6 +26,7 @@
   "auth_invites_decline_button": "Decline",
   "auth_invites_decline_row_error": "Couldn't decline this invite.",
   "auth_invites_role_admin": "admin",
+  "auth_invites_role_guest": "guest",
   "auth_invites_role_member": "member",
   "auth_invites_role_owner": "owner",
   "auth_invites_row_detail": "Invited by {inviter}.",

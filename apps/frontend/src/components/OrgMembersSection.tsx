@@ -1,6 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type {
-  AssignableRole,
+  OrgAssignableRole,
   OrgInvitation,
   OrgMember,
   OrgRole
@@ -43,6 +43,7 @@ import {
   transferOwnership,
   updateMemberRole
 } from "@/features/organizations/atoms/orgs"
+import { useOrgActor } from "@/lib/access"
 import { orgActionErrorFromExit, type OrgActionError } from "@/lib/orgErrors"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
@@ -61,12 +62,17 @@ const ROLE_META: Record<
     label: () => m.members_role_member(),
     icon: UserRound,
     tone: "muted"
+  },
+  guest: {
+    label: () => m.members_role_guest(),
+    icon: UserRound,
+    tone: "muted"
   }
 }
 const ASSIGNABLE_ROLES = [
   "admin",
   "member"
-] satisfies ReadonlyArray<AssignableRole>
+] satisfies ReadonlyArray<OrgAssignableRole>
 
 export function OrgMembersSection({
   orgSlug,
@@ -83,7 +89,7 @@ export function OrgMembersSection({
   callerRole: OrgRole
   callerUserId: string
 }) {
-  const canManage = callerRole === "owner" || callerRole === "admin"
+  const canManage = useOrgActor(orgSlug).call("org", "inviteMember")
   const ownerCount = members.filter((member) => member.role === "owner").length
   const isLastOwner = callerRole === "owner" && ownerCount <= 1
   const [adding, setAdding] = useState(false)
@@ -143,7 +149,7 @@ function AddMemberRow({
   const inviteState = useAtomValue(inviteMember(req))
   const submitting = inviteState.waiting
   const [email, setEmail] = useState("")
-  const [role, setRole] = useState<AssignableRole>("member")
+  const [role, setRole] = useState<OrgAssignableRole>("member")
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<OrgActionError | null>(null)
   const trimmed = email.trim()
@@ -207,9 +213,9 @@ function RoleSelect({
   onChange,
   roles = ASSIGNABLE_ROLES
 }: {
-  value: AssignableRole
-  onChange: (r: AssignableRole) => void
-  roles?: ReadonlyArray<AssignableRole>
+  value: OrgAssignableRole
+  onChange: (r: OrgAssignableRole) => void
+  roles?: ReadonlyArray<OrgAssignableRole>
 }) {
   const meta = ROLE_META[value]
   const Icon = meta.icon
@@ -462,12 +468,14 @@ function MemberMenu({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<OrgActionError | null>(null)
 
-  const canManage = callerRole === "owner" || callerRole === "admin"
+  const actor = useOrgActor(orgSlug)
   const isLastOwner = callerRole === "owner" && ownerCount <= 1
-  const canChangeRole = canManage && member.role !== "owner" && !isSelf
+  const canChangeRole =
+    actor.call("org", "updateMemberRole") && member.role !== "owner" && !isSelf
   const canTransfer =
-    callerRole === "owner" && member.role === "admin" && !isSelf
-  const canRemove = canManage && !isSelf && member.role !== "owner"
+    actor.call("org", "transferOwnership") && member.role === "admin" && !isSelf
+  const canRemove =
+    actor.call("org", "removeMember") && !isSelf && member.role !== "owner"
   const canLeave = isSelf && !isLastOwner
 
   if (!canChangeRole && !canTransfer && !canRemove && !canLeave) {
@@ -511,7 +519,7 @@ function MemberMenu({
     }
   }
 
-  async function onUpdateRole(role: AssignableRole) {
+  async function onUpdateRole(role: OrgAssignableRole) {
     setError(null)
     const exit = await update({ role })
     if (Exit.isFailure(exit)) setError(orgActionErrorFromExit(exit))

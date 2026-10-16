@@ -52,7 +52,7 @@ it.effect(
           username: "wvh",
           email: "wouter@example.com",
           image: null,
-          role: "member" as const
+          role: "developer" as const
         }
         return Effect.gen(function* () {
           yield* Registry.getResult(registry, me())

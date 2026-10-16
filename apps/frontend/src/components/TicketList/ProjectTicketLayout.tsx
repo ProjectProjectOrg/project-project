@@ -1,4 +1,5 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
+import { GroupPolicy } from "@pp/access/policies"
 import type { GroupId, TicketListQuery } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
@@ -19,6 +20,7 @@ import {
 } from "@/features/sprints/atoms/sprintDetail"
 import { viewCounts } from "@/features/tickets/atoms/viewCounts"
 import { useLocalStorageState } from "@/hooks/useLocalStorageState"
+import { useProjectActor } from "@/lib/access"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
@@ -55,6 +57,10 @@ export function ProjectTicketLayout({
   children: (state: TicketLayoutState) => ReactNode
 }>) {
   const project = useProject()
+  const actor = useProjectActor()
+  const canCreate = actor.call("tickets", "quickCreate")
+  const canAddToSprint = GroupPolicy.can(actor, "sprint", "add_ticket")
+  const showCreator = groupId ? canAddToSprint : canCreate
   const viewer = useAtomValue(me())
   const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
   const preferencesKey = `${viewerId}:${orgSlug}/${slug}`
@@ -89,43 +95,47 @@ export function ProjectTicketLayout({
   return (
     <PageContainer className="group/list gap-3">
       <Activity mode={view === "description" ? "hidden" : "visible"}>
-        <div className="relative min-h-9">
-          <motion.div
-            initial={false}
-            animate={{ opacity: reorder.reorderMode ? 1 : 0 }}
-            transition={transitions.fade}
-            inert={!reorder.reorderMode}
-            aria-hidden={!reorder.reorderMode}
-            className="absolute inset-x-0 top-1/2 -translate-y-1/2"
-          >
-            <ReorderBoardBanner
-              onSave={reorder.saveReorder}
-              onCancel={reorder.cancelReorder}
-            />
-          </motion.div>
-          <motion.div
-            initial={false}
-            animate={{ opacity: reorder.reorderMode ? 0 : 1 }}
-            transition={transitions.fade}
-            inert={reorder.reorderMode}
-            aria-hidden={reorder.reorderMode}
-          >
-            {groupId ? (
-              <SprintCreator
-                key={groupId}
-                orgSlug={orgSlug}
-                slug={slug}
-                groupId={groupId}
+        {(showCreator || reorder.reorderMode) && (
+          <div className="relative min-h-9">
+            <motion.div
+              initial={false}
+              animate={{ opacity: reorder.reorderMode ? 1 : 0 }}
+              transition={transitions.fade}
+              inert={!reorder.reorderMode}
+              aria-hidden={!reorder.reorderMode}
+              className="absolute inset-x-0 top-1/2 -translate-y-1/2"
+            >
+              <ReorderBoardBanner
+                onSave={reorder.saveReorder}
+                onCancel={reorder.cancelReorder}
               />
-            ) : (
-              <BacklogTicketCreator
-                orgSlug={orgSlug}
-                slug={slug}
-                query={query}
-              />
-            )}
-          </motion.div>
-        </div>
+            </motion.div>
+            <motion.div
+              initial={false}
+              animate={{ opacity: reorder.reorderMode ? 0 : 1 }}
+              transition={transitions.fade}
+              inert={reorder.reorderMode}
+              aria-hidden={reorder.reorderMode}
+            >
+              {groupId
+                ? canAddToSprint && (
+                    <SprintCreator
+                      key={groupId}
+                      orgSlug={orgSlug}
+                      slug={slug}
+                      groupId={groupId}
+                    />
+                  )
+                : canCreate && (
+                    <BacklogTicketCreator
+                      orgSlug={orgSlug}
+                      slug={slug}
+                      query={query}
+                    />
+                  )}
+            </motion.div>
+          </div>
+        )}
       </Activity>
       <div className="flex flex-col gap-3 transition-opacity duration-200 ease-out group-has-[form[data-active]]/list:opacity-35">
         <Activity mode={view === "description" ? "hidden" : "visible"}>

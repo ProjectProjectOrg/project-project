@@ -90,8 +90,8 @@ export class InvitationNotAcceptable extends Schema.TaggedError<InvitationNotAcc
   { httpApiStatus: 409 }
 ) {}
 
-export class ProjectOwnerRemovalBlocked extends Schema.TaggedError<ProjectOwnerRemovalBlocked>()(
-  "ProjectOwnerRemovalBlocked",
+export class LastProjectPmBlocked extends Schema.TaggedError<LastProjectPmBlocked>()(
+  "LastProjectPmBlocked",
   { projectSlugs: Schema.Array(Schema.String) },
   { httpApiStatus: 409 }
 ) {}

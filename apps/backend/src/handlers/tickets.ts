@@ -1,8 +1,7 @@
 // Thin handlers for the `tickets` HttpApi group. All logic in Tickets.
 
-import { CurrentOrg } from "@pp/server-core/organizations/CurrentOrg"
 import { Tickets } from "@pp/server-core/tickets/Tickets"
-import { AppApi, CurrentUser, Validation } from "@pp/shared"
+import { AppApi, Validation } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 
@@ -13,184 +12,80 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
   "tickets",
   (handlers) =>
     handlers
-      .handle("mine", ({ params, query }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.mine(org.orgSlug, user.id, query)
-        })
+      .handle("mine", ({ query }) =>
+        Effect.flatMap(Tickets, (tickets) => tickets.mine(query)).pipe(
+          dieOnMarkdown
+        )
       )
-      .handle("mineByProject", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.mineByProject(org.orgSlug, user.id)
-        })
+      .handle("mineByProject", () =>
+        Effect.flatMap(Tickets, (tickets) => tickets.mineByProject()).pipe(
+          dieOnMarkdown
+        )
       )
-      .handle("recent", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.recent(org.orgSlug, user.id)
-        })
+      .handle("recent", () =>
+        Effect.flatMap(Tickets, (tickets) => tickets.recent()).pipe(
+          dieOnMarkdown
+        )
       )
-      .handle("sections", ({ params, query }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.sections(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            query
-          )
-        }).pipe(dieOnMarkdown)
+      .handle("sections", ({ query }) =>
+        Effect.flatMap(Tickets, (tickets) => tickets.sections(query)).pipe(
+          dieOnMarkdown
+        )
       )
-      .handle("sprintSections", ({ params, query }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.sprintSections(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            query
-          )
-        }).pipe(dieOnMarkdown)
+      .handle("sprintSections", ({ query }) =>
+        Effect.flatMap(Tickets, (tickets) =>
+          tickets.sprintSections(query)
+        ).pipe(dieOnMarkdown)
       )
-      .handle("list", ({ params, query }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.list(org.orgSlug, user.id, params.slug, query)
-        }).pipe(dieOnMarkdown)
+      .handle("list", ({ query }) =>
+        Effect.flatMap(Tickets, (tickets) => tickets.list(query)).pipe(
+          dieOnMarkdown
+        )
       )
-      .handle("search", ({ params, query }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.search(org.orgSlug, user.id, params.slug, query)
-        }).pipe(dieOnMarkdown)
+      .handle("search", ({ query }) =>
+        Effect.flatMap(Tickets, (tickets) => tickets.search(query)).pipe(
+          dieOnMarkdown
+        )
       )
-      .handle("count", ({ params, query }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.count(org.orgSlug, user.id, params.slug, query)
-        }).pipe(dieOnMarkdown)
+      .handle("count", ({ query }) =>
+        Effect.flatMap(Tickets, (tickets) => tickets.count(query)).pipe(
+          dieOnMarkdown
+        )
       )
-      .handle("quickCreate", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.quickCreate(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            payload
-          )
-        }).pipe(dieOnMarkdown)
+      .handle("quickCreate", ({ payload }) =>
+        Effect.flatMap(Tickets, (tickets) => tickets.quickCreate(payload)).pipe(
+          dieOnMarkdown
+        )
       )
-      .handle("create", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.create(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            payload
-          )
-        }).pipe(dieOnMarkdown)
+      .handle("create", ({ payload }) =>
+        Effect.flatMap(Tickets, (tickets) => tickets.create(payload)).pipe(
+          dieOnMarkdown
+        )
       )
       .handle("get", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.get(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id
-          )
-        }).pipe(dieOnMarkdown)
+        Effect.flatMap(Tickets, (tickets) => tickets.get(params.id)).pipe(
+          dieOnMarkdown
+        )
       )
       .handle("update", ({ params, payload, query }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.update(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id,
-            payload,
-            query.sort
-          )
-        }).pipe(dieOnMarkdown)
+        Effect.flatMap(Tickets, (tickets) =>
+          tickets.update(params.id, payload, query.sort)
+        ).pipe(dieOnMarkdown)
       )
       .handle("delete", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          yield* tickets.remove(org.orgSlug, user.id, params.slug, params.id)
-        }).pipe(dieOnMarkdown)
+        Effect.flatMap(Tickets, (tickets) => tickets.remove(params.id)).pipe(
+          dieOnMarkdown
+        )
       )
       .handle("split", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.split(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id,
-            payload
-          )
-        }).pipe(dieOnMarkdown)
+        Effect.flatMap(Tickets, (tickets) =>
+          tickets.split(params.id, payload)
+        ).pipe(dieOnMarkdown)
       )
       .handle("archive", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.archive(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id,
-            payload.reason
-          )
-        }).pipe(
+        Effect.flatMap(Tickets, (tickets) =>
+          tickets.archive(params.id, payload.reason)
+        ).pipe(
           Effect.catchTag("InvalidCommentBody", (error) =>
             Effect.fail(new Validation({ reason: error.reason }))
           ),
@@ -198,76 +93,28 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
         )
       )
       .handle("unarchive", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.unarchive(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id
-          )
-        }).pipe(dieOnMarkdown)
+        Effect.flatMap(Tickets, (tickets) => tickets.unarchive(params.id)).pipe(
+          dieOnMarkdown
+        )
       )
       .handle("createBranch", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.createBranch(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id,
-            payload
-          )
-        }).pipe(dieOnMarkdown)
+        Effect.flatMap(Tickets, (tickets) =>
+          tickets.createBranch(params.id, payload)
+        ).pipe(dieOnMarkdown)
       )
       .handle("openPr", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.openPr(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id,
-            payload
-          )
-        }).pipe(dieOnMarkdown)
+        Effect.flatMap(Tickets, (tickets) =>
+          tickets.openPr(params.id, payload)
+        ).pipe(dieOnMarkdown)
       )
       .handle("clearBranch", ({ params }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.clearBranch(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id
-          )
-        }).pipe(dieOnMarkdown)
+        Effect.flatMap(Tickets, (tickets) =>
+          tickets.clearBranch(params.id)
+        ).pipe(dieOnMarkdown)
       )
       .handle("attachBranch", ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const currentOrg = yield* CurrentOrg
-          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
-          const tickets = yield* Tickets
-          return yield* tickets.attachBranch(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            params.id,
-            payload
-          )
-        }).pipe(dieOnMarkdown)
+        Effect.flatMap(Tickets, (tickets) =>
+          tickets.attachBranch(params.id, payload)
+        ).pipe(dieOnMarkdown)
       )
 )

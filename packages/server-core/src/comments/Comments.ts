@@ -2,11 +2,12 @@ import type {
   Comment,
   CommentId,
   CreateCommentInput,
-  Forbidden,
   MentionInvalid,
   NotFound,
   TicketId,
-  UpdateCommentInput
+  UpdateCommentInput,
+  ProjectScope,
+  Forbidden
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as Data from "effect/Data"
@@ -48,18 +49,13 @@ export type HistoricalCommentInput = Readonly<{
 
 export type CommentsShape = Readonly<{
   list: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     ticketId: TicketId
   ) => Effect.Effect<
     ReadonlyArray<Comment>,
-    NotFound | MarkdownError | MalformedTicketDocument
+    NotFound | MarkdownError | MalformedTicketDocument,
+    ProjectScope
   >
   create: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     ticketId: TicketId,
     input: CreateCommentInput
   ) => Effect.Effect<
@@ -68,12 +64,10 @@ export type CommentsShape = Readonly<{
     | InvalidCommentBody
     | MentionInvalid
     | MarkdownError
-    | MalformedTicketDocument
+    | MalformedTicketDocument,
+    ProjectScope
   >
   importHistorical: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     ticketId: TicketId,
     input: ReadonlyArray<HistoricalCommentInput>
   ) => Effect.Effect<
@@ -83,33 +77,30 @@ export type CommentsShape = Readonly<{
     | InvalidCommentAuthor
     | MentionInvalid
     | MarkdownError
-    | MalformedTicketDocument
+    | MalformedTicketDocument,
+    ProjectScope
   >
   edit: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     ticketId: TicketId,
     commentId: CommentId,
     input: UpdateCommentInput
   ) => Effect.Effect<
     Comment,
-    | NotFound
     | Forbidden
+    | NotFound
     | InvalidCommentBody
     | MentionInvalid
     | MarkdownError
-    | MalformedTicketDocument
+    | MalformedTicketDocument,
+    ProjectScope
   >
   remove: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
     ticketId: TicketId,
     commentId: CommentId
   ) => Effect.Effect<
     void,
-    NotFound | Forbidden | MarkdownError | MalformedTicketDocument
+    Forbidden | NotFound | MarkdownError | MalformedTicketDocument,
+    ProjectScope
   >
 }>
 

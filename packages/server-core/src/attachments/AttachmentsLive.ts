@@ -1,10 +1,10 @@
 import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
-import { projectIndex } from "@pp/db/schema"
 import {
   attachmentIndex,
   attachmentReference,
-  projectImageReference
+  projectImageReference,
+  projectIndex
 } from "@pp/db/schema"
 import {
   ATTACHMENT_MAX_BYTES,
@@ -17,10 +17,12 @@ import {
   isAttachmentDeletable,
   isRasterImageContentType,
   NotFound,
+  OrgScope,
   StorageError,
   type Attachment,
   type AttachmentRow,
-  type AttachmentTicketRef
+  type AttachmentTicketRef,
+  ProjectScope
 } from "@pp/shared"
 import {
   and,
@@ -39,8 +41,8 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { ulid } from "ulid"
 
-import { CurrentOrg, requireOrgAdmin } from "../organizations/CurrentOrg"
-import { Projects } from "../projects/Projects"
+import { Access } from "../access/Access"
+import { projectInOrg } from "../projects/projectLookup"
 import { OrgStorage } from "../storage/OrgStorage"
 import {
   attachmentObjectKey,
@@ -71,29 +73,9 @@ export const AttachmentsLive = Layer.effect(
   Attachments,
   Effect.gen(function* () {
     const db = yield* Db
-    const currentOrg = yield* CurrentOrg
+    const access = yield* Access
     const orgStorage = yield* OrgStorage
     const s3 = yield* S3Storage
-    const projects = yield* Projects
-
-    const requireProject = (orgSlug: string, userId: string, slug: string) =>
-      Effect.gen(function* () {
-        yield* projects.requireMember(orgSlug, userId, slug)
-        const row = yield* db.query.projectIndex
-          .findFirst({
-            columns: { organizationId: true },
-            where: {
-              RAW: (table, _operators) =>
-                _operators.and(
-                  _operators.eq(table.slug, slug),
-                  publishedProject(table)
-                )!
-            }
-          })
-          .pipe(Effect.orDie)
-        if (!row) return yield* new NotFound()
-        return { organizationId: row.organizationId }
-      })
 
     const toAttachment = (
       row: typeof attachmentIndex.$inferSelect
@@ -110,10 +92,11 @@ export const AttachmentsLive = Layer.effect(
 
     const toAttachmentRow = (
       row: typeof attachmentIndex.$inferSelect,
+      projectSlug: string | null,
       tickets: ReadonlyArray<AttachmentTicketRef>
     ): AttachmentRow => ({
       ...toAttachment(row),
-      projectSlug: row.projectSlug,
+      projectSlug,
       ticketId: row.ticketId,
       tickets
     })
@@ -121,18 +104,12 @@ export const AttachmentsLive = Layer.effect(
     const libraryAttachmentIsVisible = () =>
       or(publishedProject(projectIndex), isNull(projectIndex.slug))!
 
-    const prepare: AttachmentsShape["prepare"] = (
-      orgSlug,
-      slug,
-      ticketId,
-      userId,
-      input
-    ) =>
+    const prepare: AttachmentsShape["prepare"] = (ticketId, input) =>
       Effect.gen(function* () {
-        const { organizationId } = yield* requireProject(orgSlug, userId, slug)
+        const { orgSlug, slug, userId, organizationId, projectId } =
+          yield* ProjectScope
 
         if (ticketId === null) {
-          yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
           if (!isRasterImageContentType(input.contentType))
             return yield* new AttachmentTypeRejected({
               contentType: input.contentType
@@ -175,7 +152,7 @@ export const AttachmentsLive = Layer.effect(
             id,
             organizationId,
             orgSlug,
-            projectSlug: slug,
+            projectId,
             ticketId,
             objectKey,
             filename: input.filename,
@@ -199,17 +176,9 @@ export const AttachmentsLive = Layer.effect(
         }
       })
 
-    const commit: AttachmentsShape["commit"] = (
-      orgSlug,
-      slug,
-      ticketId,
-      userId,
-      attachmentId
-    ) =>
+    const commit: AttachmentsShape["commit"] = (ticketId, attachmentId) =>
       Effect.gen(function* () {
-        yield* requireProject(orgSlug, userId, slug)
-        if (ticketId === null)
-          yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
+        const { orgSlug, projectId } = yield* ProjectScope
 
         const rows = yield* db
           .select()
@@ -218,7 +187,7 @@ export const AttachmentsLive = Layer.effect(
             and(
               eq(attachmentIndex.id, attachmentId),
               eq(attachmentIndex.orgSlug, orgSlug),
-              eq(attachmentIndex.projectSlug, slug),
+              eq(attachmentIndex.projectId, projectId),
               ticketId === null
                 ? isNull(attachmentIndex.ticketId)
                 : eq(attachmentIndex.ticketId, ticketId)
@@ -347,16 +316,15 @@ export const AttachmentsLive = Layer.effect(
     const resolveForServing: AttachmentsShape["resolveForServing"] = (
       orgSlug,
       attachmentId,
-      userId,
       options
     ) =>
       Effect.gen(function* () {
         const rows = yield* db
-          .select({ attachment: attachmentIndex })
+          .select({ row: attachmentIndex, projectSlug: projectIndex.slug })
           .from(attachmentIndex)
           .leftJoin(
             projectIndex,
-            eq(projectIndex.slug, attachmentIndex.projectSlug)
+            eq(projectIndex.id, attachmentIndex.projectId)
           )
           .where(
             and(
@@ -368,18 +336,22 @@ export const AttachmentsLive = Layer.effect(
           .limit(1)
           .pipe(Effect.orDie)
 
-        const row = rows[0]?.attachment
+        const found = rows[0]
+        const row = found?.row
         if (!row || !isServableStatus(row.status)) {
           return yield* new NotFound()
         }
 
-        yield* projects
-          .requireMember(orgSlug, userId, row.projectSlug)
-          .pipe(
-            Effect.catchTag("NotFound", () =>
-              requireOrgAdmin(currentOrg, orgSlug, userId)
-            )
-          )
+        const permitted =
+          found.projectSlug === null
+            ? (yield* access.org(orgSlug)).permissions.can({
+                storage: ["manage"]
+              })
+            : (yield* access.project(
+                orgSlug,
+                found.projectSlug
+              )).permissions.can({ ticket: ["read"] })
+        if (!permitted) return yield* new Forbidden()
 
         const connection = yield* orgStorage.requireConnection(orgSlug)
 
@@ -419,13 +391,9 @@ export const AttachmentsLive = Layer.effect(
         yield* s3.deleteObject(connection, row.objectKey)
       })
 
-    const listForOrg: AttachmentsShape["listForOrg"] = (
-      orgSlug,
-      userId,
-      params
-    ) =>
+    const listForOrg: AttachmentsShape["listForOrg"] = (params) =>
       Effect.gen(function* () {
-        yield* requireOrgAdmin(currentOrg, orgSlug, userId)
+        const { organizationId } = yield* OrgScope
 
         const limit = params.limit ?? DEFAULT_ATTACHMENT_LIMIT
         const plan = attachmentSortPlan(params.sort)
@@ -435,21 +403,21 @@ export const AttachmentsLive = Layer.effect(
             : attachmentIndex.createdAt
         const order = plan.direction === "desc" ? desc : asc
 
-        const conditions = [eq(attachmentIndex.orgSlug, orgSlug)]
+        const conditions = [eq(attachmentIndex.organizationId, organizationId)]
         if (params.status) {
           conditions.push(eq(attachmentIndex.status, params.status))
         }
         if (params.projectSlug) {
-          conditions.push(eq(attachmentIndex.projectSlug, params.projectSlug))
+          conditions.push(eq(projectIndex.slug, params.projectSlug))
         }
         const where = and(...conditions)
 
         const items = yield* db
-          .select({ attachment: attachmentIndex })
+          .select({ row: attachmentIndex, projectSlug: projectIndex.slug })
           .from(attachmentIndex)
           .leftJoin(
             projectIndex,
-            eq(projectIndex.slug, attachmentIndex.projectSlug)
+            eq(projectIndex.id, attachmentIndex.projectId)
           )
           .where(and(where, libraryAttachmentIsVisible()))
           .orderBy(order(column), order(attachmentIndex.id))
@@ -463,19 +431,19 @@ export const AttachmentsLive = Layer.effect(
             : yield* db
                 .select({
                   attachmentId: attachmentReference.attachmentId,
-                  projectSlug: attachmentReference.projectSlug,
+                  projectSlug: projectIndex.slug,
                   ticketId: attachmentReference.ticketId
                 })
                 .from(attachmentReference)
                 .innerJoin(
                   projectIndex,
-                  eq(projectIndex.slug, attachmentReference.projectSlug)
+                  eq(projectIndex.id, attachmentReference.projectId)
                 )
                 .where(
                   and(
                     inArray(
                       attachmentReference.attachmentId,
-                      items.map((row) => row.attachment.id)
+                      items.map((item) => item.row.id)
                     ),
                     publishedProject(projectIndex)
                   )
@@ -498,25 +466,26 @@ export const AttachmentsLive = Layer.effect(
           .from(attachmentIndex)
           .leftJoin(
             projectIndex,
-            eq(projectIndex.slug, attachmentIndex.projectSlug)
+            eq(projectIndex.id, attachmentIndex.projectId)
           )
           .where(and(where, libraryAttachmentIsVisible()))
           .pipe(Effect.orDie)
 
         return {
-          items: items.map(({ attachment }) =>
-            toAttachmentRow(attachment, byAttachment.get(attachment.id) ?? [])
+          items: items.map((item) =>
+            toAttachmentRow(
+              item.row,
+              item.projectSlug,
+              byAttachment.get(item.row.id) ?? []
+            )
           ),
           total: Number(counted[0]?.total ?? 0)
         }
       })
 
-    const summarizeForOrg: AttachmentsShape["summarizeForOrg"] = (
-      orgSlug,
-      userId
-    ) =>
+    const summarizeForOrg: AttachmentsShape["summarizeForOrg"] = () =>
       Effect.gen(function* () {
-        yield* requireOrgAdmin(currentOrg, orgSlug, userId)
+        const { organizationId } = yield* OrgScope
 
         const rows = yield* db
           .select({
@@ -527,11 +496,11 @@ export const AttachmentsLive = Layer.effect(
           .from(attachmentIndex)
           .leftJoin(
             projectIndex,
-            eq(projectIndex.slug, attachmentIndex.projectSlug)
+            eq(projectIndex.id, attachmentIndex.projectId)
           )
           .where(
             and(
-              eq(attachmentIndex.orgSlug, orgSlug),
+              eq(attachmentIndex.organizationId, organizationId),
               libraryAttachmentIsVisible()
             )
           )
@@ -540,25 +509,21 @@ export const AttachmentsLive = Layer.effect(
         return summarizeAttachments({ rows })
       })
 
-    const deleteForOrg: AttachmentsShape["deleteForOrg"] = (
-      orgSlug,
-      attachmentId,
-      userId
-    ) =>
+    const deleteForOrg: AttachmentsShape["deleteForOrg"] = (attachmentId) =>
       Effect.gen(function* () {
-        yield* requireOrgAdmin(currentOrg, orgSlug, userId)
+        const { organizationId, orgSlug } = yield* OrgScope
 
         const rows = yield* db
           .select({ attachment: attachmentIndex })
           .from(attachmentIndex)
           .leftJoin(
             projectIndex,
-            eq(projectIndex.slug, attachmentIndex.projectSlug)
+            eq(projectIndex.id, attachmentIndex.projectId)
           )
           .where(
             and(
               eq(attachmentIndex.id, attachmentId),
-              eq(attachmentIndex.orgSlug, orgSlug),
+              eq(attachmentIndex.organizationId, organizationId),
               libraryAttachmentIsVisible()
             )
           )
@@ -605,6 +570,7 @@ export const AttachmentsLive = Layer.effect(
       body
     ) =>
       Effect.gen(function* () {
+        const { id: projectId } = yield* projectInOrg(db, orgSlug, slug)
         const referenced = new Set(
           extractAttachmentRefs(body)
             .filter((ref) => ref.orgSlug === orgSlug)
@@ -616,8 +582,7 @@ export const AttachmentsLive = Layer.effect(
           .from(attachmentReference)
           .where(
             and(
-              eq(attachmentReference.orgSlug, orgSlug),
-              eq(attachmentReference.projectSlug, slug),
+              eq(attachmentReference.projectId, projectId),
               eq(attachmentReference.ticketId, ticketId)
             )
           )
@@ -647,8 +612,7 @@ export const AttachmentsLive = Layer.effect(
             .delete(attachmentReference)
             .where(
               and(
-                eq(attachmentReference.orgSlug, orgSlug),
-                eq(attachmentReference.projectSlug, slug),
+                eq(attachmentReference.projectId, projectId),
                 eq(attachmentReference.ticketId, ticketId),
                 inArray(attachmentReference.attachmentId, plan.toRemove)
               )
@@ -662,8 +626,7 @@ export const AttachmentsLive = Layer.effect(
             .values(
               plan.toAdd.map((attachmentId) => ({
                 attachmentId,
-                orgSlug,
-                projectSlug: slug,
+                projectId,
                 ticketId
               }))
             )
@@ -734,34 +697,35 @@ export const AttachmentsLive = Layer.effect(
         )
       )
 
-    const orphanProject: AttachmentsShape["orphanProject"] = (orgSlug, slug) =>
+    const projectAttachmentIds = (projectId: string) =>
       Effect.gen(function* () {
-        const ownReferences = and(
-          eq(attachmentReference.orgSlug, orgSlug),
-          eq(attachmentReference.projectSlug, slug)
-        )
-
+        const uploaded = yield* db
+          .select({ id: attachmentIndex.id })
+          .from(attachmentIndex)
+          .where(eq(attachmentIndex.projectId, projectId))
+          .pipe(Effect.orDie)
         const referenced = yield* db
-          .select({ attachmentId: attachmentReference.attachmentId })
+          .select({ id: attachmentReference.attachmentId })
           .from(attachmentReference)
-          .where(ownReferences)
+          .where(eq(attachmentReference.projectId, projectId))
           .pipe(Effect.orDie)
-
-        yield* db
-          .delete(attachmentReference)
-          .where(ownReferences)
+        const images = yield* db
+          .select({ id: projectImageReference.attachmentId })
+          .from(projectImageReference)
+          .where(eq(projectImageReference.projectId, projectId))
           .pipe(Effect.orDie)
+        return [
+          ...new Set(
+            [...uploaded, ...referenced, ...images].map((row) => row.id)
+          )
+        ]
+      })
 
-        const uploadedHere = eq(attachmentIndex.projectSlug, slug)
-        const ids = [...new Set(referenced.map((row) => row.attachmentId))]
-        const candidates =
-          ids.length > 0
-            ? or(uploadedHere, inArray(attachmentIndex.id, ids))
-            : uploadedHere
-
+    const orphanUnreferenced = (orgSlug: string, ids: ReadonlyArray<string>) =>
+      Effect.gen(function* () {
+        if (ids.length === 0) return 0
         const now = yield* DateTime.nowAsDate
         const hasReference = sql`(exists (select 1 from ${attachmentReference} where ${attachmentReference.attachmentId} = ${attachmentIndex.id}) or exists (select 1 from ${projectImageReference} where ${projectImageReference.attachmentId} = ${attachmentIndex.id}))`
-
         const orphaned = yield* db
           .update(attachmentIndex)
           .set({ status: "orphaned", orphanedAt: now })
@@ -770,21 +734,50 @@ export const AttachmentsLive = Layer.effect(
               eq(attachmentIndex.orgSlug, orgSlug),
               eq(attachmentIndex.status, "live"),
               sql`not ${hasReference}`,
-              candidates
+              inArray(attachmentIndex.id, [...ids])
             )
           )
           .returning({ id: attachmentIndex.id })
           .pipe(Effect.orDie)
+        return orphaned.length
+      })
 
-        return { orphaned: orphaned.length }
-      }).pipe(
-        Effect.catchCause((cause) =>
-          Effect.as(
-            Effect.logError("orphaning project attachments failed", cause),
-            { orphaned: 0 }
+    const orphanProject: AttachmentsShape["orphanProject"] = (
+      orgSlug,
+      slug,
+      removal
+    ) =>
+      Effect.gen(function* () {
+        const ids = yield* db
+          .transaction(() =>
+            Effect.gen(function* () {
+              const ids = yield* projectInOrg(db, orgSlug, slug).pipe(
+                Effect.tap((project) =>
+                  db
+                    .select({ id: projectIndex.id })
+                    .from(projectIndex)
+                    .where(eq(projectIndex.id, project.id))
+                    .for("update")
+                    .pipe(Effect.orDie)
+                ),
+                Effect.flatMap((project) => projectAttachmentIds(project.id)),
+                Effect.catchTag("NotFound", () => Effect.succeed([]))
+              )
+              yield* removal
+              return ids
+            })
+          )
+          .pipe(Effect.catchTag("SqlError", Effect.die))
+        const orphaned = yield* orphanUnreferenced(orgSlug, ids).pipe(
+          Effect.catchCause((cause) =>
+            Effect.as(
+              Effect.logError("orphaning project attachments failed", cause),
+              0
+            )
           )
         )
-      )
+        return { orphaned }
+      })
 
     const reapOnce: AttachmentsShape["reapOnce"] = () =>
       Effect.gen(function* () {

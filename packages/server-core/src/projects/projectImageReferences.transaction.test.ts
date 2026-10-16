@@ -29,6 +29,7 @@ describe.skipIf(!databaseUrl)(
     const orgId = randomUUID()
     const orgSlug = `org-${orgId.slice(0, 8)}`
     const projectSlug = `project-${orgId.slice(0, 8)}`
+    const projectId = randomUUID()
     const oldAttachmentId = randomUUID()
     const newAttachmentId = randomUUID()
 
@@ -60,6 +61,7 @@ describe.skipIf(!databaseUrl)(
         createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-10T00:00:00Z"))
       })
       await promiseDb.insert(projectIndex).values({
+        id: projectId,
         slug: projectSlug,
         organizationId: orgId,
         key: "TST",
@@ -73,7 +75,7 @@ describe.skipIf(!databaseUrl)(
           id: oldAttachmentId,
           organizationId: orgId,
           orgSlug,
-          projectSlug,
+          projectId,
           objectKey: "old.png",
           filename: "old.png",
           contentType: "image/png",
@@ -85,7 +87,7 @@ describe.skipIf(!databaseUrl)(
           id: newAttachmentId,
           organizationId: orgId,
           orgSlug,
-          projectSlug,
+          projectId,
           objectKey: "new.png",
           filename: "new.png",
           contentType: "image/png",
@@ -95,8 +97,7 @@ describe.skipIf(!databaseUrl)(
         }
       ])
       await promiseDb.insert(projectImageReference).values({
-        projectSlug,
-        orgSlug,
+        projectId,
         attachmentId: oldAttachmentId,
         slot: "icon"
       })
@@ -119,14 +120,12 @@ describe.skipIf(!databaseUrl)(
               return yield* db.transaction(() =>
                 Effect.gen(function* () {
                   yield* replaceProjectImageReference(db, {
-                    orgSlug,
-                    projectSlug,
+                    projectId,
                     slot: "icon",
                     attachmentId: newAttachmentId
                   })
                   yield* replaceProjectImageReference(db, {
-                    orgSlug,
-                    projectSlug,
+                    projectId,
                     slot: "icon_source",
                     attachmentId: randomUUID()
                   })
@@ -143,7 +142,7 @@ describe.skipIf(!databaseUrl)(
               .from(projectImageReference)
               .where(
                 and(
-                  eq(projectImageReference.projectSlug, projectSlug),
+                  eq(projectImageReference.projectId, projectId),
                   eq(projectImageReference.slot, "icon")
                 )
               )
@@ -173,7 +172,7 @@ describe.skipIf(!databaseUrl)(
               .from(projectImageReference)
               .where(
                 and(
-                  eq(projectImageReference.projectSlug, projectSlug),
+                  eq(projectImageReference.projectId, projectId),
                   eq(projectImageReference.slot, "icon_source")
                 )
               )

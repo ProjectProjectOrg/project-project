@@ -1,5 +1,6 @@
 import { randomBytes, createHash } from "node:crypto"
 
+import { Org } from "@pp/access/roles"
 import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
 import {
@@ -14,6 +15,8 @@ import {
   Forbidden,
   GitHubError,
   NotFound,
+  OrgRole,
+  OrgScope,
   RateLimited,
   type GithubOrgIntegrationStatus,
   type Slug
@@ -23,14 +26,16 @@ import * as Config from "effect/Config"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
 
-import { CurrentOrg } from "../organizations/CurrentOrg"
 import { GitHub } from "./GitHub"
 import {
   GitHubIntegrations,
   type GitHubIntegrationsShape
 } from "./GitHubIntegrations"
+
+const decodeOrgRole = Schema.decodeUnknownEffect(OrgRole)
 
 const hashState = (state: string) =>
   createHash("sha256").update(state).digest("hex")
@@ -67,15 +72,7 @@ export const GitHubIntegrationsLive = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db
     const sql = yield* SqlClient.SqlClient
-    const currentOrg = yield* CurrentOrg
     const github = yield* GitHub
-
-    const requireOrgOwner = (orgSlug: string, userId: string) =>
-      Effect.gen(function* () {
-        const org = yield* currentOrg.resolve(orgSlug, userId)
-        if (org.role !== "owner") return yield* new Forbidden()
-        return org
-      })
 
     const connectedOrgGithub = (organizationId: string) =>
       db
@@ -109,12 +106,13 @@ export const GitHubIntegrationsLive = Layer.effect(
           Effect.map((rows) => rows[0] ?? null)
         )
 
-    const getStatus = (
-      orgSlug: string,
-      userId: string
-    ): Effect.Effect<GithubOrgIntegrationStatus, NotFound> =>
+    const getStatus = (): Effect.Effect<
+      GithubOrgIntegrationStatus,
+      never,
+      OrgScope
+    > =>
       Effect.gen(function* () {
-        const org = yield* currentOrg.resolve(orgSlug, userId)
+        const org = yield* OrgScope
         const row = yield* connectedOrgGithub(org.organizationId)
         if (!row) {
           return {
@@ -135,15 +133,14 @@ export const GitHubIntegrationsLive = Layer.effect(
       })
 
     const startInstall = (
-      orgSlug: string,
-      userId: string,
       returnProjectSlug: Slug | null | undefined
     ): Effect.Effect<
       { installUrl: string },
-      NotFound | Forbidden | GitHubError
+      NotFound | GitHubError,
+      OrgScope
     > =>
       Effect.gen(function* () {
-        const org = yield* requireOrgOwner(orgSlug, userId)
+        const org = yield* OrgScope
         const returnProject =
           returnProjectSlug == null
             ? null
@@ -173,7 +170,7 @@ export const GitHubIntegrationsLive = Layer.effect(
           .insert(githubAppInstallSession)
           .values({
             organizationId: org.organizationId,
-            userId,
+            userId: org.userId,
             returnProjectId: returnProject?.id ?? null,
             returnProjectOrgId: returnProject?.organizationId ?? null,
             stateHash: hashState(state),
@@ -262,8 +259,8 @@ export const GitHubIntegrationsLive = Layer.effect(
           .withTransaction(
             Effect.gen(function* () {
               const now = yield* DateTime.nowAsDate
-              const [owner] = yield* db
-                .select({ id: member.id })
+              const [installer] = yield* db
+                .select({ role: member.role })
                 .from(member)
                 .innerJoin(
                   organization,
@@ -273,13 +270,20 @@ export const GitHubIntegrationsLive = Layer.effect(
                   and(
                     eq(member.organizationId, session.organizationId),
                     eq(member.userId, session.userId),
-                    eq(member.role, "owner"),
                     isNull(organization.deletedAt)
                   )
                 )
                 .limit(1)
                 .pipe(Effect.orDie)
-              if (!owner) return yield* new Forbidden()
+              const role = installer
+                ? yield* decodeOrgRole(installer.role).pipe(Effect.orDie)
+                : null
+              if (
+                role === null ||
+                !Org.orgRoles[role].can({ integration: ["manage"] })
+              ) {
+                return yield* new Forbidden()
+              }
 
               const [claimed] = yield* db
                 .update(githubAppInstallSession)
@@ -445,14 +449,9 @@ export const GitHubIntegrationsLive = Layer.effect(
         return { redirectUrl }
       })
 
-    const listRepos = (
-      orgSlug: string,
-      userId: string,
-      query: string | undefined,
-      page: number
-    ) =>
+    const listRepos = (query: string | undefined, page: number) =>
       Effect.gen(function* () {
-        const org = yield* requireOrgOwner(orgSlug, userId)
+        const org = yield* OrgScope
         const integration = yield* connectedOrgGithub(org.organizationId)
         if (!integration || integration.status !== "active") {
           return yield* new NotFound()

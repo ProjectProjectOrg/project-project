@@ -1,5 +1,4 @@
 import { Db } from "@pp/db"
-import { publishedProject } from "@pp/db/projectVisibility"
 import { projectStatus } from "@pp/db/schema"
 import {
   Conflict,
@@ -13,6 +12,7 @@ import {
   isReservedStatusSlug,
   pickStatusColor
 } from "@pp/shared"
+import { ProjectScope } from "@pp/shared"
 import { and, eq } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -21,7 +21,6 @@ import { generateKeyBetween } from "fractional-indexing"
 
 import { TicketIndex } from "../tickets/TicketIndex"
 import { Tickets } from "../tickets/Tickets"
-import { Projects } from "./Projects"
 import { ProjectStatuses, type ProjectStatusesShape } from "./ProjectStatuses"
 
 const makeSlug = Schema.decodeUnknownSync(StatusSlug)
@@ -42,33 +41,12 @@ export const ProjectStatusesLive = Layer.effect(
   ProjectStatuses,
   Effect.gen(function* () {
     const db = yield* Db
-    const projects = yield* Projects
     const ticketIndex = yield* TicketIndex
     const tickets = yield* Tickets
 
-    const projectIdFromSlug = (slug: string) =>
-      db.query.projectIndex
-        .findFirst({
-          columns: { id: true },
-          where: {
-            RAW: (table, _operators) =>
-              _operators.and(
-                _operators.eq(table.slug, slug),
-                publishedProject(table)
-              )!
-          }
-        })
-        .pipe(
-          Effect.orDie,
-          Effect.flatMap((row) =>
-            row ? Effect.succeed(row.id) : Effect.fail(new NotFound())
-          )
-        )
-
-    const list: ProjectStatusesShape["list"] = (orgSlug, userId, slug) =>
+    const list: ProjectStatusesShape["list"] = () =>
       Effect.gen(function* () {
-        yield* projects.requireMember(orgSlug, userId, slug)
-        const projectId = yield* projectIdFromSlug(slug)
+        const { projectId } = yield* ProjectScope
         const rows = yield* db.query.projectStatus
           .findMany({
             where: {
@@ -101,15 +79,9 @@ export const ProjectStatusesLive = Layer.effect(
         { concurrency: 8 }
       )
 
-    const create: ProjectStatusesShape["create"] = (
-      orgSlug,
-      userId,
-      slug,
-      input
-    ) =>
+    const create: ProjectStatusesShape["create"] = (input) =>
       Effect.gen(function* () {
-        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
-        const projectId = yield* projectIdFromSlug(slug)
+        const { userId, projectId } = yield* ProjectScope
 
         const derived = deriveStatusSlug(input.label)
         if (derived.length === 0)
@@ -154,16 +126,9 @@ export const ProjectStatusesLive = Layer.effect(
         return rowToStatus(inserted[0])
       })
 
-    const update: ProjectStatusesShape["update"] = (
-      orgSlug,
-      userId,
-      slug,
-      statusSlug,
-      input
-    ) =>
+    const update: ProjectStatusesShape["update"] = (statusSlug, input) =>
       Effect.gen(function* () {
-        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
-        const projectId = yield* projectIdFromSlug(slug)
+        const { orgSlug, slug, projectId } = yield* ProjectScope
 
         const current = yield* db.query.projectStatus
           .findFirst({
@@ -251,16 +216,9 @@ export const ProjectStatusesLive = Layer.effect(
         return rowToStatus(updated[0])
       })
 
-    const reorder: ProjectStatusesShape["reorder"] = (
-      orgSlug,
-      userId,
-      slug,
-      statusSlug,
-      input
-    ) =>
+    const reorder: ProjectStatusesShape["reorder"] = (statusSlug, input) =>
       Effect.gen(function* () {
-        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
-        const projectId = yield* projectIdFromSlug(slug)
+        const { projectId } = yield* ProjectScope
         const updated = yield* db
           .update(projectStatus)
           .set({ orderKey: input.orderKey })
@@ -276,17 +234,10 @@ export const ProjectStatusesLive = Layer.effect(
         return rowToStatus(updated[0])
       })
 
-    const remove: ProjectStatusesShape["remove"] = (
-      orgSlug,
-      userId,
-      slug,
-      statusSlug,
-      input
-    ) =>
+    const remove: ProjectStatusesShape["remove"] = (statusSlug, input) =>
       Effect.gen(function* () {
-        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
+        const { orgSlug, slug, projectId } = yield* ProjectScope
         if (isReservedStatusSlug(statusSlug)) return yield* new Forbidden()
-        const projectId = yield* projectIdFromSlug(slug)
 
         const current = yield* db.query.projectStatus
           .findFirst({

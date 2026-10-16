@@ -78,7 +78,7 @@ export function Row({
       </td>
 
       <td className="max-w-[180px] truncate px-2 py-2 text-sm text-muted-foreground">
-        {row.projectSlug}
+        {row.projectSlug ?? m.attachments_project_deleted()}
       </td>
 
       <td className="px-2 py-2">
@@ -161,6 +161,13 @@ function TicketCell({
   onOpen: (ref: AttachmentTicketRef) => void
 }) {
   if (row.ticketId === null) {
+    if (row.projectSlug === null) {
+      return (
+        <span className="text-[13px] text-muted-foreground/70">
+          {m.attachments_project_image()}
+        </span>
+      )
+    }
     return (
       <Link
         to="/orgs/$orgSlug/projects/$slug/settings/general"

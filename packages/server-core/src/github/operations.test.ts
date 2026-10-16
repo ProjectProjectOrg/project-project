@@ -55,6 +55,7 @@ const fakeBetterAuth: BetterAuthShape = {
   removeMember: () => Effect.die("not implemented"),
   cancelInvitation: () => Effect.die("not implemented"),
   transferOwnership: () => Effect.die("not implemented"),
+  setActiveOrganization: () => Effect.die("unused"),
   leaveOrg: () => Effect.die("not implemented"),
   listInvitations: () => Effect.die("not implemented"),
   getInvitation: () => Effect.die("not implemented"),

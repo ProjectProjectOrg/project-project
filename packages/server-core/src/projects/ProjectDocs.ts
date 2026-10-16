@@ -4,18 +4,12 @@ import type {
   PartialTemplateDefaults,
   ProjectKey,
   ProjectSetup,
-  Role,
   Slug
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 
 import type { MarkdownError } from "../markdown/Markdown"
-
-export interface ProjectDocMember {
-  readonly username: string
-  readonly role: Role
-}
 
 export interface ProjectDocument {
   readonly org?: Slug
@@ -26,7 +20,6 @@ export interface ProjectDocument {
   readonly color: string
   readonly createdBy?: string
   readonly createdAt: Date
-  readonly members: ReadonlyArray<ProjectDocMember>
   readonly github: GithubConnection | null
   readonly setup: ProjectSetup
   readonly templateDefaults: PartialTemplateDefaults
@@ -42,7 +35,6 @@ export interface ProjectDocumentWrite {
   readonly color: string
   readonly createdBy: string
   readonly createdAt: Date
-  readonly members: ReadonlyArray<ProjectDocMember>
   readonly github: GithubConnection | null
   readonly setup: ProjectSetup
   readonly body: string

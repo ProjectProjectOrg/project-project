@@ -1,16 +1,12 @@
 import { it } from "@effect/vitest"
 import {
-  Forbidden,
   GroupId,
   NotFound,
-  ProjectColor,
-  ProjectIcon,
-  ProjectKey,
   TicketId,
   TicketStatus,
-  UserId
+  ProjectScope
 } from "@pp/shared"
-import type { GroupDetail, ProjectDetail, Role } from "@pp/shared"
+import type { GroupDetail, OrgRole, Role } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -18,8 +14,9 @@ import * as Schema from "effect/Schema"
 import * as TestClock from "effect/testing/TestClock"
 import { expect } from "vitest"
 
-import { GroupIdTaken } from "../markdown/Markdown"
-import { Projects, type ProjectsShape } from "../projects/Projects"
+import { projectScope } from "../access/testing"
+import * as KeyedLock from "../locks/KeyedLock"
+import { GroupIdTaken, MarkdownError } from "../markdown/Markdown"
 import {
   TicketDocs,
   type TicketDocsShape,
@@ -32,7 +29,6 @@ import { Groups } from "./Groups"
 import { GroupsLive } from "./GroupsLive"
 
 const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
-const userId = Schema.decodeSync(UserId)
 const setTestNow = TestClock.setTime(
   DateTime.toEpochMillis(DateTime.makeUnsafe("2026-05-19T00:00:00.000Z"))
 )
@@ -40,9 +36,6 @@ const setTestNow = TestClock.setTime(
 const groupId = Schema.decodeUnknownSync(GroupId)
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
-const projectKey = Schema.decodeUnknownSync(ProjectKey)
-const projectIcon = Schema.decodeUnknownSync(ProjectIcon)
-const projectColor = Schema.decodeUnknownSync(ProjectColor)
 
 function unexpectedTicketDocsCall(method: string): Effect.Effect<never> {
   return Effect.die(new Error(`unexpected TicketDocs.${method} call`))
@@ -88,10 +81,16 @@ function ticketIndexEntryFromDocument(ticket: TicketDocument) {
   }
 }
 
+class StatusWriteFailed extends Schema.TaggedError<StatusWriteFailed>()(
+  "StatusWriteFailed",
+  {}
+) {}
+
 function makeFakeDocs(initial?: {
   ticketIds?: ReadonlyArray<string>
   ticketStatuses?: Record<string, TicketStatus>
   groups?: Record<string, GroupDetail>
+  failingWrites?: ReadonlyArray<string>
 }) {
   const groups = new Map<string, GroupDocument>(
     Object.entries(initial?.groups ?? {})
@@ -128,6 +127,11 @@ function makeFakeDocs(initial?: {
       id: string,
       document: GroupDocument
     ) => {
+      if (initial?.failingWrites?.includes(id)) {
+        return Effect.fail(
+          new MarkdownError({ cause: null, message: "write failed" })
+        )
+      }
       groupWrites.push({ id })
       groups.set(id, document)
       return Effect.void
@@ -264,114 +268,48 @@ function makeFakeDocs(initial?: {
   }
 }
 
-function makeProjectDetail(role: Role): ProjectDetail {
-  return {
-    banner: null,
-    iconImage: null,
-    org: "org",
-    slug: "p",
-    key: projectKey("FOO"),
-    name: "Project",
-    icon: projectIcon("🚀"),
-    color: projectColor("#53a0ff"),
-    createdBy: "user-1",
-    createdAt: isoDate("2026-01-01T00:00:00.000Z"),
-    github: null,
-    setup: {
-      workflowReviewedAt: null,
-      invitePeopleDismissedAt: null,
-      connectGithubDismissedAt: null
-    },
-    body: "# Project\n",
-    members: [
-      {
-        id: userId("user-1"),
-        username: null,
-        name: "User One",
-        email: "user@example.com",
-        image: null,
-        role
-      }
-    ],
-    pendingMembers: []
-  }
-}
+const asScope = (orgRole: OrgRole, role: Role | null) =>
+  projectScope(orgRole, role, { orgSlug: "org", slug: "p" })
 
-function unexpectedProjectCall(method: string): Effect.Effect<never> {
-  return Effect.die(new Error(`unexpected Projects.${method} call`))
-}
+const scopeLayer = (role: Role = "developer") =>
+  Layer.succeed(ProjectScope, asScope("member", role))
 
-function makeFakeProjects(opts: { role?: Role } = {}) {
-  const role = opts.role ?? "member"
-  const service = {
-    list: () => Effect.succeed([]),
-    listPaged: () => unexpectedProjectCall("listPaged"),
-    listMembersPaged: () => unexpectedProjectCall("listMembersPaged"),
-    create: () => unexpectedProjectCall("create"),
-    getKey: () => unexpectedProjectCall("getKey"),
-    getGithubIntegration: () => unexpectedProjectCall("getGithubIntegration"),
-    requireMember: () => Effect.succeed({ role }),
-    requireRole: (
-      _org: string,
-      _userId: string,
-      _slug: string,
-      allowed: ReadonlyArray<Role>
-    ) =>
-      allowed.includes(role)
-        ? Effect.succeed({ role })
-        : Effect.fail(new Forbidden()),
-    get: () => Effect.succeed(makeProjectDetail(role)),
-    update: () => unexpectedProjectCall("update"),
-    updateSetup: () => unexpectedProjectCall("updateSetup"),
-    remove: () => unexpectedProjectCall("remove"),
-    addMember: () => unexpectedProjectCall("addMember"),
-    updateMember: () => unexpectedProjectCall("updateMember"),
-    transferOwnership: () => unexpectedProjectCall("transferOwnership"),
-    removeMember: () => unexpectedProjectCall("removeMember"),
-    cancelPendingMember: () => unexpectedProjectCall("cancelPendingMember"),
-    unassignUserFromActiveTickets: () =>
-      unexpectedProjectCall("unassignUserFromActiveTickets"),
-    connectGithub: () => unexpectedProjectCall("connectGithub"),
-    disconnectGithub: () => unexpectedProjectCall("disconnectGithub")
-  } satisfies ProjectsShape
-
-  return Layer.succeed(Projects, service)
+function groupsLayer(docs?: Parameters<typeof makeFakeDocs>[0]) {
+  const fakeDocs = makeFakeDocs(docs)
+  return GroupsLive.pipe(
+    Layer.provide(fakeDocs.groupLayer),
+    Layer.provide(fakeDocs.ticketLayer),
+    Layer.provide(KeyedLock.layer)
+  )
 }
 
 function makeGroupsLayer(
   docs?: Parameters<typeof makeFakeDocs>[0],
   projects?: { role?: Role }
 ) {
-  const fakeDocs = makeFakeDocs(docs)
-  return GroupsLive.pipe(
-    Layer.provide(fakeDocs.groupLayer),
-    Layer.provide(fakeDocs.ticketLayer),
-    Layer.provide(fakeDocs.ticketIndexLayer),
-    Layer.provide(makeFakeProjects(projects)),
-    Layer.provide(TicketDocumentLock.layer)
-  )
+  return groupsLayer(docs).pipe(Layer.merge(scopeLayer(projects?.role)))
 }
 
 it.effect("create + list returns the new group", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const created = yield* groups.create("org", "user-1", "p", {
+    const created = yield* groups.create({
       name: "Backlog cleanup"
     })
     expect(created.id).toBe("G-1")
     expect(created.kind).toBe("other")
 
-    const list = yield* groups.list("org", "user-1", "p")
+    const list = yield* groups.list()
     expect(list).toHaveLength(1)
     expect(list[0].name).toBe("Backlog cleanup")
-  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
 it.effect("create with kind=sprint fails for non-admin member", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
     const result = yield* Effect.result(
-      groups.create("org", "user-1", "p", {
+      groups.create({
         name: "Sprint 1",
         kind: "sprint"
       })
@@ -380,28 +318,28 @@ it.effect("create with kind=sprint fails for non-admin member", () =>
     if (result._tag === "Failure") {
       expect(result.failure._tag).toBe("Forbidden")
     }
-  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
 it.effect("create with kind=sprint succeeds for admin", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const created = yield* groups.create("org", "user-1", "p", {
+    const created = yield* groups.create({
       name: "Sprint 1",
       kind: "sprint"
     })
     expect(created.kind).toBe("sprint")
-  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "admin" })))
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "pm" })))
 )
 
 it.effect("updateTickets rejects unknown ticket ids", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const created = yield* groups.create("org", "user-1", "p", {
+    const created = yield* groups.create({
       name: "G"
     })
     const result = yield* Effect.result(
-      groups.updateTickets("org", "user-1", "p", created.id, {
+      groups.updateTickets(created.id, {
         tickets: [ticketId("T-99")]
       })
     )
@@ -410,7 +348,9 @@ it.effect("updateTickets rejects unknown ticket ids", () =>
       expect(result.failure._tag).toBe("NotFound")
     }
   }).pipe(
-    Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "member" }))
+    Effect.provide(
+      makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "developer" })
+    )
   )
 )
 
@@ -418,7 +358,7 @@ it.effect("updateTickets returns NotFound before validating tickets", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
     const result = yield* Effect.result(
-      groups.updateTickets("org", "user-1", "p", "G-404", {
+      groups.updateTickets("G-404", {
         tickets: [ticketId("T-99")]
       })
     )
@@ -427,7 +367,9 @@ it.effect("updateTickets returns NotFound before validating tickets", () =>
       expect(result.failure._tag).toBe("NotFound")
     }
   }).pipe(
-    Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "member" }))
+    Effect.provide(
+      makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "developer" })
+    )
   )
 )
 
@@ -435,7 +377,7 @@ it.effect("create rejects endsAt before startsAt", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
     const result = yield* Effect.result(
-      groups.create("org", "user-1", "p", {
+      groups.create({
         name: "G",
         startsAt: isoDate("2026-06-01"),
         endsAt: isoDate("2026-05-01")
@@ -445,19 +387,19 @@ it.effect("create rejects endsAt before startsAt", () =>
     if (result._tag === "Failure") {
       expect(result.failure._tag).toBe("Validation")
     }
-  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
 it.effect("update rejects endsAt before existing startsAt", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const created = yield* groups.create("org", "user-1", "p", {
+    const created = yield* groups.create({
       name: "G",
       startsAt: isoDate("2026-06-01"),
       endsAt: isoDate("2026-07-01")
     })
     const result = yield* Effect.result(
-      groups.update("org", "user-1", "p", created.id, {
+      groups.update(created.id, {
         endsAt: isoDate("2026-05-15")
       })
     )
@@ -465,18 +407,18 @@ it.effect("update rejects endsAt before existing startsAt", () =>
     if (result._tag === "Failure") {
       expect(result.failure._tag).toBe("Validation")
     }
-  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
 it.effect("update rejects completedAt in the future", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const created = yield* groups.create("org", "user-1", "p", { name: "G" })
+    const created = yield* groups.create({ name: "G" })
     const future = DateTime.toDate(
       DateTime.add(DateTime.nowUnsafe(), { days: 1 })
     )
     const result = yield* Effect.result(
-      groups.update("org", "user-1", "p", created.id, {
+      groups.update(created.id, {
         completedAt: future
       })
     )
@@ -484,19 +426,19 @@ it.effect("update rejects completedAt in the future", () =>
     if (result._tag === "Failure") {
       expect(result.failure._tag).toBe("Validation")
     }
-  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
 it.effect("update rejects completedAt before startsAt", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const created = yield* groups.create("org", "user-1", "p", {
+    const created = yield* groups.create({
       name: "G",
       startsAt: isoDate("2026-04-01"),
       endsAt: isoDate("2026-04-30")
     })
     const result = yield* Effect.result(
-      groups.update("org", "user-1", "p", created.id, {
+      groups.update(created.id, {
         completedAt: isoDate("2026-03-01")
       })
     )
@@ -504,7 +446,7 @@ it.effect("update rejects completedAt before startsAt", () =>
     if (result._tag === "Failure") {
       expect(result.failure._tag).toBe("Validation")
     }
-  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
 it.effect(
@@ -512,27 +454,23 @@ it.effect(
   () =>
     Effect.gen(function* () {
       const groups = yield* Groups
-      const sprintA = yield* groups.create("org", "user-1", "p", {
+      const sprintA = yield* groups.create({
         name: "Sprint A",
         kind: "sprint",
         tickets: [ticketId("T-1"), ticketId("T-2")]
       })
-      const sprintB = yield* groups.create("org", "user-1", "p", {
+      const sprintB = yield* groups.create({
         name: "Sprint B",
         kind: "sprint"
       })
-      const epic = yield* groups.create("org", "user-1", "p", {
+      const epic = yield* groups.create({
         name: "Epic",
         tickets: [ticketId("T-1")]
       })
 
-      const result = yield* groups.updateTickets(
-        "org",
-        "user-1",
-        "p",
-        sprintB.id,
-        { tickets: [ticketId("T-1")] }
-      )
+      const result = yield* groups.updateTickets(sprintB.id, {
+        tickets: [ticketId("T-1")]
+      })
 
       expect(result.target.id).toBe(sprintB.id)
       expect(result.target.tickets).toEqual(["T-1"])
@@ -540,14 +478,52 @@ it.effect(
       expect(result.evicted[0].groupId).toBe(sprintA.id)
       expect(result.evicted[0].ticketIds).toEqual(["T-1"])
 
-      const sprintAAfter = yield* groups.get("org", "user-1", "p", sprintA.id)
+      const sprintAAfter = yield* groups.get(sprintA.id)
       expect(sprintAAfter.tickets).toEqual(["T-2"])
 
-      const epicAfter = yield* groups.get("org", "user-1", "p", epic.id)
+      const epicAfter = yield* groups.get(epic.id)
       expect(epicAfter.tickets).toEqual(["T-1"])
     }).pipe(
       Effect.provide(
-        makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "admin" })
+        makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "pm" })
+      )
+    )
+)
+
+it.effect(
+  "create rolls back the new sprint and its evictions when an eviction fails",
+  () =>
+    Effect.gen(function* () {
+      const groups = yield* Groups
+      yield* groups.create({
+        name: "Sprint A",
+        kind: "sprint",
+        tickets: [ticketId("T-1")]
+      })
+      yield* groups.create({
+        name: "Sprint B",
+        kind: "sprint",
+        tickets: [ticketId("T-2")]
+      })
+      const failure = yield* Effect.flip(
+        groups.create({
+          name: "Sprint C",
+          kind: "sprint",
+          tickets: [ticketId("T-1"), ticketId("T-2")]
+        })
+      )
+      expect(failure._tag).toBe("MarkdownError")
+      const after = yield* groups.list()
+      expect(after.map((group) => [group.id, group.tickets])).toStrictEqual([
+        ["G-1", ["T-1"]],
+        ["G-2", ["T-2"]]
+      ])
+    }).pipe(
+      Effect.provide(
+        makeGroupsLayer(
+          { ticketIds: ["T-1", "T-2"], failingWrites: ["G-2"] },
+          { role: "pm" }
+        )
       )
     )
 )
@@ -558,17 +534,17 @@ it.effect(
     Effect.gen(function* () {
       yield* setTestNow
       const groups = yield* Groups
-      const sprint = yield* groups.create("org", "user-1", "p", {
+      const sprint = yield* groups.create({
         name: "Sprint",
         kind: "sprint",
         startsAt: isoDate("2026-04-01"),
         endsAt: isoDate("2026-04-15")
       })
-      yield* groups.update("org", "user-1", "p", sprint.id, {
+      yield* groups.update(sprint.id, {
         completedAt: isoDate("2026-04-15")
       })
       const result = yield* Effect.result(
-        groups.updateTickets("org", "user-1", "p", sprint.id, {
+        groups.updateTickets(sprint.id, {
           tickets: [ticketId("T-1")]
         })
       )
@@ -577,7 +553,7 @@ it.effect(
         expect(result.failure._tag).toBe("SprintCompletedImmutable")
       }
     }).pipe(
-      Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "admin" }))
+      Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "pm" }))
     )
 )
 
@@ -587,39 +563,30 @@ it.effect(
     Effect.gen(function* () {
       yield* setTestNow
       const groups = yield* Groups
-      const completed = yield* groups.create("org", "user-1", "p", {
+      const completed = yield* groups.create({
         name: "Completed",
         kind: "sprint",
         startsAt: isoDate("2026-03-01"),
         endsAt: isoDate("2026-03-15"),
         tickets: [ticketId("T-1")]
       })
-      yield* groups.update("org", "user-1", "p", completed.id, {
+      yield* groups.update(completed.id, {
         completedAt: isoDate("2026-03-15")
       })
-      const active = yield* groups.create("org", "user-1", "p", {
+      const active = yield* groups.create({
         name: "Active",
         kind: "sprint"
       })
 
-      const result = yield* groups.updateTickets(
-        "org",
-        "user-1",
-        "p",
-        active.id,
-        { tickets: [ticketId("T-1")] }
-      )
+      const result = yield* groups.updateTickets(active.id, {
+        tickets: [ticketId("T-1")]
+      })
 
       expect(result.evicted).toHaveLength(0)
-      const completedAfter = yield* groups.get(
-        "org",
-        "user-1",
-        "p",
-        completed.id
-      )
+      const completedAfter = yield* groups.get(completed.id)
       expect(completedAfter.tickets).toEqual(["T-1"])
     }).pipe(
-      Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "admin" }))
+      Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "pm" }))
     )
 )
 
@@ -629,7 +596,7 @@ it.effect(
     Effect.gen(function* () {
       yield* setTestNow
       const groups = yield* Groups
-      const sprint = yield* groups.create("org", "user-1", "p", {
+      const sprint = yield* groups.create({
         name: "Sprint",
         kind: "sprint",
         startsAt: isoDate("2026-03-01"),
@@ -637,7 +604,7 @@ it.effect(
         tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")]
       })
 
-      const result = yield* groups.complete("org", "user-1", "p", sprint.id, {
+      const result = yield* groups.complete(sprint.id, {
         destination: { kind: "backlog" }
       })
 
@@ -655,62 +622,62 @@ it.effect(
               "T-3": ticketStatus("in_progress")
             }
           },
-          { role: "admin" }
+          { role: "pm" }
         )
       )
     )
 )
 
-it.effect(
-  "complete to sprint: carryover tickets land on the destination, deduped",
-  () =>
-    Effect.gen(function* () {
-      yield* setTestNow
-      const groups = yield* Groups
-      const source = yield* groups.create("org", "user-1", "p", {
-        name: "Source",
-        kind: "sprint",
-        startsAt: isoDate("2026-03-01"),
-        endsAt: isoDate("2026-03-15"),
-        tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")]
-      })
-      const dest = yield* groups.create("org", "user-1", "p", {
-        name: "Dest",
-        kind: "sprint",
-        startsAt: isoDate("2026-03-15"),
-        endsAt: isoDate("2026-03-29"),
-        tickets: [ticketId("T-3"), ticketId("T-4")]
-      })
+it.effect("complete to sprint: carryover tickets land on the destination", () =>
+  Effect.gen(function* () {
+    yield* setTestNow
+    const groups = yield* Groups
+    const source = yield* groups.create({
+      name: "Source",
+      kind: "sprint",
+      startsAt: isoDate("2026-03-01"),
+      endsAt: isoDate("2026-03-15"),
+      tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")]
+    })
+    const dest = yield* groups.create({
+      name: "Dest",
+      kind: "sprint",
+      startsAt: isoDate("2026-03-15"),
+      endsAt: isoDate("2026-03-29"),
+      tickets: [ticketId("T-3"), ticketId("T-4")]
+    })
 
-      const result = yield* groups.complete("org", "user-1", "p", source.id, {
-        destination: { kind: "sprint", groupId: dest.id }
-      })
+    expect((yield* groups.get(source.id)).tickets).toEqual(["T-1", "T-2"])
 
-      expect(result.carried.toSorted()).toEqual(["T-1", "T-3"])
+    const result = yield* groups.complete(source.id, {
+      destination: { kind: "sprint", groupId: dest.id }
+    })
 
-      const sourceAfter = yield* groups.get("org", "user-1", "p", source.id)
-      expect(sourceAfter.tickets).toEqual(["T-2"])
-      expect(sourceAfter.completedAt).not.toBeNull()
+    expect(result.carried).toEqual(["T-1"])
 
-      const destAfter = yield* groups.get("org", "user-1", "p", dest.id)
-      expect(destAfter.tickets).toEqual(["T-3", "T-4", "T-1"])
-      expect(destAfter.completedAt).toBeNull()
-    }).pipe(
-      Effect.provide(
-        makeGroupsLayer(
-          {
-            ticketIds: ["T-1", "T-2", "T-3", "T-4"],
-            ticketStatuses: {
-              "T-1": ticketStatus("todo"),
-              "T-2": ticketStatus("done"),
-              "T-3": ticketStatus("in_progress"),
-              "T-4": ticketStatus("todo")
-            }
-          },
-          { role: "admin" }
-        )
+    const sourceAfter = yield* groups.get(source.id)
+    expect(sourceAfter.tickets).toEqual(["T-2"])
+    expect(sourceAfter.completedAt).not.toBeNull()
+
+    const destAfter = yield* groups.get(dest.id)
+    expect(destAfter.tickets).toEqual(["T-3", "T-4", "T-1"])
+    expect(destAfter.completedAt).toBeNull()
+  }).pipe(
+    Effect.provide(
+      makeGroupsLayer(
+        {
+          ticketIds: ["T-1", "T-2", "T-3", "T-4"],
+          ticketStatuses: {
+            "T-1": ticketStatus("todo"),
+            "T-2": ticketStatus("done"),
+            "T-3": ticketStatus("in_progress"),
+            "T-4": ticketStatus("todo")
+          }
+        },
+        { role: "pm" }
       )
     )
+  )
 )
 
 it.effect(
@@ -719,18 +686,18 @@ it.effect(
     Effect.gen(function* () {
       yield* setTestNow
       const groups = yield* Groups
-      const sprint = yield* groups.create("org", "user-1", "p", {
+      const sprint = yield* groups.create({
         name: "Sprint",
         kind: "sprint",
         startsAt: isoDate("2026-03-01"),
         endsAt: isoDate("2026-03-15")
       })
-      yield* groups.update("org", "user-1", "p", sprint.id, {
+      yield* groups.update(sprint.id, {
         completedAt: isoDate("2026-03-15")
       })
 
       const result = yield* Effect.result(
-        groups.complete("org", "user-1", "p", sprint.id, {
+        groups.complete(sprint.id, {
           destination: { kind: "backlog" }
         })
       )
@@ -739,9 +706,7 @@ it.effect(
       if (result._tag === "Failure") {
         expect(result.failure._tag).toBe("SprintCompletedImmutable")
       }
-    }).pipe(
-      Effect.provide(makeGroupsLayer({ ticketIds: [] }, { role: "admin" }))
-    )
+    }).pipe(Effect.provide(makeGroupsLayer({ ticketIds: [] }, { role: "pm" })))
 )
 
 it.effect(
@@ -750,24 +715,24 @@ it.effect(
     Effect.gen(function* () {
       yield* setTestNow
       const groups = yield* Groups
-      const source = yield* groups.create("org", "user-1", "p", {
+      const source = yield* groups.create({
         name: "Source",
         kind: "sprint",
         startsAt: isoDate("2026-03-01"),
         endsAt: isoDate("2026-03-15")
       })
-      const dest = yield* groups.create("org", "user-1", "p", {
+      const dest = yield* groups.create({
         name: "Dest",
         kind: "sprint",
         startsAt: isoDate("2026-03-15"),
         endsAt: isoDate("2026-03-29")
       })
-      yield* groups.update("org", "user-1", "p", dest.id, {
+      yield* groups.update(dest.id, {
         completedAt: isoDate("2026-03-29")
       })
 
       const result = yield* Effect.result(
-        groups.complete("org", "user-1", "p", source.id, {
+        groups.complete(source.id, {
           destination: { kind: "sprint", groupId: dest.id }
         })
       )
@@ -776,21 +741,19 @@ it.effect(
       if (result._tag === "Failure") {
         expect(result.failure._tag).toBe("SprintCompletedImmutable")
       }
-    }).pipe(
-      Effect.provide(makeGroupsLayer({ ticketIds: [] }, { role: "admin" }))
-    )
+    }).pipe(Effect.provide(makeGroupsLayer({ ticketIds: [] }, { role: "pm" })))
 )
 
 it.effect("complete fails with Validation when source is not a sprint", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const epic = yield* groups.create("org", "user-1", "p", {
+    const epic = yield* groups.create({
       name: "Epic",
       kind: "epic"
     })
 
     const result = yield* Effect.result(
-      groups.complete("org", "user-1", "p", epic.id, {
+      groups.complete(epic.id, {
         destination: { kind: "backlog" }
       })
     )
@@ -799,7 +762,7 @@ it.effect("complete fails with Validation when source is not a sprint", () =>
     if (result._tag === "Failure") {
       expect(result.failure._tag).toBe("Validation")
     }
-  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "admin" })))
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "pm" })))
 )
 
 it.effect(
@@ -807,19 +770,19 @@ it.effect(
   () =>
     Effect.gen(function* () {
       const groups = yield* Groups
-      const source = yield* groups.create("org", "user-1", "p", {
+      const source = yield* groups.create({
         name: "Source",
         kind: "sprint",
         startsAt: isoDate("2026-03-01"),
         endsAt: isoDate("2026-03-15")
       })
-      const epic = yield* groups.create("org", "user-1", "p", {
+      const epic = yield* groups.create({
         name: "Epic",
         kind: "epic"
       })
 
       const result = yield* Effect.result(
-        groups.complete("org", "user-1", "p", source.id, {
+        groups.complete(source.id, {
           destination: { kind: "sprint", groupId: epic.id }
         })
       )
@@ -828,14 +791,14 @@ it.effect(
       if (result._tag === "Failure") {
         expect(result.failure._tag).toBe("Validation")
       }
-    }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "admin" })))
+    }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "pm" })))
 )
 
 it.effect("complete fails for non-admin members", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
     const result = yield* Effect.result(
-      groups.complete("org", "user-1", "p", "G-1", {
+      groups.complete("G-1", {
         destination: { kind: "backlog" }
       })
     )
@@ -844,27 +807,27 @@ it.effect("complete fails for non-admin members", () =>
     if (result._tag === "Failure") {
       expect(["Forbidden", "NotFound"]).toContain(result.failure._tag)
     }
-  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
 it.effect("updateTicketOrder reorders within the same status", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const created = yield* groups.create("org", "user-1", "p", {
+    const created = yield* groups.create({
       name: "G",
       tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")]
     })
-    const updated = yield* groups.updateTicketOrder(
-      "org",
-      "user-1",
-      "p",
-      created.id,
-      { ticketId: ticketId("T-1"), after: ticketId("T-2") }
-    )
+    const updated = yield* groups.updateTicketOrder(created.id, {
+      ticketId: ticketId("T-1"),
+      after: ticketId("T-2")
+    })
     expect(updated.tickets).toEqual(["T-2", "T-1", "T-3"])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "member" })
+      makeGroupsLayer(
+        { ticketIds: ["T-1", "T-2", "T-3"] },
+        { role: "developer" }
+      )
     )
   )
 )
@@ -872,69 +835,66 @@ it.effect("updateTicketOrder reorders within the same status", () =>
 it.effect("updateTicketOrder places at the start when after is null", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const created = yield* groups.create("org", "user-1", "p", {
+    const created = yield* groups.create({
       name: "G",
       tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")]
     })
-    const updated = yield* groups.updateTicketOrder(
-      "org",
-      "user-1",
-      "p",
-      created.id,
-      { ticketId: ticketId("T-3"), after: null }
-    )
+    const updated = yield* groups.updateTicketOrder(created.id, {
+      ticketId: ticketId("T-3"),
+      after: null
+    })
     expect(updated.tickets).toEqual(["T-3", "T-1", "T-2"])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "member" })
-    )
-  )
-)
-
-it.effect("updateTicketOrder patches ticket status when provided", () =>
-  Effect.gen(function* () {
-    const groups = yield* Groups
-    const created = yield* groups.create("org", "user-1", "p", {
-      name: "G",
-      tickets: [ticketId("T-1"), ticketId("T-2")]
-    })
-    const updated = yield* groups.updateTicketOrder(
-      "org",
-      "user-1",
-      "p",
-      created.id,
-      {
-        ticketId: ticketId("T-1"),
-        status: ticketStatus("in_progress"),
-        after: ticketId("T-2")
-      }
-    )
-    expect(updated.tickets).toEqual(["T-2", "T-1"])
-  }).pipe(
-    Effect.provide(
       makeGroupsLayer(
-        {
-          ticketIds: ["T-1", "T-2"],
-          ticketStatuses: {
-            "T-1": ticketStatus("todo"),
-            "T-2": ticketStatus("in_progress")
-          }
-        },
-        { role: "member" }
+        { ticketIds: ["T-1", "T-2", "T-3"] },
+        { role: "developer" }
       )
     )
   )
 )
 
+it.effect(
+  "updateTicketOrder keeps the order when the work before the write fails",
+  () =>
+    Effect.gen(function* () {
+      const groups = yield* Groups
+      const created = yield* groups.create({
+        name: "G",
+        tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")]
+      })
+      const failure = yield* Effect.flip(
+        groups.updateTicketOrder(
+          created.id,
+          { ticketId: ticketId("T-1"), after: ticketId("T-2") },
+          new StatusWriteFailed()
+        )
+      )
+      expect(failure._tag).toBe("StatusWriteFailed")
+      expect((yield* groups.get(created.id)).tickets).toEqual([
+        "T-1",
+        "T-2",
+        "T-3"
+      ])
+    }).pipe(
+      Effect.provide(
+        makeGroupsLayer(
+          { ticketIds: ["T-1", "T-2", "T-3"] },
+          { role: "developer" }
+        )
+      )
+    )
+)
+
 it.effect("updateTicketOrder rejects when ticket is not in the group", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const created = yield* groups.create("org", "user-1", "p", {
+    const created = yield* groups.create({
       name: "G",
       tickets: [ticketId("T-1")]
     })
     const result = yield* Effect.result(
-      groups.updateTicketOrder("org", "user-1", "p", created.id, {
+      groups.updateTicketOrder(created.id, {
         ticketId: ticketId("T-2"),
         after: null
       })
@@ -945,7 +905,7 @@ it.effect("updateTicketOrder rejects when ticket is not in the group", () =>
     }
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "member" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "developer" })
     )
   )
 )
@@ -953,12 +913,12 @@ it.effect("updateTicketOrder rejects when ticket is not in the group", () =>
 it.effect("updateTicketOrder rejects when after refers to itself", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const created = yield* groups.create("org", "user-1", "p", {
+    const created = yield* groups.create({
       name: "G",
       tickets: [ticketId("T-1"), ticketId("T-2")]
     })
     const result = yield* Effect.result(
-      groups.updateTicketOrder("org", "user-1", "p", created.id, {
+      groups.updateTicketOrder(created.id, {
         ticketId: ticketId("T-1"),
         after: ticketId("T-1")
       })
@@ -969,7 +929,7 @@ it.effect("updateTicketOrder rejects when after refers to itself", () =>
     }
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "member" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "developer" })
     )
   )
 )
@@ -977,16 +937,16 @@ it.effect("updateTicketOrder rejects when after refers to itself", () =>
 it.effect("updateTicketOrder rejects on completed sprint", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const created = yield* groups.create("org", "user-1", "p", {
+    const created = yield* groups.create({
       name: "S",
       kind: "sprint",
       tickets: [ticketId("T-1"), ticketId("T-2")]
     })
-    yield* groups.complete("org", "user-1", "p", created.id, {
+    yield* groups.complete(created.id, {
       destination: { kind: "backlog" }
     })
     const result = yield* Effect.result(
-      groups.updateTicketOrder("org", "user-1", "p", created.id, {
+      groups.updateTicketOrder(created.id, {
         ticketId: ticketId("T-1"),
         after: null
       })
@@ -1005,7 +965,7 @@ it.effect("updateTicketOrder rejects on completed sprint", () =>
             "T-2": ticketStatus("done")
           }
         },
-        { role: "admin" }
+        { role: "pm" }
       )
     )
   )
@@ -1036,14 +996,7 @@ function makeSprintDoc(
 it.effect("listPaged filters by kind", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const page = yield* groups.listPaged(
-      "org",
-      "user-1",
-      "p",
-      { kind: ["sprint"] },
-      undefined,
-      50
-    )
+    const page = yield* groups.listPaged({ kind: ["sprint"] }, undefined, 50)
     expect(page.items.map((g) => g.id)).toEqual(["G-1", "G-3"])
   }).pipe(
     Effect.provide(
@@ -1055,7 +1008,7 @@ it.effect("listPaged filters by kind", () =>
             "G-3": makeSprintDoc("G-3")
           }
         },
-        { role: "admin" }
+        { role: "pm" }
       )
     )
   )
@@ -1064,14 +1017,7 @@ it.effect("listPaged filters by kind", () =>
 it.effect("listPaged active=true keeps only running sprints", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const page = yield* groups.listPaged(
-      "org",
-      "user-1",
-      "p",
-      { active: true },
-      undefined,
-      50
-    )
+    const page = yield* groups.listPaged({ active: true }, undefined, 50)
     expect(page.items.map((g) => g.id)).toEqual(["G-1"])
   }).pipe(
     Effect.provide(
@@ -1085,7 +1031,7 @@ it.effect("listPaged active=true keeps only running sprints", () =>
             "G-3": makeSprintDoc("G-3", { kind: "epic" })
           }
         },
-        { role: "admin" }
+        { role: "pm" }
       )
     )
   )
@@ -1094,14 +1040,7 @@ it.effect("listPaged active=true keeps only running sprints", () =>
 it.effect("listSprintsPaged filters by state=active", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const page = yield* groups.listSprintsPaged(
-      "org",
-      "user-1",
-      "p",
-      "active",
-      undefined,
-      50
-    )
+    const page = yield* groups.listSprintsPaged("active", undefined, 50)
     expect(page.items.map((g) => g.id)).toEqual(["G-1"])
   }).pipe(
     Effect.provide(
@@ -1118,7 +1057,7 @@ it.effect("listSprintsPaged filters by state=active", () =>
             "G-4": makeSprintDoc("G-4", { kind: "epic" })
           }
         },
-        { role: "admin" }
+        { role: "pm" }
       )
     )
   )
@@ -1127,14 +1066,7 @@ it.effect("listSprintsPaged filters by state=active", () =>
 it.effect("listSprintsPaged filters by state=completed", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const page = yield* groups.listSprintsPaged(
-      "org",
-      "user-1",
-      "p",
-      "completed",
-      undefined,
-      50
-    )
+    const page = yield* groups.listSprintsPaged("completed", undefined, 50)
     expect(page.items.map((g) => g.id)).toEqual(["G-2"])
   }).pipe(
     Effect.provide(
@@ -1150,7 +1082,7 @@ it.effect("listSprintsPaged filters by state=completed", () =>
             })
           }
         },
-        { role: "admin" }
+        { role: "pm" }
       )
     )
   )
@@ -1159,14 +1091,7 @@ it.effect("listSprintsPaged filters by state=completed", () =>
 it.effect("listSprintsPaged with no state returns all sprints, no epics", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const page = yield* groups.listSprintsPaged(
-      "org",
-      "user-1",
-      "p",
-      undefined,
-      undefined,
-      50
-    )
+    const page = yield* groups.listSprintsPaged(undefined, undefined, 50)
     expect(page.items.map((g) => g.id)).toEqual(["G-1", "G-2"])
   }).pipe(
     Effect.provide(
@@ -1180,7 +1105,7 @@ it.effect("listSprintsPaged with no state returns all sprints, no epics", () =>
             "G-3": makeSprintDoc("G-3", { kind: "epic" })
           }
         },
-        { role: "admin" }
+        { role: "pm" }
       )
     )
   )
@@ -1189,16 +1114,16 @@ it.effect("listSprintsPaged with no state returns all sprints, no epics", () =>
 it.effect("removeTicketFromAllGroups strips the id", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const created = yield* groups.create("org", "user-1", "p", {
+    const created = yield* groups.create({
       name: "G",
       tickets: [ticketId("T-1"), ticketId("T-2")]
     })
     yield* groups.removeTicketFromAllGroups("org", "p", "T-1")
-    const after = yield* groups.get("org", "user-1", "p", created.id)
+    const after = yield* groups.get(created.id)
     expect(after.tickets).toEqual(["T-2"])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "member" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "developer" })
     )
   )
 )
@@ -1208,23 +1133,20 @@ it.effect(
   () =>
     Effect.gen(function* () {
       const groups = yield* Groups
-      const created = yield* groups.create("org", "user-1", "p", {
+      const created = yield* groups.create({
         name: "Sprint 1",
         kind: "sprint",
         tickets: [ticketId("T-1")]
       })
-      const result = yield* groups.addTickets(
-        "org",
-        "user-1",
-        "p",
-        created.id,
-        [ticketId("T-2"), ticketId("T-3")]
-      )
+      const result = yield* groups.addTickets(created.id, [
+        ticketId("T-2"),
+        ticketId("T-3")
+      ])
       expect(result.target.tickets).toEqual(["T-1", "T-2", "T-3"])
       expect(result.evicted).toEqual([])
     }).pipe(
       Effect.provide(
-        makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
+        makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "pm" })
       )
     )
 )
@@ -1232,19 +1154,19 @@ it.effect(
 it.effect("addTickets deduplicates against current membership", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const created = yield* groups.create("org", "user-1", "p", {
+    const created = yield* groups.create({
       name: "Sprint 1",
       kind: "sprint",
       tickets: [ticketId("T-1"), ticketId("T-2")]
     })
-    const result = yield* groups.addTickets("org", "user-1", "p", created.id, [
+    const result = yield* groups.addTickets(created.id, [
       ticketId("T-1"),
       ticketId("T-3")
     ])
     expect(result.target.tickets).toEqual(["T-1", "T-2", "T-3"])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "pm" })
     )
   )
 )
@@ -1252,12 +1174,12 @@ it.effect("addTickets deduplicates against current membership", () =>
 it.effect("addTickets deduplicates within the request payload", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const created = yield* groups.create("org", "user-1", "p", {
+    const created = yield* groups.create({
       name: "Sprint 1",
       kind: "sprint",
       tickets: [ticketId("T-1")]
     })
-    const result = yield* groups.addTickets("org", "user-1", "p", created.id, [
+    const result = yield* groups.addTickets(created.id, [
       ticketId("T-2"),
       ticketId("T-2"),
       ticketId("T-3"),
@@ -1267,7 +1189,7 @@ it.effect("addTickets deduplicates within the request payload", () =>
     expect(result.target.tickets).toEqual(["T-1", "T-2", "T-3"])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "pm" })
     )
   )
 )
@@ -1280,24 +1202,22 @@ it.effect(
       Layer.provide(fakeDocs.groupLayer),
       Layer.provide(fakeDocs.ticketLayer),
       Layer.provide(fakeDocs.ticketIndexLayer),
-      Layer.provide(makeFakeProjects({ role: "admin" })),
-      Layer.provide(TicketDocumentLock.layer)
+      Layer.provide(TicketDocumentLock.layer),
+      Layer.provide(KeyedLock.layer),
+      Layer.merge(scopeLayer("pm"))
     )
     return Effect.gen(function* () {
       const groups = yield* Groups
-      const created = yield* groups.create("org", "user-1", "p", {
+      const created = yield* groups.create({
         name: "Sprint 1",
         kind: "sprint",
         tickets: [ticketId("T-1"), ticketId("T-2")]
       })
       const writesAfterCreate = fakeDocs.state.groupWrites.length
-      const result = yield* groups.addTickets(
-        "org",
-        "user-1",
-        "p",
-        created.id,
-        [ticketId("T-1"), ticketId("T-2")]
-      )
+      const result = yield* groups.addTickets(created.id, [
+        ticketId("T-1"),
+        ticketId("T-2")
+      ])
       expect(result.target.tickets).toEqual(["T-1", "T-2"])
       expect(result.evicted).toEqual([])
       expect(fakeDocs.state.groupWrites.length).toBe(writesAfterCreate)
@@ -1308,27 +1228,25 @@ it.effect(
 it.effect("addTickets evicts overlap from other active sprints", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const sprintA = yield* groups.create("org", "user-1", "p", {
+    const sprintA = yield* groups.create({
       name: "Sprint A",
       kind: "sprint",
       tickets: [ticketId("T-1"), ticketId("T-2")]
     })
-    const sprintB = yield* groups.create("org", "user-1", "p", {
+    const sprintB = yield* groups.create({
       name: "Sprint B",
       kind: "sprint"
     })
-    const result = yield* groups.addTickets("org", "user-1", "p", sprintB.id, [
-      ticketId("T-2")
-    ])
+    const result = yield* groups.addTickets(sprintB.id, [ticketId("T-2")])
     expect(result.target.tickets).toEqual(["T-2"])
     expect(result.evicted).toEqual([
       { groupId: sprintA.id, ticketIds: ["T-2"] }
     ])
-    const a = yield* groups.get("org", "user-1", "p", sprintA.id)
+    const a = yield* groups.get(sprintA.id)
     expect(a.tickets).toEqual(["T-1"])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "admin" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "pm" })
     )
   )
 )
@@ -1336,16 +1254,16 @@ it.effect("addTickets evicts overlap from other active sprints", () =>
 it.effect("addTickets refuses to mutate a completed sprint", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const created = yield* groups.create("org", "user-1", "p", {
+    const created = yield* groups.create({
       name: "Sprint 1",
       kind: "sprint",
       tickets: [ticketId("T-1")]
     })
-    yield* groups.complete("org", "user-1", "p", created.id, {
+    yield* groups.complete(created.id, {
       destination: { kind: "backlog" }
     })
     const outcome = yield* Effect.result(
-      groups.addTickets("org", "user-1", "p", created.id, [ticketId("T-2")])
+      groups.addTickets(created.id, [ticketId("T-2")])
     )
     expect(outcome._tag).toBe("Failure")
     if (outcome._tag === "Failure") {
@@ -1353,7 +1271,7 @@ it.effect("addTickets refuses to mutate a completed sprint", () =>
     }
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "admin" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "pm" })
     )
   )
 )
@@ -1361,23 +1279,23 @@ it.effect("addTickets refuses to mutate a completed sprint", () =>
 it.effect("addTickets serializes concurrent calls on the same project", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const sprint = yield* groups.create("org", "user-1", "p", {
+    const sprint = yield* groups.create({
       name: "Sprint 1",
       kind: "sprint",
       tickets: [ticketId("T-1")]
     })
     yield* Effect.all(
       [
-        groups.addTickets("org", "user-1", "p", sprint.id, [ticketId("T-2")]),
-        groups.addTickets("org", "user-1", "p", sprint.id, [ticketId("T-3")])
+        groups.addTickets(sprint.id, [ticketId("T-2")]),
+        groups.addTickets(sprint.id, [ticketId("T-3")])
       ],
       { concurrency: "unbounded" }
     )
-    const after = yield* groups.get("org", "user-1", "p", sprint.id)
+    const after = yield* groups.get(sprint.id)
     expect([...after.tickets].sort()).toEqual(["T-1", "T-2", "T-3"])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "pm" })
     )
   )
 )
@@ -1387,23 +1305,17 @@ it.effect(
   () =>
     Effect.gen(function* () {
       const groups = yield* Groups
-      const sprint = yield* groups.create("org", "user-1", "p", {
+      const sprint = yield* groups.create({
         name: "Sprint 1",
         kind: "sprint",
         tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")]
       })
-      const result = yield* groups.removeTickets(
-        "org",
-        "user-1",
-        "p",
-        sprint.id,
-        [ticketId("T-2")]
-      )
+      const result = yield* groups.removeTickets(sprint.id, [ticketId("T-2")])
       expect(result.target.tickets).toEqual(["T-1", "T-3"])
       expect(result.evicted).toEqual([])
     }).pipe(
       Effect.provide(
-        makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
+        makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "pm" })
       )
     )
 )
@@ -1411,23 +1323,17 @@ it.effect(
 it.effect("removeTickets is a no-op when none of the ids are members", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const sprint = yield* groups.create("org", "user-1", "p", {
+    const sprint = yield* groups.create({
       name: "Sprint 1",
       kind: "sprint",
       tickets: [ticketId("T-1")]
     })
-    const result = yield* groups.removeTickets(
-      "org",
-      "user-1",
-      "p",
-      sprint.id,
-      [ticketId("T-2")]
-    )
+    const result = yield* groups.removeTickets(sprint.id, [ticketId("T-2")])
     expect(result.target.tickets).toEqual(["T-1"])
     expect(result.evicted).toEqual([])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "admin" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "pm" })
     )
   )
 )
@@ -1435,25 +1341,23 @@ it.effect("removeTickets is a no-op when none of the ids are members", () =>
 it.effect("removeTickets serializes with concurrent addTickets", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const sprint = yield* groups.create("org", "user-1", "p", {
+    const sprint = yield* groups.create({
       name: "Sprint 1",
       kind: "sprint",
       tickets: [ticketId("T-1"), ticketId("T-2")]
     })
     yield* Effect.all(
       [
-        groups.removeTickets("org", "user-1", "p", sprint.id, [
-          ticketId("T-1")
-        ]),
-        groups.addTickets("org", "user-1", "p", sprint.id, [ticketId("T-3")])
+        groups.removeTickets(sprint.id, [ticketId("T-1")]),
+        groups.addTickets(sprint.id, [ticketId("T-3")])
       ],
       { concurrency: "unbounded" }
     )
-    const after = yield* groups.get("org", "user-1", "p", sprint.id)
+    const after = yield* groups.get(sprint.id)
     expect([...after.tickets].sort()).toEqual(["T-2", "T-3"])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "pm" })
     )
   )
 )
@@ -1461,30 +1365,30 @@ it.effect("removeTickets serializes with concurrent addTickets", () =>
 it.effect("removeTickets refuses to mutate a completed sprint", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const created = yield* groups.create("org", "user-1", "p", {
+    const created = yield* groups.create({
       name: "Sprint 1",
       kind: "sprint",
       tickets: [ticketId("T-1")]
     })
-    yield* groups.complete("org", "user-1", "p", created.id, {
+    yield* groups.complete(created.id, {
       destination: { kind: "backlog" }
     })
     const outcome = yield* Effect.result(
-      groups.removeTickets("org", "user-1", "p", created.id, [ticketId("T-1")])
+      groups.removeTickets(created.id, [ticketId("T-1")])
     )
     expect(outcome._tag).toBe("Failure")
     if (outcome._tag === "Failure") {
       expect(outcome.failure._tag).toBe("SprintCompletedImmutable")
     }
   }).pipe(
-    Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "admin" }))
+    Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "pm" }))
   )
 )
 
 it.effect("setSprintMembership places a ticket at the start", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
-    const sprint = yield* groups.create("org", "user-1", "p", {
+    const sprint = yield* groups.create({
       name: "Sprint 1",
       kind: "sprint",
       tickets: [ticketId("T-1"), ticketId("T-2")]
@@ -1494,11 +1398,154 @@ it.effect("setSprintMembership places a ticket at the start", () =>
       after: null
     })
 
-    const updated = yield* groups.get("org", "user-1", "p", sprint.id)
+    const updated = yield* groups.get(sprint.id)
     expect(updated.tickets).toEqual(["T-3", "T-1", "T-2"])
   }).pipe(
     Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "pm" })
     )
   )
+)
+
+it.effect(
+  "setSprintMembership refuses to move a ticket whose sprint changed since it was read",
+  () =>
+    Effect.gen(function* () {
+      const groups = yield* Groups
+      const planned = yield* groups.create({ name: "Planned", kind: "sprint" })
+      const other = yield* groups.create({
+        name: "Other",
+        kind: "sprint",
+        tickets: [ticketId("T-1")]
+      })
+
+      const error = yield* Effect.flip(
+        groups.setSprintMembership("org", "p", ticketId("T-1"), planned.id, {
+          from: null
+        })
+      )
+      expect(error._tag).toBe("Conflict")
+      expect((yield* groups.get(other.id)).tickets).toEqual(["T-1"])
+
+      yield* groups.setSprintMembership(
+        "org",
+        "p",
+        ticketId("T-1"),
+        planned.id,
+        {
+          from: other.id
+        }
+      )
+      expect((yield* groups.get(planned.id)).tickets).toEqual(["T-1"])
+      expect((yield* groups.get(other.id)).tickets).toEqual([])
+    }).pipe(
+      Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "pm" }))
+    )
+)
+
+it.effect("lets a client read groups but not create or change them", () =>
+  Effect.gen(function* () {
+    const groups = yield* Groups
+    const epic = yield* groups
+      .create({ name: "Epic", kind: "epic" })
+      .pipe(Effect.provideService(ProjectScope, asScope("member", "pm")))
+    expect((yield* groups.list()).map((group) => group.id)).toStrictEqual([
+      epic.id
+    ])
+    for (const kind of ["epic", "other", "sprint"] as const) {
+      const error = yield* Effect.flip(groups.create({ name: "No", kind }))
+      expect(error._tag).toBe("Forbidden")
+    }
+    const rename = yield* Effect.flip(groups.update(epic.id, { name: "No" }))
+    expect(rename._tag).toBe("Forbidden")
+  }).pipe(
+    Effect.provide(groupsLayer()),
+    Effect.provideService(ProjectScope, asScope("guest", "client"))
+  )
+)
+
+it.effect(
+  "lets developers and clients add to a sprint and reorder it but not take tickets out",
+  () =>
+    Effect.gen(function* () {
+      const groups = yield* Groups
+      const pm = Effect.provideService(ProjectScope, asScope("member", "pm"))
+      const developer = Effect.provideService(
+        ProjectScope,
+        asScope("member", "developer")
+      )
+      const client = Effect.provideService(
+        ProjectScope,
+        asScope("guest", "client")
+      )
+      const sprint = yield* groups
+        .create({ name: "S", kind: "sprint", tickets: [ticketId("T-1")] })
+        .pipe(pm)
+      const other = yield* groups
+        .create({ name: "O", kind: "sprint", tickets: [ticketId("T-4")] })
+        .pipe(pm)
+
+      yield* groups.addTickets(sprint.id, [ticketId("T-2")]).pipe(developer)
+      yield* groups.addTickets(sprint.id, [ticketId("T-3")]).pipe(client)
+      const reordered = yield* groups
+        .updateTicketOrder(sprint.id, {
+          ticketId: ticketId("T-3"),
+          after: null
+        })
+        .pipe(client)
+      expect(reordered.tickets).toEqual(["T-3", "T-1", "T-2"])
+
+      const refused = [
+        yield* Effect.flip(
+          groups.removeTickets(sprint.id, [ticketId("T-1")]).pipe(developer)
+        ),
+        yield* Effect.flip(
+          groups.addTickets(sprint.id, [ticketId("T-4")]).pipe(developer)
+        ),
+        yield* Effect.flip(
+          groups
+            .updateTickets(sprint.id, { tickets: [ticketId("T-3")] })
+            .pipe(client)
+        ),
+        yield* Effect.flip(
+          groups.create({ name: "New", kind: "sprint" }).pipe(developer)
+        ),
+        yield* Effect.flip(
+          groups
+            .complete(sprint.id, { destination: { kind: "backlog" } })
+            .pipe(client)
+        )
+      ]
+      expect(refused.map((error) => error._tag)).toStrictEqual([
+        "Forbidden",
+        "Forbidden",
+        "Forbidden",
+        "Forbidden",
+        "Forbidden"
+      ])
+      expect((yield* groups.get(other.id).pipe(pm)).tickets).toEqual(["T-4"])
+
+      const moved = yield* groups
+        .addTickets(sprint.id, [ticketId("T-4")])
+        .pipe(pm)
+      expect(moved.evicted).toEqual([{ groupId: other.id, ticketIds: ["T-4"] }])
+    }).pipe(
+      Effect.provide(groupsLayer({ ticketIds: ["T-1", "T-2", "T-3", "T-4"] }))
+    )
+)
+
+it.effect(
+  "lets an org admin without a project role read groups but not plan",
+  () =>
+    Effect.gen(function* () {
+      const groups = yield* Groups
+      expect(yield* groups.list()).toStrictEqual([])
+      const error = yield* Effect.flip(
+        groups.create({ name: "Sprint", kind: "sprint" })
+      )
+      expect(error._tag).toBe("Forbidden")
+    }).pipe(
+      Effect.provide(groupsLayer()),
+      Effect.provideService(ProjectScope, asScope("admin", null))
+    )
 )

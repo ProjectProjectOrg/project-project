@@ -1,7 +1,7 @@
 import { useAtomValue, useAtomSet } from "@effect/atom-react"
+import { CommentPolicy } from "@pp/access/policies"
 import type { Comment, TicketId } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useState } from "react"
 
 import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
@@ -10,12 +10,12 @@ import { Markdown } from "@/components/Markdown"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { Button } from "@/components/ui/button"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
-import { me } from "@/features/auth/atoms/auth"
 import {
   commentsRequest,
   deleteComment,
   editComment
 } from "@/features/comments/atoms/comments"
+import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -35,19 +35,20 @@ export function CommentRow({
   slug: string
   ticketId: TicketId
 }) {
-  const viewer = useAtomValue(me())
+  const actor = useProjectActor()
   const linkedAuthor =
     comment.author.kind === "user" ? comment.author.user : null
   const authorName =
     comment.author.kind === "user"
       ? (comment.author.user.name ?? comment.author.user.email)
       : comment.author.displayName
-  const isAuthor =
-    !pending &&
-    comment.origin === "native" &&
-    linkedAuthor !== null &&
-    Result.isSuccess(viewer) &&
-    viewer.value.id === linkedAuthor.id
+  const authored =
+    !pending && comment.origin === "native" && linkedAuthor !== null
+      ? { authorId: linkedAuthor.id }
+      : null
+  const canEdit = authored !== null && CommentPolicy.canEdit(actor, authored)
+  const canDelete =
+    authored !== null && CommentPolicy.canDelete(actor, authored)
   const req = commentsRequest(orgSlug, slug, ticketId)
   const key = { req, commentId: comment.id }
   const editState = useAtomValue(editComment(key))
@@ -83,18 +84,26 @@ export function CommentRow({
               </span>
             )}
           </div>
-          {isAuthor && (
+          {(canEdit || canDelete) && (
             <div className="flex items-center gap-1">
-              <InlineForm.Trigger<Mode> action="edit" size="sm" variant="ghost">
-                {m.comments_edit_button()}
-              </InlineForm.Trigger>
-              <ConfirmDeleteIcon
-                ariaLabel={m.comments_delete_aria_label()}
-                message={m.comments_delete_confirm()}
-                onConfirm={async () => {
-                  await remove()
-                }}
-              />
+              {canEdit && (
+                <InlineForm.Trigger<Mode>
+                  action="edit"
+                  size="sm"
+                  variant="ghost"
+                >
+                  {m.comments_edit_button()}
+                </InlineForm.Trigger>
+              )}
+              {canDelete && (
+                <ConfirmDeleteIcon
+                  ariaLabel={m.comments_delete_aria_label()}
+                  message={m.comments_delete_confirm()}
+                  onConfirm={async () => {
+                    await remove()
+                  }}
+                />
+              )}
             </div>
           )}
         </header>

@@ -14,6 +14,7 @@ import { useCallback } from "react"
 import { PageContainer, PageHeader } from "@/components/page"
 import { RailBackLink } from "@/components/RailBackLink"
 import { useSidebarSlot } from "@/components/SidebarSlot"
+import { useOrgActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -129,6 +130,7 @@ function SettingsLayout() {
 
 function SettingsRail({ orgSlug }: { orgSlug: string }) {
   const location = useLocation()
+  const canSeeMembers = useOrgActor(orgSlug).call("org", "members")
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -138,7 +140,9 @@ function SettingsRail({ orgSlug }: { orgSlug: string }) {
         label={m.org_settings_crumb()}
       />
       <nav className="flex flex-col gap-1">
-        {SECTIONS.map((section) => {
+        {SECTIONS.filter(
+          (section) => section.key !== "members" || canSeeMembers
+        ).map((section) => {
           const Icon = section.icon
           const active = isSectionActive(
             location.pathname,

@@ -5,6 +5,7 @@ import {
   useAtomValue,
   useAtomRefresh
 } from "@effect/atom-react"
+import { GroupPolicy, TicketPolicy } from "@pp/access/policies"
 import type {
   GroupId,
   Member,
@@ -30,6 +31,7 @@ import {
   type BoardRequest,
   type BoardValue
 } from "@/features/sprints/atoms/sprintBoard"
+import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 
 import {
@@ -121,6 +123,9 @@ function SprintBoardContent({
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const groupRef = useRef<HTMLDivElement>(null)
+  const actor = useProjectActor()
+  const canReorder = GroupPolicy.can(actor, "sprint", "reorder")
+  const canTransition = TicketPolicy.canChange(actor, { status: true })
   const [frozenWidth, setFrozenWidth] = useState<number | null>(null)
   const { height, hasRightOverflow } = useBoardViewport(ref)
 
@@ -174,7 +179,7 @@ function SprintBoardContent({
 
   useEffect(() => {
     const el = ref.current
-    if (!el || isCompleted || reorderMode) return
+    if (!el || isCompleted || reorderMode || !canReorder) return
     const cleanupAutoScroll = autoScrollForElements({
       element: el,
       getAllowedAxis: () => "horizontal"
@@ -208,6 +213,7 @@ function SprintBoardContent({
         if (after === src.id) return
         const status =
           nextStatus !== src.status ? (nextStatus as TicketStatus) : undefined
+        if (status !== undefined && !canTransition) return
         registry.set(placeBoardTicket({ req, id: src.id }), {
           ticketId: src.id,
           status,
@@ -220,7 +226,7 @@ function SprintBoardContent({
       cleanupAutoScroll()
       cleanupMonitor()
     }
-  }, [isCompleted, reorderMode, req, registry])
+  }, [canReorder, canTransition, isCompleted, reorderMode, req, registry])
 
   return (
     <motion.div
@@ -253,7 +259,7 @@ function SprintBoardContent({
             statuses={statuses}
             tickets={grouped[status] ?? []}
             members={members}
-            isDraggable={!isCompleted}
+            isDraggable={!isCompleted && canReorder}
             lastFlash={lastFlash}
             reorderMode={reorderMode}
             onActivateReorder={onEnterReorder}
