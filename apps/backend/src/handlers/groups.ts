@@ -2,7 +2,7 @@ import { Groups } from "@pp/server-core/groups/Groups"
 import { Tickets } from "@pp/server-core/tickets/Tickets"
 import { AppApi } from "@pp/shared"
 import * as Effect from "effect/Effect"
-import { HttpApiBuilder } from "effect/unstable/httpapi"
+import { HttpApiBuilder } from "effect/http-api"
 
 import { dieOnMarkdown, thenSyncEverhour } from "./lib"
 

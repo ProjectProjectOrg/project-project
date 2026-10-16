@@ -1,3 +1,4 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createHash } from "node:crypto"
 
 import { JiraError } from "@pp/shared"
@@ -11,7 +12,7 @@ import { DateTime } from "effect"
 import * as Effect from "effect/Effect"
 import type * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
-import { Activity } from "effect/unstable/workflow"
+import { Activity } from "effect/workflow"
 
 import { JiraRateLimited, JiraTransientFailure } from "./Blocked"
 import type { JiraClientShape, JiraCallError } from "./Client"
@@ -278,8 +279,8 @@ export type MigrationActivities<R = never> = Readonly<{
     void,
     JiraMigrationWorkflowFailureValue,
     | R
-    | import("effect/unstable/workflow/WorkflowEngine").WorkflowEngine
-    | import("effect/unstable/workflow/WorkflowEngine").WorkflowInstance
+    | import("effect/workflow/WorkflowEngine").WorkflowEngine
+    | import("effect/workflow/WorkflowEngine").WorkflowInstance
   >
   materialize: (
     input: MigrationActivityInput,
@@ -287,7 +288,7 @@ export type MigrationActivities<R = never> = Readonly<{
   ) => Effect.Effect<
     JiraReadyPublication,
     JiraMigrationWorkflowFailureValue,
-    R | import("effect/unstable/workflow/WorkflowEngine").WorkflowInstance
+    R | import("effect/workflow/WorkflowEngine").WorkflowInstance
   >
   publish: (
     input: MigrationActivityInput,
@@ -296,7 +297,7 @@ export type MigrationActivities<R = never> = Readonly<{
   ) => Effect.Effect<
     void,
     JiraMigrationWorkflowFailureValue,
-    R | import("effect/unstable/workflow/WorkflowEngine").WorkflowInstance
+    R | import("effect/workflow/WorkflowEngine").WorkflowInstance
   >
   start: (
     input: MigrationActivityInput

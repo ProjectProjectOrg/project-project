@@ -1,8 +1,8 @@
 import { it } from "@effect/vitest"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as Effect from "effect/Effect"
+import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient"
 import { beforeEach, describe, expect, vi } from "vitest"
 
 import { BetterAuth, type BetterAuthShape } from "../auth/BetterAuth"

@@ -1,3 +1,4 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { randomUUID } from "node:crypto"
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { mkdtemp, rm } from "node:fs/promises"
@@ -15,8 +16,8 @@ import { toNodeHandler } from "better-auth/node"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as DateTime from "effect/DateTime"
+import { HttpRouter } from "effect/http"
 import * as Layer from "effect/Layer"
-import { HttpRouter } from "effect/unstable/http"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 

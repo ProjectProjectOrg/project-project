@@ -15,14 +15,14 @@
 // "which org am I acting in?" — see `services/CurrentOrg.ts` for the resolver.
 
 import * as Effect from "effect/Effect"
-import * as Schema from "effect/Schema"
 import {
   HttpApi,
   HttpApiEndpoint,
   HttpApiGroup,
   HttpApiSchema,
   OpenApi
-} from "effect/unstable/httpapi"
+} from "effect/http-api"
+import * as Schema from "effect/Schema"
 
 import { IncludeDeletedOrg, OrgAccess, RequiresOrg } from "./access/OrgAccess"
 import { ProjectAccess, RequiresProject } from "./access/ProjectAccess"

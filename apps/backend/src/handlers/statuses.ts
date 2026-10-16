@@ -1,7 +1,7 @@
 import { ProjectStatuses } from "@pp/server-core/projects/ProjectStatuses"
 import { AppApi } from "@pp/shared"
 import * as Effect from "effect/Effect"
-import { HttpApiBuilder } from "effect/unstable/httpapi"
+import { HttpApiBuilder } from "effect/http-api"
 
 import { dieOnMarkdown, thenSyncEverhour } from "./lib"
 

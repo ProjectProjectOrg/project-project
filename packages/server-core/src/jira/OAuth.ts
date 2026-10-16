@@ -1,3 +1,4 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createHash } from "node:crypto"
 
 import { JiraError, JiraRateLimited, JiraReconnectRequired } from "@pp/shared"
@@ -5,15 +6,11 @@ import * as Config from "effect/Config"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http"
 import * as Layer from "effect/Layer"
 import * as Predicate from "effect/Predicate"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
-import {
-  HttpClient,
-  HttpClientRequest,
-  HttpClientResponse
-} from "effect/unstable/http"
 
 export const JIRA_SCOPES =
   "read:jira-work read:jira-user read:issue-details:jira read:jql:jira read:project:jira read:board-scope:jira-software read:sprint:jira-software offline_access"

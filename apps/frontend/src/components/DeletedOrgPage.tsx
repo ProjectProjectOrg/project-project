@@ -4,7 +4,7 @@ import { useRouter } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { useState } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"

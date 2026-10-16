@@ -28,7 +28,7 @@ export const LogTimeInput = Schema.Struct({
     Schema.check(Schema.isGreaterThan(0))
   ),
   date: Schema.String.pipe(
-    Schema.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/))
+    Schema.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/u))
   ),
   comment: Schema.optional(Schema.String),
   ticketId: Schema.optional(Schema.NullOr(TicketId)),

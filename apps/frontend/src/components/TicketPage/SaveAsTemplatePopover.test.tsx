@@ -6,7 +6,7 @@ import {
   type TagName
 } from "@pp/shared"
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react"
-import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry"
+import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import type { ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 

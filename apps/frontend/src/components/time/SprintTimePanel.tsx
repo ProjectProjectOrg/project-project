@@ -1,6 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { DEFAULT_WORK_TYPES, type GroupId } from "@pp/shared"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { useState } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"

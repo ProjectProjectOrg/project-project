@@ -1,6 +1,6 @@
 import type { Project } from "@pp/access/roles"
 import * as Context from "effect/Context"
-import { HttpApiMiddleware } from "effect/unstable/httpapi"
+import { HttpApiMiddleware } from "effect/http-api"
 
 import type { CurrentUser } from "../Authentication"
 import { Forbidden, NotFound } from "../errors"

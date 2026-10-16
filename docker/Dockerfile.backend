@@ -17,6 +17,7 @@ WORKDIR /app
 # Copy only manifests first so dep install is cache-friendly when source
 # changes but lockfile doesn't.
 COPY package.json bun.lock* bun.lockb* tsconfig.base.json ./
+COPY patches ./patches
 COPY packages/access/package.json ./packages/access/
 COPY packages/db/package.json ./packages/db/
 COPY packages/server-core/package.json ./packages/server-core/

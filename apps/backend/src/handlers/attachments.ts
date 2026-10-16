@@ -1,7 +1,7 @@
 import { Attachments } from "@pp/server-core/attachments/Attachments"
 import { AppApi } from "@pp/shared"
 import * as Effect from "effect/Effect"
-import { HttpApiBuilder } from "effect/unstable/httpapi"
+import { HttpApiBuilder } from "effect/http-api"
 
 import { dieOnMarkdown } from "./lib"
 

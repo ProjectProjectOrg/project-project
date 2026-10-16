@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import { type SortKey, NATURAL_SORT_DIR, type TicketStatus } from "@pp/shared"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import {
   ArrowDownAZ,
   Check,

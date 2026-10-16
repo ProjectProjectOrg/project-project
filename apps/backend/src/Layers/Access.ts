@@ -15,10 +15,10 @@ import {
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
+import { HttpRouter } from "effect/http"
+import type { HttpApiEndpoint } from "effect/http-api"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
-import { HttpRouter } from "effect/unstable/http"
-import type { HttpApiEndpoint } from "effect/unstable/httpapi"
 
 const requirementOf = <I, S>(
   endpoint: HttpApiEndpoint.Top,

@@ -36,6 +36,7 @@
 // dispatches to our in-memory handler with no network hop. Same client API
 // the frontend uses; same types; full contract enforcement.
 
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createHmac } from "node:crypto"
 
 import { it } from "@effect/vitest"
@@ -43,10 +44,10 @@ import { AppApi, Authentication, Unauthorized } from "@pp/shared"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
+import { FetchHttpClient, HttpRouter, HttpServer } from "effect/http"
+import { HttpApi, HttpApiBuilder, HttpApiClient } from "effect/http-api"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
-import { FetchHttpClient, HttpRouter, HttpServer } from "effect/unstable/http"
-import { HttpApi, HttpApiBuilder, HttpApiClient } from "effect/unstable/httpapi"
 import { afterAll, expect, vi } from "vitest"
 
 vi.mock("./auth", () => ({

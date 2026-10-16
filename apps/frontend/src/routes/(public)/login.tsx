@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import { createFileRoute, Navigate } from "@tanstack/react-router"
+import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { Mail } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import type { FormEvent } from "react"

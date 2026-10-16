@@ -10,7 +10,7 @@ import type { OAuthApplication } from "@pp/shared"
 // common MCP clients (Claude Code, Gemini CLI, Codex CLI). The URL is derived
 // from the current window origin — single-origin homelab deploys work without
 // edits; dev/split-origin setups can swap the host before pasting.
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronRight, KeyRound } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useMemo, useState } from "react"

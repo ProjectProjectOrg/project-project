@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { TicketCounts } from "@pp/shared"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { useState } from "react"
 
 import { boardStatusesFor } from "@/components/sprints/board-utils"

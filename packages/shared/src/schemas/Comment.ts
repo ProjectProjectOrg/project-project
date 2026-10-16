@@ -5,7 +5,7 @@ import { TicketId } from "./Ticket"
 import { User } from "./User"
 
 export const CommentId = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^c_[A-Za-z0-9_-]+$/)),
+  Schema.check(Schema.isPattern(/^c_[A-Za-z0-9_-]+$/u)),
   Schema.brand("CommentId")
 )
 export type CommentId = typeof CommentId.Type

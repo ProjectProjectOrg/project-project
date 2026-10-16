@@ -10,8 +10,8 @@ import {
   type TemplateKey
 } from "@pp/shared"
 import { render } from "@testing-library/react"
+import type * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import type * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry"
 import type { ReactNode } from "react"
 
 import type { FetchHandler } from "@/api/testFetch"

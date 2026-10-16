@@ -1,7 +1,7 @@
 import { Effective, Org } from "@pp/access/roles"
 import * as Context from "effect/Context"
+import { HttpApi } from "effect/http-api"
 import * as Option from "effect/Option"
-import { HttpApi } from "effect/unstable/httpapi"
 import { describe, expect, it } from "vitest"
 
 import { IncludeDeletedOrg, OrgAccess, RequiresOrg } from "./access/OrgAccess"

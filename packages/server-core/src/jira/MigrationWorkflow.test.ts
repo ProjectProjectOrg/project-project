@@ -8,7 +8,7 @@ import * as Option from "effect/Option"
 import * as Ref from "effect/Ref"
 import * as Schema from "effect/Schema"
 import * as TestClock from "effect/testing/TestClock"
-import { DurableDeferred, WorkflowEngine } from "effect/unstable/workflow"
+import { DurableDeferred, WorkflowEngine } from "effect/workflow"
 import { describe, expect } from "vitest"
 
 import { JiraClient } from "./Client"

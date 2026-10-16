@@ -8,8 +8,8 @@ import {
   screen,
   waitFor
 } from "@testing-library/react"
+import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"

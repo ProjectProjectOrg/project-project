@@ -10,8 +10,8 @@ import { useNavigate } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Random from "effect/Random"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
-import * as Atom from "effect/unstable/reactivity/Atom"
+import * as Result from "effect/reactivity/AsyncResult"
+import * as Atom from "effect/reactivity/Atom"
 import { Plus } from "lucide-react"
 import {
   useContext,

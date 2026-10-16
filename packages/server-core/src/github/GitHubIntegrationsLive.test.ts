@@ -1,5 +1,7 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createHash, randomUUID } from "node:crypto"
 
+import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { migrationsFolder } from "@pp/db"
@@ -48,6 +50,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
   const organizationIds: string[] = []
   const integrationLayer = GitHubIntegrationsLive.pipe(
     Layer.provide(Layer.succeed(GitHub, makeGithub())),
+    Layer.provide(BunCrypto.layer),
     Layer.provide(
       DbLive.pipe(
         Layer.provideMerge(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
@@ -188,6 +191,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       )
       const raceLayer = GitHubIntegrationsLive.pipe(
         Layer.provide(Layer.succeed(GitHub, raceGithub)),
+        Layer.provide(BunCrypto.layer),
         Layer.provide(
           DbLive.pipe(
             Layer.provideMerge(

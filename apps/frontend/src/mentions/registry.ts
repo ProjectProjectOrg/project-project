@@ -1,6 +1,6 @@
 import type { MentionType } from "@pp/shared"
 import type * as Effect from "effect/Effect"
-import type { AtomRegistry } from "effect/unstable/reactivity/AtomRegistry"
+import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
 import type { ReactNode } from "react"
 
 import type { MentionScope } from "./scope"

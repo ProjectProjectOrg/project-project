@@ -8,7 +8,7 @@ import {
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { CircleCheck, Plus } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
 import { useEffect, useMemo, useState, type FormEvent } from "react"

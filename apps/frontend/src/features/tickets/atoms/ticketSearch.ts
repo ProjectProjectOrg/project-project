@@ -1,5 +1,5 @@
 import type { GroupId, TicketSearchQuery } from "@pp/shared"
-import * as Atom from "effect/unstable/reactivity/Atom"
+import * as Atom from "effect/reactivity/Atom"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"

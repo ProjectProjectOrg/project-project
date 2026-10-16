@@ -50,8 +50,8 @@ import {
   Unauthorized
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
+import { HttpServerRequest } from "effect/http"
 import * as Layer from "effect/Layer"
-import { HttpServerRequest } from "effect/unstable/http"
 
 import { toWebHeaders } from "../http/toWebHeaders"
 

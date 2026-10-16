@@ -2,7 +2,7 @@ import { EverhourIntegrations } from "@pp/server-core/everhour/EverhourIntegrati
 import { EverhourTimeTracking } from "@pp/server-core/everhour/EverhourTimeTracking"
 import { AppApi, CurrentUser } from "@pp/shared"
 import * as Effect from "effect/Effect"
-import { HttpApiBuilder } from "effect/unstable/httpapi"
+import { HttpApiBuilder } from "effect/http-api"
 
 import { dieOnMarkdown } from "./lib"
 

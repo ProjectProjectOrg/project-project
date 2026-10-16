@@ -16,7 +16,7 @@ import { TagName } from "./Tag"
 import { User } from "./User"
 
 export const TicketId = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$/)),
+  Schema.check(Schema.isPattern(/^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$/u)),
   Schema.check(
     Schema.makeFilter((id: string) => {
       const dash = id.lastIndexOf("-")

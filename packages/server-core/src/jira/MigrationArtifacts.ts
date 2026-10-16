@@ -1,3 +1,4 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createHash } from "node:crypto"
 
 import type { StorageConfigMissing, StorageNotConnected } from "@pp/shared"

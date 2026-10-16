@@ -2,7 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { UserInvitation } from "@pp/shared"
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { Inbox, LogOut, MailCheck, UserRound } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 

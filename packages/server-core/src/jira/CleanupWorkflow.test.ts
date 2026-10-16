@@ -1,5 +1,5 @@
 import { Effect, Layer, Ref } from "effect"
-import { WorkflowEngine } from "effect/unstable/workflow"
+import { WorkflowEngine } from "effect/workflow"
 import { describe, expect, it } from "vitest"
 
 import {

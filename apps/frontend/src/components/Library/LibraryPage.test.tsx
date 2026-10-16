@@ -21,8 +21,8 @@ import {
   waitFor,
   within
 } from "@testing-library/react"
+import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry"
 import type { ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 

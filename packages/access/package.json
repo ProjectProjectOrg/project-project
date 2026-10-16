@@ -15,9 +15,9 @@
     "lint:fix": "oxlint . --fix"
   },
   "dependencies": {
-    "effect": "4.0.0-rc.116"
+    "effect": "4.0.5"
   },
   "devDependencies": {
-    "vitest": "4.1.11"
+    "vitest": "5.0.5"
   }
 }

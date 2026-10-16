@@ -10,8 +10,8 @@ import {
 } from "@testing-library/react"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
-import type * as Atom from "effect/unstable/reactivity/Atom"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
+import type * as Atom from "effect/reactivity/Atom"
 import { createRef, useRef, useState } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 

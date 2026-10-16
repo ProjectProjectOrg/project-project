@@ -1,6 +1,6 @@
 import { AppApi } from "@pp/shared"
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient"
-import * as AtomHttpApi from "effect/unstable/reactivity/AtomHttpApi"
+import * as FetchHttpClient from "effect/http/FetchHttpClient"
+import * as AtomHttpApi from "effect/reactivity/AtomHttpApi"
 
 /**
  * The frontend's single API client.

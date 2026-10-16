@@ -8,7 +8,7 @@ import {
   type TicketId
 } from "@pp/shared"
 import * as Exit from "effect/Exit"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { Split } from "lucide-react"
 import { useMemo, useRef } from "react"
 

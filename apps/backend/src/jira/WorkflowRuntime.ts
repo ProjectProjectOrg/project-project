@@ -5,9 +5,9 @@ import { JiraMigrationArtifactsLive } from "@pp/server-core/jira/MigrationArtifa
 import * as MigrationProduction from "@pp/server-core/jira/MigrationProduction"
 import { JiraMigrationProjection } from "@pp/server-core/jira/MigrationProjection"
 import * as MigrationWorkflow from "@pp/server-core/jira/MigrationWorkflow"
+import { ClusterWorkflowEngine, SingleRunner } from "effect/cluster"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-import { ClusterWorkflowEngine, SingleRunner } from "effect/unstable/cluster"
 
 export const JiraWorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
   Layer.provide(SingleRunner.layer({ runnerStorage: "sql" })),

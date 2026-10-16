@@ -1,7 +1,7 @@
 import type { JiraMigrationRequirements } from "@pp/shared"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import * as DateTime from "effect/DateTime"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { useAppForm } from "@/lib/form"

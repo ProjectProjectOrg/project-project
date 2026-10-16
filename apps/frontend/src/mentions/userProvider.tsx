@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect"
-import * as Atom from "effect/unstable/reactivity/Atom"
+import * as Atom from "effect/reactivity/Atom"
 
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { me } from "@/features/auth/atoms/auth"

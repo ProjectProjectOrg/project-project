@@ -9,7 +9,7 @@ import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { GitBranch } from "lucide-react"
 import { useMemo, useRef, useState } from "react"
 
