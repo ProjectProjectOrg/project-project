@@ -75,7 +75,7 @@ const change = (
 
 type Page = Readonly<{
   items: ReadonlyArray<unknown>
-  people: ReadonlyArray<unknown>
+  people: ReadonlyArray<ReturnType<typeof user>>
   nextCursor: string | null
 }>
 
@@ -180,7 +180,7 @@ describe("TicketActivityFeed", () => {
               name: "Sprint 4"
             })
           ],
-          people: [],
+          people: [user("luuk", "Luuk")],
           nextCursor: null
         }
       ],
