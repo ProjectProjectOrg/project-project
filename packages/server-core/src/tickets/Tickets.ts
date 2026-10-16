@@ -1,4 +1,5 @@
 import type {
+  ActivityActor,
   AttachBranchInput,
   SprintCompletedImmutable,
   BranchExists,
@@ -146,7 +147,7 @@ export interface TicketsShape {
   ) => Effect.Effect<
     TicketUpdateResult,
     Forbidden | TicketReadError | Validation | MentionInvalid,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
   readonly moveInGroup: (
     groupId: string,
@@ -158,7 +159,7 @@ export interface TicketsShape {
     | SprintCompletedImmutable
     | Validation
     | MarkdownError,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
   readonly split: (
     id: string,
@@ -171,42 +172,51 @@ export interface TicketsShape {
     | Validation
     | MentionInvalid
     | SprintCompletedImmutable,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
   readonly remove: (
     id: string
-  ) => Effect.Effect<void, NotFound | MarkdownError, ProjectScope>
+  ) => Effect.Effect<
+    void,
+    NotFound | MarkdownError,
+    ProjectScope | ActivityActor
+  >
   readonly archive: (
     id: string,
     reason?: string
   ) => Effect.Effect<
     TicketDetail,
     Forbidden | TicketReadError | MentionInvalid | InvalidCommentBody,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
   readonly unarchive: (
     id: string
-  ) => Effect.Effect<TicketDetail, Forbidden | TicketReadError, ProjectScope>
+  ) => Effect.Effect<
+    TicketDetail,
+    Forbidden | TicketReadError,
+    ProjectScope | ActivityActor
+  >
   readonly replaceTag: (
     orgSlug: string,
     slug: string,
     id: string,
     oldName: string,
     newName: string | null
-  ) => Effect.Effect<boolean, TicketReadError>
+  ) => Effect.Effect<boolean, TicketReadError, ActivityActor>
   readonly replaceStatus: (
     orgSlug: string,
     slug: string,
     id: string,
-    newStatus: string
-  ) => Effect.Effect<boolean, TicketReadError>
+    newStatus: string,
+    reason: "renamed" | "removed"
+  ) => Effect.Effect<boolean, TicketReadError, ActivityActor>
   readonly createBranch: (
     id: string,
     input: CreateBranchInput
   ) => Effect.Effect<
     TicketDetail,
     TicketReadError | Conflict | BranchExists | BranchProtected | GitHubFailure,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
   readonly attachBranch: (
     id: string,
@@ -214,7 +224,7 @@ export interface TicketsShape {
   ) => Effect.Effect<
     TicketDetail,
     TicketReadError | Conflict | BranchNotFound | GitHubFailure,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
   readonly openPr: (
     id: string,
@@ -222,11 +232,15 @@ export interface TicketsShape {
   ) => Effect.Effect<
     OpenPrResult,
     TicketReadError | Conflict | BranchProtected | GitHubFailure,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
   readonly clearBranch: (
     id: string
-  ) => Effect.Effect<TicketDetail, TicketReadError, ProjectScope>
+  ) => Effect.Effect<
+    TicketDetail,
+    TicketReadError,
+    ProjectScope | ActivityActor
+  >
   readonly getGitState: (
     ticketId: string | undefined
   ) => Effect.Effect<GitStatesResponse, NotFound | MarkdownError, ProjectScope>

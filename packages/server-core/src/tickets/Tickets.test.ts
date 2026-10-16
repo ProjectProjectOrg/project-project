@@ -1,6 +1,7 @@
 import { it } from "@effect/vitest"
 import { Db } from "@pp/db"
 import {
+  ActivityActor,
   DEFAULT_TICKET_SORT,
   Group,
   matchesTicketQuery,
@@ -33,6 +34,7 @@ import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
 import { accessLayer, projectScope } from "../access/testing"
+import { asUser } from "../activity/testing"
 import { Attachments, type AttachmentsShape } from "../attachments/Attachments"
 import { Comments, type CommentsShape } from "../comments/Comments"
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
@@ -201,6 +203,8 @@ function makeFakeProjects(key: string, overrides: Partial<ProjectsShape> = {}) {
     cancelPendingMember: () => unexpected("Projects.cancelPendingMember"),
     unassignUserFromActiveTickets: () =>
       unexpected("Projects.unassignUserFromActiveTickets"),
+    unassignUserFromOrgTickets: () =>
+      unexpected("Projects.unassignUserFromOrgTickets"),
     connectGithub: () => unexpected("Projects.connectGithub"),
     disconnectGithub: () => unexpected("Projects.disconnectGithub"),
     ...overrides
@@ -223,7 +227,8 @@ const testInfra = (scope = defaultScope) =>
   Layer.mergeAll(
     TicketDocumentLock.layer,
     accessLayer({}),
-    Layer.succeed(ProjectScope, scope)
+    Layer.succeed(ProjectScope, scope),
+    Layer.succeed(ActivityActor, ActivityActor.user(scope.userId))
   )
 
 const FakeDb = Layer.succeed(
@@ -2221,7 +2226,11 @@ it.effect(
                 commentsRegion: "Concurrent comment"
               })
             )
-            .pipe(Effect.as({ name: "feat/T-1", sha: "abc123" }), Effect.orDie)
+            .pipe(
+              asUser("user-1"),
+              Effect.as({ name: "feat/T-1", sha: "abc123" }),
+              Effect.orDie
+            )
       })
     })
     return Effect.gen(function* () {

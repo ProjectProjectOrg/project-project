@@ -21,6 +21,7 @@ import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import { Access } from "../access/Access"
 import { testUser } from "../access/testing"
+import { asUser } from "../activity/testing"
 import { MalformedTicketDocument } from "../tickets/TicketDocs"
 import type { TicketIndex } from "../tickets/TicketIndex"
 import { Projects } from "./Projects"
@@ -73,6 +74,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
             access.project(orgSlug, projectSlug)
           ).pipe(Effect.provideService(CurrentUser, testUser(as)))
         ),
+        asUser(as),
         Effect.provide(layer())
       )
 

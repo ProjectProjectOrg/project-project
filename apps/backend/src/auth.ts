@@ -1,6 +1,5 @@
 import { cimd } from "@better-auth/cimd"
 import { mcp } from "@better-auth/mcp"
-import * as BunServices from "@effect/platform-bun/BunServices"
 import * as authSchema from "@pp/db/auth-schema"
 import { invitation, member } from "@pp/db/auth-schema"
 import { publishedProject } from "@pp/db/projectVisibility"
@@ -11,7 +10,6 @@ import {
   projectMember,
   user
 } from "@pp/db/schema"
-import { TicketFrontmatter } from "@pp/server-core/tickets/TicketDocs"
 import { INVITATION_VALID_DAYS } from "@pp/shared"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
@@ -20,11 +18,7 @@ import { admin, jwt, magicLink, organization } from "better-auth/plugins"
 import { and, eq, gt, isNull, ne } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { alias } from "drizzle-orm/pg-core"
-import { FileSystem, Path, Schema, Struct } from "effect"
 import * as DateTime from "effect/DateTime"
-import * as Effect from "effect/Effect"
-import * as Option from "effect/Option"
-import matter from "gray-matter"
 
 import { fetchClientMetadataResource } from "./auth/cimdTransport"
 import { legacyMcpResources } from "./auth/legacyMcpResources"
@@ -35,11 +29,6 @@ import {
 } from "./auth/orgAccess"
 
 const db = drizzle(process.env.DATABASE_URL!, { relations: schema.relations })
-
-const SAFE_SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/
-const TICKET_FILE = /^T-[1-9][0-9]*\.md$/
-const decodeTicketFrontmatter = Schema.decodeUnknownOption(TicketFrontmatter)
-const encodeTicketFrontmatter = Schema.encodeSync(TicketFrontmatter)
 
 function roleList(role: string): ReadonlyArray<string> {
   return role.split(",").map((r) => r.trim())
@@ -137,92 +126,6 @@ async function lastPmProjectSlugs(organizationId: string, userId: string) {
     )
 }
 
-function projectsRoot() {
-  const root = process.env.PROJECTS_DIR
-  if (!root) {
-    throw new APIError("INTERNAL_SERVER_ERROR", {
-      code: "PROJECTS_DIR_MISSING",
-      message: "PROJECTS_DIR is not configured"
-    })
-  }
-  return root
-}
-
-async function unassignUserFromActiveTicketsOnDisk(
-  orgSlug: string,
-  projectSlug: string,
-  userId: string
-) {
-  if (!SAFE_SLUG.test(orgSlug) || !SAFE_SLUG.test(projectSlug)) return
-  await Effect.runPromise(
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem
-      const path = yield* Path.Path
-      const root = projectsRoot()
-      const absoluteRoot = path.isAbsolute(root)
-        ? root
-        : path.resolve(process.cwd(), root)
-      const ticketsDir = path.join(
-        absoluteRoot,
-        "orgs",
-        orgSlug,
-        "projects",
-        projectSlug,
-        "tickets"
-      )
-      const exists = yield* fs.exists(ticketsDir)
-      if (!exists) return
-      const files = yield* fs.readDirectory(ticketsDir)
-      yield* Effect.forEach(
-        files.filter((file) => TICKET_FILE.test(file)),
-        (file) =>
-          Effect.gen(function* () {
-            const filePath = path.join(ticketsDir, file)
-            const raw = yield* fs.readFileString(filePath, "utf8")
-            const parsed = matter(raw)
-            const decoded = decodeTicketFrontmatter(parsed.data)
-            if (Option.isNone(decoded)) return
-            const frontmatter = decoded.value
-            if (
-              frontmatter.status === "done" ||
-              !frontmatter.assignees.includes(userId)
-            ) {
-              return
-            }
-            const updated = Struct.evolve(frontmatter, {
-              assignees: (assignees) => assignees.filter((id) => id !== userId),
-              updatedAt: () => DateTime.toDate(DateTime.nowUnsafe())
-            })
-            yield* fs.writeFileString(
-              filePath,
-              matter.stringify(
-                parsed.content,
-                Object.assign(
-                  Struct.omit(parsed.data, ["assignee"]),
-                  encodeTicketFrontmatter(updated)
-                )
-              )
-            )
-          }).pipe(
-            Effect.catchCause((cause) =>
-              Effect.logWarning("unassign skipped a ticket", { file, cause })
-            )
-          ),
-        { concurrency: 8, discard: true }
-      )
-    }).pipe(
-      Effect.catchCause((cause) =>
-        Effect.logWarning("unassign could not read a project's tickets", {
-          orgSlug,
-          projectSlug,
-          cause
-        })
-      ),
-      Effect.provide(BunServices.layer)
-    )
-  )
-}
-
 export async function assertNotLastProjectPm(
   organizationId: string,
   userId: string
@@ -256,41 +159,6 @@ export async function keepingAProjectPm<A>(
     }
     throw error
   }
-}
-
-export async function unassignRemovedOrgMember(
-  orgSlug: string,
-  organizationId: string,
-  userId: string
-) {
-  const projects = await Effect.runPromise(
-    Effect.tryPromise(() =>
-      db
-        .select({ slug: projectIndex.slug })
-        .from(projectIndex)
-        .where(
-          and(
-            eq(projectIndex.organizationId, organizationId),
-            publishedProject()
-          )
-        )
-    ).pipe(
-      Effect.catchCause((cause) =>
-        Effect.as(
-          Effect.logWarning("unassign could not list the org's projects", {
-            orgSlug,
-            cause
-          }),
-          []
-        )
-      )
-    )
-  )
-  await Promise.all(
-    projects.map((project) =>
-      unassignUserFromActiveTicketsOnDisk(orgSlug, project.slug, userId)
-    )
-  )
 }
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
@@ -545,13 +413,6 @@ export const auth = betterAuth({
             null
           )
           await assertNotLastProjectPm(member.organizationId, member.userId)
-        },
-        afterRemoveMember: async ({ member, organization }) => {
-          await unassignRemovedOrgMember(
-            organization.slug,
-            member.organizationId,
-            member.userId
-          )
         },
         beforeUpdateMemberRole: async ({ member, newRole }) => {
           requireSingleOrgRole(newRole)

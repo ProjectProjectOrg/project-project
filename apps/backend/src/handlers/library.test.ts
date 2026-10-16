@@ -7,6 +7,7 @@ import {
 import { Library, type LibraryShape } from "@pp/server-core/library/Library"
 import { MarkdownError } from "@pp/server-core/markdown/Markdown"
 import {
+  ActivityActor,
   AppApi,
   Authentication,
   BUILTIN_BLOCKS,
@@ -178,25 +179,28 @@ const ApiUnderTestLive = HttpApiBuilder.layer(TestApi).pipe(
   Layer.provide(
     Layer.succeed(Authentication, {
       sessionCookie: (httpEffect) =>
-        Effect.provideService(httpEffect, CurrentUser, {
-          id: USER_ID as UserId,
-          email: "u@example.com",
-          name: "U",
-          username: null,
-          image: null,
-          createdAt: DateTime.toDate(DateTime.makeUnsafe(0)),
-          activeOrgSlug: "acme",
-          personalGithub: { connected: false },
-          editorPreference: "github",
-          personalEverhour: {
-            connected: false,
-            everhourUserId: null,
-            name: null,
-            email: null,
-            lastVerifiedAt: null,
-            lastCheckError: null
-          }
-        })
+        httpEffect.pipe(
+          Effect.provideService(CurrentUser, {
+            id: USER_ID as UserId,
+            email: "u@example.com",
+            name: "U",
+            username: null,
+            image: null,
+            createdAt: DateTime.toDate(DateTime.makeUnsafe(0)),
+            activeOrgSlug: "acme",
+            personalGithub: { connected: false },
+            editorPreference: "github",
+            personalEverhour: {
+              connected: false,
+              everhourUserId: null,
+              name: null,
+              email: null,
+              lastVerifiedAt: null,
+              lastCheckError: null
+            }
+          }),
+          Effect.provideService(ActivityActor, ActivityActor.user(USER_ID))
+        )
     })
   )
 )

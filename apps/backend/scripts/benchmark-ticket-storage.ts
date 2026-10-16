@@ -11,6 +11,10 @@ import { arch, cpus, platform, tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 
 import * as BunServices from "@effect/platform-bun/BunServices"
+import {
+  asUser,
+  passthroughTicketActivity
+} from "@pp/server-core/activity/testing"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import {
@@ -305,12 +309,14 @@ const benchmarkProgram = (options: Options, scratchRoot: string) =>
     )
     yield* measure("ticket-docs-update-atomic", (sample) => {
       const id = `T-${(sample % options.ticketCount) + 1}`
-      return ticketDocs.update(orgSlug, projectSlug, id, (document) =>
-        Effect.succeed({
-          ...document,
-          updatedAt: new Date(document.updatedAt.getTime() + 1)
-        })
-      )
+      return ticketDocs
+        .update(orgSlug, projectSlug, id, (document) =>
+          Effect.succeed({
+            ...document,
+            updatedAt: new Date(document.updatedAt.getTime() + 1)
+          })
+        )
+        .pipe(asUser("benchmark-user"))
     })
     yield* measure("raw-direct-write", (sample) => {
       const index = sample % options.ticketCount
@@ -354,6 +360,7 @@ const benchmarkProgram = (options: Options, scratchRoot: string) =>
     Effect.provide(
       TicketDocsLive.pipe(
         Layer.provide(KeyedLock.layer),
+        Layer.provide(passthroughTicketActivity),
         Layer.provide(MarkdownLive),
         Layer.provideMerge(
           ConfigProvider.layer(

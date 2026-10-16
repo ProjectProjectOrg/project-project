@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto"
 
+import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import { it } from "@effect/vitest"
 import { DbLive, PgLive } from "@pp/db"
 import {
@@ -314,7 +315,8 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           Layer.mock(Users, {
             fullByIds: () => Effect.succeed([author])
           }),
-          DatabaseLive
+          DatabaseLive,
+          BunCrypto.layer
         )
       )
     )

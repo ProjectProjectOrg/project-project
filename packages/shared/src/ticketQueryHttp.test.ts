@@ -16,6 +16,7 @@ import {
 } from "effect/unstable/httpapi"
 import { expect } from "vitest"
 
+import { ActivityActor } from "./access/ActivityActor"
 import { ProjectAccess } from "./access/ProjectAccess"
 import { ProjectScope } from "./access/ProjectScope"
 import { AppApi } from "./api"
@@ -79,7 +80,11 @@ const user = Schema.decodeSync(User)({
   }
 })
 const auth = Layer.succeed(Authentication, {
-  sessionCookie: (effect) => Effect.provideService(effect, CurrentUser, user)
+  sessionCookie: (effect) =>
+    effect.pipe(
+      Effect.provideService(CurrentUser, user),
+      Effect.provideService(ActivityActor, ActivityActor.user(user.id))
+    )
 })
 const projectAccess = Layer.succeed(ProjectAccess, (effect) =>
   Effect.provideService(effect, ProjectScope, {

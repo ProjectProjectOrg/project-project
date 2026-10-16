@@ -20,7 +20,11 @@ import {
 } from "effect/unstable/http"
 
 import { auth, mcpResource } from "../auth"
-import { McpRequestUser } from "../mcp/McpRequestUser"
+import {
+  McpRequestClient,
+  McpRequestUser,
+  type McpClient
+} from "../mcp/McpRequestUser"
 
 class TokenRejected extends Data.TaggedError("TokenRejected")<{
   readonly cause: unknown
@@ -120,7 +124,7 @@ export const McpAuthMiddlewareLive = HttpRouter.middleware(
         Effect.mapError(() => new InvalidAccessToken())
       )
       const consents = yield* db
-        .select({ id: oauthConsent.id })
+        .select({ id: oauthConsent.id, clientName: oauthClient.name })
         .from(oauthConsent)
         .innerJoin(oauthClient, eq(oauthClient.clientId, oauthConsent.clientId))
         .where(
@@ -153,7 +157,11 @@ export const McpAuthMiddlewareLive = HttpRouter.middleware(
       if (!found[0]) {
         return yield* Effect.die("MCP token subject is missing from users")
       }
-      return found[0]
+      const client: McpClient = {
+        id: decoded.client_id,
+        name: consents[0].clientName ?? decoded.client_id
+      }
+      return { user: found[0], client }
     })
 
     return (effect) =>
@@ -161,10 +169,9 @@ export const McpAuthMiddlewareLive = HttpRouter.middleware(
         const request = yield* HttpServerRequest.HttpServerRequest
         const claims = yield* verify(request)
         const caller = yield* resolveUser(claims)
-        return yield* Effect.provideService(
-          effect,
-          McpRequestUser,
-          Option.some(caller)
+        return yield* effect.pipe(
+          Effect.provideService(McpRequestUser, Option.some(caller.user)),
+          Effect.provideService(McpRequestClient, Option.some(caller.client))
         )
       }).pipe(
         Effect.catchTags({

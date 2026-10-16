@@ -35,8 +35,7 @@ import {
   acceptAsExistingMember,
   assertNotLastProjectPm,
   auth,
-  keepingAProjectPm,
-  unassignRemovedOrgMember
+  keepingAProjectPm
 } from "../auth"
 import { orgRoleOf, pendingInvitations } from "../handlers/org"
 
@@ -585,9 +584,6 @@ export const BetterAuthLive = Layer.effect(
               request
             })
           )
-        )
-        yield* attempt(() =>
-          unassignRemovedOrgMember(orgSlug, organizationId, userId)
         )
       }),
       listInvitations: Effect.fn("BetterAuth.listInvitations")(function* (

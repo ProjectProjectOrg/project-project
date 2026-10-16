@@ -25,6 +25,7 @@ import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
 import { accessLayer, projectScope } from "../access/testing"
+import { testActivityLayer } from "../activity/testing"
 import { Attachments, type AttachmentsShape } from "../attachments/Attachments"
 import { Comments, type CommentsShape } from "../comments/Comments"
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
@@ -101,6 +102,8 @@ const FakeProjects = Layer.succeed(Projects, {
   cancelPendingMember: () => unexpected("Projects.cancelPendingMember"),
   unassignUserFromActiveTickets: () =>
     unexpected("Projects.unassignUserFromActiveTickets"),
+  unassignUserFromOrgTickets: () =>
+    unexpected("Projects.unassignUserFromOrgTickets"),
   connectGithub: () => unexpected("Projects.connectGithub"),
   disconnectGithub: () => unexpected("Projects.disconnectGithub")
 } satisfies ProjectsShape)
@@ -322,6 +325,7 @@ const TestLayer = Layer.unwrap(
     return TicketsLive.pipe(
       Layer.provide(PassthroughLibrary),
       Layer.provideMerge(TicketDocsLive),
+      Layer.provideMerge(testActivityLayer()),
       Layer.provide(FakeAttachments),
       Layer.provide(FakeFigmaLinks),
       Layer.provide(FakeProjects),
