@@ -680,7 +680,9 @@ export const ticketActivity = pgTable(
     actorKind: text("actor_kind", {
       enum: ["user", "agent", "system"]
     }).notNull(),
-    actorUserId: text("actor_user_id").references(() => user.id),
+    actorUserId: text("actor_user_id").references(() => user.id, {
+      onDelete: "cascade"
+    }),
     actorClientId: text("actor_client_id"),
     actorClientName: text("actor_client_name"),
     actorSource: text("actor_source", {
@@ -733,19 +735,33 @@ export type TicketActivityRow = typeof ticketActivity.$inferInsert
 export type TicketActivityOutboxRow = Omit<TicketActivityRow, "occurredAt"> &
   Readonly<{ occurredAt: string }>
 
-export const ticketActivityOutbox = pgTable("ticket_activity_outbox", {
-  batchId: uuid("batch_id").primaryKey(),
-  projectId: uuid("project_id")
-    .notNull()
-    .references(() => projectIndex.id, { onDelete: "cascade" }),
-  documentKind: text("document_kind", { enum: ["ticket", "group"] }).notNull(),
-  documentId: text("document_id").notNull(),
-  contentHash: text("content_hash").notNull(),
-  rows: jsonb("rows").$type<ReadonlyArray<TicketActivityOutboxRow>>().notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow()
-})
+export const ticketActivityOutbox = pgTable(
+  "ticket_activity_outbox",
+  {
+    batchId: uuid("batch_id").primaryKey(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projectIndex.id, { onDelete: "cascade" }),
+    documentKind: text("document_kind", {
+      enum: ["ticket", "group"]
+    }).notNull(),
+    documentId: text("document_id").notNull(),
+    contentHash: text("content_hash").notNull(),
+    rows: jsonb("rows")
+      .$type<ReadonlyArray<TicketActivityOutboxRow>>()
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    index("ticket_activity_outbox_document_idx").on(
+      t.projectId,
+      t.documentKind,
+      t.documentId
+    )
+  ]
+)
 
 export const attachmentIndex = pgTable(
   "attachment_index",
