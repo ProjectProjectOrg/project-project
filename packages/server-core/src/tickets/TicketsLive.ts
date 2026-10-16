@@ -27,7 +27,6 @@ import {
   Validation,
   type ProjectKey,
   type Estimate,
-  type EstimationMode,
   type GroupId,
   type GroupIdFilter,
   type MyTicketsQuery,
@@ -64,8 +63,10 @@ import * as GitHub from "../github/GitHub"
 import { Groups } from "../groups/Groups"
 import { Library, type TemplateExpansion } from "../library/Library"
 import type { MarkdownError } from "../markdown/Markdown"
+import { ProjectDocs } from "../projects/ProjectDocs"
 import { Projects } from "../projects/Projects"
 import type { ProjectGithubIntegration } from "../projects/Projects"
+import { readProjectDocument } from "../projects/readProjectDocument"
 import { Users } from "../users/Users"
 import {
   MalformedTicketDocument,
@@ -285,6 +286,7 @@ export const TicketsLive = Layer.effect(
     const { withTicketDocumentLock, withRepositoryBranchLock } =
       yield* TicketDocumentLock.TicketDocumentLock
     const projects = yield* Projects
+    const projectDocs = yield* ProjectDocs
     const ticketIndex = yield* TicketIndex
     const github = yield* GitHub.GitHub
     const groups = yield* Groups
@@ -306,10 +308,19 @@ export const TicketsLive = Layer.effect(
 
     const gitView = Effect.flatMap(ProjectScope, gitViewOf)
 
-    const queryable = (query: TicketPolicy.Query) =>
-      requirePolicy((scope) => TicketPolicy.canQuery(scope, query)).pipe(
-        Effect.andThen(ProjectScope)
-      )
+    const queryable = Effect.fnUntraced(function* (
+      query: TicketCountQuery | TicketListQuery
+    ) {
+      yield* requirePolicy((scope) => TicketPolicy.canQuery(scope, query))
+      const scope = yield* ProjectScope
+      if (
+        query.estimate?.length ||
+        ("sort" in query && query.sort.key === "estimate")
+      ) {
+        yield* readProjectDocument({ db, docs: projectDocs, project: scope })
+      }
+      return scope
+    })
 
     const detailOf = (
       document: TicketDocument,
@@ -672,7 +683,10 @@ export const TicketsLive = Layer.effect(
       const sprints = (yield* groups.list()).filter(
         (group) => group.kind === "sprint"
       )
-      const unit = estimationUnit(yield* projectEstimation(scope.projectId))
+      const unit = estimationUnit(
+        (yield* readProjectDocument({ db, docs: projectDocs, project: scope }))
+          .estimation
+      )
       const sectionIds: ReadonlyArray<GroupIdFilter> = [
         ...new Set<GroupIdFilter>(
           query.groupId?.length
@@ -870,32 +884,25 @@ export const TicketsLive = Layer.effect(
         }
       })
 
-    const projectEstimation = (
-      projectId: string
-    ): Effect.Effect<EstimationMode> =>
-      db.query.projectIndex
-        .findFirst({ columns: { estimation: true }, where: { id: projectId } })
-        .pipe(
-          Effect.map((row) => row?.estimation ?? "off"),
-          Effect.orDie
-        )
-
-    const validateEstimate = (
-      projectId: string,
+    const validateEstimate = Effect.fnUntraced(function* (
+      scope: ProjectScopeShape,
       estimate: Estimate | null | undefined
-    ): Effect.Effect<void, Validation> =>
-      Effect.gen(function* () {
-        if (estimate === undefined || estimate === null) return
-        const mode = yield* projectEstimation(projectId)
-        if (mode === "off") {
-          return yield* new Validation({ reason: "estimation_off" })
-        }
-        if (estimate.unit !== mode) {
-          return yield* new Validation({
-            reason: `estimate_unit_mismatch:${estimate.unit}:${mode}`
-          })
-        }
+    ) {
+      if (estimate === undefined || estimate === null) return
+      const { estimation } = yield* readProjectDocument({
+        db,
+        docs: projectDocs,
+        project: scope
       })
+      if (estimation === "off") {
+        return yield* new Validation({ reason: "estimation_off" })
+      }
+      if (estimate.unit !== estimation) {
+        return yield* new Validation({
+          reason: `estimate_unit_mismatch:${estimate.unit}:${estimation}`
+        })
+      }
+    })
 
     const validateBody = (
       body: string,
@@ -1050,7 +1057,7 @@ export const TicketsLive = Layer.effect(
         if (input.assignees !== undefined && input.assignees.length > 0) {
           yield* validateAssigneesAreMembers(input.assignees)
         }
-        yield* validateEstimate(projectId, input.estimate)
+        yield* validateEstimate(scope, input.estimate)
         const body = yield* library.resolveSynced(
           orgSlug,
           slug,
@@ -1095,6 +1102,9 @@ export const TicketsLive = Layer.effect(
       Effect.gen(function* () {
         const scope = yield* ProjectScope
         const { orgSlug, slug, userId, projectId } = scope
+        yield* validateEstimate(scope, input.estimate)
+        if (sort?.key === "estimate")
+          yield* readProjectDocument({ db, docs: projectDocs, project: scope })
         return yield* withTicketDocumentLock(
           orgSlug,
           slug,
@@ -1109,7 +1119,6 @@ export const TicketsLive = Layer.effect(
             if (input.tags !== undefined) {
               yield* validateTagsExist(projectId, input.tags)
             }
-            yield* validateEstimate(projectId, input.estimate)
 
             const body =
               input.body === undefined
@@ -1225,16 +1234,22 @@ export const TicketsLive = Layer.effect(
       Effect.gen(function* () {
         const scope = yield* ProjectScope
         const project = indexProjectOf(scope)
-        const query = { estimate: ["stale" as const] }
-        const { total } = yield* ticketIndex.count(project, query, {
-          viewerId: scope.userId
-        })
-        if (total === 0) return { cleared: 0 }
-        const stale = yield* ticketIndex.query(
-          project,
-          { ...query, sort: DEFAULT_TICKET_SORT },
-          { viewerId: scope.userId, limit: total }
+        yield* readProjectDocument({ db, docs: projectDocs, project: scope })
+        const batches = yield* Effect.forEach([false, true], (archived) =>
+          Effect.gen(function* () {
+            const query = { estimate: ["stale" as const], archived }
+            const { total } = yield* ticketIndex.count(project, query, {
+              viewerId: scope.userId
+            })
+            if (total === 0) return []
+            return yield* ticketIndex.query(
+              project,
+              { ...query, sort: DEFAULT_TICKET_SORT },
+              { viewerId: scope.userId, limit: total }
+            )
+          })
         )
+        const stale = batches.flat()
         yield* Effect.forEach(
           stale,
           ({ entry }) =>

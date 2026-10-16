@@ -41,6 +41,7 @@ import { applyPullRequestWebhookToTicket } from "../github/GitHubWebhooksLive"
 import { Groups, type GroupsShape } from "../groups/Groups"
 import { Library } from "../library/Library"
 import { TicketIdTaken } from "../markdown/Markdown"
+import { ProjectDocs } from "../projects/ProjectDocs"
 import {
   Projects,
   type ProjectGithubIntegration,
@@ -221,6 +222,25 @@ const defaultScope = scopeIn("org", "p")
 
 const testInfra = (scope = defaultScope) =>
   Layer.mergeAll(
+    Layer.mock(ProjectDocs, {
+      read: (_org, slug) =>
+        Effect.succeed({
+          slug,
+          name: slug,
+          icon: "folder",
+          color: "#3b82f6",
+          createdAt: isoDate("2026-01-01T00:00:00Z"),
+          github: null,
+          estimation: "points",
+          templateDefaults: {},
+          body: "",
+          setup: {
+            workflowReviewedAt: null,
+            invitePeopleDismissedAt: null,
+            connectGithubDismissedAt: null
+          }
+        })
+    }),
     TicketDocumentLock.layer,
     accessLayer({}),
     Layer.succeed(ProjectScope, scope)
@@ -442,7 +462,7 @@ const matchingDocuments = (
         { ...document, estimate: document.estimate ?? null },
         query,
         userId(viewerId),
-        "off"
+        "points"
       )
   )
 }
@@ -2638,6 +2658,47 @@ it.effect("rejects statuses the project doesn't have", () => {
     expect(docs.documents.get("T-1")?.status).toBe("todo")
   }).pipe(Effect.provide(layer))
 })
+
+it.effect(
+  "clears old-unit estimates on active and archived tickets while retaining current-unit estimates",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1", "T-2", "T-3", "T-4"])
+    for (const [id, archived, unit] of [
+      ["T-1", false, "time"],
+      ["T-2", true, "time"],
+      ["T-3", false, "points"],
+      ["T-4", true, "points"]
+    ] as const) {
+      docs.documents.set(
+        id,
+        makeTicketDocument(id, {
+          estimate:
+            unit === "time" ? { unit, minutes: 60 } : { unit, value: 5 },
+          archivedAt: archived ? isoDate("2026-04-01T00:00:00Z") : null
+        })
+      )
+    }
+    const layer = makeTicketsLayer("T", docs.layer, {
+      ticketIndex: makeFakeTicketIndex(docs.documents)
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      expect(yield* tickets.clearStaleEstimates()).toEqual({ cleared: 2 })
+      expect(docs.documents.get("T-1")?.estimate).toBeUndefined()
+      expect(docs.documents.get("T-2")?.estimate).toBeUndefined()
+      expect(docs.documents.get("T-2")?.archivedAt).not.toBeNull()
+      expect(docs.documents.get("T-3")?.estimate).toEqual({
+        unit: "points",
+        value: 5
+      })
+      expect(docs.documents.get("T-4")?.estimate).toEqual({
+        unit: "points",
+        value: 5
+      })
+      expect(yield* tickets.clearStaleEstimates()).toEqual({ cleared: 0 })
+    }).pipe(Effect.provide(layer))
+  }
+)
 
 it.effect("only accepts estimates in the project's estimation unit", () => {
   const { docs, layer } = permissionFixture()

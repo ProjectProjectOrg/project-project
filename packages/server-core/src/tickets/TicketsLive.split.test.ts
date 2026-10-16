@@ -34,6 +34,7 @@ import { Library } from "../library/Library"
 import * as KeyedLock from "../locks/KeyedLock"
 import { MarkdownError } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
+import { ProjectDocs } from "../projects/ProjectDocs"
 import { Projects, type ProjectsShape } from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
 import { TicketDocs } from "./TicketDocs"
@@ -320,6 +321,7 @@ const TestLayer = Layer.unwrap(
       prefix: "projectproject-split-"
     })
     return TicketsLive.pipe(
+      Layer.provide(Layer.mock(ProjectDocs, {})),
       Layer.provide(PassthroughLibrary),
       Layer.provideMerge(TicketDocsLive),
       Layer.provide(FakeAttachments),

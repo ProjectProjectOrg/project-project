@@ -262,7 +262,7 @@
       }
     }
   ],
-  "project_settings_estimation_clear_stale_confirm": "Remove estimates in another unit?",
+  "project_settings_estimation_clear_stale_confirm": "Remove estimates in another unit from all tickets, including archived tickets?",
   "project_settings_estimation_clear_stale_submit": "Clear",
   "project_settings_estimation_description": "How tickets are sized. Switching units keeps old estimates, but they count as unestimated.",
   "project_settings_estimation_label": "Estimation",

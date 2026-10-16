@@ -1,9 +1,12 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { ProjectPolicy } from "@pp/access/policies"
 import { EstimationMode } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
+import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
+import * as Match from "effect/Match"
+import * as Option from "effect/Option"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useState } from "react"
 
@@ -27,6 +30,7 @@ import {
   staleEstimateCount
 } from "@/features/tickets/atoms/staleEstimates"
 import { useProjectActor } from "@/lib/access"
+import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -177,23 +181,41 @@ function EstimationSettings({
 
 function StaleEstimates({ req }: Readonly<{ req: ProjectRequest }>) {
   const count = useAtomValue(staleEstimateCount(req))
-  const stale = Result.isSuccess(count) ? count.value.total : 0
-  if (stale === 0) return null
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3">
-      <p className="text-xs text-muted-foreground">
-        {m.project_settings_estimation_stale({ count: stale })}
-      </p>
-      <ConfirmButton.Root>
-        <ConfirmButton.Trigger variant="secondary" size="sm">
-          {m.project_settings_estimation_clear_stale({ count: stale })}
-        </ConfirmButton.Trigger>
-        <ConfirmButton.Confirm>
-          <ClearStaleConfirm req={req} />
-        </ConfirmButton.Confirm>
-      </ConfirmButton.Root>
-    </div>
-  )
+  const refresh = useAtomRefresh(staleEstimateCount(req))
+  return Result.matchWithError(count, {
+    onInitial: () => null,
+    onError: (error) => <ErrorPage error={error} reset={refresh} contained />,
+    onDefect: (defect) => (
+      <ErrorPage error={defect} reset={refresh} contained />
+    ),
+    onSuccess: ({ value: stale, waiting }) => {
+      if (stale === 0 && !waiting) return null
+      return (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3">
+          <p
+            className={cn(
+              "text-xs text-muted-foreground",
+              waiting && "animate-pulse"
+            )}
+          >
+            {m.project_settings_estimation_stale({ count: stale })}
+          </p>
+          <ConfirmButton.Root>
+            <ConfirmButton.Trigger
+              variant="secondary"
+              size="sm"
+              disabled={waiting}
+            >
+              {m.project_settings_estimation_clear_stale({ count: stale })}
+            </ConfirmButton.Trigger>
+            <ConfirmButton.Confirm>
+              <ClearStaleConfirm req={req} />
+            </ConfirmButton.Confirm>
+          </ConfirmButton.Root>
+        </div>
+      )
+    }
+  })
 }
 
 function ClearStaleConfirm({ req }: Readonly<{ req: ProjectRequest }>) {
@@ -210,7 +232,16 @@ function ClearStaleConfirm({ req }: Readonly<{ req: ProjectRequest }>) {
       return
     }
     setBusy(false)
-    setError(m.error_unknown())
+    setError(
+      Option.match(Cause.findErrorOption(exit.cause), {
+        onNone: () => m.error_unknown(),
+        onSome: (error) =>
+          Match.value(error).pipe(
+            Match.tag("Forbidden", "NotFound", "Unauthorized", errorMessage),
+            Match.orElse(() => m.error_unknown())
+          )
+      })
+    )
   }
 
   return (

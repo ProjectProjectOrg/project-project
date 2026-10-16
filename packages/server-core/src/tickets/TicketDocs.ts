@@ -64,9 +64,11 @@ const TicketFrontmatterValue = Schema.Struct(
   })
 )
 
+type DecodedEstimate = Readonly<{ estimate?: Estimate }>
+
 const decodedEstimate = (
   token: number | string | undefined
-): { readonly estimate?: Estimate } => {
+): DecodedEstimate => {
   const estimate = token === undefined ? null : parseEstimateToken(token)
   return estimate === null ? {} : { estimate }
 }

@@ -1,9 +1,10 @@
 import { GroupId, TicketListQuery } from "@pp/shared"
 import { useMatches, useNavigate, useRouter } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
-import { Activity, useMemo, useState } from "react"
+import { Activity, useEffect, useMemo, useState } from "react"
 
 import { useProjectView } from "@/hooks/useViewPreference"
+import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 
 import { SprintDetail } from "./sprints/SprintDetail"
 import { BacklogView } from "./TicketList/BacklogView"
@@ -20,6 +21,7 @@ export function RetainedProjectViews({
   orgSlug: string
   slug: string
 }) {
+  const { estimation } = useProject()
   const router = useRouter()
   const navigate = useNavigate()
   const backlog = useMatches({
@@ -63,6 +65,7 @@ export function RetainedProjectViews({
         assignee: nextSearch.assignee,
         tags: nextSearch.tags,
         groupId: nextSearch.groupId,
+        estimate: estimation === "off" ? undefined : nextSearch.estimate,
         hasBranch: nextSearch.hasBranch,
         hasPr: nextSearch.hasPr,
         updatedAfter: nextSearch.updatedAfter,
@@ -76,6 +79,21 @@ export function RetainedProjectViews({
       resetScroll: false
     })
   }
+  const activeEstimate = (sprint ?? backlog)?.search.estimate
+  useEffect(() => {
+    if (estimation !== "off" || !activeEstimate?.length) return
+    void navigate({
+      to: router.state.location.pathname,
+      search: (previous) => ({
+        ...previous,
+        updatedAfter: previous.updatedAfter?.toISOString(),
+        estimate: undefined,
+        cursor: undefined
+      }),
+      replace: true,
+      resetScroll: false
+    })
+  }, [estimation, activeEstimate, navigate, router])
   const backlogView = useProjectView(
     orgSlug,
     slug,
@@ -91,14 +109,21 @@ export function RetainedProjectViews({
   const backlogQuery = useMemo(() => {
     if (!lastBacklog) return defaultTicketListQuery
     const { view: _view, ...query } = lastBacklog
-    return query
-  }, [lastBacklog])
+    return {
+      ...query,
+      estimate: estimation === "off" ? undefined : query.estimate
+    }
+  }, [lastBacklog, estimation])
   const sprintId = lastSprint ? decodeGroupId(lastSprint.groupId) : null
   const sprintQuery = useMemo(() => {
     if (!lastSprint) return defaultTicketListQuery
     const { view: _view, ...query } = lastSprint.search
-    return sprintId ? { ...query, groupId: [sprintId] } : query
-  }, [lastSprint, sprintId])
+    return {
+      ...query,
+      estimate: estimation === "off" ? undefined : query.estimate,
+      groupId: sprintId ? [sprintId] : query.groupId
+    }
+  }, [lastSprint, sprintId, estimation])
 
   return (
     <Activity mode={backlog || sprint ? "visible" : "hidden"}>

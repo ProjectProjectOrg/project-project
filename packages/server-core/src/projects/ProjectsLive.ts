@@ -72,6 +72,7 @@ import {
   type ProjectGithubIntegration,
   type ProjectsShape
 } from "./Projects"
+import { readProjectDocument } from "./readProjectDocument"
 
 const MAX_SLUG_ATTEMPTS = 100
 const makeRole = Schema.decodeUnknownSync(Role)
@@ -726,7 +727,11 @@ export const ProjectsLive = Layer.effect(
           orgSlug,
           { slug, userId },
           Effect.gen(function* () {
-            const file = yield* projectDocs.read(orgSlug, slug)
+            const file = yield* readProjectDocument({
+              db,
+              docs: projectDocs,
+              project: scope
+            })
             const members = yield* loadMembers(indexRow.id)
             const pendingMembers = yield* loadPendingMembers(indexRow.id)
             const connection = yield* loadGithubConnection(indexRow)
@@ -749,7 +754,7 @@ export const ProjectsLive = Layer.effect(
               banner,
               iconImage: indexRow.iconImage ?? null,
               setup: file.setup,
-              estimation: indexRow.estimation,
+              estimation: file.estimation,
               body: file.body,
               members,
               pendingMembers
@@ -776,7 +781,11 @@ export const ProjectsLive = Layer.effect(
           { slug, userId },
           Effect.gen(function* () {
             const { indexRow } = yield* inScope
-            const file = yield* projectDocs.read(orgSlug, slug)
+            const file = yield* readProjectDocument({
+              db,
+              docs: projectDocs,
+              project: scope
+            })
             const connection = yield* loadGithubConnection(indexRow)
 
             const nextBanner =
@@ -820,7 +829,7 @@ export const ProjectsLive = Layer.effect(
             const nextBody = input.body ?? file.body
             const nextIcon = input.icon ?? makeProjectIcon(indexRow.icon)
             const nextColor = input.color ?? makeProjectColor(indexRow.color)
-            const nextEstimation = input.estimation ?? indexRow.estimation
+            const nextEstimation = input.estimation ?? file.estimation
 
             const dbPatch: Partial<typeof projectIndex.$inferInsert> = {}
             if (input.banner !== undefined) dbPatch.banner = nextBanner
@@ -834,7 +843,7 @@ export const ProjectsLive = Layer.effect(
             if (input.color !== undefined && input.color !== indexRow.color) {
               dbPatch.color = nextColor
             }
-            if (nextEstimation !== indexRow.estimation) {
+            if (nextEstimation !== file.estimation) {
               dbPatch.estimation = nextEstimation
             }
             if (Object.keys(dbPatch).length > 0) {
@@ -894,7 +903,11 @@ export const ProjectsLive = Layer.effect(
           { slug, userId },
           Effect.gen(function* () {
             const { indexRow } = yield* inScope
-            const file = yield* projectDocs.read(orgSlug, slug)
+            const file = yield* readProjectDocument({
+              db,
+              docs: projectDocs,
+              project: scope
+            })
             const connection = yield* loadGithubConnection(indexRow)
             const members = yield* loadMembers(indexRow.id)
             const pendingMembers = yield* loadPendingMembers(indexRow.id)
@@ -911,7 +924,7 @@ export const ProjectsLive = Layer.effect(
               file.body,
               connection,
               setup,
-              indexRow.estimation
+              file.estimation
             )
             return presentDetail(scope, {
               org: orgSlug,
@@ -924,7 +937,7 @@ export const ProjectsLive = Layer.effect(
               createdAt: indexRow.createdAt,
               github: connection,
               setup,
-              estimation: indexRow.estimation,
+              estimation: file.estimation,
               banner: indexRow.banner ?? null,
               iconImage: indexRow.iconImage ?? null,
               body: file.body,
@@ -987,7 +1000,11 @@ export const ProjectsLive = Layer.effect(
         Effect.gen(function* () {
           const { scope, indexRow } = yield* inScope
           const { orgSlug, slug } = scope
-          const file = yield* projectDocs.read(orgSlug, slug)
+          const file = yield* readProjectDocument({
+            db,
+            docs: projectDocs,
+            project: scope
+          })
           const connection = yield* loadGithubConnection(indexRow)
           const members = yield* loadMembers(indexRow.id)
           const pendingMembers = yield* loadPendingMembers(indexRow.id)
@@ -1003,7 +1020,7 @@ export const ProjectsLive = Layer.effect(
             file.body,
             connection,
             file.setup,
-            indexRow.estimation
+            file.estimation
           )
           return presentDetail(rescoped(scope, members), {
             org: orgSlug,
@@ -1018,7 +1035,7 @@ export const ProjectsLive = Layer.effect(
             banner: indexRow.banner ?? null,
             iconImage: indexRow.iconImage ?? null,
             setup: file.setup,
-            estimation: indexRow.estimation,
+            estimation: file.estimation,
             body: file.body,
             members,
             pendingMembers

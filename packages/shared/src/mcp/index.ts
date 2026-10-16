@@ -29,6 +29,7 @@ import {
   PrepareAttachmentResult
 } from "../schemas/Attachment"
 import { Comment, CreateCommentInput } from "../schemas/Comment"
+import { ESTIMATE_MAX_MINUTES } from "../schemas/Estimate"
 import { AttachBranchInput, GitStatesResponse } from "../schemas/GitState"
 import {
   CompleteSprintInput,
@@ -93,7 +94,7 @@ const ESTIMATE_GUIDE =
   "`estimate` must use the project's estimation unit (the `estimation` " +
   'field of `get_project`): `{ unit: "points", value: <integer 1-999> }`, ' +
   '`{ unit: "tshirt", value: "XS" | "S" | "M" | "L" | "XL" }`, or ' +
-  '`{ unit: "time", minutes: <integer> }`. An ' +
+  `\`{ unit: "time", minutes: <integer 1-${ESTIMATE_MAX_MINUTES}> }\`. An ` +
   "estimate in another unit, or any estimate while `estimation` is `off`, " +
   "fails with `Validation`."
 
