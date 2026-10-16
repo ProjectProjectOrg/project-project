@@ -130,7 +130,9 @@ function SettingsLayout() {
 
 function SettingsRail({ orgSlug }: { orgSlug: string }) {
   const location = useLocation()
-  const canSeeMembers = useOrgActor(orgSlug).call("org", "members")
+  const actor = useOrgActor(orgSlug)
+  const canSeeMembers = actor.call("org", "members")
+  const canManageEmail = actor.call("orgEmail", "get")
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -141,7 +143,9 @@ function SettingsRail({ orgSlug }: { orgSlug: string }) {
       />
       <nav className="flex flex-col gap-1">
         {SECTIONS.filter(
-          (section) => section.key !== "members" || canSeeMembers
+          (section) =>
+            (section.key !== "members" || canSeeMembers) &&
+            (section.key !== "email" || canManageEmail)
         ).map((section) => {
           const Icon = section.icon
           const active = isSectionActive(

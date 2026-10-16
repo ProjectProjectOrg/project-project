@@ -137,53 +137,54 @@ export class Smtp extends Context.Service<
   static readonly layer = Layer.succeed(
     Smtp,
     Smtp.of({
-      sendTest: Effect.fn("Smtp.sendTest")(function* (connection, recipient) {
-        const resolved = yield* Effect.tryPromise({
-          try: () =>
-            lookup(connection.settings.host, { all: true, verbatim: true }),
-          catch: () => new OrgEmailError({ reason: "connection" })
-        })
-        const addresses = yield* Effect.fromOption(
-          publicAddresses(resolved.map(({ address }) => address))
-        ).pipe(
-          Effect.mapError(
-            () => new OrgEmailError({ reason: "host_not_allowed" })
-          )
-        )
-        const { settings } = connection
-        const sendVia = (address: string) =>
-          Effect.acquireRelease(
-            Effect.sync(() =>
-              createTransport(transportOptions(connection, address))
-            ),
-            (transport) => Effect.sync(() => transport.close())
-          ).pipe(
-            Effect.flatMap((transporter) =>
-              Effect.tryPromise({
-                try: () =>
-                  transporter.sendMail({
-                    from: {
-                      name: settings.senderName,
-                      address: settings.senderEmail
-                    },
-                    to: recipient,
-                    replyTo: settings.replyTo ?? undefined,
-                    subject: "ProjectProject email connection test",
-                    text: "Your organization's outgoing email connection is working. This is a test message from ProjectProject."
-                  }),
-                catch: smtpError
-              })
-            ),
-            Effect.scoped
-          )
-        // Stay inside the proxy's 60 second limit however many addresses don't answer.
-        yield* firstReachable(addresses, sendVia).pipe(
-          Effect.timeoutOrElse({
-            duration: "45 seconds",
-            orElse: () => new OrgEmailError({ reason: "connection" })
+      sendTest: Effect.fn("Smtp.sendTest")(
+        function* (connection, recipient) {
+          const resolved = yield* Effect.tryPromise({
+            try: () =>
+              lookup(connection.settings.host, { all: true, verbatim: true }),
+            catch: () => new OrgEmailError({ reason: "connection" })
           })
-        )
-      })
+          const addresses = yield* Effect.fromOption(
+            publicAddresses(resolved.map(({ address }) => address))
+          ).pipe(
+            Effect.mapError(
+              () => new OrgEmailError({ reason: "host_not_allowed" })
+            )
+          )
+          const { settings } = connection
+          const sendVia = (address: string) =>
+            Effect.acquireRelease(
+              Effect.sync(() =>
+                createTransport(transportOptions(connection, address))
+              ),
+              (transport) => Effect.sync(() => transport.close())
+            ).pipe(
+              Effect.flatMap((transporter) =>
+                Effect.tryPromise({
+                  try: () =>
+                    transporter.sendMail({
+                      from: {
+                        name: settings.senderName,
+                        address: settings.senderEmail
+                      },
+                      to: recipient,
+                      replyTo: settings.replyTo ?? undefined,
+                      subject: "ProjectProject email connection test",
+                      text: "Your organization's outgoing email connection is working. This is a test message from ProjectProject."
+                    }),
+                  catch: smtpError
+                })
+              ),
+              Effect.scoped
+            )
+          yield* firstReachable(addresses, sendVia)
+        },
+        // Stay inside the proxy's 60 second limit however slow DNS is or many addresses don't answer.
+        Effect.timeoutOrElse({
+          duration: "45 seconds",
+          orElse: () => new OrgEmailError({ reason: "connection" })
+        })
+      )
     })
   )
 }
