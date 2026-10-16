@@ -1,7 +1,6 @@
 import {
   decodeCursor,
   encodeCursor,
-  GIT_ACTIVITY_KINDS,
   ProjectScope,
   TICKET_ACTIVITY_PAGE_SIZE,
   Validation,
@@ -27,8 +26,8 @@ import {
   type StoredTicketActivity
 } from "./TicketActivity"
 
-export interface TicketActivityFeedShape {
-  readonly list: (
+export type TicketActivityFeedShape = Readonly<{
+  list: (
     ticketId: string,
     cursor: string | undefined
   ) => Effect.Effect<
@@ -36,7 +35,7 @@ export interface TicketActivityFeedShape {
     NotFound | Validation | MarkdownError | MalformedTicketDocument,
     ProjectScope
   >
-}
+}>
 
 export class TicketActivityFeed extends Context.Service<
   TicketActivityFeed,
@@ -103,21 +102,21 @@ export const TicketActivityFeedLive = Layer.effect(
           scope.projectId,
           ticket.id,
           before,
-          TICKET_ACTIVITY_PAGE_SIZE + 1
+          TICKET_ACTIVITY_PAGE_SIZE + 1,
+          scope.permissions.can({ github: ["read"] })
         )
         const hasMore = rows.length > TICKET_ACTIVITY_PAGE_SIZE
         const page = rows.slice(0, TICKET_ACTIVITY_PAGE_SIZE)
-        const showsGit = scope.permissions.can({ github: ["read"] })
-        const visible = coalesceActivity(
-          showsGit
-            ? page
-            : page.filter((entry) => !GIT_ACTIVITY_KINDS.has(entry.change.kind))
+        const visible = coalesceActivity(page)
+        const actorIds = visible.flatMap((entry) =>
+          entry.actor.kind === "system" ? [] : [entry.actor.userId]
         )
-        const userIds = new Set<string>(
-          visible.flatMap((entry) =>
-            entry.actor.kind === "system" ? [] : [entry.actor.userId]
-          )
+        const mentionedIds = visible.flatMap((entry) =>
+          entry.change.kind === "assignees_changed"
+            ? [...entry.change.added, ...entry.change.removed]
+            : []
         )
+        const userIds = new Set<string>([...actorIds, ...mentionedIds])
         if (!hasMore) userIds.add(ticket.createdBy)
         const found = yield* users.fullByIds([...userIds])
         const byId = new Map<string, User>(found.map((user) => [user.id, user]))
@@ -148,8 +147,10 @@ export const TicketActivityFeedLive = Layer.effect(
           })
         }
         const last = page.at(-1)
+        const mentioned = new Set<string>(mentionedIds)
         return {
           items,
+          people: found.filter((user) => mentioned.has(user.id)),
           nextCursor: hasMore && last !== undefined ? cursorOf(last) : null
         }
       })
