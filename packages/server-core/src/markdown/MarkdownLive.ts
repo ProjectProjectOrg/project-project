@@ -6,10 +6,9 @@
 // org" lookup at this layer; callers (handlers via the Projects service)
 // thread it through.
 
-import { randomUUID } from "node:crypto"
-
 import { LIBRARY_KEY_MAX_LENGTH, NotFound, TicketId } from "@pp/shared"
 import * as Config from "effect/Config"
+import * as Crypto from "effect/Crypto"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
@@ -45,6 +44,7 @@ export const MarkdownLive = Layer.effect(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
+    const crypto = yield* Crypto.Crypto
     const root = yield* Config.String("PROJECTS_DIR")
     const absoluteRoot = path.isAbsolute(root)
       ? root
@@ -187,9 +187,11 @@ export const MarkdownLive = Layer.effect(
       path.join(ticketsDir(orgSlug, slug), `${id}.md`)
 
     const ticketTemporaryFile = (file: string) =>
-      path.join(
-        path.dirname(file),
-        `.${path.basename(file)}.${randomUUID()}.tmp`
+      crypto.randomUUIDv4().pipe(
+        Effect.map((id) =>
+          path.join(path.dirname(file), `.${path.basename(file)}.${id}.tmp`)
+        ),
+        Effect.orDie
       )
 
     const readTicketFile = (
@@ -281,7 +283,7 @@ export const MarkdownLive = Layer.effect(
                 new MarkdownError({ cause, message: `create failed: ${file}` })
             )
           )
-        const temporary = ticketTemporaryFile(file)
+        const temporary = yield* ticketTemporaryFile(file)
         yield* Effect.gen(function* () {
           yield* fs.writeFileString(temporary, content, { flag: "wx" }).pipe(
             Effect.mapError(
@@ -321,7 +323,7 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeId(id)
         const file = ticketFilePath(orgSlug, slug, id)
         const content = matter.stringify(body, frontmatter)
-        const temporary = ticketTemporaryFile(file)
+        const temporary = yield* ticketTemporaryFile(file)
         yield* Effect.gen(function* () {
           yield* fs
             .writeFileString(temporary, content, { flag: "wx" })
@@ -715,7 +717,7 @@ export const MarkdownLive = Layer.effect(
         yield* fs
           .makeDirectory(path.dirname(file), { recursive: true })
           .pipe(Effect.mapError(failed))
-        const temporary = ticketTemporaryFile(file)
+        const temporary = yield* ticketTemporaryFile(file)
         yield* Effect.gen(function* () {
           yield* fs
             .writeFileString(temporary, content, { flag: "wx" })
@@ -763,7 +765,7 @@ export const MarkdownLive = Layer.effect(
         yield* fs
           .makeDirectory(path.dirname(file), { recursive: true })
           .pipe(Effect.mapError(failed))
-        const temporary = ticketTemporaryFile(file)
+        const temporary = yield* ticketTemporaryFile(file)
         yield* Effect.gen(function* () {
           yield* fs
             .writeFileString(temporary, content, { flag: "wx" })

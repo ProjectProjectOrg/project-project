@@ -1,8 +1,8 @@
 import { it } from "@effect/vitest"
 import { UserId } from "@pp/shared"
 import * as Effect from "effect/Effect"
+import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import { expect, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"

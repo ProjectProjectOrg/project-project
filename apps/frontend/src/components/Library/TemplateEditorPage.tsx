@@ -7,7 +7,7 @@ import {
   type TemplateDefinition,
   type UpdateTemplateInput
 } from "@pp/shared"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useCallback, useMemo, useState } from "react"
 
 import { LibraryContext } from "@/components/blocks/blockChrome"

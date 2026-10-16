@@ -1,6 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Link, createFileRoute } from "@tanstack/react-router"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 
 import { ErrorPage } from "@/components/ErrorPage"
 import { GithubChip } from "@/components/GithubChip"

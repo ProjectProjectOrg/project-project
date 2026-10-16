@@ -1,8 +1,8 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { createFileRoute, Outlet } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
-import * as Registry from "effect/unstable/reactivity/AtomRegistry"
+import * as Result from "effect/reactivity/AsyncResult"
+import * as Registry from "effect/reactivity/AtomRegistry"
 
 import { DeletedOrgPage } from "@/components/DeletedOrgPage"
 import { ErrorPage } from "@/components/ErrorPage"

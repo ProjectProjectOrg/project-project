@@ -1,7 +1,7 @@
 import { CommentId, TicketId, UserId } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
+import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import { expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"

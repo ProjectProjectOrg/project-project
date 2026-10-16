@@ -1014,7 +1014,8 @@
         "anyOf": [
           {
             "type": "integer",
-            "exclusiveMinimum": 0
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
           },
           {
             "type": "null"
@@ -1114,7 +1115,7 @@
         "anyOf": [
           {
             "type": "string",
-            "pattern": "^#[0-9a-f]{6}$"
+            "pattern": "^#[0-9a-fA-F]{6}$"
           },
           {
             "type": "null"
@@ -1219,7 +1220,7 @@
         "anyOf": [
           {
             "type": "string",
-            "pattern": "^#[0-9a-f]{6}$"
+            "pattern": "^#[0-9a-fA-F]{6}$"
           },
           {
             "type": "null"

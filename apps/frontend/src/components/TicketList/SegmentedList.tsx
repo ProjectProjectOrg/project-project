@@ -9,7 +9,7 @@ import type {
   TicketStatus
 } from "@pp/shared"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { FilterX, ListChecks } from "lucide-react"
 import { useMemo, type ReactNode } from "react"
 

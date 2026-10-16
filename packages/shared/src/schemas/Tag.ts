@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema"
 export const TagName = Schema.String.pipe(
   Schema.check(
     Schema.isPattern(
-      /^(?:[a-z0-9][a-z0-9 -]{0,30}|component:[a-z0-9][a-z0-9-]{0,20})$/
+      /^(?:[a-z0-9][a-z0-9 -]{0,30}|component:[a-z0-9][a-z0-9-]{0,20})$/u
     )
   ),
   Schema.brand("TagName")
@@ -11,7 +11,7 @@ export const TagName = Schema.String.pipe(
 export type TagName = typeof TagName.Type
 
 export const TagColor = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^#[0-9a-f]{6}$/i)),
+  Schema.check(Schema.isPattern(/^#[0-9a-fA-F]{6}$/u)),
   Schema.brand("TagColor")
 )
 export type TagColor = typeof TagColor.Type

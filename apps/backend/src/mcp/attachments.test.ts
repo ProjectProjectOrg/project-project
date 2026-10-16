@@ -1,3 +1,4 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { randomUUID, randomBytes } from "node:crypto"
 
 import {
@@ -61,15 +62,15 @@ import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
+import { HttpServerRequest, HttpServerResponse } from "effect/http"
+import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
+import * as SqlClient from "effect/sql/SqlClient"
 import * as Stream from "effect/Stream"
 import * as TestClock from "effect/testing/TestClock"
-import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient"
-import * as SqlClient from "effect/unstable/sql/SqlClient"
 import { Pool } from "pg"
 import { beforeAll, afterAll, describe, expect, vi } from "vitest"
 

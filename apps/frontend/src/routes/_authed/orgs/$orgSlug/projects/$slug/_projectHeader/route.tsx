@@ -18,7 +18,7 @@ import {
   useNavigate
 } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { CalendarRange, Info, ListChecks, type LucideIcon } from "lucide-react"
 import { startTransition, useOptimistic, type MouseEvent, useMemo } from "react"
 import { flushSync } from "react-dom"

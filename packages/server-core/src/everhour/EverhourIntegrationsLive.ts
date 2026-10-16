@@ -1,5 +1,3 @@
-import { randomBytes } from "node:crypto"
-
 import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
 import {
@@ -22,11 +20,13 @@ import {
   ProjectScope
 } from "@pp/shared"
 import { and, desc, eq, inArray } from "drizzle-orm"
+import * as Crypto from "effect/Crypto"
 import * as DateTime from "effect/DateTime"
 import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
+import * as Base64Url from "effect/encoding/Base64Url"
 import * as Layer from "effect/Layer"
-import * as SqlClient from "effect/unstable/sql/SqlClient"
+import * as SqlClient from "effect/sql/SqlClient"
 
 import { GroupDocs } from "../groups/GroupDocs"
 import { SecretCrypto } from "../storage/SecretCrypto"
@@ -173,6 +173,7 @@ export const EverhourIntegrationsLive = Layer.effect(
   EverhourIntegrations,
   Effect.gen(function* () {
     const db = yield* Db
+    const crypto = yield* Crypto.Crypto
     const sql = yield* SqlClient.SqlClient
     const everhour = yield* Everhour
     const ticketIndex = yield* TicketIndex
@@ -859,7 +860,9 @@ export const EverhourIntegrationsLive = Layer.effect(
           .pipe(Effect.orDie)
         if (row?.webhookId) return
         const base = yield* publicBaseUrl
-        const secret = randomBytes(24).toString("base64url")
+        const secret = Base64Url.encode(
+          yield* crypto.randomBytes(24).pipe(Effect.orDie)
+        )
         const created = yield* everhour.createWebhook(apiKey, {
           targetUrl: `${base}/api/integrations/everhour/webhook/${secret}`,
           project: everhourProjectId

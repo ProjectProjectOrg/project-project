@@ -1,4 +1,5 @@
-import { createHash, randomBytes, randomUUID } from "node:crypto"
+// @effect-diagnostics-next-line nodeBuiltinImport:off
+import { createHash } from "node:crypto"
 
 import { Db } from "@pp/db"
 import { userJiraIntegration, userJiraOauthState } from "@pp/db/schema"
@@ -12,8 +13,10 @@ import {
 } from "@pp/shared"
 import { and, eq, gt, isNull, lte, or } from "drizzle-orm"
 import * as Context from "effect/Context"
+import * as Crypto from "effect/Crypto"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Base64Url from "effect/encoding/Base64Url"
 import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
 
@@ -109,6 +112,7 @@ export const JiraCredentialsLive = Layer.effect(
   JiraCredentials,
   Effect.gen(function* () {
     const db = yield* Db
+    const crypto = yield* Crypto.Crypto
     const secrets = yield* SecretCrypto
     const oauth = yield* JiraOAuthConfig
     const tokens = yield* JiraTokenEndpoint
@@ -137,8 +141,12 @@ export const JiraCredentialsLive = Layer.effect(
       if (safeReturnPath === null) {
         return yield* new JiraError({ reason: "invalid_response" })
       }
-      const state = randomBytes(32).toString("base64url")
-      const codeVerifier = randomBytes(32).toString("base64url")
+      const state = Base64Url.encode(
+        yield* crypto.randomBytes(32).pipe(Effect.orDie)
+      )
+      const codeVerifier = Base64Url.encode(
+        yield* crypto.randomBytes(32).pipe(Effect.orDie)
+      )
       const now = yield* DateTime.now
       yield* db
         .insert(userJiraOauthState)
@@ -384,7 +392,7 @@ export const JiraCredentialsLive = Layer.effect(
             return { token: Redacted.make(opened) }
           }
 
-          const leaseId = randomUUID()
+          const leaseId = yield* crypto.randomUUIDv4().pipe(Effect.orDie)
           const leaseExpiresAt = DateTime.toDate(
             DateTime.add(now, { seconds: 30 })
           )

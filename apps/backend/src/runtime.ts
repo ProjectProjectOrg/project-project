@@ -1,3 +1,4 @@
+import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
 import * as BunPath from "@effect/platform-bun/BunPath"
 import { DbLive, PgLive } from "@pp/db"
@@ -54,8 +55,8 @@ import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
 import { TicketsLive } from "@pp/server-core/tickets/TicketsLive"
 import { UsersLive } from "@pp/server-core/users/UsersLive"
 import * as Effect from "effect/Effect"
+import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient"
 
 import { JiraWorkflowsLive } from "./jira/WorkflowRuntime"
 import { OrgAccessLive, ProjectAccessLive } from "./Layers/Access"
@@ -104,6 +105,7 @@ export const BackendInfrastructureLive = Layer.mergeAll(
   DbLive.pipe(Layer.provideMerge(PgLive)),
   FetchHttpClient.layer,
   Layer.succeed(FetchHttpClient.Fetch, globalThis.fetch),
+  BunCrypto.layer,
   BunFileSystem.layer,
   BunPath.layer
 )

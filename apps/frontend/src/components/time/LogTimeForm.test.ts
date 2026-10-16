@@ -1,7 +1,7 @@
 import { TicketId } from "@pp/shared"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import { createElement } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 

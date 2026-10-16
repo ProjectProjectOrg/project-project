@@ -2,7 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { ProjectPolicy } from "@pp/access/policies"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { useEffect, useState, type FormEvent } from "react"
 
 import { ProjectAppearanceSection } from "@/components/appearance/ProjectAppearanceSection"

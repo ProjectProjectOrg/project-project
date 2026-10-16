@@ -10,7 +10,7 @@ import { Projects } from "@pp/server-core/projects/Projects"
 import { Tickets } from "@pp/server-core/tickets/Tickets"
 import { AppApi, ProjectScope } from "@pp/shared"
 import * as Effect from "effect/Effect"
-import { HttpApiBuilder } from "effect/unstable/httpapi"
+import { HttpApiBuilder } from "effect/http-api"
 
 import { dieOnMarkdown, thenSyncEverhour } from "./lib"
 

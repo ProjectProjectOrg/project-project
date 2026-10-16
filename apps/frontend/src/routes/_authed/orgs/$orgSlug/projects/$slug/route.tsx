@@ -2,7 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { ProjectDetail as ProjectDetailType } from "@pp/shared"
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { GitBranch, UserPlus, Workflow, X } from "lucide-react"
 import { useCallback } from "react"
 

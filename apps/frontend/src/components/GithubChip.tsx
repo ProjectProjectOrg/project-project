@@ -1,7 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { GithubConnection, GithubRepo } from "@pp/shared"
 import * as Match from "effect/Match"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import {
   AlertTriangle,
   ChevronDown,

@@ -16,14 +16,14 @@ import {
 } from "@pp/shared"
 import { isAPIError } from "better-auth/api"
 import * as Effect from "effect/Effect"
-import * as Schema from "effect/Schema"
 import {
   Cookies,
   HttpEffect,
   HttpServerRequest,
   HttpServerResponse
-} from "effect/unstable/http"
-import { HttpApiBuilder } from "effect/unstable/httpapi"
+} from "effect/http"
+import { HttpApiBuilder } from "effect/http-api"
+import * as Schema from "effect/Schema"
 
 export const orgRoleOf = Schema.decodeUnknownSync(OrgRole)
 

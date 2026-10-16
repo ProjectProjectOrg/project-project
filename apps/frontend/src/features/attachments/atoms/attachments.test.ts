@@ -1,6 +1,6 @@
 import { TicketId } from "@pp/shared"
+import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import { afterEach, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"

@@ -7,7 +7,7 @@ import {
   type TemplateKey
 } from "@pp/shared"
 import * as Exit from "effect/Exit"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { Plus } from "lucide-react"
 import { useState } from "react"
 

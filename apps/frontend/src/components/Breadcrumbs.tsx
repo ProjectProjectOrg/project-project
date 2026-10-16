@@ -18,7 +18,7 @@ import type { GroupId, TicketId } from "@pp/shared"
 // returns `[{project}, {ticket}]` so navigating directly to a ticket URL
 // still renders the project crumb above it.
 import { Link, useMatches } from "@tanstack/react-router"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronRight } from "lucide-react"
 import { Fragment, useMemo } from "react"
 

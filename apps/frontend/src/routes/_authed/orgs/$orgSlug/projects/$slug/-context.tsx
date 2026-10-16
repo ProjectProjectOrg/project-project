@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { ProjectDetail } from "@pp/shared"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { createContext, useContext } from "react"
 
 import {

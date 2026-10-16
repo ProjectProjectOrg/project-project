@@ -1,7 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { OrgDetail } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { useEffect, useState, type FormEvent } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"

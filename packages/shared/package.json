@@ -14,10 +14,10 @@
   },
   "dependencies": {
     "@pp/access": "workspace:*",
-    "effect": "4.0.0-rc.116"
+    "effect": "4.0.5"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-rc.116",
-    "vitest": "4.1.11"
+    "@effect/vitest": "4.0.5",
+    "vitest": "5.0.5"
   }
 }

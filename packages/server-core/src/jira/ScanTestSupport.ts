@@ -1,5 +1,5 @@
 import { Effect, Layer, Redacted, Stream, Schema } from "effect"
-import { Workflow, WorkflowEngine } from "effect/unstable/workflow"
+import { Workflow, WorkflowEngine } from "effect/workflow"
 
 import { OrgStorage } from "../storage/OrgStorage"
 import { S3Storage, S3Unavailable } from "../storage/S3Storage"

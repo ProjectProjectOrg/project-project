@@ -1,8 +1,8 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { type EditorPreference, FigmaAuthInvalid, FigmaError } from "@pp/shared"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { type FormEvent, useEffect, useRef, useState } from "react"
 
 import githubLogo from "@/assets/github.svg"

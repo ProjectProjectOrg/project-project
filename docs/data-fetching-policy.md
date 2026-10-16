@@ -64,7 +64,7 @@ succeed refresh server truth on failure too. Keys are built in
 `packages/frontend/src/api/keys.ts`; the conventions that bind this are the
 "Mutations and optimistic updates" section of `AGENTS.md`.
 
-The installed `effect/unstable/reactivity/AtomRegistry` implementation separates
+The installed `effect/reactivity/AtomRegistry` implementation separates
 wrapper and base lifetimes. After a loader mount is released, an unused wrapper
 without TTL is removed on the next scheduled tick. Removing it releases its base
 dependency, but a base with idle TTL keeps its own retention window and in-flight

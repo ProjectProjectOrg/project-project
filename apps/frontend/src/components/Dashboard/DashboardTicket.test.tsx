@@ -10,9 +10,9 @@ import {
   RouterProvider
 } from "@tanstack/react-router"
 import { cleanup, render, screen } from "@testing-library/react"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
+import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
-import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import type { ReactNode } from "react"
 import { afterEach, expect, it } from "vitest"
 

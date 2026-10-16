@@ -17,9 +17,9 @@ import {
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
+import { HttpApiBuilder } from "effect/http-api"
 import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
-import { HttpApiBuilder } from "effect/unstable/httpapi"
 
 const context = Effect.gen(function* () {
   const user = yield* CurrentUser

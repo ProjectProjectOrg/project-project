@@ -30,7 +30,7 @@ export const BASELINE_STATUS_SEED = [
 ] as const
 
 export const StatusSlug = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^[a-z0-9_]+$/)),
+  Schema.check(Schema.isPattern(/^[a-z0-9_]+$/u)),
   Schema.check(Schema.isMinLength(1)),
   Schema.check(Schema.isMaxLength(40)),
   Schema.brand("StatusSlug")

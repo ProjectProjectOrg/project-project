@@ -7,7 +7,7 @@ import {
   type Member
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import {
   Archive,
   Check,

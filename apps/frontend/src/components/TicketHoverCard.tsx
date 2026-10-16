@@ -9,7 +9,7 @@ import type {
 } from "@pp/shared"
 import { flattenTicketBlocks } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import type { ComponentProps } from "react"
 import { useMemo } from "react"
 

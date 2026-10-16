@@ -1,7 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { ProjectStatus, StatusSlug } from "@pp/shared"
 import * as Exit from "effect/Exit"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { Check, ChevronDown, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 

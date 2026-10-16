@@ -14,7 +14,7 @@ export const GroupKind = Schema.Literals([
 export type GroupKind = typeof GroupKind.Type
 
 export const GroupColor = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^#[0-9a-f]{6}$/i)),
+  Schema.check(Schema.isPattern(/^#[0-9a-fA-F]{6}$/u)),
   Schema.brand("GroupColor")
 )
 export type GroupColor = typeof GroupColor.Type

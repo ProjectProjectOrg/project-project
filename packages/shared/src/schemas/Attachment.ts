@@ -99,7 +99,7 @@ export const isProjectIconContentType = (value: string): boolean =>
     normalizeContentType(value)
   )
 
-export const ULID_PATTERN = /^[0-9A-HJKMNP-TV-Z]{26}$/
+export const ULID_PATTERN = /^[0-9A-HJKMNP-TV-Z]{26}$/u
 
 export const AttachmentId = Schema.String.pipe(
   Schema.check(Schema.isPattern(ULID_PATTERN)),

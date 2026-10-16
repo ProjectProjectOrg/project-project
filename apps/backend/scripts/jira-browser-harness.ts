@@ -1,3 +1,4 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createHash, generateKeyPairSync, randomUUID } from "node:crypto"
 
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3"
@@ -6,11 +7,7 @@ import { JiraOAuthConfig, JiraTokenEndpoint } from "@pp/server-core/jira/OAuth"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { Effect, Layer, Redacted, Schema } from "effect"
-import {
-  HttpRouter,
-  HttpServerRequest,
-  HttpServerResponse
-} from "effect/unstable/http"
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
 import { Pool } from "pg"
 
 import {

@@ -1,10 +1,10 @@
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import { Validation } from "@pp/shared"
 import * as Effect from "effect/Effect"
+import { HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
-import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 
 import { mappedToolErrorText } from "../mcp/errorMap"
 
