@@ -2,6 +2,7 @@ import { Link, Outlet, useLocation } from "@tanstack/react-router"
 import { createFileRoute } from "@tanstack/react-router"
 import {
   Files,
+  Mail,
   HardDrive,
   LayoutTemplate,
   SlidersHorizontal,
@@ -43,6 +44,14 @@ const SECTIONS = [
     description: m.storage_description()
   },
   {
+    key: "email",
+    to: "/orgs/$orgSlug/settings/email",
+    label: m.org_email_heading(),
+    icon: Mail,
+    heading: m.org_email_heading(),
+    description: m.org_email_description()
+  },
+  {
     key: "attachments",
     to: "/orgs/$orgSlug/settings/attachments",
     label: m.attachments_tab(),
@@ -72,6 +81,7 @@ const SECTIONS = [
     | "/orgs/$orgSlug/settings/general"
     | "/orgs/$orgSlug/settings/members"
     | "/orgs/$orgSlug/settings/storage"
+    | "/orgs/$orgSlug/settings/email"
     | "/orgs/$orgSlug/settings/attachments"
     | "/orgs/$orgSlug/settings/templates"
     | "/orgs/$orgSlug/settings/danger"
@@ -120,7 +130,9 @@ function SettingsLayout() {
 
 function SettingsRail({ orgSlug }: { orgSlug: string }) {
   const location = useLocation()
-  const canSeeMembers = useOrgActor(orgSlug).call("org", "members")
+  const actor = useOrgActor(orgSlug)
+  const canSeeMembers = actor.call("org", "members")
+  const canManageEmail = actor.call("orgEmail", "get")
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -131,7 +143,9 @@ function SettingsRail({ orgSlug }: { orgSlug: string }) {
       />
       <nav className="flex flex-col gap-1">
         {SECTIONS.filter(
-          (section) => section.key !== "members" || canSeeMembers
+          (section) =>
+            (section.key !== "members" || canSeeMembers) &&
+            (section.key !== "email" || canManageEmail)
         ).map((section) => {
           const Icon = section.icon
           const active = isSectionActive(

@@ -24,6 +24,7 @@ import { Route as AuthedOrgsOrgSlugProjectsIndexRouteImport } from './routes/_au
 import { Route as AuthedOrgsOrgSlugSettingsStorageRouteImport } from './routes/_authed/orgs/$orgSlug/settings/storage'
 import { Route as AuthedOrgsOrgSlugSettingsMembersRouteImport } from './routes/_authed/orgs/$orgSlug/settings/members'
 import { Route as AuthedOrgsOrgSlugSettingsGeneralRouteImport } from './routes/_authed/orgs/$orgSlug/settings/general'
+import { Route as AuthedOrgsOrgSlugSettingsEmailRouteImport } from './routes/_authed/orgs/$orgSlug/settings/email'
 import { Route as AuthedOrgsOrgSlugSettingsDangerRouteImport } from './routes/_authed/orgs/$orgSlug/settings/danger'
 import { Route as AuthedOrgsOrgSlugSettingsAttachmentsRouteImport } from './routes/_authed/orgs/$orgSlug/settings/attachments'
 import { Route as AuthedOrgsOrgSlugProjectsSlugRouteRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/route'
@@ -128,6 +129,12 @@ const AuthedOrgsOrgSlugSettingsGeneralRoute =
   AuthedOrgsOrgSlugSettingsGeneralRouteImport.update({
     id: '/general',
     path: '/general',
+    getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugSettingsEmailRoute =
+  AuthedOrgsOrgSlugSettingsEmailRouteImport.update({
+    id: '/email',
+    path: '/email',
     getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
   } as any)
 const AuthedOrgsOrgSlugSettingsDangerRoute =
@@ -297,6 +304,7 @@ export interface FileRoutesByFullPath {
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderRouteRouteWithChildren
   '/orgs/$orgSlug/settings/attachments': typeof AuthedOrgsOrgSlugSettingsAttachmentsRoute
   '/orgs/$orgSlug/settings/danger': typeof AuthedOrgsOrgSlugSettingsDangerRoute
+  '/orgs/$orgSlug/settings/email': typeof AuthedOrgsOrgSlugSettingsEmailRoute
   '/orgs/$orgSlug/settings/general': typeof AuthedOrgsOrgSlugSettingsGeneralRoute
   '/orgs/$orgSlug/settings/members': typeof AuthedOrgsOrgSlugSettingsMembersRoute
   '/orgs/$orgSlug/settings/storage': typeof AuthedOrgsOrgSlugSettingsStorageRoute
@@ -335,6 +343,7 @@ export interface FileRoutesByTo {
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderIndexRoute
   '/orgs/$orgSlug/settings/attachments': typeof AuthedOrgsOrgSlugSettingsAttachmentsRoute
   '/orgs/$orgSlug/settings/danger': typeof AuthedOrgsOrgSlugSettingsDangerRoute
+  '/orgs/$orgSlug/settings/email': typeof AuthedOrgsOrgSlugSettingsEmailRoute
   '/orgs/$orgSlug/settings/general': typeof AuthedOrgsOrgSlugSettingsGeneralRoute
   '/orgs/$orgSlug/settings/members': typeof AuthedOrgsOrgSlugSettingsMembersRoute
   '/orgs/$orgSlug/settings/storage': typeof AuthedOrgsOrgSlugSettingsStorageRoute
@@ -374,6 +383,7 @@ export interface FileRoutesById {
   '/_authed/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/settings/attachments': typeof AuthedOrgsOrgSlugSettingsAttachmentsRoute
   '/_authed/orgs/$orgSlug/settings/danger': typeof AuthedOrgsOrgSlugSettingsDangerRoute
+  '/_authed/orgs/$orgSlug/settings/email': typeof AuthedOrgsOrgSlugSettingsEmailRoute
   '/_authed/orgs/$orgSlug/settings/general': typeof AuthedOrgsOrgSlugSettingsGeneralRoute
   '/_authed/orgs/$orgSlug/settings/members': typeof AuthedOrgsOrgSlugSettingsMembersRoute
   '/_authed/orgs/$orgSlug/settings/storage': typeof AuthedOrgsOrgSlugSettingsStorageRoute
@@ -417,6 +427,7 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/projects/$slug'
     | '/orgs/$orgSlug/settings/attachments'
     | '/orgs/$orgSlug/settings/danger'
+    | '/orgs/$orgSlug/settings/email'
     | '/orgs/$orgSlug/settings/general'
     | '/orgs/$orgSlug/settings/members'
     | '/orgs/$orgSlug/settings/storage'
@@ -455,6 +466,7 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/projects/$slug'
     | '/orgs/$orgSlug/settings/attachments'
     | '/orgs/$orgSlug/settings/danger'
+    | '/orgs/$orgSlug/settings/email'
     | '/orgs/$orgSlug/settings/general'
     | '/orgs/$orgSlug/settings/members'
     | '/orgs/$orgSlug/settings/storage'
@@ -493,6 +505,7 @@ export interface FileRouteTypes {
     | '/_authed/orgs/$orgSlug/projects/$slug'
     | '/_authed/orgs/$orgSlug/settings/attachments'
     | '/_authed/orgs/$orgSlug/settings/danger'
+    | '/_authed/orgs/$orgSlug/settings/email'
     | '/_authed/orgs/$orgSlug/settings/general'
     | '/_authed/orgs/$orgSlug/settings/members'
     | '/_authed/orgs/$orgSlug/settings/storage'
@@ -635,6 +648,13 @@ declare module '@tanstack/react-router' {
       path: '/general'
       fullPath: '/orgs/$orgSlug/settings/general'
       preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsGeneralRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/settings/email': {
+      id: '/_authed/orgs/$orgSlug/settings/email'
+      path: '/email'
+      fullPath: '/orgs/$orgSlug/settings/email'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsEmailRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
     }
     '/_authed/orgs/$orgSlug/settings/danger': {
@@ -818,6 +838,7 @@ declare module '@tanstack/react-router' {
 interface AuthedOrgsOrgSlugSettingsRouteRouteChildren {
   AuthedOrgsOrgSlugSettingsAttachmentsRoute: typeof AuthedOrgsOrgSlugSettingsAttachmentsRoute
   AuthedOrgsOrgSlugSettingsDangerRoute: typeof AuthedOrgsOrgSlugSettingsDangerRoute
+  AuthedOrgsOrgSlugSettingsEmailRoute: typeof AuthedOrgsOrgSlugSettingsEmailRoute
   AuthedOrgsOrgSlugSettingsGeneralRoute: typeof AuthedOrgsOrgSlugSettingsGeneralRoute
   AuthedOrgsOrgSlugSettingsMembersRoute: typeof AuthedOrgsOrgSlugSettingsMembersRoute
   AuthedOrgsOrgSlugSettingsStorageRoute: typeof AuthedOrgsOrgSlugSettingsStorageRoute
@@ -832,6 +853,7 @@ const AuthedOrgsOrgSlugSettingsRouteRouteChildren: AuthedOrgsOrgSlugSettingsRout
     AuthedOrgsOrgSlugSettingsAttachmentsRoute:
       AuthedOrgsOrgSlugSettingsAttachmentsRoute,
     AuthedOrgsOrgSlugSettingsDangerRoute: AuthedOrgsOrgSlugSettingsDangerRoute,
+    AuthedOrgsOrgSlugSettingsEmailRoute: AuthedOrgsOrgSlugSettingsEmailRoute,
     AuthedOrgsOrgSlugSettingsGeneralRoute:
       AuthedOrgsOrgSlugSettingsGeneralRoute,
     AuthedOrgsOrgSlugSettingsMembersRoute:

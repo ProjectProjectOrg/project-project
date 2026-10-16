@@ -100,6 +100,7 @@ import {
   PublicOAuthHandlerLive
 } from "./handlers/oauthApplications"
 import { OrgHandlerLive } from "./handlers/org"
+import { OrgEmailHandlerLive } from "./handlers/orgEmail"
 import { ProjectsHandlerLive } from "./handlers/projects"
 import { StatusesHandlerLive } from "./handlers/statuses"
 import { StorageHandlerLive } from "./handlers/storage"
@@ -173,7 +174,7 @@ export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(LibraryHandlerLive),
   Layer.provide(OAuthApplicationsHandlerLive),
   Layer.provide(PublicOAuthHandlerLive),
-  Layer.provide(StorageHandlerLive),
+  Layer.provide(Layer.mergeAll(StorageHandlerLive, OrgEmailHandlerLive)),
   Layer.provide(AttachmentsHandlerLive)
 )
 
