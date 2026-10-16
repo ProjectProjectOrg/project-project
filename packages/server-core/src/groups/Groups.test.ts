@@ -1,5 +1,6 @@
 import { it } from "@effect/vitest"
 import {
+  ActivityActor,
   GroupId,
   NotFound,
   TicketId,
@@ -274,12 +275,15 @@ const asScope = (orgRole: OrgRole, role: Role | null) =>
 const scopeLayer = (role: Role = "developer") =>
   Layer.succeed(ProjectScope, asScope("member", role))
 
+const actorLayer = Layer.succeed(ActivityActor, ActivityActor.user("user-1"))
+
 function groupsLayer(docs?: Parameters<typeof makeFakeDocs>[0]) {
   const fakeDocs = makeFakeDocs(docs)
   return GroupsLive.pipe(
     Layer.provide(fakeDocs.groupLayer),
     Layer.provide(fakeDocs.ticketLayer),
-    Layer.provide(KeyedLock.layer)
+    Layer.provide(KeyedLock.layer),
+    Layer.merge(actorLayer)
   )
 }
 
@@ -1204,7 +1208,8 @@ it.effect(
       Layer.provide(fakeDocs.ticketIndexLayer),
       Layer.provide(TicketDocumentLock.layer),
       Layer.provide(KeyedLock.layer),
-      Layer.merge(scopeLayer("pm"))
+      Layer.merge(scopeLayer("pm")),
+      Layer.merge(actorLayer)
     )
     return Effect.gen(function* () {
       const groups = yield* Groups

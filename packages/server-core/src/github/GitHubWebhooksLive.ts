@@ -5,7 +5,7 @@ import {
   projectGithubRepository,
   projectIntegrationLink
 } from "@pp/db/schema"
-import type { ChecksStatus } from "@pp/shared"
+import { ActivityActor, type ChecksStatus } from "@pp/shared"
 import { and, eq, inArray } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -124,6 +124,7 @@ export const applyPullRequestWebhookToTicket = (
               : Effect.void
         )
         .pipe(
+          Effect.provideService(ActivityActor, ActivityActor.system("github")),
           Effect.catchTag("NotFound", (error) =>
             Effect.logWarning("github pull_request ticket ignored").pipe(
               Effect.annotateLogs({

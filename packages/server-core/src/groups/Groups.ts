@@ -1,4 +1,5 @@
 import type {
+  ActivityActor,
   CompleteSprintInput,
   Conflict,
   CompleteSprintOutput,
@@ -62,7 +63,7 @@ export interface GroupsShape {
   ) => Effect.Effect<
     Group,
     Forbidden | NotFound | Validation | MarkdownError,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
   readonly update: (
     id: string,
@@ -70,7 +71,7 @@ export interface GroupsShape {
   ) => Effect.Effect<
     GroupDetail,
     Forbidden | NotFound | Validation | MarkdownError,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
   readonly updateTickets: (
     id: string,
@@ -78,7 +79,7 @@ export interface GroupsShape {
   ) => Effect.Effect<
     UpdateGroupTicketsOutput,
     Forbidden | NotFound | SprintCompletedImmutable | MarkdownError,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
   readonly addTickets: (
     id: string,
@@ -86,7 +87,7 @@ export interface GroupsShape {
   ) => Effect.Effect<
     UpdateGroupTicketsOutput,
     Forbidden | NotFound | SprintCompletedImmutable | MarkdownError,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
   readonly removeTickets: (
     id: string,
@@ -94,7 +95,7 @@ export interface GroupsShape {
   ) => Effect.Effect<
     UpdateGroupTicketsOutput,
     Forbidden | NotFound | SprintCompletedImmutable | MarkdownError,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
   readonly updateTicketOrder: <E = never, R = never>(
     id: string,
@@ -108,7 +109,7 @@ export interface GroupsShape {
     | Validation
     | MarkdownError
     | E,
-    ProjectScope | R
+    ProjectScope | ActivityActor | R
   >
   readonly complete: (
     id: string,
@@ -120,11 +121,15 @@ export interface GroupsShape {
     | SprintCompletedImmutable
     | Validation
     | MarkdownError,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
   readonly remove: (
     id: string
-  ) => Effect.Effect<void, Forbidden | NotFound | MarkdownError, ProjectScope>
+  ) => Effect.Effect<
+    void,
+    Forbidden | NotFound | MarkdownError,
+    ProjectScope | ActivityActor
+  >
   readonly ensureSprintAssignable: (
     sprintIds: ReadonlyArray<GroupId>
   ) => Effect.Effect<
@@ -138,12 +143,12 @@ export interface GroupsShape {
     ticketId: TicketId,
     sprintId: GroupId | null,
     options?: SprintMembershipOptions
-  ) => Effect.Effect<void, Conflict | MarkdownError>
+  ) => Effect.Effect<void, Conflict | MarkdownError, ActivityActor>
   readonly removeTicketFromAllGroups: (
     orgSlug: string,
     slug: string,
     ticketId: string
-  ) => Effect.Effect<void, MarkdownError>
+  ) => Effect.Effect<void, MarkdownError, ActivityActor>
 }
 
 export class Groups extends Context.Service<Groups, GroupsShape>()(

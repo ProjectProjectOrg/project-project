@@ -1,5 +1,6 @@
 import { Access } from "@pp/server-core/access/Access"
 import {
+  ActivityActor,
   CurrentUser,
   Forbidden,
   OrgScope,
@@ -10,7 +11,7 @@ import {
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 
-import { McpCurrentUser } from "./McpRequestUser"
+import { McpActivityActor, McpCurrentUser } from "./McpRequestUser"
 
 export const orgTool =
   <I extends Readonly<{ orgSlug: string }>, A, E, R>(
@@ -25,7 +26,10 @@ export const orgTool =
         return yield* new Forbidden()
       }
       return yield* handler(input).pipe(Effect.provideService(OrgScope, scope))
-    }).pipe(Effect.provideServiceEffect(CurrentUser, McpCurrentUser))
+    }).pipe(
+      Effect.provideServiceEffect(CurrentUser, McpCurrentUser),
+      Effect.provideServiceEffect(ActivityActor, McpActivityActor)
+    )
 
 export const projectTool =
   <I extends Readonly<{ orgSlug: string; projectSlug: string }>, A, E, R>(
@@ -42,4 +46,7 @@ export const projectTool =
       return yield* handler(input).pipe(
         Effect.provideService(ProjectScope, scope)
       )
-    }).pipe(Effect.provideServiceEffect(CurrentUser, McpCurrentUser))
+    }).pipe(
+      Effect.provideServiceEffect(CurrentUser, McpCurrentUser),
+      Effect.provideServiceEffect(ActivityActor, McpActivityActor)
+    )

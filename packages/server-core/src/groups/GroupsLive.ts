@@ -19,6 +19,7 @@ import {
   UpdateGroupTicketsOutput,
   Validation,
   ProjectScope,
+  type ActivityActor,
   type ProjectScopeShape
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -426,7 +427,7 @@ export const GroupsLive = Layer.effect(
     ): Effect.Effect<
       UpdateGroupTicketsOutput,
       Forbidden | MarkdownError,
-      ProjectScope
+      ProjectScope | ActivityActor
     > =>
       Effect.gen(function* () {
         if (
@@ -629,7 +630,9 @@ export const GroupsLive = Layer.effect(
               tickets: merged,
               updatedAt: now
             }
-            yield* groupDocs.write(orgSlug, slug, dest.id, nextDest)
+            yield* groupDocs.write(orgSlug, slug, dest.id, nextDest, {
+              cause: "sprint_completed"
+            })
           }
 
           const nextSource: GroupDocument = {
@@ -638,7 +641,9 @@ export const GroupsLive = Layer.effect(
             completedAt: now,
             updatedAt: now
           }
-          yield* groupDocs.write(orgSlug, slug, id, nextSource)
+          yield* groupDocs.write(orgSlug, slug, id, nextSource, {
+            cause: "sprint_completed"
+          })
           return { target: nextSource, carried: carry }
         })
       )
@@ -750,7 +755,7 @@ export const GroupsLive = Layer.effect(
       orgSlug: string,
       slug: string,
       ticketId: string
-    ): Effect.Effect<void, MarkdownError> =>
+    ): Effect.Effect<void, MarkdownError, ActivityActor> =>
       withGroupFilesLock(
         orgSlug,
         slug,

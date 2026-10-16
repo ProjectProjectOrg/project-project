@@ -6,7 +6,7 @@ import type {
   Tag,
   UpdateTagInput
 } from "@pp/shared"
-import type { ProjectScope } from "@pp/shared"
+import type { ActivityActor, ProjectScope } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 
@@ -28,10 +28,18 @@ export interface TagsShape {
   readonly update: (
     name: string,
     patch: UpdateTagInput
-  ) => Effect.Effect<Tag, NotFound | Conflict | MarkdownError, ProjectScope>
+  ) => Effect.Effect<
+    Tag,
+    NotFound | Conflict | MarkdownError,
+    ProjectScope | ActivityActor
+  >
   readonly remove: (
     name: string
-  ) => Effect.Effect<void, NotFound | MarkdownError, ProjectScope>
+  ) => Effect.Effect<
+    void,
+    NotFound | MarkdownError,
+    ProjectScope | ActivityActor
+  >
 }
 
 export class Tags extends Context.Service<Tags, TagsShape>()(

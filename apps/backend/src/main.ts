@@ -60,6 +60,7 @@ import { createHmac, timingSafeEqual } from "node:crypto"
 import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
 import { projectIndex } from "@pp/db/schema"
+import { TicketActivityRecoveryLive } from "@pp/server-core/activity/TicketActivityLive"
 import { AttachmentReaperLive } from "@pp/server-core/attachments/AttachmentReaperLive"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { EverhourWebhooks } from "@pp/server-core/everhour/EverhourWebhooks"
@@ -85,6 +86,7 @@ import {
 import { HttpApiBuilder, HttpApiSwagger } from "effect/unstable/httpapi"
 
 import { isClosedAuthPath } from "./auth/orgAccess"
+import { TicketActivityHandlerLive } from "./handlers/activity"
 import { AttachmentsHandlerLive } from "./handlers/attachments"
 import { AuthHandlerLive } from "./handlers/auth"
 import { CommentsHandlerLive } from "./handlers/comments"
@@ -164,7 +166,7 @@ export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(JiraHandlerLive),
   Layer.provide(JiraMigrationsHandlerLive),
   Layer.provide(TicketsHandlerLive),
-  Layer.provide(CommentsHandlerLive),
+  Layer.provide(Layer.mergeAll(CommentsHandlerLive, TicketActivityHandlerLive)),
   Layer.provide(TagsHandlerLive),
   Layer.provide(StatusesHandlerLive),
   Layer.provide(GroupsHandlerLive),
@@ -446,6 +448,7 @@ export const RouteLive = Layer.mergeAll(
 )
 
 const ServerLive = HttpRouter.serve(RouteLive).pipe(
+  Layer.provide(TicketActivityRecoveryLive),
   Layer.provide(GitHubWebhooksLive),
   Layer.provide(EverhourWebhooksLive),
   Layer.provide(BackendHttpServicesLive),

@@ -1,9 +1,17 @@
-import { NotFound, TicketId } from "@pp/shared"
+import {
+  ActivityActor,
+  activityActorUserId,
+  NotFound,
+  TicketId
+} from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
+import { ticketChanges } from "../activity/changes"
+import { TicketActivity } from "../activity/TicketActivity"
 import * as KeyedLock from "../locks/KeyedLock"
+import { ticketFileBody } from "../markdown/fileContent"
 import {
   Markdown,
   type MarkdownError,
@@ -13,6 +21,8 @@ import {
   MalformedTicketDocument,
   TicketFrontmatter,
   TicketDocs,
+  ticketFileContent,
+  type TicketActivityOptions,
   type TicketDocsShape,
   type TicketDocument,
   type TicketFrontmatter as TicketFrontmatterType
@@ -33,9 +43,6 @@ function toDocument(
     commentsRegion
   }
 }
-
-const bodyWithCommentsRegion = (body: string, commentsRegion: string) =>
-  commentsRegion ? `${body.replace(/\s+$/, "")}\n\n${commentsRegion}` : body
 
 function withTicketDocTelemetry<A, E, R>(
   operation: string,
@@ -62,6 +69,7 @@ export const TicketDocsLive = Layer.effect(
   Effect.gen(function* () {
     const markdown = yield* Markdown
     const keyedLock = yield* KeyedLock.KeyedLock
+    const ticketActivity = yield* TicketActivity
 
     const withMutationLock = <A, E, R>(
       orgSlug: string,
@@ -145,7 +153,7 @@ export const TicketDocsLive = Layer.effect(
               slug,
               document.id,
               encodeFrontmatter(document),
-              bodyWithCommentsRegion(document.body, document.commentsRegion)
+              ticketFileBody(document.body, document.commentsRegion)
             )
             .pipe(
               Effect.andThen(
@@ -185,11 +193,12 @@ export const TicketDocsLive = Layer.effect(
       transform: (
         document: TicketDocument
       ) => Effect.Effect<TicketDocument, E, R>,
-      onPersist?: (document: TicketDocument) => Effect.Effect<void, E, R>
+      onPersist?: (document: TicketDocument) => Effect.Effect<void, E, R>,
+      activity: TicketActivityOptions = {}
     ): Effect.Effect<
       TicketDocument,
       NotFound | MarkdownError | MalformedTicketDocument | E,
-      R
+      R | ActivityActor
     > =>
       withTicketDocTelemetry(
         "update",
@@ -202,8 +211,31 @@ export const TicketDocsLive = Layer.effect(
           id,
           Effect.gen(function* () {
             const current = yield* read(orgSlug, slug, id)
-            const next = yield* transform(current)
-            if (next !== current) yield* write(orgSlug, slug, id, next)
+            const transformed = yield* transform(current)
+            if (transformed === current) {
+              if (onPersist) yield* onPersist(current)
+              return current
+            }
+            const actor = yield* ActivityActor
+            const touched =
+              transformed.updatedAt.getTime() !== current.updatedAt.getTime()
+            const next = touched
+              ? {
+                  ...transformed,
+                  updatedBy: activityActorUserId(actor) ?? transformed.updatedBy
+                }
+              : transformed
+            const changes = activity.silent
+              ? []
+              : [...ticketChanges(current, next), ...(activity.extra ?? [])]
+            yield* ticketActivity.record(
+              orgSlug,
+              slug,
+              { kind: "ticket", id, content: ticketFileContent(next) },
+              changes.map((change) => ({ ticketId: next.id, change })),
+              activity.cause ?? null,
+              write(orgSlug, slug, id, next)
+            )
             if (onPersist) yield* onPersist(next)
             return next
           })
@@ -227,7 +259,10 @@ export const TicketDocsLive = Layer.effect(
           id,
           markdown
             .removeTicketFile(orgSlug, slug, id)
-            .pipe(Effect.andThen(onPersist))
+            .pipe(
+              Effect.andThen(ticketActivity.removeTicket(orgSlug, slug, id)),
+              Effect.andThen(onPersist)
+            )
         )
       )
 

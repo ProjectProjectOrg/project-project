@@ -17,6 +17,7 @@ import { JiraMigrations } from "@pp/server-core/jira/Migrations"
 import { Markdown, type MarkdownShape } from "@pp/server-core/markdown/Markdown"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import {
+  ActivityActor,
   AppApi,
   Authentication,
   Conflict,
@@ -74,7 +75,11 @@ const accessMiddleware = Layer.mergeAll(OrgAccessLive, ProjectAccessLive).pipe(
 )
 
 const authentication = Layer.succeed(Authentication)({
-  sessionCookie: (effect) => Effect.provideService(effect, CurrentUser, user)
+  sessionCookie: (effect) =>
+    effect.pipe(
+      Effect.provideService(CurrentUser, user),
+      Effect.provideService(ActivityActor, ActivityActor.user(user.id))
+    )
 })
 const dependenciesFor = (
   failure?: JiraCallError,

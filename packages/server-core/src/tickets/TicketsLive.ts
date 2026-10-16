@@ -43,6 +43,7 @@ import {
   sprintState,
   OrgScope,
   ProjectScope,
+  ActivityActor,
   type ProjectScopeShape
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -51,6 +52,8 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
 import { Access } from "../access/Access"
+import { ticketChanges } from "../activity/changes"
+import { TicketActivity } from "../activity/TicketActivity"
 import { Attachments } from "../attachments/Attachments"
 import { validateBodyMentionsWithLookups } from "../comments/BodyMentions"
 import { Comments } from "../comments/Comments"
@@ -65,6 +68,7 @@ import { Users } from "../users/Users"
 import {
   MalformedTicketDocument,
   TicketDocs,
+  ticketFileContent,
   type TicketDocument
 } from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
@@ -271,6 +275,7 @@ export const TicketsLive = Layer.effect(
   Tickets,
   Effect.gen(function* () {
     const ticketDocs = yield* TicketDocs
+    const ticketActivity = yield* TicketActivity
     const { withTicketDocumentLock, withRepositoryBranchLock } =
       yield* TicketDocumentLock.TicketDocumentLock
     const projects = yield* Projects
@@ -1383,7 +1388,8 @@ export const TicketsLive = Layer.effect(
                     updatedBy: userId,
                     updatedAt: now
                   }),
-                (next) => ticketIndex.upsertTicket(indexProject, next)
+                (next) => ticketIndex.upsertTicket(indexProject, next),
+                { silent: true }
               )
 
               return { original, retained, createdDocuments }
@@ -1486,6 +1492,30 @@ export const TicketsLive = Layer.effect(
                 )
               )
             )
+          )
+        )
+
+        yield* withTicketDocumentLock(
+          orgSlug,
+          slug,
+          id,
+          ticketActivity.record(
+            orgSlug,
+            slug,
+            {
+              kind: "ticket",
+              id,
+              content: ticketFileContent(written.retained)
+            },
+            [
+              ...ticketChanges(written.original, written.retained),
+              {
+                kind: "split" as const,
+                into: written.createdDocuments.map((document) => document.id)
+              }
+            ].map((change) => ({ ticketId: written.retained.id, change })),
+            null,
+            Effect.void
           )
         )
 
@@ -1595,7 +1625,7 @@ export const TicketsLive = Layer.effect(
       id: string,
       oldName: string,
       newName: string | null
-    ): Effect.Effect<boolean, TicketReadError> =>
+    ): Effect.Effect<boolean, TicketReadError, ActivityActor> =>
       withTicketDocumentLock(
         orgSlug,
         slug,
@@ -1625,7 +1655,8 @@ export const TicketsLive = Layer.effect(
             (next) =>
               replaced
                 ? ticketIndex.upsertTicket(indexProject, next)
-                : Effect.void
+                : Effect.void,
+            newName === null ? { cause: "tag_deleted" } : { silent: true }
           )
           if (!replaced) return false
           return true
@@ -1636,8 +1667,9 @@ export const TicketsLive = Layer.effect(
       orgSlug: string,
       slug: string,
       id: string,
-      newStatus: string
-    ): Effect.Effect<boolean, TicketReadError> =>
+      newStatus: string,
+      reason: "renamed" | "removed"
+    ): Effect.Effect<boolean, TicketReadError, ActivityActor> =>
       withTicketDocumentLock(
         orgSlug,
         slug,
@@ -1665,7 +1697,10 @@ export const TicketsLive = Layer.effect(
             (next) =>
               replaced
                 ? ticketIndex.upsertTicket(indexProject, next)
-                : Effect.void
+                : Effect.void,
+            reason === "renamed"
+              ? { silent: true }
+              : { cause: "status_removed" }
           )
           if (!replaced) return false
           return true
@@ -1683,7 +1718,7 @@ export const TicketsLive = Layer.effect(
         lastTransitionedPr?: number | null
         status?: TicketDocument["status"]
       }
-    ): Effect.Effect<TicketDocument, TicketReadError> =>
+    ): Effect.Effect<TicketDocument, TicketReadError, ActivityActor> =>
       ticketDocs.update(
         indexProject.orgSlug,
         indexProject.projectSlug,
@@ -2026,7 +2061,12 @@ export const TicketsLive = Layer.effect(
             }
             const write = writesById.get(ticketId)
             if (!write) return
-            yield* writeGitFields(indexProject, ticket, write)
+            yield* writeGitFields(indexProject, ticket, write).pipe(
+              Effect.provideService(
+                ActivityActor,
+                ActivityActor.system("github")
+              )
+            )
             changedTicketIds.add(ticketId)
           })
           yield* withTicketDocumentLock(

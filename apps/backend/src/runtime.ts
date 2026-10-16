@@ -1,7 +1,10 @@
+import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
 import * as BunPath from "@effect/platform-bun/BunPath"
 import { DbLive, PgLive } from "@pp/db"
 import { AccessLive } from "@pp/server-core/access/AccessLive"
+import { TicketActivityFeedLive } from "@pp/server-core/activity/TicketActivityFeed"
+import { TicketActivityLive } from "@pp/server-core/activity/TicketActivityLive"
 import { AttachmentsLive } from "@pp/server-core/attachments/AttachmentsLive"
 import { AttachmentUploadsLive } from "@pp/server-core/attachments/AttachmentUploadsLive"
 import { CommentsLive } from "@pp/server-core/comments/CommentsLive"
@@ -105,7 +108,8 @@ export const BackendInfrastructureLive = Layer.mergeAll(
   FetchHttpClient.layer,
   Layer.succeed(FetchHttpClient.Fetch, globalThis.fetch),
   BunFileSystem.layer,
-  BunPath.layer
+  BunPath.layer,
+  BunCrypto.layer
 )
 
 export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
@@ -116,6 +120,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
   TagsLive.pipe(
     Layer.provideMerge(ProjectStatusesLive),
     Layer.provideMerge(TicketsLive),
+    Layer.provideMerge(TicketActivityFeedLive),
     Layer.provideMerge(LibraryLive),
     Layer.provideMerge(AttachmentUploadsLive),
     Layer.provideMerge(AttachmentsLive),
@@ -147,6 +152,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(ProjectDocsLive),
       Layer.provideMerge(TicketDocsLive),
       Layer.provideMerge(GroupDocsLive),
+      Layer.provideMerge(TicketActivityLive),
       Layer.provideMerge(LibraryDocsLive),
       Layer.provideMerge(MarkdownLive),
       Layer.provideMerge(OAuthApplicationsLive),
