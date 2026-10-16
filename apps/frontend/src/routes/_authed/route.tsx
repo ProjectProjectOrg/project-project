@@ -103,7 +103,7 @@ function Shell({ user }: { user: User }) {
         <main className="flex min-h-0 overflow-hidden p-2 pt-0">
           <div
             data-scroll-root
-            className="min-w-0 flex-1 [scrollbar-gutter:stable] overflow-auto rounded-xl bg-muted/60"
+            className="min-w-0 flex-1 [scrollbar-gutter:stable] overflow-auto overscroll-contain rounded-xl bg-muted/60"
           >
             <div data-scroll-content className="flex min-h-full flex-col p-6">
               <Outlet />
