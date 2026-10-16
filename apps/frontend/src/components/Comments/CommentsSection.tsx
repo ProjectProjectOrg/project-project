@@ -1,4 +1,4 @@
-import { useAtomValue } from "@effect/atom-react"
+import { useAtomMount, useAtomValue } from "@effect/atom-react"
 import type { TicketId } from "@pp/shared"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { ChevronRight } from "lucide-react"
@@ -12,6 +12,10 @@ import {
 } from "@/components/SegmentedTabs"
 import { TicketActivityFeed } from "@/components/TicketActivity/TicketActivityFeed"
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
+import {
+  ticketActivity,
+  ticketActivityRequest
+} from "@/features/tickets/atoms/ticketActivity"
 import { useProjectActor } from "@/lib/access"
 import { transitions } from "@/lib/springs"
 import { MentionScopeProvider } from "@/mentions/scope"
@@ -36,6 +40,7 @@ export function CommentsSection({
 }) {
   const req = commentsRequest(orgSlug, slug, ticketId)
   const result = useAtomValue(comments(req))
+  useAtomMount(ticketActivity(ticketActivityRequest(orgSlug, slug, ticketId)))
   const project = useProject()
   const canComment = useProjectActor().call("ticketComments", "create")
   const [collapsed, setCollapsed] = useState(false)
