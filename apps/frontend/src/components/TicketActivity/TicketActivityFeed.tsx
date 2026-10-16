@@ -465,7 +465,8 @@ const groupTime = (group: ActivityGroup): string =>
     ? formatRelative(group.at)
     : new Intl.DateTimeFormat(getLocale(), {
         hour: "2-digit",
-        minute: "2-digit"
+        minute: "2-digit",
+        hourCycle: "h23"
       }).format(group.at)
 
 const RAIL =
@@ -499,7 +500,11 @@ function GroupRow({
         <time
           className="shrink-0 text-[13px] text-muted-foreground tabular-nums"
           dateTime={group.at.toISOString()}
-          title={group.at.toLocaleString(getLocale())}
+          title={group.at.toLocaleString(getLocale(), {
+            dateStyle: "medium",
+            timeStyle: "short",
+            hourCycle: "h23"
+          })}
         >
           {groupTime(group)}
         </time>
