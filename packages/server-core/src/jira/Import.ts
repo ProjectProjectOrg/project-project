@@ -16,6 +16,7 @@ import {
   user as userTable
 } from "@pp/db/schema"
 import {
+  ActivityActor,
   attachmentUrl,
   BASELINE_STATUS_SEED,
   deriveProjectIdentity,
@@ -1677,7 +1678,8 @@ export const writeJiraStagedDocuments = Effect.fn("JiraImport.writeDocuments")(
       },
       { concurrency: 4, discard: true }
     )
-  }
+  },
+  Effect.provideService(ActivityActor, ActivityActor.system("import"))
 )
 
 export function nextTicketNumberFor(plan: JiraPublicationPlan): number {

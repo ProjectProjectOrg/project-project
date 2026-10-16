@@ -1,6 +1,6 @@
 import * as BunServices from "@effect/platform-bun/BunServices"
 import { it } from "@effect/vitest"
-import { TicketId, TicketStatus } from "@pp/shared"
+import { ActivityActor, TicketId, TicketStatus } from "@pp/shared"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -9,32 +9,44 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { describe, expect } from "vitest"
 
+import {
+  passthroughTicketActivity,
+  recordingTicketActivity,
+  type RecordedActivity
+} from "../activity/testing"
+import type { TicketActivity } from "../activity/TicketActivity"
 import * as KeyedLock from "../locks/KeyedLock"
 import { Markdown } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
 import { TicketDocs, type TicketDocument } from "./TicketDocs"
 import { TicketDocsLive } from "./TicketDocsLive"
 
-const TestLayer = Layer.unwrap(
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem
-    const tmpRoot = yield* fs.makeTempDirectoryScoped({
-      prefix: "projectproject-ticket-docs-"
-    })
-    return TicketDocsLive.pipe(
-      Layer.provide(KeyedLock.layer),
-      Layer.provideMerge(
-        MarkdownLive.pipe(
-          Layer.provideMerge(
-            ConfigProvider.layer(
-              ConfigProvider.fromUnknown({ PROJECTS_DIR: tmpRoot })
+const testLayer = (
+  activity: Layer.Layer<TicketActivity> = passthroughTicketActivity
+) =>
+  Layer.unwrap(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem
+      const tmpRoot = yield* fs.makeTempDirectoryScoped({
+        prefix: "projectproject-ticket-docs-"
+      })
+      return TicketDocsLive.pipe(
+        Layer.provide(KeyedLock.layer),
+        Layer.provide(activity),
+        Layer.provideMerge(
+          MarkdownLive.pipe(
+            Layer.provideMerge(
+              ConfigProvider.layer(
+                ConfigProvider.fromUnknown({ PROJECTS_DIR: tmpRoot })
+              )
             )
           )
         )
       )
-    )
-  })
-).pipe(Layer.provideMerge(BunServices.layer))
+    })
+  ).pipe(Layer.provideMerge(BunServices.layer))
+
+const TestLayer = testLayer()
 
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
@@ -250,5 +262,145 @@ describe("TicketDocs estimate persistence", () => {
       const document = yield* docs.read("acme", "project", "T-15")
       expect(document.estimate).toBeUndefined()
     }).pipe(Effect.provide(TestLayer))
+  )
+})
+
+describe("TicketDocs activity capture", () => {
+  const later = DateTime.toDate(DateTime.makeUnsafe("2026-09-08T10:00:00Z"))
+
+  const capture = <A, E>(
+    run: (docs: TicketDocs["Service"]) => Effect.Effect<A, E, ActivityActor>,
+    actor = ActivityActor.user("user-2")
+  ) => {
+    const recorded: Array<RecordedActivity> = []
+    return Effect.gen(function* () {
+      const docs = yield* TicketDocs
+      yield* docs.create("acme", "project", ticketDocument("T-1"))
+      const result = yield* run(docs).pipe(
+        Effect.provideService(ActivityActor, actor)
+      )
+      return { recorded, result }
+    }).pipe(Effect.provide(testLayer(recordingTicketActivity(recorded))))
+  }
+
+  it.effect("records the diff as the acting user and stamps updatedBy", () =>
+    Effect.gen(function* () {
+      const { recorded, result } = yield* capture((docs) =>
+        docs.update("acme", "project", "T-1", (ticket) =>
+          Effect.succeed({
+            ...ticket,
+            status: ticketStatus("done"),
+            updatedAt: later
+          })
+        )
+      )
+      expect(result.updatedBy).toBe("user-2")
+      expect(recorded).toEqual([
+        {
+          document: {
+            kind: "ticket",
+            id: "T-1",
+            content: expect.stringContaining("status: done")
+          },
+          actor: ActivityActor.user("user-2"),
+          cause: null,
+          changes: [
+            {
+              ticketId: "T-1",
+              change: { kind: "status_changed", from: "todo", to: "done" }
+            }
+          ]
+        }
+      ])
+    })
+  )
+
+  it.effect("keeps updatedBy for system actors", () =>
+    Effect.gen(function* () {
+      const { recorded, result } = yield* capture(
+        (docs) =>
+          docs.update("acme", "project", "T-1", (ticket) =>
+            Effect.succeed({
+              ...ticket,
+              pr: 4,
+              prState: "merged" as const,
+              updatedAt: later
+            })
+          ),
+        ActivityActor.system("github")
+      )
+      expect(result.updatedBy).toBe("user-1")
+      expect(recorded.map((entry) => entry.actor)).toEqual([
+        ActivityActor.system("github")
+      ])
+    })
+  )
+
+  it.effect(
+    "records nothing for comment-region writes or unchanged tickets",
+    () =>
+      Effect.gen(function* () {
+        const { recorded, result } = yield* capture((docs) =>
+          docs
+            .update("acme", "project", "T-1", (ticket) =>
+              Effect.succeed({
+                ...ticket,
+                commentsRegion: "<!-- comments:start -->\n<!-- comments:end -->"
+              })
+            )
+            .pipe(
+              Effect.andThen(
+                docs.update("acme", "project", "T-1", (ticket) =>
+                  Effect.succeed(ticket)
+                )
+              )
+            )
+        )
+        expect(result.updatedBy).toBe("user-1")
+        expect(recorded).toEqual([])
+      })
+  )
+
+  it.effect("passes the cause, appends extra changes, and honours silent", () =>
+    Effect.gen(function* () {
+      const { recorded } = yield* capture((docs) =>
+        docs
+          .update(
+            "acme",
+            "project",
+            "T-1",
+            (ticket) =>
+              Effect.succeed({ ...ticket, title: "Renamed", updatedAt: later }),
+            undefined,
+            {
+              cause: "status_removed",
+              extra: [{ kind: "split", into: [ticketId("T-2")] }]
+            }
+          )
+          .pipe(
+            Effect.andThen(
+              docs.update(
+                "acme",
+                "project",
+                "T-1",
+                (ticket) =>
+                  Effect.succeed({
+                    ...ticket,
+                    title: "Again",
+                    updatedAt: later
+                  }),
+                undefined,
+                { silent: true }
+              )
+            )
+          )
+      )
+      expect(recorded).toHaveLength(1)
+      expect(recorded[0].cause).toBe("status_removed")
+      expect(recorded[0].changes.map((entry) => entry.change.kind)).toEqual([
+        "title_changed",
+        "split"
+      ])
+    })
   )
 })

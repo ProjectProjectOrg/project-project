@@ -44,6 +44,7 @@
 
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import {
+  ActivityActor,
   Authentication,
   CurrentUser,
   type EditorPreference,
@@ -116,18 +117,21 @@ export const AuthenticationLive = Layer.effect(
           const personalEverhour = yield* ba
             .getPersonalEverhour(id)
             .pipe(Effect.orDie)
-          return yield* Effect.provideService(httpEffect, CurrentUser, {
-            id,
-            email,
-            name,
-            username,
-            image: image ?? null,
-            createdAt,
-            activeOrgSlug,
-            personalGithub,
-            editorPreference,
-            personalEverhour
-          })
+          return yield* httpEffect.pipe(
+            Effect.provideService(ActivityActor, ActivityActor.user(id)),
+            Effect.provideService(CurrentUser, {
+              id,
+              email,
+              name,
+              username,
+              image: image ?? null,
+              createdAt,
+              activeOrgSlug,
+              personalGithub,
+              editorPreference,
+              personalEverhour
+            })
+          )
         })
     })
   })

@@ -25,6 +25,10 @@ import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
 import { accessLayer, projectScope } from "../access/testing"
+import {
+  recordingActivityLayer,
+  type RecordedActivity
+} from "../activity/testing"
 import { Attachments, type AttachmentsShape } from "../attachments/Attachments"
 import { Comments, type CommentsShape } from "../comments/Comments"
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
@@ -102,6 +106,8 @@ const FakeProjects = Layer.succeed(Projects, {
   cancelPendingMember: () => unexpected("Projects.cancelPendingMember"),
   unassignUserFromActiveTickets: () =>
     unexpected("Projects.unassignUserFromActiveTickets"),
+  unassignUserFromOrgTickets: () =>
+    unexpected("Projects.unassignUserFromOrgTickets"),
   connectGithub: () => unexpected("Projects.connectGithub"),
   disconnectGithub: () => unexpected("Projects.disconnectGithub")
 } satisfies ProjectsShape)
@@ -324,6 +330,7 @@ const TestLayer = Layer.unwrap(
       Layer.provide(Layer.mock(ProjectDocs, {})),
       Layer.provide(PassthroughLibrary),
       Layer.provideMerge(TicketDocsLive),
+      Layer.provideMerge(recordingActivityLayer(recordedActivity)),
       Layer.provide(FakeAttachments),
       Layer.provide(FakeFigmaLinks),
       Layer.provide(FakeProjects),
@@ -357,7 +364,15 @@ const TestLayer = Layer.unwrap(
   })
 ).pipe(Layer.provideMerge(BunServices.layer))
 
+const recordedActivity: Array<RecordedActivity> = []
+
+const splitActivity = () =>
+  recordedActivity
+    .flatMap((batch) => batch.changes)
+    .filter((entry) => entry.change.kind === "split")
+
 const resetFakes = Effect.sync(() => {
+  recordedActivity.length = 0
   sprintAssignments.length = 0
   sprintAssignmentAnchors.length = 0
   sprintMemberships.clear()
@@ -445,6 +460,15 @@ it.effect("split retains the original and creates the remaining tickets", () =>
     expect(sprintAssignmentAnchors).toEqual([
       original.id,
       outcome.created[0].id
+    ])
+    expect(splitActivity()).toEqual([
+      {
+        ticketId: original.id,
+        change: {
+          kind: "split",
+          into: outcome.created.map((created) => created.id)
+        }
+      }
     ])
   }).pipe(Effect.provide(TestLayer))
 )
@@ -598,6 +622,7 @@ it.effect(
       ])
       expect(yield* fs.exists(ticketFile(root, path, "T-2"))).toBe(false)
       expect(yield* fs.exists(ticketFile(root, path, "T-3"))).toBe(false)
+      expect(splitActivity()).toEqual([])
     }).pipe(Effect.provide(TestLayer))
 )
 

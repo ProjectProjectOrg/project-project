@@ -169,6 +169,7 @@ const projectMatrix: ReadonlyArray<
   ["projects.gitStates", ["pm", "developer", "orgAdmin"]],
   ["tickets.archive", ["pm", "developer", "client"]],
   ["tickets.delete", ["pm"]],
+  ["ticketActivity.list", ["pm", "developer", "client", "orgAdmin"]],
   ["library.createProjectTemplate", ["pm"]],
   ["library.hideProjectTemplate", ["pm"]],
   ["library.setTemplateDefaults", ["pm"]]

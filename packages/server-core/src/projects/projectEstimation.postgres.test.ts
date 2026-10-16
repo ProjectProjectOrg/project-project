@@ -3,7 +3,12 @@ import { randomUUID } from "node:crypto"
 import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { DbLive, migrationsFolder } from "@pp/db"
-import { DEFAULT_TICKET_SORT, ProjectScope, Validation } from "@pp/shared"
+import {
+  ActivityActor,
+  DEFAULT_TICKET_SORT,
+  ProjectScope,
+  Validation
+} from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as DateTime from "effect/DateTime"
@@ -14,6 +19,7 @@ import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import { accessLayer, projectScope } from "../access/testing"
+import { testActivityLayer } from "../activity/testing"
 import { Attachments } from "../attachments/Attachments"
 import { Comments } from "../comments/Comments"
 import { FigmaLinks } from "../figma/FigmaLinks"
@@ -107,6 +113,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
     layer = TicketsLive.pipe(
       Layer.provideMerge(projectsOnPostgres(databaseUrl, [id], {}, docs)),
       Layer.provide(docs),
+      Layer.provide(testActivityLayer(id)),
       Layer.provide(db),
       Layer.provide(TicketDocumentLock.layer),
       Layer.provide(accessLayer({})),
@@ -180,6 +187,10 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
         expect((yield* tickets.count({ estimate: ["any"] })).total).toBe(0)
         yield* projects.update({ estimation: "points" })
         expect(document.estimation).toBe("points")
-      }).pipe(Effect.provideService(ProjectScope, scope), Effect.provide(layer))
+      }).pipe(
+        Effect.provideService(ProjectScope, scope),
+        Effect.provideService(ActivityActor, ActivityActor.user(id)),
+        Effect.provide(layer)
+      )
   )
 })

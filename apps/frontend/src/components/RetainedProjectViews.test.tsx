@@ -163,3 +163,43 @@ it.each([
     expect(screen.getByTestId("query").textContent).not.toContain('"estimate"')
   }
 )
+
+it("replaces estimate sorting in an old URL while estimation is off", async () => {
+  project.estimation.mockReturnValue("off")
+  const router = await openView(
+    "backlog",
+    '?sort={"key":"estimate","dir":"asc"}&q=hello&cursor=old'
+  )
+  await waitFor(() =>
+    expect(router.state.location.search.sort).toEqual({
+      key: "created",
+      dir: "desc"
+    })
+  )
+  expect(router.state.location.search.cursor).toBeUndefined()
+  expect(router.state.location.search.q).toBe("hello")
+  expect(screen.getByTestId("query").textContent).toContain(
+    '"sort":{"key":"created","dir":"desc"}'
+  )
+})
+
+it("resets estimate sorting when estimation is turned off", async () => {
+  project.estimation.mockReturnValue("points")
+  const router = await openView(
+    "sprint",
+    '?sort={"key":"estimate","dir":"asc"}'
+  )
+  project.estimation.mockReturnValue("off")
+  await act(async () => {
+    await router.invalidate()
+  })
+  await waitFor(() =>
+    expect(router.state.location.search.sort).toEqual({
+      key: "created",
+      dir: "desc"
+    })
+  )
+  expect(screen.getByTestId("query").textContent).toContain(
+    '"sort":{"key":"created","dir":"desc"}'
+  )
+})

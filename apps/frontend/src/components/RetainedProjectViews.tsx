@@ -4,7 +4,10 @@ import * as Schema from "effect/Schema"
 import { Activity, useEffect, useMemo, useState } from "react"
 
 import { useProjectView } from "@/hooks/useViewPreference"
-import { normalizeEstimateFilter } from "@/lib/estimate-meta"
+import {
+  normalizeEstimateFilter,
+  normalizeEstimateSort
+} from "@/lib/estimate-meta"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 
 import { SprintDetail } from "./sprints/SprintDetail"
@@ -71,7 +74,7 @@ export function RetainedProjectViews({
         hasPr: nextSearch.hasPr,
         updatedAfter: nextSearch.updatedAfter,
         archived: nextSearch.archived,
-        sort: nextSearch.sort,
+        sort: normalizeEstimateSort(estimation, query.sort),
         q: nextSearch.q,
         cursor: undefined,
         view: previous.view
@@ -80,6 +83,10 @@ export function RetainedProjectViews({
       resetScroll: false
     })
   }
+  const activeSort = (sprint ?? backlog)?.search.sort
+  const normalizedSort = activeSort
+    ? normalizeEstimateSort(estimation, activeSort)
+    : undefined
   const activeEstimate = (sprint ?? backlog)?.search.estimate
   const normalizedEstimate = useMemo(
     () => normalizeEstimateFilter(estimation, activeEstimate),
@@ -87,8 +94,9 @@ export function RetainedProjectViews({
   )
   useEffect(() => {
     if (
-      !activeEstimate?.length ||
-      normalizedEstimate?.length === activeEstimate.length
+      (!activeEstimate?.length ||
+        normalizedEstimate?.length === activeEstimate.length) &&
+      normalizedSort === activeSort
     )
       return
     void navigate({
@@ -97,12 +105,20 @@ export function RetainedProjectViews({
         ...previous,
         updatedAfter: previous.updatedAfter?.toISOString(),
         estimate: normalizedEstimate,
+        sort: normalizedSort,
         cursor: undefined
       }),
       replace: true,
       resetScroll: false
     })
-  }, [normalizedEstimate, activeEstimate, navigate, router])
+  }, [
+    normalizedEstimate,
+    activeEstimate,
+    normalizedSort,
+    activeSort,
+    navigate,
+    router
+  ])
   const backlogView = useProjectView(
     orgSlug,
     slug,
@@ -120,6 +136,7 @@ export function RetainedProjectViews({
     const { view: _view, ...query } = lastBacklog
     return {
       ...query,
+      sort: normalizeEstimateSort(estimation, query.sort),
       estimate: normalizeEstimateFilter(estimation, query.estimate)
     }
   }, [lastBacklog, estimation])
@@ -129,6 +146,7 @@ export function RetainedProjectViews({
     const { view: _view, ...query } = lastSprint.search
     return {
       ...query,
+      sort: normalizeEstimateSort(estimation, query.sort),
       estimate: normalizeEstimateFilter(estimation, query.estimate),
       groupId: sprintId ? [sprintId] : query.groupId
     }

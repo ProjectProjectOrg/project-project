@@ -1,4 +1,5 @@
 import type {
+  ActivityActor,
   AttachBranchInput,
   ClearStaleEstimatesResult,
   SprintCompletedImmutable,
@@ -60,35 +61,29 @@ type GitHubFailure =
   | RateLimited
   | GitHubError
 
-export interface TicketsShape {
-  readonly mine: (
-    query: MyTicketsQuery
-  ) => Effect.Effect<OrgTicketPage, never, OrgScope>
-  readonly mineByProject: () => Effect.Effect<
+export type TicketsShape = Readonly<{
+  mine: (query: MyTicketsQuery) => Effect.Effect<OrgTicketPage, never, OrgScope>
+  mineByProject: () => Effect.Effect<
     ReadonlyArray<ProjectTicketsPreview>,
     never,
     OrgScope
   >
-  readonly recent: () => Effect.Effect<
-    ReadonlyArray<RecentTicketRow>,
-    never,
-    OrgScope
-  >
-  readonly sections: (
+  recent: () => Effect.Effect<ReadonlyArray<RecentTicketRow>, never, OrgScope>
+  sections: (
     query: TicketListQuery
   ) => Effect.Effect<
     TicketSections,
     Forbidden | NotFound | MarkdownError,
     ProjectScope
   >
-  readonly sprintSections: (
+  sprintSections: (
     query: TicketListQuery
   ) => Effect.Effect<
     TicketSprintSections,
     Forbidden | NotFound | MarkdownError,
     ProjectScope
   >
-  readonly list: (
+  list: (
     query: TicketListQuery,
     limit?: number
   ) => Effect.Effect<
@@ -96,50 +91,50 @@ export interface TicketsShape {
     Forbidden | NotFound | MarkdownError,
     ProjectScope
   >
-  readonly count: (
+  count: (
     query: TicketCountQuery
   ) => Effect.Effect<
     TicketCounts,
     Forbidden | NotFound | MarkdownError,
     ProjectScope
   >
-  readonly search: (
+  search: (
     options: TicketSearchQuery
   ) => Effect.Effect<
     ReadonlyArray<Ticket>,
     NotFound | MarkdownError,
     ProjectScope
   >
-  readonly listInGroup: (
+  listInGroup: (
     groupId: string
   ) => Effect.Effect<
     ReadonlyArray<Ticket>,
     NotFound | MarkdownError,
     ProjectScope
   >
-  readonly tagUsageCounts: () => Effect.Effect<
+  tagUsageCounts: () => Effect.Effect<
     Readonly<Record<string, number>>,
     never,
     ProjectScope
   >
-  readonly get: (
+  get: (
     id: string
   ) => Effect.Effect<TicketDetail, TicketReadError, ProjectScope>
-  readonly quickCreate: (
+  quickCreate: (
     input: QuickCreateTicketInput
   ) => Effect.Effect<
     TicketDetail,
     Forbidden | NotFound | Validation | MentionInvalid | MarkdownError,
     ProjectScope
   >
-  readonly create: (
+  create: (
     input: CreateTicketInput
   ) => Effect.Effect<
     TicketDetail,
     Forbidden | NotFound | Validation | MentionInvalid | MarkdownError,
     ProjectScope
   >
-  readonly update: (
+  update: (
     id: string,
     input: UpdateTicketInput,
     sort?: TicketSort,
@@ -147,14 +142,14 @@ export interface TicketsShape {
   ) => Effect.Effect<
     TicketUpdateResult,
     Forbidden | TicketReadError | Validation | MentionInvalid,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
-  readonly clearStaleEstimates: () => Effect.Effect<
+  clearStaleEstimates: () => Effect.Effect<
     ClearStaleEstimatesResult,
     Forbidden | TicketReadError,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
-  readonly moveInGroup: (
+  moveInGroup: (
     groupId: string,
     input: UpdateTicketOrderInput
   ) => Effect.Effect<
@@ -164,9 +159,9 @@ export interface TicketsShape {
     | SprintCompletedImmutable
     | Validation
     | MarkdownError,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
-  readonly split: (
+  split: (
     id: string,
     input: SplitTicketInput
   ) => Effect.Effect<
@@ -177,71 +172,84 @@ export interface TicketsShape {
     | Validation
     | MentionInvalid
     | SprintCompletedImmutable,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
-  readonly remove: (
+  remove: (
     id: string
-  ) => Effect.Effect<void, NotFound | MarkdownError, ProjectScope>
-  readonly archive: (
+  ) => Effect.Effect<
+    void,
+    NotFound | MarkdownError,
+    ProjectScope | ActivityActor
+  >
+  archive: (
     id: string,
     reason?: string
   ) => Effect.Effect<
     TicketDetail,
     Forbidden | TicketReadError | MentionInvalid | InvalidCommentBody,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
-  readonly unarchive: (
+  unarchive: (
     id: string
-  ) => Effect.Effect<TicketDetail, Forbidden | TicketReadError, ProjectScope>
-  readonly replaceTag: (
+  ) => Effect.Effect<
+    TicketDetail,
+    Forbidden | TicketReadError,
+    ProjectScope | ActivityActor
+  >
+  replaceTag: (
     orgSlug: string,
     slug: string,
     id: string,
     oldName: string,
     newName: string | null
-  ) => Effect.Effect<boolean, TicketReadError>
-  readonly replaceStatus: (
+  ) => Effect.Effect<boolean, TicketReadError, ActivityActor>
+  replaceStatus: (
     orgSlug: string,
     slug: string,
     id: string,
-    newStatus: string
-  ) => Effect.Effect<boolean, TicketReadError>
-  readonly createBranch: (
+    newStatus: string,
+    reason: "renamed" | "removed"
+  ) => Effect.Effect<boolean, TicketReadError, ActivityActor>
+  createBranch: (
     id: string,
     input: CreateBranchInput
   ) => Effect.Effect<
     TicketDetail,
     TicketReadError | Conflict | BranchExists | BranchProtected | GitHubFailure,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
-  readonly attachBranch: (
+  attachBranch: (
     id: string,
     input: AttachBranchInput
   ) => Effect.Effect<
     TicketDetail,
     TicketReadError | Conflict | BranchNotFound | GitHubFailure,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
-  readonly openPr: (
+  openPr: (
     id: string,
     input: OpenPrInput
   ) => Effect.Effect<
     OpenPrResult,
     TicketReadError | Conflict | BranchProtected | GitHubFailure,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
-  readonly clearBranch: (
+  clearBranch: (
     id: string
-  ) => Effect.Effect<TicketDetail, TicketReadError, ProjectScope>
-  readonly getGitState: (
+  ) => Effect.Effect<
+    TicketDetail,
+    TicketReadError,
+    ProjectScope | ActivityActor
+  >
+  getGitState: (
     ticketId: string | undefined
   ) => Effect.Effect<GitStatesResponse, NotFound | MarkdownError, ProjectScope>
-  readonly listGitStates: () => Effect.Effect<
+  listGitStates: () => Effect.Effect<
     GitStatesResponse,
     NotFound | MarkdownError,
     ProjectScope
   >
-}
+}>
 
 export class Tickets extends Context.Service<Tickets, TicketsShape>()(
   "@pp/server-core/tickets/Tickets"

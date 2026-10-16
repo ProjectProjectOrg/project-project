@@ -1,6 +1,7 @@
 import { it } from "@effect/vitest"
 import { Db } from "@pp/db"
 import {
+  ActivityActor,
   DEFAULT_TICKET_SORT,
   Group,
   matchesTicketQuery,
@@ -33,6 +34,7 @@ import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
 import { accessLayer, projectScope } from "../access/testing"
+import { asUser, passthroughTicketActivity } from "../activity/testing"
 import { Attachments, type AttachmentsShape } from "../attachments/Attachments"
 import { Comments, type CommentsShape } from "../comments/Comments"
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
@@ -202,6 +204,8 @@ function makeFakeProjects(key: string, overrides: Partial<ProjectsShape> = {}) {
     cancelPendingMember: () => unexpected("Projects.cancelPendingMember"),
     unassignUserFromActiveTickets: () =>
       unexpected("Projects.unassignUserFromActiveTickets"),
+    unassignUserFromOrgTickets: () =>
+      unexpected("Projects.unassignUserFromOrgTickets"),
     connectGithub: () => unexpected("Projects.connectGithub"),
     disconnectGithub: () => unexpected("Projects.disconnectGithub"),
     ...overrides
@@ -243,7 +247,8 @@ const testInfra = (scope = defaultScope) =>
     }),
     TicketDocumentLock.layer,
     accessLayer({}),
-    Layer.succeed(ProjectScope, scope)
+    Layer.succeed(ProjectScope, scope),
+    Layer.succeed(ActivityActor, ActivityActor.user(scope.userId))
   )
 
 const FakeDb = Layer.succeed(
@@ -676,6 +681,7 @@ function makeTicketsLayer(
   key: string,
   ticketDocsLayer: Layer.Layer<TicketDocs>,
   options: {
+    readonly projectDocs?: Layer.Layer<ProjectDocs>
     readonly projects?: Layer.Layer<Projects>
     readonly groups?: Layer.Layer<Groups>
     readonly github?: Layer.Layer<GitHub>
@@ -687,7 +693,9 @@ function makeTicketsLayer(
 ) {
   return TicketsLive.pipe(
     Layer.provide(PassthroughLibrary),
+    Layer.provide(passthroughTicketActivity),
     Layer.provide(ticketDocsLayer),
+    Layer.provide(options.projectDocs ?? Layer.empty),
     Layer.provide(options.projects ?? makeFakeProjects(key)),
     Layer.provide(options.groups ?? FakeGroups),
     Layer.provide(FakeComments),
@@ -720,6 +728,7 @@ it.effect("listGitStates fetches only distinct ticket branches", () => {
   const fetchedBranches: string[][] = []
   const layer = TicketsLive.pipe(
     Layer.provide(PassthroughLibrary),
+    Layer.provide(passthroughTicketActivity),
     Layer.provide(docs.layer),
     Layer.provide(
       makeFakeProjects("T", {
@@ -784,6 +793,7 @@ it.effect(
     })
     const layer = TicketsLive.pipe(
       Layer.provide(PassthroughLibrary),
+      Layer.provide(passthroughTicketActivity),
       Layer.provide(docs.layer),
       Layer.provide(
         makeFakeProjects("T", {
@@ -2250,7 +2260,11 @@ it.effect(
                 commentsRegion: "Concurrent comment"
               })
             )
-            .pipe(Effect.as({ name: "feat/T-1", sha: "abc123" }), Effect.orDie)
+            .pipe(
+              asUser("user-1"),
+              Effect.as({ name: "feat/T-1", sha: "abc123" }),
+              Effect.orDie
+            )
       })
     })
     return Effect.gen(function* () {
@@ -2696,6 +2710,97 @@ it.effect(
         value: 5
       })
       expect(yield* tickets.clearStaleEstimates()).toEqual({ cleared: 0 })
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "preserves estimates made current by a mode change during bulk cleanup",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    docs.documents.set(
+      "T-1",
+      makeTicketDocument("T-1", { estimate: { unit: "time", minutes: 60 } })
+    )
+    let switched = false
+    const layer = makeTicketsLayer("T", docs.layer, {
+      projectDocs: Layer.mock(ProjectDocs, {
+        read: (_org, slug) =>
+          Effect.succeed({
+            slug,
+            name: slug,
+            icon: "folder",
+            color: "#3b82f6",
+            createdAt: isoDate("2026-01-01T00:00:00Z"),
+            github: null,
+            estimation: switched ? "time" : "points",
+            body: "",
+            templateDefaults: {},
+            setup: {
+              workflowReviewedAt: null,
+              invitePeopleDismissedAt: null,
+              connectGithubDismissedAt: null
+            }
+          })
+      }),
+      ticketIndex: makeFakeTicketIndex(docs.documents, {
+        query: () =>
+          Effect.sync(() => {
+            switched = true
+            const current = docs.documents.get("T-1")
+            if (!current) throw new Error("Ticket fixture missing")
+            return [
+              { entry: entryFromDocument(current), sortValue: "", orderKey: "" }
+            ]
+          })
+      })
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      expect(yield* tickets.clearStaleEstimates()).toEqual({ cleared: 0 })
+      expect(docs.documents.get("T-1")?.estimate).toEqual({
+        unit: "time",
+        minutes: 60
+      })
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "preserves an estimate changed to the current unit after cleanup selection",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    docs.documents.set(
+      "T-1",
+      makeTicketDocument("T-1", { estimate: { unit: "time", minutes: 60 } })
+    )
+    const layer = makeTicketsLayer("T", docs.layer, {
+      ticketIndex: makeFakeTicketIndex(docs.documents, {
+        query: () =>
+          Effect.sync(() => {
+            const previous = docs.documents.get("T-1")
+            if (!previous) throw new Error("Ticket fixture missing")
+            docs.documents.set("T-1", {
+              ...previous,
+              estimate: { unit: "points", value: 8 }
+            })
+            return [
+              {
+                entry: entryFromDocument(previous),
+                sortValue: "",
+                orderKey: ""
+              }
+            ]
+          })
+      })
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      expect(yield* tickets.clearStaleEstimates()).toEqual({ cleared: 0 })
+      expect(docs.documents.get("T-1")?.estimate).toEqual({
+        unit: "points",
+        value: 8
+      })
     }).pipe(Effect.provide(layer))
   }
 )

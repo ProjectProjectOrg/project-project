@@ -12,36 +12,36 @@ import type * as Effect from "effect/Effect"
 
 import type { MarkdownError } from "../markdown/Markdown"
 
-export interface ProjectDocument {
-  readonly org?: Slug
-  readonly slug: Slug
-  readonly key?: ProjectKey
-  readonly name: string
-  readonly icon: string
-  readonly color: string
-  readonly createdBy?: string
-  readonly createdAt: Date
-  readonly github: GithubConnection | null
-  readonly estimation: EstimationMode
-  readonly setup: ProjectSetup
-  readonly templateDefaults: PartialTemplateDefaults
-  readonly body: string
-}
+export type ProjectDocument = Readonly<{
+  org?: Slug
+  slug: Slug
+  key?: ProjectKey
+  name: string
+  icon: string
+  color: string
+  createdBy?: string
+  createdAt: Date
+  github: GithubConnection | null
+  estimation: EstimationMode
+  setup: ProjectSetup
+  templateDefaults: PartialTemplateDefaults
+  body: string
+}>
 
-export interface ProjectDocumentWrite {
-  readonly org: string
-  readonly slug: string
-  readonly key: ProjectKey
-  readonly name: string
-  readonly icon: string
-  readonly color: string
-  readonly createdBy: string
-  readonly createdAt: Date
-  readonly github: GithubConnection | null
-  readonly estimation: EstimationMode
-  readonly setup: ProjectSetup
-  readonly body: string
-}
+export type ProjectDocumentWrite = Readonly<{
+  org: string
+  slug: string
+  key: ProjectKey
+  name: string
+  icon: string
+  color: string
+  createdBy: string
+  createdAt: Date
+  github: GithubConnection | null
+  estimation: EstimationMode
+  setup: ProjectSetup
+  body: string
+}>
 
 export interface ProjectDocsShape {
   readonly read: (

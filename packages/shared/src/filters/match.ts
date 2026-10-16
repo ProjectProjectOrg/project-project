@@ -8,20 +8,20 @@ import type {
 import type { UserId } from "../schemas/User"
 import type { TicketFilter, TicketListQuery } from "./Ticket"
 
-export interface MatchableTicket {
-  readonly id: string
-  readonly title: string
-  readonly status: TicketStatus
-  readonly type: TicketType
-  readonly tags: ReadonlyArray<string>
-  readonly branch: string | null
-  readonly pr: number | null
-  readonly prState?: PullRequestState | null
-  readonly assignees: ReadonlyArray<string>
-  readonly estimate: Estimate | null
-  readonly archivedAt: Date | null
-  readonly updatedAt: Date
-}
+export type MatchableTicket = Readonly<{
+  id: string
+  title: string
+  status: TicketStatus
+  type: TicketType
+  tags: ReadonlyArray<string>
+  branch: string | null
+  pr: number | null
+  prState?: PullRequestState | null
+  assignees: ReadonlyArray<string>
+  estimate: Estimate | null
+  archivedAt: Date | null
+  updatedAt: Date
+}>
 
 export const matchesTicketFilter = (
   ticket: MatchableTicket,

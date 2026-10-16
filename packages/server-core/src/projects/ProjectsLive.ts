@@ -18,6 +18,7 @@ import {
   OrgScope,
   ProjectScope,
   Validation,
+  type ActivityActor,
   type ProjectScopeShape
 } from "@pp/shared"
 import { and, asc, eq, gt, inArray, sql as sqlFragment } from "drizzle-orm"
@@ -31,8 +32,10 @@ import { ulid } from "ulid"
 
 const decodeUserId = Schema.decodeSync(UserId)
 import { Db } from "@pp/db"
+import { publishedProject } from "@pp/db/projectVisibility"
 import {
   invitation,
+  organization,
   organizationGithubIntegration,
   organizationIntegration,
   projectGithubRepository,
@@ -1048,18 +1051,12 @@ export const ProjectsLive = Layer.effect(
       orgSlug: string,
       slug: string,
       userId: string
-    ): Effect.Effect<void> =>
+    ): Effect.Effect<void, never, ActivityActor> =>
       Effect.gen(function* () {
         const project = yield* ticketIndex
           .projectFor(orgSlug, slug)
           .pipe(Effect.orDie)
-        const tickets = yield* ticketIndex.list(project)
-        const ids = tickets
-          .filter(
-            (ticket) =>
-              ticket.status !== "done" && ticket.assignees.includes(userId)
-          )
-          .map((ticket) => ticket.id)
+        const ids = yield* ticketDocs.listIds(orgSlug, slug).pipe(Effect.orDie)
         yield* Effect.forEach(
           ids,
           (id) =>
@@ -1083,7 +1080,8 @@ export const ProjectsLive = Layer.effect(
                     }))
                   )
                 },
-                (next) => ticketIndex.upsertTicket(project, next)
+                (next) => ticketIndex.upsertTicket(project, next),
+                { cause: "member_removed" }
               )
               .pipe(
                 Effect.catchTag("NotFound", () => Effect.succeed(null)),
@@ -1104,11 +1102,33 @@ export const ProjectsLive = Layer.effect(
         )
       })
 
+    const unassignUserFromOrgTickets = (
+      orgSlug: string,
+      userId: string
+    ): Effect.Effect<void, never, ActivityActor> =>
+      Effect.gen(function* () {
+        const projects = yield* db
+          .select({ slug: projectIndex.slug })
+          .from(projectIndex)
+          .innerJoin(
+            organization,
+            eq(organization.id, projectIndex.organizationId)
+          )
+          .where(and(eq(organization.slug, orgSlug), publishedProject()))
+          .pipe(Effect.orDie)
+        yield* Effect.forEach(
+          projects,
+          (project) =>
+            unassignUserFromActiveTickets(orgSlug, project.slug, userId),
+          { concurrency: 4, discard: true }
+        )
+      })
+
     const withClearedTicketPrMetadata = <A, E, R>(
       orgSlug: string,
       slug: string,
       switchRepository: Effect.Effect<A, E, R>
-    ): Effect.Effect<A, E | MarkdownError, R> =>
+    ): Effect.Effect<A, E | MarkdownError, R | ActivityActor> =>
       Effect.gen(function* () {
         const project = yield* ticketIndex
           .projectFor(orgSlug, slug)
@@ -1161,7 +1181,8 @@ export const ProjectsLive = Layer.effect(
                   Effect.gen(function* () {
                     originals.push(ticket)
                     yield* ticketIndex.upsertTicket(project, updated)
-                  })
+                  }),
+                { silent: true }
               )
               .pipe(
                 Effect.catchTags({
@@ -1192,7 +1213,8 @@ export const ProjectsLive = Layer.effect(
                       lastTransitionedPr: ticket.lastTransitionedPr,
                       updatedAt: ticket.updatedAt
                     }),
-                  (restored) => ticketIndex.upsertTicket(project, restored)
+                  (restored) => ticketIndex.upsertTicket(project, restored),
+                  { silent: true }
                 ),
               { discard: true }
             ).pipe(Effect.orDie)
@@ -1883,6 +1905,7 @@ export const ProjectsLive = Layer.effect(
       leave,
       cancelPendingMember,
       unassignUserFromActiveTickets,
+      unassignUserFromOrgTickets,
       connectGithub,
       disconnectGithub
     } satisfies ProjectsShape

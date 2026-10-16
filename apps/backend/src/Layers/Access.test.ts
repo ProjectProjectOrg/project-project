@@ -5,6 +5,7 @@ import {
   projectScope
 } from "@pp/server-core/access/testing"
 import {
+  ActivityActor,
   Authentication,
   CurrentUser,
   IncludeDeletedOrg,
@@ -135,7 +136,10 @@ const user = Schema.decodeSync(User)({
 
 const AuthenticationStub = Layer.succeed(Authentication, {
   sessionCookie: (httpEffect) =>
-    Effect.provideService(httpEffect, CurrentUser, user)
+    httpEffect.pipe(
+      Effect.provideService(CurrentUser, user),
+      Effect.provideService(ActivityActor, ActivityActor.user(user.id))
+    )
 })
 
 type Scopes = Readonly<{

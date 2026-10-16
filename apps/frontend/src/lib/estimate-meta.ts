@@ -1,4 +1,5 @@
 import {
+  DEFAULT_TICKET_SORT,
   ESTIMATE_MAX_MINUTES,
   ESTIMATE_MAX_POINTS,
   ESTIMATE_SIZES,
@@ -6,6 +7,7 @@ import {
   type EstimateFilterValue,
   type EstimateSummary,
   type EstimateUnit,
+  type TicketSort,
   type EstimationMode
 } from "@pp/shared"
 import * as Match from "effect/Match"
@@ -68,6 +70,12 @@ export const normalizeEstimateFilter = (
   const normalized = values?.filter((value) => supported.includes(value))
   return normalized?.length ? normalized : undefined
 }
+
+export const normalizeEstimateSort = (
+  mode: EstimationMode,
+  sort: TicketSort
+): TicketSort =>
+  mode === "off" && sort.key === "estimate" ? DEFAULT_TICKET_SORT : sort
 
 export const estimateFilterLabel = (value: EstimateFilterValue): string => {
   switch (value) {
