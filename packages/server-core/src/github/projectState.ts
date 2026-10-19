@@ -94,6 +94,10 @@ const DISCOVER_BRANCHES_QUERY = /* GraphQL */ `
             id
           }
         }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
       }
       refs(
         refPrefix: "refs/heads/"
@@ -104,6 +108,35 @@ const DISCOVER_BRANCHES_QUERY = /* GraphQL */ `
       ) {
         nodes {
           name
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+`
+
+const OPEN_PULL_REQUESTS_QUERY = /* GraphQL */ `
+  query OpenPullRequests($owner: String!, $name: String!, $after: String!) {
+    repository(owner: $owner, name: $name) {
+      pullRequests(
+        states: [OPEN]
+        first: 100
+        after: $after
+        orderBy: { field: UPDATED_AT, direction: DESC }
+      ) {
+        nodes {
+          headRefName
+          title
+          body
+          headRepository {
+            id
+          }
+          baseRepository {
+            id
+          }
         }
         pageInfo {
           hasNextPage
@@ -166,13 +199,27 @@ const OpenPullRequestTextSchema = Schema.Struct({
   baseRepository: Schema.NullOr(Schema.Struct({ id: Schema.String }))
 })
 
+const OpenPullRequestConnectionSchema = Schema.Struct({
+  nodes: Schema.Array(OpenPullRequestTextSchema),
+  pageInfo: Schema.Struct({
+    hasNextPage: Schema.Boolean,
+    endCursor: Schema.NullOr(Schema.String)
+  })
+})
+
+const decodeOpenPullRequestsResponse = Schema.decodeUnknownEffect(
+  Schema.Struct({
+    repository: Schema.NullOr(
+      Schema.Struct({ pullRequests: OpenPullRequestConnectionSchema })
+    )
+  })
+)
+
 const DiscoveredBranchesResponseSchema = Schema.Struct({
   repository: Schema.NullOr(
     Schema.Struct({
       defaultBranchRef: Schema.NullOr(Schema.Struct({ name: Schema.String })),
-      pullRequests: Schema.optional(
-        Schema.Struct({ nodes: Schema.Array(OpenPullRequestTextSchema) })
-      ),
+      pullRequests: Schema.optional(OpenPullRequestConnectionSchema),
       refs: Schema.Struct({
         nodes: Schema.Array(Schema.Struct({ name: Schema.String })),
         pageInfo: Schema.Struct({
@@ -476,9 +523,10 @@ export const fetchProjectStatesWithToken = (
       const seenCursors = new Set<string>()
       let after: string | null = null
       let defaultBranch: string | null = null
-      let openPullRequests: ReadonlyArray<
-        typeof OpenPullRequestTextSchema.Type
-      > = []
+      const openPullRequests: Array<typeof OpenPullRequestTextSchema.Type> = []
+      let openPullRequestPage:
+        | typeof OpenPullRequestConnectionSchema.Type.pageInfo
+        | null = null
       let discoveryPages = 0
       do {
         const response = yield* GitHubRequest.githubRequest(
@@ -510,7 +558,10 @@ export const fetchProjectStatesWithToken = (
         const repository = decoded.repository
         if (!repository) return yield* new RepoGone()
         defaultBranch ??= repository.defaultBranchRef?.name ?? "main"
-        openPullRequests = repository.pullRequests?.nodes ?? openPullRequests
+        if (repository.pullRequests) {
+          openPullRequests.push(...repository.pullRequests.nodes)
+          openPullRequestPage = repository.pullRequests.pageInfo
+        }
         discoveredBranches.push(
           ...repository.refs.nodes.map((branch) => branch.name)
         )
@@ -536,15 +587,55 @@ export const fetchProjectStatesWithToken = (
         after = pageInfo.endCursor
       } while (true)
 
-      openPullRequestText = new Map(
-        openPullRequests
-          .filter(
-            (pr) =>
-              pr.headRefName !== defaultBranch &&
-              isSameRepositoryPullRequest(pr) &&
-              pullRequestTextMentionsTicketId(pr)
+      const seenPullRequestCursors = new Set<string>()
+      let pullRequestPages = 1
+      while (openPullRequestPage?.hasNextPage) {
+        const cursor = openPullRequestPage.endCursor
+        if (
+          cursor === null ||
+          seenPullRequestCursors.has(cursor) ||
+          pullRequestPages >= PROJECT_STATE_DISCOVERY_PAGE_LIMIT
+        ) {
+          break
+        }
+        seenPullRequestCursors.add(cursor)
+        pullRequestPages += 1
+        const response = yield* GitHubRequest.githubRequest(
+          {
+            tokenSource,
+            scopeKey,
+            operation: "discoverOpenPullRequests",
+            repoOwner: owner,
+            repoName: name,
+            first: 100
+          },
+          (signal) =>
+            gql<unknown>(OPEN_PULL_REQUESTS_QUERY, {
+              owner,
+              name,
+              after: cursor,
+              request: { signal }
+            }),
+          narrow(["RepoGone", "RateLimited"] as const)
+        )
+        const decoded = yield* decodeOpenPullRequestsResponse(response).pipe(
+          Effect.mapError((cause) =>
+            GitHubError.invalidResponse("discoverProjectBranches", cause)
           )
-          .map((pr) => [pr.headRefName, { title: pr.title, body: pr.body }])
+        )
+        if (!decoded.repository) return yield* new RepoGone()
+        openPullRequests.push(...decoded.repository.pullRequests.nodes)
+        openPullRequestPage = decoded.repository.pullRequests.pageInfo
+      }
+
+      openPullRequestText = new Map(
+        openPullRequests.flatMap((pr) =>
+          pr.headRefName !== defaultBranch &&
+          isSameRepositoryPullRequest(pr) &&
+          pullRequestTextMentionsTicketId(pr)
+            ? [[pr.headRefName, { title: pr.title, body: pr.body }] as const]
+            : []
+        )
       )
       const explicitBranches = new Set(requestedBranches)
       requestedBranches = [

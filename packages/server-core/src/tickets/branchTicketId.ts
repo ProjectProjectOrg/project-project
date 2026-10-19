@@ -29,7 +29,6 @@ export const ticketIdsInText = (text: string): ReadonlySet<TicketId> =>
 
 export const ticketIdsInBranch = ticketIdsInText
 
-/** Ticket ids after a GitHub closing keyword, as in "Fixes T-12" or "Resolves ticket T-12". */
 export const closingTicketIdsInText = (text: string): ReadonlySet<TicketId> =>
   ticketIdsMatching(closingTicketIdPattern, text)
 

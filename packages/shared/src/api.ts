@@ -1993,7 +1993,7 @@ const GitAutomationGroup = HttpApiGroup.make("gitAutomation")
     }).annotate(RequiresProject, { github: ["read"] })
   )
   .add(
-    HttpApiEndpoint.put(
+    HttpApiEndpoint.patch(
       "update",
       "/orgs/:orgSlug/projects/:slug/git-automation",
       {

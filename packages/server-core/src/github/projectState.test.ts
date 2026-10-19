@@ -357,7 +357,7 @@ describe("projectState", () => {
   )
 
   it.effect(
-    "requests branches of open pull requests whose text names a ticket",
+    "requests branches of open pull requests whose text names a ticket, across pages",
     () =>
       Effect.gen(function* () {
         graphql
@@ -367,14 +367,24 @@ describe("projectState", () => {
               pullRequests: {
                 nodes: [
                   openPr("fix-login", "PP-18: fix login"),
-                  openPr("cleanup", "Cleanup", "Tidy up.\n\nFixes PP-19"),
                   openPr("docs", "Docs", "Related to PP-20"),
-                  openPr("fork-fix", "PP-21: fix", "", { id: "fork" }),
-                  openPr("main", "PP-22: release")
-                ]
+                  openPr("fork-fix", "PP-21: fix", "", { id: "fork" })
+                ],
+                pageInfo: { hasNextPage: true, endCursor: "pr-cursor-1" }
               },
               refs: {
                 nodes: [],
+                pageInfo: { hasNextPage: false, endCursor: null }
+              }
+            }
+          })
+          .mockResolvedValueOnce({
+            repository: {
+              pullRequests: {
+                nodes: [
+                  openPr("cleanup", "Cleanup", "Tidy up.\n\nFixes PP-19"),
+                  openPr("main", "PP-22: release")
+                ],
                 pageInfo: { hasNextPage: false, endCursor: null }
               }
             }
@@ -407,10 +417,13 @@ describe("projectState", () => {
         )
 
         expect(graphql.mock.calls[1]?.[1]).toMatchObject({
+          after: "pr-cursor-1"
+        })
+        expect(graphql.mock.calls[2]?.[1]).toMatchObject({
           headRefName0: "fix-login",
           headRefName1: "cleanup"
         })
-        expect(graphql.mock.calls[1]?.[1]).not.toHaveProperty("ref2")
+        expect(graphql.mock.calls[2]?.[1]).not.toHaveProperty("ref2")
         expect(states.openPullRequestText).toEqual(
           new Map([
             ["fix-login", { title: "PP-18: fix login", body: "" }],

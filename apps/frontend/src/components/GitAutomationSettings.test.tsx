@@ -59,7 +59,7 @@ const stored = {
   forwardOnly: false
 }
 
-it("saves the whole configuration when one rule changes", async () => {
+it("saves only the rule that changed", async () => {
   const saved: Array<unknown> = []
   fetchStub.set(async (input, init) => {
     const url = new URL(
@@ -69,12 +69,15 @@ it("saves the whole configuration when one rule changes", async () => {
     const request = input instanceof Request ? input : null
     const method = init?.method ?? request?.method ?? "GET"
     if (url.pathname.endsWith("/statuses")) return Response.json(statuses)
-    if (url.pathname.endsWith("/git-automation") && method === "PUT") {
+    if (url.pathname.endsWith("/git-automation") && method === "PATCH") {
       const body: unknown = JSON.parse(
         await (request ?? new Response(init?.body)).text()
       )
       saved.push(body)
-      return Response.json(body)
+      return Response.json({
+        ...stored,
+        rules: { ...stored.rules, pr_opened: "in_review" }
+      })
     }
     if (url.pathname.endsWith("/git-automation")) return Response.json(stored)
     return new Promise<Response>(() => {})
@@ -94,12 +97,7 @@ it("saves the whole configuration when one rule changes", async () => {
   fireEvent.click(await screen.findByRole("option", { name: "In review" }))
 
   await waitFor(() =>
-    expect(saved).toEqual([
-      {
-        rules: { ...stored.rules, pr_opened: "in_review" },
-        forwardOnly: false
-      }
-    ])
+    expect(saved).toEqual([{ rules: { pr_opened: "in_review" } }])
   )
 })
 

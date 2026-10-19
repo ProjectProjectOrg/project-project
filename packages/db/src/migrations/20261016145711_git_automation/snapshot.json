@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "d44945bb-4ab1-44b6-b324-c92f737f9b2c",
+  "id": "7fb4032b-211a-4736-a6eb-79b8e263470b",
   "prevIds": [
     "165e91de-549d-42a3-82ea-8114169827c7",
     "a3f9adeb-2372-4d56-a411-cd9eb276d7e8"
@@ -4100,6 +4100,19 @@
       "generated": null,
       "identity": null,
       "name": "pr_draft",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_index"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "pr_updated_at",
       "entityType": "columns",
       "schema": "public",
       "table": "ticket_index"

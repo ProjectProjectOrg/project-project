@@ -3,7 +3,11 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 
 import type { ProjectGitAutomationShape } from "../projects/ProjectGitAutomation"
-import { planGitAutomation } from "./gitAutomation"
+import {
+  gitAutomationEvent,
+  planGitAutomation,
+  type GitEventContext
+} from "./gitAutomation"
 import type { TicketDocsShape, TicketDocument } from "./TicketDocs"
 import type { TicketIndexProject, TicketIndexShape } from "./TicketIndex"
 
@@ -46,3 +50,20 @@ export const moveByGitAutomation = (
         Effect.provideService(ActivityActor, ActivityActor.system("github"))
       )
   })
+
+export const gitAutomationActivity = { statusCause: "git_automation" } as const
+
+export const withGitAutomation = (
+  gitAutomation: ProjectGitAutomationShape,
+  projectId: string,
+  before: TicketDocument,
+  after: TicketDocument,
+  context: GitEventContext
+): Effect.Effect<TicketDocument> => {
+  const event = gitAutomationEvent(before, after, context)
+  if (event === null) return Effect.succeed(after)
+  return Effect.map(gitAutomation.configFor(projectId), (config) => {
+    const target = planGitAutomation(after.status, event, config)
+    return target === null ? after : { ...after, status: target }
+  })
+}

@@ -32,7 +32,21 @@ export const GitAutomation = Schema.Struct({
 })
 export type GitAutomation = typeof GitAutomation.Type
 
-export const UpdateGitAutomationInput = GitAutomation
+const ruleChange = Schema.optionalKey(ruleTarget)
+
+export const UpdateGitAutomationInput = Schema.Struct({
+  rules: Schema.optionalKey(
+    Schema.Struct({
+      branch_linked: ruleChange,
+      pr_draft_opened: ruleChange,
+      pr_opened: ruleChange,
+      pr_merged: ruleChange,
+      pr_closed: ruleChange,
+      branch_deleted: ruleChange
+    })
+  ),
+  forwardOnly: Schema.optionalKey(Schema.Boolean)
+})
 export type UpdateGitAutomationInput = typeof UpdateGitAutomationInput.Type
 
 export const GIT_AUTOMATION_SEED = [

@@ -149,6 +149,7 @@ export const ticketFileContent = (document: TicketDocument): string =>
 
 export type TicketActivityOptions = Readonly<{
   cause?: ActivityCause
+  statusCause?: ActivityCause
   extra?: ReadonlyArray<TicketActivityChange>
   silent?: boolean
   archiveReason?: string

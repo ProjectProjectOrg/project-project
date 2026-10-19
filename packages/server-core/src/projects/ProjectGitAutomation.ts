@@ -9,15 +9,13 @@ import type * as Effect from "effect/Effect"
 
 import type { GitAutomationConfig } from "../tickets/gitAutomation"
 
-export interface ProjectGitAutomationShape {
-  readonly get: () => Effect.Effect<GitAutomation, never, ProjectScope>
-
-  readonly configFor: (projectId: string) => Effect.Effect<GitAutomationConfig>
-
-  readonly replace: (
+export type ProjectGitAutomationShape = Readonly<{
+  get: () => Effect.Effect<GitAutomation, never, ProjectScope>
+  configFor: (projectId: string) => Effect.Effect<GitAutomationConfig>
+  update: (
     input: UpdateGitAutomationInput
   ) => Effect.Effect<GitAutomation, Conflict, ProjectScope>
-}
+}>
 
 export class ProjectGitAutomation extends Context.Service<
   ProjectGitAutomation,

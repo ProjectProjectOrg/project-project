@@ -650,6 +650,7 @@ export const ticketIndex = pgTable(
     pr: integer("pr"),
     prState: text("pr_state", { enum: ["open", "closed", "merged"] }),
     prDraft: boolean("pr_draft").notNull().default(false),
+    prUpdatedAt: timestamp("pr_updated_at", { withTimezone: true }),
     lastTransitionedPr: integer("last_transitioned_pr"),
     branchDeletedAt: timestamp("branch_deleted_at", { withTimezone: true }),
     checks: text("checks", {

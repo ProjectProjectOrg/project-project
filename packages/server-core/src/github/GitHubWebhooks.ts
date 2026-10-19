@@ -21,6 +21,7 @@ export interface GitHubPullRequestWebhookChange {
   readonly body: string
   readonly state: "open" | "closed" | "merged"
   readonly draft: boolean
+  readonly updatedAt: Date | null
   readonly baseBranch: string
   readonly defaultBranch: string | null
 }

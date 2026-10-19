@@ -175,6 +175,7 @@ const FakeTicketIndex = Layer.sync(TicketIndex, () => {
     isRepositoryBranchAttached: () => Effect.succeed(false),
     getBranchDeletedAt: () => Effect.succeed(null),
     upsertTicket: () => Effect.void,
+    claimPullRequestUpdate: () => Effect.succeed(true),
     markBranchStale: () => Effect.succeed([]),
     clearBranchStale: () => Effect.void,
     updateBranchChecks: () => Effect.succeed([]),

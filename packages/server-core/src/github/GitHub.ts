@@ -31,16 +31,15 @@ export type ChecksStatus =
   | "neutral"
   | "none"
 
-export interface RawPullRequestText {
-  readonly title: string
-  readonly body: string
-}
+export type RawPullRequestText = Readonly<{
+  title: string
+  body: string
+}>
 
 export interface RawProjectStates {
   readonly defaultBranch: string
   readonly existingBranches: ReadonlySet<string>
   readonly prByBranch: ReadonlyMap<string, RawBranchEntry>
-  /** Open pull requests whose title or description names a ticket, by head branch. */
   readonly openPullRequestText?: ReadonlyMap<string, RawPullRequestText>
   readonly fetchedAt?: Date
   readonly refreshStatus?: "stale" | "rate_limited"

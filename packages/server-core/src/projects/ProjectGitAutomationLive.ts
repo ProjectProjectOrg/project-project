@@ -11,7 +11,7 @@ import {
   ProjectScope,
   type GitAutomation
 } from "@pp/shared"
-import { asc, eq } from "drizzle-orm"
+import { and, asc, eq } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
@@ -81,41 +81,56 @@ export const ProjectGitAutomationLive = Layer.effect(
     const get: ProjectGitAutomationShape["get"] = () =>
       Effect.flatMap(ProjectScope, ({ projectId }) => forProject(projectId))
 
-    const replace: ProjectGitAutomationShape["replace"] = (input) =>
+    const update: ProjectGitAutomationShape["update"] = (input) =>
       Effect.gen(function* () {
         const { projectId } = yield* ProjectScope
+        const changes = GIT_AUTOMATION_EVENTS.flatMap((event) => {
+          const statusSlug = input.rules?.[event]
+          return statusSlug === undefined ? [] : [{ event, statusSlug }]
+        })
         const statuses = yield* db
           .select({ slug: projectStatus.slug })
           .from(projectStatus)
           .where(eq(projectStatus.projectId, projectId))
           .pipe(Effect.orDie)
         const known = new Set(statuses.map((status) => status.slug))
-        const rows = GIT_AUTOMATION_EVENTS.flatMap((event) => {
-          const statusSlug = input.rules[event]
-          return statusSlug === null ? [] : [{ projectId, event, statusSlug }]
-        })
-        if (rows.some((row) => !known.has(row.statusSlug))) {
+        if (
+          changes.some(
+            ({ statusSlug }) => statusSlug !== null && !known.has(statusSlug)
+          )
+        ) {
           return yield* new Conflict({ reason: "status_not_found" })
         }
         yield* db
           .transaction(() =>
             Effect.gen(function* () {
-              yield* db
-                .delete(projectGitAutomation)
-                .where(eq(projectGitAutomation.projectId, projectId))
-              if (rows.length > 0) {
-                yield* db.insert(projectGitAutomation).values(rows)
+              for (const { event, statusSlug } of changes) {
+                yield* db
+                  .delete(projectGitAutomation)
+                  .where(
+                    and(
+                      eq(projectGitAutomation.projectId, projectId),
+                      eq(projectGitAutomation.event, event)
+                    )
+                  )
+                if (statusSlug !== null) {
+                  yield* db
+                    .insert(projectGitAutomation)
+                    .values({ projectId, event, statusSlug })
+                }
               }
-              yield* db
-                .update(projectIndex)
-                .set({ gitAutomationForwardOnly: input.forwardOnly })
-                .where(eq(projectIndex.id, projectId))
+              if (input.forwardOnly !== undefined) {
+                yield* db
+                  .update(projectIndex)
+                  .set({ gitAutomationForwardOnly: input.forwardOnly })
+                  .where(eq(projectIndex.id, projectId))
+              }
             })
           )
           .pipe(Effect.orDie)
         return yield* forProject(projectId)
       })
 
-    return ProjectGitAutomation.of({ get, configFor, replace })
+    return ProjectGitAutomation.of({ get, configFor, update })
   })
 )

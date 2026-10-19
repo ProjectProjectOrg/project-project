@@ -21,8 +21,11 @@ import {
   ProjectGitAutomation,
   type ProjectGitAutomationShape
 } from "../projects/ProjectGitAutomation"
-import { gitAutomationEvent } from "../tickets/gitAutomation"
-import { moveByGitAutomation } from "../tickets/moveByGitAutomation"
+import {
+  gitAutomationActivity,
+  moveByGitAutomation,
+  withGitAutomation
+} from "../tickets/moveByGitAutomation"
 import {
   pickPullRequestTicket,
   pullRequestTicketReferences
@@ -93,8 +96,29 @@ const writePullRequestWebhook = (
       projectId: match.projectId,
       projectSlug: match.projectSlug
     }
+    if (
+      change.updatedAt !== null &&
+      !(yield* deps.ticketIndex.claimPullRequestUpdate(
+        match.projectId,
+        match.ticketId,
+        change.updatedAt
+      ))
+    ) {
+      yield* Effect.logDebug(
+        "github pull_request delivery older than applied"
+      ).pipe(
+        Effect.annotateLogs({
+          module: "GitHubWebhooks",
+          deliveryId,
+          orgSlug: match.orgSlug,
+          slug: match.projectSlug,
+          ticketId: match.ticketId,
+          pr: change.number
+        })
+      )
+      return
+    }
     let changed = false
-    let before: TicketDocument | null = null
     const next = yield* deps.ticketDocs
       .update(
         match.orgSlug,
@@ -105,17 +129,22 @@ const writePullRequestWebhook = (
             const patch = yield* patchFor(ticket)
             if (!patch) return ticket
             changed = true
-            before = ticket
-            return {
-              ...ticket,
-              ...patch,
-              updatedAt: yield* DateTime.nowAsDate
-            }
+            return yield* withGitAutomation(
+              deps.gitAutomation,
+              match.projectId,
+              ticket,
+              { ...ticket, ...patch, updatedAt: yield* DateTime.nowAsDate },
+              {
+                defaultBranch: change.defaultBranch,
+                pullRequestBase: change.baseBranch
+              }
+            )
           }),
         (next) =>
           changed
             ? deps.ticketIndex.upsertTicket(indexProject, next)
-            : Effect.void
+            : Effect.void,
+        gitAutomationActivity
       )
       .pipe(
         Effect.provideService(ActivityActor, ActivityActor.system("github")),
@@ -145,21 +174,7 @@ const writePullRequestWebhook = (
           )
         )
       )
-    if (next === null || !changed || before === null) return
-    const moved = yield* moveByGitAutomation(
-      deps,
-      indexProject,
-      next,
-      gitAutomationEvent(before, next, {
-        defaultBranch: change.defaultBranch,
-        pullRequestBase: change.baseBranch
-      })
-    ).pipe(
-      Effect.catchTags({
-        NotFound: () => Effect.succeed(next),
-        MalformedTicketDocument: () => Effect.succeed(next)
-      })
-    )
+    if (next === null || !changed) return
     yield* Effect.logInfo("github pull_request ticket updated").pipe(
       Effect.annotateLogs({
         module: "GitHubWebhooks",
@@ -167,10 +182,10 @@ const writePullRequestWebhook = (
         orgSlug: match.orgSlug,
         slug: match.projectSlug,
         ticketId: match.ticketId,
-        branch: moved.branch,
-        pr: moved.pr,
-        prState: moved.prState,
-        status: moved.status
+        branch: next.branch,
+        pr: next.pr,
+        prState: next.prState,
+        status: next.status
       })
     )
   })
@@ -231,13 +246,6 @@ type PullRequestLinkSkip =
   | "branch_attached"
   | "ticket_not_linkable"
 
-/**
- * Links a pull request whose branch no ticket has yet to the one ticket it
- * names: in the branch name, else the title, else a closing keyword in the
- * description. Closed pull requests, the default branch, tickets that already
- * have a branch, archived tickets and tickets whose branch was cleared by hand
- * are left alone.
- */
 export const linkPullRequestWebhookToTicket = Effect.fn(
   "GitHubWebhooks.linkPullRequestWebhookToTicket"
 )(function* (
@@ -418,6 +426,7 @@ const PullRequestPayload = Schema.Struct({
     state: Schema.optional(Schema.Literals(["open", "closed"])),
     merged: Schema.Boolean,
     draft: Schema.optional(Schema.Boolean),
+    updated_at: Schema.optional(Schema.DateFromString),
     head: Schema.Struct({
       ref: Schema.String,
       repo: Schema.Struct({
@@ -699,6 +708,7 @@ const handlePullRequest = (
               : "closed"
             : "open",
         draft: payload.pull_request.draft ?? false,
+        updatedAt: payload.pull_request.updated_at ?? null,
         baseBranch: payload.pull_request.base.ref,
         defaultBranch: payload.repository.default_branch ?? null
       },

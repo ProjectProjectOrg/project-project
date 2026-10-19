@@ -35,7 +35,13 @@ export const gitAutomationFor = Atom.family((req: GitAutomationRequest) =>
 export const updateGitAutomation = Atom.family((req: GitAutomationRequest) =>
   Atom.optimisticFn(gitAutomationFor(req), {
     reducer: (current, input: UpdateGitAutomationInput) =>
-      AsyncResult.map(current, (): GitAutomation => input),
+      AsyncResult.map(
+        current,
+        (value): GitAutomation => ({
+          rules: { ...value.rules, ...input.rules },
+          forwardOnly: input.forwardOnly ?? value.forwardOnly
+        })
+      ),
     fn: (set) =>
       Api.runtime.fn(
         Effect.fn("updateGitAutomation")(function* (

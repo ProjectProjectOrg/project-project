@@ -73,8 +73,12 @@ import { Projects } from "../projects/Projects"
 import type { ProjectGithubIntegration } from "../projects/Projects"
 import { readProjectDocument } from "../projects/readProjectDocument"
 import { Users } from "../users/Users"
-import { gitAutomationEvent, type GitEventContext } from "./gitAutomation"
-import { moveByGitAutomation } from "./moveByGitAutomation"
+import type { GitEventContext } from "./gitAutomation"
+import {
+  gitAutomationActivity,
+  moveByGitAutomation,
+  withGitAutomation
+} from "./moveByGitAutomation"
 import {
   MalformedTicketDocument,
   TicketDocs,
@@ -1858,31 +1862,25 @@ export const TicketsLive = Layer.effect(
       },
       context: GitEventContext = { defaultBranch: null, pullRequestBase: null }
     ): Effect.Effect<TicketDocument, TicketReadError, ActivityActor> =>
-      ticketDocs
-        .update(
-          indexProject.orgSlug,
-          indexProject.projectSlug,
-          existing.id,
-          (current) =>
-            DateTime.nowAsDate.pipe(
-              Effect.map((updatedAt) => ({
-                ...current,
-                ...patch,
-                updatedAt
-              }))
-            ),
-          (next) => ticketIndex.upsertTicket(indexProject, next)
-        )
-        .pipe(
-          Effect.flatMap((next) =>
-            moveByGitAutomation(
-              { ticketDocs, ticketIndex, gitAutomation },
-              indexProject,
-              next,
-              gitAutomationEvent(existing, next, context)
+      ticketDocs.update(
+        indexProject.orgSlug,
+        indexProject.projectSlug,
+        existing.id,
+        (current) =>
+          DateTime.nowAsDate.pipe(
+            Effect.flatMap((updatedAt) =>
+              withGitAutomation(
+                gitAutomation,
+                indexProject.projectId,
+                current,
+                { ...current, ...patch, updatedAt },
+                context
+              )
             )
-          )
-        )
+          ),
+        (next) => ticketIndex.upsertTicket(indexProject, next),
+        gitAutomationActivity
+      )
 
     const createBranch: TicketsShape["createBranch"] = (id, input) =>
       Effect.gen(function* () {
@@ -2284,6 +2282,55 @@ export const TicketsLive = Layer.effect(
                 )
             })
           )
+        }
+
+        const fetchedAt = raw.fetchedAt
+        const vanishedBranches = new Set(
+          fetchedAt === undefined
+            ? []
+            : tickets.flatMap((ticket) =>
+                ticket.branch !== null &&
+                ticket.branchDeletedAt === null &&
+                ticket.updatedAt.getTime() <= fetchedAt.getTime() &&
+                !raw.existingBranches.has(ticket.branch) &&
+                !raw.prByBranch.has(ticket.branch)
+                  ? [ticket.branch]
+                  : []
+              )
+        )
+        for (const branch of vanishedBranches) {
+          const deletedAt = yield* DateTime.nowAsDate
+          const ticketIds = yield* ticketIndex.markBranchStale(
+            indexProject.projectId,
+            branch,
+            deletedAt
+          )
+          for (const ticketId of ticketIds) {
+            changedTicketIds.add(makeTicketId(ticketId))
+            yield* withTicketDocumentLock(
+              orgSlug,
+              slug,
+              ticketId,
+              readTicket(orgSlug, slug, ticketId).pipe(
+                Effect.flatMap((ticket) =>
+                  moveByGitAutomation(
+                    { ticketDocs, ticketIndex, gitAutomation },
+                    indexProject,
+                    ticket,
+                    ticket.branch === branch ? "branch_deleted" : null
+                  )
+                ),
+                Effect.provideService(
+                  ActivityActor,
+                  ActivityActor.system("github")
+                ),
+                Effect.catchTags({
+                  NotFound: () => Effect.void,
+                  MalformedTicketDocument: () => Effect.void
+                })
+              )
+            )
+          }
         }
 
         return {

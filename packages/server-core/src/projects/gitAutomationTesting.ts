@@ -27,7 +27,7 @@ export const gitAutomationTestService = (
 ): ProjectGitAutomationShape => ({
   get: () => Effect.die("git automation get is not stubbed"),
   configFor: () => Effect.succeed(config),
-  replace: () => Effect.die("git automation replace is not stubbed")
+  update: () => Effect.die("git automation update is not stubbed")
 })
 
 export const gitAutomationTestLayer = (

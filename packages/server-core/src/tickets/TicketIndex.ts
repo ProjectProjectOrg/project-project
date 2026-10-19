@@ -233,6 +233,11 @@ export interface TicketIndexShape {
     project: TicketIndexProject,
     document: TicketDocument
   ) => Effect.Effect<void>
+  readonly claimPullRequestUpdate: (
+    projectId: string,
+    ticketId: string,
+    updatedAt: Date
+  ) => Effect.Effect<boolean>
   readonly markBranchStale: (
     projectId: string,
     branch: string,

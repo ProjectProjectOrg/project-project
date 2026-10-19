@@ -13,7 +13,7 @@ export const GitAutomationHandlerLive = HttpApiBuilder.group(
       )
       .handle("update", ({ payload }) =>
         Effect.flatMap(ProjectGitAutomation, (automation) =>
-          automation.replace(payload)
+          automation.update(payload)
         )
       )
 )

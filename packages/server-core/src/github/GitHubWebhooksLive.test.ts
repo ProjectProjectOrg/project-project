@@ -260,6 +260,7 @@ it.effect("dispatches handled pull_request actions", () =>
           pull_request: {
             title: "T-84: PR webhook lifecycle",
             body: null,
+            updated_at: "2026-05-01T10:00:00Z",
             state:
               input.prState ?? (input.action === "closed" ? "closed" : "open"),
             merged: input.merged,
@@ -280,6 +281,9 @@ it.effect("dispatches handled pull_request actions", () =>
           number: 80,
           title: "T-84: PR webhook lifecycle",
           body: "",
+          updatedAt: DateTime.toDate(
+            DateTime.makeUnsafe("2026-05-01T10:00:00Z")
+          ),
           state: input.expectedState,
           draft: input.draft,
           baseBranch: "main",
@@ -865,6 +869,7 @@ const makeFakeIndex = (overrides: Partial<TicketIndexShape> = {}) => {
       Effect.sync(() => {
         upserts.push({ projectId: project.projectId, ticketId: document.id })
       }),
+    claimPullRequestUpdate: () => Effect.succeed(true),
     markBranchStale: () => Effect.succeed([]),
     clearBranchStale: () => Effect.void,
     updateBranchChecks: () => Effect.succeed([]),
@@ -891,6 +896,7 @@ const openChange: GitHubPullRequestWebhookChange = {
   body: "",
   state: "open",
   draft: false,
+  updatedAt: null,
   baseBranch: "main",
   defaultBranch: "main"
 }
@@ -922,6 +928,37 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
         expect(index.upserts).toEqual([
           { projectId: "project-1", ticketId: "T-1" }
         ])
+      })
+  )
+
+  it.effect(
+    "applyPullRequestWebhookToTicket skips a delivery older than the last one applied",
+    () =>
+      Effect.gen(function* () {
+        const docs = makeFakeDocs([baseDocument()])
+        const index = makeFakeIndex({
+          claimPullRequestUpdate: () => Effect.succeed(false)
+        })
+
+        yield* applyPullRequestWebhookToTicket(
+          {
+            ticketDocs: docs.shape,
+            ticketIndex: index.shape,
+            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+            gitAutomation: gitAutomationTestService()
+          },
+          baseMatch(),
+          {
+            ...openChange,
+            draft: true,
+            updatedAt: DateTime.toDate(
+              DateTime.makeUnsafe("2026-05-01T10:00:00Z")
+            )
+          },
+          "delivery-1"
+        )
+
+        expect(docs.writes).toEqual([])
       })
   )
 
@@ -1108,7 +1145,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
   )
 
   it.effect(
-    "applyPullRequestWebhookToTicket moves the ticket by the merge rule once",
+    "applyPullRequestWebhookToTicket moves the ticket by the merge rule in the same write, once",
     () =>
       Effect.gen(function* () {
         const docs = makeFakeDocs([baseDocument()])
@@ -1126,13 +1163,12 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           "delivery-1"
         )
 
-        expect(docs.writes).toHaveLength(2)
+        expect(docs.writes).toHaveLength(1)
         expect(docs.writes[0].document).toMatchObject({
-          status: "in_progress",
+          status: "done",
           prState: "merged",
           lastTransitionedPr: 80
         })
-        expect(docs.writes[1].document.status).toBe("done")
 
         yield* applyPullRequestWebhookToTicket(
           {
@@ -1146,8 +1182,8 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           "delivery-2"
         )
 
-        expect(docs.writes).toHaveLength(2)
-        expect(index.upserts).toHaveLength(2)
+        expect(docs.writes).toHaveLength(1)
+        expect(index.upserts).toHaveLength(1)
       })
   )
 
@@ -1369,9 +1405,8 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
             branch: "fix-login",
             prState: "merged",
             lastTransitionedPr: 80,
-            status: "in_progress"
-          }),
-          expect.objectContaining({ status: "done" })
+            status: "done"
+          })
         ])
       })
   )

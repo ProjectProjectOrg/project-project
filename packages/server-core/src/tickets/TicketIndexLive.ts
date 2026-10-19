@@ -1173,6 +1173,30 @@ export const TicketIndexLive = Layer.effect(
           )
         )
 
+    const claimPullRequestUpdate = (
+      projectId: string,
+      ticketId: string,
+      updatedAt: Date
+    ): Effect.Effect<boolean> =>
+      db
+        .update(ticketIndex)
+        .set({ prUpdatedAt: updatedAt })
+        .where(
+          and(
+            eq(ticketIndex.projectId, projectId),
+            eq(ticketIndex.ticketId, ticketId),
+            or(
+              isNull(ticketIndex.prUpdatedAt),
+              lte(ticketIndex.prUpdatedAt, updatedAt)
+            )
+          )
+        )
+        .returning({ ticketId: ticketIndex.ticketId })
+        .pipe(
+          Effect.map((rows) => rows.length > 0),
+          Effect.orDie
+        )
+
     const markBranchStale = (
       projectId: string,
       branch: string,
@@ -1436,6 +1460,7 @@ export const TicketIndexLive = Layer.effect(
       isRepositoryBranchAttached,
       getBranchDeletedAt,
       upsertTicket,
+      claimPullRequestUpdate,
       markBranchStale,
       clearBranchStale,
       updateBranchChecks,

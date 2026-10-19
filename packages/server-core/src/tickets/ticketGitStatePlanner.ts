@@ -13,12 +13,6 @@ type AutomaticBranchLinkTicket = Pick<TicketGitStateInput, "id" | "branch"> & {
 
 const noPullRequestText: RawPullRequestText = { title: "", body: "" }
 
-/**
- * Picks a ticket for each unattached branch the same way pull request
- * webhooks do: the branch name, else the open pull request's title, else a
- * closing keyword in its description. A ticket two branches point at is left
- * alone.
- */
 export function planAutomaticBranchLinks(
   tickets: ReadonlyArray<AutomaticBranchLinkTicket>,
   branches: ReadonlySet<string>,
@@ -70,12 +64,12 @@ export interface TicketGitStateInput {
   readonly lastTransitionedPr: number | null
 }
 
-export interface TicketGitStatePatch {
-  readonly pr?: number | null
-  readonly prState?: TicketGitStateInput["prState"]
-  readonly prDraft?: boolean
-  readonly lastTransitionedPr?: number | null
-}
+export type TicketGitStatePatch = Readonly<{
+  pr?: number | null
+  prState?: TicketGitStateInput["prState"]
+  prDraft?: boolean
+  lastTransitionedPr?: number | null
+}>
 
 export interface TicketGitStateWrite {
   readonly ticketId: TicketId

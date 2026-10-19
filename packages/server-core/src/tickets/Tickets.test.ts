@@ -611,6 +611,7 @@ const makeFakeTicketIndex = (
       Effect.sync(() => {
         documents.set(document.id, document)
       }),
+    claimPullRequestUpdate: () => Effect.succeed(true),
     markBranchStale: () => Effect.succeed([]),
     clearBranchStale: () => Effect.void,
     updateBranchChecks: () => Effect.succeed([]),
@@ -1398,6 +1399,7 @@ it.effect("manual unlink waits for a webhook write and remains unlinked", () =>
             body: "",
             state: "open",
             draft: false,
+            updatedAt: null,
             baseBranch: "main",
             defaultBranch: "main"
           },
@@ -3158,3 +3160,82 @@ it.effect("keeps org admins without a role from editing", () => {
     expect(docs.documents.has("T-1")).toBe(true)
   }).pipe(Effect.provide(layer))
 })
+
+it.effect(
+  "listGitStates fires the branch deleted rule once for a branch gone from GitHub",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    docs.documents.set(
+      "T-1",
+      makeTicketDocument("T-1", {
+        branch: "feat/T-1",
+        status: ticketStatus("in_review"),
+        updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-05-01T00:00:00Z"))
+      })
+    )
+    const stale = new Set<string>()
+    const layer = makeTicketsLayer("T", docs.layer, {
+      projects: makeFakeProjects("T", {
+        githubIntegration: () => Effect.succeed(githubIntegration)
+      }),
+      ticketIndex: makeFakeTicketIndex(docs.documents, {
+        list: () =>
+          Effect.sync(() =>
+            [...docs.documents.values()].map((document) => ({
+              ...entryFromDocument(document),
+              branchDeletedAt: stale.has(document.id)
+                ? DateTime.toDate(DateTime.makeUnsafe("2026-06-01T00:00:00Z"))
+                : null
+            }))
+          ),
+        markBranchStale: (_projectId, branch) =>
+          Effect.sync(() =>
+            [...docs.documents.values()].flatMap((document) => {
+              if (document.branch !== branch || stale.has(document.id)) {
+                return []
+              }
+              stale.add(document.id)
+              return [document.id]
+            })
+          )
+      }),
+      github: makeFakeGitHub({
+        fetchInstallationProjectStates: () =>
+          Effect.succeed({
+            defaultBranch: "main",
+            existingBranches: new Set(),
+            prByBranch: new Map(),
+            fetchedAt: DateTime.toDate(
+              DateTime.makeUnsafe("2026-06-01T00:00:00Z")
+            )
+          })
+      }),
+      gitAutomation: {
+        ...DEFAULT_GIT_AUTOMATION_CONFIG,
+        rules: {
+          ...DEFAULT_GIT_AUTOMATION_CONFIG.rules,
+          branch_deleted: ticketStatus("todo")
+        },
+        forwardOnly: false
+      }
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const first = yield* tickets.listGitStates()
+      expect(first.changedTicketIds).toEqual(["T-1"])
+      expect(docs.documents.get("T-1")?.status).toBe(ticketStatus("todo"))
+
+      const moved = docs.documents.get("T-1")
+      if (moved) {
+        docs.documents.set("T-1", {
+          ...moved,
+          status: ticketStatus("in_progress")
+        })
+      }
+      yield* tickets.listGitStates()
+      expect(docs.documents.get("T-1")?.status).toBe(
+        ticketStatus("in_progress")
+      )
+    }).pipe(Effect.provide(layer))
+  }
+)

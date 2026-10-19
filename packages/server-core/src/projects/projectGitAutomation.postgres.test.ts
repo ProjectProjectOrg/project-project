@@ -109,7 +109,7 @@ describe.skipIf(!databaseUrl)("project git automation", () => {
             forwardOnly: true
           })
 
-          const saved = yield* automation.replace({
+          const saved = yield* automation.update({
             rules: {
               ...noRules,
               pr_opened: slug("in_review"),
@@ -125,6 +125,19 @@ describe.skipIf(!databaseUrl)("project git automation", () => {
             },
             forwardOnly: false
           })
+
+          expect(
+            yield* automation.update({ rules: { pr_closed: slug("todo") } })
+          ).toEqual({
+            rules: {
+              ...noRules,
+              pr_opened: "in_review",
+              pr_merged: "done",
+              pr_closed: "todo"
+            },
+            forwardOnly: false
+          })
+          yield* automation.update({ rules: { pr_closed: null } })
 
           yield* Effect.promise(() =>
             pool.query(
@@ -153,7 +166,7 @@ describe.skipIf(!databaseUrl)("project git automation", () => {
       Effect.gen(function* () {
         const automation = yield* ProjectGitAutomation
         const failure = yield* Effect.flip(
-          automation.replace({
+          automation.update({
             rules: { ...noRules, pr_closed: slug("archived") },
             forwardOnly: true
           })

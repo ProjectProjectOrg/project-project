@@ -135,7 +135,6 @@ function Rules({
   const save = useAtomSet(mutation)
   const failed = AsyncResult.isFailure(useAtomValue(mutation))
 
-  const commit = (next: GitAutomation) => save(next)
   const forwardOnlyLabelId = useId()
   const forwardOnlyDescriptionId = useId()
 
@@ -149,12 +148,7 @@ function Rules({
             target={automation.rules[event]}
             statuses={statuses}
             disabled={!canEdit}
-            onChange={(target) =>
-              commit({
-                ...automation,
-                rules: { ...automation.rules, [event]: target }
-              })
-            }
+            onChange={(target) => save({ rules: { [event]: target } })}
           />
         ))}
       </ul>
@@ -162,9 +156,7 @@ function Rules({
         <Switch
           checked={automation.forwardOnly}
           disabled={!canEdit}
-          onCheckedChange={(forwardOnly) =>
-            commit({ ...automation, forwardOnly })
-          }
+          onCheckedChange={(forwardOnly) => save({ forwardOnly })}
           aria-labelledby={forwardOnlyLabelId}
           aria-describedby={forwardOnlyDescriptionId}
           className="mt-0.5"
