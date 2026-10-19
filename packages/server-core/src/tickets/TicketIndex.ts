@@ -55,6 +55,8 @@ export type TicketIndexEntry = Readonly<{
   pr: number | null
   prState: PullRequestState | null
   prDraft: boolean
+  prBase: string | null
+  ignoredBranches: ReadonlyArray<string>
   lastTransitionedPr: number | null
   branchDeletedAt: Date | null
   checks: ChecksStatus | null

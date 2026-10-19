@@ -27,10 +27,8 @@ const ticketIdsMatching = (
 export const ticketIdsInText = (text: string): ReadonlySet<TicketId> =>
   ticketIdsMatching(ticketIdPattern, text)
 
-export const ticketIdsInBranch = ticketIdsInText
-
 export const closingTicketIdsInText = (text: string): ReadonlySet<TicketId> =>
   ticketIdsMatching(closingTicketIdPattern, text)
 
 export const branchMentionsTicketId = (branch: string): boolean =>
-  ticketIdsInBranch(branch).size > 0
+  ticketIdsInText(branch).size > 0

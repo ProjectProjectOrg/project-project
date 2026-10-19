@@ -9,6 +9,7 @@ import {
   DEFAULT_GIT_AUTOMATION_CONFIG,
   gitAutomationTestService
 } from "../projects/gitAutomationTesting"
+import { moveForDeletedBranch } from "../tickets/moveByGitAutomation"
 import {
   MalformedTicketDocument,
   type TicketDocsShape,
@@ -27,7 +28,6 @@ import {
   applyPullRequestWebhookToTicket,
   linkPullRequestWebhookToTicket,
   makeGitHubWebhooks,
-  moveTicketsForDeletedBranch,
   type PullRequestWebhookMatch
 } from "./GitHubWebhooksLive"
 
@@ -1184,38 +1184,33 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
   )
 
   it.effect(
-    "moveTicketsForDeletedBranch moves only tickets still on the deleted branch",
+    "moveForDeletedBranch moves only tickets still on the deleted branch",
     () =>
       Effect.gen(function* () {
         const docs = makeFakeDocs([
           baseDocument(),
           baseDocument({ id: ticketId("T-2"), branch: "feat/T-2" })
         ])
-        const index = makeFakeIndex({
-          findTicketsByBranch: () =>
-            Effect.succeed([
-              baseMatch(),
-              baseMatch({ ticketId: "T-2" }),
-              baseMatch({ ticketId: "T-3" })
-            ])
-        })
+        const deps = {
+          ticketDocs: docs.shape,
+          ticketIndex: makeFakeIndex().shape,
+          ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+          gitAutomation: gitAutomationTestService({
+            ...DEFAULT_GIT_AUTOMATION_CONFIG,
+            rules: {
+              ...DEFAULT_GIT_AUTOMATION_CONFIG.rules,
+              branch_deleted: ticketStatus("blocked")
+            }
+          })
+        }
 
-        yield* moveTicketsForDeletedBranch(
-          {
-            ticketDocs: docs.shape,
-            ticketIndex: index.shape,
-            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
-            gitAutomation: gitAutomationTestService({
-              ...DEFAULT_GIT_AUTOMATION_CONFIG,
-              rules: {
-                ...DEFAULT_GIT_AUTOMATION_CONFIG.rules,
-                branch_deleted: ticketStatus("blocked")
-              }
-            })
-          },
-          "project-1",
-          "feat/T-1",
-          ["T-1", "T-2"]
+        yield* Effect.forEach(
+          [
+            baseMatch(),
+            baseMatch({ ticketId: "T-2" }),
+            baseMatch({ ticketId: "T-3" })
+          ],
+          (match) => moveForDeletedBranch(deps, match)
         )
 
         expect(docs.writes).toEqual([

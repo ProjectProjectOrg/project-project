@@ -211,7 +211,8 @@ function RuleRow({
         value={target ?? DONT_MOVE}
         disabled={disabled}
         onValueChange={(value) => {
-          const next = value === DONT_MOVE ? null : (value as StatusSlug)
+          const next =
+            statuses.find((status) => status.slug === value)?.slug ?? null
           if (next !== target) onChange(next)
         }}
       >

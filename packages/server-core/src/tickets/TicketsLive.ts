@@ -76,7 +76,7 @@ import { Users } from "../users/Users"
 import type { GitEventContext } from "./gitAutomation"
 import {
   gitAutomationActivity,
-  moveByGitAutomation,
+  moveForDeletedBranch,
   withGitAutomation
 } from "./moveByGitAutomation"
 import {
@@ -2307,28 +2307,14 @@ export const TicketsLive = Layer.effect(
             .map((ticket) => ticket.id)
           for (const ticketId of ticketIds) {
             changedTicketIds.add(makeTicketId(ticketId))
-            yield* withTicketDocumentLock(
-              orgSlug,
-              slug,
-              ticketId,
-              readTicket(orgSlug, slug, ticketId).pipe(
-                Effect.flatMap((ticket) =>
-                  moveByGitAutomation(
-                    { ticketDocs, ticketIndex, gitAutomation },
-                    indexProject,
-                    ticket,
-                    ticket.branch === branch ? "branch_deleted" : null
-                  )
-                ),
-                Effect.provideService(
-                  ActivityActor,
-                  ActivityActor.system("github")
-                ),
-                Effect.catchTags({
-                  NotFound: () => Effect.void,
-                  MalformedTicketDocument: () => Effect.void
-                })
-              )
+            yield* moveForDeletedBranch(
+              {
+                ticketDocs,
+                ticketIndex,
+                gitAutomation,
+                ticketDocumentLock: { withTicketDocumentLock }
+              },
+              { ...indexProject, ticketId, branch }
             )
           }
           yield* ticketIndex.markBranchStale(

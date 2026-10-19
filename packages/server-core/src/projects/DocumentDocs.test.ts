@@ -229,10 +229,9 @@ it.effect(
           type: "chore",
           priority: "high",
           tags: ["backend"],
-          branch: "chore/T-2-write-tests",
-          pr: 42,
-          prState: "open",
-          lastTransitionedPr: null,
+          branches: [
+            { branch: "chore/T-2-write-tests", pr: 42, prState: "open" }
+          ],
           assignees: ["user-1", "user-2"],
           archivedAt: null,
           createdBy: "user-1",
