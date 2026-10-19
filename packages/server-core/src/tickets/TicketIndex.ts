@@ -9,7 +9,8 @@ import type {
   TicketType,
   TicketCountQuery,
   TicketListQuery,
-  TicketSort
+  TicketSort,
+  TicketBranchEntry
 } from "@pp/shared"
 import type { NotFound } from "@pp/shared"
 import * as Context from "effect/Context"
@@ -222,6 +223,17 @@ export interface TicketIndexShape {
     projectId: string,
     branch: string
   ) => Effect.Effect<ReadonlyArray<TicketIndexMatch>>
+  /** Tickets with `branch` stacked on their own branch. */
+  readonly findStackLayers: (
+    projectId: string,
+    branch: string
+  ) => Effect.Effect<ReadonlyArray<TicketIndexMatch>>
+  /** Each ticket's stacked branches, bottom to top as stored. */
+  readonly stacksFor: (
+    project: TicketIndexProject,
+    ticketIds?: ReadonlyArray<string>
+  ) => Effect.Effect<ReadonlyMap<string, ReadonlyArray<TicketBranchEntry>>>
+  /** Whether any ticket in the repository has `branch`, as its own or stacked. */
   readonly isRepositoryBranchAttached: (
     repoId: string,
     branch: string

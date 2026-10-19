@@ -515,8 +515,9 @@ export const McpTools = {
       "GitHub (your own tooling) and then call this tool with the exact ref " +
       "name. The branch is verified against GitHub before the link is " +
       "stored, so attaching a non-existent name fails with `BranchNotFound` " +
-      "rather than producing a dangling reference. Returns the updated " +
-      "ticket.",
+      "rather than producing a dangling reference. This replaces the " +
+      "ticket's own branch; to add more branches built on top of it (a " +
+      "stack), use `stack_branch`. Returns the updated ticket.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
@@ -536,6 +537,51 @@ export const McpTools = {
       RateLimited,
       GitHubError
     ] as const
+  },
+  stack_branch: {
+    description:
+      "Add an existing GitHub branch to the stack on top of a ticket's own " +
+      "branch, for work split into stacked pull requests (e.g. `gh stack`). " +
+      "Call it once for every layer above the ticket's branch, bottom to " +
+      "top. The ticket must already have a branch (`attach_branch`), the " +
+      "branch must exist on the connected repository (`BranchNotFound` " +
+      "otherwise) and may not belong to another ticket (`Conflict`). Pull " +
+      "request state for each layer is filled in from GitHub. Returns the " +
+      "updated ticket.",
+    input: Schema.Struct({
+      orgSlug: Slug,
+      projectSlug: Slug,
+      id: TicketId,
+      ...AttachBranchInput.fields
+    }),
+    output: TicketDetail,
+    errors: [
+      Unauthorized,
+      NotFound,
+      Forbidden,
+      Conflict,
+      BranchNotFound,
+      GitHubTokenExpired,
+      GitHubScopeInsufficient,
+      RepoGone,
+      RateLimited,
+      GitHubError
+    ] as const
+  },
+  unstack_branch: {
+    description:
+      "Remove a branch from a ticket's stack. The branch is remembered as " +
+      "ignored so it is not stacked on the ticket again automatically; " +
+      "`stack_branch` adds it back. Fails with `Conflict` when the branch " +
+      "is not stacked on the ticket. Returns the updated ticket.",
+    input: Schema.Struct({
+      orgSlug: Slug,
+      projectSlug: Slug,
+      id: TicketId,
+      ...AttachBranchInput.fields
+    }),
+    output: TicketDetail,
+    errors: [Unauthorized, NotFound, Forbidden, Conflict] as const
   },
   create_sprint: {
     description:

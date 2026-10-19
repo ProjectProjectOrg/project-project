@@ -1,27 +1,71 @@
-import type { GitState, TicketId, TicketStatus } from "@pp/shared"
+import type {
+  GitState,
+  TicketBranchEntry,
+  TicketId,
+  TicketStatus
+} from "@pp/shared"
 import * as Option from "effect/Option"
 
-import type { RawProjectStates, RawPullRequestText } from "../github/GitHub"
+import type {
+  RawBranchEntry,
+  RawProjectStates,
+  RawPullRequestText
+} from "../github/GitHub"
 import {
   pickPullRequestTicket,
-  pullRequestTicketReferences
+  pullRequestTicketReferences,
+  type PullRequestTicketPick
 } from "./pullRequestTicketReference"
+import {
+  planLayerPullRequest,
+  planStackAttach,
+  type StackPullRequest
+} from "./ticketStack"
 
 type AutomaticBranchLinkTicket = Pick<TicketGitStateInput, "id" | "branch"> & {
   readonly archivedAt?: Date | null
+  readonly stack?: ReadonlyArray<TicketBranchEntry> | undefined
 }
 
 const noPullRequestText: RawPullRequestText = { title: "", body: "" }
+
+const pickBranchTicket = (
+  branch: string,
+  knownIds: ReadonlySet<string>,
+  openPullRequestText: ReadonlyMap<string, RawPullRequestText>
+): Option.Option<PullRequestTicketPick> =>
+  pickPullRequestTicket(
+    pullRequestTicketReferences({
+      branch,
+      ...(openPullRequestText.get(branch) ?? noPullRequestText)
+    }),
+    knownIds
+  )
+
+const chainBottom = (
+  branches: ReadonlySet<string>,
+  prByBranch: ReadonlyMap<string, RawBranchEntry>
+): string | null => {
+  const bottoms = [...branches].filter((branch) => {
+    const base = prByBranch.get(branch)?.baseRefName
+    return base === undefined || !branches.has(base)
+  })
+  return bottoms.length === 1 ? (bottoms[0] ?? null) : null
+}
 
 export function planAutomaticBranchLinks(
   tickets: ReadonlyArray<AutomaticBranchLinkTicket>,
   branches: ReadonlySet<string>,
   defaultBranch: string,
-  openPullRequestText: ReadonlyMap<string, RawPullRequestText> = new Map()
+  openPullRequestText: ReadonlyMap<string, RawPullRequestText> = new Map(),
+  prByBranch: ReadonlyMap<string, RawBranchEntry> = new Map()
 ): ReadonlyMap<TicketId, string> {
   const knownIds = new Set<string>(tickets.map((ticket) => ticket.id))
   const attachedBranches = new Set(
-    tickets.flatMap((ticket) => (ticket.branch === null ? [] : [ticket.branch]))
+    tickets.flatMap((ticket) => [
+      ...(ticket.branch === null ? [] : [ticket.branch]),
+      ...(ticket.stack ?? []).map((layer) => layer.branch)
+    ])
   )
   const eligibleIds = new Set(
     tickets
@@ -32,13 +76,7 @@ export function planAutomaticBranchLinks(
 
   for (const branch of branches) {
     if (branch === defaultBranch || attachedBranches.has(branch)) continue
-    const pick = pickPullRequestTicket(
-      pullRequestTicketReferences({
-        branch,
-        ...(openPullRequestText.get(branch) ?? noPullRequestText)
-      }),
-      knownIds
-    )
+    const pick = pickBranchTicket(branch, knownIds, openPullRequestText)
     if (Option.isNone(pick) || !eligibleIds.has(pick.value.ticketId)) continue
     const branchesForId = candidates.get(pick.value.ticketId) ?? new Set()
     branchesForId.add(branch)
@@ -47,12 +85,107 @@ export function planAutomaticBranchLinks(
 
   const links = new Map<TicketId, string>()
   for (const [id, candidateBranches] of candidates) {
-    if (candidateBranches.size !== 1) continue
-    const [branch] = candidateBranches
-    if (branch !== undefined) links.set(id, branch)
+    const branch = chainBottom(candidateBranches, prByBranch)
+    if (branch !== null) links.set(id, branch)
   }
   return links
 }
+
+type AutomaticStackTicket = AutomaticBranchLinkTicket & {
+  readonly ignoredBranches?: ReadonlyArray<string> | undefined
+}
+
+/**
+ * New stacked branches per ticket: unattached branches that name a ticket
+ * (as `planAutomaticBranchLinks` picks them) whose own branch is set or just
+ * linked in `ownLinks`, and that build on one of its branches or carry its
+ * key in their name. Branches whose pull request was closed unmerged stay
+ * out, as do branches without a pull request unless their name names the
+ * ticket.
+ */
+export function planAutomaticStacks(
+  tickets: ReadonlyArray<AutomaticStackTicket>,
+  ownLinks: ReadonlyMap<TicketId, string>,
+  branches: ReadonlySet<string>,
+  defaultBranch: string,
+  openPullRequestText: ReadonlyMap<string, RawPullRequestText> = new Map(),
+  prByBranch: ReadonlyMap<string, RawBranchEntry> = new Map()
+): ReadonlyMap<TicketId, ReadonlyArray<TicketBranchEntry>> {
+  const byId = new Map(tickets.map((ticket) => [ticket.id, ticket]))
+  const knownIds = new Set<string>(byId.keys())
+  const attached = new Set([
+    ...ownLinks.values(),
+    ...tickets.flatMap((ticket) => [
+      ...(ticket.branch === null ? [] : [ticket.branch]),
+      ...(ticket.stack ?? []).map((layer) => layer.branch)
+    ])
+  ])
+  const stacks = new Map<TicketId, Array<TicketBranchEntry>>()
+  const attach = (branch: string): boolean => {
+    const pick = pickBranchTicket(branch, knownIds, openPullRequestText)
+    if (Option.isNone(pick)) return false
+    const ticket = byId.get(pick.value.ticketId)
+    const own = ticket?.branch ?? ownLinks.get(pick.value.ticketId) ?? null
+    if (ticket === undefined || own === null) return false
+    const added = stacks.get(ticket.id) ?? []
+    const planned = {
+      branch: own,
+      stack: [...(ticket.stack ?? []), ...added],
+      ignoredBranches: ticket.ignoredBranches,
+      archivedAt: ticket.archivedAt ?? null
+    }
+    const pr = prByBranch.get(branch)
+    if (pr?.state === "closed") return false
+    const namedInBranch = pick.value.source === "branch"
+    const layer =
+      pr === undefined
+        ? namedInBranch &&
+          planned.archivedAt === null &&
+          !(ticket.ignoredBranches ?? []).includes(branch)
+          ? { branch }
+          : null
+        : planStackAttach(planned, stackPullRequest(branch, pr), namedInBranch)
+    if (layer === null) return false
+    stacks.set(ticket.id, [...added, layer])
+    attached.add(branch)
+    return true
+  }
+
+  let pending = [...branches]
+    .filter((branch) => branch !== defaultBranch && !attached.has(branch))
+    .toSorted()
+  let attachedAny = true
+  while (attachedAny) {
+    const before = pending.length
+    pending = pending.filter((branch) => !attach(branch))
+    attachedAny = pending.length < before
+  }
+  return stacks
+}
+
+/** Each stacked branch brought up to its pull request's latest state. */
+export const planStackPullRequests = (
+  stack: ReadonlyArray<TicketBranchEntry> | undefined,
+  prByBranch: ReadonlyMap<string, RawBranchEntry>
+): ReadonlyArray<TicketBranchEntry> =>
+  (stack ?? []).map((layer) => {
+    const pr = prByBranch.get(layer.branch)
+    return pr === undefined
+      ? layer
+      : (planLayerPullRequest(layer, stackPullRequest(layer.branch, pr)) ??
+          layer)
+  })
+
+export const stackPullRequest = (
+  branch: string,
+  pr: RawBranchEntry
+): StackPullRequest => ({
+  branch,
+  base: pr.baseRefName,
+  number: pr.number,
+  state: pr.state,
+  draft: pr.draft
+})
 
 export interface TicketGitStateInput {
   readonly id: TicketId
@@ -61,6 +194,7 @@ export interface TicketGitStateInput {
   readonly pr: number | null
   readonly prState: "open" | "closed" | "merged" | null
   readonly prDraft: boolean
+  readonly prBase?: string | null | undefined
   readonly lastTransitionedPr: number | null
 }
 
@@ -69,6 +203,7 @@ export type TicketGitStatePatch = Readonly<{
   prState?: TicketGitStateInput["prState"]
   prDraft?: boolean
   lastTransitionedPr?: number | null
+  prBase?: string
 }>
 
 export interface TicketGitStateWrite {
@@ -157,7 +292,13 @@ export function planTicketGitStates(
       continue
     }
 
-    const patch = planPullRequestPatch(ticket, pr)
+    const planned = planPullRequestPatch(ticket, pr)
+    const patch =
+      planned !== null
+        ? { ...planned, prBase: pr.baseRefName }
+        : ticket.pr === pr.number && (ticket.prBase ?? null) !== pr.baseRefName
+          ? { prBase: pr.baseRefName }
+          : null
     if (patch) {
       writes.push({
         ticketId: ticket.id,

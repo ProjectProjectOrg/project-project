@@ -17,6 +17,7 @@ import {
   TagName,
   TicketId,
   tryDecodeCursor,
+  type TicketBranchEntry,
   type EstimateFilterValue,
   type ChecksStatus,
   type TicketCountQuery,
@@ -63,6 +64,7 @@ import {
   TicketIndex,
   type TicketIndexDrift,
   type TicketIndexEntry,
+  type TicketIndexMatch,
   type TicketIndexCountOptions,
   type TicketIndexAssignedOptions,
   type TicketIndexAssignedScope,
@@ -140,6 +142,18 @@ const ticketBranchRowsFor = (
     prDraft: layer.prDraft ?? false,
     landed: layer.landed ?? false
   }))
+
+const stackEntryFromRow = (
+  row: typeof ticketBranch.$inferSelect
+): TicketBranchEntry =>
+  Object.assign(
+    { branch: row.branch },
+    row.base === null ? {} : { base: row.base },
+    row.pr === null ? {} : { pr: row.pr },
+    row.prState === null ? {} : { prState: row.prState },
+    row.prDraft ? { prDraft: true } : {},
+    row.landed ? { landed: true } : {}
+  )
 
 export const ticketIndexRowsFor = (
   project: TicketIndexProject,
@@ -1097,6 +1111,64 @@ export const TicketIndexLive = Layer.effect(
           Effect.orDie
         )
 
+    const findStackLayers = (
+      projectId: string,
+      branch: string
+    ): Effect.Effect<ReadonlyArray<TicketIndexMatch>> =>
+      db
+        .select({
+          orgSlug: organization.slug,
+          organizationId: projectIndex.organizationId,
+          projectId: ticketBranch.projectId,
+          projectSlug: projectIndex.slug,
+          ticketId: ticketBranch.ticketId,
+          branch: ticketBranch.branch
+        })
+        .from(ticketBranch)
+        .innerJoin(projectIndex, eq(projectIndex.id, ticketBranch.projectId))
+        .innerJoin(
+          organization,
+          eq(organization.id, projectIndex.organizationId)
+        )
+        .where(
+          and(
+            eq(ticketBranch.projectId, projectId),
+            eq(ticketBranch.branch, branch)
+          )
+        )
+        .pipe(Effect.orDie)
+
+    const stacksFor = (
+      project: TicketIndexProject,
+      ticketIds?: ReadonlyArray<string>
+    ): Effect.Effect<ReadonlyMap<string, ReadonlyArray<TicketBranchEntry>>> =>
+      ticketIds !== undefined && ticketIds.length === 0
+        ? Effect.succeed(new Map())
+        : db
+            .select()
+            .from(ticketBranch)
+            .where(
+              and(
+                eq(ticketBranch.projectId, project.projectId),
+                ticketIds === undefined
+                  ? undefined
+                  : inArray(ticketBranch.ticketId, [...ticketIds])
+              )
+            )
+            .orderBy(asc(ticketBranch.ticketId), asc(ticketBranch.position))
+            .pipe(
+              Effect.map((rows) => {
+                const stacks = new Map<string, Array<TicketBranchEntry>>()
+                for (const row of rows) {
+                  const stack = stacks.get(row.ticketId) ?? []
+                  stack.push(stackEntryFromRow(row))
+                  stacks.set(row.ticketId, stack)
+                }
+                return stacks
+              }),
+              Effect.orDie
+            )
+
     const isRepositoryBranchAttached = (repoId: string, branch: string) =>
       db
         .select({ ticketId: ticketIndex.ticketId })
@@ -1118,7 +1190,21 @@ export const TicketIndexLive = Layer.effect(
             eq(projectIntegrationLink.provider, "github"),
             inArray(projectIntegrationLink.status, ["active", "broken"]),
             inArray(projectGithubRepository.status, ["active", "broken"]),
-            eq(ticketIndex.branch, branch)
+            or(
+              eq(ticketIndex.branch, branch),
+              exists(
+                db
+                  .select({ branch: ticketBranch.branch })
+                  .from(ticketBranch)
+                  .where(
+                    and(
+                      eq(ticketBranch.projectId, ticketIndex.projectId),
+                      eq(ticketBranch.ticketId, ticketIndex.ticketId),
+                      eq(ticketBranch.branch, branch)
+                    )
+                  )
+              )
+            )
           )
         )
         .limit(1)
@@ -1512,6 +1598,8 @@ export const TicketIndexLive = Layer.effect(
       findTicketIdsByTag,
       findTicketIdsByStatus,
       findTicketsByBranch,
+      findStackLayers,
+      stacksFor,
       isRepositoryBranchAttached,
       getBranchDeletedAt,
       upsertTicket,

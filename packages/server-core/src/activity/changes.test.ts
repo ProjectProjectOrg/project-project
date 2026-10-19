@@ -195,6 +195,58 @@ describe("ticketChanges", () => {
   })
 })
 
+describe("ticketChanges for stacked branches", () => {
+  const linked = {
+    ...base,
+    branch: "feat/T-1",
+    pr: 41,
+    prState: "open" as const
+  }
+
+  it("records a stacked branch arriving with its pull request", () => {
+    expect(
+      ticketChanges(linked, {
+        ...linked,
+        stack: [{ branch: "feat/T-1-ui", pr: 42, prState: "open" }]
+      })
+    ).toEqual([
+      { kind: "stack_branch_added", branch: "feat/T-1-ui" },
+      { kind: "pr_opened", number: 42 }
+    ])
+  })
+
+  it("records a stacked pull request's merge and the branch leaving", () => {
+    const stacked = {
+      ...linked,
+      stack: [
+        { branch: "feat/T-1-ui", pr: 42, prState: "open" as const },
+        { branch: "feat/T-1-docs" }
+      ]
+    }
+    expect(
+      ticketChanges(stacked, {
+        ...linked,
+        stack: [{ branch: "feat/T-1-ui", pr: 42, prState: "merged" }]
+      })
+    ).toEqual([
+      { kind: "stack_branch_removed", branch: "feat/T-1-docs" },
+      { kind: "pr_merged", number: 42 }
+    ])
+  })
+
+  it("ignores a stack that only changed order or base", () => {
+    expect(
+      ticketChanges(
+        {
+          ...linked,
+          stack: [{ branch: "a" }, { branch: "b", base: "feat/T-1" }]
+        },
+        { ...linked, stack: [{ branch: "b", base: "a" }, { branch: "a" }] }
+      )
+    ).toEqual([])
+  })
+})
+
 describe("groupMembershipChanges", () => {
   const sprint: GroupMembershipSource = {
     id: groupId("G-1"),
