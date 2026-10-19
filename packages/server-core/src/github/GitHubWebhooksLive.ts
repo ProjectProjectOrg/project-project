@@ -38,7 +38,8 @@ import {
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import {
   planPullRequestPatch,
-  planPullRequestWebhookTicket
+  planPullRequestWebhookTicket,
+  withPullRequestBase
 } from "../tickets/ticketGitStatePlanner"
 import {
   TicketIndex,
@@ -218,15 +219,14 @@ export const applyPullRequestWebhookToTicket = (
           )
           return null
         }
-        const planned = planPullRequestWebhookTicket(
-          { ...ticket, prDraft: ticket.prDraft ?? false },
-          change
+        return withPullRequestBase(
+          planPullRequestWebhookTicket(
+            { ...ticket, prDraft: ticket.prDraft ?? false },
+            change
+          ),
+          ticket,
+          { number: change.number, base: change.baseBranch }
         )
-        if (planned !== null) return { ...planned, prBase: change.baseBranch }
-        return ticket.pr === change.number &&
-          ticket.prBase !== change.baseBranch
-          ? { prBase: change.baseBranch }
-          : null
       })
     )
   )
@@ -247,14 +247,7 @@ export const applyPullRequestWebhookToLayer = (
       )
       if (layer === undefined) {
         return Effect.logDebug("github pull_request stack index stale").pipe(
-          Effect.annotateLogs({
-            module: "GitHubWebhooks",
-            deliveryId,
-            orgSlug: match.orgSlug,
-            slug: match.projectSlug,
-            ticketId: match.ticketId,
-            branch: match.branch
-          }),
+          Effect.annotateLogs({ branch: match.branch }),
           Effect.as(null)
         )
       }

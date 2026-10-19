@@ -19,6 +19,7 @@ import {
 import {
   planLayerPullRequest,
   planStackAttach,
+  ticketBranches,
   type StackPullRequest
 } from "./ticketStack"
 
@@ -63,10 +64,7 @@ export function planAutomaticBranchLinks(
 ): ReadonlyMap<TicketId, string> {
   const knownIds = new Set<string>(tickets.map((ticket) => ticket.id))
   const attachedBranches = new Set(
-    tickets.flatMap((ticket) => [
-      ...(ticket.branch === null ? [] : [ticket.branch]),
-      ...(ticket.stack ?? []).map((layer) => layer.branch)
-    ])
+    tickets.flatMap((ticket) => [...ticketBranches(ticket)])
   )
   const eligible = new Map(
     tickets
@@ -106,10 +104,7 @@ export function planAutomaticStacks(
   const knownIds = new Set<string>(byId.keys())
   const attached = new Set([
     ...ownLinks.values(),
-    ...tickets.flatMap((ticket) => [
-      ...(ticket.branch === null ? [] : [ticket.branch]),
-      ...(ticket.stack ?? []).map((layer) => layer.branch)
-    ])
+    ...tickets.flatMap((ticket) => [...ticketBranches(ticket)])
   ])
   const stacks = new Map<TicketId, Array<TicketBranchEntry>>()
   const attach = (branch: string): boolean => {
@@ -251,6 +246,17 @@ export function planPullRequestWebhookTicket(
   return planPullRequestPatch(ticket, pr)
 }
 
+export const withPullRequestBase = (
+  planned: TicketGitStatePatch | null,
+  ticket: Pick<TicketGitStateInput, "pr" | "prBase">,
+  pr: Readonly<{ number: number; base: string }>
+): TicketGitStatePatch | null => {
+  if (planned !== null) return { ...planned, prBase: pr.base }
+  return ticket.pr === pr.number && ticket.prBase !== pr.base
+    ? { prBase: pr.base }
+    : null
+}
+
 export function planTicketGitStates(
   tickets: ReadonlyArray<TicketGitStateInput>,
   raw: RawProjectStates,
@@ -282,13 +288,14 @@ export function planTicketGitStates(
       continue
     }
 
-    const planned = planPullRequestPatch(ticket, pr)
-    const patch =
-      planned !== null
-        ? { ...planned, prBase: pr.baseRefName }
-        : ticket.pr === pr.number && (ticket.prBase ?? null) !== pr.baseRefName
-          ? { prBase: pr.baseRefName }
-          : null
+    const patch = withPullRequestBase(
+      planPullRequestPatch(ticket, pr),
+      ticket,
+      {
+        number: pr.number,
+        base: pr.baseRefName
+      }
+    )
     if (patch) {
       writes.push({
         ticketId: ticket.id,

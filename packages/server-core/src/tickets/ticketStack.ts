@@ -49,7 +49,9 @@ type StackTicket = Readonly<{
   archivedAt: Date | null
 }>
 
-export const ticketBranches = (ticket: StackTicket): ReadonlySet<string> =>
+export const ticketBranches = (
+  ticket: Pick<StackTicket, "branch" | "stack">
+): ReadonlySet<string> =>
   new Set([
     ...(ticket.branch === null ? [] : [ticket.branch]),
     ...(ticket.stack ?? []).map((layer) => layer.branch)

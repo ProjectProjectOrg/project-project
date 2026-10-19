@@ -453,26 +453,19 @@ const attach_branch = (
     return yield* tickets.attachBranch(id, payload)
   })
 
-const stack_branch = (
-  input: Readonly<{
-    orgSlug: string
-    projectSlug: string
-    id: TicketId
-  }> &
-    AttachBranchInput
-) =>
+type StackBranchToolInput = Readonly<{
+  orgSlug: string
+  projectSlug: string
+  id: TicketId
+}> &
+  AttachBranchInput
+
+const stack_branch = (input: StackBranchToolInput) =>
   Effect.flatMap(Tickets, (tickets) =>
     tickets.stackBranch(input.id, { name: input.name })
   )
 
-const unstack_branch = (
-  input: Readonly<{
-    orgSlug: string
-    projectSlug: string
-    id: TicketId
-  }> &
-    AttachBranchInput
-) =>
+const unstack_branch = (input: StackBranchToolInput) =>
   Effect.flatMap(Tickets, (tickets) =>
     tickets.unstackBranch(input.id, { name: input.name })
   )
