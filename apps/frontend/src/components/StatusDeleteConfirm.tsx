@@ -14,6 +14,10 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import {
+  gitAutomationFor,
+  gitAutomationRequest
+} from "@/features/projects/atoms/gitAutomation"
+import {
   deleteStatus,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
@@ -21,6 +25,7 @@ import {
   countsRequest,
   ticketCounts
 } from "@/features/tickets/atoms/ticketCounts"
+import { useProjectActor } from "@/lib/access"
 import { statusLabelFor, statusMetaFor } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -95,6 +100,7 @@ function ConfirmBody({ status, statuses, orgSlug, slug }: Props) {
   }
 
   const blocked = busy || (affectedCount > 0 && !effectiveTarget)
+  const canReadGitAutomation = useProjectActor().call("gitAutomation", "get")
 
   return (
     <>
@@ -105,6 +111,13 @@ function ConfirmBody({ status, statuses, orgSlug, slug }: Props) {
             })
           : m.tickets_status_delete_confirm_empty()}
       </span>
+      {canReadGitAutomation ? (
+        <GitAutomationResetNotice
+          orgSlug={orgSlug}
+          slug={slug}
+          statusSlug={status.slug}
+        />
+      ) : null}
       {affectedCount > 0 ? (
         <TargetPicker
           targets={targets}
@@ -131,6 +144,24 @@ function ConfirmBody({ status, statuses, orgSlug, slug }: Props) {
       ) : null}
     </>
   )
+}
+
+function GitAutomationResetNotice({
+  orgSlug,
+  slug,
+  statusSlug
+}: Readonly<{ orgSlug: string; slug: string; statusSlug: StatusSlug }>) {
+  const automation = useAtomValue(
+    gitAutomationFor(gitAutomationRequest(orgSlug, slug))
+  )
+  const resets =
+    Result.isSuccess(automation) &&
+    Object.values(automation.value.rules).includes(statusSlug)
+  return resets ? (
+    <span className="inline-flex h-8 items-center text-xs text-muted-foreground">
+      {m.tickets_status_delete_resets_git_automation()}
+    </span>
+  ) : null
 }
 
 function TargetPicker({

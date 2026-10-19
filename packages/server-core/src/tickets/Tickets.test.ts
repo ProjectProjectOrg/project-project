@@ -43,6 +43,11 @@ import { applyPullRequestWebhookToTicket } from "../github/GitHubWebhooksLive"
 import { Groups, type GroupsShape } from "../groups/Groups"
 import { Library } from "../library/Library"
 import { TicketIdTaken } from "../markdown/Markdown"
+import {
+  DEFAULT_GIT_AUTOMATION_CONFIG,
+  gitAutomationTestLayer,
+  gitAutomationTestService
+} from "../projects/gitAutomationTesting"
 import { ProjectDocs } from "../projects/ProjectDocs"
 import {
   Projects,
@@ -50,6 +55,7 @@ import {
   type ProjectsShape
 } from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
+import type { GitAutomationConfig } from "./gitAutomation"
 import {
   TicketDocs,
   type TicketDocsShape,
@@ -422,6 +428,7 @@ const entryFromDocument = (document: TicketDocument) => {
   return {
     ...entry,
     estimate: entry.estimate ?? null,
+    prDraft: entry.prDraft ?? false,
     branchDeletedAt: null,
     checks: null,
     checksHeadSha: null,
@@ -686,6 +693,7 @@ type TicketsLayerOptions = Readonly<{
   attachments?: Layer.Layer<Attachments>
   figmaLinks?: Layer.Layer<FigmaLinks>
   scope?: ProjectScopeShape
+  gitAutomation?: GitAutomationConfig
 }>
 
 function makeTicketsLayer(
@@ -694,6 +702,7 @@ function makeTicketsLayer(
   options: TicketsLayerOptions = {}
 ) {
   return TicketsLive.pipe(
+    Layer.provide(gitAutomationTestLayer(options.gitAutomation)),
     Layer.provide(PassthroughLibrary),
     Layer.provide(passthroughTicketActivity),
     Layer.provide(ticketDocsLayer),
@@ -729,6 +738,7 @@ it.effect("listGitStates fetches only distinct ticket branches", () => {
 
   const fetchedBranches: string[][] = []
   const layer = TicketsLive.pipe(
+    Layer.provide(gitAutomationTestLayer()),
     Layer.provide(PassthroughLibrary),
     Layer.provide(passthroughTicketActivity),
     Layer.provide(docs.layer),
@@ -794,6 +804,7 @@ it.effect(
       branch: "feat/T-1-old"
     })
     const layer = TicketsLive.pipe(
+      Layer.provide(gitAutomationTestLayer()),
       Layer.provide(PassthroughLibrary),
       Layer.provide(passthroughTicketActivity),
       Layer.provide(docs.layer),
@@ -928,6 +939,171 @@ it.effect("listGitStates links an external branch and its existing PR", () => {
     expect(result.states["T-1"]).toMatchObject({ tag: "pr_open", number: 42 })
     yield* tickets.listGitStates()
     expect(queries).toEqual(["T-", undefined])
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect(
+  "listGitStates links a branch named only in its open PR's title and applies the PR rule",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    const layer = makeTicketsLayer("T", docs.layer, {
+      projects: makeFakeProjects("T", {
+        githubIntegration: () => Effect.succeed(githubIntegration)
+      }),
+      ticketIndex: makeFakeTicketIndex(docs.documents),
+      github: makeFakeGitHub({
+        fetchInstallationProjectStates: () =>
+          Effect.succeed({
+            defaultBranch: "main",
+            existingBranches: new Set(["fix-login"]),
+            prByBranch: new Map([
+              [
+                "fix-login",
+                {
+                  headRefName: "fix-login",
+                  baseRefName: "main",
+                  state: "open",
+                  draft: false,
+                  number: 42,
+                  url: "https://github.com/acme/app/pull/42",
+                  title: "T-1: fix login",
+                  mergedAt: null,
+                  checks: "passing"
+                }
+              ]
+            ]),
+            openPullRequestText: new Map([
+              ["fix-login", { title: "T-1: fix login", body: "" }]
+            ])
+          })
+      }),
+      gitAutomation: {
+        ...DEFAULT_GIT_AUTOMATION_CONFIG,
+        rules: {
+          ...DEFAULT_GIT_AUTOMATION_CONFIG.rules,
+          pr_opened: ticketStatus("in_progress")
+        }
+      }
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const result = yield* tickets.listGitStates()
+      expect(result.changedTicketIds).toEqual(["T-1"])
+      expect(docs.documents.get("T-1")).toMatchObject({
+        branch: "fix-login",
+        pr: 42,
+        prState: "open",
+        status: "in_progress"
+      })
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+const mergedPullRequest = (baseRefName: string) => ({
+  headRefName: "feat/T-1",
+  baseRefName,
+  state: "merged" as const,
+  draft: false,
+  number: 42,
+  url: "https://github.com/acme/app/pull/42",
+  title: "Merged",
+  mergedAt: null,
+  checks: "passing" as const
+})
+
+const mergedSnapshotLayer = (
+  docs: ReturnType<typeof makeFakeTicketDocs>,
+  baseRefName: string
+) =>
+  makeTicketsLayer("T", docs.layer, {
+    projects: makeFakeProjects("T", {
+      githubIntegration: () => Effect.succeed(githubIntegration)
+    }),
+    ticketIndex: makeFakeTicketIndex(docs.documents),
+    github: makeFakeGitHub({
+      fetchInstallationProjectStates: () =>
+        Effect.succeed({
+          defaultBranch: "main",
+          existingBranches: new Set(["feat/T-1"]),
+          prByBranch: new Map([["feat/T-1", mergedPullRequest(baseRefName)]])
+        })
+    })
+  })
+
+it.effect(
+  "listGitStates moves a merged ticket once and leaves a manual move back alone",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    docs.documents.set("T-1", makeTicketDocument("T-1", { branch: "feat/T-1" }))
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const first = yield* tickets.listGitStates()
+      expect(docs.documents.get("T-1")).toMatchObject({
+        status: ticketStatus("done"),
+        prState: "merged",
+        lastTransitionedPr: 42
+      })
+      expect(first.transitioned).toEqual([
+        {
+          ticketId: "T-1",
+          fromStatus: ticketStatus("todo"),
+          toStatus: ticketStatus("done"),
+          prNumber: 42
+        }
+      ])
+
+      yield* tickets.update("T-1", { status: ticketStatus("in_progress") })
+      const second = yield* tickets.listGitStates()
+      expect(docs.documents.get("T-1")?.status).toBe(
+        ticketStatus("in_progress")
+      )
+      expect(second.transitioned).toEqual([])
+    }).pipe(Effect.provide(mergedSnapshotLayer(docs, "main")))
+  }
+)
+
+it.effect(
+  "listGitStates records a merge into another branch without moving the ticket",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    docs.documents.set("T-1", makeTicketDocument("T-1", { branch: "feat/T-1" }))
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const result = yield* tickets.listGitStates()
+      expect(docs.documents.get("T-1")).toMatchObject({
+        status: ticketStatus("todo"),
+        prState: "merged"
+      })
+      expect(result.transitioned).toEqual([])
+    }).pipe(Effect.provide(mergedSnapshotLayer(docs, "feat/stack-base")))
+  }
+)
+
+it.effect("attachBranch moves the ticket by the branch rule", () => {
+  const docs = makeFakeTicketDocs(["T-1"])
+  const layer = makeTicketsLayer("T", docs.layer, {
+    projects: makeFakeProjects("T", {
+      githubIntegration: () => Effect.succeed(githubIntegration)
+    }),
+    ticketIndex: makeFakeTicketIndex(docs.documents),
+    github: makeFakeGitHub({
+      branchExistsInstallation: () => Effect.succeed(true)
+    }),
+    gitAutomation: {
+      ...DEFAULT_GIT_AUTOMATION_CONFIG,
+      rules: {
+        ...DEFAULT_GIT_AUTOMATION_CONFIG.rules,
+        branch_linked: ticketStatus("in_progress")
+      }
+    }
+  })
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    yield* tickets.attachBranch("T-1", { name: "feat/T-1" })
+    expect(docs.documents.get("T-1")).toMatchObject({
+      branch: "feat/T-1",
+      status: ticketStatus("in_progress")
+    })
   }).pipe(Effect.provide(layer))
 })
 
@@ -1202,7 +1378,8 @@ it.effect("manual unlink waits for a webhook write and remains unlinked", () =>
           {
             ticketDocs: coordinatedDocs,
             ticketIndex: index,
-            ticketDocumentLock
+            ticketDocumentLock,
+            gitAutomation: gitAutomationTestService()
           },
           {
             orgSlug: "org",
@@ -1217,7 +1394,12 @@ it.effect("manual unlink waits for a webhook write and remains unlinked", () =>
             repositoryId: "repo-1",
             branch: "feat/T-1",
             number: 42,
-            state: "open"
+            title: "First",
+            body: "",
+            state: "open",
+            draft: false,
+            baseBranch: "main",
+            defaultBranch: "main"
           },
           "delivery-1"
         )

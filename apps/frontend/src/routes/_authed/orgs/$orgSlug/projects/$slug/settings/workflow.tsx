@@ -11,6 +11,7 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useState } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
+import { GitAutomationSettings } from "@/components/GitAutomationSettings"
 import {
   SEGMENTED_ITEM_CLASS,
   SegmentedTabs,
@@ -53,7 +54,9 @@ function WorkflowSettings() {
   const req = projectRequest(orgSlug, project.slug)
   const update = useAtomSet(updateProjectSetup(req))
   const updateState = useAtomValue(updateProjectSetup(req))
-  const canEdit = useProjectActor().call("statuses", "create")
+  const actor = useProjectActor()
+  const canEdit = actor.call("statuses", "create")
+  const canReadGitAutomation = actor.call("gitAutomation", "get")
   const reviewedAt = project.setup.workflowReviewedAt
 
   return (
@@ -107,6 +110,14 @@ function WorkflowSettings() {
         </div>
         <StatusList orgSlug={orgSlug} slug={project.slug} />
       </div>
+
+      {canReadGitAutomation ? (
+        <GitAutomationSettings
+          orgSlug={orgSlug}
+          slug={project.slug}
+          canEdit={actor.call("gitAutomation", "update")}
+        />
+      ) : null}
     </div>
   )
 }

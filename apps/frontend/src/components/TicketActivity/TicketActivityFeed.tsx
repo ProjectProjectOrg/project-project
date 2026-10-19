@@ -75,7 +75,8 @@ const CAUSES: Readonly<Record<ActivityCause, () => string>> = {
   tag_deleted: () => m.tickets_activity_cause_tag_deleted(),
   member_removed: () => m.tickets_activity_cause_member_removed(),
   sprint_completed: () => m.tickets_activity_cause_sprint_completed(),
-  group_deleted: () => m.tickets_activity_cause_group_deleted()
+  group_deleted: () => m.tickets_activity_cause_group_deleted(),
+  git_automation: () => m.tickets_activity_cause_git_automation()
 }
 
 const GROUP_ICONS: Readonly<Record<GroupKind, LucideIcon>> = {

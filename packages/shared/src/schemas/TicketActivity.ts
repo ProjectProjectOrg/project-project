@@ -19,7 +19,8 @@ export const ActivityCause = Schema.Literals([
   "tag_deleted",
   "member_removed",
   "sprint_completed",
-  "group_deleted"
+  "group_deleted",
+  "git_automation"
 ])
 export type ActivityCause = typeof ActivityCause.Type
 

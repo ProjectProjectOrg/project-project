@@ -6,6 +6,10 @@ import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
 import {
+  DEFAULT_GIT_AUTOMATION_CONFIG,
+  gitAutomationTestService
+} from "../projects/gitAutomationTesting"
+import {
   MalformedTicketDocument,
   type TicketDocsShape,
   type TicketDocument
@@ -21,7 +25,9 @@ import type {
 } from "./GitHubWebhooks"
 import {
   applyPullRequestWebhookToTicket,
+  linkPullRequestWebhookToTicket,
   makeGitHubWebhooks,
+  moveTicketsForDeletedBranch,
   type PullRequestWebhookMatch
 } from "./GitHubWebhooksLive"
 
@@ -195,22 +201,71 @@ it.effect("dispatches handled pull_request actions", () =>
     const calls: Array<Call> = []
     const webhooks = makeGitHubWebhooks(makeSink(calls))
     const cases = [
-      { action: "opened", merged: false, expectedState: "open" },
-      { action: "reopened", merged: false, expectedState: "open" },
-      { action: "synchronize", merged: false, expectedState: "open" },
-      { action: "closed", merged: false, expectedState: "closed" },
-      { action: "closed", merged: true, expectedState: "merged" }
+      { action: "opened", merged: false, draft: false, expectedState: "open" },
+      { action: "opened", merged: false, draft: true, expectedState: "open" },
+      {
+        action: "reopened",
+        merged: false,
+        draft: false,
+        expectedState: "open"
+      },
+      {
+        action: "synchronize",
+        merged: false,
+        draft: false,
+        expectedState: "open"
+      },
+      {
+        action: "converted_to_draft",
+        merged: false,
+        draft: true,
+        expectedState: "open"
+      },
+      {
+        action: "ready_for_review",
+        merged: false,
+        draft: false,
+        expectedState: "open"
+      },
+      {
+        action: "closed",
+        merged: false,
+        draft: false,
+        expectedState: "closed"
+      },
+      { action: "closed", merged: true, draft: false, expectedState: "merged" },
+      { action: "edited", merged: false, draft: false, expectedState: "open" },
+      {
+        action: "edited",
+        merged: false,
+        draft: false,
+        prState: "closed",
+        expectedState: "closed"
+      },
+      {
+        action: "edited",
+        merged: true,
+        draft: false,
+        prState: "closed",
+        expectedState: "merged"
+      }
     ]
     for (const input of cases) {
       yield* webhooks.handle(
         delivery("pull_request", {
           action: input.action,
           installation: { id: "123" },
-          repository: { id: "456" },
+          repository: { id: "456", default_branch: "main" },
           number: 80,
           pull_request: {
+            title: "T-84: PR webhook lifecycle",
+            body: null,
+            state:
+              input.prState ?? (input.action === "closed" ? "closed" : "open"),
             merged: input.merged,
-            head: { ref: "feat/T-84-pr-webhook-lifecycle", repo: { id: 456 } }
+            draft: input.draft,
+            head: { ref: "feat/T-84-pr-webhook-lifecycle", repo: { id: 456 } },
+            base: { ref: "main" }
           }
         })
       )
@@ -223,7 +278,12 @@ it.effect("dispatches handled pull_request actions", () =>
           repositoryId: "456",
           branch: "feat/T-84-pr-webhook-lifecycle",
           number: 80,
-          state: input.expectedState
+          title: "T-84: PR webhook lifecycle",
+          body: "",
+          state: input.expectedState,
+          draft: input.draft,
+          baseBranch: "main",
+          defaultBranch: "main"
         }
       }))
     )
@@ -236,13 +296,14 @@ it.effect("ignores unhandled pull_request actions and fork pull requests", () =>
     const webhooks = makeGitHubWebhooks(makeSink(calls))
     yield* webhooks.handle(
       delivery("pull_request", {
-        action: "edited",
+        action: "labeled",
         installation: { id: "123" },
         repository: { id: "456" },
         number: 80,
         pull_request: {
           merged: false,
-          head: { ref: "feat/T-84-pr-webhook-lifecycle", repo: { id: 456 } }
+          head: { ref: "feat/T-84-pr-webhook-lifecycle", repo: { id: 456 } },
+          base: { ref: "main" }
         }
       })
     )
@@ -254,7 +315,8 @@ it.effect("ignores unhandled pull_request actions and fork pull requests", () =>
         number: 80,
         pull_request: {
           merged: false,
-          head: { ref: "feat/T-84-pr-webhook-lifecycle", repo: { id: 999 } }
+          head: { ref: "feat/T-84-pr-webhook-lifecycle", repo: { id: 999 } },
+          base: { ref: "main" }
         }
       })
     )
@@ -825,7 +887,12 @@ const openChange: GitHubPullRequestWebhookChange = {
   repositoryId: "456",
   branch: "feat/T-1",
   number: 80,
-  state: "open"
+  title: "First",
+  body: "",
+  state: "open",
+  draft: false,
+  baseBranch: "main",
+  defaultBranch: "main"
 }
 
 layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
@@ -840,7 +907,8 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
-            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock
+            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+            gitAutomation: gitAutomationTestService()
           },
           baseMatch(),
           openChange,
@@ -871,7 +939,8 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
-            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock
+            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+            gitAutomation: gitAutomationTestService()
           },
           baseMatch(),
           openChange,
@@ -920,7 +989,9 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
               {
                 ticketDocs: serialDocs,
                 ticketIndex: index.shape,
-                ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock
+                ticketDocumentLock:
+                  yield* TicketDocumentLock.TicketDocumentLock,
+                gitAutomation: gitAutomationTestService()
               },
               baseMatch(),
               openChange,
@@ -930,7 +1001,9 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
               {
                 ticketDocs: serialDocs,
                 ticketIndex: index.shape,
-                ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock
+                ticketDocumentLock:
+                  yield* TicketDocumentLock.TicketDocumentLock,
+                gitAutomation: gitAutomationTestService()
               },
               baseMatch(),
               openChange,
@@ -959,7 +1032,8 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
-            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock
+            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+            gitAutomation: gitAutomationTestService()
           },
           baseMatch({ branch: "feat/T-1" }),
           openChange,
@@ -996,7 +1070,8 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           {
             ticketDocs: malformedDocs,
             ticketIndex: index.shape,
-            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock
+            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+            gitAutomation: gitAutomationTestService()
           },
           baseMatch(),
           openChange,
@@ -1019,7 +1094,8 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
-            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock
+            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+            gitAutomation: gitAutomationTestService()
           },
           baseMatch(),
           { ...openChange, number: 80 },
@@ -1032,7 +1108,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
   )
 
   it.effect(
-    "applyPullRequestWebhookToTicket transitions to done once on merged",
+    "applyPullRequestWebhookToTicket moves the ticket by the merge rule once",
     () =>
       Effect.gen(function* () {
         const docs = makeFakeDocs([baseDocument()])
@@ -1042,31 +1118,261 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
-            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock
+            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+            gitAutomation: gitAutomationTestService()
           },
           baseMatch(),
           { ...openChange, state: "merged" },
           "delivery-1"
         )
 
-        expect(docs.writes).toHaveLength(1)
-        expect(docs.writes[0].document.status).toBe("done")
-        expect(docs.writes[0].document.prState).toBe("merged")
-        expect(docs.writes[0].document.lastTransitionedPr).toBe(80)
+        expect(docs.writes).toHaveLength(2)
+        expect(docs.writes[0].document).toMatchObject({
+          status: "in_progress",
+          prState: "merged",
+          lastTransitionedPr: 80
+        })
+        expect(docs.writes[1].document.status).toBe("done")
 
         yield* applyPullRequestWebhookToTicket(
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
-            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock
+            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+            gitAutomation: gitAutomationTestService()
           },
           baseMatch(),
           { ...openChange, state: "merged" },
           "delivery-2"
         )
 
+        expect(docs.writes).toHaveLength(2)
+        expect(index.upserts).toHaveLength(2)
+      })
+  )
+
+  it.effect(
+    "applyPullRequestWebhookToTicket leaves the status alone for a merge into another branch",
+    () =>
+      Effect.gen(function* () {
+        const docs = makeFakeDocs([baseDocument()])
+        const index = makeFakeIndex()
+
+        yield* applyPullRequestWebhookToTicket(
+          {
+            ticketDocs: docs.shape,
+            ticketIndex: index.shape,
+            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+            gitAutomation: gitAutomationTestService()
+          },
+          baseMatch(),
+          { ...openChange, state: "merged", baseBranch: "feat/stack-base" },
+          "delivery-1"
+        )
+
         expect(docs.writes).toHaveLength(1)
-        expect(index.upserts).toHaveLength(1)
+        expect(docs.writes[0].document).toMatchObject({
+          status: "in_progress",
+          prState: "merged"
+        })
+      })
+  )
+
+  it.effect(
+    "moveTicketsForDeletedBranch moves only tickets still on the deleted branch",
+    () =>
+      Effect.gen(function* () {
+        const docs = makeFakeDocs([
+          baseDocument(),
+          baseDocument({ id: ticketId("T-2"), branch: "feat/T-2" })
+        ])
+        const index = makeFakeIndex({
+          findTicketsByBranch: () =>
+            Effect.succeed([
+              baseMatch(),
+              baseMatch({ ticketId: "T-2" }),
+              baseMatch({ ticketId: "T-3" })
+            ])
+        })
+
+        yield* moveTicketsForDeletedBranch(
+          {
+            ticketDocs: docs.shape,
+            ticketIndex: index.shape,
+            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+            gitAutomation: gitAutomationTestService({
+              ...DEFAULT_GIT_AUTOMATION_CONFIG,
+              rules: {
+                ...DEFAULT_GIT_AUTOMATION_CONFIG.rules,
+                branch_deleted: ticketStatus("blocked")
+              }
+            })
+          },
+          "project-1",
+          "feat/T-1",
+          ["T-1", "T-2"]
+        )
+
+        expect(docs.writes).toEqual([
+          {
+            id: "T-1",
+            document: expect.objectContaining({ status: "blocked" })
+          }
+        ])
+      })
+  )
+
+  const project = {
+    orgSlug: "org",
+    organizationId: "org-1",
+    projectId: "project-1",
+    projectSlug: "p"
+  }
+
+  const linkPullRequest = (
+    documents: ReadonlyArray<TicketDocument>,
+    change: Partial<GitHubPullRequestWebhookChange>,
+    indexOverrides: Partial<TicketIndexShape> = {}
+  ) =>
+    Effect.gen(function* () {
+      const docs = makeFakeDocs(documents)
+      const index = makeFakeIndex({
+        existingIds: (_project, ids) =>
+          Effect.succeed(new Set(ids.filter((id) => docs.documents.has(id)))),
+        ...indexOverrides
+      })
+      yield* linkPullRequestWebhookToTicket(
+        {
+          ticketDocs: docs.shape,
+          ticketIndex: index.shape,
+          ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+          gitAutomation: gitAutomationTestService()
+        },
+        project,
+        { ...openChange, branch: "fix-login", title: "Fix login", ...change },
+        "delivery-1"
+      )
+      return docs
+    })
+
+  const unlinked = (overrides: Partial<TicketDocument> = {}) =>
+    baseDocument({ branch: null, ...overrides })
+
+  for (const { name, change } of [
+    { name: "its branch name", change: { branch: "feat/T-1-login" } },
+    { name: "its title", change: { title: "T-1: fix login" } },
+    {
+      name: "a closing keyword in its description",
+      change: { body: "Login was broken.\n\nFixes T-1" }
+    },
+    {
+      name: "its title when the branch names a key that isn't a ticket",
+      change: { branch: "fix-utf-8", title: "[T-1] Handle UTF-8 names" }
+    }
+  ]) {
+    it.effect(`links a pull request to the ticket named in ${name}`, () =>
+      Effect.gen(function* () {
+        const docs = yield* linkPullRequest([unlinked()], change)
+
+        expect(docs.writes).toEqual([
+          {
+            id: "T-1",
+            document: expect.objectContaining({
+              branch: change.branch ?? "fix-login",
+              pr: 80,
+              prState: "open",
+              prDraft: false,
+              status: "in_progress"
+            })
+          }
+        ])
+      })
+    )
+  }
+
+  for (const { name, documents, change, indexOverrides } of [
+    {
+      name: "a closed pull request",
+      documents: [unlinked()],
+      change: { title: "T-1: fix login", state: "closed" as const }
+    },
+    {
+      name: "a pull request from the default branch",
+      documents: [unlinked()],
+      change: { branch: "main", title: "T-1: fix login" }
+    },
+    {
+      name: "a title naming two tickets",
+      documents: [unlinked(), unlinked({ id: ticketId("T-2") })],
+      change: { title: "T-1 and T-2: fix login" }
+    },
+    {
+      name: "a description mentioning a ticket without a closing keyword",
+      documents: [unlinked()],
+      change: { body: "Related to T-1" }
+    },
+    {
+      name: "a ticket the project doesn't have",
+      documents: [unlinked()],
+      change: { title: "T-9: fix login" }
+    },
+    {
+      name: "a ticket that already has a branch",
+      documents: [baseDocument({ branch: "feat/T-1-other" })],
+      change: { title: "T-1: fix login" }
+    },
+    {
+      name: "an archived ticket",
+      documents: [
+        unlinked({
+          archivedAt: DateTime.toDate(
+            DateTime.makeUnsafe("2026-05-02T00:00:00.000Z")
+          )
+        })
+      ],
+      change: { title: "T-1: fix login" }
+    },
+    {
+      name: "a ticket whose branch was cleared by hand",
+      documents: [unlinked({ branchAutoLinkDisabled: true })],
+      change: { title: "T-1: fix login" }
+    },
+    {
+      name: "a branch another ticket in the repository has",
+      documents: [unlinked()],
+      change: { title: "T-1: fix login" },
+      indexOverrides: {
+        isRepositoryBranchAttached: () => Effect.succeed(true)
+      }
+    }
+  ]) {
+    it.effect(`doesn't link ${name}`, () =>
+      Effect.gen(function* () {
+        const docs = yield* linkPullRequest(documents, change, indexOverrides)
+
+        expect(docs.writes).toEqual([])
+      })
+    )
+  }
+
+  it.effect(
+    "moves a ticket linked by a merged pull request by the merge rule",
+    () =>
+      Effect.gen(function* () {
+        const docs = yield* linkPullRequest([unlinked()], {
+          title: "T-1: fix login",
+          state: "merged"
+        })
+
+        expect(docs.writes.map(({ document }) => document)).toEqual([
+          expect.objectContaining({
+            branch: "fix-login",
+            prState: "merged",
+            lastTransitionedPr: 80,
+            status: "in_progress"
+          }),
+          expect.objectContaining({ status: "done" })
+        ])
       })
   )
 })

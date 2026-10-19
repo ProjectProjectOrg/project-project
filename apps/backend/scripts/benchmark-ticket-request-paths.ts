@@ -22,6 +22,7 @@ import { Library } from "@pp/server-core/library/Library"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
+import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
 import { Projects, type ProjectsShape } from "@pp/server-core/projects/Projects"
 import { TicketDocsLive } from "@pp/server-core/tickets/TicketDocsLive"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
@@ -490,6 +491,7 @@ const BenchmarkLive = (options: Options) =>
         DatabaseLive,
         IndexLive,
         FakeProjects,
+        Layer.mock(ProjectGitAutomation, {}),
         Layer.mock(ProjectDocs, {
           read: (_org, slug) =>
             Effect.succeed({ ...benchmarkProject, slug, templateDefaults: {} })

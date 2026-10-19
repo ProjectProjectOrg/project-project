@@ -47,6 +47,7 @@ import { OAuthApplicationsLive } from "@pp/server-core/oauth/OAuthApplicationsLi
 import { OrgLive } from "@pp/server-core/organizations/OrgLive"
 import { BannerPlaceholdersLive } from "@pp/server-core/projects/BannerPlaceholdersLive"
 import { ProjectDocsLive } from "@pp/server-core/projects/ProjectDocsLive"
+import { ProjectGitAutomationLive } from "@pp/server-core/projects/ProjectGitAutomationLive"
 import { ProjectsLive } from "@pp/server-core/projects/ProjectsLive"
 import { ProjectStatusesLive } from "@pp/server-core/projects/ProjectStatusesLive"
 import { OrgStorageLive } from "@pp/server-core/storage/OrgStorageLive"
@@ -122,6 +123,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
   TagsLive.pipe(
     Layer.provideMerge(ProjectStatusesLive),
     Layer.provideMerge(TicketsLive),
+    Layer.provideMerge(ProjectGitAutomationLive),
     Layer.provideMerge(TicketActivityFeedLive),
     Layer.provideMerge(LibraryLive),
     Layer.provideMerge(AttachmentUploadsLive),
