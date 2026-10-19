@@ -54,14 +54,12 @@ export const ProjectGitAutomationLive = Layer.effect(
           })
           .from(projectGitAutomation)
           .where(eq(projectGitAutomation.projectId, projectId))
-          .pipe(Effect.orDie)
         const project = yield* db
           .select({ forwardOnly: projectIndex.gitAutomationForwardOnly })
           .from(projectIndex)
           .where(eq(projectIndex.id, projectId))
-          .pipe(Effect.orDie)
         return gitAutomationFromRows(rows, project[0]?.forwardOnly ?? true)
-      })
+      }).pipe(Effect.orDie)
 
     const configFor: ProjectGitAutomationShape["configFor"] = (projectId) =>
       Effect.gen(function* () {
