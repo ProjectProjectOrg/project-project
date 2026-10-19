@@ -8,10 +8,6 @@ CREATE TABLE "ticket_branch" (
 	"pr_state" text,
 	"pr_draft" boolean DEFAULT false NOT NULL,
 	"landed" boolean DEFAULT false NOT NULL,
-	"branch_deleted_at" timestamp with time zone,
-	"checks" text,
-	"checks_head_sha" text,
-	"checks_updated_at" timestamp with time zone,
 	CONSTRAINT "ticket_branch_pkey" PRIMARY KEY("project_id","ticket_id","branch")
 );
 --> statement-breakpoint

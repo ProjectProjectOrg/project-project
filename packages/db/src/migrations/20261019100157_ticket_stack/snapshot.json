@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "d9f0907c-464c-4bef-9953-db002f2d99ca",
+  "id": "0e82523e-b863-43d4-9479-c392fde968ba",
   "prevIds": [
-    "d44945bb-4ab1-44b6-b324-c92f737f9b2c"
+    "7fb4032b-211a-4736-a6eb-79b8e263470b"
   ],
   "ddl": [
     {
@@ -4032,58 +4032,6 @@
       "table": "ticket_branch"
     },
     {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "branch_deleted_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ticket_branch"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "checks",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ticket_branch"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "checks_head_sha",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ticket_branch"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "checks_updated_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ticket_branch"
-    },
-    {
       "type": "text",
       "typeSchema": null,
       "notNull": true,
@@ -4274,6 +4222,19 @@
       "generated": null,
       "identity": null,
       "name": "pr_draft",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ticket_index"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "pr_updated_at",
       "entityType": "columns",
       "schema": "public",
       "table": "ticket_index"

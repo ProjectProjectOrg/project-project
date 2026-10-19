@@ -702,9 +702,6 @@ export const ticketIndex = pgTable(
   ]
 )
 
-// Branches stacked on a ticket's own branch, one row per layer: the entries
-// after the first in the ticket's `branches` list (position 0 is the lowest).
-// Checks and deletion state are cached here per layer and survive re-indexing.
 export const ticketBranch = pgTable(
   "ticket_branch",
   {
@@ -716,13 +713,7 @@ export const ticketBranch = pgTable(
     pr: integer("pr"),
     prState: text("pr_state", { enum: ["open", "closed", "merged"] }),
     prDraft: boolean("pr_draft").notNull().default(false),
-    landed: boolean("landed").notNull().default(false),
-    branchDeletedAt: timestamp("branch_deleted_at", { withTimezone: true }),
-    checks: text("checks", {
-      enum: ["passing", "failing", "pending", "neutral", "none"]
-    }),
-    checksHeadSha: text("checks_head_sha"),
-    checksUpdatedAt: timestamp("checks_updated_at", { withTimezone: true })
+    landed: boolean("landed").notNull().default(false)
   },
   (t) => [
     primaryKey({ columns: [t.projectId, t.ticketId, t.branch] }),

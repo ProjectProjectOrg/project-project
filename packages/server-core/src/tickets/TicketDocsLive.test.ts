@@ -286,6 +286,58 @@ describe("TicketDocs branches persistence", () => {
     }).pipe(Effect.provide(TestLayer))
   )
 
+  it.effect("drops the stack when the ticket's own branch is cleared", () =>
+    Effect.gen(function* () {
+      const docs = yield* TicketDocs
+      yield* docs.create("acme", "project", {
+        ...ticketDocument("T-24"),
+        branch: null,
+        stack: [{ branch: "feat/T-24-ui", base: "feat/T-24" }]
+      })
+
+      const document = yield* docs.read("acme", "project", "T-24")
+      const raw = yield* docs.readRaw("acme", "project", "T-24")
+
+      expect(document.branch).toBeNull()
+      expect(document.stack).toBeUndefined()
+      expect(raw.content).not.toMatch(/^branches:/m)
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("rejects a branches list that repeats a branch", () =>
+    Effect.gen(function* () {
+      const markdown = yield* Markdown
+      const docs = yield* TicketDocs
+      yield* markdown.createTicketFile(
+        "acme",
+        "project",
+        "T-25",
+        {
+          id: "T-25",
+          title: "Ticket",
+          status: "todo",
+          type: "chore",
+          priority: "med",
+          tags: [],
+          branches: [
+            { branch: "feat/T-25" },
+            { branch: "feat/T-25-ui", base: "feat/T-25" },
+            { branch: "feat/T-25-ui", base: "feat/T-25" }
+          ],
+          assignees: [],
+          archivedAt: null,
+          createdBy: "user-1",
+          createdAt: "2026-09-07T10:00:00Z",
+          updatedAt: "2026-09-07T10:00:00Z"
+        },
+        "# Ticket\n"
+      )
+
+      const error = yield* Effect.flip(docs.read("acme", "project", "T-25"))
+      expect(error._tag).toBe("MalformedTicketDocument")
+    }).pipe(Effect.provide(TestLayer))
+  )
+
   it.effect("reads a ticket file written before the branches list", () =>
     Effect.gen(function* () {
       const markdown = yield* Markdown

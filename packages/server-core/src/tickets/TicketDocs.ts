@@ -36,10 +36,17 @@ const TicketFrontmatterOnDisk = Schema.Struct({
   tags: Schema.Array(TagName).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
   ),
-  branches: Schema.optionalKey(Schema.Array(TicketBranchEntry)),
+  branches: Schema.optionalKey(
+    Schema.Array(TicketBranchEntry).check(
+      Schema.makeFilter(
+        (entries) =>
+          new Set(entries.map((entry) => entry.branch)).size === entries.length,
+        { expected: "unique branch names" }
+      )
+    )
+  ),
   ignoredBranches: Schema.optionalKey(Schema.Array(Schema.String)),
   branchAutoLinkDisabled: Schema.optionalKey(Schema.Boolean),
-  // Ticket files written before `branches` kept the ticket's branch in these.
   branch: Schema.optionalKey(Schema.NullOr(Schema.String)),
   pr: Schema.optionalKey(Schema.NullOr(Schema.Finite)),
   prState: Schema.optionalKey(Schema.NullOr(PullRequestState)),
@@ -68,8 +75,6 @@ const gitKeysOnDisk = [
   "lastTransitionedPr"
 ] as const
 
-// In memory the ticket's own branch keeps its flat fields and the branches
-// stacked on it sit in `stack`; on disk they are one `branches` list.
 const TicketGitValue = {
   branch: Schema.NullOr(Schema.String),
   branchAutoLinkDisabled: Schema.optional(Schema.Boolean),
@@ -174,7 +179,8 @@ const gitToDisk = (input: TicketGit): TicketGitOnDisk => {
             }
           )
         ]
-  const branches = [...own, ...(input.stack ?? [])].map(branchEntryOnDisk)
+  const stack = input.branch === null ? [] : (input.stack ?? [])
+  const branches = [...own, ...stack].map(branchEntryOnDisk)
   return Object.assign(
     {},
     branches.length > 0 ? { branches } : {},

@@ -64,6 +64,11 @@ import type { TicketDocument } from "../tickets/TicketDocs"
 import { TicketDocs } from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import { TicketIndex } from "../tickets/TicketIndex"
+import {
+  clearedPrMetadata,
+  hasPrMetadata,
+  prMetadataOf
+} from "../tickets/ticketPrMetadata"
 import { Users } from "../users/Users"
 import { bannerNeedsPlaceholder } from "./bannerPlaceholder"
 import { BannerPlaceholders } from "./BannerPlaceholders"
@@ -1162,19 +1167,11 @@ export const ProjectsLive = Layer.effect(
                   )
               })
             )
-            if (
-              ticket === null ||
-              (ticket.pr === null &&
-                ticket.prState === null &&
-                ticket.lastTransitionedPr === null)
-            ) {
+            if (ticket === null || !hasPrMetadata(ticket)) {
               continue
             }
             const next = {
-              ...ticket,
-              pr: null,
-              prState: null,
-              lastTransitionedPr: null,
+              ...clearedPrMetadata(ticket),
               updatedAt: yield* DateTime.nowAsDate
             }
             yield* ticketDocs
@@ -1185,9 +1182,7 @@ export const ProjectsLive = Layer.effect(
                 (current) =>
                   Effect.succeed({
                     ...current,
-                    pr: next.pr,
-                    prState: next.prState,
-                    lastTransitionedPr: next.lastTransitionedPr,
+                    ...prMetadataOf(next),
                     updatedAt: next.updatedAt
                   }),
                 (updated) =>
@@ -1221,9 +1216,7 @@ export const ProjectsLive = Layer.effect(
                   (current) =>
                     Effect.succeed({
                       ...current,
-                      pr: ticket.pr,
-                      prState: ticket.prState,
-                      lastTransitionedPr: ticket.lastTransitionedPr,
+                      ...prMetadataOf(ticket),
                       updatedAt: ticket.updatedAt
                     }),
                   (restored) => ticketIndex.upsertTicket(project, restored),
