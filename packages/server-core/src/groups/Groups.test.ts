@@ -238,7 +238,6 @@ function makeFakeDocs(initial?: {
       Effect.sync(() => {
         ticketsById.set(document.id, document)
       }),
-    claimPullRequestUpdate: () => Effect.succeed(true),
     markBranchStale: () => Effect.succeed([]),
     clearBranchStale: () => Effect.void,
     updateBranchChecks: () => Effect.succeed([]),

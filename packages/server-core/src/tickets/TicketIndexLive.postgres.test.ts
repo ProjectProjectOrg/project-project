@@ -177,50 +177,6 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
     }).pipe(Effect.provide(TestLayer))
   )
 
-  it.effect("claims pull request updates in delivery order", () =>
-    Effect.gen(function* () {
-      const suffix = randomUUID()
-      const organizationId = `ticket-index-claim-${suffix}`
-      const projectId = randomUUID()
-      yield* withClient(async (client) => {
-        await client.query(
-          `insert into organization (id, name, slug, created_at)
-             values ($1, 'Ticket index claim', $1, now())`,
-          [organizationId]
-        )
-        await client.query(
-          `insert into project_index
-               (id, slug, organization_id, key, name, icon, color, created_by, created_at)
-             values ($1, $2, $2, 'T', 'Ticket index claim', 'folder', 'blue', 'test-user', now())`,
-          [projectId, organizationId]
-        )
-      })
-      yield* Effect.addFinalizer(() =>
-        withClient((client) =>
-          client.query("delete from organization where id = $1", [
-            organizationId
-          ])
-        )
-      )
-      const at = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
-
-      const index = yield* TicketIndex
-      const project = yield* index.projectFor(organizationId, organizationId)
-      yield* index.upsertTicket(project, indexedDocument("T-1"))
-
-      expect(
-        yield* Effect.forEach(
-          [
-            "2026-05-01T10:00:00Z",
-            "2026-05-01T09:00:00Z",
-            "2026-05-01T10:00:00Z",
-            "2026-05-01T11:00:00Z"
-          ],
-          (iso) => index.claimPullRequestUpdate(projectId, "T-1", at(iso))
-        )
-      ).toEqual([true, false, true, true])
-    }).pipe(Effect.provide(TestLayer))
-  )
 
   it.effect("advances the counter when rebuilding from ticket files", () =>
     Effect.gen(function* () {

@@ -56,6 +56,7 @@ import {
   type GitHubWebhooksShape
 } from "./GitHubWebhooks"
 import * as ProjectStateCache from "./projectStateCache"
+import { rememberPullRequest } from "./pullRequestReconciliation"
 
 export interface PullRequestWebhookMatch {
   readonly orgSlug: string
@@ -95,28 +96,6 @@ const writePullRequestWebhook = (
       organizationId: match.organizationId,
       projectId: match.projectId,
       projectSlug: match.projectSlug
-    }
-    if (
-      change.updatedAt !== null &&
-      !(yield* deps.ticketIndex.claimPullRequestUpdate(
-        match.projectId,
-        match.ticketId,
-        change.updatedAt
-      ))
-    ) {
-      yield* Effect.logDebug(
-        "github pull_request delivery older than applied"
-      ).pipe(
-        Effect.annotateLogs({
-          module: "GitHubWebhooks",
-          deliveryId,
-          orgSlug: match.orgSlug,
-          slug: match.projectSlug,
-          ticketId: match.ticketId,
-          pr: change.number
-        })
-      )
-      return
     }
     let changed = false
     const next = yield* deps.ticketDocs
@@ -427,6 +406,7 @@ const PullRequestPayload = Schema.Struct({
     merged: Schema.Boolean,
     draft: Schema.optional(Schema.Boolean),
     updated_at: Schema.optional(Schema.DateFromString),
+    merged_at: Schema.optional(Schema.NullOr(Schema.DateFromString)),
     head: Schema.Struct({
       ref: Schema.String,
       repo: Schema.Struct({
@@ -709,6 +689,7 @@ const handlePullRequest = (
             : "open",
         draft: payload.pull_request.draft ?? false,
         updatedAt: payload.pull_request.updated_at ?? null,
+        mergedAt: payload.pull_request.merged_at ?? null,
         baseBranch: payload.pull_request.base.ref,
         defaultBranch: payload.repository.default_branch ?? null
       },
@@ -1463,6 +1444,7 @@ export const GitHubWebhooksLive = Layer.effect(
           )
           return
         }
+        if (!(yield* rememberPullRequest(db, change))) return
         yield* Effect.forEach(
           links,
           (link) =>
@@ -1526,55 +1508,36 @@ export const GitHubWebhooksLive = Layer.effect(
         return
       }
       const now = yield* DateTime.nowAsDate
-      const stale = yield* sql
-        .withTransaction(
-          Effect.forEach(
-            links,
-            (link) =>
-              ticketIndex
-                .markBranchStale(link.projectId, change.branch, now)
-                .pipe(
-                  Effect.tap((ticketIds) =>
-                    ticketIds.length === 0
-                      ? Effect.logDebug("github delete branch unknown").pipe(
-                          Effect.annotateLogs({
-                            module: "GitHubWebhooks",
-                            deliveryId,
-                            installationId: change.installationId,
-                            repositoryId: change.repositoryId,
-                            branch: change.branch,
-                            projectIntegrationLinkId: link.id
-                          })
-                        )
-                      : Effect.logInfo(
-                          "github delete branch marked stale"
-                        ).pipe(
-                          Effect.annotateLogs({
-                            module: "GitHubWebhooks",
-                            deliveryId,
-                            installationId: change.installationId,
-                            repositoryId: change.repositoryId,
-                            branch: change.branch,
-                            projectIntegrationLinkId: link.id,
-                            ticketIds
-                          })
-                        )
-                  ),
-                  Effect.map((ticketIds) => ({ link, ticketIds }))
-                ),
-            { concurrency: 1 }
-          )
-        )
-        .pipe(Effect.catchTag("SqlError", Effect.die))
       yield* Effect.forEach(
-        stale,
-        ({ link, ticketIds }) =>
-          moveTicketsForDeletedBranch(
-            { ticketDocs, ticketIndex, ticketDocumentLock, gitAutomation },
-            link.projectId,
-            change.branch,
-            ticketIds
-          ),
+        links,
+        (link) =>
+          Effect.gen(function* () {
+            const matches = yield* ticketIndex.findTicketsByBranch(
+              link.projectId,
+              change.branch
+            )
+            const pending = yield* Effect.filter(matches, (match) =>
+              Effect.map(
+                ticketIndex.getBranchDeletedAt(
+                  match.orgSlug,
+                  match.projectSlug,
+                  match.ticketId
+                ),
+                (deletedAt) => deletedAt === null
+              )
+            )
+            yield* moveTicketsForDeletedBranch(
+              { ticketDocs, ticketIndex, ticketDocumentLock, gitAutomation },
+              link.projectId,
+              change.branch,
+              pending.map((match) => match.ticketId)
+            )
+            yield* ticketIndex.markBranchStale(
+              link.projectId,
+              change.branch,
+              now
+            )
+          }),
         { concurrency: 1, discard: true }
       )
     })

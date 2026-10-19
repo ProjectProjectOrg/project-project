@@ -2292,19 +2292,19 @@ export const TicketsLive = Layer.effect(
                 ticket.branch !== null &&
                 ticket.branchDeletedAt === null &&
                 ticket.updatedAt.getTime() <= fetchedAt.getTime() &&
-                !raw.existingBranches.has(ticket.branch) &&
-                !raw.prByBranch.has(ticket.branch)
+                !raw.existingBranches.has(ticket.branch)
                   ? [ticket.branch]
                   : []
               )
         )
         for (const branch of vanishedBranches) {
           const deletedAt = yield* DateTime.nowAsDate
-          const ticketIds = yield* ticketIndex.markBranchStale(
-            indexProject.projectId,
-            branch,
-            deletedAt
-          )
+          const ticketIds = tickets
+            .filter(
+              (ticket) =>
+                ticket.branch === branch && ticket.branchDeletedAt === null
+            )
+            .map((ticket) => ticket.id)
           for (const ticketId of ticketIds) {
             changedTicketIds.add(makeTicketId(ticketId))
             yield* withTicketDocumentLock(
@@ -2331,6 +2331,11 @@ export const TicketsLive = Layer.effect(
               )
             )
           }
+          yield* ticketIndex.markBranchStale(
+            indexProject.projectId,
+            branch,
+            deletedAt
+          )
         }
 
         return {

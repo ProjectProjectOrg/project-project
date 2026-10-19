@@ -61,6 +61,7 @@ const stored = {
 
 it("saves only the rule that changed", async () => {
   const saved: Array<unknown> = []
+  let confirmSave: ((response: Response) => void) | undefined
   fetchStub.set(async (input, init) => {
     const url = new URL(
       input instanceof Request ? input.url : String(input),
@@ -74,9 +75,8 @@ it("saves only the rule that changed", async () => {
         await (request ?? new Response(init?.body)).text()
       )
       saved.push(body)
-      return Response.json({
-        ...stored,
-        rules: { ...stored.rules, pr_opened: "in_review" }
+      return new Promise<Response>((resolve) => {
+        confirmSave = resolve
       })
     }
     if (url.pathname.endsWith("/git-automation")) return Response.json(stored)
@@ -98,6 +98,27 @@ it("saves only the rule that changed", async () => {
 
   await waitFor(() =>
     expect(saved).toEqual([{ rules: { pr_opened: "in_review" } }])
+  )
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole("combobox", { name: m.git_automation_event_pr_opened() })
+        .hasAttribute("disabled")
+    ).toBe(true)
+  )
+  expect(screen.getByRole("switch").getAttribute("aria-disabled")).toBe("true")
+  confirmSave?.(
+    Response.json({
+      ...stored,
+      rules: { ...stored.rules, pr_opened: "in_review" }
+    })
+  )
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole("combobox", { name: m.git_automation_event_pr_opened() })
+        .hasAttribute("disabled")
+    ).toBe(false)
   )
 })
 

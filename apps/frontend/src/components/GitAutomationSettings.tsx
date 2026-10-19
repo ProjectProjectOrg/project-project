@@ -147,7 +147,7 @@ function Rules({
             event={event}
             target={automation.rules[event]}
             statuses={statuses}
-            disabled={!canEdit}
+            disabled={!canEdit || waiting}
             onChange={(target) => save({ rules: { [event]: target } })}
           />
         ))}
@@ -155,7 +155,7 @@ function Rules({
       <div className="flex items-start gap-3">
         <Switch
           checked={automation.forwardOnly}
-          disabled={!canEdit}
+          disabled={!canEdit || waiting}
           onCheckedChange={(forwardOnly) => save({ forwardOnly })}
           aria-labelledby={forwardOnlyLabelId}
           aria-describedby={forwardOnlyDescriptionId}

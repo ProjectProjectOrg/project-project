@@ -466,6 +466,23 @@ export const projectGithubRepository = pgTable(
   ]
 )
 
+export const githubPullRequestReconciliation = pgTable(
+  "github_pull_request_reconciliation",
+  {
+    repositoryId: text("repository_id").notNull(),
+    number: integer("number").notNull(),
+    branch: text("branch").notNull(),
+    base: text("base").notNull(),
+    state: text("state", { enum: ["open", "closed", "merged"] }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }),
+    mergedAt: timestamp("merged_at", { withTimezone: true })
+  },
+  (t) => [
+    primaryKey({ columns: [t.repositoryId, t.number] }),
+    index("github_pr_reconciliation_branch_idx").on(t.repositoryId, t.branch)
+  ]
+)
+
 export const userEverhourIntegration = pgTable("user_everhour_integration", {
   userId: text("user_id")
     .primaryKey()

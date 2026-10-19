@@ -611,7 +611,6 @@ const makeFakeTicketIndex = (
       Effect.sync(() => {
         documents.set(document.id, document)
       }),
-    claimPullRequestUpdate: () => Effect.succeed(true),
     markBranchStale: () => Effect.succeed([]),
     clearBranchStale: () => Effect.void,
     updateBranchChecks: () => Effect.succeed([]),
@@ -3205,7 +3204,7 @@ it.effect(
           Effect.succeed({
             defaultBranch: "main",
             existingBranches: new Set(),
-            prByBranch: new Map(),
+            prByBranch: new Map([["feat/T-1", mergedPullRequest("main")]]),
             fetchedAt: DateTime.toDate(
               DateTime.makeUnsafe("2026-06-01T00:00:00Z")
             )

@@ -284,6 +284,7 @@ it.effect("dispatches handled pull_request actions", () =>
           updatedAt: DateTime.toDate(
             DateTime.makeUnsafe("2026-05-01T10:00:00Z")
           ),
+          mergedAt: null,
           state: input.expectedState,
           draft: input.draft,
           baseBranch: "main",
@@ -869,7 +870,6 @@ const makeFakeIndex = (overrides: Partial<TicketIndexShape> = {}) => {
       Effect.sync(() => {
         upserts.push({ projectId: project.projectId, ticketId: document.id })
       }),
-    claimPullRequestUpdate: () => Effect.succeed(true),
     markBranchStale: () => Effect.succeed([]),
     clearBranchStale: () => Effect.void,
     updateBranchChecks: () => Effect.succeed([]),
@@ -931,36 +931,6 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
       })
   )
 
-  it.effect(
-    "applyPullRequestWebhookToTicket skips a delivery older than the last one applied",
-    () =>
-      Effect.gen(function* () {
-        const docs = makeFakeDocs([baseDocument()])
-        const index = makeFakeIndex({
-          claimPullRequestUpdate: () => Effect.succeed(false)
-        })
-
-        yield* applyPullRequestWebhookToTicket(
-          {
-            ticketDocs: docs.shape,
-            ticketIndex: index.shape,
-            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
-            gitAutomation: gitAutomationTestService()
-          },
-          baseMatch(),
-          {
-            ...openChange,
-            draft: true,
-            updatedAt: DateTime.toDate(
-              DateTime.makeUnsafe("2026-05-01T10:00:00Z")
-            )
-          },
-          "delivery-1"
-        )
-
-        expect(docs.writes).toEqual([])
-      })
-  )
 
   it.effect(
     "applyPullRequestWebhookToTicket propagates index write failures",

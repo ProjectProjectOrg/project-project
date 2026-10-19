@@ -221,7 +221,11 @@ export const TicketActivityLive = Layer.effect(
               projectId,
               ticketId: entry.ticketId,
               occurredAt,
-              ...actorColumns(actor),
+              ...actorColumns(
+                (entry.cause ?? cause) === "git_automation"
+                  ? ActivityActor.system("github")
+                  : actor
+              ),
               cause: entry.cause ?? cause,
               change: encodeChange(entry.change)
             }))
