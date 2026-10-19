@@ -5,6 +5,7 @@ import type {
   GitStatesResponse,
   GithubRepo,
   GithubRepoPage,
+  StackLayerState,
   StartGithubInstallInput,
   TicketId
 } from "@pp/shared"
@@ -380,6 +381,91 @@ export const attachBranch = Atom.family(
             set(
               AsyncResult.map(get(projectGitStates(req)), (value) =>
                 withGitState(value, id, updated.gitState)
+              )
+            )
+            yield* Reactivity.invalidate([
+              Keys.ticketsIn(scopeOf(req)),
+              Keys.ticket(scopeOf(req), id)
+            ])
+            return updated
+          })
+        )
+    })
+)
+
+const withStack = (
+  value: GitStatesResponse,
+  id: TicketId,
+  stack: ReadonlyArray<StackLayerState>
+): GitStatesResponse => ({
+  ...value,
+  stacks: { ...value.stacks, [id]: stack }
+})
+
+export const stackBranch = Atom.family(({ req, id }: GitStateMutationRequest) =>
+  Atom.optimisticFn(projectGitStates(req), {
+    reducer: (current, input: AttachBranchInput) =>
+      AsyncResult.map(current, (value) =>
+        withStack(value, id, [
+          ...(value.stacks?.[id] ?? []),
+          {
+            branch: input.name,
+            base: null,
+            depth: 1,
+            pr: null,
+            deleted: false
+          }
+        ])
+      ),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn("stackBranch")(function* (input: AttachBranchInput, get) {
+          const updated = yield* Api.use((client) =>
+            client.tickets.stackBranch({
+              params: { ...req.params, id },
+              payload: { name: input.name }
+            })
+          )
+          set(
+            AsyncResult.map(get(projectGitStates(req)), (value) =>
+              withStack(value, id, updated.stack ?? [])
+            )
+          )
+          yield* Reactivity.invalidate([
+            Keys.ticketsIn(scopeOf(req)),
+            Keys.ticket(scopeOf(req), id)
+          ])
+          return updated
+        })
+      )
+  })
+)
+
+export const unstackBranch = Atom.family(
+  ({ req, id }: GitStateMutationRequest) =>
+    Atom.optimisticFn(projectGitStates(req), {
+      reducer: (current, input: AttachBranchInput) =>
+        AsyncResult.map(current, (value) =>
+          withStack(
+            value,
+            id,
+            (value.stacks?.[id] ?? []).filter(
+              (layer) => layer.branch !== input.name
+            )
+          )
+        ),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn("unstackBranch")(function* (input: AttachBranchInput, get) {
+            const updated = yield* Api.use((client) =>
+              client.tickets.unstackBranch({
+                params: { ...req.params, id },
+                payload: { name: input.name }
+              })
+            )
+            set(
+              AsyncResult.map(get(projectGitStates(req)), (value) =>
+                withStack(value, id, updated.stack ?? [])
               )
             )
             yield* Reactivity.invalidate([

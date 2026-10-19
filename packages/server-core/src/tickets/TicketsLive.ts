@@ -129,7 +129,7 @@ const stacksOf = (
     }>
   >,
   github: ProjectGithubIntegration,
-  raw: GitHub.RawProjectStates
+  raw?: GitHub.RawProjectStates
 ): Record<string, ReadonlyArray<StackLayerState>> =>
   Object.fromEntries(
     [...tickets].flatMap(([id, ticket]) =>
@@ -2584,16 +2584,22 @@ export const TicketsLive = Layer.effect(
         const result = yield* fetchGitSnapshot(projectGithub, tickets)
 
         if (!result.ok) {
+          const gone = result.repoStatus === "gone"
           return {
-            states:
-              result.repoStatus === "gone"
-                ? {}
-                : Object.fromEntries(
-                    tickets.map((ticket) => [
-                      ticket.id,
-                      pendingGitState(ticket, projectGithub)
-                    ])
-                  ),
+            states: gone
+              ? {}
+              : Object.fromEntries(
+                  tickets.map((ticket) => [
+                    ticket.id,
+                    pendingGitState(ticket, projectGithub)
+                  ])
+                ),
+            stacks: gone
+              ? {}
+              : stacksOf(
+                  new Map(tickets.map((ticket) => [ticket.id, ticket])),
+                  projectGithub
+                ),
             transitioned: [],
             changedTicketIds: [],
             tokenStatus: result.tokenStatus,

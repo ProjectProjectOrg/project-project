@@ -2,6 +2,7 @@ import { useAtomValue } from "@effect/atom-react"
 import type {
   GitState,
   GithubConnection,
+  StackLayerState,
   Ticket,
   TicketDetail
 } from "@pp/shared"
@@ -15,6 +16,7 @@ import {
   GitMerge,
   GitPullRequest,
   GitPullRequestClosed,
+  Layers,
   Plus
 } from "lucide-react"
 import { useMemo } from "react"
@@ -22,6 +24,12 @@ import { useMemo } from "react"
 import { ClearBranchFields } from "@/components/TicketGit/ClearBranchFields"
 import { ConnectBranchFields } from "@/components/TicketGit/ConnectBranchFields"
 import { CreateBranchFields } from "@/components/TicketGit/CreateBranchFields"
+import {
+  layerTone,
+  StackedBranches,
+  stackPullRequestCount,
+  useGitStack
+} from "@/components/TicketGit/TicketStack"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CopyButton } from "@/components/ui/copy-button"
@@ -112,10 +120,19 @@ function ConnectedGitChip({
   github: GithubConnection
 }>) {
   const { state, waiting } = useGitState(orgSlug, slug, ticket)
+  const stack = useGitStack(orgSlug, slug, ticket)
   if (!state || state.tag === "no_branch") return <span aria-hidden />
   const pending = state.tag === "branch_pending" || state.tag === "pr_pending"
   const pulse = (waiting || pending) && "animate-pulse"
   const repoSlug = `${github.repoOwner}/${github.repoName}`
+
+  if (stack.length > 0) {
+    return (
+      <span className={cn(pulse)}>
+        <StackChip own={state} stack={stack} />
+      </span>
+    )
+  }
 
   if (state.tag === "stale_branch") {
     return (
@@ -202,7 +219,26 @@ export function TicketGitPanel({
   variant?: "bordered" | "ghost"
 }) {
   const { state, waiting } = useGitState(orgSlug, slug, ticket)
+  const stack = useGitStack(orgSlug, slug, ticket)
   if (!github) return null
+  if (state !== null && stack.length > 0) {
+    return (
+      <StackedBranches
+        orgSlug={orgSlug}
+        slug={slug}
+        ticket={ticket}
+        github={github}
+        own={state}
+        stack={stack}
+        pulse={
+          waiting ||
+          state.tag === "branch_pending" ||
+          state.tag === "pr_pending"
+        }
+        variant={variant}
+      />
+    )
+  }
   if (state === null) {
     return (
       <div className={variant === "bordered" ? PANEL_CHROME : undefined}>
@@ -211,16 +247,18 @@ export function TicketGitPanel({
     )
   }
   return (
-    <PanelForState
-      orgSlug={orgSlug}
-      slug={slug}
-      ticket={ticket}
-      state={state}
-      waiting={waiting}
-      github={github}
-      branchTemplate={branchTemplate}
-      variant={variant}
-    />
+    <div className="flex flex-col gap-3">
+      <PanelForState
+        orgSlug={orgSlug}
+        slug={slug}
+        ticket={ticket}
+        state={state}
+        waiting={waiting}
+        github={github}
+        branchTemplate={branchTemplate}
+        variant={variant}
+      />
+    </div>
   )
 }
 
@@ -598,6 +636,45 @@ export function BranchChip({
       </a>
       <CopyButton value={name} copyLabel={m.git_copy_branch_name_label()} />
     </span>
+  )
+}
+
+function StackChip({
+  own,
+  stack
+}: Readonly<{ own: GitState; stack: ReadonlyArray<StackLayerState> }>) {
+  const count = stackPullRequestCount(own, stack)
+  const checks = [
+    ...(own.tag === "pr_open" ? [own.checks] : []),
+    ...stack.flatMap((layer) =>
+      layer.pr?.checks && layerTone(layer) !== "merged" ? [layer.pr.checks] : []
+    )
+  ]
+  const worst =
+    checks.find((check) => check === "failing") ??
+    checks.find((check) => check === "pending") ??
+    checks.find((check) => check === "passing")
+  const anyOpen =
+    own.tag === "pr_open" ||
+    stack.some((layer) => {
+      const tone = layerTone(layer)
+      return tone === "open" || tone === "draft"
+    })
+  return (
+    <Badge
+      tone={anyOpen ? "emerald" : count.merged > 0 ? "violet" : "muted"}
+      size="xs"
+      title={m.git_stack_count_title(count)}
+    >
+      <Layers strokeWidth={1.75} />
+      {m.git_stack_count(count)}
+      {worst && (
+        <Circle
+          className={cn("size-2 fill-current", checksColor(worst))}
+          strokeWidth={0}
+        />
+      )}
+    </Badge>
   )
 }
 
