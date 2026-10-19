@@ -3,7 +3,11 @@ import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import type { RawBranchEntry, RawProjectStates } from "../github/GitHub"
+import type {
+  RawBranchEntry,
+  RawMergedPullRequest,
+  RawProjectStates
+} from "../github/GitHub"
 import {
   planAutomaticBranchLinks,
   planAutomaticStacks,
@@ -111,6 +115,53 @@ describe("planTicketGitStates", () => {
       }
     ])
   })
+
+  it.each([
+    ["before the child", "2026-05-01T08:00:00Z", null],
+    ["at the same time as the child", "2026-05-01T09:00:00Z", null],
+    ["after the child", "2026-05-01T10:00:00Z", 42]
+  ])(
+    "uses a historical base merge %s despite an open replacement",
+    (_, mergedAt, lastTransitionedPr) => {
+      const child = pullRequest({
+        state: "merged",
+        baseRefName: "api",
+        mergedAt: DateTime.toDate(DateTime.makeUnsafe("2026-05-01T09:00:00Z"))
+      })
+      const historicalBase = {
+        ...pullRequest({
+          headRefName: "api",
+          number: 40,
+          mergedAt: DateTime.toDate(DateTime.makeUnsafe(mergedAt))
+        }),
+        state: "merged" as const
+      }
+      const plan = planTicketGitStates(
+        [{ ...baseTicket, branch: "feat/T-1" }],
+        raw({
+          prByBranch: new Map([
+            ["feat/T-1", child],
+            ["api", pullRequest({ headRefName: "api", number: 50 })]
+          ]),
+          mergedPrsByBranch: new Map([["api", [historicalBase]]])
+        }),
+        now
+      )
+
+      expect(plan.writes).toEqual([
+        {
+          ticketId: "T-1",
+          patch: {
+            pr: 42,
+            prState: "merged",
+            prDraft: false,
+            lastTransitionedPr,
+            prBase: "api"
+          }
+        }
+      ])
+    }
+  )
 
   it("does not rewrite a merged PR it already recorded", () => {
     const plan = planTicketGitStates(
@@ -621,6 +672,63 @@ describe("pullRequestLanded", () => {
     if (target === undefined) throw new Error(`no pull request for ${head}`)
     return pullRequestLanded(target, { defaultBranch: "main", prByBranch })
   }
+
+  it.each([
+    {
+      name: "tries another historical merge when one path never lands",
+      history: [
+        merged("api", "main", "2026-05-01T10:00:00Z"),
+        merged("api", "abandoned", "2026-05-01T11:00:00Z")
+      ],
+      expected: true
+    },
+    {
+      name: "does not chain through a base merge older than its historical parent",
+      history: [
+        merged("api", "release", "2026-05-01T11:00:00Z"),
+        merged("release", "main", "2026-05-01T10:00:00Z")
+      ],
+      expected: false
+    },
+    {
+      name: "can revisit a branch through a later merged PR",
+      history: [
+        merged("api", "ui", "2026-05-01T10:00:00Z"),
+        merged("ui", "main", "2026-05-01T11:00:00Z")
+      ],
+      expected: true
+    },
+    {
+      name: "terminates when merged history forms a cycle without landing",
+      history: [
+        merged("api", "ui", "2026-05-01T10:00:00Z"),
+        merged("ui", "api", "2026-05-01T11:00:00Z")
+      ],
+      expected: false
+    }
+  ])("$name", ({ history, expected }) => {
+    const child = merged("ui", "api", "2026-05-01T09:00:00Z")[1]
+    const mergedPrsByBranch = new Map<
+      string,
+      ReadonlyArray<RawMergedPullRequest>
+    >()
+    for (const [branch, pr] of history) {
+      mergedPrsByBranch.set(branch, [
+        ...(mergedPrsByBranch.get(branch) ?? []),
+        { ...pr, state: "merged" }
+      ])
+    }
+    expect(
+      pullRequestLanded(child, {
+        defaultBranch: "main",
+        prByBranch: new Map([
+          ["ui", child],
+          ["api", pullRequest({ headRefName: "api", number: 50 })]
+        ]),
+        mergedPrsByBranch
+      })
+    ).toBe(expected)
+  })
 
   it.each([
     {

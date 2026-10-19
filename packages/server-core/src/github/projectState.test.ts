@@ -1,5 +1,6 @@
 import { it } from "@effect/vitest"
 import { GitHubError } from "@pp/shared"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { afterEach, describe, expect, vi } from "vitest"
@@ -157,6 +158,61 @@ describe("projectState", () => {
           cursor0: "cursor-1"
         })
       })
+  )
+
+  it.effect("retains merged history beyond an open replacement PR", () =>
+    Effect.gen(function* () {
+      graphql
+        .mockResolvedValueOnce({
+          repository: {
+            defaultBranchRef: { name: "main" },
+            b0: { name: "api" },
+            p0: {
+              nodes: [pr("api", "OPEN", "SUCCESS", 50)],
+              pageInfo: { hasNextPage: true, endCursor: "history" }
+            }
+          }
+        })
+        .mockResolvedValueOnce({
+          repository: {
+            defaultBranchRef: { name: "main" },
+            p0: {
+              nodes: [
+                {
+                  ...pr("api", "MERGED", "SUCCESS", 40),
+                  mergedAt: "2026-05-01T10:00:00Z"
+                },
+                {
+                  ...pr("api", "MERGED", "SUCCESS", 39),
+                  headRepository: { id: "fork" }
+                },
+                pr("api", "CLOSED", "SUCCESS", 38)
+              ],
+              pageInfo: { hasNextPage: false, endCursor: null }
+            }
+          }
+        })
+
+      const states = yield* run(
+        fetchProjectStatesWithToken(
+          "token",
+          "acme",
+          "app",
+          ["api"],
+          "installation"
+        )
+      )
+
+      expect(states.prByBranch.get("api")?.number).toBe(50)
+      expect(states.mergedPrsByBranch?.get("api")).toMatchObject([
+        {
+          number: 40,
+          state: "merged",
+          mergedAt: DateTime.toDate(DateTime.makeUnsafe("2026-05-01T10:00:00Z"))
+        }
+      ])
+      expect(graphql).toHaveBeenCalledTimes(2)
+    })
   )
 
   it.effect("fails when GitHub signals another page without a cursor", () =>
@@ -607,7 +663,7 @@ describe("projectState", () => {
               b0: { name: "feat/T-1" },
               p0: {
                 nodes: [pr("feat/T-1")],
-                pageInfo: { hasNextPage: true, endCursor: "unused" }
+                pageInfo: { hasNextPage: false, endCursor: null }
               },
               b1: { name: "feat/T-2" },
               p1: {

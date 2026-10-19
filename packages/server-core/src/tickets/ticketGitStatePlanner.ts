@@ -167,28 +167,42 @@ export const planStackPullRequests = (
         ) ?? layer)
   })
 
-type LandingContext = Pick<RawProjectStates, "defaultBranch" | "prByBranch">
+type LandingContext = Pick<
+  RawProjectStates,
+  "defaultBranch" | "prByBranch" | "mergedPrsByBranch"
+>
 
 export const pullRequestLanded = (
   pr: RawBranchEntry,
   context: LandingContext
 ): boolean => {
-  const visited = new Set<string>()
-  let current = pr
-  while (current.state === "merged") {
-    if (current.baseRefName === context.defaultBranch) return true
-    if (visited.has(current.baseRefName)) return false
-    visited.add(current.baseRefName)
-    const base = context.prByBranch.get(current.baseRefName)
-    if (base === undefined || base.state !== "merged") return false
+  const visited = new Set<RawBranchEntry>()
+  const pending = [pr]
+  while (pending.length > 0) {
+    const current = pending.pop()
     if (
-      current.mergedAt === null ||
-      base.mergedAt === null ||
-      base.mergedAt <= current.mergedAt
-    ) {
-      return false
+      current === undefined ||
+      current.state !== "merged" ||
+      visited.has(current)
+    )
+      continue
+    visited.add(current)
+    if (current.baseRefName === context.defaultBranch) return true
+    if (current.mergedAt === null) continue
+    const selectedBase = context.prByBranch.get(current.baseRefName)
+    const bases = [
+      ...(context.mergedPrsByBranch?.get(current.baseRefName) ?? []),
+      ...(selectedBase ? [selectedBase] : [])
+    ]
+    for (const base of bases) {
+      if (
+        base.state === "merged" &&
+        base.mergedAt !== null &&
+        base.mergedAt > current.mergedAt
+      ) {
+        pending.push(base)
+      }
     }
-    current = base
   }
   return false
 }
