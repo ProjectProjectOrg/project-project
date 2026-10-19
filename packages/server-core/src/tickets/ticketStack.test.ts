@@ -40,8 +40,8 @@ describe("orderStackLayers", () => {
   it("puts layers outside the chain last, with what builds on them", () => {
     expect(
       order("api", [
-        layer("hotfix", "release"),
         layer("hotfix-2", "hotfix"),
+        layer("hotfix", "release"),
         layer("spike"),
         layer("ui", "api")
       ])

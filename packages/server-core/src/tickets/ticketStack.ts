@@ -21,7 +21,11 @@ export const orderStackLayers = (
     }
   }
   if (ownBranch !== null) climb(ownBranch, 1)
-  for (const layer of layers) {
+  const names = new Set(layers.map((layer) => layer.branch))
+  const roots = layers.filter(
+    (layer) => layer.base === undefined || !names.has(layer.base)
+  )
+  for (const layer of [...roots, ...layers]) {
     if (placed.has(layer.branch)) continue
     placed.add(layer.branch)
     ordered.push({ layer, depth: 1 })

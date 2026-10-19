@@ -6,6 +6,7 @@ const prMetadataKeys = [
   "pr",
   "prState",
   "prDraft",
+  "prBase",
   "lastTransitionedPr",
   "stack"
 ] as const
@@ -16,6 +17,7 @@ export const prMetadataOf = (ticket: TicketDocument) =>
 export const hasPrMetadata = (ticket: TicketDocument): boolean =>
   ticket.pr !== null ||
   ticket.prState !== null ||
+  ticket.prBase !== undefined ||
   ticket.lastTransitionedPr !== null ||
   (ticket.stack ?? []).some(
     (layer) =>
@@ -30,6 +32,7 @@ export const clearedPrMetadata = (ticket: TicketDocument): TicketDocument => ({
   pr: null,
   prState: null,
   prDraft: false,
+  prBase: undefined,
   lastTransitionedPr: null,
   stack: ticket.stack?.map((layer) => Struct.pick(layer, ["branch", "base"]))
 })

@@ -112,11 +112,10 @@ const gitKeysInMemory = [
   "ignoredBranches"
 ] as const satisfies ReadonlyArray<keyof typeof TicketGitValue>
 
-type TicketGitOnDisk = Pick<
-  typeof TicketFrontmatterOnDisk.Type,
-  (typeof gitKeysOnDisk)[number]
+type TicketGitOnDisk = Readonly<
+  Pick<typeof TicketFrontmatterOnDisk.Type, (typeof gitKeysOnDisk)[number]>
 >
-type TicketGit = Schema.Struct.Type<typeof TicketGitValue>
+type TicketGit = Readonly<Schema.Struct.Type<typeof TicketGitValue>>
 
 const branchEntryOnDisk = (entry: TicketBranchEntry): TicketBranchEntry =>
   Object.assign(

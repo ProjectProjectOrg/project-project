@@ -33,6 +33,7 @@ const ticket = (overrides: Partial<TicketDocument>): TicketDocument => ({
 describe("ticket pr metadata", () => {
   it("finds pull request metadata kept only on a stacked branch", () => {
     expect(hasPrMetadata(ticket({}))).toBe(false)
+    expect(hasPrMetadata(ticket({ prBase: "old-default" }))).toBe(true)
     expect(
       hasPrMetadata(
         ticket({ stack: [{ branch: "feat/T-1-ui", base: "feat/T-1" }] })
@@ -51,6 +52,7 @@ describe("ticket pr metadata", () => {
     const cleared = clearedPrMetadata(
       ticket({
         pr: 3,
+        prBase: "old-default",
         prState: "merged",
         prDraft: true,
         lastTransitionedPr: 3,
@@ -72,6 +74,7 @@ describe("ticket pr metadata", () => {
       pr: null,
       prState: null,
       prDraft: false,
+      prBase: undefined,
       lastTransitionedPr: null,
       stack: [{ branch: "feat/T-1-ui", base: "feat/T-1" }]
     })
