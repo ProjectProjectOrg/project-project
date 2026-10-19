@@ -1111,10 +1111,7 @@ export const TicketIndexLive = Layer.effect(
           Effect.orDie
         )
 
-    const findStackLayers = (
-      projectId: string,
-      branch: string
-    ): Effect.Effect<ReadonlyArray<TicketIndexMatch>> =>
+    const stackLayerMatches = (where: SQL | undefined) =>
       db
         .select({
           orgSlug: organization.slug,
@@ -1130,13 +1127,18 @@ export const TicketIndexLive = Layer.effect(
           organization,
           eq(organization.id, projectIndex.organizationId)
         )
-        .where(
-          and(
-            eq(ticketBranch.projectId, projectId),
-            eq(ticketBranch.branch, branch)
-          )
+        .where(where)
+
+    const findStackLayers = (
+      projectId: string,
+      branch: string
+    ): Effect.Effect<ReadonlyArray<TicketIndexMatch>> =>
+      stackLayerMatches(
+        and(
+          eq(ticketBranch.projectId, projectId),
+          eq(ticketBranch.branch, branch)
         )
-        .pipe(Effect.orDie)
+      ).pipe(Effect.orDie)
 
     const stacksFor = (
       project: TicketIndexProject,
@@ -1203,29 +1205,14 @@ export const TicketIndexLive = Layer.effect(
               )
             )
           ),
-        db
-          .select({
-            orgSlug: organization.slug,
-            organizationId: projectIndex.organizationId,
-            projectId: ticketBranch.projectId,
-            projectSlug: projectIndex.slug,
-            ticketId: ticketBranch.ticketId,
-            branch: ticketBranch.branch
-          })
-          .from(ticketBranch)
-          .innerJoin(projectIndex, eq(projectIndex.id, ticketBranch.projectId))
-          .innerJoin(
-            organization,
-            eq(organization.id, projectIndex.organizationId)
+        stackLayerMatches(
+          and(
+            eq(ticketBranch.projectId, projectId),
+            eq(ticketBranch.base, base),
+            eq(ticketBranch.prState, "merged"),
+            eq(ticketBranch.landed, false)
           )
-          .where(
-            and(
-              eq(ticketBranch.projectId, projectId),
-              eq(ticketBranch.base, base),
-              eq(ticketBranch.prState, "merged"),
-              eq(ticketBranch.landed, false)
-            )
-          )
+        )
       ]).pipe(
         Effect.map(([own, stacked]) => [
           ...own.flatMap((row) =>

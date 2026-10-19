@@ -67,25 +67,41 @@ export const layerTone = (layer: StackLayerState): LayerTone => {
 }
 
 const TONES: Readonly<
-  Record<LayerTone, Readonly<{ icon: LucideIcon; className: string }>>
+  Record<
+    LayerTone,
+    Readonly<{ icon: LucideIcon; className: string; label: () => string }>
+  >
 > = {
-  draft: { icon: GitPullRequestDraft, className: "text-muted-foreground" },
-  open: { icon: GitPullRequest, className: "text-state-success" },
-  merged: { icon: GitMerge, className: "text-state-merged" },
-  closed: { icon: GitPullRequestClosed, className: "text-muted-foreground" },
-  none: { icon: GitBranch, className: "text-muted-foreground" },
-  deleted: { icon: AlertTriangle, className: "text-state-warning" }
-}
-
-const STATE_LABELS: Readonly<
-  Record<LayerTone, (layer: StackLayerState) => string>
-> = {
-  draft: () => m.git_stack_state_draft(),
-  open: () => m.git_stack_state_open(),
-  merged: () => m.git_stack_state_merged(),
-  closed: () => m.git_stack_state_closed(),
-  none: () => m.git_stack_state_no_pr(),
-  deleted: () => m.git_stack_state_deleted()
+  draft: {
+    icon: GitPullRequestDraft,
+    className: "text-muted-foreground",
+    label: m.git_stack_state_draft
+  },
+  open: {
+    icon: GitPullRequest,
+    className: "text-state-success",
+    label: m.git_stack_state_open
+  },
+  merged: {
+    icon: GitMerge,
+    className: "text-state-merged",
+    label: m.git_stack_state_merged
+  },
+  closed: {
+    icon: GitPullRequestClosed,
+    className: "text-muted-foreground",
+    label: m.git_stack_state_closed
+  },
+  none: {
+    icon: GitBranch,
+    className: "text-muted-foreground",
+    label: m.git_stack_state_no_pr
+  },
+  deleted: {
+    icon: AlertTriangle,
+    className: "text-state-warning",
+    label: m.git_stack_state_deleted
+  }
 }
 
 const CHECKS = {
@@ -138,6 +154,12 @@ const pendingPr = (number: number, url: string) => ({
   checks: null
 })
 
+const ownRow = (
+  branch: string,
+  base: string | null,
+  pr: StackLayerState["pr"]
+): StackLayerState => ({ branch, base, depth: 0, pr, deleted: false })
+
 const ownLayer = (
   state: GitState,
   ticket: TicketDetail,
@@ -146,68 +168,45 @@ const ownLayer = (
   Match.value(state).pipe(
     Match.when({ tag: "no_branch" }, () => null),
     Match.when({ tag: "stale_branch" }, (current) => ({
-      branch: current.name,
-      base: null,
-      depth: 0,
-      pr: null,
+      ...ownRow(current.name, null, null),
       deleted: true
     })),
-    Match.when({ tag: "branch_pending" }, (current) => ({
-      branch: current.name,
-      base: current.baseBranch,
-      depth: 0,
-      pr: null,
-      deleted: false
-    })),
-    Match.when({ tag: "branch_no_pr" }, (current) => ({
-      branch: current.name,
-      base: current.baseBranch ?? defaultBase,
-      depth: 0,
-      pr: null,
-      deleted: false
-    })),
-    Match.when({ tag: "pr_pending" }, (current) => ({
-      branch: current.branch,
-      base: current.baseBranch,
-      depth: 0,
-      pr: pendingPr(current.number, current.url),
-      deleted: false
-    })),
-    Match.when({ tag: "pr_open" }, (current) => ({
-      branch: current.branch,
-      base: current.baseBranch,
-      depth: 0,
-      pr: {
+    Match.when({ tag: "branch_pending" }, (current) =>
+      ownRow(current.name, current.baseBranch, null)
+    ),
+    Match.when({ tag: "branch_no_pr" }, (current) =>
+      ownRow(current.name, current.baseBranch ?? defaultBase, null)
+    ),
+    Match.when({ tag: "pr_pending" }, (current) =>
+      ownRow(
+        current.branch,
+        current.baseBranch,
+        pendingPr(current.number, current.url)
+      )
+    ),
+    Match.when({ tag: "pr_open" }, (current) =>
+      ownRow(current.branch, current.baseBranch, {
         ...pendingPr(current.number, current.url),
         title: current.title,
         draft: current.draft,
         checks: current.checks
-      },
-      deleted: false
-    })),
-    Match.when({ tag: "pr_merged" }, (current) => ({
-      branch: current.branch,
-      base: current.baseBranch,
-      depth: 0,
-      pr: {
+      })
+    ),
+    Match.when({ tag: "pr_merged" }, (current) =>
+      ownRow(current.branch, current.baseBranch, {
         ...pendingPr(current.number, current.url),
         title: current.title,
-        state: "merged" as const,
+        state: "merged",
         landed: ticket.lastTransitionedPr === current.number
-      },
-      deleted: false
-    })),
-    Match.when({ tag: "pr_closed" }, (current) => ({
-      branch: current.branch,
-      base: current.baseBranch,
-      depth: 0,
-      pr: {
+      })
+    ),
+    Match.when({ tag: "pr_closed" }, (current) =>
+      ownRow(current.branch, current.baseBranch, {
         ...pendingPr(current.number, current.url),
         title: current.title,
-        state: "closed" as const
-      },
-      deleted: false
-    })),
+        state: "closed"
+      })
+    ),
     Match.exhaustive
   )
 
@@ -441,8 +440,8 @@ function StackLayerRow({
   canWrite: boolean
 }>) {
   const tone = layerTone(layer)
-  const { icon: Icon, className } = TONES[tone]
-  const label = STATE_LABELS[tone](layer)
+  const { icon: Icon, className, label: toneLabel } = TONES[tone]
+  const label = toneLabel()
   const checks = checksNote(layer.pr?.checks ?? null)
   const title = layer.pr?.title ?? ""
   const request = useMemo(

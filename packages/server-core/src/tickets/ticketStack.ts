@@ -58,7 +58,7 @@ export const ticketBranches = (
     ...(ticket.stack ?? []).map((layer) => layer.branch)
   ])
 
-const layerFor = (pr: StackPullRequest): TicketBranchEntry =>
+export const stackLayerFor = (pr: StackPullRequest): TicketBranchEntry =>
   Object.assign(
     { branch: pr.branch, base: pr.base, pr: pr.number, prState: pr.state },
     pr.state === "open" && pr.draft ? { prDraft: true } : {},
@@ -74,7 +74,7 @@ export const planStackAttach = (
   const branches = ticketBranches(ticket)
   if (branches.has(pr.branch)) return null
   if ((ticket.ignoredBranches ?? []).includes(pr.branch)) return null
-  return branches.has(pr.base) || namedInBranch ? layerFor(pr) : null
+  return branches.has(pr.base) || namedInBranch ? stackLayerFor(pr) : null
 }
 
 export const planLayerPullRequest = (
@@ -89,7 +89,7 @@ export const planLayerPullRequest = (
   ) {
     return null
   }
-  const next = layerFor({
+  const next = stackLayerFor({
     ...pr,
     landed: pr.landed || (layer.landed === true && layer.pr === pr.number)
   })

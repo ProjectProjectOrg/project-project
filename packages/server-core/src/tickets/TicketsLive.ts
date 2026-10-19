@@ -104,7 +104,7 @@ import {
   type TicketIndexProject
 } from "./TicketIndex"
 import { Tickets, type TicketsShape } from "./Tickets"
-import { ticketBranches } from "./ticketStack"
+import { stackLayerFor, ticketBranches } from "./ticketStack"
 
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
 const makeUserId = Schema.decodeUnknownSync(UserId)
@@ -120,22 +120,27 @@ type StackedTicketEntry = TicketIndexEntry &
 
 const sameStack = Schema.toEquivalence(Schema.Array(TicketBranchEntry))
 
+type TicketBranches = Readonly<{
+  id: string
+  branch: string | null
+  stack: ReadonlyArray<TicketBranchEntry>
+}>
+
 const stacksOf = (
-  tickets: ReadonlyMap<
-    string,
-    Readonly<{
-      branch: string | null
-      stack: ReadonlyArray<TicketBranchEntry>
-    }>
-  >,
+  tickets: Iterable<TicketBranches>,
   github: ProjectGithubIntegration,
   raw?: GitHub.RawProjectStates
 ): Record<string, ReadonlyArray<StackLayerState>> =>
   Object.fromEntries(
-    [...tickets].flatMap(([id, ticket]) =>
+    [...tickets].flatMap((ticket) =>
       ticket.stack.length === 0
         ? []
-        : [[id, stackLayerStates(ticket.branch, ticket.stack, github, raw)]]
+        : [
+            [
+              ticket.id,
+              stackLayerStates(ticket.branch, ticket.stack, github, raw)
+            ]
+          ]
     )
   )
 
@@ -2159,19 +2164,14 @@ export const TicketsLive = Layer.effect(
             const layer: TicketBranchEntry =
               pr === undefined
                 ? { branch: input.name }
-                : {
+                : stackLayerFor({
                     branch: input.name,
                     base: pr.baseRefName,
-                    pr: pr.number,
-                    prState: pr.state,
-                    ...(pr.state === "open" && pr.draft
-                      ? { prDraft: true }
-                      : {}),
-                    ...(pr.state === "merged" &&
-                    pr.baseRefName === projectGithub.defaultBaseBranch
-                      ? { landed: true }
-                      : {})
-                  }
+                    number: pr.number,
+                    state: pr.state,
+                    draft: pr.draft,
+                    landed: pr.baseRefName === projectGithub.defaultBaseBranch
+                  })
             const next = yield* withRepositoryBranchLock(
               projectGithub.repoId,
               Effect.gen(function* () {
@@ -2412,11 +2412,8 @@ export const TicketsLive = Layer.effect(
             : []
         )
         const resurrectedIds = new Set(resurrected)
-        const branchesById = new Map(
-          tickets.map((ticket) => [
-            ticket.id,
-            { branch: ticket.branch, stack: ticket.stack }
-          ])
+        const branchesById = new Map<TicketId, TicketBranches>(
+          tickets.map((ticket) => [ticket.id, ticket])
         )
         const changedTicketIds = new Set<TicketId>()
         const transitioned: Array<TransitionRecord> = []
@@ -2532,6 +2529,7 @@ export const TicketsLive = Layer.effect(
               )
             )
             branchesById.set(ticketId, {
+              id: ticketId,
               branch: next.branch,
               stack: next.stack ?? []
             })
@@ -2619,7 +2617,7 @@ export const TicketsLive = Layer.effect(
 
         return {
           states,
-          stacks: stacksOf(branchesById, projectGithub, raw),
+          stacks: stacksOf(branchesById.values(), projectGithub, raw),
           refreshStatus: "fresh",
           changedTicketIds: [...changedTicketIds],
           transitioned,
@@ -2662,12 +2660,7 @@ export const TicketsLive = Layer.effect(
                     pendingGitState(ticket, projectGithub)
                   ])
                 ),
-            stacks: gone
-              ? {}
-              : stacksOf(
-                  new Map(tickets.map((ticket) => [ticket.id, ticket])),
-                  projectGithub
-                ),
+            stacks: gone ? {} : stacksOf(tickets, projectGithub),
             transitioned: [],
             changedTicketIds: [],
             tokenStatus: result.tokenStatus,
@@ -2696,11 +2689,7 @@ export const TicketsLive = Layer.effect(
                   : pendingGitState(ticket, projectGithub)
               ])
             ),
-            stacks: stacksOf(
-              new Map(tickets.map((ticket) => [ticket.id, ticket])),
-              projectGithub,
-              result.raw
-            ),
+            stacks: stacksOf(tickets, projectGithub, result.raw),
             transitioned: [],
             changedTicketIds: [],
             tokenStatus: "ok",
