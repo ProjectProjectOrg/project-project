@@ -235,7 +235,7 @@ export interface TicketIndexShape {
     projectId: string,
     base: string
   ) => Effect.Effect<
-    ReadonlyArray<TicketIndexMatch & { readonly stacked: boolean }>
+    ReadonlyArray<TicketIndexMatch & Readonly<{ stacked: boolean }>>
   >
   readonly isRepositoryBranchAttached: (
     repoId: string,

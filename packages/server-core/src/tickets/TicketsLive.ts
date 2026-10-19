@@ -139,8 +139,6 @@ const stacksOf = (
     )
   )
 
-const MERGE_BASE_CHAIN_LIMIT = 5
-
 const mergeBasesAwaitingLanding = (
   ticket: StackedTicketEntry
 ): ReadonlyArray<string> => [
@@ -2234,17 +2232,24 @@ export const TicketsLive = Layer.effect(
         const fetched = new Set(requested)
         const existingBranches = new Set(raw.existingBranches)
         const prByBranch = new Map(raw.prByBranch)
+        const mergedPrsByBranch = new Map(raw.mergedPrsByBranch)
         let frontier = mergeBases
-        for (let round = 0; round < MERGE_BASE_CHAIN_LIMIT; round++) {
+        while (frontier.length > 0) {
           const next = [
             ...new Set(
               frontier.flatMap((branch) => {
-                const pr = prByBranch.get(branch)
-                return pr?.state === "merged" &&
+                const selected = prByBranch.get(branch)
+                const candidates = [
+                  ...(mergedPrsByBranch.get(branch) ?? []),
+                  ...(selected === undefined ? [] : [selected])
+                ]
+                return candidates.flatMap((pr) =>
+                  pr.state === "merged" &&
                   pr.baseRefName !== projectGithub.defaultBaseBranch &&
                   !fetched.has(pr.baseRefName)
-                  ? [pr.baseRefName]
-                  : []
+                    ? [pr.baseRefName]
+                    : []
+                )
               })
             )
           ]
@@ -2261,13 +2266,22 @@ export const TicketsLive = Layer.effect(
           for (const [branch, pr] of more.prByBranch) {
             if (!prByBranch.has(branch)) prByBranch.set(branch, pr)
           }
+          for (const [branch, history] of more.mergedPrsByBranch ?? []) {
+            const combined = new Map(
+              [...(mergedPrsByBranch.get(branch) ?? []), ...history].map(
+                (pr) => [pr.number, pr]
+              )
+            )
+            mergedPrsByBranch.set(branch, [...combined.values()])
+          }
           frontier = next
         }
         return {
           ...raw,
           defaultBranch: projectGithub.defaultBaseBranch,
           existingBranches,
-          prByBranch
+          prByBranch,
+          mergedPrsByBranch
         }
       }
     )
@@ -2287,8 +2301,12 @@ export const TicketsLive = Layer.effect(
           ])
         )
       ]
-      const mergeBases = [...new Set(tickets.flatMap(mergeBasesAwaitingLanding))]
-      const discoveryTicket = tickets.find((ticket) => ticket.archivedAt === null)
+      const mergeBases = [
+        ...new Set(tickets.flatMap(mergeBasesAwaitingLanding))
+      ]
+      const discoveryTicket = tickets.find(
+        (ticket) => ticket.archivedAt === null
+      )
       const branchQuery = discoveryTicket
         ? `${discoveryTicket.id.slice(0, discoveryTicket.id.lastIndexOf("-"))}-`
         : undefined

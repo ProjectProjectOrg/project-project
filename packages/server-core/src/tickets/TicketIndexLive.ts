@@ -1173,7 +1173,7 @@ export const TicketIndexLive = Layer.effect(
       projectId: string,
       base: string
     ): Effect.Effect<
-      ReadonlyArray<TicketIndexMatch & { readonly stacked: boolean }>
+      ReadonlyArray<TicketIndexMatch & Readonly<{ stacked: boolean }>>
     > =>
       Effect.all([
         db
@@ -1238,7 +1238,11 @@ export const TicketIndexLive = Layer.effect(
         Effect.orDie
       )
 
-    const isRepositoryBranchAttached = (repoId: string, branch: string, stackedOnly = false) =>
+    const isRepositoryBranchAttached = (
+      repoId: string,
+      branch: string,
+      stackedOnly = false
+    ) =>
       db
         .select({ ticketId: ticketIndex.ticketId })
         .from(ticketIndex)

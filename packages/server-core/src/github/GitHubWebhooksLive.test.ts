@@ -1613,6 +1613,33 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
       })
   )
 
+  it.effect("stacked PR deliveries honor the ordering claim", () =>
+    Effect.gen(function* () {
+      const docs = makeFakeDocs([
+        baseDocument({
+          stack: [{ branch: "ui", base: "feat/T-1", pr: 81, prState: "open" }]
+        })
+      ])
+      const index = makeFakeIndex()
+      yield* applyPullRequestWebhookToLayer(
+        {
+          ticketDocs: docs.shape,
+          ticketIndex: index.shape,
+          ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+          gitAutomation: gitAutomationTestService(),
+          claimPullRequest: () => Effect.succeed(false)
+        },
+        baseMatch({ branch: "ui" }),
+        { ...openChange, branch: "ui", number: 81, state: "closed" },
+        "old-delivery"
+      )
+      expect(docs.documents.get("T-1")?.stack).toEqual([
+        { branch: "ui", base: "feat/T-1", pr: 81, prState: "open" }
+      ])
+      expect(docs.writes).toEqual([])
+    })
+  )
+
   it.effect(
     "landMergesInto lands merges waiting on a branch, up stacks and across tickets",
     () =>
@@ -1642,7 +1669,16 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
             pr: 40,
             prState: "merged",
             prBase: "other"
-          })
+          }),
+          ...[50, 60, 70].map((pr) =>
+            baseDocument({
+              id: ticketId(`T-${pr}`),
+              branch: `late-${pr}`,
+              pr,
+              prState: "merged",
+              prBase: "feat/base"
+            })
+          )
         ])
         const awaiting = (base: string) =>
           [...docs.documents.values()].flatMap((document) => [
@@ -1686,7 +1722,20 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           },
           "project-1",
           "feat/base",
-          "delivery-1"
+          "delivery-1",
+          DateTime.toDate(DateTime.makeUnsafe("2026-05-01T12:00:00Z")),
+          new Map(
+            [
+              [20, "11"],
+              [21, "10"],
+              [30, "09"],
+              [50, "12"],
+              [60, "13"]
+            ].map(([pr, hour]) => [
+              Number(pr),
+              DateTime.toDate(DateTime.makeUnsafe(`2026-05-01T${hour}:00:00Z`))
+            ])
+          )
         )
 
         expect(docs.documents.get("T-2")).toMatchObject({
@@ -1701,6 +1750,8 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           lastTransitionedPr: 30,
           status: "done"
         })
+        for (const pr of [50, 60, 70])
+          expect(docs.documents.get(`T-${pr}`)?.lastTransitionedPr).toBeNull()
         expect(docs.documents.get("T-4")).toMatchObject({
           lastTransitionedPr: null,
           status: "in_progress"

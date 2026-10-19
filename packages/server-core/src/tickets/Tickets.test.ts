@@ -44,6 +44,7 @@ import { GitHub, type GitHubShape } from "../github/GitHub"
 import { applyPullRequestWebhookToTicket } from "../github/GitHubWebhooksLive"
 import { Groups, type GroupsShape } from "../groups/Groups"
 import { Library } from "../library/Library"
+import { MarkdownError } from "../markdown/Markdown"
 import { TicketIdTaken } from "../markdown/Markdown"
 import {
   DEFAULT_GIT_AUTOMATION_CONFIG,
@@ -938,7 +939,12 @@ it.effect(
       [
         ["feat/T-1", "release", 5, "2026-05-01T09:00:00Z"],
         ["release", "staging", 6, "2026-05-01T10:00:00Z"],
-        ["staging", "main", 7, "2026-05-01T11:00:00Z"]
+        ["staging", "b3", 7, "2026-05-01T11:00:00Z"],
+        ["b3", "b4", 8, "2026-05-01T12:00:00Z"],
+        ["b4", "b5", 9, "2026-05-01T13:00:00Z"],
+        ["b5", "b6", 10, "2026-05-01T14:00:00Z"],
+        ["b6", "b7", 11, "2026-05-01T15:00:00Z"],
+        ["b7", "main", 12, "2026-05-01T16:00:00Z"]
       ].map(([head, base, number, mergedAt]) => [
         head,
         {
@@ -986,7 +992,15 @@ it.effect(
       const tickets = yield* Tickets
       yield* tickets.listGitStates()
 
-      expect(fetchedBranches).toEqual([["feat/T-1", "release"], ["staging"]])
+      expect(fetchedBranches).toEqual([
+        ["feat/T-1", "release"],
+        ["staging"],
+        ["b3"],
+        ["b4"],
+        ["b5"],
+        ["b6"],
+        ["b7"]
+      ])
       expect(docs.documents.get("T-1")).toMatchObject({
         pr: 5,
         prState: "merged",
@@ -3284,53 +3298,80 @@ it.effect(
       })
     )
     const stale = new Set<string>()
-    const layer = makeTicketsLayer("T", docs.layer, {
-      projects: makeFakeProjects("T", {
-        githubIntegration: () => Effect.succeed(githubIntegration)
-      }),
-      ticketIndex: makeFakeTicketIndex(docs.documents, {
-        list: () =>
-          Effect.sync(() =>
-            [...docs.documents.values()].map((document) => ({
-              ...entryFromDocument(document),
-              branchDeletedAt: stale.has(document.id)
-                ? DateTime.toDate(DateTime.makeUnsafe("2026-06-01T00:00:00Z"))
-                : null
-            }))
-          ),
-        markBranchStale: (_projectId, branch) =>
-          Effect.sync(() =>
-            [...docs.documents.values()].flatMap((document) => {
-              if (document.branch !== branch || stale.has(document.id)) {
-                return []
-              }
-              stale.add(document.id)
-              return [document.id]
-            })
-          )
-      }),
-      github: makeFakeGitHub({
-        fetchInstallationProjectStates: () =>
-          Effect.succeed({
-            defaultBranch: "main",
-            existingBranches: new Set(),
-            prByBranch: new Map([["feat/T-1", mergedPullRequest("main")]]),
-            fetchedAt: DateTime.toDate(
-              DateTime.makeUnsafe("2026-06-01T00:00:00Z")
+    const diskFull = new MarkdownError({ message: "disk full", cause: null })
+    let failMove = true
+    const failingDocs: TicketDocsShape = {
+      ...docs.service,
+      update: (org, slug, id, transform, onPersist, activity) =>
+        docs.service.update(
+          org,
+          slug,
+          id,
+          (current) =>
+            transform(current).pipe(
+              Effect.tap((next) => {
+                if (next.status !== "todo" || !failMove) return Effect.void
+                failMove = false
+                return Effect.fail(diskFull)
+              })
+            ),
+          onPersist,
+          activity
+        )
+    }
+    const layer = makeTicketsLayer(
+      "T",
+      Layer.succeed(TicketDocs, failingDocs),
+      {
+        projects: makeFakeProjects("T", {
+          githubIntegration: () => Effect.succeed(githubIntegration)
+        }),
+        ticketIndex: makeFakeTicketIndex(docs.documents, {
+          list: () =>
+            Effect.sync(() =>
+              [...docs.documents.values()].map((document) => ({
+                ...entryFromDocument(document),
+                branchDeletedAt: stale.has(document.id)
+                  ? DateTime.toDate(DateTime.makeUnsafe("2026-06-01T00:00:00Z"))
+                  : null
+              }))
+            ),
+          markBranchStale: (_projectId, branch) =>
+            Effect.sync(() =>
+              [...docs.documents.values()].flatMap((document) => {
+                if (document.branch !== branch || stale.has(document.id)) {
+                  return []
+                }
+                stale.add(document.id)
+                return [document.id]
+              })
             )
-          })
-      }),
-      gitAutomation: {
-        ...DEFAULT_GIT_AUTOMATION_CONFIG,
-        rules: {
-          ...DEFAULT_GIT_AUTOMATION_CONFIG.rules,
-          branch_deleted: ticketStatus("todo")
-        },
-        forwardOnly: false
+        }),
+        github: makeFakeGitHub({
+          fetchInstallationProjectStates: () =>
+            Effect.succeed({
+              defaultBranch: "main",
+              existingBranches: new Set(),
+              prByBranch: new Map([["feat/T-1", mergedPullRequest("main")]]),
+              fetchedAt: DateTime.toDate(
+                DateTime.makeUnsafe("2026-06-01T00:00:00Z")
+              )
+            })
+        }),
+        gitAutomation: {
+          ...DEFAULT_GIT_AUTOMATION_CONFIG,
+          rules: {
+            ...DEFAULT_GIT_AUTOMATION_CONFIG.rules,
+            branch_deleted: ticketStatus("todo")
+          },
+          forwardOnly: false
+        }
       }
-    })
+    )
     return Effect.gen(function* () {
       const tickets = yield* Tickets
+      expect(yield* Effect.flip(tickets.listGitStates())).toEqual(diskFull)
+      expect(stale.size).toBe(0)
       const first = yield* tickets.listGitStates()
       expect(first.changedTicketIds).toEqual(["T-1"])
       expect(docs.documents.get("T-1")?.status).toBe(ticketStatus("todo"))
