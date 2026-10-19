@@ -2233,7 +2233,7 @@ export const TicketsLive = Layer.effect(
               ticket,
               write.patch,
               {
-                defaultBranch: raw.defaultBranch,
+                defaultBranch: projectGithub.defaultBaseBranch,
                 pullRequestBase: write.pullRequestBase
               }
             ).pipe(

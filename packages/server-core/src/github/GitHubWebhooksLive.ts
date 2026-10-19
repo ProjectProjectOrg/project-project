@@ -1395,6 +1395,7 @@ export const GitHubWebhooksLive = Layer.effect(
       return yield* db
         .select({
           id: projectIntegrationLink.id,
+          defaultBranch: projectGithubRepository.defaultBranch,
           projectId: projectIntegrationLink.projectId,
           projectSlug: projectIndex.slug,
           organizationId: projectIndex.organizationId,
@@ -1476,7 +1477,7 @@ export const GitHubWebhooksLive = Layer.effect(
                         gitAutomation
                       },
                       link,
-                      change,
+                      { ...change, defaultBranch: link.defaultBranch },
                       deliveryId
                     ).pipe(
                       Effect.annotateLogs({
@@ -1496,7 +1497,7 @@ export const GitHubWebhooksLive = Layer.effect(
                             gitAutomation
                           },
                           match,
-                          change,
+                          { ...change, defaultBranch: link.defaultBranch },
                           deliveryId
                         ),
                       { concurrency: 1 }

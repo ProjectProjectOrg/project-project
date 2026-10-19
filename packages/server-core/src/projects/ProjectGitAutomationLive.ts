@@ -88,22 +88,23 @@ export const ProjectGitAutomationLive = Layer.effect(
           const statusSlug = input.rules?.[event]
           return statusSlug === undefined ? [] : [{ event, statusSlug }]
         })
-        const statuses = yield* db
-          .select({ slug: projectStatus.slug })
-          .from(projectStatus)
-          .where(eq(projectStatus.projectId, projectId))
-          .pipe(Effect.orDie)
-        const known = new Set(statuses.map((status) => status.slug))
-        if (
-          changes.some(
-            ({ statusSlug }) => statusSlug !== null && !known.has(statusSlug)
-          )
-        ) {
-          return yield* new Conflict({ reason: "status_not_found" })
-        }
         yield* db
           .transaction(() =>
             Effect.gen(function* () {
+              const statuses = yield* db
+                .select({ slug: projectStatus.slug })
+                .from(projectStatus)
+                .where(eq(projectStatus.projectId, projectId))
+                .for("share")
+              const known = new Set(statuses.map((status) => status.slug))
+              if (
+                changes.some(
+                  ({ statusSlug }) =>
+                    statusSlug !== null && !known.has(statusSlug)
+                )
+              ) {
+                return yield* new Conflict({ reason: "status_not_found" })
+              }
               for (const { event, statusSlug } of changes) {
                 yield* db
                   .delete(projectGitAutomation)
@@ -127,7 +128,12 @@ export const ProjectGitAutomationLive = Layer.effect(
               }
             })
           )
-          .pipe(Effect.orDie)
+          .pipe(
+            Effect.catchTags({
+              SqlError: Effect.die,
+              EffectDrizzleQueryError: Effect.die
+            })
+          )
         return yield* forProject(projectId)
       })
 

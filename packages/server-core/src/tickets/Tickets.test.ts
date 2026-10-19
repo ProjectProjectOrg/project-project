@@ -1018,7 +1018,8 @@ const mergedSnapshotLayer = (
 ) =>
   makeTicketsLayer("T", docs.layer, {
     projects: makeFakeProjects("T", {
-      githubIntegration: () => Effect.succeed(githubIntegration)
+      githubIntegration: () =>
+        Effect.succeed({ ...githubIntegration, defaultBaseBranch: "release" })
     }),
     ticketIndex: makeFakeTicketIndex(docs.documents),
     github: makeFakeGitHub({
@@ -1059,7 +1060,7 @@ it.effect(
         ticketStatus("in_progress")
       )
       expect(second.transitioned).toEqual([])
-    }).pipe(Effect.provide(mergedSnapshotLayer(docs, "main")))
+    }).pipe(Effect.provide(mergedSnapshotLayer(docs, "release")))
   }
 )
 

@@ -12,6 +12,7 @@ import {
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
@@ -175,4 +176,47 @@ describe.skipIf(!databaseUrl)("project git automation", () => {
       })
     )
   )
+  it("returns a typed conflict when a concurrent deletion removes the target status", async () => {
+    await pool.query(
+      "INSERT INTO project_status (project_id,slug,label,icon,color,order_key,created_by) VALUES ($1,'race','Race','Circle','#a3a3a3','a3',$2)",
+      [id, id]
+    )
+    const client = await pool.connect()
+    try {
+      await client.query("BEGIN")
+      const pid = await client.query<{ pid: number }>(
+        "SELECT pg_backend_pid() AS pid"
+      )
+      await client.query(
+        "DELETE FROM project_status WHERE project_id = $1 AND slug = 'race'",
+        [id]
+      )
+      const pending = Effect.runPromise(
+        run(
+          Effect.flatMap(ProjectGitAutomation, (automation) =>
+            automation.update({ rules: { pr_closed: slug("race") } })
+          )
+        ).pipe(Effect.exit)
+      )
+      try {
+        await expect
+          .poll(async () => {
+            const result = await pool.query<{ blocked: boolean }>(
+              "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))) AS blocked",
+              [pid.rows[0]?.pid]
+            )
+            return result.rows[0]?.blocked
+          })
+          .toBe(true)
+      } finally {
+        await client.query("COMMIT")
+      }
+      expect(await pending).toEqual(
+        Exit.fail(new Conflict({ reason: "status_not_found" }))
+      )
+    } finally {
+      await client.query("ROLLBACK")
+      client.release()
+    }
+  })
 })
