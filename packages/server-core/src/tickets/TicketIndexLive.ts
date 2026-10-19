@@ -6,6 +6,7 @@ import {
   projectGithubRepository,
   projectIndex,
   projectIntegrationLink,
+  ticketBranch,
   ticketIndex
 } from "@pp/db/schema"
 import {
@@ -42,6 +43,7 @@ import {
   lt,
   lte,
   ne,
+  notInArray,
   or,
   sql as drizzleSql,
   type SQL
@@ -114,12 +116,38 @@ const ticketIndexRowFor = (
   pr: document.pr,
   prState: document.prState,
   prDraft: document.prDraft ?? false,
+  prBase: document.prBase ?? null,
   lastTransitionedPr: document.lastTransitionedPr,
+  ignoredBranches: [...(document.ignoredBranches ?? [])],
   archivedAt: document.archivedAt,
   createdBy: document.createdBy,
   createdAt: document.createdAt,
   updatedAt: document.updatedAt
 })
+
+const ticketBranchRowsForDocument = (
+  project: TicketIndexProject,
+  document: TicketDocument
+): ReadonlyArray<typeof ticketBranch.$inferInsert> =>
+  (document.stack ?? []).map((layer, position) => ({
+    projectId: project.projectId,
+    ticketId: document.id,
+    branch: layer.branch,
+    position,
+    base: layer.base ?? null,
+    pr: layer.pr ?? null,
+    prState: layer.prState ?? null,
+    prDraft: layer.prDraft ?? false,
+    landed: layer.landed ?? false
+  }))
+
+export const ticketBranchRowsFor = (
+  project: TicketIndexProject,
+  documents: ReadonlyArray<TicketDocument>
+): ReadonlyArray<typeof ticketBranch.$inferInsert> =>
+  documents.flatMap((document) =>
+    ticketBranchRowsForDocument(project, document)
+  )
 
 export const ticketIndexRowsFor = (
   project: TicketIndexProject,
@@ -553,7 +581,9 @@ export const TicketIndexLive = Layer.effect(
       pr: row.pr,
       prState: row.prState,
       prDraft: row.prDraft,
+      prBase: row.prBase,
       lastTransitionedPr: row.lastTransitionedPr,
+      ignoredBranches: row.ignoredBranches,
       branchDeletedAt: row.branchDeletedAt,
       checks: row.checks,
       checksHeadSha: row.checksHeadSha,
@@ -1132,17 +1162,65 @@ export const TicketIndexLive = Layer.effect(
           Effect.orDie
         )
 
+    const syncTicketBranches = (
+      project: TicketIndexProject,
+      document: TicketDocument
+    ) =>
+      Effect.gen(function* () {
+        const rows = ticketBranchRowsForDocument(project, document)
+        const ticket = and(
+          eq(ticketBranch.projectId, project.projectId),
+          eq(ticketBranch.ticketId, document.id)
+        )
+        yield* db.delete(ticketBranch).where(
+          rows.length === 0
+            ? ticket
+            : and(
+                ticket,
+                notInArray(
+                  ticketBranch.branch,
+                  rows.map((row) => row.branch)
+                )
+              )
+        )
+        if (rows.length === 0) return
+        yield* db
+          .insert(ticketBranch)
+          .values([...rows])
+          .onConflictDoUpdate({
+            target: [
+              ticketBranch.projectId,
+              ticketBranch.ticketId,
+              ticketBranch.branch
+            ],
+            set: {
+              position: drizzleSql`excluded.position`,
+              base: drizzleSql`excluded.base`,
+              pr: drizzleSql`excluded.pr`,
+              prState: drizzleSql`excluded.pr_state`,
+              prDraft: drizzleSql`excluded.pr_draft`,
+              landed: drizzleSql`excluded.landed`
+            }
+          })
+      })
+
     const upsertTicket = (
       project: TicketIndexProject,
       document: TicketDocument
     ): Effect.Effect<void> =>
-      db
-        .insert(ticketIndex)
-        .values(ticketIndexRowFor(project, document))
-        .onConflictDoUpdate({
-          target: [ticketIndex.projectId, ticketIndex.ticketId],
-          set: ticketIndexRowFor(project, document)
-        })
+      sql
+        .withTransaction(
+          Effect.gen(function* () {
+            yield* db
+              .insert(ticketIndex)
+              .values(ticketIndexRowFor(project, document))
+              .onConflictDoUpdate({
+                target: [ticketIndex.projectId, ticketIndex.ticketId],
+                set: ticketIndexRowFor(project, document)
+              })
+            yield* syncTicketBranches(project, document)
+          })
+        )
         .pipe(
           Effect.asVoid,
           Effect.retry({
@@ -1295,6 +1373,7 @@ export const TicketIndexLive = Layer.effect(
       documents: ReadonlyArray<TicketDocument>
     ): Effect.Effect<void> => {
       const tickets = ticketIndexRowsFor(project, documents)
+      const branches = ticketBranchRowsFor(project, documents)
       const comments = commentIndexRowsFor(project, documents)
       return sql
         .withTransaction(
@@ -1307,6 +1386,12 @@ export const TicketIndexLive = Layer.effect(
               yield* db
                 .insert(ticketIndex)
                 .values([...tickets])
+                .pipe(Effect.asVoid, Effect.orDie)
+            }
+            if (branches.length > 0) {
+              yield* db
+                .insert(ticketBranch)
+                .values([...branches])
                 .pipe(Effect.asVoid, Effect.orDie)
             }
             yield* db

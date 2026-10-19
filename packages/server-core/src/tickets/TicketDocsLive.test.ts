@@ -209,6 +209,132 @@ describe("TicketDocs branch matching persistence", () => {
   )
 })
 
+describe("TicketDocs branches persistence", () => {
+  it.effect("writes the ticket's branch and its stack as one list", () =>
+    Effect.gen(function* () {
+      const docs = yield* TicketDocs
+      const stack = [
+        {
+          branch: "feat/T-21-ui",
+          base: "chore/branch-matching",
+          pr: 42,
+          prState: "merged" as const,
+          landed: true
+        },
+        {
+          branch: "feat/T-21-polish",
+          base: "feat/T-21-ui",
+          pr: 43,
+          prState: "open" as const,
+          prDraft: true
+        },
+        { branch: "feat/T-21-docs" }
+      ]
+      yield* docs.create("acme", "project", {
+        ...ticketDocument("T-21"),
+        pr: 41,
+        prState: "merged",
+        prBase: "main",
+        lastTransitionedPr: 41,
+        stack,
+        ignoredBranches: ["feat/T-21-spike"]
+      })
+
+      const document = yield* docs.read("acme", "project", "T-21")
+      const raw = yield* docs.readRaw("acme", "project", "T-21")
+
+      expect(document).toMatchObject({
+        branch: "chore/branch-matching",
+        pr: 41,
+        prState: "merged",
+        prBase: "main",
+        lastTransitionedPr: 41,
+        stack,
+        ignoredBranches: ["feat/T-21-spike"]
+      })
+      expect(raw.content).toContain(
+        [
+          "branches:",
+          "  - branch: chore/branch-matching",
+          "    base: main",
+          "    pr: 41",
+          "    prState: merged",
+          "    landed: true",
+          "  - branch: feat/T-21-ui"
+        ].join("\n")
+      )
+      expect(raw.content).toContain("ignoredBranches:\n  - feat/T-21-spike")
+      expect(raw.content).not.toMatch(/^(pr|prState|lastTransitionedPr):/m)
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("writes no git keys for a ticket without a branch", () =>
+    Effect.gen(function* () {
+      const docs = yield* TicketDocs
+      yield* docs.create("acme", "project", {
+        ...ticketDocument("T-22"),
+        branch: null,
+        stack: [],
+        ignoredBranches: []
+      })
+
+      const raw = yield* docs.readRaw("acme", "project", "T-22")
+
+      expect(raw.content).not.toMatch(
+        /^(branches|ignoredBranches|branch|pr|prState|lastTransitionedPr):/m
+      )
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("reads a ticket file written before the branches list", () =>
+    Effect.gen(function* () {
+      const markdown = yield* Markdown
+      const docs = yield* TicketDocs
+      yield* markdown.createTicketFile(
+        "acme",
+        "project",
+        "T-23",
+        {
+          id: "T-23",
+          title: "Ticket",
+          status: "todo",
+          type: "chore",
+          priority: "med",
+          tags: [],
+          branch: "feat/T-23",
+          pr: 7,
+          prState: "open",
+          prDraft: true,
+          lastTransitionedPr: 6,
+          assignees: [],
+          archivedAt: null,
+          createdBy: "user-1",
+          createdAt: "2026-09-07T10:00:00Z",
+          updatedAt: "2026-09-07T10:00:00Z"
+        },
+        "# Ticket\n"
+      )
+
+      const document = yield* docs.read("acme", "project", "T-23")
+      expect(document).toMatchObject({
+        branch: "feat/T-23",
+        pr: 7,
+        prState: "open",
+        prDraft: true,
+        lastTransitionedPr: 6
+      })
+
+      yield* docs.write("acme", "project", "T-23", document)
+      const raw = yield* docs.readRaw("acme", "project", "T-23")
+      expect(raw.content).toContain(
+        "branches:\n  - branch: feat/T-23\n    pr: 7\n    prState: open\n    prDraft: true\n"
+      )
+      const rewritten = yield* docs.read("acme", "project", "T-23")
+      expect(rewritten.lastTransitionedPr).toBeNull()
+    }).pipe(Effect.provide(TestLayer))
+  )
+})
+
 describe("TicketDocs estimate persistence", () => {
   it.effect("writes each estimate unit as a self-describing token", () =>
     Effect.gen(function* () {

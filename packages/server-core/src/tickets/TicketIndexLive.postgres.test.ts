@@ -123,6 +123,28 @@ const RebuildTestLayer = TicketIndexLive.pipe(
   Layer.provide(DatabaseLive)
 )
 
+const stackedDocument: TicketDocument = {
+  ...rebuiltDocument,
+  id: ticketId("T-7"),
+  branch: "api",
+  stack: [{ branch: "ui", base: "api", pr: 8, prState: "open" }]
+}
+
+const StackRebuildTestLayer = TicketIndexLive.pipe(
+  Layer.provide(
+    Layer.succeed(TicketDocs, {
+      listIds: () => Effect.succeed([stackedDocument.id]),
+      read: () => Effect.succeed(stackedDocument),
+      create: () => unexpected("TicketDocs.create"),
+      write: () => unexpected("TicketDocs.write"),
+      update: () => unexpected("TicketDocs.update"),
+      remove: () => unexpected("TicketDocs.remove"),
+      readRaw: () => unexpected("TicketDocs.readRaw")
+    } satisfies TicketDocsShape)
+  ),
+  Layer.provide(DatabaseLive)
+)
+
 const withClient = <A>(use: (client: pg.Client) => Promise<A>) =>
   Effect.tryPromise(async () => {
     const client = new Client({ connectionString: databaseUrl })
@@ -211,6 +233,163 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
 
       expect(yield* index.reserveTicketNumber(project)).toBe(42)
     }).pipe(Effect.provide(RebuildTestLayer))
+  )
+
+  it.effect(
+    "keeps stacked layers in step with the ticket and keeps their cached checks",
+    () =>
+      Effect.gen(function* () {
+        const suffix = randomUUID()
+        const organizationId = `ticket-index-stack-${suffix}`
+        const orgSlug = `ticket-index-stack-${suffix}`
+        const projectSlug = `ticket-index-stack-${suffix}`
+        const projectId = randomUUID()
+        yield* withClient(async (client) => {
+          await client.query(
+            `insert into organization (id, name, slug, created_at)
+               values ($1, 'Ticket index stack', $2, now())`,
+            [organizationId, orgSlug]
+          )
+          await client.query(
+            `insert into project_index
+                 (id, slug, organization_id, key, name, icon, color, created_by, created_at)
+               values ($1, $2, $3, 'T', 'Ticket index stack', 'folder', 'blue', 'test-user', now())`,
+            [projectId, projectSlug, organizationId]
+          )
+        })
+        yield* Effect.addFinalizer(() =>
+          withClient((client) =>
+            client.query("delete from organization where id = $1", [
+              organizationId
+            ])
+          )
+        )
+        const layers = () =>
+          withClient(async (client) => {
+            const result = await client.query(
+              `select branch, position, base, pr_state, landed, checks
+                 from ticket_branch where project_id = $1 order by position`,
+              [projectId]
+            )
+            return result.rows
+          })
+
+        const index = yield* TicketIndex
+        const project = yield* index.projectFor(orgSlug, projectSlug)
+        yield* index.upsertTicket(
+          project,
+          indexedDocument("T-1", {
+            branch: "api",
+            prBase: "main",
+            stack: [
+              {
+                branch: "ui",
+                base: "api",
+                pr: 2,
+                prState: "open"
+              },
+              {
+                branch: "polish",
+                base: "ui",
+                pr: 3,
+                prState: "open"
+              }
+            ]
+          })
+        )
+        yield* withClient((client) =>
+          client.query(
+            "update ticket_branch set checks = 'passing' where project_id = $1 and branch = 'ui'",
+            [projectId]
+          )
+        )
+        yield* index.upsertTicket(
+          project,
+          indexedDocument("T-1", {
+            branch: "api",
+            prBase: "main",
+            stack: [
+              {
+                branch: "ui",
+                base: "api",
+                pr: 2,
+                prState: "merged",
+                landed: true
+              },
+              { branch: "docs" }
+            ],
+            ignoredBranches: ["spike"]
+          })
+        )
+
+        expect(yield* layers()).toEqual([
+          {
+            branch: "ui",
+            position: 0,
+            base: "api",
+            pr_state: "merged",
+            landed: true,
+            checks: "passing"
+          },
+          {
+            branch: "docs",
+            position: 1,
+            base: null,
+            pr_state: null,
+            landed: false,
+            checks: null
+          }
+        ])
+        expect((yield* index.list(project))[0]).toMatchObject({
+          prBase: "main",
+          ignoredBranches: ["spike"]
+        })
+
+        yield* index.deleteTicket(project, "T-1")
+        expect(yield* layers()).toEqual([])
+      }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("rebuilds stacked layers from ticket files", () =>
+    Effect.gen(function* () {
+      const suffix = randomUUID()
+      const organizationId = `ticket-index-stack-rebuild-${suffix}`
+      const projectId = randomUUID()
+      yield* withClient(async (client) => {
+        await client.query(
+          `insert into organization (id, name, slug, created_at)
+             values ($1, 'Ticket index stack rebuild', $1, now())`,
+          [organizationId]
+        )
+        await client.query(
+          `insert into project_index
+               (id, slug, organization_id, key, name, icon, color, created_by, created_at)
+             values ($1, $2, $2, 'T', 'Ticket index stack rebuild', 'folder', 'blue', 'test-user', now())`,
+          [projectId, organizationId]
+        )
+      })
+      yield* Effect.addFinalizer(() =>
+        withClient((client) =>
+          client.query("delete from organization where id = $1", [
+            organizationId
+          ])
+        )
+      )
+
+      const index = yield* TicketIndex
+      const project = yield* index.projectFor(organizationId, organizationId)
+      yield* index.rebuildProject(project)
+      yield* index.rebuildProject(project)
+
+      const rows = yield* withClient(async (client) => {
+        const result = await client.query(
+          "select ticket_id, branch, base from ticket_branch where project_id = $1",
+          [projectId]
+        )
+        return result.rows
+      })
+      expect(rows).toEqual([{ ticket_id: "T-7", branch: "ui", base: "api" }])
+    }).pipe(Effect.provide(StackRebuildTestLayer))
   )
 
   it.effect("restores canonical comments as listable index rows", () => {

@@ -46,6 +46,19 @@ export type TicketPriority = typeof TicketPriority.Type
 export const PullRequestState = Schema.Literals(["open", "closed", "merged"])
 export type PullRequestState = typeof PullRequestState.Type
 
+// One branch in a ticket's `branches` list. The first entry is the ticket's
+// own branch; the others are stacked on it, each building on its `base`.
+// `landed` marks a pull request whose merge reached the default branch.
+export const TicketBranchEntry = Schema.Struct({
+  branch: Schema.String,
+  base: Schema.optionalKey(Schema.String),
+  pr: Schema.optionalKey(Schema.Finite),
+  prState: Schema.optionalKey(PullRequestState),
+  prDraft: Schema.optionalKey(Schema.Boolean),
+  landed: Schema.optionalKey(Schema.Boolean)
+})
+export type TicketBranchEntry = typeof TicketBranchEntry.Type
+
 export const Ticket = Schema.Struct({
   id: TicketId,
   title: Schema.String,

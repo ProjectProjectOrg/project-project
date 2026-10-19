@@ -429,6 +429,8 @@ const entryFromDocument = (document: TicketDocument) => {
     ...entry,
     estimate: entry.estimate ?? null,
     prDraft: entry.prDraft ?? false,
+    prBase: entry.prBase ?? null,
+    ignoredBranches: entry.ignoredBranches ?? [],
     branchDeletedAt: null,
     checks: null,
     checksHeadSha: null,
