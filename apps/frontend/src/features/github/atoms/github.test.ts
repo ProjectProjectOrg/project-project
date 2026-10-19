@@ -15,7 +15,9 @@ import {
   createBranch,
   githubIntegration,
   githubOrgRequest,
-  projectGitStates
+  projectGitStates,
+  stackBranch,
+  unstackBranch
 } from "./github"
 
 const { listAccounts, unlinkAccount } = vi.hoisted(() => ({
@@ -464,6 +466,74 @@ describe("branches", () => {
         if (!AsyncResult.isSuccess(settled)) throw new Error("no branches")
         expect(settled.waiting).toBe(false)
         expect(settled.value.items).toEqual([])
+      })
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
+describe.each([
+  ["stackBranch", stackBranch, "/stacked-branches"],
+  ["unstackBranch", unstackBranch, "/stacked-branches/remove"]
+] as const)("%s confirmed stack", (name, mutationFor, endpoint) => {
+  it("preserves matching PR details until the enriched refetch arrives", async () => {
+    const pr = {
+      number: 81,
+      url: "https://github.com/acme/app/pull/81",
+      title: "Keep stack details",
+      state: "open",
+      draft: false,
+      landed: false,
+      checks: "failing"
+    } as const
+    const layer = {
+      branch: "feat/stack",
+      base: "feat/T-1",
+      depth: 1,
+      deleted: false,
+      pr
+    }
+    const other = { ...layer, branch: "feat/other", pr: null }
+    const initial: GitStatesResponse = {
+      ...noBranch,
+      stacks: { "T-1": name === "stackBranch" ? [layer] : [layer, other] }
+    }
+    const remaining = name === "stackBranch" ? [other] : []
+    let reads = 0
+    fetchStub.set((input) => {
+      const path = pathOf(input)
+      if (path.endsWith(endpoint))
+        return Promise.resolve(
+          Response.json({
+            ...ticketDetail,
+            stack: [
+              { ...layer, pr: { ...pr, title: "", checks: null } },
+              ...remaining
+            ]
+          })
+        )
+      if (path.endsWith("/git-states")) {
+        reads += 1
+        return reads === 1 ? Promise.resolve(Response.json(initial)) : pending()
+      }
+      return pending()
+    })
+    const registry = AtomRegistry.make()
+    const view = projectGitStates(req)
+    const mutation = mutationFor({ req, id: ticketId })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
+      )
+      registry.set(mutation, { name: "feat/other" })
+      await vi.waitFor(() =>
+        expect(AsyncResult.isSuccess(registry.get(mutation))).toBe(true)
+      )
+      expect(registry.get(view)).toMatchObject({
+        value: { stacks: { "T-1": [layer, ...remaining] } }
       })
     } finally {
       registry.dispose()

@@ -23,7 +23,10 @@ import {
   project,
   type ProjectRequest
 } from "@/features/projects/atoms/projects"
-import { mergeStaleGitStateDetails } from "@/lib/gitStateMerge"
+import {
+  mergeStackPrDetails,
+  mergeStaleGitStateDetails
+} from "@/lib/gitStateMerge"
 
 export type GithubOrgRequest = Readonly<{
   params: Readonly<{ orgSlug: string }>
@@ -428,7 +431,11 @@ export const stackBranch = Atom.family(({ req, id }: GitStateMutationRequest) =>
           )
           set(
             AsyncResult.map(get(projectGitStates(req)), (value) =>
-              withStack(value, id, updated.stack ?? [])
+              withStack(
+                value,
+                id,
+                mergeStackPrDetails(value.stacks?.[id], updated.stack ?? [])
+              )
             )
           )
           yield* Reactivity.invalidate([
@@ -465,7 +472,11 @@ export const unstackBranch = Atom.family(
             )
             set(
               AsyncResult.map(get(projectGitStates(req)), (value) =>
-                withStack(value, id, updated.stack ?? [])
+                withStack(
+                  value,
+                  id,
+                  mergeStackPrDetails(value.stacks?.[id], updated.stack ?? [])
+                )
               )
             )
             yield* Reactivity.invalidate([

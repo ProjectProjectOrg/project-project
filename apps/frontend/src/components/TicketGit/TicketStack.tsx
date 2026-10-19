@@ -372,20 +372,24 @@ function BranchMenu({
           <Copy strokeWidth={1.75} />
           {m.git_copy_branch_name_label()}
         </DropdownMenuItem>
-        {canWrite && layer.pr === null && layer.base !== null && (
-          <DropdownMenuItem
-            onClick={() =>
-              window.open(
-                compareUrl(repoSlug, layer.base ?? "", layer.branch),
-                "_blank",
-                "noreferrer"
-              )
-            }
-          >
-            <GitPullRequest strokeWidth={1.75} />
-            {m.git_open_pr_button()}
-          </DropdownMenuItem>
-        )}
+        {canWrite &&
+          (layer.pr === null || layer.pr.state === "closed") &&
+          layer.base !== null && (
+            <DropdownMenuItem
+              onClick={() =>
+                window.open(
+                  compareUrl(repoSlug, layer.base ?? "", layer.branch),
+                  "_blank",
+                  "noreferrer"
+                )
+              }
+            >
+              <GitPullRequest strokeWidth={1.75} />
+              {layer.pr?.state === "closed"
+                ? m.git_open_new_pr_button()
+                : m.git_open_pr_button()}
+            </DropdownMenuItem>
+          )}
         {canWrite && (
           <DropdownMenuItem onClick={() => open("stack")}>
             <Layers strokeWidth={1.75} />
