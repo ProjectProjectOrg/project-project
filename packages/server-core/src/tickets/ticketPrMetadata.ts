@@ -17,6 +17,7 @@ export const prMetadataOf = (ticket: TicketDocument) =>
 export const hasPrMetadata = (ticket: TicketDocument): boolean =>
   ticket.pr !== null ||
   ticket.prState !== null ||
+  ticket.prDraft === true ||
   ticket.prBase !== undefined ||
   ticket.lastTransitionedPr !== null ||
   (ticket.stack ?? []).some(

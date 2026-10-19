@@ -31,8 +31,9 @@ const ticket = (overrides: Partial<TicketDocument>): TicketDocument => ({
 })
 
 describe("ticket pr metadata", () => {
-  it("finds pull request metadata kept only on a stacked branch", () => {
+  it("finds pull request metadata without an owning PR", () => {
     expect(hasPrMetadata(ticket({}))).toBe(false)
+    expect(hasPrMetadata(ticket({ prDraft: true }))).toBe(true)
     expect(hasPrMetadata(ticket({ prBase: "old-default" }))).toBe(true)
     expect(
       hasPrMetadata(
