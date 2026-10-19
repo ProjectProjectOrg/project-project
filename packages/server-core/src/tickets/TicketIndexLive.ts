@@ -125,7 +125,7 @@ const ticketIndexRowFor = (
   updatedAt: document.updatedAt
 })
 
-const ticketBranchRowsForDocument = (
+const ticketBranchRowsFor = (
   project: TicketIndexProject,
   document: TicketDocument
 ): ReadonlyArray<typeof ticketBranch.$inferInsert> =>
@@ -140,14 +140,6 @@ const ticketBranchRowsForDocument = (
     prDraft: layer.prDraft ?? false,
     landed: layer.landed ?? false
   }))
-
-export const ticketBranchRowsFor = (
-  project: TicketIndexProject,
-  documents: ReadonlyArray<TicketDocument>
-): ReadonlyArray<typeof ticketBranch.$inferInsert> =>
-  documents.flatMap((document) =>
-    ticketBranchRowsForDocument(project, document)
-  )
 
 export const ticketIndexRowsFor = (
   project: TicketIndexProject,
@@ -1167,7 +1159,7 @@ export const TicketIndexLive = Layer.effect(
       document: TicketDocument
     ) =>
       Effect.gen(function* () {
-        const rows = ticketBranchRowsForDocument(project, document)
+        const rows = ticketBranchRowsFor(project, document)
         const ticket = and(
           eq(ticketBranch.projectId, project.projectId),
           eq(ticketBranch.ticketId, document.id)
@@ -1373,7 +1365,9 @@ export const TicketIndexLive = Layer.effect(
       documents: ReadonlyArray<TicketDocument>
     ): Effect.Effect<void> => {
       const tickets = ticketIndexRowsFor(project, documents)
-      const branches = ticketBranchRowsFor(project, documents)
+      const branches = documents.flatMap((document) =>
+        ticketBranchRowsFor(project, document)
+      )
       const comments = commentIndexRowsFor(project, documents)
       return sql
         .withTransaction(
