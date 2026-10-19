@@ -5,6 +5,7 @@ import {
   Mail,
   HardDrive,
   LayoutTemplate,
+  Plug,
   SlidersHorizontal,
   TriangleAlert,
   Users
@@ -68,6 +69,14 @@ const SECTIONS = [
     description: m.org_settings_templates_description()
   },
   {
+    key: "integrations",
+    to: "/orgs/$orgSlug/settings/integrations",
+    label: m.org_settings_integrations_tab(),
+    icon: Plug,
+    heading: m.org_settings_integrations_heading(),
+    description: m.org_settings_integrations_description()
+  },
+  {
     key: "danger",
     to: "/orgs/$orgSlug/settings/danger",
     label: m.org_settings_danger_tab(),
@@ -82,6 +91,7 @@ const SECTIONS = [
     | "/orgs/$orgSlug/settings/members"
     | "/orgs/$orgSlug/settings/storage"
     | "/orgs/$orgSlug/settings/email"
+    | "/orgs/$orgSlug/settings/integrations"
     | "/orgs/$orgSlug/settings/attachments"
     | "/orgs/$orgSlug/settings/templates"
     | "/orgs/$orgSlug/settings/danger"
@@ -132,6 +142,7 @@ function SettingsRail({ orgSlug }: { orgSlug: string }) {
   const location = useLocation()
   const actor = useOrgActor(orgSlug)
   const canSeeMembers = actor.call("org", "members")
+  const canManageIntegrations = actor.call("slack", "orgStatus")
   const canManageEmail = actor.call("orgEmail", "get")
 
   return (
@@ -145,7 +156,8 @@ function SettingsRail({ orgSlug }: { orgSlug: string }) {
         {SECTIONS.filter(
           (section) =>
             (section.key !== "members" || canSeeMembers) &&
-            (section.key !== "email" || canManageEmail)
+            (section.key !== "email" || canManageEmail) &&
+            (section.key !== "integrations" || canManageIntegrations)
         ).map((section) => {
           const Icon = section.icon
           const active = isSectionActive(

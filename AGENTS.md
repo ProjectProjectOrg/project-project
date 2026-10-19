@@ -130,6 +130,7 @@ If extending the primitive feels disruptive (touches public API, would conflict 
 | `apps/frontend/messages/en/git.json`      | `git_`, `github_`                                      |
 | `apps/frontend/messages/en/sprints.json`  | `sprints_`, `error_sprint_`                            |
 | `apps/frontend/messages/en/time.json`     | `time_`                                                |
+| `apps/frontend/messages/en/slack.json`    | `slack_`                                               |
 | `apps/frontend/messages/en/figma.json`    | `figma_`                                               |
 | `apps/frontend/messages/en/jira.json`     | `jira_`                                                |
 | `apps/frontend/messages/en/templates.json` | `templates_`                                          |
@@ -274,6 +275,8 @@ Reference: `apps/frontend/src/routes/_authed/orgs/$orgSlug/projects/index.tsx` f
 ## Backend stack
 
 Effect HttpApi + Drizzle + Better Auth + Postgres, as set up in chapters 0–2. Extend within those choices unless we explicitly revisit them.
+
+Integration packages own provider behavior and consume PP capabilities through Effect host services supplied by the backend. Core must not import integration packages. Slack lives in `packages/integration-slack`; its host implementation and composition tests live in `apps/backend/src/slack`. Document writes persist provider-neutral events through the existing durable outbox, and each integration consumes only its own subscribed deliveries. Keep migrations in `db`, HTTP contracts in `shared`, and the SQL workflow engine shared across integrations. Do not add a universal integration-driver interface or migrate other integrations as part of ordinary Slack changes.
 
 ## Repo orientation
 

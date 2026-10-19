@@ -42,6 +42,9 @@
 
 import type {
   GitAutomationEvent,
+  ProjectEvent,
+  ProjectEventKind,
+  SlackNotification,
   JiraMigrationConfiguration,
   OrgEverhourConfig,
   ProjectBanner,
@@ -265,7 +268,7 @@ export const organizationIntegration = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     provider: text("provider", {
-      enum: ["github", "everhour", "s3", "figma"]
+      enum: ["github", "everhour", "s3", "figma", "slack"]
     }).notNull(),
     status: text("status", {
       enum: ["active", "disconnected", "broken"]
@@ -392,11 +395,15 @@ export const projectIntegrationLink = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     organizationIntegrationId: uuid("organization_integration_id").notNull(),
     provider: text("provider", {
-      enum: ["github", "everhour", "figma"]
+      enum: ["github", "everhour", "figma", "slack"]
     }).notNull(),
     status: text("status", {
       enum: ["active", "disconnected", "broken"]
     }).notNull(),
+    subscribedEvents: jsonb("subscribed_events")
+      .$type<ReadonlyArray<ProjectEventKind>>()
+      .notNull()
+      .default([]),
     connectedAt: timestamp("connected_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -808,6 +815,114 @@ export type TicketActivityRow = typeof ticketActivity.$inferInsert
 export type TicketActivityOutboxRow = Omit<TicketActivityRow, "occurredAt"> &
   Readonly<{ occurredAt: string }>
 
+export const organizationSlackIntegration = pgTable(
+  "organization_slack_integration",
+  {
+    organizationIntegrationId: uuid("organization_integration_id")
+      .primaryKey()
+      .references(() => organizationIntegration.id, { onDelete: "cascade" }),
+    teamId: text("team_id").notNull().unique(),
+    teamName: text("team_name").notNull(),
+    appId: text("app_id").notNull().unique(),
+    botUserId: text("bot_user_id").notNull(),
+    clientId: text("client_id").notNull(),
+    ciphertext: text("ciphertext").notNull(),
+    nonce: text("nonce").notNull(),
+    tag: text("tag").notNull()
+  }
+)
+
+export const projectSlackIntegration = pgTable("project_slack_integration", {
+  projectIntegrationLinkId: uuid("project_integration_link_id")
+    .primaryKey()
+    .references(() => projectIntegrationLink.id, { onDelete: "cascade" }),
+  channelId: text("channel_id").notNull(),
+  channelName: text("channel_name").notNull()
+})
+
+export const userSlackIntegration = pgTable(
+  "user_slack_integration",
+  {
+    organizationIntegrationId: uuid("organization_integration_id")
+      .notNull()
+      .references(
+        () => organizationSlackIntegration.organizationIntegrationId,
+        { onDelete: "cascade" }
+      ),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    slackUserId: text("slack_user_id").notNull(),
+    displayName: text("display_name").notNull()
+  },
+  (t) => [
+    primaryKey({ columns: [t.organizationIntegrationId, t.userId] }),
+    uniqueIndex("user_slack_identity_uidx").on(
+      t.organizationIntegrationId,
+      t.slackUserId
+    )
+  ]
+)
+
+export const slackOauthState = pgTable("slack_oauth_state", {
+  stateHash: text("state_hash").primaryKey(),
+  organizationIntegrationId: uuid("organization_integration_id")
+    .notNull()
+    .references(() => organizationSlackIntegration.organizationIntegrationId, {
+      onDelete: "cascade"
+    }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  sessionHash: text("session_hash").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull()
+})
+
+export const projectIntegrationEvent = pgTable(
+  "project_integration_event",
+  {
+    id: text("id").primaryKey(),
+    projectIntegrationLinkId: uuid("project_integration_link_id")
+      .notNull()
+      .references(() => projectIntegrationLink.id, { onDelete: "cascade" }),
+    payload: jsonb("payload").$type<typeof ProjectEvent.Encoded>().notNull(),
+    actorId: text("actor_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true })
+  },
+  (t) => [
+    index("project_integration_event_pending_idx")
+      .on(t.projectIntegrationLinkId)
+      .where(sql`${t.consumedAt} is null`)
+  ]
+)
+
+export const slackNotification = pgTable(
+  "slack_notification",
+  {
+    id: text("id").primaryKey(),
+    projectIntegrationLinkId: uuid("project_integration_link_id")
+      .notNull()
+      .references(() => projectIntegrationLink.id, { onDelete: "cascade" }),
+    payload: jsonb("payload")
+      .$type<typeof SlackNotification.Encoded>()
+      .notNull(),
+    actorId: text("actor_id"),
+    availableAt: timestamp("available_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    dispatchedAt: timestamp("dispatched_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    error: text("error")
+  },
+  (t) => [index("slack_notification_dispatch_idx").on(t.dispatchedAt)]
+)
+
 export const ticketActivityOutbox = pgTable(
   "ticket_activity_outbox",
   {
@@ -820,6 +935,19 @@ export const ticketActivityOutbox = pgTable(
     }).notNull(),
     documentId: text("document_id").notNull(),
     contentHash: text("content_hash").notNull(),
+    integrationEvents: jsonb("integration_events")
+      .$type<
+        ReadonlyArray<
+          Readonly<{
+            id: string
+            linkId: string
+            event: typeof ProjectEvent.Encoded
+            actorId: string | null
+          }>
+        >
+      >()
+      .notNull()
+      .default([]),
     rows: jsonb("rows")
       .$type<ReadonlyArray<TicketActivityOutboxRow>>()
       .notNull(),

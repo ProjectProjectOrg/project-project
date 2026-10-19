@@ -31,6 +31,7 @@ import {
   connectEverhourProfileAtom,
   disconnectEverhourProfileAtom
 } from "@/features/everhour/atoms/everhour"
+import { SlackProfileSettings } from "@/features/slack/components/ProfileSettings"
 import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -38,7 +39,8 @@ import { getLocale } from "@/paraglide/runtime"
 
 const ProfileSearch = Schema.Struct({
   error: Schema.optional(Schema.NonEmptyString),
-  figmaError: Schema.optional(Schema.NonEmptyString)
+  figmaError: Schema.optional(Schema.NonEmptyString),
+  slackError: Schema.optional(Schema.NonEmptyString)
 })
 
 export const Route = createFileRoute("/_authed/profile")({
@@ -56,6 +58,7 @@ export const Route = createFileRoute("/_authed/profile")({
 function Profile() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+  const slackOAuthError = useRef(Boolean(search.slackError)).current
   const viewer = useAtomValue(me())
   const githubOAuthError = useRef(githubOAuthErrorMessage(search.error)).current
   const figmaOAuthError = useRef(
@@ -63,13 +66,13 @@ function Profile() {
   ).current
 
   useEffect(() => {
-    if (!search.error && !search.figmaError) return
+    if (!search.error && !search.figmaError && !search.slackError) return
     void navigate({
       to: ".",
       search: () => ({}),
       replace: true
     })
-  }, [navigate, search.error, search.figmaError])
+  }, [navigate, search.error, search.figmaError, search.slackError])
 
   if (!Result.isSuccess(viewer)) return null
   const user = viewer.value
@@ -126,6 +129,7 @@ function Profile() {
 
       <PersonalEverhourCard everhour={user.personalEverhour} />
       <FigmaProfileSettings oauthError={figmaOAuthError} />
+      <SlackProfileSettings oauthError={slackOAuthError} />
       <EditorPreferenceCard preference={user.editorPreference} />
 
       <Card>

@@ -22,7 +22,9 @@ import { Route as AuthedOrgsOrgSlugSettingsRouteRouteImport } from './routes/_au
 import { Route as AuthedOrgsOrgSlugSettingsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/settings/index'
 import { Route as AuthedOrgsOrgSlugProjectsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/index'
 import { Route as AuthedOrgsOrgSlugSettingsStorageRouteImport } from './routes/_authed/orgs/$orgSlug/settings/storage'
+import { Route as AuthedOrgsOrgSlugSettingsSlackRouteImport } from './routes/_authed/orgs/$orgSlug/settings/slack'
 import { Route as AuthedOrgsOrgSlugSettingsMembersRouteImport } from './routes/_authed/orgs/$orgSlug/settings/members'
+import { Route as AuthedOrgsOrgSlugSettingsIntegrationsRouteImport } from './routes/_authed/orgs/$orgSlug/settings/integrations'
 import { Route as AuthedOrgsOrgSlugSettingsGeneralRouteImport } from './routes/_authed/orgs/$orgSlug/settings/general'
 import { Route as AuthedOrgsOrgSlugSettingsEmailRouteImport } from './routes/_authed/orgs/$orgSlug/settings/email'
 import { Route as AuthedOrgsOrgSlugSettingsDangerRouteImport } from './routes/_authed/orgs/$orgSlug/settings/danger'
@@ -119,10 +121,22 @@ const AuthedOrgsOrgSlugSettingsStorageRoute =
     path: '/storage',
     getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
   } as any)
+const AuthedOrgsOrgSlugSettingsSlackRoute =
+  AuthedOrgsOrgSlugSettingsSlackRouteImport.update({
+    id: '/slack',
+    path: '/slack',
+    getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
+  } as any)
 const AuthedOrgsOrgSlugSettingsMembersRoute =
   AuthedOrgsOrgSlugSettingsMembersRouteImport.update({
     id: '/members',
     path: '/members',
+    getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugSettingsIntegrationsRoute =
+  AuthedOrgsOrgSlugSettingsIntegrationsRouteImport.update({
+    id: '/integrations',
+    path: '/integrations',
     getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
   } as any)
 const AuthedOrgsOrgSlugSettingsGeneralRoute =
@@ -306,7 +320,9 @@ export interface FileRoutesByFullPath {
   '/orgs/$orgSlug/settings/danger': typeof AuthedOrgsOrgSlugSettingsDangerRoute
   '/orgs/$orgSlug/settings/email': typeof AuthedOrgsOrgSlugSettingsEmailRoute
   '/orgs/$orgSlug/settings/general': typeof AuthedOrgsOrgSlugSettingsGeneralRoute
+  '/orgs/$orgSlug/settings/integrations': typeof AuthedOrgsOrgSlugSettingsIntegrationsRoute
   '/orgs/$orgSlug/settings/members': typeof AuthedOrgsOrgSlugSettingsMembersRoute
+  '/orgs/$orgSlug/settings/slack': typeof AuthedOrgsOrgSlugSettingsSlackRoute
   '/orgs/$orgSlug/settings/storage': typeof AuthedOrgsOrgSlugSettingsStorageRoute
   '/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/orgs/$orgSlug/settings/': typeof AuthedOrgsOrgSlugSettingsIndexRoute
@@ -345,7 +361,9 @@ export interface FileRoutesByTo {
   '/orgs/$orgSlug/settings/danger': typeof AuthedOrgsOrgSlugSettingsDangerRoute
   '/orgs/$orgSlug/settings/email': typeof AuthedOrgsOrgSlugSettingsEmailRoute
   '/orgs/$orgSlug/settings/general': typeof AuthedOrgsOrgSlugSettingsGeneralRoute
+  '/orgs/$orgSlug/settings/integrations': typeof AuthedOrgsOrgSlugSettingsIntegrationsRoute
   '/orgs/$orgSlug/settings/members': typeof AuthedOrgsOrgSlugSettingsMembersRoute
+  '/orgs/$orgSlug/settings/slack': typeof AuthedOrgsOrgSlugSettingsSlackRoute
   '/orgs/$orgSlug/settings/storage': typeof AuthedOrgsOrgSlugSettingsStorageRoute
   '/orgs/$orgSlug/projects': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/orgs/$orgSlug/settings': typeof AuthedOrgsOrgSlugSettingsIndexRoute
@@ -385,7 +403,9 @@ export interface FileRoutesById {
   '/_authed/orgs/$orgSlug/settings/danger': typeof AuthedOrgsOrgSlugSettingsDangerRoute
   '/_authed/orgs/$orgSlug/settings/email': typeof AuthedOrgsOrgSlugSettingsEmailRoute
   '/_authed/orgs/$orgSlug/settings/general': typeof AuthedOrgsOrgSlugSettingsGeneralRoute
+  '/_authed/orgs/$orgSlug/settings/integrations': typeof AuthedOrgsOrgSlugSettingsIntegrationsRoute
   '/_authed/orgs/$orgSlug/settings/members': typeof AuthedOrgsOrgSlugSettingsMembersRoute
+  '/_authed/orgs/$orgSlug/settings/slack': typeof AuthedOrgsOrgSlugSettingsSlackRoute
   '/_authed/orgs/$orgSlug/settings/storage': typeof AuthedOrgsOrgSlugSettingsStorageRoute
   '/_authed/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/_authed/orgs/$orgSlug/settings/': typeof AuthedOrgsOrgSlugSettingsIndexRoute
@@ -429,7 +449,9 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/settings/danger'
     | '/orgs/$orgSlug/settings/email'
     | '/orgs/$orgSlug/settings/general'
+    | '/orgs/$orgSlug/settings/integrations'
     | '/orgs/$orgSlug/settings/members'
+    | '/orgs/$orgSlug/settings/slack'
     | '/orgs/$orgSlug/settings/storage'
     | '/orgs/$orgSlug/projects/'
     | '/orgs/$orgSlug/settings/'
@@ -468,7 +490,9 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/settings/danger'
     | '/orgs/$orgSlug/settings/email'
     | '/orgs/$orgSlug/settings/general'
+    | '/orgs/$orgSlug/settings/integrations'
     | '/orgs/$orgSlug/settings/members'
+    | '/orgs/$orgSlug/settings/slack'
     | '/orgs/$orgSlug/settings/storage'
     | '/orgs/$orgSlug/projects'
     | '/orgs/$orgSlug/settings'
@@ -507,7 +531,9 @@ export interface FileRouteTypes {
     | '/_authed/orgs/$orgSlug/settings/danger'
     | '/_authed/orgs/$orgSlug/settings/email'
     | '/_authed/orgs/$orgSlug/settings/general'
+    | '/_authed/orgs/$orgSlug/settings/integrations'
     | '/_authed/orgs/$orgSlug/settings/members'
+    | '/_authed/orgs/$orgSlug/settings/slack'
     | '/_authed/orgs/$orgSlug/settings/storage'
     | '/_authed/orgs/$orgSlug/projects/'
     | '/_authed/orgs/$orgSlug/settings/'
@@ -636,11 +662,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsStorageRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
     }
+    '/_authed/orgs/$orgSlug/settings/slack': {
+      id: '/_authed/orgs/$orgSlug/settings/slack'
+      path: '/slack'
+      fullPath: '/orgs/$orgSlug/settings/slack'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsSlackRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
+    }
     '/_authed/orgs/$orgSlug/settings/members': {
       id: '/_authed/orgs/$orgSlug/settings/members'
       path: '/members'
       fullPath: '/orgs/$orgSlug/settings/members'
       preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsMembersRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/settings/integrations': {
+      id: '/_authed/orgs/$orgSlug/settings/integrations'
+      path: '/integrations'
+      fullPath: '/orgs/$orgSlug/settings/integrations'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
     }
     '/_authed/orgs/$orgSlug/settings/general': {
@@ -840,7 +880,9 @@ interface AuthedOrgsOrgSlugSettingsRouteRouteChildren {
   AuthedOrgsOrgSlugSettingsDangerRoute: typeof AuthedOrgsOrgSlugSettingsDangerRoute
   AuthedOrgsOrgSlugSettingsEmailRoute: typeof AuthedOrgsOrgSlugSettingsEmailRoute
   AuthedOrgsOrgSlugSettingsGeneralRoute: typeof AuthedOrgsOrgSlugSettingsGeneralRoute
+  AuthedOrgsOrgSlugSettingsIntegrationsRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsRoute
   AuthedOrgsOrgSlugSettingsMembersRoute: typeof AuthedOrgsOrgSlugSettingsMembersRoute
+  AuthedOrgsOrgSlugSettingsSlackRoute: typeof AuthedOrgsOrgSlugSettingsSlackRoute
   AuthedOrgsOrgSlugSettingsStorageRoute: typeof AuthedOrgsOrgSlugSettingsStorageRoute
   AuthedOrgsOrgSlugSettingsIndexRoute: typeof AuthedOrgsOrgSlugSettingsIndexRoute
   AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRoute: typeof AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRoute
@@ -856,8 +898,11 @@ const AuthedOrgsOrgSlugSettingsRouteRouteChildren: AuthedOrgsOrgSlugSettingsRout
     AuthedOrgsOrgSlugSettingsEmailRoute: AuthedOrgsOrgSlugSettingsEmailRoute,
     AuthedOrgsOrgSlugSettingsGeneralRoute:
       AuthedOrgsOrgSlugSettingsGeneralRoute,
+    AuthedOrgsOrgSlugSettingsIntegrationsRoute:
+      AuthedOrgsOrgSlugSettingsIntegrationsRoute,
     AuthedOrgsOrgSlugSettingsMembersRoute:
       AuthedOrgsOrgSlugSettingsMembersRoute,
+    AuthedOrgsOrgSlugSettingsSlackRoute: AuthedOrgsOrgSlugSettingsSlackRoute,
     AuthedOrgsOrgSlugSettingsStorageRoute:
       AuthedOrgsOrgSlugSettingsStorageRoute,
     AuthedOrgsOrgSlugSettingsIndexRoute: AuthedOrgsOrgSlugSettingsIndexRoute,

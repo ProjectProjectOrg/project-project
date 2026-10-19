@@ -1,3 +1,9 @@
+import type {
+  SlackAuthInvalid,
+  SlackError,
+  SlackNotConnected,
+  SlackRateLimited
+} from "@pp/shared"
 import type { OrgEmailError, EmailFailureReason } from "@pp/shared"
 import {
   FigmaAuthInvalid,
@@ -45,6 +51,10 @@ import type { InviteAcceptError } from "@/lib/invitations"
 import { m } from "@/paraglide/messages"
 
 export type AppError =
+  | SlackAuthInvalid
+  | SlackError
+  | SlackNotConnected
+  | SlackRateLimited
   | OrgEmailError
   | Unauthorized
   | NotFound
@@ -142,6 +152,10 @@ const conflictMessage = (reason: string): string => {
       return m.projects_create_key_taken_error()
     case "key_taken":
       return m.templates_error_key_taken()
+    case "slack_disconnect_first":
+      return m.slack_error_disconnect_first()
+    case "slack_workspace_connected":
+      return m.slack_error_workspace_connected()
     default:
       return m.error_unknown()
   }
@@ -201,6 +215,18 @@ export const errorMessage = (error: AppError): string =>
       ),
       Match.tag("AttachmentNotUploaded", () =>
         m.editor_attachment_upload_failed()
+      ),
+      Match.tag("SlackAuthInvalid", () => m.slack_error_auth()),
+      Match.tag("SlackNotConnected", () => m.slack_error_not_connected()),
+      Match.tag("SlackRateLimited", ({ retryAfterSeconds }) =>
+        m.slack_error_rate_limited({ seconds: String(retryAfterSeconds) })
+      ),
+      Match.tag("SlackError", ({ reason }) =>
+        reason === "encryption"
+          ? m.slack_error_encryption()
+          : reason === "not_in_channel"
+            ? m.slack_error_channel()
+            : m.slack_error_generic()
       ),
       Match.tag("FigmaNotConnected", () => m.figma_error_not_connected()),
       Match.tag("FigmaAuthInvalid", () => m.figma_error_auth_invalid()),

@@ -14,6 +14,7 @@ WORKDIR /app
 COPY package.json bun.lock* bun.lockb* tsconfig.base.json ./
 COPY packages/access/package.json ./packages/access/
 COPY packages/db/package.json ./packages/db/
+COPY packages/integration-slack/package.json ./packages/integration-slack/
 COPY packages/server-core/package.json ./packages/server-core/
 COPY packages/shared/package.json ./packages/shared/
 COPY apps/backend/package.json ./apps/backend/

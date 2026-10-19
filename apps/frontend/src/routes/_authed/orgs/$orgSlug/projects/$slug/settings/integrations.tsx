@@ -19,6 +19,7 @@ import {
   projectRequest,
   updateProjectSetup
 } from "@/features/projects/atoms/projects"
+import { SlackProjectSettings } from "@/features/slack/components/ProjectSettings"
 import { useProjectActor } from "@/lib/access"
 import { type AppError, errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
@@ -88,6 +89,11 @@ function IntegrationsSettings() {
           canManage={actor.call("everhour", "connectProject")}
         />
       )}
+      <SlackProjectSettings
+        orgSlug={orgSlug}
+        slug={project.slug}
+        canManage={actor.call("slack", "saveProject")}
+      />
       <FigmaProjectSettings
         orgSlug={orgSlug}
         slug={project.slug}

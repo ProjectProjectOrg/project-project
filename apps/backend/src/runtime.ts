@@ -2,6 +2,7 @@ import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
 import * as BunPath from "@effect/platform-bun/BunPath"
 import { DbLive, PgLive } from "@pp/db"
+import { SlackServicesLive } from "@pp/integration-slack/Services"
 import { AccessLive } from "@pp/server-core/access/AccessLive"
 import { TicketActivityFeedLive } from "@pp/server-core/activity/TicketActivityFeed"
 import { TicketActivityLive } from "@pp/server-core/activity/TicketActivityLive"
@@ -67,6 +68,13 @@ import { JiraWorkflowsLive } from "./jira/WorkflowRuntime"
 import { OrgAccessLive, ProjectAccessLive } from "./Layers/Access"
 import { AuthenticationLive } from "./Layers/Auth"
 import { BetterAuthLive } from "./Layers/BetterAuth"
+import { SlackHostLive } from "./slack/HostLive"
+
+const SlackLive = SlackServicesLive.pipe(
+  Layer.provideMerge(SlackHostLive),
+  Layer.provideMerge(AccessLive),
+  Layer.provideMerge(UsersLive)
+)
 
 const makeJiraServicesLive = <TE, TR, EE, ER, CE, CR>(
   transport: Layer.Layer<JiraTransport, TE, TR>,
@@ -151,6 +159,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(BannerPlaceholdersLive),
       Layer.provideMerge(UsersLive),
       Layer.provideMerge(TicketIndexLive),
+      Layer.provideMerge(SlackLive),
       Layer.provideMerge(JiraDurableServicesLive),
       Layer.provideMerge(JiraWorkflowsLive),
       Layer.provideMerge(ProjectDocsLive),
@@ -208,7 +217,5 @@ export const BackendRuntimeLive = BackendServicesLive.pipe(
   Layer.provide(BackendInfrastructureLive)
 )
 
-export {
-  JiraWorkflowEngineLive,
-  JiraWorkflowsLive
-} from "./jira/WorkflowRuntime"
+export { JiraWorkflowsLive } from "./jira/WorkflowRuntime"
+export { WorkflowEngineLive } from "./workflows/Runtime"

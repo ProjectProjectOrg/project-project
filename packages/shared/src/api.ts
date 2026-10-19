@@ -1,3 +1,4 @@
+import * as Effect from "effect/Effect"
 // packages/shared/src/api.ts
 //
 // THIS FILE IS THE CONTRACT.
@@ -13,8 +14,6 @@
 // `/orgs/:orgSlug/...`. Handlers read `path.orgSlug` and use it to scope all
 // downstream service calls. The `:orgSlug` is the URL-canonical source of
 // "which org am I acting in?" — see `services/CurrentOrg.ts` for the resolver.
-
-import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import {
   HttpApi,
@@ -197,6 +196,18 @@ import {
   UpdateProjectInput,
   UpdateProjectSetupInput
 } from "./schemas/Project"
+import {
+  ConnectSlackInput,
+  SlackOrgStatus,
+  SlackProjectStatus,
+  SlackProfile,
+  SlackChannel,
+  SaveSlackProjectInput,
+  SlackNotConnected,
+  SlackAuthInvalid,
+  SlackRateLimited,
+  SlackError
+} from "./schemas/Slack"
 import {
   CreateStatusInput,
   ProjectStatus,
@@ -1269,6 +1280,137 @@ const JiraMigrationsGroup = HttpApiGroup.make("jiraMigrations")
       }
     )
       .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
+  )
+  .middleware(Authentication)
+
+const SlackErrors = [
+  Unauthorized,
+  NotFound,
+  Forbidden,
+  SlackNotConnected,
+  SlackAuthInvalid,
+  SlackRateLimited,
+  SlackError,
+  Conflict
+] as const
+const SlackGroup = HttpApiGroup.make("slack")
+  .add(
+    HttpApiEndpoint.get("orgStatus", "/orgs/:orgSlug/integrations/slack", {
+      params: OrgPath,
+      success: SlackOrgStatus,
+      error: SlackErrors
+    })
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
+  )
+  .add(
+    HttpApiEndpoint.put("connectOrg", "/orgs/:orgSlug/integrations/slack", {
+      params: OrgPath,
+      payload: ConnectSlackInput,
+      success: SlackOrgStatus,
+      error: SlackErrors
+    })
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "disconnectOrg",
+      "/orgs/:orgSlug/integrations/slack",
+      { params: OrgPath, success: SlackOrgStatus, error: SlackErrors }
+    )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "manifest",
+      "/orgs/:orgSlug/integrations/slack/manifest",
+      {
+        params: OrgPath,
+        success: Schema.Struct({
+          manifest: Schema.String,
+          createUrl: Schema.String,
+          redirectUri: Schema.String
+        }),
+        error: SlackErrors
+      }
+    )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "channels",
+      "/orgs/:orgSlug/projects/:slug/integrations/slack/channels",
+      {
+        params: ProjectPath,
+        success: Schema.Array(SlackChannel),
+        error: SlackErrors
+      }
+    )
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "projectStatus",
+      "/orgs/:orgSlug/projects/:slug/integrations/slack",
+      { params: ProjectPath, success: SlackProjectStatus, error: SlackErrors }
+    )
+      .annotate(RequiresProject, { ticket: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.put(
+      "saveProject",
+      "/orgs/:orgSlug/projects/:slug/integrations/slack",
+      {
+        params: ProjectPath,
+        payload: SaveSlackProjectInput,
+        success: SlackProjectStatus,
+        error: SlackErrors
+      }
+    )
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "disconnectProject",
+      "/orgs/:orgSlug/projects/:slug/integrations/slack",
+      { params: ProjectPath, success: SlackProjectStatus, error: SlackErrors }
+    )
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "testProject",
+      "/orgs/:orgSlug/projects/:slug/integrations/slack/test",
+      {
+        params: ProjectPath,
+        success: HttpApiSchema.NoContent,
+        error: SlackErrors
+      }
+    )
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.get("profiles", "/integrations/slack/profiles", {
+      success: Schema.Array(SlackProfile),
+      error: SlackErrors
+    })
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "disconnectProfile",
+      "/orgs/:orgSlug/integrations/slack/profile",
+      { params: OrgPath, success: HttpApiSchema.NoContent, error: SlackErrors }
+    )
+      .annotate(RequiresOrg, "membership")
       .middleware(OrgAccess)
   )
   .middleware(Authentication)
@@ -2462,6 +2604,7 @@ const AppApi = HttpApi.make("projectproject")
   .add(JiraMigrationsGroup)
   .add(StorageGroup)
   .add(OrgEmailGroup)
+  .add(SlackGroup)
   .add(AttachmentsGroup)
   .add(TicketsGroup)
   .add(TicketCommentsGroup)

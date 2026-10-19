@@ -54,3 +54,6 @@ export * from "./library/hints"
 export * from "./library/library"
 
 export * from "./schemas/OrgEmail"
+
+export * from "./schemas/Slack"
+export * from "./schemas/ProjectEvent"
