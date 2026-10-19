@@ -931,7 +931,6 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
       })
   )
 
-
   it.effect(
     "applyPullRequestWebhookToTicket propagates index write failures",
     () =>
