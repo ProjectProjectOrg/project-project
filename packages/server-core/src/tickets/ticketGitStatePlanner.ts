@@ -1,25 +1,22 @@
-import type { GitState, TicketId, TicketStatus } from "@pp/shared"
-import * as Option from "effect/Option"
+import type {
+  GitState,
+  TicketId,
+  TicketStatus,
+  TransitionRecord
+} from "@pp/shared"
 
-import type { RawProjectStates, RawPullRequestText } from "../github/GitHub"
-import {
-  pickPullRequestTicket,
-  pullRequestTicketReferences
-} from "./pullRequestTicketReference"
+import type { RawProjectStates } from "../github/GitHub"
+import { ticketIdsInBranch } from "./branchTicketId"
 
 type AutomaticBranchLinkTicket = Pick<TicketGitStateInput, "id" | "branch"> & {
   readonly archivedAt?: Date | null
 }
 
-const noPullRequestText: RawPullRequestText = { title: "", body: "" }
-
 export function planAutomaticBranchLinks(
   tickets: ReadonlyArray<AutomaticBranchLinkTicket>,
   branches: ReadonlySet<string>,
-  defaultBranch: string,
-  openPullRequestText: ReadonlyMap<string, RawPullRequestText> = new Map()
+  defaultBranch: string
 ): ReadonlyMap<TicketId, string> {
-  const knownIds = new Set<string>(tickets.map((ticket) => ticket.id))
   const attachedBranches = new Set(
     tickets.flatMap((ticket) => (ticket.branch === null ? [] : [ticket.branch]))
   )
@@ -32,17 +29,13 @@ export function planAutomaticBranchLinks(
 
   for (const branch of branches) {
     if (branch === defaultBranch || attachedBranches.has(branch)) continue
-    const pick = pickPullRequestTicket(
-      pullRequestTicketReferences({
-        branch,
-        ...(openPullRequestText.get(branch) ?? noPullRequestText)
-      }),
-      knownIds
-    )
-    if (Option.isNone(pick) || !eligibleIds.has(pick.value.ticketId)) continue
-    const branchesForId = candidates.get(pick.value.ticketId) ?? new Set()
+    const ids = ticketIdsInBranch(branch)
+    if (ids.size !== 1) continue
+    const id = ids.values().next().value
+    if (id === undefined || !eligibleIds.has(id)) continue
+    const branchesForId = candidates.get(id) ?? new Set<string>()
     branchesForId.add(branch)
-    candidates.set(pick.value.ticketId, branchesForId)
+    candidates.set(id, branchesForId)
   }
 
   const links = new Map<TicketId, string>()
@@ -60,62 +53,34 @@ export interface TicketGitStateInput {
   readonly branch: string | null
   readonly pr: number | null
   readonly prState: "open" | "closed" | "merged" | null
-  readonly prDraft: boolean
   readonly lastTransitionedPr: number | null
 }
 
-export type TicketGitStatePatch = Readonly<{
-  pr?: number | null
-  prState?: TicketGitStateInput["prState"]
-  prDraft?: boolean
-  lastTransitionedPr?: number | null
-}>
-
 export interface TicketGitStateWrite {
   readonly ticketId: TicketId
-  readonly patch: TicketGitStatePatch
-  readonly pullRequestBase: string | null
+  readonly patch: {
+    readonly pr?: number | null
+    readonly prState?: TicketGitStateInput["prState"]
+    readonly lastTransitionedPr?: number | null
+    readonly status?: TicketGitStateInput["status"]
+  }
 }
 
 export interface PullRequestWebhookInput {
   readonly number: number
   readonly state: "open" | "closed" | "merged"
-  readonly draft: boolean
 }
 
 export interface TicketGitStatePlan {
   readonly states: Record<string, GitState>
+  readonly transitioned: ReadonlyArray<TransitionRecord>
   readonly writes: ReadonlyArray<TicketGitStateWrite>
-}
-
-export function planPullRequestPatch(
-  ticket: TicketGitStateInput,
-  pr: PullRequestWebhookInput
-): TicketGitStatePatch | null {
-  if (pr.state === "merged") {
-    return ticket.pr === pr.number &&
-      ticket.prState === "merged" &&
-      ticket.lastTransitionedPr === pr.number
-      ? null
-      : {
-          pr: pr.number,
-          prState: "merged",
-          prDraft: false,
-          lastTransitionedPr: pr.number
-        }
-  }
-  const draft = pr.state === "open" && pr.draft
-  return ticket.pr === pr.number &&
-    ticket.prState === pr.state &&
-    ticket.prDraft === draft
-    ? null
-    : { pr: pr.number, prState: pr.state, prDraft: draft }
 }
 
 export function planPullRequestWebhookTicket(
   ticket: TicketGitStateInput,
   pr: PullRequestWebhookInput
-): TicketGitStatePatch | null {
+): TicketGitStateWrite | null {
   if (
     ticket.pr === pr.number &&
     ticket.prState === "merged" &&
@@ -123,7 +88,42 @@ export function planPullRequestWebhookTicket(
   ) {
     return null
   }
-  return planPullRequestPatch(ticket, pr)
+
+  if (pr.state === "merged") {
+    if (ticket.status !== "done" && ticket.lastTransitionedPr !== pr.number) {
+      return {
+        ticketId: ticket.id,
+        patch: {
+          status: "done" as TicketStatus,
+          pr: pr.number,
+          prState: "merged",
+          lastTransitionedPr: pr.number
+        }
+      }
+    }
+    if (ticket.lastTransitionedPr !== pr.number) {
+      return {
+        ticketId: ticket.id,
+        patch: {
+          pr: pr.number,
+          prState: "merged",
+          lastTransitionedPr: pr.number
+        }
+      }
+    }
+    if (ticket.pr !== pr.number || ticket.prState !== "merged") {
+      return {
+        ticketId: ticket.id,
+        patch: { pr: pr.number, prState: "merged" }
+      }
+    }
+    return null
+  }
+
+  if (ticket.pr !== pr.number || ticket.prState !== pr.state) {
+    return { ticketId: ticket.id, patch: { pr: pr.number, prState: pr.state } }
+  }
+  return null
 }
 
 export function planTicketGitStates(
@@ -132,6 +132,7 @@ export function planTicketGitStates(
   now: Date
 ): TicketGitStatePlan {
   const states: Record<string, GitState> = {}
+  const transitioned: TransitionRecord[] = []
   const writes: TicketGitStateWrite[] = []
 
   for (const ticket of tickets) {
@@ -157,16 +158,39 @@ export function planTicketGitStates(
       continue
     }
 
-    const patch = planPullRequestPatch(ticket, pr)
-    if (patch) {
-      writes.push({
-        ticketId: ticket.id,
-        patch,
-        pullRequestBase: pr.baseRefName
-      })
-    }
-
     if (pr.state === "merged") {
+      if (ticket.status !== "done" && ticket.lastTransitionedPr !== pr.number) {
+        writes.push({
+          ticketId: ticket.id,
+          patch: {
+            status: "done" as TicketStatus,
+            pr: pr.number,
+            prState: "merged",
+            lastTransitionedPr: pr.number
+          }
+        })
+        transitioned.push({
+          ticketId: ticket.id,
+          fromStatus: ticket.status,
+          toStatus: "done" as TicketStatus,
+          prNumber: pr.number
+        })
+      } else if (ticket.lastTransitionedPr !== pr.number) {
+        writes.push({
+          ticketId: ticket.id,
+          patch: {
+            pr: pr.number,
+            prState: "merged",
+            lastTransitionedPr: pr.number
+          }
+        })
+      } else if (ticket.pr !== pr.number || ticket.prState !== "merged") {
+        writes.push({
+          ticketId: ticket.id,
+          patch: { pr: pr.number, prState: "merged" }
+        })
+      }
+
       states[ticket.id] = {
         tag: "pr_merged",
         branch: ticket.branch,
@@ -177,6 +201,13 @@ export function planTicketGitStates(
         mergedAt: pr.mergedAt ?? now
       }
       continue
+    }
+
+    if (ticket.pr !== pr.number || ticket.prState !== pr.state) {
+      writes.push({
+        ticketId: ticket.id,
+        patch: { pr: pr.number, prState: pr.state }
+      })
     }
 
     if (pr.state === "closed") {
@@ -203,5 +234,5 @@ export function planTicketGitStates(
     }
   }
 
-  return { states, writes }
+  return { states, transitioned, writes }
 }

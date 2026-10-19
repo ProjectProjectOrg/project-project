@@ -48,8 +48,7 @@ import {
   OrgScope,
   ProjectScope,
   ActivityActor,
-  type ProjectScopeShape,
-  type TransitionRecord
+  type ProjectScopeShape
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -68,17 +67,10 @@ import { Groups } from "../groups/Groups"
 import { Library, type TemplateExpansion } from "../library/Library"
 import type { MarkdownError } from "../markdown/Markdown"
 import { ProjectDocs } from "../projects/ProjectDocs"
-import { ProjectGitAutomation } from "../projects/ProjectGitAutomation"
 import { Projects } from "../projects/Projects"
 import type { ProjectGithubIntegration } from "../projects/Projects"
 import { readProjectDocument } from "../projects/readProjectDocument"
 import { Users } from "../users/Users"
-import type { GitEventContext } from "./gitAutomation"
-import {
-  gitAutomationActivity,
-  moveByGitAutomation,
-  withGitAutomation
-} from "./moveByGitAutomation"
 import {
   MalformedTicketDocument,
   TicketDocs,
@@ -299,7 +291,6 @@ export const TicketsLive = Layer.effect(
     const { withTicketDocumentLock, withRepositoryBranchLock } =
       yield* TicketDocumentLock.TicketDocumentLock
     const projects = yield* Projects
-    const gitAutomation = yield* ProjectGitAutomation
     const projectDocs = yield* ProjectDocs
     const ticketIndex = yield* TicketIndex
     const github = yield* GitHub.GitHub
@@ -1857,10 +1848,9 @@ export const TicketsLive = Layer.effect(
         branchAutoLinkDisabled?: boolean
         pr?: number | null
         prState?: TicketDocument["prState"]
-        prDraft?: boolean
         lastTransitionedPr?: number | null
-      },
-      context: GitEventContext = { defaultBranch: null, pullRequestBase: null }
+        status?: TicketDocument["status"]
+      }
     ): Effect.Effect<TicketDocument, TicketReadError, ActivityActor> =>
       ticketDocs.update(
         indexProject.orgSlug,
@@ -1868,18 +1858,13 @@ export const TicketsLive = Layer.effect(
         existing.id,
         (current) =>
           DateTime.nowAsDate.pipe(
-            Effect.flatMap((updatedAt) =>
-              withGitAutomation(
-                gitAutomation,
-                indexProject.projectId,
-                current,
-                { ...current, ...patch, updatedAt },
-                context
-              )
-            )
+            Effect.map((updatedAt) => ({
+              ...current,
+              ...patch,
+              updatedAt
+            }))
           ),
-        (next) => ticketIndex.upsertTicket(indexProject, next),
-        gitAutomationActivity
+        (next) => ticketIndex.upsertTicket(indexProject, next)
       )
 
     const createBranch: TicketsShape["createBranch"] = (id, input) =>
@@ -1915,7 +1900,6 @@ export const TicketsLive = Layer.effect(
                 branchAutoLinkDisabled: false,
                 pr: null,
                 prState: null,
-                prDraft: false,
                 lastTransitionedPr: null
               })
             )
@@ -1957,7 +1941,6 @@ export const TicketsLive = Layer.effect(
                 branchAutoLinkDisabled: false,
                 pr: null,
                 prState: null,
-                prDraft: false,
                 lastTransitionedPr: null
               })
             )
@@ -2005,7 +1988,6 @@ export const TicketsLive = Layer.effect(
             yield* writeGitFields(indexProject, ticket, {
               pr: result.number,
               prState: "open",
-              prDraft: input.draft ?? false,
               lastTransitionedPr: null
             })
             return result
@@ -2029,7 +2011,6 @@ export const TicketsLive = Layer.effect(
               branchAutoLinkDisabled: true,
               pr: null,
               prState: null,
-              prDraft: false,
               lastTransitionedPr: null
             })
             return yield* detailOf(next, yield* gitView)
@@ -2101,8 +2082,7 @@ export const TicketsLive = Layer.effect(
         const automaticLinks = planAutomaticBranchLinks(
           tickets,
           raw.existingBranches,
-          raw.defaultBranch,
-          raw.openPullRequestText
+          raw.defaultBranch
         )
         const plannedTickets = tickets.map((ticket) => {
           const branch = automaticLinks.get(ticket.id)
@@ -2136,31 +2116,17 @@ export const TicketsLive = Layer.effect(
         )
         const resurrectedIds = new Set(resurrected)
         const changedTicketIds = new Set<TicketId>()
-        const transitioned: Array<TransitionRecord> = []
         const writesById = new Map<
           TicketId,
-          Readonly<{
-            patch: Parameters<typeof writeGitFields>[2]
-            pullRequestBase: string | null
-          }>
-        >(
-          plan.writes.map((write) => [
-            write.ticketId,
-            { patch: write.patch, pullRequestBase: write.pullRequestBase }
-          ])
-        )
+          Parameters<typeof writeGitFields>[2]
+        >(plan.writes.map((write) => [write.ticketId, write.patch]))
         for (const [ticketId, branch] of automaticLinks) {
-          const planned = writesById.get(ticketId)
           writesById.set(ticketId, {
-            patch: {
-              branch,
-              pr: null,
-              prState: null,
-              prDraft: false,
-              lastTransitionedPr: null,
-              ...planned?.patch
-            },
-            pullRequestBase: planned?.pullRequestBase ?? null
+            branch,
+            pr: null,
+            prState: null,
+            lastTransitionedPr: null,
+            ...writesById.get(ticketId)
           })
         }
         const ticketIds = new Set([...writesById.keys(), ...resurrectedIds])
@@ -2228,28 +2194,12 @@ export const TicketsLive = Layer.effect(
             }
             const write = writesById.get(ticketId)
             if (!write) return
-            const next = yield* writeGitFields(
-              indexProject,
-              ticket,
-              write.patch,
-              {
-                defaultBranch: projectGithub.defaultBaseBranch,
-                pullRequestBase: write.pullRequestBase
-              }
-            ).pipe(
+            yield* writeGitFields(indexProject, ticket, write).pipe(
               Effect.provideService(
                 ActivityActor,
                 ActivityActor.system("github")
               )
             )
-            if (next.status !== ticket.status && next.pr !== null) {
-              transitioned.push({
-                ticketId,
-                fromStatus: ticket.status,
-                toStatus: next.status,
-                prNumber: next.pr
-              })
-            }
             changedTicketIds.add(ticketId)
           })
           yield* withTicketDocumentLock(
@@ -2284,65 +2234,13 @@ export const TicketsLive = Layer.effect(
           )
         }
 
-        const fetchedAt = raw.fetchedAt
-        const vanishedBranches = new Set(
-          fetchedAt === undefined
-            ? []
-            : tickets.flatMap((ticket) =>
-                ticket.branch !== null &&
-                ticket.branchDeletedAt === null &&
-                ticket.updatedAt.getTime() <= fetchedAt.getTime() &&
-                !raw.existingBranches.has(ticket.branch)
-                  ? [ticket.branch]
-                  : []
-              )
-        )
-        for (const branch of vanishedBranches) {
-          const deletedAt = yield* DateTime.nowAsDate
-          const ticketIds = tickets
-            .filter(
-              (ticket) =>
-                ticket.branch === branch && ticket.branchDeletedAt === null
-            )
-            .map((ticket) => ticket.id)
-          for (const ticketId of ticketIds) {
-            changedTicketIds.add(makeTicketId(ticketId))
-            yield* withTicketDocumentLock(
-              orgSlug,
-              slug,
-              ticketId,
-              readTicket(orgSlug, slug, ticketId).pipe(
-                Effect.flatMap((ticket) =>
-                  moveByGitAutomation(
-                    { ticketDocs, ticketIndex, gitAutomation },
-                    indexProject,
-                    ticket,
-                    ticket.branch === branch ? "branch_deleted" : null
-                  )
-                ),
-                Effect.provideService(
-                  ActivityActor,
-                  ActivityActor.system("github")
-                ),
-                Effect.catchTags({
-                  NotFound: () => Effect.void,
-                  MalformedTicketDocument: () => Effect.void
-                })
-              )
-            )
-          }
-          yield* ticketIndex.markBranchStale(
-            indexProject.projectId,
-            branch,
-            deletedAt
-          )
-        }
-
         return {
           states,
           refreshStatus: "fresh",
           changedTicketIds: [...changedTicketIds],
-          transitioned,
+          transitioned: plan.transitioned.filter(
+            (transition) => !staleTicketIds.has(transition.ticketId)
+          ),
           tokenStatus: "ok",
           repoStatus: "ok"
         }

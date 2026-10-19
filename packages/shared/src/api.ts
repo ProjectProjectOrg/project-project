@@ -116,10 +116,6 @@ import {
   PersonalFigma
 } from "./schemas/Figma"
 import {
-  GitAutomation,
-  UpdateGitAutomationInput
-} from "./schemas/GitAutomation"
-import {
   AttachBranchInput,
   BranchListResponse,
   CreateBranchInput,
@@ -1984,29 +1980,6 @@ const StatusesGroup = HttpApiGroup.make("statuses")
   .middleware(ProjectAccess)
   .middleware(Authentication)
 
-const GitAutomationGroup = HttpApiGroup.make("gitAutomation")
-  .add(
-    HttpApiEndpoint.get("get", "/orgs/:orgSlug/projects/:slug/git-automation", {
-      params: ProjectPath,
-      success: GitAutomation,
-      error: [Unauthorized, NotFound, Forbidden]
-    }).annotate(RequiresProject, { github: ["read"] })
-  )
-  .add(
-    HttpApiEndpoint.patch(
-      "update",
-      "/orgs/:orgSlug/projects/:slug/git-automation",
-      {
-        params: ProjectPath,
-        payload: UpdateGitAutomationInput,
-        success: GitAutomation,
-        error: [Unauthorized, NotFound, Forbidden, Conflict]
-      }
-    ).annotate(RequiresProject, { workflow: ["manage"] })
-  )
-  .middleware(ProjectAccess)
-  .middleware(Authentication)
-
 const GroupsGroup = HttpApiGroup.make("groups")
   .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/groups", {
@@ -2468,7 +2441,6 @@ const AppApi = HttpApi.make("projectproject")
   .add(TicketActivityGroup)
   .add(TagsGroup)
   .add(StatusesGroup)
-  .add(GitAutomationGroup)
   .add(GroupsGroup)
   .add(LibraryGroup)
   .add(OAuthApplicationsGroup)

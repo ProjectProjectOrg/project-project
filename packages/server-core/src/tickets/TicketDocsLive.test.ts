@@ -407,36 +407,6 @@ describe("TicketDocs activity capture", () => {
       })
   )
 
-  it.effect("gives status changes their own cause in the same write", () =>
-    Effect.gen(function* () {
-      const { recorded } = yield* capture((docs) =>
-        docs.update(
-          "acme",
-          "project",
-          "T-1",
-          (ticket) =>
-            Effect.succeed({
-              ...ticket,
-              status: ticketStatus("done"),
-              pr: 42,
-              prState: "merged" as const,
-              updatedAt: later
-            }),
-          undefined,
-          { statusCause: "git_automation" }
-        )
-      )
-      expect(recorded).toHaveLength(1)
-      expect(recorded[0].cause).toBeNull()
-      expect(
-        recorded[0].changes.map((entry) => [entry.change.kind, entry.cause])
-      ).toEqual([
-        ["status_changed", "git_automation"],
-        ["pr_merged", undefined]
-      ])
-    })
-  )
-
   it.effect("passes the cause, appends extra changes, and honours silent", () =>
     Effect.gen(function* () {
       const { recorded } = yield* capture((docs) =>

@@ -235,12 +235,7 @@ export const TicketDocsLive = Layer.effect(
               orgSlug,
               slug,
               { kind: "ticket", id, content: ticketFileContent(next) },
-              changes.map((change) =>
-                change.kind === "status_changed" &&
-                activity.statusCause !== undefined
-                  ? { ticketId: next.id, change, cause: activity.statusCause }
-                  : { ticketId: next.id, change }
-              ),
+              changes.map((change) => ({ ticketId: next.id, change })),
               activity.cause ?? null,
               write(orgSlug, slug, id, next)
             )

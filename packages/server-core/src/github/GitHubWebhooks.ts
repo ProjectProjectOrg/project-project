@@ -17,14 +17,7 @@ export interface GitHubPullRequestWebhookChange {
   readonly repositoryId: string
   readonly branch: string
   readonly number: number
-  readonly title: string
-  readonly body: string
   readonly state: "open" | "closed" | "merged"
-  readonly draft: boolean
-  readonly updatedAt: Date | null
-  readonly mergedAt?: Date | null
-  readonly baseBranch: string
-  readonly defaultBranch: string | null
 }
 
 export interface GitHubRepositoryMetadataChange {

@@ -40,7 +40,6 @@ import { LibraryDocsLive } from "../library/LibraryDocsLive"
 import { LibraryLive } from "../library/LibraryLive"
 import * as KeyedLock from "../locks/KeyedLock"
 import { MarkdownLive } from "../markdown/MarkdownLive"
-import { gitAutomationTestLayer } from "../projects/gitAutomationTesting"
 import { ProjectDocs } from "../projects/ProjectDocs"
 import { Projects, type ProjectsShape } from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
@@ -241,7 +240,7 @@ const TestLayer = Layer.unwrap(
     const tmpRoot = yield* fs.makeTempDirectoryScoped({
       prefix: "projectproject-tk-"
     })
-    return TicketsLive.pipe(Layer.provide(gitAutomationTestLayer())).pipe(
+    return TicketsLive.pipe(
       Layer.provideMerge(LibraryLive),
       Layer.provideMerge(LibraryDocsLive),
       Layer.provide(

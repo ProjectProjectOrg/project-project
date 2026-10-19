@@ -130,8 +130,7 @@ export const updateStatus = Atom.family(
               yield* Reactivity.invalidate([
                 Keys.ticketsIn(scopeOf(req)),
                 Keys.ticketLists(scopeOf(req)),
-                Keys.ticketPages(scopeOf(req)),
-                Keys.gitAutomation(scopeOf(req))
+                Keys.ticketPages(scopeOf(req))
               ])
             }
             return updated
@@ -234,8 +233,7 @@ export const deleteStatus = Atom.family(
             yield* Reactivity.invalidate([
               Keys.ticketsIn(scopeOf(req)),
               Keys.ticketLists(scopeOf(req)),
-              Keys.ticketPages(scopeOf(req)),
-              Keys.gitAutomation(scopeOf(req))
+              Keys.ticketPages(scopeOf(req))
             ])
           })
         )

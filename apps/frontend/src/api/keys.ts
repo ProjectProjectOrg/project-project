@@ -73,8 +73,6 @@ export const Keys = {
   attachments: (orgSlug: string): string => `attachments/${orgSlug}`,
   /** Storage connection state for one organization. */
   storage: (orgSlug: string): string => `storage/${orgSlug}`,
-  /** This project's git automation rules. */
-  gitAutomation: (scope: string): string => `git-automation/${scope}`,
   /** Git state for this project's tickets. */
   gitStates: (scope: string): string => `git-states/${scope}`,
   /** Branches available to this project. */

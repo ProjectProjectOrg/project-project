@@ -43,7 +43,6 @@ const TicketFrontmatterOnDisk = Schema.Struct({
   prState: Schema.NullOr(PullRequestState).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
   ),
-  prDraft: Schema.optionalKey(Schema.Boolean),
   lastTransitionedPr: Schema.NullOr(Schema.Finite).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
   ),
@@ -62,7 +61,6 @@ const TicketFrontmatterOnDisk = Schema.Struct({
 const TicketFrontmatterValue = Schema.Struct(
   Struct.evolve(Struct.omit(TicketFrontmatterOnDisk.fields, ["assignee"]), {
     branchAutoLinkDisabled: () => Schema.optional(Schema.Boolean),
-    prDraft: () => Schema.optional(Schema.Boolean),
     estimate: () => Schema.optional(Estimate),
     assignees: () => Schema.Array(Schema.String),
     splitFrom: () => Schema.optional(TicketId),
@@ -107,14 +105,12 @@ export const TicketFrontmatter = TicketFrontmatterOnDisk.pipe(
         Object.assign(
           Struct.omit(input, [
             "branchAutoLinkDisabled",
-            "prDraft",
             "splitFrom",
             "estimate"
           ]),
           input.branchAutoLinkDisabled
             ? { branchAutoLinkDisabled: true as const }
             : {},
-          input.prDraft ? { prDraft: true as const } : {},
           input.splitFrom ? { splitFrom: input.splitFrom } : {},
           input.estimate ? { estimate: estimateToken(input.estimate) } : {}
         )
@@ -149,7 +145,6 @@ export const ticketFileContent = (document: TicketDocument): string =>
 
 export type TicketActivityOptions = Readonly<{
   cause?: ActivityCause
-  statusCause?: ActivityCause
   extra?: ReadonlyArray<TicketActivityChange>
   silent?: boolean
   archiveReason?: string
