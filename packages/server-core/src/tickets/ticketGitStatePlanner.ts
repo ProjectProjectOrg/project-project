@@ -25,6 +25,7 @@ import {
 type AutomaticBranchLinkTicket = Pick<TicketGitStateInput, "id" | "branch"> & {
   readonly archivedAt?: Date | null
   readonly stack?: ReadonlyArray<TicketBranchEntry> | undefined
+  readonly ignoredBranches?: ReadonlyArray<string> | undefined
 }
 
 const noPullRequestText: RawPullRequestText = { title: "", body: "" }
@@ -67,17 +68,19 @@ export function planAutomaticBranchLinks(
       ...(ticket.stack ?? []).map((layer) => layer.branch)
     ])
   )
-  const eligibleIds = new Set(
+  const eligible = new Map(
     tickets
       .filter((ticket) => ticket.branch === null && ticket.archivedAt == null)
-      .map((ticket) => ticket.id)
+      .map((ticket) => [ticket.id, ticket.ignoredBranches ?? []])
   )
   const candidates = new Map<TicketId, Set<string>>()
 
   for (const branch of branches) {
     if (branch === defaultBranch || attachedBranches.has(branch)) continue
     const pick = pickBranchTicket(branch, knownIds, openPullRequestText)
-    if (Option.isNone(pick) || !eligibleIds.has(pick.value.ticketId)) continue
+    if (Option.isNone(pick)) continue
+    const ignored = eligible.get(pick.value.ticketId)
+    if (ignored === undefined || ignored.includes(branch)) continue
     const branchesForId = candidates.get(pick.value.ticketId) ?? new Set()
     branchesForId.add(branch)
     candidates.set(pick.value.ticketId, branchesForId)
@@ -91,20 +94,8 @@ export function planAutomaticBranchLinks(
   return links
 }
 
-type AutomaticStackTicket = AutomaticBranchLinkTicket & {
-  readonly ignoredBranches?: ReadonlyArray<string> | undefined
-}
-
-/**
- * New stacked branches per ticket: unattached branches that name a ticket
- * (as `planAutomaticBranchLinks` picks them) whose own branch is set or just
- * linked in `ownLinks`, and that build on one of its branches or carry its
- * key in their name. Branches whose pull request was closed unmerged stay
- * out, as do branches without a pull request unless their name names the
- * ticket.
- */
 export function planAutomaticStacks(
-  tickets: ReadonlyArray<AutomaticStackTicket>,
+  tickets: ReadonlyArray<AutomaticBranchLinkTicket>,
   ownLinks: ReadonlyMap<TicketId, string>,
   branches: ReadonlySet<string>,
   defaultBranch: string,
@@ -163,7 +154,6 @@ export function planAutomaticStacks(
   return stacks
 }
 
-/** Each stacked branch brought up to its pull request's latest state. */
 export const planStackPullRequests = (
   stack: ReadonlyArray<TicketBranchEntry> | undefined,
   prByBranch: ReadonlyMap<string, RawBranchEntry>

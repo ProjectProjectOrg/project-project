@@ -293,6 +293,19 @@ describe("planAutomaticBranchLinks", () => {
     )
   })
 
+  it("skips a branch the ticket ignores", () => {
+    expect(
+      planAutomaticBranchLinks(
+        [
+          { ...ticket("PP-12"), ignoredBranches: ["feat/PP-12-spike"] },
+          ticket("PP-13")
+        ],
+        new Set(["feat/PP-12-spike", "bug/PP-13-fix"]),
+        "main"
+      )
+    ).toEqual(new Map([[ticketId("PP-13"), "bug/PP-13-fix"]]))
+  })
+
   it("requires canonical token boundaries and schema-valid ids", () => {
     expect(
       planAutomaticBranchLinks(

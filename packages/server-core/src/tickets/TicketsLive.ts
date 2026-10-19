@@ -1960,6 +1960,11 @@ export const TicketsLive = Layer.effect(
               return yield* new Conflict({ reason: "no_github_connection" })
             }
             const ticket = yield* readTicket(orgSlug, slug, id)
+            if (
+              (ticket.stack ?? []).some((layer) => layer.branch === input.name)
+            ) {
+              return yield* new Conflict({ reason: "branch_already_on_ticket" })
+            }
 
             const exists = yield* github.branchExistsInstallation(
               projectGithub.installationId,
@@ -2154,8 +2159,6 @@ export const TicketsLive = Layer.effect(
           ])
         )
       ]
-      // Discovery finds branches to link: worth it while a ticket has no
-      // branch, or has an open pull request others may be stacked on.
       const discoveryTicket =
         tickets.find(
           (ticket) => ticket.branch === null && ticket.archivedAt === null
@@ -2349,6 +2352,7 @@ export const TicketsLive = Layer.effect(
               )
               if (
                 ticket.branchAutoLinkDisabled ||
+                (ticket.ignoredBranches ?? []).includes(automaticBranch) ||
                 ticket.archivedAt !== null ||
                 attached
               ) {

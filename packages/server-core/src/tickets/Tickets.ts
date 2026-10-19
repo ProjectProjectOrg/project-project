@@ -241,7 +241,6 @@ export type TicketsShape = Readonly<{
     TicketReadError,
     ProjectScope | ActivityActor
   >
-  /** Adds an existing branch to the stack on top of the ticket's own branch. */
   stackBranch: (
     id: string,
     input: AttachBranchInput
@@ -250,7 +249,6 @@ export type TicketsShape = Readonly<{
     TicketReadError | Conflict | BranchNotFound | GitHubFailure,
     ProjectScope | ActivityActor
   >
-  /** Removes a stacked branch and keeps it from being stacked again automatically. */
   unstackBranch: (
     id: string,
     input: AttachBranchInput

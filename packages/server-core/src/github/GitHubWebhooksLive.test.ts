@@ -1346,6 +1346,11 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
       change: { title: "T-1: fix login" }
     },
     {
+      name: "a branch the ticket ignores",
+      documents: [unlinked({ ignoredBranches: ["fix-login"] })],
+      change: { title: "T-1: fix login" }
+    },
+    {
       name: "a branch another ticket in the repository has",
       documents: [unlinked()],
       change: { title: "T-1: fix login" },

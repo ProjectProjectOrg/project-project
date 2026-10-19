@@ -34,13 +34,13 @@ export const orderStackLayers = (
   return ordered
 }
 
-export interface StackPullRequest {
-  readonly branch: string
-  readonly base: string
-  readonly number: number
-  readonly state: "open" | "closed" | "merged"
-  readonly draft: boolean
-}
+export type StackPullRequest = Readonly<{
+  branch: string
+  base: string
+  number: number
+  state: "open" | "closed" | "merged"
+  draft: boolean
+}>
 
 type StackTicket = Readonly<{
   branch: string | null
@@ -49,7 +49,6 @@ type StackTicket = Readonly<{
   archivedAt: Date | null
 }>
 
-/** The ticket's own branch and every branch stacked on it. */
 export const ticketBranches = (ticket: StackTicket): ReadonlySet<string> =>
   new Set([
     ...(ticket.branch === null ? [] : [ticket.branch]),
@@ -62,11 +61,6 @@ const layerFor = (pr: StackPullRequest): TicketBranchEntry =>
     pr.state === "open" && pr.draft ? { prDraft: true } : {}
   )
 
-/**
- * The layer a pull request adds to a ticket that already has a branch, or
- * null when it doesn't belong there. It belongs when it builds on one of the
- * ticket's branches, or when its own branch name names the ticket.
- */
 export const planStackAttach = (
   ticket: StackTicket,
   pr: StackPullRequest,
@@ -79,10 +73,6 @@ export const planStackAttach = (
   return branches.has(pr.base) || namedInBranch ? layerFor(pr) : null
 }
 
-/**
- * A layer updated to its pull request's latest state, or null when nothing
- * changed or the update is older than what the layer already holds.
- */
 export const planLayerPullRequest = (
   layer: TicketBranchEntry,
   pr: StackPullRequest
@@ -110,7 +100,6 @@ export const planLayerPullRequest = (
   return same ? null : next
 }
 
-/** `stack` with the layer for `branch` replaced. */
 export const replaceLayer = (
   stack: ReadonlyArray<TicketBranchEntry> | undefined,
   layer: TicketBranchEntry

@@ -3314,6 +3314,28 @@ it.effect(
   }
 )
 
+it.effect("attachBranch refuses a branch already stacked on the ticket", () => {
+  const docs = makeFakeTicketDocs(["T-1"])
+  docs.documents.set(
+    "T-1",
+    makeTicketDocument("T-1", {
+      branch: "feat/T-1",
+      stack: [{ branch: "feat/T-1-ui", base: "feat/T-1" }]
+    })
+  )
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const failure = yield* Effect.flip(
+      tickets.attachBranch("T-1", { name: "feat/T-1-ui" })
+    )
+
+    expect(failure).toEqual(
+      new Conflict({ reason: "branch_already_on_ticket" })
+    )
+    expect(docs.documents.get("T-1")).toMatchObject({ branch: "feat/T-1" })
+  }).pipe(Effect.provide(stackLayer(docs)))
+})
+
 it.effect("stackBranch refuses branches that can't be stacked", () => {
   const docs = makeFakeTicketDocs(["T-1", "T-2", "T-3"])
   docs.documents.set(

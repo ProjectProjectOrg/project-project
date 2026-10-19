@@ -231,7 +231,6 @@ export const applyPullRequestWebhookToTicket = (
     )
   )
 
-/** Brings the stacked branch `match.branch` up to its pull request's state. */
 export const applyPullRequestWebhookToLayer = (
   deps: PullRequestWebhookDeps,
   match: PullRequestWebhookMatch,
@@ -361,7 +360,12 @@ export const linkPullRequestWebhookToTicket = Effect.fn(
                 ? notLinkable
                 : Effect.succeed({ stack: [...(ticket.stack ?? []), layer] })
             }
-            if (ticket.branchAutoLinkDisabled === true) return notLinkable
+            if (
+              ticket.branchAutoLinkDisabled === true ||
+              (ticket.ignoredBranches ?? []).includes(change.branch)
+            ) {
+              return notLinkable
+            }
             return Effect.succeed({
               branch: change.branch,
               prBase: change.baseBranch,
