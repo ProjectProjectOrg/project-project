@@ -25,6 +25,7 @@ import { ClearBranchFields } from "@/components/TicketGit/ClearBranchFields"
 import { ConnectBranchFields } from "@/components/TicketGit/ConnectBranchFields"
 import { CreateBranchFields } from "@/components/TicketGit/CreateBranchFields"
 import {
+  AddStackedBranch,
   layerTone,
   StackedBranches,
   stackPullRequestCount,
@@ -246,6 +247,12 @@ export function TicketGitPanel({
       </div>
     )
   }
+  const stackable =
+    state.tag === "branch_no_pr" ||
+    state.tag === "pr_open" ||
+    state.tag === "pr_pending" ||
+    state.tag === "pr_merged" ||
+    state.tag === "pr_closed"
   return (
     <div className="flex flex-col gap-3">
       <PanelForState
@@ -258,6 +265,15 @@ export function TicketGitPanel({
         branchTemplate={branchTemplate}
         variant={variant}
       />
+      {stackable && (
+        <AddStackedBranch
+          orgSlug={orgSlug}
+          slug={slug}
+          ticket={ticket}
+          github={github}
+          variant={variant}
+        />
+      )}
     </div>
   )
 }

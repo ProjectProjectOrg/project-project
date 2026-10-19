@@ -139,8 +139,8 @@ const stacksOf = (
     )
   )
 
-// Branches a ticket's merged pull requests went into before reaching the
-// default branch: fetching them shows whether they were merged onwards.
+const MERGE_BASE_CHAIN_LIMIT = 5
+
 const mergeBasesAwaitingLanding = (
   ticket: StackedTicketEntry
 ): ReadonlyArray<string> => [
@@ -2224,6 +2224,49 @@ export const TicketsLive = Layer.effect(
         )
       })
 
+    const withMergeBaseChain = Effect.fn("Tickets.withMergeBaseChain")(
+      function* (
+        projectGithub: ProjectGithubIntegration,
+        raw: GitHub.RawProjectStates,
+        requested: ReadonlyArray<string>,
+        mergeBases: ReadonlyArray<string>
+      ) {
+        const fetched = new Set(requested)
+        const existingBranches = new Set(raw.existingBranches)
+        const prByBranch = new Map(raw.prByBranch)
+        let frontier = mergeBases
+        for (let round = 0; round < MERGE_BASE_CHAIN_LIMIT; round++) {
+          const next = [
+            ...new Set(
+              frontier.flatMap((branch) => {
+                const pr = prByBranch.get(branch)
+                return pr?.state === "merged" &&
+                  pr.baseRefName !== projectGithub.defaultBaseBranch &&
+                  !fetched.has(pr.baseRefName)
+                  ? [pr.baseRefName]
+                  : []
+              })
+            )
+          ]
+          if (next.length === 0) break
+          const more = yield* github.fetchInstallationProjectStates(
+            projectGithub.installationId,
+            projectGithub.repoOwner,
+            projectGithub.repoName,
+            next
+          )
+          for (const branch of next) fetched.add(branch)
+          for (const branch of more.existingBranches)
+            existingBranches.add(branch)
+          for (const [branch, pr] of more.prByBranch) {
+            if (!prByBranch.has(branch)) prByBranch.set(branch, pr)
+          }
+          frontier = next
+        }
+        return { ...raw, existingBranches, prByBranch }
+      }
+    )
+
     const fetchGitSnapshot = Effect.fn("Tickets.fetchGitSnapshot")(function* (
       projectGithub: ProjectGithubIntegration,
       tickets: ReadonlyArray<StackedTicketEntry>
@@ -2239,9 +2282,8 @@ export const TicketsLive = Layer.effect(
           ])
         )
       ]
-      const discoveryTicket = tickets.find(
-        (ticket) => ticket.archivedAt === null
-      )
+      const mergeBases = [...new Set(tickets.flatMap(mergeBasesAwaitingLanding))]
+      const discoveryTicket = tickets.find((ticket) => ticket.archivedAt === null)
       const branchQuery = discoveryTicket
         ? `${discoveryTicket.id.slice(0, discoveryTicket.id.lastIndexOf("-"))}-`
         : undefined
@@ -2254,6 +2296,9 @@ export const TicketsLive = Layer.effect(
           branchQuery
         )
         .pipe(
+          Effect.flatMap((raw) =>
+            withMergeBaseChain(projectGithub, raw, branches, mergeBases)
+          ),
           Effect.map((raw) => ({ ok: true as const, raw })),
           Effect.catchTags({
             RepoGone: () =>

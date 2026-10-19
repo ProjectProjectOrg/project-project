@@ -42,7 +42,6 @@ import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-/** A ticket's stacked branches, bottom to top: live from GitHub when loaded. */
 export function useGitStack(
   orgSlug: string,
   slug: string,
@@ -103,7 +102,6 @@ const checksNote = (checks: ChecksStatus | null) =>
 
 type PullRequestCount = Readonly<{ merged: number; total: number }>
 
-/** Merged and total pull requests across the ticket's own branch and stack. */
 export const stackPullRequestCount = (
   own: GitState | null,
   stack: ReadonlyArray<StackLayerState>
@@ -138,7 +136,6 @@ const pendingPr = (number: number, url: string) => ({
   checks: null
 })
 
-/** The ticket's own branch, drawn as the root of its stack. */
 const ownLayer = (
   state: GitState,
   ticket: TicketDetail,
@@ -217,11 +214,6 @@ const compareUrl = (repoSlug: string, base: string, branch: string): string =>
 
 type StackAction = "stack" | "clear"
 
-/**
- * A ticket with stacked branches as a timeline: its own branch first, then
- * each stacked branch in order. A row says where it goes only when that
- * isn't the row above it.
- */
 export function StackedBranches({
   orgSlug,
   slug,
@@ -296,6 +288,48 @@ export function StackedBranches({
           slug={slug}
           id={ticket.id}
           variant={variant}
+        />
+      </InlineForm.Form>
+    </Root>
+  )
+}
+
+export function AddStackedBranch({
+  orgSlug,
+  slug,
+  ticket,
+  github,
+  variant
+}: Readonly<{
+  orgSlug: string
+  slug: string
+  ticket: TicketDetail
+  github: GithubConnection
+  variant: "bordered" | "ghost"
+}>) {
+  const canWrite = useProjectActor().call("tickets", "stackBranch")
+  if (!canWrite) return null
+  const Root = InlineForm.Root<"stack">
+  return (
+    <Root variant="ghost">
+      <InlineForm.Idle>
+        <InlineForm.Trigger
+          action="stack"
+          size="xs"
+          variant="ghost"
+          leadingIcon={Layers}
+        >
+          {m.git_stack_add_button()}
+        </InlineForm.Trigger>
+      </InlineForm.Idle>
+      <InlineForm.Form action="stack">
+        <ConnectBranchFields
+          orgSlug={orgSlug}
+          slug={slug}
+          ticket={ticket}
+          github={github}
+          variant={variant}
+          mode="stack"
         />
       </InlineForm.Form>
     </Root>
@@ -482,7 +516,9 @@ function StackLayerRow({
               <span className="min-w-0 truncate font-mono">{layer.branch}</span>
             )}
             {showBase && (
-              <span className="truncate font-mono">→ {layer.base}</span>
+              <span className="truncate font-mono">
+                {m.git_stack_base({ base: layer.base ?? "" })}
+              </span>
             )}
             {notes.map((note) => (
               <span key={note.text} className={note.className}>

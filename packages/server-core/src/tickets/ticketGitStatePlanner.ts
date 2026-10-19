@@ -169,11 +169,6 @@ export const planStackPullRequests = (
 
 type LandingContext = Pick<RawProjectStates, "defaultBranch" | "prByBranch">
 
-/**
- * Whether a merged pull request reached the default branch: directly, or
- * through the branch it was merged into being merged onwards afterwards.
- * A branch merged into one that had already been merged did not land.
- */
 export const pullRequestLanded = (
   pr: RawBranchEntry,
   context: LandingContext
@@ -187,9 +182,9 @@ export const pullRequestLanded = (
     const base = context.prByBranch.get(current.baseRefName)
     if (base === undefined || base.state !== "merged") return false
     if (
-      current.mergedAt !== null &&
-      base.mergedAt !== null &&
-      base.mergedAt < current.mergedAt
+      current.mergedAt === null ||
+      base.mergedAt === null ||
+      base.mergedAt <= current.mergedAt
     ) {
       return false
     }
@@ -239,7 +234,6 @@ export interface PullRequestWebhookInput {
   readonly number: number
   readonly state: "open" | "closed" | "merged"
   readonly draft: boolean
-  /** A merge that reached the default branch. */
   readonly landed: boolean
 }
 

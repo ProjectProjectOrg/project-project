@@ -106,9 +106,6 @@ export const TransitionRecord = Schema.Struct({
 })
 export type TransitionRecord = typeof TransitionRecord.Type
 
-// One branch stacked on a ticket's own branch, bottom to top by `depth` (1 is
-// built on the ticket's branch). `deleted` marks a branch gone from GitHub
-// before its pull request merged.
 export const StackLayerState = Schema.Struct({
   branch: Schema.String,
   base: Schema.NullOr(Schema.String),

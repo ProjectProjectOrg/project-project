@@ -22,13 +22,6 @@ export type TicketGitFields = Readonly<{
   stack?: ReadonlyArray<TicketBranchEntry>
 }>
 
-/**
- * Where a ticket's pull requests stand together: `open` while any is open
- * for review (`draft` when all open ones are drafts), `landed` once every
- * merged one has reached the default branch, `merged` while some wait to,
- * and `closed` when all were closed unmerged. Closed pull requests next to
- * others don't count.
- */
 export type TicketPullRequestState =
   | "open"
   | "draft"

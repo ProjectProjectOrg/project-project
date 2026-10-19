@@ -5,11 +5,6 @@ import { orderStackLayers } from "./ticketStack"
 
 type Repository = Readonly<{ repoOwner: string; repoName: string }>
 
-/**
- * A ticket's stacked branches as the UI shows them, bottom to top. With a
- * GitHub snapshot, titles, links and checks come from it and a branch it no
- * longer has counts as deleted unless its pull request merged.
- */
 export const stackLayerStates = (
   ownBranch: string | null,
   stack: ReadonlyArray<TicketBranchEntry> | undefined,

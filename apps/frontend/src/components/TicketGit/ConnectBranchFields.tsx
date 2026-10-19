@@ -72,7 +72,6 @@ export function ConnectBranchFields({
   ticket: TicketDetail
   github: GithubConnection
   variant?: "bordered" | "ghost"
-  /** `stack` adds the branch on top of the ticket's own instead of setting it. */
   mode?: "connect" | "stack"
 }) {
   const buttonSize = variant === "bordered" ? "sm" : "xs"

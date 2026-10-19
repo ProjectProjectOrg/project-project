@@ -658,6 +658,32 @@ describe("pullRequestLanded", () => {
       expected: false
     },
     {
+      name: "a merge into a branch merged at the same moment",
+      head: "ui",
+      prs: [
+        merged("ui", "api", "2026-05-01T10:00:00Z"),
+        merged("api", "main", "2026-05-01T10:00:00Z")
+      ],
+      expected: false
+    },
+    {
+      name: "a merge whose merge time is unknown",
+      head: "ui",
+      prs: [
+        [
+          "ui",
+          pullRequest({
+            headRefName: "ui",
+            baseRefName: "api",
+            state: "merged",
+            mergedAt: null
+          })
+        ] as const,
+        merged("api", "main", "2026-05-01T10:00:00Z")
+      ],
+      expected: false
+    },
+    {
       name: "a merge into a branch still open",
       head: "ui",
       prs: [

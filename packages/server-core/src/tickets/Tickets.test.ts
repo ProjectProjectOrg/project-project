@@ -921,6 +921,81 @@ it.effect(
   }
 )
 
+it.effect(
+  "listGitStates follows merge bases until they reach the default branch",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    docs.documents.set(
+      "T-1",
+      makeTicketDocument("T-1", {
+        branch: "feat/T-1",
+        pr: 5,
+        prState: "merged",
+        prBase: "release"
+      })
+    )
+    const merges = new Map(
+      [
+        ["feat/T-1", "release", 5, "2026-05-01T09:00:00Z"],
+        ["release", "staging", 6, "2026-05-01T10:00:00Z"],
+        ["staging", "main", 7, "2026-05-01T11:00:00Z"]
+      ].map(([head, base, number, mergedAt]) => [
+        head,
+        {
+          headRefName: head as string,
+          baseRefName: base as string,
+          state: "merged" as const,
+          draft: false,
+          number: number as number,
+          url: `https://github.com/acme/app/pull/${number}`,
+          title: head as string,
+          mergedAt: DateTime.toDate(DateTime.makeUnsafe(mergedAt as string)),
+          checks: "passing" as const
+        }
+      ])
+    )
+    const fetchedBranches: Array<ReadonlyArray<string>> = []
+    const layer = makeTicketsLayer("T", docs.layer, {
+      projects: makeFakeProjects("T", {
+        githubIntegration: () => Effect.succeed(githubIntegration)
+      }),
+      ticketIndex: makeFakeTicketIndex(docs.documents),
+      github: makeFakeGitHub({
+        fetchInstallationProjectStates: (
+          _installation,
+          _owner,
+          _name,
+          branches
+        ) => {
+          fetchedBranches.push([...branches])
+          return Effect.succeed({
+            defaultBranch: "main",
+            existingBranches: new Set(branches),
+            prByBranch: new Map(
+              branches.flatMap((branch) => {
+                const pr = merges.get(branch)
+                return pr === undefined ? [] : [[branch, pr] as const]
+              })
+            )
+          })
+        }
+      })
+    })
+
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      yield* tickets.listGitStates()
+
+      expect(fetchedBranches).toEqual([["feat/T-1", "release"], ["staging"]])
+      expect(docs.documents.get("T-1")).toMatchObject({
+        pr: 5,
+        prState: "merged",
+        lastTransitionedPr: 5
+      })
+    }).pipe(Effect.provide(layer))
+  }
+)
+
 it.effect("listGitStates links an external branch and its existing PR", () => {
   const docs = makeFakeTicketDocs(["T-1"])
   const queries: Array<string | undefined> = []

@@ -53,6 +53,7 @@
   "git_search_branches_placeholder": "Search branches…",
   "git_stack_add_button": "Add stacked branch",
   "git_stack_add_in_progress": "Adding…",
+  "git_stack_base": "→ {base}",
   "git_stack_branch_already_on_ticket_error": "That branch is already on this ticket.",
   "git_stack_branch_menu_label": "Actions for {branch}",
   "git_stack_branch_on_other_ticket_error": "That branch belongs to another ticket.",

@@ -98,8 +98,7 @@ type PullRequestWebhookPatch = Partial<
 >
 
 const mergeLanded = (change: GitHubPullRequestWebhookChange): boolean =>
-  change.state === "merged" &&
-  (change.defaultBranch === null || change.baseBranch === change.defaultBranch)
+  change.state === "merged" && change.baseBranch === change.defaultBranch
 
 const stackPullRequest = (
   change: GitHubPullRequestWebhookChange
@@ -267,7 +266,6 @@ export const applyPullRequestWebhookToLayer = (
     })
   )
 
-/** Lands one merge that waited on its base branch; true when it did. */
 const landAwaitingMerge = (
   deps: PullRequestWebhookDeps,
   match: PullRequestWebhookMatch & { readonly stacked: boolean },
@@ -307,11 +305,6 @@ const landAwaitingMerge = (
     return landed
   })
 
-/**
- * `branch` just reached the default branch, so everything merged into it
- * before did too: lands those pull requests, tickets' own and stacked, and
- * goes on up from each branch that landed.
- */
 export const landMergesInto = Effect.fn("GitHubWebhooks.landMergesInto")(
   function* (
     deps: PullRequestWebhookDeps,
@@ -1474,11 +1467,11 @@ export const GitHubWebhooksLive = Layer.effect(
       return yield* db
         .select({
           id: projectIntegrationLink.id,
-          defaultBranch: projectGithubRepository.defaultBranch,
           projectId: projectIntegrationLink.projectId,
           projectSlug: projectIndex.slug,
           organizationId: projectIndex.organizationId,
-          orgSlug: organization.slug
+          orgSlug: organization.slug,
+          defaultBranch: projectGithubRepository.defaultBranch
         })
         .from(projectGithubRepository)
         .innerJoin(
@@ -1547,6 +1540,10 @@ export const GitHubWebhooksLive = Layer.effect(
           links,
           (link) =>
             Effect.gen(function* () {
+              const linkChange = {
+                ...change,
+                defaultBranch: link.defaultBranch
+              }
               const deps = {
                 ticketDocs,
                 ticketIndex,
@@ -1563,7 +1560,7 @@ export const GitHubWebhooksLive = Layer.effect(
                 yield* linkPullRequestWebhookToTicket(
                   deps,
                   link,
-                  { ...change, defaultBranch: link.defaultBranch },
+                  linkChange,
                   deliveryId
                 ).pipe(
                   Effect.annotateLogs({
@@ -1579,7 +1576,7 @@ export const GitHubWebhooksLive = Layer.effect(
                   applyPullRequestWebhookToTicket(
                     deps,
                     match,
-                    { ...change, defaultBranch: link.defaultBranch },
+                    linkChange,
                     deliveryId
                   ),
                 { concurrency: 1, discard: true }
@@ -1590,12 +1587,12 @@ export const GitHubWebhooksLive = Layer.effect(
                   applyPullRequestWebhookToLayer(
                     deps,
                     match,
-                    { ...change, defaultBranch: link.defaultBranch },
+                    linkChange,
                     deliveryId
                   ),
                 { concurrency: 1, discard: true }
               )
-              if (mergeLanded(change)) {
+              if (mergeLanded(linkChange)) {
                 yield* landMergesInto(
                   deps,
                   link.projectId,

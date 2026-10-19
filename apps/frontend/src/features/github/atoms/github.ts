@@ -483,10 +483,14 @@ export const clearBranch = Atom.family(({ req, id }: GitStateMutationRequest) =>
     reducer: (current, _input: void) =>
       AsyncResult.map(current, (value) => {
         const baseBranch = gitStateBaseBranch(value.states[id])
-        return withGitState(
-          value,
+        return withStack(
+          withGitState(
+            value,
+            id,
+            baseBranch ? { tag: "no_branch", baseBranch } : { tag: "no_branch" }
+          ),
           id,
-          baseBranch ? { tag: "no_branch", baseBranch } : { tag: "no_branch" }
+          []
         )
       }),
     fn: (set) =>
@@ -497,7 +501,11 @@ export const clearBranch = Atom.family(({ req, id }: GitStateMutationRequest) =>
           )
           set(
             AsyncResult.map(get(projectGitStates(req)), (value) =>
-              withGitState(value, id, updated.gitState)
+              withStack(
+                withGitState(value, id, updated.gitState),
+                id,
+                updated.stack ?? []
+              )
             )
           )
           yield* Reactivity.invalidate([
