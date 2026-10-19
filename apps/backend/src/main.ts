@@ -92,6 +92,7 @@ import { AuthHandlerLive } from "./handlers/auth"
 import { CommentsHandlerLive } from "./handlers/comments"
 import { EverhourHandlerLive } from "./handlers/everhour"
 import { FigmaHandlerLive } from "./handlers/figma"
+import { GitAutomationHandlerLive } from "./handlers/gitAutomation"
 import { GroupsHandlerLive } from "./handlers/groups"
 import { InvitationsHandlerLive } from "./handlers/invitations"
 import { LibraryHandlerLive } from "./handlers/library"
@@ -169,7 +170,7 @@ export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(TicketsHandlerLive),
   Layer.provide(Layer.mergeAll(CommentsHandlerLive, TicketActivityHandlerLive)),
   Layer.provide(TagsHandlerLive),
-  Layer.provide(StatusesHandlerLive),
+  Layer.provide(Layer.mergeAll(StatusesHandlerLive, GitAutomationHandlerLive)),
   Layer.provide(GroupsHandlerLive),
   Layer.provide(LibraryHandlerLive),
   Layer.provide(OAuthApplicationsHandlerLive),

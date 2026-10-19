@@ -218,6 +218,49 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
     }).pipe(Effect.scoped, Effect.provide(TestLayer))
   )
 
+  it.live(
+    "attributes an automated move to GitHub and the branch action to its user",
+    () =>
+      Effect.gen(function* () {
+        const project = yield* seedProject
+        const activity = yield* TicketActivity
+        yield* activity
+          .record(
+            project.orgSlug,
+            project.slug,
+            { kind: "ticket", id: "T-1", content: "after" },
+            [
+              {
+                ticketId: ticketId("T-1"),
+                change: { kind: "branch_linked", branch: "feat/T-1" }
+              },
+              { ...statusMove[0], cause: "git_automation" }
+            ],
+            null,
+            writeTicketFile(project.orgSlug, project.slug, "After")
+          )
+          .pipe(
+            Effect.provideService(
+              ActivityActor,
+              ActivityActor.user(project.userId)
+            )
+          )
+        const page = yield* activity.page(
+          project.projectId,
+          "T-1",
+          null,
+          10,
+          true
+        )
+        expect(
+          page.find((entry) => entry.change.kind === "status_changed")?.actor
+        ).toEqual(ActivityActor.system("github"))
+        expect(
+          page.find((entry) => entry.change.kind === "branch_linked")?.actor
+        ).toEqual(ActivityActor.user(project.userId))
+      }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
   it.live("leaves no activity when the document write fails", () =>
     Effect.gen(function* () {
       const project = yield* seedProject

@@ -41,6 +41,7 @@
 // `bun run db:migrate` to apply it against the running Postgres.
 
 import type {
+  GitAutomationEvent,
   JiraMigrationConfiguration,
   OrgEverhourConfig,
   ProjectBanner,
@@ -93,6 +94,9 @@ export const projectIndex = pgTable(
       .notNull()
       .default("off"),
     nextTicketNumber: integer("next_ticket_number").notNull().default(1),
+    gitAutomationForwardOnly: boolean("git_automation_forward_only")
+      .notNull()
+      .default(true),
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -231,6 +235,25 @@ export const projectStatus = pgTable(
     primaryKey({ columns: [t.projectId, t.slug] }),
     index("project_status_project_idx").on(t.projectId),
     index("project_status_order_idx").on(t.projectId, t.orderKey)
+  ]
+)
+
+export const projectGitAutomation = pgTable(
+  "project_git_automation",
+  {
+    projectId: uuid("project_id").notNull(),
+    event: text("event").$type<GitAutomationEvent>().notNull(),
+    statusSlug: text("status_slug").notNull()
+  },
+  (t) => [
+    primaryKey({ columns: [t.projectId, t.event] }),
+    foreignKey({
+      name: "project_git_automation_status_fkey",
+      columns: [t.projectId, t.statusSlug],
+      foreignColumns: [projectStatus.projectId, projectStatus.slug]
+    })
+      .onDelete("cascade")
+      .onUpdate("cascade")
   ]
 )
 
@@ -443,6 +466,24 @@ export const projectGithubRepository = pgTable(
   ]
 )
 
+export const githubPullRequestReconciliation = pgTable(
+  "github_pull_request_reconciliation",
+  {
+    repositoryId: text("repository_id").notNull(),
+    number: integer("number").notNull(),
+    payloadHash: text("payload_hash").notNull().default(""),
+    branch: text("branch").notNull(),
+    base: text("base").notNull(),
+    state: text("state", { enum: ["open", "closed", "merged"] }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }),
+    mergedAt: timestamp("merged_at", { withTimezone: true })
+  },
+  (t) => [
+    primaryKey({ columns: [t.repositoryId, t.number] }),
+    index("github_pr_reconciliation_branch_idx").on(t.repositoryId, t.branch)
+  ]
+)
+
 export const userEverhourIntegration = pgTable("user_everhour_integration", {
   userId: text("user_id")
     .primaryKey()
@@ -626,6 +667,8 @@ export const ticketIndex = pgTable(
     branch: text("branch"),
     pr: integer("pr"),
     prState: text("pr_state", { enum: ["open", "closed", "merged"] }),
+    prDraft: boolean("pr_draft").notNull().default(false),
+    prUpdatedAt: timestamp("pr_updated_at", { withTimezone: true }),
     lastTransitionedPr: integer("last_transitioned_pr"),
     branchDeletedAt: timestamp("branch_deleted_at", { withTimezone: true }),
     checks: text("checks", {
@@ -723,7 +766,8 @@ export const ticketActivity = pgTable(
         "tag_deleted",
         "member_removed",
         "sprint_completed",
-        "group_deleted"
+        "group_deleted",
+        "git_automation"
       ]
     }),
     change: jsonb("change").$type<TicketActivityChangeEncoded>().notNull()
@@ -1151,6 +1195,7 @@ export const relations = defineRelations(
     projectInviteGrant,
     projectTag,
     projectStatus,
+    projectGitAutomation,
     organizationIntegration,
     organizationGithubIntegration,
     organizationS3Integration,

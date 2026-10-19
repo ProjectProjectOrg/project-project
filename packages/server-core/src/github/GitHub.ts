@@ -31,10 +31,16 @@ export type ChecksStatus =
   | "neutral"
   | "none"
 
+export type RawPullRequestText = Readonly<{
+  title: string
+  body: string
+}>
+
 export interface RawProjectStates {
   readonly defaultBranch: string
   readonly existingBranches: ReadonlySet<string>
   readonly prByBranch: ReadonlyMap<string, RawBranchEntry>
+  readonly openPullRequestText?: ReadonlyMap<string, RawPullRequestText>
   readonly fetchedAt?: Date
   readonly refreshStatus?: "stale" | "rate_limited"
   readonly retryAt?: number

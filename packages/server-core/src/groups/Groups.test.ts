@@ -76,6 +76,7 @@ function ticketIndexEntryFromDocument(ticket: TicketDocument) {
   return {
     ...entry,
     estimate: entry.estimate ?? null,
+    prDraft: entry.prDraft ?? false,
     branchDeletedAt: null,
     checks: null,
     checksHeadSha: null,

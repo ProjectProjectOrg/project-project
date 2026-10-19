@@ -8,6 +8,7 @@ import {
   jiraMigration,
   member,
   organization,
+  projectGitAutomation,
   projectIndex,
   projectMember,
   projectStatus,
@@ -20,6 +21,7 @@ import {
   attachmentUrl,
   BASELINE_STATUS_SEED,
   deriveProjectIdentity,
+  GIT_AUTOMATION_SEED,
   GroupColor,
   GroupId,
   JiraMigrationConfiguration,
@@ -869,6 +871,17 @@ export const publishJiraMigrationAtomically = Effect.fn(
             plan.indexes.statuses.map((row) => ({
               ...row,
               createdAt: toDate(row.createdAt)
+            }))
+          )
+        const seededRules = GIT_AUTOMATION_SEED.filter((rule) =>
+          plan.indexes.statuses.some((row) => row.slug === rule.statusSlug)
+        )
+        if (seededRules.length > 0)
+          yield* tx.insert(projectGitAutomation).values(
+            seededRules.map((rule) => ({
+              projectId: plannedProject.id,
+              event: rule.event,
+              statusSlug: rule.statusSlug
             }))
           )
         if (plan.indexes.tags.length > 0)

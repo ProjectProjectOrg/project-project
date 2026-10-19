@@ -1,4 +1,5 @@
 import {
+  type ActivityCause,
   Estimate,
   UserId,
   type GroupDetail,
@@ -140,6 +141,7 @@ export type GroupMembershipSource = Pick<
 export type TicketScopedChange = Readonly<{
   ticketId: TicketId
   change: TicketActivityChange
+  cause?: ActivityCause
 }>
 
 export const groupMembershipChanges = (

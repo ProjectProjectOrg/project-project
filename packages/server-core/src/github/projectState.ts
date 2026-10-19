@@ -9,10 +9,19 @@ import * as Effect from "effect/Effect"
 import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
 
-import { branchMentionsTicketId } from "../tickets/branchTicketId"
+import {
+  branchMentionsTicketId,
+  closingTicketIdsInText,
+  ticketIdsInText
+} from "../tickets/branchTicketId"
 import { graphqlFor } from "./clients"
 import { narrow } from "./errors"
-import type { ChecksStatus, RawBranchEntry, RawProjectStates } from "./GitHub"
+import type {
+  ChecksStatus,
+  RawBranchEntry,
+  RawProjectStates,
+  RawPullRequestText
+} from "./GitHub"
 import * as GitHubRequest from "./request"
 
 export const PROJECT_STATE_BRANCH_BATCH_SIZE = 20
@@ -63,10 +72,32 @@ const DISCOVER_BRANCHES_QUERY = /* GraphQL */ `
     $name: String!
     $q: String!
     $after: String
+    $withPullRequests: Boolean!
   ) {
     repository(owner: $owner, name: $name) {
       defaultBranchRef {
         name
+      }
+      pullRequests(
+        states: [OPEN]
+        first: 100
+        orderBy: { field: UPDATED_AT, direction: DESC }
+      ) @include(if: $withPullRequests) {
+        nodes {
+          headRefName
+          title
+          body
+          headRepository {
+            id
+          }
+          baseRepository {
+            id
+          }
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
       }
       refs(
         refPrefix: "refs/heads/"
@@ -77,6 +108,35 @@ const DISCOVER_BRANCHES_QUERY = /* GraphQL */ `
       ) {
         nodes {
           name
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+`
+
+const OPEN_PULL_REQUESTS_QUERY = /* GraphQL */ `
+  query OpenPullRequests($owner: String!, $name: String!, $after: String!) {
+    repository(owner: $owner, name: $name) {
+      pullRequests(
+        states: [OPEN]
+        first: 100
+        after: $after
+        orderBy: { field: UPDATED_AT, direction: DESC }
+      ) {
+        nodes {
+          headRefName
+          title
+          body
+          headRepository {
+            id
+          }
+          baseRepository {
+            id
+          }
         }
         pageInfo {
           hasNextPage
@@ -131,10 +191,35 @@ const decodePullRequestConnection = Schema.decodeUnknownEffect(
   PullRequestConnectionSchema
 )
 
+const OpenPullRequestTextSchema = Schema.Struct({
+  headRefName: Schema.String,
+  title: Schema.String,
+  body: Schema.String,
+  headRepository: Schema.NullOr(Schema.Struct({ id: Schema.String })),
+  baseRepository: Schema.NullOr(Schema.Struct({ id: Schema.String }))
+})
+
+const OpenPullRequestConnectionSchema = Schema.Struct({
+  nodes: Schema.Array(OpenPullRequestTextSchema),
+  pageInfo: Schema.Struct({
+    hasNextPage: Schema.Boolean,
+    endCursor: Schema.NullOr(Schema.String)
+  })
+})
+
+const decodeOpenPullRequestsResponse = Schema.decodeUnknownEffect(
+  Schema.Struct({
+    repository: Schema.NullOr(
+      Schema.Struct({ pullRequests: OpenPullRequestConnectionSchema })
+    )
+  })
+)
+
 const DiscoveredBranchesResponseSchema = Schema.Struct({
   repository: Schema.NullOr(
     Schema.Struct({
       defaultBranchRef: Schema.NullOr(Schema.Struct({ name: Schema.String })),
+      pullRequests: Schema.optional(OpenPullRequestConnectionSchema),
       refs: Schema.Struct({
         nodes: Schema.Array(Schema.Struct({ name: Schema.String })),
         pageInfo: Schema.Struct({
@@ -218,9 +303,14 @@ const isPullRequestConnection = (
 ): value is PullRequestConnection =>
   Predicate.isObject(value) && Array.isArray(value.nodes)
 
-const isSameRepositoryPullRequest = (pr: PullRequestNode): boolean =>
+const isSameRepositoryPullRequest = (
+  pr: Pick<PullRequestNode, "headRepository" | "baseRepository">
+): boolean =>
   pr.headRepository?.id !== undefined &&
   pr.headRepository.id === pr.baseRepository?.id
+
+const pullRequestTextMentionsTicketId = (pr: RawPullRequestText): boolean =>
+  ticketIdsInText(pr.title).size > 0 || closingTicketIdsInText(pr.body).size > 0
 
 const branchEntryFromParts = (
   existingBranch: string | null,
@@ -427,11 +517,16 @@ export const fetchProjectStatesWithToken = (
     const fetchedAt = yield* DateTime.nowAsDate
     const gql = graphqlFor(token)
     let requestedBranches = [...new Set(branches)]
+    let openPullRequestText = new Map<string, RawPullRequestText>()
     if (branchQuery !== undefined) {
       const discoveredBranches: Array<string> = []
       const seenCursors = new Set<string>()
       let after: string | null = null
       let defaultBranch: string | null = null
+      const openPullRequests: Array<typeof OpenPullRequestTextSchema.Type> = []
+      let openPullRequestPage:
+        | typeof OpenPullRequestConnectionSchema.Type.pageInfo
+        | null = null
       let discoveryPages = 0
       do {
         const response = yield* GitHubRequest.githubRequest(
@@ -450,6 +545,7 @@ export const fetchProjectStatesWithToken = (
               name,
               q: branchQuery,
               after,
+              withPullRequests: after === null,
               request: { signal }
             }),
           narrow(["RepoGone", "RateLimited"] as const)
@@ -462,6 +558,10 @@ export const fetchProjectStatesWithToken = (
         const repository = decoded.repository
         if (!repository) return yield* new RepoGone()
         defaultBranch ??= repository.defaultBranchRef?.name ?? "main"
+        if (repository.pullRequests) {
+          openPullRequests.push(...repository.pullRequests.nodes)
+          openPullRequestPage = repository.pullRequests.pageInfo
+        }
         discoveredBranches.push(
           ...repository.refs.nodes.map((branch) => branch.name)
         )
@@ -487,6 +587,56 @@ export const fetchProjectStatesWithToken = (
         after = pageInfo.endCursor
       } while (true)
 
+      const seenPullRequestCursors = new Set<string>()
+      let pullRequestPages = 1
+      while (openPullRequestPage?.hasNextPage) {
+        const cursor = openPullRequestPage.endCursor
+        if (
+          cursor === null ||
+          seenPullRequestCursors.has(cursor) ||
+          pullRequestPages >= PROJECT_STATE_DISCOVERY_PAGE_LIMIT
+        ) {
+          break
+        }
+        seenPullRequestCursors.add(cursor)
+        pullRequestPages += 1
+        const response = yield* GitHubRequest.githubRequest(
+          {
+            tokenSource,
+            scopeKey,
+            operation: "discoverOpenPullRequests",
+            repoOwner: owner,
+            repoName: name,
+            first: 100
+          },
+          (signal) =>
+            gql<unknown>(OPEN_PULL_REQUESTS_QUERY, {
+              owner,
+              name,
+              after: cursor,
+              request: { signal }
+            }),
+          narrow(["RepoGone", "RateLimited"] as const)
+        )
+        const decoded = yield* decodeOpenPullRequestsResponse(response).pipe(
+          Effect.mapError((cause) =>
+            GitHubError.invalidResponse("discoverProjectBranches", cause)
+          )
+        )
+        if (!decoded.repository) return yield* new RepoGone()
+        openPullRequests.push(...decoded.repository.pullRequests.nodes)
+        openPullRequestPage = decoded.repository.pullRequests.pageInfo
+      }
+
+      openPullRequestText = new Map(
+        openPullRequests.flatMap((pr) =>
+          pr.headRefName !== defaultBranch &&
+          isSameRepositoryPullRequest(pr) &&
+          pullRequestTextMentionsTicketId(pr)
+            ? [[pr.headRefName, { title: pr.title, body: pr.body }] as const]
+            : []
+        )
+      )
       const explicitBranches = new Set(requestedBranches)
       requestedBranches = [
         ...new Set([
@@ -495,7 +645,8 @@ export const fetchProjectStatesWithToken = (
             (branch) =>
               explicitBranches.has(branch) ||
               (branch !== defaultBranch && branchMentionsTicketId(branch))
-          )
+          ),
+          ...openPullRequestText.keys()
         ])
       ]
     }
@@ -609,7 +760,9 @@ export const fetchProjectStatesWithToken = (
 
     const result = projectStatesFromBatchResponses(batches)
     if (!result) return yield* new RepoGone()
-    return { ...result, fetchedAt }
+    return openPullRequestText.size > 0
+      ? { ...result, fetchedAt, openPullRequestText }
+      : { ...result, fetchedAt }
   })
 
 export const listBranchesWithToken = (

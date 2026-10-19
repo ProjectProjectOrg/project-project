@@ -3,7 +3,7 @@ import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import type { RawProjectStates } from "../github/GitHub"
+import type { RawBranchEntry, RawProjectStates } from "../github/GitHub"
 import {
   planAutomaticBranchLinks,
   planPullRequestWebhookTicket,
@@ -21,6 +21,7 @@ const baseTicket = {
   branch: null,
   pr: null,
   prState: null,
+  prDraft: false,
   lastTransitionedPr: null
 } satisfies TicketGitStateInput
 
@@ -33,6 +34,27 @@ function raw(overrides: Partial<RawProjectStates> = {}): RawProjectStates {
   }
 }
 
+const pullRequest = (
+  overrides: Partial<RawBranchEntry> = {}
+): RawBranchEntry => ({
+  headRefName: "feat/T-1",
+  baseRefName: "main",
+  state: "open",
+  draft: false,
+  number: 42,
+  url: "https://github.test/pr/42",
+  title: "Ship it",
+  mergedAt: null,
+  checks: "passing",
+  ...overrides
+})
+
+const withPullRequest = (pr: RawBranchEntry) =>
+  raw({
+    existingBranches: new Set(["feat/T-1"]),
+    prByBranch: new Map([["feat/T-1", pr]])
+  })
+
 describe("planTicketGitStates", () => {
   it("marks tickets without branches without writes", () => {
     const plan = planTicketGitStates([baseTicket], raw(), now)
@@ -40,7 +62,6 @@ describe("planTicketGitStates", () => {
     expect(plan.states).toEqual({
       "T-1": { tag: "no_branch", baseBranch: "main" }
     })
-    expect(plan.transitioned).toEqual([])
     expect(plan.writes).toEqual([])
   })
 
@@ -58,62 +79,37 @@ describe("planTicketGitStates", () => {
     expect(plan.writes).toEqual([])
   })
 
-  it("auto-transitions a ticket when its PR merged", () => {
+  it("records a merged PR with its base branch and leaves the status to automation", () => {
     const plan = planTicketGitStates(
       [{ ...baseTicket, branch: "feat/T-1" }],
-      raw({
-        existingBranches: new Set(["feat/T-1"]),
-        prByBranch: new Map([
-          [
-            "feat/T-1",
-            {
-              headRefName: "feat/T-1",
-              baseRefName: "main",
-              state: "merged",
-              draft: false,
-              number: 42,
-              url: "https://github.test/pr/42",
-              title: "Ship it",
-              mergedAt: null,
-              checks: "passing"
-            }
-          ]
-        ])
-      }),
+      withPullRequest(pullRequest({ state: "merged", baseRefName: "release" })),
       now
     )
 
     expect(plan.states["T-1"]).toEqual({
       tag: "pr_merged",
       branch: "feat/T-1",
-      baseBranch: "main",
+      baseBranch: "release",
       number: 42,
       url: "https://github.test/pr/42",
       title: "Ship it",
       mergedAt: now
     })
-    expect(plan.transitioned).toEqual([
-      {
-        ticketId: "T-1",
-        fromStatus: ticketStatus("in_progress"),
-        toStatus: ticketStatus("done"),
-        prNumber: 42
-      }
-    ])
     expect(plan.writes).toEqual([
       {
         ticketId: "T-1",
         patch: {
-          status: ticketStatus("done"),
           pr: 42,
           prState: "merged",
+          prDraft: false,
           lastTransitionedPr: 42
-        }
+        },
+        pullRequestBase: "release"
       }
     ])
   })
 
-  it("does not re-transition an already transitioned merged PR", () => {
+  it("does not rewrite a merged PR it already recorded", () => {
     const plan = planTicketGitStates(
       [
         {
@@ -125,30 +121,35 @@ describe("planTicketGitStates", () => {
           lastTransitionedPr: 42
         }
       ],
-      raw({
-        existingBranches: new Set(["feat/T-1"]),
-        prByBranch: new Map([
-          [
-            "feat/T-1",
-            {
-              headRefName: "feat/T-1",
-              baseRefName: "main",
-              state: "merged",
-              draft: false,
-              number: 42,
-              url: "https://github.test/pr/42",
-              title: "Ship it",
-              mergedAt: now,
-              checks: "passing"
-            }
-          ]
-        ])
-      }),
+      withPullRequest(pullRequest({ state: "merged", mergedAt: now })),
       now
     )
 
-    expect(plan.transitioned).toEqual([])
     expect(plan.writes).toEqual([])
+  })
+
+  it("records a draft PR becoming ready for review", () => {
+    const plan = planTicketGitStates(
+      [
+        {
+          ...baseTicket,
+          branch: "feat/T-1",
+          pr: 42,
+          prState: "open",
+          prDraft: true
+        }
+      ],
+      withPullRequest(pullRequest({ draft: false })),
+      now
+    )
+
+    expect(plan.writes).toEqual([
+      {
+        ticketId: "T-1",
+        patch: { pr: 42, prState: "open", prDraft: false },
+        pullRequestBase: "main"
+      }
+    ])
   })
 })
 
@@ -161,57 +162,53 @@ describe("planPullRequestWebhookTicket", () => {
     branch: "feat/T-84-pr-webhook-lifecycle",
     pr: null,
     prState: null,
+    prDraft: false,
     lastTransitionedPr: null,
     ...input
   })
 
-  it("associates open pull requests without changing ticket status", () => {
+  it("records open and draft pull requests", () => {
     expect(
       planPullRequestWebhookTicket(webhookTicket(), {
         number: 80,
-        state: "open"
+        state: "open",
+        draft: true
       })
-    ).toEqual({
-      ticketId: "T-84",
-      patch: { pr: 80, prState: "open" }
-    })
+    ).toEqual({ pr: 80, prState: "open", prDraft: true })
   })
 
   it("does not rewrite unchanged open pull request associations", () => {
     expect(
       planPullRequestWebhookTicket(webhookTicket({ pr: 80, prState: "open" }), {
         number: 80,
-        state: "open"
+        state: "open",
+        draft: false
       })
     ).toBeNull()
   })
 
-  it("persists closed pull requests without changing ticket status", () => {
+  it("records closed pull requests", () => {
     expect(
       planPullRequestWebhookTicket(webhookTicket(), {
         number: 80,
-        state: "closed"
+        state: "closed",
+        draft: false
       })
-    ).toEqual({
-      ticketId: "T-84",
-      patch: { pr: 80, prState: "closed" }
-    })
+    ).toEqual({ pr: 80, prState: "closed", prDraft: false })
   })
 
-  it("transitions merged pull requests to done once", () => {
+  it("records a merge once", () => {
     expect(
       planPullRequestWebhookTicket(webhookTicket(), {
         number: 80,
-        state: "merged"
+        state: "merged",
+        draft: false
       })
     ).toEqual({
-      ticketId: "T-84",
-      patch: {
-        status: ticketStatus("done"),
-        pr: 80,
-        prState: "merged",
-        lastTransitionedPr: 80
-      }
+      pr: 80,
+      prState: "merged",
+      prDraft: false,
+      lastTransitionedPr: 80
     })
     expect(
       planPullRequestWebhookTicket(
@@ -221,25 +218,9 @@ describe("planPullRequestWebhookTicket", () => {
           prState: "merged",
           lastTransitionedPr: 80
         }),
-        { number: 80, state: "merged" }
+        { number: 80, state: "merged", draft: false }
       )
     ).toBeNull()
-  })
-
-  it("records lastTransitionedPr for already-done merged pull requests", () => {
-    expect(
-      planPullRequestWebhookTicket(
-        webhookTicket({
-          status: ticketStatus("done"),
-          pr: 80,
-          prState: "merged"
-        }),
-        { number: 80, state: "merged" }
-      )
-    ).toEqual({
-      ticketId: "T-84",
-      patch: { pr: 80, prState: "merged", lastTransitionedPr: 80 }
-    })
   })
 
   it("ignores late non-merged events for a merged pull request", () => {
@@ -251,10 +232,18 @@ describe("planPullRequestWebhookTicket", () => {
     })
 
     expect(
-      planPullRequestWebhookTicket(ticket, { number: 80, state: "open" })
+      planPullRequestWebhookTicket(ticket, {
+        number: 80,
+        state: "open",
+        draft: false
+      })
     ).toBeNull()
     expect(
-      planPullRequestWebhookTicket(ticket, { number: 80, state: "closed" })
+      planPullRequestWebhookTicket(ticket, {
+        number: 80,
+        state: "closed",
+        draft: false
+      })
     ).toBeNull()
   })
 })
@@ -348,14 +337,45 @@ describe("planAutomaticBranchLinks", () => {
     ).toEqual(new Map())
   })
 
-  it("skips branches containing multiple distinct ticket tokens", () => {
+  it("ignores ids that aren't tickets but skips branches naming two tickets", () => {
     expect(
       planAutomaticBranchLinks(
-        [ticket("PP-12")],
-        new Set(["feat/PP-12-and-UNKNOWN-9"]),
+        [ticket("PP-12"), ticket("PP-13")],
+        new Set(["feat/PP-12-and-UNKNOWN-9", "feat/PP-12-PP-13"]),
         "main"
       )
-    ).toEqual(new Map())
+    ).toEqual(new Map([[ticketId("PP-12"), "feat/PP-12-and-UNKNOWN-9"]]))
+  })
+
+  it("falls back to the open pull request's title, then its closing keywords", () => {
+    expect(
+      planAutomaticBranchLinks(
+        [ticket("PP-12"), ticket("PP-13"), ticket("PP-14")],
+        new Set(["fix-login", "cleanup", "refactor", "fix-utf-8"]),
+        "main",
+        new Map([
+          ["fix-login", { title: "PP-12: fix login", body: "" }],
+          ["cleanup", { title: "Cleanup", body: "Fixes PP-13" }],
+          ["refactor", { title: "Refactor", body: "Related to PP-14" }]
+        ])
+      )
+    ).toEqual(
+      new Map([
+        [ticketId("PP-12"), "fix-login"],
+        [ticketId("PP-13"), "cleanup"]
+      ])
+    )
+  })
+
+  it("prefers the branch name over the pull request text", () => {
+    expect(
+      planAutomaticBranchLinks(
+        [ticket("PP-12"), ticket("PP-13")],
+        new Set(["feat/PP-12-login"]),
+        "main",
+        new Map([["feat/PP-12-login", { title: "PP-13: login", body: "" }]])
+      )
+    ).toEqual(new Map([[ticketId("PP-12"), "feat/PP-12-login"]]))
   })
 
   it("skips ambiguous tickets, existing links, archived tickets, and default branch", () => {

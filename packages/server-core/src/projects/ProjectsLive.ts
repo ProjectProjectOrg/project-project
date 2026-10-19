@@ -3,6 +3,7 @@ import { Effective, Org, Project } from "@pp/access/roles"
 import {
   BASELINE_STATUS_SEED,
   Conflict,
+  GIT_AUTOMATION_SEED,
   deriveProjectIdentity,
   INVITATION_VALID_DAYS,
   Forbidden,
@@ -38,6 +39,7 @@ import {
   organization,
   organizationGithubIntegration,
   organizationIntegration,
+  projectGitAutomation,
   projectGithubRepository,
   projectIndex,
   projectIntegrationLink,
@@ -673,6 +675,17 @@ export const ProjectsLive = Layer.effect(
                         color: baseline.color,
                         orderKey: baseline.orderKey,
                         createdBy
+                      }))
+                    )
+                    .pipe(Effect.orDie)
+
+                  yield* db
+                    .insert(projectGitAutomation)
+                    .values(
+                      GIT_AUTOMATION_SEED.map((rule) => ({
+                        projectId: inserted.id,
+                        event: rule.event,
+                        statusSlug: rule.statusSlug
                       }))
                     )
                     .pipe(Effect.orDie)

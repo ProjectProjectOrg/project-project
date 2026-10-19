@@ -1,10 +1,11 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { ProjectStatus, StatusSlug } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { Check, ChevronDown, Trash2 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 
+import { ErrorPage } from "@/components/ErrorPage"
 import { Button } from "@/components/ui/button"
 import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import {
@@ -14,6 +15,10 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import {
+  gitAutomationFor,
+  gitAutomationRequest
+} from "@/features/projects/atoms/gitAutomation"
+import {
   deleteStatus,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
@@ -21,16 +26,17 @@ import {
   countsRequest,
   ticketCounts
 } from "@/features/tickets/atoms/ticketCounts"
+import { useProjectActor } from "@/lib/access"
 import { statusLabelFor, statusMetaFor } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-type Props = {
+type Props = Readonly<{
   status: ProjectStatus
   statuses: ReadonlyArray<ProjectStatus>
   orgSlug: string
   slug: string
-}
+}>
 
 export function StatusDeleteConfirm({
   status,
@@ -60,7 +66,52 @@ export function StatusDeleteConfirm({
   )
 }
 
-function ConfirmBody({ status, statuses, orgSlug, slug }: Props) {
+function ConfirmBody(props: Props) {
+  const canReadGitAutomation = useProjectActor().call("gitAutomation", "get")
+  return canReadGitAutomation ? (
+    <AutomationConfirmBody {...props} />
+  ) : (
+    <DeleteStatusForm {...props} automationReady />
+  )
+}
+
+function AutomationConfirmBody(props: Props) {
+  const atom = gitAutomationFor(gitAutomationRequest(props.orgSlug, props.slug))
+  const automation = useAtomValue(atom)
+  const refresh = useAtomRefresh(atom)
+  return (
+    <DeleteStatusForm {...props} automationReady={Result.isSuccess(automation)}>
+      {Result.matchWithError(automation, {
+        onInitial: () => (
+          <output className="text-xs text-muted-foreground">
+            {m.tickets_status_loading()}
+          </output>
+        ),
+        onError: (error) => (
+          <ErrorPage error={error} reset={refresh} contained />
+        ),
+        onDefect: (defect) => (
+          <ErrorPage error={defect} reset={refresh} contained />
+        ),
+        onSuccess: ({ value }) =>
+          Object.values(value.rules).includes(props.status.slug) ? (
+            <span className="inline-flex h-8 items-center text-xs text-muted-foreground">
+              {m.tickets_status_delete_resets_git_automation()}
+            </span>
+          ) : null
+      })}
+    </DeleteStatusForm>
+  )
+}
+
+function DeleteStatusForm({
+  status,
+  statuses,
+  orgSlug,
+  slug,
+  automationReady,
+  children
+}: Props & Readonly<{ automationReady: boolean; children?: ReactNode }>) {
   const { close, busy, setBusy } = useConfirmButton()
   const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
   const remove = useAtomSet(deleteStatus({ req, statusSlug: status.slug }), {
@@ -94,7 +145,8 @@ function ConfirmBody({ status, statuses, orgSlug, slug }: Props) {
     setError(m.tickets_status_delete_error_fallback())
   }
 
-  const blocked = busy || (affectedCount > 0 && !effectiveTarget)
+  const blocked =
+    busy || !automationReady || (affectedCount > 0 && !effectiveTarget)
 
   return (
     <>
@@ -105,6 +157,7 @@ function ConfirmBody({ status, statuses, orgSlug, slug }: Props) {
             })
           : m.tickets_status_delete_confirm_empty()}
       </span>
+      {children}
       {affectedCount > 0 ? (
         <TargetPicker
           targets={targets}

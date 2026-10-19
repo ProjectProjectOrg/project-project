@@ -31,6 +31,7 @@ import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import { Tickets } from "../tickets/Tickets"
 import { TicketsLive } from "../tickets/TicketsLive"
 import { Users } from "../users/Users"
+import { gitAutomationTestLayer } from "./gitAutomationTesting"
 import { ProjectDocs, type ProjectDocument } from "./ProjectDocs"
 import { Projects } from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
@@ -111,6 +112,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
       Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl) }))
     )
     layer = TicketsLive.pipe(
+      Layer.provide(gitAutomationTestLayer()),
       Layer.provideMerge(projectsOnPostgres(databaseUrl, [id], {}, docs)),
       Layer.provide(docs),
       Layer.provide(testActivityLayer(id)),

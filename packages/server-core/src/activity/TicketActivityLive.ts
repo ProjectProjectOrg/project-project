@@ -215,15 +215,19 @@ export const TicketActivityLive = Layer.effect(
         const actor = yield* ActivityActor
         const occurredAt = DateTime.formatIso(yield* DateTime.now)
         const rows: ReadonlyArray<TicketActivityOutboxRow> =
-          yield* Effect.forEach(changes, ({ ticketId, change }) =>
+          yield* Effect.forEach(changes, (entry) =>
             Effect.map(newId, (id) => ({
               id,
               projectId,
-              ticketId,
+              ticketId: entry.ticketId,
               occurredAt,
-              ...actorColumns(actor),
-              cause,
-              change: encodeChange(change)
+              ...actorColumns(
+                (entry.cause ?? cause) === "git_automation"
+                  ? ActivityActor.system("github")
+                  : actor
+              ),
+              cause: entry.cause ?? cause,
+              change: encodeChange(entry.change)
             }))
           )
         const batchId = yield* newId
