@@ -146,20 +146,20 @@ export interface TicketIndexReconcileOptions {
   readonly force?: boolean
 }
 
-export interface TicketIndexShape {
-  readonly projectFor: (
+export type TicketIndexShape = Readonly<{
+  projectFor: (
     orgSlug: string,
     slug: string
   ) => Effect.Effect<TicketIndexProject, NotFound>
-  readonly projectsFor: (
+  projectsFor: (
     orgSlug: string,
     slugs: ReadonlyArray<string>
   ) => Effect.Effect<ReadonlyArray<TicketIndexProject>>
-  readonly assignedTo: (
+  assignedTo: (
     projects: ReadonlyArray<TicketIndexProject>,
     options: TicketIndexAssignedOptions
   ) => Effect.Effect<ReadonlyArray<TicketIndexOrgEntry>>
-  readonly countAssignedByStatus: (
+  countAssignedByStatus: (
     projects: ReadonlyArray<TicketIndexProject>,
     scope: TicketIndexAssignedScope
   ) => Effect.Effect<
@@ -171,128 +171,124 @@ export interface TicketIndexShape {
       }>
     >
   >
-  readonly assignedPerProject: (
+  assignedPerProject: (
     projects: ReadonlyArray<TicketIndexProject>,
     scope: TicketIndexAssignedScope & Readonly<{ perProject: number }>
   ) => Effect.Effect<ReadonlyArray<TicketIndexProjectPreview>>
-  readonly touchedBy: (
+  touchedBy: (
     projects: ReadonlyArray<TicketIndexProject>,
     options: TicketIndexTouchedOptions
   ) => Effect.Effect<ReadonlyArray<TicketIndexTouchedEntry>>
-  readonly list: (
+  list: (
     project: TicketIndexProject,
     ticketIds?: ReadonlyArray<string>
   ) => Effect.Effect<ReadonlyArray<TicketIndexEntry>>
-  readonly query: (
+  query: (
     project: TicketIndexProject,
     query: TicketListQuery,
     options: TicketIndexQueryOptions
   ) => Effect.Effect<ReadonlyArray<TicketIndexQueryEntry>>
-  readonly orderKeyFor: (
+  orderKeyFor: (
     project: TicketIndexProject,
     ticketId: string,
     sort: TicketSort
   ) => Effect.Effect<string | null>
-  readonly count: (
+  count: (
     project: TicketIndexProject,
     query: TicketCountQuery,
     options: TicketIndexCountOptions
   ) => Effect.Effect<TicketIndexCounts>
-  readonly listIds: (
-    project: TicketIndexProject
-  ) => Effect.Effect<ReadonlyArray<string>>
-  readonly existingIds: (
+  listIds: (project: TicketIndexProject) => Effect.Effect<ReadonlyArray<string>>
+  existingIds: (
     project: TicketIndexProject,
     ticketIds: ReadonlyArray<string>
   ) => Effect.Effect<ReadonlySet<string>>
-  readonly reserveTicketNumber: (
-    project: TicketIndexProject
-  ) => Effect.Effect<number>
-  readonly tagUsageCounts: (
+  reserveTicketNumber: (project: TicketIndexProject) => Effect.Effect<number>
+  tagUsageCounts: (
     project: TicketIndexProject
   ) => Effect.Effect<Readonly<Record<string, number>>>
-  readonly findTicketIdsByTag: (
+  findTicketIdsByTag: (
     project: TicketIndexProject,
     tag: string
   ) => Effect.Effect<ReadonlyArray<string>>
-  readonly findTicketIdsByStatus: (
+  findTicketIdsByStatus: (
     project: TicketIndexProject,
     status: string
   ) => Effect.Effect<ReadonlyArray<string>>
-  readonly findTicketsByBranch: (
+  findTicketsByBranch: (
     projectId: string,
     branch: string
   ) => Effect.Effect<ReadonlyArray<TicketIndexMatch>>
-  readonly findStackLayers: (
+  findStackLayers: (
     projectId: string,
     branch: string
   ) => Effect.Effect<ReadonlyArray<TicketIndexMatch>>
-  readonly stacksFor: (
+  stacksFor: (
     project: TicketIndexProject,
     ticketIds?: ReadonlyArray<string>
   ) => Effect.Effect<ReadonlyMap<string, ReadonlyArray<TicketBranchEntry>>>
-  readonly findMergesAwaiting: (
+  findMergesAwaiting: (
     projectId: string,
     base: string
   ) => Effect.Effect<
     ReadonlyArray<TicketIndexMatch & Readonly<{ stacked: boolean }>>
   >
-  readonly isRepositoryBranchAttached: (
+  isRepositoryBranchAttached: (
     repoId: string,
     branch: string,
     stackedOnly?: boolean
   ) => Effect.Effect<boolean>
-  readonly getBranchDeletedAt: (
+  getBranchDeletedAt: (
     orgSlug: string,
     slug: string,
     ticketId: string
   ) => Effect.Effect<Date | null>
-  readonly upsertTicket: (
+  upsertTicket: (
     project: TicketIndexProject,
     document: TicketDocument
   ) => Effect.Effect<void>
-  readonly markBranchStale: (
+  markBranchStale: (
     projectId: string,
     branch: string,
     deletedAt: Date
   ) => Effect.Effect<ReadonlyArray<string>>
-  readonly clearBranchStale: (
+  clearBranchStale: (
     project: TicketIndexProject,
     ticketIds: ReadonlyArray<string>
   ) => Effect.Effect<void>
-  readonly updateBranchChecks: (
+  updateBranchChecks: (
     projectId: string,
     branch: string,
     checks: ChecksStatus,
     headSha: string,
     updatedAt: Date
   ) => Effect.Effect<ReadonlyArray<string>>
-  readonly deleteTicket: (
+  deleteTicket: (
     project: TicketIndexProject,
     ticketId: string
   ) => Effect.Effect<void>
-  readonly rebuildProject: (
+  rebuildProject: (
     project: TicketIndexProject
   ) => Effect.Effect<
     TicketIndexRebuildProjectSummary,
     MarkdownError | MalformedTicketDocument
   >
-  readonly rebuildAllProjects: () => Effect.Effect<
+  rebuildAllProjects: () => Effect.Effect<
     TicketIndexRebuildSummary,
     MarkdownError | MalformedTicketDocument
   >
-  readonly reconcileProject: (
+  reconcileProject: (
     project: TicketIndexProject,
     options?: TicketIndexReconcileOptions
   ) => Effect.Effect<
     TicketIndexReconcileProjectSummary,
     MarkdownError | MalformedTicketDocument
   >
-  readonly reconcileAllProjects: () => Effect.Effect<
+  reconcileAllProjects: () => Effect.Effect<
     TicketIndexReconcileSummary,
     MarkdownError | MalformedTicketDocument
   >
-}
+}>
 
 export class TicketIndex extends Context.Service<
   TicketIndex,

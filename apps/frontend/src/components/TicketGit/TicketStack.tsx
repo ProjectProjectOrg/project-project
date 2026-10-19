@@ -51,7 +51,9 @@ export function useGitStack(
   const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
   const states = useAtomValue(projectGitStates(req))
   const value = Option.getOrUndefined(Result.value(states))
-  return value?.stacks?.[ticket.id] ?? ticket.stack ?? []
+  return value === undefined
+    ? (ticket.stack ?? [])
+    : (value.stacks?.[ticket.id] ?? [])
 }
 
 type LayerTone = "draft" | "open" | "merged" | "closed" | "none" | "deleted"

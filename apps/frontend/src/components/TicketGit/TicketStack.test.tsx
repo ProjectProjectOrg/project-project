@@ -1,13 +1,22 @@
 import { RegistryContext } from "@effect/atom-react"
 import { TicketDetail, type StackLayerState } from "@pp/shared"
-import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import {
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+  screen
+} from "@testing-library/react"
 import * as Schema from "effect/Schema"
+import * as Result from "effect/unstable/reactivity/AsyncResult"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import { afterEach, expect, it, vi } from "vitest"
 
+import { projectGitStates } from "@/features/github/atoms/github"
+import { projectRequest } from "@/features/projects/atoms/projects"
 import { m } from "@/paraglide/messages"
 
-import { StackedBranches } from "./TicketStack"
+import { StackedBranches, useGitStack } from "./TicketStack"
 
 const access = vi.hoisted(() => ({ canWrite: true }))
 vi.mock("@/lib/access", () => ({
@@ -126,3 +135,33 @@ it.each([
     )
   }
 )
+
+it("clears the cached stack when the live response omits its final layer", () => {
+  registry = Registry.make({
+    initialValues: [
+      [
+        projectGitStates(projectRequest("acme", "app")),
+        Result.success({ states: {} })
+      ]
+    ]
+  })
+  const activeRegistry = registry
+  const layer: StackLayerState = {
+    branch: "feature/removed",
+    base: "main",
+    depth: 1,
+    deleted: false,
+    pr: null
+  }
+  const { result } = renderHook(
+    () => useGitStack("acme", "app", { ...ticket, stack: [layer] }),
+    {
+      wrapper: ({ children }) => (
+        <RegistryContext.Provider value={activeRegistry}>
+          {children}
+        </RegistryContext.Provider>
+      )
+    }
+  )
+  expect(result.current).toEqual([])
+})

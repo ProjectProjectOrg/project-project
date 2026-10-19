@@ -155,7 +155,7 @@ export function planAutomaticStacks(
 
 export const planStackPullRequests = (
   stack: ReadonlyArray<TicketBranchEntry> | undefined,
-  context: LandingContext
+  context: LandingContext<RawBranchEntry>
 ): ReadonlyArray<TicketBranchEntry> =>
   (stack ?? []).map((layer) => {
     const pr = context.prByBranch.get(layer.branch)
@@ -167,16 +167,19 @@ export const planStackPullRequests = (
         ) ?? layer)
   })
 
-type LandingContext = Pick<
-  RawProjectStates,
-  "defaultBranch" | "prByBranch" | "mergedPrsByBranch"
->
+type MergeCandidate = Pick<RawBranchEntry, "state" | "baseRefName" | "mergedAt">
+
+type LandingContext<T extends MergeCandidate = MergeCandidate> = Readonly<{
+  defaultBranch: string
+  prByBranch: ReadonlyMap<string, T>
+  mergedPrsByBranch?: ReadonlyMap<string, ReadonlyArray<T>>
+}>
 
 export const pullRequestLanded = (
-  pr: RawBranchEntry,
+  pr: MergeCandidate,
   context: LandingContext
 ): boolean => {
-  const visited = new Set<RawBranchEntry>()
+  const visited = new Set<MergeCandidate>()
   const pending = [pr]
   while (pending.length > 0) {
     const current = pending.pop()
@@ -244,12 +247,12 @@ export interface TicketGitStateWrite {
   readonly patch: TicketGitStatePatch
 }
 
-export interface PullRequestWebhookInput {
-  readonly number: number
-  readonly state: "open" | "closed" | "merged"
-  readonly draft: boolean
-  readonly landed: boolean
-}
+export type PullRequestWebhookInput = Readonly<{
+  number: number
+  state: "open" | "closed" | "merged"
+  draft: boolean
+  landed: boolean
+}>
 
 export interface TicketGitStatePlan {
   readonly states: Record<string, GitState>

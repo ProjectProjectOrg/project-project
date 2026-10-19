@@ -65,6 +65,7 @@ import {
 import * as ProjectStateCache from "./projectStateCache"
 import {
   mergedPullRequestsForRepository,
+  reconcilePullRequestChange,
   rememberPullRequest
 } from "./pullRequestReconciliation"
 
@@ -101,7 +102,8 @@ type PullRequestWebhookPatch = Partial<
 >
 
 const mergeLanded = (change: GitHubPullRequestWebhookChange): boolean =>
-  change.state === "merged" && change.baseBranch === change.defaultBranch
+  change.state === "merged" &&
+  (change.landed ?? change.baseBranch === change.defaultBranch)
 
 const stackPullRequest = (
   change: GitHubPullRequestWebhookChange
@@ -1579,10 +1581,11 @@ export const GitHubWebhooksLive = Layer.effect(
           links,
           (link) =>
             Effect.gen(function* () {
-              const linkChange = {
-                ...change,
-                defaultBranch: link.defaultBranch
-              }
+              const linkChange = reconcilePullRequestChange(
+                change,
+                link.defaultBranch,
+                merged
+              )
               const deps = {
                 ticketDocs,
                 ticketIndex,
