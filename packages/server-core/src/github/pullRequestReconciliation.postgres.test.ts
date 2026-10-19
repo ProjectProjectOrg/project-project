@@ -49,6 +49,9 @@ describe.skipIf(!databaseUrl)("pull request reconciliation", () => {
         )
         const merged = {
           repositoryId,
+          draft: false,
+          title: "Merge release",
+          body: "",
           number: 80,
           branch: "release",
           baseBranch: "main",
@@ -82,8 +85,18 @@ describe.skipIf(!databaseUrl)("pull request reconciliation", () => {
         ).toBe(false)
         expect(yield* rememberPullRequest(db, merged)).toBe(true)
         expect(
+          yield* rememberPullRequest(db, { ...merged, state: "closed" })
+        ).toBe(false)
+        expect(yield* rememberPullRequest(db, { ...merged, draft: true })).toBe(
+          false
+        )
+        expect(
+          yield* rememberPullRequest(db, { ...merged, baseBranch: "other" })
+        ).toBe(false)
+
+        expect(
           yield* mergedPullRequestsForRepository(db, repositoryId)
-        ).toEqual([
+        ).toMatchObject([
           {
             repositoryId,
             number: 80,

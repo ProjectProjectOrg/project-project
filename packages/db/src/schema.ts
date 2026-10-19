@@ -471,6 +471,7 @@ export const githubPullRequestReconciliation = pgTable(
   {
     repositoryId: text("repository_id").notNull(),
     number: integer("number").notNull(),
+    payloadHash: text("payload_hash").notNull().default(""),
     branch: text("branch").notNull(),
     base: text("base").notNull(),
     state: text("state", { enum: ["open", "closed", "merged"] }).notNull(),

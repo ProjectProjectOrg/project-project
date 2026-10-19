@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto"
+
 import type { Db } from "@pp/db"
 import { githubPullRequestReconciliation } from "@pp/db/schema"
-import { and, eq, isNull, lte, or, sql } from "drizzle-orm"
+import { and, eq, isNull, lt, or, sql } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 
 import type { GitHubPullRequestWebhookChange } from "./GitHubWebhooks"
@@ -16,12 +18,29 @@ export const rememberPullRequest = (
     | "state"
     | "updatedAt"
     | "mergedAt"
+    | "draft"
+    | "title"
+    | "body"
   >
-) =>
-  db
+) => {
+  const payloadHash = createHash("sha256")
+    .update(
+      JSON.stringify([
+        change.branch,
+        change.baseBranch,
+        change.state,
+        change.draft,
+        change.title,
+        change.body,
+        change.mergedAt ?? null
+      ])
+    )
+    .digest("hex")
+  return db
     .insert(githubPullRequestReconciliation)
     .values({
       repositoryId: change.repositoryId,
+      payloadHash,
       number: change.number,
       branch: change.branch,
       base: change.baseBranch,
@@ -35,6 +54,7 @@ export const rememberPullRequest = (
         githubPullRequestReconciliation.number
       ],
       set: {
+        payloadHash,
         branch: change.branch,
         base: change.baseBranch,
         state: change.state,
@@ -45,7 +65,13 @@ export const rememberPullRequest = (
         isNull(githubPullRequestReconciliation.updatedAt),
         change.updatedAt === null
           ? sql`false`
-          : lte(githubPullRequestReconciliation.updatedAt, change.updatedAt)
+          : or(
+              lt(githubPullRequestReconciliation.updatedAt, change.updatedAt),
+              and(
+                eq(githubPullRequestReconciliation.updatedAt, change.updatedAt),
+                eq(githubPullRequestReconciliation.payloadHash, payloadHash)
+              )
+            )
       )
     })
     .returning({ number: githubPullRequestReconciliation.number })
@@ -53,6 +79,7 @@ export const rememberPullRequest = (
       Effect.map((rows) => rows.length > 0),
       Effect.orDie
     )
+}
 
 export const mergedPullRequestsForRepository = (
   db: Db["Service"],
