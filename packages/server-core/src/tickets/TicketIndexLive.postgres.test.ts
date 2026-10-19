@@ -177,7 +177,6 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
     }).pipe(Effect.provide(TestLayer))
   )
 
-
   it.effect("advances the counter when rebuilding from ticket files", () =>
     Effect.gen(function* () {
       const suffix = randomUUID()

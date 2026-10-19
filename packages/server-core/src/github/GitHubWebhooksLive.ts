@@ -67,12 +67,15 @@ export interface PullRequestWebhookMatch {
   readonly branch: string
 }
 
-type PullRequestWebhookDeps = {
-  readonly ticketDocs: TicketDocsShape
-  readonly ticketIndex: TicketIndexShape
-  readonly ticketDocumentLock: TicketDocumentLock.TicketDocumentLock["Service"]
-  readonly gitAutomation: ProjectGitAutomationShape
-}
+type PullRequestWebhookDeps = Readonly<{
+  ticketDocs: TicketDocsShape
+  ticketIndex: TicketIndexShape
+  ticketDocumentLock: TicketDocumentLock.TicketDocumentLock["Service"]
+  gitAutomation: ProjectGitAutomationShape
+  claimPullRequest?: (
+    change: GitHubPullRequestWebhookChange
+  ) => Effect.Effect<boolean>
+}>
 
 type PullRequestWebhookPatch = Partial<
   Pick<
@@ -97,6 +100,11 @@ const writePullRequestWebhook = (
       projectId: match.projectId,
       projectSlug: match.projectSlug
     }
+    if (
+      deps.claimPullRequest !== undefined &&
+      !(yield* deps.claimPullRequest(change))
+    )
+      return
     let changed = false
     const next = yield* deps.ticketDocs
       .update(
@@ -1456,7 +1464,10 @@ export const GitHubWebhooksLive = Layer.effect(
                         ticketDocs,
                         ticketIndex,
                         ticketDocumentLock,
-                        gitAutomation
+                        gitAutomation,
+                        claimPullRequest: (
+                          update: GitHubPullRequestWebhookChange
+                        ) => rememberPullRequest(db, update)
                       },
                       link,
                       { ...change, defaultBranch: link.defaultBranch },
@@ -1476,7 +1487,10 @@ export const GitHubWebhooksLive = Layer.effect(
                             ticketDocs,
                             ticketIndex,
                             ticketDocumentLock,
-                            gitAutomation
+                            gitAutomation,
+                            claimPullRequest: (
+                              update: GitHubPullRequestWebhookChange
+                            ) => rememberPullRequest(db, update)
                           },
                           match,
                           { ...change, defaultBranch: link.defaultBranch },
