@@ -632,6 +632,7 @@ const makeFakeTicketIndex = (
             )
           )
       ),
+    findMergesAwaiting: () => Effect.succeed([]),
     isRepositoryBranchAttached: (_repoId, branch, stackedOnly) =>
       Effect.sync(() =>
         [...documents.values()].some(
@@ -3534,6 +3535,16 @@ it.effect(
 
       expect(requested).toEqual([["feat/T-1", "feat/T-1-api"]])
       expect(result.changedTicketIds).toEqual(["T-1"])
+      expect(
+        result.stacks?.["T-1"]?.map((layer) => [
+          layer.branch,
+          layer.depth,
+          layer.pr?.state
+        ])
+      ).toEqual([
+        ["feat/T-1-api", 1, "merged"],
+        ["checkout-ui", 2, "open"]
+      ])
       expect(docs.documents.get("T-1")?.stack).toEqual([
         { branch: "feat/T-1-api", base: "feat/T-1", pr: 42, prState: "merged" },
         { branch: "checkout-ui", base: "feat/T-1-api", pr: 43, prState: "open" }
@@ -3570,6 +3581,67 @@ it.effect(
       const tickets = yield* Tickets
       yield* tickets.listGitStates()
       expect(queries).toEqual(["T-"])
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "listGitStates lands a merge once the branch it went into reaches the default branch",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    docs.documents.set(
+      "T-1",
+      makeTicketDocument("T-1", {
+        branch: "api",
+        pr: 41,
+        prState: "merged",
+        prBase: "feat/base",
+        lastTransitionedPr: null
+      })
+    )
+    const requested: Array<ReadonlyArray<string>> = []
+    const merged = (
+      headRefName: string,
+      baseRefName: string,
+      number: number,
+      mergedAt: string
+    ) =>
+      [
+        headRefName,
+        {
+          headRefName,
+          baseRefName,
+          state: "merged" as const,
+          draft: false,
+          number,
+          url: `https://github.com/acme/app/pull/${number}`,
+          title: headRefName,
+          mergedAt: DateTime.toDate(DateTime.makeUnsafe(mergedAt)),
+          checks: "passing" as const
+        }
+      ] as const
+    const layer = stackLayer(docs, {
+      fetchInstallationProjectStates: (_i, _o, _r, branches) => {
+        requested.push(branches)
+        return Effect.succeed({
+          defaultBranch: "main",
+          existingBranches: new Set(["api"]),
+          prByBranch: new Map([
+            merged("api", "feat/base", 41, "2026-05-01T09:00:00Z"),
+            merged("feat/base", "main", 50, "2026-05-01T10:00:00Z")
+          ])
+        })
+      }
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      yield* tickets.listGitStates()
+
+      expect(requested).toEqual([["api", "feat/base"]])
+      expect(docs.documents.get("T-1")).toMatchObject({
+        lastTransitionedPr: 41,
+        status: ticketStatus("done")
+      })
     }).pipe(Effect.provide(layer))
   }
 )

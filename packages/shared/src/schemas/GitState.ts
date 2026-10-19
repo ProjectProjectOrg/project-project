@@ -106,8 +106,33 @@ export const TransitionRecord = Schema.Struct({
 })
 export type TransitionRecord = typeof TransitionRecord.Type
 
+// One branch stacked on a ticket's own branch, bottom to top by `depth` (1 is
+// built on the ticket's branch). `deleted` marks a branch gone from GitHub
+// before its pull request merged.
+export const StackLayerState = Schema.Struct({
+  branch: Schema.String,
+  base: Schema.NullOr(Schema.String),
+  depth: Schema.Finite,
+  pr: Schema.NullOr(
+    Schema.Struct({
+      number: Schema.Finite,
+      url: Schema.String,
+      title: Schema.String,
+      state: Schema.Literals(["open", "closed", "merged"]),
+      draft: Schema.Boolean,
+      landed: Schema.Boolean,
+      checks: Schema.NullOr(ChecksStatus)
+    })
+  ),
+  deleted: Schema.Boolean
+})
+export type StackLayerState = typeof StackLayerState.Type
+
 export const GitStatesResponse = Schema.Struct({
   states: Schema.Record(Schema.String, GitState),
+  stacks: Schema.optional(
+    Schema.Record(Schema.String, Schema.Array(StackLayerState))
+  ),
   transitioned: Schema.Array(TransitionRecord),
   tokenStatus: GitStateTokenStatus,
   repoStatus: GitStateRepoStatus,

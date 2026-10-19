@@ -97,6 +97,10 @@ type PullRequestWebhookPatch = Partial<
   >
 >
 
+const mergeLanded = (change: GitHubPullRequestWebhookChange): boolean =>
+  change.state === "merged" &&
+  (change.defaultBranch === null || change.baseBranch === change.defaultBranch)
+
 const stackPullRequest = (
   change: GitHubPullRequestWebhookChange
 ): StackPullRequest => ({
@@ -104,14 +108,20 @@ const stackPullRequest = (
   base: change.baseBranch,
   number: change.number,
   state: change.state,
-  draft: change.draft
+  draft: change.draft,
+  landed: mergeLanded(change)
 })
+
+const ticketPullRequestClaim = (
+  deps: PullRequestWebhookDeps,
+  change: GitHubPullRequestWebhookChange
+): Effect.Effect<boolean> | null => deps.claimPullRequest?.(change) ?? null
 
 const writePullRequestWebhook = (
   deps: PullRequestWebhookDeps,
   match: PullRequestWebhookMatch,
-  change: GitHubPullRequestWebhookChange,
   deliveryId: string | null,
+  claim: Effect.Effect<boolean> | null,
   patchFor: (
     ticket: TicketDocument
   ) => Effect.Effect<PullRequestWebhookPatch | null>
@@ -123,11 +133,7 @@ const writePullRequestWebhook = (
       projectId: match.projectId,
       projectSlug: match.projectSlug
     }
-    if (
-      deps.claimPullRequest !== undefined &&
-      !(yield* deps.claimPullRequest(change))
-    )
-      return
+    if (claim !== null && !(yield* claim)) return
     let changed = false
     const next = yield* deps.ticketDocs
       .update(
@@ -143,11 +149,7 @@ const writePullRequestWebhook = (
               deps.gitAutomation,
               match.projectId,
               ticket,
-              { ...ticket, ...patch, updatedAt: yield* DateTime.nowAsDate },
-              {
-                defaultBranch: change.defaultBranch,
-                pullRequestBase: change.baseBranch
-              }
+              { ...ticket, ...patch, updatedAt: yield* DateTime.nowAsDate }
             )
           }),
         (next) =>
@@ -199,35 +201,42 @@ export const applyPullRequestWebhookToTicket = (
     match.orgSlug,
     match.projectSlug,
     match.ticketId,
-    writePullRequestWebhook(deps, match, change, deliveryId, (ticket) =>
-      Effect.gen(function* () {
-        if (ticket.branch !== match.branch) {
-          yield* Effect.logDebug("github pull_request branch index stale").pipe(
-            Effect.annotateLogs({
-              indexedBranch: match.branch,
-              ticketBranch: ticket.branch
-            })
+    writePullRequestWebhook(
+      deps,
+      match,
+      deliveryId,
+      ticketPullRequestClaim(deps, change),
+      (ticket) =>
+        Effect.gen(function* () {
+          if (ticket.branch !== match.branch) {
+            yield* Effect.logDebug(
+              "github pull_request branch index stale"
+            ).pipe(
+              Effect.annotateLogs({
+                indexedBranch: match.branch,
+                ticketBranch: ticket.branch
+              })
+            )
+            return null
+          }
+          if (ticket.pr !== null && change.number < ticket.pr) {
+            yield* Effect.logDebug("github pull_request delivery stale").pipe(
+              Effect.annotateLogs({
+                ticketPr: ticket.pr,
+                webhookPr: change.number
+              })
+            )
+            return null
+          }
+          return withPullRequestBase(
+            planPullRequestWebhookTicket(
+              { ...ticket, prDraft: ticket.prDraft ?? false },
+              { ...change, landed: mergeLanded(change) }
+            ),
+            ticket,
+            { number: change.number, base: change.baseBranch }
           )
-          return null
-        }
-        if (ticket.pr !== null && change.number < ticket.pr) {
-          yield* Effect.logDebug("github pull_request delivery stale").pipe(
-            Effect.annotateLogs({
-              ticketPr: ticket.pr,
-              webhookPr: change.number
-            })
-          )
-          return null
-        }
-        return withPullRequestBase(
-          planPullRequestWebhookTicket(
-            { ...ticket, prDraft: ticket.prDraft ?? false },
-            change
-          ),
-          ticket,
-          { number: change.number, base: change.baseBranch }
-        )
-      })
+        })
     )
   )
 
@@ -241,7 +250,7 @@ export const applyPullRequestWebhookToLayer = (
     match.orgSlug,
     match.projectSlug,
     match.ticketId,
-    writePullRequestWebhook(deps, match, change, deliveryId, (ticket) => {
+    writePullRequestWebhook(deps, match, deliveryId, null, (ticket) => {
       const layer = ticket.stack?.find(
         (candidate) => candidate.branch === match.branch
       )
@@ -257,6 +266,82 @@ export const applyPullRequestWebhookToLayer = (
       )
     })
   )
+
+/** Lands one merge that waited on its base branch; true when it did. */
+const landAwaitingMerge = (
+  deps: PullRequestWebhookDeps,
+  match: PullRequestWebhookMatch & { readonly stacked: boolean },
+  deliveryId: string | null
+): Effect.Effect<boolean, MarkdownError> =>
+  Effect.gen(function* () {
+    let landed = false
+    yield* deps.ticketDocumentLock.withTicketDocumentLock(
+      match.orgSlug,
+      match.projectSlug,
+      match.ticketId,
+      writePullRequestWebhook(deps, match, deliveryId, null, (ticket) => {
+        if (match.stacked) {
+          const layer = ticket.stack?.find(
+            (candidate) => candidate.branch === match.branch
+          )
+          if (layer?.prState !== "merged" || layer.landed === true) {
+            return Effect.succeed(null)
+          }
+          landed = true
+          return Effect.succeed({
+            stack: replaceLayer(ticket.stack, { ...layer, landed: true })
+          })
+        }
+        if (
+          ticket.branch !== match.branch ||
+          ticket.prState !== "merged" ||
+          ticket.pr === null ||
+          ticket.lastTransitionedPr === ticket.pr
+        ) {
+          return Effect.succeed(null)
+        }
+        landed = true
+        return Effect.succeed({ lastTransitionedPr: ticket.pr })
+      })
+    )
+    return landed
+  })
+
+/**
+ * `branch` just reached the default branch, so everything merged into it
+ * before did too: lands those pull requests, tickets' own and stacked, and
+ * goes on up from each branch that landed.
+ */
+export const landMergesInto = Effect.fn("GitHubWebhooks.landMergesInto")(
+  function* (
+    deps: PullRequestWebhookDeps,
+    projectId: string,
+    branch: string,
+    deliveryId: string | null
+  ): Effect.fn.Return<void, MarkdownError> {
+    const visited = new Set([branch])
+    let frontier: ReadonlyArray<string> = [branch]
+    while (frontier.length > 0) {
+      const next: Array<string> = []
+      for (const base of frontier) {
+        const waiting = yield* deps.ticketIndex.findMergesAwaiting(
+          projectId,
+          base
+        )
+        for (const match of waiting) {
+          if (visited.has(match.branch)) continue
+          const landed = yield* landAwaitingMerge(deps, match, deliveryId).pipe(
+            Effect.annotateLogs({ landedVia: base })
+          )
+          if (!landed) continue
+          visited.add(match.branch)
+          next.push(match.branch)
+        }
+      }
+      frontier = next
+    }
+  }
+)
 
 type PullRequestLinkSkip =
   | "closed"
@@ -336,8 +421,8 @@ export const linkPullRequestWebhookToTicket = Effect.fn(
         yield* writePullRequestWebhook(
           deps,
           match,
-          change,
           deliveryId,
+          null,
           (ticket) => {
             const notLinkable = logSkipped("ticket_not_linkable", {
               ticketId
@@ -371,7 +456,7 @@ export const linkPullRequestWebhookToTicket = Effect.fn(
                   prDraft: false,
                   lastTransitionedPr: null
                 },
-                change
+                { ...change, landed: mergeLanded(change) }
               )
             })
           }
@@ -1487,7 +1572,6 @@ export const GitHubWebhooksLive = Layer.effect(
                     projectIntegrationLinkId: link.id
                   })
                 )
-                return
               }
               yield* Effect.forEach(
                 owners,
@@ -1511,6 +1595,14 @@ export const GitHubWebhooksLive = Layer.effect(
                   ),
                 { concurrency: 1, discard: true }
               )
+              if (mergeLanded(change)) {
+                yield* landMergesInto(
+                  deps,
+                  link.projectId,
+                  change.branch,
+                  deliveryId
+                )
+              }
             }),
           { concurrency: 1 }
         )

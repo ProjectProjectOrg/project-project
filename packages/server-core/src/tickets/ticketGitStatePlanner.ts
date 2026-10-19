@@ -130,7 +130,11 @@ export function planAutomaticStacks(
           !(ticket.ignoredBranches ?? []).includes(branch)
           ? { branch }
           : null
-        : planStackAttach(planned, stackPullRequest(branch, pr), namedInBranch)
+        : planStackAttach(
+            planned,
+            stackPullRequest(branch, pr, { defaultBranch, prByBranch }),
+            namedInBranch
+          )
     if (layer === null) return false
     stacks.set(ticket.id, [...added, layer])
     attached.add(branch)
@@ -151,25 +155,60 @@ export function planAutomaticStacks(
 
 export const planStackPullRequests = (
   stack: ReadonlyArray<TicketBranchEntry> | undefined,
-  prByBranch: ReadonlyMap<string, RawBranchEntry>
+  context: LandingContext
 ): ReadonlyArray<TicketBranchEntry> =>
   (stack ?? []).map((layer) => {
-    const pr = prByBranch.get(layer.branch)
+    const pr = context.prByBranch.get(layer.branch)
     return pr === undefined
       ? layer
-      : (planLayerPullRequest(layer, stackPullRequest(layer.branch, pr)) ??
-          layer)
+      : (planLayerPullRequest(
+          layer,
+          stackPullRequest(layer.branch, pr, context)
+        ) ?? layer)
   })
+
+type LandingContext = Pick<RawProjectStates, "defaultBranch" | "prByBranch">
+
+/**
+ * Whether a merged pull request reached the default branch: directly, or
+ * through the branch it was merged into being merged onwards afterwards.
+ * A branch merged into one that had already been merged did not land.
+ */
+export const pullRequestLanded = (
+  pr: RawBranchEntry,
+  context: LandingContext
+): boolean => {
+  const visited = new Set<string>()
+  let current = pr
+  while (current.state === "merged") {
+    if (current.baseRefName === context.defaultBranch) return true
+    if (visited.has(current.baseRefName)) return false
+    visited.add(current.baseRefName)
+    const base = context.prByBranch.get(current.baseRefName)
+    if (base === undefined || base.state !== "merged") return false
+    if (
+      current.mergedAt !== null &&
+      base.mergedAt !== null &&
+      base.mergedAt < current.mergedAt
+    ) {
+      return false
+    }
+    current = base
+  }
+  return false
+}
 
 export const stackPullRequest = (
   branch: string,
-  pr: RawBranchEntry
+  pr: RawBranchEntry,
+  context: LandingContext
 ): StackPullRequest => ({
   branch,
   base: pr.baseRefName,
   number: pr.number,
   state: pr.state,
-  draft: pr.draft
+  draft: pr.draft,
+  landed: pullRequestLanded(pr, context)
 })
 
 export interface TicketGitStateInput {
@@ -194,13 +233,14 @@ export type TicketGitStatePatch = Readonly<{
 export interface TicketGitStateWrite {
   readonly ticketId: TicketId
   readonly patch: TicketGitStatePatch
-  readonly pullRequestBase: string | null
 }
 
 export interface PullRequestWebhookInput {
   readonly number: number
   readonly state: "open" | "closed" | "merged"
   readonly draft: boolean
+  /** A merge that reached the default branch. */
+  readonly landed: boolean
 }
 
 export interface TicketGitStatePlan {
@@ -213,15 +253,18 @@ export function planPullRequestPatch(
   pr: PullRequestWebhookInput
 ): TicketGitStatePatch | null {
   if (pr.state === "merged") {
-    return ticket.pr === pr.number &&
+    const samePr = ticket.pr === pr.number
+    const landed =
+      pr.landed || (samePr && ticket.lastTransitionedPr === pr.number)
+    return samePr &&
       ticket.prState === "merged" &&
-      ticket.lastTransitionedPr === pr.number
+      (ticket.lastTransitionedPr === pr.number) === landed
       ? null
       : {
           pr: pr.number,
           prState: "merged",
           prDraft: false,
-          lastTransitionedPr: pr.number
+          lastTransitionedPr: landed ? pr.number : null
         }
   }
   const draft = pr.state === "open" && pr.draft
@@ -289,19 +332,15 @@ export function planTicketGitStates(
     }
 
     const patch = withPullRequestBase(
-      planPullRequestPatch(ticket, pr),
+      planPullRequestPatch(ticket, {
+        ...pr,
+        landed: pullRequestLanded(pr, raw)
+      }),
       ticket,
-      {
-        number: pr.number,
-        base: pr.baseRefName
-      }
+      { number: pr.number, base: pr.baseRefName }
     )
     if (patch) {
-      writes.push({
-        ticketId: ticket.id,
-        patch,
-        pullRequestBase: pr.baseRefName
-      })
+      writes.push({ ticketId: ticket.id, patch })
     }
 
     if (pr.state === "merged") {

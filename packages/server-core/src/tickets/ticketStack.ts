@@ -40,6 +40,7 @@ export type StackPullRequest = Readonly<{
   number: number
   state: "open" | "closed" | "merged"
   draft: boolean
+  landed: boolean
 }>
 
 type StackTicket = Readonly<{
@@ -60,7 +61,8 @@ export const ticketBranches = (
 const layerFor = (pr: StackPullRequest): TicketBranchEntry =>
   Object.assign(
     { branch: pr.branch, base: pr.base, pr: pr.number, prState: pr.state },
-    pr.state === "open" && pr.draft ? { prDraft: true } : {}
+    pr.state === "open" && pr.draft ? { prDraft: true } : {},
+    pr.state === "merged" && pr.landed ? { landed: true } : {}
   )
 
 export const planStackAttach = (
@@ -87,12 +89,10 @@ export const planLayerPullRequest = (
   ) {
     return null
   }
-  const next = Object.assign(
-    layerFor(pr),
-    layer.landed && layer.pr === pr.number && pr.state === "merged"
-      ? { landed: true }
-      : {}
-  )
+  const next = layerFor({
+    ...pr,
+    landed: pr.landed || (layer.landed === true && layer.pr === pr.number)
+  })
   const same =
     layer.base === next.base &&
     layer.pr === next.pr &&

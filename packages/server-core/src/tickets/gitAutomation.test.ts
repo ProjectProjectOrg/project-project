@@ -22,7 +22,13 @@ const ticket = (overrides: Partial<TicketGitFields> = {}): TicketGitFields => ({
   ...overrides
 })
 
-const onMain = { defaultBranch: "main", pullRequestBase: "main" }
+const openLayer = {
+  branch: "feat/T-1-ui",
+  base: "feat/T-1",
+  pr: 8,
+  prState: "open" as const
+}
+const landedLayer = { ...openLayer, prState: "merged" as const, landed: true }
 
 describe("gitAutomationEvent", () => {
   it.each([
@@ -62,8 +68,20 @@ describe("gitAutomationEvent", () => {
       expected: "pr_opened"
     },
     {
-      name: "a merge into the default branch",
+      name: "a merge that reached the default branch",
       before: ticket({ pr: 7, prState: "open" }),
+      after: ticket({ pr: 7, prState: "merged", lastTransitionedPr: 7 }),
+      expected: "pr_merged"
+    },
+    {
+      name: "a merge into another branch",
+      before: ticket({ pr: 7, prState: "open" }),
+      after: ticket({ pr: 7, prState: "merged" }),
+      expected: null
+    },
+    {
+      name: "that merge landing later",
+      before: ticket({ pr: 7, prState: "merged" }),
       after: ticket({ pr: 7, prState: "merged", lastTransitionedPr: 7 }),
       expected: "pr_merged"
     },
@@ -81,7 +99,7 @@ describe("gitAutomationEvent", () => {
     },
     {
       name: "a merge already handled for this PR",
-      before: ticket({ pr: 7, prState: "open", lastTransitionedPr: 7 }),
+      before: ticket({ pr: 7, prState: "merged", lastTransitionedPr: 7 }),
       after: ticket({ pr: 7, prState: "merged", lastTransitionedPr: 7 }),
       expected: null
     },
@@ -92,17 +110,61 @@ describe("gitAutomationEvent", () => {
       expected: null
     }
   ])("$name → $expected", ({ before, after, expected }) => {
-    expect(gitAutomationEvent(before, after, onMain)).toBe(expected)
+    expect(gitAutomationEvent(before, after)).toBe(expected)
   })
+})
 
-  it("ignores a merge into a branch other than the default", () => {
-    expect(
-      gitAutomationEvent(
-        ticket({ pr: 7, prState: "open" }),
-        ticket({ pr: 7, prState: "merged", lastTransitionedPr: 7 }),
-        { defaultBranch: "main", pullRequestBase: "feat/stack-base" }
-      )
-    ).toBeNull()
+describe("gitAutomationEvent with a stack", () => {
+  const landedOwn = { pr: 7, prState: "merged" as const, lastTransitionedPr: 7 }
+
+  it.each([
+    {
+      name: "the ticket's PR landing while a stacked one is open",
+      before: ticket({ pr: 7, prState: "open", stack: [openLayer] }),
+      after: ticket({ ...landedOwn, stack: [openLayer] }),
+      expected: null
+    },
+    {
+      name: "the last stacked PR landing",
+      before: ticket({ ...landedOwn, stack: [openLayer] }),
+      after: ticket({ ...landedOwn, stack: [landedLayer] }),
+      expected: "pr_merged"
+    },
+    {
+      name: "a stacked PR merged into a branch that hasn't landed",
+      before: ticket({ ...landedOwn, stack: [openLayer] }),
+      after: ticket({
+        ...landedOwn,
+        stack: [{ ...landedLayer, landed: false }]
+      }),
+      expected: null
+    },
+    {
+      name: "a stacked PR opening on a ticket whose PR landed",
+      before: ticket({ ...landedOwn }),
+      after: ticket({ ...landedOwn, stack: [openLayer] }),
+      expected: "pr_opened"
+    },
+    {
+      name: "a first PR opening as a stacked draft",
+      before: ticket({ branch: "feat/T-1" }),
+      after: ticket({
+        branch: "feat/T-1",
+        stack: [{ ...openLayer, prDraft: true }]
+      }),
+      expected: "pr_draft_opened"
+    },
+    {
+      name: "a stacked PR closed next to a landed one",
+      before: ticket({ ...landedOwn, stack: [openLayer] }),
+      after: ticket({
+        ...landedOwn,
+        stack: [{ ...openLayer, prState: "closed" }]
+      }),
+      expected: "pr_merged"
+    }
+  ])("$name → $expected", ({ before, after, expected }) => {
+    expect(gitAutomationEvent(before, after)).toBe(expected)
   })
 })
 

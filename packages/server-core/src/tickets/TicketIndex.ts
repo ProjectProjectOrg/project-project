@@ -231,6 +231,12 @@ export interface TicketIndexShape {
     project: TicketIndexProject,
     ticketIds?: ReadonlyArray<string>
   ) => Effect.Effect<ReadonlyMap<string, ReadonlyArray<TicketBranchEntry>>>
+  readonly findMergesAwaiting: (
+    projectId: string,
+    base: string
+  ) => Effect.Effect<
+    ReadonlyArray<TicketIndexMatch & { readonly stacked: boolean }>
+  >
   readonly isRepositoryBranchAttached: (
     repoId: string,
     branch: string,

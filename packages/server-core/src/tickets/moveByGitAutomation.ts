@@ -4,11 +4,7 @@ import * as Effect from "effect/Effect"
 
 import type { MarkdownError } from "../markdown/Markdown"
 import type { ProjectGitAutomationShape } from "../projects/ProjectGitAutomation"
-import {
-  gitAutomationEvent,
-  planGitAutomation,
-  type GitEventContext
-} from "./gitAutomation"
+import { gitAutomationEvent, planGitAutomation } from "./gitAutomation"
 import type { TicketDocsShape, TicketDocument } from "./TicketDocs"
 import type { TicketDocumentLock } from "./ticketDocumentLock"
 import type {
@@ -94,10 +90,9 @@ export const withGitAutomation = (
   gitAutomation: ProjectGitAutomationShape,
   projectId: string,
   before: TicketDocument,
-  after: TicketDocument,
-  context: GitEventContext
+  after: TicketDocument
 ): Effect.Effect<TicketDocument> => {
-  const event = gitAutomationEvent(before, after, context)
+  const event = gitAutomationEvent(before, after)
   if (event === null) return Effect.succeed(after)
   return Effect.map(gitAutomation.configFor(projectId), (config) => {
     const target = planGitAutomation(after.status, event, config)

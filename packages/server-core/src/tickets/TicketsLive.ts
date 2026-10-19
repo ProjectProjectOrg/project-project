@@ -50,6 +50,7 @@ import {
   ActivityActor,
   type ProjectScopeShape,
   type TransitionRecord,
+  type StackLayerState,
   TicketBranchEntry
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -75,12 +76,12 @@ import { Projects } from "../projects/Projects"
 import type { ProjectGithubIntegration } from "../projects/Projects"
 import { readProjectDocument } from "../projects/readProjectDocument"
 import { Users } from "../users/Users"
-import type { GitEventContext } from "./gitAutomation"
 import {
   gitAutomationActivity,
   moveForDeletedBranch,
   withGitAutomation
 } from "./moveByGitAutomation"
+import { stackLayerStates } from "./stackLayerStates"
 import {
   MalformedTicketDocument,
   TicketDocs,
@@ -118,6 +119,44 @@ type StackedTicketEntry = TicketIndexEntry &
   }>
 
 const sameStack = Schema.toEquivalence(Schema.Array(TicketBranchEntry))
+
+const stacksOf = (
+  tickets: ReadonlyMap<
+    string,
+    Readonly<{
+      branch: string | null
+      stack: ReadonlyArray<TicketBranchEntry>
+    }>
+  >,
+  github: ProjectGithubIntegration,
+  raw: GitHub.RawProjectStates
+): Record<string, ReadonlyArray<StackLayerState>> =>
+  Object.fromEntries(
+    [...tickets].flatMap(([id, ticket]) =>
+      ticket.stack.length === 0
+        ? []
+        : [[id, stackLayerStates(ticket.branch, ticket.stack, github, raw)]]
+    )
+  )
+
+// Branches a ticket's merged pull requests went into before reaching the
+// default branch: fetching them shows whether they were merged onwards.
+const mergeBasesAwaitingLanding = (
+  ticket: StackedTicketEntry
+): ReadonlyArray<string> => [
+  ...(ticket.prState === "merged" &&
+  ticket.prBase !== null &&
+  ticket.lastTransitionedPr !== ticket.pr
+    ? [ticket.prBase]
+    : []),
+  ...ticket.stack.flatMap((layer) =>
+    layer.prState === "merged" &&
+    layer.landed !== true &&
+    layer.base !== undefined
+      ? [layer.base]
+      : []
+  )
+]
 
 type GitView = Readonly<{
   integration: ProjectGithubIntegration | null
@@ -249,6 +288,9 @@ function documentToDetail(
 ): TicketDetail {
   return {
     ...documentToTicket(document, view, branchDeletedAt),
+    stack: view.visible
+      ? stackLayerStates(document.branch, document.stack, view.integration)
+      : [],
     splitFrom: document.splitFrom ?? null,
     creator,
     updater,
@@ -1874,8 +1916,7 @@ export const TicketsLive = Layer.effect(
         lastTransitionedPr?: number | null
         stack?: ReadonlyArray<TicketBranchEntry>
         ignoredBranches?: ReadonlyArray<string>
-      },
-      context: GitEventContext = { defaultBranch: null, pullRequestBase: null }
+      }
     ): Effect.Effect<TicketDocument, TicketReadError, ActivityActor> =>
       ticketDocs.update(
         indexProject.orgSlug,
@@ -1895,8 +1936,7 @@ export const TicketsLive = Layer.effect(
                     : current),
                   ...patch,
                   updatedAt
-                },
-                context
+                }
               )
             )
           ),
@@ -2194,7 +2234,8 @@ export const TicketsLive = Layer.effect(
             ...(ticket.branch && ticket.branch.length > 0
               ? [ticket.branch]
               : []),
-            ...(ticket.stack ?? []).map((layer) => layer.branch)
+            ...(ticket.stack ?? []).map((layer) => layer.branch),
+            ...mergeBasesAwaitingLanding(ticket)
           ])
         )
       ]
@@ -2251,7 +2292,7 @@ export const TicketsLive = Layer.effect(
         const automaticLinks = planAutomaticBranchLinks(
           tickets,
           raw.existingBranches,
-          raw.defaultBranch,
+          projectGithub.defaultBaseBranch,
           raw.openPullRequestText,
           raw.prByBranch
         )
@@ -2259,7 +2300,7 @@ export const TicketsLive = Layer.effect(
           tickets,
           automaticLinks,
           raw.existingBranches,
-          raw.defaultBranch,
+          projectGithub.defaultBaseBranch,
           raw.openPullRequestText,
           raw.prByBranch
         )
@@ -2267,7 +2308,7 @@ export const TicketsLive = Layer.effect(
           automaticStacks.has(ticket.id) ||
           !sameStack(
             ticket.stack ?? [],
-            planStackPullRequests(ticket.stack, raw.prByBranch)
+            planStackPullRequests(ticket.stack, raw)
           )
             ? [ticket.id]
             : []
@@ -2303,32 +2344,26 @@ export const TicketsLive = Layer.effect(
             : []
         )
         const resurrectedIds = new Set(resurrected)
+        const branchesById = new Map(
+          tickets.map((ticket) => [
+            ticket.id,
+            { branch: ticket.branch, stack: ticket.stack }
+          ])
+        )
         const changedTicketIds = new Set<TicketId>()
         const transitioned: Array<TransitionRecord> = []
         const writesById = new Map<
           TicketId,
-          Readonly<{
-            patch: Parameters<typeof writeGitFields>[2]
-            pullRequestBase: string | null
-          }>
-        >(
-          plan.writes.map((write) => [
-            write.ticketId,
-            { patch: write.patch, pullRequestBase: write.pullRequestBase }
-          ])
-        )
+          Parameters<typeof writeGitFields>[2]
+        >(plan.writes.map((write) => [write.ticketId, write.patch]))
         for (const [ticketId, branch] of automaticLinks) {
-          const planned = writesById.get(ticketId)
           writesById.set(ticketId, {
-            patch: {
-              branch,
-              pr: null,
-              prState: null,
-              prDraft: false,
-              lastTransitionedPr: null,
-              ...planned?.patch
-            },
-            pullRequestBase: planned?.pullRequestBase ?? null
+            branch,
+            pr: null,
+            prState: null,
+            prDraft: false,
+            lastTransitionedPr: null,
+            ...writesById.get(ticketId)
           })
         }
         const ticketIds = new Set([
@@ -2410,31 +2445,28 @@ export const TicketsLive = Layer.effect(
               )
             )
             const stack = [
-              ...planStackPullRequests(ticket.stack, raw.prByBranch),
+              ...planStackPullRequests(ticket.stack, raw),
               ...addedLayers
             ]
             const planned = writesById.get(ticketId)
-            const write = sameStack(ticket.stack ?? [], stack)
+            const patch = sameStack(ticket.stack ?? [], stack)
               ? planned
-              : {
-                  patch: { ...planned?.patch, stack },
-                  pullRequestBase: planned?.pullRequestBase ?? null
-                }
-            if (!write) return
+              : { ...planned, stack }
+            if (!patch) return
             const next = yield* writeGitFields(
               indexProject,
               ticket,
-              write.patch,
-              {
-                defaultBranch: projectGithub.defaultBaseBranch,
-                pullRequestBase: write.pullRequestBase
-              }
+              patch
             ).pipe(
               Effect.provideService(
                 ActivityActor,
                 ActivityActor.system("github")
               )
             )
+            branchesById.set(ticketId, {
+              branch: next.branch,
+              stack: next.stack ?? []
+            })
             if (next.status !== ticket.status && next.pr !== null) {
               transitioned.push({
                 ticketId,
@@ -2519,6 +2551,7 @@ export const TicketsLive = Layer.effect(
 
         return {
           states,
+          stacks: stacksOf(branchesById, projectGithub, raw),
           refreshStatus: "fresh",
           changedTicketIds: [...changedTicketIds],
           transitioned,
@@ -2589,6 +2622,11 @@ export const TicketsLive = Layer.effect(
                   : pendingGitState(ticket, projectGithub)
               ])
             ),
+            stacks: stacksOf(
+              new Map(tickets.map((ticket) => [ticket.id, ticket])),
+              projectGithub,
+              result.raw
+            ),
             transitioned: [],
             changedTicketIds: [],
             tokenStatus: "ok",
@@ -2611,9 +2649,11 @@ export const TicketsLive = Layer.effect(
         const all = yield* listGitStates()
         if (ticketId === undefined) return all
         const single = all.states[ticketId]
+        const stack = all.stacks?.[ticketId]
         return {
           ...all,
           states: single ? { [ticketId]: single } : {},
+          stacks: stack ? { [ticketId]: stack } : {},
           changedTicketIds: all.changedTicketIds?.filter(
             (id) => id === ticketId
           ),
