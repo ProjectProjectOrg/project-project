@@ -1474,7 +1474,8 @@ export const GitHubWebhooksLive = Layer.effect(
                 ticketIndex,
                 ticketDocumentLock,
                 gitAutomation,
-                claimPullRequest: (update: GitHubPullRequestWebhookChange) => rememberPullRequest(db, update)
+                claimPullRequest: (update: GitHubPullRequestWebhookChange) =>
+                  rememberPullRequest(db, update)
               }
               const [owners, stacked] = yield* Effect.all([
                 ticketIndex.findTicketsByBranch(link.projectId, change.branch),

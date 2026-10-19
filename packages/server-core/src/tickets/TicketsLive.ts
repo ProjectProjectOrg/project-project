@@ -112,9 +112,10 @@ const DEFAULT_STATUS = Schema.decodeSync(TicketStatus)("todo")
 
 type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
 
-type StackedTicketEntry = TicketIndexEntry & {
-  readonly stack: ReadonlyArray<TicketBranchEntry>
-}
+type StackedTicketEntry = TicketIndexEntry &
+  Readonly<{
+    stack: ReadonlyArray<TicketBranchEntry>
+  }>
 
 const sameStack = Schema.toEquivalence(Schema.Array(TicketBranchEntry))
 
@@ -1978,13 +1979,28 @@ export const TicketsLive = Layer.effect(
 
             const next = yield* withRepositoryBranchLock(
               projectGithub.repoId,
-              writeGitFields(indexProject, ticket, {
-                branch: input.name,
-                branchAutoLinkDisabled: false,
-                pr: null,
-                prState: null,
-                prDraft: false,
-                lastTransitionedPr: null
+              Effect.gen(function* () {
+                if (
+                  ticket.branch !== input.name &&
+                  (yield* ticketIndex.isRepositoryBranchAttached(
+                    projectGithub.repoId,
+                    input.name,
+                    true
+                  ))
+                ) {
+                  return yield* new Conflict({
+                    reason: "branch_on_other_ticket"
+                  })
+                }
+                return yield* writeGitFields(indexProject, ticket, {
+                  branch: input.name,
+                  branchAutoLinkDisabled: false,
+                  pr: null,
+                  prState: null,
+                  prDraft: false,
+                  lastTransitionedPr: null,
+                  prBase: undefined
+                })
               })
             )
             return yield* detailOf(next, yield* gitView)
@@ -2095,6 +2111,29 @@ export const TicketsLive = Layer.effect(
             if (!exists) {
               return yield* new BranchNotFound({ name: input.name })
             }
+            const snapshot = yield* github.fetchInstallationProjectStates(
+              projectGithub.installationId,
+              projectGithub.repoOwner,
+              projectGithub.repoName,
+              [input.name]
+            )
+            const pr = snapshot.prByBranch.get(input.name)
+            const layer: TicketBranchEntry =
+              pr === undefined
+                ? { branch: input.name }
+                : {
+                    branch: input.name,
+                    base: pr.baseRefName,
+                    pr: pr.number,
+                    prState: pr.state,
+                    ...(pr.state === "open" && pr.draft
+                      ? { prDraft: true }
+                      : {}),
+                    ...(pr.state === "merged" &&
+                    pr.baseRefName === projectGithub.defaultBaseBranch
+                      ? { landed: true }
+                      : {})
+                  }
             const next = yield* withRepositoryBranchLock(
               projectGithub.repoId,
               Effect.gen(function* () {
@@ -2109,7 +2148,7 @@ export const TicketsLive = Layer.effect(
                   })
                 }
                 return yield* writeGitFields(indexProject, ticket, {
-                  stack: [...(ticket.stack ?? []), { branch: input.name }],
+                  stack: [...(ticket.stack ?? []), layer],
                   ignoredBranches: (ticket.ignoredBranches ?? []).filter(
                     (branch) => branch !== input.name
                   )
@@ -2159,13 +2198,9 @@ export const TicketsLive = Layer.effect(
           ])
         )
       ]
-      const discoveryTicket =
-        tickets.find(
-          (ticket) => ticket.branch === null && ticket.archivedAt === null
-        ) ??
-        tickets.find(
-          (ticket) => ticket.prState === "open" && ticket.archivedAt === null
-        )
+      const discoveryTicket = tickets.find(
+        (ticket) => ticket.archivedAt === null
+      )
       const branchQuery = discoveryTicket
         ? `${discoveryTicket.id.slice(0, discoveryTicket.id.lastIndexOf("-"))}-`
         : undefined

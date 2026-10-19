@@ -1169,7 +1169,11 @@ export const TicketIndexLive = Layer.effect(
               Effect.orDie
             )
 
-    const isRepositoryBranchAttached = (repoId: string, branch: string) =>
+    const isRepositoryBranchAttached = (
+      repoId: string,
+      branch: string,
+      stackedOnly = false
+    ) =>
       db
         .select({ ticketId: ticketIndex.ticketId })
         .from(ticketIndex)
@@ -1191,7 +1195,7 @@ export const TicketIndexLive = Layer.effect(
             inArray(projectIntegrationLink.status, ["active", "broken"]),
             inArray(projectGithubRepository.status, ["active", "broken"]),
             or(
-              eq(ticketIndex.branch, branch),
+              stackedOnly ? undefined : eq(ticketIndex.branch, branch),
               exists(
                 db
                   .select({ branch: ticketBranch.branch })

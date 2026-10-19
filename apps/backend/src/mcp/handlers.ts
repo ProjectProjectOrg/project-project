@@ -454,22 +454,24 @@ const attach_branch = (
   })
 
 const stack_branch = (
-  input: {
+  input: Readonly<{
     orgSlug: string
     projectSlug: string
     id: TicketId
-  } & AttachBranchInput
+  }> &
+    AttachBranchInput
 ) =>
   Effect.flatMap(Tickets, (tickets) =>
     tickets.stackBranch(input.id, { name: input.name })
   )
 
 const unstack_branch = (
-  input: {
+  input: Readonly<{
     orgSlug: string
     projectSlug: string
     id: TicketId
-  } & AttachBranchInput
+  }> &
+    AttachBranchInput
 ) =>
   Effect.flatMap(Tickets, (tickets) =>
     tickets.unstackBranch(input.id, { name: input.name })
