@@ -2,6 +2,8 @@ import { it } from "@effect/vitest"
 import { Db } from "@pp/db"
 import {
   ActivityActor,
+  BranchNotFound,
+  Conflict,
   DEFAULT_TICKET_SORT,
   Group,
   matchesTicketQuery,
@@ -604,9 +606,39 @@ const makeFakeTicketIndex = (
             : []
         )
       ),
-    isRepositoryBranchAttached: (_repoId, branch) =>
+    findStackLayers: (projectId, branch) =>
       Effect.sync(() =>
-        [...documents.values()].some((document) => document.branch === branch)
+        [...documents.values()].flatMap((document) =>
+          (document.stack ?? []).some((layer) => layer.branch === branch)
+            ? [
+                {
+                  ...ticketIndexProject,
+                  projectId,
+                  ticketId: document.id,
+                  branch
+                }
+              ]
+            : []
+        )
+      ),
+    stacksFor: () =>
+      Effect.sync(
+        () =>
+          new Map(
+            [...documents.values()].flatMap((document) =>
+              document.stack && document.stack.length > 0
+                ? [[document.id as string, document.stack] as const]
+                : []
+            )
+          )
+      ),
+    isRepositoryBranchAttached: (_repoId, branch, stackedOnly) =>
+      Effect.sync(() =>
+        [...documents.values()].some(
+          (document) =>
+            (!stackedOnly && document.branch === branch) ||
+            (document.stack ?? []).some((layer) => layer.branch === branch)
+        )
       ),
     getBranchDeletedAt: () => Effect.succeed(null),
     upsertTicket: (_project, document) =>
@@ -940,7 +972,7 @@ it.effect("listGitStates links an external branch and its existing PR", () => {
     })
     expect(result.states["T-1"]).toMatchObject({ tag: "pr_open", number: 42 })
     yield* tickets.listGitStates()
-    expect(queries).toEqual(["T-", undefined])
+    expect(queries).toEqual(["T-", "T-"])
   }).pipe(Effect.provide(layer))
 })
 
@@ -1199,10 +1231,10 @@ it.effect("reserved repository branches require manual attachment", () => {
       githubIntegration: () => Effect.succeed(githubIntegration)
     }),
     ticketIndex: makeFakeTicketIndex(docs.documents, {
-      isRepositoryBranchAttached: (repoId, branch) => {
+      isRepositoryBranchAttached: (repoId, branch, stackedOnly) => {
         expect(repoId).toBe("repo-1")
         expect(branch).toBe("feat/T-1")
-        return Effect.succeed(true)
+        return Effect.succeed(!stackedOnly)
       }
     }),
     github: makeFakeGitHub({
@@ -3238,6 +3270,306 @@ it.effect(
       expect(docs.documents.get("T-1")?.status).toBe(
         ticketStatus("in_progress")
       )
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+const stackLayer = (
+  docs: ReturnType<typeof makeFakeTicketDocs>,
+  github: Partial<GitHubShape> = {}
+) =>
+  makeTicketsLayer("T", docs.layer, {
+    projects: makeFakeProjects("T", {
+      githubIntegration: () => Effect.succeed(githubIntegration)
+    }),
+    ticketIndex: makeFakeTicketIndex(docs.documents),
+    github: makeFakeGitHub({
+      branchExistsInstallation: (_installation, _owner, _repo, branch) =>
+        Effect.succeed(branch !== "missing"),
+      fetchInstallationProjectStates: () =>
+        Effect.succeed({
+          defaultBranch: "main",
+          existingBranches: new Set(),
+          prByBranch: new Map()
+        }),
+      ...github
+    })
+  })
+
+it.effect(
+  "stackBranch adds a branch on top of the ticket's own and forgets it was ignored",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    docs.documents.set(
+      "T-1",
+      makeTicketDocument("T-1", {
+        branch: "feat/T-1",
+        ignoredBranches: ["feat/T-1-ui"]
+      })
+    )
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      yield* tickets.stackBranch("T-1", { name: "feat/T-1-ui" })
+
+      expect(docs.documents.get("T-1")).toMatchObject({
+        branch: "feat/T-1",
+        stack: [
+          {
+            branch: "feat/T-1-ui",
+            base: "feat/T-1",
+            pr: 43,
+            prState: "open",
+            prDraft: true
+          }
+        ],
+        ignoredBranches: []
+      })
+    }).pipe(
+      Effect.provide(
+        stackLayer(docs, {
+          fetchInstallationProjectStates: () =>
+            Effect.succeed({
+              defaultBranch: "main",
+              existingBranches: new Set(["feat/T-1-ui"]),
+              prByBranch: new Map([
+                [
+                  "feat/T-1-ui",
+                  {
+                    ...mergedPullRequest("feat/T-1"),
+                    state: "open",
+                    draft: true,
+                    number: 43
+                  }
+                ]
+              ])
+            })
+        })
+      )
+    )
+  }
+)
+
+it.effect("attachBranch refuses a branch already stacked on the ticket", () => {
+  const docs = makeFakeTicketDocs(["T-1"])
+  docs.documents.set(
+    "T-1",
+    makeTicketDocument("T-1", {
+      branch: "feat/T-1",
+      stack: [{ branch: "feat/T-1-ui", base: "feat/T-1" }]
+    })
+  )
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const failure = yield* Effect.flip(
+      tickets.attachBranch("T-1", { name: "feat/T-1-ui" })
+    )
+
+    expect(failure).toEqual(
+      new Conflict({ reason: "branch_already_on_ticket" })
+    )
+    expect(docs.documents.get("T-1")).toMatchObject({ branch: "feat/T-1" })
+  }).pipe(Effect.provide(stackLayer(docs)))
+})
+
+it.effect("attachBranch rejects a branch stacked on another ticket", () => {
+  const docs = makeFakeTicketDocs(["T-1", "T-2"])
+  docs.documents.set(
+    "T-1",
+    makeTicketDocument("T-1", {
+      branch: "feat/T-1",
+      stack: [{ branch: "shared-ui", base: "feat/T-1" }]
+    })
+  )
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    expect(
+      yield* Effect.flip(tickets.attachBranch("T-2", { name: "shared-ui" }))
+    ).toEqual(new Conflict({ reason: "branch_on_other_ticket" }))
+    expect(docs.documents.get("T-2")?.branch).toBeNull()
+  }).pipe(Effect.provide(stackLayer(docs)))
+})
+
+it.effect("stackBranch refuses branches that can't be stacked", () => {
+  const docs = makeFakeTicketDocs(["T-1", "T-2", "T-3"])
+  docs.documents.set(
+    "T-1",
+    makeTicketDocument("T-1", {
+      branch: "feat/T-1",
+      stack: [{ branch: "feat/T-1-ui" }]
+    })
+  )
+  docs.documents.set("T-3", makeTicketDocument("T-3", { branch: "feat/T-3" }))
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const failures = yield* Effect.forEach(
+      [
+        ["T-2", "feat/T-2-ui"],
+        ["T-1", "feat/T-1"],
+        ["T-1", "feat/T-1-ui"],
+        ["T-1", "missing"],
+        ["T-1", "feat/T-3"]
+      ] as const,
+      ([id, name]) => Effect.flip(tickets.stackBranch(id, { name }))
+    )
+
+    expect(failures).toEqual([
+      new Conflict({ reason: "no_branch_on_ticket" }),
+      new Conflict({ reason: "branch_already_on_ticket" }),
+      new Conflict({ reason: "branch_already_on_ticket" }),
+      new BranchNotFound({ name: "missing" }),
+      new Conflict({ reason: "branch_on_other_ticket" })
+    ])
+  }).pipe(Effect.provide(stackLayer(docs)))
+})
+
+it.effect(
+  "unstackBranch removes a stacked branch and ignores it from then on",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    docs.documents.set(
+      "T-1",
+      makeTicketDocument("T-1", {
+        branch: "feat/T-1",
+        stack: [{ branch: "feat/T-1-ui" }, { branch: "feat/T-1-docs" }]
+      })
+    )
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      yield* tickets.unstackBranch("T-1", { name: "feat/T-1-ui" })
+      const missing = yield* Effect.flip(
+        tickets.unstackBranch("T-1", { name: "feat/T-1-ui" })
+      )
+
+      expect(docs.documents.get("T-1")).toMatchObject({
+        stack: [{ branch: "feat/T-1-docs" }],
+        ignoredBranches: ["feat/T-1-ui"]
+      })
+      expect(missing).toEqual(new Conflict({ reason: "branch_not_stacked" }))
+    }).pipe(Effect.provide(stackLayer(docs)))
+  }
+)
+
+it.effect("clearBranch drops the stack and the pull request base", () => {
+  const docs = makeFakeTicketDocs(["T-1"])
+  docs.documents.set(
+    "T-1",
+    makeTicketDocument("T-1", {
+      branch: "feat/T-1",
+      pr: 41,
+      prState: "open",
+      prBase: "main",
+      stack: [{ branch: "feat/T-1-ui" }]
+    })
+  )
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    yield* tickets.clearBranch("T-1")
+
+    const cleared = docs.documents.get("T-1")
+    expect(cleared?.branch).toBeNull()
+    expect(cleared?.stack).toEqual([])
+    expect(cleared).not.toHaveProperty("prBase")
+  }).pipe(Effect.provide(stackLayer(docs)))
+})
+
+it.effect(
+  "listGitStates stacks a discovered pull request and follows stacked ones",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    docs.documents.set(
+      "T-1",
+      makeTicketDocument("T-1", {
+        branch: "feat/T-1",
+        pr: 41,
+        prState: "open",
+        prBase: "main",
+        stack: [{ branch: "feat/T-1-api", base: "feat/T-1" }]
+      })
+    )
+    const requested: Array<ReadonlyArray<string>> = []
+    const pr = (
+      headRefName: string,
+      baseRefName: string,
+      number: number,
+      state: "open" | "merged" = "open"
+    ) =>
+      [
+        headRefName,
+        {
+          headRefName,
+          baseRefName,
+          state,
+          draft: false,
+          number,
+          url: `https://github.com/acme/app/pull/${number}`,
+          title: headRefName,
+          mergedAt: null,
+          checks: "passing" as const
+        }
+      ] as const
+    const layer = stackLayer(docs, {
+      fetchInstallationProjectStates: (_i, _o, _r, branches) => {
+        requested.push(branches)
+        return Effect.succeed({
+          defaultBranch: "main",
+          existingBranches: new Set([
+            "feat/T-1",
+            "feat/T-1-api",
+            "checkout-ui"
+          ]),
+          prByBranch: new Map([
+            pr("feat/T-1", "main", 41),
+            pr("feat/T-1-api", "feat/T-1", 42, "merged"),
+            pr("checkout-ui", "feat/T-1-api", 43)
+          ]),
+          openPullRequestText: new Map([
+            ["checkout-ui", { title: "T-1: checkout UI", body: "" }]
+          ])
+        })
+      }
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const result = yield* tickets.listGitStates()
+
+      expect(requested).toEqual([["feat/T-1", "feat/T-1-api"]])
+      expect(result.changedTicketIds).toEqual(["T-1"])
+      expect(docs.documents.get("T-1")?.stack).toEqual([
+        { branch: "feat/T-1-api", base: "feat/T-1", pr: 42, prState: "merged" },
+        { branch: "checkout-ui", base: "feat/T-1-api", pr: 43, prState: "open" }
+      ])
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "listGitStates discovers stack branches even when the owning PR is merged",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    docs.documents.set(
+      "T-1",
+      makeTicketDocument("T-1", {
+        branch: "feat/T-1",
+        pr: 41,
+        prState: "merged",
+        lastTransitionedPr: 41
+      })
+    )
+    const queries: Array<string | undefined> = []
+    const layer = stackLayer(docs, {
+      fetchInstallationProjectStates: (_i, _o, _r, _branches, query) => {
+        queries.push(query)
+        return Effect.succeed({
+          defaultBranch: "main",
+          existingBranches: new Set(),
+          prByBranch: new Map()
+        })
+      }
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      yield* tickets.listGitStates()
+      expect(queries).toEqual(["T-"])
     }).pipe(Effect.provide(layer))
   }
 )

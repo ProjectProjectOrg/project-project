@@ -4,6 +4,7 @@ import {
   UserId,
   type GroupDetail,
   type TicketActivityChange,
+  type TicketBranchEntry,
   type TicketId
 } from "@pp/shared"
 import * as Schema from "effect/Schema"
@@ -27,7 +28,13 @@ export type TicketChangeSource = Pick<
   | "branch"
   | "pr"
   | "prState"
+  | "stack"
 >
+
+type PullRequestFields = Readonly<{
+  pr: number | null
+  prState: TicketChangeSource["prState"]
+}>
 
 const listDiff = <A>(
   before: ReadonlyArray<A>,
@@ -41,8 +48,8 @@ const listDiff = <A>(
 }
 
 const prChange = (
-  before: TicketChangeSource,
-  after: TicketChangeSource
+  before: PullRequestFields,
+  after: PullRequestFields
 ): TicketActivityChange | null => {
   if (after.pr === null) return null
   const samePr = before.pr === after.pr
@@ -52,6 +59,38 @@ const prChange = (
   const reopened = before.prState === "closed" || before.prState === "merged"
   if (samePr && !reopened) return null
   return { kind: "pr_opened", number: after.pr }
+}
+
+const layerPullRequest = (
+  layer: TicketBranchEntry | undefined
+): PullRequestFields => ({
+  pr: layer?.pr ?? null,
+  prState: layer?.prState ?? null
+})
+
+const stackChanges = (
+  before: TicketChangeSource,
+  after: TicketChangeSource
+): ReadonlyArray<TicketActivityChange> => {
+  const previous = new Map(
+    (before.stack ?? []).map((layer) => [layer.branch, layer])
+  )
+  const next = new Set((after.stack ?? []).map((layer) => layer.branch))
+  const changes: Array<TicketActivityChange> = []
+  for (const layer of before.stack ?? []) {
+    if (!next.has(layer.branch)) {
+      changes.push({ kind: "stack_branch_removed", branch: layer.branch })
+    }
+  }
+  for (const layer of after.stack ?? []) {
+    const earlier = previous.get(layer.branch)
+    if (earlier === undefined) {
+      changes.push({ kind: "stack_branch_added", branch: layer.branch })
+    }
+    const pr = prChange(layerPullRequest(earlier), layerPullRequest(layer))
+    if (pr !== null) changes.push(pr)
+  }
+  return changes
 }
 
 export const ticketChanges = (
@@ -130,6 +169,7 @@ export const ticketChanges = (
   }
   const pr = prChange(before, after)
   if (pr !== null) changes.push(pr)
+  changes.push(...stackChanges(before, after))
   return changes
 }
 

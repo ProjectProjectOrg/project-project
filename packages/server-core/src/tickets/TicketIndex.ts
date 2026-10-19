@@ -9,7 +9,8 @@ import type {
   TicketType,
   TicketCountQuery,
   TicketListQuery,
-  TicketSort
+  TicketSort,
+  TicketBranchEntry
 } from "@pp/shared"
 import type { NotFound } from "@pp/shared"
 import * as Context from "effect/Context"
@@ -222,9 +223,18 @@ export interface TicketIndexShape {
     projectId: string,
     branch: string
   ) => Effect.Effect<ReadonlyArray<TicketIndexMatch>>
+  readonly findStackLayers: (
+    projectId: string,
+    branch: string
+  ) => Effect.Effect<ReadonlyArray<TicketIndexMatch>>
+  readonly stacksFor: (
+    project: TicketIndexProject,
+    ticketIds?: ReadonlyArray<string>
+  ) => Effect.Effect<ReadonlyMap<string, ReadonlyArray<TicketBranchEntry>>>
   readonly isRepositoryBranchAttached: (
     repoId: string,
-    branch: string
+    branch: string,
+    stackedOnly?: boolean
   ) => Effect.Effect<boolean>
   readonly getBranchDeletedAt: (
     orgSlug: string,

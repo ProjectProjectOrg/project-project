@@ -38,13 +38,20 @@ import {
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import {
   planPullRequestPatch,
-  planPullRequestWebhookTicket
+  planPullRequestWebhookTicket,
+  withPullRequestBase
 } from "../tickets/ticketGitStatePlanner"
 import {
   TicketIndex,
   type TicketIndexProject,
   type TicketIndexShape
 } from "../tickets/TicketIndex"
+import {
+  planLayerPullRequest,
+  planStackAttach,
+  replaceLayer,
+  type StackPullRequest
+} from "../tickets/ticketStack"
 import {
   GitHubWebhooks,
   type GitHubBranchDeletionChange,
@@ -80,9 +87,25 @@ type PullRequestWebhookDeps = Readonly<{
 type PullRequestWebhookPatch = Partial<
   Pick<
     TicketDocument,
-    "branch" | "pr" | "prState" | "prDraft" | "lastTransitionedPr"
+    | "branch"
+    | "pr"
+    | "prState"
+    | "prDraft"
+    | "prBase"
+    | "lastTransitionedPr"
+    | "stack"
   >
 >
+
+const stackPullRequest = (
+  change: GitHubPullRequestWebhookChange
+): StackPullRequest => ({
+  branch: change.branch,
+  base: change.baseBranch,
+  number: change.number,
+  state: change.state,
+  draft: change.draft
+})
 
 const writePullRequestWebhook = (
   deps: PullRequestWebhookDeps,
@@ -196,12 +219,43 @@ export const applyPullRequestWebhookToTicket = (
           )
           return null
         }
-        return planPullRequestWebhookTicket(
-          { ...ticket, prDraft: ticket.prDraft ?? false },
-          change
+        return withPullRequestBase(
+          planPullRequestWebhookTicket(
+            { ...ticket, prDraft: ticket.prDraft ?? false },
+            change
+          ),
+          ticket,
+          { number: change.number, base: change.baseBranch }
         )
       })
     )
+  )
+
+export const applyPullRequestWebhookToLayer = (
+  deps: PullRequestWebhookDeps,
+  match: PullRequestWebhookMatch,
+  change: GitHubPullRequestWebhookChange,
+  deliveryId: string | null
+): Effect.Effect<void, MarkdownError> =>
+  deps.ticketDocumentLock.withTicketDocumentLock(
+    match.orgSlug,
+    match.projectSlug,
+    match.ticketId,
+    writePullRequestWebhook(deps, match, change, deliveryId, (ticket) => {
+      const layer = ticket.stack?.find(
+        (candidate) => candidate.branch === match.branch
+      )
+      if (layer === undefined) {
+        return Effect.logDebug("github pull_request stack index stale").pipe(
+          Effect.annotateLogs({ branch: match.branch }),
+          Effect.as(null)
+        )
+      }
+      const next = planLayerPullRequest(layer, stackPullRequest(change))
+      return Effect.succeed(
+        next === null ? null : { stack: replaceLayer(ticket.stack, next) }
+      )
+    })
   )
 
 type PullRequestLinkSkip =
@@ -284,27 +338,43 @@ export const linkPullRequestWebhookToTicket = Effect.fn(
           match,
           change,
           deliveryId,
-          (ticket) =>
-            ticket.branch !== null ||
-            ticket.archivedAt !== null ||
-            ticket.branchAutoLinkDisabled === true
-              ? logSkipped("ticket_not_linkable", { ticketId }).pipe(
-                  Effect.as(null)
-                )
-              : Effect.succeed({
+          (ticket) => {
+            const notLinkable = logSkipped("ticket_not_linkable", {
+              ticketId
+            }).pipe(Effect.as(null))
+            if (ticket.archivedAt !== null) return notLinkable
+            if (ticket.branch !== null) {
+              const layer = planStackAttach(
+                ticket,
+                stackPullRequest(change),
+                source === "branch"
+              )
+              return layer === null
+                ? notLinkable
+                : Effect.succeed({ stack: [...(ticket.stack ?? []), layer] })
+            }
+            if (
+              ticket.branchAutoLinkDisabled === true ||
+              (ticket.ignoredBranches ?? []).includes(change.branch)
+            ) {
+              return notLinkable
+            }
+            return Effect.succeed({
+              branch: change.branch,
+              prBase: change.baseBranch,
+              ...planPullRequestPatch(
+                {
+                  ...ticket,
                   branch: change.branch,
-                  ...planPullRequestPatch(
-                    {
-                      ...ticket,
-                      branch: change.branch,
-                      pr: null,
-                      prState: null,
-                      prDraft: false,
-                      lastTransitionedPr: null
-                    },
-                    change
-                  )
-                })
+                  pr: null,
+                  prState: null,
+                  prDraft: false,
+                  lastTransitionedPr: null
+                },
+                change
+              )
+            })
+          }
         ).pipe(Effect.annotateLogs({ linkedFrom: source }))
       })
     )
@@ -1391,50 +1461,57 @@ export const GitHubWebhooksLive = Layer.effect(
         yield* Effect.forEach(
           links,
           (link) =>
-            ticketIndex.findTicketsByBranch(link.projectId, change.branch).pipe(
-              Effect.flatMap((matches) =>
-                matches.length === 0
-                  ? linkPullRequestWebhookToTicket(
-                      {
-                        ticketDocs,
-                        ticketIndex,
-                        ticketDocumentLock,
-                        gitAutomation,
-                        claimPullRequest: (
-                          update: GitHubPullRequestWebhookChange
-                        ) => rememberPullRequest(db, update)
-                      },
-                      link,
-                      { ...change, defaultBranch: link.defaultBranch },
-                      deliveryId
-                    ).pipe(
-                      Effect.annotateLogs({
-                        installationId: change.installationId,
-                        repositoryId: change.repositoryId,
-                        projectIntegrationLinkId: link.id
-                      })
-                    )
-                  : Effect.forEach(
-                      matches,
-                      (match) =>
-                        applyPullRequestWebhookToTicket(
-                          {
-                            ticketDocs,
-                            ticketIndex,
-                            ticketDocumentLock,
-                            gitAutomation,
-                            claimPullRequest: (
-                              update: GitHubPullRequestWebhookChange
-                            ) => rememberPullRequest(db, update)
-                          },
-                          match,
-                          { ...change, defaultBranch: link.defaultBranch },
-                          deliveryId
-                        ),
-                      { concurrency: 1 }
-                    ).pipe(Effect.asVoid)
+            Effect.gen(function* () {
+              const deps = {
+                ticketDocs,
+                ticketIndex,
+                ticketDocumentLock,
+                gitAutomation,
+                claimPullRequest: (update: GitHubPullRequestWebhookChange) =>
+                  rememberPullRequest(db, update)
+              }
+              const [owners, stacked] = yield* Effect.all([
+                ticketIndex.findTicketsByBranch(link.projectId, change.branch),
+                ticketIndex.findStackLayers(link.projectId, change.branch)
+              ])
+              if (owners.length === 0 && stacked.length === 0) {
+                yield* linkPullRequestWebhookToTicket(
+                  deps,
+                  link,
+                  { ...change, defaultBranch: link.defaultBranch },
+                  deliveryId
+                ).pipe(
+                  Effect.annotateLogs({
+                    installationId: change.installationId,
+                    repositoryId: change.repositoryId,
+                    projectIntegrationLinkId: link.id
+                  })
+                )
+                return
+              }
+              yield* Effect.forEach(
+                owners,
+                (match) =>
+                  applyPullRequestWebhookToTicket(
+                    deps,
+                    match,
+                    { ...change, defaultBranch: link.defaultBranch },
+                    deliveryId
+                  ),
+                { concurrency: 1, discard: true }
               )
-            ),
+              yield* Effect.forEach(
+                stacked,
+                (match) =>
+                  applyPullRequestWebhookToLayer(
+                    deps,
+                    match,
+                    { ...change, defaultBranch: link.defaultBranch },
+                    deliveryId
+                  ),
+                { concurrency: 1, discard: true }
+              )
+            }),
           { concurrency: 1 }
         )
       }

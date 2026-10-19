@@ -122,4 +122,14 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           tickets.attachBranch(params.id, payload)
         ).pipe(dieOnMarkdown)
       )
+      .handle("stackBranch", ({ params, payload }) =>
+        Effect.flatMap(Tickets, (tickets) =>
+          tickets.stackBranch(params.id, payload)
+        ).pipe(dieOnMarkdown)
+      )
+      .handle("unstackBranch", ({ params, payload }) =>
+        Effect.flatMap(Tickets, (tickets) =>
+          tickets.unstackBranch(params.id, payload)
+        ).pipe(dieOnMarkdown)
+      )
 )

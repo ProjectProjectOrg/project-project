@@ -75,6 +75,14 @@ export const TicketActivityChange = Schema.Union([
     kind: Schema.Literal("branch_unlinked"),
     branch: Schema.String
   }),
+  Schema.Struct({
+    kind: Schema.Literal("stack_branch_added"),
+    branch: Schema.String
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("stack_branch_removed"),
+    branch: Schema.String
+  }),
   Schema.Struct({ kind: Schema.Literal("pr_opened"), number: Schema.Finite }),
   Schema.Struct({ kind: Schema.Literal("pr_merged"), number: Schema.Finite }),
   Schema.Struct({ kind: Schema.Literal("pr_closed"), number: Schema.Finite })
@@ -86,6 +94,8 @@ export type TicketActivityKind = TicketActivityChange["kind"]
 export const GIT_ACTIVITY_KINDS: ReadonlySet<TicketActivityKind> = new Set([
   "branch_linked",
   "branch_unlinked",
+  "stack_branch_added",
+  "stack_branch_removed",
   "pr_opened",
   "pr_merged",
   "pr_closed"

@@ -33,6 +33,8 @@
   "tickets_activity_show_older": "Show older activity",
   "tickets_activity_split": "split this into",
   "tickets_activity_split_from": "split this from",
+  "tickets_activity_stack_branch_added": "stacked",
+  "tickets_activity_stack_branch_removed": "unstacked",
   "tickets_activity_tab": "Activity",
   "tickets_activity_tab_comments": "Comments",
   "tickets_activity_tabs_aria_label": "Comments and activity",

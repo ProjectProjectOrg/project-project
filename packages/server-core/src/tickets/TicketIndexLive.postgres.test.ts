@@ -334,6 +334,56 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         prBase: "main",
         ignoredBranches: ["spike"]
       })
+      expect(yield* index.findStackLayers(projectId, "ui")).toEqual([
+        { ...project, ticketId: "T-1", branch: "ui" }
+      ])
+      expect(yield* index.findStackLayers(projectId, "api")).toEqual([])
+      expect(yield* index.stacksFor(project)).toEqual(
+        new Map([
+          [
+            "T-1",
+            [
+              {
+                branch: "ui",
+                base: "api",
+                pr: 2,
+                prState: "merged",
+                landed: true
+              },
+              { branch: "docs" }
+            ]
+          ]
+        ])
+      )
+      expect(yield* index.stacksFor(project, [])).toEqual(new Map())
+
+      const repoId = `repo-${suffix}`
+      yield* withClient(async (client) => {
+        const integrationId = randomUUID()
+        const linkId = randomUUID()
+        await client.query(
+          `insert into organization_integration (id, organization_id, provider, status)
+               values ($1, $2, 'github', 'active')`,
+          [integrationId, organizationId]
+        )
+        await client.query(
+          `insert into project_integration_link
+                 (id, project_id, organization_id, organization_integration_id, provider, status)
+               values ($1, $2, $3, $4, 'github', 'active')`,
+          [linkId, projectId, organizationId, integrationId]
+        )
+        await client.query(
+          `insert into project_github_repository
+                 (project_integration_link_id, organization_id, status, repo_id, repo_owner, repo_name, default_branch)
+               values ($1, $2, 'active', $3, 'acme', 'app', 'main')`,
+          [linkId, organizationId, repoId]
+        )
+      })
+      expect(
+        yield* Effect.forEach(["api", "ui", "spike", "nope"], (branch) =>
+          index.isRepositoryBranchAttached(repoId, branch)
+        )
+      ).toEqual([true, true, false, false])
 
       yield* index.deleteTicket(project, "T-1")
       expect(yield* layers()).toEqual([])

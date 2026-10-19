@@ -241,6 +241,22 @@ export type TicketsShape = Readonly<{
     TicketReadError,
     ProjectScope | ActivityActor
   >
+  stackBranch: (
+    id: string,
+    input: AttachBranchInput
+  ) => Effect.Effect<
+    TicketDetail,
+    TicketReadError | Conflict | BranchNotFound | GitHubFailure,
+    ProjectScope | ActivityActor
+  >
+  unstackBranch: (
+    id: string,
+    input: AttachBranchInput
+  ) => Effect.Effect<
+    TicketDetail,
+    TicketReadError | Conflict,
+    ProjectScope | ActivityActor
+  >
   getGitState: (
     ticketId: string | undefined
   ) => Effect.Effect<GitStatesResponse, NotFound | MarkdownError, ProjectScope>

@@ -453,6 +453,23 @@ const attach_branch = (
     return yield* tickets.attachBranch(id, payload)
   })
 
+type StackBranchToolInput = Readonly<{
+  orgSlug: string
+  projectSlug: string
+  id: TicketId
+}> &
+  AttachBranchInput
+
+const stack_branch = (input: StackBranchToolInput) =>
+  Effect.flatMap(Tickets, (tickets) =>
+    tickets.stackBranch(input.id, { name: input.name })
+  )
+
+const unstack_branch = (input: StackBranchToolInput) =>
+  Effect.flatMap(Tickets, (tickets) =>
+    tickets.unstackBranch(input.id, { name: input.name })
+  )
+
 const create_sprint = (
   input: { orgSlug: string; projectSlug: string } & Omit<
     CreateGroupInput,
@@ -584,6 +601,8 @@ export const handlers: McpHandlers<McpHandlerEnv> = {
   ),
   create_comment: projectTool({ comment: ["create"] }, create_comment),
   attach_branch: projectTool({ github: ["write"] }, attach_branch),
+  stack_branch: projectTool({ github: ["write"] }, stack_branch),
+  unstack_branch: projectTool({ github: ["write"] }, unstack_branch),
   rebuild_ticket_index: projectTool(
     { settings: ["manage"] },
     rebuild_ticket_index

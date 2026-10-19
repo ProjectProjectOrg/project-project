@@ -6,7 +6,9 @@ import { describe, expect, it } from "vitest"
 import type { RawBranchEntry, RawProjectStates } from "../github/GitHub"
 import {
   planAutomaticBranchLinks,
+  planAutomaticStacks,
   planPullRequestWebhookTicket,
+  planStackPullRequests,
   planTicketGitStates,
   type TicketGitStateInput
 } from "./ticketGitStatePlanner"
@@ -102,7 +104,8 @@ describe("planTicketGitStates", () => {
           pr: 42,
           prState: "merged",
           prDraft: false,
-          lastTransitionedPr: 42
+          lastTransitionedPr: 42,
+          prBase: "release"
         },
         pullRequestBase: "release"
       }
@@ -118,6 +121,7 @@ describe("planTicketGitStates", () => {
           branch: "feat/T-1",
           pr: 42,
           prState: "merged",
+          prBase: "main",
           lastTransitionedPr: 42
         }
       ],
@@ -126,6 +130,25 @@ describe("planTicketGitStates", () => {
     )
 
     expect(plan.writes).toEqual([])
+  })
+
+  it("fills in or follows the base of a pull request it already recorded", () => {
+    const recorded = {
+      ...baseTicket,
+      branch: "feat/T-1",
+      pr: 42,
+      prState: "open" as const
+    }
+    for (const prBase of [undefined, "feat/T-0"]) {
+      const plan = planTicketGitStates(
+        [{ ...recorded, prBase }],
+        withPullRequest(pullRequest()),
+        now
+      )
+      expect(plan.writes).toEqual([
+        { ticketId: "T-1", patch: { prBase: "main" }, pullRequestBase: "main" }
+      ])
+    }
   })
 
   it("records a draft PR becoming ready for review", () => {
@@ -146,7 +169,7 @@ describe("planTicketGitStates", () => {
     expect(plan.writes).toEqual([
       {
         ticketId: "T-1",
-        patch: { pr: 42, prState: "open", prDraft: false },
+        patch: { pr: 42, prState: "open", prDraft: false, prBase: "main" },
         pullRequestBase: "main"
       }
     ])
@@ -268,6 +291,19 @@ describe("planAutomaticBranchLinks", () => {
         [ticketId("PP-13"), "bug/PP-13-fix"]
       ])
     )
+  })
+
+  it("skips a branch the ticket ignores", () => {
+    expect(
+      planAutomaticBranchLinks(
+        [
+          { ...ticket("PP-12"), ignoredBranches: ["feat/PP-12-spike"] },
+          ticket("PP-13")
+        ],
+        new Set(["feat/PP-12-spike", "bug/PP-13-fix"]),
+        "main"
+      )
+    ).toEqual(new Map([[ticketId("PP-13"), "bug/PP-13-fix"]]))
   })
 
   it("requires canonical token boundaries and schema-valid ids", () => {
@@ -406,5 +442,120 @@ describe("planAutomaticBranchLinks", () => {
         "main"
       )
     ).toEqual(new Map([[ticketId("PP-12"), "feat/PP-12-new"]]))
+  })
+})
+
+describe("stacked branches", () => {
+  const pr = (branch: string, base: string, overrides = {}) =>
+    [
+      branch,
+      pullRequest({ headRefName: branch, baseRefName: base, ...overrides })
+    ] as const
+
+  it("links the bottom of a chain of branches named for one ticket", () => {
+    const prs = new Map([
+      pr("feat/T-1-ui", "feat/T-1-api"),
+      pr("feat/T-1-api", "main")
+    ])
+    const branches = new Set(["feat/T-1-api", "feat/T-1-ui"])
+    const tickets = [{ ...baseTicket }]
+
+    const own = planAutomaticBranchLinks(
+      tickets,
+      branches,
+      "main",
+      new Map(),
+      prs
+    )
+
+    expect(own).toEqual(new Map([[ticketId("T-1"), "feat/T-1-api"]]))
+    expect(
+      planAutomaticStacks(tickets, own, branches, "main", new Map(), prs)
+    ).toEqual(
+      new Map([
+        [
+          ticketId("T-1"),
+          [
+            {
+              branch: "feat/T-1-ui",
+              base: "feat/T-1-api",
+              pr: 42,
+              prState: "open"
+            }
+          ]
+        ]
+      ])
+    )
+  })
+
+  it("leaves branches named for one ticket alone when they don't form a chain", () => {
+    expect(
+      planAutomaticBranchLinks(
+        [{ ...baseTicket }],
+        new Set(["feat/T-1-api", "feat/T-1-ui"]),
+        "main",
+        new Map(),
+        new Map([pr("feat/T-1-api", "main"), pr("feat/T-1-ui", "main")])
+      )
+    ).toEqual(new Map())
+  })
+
+  it("stacks branches on a ticket that already has one", () => {
+    const linked = {
+      ...baseTicket,
+      branch: "feat/T-1",
+      stack: [{ branch: "api", base: "feat/T-1" }],
+      ignoredBranches: ["feat/T-1-spike"]
+    }
+    const stacks = planAutomaticStacks(
+      [linked],
+      new Map(),
+      new Set([
+        "polish",
+        "ui",
+        "feat/T-1-docs",
+        "feat/T-1-spike",
+        "feat/T-1-old",
+        "unrelated"
+      ]),
+      "main",
+      new Map([
+        ["ui", { title: "T-1: checkout UI", body: "" }],
+        ["polish", { title: "Polish", body: "Fixes T-1" }]
+      ]),
+      new Map([
+        pr("polish", "ui"),
+        pr("ui", "api"),
+        pr("feat/T-1-spike", "feat/T-1"),
+        pr("feat/T-1-old", "feat/T-1", { state: "closed" }),
+        pr("unrelated", "feat/T-1")
+      ])
+    )
+
+    expect(
+      stacks.get(ticketId("T-1"))?.map((layer) => [layer.branch, layer.base])
+    ).toEqual([
+      ["feat/T-1-docs", undefined],
+      ["ui", "api"],
+      ["polish", "ui"]
+    ])
+  })
+
+  it("brings stacked branches up to their pull requests", () => {
+    expect(
+      planStackPullRequests(
+        [
+          { branch: "ui", base: "api", pr: 42, prState: "open" },
+          { branch: "docs" }
+        ],
+        new Map([
+          pr("ui", "feat/T-1", { state: "merged" }),
+          pr("docs", "ui", { draft: true, number: 43 })
+        ])
+      )
+    ).toEqual([
+      { branch: "ui", base: "feat/T-1", pr: 42, prState: "merged" },
+      { branch: "docs", base: "ui", pr: 43, prState: "open", prDraft: true }
+    ])
   })
 })

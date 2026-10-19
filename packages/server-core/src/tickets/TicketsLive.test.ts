@@ -172,6 +172,8 @@ const FakeTicketIndex = Layer.sync(TicketIndex, () => {
     findTicketIdsByTag: () => Effect.succeed([]),
     findTicketIdsByStatus: () => Effect.succeed([]),
     findTicketsByBranch: () => Effect.succeed([]),
+    findStackLayers: () => Effect.succeed([]),
+    stacksFor: () => Effect.succeed(new Map()),
     isRepositoryBranchAttached: () => Effect.succeed(false),
     getBranchDeletedAt: () => Effect.succeed(null),
     upsertTicket: () => Effect.void,
