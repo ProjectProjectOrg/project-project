@@ -2263,7 +2263,12 @@ export const TicketsLive = Layer.effect(
           }
           frontier = next
         }
-        return { ...raw, existingBranches, prByBranch }
+        return {
+          ...raw,
+          defaultBranch: projectGithub.defaultBaseBranch,
+          existingBranches,
+          prByBranch
+        }
       }
     )
 
