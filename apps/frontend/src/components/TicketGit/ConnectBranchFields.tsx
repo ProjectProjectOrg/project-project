@@ -19,7 +19,8 @@ import { Input } from "@/components/ui/input"
 import {
   attachBranch,
   branches,
-  branchesRequest
+  branchesRequest,
+  stackBranch
 } from "@/features/github/atoms/github"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { cn } from "@/lib/utils"
@@ -63,13 +64,15 @@ export function ConnectBranchFields({
   slug,
   ticket,
   github,
-  variant = "bordered"
+  variant = "bordered",
+  mode = "connect"
 }: {
   orgSlug: string
   slug: string
   ticket: TicketDetail
   github: GithubConnection
   variant?: "bordered" | "ghost"
+  mode?: "connect" | "stack"
 }) {
   const buttonSize = variant === "bordered" ? "sm" : "xs"
   const { busy, setBusy, close } = useInlineForm()
@@ -108,10 +111,10 @@ export function ConnectBranchFields({
     () => ({ req: projectRequest(orgSlug, slug), id: ticket.id }),
     [orgSlug, slug, ticket.id]
   )
-  const attach = useAtomSet(attachBranch(attachRequest), {
-    mode: "promiseExit"
-  })
-  const attachState = useAtomValue(attachBranch(attachRequest))
+  const mutation =
+    mode === "stack" ? stackBranch(attachRequest) : attachBranch(attachRequest)
+  const attach = useAtomSet(mutation, { mode: "promiseExit" })
+  const attachState = useAtomValue(mutation)
 
   const itemsCacheRef = useRef<BranchItemsCache>({
     repoId: github.repoId,
@@ -149,6 +152,17 @@ export function ConnectBranchFields({
                 m.git_github_scope_insufficient_error()
               ),
               Match.tag("RepoGone", () => m.git_repo_gone_error()),
+              Match.tag("Conflict", ({ reason }) =>
+                Match.value(reason).pipe(
+                  Match.when("branch_on_other_ticket", () =>
+                    m.git_stack_branch_on_other_ticket_error()
+                  ),
+                  Match.when("branch_already_on_ticket", () =>
+                    m.git_stack_branch_already_on_ticket_error()
+                  ),
+                  Match.orElse(() => m.git_attach_branch_error())
+                )
+              ),
               Match.orElse(() => m.git_attach_branch_error())
             ),
           onDefect: () => m.git_attach_branch_error()
@@ -275,9 +289,13 @@ export function ConnectBranchFields({
           onClick={() => selected && void submit(selected)}
           disabled={busy || !selected}
         >
-          {busy
-            ? m.git_connect_branch_in_progress()
-            : m.git_connect_branch_button()}
+          {mode === "stack"
+            ? busy
+              ? m.git_stack_add_in_progress()
+              : m.git_stack_add_button()
+            : busy
+              ? m.git_connect_branch_in_progress()
+              : m.git_connect_branch_button()}
         </Button>
       </div>
     </>

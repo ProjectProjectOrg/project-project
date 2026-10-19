@@ -127,6 +127,7 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
   findTicketsByBranch: () => unexpected("TicketIndex.findTicketsByBranch"),
   findStackLayers: () => unexpected("TicketIndex.findStackLayers"),
   stacksFor: () => unexpected("TicketIndex.stacksFor"),
+  findMergesAwaiting: () => unexpected("TicketIndex.findMergesAwaiting"),
   isRepositoryBranchAttached: () => Effect.succeed(false),
   getBranchDeletedAt: () => Effect.succeed(null),
   upsertTicket: () => unexpected("TicketIndex.upsertTicket"),

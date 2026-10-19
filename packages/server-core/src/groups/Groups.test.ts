@@ -236,6 +236,7 @@ function makeFakeDocs(initial?: {
     findTicketsByBranch: () => Effect.succeed([]),
     findStackLayers: () => Effect.succeed([]),
     stacksFor: () => Effect.succeed(new Map()),
+    findMergesAwaiting: () => Effect.succeed([]),
     isRepositoryBranchAttached: () => Effect.succeed(false),
     getBranchDeletedAt: () => Effect.succeed(null),
     upsertTicket: (_project, document) =>

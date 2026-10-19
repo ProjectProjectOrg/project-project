@@ -32,6 +32,7 @@ import type {
 import {
   applyPullRequestWebhookToLayer,
   applyPullRequestWebhookToTicket,
+  landMergesInto,
   linkPullRequestWebhookToTicket,
   makeGitHubWebhooks,
   type PullRequestWebhookMatch
@@ -872,6 +873,7 @@ const makeFakeIndex = (overrides: Partial<TicketIndexShape> = {}) => {
     findTicketsByBranch: () => Effect.succeed([]),
     findStackLayers: () => Effect.succeed([]),
     stacksFor: () => Effect.succeed(new Map()),
+    findMergesAwaiting: () => Effect.succeed([]),
     isRepositoryBranchAttached: () => Effect.succeed(false),
     getBranchDeletedAt: () => Effect.succeed(null),
     upsertTicket: (project, document) =>
@@ -1608,6 +1610,152 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           [80, "feat/T-0"],
           [80, "main"]
         ])
+      })
+  )
+
+  it.effect("stacked PR deliveries honor the ordering claim", () =>
+    Effect.gen(function* () {
+      const docs = makeFakeDocs([
+        baseDocument({
+          stack: [{ branch: "ui", base: "feat/T-1", pr: 81, prState: "open" }]
+        })
+      ])
+      const index = makeFakeIndex()
+      yield* applyPullRequestWebhookToLayer(
+        {
+          ticketDocs: docs.shape,
+          ticketIndex: index.shape,
+          ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+          gitAutomation: gitAutomationTestService(),
+          claimPullRequest: () => Effect.succeed(false)
+        },
+        baseMatch({ branch: "ui" }),
+        { ...openChange, branch: "ui", number: 81, state: "closed" },
+        "old-delivery"
+      )
+      expect(docs.documents.get("T-1")?.stack).toEqual([
+        { branch: "ui", base: "feat/T-1", pr: 81, prState: "open" }
+      ])
+      expect(docs.writes).toEqual([])
+    })
+  )
+
+  it.effect(
+    "landMergesInto lands merges waiting on a branch, up stacks and across tickets",
+    () =>
+      Effect.gen(function* () {
+        const docs = makeFakeDocs([
+          baseDocument({
+            id: ticketId("T-2"),
+            branch: "api",
+            pr: 20,
+            prState: "merged",
+            prBase: "feat/base",
+            stack: [
+              { branch: "ui", base: "api", pr: 21, prState: "merged" },
+              { branch: "docs", base: "api", pr: 22, prState: "open" }
+            ]
+          }),
+          baseDocument({
+            id: ticketId("T-3"),
+            branch: "polish",
+            pr: 30,
+            prState: "merged",
+            prBase: "ui"
+          }),
+          baseDocument({
+            id: ticketId("T-4"),
+            branch: "elsewhere",
+            pr: 40,
+            prState: "merged",
+            prBase: "other"
+          }),
+          ...[50, 60, 70].map((pr) =>
+            baseDocument({
+              id: ticketId(`T-${pr}`),
+              branch: `late-${pr}`,
+              pr,
+              prState: "merged",
+              prBase: "feat/base"
+            })
+          )
+        ])
+        const awaiting = (base: string) =>
+          [...docs.documents.values()].flatMap((document) => [
+            ...(document.prBase === base &&
+            document.prState === "merged" &&
+            document.branch !== null &&
+            document.lastTransitionedPr !== document.pr
+              ? [
+                  {
+                    ...baseMatch({
+                      ticketId: document.id,
+                      branch: document.branch
+                    }),
+                    stacked: false
+                  }
+                ]
+              : []),
+            ...(document.stack ?? [])
+              .filter(
+                (layer) =>
+                  layer.base === base &&
+                  layer.prState === "merged" &&
+                  layer.landed !== true
+              )
+              .map((layer) => ({
+                ...baseMatch({ ticketId: document.id, branch: layer.branch }),
+                stacked: true
+              }))
+          ])
+        const index = makeFakeIndex({
+          findMergesAwaiting: (_projectId, base) =>
+            Effect.sync(() => awaiting(base))
+        })
+
+        yield* landMergesInto(
+          {
+            ticketDocs: docs.shape,
+            ticketIndex: index.shape,
+            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+            gitAutomation: gitAutomationTestService()
+          },
+          "project-1",
+          "feat/base",
+          "delivery-1",
+          DateTime.toDate(DateTime.makeUnsafe("2026-05-01T12:00:00Z")),
+          new Map(
+            [
+              [20, "11"],
+              [21, "10"],
+              [30, "09"],
+              [50, "12"],
+              [60, "13"]
+            ].map(([pr, hour]) => [
+              Number(pr),
+              DateTime.toDate(DateTime.makeUnsafe(`2026-05-01T${hour}:00:00Z`))
+            ])
+          )
+        )
+
+        expect(docs.documents.get("T-2")).toMatchObject({
+          lastTransitionedPr: 20,
+          stack: [
+            { branch: "ui", prState: "merged", landed: true },
+            { branch: "docs", prState: "open" }
+          ],
+          status: "in_progress"
+        })
+        expect(docs.documents.get("T-3")).toMatchObject({
+          lastTransitionedPr: 30,
+          status: "done"
+        })
+        for (const pr of [50, 60, 70])
+          expect(docs.documents.get(`T-${pr}`)?.lastTransitionedPr).toBeNull()
+        expect(docs.documents.get("T-4")).toMatchObject({
+          lastTransitionedPr: null,
+          status: "in_progress"
+        })
       })
   )
 })

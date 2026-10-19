@@ -5,6 +5,7 @@ import { githubPullRequestReconciliation } from "@pp/db/schema"
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 
+import { pullRequestLanded } from "../tickets/ticketGitStatePlanner"
 import type { GitHubPullRequestWebhookChange } from "./GitHubWebhooks"
 
 export const rememberPullRequest = (
@@ -95,3 +96,52 @@ export const mergedPullRequestsForRepository = (
       )
     )
     .pipe(Effect.orDie)
+
+export const reconcilePullRequestChange = (
+  change: GitHubPullRequestWebhookChange,
+  defaultBranch: string,
+  history: ReadonlyArray<
+    Pick<
+      typeof githubPullRequestReconciliation.$inferSelect,
+      "branch" | "base" | "mergedAt"
+    >
+  >
+): GitHubPullRequestWebhookChange => {
+  const mergedPrsByBranch = new Map<
+    string,
+    ReadonlyArray<
+      Readonly<{
+        state: "merged"
+        baseRefName: string
+        mergedAt: Date | null
+      }>
+    >
+  >()
+  for (const pr of history) {
+    const candidates = mergedPrsByBranch.get(pr.branch) ?? []
+    mergedPrsByBranch.set(pr.branch, [
+      ...candidates,
+      {
+        state: "merged",
+        baseRefName: pr.base,
+        mergedAt: pr.mergedAt
+      }
+    ])
+  }
+  return {
+    ...change,
+    defaultBranch,
+    landed: pullRequestLanded(
+      {
+        state: change.state,
+        baseRefName: change.baseBranch,
+        mergedAt: change.mergedAt ?? null
+      },
+      {
+        defaultBranch,
+        prByBranch: new Map(),
+        mergedPrsByBranch
+      }
+    )
+  }
+}

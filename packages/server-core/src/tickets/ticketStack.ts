@@ -40,6 +40,7 @@ export type StackPullRequest = Readonly<{
   number: number
   state: "open" | "closed" | "merged"
   draft: boolean
+  landed: boolean
 }>
 
 type StackTicket = Readonly<{
@@ -57,10 +58,11 @@ export const ticketBranches = (
     ...(ticket.stack ?? []).map((layer) => layer.branch)
   ])
 
-const layerFor = (pr: StackPullRequest): TicketBranchEntry =>
+export const stackLayerFor = (pr: StackPullRequest): TicketBranchEntry =>
   Object.assign(
     { branch: pr.branch, base: pr.base, pr: pr.number, prState: pr.state },
-    pr.state === "open" && pr.draft ? { prDraft: true } : {}
+    pr.state === "open" && pr.draft ? { prDraft: true } : {},
+    pr.state === "merged" && pr.landed ? { landed: true } : {}
   )
 
 export const planStackAttach = (
@@ -72,7 +74,7 @@ export const planStackAttach = (
   const branches = ticketBranches(ticket)
   if (branches.has(pr.branch)) return null
   if ((ticket.ignoredBranches ?? []).includes(pr.branch)) return null
-  return branches.has(pr.base) || namedInBranch ? layerFor(pr) : null
+  return branches.has(pr.base) || namedInBranch ? stackLayerFor(pr) : null
 }
 
 export const planLayerPullRequest = (
@@ -87,12 +89,10 @@ export const planLayerPullRequest = (
   ) {
     return null
   }
-  const next = Object.assign(
-    layerFor(pr),
-    layer.landed && layer.pr === pr.number && pr.state === "merged"
-      ? { landed: true }
-      : {}
-  )
+  const next = stackLayerFor({
+    ...pr,
+    landed: pr.landed || (layer.landed === true && layer.pr === pr.number)
+  })
   const same =
     layer.base === next.base &&
     layer.pr === next.pr &&

@@ -1111,10 +1111,7 @@ export const TicketIndexLive = Layer.effect(
           Effect.orDie
         )
 
-    const findStackLayers = (
-      projectId: string,
-      branch: string
-    ): Effect.Effect<ReadonlyArray<TicketIndexMatch>> =>
+    const stackLayerMatches = (where: SQL | undefined) =>
       db
         .select({
           orgSlug: organization.slug,
@@ -1130,13 +1127,18 @@ export const TicketIndexLive = Layer.effect(
           organization,
           eq(organization.id, projectIndex.organizationId)
         )
-        .where(
-          and(
-            eq(ticketBranch.projectId, projectId),
-            eq(ticketBranch.branch, branch)
-          )
+        .where(where)
+
+    const findStackLayers = (
+      projectId: string,
+      branch: string
+    ): Effect.Effect<ReadonlyArray<TicketIndexMatch>> =>
+      stackLayerMatches(
+        and(
+          eq(ticketBranch.projectId, projectId),
+          eq(ticketBranch.branch, branch)
         )
-        .pipe(Effect.orDie)
+      ).pipe(Effect.orDie)
 
     const stacksFor = (
       project: TicketIndexProject,
@@ -1168,6 +1170,60 @@ export const TicketIndexLive = Layer.effect(
               }),
               Effect.orDie
             )
+
+    const findMergesAwaiting = (
+      projectId: string,
+      base: string
+    ): Effect.Effect<
+      ReadonlyArray<TicketIndexMatch & Readonly<{ stacked: boolean }>>
+    > =>
+      Effect.all([
+        db
+          .select({
+            orgSlug: organization.slug,
+            organizationId: projectIndex.organizationId,
+            projectId: ticketIndex.projectId,
+            projectSlug: projectIndex.slug,
+            ticketId: ticketIndex.ticketId,
+            branch: ticketIndex.branch
+          })
+          .from(ticketIndex)
+          .innerJoin(projectIndex, eq(projectIndex.id, ticketIndex.projectId))
+          .innerJoin(
+            organization,
+            eq(organization.id, projectIndex.organizationId)
+          )
+          .where(
+            and(
+              eq(ticketIndex.projectId, projectId),
+              eq(ticketIndex.prBase, base),
+              eq(ticketIndex.prState, "merged"),
+              isNotNull(ticketIndex.pr),
+              or(
+                isNull(ticketIndex.lastTransitionedPr),
+                ne(ticketIndex.lastTransitionedPr, ticketIndex.pr)
+              )
+            )
+          ),
+        stackLayerMatches(
+          and(
+            eq(ticketBranch.projectId, projectId),
+            eq(ticketBranch.base, base),
+            eq(ticketBranch.prState, "merged"),
+            eq(ticketBranch.landed, false)
+          )
+        )
+      ]).pipe(
+        Effect.map(([own, stacked]) => [
+          ...own.flatMap((row) =>
+            row.branch === null
+              ? []
+              : [{ ...row, branch: row.branch, stacked: false }]
+          ),
+          ...stacked.map((row) => ({ ...row, stacked: true }))
+        ]),
+        Effect.orDie
+      )
 
     const isRepositoryBranchAttached = (
       repoId: string,
@@ -1604,6 +1660,7 @@ export const TicketIndexLive = Layer.effect(
       findTicketsByBranch,
       findStackLayers,
       stacksFor,
+      findMergesAwaiting,
       isRepositoryBranchAttached,
       getBranchDeletedAt,
       upsertTicket,

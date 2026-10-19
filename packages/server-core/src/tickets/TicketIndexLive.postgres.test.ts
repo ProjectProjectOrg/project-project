@@ -266,7 +266,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         withClient(async (client) => {
           const result = await client.query(
             `select branch, position, base, pr_state, landed
-                 from ticket_branch where project_id = $1 order by position`,
+                 from ticket_branch where project_id = $1 and ticket_id = 'T-1' order by position`,
             [projectId]
           )
           return result.rows
@@ -384,6 +384,33 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           index.isRepositoryBranchAttached(repoId, branch)
         )
       ).toEqual([true, true, false, false])
+
+      yield* index.upsertTicket(
+        project,
+        indexedDocument("T-2", {
+          branch: "feat/two",
+          pr: 5,
+          prState: "merged",
+          prBase: "api",
+          stack: [
+            { branch: "two-ui", base: "feat/two", pr: 6, prState: "merged" },
+            {
+              branch: "two-docs",
+              base: "feat/two",
+              pr: 7,
+              prState: "merged",
+              landed: true
+            }
+          ]
+        })
+      )
+      expect(yield* index.findMergesAwaiting(projectId, "api")).toEqual([
+        { ...project, ticketId: "T-2", branch: "feat/two", stacked: false }
+      ])
+      expect(yield* index.findMergesAwaiting(projectId, "feat/two")).toEqual([
+        { ...project, ticketId: "T-2", branch: "two-ui", stacked: true }
+      ])
+      expect(yield* index.findMergesAwaiting(projectId, "main")).toEqual([])
 
       yield* index.deleteTicket(project, "T-1")
       expect(yield* layers()).toEqual([])

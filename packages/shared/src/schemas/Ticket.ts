@@ -9,7 +9,7 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
 import { Estimate } from "./Estimate"
-import { GitState } from "./GitState"
+import { GitState, StackLayerState } from "./GitState"
 import { GroupId } from "./GroupId"
 import { TemplateKey } from "./LibraryKey"
 import { ProjectKey } from "./Project"
@@ -87,6 +87,7 @@ export type Ticket = typeof Ticket.Type
 
 export const TicketDetail = Schema.Struct({
   ...Ticket.fields,
+  stack: Schema.optional(Schema.Array(StackLayerState)),
   splitFrom: Schema.optional(Schema.NullOr(TicketId)),
   creator: Schema.NullOr(User),
   updater: Schema.NullOr(User),

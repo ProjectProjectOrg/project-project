@@ -130,7 +130,11 @@ export function planAutomaticStacks(
           !(ticket.ignoredBranches ?? []).includes(branch)
           ? { branch }
           : null
-        : planStackAttach(planned, stackPullRequest(branch, pr), namedInBranch)
+        : planStackAttach(
+            planned,
+            stackPullRequest(branch, pr, { defaultBranch, prByBranch }),
+            namedInBranch
+          )
     if (layer === null) return false
     stacks.set(ticket.id, [...added, layer])
     attached.add(branch)
@@ -151,25 +155,72 @@ export function planAutomaticStacks(
 
 export const planStackPullRequests = (
   stack: ReadonlyArray<TicketBranchEntry> | undefined,
-  prByBranch: ReadonlyMap<string, RawBranchEntry>
+  context: LandingContext<RawBranchEntry>
 ): ReadonlyArray<TicketBranchEntry> =>
   (stack ?? []).map((layer) => {
-    const pr = prByBranch.get(layer.branch)
+    const pr = context.prByBranch.get(layer.branch)
     return pr === undefined
       ? layer
-      : (planLayerPullRequest(layer, stackPullRequest(layer.branch, pr)) ??
-          layer)
+      : (planLayerPullRequest(
+          layer,
+          stackPullRequest(layer.branch, pr, context)
+        ) ?? layer)
   })
+
+type MergeCandidate = Pick<RawBranchEntry, "state" | "baseRefName" | "mergedAt">
+
+type LandingContext<T extends MergeCandidate = MergeCandidate> = Readonly<{
+  defaultBranch: string
+  prByBranch: ReadonlyMap<string, T>
+  mergedPrsByBranch?: ReadonlyMap<string, ReadonlyArray<T>>
+}>
+
+export const pullRequestLanded = (
+  pr: MergeCandidate,
+  context: LandingContext
+): boolean => {
+  const visited = new Set<MergeCandidate>()
+  const pending = [pr]
+  while (pending.length > 0) {
+    const current = pending.pop()
+    if (
+      current === undefined ||
+      current.state !== "merged" ||
+      visited.has(current)
+    )
+      continue
+    visited.add(current)
+    if (current.baseRefName === context.defaultBranch) return true
+    if (current.mergedAt === null) continue
+    const selectedBase = context.prByBranch.get(current.baseRefName)
+    const bases = [
+      ...(context.mergedPrsByBranch?.get(current.baseRefName) ?? []),
+      ...(selectedBase ? [selectedBase] : [])
+    ]
+    for (const base of bases) {
+      if (
+        base.state === "merged" &&
+        base.mergedAt !== null &&
+        base.mergedAt > current.mergedAt
+      ) {
+        pending.push(base)
+      }
+    }
+  }
+  return false
+}
 
 export const stackPullRequest = (
   branch: string,
-  pr: RawBranchEntry
+  pr: RawBranchEntry,
+  context: LandingContext
 ): StackPullRequest => ({
   branch,
   base: pr.baseRefName,
   number: pr.number,
   state: pr.state,
-  draft: pr.draft
+  draft: pr.draft,
+  landed: pullRequestLanded(pr, context)
 })
 
 export interface TicketGitStateInput {
@@ -194,14 +245,14 @@ export type TicketGitStatePatch = Readonly<{
 export interface TicketGitStateWrite {
   readonly ticketId: TicketId
   readonly patch: TicketGitStatePatch
-  readonly pullRequestBase: string | null
 }
 
-export interface PullRequestWebhookInput {
-  readonly number: number
-  readonly state: "open" | "closed" | "merged"
-  readonly draft: boolean
-}
+export type PullRequestWebhookInput = Readonly<{
+  number: number
+  state: "open" | "closed" | "merged"
+  draft: boolean
+  landed: boolean
+}>
 
 export interface TicketGitStatePlan {
   readonly states: Record<string, GitState>
@@ -213,15 +264,18 @@ export function planPullRequestPatch(
   pr: PullRequestWebhookInput
 ): TicketGitStatePatch | null {
   if (pr.state === "merged") {
-    return ticket.pr === pr.number &&
+    const samePr = ticket.pr === pr.number
+    const landed =
+      pr.landed || (samePr && ticket.lastTransitionedPr === pr.number)
+    return samePr &&
       ticket.prState === "merged" &&
-      ticket.lastTransitionedPr === pr.number
+      (ticket.lastTransitionedPr === pr.number) === landed
       ? null
       : {
           pr: pr.number,
           prState: "merged",
           prDraft: false,
-          lastTransitionedPr: pr.number
+          lastTransitionedPr: landed ? pr.number : null
         }
   }
   const draft = pr.state === "open" && pr.draft
@@ -289,19 +343,15 @@ export function planTicketGitStates(
     }
 
     const patch = withPullRequestBase(
-      planPullRequestPatch(ticket, pr),
+      planPullRequestPatch(ticket, {
+        ...pr,
+        landed: pullRequestLanded(pr, raw)
+      }),
       ticket,
-      {
-        number: pr.number,
-        base: pr.baseRefName
-      }
+      { number: pr.number, base: pr.baseRefName }
     )
     if (patch) {
-      writes.push({
-        ticketId: ticket.id,
-        patch,
-        pullRequestBase: pr.baseRefName
-      })
+      writes.push({ ticketId: ticket.id, patch })
     }
 
     if (pr.state === "merged") {

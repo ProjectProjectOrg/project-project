@@ -71,7 +71,8 @@ describe("planLayerPullRequest", () => {
     base: "api",
     number: 42,
     state: "merged" as const,
-    draft: false
+    draft: false,
+    landed: false
   }
 
   it("keeps a landed merge landed while the pull request stays the same", () => {
@@ -122,7 +123,8 @@ describe("planStackAttach", () => {
     base: "api",
     number: 42,
     state: "open" as const,
-    draft: false
+    draft: false,
+    landed: false
   }
 
   it("stacks a pull request on one of the ticket's branches", () => {
