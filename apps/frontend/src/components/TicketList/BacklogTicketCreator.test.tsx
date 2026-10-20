@@ -1,6 +1,7 @@
 import { RegistryContext } from "@effect/atom-react"
 import { Library, type TicketListQuery } from "@pp/shared"
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -70,20 +71,37 @@ const setup = () => {
       <BacklogTicketCreator orgSlug="org" slug="project" query={query} />
     </RegistryContext.Provider>
   )
-  const input = screen.getByRole("textbox")
+  const input = screen.getByRole("combobox")
   fireEvent.focus(input)
   return { registry, posted, input: input as HTMLInputElement }
 }
 
 const chooseType = async (label: string) => {
   fireEvent.click(screen.getByLabelText(/^Type: /))
-  fireEvent.click(await screen.findByRole("menuitem", { name: label }))
+  fireEvent.click(await screen.findByRole("menuitemradio", { name: label }))
 }
 
 const submit = (input: HTMLInputElement, title: string) => {
   fireEvent.change(input, { target: { value: title } })
   fireEvent.submit(input.closest("form")!)
 }
+
+it("stays open while focus moves to the type chip, and Escape there closes it", () => {
+  const { registry, input } = setup()
+  const form = input.closest("form")!
+  const chip = screen.getByLabelText(/^Type: /)
+  try {
+    act(() => input.focus())
+    expect(form.hasAttribute("data-active")).toBe(true)
+    act(() => chip.focus())
+    expect(form.hasAttribute("data-active")).toBe(true)
+    fireEvent.keyDown(chip, { key: "Escape" })
+    expect(form.hasAttribute("data-active")).toBe(false)
+    expect(document.activeElement).not.toBe(chip)
+  } finally {
+    registry.dispose()
+  }
+})
 
 it("has no template chip", async () => {
   const { registry } = setup()
@@ -277,7 +295,7 @@ it("explains an unknown template and refetches the library", async () => {
       <BacklogTicketCreator orgSlug="org" slug="project" query={query} />
     </RegistryContext.Provider>
   )
-  const input = screen.getByRole("textbox") as HTMLInputElement
+  const input = screen.getByRole("combobox") as HTMLInputElement
   fireEvent.focus(input)
   try {
     await chooseType("Bug")
