@@ -70,7 +70,9 @@ export function GalleryTile({
       style={{ borderRadius: 14 }}
       className={cn(
         "group/reveal flex flex-col gap-2 rounded-md bg-surface-3 p-3 shadow-surface-1 transition-[background-color,box-shadow]",
-        expanded ? "block-rail-scope col-span-full gap-3" : "hover:bg-surface-4 hover:shadow-surface-1-hover"
+        expanded
+          ? "block-rail-scope col-span-full gap-3"
+          : "hover:bg-surface-4 hover:shadow-surface-1-hover"
       )}
     >
       <motion.div layout="position" className="flex items-center gap-2">
