@@ -37,7 +37,7 @@ export function BackButton({ fallback, label, className }: BackButtonProps) {
       {...fallback}
       onClick={handleClick}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-2 py-2 text-[13px] text-muted-foreground transition-all duration-100 hover:bg-accent/40 hover:text-foreground active:scale-[0.97]",
+        "inline-flex items-center gap-1.5 rounded-md px-2 py-2 text-[13px] text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]",
         fallback.className,
         className
       )}

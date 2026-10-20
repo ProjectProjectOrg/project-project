@@ -69,8 +69,8 @@ export function GalleryTile({
       data-expanded={expanded ? "" : undefined}
       style={{ borderRadius: 14 }}
       className={cn(
-        "group/reveal flex flex-col gap-2 rounded-md bg-surface-3 p-3 shadow-surface-1 transition-colors",
-        expanded ? "block-rail-scope col-span-full gap-3" : "hover:bg-accent/40"
+        "group/reveal flex flex-col gap-2 rounded-md bg-surface-3 p-3 shadow-surface-1 transition-[background-color,box-shadow]",
+        expanded ? "block-rail-scope col-span-full gap-3" : "hover:bg-surface-4 hover:shadow-surface-1-hover"
       )}
     >
       <motion.div layout="position" className="flex items-center gap-2">
@@ -130,7 +130,7 @@ export function GalleryTile({
           "mt-auto flex items-center gap-1 transition-opacity",
           expanded
             ? "ml-(--ticket-rail-inset)"
-            : "opacity-0 group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100"
+            : "opacity-0 group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100"
         )}
       >
         <Button

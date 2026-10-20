@@ -574,7 +574,7 @@ export function BranchChip({
         {...link}
         onClick={(e) => e.stopPropagation()}
         title={name}
-        className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-xs text-muted-foreground transition-colors duration-100 hover:bg-accent hover:text-foreground"
+        className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-xs text-muted-foreground transition-colors duration-100 hover:bg-hover hover:text-foreground"
       >
         <GitBranch className="size-3 shrink-0" strokeWidth={1.75} />
         <span className="min-w-0 truncate">{displayName ?? name}</span>
