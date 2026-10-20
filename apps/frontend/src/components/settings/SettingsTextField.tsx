@@ -1,4 +1,4 @@
-import { useEffect, useState, type ComponentProps } from "react"
+import { useEffect, useRef, useState, type ComponentProps } from "react"
 
 import {
   SEGMENTED_ITEM_CLASS,
@@ -33,12 +33,15 @@ export function SettingsTextField({
 }: SettingsTextFieldProps) {
   const { labelId, descriptionId } = useSettingsRow()
   const [draft, setDraft] = useState(value)
+  const cancelled = useRef(false)
 
   useEffect(() => setDraft(value), [value])
 
   const commit = () => {
     const trimmed = draft.trim()
-    if ((trimmed.length === 0 && !allowEmpty) || trimmed === value) {
+    const skip = cancelled.current
+    cancelled.current = false
+    if (skip || (trimmed.length === 0 && !allowEmpty) || trimmed === value) {
       setDraft(value)
       return
     }
@@ -53,7 +56,7 @@ export function SettingsTextField({
       onKeyDown={(event) => {
         if (event.key === "Enter") event.currentTarget.blur()
         if (event.key === "Escape") {
-          setDraft(value)
+          cancelled.current = true
           event.currentTarget.blur()
         }
       }}
@@ -93,8 +96,6 @@ export function SettingsSwitch(props: ComponentProps<typeof Switch>) {
   )
 }
 
-/** A segmented choice labelled by its settings row. Picking the active
- *  option again is a no-op; `waiting` pulses the control while a save runs. */
 export function SettingsSegmented<K extends string>({
   items,
   value,
