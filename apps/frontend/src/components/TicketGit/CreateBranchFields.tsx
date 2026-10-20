@@ -37,7 +37,8 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
@@ -348,7 +349,7 @@ function StatusDropdown({
             })}
             className={cn(
               "inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-xs",
-              "text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground",
+              "text-muted-foreground transition-colors hover:bg-hover hover:text-foreground",
               "disabled:cursor-not-allowed disabled:opacity-50"
             )}
           >
@@ -363,27 +364,25 @@ function StatusDropdown({
         }
       />
       <DropdownMenuContent align="start" sideOffset={6} className="w-44">
-        {slugs.map((key) => {
-          const meta = statusMetaFor(key, statuses)
-          const SIcon = meta.icon
-          return (
-            <DropdownMenuItem
-              key={key}
-              onClick={() => onChange(key as TicketStatus)}
-              className="cursor-pointer"
-            >
-              <SIcon
-                className={cn("size-4", meta.className)}
-                style={meta.color ? { color: meta.color } : undefined}
-                strokeWidth={1.75}
-              />
-              {statusLabelFor(key, statuses)}
-              {value === key && (
-                <Check className="ml-auto size-3.5 text-muted-foreground" />
-              )}
-            </DropdownMenuItem>
-          )
-        })}
+        <DropdownMenuRadioGroup
+          value={value}
+          onValueChange={(next: string) => onChange(next as TicketStatus)}
+        >
+          {slugs.map((key) => {
+            const meta = statusMetaFor(key, statuses)
+            const SIcon = meta.icon
+            return (
+              <DropdownMenuRadioItem key={key} value={key} closeOnClick>
+                <SIcon
+                  className={cn("size-4", meta.className)}
+                  style={meta.color ? { color: meta.color } : undefined}
+                  strokeWidth={1.75}
+                />
+                {statusLabelFor(key, statuses)}
+              </DropdownMenuRadioItem>
+            )
+          })}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

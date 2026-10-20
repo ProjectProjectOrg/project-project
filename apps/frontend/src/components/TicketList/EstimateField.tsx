@@ -8,7 +8,7 @@ import {
   type EstimationMode,
   type UpdateTicketInput
 } from "@pp/shared"
-import { Check, Plus, X } from "lucide-react"
+import { Plus, X } from "lucide-react"
 import { useId, useState, type FormEvent, type ReactElement } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
@@ -99,25 +101,24 @@ export function EstimateBadgeTrigger({
         finalFocus={false}
         onClick={(e) => e.stopPropagation()}
       >
-        {ESTIMATE_SIZES.map((value) => {
-          const selected =
-            ticket.estimate?.unit === "tshirt" &&
-            ticket.estimate.value === value
-          return (
-            <DropdownMenuItem
-              key={value}
-              onClick={() => {
-                if (!selected) onPatch({ estimate: { unit, value } })
-              }}
-              className="cursor-pointer"
-            >
+        <DropdownMenuRadioGroup
+          value={
+            ticket.estimate?.unit === "tshirt" ? ticket.estimate.value : ""
+          }
+          onValueChange={(next: string) => {
+            const value = next as (typeof ESTIMATE_SIZES)[number]
+            const selected =
+              ticket.estimate?.unit === "tshirt" &&
+              ticket.estimate.value === value
+            if (!selected) onPatch({ estimate: { unit, value } })
+          }}
+        >
+          {ESTIMATE_SIZES.map((value) => (
+            <DropdownMenuRadioItem key={value} value={value} closeOnClick>
               {value}
-              {selected && (
-                <Check className="ml-auto size-3.5 text-muted-foreground" />
-              )}
-            </DropdownMenuItem>
-          )
-        })}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
         {ticket.estimate !== null && (
           <>
             <DropdownMenuSeparator />
@@ -156,7 +157,10 @@ function estimateTrigger(
       onClick={(e) => e.stopPropagation()}
       aria-label={m.tickets_estimate_aria_label({ label })}
       title={stale !== null ? m.tickets_estimate_stale_hint() : undefined}
-      className={cn(active === null && "text-muted-foreground", className)}
+      className={cn(
+        active === null && "text-muted-foreground hover:text-foreground",
+        className
+      )}
     >
       <Icon className="size-3.5" strokeWidth={1.75} />
       <span>{label}</span>

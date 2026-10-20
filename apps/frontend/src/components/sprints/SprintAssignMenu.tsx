@@ -6,9 +6,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { menuItemMetaClass } from "@/components/ui/menu-styles"
 
 type TriggerRender = ComponentProps<typeof DropdownMenuTrigger>["render"]
 import {
@@ -18,7 +21,6 @@ import {
   type Group
 } from "@pp/shared"
 
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -41,7 +43,7 @@ export type SprintAssignMenuProps = {
   onClear?: () => void
   onRequestNewSprint?: () => void
   open?: boolean
-  onOpenChange?: (open: boolean) => void
+  onOpenChange?: ComponentProps<typeof DropdownMenu>["onOpenChange"]
   finalFocus?: ComponentProps<typeof DropdownMenuContent>["finalFocus"]
   clearLabel?: string
 }
@@ -125,46 +127,33 @@ function SprintAssignMenuItems({
       <div className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">
         {m.tickets_sprint_popover_title()}
       </div>
-      {eligible.map((s) => {
-        const isCurrent = selectedId === s.id
-        return (
-          <DropdownMenuItem
-            key={s.id}
-            onClick={() => {
-              if (!isCurrent) onSelect(s)
-            }}
-            className={cn(
-              "flex cursor-pointer items-center gap-2",
-              isCurrent && "bg-accent/40"
-            )}
-          >
+      <DropdownMenuRadioGroup
+        value={selectedId}
+        onValueChange={(id: Group["id"]) => {
+          const next = eligible.find((s) => s.id === id)
+          if (next && id !== selectedId) onSelect(next)
+        }}
+      >
+        {eligible.map((s) => (
+          <DropdownMenuRadioItem key={s.id} value={s.id} closeOnClick>
             <SprintStateIcon sprint={s} size="xs" />
-            <span className="min-w-0 flex-1 truncate text-sm">{s.name}</span>
-            <span className="font-mono text-[11px] text-muted-foreground">
+            <span className="min-w-0 flex-1 truncate">{s.name}</span>
+            <span data-menu-meta className={menuItemMetaClass}>
               {rangeText(s)}
             </span>
-          </DropdownMenuItem>
-        )
-      })}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
       {(onRequestNewSprint || onClear) && <DropdownMenuSeparator />}
       {onRequestNewSprint && (
-        <DropdownMenuItem
-          onClick={() => onRequestNewSprint()}
-          className="cursor-pointer"
-        >
-          <Plus className="size-3.5" strokeWidth={1.75} />
+        <DropdownMenuItem onClick={() => onRequestNewSprint()}>
+          <Plus strokeWidth={1.75} />
           {m.tickets_sprint_popover_new_sprint_action()}
         </DropdownMenuItem>
       )}
       {onClear && (
-        <DropdownMenuItem
-          onClick={() => onClear()}
-          className={cn(
-            "flex cursor-pointer items-center gap-2 text-muted-foreground",
-            !selectedId && "bg-accent/40 text-foreground"
-          )}
-        >
-          <X className="size-3.5" strokeWidth={1.75} />
+        <DropdownMenuItem onClick={() => onClear()}>
+          <X strokeWidth={1.75} />
           {clearLabel ?? m.tickets_sprint_popover_remove_action()}
         </DropdownMenuItem>
       )}
