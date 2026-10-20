@@ -5,6 +5,7 @@ import * as Match from "effect/Match"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { ExternalLink } from "lucide-react"
 
+import { ErrorPage } from "@/components/ErrorPage"
 import {
   IntegrationDetail,
   IntegrationStatus
@@ -125,7 +126,24 @@ function GithubIntegrationPage() {
         }
       ]}
     >
-      {status && status.status !== "not_connected" ? (
+      <GithubAccount integration={integration} installError={installError} />
+    </IntegrationDetail>
+  )
+}
+
+function GithubAccount({
+  integration,
+  installError
+}: Readonly<{
+  integration: Result.AsyncResult<GithubOrgIntegrationStatus, unknown>
+  installError: string | null
+}>) {
+  return Result.matchWithError(integration, {
+    onInitial: () => null,
+    onError: (error) => <ErrorPage error={error} contained />,
+    onDefect: (defect) => <ErrorPage error={defect} contained />,
+    onSuccess: ({ value: status }) =>
+      status.status !== "not_connected" ? (
         <SettingsSection>
           <SettingsGroup>
             <SettingsRow
@@ -158,7 +176,6 @@ function GithubIntegrationPage() {
         <p role="alert" className="text-xs text-destructive">
           {installError}
         </p>
-      ) : null}
-    </IntegrationDetail>
-  )
+      ) : null
+  })
 }

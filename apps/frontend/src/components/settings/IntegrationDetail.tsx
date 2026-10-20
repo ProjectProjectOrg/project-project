@@ -1,18 +1,12 @@
 import { Link, type LinkProps } from "@tanstack/react-router"
-import { ChevronLeft } from "lucide-react"
-import { useId, type ReactNode } from "react"
+import { ArrowRight, ChevronLeft } from "lucide-react"
+import type { ReactNode } from "react"
 
-import {
-  LIBRARY_GRID_CLASS,
-  LibrarySectionHeader
-} from "@/components/Library/LibrarySection"
 import {
   IntegrationLogo,
   type IntegrationKind
 } from "@/components/settings/IntegrationLogo"
-import { IntegrationPreview } from "@/components/settings/IntegrationPreview"
 import { Badge, type BadgeTone } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
 
 export type IntegrationTone = "connected" | "attention" | "idle"
@@ -40,67 +34,50 @@ export function IntegrationCard({
   description,
   tone,
   status,
-  action,
   ...link
 }: Readonly<{
   kind: IntegrationKind
   name: string
   description: string
   tone: IntegrationTone
-  status: ReactNode | null
-  action: string
+  status: string | null
 }> &
   LinkProps) {
   return (
-    <div className="group/reveal relative isolate flex flex-col gap-2 rounded-[14px] bg-surface-3 p-3 shadow-surface-1 transition-[background-color,box-shadow] hover:bg-surface-4 hover:shadow-surface-1-hover has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring">
-      <span className="flex items-center gap-2">
-        <IntegrationLogo kind={kind} size="sm" />
-        <Link
-          {...link}
-          className="min-w-0 flex-1 truncate text-sm leading-snug font-medium outline-none after:absolute after:inset-0 after:z-10 after:rounded-[14px] after:content-['']"
-        >
-          {name}
-        </Link>
-        {status === null ? null : (
+    <Link
+      {...link}
+      className="group flex flex-col gap-3 rounded-lg border border-border bg-card p-4 transition-colors outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span className="flex items-start justify-between gap-2">
+        <IntegrationLogo kind={kind} />
+        <ArrowRight
+          className="size-4 shrink-0 -translate-x-1 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100"
+          strokeWidth={1.75}
+        />
+      </span>
+      <span className="flex flex-1 flex-col gap-1">
+        <span className="text-sm font-medium">{name}</span>
+        <span className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+          {description}
+        </span>
+      </span>
+      {status === null ? null : (
+        <span className="flex">
           <IntegrationStatus tone={tone} label={status} />
-        )}
-      </span>
-      <span className="text-xs text-foreground/80">{description}</span>
-      <IntegrationPreview kind={kind} />
-      <span className="mt-auto flex min-h-6 items-center">
-        <Button
-          variant="raised"
-          size="xs"
-          render={<span aria-hidden />}
-          className="opacity-0 transition-opacity group-hover/reveal:opacity-100 group-has-[a:focus-visible]/reveal:opacity-100"
-        >
-          {action}
-        </Button>
-      </span>
-    </div>
+        </span>
+      )}
+    </Link>
   )
 }
 
-export function IntegrationGrid({
-  title,
-  description,
-  children
-}: Readonly<{ title: string; description: string; children: ReactNode }>) {
-  const headingId = useId()
+export function IntegrationCardSkeleton() {
   return (
-    <section
-      aria-labelledby={headingId}
-      className="flex flex-col gap-3 rounded-2xl bg-surface-1 p-4"
-    >
-      <LibrarySectionHeader
-        id={headingId}
-        title={title}
-        description={description}
-      />
-      <div className={LIBRARY_GRID_CLASS}>{children}</div>
-    </section>
+    <div className="h-[10rem] animate-pulse rounded-lg border border-border bg-card" />
   )
 }
+
+export const INTEGRATION_GRID_CLASS =
+  "grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3"
 
 export type IntegrationMetaItem = Readonly<{ label: string; value: ReactNode }>
 

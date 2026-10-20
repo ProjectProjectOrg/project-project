@@ -1,8 +1,10 @@
 import { createFileRoute, type LinkProps } from "@tanstack/react-router"
 
 import {
+  INTEGRATION_GRID_CLASS,
   IntegrationCard,
-  IntegrationGrid
+  IntegrationCardSkeleton,
+  type IntegrationTone
 } from "@/components/settings/IntegrationDetail"
 import type { IntegrationKind } from "@/components/settings/IntegrationLogo"
 import {
@@ -79,70 +81,36 @@ function OrgIntegrations() {
   ]
   if (github.loading || storage.loading || (canManageEmail && email.loading))
     return (
-      <IntegrationGrid
-        title={m.org_integrations_connected_section()}
-        description={m.org_integrations_connected_description()}
-      >
+      <div className={INTEGRATION_GRID_CLASS}>
         {entries.map((entry) => (
-          <div
-            key={entry.kind}
-            className="h-[15rem] animate-pulse rounded-[14px] bg-surface-3 shadow-surface-1"
-          />
+          <IntegrationCardSkeleton key={entry.kind} />
         ))}
-      </IntegrationGrid>
+      </div>
     )
-  const connected = entries.filter((entry) => entry.state.connected)
-  const available = entries.filter((entry) => !entry.state.connected)
 
   return (
-    <>
-      {connected.length > 0 ? (
-        <IntegrationGrid
-          title={m.org_integrations_connected_section()}
-          description={m.org_integrations_connected_description()}
-        >
-          {connected.map((entry) => (
-            <Card key={entry.kind} orgSlug={orgSlug} entry={entry} />
-          ))}
-        </IntegrationGrid>
-      ) : null}
-      {available.length > 0 ? (
-        <IntegrationGrid
-          title={m.org_integrations_available_section()}
-          description={m.org_integrations_available_description()}
-        >
-          {available.map((entry) => (
-            <Card key={entry.kind} orgSlug={orgSlug} entry={entry} />
-          ))}
-        </IntegrationGrid>
-      ) : null}
-    </>
+    <div className={INTEGRATION_GRID_CLASS}>
+      {entries.toSorted(byTone).map((entry) => (
+        <IntegrationCard
+          key={entry.kind}
+          kind={entry.kind}
+          name={entry.name}
+          description={entry.description}
+          tone={entry.state.tone}
+          status={entry.state.label}
+          to={entry.to}
+          params={{ orgSlug }}
+        />
+      ))}
+    </div>
   )
 }
 
-function Card({ orgSlug, entry }: Readonly<{ orgSlug: string; entry: Entry }>) {
-  return (
-    <IntegrationCard
-      kind={entry.kind}
-      name={entry.name}
-      description={entry.description}
-      tone={entry.state.tone}
-      action={
-        entry.state.connected
-          ? m.org_integrations_manage_button()
-          : entry.kind === "everhour" || entry.kind === "figma"
-            ? m.org_integrations_view_button()
-            : m.org_integrations_set_up_button()
-      }
-      status={
-        entry.state.loading
-          ? null
-          : entry.state.tone === "connected"
-            ? m.org_integrations_status_connected()
-            : entry.state.label
-      }
-      to={entry.to}
-      params={{ orgSlug }}
-    />
-  )
+const TONE_ORDER: Readonly<Record<IntegrationTone, number>> = {
+  connected: 0,
+  attention: 1,
+  idle: 2
 }
+
+const byTone = (a: Entry, b: Entry) =>
+  TONE_ORDER[a.state.tone] - TONE_ORDER[b.state.tone]

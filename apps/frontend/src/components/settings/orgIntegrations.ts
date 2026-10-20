@@ -38,9 +38,16 @@ const attention = (): IntegrationState => ({
   loading: false
 })
 
-const connected = (label: string): IntegrationState => ({
+const unavailable = (): IntegrationState => ({
+  tone: "attention",
+  label: m.org_integrations_status_unavailable(),
+  connected: false,
+  loading: false
+})
+
+const connected = (): IntegrationState => ({
   tone: "connected",
-  label,
+  label: m.org_integrations_status_connected(),
   connected: true,
   loading: false
 })
@@ -48,41 +55,29 @@ const connected = (label: string): IntegrationState => ({
 export function useGithubAppState(orgSlug: string): IntegrationState {
   const result = useAtomValue(githubIntegration(githubOrgRequest(orgSlug)))
   if (Result.isInitial(result)) return loadingState
-  if (!Result.isSuccess(result)) return attention()
-  const { status, accountLogin } = result.value
-  if (status === "active")
-    return connected(
-      accountLogin
-        ? `${m.org_integrations_status_connected()} · ${accountLogin}`
-        : m.org_integrations_status_connected()
-    )
+  if (!Result.isSuccess(result)) return unavailable()
+  const { status } = result.value
+  if (status === "active") return connected()
   return status === "broken" ? attention() : notSetUp()
 }
 
 export function useStorageState(orgSlug: string): IntegrationState {
   const result = useAtomValue(orgStorage(storageRequest(orgSlug)))
   if (Result.isInitial(result)) return loadingState
-  if (!Result.isSuccess(result)) return attention()
-  const { status, bucket } = result.value
-  if (status === "active")
-    return connected(
-      bucket
-        ? `${m.org_integrations_status_connected()} · ${bucket}`
-        : m.org_integrations_status_connected()
-    )
+  if (!Result.isSuccess(result)) return unavailable()
+  const { status } = result.value
+  if (status === "active") return connected()
   return status === "broken" ? attention() : notSetUp()
 }
 
 export function useEmailState(orgSlug: string): IntegrationState {
   const result = useAtomValue(orgEmail(emailRequest(orgSlug)))
   if (Result.isInitial(result)) return loadingState
-  if (!Result.isSuccess(result)) return attention()
+  if (!Result.isSuccess(result)) return unavailable()
   const { settings, lastTest } = result.value
   if (!settings) return notSetUp()
   if (lastTest?.error) return attention()
-  return connected(
-    `${m.org_integrations_status_connected()} · ${settings.senderEmail}`
-  )
+  return connected()
 }
 
 export function perProjectState(
