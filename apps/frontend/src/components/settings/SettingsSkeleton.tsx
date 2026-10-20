@@ -1,7 +1,5 @@
 import { SettingsGroup } from "@/components/settings/SettingsSection"
 
-/** A settings group of pulsing row-height placeholders, shown while the
- *  values behind the rows load. */
 export function SettingsSkeleton({ rows = 1 }: Readonly<{ rows?: number }>) {
   return (
     <SettingsGroup>

@@ -130,9 +130,6 @@ function Cancel({
   )
 }
 
-/** What a confirm handler reports: nothing (a throw keeps the prompt open),
- *  whether it went through, or the Exit of a `promiseExit` mutation, whose
- *  failure is shown in place of the prompt. */
 type ConfirmOutcome<E> = void | boolean | Exit.Exit<unknown, E>
 
 const describeFailure = (cause: Cause.Cause<unknown>): string =>
@@ -149,9 +146,6 @@ const CONFIRM_SIZES = {
   }
 } as const
 
-/** The confirming half of a ConfirmButton: the prompt, a destructive button
- *  that runs `onConfirm` while the pair is busy, and Cancel. It closes when
- *  the handler succeeds and stays open otherwise. */
 function Action<E = unknown>({
   prompt,
   label,
@@ -209,9 +203,6 @@ function Action<E = unknown>({
       >
         {busy ? busyLabel : label}
       </Button>
-      {/* The trigger unmounts when the prompt opens, so focus has to land
-          in here. Cancel, not the destructive action, so a repeated Enter
-          backs out instead of deleting (APG alert dialog pattern). */}
       {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- focus follows the click that opened the prompt */}
       <Cancel {...styles.cancel} autoFocus>
         {cancelLabel}

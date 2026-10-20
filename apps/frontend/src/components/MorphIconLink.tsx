@@ -10,9 +10,6 @@ type Props = Omit<
 > &
   Readonly<{ layoutId: string; label: string; icon: LucideIcon }>
 
-/** A small icon link on a chip or tile that keeps its place while the chip
- *  morphs into the tile and back. Mouse-down stops at the link so the editor
- *  doesn't select the node underneath. */
 export function MorphIconLink({ label, icon: Icon, ...props }: Props) {
   return (
     <motion.a

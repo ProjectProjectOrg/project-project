@@ -90,8 +90,6 @@ export function RoleSelect<R extends string>({
   )
 }
 
-/** Email + role invite field. State and the mutation stay with the caller;
- *  project and org invites key and report their errors differently. */
 export function AddMemberForm({
   email,
   onEmailChange,

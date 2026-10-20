@@ -23,9 +23,6 @@ type FieldSlot<V extends string> = Readonly<{
   onChange: (value: V) => void
 }>
 
-/** A step that maps each Jira value (issue type, priority) onto one of a
- *  fixed set of project values. The caller owns the typed `form.Field`, so
- *  each step keeps its own field path; this renders everything around it. */
 export function EnumMappingStep<V extends string>({
   title,
   description,
