@@ -119,14 +119,13 @@ export function TagsPlanningStep({
                           }
                         />
                         <SelectContent>
-                          <SelectItem value={backlogValue} index={0}>
+                          <SelectItem value={backlogValue}>
                             {m.jira_migration_backlog()}
                           </SelectItem>
-                          {choice.options.map((option, optionIndex) => (
+                          {choice.options.map((option) => (
                             <SelectItem
                               key={option.jiraSprintId}
                               value={option.jiraSprintId}
-                              index={optionIndex + 1}
                             >
                               {option.name}
                             </SelectItem>
