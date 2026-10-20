@@ -13,8 +13,13 @@ import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as AuthedRouteRouteImport } from './routes/_authed/route'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite.$invitationId'
-import { Route as AuthedProfileRouteImport } from './routes/_authed/profile'
 import { Route as publicLoginRouteImport } from './routes/(public)/login'
+import { Route as AuthedProfileRouteRouteImport } from './routes/_authed/profile/route'
+import { Route as AuthedProfileIndexRouteImport } from './routes/_authed/profile/index'
+import { Route as AuthedProfilePreferencesRouteImport } from './routes/_authed/profile/preferences'
+import { Route as AuthedProfileConnectionsRouteImport } from './routes/_authed/profile/connections'
+import { Route as AuthedProfileAgentsRouteImport } from './routes/_authed/profile/agents'
+import { Route as AuthedProfileAccountRouteImport } from './routes/_authed/profile/account'
 import { Route as publicOauthConsentRouteImport } from './routes/(public)/oauth.consent'
 import { Route as AuthedOrgsOrgSlugRouteRouteImport } from './routes/_authed/orgs/$orgSlug/route'
 import { Route as AuthedOrgsOrgSlugIndexRouteImport } from './routes/_authed/orgs/$orgSlug/index'
@@ -27,21 +32,31 @@ import { Route as AuthedOrgsOrgSlugSettingsGeneralRouteImport } from './routes/_
 import { Route as AuthedOrgsOrgSlugSettingsEmailRouteImport } from './routes/_authed/orgs/$orgSlug/settings/email'
 import { Route as AuthedOrgsOrgSlugSettingsDangerRouteImport } from './routes/_authed/orgs/$orgSlug/settings/danger'
 import { Route as AuthedOrgsOrgSlugSettingsAttachmentsRouteImport } from './routes/_authed/orgs/$orgSlug/settings/attachments'
+import { Route as AuthedOrgsOrgSlugSettingsIntegrationsRouteRouteImport } from './routes/_authed/orgs/$orgSlug/settings/integrations/route'
 import { Route as AuthedOrgsOrgSlugProjectsSlugRouteRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/route'
 import { Route as AuthedOrgsOrgSlugSettingsTemplatesIndexRouteImport } from './routes/_authed/orgs/$orgSlug/settings/templates/index'
+import { Route as AuthedOrgsOrgSlugSettingsIntegrationsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/settings/integrations/index'
 import { Route as AuthedOrgsOrgSlugMigrationsJiraIndexRouteImport } from './routes/_authed/orgs/$orgSlug/migrations/jira/index'
 import { Route as AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRouteImport } from './routes/_authed/orgs/$orgSlug/settings/templates/$templateKey'
+import { Route as AuthedOrgsOrgSlugSettingsIntegrationsGithubRouteImport } from './routes/_authed/orgs/$orgSlug/settings/integrations/github'
+import { Route as AuthedOrgsOrgSlugSettingsIntegrationsFigmaRouteImport } from './routes/_authed/orgs/$orgSlug/settings/integrations/figma'
+import { Route as AuthedOrgsOrgSlugSettingsIntegrationsEverhourRouteImport } from './routes/_authed/orgs/$orgSlug/settings/integrations/everhour'
+import { Route as AuthedOrgsOrgSlugSettingsIntegrationsEmailRouteImport } from './routes/_authed/orgs/$orgSlug/settings/integrations/email'
 import { Route as AuthedOrgsOrgSlugMigrationsJiraMigrationIdRouteImport } from './routes/_authed/orgs/$orgSlug/migrations/jira/$migrationId'
+import { Route as AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRouteImport } from './routes/_authed/orgs/$orgSlug/settings/integrations/storage/route'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/route'
 import { Route as AuthedOrgsOrgSlugProjectsSlugProjectHeaderRouteRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/route'
+import { Route as AuthedOrgsOrgSlugSettingsIntegrationsStorageIndexRouteImport } from './routes/_authed/orgs/$orgSlug/settings/integrations/storage/index'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/index'
 import { Route as AuthedOrgsOrgSlugProjectsSlugProjectHeaderIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/index'
 import { Route as AuthedOrgsOrgSlugSettingsTemplatesBlocksBlockKeyRouteImport } from './routes/_authed/orgs/$orgSlug/settings/templates/blocks.$blockKey'
+import { Route as AuthedOrgsOrgSlugSettingsIntegrationsStorageFilesRouteImport } from './routes/_authed/orgs/$orgSlug/settings/integrations/storage/files'
 import { Route as AuthedOrgsOrgSlugProjectsSlugTicketsIdRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/tickets/$id'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/workflow'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsTeamRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/team'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/integrations'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/general'
+import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsDangerRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/danger'
 import { Route as AuthedOrgsOrgSlugProjectsSlugProjectHeaderAboutRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/about'
 import { Route as AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsRouteRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/route'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/templates/index'
@@ -70,15 +85,42 @@ const InviteInvitationIdRoute = InviteInvitationIdRouteImport.update({
   path: '/invite/$invitationId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthedProfileRoute = AuthedProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => AuthedRouteRoute,
-} as any)
 const publicLoginRoute = publicLoginRouteImport.update({
   id: '/(public)/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedProfileRouteRoute = AuthedProfileRouteRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AuthedRouteRoute,
+} as any)
+const AuthedProfileIndexRoute = AuthedProfileIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthedProfileRouteRoute,
+} as any)
+const AuthedProfilePreferencesRoute =
+  AuthedProfilePreferencesRouteImport.update({
+    id: '/preferences',
+    path: '/preferences',
+    getParentRoute: () => AuthedProfileRouteRoute,
+  } as any)
+const AuthedProfileConnectionsRoute =
+  AuthedProfileConnectionsRouteImport.update({
+    id: '/connections',
+    path: '/connections',
+    getParentRoute: () => AuthedProfileRouteRoute,
+  } as any)
+const AuthedProfileAgentsRoute = AuthedProfileAgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
+  getParentRoute: () => AuthedProfileRouteRoute,
+} as any)
+const AuthedProfileAccountRoute = AuthedProfileAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AuthedProfileRouteRoute,
 } as any)
 const publicOauthConsentRoute = publicOauthConsentRouteImport.update({
   id: '/(public)/oauth/consent',
@@ -149,6 +191,12 @@ const AuthedOrgsOrgSlugSettingsAttachmentsRoute =
     path: '/attachments',
     getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
   } as any)
+const AuthedOrgsOrgSlugSettingsIntegrationsRouteRoute =
+  AuthedOrgsOrgSlugSettingsIntegrationsRouteRouteImport.update({
+    id: '/integrations',
+    path: '/integrations',
+    getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
+  } as any)
 const AuthedOrgsOrgSlugProjectsSlugRouteRoute =
   AuthedOrgsOrgSlugProjectsSlugRouteRouteImport.update({
     id: '/projects/$slug',
@@ -160,6 +208,12 @@ const AuthedOrgsOrgSlugSettingsTemplatesIndexRoute =
     id: '/templates/',
     path: '/templates/',
     getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugSettingsIntegrationsIndexRoute =
+  AuthedOrgsOrgSlugSettingsIntegrationsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthedOrgsOrgSlugSettingsIntegrationsRouteRoute,
   } as any)
 const AuthedOrgsOrgSlugMigrationsJiraIndexRoute =
   AuthedOrgsOrgSlugMigrationsJiraIndexRouteImport.update({
@@ -173,11 +227,41 @@ const AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRoute =
     path: '/templates/$templateKey',
     getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
   } as any)
+const AuthedOrgsOrgSlugSettingsIntegrationsGithubRoute =
+  AuthedOrgsOrgSlugSettingsIntegrationsGithubRouteImport.update({
+    id: '/github',
+    path: '/github',
+    getParentRoute: () => AuthedOrgsOrgSlugSettingsIntegrationsRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugSettingsIntegrationsFigmaRoute =
+  AuthedOrgsOrgSlugSettingsIntegrationsFigmaRouteImport.update({
+    id: '/figma',
+    path: '/figma',
+    getParentRoute: () => AuthedOrgsOrgSlugSettingsIntegrationsRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugSettingsIntegrationsEverhourRoute =
+  AuthedOrgsOrgSlugSettingsIntegrationsEverhourRouteImport.update({
+    id: '/everhour',
+    path: '/everhour',
+    getParentRoute: () => AuthedOrgsOrgSlugSettingsIntegrationsRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugSettingsIntegrationsEmailRoute =
+  AuthedOrgsOrgSlugSettingsIntegrationsEmailRouteImport.update({
+    id: '/email',
+    path: '/email',
+    getParentRoute: () => AuthedOrgsOrgSlugSettingsIntegrationsRouteRoute,
+  } as any)
 const AuthedOrgsOrgSlugMigrationsJiraMigrationIdRoute =
   AuthedOrgsOrgSlugMigrationsJiraMigrationIdRouteImport.update({
     id: '/migrations/jira/$migrationId',
     path: '/migrations/jira/$migrationId',
     getParentRoute: () => AuthedOrgsOrgSlugRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRoute =
+  AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRouteImport.update({
+    id: '/storage',
+    path: '/storage',
+    getParentRoute: () => AuthedOrgsOrgSlugSettingsIntegrationsRouteRoute,
   } as any)
 const AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute =
   AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteImport.update({
@@ -189,6 +273,13 @@ const AuthedOrgsOrgSlugProjectsSlugProjectHeaderRouteRoute =
   AuthedOrgsOrgSlugProjectsSlugProjectHeaderRouteRouteImport.update({
     id: '/_projectHeader',
     getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugSettingsIntegrationsStorageIndexRoute =
+  AuthedOrgsOrgSlugSettingsIntegrationsStorageIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () =>
+      AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRoute,
   } as any)
 const AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute =
   AuthedOrgsOrgSlugProjectsSlugSettingsIndexRouteImport.update({
@@ -207,6 +298,13 @@ const AuthedOrgsOrgSlugSettingsTemplatesBlocksBlockKeyRoute =
     id: '/templates/blocks/$blockKey',
     path: '/templates/blocks/$blockKey',
     getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugSettingsIntegrationsStorageFilesRoute =
+  AuthedOrgsOrgSlugSettingsIntegrationsStorageFilesRouteImport.update({
+    id: '/files',
+    path: '/files',
+    getParentRoute: () =>
+      AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRoute,
   } as any)
 const AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute =
   AuthedOrgsOrgSlugProjectsSlugTicketsIdRouteImport.update({
@@ -236,6 +334,12 @@ const AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute =
   AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRouteImport.update({
     id: '/general',
     path: '/general',
+    getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugProjectsSlugSettingsDangerRoute =
+  AuthedOrgsOrgSlugProjectsSlugSettingsDangerRouteImport.update({
+    id: '/danger',
+    path: '/danger',
     getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute,
   } as any)
 const AuthedOrgsOrgSlugProjectsSlugProjectHeaderAboutRoute =
@@ -294,14 +398,20 @@ const AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesBlocksBlockKeyRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
   '/welcome': typeof WelcomeRoute
+  '/profile': typeof AuthedProfileRouteRouteWithChildren
   '/login': typeof publicLoginRoute
-  '/profile': typeof AuthedProfileRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
   '/oauth/consent': typeof publicOauthConsentRoute
+  '/profile/account': typeof AuthedProfileAccountRoute
+  '/profile/agents': typeof AuthedProfileAgentsRoute
+  '/profile/connections': typeof AuthedProfileConnectionsRoute
+  '/profile/preferences': typeof AuthedProfilePreferencesRoute
+  '/profile/': typeof AuthedProfileIndexRoute
   '/orgs/$orgSlug/settings': typeof AuthedOrgsOrgSlugSettingsRouteRouteWithChildren
   '/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderRouteRouteWithChildren
+  '/orgs/$orgSlug/settings/integrations': typeof AuthedOrgsOrgSlugSettingsIntegrationsRouteRouteWithChildren
   '/orgs/$orgSlug/settings/attachments': typeof AuthedOrgsOrgSlugSettingsAttachmentsRoute
   '/orgs/$orgSlug/settings/danger': typeof AuthedOrgsOrgSlugSettingsDangerRoute
   '/orgs/$orgSlug/settings/email': typeof AuthedOrgsOrgSlugSettingsEmailRoute
@@ -311,20 +421,29 @@ export interface FileRoutesByFullPath {
   '/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/orgs/$orgSlug/settings/': typeof AuthedOrgsOrgSlugSettingsIndexRoute
   '/orgs/$orgSlug/projects/$slug/settings': typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteWithChildren
+  '/orgs/$orgSlug/settings/integrations/storage': typeof AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRouteWithChildren
   '/orgs/$orgSlug/migrations/jira/$migrationId': typeof AuthedOrgsOrgSlugMigrationsJiraMigrationIdRoute
+  '/orgs/$orgSlug/settings/integrations/email': typeof AuthedOrgsOrgSlugSettingsIntegrationsEmailRoute
+  '/orgs/$orgSlug/settings/integrations/everhour': typeof AuthedOrgsOrgSlugSettingsIntegrationsEverhourRoute
+  '/orgs/$orgSlug/settings/integrations/figma': typeof AuthedOrgsOrgSlugSettingsIntegrationsFigmaRoute
+  '/orgs/$orgSlug/settings/integrations/github': typeof AuthedOrgsOrgSlugSettingsIntegrationsGithubRoute
   '/orgs/$orgSlug/settings/templates/$templateKey': typeof AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRoute
   '/orgs/$orgSlug/migrations/jira/': typeof AuthedOrgsOrgSlugMigrationsJiraIndexRoute
+  '/orgs/$orgSlug/settings/integrations/': typeof AuthedOrgsOrgSlugSettingsIntegrationsIndexRoute
   '/orgs/$orgSlug/settings/templates/': typeof AuthedOrgsOrgSlugSettingsTemplatesIndexRoute
   '/orgs/$orgSlug/projects/$slug/sprints': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsRouteRouteWithChildren
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderAboutRoute
+  '/orgs/$orgSlug/projects/$slug/settings/danger': typeof AuthedOrgsOrgSlugProjectsSlugSettingsDangerRoute
   '/orgs/$orgSlug/projects/$slug/settings/general': typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute
   '/orgs/$orgSlug/projects/$slug/settings/integrations': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute
   '/orgs/$orgSlug/projects/$slug/settings/team': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTeamRoute
   '/orgs/$orgSlug/projects/$slug/settings/workflow': typeof AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRoute
   '/orgs/$orgSlug/projects/$slug/tickets/$id': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute
+  '/orgs/$orgSlug/settings/integrations/storage/files': typeof AuthedOrgsOrgSlugSettingsIntegrationsStorageFilesRoute
   '/orgs/$orgSlug/settings/templates/blocks/$blockKey': typeof AuthedOrgsOrgSlugSettingsTemplatesBlocksBlockKeyRoute
   '/orgs/$orgSlug/projects/$slug/': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderIndexRoute
   '/orgs/$orgSlug/projects/$slug/settings/': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute
+  '/orgs/$orgSlug/settings/integrations/storage/': typeof AuthedOrgsOrgSlugSettingsIntegrationsStorageIndexRoute
   '/orgs/$orgSlug/projects/$slug/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsGroupIdRoute
   '/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRoute
   '/orgs/$orgSlug/projects/$slug/tickets/$id/split': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRoute
@@ -335,10 +454,14 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/welcome': typeof WelcomeRoute
   '/login': typeof publicLoginRoute
-  '/profile': typeof AuthedProfileRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/': typeof AuthedIndexRoute
   '/oauth/consent': typeof publicOauthConsentRoute
+  '/profile/account': typeof AuthedProfileAccountRoute
+  '/profile/agents': typeof AuthedProfileAgentsRoute
+  '/profile/connections': typeof AuthedProfileConnectionsRoute
+  '/profile/preferences': typeof AuthedProfilePreferencesRoute
+  '/profile': typeof AuthedProfileIndexRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugIndexRoute
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderIndexRoute
   '/orgs/$orgSlug/settings/attachments': typeof AuthedOrgsOrgSlugSettingsAttachmentsRoute
@@ -350,17 +473,25 @@ export interface FileRoutesByTo {
   '/orgs/$orgSlug/projects': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/orgs/$orgSlug/settings': typeof AuthedOrgsOrgSlugSettingsIndexRoute
   '/orgs/$orgSlug/migrations/jira/$migrationId': typeof AuthedOrgsOrgSlugMigrationsJiraMigrationIdRoute
+  '/orgs/$orgSlug/settings/integrations/email': typeof AuthedOrgsOrgSlugSettingsIntegrationsEmailRoute
+  '/orgs/$orgSlug/settings/integrations/everhour': typeof AuthedOrgsOrgSlugSettingsIntegrationsEverhourRoute
+  '/orgs/$orgSlug/settings/integrations/figma': typeof AuthedOrgsOrgSlugSettingsIntegrationsFigmaRoute
+  '/orgs/$orgSlug/settings/integrations/github': typeof AuthedOrgsOrgSlugSettingsIntegrationsGithubRoute
   '/orgs/$orgSlug/settings/templates/$templateKey': typeof AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRoute
   '/orgs/$orgSlug/migrations/jira': typeof AuthedOrgsOrgSlugMigrationsJiraIndexRoute
+  '/orgs/$orgSlug/settings/integrations': typeof AuthedOrgsOrgSlugSettingsIntegrationsIndexRoute
   '/orgs/$orgSlug/settings/templates': typeof AuthedOrgsOrgSlugSettingsTemplatesIndexRoute
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderAboutRoute
+  '/orgs/$orgSlug/projects/$slug/settings/danger': typeof AuthedOrgsOrgSlugProjectsSlugSettingsDangerRoute
   '/orgs/$orgSlug/projects/$slug/settings/general': typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute
   '/orgs/$orgSlug/projects/$slug/settings/integrations': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute
   '/orgs/$orgSlug/projects/$slug/settings/team': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTeamRoute
   '/orgs/$orgSlug/projects/$slug/settings/workflow': typeof AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRoute
   '/orgs/$orgSlug/projects/$slug/tickets/$id': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute
+  '/orgs/$orgSlug/settings/integrations/storage/files': typeof AuthedOrgsOrgSlugSettingsIntegrationsStorageFilesRoute
   '/orgs/$orgSlug/settings/templates/blocks/$blockKey': typeof AuthedOrgsOrgSlugSettingsTemplatesBlocksBlockKeyRoute
   '/orgs/$orgSlug/projects/$slug/settings': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute
+  '/orgs/$orgSlug/settings/integrations/storage': typeof AuthedOrgsOrgSlugSettingsIntegrationsStorageIndexRoute
   '/orgs/$orgSlug/projects/$slug/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsGroupIdRoute
   '/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRoute
   '/orgs/$orgSlug/projects/$slug/tickets/$id/split': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRoute
@@ -372,15 +503,21 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authed': typeof AuthedRouteRouteWithChildren
   '/welcome': typeof WelcomeRoute
+  '/_authed/profile': typeof AuthedProfileRouteRouteWithChildren
   '/(public)/login': typeof publicLoginRoute
-  '/_authed/profile': typeof AuthedProfileRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
   '/(public)/oauth/consent': typeof publicOauthConsentRoute
+  '/_authed/profile/account': typeof AuthedProfileAccountRoute
+  '/_authed/profile/agents': typeof AuthedProfileAgentsRoute
+  '/_authed/profile/connections': typeof AuthedProfileConnectionsRoute
+  '/_authed/profile/preferences': typeof AuthedProfilePreferencesRoute
+  '/_authed/profile/': typeof AuthedProfileIndexRoute
   '/_authed/orgs/$orgSlug/settings': typeof AuthedOrgsOrgSlugSettingsRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
+  '/_authed/orgs/$orgSlug/settings/integrations': typeof AuthedOrgsOrgSlugSettingsIntegrationsRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/settings/attachments': typeof AuthedOrgsOrgSlugSettingsAttachmentsRoute
   '/_authed/orgs/$orgSlug/settings/danger': typeof AuthedOrgsOrgSlugSettingsDangerRoute
   '/_authed/orgs/$orgSlug/settings/email': typeof AuthedOrgsOrgSlugSettingsEmailRoute
@@ -391,20 +528,29 @@ export interface FileRoutesById {
   '/_authed/orgs/$orgSlug/settings/': typeof AuthedOrgsOrgSlugSettingsIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/projects/$slug/settings': typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteWithChildren
+  '/_authed/orgs/$orgSlug/settings/integrations/storage': typeof AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/migrations/jira/$migrationId': typeof AuthedOrgsOrgSlugMigrationsJiraMigrationIdRoute
+  '/_authed/orgs/$orgSlug/settings/integrations/email': typeof AuthedOrgsOrgSlugSettingsIntegrationsEmailRoute
+  '/_authed/orgs/$orgSlug/settings/integrations/everhour': typeof AuthedOrgsOrgSlugSettingsIntegrationsEverhourRoute
+  '/_authed/orgs/$orgSlug/settings/integrations/figma': typeof AuthedOrgsOrgSlugSettingsIntegrationsFigmaRoute
+  '/_authed/orgs/$orgSlug/settings/integrations/github': typeof AuthedOrgsOrgSlugSettingsIntegrationsGithubRoute
   '/_authed/orgs/$orgSlug/settings/templates/$templateKey': typeof AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRoute
   '/_authed/orgs/$orgSlug/migrations/jira/': typeof AuthedOrgsOrgSlugMigrationsJiraIndexRoute
+  '/_authed/orgs/$orgSlug/settings/integrations/': typeof AuthedOrgsOrgSlugSettingsIntegrationsIndexRoute
   '/_authed/orgs/$orgSlug/settings/templates/': typeof AuthedOrgsOrgSlugSettingsTemplatesIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/about': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderAboutRoute
+  '/_authed/orgs/$orgSlug/projects/$slug/settings/danger': typeof AuthedOrgsOrgSlugProjectsSlugSettingsDangerRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/general': typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/integrations': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/team': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTeamRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/workflow': typeof AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRoute
   '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute
+  '/_authed/orgs/$orgSlug/settings/integrations/storage/files': typeof AuthedOrgsOrgSlugSettingsIntegrationsStorageFilesRoute
   '/_authed/orgs/$orgSlug/settings/templates/blocks/$blockKey': typeof AuthedOrgsOrgSlugSettingsTemplatesBlocksBlockKeyRoute
   '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute
+  '/_authed/orgs/$orgSlug/settings/integrations/storage/': typeof AuthedOrgsOrgSlugSettingsIntegrationsStorageIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsGroupIdRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRoute
   '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id_/split': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRoute
@@ -417,14 +563,20 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/welcome'
-    | '/login'
     | '/profile'
+    | '/login'
     | '/invite/$invitationId'
     | '/orgs/$orgSlug'
     | '/oauth/consent'
+    | '/profile/account'
+    | '/profile/agents'
+    | '/profile/connections'
+    | '/profile/preferences'
+    | '/profile/'
     | '/orgs/$orgSlug/settings'
     | '/orgs/$orgSlug/'
     | '/orgs/$orgSlug/projects/$slug'
+    | '/orgs/$orgSlug/settings/integrations'
     | '/orgs/$orgSlug/settings/attachments'
     | '/orgs/$orgSlug/settings/danger'
     | '/orgs/$orgSlug/settings/email'
@@ -434,20 +586,29 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/projects/'
     | '/orgs/$orgSlug/settings/'
     | '/orgs/$orgSlug/projects/$slug/settings'
+    | '/orgs/$orgSlug/settings/integrations/storage'
     | '/orgs/$orgSlug/migrations/jira/$migrationId'
+    | '/orgs/$orgSlug/settings/integrations/email'
+    | '/orgs/$orgSlug/settings/integrations/everhour'
+    | '/orgs/$orgSlug/settings/integrations/figma'
+    | '/orgs/$orgSlug/settings/integrations/github'
     | '/orgs/$orgSlug/settings/templates/$templateKey'
     | '/orgs/$orgSlug/migrations/jira/'
+    | '/orgs/$orgSlug/settings/integrations/'
     | '/orgs/$orgSlug/settings/templates/'
     | '/orgs/$orgSlug/projects/$slug/sprints'
     | '/orgs/$orgSlug/projects/$slug/about'
+    | '/orgs/$orgSlug/projects/$slug/settings/danger'
     | '/orgs/$orgSlug/projects/$slug/settings/general'
     | '/orgs/$orgSlug/projects/$slug/settings/integrations'
     | '/orgs/$orgSlug/projects/$slug/settings/team'
     | '/orgs/$orgSlug/projects/$slug/settings/workflow'
     | '/orgs/$orgSlug/projects/$slug/tickets/$id'
+    | '/orgs/$orgSlug/settings/integrations/storage/files'
     | '/orgs/$orgSlug/settings/templates/blocks/$blockKey'
     | '/orgs/$orgSlug/projects/$slug/'
     | '/orgs/$orgSlug/projects/$slug/settings/'
+    | '/orgs/$orgSlug/settings/integrations/storage/'
     | '/orgs/$orgSlug/projects/$slug/sprints/$groupId'
     | '/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey'
     | '/orgs/$orgSlug/projects/$slug/tickets/$id/split'
@@ -458,10 +619,14 @@ export interface FileRouteTypes {
   to:
     | '/welcome'
     | '/login'
-    | '/profile'
     | '/invite/$invitationId'
     | '/'
     | '/oauth/consent'
+    | '/profile/account'
+    | '/profile/agents'
+    | '/profile/connections'
+    | '/profile/preferences'
+    | '/profile'
     | '/orgs/$orgSlug'
     | '/orgs/$orgSlug/projects/$slug'
     | '/orgs/$orgSlug/settings/attachments'
@@ -473,17 +638,25 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/projects'
     | '/orgs/$orgSlug/settings'
     | '/orgs/$orgSlug/migrations/jira/$migrationId'
+    | '/orgs/$orgSlug/settings/integrations/email'
+    | '/orgs/$orgSlug/settings/integrations/everhour'
+    | '/orgs/$orgSlug/settings/integrations/figma'
+    | '/orgs/$orgSlug/settings/integrations/github'
     | '/orgs/$orgSlug/settings/templates/$templateKey'
     | '/orgs/$orgSlug/migrations/jira'
+    | '/orgs/$orgSlug/settings/integrations'
     | '/orgs/$orgSlug/settings/templates'
     | '/orgs/$orgSlug/projects/$slug/about'
+    | '/orgs/$orgSlug/projects/$slug/settings/danger'
     | '/orgs/$orgSlug/projects/$slug/settings/general'
     | '/orgs/$orgSlug/projects/$slug/settings/integrations'
     | '/orgs/$orgSlug/projects/$slug/settings/team'
     | '/orgs/$orgSlug/projects/$slug/settings/workflow'
     | '/orgs/$orgSlug/projects/$slug/tickets/$id'
+    | '/orgs/$orgSlug/settings/integrations/storage/files'
     | '/orgs/$orgSlug/settings/templates/blocks/$blockKey'
     | '/orgs/$orgSlug/projects/$slug/settings'
+    | '/orgs/$orgSlug/settings/integrations/storage'
     | '/orgs/$orgSlug/projects/$slug/sprints/$groupId'
     | '/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey'
     | '/orgs/$orgSlug/projects/$slug/tickets/$id/split'
@@ -494,15 +667,21 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_authed'
     | '/welcome'
-    | '/(public)/login'
     | '/_authed/profile'
+    | '/(public)/login'
     | '/invite/$invitationId'
     | '/_authed/'
     | '/_authed/orgs/$orgSlug'
     | '/(public)/oauth/consent'
+    | '/_authed/profile/account'
+    | '/_authed/profile/agents'
+    | '/_authed/profile/connections'
+    | '/_authed/profile/preferences'
+    | '/_authed/profile/'
     | '/_authed/orgs/$orgSlug/settings'
     | '/_authed/orgs/$orgSlug/'
     | '/_authed/orgs/$orgSlug/projects/$slug'
+    | '/_authed/orgs/$orgSlug/settings/integrations'
     | '/_authed/orgs/$orgSlug/settings/attachments'
     | '/_authed/orgs/$orgSlug/settings/danger'
     | '/_authed/orgs/$orgSlug/settings/email'
@@ -513,20 +692,29 @@ export interface FileRouteTypes {
     | '/_authed/orgs/$orgSlug/settings/'
     | '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings'
+    | '/_authed/orgs/$orgSlug/settings/integrations/storage'
     | '/_authed/orgs/$orgSlug/migrations/jira/$migrationId'
+    | '/_authed/orgs/$orgSlug/settings/integrations/email'
+    | '/_authed/orgs/$orgSlug/settings/integrations/everhour'
+    | '/_authed/orgs/$orgSlug/settings/integrations/figma'
+    | '/_authed/orgs/$orgSlug/settings/integrations/github'
     | '/_authed/orgs/$orgSlug/settings/templates/$templateKey'
     | '/_authed/orgs/$orgSlug/migrations/jira/'
+    | '/_authed/orgs/$orgSlug/settings/integrations/'
     | '/_authed/orgs/$orgSlug/settings/templates/'
     | '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints'
     | '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/about'
+    | '/_authed/orgs/$orgSlug/projects/$slug/settings/danger'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/general'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/integrations'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/team'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/workflow'
     | '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id'
+    | '/_authed/orgs/$orgSlug/settings/integrations/storage/files'
     | '/_authed/orgs/$orgSlug/settings/templates/blocks/$blockKey'
     | '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/'
+    | '/_authed/orgs/$orgSlug/settings/integrations/storage/'
     | '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey'
     | '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id_/split'
@@ -573,19 +761,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteInvitationIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authed/profile': {
-      id: '/_authed/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof AuthedProfileRouteImport
-      parentRoute: typeof AuthedRouteRoute
-    }
     '/(public)/login': {
       id: '/(public)/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof publicLoginRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authed/profile': {
+      id: '/_authed/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthedProfileRouteRouteImport
+      parentRoute: typeof AuthedRouteRoute
+    }
+    '/_authed/profile/': {
+      id: '/_authed/profile/'
+      path: '/'
+      fullPath: '/profile/'
+      preLoaderRoute: typeof AuthedProfileIndexRouteImport
+      parentRoute: typeof AuthedProfileRouteRoute
+    }
+    '/_authed/profile/preferences': {
+      id: '/_authed/profile/preferences'
+      path: '/preferences'
+      fullPath: '/profile/preferences'
+      preLoaderRoute: typeof AuthedProfilePreferencesRouteImport
+      parentRoute: typeof AuthedProfileRouteRoute
+    }
+    '/_authed/profile/connections': {
+      id: '/_authed/profile/connections'
+      path: '/connections'
+      fullPath: '/profile/connections'
+      preLoaderRoute: typeof AuthedProfileConnectionsRouteImport
+      parentRoute: typeof AuthedProfileRouteRoute
+    }
+    '/_authed/profile/agents': {
+      id: '/_authed/profile/agents'
+      path: '/agents'
+      fullPath: '/profile/agents'
+      preLoaderRoute: typeof AuthedProfileAgentsRouteImport
+      parentRoute: typeof AuthedProfileRouteRoute
+    }
+    '/_authed/profile/account': {
+      id: '/_authed/profile/account'
+      path: '/account'
+      fullPath: '/profile/account'
+      preLoaderRoute: typeof AuthedProfileAccountRouteImport
+      parentRoute: typeof AuthedProfileRouteRoute
     }
     '/(public)/oauth/consent': {
       id: '/(public)/oauth/consent'
@@ -671,6 +894,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsAttachmentsRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
     }
+    '/_authed/orgs/$orgSlug/settings/integrations': {
+      id: '/_authed/orgs/$orgSlug/settings/integrations'
+      path: '/integrations'
+      fullPath: '/orgs/$orgSlug/settings/integrations'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsRouteRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
+    }
     '/_authed/orgs/$orgSlug/projects/$slug': {
       id: '/_authed/orgs/$orgSlug/projects/$slug'
       path: '/projects/$slug'
@@ -684,6 +914,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/orgs/$orgSlug/settings/templates/'
       preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsTemplatesIndexRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/settings/integrations/': {
+      id: '/_authed/orgs/$orgSlug/settings/integrations/'
+      path: '/'
+      fullPath: '/orgs/$orgSlug/settings/integrations/'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsIndexRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsRouteRoute
     }
     '/_authed/orgs/$orgSlug/migrations/jira/': {
       id: '/_authed/orgs/$orgSlug/migrations/jira/'
@@ -699,12 +936,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
     }
+    '/_authed/orgs/$orgSlug/settings/integrations/github': {
+      id: '/_authed/orgs/$orgSlug/settings/integrations/github'
+      path: '/github'
+      fullPath: '/orgs/$orgSlug/settings/integrations/github'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsGithubRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/settings/integrations/figma': {
+      id: '/_authed/orgs/$orgSlug/settings/integrations/figma'
+      path: '/figma'
+      fullPath: '/orgs/$orgSlug/settings/integrations/figma'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsFigmaRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/settings/integrations/everhour': {
+      id: '/_authed/orgs/$orgSlug/settings/integrations/everhour'
+      path: '/everhour'
+      fullPath: '/orgs/$orgSlug/settings/integrations/everhour'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsEverhourRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/settings/integrations/email': {
+      id: '/_authed/orgs/$orgSlug/settings/integrations/email'
+      path: '/email'
+      fullPath: '/orgs/$orgSlug/settings/integrations/email'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsEmailRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsRouteRoute
+    }
     '/_authed/orgs/$orgSlug/migrations/jira/$migrationId': {
       id: '/_authed/orgs/$orgSlug/migrations/jira/$migrationId'
       path: '/migrations/jira/$migrationId'
       fullPath: '/orgs/$orgSlug/migrations/jira/$migrationId'
       preLoaderRoute: typeof AuthedOrgsOrgSlugMigrationsJiraMigrationIdRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/settings/integrations/storage': {
+      id: '/_authed/orgs/$orgSlug/settings/integrations/storage'
+      path: '/storage'
+      fullPath: '/orgs/$orgSlug/settings/integrations/storage'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsRouteRoute
     }
     '/_authed/orgs/$orgSlug/projects/$slug/settings': {
       id: '/_authed/orgs/$orgSlug/projects/$slug/settings'
@@ -719,6 +991,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/orgs/$orgSlug/projects/$slug'
       preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderRouteRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/settings/integrations/storage/': {
+      id: '/_authed/orgs/$orgSlug/settings/integrations/storage/'
+      path: '/'
+      fullPath: '/orgs/$orgSlug/settings/integrations/storage/'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsStorageIndexRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRoute
     }
     '/_authed/orgs/$orgSlug/projects/$slug/settings/': {
       id: '/_authed/orgs/$orgSlug/projects/$slug/settings/'
@@ -740,6 +1019,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/orgs/$orgSlug/settings/templates/blocks/$blockKey'
       preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsTemplatesBlocksBlockKeyRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/settings/integrations/storage/files': {
+      id: '/_authed/orgs/$orgSlug/settings/integrations/storage/files'
+      path: '/files'
+      fullPath: '/orgs/$orgSlug/settings/integrations/storage/files'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsStorageFilesRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRoute
     }
     '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id': {
       id: '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id'
@@ -774,6 +1060,13 @@ declare module '@tanstack/react-router' {
       path: '/general'
       fullPath: '/orgs/$orgSlug/projects/$slug/settings/general'
       preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/projects/$slug/settings/danger': {
+      id: '/_authed/orgs/$orgSlug/projects/$slug/settings/danger'
+      path: '/danger'
+      fullPath: '/orgs/$orgSlug/projects/$slug/settings/danger'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsDangerRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute
     }
     '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/about': {
@@ -835,7 +1128,75 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthedProfileRouteRouteChildren {
+  AuthedProfileAccountRoute: typeof AuthedProfileAccountRoute
+  AuthedProfileAgentsRoute: typeof AuthedProfileAgentsRoute
+  AuthedProfileConnectionsRoute: typeof AuthedProfileConnectionsRoute
+  AuthedProfilePreferencesRoute: typeof AuthedProfilePreferencesRoute
+  AuthedProfileIndexRoute: typeof AuthedProfileIndexRoute
+}
+
+const AuthedProfileRouteRouteChildren: AuthedProfileRouteRouteChildren = {
+  AuthedProfileAccountRoute: AuthedProfileAccountRoute,
+  AuthedProfileAgentsRoute: AuthedProfileAgentsRoute,
+  AuthedProfileConnectionsRoute: AuthedProfileConnectionsRoute,
+  AuthedProfilePreferencesRoute: AuthedProfilePreferencesRoute,
+  AuthedProfileIndexRoute: AuthedProfileIndexRoute,
+}
+
+const AuthedProfileRouteRouteWithChildren =
+  AuthedProfileRouteRoute._addFileChildren(AuthedProfileRouteRouteChildren)
+
+interface AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRouteChildren {
+  AuthedOrgsOrgSlugSettingsIntegrationsStorageFilesRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsStorageFilesRoute
+  AuthedOrgsOrgSlugSettingsIntegrationsStorageIndexRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsStorageIndexRoute
+}
+
+const AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRouteChildren: AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRouteChildren =
+  {
+    AuthedOrgsOrgSlugSettingsIntegrationsStorageFilesRoute:
+      AuthedOrgsOrgSlugSettingsIntegrationsStorageFilesRoute,
+    AuthedOrgsOrgSlugSettingsIntegrationsStorageIndexRoute:
+      AuthedOrgsOrgSlugSettingsIntegrationsStorageIndexRoute,
+  }
+
+const AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRouteWithChildren =
+  AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRoute._addFileChildren(
+    AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRouteChildren,
+  )
+
+interface AuthedOrgsOrgSlugSettingsIntegrationsRouteRouteChildren {
+  AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRouteWithChildren
+  AuthedOrgsOrgSlugSettingsIntegrationsEmailRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsEmailRoute
+  AuthedOrgsOrgSlugSettingsIntegrationsEverhourRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsEverhourRoute
+  AuthedOrgsOrgSlugSettingsIntegrationsFigmaRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsFigmaRoute
+  AuthedOrgsOrgSlugSettingsIntegrationsGithubRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsGithubRoute
+  AuthedOrgsOrgSlugSettingsIntegrationsIndexRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsIndexRoute
+}
+
+const AuthedOrgsOrgSlugSettingsIntegrationsRouteRouteChildren: AuthedOrgsOrgSlugSettingsIntegrationsRouteRouteChildren =
+  {
+    AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRoute:
+      AuthedOrgsOrgSlugSettingsIntegrationsStorageRouteRouteWithChildren,
+    AuthedOrgsOrgSlugSettingsIntegrationsEmailRoute:
+      AuthedOrgsOrgSlugSettingsIntegrationsEmailRoute,
+    AuthedOrgsOrgSlugSettingsIntegrationsEverhourRoute:
+      AuthedOrgsOrgSlugSettingsIntegrationsEverhourRoute,
+    AuthedOrgsOrgSlugSettingsIntegrationsFigmaRoute:
+      AuthedOrgsOrgSlugSettingsIntegrationsFigmaRoute,
+    AuthedOrgsOrgSlugSettingsIntegrationsGithubRoute:
+      AuthedOrgsOrgSlugSettingsIntegrationsGithubRoute,
+    AuthedOrgsOrgSlugSettingsIntegrationsIndexRoute:
+      AuthedOrgsOrgSlugSettingsIntegrationsIndexRoute,
+  }
+
+const AuthedOrgsOrgSlugSettingsIntegrationsRouteRouteWithChildren =
+  AuthedOrgsOrgSlugSettingsIntegrationsRouteRoute._addFileChildren(
+    AuthedOrgsOrgSlugSettingsIntegrationsRouteRouteChildren,
+  )
+
 interface AuthedOrgsOrgSlugSettingsRouteRouteChildren {
+  AuthedOrgsOrgSlugSettingsIntegrationsRouteRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsRouteRouteWithChildren
   AuthedOrgsOrgSlugSettingsAttachmentsRoute: typeof AuthedOrgsOrgSlugSettingsAttachmentsRoute
   AuthedOrgsOrgSlugSettingsDangerRoute: typeof AuthedOrgsOrgSlugSettingsDangerRoute
   AuthedOrgsOrgSlugSettingsEmailRoute: typeof AuthedOrgsOrgSlugSettingsEmailRoute
@@ -850,6 +1211,8 @@ interface AuthedOrgsOrgSlugSettingsRouteRouteChildren {
 
 const AuthedOrgsOrgSlugSettingsRouteRouteChildren: AuthedOrgsOrgSlugSettingsRouteRouteChildren =
   {
+    AuthedOrgsOrgSlugSettingsIntegrationsRouteRoute:
+      AuthedOrgsOrgSlugSettingsIntegrationsRouteRouteWithChildren,
     AuthedOrgsOrgSlugSettingsAttachmentsRoute:
       AuthedOrgsOrgSlugSettingsAttachmentsRoute,
     AuthedOrgsOrgSlugSettingsDangerRoute: AuthedOrgsOrgSlugSettingsDangerRoute,
@@ -914,6 +1277,7 @@ const AuthedOrgsOrgSlugProjectsSlugProjectHeaderRouteRouteWithChildren =
   )
 
 interface AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteChildren {
+  AuthedOrgsOrgSlugProjectsSlugSettingsDangerRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsDangerRoute
   AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute
   AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute
   AuthedOrgsOrgSlugProjectsSlugSettingsTeamRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsTeamRoute
@@ -926,6 +1290,8 @@ interface AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteChildren {
 
 const AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteChildren: AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteChildren =
   {
+    AuthedOrgsOrgSlugProjectsSlugSettingsDangerRoute:
+      AuthedOrgsOrgSlugProjectsSlugSettingsDangerRoute,
     AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute:
       AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute,
     AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute:
@@ -1002,13 +1368,13 @@ const AuthedOrgsOrgSlugRouteRouteWithChildren =
   )
 
 interface AuthedRouteRouteChildren {
-  AuthedProfileRoute: typeof AuthedProfileRoute
+  AuthedProfileRouteRoute: typeof AuthedProfileRouteRouteWithChildren
   AuthedIndexRoute: typeof AuthedIndexRoute
   AuthedOrgsOrgSlugRouteRoute: typeof AuthedOrgsOrgSlugRouteRouteWithChildren
 }
 
 const AuthedRouteRouteChildren: AuthedRouteRouteChildren = {
-  AuthedProfileRoute: AuthedProfileRoute,
+  AuthedProfileRouteRoute: AuthedProfileRouteRouteWithChildren,
   AuthedIndexRoute: AuthedIndexRoute,
   AuthedOrgsOrgSlugRouteRoute: AuthedOrgsOrgSlugRouteRouteWithChildren,
 }

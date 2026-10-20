@@ -5,6 +5,8 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 
 import { ErrorPage } from "@/components/ErrorPage"
 import { OrgMembersSection } from "@/components/OrgMembersSection"
+import { SettingsSection } from "@/components/settings/SettingsSection"
+import { SettingsSkeleton } from "@/components/settings/SettingsSkeleton"
 import { me } from "@/features/auth/atoms/auth"
 import {
   orgDetail,
@@ -51,7 +53,7 @@ function MembersBody({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
         onError: (error) => <ErrorPage error={error} contained />,
         onDefect: (defect) => <ErrorPage error={defect} contained />,
         onSuccess: ({ value }) => (
-          <section className="flex w-full flex-col gap-4">
+          <SettingsSection>
             <OrgMembersSection
               orgSlug={orgSlug}
               orgName={org.name}
@@ -60,7 +62,7 @@ function MembersBody({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
               callerRole={org.role}
               callerUserId={currentUser.id}
             />
-          </section>
+          </SettingsSection>
         )
       })
   })
@@ -68,20 +70,9 @@ function MembersBody({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
 
 function MembersSkeleton() {
   return (
-    <div className="flex w-full flex-col gap-3">
+    <SettingsSection>
       <div className="h-10 w-full animate-pulse rounded-xl bg-muted" />
-      <div className="divide-y divide-border rounded-xl border border-border bg-background">
-        {[0, 1, 2].map((row) => (
-          <div key={row} className="flex items-center gap-3 px-3 py-2.5">
-            <div className="size-8 animate-pulse rounded-full bg-muted" />
-            <div className="flex flex-1 flex-col gap-1.5">
-              <div className="h-3.5 w-32 animate-pulse rounded bg-muted" />
-              <div className="h-3 w-48 animate-pulse rounded bg-muted" />
-            </div>
-            <div className="h-5 w-16 animate-pulse rounded-full bg-muted" />
-          </div>
-        ))}
-      </div>
-    </div>
+      <SettingsSkeleton rows={3} />
+    </SettingsSection>
   )
 }

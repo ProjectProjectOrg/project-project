@@ -12,9 +12,14 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useState } from "react"
 
 import { SEGMENTED_ITEM_CLASS, SegmentedTabs } from "@/components/SegmentedTabs"
+import {
+  SettingsGroup,
+  SettingsRow,
+  SettingsSection
+} from "@/components/settings/SettingsSection"
+import { SettingsInput } from "@/components/settings/SettingsTextField"
 import { Button } from "@/components/ui/button"
-import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
-import { Input } from "@/components/ui/input"
+import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
   disconnectOrgEmail,
   emailRequest,
@@ -23,6 +28,7 @@ import {
 } from "@/features/organizations/atoms/email"
 import { errorMessage, emailFailureMessage } from "@/lib/errorMessage"
 import { useAppForm } from "@/lib/form"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -40,6 +46,9 @@ export function OrgEmailForm({
   const req = emailRequest(orgSlug)
   const save = useAtomSet(saveOrgEmail(req), { mode: "promiseExit" })
   const test = useAtomSet(testOrgEmail(req), { mode: "promiseExit" })
+  const disconnect = useAtomSet(disconnectOrgEmail(req), {
+    mode: "promiseExit"
+  })
   const saveState = useAtomValue(saveOrgEmail(req))
   const testState = useAtomValue(testOrgEmail(req))
   const disconnectState = useAtomValue(disconnectOrgEmail(req))
@@ -73,284 +82,254 @@ export function OrgEmailForm({
       if (Exit.isSuccess(result)) form.reset({ ...value, password: undefined })
     }
   })
-  const fields = [
-    { name: "host", label: m.org_email_host(), type: "text" },
-    { name: "username", label: m.org_email_username(), type: "text" },
-    { name: "senderName", label: m.org_email_sender_name(), type: "text" },
-    { name: "senderEmail", label: m.org_email_sender_email(), type: "email" }
-  ] as const
+  const textField = (
+    name: "host" | "username" | "senderName" | "senderEmail",
+    label: string,
+    type: "text" | "email"
+  ) => (
+    <form.Field name={name}>
+      {(field) => (
+        <SettingsRow label={label}>
+          <SettingsInput
+            type={type}
+            required
+            value={field.value}
+            disabled={busy}
+            onChange={(event) => field.handleChange(event.target.value)}
+            onBlur={field.handleBlur}
+            aria-invalid={field.errors.length > 0}
+          />
+        </SettingsRow>
+      )}
+    </form.Field>
+  )
 
   return (
-    <div className="flex w-full max-w-xl flex-col gap-6">
-      <div aria-live="polite" className={waiting ? "animate-pulse" : undefined}>
-        <p className="text-sm font-medium">
-          {!status.settings
-            ? m.org_email_not_configured()
-            : !status.lastTest
-              ? m.org_email_not_tested()
-              : status.lastTest.error
-                ? m.org_email_test_failed()
-                : m.org_email_test_accepted()}
-        </p>
-        {status.lastTest && (
-          <p className="mt-1 text-xs text-muted-foreground">
-            {m.org_email_last_test({
-              date: new Intl.DateTimeFormat(getLocale(), {
-                dateStyle: "medium",
-                timeStyle: "short"
-              }).format(status.lastTest.at)
-            })}
-          </p>
-        )}
-        {status.lastTest?.error && (
-          <p role="alert" className="mt-1 text-sm text-destructive">
-            {emailFailureMessage(status.lastTest.error)}
-          </p>
-        )}
-      </div>
+    <>
+      <SettingsSection>
+        <SettingsGroup>
+          <form.Subscribe selector={(state) => state.isDirty}>
+            {(dirty) => (
+              <SettingsRow
+                label={
+                  <span
+                    aria-live="polite"
+                    className={cn(waiting && "animate-pulse")}
+                  >
+                    {!status.settings
+                      ? m.org_email_not_configured()
+                      : !status.lastTest
+                        ? m.org_email_not_tested()
+                        : status.lastTest.error
+                          ? m.org_email_test_failed()
+                          : m.org_email_test_accepted()}
+                  </span>
+                }
+                description={
+                  status.lastTest
+                    ? m.org_email_last_test({
+                        date: new Intl.DateTimeFormat(getLocale(), {
+                          dateStyle: "medium",
+                          timeStyle: "short"
+                        }).format(status.lastTest.at)
+                      })
+                    : status.settings
+                      ? dirty
+                        ? m.org_email_save_before_test()
+                        : m.org_email_test_hint()
+                      : undefined
+                }
+                error={
+                  status.lastTest?.error
+                    ? emailFailureMessage(status.lastTest.error)
+                    : null
+                }
+              >
+                {status.settings ? (
+                  <Button
+                    variant="tertiary"
+                    size="sm"
+                    disabled={busy || dirty}
+                    onClick={() => {
+                      setLastAction("test")
+                      void test()
+                    }}
+                  >
+                    {m.org_email_test()}
+                  </Button>
+                ) : null}
+              </SettingsRow>
+            )}
+          </form.Subscribe>
+        </SettingsGroup>
+      </SettingsSection>
+
       <form
-        className="flex flex-col gap-4"
+        className="flex flex-col gap-8"
         onSubmit={(event) => {
           event.preventDefault()
           if (!busy) void form.handleSubmit()
         }}
       >
-        {fields.map(({ name, label, type }) => (
-          <form.Field key={name} name={name}>
-            {(field) => (
-              <div className="grid gap-2">
-                <label
-                  htmlFor={`email-${name}`}
-                  className="text-sm font-medium"
-                >
-                  {label}
-                </label>
-                <Input
-                  id={`email-${name}`}
-                  type={type}
-                  required
-                  value={field.value}
-                  disabled={busy}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
-                  aria-invalid={field.errors.length > 0}
-                />
-              </div>
-            )}
-          </form.Field>
-        ))}
-        <div className="grid grid-cols-2 gap-4">
-          <form.Field name="port">
-            {(field) => (
-              <div className="grid gap-2">
-                <label htmlFor="email-port" className="text-sm font-medium">
-                  {m.org_email_port()}
-                </label>
-                <Input
-                  id="email-port"
-                  type="number"
-                  min={1}
-                  max={65535}
-                  required
-                  disabled={busy}
-                  value={Number.isFinite(field.value) ? field.value : ""}
-                  onChange={(event) =>
-                    field.handleChange(event.target.valueAsNumber)
-                  }
-                />
-              </div>
-            )}
-          </form.Field>
-          <form.Field name="security">
-            {(field) => (
-              <fieldset disabled={busy} className="grid gap-2">
-                <legend className="mb-2 text-sm font-medium">
-                  {m.org_email_security()}
-                </legend>
-                <SegmentedTabs
-                  className="self-start"
-                  items={[
-                    { key: "starttls", label: m.org_email_starttls() },
-                    { key: "tls", label: m.org_email_tls() }
-                  ]}
-                  isActive={(key) => key === field.value}
-                  renderItem={(item, content, { active }) => (
-                    <button
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => field.handleChange(item.key)}
-                      className={SEGMENTED_ITEM_CLASS(active)}
-                    >
-                      {content}
-                    </button>
-                  )}
-                />
-              </fieldset>
-            )}
-          </form.Field>
-        </div>
-        <form.Subscribe
-          selector={({ values }) =>
-            !status.settings
-              ? "new"
-              : values.host !== status.settings.host ||
-                  values.port !== status.settings.port ||
-                  values.username !== status.settings.username
-                ? "reenter"
-                : "saved"
-          }
-        >
-          {(credential) => (
-            <form.Field name="password">
+        <SettingsSection title={m.org_email_section_server()}>
+          <SettingsGroup>
+            {textField("host", m.org_email_host(), "text")}
+            <form.Field name="port">
               {(field) => (
-                <div className="grid gap-2">
-                  <label
-                    htmlFor="email-password"
-                    className="text-sm font-medium"
-                  >
-                    {m.org_email_password()}
-                  </label>
-                  <Input
-                    id="email-password"
-                    type="password"
-                    autoComplete="new-password"
-                    required={credential !== "saved"}
+                <SettingsRow label={m.org_email_port()}>
+                  <SettingsInput
+                    type="number"
+                    min={1}
+                    max={65535}
+                    required
+                    disabled={busy}
+                    className="w-28"
+                    value={Number.isFinite(field.value) ? field.value : ""}
+                    onChange={(event) =>
+                      field.handleChange(event.target.valueAsNumber)
+                    }
+                  />
+                </SettingsRow>
+              )}
+            </form.Field>
+            <form.Field name="security">
+              {(field) => (
+                <SettingsRow label={m.org_email_security()}>
+                  <fieldset disabled={busy}>
+                    <SegmentedTabs
+                      items={[
+                        { key: "starttls", label: m.org_email_starttls() },
+                        { key: "tls", label: m.org_email_tls() }
+                      ]}
+                      isActive={(key) => key === field.value}
+                      renderItem={(item, content, { active }) => (
+                        <button
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => field.handleChange(item.key)}
+                          className={SEGMENTED_ITEM_CLASS(active)}
+                        >
+                          {content}
+                        </button>
+                      )}
+                    />
+                  </fieldset>
+                </SettingsRow>
+              )}
+            </form.Field>
+            {textField("username", m.org_email_username(), "text")}
+            <form.Subscribe
+              selector={({ values }) =>
+                !status.settings
+                  ? "new"
+                  : values.host !== status.settings.host ||
+                      values.port !== status.settings.port ||
+                      values.username !== status.settings.username
+                    ? "reenter"
+                    : "saved"
+              }
+            >
+              {(credential) => (
+                <form.Field name="password">
+                  {(field) => (
+                    <SettingsRow
+                      label={m.org_email_password()}
+                      description={{
+                        new: m.org_email_password_hint,
+                        reenter: m.org_email_password_reenter,
+                        saved: m.org_email_password_saved
+                      }[credential]()}
+                    >
+                      <SettingsInput
+                        type="password"
+                        autoComplete="new-password"
+                        required={credential !== "saved"}
+                        disabled={busy}
+                        value={field.value ?? ""}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value || undefined)
+                        }
+                      />
+                    </SettingsRow>
+                  )}
+                </form.Field>
+              )}
+            </form.Subscribe>
+          </SettingsGroup>
+        </SettingsSection>
+
+        <SettingsSection title={m.org_email_section_sender()}>
+          <SettingsGroup>
+            {textField("senderName", m.org_email_sender_name(), "text")}
+            {textField("senderEmail", m.org_email_sender_email(), "email")}
+            <form.Field name="replyTo">
+              {(field) => (
+                <SettingsRow label={m.org_email_reply_to()}>
+                  <SettingsInput
+                    type="email"
                     disabled={busy}
                     value={field.value ?? ""}
                     onChange={(event) =>
-                      field.handleChange(event.target.value || undefined)
+                      field.handleChange(event.target.value || null)
                     }
                   />
-                  <p className="text-xs text-muted-foreground">
-                    {{
-                      new: m.org_email_password_hint,
-                      reenter: m.org_email_password_reenter,
-                      saved: m.org_email_password_saved
-                    }[credential]()}
-                  </p>
-                </div>
+                </SettingsRow>
               )}
             </form.Field>
+          </SettingsGroup>
+        </SettingsSection>
+
+        <div className="flex items-center justify-end gap-3">
+          <form.Subscribe selector={(state) => state.isValid}>
+            {(valid) =>
+              !valid && (
+                <p role="alert" className="text-xs text-destructive">
+                  {m.org_email_invalid()}
+                </p>
+              )
+            }
+          </form.Subscribe>
+          {actionError && (
+            <p role="alert" className="text-xs text-destructive">
+              {actionError}
+            </p>
           )}
-        </form.Subscribe>
-        <form.Field name="replyTo">
-          {(field) => (
-            <div className="grid gap-2">
-              <label htmlFor="email-reply-to" className="text-sm font-medium">
-                {m.org_email_reply_to()}
-              </label>
-              <Input
-                id="email-reply-to"
-                type="email"
-                disabled={busy}
-                value={field.value ?? ""}
-                onChange={(event) =>
-                  field.handleChange(event.target.value || null)
-                }
-              />
-            </div>
-          )}
-        </form.Field>
-        <form.Subscribe selector={(state) => state.isValid}>
-          {(valid) =>
-            !valid && (
-              <p role="alert" className="text-sm text-destructive">
-                {m.org_email_invalid()}
-              </p>
-            )
-          }
-        </form.Subscribe>
-        <div>
-          <Button type="submit" disabled={busy}>
+          <Button type="submit" size="sm" disabled={busy}>
             {m.org_email_save()}
           </Button>
         </div>
       </form>
-      {actionError && (
-        <p role="alert" className="text-sm text-destructive">
-          {actionError}
-        </p>
-      )}
-      {status.settings && (
-        <div className="flex flex-col gap-3 border-t border-border pt-4">
-          <p className="text-xs text-muted-foreground">
-            {m.org_email_test_hint()}
-          </p>
-          <form.Subscribe selector={(state) => state.isDirty}>
-            {(dirty) => (
-              <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  variant="secondary"
-                  disabled={busy || dirty}
-                  onClick={() => {
-                    setLastAction("test")
-                    void test()
-                  }}
-                >
-                  {m.org_email_test()}
-                </Button>
-                {dirty && (
-                  <span className="text-xs text-muted-foreground">
-                    {m.org_email_save_before_test()}
-                  </span>
-                )}
-              </div>
-            )}
-          </form.Subscribe>
-          <ConfirmButton.Root className="justify-start">
-            <ConfirmButton.Trigger variant="ghost" disabled={busy}>
-              {m.org_email_disconnect()}
-            </ConfirmButton.Trigger>
-            <ConfirmButton.Confirm>
-              <DisconnectEmail
-                orgSlug={orgSlug}
-                onStart={() => setLastAction("disconnect")}
-                onDisconnected={() => form.reset(emailFormOpts.defaultValues)}
-              />
-            </ConfirmButton.Confirm>
-          </ConfirmButton.Root>
-        </div>
-      )}
-    </div>
-  )
-}
 
-function DisconnectEmail({
-  orgSlug,
-  onStart,
-  onDisconnected
-}: Readonly<{
-  orgSlug: string
-  onStart: () => void
-  onDisconnected: () => void
-}>) {
-  const disconnect = useAtomSet(disconnectOrgEmail(emailRequest(orgSlug)), {
-    mode: "promiseExit"
-  })
-  const { close, busy, setBusy } = useConfirmButton()
-  return (
-    <>
-      <span className="text-xs text-muted-foreground">
-        {m.org_email_disconnect_confirm()}
-      </span>
-      <Button
-        variant="destructive"
-        size="sm"
-        disabled={busy}
-        onClick={async () => {
-          setBusy(true)
-          onStart()
-          const result = await disconnect()
-          setBusy(false)
-          if (Exit.isSuccess(result)) {
-            onDisconnected()
-            close()
-          }
-        }}
-      >
-        {m.org_email_disconnect()}
-      </Button>
-      <ConfirmButton.Cancel>{m.common_cancel_button()}</ConfirmButton.Cancel>
+      {status.settings && (
+        <SettingsSection>
+          <SettingsGroup>
+            <SettingsRow label={m.org_email_disconnect()}>
+              <ConfirmButton.Root>
+                <ConfirmButton.Trigger
+                  variant="tertiary"
+                  size="sm"
+                  disabled={busy}
+                >
+                  {m.org_email_disconnect()}
+                </ConfirmButton.Trigger>
+                <ConfirmButton.Confirm>
+                  <ConfirmButton.Action
+                    prompt={m.org_email_disconnect_confirm()}
+                    label={m.org_email_disconnect()}
+                    onConfirm={async () => {
+                      setLastAction("disconnect")
+                      const exit = await disconnect()
+                      if (Exit.isFailure(exit)) return false
+                      form.reset(emailFormOpts.defaultValues)
+                      return true
+                    }}
+                  />
+                </ConfirmButton.Confirm>
+              </ConfirmButton.Root>
+            </SettingsRow>
+          </SettingsGroup>
+        </SettingsSection>
+      )}
     </>
   )
 }

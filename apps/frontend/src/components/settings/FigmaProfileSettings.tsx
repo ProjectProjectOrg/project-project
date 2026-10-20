@@ -1,21 +1,16 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import type { ReactNode } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
+import { IntegrationLogo } from "@/components/settings/IntegrationLogo"
+import { SettingsRow } from "@/components/settings/SettingsSection"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card"
 import {
   figmaProfileAtom,
   disconnectFigmaProfileAtom
 } from "@/features/figma/atoms/figma"
 import { type AppError, errorMessage } from "@/lib/errorMessage"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function FigmaProfileSettings({
@@ -27,9 +22,13 @@ export function FigmaProfileSettings({
 
   return Result.matchWithError(profile, {
     onInitial: () => (
-      <FigmaProfileCard>
-        <div className="h-8 animate-pulse rounded bg-muted/40" />
-      </FigmaProfileCard>
+      <SettingsRow
+        icon={<IntegrationLogo kind="figma" />}
+        label={m.figma_profile_title()}
+        description={
+          <span className="block h-3 w-40 animate-pulse rounded bg-muted" />
+        }
+      />
     ),
     onError: (error) => <ErrorPage error={error} contained />,
     onDefect: (defect) => <ErrorPage error={defect} contained />,
@@ -70,49 +69,38 @@ function FigmaProfileContent({
   const error = oauthError ?? disconnectError
 
   return (
-    <FigmaProfileCard>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className={busy ? "min-w-0 animate-pulse" : "min-w-0"}>
-          <div className="text-sm font-medium">
-            {profile.connected
-              ? m.figma_profile_connected_status({
-                  handle: profile.handle ?? profile.email ?? ""
-                })
-              : m.figma_profile_disconnected_status()}
-          </div>
-        </div>
-        {profile.connected ? (
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={busy}
-            onClick={() => void disconnect()}
-          >
-            {m.figma_profile_disconnect_button()}
-          </Button>
-        ) : (
-          <Button render={<a href="/api/integrations/figma/oauth/start" />}>
-            {m.figma_profile_connect_button()}
-          </Button>
-        )}
-      </div>
-      {error ? (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
-    </FigmaProfileCard>
-  )
-}
-
-function FigmaProfileCard({ children }: { children: ReactNode }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{m.figma_profile_title()}</CardTitle>
-        <CardDescription>{m.figma_profile_description()}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">{children}</CardContent>
-    </Card>
+    <SettingsRow
+      icon={<IntegrationLogo kind="figma" />}
+      label={m.figma_profile_title()}
+      description={
+        <span className={cn(busy && "animate-pulse")}>
+          {profile.connected
+            ? m.figma_profile_connected_status({
+                handle: profile.handle ?? profile.email ?? ""
+              })
+            : m.figma_profile_description()}
+        </span>
+      }
+      error={error}
+    >
+      {profile.connected ? (
+        <Button
+          type="button"
+          variant="tertiary"
+          size="sm"
+          disabled={busy}
+          onClick={() => void disconnect()}
+        >
+          {m.figma_profile_disconnect_button()}
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          render={<a href="/api/integrations/figma/oauth/start" />}
+        >
+          {m.figma_profile_connect_button()}
+        </Button>
+      )}
+    </SettingsRow>
   )
 }

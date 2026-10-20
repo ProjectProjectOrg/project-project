@@ -27,11 +27,11 @@ export function LibrarySectionHeader({
         className
       )}
     >
-      <div className="min-w-0">
-        <h2 id={id} className="text-sm font-medium">
+      <div className="min-w-0 px-0.5">
+        <h2 id={id} className="text-[13px] font-medium">
           {title}
         </h2>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
       </div>
       {action}
     </div>

@@ -7,33 +7,29 @@ import type {
 } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
-import {
-  Check,
-  Crown,
-  LogOut,
-  MoreHorizontal,
-  Plus,
-  ShieldCheck,
-  Trash2,
-  UserRound
-} from "lucide-react"
+import { Crown, LogOut, ShieldCheck, Trash2, UserRound } from "lucide-react"
 import { motion } from "motion/react"
 import { useState, type FormEvent } from "react"
 
 import { MemberAvatar } from "@/components/MemberAvatar"
-import { Badge, type BadgeTone } from "@/components/ui/badge"
+import {
+  AddMemberForm,
+  MemberMenuConfirm,
+  MemberMenuSpacer,
+  MemberMenuTrigger,
+  MemberRowLayout,
+  PendingInviteRow,
+  RoleBadge,
+  RoleSelect,
+  type RoleMeta
+} from "@/components/members/MemberList"
+import { SettingsGroup } from "@/components/settings/SettingsSection"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
+  DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput
-} from "@/components/ui/input-group"
 import {
   cancelInvitation,
   inviteMember,
@@ -48,15 +44,12 @@ import { orgActionErrorFromExit, type OrgActionError } from "@/lib/orgErrors"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
-const ROLE_META: Record<
-  OrgRole,
-  { label: () => string; icon: typeof Crown; tone: BadgeTone }
-> = {
-  owner: { label: () => m.members_role_owner(), icon: Crown, tone: "amber" },
+const ROLE_META: Record<OrgRole, RoleMeta> = {
+  owner: { label: () => m.members_role_owner(), icon: Crown, tone: "muted" },
   admin: {
     label: () => m.members_role_admin(),
     icon: ShieldCheck,
-    tone: "blue"
+    tone: "muted"
   },
   member: {
     label: () => m.members_role_member(),
@@ -100,10 +93,13 @@ export function OrgMembersSection({
         <AddMemberRow orgSlug={orgSlug} onFocusChange={setAdding} />
       )}
 
-      <motion.ul
-        animate={{ opacity: adding ? 0.35 : 1 }}
-        transition={transitions.presence}
-        className="divide-y divide-border rounded-xl border border-border bg-background"
+      <SettingsGroup
+        render={
+          <motion.ul
+            animate={{ opacity: adding ? 0.35 : 1 }}
+            transition={transitions.presence}
+          />
+        }
       >
         {members.map((member) => (
           <li key={member.userId}>
@@ -119,14 +115,20 @@ export function OrgMembersSection({
         ))}
         {invitations.map((invitation) => (
           <li key={invitation.id}>
-            <InvitationRow
-              orgSlug={orgSlug}
-              invitation={invitation}
-              canManage={canManage}
+            <PendingInviteRow
+              email={invitation.email}
+              role={ROLE_META[invitation.role]}
+              menu={
+                canManage ? (
+                  <InvitationMenu orgSlug={orgSlug} invitation={invitation} />
+                ) : (
+                  <MemberMenuSpacer />
+                )
+              }
             />
           </li>
         ))}
-      </motion.ul>
+      </SettingsGroup>
 
       {isLastOwner && (
         <p className="text-xs text-muted-foreground">
@@ -170,97 +172,28 @@ function AddMemberRow({
   }
 
   return (
-    <form onSubmit={onSubmit}>
-      <InputGroup>
-        <InputGroupAddon>
-          <Plus className="size-4" strokeWidth={1.75} />
-        </InputGroupAddon>
-        <InputGroupInput
-          type="email"
-          value={email}
-          onChange={(e) => {
-            setEmail(e.target.value)
-            setSubmitted(false)
-            setError(null)
-          }}
-          onFocus={() => onFocusChange?.(true)}
-          onBlur={() => onFocusChange?.(false)}
-          placeholder={m.org_members_invite_placeholder()}
-          aria-label={m.members_add_email_aria_label()}
-          disabled={submitting}
+    <AddMemberForm
+      email={email}
+      onEmailChange={(next) => {
+        setEmail(next)
+        setSubmitted(false)
+        setError(null)
+      }}
+      placeholder={m.org_members_invite_placeholder()}
+      submitting={submitting}
+      submitted={submitted}
+      error={error?.message}
+      roleSelect={
+        <RoleSelect
+          value={role}
+          onChange={setRole}
+          roles={ASSIGNABLE_ROLES}
+          meta={ROLE_META}
         />
-        <RoleSelect value={role} onChange={setRole} roles={ASSIGNABLE_ROLES} />
-        {error && (
-          <span className="shrink-0 text-xs text-destructive">
-            {error.message}
-          </span>
-        )}
-        {!error && submitted ? (
-          <span
-            className="shrink-0 text-xs text-muted-foreground"
-            role="status"
-          >
-            {m.members_add_success()}
-          </span>
-        ) : null}
-      </InputGroup>
-    </form>
-  )
-}
-
-function RoleSelect({
-  value,
-  onChange,
-  roles = ASSIGNABLE_ROLES
-}: {
-  value: OrgAssignableRole
-  onChange: (r: OrgAssignableRole) => void
-  roles?: ReadonlyArray<OrgAssignableRole>
-}) {
-  const meta = ROLE_META[value]
-  const Icon = meta.icon
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Badge
-            tone={meta.tone}
-            size="sm"
-            className="cursor-pointer transition-colors hover:bg-accent"
-            render={
-              <button
-                type="button"
-                aria-label={m.members_role_select_aria_label({
-                  role: meta.label()
-                })}
-              />
-            }
-          >
-            <Icon strokeWidth={1.75} />
-            {meta.label()}
-          </Badge>
-        }
-      />
-      <DropdownMenuContent align="end" sideOffset={6} className="w-32">
-        {roles.map((r) => {
-          const roleMeta = ROLE_META[r]
-          const RIcon = roleMeta.icon
-          return (
-            <DropdownMenuItem
-              key={r}
-              onClick={() => onChange(r)}
-              className="cursor-pointer"
-            >
-              <RIcon className="size-4" strokeWidth={1.75} />
-              {roleMeta.label()}
-              {r === value && (
-                <Check className="ml-auto size-3.5 text-muted-foreground" />
-              )}
-            </DropdownMenuItem>
-          )
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      }
+      onSubmit={onSubmit}
+      onFocusChange={onFocusChange}
+    />
   )
 }
 
@@ -279,29 +212,14 @@ function MemberRow({
   callerUserId: string
   ownerCount: number
 }) {
-  const meta = ROLE_META[member.role]
-  const Icon = meta.icon
-  const isSelf = member.userId === callerUserId
   return (
-    <div className="flex items-center gap-3 py-2.5 pr-3 pl-3">
-      <MemberAvatar member={member} size={32} />
-      <div className="min-w-0 flex-1 leading-tight">
-        <div className="truncate text-sm font-medium">
-          {member.name || member.email}
-          {isSelf && (
-            <span className="ml-2 text-[10px] text-muted-foreground">
-              {m.members_self_indicator()}
-            </span>
-          )}
-        </div>
-        <div className="truncate text-xs text-muted-foreground">
-          {member.email}
-        </div>
-      </div>
-      <Badge tone={meta.tone} size="sm">
-        <Icon strokeWidth={1.75} />
-        {meta.label()}
-      </Badge>
+    <MemberRowLayout
+      leading={<MemberAvatar member={member} size={32} />}
+      title={member.name || member.email}
+      isSelf={member.userId === callerUserId}
+      subtitle={member.email}
+    >
+      <RoleBadge meta={ROLE_META[member.role]} />
       <MemberMenu
         orgSlug={orgSlug}
         orgName={orgName}
@@ -310,49 +228,7 @@ function MemberRow({
         callerUserId={callerUserId}
         ownerCount={ownerCount}
       />
-    </div>
-  )
-}
-
-function InvitationRow({
-  orgSlug,
-  invitation,
-  canManage
-}: {
-  orgSlug: string
-  invitation: OrgInvitation
-  canManage: boolean
-}) {
-  const meta = ROLE_META[invitation.role]
-  const Icon = meta.icon
-  const initial = invitation.email.trim().charAt(0).toUpperCase() || "?"
-
-  return (
-    <div className="flex items-center gap-3 py-2.5 pr-3 pl-3">
-      <div className="grid size-8 shrink-0 place-items-center rounded-full border border-dashed border-border font-mono text-xs text-muted-foreground">
-        {initial}
-      </div>
-      <div className="min-w-0 flex-1 leading-tight">
-        <div className="truncate text-sm font-medium text-muted-foreground">
-          {invitation.email}
-        </div>
-        <div className="truncate text-xs text-muted-foreground">
-          {m.members_pending_detail()}
-        </div>
-      </div>
-      <Badge tone="muted" size="sm">
-        {m.members_pending_badge()}
-      </Badge>
-      <Badge tone={meta.tone} size="sm">
-        <Icon strokeWidth={1.75} />
-        {meta.label()}
-      </Badge>
-      {canManage ? (
-        <InvitationMenu orgSlug={orgSlug} invitation={invitation} />
-      ) : (
-        <span className="size-8 shrink-0" />
-      )}
-    </div>
+    </MemberRowLayout>
   )
 }
 
@@ -389,20 +265,10 @@ function InvitationMenu({
         }
       }}
     >
-      <DropdownMenuTrigger
-        render={
-          <button
-            type="button"
-            aria-label={m.members_pending_actions_aria_label()}
-            className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <MoreHorizontal className="size-4" strokeWidth={1.75} />
-          </button>
-        }
-      />
+      <MemberMenuTrigger label={m.members_pending_actions_aria_label()} />
       <DropdownMenuContent align="end" sideOffset={6} className="w-52">
         {confirming ? (
-          <ConfirmBlock
+          <MemberMenuConfirm
             prompt={m.members_pending_cancel_confirm_prompt({
               email: invitation.email
             })}
@@ -412,7 +278,7 @@ function InvitationMenu({
                 : m.members_pending_cancel_button()
             }
             busy={canceling}
-            error={error}
+            error={orgErrorText(error)}
             onConfirm={() => void onCancelInvite()}
             onCancel={() => setConfirming(false)}
           />
@@ -420,7 +286,7 @@ function InvitationMenu({
           <DropdownMenuItem
             closeOnClick={false}
             onClick={() => setConfirming(true)}
-            className="cursor-pointer text-destructive focus:text-destructive"
+            variant="destructive"
           >
             <Trash2 className="size-4" strokeWidth={1.75} />
             {m.members_pending_cancel_button()}
@@ -479,7 +345,7 @@ function MemberMenu({
   const canLeave = isSelf && !isLastOwner
 
   if (!canChangeRole && !canTransfer && !canRemove && !canLeave) {
-    return <span className="size-8 shrink-0" />
+    return <MemberMenuSpacer />
   }
 
   async function onRemove() {
@@ -534,20 +400,10 @@ function MemberMenu({
         }
       }}
     >
-      <DropdownMenuTrigger
-        render={
-          <button
-            type="button"
-            aria-label={m.members_actions_aria_label()}
-            className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <MoreHorizontal className="size-4" strokeWidth={1.75} />
-          </button>
-        }
-      />
+      <MemberMenuTrigger label={m.members_actions_aria_label()} />
       <DropdownMenuContent align="end" sideOffset={6} className="w-60">
         {confirm?.kind === "remove" ? (
-          <ConfirmBlock
+          <MemberMenuConfirm
             prompt={m.members_remove_confirm_prompt({
               name: member.name || member.email
             })}
@@ -555,12 +411,12 @@ function MemberMenu({
               busy ? m.members_remove_in_progress() : m.members_remove_button()
             }
             busy={busy}
-            error={error}
+            error={orgErrorText(error)}
             onConfirm={() => void onRemove()}
             onCancel={() => setConfirm(null)}
           />
         ) : confirm?.kind === "transfer" ? (
-          <ConfirmBlock
+          <MemberMenuConfirm
             prompt={m.org_members_transfer_confirm_prompt({
               name: member.name || member.email
             })}
@@ -570,12 +426,12 @@ function MemberMenu({
                 : m.org_members_make_owner()
             }
             busy={busy}
-            error={error}
+            error={orgErrorText(error)}
             onConfirm={() => void onTransfer()}
             onCancel={() => setConfirm(null)}
           />
         ) : confirm?.kind === "leave" ? (
-          <ConfirmBlock
+          <MemberMenuConfirm
             prompt={m.org_members_leave_confirm_prompt({ org: orgName })}
             confirmLabel={
               busy
@@ -583,7 +439,7 @@ function MemberMenu({
                 : m.org_members_leave_button()
             }
             busy={busy}
-            error={error}
+            error={orgErrorText(error)}
             onConfirm={() => void onLeave()}
             onCancel={() => setConfirm(null)}
           />
@@ -625,7 +481,7 @@ function MemberMenu({
               <DropdownMenuItem
                 closeOnClick={false}
                 onClick={() => setConfirm({ kind: "remove" })}
-                className="cursor-pointer text-destructive focus:text-destructive"
+                variant="destructive"
               >
                 <Trash2 className="size-4" strokeWidth={1.75} />
                 {m.members_remove_button()}
@@ -635,7 +491,7 @@ function MemberMenu({
               <DropdownMenuItem
                 closeOnClick={false}
                 onClick={() => setConfirm({ kind: "leave" })}
-                className="cursor-pointer text-destructive focus:text-destructive"
+                variant="destructive"
               >
                 <LogOut className="size-4" strokeWidth={1.75} />
                 {m.org_members_leave_button()}
@@ -648,50 +504,14 @@ function MemberMenu({
   )
 }
 
-function ConfirmBlock({
-  prompt,
-  confirmLabel,
-  busy,
-  error,
-  onConfirm,
-  onCancel
-}: {
-  prompt: string
-  confirmLabel: string
-  busy: boolean
-  error: OrgActionError | null
-  onConfirm: () => void
-  onCancel: () => void
-}) {
+function orgErrorText(error: OrgActionError | null) {
+  if (!error) return null
   return (
-    <div className="flex flex-col gap-2 p-1">
-      <p className="px-2 pt-1 text-xs text-muted-foreground">{prompt}</p>
-      {error && (
-        <p className="px-2 text-xs text-destructive">
-          {error.message}
-          {error.projectSlugs && error.projectSlugs.length > 0 ? (
-            <span className="font-mono"> {error.projectSlugs.join(", ")}</span>
-          ) : null}
-        </p>
-      )}
-      <div className="flex gap-1 px-1 pb-1">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onConfirm}
-          className="flex-1 rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-all duration-100 hover:bg-destructive/90 active:scale-[0.97] disabled:opacity-50"
-        >
-          {confirmLabel}
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onCancel}
-          className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-all duration-100 hover:bg-accent hover:text-foreground active:scale-[0.97]"
-        >
-          {m.common_cancel_button()}
-        </button>
-      </div>
-    </div>
+    <>
+      {error.message}
+      {error.projectSlugs && error.projectSlugs.length > 0 ? (
+        <span className="font-mono"> {error.projectSlugs.join(", ")}</span>
+      ) : null}
+    </>
   )
 }
