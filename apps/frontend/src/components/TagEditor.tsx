@@ -5,17 +5,22 @@ import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
-import { Check, Plus, X } from "lucide-react"
+import { Plus, X } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { TagAdminPopover } from "@/components/TagAdminPopover"
 import { TagChip } from "@/components/TagChip"
 import { Button } from "@/components/ui/button"
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuEmpty,
+  DropdownMenuInput,
+  DropdownMenuItem,
+  DropdownMenuList,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
 import {
   applyTagsInEditor,
   createTagInEditor,
@@ -40,6 +45,8 @@ type Props = {
 const VALID = /^[a-z0-9][a-z0-9 -]{0,30}$/
 const NEUTRAL = "#94a3b8"
 const makeTagName = Schema.decodeUnknownSync(TagName)
+const matchesTag = (text: string, query: string) =>
+  text.includes(query.toLowerCase())
 const idleUsageCountsAtom = Atom.make(Result.initial<Record<string, number>>())
 
 export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
@@ -59,7 +66,6 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const create = useAtomSet(createTagInEditor(editorReq), {
     mode: "promiseExit"
   })
-  const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState("")
 
   const registry = useMemo<ReadonlyArray<Tag>>(
@@ -86,8 +92,10 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
     lowered.length === 0
   const showValidationError =
     canManageTags && lowered.length > 0 && !exactRegistered && !isValidNewName
-  const filtered = lowered
-    ? registry.filter((t) => t.name.includes(lowered))
+  const canCreate =
+    canManageTags && lowered.length > 0 && !exactRegistered && isValidNewName
+  const ordered = exactRegistered
+    ? [exactRegistered, ...registry.filter((t) => t !== exactRegistered)]
     : registry
 
   const apply = (next: ReadonlyArray<string>) =>
@@ -96,8 +104,6 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const addTag = (name: string) => {
     if (displayedNames.includes(makeTagName(name))) return
     apply([...displayedNames, name])
-    setDraft("")
-    setOpen(false)
   }
 
   const removeFromTicket = (name: string) => {
@@ -144,118 +150,86 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
           />
         )
       })}
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger
+      <DropdownMenu
+        filterable={{
+          value: draft,
+          onValueChange: (next) => setDraft(next.toLowerCase()),
+          filter: matchesTag
+        }}
+      >
+        <DropdownMenuTrigger
           render={
             <Button
               type="button"
-              variant="tertiary"
-              size={displayedNames.length === 0 ? "xs" : "icon-xs"}
-              leadingIcon={displayedNames.length === 0 ? Plus : undefined}
+              variant="chip"
               aria-label={m.tags_add_button()}
-              className="border-dashed text-muted-foreground hover:border-foreground/40 hover:text-foreground"
             >
+              <Plus className="size-3.5" strokeWidth={1.75} />
               {displayedNames.length === 0 ? (
-                m.tags_add_button()
-              ) : (
-                <Plus strokeWidth={2} />
-              )}
+                <span>{m.tags_add_button()}</span>
+              ) : null}
             </Button>
           }
         />
-        <PopoverContent
-          align="start"
-          sideOffset={6}
-          className="w-60 p-1"
-          initialFocus={true}
-        >
-          <div className="flex flex-col gap-1">
-            <input
-              autoFocus
-              value={draft}
-              onChange={(e) => setDraft(e.target.value.toLowerCase())}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault()
-                  if (exactRegistered) addTag(exactRegistered.name)
-                  else if (canManageTags) void createAndApply()
-                }
-                if (e.key === "Escape") {
-                  e.preventDefault()
-                  setOpen(false)
-                }
-              }}
-              aria-invalid={showValidationError || undefined}
-              aria-describedby={
-                showValidationError ? "tag-name-error" : undefined
-              }
-              placeholder={m.tags_search_or_create_placeholder()}
-              className={cn(
-                "h-7 rounded-md border bg-transparent px-2 text-xs transition-colors outline-none",
-                showValidationError
-                  ? "border-destructive/60 focus-visible:border-destructive"
-                  : "border-border focus-visible:border-foreground/40"
-              )}
-            />
-            {showValidationError ? (
-              <p
-                id="tag-name-error"
-                className="px-1 text-[11px] leading-tight text-destructive"
-              >
-                {m.tags_name_validation_hint()}
-              </p>
-            ) : null}
-            <div className="flex max-h-56 flex-col gap-0.5 overflow-y-auto">
-              {showEmpty ? (
-                <div className="flex min-h-16 flex-col items-center justify-center px-3 py-2 text-center">
-                  <p className="text-xs font-medium">{m.tags_empty_title()}</p>
-                  {canManageTags ? (
-                    <p className="text-[11px] text-muted-foreground">
-                      {m.tags_empty_create_hint()}
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-              {!showEmpty && filtered.length === 0 && !canManageTags ? (
-                <p className="px-2 py-1 text-[11px] text-muted-foreground">
-                  {m.tags_no_matches()}
+        <DropdownMenuContent align="start" sideOffset={6} className="w-60">
+          <DropdownMenuInput
+            placeholder={m.tags_search_or_create_placeholder()}
+            aria-label={m.tags_search_or_create_placeholder()}
+            aria-invalid={showValidationError || undefined}
+            aria-describedby={
+              showValidationError ? "tag-name-error" : undefined
+            }
+          />
+          {showValidationError ? (
+            <p
+              id="tag-name-error"
+              className="px-2 pb-1 text-[11px] leading-tight text-destructive"
+            >
+              {m.tags_name_validation_hint()}
+            </p>
+          ) : null}
+          {showEmpty ? (
+            <div className="flex min-h-16 flex-col items-center justify-center px-3 py-2 text-center">
+              <p className="text-[13px] font-medium">{m.tags_empty_title()}</p>
+              {canManageTags ? (
+                <p className="text-xs text-muted-foreground">
+                  {m.tags_empty_create_hint()}
                 </p>
               ) : null}
-              {filtered.map((tag) => {
-                const isApplied = displayedNames.includes(tag.name)
-                return (
-                  <button
-                    key={tag.name}
-                    type="button"
-                    onClick={() =>
-                      isApplied ? removeFromTicket(tag.name) : addTag(tag.name)
-                    }
-                    className="flex items-center gap-2 rounded-sm px-1.5 py-1 text-left text-xs transition-colors duration-100 hover:bg-accent active:scale-[0.99]"
-                  >
-                    <TagChip name={tag.name} color={tag.color} size="xs" />
-                    {isApplied ? (
-                      <Check className="ml-auto size-3.5 text-muted-foreground" />
-                    ) : null}
-                  </button>
-                )
-              })}
-              {canManageTags &&
-              lowered &&
-              !exactRegistered &&
-              isValidNewName ? (
-                <button
-                  type="button"
-                  onClick={() => void createAndApply()}
-                  className="flex items-center gap-2 rounded-sm px-1.5 py-1 text-left text-xs text-muted-foreground transition-colors duration-100 hover:bg-accent hover:text-foreground active:scale-[0.99]"
-                >
-                  <Plus className="size-3.5" strokeWidth={2} />
-                  {m.tags_create_button({ name: lowered })}
-                </button>
-              ) : null}
             </div>
-          </div>
-        </PopoverContent>
-      </Popover>
+          ) : null}
+          <DropdownMenuList className="max-h-56 overflow-y-auto">
+            {ordered.map((tag) => {
+              const isApplied = ticketHasTag(tag.name)
+              return (
+                <DropdownMenuCheckboxItem
+                  key={tag.name}
+                  label={tag.name}
+                  checked={isApplied}
+                  closeOnClick={!isApplied}
+                  onCheckedChange={() =>
+                    isApplied ? removeFromTicket(tag.name) : addTag(tag.name)
+                  }
+                >
+                  <TagChip name={tag.name} color={tag.color} size="xs" />
+                </DropdownMenuCheckboxItem>
+              )
+            })}
+            {canCreate ? (
+              <DropdownMenuItem
+                label={lowered}
+                onClick={() => void createAndApply()}
+              >
+                <Plus strokeWidth={1.75} />
+                {m.tags_create_button({ name: lowered })}
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuList>
+          {canManageTags || showEmpty ? null : (
+            <DropdownMenuEmpty>{m.tags_no_matches()}</DropdownMenuEmpty>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   )
 }
