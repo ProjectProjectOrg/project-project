@@ -156,6 +156,9 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
           onValueChange: (next) => setDraft(next.toLowerCase()),
           filter: matchesTag
         }}
+        onOpenChangeComplete={(open) => {
+          if (!open) setDraft("")
+        }}
       >
         <DropdownMenuTrigger
           render={
