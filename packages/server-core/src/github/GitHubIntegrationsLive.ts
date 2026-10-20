@@ -445,7 +445,7 @@ export const GitHubIntegrationsLive = Layer.effect(
         )
         const redirectUrl = project
           ? `${baseUrl}/orgs/${org.slug}/projects/${project.slug}?githubInstall=success`
-          : `${baseUrl}/orgs/${org.slug}?githubInstall=success`
+          : `${baseUrl}/orgs/${org.slug}/settings/integrations?githubInstall=success`
         return { redirectUrl }
       })
 
