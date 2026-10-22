@@ -31,7 +31,10 @@
 import * as fs from "node:fs/promises"
 import * as path from "node:path"
 
-import matter from "gray-matter"
+import {
+  markdownFileContent,
+  parseMarkdownFile
+} from "@pp/server-core/markdown/fileContent"
 
 async function dirExists(p: string): Promise<boolean> {
   try {
@@ -125,8 +128,8 @@ async function main() {
     const file = path.join(targetParent, entry.name, "project.md")
     if (!(await fileExists(file))) continue
     const raw = await fs.readFile(file, "utf8")
-    const parsed = matter(raw)
-    const data = parsed.data as Record<string, unknown>
+    const parsed = parseMarkdownFile(raw)
+    const data = parsed.data
     let changed = false
     if (data.org !== orgSlug) {
       data.org = orgSlug
@@ -138,7 +141,11 @@ async function main() {
       changed = true
     }
     if (changed) {
-      await fs.writeFile(file, matter.stringify(parsed.content, data), "utf8")
+      await fs.writeFile(
+        file,
+        markdownFileContent(data, parsed.content),
+        "utf8"
+      )
       rewritten++
     } else {
       unchanged++
@@ -154,8 +161,8 @@ async function main() {
     if (!entry.isDirectory()) continue
     const file = path.join(targetParent, entry.name, "project.md")
     if (!(await fileExists(file))) continue
-    const parsed = matter(await fs.readFile(file, "utf8"))
-    const data = parsed.data as Record<string, unknown>
+    const parsed = parseMarkdownFile(await fs.readFile(file, "utf8"))
+    const data = parsed.data
     if (data.org !== orgSlug) {
       throw new Error(`verify failed: ${file} has org=${String(data.org)}`)
     }

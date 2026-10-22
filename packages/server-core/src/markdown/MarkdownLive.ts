@@ -15,10 +15,13 @@ import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
 import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
-import matter from "gray-matter"
 
 import { splitDescriptionAndCommentsRegion } from "../comments/comments-region"
-import { markdownFileContent, ticketFileBody } from "./fileContent"
+import {
+  markdownFileContent,
+  parseMarkdownFile,
+  ticketFileBody
+} from "./fileContent"
 import {
   GroupIdTaken,
   Markdown,
@@ -92,7 +95,11 @@ export const MarkdownLive = Layer.effect(
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
             )
           )
-        const parsed = matter(raw)
+        const parsed = yield* Effect.try({
+          try: () => parseMarkdownFile(raw),
+          catch: (cause) =>
+            new MarkdownError({ cause, message: `parse failed: ${file}` })
+        })
         return {
           data: parsed.data,
           body: parsed.content
@@ -211,7 +218,11 @@ export const MarkdownLive = Layer.effect(
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
             )
           )
-        const parsed = matter(raw)
+        const parsed = yield* Effect.try({
+          try: () => parseMarkdownFile(raw),
+          catch: (cause) =>
+            new MarkdownError({ cause, message: `parse failed: ${file}` })
+        })
         return {
           data: parsed.data,
           body: parsed.content
@@ -446,7 +457,11 @@ export const MarkdownLive = Layer.effect(
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
             )
           )
-        const parsed = matter(raw)
+        const parsed = yield* Effect.try({
+          try: () => parseMarkdownFile(raw),
+          catch: (cause) =>
+            new MarkdownError({ cause, message: `parse failed: ${file}` })
+        })
         return {
           data: parsed.data,
           body: parsed.content

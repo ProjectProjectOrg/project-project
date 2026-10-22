@@ -20,8 +20,8 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
-import matter from "gray-matter"
 
+import { markdownFileContent, parseMarkdownFile } from "../markdown/fileContent"
 import {
   Markdown,
   MarkdownError,
@@ -84,7 +84,7 @@ type DecodedLayerPart<A> = Readonly<{
 
 const parseFile = (file: LibraryFile): Option.Option<ParsedFile> => {
   try {
-    const parsed = matter(normalizeLineEndings(file.content))
+    const parsed = parseMarkdownFile(normalizeLineEndings(file.content))
     return Option.some({
       key: file.key,
       data: parsed.data,
@@ -159,8 +159,7 @@ const parseOrgFile = (
 ): Effect.Effect<OrgLibraryFile, OrgLibraryUnreadable> =>
   Effect.try({
     try: () => {
-      // gray-matter caches a failed parse and returns it empty next time; options skip the cache.
-      const parsed = matter(content, {})
+      const parsed = parseMarkdownFile(content)
       return { data: parsed.data, body: parsed.content }
     },
     catch: (cause) => new OrgLibraryUnreadable({ cause, orgSlug })
@@ -266,7 +265,7 @@ export const LibraryDocsLive = Layer.effect(
           projectSlug,
           "blocks",
           key,
-          matter.stringify(content, encodeBlockFrontmatter(frontmatter))
+          markdownFileContent(encodeBlockFrontmatter(frontmatter), content)
         )
       )
     }
@@ -287,7 +286,7 @@ export const LibraryDocsLive = Layer.effect(
           projectSlug,
           "templates",
           key,
-          matter.stringify(body, encodeTemplateFrontmatter(frontmatter))
+          markdownFileContent(encodeTemplateFrontmatter(frontmatter), body)
         )
       )
     }
@@ -359,9 +358,9 @@ export const LibraryDocsLive = Layer.effect(
           )
           yield* markdown.writeOrgLibraryFile(
             orgSlug,
-            matter.stringify(
-              file.body,
-              withTemplateDefaults(file.data, defaults)
+            markdownFileContent(
+              withTemplateDefaults(file.data, defaults),
+              file.body
             )
           )
         })
