@@ -230,7 +230,6 @@ export function PendingInviteRow({
   )
 }
 
-/** Keeps the role badges aligned on rows the viewer has no actions for. */
 export function MemberMenuSpacer() {
   return <span className="size-8 shrink-0" />
 }
@@ -251,7 +250,6 @@ export function MemberMenuTrigger({ label }: Readonly<{ label: string }>) {
   )
 }
 
-/** The inline "are you sure" step that replaces a member menu's items. */
 export function MemberMenuConfirm({
   prompt,
   confirmLabel,

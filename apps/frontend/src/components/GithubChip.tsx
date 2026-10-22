@@ -230,6 +230,9 @@ function ConnectMenu({
     <DropdownMenu
       open={open}
       onOpenChange={setOpen}
+      onOpenChangeComplete={(next) => {
+        if (!next) setQuery("")
+      }}
       filterable={{ value: query, onValueChange: setQuery, filter: null }}
     >
       <DropdownMenuTrigger
