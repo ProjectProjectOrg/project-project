@@ -22,7 +22,7 @@ const Start = Schema.Struct({ orgSlug: Schema.NonEmptyString })
 const profileRedirect = (failed: boolean) =>
   Effect.gen(function* () {
     const baseUrl = yield* slackPublicUrl.pipe(Effect.orDie)
-    const url = new URL("/profile", baseUrl)
+    const url = new URL("/profile/connections", baseUrl)
     if (failed) url.searchParams.set("slackError", "oauth_failed")
     return HttpServerResponse.redirect(url.toString(), { status: 303 })
   })

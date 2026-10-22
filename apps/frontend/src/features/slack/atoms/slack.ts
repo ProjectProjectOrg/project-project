@@ -1,7 +1,7 @@
 import type {
   ConnectSlackInput,
-  SaveSlackProjectInput,
-  SlackProfile
+  SlackProfile,
+  SlackProjectStatus
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
@@ -35,10 +35,12 @@ export const slackOrg = Atom.family((req: SlackOrgRequest) =>
   )
 )
 export const slackManifest = Atom.family((req: SlackOrgRequest) =>
-  Api.query("slack", "manifest", {
-    params: req.params,
-    timeToLive: "5 minutes"
-  })
+  Atom.optimistic(
+    Api.query("slack", "manifest", {
+      params: req.params,
+      timeToLive: "5 minutes"
+    })
+  )
 )
 export const connectSlackOrg = Atom.family((req: SlackOrgRequest) =>
   Atom.optimisticFn(slackOrg(req), {
@@ -92,30 +94,31 @@ export const slackProject = Atom.family((req: SlackProjectRequest) =>
   )
 )
 export const slackChannels = Atom.family((req: SlackProjectRequest) =>
-  Api.query("slack", "channels", {
-    params: req.params,
-    timeToLive: "30 seconds",
-    reactivityKeys: [Keys.slackOrg(req.params.orgSlug)]
-  })
+  Atom.optimistic(
+    Api.query("slack", "channels", {
+      params: req.params,
+      timeToLive: "30 seconds",
+      reactivityKeys: [Keys.slackOrg(req.params.orgSlug)]
+    })
+  )
 )
+type SlackProjectSettings = NonNullable<SlackProjectStatus["settings"]>
+
 export const saveSlackProject = Atom.family((req: SlackProjectRequest) =>
   Atom.optimisticFn(slackProject(req), {
-    reducer: (current, input: SaveSlackProjectInput) =>
-      Result.map(current, (status) => ({
-        ...status,
-        settings: {
-          ...input,
-          channelName:
-            status.settings?.channelId === input.channelId
-              ? status.settings.channelName
-              : input.channelId
-        }
-      })),
+    reducer: (current, input: SlackProjectSettings) =>
+      Result.map(current, (status) => ({ ...status, settings: input })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn("saveSlackProject")(function* (input: SaveSlackProjectInput) {
+        Effect.fn("saveSlackProject")(function* ({
+          channelId,
+          events
+        }: SlackProjectSettings) {
           const status = yield* Api.use((api) =>
-            api.slack.saveProject({ params: req.params, payload: input })
+            api.slack.saveProject({
+              params: req.params,
+              payload: { channelId, events }
+            })
           )
           set(Result.success(status))
           return status

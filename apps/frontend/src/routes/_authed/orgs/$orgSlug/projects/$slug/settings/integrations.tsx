@@ -25,6 +25,10 @@ import {
   projectRequest,
   updateProjectSetup
 } from "@/features/projects/atoms/projects"
+import {
+  SlackProjectEvents,
+  SlackProjectRow
+} from "@/features/slack/components/ProjectSettings"
 import { useProjectActor } from "@/lib/access"
 import { type AppError, errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
@@ -52,52 +56,66 @@ function IntegrationsSettings() {
   const update = useAtomSet(updateProjectSetup(req))
   const actor = useProjectActor()
 
+  const canManageSlack = actor.call("slack", "saveProject")
+
   return (
-    <SettingsSection>
-      <SettingsGroup>
-        {actor.call("projects", "gitStates") ? (
-          <GithubSettingsRows
+    <>
+      <SettingsSection>
+        <SettingsGroup>
+          {actor.call("projects", "gitStates") ? (
+            <GithubSettingsRows
+              orgSlug={orgSlug}
+              slug={project.slug}
+              github={project.github}
+            />
+          ) : (
+            <SettingsRow
+              icon={<IntegrationLogo kind="github" />}
+              label={m.project_settings_github_heading()}
+              description={
+                project.github
+                  ? `${project.github.repoOwner}/${project.github.repoName}`
+                  : m.project_settings_github_not_connected()
+              }
+            />
+          )}
+          {project.setup.connectGithubDismissedAt &&
+          actor.call("projects", "updateSetup") ? (
+            <SettingsRow label={m.project_setup_github_dismissed_note()}>
+              <Button
+                variant="tertiary"
+                size="sm"
+                onClick={() => update({ connectGithubDismissedAt: null })}
+              >
+                {m.project_setup_restore_button()}
+              </Button>
+            </SettingsRow>
+          ) : null}
+          {actor.call("everhour", "projectStatus") && (
+            <EverhourSettingsRow
+              orgSlug={orgSlug}
+              slug={project.slug}
+              canManage={actor.call("everhour", "connectProject")}
+            />
+          )}
+          <FigmaProjectSettings
             orgSlug={orgSlug}
             slug={project.slug}
-            github={project.github}
+            canManage={actor.call("figma", "connectProject")}
           />
-        ) : (
-          <SettingsRow
-            icon={<IntegrationLogo kind="github" />}
-            label={m.project_settings_github_heading()}
-            description={
-              project.github
-                ? `${project.github.repoOwner}/${project.github.repoName}`
-                : m.project_settings_github_not_connected()
-            }
-          />
-        )}
-        {project.setup.connectGithubDismissedAt &&
-        actor.call("projects", "updateSetup") ? (
-          <SettingsRow label={m.project_setup_github_dismissed_note()}>
-            <Button
-              variant="tertiary"
-              size="sm"
-              onClick={() => update({ connectGithubDismissedAt: null })}
-            >
-              {m.project_setup_restore_button()}
-            </Button>
-          </SettingsRow>
-        ) : null}
-        {actor.call("everhour", "projectStatus") && (
-          <EverhourSettingsRow
+          <SlackProjectRow
             orgSlug={orgSlug}
             slug={project.slug}
-            canManage={actor.call("everhour", "connectProject")}
+            canManage={canManageSlack}
           />
-        )}
-        <FigmaProjectSettings
-          orgSlug={orgSlug}
-          slug={project.slug}
-          canManage={actor.call("figma", "connectProject")}
-        />
-      </SettingsGroup>
-    </SettingsSection>
+        </SettingsGroup>
+      </SettingsSection>
+      <SlackProjectEvents
+        orgSlug={orgSlug}
+        slug={project.slug}
+        canManage={canManageSlack}
+      />
+    </>
   )
 }
 

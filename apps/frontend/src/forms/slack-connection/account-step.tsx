@@ -1,17 +1,20 @@
-import { Button } from "@/components/ui/button"
+import { SettingsGroup } from "@/components/settings/SettingsSection"
 import { m } from "@/paraglide/messages"
 
-import { CredentialInput } from "./credential-input"
+import { CredentialRow } from "./credential-row"
 import type { SlackConnectionFormApi } from "./index"
 import { accountSchema, stepValidator } from "./opts"
+import { SetupStep, type StepFrame } from "./setup-step"
 
 export function AccountStep({
   form,
-  busy,
+  frame,
+  submitting,
   onBack
 }: Readonly<{
   form: SlackConnectionFormApi
-  busy: boolean
+  frame: StepFrame
+  submitting: boolean
   onBack: () => void
 }>) {
   return (
@@ -23,74 +26,56 @@ export function AccountStep({
       }}
     >
       {(group) => (
-        <form
-          noValidate
-          className="flex flex-col gap-5"
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (!busy) void group.handleSubmit()
-          }}
+        <SetupStep
+          frame={frame}
+          title={m.slack_setup_client_title()}
+          description={m.slack_setup_client_body()}
+          submitLabel={m.slack_connect()}
+          submitting={submitting}
+          onBack={onBack}
+          onSubmit={() => void group.handleSubmit()}
         >
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold">
-              {m.slack_setup_client_title()}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {m.slack_setup_client_body()}
-            </p>
-          </div>
-          <group.Field name="clientId">
-            {(field) => (
-              <CredentialInput
-                name="clientId"
-                type="text"
-                label={m.slack_client_id()}
-                hint={m.slack_client_id_hint()}
-                error={
-                  field.errors.length ? m.slack_validation_client_id() : null
-                }
-                value={field.value}
-                onChange={field.handleChange}
-                onBlur={field.handleBlur}
-                busy={busy}
-              />
-            )}
-          </group.Field>
-          <group.Field name="clientSecret">
-            {(field) => (
-              <CredentialInput
-                name="clientSecret"
-                label={m.slack_client_secret()}
-                hint={m.slack_client_secret_hint()}
-                error={
-                  field.errors.length
-                    ? m.slack_validation_client_secret()
-                    : null
-                }
-                value={field.value}
-                onChange={field.handleChange}
-                onBlur={field.handleBlur}
-                busy={busy}
-              />
-            )}
-          </group.Field>
-          <p className="text-xs text-muted-foreground">
+          <SettingsGroup>
+            <group.Field name="clientId">
+              {(field) => (
+                <CredentialRow
+                  name="clientId"
+                  type="text"
+                  label={m.slack_client_id()}
+                  hint={m.slack_client_id_hint()}
+                  error={
+                    field.errors.length ? m.slack_validation_client_id() : null
+                  }
+                  value={field.value}
+                  onChange={field.handleChange}
+                  onBlur={field.handleBlur}
+                  busy={frame.busy}
+                />
+              )}
+            </group.Field>
+            <group.Field name="clientSecret">
+              {(field) => (
+                <CredentialRow
+                  name="clientSecret"
+                  label={m.slack_client_secret()}
+                  hint={m.slack_client_secret_hint()}
+                  error={
+                    field.errors.length
+                      ? m.slack_validation_client_secret()
+                      : null
+                  }
+                  value={field.value}
+                  onChange={field.handleChange}
+                  onBlur={field.handleBlur}
+                  busy={frame.busy}
+                />
+              )}
+            </group.Field>
+          </SettingsGroup>
+          <p className="px-0.5 text-xs text-muted-foreground">
             {m.slack_credential_notice()}
           </p>
-          <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={onBack}
-              disabled={busy}
-            >
-              {m.slack_setup_back()}
-            </Button>
-            <Button type="submit" disabled={busy} loading={busy}>
-              {m.slack_connect()}
-            </Button>
-          </div>
-        </form>
+        </SetupStep>
       )}
     </form.FormGroup>
   )

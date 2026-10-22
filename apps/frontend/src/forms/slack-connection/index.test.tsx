@@ -152,3 +152,19 @@ it("retains the entered credentials when Slack rejects the connection", async ()
   fireEvent.click(screen.getByRole("button", { name: m.slack_setup_back() }))
   expect(screen.getByDisplayValue("xapp-retry-app")).toBeTruthy()
 })
+
+it("returns to app creation after the workspace is disconnected", async () => {
+  const view = render(
+    <SlackConnectionForm orgSlug="example" status={connected} />
+  )
+  fireEvent.click(screen.getByRole("button", { name: m.slack_disconnect() }))
+  fireEvent.click(screen.getByRole("button", { name: m.slack_disconnect() }))
+  await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1))
+  view.rerender(
+    <SlackConnectionForm orgSlug="example" status={{ connection: null }} />
+  )
+  expect(
+    await screen.findByText(m.slack_setup_progress({ current: 1, total: 4 }))
+  ).toBeTruthy()
+  expect(screen.getByText(m.slack_setup_create_title())).toBeTruthy()
+})
