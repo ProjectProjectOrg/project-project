@@ -66,6 +66,28 @@ const libraryPath = (org: string, ...rest: ReadonlyArray<string>) =>
   })
 
 describe("LibraryDocs (real fs)", () => {
+  it.effect("preserves frontmatter-looking block and template bodies", () =>
+    Effect.gen(function* () {
+      const docs = yield* LibraryDocs
+      const body = "---js\nthrow new Error('executed')\n---\nExample"
+      const literalBlock = yield* Schema.decodeUnknownEffect(BlockDraft)({
+        ...block,
+        content: body
+      })
+      const literalTemplate = yield* Schema.decodeUnknownEffect(TemplateDraft)({
+        ...template,
+        body
+      })
+
+      yield* docs.writeBlock("acme", null, literalBlock)
+      yield* docs.writeTemplate("acme", null, literalTemplate)
+
+      const layer = yield* docs.readLayer("acme", null)
+      expect(layer.blocks).toEqual([literalBlock])
+      expect(layer.templates).toEqual([literalTemplate])
+    }).pipe(Effect.provide(TestLayer))
+  )
+
   it.effect("writes nothing to disk until the first write", () =>
     Effect.gen(function* () {
       const docs = yield* LibraryDocs

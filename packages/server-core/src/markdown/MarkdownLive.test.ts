@@ -54,6 +54,25 @@ const ticketFrontmatter = (id: string) => ({
 })
 
 describe("Markdown tickets (real fs)", () => {
+  it.effect("round-trips frontmatter-looking ticket bodies as text", () =>
+    Effect.gen(function* () {
+      const md = yield* Markdown
+      const body = "---js\nthrow new Error('executed')\n---\nExample\n"
+
+      yield* md.createTicketFile(
+        "acme",
+        "foo",
+        "T-1",
+        ticketFrontmatter("T-1"),
+        body
+      )
+      expect(yield* md.readTicketFile("acme", "foo", "T-1")).toEqual({
+        data: ticketFrontmatter("T-1"),
+        body
+      })
+    }).pipe(Effect.provide(TestLayer))
+  )
+
   it.effect("keeps the original ticket when exclusive creation collides", () =>
     Effect.gen(function* () {
       const md = yield* Markdown

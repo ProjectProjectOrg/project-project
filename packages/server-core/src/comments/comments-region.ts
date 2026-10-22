@@ -1,6 +1,7 @@
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
-import matter from "gray-matter"
+
+import { markdownFileContent, parseMarkdownFile } from "../markdown/fileContent"
 
 export const COMMENTS_START = "<!-- comments:start -->"
 export const COMMENTS_END = "<!-- comments:end -->"
@@ -113,7 +114,7 @@ export function parseCommentsRegion(
     let end = i
     while (end < lines.length && !COMMENT_MARKER.test(lines[end].trim())) end++
     const blockText = lines.slice(i, end).join("\n").trim()
-    const parsed = matter(blockText)
+    const parsed = parseMarkdownFile(blockText)
     const decoded = Schema.decodeUnknownOption(CommentBlockData)(parsed.data)
     if (Option.isSome(decoded)) {
       const data = decoded.value
@@ -153,7 +154,9 @@ export function serializeCommentsRegion(
     }
     if (b.editedAt) fm.editedAt = b.editedAt.toISOString()
     out.push(`<!-- comment:${b.id} -->`)
-    out.push(matter.stringify(b.body.replace(/\s+$/, "") + "\n", fm).trimEnd())
+    out.push(
+      markdownFileContent(fm, b.body.replace(/\s+$/, "") + "\n").trimEnd()
+    )
   }
   out.push(COMMENTS_END)
   return out.join("\n") + "\n"
