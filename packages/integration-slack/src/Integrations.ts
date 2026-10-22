@@ -352,6 +352,25 @@ export const makeSlackIntegrations = Effect.gen(function* () {
               )
             )
             .limit(1)
+          const events = [...new Set(input.events)]
+          const channelRow = {
+            channelId: channel.id,
+            channelName: channel.name
+          }
+          if (previous?.organizationIntegrationId === row.id) {
+            yield* db
+              .update(projectIntegrationLink)
+              .set({ subscribedEvents: events })
+              .where(eq(projectIntegrationLink.id, previous.id))
+            yield* db
+              .insert(projectSlackIntegration)
+              .values({ projectIntegrationLinkId: previous.id, ...channelRow })
+              .onConflictDoUpdate({
+                target: projectSlackIntegration.projectIntegrationLinkId,
+                set: channelRow
+              })
+            return
+          }
           if (previous)
             yield* db
               .update(projectIntegrationLink)
@@ -364,16 +383,14 @@ export const makeSlackIntegrations = Effect.gen(function* () {
               organizationId: scope.organizationId,
               organizationIntegrationId: row.id,
               provider: "slack",
-              subscribedEvents: [...new Set(input.events)],
+              subscribedEvents: events,
               status: "active"
             })
             .returning({ id: projectIntegrationLink.id })
           if (!link) return yield* new SlackError({ reason: "save_failed" })
-          yield* db.insert(projectSlackIntegration).values({
-            projectIntegrationLinkId: link.id,
-            channelId: channel.id,
-            channelName: channel.name
-          })
+          yield* db
+            .insert(projectSlackIntegration)
+            .values({ projectIntegrationLinkId: link.id, ...channelRow })
         })
       )
       .pipe(

@@ -31,6 +31,7 @@ export const sprintEvents = (
     after.completedAt !== null && before?.completedAt === null
       ? "sprint_completed"
       : after.completedAt === null &&
+          after.startsAt !== null &&
           (before === null ||
             before.startsAt?.getTime() !== after.startsAt?.getTime())
         ? "sprint_started"

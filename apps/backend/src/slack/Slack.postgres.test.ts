@@ -846,6 +846,64 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
     ).toBe("sprint_changed")
   })
 
+  it("does not announce a sprint start for a sprint without a start date", async () => {
+    const f = await fixture()
+    await f.runtime.runPromise(
+      Effect.flatMap(GroupDocs, (docs) =>
+        docs.create(
+          f.orgId,
+          "project",
+          Schema.decodeSync(GroupDetail)({
+            id: "G-1",
+            name: "Undated sprint",
+            kind: "sprint",
+            tickets: [],
+            color: "#aaaaaa",
+            startsAt: null,
+            endsAt: null,
+            completedAt: null,
+            createdBy: f.userId,
+            createdAt: "2026-10-19T00:00:00Z",
+            updatedAt: "2026-10-19T00:00:00Z",
+            body: ""
+          })
+        )
+      ).pipe(Effect.provideService(ActivityActor, ActivityActor.user(f.userId)))
+    )
+    await f.enqueue()
+    const jobs = await pool.query(
+      "select n.id from slack_notification n join project_integration_link l on l.id=n.project_integration_link_id where l.project_id=$1",
+      [f.projectId]
+    )
+    expect(jobs.rows).toHaveLength(0)
+  })
+
+  it("keeps queued deliveries when the project's Slack settings are saved again", async () => {
+    const f = await fixture()
+    await f.create()
+    await f.enqueue()
+    const jobs = await pool.query(
+      "select n.id from slack_notification n join project_integration_link l on l.id=n.project_integration_link_id where l.project_id=$1",
+      [f.projectId]
+    )
+    await f.asProject(
+      Effect.flatMap(SlackIntegrations, (slack) =>
+        slack.saveProject({
+          channelId: "CNOTIFY",
+          events: ["ticket_created"]
+        })
+      )
+    )
+    await f.runtime.runPromise(
+      Effect.flatMap(SlackDelivery, (delivery) =>
+        delivery.deliver(jobs.rows[0].id, 0)
+      )
+    )
+    expect(
+      f.calls.filter((call) => call.method === "chat.postMessage")
+    ).toHaveLength(1)
+  })
+
   it("drops queued deliveries after a project disconnects and only lists channels the bot has joined", async () => {
     const f = await fixture()
     expect(
