@@ -1,16 +1,43 @@
 import type { TicketId, TicketType, UpdateTicketInput } from "@pp/shared"
-import { Check } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { Hitbox } from "@/components/ui/hitbox"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+
+function TypeMenuItems({
+  current,
+  onSelect
+}: Readonly<{
+  current: TicketType
+  onSelect: (type: TicketType) => void
+}>) {
+  return (
+    <DropdownMenuRadioGroup
+      value={current}
+      onValueChange={(next: string) => {
+        if (next !== current) onSelect(next as TicketType)
+      }}
+    >
+      {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
+        const TIcon = TYPE_META[t].icon
+        return (
+          <DropdownMenuRadioItem key={t} value={t} closeOnClick>
+            <TIcon className="size-4" strokeWidth={1.75} />
+            {TYPE_LABELS[t]()}
+          </DropdownMenuRadioItem>
+        )
+      })}
+    </DropdownMenuRadioGroup>
+  )
+}
 
 export function TypeSelect({
   value,
@@ -51,26 +78,7 @@ export function TypeSelect({
         finalFocus={false}
         onClick={(e) => e.stopPropagation()}
       >
-        {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
-          const tMeta = TYPE_META[t]
-          const TIcon = tMeta.icon
-          return (
-            <DropdownMenuItem
-              key={t}
-              onClick={() => {
-                if (t === value) return
-                onChange(t)
-              }}
-              className="cursor-pointer"
-            >
-              <TIcon className="size-4" strokeWidth={1.75} />
-              {TYPE_LABELS[t]()}
-              {t === value && (
-                <Check className="ml-auto size-3.5 text-muted-foreground" />
-              )}
-            </DropdownMenuItem>
-          )
-        })}
+        <TypeMenuItems current={value} onSelect={onChange} />
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -111,26 +119,10 @@ export function TypeBadgeTrigger({
         finalFocus={false}
         onClick={(e) => e.stopPropagation()}
       >
-        {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
-          const tMeta = TYPE_META[t]
-          const TIcon = tMeta.icon
-          return (
-            <DropdownMenuItem
-              key={t}
-              onClick={() => {
-                if (t === ticket.type) return
-                onPatch({ type: t })
-              }}
-              className="cursor-pointer"
-            >
-              <TIcon className="size-4" strokeWidth={1.75} />
-              {TYPE_LABELS[t]()}
-              {t === ticket.type && (
-                <Check className="ml-auto size-3.5 text-muted-foreground" />
-              )}
-            </DropdownMenuItem>
-          )
-        })}
+        <TypeMenuItems
+          current={ticket.type}
+          onSelect={(next) => onPatch({ type: next })}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -155,41 +147,33 @@ export function TypeButton({
       <DropdownMenuTrigger
         render={
           iconOnly ? (
-            <Hitbox
-              mode="inline"
-              margin="2"
+            <Button
+              type="button"
+              variant="chip"
+              size="icon-sm"
               onClick={(e) => e.stopPropagation()}
               aria-label={m.tickets_type_aria_label({ label: typeLabel })}
-              className={className}
+              className={cn(
+                "text-muted-foreground hover:text-foreground",
+                className
+              )}
             >
-              <span className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground">
-                <Icon className="size-4" strokeWidth={1.75} />
-              </span>
-            </Hitbox>
+              <Icon strokeWidth={1.75} />
+            </Button>
           ) : (
-            <Hitbox
-              mode="inline"
-              margin="2"
+            <Button
+              type="button"
+              variant="chip"
               onClick={(e) => e.stopPropagation()}
               aria-label={m.tickets_type_aria_label({ label: typeLabel })}
-              className={className}
+              className={cn(
+                "text-muted-foreground hover:text-foreground",
+                className
+              )}
             >
-              <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground">
-                <Icon className="size-3.5" strokeWidth={1.75} />
-                <span className="grid justify-items-start whitespace-nowrap">
-                  {Object.entries(TYPE_LABELS).map(([type, label]) => (
-                    <span
-                      key={type}
-                      aria-hidden="true"
-                      className="invisible col-start-1 row-start-1"
-                    >
-                      {label()}
-                    </span>
-                  ))}
-                  <span className="col-start-1 row-start-1">{typeLabel}</span>
-                </span>
-              </span>
-            </Hitbox>
+              <Icon className="size-3.5" strokeWidth={1.75} />
+              {typeLabel}
+            </Button>
           )
         }
       />
@@ -199,26 +183,10 @@ export function TypeButton({
         className="w-40"
         onClick={(e) => e.stopPropagation()}
       >
-        {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
-          const tMeta = TYPE_META[t]
-          const TIcon = tMeta.icon
-          return (
-            <DropdownMenuItem
-              key={t}
-              onClick={() => {
-                if (t === ticket.type) return
-                onPatch({ type: t })
-              }}
-              className="cursor-pointer"
-            >
-              <TIcon className="size-4" strokeWidth={1.75} />
-              {TYPE_LABELS[t]()}
-              {t === ticket.type && (
-                <Check className="ml-auto size-3.5 text-muted-foreground" />
-              )}
-            </DropdownMenuItem>
-          )
-        })}
+        <TypeMenuItems
+          current={ticket.type}
+          onSelect={(next) => onPatch({ type: next })}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -15,15 +15,15 @@ import { ErrorPage } from "@/components/ErrorPage"
 import type { EditorBlocks } from "@/components/Lexical/blocks/editorBlocks"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { Markdown } from "@/components/Markdown"
+import { MetaRow } from "@/components/TicketPage/MetaRow"
 import { Switch } from "@/components/ui/switch"
 import { m } from "@/paraglide/messages"
 
 import { BlockIconGlyph } from "./BlockIconGlyph"
 import {
-  AsideField,
   CommitInput,
   IconAndColorField,
-  MutedValue,
+  MUTED_VALUE_CLASS,
   originLabel
 } from "./DefinitionAside"
 import {
@@ -195,7 +195,7 @@ function BlockEditor({
       }
       aside={
         <>
-          <AsideField label={m.templates_editor_icon_label()}>
+          <MetaRow label={m.templates_editor_icon_label()}>
             <IconAndColorField
               icon={block.icon}
               color={block.color}
@@ -203,8 +203,8 @@ function BlockEditor({
               onColor={(color) => patch({ color })}
               disabled={!editable}
             />
-          </AsideField>
-          <AsideField label={m.templates_editor_description_label()}>
+          </MetaRow>
+          <MetaRow label={m.templates_editor_description_label()}>
             {editable ? (
               <CommitInput
                 value={block.description}
@@ -214,10 +214,10 @@ function BlockEditor({
                 maxLength={200}
               />
             ) : (
-              <MutedValue>{block.description}</MutedValue>
+              <span className={MUTED_VALUE_CLASS}>{block.description}</span>
             )}
-          </AsideField>
-          <AsideField label={m.templates_editor_synced_label()}>
+          </MetaRow>
+          <MetaRow label={m.templates_editor_synced_label()}>
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center gap-2">
                 <Switch
@@ -236,18 +236,18 @@ function BlockEditor({
                 {m.templates_editor_synced_help()}
               </p>
             </div>
-          </AsideField>
-          <AsideField label={m.templates_editor_origin_label()}>
-            <MutedValue>
+          </MetaRow>
+          <MetaRow label={m.templates_editor_origin_label()}>
+            <span className={MUTED_VALUE_CLASS}>
               {block.origin === scope.layer
                 ? originLabel(block.origin)
                 : m.templates_editor_scope_inherited({
                     layer: originLabel(scope.layer),
                     origin: originLabel(block.origin)
                   })}
-            </MutedValue>
-          </AsideField>
-          <AsideField
+            </span>
+          </MetaRow>
+          <MetaRow
             label={
               usedIn.length === 1
                 ? m.templates_editor_used_in_one()
@@ -255,7 +255,9 @@ function BlockEditor({
             }
           >
             {usedIn.length === 0 ? (
-              <MutedValue>{m.templates_editor_used_in_none()}</MutedValue>
+              <span className={MUTED_VALUE_CLASS}>
+                {m.templates_editor_used_in_none()}
+              </span>
             ) : (
               <ul className="flex flex-col gap-0.5">
                 {usedIn.map((template) => (
@@ -264,7 +266,7 @@ function BlockEditor({
                       scope={scope}
                       kind="template"
                       entryKey={template.key}
-                      className="-mx-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[13px] transition-colors hover:bg-accent"
+                      className="-mx-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[13px] transition-colors hover:bg-hover"
                     >
                       <BlockIconGlyph
                         icon={template.icon}
@@ -277,7 +279,7 @@ function BlockEditor({
                 ))}
               </ul>
             )}
-          </AsideField>
+          </MetaRow>
         </>
       }
     />

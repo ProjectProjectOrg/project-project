@@ -64,6 +64,8 @@
       }
     }
   ],
+  "tickets_assignee_search_empty": "No one matches",
+  "tickets_assignee_search_placeholder": "Search people…",
   "tickets_assignee_unassigned": "Unassigned",
   "tickets_assignees_aria_label": "Assignees: {label}. Click to change.",
   "tickets_assignees_row_aria_label": [
@@ -181,6 +183,10 @@
   "tickets_priority_low": "Low",
   "tickets_priority_med": "Med",
   "tickets_row_actions_aria_label": "Ticket actions",
+  "tickets_row_delete_confirm": "Delete this ticket?",
+  "tickets_row_delete_description": "This can't be undone.",
+  "tickets_row_delete_error_fallback": "Couldn't delete this ticket. Try again.",
+  "tickets_row_delete_menu_item": "Delete",
   "tickets_save_status_dirty": "Unsaved changes",
   "tickets_save_status_saved": "Saved",
   "tickets_save_status_saving": "Saving…",

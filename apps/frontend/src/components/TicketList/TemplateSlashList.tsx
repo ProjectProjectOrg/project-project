@@ -1,11 +1,15 @@
 import type { TemplateDefinition, TemplateKey, TicketType } from "@pp/shared"
 import { CircleDashed } from "lucide-react"
-import { useMemo, useState, type KeyboardEvent } from "react"
+import { useId, useMemo, useState, type KeyboardEvent } from "react"
 
 import { matchesSlashQuery } from "@/components/Lexical/blocks/slashMenuItems"
 import { BlockIconGlyph } from "@/components/Library/BlockIconGlyph"
-import { LibraryMenuRow } from "@/components/Library/LibraryMenuRow"
-import { MenuHighlight } from "@/components/ui/menu-highlight"
+import {
+  MenuListbox,
+  MenuOption,
+  optionId,
+  type ListboxState
+} from "@/components/ui/menu-listbox"
 import { m } from "@/paraglide/messages"
 
 import type { TemplateChoice } from "./useTemplateChoice"
@@ -37,6 +41,7 @@ export const templateMeta = (
 
 export type TemplateSlash = Readonly<{
   open: boolean
+  listbox: ListboxState
   options: ReadonlyArray<TemplateDefinition | null>
   highlight: number
   onTitleChange: (previous: string, next: string) => void
@@ -77,6 +82,7 @@ export function useTemplateSlash({
     ticketType: TicketType | null
   ) => void
 }>): TemplateSlash {
+  const listboxId = useId()
   const [active, setActive] = useState(false)
   const [highlight, setHighlight] = useState(0)
   const open = active && choice.ready && title.startsWith("/")
@@ -138,6 +144,11 @@ export function useTemplateSlash({
 
   return {
     open,
+    listbox: {
+      id: listboxId,
+      open,
+      activeIndex: options.length === 0 ? null : safeHighlight
+    },
     options,
     highlight: safeHighlight,
     onTitleChange,
@@ -154,31 +165,38 @@ export function TemplateSlashList({
 }: Readonly<{ slash: TemplateSlash; choice: TemplateChoice }>) {
   if (!slash.open) return null
   return (
-    <div className="absolute top-full right-0 left-0 z-30 mt-1 overflow-hidden rounded-lg border border-border bg-popover shadow-md">
+    <MenuListbox
+      id={slash.listbox.id}
+      aria-label={m.templates_creator_list_label()}
+    >
       {slash.options.length === 0 ? (
-        <p className="px-3 py-2 text-[13px] text-muted-foreground">
+        <p className="px-2 py-2 text-[13px] leading-5 text-muted-foreground">
           {m.templates_creator_no_match()}
         </p>
       ) : (
-        <div
-          role="listbox"
-          aria-label={m.templates_creator_list_label()}
-          className="relative flex max-h-72 flex-col overflow-y-auto p-1"
-        >
-          <MenuHighlight />
-          {slash.options.map((template, index) => (
-            <LibraryMenuRow
+        slash.options.map((template, index) => {
+          const meta = templateMeta(template, choice.defaultKey)
+          return (
+            <MenuOption
               key={template?.key ?? "blank"}
-              icon={<TemplateGlyph template={template} />}
-              name={templateLabel(template)}
-              meta={templateMeta(template, choice.defaultKey)}
+              id={optionId(slash.listbox.id, index)}
               highlighted={index === slash.highlight}
               onHighlight={() => slash.setHighlight(index)}
               onSelect={() => slash.choose(template)}
-            />
-          ))}
-        </div>
+            >
+              <TemplateGlyph template={template} />
+              <span className="min-w-0 flex-1 truncate">
+                {templateLabel(template)}
+              </span>
+              {meta ? (
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {meta}
+                </span>
+              ) : null}
+            </MenuOption>
+          )
+        })
       )}
-    </div>
+    </MenuListbox>
   )
 }

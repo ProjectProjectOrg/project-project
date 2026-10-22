@@ -3,6 +3,8 @@ import type { ComponentType, ReactNode } from "react"
 import { Fragment, useLayoutEffect, useRef, useState } from "react"
 
 import { transitions } from "@/lib/springs"
+import { SURFACE_BG } from "@/lib/surface-classes"
+import { useSurface } from "@/lib/surface-context"
 import { cn } from "@/lib/utils"
 
 import { SegmentedIndicator } from "./SegmentedIndicator"
@@ -32,8 +34,7 @@ type VariantTokens = {
 
 const VARIANTS: Record<SegmentedVariant, VariantTokens> = {
   default: {
-    container:
-      "inline-flex items-center gap-0.5 rounded-xl border border-border bg-background p-1",
+    container: "inline-flex items-center gap-0.5 rounded-xl bg-hover p-1",
     innerGap: "gap-1.5",
     innerGapPx: 6,
     iconSize: "size-3.5",
@@ -41,8 +42,7 @@ const VARIANTS: Record<SegmentedVariant, VariantTokens> = {
     itemBase: "h-7 rounded-lg px-2.5 text-sm"
   },
   view: {
-    container:
-      "flex w-full items-center gap-0.5 rounded-xl border border-border bg-background p-0.5",
+    container: "flex w-full items-center gap-0.5 rounded-xl bg-hover p-0.5",
     innerGap: "gap-1",
     innerGapPx: 4,
     iconSize: "size-3.5",
@@ -81,11 +81,16 @@ export function SegmentedTabs<K extends string>({
   className
 }: SegmentedTabsProps<K>) {
   const v = VARIANTS[variant]
+  const pillLevel = Math.min(useSurface() + 4, 8)
   return (
     <div className={cn("relative", v.container, className)}>
       <SegmentedIndicator
         activeIndex={items.findIndex((item) => isActive(item.key))}
-        className={cn("bg-accent", v.pillRounding)}
+        className={cn(
+          SURFACE_BG[pillLevel],
+          "shadow-surface-1",
+          v.pillRounding
+        )}
       />
       {items.map((it) => {
         const active = isActive(it.key)

@@ -257,7 +257,7 @@ export function ConnectBranchFields({
                     "flex w-full items-center justify-between px-2 py-1 text-left font-mono text-xs transition-colors",
                     selected === b.name
                       ? "bg-selected font-medium text-foreground"
-                      : clampedActiveIdx === i && "bg-muted"
+                      : clampedActiveIdx === i && "bg-hover"
                   )}
                   disabled={busy}
                 >

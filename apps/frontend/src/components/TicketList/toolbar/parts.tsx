@@ -3,7 +3,6 @@ import { type SortKey, NATURAL_SORT_DIR, type TicketStatus } from "@pp/shared"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import {
   ArrowDownAZ,
-  Check,
   ChevronDown,
   Circle,
   Search as SearchIcon,
@@ -18,7 +17,8 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import {
@@ -27,6 +27,8 @@ import {
   InputGroupInput
 } from "@/components/ui/input-group"
 import { Kbd } from "@/components/ui/kbd"
+import { menuItemMetaClass } from "@/components/ui/menu-styles"
+import { SelectItem } from "@/components/ui/select"
 import {
   statusesFor,
   statusesRequest
@@ -65,6 +67,7 @@ export function SearchInput() {
         }}
         placeholder={m.tickets_search_placeholder()}
         aria-label={m.tickets_search_aria_label()}
+        aria-keyshortcuts="/"
       />
       {searchBelowMinChars ? (
         <span className="shrink-0 text-xs text-muted-foreground">
@@ -83,7 +86,7 @@ export function SearchInput() {
           <X strokeWidth={1.75} />
         </Button>
       ) : !compact ? (
-        <Kbd>/</Kbd>
+        <Kbd aria-hidden>/</Kbd>
       ) : null}
     </InputGroup>
   )
@@ -109,64 +112,61 @@ export function Status({
     : m.tickets_status_all()
   const CurrentIcon = currentMeta?.icon ?? Circle
 
-  const items = (
-    <>
-      <DropdownMenuItem
-        onClick={() => setStatus("all")}
-        className="cursor-pointer"
-      >
+  const options = [
+    {
+      value: "all",
+      label: m.tickets_status_all(),
+      icon: (
         <Circle className="size-4 text-muted-foreground" strokeWidth={1.75} />
-        <span>{m.tickets_status_all()}</span>
-        <span className="ml-auto inline-flex items-center gap-2">
-          {counts && (
-            <span className="rounded-full bg-muted px-1.5 font-mono text-[10px] text-muted-foreground tabular-nums">
-              {counts.all ?? 0}
-            </span>
-          )}
-          {status === "all" && (
-            <Check className="size-3.5 text-muted-foreground" />
-          )}
-        </span>
-      </DropdownMenuItem>
-      {slugs.length > 0 && <div className="my-1 h-px bg-border" />}
-      {slugs.map((s) => {
-        const meta = statusMetaFor(s, statuses)
-        const SIcon = meta.icon
-        return (
-          <DropdownMenuItem
-            key={s}
-            onClick={() => setStatus(s as TicketStatus)}
-            className="cursor-pointer"
-          >
-            <SIcon
-              className={cn("size-4", meta.className)}
-              style={meta.color ? { color: meta.color } : undefined}
-              strokeWidth={1.75}
-            />
-            <span className="truncate">{statusLabelFor(s, statuses)}</span>
-            <span className="ml-auto inline-flex items-center gap-2">
-              {counts && (
-                <span className="rounded-full bg-muted px-1.5 font-mono text-[10px] text-muted-foreground tabular-nums">
-                  {counts[s] ?? 0}
-                </span>
-              )}
-              {status === s && (
-                <Check className="size-3.5 text-muted-foreground" />
-              )}
-            </span>
-          </DropdownMenuItem>
-        )
-      })}
-    </>
-  )
+      ),
+      count: counts?.all
+    },
+    ...slugs.map((s) => {
+      const meta = statusMetaFor(s, statuses)
+      const SIcon = meta.icon
+      return {
+        value: s,
+        label: statusLabelFor(s, statuses),
+        icon: (
+          <SIcon
+            className={cn("size-4", meta.className)}
+            style={meta.color ? { color: meta.color } : undefined}
+            strokeWidth={1.75}
+          />
+        ),
+        count: counts?.[s]
+      }
+    })
+  ]
+  const countBadge = (count: number | undefined) =>
+    counts ? (
+      <span data-menu-meta className={menuItemMetaClass}>
+        {count ?? 0}
+      </span>
+    ) : null
+  const onValueChange = (next: string) =>
+    setStatus(next as TicketStatus | "all")
 
   if (variant === "panel")
     return (
       <OptionPicker
         label={m.tickets_filters_section_status()}
-        value={currentLabel}
+        value={status}
+        onValueChange={onValueChange}
+        displayValue={currentLabel}
       >
-        {items}
+        {options.map((option, index) => (
+          <SelectItem
+            key={option.value}
+            separated={index === 0}
+            value={option.value}
+            label={option.label}
+          >
+            {option.icon}
+            <span className="truncate">{option.label}</span>
+            {countBadge(option.count)}
+          </SelectItem>
+        ))}
       </OptionPicker>
     )
 
@@ -189,18 +189,16 @@ export function Status({
               <CollapsingLabel show={!controlsCompact}>
                 {currentLabel}
               </CollapsingLabel>
-              {counts && (
-                <span
-                  className={cn(
-                    "min-w-6 rounded-full px-1.5 text-center font-mono text-[10px] tabular-nums",
-                    active
-                      ? "bg-foreground/10 text-foreground"
-                      : "bg-muted text-muted-foreground"
-                  )}
-                >
-                  {counts[status] ?? 0}
-                </span>
-              )}
+              <span
+                className={cn(
+                  "min-h-4 min-w-6 rounded-full px-1.5 text-center font-mono text-[10px] tabular-nums",
+                  active
+                    ? "bg-foreground/10 text-foreground"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {counts ? (counts[status] ?? 0) : null}
+              </span>
               <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
             </ToolbarButton>
           }
@@ -211,7 +209,20 @@ export function Status({
           className="w-52"
           finalFocus={false}
         >
-          {items}
+          <DropdownMenuRadioGroup value={status} onValueChange={onValueChange}>
+            {options.map((option, index) => (
+              <DropdownMenuRadioItem
+                key={option.value}
+                separated={index === 0}
+                value={option.value}
+                closeOnClick
+              >
+                {option.icon}
+                <span className="truncate">{option.label}</span>
+                {countBadge(option.count)}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
     </ControlSlot>
@@ -243,18 +254,16 @@ export function Sort() {
           }
         />
         <DropdownMenuContent align="end" sideOffset={6} className="w-44">
-          {sortKeysFor(estimation).map((k) => (
-            <DropdownMenuItem
-              key={k}
-              onClick={() => setSortKey(k)}
-              className="cursor-pointer"
-            >
-              {SORT_LABELS[k]()}
-              {sortKey === k && (
-                <Check className="ml-auto size-3.5 text-muted-foreground" />
-              )}
-            </DropdownMenuItem>
-          ))}
+          <DropdownMenuRadioGroup
+            value={sortKey}
+            onValueChange={(next: string) => setSortKey(next as SortKey)}
+          >
+            {sortKeysFor(estimation).map((k) => (
+              <DropdownMenuRadioItem key={k} value={k} closeOnClick>
+                {SORT_LABELS[k]()}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
     </motion.div>

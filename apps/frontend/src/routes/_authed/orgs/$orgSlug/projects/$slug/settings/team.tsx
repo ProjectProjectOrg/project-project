@@ -2,6 +2,11 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
 
 import { MembersSection } from "@/components/MembersSection"
+import {
+  SettingsGroup,
+  SettingsRow,
+  SettingsSection
+} from "@/components/settings/SettingsSection"
 import { Button } from "@/components/ui/button"
 import {
   project,
@@ -31,31 +36,34 @@ function TeamSettings() {
   const actor = useProjectActor()
 
   return (
-    <section className="flex w-full flex-col gap-4">
-      <MembersSection
-        orgSlug={orgSlug}
-        slug={projectDetail.slug}
-        members={projectDetail.members}
-        pendingMembers={projectDetail.pendingMembers}
-        waiting={projectResult.waiting}
-        canManage={actor.call("projects", "addMember")}
-        callerId={actor.userId}
-      />
+    <>
+      <SettingsSection>
+        <MembersSection
+          orgSlug={orgSlug}
+          slug={projectDetail.slug}
+          members={projectDetail.members}
+          pendingMembers={projectDetail.pendingMembers}
+          waiting={projectResult.waiting}
+          canManage={actor.call("projects", "addMember")}
+          callerId={actor.userId}
+        />
+      </SettingsSection>
       {projectDetail.setup.invitePeopleDismissedAt &&
       actor.call("projects", "updateSetup") ? (
-        <div className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2">
-          <span className="text-sm text-muted-foreground">
-            {m.project_setup_invite_dismissed_note()}
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setup({ invitePeopleDismissedAt: null })}
-          >
-            {m.project_setup_restore_button()}
-          </Button>
-        </div>
+        <SettingsSection>
+          <SettingsGroup>
+            <SettingsRow label={m.project_setup_invite_dismissed_note()}>
+              <Button
+                variant="tertiary"
+                size="sm"
+                onClick={() => setup({ invitePeopleDismissedAt: null })}
+              >
+                {m.project_setup_restore_button()}
+              </Button>
+            </SettingsRow>
+          </SettingsGroup>
+        </SettingsSection>
       ) : null}
-    </section>
+    </>
   )
 }

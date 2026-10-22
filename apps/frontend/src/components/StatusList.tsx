@@ -6,6 +6,7 @@ import { Reorder } from "motion/react"
 import { useMemo, useRef, useState } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
+import { SettingsGroup } from "@/components/settings/SettingsSection"
 import { StatusCreateRow } from "@/components/StatusCreateRow"
 import { StatusRow } from "@/components/StatusRow"
 import {
@@ -31,9 +32,11 @@ export function StatusList({ orgSlug, slug }: Props) {
 
   return Result.matchWithError(result, {
     onInitial: () => (
-      <section className="flex w-full flex-col gap-2 text-sm text-muted-foreground">
-        {m.tickets_status_loading()}
-      </section>
+      <SettingsGroup>
+        <p className="px-4 py-3 text-[13px] text-muted-foreground">
+          {m.tickets_status_loading()}
+        </p>
+      </SettingsGroup>
     ),
     onError: (error) => <ErrorPage error={error} contained />,
     onDefect: (defect) => <ErrorPage error={defect} contained />,
@@ -97,14 +100,14 @@ function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
   }
 
   return (
-    <section className="flex w-full flex-col gap-4">
+    <SettingsGroup>
       <fieldset disabled={!canManage} className="contents">
         <Reorder.Group
           as="ul"
           axis="y"
           values={order as ProjectStatus[]}
           onReorder={(next) => setDragOrder(next)}
-          className="flex flex-col gap-0.5"
+          className="divide-y divide-border"
         >
           {order.map((s, i) => (
             <StatusRow
@@ -125,7 +128,11 @@ function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
           ))}
         </Reorder.Group>
       </fieldset>
-      {canManage && <StatusCreateRow orgSlug={orgSlug} slug={slug} />}
-    </section>
+      {canManage && (
+        <div className="px-3 py-2">
+          <StatusCreateRow orgSlug={orgSlug} slug={slug} />
+        </div>
+      )}
+    </SettingsGroup>
   )
 }

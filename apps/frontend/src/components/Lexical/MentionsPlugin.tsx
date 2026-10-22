@@ -238,8 +238,8 @@ export function MentionsPlugin(): JSX.Element | null {
                   e.preventDefault()
                   selectOptionAndCleanUp(opt)
                 }}
-                className={`block w-full px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent ${
-                  i === selectedIndex ? "bg-accent" : ""
+                className={`block w-full px-3 py-1.5 text-left text-sm transition-colors hover:bg-hover ${
+                  i === selectedIndex ? "bg-hover" : ""
                 }`}
               >
                 {opt.provider.renderRow(opt.candidate)}

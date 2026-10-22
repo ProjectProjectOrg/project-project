@@ -7,7 +7,7 @@ import type { AtomRegistry } from "effect/unstable/reactivity/AtomRegistry"
 import { useEffect } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
-import { LoaderOverlay } from "@/components/Loader/LoaderOverlay"
+import { LoaderOverlay } from "@/components/LoaderOverlay"
 import { NotFoundPage } from "@/components/NotFoundPage"
 import { ShapeProvider } from "@/lib/shape-context"
 

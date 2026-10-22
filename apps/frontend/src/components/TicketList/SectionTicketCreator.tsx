@@ -4,39 +4,26 @@ import {
   sprintSectionKey,
   type Group,
   type TicketListQuery,
-  type TicketStatus,
-  type TicketType
+  type TicketStatus
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Random from "effect/Random"
 import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { Plus } from "lucide-react"
 import {
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
   type FormEvent,
-  type KeyboardEvent,
   type RefObject
 } from "react"
 
-import { CollapsingLabel } from "@/components/SegmentedTabs"
-import {
-  pickDefaultSprint,
-  SprintAssignMenu
-} from "@/components/sprints/SprintAssignMenu"
-import { SprintStateIcon } from "@/components/sprints/SprintChip"
-import { BADGE_TONES } from "@/components/ui/badge"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+import { pickDefaultSprint } from "@/components/sprints/SprintAssignMenu"
+import { comboboxProps } from "@/components/ui/menu-listbox"
 import { me } from "@/features/auth/atoms/auth"
 import {
   project as projectView,
@@ -53,13 +40,12 @@ import {
   type BacklogRequest
 } from "@/features/tickets/atoms/backlog"
 import { quickCreateSprintSectionsTicket } from "@/features/tickets/atoms/sprintSections"
-import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import { CreatorChip } from "./CreatorChip"
 import { creatorErrorText } from "./creatorError"
+import { CreatorSprintMenu, CreatorTypeMenu } from "./CreatorMenus"
 import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
+import { useCreatorFocus } from "./useCreatorFocus"
 import { useTemplateChoice, useTicketTypeChoice } from "./useTemplateChoice"
 
 export function SectionTicketCreator({
@@ -150,12 +136,10 @@ export function SectionTicketCreator({
 
   const [title, setTitle] = useState("")
   const { type, setType, applyTemplateDefault } = useTicketTypeChoice()
-  const [typeMenuOpen, setTypeMenuOpen] = useState(false)
-  const [sprintMenuOpen, setSprintMenuOpen] = useState(false)
   const [selectedSprint, setSelectedSprint] = useState<Group | null>(null)
   const [sprintCleared, setSprintCleared] = useState(false)
-  const [closingMenu, setClosingMenu] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const errorId = useId()
   const trimmed = title.trim()
   const templateChoice = useTemplateChoice(orgSlug, slug, type)
   const slash = useTemplateSlash({
@@ -166,17 +150,7 @@ export function SectionTicketCreator({
       if (ticketType !== null) applyTemplateDefault(ticketType)
     }
   })
-  const menuOpen = typeMenuOpen || sprintMenuOpen
-
-  const refocusAfterMenu = (open: boolean) => {
-    if (open) return
-    setClosingMenu(true)
-    // @effect-diagnostics-next-line globalTimers:off
-    setTimeout(() => {
-      inputRef.current?.focus()
-      setClosingMenu(false)
-    }, 0)
-  }
+  useCreatorFocus(containerRef, onDone)
 
   useEffect(() => {
     if (!showSprintAddon) return
@@ -188,43 +162,6 @@ export function SectionTicketCreator({
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
-
-  const wasSubmittingRef = useRef(false)
-  useEffect(() => {
-    if (wasSubmittingRef.current && !submitting) {
-      inputRef.current?.focus()
-    }
-    wasSubmittingRef.current = submitting
-  }, [submitting])
-
-  useEffect(() => {
-    const onMouseDown = (e: MouseEvent) => {
-      if (menuOpen || closingMenu) return
-      const container = containerRef.current
-      if (container && !container.contains(e.target as Node)) {
-        onDone()
-      }
-    }
-    document.addEventListener("mousedown", onMouseDown)
-    return () => document.removeEventListener("mousedown", onMouseDown)
-  }, [menuOpen, closingMenu, onDone, containerRef])
-
-  const dismissGuardsRef = useRef({ menuOpen, closingMenu, submitting })
-  dismissGuardsRef.current = { menuOpen, closingMenu, submitting }
-
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-    const onFocusOut = (e: FocusEvent) => {
-      const guards = dismissGuardsRef.current
-      if (guards.menuOpen || guards.closingMenu || guards.submitting) return
-      const next = e.relatedTarget as Node | null
-      if (next !== null && container.contains(next)) return
-      onDone()
-    }
-    container.addEventListener("focusout", onFocusOut)
-    return () => container.removeEventListener("focusout", onFocusOut)
-  }, [onDone, containerRef])
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -256,69 +193,16 @@ export function SectionTicketCreator({
     }
   }
 
-  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (slash.onKeyDown(e)) return
-    if (e.key === "Escape") {
-      e.preventDefault()
-      onDone()
-    }
-  }
-
-  const TypeIcon = TYPE_META[type].icon
-
   const sprintAddon = showSprintAddon ? (
-    <SprintAssignMenu
-      open={sprintMenuOpen}
-      onOpenChange={(open) => {
-        setSprintMenuOpen(open)
-        refocusAfterMenu(open)
-      }}
-      finalFocus={() => {
-        setClosingMenu(false)
-        return inputRef.current
-      }}
+    <CreatorSprintMenu
       sprints={sprints}
-      selectedId={selectedSprint?.id ?? null}
-      onSelect={(s) => {
+      selected={selectedSprint}
+      onSelectedChange={(s) => {
         setSelectedSprint(s)
-        setSprintCleared(false)
+        setSprintCleared(s === null)
       }}
-      onClear={() => {
-        setSelectedSprint(null)
-        setSprintCleared(true)
-      }}
-      clearLabel={m.tickets_sprint_popover_no_assignment_action()}
-      trigger={
-        <button
-          type="button"
-          aria-label={
-            selectedSprint
-              ? m.tickets_sprint_chip_aria({ name: selectedSprint.name })
-              : m.tickets_assign_sprint_chip()
-          }
-          className={cn(
-            "transition-expand inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2",
-            BADGE_TONES.muted
-          )}
-        >
-          {selectedSprint ? (
-            <SprintStateIcon sprint={selectedSprint} size="md" />
-          ) : (
-            <Plus className="size-4 shrink-0" strokeWidth={1.75} />
-          )}
-          <CollapsingLabel
-            show
-            contentKey={selectedSprint?.id ?? "none"}
-            gap={6}
-          >
-            <span className="max-w-[10ch] truncate text-xs">
-              {selectedSprint
-                ? selectedSprint.name
-                : m.tickets_assign_sprint_chip()}
-            </span>
-          </CollapsingLabel>
-        </button>
-      }
+      expanded
+      inputRef={inputRef}
     />
   ) : null
 
@@ -327,72 +211,43 @@ export function SectionTicketCreator({
       onSubmit={onSubmit}
       className="relative flex w-full items-center gap-2"
     >
-      <DropdownMenu
-        open={typeMenuOpen}
-        onOpenChange={(open) => {
-          setTypeMenuOpen(open)
-          refocusAfterMenu(open)
-        }}
-      >
-        <DropdownMenuTrigger
-          render={
-            <CreatorChip
-              expanded
-              tone={TYPE_META[type].tone}
-              icon={<TypeIcon className="size-4 shrink-0" strokeWidth={1.75} />}
-              label={TYPE_LABELS[type]()}
-              contentKey={type}
-              aria-label={m.tickets_create_type_aria_label({
-                type: TYPE_LABELS[type]()
-              })}
-            />
-          }
-        />
-        <DropdownMenuContent
-          align="start"
-          sideOffset={6}
-          className="w-40"
-          finalFocus={() => {
-            setClosingMenu(false)
-            return inputRef.current
-          }}
-        >
-          {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
-            const TIcon = TYPE_META[t].icon
-            return (
-              <DropdownMenuItem
-                key={t}
-                onClick={() => setType(t)}
-                className="cursor-pointer"
-              >
-                <TIcon className="size-4" strokeWidth={1.75} />
-                {TYPE_LABELS[t]()}
-              </DropdownMenuItem>
-            )
-          })}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <CreatorTypeMenu
+        type={type}
+        onTypeChange={setType}
+        expanded
+        inputRef={inputRef}
+      />
 
       {sprintAddon}
 
       <input
         ref={inputRef}
         type="text"
+        {...comboboxProps(slash.listbox)}
         value={title}
         onChange={(e) => {
           slash.onTitleChange(title, e.target.value)
           setTitle(e.target.value)
         }}
-        onKeyDown={onKeyDown}
+        onKeyDown={slash.onKeyDown}
         placeholder={m.tickets_section_create_placeholder()}
         aria-label={m.tickets_section_create_placeholder()}
-        disabled={submitting}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        readOnly={submitting}
+        aria-disabled={submitting || undefined}
         maxLength={200}
-        className="min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
+        className="min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground read-only:cursor-wait"
       />
 
       {error && (
-        <span className="shrink-0 text-xs text-destructive">{error}</span>
+        <span
+          id={errorId}
+          role="alert"
+          className="shrink-0 text-xs text-destructive"
+        >
+          {error}
+        </span>
       )}
 
       <TemplateSlashList slash={slash} choice={templateChoice} />

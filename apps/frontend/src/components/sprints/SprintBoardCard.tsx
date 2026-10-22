@@ -152,7 +152,7 @@ function BoardCardFields({
   const estimation = useEstimationMode()
   return (
     <DeferredDropdownMenus>
-      <div className="group/reveal relative isolate flex flex-col gap-2 rounded-sm bg-surface-3 px-1.5 pt-3 pb-1.5 text-left shadow-surface-1 transition outline-none hover:bg-surface-4 hover:shadow-surface-1-hover [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20">
+      <div className="group/reveal relative isolate flex flex-col gap-2 rounded-sm bg-surface-3 px-1.5 pt-3 pb-1.5 text-left shadow-surface-1 transition outline-none hover:bg-surface-4 hover:shadow-surface-1-hover has-[[data-popup-open]]:bg-surface-4 has-[[data-popup-open]]:shadow-surface-1-hover [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20">
         <div className="flex min-h-[2lh] items-start gap-1.5 text-[13px] leading-snug">
           <Link
             to="/orgs/$orgSlug/projects/$slug/tickets/$id"
@@ -164,7 +164,7 @@ function BoardCardFields({
           >
             <span className="line-clamp-2">{ticket.title}</span>
           </Link>
-          <div className="order-first mt-[calc((1lh-1.5rem)/2)] shrink-0">
+          <div className="order-first mt-[calc((1lh-2rem)/2)] shrink-0">
             <fieldset disabled={!editable} className="contents">
               <TypeButton ticket={ticket} iconOnly onPatch={onPatch} />
             </fieldset>
@@ -187,7 +187,7 @@ function BoardCardFields({
               slug={slug}
               id={ticket.id}
               size="icon-xs"
-              className="opacity-0 group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100"
+              className="opacity-0 group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100"
             />
           )}
           <fieldset disabled={!canAssign} className="contents">

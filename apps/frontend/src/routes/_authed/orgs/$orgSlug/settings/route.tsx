@@ -1,24 +1,40 @@
-import { Link, Outlet, useLocation } from "@tanstack/react-router"
+import { Outlet, useLocation } from "@tanstack/react-router"
 import { createFileRoute } from "@tanstack/react-router"
 import {
-  Files,
-  Mail,
-  HardDrive,
   LayoutTemplate,
+  Plug,
   SlidersHorizontal,
   TriangleAlert,
   Users
 } from "lucide-react"
 import { useCallback } from "react"
 
-import { PageContainer, PageHeader } from "@/components/page"
 import { RailBackLink } from "@/components/RailBackLink"
+import { SettingsPage } from "@/components/settings/SettingsPage"
+import {
+  SettingsRail as Rail,
+  SettingsRailLink,
+  SettingsRailNav
+} from "@/components/settings/SettingsRail"
 import { useSidebarSlot } from "@/components/SidebarSlot"
 import { useOrgActor } from "@/lib/access"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-const SECTIONS = [
+type OrgSettingsSection = Readonly<{
+  key: string
+  to:
+    | "/orgs/$orgSlug/settings/general"
+    | "/orgs/$orgSlug/settings/members"
+    | "/orgs/$orgSlug/settings/integrations"
+    | "/orgs/$orgSlug/settings/templates"
+    | "/orgs/$orgSlug/settings/danger"
+  label: string
+  icon: typeof SlidersHorizontal
+  heading: string
+  description: string
+}>
+
+const SECTIONS: ReadonlyArray<OrgSettingsSection> = [
   {
     key: "general",
     to: "/orgs/$orgSlug/settings/general",
@@ -36,28 +52,12 @@ const SECTIONS = [
     description: m.org_settings_members_description()
   },
   {
-    key: "storage",
-    to: "/orgs/$orgSlug/settings/storage",
-    label: m.storage_tab(),
-    icon: HardDrive,
-    heading: m.storage_heading(),
-    description: m.storage_description()
-  },
-  {
-    key: "email",
-    to: "/orgs/$orgSlug/settings/email",
-    label: m.org_email_heading(),
-    icon: Mail,
-    heading: m.org_email_heading(),
-    description: m.org_email_description()
-  },
-  {
-    key: "attachments",
-    to: "/orgs/$orgSlug/settings/attachments",
-    label: m.attachments_tab(),
-    icon: Files,
-    heading: m.attachments_heading(),
-    description: m.attachments_description()
+    key: "integrations",
+    to: "/orgs/$orgSlug/settings/integrations",
+    label: m.org_settings_integrations_tab(),
+    icon: Plug,
+    heading: m.org_settings_integrations_heading(),
+    description: m.org_settings_integrations_description()
   },
   {
     key: "templates",
@@ -75,21 +75,22 @@ const SECTIONS = [
     heading: m.org_settings_danger_heading(),
     description: m.org_settings_danger_description()
   }
-] satisfies ReadonlyArray<{
-  key: string
-  to:
-    | "/orgs/$orgSlug/settings/general"
-    | "/orgs/$orgSlug/settings/members"
-    | "/orgs/$orgSlug/settings/storage"
-    | "/orgs/$orgSlug/settings/email"
-    | "/orgs/$orgSlug/settings/attachments"
-    | "/orgs/$orgSlug/settings/templates"
-    | "/orgs/$orgSlug/settings/danger"
-  label: string
-  icon: typeof SlidersHorizontal
-  heading: string
-  description: string
-}>
+]
+
+const SUB_PAGES: ReadonlyArray<
+  Readonly<{ key: string; heading?: string; description?: string }>
+> = [
+  {
+    key: "integrations/storage/files",
+    heading: m.attachments_heading(),
+    description: m.attachments_description()
+  },
+  { key: "integrations/github" },
+  { key: "integrations/storage" },
+  { key: "integrations/email" },
+  { key: "integrations/everhour" },
+  { key: "integrations/figma" }
+]
 
 const isSectionActive = (pathname: string, orgSlug: string, key: string) => {
   const base = `/orgs/${orgSlug}/settings/${key}`
@@ -112,65 +113,46 @@ function SettingsLayout() {
   )
   useSidebarSlot(`org-settings:${orgSlug}`, renderRail)
 
+  const isActive = (page: Readonly<{ key: string }>) =>
+    isSectionActive(location.pathname, orgSlug, page.key)
   const activeSection =
-    SECTIONS.find((section) =>
-      isSectionActive(location.pathname, orgSlug, section.key)
-    ) ?? SECTIONS[0]
+    SUB_PAGES.find(isActive) ?? SECTIONS.find(isActive) ?? SECTIONS[0]
 
   return (
-    <PageContainer>
-      <PageHeader>
-        <h1>{activeSection.heading}</h1>
-        <p>{activeSection.description}</p>
-      </PageHeader>
+    <SettingsPage
+      heading={activeSection.heading}
+      description={activeSection.description}
+    >
       <Outlet />
-    </PageContainer>
+    </SettingsPage>
   )
 }
 
 function SettingsRail({ orgSlug }: { orgSlug: string }) {
-  const location = useLocation()
   const actor = useOrgActor(orgSlug)
   const canSeeMembers = actor.call("org", "members")
-  const canManageEmail = actor.call("orgEmail", "get")
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <Rail>
       <RailBackLink
         to="/orgs/$orgSlug"
         params={{ orgSlug }}
         label={m.org_settings_crumb()}
       />
-      <nav className="flex flex-col gap-1">
+      <SettingsRailNav>
         {SECTIONS.filter(
-          (section) =>
-            (section.key !== "members" || canSeeMembers) &&
-            (section.key !== "email" || canManageEmail)
-        ).map((section) => {
-          const Icon = section.icon
-          const active = isSectionActive(
-            location.pathname,
-            orgSlug,
-            section.key
-          )
-          return (
-            <Link
-              key={section.key}
-              to={section.to}
-              params={{ orgSlug }}
-              className={cn(
-                "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-all duration-100 active:scale-[0.97]",
-                active
-                  ? "bg-accent font-medium text-foreground"
-                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-              )}
-            >
-              <Icon className="size-4" strokeWidth={1.75} />
-              <span className="min-w-0 flex-1 truncate">{section.label}</span>
-            </Link>
-          )
-        })}
-      </nav>
-    </div>
+          (section) => section.key !== "members" || canSeeMembers
+        ).map((section, index) => (
+          <SettingsRailLink
+            key={section.key}
+            index={index}
+            to={section.to}
+            params={{ orgSlug }}
+            icon={section.icon}
+            label={section.label}
+          />
+        ))}
+      </SettingsRailNav>
+    </Rail>
   )
 }

@@ -15,17 +15,17 @@ import { ErrorPage } from "@/components/ErrorPage"
 import type { EditorBlocks } from "@/components/Lexical/blocks/editorBlocks"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { Markdown } from "@/components/Markdown"
+import { MetaRow } from "@/components/TicketPage/MetaRow"
 import { useOrgActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { BlockIconGlyph } from "./BlockIconGlyph"
 import {
-  AsideField,
   CommitInput,
   DefaultForField,
   IconAndColorField,
-  MutedValue,
+  MUTED_VALUE_CLASS,
   NullablePriorityField,
   TemplateTagsField,
   originLabel
@@ -219,7 +219,7 @@ function TemplateEditor({
       }
       aside={
         <>
-          <AsideField label={m.templates_editor_icon_label()}>
+          <MetaRow label={m.templates_editor_icon_label()}>
             <IconAndColorField
               icon={template.icon}
               color={template.color}
@@ -227,8 +227,8 @@ function TemplateEditor({
               onColor={(color) => patch({ color })}
               disabled={!editable}
             />
-          </AsideField>
-          <AsideField label={m.templates_editor_description_label()}>
+          </MetaRow>
+          <MetaRow label={m.templates_editor_description_label()}>
             {editable ? (
               <CommitInput
                 value={template.description}
@@ -238,41 +238,41 @@ function TemplateEditor({
                 maxLength={200}
               />
             ) : (
-              <MutedValue>{template.description}</MutedValue>
+              <span className={MUTED_VALUE_CLASS}>{template.description}</span>
             )}
-          </AsideField>
-          <AsideField label={m.templates_editor_default_for_label()}>
+          </MetaRow>
+          <MetaRow label={m.templates_editor_default_for_label()}>
             <DefaultForField
               scope={scope}
               library={library}
               templateKey={key}
             />
-          </AsideField>
-          <AsideField label={m.templates_editor_priority_label()}>
+          </MetaRow>
+          <MetaRow label={m.templates_editor_priority_label()}>
             <NullablePriorityField
               value={template.priority}
               onChange={(priority) => patch({ priority })}
               disabled={!editable}
             />
-          </AsideField>
-          <AsideField label={m.templates_editor_tags_label()}>
+          </MetaRow>
+          <MetaRow label={m.templates_editor_tags_label()}>
             <TemplateTagsField
               scope={scope}
               value={template.tags}
               onChange={(tags) => patch({ tags })}
               disabled={!editable}
             />
-          </AsideField>
-          <AsideField label={m.templates_editor_scope_label()}>
-            <MutedValue>
+          </MetaRow>
+          <MetaRow label={m.templates_editor_scope_label()}>
+            <span className={MUTED_VALUE_CLASS}>
               {template.origin === scope.layer
                 ? originLabel(scope.layer)
                 : m.templates_editor_scope_inherited({
                     layer: originLabel(scope.layer),
                     origin: originLabel(template.origin)
                   })}
-            </MutedValue>
-          </AsideField>
+            </span>
+          </MetaRow>
         </>
       }
     />

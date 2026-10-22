@@ -21,7 +21,8 @@ type HighlightState = Readonly<{
   session: number
 }>
 
-const HIGHLIGHTED = "[data-highlighted]"
+const HIGHLIGHTED = "[data-highlighted]:not(input)"
+const HIGHLIGHT_INSET = 1
 
 const toneOf = (element: HTMLElement): HighlightTone =>
   element.dataset.variant === "destructive" ? "destructive" : "default"
@@ -37,10 +38,10 @@ export const measureHighlight = (
   )
   if (element === undefined) return null
   return {
-    top: element.offsetTop,
+    top: element.offsetTop + HIGHLIGHT_INSET,
     left: element.offsetLeft,
     width: element.offsetWidth,
-    height: element.offsetHeight,
+    height: element.offsetHeight - HIGHLIGHT_INSET * 2,
     tone: toneOf(element)
   }
 }
@@ -108,7 +109,7 @@ function useHighlightRect(
 }
 
 const TONES: Record<HighlightTone, string> = {
-  default: "bg-accent/40 dark:bg-accent/25",
+  default: "bg-hover",
   destructive: "bg-destructive/10 dark:bg-destructive/20"
 }
 

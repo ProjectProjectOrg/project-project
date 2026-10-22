@@ -85,15 +85,11 @@ export function Toolbar({
           aria-label={m.attachments_filter_project_label()}
         />
         <SelectContent>
-          <SelectItem index={0} value={ALL_PROJECTS}>
+          <SelectItem value={ALL_PROJECTS}>
             {m.attachments_filter_project_all()}
           </SelectItem>
-          {projects.map((project, index) => (
-            <SelectItem
-              key={project.slug}
-              index={index + 1}
-              value={project.slug}
-            >
+          {projects.map((project) => (
+            <SelectItem key={project.slug} value={project.slug}>
               {project.name}
             </SelectItem>
           ))}
@@ -113,8 +109,8 @@ export function Toolbar({
           aria-label={m.attachments_sort_label()}
         />
         <SelectContent>
-          {SORTS.map((key, index) => (
-            <SelectItem key={key} index={index} value={key}>
+          {SORTS.map((key) => (
+            <SelectItem key={key} value={key}>
               {SORT_LABEL[key]()}
             </SelectItem>
           ))}

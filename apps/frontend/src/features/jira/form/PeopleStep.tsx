@@ -95,34 +95,31 @@ export function PeopleStep({
                       }
                     />
                     <SelectContent>
-                      <SelectItem value={unlinkedValue} index={0}>
+                      <SelectItem value={unlinkedValue}>
                         {m.jira_migration_people_dont_link()}
                       </SelectItem>
-                      {requirements.identityOptions.map(
-                        (option, optionIndex) => (
-                          <SelectItem
-                            key={option.id}
-                            value={option.id}
-                            index={optionIndex + 1}
-                            aria-label={option.name}
+                      {requirements.identityOptions.map((option) => (
+                        <SelectItem
+                          key={option.id}
+                          value={option.id}
+                          aria-label={option.name}
+                        >
+                          <MappingLabel
+                            icon={
+                              <MemberAvatar
+                                member={{
+                                  name: option.name,
+                                  email: option.email,
+                                  image: option.imageUrl
+                                }}
+                                size={20}
+                              />
+                            }
                           >
-                            <MappingLabel
-                              icon={
-                                <MemberAvatar
-                                  member={{
-                                    name: option.name,
-                                    email: option.email,
-                                    image: option.imageUrl
-                                  }}
-                                  size={20}
-                                />
-                              }
-                            >
-                              {option.name}
-                            </MappingLabel>
-                          </SelectItem>
-                        )
-                      )}
+                            {option.name}
+                          </MappingLabel>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 )

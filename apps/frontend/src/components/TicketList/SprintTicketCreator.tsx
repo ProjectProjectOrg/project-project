@@ -4,7 +4,7 @@ import {
   useAtomSet,
   useAtomValue
 } from "@effect/atom-react"
-import type { GroupId, Ticket, TicketId, TicketType } from "@pp/shared"
+import type { GroupId, Ticket, TicketId } from "@pp/shared"
 import { useDebouncer } from "@tanstack/react-pacer"
 import { useNavigate } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
@@ -15,6 +15,7 @@ import * as Atom from "effect/unstable/reactivity/Atom"
 import { Plus } from "lucide-react"
 import {
   useContext,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -23,11 +24,12 @@ import {
 } from "react"
 
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+  MenuListbox,
+  MenuOption,
+  optionId,
+  type ListboxState
+} from "@/components/ui/menu-listbox"
+import { menuItemMetaClass } from "@/components/ui/menu-styles"
 import { me } from "@/features/auth/atoms/auth"
 import { projectGitStates } from "@/features/github/atoms/github"
 import {
@@ -47,14 +49,14 @@ import {
   searchRequest,
   ticketSearch
 } from "@/features/tickets/atoms/ticketSearch"
-import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
-import { cn } from "@/lib/utils"
+import { TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
 
-import { CreatorChip } from "./CreatorChip"
 import { creatorErrorText } from "./creatorError"
+import { CreatorTypeMenu } from "./CreatorMenus"
 import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
 import { TicketCreatorShell } from "./TicketCreatorShell"
+import { useCreatorFocus } from "./useCreatorFocus"
 import { useTemplateChoice, useTicketTypeChoice } from "./useTemplateChoice"
 
 const idleSearchAtom = Atom.make(Result.initial<ReadonlyArray<Ticket>>())
@@ -110,13 +112,14 @@ export function SprintTicketCreator({
 
   const [title, setTitle] = useState("")
   const { type, setType, applyTemplateDefault } = useTicketTypeChoice()
-  const [focused, setFocused] = useState(false)
-  const [typeMenuOpen, setTypeMenuOpen] = useState(false)
-  const [closingMenu, setClosingMenu] = useState(false)
+  const [inputFocused, setInputFocused] = useState(false)
+  const [listDismissed, setListDismissed] = useState(false)
   const [highlight, setHighlight] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
+  const formRef = useRef<HTMLFormElement>(null)
+  const listboxId = useId()
+  const { active: expanded } = useCreatorFocus(formRef)
   const trimmed = title.trim()
-  const expanded = focused || typeMenuOpen || closingMenu
   const templateChoice = useTemplateChoice(orgSlug, slug, type)
   const slash = useTemplateSlash({
     title,
@@ -130,16 +133,6 @@ export function SprintTicketCreator({
     }
   })
 
-  const refocusAfterMenu = (open: boolean) => {
-    if (open) return
-    setClosingMenu(true)
-    // @effect-diagnostics-next-line globalTimers:off
-    setTimeout(() => {
-      inputRef.current?.focus()
-      setClosingMenu(false)
-    }, 0)
-  }
-
   const [searchQuery, setSearchQuery] = useState("")
   const searchDebouncer = useDebouncer(setSearchQuery, { wait: 200 })
   const searchAtom = ticketSearch(
@@ -150,7 +143,7 @@ export function SprintTicketCreator({
     })
   )
   const ticketsResult = useAtomValue(
-    expanded && !slash.open && trimmed === searchQuery
+    inputFocused && !slash.open && trimmed === searchQuery
       ? searchAtom
       : idleSearchAtom
   )
@@ -184,8 +177,16 @@ export function SprintTicketCreator({
     return [{ kind: "create" as const, label: trimmed }, ...existing]
   }, [trimmed, ticketsResult, excludeIds, memberOfOtherSprint])
 
-  const dropdownOpen = expanded && !slash.open && items.length > 0
+  const dropdownOpen =
+    inputFocused && !listDismissed && !slash.open && items.length > 0
   const safeHighlight = items.length === 0 ? 0 : highlight % items.length
+  const listbox: ListboxState = slash.open
+    ? slash.listbox
+    : {
+        id: listboxId,
+        open: dropdownOpen,
+        activeIndex: dropdownOpen ? safeHighlight : null
+      }
 
   function reset() {
     searchDebouncer.cancel()
@@ -229,7 +230,7 @@ export function SprintTicketCreator({
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (items.length > 0) {
+    if (dropdownOpen) {
       await commit(items[safeHighlight])
       return
     }
@@ -253,118 +254,67 @@ export function SprintTicketCreator({
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (slash.onKeyDown(e)) return
-    if (!dropdownOpen) return
-    if (e.key === "ArrowDown") {
+    if (e.key === "Escape" && dropdownOpen) {
       e.preventDefault()
-      setHighlight((h) => (items.length ? (h + 1) % items.length : 0))
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault()
-      setHighlight((h) =>
-        items.length ? (h - 1 + items.length) % items.length : 0
-      )
-    } else if (e.key === "Escape") {
-      e.preventDefault()
-      inputRef.current?.blur()
+      setListDismissed(true)
+      return
     }
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return
+    if (items.length === 0) return
+    e.preventDefault()
+    if (!dropdownOpen) {
+      setListDismissed(false)
+      return
+    }
+    const step = e.key === "ArrowDown" ? 1 : -1
+    setHighlight((safeHighlight + step + items.length) % items.length)
   }
 
-  const TypeIcon = TYPE_META[type].icon
   const typeAddon = (
-    <DropdownMenu
-      open={typeMenuOpen}
-      onOpenChange={(open) => {
-        setTypeMenuOpen(open)
-        refocusAfterMenu(open)
-      }}
-    >
-      <DropdownMenuTrigger
-        render={
-          <CreatorChip
-            expanded={expanded}
-            tone={TYPE_META[type].tone}
-            icon={<TypeIcon className="size-4 shrink-0" strokeWidth={1.75} />}
-            label={TYPE_LABELS[type]()}
-            contentKey={type}
-            aria-label={m.tickets_create_type_aria_label({
-              type: TYPE_LABELS[type]()
-            })}
-          />
-        }
-      />
-      <DropdownMenuContent
-        align="start"
-        sideOffset={6}
-        className="w-40"
-        finalFocus={() => {
-          setClosingMenu(false)
-          return inputRef.current
-        }}
-      >
-        {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
-          const TIcon = TYPE_META[t].icon
-          return (
-            <DropdownMenuItem
-              key={t}
-              onClick={() => setType(t)}
-              className="cursor-pointer"
-            >
-              <TIcon className="size-4" strokeWidth={1.75} />
-              {TYPE_LABELS[t]()}
-            </DropdownMenuItem>
-          )
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <CreatorTypeMenu
+      type={type}
+      onTypeChange={setType}
+      expanded={expanded}
+      inputRef={inputRef}
+    />
   )
 
   const dropdown = slash.open ? (
     <TemplateSlashList slash={slash} choice={templateChoice} />
   ) : dropdownOpen ? (
-    <div className="absolute top-full right-0 left-0 z-30 mt-1 overflow-hidden rounded-lg border border-border bg-popover shadow-md">
-      <ul className="flex max-h-72 flex-col overflow-y-auto p-1">
-        {items.map((item, idx) => (
-          <li key={item.kind === "create" ? "__create" : item.ticket.id}>
-            {item.kind === "create" ? (
-              <CreateRow
-                label={item.label}
-                active={idx === safeHighlight}
-                onMouseEnter={() => setHighlight(idx)}
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  void commit(item)
-                }}
-              />
-            ) : (
-              <ExistingRow
-                ticket={item.ticket}
-                otherSprintName={item.otherSprintName}
-                active={idx === safeHighlight}
-                onMouseEnter={() => setHighlight(idx)}
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  void commit(item)
-                }}
-              />
-            )}
-          </li>
-        ))}
-      </ul>
-    </div>
-  ) : null
-
-  const trailing = error ? (
-    <span className="shrink-0 text-xs text-destructive">{error}</span>
+    <MenuListbox id={listboxId} aria-label={m.sprints_combobox_placeholder()}>
+      {items.map((item, idx) => (
+        <MenuOption
+          key={item.kind === "create" ? "__create" : item.ticket.id}
+          id={optionId(listboxId, idx)}
+          highlighted={idx === safeHighlight}
+          onHighlight={() => setHighlight(idx)}
+          onSelect={() => void commit(item)}
+        >
+          {item.kind === "create" ? (
+            <CreateOption label={item.label} />
+          ) : (
+            <ExistingOption
+              ticket={item.ticket}
+              otherSprintName={item.otherSprintName}
+            />
+          )}
+        </MenuOption>
+      ))}
+    </MenuListbox>
   ) : null
 
   return (
     <TicketCreatorShell
-      formProps={{ "data-active": expanded || undefined }}
       inputRef={inputRef}
+      formRef={formRef}
+      shortcut="c"
       value={title}
       onValueChange={(v) => {
         slash.onTitleChange(title, v)
         setTitle(v)
         setHighlight(0)
+        setListDismissed(false)
         searchDebouncer.cancel()
         searchDebouncer.maybeExecute(v.trim())
       }}
@@ -372,11 +322,12 @@ export function SprintTicketCreator({
       onFocus={() => {
         searchDebouncer.cancel()
         setSearchQuery(trimmed)
-        setFocused(true)
+        setInputFocused(true)
+        setListDismissed(false)
       }}
       onBlur={() => {
         searchDebouncer.cancel()
-        setFocused(false)
+        setInputFocused(false)
         slash.close()
       }}
       onKeyDown={onKeyDown}
@@ -384,79 +335,43 @@ export function SprintTicketCreator({
       expanded={expanded}
       placeholder={m.sprints_combobox_placeholder()}
       ariaLabel={m.sprints_combobox_placeholder()}
-      disabled={submitting}
+      busy={submitting}
       maxLength={200}
+      error={error}
+      listbox={listbox}
       leadingAddons={[typeAddon]}
-      trailing={trailing}
       belowInput={dropdown}
     />
   )
 }
 
-function CreateRow({
-  label,
-  active,
-  onMouseEnter,
-  onMouseDown
-}: {
-  label: string
-  active: boolean
-  onMouseEnter: () => void
-  onMouseDown: (e: React.MouseEvent) => void
-}) {
+function CreateOption({ label }: Readonly<{ label: string }>) {
   return (
-    <button
-      type="button"
-      onMouseEnter={onMouseEnter}
-      onMouseDown={onMouseDown}
-      className={cn(
-        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
-        active ? "bg-accent text-foreground" : "text-muted-foreground"
-      )}
-    >
-      <Plus className="size-3.5 shrink-0" strokeWidth={1.75} />
+    <>
+      <Plus strokeWidth={1.75} />
       <span className="min-w-0 flex-1 truncate">
         {m.sprints_combobox_create_prefix()}
         <span className="text-foreground">{label}</span>
       </span>
-    </button>
+    </>
   )
 }
 
-function ExistingRow({
+function ExistingOption({
   ticket,
-  otherSprintName,
-  active,
-  onMouseEnter,
-  onMouseDown
-}: {
-  ticket: Ticket
-  otherSprintName: string | null
-  active: boolean
-  onMouseEnter: () => void
-  onMouseDown: (e: React.MouseEvent) => void
-}) {
+  otherSprintName
+}: Readonly<{ ticket: Ticket; otherSprintName: string | null }>) {
   const Icon = TYPE_META[ticket.type].icon
   return (
-    <button
-      type="button"
-      onMouseEnter={onMouseEnter}
-      onMouseDown={onMouseDown}
-      className={cn(
-        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
-        active ? "bg-accent text-foreground" : "text-muted-foreground"
-      )}
-    >
-      <Icon className="size-3.5 shrink-0" strokeWidth={1.75} />
+    <>
+      <Icon strokeWidth={1.75} />
       <span className="font-mono text-[11px] tabular-nums">{ticket.id}</span>
-      <span className="min-w-0 flex-1 truncate text-foreground">
-        {ticket.title}
-      </span>
+      <span className="min-w-0 flex-1 truncate">{ticket.title}</span>
       {otherSprintName && (
-        <span className="font-mono text-[10px] text-muted-foreground">
+        <span data-menu-meta className={menuItemMetaClass}>
           {m.sprints_add_tickets_in_other_sprint({ name: otherSprintName })}
         </span>
       )}
-    </button>
+    </>
   )
 }

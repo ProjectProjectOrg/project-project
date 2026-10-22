@@ -1,7 +1,9 @@
 import type { FigmaRef } from "@pp/shared"
+import { ExternalLink } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
 
+import { MorphIconLink } from "@/components/MorphIconLink"
 import {
   Popover,
   PopoverContent,
@@ -13,10 +15,9 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { useFigmaMetadata } from "./figmaMetadata"
-import { FigmaOpen } from "./FigmaOpen"
 
 const CHIP =
-  "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 align-baseline text-xs transition-colors duration-100 group-focus-within/editing:hover:bg-accent/40"
+  "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 align-baseline text-xs transition-colors duration-100 group-focus-within/editing:hover:bg-hover"
 
 const HOVER_DELAY_MS = 450
 
@@ -141,7 +142,17 @@ function FigmaChipContent({
       >
         {resolvedName}
       </motion.span>
-      {url === undefined ? null : <FigmaOpen url={url} morphId={morphId} />}
+      {url === undefined ? null : (
+        <MorphIconLink
+          layoutId={`${morphId}-open`}
+          href={url}
+          target="_blank"
+          rel="noreferrer noopener"
+          data-figma-action="open"
+          label={m.figma_embed_open_in_figma()}
+          icon={ExternalLink}
+        />
+      )}
     </>
   )
 

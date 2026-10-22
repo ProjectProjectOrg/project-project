@@ -125,7 +125,6 @@ export function SectionList({
     >
       <SectionHeader
         ref={shellRef}
-        variant="sticky"
         heading={heading}
         canCreate={canCreateTickets}
         status={status}

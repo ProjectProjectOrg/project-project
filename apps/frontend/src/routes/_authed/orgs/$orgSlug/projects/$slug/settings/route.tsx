@@ -1,29 +1,52 @@
 import { useAtomValue } from "@effect/atom-react"
-import { Link, Outlet, useLocation } from "@tanstack/react-router"
+import { Outlet, useLocation } from "@tanstack/react-router"
 import { createFileRoute } from "@tanstack/react-router"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import {
   GitBranch,
   LayoutTemplate,
   SlidersHorizontal,
+  TriangleAlert,
   Users,
   Workflow
 } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
 import { useCallback } from "react"
 
-import { PageContainer, PageHeader } from "@/components/page"
 import { ProjectIconDisplay } from "@/components/ProjectIconDisplay"
 import { RailBackLink } from "@/components/RailBackLink"
+import { SettingsPage } from "@/components/settings/SettingsPage"
+import {
+  SettingsRail as Rail,
+  SettingsRailLink,
+  SettingsRailNav
+} from "@/components/settings/SettingsRail"
 import { useSidebarSlot } from "@/components/SidebarSlot"
-import { project, projectRequest } from "@/features/projects/atoms/projects"
+import {
+  project,
+  projectActor,
+  projectRequest
+} from "@/features/projects/atoms/projects"
 import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-type SectionKey = "general" | "team" | "workflow" | "templates" | "integrations"
+type SectionKey =
+  | "general"
+  | "team"
+  | "workflow"
+  | "templates"
+  | "integrations"
+  | "danger"
 
-const SECTIONS = [
+type ProjectSettingsSection = Readonly<{
+  key: SectionKey
+  label: string
+  icon: typeof SlidersHorizontal
+  heading: string
+  description: string
+}>
+
+const SECTIONS: ReadonlyArray<ProjectSettingsSection> = [
   {
     key: "general",
     label: m.project_settings_general_tab(),
@@ -58,14 +81,15 @@ const SECTIONS = [
     icon: GitBranch,
     heading: m.project_settings_integrations_heading(),
     description: m.project_settings_integrations_description()
+  },
+  {
+    key: "danger",
+    label: m.project_settings_danger_tab(),
+    icon: TriangleAlert,
+    heading: m.project_settings_danger_heading(),
+    description: m.project_settings_danger_description()
   }
-] satisfies ReadonlyArray<{
-  key: SectionKey
-  label: string
-  icon: typeof SlidersHorizontal
-  heading: string
-  description: string
-}>
+]
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/settings"
@@ -94,13 +118,12 @@ function SettingsLayout() {
     }) ?? SECTIONS[0]
 
   return (
-    <PageContainer>
-      <PageHeader>
-        <h1>{activeSection.heading}</h1>
-        <p>{activeSection.description}</p>
-      </PageHeader>
+    <SettingsPage
+      heading={activeSection.heading}
+      description={activeSection.description}
+    >
       <Outlet />
-    </PageContainer>
+    </SettingsPage>
   )
 }
 
@@ -109,8 +132,10 @@ function projectSettingsLayoutId(orgSlug: string, slug: string) {
 }
 
 function SettingsRail({ orgSlug, slug }: { orgSlug: string; slug: string }) {
-  const location = useLocation()
   const reduceMotion = useReducedMotion()
+  const canDelete = useAtomValue(
+    projectActor(projectRequest(orgSlug, slug))
+  ).call("projects", "delete")
   const projectResult = useAtomValue(project(projectRequest(orgSlug, slug)))
   const projectName = Result.isSuccess(projectResult)
     ? projectResult.value.name
@@ -123,7 +148,7 @@ function SettingsRail({ orgSlug, slug }: { orgSlug: string; slug: string }) {
     : null
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <Rail>
       <div className="flex flex-col gap-1">
         <RailBackLink
           to="/orgs/$orgSlug/projects/$slug"
@@ -155,33 +180,20 @@ function SettingsRail({ orgSlug, slug }: { orgSlug: string; slug: string }) {
           </span>
         </motion.div>
       </div>
-      <nav className="flex flex-col gap-1">
-        {SECTIONS.map((section) => {
-          const Icon = section.icon
-          const active =
-            location.pathname ===
-              `/orgs/${orgSlug}/projects/${slug}/settings/${section.key}` ||
-            location.pathname.startsWith(
-              `/orgs/${orgSlug}/projects/${slug}/settings/${section.key}/`
-            )
-          return (
-            <Link
-              key={section.key}
-              to={`/orgs/$orgSlug/projects/$slug/settings/${section.key}`}
-              params={{ orgSlug, slug }}
-              className={cn(
-                "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-all duration-100 active:scale-[0.97]",
-                active
-                  ? "bg-accent font-medium text-foreground"
-                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-              )}
-            >
-              <Icon className="size-4" strokeWidth={1.75} />
-              <span className="min-w-0 flex-1 truncate">{section.label}</span>
-            </Link>
-          )
-        })}
-      </nav>
-    </div>
+      <SettingsRailNav>
+        {SECTIONS.filter(
+          (section) => section.key !== "danger" || canDelete
+        ).map((section, index) => (
+          <SettingsRailLink
+            key={section.key}
+            index={index}
+            to={`/orgs/$orgSlug/projects/$slug/settings/${section.key}`}
+            params={{ orgSlug, slug }}
+            icon={section.icon}
+            label={section.label}
+          />
+        ))}
+      </SettingsRailNav>
+    </Rail>
   )
 }

@@ -42,8 +42,8 @@ export const connectPersonalGithub = Api.runtime.fn(
       authData(
         authClient.linkSocial({
           provider: "github",
-          callbackURL: "/profile",
-          errorCallbackURL: "/profile",
+          callbackURL: "/profile/connections",
+          errorCallbackURL: "/profile/connections",
           scopes: ["repo", "read:org"]
         })
       )

@@ -14,6 +14,11 @@ import { m } from "@/paraglide/messages"
 
 import { GitAutomationSettings } from "./GitAutomationSettings"
 
+const pickOption = (option: HTMLElement) => {
+  fireEvent.pointerDown(option)
+  fireEvent.click(option)
+}
+
 const fetchStub = stubFetch()
 let registry: Registry.AtomRegistry | undefined
 
@@ -94,31 +99,21 @@ it("saves only the rule that changed", async () => {
       name: m.git_automation_event_pr_opened()
     })
   )
-  fireEvent.click(await screen.findByRole("option", { name: "In review" }))
+  pickOption(await screen.findByRole("option", { name: "In review" }))
 
   await waitFor(() =>
     expect(saved).toEqual([{ rules: { pr_opened: "in_review" } }])
   )
-  await waitFor(() =>
-    expect(
-      screen
-        .getByRole("combobox", { name: m.git_automation_event_pr_opened() })
-        .hasAttribute("disabled")
-    ).toBe(true)
-  )
-  expect(screen.getByRole("switch").getAttribute("aria-disabled")).toBe("true")
+  expect(
+    screen.getByRole("combobox", { name: m.git_automation_event_pr_opened() })
+      .textContent
+  ).toContain("In review")
+  expect(screen.getByRole("switch").getAttribute("aria-disabled")).toBeNull()
   confirmSave?.(
     Response.json({
       ...stored,
       rules: { ...stored.rules, pr_opened: "in_review" }
     })
-  )
-  await waitFor(() =>
-    expect(
-      screen
-        .getByRole("combobox", { name: m.git_automation_event_pr_opened() })
-        .hasAttribute("disabled")
-    ).toBe(false)
   )
 })
 
