@@ -228,7 +228,7 @@ function RailRow({
         "group/list-row flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
         selected
           ? "bg-accent font-medium text-foreground"
-          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+          : "text-muted-foreground hover:bg-hover hover:text-foreground"
       )}
       aria-current={selected ? "page" : undefined}
     >

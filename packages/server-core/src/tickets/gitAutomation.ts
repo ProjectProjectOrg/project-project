@@ -2,6 +2,7 @@ import type {
   GitAutomationEvent,
   GitAutomationRules,
   StatusSlug,
+  TicketBranchEntry,
   TicketStatus
 } from "@pp/shared"
 
@@ -18,46 +19,80 @@ export type TicketGitFields = Readonly<{
   prState: "open" | "closed" | "merged" | null
   prDraft?: boolean
   lastTransitionedPr: number | null
+  stack?: ReadonlyArray<TicketBranchEntry>
 }>
 
-export type GitEventContext = Readonly<{
-  defaultBranch: string | null
-  pullRequestBase: string | null
+export type TicketPullRequestState =
+  | "open"
+  | "draft"
+  | "merged"
+  | "landed"
+  | "closed"
+  | null
+
+type PullRequestStanding = Readonly<{
+  state: "open" | "closed" | "merged"
+  draft: boolean
+  landed: boolean
 }>
 
-const pullRequestEvent = (
-  before: TicketGitFields,
-  after: TicketGitFields,
-  context: GitEventContext
-): GitAutomationEvent | null => {
-  if (after.pr === null) return null
-  const changed =
-    before.pr !== after.pr ||
-    before.prState !== after.prState ||
-    (before.prDraft ?? false) !== (after.prDraft ?? false)
-  if (!changed) return null
-  if (after.prState === "merged") {
-    if (before.lastTransitionedPr === after.pr) return null
-    const intoOtherBranch =
-      context.defaultBranch !== null &&
-      context.pullRequestBase !== null &&
-      context.pullRequestBase !== context.defaultBranch
-    return intoOtherBranch ? null : "pr_merged"
-  }
-  if (after.prState === "closed") return "pr_closed"
-  if (after.prState === "open") {
-    return after.prDraft ? "pr_draft_opened" : "pr_opened"
-  }
-  return null
+const pullRequestStandings = (
+  ticket: TicketGitFields
+): ReadonlyArray<PullRequestStanding> => [
+  ...(ticket.pr === null || ticket.prState === null
+    ? []
+    : [
+        {
+          state: ticket.prState,
+          draft: ticket.prDraft ?? false,
+          landed:
+            ticket.prState === "merged" &&
+            ticket.lastTransitionedPr === ticket.pr
+        }
+      ]),
+  ...(ticket.stack ?? []).flatMap((layer) =>
+    layer.pr === undefined || layer.prState === undefined
+      ? []
+      : [
+          {
+            state: layer.prState,
+            draft: layer.prDraft ?? false,
+            landed: layer.prState === "merged" && (layer.landed ?? false)
+          }
+        ]
+  )
+]
+
+export const ticketPullRequestState = (
+  ticket: TicketGitFields
+): TicketPullRequestState => {
+  const standings = pullRequestStandings(ticket)
+  if (standings.length === 0) return null
+  const live = standings.filter((standing) => standing.state !== "closed")
+  if (live.length === 0) return "closed"
+  const open = live.filter((standing) => standing.state === "open")
+  if (open.some((standing) => !standing.draft)) return "open"
+  if (open.length > 0) return "draft"
+  return live.every((standing) => standing.landed) ? "landed" : "merged"
+}
+
+const pullRequestEvents: Readonly<
+  Record<NonNullable<TicketPullRequestState>, GitAutomationEvent | null>
+> = {
+  open: "pr_opened",
+  draft: "pr_draft_opened",
+  merged: null,
+  landed: "pr_merged",
+  closed: "pr_closed"
 }
 
 export const gitAutomationEvent = (
   before: TicketGitFields,
-  after: TicketGitFields,
-  context: GitEventContext
+  after: TicketGitFields
 ): GitAutomationEvent | null => {
-  const pullRequest = pullRequestEvent(before, after, context)
-  if (pullRequest !== null) return pullRequest
+  const from = ticketPullRequestState(before)
+  const to = ticketPullRequestState(after)
+  if (to !== null && from !== to) return pullRequestEvents[to]
   return after.branch !== null && before.branch !== after.branch
     ? "branch_linked"
     : null

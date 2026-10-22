@@ -1,13 +1,16 @@
 import type { Member, TicketId, UpdateTicketInput } from "@pp/shared"
-import { Check, UserRound } from "lucide-react"
+import { UserRound } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { AvatarStack, MemberAvatar } from "@/components/MemberAvatar"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuEmpty,
+  DropdownMenuInput,
+  DropdownMenuList,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { Hitbox } from "@/components/ui/hitbox"
@@ -178,14 +181,14 @@ export function AssigneeSelect({
       : rowLabel(resolved)
 
   return (
-    <DropdownMenu>
+    <DropdownMenu filterable>
       <Trigger
         variant={variant}
         label={label}
         className={cn(
           variant === "card" &&
             resolved.length === 0 &&
-            "opacity-0 group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100",
+            "opacity-0 group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100",
           className
         )}
       >
@@ -195,29 +198,32 @@ export function AssigneeSelect({
         align="start"
         sideOffset={6}
         className="w-56"
-        onClick={(e) => e.stopPropagation()}
         finalFocus={false}
+        onClick={(e) => e.stopPropagation()}
       >
-        <DropdownMenuItem
-          closeOnClick={false}
-          onClick={clear}
-          className="cursor-pointer"
-        >
-          <UserRound className="size-4" strokeWidth={1.75} />
-          {m.tickets_assignee_unassigned()}
-          {value.length === 0 && (
-            <Check className="ml-auto size-3.5 text-muted-foreground" />
-          )}
-        </DropdownMenuItem>
-        {members.length > 0 && <div className="my-1 h-px bg-border" />}
-        {members.map((member) => {
-          const selected = value.includes(member.id)
-          return (
-            <DropdownMenuItem
+        <DropdownMenuInput
+          placeholder={m.tickets_assignee_search_placeholder()}
+          aria-label={m.tickets_assignee_search_placeholder()}
+        />
+        <DropdownMenuList>
+          <DropdownMenuCheckboxItem
+            label={m.tickets_assignee_unassigned()}
+            checked={value.length === 0}
+            onCheckedChange={clear}
+          >
+            <UserRound className="size-4" strokeWidth={1.75} />
+            {m.tickets_assignee_unassigned()}
+          </DropdownMenuCheckboxItem>
+          {members.map((member) => (
+            <DropdownMenuCheckboxItem
               key={member.id}
-              closeOnClick={false}
-              onClick={() => toggle(member.id)}
-              className="cursor-pointer"
+              label={
+                member.username
+                  ? `${member.name} ${member.username}`
+                  : member.name
+              }
+              checked={value.includes(member.id)}
+              onCheckedChange={() => toggle(member.id)}
             >
               <MemberAvatar member={member} size={20} />
               <div className="min-w-0 leading-tight">
@@ -228,12 +234,12 @@ export function AssigneeSelect({
                   </div>
                 )}
               </div>
-              {selected && (
-                <Check className="ml-auto size-3.5 text-muted-foreground" />
-              )}
-            </DropdownMenuItem>
-          )
-        })}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuList>
+        <DropdownMenuEmpty>
+          {m.tickets_assignee_search_empty()}
+        </DropdownMenuEmpty>
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -1,6 +1,32 @@
-import type { GitStatesResponse } from "@pp/shared"
+import type { GitStatesResponse, StackLayerState } from "@pp/shared"
 
-/** Carries PR titles and checks from an earlier response through a degraded one, so a stale read does not blank data the user can see. */
+export const mergeStackPrDetails = (
+  previous: ReadonlyArray<StackLayerState> | undefined,
+  next: ReadonlyArray<StackLayerState>
+): ReadonlyArray<StackLayerState> =>
+  next.map((layer) => {
+    const prior = previous?.find(
+      (candidate) => candidate.branch === layer.branch
+    )
+    if (
+      layer.pr === null ||
+      prior?.pr == null ||
+      layer.pr.number !== prior.pr.number
+    )
+      return layer
+    return {
+      ...layer,
+      pr: {
+        ...layer.pr,
+        title: layer.pr.title || prior.pr.title,
+        checks:
+          layer.pr.checks === null || layer.pr.checks === "none"
+            ? prior.pr.checks
+            : layer.pr.checks
+      }
+    }
+  })
+
 export const mergeStaleGitStateDetails = (
   previous: GitStatesResponse | undefined,
   next: GitStatesResponse,
@@ -46,5 +72,13 @@ export const mergeStaleGitStateDetails = (
       return [ticketId, state]
     })
   )
-  return { ...next, states }
+  if (!preserveStaleSummary || next.stacks === undefined)
+    return { ...next, states }
+  const stacks = Object.fromEntries(
+    Object.entries(next.stacks).map(([ticketId, stack]) => [
+      ticketId,
+      mergeStackPrDetails(previous.stacks?.[ticketId], stack)
+    ])
+  )
+  return { ...next, states, stacks }
 }

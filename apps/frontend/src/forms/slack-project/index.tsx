@@ -191,9 +191,9 @@ function ChannelPicker({
             }
           />
           <SelectContent>
-            {channels.map((channel, index) => (
-              <SelectItem key={channel.id} value={channel.id} index={index}>
-                #{channel.name}
+            {channels.map((channel) => (
+              <SelectItem key={channel.id} value={channel.id}>
+                {`#${channel.name}`}
               </SelectItem>
             ))}
           </SelectContent>

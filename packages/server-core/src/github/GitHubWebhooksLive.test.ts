@@ -1,5 +1,10 @@
 import { it, layer } from "@effect/vitest"
-import { NotFound, TicketId, TicketStatus } from "@pp/shared"
+import {
+  NotFound,
+  TicketId,
+  TicketStatus,
+  type TicketBranchEntry
+} from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
@@ -9,6 +14,7 @@ import {
   DEFAULT_GIT_AUTOMATION_CONFIG,
   gitAutomationTestService
 } from "../projects/gitAutomationTesting"
+import { moveForDeletedBranch } from "../tickets/moveByGitAutomation"
 import {
   MalformedTicketDocument,
   type TicketDocsShape,
@@ -24,10 +30,11 @@ import type {
   GitHubWebhookMutationSink
 } from "./GitHubWebhooks"
 import {
+  applyPullRequestWebhookToLayer,
   applyPullRequestWebhookToTicket,
+  landMergesInto,
   linkPullRequestWebhookToTicket,
   makeGitHubWebhooks,
-  moveTicketsForDeletedBranch,
   type PullRequestWebhookMatch
 } from "./GitHubWebhooksLive"
 
@@ -864,6 +871,9 @@ const makeFakeIndex = (overrides: Partial<TicketIndexShape> = {}) => {
     findTicketIdsByTag: () => Effect.succeed([]),
     findTicketIdsByStatus: () => Effect.succeed([]),
     findTicketsByBranch: () => Effect.succeed([]),
+    findStackLayers: () => Effect.succeed([]),
+    stacksFor: () => Effect.succeed(new Map()),
+    findMergesAwaiting: () => Effect.succeed([]),
     isRepositoryBranchAttached: () => Effect.succeed(false),
     getBranchDeletedAt: () => Effect.succeed(null),
     upsertTicket: (project, document) =>
@@ -1184,38 +1194,33 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
   )
 
   it.effect(
-    "moveTicketsForDeletedBranch moves only tickets still on the deleted branch",
+    "moveForDeletedBranch moves only tickets still on the deleted branch",
     () =>
       Effect.gen(function* () {
         const docs = makeFakeDocs([
           baseDocument(),
           baseDocument({ id: ticketId("T-2"), branch: "feat/T-2" })
         ])
-        const index = makeFakeIndex({
-          findTicketsByBranch: () =>
-            Effect.succeed([
-              baseMatch(),
-              baseMatch({ ticketId: "T-2" }),
-              baseMatch({ ticketId: "T-3" })
-            ])
-        })
+        const deps = {
+          ticketDocs: docs.shape,
+          ticketIndex: makeFakeIndex().shape,
+          ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+          gitAutomation: gitAutomationTestService({
+            ...DEFAULT_GIT_AUTOMATION_CONFIG,
+            rules: {
+              ...DEFAULT_GIT_AUTOMATION_CONFIG.rules,
+              branch_deleted: ticketStatus("blocked")
+            }
+          })
+        }
 
-        yield* moveTicketsForDeletedBranch(
-          {
-            ticketDocs: docs.shape,
-            ticketIndex: index.shape,
-            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
-            gitAutomation: gitAutomationTestService({
-              ...DEFAULT_GIT_AUTOMATION_CONFIG,
-              rules: {
-                ...DEFAULT_GIT_AUTOMATION_CONFIG.rules,
-                branch_deleted: ticketStatus("blocked")
-              }
-            })
-          },
-          "project-1",
-          "feat/T-1",
-          ["T-1", "T-2"]
+        yield* Effect.forEach(
+          [
+            baseMatch(),
+            baseMatch({ ticketId: "T-2" }),
+            baseMatch({ ticketId: "T-3" })
+          ],
+          (match) => moveForDeletedBranch(deps, match)
         )
 
         expect(docs.writes).toEqual([
@@ -1343,6 +1348,11 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
       change: { title: "T-1: fix login" }
     },
     {
+      name: "a branch the ticket ignores",
+      documents: [unlinked({ ignoredBranches: ["fix-login"] })],
+      change: { title: "T-1: fix login" }
+    },
+    {
       name: "a branch another ticket in the repository has",
       documents: [unlinked()],
       change: { title: "T-1: fix login" },
@@ -1377,6 +1387,375 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
             status: "done"
           })
         ])
+      })
+  )
+
+  for (const { name, change } of [
+    {
+      name: "builds on the ticket's branch",
+      change: {
+        branch: "ui-work",
+        baseBranch: "feat/T-1",
+        title: "T-1: checkout UI"
+      }
+    },
+    {
+      name: "names the ticket in its branch",
+      change: { branch: "feat/T-1-ui", baseBranch: "main" }
+    },
+    {
+      name: "builds on a branch already stacked on the ticket",
+      change: {
+        branch: "polish",
+        baseBranch: "feat/T-1-api",
+        body: "Fixes T-1"
+      }
+    }
+  ]) {
+    it.effect(`stacks a pull request that ${name}`, () =>
+      Effect.gen(function* () {
+        const docs = yield* linkPullRequest(
+          [
+            baseDocument({
+              stack: [{ branch: "feat/T-1-api", base: "feat/T-1" }]
+            })
+          ],
+          change
+        )
+
+        expect(docs.writes).toHaveLength(1)
+        expect(docs.writes[0]?.document).toMatchObject({
+          branch: "feat/T-1",
+          pr: null
+        })
+        expect(docs.writes[0]?.document.stack?.at(-1)).toEqual({
+          branch: change.branch,
+          base: change.baseBranch,
+          pr: 80,
+          prState: "open"
+        })
+      })
+    )
+  }
+
+  for (const { name, document, change } of [
+    {
+      name: "a pull request into the default branch named only in its title",
+      document: baseDocument(),
+      change: { branch: "ui-work", title: "T-1: checkout UI" }
+    },
+    {
+      name: "an ignored branch",
+      document: baseDocument({ ignoredBranches: ["feat/T-1-spike"] }),
+      change: { branch: "feat/T-1-spike" }
+    },
+    {
+      name: "a pull request on an archived ticket",
+      document: baseDocument({
+        archivedAt: DateTime.toDate(
+          DateTime.makeUnsafe("2026-05-02T00:00:00.000Z")
+        )
+      }),
+      change: { branch: "feat/T-1-ui" }
+    }
+  ]) {
+    it.effect(`doesn't stack ${name}`, () =>
+      Effect.gen(function* () {
+        const docs = yield* linkPullRequest([document], change)
+
+        expect(docs.writes).toEqual([])
+      })
+    )
+  }
+
+  const stackedMatch = baseMatch({ branch: "feat/T-1-ui" })
+  const stackedChange: GitHubPullRequestWebhookChange = {
+    ...openChange,
+    branch: "feat/T-1-ui",
+    baseBranch: "feat/T-1",
+    number: 81
+  }
+  const stackedTicket = (layer: TicketBranchEntry) =>
+    baseDocument({ stack: [{ branch: "feat/T-1-docs" }, layer] })
+
+  const applyToLayer = (
+    document: TicketDocument,
+    change: GitHubPullRequestWebhookChange,
+    match: PullRequestWebhookMatch = stackedMatch
+  ) =>
+    Effect.gen(function* () {
+      const docs = makeFakeDocs([document])
+      yield* applyPullRequestWebhookToLayer(
+        {
+          ticketDocs: docs.shape,
+          ticketIndex: makeFakeIndex().shape,
+          ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+          gitAutomation: gitAutomationTestService()
+        },
+        match,
+        change,
+        "delivery-1"
+      )
+      return docs
+    })
+
+  it.effect("updates a stacked branch to its pull request's state", () =>
+    Effect.gen(function* () {
+      const docs = yield* applyToLayer(
+        stackedTicket({ branch: "feat/T-1-ui" }),
+        { ...stackedChange, state: "merged" }
+      )
+
+      expect(docs.writes.map(({ document }) => document.stack)).toEqual([
+        [
+          { branch: "feat/T-1-docs" },
+          {
+            branch: "feat/T-1-ui",
+            base: "feat/T-1",
+            pr: 81,
+            prState: "merged"
+          }
+        ]
+      ])
+      expect(docs.writes[0]?.document).toMatchObject({
+        status: "in_progress",
+        pr: null
+      })
+    })
+  )
+
+  for (const { name, document, change, match } of [
+    {
+      name: "a delivery for an older pull request",
+      document: stackedTicket({
+        branch: "feat/T-1-ui",
+        pr: 82,
+        prState: "open"
+      }),
+      change: stackedChange,
+      match: stackedMatch
+    },
+    {
+      name: "a reopen event after the merge was recorded",
+      document: stackedTicket({
+        branch: "feat/T-1-ui",
+        base: "feat/T-1",
+        pr: 81,
+        prState: "merged"
+      }),
+      change: stackedChange,
+      match: stackedMatch
+    },
+    {
+      name: "the state it already has",
+      document: stackedTicket({
+        branch: "feat/T-1-ui",
+        base: "feat/T-1",
+        pr: 81,
+        prState: "open"
+      }),
+      change: stackedChange,
+      match: stackedMatch
+    },
+    {
+      name: "a branch the ticket no longer stacks",
+      document: baseDocument(),
+      change: stackedChange,
+      match: stackedMatch
+    }
+  ]) {
+    it.effect(`leaves a stacked branch alone for ${name}`, () =>
+      Effect.gen(function* () {
+        const docs = yield* applyToLayer(document, change, match)
+
+        expect(docs.writes).toEqual([])
+      })
+    )
+  }
+
+  it.effect(
+    "records the target of the ticket's own pull request, including a retarget",
+    () =>
+      Effect.gen(function* () {
+        const docs = makeFakeDocs([baseDocument()])
+        const deps = {
+          ticketDocs: docs.shape,
+          ticketIndex: makeFakeIndex().shape,
+          ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+          gitAutomation: gitAutomationTestService()
+        }
+
+        yield* applyPullRequestWebhookToTicket(
+          deps,
+          baseMatch(),
+          { ...openChange, baseBranch: "feat/T-0" },
+          "delivery-1"
+        )
+        yield* applyPullRequestWebhookToTicket(
+          deps,
+          baseMatch(),
+          openChange,
+          "delivery-2"
+        )
+        yield* applyPullRequestWebhookToTicket(
+          deps,
+          baseMatch(),
+          openChange,
+          "delivery-3"
+        )
+
+        expect(
+          docs.writes.map(({ document }) => [document.pr, document.prBase])
+        ).toEqual([
+          [80, "feat/T-0"],
+          [80, "main"]
+        ])
+      })
+  )
+
+  it.effect("stacked PR deliveries honor the ordering claim", () =>
+    Effect.gen(function* () {
+      const docs = makeFakeDocs([
+        baseDocument({
+          stack: [{ branch: "ui", base: "feat/T-1", pr: 81, prState: "open" }]
+        })
+      ])
+      const index = makeFakeIndex()
+      yield* applyPullRequestWebhookToLayer(
+        {
+          ticketDocs: docs.shape,
+          ticketIndex: index.shape,
+          ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+          gitAutomation: gitAutomationTestService(),
+          claimPullRequest: () => Effect.succeed(false)
+        },
+        baseMatch({ branch: "ui" }),
+        { ...openChange, branch: "ui", number: 81, state: "closed" },
+        "old-delivery"
+      )
+      expect(docs.documents.get("T-1")?.stack).toEqual([
+        { branch: "ui", base: "feat/T-1", pr: 81, prState: "open" }
+      ])
+      expect(docs.writes).toEqual([])
+    })
+  )
+
+  it.effect(
+    "landMergesInto lands merges waiting on a branch, up stacks and across tickets",
+    () =>
+      Effect.gen(function* () {
+        const docs = makeFakeDocs([
+          baseDocument({
+            id: ticketId("T-2"),
+            branch: "api",
+            pr: 20,
+            prState: "merged",
+            prBase: "feat/base",
+            stack: [
+              { branch: "ui", base: "api", pr: 21, prState: "merged" },
+              { branch: "docs", base: "api", pr: 22, prState: "open" }
+            ]
+          }),
+          baseDocument({
+            id: ticketId("T-3"),
+            branch: "polish",
+            pr: 30,
+            prState: "merged",
+            prBase: "ui"
+          }),
+          baseDocument({
+            id: ticketId("T-4"),
+            branch: "elsewhere",
+            pr: 40,
+            prState: "merged",
+            prBase: "other"
+          }),
+          ...[50, 60, 70].map((pr) =>
+            baseDocument({
+              id: ticketId(`T-${pr}`),
+              branch: `late-${pr}`,
+              pr,
+              prState: "merged",
+              prBase: "feat/base"
+            })
+          )
+        ])
+        const awaiting = (base: string) =>
+          [...docs.documents.values()].flatMap((document) => [
+            ...(document.prBase === base &&
+            document.prState === "merged" &&
+            document.branch !== null &&
+            document.lastTransitionedPr !== document.pr
+              ? [
+                  {
+                    ...baseMatch({
+                      ticketId: document.id,
+                      branch: document.branch
+                    }),
+                    stacked: false
+                  }
+                ]
+              : []),
+            ...(document.stack ?? [])
+              .filter(
+                (layer) =>
+                  layer.base === base &&
+                  layer.prState === "merged" &&
+                  layer.landed !== true
+              )
+              .map((layer) => ({
+                ...baseMatch({ ticketId: document.id, branch: layer.branch }),
+                stacked: true
+              }))
+          ])
+        const index = makeFakeIndex({
+          findMergesAwaiting: (_projectId, base) =>
+            Effect.sync(() => awaiting(base))
+        })
+
+        yield* landMergesInto(
+          {
+            ticketDocs: docs.shape,
+            ticketIndex: index.shape,
+            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+            gitAutomation: gitAutomationTestService()
+          },
+          "project-1",
+          "feat/base",
+          "delivery-1",
+          DateTime.toDate(DateTime.makeUnsafe("2026-05-01T12:00:00Z")),
+          new Map(
+            [
+              [20, "11"],
+              [21, "10"],
+              [30, "09"],
+              [50, "12"],
+              [60, "13"]
+            ].map(([pr, hour]) => [
+              Number(pr),
+              DateTime.toDate(DateTime.makeUnsafe(`2026-05-01T${hour}:00:00Z`))
+            ])
+          )
+        )
+
+        expect(docs.documents.get("T-2")).toMatchObject({
+          lastTransitionedPr: 20,
+          stack: [
+            { branch: "ui", prState: "merged", landed: true },
+            { branch: "docs", prState: "open" }
+          ],
+          status: "in_progress"
+        })
+        expect(docs.documents.get("T-3")).toMatchObject({
+          lastTransitionedPr: 30,
+          status: "done"
+        })
+        for (const pr of [50, 60, 70])
+          expect(docs.documents.get(`T-${pr}`)?.lastTransitionedPr).toBeNull()
+        expect(docs.documents.get("T-4")).toMatchObject({
+          lastTransitionedPr: null,
+          status: "in_progress"
+        })
       })
   )
 })

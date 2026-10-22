@@ -80,6 +80,8 @@
   --shadow-8: var(--shadow-7), 0 96px 96px -48px var(--shadow-color);
   --hover: rgb(0 0 0 / 0.04);
   --active: rgb(0 0 0 / 0.07);
+  --tint: oklch(0 0 0 / 8%);
+  --tint-hover: oklch(0 0 0 / 6.5%);
 }
 
 .dark {
@@ -158,13 +160,17 @@
     0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop),
     0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop),
     0 48px 48px -24px var(--dm-drop), 0 96px 96px -48px var(--dm-drop);
-  --hover: rgb(255 255 255 / 0.06);
+  --hover: rgb(255 255 255 / 0.04);
   --active: rgb(255 255 255 / 0.1);
+  --tint: oklch(1 0 0 / 14%);
+  --tint-hover: oklch(1 0 0 / 11%);
 }
 
 @theme inline {
   --color-hover: var(--hover);
   --color-active: var(--active);
+  --color-tint: var(--tint);
+  --color-tint-hover: var(--tint-hover);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -425,7 +431,7 @@
 .prose-md.block-gutter
   .lexical-content
   > .ticket-block:is([data-hovered], [data-active]) {
-  background-color: color-mix(in oklch, var(--accent) 40%, transparent);
+  background-color: var(--hover);
   transition-duration: 0ms;
 }
 [data-editing]
@@ -967,6 +973,11 @@ html.dark .prose-md .token.coord {
 .prose-md .task-list-item:has(> input[type="checkbox"]:checked) {
   color: var(--muted-foreground);
   text-decoration: line-through;
+}
+
+[aria-haspopup]:not([aria-haspopup="false"]):active,
+[aria-haspopup]:not([aria-haspopup="false"]):active > * {
+  scale: none;
 }
 
 @layer base {

@@ -60,6 +60,15 @@ describe("splitDescriptionAndCommentsRegion", () => {
 })
 
 describe("serializeCommentsRegion + parseCommentsRegion", () => {
+  it("preserves frontmatter-looking comment bodies as text", () => {
+    const blocks = sample().map((block) => ({
+      ...block,
+      body: "---javascript\nthrow new Error('executed')\n---\nExample"
+    }))
+
+    expect(parseCommentsRegion(serializeCommentsRegion(blocks))).toEqual(blocks)
+  })
+
   it("round-trips an empty list to the empty string", () => {
     expect(serializeCommentsRegion([])).toBe("")
     expect(parseCommentsRegion("")).toEqual([])

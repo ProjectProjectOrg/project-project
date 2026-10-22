@@ -27,7 +27,7 @@ function InputGroup({
         input.focus()
       }}
       className={cn(
-        "group/input-group relative flex h-9 w-full cursor-text items-center gap-2 rounded-xl border border-border bg-background px-3 transition-[color,box-shadow]",
+        "group/input-group relative flex h-9 w-full cursor-text items-center gap-2 rounded-xl border border-border bg-background px-3 transition-[color,box-shadow] has-[>[data-slot=input-group-control]:last-child]:pr-[5px] has-[>[data-slot=kbd]:last-child]:pr-[7px] [&>[data-slot=kbd]]:rounded-full",
         "ring-offset-background focus-within:ring-2 focus-within:ring-ring",
         "has-[input:disabled]:opacity-50",
         className

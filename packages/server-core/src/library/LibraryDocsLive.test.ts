@@ -9,6 +9,7 @@ import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
 import { describe, expect } from "vitest"
 
+import { markdownFileContent, parseMarkdownFile } from "../markdown/fileContent"
 import { Markdown } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
 import { LibraryDocs } from "./LibraryDocs"
@@ -66,6 +67,50 @@ const libraryPath = (org: string, ...rest: ReadonlyArray<string>) =>
   })
 
 describe("LibraryDocs (real fs)", () => {
+  it.effect("preserves the org body when removing the last default", () =>
+    Effect.gen(function* () {
+      const docs = yield* LibraryDocs
+      const fs = yield* FileSystem.FileSystem
+      const file = yield* libraryPath("acme", "library.md")
+      const defaults = { bug: templateKey("bug-report") }
+      const body = "---js\n({ example: true })\n---\nOrg notes.\n"
+
+      yield* docs.writeOrgDefaults("acme", defaults)
+      yield* fs.writeFileString(
+        file,
+        markdownFileContent({ templateDefaults: defaults }, body)
+      )
+      yield* docs.writeOrgDefaults("acme", {})
+
+      const raw = yield* fs.readFileString(file, "utf8")
+      expect(parseMarkdownFile(raw)).toEqual({ data: {}, content: body })
+      yield* docs.writeOrgDefaults("acme", defaults)
+      expect(yield* docs.readOrgDefaults("acme")).toEqual(defaults)
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("preserves frontmatter-looking block and template bodies", () =>
+    Effect.gen(function* () {
+      const docs = yield* LibraryDocs
+      const body = "---js\nthrow new Error('executed')\n---\nExample"
+      const literalBlock = yield* Schema.decodeUnknownEffect(BlockDraft)({
+        ...block,
+        content: body
+      })
+      const literalTemplate = yield* Schema.decodeUnknownEffect(TemplateDraft)({
+        ...template,
+        body
+      })
+
+      yield* docs.writeBlock("acme", null, literalBlock)
+      yield* docs.writeTemplate("acme", null, literalTemplate)
+
+      const layer = yield* docs.readLayer("acme", null)
+      expect(layer.blocks).toEqual([literalBlock])
+      expect(layer.templates).toEqual([literalTemplate])
+    }).pipe(Effect.provide(TestLayer))
+  )
+
   it.effect("writes nothing to disk until the first write", () =>
     Effect.gen(function* () {
       const docs = yield* LibraryDocs

@@ -7,7 +7,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import { stubFetch } from "@/api/testFetch"
 import { m } from "@/paraglide/messages"
 import { Route as OrgRoute } from "@/routes/_authed/orgs/$orgSlug/route"
-import { Route as AttachmentsRoute } from "@/routes/_authed/orgs/$orgSlug/settings/attachments"
+import { Route as AttachmentsRoute } from "@/routes/_authed/orgs/$orgSlug/settings/integrations/storage/files"
 import { Route as MembersRoute } from "@/routes/_authed/orgs/$orgSlug/settings/members"
 
 const fetchStub = stubFetch()

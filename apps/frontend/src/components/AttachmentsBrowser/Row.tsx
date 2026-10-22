@@ -52,7 +52,7 @@ export function Row({
   return (
     <tr
       className={cn(
-        "group/reveal border-b border-border transition-colors hover:bg-accent/60",
+        "group/reveal border-b border-border transition-colors hover:bg-hover",
         only && "cursor-pointer"
       )}
       onClick={only ? () => void openTicket(only) : undefined}
@@ -109,7 +109,7 @@ export function Row({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-end gap-0.5">
-          <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/reveal:opacity-100 focus-within:opacity-100">
+          <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 focus-within:opacity-100">
             <Tooltip>
               <TooltipTrigger render={<span className="inline-flex" />}>
                 <CopyButton
@@ -135,7 +135,7 @@ export function Row({
                     href={attachmentDownloadUrl(orgSlug, row.id)}
                     download={row.filename}
                     aria-label={m.attachments_download()}
-                    className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 hover:bg-muted hover:text-foreground active:scale-[0.97]"
+                    className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
                   />
                 }
               >
@@ -224,8 +224,8 @@ function TicketCell({
           aria-label={m.attachments_ticket_pick()}
         />
         <SelectContent>
-          {row.tickets.map((ref, index) => (
-            <SelectItem key={refKey(ref)} index={index} value={refKey(ref)}>
+          {row.tickets.map((ref) => (
+            <SelectItem key={refKey(ref)} value={refKey(ref)}>
               {ref.ticketId}
             </SelectItem>
           ))}

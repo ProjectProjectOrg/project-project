@@ -61,6 +61,7 @@ const makeDb = (failures: number) => {
   const state = { attempts: 0 }
   const layer = Layer.succeed(Db, {
     select: () => selectChain,
+    delete: () => ({ where: () => Effect.void }),
     insert: () => ({
       values: () => ({
         onConflictDoUpdate: () =>
@@ -82,7 +83,11 @@ const layerFor = (
 ) =>
   TicketIndexLive.pipe(
     Layer.provide(db),
-    Layer.provide(Layer.succeed(SqlClient.SqlClient, {} as never)),
+    Layer.provide(
+      Layer.succeed(SqlClient.SqlClient, {
+        withTransaction: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect
+      } as never)
+    ),
     Layer.provide(docs)
   )
 

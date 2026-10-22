@@ -2,13 +2,15 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { Org } from "@pp/shared"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { Check, ChevronsUpDown, Plus } from "lucide-react"
+import { ChevronsUpDown, Plus } from "lucide-react"
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
@@ -50,7 +52,7 @@ export function OrgSwitcher() {
           <button
             type="button"
             aria-label={m.org_switcher_trigger_aria_label()}
-            className="ml-auto flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground transition-all duration-100 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+            className="ml-auto flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground transition-all duration-100 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
           >
             <span className="min-w-0 truncate">{current.name}</span>
             <ChevronsUpDown
@@ -62,21 +64,24 @@ export function OrgSwitcher() {
       />
       <DropdownMenuContent align="end" sideOffset={8} className="w-56">
         <DropdownMenuLabel>{m.org_switcher_current_org()}</DropdownMenuLabel>
-        {sorted.map((org) => (
-          <DropdownMenuItem
-            key={org.slug}
-            aria-label={m.org_switcher_switch_aria_label({ name: org.name })}
-            onClick={() => switchTo(org)}
-            className={
-              org.slug === current.slug ? "text-foreground" : undefined
-            }
-          >
-            <span className="min-w-0 flex-1 truncate">{org.name}</span>
-            {org.slug === current.slug ? (
-              <Check className="size-4 shrink-0" strokeWidth={2} />
-            ) : null}
-          </DropdownMenuItem>
-        ))}
+        <DropdownMenuRadioGroup
+          value={current.slug}
+          onValueChange={(slug: string) => {
+            const org = sorted.find((candidate) => candidate.slug === slug)
+            if (org) switchTo(org)
+          }}
+        >
+          {sorted.map((org) => (
+            <DropdownMenuRadioItem
+              key={org.slug}
+              value={org.slug}
+              closeOnClick
+              aria-label={m.org_switcher_switch_aria_label({ name: org.name })}
+            >
+              <span className="min-w-0 flex-1 truncate">{org.name}</span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           render={

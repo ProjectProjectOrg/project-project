@@ -1,4 +1,4 @@
-import type { GitState, GitStatesResponse } from "@pp/shared"
+import type { GitState, GitStatesResponse, StackLayerState } from "@pp/shared"
 
 export const shouldInvalidateTicketsForGitStates = (
   states: Pick<GitStatesResponse, "transitioned"> &
@@ -22,6 +22,19 @@ const gitStateIdentity = (state: GitState): string => {
   }
 }
 
+const stackIdentity = (stack: ReadonlyArray<StackLayerState> = []): string =>
+  JSON.stringify(
+    stack.map((layer) => [
+      layer.branch,
+      layer.base,
+      layer.depth,
+      layer.deleted,
+      layer.pr === null
+        ? null
+        : [layer.pr.number, layer.pr.state, layer.pr.draft, layer.pr.landed]
+    ])
+  )
+
 export const changedGitStateTicketIds = (
   previous: GitStatesResponse | undefined,
   next: GitStatesResponse
@@ -29,12 +42,19 @@ export const changedGitStateTicketIds = (
   if (!previous) return []
   const ticketIds = new Set([
     ...Object.keys(previous.states),
-    ...Object.keys(next.states)
+    ...Object.keys(next.states),
+    ...Object.keys(previous.stacks ?? {}),
+    ...Object.keys(next.stacks ?? {})
   ])
   return [...ticketIds].filter((ticketId) => {
+    if (
+      stackIdentity(previous.stacks?.[ticketId]) !==
+      stackIdentity(next.stacks?.[ticketId])
+    )
+      return true
     const before = previous.states[ticketId]
     const after = next.states[ticketId]
-    if (!before) return after?.tag !== "no_branch"
+    if (!before) return after !== undefined && after.tag !== "no_branch"
     if (!after) return true
     return gitStateIdentity(before) !== gitStateIdentity(after)
   })

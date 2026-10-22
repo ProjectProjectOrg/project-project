@@ -6,6 +6,7 @@ import {
   projectGithubRepository,
   projectIndex,
   projectIntegrationLink,
+  ticketBranch,
   ticketIndex
 } from "@pp/db/schema"
 import {
@@ -16,6 +17,7 @@ import {
   TagName,
   TicketId,
   tryDecodeCursor,
+  type TicketBranchEntry,
   type EstimateFilterValue,
   type ChecksStatus,
   type TicketCountQuery,
@@ -42,6 +44,7 @@ import {
   lt,
   lte,
   ne,
+  notInArray,
   or,
   sql as drizzleSql,
   type SQL
@@ -61,6 +64,7 @@ import {
   TicketIndex,
   type TicketIndexDrift,
   type TicketIndexEntry,
+  type TicketIndexMatch,
   type TicketIndexCountOptions,
   type TicketIndexAssignedOptions,
   type TicketIndexAssignedScope,
@@ -114,12 +118,42 @@ const ticketIndexRowFor = (
   pr: document.pr,
   prState: document.prState,
   prDraft: document.prDraft ?? false,
+  prBase: document.prBase ?? null,
   lastTransitionedPr: document.lastTransitionedPr,
+  ignoredBranches: [...(document.ignoredBranches ?? [])],
   archivedAt: document.archivedAt,
   createdBy: document.createdBy,
   createdAt: document.createdAt,
   updatedAt: document.updatedAt
 })
+
+const ticketBranchRowsFor = (
+  project: TicketIndexProject,
+  document: TicketDocument
+): ReadonlyArray<typeof ticketBranch.$inferInsert> =>
+  (document.stack ?? []).map((layer, position) => ({
+    projectId: project.projectId,
+    ticketId: document.id,
+    branch: layer.branch,
+    position,
+    base: layer.base ?? null,
+    pr: layer.pr ?? null,
+    prState: layer.prState ?? null,
+    prDraft: layer.prDraft ?? false,
+    landed: layer.landed ?? false
+  }))
+
+const stackEntryFromRow = (
+  row: typeof ticketBranch.$inferSelect
+): TicketBranchEntry =>
+  Object.assign(
+    { branch: row.branch },
+    row.base === null ? {} : { base: row.base },
+    row.pr === null ? {} : { pr: row.pr },
+    row.prState === null ? {} : { prState: row.prState },
+    row.prDraft ? { prDraft: true } : {},
+    row.landed ? { landed: true } : {}
+  )
 
 export const ticketIndexRowsFor = (
   project: TicketIndexProject,
@@ -553,7 +587,9 @@ export const TicketIndexLive = Layer.effect(
       pr: row.pr,
       prState: row.prState,
       prDraft: row.prDraft,
+      prBase: row.prBase,
       lastTransitionedPr: row.lastTransitionedPr,
+      ignoredBranches: row.ignoredBranches,
       branchDeletedAt: row.branchDeletedAt,
       checks: row.checks,
       checksHeadSha: row.checksHeadSha,
@@ -1075,7 +1111,125 @@ export const TicketIndexLive = Layer.effect(
           Effect.orDie
         )
 
-    const isRepositoryBranchAttached = (repoId: string, branch: string) =>
+    const stackLayerMatches = (where: SQL | undefined) =>
+      db
+        .select({
+          orgSlug: organization.slug,
+          organizationId: projectIndex.organizationId,
+          projectId: ticketBranch.projectId,
+          projectSlug: projectIndex.slug,
+          ticketId: ticketBranch.ticketId,
+          branch: ticketBranch.branch
+        })
+        .from(ticketBranch)
+        .innerJoin(projectIndex, eq(projectIndex.id, ticketBranch.projectId))
+        .innerJoin(
+          organization,
+          eq(organization.id, projectIndex.organizationId)
+        )
+        .where(where)
+
+    const findStackLayers = (
+      projectId: string,
+      branch: string
+    ): Effect.Effect<ReadonlyArray<TicketIndexMatch>> =>
+      stackLayerMatches(
+        and(
+          eq(ticketBranch.projectId, projectId),
+          eq(ticketBranch.branch, branch)
+        )
+      ).pipe(Effect.orDie)
+
+    const stacksFor = (
+      project: TicketIndexProject,
+      ticketIds?: ReadonlyArray<string>
+    ): Effect.Effect<ReadonlyMap<string, ReadonlyArray<TicketBranchEntry>>> =>
+      ticketIds !== undefined && ticketIds.length === 0
+        ? Effect.succeed(new Map())
+        : db
+            .select()
+            .from(ticketBranch)
+            .where(
+              and(
+                eq(ticketBranch.projectId, project.projectId),
+                ticketIds === undefined
+                  ? undefined
+                  : inArray(ticketBranch.ticketId, [...ticketIds])
+              )
+            )
+            .orderBy(asc(ticketBranch.ticketId), asc(ticketBranch.position))
+            .pipe(
+              Effect.map((rows) => {
+                const stacks = new Map<string, Array<TicketBranchEntry>>()
+                for (const row of rows) {
+                  const stack = stacks.get(row.ticketId) ?? []
+                  stack.push(stackEntryFromRow(row))
+                  stacks.set(row.ticketId, stack)
+                }
+                return stacks
+              }),
+              Effect.orDie
+            )
+
+    const findMergesAwaiting = (
+      projectId: string,
+      base: string
+    ): Effect.Effect<
+      ReadonlyArray<TicketIndexMatch & Readonly<{ stacked: boolean }>>
+    > =>
+      Effect.all([
+        db
+          .select({
+            orgSlug: organization.slug,
+            organizationId: projectIndex.organizationId,
+            projectId: ticketIndex.projectId,
+            projectSlug: projectIndex.slug,
+            ticketId: ticketIndex.ticketId,
+            branch: ticketIndex.branch
+          })
+          .from(ticketIndex)
+          .innerJoin(projectIndex, eq(projectIndex.id, ticketIndex.projectId))
+          .innerJoin(
+            organization,
+            eq(organization.id, projectIndex.organizationId)
+          )
+          .where(
+            and(
+              eq(ticketIndex.projectId, projectId),
+              eq(ticketIndex.prBase, base),
+              eq(ticketIndex.prState, "merged"),
+              isNotNull(ticketIndex.pr),
+              or(
+                isNull(ticketIndex.lastTransitionedPr),
+                ne(ticketIndex.lastTransitionedPr, ticketIndex.pr)
+              )
+            )
+          ),
+        stackLayerMatches(
+          and(
+            eq(ticketBranch.projectId, projectId),
+            eq(ticketBranch.base, base),
+            eq(ticketBranch.prState, "merged"),
+            eq(ticketBranch.landed, false)
+          )
+        )
+      ]).pipe(
+        Effect.map(([own, stacked]) => [
+          ...own.flatMap((row) =>
+            row.branch === null
+              ? []
+              : [{ ...row, branch: row.branch, stacked: false }]
+          ),
+          ...stacked.map((row) => ({ ...row, stacked: true }))
+        ]),
+        Effect.orDie
+      )
+
+    const isRepositoryBranchAttached = (
+      repoId: string,
+      branch: string,
+      stackedOnly = false
+    ) =>
       db
         .select({ ticketId: ticketIndex.ticketId })
         .from(ticketIndex)
@@ -1096,7 +1250,21 @@ export const TicketIndexLive = Layer.effect(
             eq(projectIntegrationLink.provider, "github"),
             inArray(projectIntegrationLink.status, ["active", "broken"]),
             inArray(projectGithubRepository.status, ["active", "broken"]),
-            eq(ticketIndex.branch, branch)
+            or(
+              stackedOnly ? undefined : eq(ticketIndex.branch, branch),
+              exists(
+                db
+                  .select({ branch: ticketBranch.branch })
+                  .from(ticketBranch)
+                  .where(
+                    and(
+                      eq(ticketBranch.projectId, ticketIndex.projectId),
+                      eq(ticketBranch.ticketId, ticketIndex.ticketId),
+                      eq(ticketBranch.branch, branch)
+                    )
+                  )
+              )
+            )
           )
         )
         .limit(1)
@@ -1132,17 +1300,65 @@ export const TicketIndexLive = Layer.effect(
           Effect.orDie
         )
 
+    const syncTicketBranches = (
+      project: TicketIndexProject,
+      document: TicketDocument
+    ) =>
+      Effect.gen(function* () {
+        const rows = ticketBranchRowsFor(project, document)
+        const ticket = and(
+          eq(ticketBranch.projectId, project.projectId),
+          eq(ticketBranch.ticketId, document.id)
+        )
+        yield* db.delete(ticketBranch).where(
+          rows.length === 0
+            ? ticket
+            : and(
+                ticket,
+                notInArray(
+                  ticketBranch.branch,
+                  rows.map((row) => row.branch)
+                )
+              )
+        )
+        if (rows.length === 0) return
+        yield* db
+          .insert(ticketBranch)
+          .values([...rows])
+          .onConflictDoUpdate({
+            target: [
+              ticketBranch.projectId,
+              ticketBranch.ticketId,
+              ticketBranch.branch
+            ],
+            set: {
+              position: drizzleSql`excluded.position`,
+              base: drizzleSql`excluded.base`,
+              pr: drizzleSql`excluded.pr`,
+              prState: drizzleSql`excluded.pr_state`,
+              prDraft: drizzleSql`excluded.pr_draft`,
+              landed: drizzleSql`excluded.landed`
+            }
+          })
+      })
+
     const upsertTicket = (
       project: TicketIndexProject,
       document: TicketDocument
     ): Effect.Effect<void> =>
-      db
-        .insert(ticketIndex)
-        .values(ticketIndexRowFor(project, document))
-        .onConflictDoUpdate({
-          target: [ticketIndex.projectId, ticketIndex.ticketId],
-          set: ticketIndexRowFor(project, document)
-        })
+      sql
+        .withTransaction(
+          Effect.gen(function* () {
+            yield* db
+              .insert(ticketIndex)
+              .values(ticketIndexRowFor(project, document))
+              .onConflictDoUpdate({
+                target: [ticketIndex.projectId, ticketIndex.ticketId],
+                set: ticketIndexRowFor(project, document)
+              })
+            yield* syncTicketBranches(project, document)
+          })
+        )
         .pipe(
           Effect.asVoid,
           Effect.retry({
@@ -1295,6 +1511,9 @@ export const TicketIndexLive = Layer.effect(
       documents: ReadonlyArray<TicketDocument>
     ): Effect.Effect<void> => {
       const tickets = ticketIndexRowsFor(project, documents)
+      const branches = documents.flatMap((document) =>
+        ticketBranchRowsFor(project, document)
+      )
       const comments = commentIndexRowsFor(project, documents)
       return sql
         .withTransaction(
@@ -1307,6 +1526,12 @@ export const TicketIndexLive = Layer.effect(
               yield* db
                 .insert(ticketIndex)
                 .values([...tickets])
+                .pipe(Effect.asVoid, Effect.orDie)
+            }
+            if (branches.length > 0) {
+              yield* db
+                .insert(ticketBranch)
+                .values([...branches])
                 .pipe(Effect.asVoid, Effect.orDie)
             }
             yield* db
@@ -1433,6 +1658,9 @@ export const TicketIndexLive = Layer.effect(
       findTicketIdsByTag,
       findTicketIdsByStatus,
       findTicketsByBranch,
+      findStackLayers,
+      stacksFor,
+      findMergesAwaiting,
       isRepositoryBranchAttached,
       getBranchDeletedAt,
       upsertTicket,

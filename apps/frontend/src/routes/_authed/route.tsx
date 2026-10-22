@@ -24,11 +24,20 @@ import {
   motion,
   useReducedMotion
 } from "motion/react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import {
+  createContext,
+  use,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject
+} from "react"
 
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { ErrorPage } from "@/components/ErrorPage"
-import { LoaderOverlay } from "@/components/Loader/LoaderOverlay"
+import { FluidHoverHighlight } from "@/components/fluid-hover-highlight"
+import { LoaderOverlay } from "@/components/LoaderOverlay"
 import { Logo, Wordmark } from "@/components/Logo"
 import { OrgSwitcher } from "@/components/OrgSwitcher"
 import { ProjectIconDisplay } from "@/components/ProjectIconDisplay"
@@ -59,6 +68,11 @@ import {
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem,
+  type UseFluidHoverReturn
+} from "@/hooks/use-fluid-hover"
 import { authedRouteRedirect } from "@/lib/authRedirect"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
@@ -189,36 +203,85 @@ function SidebarContent({ user }: { user: User }) {
   )
 }
 
+const NavHoverContext = createContext<
+  UseFluidHoverReturn["registerItem"] | null
+>(null)
+
+const PROJECT_ROW_INDEX_OFFSET = 2
+
+function useNavHoverItem(index: number, ref: RefObject<HTMLElement | null>) {
+  useRegisterFluidHoverItem(use(NavHoverContext) ?? undefined, index, ref)
+}
+
+const navFocusRing =
+  "outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
+
 function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
+  const { pathname } = useLocation()
+  const listRef = useRef<HTMLDivElement>(null)
+  const hover = useFluidHover(listRef)
+  const projectsExpanded = orgSlug !== null && isProjectsPath(pathname, orgSlug)
+  const hoverInGroup =
+    projectsExpanded && hover.activeIndex !== null && hover.activeIndex >= 1
+  const dashboardActive = pathname === (orgSlug ? `/orgs/${orgSlug}` : "/")
   return (
-    <nav className="flex flex-col gap-1 px-3 py-2">
-      {orgSlug ? (
-        <NavItem
-          to="/orgs/$orgSlug"
-          params={{ orgSlug }}
-          icon={LayoutDashboard}
-          label={m.chrome_sidebar_dashboard()}
-          exact
-        />
-      ) : (
-        <NavItem
-          to="/"
-          icon={LayoutDashboard}
-          label={m.chrome_sidebar_dashboard()}
-          exact
-        />
-      )}
-      {orgSlug && <ProjectsGroup orgSlug={orgSlug} />}
+    <nav className="px-3 py-2">
+      <NavHoverContext value={hover.registerItem}>
+        <div
+          ref={listRef}
+          role="presentation"
+          onMouseEnter={hover.handlers.onMouseEnter}
+          onMouseMove={hover.handlers.onMouseMove}
+          onMouseLeave={hover.handlers.onMouseLeave}
+          onClick={hover.handlers.onClick}
+          className="relative flex flex-col gap-1"
+        >
+          <FluidHoverHighlight
+            hover={hover}
+            hidden={dashboardActive && hover.activeIndex === 0}
+            className={cn("z-[1]", hoverInGroup ? "rounded-sm" : "rounded-lg")}
+          />
+          {orgSlug ? (
+            <NavItem
+              to="/orgs/$orgSlug"
+              params={{ orgSlug }}
+              icon={LayoutDashboard}
+              label={m.chrome_sidebar_dashboard()}
+              index={0}
+              exact
+            />
+          ) : (
+            <NavItem
+              to="/"
+              icon={LayoutDashboard}
+              label={m.chrome_sidebar_dashboard()}
+              index={0}
+              exact
+            />
+          )}
+          {orgSlug && (
+            <ProjectsGroup orgSlug={orgSlug} expanded={projectsExpanded} />
+          )}
+        </div>
+      </NavHoverContext>
     </nav>
   )
 }
 
-function ProjectsGroup({ orgSlug }: { orgSlug: string }) {
+function isProjectsPath(pathname: string, orgSlug: string) {
+  const projectsBase = `/orgs/${orgSlug}/projects`
+  return pathname === projectsBase || pathname.startsWith(`${projectsBase}/`)
+}
+
+function ProjectsGroup({
+  orgSlug,
+  expanded
+}: {
+  orgSlug: string
+  expanded: boolean
+}) {
   const { pathname } = useLocation()
   const reduceMotion = useReducedMotion()
-  const projectsBase = `/orgs/${orgSlug}/projects`
-  const expanded =
-    pathname === projectsBase || pathname.startsWith(`${projectsBase}/`)
   const listResult = useAtomValue(projectsFor(projectsRequest(orgSlug)))
   const projects = Result.isSuccess(listResult)
     ? [...listResult.value].sort((a, b) =>
@@ -229,13 +292,19 @@ function ProjectsGroup({ orgSlug }: { orgSlug: string }) {
 
   return (
     <div
-      className={cn("rounded-lg transition-colors", expanded && "bg-accent")}
+      className={cn(
+        "-mx-1 rounded-lg p-1 transition-colors",
+        expanded && "bg-accent"
+      )}
     >
       <NavItem
         to="/orgs/$orgSlug/projects"
         params={{ orgSlug }}
         icon={FolderKanban}
         label={m.chrome_sidebar_projects()}
+        index={1}
+        fillWhenActive={false}
+        className={expanded ? "rounded-sm" : undefined}
       />
       <AnimatePresence initial={false}>
         {expanded ? (
@@ -247,10 +316,11 @@ function ProjectsGroup({ orgSlug }: { orgSlug: string }) {
             transition={transitions.layout}
             className="overflow-hidden"
           >
-            <ul className="flex flex-col gap-0.5 pb-2">
-              {projects.map((p) => (
+            <ul className="flex flex-col gap-0.5">
+              {projects.map((p, i) => (
                 <ProjectsGroupRow
                   key={p.slug}
+                  index={PROJECT_ROW_INDEX_OFFSET + i}
                   orgSlug={orgSlug}
                   slug={p.slug}
                   name={p.name}
@@ -272,6 +342,7 @@ function projectSettingsLayoutId(orgSlug: string, slug: string) {
 }
 
 function ProjectsGroupRow({
+  index,
   orgSlug,
   slug,
   name,
@@ -279,6 +350,7 @@ function ProjectsGroupRow({
   iconImage,
   active
 }: {
+  index: number
   orgSlug: string
   slug: string
   name: string
@@ -288,23 +360,27 @@ function ProjectsGroupRow({
 }) {
   const reduceMotion = useReducedMotion()
   const settingsLabel = m.project_sidebar_settings_aria_label({ name })
+  const rowRef = useRef<HTMLLIElement>(null)
+  useNavHoverItem(index, rowRef)
 
   return (
     <motion.li
+      ref={rowRef}
       layoutId={
         reduceMotion ? undefined : projectSettingsLayoutId(orgSlug, slug)
       }
       transition={transitions.layout}
-      className="group/project-row flex items-center rounded-lg transition-colors hover:bg-accent/60"
+      className="group/project-row relative z-10 flex items-center rounded-sm"
     >
       <Link
         to="/orgs/$orgSlug/projects/$slug"
         params={{ orgSlug, slug }}
         className={cn(
-          "flex min-w-0 flex-1 items-center gap-2.5 rounded-lg py-2 pr-1 pl-3 text-[13px] transition-colors",
+          "flex min-w-0 flex-1 items-center gap-2.5 rounded-sm py-2 pr-1 pl-3 text-[13px] transition-colors",
+          navFocusRing,
           active
             ? "font-medium text-foreground"
-            : "text-muted-foreground hover:text-foreground"
+            : "text-muted-foreground group-data-[fluid-hover-active]/project-row:text-foreground"
         )}
       >
         <span
@@ -329,8 +405,8 @@ function ProjectsGroupRow({
         aria-label={settingsLabel}
         title={settingsLabel}
         className={cn(
-          "mr-1 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97]",
-          "opacity-0 group-focus-within/project-row:opacity-100 group-hover/project-row:opacity-100"
+          "mr-1 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97]",
+          "opacity-0 group-focus-within/project-row:opacity-100 group-hover/project-row:opacity-100 group-data-[fluid-hover-active]/project-row:opacity-100"
         )}
       >
         <Settings className="size-3.5" strokeWidth={1.75} />
@@ -350,44 +426,61 @@ function matchActiveProjectSlug(
   return slug.length > 0 ? slug : null
 }
 
-type NavItemProps =
+type NavItemProps = (
   | {
       to: "/"
-      icon: LucideIcon
-      label: string
-      exact?: boolean
       params?: undefined
     }
   | {
       to: "/orgs/$orgSlug/projects"
       params: { orgSlug: string }
-      icon: LucideIcon
-      label: string
-      exact?: boolean
     }
   | {
       to: "/orgs/$orgSlug"
       params: { orgSlug: string }
-      icon: LucideIcon
-      label: string
-      exact?: boolean
     }
+) & {
+  icon: LucideIcon
+  label: string
+  index: number
+  exact?: boolean
+  fillWhenActive?: boolean
+  className?: string
+}
 
-function NavItem({ to, params, icon: Icon, label, exact }: NavItemProps) {
-  const base =
-    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors"
+function NavItem({
+  to,
+  params,
+  icon: Icon,
+  label,
+  index,
+  exact,
+  fillWhenActive = true,
+  className
+}: NavItemProps) {
+  const ref = useRef<HTMLAnchorElement>(null)
+  useNavHoverItem(index, ref)
+  const base = cn(
+    "relative z-10 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
+    navFocusRing,
+    className
+  )
   return (
     <Link
+      ref={ref}
       to={to}
       params={params as never}
       activeOptions={{ exact: exact ?? false }}
       className={base}
       inactiveProps={{
         className:
-          "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+          "text-muted-foreground data-[fluid-hover-active]:text-foreground"
       }}
       activeProps={{
-        className: "bg-accent text-foreground font-medium"
+        className: cn(
+          "font-medium text-foreground",
+          fillWhenActive && "bg-accent"
+        )
       }}
     >
       <Icon className="size-4" strokeWidth={1.75} />
@@ -443,7 +536,7 @@ function MobileNav({ user }: { user: User }) {
           <button
             type="button"
             aria-label={m.chrome_nav_open()}
-            className="grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97] lg:hidden"
+            className="grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97] lg:hidden"
           >
             <Menu className="size-5" strokeWidth={1.75} />
           </button>
@@ -518,10 +611,7 @@ function UserMenu({ user }: { user: User }) {
           />
         ) : null}
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => signOut()}
-          className="cursor-pointer text-destructive focus:text-destructive"
-        >
+        <DropdownMenuItem onClick={() => signOut()} variant="destructive">
           <LogOut className="size-4" strokeWidth={1.75} />
           {m.chrome_user_menu_sign_out()}
         </DropdownMenuItem>

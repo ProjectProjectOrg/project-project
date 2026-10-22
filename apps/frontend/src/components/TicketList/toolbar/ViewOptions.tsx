@@ -1,4 +1,3 @@
-import { Switch } from "@base-ui/react/switch"
 import { useAtomValue } from "@effect/atom-react"
 import {
   sprintState,
@@ -15,7 +14,6 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import {
   ArrowUp,
   ArrowDown,
-  Check,
   ChevronDown,
   SlidersHorizontal,
   UserRound
@@ -27,12 +25,13 @@ import { CollapsingLabel } from "@/components/SegmentedTabs"
 import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
 import { TagChip } from "@/components/TagChip"
 import { Button } from "@/components/ui/button"
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
+import { SelectItem } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { me } from "@/features/auth/atoms/auth"
 import {
   sprintList,
@@ -209,13 +208,7 @@ function FilterArchived({
   return (
     <label className="flex min-h-8 items-center justify-between gap-3 text-[13px] text-muted-foreground">
       {m.tickets_filters_archived_show()}
-      <Switch.Root
-        checked={archivedFilter}
-        onCheckedChange={setArchivedFilter}
-        className="inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full bg-muted p-0.5 ring-1 ring-border transition-all duration-100 outline-none hover:ring-ring focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] data-[checked]:bg-foreground"
-      >
-        <Switch.Thumb className="size-4 rounded-full bg-background transition-transform duration-100 data-[checked]:translate-x-4" />
-      </Switch.Root>
+      <Switch checked={archivedFilter} onCheckedChange={setArchivedFilter} />
     </label>
   )
 }
@@ -234,36 +227,28 @@ function FilterType({
   return (
     <OptionPicker
       label={m.tickets_filters_section_type()}
-      value={
+      value={typeFilter}
+      onValueChange={(next) => setTypeFilter(next as typeof typeFilter)}
+      displayValue={
         typeFilter === "all"
           ? m.tickets_filters_all_types()
           : TYPE_LABELS[typeFilter]()
       }
     >
-      <DropdownMenuItem
-        onClick={() => setTypeFilter("all")}
-        className="cursor-pointer"
-      >
+      <SelectItem separated value="all">
         {m.tickets_filters_all_types()}
-        {typeFilter === "all" && (
-          <Check className="ml-auto size-3.5 text-muted-foreground" />
-        )}
-      </DropdownMenuItem>
+      </SelectItem>
       {TicketType.literals.map((t) => {
         const TIcon = TYPE_META[t].icon
         return (
-          <DropdownMenuItem
+          <SelectItem
             key={t}
 
-            onClick={() => setTypeFilter(t)}
-            className="cursor-pointer"
+            value={t}
           >
             <TIcon className="size-4" strokeWidth={1.75} />
             {TYPE_LABELS[t]()}
-            {typeFilter === t && (
-              <Check className="ml-auto size-3.5 text-muted-foreground" />
-            )}
-          </DropdownMenuItem>
+          </SelectItem>
         )
       })}
     </OptionPicker>
@@ -288,7 +273,9 @@ function FilterAssignee({
   return (
     <OptionPicker
       label={m.tickets_filters_section_assignee()}
-      value={Match.value(assigneeFilter).pipe(
+      value={assigneeFilter}
+      onValueChange={(next) => setAssigneeFilter(next as typeof assigneeFilter)}
+      displayValue={Match.value(assigneeFilter).pipe(
         Match.when("all", () => m.tickets_filters_assignee_anyone()),
         Match.when("mine", () => m.tickets_filters_assignee_mine()),
         Match.when("unassigned", () => m.tickets_filters_assignee_unassigned()),
@@ -297,50 +284,25 @@ function FilterAssignee({
         )
       )}
     >
-      <DropdownMenuItem
-        onClick={() => setAssigneeFilter("all")}
-        className="cursor-pointer"
-      >
-        {m.tickets_filters_assignee_anyone()}
-        {assigneeFilter === "all" && (
-          <Check className="ml-auto size-3.5 text-muted-foreground" />
-        )}
-      </DropdownMenuItem>
+      <SelectItem value="all">{m.tickets_filters_assignee_anyone()}</SelectItem>
       {viewerId && (
-        <DropdownMenuItem
-          onClick={() => setAssigneeFilter("mine")}
-          className="cursor-pointer"
-        >
+        <SelectItem value="mine">
           <UserRound className="size-4" strokeWidth={1.75} />
           {m.tickets_filters_assignee_mine()}
-          {assigneeFilter === "mine" && (
-            <Check className="ml-auto size-3.5 text-muted-foreground" />
-          )}
-        </DropdownMenuItem>
+        </SelectItem>
       )}
-      <DropdownMenuItem
-        onClick={() => setAssigneeFilter("unassigned")}
-        className="cursor-pointer"
-      >
+      <SelectItem separated={members.length > 0} value="unassigned">
         {m.tickets_filters_assignee_unassigned()}
-        {assigneeFilter === "unassigned" && (
-          <Check className="ml-auto size-3.5 text-muted-foreground" />
-        )}
-      </DropdownMenuItem>
-      {members.length > 0 && <div className="my-1 h-px bg-border" />}
+      </SelectItem>
       {members.map((member) => (
-        <DropdownMenuItem
+        <SelectItem
           key={member.id}
 
-          onClick={() => setAssigneeFilter(member.id)}
-          className="cursor-pointer"
+          value={member.id}
         >
           <MemberAvatar member={member} size={20} />
           <span className="truncate">{member.name}</span>
-          {assigneeFilter === member.id && (
-            <Check className="ml-auto size-3.5 text-muted-foreground" />
-          )}
-        </DropdownMenuItem>
+        </SelectItem>
       ))}
     </OptionPicker>
   )
@@ -363,32 +325,21 @@ function FilterEstimate({
   return (
     <OptionPicker
       label={m.tickets_filters_section_estimate()}
-      value={
+      value={selected}
+      onValueChange={(next) => select(next as typeof selected)}
+      displayValue={
         selected === "all"
           ? m.tickets_filters_estimate_all()
           : estimateFilterLabel(selected)
       }
     >
-      <DropdownMenuItem
-        onClick={() => select("all")}
-        className="cursor-pointer"
-      >
+      <SelectItem separated value="all">
         {m.tickets_filters_estimate_all()}
-        {selected === "all" && (
-          <Check className="ml-auto size-3.5 text-muted-foreground" />
-        )}
-      </DropdownMenuItem>
+      </SelectItem>
       {options.map((option) => (
-        <DropdownMenuItem
-          key={option}
-          onClick={() => select(option)}
-          className="cursor-pointer"
-        >
+        <SelectItem key={option} value={option}>
           {estimateFilterLabel(option)}
-          {selected === option && (
-            <Check className="ml-auto size-3.5 text-muted-foreground" />
-          )}
-        </DropdownMenuItem>
+        </SelectItem>
       ))}
     </OptionPicker>
   )
@@ -423,7 +374,9 @@ function FilterSprint({
   return (
     <OptionPicker
       label={m.tickets_filters_section_sprint()}
-      value={Match.value(sprintFilter).pipe(
+      value={sprintFilter}
+      onValueChange={(next) => setSprintFilter(next as typeof sprintFilter)}
+      displayValue={Match.value(sprintFilter).pipe(
         Match.when("all", () => m.tickets_filters_sprint_any()),
         Match.when("ungrouped", () => m.tickets_filters_sprint_none()),
         Match.orElse(
@@ -431,44 +384,25 @@ function FilterSprint({
         )
       )}
     >
-      <DropdownMenuItem
-        onClick={() => setSprintFilter("all")}
-        className="cursor-pointer"
-      >
-        {m.tickets_filters_sprint_any()}
-        {sprintFilter === "all" && (
-          <Check className="ml-auto size-3.5 text-muted-foreground" />
-        )}
-      </DropdownMenuItem>
-      <DropdownMenuItem
-        onClick={() => setSprintFilter("ungrouped")}
-        className="cursor-pointer"
-      >
+      <SelectItem value="all">{m.tickets_filters_sprint_any()}</SelectItem>
+      <SelectItem separated={sprintOptions.length > 0} value="ungrouped">
         {m.tickets_filters_sprint_none()}
-        {sprintFilter === "ungrouped" && (
-          <Check className="ml-auto size-3.5 text-muted-foreground" />
-        )}
-      </DropdownMenuItem>
-      {sprintOptions.length > 0 && <div className="my-1 h-px bg-border" />}
+      </SelectItem>
       {sprintOptions.map((s) => {
         const meta = SPRINT_STATE_META[sprintState(s, now)]
         const SIcon = meta.icon
         return (
-          <DropdownMenuItem
+          <SelectItem
             key={s.id}
 
-            onClick={() => setSprintFilter(s.id)}
-            className="cursor-pointer"
+            value={s.id}
           >
             <SIcon
               className={cn("size-4", meta.className)}
               strokeWidth={1.75}
             />
             <span className="truncate">{s.name}</span>
-            {sprintFilter === s.id && (
-              <Check className="ml-auto size-3.5 text-muted-foreground" />
-            )}
-          </DropdownMenuItem>
+          </SelectItem>
         )
       })}
     </OptionPicker>
@@ -542,7 +476,14 @@ function Ordering() {
     <div className="-mx-3 space-y-2 border-b border-border/60 px-3 pb-3">
       <OptionPicker
         label={m.tickets_view_options_ordering()}
-        value={SORT_FIELD_LABELS[query.sort.key]()}
+        value={query.sort.key}
+        onValueChange={(next) =>
+          onQueryChange({
+            ...query,
+            sort: { ...query.sort, key: next as typeof query.sort.key }
+          })
+        }
+        displayValue={SORT_FIELD_LABELS[query.sort.key]()}
         action={
           <Button
             variant="ghost"
@@ -569,18 +510,9 @@ function Ordering() {
         }
       >
         {sortKeysFor(estimation).map((key) => (
-          <DropdownMenuItem
-            key={key}
-            onClick={() =>
-              onQueryChange({
-                ...query,
-                sort: { ...query.sort, key }
-              })
-            }
-          >
+          <SelectItem key={key} value={key}>
             {SORT_FIELD_LABELS[key]()}
-            {query.sort.key === key && <Check className="ml-auto size-3.5" />}
-          </DropdownMenuItem>
+          </SelectItem>
         ))}
       </OptionPicker>
     </div>

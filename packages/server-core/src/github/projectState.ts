@@ -19,6 +19,7 @@ import { narrow } from "./errors"
 import type {
   ChecksStatus,
   RawBranchEntry,
+  RawMergedPullRequest,
   RawProjectStates,
   RawPullRequestText
 } from "./GitHub"
@@ -312,37 +313,22 @@ const isSameRepositoryPullRequest = (
 const pullRequestTextMentionsTicketId = (pr: RawPullRequestText): boolean =>
   ticketIdsInText(pr.title).size > 0 || closingTicketIdsInText(pr.body).size > 0
 
-const branchEntryFromParts = (
-  existingBranch: string | null,
-  pr: PullRequestNode | null | undefined
-): {
-  readonly existingBranch: string | null
-  readonly pr: RawBranchEntry | null
-} => {
-  return {
-    existingBranch,
-    pr: pr
-      ? {
-          headRefName: pr.headRefName,
-          baseRefName: pr.baseRefName,
-          state:
-            pr.state === "MERGED"
-              ? "merged"
-              : pr.state === "CLOSED"
-                ? "closed"
-                : "open",
-          draft: pr.isDraft,
-          number: pr.number,
-          url: pr.url,
-          title: pr.title,
-          mergedAt: pr.mergedAt,
-          checks: mapChecks(
-            pr.commits.nodes[0]?.commit.statusCheckRollup?.state
-          )
-        }
-      : null
-  }
-}
+const rawPullRequest = (pr: PullRequestNode): RawBranchEntry => ({
+  headRefName: pr.headRefName,
+  baseRefName: pr.baseRefName,
+  state:
+    pr.state === "MERGED"
+      ? "merged"
+      : pr.state === "CLOSED"
+        ? "closed"
+        : "open",
+  draft: pr.isDraft,
+  number: pr.number,
+  url: pr.url,
+  title: pr.title,
+  mergedAt: pr.mergedAt,
+  checks: mapChecks(pr.commits.nodes[0]?.commit.statusCheckRollup?.state)
+})
 
 export interface ProjectStateBatchResponse {
   readonly branches: ReadonlyArray<string>
@@ -362,14 +348,23 @@ export const projectStatesFromBatchResponses = (
       const pullRequests = batch.response.repository?.[`p${index}`]
       const existingBranch = isBranchRef(branch) ? branch.name : null
       if (!isPullRequestConnection(pullRequests)) {
-        return branchEntryFromParts(existingBranch, null)
+        return { existingBranch, pr: null, mergedPrs: [] }
       }
       const sameRepoPr = pullRequests.nodes.filter(
         (pr) => pr.headRefName === branchName && isSameRepositoryPullRequest(pr)
       )
       const latestPr =
         sameRepoPr.find((pr) => pr.state === "OPEN") ?? sameRepoPr[0]
-      return branchEntryFromParts(existingBranch, latestPr ?? null)
+      return {
+        existingBranch,
+        pr: latestPr ? rawPullRequest(latestPr) : null,
+        mergedPrs: sameRepoPr.flatMap(
+          (pr): ReadonlyArray<RawMergedPullRequest> =>
+            pr.state === "MERGED"
+              ? [{ ...rawPullRequest(pr), state: "merged" }]
+              : []
+        )
+      }
     })
   })
   if (branchStates.some((entry) => entry === null)) return null
@@ -380,14 +375,22 @@ export const projectStatesFromBatchResponses = (
     )
   )
   const prByBranch = new Map<string, RawBranchEntry>()
+  const mergedPrsByBranch = new Map<
+    string,
+    ReadonlyArray<RawMergedPullRequest>
+  >()
   for (const entry of branchStates) {
     if (!entry?.pr) continue
     prByBranch.set(entry.pr.headRefName, entry.pr)
+    if (entry.mergedPrs.length > 0) {
+      mergedPrsByBranch.set(entry.pr.headRefName, entry.mergedPrs)
+    }
   }
   return {
     defaultBranch: firstRepository.defaultBranchRef?.name ?? "main",
     existingBranches,
-    prByBranch
+    prByBranch,
+    mergedPrsByBranch
   }
 }
 
@@ -712,14 +715,8 @@ export const fetchProjectStatesWithToken = (
                 )
               ])
 
-              const hasSameRepositoryOpenPr = decodedPullRequests.nodes.some(
-                (pr) =>
-                  pr.headRefName === branch &&
-                  isSameRepositoryPullRequest(pr) &&
-                  pr.state === "OPEN"
-              )
               const pageInfo = decodedPullRequests.pageInfo
-              if (!hasSameRepositoryOpenPr && pageInfo.hasNextPage) {
+              if (pageInfo.hasNextPage) {
                 const endCursor = pageInfo.endCursor
                 const branchCursors = seenCursors.get(branch) ?? new Set()
                 if (!endCursor) {

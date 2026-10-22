@@ -53,7 +53,7 @@ const isInteractiveTarget = (target: EventTarget | null): boolean =>
   target instanceof Element && target.closest(INTERACTIVE_SELECTOR) !== null
 
 const CHIP =
-  "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 align-baseline text-xs transition-[color,background-color,border-color,transform] duration-100 active:scale-[0.97] group-focus-within/editing:hover:bg-accent/40"
+  "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 align-baseline text-xs transition-[color,background-color,border-color,transform] duration-100 active:scale-[0.97] group-focus-within/editing:hover:bg-hover"
 
 const OVERLAY_REVEAL =
   "invisible opacity-0 transition-opacity group-focus-within/editing:visible group-hover/hitbox:opacity-100 group-focus-within/hitbox:opacity-100"

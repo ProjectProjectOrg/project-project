@@ -93,22 +93,18 @@ export function StatusStep({
                         }
                       />
                       <SelectContent className="max-w-[min(24rem,calc(100vw-1rem))]">
-                        {requirements.statusOptions.map(
-                          (option, optionIndex) => (
-                            <SelectItem
-                              key={option.slug}
-                              value={option.slug}
-                              index={optionIndex}
-                              aria-label={option.label}
-                            >
-                              <StatusOptionLabel option={option} wrap />
-                            </SelectItem>
-                          )
-                        )}
+                        {requirements.statusOptions.map((option) => (
+                          <SelectItem
+                            key={option.slug}
+                            value={option.slug}
+                            aria-label={option.label}
+                          >
+                            <StatusOptionLabel option={option} wrap />
+                          </SelectItem>
+                        ))}
                         {status.createOption ? (
                           <SelectItem
                             value={createStatusValue}
-                            index={requirements.statusOptions.length}
                             aria-label={m.jira_migration_status_create({
                               status: status.createOption.label
                             })}

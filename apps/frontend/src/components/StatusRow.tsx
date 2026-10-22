@@ -18,6 +18,8 @@ import {
   statusesRequest,
   updateStatus
 } from "@/features/projects/atoms/projectStatuses"
+import { SURFACE_BG } from "@/lib/surface-classes"
+import { useSurface } from "@/lib/surface-context"
 import { statusLabelFor, statusMetaFor } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -53,6 +55,7 @@ export function StatusRow({
   const reorderState = useAtomValue(reorderMutation)
   const dataWaiting = updateState.waiting || reorderState.waiting
   const controls = useDragControls()
+  const substrate = useSurface()
   const [draftLabel, setDraftLabel] = useState<string>(status.label)
   const [isDragging, setIsDragging] = useState(false)
   const [iconMenuOpen, setIconMenuOpen] = useState(false)
@@ -94,7 +97,7 @@ export function StatusRow({
         if (orderKey !== null) reorder({ orderKey })
       }}
       className={cn(
-        "list-none rounded-md",
+        "list-none",
         isDragging && "z-10 shadow-md",
         menuOpen && "z-20"
       )}
@@ -103,8 +106,8 @@ export function StatusRow({
     >
       <div
         className={cn(
-          "flex items-center gap-2 rounded-md px-1 py-1 transition-colors duration-150",
-          isDragging ? "bg-card" : "hover:bg-accent/40"
+          "flex items-center gap-2 px-3 py-1.5 transition-colors duration-150",
+          isDragging && SURFACE_BG[Math.min(substrate + 1, 8)]
         )}
       >
         <DragHandle
@@ -185,6 +188,7 @@ export function StatusRow({
               />
             </div>
             <Input
+              variant="inline"
               value={draftLabel}
               onChange={(e) => setDraftLabel(e.target.value)}
               onBlur={commitLabel}

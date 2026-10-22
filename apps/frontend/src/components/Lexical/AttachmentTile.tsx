@@ -1,8 +1,13 @@
-import { attachmentFileFormat, type AttachmentFileFormat } from "@pp/shared"
+import {
+  attachmentDownloadSrc,
+  attachmentFileFormat,
+  type AttachmentFileFormat
+} from "@pp/shared"
+import { Download } from "lucide-react"
 import { motion } from "motion/react"
 import { useEffect, useState, type ReactNode } from "react"
 
-import { AttachmentDownload } from "@/components/AttachmentDownload"
+import { MorphIconLink } from "@/components/MorphIconLink"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -192,7 +197,13 @@ export function AttachmentTile({
         >
           {filename}
         </motion.span>
-        <AttachmentDownload url={url} filename={filename} morphId={morphId} />
+        <MorphIconLink
+          layoutId={`${morphId}-download`}
+          href={attachmentDownloadSrc(url)}
+          download={filename}
+          label={m.editor_attachment_download()}
+          icon={Download}
+        />
       </span>
     </span>
   )

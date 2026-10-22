@@ -1,14 +1,13 @@
 import type { TicketId, TicketPriority, UpdateTicketInput } from "@pp/shared"
-import { Check } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { Hitbox } from "@/components/ui/hitbox"
 import {
   PRIORITY_LABELS,
   PRIORITY_META,
@@ -25,31 +24,26 @@ function PriorityMenuItems({
   onSelect: (priority: TicketPriority) => void
 }) {
   return (
-    <>
+    <DropdownMenuRadioGroup
+      value={current}
+      onValueChange={(next: string) => {
+        if (next !== current) onSelect(next as TicketPriority)
+      }}
+    >
       {PRIORITY_ORDER.map((p) => {
         const pMeta = PRIORITY_META[p]
         const PIcon = pMeta.icon
         return (
-          <DropdownMenuItem
-            key={p}
-            onClick={() => {
-              if (p === current) return
-              onSelect(p)
-            }}
-            className="cursor-pointer"
-          >
+          <DropdownMenuRadioItem key={p} value={p} closeOnClick>
             <PIcon
               className={cn("size-4", pMeta.className)}
               strokeWidth={1.75}
             />
             {PRIORITY_LABELS[p]()}
-            {p === current && (
-              <Check className="ml-auto size-3.5 text-muted-foreground" />
-            )}
-          </DropdownMenuItem>
+          </DropdownMenuRadioItem>
         )
       })}
-    </>
+    </DropdownMenuRadioGroup>
   )
 }
 
@@ -69,22 +63,17 @@ export function PrioritySelect({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Hitbox
-            mode="inline"
-            margin="2"
+          <Button
+            type="button"
+            variant="chip"
+            size="icon-sm"
             onClick={(e) => stopPropagation && e.stopPropagation()}
             aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
             title={priorityLabel}
+            className={meta.className}
           >
-            <span
-              className={cn(
-                "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-foreground/5",
-                meta.className
-              )}
-            >
-              <Icon className="size-4" strokeWidth={1.75} />
-            </span>
-          </Hitbox>
+            <Icon strokeWidth={1.75} />
+          </Button>
         }
       />
       <DropdownMenuContent
@@ -108,43 +97,12 @@ export function PriorityButton({
   stopPropagation?: boolean
   onPatch: (patch: UpdateTicketInput) => void
 }) {
-  const meta = PRIORITY_META[ticket.priority]
-  const Icon = meta.icon
-  const priorityLabel = PRIORITY_LABELS[ticket.priority]()
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Hitbox
-            mode="inline"
-            margin="2"
-            onClick={(e) => stopPropagation && e.stopPropagation()}
-            aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
-            title={priorityLabel}
-          >
-            <span
-              className={cn(
-                "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-foreground/5",
-                meta.className
-              )}
-            >
-              <Icon className="size-4" strokeWidth={1.75} />
-            </span>
-          </Hitbox>
-        }
-      />
-      <DropdownMenuContent
-        align="start"
-        sideOffset={6}
-        className="w-44"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <PriorityMenuItems
-          current={ticket.priority}
-          onSelect={(priority) => onPatch({ priority })}
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <PrioritySelect
+      value={ticket.priority}
+      stopPropagation={stopPropagation}
+      onChange={(priority) => onPatch({ priority })}
+    />
   )
 }
 

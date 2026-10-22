@@ -3,10 +3,17 @@ import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import type { RawBranchEntry, RawProjectStates } from "../github/GitHub"
+import type {
+  RawBranchEntry,
+  RawMergedPullRequest,
+  RawProjectStates
+} from "../github/GitHub"
 import {
   planAutomaticBranchLinks,
+  planAutomaticStacks,
   planPullRequestWebhookTicket,
+  planStackPullRequests,
+  pullRequestLanded,
   planTicketGitStates,
   type TicketGitStateInput
 } from "./ticketGitStatePlanner"
@@ -79,7 +86,7 @@ describe("planTicketGitStates", () => {
     expect(plan.writes).toEqual([])
   })
 
-  it("records a merged PR with its base branch and leaves the status to automation", () => {
+  it("records a merge into another branch as not landed yet", () => {
     const plan = planTicketGitStates(
       [{ ...baseTicket, branch: "feat/T-1" }],
       withPullRequest(pullRequest({ state: "merged", baseRefName: "release" })),
@@ -102,12 +109,59 @@ describe("planTicketGitStates", () => {
           pr: 42,
           prState: "merged",
           prDraft: false,
-          lastTransitionedPr: 42
-        },
-        pullRequestBase: "release"
+          lastTransitionedPr: null,
+          prBase: "release"
+        }
       }
     ])
   })
+
+  it.each([
+    ["before the child", "2026-05-01T08:00:00Z", null],
+    ["at the same time as the child", "2026-05-01T09:00:00Z", null],
+    ["after the child", "2026-05-01T10:00:00Z", 42]
+  ])(
+    "uses a historical base merge %s despite an open replacement",
+    (_, mergedAt, lastTransitionedPr) => {
+      const child = pullRequest({
+        state: "merged",
+        baseRefName: "api",
+        mergedAt: DateTime.toDate(DateTime.makeUnsafe("2026-05-01T09:00:00Z"))
+      })
+      const historicalBase = {
+        ...pullRequest({
+          headRefName: "api",
+          number: 40,
+          mergedAt: DateTime.toDate(DateTime.makeUnsafe(mergedAt))
+        }),
+        state: "merged" as const
+      }
+      const plan = planTicketGitStates(
+        [{ ...baseTicket, branch: "feat/T-1" }],
+        raw({
+          prByBranch: new Map([
+            ["feat/T-1", child],
+            ["api", pullRequest({ headRefName: "api", number: 50 })]
+          ]),
+          mergedPrsByBranch: new Map([["api", [historicalBase]]])
+        }),
+        now
+      )
+
+      expect(plan.writes).toEqual([
+        {
+          ticketId: "T-1",
+          patch: {
+            pr: 42,
+            prState: "merged",
+            prDraft: false,
+            lastTransitionedPr,
+            prBase: "api"
+          }
+        }
+      ])
+    }
+  )
 
   it("does not rewrite a merged PR it already recorded", () => {
     const plan = planTicketGitStates(
@@ -118,6 +172,7 @@ describe("planTicketGitStates", () => {
           branch: "feat/T-1",
           pr: 42,
           prState: "merged",
+          prBase: "main",
           lastTransitionedPr: 42
         }
       ],
@@ -126,6 +181,25 @@ describe("planTicketGitStates", () => {
     )
 
     expect(plan.writes).toEqual([])
+  })
+
+  it("fills in or follows the base of a pull request it already recorded", () => {
+    const recorded = {
+      ...baseTicket,
+      branch: "feat/T-1",
+      pr: 42,
+      prState: "open" as const
+    }
+    for (const prBase of [undefined, "feat/T-0"]) {
+      const plan = planTicketGitStates(
+        [{ ...recorded, prBase }],
+        withPullRequest(pullRequest()),
+        now
+      )
+      expect(plan.writes).toEqual([
+        { ticketId: "T-1", patch: { prBase: "main" } }
+      ])
+    }
   })
 
   it("records a draft PR becoming ready for review", () => {
@@ -146,8 +220,7 @@ describe("planTicketGitStates", () => {
     expect(plan.writes).toEqual([
       {
         ticketId: "T-1",
-        patch: { pr: 42, prState: "open", prDraft: false },
-        pullRequestBase: "main"
+        patch: { pr: 42, prState: "open", prDraft: false, prBase: "main" }
       }
     ])
   })
@@ -172,7 +245,8 @@ describe("planPullRequestWebhookTicket", () => {
       planPullRequestWebhookTicket(webhookTicket(), {
         number: 80,
         state: "open",
-        draft: true
+        draft: true,
+        landed: false
       })
     ).toEqual({ pr: 80, prState: "open", prDraft: true })
   })
@@ -182,7 +256,8 @@ describe("planPullRequestWebhookTicket", () => {
       planPullRequestWebhookTicket(webhookTicket({ pr: 80, prState: "open" }), {
         number: 80,
         state: "open",
-        draft: false
+        draft: false,
+        landed: false
       })
     ).toBeNull()
   })
@@ -192,7 +267,8 @@ describe("planPullRequestWebhookTicket", () => {
       planPullRequestWebhookTicket(webhookTicket(), {
         number: 80,
         state: "closed",
-        draft: false
+        draft: false,
+        landed: false
       })
     ).toEqual({ pr: 80, prState: "closed", prDraft: false })
   })
@@ -202,7 +278,8 @@ describe("planPullRequestWebhookTicket", () => {
       planPullRequestWebhookTicket(webhookTicket(), {
         number: 80,
         state: "merged",
-        draft: false
+        draft: false,
+        landed: true
       })
     ).toEqual({
       pr: 80,
@@ -218,7 +295,40 @@ describe("planPullRequestWebhookTicket", () => {
           prState: "merged",
           lastTransitionedPr: 80
         }),
-        { number: 80, state: "merged", draft: false }
+        { number: 80, state: "merged", draft: false, landed: true }
+      )
+    ).toBeNull()
+  })
+
+  it("records a merge into another branch as landed only once it lands", () => {
+    const merged = { number: 80, state: "merged" as const, draft: false }
+    const pending = webhookTicket({ pr: 80, prState: "merged" })
+    expect(
+      planPullRequestWebhookTicket(webhookTicket(), {
+        ...merged,
+        landed: false
+      })
+    ).toEqual({
+      pr: 80,
+      prState: "merged",
+      prDraft: false,
+      lastTransitionedPr: null
+    })
+    expect(
+      planPullRequestWebhookTicket(pending, { ...merged, landed: false })
+    ).toBeNull()
+    expect(
+      planPullRequestWebhookTicket(pending, { ...merged, landed: true })
+    ).toEqual({
+      pr: 80,
+      prState: "merged",
+      prDraft: false,
+      lastTransitionedPr: 80
+    })
+    expect(
+      planPullRequestWebhookTicket(
+        webhookTicket({ pr: 80, prState: "merged", lastTransitionedPr: 80 }),
+        { ...merged, landed: false }
       )
     ).toBeNull()
   })
@@ -235,14 +345,16 @@ describe("planPullRequestWebhookTicket", () => {
       planPullRequestWebhookTicket(ticket, {
         number: 80,
         state: "open",
-        draft: false
+        draft: false,
+        landed: false
       })
     ).toBeNull()
     expect(
       planPullRequestWebhookTicket(ticket, {
         number: 80,
         state: "closed",
-        draft: false
+        draft: false,
+        landed: false
       })
     ).toBeNull()
   })
@@ -268,6 +380,19 @@ describe("planAutomaticBranchLinks", () => {
         [ticketId("PP-13"), "bug/PP-13-fix"]
       ])
     )
+  })
+
+  it("skips a branch the ticket ignores", () => {
+    expect(
+      planAutomaticBranchLinks(
+        [
+          { ...ticket("PP-12"), ignoredBranches: ["feat/PP-12-spike"] },
+          ticket("PP-13")
+        ],
+        new Set(["feat/PP-12-spike", "bug/PP-13-fix"]),
+        "main"
+      )
+    ).toEqual(new Map([[ticketId("PP-13"), "bug/PP-13-fix"]]))
   })
 
   it("requires canonical token boundaries and schema-valid ids", () => {
@@ -406,5 +531,291 @@ describe("planAutomaticBranchLinks", () => {
         "main"
       )
     ).toEqual(new Map([[ticketId("PP-12"), "feat/PP-12-new"]]))
+  })
+})
+
+describe("stacked branches", () => {
+  const pr = (branch: string, base: string, overrides = {}) =>
+    [
+      branch,
+      pullRequest({ headRefName: branch, baseRefName: base, ...overrides })
+    ] as const
+
+  it("links the bottom of a chain of branches named for one ticket", () => {
+    const prs = new Map([
+      pr("feat/T-1-ui", "feat/T-1-api"),
+      pr("feat/T-1-api", "main")
+    ])
+    const branches = new Set(["feat/T-1-api", "feat/T-1-ui"])
+    const tickets = [{ ...baseTicket }]
+
+    const own = planAutomaticBranchLinks(
+      tickets,
+      branches,
+      "main",
+      new Map(),
+      prs
+    )
+
+    expect(own).toEqual(new Map([[ticketId("T-1"), "feat/T-1-api"]]))
+    expect(
+      planAutomaticStacks(tickets, own, branches, "main", new Map(), prs)
+    ).toEqual(
+      new Map([
+        [
+          ticketId("T-1"),
+          [
+            {
+              branch: "feat/T-1-ui",
+              base: "feat/T-1-api",
+              pr: 42,
+              prState: "open"
+            }
+          ]
+        ]
+      ])
+    )
+  })
+
+  it("leaves branches named for one ticket alone when they don't form a chain", () => {
+    expect(
+      planAutomaticBranchLinks(
+        [{ ...baseTicket }],
+        new Set(["feat/T-1-api", "feat/T-1-ui"]),
+        "main",
+        new Map(),
+        new Map([pr("feat/T-1-api", "main"), pr("feat/T-1-ui", "main")])
+      )
+    ).toEqual(new Map())
+  })
+
+  it("stacks branches on a ticket that already has one", () => {
+    const linked = {
+      ...baseTicket,
+      branch: "feat/T-1",
+      stack: [{ branch: "api", base: "feat/T-1" }],
+      ignoredBranches: ["feat/T-1-spike"]
+    }
+    const stacks = planAutomaticStacks(
+      [linked],
+      new Map(),
+      new Set([
+        "polish",
+        "ui",
+        "feat/T-1-docs",
+        "feat/T-1-spike",
+        "feat/T-1-old",
+        "unrelated"
+      ]),
+      "main",
+      new Map([
+        ["ui", { title: "T-1: checkout UI", body: "" }],
+        ["polish", { title: "Polish", body: "Fixes T-1" }]
+      ]),
+      new Map([
+        pr("polish", "ui"),
+        pr("ui", "api"),
+        pr("feat/T-1-spike", "feat/T-1"),
+        pr("feat/T-1-old", "feat/T-1", { state: "closed" }),
+        pr("unrelated", "feat/T-1")
+      ])
+    )
+
+    expect(
+      stacks.get(ticketId("T-1"))?.map((layer) => [layer.branch, layer.base])
+    ).toEqual([
+      ["feat/T-1-docs", undefined],
+      ["ui", "api"],
+      ["polish", "ui"]
+    ])
+  })
+
+  it("brings stacked branches up to their pull requests", () => {
+    expect(
+      planStackPullRequests(
+        [
+          { branch: "ui", base: "api", pr: 42, prState: "open" },
+          { branch: "docs" }
+        ],
+        raw({
+          prByBranch: new Map([
+            pr("ui", "feat/T-1", { state: "merged" }),
+            pr("docs", "ui", { draft: true, number: 43 })
+          ])
+        })
+      )
+    ).toEqual([
+      { branch: "ui", base: "feat/T-1", pr: 42, prState: "merged" },
+      { branch: "docs", base: "ui", pr: 43, prState: "open", prDraft: true }
+    ])
+  })
+})
+
+describe("pullRequestLanded", () => {
+  const at = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
+  const merged = (head: string, base: string, mergedAt: string) =>
+    [
+      head,
+      pullRequest({
+        headRefName: head,
+        baseRefName: base,
+        state: "merged",
+        mergedAt: at(mergedAt)
+      })
+    ] as const
+  const landed = (
+    head: string,
+    prs: ReadonlyArray<readonly [string, RawBranchEntry]>
+  ) => {
+    const prByBranch = new Map(prs)
+    const target = prByBranch.get(head)
+    if (target === undefined) throw new Error(`no pull request for ${head}`)
+    return pullRequestLanded(target, { defaultBranch: "main", prByBranch })
+  }
+
+  it.each([
+    {
+      name: "tries another historical merge when one path never lands",
+      history: [
+        merged("api", "main", "2026-05-01T10:00:00Z"),
+        merged("api", "abandoned", "2026-05-01T11:00:00Z")
+      ],
+      expected: true
+    },
+    {
+      name: "does not chain through a base merge older than its historical parent",
+      history: [
+        merged("api", "release", "2026-05-01T11:00:00Z"),
+        merged("release", "main", "2026-05-01T10:00:00Z")
+      ],
+      expected: false
+    },
+    {
+      name: "can revisit a branch through a later merged PR",
+      history: [
+        merged("api", "ui", "2026-05-01T10:00:00Z"),
+        merged("ui", "main", "2026-05-01T11:00:00Z")
+      ],
+      expected: true
+    },
+    {
+      name: "terminates when merged history forms a cycle without landing",
+      history: [
+        merged("api", "ui", "2026-05-01T10:00:00Z"),
+        merged("ui", "api", "2026-05-01T11:00:00Z")
+      ],
+      expected: false
+    }
+  ])("$name", ({ history, expected }) => {
+    const child = merged("ui", "api", "2026-05-01T09:00:00Z")[1]
+    const mergedPrsByBranch = new Map<
+      string,
+      ReadonlyArray<RawMergedPullRequest>
+    >()
+    for (const [branch, pr] of history) {
+      mergedPrsByBranch.set(branch, [
+        ...(mergedPrsByBranch.get(branch) ?? []),
+        { ...pr, state: "merged" }
+      ])
+    }
+    expect(
+      pullRequestLanded(child, {
+        defaultBranch: "main",
+        prByBranch: new Map([
+          ["ui", child],
+          ["api", pullRequest({ headRefName: "api", number: 50 })]
+        ]),
+        mergedPrsByBranch
+      })
+    ).toBe(expected)
+  })
+
+  it.each([
+    {
+      name: "a merge into the default branch",
+      head: "api",
+      prs: [merged("api", "main", "2026-05-01T10:00:00Z")],
+      expected: true
+    },
+    {
+      name: "a merge into a branch merged onwards afterwards",
+      head: "ui",
+      prs: [
+        merged("ui", "api", "2026-05-01T09:00:00Z"),
+        merged("api", "main", "2026-05-01T10:00:00Z")
+      ],
+      expected: true
+    },
+    {
+      name: "a merge three branches up",
+      head: "polish",
+      prs: [
+        merged("polish", "ui", "2026-05-01T08:00:00Z"),
+        merged("ui", "api", "2026-05-01T09:00:00Z"),
+        merged("api", "main", "2026-05-01T10:00:00Z")
+      ],
+      expected: true
+    },
+    {
+      name: "a merge into a branch that was already merged",
+      head: "ui",
+      prs: [
+        merged("ui", "api", "2026-05-01T11:00:00Z"),
+        merged("api", "main", "2026-05-01T10:00:00Z")
+      ],
+      expected: false
+    },
+    {
+      name: "a merge into a branch merged at the same moment",
+      head: "ui",
+      prs: [
+        merged("ui", "api", "2026-05-01T10:00:00Z"),
+        merged("api", "main", "2026-05-01T10:00:00Z")
+      ],
+      expected: false
+    },
+    {
+      name: "a merge whose merge time is unknown",
+      head: "ui",
+      prs: [
+        [
+          "ui",
+          pullRequest({
+            headRefName: "ui",
+            baseRefName: "api",
+            state: "merged",
+            mergedAt: null
+          })
+        ] as const,
+        merged("api", "main", "2026-05-01T10:00:00Z")
+      ],
+      expected: false
+    },
+    {
+      name: "a merge into a branch still open",
+      head: "ui",
+      prs: [
+        merged("ui", "api", "2026-05-01T09:00:00Z"),
+        ["api", pullRequest({ headRefName: "api" })] as const
+      ],
+      expected: false
+    },
+    {
+      name: "a merge into a branch with no pull request in view",
+      head: "ui",
+      prs: [merged("ui", "api", "2026-05-01T09:00:00Z")],
+      expected: false
+    },
+    {
+      name: "merges into each other",
+      head: "a",
+      prs: [
+        merged("a", "b", "2026-05-01T09:00:00Z"),
+        merged("b", "a", "2026-05-01T10:00:00Z")
+      ],
+      expected: false
+    }
+  ])("$name → $expected", ({ head, prs, expected }) => {
+    expect(landed(head, prs)).toBe(expected)
   })
 })

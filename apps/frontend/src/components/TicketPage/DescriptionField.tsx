@@ -326,7 +326,7 @@ export function DescriptionField({
       {!storageActive && canConnectStorage && (
         <div className="mt-2 px-3">
           <Link
-            to="/orgs/$orgSlug/settings/storage"
+            to="/orgs/$orgSlug/settings/integrations/storage"
             params={{ orgSlug }}
             className="text-xs text-muted-foreground underline-offset-2 transition-colors duration-100 hover:text-foreground hover:underline"
           >
@@ -341,7 +341,7 @@ export function DescriptionField({
             onClick={() => setExpanded(collapsed)}
             aria-expanded={!collapsed}
             aria-controls={DESCRIPTION_REGION_ID}
-            className="rounded-md px-3 py-1.5 text-xs text-muted-foreground transition-all duration-100 hover:bg-accent/40 hover:text-foreground active:scale-[0.97]"
+            className="rounded-md px-3 py-1.5 text-xs text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
           >
             {collapsed
               ? m.tickets_page_read_more()

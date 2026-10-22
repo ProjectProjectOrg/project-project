@@ -9,6 +9,7 @@ import {
   TagName,
   TicketId,
   TicketPriority,
+  TicketBranchEntry,
   TicketStatus,
   TicketType,
   type NotFound
@@ -35,18 +36,22 @@ const TicketFrontmatterOnDisk = Schema.Struct({
   tags: Schema.Array(TagName).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
   ),
-  branch: Schema.NullOr(Schema.String),
+  branches: Schema.optionalKey(
+    Schema.Array(TicketBranchEntry).check(
+      Schema.makeFilter(
+        (entries) =>
+          new Set(entries.map((entry) => entry.branch)).size === entries.length,
+        { expected: "unique branch names" }
+      )
+    )
+  ),
+  ignoredBranches: Schema.optionalKey(Schema.Array(Schema.String)),
   branchAutoLinkDisabled: Schema.optionalKey(Schema.Boolean),
-  pr: Schema.NullOr(Schema.Finite).pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
-  ),
-  prState: Schema.NullOr(PullRequestState).pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
-  ),
+  branch: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  pr: Schema.optionalKey(Schema.NullOr(Schema.Finite)),
+  prState: Schema.optionalKey(Schema.NullOr(PullRequestState)),
   prDraft: Schema.optionalKey(Schema.Boolean),
-  lastTransitionedPr: Schema.NullOr(Schema.Finite).pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
-  ),
+  lastTransitionedPr: Schema.optionalKey(Schema.NullOr(Schema.Finite)),
   assignees: Schema.optionalKey(Schema.Array(Schema.String)),
   assignee: Schema.optionalKey(Schema.NullOr(Schema.String)),
   archivedAt: Schema.NullOr(Schema.DateFromString).pipe(
@@ -59,16 +64,133 @@ const TicketFrontmatterOnDisk = Schema.Struct({
   updatedAt: Schema.DateFromString
 })
 
-const TicketFrontmatterValue = Schema.Struct(
-  Struct.evolve(Struct.omit(TicketFrontmatterOnDisk.fields, ["assignee"]), {
-    branchAutoLinkDisabled: () => Schema.optional(Schema.Boolean),
-    prDraft: () => Schema.optional(Schema.Boolean),
-    estimate: () => Schema.optional(Estimate),
-    assignees: () => Schema.Array(Schema.String),
-    splitFrom: () => Schema.optional(TicketId),
-    updatedBy: () => Schema.String
-  })
-)
+const gitKeysOnDisk = [
+  "branches",
+  "ignoredBranches",
+  "branchAutoLinkDisabled",
+  "branch",
+  "pr",
+  "prState",
+  "prDraft",
+  "lastTransitionedPr"
+] as const
+
+const TicketGitValue = {
+  branch: Schema.NullOr(Schema.String),
+  branchAutoLinkDisabled: Schema.optional(Schema.Boolean),
+  pr: Schema.NullOr(Schema.Finite),
+  prState: Schema.NullOr(PullRequestState),
+  prDraft: Schema.optional(Schema.Boolean),
+  prBase: Schema.optional(Schema.String),
+  lastTransitionedPr: Schema.NullOr(Schema.Finite),
+  stack: Schema.optional(Schema.Array(TicketBranchEntry)),
+  ignoredBranches: Schema.optional(Schema.Array(Schema.String))
+}
+
+const TicketFrontmatterValue = Schema.Struct({
+  ...Struct.evolve(
+    Struct.omit(TicketFrontmatterOnDisk.fields, ["assignee", ...gitKeysOnDisk]),
+    {
+      estimate: () => Schema.optional(Estimate),
+      assignees: () => Schema.Array(Schema.String),
+      splitFrom: () => Schema.optional(TicketId),
+      updatedBy: () => Schema.String
+    }
+  ),
+  ...TicketGitValue
+})
+
+const gitKeysInMemory = [
+  "branch",
+  "branchAutoLinkDisabled",
+  "pr",
+  "prState",
+  "prDraft",
+  "prBase",
+  "lastTransitionedPr",
+  "stack",
+  "ignoredBranches"
+] as const satisfies ReadonlyArray<keyof typeof TicketGitValue>
+
+type TicketGitOnDisk = Readonly<
+  Pick<typeof TicketFrontmatterOnDisk.Type, (typeof gitKeysOnDisk)[number]>
+>
+type TicketGit = Readonly<Schema.Struct.Type<typeof TicketGitValue>>
+
+const branchEntryOnDisk = (entry: TicketBranchEntry): TicketBranchEntry =>
+  Object.assign(
+    { branch: entry.branch },
+    entry.base === undefined ? {} : { base: entry.base },
+    entry.pr === undefined ? {} : { pr: entry.pr },
+    entry.prState === undefined ? {} : { prState: entry.prState },
+    entry.prDraft ? { prDraft: true as const } : {},
+    entry.landed ? { landed: true as const } : {}
+  )
+
+const gitFromDisk = (input: TicketGitOnDisk): TicketGit => {
+  const [own, ...stack] = input.branches ?? []
+  const flags = Object.assign(
+    {},
+    input.branchAutoLinkDisabled ? { branchAutoLinkDisabled: true } : {},
+    input.ignoredBranches && input.ignoredBranches.length > 0
+      ? { ignoredBranches: input.ignoredBranches }
+      : {}
+  )
+  if (own === undefined) {
+    return Object.assign(
+      flags,
+      {
+        branch: input.branch ?? null,
+        pr: input.pr ?? null,
+        prState: input.prState ?? null,
+        lastTransitionedPr: input.lastTransitionedPr ?? null
+      },
+      input.prDraft ? { prDraft: true } : {}
+    )
+  }
+  return Object.assign(
+    flags,
+    {
+      branch: own.branch,
+      pr: own.pr ?? null,
+      prState: own.prState ?? null,
+      lastTransitionedPr: own.landed ? (own.pr ?? null) : null
+    },
+    own.prDraft ? { prDraft: true } : {},
+    own.base === undefined ? {} : { prBase: own.base },
+    stack.length > 0 ? { stack } : {}
+  )
+}
+
+const gitToDisk = (input: TicketGit): TicketGitOnDisk => {
+  const own: ReadonlyArray<TicketBranchEntry> =
+    input.branch === null
+      ? []
+      : [
+          Object.assign(
+            { branch: input.branch },
+            input.prBase === undefined ? {} : { base: input.prBase },
+            input.pr === null ? {} : { pr: input.pr },
+            input.prState === null ? {} : { prState: input.prState },
+            { prDraft: input.prDraft ?? false },
+            {
+              landed: input.pr !== null && input.lastTransitionedPr === input.pr
+            }
+          )
+        ]
+  const stack = input.branch === null ? [] : (input.stack ?? [])
+  const branches = [...own, ...stack].map(branchEntryOnDisk)
+  return Object.assign(
+    {},
+    branches.length > 0 ? { branches } : {},
+    input.ignoredBranches && input.ignoredBranches.length > 0
+      ? { ignoredBranches: input.ignoredBranches }
+      : {},
+    input.branchAutoLinkDisabled
+      ? { branchAutoLinkDisabled: true as const }
+      : {}
+  )
+}
 
 type DecodedEstimate = Readonly<{ estimate?: Estimate }>
 
@@ -90,7 +212,8 @@ export const TicketFrontmatter = TicketFrontmatterOnDisk.pipe(
             "assignees",
             "updatedBy",
             "splitFrom",
-            "estimate"
+            "estimate",
+            ...gitKeysOnDisk
           ]),
           {
             assignees:
@@ -101,20 +224,13 @@ export const TicketFrontmatter = TicketFrontmatterOnDisk.pipe(
             updatedBy: input.updatedBy ?? input.createdBy,
             ...(input.splitFrom ? { splitFrom: input.splitFrom } : {})
           },
+          gitFromDisk(input),
           decodedEstimate(input.estimate)
         ),
       encode: (input) =>
         Object.assign(
-          Struct.omit(input, [
-            "branchAutoLinkDisabled",
-            "prDraft",
-            "splitFrom",
-            "estimate"
-          ]),
-          input.branchAutoLinkDisabled
-            ? { branchAutoLinkDisabled: true as const }
-            : {},
-          input.prDraft ? { prDraft: true as const } : {},
+          Struct.omit(input, ["splitFrom", "estimate", ...gitKeysInMemory]),
+          gitToDisk(input),
           input.splitFrom ? { splitFrom: input.splitFrom } : {},
           input.estimate ? { estimate: estimateToken(input.estimate) } : {}
         )

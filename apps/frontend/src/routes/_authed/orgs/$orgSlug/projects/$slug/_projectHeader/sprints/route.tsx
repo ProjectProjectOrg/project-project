@@ -1,6 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { GroupPolicy } from "@pp/access/policies"
+import { createFileRoute, Outlet } from "@tanstack/react-router"
+import { useCallback } from "react"
 
-import { SprintsLayout } from "@/components/sprints/SprintsLayout"
+import { useSidebarSlot } from "@/components/SidebarSlot"
+import { SprintRail } from "@/components/sprints/SprintRail"
+import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
 export const Route = createFileRoute(
@@ -14,5 +18,11 @@ export const Route = createFileRoute(
 
 function SprintsTab() {
   const { orgSlug, slug } = Route.useParams()
-  return <SprintsLayout orgSlug={orgSlug} slug={slug} />
+  const canPlan = GroupPolicy.can(useProjectActor(), "sprint", "manage")
+  const renderRail = useCallback(
+    () => <SprintRail orgSlug={orgSlug} slug={slug} canPlan={canPlan} />,
+    [orgSlug, slug, canPlan]
+  )
+  useSidebarSlot(`sprints:${orgSlug}/${slug}`, renderRail)
+  return <Outlet />
 }

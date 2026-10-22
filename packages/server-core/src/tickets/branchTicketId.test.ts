@@ -3,18 +3,18 @@ import { describe, expect, it } from "vitest"
 import {
   branchMentionsTicketId,
   closingTicketIdsInText,
-  ticketIdsInBranch
+  ticketIdsInText
 } from "./branchTicketId"
 
 const idsFor = (branches: ReadonlyArray<string>) =>
   Object.fromEntries(
-    branches.map((branch) => [branch, [...ticketIdsInBranch(branch)]])
+    branches.map((branch) => [branch, [...ticketIdsInText(branch)]])
   )
 
 const noIds = (branches: ReadonlyArray<string>) =>
   Object.fromEntries(branches.map((branch) => [branch, []]))
 
-describe("ticketIdsInBranch", () => {
+describe("ticketIdsInText", () => {
   it("extracts an id regardless of the case it was written in", () => {
     expect(
       idsFor([

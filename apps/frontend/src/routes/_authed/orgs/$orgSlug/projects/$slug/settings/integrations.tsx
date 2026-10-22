@@ -3,8 +3,14 @@ import { Link, createFileRoute } from "@tanstack/react-router"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 
 import { ErrorPage } from "@/components/ErrorPage"
-import { GithubChip } from "@/components/GithubChip"
+import { GithubSettingsRows } from "@/components/GithubChip"
 import { FigmaProjectSettings } from "@/components/settings/FigmaProjectSettings"
+import { IntegrationLogo } from "@/components/settings/IntegrationLogo"
+import {
+  SettingsGroup,
+  SettingsRow,
+  SettingsSection
+} from "@/components/settings/SettingsSection"
 import { EverhourApiKeyWalkthrough } from "@/components/time/EverhourApiKeyWalkthrough"
 import { Button } from "@/components/ui/button"
 import { me } from "@/features/auth/atoms/auth"
@@ -19,9 +25,9 @@ import {
   projectRequest,
   updateProjectSetup
 } from "@/features/projects/atoms/projects"
-import { SlackProjectSettings } from "@/features/slack/components/ProjectSettings"
 import { useProjectActor } from "@/lib/access"
 import { type AppError, errorMessage } from "@/lib/errorMessage"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -47,63 +53,55 @@ function IntegrationsSettings() {
   const actor = useProjectActor()
 
   return (
-    <section className="flex w-full flex-col gap-4">
-      <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-background px-4 py-3">
-        <div>
-          <p className="text-sm font-medium">
-            {m.project_settings_github_heading()}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {project.github
-              ? m.project_settings_github_connected()
-              : m.project_settings_github_not_connected()}
-          </p>
-        </div>
-        {actor.call("projects", "gitStates") && (
-          <GithubChip
+    <SettingsSection>
+      <SettingsGroup>
+        {actor.call("projects", "gitStates") ? (
+          <GithubSettingsRows
             orgSlug={orgSlug}
             slug={project.slug}
             github={project.github}
           />
+        ) : (
+          <SettingsRow
+            icon={<IntegrationLogo kind="github" />}
+            label={m.project_settings_github_heading()}
+            description={
+              project.github
+                ? `${project.github.repoOwner}/${project.github.repoName}`
+                : m.project_settings_github_not_connected()
+            }
+          />
         )}
-      </div>
-      {project.setup.connectGithubDismissedAt &&
-      actor.call("projects", "updateSetup") ? (
-        <div className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2">
-          <span className="text-sm text-muted-foreground">
-            {m.project_setup_github_dismissed_note()}
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => update({ connectGithubDismissedAt: null })}
-          >
-            {m.project_setup_restore_button()}
-          </Button>
-        </div>
-      ) : null}
-      {actor.call("everhour", "projectStatus") && (
-        <EverhourSettingsCard
+        {project.setup.connectGithubDismissedAt &&
+        actor.call("projects", "updateSetup") ? (
+          <SettingsRow label={m.project_setup_github_dismissed_note()}>
+            <Button
+              variant="tertiary"
+              size="sm"
+              onClick={() => update({ connectGithubDismissedAt: null })}
+            >
+              {m.project_setup_restore_button()}
+            </Button>
+          </SettingsRow>
+        ) : null}
+        {actor.call("everhour", "projectStatus") && (
+          <EverhourSettingsRow
+            orgSlug={orgSlug}
+            slug={project.slug}
+            canManage={actor.call("everhour", "connectProject")}
+          />
+        )}
+        <FigmaProjectSettings
           orgSlug={orgSlug}
           slug={project.slug}
-          canManage={actor.call("everhour", "connectProject")}
+          canManage={actor.call("figma", "connectProject")}
         />
-      )}
-      <SlackProjectSettings
-        orgSlug={orgSlug}
-        slug={project.slug}
-        canManage={actor.call("slack", "saveProject")}
-      />
-      <FigmaProjectSettings
-        orgSlug={orgSlug}
-        slug={project.slug}
-        canManage={actor.call("figma", "connectProject")}
-      />
-    </section>
+      </SettingsGroup>
+    </SettingsSection>
   )
 }
 
-function EverhourSettingsCard({
+function EverhourSettingsRow({
   orgSlug,
   slug,
   canManage
@@ -118,9 +116,15 @@ function EverhourSettingsCard({
 
   return Result.matchWithError(status, {
     onInitial: () => (
-      <div className="rounded-lg border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
-        {m.project_settings_everhour_loading()}
-      </div>
+      <SettingsRow
+        icon={<IntegrationLogo kind="everhour" />}
+        label={m.project_settings_everhour_heading()}
+        description={
+          <span className="animate-pulse">
+            {m.project_settings_everhour_loading()}
+          </span>
+        }
+      />
     ),
     onError: (error) => <ErrorPage error={error} contained />,
     onDefect: (defect) => <ErrorPage error={defect} contained />,
@@ -205,79 +209,83 @@ function EverhourSettingsContent({
       : (status.lastSyncError ?? mutationError)
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-background px-4 py-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className={busy ? "min-w-0 animate-pulse" : "min-w-0"}>
-          <div className="flex items-center gap-1.5">
-            <p className="text-sm font-medium">
-              {m.project_settings_everhour_heading()}
-            </p>
-            <EverhourApiKeyWalkthrough />
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
+    <SettingsRow
+      icon={<IntegrationLogo kind="everhour" />}
+      label={
+        <span className="flex items-center gap-1">
+          {m.project_settings_everhour_heading()}
+          <EverhourApiKeyWalkthrough />
+        </span>
+      }
+      description={
+        <span className={cn("flex flex-col gap-0.5", busy && "animate-pulse")}>
+          <span>
             {status.status === "active"
               ? m.project_settings_everhour_connected()
               : status.status === "broken"
                 ? m.project_settings_everhour_broken()
                 : m.project_settings_everhour_not_connected()}
-          </p>
+          </span>
           {status.everhourProjectId ? (
-            <p className="mt-2 font-mono text-xs text-muted-foreground">
+            <span className="font-mono">
               {status.everhourProjectName} · {status.everhourProjectId}
-            </p>
+            </span>
           ) : null}
           {status.lastSyncedAt ? (
-            <p className="mt-1 text-xs text-muted-foreground">
+            <span>
               {m.project_settings_everhour_last_synced({
                 date: status.lastSyncedAt.toLocaleString(getLocale())
               })}
-            </p>
+            </span>
           ) : null}
-        </div>
-        <div className="flex flex-wrap justify-end gap-2">
-          {!hasKey ? (
-            <Button variant="secondary" render={<Link to="/profile" />}>
-              {m.project_settings_everhour_connect_profile_button()}
-            </Button>
-          ) : null}
-          {canManage && hasKey && status.status === "not_connected" ? (
-            <Button
-              type="button"
-              loading={connectState.waiting}
-              disabled={busy}
-              onClick={() => void connect()}
-            >
-              {m.project_settings_everhour_connect_button()}
-            </Button>
-          ) : null}
-          {canManage && hasKey && status.status !== "not_connected" ? (
-            <>
-              <Button
-                type="button"
-                loading={syncState.waiting}
-                disabled={busy}
-                onClick={() => void sync()}
-              >
-                {m.project_settings_everhour_sync_button()}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                loading={disconnectState.waiting}
-                disabled={busy}
-                onClick={() => void disconnect()}
-              >
-                {m.project_settings_everhour_disconnect_button()}
-              </Button>
-            </>
-          ) : null}
-        </div>
-      </div>
-      {error ? (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
+        </span>
+      }
+      error={error}
+    >
+      {!hasKey ? (
+        <Button
+          variant="tertiary"
+          size="sm"
+          render={<Link to="/profile/connections" />}
+        >
+          {m.project_settings_everhour_connect_profile_button()}
+        </Button>
       ) : null}
-    </div>
+      {canManage && hasKey && status.status === "not_connected" ? (
+        <Button
+          type="button"
+          size="sm"
+          loading={connectState.waiting}
+          disabled={busy}
+          onClick={() => void connect()}
+        >
+          {m.project_settings_everhour_connect_button()}
+        </Button>
+      ) : null}
+      {canManage && hasKey && status.status !== "not_connected" ? (
+        <>
+          <Button
+            type="button"
+            variant="tertiary"
+            size="sm"
+            loading={syncState.waiting}
+            disabled={busy}
+            onClick={() => void sync()}
+          >
+            {m.project_settings_everhour_sync_button()}
+          </Button>
+          <Button
+            type="button"
+            variant="tertiary"
+            size="sm"
+            loading={disconnectState.waiting}
+            disabled={busy}
+            onClick={() => void disconnect()}
+          >
+            {m.project_settings_everhour_disconnect_button()}
+          </Button>
+        </>
+      ) : null}
+    </SettingsRow>
   )
 }

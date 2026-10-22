@@ -1919,6 +1919,45 @@ const TicketsGroup = HttpApiGroup.make("tickets")
   )
   .add(
     HttpApiEndpoint.post(
+      "stackBranch",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/stacked-branches",
+      {
+        params: TicketPath,
+        payload: AttachBranchInput,
+        success: TicketDetail,
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          Conflict,
+          BranchNotFound,
+          GitHubTokenExpired,
+          GitHubScopeInsufficient,
+          RepoGone,
+          RateLimited,
+          GitHubError
+        ]
+      }
+    )
+      .annotate(RequiresProject, { github: ["write"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "unstackBranch",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/stacked-branches/remove",
+      {
+        params: TicketPath,
+        payload: AttachBranchInput,
+        success: TicketDetail,
+        error: [Unauthorized, NotFound, Forbidden, Conflict]
+      }
+    )
+      .annotate(RequiresProject, { github: ["write"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post(
       "attachBranch",
       "/orgs/:orgSlug/projects/:slug/tickets/:id/attach-branch",
       {

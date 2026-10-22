@@ -18,6 +18,7 @@ export type FluidHoverSource = Pick<
 
 export type FluidHoverHighlightProps = Readonly<{
   hover: FluidHoverSource
+  hidden?: boolean
   className?: string
 }>
 
@@ -40,9 +41,10 @@ const activeRect = ({
 
 export function FluidHoverHighlight({
   hover,
+  hidden = false,
   className
 }: FluidHoverHighlightProps) {
-  const rect = activeRect(hover)
+  const rect = hidden ? null : activeRect(hover)
   const reduceMotion = useReducedMotion() ?? false
   return (
     <AnimatePresence>

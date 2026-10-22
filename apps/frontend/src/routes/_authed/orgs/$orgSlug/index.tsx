@@ -252,7 +252,7 @@ function ProjectTile({
       params={{ orgSlug, slug: project.slug }}
       className={cn(
         "group relative isolate flex flex-col gap-3 overflow-hidden rounded-xl border border-border bg-background p-4 transition-all",
-        "hover:border-border/80 hover:bg-accent/30 hover:shadow-sm"
+        "hover:border-border/80 hover:bg-hover hover:shadow-sm"
       )}
     >
       <ProjectBanner
@@ -303,7 +303,7 @@ function NewProjectTile({
       params={{ orgSlug }}
       className={cn(
         "group flex flex-col gap-3 rounded-xl border border-dashed border-border bg-background/50 p-4 transition-colors",
-        "hover:border-border hover:bg-accent/30",
+        "hover:border-border hover:bg-hover",
         compact ? "min-h-[8rem] items-center justify-center text-center" : ""
       )}
     >
@@ -329,7 +329,7 @@ function NewProjectCTA({ orgSlug }: { orgSlug: string }) {
       params={{ orgSlug }}
       className={cn(
         "group flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-background/50 px-6 py-12 text-center transition-colors",
-        "hover:border-border hover:bg-accent/30"
+        "hover:border-border hover:bg-hover"
       )}
     >
       <div className="grid size-12 place-items-center rounded-xl bg-muted text-muted-foreground transition-colors group-hover:bg-background group-hover:text-foreground">

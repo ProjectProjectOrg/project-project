@@ -14,18 +14,24 @@ import {
   GitPullRequest,
   GitPullRequestClosed,
   GitPullRequestDraft,
-  type LucideIcon
+  type LucideIcon,
+  Minus
 } from "lucide-react"
-import { useId } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
+import {
+  SettingsGroup,
+  SettingsRow,
+  SettingsSection
+} from "@/components/settings/SettingsSection"
+import { SettingsSkeleton } from "@/components/settings/SettingsSkeleton"
+import { SettingsSwitch } from "@/components/settings/SettingsTextField"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger
 } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import {
   gitAutomationFor,
   gitAutomationRequest,
@@ -92,29 +98,27 @@ export function GitAutomationSettings({ orgSlug, slug, canEdit }: Props) {
   const statuses = useAtomValue(statusesFor(statusesRequest(orgSlug, slug)))
 
   return (
-    <div className="flex w-full flex-col gap-3">
-      <div>
-        <p className="text-sm font-medium">{m.git_automation_heading()}</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {m.git_automation_description()}
-        </p>
-      </div>
+    <SettingsSection
+      title={m.git_automation_heading()}
+      description={m.git_automation_description()}
+    >
       {AsyncResult.matchWithError(AsyncResult.all([automation, statuses]), {
-        onInitial: () => <RulesSkeleton />,
+        onInitial: () => (
+          <SettingsSkeleton rows={GIT_AUTOMATION_EVENTS.length} />
+        ),
         onError: (error) => <ErrorPage error={error} contained />,
         onDefect: (defect) => <ErrorPage error={defect} contained />,
-        onSuccess: ({ value: [current, statusList], waiting }) => (
+        onSuccess: ({ value: [current, statusList] }) => (
           <Rules
             orgSlug={orgSlug}
             slug={slug}
             canEdit={canEdit}
             automation={current}
             statuses={statusList}
-            waiting={waiting}
           />
         )
       })}
-    </div>
+    </SettingsSection>
   )
 }
 
@@ -123,62 +127,46 @@ function Rules({
   slug,
   canEdit,
   automation,
-  statuses,
-  waiting
+  statuses
 }: Props &
   Readonly<{
     automation: GitAutomation
     statuses: ReadonlyArray<ProjectStatus>
-    waiting: boolean
   }>) {
   const mutation = updateGitAutomation(gitAutomationRequest(orgSlug, slug))
   const save = useAtomSet(mutation)
   const failed = AsyncResult.isFailure(useAtomValue(mutation))
 
-  const forwardOnlyLabelId = useId()
-  const forwardOnlyDescriptionId = useId()
-
   return (
-    <div className="flex flex-col gap-6">
-      <ul className={cn("flex flex-col gap-0.5", waiting && "animate-pulse")}>
+    <>
+      <SettingsGroup>
         {GIT_AUTOMATION_EVENTS.map((event) => (
           <RuleRow
             key={event}
             event={event}
             target={automation.rules[event]}
             statuses={statuses}
-            disabled={!canEdit || waiting}
+            disabled={!canEdit}
             onChange={(target) => save({ rules: { [event]: target } })}
           />
         ))}
-      </ul>
-      <div className="flex items-start gap-3">
-        <Switch
-          checked={automation.forwardOnly}
-          disabled={!canEdit || waiting}
-          onCheckedChange={(forwardOnly) => save({ forwardOnly })}
-          aria-labelledby={forwardOnlyLabelId}
-          aria-describedby={forwardOnlyDescriptionId}
-          className="mt-0.5"
-        />
-        <div>
-          <p id={forwardOnlyLabelId} className="text-sm font-medium">
-            {m.git_automation_forward_only_label()}
-          </p>
-          <p
-            id={forwardOnlyDescriptionId}
-            className="mt-1 text-xs text-muted-foreground"
-          >
-            {m.git_automation_forward_only_description()}
-          </p>
-        </div>
-      </div>
+        <SettingsRow
+          label={m.git_automation_forward_only_label()}
+          description={m.git_automation_forward_only_description()}
+        >
+          <SettingsSwitch
+            checked={automation.forwardOnly}
+            disabled={!canEdit}
+            onCheckedChange={(forwardOnly) => save({ forwardOnly })}
+          />
+        </SettingsRow>
+      </SettingsGroup>
       {failed ? (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="px-0.5 text-xs text-destructive">
           {m.git_automation_save_error()}
         </p>
       ) : null}
-    </div>
+    </>
   )
 }
 
@@ -198,20 +186,22 @@ function RuleRow({
   const meta = EVENTS[event]
   const EventIcon = meta.icon
   return (
-    <li className="flex items-center gap-3 rounded-md px-1 py-1.5">
-      <EventIcon
-        className="size-4 shrink-0 text-muted-foreground"
-        strokeWidth={1.75}
-      />
-      <div className="min-w-0 flex-1">
-        <p className="text-sm">{meta.label()}</p>
-        <p className="text-xs text-muted-foreground">{meta.hint()}</p>
-      </div>
+    <SettingsRow
+      label={meta.label()}
+      description={meta.hint()}
+      icon={
+        <EventIcon
+          className="size-4 shrink-0 text-muted-foreground"
+          strokeWidth={1.75}
+        />
+      }
+    >
       <Select
         value={target ?? DONT_MOVE}
         disabled={disabled}
         onValueChange={(value) => {
-          const next = value === DONT_MOVE ? null : (value as StatusSlug)
+          const next =
+            statuses.find((status) => status.slug === value)?.slug ?? null
           if (next !== target) onChange(next)
         }}
       >
@@ -220,37 +210,41 @@ function RuleRow({
           className="w-44"
           selectedLabel={
             target === null ? (
-              <span className="text-muted-foreground">
-                {m.git_automation_dont_move()}
-              </span>
+              <DontMoveOption />
             ) : (
               <StatusOption slug={target} statuses={statuses} />
             )
           }
         />
-        <SelectContent>
+        <SelectContent align="end" className="w-48">
           <SelectItem
+            separated={statuses.length > 0}
             value={DONT_MOVE}
-            index={0}
-            aria-label={m.git_automation_dont_move()}
+            label={m.git_automation_dont_move()}
           >
-            <span className="text-muted-foreground">
-              {m.git_automation_dont_move()}
-            </span>
+            <DontMoveOption />
           </SelectItem>
-          {statuses.map((status, index) => (
+          {statuses.map((status) => (
             <SelectItem
               key={status.slug}
               value={status.slug}
-              index={index + 1}
-              aria-label={status.label}
+              label={status.label}
             >
               <StatusOption slug={status.slug} statuses={statuses} />
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-    </li>
+    </SettingsRow>
+  )
+}
+
+function DontMoveOption() {
+  return (
+    <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
+      <Minus className="size-4 shrink-0" strokeWidth={1.75} />
+      <span className="truncate">{m.git_automation_dont_move()}</span>
+    </span>
   )
 }
 
@@ -261,7 +255,7 @@ function StatusOption({
   const meta = statusMetaFor(slug, statuses)
   const Icon = meta.icon
   return (
-    <span className="inline-flex min-w-0 items-center gap-2">
+    <span className="flex min-w-0 items-center gap-2">
       <Icon
         className={cn("size-4 shrink-0", meta.className)}
         style={meta.color ? { color: meta.color } : undefined}
@@ -269,15 +263,5 @@ function StatusOption({
       />
       <span className="truncate">{meta.label}</span>
     </span>
-  )
-}
-
-function RulesSkeleton() {
-  return (
-    <ul className="flex flex-col gap-0.5">
-      {GIT_AUTOMATION_EVENTS.map((event) => (
-        <li key={event} className="h-12 animate-pulse rounded-md bg-muted/40" />
-      ))}
-    </ul>
   )
 }

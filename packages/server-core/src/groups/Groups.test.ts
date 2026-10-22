@@ -77,6 +77,8 @@ function ticketIndexEntryFromDocument(ticket: TicketDocument) {
     ...entry,
     estimate: entry.estimate ?? null,
     prDraft: entry.prDraft ?? false,
+    prBase: entry.prBase ?? null,
+    ignoredBranches: entry.ignoredBranches ?? [],
     branchDeletedAt: null,
     checks: null,
     checksHeadSha: null,
@@ -232,6 +234,9 @@ function makeFakeDocs(initial?: {
     findTicketIdsByTag: () => Effect.succeed([]),
     findTicketIdsByStatus: () => Effect.succeed([]),
     findTicketsByBranch: () => Effect.succeed([]),
+    findStackLayers: () => Effect.succeed([]),
+    stacksFor: () => Effect.succeed(new Map()),
+    findMergesAwaiting: () => Effect.succeed([]),
     isRepositoryBranchAttached: () => Effect.succeed(false),
     getBranchDeletedAt: () => Effect.succeed(null),
     upsertTicket: (_project, document) =>

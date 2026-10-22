@@ -2,7 +2,7 @@ import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { ProjectStatus, StatusSlug } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { Check, ChevronDown, Trash2 } from "lucide-react"
+import { ChevronDown, Trash2 } from "lucide-react"
 import { useMemo, useState, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
@@ -11,7 +11,8 @@ import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import {
@@ -217,28 +218,25 @@ function TargetPicker({
         }
       />
       <DropdownMenuContent align="start" sideOffset={6} className="w-44">
-        {targets.map((s) => {
-          const meta = statusMetaFor(s.slug, statuses)
-          const Icon = meta.icon
-          const selected = s.slug === value
-          return (
-            <DropdownMenuItem
-              key={s.slug}
-              onClick={() => onChange(s.slug)}
-              className="cursor-pointer"
-            >
-              <Icon
-                className={cn("size-4", meta.className)}
-                style={meta.color ? { color: meta.color } : undefined}
-                strokeWidth={1.75}
-              />
-              {meta.label}
-              {selected ? (
-                <Check className="ml-auto size-3.5 text-muted-foreground" />
-              ) : null}
-            </DropdownMenuItem>
-          )
-        })}
+        <DropdownMenuRadioGroup
+          value={value}
+          onValueChange={(next: string) => onChange(next as typeof value)}
+        >
+          {targets.map((s) => {
+            const meta = statusMetaFor(s.slug, statuses)
+            const Icon = meta.icon
+            return (
+              <DropdownMenuRadioItem key={s.slug} value={s.slug} closeOnClick>
+                <Icon
+                  className={cn("size-4", meta.className)}
+                  style={meta.color ? { color: meta.color } : undefined}
+                  strokeWidth={1.75}
+                />
+                {meta.label}
+              </DropdownMenuRadioItem>
+            )
+          })}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

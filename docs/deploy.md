@@ -231,9 +231,9 @@ applied once based on its name; subsequent runs no-op.
 
 ## IGNE deployment: TLS and image-owned routes
 
-`pp.igne.nl` terminates origin TLS in the frontend container. Its host-mounted
-`/srv/projectproject/nginx/default.conf` defines the HTTP redirect and HTTPS
-server, loads certificates from `/etc/nginx/certs`, sets the static root to
+`pp.igne.nl` runs on a DigitalOcean VM and terminates origin TLS in the frontend
+container. Its host-mounted `/srv/projectproject/nginx/default.conf` defines
+the HTTP redirect and HTTPS server, loads certificates from `/etc/nginx/certs`, sets the static root to
 `/usr/share/nginx/html`, and includes `/etc/nginx/app.locations` inside the HTTPS
 server block.
 
@@ -276,6 +276,47 @@ published. The old image does not provide the include on its own.
 Watchtower updates images, not host-mounted configuration. This one-time mount
 removal allows future route updates to travel with the image. To roll back to an
 older image without the include, restore the backed-up volume mount as well.
+
+### Updating Nginx
+
+The web image uses Nginx 1.30.6. Before merging an Nginx upgrade, pause
+Watchtower on each instance so it cannot deploy the image before validation:
+
+```sh
+cd /srv/projectproject
+docker compose stop watchtower
+```
+
+Record the currently deployed web image's `sha-<short>` release tag for rollback
+and back up the IGNE TLS configuration and Compose override. Once the new image
+is published, substitute its release tag below. The existing app must be running
+so Nginx can resolve its upstream during the configuration check.
+
+```sh
+release_tag=sha-REPLACE_WITH_NEW_RELEASE
+IMAGE_TAG=$release_tag docker compose pull web
+IMAGE_TAG=$release_tag docker compose run --rm --no-deps web nginx -v
+IMAGE_TAG=$release_tag docker compose run --rm --no-deps web nginx -t
+```
+
+Expect Nginx 1.30.6 and a successful configuration check. On IGNE this checks
+the actual mounted TLS configuration and certificates. Only then deploy:
+
+```sh
+IMAGE_TAG=$release_tag docker compose up -d --no-deps web
+docker compose exec web nginx -t
+docker compose ps web
+```
+
+Verify HTTPS, sign-in, a frontend deep link, uploads, and the OAuth/MCP checks
+above through the public hostname. If validation fails, keep Watchtower stopped
+and repeat the pull and `up` commands with the previous release tag. After a
+successful rollout, resume Watchtower only when ready to resume automatic
+updates for both app and web; restore the usual `IMAGE_TAG` selection with
+`docker compose up -d --no-deps web`, then `docker compose start watchtower`.
+
+This updates ProjectProject's web container. Nginx Proxy Manager is a separate
+installation and needs its own upgrade on the Proxmox deployment.
 
 ## Organization email connections
 

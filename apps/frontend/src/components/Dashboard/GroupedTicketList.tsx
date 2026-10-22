@@ -230,7 +230,6 @@ function GroupSection({
   return (
     <div className="flex flex-col">
       <SectionHeader
-        variant="sticky"
         heading={group.heading}
         count={group.count}
         collapsed={collapsed}

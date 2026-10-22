@@ -676,7 +676,12 @@ export const ticketIndex = pgTable(
     prState: text("pr_state", { enum: ["open", "closed", "merged"] }),
     prDraft: boolean("pr_draft").notNull().default(false),
     prUpdatedAt: timestamp("pr_updated_at", { withTimezone: true }),
+    prBase: text("pr_base"),
     lastTransitionedPr: integer("last_transitioned_pr"),
+    ignoredBranches: text("ignored_branches")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     branchDeletedAt: timestamp("branch_deleted_at", { withTimezone: true }),
     checks: text("checks", {
       enum: ["passing", "failing", "pending", "neutral", "none"]
@@ -701,6 +706,31 @@ export const ticketIndex = pgTable(
     index("ticket_index_branch_idx").on(t.projectId, t.branch),
     index("ticket_index_updated_idx").on(t.projectId, t.updatedAt),
     index("ticket_index_assignees_idx").using("gin", t.assignees)
+  ]
+)
+
+export const ticketBranch = pgTable(
+  "ticket_branch",
+  {
+    projectId: uuid("project_id").notNull(),
+    ticketId: text("ticket_id").notNull(),
+    branch: text("branch").notNull(),
+    position: integer("position").notNull(),
+    base: text("base"),
+    pr: integer("pr"),
+    prState: text("pr_state", { enum: ["open", "closed", "merged"] }),
+    prDraft: boolean("pr_draft").notNull().default(false),
+    landed: boolean("landed").notNull().default(false)
+  },
+  (t) => [
+    primaryKey({ columns: [t.projectId, t.ticketId, t.branch] }),
+    foreignKey({
+      name: "ticket_branch_ticket_fkey",
+      columns: [t.projectId, t.ticketId],
+      foreignColumns: [ticketIndex.projectId, ticketIndex.ticketId]
+    }).onDelete("cascade"),
+    index("ticket_branch_branch_idx").on(t.projectId, t.branch),
+    index("ticket_branch_base_idx").on(t.projectId, t.base)
   ]
 )
 
@@ -1338,6 +1368,7 @@ export const relations = defineRelations(
     everhourActiveTimer,
     everhourTimeAttribution,
     ticketIndex,
+    ticketBranch,
     commentIndex,
     ticketActivity,
     ticketActivityOutbox,

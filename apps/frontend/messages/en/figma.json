@@ -16,7 +16,6 @@
   "figma_profile_connected_status": "Connected as {handle}",
   "figma_profile_description": "Connect your own Figma account. Design names and previews are resolved once per project using the project's token, so this does not change what you see today — it is here for features that read Figma as you.",
   "figma_profile_disconnect_button": "Disconnect",
-  "figma_profile_disconnected_status": "Not connected",
   "figma_profile_title": "Figma",
   "figma_project_connect_button": "Connect",
   "figma_project_description": "A scoped Figma personal access token used to resolve designs for everyone on this project.",
@@ -36,7 +35,8 @@
   "figma_project_help_subtitle": "A personal access token lets ProjectProject read the designs this project links to. It takes about a minute to create.",
   "figma_project_help_title": "Where do I find a personal access token?",
   "figma_project_help_trigger_label": "How to create a Figma personal access token",
-  "figma_project_help_trigger_text": "How?",
+  "figma_project_help_trigger_text": "?",
+  "figma_project_storage_link": "Set up storage",
   "figma_project_storage_required": "Connect object storage before connecting Figma.",
   "figma_project_title": "Figma",
   "figma_project_token_label": "Personal access token"

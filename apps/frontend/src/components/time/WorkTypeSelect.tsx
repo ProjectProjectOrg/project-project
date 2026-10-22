@@ -29,8 +29,8 @@ export function WorkTypeSelect({
         aria-label={m.time_work_type_label()}
       />
       <SelectContent>
-        {options.map((option, index) => (
-          <SelectItem key={option.key} index={index} value={option.key}>
+        {options.map((option) => (
+          <SelectItem key={option.key} value={option.key}>
             {option.label}
           </SelectItem>
         ))}

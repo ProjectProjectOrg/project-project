@@ -356,6 +356,24 @@ const changeLines = (
           </Value>
         )
       ]
+    case "stack_branch_added":
+      return [
+        verbWith(
+          m.tickets_activity_stack_branch_added(),
+          <Value icon={Layers} iconClassName="text-muted-foreground">
+            <Literal>{change.branch}</Literal>
+          </Value>
+        )
+      ]
+    case "stack_branch_removed":
+      return [
+        verbWith(
+          m.tickets_activity_stack_branch_removed(),
+          <Value icon={Layers} iconClassName="text-muted-foreground">
+            <Literal>{change.branch}</Literal>
+          </Value>
+        )
+      ]
     case "pr_opened":
       return [
         verbWith(
