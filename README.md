@@ -25,7 +25,7 @@ projectproject/
 
 - Node.js 24.15.0 (`.node-version`) — frontend tooling runs on Node; `engines`
   accepts `^22.18.0 || >=24.11.0`.
-- [Bun](https://bun.sh) 1.3.13 (`packageManager`) — installs dependencies and
+- [Bun](https://bun.sh) 1.4.4 (`packageManager`) — installs dependencies and
   runs the backend.
 - Docker with Compose — provides local Postgres for development and creates an
   isolated database for each `bun run test`. The test suite needs no `.env`.
@@ -98,7 +98,7 @@ so jsdom supplies browser-local storage.
 CI installs Node and Bun explicitly, then runs `bun install --frozen-lockfile`
 followed by `bun run check`, `test`, and `build`. The Docker images build on
 `node:24.15.0-bookworm-slim` with the Bun binary copied in for installs; the
-backend runtime image is `oven/bun:1.4.2-slim`.
+backend runtime image is `oven/bun:1.4.4-slim`.
 
 The setup follows [T3 Code's tooling layout](https://github.com/pingdotgg/t3code),
 with Bun retained for this project's runtime and package manager.

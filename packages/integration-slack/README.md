@@ -4,11 +4,12 @@ Owns Slack credentials and identity linking, project subscriptions, message
 formatting, Socket Mode, ticket previews and durable notification delivery.
 Self-host setup is documented in the [root README](../../README.md#slack-integration).
 
-Socket Mode is pinned to SDK 2.0.7 for Bun compatibility. SDK 3 uses Undici
-heartbeat APIs missing from Bun 1.4.2 and 1.4.3
-([Bun #37110](https://github.com/oven-sh/bun/issues/37110)). Run `bun run test`
-in this package when changing the SDK or runtime: the test keeps a real local
-connection open through heartbeat checks, then verifies event acknowledgement.
+Socket Mode uses SDK 3.1.0 and requires Bun 1.4.4 or newer. Bun 1.4.4 fixes
+the missing Undici ping and heartbeat diagnostics APIs that caused SDK 3 to
+reconnect repeatedly ([Bun #37110](https://github.com/oven-sh/bun/issues/37110)).
+Run `bun run test` in this package when changing the SDK or runtime: the test
+keeps a real local connection open through heartbeat checks, then verifies
+event acknowledgement.
 
 The package depends on `@pp/db`, `@pp/shared` and Effect, with no dependency on
 `@pp/server-core` or either application. `SlackHost` describes the PP capabilities
