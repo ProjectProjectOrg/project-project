@@ -86,7 +86,7 @@
     "jsdom": "^29.1.1",
     "oxc-transform-react": "0.151.0",
     "png-to-ico": "^3.0.1",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4.2.4",
     "vite": "8.1.5",
     "vitest": "4.1.11"
