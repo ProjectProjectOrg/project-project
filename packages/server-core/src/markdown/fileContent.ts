@@ -18,7 +18,12 @@ export const parseMarkdownFile = (
 export const markdownFileContent = (
   frontmatter: Record<string, unknown>,
   body: string
-): string => matter.stringify({ content: body }, frontmatter)
+): string => {
+  const content = matter.stringify({ content: body }, frontmatter)
+  return Object.keys(frontmatter).length === 0 && /^\uFEFF?---(?!-)/.test(body)
+    ? `---\n---\n${content}`
+    : content
+}
 
 export const ticketFileBody = (description: string, region: string): string =>
   region ? `${description.replace(/\s+$/, "")}\n\n${region}` : description

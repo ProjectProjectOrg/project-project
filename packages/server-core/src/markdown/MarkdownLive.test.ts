@@ -54,6 +54,47 @@ const ticketFrontmatter = (id: string) => ({
 })
 
 describe("Markdown tickets (real fs)", () => {
+  it.effect(
+    "returns MarkdownError for rejected project, ticket, and group files",
+    () =>
+      Effect.gen(function* () {
+        const md = yield* Markdown
+        const fs = yield* FileSystem.FileSystem
+        const path = yield* Path.Path
+        const project = md.projectDir("acme", "foo")
+        const files = [
+          {
+            file: path.join(project, "project.md"),
+            read: md.readProjectFile("acme", "foo")
+          },
+          {
+            file: path.join(project, "tickets", "T-1.md"),
+            read: md.readTicketFile("acme", "foo", "T-1")
+          },
+          {
+            file: path.join(project, "groups", "G-1.md"),
+            read: md.readGroupFile("acme", "foo", "G-1")
+          }
+        ]
+
+        for (const { file, read } of files) {
+          yield* fs.makeDirectory(path.dirname(file), { recursive: true })
+          for (const raw of [
+            "---js\n({ example: true })\n---\nBody\n",
+            "---\nexample: [unclosed\n---\nBody\n"
+          ]) {
+            yield* fs.writeFileString(file, raw)
+            const error = yield* read.pipe(Effect.flip)
+            expect(error).toMatchObject({
+              _tag: "MarkdownError",
+              message: `parse failed: ${file}`,
+              cause: expect.any(Error)
+            })
+          }
+        }
+      }).pipe(Effect.provide(TestLayer))
+  )
+
   it.effect("round-trips frontmatter-looking ticket bodies as text", () =>
     Effect.gen(function* () {
       const md = yield* Markdown

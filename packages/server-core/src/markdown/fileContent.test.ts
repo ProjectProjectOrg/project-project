@@ -5,6 +5,32 @@ import { markdownFileContent, parseMarkdownFile } from "./fileContent"
 afterEach(() => vi.unstubAllGlobals())
 
 describe("markdownFileContent", () => {
+  it.each([
+    "---js\n({ example: true })\n---\nBody\n",
+    "---\nexample: true\n---\nBody\n",
+    "\uFEFF---yaml\r\nexample: true\r\n---\r\nBody\r\n",
+    "---\nexample: [unclosed\n---\nBody\n"
+  ])("preserves the body with empty metadata: %s", (body) => {
+    expect(parseMarkdownFile(markdownFileContent({}, body))).toEqual({
+      data: {},
+      content: body
+    })
+  })
+
+  it.each([
+    "Plain markdown\n",
+    "----\nA rule\n",
+    "",
+    "```yaml\nkey: value\n```\n"
+  ])(
+    "keeps existing empty-metadata output for ordinary markdown: %s",
+    (body) => {
+      expect(markdownFileContent({}, body)).toBe(
+        body.endsWith("\n") ? body : `${body}\n`
+      )
+    }
+  )
+
   it.each(["javascript", "js", "JavaScript", "JS"])(
     "preserves a %s frontmatter-looking body without executing it",
     (language) => {

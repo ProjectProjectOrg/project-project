@@ -95,7 +95,11 @@ export const MarkdownLive = Layer.effect(
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
             )
           )
-        const parsed = parseMarkdownFile(raw)
+        const parsed = yield* Effect.try({
+          try: () => parseMarkdownFile(raw),
+          catch: (cause) =>
+            new MarkdownError({ cause, message: `parse failed: ${file}` })
+        })
         return {
           data: parsed.data,
           body: parsed.content
@@ -214,7 +218,11 @@ export const MarkdownLive = Layer.effect(
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
             )
           )
-        const parsed = parseMarkdownFile(raw)
+        const parsed = yield* Effect.try({
+          try: () => parseMarkdownFile(raw),
+          catch: (cause) =>
+            new MarkdownError({ cause, message: `parse failed: ${file}` })
+        })
         return {
           data: parsed.data,
           body: parsed.content
@@ -449,7 +457,11 @@ export const MarkdownLive = Layer.effect(
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
             )
           )
-        const parsed = parseMarkdownFile(raw)
+        const parsed = yield* Effect.try({
+          try: () => parseMarkdownFile(raw),
+          catch: (cause) =>
+            new MarkdownError({ cause, message: `parse failed: ${file}` })
+        })
         return {
           data: parsed.data,
           body: parsed.content
