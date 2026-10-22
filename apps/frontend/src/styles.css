@@ -261,6 +261,15 @@
   }
 }
 
+:root {
+  --page-surface: color-mix(in srgb, var(--muted) 60%, var(--background));
+}
+[data-page-banner] [data-page-header] {
+  text-shadow:
+    0 0 8px var(--page-surface),
+    0 0 20px var(--page-surface);
+}
+
 .page-backdrop-follow {
   animation: page-backdrop-follow linear both;
   animation-timeline: --page-scroll;

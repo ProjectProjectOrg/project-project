@@ -42,19 +42,21 @@ export function ProjectBanner({
   slug,
   banner,
   waiting,
-  variant = "header"
+  variant = "header",
+  pageBackdrop = false
 }: {
   orgSlug: string
   slug: string
   banner: Banner | null
   waiting?: boolean
   variant?: "header" | "card" | "row"
+  pageBackdrop?: boolean
 }) {
   const preview = useAtomValue(
     projectBannerPreviewAtom(projectKey(orgSlug, slug))
   )
-  const pageBackdrop = usePageBackdrop()
-  const backdrop = variant === "header" ? pageBackdrop : null
+  const pageBackdropSlot = usePageBackdrop()
+  const backdrop = pageBackdrop ? pageBackdropSlot : null
   const appliedSource = bannerSource(
     orgSlug,
     banner,
