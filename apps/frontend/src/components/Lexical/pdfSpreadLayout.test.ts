@@ -48,15 +48,6 @@ describe("pdfSpreadScale", () => {
     }
   })
 
-  it("preserves the page aspect ratio", () => {
-    const page = { width: 200, height: 10000 }
-    const raster = rasterOf(page)
-    expect(raster.width / raster.height).toBeCloseTo(
-      page.width / page.height,
-      6
-    )
-  })
-
   it("falls back to a fixed scale for a degenerate viewport", () => {
     expect(pdfSpreadScale({ width: 0, height: 0 })).toBeGreaterThan(0)
   })

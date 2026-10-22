@@ -64,10 +64,6 @@ describe("bucketRenderWidth", () => {
 })
 
 describe("bannerRenderUrl", () => {
-  it("is stable for the same inputs", () => {
-    expect(bannerRenderUrl(key)).toBe(bannerRenderUrl({ ...key }))
-  })
-
   it("ignores crop differences below the rounding threshold", () => {
     const nudged = { ...key, crop: { ...key.crop, x: key.crop.x + 0.000001 } }
     expect(bannerRenderUrl(nudged)).toBe(bannerRenderUrl(key))

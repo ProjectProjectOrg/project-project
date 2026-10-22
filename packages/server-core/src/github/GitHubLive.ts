@@ -45,15 +45,6 @@ export function githubRepoMatchesQuery(
   return tokens.every((token) => haystack.includes(token))
 }
 
-export function parseGithubRepoSlug(
-  query: string
-): { readonly owner: string; readonly name: string } | null {
-  const trimmed = query.trim()
-  const match = /^([^/\s]+)\/([^/\s]+)$/.exec(trimmed)
-  if (!match) return null
-  return { owner: match[1], name: match[2] }
-}
-
 export const GitHubLive = Layer.effect(
   GitHub,
   Effect.gen(function* () {

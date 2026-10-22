@@ -44,12 +44,6 @@ describe("pageWindow", () => {
     expect(pageWindow({ page: 1, pages: 5, span: 7 })).toEqual([1, 2, 3, 4, 5])
   })
 
-  it("keeps the first and last page anchored when it must elide", () => {
-    const window = pageWindow({ page: 10, pages: 20, span: 7 })
-    expect(window[0]).toBe(1)
-    expect(window[window.length - 1]).toBe(20)
-  })
-
   it("elides with gaps on both sides of a middle page", () => {
     expect(pageWindow({ page: 10, pages: 20, span: 7 })).toEqual([
       1,

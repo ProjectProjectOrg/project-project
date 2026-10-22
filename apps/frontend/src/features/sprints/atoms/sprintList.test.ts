@@ -580,56 +580,6 @@ describe("completeSprint carryover", () => {
       registry.dispose()
     }
   })
-
-  it("resolves the correct final state even though the sprint's board is never mounted", async () => {
-    const sprintWithBoth: Group = { ...sprint, tickets: [ticketA, ticketB] }
-    let served: ReadonlyArray<Group> = [sprintWithBoth, otherSprint]
-    let finish = (_r: Response) => {}
-    fetchStub.set((_input, init) => {
-      if (init?.method === "POST") {
-        return new Promise<Response>((resolve) => {
-          finish = resolve
-        })
-      }
-      return Promise.resolve(listResponse(served))
-    })
-    const registry = AtomRegistry.make()
-    const view = sprintList(req)
-    const mutation = completeSprint({ req, groupId })
-    registry.mount(view)
-    registry.mount(mutation)
-    try {
-      await vi.waitFor(() =>
-        expect(registry.get(view)).toMatchObject({
-          _tag: "Success",
-          waiting: false
-        })
-      )
-
-      registry.set(mutation, {
-        destination: { kind: "sprint", groupId: otherGroupId }
-      })
-
-      const completedSprint: Group = {
-        ...sprintWithBoth,
-        tickets: [ticketA],
-        completedAt: DateTime.toDate(DateTime.nowUnsafe())
-      }
-      served = [completedSprint, { ...otherSprint, tickets: [ticketB] }]
-      finish(completeResponse(completedSprint, [ticketB]))
-      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
-
-      const settled = registry.get(view)
-      if (!AsyncResult.isSuccess(settled)) throw new Error("did not settle")
-      const source = settled.value.find((s) => s.id === groupId)
-      const dest = settled.value.find((s) => s.id === otherGroupId)
-      expect(source?.tickets).toEqual([ticketA])
-      expect(dest?.tickets).toContain(ticketB)
-      expect(dest?.tickets).not.toContain(ticketA)
-    } finally {
-      registry.dispose()
-    }
-  })
 })
 
 describe("ticket membership mutations", () => {

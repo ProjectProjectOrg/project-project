@@ -306,11 +306,6 @@ export const startSprintTimerAtom = Atom.family(
     })
 )
 
-export const optimisticStopTimer = <E>(
-  current: AsyncResult.AsyncResult<ActiveTimer | null, E>
-): AsyncResult.AsyncResult<ActiveTimer | null, E> =>
-  AsyncResult.map(current, () => null)
-
 export const stopTimerAtom = Atom.family((req: ActiveTimerRequest) =>
   Atom.optimisticFn(activeTimerAtom(req), {
     reducer: (current, _input: void) => AsyncResult.map(current, () => null),

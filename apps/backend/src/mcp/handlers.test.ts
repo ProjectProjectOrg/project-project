@@ -373,8 +373,6 @@ describe("MCP handlers → doc tools", () => {
       expect(payload.content).toContain("# Fix it")
     }).pipe(Effect.provide(TestLayer))
   )
-
-  it.effect.skip("placeholder", () => Effect.void)
 })
 
 const acceptanceCriteriaBlock = {
@@ -958,8 +956,6 @@ describe("MCP handlers → write tools", () => {
         })
       }).pipe(Effect.provide(ForbiddenLayer))
   )
-
-  it.effect.skip("placeholder2", () => Effect.void)
 })
 
 describe("MCP handlers → update_ticket with a template", () => {
@@ -1287,8 +1283,6 @@ describe("MCP handlers → add_tickets_to_group", () => {
       expect(result.content[0].text.toLowerCase()).toContain("sprint")
     }).pipe(Effect.provide(makeLayer(completedStub)))
   )
-
-  it.effect.skip("placeholder", () => Effect.void)
 })
 
 describe("MCP handlers → sprint writes", () => {
@@ -1522,8 +1516,6 @@ describe("MCP handlers → sprint writes", () => {
       )
     }).pipe(Effect.provide(makeLayer(completedSprint.stub)))
   )
-
-  it.effect.skip("placeholder", () => Effect.void)
 })
 
 describe("MCP handlers → NotFound retained", () => {

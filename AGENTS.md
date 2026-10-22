@@ -271,6 +271,12 @@ A few details worth knowing:
 
 Reference: `apps/frontend/src/routes/_authed/orgs/$orgSlug/projects/index.tsx` for the standard project-list pattern, and for reading a mutation atom's own state next to it. `AsyncResult` is imported as `Result` in most components; either alias is fine, but keep one per file.
 
+## Test scope
+
+Keep tests for domain logic, API contracts, atoms, and hooks. Do not add component-rendering tests, DOM markup snapshots, or assertions about component styling. Test hooks with `renderHook`; provider wrappers are allowed. Do not hide component rendering behind test helpers. Oxlint rejects Testing Library `render` imports and direct React renderer imports in tests.
+
+When removing a rendering suite, retain independent logic and atom assertions in the appropriate owner suite. Do not create production exports or injection hooks solely to preserve a deleted component test.
+
 ## Backend stack
 
 Effect HttpApi + Drizzle + Better Auth + Postgres, as set up in chapters 0–2. Extend within those choices unless we explicitly revisit them.

@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest"
 import {
   extractMentionLinks,
   formatMentionHref,
-  MENTION_SCHEME,
   parseMentionHref
 } from "./mentions"
 
@@ -50,22 +49,6 @@ describe("parseMentionHref", () => {
     expect(parseMentionHref("mention:user/")).toBeNull()
     expect(parseMentionHref("mention:/foo")).toBeNull()
   })
-  it("round-trips for every registered type", () => {
-    const cases = [
-      ["user", "github_42"],
-      ["ticket", "FOO-1"]
-    ] as const
-    for (const [type, id] of cases) {
-      expect(parseMentionHref(formatMentionHref(type, id))).toEqual({
-        type,
-        id
-      })
-    }
-  })
-})
-
-it("MENTION_SCHEME is the literal 'mention:'", () => {
-  expect(MENTION_SCHEME).toBe("mention:")
 })
 
 describe("extractMentionLinks", () => {

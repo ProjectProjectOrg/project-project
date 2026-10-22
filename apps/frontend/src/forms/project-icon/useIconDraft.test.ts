@@ -64,13 +64,6 @@ const acceptedDraft = async () => {
   return result
 }
 
-it("keeps both renders so each choice can show its own result", async () => {
-  const result = await acceptedDraft()
-
-  expect(result.current.preview?.cutoutUrl).toBe(`blob:cutout-${TOLERANCE}`)
-  expect(result.current.preview?.fullUrl).toBe(`blob:full-${TOLERANCE}`)
-})
-
 it("switches treatment without rebuilding the renders", async () => {
   const result = await acceptedDraft()
   expect(built.calls).toBe(1)

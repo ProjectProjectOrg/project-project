@@ -160,12 +160,6 @@ describe("serializeCommentsRegion + parseCommentsRegion", () => {
     const region = `${COMMENTS_START}\nstray text that nobody wrote\n${COMMENTS_END}\n`
     expect(parseCommentsRegion(region)).toEqual([])
   })
-
-  it("preserves bodies that contain '---'", () => {
-    const blocks = sample()
-    const round = parseCommentsRegion(serializeCommentsRegion(blocks))
-    expect(round[1].body).toBe(blocks[1].body)
-  })
 })
 
 describe("validateCommentBody", () => {

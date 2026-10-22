@@ -1,6 +1,6 @@
 import { expect, it } from "vitest"
 
-import { githubRepoMatchesQuery, parseGithubRepoSlug } from "./GitHubLive"
+import { githubRepoMatchesQuery } from "./GitHubLive"
 
 const repo = {
   owner: { login: "outside-org" },
@@ -18,15 +18,4 @@ it("matches repository search across owner and name tokens", () => {
 
 it("does not match unrelated repositories", () => {
   expect(githubRepoMatchesQuery(repo, "personal-only")).toBe(false)
-})
-
-it("parses exact owner and repository slugs", () => {
-  expect(parseGithubRepoSlug("outside-org/project-project")).toEqual({
-    owner: "outside-org",
-    name: "project-project"
-  })
-})
-
-it("rejects partial repository slugs", () => {
-  expect(parseGithubRepoSlug("outside-org / project-project")).toBeNull()
 })

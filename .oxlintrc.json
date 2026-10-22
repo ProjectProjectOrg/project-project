@@ -128,6 +128,13 @@
                 "importNames": ["canCallProject", "canCallOrg"],
                 "message": "Components read permissions through useProjectActor / useOrgActor from @/lib/access; only the atom layer builds actors from the endpoint table."
               }
+            ],
+            "patterns": [
+              {
+                "group": ["@testing-library/react", "@testing-library/react/*"],
+                "importNames": ["render"],
+                "message": "Component rendering tests are not part of this suite. Test logic, atoms, or hooks with renderHook instead."
+              }
             ]
           }
         ]
@@ -136,7 +143,18 @@
     {
       "files": ["apps/frontend/src/features/*/atoms/**/*.ts"],
       "rules": {
-        "eslint/no-restricted-imports": "off"
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@testing-library/react", "@testing-library/react/*"],
+                "importNames": ["render"],
+                "message": "Component rendering tests are not part of this suite. Test logic, atoms, or hooks with renderHook instead."
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -146,7 +164,28 @@
       },
       "rules": {
         "vitest/require-to-throw-message": "off",
-        "vitest/valid-expect": "off"
+        "vitest/valid-expect": "off",
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@testing-library/react", "@testing-library/react/*"],
+                "importNames": ["render"],
+                "message": "Component rendering tests are not part of this suite. Test logic, atoms, or hooks with renderHook instead."
+              },
+              {
+                "group": [
+                  "react-dom",
+                  "react-dom/*",
+                  "react-test-renderer",
+                  "react-test-renderer/*"
+                ],
+                "message": "Component rendering tests are not part of this suite. Test logic, atoms, or hooks with renderHook instead."
+              }
+            ]
+          }
+        ]
       }
     },
     {
