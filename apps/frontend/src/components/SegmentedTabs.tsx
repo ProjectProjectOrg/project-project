@@ -34,8 +34,7 @@ type VariantTokens = {
 
 const VARIANTS: Record<SegmentedVariant, VariantTokens> = {
   default: {
-    container:
-      "inline-flex items-center gap-0.5 rounded-xl bg-hover p-1 backdrop-blur-md",
+    container: "inline-flex items-center gap-0.5 rounded-xl p-1",
     innerGap: "gap-1.5",
     innerGapPx: 6,
     iconSize: "size-3.5",
@@ -43,8 +42,7 @@ const VARIANTS: Record<SegmentedVariant, VariantTokens> = {
     itemBase: "h-7 rounded-lg px-2.5 text-sm"
   },
   view: {
-    container:
-      "flex w-full items-center gap-0.5 rounded-xl bg-hover p-0.5 backdrop-blur-md",
+    container: "flex w-full items-center gap-0.5 rounded-xl p-0.5",
     innerGap: "gap-1",
     innerGapPx: 4,
     iconSize: "size-3.5",
@@ -83,14 +81,23 @@ export function SegmentedTabs<K extends string>({
   className
 }: SegmentedTabsProps<K>) {
   const v = VARIANTS[variant]
-  const pillLevel = Math.min(useSurface() + 4, 8)
+  const surface = useSurface()
+  const pillLevel = Math.min(surface + 4, 8)
   return (
-    <div className={cn("relative", v.container, className)}>
+    <div
+      className={cn(
+        "relative",
+        v.container,
+        variant !== "inline" && SURFACE_BG[Math.min(surface + 2, 8)],
+        className
+      )}
+    >
       <SegmentedIndicator
         activeIndex={items.findIndex((item) => isActive(item.key))}
         className={cn(
-          SURFACE_BG[pillLevel],
-          "shadow-surface-1",
+          variant === "inline"
+            ? cn(SURFACE_BG[pillLevel], "shadow-surface-1")
+            : "bg-tint",
           v.pillRounding
         )}
       />
