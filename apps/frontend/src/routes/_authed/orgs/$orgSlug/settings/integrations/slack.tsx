@@ -22,6 +22,7 @@ import {
   slackProfiles
 } from "@/features/slack/atoms/slack"
 import { SlackAppSetup } from "@/features/slack/components/AppSetup"
+import { useSlackOrgPolling } from "@/features/slack/hooks/useSlackOrgPolling"
 import { SlackConnectionForm } from "@/forms/slack-connection"
 import { useOrgActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
@@ -39,6 +40,7 @@ function SlackIntegrationPage() {
   const { orgSlug } = Route.useParams()
   const canManage = useOrgActor(orgSlug).call("slack", "orgStatus")
   const state = useSlackState(orgSlug)
+  useSlackOrgPolling(orgSlug, canManage)
 
   return (
     <IntegrationDetail
@@ -96,27 +98,36 @@ function SlackContent({ orgSlug }: Readonly<{ orgSlug: string }>) {
 
 function PersonalAccountRow({ orgSlug }: Readonly<{ orgSlug: string }>) {
   const profiles = useAtomValue(slackProfiles({}))
-  const linked = Result.isSuccess(profiles)
-    ? profiles.value.some(
-        (profile) => profile.orgSlug === orgSlug && profile.slackUserId
-      )
-    : false
-  return (
-    <SettingsRow
-      label={m.slack_personal_label()}
-      description={
-        linked
-          ? m.org_integrations_personal_connected()
-          : m.org_integrations_personal_not_connected()
-      }
-    >
-      <Button
-        variant="tertiary"
-        size="sm"
-        render={<Link to="/profile/connections" />}
+  return Result.matchWithError(profiles, {
+    onInitial: () => (
+      <SettingsRow
+        label={m.slack_personal_label()}
+        description={
+          <span className="block h-3 w-40 animate-pulse rounded bg-muted" />
+        }
+      />
+    ),
+    onError: (error) => <ErrorPage contained error={error} />,
+    onDefect: (defect) => <ErrorPage contained error={defect} />,
+    onSuccess: ({ value }) => (
+      <SettingsRow
+        label={m.slack_personal_label()}
+        description={
+          value.some(
+            (profile) => profile.orgSlug === orgSlug && profile.slackUserId
+          )
+            ? m.org_integrations_personal_connected()
+            : m.org_integrations_personal_not_connected()
+        }
       >
-        {m.org_integrations_personal_button()}
-      </Button>
-    </SettingsRow>
-  )
+        <Button
+          variant="tertiary"
+          size="sm"
+          render={<Link to="/profile/connections" />}
+        >
+          {m.org_integrations_personal_button()}
+        </Button>
+      </SettingsRow>
+    )
+  })
 }

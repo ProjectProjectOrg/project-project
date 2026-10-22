@@ -69,7 +69,8 @@ export const makeSlackManifest = (baseUrl: string) => {
           "links:read",
           "links:write",
           "users:read"
-        ]
+        ],
+        user: ["openid", "profile"]
       }
     },
     settings: {

@@ -1,7 +1,7 @@
 import type {
   ConnectSlackInput,
-  SlackProfile,
-  SlackProjectStatus
+  SaveSlackProjectInput,
+  SlackProfile
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
@@ -102,23 +102,24 @@ export const slackChannels = Atom.family((req: SlackProjectRequest) =>
     })
   )
 )
-type SlackProjectSettings = NonNullable<SlackProjectStatus["settings"]>
-
 export const saveSlackProject = Atom.family((req: SlackProjectRequest) =>
   Atom.optimisticFn(slackProject(req), {
-    reducer: (current, input: SlackProjectSettings) =>
-      Result.map(current, (status) => ({ ...status, settings: input })),
+    reducer: (current, input: SaveSlackProjectInput) =>
+      Result.map(current, (status) => ({
+        ...status,
+        settings: {
+          ...input,
+          channelName:
+            status.settings?.channelId === input.channelId
+              ? status.settings.channelName
+              : input.channelId
+        }
+      })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn("saveSlackProject")(function* ({
-          channelId,
-          events
-        }: SlackProjectSettings) {
+        Effect.fn("saveSlackProject")(function* (input: SaveSlackProjectInput) {
           const status = yield* Api.use((api) =>
-            api.slack.saveProject({
-              params: req.params,
-              payload: { channelId, events }
-            })
+            api.slack.saveProject({ params: req.params, payload: input })
           )
           set(Result.success(status))
           return status

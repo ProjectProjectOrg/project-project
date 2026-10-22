@@ -15,6 +15,7 @@ import {
   useStorageState,
   type IntegrationState
 } from "@/components/settings/orgIntegrations"
+import { useSlackOrgPolling } from "@/features/slack/hooks/useSlackOrgPolling"
 import { useOrgActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
@@ -41,6 +42,7 @@ function OrgIntegrations() {
   const storage = useStorageState(orgSlug)
   const email = useEmailState(orgSlug)
   const slack = useSlackState(orgSlug)
+  useSlackOrgPolling(orgSlug, canManageSlack)
 
   const entries: ReadonlyArray<Entry> = [
     {

@@ -1,7 +1,9 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { SlackEvent, type SlackProjectStatus } from "@pp/shared"
+import * as Exit from "effect/Exit"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { RefreshCw } from "lucide-react"
+import { useEffect, useState } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
 import { IntegrationLogo } from "@/components/settings/IntegrationLogo"
@@ -132,14 +134,24 @@ function ManagedSlackRow({
   const refreshChannels = useAtomRefresh(slackChannels(req))
   const save = useAtomSet(saveSlackProject(req))
   const disconnect = useAtomSet(disconnectSlackProject(req))
-  const test = useAtomSet(testSlackProject(req))
+  const test = useAtomSet(testSlackProject(req), { mode: "promiseExit" })
   const saveState = useAtomValue(saveSlackProject(req))
   const disconnectState = useAtomValue(disconnectSlackProject(req))
   const testState = useAtomValue(testSlackProject(req))
-  const busy = disconnectState.waiting || testState.waiting
+  const busy = saveState.waiting || disconnectState.waiting || testState.waiting
   const settings = status.settings
-  const testQueued = Result.isSuccess(testState) && !testState.waiting
+  const [testQueued, setTestQueued] = useState(false)
   const channels = Result.isSuccess(channelsResult) ? channelsResult.value : []
+  const channelName = settings
+    ? (channels.find((channel) => channel.id === settings.channelId)?.name ??
+      settings.channelName)
+    : null
+
+  useEffect(() => {
+    if (!testQueued) return undefined
+    const timeout = window.setTimeout(() => setTestQueued(false), 4000)
+    return () => window.clearTimeout(timeout)
+  }, [testQueued])
 
   return (
     <SettingsRow
@@ -149,11 +161,8 @@ function ManagedSlackRow({
         <span className={cn((waiting || busy) && "animate-pulse")}>
           {testQueued
             ? m.slack_test_queued()
-            : settings
-              ? m.slack_project_channel({
-                  workspace,
-                  channel: settings.channelName
-                })
+            : channelName !== null
+              ? m.slack_project_channel({ workspace, channel: channelName })
               : m.slack_channel_hint()}
         </span>
       }
@@ -171,7 +180,6 @@ function ManagedSlackRow({
           if (channel)
             save({
               channelId: channel.id,
-              channelName: channel.name,
               events: settings?.events ?? SlackEvent.literals
             })
         }}
@@ -181,7 +189,7 @@ function ManagedSlackRow({
           aria-label={m.slack_channel()}
           className="w-48"
           placeholder={m.slack_choose_channel()}
-          selectedLabel={settings ? `#${settings.channelName}` : undefined}
+          selectedLabel={channelName !== null ? `#${channelName}` : undefined}
         />
         <SelectContent>
           {channels.map((channel) => (
@@ -211,7 +219,11 @@ function ManagedSlackRow({
             size="sm"
             loading={testState.waiting}
             disabled={busy}
-            onClick={() => test()}
+            onClick={() =>
+              void test().then((exit) => {
+                if (Exit.isSuccess(exit)) setTestQueued(true)
+              })
+            }
           >
             {m.slack_test()}
           </Button>
@@ -249,7 +261,7 @@ export function SlackProjectEvents({ orgSlug, slug, canManage }: ProjectProps) {
               checked={settings.events.includes(kind)}
               onCheckedChange={(checked) =>
                 save({
-                  ...settings,
+                  channelId: settings.channelId,
                   events: checked
                     ? [...settings.events, kind]
                     : settings.events.filter((event) => event !== kind)
