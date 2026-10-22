@@ -34,7 +34,8 @@ type VariantTokens = {
 
 const VARIANTS: Record<SegmentedVariant, VariantTokens> = {
   default: {
-    container: "inline-flex items-center gap-0.5 rounded-xl bg-hover p-1",
+    container:
+      "inline-flex items-center gap-0.5 rounded-xl bg-hover p-1 backdrop-blur-md",
     innerGap: "gap-1.5",
     innerGapPx: 6,
     iconSize: "size-3.5",
@@ -42,7 +43,8 @@ const VARIANTS: Record<SegmentedVariant, VariantTokens> = {
     itemBase: "h-7 rounded-lg px-2.5 text-sm"
   },
   view: {
-    container: "flex w-full items-center gap-0.5 rounded-xl bg-hover p-0.5",
+    container:
+      "flex w-full items-center gap-0.5 rounded-xl bg-hover p-0.5 backdrop-blur-md",
     innerGap: "gap-1",
     innerGapPx: 4,
     iconSize: "size-3.5",
