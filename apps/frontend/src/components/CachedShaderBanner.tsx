@@ -1,6 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 
 import {
+  bannerRenderUrl,
+  bucketRenderWidth,
   writeBannerRender,
   type BannerRenderKey
 } from "@/lib/bannerRenderCache"
@@ -88,6 +90,7 @@ export function CachedShaderBanner({
   )
 
   const signature = signatureOf(image, settings)
+  const captured = useRef<string | null>(null)
 
   const capture = useCallback(
     (canvas: HTMLCanvasElement) => {
@@ -101,6 +104,9 @@ export function CachedShaderBanner({
       )
         return
       if (!cacheKey) return
+      const entry = `${bannerRenderUrl(cacheKey)}|${signature}`
+      if (captured.current === entry) return
+      captured.current = entry
       void toBlob(canvas).then((blob) => {
         if (!blob) return
         void writeBannerRender(cacheKey, blob)
@@ -113,7 +119,7 @@ export function CachedShaderBanner({
 
   const usable =
     rendered &&
-    rendered.width === size.width &&
+    bucketRenderWidth(rendered.width) === bucketRenderWidth(size.width) &&
     rendered.height === size.height &&
     rendered.signature === signature
 
