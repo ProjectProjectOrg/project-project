@@ -197,23 +197,7 @@ const mapTimeRecord = (
 ): Effect.Effect<EverhourTimeRecord, EverhourError> =>
   decodeResponse(TimeRecordResponse, value).pipe(Effect.map(toTimeRecord))
 
-const noTaskAccess = (body: unknown) =>
-  Schema.decodeUnknownOption(ErrorResponse)(body).pipe(
-    Option.exists(
-      ({ errorType }) => errorType === "task_provider_no_task_access"
-    )
-  )
-
-const errorMessage = (body: unknown) => {
-  const decoded = Schema.decodeUnknownOption(ErrorResponse)(body)
-  if (Option.isNone(decoded)) return "Everhour error"
-  return (
-    decoded.value.message ??
-    decoded.value.error ??
-    decoded.value.detail ??
-    "Everhour error"
-  )
-}
+const decodeErrorResponse = Schema.decodeUnknownOption(ErrorResponse)
 
 const payloadPreview = (payload: unknown) => {
   const text = Schema.is(Schema.String)(payload)
@@ -265,7 +249,9 @@ const send = <A>(
     if (response.ok || (treatNotFound && response.status === 404)) {
       return onOk(payload, response.status)
     }
-    const message = errorMessage(payload)
+    const failure = Option.getOrUndefined(decodeErrorResponse(payload))
+    const message =
+      failure?.message ?? failure?.error ?? failure?.detail ?? "Everhour error"
     const endpoint = `${method} ${baseUrl}${path}`
     yield* Effect.logWarning(
       `Everhour API request failed: ${endpoint} -> ${response.status} ${message}`
@@ -280,7 +266,8 @@ const send = <A>(
       })
     )
     if (response.status === 401) return yield* new EverhourAuthInvalid()
-    if (noTaskAccess(payload)) return yield* new EverhourProjectAccessDenied()
+    if (failure?.errorType === "task_provider_no_task_access")
+      return yield* new EverhourProjectAccessDenied()
     if (response.status === 429) {
       const retryAfter = Number(response.headers.get("Retry-After") ?? "1")
       return yield* new EverhourRateLimited({
