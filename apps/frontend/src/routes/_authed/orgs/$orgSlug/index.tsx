@@ -28,7 +28,7 @@ import {
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
 import { ProjectBanner } from "@/features/projects/components/ProjectBanner"
-import { ProjectTile as ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
+import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
 import {
   myTickets,
   myTicketsByProject,

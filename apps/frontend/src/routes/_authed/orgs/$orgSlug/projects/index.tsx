@@ -23,7 +23,7 @@ import {
   projectsRequest
 } from "@/features/projects/atoms/projects"
 import { ProjectBanner } from "@/features/projects/components/ProjectBanner"
-import { ProjectTile } from "@/features/projects/components/ProjectIconTile"
+import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut"
 import { useOrgActor } from "@/lib/access"
 import { errorMessage } from "@/lib/errorMessage"
@@ -357,7 +357,7 @@ function ProjectRow({
         banner={project.banner}
         variant="row"
       />
-      <ProjectTile
+      <ProjectIconTile
         orgSlug={orgSlug}
         icon={project.icon}
         iconImage={project.iconImage}

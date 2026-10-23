@@ -6,7 +6,7 @@ import { useState, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { Button } from "@/components/ui/button"
-import { ProjectTile } from "@/features/projects/components/ProjectIconTile"
+import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
 import { getStatusIcon } from "@/features/statuses/lib/statusIcons"
 import {
   myTicketBoard,
@@ -74,7 +74,7 @@ export function ProjectGroupedList(props: GroupedListProps) {
           heading: {
             label: group.project.name,
             icon: (
-              <ProjectTile
+              <ProjectIconTile
                 orgSlug={req.params.orgSlug}
                 icon={group.project.icon}
                 iconImage={group.project.iconImage}

@@ -36,7 +36,7 @@ import {
   projectRequest,
   updateProject
 } from "@/features/projects/atoms/projects"
-import { ProjectTile } from "@/features/projects/components/ProjectIconTile"
+import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
 import {
   sprintList,
   sprintListRequest
@@ -161,7 +161,7 @@ export function ProjectHeader({
             )
           ) : (
             <div className="-mt-1 w-fit shrink-0">
-              <ProjectTile
+              <ProjectIconTile
                 orgSlug={orgSlug}
                 icon={project.icon}
                 iconImage={project.iconImage}
