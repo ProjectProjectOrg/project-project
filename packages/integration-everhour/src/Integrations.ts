@@ -31,6 +31,7 @@ import * as Base64Url from "effect/encoding/Base64Url"
 import * as Layer from "effect/Layer"
 import * as SqlClient from "effect/sql/SqlClient"
 
+import { makeActorApiKey } from "./ApiKeys"
 import { Everhour } from "./Client"
 import type { EverhourTaskPayload } from "./Client"
 import { EverhourHost } from "./Host"
@@ -253,29 +254,7 @@ export const EverhourIntegrationsLive = Layer.effect(
           }))
         )
 
-    const actorApiKey = (userId: string) =>
-      Effect.gen(function* () {
-        const row = yield* db.query.userEverhourIntegration
-          .findFirst({
-            columns: {
-              encryptedApiKey: true,
-              apiKeyNonce: true,
-              apiKeyTag: true,
-              everhourUserId: true
-            },
-            where: {
-              RAW: (table, _operators) => _operators.eq(table.userId, userId)
-            }
-          })
-          .pipe(Effect.orDie)
-        if (!row) return yield* new EverhourApiKeyMissing()
-        const apiKey = yield* host.open({
-          ciphertext: row.encryptedApiKey,
-          nonce: row.apiKeyNonce,
-          tag: row.apiKeyTag
-        })
-        return { apiKey, everhourUserId: row.everhourUserId }
-      })
+    const actorApiKey = makeActorApiKey(db, host)
 
     const connectProfile = (userId: string, apiKey: string) =>
       Effect.gen(function* () {

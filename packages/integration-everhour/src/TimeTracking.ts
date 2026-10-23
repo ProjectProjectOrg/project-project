@@ -34,6 +34,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 
+import { makeActorApiKey } from "./ApiKeys"
 import {
   Everhour,
   type EverhourTimeEntry,
@@ -240,29 +241,7 @@ export const EverhourTimeTrackingLive = Layer.effect(
 
     const loadSprints = host.sprints
 
-    const actorApiKey = (userId: string) =>
-      Effect.gen(function* () {
-        const row = yield* db.query.userEverhourIntegration
-          .findFirst({
-            columns: {
-              encryptedApiKey: true,
-              apiKeyNonce: true,
-              apiKeyTag: true,
-              everhourUserId: true
-            },
-            where: {
-              RAW: (table, _operators) => _operators.eq(table.userId, userId)
-            }
-          })
-          .pipe(Effect.orDie)
-        if (!row) return yield* new EverhourApiKeyMissing()
-        const apiKey = yield* host.open({
-          ciphertext: row.encryptedApiKey,
-          nonce: row.apiKeyNonce,
-          tag: row.apiKeyTag
-        })
-        return { apiKey, everhourUserId: row.everhourUserId }
-      })
+    const actorApiKey = makeActorApiKey(db, host)
 
     const everhourUserIdFor = (userId: string) =>
       db.query.userEverhourIntegration
