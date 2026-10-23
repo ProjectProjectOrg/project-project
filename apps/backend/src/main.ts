@@ -450,7 +450,7 @@ export const RouteLive = Layer.mergeAll(
   Layer.mergeAll(ApiLive, SwaggerLive).pipe(Layer.provide(ApiRouterLive))
 )
 
-const ServerLive = HttpRouter.serve(RouteLive).pipe(
+const ServerLive = HttpRouter.serve(RouteLive, { disableLogger: true }).pipe(
   Layer.provide(TicketActivityRecoveryLive),
   Layer.provide(SlackRuntimeLive),
   Layer.provide(GitHubWebhooksLive),

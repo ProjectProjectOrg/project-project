@@ -447,7 +447,7 @@ export const auth = betterAuth({
       }
     }),
     admin(),
-    jwt(),
+    jwt({ disableSettingJwtHeader: true }),
     mcp({
       loginPage: "/login",
       resource: mcpResource,
