@@ -18,7 +18,7 @@ export const addProjectUsers = (
       const missing = [...new Set(userIds)].filter(
         (id) => !assigned.includes(id)
       )
-      if (missing.length === 0) return false
+      if (missing.length === 0) return true
       yield* deps.everhour.assignProjectUsers(apiKey, everhourProjectId, [
         ...assigned,
         ...missing

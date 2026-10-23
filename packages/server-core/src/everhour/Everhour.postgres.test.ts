@@ -461,6 +461,28 @@ describe.skipIf(!databaseUrl)("Everhour time tracking", () => {
       }).pipe(Effect.scoped)
   )
 
+  it.live(
+    "lets both requests through when one member is assigned twice at once",
+    () =>
+      Effect.gen(function* () {
+        const fixture = yield* seed
+        const everhour = fakeEverhour([fixture.manager])
+        everhour.settings.assignDelay = "100 millis"
+        yield* Effect.all(
+          [
+            as(fixture, fixture.newcomer)(logTime("T-1", 600)),
+            as(fixture, fixture.newcomer)(logTime("T-2", 300))
+          ],
+          { concurrency: "unbounded" }
+        ).pipe(Effect.provide(servicesLayer(fixture, everhour)))
+        expect(everhour.assignedWith).toHaveLength(1)
+        expect(everhour.project.users).toEqual([
+          fixture.manager,
+          fixture.newcomer
+        ])
+      }).pipe(Effect.scoped)
+  )
+
   it.live("keeps both members when two of them are assigned at once", () =>
     Effect.gen(function* () {
       const fixture = yield* seed
