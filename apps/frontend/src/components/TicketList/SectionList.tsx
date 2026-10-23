@@ -29,7 +29,6 @@ import { Button } from "@/components/ui/button"
 import {
   backlogRequest,
   encodeTicketListQuery,
-  flatBacklogRequest,
   loadMoreBacklog,
   type BacklogRequest,
   type BacklogSection
@@ -136,11 +135,8 @@ export function SectionList({
   const editable = TicketPolicy.canChange(actor, { content: true })
   const canCreateTickets = canCreate && actor.call("tickets", "quickCreate")
   const req = useMemo(
-    () =>
-      creationVariant === "flat"
-        ? flatBacklogRequest(orgSlug, slug, query)
-        : backlogRequest(orgSlug, slug, query),
-    [creationVariant, orgSlug, slug, query]
+    () => backlogRequest(orgSlug, slug, query),
+    [orgSlug, slug, query]
   )
   const [creating, setCreating] = useState(false)
   const sectionId = useId()
