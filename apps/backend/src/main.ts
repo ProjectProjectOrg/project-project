@@ -76,9 +76,16 @@ import { count } from "drizzle-orm"
 import * as Config from "effect/Config"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
-import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
+import {
+  FetchHttpClient,
+  HttpMiddleware,
+  HttpRouter,
+  HttpServerRequest,
+  HttpServerResponse
+} from "effect/http"
 import { HttpApiBuilder, HttpApiSwagger } from "effect/http-api"
 import * as Layer from "effect/Layer"
+import { OtlpSerialization, OtlpTracer } from "effect/observability"
 import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
@@ -469,7 +476,39 @@ const ReaperLive = AttachmentReaperLive.pipe(
   Layer.provide(BackendInfrastructureLive)
 )
 
-const AppLive = Layer.mergeAll(ServerLive, ReconcilerLive, ReaperLive)
+const OtlpSerializationLive = Layer.unwrap(
+  Effect.gen(function* () {
+    const protocol = yield* Config.String(
+      "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL"
+    ).pipe(
+      Config.orElse(() => Config.String("OTEL_EXPORTER_OTLP_PROTOCOL")),
+      Config.withDefault("http/protobuf")
+    )
+    return protocol === "http/json"
+      ? // @effect-diagnostics-next-line unstableApiUsage:off
+        OtlpSerialization.layerJson
+      : // @effect-diagnostics-next-line unstableApiUsage:off
+        OtlpSerialization.layerProtobuf
+  })
+)
+
+// @effect-diagnostics-next-line unstableApiUsage:off
+const TracingLive = OtlpTracer.layerFromConfig({
+  resource: { serviceName: "projectproject-backend" }
+}).pipe(
+  Layer.provide(OtlpSerializationLive),
+  Layer.provide(FetchHttpClient.layer)
+)
+
+const untracedPrefixes = ["/api/auth/", "/.well-known/", "/api/integrations/"]
+
+const TracerDisabledLive = Layer.succeed(HttpMiddleware.TracerDisabledWhen)(
+  (request) => untracedPrefixes.some((prefix) => request.url.startsWith(prefix))
+)
+
+const AppLive = Layer.mergeAll(ServerLive, ReconcilerLive, ReaperLive).pipe(
+  Layer.provide(Layer.mergeAll(TracingLive, TracerDisabledLive))
+)
 
 // Only boot the real server when this file is the entry point. When tests
 // import { ApiLive } from this module, `import.meta.main` is false and we
