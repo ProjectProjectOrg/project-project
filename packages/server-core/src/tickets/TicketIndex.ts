@@ -70,6 +70,25 @@ export type TicketIndexEntry = Readonly<{
   updatedAt: Date
 }>
 
+/** A section with `ticketIds` holds exactly those tickets; one without catches the rest. */
+export type TicketIndexSection = Readonly<{
+  key: string
+  ticketIds?: ReadonlyArray<string>
+}>
+
+export interface TicketIndexSectionsOptions extends TicketIndexCountOptions {
+  readonly limit: number
+  readonly sections: "status" | ReadonlyArray<TicketIndexSection>
+}
+
+export type TicketIndexSections = ReadonlyMap<
+  string,
+  Readonly<{
+    counts: TicketIndexCounts
+    entries: ReadonlyArray<TicketIndexQueryEntry>
+  }>
+>
+
 export type TicketIndexQueryEntry = Readonly<{
   entry: TicketIndexEntry
   sortValue: string
@@ -188,6 +207,11 @@ export type TicketIndexShape = Readonly<{
     query: TicketListQuery,
     options: TicketIndexQueryOptions
   ) => Effect.Effect<ReadonlyArray<TicketIndexQueryEntry>>
+  querySections: (
+    project: TicketIndexProject,
+    query: TicketListQuery,
+    options: TicketIndexSectionsOptions
+  ) => Effect.Effect<TicketIndexSections>
   orderKeyFor: (
     project: TicketIndexProject,
     ticketId: string,

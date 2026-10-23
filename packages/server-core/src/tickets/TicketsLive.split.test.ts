@@ -246,6 +246,7 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
   projectFor: () => Effect.succeed(ticketIndexProject),
   list: () => Effect.succeed([]),
   query: () => Effect.succeed([]),
+  querySections: () => Effect.succeed(new Map()),
   orderKeyFor: () => Effect.succeed(null),
   count: () => Effect.succeed({ total: 0, byStatus: {} }),
   listIds: () => Effect.succeed([]),
