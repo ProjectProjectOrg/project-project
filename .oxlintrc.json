@@ -200,7 +200,7 @@
       }
     },
     {
-      "files": ["packages/integration-slack/src/**/*.ts"],
+      "files": ["packages/integration-*/src/**/*.ts"],
       "rules": {
         "eslint/no-restricted-imports": [
           "error",
@@ -213,7 +213,7 @@
                   "**/server-core/**",
                   "**/apps/**"
                 ],
-                "message": "Slack consumes PP capabilities through SlackHost; the backend supplies its implementation."
+                "message": "Integrations consume PP capabilities through their host services; the backend supplies its implementation."
               }
             ]
           }
@@ -229,11 +229,11 @@
             "patterns": [
               {
                 "group": [
-                  "@pp/integration-slack",
-                  "@pp/integration-slack/**",
-                  "**/integration-slack/**"
+                  "@pp/integration-*",
+                  "@pp/integration-*/**",
+                  "**/integration-*/**"
                 ],
-                "message": "Core records provider-neutral events and must not depend on Slack."
+                "message": "Core records provider-neutral events and must not depend on integration packages."
               }
             ]
           }

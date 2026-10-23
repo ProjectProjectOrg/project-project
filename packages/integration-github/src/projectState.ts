@@ -4,16 +4,16 @@ import {
   RateLimited,
   RepoGone
 } from "@pp/shared"
+import {
+  branchMentionsTicketId,
+  closingTicketIdsInText,
+  ticketIdsInText
+} from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
 
-import {
-  branchMentionsTicketId,
-  closingTicketIdsInText,
-  ticketIdsInText
-} from "../tickets/branchTicketId"
 import { graphqlFor } from "./clients"
 import { narrow } from "./errors"
 import type {
@@ -148,9 +148,9 @@ const OPEN_PULL_REQUESTS_QUERY = /* GraphQL */ `
   }
 `
 
-interface BranchRef {
-  readonly name: string
-}
+type BranchRef = Readonly<{
+  name: string
+}>
 
 const PullRequestSchema = Schema.Struct({
   number: Schema.Int,
@@ -254,23 +254,25 @@ const decodeFetchProjectStateBatchResponse = Schema.decodeUnknownEffect(
 type FetchProjectStateBatchResponse =
   typeof FetchProjectStateBatchResponseSchema.Type
 
-interface ListBranchesResponse {
-  readonly repository: {
-    readonly refs: {
-      readonly nodes: ReadonlyArray<{
-        readonly name: string
-        readonly branchProtectionRule: { readonly id: string } | null
-      }>
-      readonly pageInfo: { readonly hasNextPage: boolean }
-    }
-  } | null
-}
+type ListBranchesResponse = Readonly<{
+  repository: Readonly<{
+    refs: Readonly<{
+      nodes: ReadonlyArray<
+        Readonly<{
+          name: string
+          branchProtectionRule: Readonly<{ id: string }> | null
+        }>
+      >
+      pageInfo: Readonly<{ hasNextPage: boolean }>
+    }>
+  }> | null
+}>
 
-interface BranchExistsResponse {
-  readonly repository: {
-    readonly ref: { readonly name: string } | null
-  } | null
-}
+type BranchExistsResponse = Readonly<{
+  repository: Readonly<{
+    ref: Readonly<{ name: string }> | null
+  }> | null
+}>
 
 const mapChecks = (s: string | null | undefined): ChecksStatus => {
   if (!s) return "none"
@@ -330,10 +332,10 @@ const rawPullRequest = (pr: PullRequestNode): RawBranchEntry => ({
   checks: mapChecks(pr.commits.nodes[0]?.commit.statusCheckRollup?.state)
 })
 
-export interface ProjectStateBatchResponse {
-  readonly branches: ReadonlyArray<string>
-  readonly response: FetchProjectStateBatchResponse
-}
+export type ProjectStateBatchResponse = Readonly<{
+  branches: ReadonlyArray<string>
+  response: FetchProjectStateBatchResponse
+}>
 
 export const projectStatesFromBatchResponses = (
   data: ReadonlyArray<ProjectStateBatchResponse>
@@ -397,10 +399,10 @@ export const projectStatesFromBatchResponses = (
 export const buildProjectStateBatchQuery = (
   branches: ReadonlyArray<string>,
   cursors: ReadonlyMap<string, string> = new Map()
-): {
-  readonly query: string
-  readonly variables: Record<string, string | null>
-} => {
+): Readonly<{
+  query: string
+  variables: Record<string, string | null>
+}> => {
   const variableDefinitions = branches.flatMap((branch, index) => [
     `$ref${index}: String!`,
     `$headRefName${index}: String!`,

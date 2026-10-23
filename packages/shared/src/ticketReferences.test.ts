@@ -4,7 +4,7 @@ import {
   branchMentionsTicketId,
   closingTicketIdsInText,
   ticketIdsInText
-} from "./branchTicketId"
+} from "./ticketReferences"
 
 const idsFor = (branches: ReadonlyArray<string>) =>
   Object.fromEntries(

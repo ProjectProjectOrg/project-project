@@ -35,6 +35,7 @@
     "@effect/sql-pg": "4.0.5",
     "@pp/access": "workspace:*",
     "@pp/db": "workspace:*",
+    "@pp/integration-github": "workspace:*",
     "@pp/integration-slack": "workspace:*",
     "@pp/server-core": "workspace:*",
     "@pp/shared": "workspace:*",

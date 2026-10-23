@@ -27,7 +27,7 @@ export const githubErrorMessage = (cause: unknown): string => {
 }
 
 const header = (
-  headers: { readonly [key: PropertyKey]: unknown } | undefined,
+  headers: Readonly<{ [key: PropertyKey]: unknown }> | undefined,
   name: string
 ): string | undefined => {
   const found = headers
@@ -53,9 +53,11 @@ const parseRetryAfter = (
   return retryAt > nowSeconds ? retryAt : undefined
 }
 
-const graphqlErrorCodes = (error: {
-  readonly [key: PropertyKey]: unknown
-}): ReadonlyArray<string> => {
+const graphqlErrorCodes = (
+  error: Readonly<{
+    [key: PropertyKey]: unknown
+  }>
+): ReadonlyArray<string> => {
   const errors = error.errors
   if (!Array.isArray(errors)) return []
   return errors.flatMap((entry) => {
@@ -77,7 +79,7 @@ const isAllowedFailure = <
 export function mapHttpError(
   cause: unknown,
   nowSeconds: number,
-  context?: { readonly branch?: string }
+  context?: Readonly<{ branch?: string }>
 ): GitHubFailure {
   const err = Predicate.isObject(cause) ? cause : undefined
   const statusValue = err?.[HTTP_STATUS_KEY]
@@ -144,7 +146,7 @@ export function mapHttpError(
   return new GitHubError({ message })
 }
 
-export type TaggedFailure = { readonly _tag: string }
+export type TaggedFailure = Readonly<{ _tag: string }>
 
 export const narrow =
   <const Allow extends ReadonlyArray<GitHubFailure["_tag"]>>(allow: Allow) =>

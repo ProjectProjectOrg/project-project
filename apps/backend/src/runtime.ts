@@ -2,6 +2,8 @@ import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
 import * as BunPath from "@effect/platform-bun/BunPath"
 import { DbLive, PgLive } from "@pp/db"
+import * as GitHubProjectStateCache from "@pp/integration-github/projectStateCache"
+import * as GitHubRequest from "@pp/integration-github/request"
 import { SlackServicesLive } from "@pp/integration-slack/Services"
 import { AccessLive } from "@pp/server-core/access/AccessLive"
 import { TicketActivityFeedLive } from "@pp/server-core/activity/TicketActivityFeed"
@@ -18,9 +20,6 @@ import { FigmaIntegrationsLive } from "@pp/server-core/figma/FigmaIntegrationsLi
 import { FigmaLinksLive } from "@pp/server-core/figma/FigmaLinksLive"
 import { FigmaLive } from "@pp/server-core/figma/FigmaLive"
 import { GitHubIntegrationsLive } from "@pp/server-core/github/GitHubIntegrationsLive"
-import { GitHubLive } from "@pp/server-core/github/GitHubLive"
-import * as GitHubProjectStateCache from "@pp/server-core/github/projectStateCache"
-import * as GitHubRequest from "@pp/server-core/github/request"
 import { GroupDocsLive } from "@pp/server-core/groups/GroupDocsLive"
 import { GroupsLive } from "@pp/server-core/groups/GroupsLive"
 import * as JiraCleanupWorkflow from "@pp/server-core/jira/CleanupWorkflow"
@@ -64,6 +63,7 @@ import * as Effect from "effect/Effect"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
 
+import { GitHubLive, GitHubCacheLive } from "./github/GitHubLive"
 import { JiraWorkflowsLive } from "./jira/WorkflowRuntime"
 import { OrgAccessLive, ProjectAccessLive } from "./Layers/Access"
 import { AuthenticationLive } from "./Layers/Auth"
@@ -111,7 +111,7 @@ const JiraDurableServicesLive = Layer.unwrap(
 
 export const BackendInfrastructureLive = Layer.mergeAll(
   KeyedLock.layer,
-  GitHubProjectStateCache.layer,
+  GitHubCacheLive.pipe(Layer.provideMerge(GitHubProjectStateCache.layer)),
   GitHubRequest.layer,
   TicketDocumentLock.layer,
   BetterAuthLive,

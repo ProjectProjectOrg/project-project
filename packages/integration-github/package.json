@@ -1,0 +1,27 @@
+{
+  "name": "@pp/integration-github",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "vitest run --no-file-parallelism",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint . --fix"
+  },
+  "dependencies": {
+    "@octokit/auth-app": "^8.2.0",
+    "@octokit/graphql": "^9.0.3",
+    "@pp/shared": "workspace:*",
+    "effect": "4.0.5",
+    "octokit": "^5.0.5"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.0.5",
+    "@types/bun": "latest",
+    "vitest": "5.0.5"
+  }
+}

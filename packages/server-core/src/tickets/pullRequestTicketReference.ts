@@ -3,7 +3,7 @@ import * as Arr from "effect/Array"
 import { pipe } from "effect/Function"
 import * as Option from "effect/Option"
 
-import { closingTicketIdsInText, ticketIdsInText } from "./branchTicketId"
+import { closingTicketIdsInText, ticketIdsInText } from "@pp/shared"
 
 export type PullRequestTicketSource = "branch" | "title" | "body"
 

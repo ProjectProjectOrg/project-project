@@ -3,7 +3,6 @@ import { createHash } from "node:crypto"
 
 import {
   GitHubError,
-  GitHubTokenExpired,
   GithubRepo,
   GithubRepoPage,
   RateLimited
@@ -11,7 +10,6 @@ import {
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
-import { BetterAuth } from "../auth/BetterAuth"
 import { appAuth } from "./appAuth"
 import { octokitFor } from "./clients"
 import {
@@ -26,16 +24,17 @@ import {
   type GitHubShape,
   type VerifiedInstallationRepo
 } from "./GitHub"
+import { GitHubHost } from "./Host"
 import * as ProjectState from "./projectState"
 import * as ProjectStateCache from "./projectStateCache"
 import * as GitHubRequest from "./request"
 
 export function githubRepoMatchesQuery(
-  repo: {
-    readonly owner?: { readonly login?: string | null } | null
-    readonly name: string
-    readonly description?: string | null
-  },
+  repo: Readonly<{
+    owner?: Readonly<{ login?: string | null }> | null
+    name: string
+    description?: string | null
+  }>,
   query: string
 ): boolean {
   const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
@@ -49,7 +48,7 @@ export function githubRepoMatchesQuery(
 export const GitHubLive = Layer.effect(
   GitHub,
   Effect.gen(function* () {
-    const betterAuth = yield* BetterAuth
+    const host = yield* GitHubHost
     const auth = yield* appAuth()
     const projectStateCache = yield* ProjectStateCache.ProjectStateCache
     const requestState = yield* GitHubRequest.GitHubRequestState
@@ -63,15 +62,7 @@ export const GitHubLive = Layer.effect(
         Effect.provideService(GitHubRequest.GitHubRequestState, requestState)
       )
 
-    const tokenFor = (
-      userId: string
-    ): Effect.Effect<string, GitHubTokenExpired> =>
-      betterAuth.getGithubAccessToken(userId).pipe(
-        Effect.catchTag("NoGithubToken", () =>
-          Effect.fail(new GitHubTokenExpired())
-        ),
-        Effect.catchTag("BetterAuthError", (e) => Effect.die(e))
-      )
+    const tokenFor = host.userAccessToken
 
     const installationTokenFor = Effect.fn("GitHub.installationTokenFor")(
       function* (installationId: string) {
