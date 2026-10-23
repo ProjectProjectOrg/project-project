@@ -105,6 +105,13 @@
       },
       "rules": {
         "react-in-jsx-scope": "off",
+        "react/rules-of-hooks": "error",
+        "react/no-unstable-nested-components": [
+          "warn",
+          {
+            "allowAsProps": true
+          }
+        ],
         "react/hooks": "warn",
         "react/immutability": "warn",
         "react/incompatible-library": "warn",
@@ -138,6 +145,39 @@
             ]
           }
         ]
+      }
+    },
+    {
+      "files": ["apps/frontend/src/**/*.{ts,tsx}"],
+      "rules": {
+        "eslint/max-lines": [
+          "warn",
+          {
+            "max": 400,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ],
+        "eslint/max-lines-per-function": [
+          "warn",
+          {
+            "max": 200,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "apps/frontend/src/**/*.{spec,test}.{ts,tsx}",
+        "apps/frontend/src/**/*.test-d.{ts,tsx}",
+        "apps/frontend/src/paraglide/**",
+        "apps/frontend/src/routeTree.gen.ts"
+      ],
+      "rules": {
+        "eslint/max-lines": "off",
+        "eslint/max-lines-per-function": "off"
       }
     },
     {
