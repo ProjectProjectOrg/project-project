@@ -32,7 +32,7 @@ import {
   bannerFadeMask,
   bannerPreviewChanged
 } from "./project-banner-frame"
-import { bannerDefaults } from "./project-banner-presets"
+import { bannerDefaults, bannerPresets } from "./project-banner-presets"
 
 const devicePixelRatio = () =>
   typeof window === "undefined" ? 1 : Math.min(window.devicePixelRatio || 1, 2)
@@ -67,7 +67,14 @@ export function ProjectBanner({
   const crop = preview?.crop ?? appliedCrop
   const editing = preview !== null
   const changed = bannerPreviewChanged(preview, appliedSource, appliedCrop)
-  const placeholder = changed ? null : (banner?.placeholder ?? null)
+  const presetThumb =
+    banner?.type === "preset"
+      ? (bannerPresets.find((preset) => preset.id === banner.preset)
+          ?.thumbSrc ?? null)
+      : null
+  const placeholder = changed
+    ? null
+    : (banner?.placeholder ?? presetThumb ?? null)
   const reduceMotion = useReducedMotion() ?? false
   const [shaderImage, setShaderImage] = useState<HTMLImageElement | null>(null)
   const [naturalSize, setNaturalSize] = useState<{

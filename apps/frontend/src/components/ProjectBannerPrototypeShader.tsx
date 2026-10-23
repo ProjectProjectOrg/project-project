@@ -256,9 +256,11 @@ export function ProjectBannerPrototypeShader({
         "mode"
       ].map((name) => [name, uniform(name)])
     )
+    let drawnSize = ""
     const draw = () => {
       const { settings: s, mode: currentMode } = options.current
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      drawnSize = `${canvas.clientWidth}x${canvas.clientHeight}`
       canvas.width = Math.round(canvas.clientWidth * dpr)
       canvas.height = Math.round(canvas.clientHeight * dpr)
       if (!canvas.width || !canvas.height) return
@@ -282,7 +284,10 @@ export function ProjectBannerPrototypeShader({
       options.current.onRender?.(canvas)
     }
     drawRef.current = draw
-    const observer = new ResizeObserver(draw)
+    const observer = new ResizeObserver(() => {
+      const next = `${canvas.clientWidth}x${canvas.clientHeight}`
+      if (next !== drawnSize) draw()
+    })
     observer.observe(canvas)
     draw()
     return () => {
