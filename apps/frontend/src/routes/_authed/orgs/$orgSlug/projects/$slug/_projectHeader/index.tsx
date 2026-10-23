@@ -1,7 +1,10 @@
 import { TicketListQuery } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
+import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 
+import { readBacklogGrouping } from "@/components/TicketList/ProjectTicketLayout"
+import { me } from "@/features/auth/atoms/auth"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import {
   statusesFor,
@@ -16,6 +19,7 @@ import {
   sprintSections,
   sprintSectionsRequest
 } from "@/features/tickets/atoms/sprintSections"
+import { readViewPreference } from "@/hooks/useViewPreference"
 
 const BacklogRouteSearchSchema = TicketListQuery.pipe(
   Schema.fieldsAssign({
@@ -36,10 +40,22 @@ export const Route = createFileRoute(
     registry.mount(project(projectRequest(orgSlug, slug)))()
     registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
     registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
-    registry.mount(backlog(backlogRequest(orgSlug, slug, query)))()
-    registry.mount(
-      sprintSections(sprintSectionsRequest(orgSlug, slug, query))
-    )()
+    const viewer = registry.get(me())
+    const view = query.view ?? readViewPreference(orgSlug, slug, "backlog")
+    const grouping =
+      view === "board"
+        ? "status"
+        : Result.isSuccess(viewer)
+          ? readBacklogGrouping(viewer.value.id, orgSlug, slug)
+          : undefined
+    if (grouping !== "sprint") {
+      registry.mount(backlog(backlogRequest(orgSlug, slug, query)))()
+    }
+    if (grouping !== "status") {
+      registry.mount(
+        sprintSections(sprintSectionsRequest(orgSlug, slug, query))
+      )()
+    }
   },
   validateSearch: Schema.toStandardSchemaV1(BacklogRouteSearchSchema)
 })

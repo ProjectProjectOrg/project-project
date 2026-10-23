@@ -19,7 +19,10 @@ import {
   sprintRequest
 } from "@/features/sprints/atoms/sprintDetail"
 import { viewCounts } from "@/features/tickets/atoms/viewCounts"
-import { useLocalStorageState } from "@/hooks/useLocalStorageState"
+import {
+  readLocalStorage,
+  useLocalStorageState
+} from "@/hooks/useLocalStorageState"
 import { useProjectActor } from "@/lib/access"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
@@ -36,6 +39,20 @@ import {
 import { ViewSwitcher } from "./ViewSwitcher"
 
 const GroupingSchema = Schema.Literals(["status", "sprint"])
+
+const backlogGroupingKey = (preferencesKey: string) =>
+  `projectproject:backlog-grouping:${preferencesKey}`
+
+export const readBacklogGrouping = (
+  viewerId: string,
+  orgSlug: string,
+  slug: string
+) =>
+  readLocalStorage(
+    backlogGroupingKey(`${viewerId}:${orgSlug}/${slug}`),
+    GroupingSchema,
+    "status"
+  )
 
 type TicketLayoutState = Readonly<{
   grouping: typeof GroupingSchema.Type
@@ -69,7 +86,7 @@ export function ProjectTicketLayout({
   const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
   const preferencesKey = `${viewerId}:${orgSlug}/${slug}`
   const [grouping, setGrouping] = useLocalStorageState(
-    `projectproject:backlog-grouping:${preferencesKey}`,
+    backlogGroupingKey(preferencesKey),
     GroupingSchema,
     "status"
   )
