@@ -1,118 +1,83 @@
-import type { ChecksStatus, GitHubError } from "@pp/shared"
+import type {
+  GitHubError,
+  GitHubPullRequestWebhookChange,
+  GitHubBranchDeletionChange,
+  GitHubCheckWebhookChange,
+  GitHubRepositoryMetadataChange
+} from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 
-import type { MarkdownError } from "../markdown/Markdown"
+export type GitHubWebhookHandleError = GitHubError
 
-export type GitHubWebhookHandleError = GitHubError | MarkdownError
-
-export interface GitHubWebhookDelivery {
-  readonly event: string
-  readonly deliveryId: string | null
-  readonly body: string
-}
-
-export type GitHubPullRequestWebhookChange = Readonly<{
-  installationId: string
-  repositoryId: string
-  branch: string
-  number: number
-  title: string
+export type GitHubWebhookDelivery = Readonly<{
+  event: string
+  deliveryId: string | null
   body: string
-  state: "open" | "closed" | "merged"
-  draft: boolean
-  updatedAt: Date | null
-  mergedAt?: Date | null
-  baseBranch: string
-  defaultBranch: string | null
-  landed?: boolean
 }>
 
-export interface GitHubRepositoryMetadataChange {
-  readonly installationId: string
-  readonly repoId: string
-  readonly owner: string
-  readonly name: string
-  readonly defaultBranch: string
-}
-
-export interface GitHubBranchDeletionChange {
-  readonly installationId: string
-  readonly repositoryId: string
-  readonly branch: string
-}
-
-export interface GitHubCheckWebhookChange {
-  readonly installationId: string
-  readonly repositoryId: string
-  readonly branch: string
-  readonly headSha: string
-  readonly checks: ChecksStatus
-  readonly updatedAt: Date
-}
-
-export interface GitHubWebhookMutationSink {
-  readonly installationDeleted: (
+export type GitHubWebhookMutationSink = Readonly<{
+  installationDeleted: (
     installationId: string,
     deliveryId: string | null
   ) => Effect.Effect<void, GitHubWebhookHandleError>
-  readonly installationSuspended: (
+  installationSuspended: (
     installationId: string,
     deliveryId: string | null
   ) => Effect.Effect<void, GitHubWebhookHandleError>
-  readonly installationUnsuspended: (
+  installationUnsuspended: (
     installationId: string,
     deliveryId: string | null
   ) => Effect.Effect<void, GitHubWebhookHandleError>
-  readonly repositoriesRemoved: (
+  repositoriesRemoved: (
     installationId: string,
     repoIds: ReadonlyArray<string>,
     deliveryId: string | null
   ) => Effect.Effect<void, GitHubWebhookHandleError>
-  readonly repositoryRenamed: (
+  repositoryRenamed: (
     change: GitHubRepositoryMetadataChange,
     deliveryId: string | null
   ) => Effect.Effect<void, GitHubWebhookHandleError>
-  readonly repositoryTransferred: (
+  repositoryTransferred: (
     change: GitHubRepositoryMetadataChange,
     deliveryId: string | null
   ) => Effect.Effect<void, GitHubWebhookHandleError>
-  readonly repositoryArchived: (
+  repositoryArchived: (
     installationId: string,
     repoId: string,
     deliveryId: string | null
   ) => Effect.Effect<void, GitHubWebhookHandleError>
-  readonly repositoryUnarchived: (
+  repositoryUnarchived: (
     installationId: string,
     repoId: string,
     deliveryId: string | null
   ) => Effect.Effect<void, GitHubWebhookHandleError>
-  readonly repositoryDeleted: (
+  repositoryDeleted: (
     installationId: string,
     repoId: string,
     deliveryId: string | null
   ) => Effect.Effect<void, GitHubWebhookHandleError>
-  readonly pullRequestChanged: (
+  pullRequestChanged: (
     change: GitHubPullRequestWebhookChange,
     deliveryId: string | null
   ) => Effect.Effect<void, GitHubWebhookHandleError>
-  readonly branchDeleted: (
+  branchDeleted: (
     change: GitHubBranchDeletionChange,
     deliveryId: string | null
   ) => Effect.Effect<void, GitHubWebhookHandleError>
-  readonly checkStateChanged: (
+  checkStateChanged: (
     change: GitHubCheckWebhookChange,
     deliveryId: string | null
   ) => Effect.Effect<void, GitHubWebhookHandleError>
-}
+}>
 
-export interface GitHubWebhooksShape {
-  readonly handle: (
+export type GitHubWebhooksShape = Readonly<{
+  handle: (
     delivery: GitHubWebhookDelivery
   ) => Effect.Effect<void, GitHubWebhookHandleError>
-}
+}>
 
 export class GitHubWebhooks extends Context.Service<
   GitHubWebhooks,
   GitHubWebhooksShape
->()("@pp/server-core/github/GitHubWebhooks") {}
+>()("@pp/integration-github/GitHubWebhooks") {}

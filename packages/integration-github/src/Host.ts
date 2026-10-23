@@ -1,6 +1,9 @@
 import type {
   Forbidden,
   GitHubError,
+  GitHubPullRequestWebhookChange,
+  GitHubBranchDeletionChange,
+  GitHubCheckWebhookChange,
   GitHubTokenExpired,
   NotFound,
   Slug
@@ -26,5 +29,17 @@ export class GitHubHost extends Context.Service<
       organizationId: string,
       projectId: string | null
     ) => Effect.Effect<string, NotFound | GitHubError>
+    pullRequestChanged: (
+      change: GitHubPullRequestWebhookChange,
+      deliveryId: string | null
+    ) => Effect.Effect<void, GitHubError>
+    branchDeleted: (
+      change: GitHubBranchDeletionChange,
+      deliveryId: string | null
+    ) => Effect.Effect<void, GitHubError>
+    checkStateChanged: (
+      change: GitHubCheckWebhookChange,
+      deliveryId: string | null
+    ) => Effect.Effect<void, GitHubError>
   }>
 >()("@pp/integration-github/Host/GitHubHost") {}

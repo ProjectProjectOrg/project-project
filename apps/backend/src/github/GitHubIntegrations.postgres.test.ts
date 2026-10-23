@@ -10,12 +10,22 @@ import { GitHub } from "@pp/integration-github/GitHub"
 import type { GitHubShape } from "@pp/integration-github/GitHub"
 import { GitHubIntegrations } from "@pp/integration-github/GitHubIntegrations"
 import { GitHubIntegrationsLive } from "@pp/integration-github/GitHubIntegrationsLive"
+import { GitHubWebhooks } from "@pp/integration-github/GitHubWebhooks"
+import { GitHubWebhooksLive } from "@pp/integration-github/GitHubWebhooksLive"
+import { ProjectStateCache } from "@pp/integration-github/projectStateCache"
+import * as ProjectStateCacheLayer from "@pp/integration-github/projectStateCache"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import { GitHubTicketEvents } from "@pp/server-core/github/GitHubTicketEvents"
+import { MarkdownError } from "@pp/server-core/markdown/Markdown"
+import type { RawProjectStates } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { DateTime, Effect, Layer, Redacted } from "effect"
 import * as Cause from "effect/Cause"
+import * as Deferred from "effect/Deferred"
 import * as Exit from "effect/Exit"
+import * as Fiber from "effect/Fiber"
+import * as Schema from "effect/Schema"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
@@ -50,16 +60,32 @@ const makeGithub = (
 describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
   const userIds: Array<string> = []
   const organizationIds: Array<string> = []
+  const databaseLayer = DbLive.pipe(
+    Layer.provideMerge(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
+  )
+  const webhookLayer = (events: Partial<GitHubTicketEvents["Service"]> = {}) =>
+    GitHubWebhooksLive.pipe(
+      Layer.provide(GitHubHostLive),
+      Layer.provide(
+        Layer.mergeAll(
+          Layer.mock(BetterAuth, {}),
+          Layer.mock(GitHubTicketEvents, events)
+        )
+      ),
+      Layer.provideMerge(ProjectStateCacheLayer.layer),
+      Layer.provide(databaseLayer)
+    )
   const integrationLayer = GitHubIntegrationsLive.pipe(
     Layer.provide(Layer.succeed(GitHub, makeGithub())),
     Layer.provide(GitHubHostLive),
-    Layer.provide(Layer.mock(BetterAuth, {})),
-    Layer.provide(BunCrypto.layer),
     Layer.provide(
-      DbLive.pipe(
-        Layer.provideMerge(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
+      Layer.mergeAll(
+        Layer.mock(BetterAuth, {}),
+        Layer.mock(GitHubTicketEvents, {})
       )
-    )
+    ),
+    Layer.provide(BunCrypto.layer),
+    Layer.provide(databaseLayer)
   )
   let pool: Pool
 
@@ -196,15 +222,14 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       const raceLayer = GitHubIntegrationsLive.pipe(
         Layer.provide(Layer.succeed(GitHub, raceGithub)),
         Layer.provide(GitHubHostLive),
-        Layer.provide(Layer.mock(BetterAuth, {})),
-        Layer.provide(BunCrypto.layer),
         Layer.provide(
-          DbLive.pipe(
-            Layer.provideMerge(
-              PgClient.layer({ url: Redacted.make(databaseUrl!) })
-            )
+          Layer.mergeAll(
+            Layer.mock(BetterAuth, {}),
+            Layer.mock(GitHubTicketEvents, {})
           )
-        )
+        ),
+        Layer.provide(BunCrypto.layer),
+        Layer.provide(databaseLayer)
       )
       const raceCallback = (code: string) =>
         Effect.flatMap(GitHubIntegrations, (integrations) =>
@@ -297,6 +322,137 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
           )
         )
         expect(afterRetry.rows[0]?.completed_at).not.toBeNull()
+      })
+  )
+  it.effect(
+    "installation removal disconnects the integration and invalidates its repository cache",
+    () =>
+      Effect.gen(function* () {
+        const fixture = yield* Effect.promise(() => insertSession())
+        yield* callback(fixture.state, "install")
+        yield* Effect.gen(function* () {
+          const cache = yield* ProjectStateCache
+          const webhooks = yield* GitHubWebhooks
+          let reads = 0
+          const fetch = Effect.sync((): RawProjectStates => {
+            reads += 1
+            return {
+              defaultBranch: "main",
+              existingBranches: new Set(),
+              prByBranch: new Map(),
+              mergedPrsByBranch: new Map(),
+              openPullRequestText: new Map(),
+              fetchedAt: date("2026-04-01T00:00:00Z")
+            }
+          })
+          yield* cache.cachedProjectStates(
+            "repo",
+            fixture.installationId,
+            "repo",
+            fetch
+          )
+          yield* webhooks.handle({
+            event: "installation",
+            deliveryId: "removed",
+            body: yield* Schema.encodeEffect(
+              Schema.fromJsonString(Schema.Unknown)
+            )({
+              action: "deleted",
+              installation: { id: fixture.installationId }
+            })
+          })
+          yield* cache.cachedProjectStates(
+            "repo",
+            fixture.installationId,
+            "repo",
+            fetch
+          )
+          expect(reads).toBe(2)
+        }).pipe(Effect.provide(webhookLayer()))
+        const result = yield* Effect.promise(() =>
+          pool.query(
+            "SELECT status FROM organization_integration WHERE organization_id = $1",
+            [fixture.organizationId]
+          )
+        )
+        expect(result.rows.map((row) => row.status)).toEqual(["disconnected"])
+      })
+  )
+
+  it.effect(
+    "awaits a core ticket write and propagates failure after invalidating the cache",
+    () =>
+      Effect.gen(function* () {
+        const started = yield* Deferred.make<void>()
+        const release = yield* Deferred.make<void>()
+        const failure = new MarkdownError({
+          cause: "disk full",
+          message: "ticket write failed"
+        })
+        const events = {
+          pullRequestChanged: () =>
+            Deferred.succeed(started, undefined).pipe(
+              Effect.andThen(Deferred.await(release)),
+              Effect.andThen(Effect.fail(failure))
+            )
+        }
+        yield* Effect.gen(function* () {
+          const cache = yield* ProjectStateCache
+          const webhooks = yield* GitHubWebhooks
+          let reads = 0
+          let finished = false
+          const fetch = Effect.sync((): RawProjectStates => {
+            reads += 1
+            return {
+              defaultBranch: "main",
+              existingBranches: new Set(),
+              prByBranch: new Map(),
+              mergedPrsByBranch: new Map(),
+              openPullRequestText: new Map(),
+              fetchedAt: date("2026-04-01T00:00:00Z")
+            }
+          })
+          yield* cache.cachedProjectStates("repo", "123", "repo", fetch)
+          const body = yield* Schema.encodeEffect(
+            Schema.fromJsonString(Schema.Unknown)
+          )({
+            action: "opened",
+            installation: { id: "123" },
+            repository: { id: "456", default_branch: "main" },
+            number: 1,
+            pull_request: {
+              number: 1,
+              state: "open",
+              merged: false,
+              head: { ref: "feat/T-1", repo: { id: "456" } },
+              base: { ref: "main" }
+            }
+          })
+          const request = yield* webhooks
+            .handle({ event: "pull_request", deliveryId: "write-failed", body })
+            .pipe(
+              Effect.exit,
+              Effect.tap(() =>
+                Effect.sync(() => {
+                  finished = true
+                })
+              ),
+              Effect.forkChild
+            )
+          yield* Deferred.await(started)
+          yield* Effect.yieldNow
+          expect(finished).toBe(false)
+          yield* Deferred.succeed(release, undefined)
+          const result = yield* Fiber.join(request)
+          expect(Exit.isFailure(result)).toBe(true)
+          if (Exit.isFailure(result))
+            expect(Cause.findErrorOption(result.cause)).toMatchObject({
+              _tag: "Some",
+              value: { _tag: "GitHubError", message: "ticket write failed" }
+            })
+          yield* cache.cachedProjectStates("repo", "123", "repo", fetch)
+          expect(reads).toBe(2)
+        }).pipe(Effect.provide(webhookLayer(events)))
       })
   )
 })

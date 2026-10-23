@@ -2,7 +2,6 @@ import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
 import * as BunPath from "@effect/platform-bun/BunPath"
 import { DbLive, PgLive } from "@pp/db"
-import { GitHubIntegrationsLive } from "@pp/integration-github/GitHubIntegrationsLive"
 import * as GitHubProjectStateCache from "@pp/integration-github/projectStateCache"
 import * as GitHubRequest from "@pp/integration-github/request"
 import { SlackServicesLive } from "@pp/integration-slack/Services"
@@ -20,6 +19,7 @@ import { EverhourTimeTrackingLive } from "@pp/server-core/everhour/EverhourTimeT
 import { FigmaIntegrationsLive } from "@pp/server-core/figma/FigmaIntegrationsLive"
 import { FigmaLinksLive } from "@pp/server-core/figma/FigmaLinksLive"
 import { FigmaLive } from "@pp/server-core/figma/FigmaLive"
+import { GitHubTicketEventsLive } from "@pp/server-core/github/GitHubTicketEventsLive"
 import { GroupDocsLive } from "@pp/server-core/groups/GroupDocsLive"
 import { GroupsLive } from "@pp/server-core/groups/GroupsLive"
 import * as JiraCleanupWorkflow from "@pp/server-core/jira/CleanupWorkflow"
@@ -63,8 +63,7 @@ import * as Effect from "effect/Effect"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
 
-import { GitHubLive, GitHubCacheLive } from "./github/GitHubLive"
-import { GitHubHostLive } from "./github/HostLive"
+import { GitHubLive } from "./github/GitHubLive"
 import { JiraWorkflowsLive } from "./jira/WorkflowRuntime"
 import { OrgAccessLive, ProjectAccessLive } from "./Layers/Access"
 import { AuthenticationLive } from "./Layers/Auth"
@@ -112,7 +111,7 @@ const JiraDurableServicesLive = Layer.unwrap(
 
 export const BackendInfrastructureLive = Layer.mergeAll(
   KeyedLock.layer,
-  GitHubCacheLive.pipe(Layer.provideMerge(GitHubProjectStateCache.layer)),
+  GitHubProjectStateCache.layer,
   GitHubRequest.layer,
   TicketDocumentLock.layer,
   BetterAuthLive,
@@ -132,7 +131,6 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
   TagsLive.pipe(
     Layer.provideMerge(ProjectStatusesLive),
     Layer.provideMerge(TicketsLive),
-    Layer.provideMerge(ProjectGitAutomationLive),
     Layer.provideMerge(TicketActivityFeedLive),
     Layer.provideMerge(LibraryLive),
     Layer.provideMerge(AttachmentUploadsLive),
@@ -145,15 +143,11 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
     Layer.provideMerge(EverhourTimeTrackingLive),
     Layer.provideMerge(AccessLive),
     Layer.provideMerge(GitHubLive),
+    Layer.provideMerge(GitHubTicketEventsLive),
+    Layer.provideMerge(ProjectGitAutomationLive),
     Layer.provideMerge(EverhourLive)
   )
     .pipe(
-      Layer.provideMerge(
-        GitHubIntegrationsLive.pipe(
-          Layer.provideMerge(GitHubLive),
-          Layer.provide(GitHubHostLive)
-        )
-      ),
       Layer.provideMerge(
         EverhourIntegrationsLive.pipe(Layer.provideMerge(EverhourLive))
       ),

@@ -4,6 +4,7 @@ import { publishedProject } from "@pp/db/projectVisibility"
 import { member, organization } from "@pp/db/schema"
 import { GitHubHost } from "@pp/integration-github/Host"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import { GitHubTicketEvents } from "@pp/server-core/github/GitHubTicketEvents"
 import {
   Forbidden,
   GitHubError,
@@ -22,6 +23,7 @@ export const GitHubHostLive = Layer.effect(
   Effect.gen(function* () {
     const auth = yield* BetterAuth
     const db = yield* Db
+    const events = yield* GitHubTicketEvents
     const decodeOrgRole = Schema.decodeUnknownEffect(OrgRole)
     const publicBaseUrl = Config.String("BETTER_AUTH_URL").pipe(
       Config.withDefault("http://localhost:5173")
@@ -93,6 +95,23 @@ export const GitHubHostLive = Layer.effect(
       }
     )
     return GitHubHost.of({
+      pullRequestChanged: (change, deliveryId) =>
+        events
+          .pullRequestChanged(change, deliveryId)
+          .pipe(
+            Effect.mapError(
+              (error) => new GitHubError({ message: error.message })
+            )
+          ),
+      branchDeleted: (change, deliveryId) =>
+        events
+          .branchDeleted(change, deliveryId)
+          .pipe(
+            Effect.mapError(
+              (error) => new GitHubError({ message: error.message })
+            )
+          ),
+      checkStateChanged: events.checkStateChanged,
       requireInstallPermission,
       installationRedirect,
       installationProject: (organizationId, slug) =>

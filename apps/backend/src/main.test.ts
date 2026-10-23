@@ -57,7 +57,7 @@ vi.mock("./auth", () => ({
 import {
   GitHubWebhooks,
   type GitHubWebhooksShape
-} from "@pp/server-core/github/GitHubWebhooks"
+} from "@pp/integration-github/GitHubWebhooks"
 
 import { AuthHandlerLive } from "./handlers/auth"
 import {
