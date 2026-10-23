@@ -31,6 +31,7 @@ import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-conte
 import { BacklogGroupingControl } from "./BacklogGroupingControl"
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { SprintTicketCreator } from "./SprintTicketCreator"
+import { CreatorActiveScope, DimWhileCreating } from "./TicketCreatorShell"
 import {
   TicketToolbar,
   useViewTicketCounts,
@@ -119,95 +120,97 @@ export function ProjectTicketLayout({
     onSuccess: () => null
   })
   return (
-    <PageContainer className="group/list gap-3">
-      <Activity mode={view === "description" ? "hidden" : "visible"}>
-        {(showCreator || reorder.reorderMode) && (
-          <div className="relative min-h-9">
+    <CreatorActiveScope>
+      <PageContainer className="group/list gap-3">
+        <Activity mode={view === "description" ? "hidden" : "visible"}>
+          {(showCreator || reorder.reorderMode) && (
+            <div className="relative min-h-9">
+              <motion.div
+                initial={false}
+                animate={{ opacity: reorder.reorderMode ? 1 : 0 }}
+                transition={transitions.fade}
+                inert={!reorder.reorderMode}
+                aria-hidden={!reorder.reorderMode}
+                className="absolute inset-x-0 top-1/2 -translate-y-1/2"
+              >
+                <ReorderBoardBanner
+                  onSave={reorder.saveReorder}
+                  onCancel={reorder.cancelReorder}
+                />
+              </motion.div>
+              <motion.div
+                initial={false}
+                animate={{ opacity: reorder.reorderMode ? 0 : 1 }}
+                transition={transitions.fade}
+                inert={reorder.reorderMode}
+                aria-hidden={reorder.reorderMode}
+              >
+                {groupId
+                  ? canAddToSprint && (
+                      <SprintCreator
+                        key={groupId}
+                        orgSlug={orgSlug}
+                        slug={slug}
+                        groupId={groupId}
+                      />
+                    )
+                  : canCreate && (
+                      <BacklogTicketCreator
+                        orgSlug={orgSlug}
+                        slug={slug}
+                        query={query}
+                      />
+                    )}
+              </motion.div>
+            </div>
+          )}
+        </Activity>
+        <DimWhileCreating className="flex flex-col gap-3 transition-opacity duration-200 ease-out">
+          <Activity mode={view === "description" ? "hidden" : "visible"}>
             <motion.div
               initial={false}
-              animate={{ opacity: reorder.reorderMode ? 1 : 0 }}
-              transition={transitions.fade}
-              inert={!reorder.reorderMode}
-              aria-hidden={!reorder.reorderMode}
-              className="absolute inset-x-0 top-1/2 -translate-y-1/2"
-            >
-              <ReorderBoardBanner
-                onSave={reorder.saveReorder}
-                onCancel={reorder.cancelReorder}
-              />
-            </motion.div>
-            <motion.div
-              initial={false}
-              animate={{ opacity: reorder.reorderMode ? 0 : 1 }}
+              animate={{ opacity: reorder.reorderMode ? 0.35 : 1 }}
               transition={transitions.fade}
               inert={reorder.reorderMode}
               aria-hidden={reorder.reorderMode}
             >
-              {groupId
-                ? canAddToSprint && (
-                    <SprintCreator
-                      key={groupId}
-                      orgSlug={orgSlug}
-                      slug={slug}
-                      groupId={groupId}
-                    />
-                  )
-                : canCreate && (
-                    <BacklogTicketCreator
-                      orgSlug={orgSlug}
-                      slug={slug}
-                      query={query}
-                    />
-                  )}
-            </motion.div>
-          </div>
-        )}
-      </Activity>
-      <div className="flex flex-col gap-3 transition-opacity duration-200 ease-out group-has-[form[data-active]]/list:opacity-35">
-        <Activity mode={view === "description" ? "hidden" : "visible"}>
-          <motion.div
-            initial={false}
-            animate={{ opacity: reorder.reorderMode ? 0.35 : 1 }}
-            transition={transitions.fade}
-            inert={reorder.reorderMode}
-            aria-hidden={reorder.reorderMode}
-          >
-            <TicketToolbar
-              orgSlug={orgSlug}
-              slug={slug}
-              scopeKey={scope}
-              query={query}
-              onQueryChange={onQueryChange}
-              members={project.members}
-              counts={Result.isSuccess(counts) ? counts.value : null}
-              filters={
-                project.estimation === "off"
-                  ? filters
-                  : [...filters, "estimate"]
-              }
-              estimation={project.estimation}
-              showSort={!groupId || !isBoard}
-              viewControls={<ViewSwitcher orgSlug={orgSlug} slug={slug} />}
-            >
-              {!groupId && !isBoard && (
-                <BacklogGroupingControl
-                  value={grouping}
-                  onChange={setGrouping}
+              <TicketToolbar
+                orgSlug={orgSlug}
+                slug={slug}
+                scopeKey={scope}
+                query={query}
+                onQueryChange={onQueryChange}
+                members={project.members}
+                counts={Result.isSuccess(counts) ? counts.value : null}
+                filters={
+                  project.estimation === "off"
+                    ? filters
+                    : [...filters, "estimate"]
+                }
+                estimation={project.estimation}
+                showSort={!groupId || !isBoard}
+                viewControls={<ViewSwitcher orgSlug={orgSlug} slug={slug} />}
+              >
+                {!groupId && !isBoard && (
+                  <BacklogGroupingControl
+                    value={grouping}
+                    onChange={setGrouping}
+                  />
+                )}
+              </TicketToolbar>
+              {groupId && isBoard && countError && (
+                <ErrorPage
+                  error={countError.error}
+                  reset={refreshCounts}
+                  contained
                 />
               )}
-            </TicketToolbar>
-            {groupId && isBoard && countError && (
-              <ErrorPage
-                error={countError.error}
-                reset={refreshCounts}
-                contained
-              />
-            )}
-          </motion.div>
-        </Activity>
-        {children({ grouping, preferencesKey, reorder })}
-      </div>
-    </PageContainer>
+            </motion.div>
+          </Activity>
+          {children({ grouping, preferencesKey, reorder })}
+        </DimWhileCreating>
+      </PageContainer>
+    </CreatorActiveScope>
   )
 }
 
