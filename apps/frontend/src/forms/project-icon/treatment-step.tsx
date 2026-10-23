@@ -195,7 +195,6 @@ export function TreatmentStep({
               preview &&
               !preview.transparent ? (
                 <Slider
-                  size="compact"
                   label={m.project_icon_background_removal()}
                   min={0}
                   max={CUTOUT_MAX_TOLERANCE}
