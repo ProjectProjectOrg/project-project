@@ -42,7 +42,11 @@ import { getLocale } from "@/paraglide/runtime"
 
 import { Row } from "./Row"
 import { sprintCollapseKey, useCollapsedInRecord } from "./sectionCollapse"
-import { SectionList, TicketPagination } from "./SectionList"
+import {
+  CreatingSectionsProvider,
+  SectionList,
+  TicketPagination
+} from "./SectionList"
 import { backlogSprintSections } from "./sprintGrouping"
 import { useTicketPreview } from "./useTicketPreview"
 
@@ -121,33 +125,32 @@ export function SprintSections(props: Props) {
   const waiting = groupsResult.waiting || snapshotResult.waiting
   const renderSections = () =>
     groups && active ? (
-      <div
-        style={{ overflowAnchor: "none" }}
-        className="flex flex-col gap-1 has-[[data-creating]]:[&>:not(:has([data-creating]))]:opacity-35"
-      >
-        {backlogSprintSections(groups, active.query.groupId).map((sprint) => {
-          const id = sprintSectionKey(sprint?.id ?? null)
-          const section = active.value.sections.find(
-            (entry) => entry.key === id
-          )
-          return (
-            <SprintSection
-              key={id}
-              {...props}
-              persistKey={persistKey}
-              query={active.query}
-              snapshotReq={active.req}
-              sprint={sprint}
-              page={section?.page ?? EMPTY_PAGE}
-              count={section?.count ?? 0}
-              estimates={section?.estimates ?? null}
-              waiting={waiting}
-              activePreviewId={preview.activePreviewId}
-              onPreviewPointerEnter={preview.onPreviewPointerEnter}
-              onPreviewOpenChange={preview.onPreviewOpenChange}
-            />
-          )
-        })}
+      <div style={{ overflowAnchor: "none" }} className="flex flex-col gap-1">
+        <CreatingSectionsProvider>
+          {backlogSprintSections(groups, active.query.groupId).map((sprint) => {
+            const id = sprintSectionKey(sprint?.id ?? null)
+            const section = active.value.sections.find(
+              (entry) => entry.key === id
+            )
+            return (
+              <SprintSection
+                key={id}
+                {...props}
+                persistKey={persistKey}
+                query={active.query}
+                snapshotReq={active.req}
+                sprint={sprint}
+                page={section?.page ?? EMPTY_PAGE}
+                count={section?.count ?? 0}
+                estimates={section?.estimates ?? null}
+                waiting={waiting}
+                activePreviewId={preview.activePreviewId}
+                onPreviewPointerEnter={preview.onPreviewPointerEnter}
+                onPreviewOpenChange={preview.onPreviewOpenChange}
+              />
+            )
+          })}
+        </CreatingSectionsProvider>
       </div>
     ) : (
       <div

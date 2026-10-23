@@ -12,6 +12,11 @@ import type {
 import * as Result from "effect/reactivity/AsyncResult"
 import { Loader2 } from "lucide-react"
 import {
+  createContext,
+  useCallback,
+  use,
+  useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -42,6 +47,39 @@ import { AutoLoad, VirtualRows } from "./VirtualRows"
 const renderDefaultRow = (props: ComponentProps<typeof Row>) => (
   <Row {...props} />
 )
+
+type CreatingSections = Readonly<{
+  creatingIds: ReadonlySet<string>
+  setCreating: (id: string, creating: boolean) => void
+}>
+
+const CreatingSectionContext = createContext<CreatingSections | null>(null)
+
+export function CreatingSectionsProvider({
+  children
+}: Readonly<{ children: ReactNode }>) {
+  const [creatingIds, setCreatingIds] = useState<ReadonlySet<string>>(
+    () => new Set()
+  )
+  const setCreating = useCallback(
+    (id: string, creating: boolean) =>
+      setCreatingIds((current) => {
+        if (current.has(id) === creating) return current
+        const next = new Set(current)
+        if (creating) next.add(id)
+        else next.delete(id)
+        return next
+      }),
+    []
+  )
+  const value = useMemo<CreatingSections>(
+    () => ({ creatingIds, setCreating }),
+    [creatingIds, setCreating]
+  )
+  return (
+    <CreatingSectionContext value={value}>{children}</CreatingSectionContext>
+  )
+}
 
 export function SectionList({
   orgSlug,
@@ -105,6 +143,17 @@ export function SectionList({
     [creationVariant, orgSlug, slug, query]
   )
   const [creating, setCreating] = useState(false)
+  const sectionId = useId()
+  const creatingSections = use(CreatingSectionContext)
+  const reportCreating = creatingSections?.setCreating
+  useEffect(() => {
+    reportCreating?.(sectionId, creating)
+    return () => reportCreating?.(sectionId, false)
+  }, [reportCreating, sectionId, creating])
+  const dimmed =
+    creatingSections !== null &&
+    creatingSections.creatingIds.size > 0 &&
+    !creatingSections.creatingIds.has(sectionId)
 
   const { items } = page
 
@@ -120,7 +169,10 @@ export function SectionList({
 
   return (
     <div
-      className="flex flex-col transition-opacity duration-200 ease-out"
+      className={cn(
+        "flex flex-col transition-opacity duration-200 ease-out",
+        dimmed && "opacity-35"
+      )}
       data-creating={creating || undefined}
     >
       <SectionHeader
