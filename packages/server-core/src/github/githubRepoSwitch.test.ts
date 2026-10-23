@@ -255,10 +255,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
               name: "new",
               defaultBranch: "main"
             }),
-          getInstallationAccount: unused,
           listInstallationRepos: unused,
-          exchangeAppUserCode: unused,
-          appUserCanAccessInstallation: unused,
           createBranchAsUser: unused,
           openPullRequestAsUser: unused,
           fetchInstallationProjectStates: unused,

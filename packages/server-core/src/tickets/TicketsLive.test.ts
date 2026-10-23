@@ -103,12 +103,8 @@ const FakeGroups = Layer.succeed(Groups, {
 } satisfies GroupsShape)
 
 const FakeGitHub = Layer.succeed(GitHub, {
-  getInstallationAccount: () => unexpected("GitHub.getInstallationAccount"),
   listInstallationRepos: () => unexpected("GitHub.listInstallationRepos"),
   verifyInstallationRepo: () => unexpected("GitHub.verifyInstallationRepo"),
-  exchangeAppUserCode: () => unexpected("GitHub.exchangeAppUserCode"),
-  appUserCanAccessInstallation: () =>
-    unexpected("GitHub.appUserCanAccessInstallation"),
   createBranchAsUser: () => unexpected("GitHub.createBranchAsUser"),
   openPullRequestAsUser: () => unexpected("GitHub.openPullRequestAsUser"),
   fetchInstallationProjectStates: () =>

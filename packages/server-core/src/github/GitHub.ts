@@ -1,8 +1,7 @@
-import type { GitHubShape } from "@pp/shared"
+import type { GitHubShape as GitHubClientShape } from "@pp/shared"
 import * as Context from "effect/Context"
 
 export type {
-  GitHubShape,
   GitHubInstallationAccount,
   VerifiedInstallationRepo,
   RawBranchEntry,
@@ -11,6 +10,17 @@ export type {
   RawPullRequestText,
   ChecksStatus
 } from "@pp/shared"
+
+export type GitHubShape = Pick<
+  GitHubClientShape,
+  | "listInstallationRepos"
+  | "verifyInstallationRepo"
+  | "createBranchAsUser"
+  | "openPullRequestAsUser"
+  | "fetchInstallationProjectStates"
+  | "listInstallationBranches"
+  | "branchExistsInstallation"
+>
 
 export class GitHub extends Context.Service<GitHub, GitHubShape>()(
   "@pp/server-core/github/GitHub"

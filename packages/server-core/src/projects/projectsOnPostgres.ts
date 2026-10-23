@@ -99,10 +99,7 @@ export const projectsOnPostgres = (
     Layer.provide(
       Layer.succeed(GitHub, {
         verifyInstallationRepo: unused,
-        getInstallationAccount: unused,
         listInstallationRepos: unused,
-        exchangeAppUserCode: unused,
-        appUserCanAccessInstallation: unused,
         createBranchAsUser: unused,
         openPullRequestAsUser: unused,
         fetchInstallationProjectStates: unused,
