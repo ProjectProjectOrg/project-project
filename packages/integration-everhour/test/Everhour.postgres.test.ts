@@ -10,6 +10,7 @@ import {
   ProjectScope,
   type ProjectScopeShape
 } from "@pp/shared"
+import * as DateTime from "effect/DateTime"
 import type * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -765,5 +766,66 @@ describe.skipIf(!databaseUrl)("Everhour background sync", () => {
       ).pipe(Effect.map((result) => result.rows))
       expect(links).toEqual([{ subscribed_events: EVERHOUR_EVENTS }])
     }).pipe(Effect.scoped)
+  )
+
+  it.live("postpones a sync while no manager has synced the project", () =>
+    Effect.gen(function* () {
+      const fixture = yield* seed
+      const everhour = fakeEverhour([fixture.manager])
+      yield* withClient((client) =>
+        client.query(
+          `update project_everhour_integration
+             set last_sync_actor_user_id = null, sync_requested_at = now()
+             where project_integration_link_id = $1`,
+          [fixture.linkId]
+        )
+      )
+      yield* syncRequested.pipe(
+        Effect.provide(servicesLayer(fixture, everhour))
+      )
+      const state = yield* syncState(fixture)
+      const now = DateTime.toEpochMillis(yield* DateTime.now)
+      expect(state.sync_requested_at).not.toBeNull()
+      expect(state.sync_claimed_until!.getTime()).toBeGreaterThan(
+        now + 30 * 60 * 1000
+      )
+      expect(everhour.projectReads.count).toBe(0)
+    }).pipe(Effect.scoped)
+  )
+
+  it.live(
+    "runs a manual sync only after another sync releases the project",
+    () =>
+      Effect.gen(function* () {
+        const fixture = yield* seed
+        const everhour = fakeEverhour([fixture.manager])
+        const [{ until }] = yield* withClient((client) =>
+          client.query<{ until: Date }>(
+            `update project_everhour_integration
+             set sync_claimed_until = now() + interval '2 seconds', sync_requested_at = now()
+             where project_integration_link_id = $1
+             returning sync_claimed_until as until`,
+            [fixture.linkId]
+          )
+        ).pipe(Effect.map((result) => result.rows))
+        const readAt: Array<number> = []
+        everhour.hooks.beforeProjectRead = () =>
+          Effect.map(DateTime.now, (now) => {
+            readAt.push(DateTime.toEpochMillis(now))
+          })
+        yield* as(
+          fixture,
+          fixture.manager
+        )(
+          Effect.flatMap(EverhourIntegrations, (integrations) =>
+            integrations.syncProject()
+          )
+        ).pipe(Effect.provide(servicesLayer(fixture, everhour)))
+        expect(readAt[0]).toBeGreaterThanOrEqual(until.getTime())
+        expect(yield* syncState(fixture)).toEqual({
+          sync_requested_at: null,
+          sync_claimed_until: null
+        })
+      }).pipe(Effect.scoped)
   )
 })

@@ -545,7 +545,10 @@ export const projectEverhourIntegration = pgTable(
     }).onDelete("cascade"),
     uniqueIndex("project_everhour_integration_active_project_uidx")
       .on(t.organizationId, t.everhourProjectId)
-      .where(sql`${t.status} = 'active'`)
+      .where(sql`${t.status} = 'active'`),
+    index("project_everhour_integration_sync_requested_idx")
+      .on(t.syncRequestedAt)
+      .where(sql`${t.syncRequestedAt} is not null`)
   ]
 )
 

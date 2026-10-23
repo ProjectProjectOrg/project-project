@@ -2,9 +2,9 @@
   "type": "diff",
   "version": "9",
   "dialect": "postgres",
-  "id": "88da6993-4203-4aa1-bdcd-da72e37aa8e5",
+  "id": "d743faed-bfbf-4efa-9efd-cfe2cf8721ef",
   "prevIds": [
-    "7cc53ac6-4c32-4f28-bf63-da11d83d9533"
+    "aef984bb-bbea-421e-bf5f-a9baf8d5b3ff"
   ],
   "footprints": [
     {
@@ -42,6 +42,26 @@
         "n|tbl|public.project_everhour_integration",
         "n|sch|public"
       ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "project_everhour_integration",
+        "project_everhour_integration_sync_requested_idx"
+      ],
+      "writes": [
+        "s|idx|public.project_everhour_integration_sync_requested_idx",
+        "n|idx|public.project_everhour_integration_sync_requested_idx",
+        "e|idx|public.project_everhour_integration_sync_requested_idx",
+        "n|rel|public.project_everhour_integration_sync_requested_idx"
+      ],
+      "reads": [
+        "n|tbl|public.project_everhour_integration",
+        "n|sch|public",
+        "n|col|public.project_everhour_integration.sync_requested_at"
+      ]
     }
   ],
   "deltas": [
@@ -75,6 +95,30 @@
         "generated": null,
         "identity": null,
         "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_everhour_integration",
+        "name": "project_everhour_integration_sync_requested_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "sync_requested_at",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": "\"sync_requested_at\" is not null",
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
       }
     }
   ]
