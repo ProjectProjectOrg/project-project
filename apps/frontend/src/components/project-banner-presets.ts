@@ -1,14 +1,14 @@
 import type { ProjectBannerPreset } from "@pp/shared"
 
+import cliff_walkThumbUrl from "@/assets/project-banners/monet-14620-thumb.webp"
+import saint_lazareThumbUrl from "@/assets/project-banners/monet-16571-thumb.webp"
+import wheat_stacksThumbUrl from "@/assets/project-banners/monet-64818-thumb.webp"
+import bordigheraThumbUrl from "@/assets/project-banners/monet-81537-thumb.webp"
+import water_lily_pondThumbUrl from "@/assets/project-banners/monet-87088-thumb.webp"
+import sunsetThumbUrl from "@/assets/project-banners/monet-sunset-thumb.webp"
 import { bannerPresetSources, bannerSource } from "@/lib/bannerSource"
 import { m } from "@/paraglide/messages"
 
-import cliff_walkThumbUrl from "./project-banner-monet-14620-thumb.webp"
-import saint_lazareThumbUrl from "./project-banner-monet-16571-thumb.webp"
-import wheat_stacksThumbUrl from "./project-banner-monet-64818-thumb.webp"
-import bordigheraThumbUrl from "./project-banner-monet-81537-thumb.webp"
-import water_lily_pondThumbUrl from "./project-banner-monet-87088-thumb.webp"
-import sunsetThumbUrl from "./project-banner-monet-sunset-thumb.webp"
 import type { BannerPrototypeSettings } from "./ProjectBannerPrototypeShader"
 
 export { bannerSource }

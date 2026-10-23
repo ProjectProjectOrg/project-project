@@ -1,4 +1,4 @@
-import logoRaw from "@/public/logo/logo.svg?raw"
+import logoRaw from "@/assets/logo/logo.svg?raw"
 
 const themedLogo = logoRaw
   .replace(/fill="#FEFEFE"/g, 'fill="var(--foreground)"')
