@@ -43,6 +43,7 @@ import {
   attachmentWidthStyle
 } from "@/components/Lexical/attachmentImageStyle"
 import { MentionChip } from "@/components/Lexical/MentionChip"
+import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 
 const prismPlugin = [rehypePrismPlus, { ignoreMissing: true }] as const
@@ -260,21 +261,22 @@ export function MarkdownSegment({
           : {
               li: ({ node, ...rest }) => (
                 <li {...rest} data-task-line={node?.position?.start.line} />
-              ),
-              input: ({ node: _node, type, disabled: _disabled, ...rest }) =>
-                type === "checkbox" ? (
-                  <input
-                    {...rest}
-                    type="checkbox"
-                    onChange={(event) => {
-                      const line = taskLineOf(event.currentTarget)
-                      if (line !== null) onToggleTask(line)
-                    }}
-                  />
-                ) : (
-                  <input {...rest} type={type} />
-                )
+              )
             }),
+        input: ({ node: _node, type, checked, ...rest }) =>
+          type === "checkbox" ? (
+            <Checkbox
+              checked={checked === true}
+              readOnly={onToggleTask === undefined}
+              onCheckedChange={(_checked, details) => {
+                if (!(details.event.target instanceof Element)) return
+                const line = taskLineOf(details.event.target)
+                if (line !== null) onToggleTask?.(line)
+              }}
+            />
+          ) : (
+            <input {...rest} type={type} checked={checked} />
+          ),
         a: ({ href, children: linkChildren, node, ...rest }) => {
           if (
             href &&

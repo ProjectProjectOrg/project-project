@@ -979,18 +979,28 @@ html.dark .prose-md .token.coord {
 .lexical-table-selection ::selection {
   background: transparent;
 }
-.prose-md input[type="checkbox"] {
-  margin-right: 0.5em;
-  accent-color: var(--foreground);
-}
 .prose-md .contains-task-list {
   list-style: none;
   padding-left: 0;
 }
 .prose-md .task-list-item {
+  position: relative;
   margin: 0.15em 0;
+  padding-left: 1.75em;
 }
-.prose-md .task-list-item:has(> input[type="checkbox"]:checked) {
+.prose-md .task-list-item > [data-slot="checkbox"],
+.prose-md .task-list-item > p:first-child > [data-slot="checkbox"] {
+  position: absolute;
+  left: 0;
+  top: 0.32em;
+  width: 1.15em;
+  height: 1.15em;
+}
+.prose-md
+  .task-list-item:has(
+    > [data-slot="checkbox"][data-checked],
+    > p:first-child > [data-slot="checkbox"][data-checked]
+  ) {
   color: var(--muted-foreground);
   text-decoration: line-through;
 }

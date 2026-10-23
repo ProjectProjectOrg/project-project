@@ -21,6 +21,7 @@ import {
   type SegmentedItem
 } from "@/components/SegmentedTabs"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import {
   Popover,
@@ -254,12 +255,7 @@ function IncludeToggle({
 }>) {
   return (
     <label className="flex items-center gap-2 text-[13px]">
-      <input
-        type="checkbox"
-        className="size-4 rounded border border-border"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-      />
+      <Checkbox checked={checked} onCheckedChange={onChange} />
       {label}
     </label>
   )

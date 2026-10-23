@@ -9,6 +9,7 @@ import { Check } from "lucide-react"
 
 import { ErrorPage } from "@/components/ErrorPage"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { jiraDestinationConflictsAtom } from "@/features/jira/atoms/jiraMigration"
 import { useFormValues } from "@/lib/form"
 import { cn } from "@/lib/utils"
@@ -220,15 +221,13 @@ export function ReviewStep({
                           {attachment.filename}
                         </span>
                         <span className="flex shrink-0 items-center gap-2">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={field.value.includes(
                               attachment.jiraAttachmentId
                             )}
-                            className="size-4 accent-primary"
-                            onChange={(event) =>
+                            onCheckedChange={(checked) =>
                               field.handleChange(
-                                event.currentTarget.checked
+                                checked
                                   ? [
                                       ...new Set([
                                         ...field.value,
@@ -262,13 +261,10 @@ export function ReviewStep({
             <form.Field name="attachmentSkipsAccepted">
               {(field) => (
                 <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-3 text-sm transition-colors hover:bg-hover">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={field.value}
-                    className="mt-0.5 size-4 accent-primary"
-                    onChange={(event) =>
-                      field.handleChange(event.currentTarget.checked)
-                    }
+                    className="mt-0.5"
+                    onCheckedChange={(checked) => field.handleChange(checked)}
                   />
                   <span>{m.jira_migration_attachment_accept()}</span>
                 </label>
