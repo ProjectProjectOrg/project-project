@@ -21,7 +21,7 @@ const isSlackNotification = (
   payload: typeof ProjectEvent.Encoded
 ): payload is Extract<
   typeof SlackNotification.Encoded,
-  { readonly kind: SlackEvent }
+  Readonly<{ kind: SlackEvent }>
 > => isSlackEvent(payload.kind)
 
 export class SlackEvents extends Context.Service<
