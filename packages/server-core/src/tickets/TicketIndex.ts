@@ -76,10 +76,11 @@ export type TicketIndexSection = Readonly<{
   ticketIds?: ReadonlyArray<string>
 }>
 
-export interface TicketIndexSectionsOptions extends TicketIndexCountOptions {
-  readonly limit: number
-  readonly sections: "status" | ReadonlyArray<TicketIndexSection>
-}
+export type TicketIndexSectionsOptions = TicketIndexCountOptions &
+  Readonly<{
+    limit: number
+    sections: "status" | ReadonlyArray<TicketIndexSection>
+  }>
 
 export type TicketIndexSections = ReadonlyMap<
   string,

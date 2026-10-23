@@ -1023,6 +1023,23 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         }
       })
 
+      const selectedOnly = yield* index.querySections(
+        project,
+        { sort: { key: "id", dir: "asc" } },
+        {
+          viewerId: "viewer",
+          limit: 10,
+          sections: [{ key: "G-1", ticketIds: ["T-11", "T-2", "T-12"] }]
+        }
+      )
+      expect(summarize(selectedOnly)).toEqual({
+        "G-1": {
+          total: 2,
+          byStatus: { todo: 1, in_progress: 1 },
+          ids: ["T-2", "T-11"]
+        }
+      })
+
       const archived = yield* index.query(
         project,
         {

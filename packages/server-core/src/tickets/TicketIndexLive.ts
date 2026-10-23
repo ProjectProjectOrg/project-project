@@ -694,6 +694,15 @@ export const TicketIndexLive = Layer.effect(
     ): Effect.Effect<TicketIndexSections> => {
       if (options.ticketIds?.length === 0) return Effect.succeed(new Map())
       const section = sectionExpression(options.sections)
+      const explicitIds =
+        options.sections !== "status" &&
+        options.sections.every((entry) => entry.ticketIds !== undefined)
+          ? [
+              drizzleSql`${ticketIndex.ticketId} = any(${drizzleSql.param(
+                options.sections.flatMap((entry) => entry.ticketIds ?? [])
+              )}::text[])`
+            ]
+          : []
       const expression = ticketSortExpression(ticketQuery.sort)
       const ascending = ticketQuery.sort.dir === "asc"
       const ranked = db
@@ -710,7 +719,12 @@ export const TicketIndexLive = Layer.effect(
             .as("rank")
         })
         .from(ticketIndex)
-        .where(and(...ticketWhereConditions(project, ticketQuery, options)))
+        .where(
+          and(
+            ...ticketWhereConditions(project, ticketQuery, options),
+            ...explicitIds
+          )
+        )
         .as("ranked")
       const rows = db
         .select()
@@ -735,7 +749,8 @@ export const TicketIndexLive = Layer.effect(
               project,
               { ...ticketQuery, status: undefined },
               options
-            )
+            ),
+            ...explicitIds
           )
         )
         .groupBy(drizzleSql`1`, drizzleSql`2`)

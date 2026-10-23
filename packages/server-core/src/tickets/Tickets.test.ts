@@ -26,7 +26,7 @@ import {
   type User,
   ProjectScope,
   type ProjectScopeShape,
-  type StatusSlug
+  StatusSlug
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Deferred from "effect/Deferred"
@@ -486,7 +486,8 @@ const matchingDocuments = (
   )
 }
 
-// Mirrors TicketIndexLive.querySections with the fake's own query/count.
+const decodeStatusSlug = Schema.decodeSync(StatusSlug)
+
 const querySectionsVia =
   (
     index: Pick<TicketIndexShape, "query" | "count">
@@ -505,12 +506,12 @@ const querySectionsVia =
         const counts = yield* index.count(project, countQuery, options)
         for (const [status, total] of Object.entries(counts.byStatus)) {
           const requested =
-            !query.status?.length ||
+            query.status === undefined ||
             query.status.some((value) => value === status)
           const entries = requested
             ? yield* index.query(
                 project,
-                { ...query, status: [status as StatusSlug] },
+                { ...query, status: [decodeStatusSlug(status)] },
                 options
               )
             : []
