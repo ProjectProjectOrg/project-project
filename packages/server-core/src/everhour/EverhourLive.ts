@@ -316,6 +316,43 @@ const requestNullable = <A>(
     )
   )
 
+const ensureTimeHistory = Effect.fn("Everhour.ensureTimeHistory")(function* (
+  apiKey: string,
+  record: EverhourTimeRecord
+) {
+  if (record.history.length > 0 || record.seconds === 0) return record
+  const userId =
+    record.userId ??
+    (yield* request(apiKey, "GET", "/users/me", undefined, mapUser)).id
+  for (let page = 1; ; page += 1) {
+    const query = new URLSearchParams({
+      from: record.date,
+      to: record.date,
+      limit: "100",
+      page: String(page)
+    })
+    const records = yield* request(
+      apiKey,
+      "GET",
+      `/users/${encodeURIComponent(userId)}/time?${query}`,
+      undefined,
+      (value) =>
+        decodeResponse(Schema.Array(TimeRecordResponse), value).pipe(
+          Effect.map((records) => records.map(toTimeRecord))
+        )
+    )
+    const saved = records.find((candidate) => candidate.id === record.id)
+    if (saved) {
+      if (saved.history.length > 0) return { ...record, history: saved.history }
+      break
+    }
+    if (records.length < 100) break
+  }
+  return yield* new EverhourError({
+    message: "Everhour did not return history for the saved time record"
+  })
+})
+
 export const EverhourLive = Layer.effect(
   Everhour,
   Effect.gen(function* () {
@@ -457,10 +494,20 @@ export const EverhourLive = Layer.effect(
                   taskTime === null ? null : toTimeRecord(taskTime)
                 )
               )
+          ).pipe(
+            Effect.flatMap((record) =>
+              record === null
+                ? Effect.succeed(null)
+                : ensureTimeHistory(apiKey, record)
+            )
           )
         ),
       addTime: (apiKey, input) =>
-        tracking(request(apiKey, "POST", "/time", input, mapTimeRecord)),
+        tracking(
+          request(apiKey, "POST", "/time", input, mapTimeRecord).pipe(
+            Effect.flatMap((record) => ensureTimeHistory(apiKey, record))
+          )
+        ),
       createWebhook: (apiKey, input) =>
         withFetch(
           request(

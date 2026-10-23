@@ -185,4 +185,92 @@ describe("EverhourLive response decoding", () => {
       })
     }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
   )
+  it.effect("recovers omitted history for saved time and stopped timers", () =>
+    Effect.gen(function* () {
+      const wire = { id: 277062174, user: 42, date: "2026-10-23", time: 60 }
+      const everhour = yield* Everhour
+      for (const operation of ["log", "stop"] as const) {
+        const fetch = vi
+          .fn<FetchImplementation>()
+          .mockResolvedValueOnce(
+            jsonResponse(operation === "log" ? wire : { taskTime: wire })
+          )
+          .mockResolvedValueOnce(
+            jsonResponse([{ ...wire, history: [{ id: 101, time: 60 }] }])
+          )
+        stubFetch(fetch)
+        const record = yield* operation === "log"
+          ? everhour.addTime("api-key", {
+              task: "task",
+              time: 60,
+              date: wire.date
+            })
+          : everhour.stopTimer("api-key")
+        expect(record?.history).toEqual([{ id: "101", seconds: 60 }])
+        expect(fetch).toHaveBeenCalledTimes(2)
+        expect(String(fetch.mock.calls[1]?.[0])).toContain(
+          "/users/42/time?from=2026-10-23&to=2026-10-23&limit=100&page=1"
+        )
+      }
+    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+  )
+
+  it.effect("fails when a saved record's history cannot be recovered", () =>
+    Effect.gen(function* () {
+      const wire = { id: 277062174, user: 42, date: "2026-10-23", time: 60 }
+      const everhour = yield* Everhour
+      for (const operation of ["log", "stop"] as const) {
+        stubFetch(
+          vi
+            .fn<FetchImplementation>()
+            .mockResolvedValueOnce(
+              jsonResponse(operation === "log" ? wire : { taskTime: wire })
+            )
+            .mockResolvedValueOnce(jsonResponse([wire]))
+        )
+        const error = yield* Effect.flip(
+          operation === "log"
+            ? everhour.addTime("api-key", {
+                task: "task",
+                time: 60,
+                date: wire.date
+              })
+            : everhour.stopTimer("api-key")
+        )
+        expect(error).toMatchObject({
+          _tag: "EverhourError",
+          message: "Everhour did not return history for the saved time record"
+        })
+      }
+    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+  )
+  it.effect("finds saved history past the first page of a user's day", () =>
+    Effect.gen(function* () {
+      const wire = { id: 277062174, user: 42, date: "2026-10-23", time: 60 }
+      const fetch = vi
+        .fn<FetchImplementation>()
+        .mockResolvedValueOnce(jsonResponse(wire))
+        .mockResolvedValueOnce(
+          jsonResponse(
+            Array.from({ length: 100 }, (_, index) => ({
+              ...wire,
+              id: index + 1
+            }))
+          )
+        )
+        .mockResolvedValueOnce(
+          jsonResponse([{ ...wire, history: [{ id: 101, time: 60 }] }])
+        )
+      stubFetch(fetch)
+      const everhour = yield* Everhour
+      const record = yield* everhour.addTime("api-key", {
+        task: "task",
+        time: 60,
+        date: wire.date
+      })
+      expect(record.history).toEqual([{ id: "101", seconds: 60 }])
+      expect(fetch).toHaveBeenCalledTimes(3)
+      expect(String(fetch.mock.calls[2]?.[0])).toContain("page=2")
+    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+  )
 })
