@@ -13,14 +13,14 @@ import {
 } from "./Client"
 import { EverhourTimeTracking } from "./TimeTracking"
 
-export interface EverhourWebhookDelivery {
-  readonly secret: string
-  readonly body: string
-}
+export type EverhourWebhookDelivery = Readonly<{
+  secret: string
+  body: string
+}>
 
-export interface EverhourWebhooksShape {
-  readonly handle: (delivery: EverhourWebhookDelivery) => Effect.Effect<void>
-}
+export type EverhourWebhooksShape = Readonly<{
+  handle: (delivery: EverhourWebhookDelivery) => Effect.Effect<void>
+}>
 
 export class EverhourWebhooks extends Context.Service<
   EverhourWebhooks,

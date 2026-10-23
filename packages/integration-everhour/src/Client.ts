@@ -13,63 +13,63 @@ import * as Option from "effect/Option"
 import * as Schedule from "effect/Schedule"
 import * as Schema from "effect/Schema"
 
-export interface EverhourUser {
-  readonly id: string
-  readonly name: string | null
-  readonly email: string | null
-}
+export type EverhourUser = Readonly<{
+  id: string
+  name: string | null
+  email: string | null
+}>
 
-export interface EverhourProject {
-  readonly id: string
-  readonly name: string
-  readonly type: "board" | "list"
-  readonly users: ReadonlyArray<string> | null
-}
+export type EverhourProject = Readonly<{
+  id: string
+  name: string
+  type: "board" | "list"
+  users: ReadonlyArray<string> | null
+}>
 
-export interface EverhourSection {
-  readonly id: string
-  readonly name: string
-  readonly status: "open" | "archived"
-}
+export type EverhourSection = Readonly<{
+  id: string
+  name: string
+  status: "open" | "archived"
+}>
 
-export interface EverhourTask {
-  readonly id: string
-  readonly name: string
-  readonly section: string | number | null
-  readonly labels: ReadonlyArray<string>
-  readonly status: "open" | "closed"
-}
+export type EverhourTask = Readonly<{
+  id: string
+  name: string
+  section: string | number | null
+  labels: ReadonlyArray<string>
+  status: "open" | "closed"
+}>
 
-export interface EverhourTaskPayload {
-  readonly name: string
-  readonly section: string
-  readonly labels: ReadonlyArray<string>
-  readonly description: string
-  readonly status: "open" | "closed"
-}
+export type EverhourTaskPayload = Readonly<{
+  name: string
+  section: string
+  labels: ReadonlyArray<string>
+  description: string
+  status: "open" | "closed"
+}>
 
-export interface EverhourTimer {
-  readonly id: string | null
-  readonly status: "active" | "stopped"
-  readonly taskId: string | null
-  readonly userId: string | null
-  readonly startedAt: string | null
-}
+export type EverhourTimer = Readonly<{
+  id: string | null
+  status: "active" | "stopped"
+  taskId: string | null
+  userId: string | null
+  startedAt: string | null
+}>
 
 export type EverhourTimeEntry = Readonly<{
   id: string
   seconds: number
 }>
 
-export interface EverhourTimeRecord {
-  readonly id: string
-  readonly taskId: string | null
-  readonly userId: string | null
-  readonly seconds: number
-  readonly date: string
-  readonly comment: string | null
-  readonly history: ReadonlyArray<EverhourTimeEntry>
-}
+export type EverhourTimeRecord = Readonly<{
+  id: string
+  taskId: string | null
+  userId: string | null
+  seconds: number
+  date: string
+  comment: string | null
+  history: ReadonlyArray<EverhourTimeEntry>
+}>
 
 export type EverhourClientError =
   | EverhourAuthInvalid
@@ -80,91 +80,91 @@ export type EverhourTrackingError =
   | EverhourClientError
   | EverhourProjectAccessDenied
 
-export interface EverhourShape {
-  readonly getCurrentUser: (
+export type EverhourShape = Readonly<{
+  getCurrentUser: (
     apiKey: string
   ) => Effect.Effect<EverhourUser, EverhourClientError>
-  readonly getProject: (
+  getProject: (
     apiKey: string,
     projectId: string
   ) => Effect.Effect<EverhourProject, EverhourClientError>
-  readonly createProject: (
+  createProject: (
     apiKey: string,
-    input: {
-      readonly name: string
-      readonly type: "board"
-      readonly users?: ReadonlyArray<string>
-    }
+    input: Readonly<{
+      name: string
+      type: "board"
+      users?: ReadonlyArray<string>
+    }>
   ) => Effect.Effect<EverhourProject, EverhourClientError>
-  readonly updateProject: (
+  updateProject: (
     apiKey: string,
     projectId: string,
-    input: { readonly name: string }
+    input: Readonly<{ name: string }>
   ) => Effect.Effect<EverhourProject, EverhourClientError>
-  readonly teamUserIds: (
+  teamUserIds: (
     apiKey: string
   ) => Effect.Effect<ReadonlyArray<string>, EverhourClientError>
-  readonly assignProjectUsers: (
+  assignProjectUsers: (
     apiKey: string,
     projectId: string,
     users: ReadonlyArray<string>
   ) => Effect.Effect<EverhourProject, EverhourClientError>
-  readonly createSection: (
+  createSection: (
     apiKey: string,
     projectId: string,
-    input: { readonly name: string; readonly status: "open" | "archived" }
+    input: Readonly<{ name: string; status: "open" | "archived" }>
   ) => Effect.Effect<EverhourSection, EverhourClientError>
-  readonly updateSection: (
+  updateSection: (
     apiKey: string,
     sectionId: string,
-    input: { readonly name: string; readonly status: "open" | "archived" }
+    input: Readonly<{ name: string; status: "open" | "archived" }>
   ) => Effect.Effect<EverhourSection, EverhourClientError>
-  readonly getTask: (
+  getTask: (
     apiKey: string,
     taskId: string
   ) => Effect.Effect<EverhourTask, EverhourClientError>
-  readonly createTask: (
+  createTask: (
     apiKey: string,
     projectId: string,
     payload: EverhourTaskPayload
   ) => Effect.Effect<EverhourTask, EverhourClientError>
-  readonly updateTask: (
+  updateTask: (
     apiKey: string,
     taskId: string,
     payload: EverhourTaskPayload
   ) => Effect.Effect<EverhourTask, EverhourClientError>
-  readonly startTimer: (
+  startTimer: (
     apiKey: string,
-    input: {
-      readonly task: string
-      readonly comment?: string
-      readonly userDate?: string
-    }
+    input: Readonly<{
+      task: string
+      comment?: string
+      userDate?: string
+    }>
   ) => Effect.Effect<EverhourTimer, EverhourTrackingError>
-  readonly stopTimer: (
+  stopTimer: (
     apiKey: string
   ) => Effect.Effect<EverhourTimeRecord | null, EverhourClientError>
-  readonly getCurrentTimer: (
+  getCurrentTimer: (
     apiKey: string
   ) => Effect.Effect<EverhourTimer | null, EverhourClientError>
-  readonly addTime: (
+  addTime: (
     apiKey: string,
-    input: {
-      readonly task: string
-      readonly time: number
-      readonly date: string
-      readonly comment?: string
-    }
+    input: Readonly<{
+      task: string
+      time: number
+      date: string
+      comment?: string
+    }>
   ) => Effect.Effect<EverhourTimeRecord, EverhourTrackingError>
-  readonly createWebhook: (
+  createWebhook: (
     apiKey: string,
-    input: { readonly targetUrl: string; readonly project: string }
-  ) => Effect.Effect<{ readonly id: string }, EverhourClientError>
-  readonly deleteWebhook: (
+    input: Readonly<{ targetUrl: string; project: string }>
+  ) => Effect.Effect<Readonly<{ id: string }>, EverhourClientError>
+  deleteWebhook: (
     apiKey: string,
     webhookId: string
   ) => Effect.Effect<void, EverhourClientError>
-}
+}>
 
 export class Everhour extends Context.Service<Everhour, EverhourShape>()(
   "@pp/integration-everhour/Client/Everhour"

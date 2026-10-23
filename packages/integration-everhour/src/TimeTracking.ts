@@ -56,43 +56,43 @@ export type EverhourLogTimeError =
   | EverhourTimeTrackingError
   | EverhourProjectAccessDenied
 
-export interface EverhourTimeTrackingShape {
-  readonly workTypesForTicket: (
+export type EverhourTimeTrackingShape = Readonly<{
+  workTypesForTicket: (
     ticketId: string
   ) => Effect.Effect<ReadonlyArray<WorkTypeOption>, NotFound, ProjectScope>
-  readonly startTicketTimer: (
+  startTicketTimer: (
     ticketId: string,
     input: StartTimerInput
   ) => Effect.Effect<ActiveTimer, EverhourLogTimeError, ProjectScope>
-  readonly startSprintTimer: (
+  startSprintTimer: (
     groupId: string,
     input: StartSprintTimerInput
   ) => Effect.Effect<ActiveTimer, EverhourLogTimeError, ProjectScope>
-  readonly stopTimer: () => Effect.Effect<
+  stopTimer: () => Effect.Effect<
     ActiveTimer | null,
     EverhourTimeTrackingError,
     OrgScope
   >
-  readonly currentTimer: () => Effect.Effect<
+  currentTimer: () => Effect.Effect<
     ActiveTimer | null,
     EverhourTimeTrackingError,
     OrgScope
   >
-  readonly logTime: (
+  logTime: (
     input: LogTimeInput
   ) => Effect.Effect<
     TicketTimeSummary | null,
     EverhourLogTimeError,
     ProjectScope
   >
-  readonly ticketTimeSummary: (
+  ticketTimeSummary: (
     ticketId: string
   ) => Effect.Effect<TicketTimeSummary, NotFound, ProjectScope>
-  readonly applyWebhookTimeEvent: (
+  applyWebhookTimeEvent: (
     projectIntegrationLinkId: string,
     record: EverhourTimeRecord
   ) => Effect.Effect<void>
-}
+}>
 
 export class EverhourTimeTracking extends Context.Service<
   EverhourTimeTracking,
@@ -119,10 +119,12 @@ export const timerComment = (
 }
 
 export const summariseAttribution = (
-  rows: ReadonlyArray<{
-    readonly everhourUserId: string
-    readonly seconds: number
-  }>,
+  rows: ReadonlyArray<
+    Readonly<{
+      everhourUserId: string
+      seconds: number
+    }>
+  >,
   everhourUserId: string | null
 ): { totalSeconds: number; userSeconds: number } => {
   let totalSeconds = 0
@@ -146,10 +148,12 @@ export const latestEntry = (
   )
 
 export const resolveSprintForTicket = (
-  sprints: ReadonlyArray<{
-    readonly id: string
-    readonly tickets: ReadonlyArray<string>
-  }>,
+  sprints: ReadonlyArray<
+    Readonly<{
+      id: string
+      tickets: ReadonlyArray<string>
+    }>
+  >,
   ticketId: string
 ): string | null =>
   sprints.find((sprint) => sprint.tickets.includes(ticketId))?.id ?? null

@@ -45,9 +45,9 @@ export type EverhourIntegrationError =
   | EverhourConfigMissing
   | EverhourError
 
-export interface EverhourIntegrationsShape {
-  readonly getProfile: (userId: string) => Effect.Effect<PersonalEverhour>
-  readonly connectProfile: (
+export type EverhourIntegrationsShape = Readonly<{
+  getProfile: (userId: string) => Effect.Effect<PersonalEverhour>
+  connectProfile: (
     userId: string,
     apiKey: string
   ) => Effect.Effect<
@@ -57,31 +57,29 @@ export interface EverhourIntegrationsShape {
     | EverhourConfigMissing
     | EverhourError
   >
-  readonly disconnectProfile: (
-    userId: string
-  ) => Effect.Effect<PersonalEverhour>
-  readonly getProjectStatus: () => Effect.Effect<
+  disconnectProfile: (userId: string) => Effect.Effect<PersonalEverhour>
+  getProjectStatus: () => Effect.Effect<
     EverhourProjectIntegrationStatus,
     never,
     ProjectScope
   >
-  readonly connectProject: () => Effect.Effect<
+  connectProject: () => Effect.Effect<
     EverhourSyncSummary,
     EverhourIntegrationError,
     ProjectScope
   >
-  readonly syncProject: () => Effect.Effect<
+  syncProject: () => Effect.Effect<
     EverhourSyncSummary,
     EverhourIntegrationError,
     ProjectScope
   >
-  readonly disconnectProject: () => Effect.Effect<
+  disconnectProject: () => Effect.Effect<
     EverhourProjectIntegrationStatus,
     never,
     ProjectScope
   >
-  readonly bestEffortProjectSync: () => Effect.Effect<void, never, ProjectScope>
-}
+  bestEffortProjectSync: () => Effect.Effect<void, never, ProjectScope>
+}>
 
 export class EverhourIntegrations extends Context.Service<
   EverhourIntegrations,
@@ -100,19 +98,19 @@ type MutableSummary = {
   errors: Array<string>
 }
 
-type ActiveLink = {
-  readonly linkId: string
-  readonly projectId: string
-  readonly organizationId: string
-  readonly linkStatus: "active" | "disconnected" | "broken"
-  readonly status: "active" | "disconnected" | "broken"
-  readonly everhourProjectId: string
-  readonly everhourProjectName: string
-  readonly backlogSectionId: string | null
-  readonly lastSyncedAt: Date | null
-  readonly lastSyncStatus: "ok" | "error" | null
-  readonly lastSyncError: string | null
-}
+type ActiveLink = Readonly<{
+  linkId: string
+  projectId: string
+  organizationId: string
+  linkStatus: "active" | "disconnected" | "broken"
+  status: "active" | "disconnected" | "broken"
+  everhourProjectId: string
+  everhourProjectName: string
+  backlogSectionId: string | null
+  lastSyncedAt: Date | null
+  lastSyncStatus: "ok" | "error" | null
+  lastSyncError: string | null
+}>
 
 const emptySummary = (): MutableSummary => ({
   sectionsCreated: 0,
@@ -148,21 +146,23 @@ const formatError = (error: unknown) => {
 export const workTypeTaskName = (sprintName: string, workTypeLabel: string) =>
   `${sprintName} — ${workTypeLabel}`
 
-export interface DesiredWorkTypeTask {
-  readonly groupId: string
-  readonly workTypeKey: string
-  readonly everhourSectionId: string
-  readonly name: string
-  readonly status: "open" | "closed"
-}
+export type DesiredWorkTypeTask = Readonly<{
+  groupId: string
+  workTypeKey: string
+  everhourSectionId: string
+  name: string
+  status: "open" | "closed"
+}>
 
 export const planWorkTypeTasks = (
-  sections: ReadonlyArray<{
-    readonly groupId: string | null
-    readonly name: string
-    readonly everhourSectionId: string
-    readonly status: "active" | "archived" | "broken"
-  }>,
+  sections: ReadonlyArray<
+    Readonly<{
+      groupId: string | null
+      name: string
+      everhourSectionId: string
+      status: "active" | "archived" | "broken"
+    }>
+  >,
   config: OrgEverhourConfig
 ): ReadonlyArray<DesiredWorkTypeTask> => {
   const plan: Array<DesiredWorkTypeTask> = []
@@ -183,7 +183,7 @@ export const planWorkTypeTasks = (
 }
 
 export const workTypeTaskAction = (
-  row: { readonly name: string; readonly status: string } | undefined,
+  row: Readonly<{ name: string; status: string }> | undefined,
   desired: DesiredWorkTypeTask
 ): "create" | "update" | "noop" => {
   if (!row) return "create"
@@ -427,7 +427,7 @@ export const EverhourIntegrationsLive = Layer.effect(
       orgSlug: string,
       userId: string,
       slug: string,
-      actor: { readonly apiKey: string; readonly everhourUserId: string }
+      actor: Readonly<{ apiKey: string; everhourUserId: string }>
     ) =>
       Effect.gen(function* () {
         const project = yield* projectRow(orgSlug, slug)
