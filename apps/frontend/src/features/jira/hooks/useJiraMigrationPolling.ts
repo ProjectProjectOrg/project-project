@@ -7,7 +7,7 @@ import {
   jiraMigrationKey,
   refreshJiraMigrationAtom
 } from "@/features/jira/atoms/jiraMigration"
-import { isActiveJiraMigration } from "@/features/jira/components/screen"
+import { isActiveJiraMigration } from "@/features/jira/lib/screen"
 import { useVisibleInterval } from "@/hooks/useVisibleInterval"
 
 const POLL_INTERVAL_MS = 2_000

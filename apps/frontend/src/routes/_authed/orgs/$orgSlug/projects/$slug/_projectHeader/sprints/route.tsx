@@ -2,8 +2,8 @@ import { GroupPolicy } from "@pp/access/policies"
 import { createFileRoute, Outlet } from "@tanstack/react-router"
 import { useCallback } from "react"
 
-import { useSidebarSlot } from "@/components/SidebarSlot"
-import { SprintRail } from "@/components/sprints/SprintRail"
+import { useSidebarSlot } from "@/components/shell/SidebarSlot"
+import { SprintRail } from "@/features/sprints/components/SprintRail"
 import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 

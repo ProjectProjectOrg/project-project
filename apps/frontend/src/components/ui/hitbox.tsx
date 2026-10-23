@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react"
 
-import { useShape } from "@/lib/shape-context"
+import { useShape } from "@/lib/shapeContext"
 import { cn } from "@/lib/utils"
 
 type Margin = "1" | "2" | "3" | "4"

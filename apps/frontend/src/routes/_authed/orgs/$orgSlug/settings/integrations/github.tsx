@@ -5,23 +5,23 @@ import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ExternalLink } from "lucide-react"
 
-import { ErrorPage } from "@/components/ErrorPage"
-import {
-  IntegrationDetail,
-  IntegrationStatus
-} from "@/components/settings/IntegrationDetail"
-import { useGithubAppState } from "@/components/settings/orgIntegrations"
+import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
   SettingsGroup,
   SettingsRow,
   SettingsSection
-} from "@/components/settings/SettingsSection"
+} from "@/components/shell/settings/SettingsSection"
 import { Button } from "@/components/ui/button"
 import {
   githubIntegration,
   githubOrgRequest,
   startGithubInstall
 } from "@/features/github/atoms/github"
+import {
+  IntegrationDetail,
+  IntegrationStatus
+} from "@/features/integrations/components/IntegrationDetail"
+import { useGithubAppState } from "@/features/integrations/hooks/useOrgIntegrations"
 import { useOrgActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"

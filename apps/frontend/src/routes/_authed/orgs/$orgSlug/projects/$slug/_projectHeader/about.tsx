@@ -3,18 +3,20 @@ import { ProjectPolicy } from "@pp/access/policies"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 
-import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
-import { Markdown } from "@/components/Markdown"
-import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
-import { PageContainer } from "@/components/page"
+import { PageContainer } from "@/components/shell/Page"
+import {
+  LexicalEditor,
+  type SaveStatus
+} from "@/features/editor/components/LexicalEditor"
+import { Markdown } from "@/features/editor/components/Markdown"
+import { MarkdownSaveIndicator } from "@/features/editor/components/MarkdownSaveIndicator"
 import {
   projectRequest,
   updateProject
 } from "@/features/projects/atoms/projects"
+import { useProject } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
-
-import { useProject } from "../-context"
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/about"

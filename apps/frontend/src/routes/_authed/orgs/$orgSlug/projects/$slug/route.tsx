@@ -7,13 +7,12 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { GitBranch, UserPlus, X } from "lucide-react"
 import { useCallback } from "react"
 
-import { ErrorPage } from "@/components/ErrorPage"
-import { NotFoundPage } from "@/components/NotFoundPage"
-import { PageContainer } from "@/components/page"
-import { ProjectBanner } from "@/components/ProjectBanner"
-import { RetainedProjectViews } from "@/components/RetainedProjectViews"
-import { useSidebarSection } from "@/components/SidebarSlot"
+import { ErrorPage } from "@/components/shell/ErrorPage"
+import { NotFoundPage } from "@/components/shell/NotFoundPage"
+import { PageContainer } from "@/components/shell/Page"
+import { useSidebarSection } from "@/components/shell/SidebarSlot"
 import { projectGitStates } from "@/features/github/atoms/github"
+import { useProjectGitStatePolling } from "@/features/github/hooks/useProjectGitStatePolling"
 import {
   project,
   projectRequest,
@@ -24,16 +23,16 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { ProjectBanner } from "@/features/projects/components/ProjectBanner"
+import { RetainedProjectViews } from "@/features/projects/components/RetainedProjectViews"
+import { ProjectContext } from "@/features/projects/hooks/useProject"
 import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
-import { useProjectGitStatePolling } from "@/hooks/useProjectGitStatePolling"
 import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-
-import { ProjectContext } from "./-context"
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
   component: ProjectLayout,

@@ -2,7 +2,7 @@ import { useAtomValue } from "@effect/atom-react"
 
 import { orgActor, orgRequest } from "@/features/organizations/atoms/orgs"
 import { projectActor } from "@/features/projects/atoms/projects"
-import { useProjectRequest } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
+import { useProjectRequest } from "@/features/projects/hooks/useProject"
 
 export function useProjectActor() {
   return useAtomValue(projectActor(useProjectRequest()))

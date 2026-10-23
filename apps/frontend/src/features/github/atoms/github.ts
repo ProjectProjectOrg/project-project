@@ -19,14 +19,14 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import {
+  mergeStackPrDetails,
+  mergeStaleGitStateDetails
+} from "@/features/github/lib/gitStateMerge"
+import {
   confirmedProject,
   project,
   type ProjectRequest
 } from "@/features/projects/atoms/projects"
-import {
-  mergeStackPrDetails,
-  mergeStaleGitStateDetails
-} from "@/lib/gitStateMerge"
 
 export type GithubOrgRequest = Readonly<{
   params: Readonly<{ orgSlug: string }>

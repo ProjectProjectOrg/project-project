@@ -2,28 +2,28 @@ import { useAtomValue } from "@effect/atom-react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 
-import { ErrorPage } from "@/components/ErrorPage"
-import {
-  IntegrationDetail,
-  IntegrationStatus
-} from "@/components/settings/IntegrationDetail"
-import { IntegrationProjects } from "@/components/settings/IntegrationProjects"
-import { useSlackState } from "@/components/settings/orgIntegrations"
+import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
   SettingsGroup,
   SettingsRow,
   SettingsSection
-} from "@/components/settings/SettingsSection"
-import { SettingsSkeleton } from "@/components/settings/SettingsSkeleton"
+} from "@/components/shell/settings/SettingsSection"
+import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { Button } from "@/components/ui/button"
+import {
+  IntegrationDetail,
+  IntegrationStatus
+} from "@/features/integrations/components/IntegrationDetail"
+import { IntegrationProjects } from "@/features/integrations/components/IntegrationProjects"
+import { useSlackState } from "@/features/integrations/hooks/useOrgIntegrations"
 import {
   slackOrg,
   slackOrgRequest,
   slackProfiles
 } from "@/features/slack/atoms/slack"
 import { SlackAppSetup } from "@/features/slack/components/AppSetup"
+import { SlackConnectionForm } from "@/features/slack/forms/slack-connection"
 import { useSlackOrgPolling } from "@/features/slack/hooks/useSlackOrgPolling"
-import { SlackConnectionForm } from "@/forms/slack-connection"
 import { useOrgActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 

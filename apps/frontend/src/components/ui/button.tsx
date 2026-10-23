@@ -10,9 +10,9 @@ import {
 } from "react"
 
 import type { IconComponent } from "@/lib/icon"
-import { useShape } from "@/lib/shape-context"
-import { SURFACE_BG } from "@/lib/surface-classes"
-import { useSurface } from "@/lib/surface-context"
+import { useShape } from "@/lib/shapeContext"
+import { SURFACE_BG } from "@/lib/surfaceClasses"
+import { useSurface } from "@/lib/surfaceContext"
 import { cn } from "@/lib/utils"
 
 import {

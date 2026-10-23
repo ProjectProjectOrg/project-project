@@ -6,25 +6,24 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { FolderOpen } from "lucide-react"
 import { useState, type FormEvent } from "react"
 
-import { ErrorPage } from "@/components/ErrorPage"
-import {
-  IntegrationDetail,
-  IntegrationStatus
-} from "@/components/settings/IntegrationDetail"
-import { useStorageState } from "@/components/settings/orgIntegrations"
+import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
   SettingsGroup,
   SettingsRow,
   SettingsSection
-} from "@/components/settings/SettingsSection"
-import { SettingsSkeleton } from "@/components/settings/SettingsSkeleton"
+} from "@/components/shell/settings/SettingsSection"
+import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import {
   SettingsInput,
   SettingsSwitch
-} from "@/components/settings/SettingsTextField"
-import { StorageCorsPanel } from "@/components/StorageCorsPanel"
+} from "@/components/shell/settings/SettingsTextField"
 import { Button } from "@/components/ui/button"
 import { ConfirmButton } from "@/components/ui/confirm-button"
+import {
+  IntegrationDetail,
+  IntegrationStatus
+} from "@/features/integrations/components/IntegrationDetail"
+import { useStorageState } from "@/features/integrations/hooks/useOrgIntegrations"
 import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
 import {
   connectStorage,
@@ -32,6 +31,7 @@ import {
   orgStorage,
   storageRequest
 } from "@/features/projects/atoms/storage"
+import { StorageCorsPanel } from "@/features/storage/components/StorageCorsPanel"
 import { useOrgActor } from "@/lib/access"
 import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"

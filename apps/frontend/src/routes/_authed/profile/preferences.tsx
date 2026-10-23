@@ -8,8 +8,8 @@ import {
   SettingsGroup,
   SettingsRow,
   SettingsSection
-} from "@/components/settings/SettingsSection"
-import { SettingsSegmented } from "@/components/settings/SettingsTextField"
+} from "@/components/shell/settings/SettingsSection"
+import { SettingsSegmented } from "@/components/shell/settings/SettingsTextField"
 import { me, updateEditorPreference } from "@/features/auth/atoms/auth"
 import { m } from "@/paraglide/messages"
 

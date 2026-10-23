@@ -30,7 +30,7 @@ import {
   mergeStatusColumns,
   placeInColumns,
   type PlacedColumn
-} from "@/lib/statusColumns"
+} from "@/features/statuses/lib/statusColumns"
 import { getLocale } from "@/paraglide/runtime"
 
 import { applyTicketPatch } from "./ticketPatch"

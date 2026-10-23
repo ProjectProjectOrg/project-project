@@ -2,16 +2,16 @@ import { useAtomValue } from "@effect/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 
-import { ErrorPage } from "@/components/ErrorPage"
+import { ErrorPage } from "@/components/shell/ErrorPage"
+import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import {
   IntegrationDetail,
   IntegrationStatus
-} from "@/components/settings/IntegrationDetail"
-import { useEmailState } from "@/components/settings/orgIntegrations"
-import { SettingsSkeleton } from "@/components/settings/SettingsSkeleton"
+} from "@/features/integrations/components/IntegrationDetail"
+import { useEmailState } from "@/features/integrations/hooks/useOrgIntegrations"
 import { emailRequest, orgEmail } from "@/features/organizations/atoms/email"
 import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
-import { OrgEmailForm } from "@/forms/org-email"
+import { OrgEmailForm } from "@/features/organizations/forms/org-email"
 import { useOrgActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 

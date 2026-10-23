@@ -3,14 +3,14 @@ import type { OrgDetail } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 
-import { ErrorPage } from "@/components/ErrorPage"
+import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
   SettingsGroup,
   SettingsRow,
   SettingsSection
-} from "@/components/settings/SettingsSection"
-import { SettingsSkeleton } from "@/components/settings/SettingsSkeleton"
-import { SettingsTextField } from "@/components/settings/SettingsTextField"
+} from "@/components/shell/settings/SettingsSection"
+import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
+import { SettingsTextField } from "@/components/shell/settings/SettingsTextField"
 import {
   orgDetail,
   orgRequest,

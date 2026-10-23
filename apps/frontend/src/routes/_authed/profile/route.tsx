@@ -2,14 +2,14 @@ import { Outlet, createFileRoute, useLocation } from "@tanstack/react-router"
 import { Bot, Plug, SlidersHorizontal, UserRound } from "lucide-react"
 import { useCallback } from "react"
 
-import { RailBackLink } from "@/components/RailBackLink"
-import { SettingsPage } from "@/components/settings/SettingsPage"
+import { RailBackLink } from "@/components/shell/RailBackLink"
+import { SettingsPage } from "@/components/shell/settings/SettingsPage"
 import {
   SettingsRail as Rail,
   SettingsRailLink,
   SettingsRailNav
-} from "@/components/settings/SettingsRail"
-import { useSidebarSlot } from "@/components/SidebarSlot"
+} from "@/components/shell/settings/SettingsRail"
+import { useSidebarSlot } from "@/components/shell/SidebarSlot"
 import { m } from "@/paraglide/messages"
 
 type ProfileSection = Readonly<{

@@ -7,22 +7,23 @@ import * as Match from "effect/Match"
 import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
 
-import { ErrorPage } from "@/components/ErrorPage"
-import { GitAutomationSettings } from "@/components/GitAutomationSettings"
-import { type SegmentedItem } from "@/components/SegmentedTabs"
+import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
   SettingsGroup,
   SettingsRow,
   SettingsSection
-} from "@/components/settings/SettingsSection"
-import { SettingsSegmented } from "@/components/settings/SettingsTextField"
-import { StatusList } from "@/components/StatusList"
+} from "@/components/shell/settings/SettingsSection"
+import { SettingsSegmented } from "@/components/shell/settings/SettingsTextField"
 import { ConfirmButton } from "@/components/ui/confirm-button"
+import { type SegmentedItem } from "@/components/ui/segmented-tabs"
+import { GitAutomationSettings } from "@/features/github/components/GitAutomationSettings"
 import {
   projectRequest,
   updateProject,
   type ProjectRequest
 } from "@/features/projects/atoms/projects"
+import { useProject } from "@/features/projects/hooks/useProject"
+import { StatusList } from "@/features/statuses/components/StatusList"
 import {
   clearStaleEstimates,
   staleEstimateCount,
@@ -32,8 +33,6 @@ import { useProjectActor } from "@/lib/access"
 import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-
-import { useProject } from "../-context"
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/settings/workflow"

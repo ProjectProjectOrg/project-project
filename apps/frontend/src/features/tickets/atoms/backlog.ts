@@ -28,8 +28,8 @@ import * as Schema from "effect/Schema"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { PRIORITY_META } from "@/features/tickets/lib/priorityMeta"
 import { compareCodePoints } from "@/lib/orderKey"
-import { PRIORITY_META } from "@/lib/priority-meta"
 
 import { applyTicketPatch } from "./ticketPatch"
 

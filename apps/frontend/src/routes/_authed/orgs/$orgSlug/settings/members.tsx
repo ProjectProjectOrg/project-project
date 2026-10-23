@@ -3,11 +3,11 @@ import type { OrgDetail } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 
-import { ErrorPage } from "@/components/ErrorPage"
-import { OrgMembersSection } from "@/components/OrgMembersSection"
-import { SettingsSection } from "@/components/settings/SettingsSection"
-import { SettingsSkeleton } from "@/components/settings/SettingsSkeleton"
+import { ErrorPage } from "@/components/shell/ErrorPage"
+import { SettingsSection } from "@/components/shell/settings/SettingsSection"
+import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { me } from "@/features/auth/atoms/auth"
+import { OrgMembersSection } from "@/features/members/components/OrgMembersSection"
 import {
   orgDetail,
   orgMembers,

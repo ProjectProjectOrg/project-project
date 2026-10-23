@@ -3,16 +3,12 @@ import { Link, createFileRoute } from "@tanstack/react-router"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 
-import { ErrorPage } from "@/components/ErrorPage"
-import { GithubSettingsRows } from "@/components/GithubChip"
-import { FigmaProjectSettings } from "@/components/settings/FigmaProjectSettings"
-import { IntegrationLogo } from "@/components/settings/IntegrationLogo"
+import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
   SettingsGroup,
   SettingsRow,
   SettingsSection
-} from "@/components/settings/SettingsSection"
-import { EverhourApiKeyWalkthrough } from "@/components/time/EverhourApiKeyWalkthrough"
+} from "@/components/shell/settings/SettingsSection"
 import { Button } from "@/components/ui/button"
 import { me } from "@/features/auth/atoms/auth"
 import {
@@ -22,10 +18,15 @@ import {
   everhourProjectStatusAtom,
   syncEverhourProjectAtom
 } from "@/features/everhour/atoms/everhour"
+import { EverhourApiKeyWalkthrough } from "@/features/everhour/components/EverhourApiKeyWalkthrough"
+import { FigmaProjectSettings } from "@/features/figma/components/FigmaProjectSettings"
+import { GithubSettingsRows } from "@/features/github/components/GithubChip"
+import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
 import {
   projectRequest,
   updateProjectSetup
 } from "@/features/projects/atoms/projects"
+import { useProject } from "@/features/projects/hooks/useProject"
 import {
   SlackProjectEvents,
   SlackProjectRow
@@ -35,8 +36,6 @@ import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
-
-import { useProject } from "../-context"
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/settings/integrations"

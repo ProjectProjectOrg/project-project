@@ -5,8 +5,8 @@ import {
   IntegrationCard,
   IntegrationCardSkeleton,
   type IntegrationTone
-} from "@/components/settings/IntegrationDetail"
-import type { IntegrationKind } from "@/components/settings/IntegrationLogo"
+} from "@/features/integrations/components/IntegrationDetail"
+import type { IntegrationKind } from "@/features/integrations/components/IntegrationLogo"
 import {
   perProjectState,
   useEmailState,
@@ -14,7 +14,7 @@ import {
   useSlackState,
   useStorageState,
   type IntegrationState
-} from "@/components/settings/orgIntegrations"
+} from "@/features/integrations/hooks/useOrgIntegrations"
 import { useSlackOrgPolling } from "@/features/slack/hooks/useSlackOrgPolling"
 import { useOrgActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"

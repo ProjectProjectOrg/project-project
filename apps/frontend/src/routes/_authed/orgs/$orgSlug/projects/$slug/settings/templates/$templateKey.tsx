@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { projectScope } from "@/components/Library/libraryScope"
-import { TemplateEditorPage } from "@/components/Library/TemplateEditorPage"
+import { projectScope } from "@/features/library/atoms/libraryScope"
+import { TemplateEditorPage } from "@/features/library/components/TemplateEditorPage"
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey"

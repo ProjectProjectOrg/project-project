@@ -9,16 +9,14 @@ import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
 import { ArrowRight, Plus } from "lucide-react"
 
-import { DashboardGitSync } from "@/components/Dashboard/DashboardGitSync"
+import { PageContainer, PageHeader } from "@/components/shell/Page"
+import { me } from "@/features/auth/atoms/auth"
+import { DashboardGitSync } from "@/features/dashboard/components/DashboardGitSync"
 import {
   MyTicketsSection,
   RecentTicketsSection,
   type MyTicketsView
-} from "@/components/Dashboard/DashboardSections"
-import { PageContainer, PageHeader } from "@/components/page"
-import { ProjectBanner } from "@/components/ProjectBanner"
-import { ProjectTile as ProjectIconTile } from "@/components/ProjectTile"
-import { me } from "@/features/auth/atoms/auth"
+} from "@/features/dashboard/components/DashboardSections"
 import {
   project,
   projectRequest,
@@ -29,6 +27,8 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { ProjectBanner } from "@/features/projects/components/ProjectBanner"
+import { ProjectTile as ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
 import {
   myTickets,
   myTicketsByProject,
@@ -38,7 +38,7 @@ import {
   type OrgTicketsValue
 } from "@/features/tickets/atoms/myTickets"
 import { useOrgActor } from "@/lib/access"
-import { formatRelative } from "@/lib/relative-time"
+import { formatRelative } from "@/lib/relativeTime"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 

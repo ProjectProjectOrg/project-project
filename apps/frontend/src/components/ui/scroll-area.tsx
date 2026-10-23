@@ -1,8 +1,8 @@
 import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area"
 import { createContext, useContext, type ComponentProps } from "react"
 
-import { useTouchPrimary } from "@/hooks/use-touch-primary"
-import { useShape } from "@/lib/shape-context"
+import { useTouchPrimary } from "@/hooks/useTouchPrimary"
+import { useShape } from "@/lib/shapeContext"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 

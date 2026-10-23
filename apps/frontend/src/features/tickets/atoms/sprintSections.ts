@@ -32,8 +32,8 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { PRIORITY_META } from "@/features/tickets/lib/priorityMeta"
 import { compareCodePoints } from "@/lib/orderKey"
-import { PRIORITY_META } from "@/lib/priority-meta"
 
 import {
   type BacklogRequest,

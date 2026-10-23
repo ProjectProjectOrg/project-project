@@ -4,24 +4,26 @@ import { createFileRoute } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState } from "react"
 
-import { ProjectAppearanceSection } from "@/components/appearance/ProjectAppearanceSection"
-import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
-import { Markdown } from "@/components/Markdown"
-import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
 import {
   SettingsGroup,
   SettingsRow,
   SettingsSection
-} from "@/components/settings/SettingsSection"
-import { SettingsTextField } from "@/components/settings/SettingsTextField"
+} from "@/components/shell/settings/SettingsSection"
+import { SettingsTextField } from "@/components/shell/settings/SettingsTextField"
+import {
+  LexicalEditor,
+  type SaveStatus
+} from "@/features/editor/components/LexicalEditor"
+import { Markdown } from "@/features/editor/components/Markdown"
+import { MarkdownSaveIndicator } from "@/features/editor/components/MarkdownSaveIndicator"
 import {
   projectRequest,
   updateProject
 } from "@/features/projects/atoms/projects"
+import { ProjectAppearanceSection } from "@/features/projects/components/appearance/ProjectAppearanceSection"
+import { useProject } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
-
-import { useProject } from "../-context"
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/settings/general"

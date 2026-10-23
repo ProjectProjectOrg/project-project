@@ -6,11 +6,10 @@ import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { useMemo } from "react"
 
-import { ErrorPage } from "@/components/ErrorPage"
-import { NotFoundPage } from "@/components/NotFoundPage"
-import { TicketPageSkeleton } from "@/components/TicketPage"
-import { TicketSplitPage } from "@/components/TicketSplit/TicketSplitPage"
+import { ErrorPage } from "@/components/shell/ErrorPage"
+import { NotFoundPage } from "@/components/shell/NotFoundPage"
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
+import { useProject } from "@/features/projects/hooks/useProject"
 import {
   sprintList,
   sprintListRequest
@@ -19,9 +18,9 @@ import {
   ticketDetail,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
+import { TicketPageSkeleton } from "@/features/tickets/components/ticket-page"
+import { TicketSplitPage } from "@/features/tickets/components/ticket-split/TicketSplitPage"
 import { m } from "@/paraglide/messages"
-
-import { useProject } from "../-context"
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 
