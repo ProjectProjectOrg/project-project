@@ -57,3 +57,6 @@ export * from "./schemas/OrgEmail"
 
 export * from "./schemas/Slack"
 export * from "./schemas/ProjectEvent"
+
+export * from "./github"
+export * from "./ticketReferences"

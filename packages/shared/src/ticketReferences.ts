@@ -1,6 +1,7 @@
-import { TicketId } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
+
+import { TicketId } from "./schemas/Ticket"
 
 const ticketIdPattern =
   /(?:^|[^\p{L}\p{N}])([A-Za-z][A-Za-z0-9]*-[0-9]+)(?=$|[^\p{L}\p{N}])/gu

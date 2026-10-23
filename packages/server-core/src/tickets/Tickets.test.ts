@@ -855,6 +855,9 @@ it.effect("listGitStates fetches only distinct ticket branches", () => {
           fetchedBranches.push([...branches])
           return Effect.succeed({
             defaultBranch: "main",
+            openPullRequestText: new Map(),
+            fetchedAt: isoDate("2026-04-01T00:00:00Z"),
+            mergedPrsByBranch: new Map(),
             existingBranches: new Set(["feat/T-1", "bug/T-3"]),
             prByBranch: new Map()
           })
@@ -915,6 +918,9 @@ it.effect(
           fetchInstallationProjectStates: () =>
             Effect.succeed({
               defaultBranch: "main",
+              mergedPrsByBranch: new Map(),
+              openPullRequestText: new Map(),
+              fetchedAt: isoDate("2026-04-01T00:00:00Z"),
               existingBranches: new Set(["feat/T-1-old"]),
               prByBranch: new Map([
                 [
@@ -1032,6 +1038,9 @@ it.effect(
           fetchedBranches.push([...branches])
           return Effect.succeed({
             defaultBranch: "main",
+            openPullRequestText: new Map(),
+            fetchedAt: isoDate("2026-04-01T00:00:00Z"),
+            mergedPrsByBranch: new Map(),
             existingBranches: new Set(branches),
             prByBranch: new Map(
               branches.flatMap((branch) => {
@@ -1085,6 +1094,9 @@ it.effect("listGitStates links an external branch and its existing PR", () => {
         queries.push(query)
         return Effect.succeed({
           defaultBranch: "main",
+          openPullRequestText: new Map(),
+          mergedPrsByBranch: new Map(),
+          fetchedAt: isoDate("2026-04-01T00:00:00Z"),
           existingBranches: new Set(["feat/T-1-external"]),
           prByBranch: new Map([
             [
@@ -1135,6 +1147,8 @@ it.effect(
         fetchInstallationProjectStates: () =>
           Effect.succeed({
             defaultBranch: "main",
+            fetchedAt: isoDate("2026-04-01T00:00:00Z"),
+            mergedPrsByBranch: new Map(),
             existingBranches: new Set(["fix-login"]),
             prByBranch: new Map([
               [
@@ -1205,6 +1219,9 @@ const mergedSnapshotLayer = (
       fetchInstallationProjectStates: () =>
         Effect.succeed({
           defaultBranch: "main",
+          openPullRequestText: new Map(),
+          fetchedAt: isoDate("2026-04-01T00:00:00Z"),
+          mergedPrsByBranch: new Map(),
           existingBranches: new Set(["feat/T-1"]),
           prByBranch: new Map([["feat/T-1", mergedPullRequest(baseRefName)]])
         })
@@ -1303,6 +1320,9 @@ it.effect(
         fetchInstallationProjectStates: () =>
           Effect.succeed({
             defaultBranch: "main",
+            mergedPrsByBranch: new Map(),
+            openPullRequestText: new Map(),
+            fetchedAt: isoDate("2026-04-01T00:00:00Z"),
             existingBranches: new Set(["feat/T-1"]),
             prByBranch: new Map()
           })
@@ -1351,6 +1371,9 @@ it.effect(
             )
             return {
               defaultBranch: "main",
+              openPullRequestText: new Map(),
+              fetchedAt: isoDate("2026-04-01T00:00:00Z"),
+              mergedPrsByBranch: new Map(),
               existingBranches: new Set(["feat/T-1"]),
               prByBranch: new Map()
             }
@@ -1387,6 +1410,9 @@ it.effect("reserved repository branches require manual attachment", () => {
       fetchInstallationProjectStates: () =>
         Effect.succeed({
           defaultBranch: "main",
+          mergedPrsByBranch: new Map(),
+          openPullRequestText: new Map(),
+          fetchedAt: isoDate("2026-04-01T00:00:00Z"),
           existingBranches: new Set(["feat/T-1"]),
           prByBranch: new Map()
         }),
@@ -1478,6 +1504,9 @@ it.effect(
                 yield* Deferred.await(scansReady)
                 return {
                   defaultBranch: "main",
+                  openPullRequestText: new Map(),
+                  fetchedAt: isoDate("2026-04-01T00:00:00Z"),
+                  mergedPrsByBranch: new Map(),
                   existingBranches: new Set(["feat/T-1"]),
                   prByBranch: new Map()
                 }
@@ -1649,6 +1678,9 @@ it.effect(
         fetchInstallationProjectStates: () =>
           Effect.succeed({
             defaultBranch: "main",
+            openPullRequestText: new Map(),
+            fetchedAt: isoDate("2026-04-01T00:00:00Z"),
+            mergedPrsByBranch: new Map(),
             refreshStatus: "stale",
             existingBranches: new Set(["feat/T-1", "feat/T-2"]),
             prByBranch: new Map([
@@ -1714,6 +1746,8 @@ it.effect(
         fetchInstallationProjectStates: () =>
           Effect.succeed({
             defaultBranch: "main",
+            mergedPrsByBranch: new Map(),
+            openPullRequestText: new Map(),
             fetchedAt: isoDate("2026-03-31T23:59:00Z"),
             existingBranches: new Set(["feat/T-1"]),
             prByBranch: new Map([
@@ -3407,6 +3441,8 @@ it.effect(
           fetchInstallationProjectStates: () =>
             Effect.succeed({
               defaultBranch: "main",
+              openPullRequestText: new Map(),
+              mergedPrsByBranch: new Map(),
               existingBranches: new Set(),
               prByBranch: new Map([["feat/T-1", mergedPullRequest("main")]]),
               fetchedAt: DateTime.toDate(
@@ -3462,6 +3498,9 @@ const stackLayer = (
       fetchInstallationProjectStates: () =>
         Effect.succeed({
           defaultBranch: "main",
+          mergedPrsByBranch: new Map(),
+          openPullRequestText: new Map(),
+          fetchedAt: isoDate("2026-04-01T00:00:00Z"),
           existingBranches: new Set(),
           prByBranch: new Map()
         }),
@@ -3503,6 +3542,9 @@ it.effect(
           fetchInstallationProjectStates: () =>
             Effect.succeed({
               defaultBranch: "main",
+              openPullRequestText: new Map(),
+              fetchedAt: isoDate("2026-04-01T00:00:00Z"),
+              mergedPrsByBranch: new Map(),
               existingBranches: new Set(["feat/T-1-ui"]),
               prByBranch: new Map([
                 [
@@ -3685,6 +3727,8 @@ it.effect(
         requested.push(branches)
         return Effect.succeed({
           defaultBranch: "main",
+          fetchedAt: isoDate("2026-04-01T00:00:00Z"),
+          mergedPrsByBranch: new Map(),
           existingBranches: new Set([
             "feat/T-1",
             "feat/T-1-api",
@@ -3744,6 +3788,9 @@ it.effect(
         queries.push(query)
         return Effect.succeed({
           defaultBranch: "main",
+          openPullRequestText: new Map(),
+          fetchedAt: isoDate("2026-04-01T00:00:00Z"),
+          mergedPrsByBranch: new Map(),
           existingBranches: new Set(),
           prByBranch: new Map()
         })
@@ -3797,6 +3844,9 @@ it.effect(
         requested.push(branches)
         return Effect.succeed({
           defaultBranch: "main",
+          mergedPrsByBranch: new Map(),
+          openPullRequestText: new Map(),
+          fetchedAt: isoDate("2026-04-01T00:00:00Z"),
           existingBranches: new Set(["api"]),
           prByBranch: new Map([
             merged("api", "feat/base", 41, "2026-05-01T09:00:00Z"),

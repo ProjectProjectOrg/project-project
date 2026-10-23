@@ -10,19 +10,20 @@ import { mapHttpError, type GitHubFailure, type TaggedFailure } from "./errors"
 
 export const GITHUB_REQUEST_TIMEOUT = Duration.seconds(15)
 
-export type GitHubRequestAttributes = Record<string, unknown> & {
-  readonly tokenSource: "app" | "user" | "installation"
-  readonly operation: string
-  readonly scopeKey?: string
-  readonly installationId?: string
-  readonly userId?: string
-}
+export type GitHubRequestAttributes = Record<string, unknown> &
+  Readonly<{
+    tokenSource: "app" | "user" | "installation"
+    operation: string
+    scopeKey?: string
+    installationId?: string
+    userId?: string
+  }>
 
 const MAX_COOLDOWNS = 256
 
-type RawRequestFailure = {
-  readonly cause: unknown
-}
+type RawRequestFailure = Readonly<{
+  cause: unknown
+}>
 
 const cooldownKey = (attributes: GitHubRequestAttributes): string =>
   attributes.tokenSource === "app"
@@ -36,17 +37,17 @@ const cooldownKey = (attributes: GitHubRequestAttributes): string =>
 
 export class GitHubRequestState extends Context.Service<
   GitHubRequestState,
-  {
-    readonly pausedUntil: (
+  Readonly<{
+    pausedUntil: (
       key: string,
       nowMillis: number
     ) => Effect.Effect<number | undefined>
-    readonly rememberRateLimit: (
+    rememberRateLimit: (
       key: string,
       error: GitHubFailure
     ) => Effect.Effect<void>
-  }
->()("@pp/server-core/github/request/GitHubRequestState") {}
+  }>
+>()("@pp/integration-github/request/GitHubRequestState") {}
 
 export const make = (): GitHubRequestState["Service"] => {
   const cooldowns = new Map<string, number>()

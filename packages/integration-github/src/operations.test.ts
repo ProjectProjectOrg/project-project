@@ -5,8 +5,8 @@ import * as Schema from "effect/Schema"
 import { Octokit } from "octokit"
 import { beforeEach, describe, expect, vi } from "vitest"
 
-import { BetterAuth, type BetterAuthShape } from "../auth/BetterAuth"
 import { GitHub } from "./GitHub"
+import { GitHubHost } from "./Host"
 import * as ProjectStateCache from "./projectStateCache"
 import * as GitHubRequest from "./request"
 
@@ -37,38 +37,14 @@ vi.mock("./clients", () => ({
 
 const { GitHubLive } = await import("./GitHubLive")
 
-const fakeBetterAuth: BetterAuthShape = {
-  handler: () => Effect.die("not implemented"),
-  getSession: () => Effect.die("not implemented"),
-  getGithubAccessToken: () => Effect.succeed("user-token"),
-  getPersonalGithub: () => Effect.die("not implemented"),
-  getPersonalEverhour: () => Effect.die("not implemented"),
-  getOrgSlugById: () => Effect.die("not implemented"),
-  listOrganizations: () => Effect.die("not implemented"),
-  listOrganizationsPaged: () => Effect.die("not implemented"),
-  getOrganization: () => Effect.die("not implemented"),
-  submitConsent: () => Effect.die("not implemented"),
-  getMembers: () => Effect.die("not implemented"),
-  renameOrg: () => Effect.die("not implemented"),
-  inviteMember: () => Effect.die("not implemented"),
-  updateMemberRole: () => Effect.die("not implemented"),
-  removeMember: () => Effect.die("not implemented"),
-  cancelInvitation: () => Effect.die("not implemented"),
-  transferOwnership: () => Effect.die("not implemented"),
-  setActiveOrganization: () => Effect.die("unused"),
-  leaveOrg: () => Effect.die("not implemented"),
-  listInvitations: () => Effect.die("not implemented"),
-  getInvitation: () => Effect.die("not implemented"),
-  getInvitationState: () => Effect.die("not implemented"),
-  acceptInvitation: () => Effect.die("not implemented"),
-  rejectInvitation: () => Effect.die("not implemented"),
-  getPublicClientName: () => Effect.die("not implemented")
+const fakeHost: GitHubHost["Service"] = {
+  userAccessToken: () => Effect.succeed("user-token")
 }
 
 const layer = GitHubLive.pipe(
   Layer.provide(
     Layer.mergeAll(
-      Layer.succeed(BetterAuth, fakeBetterAuth),
+      Layer.succeed(GitHubHost, fakeHost),
       GitHubRequest.layer,
       ProjectStateCache.layer
     )

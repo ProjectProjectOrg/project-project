@@ -4,16 +4,15 @@ import {
   RateLimited,
   RepoGone
 } from "@pp/shared"
-import * as DateTime from "effect/DateTime"
-import * as Effect from "effect/Effect"
-import * as Predicate from "effect/Predicate"
-import * as Schema from "effect/Schema"
-
 import {
   branchMentionsTicketId,
   closingTicketIdsInText,
   ticketIdsInText
-} from "../tickets/branchTicketId"
+} from "@pp/shared"
+import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
+import * as Schema from "effect/Schema"
+
 import { graphqlFor } from "./clients"
 import { narrow } from "./errors"
 import type {
@@ -148,10 +147,6 @@ const OPEN_PULL_REQUESTS_QUERY = /* GraphQL */ `
   }
 `
 
-interface BranchRef {
-  readonly name: string
-}
-
 const PullRequestSchema = Schema.Struct({
   number: Schema.Int,
   title: Schema.String,
@@ -187,7 +182,6 @@ const PullRequestConnectionSchema = Schema.Struct({
 })
 
 type PullRequestNode = typeof PullRequestSchema.Type
-type PullRequestConnection = typeof PullRequestConnectionSchema.Type
 const decodePullRequestConnection = Schema.decodeUnknownEffect(
   PullRequestConnectionSchema
 )
@@ -251,26 +245,25 @@ const decodeFetchProjectStateBatchResponse = Schema.decodeUnknownEffect(
   FetchProjectStateBatchResponseSchema
 )
 
-type FetchProjectStateBatchResponse =
-  typeof FetchProjectStateBatchResponseSchema.Type
+type ListBranchesResponse = Readonly<{
+  repository: Readonly<{
+    refs: Readonly<{
+      nodes: ReadonlyArray<
+        Readonly<{
+          name: string
+          branchProtectionRule: Readonly<{ id: string }> | null
+        }>
+      >
+      pageInfo: Readonly<{ hasNextPage: boolean }>
+    }>
+  }> | null
+}>
 
-interface ListBranchesResponse {
-  readonly repository: {
-    readonly refs: {
-      readonly nodes: ReadonlyArray<{
-        readonly name: string
-        readonly branchProtectionRule: { readonly id: string } | null
-      }>
-      readonly pageInfo: { readonly hasNextPage: boolean }
-    }
-  } | null
-}
-
-interface BranchExistsResponse {
-  readonly repository: {
-    readonly ref: { readonly name: string } | null
-  } | null
-}
+type BranchExistsResponse = Readonly<{
+  repository: Readonly<{
+    ref: Readonly<{ name: string }> | null
+  }> | null
+}>
 
 const mapChecks = (s: string | null | undefined): ChecksStatus => {
   if (!s) return "none"
@@ -296,13 +289,7 @@ const mapChecks = (s: string | null | undefined): ChecksStatus => {
   return "neutral"
 }
 
-const isBranchRef = (value: unknown): value is BranchRef =>
-  Predicate.isObject(value) && typeof value.name === "string"
-
-const isPullRequestConnection = (
-  value: unknown
-): value is PullRequestConnection =>
-  Predicate.isObject(value) && Array.isArray(value.nodes)
+const isBranchRef = Schema.is(Schema.Struct({ name: Schema.String }))
 
 const isSameRepositoryPullRequest = (
   pr: Pick<PullRequestNode, "headRepository" | "baseRepository">
@@ -330,77 +317,13 @@ const rawPullRequest = (pr: PullRequestNode): RawBranchEntry => ({
   checks: mapChecks(pr.commits.nodes[0]?.commit.statusCheckRollup?.state)
 })
 
-export interface ProjectStateBatchResponse {
-  readonly branches: ReadonlyArray<string>
-  readonly response: FetchProjectStateBatchResponse
-}
-
-export const projectStatesFromBatchResponses = (
-  data: ReadonlyArray<ProjectStateBatchResponse>
-): RawProjectStates | null => {
-  const firstRepository = data[0]?.response.repository
-  if (!firstRepository) return null
-
-  const branchStates = data.flatMap((batch) => {
-    if (!batch.response.repository) return [null]
-    return batch.branches.map((branchName, index) => {
-      const branch = batch.response.repository?.[`b${index}`]
-      const pullRequests = batch.response.repository?.[`p${index}`]
-      const existingBranch = isBranchRef(branch) ? branch.name : null
-      if (!isPullRequestConnection(pullRequests)) {
-        return { existingBranch, pr: null, mergedPrs: [] }
-      }
-      const sameRepoPr = pullRequests.nodes.filter(
-        (pr) => pr.headRefName === branchName && isSameRepositoryPullRequest(pr)
-      )
-      const latestPr =
-        sameRepoPr.find((pr) => pr.state === "OPEN") ?? sameRepoPr[0]
-      return {
-        existingBranch,
-        pr: latestPr ? rawPullRequest(latestPr) : null,
-        mergedPrs: sameRepoPr.flatMap(
-          (pr): ReadonlyArray<RawMergedPullRequest> =>
-            pr.state === "MERGED"
-              ? [{ ...rawPullRequest(pr), state: "merged" }]
-              : []
-        )
-      }
-    })
-  })
-  if (branchStates.some((entry) => entry === null)) return null
-
-  const existingBranches = new Set(
-    branchStates.flatMap((entry) =>
-      entry?.existingBranch ? [entry.existingBranch] : []
-    )
-  )
-  const prByBranch = new Map<string, RawBranchEntry>()
-  const mergedPrsByBranch = new Map<
-    string,
-    ReadonlyArray<RawMergedPullRequest>
-  >()
-  for (const entry of branchStates) {
-    if (!entry?.pr) continue
-    prByBranch.set(entry.pr.headRefName, entry.pr)
-    if (entry.mergedPrs.length > 0) {
-      mergedPrsByBranch.set(entry.pr.headRefName, entry.mergedPrs)
-    }
-  }
-  return {
-    defaultBranch: firstRepository.defaultBranchRef?.name ?? "main",
-    existingBranches,
-    prByBranch,
-    mergedPrsByBranch
-  }
-}
-
 export const buildProjectStateBatchQuery = (
   branches: ReadonlyArray<string>,
   cursors: ReadonlyMap<string, string> = new Map()
-): {
-  readonly query: string
-  readonly variables: Record<string, string | null>
-} => {
+): Readonly<{
+  query: string
+  variables: Record<string, string | null>
+}> => {
   const variableDefinitions = branches.flatMap((branch, index) => [
     `$ref${index}: String!`,
     `$headRefName${index}: String!`,
@@ -653,16 +576,20 @@ export const fetchProjectStatesWithToken = (
         ])
       ]
     }
-    const distinctBranches = requestedBranches
     const batches = yield* Effect.forEach(
-      branchChunks(distinctBranches),
+      branchChunks(requestedBranches),
       (batchBranches) =>
         Effect.gen(function* () {
-          const pullRequestsByBranch = new Map<string, Array<PullRequestNode>>()
+          const pullRequestsByBranch = new Map<
+            string,
+            ReadonlyArray<PullRequestNode>
+          >()
           const cursors = new Map<string, string>()
           const seenCursors = new Map<string, Set<string>>()
           let pendingBranches = batchBranches
-          let firstResponse: FetchProjectStateBatchResponse | undefined
+          const existingBranches = new Set<string>()
+          let defaultBranch = "main"
+          let firstPage = true
 
           do {
             const batch = buildProjectStateBatchQuery(pendingBranches, cursors)
@@ -691,13 +618,20 @@ export const fetchProjectStatesWithToken = (
                 GitHubError.invalidResponse("fetchProjectStateBatch", cause)
               )
             )
-            firstResponse ??= decodedResponse
-
-            if (!decodedResponse.repository) return yield* new RepoGone()
+            const repository = decodedResponse.repository
+            if (!repository) return yield* new RepoGone()
+            if (firstPage) {
+              defaultBranch = repository.defaultBranchRef?.name ?? "main"
+              for (const [index] of batchBranches.entries()) {
+                const branch = repository[`b${index}`]
+                if (isBranchRef(branch)) existingBranches.add(branch.name)
+              }
+              firstPage = false
+            }
 
             const nextPendingBranches: Array<string> = []
             for (const [index, branch] of pendingBranches.entries()) {
-              const pullRequests = decodedResponse.repository[`p${index}`]
+              const pullRequests = repository[`p${index}`]
               const decodedPullRequests = yield* decodePullRequestConnection(
                 pullRequests
               ).pipe(
@@ -738,28 +672,41 @@ export const fetchProjectStatesWithToken = (
             pendingBranches = nextPendingBranches
           } while (pendingBranches.length > 0)
 
-          const repository = firstResponse.repository
-          if (!repository) return yield* new RepoGone()
-
-          const responseRepository = { ...repository }
-          for (const [index, branch] of batchBranches.entries()) {
-            responseRepository[`p${index}`] = {
-              nodes: pullRequestsByBranch.get(branch) ?? []
-            }
-          }
-          return {
-            branches: batchBranches,
-            response: { ...firstResponse, repository: responseRepository }
-          }
+          return { defaultBranch, existingBranches, pullRequestsByBranch }
         }),
       { concurrency: 2 }
     )
 
-    const result = projectStatesFromBatchResponses(batches)
-    if (!result) return yield* new RepoGone()
-    return openPullRequestText.size > 0
-      ? { ...result, fetchedAt, openPullRequestText }
-      : { ...result, fetchedAt }
+    const existingBranches = new Set(
+      batches.flatMap((batch) => [...batch.existingBranches])
+    )
+    const prByBranch = new Map<string, RawBranchEntry>()
+    const mergedPrsByBranch = new Map<
+      string,
+      ReadonlyArray<RawMergedPullRequest>
+    >()
+    for (const batch of batches) {
+      for (const [branch, pullRequests] of batch.pullRequestsByBranch) {
+        const latestPr =
+          pullRequests.find((pr) => pr.state === "OPEN") ?? pullRequests[0]
+        if (latestPr) prByBranch.set(branch, rawPullRequest(latestPr))
+        const mergedPrs = pullRequests.flatMap(
+          (pr): ReadonlyArray<RawMergedPullRequest> =>
+            pr.state === "MERGED"
+              ? [{ ...rawPullRequest(pr), state: "merged" }]
+              : []
+        )
+        if (mergedPrs.length > 0) mergedPrsByBranch.set(branch, mergedPrs)
+      }
+    }
+    return {
+      defaultBranch: batches[0]?.defaultBranch ?? "main",
+      existingBranches,
+      prByBranch,
+      mergedPrsByBranch,
+      fetchedAt,
+      openPullRequestText
+    }
   })
 
 export const listBranchesWithToken = (

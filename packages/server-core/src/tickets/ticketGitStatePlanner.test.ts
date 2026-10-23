@@ -37,6 +37,9 @@ function raw(overrides: Partial<RawProjectStates> = {}): RawProjectStates {
     defaultBranch: "main",
     existingBranches: new Set(),
     prByBranch: new Map(),
+    mergedPrsByBranch: new Map(),
+    openPullRequestText: new Map(),
+    fetchedAt: now,
     ...overrides
   }
 }

@@ -1,5 +1,6 @@
 import { it } from "@effect/vitest"
 import { GitHubError, RateLimited, RepoGone } from "@pp/shared"
+import * as DateTime from "effect/DateTime"
 import * as Deferred from "effect/Deferred"
 import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
@@ -12,7 +13,10 @@ import * as ProjectStateCache from "./projectStateCache"
 const snapshot = {
   defaultBranch: "main",
   existingBranches: new Set<string>(["feat/T-1"]),
-  prByBranch: new Map()
+  prByBranch: new Map(),
+  mergedPrsByBranch: new Map(),
+  openPullRequestText: new Map(),
+  fetchedAt: DateTime.toDate(DateTime.makeUnsafe(0))
 }
 
 const keyFor = (suffix: string) =>
@@ -125,7 +129,7 @@ it.effect(
       )
       expect(stale.refreshStatus).toBe("rate_limited")
       expect(stale.retryAt).toBe(1234)
-      expect(stale.fetchedAt).toBeUndefined()
+      expect(stale.fetchedAt).toEqual(snapshot.fetchedAt)
 
       shouldFail = false
       const fresh = yield* cache.cachedProjectStates(
