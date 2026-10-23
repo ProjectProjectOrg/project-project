@@ -4,6 +4,7 @@ import { createHmac, timingSafeEqual } from "node:crypto"
 import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
 import { projectIndex } from "@pp/db/schema"
+import { GitHubIntegrations } from "@pp/integration-github/GitHubIntegrations"
 import { SlackRuntimeLive } from "@pp/integration-slack/Runtime"
 // apps/backend/src/main.ts
 //
@@ -67,7 +68,6 @@ import { AttachmentReaperLive } from "@pp/server-core/attachments/AttachmentReap
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { EverhourWebhooks } from "@pp/server-core/everhour/EverhourWebhooks"
 import { EverhourWebhooksLive } from "@pp/server-core/everhour/EverhourWebhooksLive"
-import { GitHubIntegrations } from "@pp/server-core/github/GitHubIntegrations"
 import { GitHubWebhooks } from "@pp/server-core/github/GitHubWebhooks"
 import { GitHubWebhooksLive } from "@pp/server-core/github/GitHubWebhooksLive"
 import { TicketIndexReconcilerLive } from "@pp/server-core/tickets/TicketIndexReconcilerLive"

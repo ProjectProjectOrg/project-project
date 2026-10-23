@@ -2,6 +2,7 @@ import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
 import * as BunPath from "@effect/platform-bun/BunPath"
 import { DbLive, PgLive } from "@pp/db"
+import { GitHubIntegrationsLive } from "@pp/integration-github/GitHubIntegrationsLive"
 import * as GitHubProjectStateCache from "@pp/integration-github/projectStateCache"
 import * as GitHubRequest from "@pp/integration-github/request"
 import { SlackServicesLive } from "@pp/integration-slack/Services"
@@ -19,7 +20,6 @@ import { EverhourTimeTrackingLive } from "@pp/server-core/everhour/EverhourTimeT
 import { FigmaIntegrationsLive } from "@pp/server-core/figma/FigmaIntegrationsLive"
 import { FigmaLinksLive } from "@pp/server-core/figma/FigmaLinksLive"
 import { FigmaLive } from "@pp/server-core/figma/FigmaLive"
-import { GitHubIntegrationsLive } from "@pp/server-core/github/GitHubIntegrationsLive"
 import { GroupDocsLive } from "@pp/server-core/groups/GroupDocsLive"
 import { GroupsLive } from "@pp/server-core/groups/GroupsLive"
 import * as JiraCleanupWorkflow from "@pp/server-core/jira/CleanupWorkflow"
@@ -64,6 +64,7 @@ import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
 
 import { GitHubLive, GitHubCacheLive } from "./github/GitHubLive"
+import { GitHubHostLive } from "./github/HostLive"
 import { JiraWorkflowsLive } from "./jira/WorkflowRuntime"
 import { OrgAccessLive, ProjectAccessLive } from "./Layers/Access"
 import { AuthenticationLive } from "./Layers/Auth"
@@ -148,7 +149,10 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
   )
     .pipe(
       Layer.provideMerge(
-        GitHubIntegrationsLive.pipe(Layer.provideMerge(GitHubLive))
+        GitHubIntegrationsLive.pipe(
+          Layer.provideMerge(GitHubLive),
+          Layer.provide(GitHubHostLive)
+        )
       ),
       Layer.provideMerge(
         EverhourIntegrationsLive.pipe(Layer.provideMerge(EverhourLive))

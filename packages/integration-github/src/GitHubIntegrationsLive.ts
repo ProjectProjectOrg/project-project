@@ -1,22 +1,17 @@
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createHash } from "node:crypto"
 
-import { Org } from "@pp/access/roles"
 import { Db } from "@pp/db"
-import { publishedProject } from "@pp/db/projectVisibility"
 import {
   githubAppInstallSession,
   organizationGithubIntegration,
   organizationIntegration,
-  projectIntegrationLink,
-  member,
-  organization
+  projectIntegrationLink
 } from "@pp/db/schema"
 import {
   Forbidden,
   GitHubError,
   NotFound,
-  OrgRole,
   OrgScope,
   RateLimited,
   type GithubOrgIntegrationStatus,
@@ -29,7 +24,6 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Base64Url from "effect/encoding/Base64Url"
 import * as Layer from "effect/Layer"
-import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 
 import { GitHub } from "./GitHub"
@@ -37,8 +31,7 @@ import {
   GitHubIntegrations,
   type GitHubIntegrationsShape
 } from "./GitHubIntegrations"
-
-const decodeOrgRole = Schema.decodeUnknownEffect(OrgRole)
+import { GitHubHost } from "./Host"
 
 const hashState = (state: string) =>
   createHash("sha256").update(state).digest("hex")
@@ -46,10 +39,6 @@ const hashState = (state: string) =>
 const configError = new GitHubError({
   message: "missing GitHub App configuration"
 })
-
-const publicBaseUrl = Config.String("BETTER_AUTH_URL").pipe(
-  Config.withDefault("http://localhost:5173")
-)
 
 const githubAuthorizeUrl = (
   state: string
@@ -77,6 +66,7 @@ export const GitHubIntegrationsLive = Layer.effect(
     const crypto = yield* Crypto.Crypto
     const sql = yield* SqlClient.SqlClient
     const github = yield* GitHub
+    const host = yield* GitHubHost
 
     const connectedOrgGithub = (organizationId: string) =>
       db
@@ -139,7 +129,7 @@ export const GitHubIntegrationsLive = Layer.effect(
     const startInstall = (
       returnProjectSlug: Slug | null | undefined
     ): Effect.Effect<
-      { installUrl: string },
+      Readonly<{ installUrl: string }>,
       NotFound | GitHubError,
       OrgScope
     > =>
@@ -148,19 +138,10 @@ export const GitHubIntegrationsLive = Layer.effect(
         const returnProject =
           returnProjectSlug == null
             ? null
-            : yield* db.query.projectIndex
-                .findFirst({
-                  columns: { id: true, organizationId: true },
-                  where: {
-                    RAW: (table, _operators) =>
-                      _operators.and(
-                        _operators.eq(table.organizationId, org.organizationId),
-                        _operators.eq(table.slug, returnProjectSlug),
-                        publishedProject(table)
-                      )!
-                  }
-                })
-                .pipe(Effect.orDie)
+            : yield* host.installationProject(
+                org.organizationId,
+                returnProjectSlug
+              )
         if (returnProjectSlug != null && !returnProject) {
           return yield* new NotFound()
         }
@@ -205,7 +186,10 @@ export const GitHubIntegrationsLive = Layer.effect(
     const completeSetup = (
       state: string,
       installationId: string
-    ): Effect.Effect<{ authorizeUrl: string }, NotFound | GitHubError> =>
+    ): Effect.Effect<
+      Readonly<{ authorizeUrl: string }>,
+      NotFound | GitHubError
+    > =>
       Effect.gen(function* () {
         const session = yield* sessionForState(state)
         const now = yield* DateTime.nowAsDate
@@ -237,7 +221,7 @@ export const GitHubIntegrationsLive = Layer.effect(
       state: string,
       code: string
     ): Effect.Effect<
-      { redirectUrl: string },
+      Readonly<{ redirectUrl: string }>,
       NotFound | Forbidden | RateLimited | GitHubError
     > =>
       Effect.gen(function* () {
@@ -263,31 +247,10 @@ export const GitHubIntegrationsLive = Layer.effect(
           .withTransaction(
             Effect.gen(function* () {
               const now = yield* DateTime.nowAsDate
-              const [installer] = yield* db
-                .select({ role: member.role })
-                .from(member)
-                .innerJoin(
-                  organization,
-                  eq(member.organizationId, organization.id)
-                )
-                .where(
-                  and(
-                    eq(member.organizationId, session.organizationId),
-                    eq(member.userId, session.userId),
-                    isNull(organization.deletedAt)
-                  )
-                )
-                .limit(1)
-                .pipe(Effect.orDie)
-              const role = installer
-                ? yield* decodeOrgRole(installer.role).pipe(Effect.orDie)
-                : null
-              if (
-                role === null ||
-                !Org.orgRoles[role].can({ integration: ["manage"] })
-              ) {
-                return yield* new Forbidden()
-              }
+              yield* host.requireInstallPermission(
+                session.organizationId,
+                session.userId
+              )
 
               const [claimed] = yield* db
                 .update(githubAppInstallSession)
@@ -415,41 +378,10 @@ export const GitHubIntegrationsLive = Layer.effect(
           )
           .pipe(Effect.catchTag("SqlError", Effect.die))
 
-        const org = yield* db.query.organization
-          .findFirst({
-            columns: { slug: true },
-            where: {
-              RAW: (table, _operators) =>
-                _operators.eq(table.id, session.organizationId)
-            }
-          })
-          .pipe(Effect.orDie)
-        if (!org) return yield* new NotFound()
-        const project =
-          session.returnProjectId == null
-            ? null
-            : yield* db.query.projectIndex
-                .findFirst({
-                  columns: { slug: true },
-                  where: {
-                    RAW: (table, _operators) =>
-                      _operators.and(
-                        _operators.eq(table.id, session.returnProjectId!),
-                        _operators.eq(
-                          table.organizationId,
-                          session.organizationId
-                        ),
-                        publishedProject(table)
-                      )!
-                  }
-                })
-                .pipe(Effect.orDie)
-        const baseUrl = yield* publicBaseUrl.pipe(
-          Effect.mapError(() => configError)
+        const redirectUrl = yield* host.installationRedirect(
+          session.organizationId,
+          session.returnProjectId
         )
-        const redirectUrl = project
-          ? `${baseUrl}/orgs/${org.slug}/projects/${project.slug}?githubInstall=success`
-          : `${baseUrl}/orgs/${org.slug}/settings/integrations?githubInstall=success`
         return { redirectUrl }
       })
 

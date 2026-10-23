@@ -12,27 +12,27 @@ import type {
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 
-export interface GitHubIntegrationsShape {
-  readonly getStatus: () => Effect.Effect<
-    GithubOrgIntegrationStatus,
-    never,
+export type GitHubIntegrationsShape = Readonly<{
+  getStatus: () => Effect.Effect<GithubOrgIntegrationStatus, never, OrgScope>
+  startInstall: (
+    returnProjectSlug: Slug | null | undefined
+  ) => Effect.Effect<
+    Readonly<{ installUrl: string }>,
+    NotFound | GitHubError,
     OrgScope
   >
-  readonly startInstall: (
-    returnProjectSlug: Slug | null | undefined
-  ) => Effect.Effect<{ installUrl: string }, NotFound | GitHubError, OrgScope>
-  readonly completeSetup: (
+  completeSetup: (
     state: string,
     installationId: string
-  ) => Effect.Effect<{ authorizeUrl: string }, NotFound | GitHubError>
-  readonly completeCallback: (
+  ) => Effect.Effect<Readonly<{ authorizeUrl: string }>, NotFound | GitHubError>
+  completeCallback: (
     state: string,
     code: string
   ) => Effect.Effect<
-    { redirectUrl: string },
+    Readonly<{ redirectUrl: string }>,
     NotFound | Forbidden | RateLimited | GitHubError
   >
-  readonly listRepos: (
+  listRepos: (
     query: string | undefined,
     page: number
   ) => Effect.Effect<
@@ -40,9 +40,9 @@ export interface GitHubIntegrationsShape {
     NotFound | RepoGone | RateLimited | GitHubError,
     OrgScope
   >
-}
+}>
 
 export class GitHubIntegrations extends Context.Service<
   GitHubIntegrations,
   GitHubIntegrationsShape
->()("@pp/server-core/github/GitHubIntegrations") {}
+>()("@pp/integration-github/GitHubIntegrations") {}
