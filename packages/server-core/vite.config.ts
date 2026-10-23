@@ -4,6 +4,7 @@ const isolatedTests = [
   "src/activity/TicketActivityLive.postgres.test.ts",
   "src/comments/CommentsLive.test.ts",
   "src/email/OrgEmail.test.ts",
+  "src/everhour/Everhour.postgres.test.ts",
   "src/figma/FigmaIntegrationsLive.test.ts",
   "src/figma/FigmaLinksLive.test.ts",
   "src/jira/Credentials.test.ts",
