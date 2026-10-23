@@ -34,7 +34,7 @@ describe.skipIf(!databaseUrl)("Jira migration retention", () => {
       throw new Error("Isolated database required")
     pool = new Pool({ connectionString: databaseUrl })
     await migrate(drizzle({ client: pool }), {
-      migrationsFolder: `${import.meta.dirname}/../../../db/src/migrations`
+      migrationsFolder: `${import.meta.dirname}/../../db/src/migrations`
     })
     const pg = PgClient.layer({ url: Redacted.make(databaseUrl!) })
     layer = JiraMigrationProjection.layer.pipe(

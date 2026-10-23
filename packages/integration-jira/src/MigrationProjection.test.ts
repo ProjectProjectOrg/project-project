@@ -56,7 +56,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
       throw new Error("Isolated database required")
     pool = new Pool({ connectionString: databaseUrl })
     await migrate(drizzle({ client: pool }), {
-      migrationsFolder: `${import.meta.dirname}/../../../db/src/migrations`
+      migrationsFolder: `${import.meta.dirname}/../../db/src/migrations`
     })
     layer = JiraMigrationProjection.layer.pipe(
       Layer.provide(

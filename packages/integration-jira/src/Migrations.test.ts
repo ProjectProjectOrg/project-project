@@ -70,7 +70,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
     }
     pool = new Pool({ connectionString: databaseUrl })
     await migrate(drizzle({ client: pool }), {
-      migrationsFolder: `${import.meta.dirname}/../../../db/src/migrations`
+      migrationsFolder: `${import.meta.dirname}/../../db/src/migrations`
     })
     const database = DbLive.pipe(
       Layer.provideMerge(PgClient.layer({ url: Redacted.make(databaseUrl) }))
