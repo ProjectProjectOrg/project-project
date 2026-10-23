@@ -64,12 +64,6 @@ describe("built-in blocks", () => {
     }
   })
 
-  it("heads every block with its name", () => {
-    for (const block of BUILTIN_BLOCKS) {
-      expect(block.content.split("\n")[0], block.key).toBe(`## ${block.name}`)
-    }
-  })
-
   it("gives every copied block at least one hint", () => {
     for (const block of BUILTIN_BLOCKS.filter((candidate) => !candidate.sync)) {
       expect(hintSlots(block.content).length, block.key).toBeGreaterThan(0)

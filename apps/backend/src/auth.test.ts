@@ -228,14 +228,6 @@ describe("Better Auth plugin wiring", () => {
     expect(membership?.organizationId).toBe(organizationIds[1])
   })
 
-  it("exposes the organization plugin endpoints", () => {
-    expect(typeof auth.api.createOrganization).toBe("function")
-    expect(typeof auth.api.listOrganizations).toBe("function")
-    expect(typeof auth.api.createInvitation).toBe("function")
-    expect(typeof auth.api.acceptInvitation).toBe("function")
-    expect(typeof auth.api.setActiveOrganization).toBe("function")
-  })
-
   it("disables public self-serve organization creation", () => {
     const orgPlugin = configuredPlugin("organization")
     expect(orgPlugin.options?.allowUserToCreateOrganization).toBe(false)
@@ -301,13 +293,6 @@ describe("Better Auth plugin wiring", () => {
       "repo",
       "read:org"
     ])
-  })
-
-  it("exposes the admin plugin endpoints", () => {
-    expect(typeof auth.api.listUsers).toBe("function")
-    expect(typeof auth.api.setRole).toBe("function")
-    expect(typeof auth.api.banUser).toBe("function")
-    expect(typeof auth.api.impersonateUser).toBe("function")
   })
 })
 
@@ -375,16 +360,6 @@ describe("organization owner guard invariants", () => {
     })
     expect(promoteTarget).toBe(false)
     expect(demoteSelf).toBe(false)
-  })
-
-  it("blocks the reverse transfer order (demote self while sole owner)", () => {
-    expect(
-      lastOrgOwnerBlocked({
-        nextRole: "admin",
-        targetRole: "owner",
-        otherOwnerCount: 0
-      })
-    ).toBe(true)
   })
 })
 

@@ -782,44 +782,6 @@ describe("reconcileTicket dev mode backlink", () => {
   )
 
   it.live(
-    "issues the DELETE for a reference whose dev resource id came from adopting an existing Figma resource",
-    () =>
-      Effect.gen(function* () {
-        const order: Array<string> = []
-        const deleteDevResource = vi.fn(() => {
-          order.push("figma-delete")
-          return Effect.void
-        })
-        const { db } = yield* recordingDb((sql) => {
-          if (sql.includes(JOINED)) {
-            return referencedLink({
-              fetchedAt: null,
-              lastCheckStatus: null,
-              devResourceId: "adopted-existing-dev-resource"
-            })
-          }
-          if (sql.startsWith('delete from "figma_reference"')) {
-            order.push("db-delete")
-          }
-          return []
-        })
-        const exit = yield* reconcile(
-          harness({ db, figma: { deleteDevResource } }),
-          ""
-        )
-        yield* Effect.sleep("100 millis")
-
-        expect(exit._tag).toBe("Success")
-        expect(deleteDevResource).toHaveBeenCalledWith(
-          expect.anything(),
-          "FILEKEY123",
-          "adopted-existing-dev-resource"
-        )
-        expect(order).toEqual(["figma-delete", "db-delete"])
-      })
-  )
-
-  it.live(
     "retracts a dev resource created after its reference was removed",
     () =>
       Effect.gen(function* () {

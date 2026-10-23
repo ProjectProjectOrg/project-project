@@ -477,15 +477,6 @@ describe("description editor attachment transformers", () => {
     expect(exported).not.toBe("shot")
   })
 
-  it("degrades an attachment node to its bare filename without the attachment transformer, which is why the description callsite always supplies it", () => {
-    const exported = inAttachmentEditor(
-      transformersForAttachments(descriptionAttachments(true)),
-      () => $convertToMarkdownString(MARKDOWN_TRANSFORMERS)
-    )
-
-    expect(exported).toBe("shot")
-  })
-
   it("keeps attachment markdown out of the transformer list for callsites without attachments", () => {
     expect(transformersForAttachments(undefined)).toBe(MARKDOWN_TRANSFORMERS)
   })

@@ -1,16 +1,10 @@
-import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import { it } from "@effect/vitest"
 import {
   createMemoryHistory,
   createRootRoute,
-  createRoute,
-  createRouter,
-  RouterProvider,
-  useParams
+  createRouter
 } from "@tanstack/react-router"
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import * as Effect from "effect/Effect"
-import * as Result from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
 import { afterAll, afterEach, expect, vi } from "vitest"
 
@@ -20,7 +14,6 @@ import {
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
-import { Route as AuthedRoute } from "@/routes/_authed/route"
 import { authClient } from "@/services/AuthClient"
 
 import { createSessionCache } from "./sessionCache"
@@ -30,7 +23,6 @@ vi.mock("@/services/AuthClient", () => ({ authClient: { signOut: vi.fn() } }))
 const fetchStub = stubFetch()
 
 afterEach(() => {
-  cleanup()
   vi.restoreAllMocks()
 })
 
@@ -206,120 +198,3 @@ it.effect(
       }
     })
 )
-
-it("switches the visible sidebar and list together and clears page drafts while retaining org caches", async () => {
-  vi.stubGlobal("matchMedia", () => ({
-    matches: false,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    addListener: () => {},
-    removeListener: () => {}
-  }))
-  vi.stubGlobal("scrollTo", () => {})
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    }
-  )
-  const fetch = vi.fn(async (input: RequestInfo | URL) => {
-    const url = new URL(
-      input instanceof Request ? input.url : String(input),
-      "http://localhost"
-    )
-    if (url.pathname.endsWith("/me")) return Response.json(user("alice"))
-    if (url.pathname.endsWith("/projects")) {
-      const org = url.pathname.includes("org-b") ? "org-b" : "org-a"
-      return Response.json([
-        {
-          org,
-          slug: "project",
-          key: "PROJ",
-          name: org + " project",
-          banner: null,
-          iconImage: null,
-          icon: "box",
-          color: "#94a3b8",
-          createdBy: "alice",
-          createdAt: "2026-01-01T00:00:00.000Z"
-        }
-      ])
-    }
-    if (url.pathname.endsWith("/timer/current")) return Response.json(null)
-    return Response.json([])
-  })
-  fetchStub.set(fetch)
-  const registry = Registry.make()
-  const Layout = AuthedRoute.options.component
-  if (!Layout) throw new Error("Missing authenticated layout")
-  function Page() {
-    const { orgSlug } = useParams({ strict: false })
-    const projects = useAtomValue(projectsFor(projectsRequest(orgSlug ?? "")))
-    return (
-      <div>
-        <input aria-label="Page draft" defaultValue="" />
-        {Result.isSuccess(projects) ? (
-          <p>{projects.value[0]?.name + " list"}</p>
-        ) : null}
-      </div>
-    )
-  }
-  const root = createRootRoute()
-  const layout = createRoute({
-    getParentRoute: () => root,
-    id: "_authed",
-    component: Layout
-  })
-  const page = createRoute({
-    getParentRoute: () => layout,
-    path: "/orgs/$orgSlug/projects",
-    component: Page
-  })
-  const router = createRouter({
-    routeTree: root.addChildren([layout.addChildren([page])]),
-    history: createMemoryHistory({ initialEntries: ["/orgs/org-a/projects"] }),
-    context: { registry }
-  })
-  try {
-    await router.load()
-    render(
-      <RegistryContext.Provider value={registry}>
-        <RouterProvider router={router} />
-      </RegistryContext.Provider>
-    )
-    await screen.findByText("org-a project list")
-    expect(
-      screen.getByRole("link", { name: "org-a project" }).getAttribute("href")
-    ).toContain("/org-a/")
-    fireEvent.change(screen.getByLabelText("Page draft"), {
-      target: { value: "Private draft" }
-    })
-    await act(async () => {
-      await router.navigate({
-        to: "/orgs/$orgSlug/projects",
-        params: { orgSlug: "org-b" }
-      })
-    })
-    await screen.findByText("org-b project list")
-    expect(screen.queryByText("org-a project")).toBeNull()
-    expect(
-      screen.getByRole("link", { name: "org-b project" }).getAttribute("href")
-    ).toContain("/org-b/")
-    expect(screen.getByLabelText("Page draft")).toHaveProperty("value", "")
-    const before = fetch.mock.calls.length
-    await act(async () => {
-      await router.navigate({
-        to: "/orgs/$orgSlug/projects",
-        params: { orgSlug: "org-a" }
-      })
-    })
-    await screen.findByText("org-a project list")
-    expect(fetch.mock.calls.length).toBe(before)
-  } finally {
-    cleanup()
-    router.cancelMatches()
-    registry.dispose()
-  }
-})

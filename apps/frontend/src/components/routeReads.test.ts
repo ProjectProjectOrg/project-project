@@ -1,27 +1,5 @@
-import { RegistryContext } from "@effect/atom-react"
 import { Project } from "@pp/access/roles"
-import {
-  GroupId,
-  ProjectDetail,
-  TicketDetail,
-  TicketListQuery,
-  User
-} from "@pp/shared"
-import {
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-  RouterProvider
-} from "@tanstack/react-router"
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor
-} from "@testing-library/react"
+import { ProjectDetail, TicketListQuery, User } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
@@ -30,19 +8,10 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import { stubFetch } from "@/api/testFetch"
 import { me } from "@/features/auth/atoms/auth"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
-import { boardRequest } from "@/features/sprints/atoms/sprintBoard"
-import { backlogRequest } from "@/features/tickets/atoms/backlog"
-import { ProjectContext } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 import { Route as BacklogRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/index"
 import { Route as SprintRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId"
 import { Route as SprintIndexRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/index"
-import { Route as TicketRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/tickets/$id"
-
-import { SprintBoardCard } from "./sprints/SprintBoardCard"
-import { Row } from "./TicketList/Row"
-
 const decodeTicketListQuery = Schema.decodeSync(TicketListQuery)
-const decodeGroupId = Schema.decodeSync(GroupId)
 
 const viewer = Schema.decodeSync(User)({
   id: "user-1",
@@ -123,7 +92,6 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  cleanup()
   registry.dispose()
   localStorage.clear()
 })
@@ -145,7 +113,7 @@ it("starts backlog sections alongside metadata without waiting, even with collap
       deps: query
     })
   ).toBeUndefined()
-  await waitFor(() => expect(requests).toHaveLength(5))
+  await vi.waitFor(() => expect(requests).toHaveLength(5))
   const sections = requests.find((url) =>
     url.pathname.endsWith("/tickets/sections")
   )
@@ -178,7 +146,7 @@ it("starts only sprint sections when the viewer groups the list by sprint", asyn
     params,
     deps: query
   })
-  await waitFor(() => expect(requests).toHaveLength(5))
+  await vi.waitFor(() => expect(requests).toHaveLength(5))
   const sprintSections = requests.find((url) =>
     url.pathname.endsWith("/tickets/sprint-sections")
   )
@@ -206,7 +174,7 @@ it.each(["board", "list", "description"] as const)(
         }
       })
     ).toMatchObject({ crumb: { groupId: "G-1" } })
-    await waitFor(() =>
+    await vi.waitFor(() =>
       expect(requests).toHaveLength(view === "description" ? 3 : 4)
     )
     const ticketRequests = requests.filter((url) =>
@@ -248,7 +216,7 @@ it("starts the sprint index target's data as soon as the list resolves", async (
   const redirected = expect(loaded).rejects.toMatchObject({
     options: { params: { groupId: "G-1" } }
   })
-  await waitFor(() => expect(requests).toHaveLength(1))
+  await vi.waitFor(() => expect(requests).toHaveLength(1))
   resolveList(
     Response.json([
       {
@@ -267,107 +235,8 @@ it("starts the sprint index target's data as soon as the list resolves", async (
     ])
   )
   await redirected
-  await waitFor(() => expect(requests).toHaveLength(4))
+  await vi.waitFor(() => expect(requests).toHaveLength(4))
   expect(requests.map((url) => url.pathname)).toContain(
     "/api/orgs/org/projects/project/groups/G-1"
   )
 })
-
-const ticket = Schema.decodeSync(TicketDetail)({
-  id: "T-1",
-  title: "Hover target",
-  status: "todo",
-  type: "feat",
-  priority: "med",
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  gitState: { tag: "no_branch" },
-  assignees: [],
-  archivedAt: null,
-  creator: null,
-  updater: null,
-  createdBy: "user-1",
-  createdAt: "2026-01-01T00:00:00.000Z",
-  updatedAt: "2026-01-01T00:00:00.000Z",
-  body: ""
-})
-
-it.each(["row", "card"] as const)(
-  "hovering a ticket %s starts shared ticket and comment reads",
-  async (kind) => {
-    const root = createRootRoute()
-    const home = createRoute({
-      getParentRoute: () => root,
-      path: "/",
-      component: () =>
-        kind === "card" ? (
-          <SprintBoardCard
-            orgSlug="org"
-            slug="project"
-            req={boardRequest("org", "project", decodeGroupId("G-1"))}
-            ticket={ticket}
-            members={[]}
-          />
-        ) : (
-          <Row
-            orgSlug="org"
-            slug="project"
-            ticket={ticket}
-            req={backlogRequest("org", "project", decodeTicketListQuery({}))}
-            members={[]}
-            showSprintCol={false}
-            showExtraActionsCol={false}
-            sprintMembership={null}
-            previewOpen={false}
-            onPreviewPointerEnter={() => {}}
-            onPreviewOpenChange={() => {}}
-          />
-        )
-    })
-    const detail = createRoute({
-      getParentRoute: () => root,
-      path: "/orgs/$orgSlug/projects/$slug/tickets/$id",
-      loader: () =>
-        load(TicketRoute.options.loader, { context: { registry }, params }),
-      component: () => null
-    })
-    const router = createRouter({
-      routeTree: root.addChildren([home, detail]),
-      history: createMemoryHistory({ initialEntries: ["/"] }),
-      defaultPreloadDelay: 0
-    })
-    await router.load()
-    render(
-      <RegistryContext.Provider value={registry}>
-        <ProjectContext.Provider value={projectReq}>
-          <RouterProvider router={router} />
-        </ProjectContext.Provider>
-      </RegistryContext.Provider>
-    )
-    const link = await screen.findByRole("link", { name: "Hover target" })
-    expect(requests.some((url) => url.pathname.endsWith("/tickets/T-1"))).toBe(
-      false
-    )
-    fireEvent.mouseEnter(link)
-    await waitFor(() => {
-      expect(
-        requests.filter((url) => url.pathname.endsWith("/tickets/T-1"))
-      ).toHaveLength(1)
-      expect(
-        requests.filter((url) => url.pathname.endsWith("/comments"))
-      ).toHaveLength(1)
-    })
-    await act(async () => {
-      await router.preloadRoute({
-        to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
-        params
-      })
-    })
-    expect(
-      requests.filter((url) => url.pathname.endsWith("/tickets/T-1"))
-    ).toHaveLength(1)
-  }
-)

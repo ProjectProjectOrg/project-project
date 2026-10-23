@@ -8,8 +8,6 @@ import {
 } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
-import { libraryOf } from "@/components/Library/libraryEditorTestKit"
-
 import {
   freeTemplateKey,
   lookupForLayer,
@@ -30,7 +28,14 @@ const definition = (
 const context = definition("context")
 const steps = definition("steps-to-reproduce", "org")
 
-const lookup = blockLookupFor(libraryOf([context, steps], []))
+const lookup = blockLookupFor({
+  blocks: [context, steps],
+  templates: [],
+  defaults: { feat: null, bug: null, chore: null, other: null },
+  ownDefaults: {},
+  inheritedDefaults: { feat: null, bug: null, chore: null, other: null },
+  canEdit: true
+})
 
 const body = [
   formatTicketBlock("context", stripHints(context.content)),

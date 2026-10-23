@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     name: "db",
     include: ["src/**/*.test.ts"],
-    environment: "node"
+    environment: "node",
+    isolate: false
   }
 })

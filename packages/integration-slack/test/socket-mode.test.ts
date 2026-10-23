@@ -6,7 +6,7 @@ import type { ServerWebSocket } from "bun"
 test("keeps Socket Mode connected through heartbeat checks and acknowledges events", async () => {
   const sockets = new Set<ServerWebSocket<undefined>>()
   let connections = 0
-  let acknowledged = false
+  const acknowledgement = Promise.withResolvers<unknown>()
   const server = Bun.serve<undefined>({
     port: 0,
     fetch(request, server) {
@@ -27,8 +27,7 @@ test("keeps Socket Mode connected through heartbeat checks and acknowledges even
       },
       message(_socket, message) {
         const payload: unknown = JSON.parse(String(message))
-        expect(payload).toMatchObject({ envelope_id: "heartbeat-check" })
-        acknowledged = true
+        acknowledgement.resolve(payload)
       },
       close(socket) {
         sockets.delete(socket)
@@ -64,8 +63,9 @@ test("keeps Socket Mode connected through heartbeat checks and acknowledges even
         })
       )
     }
-    await Bun.sleep(100)
-    expect(acknowledged).toBe(true)
+    expect(await acknowledgement.promise).toMatchObject({
+      envelope_id: "heartbeat-check"
+    })
   } finally {
     await client.disconnect()
     await server.stop(true)

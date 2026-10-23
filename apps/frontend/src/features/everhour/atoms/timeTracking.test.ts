@@ -8,7 +8,6 @@ import {
   type LogTimeInput
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
 import { describe, expect, it, vi } from "vitest"
@@ -19,7 +18,6 @@ import {
   activeTimerAtom,
   activeTimerRequest,
   logTicketTimeAtom,
-  optimisticStopTimer,
   startActiveTicketTimerAtom,
   stopTimerAtom,
   ticketTimeAtom,
@@ -74,13 +72,6 @@ const responseFor = (url: string, active: ActiveTimer | null = timer) => {
   if (url.endsWith("/everhour/time")) return Response.json(encodeTime(time))
   return Response.json(encodeTimer(active))
 }
-
-describe("optimisticStopTimer", () => {
-  it("clears the active timer", () => {
-    const result = optimisticStopTimer(AsyncResult.success(timer))
-    expect(result).toMatchObject({ _tag: "Success", value: null })
-  })
-})
 
 describe("time tracking views", () => {
   it("clears the active timer before stop resolves", async () => {

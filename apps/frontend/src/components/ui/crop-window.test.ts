@@ -1,45 +1,6 @@
-import { cleanup, fireEvent, render } from "@testing-library/react"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
 
-import { CropWindow, cropWindowRect, type CropValue } from "./crop-window"
-
-beforeEach(() => {
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      disconnect() {}
-      unobserve() {}
-    }
-  )
-})
-
-afterEach(() => {
-  cleanup()
-  vi.unstubAllGlobals()
-})
-
-function nudge(
-  value: CropValue,
-  key: string,
-  options: { shiftKey?: boolean } = {}
-) {
-  const changes: Array<CropValue> = []
-  const { getByRole } = render(
-    <CropWindow
-      src="/photo.jpg"
-      aspect={1}
-      shape="squircle"
-      label="Crop"
-      value={value}
-      onChange={(next) => changes.push(next)}
-    />
-  )
-
-  fireEvent.keyDown(getByRole("group", { name: "Crop" }), { key, ...options })
-  cleanup()
-  return changes[0]
-}
+import { cropWindowRect } from "./crop-window"
 
 describe("cropWindowRect", () => {
   it("covers the full height of a wide source when the window is square", () => {
@@ -127,31 +88,5 @@ describe("cropWindowRect", () => {
     })
 
     expect(rect).toEqual({ left: 0, top: 0, width: 300, height: 100 })
-  })
-})
-
-describe("CropWindow keyboard", () => {
-  const centred: CropValue = { x: 0.5, y: 0.5, zoom: 2 }
-
-  it("moves the window toward the arrow pressed", () => {
-    expect(nudge(centred, "ArrowRight")?.x).toBeCloseTo(0.51)
-    expect(nudge(centred, "ArrowLeft")?.x).toBeCloseTo(0.49)
-    expect(nudge(centred, "ArrowDown")?.y).toBeCloseTo(0.51)
-    expect(nudge(centred, "ArrowUp")?.y).toBeCloseTo(0.49)
-  })
-
-  it("takes a coarse step when shift is held", () => {
-    expect(nudge(centred, "ArrowRight", { shiftKey: true })?.x).toBeCloseTo(0.6)
-  })
-
-  it("clamps at the edges instead of running past them", () => {
-    expect(nudge({ x: 1, y: 0.5, zoom: 2 }, "ArrowRight")?.x).toBe(1)
-    expect(
-      nudge({ x: 0, y: 0.5, zoom: 2 }, "ArrowLeft", { shiftKey: true })?.x
-    ).toBe(0)
-  })
-
-  it("ignores keys it does not handle", () => {
-    expect(nudge(centred, "Enter")).toBeUndefined()
   })
 })

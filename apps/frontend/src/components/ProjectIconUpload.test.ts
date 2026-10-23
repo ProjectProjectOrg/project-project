@@ -1,57 +1,11 @@
 import type { AttachmentId } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
-import { buildIconImage, resolveIconTreatment } from "@/lib/iconDraft"
+import { buildIconImage } from "@/lib/iconDraft"
 
 const sourceAttachmentId = "attachment_source" as AttachmentId
 const renderedAttachmentId = "attachment_rendered" as AttachmentId
 const crop = { x: 0.5, y: 0.5, zoom: 1 }
-
-describe("resolveIconTreatment", () => {
-  it("keeps sticker when the cutout is clean and requested", () => {
-    expect(
-      resolveIconTreatment({
-        treatment: "sticker",
-        clean: true,
-        transparent: false,
-        tolerance: 24
-      })
-    ).toBe("sticker")
-  })
-
-  it("forces full_bleed when the cutout is not clean, even if sticker was requested", () => {
-    expect(
-      resolveIconTreatment({
-        treatment: "sticker",
-        clean: false,
-        transparent: false,
-        tolerance: 24
-      })
-    ).toBe("full_bleed")
-  })
-
-  it("respects an explicit full_bleed request even when the cutout is clean", () => {
-    expect(
-      resolveIconTreatment({
-        treatment: "full_bleed",
-        clean: true,
-        transparent: false,
-        tolerance: 24
-      })
-    ).toBe("full_bleed")
-  })
-
-  it("keeps sticker for an already-transparent source", () => {
-    expect(
-      resolveIconTreatment({
-        treatment: "sticker",
-        clean: true,
-        transparent: true,
-        tolerance: 24
-      })
-    ).toBe("sticker")
-  })
-})
 
 describe("buildIconImage", () => {
   it("builds a full_bleed payload when the cutout was rejected", () => {

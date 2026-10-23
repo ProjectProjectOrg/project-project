@@ -9,6 +9,30 @@ import { defineConfig } from "vite"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+const domTests = [
+  "src/components/Lexical/**/*.test.ts",
+  "src/components/LexicalEditor.test.ts",
+  "src/components/TicketGit/TicketStack.test.tsx",
+  "src/components/TicketList/search.test.tsx",
+  "src/components/TicketList/sectionCollapse.test.ts",
+  "src/components/TicketList/toolbar/counts.test.tsx",
+  "src/components/TicketList/useTicketPreview.test.ts",
+  "src/components/TicketPage/descriptionTemplates.test.ts",
+  "src/components/TicketPage/useTemplateSwap.test.ts",
+  "src/components/routeReads.test.ts",
+  "src/components/time/RunningTimerIndicator.test.ts",
+  "src/features/*/hooks/**/*.test.{ts,tsx}",
+  "src/features/attachments/atoms/attachments.test.ts",
+  "src/forms/project-icon/useIconDraft.test.ts",
+  "src/hooks/**/*.test.{ts,tsx}",
+  "src/lib/bannerRenderCache.test.ts",
+  "src/lib/form.test.ts",
+  "src/lib/imageCompression.test.ts",
+  "src/lib/imagePreload.test.ts",
+  "src/lib/keepInPlace.test.ts",
+  "src/lib/useMountedRef.test.ts"
+]
+
 const packages = (names: ReadonlyArray<string>) =>
   new RegExp(
     `[\\\\/]node_modules[\\\\/](?:${names.map((name) => name.replace("/", "[\\\\/]")).join("|")})[\\\\/]`
@@ -81,11 +105,29 @@ export default defineConfig(({ mode }) => ({
   ],
   test: {
     name: "frontend",
-    include: ["src/**/*.test.{ts,tsx}"],
-    environment: "jsdom",
-    pool: "forks",
-    execArgv: ["--no-experimental-webstorage"],
-    environmentOptions: { jsdom: { url: "http://localhost/" } }
+    maxWorkers: 4,
+    projects: [
+      {
+        test: {
+          name: "node",
+          include: ["src/**/*.test.{ts,tsx}"],
+          exclude: domTests,
+          environment: "node",
+          isolate: true
+        }
+      },
+      {
+        test: {
+          name: "dom",
+          include: domTests,
+          environment: "jsdom",
+          pool: "forks",
+          isolate: true,
+          execArgv: ["--no-experimental-webstorage"],
+          environmentOptions: { jsdom: { url: "http://localhost/" } }
+        }
+      }
+    ]
   },
   server: {
     port: 5173,

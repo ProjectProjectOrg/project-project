@@ -13,6 +13,8 @@ it.effect("passes the bot ID to Slack's read endpoint", () => {
         input instanceof Request
           ? new Request(input, init)
           : new Request(String(input), init)
+      expect(request.url).toBe("https://slack.com/api/bots.info")
+      expect(request.method).toBe("POST")
       const arguments_ = request.headers
         .get("Content-Type")
         ?.startsWith("application/x-www-form-urlencoded")
@@ -76,7 +78,14 @@ it.effect(
         })
       )(body)
       expect(payload.unfurls[url]).not.toHaveProperty("text")
-      expect(payload.unfurls[url]?.blocks).toEqual(expect.any(Array))
+      expect(payload.unfurls[url]?.blocks).toEqual(
+        expect.arrayContaining([
+          {
+            type: "section",
+            text: { type: "plain_text", text: "T-1 · A ticket" }
+          }
+        ])
+      )
     }).pipe(
       Effect.provide(SlackClient.layer),
       Effect.provideService(FetchHttpClient.Fetch, fetch)

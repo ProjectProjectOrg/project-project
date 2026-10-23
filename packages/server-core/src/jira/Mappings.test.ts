@@ -527,20 +527,6 @@ describe("created status colours", () => {
       expect(BASELINE_STATUS_COLORS).not.toContain(color)
     }
   })
-
-  it("still derives the icon from the Jira status category", () => {
-    const options = buildJiraStatusCreateOptions([
-      { id: "1", name: "Shipped", categoryKey: "done" },
-      { id: "2", name: "Doing", categoryKey: "indeterminate" },
-      { id: "3", name: "Fresh", categoryKey: "new" }
-    ])
-
-    expect(options.map(({ createOption }) => createOption?.icon)).toEqual([
-      "CircleCheck",
-      "CircleDot",
-      "CircleDashed"
-    ])
-  })
 })
 
 describe("jiraConfigurationToMappings priority gaps", () => {

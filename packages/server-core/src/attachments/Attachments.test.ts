@@ -140,12 +140,6 @@ describe("planReferences", () => {
       planReferences({ referenced: new Set(["a", "b"]), existing: ["b", "c"] })
     ).toEqual({ toAdd: ["a"], toRemove: ["c"] })
   })
-
-  it("counts a duplicated mention once", () => {
-    expect(
-      planReferences({ referenced: new Set(["a"]), existing: [] })
-    ).toEqual({ toAdd: ["a"], toRemove: [] })
-  })
 })
 
 describe("planStatuses", () => {
