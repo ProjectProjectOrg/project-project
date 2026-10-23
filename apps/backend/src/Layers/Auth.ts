@@ -50,11 +50,26 @@ import {
   type EditorPreference,
   Unauthorized
 } from "@pp/shared"
+import * as Cache from "effect/Cache"
 import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
 import { HttpServerRequest } from "effect/http"
 import * as Layer from "effect/Layer"
 
 import { toWebHeaders } from "../http/toWebHeaders"
+
+const SESSION_TTL = "30 seconds"
+const SESSION_COOKIES = [
+  "__Secure-better-auth.session_token",
+  "better-auth.session_token"
+] as const
+const sessionCookieOf = (cookies: Record<string, string>) => {
+  for (const name of SESSION_COOKIES) {
+    const value = cookies[name]
+    if (value !== undefined) return `${name}=${encodeURIComponent(value)}`
+  }
+  return undefined
+}
 
 function normalizeEditorPreference(value: unknown): EditorPreference {
   switch (value) {
@@ -73,64 +88,78 @@ export const AuthenticationLive = Layer.effect(
   Effect.gen(function* () {
     const ba = yield* BetterAuth
 
+    const resolveUser = Effect.fnUntraced(function* (headers: Headers) {
+      const session = yield* ba
+        .getSession(headers)
+        .pipe(Effect.mapError(() => new Unauthorized()))
+
+      if (session === null) {
+        return yield* new Unauthorized()
+      }
+      // Shape Better Auth's user into the shared `User` schema. The fields
+      // line up by name, but Better Auth types `image` as
+      // `string | null | undefined` (optional + nullable), whereas our
+      // wire schema is `Schema.NullOr(Schema.String)` — strictly
+      // `string | null`. Normalize `undefined → null` here so the seam
+      // stays narrow. This is exactly the DTO mapping the schema exists
+      // to host: even when the fields look identical, the codec is the
+      // contract, not the source struct.
+      const { id, email, name, image, createdAt } = session.user
+      // `username` was added via Better Auth's `additionalFields`; it
+      // shows up at runtime but isn't on the inferred type. Cast at the
+      // seam — the schema is what guards the wire.
+      const username =
+        (session.user as { username?: string | null }).username ?? null
+      const editorPreference = normalizeEditorPreference(
+        (session.user as { editorPreference?: string | null }).editorPreference
+      )
+      // `activeOrganizationId` lives on the session row (organization
+      // plugin). Resolve to a slug here so the wire shape is the
+      // human-readable identifier the frontend builds URLs from.
+      const activeOrganizationId = (
+        session.session as { activeOrganizationId?: string | null }
+      ).activeOrganizationId
+      const activeOrgSlug = yield* ba
+        .getOrgSlugById(activeOrganizationId)
+        .pipe(Effect.orDie)
+      const personalGithub = yield* ba.getPersonalGithub(id).pipe(Effect.orDie)
+      const personalEverhour = yield* ba
+        .getPersonalEverhour(id)
+        .pipe(Effect.orDie)
+      const user = {
+        id,
+        email,
+        name,
+        username,
+        image: image ?? null,
+        createdAt,
+        activeOrgSlug,
+        personalGithub,
+        editorPreference,
+        personalEverhour
+      }
+      return user
+    })
+    const sessions = yield* Cache.makeWith(
+      (cookie: string) => resolveUser(new Headers({ cookie })),
+      {
+        capacity: 4096,
+        timeToLive: (exit) => (Exit.isSuccess(exit) ? SESSION_TTL : 0)
+      }
+    )
+
     return Authentication.of({
       sessionCookie: (httpEffect, _options) =>
         Effect.gen(function* () {
           const req = yield* HttpServerRequest.HttpServerRequest
-          const session = yield* ba
-            .getSession(toWebHeaders(req.headers))
-            .pipe(Effect.mapError(() => new Unauthorized()))
-
-          if (session === null) {
-            return yield* new Unauthorized()
-          }
-          // Shape Better Auth's user into the shared `User` schema. The fields
-          // line up by name, but Better Auth types `image` as
-          // `string | null | undefined` (optional + nullable), whereas our
-          // wire schema is `Schema.NullOr(Schema.String)` — strictly
-          // `string | null`. Normalize `undefined → null` here so the seam
-          // stays narrow. This is exactly the DTO mapping the schema exists
-          // to host: even when the fields look identical, the codec is the
-          // contract, not the source struct.
-          const { id, email, name, image, createdAt } = session.user
-          // `username` was added via Better Auth's `additionalFields`; it
-          // shows up at runtime but isn't on the inferred type. Cast at the
-          // seam — the schema is what guards the wire.
-          const username =
-            (session.user as { username?: string | null }).username ?? null
-          const editorPreference = normalizeEditorPreference(
-            (session.user as { editorPreference?: string | null })
-              .editorPreference
-          )
-          // `activeOrganizationId` lives on the session row (organization
-          // plugin). Resolve to a slug here so the wire shape is the
-          // human-readable identifier the frontend builds URLs from.
-          const activeOrganizationId = (
-            session.session as { activeOrganizationId?: string | null }
-          ).activeOrganizationId
-          const activeOrgSlug = yield* ba
-            .getOrgSlugById(activeOrganizationId)
-            .pipe(Effect.orDie)
-          const personalGithub = yield* ba
-            .getPersonalGithub(id)
-            .pipe(Effect.orDie)
-          const personalEverhour = yield* ba
-            .getPersonalEverhour(id)
-            .pipe(Effect.orDie)
+          const cookie = sessionCookieOf(req.cookies)
+          const user =
+            cookie === undefined
+              ? yield* resolveUser(toWebHeaders(req.headers))
+              : yield* Cache.get(sessions, cookie)
           return yield* httpEffect.pipe(
-            Effect.provideService(ActivityActor, ActivityActor.user(id)),
-            Effect.provideService(CurrentUser, {
-              id,
-              email,
-              name,
-              username,
-              image: image ?? null,
-              createdAt,
-              activeOrgSlug,
-              personalGithub,
-              editorPreference,
-              personalEverhour
-            })
+            Effect.provideService(ActivityActor, ActivityActor.user(user.id)),
+            Effect.provideService(CurrentUser, user)
           )
         })
     })
