@@ -6,24 +6,24 @@ import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { DbLive } from "@pp/db"
 import { Db } from "@pp/db"
-import { JiraScanFailure } from "@pp/server-core/jira/MigrationActivities"
+import { JiraScanFailure } from "@pp/integration-jira/MigrationActivities"
 import {
   JiraArtifactError,
   type JiraArtifactRef
-} from "@pp/server-core/jira/MigrationArtifacts"
+} from "@pp/integration-jira/MigrationArtifacts"
 import {
   JiraMigrationProjection,
   fenceFor,
   type JiraMigrationProjectionShape
-} from "@pp/server-core/jira/MigrationProjection"
+} from "@pp/integration-jira/MigrationProjection"
 import {
   submitJiraMigrationRun,
   JiraMigrations,
   JiraMigrationsDurableLive,
   type JiraMigrationCleanupCommands,
   type JiraMigrationsShape
-} from "@pp/server-core/jira/Migrations"
-import { JiraMigrationWorkflowCommand } from "@pp/server-core/jira/MigrationWorkflow"
+} from "@pp/integration-jira/Migrations"
+import { JiraMigrationWorkflowCommand } from "@pp/integration-jira/MigrationWorkflow"
 import {
   JiraMigrationWorkflow,
   startImportDeferred,
@@ -31,7 +31,7 @@ import {
   makeJiraMigrationWorkflow,
   makeProjectionMigrationActivities,
   runScanUnit
-} from "@pp/server-core/jira/MigrationWorkflow"
+} from "@pp/integration-jira/MigrationWorkflow"
 import {
   JiraMigrationConfiguration,
   JiraMigrationRequirements,

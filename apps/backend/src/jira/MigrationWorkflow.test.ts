@@ -1,6 +1,6 @@
 import { it } from "@effect/vitest"
-import { JiraClient } from "@pp/server-core/jira/Client"
-import { JiraMigrationManifestV2 } from "@pp/server-core/jira/Manifest"
+import { JiraClient } from "@pp/integration-jira/Client"
+import { JiraMigrationManifestV2 } from "@pp/integration-jira/Manifest"
 import {
   JIRA_DOCUMENT_BATCH_SIZE,
   jiraCopyAttachmentActivityName,
@@ -15,10 +15,10 @@ import {
   publishJiraPreparedPublication,
   defineFinalizeMigrationActivity,
   defineStartMigrationActivity
-} from "@pp/server-core/jira/MigrationActivities"
-import { JiraMigrationArtifacts } from "@pp/server-core/jira/MigrationArtifacts"
-import type { JiraArtifactRef } from "@pp/server-core/jira/MigrationArtifacts"
-import { JiraScanResumeResult } from "@pp/server-core/jira/MigrationProjection"
+} from "@pp/integration-jira/MigrationActivities"
+import { JiraMigrationArtifacts } from "@pp/integration-jira/MigrationArtifacts"
+import type { JiraArtifactRef } from "@pp/integration-jira/MigrationArtifacts"
+import { JiraScanResumeResult } from "@pp/integration-jira/MigrationProjection"
 import {
   JiraMigrationWorkflow,
   JiraMigrationWorkflowFailure,
@@ -32,8 +32,8 @@ import {
   retryDeferredName,
   startImportDeferred,
   startImportDeferredName
-} from "@pp/server-core/jira/MigrationWorkflow"
-import { scanSnapshot } from "@pp/server-core/jira/MigrationWorkflow"
+} from "@pp/integration-jira/MigrationWorkflow"
+import { scanSnapshot } from "@pp/integration-jira/MigrationWorkflow"
 import { Clock, Deferred } from "effect"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
@@ -715,20 +715,20 @@ describe("durable snapshot workflow", () => {
 
 const snapshotHarness = (
   fixture: ReturnType<typeof makeScanTestLayer>,
-  identityOptions: import("@pp/server-core/jira/MigrationActivities").ScanSnapshotDependencies["identityOptions"] = Effect.succeed(
+  identityOptions: import("@pp/integration-jira/MigrationActivities").ScanSnapshotDependencies["identityOptions"] = Effect.succeed(
     []
   ),
-  hooks: {
-    readonly recorded: (sequence: number) => Effect.Effect<void>
-    readonly beforeResume: (sequence: number) => Effect.Effect<void>
-  } = { recorded: () => Effect.void, beforeResume: () => Effect.void }
+  hooks: Readonly<{
+    recorded: (sequence: number) => Effect.Effect<void>
+    beforeResume: (sequence: number) => Effect.Effect<void>
+  }> = { recorded: () => Effect.void, beforeResume: () => Effect.void }
 ) => {
   const state = {
     sequence: 0,
     failed: false,
     configured: 0,
     manifest: null as JiraArtifactRef | null,
-    reasons: [] as string[]
+    reasons: [] as Array<string>
   }
   const receipts = new Map<string, number>()
   const layer = makeJiraMigrationWorkflow({

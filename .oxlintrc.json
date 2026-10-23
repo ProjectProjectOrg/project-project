@@ -192,7 +192,7 @@
       "files": [
         "apps/backend/src/projectVisibility.test.ts",
         "apps/backend/src/jira/**/*.test.ts",
-        "packages/server-core/src/jira/**/*.test.ts",
+        "packages/integration-jira/src/**/*.test.ts",
         "apps/backend/src/slack/Slack.postgres.test.ts"
       ],
       "rules": {

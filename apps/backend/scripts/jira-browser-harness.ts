@@ -2,8 +2,8 @@
 import { createHash, generateKeyPairSync, randomUUID } from "node:crypto"
 
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3"
-import { JiraTransport } from "@pp/server-core/jira/Client"
-import { JiraOAuthConfig, JiraTokenEndpoint } from "@pp/server-core/jira/OAuth"
+import { JiraTransport } from "@pp/integration-jira/Client"
+import { JiraOAuthConfig, JiraTokenEndpoint } from "@pp/integration-jira/OAuth"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { Effect, Layer, Redacted, Schema } from "effect"

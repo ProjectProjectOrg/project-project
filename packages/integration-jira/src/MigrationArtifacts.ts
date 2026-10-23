@@ -70,7 +70,7 @@ export type JiraMigrationArtifactsShape = Readonly<{
 export class JiraMigrationArtifacts extends Context.Service<
   JiraMigrationArtifacts,
   JiraMigrationArtifactsShape
->()("@pp/server-core/jira/MigrationArtifacts/JiraMigrationArtifacts") {}
+>()("@pp/integration-jira/MigrationArtifacts/JiraMigrationArtifacts") {}
 
 export type JiraArtifactStorageError = Readonly<
   Error & { _tag: "S3Unavailable"; reason: string; retryable: boolean }

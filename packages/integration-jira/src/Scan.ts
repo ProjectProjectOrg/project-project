@@ -57,10 +57,12 @@ export type JiraScanInput = Readonly<{
   issues: ReadonlyArray<JiraIssue>
   commentsByIssue: Readonly<Record<string, ReadonlyArray<JiraComment>>>
   worklogsByIssue: Readonly<Record<string, ReadonlyArray<JiraWorklog>>>
-  sprints: ReadonlyArray<{
-    sprint: JiraSprint
-    issueIds: ReadonlyArray<string>
-  }>
+  sprints: ReadonlyArray<
+    Readonly<{
+      sprint: JiraSprint
+      issueIds: ReadonlyArray<string>
+    }>
+  >
   identityOptions: ReadonlyArray<JiraMigrationUserOption>
   scannedAt: DateTime.Utc
 }>

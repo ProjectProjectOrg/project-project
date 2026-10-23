@@ -3,8 +3,8 @@ import {
   JiraTransport,
   type JiraTransportRequest,
   type JiraTransportResponse
-} from "@pp/server-core/jira/Client"
-import { JiraCredentials } from "@pp/server-core/jira/Credentials"
+} from "@pp/integration-jira/Client"
+import { JiraCredentials } from "@pp/integration-jira/Credentials"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import { S3Storage, S3Unavailable } from "@pp/server-core/storage/S3Storage"
 import { Effect, Layer, Redacted, Stream, Schema } from "effect"
@@ -102,7 +102,7 @@ export const makeScanTestLayer = (
   failPut: (key: string) => boolean = () => false
 ) => {
   const objects = new Map<string, Uint8Array>()
-  const requests: JiraTransportRequest[] = []
+  const requests: Array<JiraTransportRequest> = []
   const storage = JiraMigrationArtifactsLive.pipe(
     Layer.provide(
       Layer.mergeAll(

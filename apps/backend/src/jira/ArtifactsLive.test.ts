@@ -3,7 +3,7 @@ import {
   artifactKey,
   JiraArtifactError,
   JiraMigrationArtifacts
-} from "@pp/server-core/jira/MigrationArtifacts"
+} from "@pp/integration-jira/MigrationArtifacts"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import {
   S3Storage,

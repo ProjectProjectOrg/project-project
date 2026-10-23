@@ -10,9 +10,9 @@ import { projectIndex } from "@pp/db/schema"
 import {
   makeJiraCleanupCommands,
   makeJiraMigrationCleanupWorkflow
-} from "@pp/server-core/jira/CleanupWorkflow"
-import { JiraMigrationArtifacts } from "@pp/server-core/jira/MigrationArtifacts"
-import { JiraMigrationProjection } from "@pp/server-core/jira/MigrationProjection"
+} from "@pp/integration-jira/CleanupWorkflow"
+import { JiraMigrationArtifacts } from "@pp/integration-jira/MigrationArtifacts"
+import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
@@ -73,9 +73,9 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
             [owner.organizationId, "Example", owner.organizationId]
           )
         )
-        const removedObjects: string[] = []
-        const removedDirectories: string[] = []
-        const removedPrefixes: string[] = []
+        const removedObjects: Array<string> = []
+        const removedDirectories: Array<string> = []
+        const removedPrefixes: Array<string> = []
         const connection = {
           endpoint: "https://test.invalid",
           bucket: "test",

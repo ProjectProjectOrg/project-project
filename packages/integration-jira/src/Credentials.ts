@@ -81,7 +81,7 @@ type JiraCredentialsInternalShape = Readonly<
 export class JiraCredentials extends Context.Service<
   JiraCredentials,
   JiraCredentialsInternalShape
->()("@pp/server-core/jira/Credentials/JiraCredentials") {}
+>()("@pp/integration-jira/Credentials/JiraCredentials") {}
 
 const hashState = (state: string) =>
   createHash("sha256").update(state).digest("hex")

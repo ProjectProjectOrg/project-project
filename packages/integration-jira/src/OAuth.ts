@@ -54,7 +54,7 @@ export type JiraOAuthConfigShape = Readonly<{
 export class JiraOAuthConfig extends Context.Service<
   JiraOAuthConfig,
   JiraOAuthConfigShape
->()("@pp/server-core/jira/OAuth/JiraOAuthConfig") {}
+>()("@pp/integration-jira/OAuth/JiraOAuthConfig") {}
 
 export const JiraOAuthConfigLive = Layer.effect(
   JiraOAuthConfig,
@@ -179,7 +179,7 @@ export type JiraTokenEndpointShape = Readonly<{
 export class JiraTokenEndpoint extends Context.Service<
   JiraTokenEndpoint,
   JiraTokenEndpointShape
->()("@pp/server-core/jira/OAuth/JiraTokenEndpoint") {}
+>()("@pp/integration-jira/OAuth/JiraTokenEndpoint") {}
 
 const requestGrant = Effect.fn("JiraTokenEndpoint.requestGrant")(function* (
   client: HttpClient.HttpClient,

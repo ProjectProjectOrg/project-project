@@ -10,24 +10,24 @@ import {
   canonicalJiraJson,
   type JiraConvertedText,
   type JiraMigrationManifest
-} from "@pp/server-core/jira/Manifest"
-import { JiraMigrationProjection } from "@pp/server-core/jira/MigrationProjection"
+} from "@pp/integration-jira/Manifest"
+import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
 import {
   finalizeJiraMigrationAttempt,
   JiraMigrationWorkflowFailure
-} from "@pp/server-core/jira/MigrationWorkflow"
-import type { JiraPreflightEnvironment } from "@pp/server-core/jira/Preflight"
+} from "@pp/integration-jira/MigrationWorkflow"
+import type { JiraPreflightEnvironment } from "@pp/integration-jira/Preflight"
 import {
   buildJiraImportPlan,
   loadJiraPublicationPlan,
   loadJiraPreparedPublication
-} from "@pp/server-core/jira/PublicationArtifacts"
-import { aliasJiraMediaReferences } from "@pp/server-core/jira/PublicationPlan"
+} from "@pp/integration-jira/PublicationArtifacts"
+import { aliasJiraMediaReferences } from "@pp/integration-jira/PublicationPlan"
 import {
   JiraPublicationPlanV1,
   jiraAttachmentId,
   prepareJiraPublication as prepareJiraPublicationWithFormat
-} from "@pp/server-core/jira/PublicationPlan"
+} from "@pp/integration-jira/PublicationPlan"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import {
   attachmentObjectKey,

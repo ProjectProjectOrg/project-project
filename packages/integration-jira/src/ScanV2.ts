@@ -207,7 +207,9 @@ export const prepareScanV2 = Effect.fn("prepareScanV2")(function* (
   const worklogs = yield* nested("worklogs", decodeUnknownJiraWorklogArray)
   const watchers = yield* nested("watchers", decodeUnknownJiraWatchersArray)
   const votes = yield* nested("votes", decodeUnknownJiraVotesArray)
-  const byIssue = <A>(values: ReadonlyArray<{ issueId: string; value: A }>) =>
+  const byIssue = <A>(
+    values: ReadonlyArray<Readonly<{ issueId: string; value: A }>>
+  ) =>
     Object.fromEntries(
       issues.map((issue) => [
         issue.id,

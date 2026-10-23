@@ -5,13 +5,13 @@ import * as BunServices from "@effect/platform-bun/BunServices"
 import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { DbLive } from "@pp/db"
-import { JiraMigrationProjection } from "@pp/server-core/jira/MigrationProjection"
-import { JiraMigrationWorkflowCommand } from "@pp/server-core/jira/MigrationWorkflow"
+import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
+import { JiraMigrationWorkflowCommand } from "@pp/integration-jira/MigrationWorkflow"
 import {
   JiraMigrationWorkflow,
   makeJiraMigrationWorkflow
-} from "@pp/server-core/jira/MigrationWorkflow"
-import { JiraPublicationInvalid } from "@pp/server-core/jira/Preflight"
+} from "@pp/integration-jira/MigrationWorkflow"
+import { JiraPublicationInvalid } from "@pp/integration-jira/Preflight"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import { S3Storage } from "@pp/server-core/storage/S3Storage"

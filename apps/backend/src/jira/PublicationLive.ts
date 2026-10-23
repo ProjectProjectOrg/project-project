@@ -17,33 +17,33 @@ import {
   ticketIndex,
   user as userTable
 } from "@pp/db/schema"
-import { JiraRateLimited } from "@pp/server-core/jira/Blocked"
-import type { JiraClientShape } from "@pp/server-core/jira/Client"
+import { JiraRateLimited } from "@pp/integration-jira/Blocked"
+import type { JiraClientShape } from "@pp/integration-jira/Client"
 import {
   canonicalJiraJson,
   JiraMigrationManifestV2
-} from "@pp/server-core/jira/Manifest"
-import { jiraDestinationTicketId } from "@pp/server-core/jira/Mappings"
-import { jiraDocumentBatches } from "@pp/server-core/jira/MigrationActivities"
+} from "@pp/integration-jira/Manifest"
+import { jiraDestinationTicketId } from "@pp/integration-jira/Mappings"
+import { jiraDocumentBatches } from "@pp/integration-jira/MigrationActivities"
 import type {
   JiraArtifactRef,
   JiraMigrationArtifactsShape
-} from "@pp/server-core/jira/MigrationArtifacts"
-import { artifactKey } from "@pp/server-core/jira/MigrationArtifacts"
+} from "@pp/integration-jira/MigrationArtifacts"
+import { artifactKey } from "@pp/integration-jira/MigrationArtifacts"
 import {
   decodeCheckpoint,
   JiraMigrationCheckpoint,
   type AttemptFence
-} from "@pp/server-core/jira/MigrationProjection"
-import { JiraMigrationWorkflowFailure } from "@pp/server-core/jira/MigrationWorkflow"
-import { JiraPublicationInvalid } from "@pp/server-core/jira/Preflight"
+} from "@pp/integration-jira/MigrationProjection"
+import { JiraMigrationWorkflowFailure } from "@pp/integration-jira/MigrationWorkflow"
+import { JiraPublicationInvalid } from "@pp/integration-jira/Preflight"
 import {
   jiraProjectIdFor,
   JiraPreparedPublicationV1,
   JiraPublicationPlanV1,
   prepareJiraPublication,
   type JiraAttachmentOutcome
-} from "@pp/server-core/jira/PublicationPlan"
+} from "@pp/integration-jira/PublicationPlan"
 import { Markdown } from "@pp/server-core/markdown/Markdown"
 import {
   type S3Connection,
@@ -1319,6 +1319,6 @@ import {
   persistJiraPreparedPublication,
   persistJiraPublicationPlan,
   loadJiraPublicationPlan
-} from "@pp/server-core/jira/PublicationArtifacts"
+} from "@pp/integration-jira/PublicationArtifacts"
 
 import { JiraPublicationFormatLive } from "./HostLive"

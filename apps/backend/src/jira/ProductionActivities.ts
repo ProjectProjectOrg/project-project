@@ -1,34 +1,34 @@
 import { Db } from "@pp/db"
 import { member, organization, jiraMigration, user } from "@pp/db/schema"
-import * as CleanupWorkflow from "@pp/server-core/jira/CleanupWorkflow"
-import { JiraClient } from "@pp/server-core/jira/Client"
+import * as CleanupWorkflow from "@pp/integration-jira/CleanupWorkflow"
+import { JiraClient } from "@pp/integration-jira/Client"
 import {
   materializeJiraPreparedPublication,
   prepareJiraPublicationReference,
   publishJiraPreparedPublication,
   type MigrationActivityInput
-} from "@pp/server-core/jira/MigrationActivities"
-import { JiraMigrationArtifacts } from "@pp/server-core/jira/MigrationArtifacts"
+} from "@pp/integration-jira/MigrationActivities"
+import { JiraMigrationArtifacts } from "@pp/integration-jira/MigrationArtifacts"
 import {
   decodeCheckpoint,
   JiraMigrationProjection,
   type AttemptFence
-} from "@pp/server-core/jira/MigrationProjection"
+} from "@pp/integration-jira/MigrationProjection"
 import {
   JiraMigrationWorkflowFailure,
   withJiraRemoteWriteIntent
-} from "@pp/server-core/jira/MigrationWorkflow"
+} from "@pp/integration-jira/MigrationWorkflow"
 import {
   finalizeJiraMigrationAttempt,
   scanSnapshot
-} from "@pp/server-core/jira/MigrationWorkflow"
-import * as MigrationWorkflow from "@pp/server-core/jira/MigrationWorkflow"
-import { JiraPublicationInvalid } from "@pp/server-core/jira/Preflight"
+} from "@pp/integration-jira/MigrationWorkflow"
+import * as MigrationWorkflow from "@pp/integration-jira/MigrationWorkflow"
+import { JiraPublicationInvalid } from "@pp/integration-jira/Preflight"
 import {
   loadJiraPreparedPublication,
   loadJiraPublicationPlan,
   persistJiraPreparedPublication
-} from "@pp/server-core/jira/PublicationArtifacts"
+} from "@pp/integration-jira/PublicationArtifacts"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import { S3Storage } from "@pp/server-core/storage/S3Storage"
 import { JiraError } from "@pp/shared"
@@ -281,7 +281,7 @@ export const makeJiraProductionActivities = Effect.gen(function* () {
 
   const publish = (
     input: MigrationActivityInput,
-    ready: import("@pp/server-core/jira/MigrationActivities").JiraReadyPublication,
+    ready: import("@pp/integration-jira/MigrationActivities").JiraReadyPublication,
     operationTry = 0
   ) =>
     Effect.gen(function* () {

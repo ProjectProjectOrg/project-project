@@ -1,9 +1,9 @@
-import { JiraClient, toPublicJiraError } from "@pp/server-core/jira/Client"
-import { JiraMigrations } from "@pp/server-core/jira/Migrations"
+import { JiraClient, toPublicJiraError } from "@pp/integration-jira/Client"
+import { JiraMigrations } from "@pp/integration-jira/Migrations"
 import {
   JiraPlannedArchive,
   skippedAttachmentsForArchive
-} from "@pp/server-core/jira/Report"
+} from "@pp/integration-jira/Report"
 import { Markdown } from "@pp/server-core/markdown/Markdown"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import {

@@ -6,14 +6,14 @@ import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { assertTrue } from "@effect/vitest/utils"
 import { DbLive } from "@pp/db"
-import { JiraCredentialsLive } from "@pp/server-core/jira/Credentials"
-import { JiraCredentials } from "@pp/server-core/jira/Credentials"
+import { JiraCredentialsLive } from "@pp/integration-jira/Credentials"
+import { JiraCredentials } from "@pp/integration-jira/Credentials"
 import {
   JIRA_SCOPES,
   JiraOAuthConfig,
   JiraTokenEndpoint,
   type JiraTokenGrant
-} from "@pp/server-core/jira/OAuth"
+} from "@pp/integration-jira/OAuth"
 import { SecretCryptoLive } from "@pp/server-core/storage/SecretCryptoLive"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"

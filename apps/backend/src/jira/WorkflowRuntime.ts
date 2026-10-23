@@ -1,6 +1,6 @@
-import * as CleanupWorkflow from "@pp/server-core/jira/CleanupWorkflow"
-import { JiraMigrationProjection } from "@pp/server-core/jira/MigrationProjection"
-import * as MigrationWorkflow from "@pp/server-core/jira/MigrationWorkflow"
+import * as CleanupWorkflow from "@pp/integration-jira/CleanupWorkflow"
+import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
+import * as MigrationWorkflow from "@pp/integration-jira/MigrationWorkflow"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 

@@ -1,13 +1,13 @@
 import { it } from "@effect/vitest"
-import { JiraClient } from "@pp/server-core/jira/Client"
+import { JiraClient } from "@pp/integration-jira/Client"
 import {
   JiraScanPageResult,
   defineScanPageActivity,
   scanPageActivityName
-} from "@pp/server-core/jira/MigrationActivities"
-import { JiraMigrationArtifacts } from "@pp/server-core/jira/MigrationArtifacts"
-import { buildJiraScanArtifacts } from "@pp/server-core/jira/Scan"
-import { scanCollection } from "@pp/server-core/jira/Scan"
+} from "@pp/integration-jira/MigrationActivities"
+import { JiraMigrationArtifacts } from "@pp/integration-jira/MigrationArtifacts"
+import { buildJiraScanArtifacts } from "@pp/integration-jira/Scan"
+import { scanCollection } from "@pp/integration-jira/Scan"
 import { Schema } from "effect"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -481,7 +481,7 @@ it.effect(
     })
 )
 
-import { defineBuildManifestActivity } from "@pp/server-core/jira/MigrationActivities"
+import { defineBuildManifestActivity } from "@pp/integration-jira/MigrationActivities"
 
 it.effect(
   "blocks configuration when a raw artifact referenced by a completed page has disappeared",
@@ -554,7 +554,7 @@ import {
   buildScanManifestV2,
   prepareScanV2,
   type ScanChunk
-} from "@pp/server-core/jira/ScanV2"
+} from "@pp/integration-jira/ScanV2"
 
 import { scanUser } from "./ScanTestSupport"
 

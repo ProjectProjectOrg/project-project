@@ -142,7 +142,7 @@ export type JiraTransportShape = Readonly<{
 export class JiraTransport extends Context.Service<
   JiraTransport,
   JiraTransportShape
->()("@pp/server-core/jira/Client/JiraTransport") {}
+>()("@pp/integration-jira/Client/JiraTransport") {}
 
 export const JiraTransportLive = Layer.effect(
   JiraTransport,
@@ -406,7 +406,7 @@ export type JiraClientShape = Readonly<{
 }>
 
 export class JiraClient extends Context.Service<JiraClient, JiraClientShape>()(
-  "@pp/server-core/jira/Client/JiraClient"
+  "@pp/integration-jira/Client/JiraClient"
 ) {}
 
 const platformBase = (cloudId: string) =>

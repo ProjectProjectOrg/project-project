@@ -15,7 +15,7 @@ export class JiraHost extends Context.Service<
     seal: (plaintext: string) => Effect.Effect<SealedSecret, JiraError>
     open: (sealed: SealedSecret) => Effect.Effect<string, JiraError>
   }>
->()("@pp/server-core/jira/Host/JiraHost") {}
+>()("@pp/integration-jira/Host/JiraHost") {}
 
 type PlannedComment = JiraPublicationPlanV1["comments"][number]
 type PlannedAttachment = JiraPreparedPublicationV1["attachments"][number]
@@ -44,4 +44,4 @@ export class JiraPublicationFormat extends Context.Service<
         }>
     ) => string
   }>
->()("@pp/server-core/jira/Host/JiraPublicationFormat") {}
+>()("@pp/integration-jira/Host/JiraPublicationFormat") {}

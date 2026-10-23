@@ -8,13 +8,13 @@ import {
 import {
   JiraMigrationCleanupFailure,
   type JiraMigrationCleanupPayload
-} from "@pp/server-core/jira/CleanupWorkflow"
-import { JiraMigrationArtifacts } from "@pp/server-core/jira/MigrationArtifacts"
+} from "@pp/integration-jira/CleanupWorkflow"
+import { JiraMigrationArtifacts } from "@pp/integration-jira/MigrationArtifacts"
 import {
   decodeCheckpoint,
   fenceFor,
   JiraMigrationProjection
-} from "@pp/server-core/jira/MigrationProjection"
+} from "@pp/integration-jira/MigrationProjection"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import { S3Storage } from "@pp/server-core/storage/S3Storage"

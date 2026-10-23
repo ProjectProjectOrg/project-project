@@ -137,4 +137,4 @@ import {
   JiraArtifactError,
   artifactKey,
   type JiraArtifactRef
-} from "@pp/server-core/jira/MigrationArtifacts"
+} from "@pp/integration-jira/MigrationArtifacts"

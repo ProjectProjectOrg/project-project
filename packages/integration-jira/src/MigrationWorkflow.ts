@@ -463,7 +463,7 @@ export const scanSnapshot = Effect.fn("scanSnapshot")(
       (operationTry) =>
         defineIdentityOptionsActivity(context, dependencies, operationTry)
     )
-    const chunks: ScanChunkReference[] = []
+    const chunks: Array<ScanChunkReference> = []
     const collection = Effect.fn(function* (
       kind: JiraScanKind,
       parentId: string | null = null,

@@ -2,33 +2,33 @@ import { it } from "@effect/vitest"
 import type {
   JiraConvertedText,
   JiraMigrationManifest
-} from "@pp/server-core/jira/Manifest"
-import { JiraMigrationManifestV2 } from "@pp/server-core/jira/Manifest"
-import { JiraMigrationMappings } from "@pp/server-core/jira/Mappings"
+} from "@pp/integration-jira/Manifest"
+import { JiraMigrationManifestV2 } from "@pp/integration-jira/Manifest"
+import { JiraMigrationMappings } from "@pp/integration-jira/Mappings"
 import type {
   JiraArtifactRef,
   JiraMigrationArtifactsShape
-} from "@pp/server-core/jira/MigrationArtifacts"
-import type { JiraPreflightResult } from "@pp/server-core/jira/Preflight"
+} from "@pp/integration-jira/MigrationArtifacts"
+import type { JiraPreflightResult } from "@pp/integration-jira/Preflight"
 import {
   loadJiraPublicationPlan,
   loadJiraPreparedPublication,
   persistJiraPublicationPlan as persistJiraPublicationPlanWithFormat,
   persistJiraPreparedPublication,
   resolveJiraPublicationSource
-} from "@pp/server-core/jira/PublicationArtifacts"
+} from "@pp/integration-jira/PublicationArtifacts"
 import {
   createJiraPublicationPlan,
   createJiraReferenceTargets,
   rewriteJiraPublicationText
-} from "@pp/server-core/jira/PublicationPlan"
+} from "@pp/integration-jira/PublicationPlan"
 import {
   prepareJiraPublication as prepareJiraPublicationWithFormat,
   finalizeJiraPublication as finalizeJiraPublicationWithFormat,
   JiraPublicationPlanV1,
   type JiraAttachmentOutcome,
   jiraAttachmentId
-} from "@pp/server-core/jira/PublicationPlan"
+} from "@pp/integration-jira/PublicationPlan"
 import { StatusSlug } from "@pp/shared"
 import { AttachmentId } from "@pp/shared"
 import { Effect, Stream } from "effect"
@@ -1719,7 +1719,7 @@ it.effect(
         { id: "status-2", name: "Review", categoryKey: "done" }
       ]
       const { buildJiraStatusCreateOptions } = yield* Effect.promise(
-        () => import("@pp/server-core/jira/Mappings")
+        () => import("@pp/integration-jira/Mappings")
       )
       const created = buildJiraStatusCreateOptions(statuses)
       expect(

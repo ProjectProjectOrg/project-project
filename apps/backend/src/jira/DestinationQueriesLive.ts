@@ -1,6 +1,6 @@
 import { Db } from "@pp/db"
 import { projectIndex, ticketIndex } from "@pp/db/schema"
-import { JiraDestinationQueries } from "@pp/server-core/jira/Migrations"
+import { JiraDestinationQueries } from "@pp/integration-jira/Migrations"
 import { JiraError } from "@pp/shared"
 import { and, eq, inArray } from "drizzle-orm"
 import * as Effect from "effect/Effect"

@@ -686,7 +686,7 @@ const resetStatuses = [
 export class JiraMigrationProjection extends Context.Service<
   JiraMigrationProjection,
   JiraMigrationProjectionShape
->()("@pp/server-core/jira/MigrationProjection/JiraMigrationProjection") {
+>()("@pp/integration-jira/MigrationProjection/JiraMigrationProjection") {
   static readonly layer = Layer.effect(
     JiraMigrationProjection,
     Effect.gen(function* () {

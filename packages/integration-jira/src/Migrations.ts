@@ -137,7 +137,7 @@ export type JiraMigrationsShape = Readonly<{
 export class JiraMigrations extends Context.Service<
   JiraMigrations,
   JiraMigrationsShape
->()("@pp/server-core/jira/Migrations/JiraMigrations") {}
+>()("@pp/integration-jira/Migrations/JiraMigrations") {}
 
 export const JiraMigrationsWorkflowLive = (
   commands: Pick<
@@ -662,4 +662,4 @@ export class JiraDestinationQueries extends Context.Service<
       JiraError
     >
   }>
->()("@pp/server-core/jira/Migrations/JiraDestinationQueries") {}
+>()("@pp/integration-jira/Migrations/JiraDestinationQueries") {}

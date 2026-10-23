@@ -1,5 +1,5 @@
+import { JiraHost, JiraPublicationFormat } from "@pp/integration-jira/Host"
 import { serializeCommentsRegion } from "@pp/server-core/comments/comments-region"
-import { JiraHost, JiraPublicationFormat } from "@pp/server-core/jira/Host"
 import { attachmentObjectKey } from "@pp/server-core/storage/S3Storage"
 import { SecretCrypto } from "@pp/server-core/storage/SecretCrypto"
 import { JiraError } from "@pp/shared"
