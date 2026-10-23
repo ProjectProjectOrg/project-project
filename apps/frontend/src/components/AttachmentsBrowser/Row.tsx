@@ -4,6 +4,7 @@ import { formatAttachmentMarkdown } from "@pp/shared"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { Download, FileText } from "lucide-react"
 
+import { Checkbox } from "@/components/ui/checkbox"
 import { CopyButton } from "@/components/ui/copy-button"
 import {
   Select,
@@ -59,11 +60,9 @@ export function Row({
     >
       <td className="w-6 px-2 py-2 align-middle">
         {isDeletable(row) ? (
-          <input
-            type="checkbox"
-            className="size-4 rounded border border-border align-middle"
+          <Checkbox
             checked={selected}
-            onChange={() => onToggle(row.id)}
+            onCheckedChange={() => onToggle(row.id)}
             onClick={(event) => event.stopPropagation()}
             aria-label={m.attachments_select_row({ filename: row.filename })}
           />

@@ -8,6 +8,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { useState, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
+import { Checkbox } from "@/components/ui/checkbox"
 import { ConfirmButton } from "@/components/ui/confirm-button"
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -247,11 +248,9 @@ function AttachmentsTable({
           <thead className="sticky top-0 z-10 bg-background">
             <tr className="border-b border-border text-xs text-muted-foreground">
               <th scope="col" className="w-6 px-2 py-2 font-normal">
-                <input
-                  type="checkbox"
-                  className="size-4 rounded border border-border align-middle"
+                <Checkbox
                   checked={allDeletableSelected(selected, rows)}
-                  onChange={onToggleAll}
+                  onCheckedChange={onToggleAll}
                   disabled={deletableIds(rows).length === 0}
                   aria-label={m.attachments_select_all()}
                 />
