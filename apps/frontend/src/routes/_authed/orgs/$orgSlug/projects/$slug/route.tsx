@@ -103,12 +103,16 @@ function ProjectLayout() {
           enabled={value.github !== null}
         />
         <ProjectSetupSlot orgSlug={orgSlug} slug={slug} project={value} />
-        <div className={cn("relative isolate flex flex-1 flex-col gap-3")}>
+        <div
+          data-page-banner={value.banner ? "" : undefined}
+          className={cn("relative isolate flex flex-1 flex-col gap-3")}
+        >
           <ProjectBanner
             orgSlug={orgSlug}
             slug={slug}
             banner={value.banner}
             waiting={waiting && projectUpdate.waiting}
+            pageBackdrop
           />
           <Outlet />
           <RetainedProjectViews

@@ -14,7 +14,7 @@ export function SettingsPage({
   children
 }: SettingsPageProps) {
   return (
-    <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-8">
+    <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
       {heading ? (
         <PageHeader>
           <h1>{heading}</h1>

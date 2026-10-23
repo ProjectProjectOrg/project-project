@@ -11,9 +11,11 @@ import {
   perProjectState,
   useEmailState,
   useGithubAppState,
+  useSlackState,
   useStorageState,
   type IntegrationState
 } from "@/components/settings/orgIntegrations"
+import { useSlackOrgPolling } from "@/features/slack/hooks/useSlackOrgPolling"
 import { useOrgActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
@@ -33,10 +35,14 @@ type Entry = Readonly<{
 
 function OrgIntegrations() {
   const { orgSlug } = Route.useParams()
-  const canManageEmail = useOrgActor(orgSlug).call("orgEmail", "get")
+  const actor = useOrgActor(orgSlug)
+  const canManageEmail = actor.call("orgEmail", "get")
+  const canManageSlack = actor.call("slack", "orgStatus")
   const github = useGithubAppState(orgSlug)
   const storage = useStorageState(orgSlug)
   const email = useEmailState(orgSlug)
+  const slack = useSlackState(orgSlug)
+  useSlackOrgPolling(orgSlug, canManageSlack)
 
   const entries: ReadonlyArray<Entry> = [
     {
@@ -64,6 +70,17 @@ function OrgIntegrations() {
           } satisfies Entry
         ]
       : []),
+    ...(canManageSlack
+      ? [
+          {
+            kind: "slack",
+            name: m.slack_heading(),
+            description: m.org_integrations_slack_card(),
+            state: slack,
+            to: "/orgs/$orgSlug/settings/integrations/slack"
+          } satisfies Entry
+        ]
+      : []),
     {
       kind: "everhour",
       name: m.project_settings_everhour_heading(),
@@ -79,7 +96,12 @@ function OrgIntegrations() {
       to: "/orgs/$orgSlug/settings/integrations/figma"
     }
   ]
-  if (github.loading || storage.loading || (canManageEmail && email.loading))
+  if (
+    github.loading ||
+    storage.loading ||
+    (canManageEmail && email.loading) ||
+    (canManageSlack && slack.loading)
+  )
     return (
       <div className={INTEGRATION_GRID_CLASS}>
         {entries.map((entry) => (

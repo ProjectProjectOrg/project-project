@@ -38,6 +38,7 @@ import { Route as AuthedOrgsOrgSlugSettingsTemplatesIndexRouteImport } from './r
 import { Route as AuthedOrgsOrgSlugSettingsIntegrationsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/settings/integrations/index'
 import { Route as AuthedOrgsOrgSlugMigrationsJiraIndexRouteImport } from './routes/_authed/orgs/$orgSlug/migrations/jira/index'
 import { Route as AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRouteImport } from './routes/_authed/orgs/$orgSlug/settings/templates/$templateKey'
+import { Route as AuthedOrgsOrgSlugSettingsIntegrationsSlackRouteImport } from './routes/_authed/orgs/$orgSlug/settings/integrations/slack'
 import { Route as AuthedOrgsOrgSlugSettingsIntegrationsGithubRouteImport } from './routes/_authed/orgs/$orgSlug/settings/integrations/github'
 import { Route as AuthedOrgsOrgSlugSettingsIntegrationsFigmaRouteImport } from './routes/_authed/orgs/$orgSlug/settings/integrations/figma'
 import { Route as AuthedOrgsOrgSlugSettingsIntegrationsEverhourRouteImport } from './routes/_authed/orgs/$orgSlug/settings/integrations/everhour'
@@ -226,6 +227,12 @@ const AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRoute =
     id: '/templates/$templateKey',
     path: '/templates/$templateKey',
     getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugSettingsIntegrationsSlackRoute =
+  AuthedOrgsOrgSlugSettingsIntegrationsSlackRouteImport.update({
+    id: '/slack',
+    path: '/slack',
+    getParentRoute: () => AuthedOrgsOrgSlugSettingsIntegrationsRouteRoute,
   } as any)
 const AuthedOrgsOrgSlugSettingsIntegrationsGithubRoute =
   AuthedOrgsOrgSlugSettingsIntegrationsGithubRouteImport.update({
@@ -427,6 +434,7 @@ export interface FileRoutesByFullPath {
   '/orgs/$orgSlug/settings/integrations/everhour': typeof AuthedOrgsOrgSlugSettingsIntegrationsEverhourRoute
   '/orgs/$orgSlug/settings/integrations/figma': typeof AuthedOrgsOrgSlugSettingsIntegrationsFigmaRoute
   '/orgs/$orgSlug/settings/integrations/github': typeof AuthedOrgsOrgSlugSettingsIntegrationsGithubRoute
+  '/orgs/$orgSlug/settings/integrations/slack': typeof AuthedOrgsOrgSlugSettingsIntegrationsSlackRoute
   '/orgs/$orgSlug/settings/templates/$templateKey': typeof AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRoute
   '/orgs/$orgSlug/migrations/jira/': typeof AuthedOrgsOrgSlugMigrationsJiraIndexRoute
   '/orgs/$orgSlug/settings/integrations/': typeof AuthedOrgsOrgSlugSettingsIntegrationsIndexRoute
@@ -477,6 +485,7 @@ export interface FileRoutesByTo {
   '/orgs/$orgSlug/settings/integrations/everhour': typeof AuthedOrgsOrgSlugSettingsIntegrationsEverhourRoute
   '/orgs/$orgSlug/settings/integrations/figma': typeof AuthedOrgsOrgSlugSettingsIntegrationsFigmaRoute
   '/orgs/$orgSlug/settings/integrations/github': typeof AuthedOrgsOrgSlugSettingsIntegrationsGithubRoute
+  '/orgs/$orgSlug/settings/integrations/slack': typeof AuthedOrgsOrgSlugSettingsIntegrationsSlackRoute
   '/orgs/$orgSlug/settings/templates/$templateKey': typeof AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRoute
   '/orgs/$orgSlug/migrations/jira': typeof AuthedOrgsOrgSlugMigrationsJiraIndexRoute
   '/orgs/$orgSlug/settings/integrations': typeof AuthedOrgsOrgSlugSettingsIntegrationsIndexRoute
@@ -534,6 +543,7 @@ export interface FileRoutesById {
   '/_authed/orgs/$orgSlug/settings/integrations/everhour': typeof AuthedOrgsOrgSlugSettingsIntegrationsEverhourRoute
   '/_authed/orgs/$orgSlug/settings/integrations/figma': typeof AuthedOrgsOrgSlugSettingsIntegrationsFigmaRoute
   '/_authed/orgs/$orgSlug/settings/integrations/github': typeof AuthedOrgsOrgSlugSettingsIntegrationsGithubRoute
+  '/_authed/orgs/$orgSlug/settings/integrations/slack': typeof AuthedOrgsOrgSlugSettingsIntegrationsSlackRoute
   '/_authed/orgs/$orgSlug/settings/templates/$templateKey': typeof AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRoute
   '/_authed/orgs/$orgSlug/migrations/jira/': typeof AuthedOrgsOrgSlugMigrationsJiraIndexRoute
   '/_authed/orgs/$orgSlug/settings/integrations/': typeof AuthedOrgsOrgSlugSettingsIntegrationsIndexRoute
@@ -592,6 +602,7 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/settings/integrations/everhour'
     | '/orgs/$orgSlug/settings/integrations/figma'
     | '/orgs/$orgSlug/settings/integrations/github'
+    | '/orgs/$orgSlug/settings/integrations/slack'
     | '/orgs/$orgSlug/settings/templates/$templateKey'
     | '/orgs/$orgSlug/migrations/jira/'
     | '/orgs/$orgSlug/settings/integrations/'
@@ -642,6 +653,7 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/settings/integrations/everhour'
     | '/orgs/$orgSlug/settings/integrations/figma'
     | '/orgs/$orgSlug/settings/integrations/github'
+    | '/orgs/$orgSlug/settings/integrations/slack'
     | '/orgs/$orgSlug/settings/templates/$templateKey'
     | '/orgs/$orgSlug/migrations/jira'
     | '/orgs/$orgSlug/settings/integrations'
@@ -698,6 +710,7 @@ export interface FileRouteTypes {
     | '/_authed/orgs/$orgSlug/settings/integrations/everhour'
     | '/_authed/orgs/$orgSlug/settings/integrations/figma'
     | '/_authed/orgs/$orgSlug/settings/integrations/github'
+    | '/_authed/orgs/$orgSlug/settings/integrations/slack'
     | '/_authed/orgs/$orgSlug/settings/templates/$templateKey'
     | '/_authed/orgs/$orgSlug/migrations/jira/'
     | '/_authed/orgs/$orgSlug/settings/integrations/'
@@ -936,6 +949,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsTemplatesTemplateKeyRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
     }
+    '/_authed/orgs/$orgSlug/settings/integrations/slack': {
+      id: '/_authed/orgs/$orgSlug/settings/integrations/slack'
+      path: '/slack'
+      fullPath: '/orgs/$orgSlug/settings/integrations/slack'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsSlackRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsRouteRoute
+    }
     '/_authed/orgs/$orgSlug/settings/integrations/github': {
       id: '/_authed/orgs/$orgSlug/settings/integrations/github'
       path: '/github'
@@ -1171,6 +1191,7 @@ interface AuthedOrgsOrgSlugSettingsIntegrationsRouteRouteChildren {
   AuthedOrgsOrgSlugSettingsIntegrationsEverhourRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsEverhourRoute
   AuthedOrgsOrgSlugSettingsIntegrationsFigmaRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsFigmaRoute
   AuthedOrgsOrgSlugSettingsIntegrationsGithubRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsGithubRoute
+  AuthedOrgsOrgSlugSettingsIntegrationsSlackRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsSlackRoute
   AuthedOrgsOrgSlugSettingsIntegrationsIndexRoute: typeof AuthedOrgsOrgSlugSettingsIntegrationsIndexRoute
 }
 
@@ -1186,6 +1207,8 @@ const AuthedOrgsOrgSlugSettingsIntegrationsRouteRouteChildren: AuthedOrgsOrgSlug
       AuthedOrgsOrgSlugSettingsIntegrationsFigmaRoute,
     AuthedOrgsOrgSlugSettingsIntegrationsGithubRoute:
       AuthedOrgsOrgSlugSettingsIntegrationsGithubRoute,
+    AuthedOrgsOrgSlugSettingsIntegrationsSlackRoute:
+      AuthedOrgsOrgSlugSettingsIntegrationsSlackRoute,
     AuthedOrgsOrgSlugSettingsIntegrationsIndexRoute:
       AuthedOrgsOrgSlugSettingsIntegrationsIndexRoute,
   }

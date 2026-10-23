@@ -12,6 +12,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
 import { groupMembershipChanges } from "../activity/changes"
+import { sprintEvents } from "../activity/projectEvents"
 import { TicketActivity } from "../activity/TicketActivity"
 import { markdownFileContent } from "../markdown/fileContent"
 import {
@@ -144,7 +145,8 @@ export const GroupDocsLive = Layer.effect(
         },
         groupMembershipChanges(before, after),
         activity.cause ?? null,
-        effect
+        effect,
+        sprintEvents(before, after)
       )
 
     const create = (

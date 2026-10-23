@@ -12,6 +12,8 @@ import {
 
 import type { IconComponent } from "@/lib/icon-context"
 import { useShape } from "@/lib/shape-context"
+import { SURFACE_BG } from "@/lib/surface-classes"
+import { useSurface } from "@/lib/surface-context"
 import { cn } from "@/lib/utils"
 
 import {
@@ -48,7 +50,7 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90 active:bg-destructive/80",
         tertiary:
-          "border border-border bg-transparent text-foreground hover:bg-hover active:bg-active",
+          "border border-border text-foreground hover:bg-[image:linear-gradient(var(--hover),var(--hover))] active:bg-[image:linear-gradient(var(--active),var(--active))]",
         ghost:
           "bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-active",
         step: "w-full justify-start rounded-xl bg-transparent text-left text-muted-foreground hover:bg-hover hover:text-foreground",
@@ -208,6 +210,7 @@ function Button({
           ? "size-6"
           : "size-5"
   const shape = useShape()
+  const surface = useSurface()
 
   const compClassName = cn(
     buttonVariants({
@@ -216,6 +219,7 @@ function Button({
       iconLeft: !isIconOnly && !!LeadingIcon,
       iconRight: !isIconOnly && !!TrailingIcon
     }),
+    variant === "tertiary" && SURFACE_BG[Math.min(surface + 2, 8)],
     shape.button,
     className
   )

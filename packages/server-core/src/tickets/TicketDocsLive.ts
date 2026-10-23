@@ -9,6 +9,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
 import { ticketChanges } from "../activity/changes"
+import { ticketEvents } from "../activity/projectEvents"
 import { TicketActivity } from "../activity/TicketActivity"
 import * as KeyedLock from "../locks/KeyedLock"
 import { ticketFileBody } from "../markdown/fileContent"
@@ -147,13 +148,31 @@ export const TicketDocsLive = Layer.effect(
           orgSlug,
           slug,
           document.id,
-          markdown
-            .createTicketFile(
+          ticketActivity
+            .record(
               orgSlug,
               slug,
-              document.id,
-              encodeFrontmatter(document),
-              ticketFileBody(document.body, document.commentsRegion)
+              {
+                kind: "ticket",
+                id: document.id,
+                content: ticketFileContent(document)
+              },
+              [],
+              null,
+              markdown.createTicketFile(
+                orgSlug,
+                slug,
+                document.id,
+                encodeFrontmatter(document),
+                ticketFileBody(document.body, document.commentsRegion)
+              ),
+              ticketEvents(null, document)
+            )
+            .pipe(
+              Effect.provideService(
+                ActivityActor,
+                ActivityActor.user(document.createdBy)
+              )
             )
             .pipe(
               Effect.andThen(
@@ -242,7 +261,8 @@ export const TicketDocsLive = Layer.effect(
                   : { ticketId: next.id, change }
               ),
               activity.cause ?? null,
-              write(orgSlug, slug, id, next)
+              write(orgSlug, slug, id, next),
+              activity.silent ? [] : ticketEvents(current, next)
             )
             if (onPersist) yield* onPersist(next)
             return next

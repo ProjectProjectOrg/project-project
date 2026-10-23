@@ -3,6 +3,7 @@ import { HardDrive, Mail, Timer, type LucideIcon } from "lucide-react"
 import figmaLogo from "@/assets/logos/figma.svg"
 import githubDarkLogo from "@/assets/logos/github_dark.svg"
 import githubLightLogo from "@/assets/logos/github_light.svg"
+import slackLogo from "@/assets/logos/slack.svg"
 import { cn } from "@/lib/utils"
 
 export type IntegrationKind =
@@ -11,6 +12,7 @@ export type IntegrationKind =
   | "figma"
   | "storage"
   | "email"
+  | "slack"
 
 const ICONS: Readonly<Partial<Record<IntegrationKind, LucideIcon>>> = {
   everhour: Timer,
@@ -43,6 +45,8 @@ export function IntegrationLogo({
         </>
       ) : kind === "figma" ? (
         <img src={figmaLogo} alt="" className="object-contain" />
+      ) : kind === "slack" ? (
+        <img src={slackLogo} alt="" className="object-contain" />
       ) : (
         <IconTile kind={kind} />
       )}

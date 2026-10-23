@@ -260,6 +260,26 @@
     transform: translate3d(-50%, 0, 0);
   }
 }
+
+:root {
+  --page-surface: color-mix(in srgb, var(--muted) 60%, var(--background));
+}
+[data-page-banner] [data-page-header] {
+  text-shadow:
+    0 0 8px var(--page-surface),
+    0 0 20px var(--page-surface);
+}
+
+.page-backdrop-follow {
+  animation: page-backdrop-follow linear both;
+  animation-timeline: --page-scroll;
+  animation-range: 0px var(--page-backdrop-height);
+}
+@keyframes page-backdrop-follow {
+  to {
+    translate: 0 calc(-1 * var(--page-backdrop-height));
+  }
+}
 .animate-marquee-x {
   animation: marquee-x linear infinite;
   will-change: transform;

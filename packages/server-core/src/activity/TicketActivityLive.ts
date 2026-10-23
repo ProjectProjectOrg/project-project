@@ -1,19 +1,24 @@
 import { Db } from "@pp/db"
 import {
   organization,
+  organizationIntegration,
+  projectIntegrationLink,
+  projectIntegrationEvent,
   projectIndex,
   ticketActivity,
   ticketActivityOutbox,
   type TicketActivityOutboxRow
 } from "@pp/db/schema"
 import {
+  ProjectEvent,
+  activityActorUserId,
   ActivityActor,
   GIT_ACTIVITY_KINDS,
   TicketActivityChange,
   type ActivityActorShape,
   type ActivityCause
 } from "@pp/shared"
-import { and, desc, eq, lt, notInArray, or, sql } from "drizzle-orm"
+import { and, desc, eq, inArray, lt, notInArray, or, sql } from "drizzle-orm"
 import * as Crypto from "effect/Crypto"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -36,6 +41,11 @@ const ABSENT = "absent"
 
 const documentHash = (content: string | null): string =>
   content === null ? ABSENT : contentHash(content)
+
+const encodeEvent = Schema.encodeSync(ProjectEvent)
+
+type IntegrationEventRow =
+  (typeof ticketActivityOutbox.$inferSelect)["integrationEvents"][number]
 
 const encodeChange = Schema.encodeSync(TicketActivityChange)
 const decodeChange = Schema.decodeUnknownSync(TicketActivityChange)
@@ -121,19 +131,63 @@ export const TicketActivityLive = Layer.effect(
 
     const commit = (
       batchId: string,
-      rows: ReadonlyArray<TicketActivityOutboxRow>
+      rows: ReadonlyArray<TicketActivityOutboxRow>,
+      integrationEvents: ReadonlyArray<IntegrationEventRow>
     ) =>
       db.transaction(() =>
         Effect.gen(function* () {
-          yield* db
-            .insert(ticketActivity)
-            .values(
-              rows.map((row) => ({
-                ...row,
-                occurredAt: DateTime.toDate(DateTime.makeUnsafe(row.occurredAt))
-              }))
+          if (rows.length > 0)
+            yield* db
+              .insert(ticketActivity)
+              .values(
+                rows.map((row) => ({
+                  ...row,
+                  occurredAt: DateTime.toDate(
+                    DateTime.makeUnsafe(row.occurredAt)
+                  )
+                }))
+              )
+              .onConflictDoNothing()
+          if (integrationEvents.length > 0) {
+            const active = yield* db
+              .select({ id: projectIntegrationLink.id })
+              .from(projectIntegrationLink)
+              .innerJoin(
+                organizationIntegration,
+                eq(
+                  organizationIntegration.id,
+                  projectIntegrationLink.organizationIntegrationId
+                )
+              )
+              .where(
+                and(
+                  inArray(
+                    projectIntegrationLink.id,
+                    integrationEvents.map((item) => item.linkId)
+                  ),
+                  eq(projectIntegrationLink.status, "active"),
+                  eq(organizationIntegration.status, "active")
+                )
+              )
+            const activeIds = new Set(active.map((link) => link.id))
+            const deliveries = integrationEvents.flatMap((item) =>
+              activeIds.has(item.linkId)
+                ? [
+                    {
+                      id: item.id,
+                      projectIntegrationLinkId: item.linkId,
+                      payload: item.event,
+                      actorId: item.actorId
+                    }
+                  ]
+                : []
             )
-            .onConflictDoNothing()
+            if (deliveries.length > 0)
+              yield* db
+                .insert(projectIntegrationEvent)
+                .values(deliveries)
+                .onConflictDoNothing()
+          }
           yield* db
             .delete(ticketActivityOutbox)
             .where(eq(ticketActivityOutbox.batchId, batchId))
@@ -143,12 +197,16 @@ export const TicketActivityLive = Layer.effect(
     type PendingBatch = Readonly<{
       batchId: string
       contentHash: string
+      integrationEvents: ReadonlyArray<IntegrationEventRow>
       rows: ReadonlyArray<TicketActivityOutboxRow>
     }>
 
     const settle = (batch: PendingBatch, content: string | null) =>
       documentHash(content) === batch.contentHash
-        ? commit(batch.batchId, batch.rows).pipe(Effect.orDie, Effect.as(true))
+        ? commit(batch.batchId, batch.rows, batch.integrationEvents).pipe(
+            Effect.orDie,
+            Effect.as(true)
+          )
         : discard(batch.batchId).pipe(Effect.as(false))
 
     const readDocument = (
@@ -176,6 +234,7 @@ export const TicketActivityLive = Layer.effect(
           .select({
             batchId: ticketActivityOutbox.batchId,
             contentHash: ticketActivityOutbox.contentHash,
+            integrationEvents: ticketActivityOutbox.integrationEvents,
             rows: ticketActivityOutbox.rows
           })
           .from(ticketActivityOutbox)
@@ -205,13 +264,45 @@ export const TicketActivityLive = Layer.effect(
       document: ActivityDocument,
       changes: ReadonlyArray<TicketScopedChange>,
       cause: ActivityCause | null,
-      write: Effect.Effect<A, E, R>
+      write: Effect.Effect<A, E, R>,
+      requested: ReadonlyArray<ProjectEvent> = []
     ): Effect.Effect<A, E, R | ActivityActor> =>
       Effect.gen(function* () {
         const projectId = yield* projectIdOf(orgSlug, slug)
         if (projectId === null) return yield* write
         yield* settlePending(orgSlug, slug, projectId, document)
-        if (changes.length === 0) return yield* write
+        const subscriptions =
+          requested.length === 0
+            ? []
+            : yield* db
+                .select({
+                  id: projectIntegrationLink.id,
+                  events: projectIntegrationLink.subscribedEvents
+                })
+                .from(projectIntegrationLink)
+                .innerJoin(
+                  organizationIntegration,
+                  eq(
+                    organizationIntegration.id,
+                    projectIntegrationLink.organizationIntegrationId
+                  )
+                )
+                .where(
+                  and(
+                    eq(projectIntegrationLink.projectId, projectId),
+                    eq(projectIntegrationLink.status, "active"),
+                    eq(organizationIntegration.status, "active")
+                  )
+                )
+                .pipe(Effect.orDie)
+        const selected = subscriptions.flatMap((subscription) =>
+          requested
+            .filter((event) =>
+              subscription.events.some((kind) => kind === event.kind)
+            )
+            .map((event) => ({ linkId: subscription.id, event }))
+        )
+        if (changes.length === 0 && selected.length === 0) return yield* write
         const actor = yield* ActivityActor
         const occurredAt = DateTime.formatIso(yield* DateTime.now)
         const rows: ReadonlyArray<TicketActivityOutboxRow> =
@@ -230,6 +321,15 @@ export const TicketActivityLive = Layer.effect(
               change: encodeChange(entry.change)
             }))
           )
+        const integrationEvents: ReadonlyArray<IntegrationEventRow> =
+          yield* Effect.forEach(selected, ({ linkId, event }) =>
+            Effect.map(newId, (id) => ({
+              id,
+              linkId,
+              event: encodeEvent(event),
+              actorId: activityActorUserId(actor)
+            }))
+          )
         const batchId = yield* newId
         yield* db
           .insert(ticketActivityOutbox)
@@ -239,11 +339,12 @@ export const TicketActivityLive = Layer.effect(
             documentKind: document.kind,
             documentId: document.id,
             contentHash: documentHash(document.content),
-            rows
+            rows,
+            integrationEvents
           })
           .pipe(Effect.orDie)
         const result = yield* write.pipe(Effect.onError(() => discard(batchId)))
-        yield* commit(batchId, rows).pipe(
+        yield* commit(batchId, rows, integrationEvents).pipe(
           Effect.retry({
             times: 3,
             schedule: Schedule.exponential("50 millis")
@@ -266,6 +367,7 @@ export const TicketActivityLive = Layer.effect(
             documentKind: ticketActivityOutbox.documentKind,
             documentId: ticketActivityOutbox.documentId,
             contentHash: ticketActivityOutbox.contentHash,
+            integrationEvents: ticketActivityOutbox.integrationEvents,
             rows: ticketActivityOutbox.rows,
             orgSlug: organization.slug,
             slug: projectIndex.slug

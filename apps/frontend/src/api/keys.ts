@@ -16,6 +16,9 @@ export const projectScope = (orgSlug: string, slug: string): string =>
  * string churn.
  */
 export const Keys = {
+  slackOrg: (orgSlug: string): string => `slack-org/${orgSlug}`,
+  slackProject: (scope: string): string => `slack-project/${scope}`,
+  slackProfiles: (): string => "slack-profiles",
   orgEmail: (orgSlug: string): string => `org-email/${orgSlug}`,
   /** One ticket's content, wherever it is shown. */
   ticket: (scope: string, id: TicketId): string =>
