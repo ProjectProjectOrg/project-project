@@ -8,7 +8,7 @@ import type {
   UpdateStatusInput,
   Forbidden
 } from "@pp/shared"
-import type { ProjectScope } from "@pp/shared"
+import type { ActivityActor, ProjectScope } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 
@@ -31,7 +31,7 @@ export interface ProjectStatusesShape {
   ) => Effect.Effect<
     ProjectStatus,
     Forbidden | NotFound | Conflict | MarkdownError,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
 
   readonly reorder: (
@@ -45,7 +45,7 @@ export interface ProjectStatusesShape {
   ) => Effect.Effect<
     void,
     Forbidden | NotFound | Conflict | MarkdownError,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
 }
 

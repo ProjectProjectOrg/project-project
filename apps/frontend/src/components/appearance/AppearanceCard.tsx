@@ -3,6 +3,7 @@ import { useEffect, useRef, type ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import { transitions } from "@/lib/springs"
+import { SurfaceProvider } from "@/lib/surface-context"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -19,14 +20,16 @@ export function AppearanceCard({
   className?: string
 }) {
   return (
-    <div
-      className={cn(
-        "relative rounded-lg border border-border bg-card",
-        className
-      )}
-    >
-      {children}
-    </div>
+    <SurfaceProvider value={1}>
+      <div
+        className={cn(
+          "relative rounded-lg border border-border bg-card",
+          className
+        )}
+      >
+        {children}
+      </div>
+    </SurfaceProvider>
   )
 }
 
@@ -90,6 +93,7 @@ export function AppearanceRow({
       onClick={onActivate}
       variant="appearance-row"
       size="appearance-row"
+      className="rounded-[calc(var(--radius-lg)-1px)]"
     >
       {content}
     </Button>

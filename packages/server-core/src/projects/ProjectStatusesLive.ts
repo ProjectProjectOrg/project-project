@@ -65,12 +65,13 @@ export const ProjectStatusesLive = Layer.effect(
       orgSlug: string,
       slug: string,
       ids: ReadonlyArray<string>,
-      toSlug: string
+      toSlug: string,
+      reason: "renamed" | "removed"
     ) =>
       Effect.forEach(
         ids,
         (id) =>
-          tickets.replaceStatus(orgSlug, slug, id, toSlug).pipe(
+          tickets.replaceStatus(orgSlug, slug, id, toSlug, reason).pipe(
             Effect.catchTag("NotFound", () => Effect.succeed(false)),
             Effect.catchTag("MalformedTicketDocument", () =>
               Effect.succeed(false)
@@ -196,7 +197,13 @@ export const ProjectStatusesLive = Layer.effect(
           indexProject,
           current.slug
         )
-        yield* rewriteTicketsStatus(orgSlug, slug, affectedIds, newSlug)
+        yield* rewriteTicketsStatus(
+          orgSlug,
+          slug,
+          affectedIds,
+          newSlug,
+          "renamed"
+        )
         const updated = yield* db
           .update(projectStatus)
           .set({
@@ -281,7 +288,8 @@ export const ProjectStatusesLive = Layer.effect(
             orgSlug,
             slug,
             affectedIds,
-            input.reassignTo
+            input.reassignTo,
+            "removed"
           )
         }
         yield* db

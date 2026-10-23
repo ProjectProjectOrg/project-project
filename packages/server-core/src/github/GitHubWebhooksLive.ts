@@ -1,23 +1,57 @@
 import { Db } from "@pp/db"
 import {
+  organization,
   organizationGithubIntegration,
   organizationIntegration,
   projectGithubRepository,
+  projectIndex,
   projectIntegrationLink
 } from "@pp/db/schema"
-import type { ChecksStatus } from "@pp/shared"
+import { ActivityActor, type ChecksStatus } from "@pp/shared"
 import { and, eq, inArray } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 
 import type { MarkdownError } from "../markdown/Markdown"
-import { TicketDocs, type TicketDocsShape } from "../tickets/TicketDocs"
+import {
+  ProjectGitAutomation,
+  type ProjectGitAutomationShape
+} from "../projects/ProjectGitAutomation"
+import {
+  gitAutomationActivity,
+  moveForDeletedBranch,
+  withGitAutomation
+} from "../tickets/moveByGitAutomation"
+import {
+  pickPullRequestTicket,
+  pullRequestTicketReferences
+} from "../tickets/pullRequestTicketReference"
+import {
+  TicketDocs,
+  type TicketDocsShape,
+  type TicketDocument
+} from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
-import { planPullRequestWebhookTicket } from "../tickets/ticketGitStatePlanner"
-import { TicketIndex, type TicketIndexShape } from "../tickets/TicketIndex"
+import {
+  planPullRequestPatch,
+  planPullRequestWebhookTicket,
+  withPullRequestBase
+} from "../tickets/ticketGitStatePlanner"
+import {
+  TicketIndex,
+  type TicketIndexProject,
+  type TicketIndexShape
+} from "../tickets/TicketIndex"
+import {
+  planLayerPullRequest,
+  planStackAttach,
+  replaceLayer,
+  type StackPullRequest
+} from "../tickets/ticketStack"
 import {
   GitHubWebhooks,
   type GitHubBranchDeletionChange,
@@ -29,6 +63,11 @@ import {
   type GitHubWebhooksShape
 } from "./GitHubWebhooks"
 import * as ProjectStateCache from "./projectStateCache"
+import {
+  mergedPullRequestsForRepository,
+  reconcilePullRequestChange,
+  rememberPullRequest
+} from "./pullRequestReconciliation"
 
 export interface PullRequestWebhookMatch {
   readonly orgSlug: string
@@ -39,12 +78,125 @@ export interface PullRequestWebhookMatch {
   readonly branch: string
 }
 
+type PullRequestWebhookDeps = Readonly<{
+  ticketDocs: TicketDocsShape
+  ticketIndex: TicketIndexShape
+  ticketDocumentLock: TicketDocumentLock.TicketDocumentLock["Service"]
+  gitAutomation: ProjectGitAutomationShape
+  claimPullRequest?: (
+    change: GitHubPullRequestWebhookChange
+  ) => Effect.Effect<boolean>
+}>
+
+type PullRequestWebhookPatch = Partial<
+  Pick<
+    TicketDocument,
+    | "branch"
+    | "pr"
+    | "prState"
+    | "prDraft"
+    | "prBase"
+    | "lastTransitionedPr"
+    | "stack"
+  >
+>
+
+const mergeLanded = (change: GitHubPullRequestWebhookChange): boolean =>
+  change.state === "merged" &&
+  (change.landed ?? change.baseBranch === change.defaultBranch)
+
+const stackPullRequest = (
+  change: GitHubPullRequestWebhookChange
+): StackPullRequest => ({
+  branch: change.branch,
+  base: change.baseBranch,
+  number: change.number,
+  state: change.state,
+  draft: change.draft,
+  landed: mergeLanded(change)
+})
+
+const writePullRequestWebhook = (
+  deps: PullRequestWebhookDeps,
+  match: PullRequestWebhookMatch,
+  deliveryId: string | null,
+  claim: GitHubPullRequestWebhookChange | null,
+  patchFor: (
+    ticket: TicketDocument
+  ) => Effect.Effect<PullRequestWebhookPatch | null>
+): Effect.Effect<void, MarkdownError> =>
+  Effect.gen(function* () {
+    const indexProject = {
+      orgSlug: match.orgSlug,
+      organizationId: match.organizationId,
+      projectId: match.projectId,
+      projectSlug: match.projectSlug
+    }
+    if (
+      claim !== null &&
+      deps.claimPullRequest !== undefined &&
+      !(yield* deps.claimPullRequest(claim))
+    )
+      return
+    let changed = false
+    const next = yield* deps.ticketDocs
+      .update(
+        match.orgSlug,
+        match.projectSlug,
+        match.ticketId,
+        (ticket) =>
+          Effect.gen(function* () {
+            const patch = yield* patchFor(ticket)
+            if (!patch) return ticket
+            changed = true
+            return yield* withGitAutomation(
+              deps.gitAutomation,
+              match.projectId,
+              ticket,
+              { ...ticket, ...patch, updatedAt: yield* DateTime.nowAsDate }
+            )
+          }),
+        (next) =>
+          changed
+            ? deps.ticketIndex.upsertTicket(indexProject, next)
+            : Effect.void,
+        gitAutomationActivity
+      )
+      .pipe(
+        Effect.provideService(ActivityActor, ActivityActor.system("github")),
+        Effect.catchTag(["NotFound", "MalformedTicketDocument"], (error) =>
+          Effect.logWarning("github pull_request ticket ignored").pipe(
+            Effect.annotateLogs({ error }),
+            Effect.as(null)
+          )
+        ),
+        Effect.tapError((error) =>
+          Effect.logWarning("github pull_request ticket write failed").pipe(
+            Effect.annotateLogs({ error })
+          )
+        )
+      )
+    if (next === null || !changed) return
+    yield* Effect.logInfo("github pull_request ticket updated").pipe(
+      Effect.annotateLogs({
+        branch: next.branch,
+        pr: next.pr,
+        prState: next.prState,
+        status: next.status
+      })
+    )
+  }).pipe(
+    Effect.annotateLogs({
+      module: "GitHubWebhooks",
+      deliveryId,
+      orgSlug: match.orgSlug,
+      slug: match.projectSlug,
+      ticketId: match.ticketId
+    })
+  )
+
 export const applyPullRequestWebhookToTicket = (
-  deps: {
-    readonly ticketDocs: TicketDocsShape
-    readonly ticketIndex: TicketIndexShape
-    readonly ticketDocumentLock: TicketDocumentLock.TicketDocumentLock["Service"]
-  },
+  deps: PullRequestWebhookDeps,
   match: PullRequestWebhookMatch,
   change: GitHubPullRequestWebhookChange,
   deliveryId: string | null
@@ -53,131 +205,278 @@ export const applyPullRequestWebhookToTicket = (
     match.orgSlug,
     match.projectSlug,
     match.ticketId,
-    Effect.gen(function* () {
-      const indexProject = {
-        orgSlug: match.orgSlug,
-        organizationId: match.organizationId,
-        projectId: match.projectId,
-        projectSlug: match.projectSlug
-      }
-      let changed = false
-      const next = yield* deps.ticketDocs
-        .update(
-          match.orgSlug,
-          match.projectSlug,
-          match.ticketId,
-          (ticket) =>
-            Effect.gen(function* () {
-              if (ticket.branch !== match.branch) {
-                yield* Effect.logDebug(
-                  "github pull_request branch index stale"
-                ).pipe(
-                  Effect.annotateLogs({
-                    module: "GitHubWebhooks",
-                    deliveryId,
-                    orgSlug: match.orgSlug,
-                    slug: match.projectSlug,
-                    ticketId: match.ticketId,
-                    indexedBranch: match.branch,
-                    ticketBranch: ticket.branch
-                  })
-                )
-                return ticket
-              }
-              if (ticket.pr !== null && change.number < ticket.pr) {
-                yield* Effect.logDebug(
-                  "github pull_request delivery stale"
-                ).pipe(
-                  Effect.annotateLogs({
-                    module: "GitHubWebhooks",
-                    deliveryId,
-                    orgSlug: match.orgSlug,
-                    slug: match.projectSlug,
-                    ticketId: match.ticketId,
-                    ticketPr: ticket.pr,
-                    webhookPr: change.number
-                  })
-                )
-                return ticket
-              }
-              const write = planPullRequestWebhookTicket(ticket, change)
-              if (!write) return ticket
-              changed = true
-              return {
-                ...ticket,
-                pr: write.patch.pr !== undefined ? write.patch.pr : ticket.pr,
-                prState:
-                  write.patch.prState !== undefined
-                    ? write.patch.prState
-                    : ticket.prState,
-                lastTransitionedPr:
-                  write.patch.lastTransitionedPr !== undefined
-                    ? write.patch.lastTransitionedPr
-                    : ticket.lastTransitionedPr,
-                status: write.patch.status ?? ticket.status,
-                updatedAt: yield* DateTime.nowAsDate
-              }
-            }),
-          (next) =>
-            changed
-              ? deps.ticketIndex.upsertTicket(indexProject, next)
-              : Effect.void
-        )
-        .pipe(
-          Effect.catchTag("NotFound", (error) =>
-            Effect.logWarning("github pull_request ticket ignored").pipe(
-              Effect.annotateLogs({
-                module: "GitHubWebhooks",
-                deliveryId,
-                orgSlug: match.orgSlug,
-                slug: match.projectSlug,
-                ticketId: match.ticketId,
-                error
-              }),
-              Effect.as(null)
-            )
-          ),
-          Effect.catchTag("MalformedTicketDocument", (error) =>
-            Effect.logWarning("github pull_request ticket ignored").pipe(
-              Effect.annotateLogs({
-                module: "GitHubWebhooks",
-                deliveryId,
-                orgSlug: match.orgSlug,
-                slug: match.projectSlug,
-                ticketId: match.ticketId,
-                error
-              }),
-              Effect.as(null)
-            )
-          ),
-          Effect.tapError((error) =>
-            Effect.logWarning("github pull_request ticket write failed").pipe(
-              Effect.annotateLogs({
-                module: "GitHubWebhooks",
-                deliveryId,
-                orgSlug: match.orgSlug,
-                slug: match.projectSlug,
-                ticketId: match.ticketId,
-                error
-              })
-            )
+    writePullRequestWebhook(deps, match, deliveryId, change, (ticket) =>
+      Effect.gen(function* () {
+        if (ticket.branch !== match.branch) {
+          yield* Effect.logDebug("github pull_request branch index stale").pipe(
+            Effect.annotateLogs({
+              indexedBranch: match.branch,
+              ticketBranch: ticket.branch
+            })
           )
+          return null
+        }
+        if (ticket.pr !== null && change.number < ticket.pr) {
+          yield* Effect.logDebug("github pull_request delivery stale").pipe(
+            Effect.annotateLogs({
+              ticketPr: ticket.pr,
+              webhookPr: change.number
+            })
+          )
+          return null
+        }
+        return withPullRequestBase(
+          planPullRequestWebhookTicket(
+            { ...ticket, prDraft: ticket.prDraft ?? false },
+            { ...change, landed: mergeLanded(change) }
+          ),
+          ticket,
+          { number: change.number, base: change.baseBranch }
         )
-      if (next === null || !changed) return
-      yield* Effect.logInfo("github pull_request ticket updated").pipe(
-        Effect.annotateLogs({
-          module: "GitHubWebhooks",
-          deliveryId,
-          orgSlug: match.orgSlug,
-          slug: match.projectSlug,
-          ticketId: match.ticketId,
-          pr: next.pr,
-          prState: next.prState,
-          status: next.status
-        })
+      })
+    )
+  )
+
+export const applyPullRequestWebhookToLayer = (
+  deps: PullRequestWebhookDeps,
+  match: PullRequestWebhookMatch,
+  change: GitHubPullRequestWebhookChange,
+  deliveryId: string | null
+): Effect.Effect<void, MarkdownError> =>
+  deps.ticketDocumentLock.withTicketDocumentLock(
+    match.orgSlug,
+    match.projectSlug,
+    match.ticketId,
+    writePullRequestWebhook(deps, match, deliveryId, change, (ticket) => {
+      const layer = ticket.stack?.find(
+        (candidate) => candidate.branch === match.branch
+      )
+      if (layer === undefined) {
+        return Effect.logDebug("github pull_request stack index stale").pipe(
+          Effect.annotateLogs({ branch: match.branch }),
+          Effect.as(null)
+        )
+      }
+      const next = planLayerPullRequest(layer, stackPullRequest(change))
+      return Effect.succeed(
+        next === null ? null : { stack: replaceLayer(ticket.stack, next) }
       )
     })
   )
+
+const landAwaitingMerge = (
+  deps: PullRequestWebhookDeps,
+  match: PullRequestWebhookMatch & Readonly<{ stacked: boolean }>,
+  deliveryId: string | null,
+  base: Readonly<{ branch: string; mergedAt: Date }>,
+  mergedAtByPr: ReadonlyMap<number, Date>
+): Effect.Effect<Date | null, MarkdownError> =>
+  Effect.gen(function* () {
+    let landedAt: Date | null = null
+    yield* deps.ticketDocumentLock.withTicketDocumentLock(
+      match.orgSlug,
+      match.projectSlug,
+      match.ticketId,
+      writePullRequestWebhook(deps, match, deliveryId, null, (ticket) => {
+        if (match.stacked) {
+          const layer = ticket.stack?.find(
+            (candidate) => candidate.branch === match.branch
+          )
+          const mergedAt =
+            layer?.pr === undefined ? undefined : mergedAtByPr.get(layer.pr)
+          if (
+            layer?.base !== base.branch ||
+            layer.prState !== "merged" ||
+            layer.landed === true ||
+            mergedAt === undefined ||
+            mergedAt >= base.mergedAt
+          )
+            return Effect.succeed(null)
+          landedAt = mergedAt
+          return Effect.succeed({
+            stack: replaceLayer(ticket.stack, { ...layer, landed: true })
+          })
+        }
+        const mergedAt =
+          ticket.pr === null ? undefined : mergedAtByPr.get(ticket.pr)
+        if (
+          ticket.branch !== match.branch ||
+          ticket.prBase !== base.branch ||
+          ticket.prState !== "merged" ||
+          ticket.pr === null ||
+          ticket.lastTransitionedPr === ticket.pr ||
+          mergedAt === undefined ||
+          mergedAt >= base.mergedAt
+        )
+          return Effect.succeed(null)
+        landedAt = mergedAt
+        return Effect.succeed({ lastTransitionedPr: ticket.pr })
+      })
+    )
+    return landedAt
+  })
+
+export const landMergesInto = Effect.fn("GitHubWebhooks.landMergesInto")(
+  function* (
+    deps: PullRequestWebhookDeps,
+    projectId: string,
+    branch: string,
+    deliveryId: string | null,
+    mergedAt: Date | null,
+    mergedAtByPr: ReadonlyMap<number, Date>
+  ): Effect.fn.Return<void, MarkdownError> {
+    if (mergedAt === null) return
+    const visited = new Set([branch])
+    let frontier: ReadonlyArray<Readonly<{ branch: string; mergedAt: Date }>> =
+      [{ branch, mergedAt }]
+    while (frontier.length > 0) {
+      const next: Array<Readonly<{ branch: string; mergedAt: Date }>> = []
+      for (const base of frontier) {
+        const waiting = yield* deps.ticketIndex.findMergesAwaiting(
+          projectId,
+          base.branch
+        )
+        for (const match of waiting) {
+          if (visited.has(match.branch)) continue
+          const landedAt = yield* landAwaitingMerge(
+            deps,
+            match,
+            deliveryId,
+            base,
+            mergedAtByPr
+          ).pipe(Effect.annotateLogs({ landedVia: base.branch }))
+          if (landedAt === null) continue
+          visited.add(match.branch)
+          next.push({ branch: match.branch, mergedAt: landedAt })
+        }
+      }
+      frontier = next
+    }
+  }
+)
+
+type PullRequestLinkSkip =
+  | "closed"
+  | "default_branch"
+  | "no_reference"
+  | "no_single_ticket"
+  | "branch_attached"
+  | "ticket_not_linkable"
+
+export const linkPullRequestWebhookToTicket = Effect.fn(
+  "GitHubWebhooks.linkPullRequestWebhookToTicket"
+)(function* (
+  deps: PullRequestWebhookDeps,
+  project: TicketIndexProject,
+  change: GitHubPullRequestWebhookChange,
+  deliveryId: string | null
+): Effect.fn.Return<void, MarkdownError> {
+  const logSkipped = (
+    reason: PullRequestLinkSkip,
+    extra: Readonly<{
+      ticketId?: string
+      mentioned?: ReadonlyArray<string>
+    }> = {}
+  ) =>
+    Effect.logDebug("github pull_request ticket not linked").pipe(
+      Effect.annotateLogs({
+        module: "GitHubWebhooks",
+        deliveryId,
+        orgSlug: project.orgSlug,
+        slug: project.projectSlug,
+        branch: change.branch,
+        pr: change.number,
+        reason,
+        ...extra
+      })
+    )
+  if (change.state === "closed") {
+    yield* logSkipped("closed")
+    return
+  }
+  if (change.branch === change.defaultBranch) {
+    yield* logSkipped("default_branch")
+    return
+  }
+  const references = pullRequestTicketReferences(change)
+  const mentioned = references.flatMap(({ ticketIds }) => [...ticketIds])
+  if (mentioned.length === 0) {
+    yield* logSkipped("no_reference")
+    return
+  }
+  const pick = pickPullRequestTicket(
+    references,
+    yield* deps.ticketIndex.existingIds(project, mentioned)
+  )
+  if (Option.isNone(pick)) {
+    yield* logSkipped("no_single_ticket", { mentioned })
+    return
+  }
+  const { ticketId, source } = pick.value
+  const match = { ...project, ticketId, branch: change.branch }
+  yield* deps.ticketDocumentLock.withTicketDocumentLock(
+    project.orgSlug,
+    project.projectSlug,
+    ticketId,
+    deps.ticketDocumentLock.withRepositoryBranchLock(
+      change.repositoryId,
+      Effect.gen(function* () {
+        if (
+          yield* deps.ticketIndex.isRepositoryBranchAttached(
+            change.repositoryId,
+            change.branch
+          )
+        ) {
+          yield* logSkipped("branch_attached", { ticketId })
+          return
+        }
+        yield* writePullRequestWebhook(
+          deps,
+          match,
+          deliveryId,
+          change,
+          (ticket) => {
+            const notLinkable = logSkipped("ticket_not_linkable", {
+              ticketId
+            }).pipe(Effect.as(null))
+            if (ticket.archivedAt !== null) return notLinkable
+            if (ticket.branch !== null) {
+              const layer = planStackAttach(
+                ticket,
+                stackPullRequest(change),
+                source === "branch"
+              )
+              return layer === null
+                ? notLinkable
+                : Effect.succeed({ stack: [...(ticket.stack ?? []), layer] })
+            }
+            if (
+              ticket.branchAutoLinkDisabled === true ||
+              (ticket.ignoredBranches ?? []).includes(change.branch)
+            ) {
+              return notLinkable
+            }
+            return Effect.succeed({
+              branch: change.branch,
+              prBase: change.baseBranch,
+              ...planPullRequestPatch(
+                {
+                  ...ticket,
+                  branch: change.branch,
+                  pr: null,
+                  prState: null,
+                  prDraft: false,
+                  lastTransitionedPr: null
+                },
+                { ...change, landed: mergeLanded(change) }
+              )
+            })
+          }
+        ).pipe(Effect.annotateLogs({ linkedFrom: source }))
+      })
+    )
+  )
+})
 
 const GitHubId = Schema.Union([Schema.Number, Schema.String])
 
@@ -206,16 +505,26 @@ const PullRequestPayload = Schema.Struct({
     id: GitHubId
   }),
   repository: Schema.Struct({
-    id: GitHubId
+    id: GitHubId,
+    default_branch: Schema.optional(Schema.String)
   }),
   number: Schema.Number,
   pull_request: Schema.Struct({
+    title: Schema.optional(Schema.String),
+    body: Schema.optional(Schema.NullOr(Schema.String)),
+    state: Schema.optional(Schema.Literals(["open", "closed"])),
     merged: Schema.Boolean,
+    draft: Schema.optional(Schema.Boolean),
+    updated_at: Schema.optional(Schema.DateFromString),
+    merged_at: Schema.optional(Schema.NullOr(Schema.DateFromString)),
     head: Schema.Struct({
       ref: Schema.String,
       repo: Schema.Struct({
         id: GitHubId
       })
+    }),
+    base: Schema.Struct({
+      ref: Schema.String
     })
   })
 })
@@ -431,19 +740,20 @@ const handleInstallationRepositories = (
     )
   })
 
+const PULL_REQUEST_ACTIONS = [
+  "opened",
+  "reopened",
+  "synchronize",
+  "closed",
+  "converted_to_draft",
+  "ready_for_review",
+  "edited"
+] as const
+
 const pullRequestAction = (
   action: string
-): "opened" | "reopened" | "synchronize" | "closed" | null => {
-  if (
-    action === "opened" ||
-    action === "reopened" ||
-    action === "synchronize" ||
-    action === "closed"
-  ) {
-    return action
-  }
-  return null
-}
+): (typeof PULL_REQUEST_ACTIONS)[number] | null =>
+  PULL_REQUEST_ACTIONS.find((handled) => handled === action) ?? null
 
 const handlePullRequest = (
   sink: GitHubWebhookMutationSink,
@@ -479,12 +789,19 @@ const handlePullRequest = (
         repositoryId,
         branch: payload.pull_request.head.ref,
         number: payload.number,
+        title: payload.pull_request.title ?? "",
+        body: payload.pull_request.body ?? "",
         state:
-          action === "closed"
+          action === "closed" || payload.pull_request.state === "closed"
             ? payload.pull_request.merged
               ? "merged"
               : "closed"
-            : "open"
+            : "open",
+        draft: payload.pull_request.draft ?? false,
+        updatedAt: payload.pull_request.updated_at ?? null,
+        mergedAt: payload.pull_request.merged_at ?? null,
+        baseBranch: payload.pull_request.base.ref,
+        defaultBranch: payload.repository.default_branch ?? null
       },
       delivery.deliveryId
     )
@@ -716,6 +1033,7 @@ export const GitHubWebhooksLive = Layer.effect(
     const ticketIndex = yield* TicketIndex
     const ticketDocumentLock = yield* TicketDocumentLock.TicketDocumentLock
     const projectStateCache = yield* ProjectStateCache.ProjectStateCache
+    const gitAutomation = yield* ProjectGitAutomation
 
     const withProjectStateInvalidation = <A, E>(
       installationId: string,
@@ -1168,7 +1486,11 @@ export const GitHubWebhooksLive = Layer.effect(
       return yield* db
         .select({
           id: projectIntegrationLink.id,
-          projectId: projectIntegrationLink.projectId
+          projectId: projectIntegrationLink.projectId,
+          projectSlug: projectIndex.slug,
+          organizationId: projectIndex.organizationId,
+          orgSlug: organization.slug,
+          defaultBranch: projectGithubRepository.defaultBranch
         })
         .from(projectGithubRepository)
         .innerJoin(
@@ -1177,6 +1499,14 @@ export const GitHubWebhooksLive = Layer.effect(
             projectIntegrationLink.id,
             projectGithubRepository.projectIntegrationLinkId
           )
+        )
+        .innerJoin(
+          projectIndex,
+          eq(projectIndex.id, projectIntegrationLink.projectId)
+        )
+        .innerJoin(
+          organization,
+          eq(organization.id, projectIndex.organizationId)
         )
         .innerJoin(
           organizationIntegration,
@@ -1224,35 +1554,84 @@ export const GitHubWebhooksLive = Layer.effect(
           )
           return
         }
+        if (!(yield* rememberPullRequest(db, change))) return
+        const merged = yield* mergedPullRequestsForRepository(
+          db,
+          change.repositoryId
+        )
+        const mergedAtByPr = new Map(
+          merged.flatMap((pr) =>
+            pr.mergedAt === null ? [] : [[pr.number, pr.mergedAt] as const]
+          )
+        )
         yield* Effect.forEach(
           links,
           (link) =>
-            ticketIndex.findTicketsByBranch(link.projectId, change.branch).pipe(
-              Effect.flatMap((matches) =>
-                matches.length === 0
-                  ? Effect.logDebug("github pull_request branch unknown").pipe(
-                      Effect.annotateLogs({
-                        module: "GitHubWebhooks",
-                        deliveryId,
-                        installationId: change.installationId,
-                        repositoryId: change.repositoryId,
-                        branch: change.branch,
-                        projectIntegrationLinkId: link.id
-                      })
-                    )
-                  : Effect.forEach(
-                      matches,
-                      (match) =>
-                        applyPullRequestWebhookToTicket(
-                          { ticketDocs, ticketIndex, ticketDocumentLock },
-                          match,
-                          change,
-                          deliveryId
-                        ),
-                      { concurrency: 1 }
-                    ).pipe(Effect.asVoid)
+            Effect.gen(function* () {
+              const linkChange = reconcilePullRequestChange(
+                change,
+                link.defaultBranch,
+                merged
               )
-            ),
+              const deps = {
+                ticketDocs,
+                ticketIndex,
+                ticketDocumentLock,
+                gitAutomation,
+                claimPullRequest: (update: GitHubPullRequestWebhookChange) =>
+                  rememberPullRequest(db, update)
+              }
+              const [owners, stacked] = yield* Effect.all([
+                ticketIndex.findTicketsByBranch(link.projectId, change.branch),
+                ticketIndex.findStackLayers(link.projectId, change.branch)
+              ])
+              if (owners.length === 0 && stacked.length === 0) {
+                yield* linkPullRequestWebhookToTicket(
+                  deps,
+                  link,
+                  linkChange,
+                  deliveryId
+                ).pipe(
+                  Effect.annotateLogs({
+                    installationId: change.installationId,
+                    repositoryId: change.repositoryId,
+                    projectIntegrationLinkId: link.id
+                  })
+                )
+              }
+              yield* Effect.forEach(
+                owners,
+                (match) =>
+                  applyPullRequestWebhookToTicket(
+                    deps,
+                    match,
+                    linkChange,
+                    deliveryId
+                  ),
+                { concurrency: 1, discard: true }
+              )
+              yield* Effect.forEach(
+                stacked,
+                (match) =>
+                  applyPullRequestWebhookToLayer(
+                    deps,
+                    match,
+                    linkChange,
+                    deliveryId
+                  ),
+                { concurrency: 1, discard: true }
+              )
+              if (mergeLanded(linkChange)) {
+                yield* landMergesInto(
+                  deps,
+                  link.projectId,
+                  change.branch,
+                  deliveryId,
+                  change.mergedAt ?? null,
+                  mergedAtByPr
+                )
+              }
+            }),
           { concurrency: 1 }
         )
       }
@@ -1275,45 +1654,46 @@ export const GitHubWebhooksLive = Layer.effect(
         return
       }
       const now = yield* DateTime.nowAsDate
-      yield* sql
-        .withTransaction(
-          Effect.forEach(
-            links,
-            (link) =>
-              ticketIndex
-                .markBranchStale(link.projectId, change.branch, now)
-                .pipe(
-                  Effect.flatMap((ticketIds) =>
-                    ticketIds.length === 0
-                      ? Effect.logDebug("github delete branch unknown").pipe(
-                          Effect.annotateLogs({
-                            module: "GitHubWebhooks",
-                            deliveryId,
-                            installationId: change.installationId,
-                            repositoryId: change.repositoryId,
-                            branch: change.branch,
-                            projectIntegrationLinkId: link.id
-                          })
-                        )
-                      : Effect.logInfo(
-                          "github delete branch marked stale"
-                        ).pipe(
-                          Effect.annotateLogs({
-                            module: "GitHubWebhooks",
-                            deliveryId,
-                            installationId: change.installationId,
-                            repositoryId: change.repositoryId,
-                            branch: change.branch,
-                            projectIntegrationLinkId: link.id,
-                            ticketIds
-                          })
-                        )
-                  )
+      yield* Effect.forEach(
+        links,
+        (link) =>
+          Effect.gen(function* () {
+            const matches = yield* ticketIndex.findTicketsByBranch(
+              link.projectId,
+              change.branch
+            )
+            const pending = yield* Effect.filter(matches, (match) =>
+              Effect.map(
+                ticketIndex.getBranchDeletedAt(
+                  match.orgSlug,
+                  match.projectSlug,
+                  match.ticketId
                 ),
-            { concurrency: 1 }
-          ).pipe(Effect.asVoid)
-        )
-        .pipe(Effect.catchTag("SqlError", Effect.die))
+                (deletedAt) => deletedAt === null
+              )
+            )
+            yield* Effect.forEach(
+              pending,
+              (match) =>
+                moveForDeletedBranch(
+                  {
+                    ticketDocs,
+                    ticketIndex,
+                    ticketDocumentLock,
+                    gitAutomation
+                  },
+                  match
+                ),
+              { concurrency: 1, discard: true }
+            )
+            yield* ticketIndex.markBranchStale(
+              link.projectId,
+              change.branch,
+              now
+            )
+          }),
+        { concurrency: 1, discard: true }
+      )
     })
 
     const checkStateChanged = Effect.fn("GitHubWebhooks.checkStateChanged")(

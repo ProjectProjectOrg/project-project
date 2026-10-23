@@ -32,8 +32,11 @@ import {
   sprintSections,
   sprintSectionsRequest,
   updateSprintSectionsTicket,
+  type SprintSectionValue,
   type SprintSectionsValue
 } from "@/features/tickets/atoms/sprintSections"
+import { useEstimationMode } from "@/hooks/useEstimationMode"
+import { formatEstimateSummary } from "@/lib/estimate-meta"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -62,6 +65,7 @@ const queryHasActiveFilter = (query: TicketListQuery) =>
   (query.assignee?.length ?? 0) > 0 ||
   (query.tags?.length ?? 0) > 0 ||
   (query.groupId?.length ?? 0) > 0 ||
+  (query.estimate?.length ?? 0) > 0 ||
   query.hasBranch !== undefined ||
   query.hasPr !== undefined ||
   query.updatedAfter !== undefined ||
@@ -136,6 +140,7 @@ export function SprintSections(props: Props) {
               sprint={sprint}
               page={section?.page ?? EMPTY_PAGE}
               count={section?.count ?? 0}
+              estimates={section?.estimates ?? null}
               waiting={waiting}
               activePreviewId={preview.activePreviewId}
               onPreviewPointerEnter={preview.onPreviewPointerEnter}
@@ -181,6 +186,7 @@ type SprintSectionProps = Props &
     sprint: Group | null
     page: BacklogSection
     count: number
+    estimates: SprintSectionValue["estimates"]
     waiting: boolean
     activePreviewId: TicketId | null
     onPreviewPointerEnter: (id: TicketId) => void
@@ -193,6 +199,7 @@ function SprintSection({
   sprint,
   page,
   count,
+  estimates,
   waiting,
   activePreviewId,
   onPreviewPointerEnter,
@@ -255,7 +262,13 @@ function SprintSection({
             />
           ),
           detail: sprint
-            ? [stateLabel, dates].filter(Boolean).join(" · ")
+            ? [
+                stateLabel,
+                dates,
+                estimates === null ? null : formatEstimateSummary(estimates)
+              ]
+                .filter(Boolean)
+                .join(" · ")
             : undefined
         }}
         canCreate={state !== "completed"}
@@ -304,10 +317,12 @@ function SprintRow({
 }: ComponentProps<typeof Row> & { snapshotReq: BacklogRequest }) {
   const viewer = useAtomValue(me())
   const viewerId = Result.isSuccess(viewer) ? viewer.value.id : undefined
+  const estimation = useEstimationMode()
   const mutation = updateSprintSectionsTicket({
     req: snapshotReq,
     id: props.ticket.id,
-    viewerId
+    viewerId,
+    estimation
   })
   const update = useAtomSet(mutation)
   const state = useAtomValue(mutation)

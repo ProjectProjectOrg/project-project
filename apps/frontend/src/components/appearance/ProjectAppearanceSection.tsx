@@ -24,6 +24,7 @@ import {
   bannerPresets
 } from "@/components/project-banner-presets"
 import { ProjectIconDisplay } from "@/components/ProjectIconDisplay"
+import { SettingsSection } from "@/components/settings/SettingsSection"
 import { AutoHeight } from "@/components/ui/auto-height"
 import { Button } from "@/components/ui/button"
 import {
@@ -77,7 +78,12 @@ export function ProjectAppearanceSection({
   const bannerThumb = bannerSource(orgSlug, banner) ?? null
 
   const changeAffordance = canEdit ? (
-    <Button render={<span />} variant="tertiary" size="sm">
+    <Button
+      render={<span />}
+      variant="tertiary"
+      size="sm"
+      className="motion-safe:active:scale-100"
+    >
       {m.project_appearance_change()}
     </Button>
   ) : null
@@ -86,11 +92,7 @@ export function ProjectAppearanceSection({
     canEdit ? () => setEditing(target) : undefined
 
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-[13px] font-medium">
-        {m.project_appearance_heading()}
-      </h2>
-
+    <SettingsSection title={m.project_appearance_heading()}>
       <div className="grid gap-x-8 gap-y-6 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
         <div className="flex flex-col gap-2.5">
           <AppearanceCard>
@@ -220,7 +222,7 @@ export function ProjectAppearanceSection({
                   >
                     <AppearanceRow
                       thumb={
-                        <span className="relative block h-10 w-[88px] shrink-0 overflow-hidden rounded-md bg-muted">
+                        <span className="relative block h-10 w-[88px] shrink-0 overflow-hidden rounded-md bg-active">
                           {bannerThumb ? (
                             <CroppedImage
                               src={bannerThumb}
@@ -300,6 +302,6 @@ export function ProjectAppearanceSection({
           </details>
         </div>
       </div>
-    </section>
+    </SettingsSection>
   )
 }

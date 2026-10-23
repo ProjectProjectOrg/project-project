@@ -21,18 +21,20 @@
     "@pp/access": "workspace:*",
     "@pp/db": "workspace:*",
     "@pp/shared": "workspace:*",
-    "drizzle-orm": "1.0.0-rc.5-169397b",
+    "drizzle-orm": "1.0.0-rc.5",
     "effect": "4.0.5",
     "fractional-indexing": "^3.2.0",
     "gray-matter": "^4.0.3",
+    "nodemailer": "^10.1.2",
     "octokit": "^5.0.5",
-    "sharp": "^0.34.4",
+    "sharp": "^0.35.5",
     "ulid": "^3.0.2"
   },
   "devDependencies": {
     "@effect/platform-bun": "4.0.5",
     "@effect/vitest": "4.0.5",
     "@types/bun": "latest",
+    "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.20.0",
     "pg": "^8.20.0",
     "vitest": "5.0.5"

@@ -12,13 +12,21 @@ export interface GitHubWebhookDelivery {
   readonly body: string
 }
 
-export interface GitHubPullRequestWebhookChange {
-  readonly installationId: string
-  readonly repositoryId: string
-  readonly branch: string
-  readonly number: number
-  readonly state: "open" | "closed" | "merged"
-}
+export type GitHubPullRequestWebhookChange = Readonly<{
+  installationId: string
+  repositoryId: string
+  branch: string
+  number: number
+  title: string
+  body: string
+  state: "open" | "closed" | "merged"
+  draft: boolean
+  updatedAt: Date | null
+  mergedAt?: Date | null
+  baseBranch: string
+  defaultBranch: string | null
+  landed?: boolean
+}>
 
 export interface GitHubRepositoryMetadataChange {
   readonly installationId: string

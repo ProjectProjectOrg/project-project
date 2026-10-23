@@ -13,7 +13,8 @@ import {
   type TicketStatus,
   type User,
   UserId,
-  ProjectScope
+  ProjectScope,
+  ActivityActor
 } from "@pp/shared"
 import * as Config from "effect/Config"
 import * as ConfigProvider from "effect/ConfigProvider"
@@ -26,12 +27,11 @@ import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
 import { accessLayer, projectScope } from "../access/testing"
-import { Attachments, type AttachmentsShape } from "../attachments/Attachments"
-import { Comments, type CommentsShape } from "../comments/Comments"
 import {
-  parseCommentsRegion,
-  serializeCommentsRegion
-} from "../comments/comments-region"
+  recordingTicketActivity,
+  type RecordedActivity
+} from "../activity/testing"
+import { Attachments, type AttachmentsShape } from "../attachments/Attachments"
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
 import { GitHub, type GitHubShape } from "../github/GitHub"
 import { Groups, type GroupsShape } from "../groups/Groups"
@@ -39,8 +39,8 @@ import { LibraryDocs } from "../library/LibraryDocs"
 import { LibraryDocsLive } from "../library/LibraryDocsLive"
 import { LibraryLive } from "../library/LibraryLive"
 import * as KeyedLock from "../locks/KeyedLock"
-import { Markdown } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
+import { gitAutomationTestLayer } from "../projects/gitAutomationTesting"
 import { ProjectDocs } from "../projects/ProjectDocs"
 import { Projects, type ProjectsShape } from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
@@ -78,6 +78,8 @@ const FakeProjects = Layer.succeed(Projects, {
   cancelPendingMember: () => unexpected("Projects.cancelPendingMember"),
   unassignUserFromActiveTickets: () =>
     unexpected("Projects.unassignUserFromActiveTickets"),
+  unassignUserFromOrgTickets: () =>
+    unexpected("Projects.unassignUserFromOrgTickets"),
   connectGithub: () => unexpected("Projects.connectGithub"),
   disconnectGithub: () => unexpected("Projects.disconnectGithub")
 } satisfies ProjectsShape)
@@ -143,48 +145,6 @@ const FakeUsers = Layer.succeed(Users, {
   fullByIds: (ids) => Effect.succeed(ids.map(fakeUser))
 } satisfies UsersShape)
 
-const recordedCommentBodies: Array<string> = []
-
-const FakeComments = Layer.effect(
-  Comments,
-  Effect.gen(function* () {
-    const markdown = yield* Markdown
-    return {
-      list: () => unexpected("Comments.list"),
-      create: (ticketId, input) =>
-        Effect.gen(function* () {
-          const { orgSlug, slug } = yield* ProjectScope
-          recordedCommentBodies.push(input.body)
-          const file = yield* markdown.readTicketParts(orgSlug, slug, ticketId)
-          yield* markdown.writeTicketWithRegion(
-            orgSlug,
-            slug,
-            ticketId,
-            file.data,
-            file.description,
-            serializeCommentsRegion([
-              ...parseCommentsRegion(file.region),
-              {
-                id: `comment-${recordedCommentBodies.length}`,
-                author: { kind: "user", userId: "user-1" },
-                origin: "native",
-                createdAt: DateTime.toDate(
-                  DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")
-                ),
-                editedAt: null,
-                body: input.body
-              }
-            ])
-          )
-          return {} as never
-        }).pipe(Effect.orDie),
-      edit: () => unexpected("Comments.edit"),
-      importHistorical: () => unexpected("Comments.importHistorical"),
-      remove: () => unexpected("Comments.remove")
-    } satisfies CommentsShape
-  })
-)
-
 const ticketIndexProject = {
   orgSlug: "org",
   organizationId: "org-1",
@@ -212,6 +172,9 @@ const FakeTicketIndex = Layer.sync(TicketIndex, () => {
     findTicketIdsByTag: () => Effect.succeed([]),
     findTicketIdsByStatus: () => Effect.succeed([]),
     findTicketsByBranch: () => Effect.succeed([]),
+    findStackLayers: () => Effect.succeed([]),
+    stacksFor: () => Effect.succeed(new Map()),
+    findMergesAwaiting: () => Effect.succeed([]),
     isRepositoryBranchAttached: () => Effect.succeed(false),
     getBranchDeletedAt: () => Effect.succeed(null),
     upsertTicket: () => Effect.void,
@@ -273,13 +236,15 @@ const FakeDb = Layer.succeed(Db, {
   }
 } as never)
 
+const recordedActivity: Array<RecordedActivity> = []
+
 const TestLayer = Layer.unwrap(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const tmpRoot = yield* fs.makeTempDirectoryScoped({
       prefix: "projectproject-tk-"
     })
-    return TicketsLive.pipe(
+    return TicketsLive.pipe(Layer.provide(gitAutomationTestLayer())).pipe(
       Layer.provideMerge(LibraryLive),
       Layer.provideMerge(LibraryDocsLive),
       Layer.provide(
@@ -288,11 +253,14 @@ const TestLayer = Layer.unwrap(
         })
       ),
       Layer.provideMerge(TicketDocsLive),
+      Layer.provideMerge(recordingTicketActivity(recordedActivity)),
+      Layer.provideMerge(
+        Layer.succeed(ActivityActor, ActivityActor.user("user-1"))
+      ),
       Layer.provide(FakeAttachments),
       Layer.provide(FakeFigmaLinks),
       Layer.provide(FakeProjects),
       Layer.provide(FakeGroups),
-      Layer.provide(FakeComments),
       Layer.provide(FakeUsers),
       Layer.provide(FakeGitHub),
       Layer.provide(FakeTicketIndex),
@@ -390,37 +358,49 @@ it.effect("rejects an unknown status on quickCreate", () =>
   }).pipe(Effect.provide(TestLayer))
 )
 
-it.effect("archiving sets archivedAt and records the reason as a comment", () =>
+const archiveChanges = (ticketId: string) =>
+  recordedActivity.flatMap((entry) =>
+    entry.changes
+      .filter(
+        (scoped) =>
+          scoped.ticketId === ticketId && scoped.change.kind === "archived"
+      )
+      .map((scoped) => scoped.change)
+  )
+
+it.effect("archiving records the trimmed reason on the activity entry", () =>
   Effect.gen(function* () {
-    recordedCommentBodies.length = 0
+    recordedActivity.length = 0
     const tickets = yield* Tickets
     const created = yield* tickets.quickCreate({
       title: "archive me"
     })
     expect(created.archivedAt).toBeNull()
 
-    const archived = yield* tickets.archive(created.id, "no longer relevant")
+    const archived = yield* tickets.archive(created.id, "  no longer relevant ")
     expect(archived.archivedAt).not.toBeNull()
-    expect(recordedCommentBodies).toEqual(["no longer relevant"])
+    expect(archiveChanges(created.id)).toEqual([
+      { kind: "archived", reason: "no longer relevant" }
+    ])
 
     const docs = yield* TicketDocs
     const stored = yield* docs.read("org", "p", created.id)
-    expect(stored.commentsRegion).toContain("no longer relevant")
+    expect(stored.commentsRegion).not.toContain("no longer relevant")
 
     const unarchived = yield* tickets.unarchive(created.id)
     expect(unarchived.archivedAt).toBeNull()
   }).pipe(Effect.provide(TestLayer))
 )
 
-it.effect("archiving without a reason posts no comment", () =>
+it.effect("archiving with a blank reason records no reason", () =>
   Effect.gen(function* () {
-    recordedCommentBodies.length = 0
+    recordedActivity.length = 0
     const tickets = yield* Tickets
     const created = yield* tickets.quickCreate({
       title: "silent archive"
     })
     yield* tickets.archive(created.id, "   ")
-    expect(recordedCommentBodies).toEqual([])
+    expect(archiveChanges(created.id)).toEqual([{ kind: "archived" }])
   }).pipe(Effect.provide(TestLayer))
 )
 

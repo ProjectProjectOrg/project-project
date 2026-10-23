@@ -1,0 +1,205 @@
+import { TicketListQuery, type EstimationMode } from "@pp/shared"
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider
+} from "@tanstack/react-router"
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor
+} from "@testing-library/react"
+import * as Schema from "effect/Schema"
+import type { ComponentProps } from "react"
+import { afterEach, expect, it, vi } from "vitest"
+
+import { RetainedProjectViews } from "./RetainedProjectViews"
+import type { ProjectTicketLayout } from "./TicketList/ProjectTicketLayout"
+
+const project = vi.hoisted(() => ({
+  estimation: vi.fn<() => EstimationMode>(() => "points")
+}))
+
+vi.mock("@/routes/_authed/orgs/$orgSlug/projects/$slug/-context", () => ({
+  useProject: () => ({ estimation: project.estimation() })
+}))
+vi.mock("@/hooks/useViewPreference", () => ({
+  useProjectView: () => ({ view: "list" })
+}))
+vi.mock("./TicketList/BacklogView", () => ({ BacklogView: () => null }))
+vi.mock("./sprints/SprintDetail", () => ({ SprintDetail: () => null }))
+vi.mock("./TicketList/ProjectTicketLayout", () => ({
+  ProjectTicketLayout: ({
+    query,
+    onQueryChange
+  }: ComponentProps<typeof ProjectTicketLayout>) => (
+    <>
+      <button onClick={() => onQueryChange({ ...query, estimate: ["any"] })}>
+        Filter estimated tickets
+      </button>
+      <output data-testid="query">{JSON.stringify(query)}</output>
+    </>
+  )
+}))
+
+const decodeQuery = Schema.decodeSync(TicketListQuery)
+
+afterEach(cleanup)
+
+const openView = async (view: "backlog" | "sprint", search = "") => {
+  const root = createRootRoute()
+  const authed = createRoute({ getParentRoute: () => root, id: "_authed" })
+  const projectRoute = createRoute({
+    getParentRoute: () => authed,
+    path: "orgs/$orgSlug/projects/$slug",
+    component: () => <RetainedProjectViews orgSlug="org" slug="project" />
+  })
+  const header = createRoute({
+    getParentRoute: () => projectRoute,
+    id: "_projectHeader"
+  })
+  const backlog = createRoute({
+    getParentRoute: () => header,
+    path: "/",
+    validateSearch: decodeQuery
+  })
+  const sprint = createRoute({
+    getParentRoute: () => header,
+    path: "sprints/$groupId",
+    validateSearch: decodeQuery
+  })
+  const pathname = `/orgs/org/projects/project${view === "sprint" ? "/sprints/G-1" : "/"}`
+  const router = createRouter({
+    routeTree: root.addChildren([
+      authed.addChildren([
+        projectRoute.addChildren([header.addChildren([backlog, sprint])])
+      ])
+    ]),
+    history: createMemoryHistory({ initialEntries: [pathname + search] })
+  })
+  await router.load()
+  render(<RouterProvider router={router} />)
+  await screen.findByRole("button", { name: "Filter estimated tickets" })
+  return router
+}
+
+it.each(["backlog", "sprint"] as const)(
+  "retains estimate selections in the %s URL and rendered query",
+  async (view) => {
+    project.estimation.mockReturnValue("points")
+    const router = await openView(view, "?q=hello")
+    fireEvent.click(
+      screen.getByRole("button", { name: "Filter estimated tickets" })
+    )
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({
+        estimate: ["any"],
+        q: "hello"
+      })
+    )
+    expect(screen.getByTestId("query").textContent).toContain(
+      '"estimate":["any"]'
+    )
+  }
+)
+
+it.each([
+  ["off", "any"],
+  ["points", "M"],
+  ["time", "M"],
+  ["tshirt", "any"]
+] as const)(
+  "clears an incompatible %s-mode filter from an old URL",
+  async (mode, filter) => {
+    project.estimation.mockReturnValue(mode)
+    const router = await openView(
+      "backlog",
+      `?estimate=["${filter}"]&q=hello&updatedAfter=2026-01-01T00%3A00%3A00.000Z&cursor=old`
+    )
+    await waitFor(() =>
+      expect(router.state.location.search.estimate).toBeUndefined()
+    )
+    expect(router.state.location.search).toMatchObject({
+      q: "hello",
+      updatedAfter: "2026-01-01T00:00:00.000Z"
+    })
+    expect(router.state.location.search.cursor).toBeUndefined()
+    expect(screen.getByTestId("query").textContent).not.toContain('"estimate"')
+  }
+)
+
+it("preserves compatible selections when a mixed filter loses t-shirt sizes", async () => {
+  project.estimation.mockReturnValue("points")
+  const router = await openView("sprint", '?estimate=["none","M"]')
+  await waitFor(() =>
+    expect(router.state.location.search.estimate).toEqual(["none"])
+  )
+  expect(screen.getByTestId("query").textContent).toContain(
+    '"estimate":["none"]'
+  )
+})
+
+it.each([
+  ["points", "off", "any"],
+  ["tshirt", "points", "M"],
+  ["tshirt", "time", "M"]
+] as const)(
+  "removes incompatible filters when estimation changes from %s to %s",
+  async (from, to, filter) => {
+    project.estimation.mockReturnValue(from)
+    const router = await openView("sprint", `?estimate=["${filter}"]`)
+    project.estimation.mockReturnValue(to)
+    await act(async () => {
+      await router.invalidate()
+    })
+    await waitFor(() =>
+      expect(router.state.location.search.estimate).toBeUndefined()
+    )
+    expect(screen.getByTestId("query").textContent).not.toContain('"estimate"')
+  }
+)
+
+it("replaces estimate sorting in an old URL while estimation is off", async () => {
+  project.estimation.mockReturnValue("off")
+  const router = await openView(
+    "backlog",
+    '?sort={"key":"estimate","dir":"asc"}&q=hello&cursor=old'
+  )
+  await waitFor(() =>
+    expect(router.state.location.search.sort).toEqual({
+      key: "created",
+      dir: "desc"
+    })
+  )
+  expect(router.state.location.search.cursor).toBeUndefined()
+  expect(router.state.location.search.q).toBe("hello")
+  expect(screen.getByTestId("query").textContent).toContain(
+    '"sort":{"key":"created","dir":"desc"}'
+  )
+})
+
+it("resets estimate sorting when estimation is turned off", async () => {
+  project.estimation.mockReturnValue("points")
+  const router = await openView(
+    "sprint",
+    '?sort={"key":"estimate","dir":"asc"}'
+  )
+  project.estimation.mockReturnValue("off")
+  await act(async () => {
+    await router.invalidate()
+  })
+  await waitFor(() =>
+    expect(router.state.location.search.sort).toEqual({
+      key: "created",
+      dir: "desc"
+    })
+  )
+  expect(screen.getByTestId("query").textContent).toContain(
+    '"sort":{"key":"created","dir":"desc"}'
+  )
+})

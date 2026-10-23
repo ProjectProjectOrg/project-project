@@ -45,6 +45,7 @@ const ticket = {
   status: Schema.decodeSync(TicketStatus)("todo"),
   type: "chore",
   priority: "med",
+  estimate: null,
   tags: [name],
   branch: null,
   pr: null,

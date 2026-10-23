@@ -5,13 +5,13 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 
 export const BADGE_TONES = {
-  muted: "bg-muted text-muted-foreground hover:text-foreground",
+  muted: "bg-active text-muted-foreground hover:text-foreground",
   emerald: "bg-state-success/10 text-state-success hover:bg-state-success/15",
   red: "bg-state-danger/10 text-state-danger hover:bg-state-danger/15",
   amber: "bg-state-warning/10 text-state-warning hover:bg-state-warning/15",
   blue: "bg-state-info/10 text-state-info hover:bg-state-info/15",
   violet: "bg-state-merged/10 text-state-merged hover:bg-state-merged/15",
-  outline: "border border-border text-foreground hover:bg-accent"
+  outline: "border border-border text-foreground hover:bg-hover"
 } as const
 
 const badgeVariants = cva(

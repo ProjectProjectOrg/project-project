@@ -6,7 +6,7 @@ import { useState, type ReactNode } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
+import { ConfirmButton } from "@/components/ui/confirm-button"
 import { errorMessage, type AppError } from "@/lib/errorMessage"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
@@ -100,7 +100,7 @@ export function LibraryCard({
       data-library-card={entry.key}
       data-fresh={fresh ? "" : undefined}
       style={{ borderRadius: 16 }}
-      className="group/reveal relative flex list-none flex-col gap-1.5 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-accent/40 motion-safe:data-[fresh]:animate-[ticket-block-flash_900ms_ease-out]"
+      className="group/reveal relative flex list-none flex-col gap-1.5 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-hover motion-safe:data-[fresh]:animate-[ticket-block-flash_900ms_ease-out]"
     >
       <LibraryEntryLink
         scope={scope}
@@ -146,7 +146,7 @@ export function LibraryCard({
       {actions.length > 0 ? (
         <motion.div
           layout="position"
-          className="relative mt-auto flex min-h-7 items-center gap-0.5 pt-1 opacity-0 transition-opacity group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100 has-[[data-confirming]]:opacity-100"
+          className="relative mt-auto flex min-h-7 items-center gap-0.5 pt-1 opacity-0 transition-opacity group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 has-[[data-confirming]]:opacity-100"
         >
           {actions.map((action) =>
             action === "delete" ? (
@@ -183,47 +183,20 @@ function DeleteAction({
         {m.templates_settings_action_delete()}
       </ConfirmButton.Trigger>
       <ConfirmButton.Confirm className="absolute inset-x-0 top-1/2 z-10 -translate-y-1/2 gap-1 rounded-lg border border-border bg-popover py-1 pr-1 pl-2.5 shadow-sm">
-        <DeleteConfirmBody name={name} onConfirm={onConfirm} />
+        <span
+          data-confirming
+          className="flex min-w-0 flex-1 items-center gap-1"
+        >
+          <ConfirmButton.Action
+            size="xs"
+            prompt={m.templates_settings_delete_confirm({ name })}
+            label={m.templates_settings_action_delete()}
+            cancelLabel={m.templates_settings_cancel()}
+            onConfirm={onConfirm}
+          />
+        </span>
       </ConfirmButton.Confirm>
     </ConfirmButton.Root>
-  )
-}
-
-function DeleteConfirmBody({
-  name,
-  onConfirm
-}: Readonly<{ name: string; onConfirm: () => Promise<boolean> }>) {
-  const { close, busy, setBusy } = useConfirmButton()
-  return (
-    <span data-confirming className="flex min-w-0 flex-1 items-center gap-1">
-      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-        {m.templates_settings_delete_confirm({ name })}
-      </span>
-      <Button
-        type="button"
-        variant="destructive"
-        size="xs"
-        autoFocus
-        disabled={busy}
-        onClick={async () => {
-          setBusy(true)
-          const done = await onConfirm()
-          if (done) close()
-          else setBusy(false)
-        }}
-      >
-        {m.templates_settings_action_delete()}
-      </Button>
-      <Button
-        type="button"
-        variant="raised"
-        size="xs"
-        disabled={busy}
-        onClick={close}
-      >
-        {m.templates_settings_cancel()}
-      </Button>
-    </span>
   )
 }
 

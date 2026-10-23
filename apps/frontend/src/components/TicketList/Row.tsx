@@ -12,10 +12,12 @@ import {
   updateBacklogTicket,
   type BacklogRequest
 } from "@/features/tickets/atoms/backlog"
+import { useEstimationMode } from "@/hooks/useEstimationMode"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 
 import { AssigneeField } from "./AssigneeField"
+import { EstimateChip } from "./EstimateField"
 import { PriorityButton } from "./PriorityField"
 import { SprintField } from "./SprintField"
 import { StatusButton } from "./StatusField"
@@ -95,6 +97,7 @@ function RowView({
   const idPrefix = dashIdx >= 0 ? ticket.id.slice(0, dashIdx) : ticket.id
   const idTail = dashIdx >= 0 ? ticket.id.slice(dashIdx + 1) : ""
   const rowElement = useRef<HTMLDivElement>(null)
+  const estimation = useEstimationMode()
   const [previewMounted, setPreviewMounted] = useState(false)
   const handleTitlePointerEnter = () => {
     onPreviewPointerEnter(ticket.id)
@@ -115,9 +118,9 @@ function RowView({
           <div
             ref={rowElement}
             className={cn(
-              "col-span-full grid grid-cols-subgrid items-center gap-3 px-3 py-2.5 text-left outline-none [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20",
+              "col-span-full grid grid-cols-subgrid items-center gap-x-1.5 px-3 py-2.5 text-left outline-none [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20",
               variant === "standalone" &&
-                "relative isolate rounded-lg transition-colors hover:bg-muted/60"
+                "relative isolate rounded-lg transition-colors hover:bg-hover has-[[data-popup-open]]:bg-hover"
             )}
           >
             <Link
@@ -125,7 +128,7 @@ function RowView({
               params={{ orgSlug, slug, id: ticket.id }}
               preload="intent"
               data-row-link
-              className="col-start-4 row-start-1 flex min-w-0 items-center self-stretch outline-none after:absolute after:inset-0 after:z-10 after:rounded-lg after:content-[''] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
+              className="col-start-4 row-start-1 flex min-w-0 items-center self-stretch pl-1.5 outline-none after:absolute after:inset-0 after:z-10 after:rounded-lg after:content-[''] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
             >
               <PopoverTrigger
                 openOnHover
@@ -186,6 +189,7 @@ function RowView({
               </span>
               <div className="flex shrink-0 items-center justify-end gap-2">
                 <TicketGitChip orgSlug={orgSlug} slug={slug} ticket={ticket} />
+                <EstimateChip ticket={ticket} mode={estimation} />
                 {showSprintCol && (
                   <SprintField
                     variant="responsive"

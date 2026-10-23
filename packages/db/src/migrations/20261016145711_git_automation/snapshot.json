@@ -1,0 +1,253 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "7fb4032b-211a-4736-a6eb-79b8e263470b",
+  "prevIds": [
+    "a3f9adeb-2372-4d56-a411-cd9eb276d7e8",
+    "165e91de-549d-42a3-82ea-8114169827c7"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "project_git_automation"
+      ],
+      "writes": [
+        "s|tbl|public.project_git_automation",
+        "n|tbl|public.project_git_automation",
+        "e|tbl|public.project_git_automation",
+        "n|rel|public.project_git_automation",
+        "n|type|public.project_git_automation",
+        "n|rel|public.project_git_automation_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "project_index",
+        "git_automation_forward_only"
+      ],
+      "writes": [
+        "s|col|public.project_index.git_automation_forward_only",
+        "n|col|public.project_index.git_automation_forward_only",
+        "e|col|public.project_index.git_automation_forward_only"
+      ],
+      "reads": [
+        "n|tbl|public.project_index",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ticket_index",
+        "pr_draft"
+      ],
+      "writes": [
+        "s|col|public.ticket_index.pr_draft",
+        "n|col|public.ticket_index.pr_draft",
+        "e|col|public.ticket_index.pr_draft"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_index",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ticket_index",
+        "pr_updated_at"
+      ],
+      "writes": [
+        "s|col|public.ticket_index.pr_updated_at",
+        "n|col|public.ticket_index.pr_updated_at",
+        "e|col|public.ticket_index.pr_updated_at"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_index",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "project_git_automation"
+      ],
+      "writes": [
+        "s|fk|public.project_git_automation.project_git_automation_status_fkey",
+        "n|fk|public.project_git_automation.project_git_automation_status_fkey",
+        "e|fk|public.project_git_automation.project_git_automation_status_fkey",
+        "n|con|public.project_git_automation.project_git_automation_status_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.project_git_automation",
+        "n|sch|public",
+        "n|tbl|public.project_status",
+        "n|sch|public",
+        "n|col|public.project_git_automation.project_id",
+        "n|col|public.project_git_automation.status_slug",
+        "n|col|public.project_status.project_id",
+        "n|col|public.project_status.slug",
+        "e|uniqueness|public.project_status.project_id.slug"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "project_git_automation",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_git_automation",
+        "name": "project_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_git_automation",
+        "name": "event",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_git_automation",
+        "name": "status_slug",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_index",
+        "name": "git_automation_forward_only",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "true",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_index",
+        "name": "pr_draft",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_index",
+        "name": "pr_updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_git_automation",
+        "name": "project_git_automation_status_fkey",
+        "nameExplicit": true,
+        "columns": [
+          "project_id",
+          "status_slug"
+        ],
+        "schemaTo": "public",
+        "tableTo": "project_status",
+        "columnsTo": [
+          "project_id",
+          "slug"
+        ],
+        "onUpdate": "CASCADE",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_git_automation",
+        "name": "project_git_automation_pkey",
+        "columns": [
+          "project_id",
+          "event"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    }
+  ]
+}

@@ -2,10 +2,15 @@ import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
 import * as BunPath from "@effect/platform-bun/BunPath"
 import { DbLive, PgLive } from "@pp/db"
+import { SlackServicesLive } from "@pp/integration-slack/Services"
 import { AccessLive } from "@pp/server-core/access/AccessLive"
+import { TicketActivityFeedLive } from "@pp/server-core/activity/TicketActivityFeed"
+import { TicketActivityLive } from "@pp/server-core/activity/TicketActivityLive"
 import { AttachmentsLive } from "@pp/server-core/attachments/AttachmentsLive"
 import { AttachmentUploadsLive } from "@pp/server-core/attachments/AttachmentUploadsLive"
 import { CommentsLive } from "@pp/server-core/comments/CommentsLive"
+import { OrgEmail } from "@pp/server-core/email/OrgEmail"
+import { Smtp } from "@pp/server-core/email/Smtp"
 import { EverhourIntegrationsLive } from "@pp/server-core/everhour/EverhourIntegrationsLive"
 import { EverhourLive } from "@pp/server-core/everhour/EverhourLive"
 import { EverhourTimeTrackingLive } from "@pp/server-core/everhour/EverhourTimeTrackingLive"
@@ -43,6 +48,7 @@ import { OAuthApplicationsLive } from "@pp/server-core/oauth/OAuthApplicationsLi
 import { OrgLive } from "@pp/server-core/organizations/OrgLive"
 import { BannerPlaceholdersLive } from "@pp/server-core/projects/BannerPlaceholdersLive"
 import { ProjectDocsLive } from "@pp/server-core/projects/ProjectDocsLive"
+import { ProjectGitAutomationLive } from "@pp/server-core/projects/ProjectGitAutomationLive"
 import { ProjectsLive } from "@pp/server-core/projects/ProjectsLive"
 import { ProjectStatusesLive } from "@pp/server-core/projects/ProjectStatusesLive"
 import { OrgStorageLive } from "@pp/server-core/storage/OrgStorageLive"
@@ -62,6 +68,13 @@ import { JiraWorkflowsLive } from "./jira/WorkflowRuntime"
 import { OrgAccessLive, ProjectAccessLive } from "./Layers/Access"
 import { AuthenticationLive } from "./Layers/Auth"
 import { BetterAuthLive } from "./Layers/BetterAuth"
+import { SlackHostLive } from "./slack/HostLive"
+
+const SlackLive = SlackServicesLive.pipe(
+  Layer.provideMerge(SlackHostLive),
+  Layer.provideMerge(AccessLive),
+  Layer.provideMerge(UsersLive)
+)
 
 const makeJiraServicesLive = <TE, TR, EE, ER, CE, CR>(
   transport: Layer.Layer<JiraTransport, TE, TR>,
@@ -105,9 +118,9 @@ export const BackendInfrastructureLive = Layer.mergeAll(
   DbLive.pipe(Layer.provideMerge(PgLive)),
   FetchHttpClient.layer,
   Layer.succeed(FetchHttpClient.Fetch, globalThis.fetch),
-  BunCrypto.layer,
   BunFileSystem.layer,
-  BunPath.layer
+  BunPath.layer,
+  BunCrypto.layer
 )
 
 export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
@@ -118,6 +131,8 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
   TagsLive.pipe(
     Layer.provideMerge(ProjectStatusesLive),
     Layer.provideMerge(TicketsLive),
+    Layer.provideMerge(ProjectGitAutomationLive),
+    Layer.provideMerge(TicketActivityFeedLive),
     Layer.provideMerge(LibraryLive),
     Layer.provideMerge(AttachmentUploadsLive),
     Layer.provideMerge(AttachmentsLive),
@@ -144,11 +159,13 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(BannerPlaceholdersLive),
       Layer.provideMerge(UsersLive),
       Layer.provideMerge(TicketIndexLive),
+      Layer.provideMerge(SlackLive),
       Layer.provideMerge(JiraDurableServicesLive),
       Layer.provideMerge(JiraWorkflowsLive),
       Layer.provideMerge(ProjectDocsLive),
       Layer.provideMerge(TicketDocsLive),
       Layer.provideMerge(GroupDocsLive),
+      Layer.provideMerge(TicketActivityLive),
       Layer.provideMerge(LibraryDocsLive),
       Layer.provideMerge(MarkdownLive),
       Layer.provideMerge(OAuthApplicationsLive),
@@ -159,6 +176,12 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
     )
     .pipe(
       Layer.provideMerge(S3StorageLive),
+      Layer.provideMerge(
+        OrgEmail.layer.pipe(
+          Layer.provide(Smtp.layer),
+          Layer.provide(SecretCryptoLive)
+        )
+      ),
       Layer.provideMerge(
         OrgStorageLive.pipe(
           Layer.provideMerge(S3StorageLive),
@@ -194,7 +217,5 @@ export const BackendRuntimeLive = BackendServicesLive.pipe(
   Layer.provide(BackendInfrastructureLive)
 )
 
-export {
-  JiraWorkflowEngineLive,
-  JiraWorkflowsLive
-} from "./jira/WorkflowRuntime"
+export { JiraWorkflowsLive } from "./jira/WorkflowRuntime"
+export { WorkflowEngineLive } from "./workflows/Runtime"

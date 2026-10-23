@@ -1,5 +1,10 @@
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createHmac, timingSafeEqual } from "node:crypto"
+
+import { Db } from "@pp/db"
+import { publishedProject } from "@pp/db/projectVisibility"
+import { projectIndex } from "@pp/db/schema"
+import { SlackRuntimeLive } from "@pp/integration-slack/Runtime"
 // apps/backend/src/main.ts
 //
 // Backend entry point. This file's only job is to wire up the HttpApi from
@@ -57,10 +62,7 @@ import { createHmac, timingSafeEqual } from "node:crypto"
 //   long-lived resources; launch keeps the server alive for the lifetime of
 //   the process. `BunRuntime.runMain` adds Bun-specific signal handling and
 //   exit-code mapping.
-
-import { Db } from "@pp/db"
-import { publishedProject } from "@pp/db/projectVisibility"
-import { projectIndex } from "@pp/db/schema"
+import { TicketActivityRecoveryLive } from "@pp/server-core/activity/TicketActivityLive"
 import { AttachmentReaperLive } from "@pp/server-core/attachments/AttachmentReaperLive"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { EverhourWebhooks } from "@pp/server-core/everhour/EverhourWebhooks"
@@ -82,11 +84,13 @@ import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 
 import { isClosedAuthPath } from "./auth/orgAccess"
+import { TicketActivityHandlerLive } from "./handlers/activity"
 import { AttachmentsHandlerLive } from "./handlers/attachments"
 import { AuthHandlerLive } from "./handlers/auth"
 import { CommentsHandlerLive } from "./handlers/comments"
 import { EverhourHandlerLive } from "./handlers/everhour"
 import { FigmaHandlerLive } from "./handlers/figma"
+import { GitAutomationHandlerLive } from "./handlers/gitAutomation"
 import { GroupsHandlerLive } from "./handlers/groups"
 import { InvitationsHandlerLive } from "./handlers/invitations"
 import { LibraryHandlerLive } from "./handlers/library"
@@ -95,6 +99,7 @@ import {
   PublicOAuthHandlerLive
 } from "./handlers/oauthApplications"
 import { OrgHandlerLive } from "./handlers/org"
+import { OrgEmailHandlerLive } from "./handlers/orgEmail"
 import { ProjectsHandlerLive } from "./handlers/projects"
 import { StatusesHandlerLive } from "./handlers/statuses"
 import { StorageHandlerLive } from "./handlers/storage"
@@ -109,6 +114,8 @@ import { JiraMigrationsHandlerLive } from "./jira/MigrationHandlers"
 import { jiraOauthRoutes } from "./jira/OAuthRoutes"
 import { McpLive } from "./Layers/Mcp"
 import { BackendHttpServicesLive, BackendInfrastructureLive } from "./runtime"
+import { SlackHandlerLive } from "./slack/Handlers"
+import { slackOAuthRoutes } from "./slack/OAuthRoutes"
 
 // Exported so tests can compose them without booting a real Bun server.
 export const HealthHandlerLive = HttpApiBuilder.group(
@@ -157,18 +164,18 @@ export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(InvitationsHandlerLive),
   Layer.provide(ProjectsHandlerLive),
   Layer.provide(EverhourHandlerLive),
-  Layer.provide(FigmaHandlerLive),
+  Layer.provide(Layer.mergeAll(FigmaHandlerLive, SlackHandlerLive)),
   Layer.provide(JiraHandlerLive),
   Layer.provide(JiraMigrationsHandlerLive),
   Layer.provide(TicketsHandlerLive),
-  Layer.provide(CommentsHandlerLive),
+  Layer.provide(Layer.mergeAll(CommentsHandlerLive, TicketActivityHandlerLive)),
   Layer.provide(TagsHandlerLive),
-  Layer.provide(StatusesHandlerLive),
+  Layer.provide(Layer.mergeAll(StatusesHandlerLive, GitAutomationHandlerLive)),
   Layer.provide(GroupsHandlerLive),
   Layer.provide(LibraryHandlerLive),
   Layer.provide(OAuthApplicationsHandlerLive),
   Layer.provide(PublicOAuthHandlerLive),
-  Layer.provide(StorageHandlerLive),
+  Layer.provide(Layer.mergeAll(StorageHandlerLive, OrgEmailHandlerLive)),
   Layer.provide(AttachmentsHandlerLive)
 )
 
@@ -426,6 +433,7 @@ export const RouteLive = Layer.mergeAll(
   githubIntegrationRoutes,
   everhourIntegrationRoutes,
   figmaOauthRoutes,
+  slackOAuthRoutes,
   jiraOauthRoutes,
   HttpRouter.add(
     "GET",
@@ -443,6 +451,8 @@ export const RouteLive = Layer.mergeAll(
 )
 
 const ServerLive = HttpRouter.serve(RouteLive).pipe(
+  Layer.provide(TicketActivityRecoveryLive),
+  Layer.provide(SlackRuntimeLive),
   Layer.provide(GitHubWebhooksLive),
   Layer.provide(EverhourWebhooksLive),
   Layer.provide(BackendHttpServicesLive),

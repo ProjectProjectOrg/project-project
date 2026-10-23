@@ -4,18 +4,28 @@ import {
   GroupKind,
   NotFound,
   TicketId,
+  type ActivityActor,
   type GroupDetail
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
+import { groupMembershipChanges } from "../activity/changes"
+import { sprintEvents } from "../activity/projectEvents"
+import { TicketActivity } from "../activity/TicketActivity"
+import { markdownFileContent } from "../markdown/fileContent"
 import {
   Markdown,
   type GroupIdTaken,
   type MarkdownError
 } from "../markdown/Markdown"
-import { GroupDocs, type GroupDocsShape, type GroupDocument } from "./GroupDocs"
+import {
+  GroupDocs,
+  type GroupActivityOptions,
+  type GroupDocsShape,
+  type GroupDocument
+} from "./GroupDocs"
 
 const GroupFrontmatter = Schema.Struct({
   ...Group.fields,
@@ -47,13 +57,13 @@ function toDocument(
   return { ...group, body }
 }
 
-function withGroupDocTelemetry<A, E>(
+function withGroupDocTelemetry<A, E, R>(
   operation: string,
   orgSlug: string,
   slug: string,
   attributes: Record<string, unknown>,
-  effect: Effect.Effect<A, E>
-): Effect.Effect<A, E> {
+  effect: Effect.Effect<A, E, R>
+): Effect.Effect<A, E, R> {
   const annotations = {
     module: "GroupDocs",
     operation,
@@ -71,6 +81,7 @@ export const GroupDocsLive = Layer.effect(
   GroupDocs,
   Effect.gen(function* () {
     const markdown = yield* Markdown
+    const ticketActivity = yield* TicketActivity
 
     const listIds = (
       orgSlug: string,
@@ -107,22 +118,61 @@ export const GroupDocsLive = Layer.effect(
         })
       )
 
+    const previous = (orgSlug: string, slug: string, id: string) =>
+      read(orgSlug, slug, id).pipe(
+        Effect.catchTag("NotFound", () => Effect.succeed(null))
+      )
+
+    const recordMembership = <A, E>(
+      orgSlug: string,
+      slug: string,
+      id: string,
+      before: GroupDocument | null,
+      after: GroupDocument | null,
+      activity: GroupActivityOptions,
+      effect: Effect.Effect<A, E>
+    ): Effect.Effect<A, E, ActivityActor> =>
+      ticketActivity.record(
+        orgSlug,
+        slug,
+        {
+          kind: "group",
+          id,
+          content:
+            after === null
+              ? null
+              : markdownFileContent(encodeFrontmatter(after), after.body)
+        },
+        groupMembershipChanges(before, after),
+        activity.cause ?? null,
+        effect,
+        sprintEvents(before, after)
+      )
+
     const create = (
       orgSlug: string,
       slug: string,
       document: GroupDocument
-    ): Effect.Effect<void, MarkdownError | GroupIdTaken> =>
+    ): Effect.Effect<void, MarkdownError | GroupIdTaken, ActivityActor> =>
       withGroupDocTelemetry(
         "create",
         orgSlug,
         slug,
         { groupId: document.id },
-        markdown.createGroupFile(
+        recordMembership(
           orgSlug,
           slug,
           document.id,
-          encodeFrontmatter(document),
-          document.body
+          null,
+          document,
+          {},
+          markdown.createGroupFile(
+            orgSlug,
+            slug,
+            document.id,
+            encodeFrontmatter(document),
+            document.body
+          )
         )
       )
 
@@ -130,53 +180,89 @@ export const GroupDocsLive = Layer.effect(
       orgSlug: string,
       slug: string,
       id: string,
-      document: GroupDocument
-    ): Effect.Effect<void, MarkdownError> =>
+      document: GroupDocument,
+      activity: GroupActivityOptions = {}
+    ): Effect.Effect<void, MarkdownError, ActivityActor> =>
       withGroupDocTelemetry(
         "write",
         orgSlug,
         slug,
         { groupId: id },
-        markdown.writeGroupFile(
-          orgSlug,
-          slug,
-          id,
-          encodeFrontmatter(document),
-          document.body
-        )
+        Effect.gen(function* () {
+          const before = yield* previous(orgSlug, slug, id)
+          yield* recordMembership(
+            orgSlug,
+            slug,
+            id,
+            before,
+            document,
+            activity,
+            markdown.writeGroupFile(
+              orgSlug,
+              slug,
+              id,
+              encodeFrontmatter(document),
+              document.body
+            )
+          )
+        })
       )
 
     const writeIfExists = (
       orgSlug: string,
       slug: string,
       id: string,
-      document: GroupDocument
-    ): Effect.Effect<void, NotFound | MarkdownError> =>
+      document: GroupDocument,
+      activity: GroupActivityOptions = {}
+    ): Effect.Effect<void, NotFound | MarkdownError, ActivityActor> =>
       withGroupDocTelemetry(
         "writeIfExists",
         orgSlug,
         slug,
         { groupId: id },
-        markdown.writeGroupFileIfExists(
-          orgSlug,
-          slug,
-          id,
-          encodeFrontmatter(document),
-          document.body
-        )
+        Effect.gen(function* () {
+          const before = yield* previous(orgSlug, slug, id)
+          if (before === null) return yield* new NotFound()
+          return yield* recordMembership(
+            orgSlug,
+            slug,
+            id,
+            before,
+            document,
+            activity,
+            markdown.writeGroupFileIfExists(
+              orgSlug,
+              slug,
+              id,
+              encodeFrontmatter(document),
+              document.body
+            )
+          )
+        })
       )
 
     const remove = (
       orgSlug: string,
       slug: string,
       id: string
-    ): Effect.Effect<void, NotFound | MarkdownError> =>
+    ): Effect.Effect<void, NotFound | MarkdownError, ActivityActor> =>
       withGroupDocTelemetry(
         "remove",
         orgSlug,
         slug,
         { groupId: id },
-        markdown.removeGroupFile(orgSlug, slug, id)
+        Effect.gen(function* () {
+          const before = yield* previous(orgSlug, slug, id)
+          yield* recordMembership(
+            orgSlug,
+            slug,
+            id,
+            before,
+            null,
+            { cause: "group_deleted" },
+            markdown.removeGroupFile(orgSlug, slug, id)
+          )
+        })
       )
 
     const readRaw = (

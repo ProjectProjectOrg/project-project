@@ -9,7 +9,7 @@ import {
   TagName,
   TAG_DEFAULT_PALETTE
 } from "@pp/shared"
-import { ProjectScope } from "@pp/shared"
+import { ProjectScope, type ActivityActor } from "@pp/shared"
 import { and, eq } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -43,7 +43,7 @@ export const TagsLive = Layer.effect(
       slug: string,
       oldName: string,
       newName: string | null
-    ): Effect.Effect<void, MarkdownError> =>
+    ): Effect.Effect<void, MarkdownError, ActivityActor> =>
       Effect.gen(function* () {
         const project = yield* ticketIndex
           .projectFor(orgSlug, slug)

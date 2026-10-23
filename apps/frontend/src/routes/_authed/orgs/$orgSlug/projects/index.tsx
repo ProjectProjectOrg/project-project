@@ -13,6 +13,11 @@ import { PageContainer, PageHeader } from "@/components/page"
 import { ProjectBanner } from "@/components/ProjectBanner"
 import { ProjectTile } from "@/components/ProjectTile"
 import { Button } from "@/components/ui/button"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput
+} from "@/components/ui/input-group"
 import { Kbd } from "@/components/ui/kbd"
 import {
   createProject,
@@ -102,28 +107,29 @@ function Projects() {
   })
 
   return (
-    <PageContainer>
-      <PageHeader>
-        <h1>{m.projects_page_title()}</h1>
-        <p>
-          {canCreate
-            ? m.projects_page_subtitle()
-            : m.projects_page_subtitle_invited()}
-        </p>
-      </PageHeader>
-
-      {canMigrate && (
-        <div className="flex justify-end">
+    <PageContainer className="gap-3">
+      <div className="flex items-end justify-between gap-4">
+        <PageHeader>
+          <h1>{m.projects_page_title()}</h1>
+          <p>
+            {canCreate
+              ? m.projects_page_subtitle()
+              : m.projects_page_subtitle_invited()}
+          </p>
+        </PageHeader>
+        {canMigrate && (
           <Button
             variant="tertiary"
+            size="sm"
+            className="shrink-0"
             render={
               <Link to="/orgs/$orgSlug/migrations/jira" params={{ orgSlug }} />
             }
           >
             {m.jira_migration_projects_entry()}
           </Button>
-        </div>
-      )}
+        )}
+      </div>
 
       {content}
     </PageContainer>
@@ -225,76 +231,53 @@ function CreateRow({
       <button type="submit" className="sr-only" tabIndex={-1} aria-hidden>
         {m.projects_create_name_aria_label()}
       </button>
-      <div
-        className={cn(
-          "relative rounded-xl border border-border bg-background transition-[color,box-shadow]",
-          "ring-offset-background focus-within:ring-2 focus-within:ring-ring"
-        )}
-        onMouseDown={(e) => {
-          const target = e.target as HTMLElement
-          if (
-            target.closest(
-              "button, [role='button'], a, input, textarea, select, [contenteditable='true']"
-            )
-          )
-            return
-          const input = inputRef.current
-          if (!input || input === document.activeElement) return
-          e.preventDefault()
-          input.focus()
-        }}
-      >
-        <div className="flex w-full cursor-text items-center px-3 py-1.5">
-          <div className="mr-2 grid size-6 shrink-0 place-items-center text-muted-foreground">
-            <Plus className="size-4" strokeWidth={1.75} />
-          </div>
-          <input
-            ref={inputRef}
-            value={name}
-            onChange={(e) => handleNameChange(e.target.value)}
-            onFocus={() => trackFocus(true)}
-            onBlur={() => trackFocus(false)}
-            placeholder={m.projects_create_name_placeholder()}
-            aria-label={m.projects_create_name_aria_label()}
-            readOnly={submitting}
-            aria-disabled={submitting}
-            maxLength={120}
-            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground read-only:cursor-wait"
-          />
-          <AnimatePresence initial={false}>
-            {trimmed && (
-              <motion.div
-                key="key-cluster"
-                initial={reduceMotion ? false : { opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={reduceMotion ? undefined : { opacity: 0 }}
-                transition={transitions.fade}
-                className="flex shrink-0 items-center"
-              >
-                <div className="mx-3 h-5 w-px bg-border" />
-                <input
-                  value={effectiveKey}
-                  onChange={(e) => handleKeyChange(e.target.value)}
-                  onFocus={() => trackFocus(true)}
-                  onBlur={() => trackFocus(false)}
-                  placeholder={m.projects_create_key_placeholder()}
-                  aria-label={m.projects_create_key_aria_label()}
-                  readOnly={submitting}
-                  aria-disabled={submitting}
-                  maxLength={10}
-                  style={{ width: "calc(4ch + 0.5rem)" }}
-                  className="shrink-0 bg-transparent pr-2 font-mono text-sm text-foreground uppercase tabular-nums outline-none placeholder:text-muted-foreground read-only:cursor-wait"
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-          {!focused && !trimmed && !error && (
-            <span className="ml-2 shrink-0">
-              <Kbd>c</Kbd>
-            </span>
+      <InputGroup>
+        <InputGroupAddon>
+          <Plus className="size-4" strokeWidth={1.75} />
+        </InputGroupAddon>
+        <InputGroupInput
+          ref={inputRef}
+          value={name}
+          onChange={(e) => handleNameChange(e.target.value)}
+          onFocus={() => trackFocus(true)}
+          onBlur={() => trackFocus(false)}
+          placeholder={m.projects_create_name_placeholder()}
+          aria-label={m.projects_create_name_aria_label()}
+          aria-keyshortcuts="c"
+          readOnly={submitting}
+          aria-disabled={submitting}
+          maxLength={120}
+          className="read-only:cursor-wait"
+        />
+        <AnimatePresence initial={false}>
+          {trimmed && (
+            <motion.div
+              key="key-cluster"
+              initial={reduceMotion ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={reduceMotion ? undefined : { opacity: 0 }}
+              transition={transitions.fade}
+              className="flex shrink-0 items-center"
+            >
+              <div className="mx-1 h-5 w-px bg-border" />
+              <input
+                value={effectiveKey}
+                onChange={(e) => handleKeyChange(e.target.value)}
+                onFocus={() => trackFocus(true)}
+                onBlur={() => trackFocus(false)}
+                placeholder={m.projects_create_key_placeholder()}
+                aria-label={m.projects_create_key_aria_label()}
+                readOnly={submitting}
+                aria-disabled={submitting}
+                maxLength={10}
+                style={{ width: "calc(4ch + 0.5rem)" }}
+                className="shrink-0 bg-transparent pr-2 font-mono text-sm text-foreground uppercase tabular-nums outline-none placeholder:text-muted-foreground read-only:cursor-wait"
+              />
+            </motion.div>
           )}
-        </div>
-      </div>
+        </AnimatePresence>
+        {!focused && !trimmed && !error && <Kbd aria-hidden>c</Kbd>}
+      </InputGroup>
       <AnimatePresence initial={false}>
         {trimmed && (
           <motion.div
@@ -362,8 +345,8 @@ function ProjectRow({
       to="/orgs/$orgSlug/projects/$slug"
       params={{ orgSlug, slug: project.slug }}
       className={cn(
-        "group relative isolate flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-background px-4 py-3 transition-colors",
-        "hover:border-border/80 hover:bg-accent/40"
+        "group relative isolate flex items-center gap-3 overflow-hidden rounded-lg border border-border bg-card px-3 py-2.5 transition-colors",
+        "hover:bg-hover"
       )}
     >
       <ProjectBanner
@@ -403,7 +386,7 @@ function ListSkeleton() {
       {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className="skeleton h-[60px] rounded-xl border border-border bg-background"
+          className="skeleton h-[60px] rounded-lg border border-border bg-card"
         />
       ))}
     </div>
@@ -412,7 +395,7 @@ function ListSkeleton() {
 
 function ListMessage({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+    <div className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
       {children}
     </div>
   )
@@ -420,7 +403,7 @@ function ListMessage({ children }: { children: React.ReactNode }) {
 
 function EmptyProjects({ canCreate }: Readonly<{ canCreate: boolean }>) {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-background/50 px-4 py-10 text-center">
+    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border px-4 py-10 text-center">
       <div className="grid size-10 place-items-center rounded-lg bg-muted text-muted-foreground">
         <FolderKanban className="size-5" strokeWidth={1.75} />
       </div>

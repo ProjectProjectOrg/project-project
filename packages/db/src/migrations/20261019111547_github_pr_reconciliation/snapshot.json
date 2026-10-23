@@ -1,0 +1,219 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "ebe89249-4e55-47f1-8ee8-548a4e156bed",
+  "prevIds": [
+    "0e82523e-b863-43d4-9479-c392fde968ba"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "github_pull_request_reconciliation"
+      ],
+      "writes": [
+        "s|tbl|public.github_pull_request_reconciliation",
+        "n|tbl|public.github_pull_request_reconciliation",
+        "e|tbl|public.github_pull_request_reconciliation",
+        "n|rel|public.github_pull_request_reconciliation",
+        "n|type|public.github_pull_request_reconciliation",
+        "n|rel|public.github_pull_request_reconciliation_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "github_pull_request_reconciliation",
+        "github_pr_reconciliation_branch_idx"
+      ],
+      "writes": [
+        "s|idx|public.github_pr_reconciliation_branch_idx",
+        "n|idx|public.github_pr_reconciliation_branch_idx",
+        "e|idx|public.github_pr_reconciliation_branch_idx",
+        "n|rel|public.github_pr_reconciliation_branch_idx"
+      ],
+      "reads": [
+        "n|tbl|public.github_pull_request_reconciliation",
+        "n|sch|public",
+        "n|col|public.github_pull_request_reconciliation.repository_id",
+        "n|col|public.github_pull_request_reconciliation.branch"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "github_pull_request_reconciliation",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "github_pull_request_reconciliation",
+        "name": "repository_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "github_pull_request_reconciliation",
+        "name": "number",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "github_pull_request_reconciliation",
+        "name": "branch",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "github_pull_request_reconciliation",
+        "name": "base",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "github_pull_request_reconciliation",
+        "name": "state",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "github_pull_request_reconciliation",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "github_pull_request_reconciliation",
+        "name": "merged_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "github_pull_request_reconciliation",
+        "name": "github_pr_reconciliation_branch_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "repository_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "branch",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "github_pull_request_reconciliation",
+        "name": "github_pull_request_reconciliation_pkey",
+        "columns": [
+          "repository_id",
+          "number"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    }
+  ]
+}

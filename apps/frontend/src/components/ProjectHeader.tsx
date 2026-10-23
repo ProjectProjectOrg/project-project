@@ -341,7 +341,7 @@ function NameField({
         disabled={!canEdit}
         className={cn(
           "-mx-1 truncate rounded px-1 text-left text-2xl font-semibold tracking-tight transition-colors transition-transform duration-100 active:scale-[0.97]",
-          canEdit && "hover:bg-accent/40"
+          canEdit && "hover:bg-hover"
         )}
       >
         {name}
@@ -381,7 +381,7 @@ function ProjectMenu({ orgSlug, slug }: { orgSlug: string; slug: string }) {
           <button
             type="button"
             aria-label={m.project_detail_actions_aria_label()}
-            className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+            className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
           >
             <MoreHorizontal className="size-4" strokeWidth={1.75} />
           </button>

@@ -1,8 +1,11 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { type FormEvent, useState } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
+import { IntegrationLogo } from "@/components/settings/IntegrationLogo"
+import { SettingsRow } from "@/components/settings/SettingsSection"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -11,11 +14,13 @@ import {
   figmaProjectRequest,
   figmaProjectStatusAtom
 } from "@/features/figma/atoms/figma"
+import { useOrgActor } from "@/lib/access"
 import {
   type AppError,
   errorMessage,
   figmaStatusErrorMessage
 } from "@/lib/errorMessage"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { FigmaTokenWalkthrough } from "./FigmaTokenWalkthrough"
@@ -34,7 +39,13 @@ export function FigmaProjectSettings({
 
   return Result.matchWithError(status, {
     onInitial: () => (
-      <div className="h-16 animate-pulse rounded-lg border border-border bg-background" />
+      <SettingsRow
+        icon={<IntegrationLogo kind="figma" />}
+        label={m.figma_project_title()}
+        description={
+          <span className="block h-3 w-40 animate-pulse rounded bg-muted" />
+        }
+      />
     ),
     onError: (error) => <ErrorPage error={error} contained />,
     onDefect: (defect) => <ErrorPage error={defect} contained />,
@@ -69,6 +80,7 @@ function FigmaProjectContent({
   canManage: boolean
 }) {
   const req = figmaProjectRequest(orgSlug, slug)
+  const canSetUpStorage = useOrgActor(orgSlug).call("storage", "connect")
   const [accessToken, setAccessToken] = useState("")
   const connect = useAtomSet(connectFigmaProjectAtom(req), {
     mode: "promise"
@@ -106,64 +118,77 @@ function FigmaProjectContent({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-background px-4 py-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className={busy ? "min-w-0 animate-pulse" : "min-w-0"}>
-          <div className="flex items-center gap-1.5">
-            <p className="text-sm font-medium">{m.figma_project_title()}</p>
-            {canManage && !status.connected ? <FigmaTokenWalkthrough /> : null}
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {status.storageConnected
-              ? m.figma_project_description()
-              : m.figma_project_storage_required()}
-          </p>
-          {status.handle ? (
-            <p className="mt-2 font-mono text-xs text-muted-foreground">
-              {status.handle}
-            </p>
-          ) : null}
-        </div>
-        {canManage && status.connected ? (
-          <Button
-            type="button"
-            variant="secondary"
-            loading={disconnectState.waiting}
-            disabled={busy}
-            onClick={() => void disconnect()}
-          >
-            {m.figma_project_disconnect_button()}
-          </Button>
-        ) : null}
-      </div>
-      {canManage && !status.connected ? (
+    <SettingsRow
+      icon={<IntegrationLogo kind="figma" />}
+      label={
+        <span className="flex items-center gap-1">
+          {m.figma_project_title()}
+          {canManage && !status.connected ? <FigmaTokenWalkthrough /> : null}
+        </span>
+      }
+      description={
+        <span className={cn(busy && "animate-pulse")}>
+          {status.connected && status.handle ? (
+            <span className="font-mono">{status.handle}</span>
+          ) : status.storageConnected ? (
+            m.figma_project_description()
+          ) : (
+            m.figma_project_storage_required()
+          )}
+        </span>
+      }
+      error={error}
+    >
+      {canManage && status.connected ? (
+        <Button
+          type="button"
+          variant="tertiary"
+          size="sm"
+          loading={disconnectState.waiting}
+          disabled={busy}
+          onClick={() => void disconnect()}
+        >
+          {m.figma_project_disconnect_button()}
+        </Button>
+      ) : null}
+      {canManage && !status.connected && status.storageConnected ? (
         <form
-          className="flex flex-col gap-2 sm:flex-row"
+          className="flex items-center gap-2"
           onSubmit={(event) => void submit(event)}
         >
           <Input
             type="password"
             value={accessToken}
             autoComplete="off"
-            disabled={!status.storageConnected}
             placeholder={m.figma_project_token_label()}
             aria-label={m.figma_project_token_label()}
             onChange={(event) => setAccessToken(event.target.value)}
+            className="h-8 w-56"
           />
           <Button
             type="submit"
+            size="sm"
             loading={connectState.waiting}
-            disabled={busy || !accessToken.trim() || !status.storageConnected}
+            disabled={busy || !accessToken.trim()}
           >
             {m.figma_project_connect_button()}
           </Button>
         </form>
       ) : null}
-      {error ? (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
+      {canManage && !status.storageConnected && canSetUpStorage ? (
+        <Button
+          variant="tertiary"
+          size="sm"
+          render={
+            <Link
+              to="/orgs/$orgSlug/settings/integrations/storage"
+              params={{ orgSlug }}
+            />
+          }
+        >
+          {m.figma_project_storage_link()}
+        </Button>
       ) : null}
-    </div>
+    </SettingsRow>
   )
 }

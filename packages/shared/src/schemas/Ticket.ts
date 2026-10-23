@@ -5,9 +5,11 @@
 // The frontmatter is the structured data the API returns; the body is the description.
 //
 
+import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
-import { GitState } from "./GitState"
+import { Estimate } from "./Estimate"
+import { GitState, StackLayerState } from "./GitState"
 import { GroupId } from "./GroupId"
 import { TemplateKey } from "./LibraryKey"
 import { ProjectKey } from "./Project"
@@ -44,12 +46,25 @@ export type TicketPriority = typeof TicketPriority.Type
 export const PullRequestState = Schema.Literals(["open", "closed", "merged"])
 export type PullRequestState = typeof PullRequestState.Type
 
+export const TicketBranchEntry = Schema.Struct({
+  branch: Schema.String,
+  base: Schema.optionalKey(Schema.String),
+  pr: Schema.optionalKey(Schema.Finite),
+  prState: Schema.optionalKey(PullRequestState),
+  prDraft: Schema.optionalKey(Schema.Boolean),
+  landed: Schema.optionalKey(Schema.Boolean)
+})
+export type TicketBranchEntry = typeof TicketBranchEntry.Type
+
 export const Ticket = Schema.Struct({
   id: TicketId,
   title: Schema.String,
   status: TicketStatus,
   type: TicketType,
   priority: TicketPriority,
+  estimate: Schema.NullOr(Estimate).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  ),
   tags: Schema.Array(TagName),
   branch: Schema.NullOr(Schema.String),
   // The PR number observed for this ticket's branch. Updated by the server
@@ -72,6 +87,7 @@ export type Ticket = typeof Ticket.Type
 
 export const TicketDetail = Schema.Struct({
   ...Ticket.fields,
+  stack: Schema.optional(Schema.Array(StackLayerState)),
   splitFrom: Schema.optional(Schema.NullOr(TicketId)),
   creator: Schema.NullOr(User),
   updater: Schema.NullOr(User),
@@ -99,6 +115,7 @@ export const CreateTicketInput = Schema.Struct({
   status: Schema.optional(TicketStatus),
   type: Schema.optional(TicketType),
   priority: Schema.optional(TicketPriority),
+  estimate: Schema.optional(Schema.NullOr(Estimate)),
   tags: Schema.optional(Schema.Array(TagName)),
   assignees: Schema.optional(Schema.Array(Schema.String)),
   body: Schema.optional(Schema.String),
@@ -123,6 +140,7 @@ export const UpdateTicketInput = Schema.Struct({
   status: Schema.optional(TicketStatus),
   type: Schema.optional(TicketType),
   priority: Schema.optional(TicketPriority),
+  estimate: Schema.optional(Schema.NullOr(Estimate)),
   tags: Schema.optional(Schema.Array(TagName)),
   assignees: Schema.optional(Schema.Array(Schema.String)),
   body: Schema.optional(Schema.String)

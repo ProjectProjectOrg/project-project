@@ -9,6 +9,7 @@ import {
   jiraMigration,
   member,
   organization,
+  projectGitAutomation,
   projectIndex,
   projectMember,
   projectStatus,
@@ -17,9 +18,11 @@ import {
   user as userTable
 } from "@pp/db/schema"
 import {
+  ActivityActor,
   attachmentUrl,
   BASELINE_STATUS_SEED,
   deriveProjectIdentity,
+  GIT_AUTOMATION_SEED,
   GroupColor,
   GroupId,
   JiraMigrationConfiguration,
@@ -871,6 +874,17 @@ export const publishJiraMigrationAtomically = Effect.fn(
               createdAt: toDate(row.createdAt)
             }))
           )
+        const seededRules = GIT_AUTOMATION_SEED.filter((rule) =>
+          plan.indexes.statuses.some((row) => row.slug === rule.statusSlug)
+        )
+        if (seededRules.length > 0)
+          yield* tx.insert(projectGitAutomation).values(
+            seededRules.map((rule) => ({
+              projectId: plannedProject.id,
+              event: rule.event,
+              statusSlug: rule.statusSlug
+            }))
+          )
         if (plan.indexes.tags.length > 0)
           yield* tx.insert(projectTag).values(
             plan.indexes.tags.map((row) => ({
@@ -1594,6 +1608,7 @@ export const writeJiraStagedDocuments = Effect.fn("JiraImport.writeDocuments")(
       createdBy: ownerId,
       createdAt: now,
       github: null,
+      estimation: "off",
       setup: {
         workflowReviewedAt: null,
         invitePeopleDismissedAt: null,
@@ -1677,7 +1692,8 @@ export const writeJiraStagedDocuments = Effect.fn("JiraImport.writeDocuments")(
       },
       { concurrency: 4, discard: true }
     )
-  }
+  },
+  Effect.provideService(ActivityActor, ActivityActor.system("import"))
 )
 
 export function nextTicketNumberFor(plan: JiraPublicationPlan): number {

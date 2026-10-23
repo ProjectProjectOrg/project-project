@@ -261,7 +261,7 @@ export function ReviewStep({
           <div>
             <form.Field name="attachmentSkipsAccepted">
               {(field) => (
-                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-3 text-sm transition-colors hover:bg-accent/60">
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-3 text-sm transition-colors hover:bg-hover">
                   <input
                     type="checkbox"
                     checked={field.value}

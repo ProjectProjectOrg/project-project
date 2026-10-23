@@ -25,6 +25,10 @@ import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
 import { accessLayer, projectScope } from "../access/testing"
+import {
+  recordingActivityLayer,
+  type RecordedActivity
+} from "../activity/testing"
 import { Attachments, type AttachmentsShape } from "../attachments/Attachments"
 import { Comments, type CommentsShape } from "../comments/Comments"
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
@@ -34,6 +38,8 @@ import { Library } from "../library/Library"
 import * as KeyedLock from "../locks/KeyedLock"
 import { MarkdownError } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
+import { gitAutomationTestLayer } from "../projects/gitAutomationTesting"
+import { ProjectDocs } from "../projects/ProjectDocs"
 import { Projects, type ProjectsShape } from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
 import { TicketDocs } from "./TicketDocs"
@@ -101,6 +107,8 @@ const FakeProjects = Layer.succeed(Projects, {
   cancelPendingMember: () => unexpected("Projects.cancelPendingMember"),
   unassignUserFromActiveTickets: () =>
     unexpected("Projects.unassignUserFromActiveTickets"),
+  unassignUserFromOrgTickets: () =>
+    unexpected("Projects.unassignUserFromOrgTickets"),
   connectGithub: () => unexpected("Projects.connectGithub"),
   disconnectGithub: () => unexpected("Projects.disconnectGithub")
 } satisfies ProjectsShape)
@@ -247,6 +255,9 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
   findTicketIdsByTag: () => Effect.succeed([]),
   findTicketIdsByStatus: () => Effect.succeed([]),
   findTicketsByBranch: () => Effect.succeed([]),
+  findStackLayers: () => Effect.succeed([]),
+  stacksFor: () => Effect.succeed(new Map()),
+  findMergesAwaiting: () => Effect.succeed([]),
   isRepositoryBranchAttached: () => Effect.succeed(false),
   getBranchDeletedAt: () => Effect.succeed(null),
   upsertTicket: () =>
@@ -320,8 +331,11 @@ const TestLayer = Layer.unwrap(
       prefix: "projectproject-split-"
     })
     return TicketsLive.pipe(
+      Layer.provide(gitAutomationTestLayer()),
+      Layer.provide(Layer.mock(ProjectDocs, {})),
       Layer.provide(PassthroughLibrary),
       Layer.provideMerge(TicketDocsLive),
+      Layer.provideMerge(recordingActivityLayer(recordedActivity)),
       Layer.provide(FakeAttachments),
       Layer.provide(FakeFigmaLinks),
       Layer.provide(FakeProjects),
@@ -355,7 +369,15 @@ const TestLayer = Layer.unwrap(
   })
 ).pipe(Layer.provideMerge(BunServices.layer))
 
+const recordedActivity: Array<RecordedActivity> = []
+
+const splitActivity = () =>
+  recordedActivity
+    .flatMap((batch) => batch.changes)
+    .filter((entry) => entry.change.kind === "split")
+
 const resetFakes = Effect.sync(() => {
+  recordedActivity.length = 0
   sprintAssignments.length = 0
   sprintAssignmentAnchors.length = 0
   sprintMemberships.clear()
@@ -443,6 +465,15 @@ it.effect("split retains the original and creates the remaining tickets", () =>
     expect(sprintAssignmentAnchors).toEqual([
       original.id,
       outcome.created[0].id
+    ])
+    expect(splitActivity()).toEqual([
+      {
+        ticketId: original.id,
+        change: {
+          kind: "split",
+          into: outcome.created.map((created) => created.id)
+        }
+      }
     ])
   }).pipe(Effect.provide(TestLayer))
 )
@@ -596,6 +627,7 @@ it.effect(
       ])
       expect(yield* fs.exists(ticketFile(root, path, "T-2"))).toBe(false)
       expect(yield* fs.exists(ticketFile(root, path, "T-3"))).toBe(false)
+      expect(splitActivity()).toEqual([])
     }).pipe(Effect.provide(TestLayer))
 )
 

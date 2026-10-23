@@ -62,6 +62,11 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           dieOnMarkdown
         )
       )
+      .handle("clearStaleEstimates", () =>
+        Effect.flatMap(Tickets, (tickets) =>
+          tickets.clearStaleEstimates()
+        ).pipe(dieOnMarkdown)
+      )
       .handle("get", ({ params }) =>
         Effect.flatMap(Tickets, (tickets) => tickets.get(params.id)).pipe(
           dieOnMarkdown
@@ -115,6 +120,16 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
       .handle("attachBranch", ({ params, payload }) =>
         Effect.flatMap(Tickets, (tickets) =>
           tickets.attachBranch(params.id, payload)
+        ).pipe(dieOnMarkdown)
+      )
+      .handle("stackBranch", ({ params, payload }) =>
+        Effect.flatMap(Tickets, (tickets) =>
+          tickets.stackBranch(params.id, payload)
+        ).pipe(dieOnMarkdown)
+      )
+      .handle("unstackBranch", ({ params, payload }) =>
+        Effect.flatMap(Tickets, (tickets) =>
+          tickets.unstackBranch(params.id, payload)
         ).pipe(dieOnMarkdown)
       )
 )

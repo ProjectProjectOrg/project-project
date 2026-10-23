@@ -28,13 +28,7 @@ type HeadingSource =
       statuses: ReadonlyArray<ProjectStatus>
     }
 
-type BareProps = HeadingSource & {
-  variant?: "bare"
-  count: number
-}
-
-type StickyProps = HeadingSource & {
-  variant: "sticky"
+type SectionHeaderProps = HeadingSource & {
   count: number
   collapsed: boolean
   creating: boolean
@@ -45,17 +39,7 @@ type StickyProps = HeadingSource & {
   canCreate?: boolean
 }
 
-export const SectionHeader = forwardRef<
-  HTMLDivElement,
-  BareProps | StickyProps
->(function SectionHeader(props, ref) {
-  if (props.variant === "sticky") {
-    return <StickySectionHeader {...props} ref={ref} />
-  }
-  return <BareSectionHeader {...props} />
-})
-
-function BareSectionHeader(props: BareProps): ReactNode {
+function HeadingContent(props: HeadingSource & { count: number }): ReactNode {
   const { count, heading } = props
   const label = headingLabel(props)
 
@@ -66,7 +50,7 @@ function BareSectionHeader(props: BareProps): ReactNode {
       </span>
       <span className="truncate text-sm font-medium">{label}</span>
       <span
-        className="rounded-full bg-muted px-1.5 font-mono text-[10px] text-muted-foreground tabular-nums"
+        className="rounded-full bg-active px-1.5 font-mono text-[10px] text-muted-foreground tabular-nums"
         aria-label={m.tickets_section_count_aria_label({ count })}
       >
         {count}
@@ -106,8 +90,8 @@ function StatusHeadingIcon({
 const morphFrom = { opacity: 0, filter: "blur(8px)" }
 const morphTo = { opacity: 1, filter: "blur(0px)" }
 
-const StickySectionHeader = forwardRef<HTMLDivElement, StickyProps>(
-  function StickySectionHeader(props, ref: Ref<HTMLDivElement>) {
+export const SectionHeader = forwardRef<HTMLDivElement, SectionHeaderProps>(
+  function SectionHeader(props, ref: Ref<HTMLDivElement>) {
     const {
       canCreate = true,
       collapsed,
@@ -180,7 +164,7 @@ const StickySectionHeader = forwardRef<HTMLDivElement, StickyProps>(
                 transition={transitions.presence}
                 className="self-center [grid-area:1/1]"
               >
-                <BareSectionHeader {...props} variant="bare" />
+                <HeadingContent {...props} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -206,7 +190,7 @@ const StickySectionHeader = forwardRef<HTMLDivElement, StickyProps>(
                 : m.tickets_section_create_aria_label({ label })
             }
           >
-            <span className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-100 hover:bg-accent hover:text-foreground active:scale-[0.97]">
+            <span className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]">
               <Plus
                 className={cn(
                   "size-4 transition-transform duration-200 ease-out",

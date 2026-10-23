@@ -1,5 +1,6 @@
 import { X } from "lucide-react"
 
+import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -25,18 +26,13 @@ export function TagChip({
   pulse
 }: Props) {
   const hex = color ?? NEUTRAL
-  const sizeClasses =
-    size === "xs" ? "h-5 px-1.5 text-[11px]" : "h-6 px-2 py-0.5 text-xs"
   const bgAlpha = intensity === "strong" ? "33" : "1a"
   return (
-    <span
+    <Badge
       data-slot="tag-chip"
-      className={cn(
-        "inline-flex w-fit shrink-0 items-center gap-1 rounded-md font-medium whitespace-nowrap transition-colors",
-        sizeClasses,
-        pulse && "animate-pulse",
-        className
-      )}
+      tone={null}
+      size={size}
+      className={cn(pulse && "animate-pulse", className)}
       style={{
         backgroundColor: `${hex}${bgAlpha}`,
         color: hex
@@ -53,6 +49,6 @@ export function TagChip({
           <X className="size-3" />
         </button>
       ) : null}
-    </span>
+    </Badge>
   )
 }

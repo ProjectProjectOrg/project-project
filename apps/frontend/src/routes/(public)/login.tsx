@@ -51,7 +51,10 @@ function LoginPage() {
   const redirectTarget = safeInternalPath(redirect)
   const oauthContinuationTarget =
     oauthAuthorizeTarget ??
-    (redirectTarget.startsWith("/oauth/consent?") ? redirectTarget : null)
+    (redirectTarget.startsWith("/oauth/consent?") ||
+    redirectTarget.startsWith("/api/integrations/slack/oauth/start?")
+      ? redirectTarget
+      : null)
   const [email, setEmail] = useState("")
   const [magicLinkSent, setMagicLinkSent] = useState(false)
   const [magicLinkPending, setMagicLinkPending] = useState(false)

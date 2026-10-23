@@ -13,20 +13,21 @@ import {
 } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import { Check, ChevronDown, Plus, X } from "lucide-react"
-import { AnimatePresence, motion } from "motion/react"
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { ChevronDown, Plus, X } from "lucide-react"
+import { useState, type ReactNode } from "react"
 
 import { ColorPicker } from "@/components/ColorPicker"
-import { MetaRow } from "@/components/TicketPage/MetaRow"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { IconGridPicker } from "@/components/ui/icon-grid-picker"
 import { Input } from "@/components/ui/input"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import {
@@ -34,7 +35,6 @@ import {
   PRIORITY_META,
   PRIORITY_ORDER
 } from "@/lib/priority-meta"
-import { springs } from "@/lib/springs"
 import { TYPE_LABELS } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -44,12 +44,7 @@ import { TICKET_TYPES } from "./libraryModel"
 import { failureText } from "./LibraryRow"
 import { setDefaultsAtom, type LibraryScope } from "./libraryScope"
 
-export function AsideField({
-  label,
-  children
-}: Readonly<{ label: string; children: ReactNode }>) {
-  return <MetaRow label={label}>{children}</MetaRow>
-}
+const NO_PRIORITY = "none"
 
 type CommitInputProps = Readonly<{
   value: string
@@ -113,76 +108,19 @@ export function BlockIconPicker({
   onChange: (icon: BlockIconName) => void
   disabled?: boolean
 }>) {
-  const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const onPointer = (event: PointerEvent) => {
-      const root = rootRef.current
-      if (root !== null && !root.contains(event.target as Node)) setOpen(false)
-    }
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false)
-    }
-    document.addEventListener("pointerdown", onPointer)
-    document.addEventListener("keydown", onKey)
-    return () => {
-      document.removeEventListener("pointerdown", onPointer)
-      document.removeEventListener("keydown", onKey)
-    }
-  }, [open])
-
   return (
-    <div ref={rootRef} className="relative inline-flex">
-      <button
-        type="button"
-        disabled={disabled}
-        aria-label={m.templates_editor_icon_aria()}
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
-        className="flex size-8 items-center justify-center rounded-md border border-input bg-background transition-all duration-100 hover:bg-accent active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        <BlockIconGlyph icon={value} color={color} />
-      </button>
-      <AnimatePresence>
-        {open ? (
-          <motion.div
-            key="grid"
-            initial={{ opacity: 0, scale: 0.95, y: -4 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -4 }}
-            transition={springs.moderate}
-            className="absolute top-10 left-0 z-50 w-[228px] rounded-md border border-border bg-popover p-2 shadow-md"
-          >
-            <div className="grid max-h-60 grid-cols-8 gap-1 overflow-y-auto">
-              {BLOCK_ICONS.map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  aria-label={m.templates_editor_icon_option_aria({ name })}
-                  aria-pressed={name === value}
-                  onClick={() => {
-                    onChange(name)
-                    setOpen(false)
-                  }}
-                  className={cn(
-                    "flex size-7 items-center justify-center rounded transition-all duration-100 hover:bg-accent active:scale-[0.97]",
-                    name === value && "bg-accent"
-                  )}
-                >
-                  <BlockIconGlyph
-                    icon={name}
-                    color={color}
-                    className="size-3.5"
-                  />
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </div>
+    <IconGridPicker
+      value={value}
+      options={BLOCK_ICONS}
+      onChange={onChange}
+      disabled={disabled}
+      triggerLabel={m.templates_editor_icon_aria()}
+      triggerIcon={<BlockIconGlyph icon={value} color={color} />}
+      optionLabel={(name) => m.templates_editor_icon_option_aria({ name })}
+      renderIcon={(name) => (
+        <BlockIconGlyph icon={name} color={color} className="size-3.5" />
+      )}
+    />
   )
 }
 
@@ -291,32 +229,39 @@ export function NullablePriorityField({
         }
       />
       <DropdownMenuContent align="start" sideOffset={6} className="w-44">
-        {[null, ...PRIORITY_ORDER].map((priority) => {
-          const itemMeta = priority === null ? null : PRIORITY_META[priority]
-          const ItemIcon = itemMeta?.icon ?? null
-          return (
-            <DropdownMenuItem
-              key={priority ?? "none"}
-              onClick={() => {
-                if (priority !== value) onChange(priority)
-              }}
-              className="cursor-pointer"
-            >
-              {ItemIcon === null ? (
-                <span className="size-4" aria-hidden />
-              ) : (
-                <ItemIcon
-                  className={cn("size-4", itemMeta?.className)}
-                  strokeWidth={1.75}
-                />
-              )}
-              {priority === null ? noneLabel() : PRIORITY_LABELS[priority]()}
-              {priority === value && (
-                <Check className="ml-auto size-3.5 text-muted-foreground" />
-              )}
-            </DropdownMenuItem>
-          )
-        })}
+        <DropdownMenuRadioGroup
+          value={value ?? NO_PRIORITY}
+          onValueChange={(next: string) =>
+            onChange(
+              next === NO_PRIORITY
+                ? null
+                : (next as (typeof PRIORITY_ORDER)[number])
+            )
+          }
+        >
+          {[null, ...PRIORITY_ORDER].map((priority) => {
+            const itemMeta = priority === null ? null : PRIORITY_META[priority]
+            const ItemIcon = itemMeta?.icon ?? null
+            return (
+              <DropdownMenuRadioItem
+                key={priority ?? NO_PRIORITY}
+                value={priority ?? NO_PRIORITY}
+                closeOnClick
+                separated={priority === null}
+              >
+                {ItemIcon === null ? (
+                  <span className="size-4" aria-hidden />
+                ) : (
+                  <ItemIcon
+                    className={cn("size-4", itemMeta?.className)}
+                    strokeWidth={1.75}
+                  />
+                )}
+                {priority === null ? noneLabel() : PRIORITY_LABELS[priority]()}
+              </DropdownMenuRadioItem>
+            )
+          })}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -585,6 +530,4 @@ const ORIGIN_LABELS: Record<LibraryOrigin, () => string> = {
 export const originLabel = (origin: LibraryOrigin): string =>
   ORIGIN_LABELS[origin]()
 
-export function MutedValue({ children }: Readonly<{ children: ReactNode }>) {
-  return <span className="text-[13px] text-muted-foreground">{children}</span>
-}
+export const MUTED_VALUE_CLASS = "text-[13px] text-muted-foreground"

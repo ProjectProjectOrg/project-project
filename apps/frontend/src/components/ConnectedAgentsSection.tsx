@@ -11,27 +11,25 @@ import type { OAuthApplication } from "@pp/shared"
 // from the current window origin — single-origin homelab deploys work without
 // edits; dev/split-origin setups can swap the host before pasting.
 import * as Result from "effect/reactivity/AsyncResult"
-import { ChevronRight, KeyRound } from "lucide-react"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { KeyRound } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
-import { Button } from "@/components/ui/button"
+import { SettingsDisclosureItem } from "@/components/settings/SettingsDisclosureItem"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card"
+  SettingsGroup,
+  SettingsRow,
+  SettingsSection
+} from "@/components/settings/SettingsSection"
+import { SettingsSkeleton } from "@/components/settings/SettingsSkeleton"
 import { CodeSnippet } from "@/components/ui/code-snippet"
+import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
   type OAuthApplicationsRequest,
   oauthApplicationsRequest,
   oauthApplicationsAtom,
   revokeOAuthApplicationAtom
 } from "@/features/oauth/atoms/oauthApplications"
-import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -43,16 +41,10 @@ export function ConnectedAgentsSection() {
   const refresh = useAtomRefresh(applicationsAtom)
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{m.profile_section_connected_agents_title()}</CardTitle>
-        <CardDescription>
-          {m.profile_section_connected_agents_description()}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5 text-sm">
+    <>
+      <SettingsSection>
         {Result.matchWithError(applications, {
-          onInitial: () => <AgentsSkeleton />,
+          onInitial: () => <SettingsSkeleton rows={2} />,
           onError: (error) => (
             <ErrorPage error={error} reset={refresh} contained />
           ),
@@ -60,47 +52,30 @@ export function ConnectedAgentsSection() {
             <ErrorPage error={defect} reset={refresh} contained />
           ),
           onSuccess: ({ value, waiting }) => (
-            <div
+            <SettingsGroup
               className={cn(
                 waiting && "animate-pulse motion-reduce:animate-none"
               )}
             >
               {value.length === 0 ? (
-                <p className="text-muted-foreground">
-                  {m.profile_connected_agents_empty()}
-                </p>
+                <SettingsRow
+                  label={
+                    <span className="font-normal text-muted-foreground">
+                      {m.profile_connected_agents_empty()}
+                    </span>
+                  }
+                />
               ) : (
-                <ul className="divide-y divide-border rounded-xl border border-border bg-background">
-                  {value.map((app) => (
-                    <li key={app.id}>
-                      <AgentRow app={app} req={req} />
-                    </li>
-                  ))}
-                </ul>
+                value.map((app) => (
+                  <AgentRow key={app.id} app={app} req={req} />
+                ))
               )}
-            </div>
+            </SettingsGroup>
           )
         })}
-
-        <ConnectMcpDisclosure />
-      </CardContent>
-    </Card>
-  )
-}
-
-function AgentsSkeleton() {
-  return (
-    <div className="divide-y divide-border rounded-xl border border-border bg-background">
-      {[0, 1].map((row) => (
-        <div key={row} className="flex items-center gap-3 px-3 py-2.5">
-          <div className="size-9 animate-pulse rounded-md bg-muted" />
-          <div className="flex flex-1 flex-col gap-1.5">
-            <div className="h-3.5 w-32 animate-pulse rounded bg-muted" />
-            <div className="h-3 w-48 animate-pulse rounded bg-muted" />
-          </div>
-        </div>
-      ))}
-    </div>
+      </SettingsSection>
+      <ConnectMcpDisclosure />
+    </>
   )
 }
 
@@ -111,20 +86,18 @@ function AgentRow({
   app: OAuthApplication
   req: OAuthApplicationsRequest
 }) {
-  const mutation = revokeOAuthApplicationAtom({ req, id: app.id })
-  const revoke = useAtomSet(mutation)
-  const revokeState = useAtomValue(mutation)
-  const busy = revokeState.waiting
   const locale = getLocale()
-
+  const revoke = useAtomSet(revokeOAuthApplicationAtom({ req, id: app.id }))
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5">
-      <div className="grid size-9 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground">
-        <KeyRound className="size-4" strokeWidth={1.75} />
-      </div>
-      <div className="min-w-0 flex-1 leading-tight">
-        <div className="truncate text-sm font-medium">{app.name}</div>
-        <div className="truncate text-xs text-muted-foreground">
+    <SettingsRow
+      icon={
+        <span className="grid size-8 shrink-0 place-items-center rounded-[10px] border border-border text-muted-foreground">
+          <KeyRound className="size-4" strokeWidth={1.75} />
+        </span>
+      }
+      label={app.name}
+      description={
+        <>
           <span className="font-mono">{app.clientId}</span>
           <span className="mx-1.5">·</span>
           {m.profile_connected_agents_connected_at({
@@ -136,18 +109,24 @@ function AgentRow({
                 date: app.lastUsedAt.toLocaleDateString(locale)
               })
             : m.profile_connected_agents_never_used()}
-        </div>
-      </div>
-      <Button
-        variant="tertiary"
-        size="sm"
-        disabled={busy}
-        onClick={() => revoke()}
-        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-      >
-        {m.profile_connected_agents_revoke()}
-      </Button>
-    </div>
+        </>
+      }
+    >
+      <ConfirmButton.Root>
+        <ConfirmButton.Trigger variant="tertiary" size="sm">
+          {m.profile_connected_agents_revoke()}
+        </ConfirmButton.Trigger>
+        <ConfirmButton.Confirm>
+          <ConfirmButton.Action
+            prompt={m.profile_connected_agents_revoke_confirm()}
+            label={m.profile_connected_agents_revoke()}
+            onConfirm={() => {
+              revoke()
+            }}
+          />
+        </ConfirmButton.Confirm>
+      </ConfirmButton.Root>
+    </SettingsRow>
   )
 }
 
@@ -205,11 +184,8 @@ function ConnectMcpDisclosure() {
   const [openId, setOpenId] = useState<string | null>(null)
 
   return (
-    <section>
-      <h3 className="mb-2 text-sm font-medium text-foreground">
-        {m.profile_connect_mcp_title()}
-      </h3>
-      <div className="divide-y divide-border rounded-xl border border-border bg-background">
+    <SettingsSection title={m.profile_connect_mcp_title()}>
+      <SettingsGroup>
         {providers.map((provider) => (
           <ProviderItem
             key={provider.id}
@@ -223,11 +199,11 @@ function ConnectMcpDisclosure() {
             }
           />
         ))}
-      </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+      </SettingsGroup>
+      <p className="px-0.5 text-xs text-muted-foreground">
         {m.profile_connect_mcp_caveat()}
       </p>
-    </section>
+    </SettingsSection>
   )
 }
 
@@ -242,53 +218,21 @@ function ProviderItem({
   open: boolean
   onToggle: () => void
 }) {
-  const reduceMotion = useReducedMotion()
   const snippet = useMemo(
     () => provider.buildSnippet(mcpUrl),
     [provider, mcpUrl]
   )
-
   return (
-    <div>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-medium transition-colors hover:bg-muted/60 active:bg-muted"
-      >
-        <ChevronRight
-          className={cn(
-            "size-3.5 text-muted-foreground transition-transform duration-150",
-            open && "rotate-90"
-          )}
-          strokeWidth={2}
-        />
-        <span>{provider.label}</span>
-      </button>
-      <AnimatePresence initial={false}>
-        {open ? (
-          <motion.div
-            key="body"
-            initial={reduceMotion ? false : { height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
-            transition={transitions.presence}
-            className="overflow-hidden"
-          >
-            <div className="space-y-2 px-3 pb-3">
-              <p className="text-xs text-muted-foreground">
-                {provider.description}
-              </p>
-              <p className="text-[11px] text-muted-foreground/80">
-                {m.profile_connect_mcp_revision({
-                  revision: provider.revision
-                })}
-              </p>
-              <CodeSnippet code={snippet} language={provider.language} />
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </div>
+    <SettingsDisclosureItem
+      label={provider.label}
+      open={open}
+      onToggle={onToggle}
+    >
+      <p className="text-xs text-muted-foreground">{provider.description}</p>
+      <p className="text-[11px] text-muted-foreground">
+        {m.profile_connect_mcp_revision({ revision: provider.revision })}
+      </p>
+      <CodeSnippet code={snippet} language={provider.language} />
+    </SettingsDisclosureItem>
   )
 }

@@ -131,12 +131,8 @@ export function JiraSourceStep({
               className="w-full"
             />
             <SelectContent>
-              {sites.map((site, index) => (
-                <SelectItem
-                  key={site.cloudId}
-                  value={site.cloudId}
-                  index={index}
-                >
+              {sites.map((site) => (
+                <SelectItem key={site.cloudId} value={site.cloudId}>
                   {site.name}
                 </SelectItem>
               ))}
@@ -168,8 +164,8 @@ export function JiraSourceStep({
               className="w-full"
             />
             <SelectContent>
-              {projects.map((project, index) => (
-                <SelectItem key={project.id} value={project.id} index={index}>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
                   {project.name}
                 </SelectItem>
               ))}

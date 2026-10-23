@@ -1,0 +1,210 @@
+import {
+  type ActivityCause,
+  Estimate,
+  UserId,
+  type GroupDetail,
+  type TicketActivityChange,
+  type TicketBranchEntry,
+  type TicketId
+} from "@pp/shared"
+import * as Schema from "effect/Schema"
+
+import type { TicketDocument } from "../tickets/TicketDocs"
+
+const makeUserId = Schema.decodeUnknownSync(UserId)
+const sameEstimate = Schema.toEquivalence(Schema.NullOr(Estimate))
+
+export type TicketChangeSource = Pick<
+  TicketDocument,
+  | "title"
+  | "status"
+  | "priority"
+  | "type"
+  | "estimate"
+  | "assignees"
+  | "tags"
+  | "body"
+  | "archivedAt"
+  | "branch"
+  | "pr"
+  | "prState"
+  | "stack"
+>
+
+type PullRequestFields = Readonly<{
+  pr: number | null
+  prState: TicketChangeSource["prState"]
+}>
+
+const listDiff = <A>(
+  before: ReadonlyArray<A>,
+  after: ReadonlyArray<A>
+): Readonly<{ added: ReadonlyArray<A>; removed: ReadonlyArray<A> }> | null => {
+  const previous = new Set(before)
+  const next = new Set(after)
+  const added = after.filter((value) => !previous.has(value))
+  const removed = before.filter((value) => !next.has(value))
+  return added.length === 0 && removed.length === 0 ? null : { added, removed }
+}
+
+const prChange = (
+  before: PullRequestFields,
+  after: PullRequestFields
+): TicketActivityChange | null => {
+  if (after.pr === null) return null
+  const samePr = before.pr === after.pr
+  if (samePr && before.prState === after.prState) return null
+  if (after.prState === "merged") return { kind: "pr_merged", number: after.pr }
+  if (after.prState === "closed") return { kind: "pr_closed", number: after.pr }
+  const reopened = before.prState === "closed" || before.prState === "merged"
+  if (samePr && !reopened) return null
+  return { kind: "pr_opened", number: after.pr }
+}
+
+const layerPullRequest = (
+  layer: TicketBranchEntry | undefined
+): PullRequestFields => ({
+  pr: layer?.pr ?? null,
+  prState: layer?.prState ?? null
+})
+
+const stackChanges = (
+  before: TicketChangeSource,
+  after: TicketChangeSource
+): ReadonlyArray<TicketActivityChange> => {
+  const previous = new Map(
+    (before.stack ?? []).map((layer) => [layer.branch, layer])
+  )
+  const next = new Set((after.stack ?? []).map((layer) => layer.branch))
+  const changes: Array<TicketActivityChange> = []
+  for (const layer of before.stack ?? []) {
+    if (!next.has(layer.branch)) {
+      changes.push({ kind: "stack_branch_removed", branch: layer.branch })
+    }
+  }
+  for (const layer of after.stack ?? []) {
+    const earlier = previous.get(layer.branch)
+    if (earlier === undefined) {
+      changes.push({ kind: "stack_branch_added", branch: layer.branch })
+    }
+    const pr = prChange(layerPullRequest(earlier), layerPullRequest(layer))
+    if (pr !== null) changes.push(pr)
+  }
+  return changes
+}
+
+export const ticketChanges = (
+  before: TicketChangeSource,
+  after: TicketChangeSource,
+  archiveReason?: string
+): ReadonlyArray<TicketActivityChange> => {
+  const changes: Array<TicketActivityChange> = []
+  if (before.title !== after.title) {
+    changes.push({
+      kind: "title_changed",
+      from: before.title,
+      to: after.title
+    })
+  }
+  if (before.status !== after.status) {
+    changes.push({
+      kind: "status_changed",
+      from: before.status,
+      to: after.status
+    })
+  }
+  if (before.priority !== after.priority) {
+    changes.push({
+      kind: "priority_changed",
+      from: before.priority,
+      to: after.priority
+    })
+  }
+  if (before.type !== after.type) {
+    changes.push({ kind: "type_changed", from: before.type, to: after.type })
+  }
+  const fromEstimate = before.estimate ?? null
+  const toEstimate = after.estimate ?? null
+  if (!sameEstimate(fromEstimate, toEstimate)) {
+    changes.push({
+      kind: "estimate_changed",
+      from: fromEstimate,
+      to: toEstimate
+    })
+  }
+  const assignees = listDiff(before.assignees, after.assignees)
+  if (assignees !== null) {
+    changes.push({
+      kind: "assignees_changed",
+      added: assignees.added.map((id) => makeUserId(id)),
+      removed: assignees.removed.map((id) => makeUserId(id))
+    })
+  }
+  const tags = listDiff(before.tags, after.tags)
+  if (tags !== null) {
+    changes.push({
+      kind: "tags_changed",
+      added: tags.added,
+      removed: tags.removed
+    })
+  }
+  if (before.body !== after.body) changes.push({ kind: "description_edited" })
+  if (before.archivedAt === null && after.archivedAt !== null) {
+    changes.push(
+      archiveReason === undefined
+        ? { kind: "archived" }
+        : { kind: "archived", reason: archiveReason }
+    )
+  }
+  if (before.archivedAt !== null && after.archivedAt === null) {
+    changes.push({ kind: "unarchived" })
+  }
+  if (before.branch !== after.branch) {
+    if (before.branch !== null) {
+      changes.push({ kind: "branch_unlinked", branch: before.branch })
+    }
+    if (after.branch !== null) {
+      changes.push({ kind: "branch_linked", branch: after.branch })
+    }
+  }
+  const pr = prChange(before, after)
+  if (pr !== null) changes.push(pr)
+  changes.push(...stackChanges(before, after))
+  return changes
+}
+
+export type GroupMembershipSource = Pick<
+  GroupDetail,
+  "id" | "kind" | "name" | "tickets"
+>
+
+export type TicketScopedChange = Readonly<{
+  ticketId: TicketId
+  change: TicketActivityChange
+  cause?: ActivityCause
+}>
+
+export const groupMembershipChanges = (
+  before: GroupMembershipSource | null,
+  after: GroupMembershipSource | null
+): ReadonlyArray<TicketScopedChange> => {
+  const group = after ?? before
+  if (group === null) return []
+  const diff = listDiff(before?.tickets ?? [], after?.tickets ?? [])
+  if (diff === null) return []
+  const subject = {
+    groupId: group.id,
+    groupKind: group.kind,
+    name: group.name
+  }
+  return [
+    ...diff.removed.map((ticketId) => ({
+      ticketId,
+      change: { kind: "group_removed" as const, ...subject }
+    })),
+    ...diff.added.map((ticketId) => ({
+      ticketId,
+      change: { kind: "group_added" as const, ...subject }
+    }))
+  ]
+}

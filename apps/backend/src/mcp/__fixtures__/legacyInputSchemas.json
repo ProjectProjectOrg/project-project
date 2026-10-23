@@ -380,6 +380,20 @@
           }
         ]
       },
+      "estimate": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["none", "any", "stale", "XS", "S", "M", "L", "XL"]
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "archived": {
         "anyOf": [
           {
@@ -397,7 +411,14 @@
             "properties": {
               "key": {
                 "type": "string",
-                "enum": ["id", "created", "updated", "title", "priority"]
+                "enum": [
+                  "id",
+                  "created",
+                  "updated",
+                  "title",
+                  "priority",
+                  "estimate"
+                ]
               },
               "dir": {
                 "type": "string",
@@ -783,6 +804,71 @@
           }
         ]
       },
+      "estimate": {
+        "anyOf": [
+          {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "unit": {
+                        "type": "string",
+                        "enum": ["points"]
+                      },
+                      "value": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 999
+                      }
+                    },
+                    "required": ["unit", "value"],
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "unit": {
+                        "type": "string",
+                        "enum": ["tshirt"]
+                      },
+                      "value": {
+                        "type": "string",
+                        "enum": ["XS", "S", "M", "L", "XL"]
+                      }
+                    },
+                    "required": ["unit", "value"],
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "unit": {
+                        "type": "string",
+                        "enum": ["time"]
+                      },
+                      "minutes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 59940
+                      }
+                    },
+                    "required": ["unit", "minutes"],
+                    "additionalProperties": true
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "tags": {
         "anyOf": [
           {
@@ -904,6 +990,71 @@
           {
             "type": "string",
             "enum": ["low", "med", "high"]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "estimate": {
+        "anyOf": [
+          {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "unit": {
+                        "type": "string",
+                        "enum": ["points"]
+                      },
+                      "value": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 999
+                      }
+                    },
+                    "required": ["unit", "value"],
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "unit": {
+                        "type": "string",
+                        "enum": ["tshirt"]
+                      },
+                      "value": {
+                        "type": "string",
+                        "enum": ["XS", "S", "M", "L", "XL"]
+                      }
+                    },
+                    "required": ["unit", "value"],
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "unit": {
+                        "type": "string",
+                        "enum": ["time"]
+                      },
+                      "minutes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 59940
+                      }
+                    },
+                    "required": ["unit", "minutes"],
+                    "additionalProperties": true
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           {
             "type": "null"
@@ -1063,6 +1214,64 @@
     "$defs": {}
   },
   "attach_branch": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      }
+    },
+    "required": ["orgSlug", "projectSlug", "id", "name"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "stack_branch": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      }
+    },
+    "required": ["orgSlug", "projectSlug", "id", "name"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "unstack_branch": {
     "type": "object",
     "properties": {
       "orgSlug": {

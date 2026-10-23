@@ -13,26 +13,8 @@ import {
   projectTimeRequest,
   type TicketTimeRequest
 } from "@/features/everhour/atoms/timeTracking"
+import { parseDurationToSeconds } from "@/lib/duration"
 import * as m from "@/paraglide/messages"
-
-export const parseDurationToSeconds = (input: string): number | null => {
-  const trimmed = input.trim().toLowerCase()
-  if (trimmed.length === 0) return null
-  if (/^\d+(\.\d+)?$/.test(trimmed)) {
-    const minutes = Number.parseFloat(trimmed)
-    return minutes > 0 ? Math.round(minutes * 60) : null
-  }
-  const pattern = /(\d+(?:\.\d+)?)\s*(h|m)/g
-  let total = 0
-  let matched = false
-  let match: RegExpExecArray | null
-  while ((match = pattern.exec(trimmed)) !== null) {
-    matched = true
-    const amount = Number.parseFloat(match[1])
-    total += match[2] === "h" ? amount * 3600 : amount * 60
-  }
-  return matched && total > 0 ? Math.round(total) : null
-}
 
 const todayIso = () => {
   const now = DateTime.toDate(DateTime.nowUnsafe())

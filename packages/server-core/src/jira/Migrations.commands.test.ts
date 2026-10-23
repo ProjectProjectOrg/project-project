@@ -1054,11 +1054,15 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                 Effect.gen(function* () {
                   if (payload.command._tag === "Rescan")
                     return yield* Deferred.await(newScan)
-                  const row = yield* p
-                    .owned(owner, executionId)
-                    .pipe(Effect.orDie)
                   yield* p
-                    .completeScan(fenceFor(row)!, attachmentScan)
+                    .completeScan(
+                      {
+                        migrationId: executionId,
+                        workflowExecutionId: executionId,
+                        workflowAttempt: 1
+                      },
+                      attachmentScan
+                    )
                     .pipe(Effect.orDie)
                 }),
               () =>

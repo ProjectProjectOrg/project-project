@@ -3,7 +3,7 @@ import type { ProjectDetail as ProjectDetailType } from "@pp/shared"
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
-import { GitBranch, UserPlus, Workflow, X } from "lucide-react"
+import { GitBranch, UserPlus, X } from "lucide-react"
 import { useCallback } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
@@ -103,12 +103,16 @@ function ProjectLayout() {
           enabled={value.github !== null}
         />
         <ProjectSetupSlot orgSlug={orgSlug} slug={slug} project={value} />
-        <div className={cn("relative isolate flex flex-1 flex-col gap-3")}>
+        <div
+          data-page-banner={value.banner ? "" : undefined}
+          className={cn("relative isolate flex flex-1 flex-col gap-3")}
+        >
           <ProjectBanner
             orgSlug={orgSlug}
             slug={slug}
             banner={value.banner}
             waiting={waiting && projectUpdate.waiting}
+            pageBackdrop
           />
           <Outlet />
           <RetainedProjectViews
@@ -174,15 +178,6 @@ function ProjectSetupRail({
     (gitStates.value.tokenStatus !== "ok" ||
       gitStates.value.repoStatus === "gone")
   const items = [
-    !project.setup.workflowReviewedAt
-      ? {
-          key: "workflow",
-          to: "/orgs/$orgSlug/projects/$slug/settings/workflow" as const,
-          label: m.project_setup_review_workflow(),
-          icon: Workflow,
-          dismiss: null
-        }
-      : null,
     project.members.length < 2 && !project.setup.invitePeopleDismissedAt
       ? {
           key: "invite",
@@ -228,7 +223,7 @@ function ProjectSetupRail({
               <Link
                 to={item.to}
                 params={{ orgSlug, slug }}
-                className="flex items-center gap-2.5 rounded-lg px-3 py-2 pr-8 text-[13px] text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 pr-8 text-[13px] text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
               >
                 <Icon className="size-4" strokeWidth={1.75} />
                 <span className="min-w-0 flex-1 truncate">{item.label}</span>

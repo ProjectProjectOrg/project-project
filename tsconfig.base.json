@@ -29,6 +29,7 @@
           "effect/cluster",
           "effect/http",
           "effect/http-api",
+          "effect/net",
           "effect/reactivity",
           "effect/sql",
           "effect/workflow",

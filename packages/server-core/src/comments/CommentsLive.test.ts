@@ -1,10 +1,12 @@
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { randomUUID } from "node:crypto"
 
+import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import { it } from "@effect/vitest"
 import { Db } from "@pp/db"
 import { DbLive, migrationsFolder, PgLive } from "@pp/db"
 import {
+  ActivityActor,
   CommentId,
   TicketId,
   TicketStatus,
@@ -100,6 +102,8 @@ const FakeProjects = Layer.succeed(Projects, {
   cancelPendingMember: () => unexpected("Projects.cancelPendingMember"),
   unassignUserFromActiveTickets: () =>
     unexpected("Projects.unassignUserFromActiveTickets"),
+  unassignUserFromOrgTickets: () =>
+    unexpected("Projects.unassignUserFromOrgTickets"),
   connectGithub: () => unexpected("Projects.connectGithub"),
   disconnectGithub: () => unexpected("Projects.disconnectGithub")
 } satisfies ProjectsShape)
@@ -122,6 +126,9 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
   findTicketIdsByTag: () => unexpected("TicketIndex.findTicketIdsByTag"),
   findTicketIdsByStatus: () => unexpected("TicketIndex.findTicketIdsByStatus"),
   findTicketsByBranch: () => unexpected("TicketIndex.findTicketsByBranch"),
+  findStackLayers: () => unexpected("TicketIndex.findStackLayers"),
+  stacksFor: () => unexpected("TicketIndex.stacksFor"),
+  findMergesAwaiting: () => unexpected("TicketIndex.findMergesAwaiting"),
   isRepositoryBranchAttached: () => Effect.succeed(false),
   getBranchDeletedAt: () => Effect.succeed(null),
   upsertTicket: () => unexpected("TicketIndex.upsertTicket"),
@@ -185,10 +192,12 @@ const makeLayer = (ticketDocs: TicketDocsShape, database = FakeDb) =>
         FakeProjects,
         FakeTicketIndex,
         FakeUsers,
-        database
+        database,
+        BunCrypto.layer
       )
     ),
-    Layer.merge(Layer.succeed(ProjectScope, scopeFor("user-1")))
+    Layer.merge(Layer.succeed(ProjectScope, scopeFor("user-1"))),
+    Layer.merge(Layer.succeed(ActivityActor, ActivityActor.user("user-1")))
   )
 
 const makeTicketDocs = (

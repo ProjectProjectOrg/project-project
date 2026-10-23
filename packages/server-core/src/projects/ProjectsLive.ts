@@ -3,6 +3,7 @@ import { Effective, Org, Project } from "@pp/access/roles"
 import {
   BASELINE_STATUS_SEED,
   Conflict,
+  GIT_AUTOMATION_SEED,
   deriveProjectIdentity,
   INVITATION_VALID_DAYS,
   Forbidden,
@@ -18,6 +19,7 @@ import {
   OrgScope,
   ProjectScope,
   Validation,
+  type ActivityActor,
   type ProjectScopeShape
 } from "@pp/shared"
 import { and, asc, eq, gt, inArray, sql as sqlFragment } from "drizzle-orm"
@@ -31,10 +33,13 @@ import { ulid } from "ulid"
 
 const decodeUserId = Schema.decodeSync(UserId)
 import { Db } from "@pp/db"
+import { publishedProject } from "@pp/db/projectVisibility"
 import {
   invitation,
+  organization,
   organizationGithubIntegration,
   organizationIntegration,
+  projectGitAutomation,
   projectGithubRepository,
   projectIndex,
   projectIntegrationLink,
@@ -48,7 +53,8 @@ import type {
   Member,
   PendingProjectMember,
   ProjectDetail,
-  ProjectSetup
+  ProjectSetup,
+  EstimationMode
 } from "@pp/shared"
 
 import { Access } from "../access/Access"
@@ -58,6 +64,11 @@ import type { TicketDocument } from "../tickets/TicketDocs"
 import { TicketDocs } from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import { TicketIndex } from "../tickets/TicketIndex"
+import {
+  clearedPrMetadata,
+  hasPrMetadata,
+  prMetadataOf
+} from "../tickets/ticketPrMetadata"
 import { Users } from "../users/Users"
 import { bannerNeedsPlaceholder } from "./bannerPlaceholder"
 import { BannerPlaceholders } from "./BannerPlaceholders"
@@ -71,6 +82,7 @@ import {
   type ProjectGithubIntegration,
   type ProjectsShape
 } from "./Projects"
+import { readProjectDocument } from "./readProjectDocument"
 
 const MAX_SLUG_ATTEMPTS = 100
 const makeRole = Schema.decodeUnknownSync(Role)
@@ -564,7 +576,8 @@ export const ProjectsLive = Layer.effect(
       key: ProjectKey,
       body: string,
       connection: GithubConnection | null,
-      setup: ProjectSetup
+      setup: ProjectSetup,
+      estimation: EstimationMode
     ): Effect.Effect<void, MarkdownError> =>
       projectDocs.write(orgSlug, slug, {
         org: orgSlug,
@@ -576,6 +589,7 @@ export const ProjectsLive = Layer.effect(
         createdBy,
         createdAt,
         github: connection,
+        estimation,
         setup,
         body
       })
@@ -669,6 +683,17 @@ export const ProjectsLive = Layer.effect(
                       }))
                     )
                     .pipe(Effect.orDie)
+
+                  yield* db
+                    .insert(projectGitAutomation)
+                    .values(
+                      GIT_AUTOMATION_SEED.map((rule) => ({
+                        projectId: inserted.id,
+                        event: rule.event,
+                        statusSlug: rule.statusSlug
+                      }))
+                    )
+                    .pipe(Effect.orDie)
                   return inserted
                 })
               )
@@ -690,7 +715,8 @@ export const ProjectsLive = Layer.effect(
               key,
               `# ${input.name}\n`,
               null,
-              defaultSetup()
+              defaultSetup(),
+              "off"
             ).pipe(
               Effect.catch((cause) =>
                 rollback.pipe(Effect.andThen(Effect.die(cause)))
@@ -722,7 +748,11 @@ export const ProjectsLive = Layer.effect(
           orgSlug,
           { slug, userId },
           Effect.gen(function* () {
-            const file = yield* projectDocs.read(orgSlug, slug)
+            const file = yield* readProjectDocument({
+              db,
+              docs: projectDocs,
+              project: scope
+            })
             const members = yield* loadMembers(indexRow.id)
             const pendingMembers = yield* loadPendingMembers(indexRow.id)
             const connection = yield* loadGithubConnection(indexRow)
@@ -745,6 +775,7 @@ export const ProjectsLive = Layer.effect(
               banner,
               iconImage: indexRow.iconImage ?? null,
               setup: file.setup,
+              estimation: file.estimation,
               body: file.body,
               members,
               pendingMembers
@@ -771,7 +802,11 @@ export const ProjectsLive = Layer.effect(
           { slug, userId },
           Effect.gen(function* () {
             const { indexRow } = yield* inScope
-            const file = yield* projectDocs.read(orgSlug, slug)
+            const file = yield* readProjectDocument({
+              db,
+              docs: projectDocs,
+              project: scope
+            })
             const connection = yield* loadGithubConnection(indexRow)
 
             const nextBanner =
@@ -815,6 +850,7 @@ export const ProjectsLive = Layer.effect(
             const nextBody = input.body ?? file.body
             const nextIcon = input.icon ?? makeProjectIcon(indexRow.icon)
             const nextColor = input.color ?? makeProjectColor(indexRow.color)
+            const nextEstimation = input.estimation ?? file.estimation
 
             const dbPatch: Partial<typeof projectIndex.$inferInsert> = {}
             if (input.banner !== undefined) dbPatch.banner = nextBanner
@@ -827,6 +863,9 @@ export const ProjectsLive = Layer.effect(
             }
             if (input.color !== undefined && input.color !== indexRow.color) {
               dbPatch.color = nextColor
+            }
+            if (nextEstimation !== file.estimation) {
+              dbPatch.estimation = nextEstimation
             }
             if (Object.keys(dbPatch).length > 0) {
               yield* db
@@ -849,7 +888,8 @@ export const ProjectsLive = Layer.effect(
               makeProjectKey(indexRow.key),
               nextBody,
               connection,
-              file.setup
+              file.setup,
+              nextEstimation
             )
 
             return presentDetail(scope, {
@@ -865,6 +905,7 @@ export const ProjectsLive = Layer.effect(
               banner: nextBanner,
               iconImage: nextIconImage,
               setup: file.setup,
+              estimation: nextEstimation,
               body: nextBody,
               members,
               pendingMembers
@@ -883,7 +924,11 @@ export const ProjectsLive = Layer.effect(
           { slug, userId },
           Effect.gen(function* () {
             const { indexRow } = yield* inScope
-            const file = yield* projectDocs.read(orgSlug, slug)
+            const file = yield* readProjectDocument({
+              db,
+              docs: projectDocs,
+              project: scope
+            })
             const connection = yield* loadGithubConnection(indexRow)
             const members = yield* loadMembers(indexRow.id)
             const pendingMembers = yield* loadPendingMembers(indexRow.id)
@@ -899,7 +944,8 @@ export const ProjectsLive = Layer.effect(
               makeProjectKey(indexRow.key),
               file.body,
               connection,
-              setup
+              setup,
+              file.estimation
             )
             return presentDetail(scope, {
               org: orgSlug,
@@ -912,6 +958,7 @@ export const ProjectsLive = Layer.effect(
               createdAt: indexRow.createdAt,
               github: connection,
               setup,
+              estimation: file.estimation,
               banner: indexRow.banner ?? null,
               iconImage: indexRow.iconImage ?? null,
               body: file.body,
@@ -974,7 +1021,11 @@ export const ProjectsLive = Layer.effect(
         Effect.gen(function* () {
           const { scope, indexRow } = yield* inScope
           const { orgSlug, slug } = scope
-          const file = yield* projectDocs.read(orgSlug, slug)
+          const file = yield* readProjectDocument({
+            db,
+            docs: projectDocs,
+            project: scope
+          })
           const connection = yield* loadGithubConnection(indexRow)
           const members = yield* loadMembers(indexRow.id)
           const pendingMembers = yield* loadPendingMembers(indexRow.id)
@@ -989,7 +1040,8 @@ export const ProjectsLive = Layer.effect(
             makeProjectKey(indexRow.key),
             file.body,
             connection,
-            file.setup
+            file.setup,
+            file.estimation
           )
           return presentDetail(rescoped(scope, members), {
             org: orgSlug,
@@ -1004,6 +1056,7 @@ export const ProjectsLive = Layer.effect(
             banner: indexRow.banner ?? null,
             iconImage: indexRow.iconImage ?? null,
             setup: file.setup,
+            estimation: file.estimation,
             body: file.body,
             members,
             pendingMembers
@@ -1016,18 +1069,12 @@ export const ProjectsLive = Layer.effect(
       orgSlug: string,
       slug: string,
       userId: string
-    ): Effect.Effect<void> =>
+    ): Effect.Effect<void, never, ActivityActor> =>
       Effect.gen(function* () {
         const project = yield* ticketIndex
           .projectFor(orgSlug, slug)
           .pipe(Effect.orDie)
-        const tickets = yield* ticketIndex.list(project)
-        const ids = tickets
-          .filter(
-            (ticket) =>
-              ticket.status !== "done" && ticket.assignees.includes(userId)
-          )
-          .map((ticket) => ticket.id)
+        const ids = yield* ticketDocs.listIds(orgSlug, slug).pipe(Effect.orDie)
         yield* Effect.forEach(
           ids,
           (id) =>
@@ -1051,7 +1098,8 @@ export const ProjectsLive = Layer.effect(
                     }))
                   )
                 },
-                (next) => ticketIndex.upsertTicket(project, next)
+                (next) => ticketIndex.upsertTicket(project, next),
+                { cause: "member_removed" }
               )
               .pipe(
                 Effect.catchTag("NotFound", () => Effect.succeed(null)),
@@ -1072,11 +1120,33 @@ export const ProjectsLive = Layer.effect(
         )
       })
 
+    const unassignUserFromOrgTickets = (
+      orgSlug: string,
+      userId: string
+    ): Effect.Effect<void, never, ActivityActor> =>
+      Effect.gen(function* () {
+        const projects = yield* db
+          .select({ slug: projectIndex.slug })
+          .from(projectIndex)
+          .innerJoin(
+            organization,
+            eq(organization.id, projectIndex.organizationId)
+          )
+          .where(and(eq(organization.slug, orgSlug), publishedProject()))
+          .pipe(Effect.orDie)
+        yield* Effect.forEach(
+          projects,
+          (project) =>
+            unassignUserFromActiveTickets(orgSlug, project.slug, userId),
+          { concurrency: 4, discard: true }
+        )
+      })
+
     const withClearedTicketPrMetadata = <A, E, R>(
       orgSlug: string,
       slug: string,
       switchRepository: Effect.Effect<A, E, R>
-    ): Effect.Effect<A, E | MarkdownError, R> =>
+    ): Effect.Effect<A, E | MarkdownError, R | ActivityActor> =>
       Effect.gen(function* () {
         const project = yield* ticketIndex
           .projectFor(orgSlug, slug)
@@ -1097,19 +1167,11 @@ export const ProjectsLive = Layer.effect(
                   )
               })
             )
-            if (
-              ticket === null ||
-              (ticket.pr === null &&
-                ticket.prState === null &&
-                ticket.lastTransitionedPr === null)
-            ) {
+            if (ticket === null || !hasPrMetadata(ticket)) {
               continue
             }
             const next = {
-              ...ticket,
-              pr: null,
-              prState: null,
-              lastTransitionedPr: null,
+              ...clearedPrMetadata(ticket),
               updatedAt: yield* DateTime.nowAsDate
             }
             yield* ticketDocs
@@ -1120,16 +1182,15 @@ export const ProjectsLive = Layer.effect(
                 (current) =>
                   Effect.succeed({
                     ...current,
-                    pr: next.pr,
-                    prState: next.prState,
-                    lastTransitionedPr: next.lastTransitionedPr,
+                    ...prMetadataOf(next),
                     updatedAt: next.updatedAt
                   }),
                 (updated) =>
                   Effect.gen(function* () {
                     originals.push(ticket)
                     yield* ticketIndex.upsertTicket(project, updated)
-                  })
+                  }),
+                { silent: true }
               )
               .pipe(
                 Effect.catchTags({
@@ -1155,12 +1216,11 @@ export const ProjectsLive = Layer.effect(
                   (current) =>
                     Effect.succeed({
                       ...current,
-                      pr: ticket.pr,
-                      prState: ticket.prState,
-                      lastTransitionedPr: ticket.lastTransitionedPr,
+                      ...prMetadataOf(ticket),
                       updatedAt: ticket.updatedAt
                     }),
-                  (restored) => ticketIndex.upsertTicket(project, restored)
+                  (restored) => ticketIndex.upsertTicket(project, restored),
+                  { silent: true }
                 ),
               { discard: true }
             ).pipe(Effect.orDie)
@@ -1851,6 +1911,7 @@ export const ProjectsLive = Layer.effect(
       leave,
       cancelPendingMember,
       unassignUserFromActiveTickets,
+      unassignUserFromOrgTickets,
       connectGithub,
       disconnectGithub
     } satisfies ProjectsShape

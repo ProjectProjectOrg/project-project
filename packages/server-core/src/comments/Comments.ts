@@ -1,4 +1,5 @@
 import type {
+  ActivityActor,
   Comment,
   CommentId,
   CreateCommentInput,
@@ -65,7 +66,7 @@ export type CommentsShape = Readonly<{
     | MentionInvalid
     | MarkdownError
     | MalformedTicketDocument,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
   importHistorical: (
     ticketId: TicketId,
@@ -78,7 +79,7 @@ export type CommentsShape = Readonly<{
     | MentionInvalid
     | MarkdownError
     | MalformedTicketDocument,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
   edit: (
     ticketId: TicketId,
@@ -92,7 +93,7 @@ export type CommentsShape = Readonly<{
     | MentionInvalid
     | MarkdownError
     | MalformedTicketDocument,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
   remove: (
     ticketId: TicketId,
@@ -100,7 +101,7 @@ export type CommentsShape = Readonly<{
   ) => Effect.Effect<
     void,
     Forbidden | NotFound | MarkdownError | MalformedTicketDocument,
-    ProjectScope
+    ProjectScope | ActivityActor
   >
 }>
 

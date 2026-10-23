@@ -45,7 +45,7 @@ export function ActiveSprintLine({
     <Link
       to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
       params={{ orgSlug, slug, groupId: active.id }}
-      className="-mx-1 inline-flex w-fit items-center gap-1.5 rounded px-1 text-xs text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+      className="-mx-1 inline-flex w-fit items-center gap-1.5 rounded px-1 text-xs text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
     >
       <SprintStateIcon sprint={active} size="xs" />
       <span className="font-mono">{summary}</span>

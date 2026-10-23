@@ -358,7 +358,7 @@ function ConnectedProjectTimerIndicator({
       aria-label={
         timer ? m.time_timer_running_on({ label }) : m.time_timer_open()
       }
-      className="flex max-w-full min-w-0 items-center gap-2 rounded-lg bg-accent/60 px-2 py-1 text-left transition-colors transition-transform duration-100 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+      className="flex max-w-full min-w-0 items-center gap-2 rounded-lg bg-accent/60 px-2 py-1 text-left transition-colors transition-transform duration-100 outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
     >
       <Timer
         className="size-4 shrink-0 text-muted-foreground"
@@ -488,8 +488,8 @@ function SprintSelect({
         aria-label={m.time_sprint_label()}
       />
       <SelectContent>
-        {sprints.map((sprint, index) => (
-          <SelectItem key={sprint.id} index={index} value={sprint.id}>
+        {sprints.map((sprint) => (
+          <SelectItem key={sprint.id} value={sprint.id}>
             {sprint.name}
           </SelectItem>
         ))}

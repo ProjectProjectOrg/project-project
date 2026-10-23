@@ -10,11 +10,11 @@ import {
   type ProjectScopeShape
 } from "@pp/shared"
 import { eq, inArray } from "drizzle-orm"
+import * as Crypto from "effect/Crypto"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
-import { ulid } from "ulid"
 
 import type { MarkdownError } from "../markdown/Markdown"
 import { Projects } from "../projects/Projects"
@@ -37,7 +37,6 @@ import {
 } from "./comments-region"
 
 const decodeCommentId = Schema.decodeUnknownSync(CommentId)
-const newCommentId = (): CommentId => decodeCommentId(`c_${ulid()}`)
 
 export const CommentsLive = Layer.effect(
   Comments,
@@ -47,6 +46,12 @@ export const CommentsLive = Layer.effect(
     const ticketIndex = yield* TicketIndex
     const ticketDocs = yield* TicketDocs
     const users = yield* Users
+    const crypto = yield* Crypto.Crypto
+
+    const newCommentId: Effect.Effect<CommentId> = crypto.randomULID.pipe(
+      Effect.orDie,
+      Effect.map((id) => decodeCommentId(`c_${id}`))
+    )
 
     const validateBody = (orgSlug: string, slug: string, body: string) =>
       validateBodyMentionsWithLookups(body, {
@@ -181,7 +186,7 @@ export const CommentsLive = Layer.effect(
           return yield* new InvalidCommentBody({ reason: validation.reason })
         }
         yield* validateBody(orgSlug, slug, input.body)
-        const id = newCommentId()
+        const id = yield* newCommentId
         const now = yield* DateTime.nowAsDate
 
         yield* db
@@ -276,15 +281,18 @@ export const CommentsLive = Layer.effect(
           }
         }
 
-        const blocks = input.map(
-          (comment): CommentBlock => ({
-            id: newCommentId(),
-            author: comment.author,
-            origin: "jira",
-            body: comment.body,
-            createdAt: comment.createdAt,
-            editedAt: comment.editedAt
-          })
+        const blocks = yield* Effect.forEach(input, (comment) =>
+          Effect.map(
+            newCommentId,
+            (id): CommentBlock => ({
+              id,
+              author: comment.author,
+              origin: "jira",
+              body: comment.body,
+              createdAt: comment.createdAt,
+              editedAt: comment.editedAt
+            })
+          )
         )
         if (blocks.length === 0) return []
         const ids = blocks.map((block) => block.id)

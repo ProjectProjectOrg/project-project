@@ -116,7 +116,7 @@ const recentQuery = (scoped: ScopedRequest) =>
     timeToLive: "2 minutes",
     reactivityKeys: [
       ...listensTo(scoped),
-      ...scoped.scopes.map(Keys.ticketActivity)
+      ...scoped.scopes.map(Keys.ticketComments)
     ]
   })
 

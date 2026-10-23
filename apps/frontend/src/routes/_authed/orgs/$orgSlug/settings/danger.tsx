@@ -6,6 +6,12 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { useState, type FormEvent } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
+import {
+  SettingsGroup,
+  SettingsRow,
+  SettingsSection
+} from "@/components/settings/SettingsSection"
+import { SettingsSkeleton } from "@/components/settings/SettingsSkeleton"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { setActiveOrganization } from "@/features/auth/atoms/auth"
@@ -32,16 +38,21 @@ function DangerSettings() {
   const canDelete = useOrgActor(orgSlug).call("org", "softDelete")
 
   return Result.matchWithError(result, {
-    onInitial: () => <DangerSkeleton />,
+    onInitial: () => <SettingsSkeleton rows={2} />,
     onError: (error) => <ErrorPage error={error} contained />,
     onDefect: (defect) => <ErrorPage error={defect} contained />,
     onSuccess: ({ value }) =>
       canDelete ? (
         <DeleteCard orgSlug={orgSlug} org={value} />
       ) : (
-        <div className="rounded-xl border border-border bg-background p-5 text-sm text-muted-foreground">
-          {m.org_danger_owner_only()}
-        </div>
+        <SettingsSection>
+          <SettingsGroup>
+            <SettingsRow
+              label={m.org_danger_delete_heading()}
+              description={m.org_danger_owner_only()}
+            />
+          </SettingsGroup>
+        </SettingsSection>
       )
   })
 }
@@ -80,57 +91,49 @@ function DeleteCard({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
   }
 
   return (
-    <div className="flex w-full flex-col gap-4 rounded-xl border border-destructive/30 bg-destructive/[0.03] p-5">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-base font-semibold tracking-tight text-destructive">
-          {m.org_danger_delete_heading()}
-        </h2>
-        <p className="max-w-[65ch] text-sm leading-relaxed text-muted-foreground">
-          {m.org_danger_delete_description({ days: ORG_DELETE_GRACE_DAYS })}
-        </p>
-      </div>
-
-      <form onSubmit={onSubmit} className="flex flex-col gap-3">
-        <label
-          htmlFor="org-delete-confirm"
-          className="text-sm font-medium text-foreground"
+    <SettingsSection>
+      <SettingsGroup>
+        <SettingsRow
+          layout="stacked"
+          label={m.org_danger_delete_heading()}
+          description={m.org_danger_delete_description({
+            days: ORG_DELETE_GRACE_DAYS
+          })}
+          error={error}
         >
-          {m.org_danger_delete_confirm_label({ slug: org.slug })}
-        </label>
-        <Input
-          id="org-delete-confirm"
-          value={confirm}
-          onChange={(event) => setConfirm(event.target.value)}
-          disabled={submitting}
-          placeholder={org.slug}
-          autoComplete="off"
-          autoCapitalize="off"
-          spellCheck={false}
-          className="max-w-sm font-mono"
-        />
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        <Button
-          type="submit"
-          variant="destructive"
-          className="w-fit"
-          disabled={!canDelete}
-        >
-          {submitting
-            ? m.org_danger_delete_in_progress()
-            : m.org_danger_delete_button()}
-        </Button>
-      </form>
-    </div>
-  )
-}
-
-function DangerSkeleton() {
-  return (
-    <div className="flex w-full flex-col gap-4 rounded-xl border border-border p-5">
-      <div className="h-5 w-48 animate-pulse rounded bg-muted" />
-      <div className="h-4 w-full max-w-[60ch] animate-pulse rounded bg-muted" />
-      <div className="h-8 w-full max-w-sm animate-pulse rounded-md bg-muted" />
-      <div className="h-9 w-40 animate-pulse rounded-md bg-muted" />
-    </div>
+          <form onSubmit={onSubmit} className="flex w-full flex-col gap-2">
+            <label
+              htmlFor="org-delete-confirm"
+              className="text-xs text-muted-foreground"
+            >
+              {m.org_danger_delete_confirm_label({ slug: org.slug })}
+            </label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="org-delete-confirm"
+                value={confirm}
+                onChange={(event) => setConfirm(event.target.value)}
+                disabled={submitting}
+                placeholder={org.slug}
+                autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                className="w-64 font-mono"
+              />
+              <Button
+                type="submit"
+                variant="destructive"
+                size="sm"
+                disabled={!canDelete}
+              >
+                {submitting
+                  ? m.org_danger_delete_in_progress()
+                  : m.org_danger_delete_button()}
+              </Button>
+            </div>
+          </form>
+        </SettingsRow>
+      </SettingsGroup>
+    </SettingsSection>
   )
 }

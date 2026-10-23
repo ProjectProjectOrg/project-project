@@ -52,7 +52,12 @@ const snapshot = (count: number): SprintSectionsValue => ({
   total: count,
   counts: { total: count, byStatus: {} },
   sections: [
-    { key: "unscheduled", count, page: { items: [], nextCursor: null } }
+    {
+      key: "unscheduled",
+      count,
+      estimates: null,
+      page: { items: [], nextCursor: null }
+    }
   ]
 })
 const props: ComponentProps<typeof SprintSections> = {

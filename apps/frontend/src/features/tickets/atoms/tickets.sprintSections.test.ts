@@ -1,4 +1,5 @@
 import {
+  type EstimateSummary,
   GroupId,
   padNumericIdSort,
   SPRINT_SECTION_UNSCHEDULED,
@@ -30,6 +31,7 @@ const ticket = {
   status: Schema.decodeSync(TicketStatus)("todo"),
   type: "chore",
   priority: "med",
+  estimate: null,
   tags: [],
   branch: null,
   pr: null,
@@ -58,7 +60,8 @@ const serverRow = (t: Ticket, key: string = idKey(t)) => ({
 
 function snapshot(
   items: ReadonlyArray<Ticket>,
-  nextCursor: string | null = null
+  nextCursor: string | null = null,
+  estimates: EstimateSummary | null = null
 ) {
   const byStatus: Record<string, number> = {}
   for (const item of items)
@@ -70,6 +73,7 @@ function snapshot(
       {
         key: groupId,
         count: items.length,
+        estimates,
         page: { items: items.map((item) => serverRow(item)), nextCursor }
       },
       {
@@ -168,7 +172,8 @@ describe("ticket sprint sections", () => {
     const mutation = updateSprintSectionsTicket({
       req,
       id: ticket.id,
-      viewerId
+      viewerId,
+      estimation: "off"
     })
     registry.mount(view)
     registry.mount(mutation)
@@ -191,6 +196,52 @@ describe("ticket sprint sections", () => {
     }
   })
 
+  it("shifts the section's estimate totals with an optimistic estimate and status change", async () => {
+    const done = Schema.decodeSync(TicketStatus)("done")
+    fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) =>
+      init?.method === "PATCH"
+        ? new Promise<Response>(() => {})
+        : Promise.resolve(
+            snapshot([ticket], null, {
+              unit: "points",
+              committed: 0,
+              done: 0,
+              unestimated: 1
+            })
+          )
+    )
+    const registry = AtomRegistry.make()
+    const view = sprintSections(req)
+    const mutation = updateSprintSectionsTicket({
+      req,
+      id: ticket.id,
+      viewerId,
+      estimation: "points"
+    })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(mutation, {
+        estimate: { unit: "points", value: 5 },
+        status: done
+      })
+      expect(sprintSection(registry.get(view), groupId)?.estimates).toEqual({
+        unit: "points",
+        committed: 5,
+        done: 5,
+        unestimated: 0
+      })
+    } finally {
+      registry.dispose()
+    }
+  })
+
   it("removes a ticket from filtered totals when its status changes", async () => {
     const filteredReq = sprintSectionsRequest("org", "project", {
       ...query,
@@ -206,7 +257,8 @@ describe("ticket sprint sections", () => {
     const mutation = updateSprintSectionsTicket({
       req: filteredReq,
       id: ticket.id,
-      viewerId
+      viewerId,
+      estimation: "off"
     })
     registry.mount(view)
     registry.mount(mutation)
@@ -263,7 +315,8 @@ describe("ticket sprint sections", () => {
       const mutation = updateSprintSectionsTicket({
         req: filteredReq,
         id: ticket.id,
-        viewerId
+        viewerId,
+        estimation: "off"
       })
       registry.mount(view)
       registry.mount(mutation)
@@ -314,7 +367,8 @@ describe("ticket sprint sections", () => {
         clientId: "new-ticket",
         ticket: { title: "New", type: "chore", status: doing },
         viewerId: "user-1",
-        projectPrefix: "T"
+        projectPrefix: "T",
+        estimation: "off"
       })
       const result = registry.get(view)
       if (!AsyncResult.isSuccess(result)) throw new Error("no optimistic value")
@@ -356,7 +410,8 @@ describe("ticket sprint sections", () => {
         clientId: "new-ticket",
         ticket: { title: "New", type: "chore" },
         viewerId: "user-1",
-        projectPrefix: "T"
+        projectPrefix: "T",
+        estimation: "off"
       })
       const result = registry.get(view)
       if (!AsyncResult.isSuccess(result)) throw new Error("no optimistic value")

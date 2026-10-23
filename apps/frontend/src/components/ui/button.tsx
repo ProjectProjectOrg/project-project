@@ -12,6 +12,8 @@ import {
 
 import type { IconComponent } from "@/lib/icon-context"
 import { useShape } from "@/lib/shape-context"
+import { SURFACE_BG } from "@/lib/surface-classes"
+import { useSurface } from "@/lib/surface-context"
 import { cn } from "@/lib/utils"
 
 import {
@@ -31,14 +33,12 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        "option-picker":
-          "w-40 min-w-0 shrink-0 justify-between border border-border bg-muted/40 text-foreground hover:bg-accent",
         "appearance-row":
-          "w-full justify-start text-left whitespace-normal hover:bg-accent/40",
+          "w-full justify-start text-left whitespace-normal hover:bg-hover motion-safe:active:scale-100",
         "selection-card":
-          "flex-1 justify-start border border-border text-left whitespace-normal hover:bg-accent/40 aria-pressed:border-foreground",
+          "flex-1 justify-start border border-border text-left whitespace-normal hover:bg-hover aria-pressed:border-foreground",
         dropzone:
-          "flex-col border border-dashed border-border whitespace-normal hover:bg-accent/40 data-[dragging=true]:border-ring data-[dragging=true]:bg-accent/60",
+          "flex-col border border-dashed border-border whitespace-normal hover:bg-hover data-[dragging=true]:border-ring data-[dragging=true]:bg-accent/60",
         "artwork-option":
           "group/reveal flex-col items-stretch text-left whitespace-normal",
 
@@ -46,30 +46,29 @@ const buttonVariants = cva(
           "overflow-hidden bg-muted ring-1 ring-border hover:ring-ring aria-pressed:ring-2 aria-pressed:ring-foreground",
         primary:
           "bg-foreground text-background hover:bg-foreground/90 active:bg-foreground/80",
-        secondary:
-          "bg-accent text-foreground hover:bg-accent/80 active:bg-accent",
+        secondary: "bg-tint text-foreground hover:bg-tint-hover active:bg-tint",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90 active:bg-destructive/80",
         tertiary:
-          "border border-border bg-transparent text-foreground hover:bg-muted active:bg-muted/60",
+          "border border-border text-foreground hover:bg-[image:linear-gradient(var(--hover),var(--hover))] active:bg-[image:linear-gradient(var(--active),var(--active))]",
         ghost:
-          "bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground active:bg-muted/60",
-        step: "w-full justify-start rounded-xl bg-transparent text-left text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+          "bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-active",
+        step: "w-full justify-start rounded-xl bg-transparent text-left text-muted-foreground hover:bg-hover hover:text-foreground",
         raised:
           "bg-surface-5 text-foreground shadow-surface-1 hover:bg-surface-7 hover:shadow-surface-1-hover active:bg-surface-6",
         "sidebar-link":
-          "w-fit max-w-full justify-start bg-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground active:bg-accent",
+          "w-fit max-w-full justify-start bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-accent",
         "inline-help":
-          "ml-1 bg-transparent align-middle text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground active:bg-muted/60",
-        chip: "bg-transparent text-foreground hover:bg-accent hover:text-foreground active:bg-accent/80",
+          "bg-transparent align-middle text-[11px] font-medium text-muted-foreground hover:bg-hover hover:text-foreground active:bg-active data-[popup-open]:bg-active data-[popup-open]:text-foreground",
+        chip: "bg-transparent text-foreground hover:bg-hover active:bg-accent/80",
         "block-grip":
-          "bg-transparent text-muted-foreground hover:bg-accent active:bg-accent/80",
+          "bg-transparent text-muted-foreground hover:bg-hover active:bg-accent/80",
         "template-start":
-          "border border-border/70 bg-background/60 text-foreground hover:border-border hover:bg-accent active:bg-accent/80",
+          "border border-border/70 bg-background/60 text-foreground hover:border-border hover:bg-hover active:bg-accent/80",
         "template-more":
-          "bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground active:bg-accent/80",
+          "bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-accent/80",
         overlay:
-          "bg-background text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground active:bg-accent/80",
+          "bg-background text-muted-foreground shadow-sm hover:bg-hover hover:text-foreground active:bg-accent/80",
         "overlay-destructive":
           "bg-background text-muted-foreground shadow-sm hover:bg-destructive-light hover:text-destructive active:bg-destructive-light/80",
         dither: "overflow-hidden bg-transparent"
@@ -110,7 +109,12 @@ const buttonVariants = cva(
       { size: "lg", iconRight: true, className: "pr-[14px]" },
       {
         variant: "chip",
-        className: "h-auto gap-1.5 rounded-md px-1.5 py-0.5 text-[13px]"
+        className: "h-8 gap-1.5 px-2.5 text-[13px]"
+      },
+      {
+        variant: "chip",
+        size: "icon-sm",
+        className: "w-8 px-0 [&_svg]:size-4"
       },
       {
         variant: ["template-start", "template-more"],
@@ -206,6 +210,7 @@ function Button({
           ? "size-6"
           : "size-5"
   const shape = useShape()
+  const surface = useSurface()
 
   const compClassName = cn(
     buttonVariants({
@@ -214,6 +219,7 @@ function Button({
       iconLeft: !isIconOnly && !!LeadingIcon,
       iconRight: !isIconOnly && !!TrailingIcon
     }),
+    variant === "tertiary" && SURFACE_BG[Math.min(surface + 2, 8)],
     shape.button,
     className
   )

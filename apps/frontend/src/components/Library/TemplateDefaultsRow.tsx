@@ -9,6 +9,7 @@ import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { ChevronDown } from "lucide-react"
 import { useState } from "react"
 
+import { SettingsGroup } from "@/components/settings/SettingsSection"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,7 +36,7 @@ export function TemplateDefaultsRow({
   const headingId = "library-defaults-heading"
 
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-3">
+    <section aria-labelledby={headingId} className="flex flex-col gap-2">
       <LibrarySectionHeader
         id={headingId}
         title={m.templates_settings_defaults_label()}
@@ -45,7 +46,7 @@ export function TemplateDefaultsRow({
             : m.templates_settings_defaults_description()
         }
       />
-      <ul className="flex flex-col divide-y divide-border rounded-lg border border-border bg-background">
+      <SettingsGroup render={<ul />} className="flex flex-col">
         {TICKET_TYPES.map((type) => (
           <DefaultRow
             key={type}
@@ -56,7 +57,7 @@ export function TemplateDefaultsRow({
             onSettled={setError}
           />
         ))}
-      </ul>
+      </SettingsGroup>
       {error === null ? null : (
         <p role="alert" className="text-xs text-destructive">
           {error}
@@ -146,7 +147,7 @@ function DefaultRow({
               aria-label={m.templates_settings_defaults_aria({
                 type: TYPE_LABELS[type]()
               })}
-              className="inline-flex h-8 min-w-0 items-center gap-1.5 rounded-md px-2 transition-all duration-100 hover:bg-accent active:scale-[0.97] data-[popup-open]:bg-accent"
+              className="inline-flex h-8 min-w-0 items-center gap-1.5 rounded-md px-2 transition-all duration-100 hover:bg-hover active:scale-[0.97] data-[popup-open]:bg-active"
             >
               {value}
               <ChevronDown

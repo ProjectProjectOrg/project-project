@@ -35,15 +35,16 @@
     "@effect/sql-pg": "4.0.5",
     "@pp/access": "workspace:*",
     "@pp/db": "workspace:*",
+    "@pp/integration-slack": "workspace:*",
     "@pp/server-core": "workspace:*",
     "@pp/shared": "workspace:*",
     "better-auth": "1.7.3",
     "better-call": "1.4.0",
-    "drizzle-orm": "1.0.0-rc.5-169397b",
+    "drizzle-orm": "1.0.0-rc.5",
     "effect": "4.0.5",
     "gray-matter": "^4.0.3",
     "pg": "^8.20.0",
-    "sharp": "^0.34.4"
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@effect/vitest": "4.0.5",

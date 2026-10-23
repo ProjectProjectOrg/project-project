@@ -1,18 +1,24 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { ProjectStatus, StatusSlug } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Check, ChevronDown, Trash2 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { ChevronDown, Trash2 } from "lucide-react"
+import { useMemo, useState, type ReactNode } from "react"
 
+import { ErrorPage } from "@/components/ErrorPage"
 import { Button } from "@/components/ui/button"
 import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import {
+  gitAutomationFor,
+  gitAutomationRequest
+} from "@/features/projects/atoms/gitAutomation"
 import {
   deleteStatus,
   statusesRequest
@@ -21,16 +27,17 @@ import {
   countsRequest,
   ticketCounts
 } from "@/features/tickets/atoms/ticketCounts"
+import { useProjectActor } from "@/lib/access"
 import { statusLabelFor, statusMetaFor } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-type Props = {
+type Props = Readonly<{
   status: ProjectStatus
   statuses: ReadonlyArray<ProjectStatus>
   orgSlug: string
   slug: string
-}
+}>
 
 export function StatusDeleteConfirm({
   status,
@@ -60,7 +67,52 @@ export function StatusDeleteConfirm({
   )
 }
 
-function ConfirmBody({ status, statuses, orgSlug, slug }: Props) {
+function ConfirmBody(props: Props) {
+  const canReadGitAutomation = useProjectActor().call("gitAutomation", "get")
+  return canReadGitAutomation ? (
+    <AutomationConfirmBody {...props} />
+  ) : (
+    <DeleteStatusForm {...props} automationReady />
+  )
+}
+
+function AutomationConfirmBody(props: Props) {
+  const atom = gitAutomationFor(gitAutomationRequest(props.orgSlug, props.slug))
+  const automation = useAtomValue(atom)
+  const refresh = useAtomRefresh(atom)
+  return (
+    <DeleteStatusForm {...props} automationReady={Result.isSuccess(automation)}>
+      {Result.matchWithError(automation, {
+        onInitial: () => (
+          <output className="text-xs text-muted-foreground">
+            {m.tickets_status_loading()}
+          </output>
+        ),
+        onError: (error) => (
+          <ErrorPage error={error} reset={refresh} contained />
+        ),
+        onDefect: (defect) => (
+          <ErrorPage error={defect} reset={refresh} contained />
+        ),
+        onSuccess: ({ value }) =>
+          Object.values(value.rules).includes(props.status.slug) ? (
+            <span className="inline-flex h-8 items-center text-xs text-muted-foreground">
+              {m.tickets_status_delete_resets_git_automation()}
+            </span>
+          ) : null
+      })}
+    </DeleteStatusForm>
+  )
+}
+
+function DeleteStatusForm({
+  status,
+  statuses,
+  orgSlug,
+  slug,
+  automationReady,
+  children
+}: Props & Readonly<{ automationReady: boolean; children?: ReactNode }>) {
   const { close, busy, setBusy } = useConfirmButton()
   const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
   const remove = useAtomSet(deleteStatus({ req, statusSlug: status.slug }), {
@@ -94,7 +146,8 @@ function ConfirmBody({ status, statuses, orgSlug, slug }: Props) {
     setError(m.tickets_status_delete_error_fallback())
   }
 
-  const blocked = busy || (affectedCount > 0 && !effectiveTarget)
+  const blocked =
+    busy || !automationReady || (affectedCount > 0 && !effectiveTarget)
 
   return (
     <>
@@ -105,6 +158,7 @@ function ConfirmBody({ status, statuses, orgSlug, slug }: Props) {
             })
           : m.tickets_status_delete_confirm_empty()}
       </span>
+      {children}
       {affectedCount > 0 ? (
         <TargetPicker
           targets={targets}
@@ -164,28 +218,25 @@ function TargetPicker({
         }
       />
       <DropdownMenuContent align="start" sideOffset={6} className="w-44">
-        {targets.map((s) => {
-          const meta = statusMetaFor(s.slug, statuses)
-          const Icon = meta.icon
-          const selected = s.slug === value
-          return (
-            <DropdownMenuItem
-              key={s.slug}
-              onClick={() => onChange(s.slug)}
-              className="cursor-pointer"
-            >
-              <Icon
-                className={cn("size-4", meta.className)}
-                style={meta.color ? { color: meta.color } : undefined}
-                strokeWidth={1.75}
-              />
-              {meta.label}
-              {selected ? (
-                <Check className="ml-auto size-3.5 text-muted-foreground" />
-              ) : null}
-            </DropdownMenuItem>
-          )
-        })}
+        <DropdownMenuRadioGroup
+          value={value}
+          onValueChange={(next: string) => onChange(next as typeof value)}
+        >
+          {targets.map((s) => {
+            const meta = statusMetaFor(s.slug, statuses)
+            const Icon = meta.icon
+            return (
+              <DropdownMenuRadioItem key={s.slug} value={s.slug} closeOnClick>
+                <Icon
+                  className={cn("size-4", meta.className)}
+                  style={meta.color ? { color: meta.color } : undefined}
+                  strokeWidth={1.75}
+                />
+                {meta.label}
+              </DropdownMenuRadioItem>
+            )
+          })}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

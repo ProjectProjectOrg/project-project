@@ -17,9 +17,10 @@ import {
   Trash2,
   Trophy
 } from "lucide-react"
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import type { DateRange } from "react-day-picker"
 
+import { ConfirmDeleteForm } from "@/components/ConfirmDeleteForm"
 import { Calendar } from "@/components/ui/calendar"
 import {
   DropdownMenu,
@@ -45,6 +46,7 @@ import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
 import { SprintStateIcon } from "./SprintChip"
+import { SprintEstimateTotals } from "./SprintEstimateTotals"
 
 const shortDateFormatter = () =>
   new Intl.DateTimeFormat(getLocale(), {
@@ -208,7 +210,7 @@ export function SprintNameField({
         disabled={disabled}
         className={cn(
           "-mx-1 truncate rounded px-1 text-left text-2xl font-semibold tracking-tight transition-colors transition-transform duration-100 active:scale-[0.97]",
-          !disabled && "hover:bg-accent/40"
+          !disabled && "hover:bg-hover"
         )}
       >
         {sprint.name}
@@ -277,6 +279,7 @@ export function SprintSubtitle({
           })}
         </span>
       )}
+      <SprintEstimateTotals orgSlug={orgSlug} slug={slug} groupId={sprint.id} />
     </div>
   )
 }
@@ -341,7 +344,7 @@ function SprintDatesField({
         render={
           <button
             type="button"
-            className="-mx-1 rounded px-1 font-mono tabular-nums transition-colors transition-transform duration-100 hover:bg-accent/40 hover:text-foreground active:scale-[0.97]"
+            className="-mx-1 rounded px-1 font-mono tabular-nums transition-colors transition-transform duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
           >
             {label}
           </button>
@@ -389,6 +392,7 @@ export function SprintDeleteMenu({
   const completeTo = (destination: CompleteSprintDestination) =>
     complete({ destination })
   const [confirming, setConfirming] = useState(false)
+  const trigger = useRef<HTMLButtonElement>(null)
 
   async function onDelete() {
     const exit = await remove(undefined)
@@ -401,62 +405,49 @@ export function SprintDeleteMenu({
   }
 
   return (
-    <DropdownMenu onOpenChange={(open) => !open && setConfirming(false)}>
-      <DropdownMenuTrigger
-        render={
-          <button
-            type="button"
-            aria-label={m.sprints_actions_aria_label()}
-            className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
-          >
-            <MoreHorizontal className="size-4" strokeWidth={1.75} />
-          </button>
-        }
-      />
-      <DropdownMenuContent align="end" sideOffset={6} className="w-56">
-        {!confirming ? (
-          <>
-            <DropdownMenuItem
-              render={
-                <Link
-                  to="/orgs/$orgSlug/projects/$slug/settings"
-                  params={{ orgSlug, slug }}
-                />
-              }
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <button
+              ref={trigger}
+              type="button"
+              aria-label={m.sprints_actions_aria_label()}
+              className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
             >
-              <SlidersHorizontal className="size-4" strokeWidth={1.75} />
-              {m.project_detail_tab_settings()}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            {!isCompleted &&
-              (planned ? (
-                <>
-                  <DropdownMenuItem
-                    onClick={() =>
-                      completeTo({ kind: "sprint", groupId: planned.id })
-                    }
-                    disabled={completing || deleting}
-                    className="cursor-pointer"
-                  >
-                    <Trophy
-                      className="size-4 text-state-success"
-                      strokeWidth={1.75}
-                    />
-                    {m.sprints_complete_to_planned({ name: planned.name })}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => completeTo({ kind: "backlog" })}
-                    disabled={completing || deleting}
-                    className="cursor-pointer"
-                  >
-                    <Trophy
-                      className="size-4 text-state-success"
-                      strokeWidth={1.75}
-                    />
-                    {m.sprints_complete_to_backlog()}
-                  </DropdownMenuItem>
-                </>
-              ) : (
+              <MoreHorizontal className="size-4" strokeWidth={1.75} />
+            </button>
+          }
+        />
+        <DropdownMenuContent align="end" sideOffset={6} className="w-56">
+          <DropdownMenuItem
+            render={
+              <Link
+                to="/orgs/$orgSlug/projects/$slug/settings"
+                params={{ orgSlug, slug }}
+              />
+            }
+          >
+            <SlidersHorizontal className="size-4" strokeWidth={1.75} />
+            {m.project_detail_tab_settings()}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {!isCompleted &&
+            (planned ? (
+              <>
+                <DropdownMenuItem
+                  onClick={() =>
+                    completeTo({ kind: "sprint", groupId: planned.id })
+                  }
+                  disabled={completing || deleting}
+                  className="cursor-pointer"
+                >
+                  <Trophy
+                    className="size-4 text-state-success"
+                    strokeWidth={1.75}
+                  />
+                  {m.sprints_complete_to_planned({ name: planned.name })}
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => completeTo({ kind: "backlog" })}
                   disabled={completing || deleting}
@@ -466,49 +457,49 @@ export function SprintDeleteMenu({
                     className="size-4 text-state-success"
                     strokeWidth={1.75}
                   />
-                  {m.sprints_complete_button()}
+                  {m.sprints_complete_to_backlog()}
                 </DropdownMenuItem>
-              ))}
-            <DropdownMenuItem
-              closeOnClick={false}
-              onClick={() => setConfirming(true)}
-              className="cursor-pointer text-destructive focus:text-destructive"
-            >
-              <Trash2 className="size-4" strokeWidth={1.75} />
-              {m.sprints_delete_button()}
-            </DropdownMenuItem>
-          </>
-        ) : (
-          <div className="flex flex-col gap-2 p-1">
-            <p className="px-2 pt-1 text-xs text-muted-foreground">
-              {m.sprints_delete_confirm_prompt()}
-            </p>
-            {deleteFailed && (
-              <p role="alert" className="px-2 text-xs text-destructive">
-                {m.sprints_delete_error_fallback()}
-              </p>
-            )}
-            <div className="flex gap-1 px-1 pb-1">
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={() => void onDelete()}
-                className="flex-1 rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-colors transition-transform duration-100 hover:bg-destructive/90 active:scale-[0.97] disabled:opacity-50"
+              </>
+            ) : (
+              <DropdownMenuItem
+                onClick={() => completeTo({ kind: "backlog" })}
+                disabled={completing || deleting}
+                className="cursor-pointer"
               >
-                {m.common_delete_confirm_button()}
-              </button>
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={() => setConfirming(false)}
-                className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors transition-transform duration-100 hover:bg-accent hover:text-foreground active:scale-[0.97] disabled:opacity-50"
-              >
-                {m.common_cancel_button()}
-              </button>
-            </div>
-          </div>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+                <Trophy
+                  className="size-4 text-state-success"
+                  strokeWidth={1.75}
+                />
+                {m.sprints_complete_button()}
+              </DropdownMenuItem>
+            ))}
+          <DropdownMenuItem
+            onClick={() => setConfirming(true)}
+            variant="destructive"
+            className="cursor-pointer"
+          >
+            <Trash2 className="size-4" strokeWidth={1.75} />
+            {m.sprints_delete_button()}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <Popover open={confirming} onOpenChange={setConfirming}>
+        <PopoverContent
+          anchor={trigger}
+          align="end"
+          sideOffset={6}
+          className="w-72"
+        >
+          <ConfirmDeleteForm
+            title={m.sprints_delete_confirm_title()}
+            description={m.sprints_delete_confirm_description()}
+            error={deleteFailed ? m.sprints_delete_error_fallback() : undefined}
+            waiting={deleting}
+            onConfirm={() => void onDelete()}
+            onCancel={() => setConfirming(false)}
+          />
+        </PopoverContent>
+      </Popover>
+    </>
   )
 }

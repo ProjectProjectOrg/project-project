@@ -22,7 +22,7 @@ const FigmaCallbackQuery = Schema.fromURLSearchParams(
 const profileSettingsUrl = (params?: Record<string, string>) =>
   Effect.gen(function* () {
     const baseUrl = yield* publicBaseUrl.pipe(Effect.orDie)
-    const url = new URL("/profile", baseUrl)
+    const url = new URL("/profile/connections", baseUrl)
     if (params) {
       for (const [key, value] of Object.entries(params)) {
         url.searchParams.set(key, value)

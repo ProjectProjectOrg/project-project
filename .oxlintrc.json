@@ -153,10 +153,52 @@
       "files": [
         "apps/backend/src/projectVisibility.test.ts",
         "apps/backend/src/jira/**/*.test.ts",
-        "packages/server-core/src/jira/**/*.test.ts"
+        "packages/server-core/src/jira/**/*.test.ts",
+        "apps/backend/src/slack/Slack.postgres.test.ts"
       ],
       "rules": {
         "anti-slop-effect/no-manual-effect-runtime-in-tests": "warn"
+      }
+    },
+    {
+      "files": ["packages/integration-slack/src/**/*.ts"],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "@pp/server-core",
+                  "@pp/server-core/**",
+                  "**/server-core/**",
+                  "**/apps/**"
+                ],
+                "message": "Slack consumes PP capabilities through SlackHost; the backend supplies its implementation."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/server-core/src/**/*.ts"],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "@pp/integration-slack",
+                  "@pp/integration-slack/**",
+                  "**/integration-slack/**"
+                ],
+                "message": "Core records provider-neutral events and must not depend on Slack."
+              }
+            ]
+          }
+        ]
       }
     }
   ],

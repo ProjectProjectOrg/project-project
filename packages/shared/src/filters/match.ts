@@ -1,3 +1,5 @@
+import { matchesEstimateFilter } from "../estimates"
+import type { Estimate, EstimationMode } from "../schemas/Estimate"
 import type {
   PullRequestState,
   TicketStatus,
@@ -6,24 +8,26 @@ import type {
 import type { UserId } from "../schemas/User"
 import type { TicketFilter, TicketListQuery } from "./Ticket"
 
-export interface MatchableTicket {
-  readonly id: string
-  readonly title: string
-  readonly status: TicketStatus
-  readonly type: TicketType
-  readonly tags: ReadonlyArray<string>
-  readonly branch: string | null
-  readonly pr: number | null
-  readonly prState?: PullRequestState | null
-  readonly assignees: ReadonlyArray<string>
-  readonly archivedAt: Date | null
-  readonly updatedAt: Date
-}
+export type MatchableTicket = Readonly<{
+  id: string
+  title: string
+  status: TicketStatus
+  type: TicketType
+  tags: ReadonlyArray<string>
+  branch: string | null
+  pr: number | null
+  prState?: PullRequestState | null
+  assignees: ReadonlyArray<string>
+  estimate: Estimate | null
+  archivedAt: Date | null
+  updatedAt: Date
+}>
 
 export const matchesTicketFilter = (
   ticket: MatchableTicket,
   filter: TicketFilter | undefined,
-  viewerId?: UserId
+  viewerId?: UserId,
+  estimation: EstimationMode = "off"
 ): boolean => {
   if (!filter) return true
 
@@ -66,6 +70,12 @@ export const matchesTicketFilter = (
     if (!filter.hasPr && ticket.pr !== null) return false
   }
 
+  if (filter.estimate !== undefined) {
+    if (filter.estimate.length === 0) return false
+    if (!matchesEstimateFilter(ticket.estimate, filter.estimate, estimation))
+      return false
+  }
+
   if (filter.updatedAfter !== undefined) {
     if (ticket.updatedAt.getTime() <= filter.updatedAfter.getTime())
       return false
@@ -77,12 +87,13 @@ export const matchesTicketFilter = (
 export const matchesTicketQuery = (
   ticket: MatchableTicket,
   query: TicketFilter & Pick<TicketListQuery, "q">,
-  viewerId: UserId | undefined
+  viewerId: UserId | undefined,
+  estimation: EstimationMode
 ): boolean => {
   const showArchived = query.archived === true
   if ((ticket.archivedAt !== null) !== showArchived) return false
 
-  if (!matchesTicketFilter(ticket, query, viewerId)) return false
+  if (!matchesTicketFilter(ticket, query, viewerId, estimation)) return false
 
   if (query.q !== undefined) {
     const needle = query.q.trim().toLowerCase()

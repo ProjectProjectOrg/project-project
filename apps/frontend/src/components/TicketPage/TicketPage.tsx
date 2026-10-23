@@ -22,6 +22,7 @@ import { TagEditor } from "@/components/TagEditor"
 import { TicketGitPanel } from "@/components/TicketGit"
 import { ArchiveTicketControl } from "@/components/TicketList/ArchiveControl"
 import { AssigneePicker } from "@/components/TicketList/AssigneeField"
+import { EstimateBadgeTrigger } from "@/components/TicketList/EstimateField"
 import { PriorityBadgeTrigger } from "@/components/TicketList/PriorityField"
 import { SplitTicketControl } from "@/components/TicketList/SplitControl"
 import { SprintBadgeTrigger } from "@/components/TicketList/SprintField"
@@ -45,6 +46,7 @@ import {
   unarchiveTicket,
   updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
+import { useEstimationMode } from "@/hooks/useEstimationMode"
 import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
@@ -87,6 +89,7 @@ export function TicketPage({
   const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
   const actor = useProjectActor()
+  const estimation = useEstimationMode()
   const canEdit = TicketPolicy.canChange(actor, { content: true })
   const {
     descriptionRef,
@@ -201,11 +204,20 @@ export function TicketPage({
           <CommentsSection orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
         </main>
 
-        <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:self-start lg:overflow-y-auto lg:border-l lg:border-border/60 lg:pl-5">
+        <aside className="flex min-w-0 flex-col gap-4 sm:pl-(--ticket-rail-inset) lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:self-start lg:overflow-y-auto lg:border-l lg:border-border/60 lg:pl-5">
           <fieldset disabled={!canEdit} className="contents">
             <MetaRow label={m.tickets_page_meta_priority()}>
               <PriorityBadgeTrigger ticket={ticket} onPatch={updateTicket} />
             </MetaRow>
+            {estimation !== "off" && (
+              <MetaRow label={m.tickets_page_meta_estimate()}>
+                <EstimateBadgeTrigger
+                  ticket={ticket}
+                  mode={estimation}
+                  onPatch={updateTicket}
+                />
+              </MetaRow>
+            )}
             <MetaRow label={m.tickets_page_meta_sprint()}>
               <SprintBadgeTrigger
                 orgSlug={orgSlug}

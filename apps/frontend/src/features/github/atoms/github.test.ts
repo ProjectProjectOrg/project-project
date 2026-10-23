@@ -10,11 +10,14 @@ import { projectRequest } from "@/features/projects/atoms/projects"
 import {
   branches,
   branchesRequest,
+  clearBranch,
   connectGithub,
   createBranch,
   githubIntegration,
   githubOrgRequest,
-  projectGitStates
+  projectGitStates,
+  stackBranch,
+  unstackBranch
 } from "./github"
 
 const { listAccounts, unlinkAccount } = vi.hoisted(() => ({
@@ -252,6 +255,79 @@ describe("createBranch", () => {
   })
 })
 
+describe("clearBranch", () => {
+  it("drops the ticket's stack with its branch", async () => {
+    const stacked: GitStatesResponse = {
+      ...noBranch,
+      states: {
+        "T-1": { tag: "branch_no_pr", name: "feat/T-1", baseBranch: "main" }
+      },
+      stacks: {
+        "T-1": [
+          {
+            branch: "feat/T-1-ui",
+            base: "feat/T-1",
+            depth: 1,
+            pr: null,
+            deleted: false
+          }
+        ]
+      }
+    }
+    let finishClear: ((response: Response) => void) | undefined
+    let gitStateCalls = 0
+    fetchStub.set((input, init) => {
+      const path = pathOf(input)
+      if (path.endsWith("/branch") && init?.method === "DELETE") {
+        return new Promise<Response>((resolve) => {
+          finishClear = resolve
+        })
+      }
+      if (path.endsWith("/git-states")) {
+        gitStateCalls += 1
+        if (gitStateCalls === 1) return Promise.resolve(Response.json(stacked))
+        return pending()
+      }
+      return pending()
+    })
+
+    const view = projectGitStates(req)
+    const mutation = clearBranch({ req, id: ticketId })
+    const registry = AtomRegistry.make()
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
+      )
+
+      registry.set(mutation, undefined)
+      const optimistic = registry.get(view)
+      if (!AsyncResult.isSuccess(optimistic)) throw new Error("no git states")
+      expect(optimistic.value.stacks?.["T-1"]).toEqual([])
+
+      finishClear?.(
+        Response.json({
+          ...ticketDetail,
+          branch: null,
+          gitState: { tag: "no_branch", baseBranch: "main" }
+        })
+      )
+      await vi.waitFor(() => {
+        const cleared = registry.get(view)
+        if (!AsyncResult.isSuccess(cleared)) throw new Error("no git states")
+        expect(cleared.value.states["T-1"]).toEqual({
+          tag: "no_branch",
+          baseBranch: "main"
+        })
+        expect(cleared.value.stacks?.["T-1"]).toEqual([])
+      })
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
 describe("projectGitStates", () => {
   it("keeps the prior PR title when the server reports a rate-limited read", async () => {
     let served: GitStatesResponse = prOpen
@@ -390,6 +466,74 @@ describe("branches", () => {
         if (!AsyncResult.isSuccess(settled)) throw new Error("no branches")
         expect(settled.waiting).toBe(false)
         expect(settled.value.items).toEqual([])
+      })
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
+describe.each([
+  ["stackBranch", stackBranch, "/stacked-branches"],
+  ["unstackBranch", unstackBranch, "/stacked-branches/remove"]
+] as const)("%s confirmed stack", (name, mutationFor, endpoint) => {
+  it("preserves matching PR details until the enriched refetch arrives", async () => {
+    const pr = {
+      number: 81,
+      url: "https://github.com/acme/app/pull/81",
+      title: "Keep stack details",
+      state: "open",
+      draft: false,
+      landed: false,
+      checks: "failing"
+    } as const
+    const layer = {
+      branch: "feat/stack",
+      base: "feat/T-1",
+      depth: 1,
+      deleted: false,
+      pr
+    }
+    const other = { ...layer, branch: "feat/other", pr: null }
+    const initial: GitStatesResponse = {
+      ...noBranch,
+      stacks: { "T-1": name === "stackBranch" ? [layer] : [layer, other] }
+    }
+    const remaining = name === "stackBranch" ? [other] : []
+    let reads = 0
+    fetchStub.set((input) => {
+      const path = pathOf(input)
+      if (path.endsWith(endpoint))
+        return Promise.resolve(
+          Response.json({
+            ...ticketDetail,
+            stack: [
+              { ...layer, pr: { ...pr, title: "", checks: null } },
+              ...remaining
+            ]
+          })
+        )
+      if (path.endsWith("/git-states")) {
+        reads += 1
+        return reads === 1 ? Promise.resolve(Response.json(initial)) : pending()
+      }
+      return pending()
+    })
+    const registry = AtomRegistry.make()
+    const view = projectGitStates(req)
+    const mutation = mutationFor({ req, id: ticketId })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
+      )
+      registry.set(mutation, { name: "feat/other" })
+      await vi.waitFor(() =>
+        expect(AsyncResult.isSuccess(registry.get(mutation))).toBe(true)
+      )
+      expect(registry.get(view)).toMatchObject({
+        value: { stacks: { "T-1": [layer, ...remaining] } }
       })
     } finally {
       registry.dispose()

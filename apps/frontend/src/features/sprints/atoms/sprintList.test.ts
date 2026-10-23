@@ -62,6 +62,7 @@ const makeTicket = (id: TicketId): Ticket => ({
   status: Schema.decodeSync(TicketStatus)("todo"),
   type: "chore",
   priority: "med",
+  estimate: null,
   tags: [],
   branch: null,
   pr: null,

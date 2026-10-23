@@ -54,6 +54,7 @@
 import * as Context from "effect/Context"
 import { HttpApiMiddleware, HttpApiSecurity } from "effect/http-api"
 
+import type { ActivityActor } from "./access/ActivityActor"
 import { Unauthorized } from "./errors"
 import type { User } from "./schemas/User"
 
@@ -70,7 +71,7 @@ const sessionCookie = HttpApiSecurity.apiKey({
 export class Authentication extends HttpApiMiddleware.Service<
   Authentication,
   {
-    provides: CurrentUser
+    provides: CurrentUser | ActivityActor
   }
 >()("Authentication", {
   error: Unauthorized,

@@ -1,4 +1,4 @@
-import type { GitStatesResponse } from "@pp/shared"
+import type { GitStatesResponse, StackLayerState } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
 import { mergeStaleGitStateDetails } from "./gitStateMerge"
@@ -138,4 +138,93 @@ describe("mergeStaleGitStateDetails", () => {
     }
     expect(mergeStaleGitStateDetails(previous, next, false)).toEqual(next)
   })
+})
+
+const stackPr = {
+  number: 81,
+  url: "https://github.com/acme/app/pull/81",
+  title: "Stack details",
+  state: "open",
+  draft: false,
+  landed: false,
+  checks: "failing"
+} as const
+const stackLayer: StackLayerState = {
+  branch: "feat/stack",
+  base: "feat/T-1",
+  depth: 1,
+  deleted: false,
+  pr: stackPr
+}
+
+it.each(["stale", "rate_limited"] as const)(
+  "keeps matching stack PR details on a %s refresh while accepting topology and lifecycle changes",
+  (refreshStatus) => {
+    const before: GitStatesResponse = {
+      ...previous,
+      stacks: { "T-1": [stackLayer] }
+    }
+    const next: GitStatesResponse = {
+      ...before,
+      refreshStatus,
+      stacks: {
+        "T-1": [
+          {
+            ...stackLayer,
+            base: "main",
+            pr: {
+              ...stackPr,
+              title: "",
+              checks: null,
+              state: "merged",
+              landed: true
+            }
+          }
+        ]
+      }
+    }
+    expect(
+      mergeStaleGitStateDetails(before, next, false).stacks?.["T-1"]
+    ).toEqual([
+      {
+        ...stackLayer,
+        base: "main",
+        pr: { ...stackPr, state: "merged", landed: true }
+      }
+    ])
+  }
+)
+
+it.each([
+  ["fresh", { refreshStatus: "fresh" }, stackLayer],
+  ["changed repository", {}, stackLayer],
+  ["disconnected repository", { repoStatus: "not_connected" }, stackLayer],
+  ["replacement PR", {}, { ...stackLayer, pr: { ...stackPr, number: 82 } }],
+  ["different branch", {}, { ...stackLayer, branch: "feat/other" }]
+] satisfies ReadonlyArray<
+  readonly [string, Partial<GitStatesResponse>, StackLayerState]
+>)("does not carry stack details across a %s", (reason, patch, layer) => {
+  const before: GitStatesResponse = {
+    ...previous,
+    stacks: { "T-1": [stackLayer] }
+  }
+  const next: GitStatesResponse = {
+    ...before,
+    refreshStatus: "stale",
+    ...patch,
+    stacks: {
+      "T-1": [
+        {
+          ...layer,
+          pr:
+            layer.pr === null
+              ? null
+              : { ...layer.pr, title: "", checks: "none" }
+        }
+      ]
+    }
+  }
+  expect(
+    mergeStaleGitStateDetails(before, next, reason === "changed repository")
+  ).toEqual(next)
 })

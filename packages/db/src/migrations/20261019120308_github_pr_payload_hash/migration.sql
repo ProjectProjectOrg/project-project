@@ -1,0 +1,1 @@
+ALTER TABLE "github_pull_request_reconciliation" ADD COLUMN "payload_hash" text DEFAULT '' NOT NULL;

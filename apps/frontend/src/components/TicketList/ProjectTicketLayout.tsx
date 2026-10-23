@@ -28,7 +28,11 @@ import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-conte
 import { BacklogGroupingControl } from "./BacklogGroupingControl"
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { SprintTicketCreator } from "./SprintTicketCreator"
-import { TicketToolbar, useViewTicketCounts } from "./toolbar"
+import {
+  TicketToolbar,
+  useViewTicketCounts,
+  type FilterDimension
+} from "./toolbar"
 import { ViewSwitcher } from "./ViewSwitcher"
 
 const GroupingSchema = Schema.Literals(["status", "sprint"])
@@ -76,6 +80,11 @@ export function ProjectTicketLayout({
     `${orgSlug}/${slug}/${scope}/${view}`
   )
   const isBoard = view === "board"
+  const filters: ReadonlyArray<FilterDimension> = groupId
+    ? isBoard
+      ? ["type", "assignee", "tags"]
+      : ["archived", "type", "assignee", "tags"]
+    : ["archived", "type", "assignee", "sprint", "tags"]
   const countsSource = {
     orgSlug,
     slug,
@@ -155,12 +164,11 @@ export function ProjectTicketLayout({
               members={project.members}
               counts={Result.isSuccess(counts) ? counts.value : null}
               filters={
-                groupId
-                  ? isBoard
-                    ? ["type", "assignee", "tags"]
-                    : ["archived", "type", "assignee", "tags"]
-                  : ["archived", "type", "assignee", "sprint", "tags"]
+                project.estimation === "off"
+                  ? filters
+                  : [...filters, "estimate"]
               }
+              estimation={project.estimation}
               showSort={!groupId || !isBoard}
               viewControls={<ViewSwitcher orgSlug={orgSlug} slug={slug} />}
             >

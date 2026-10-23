@@ -1,6 +1,7 @@
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { randomUUID } from "node:crypto"
 
+import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import { it } from "@effect/vitest"
 import { DbLive, PgLive } from "@pp/db"
 import {
@@ -123,6 +124,28 @@ const RebuildTestLayer = TicketIndexLive.pipe(
   Layer.provide(DatabaseLive)
 )
 
+const stackedDocument: TicketDocument = {
+  ...rebuiltDocument,
+  id: ticketId("T-7"),
+  branch: "api",
+  stack: [{ branch: "ui", base: "api", pr: 8, prState: "open" }]
+}
+
+const StackRebuildTestLayer = TicketIndexLive.pipe(
+  Layer.provide(
+    Layer.succeed(TicketDocs, {
+      listIds: () => Effect.succeed([stackedDocument.id]),
+      read: () => Effect.succeed(stackedDocument),
+      create: () => unexpected("TicketDocs.create"),
+      write: () => unexpected("TicketDocs.write"),
+      update: () => unexpected("TicketDocs.update"),
+      remove: () => unexpected("TicketDocs.remove"),
+      readRaw: () => unexpected("TicketDocs.readRaw")
+    } satisfies TicketDocsShape)
+  ),
+  Layer.provide(DatabaseLive)
+)
+
 const withClient = <A>(use: (client: pg.Client) => Promise<A>) =>
   Effect.tryPromise(async () => {
     const client = new Client({ connectionString: databaseUrl })
@@ -211,6 +234,230 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
 
       expect(yield* index.reserveTicketNumber(project)).toBe(42)
     }).pipe(Effect.provide(RebuildTestLayer))
+  )
+
+  it.effect("keeps stacked layers in step with the ticket", () =>
+    Effect.gen(function* () {
+      const suffix = randomUUID()
+      const organizationId = `ticket-index-stack-${suffix}`
+      const orgSlug = `ticket-index-stack-${suffix}`
+      const projectSlug = `ticket-index-stack-${suffix}`
+      const projectId = randomUUID()
+      yield* withClient(async (client) => {
+        await client.query(
+          `insert into organization (id, name, slug, created_at)
+               values ($1, 'Ticket index stack', $2, now())`,
+          [organizationId, orgSlug]
+        )
+        await client.query(
+          `insert into project_index
+                 (id, slug, organization_id, key, name, icon, color, created_by, created_at)
+               values ($1, $2, $3, 'T', 'Ticket index stack', 'folder', 'blue', 'test-user', now())`,
+          [projectId, projectSlug, organizationId]
+        )
+      })
+      yield* Effect.addFinalizer(() =>
+        withClient((client) =>
+          client.query("delete from organization where id = $1", [
+            organizationId
+          ])
+        )
+      )
+      const layers = () =>
+        withClient(async (client) => {
+          const result = await client.query(
+            `select branch, position, base, pr_state, landed
+                 from ticket_branch where project_id = $1 and ticket_id = 'T-1' order by position`,
+            [projectId]
+          )
+          return result.rows
+        })
+
+      const index = yield* TicketIndex
+      const project = yield* index.projectFor(orgSlug, projectSlug)
+      yield* index.upsertTicket(
+        project,
+        indexedDocument("T-1", {
+          branch: "api",
+          prBase: "main",
+          stack: [
+            {
+              branch: "ui",
+              base: "api",
+              pr: 2,
+              prState: "open"
+            },
+            {
+              branch: "polish",
+              base: "ui",
+              pr: 3,
+              prState: "open"
+            }
+          ]
+        })
+      )
+      yield* index.upsertTicket(
+        project,
+        indexedDocument("T-1", {
+          branch: "api",
+          prBase: "main",
+          stack: [
+            {
+              branch: "ui",
+              base: "api",
+              pr: 2,
+              prState: "merged",
+              landed: true
+            },
+            { branch: "docs" }
+          ],
+          ignoredBranches: ["spike"]
+        })
+      )
+
+      expect(yield* layers()).toEqual([
+        {
+          branch: "ui",
+          position: 0,
+          base: "api",
+          pr_state: "merged",
+          landed: true
+        },
+        {
+          branch: "docs",
+          position: 1,
+          base: null,
+          pr_state: null,
+          landed: false
+        }
+      ])
+      expect((yield* index.list(project))[0]).toMatchObject({
+        prBase: "main",
+        ignoredBranches: ["spike"]
+      })
+      expect(yield* index.findStackLayers(projectId, "ui")).toEqual([
+        { ...project, ticketId: "T-1", branch: "ui" }
+      ])
+      expect(yield* index.findStackLayers(projectId, "api")).toEqual([])
+      expect(yield* index.stacksFor(project)).toEqual(
+        new Map([
+          [
+            "T-1",
+            [
+              {
+                branch: "ui",
+                base: "api",
+                pr: 2,
+                prState: "merged",
+                landed: true
+              },
+              { branch: "docs" }
+            ]
+          ]
+        ])
+      )
+      expect(yield* index.stacksFor(project, [])).toEqual(new Map())
+
+      const repoId = `repo-${suffix}`
+      yield* withClient(async (client) => {
+        const integrationId = randomUUID()
+        const linkId = randomUUID()
+        await client.query(
+          `insert into organization_integration (id, organization_id, provider, status)
+               values ($1, $2, 'github', 'active')`,
+          [integrationId, organizationId]
+        )
+        await client.query(
+          `insert into project_integration_link
+                 (id, project_id, organization_id, organization_integration_id, provider, status)
+               values ($1, $2, $3, $4, 'github', 'active')`,
+          [linkId, projectId, organizationId, integrationId]
+        )
+        await client.query(
+          `insert into project_github_repository
+                 (project_integration_link_id, organization_id, status, repo_id, repo_owner, repo_name, default_branch)
+               values ($1, $2, 'active', $3, 'acme', 'app', 'main')`,
+          [linkId, organizationId, repoId]
+        )
+      })
+      expect(
+        yield* Effect.forEach(["api", "ui", "spike", "nope"], (branch) =>
+          index.isRepositoryBranchAttached(repoId, branch)
+        )
+      ).toEqual([true, true, false, false])
+
+      yield* index.upsertTicket(
+        project,
+        indexedDocument("T-2", {
+          branch: "feat/two",
+          pr: 5,
+          prState: "merged",
+          prBase: "api",
+          stack: [
+            { branch: "two-ui", base: "feat/two", pr: 6, prState: "merged" },
+            {
+              branch: "two-docs",
+              base: "feat/two",
+              pr: 7,
+              prState: "merged",
+              landed: true
+            }
+          ]
+        })
+      )
+      expect(yield* index.findMergesAwaiting(projectId, "api")).toEqual([
+        { ...project, ticketId: "T-2", branch: "feat/two", stacked: false }
+      ])
+      expect(yield* index.findMergesAwaiting(projectId, "feat/two")).toEqual([
+        { ...project, ticketId: "T-2", branch: "two-ui", stacked: true }
+      ])
+      expect(yield* index.findMergesAwaiting(projectId, "main")).toEqual([])
+
+      yield* index.deleteTicket(project, "T-1")
+      expect(yield* layers()).toEqual([])
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("rebuilds stacked layers from ticket files", () =>
+    Effect.gen(function* () {
+      const suffix = randomUUID()
+      const organizationId = `ticket-index-stack-rebuild-${suffix}`
+      const projectId = randomUUID()
+      yield* withClient(async (client) => {
+        await client.query(
+          `insert into organization (id, name, slug, created_at)
+             values ($1, 'Ticket index stack rebuild', $1, now())`,
+          [organizationId]
+        )
+        await client.query(
+          `insert into project_index
+               (id, slug, organization_id, key, name, icon, color, created_by, created_at)
+             values ($1, $2, $2, 'T', 'Ticket index stack rebuild', 'folder', 'blue', 'test-user', now())`,
+          [projectId, organizationId]
+        )
+      })
+      yield* Effect.addFinalizer(() =>
+        withClient((client) =>
+          client.query("delete from organization where id = $1", [
+            organizationId
+          ])
+        )
+      )
+
+      const index = yield* TicketIndex
+      const project = yield* index.projectFor(organizationId, organizationId)
+      yield* index.rebuildProject(project)
+      yield* index.rebuildProject(project)
+
+      const rows = yield* withClient(async (client) => {
+        const result = await client.query(
+          "select ticket_id, branch, base from ticket_branch where project_id = $1",
+          [projectId]
+        )
+        return result.rows
+      })
+      expect(rows).toEqual([{ ticket_id: "T-7", branch: "ui", base: "api" }])
+    }).pipe(Effect.provide(StackRebuildTestLayer))
   )
 
   it.effect("restores canonical comments as listable index rows", () => {
@@ -315,7 +562,8 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           Layer.mock(Users, {
             fullByIds: () => Effect.succeed([author])
           }),
-          DatabaseLive
+          DatabaseLive,
+          BunCrypto.layer
         )
       )
     )
@@ -746,8 +994,8 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         )
         await client.query(
           `insert into project_index
-               (id, slug, organization_id, key, name, icon, color, created_by, created_at)
-             values ($1, $2, $3, 'T', 'Ticket index order', 'folder', 'blue', 'test-user', now())`,
+               (id, slug, organization_id, key, name, icon, color, estimation, created_by, created_at)
+             values ($1, $2, $3, 'T', 'Ticket index order', 'folder', 'blue', 'points', 'test-user', now())`,
           [projectId, projectSlug, organizationId]
         )
       })
@@ -769,18 +1017,21 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         indexedDocument("T-1", {
           title: "ab 1",
           priority: "med",
+          estimate: { unit: "points", value: 13 },
           createdAt: earlier,
           updatedAt: later
         }),
         indexedDocument("T-2", {
           title: "ab",
           priority: "med",
+          estimate: { unit: "points", value: 3 },
           createdAt: earlier,
           updatedAt: later
         }),
         indexedDocument("T-3", {
           title: "dup",
           priority: "high",
+          estimate: { unit: "tshirt", value: "XL" },
           createdAt: earlier,
           updatedAt: earlier
         }),
@@ -819,7 +1070,9 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         { key: "title", dir: "asc" },
         { key: "title", dir: "desc" },
         { key: "priority", dir: "asc" },
-        { key: "priority", dir: "desc" }
+        { key: "priority", dir: "desc" },
+        { key: "estimate", dir: "asc" },
+        { key: "estimate", dir: "desc" }
       ]
 
       yield* Effect.forEach(sorts, (sort) =>
@@ -865,6 +1118,77 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           expect(walked).toEqual(rows.map((row) => row.entry.id))
         })
       )
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("matches estimate filters against the project's current unit", () =>
+    Effect.gen(function* () {
+      const suffix = randomUUID()
+      const organizationId = `ticket-index-estimate-${suffix}`
+      const orgSlug = `ticket-index-estimate-${suffix}`
+      const projectSlug = `ticket-index-estimate-${suffix}`
+      const projectId = randomUUID()
+      yield* withClient(async (client) => {
+        await client.query(
+          `insert into organization (id, name, slug, created_at)
+               values ($1, 'Ticket index estimate', $2, now())`,
+          [organizationId, orgSlug]
+        )
+        await client.query(
+          `insert into project_index
+                 (id, slug, organization_id, key, name, icon, color, estimation, created_by, created_at)
+               values ($1, $2, $3, 'T', 'Ticket index estimate', 'folder', 'blue', 'points', 'test-user', now())`,
+          [projectId, projectSlug, organizationId]
+        )
+      })
+      yield* Effect.addFinalizer(() =>
+        withClient((client) =>
+          client.query("delete from organization where id = $1", [
+            organizationId
+          ])
+        )
+      )
+
+      const index = yield* TicketIndex
+      const project = yield* index.projectFor(orgSlug, projectSlug)
+      yield* Effect.forEach(
+        [
+          indexedDocument("T-1", { estimate: { unit: "points", value: 4 } }),
+          indexedDocument("T-2", { estimate: { unit: "tshirt", value: "M" } }),
+          indexedDocument("T-3", { estimate: { unit: "time", minutes: 90 } }),
+          indexedDocument("T-4")
+        ],
+        (document) => index.upsertTicket(project, document)
+      )
+
+      const matching = (estimate: NonNullable<TicketFilter["estimate"]>) =>
+        index
+          .query(
+            project,
+            { sort: { key: "id", dir: "asc" }, estimate },
+            { viewerId: "viewer", limit: 10 }
+          )
+          .pipe(Effect.map((rows) => rows.map((row) => row.entry.id)))
+
+      expect(yield* matching(["any"])).toEqual(["T-1"])
+      expect(yield* matching(["none"])).toEqual(["T-2", "T-3", "T-4"])
+      expect(yield* matching(["stale"])).toEqual(["T-2", "T-3"])
+      expect(yield* matching(["M"])).toEqual([])
+
+      const entries = yield* index.list(project, ["T-2", "T-3"])
+      expect(entries.map((entry) => entry.estimate)).toEqual([
+        { unit: "tshirt", value: "M" },
+        { unit: "time", minutes: 90 }
+      ])
+
+      yield* withClient((client) =>
+        client.query(
+          "update project_index set estimation = 'tshirt' where id = $1",
+          [projectId]
+        )
+      )
+      expect(yield* matching(["M"])).toEqual(["T-2"])
+      expect(yield* matching(["stale"])).toEqual(["T-1", "T-3"])
     }).pipe(Effect.provide(TestLayer))
   )
 

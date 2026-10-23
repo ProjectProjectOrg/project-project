@@ -1,10 +1,11 @@
-import { ChevronRight } from "lucide-react"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useMemo, useState } from "react"
 
+import { SettingsDisclosureItem } from "@/components/settings/SettingsDisclosureItem"
+import {
+  SettingsGroup,
+  SettingsSection
+} from "@/components/settings/SettingsSection"
 import { CodeSnippet } from "@/components/ui/code-snippet"
-import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type CorsProvider = Readonly<{
@@ -135,14 +136,11 @@ export function StorageCorsPanel() {
   const [openId, setOpenId] = useState<string | null>("r2")
 
   return (
-    <section>
-      <h3 className="mb-1 text-sm font-medium text-foreground">
-        {m.storage_cors_heading()}
-      </h3>
-      <p className="mb-2 text-xs text-muted-foreground">
-        {m.storage_cors_notice()}
-      </p>
-      <div className="divide-y divide-border rounded-xl border border-border bg-background">
+    <SettingsSection
+      title={m.storage_cors_heading()}
+      description={m.storage_cors_notice()}
+    >
+      <SettingsGroup>
         {providers.map((provider) => (
           <ProviderItem
             key={provider.id}
@@ -156,11 +154,11 @@ export function StorageCorsPanel() {
             }
           />
         ))}
-      </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+      </SettingsGroup>
+      <p className="px-0.5 text-xs text-muted-foreground">
         {m.storage_cors_caveat()}
       </p>
-    </section>
+    </SettingsSection>
   )
 }
 
@@ -175,48 +173,19 @@ function ProviderItem({
   open: boolean
   onToggle: () => void
 }) {
-  const reduceMotion = useReducedMotion()
   const snippet = useMemo(
     () => provider.buildSnippet(origin),
     [provider, origin]
   )
 
   return (
-    <div>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-medium transition-colors hover:bg-muted/60 active:bg-muted"
-      >
-        <ChevronRight
-          className={cn(
-            "size-3.5 text-muted-foreground transition-transform duration-150",
-            open && "rotate-90"
-          )}
-          strokeWidth={2}
-        />
-        <span>{provider.label}</span>
-      </button>
-      <AnimatePresence initial={false}>
-        {open ? (
-          <motion.div
-            key="body"
-            initial={reduceMotion ? false : { height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
-            transition={transitions.presence}
-            className="overflow-hidden"
-          >
-            <div className="space-y-2 px-3 pb-3">
-              <p className="text-xs text-muted-foreground">
-                {provider.description}
-              </p>
-              <CodeSnippet code={snippet} language={provider.language} />
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </div>
+    <SettingsDisclosureItem
+      label={provider.label}
+      open={open}
+      onToggle={onToggle}
+    >
+      <p className="text-xs text-muted-foreground">{provider.description}</p>
+      <CodeSnippet code={snippet} language={provider.language} />
+    </SettingsDisclosureItem>
   )
 }

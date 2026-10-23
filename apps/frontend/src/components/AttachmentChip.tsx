@@ -1,17 +1,19 @@
-import { FileText, Image as ImageIcon } from "lucide-react"
+import { attachmentDownloadSrc } from "@pp/shared"
+import { Download, FileText, Image as ImageIcon } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
 
-import { AttachmentDownload } from "@/components/AttachmentDownload"
+import { MorphIconLink } from "@/components/MorphIconLink"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
 import { transitions } from "@/lib/springs"
+import { m } from "@/paraglide/messages"
 
 const CHIP =
-  "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 align-baseline text-xs transition-colors duration-100 group-focus-within/editing:hover:bg-accent/40"
+  "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 align-baseline text-xs transition-colors duration-100 group-focus-within/editing:hover:bg-hover"
 
 const HOVER_DELAY_MS = 450
 
@@ -68,6 +70,15 @@ export function AttachmentChip({
   onBroken?: () => void
 }) {
   const [broken, setBroken] = useState(false)
+  const download = (
+    <MorphIconLink
+      layoutId={`${morphId}-download`}
+      href={attachmentDownloadSrc(url)}
+      download={filename}
+      label={m.editor_attachment_download()}
+      icon={Download}
+    />
+  )
 
   if (variant === "linked") {
     return (
@@ -81,7 +92,7 @@ export function AttachmentChip({
     return (
       <span className={CHIP}>
         <ChipBody filename={filename} kind={kind} morphId={morphId} />
-        <AttachmentDownload url={url} filename={filename} morphId={morphId} />
+        {download}
       </span>
     )
   }
@@ -96,7 +107,7 @@ export function AttachmentChip({
         contentEditable={false}
       >
         <ChipBody filename={filename} kind={kind} morphId={morphId} />
-        <AttachmentDownload url={url} filename={filename} morphId={morphId} />
+        {download}
       </PopoverTrigger>
       <PopoverContent className="w-auto max-w-sm p-1.5" align="start">
         <img

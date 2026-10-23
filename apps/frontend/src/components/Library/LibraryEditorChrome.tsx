@@ -38,7 +38,7 @@ export function LibraryEditorHeader({
       <LibraryBackLink
         scope={scope}
         kind={kind}
-        className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[13px] text-muted-foreground transition-all duration-100 hover:bg-accent hover:text-foreground active:scale-[0.97]"
+        className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[13px] text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
       >
         <ArrowLeft className="size-3.5" strokeWidth={1.75} />
         {kind === "template"

@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest"
 
-import { branchMentionsTicketId, ticketIdsInBranch } from "./branchTicketId"
+import {
+  branchMentionsTicketId,
+  closingTicketIdsInText,
+  ticketIdsInText
+} from "./branchTicketId"
 
 const idsFor = (branches: ReadonlyArray<string>) =>
   Object.fromEntries(
-    branches.map((branch) => [branch, [...ticketIdsInBranch(branch)]])
+    branches.map((branch) => [branch, [...ticketIdsInText(branch)]])
   )
 
 const noIds = (branches: ReadonlyArray<string>) =>
   Object.fromEntries(branches.map((branch) => [branch, []]))
 
-describe("ticketIdsInBranch", () => {
+describe("ticketIdsInText", () => {
   it("extracts an id regardless of the case it was written in", () => {
     expect(
       idsFor([
@@ -130,6 +134,50 @@ describe("branchMentionsTicketId", () => {
       "feat/PP-018": false,
       "chore/ticket-hover-cards": false,
       main: false
+    })
+  })
+})
+
+describe("closingTicketIdsInText", () => {
+  it("reads ids after GitHub's closing keywords in any case", () => {
+    expect(
+      Object.fromEntries(
+        [
+          "Fixes T-1",
+          "closes t-2",
+          "RESOLVED: T-3",
+          "Fix PP-18 and close PP-19",
+          "Resolves ticket T-12: fix login",
+          "- fixed T-4."
+        ].map((text) => [text, [...closingTicketIdsInText(text)]])
+      )
+    ).toEqual({
+      "Fixes T-1": ["T-1"],
+      "closes t-2": ["T-2"],
+      "RESOLVED: T-3": ["T-3"],
+      "Fix PP-18 and close PP-19": ["PP-18", "PP-19"],
+      "Resolves ticket T-12: fix login": ["T-12"],
+      "- fixed T-4.": ["T-4"]
+    })
+  })
+
+  it("ignores ids without a closing keyword right before them", () => {
+    expect(
+      Object.fromEntries(
+        [
+          "Related to T-1",
+          "Prefixes T-1",
+          "Fixes the bug in T-1",
+          "Closes #12",
+          "fixes-T-1"
+        ].map((text) => [text, [...closingTicketIdsInText(text)]])
+      )
+    ).toEqual({
+      "Related to T-1": [],
+      "Prefixes T-1": [],
+      "Fixes the bug in T-1": [],
+      "Closes #12": [],
+      "fixes-T-1": []
     })
   })
 })

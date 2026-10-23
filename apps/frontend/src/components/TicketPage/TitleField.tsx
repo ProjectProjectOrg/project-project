@@ -91,7 +91,7 @@ export function TitleField({
           editing.current = true
           setDraft(ticket.title)
         }}
-        className="line-clamp-5 w-full rounded-md px-2 py-1.5 text-left text-xl font-semibold break-words transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none aria-busy:animate-pulse motion-reduce:animate-none"
+        className="line-clamp-5 w-full rounded-md px-2 py-1.5 text-left text-xl font-semibold break-words transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none aria-busy:animate-pulse motion-reduce:animate-none"
       >
         {ticket.title}
       </button>

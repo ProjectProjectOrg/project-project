@@ -1,3 +1,4 @@
+import * as Effect from "effect/Effect"
 // packages/shared/src/api.ts
 //
 // THIS FILE IS THE CONTRACT.
@@ -13,8 +14,6 @@
 // `/orgs/:orgSlug/...`. Handlers read `path.orgSlug` and use it to scope all
 // downstream service calls. The `:orgSlug` is the URL-canonical source of
 // "which org am I acting in?" — see `services/CurrentOrg.ts` for the resolver.
-
-import * as Effect from "effect/Effect"
 import {
   HttpApi,
   HttpApiEndpoint,
@@ -102,6 +101,7 @@ import {
   CreateCommentInput,
   UpdateCommentInput
 } from "./schemas/Comment"
+import { ClearStaleEstimatesResult } from "./schemas/Estimate"
 import {
   ConnectEverhourProfileInput,
   EverhourProjectIntegrationStatus,
@@ -114,6 +114,10 @@ import {
   FigmaProjectIntegrationStatus,
   PersonalFigma
 } from "./schemas/Figma"
+import {
+  GitAutomation,
+  UpdateGitAutomationInput
+} from "./schemas/GitAutomation"
 import {
   AttachBranchInput,
   BranchListResponse,
@@ -173,6 +177,11 @@ import {
   UserInvitation
 } from "./schemas/Org"
 import {
+  OrgEmailStatus,
+  SaveOrgEmailInput,
+  OrgEmailError
+} from "./schemas/OrgEmail"
+import {
   AddMemberInput,
   ConnectGithubInput,
   CreateProjectInput,
@@ -187,6 +196,18 @@ import {
   UpdateProjectInput,
   UpdateProjectSetupInput
 } from "./schemas/Project"
+import {
+  ConnectSlackInput,
+  SlackOrgStatus,
+  SlackProjectStatus,
+  SlackProfile,
+  SlackChannel,
+  SaveSlackProjectInput,
+  SlackNotConnected,
+  SlackAuthInvalid,
+  SlackRateLimited,
+  SlackError
+} from "./schemas/Slack"
 import {
   CreateStatusInput,
   ProjectStatus,
@@ -206,6 +227,7 @@ import {
   TicketId,
   UpdateTicketInput
 } from "./schemas/Ticket"
+import { TicketActivityPage } from "./schemas/TicketActivity"
 import {
   ActiveTimer,
   LogTimeInput,
@@ -1262,6 +1284,170 @@ const JiraMigrationsGroup = HttpApiGroup.make("jiraMigrations")
   )
   .middleware(Authentication)
 
+const SlackErrors = [
+  Unauthorized,
+  NotFound,
+  Forbidden,
+  SlackNotConnected,
+  SlackAuthInvalid,
+  SlackRateLimited,
+  SlackError,
+  Conflict
+] as const
+const SlackGroup = HttpApiGroup.make("slack")
+  .add(
+    HttpApiEndpoint.get("orgStatus", "/orgs/:orgSlug/integrations/slack", {
+      params: OrgPath,
+      success: SlackOrgStatus,
+      error: SlackErrors
+    })
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
+  )
+  .add(
+    HttpApiEndpoint.put("connectOrg", "/orgs/:orgSlug/integrations/slack", {
+      params: OrgPath,
+      payload: ConnectSlackInput,
+      success: SlackOrgStatus,
+      error: SlackErrors
+    })
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "disconnectOrg",
+      "/orgs/:orgSlug/integrations/slack",
+      { params: OrgPath, success: SlackOrgStatus, error: SlackErrors }
+    )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "manifest",
+      "/orgs/:orgSlug/integrations/slack/manifest",
+      {
+        params: OrgPath,
+        success: Schema.Struct({
+          manifest: Schema.String,
+          createUrl: Schema.String,
+          redirectUri: Schema.String
+        }),
+        error: SlackErrors
+      }
+    )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "channels",
+      "/orgs/:orgSlug/projects/:slug/integrations/slack/channels",
+      {
+        params: ProjectPath,
+        success: Schema.Array(SlackChannel),
+        error: SlackErrors
+      }
+    )
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "projectStatus",
+      "/orgs/:orgSlug/projects/:slug/integrations/slack",
+      { params: ProjectPath, success: SlackProjectStatus, error: SlackErrors }
+    )
+      .annotate(RequiresProject, { ticket: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.put(
+      "saveProject",
+      "/orgs/:orgSlug/projects/:slug/integrations/slack",
+      {
+        params: ProjectPath,
+        payload: SaveSlackProjectInput,
+        success: SlackProjectStatus,
+        error: SlackErrors
+      }
+    )
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "disconnectProject",
+      "/orgs/:orgSlug/projects/:slug/integrations/slack",
+      { params: ProjectPath, success: SlackProjectStatus, error: SlackErrors }
+    )
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "testProject",
+      "/orgs/:orgSlug/projects/:slug/integrations/slack/test",
+      {
+        params: ProjectPath,
+        success: HttpApiSchema.NoContent,
+        error: SlackErrors
+      }
+    )
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.get("profiles", "/integrations/slack/profiles", {
+      success: Schema.Array(SlackProfile),
+      error: SlackErrors
+    })
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "disconnectProfile",
+      "/orgs/:orgSlug/integrations/slack/profile",
+      { params: OrgPath, success: HttpApiSchema.NoContent, error: SlackErrors }
+    )
+      .annotate(RequiresOrg, "membership")
+      .middleware(OrgAccess)
+  )
+  .middleware(Authentication)
+
+const OrgEmailGroup = HttpApiGroup.make("orgEmail")
+  .add(
+    HttpApiEndpoint.get("get", "/orgs/:orgSlug/email", {
+      params: OrgPath,
+      success: OrgEmailStatus,
+      error: [Unauthorized, NotFound, Forbidden]
+    }).annotate(RequiresOrg, { integration: ["manage"] })
+  )
+  .add(
+    HttpApiEndpoint.put("save", "/orgs/:orgSlug/email", {
+      params: OrgPath,
+      payload: SaveOrgEmailInput,
+      success: OrgEmailStatus,
+      error: [Unauthorized, NotFound, Forbidden, OrgEmailError]
+    }).annotate(RequiresOrg, { integration: ["manage"] })
+  )
+  .add(
+    HttpApiEndpoint.post("test", "/orgs/:orgSlug/email/test", {
+      params: OrgPath,
+      success: OrgEmailStatus,
+      error: [Unauthorized, NotFound, Forbidden, OrgEmailError]
+    }).annotate(RequiresOrg, { integration: ["manage"] })
+  )
+  .add(
+    HttpApiEndpoint.delete("disconnect", "/orgs/:orgSlug/email", {
+      params: OrgPath,
+      success: OrgEmailStatus,
+      error: [Unauthorized, NotFound, Forbidden]
+    }).annotate(RequiresOrg, { integration: ["manage"] })
+  )
+  .middleware(OrgAccess)
+  .middleware(Authentication)
+
 const StorageGroup = HttpApiGroup.make("storage")
   .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/storage", {
@@ -1570,6 +1756,19 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       .middleware(ProjectAccess)
   )
   .add(
+    HttpApiEndpoint.post(
+      "clearStaleEstimates",
+      "/orgs/:orgSlug/projects/:slug/estimates/clear-stale",
+      {
+        params: ProjectPath,
+        success: ClearStaleEstimatesResult,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/projects/:slug/tickets/:id", {
       params: TicketPath,
       success: TicketDetail,
@@ -1720,6 +1919,45 @@ const TicketsGroup = HttpApiGroup.make("tickets")
   )
   .add(
     HttpApiEndpoint.post(
+      "stackBranch",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/stacked-branches",
+      {
+        params: TicketPath,
+        payload: AttachBranchInput,
+        success: TicketDetail,
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          Conflict,
+          BranchNotFound,
+          GitHubTokenExpired,
+          GitHubScopeInsufficient,
+          RepoGone,
+          RateLimited,
+          GitHubError
+        ]
+      }
+    )
+      .annotate(RequiresProject, { github: ["write"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "unstackBranch",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/stacked-branches/remove",
+      {
+        params: TicketPath,
+        payload: AttachBranchInput,
+        success: TicketDetail,
+        error: [Unauthorized, NotFound, Forbidden, Conflict]
+      }
+    )
+      .annotate(RequiresProject, { github: ["write"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post(
       "attachBranch",
       "/orgs/:orgSlug/projects/:slug/tickets/:id/attach-branch",
       {
@@ -1791,6 +2029,22 @@ const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
         error: [Unauthorized, NotFound, Forbidden]
       }
     ).annotate(RequiresProject, "membership")
+  )
+  .middleware(ProjectAccess)
+  .middleware(Authentication)
+
+const TicketActivityGroup = HttpApiGroup.make("ticketActivity")
+  .add(
+    HttpApiEndpoint.get(
+      "list",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/activity",
+      {
+        params: TicketPath,
+        query: Schema.Struct({ cursor: Schema.optional(Schema.String) }),
+        success: TicketActivityPage,
+        error: [Unauthorized, NotFound, Forbidden, Validation]
+      }
+    ).annotate(RequiresProject, { ticket: ["read"] })
   )
   .middleware(ProjectAccess)
   .middleware(Authentication)
@@ -1904,6 +2158,29 @@ const StatusesGroup = HttpApiGroup.make("statuses")
         params: ProjectStatusPath,
         query: Schema.Struct({ reassignTo: Schema.optional(StatusSlug) }),
         success: HttpApiSchema.NoContent,
+        error: [Unauthorized, NotFound, Forbidden, Conflict]
+      }
+    ).annotate(RequiresProject, { workflow: ["manage"] })
+  )
+  .middleware(ProjectAccess)
+  .middleware(Authentication)
+
+const GitAutomationGroup = HttpApiGroup.make("gitAutomation")
+  .add(
+    HttpApiEndpoint.get("get", "/orgs/:orgSlug/projects/:slug/git-automation", {
+      params: ProjectPath,
+      success: GitAutomation,
+      error: [Unauthorized, NotFound, Forbidden]
+    }).annotate(RequiresProject, { github: ["read"] })
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "update",
+      "/orgs/:orgSlug/projects/:slug/git-automation",
+      {
+        params: ProjectPath,
+        payload: UpdateGitAutomationInput,
+        success: GitAutomation,
         error: [Unauthorized, NotFound, Forbidden, Conflict]
       }
     ).annotate(RequiresProject, { workflow: ["manage"] })
@@ -2365,11 +2642,15 @@ const AppApi = HttpApi.make("projectproject")
   .add(JiraGroup)
   .add(JiraMigrationsGroup)
   .add(StorageGroup)
+  .add(OrgEmailGroup)
+  .add(SlackGroup)
   .add(AttachmentsGroup)
   .add(TicketsGroup)
   .add(TicketCommentsGroup)
+  .add(TicketActivityGroup)
   .add(TagsGroup)
   .add(StatusesGroup)
+  .add(GitAutomationGroup)
   .add(GroupsGroup)
   .add(LibraryGroup)
   .add(OAuthApplicationsGroup)

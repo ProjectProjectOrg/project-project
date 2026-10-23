@@ -2,6 +2,8 @@ import { useAtomValue } from "@effect/atom-react"
 import {
   sprintState,
   type AssigneeFilter,
+  type EstimateFilterValue,
+  type EstimationMode,
   type TicketType,
   type TicketFilter,
   type Member
@@ -10,7 +12,6 @@ import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   Archive,
-  Check,
   ChevronDown,
   SlidersHorizontal,
   UserRound
@@ -23,8 +24,10 @@ import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
 import { TagChip } from "@/components/TagChip"
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { me } from "@/features/auth/atoms/auth"
@@ -33,6 +36,7 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
+import { estimateFilterLabel, estimateFilterValues } from "@/lib/estimate-meta"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -57,6 +61,7 @@ export function Filters() {
     members,
     orgSlug,
     slug,
+    estimation,
     searchActive: compact
   } = useTicketToolbar()
   const value = query
@@ -149,6 +154,15 @@ export function Filters() {
                     slug={slug}
                   />
                 )
+              case "estimate":
+                return (
+                  <FilterEstimate
+                    key={dimension}
+                    value={value?.estimate}
+                    onChange={(estimate) => onChange({ estimate })}
+                    estimation={estimation}
+                  />
+                )
               case "tags":
                 return (
                   <FilterTags
@@ -180,17 +194,13 @@ function FilterArchived({
   return (
     <FilterSection>
       <SectionLabel>{m.tickets_filters_section_archived()}</SectionLabel>
-      <DropdownMenuItem
-        closeOnClick={false}
-        onClick={() => setArchivedFilter(!archivedFilter)}
-        className="cursor-pointer"
+      <DropdownMenuCheckboxItem
+        checked={archivedFilter}
+        onCheckedChange={setArchivedFilter}
       >
         <Archive className="size-4" strokeWidth={1.75} />
         {m.tickets_filters_archived_show()}
-        {archivedFilter && (
-          <Check className="ml-auto size-3.5 text-muted-foreground" />
-        )}
-      </DropdownMenuItem>
+      </DropdownMenuCheckboxItem>
     </FilterSection>
   )
 }
@@ -209,33 +219,25 @@ function FilterType({
   return (
     <FilterSection>
       <SectionLabel>{m.tickets_filters_section_type()}</SectionLabel>
-      <DropdownMenuItem
-        closeOnClick={false}
-        onClick={() => setTypeFilter("all")}
-        className="cursor-pointer"
+      <DropdownMenuRadioGroup
+        value={typeFilter}
+        onValueChange={(next: string) =>
+          setTypeFilter(next as typeof typeFilter)
+        }
       >
-        {m.tickets_filters_all_types()}
-        {typeFilter === "all" && (
-          <Check className="ml-auto size-3.5 text-muted-foreground" />
-        )}
-      </DropdownMenuItem>
-      {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
-        const TIcon = TYPE_META[t].icon
-        return (
-          <DropdownMenuItem
-            key={t}
-            closeOnClick={false}
-            onClick={() => setTypeFilter(t)}
-            className="cursor-pointer"
-          >
-            <TIcon className="size-4" strokeWidth={1.75} />
-            {TYPE_LABELS[t]()}
-            {typeFilter === t && (
-              <Check className="ml-auto size-3.5 text-muted-foreground" />
-            )}
-          </DropdownMenuItem>
-        )
-      })}
+        <DropdownMenuRadioItem separated value="all">
+          {m.tickets_filters_all_types()}
+        </DropdownMenuRadioItem>
+        {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
+          const TIcon = TYPE_META[t].icon
+          return (
+            <DropdownMenuRadioItem key={t} value={t}>
+              <TIcon className="size-4" strokeWidth={1.75} />
+              {TYPE_LABELS[t]()}
+            </DropdownMenuRadioItem>
+          )
+        })}
+      </DropdownMenuRadioGroup>
     </FilterSection>
   )
 }
@@ -258,54 +260,68 @@ function FilterAssignee({
   return (
     <FilterSection>
       <SectionLabel>{m.tickets_filters_section_assignee()}</SectionLabel>
-      <DropdownMenuItem
-        closeOnClick={false}
-        onClick={() => setAssigneeFilter("all")}
-        className="cursor-pointer"
+      <DropdownMenuRadioGroup
+        value={assigneeFilter}
+        onValueChange={(next: string) =>
+          setAssigneeFilter(next as typeof assigneeFilter)
+        }
       >
-        {m.tickets_filters_assignee_anyone()}
-        {assigneeFilter === "all" && (
-          <Check className="ml-auto size-3.5 text-muted-foreground" />
+        <DropdownMenuRadioItem value="all">
+          {m.tickets_filters_assignee_anyone()}
+        </DropdownMenuRadioItem>
+        {viewerId && (
+          <DropdownMenuRadioItem value="mine">
+            <UserRound className="size-4" strokeWidth={1.75} />
+            {m.tickets_filters_assignee_mine()}
+          </DropdownMenuRadioItem>
         )}
-      </DropdownMenuItem>
-      {viewerId && (
-        <DropdownMenuItem
-          closeOnClick={false}
-          onClick={() => setAssigneeFilter("mine")}
-          className="cursor-pointer"
+        <DropdownMenuRadioItem
+          separated={members.length > 0}
+          value="unassigned"
         >
-          <UserRound className="size-4" strokeWidth={1.75} />
-          {m.tickets_filters_assignee_mine()}
-          {assigneeFilter === "mine" && (
-            <Check className="ml-auto size-3.5 text-muted-foreground" />
-          )}
-        </DropdownMenuItem>
-      )}
-      <DropdownMenuItem
-        closeOnClick={false}
-        onClick={() => setAssigneeFilter("unassigned")}
-        className="cursor-pointer"
+          {m.tickets_filters_assignee_unassigned()}
+        </DropdownMenuRadioItem>
+        {members.map((member) => (
+          <DropdownMenuRadioItem key={member.id} value={member.id}>
+            <MemberAvatar member={member} size={20} />
+            <span className="truncate">{member.name}</span>
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
+    </FilterSection>
+  )
+}
+
+function FilterEstimate({
+  value,
+  onChange,
+  estimation
+}: Readonly<{
+  value: TicketFilter["estimate"]
+  onChange: (value: TicketFilter["estimate"]) => void
+  estimation: EstimationMode
+}>) {
+  const options = estimateFilterValues(estimation)
+  if (options.length === 0) return null
+  const selected = value?.length === 1 ? value[0] : "all"
+  const select = (next: EstimateFilterValue | "all") =>
+    onChange(next === "all" ? undefined : [next])
+  return (
+    <FilterSection>
+      <SectionLabel>{m.tickets_filters_section_estimate()}</SectionLabel>
+      <DropdownMenuRadioGroup
+        value={selected}
+        onValueChange={(next: string) => select(next as typeof selected)}
       >
-        {m.tickets_filters_assignee_unassigned()}
-        {assigneeFilter === "unassigned" && (
-          <Check className="ml-auto size-3.5 text-muted-foreground" />
-        )}
-      </DropdownMenuItem>
-      {members.length > 0 && <div className="my-1 h-px bg-border" />}
-      {members.map((member) => (
-        <DropdownMenuItem
-          key={member.id}
-          closeOnClick={false}
-          onClick={() => setAssigneeFilter(member.id)}
-          className="cursor-pointer"
-        >
-          <MemberAvatar member={member} size={20} />
-          <span className="truncate">{member.name}</span>
-          {assigneeFilter === member.id && (
-            <Check className="ml-auto size-3.5 text-muted-foreground" />
-          )}
-        </DropdownMenuItem>
-      ))}
+        <DropdownMenuRadioItem separated value="all">
+          {m.tickets_filters_estimate_all()}
+        </DropdownMenuRadioItem>
+        {options.map((option) => (
+          <DropdownMenuRadioItem key={option} value={option}>
+            {estimateFilterLabel(option)}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
     </FilterSection>
   )
 }
@@ -339,48 +355,35 @@ function FilterSprint({
   return (
     <FilterSection>
       <SectionLabel>{m.tickets_filters_section_sprint()}</SectionLabel>
-      <DropdownMenuItem
-        closeOnClick={false}
-        onClick={() => setSprintFilter("all")}
-        className="cursor-pointer"
+      <DropdownMenuRadioGroup
+        value={sprintFilter}
+        onValueChange={(next: string) =>
+          setSprintFilter(next as typeof sprintFilter)
+        }
       >
-        {m.tickets_filters_sprint_any()}
-        {sprintFilter === "all" && (
-          <Check className="ml-auto size-3.5 text-muted-foreground" />
-        )}
-      </DropdownMenuItem>
-      <DropdownMenuItem
-        closeOnClick={false}
-        onClick={() => setSprintFilter("ungrouped")}
-        className="cursor-pointer"
-      >
-        {m.tickets_filters_sprint_none()}
-        {sprintFilter === "ungrouped" && (
-          <Check className="ml-auto size-3.5 text-muted-foreground" />
-        )}
-      </DropdownMenuItem>
-      {sprintOptions.length > 0 && <div className="my-1 h-px bg-border" />}
-      {sprintOptions.map((s) => {
-        const meta = SPRINT_STATE_META[sprintState(s, now)]
-        const SIcon = meta.icon
-        return (
-          <DropdownMenuItem
-            key={s.id}
-            closeOnClick={false}
-            onClick={() => setSprintFilter(s.id)}
-            className="cursor-pointer"
-          >
-            <SIcon
-              className={cn("size-4", meta.className)}
-              strokeWidth={1.75}
-            />
-            <span className="truncate">{s.name}</span>
-            {sprintFilter === s.id && (
-              <Check className="ml-auto size-3.5 text-muted-foreground" />
-            )}
-          </DropdownMenuItem>
-        )
-      })}
+        <DropdownMenuRadioItem value="all">
+          {m.tickets_filters_sprint_any()}
+        </DropdownMenuRadioItem>
+        <DropdownMenuRadioItem
+          separated={sprintOptions.length > 0}
+          value="ungrouped"
+        >
+          {m.tickets_filters_sprint_none()}
+        </DropdownMenuRadioItem>
+        {sprintOptions.map((s) => {
+          const meta = SPRINT_STATE_META[sprintState(s, now)]
+          const SIcon = meta.icon
+          return (
+            <DropdownMenuRadioItem key={s.id} value={s.id}>
+              <SIcon
+                className={cn("size-4", meta.className)}
+                strokeWidth={1.75}
+              />
+              <span className="truncate">{s.name}</span>
+            </DropdownMenuRadioItem>
+          )
+        })}
+      </DropdownMenuRadioGroup>
     </FilterSection>
   )
 }

@@ -16,6 +16,10 @@ export const projectScope = (orgSlug: string, slug: string): string =>
  * string churn.
  */
 export const Keys = {
+  slackOrg: (orgSlug: string): string => `slack-org/${orgSlug}`,
+  slackProject: (scope: string): string => `slack-project/${scope}`,
+  slackProfiles: (): string => "slack-profiles",
+  orgEmail: (orgSlug: string): string => `org-email/${orgSlug}`,
   /** One ticket's content, wherever it is shown. */
   ticket: (scope: string, id: TicketId): string =>
     `ticket-content/${scope}/${id}`,
@@ -27,8 +31,8 @@ export const Keys = {
   ticketPages: (scope: string): string => `ticket-pages/${scope}`,
   /** Queries whose ordering or matching depends on ticket titles. */
   ticketTitleQuery: (scope: string): string => `ticket-title-query/${scope}`,
-  /** Queries that depend on who commented on this project's tickets. */
-  ticketActivity: (scope: string): string => `ticket-activity/${scope}`,
+  /** Queries that depend on comments on this project's tickets. */
+  ticketComments: (scope: string): string => `ticket-comments/${scope}`,
   /** Queries whose ordering or matching depends on `updatedAt`. */
   ticketUpdatedQuery: (scope: string): string =>
     `ticket-updated-query/${scope}`,
@@ -72,6 +76,8 @@ export const Keys = {
   attachments: (orgSlug: string): string => `attachments/${orgSlug}`,
   /** Storage connection state for one organization. */
   storage: (orgSlug: string): string => `storage/${orgSlug}`,
+  /** This project's git automation rules. */
+  gitAutomation: (scope: string): string => `git-automation/${scope}`,
   /** Git state for this project's tickets. */
   gitStates: (scope: string): string => `git-states/${scope}`,
   /** Branches available to this project. */

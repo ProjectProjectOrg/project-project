@@ -18,6 +18,7 @@ import {
   TicketStatus
 } from "@pp/shared"
 
+import { testActivityLayer } from "../activity/testing"
 import { GroupDocs } from "../groups/GroupDocs"
 import { GroupDocsLive } from "../groups/GroupDocsLive"
 import * as KeyedLock from "../locks/KeyedLock"
@@ -102,6 +103,7 @@ it.effect("TicketDocs reads ticket frontmatter as a typed document", () =>
   }).pipe(
     Effect.provide(
       TicketDocsLive.pipe(
+        Layer.provideMerge(testActivityLayer()),
         Layer.provide(KeyedLock.layer),
         Layer.provide(
           makeMarkdown({
@@ -162,6 +164,7 @@ it.effect(
     }).pipe(
       Effect.provide(
         TicketDocsLive.pipe(
+          Layer.provideMerge(testActivityLayer()),
           Layer.provide(KeyedLock.layer),
           Layer.provide(
             makeMarkdown({
@@ -226,10 +229,9 @@ it.effect(
           type: "chore",
           priority: "high",
           tags: ["backend"],
-          branch: "chore/T-2-write-tests",
-          pr: 42,
-          prState: "open",
-          lastTransitionedPr: null,
+          branches: [
+            { branch: "chore/T-2-write-tests", pr: 42, prState: "open" }
+          ],
           assignees: ["user-1", "user-2"],
           archivedAt: null,
           createdBy: "user-1",
@@ -242,6 +244,7 @@ it.effect(
     }).pipe(
       Effect.provide(
         TicketDocsLive.pipe(
+          Layer.provideMerge(testActivityLayer()),
           Layer.provide(KeyedLock.layer),
           Layer.provide(
             makeMarkdown({
@@ -329,6 +332,7 @@ it.effect("TicketDocs serializes concurrent document updates", () => {
   }).pipe(
     Effect.provide(
       TicketDocsLive.pipe(
+        Layer.provideMerge(testActivityLayer()),
         Layer.provide(KeyedLock.layer),
         Layer.provide(
           makeMarkdown({
@@ -434,6 +438,7 @@ it.effect(
     }).pipe(
       Effect.provide(
         TicketDocsLive.pipe(
+          Layer.provideMerge(testActivityLayer()),
           Layer.provide(KeyedLock.layer),
           Layer.provide(
             makeMarkdown({
@@ -479,6 +484,7 @@ it.effect("GroupDocs reads missing optional fields as typed defaults", () =>
   }).pipe(
     Effect.provide(
       GroupDocsLive.pipe(
+        Layer.provideMerge(testActivityLayer()),
         Layer.provide(
           makeMarkdown({
             readGroupFile: () =>
@@ -546,8 +552,21 @@ it.effect("GroupDocs serializes typed group documents for disk writes", () => {
   }).pipe(
     Effect.provide(
       GroupDocsLive.pipe(
+        Layer.provideMerge(testActivityLayer()),
         Layer.provide(
           makeMarkdown({
+            readGroupFile: () =>
+              Effect.succeed({
+                data: {
+                  id: "G-2",
+                  name: "Sprint 1",
+                  color: "#10b981",
+                  createdBy: "user-1",
+                  createdAt: "2026-03-30T00:00:00.000Z",
+                  updatedAt: "2026-03-30T00:00:00.000Z"
+                },
+                body: "# Sprint 1\n"
+              }),
             writeGroupFileIfExists: (_org, _slug, id, frontmatter, body) => {
               written = { id, frontmatter, body }
               return Effect.void
@@ -624,6 +643,7 @@ it.effect(
           repoName: "project",
           defaultBaseBranch: null
         },
+        estimation: "off",
         setup: {
           workflowReviewedAt: null,
           invitePeopleDismissedAt: null,
@@ -715,6 +735,7 @@ it.effect(
     }).pipe(
       Effect.provide(
         TicketDocsLive.pipe(
+          Layer.provideMerge(testActivityLayer()),
           Layer.provide(KeyedLock.layer),
           Layer.provide(
             makeMarkdown({
@@ -743,6 +764,7 @@ it.effect(
     }).pipe(
       Effect.provide(
         GroupDocsLive.pipe(
+          Layer.provideMerge(testActivityLayer()),
           Layer.provide(
             makeMarkdown({
               readGroupFileRaw: (_org, _slug, _id) =>

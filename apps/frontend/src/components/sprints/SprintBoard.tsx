@@ -235,7 +235,7 @@ function SprintBoardContent({
       aria-busy={waiting}
       style={{ height: height ?? 240 }}
       className={cn(
-        "overflow-x-auto",
+        "overflow-x-auto overscroll-x-contain",
         hasRightOverflow &&
           "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
       )}

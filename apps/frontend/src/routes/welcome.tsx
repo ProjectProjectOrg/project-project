@@ -281,7 +281,7 @@ function InviteRow({
   return (
     <li
       className={cn(
-        "group flex items-start gap-3 border-b border-border px-4 py-3.5 transition-colors last:border-b-0 hover:bg-muted/30 sm:items-center sm:gap-4",
+        "group flex items-start gap-3 border-b border-border px-4 py-3.5 transition-colors last:border-b-0 hover:bg-hover sm:items-center sm:gap-4",
         (accepting || declining) && "animate-pulse"
       )}
     >

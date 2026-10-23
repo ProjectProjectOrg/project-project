@@ -14,9 +14,13 @@ import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
 import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
-import matter from "gray-matter"
 
 import { splitDescriptionAndCommentsRegion } from "../comments/comments-region"
+import {
+  markdownFileContent,
+  parseMarkdownFile,
+  ticketFileBody
+} from "./fileContent"
 import {
   GroupIdTaken,
   Markdown,
@@ -91,7 +95,11 @@ export const MarkdownLive = Layer.effect(
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
             )
           )
-        const parsed = matter(raw)
+        const parsed = yield* Effect.try({
+          try: () => parseMarkdownFile(raw),
+          catch: (cause) =>
+            new MarkdownError({ cause, message: `parse failed: ${file}` })
+        })
         return {
           data: parsed.data,
           body: parsed.content
@@ -133,7 +141,7 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeOrgAndProject(orgSlug, slug)
         const file = projectFilePath(orgSlug, slug)
         const dir = path.dirname(file)
-        const content = matter.stringify(body, frontmatter)
+        const content = markdownFileContent(frontmatter, body)
         yield* fs
           .makeDirectory(dir, { recursive: true })
           .pipe(
@@ -212,7 +220,11 @@ export const MarkdownLive = Layer.effect(
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
             )
           )
-        const parsed = matter(raw)
+        const parsed = yield* Effect.try({
+          try: () => parseMarkdownFile(raw),
+          catch: (cause) =>
+            new MarkdownError({ cause, message: `parse failed: ${file}` })
+        })
         return {
           data: parsed.data,
           body: parsed.content
@@ -274,7 +286,7 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeId(id)
         const file = ticketFilePath(orgSlug, slug, id)
         const dir = path.dirname(file)
-        const content = matter.stringify(body, frontmatter)
+        const content = markdownFileContent(frontmatter, body)
         yield* fs
           .makeDirectory(dir, { recursive: true })
           .pipe(
@@ -322,7 +334,7 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeOrgAndProject(orgSlug, slug)
         yield* ensureSafeId(id)
         const file = ticketFilePath(orgSlug, slug, id)
-        const content = matter.stringify(body, frontmatter)
+        const content = markdownFileContent(frontmatter, body)
         const temporary = yield* ticketTemporaryFile(file)
         yield* Effect.gen(function* () {
           yield* fs
@@ -361,7 +373,7 @@ export const MarkdownLive = Layer.effect(
         slug,
         id,
         frontmatter,
-        region ? `${description.replace(/\s+$/, "")}\n\n${region}` : description
+        ticketFileBody(description, region)
       )
 
     const removeTicketFile = (
@@ -447,7 +459,11 @@ export const MarkdownLive = Layer.effect(
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
             )
           )
-        const parsed = matter(raw)
+        const parsed = yield* Effect.try({
+          try: () => parseMarkdownFile(raw),
+          catch: (cause) =>
+            new MarkdownError({ cause, message: `parse failed: ${file}` })
+        })
         return {
           data: parsed.data,
           body: parsed.content
@@ -493,7 +509,7 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeGroupId(id)
         const file = groupFilePath(orgSlug, slug, id)
         const dir = path.dirname(file)
-        const content = matter.stringify(body, frontmatter)
+        const content = markdownFileContent(frontmatter, body)
         yield* fs
           .makeDirectory(dir, { recursive: true })
           .pipe(
@@ -525,7 +541,7 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeOrgAndProject(orgSlug, slug)
         yield* ensureSafeGroupId(id)
         const file = groupFilePath(orgSlug, slug, id)
-        const content = matter.stringify(body, frontmatter)
+        const content = markdownFileContent(frontmatter, body)
         yield* fs
           .writeFileString(file, content)
           .pipe(
@@ -547,7 +563,7 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeOrgAndProject(orgSlug, slug)
         yield* ensureSafeGroupId(id)
         const file = groupFilePath(orgSlug, slug, id)
-        const content = matter.stringify(body, frontmatter)
+        const content = markdownFileContent(frontmatter, body)
         const exists = yield* fs
           .exists(file)
           .pipe(

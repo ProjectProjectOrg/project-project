@@ -231,9 +231,9 @@ applied once based on its name; subsequent runs no-op.
 
 ## IGNE deployment: TLS and image-owned routes
 
-`pp.igne.nl` terminates origin TLS in the frontend container. Its host-mounted
-`/srv/projectproject/nginx/default.conf` defines the HTTP redirect and HTTPS
-server, loads certificates from `/etc/nginx/certs`, sets the static root to
+`pp.igne.nl` runs on a DigitalOcean VM and terminates origin TLS in the frontend
+container. Its host-mounted `/srv/projectproject/nginx/default.conf` defines
+the HTTP redirect and HTTPS server, loads certificates from `/etc/nginx/certs`, sets the static root to
 `/usr/share/nginx/html`, and includes `/etc/nginx/app.locations` inside the HTTPS
 server block.
 
@@ -276,3 +276,74 @@ published. The old image does not provide the include on its own.
 Watchtower updates images, not host-mounted configuration. This one-time mount
 removal allows future route updates to travel with the image. To roll back to an
 older image without the include, restore the backed-up volume mount as well.
+
+### Updating Nginx
+
+The web image uses Nginx 1.30.6. Before merging an Nginx upgrade, pause
+Watchtower on each instance so it cannot deploy the image before validation:
+
+```sh
+cd /srv/projectproject
+docker compose stop watchtower
+```
+
+Record the currently deployed web image's `sha-<short>` release tag for rollback
+and back up the IGNE TLS configuration and Compose override. Once the new image
+is published, substitute its release tag below. The existing app must be running
+so Nginx can resolve its upstream during the configuration check.
+
+```sh
+release_tag=sha-REPLACE_WITH_NEW_RELEASE
+IMAGE_TAG=$release_tag docker compose pull web
+IMAGE_TAG=$release_tag docker compose run --rm --no-deps web nginx -v
+IMAGE_TAG=$release_tag docker compose run --rm --no-deps web nginx -t
+```
+
+Expect Nginx 1.30.6 and a successful configuration check. On IGNE this checks
+the actual mounted TLS configuration and certificates. Only then deploy:
+
+```sh
+IMAGE_TAG=$release_tag docker compose up -d --no-deps web
+docker compose exec web nginx -t
+docker compose ps web
+```
+
+Verify HTTPS, sign-in, a frontend deep link, uploads, and the OAuth/MCP checks
+above through the public hostname. If validation fails, keep Watchtower stopped
+and repeat the pull and `up` commands with the previous release tag. After a
+successful rollout, resume Watchtower only when ready to resume automatic
+updates for both app and web; restore the usual `IMAGE_TAG` selection with
+`docker compose up -d --no-deps web`, then `docker compose start watchtower`.
+
+This updates ProjectProject's web container. Nginx Proxy Manager is a separate
+installation and needs its own upgrade on the Proxmox deployment.
+
+## Organization email connections
+
+Organization owners and admins can configure an outgoing SMTP provider under
+**Organization settings → Email**. Each organization has its own connection.
+The backend uses `USER_SECRET_ENCRYPTION_KEY` (the existing base64-encoded
+32-byte secret encryption key) to encrypt saved SMTP passwords. Keep this key
+stable and back it up alongside the database; changing it makes existing
+credentials unreadable.
+
+Enter the provider's host, port, username, password or API key, and sender
+address. Choose TLS for an immediately encrypted connection (commonly port 465)
+or STARTTLS for a required encryption upgrade (commonly port 587). The sender
+must be permitted by the provider. For Postmark, use a dedicated SMTP token's
+access key and secret; for Resend, use `resend` as the username and an API key
+as the password.
+
+Save settings, then use **Send test email** to send to your account email.
+A successful test means the provider accepted the message, not that it reached
+the inbox. Editing settings clears the previous test result. Leave the password
+blank when editing to retain it; changing the host, port, or username requires
+entering it again. Disconnecting deletes the configuration and credentials.
+
+The backend only connects to public addresses. Hosts that resolve to loopback,
+private, link-local, or other reserved ranges are refused, so an SMTP relay on
+the local network cannot be used. When a host has several public addresses, the
+test tries each in turn until one accepts the connection.
+
+This configuration currently supports connection testing only. Authentication
+emails, invitations, and notifications are not yet routed through it.

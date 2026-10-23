@@ -1,18 +1,20 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { ProjectPolicy } from "@pp/access/policies"
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import * as Exit from "effect/Exit"
+import { createFileRoute } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useEffect, useState, type FormEvent } from "react"
+import { useState } from "react"
 
 import { ProjectAppearanceSection } from "@/components/appearance/ProjectAppearanceSection"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { Markdown } from "@/components/Markdown"
 import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
-  deleteProject,
+  SettingsGroup,
+  SettingsRow,
+  SettingsSection
+} from "@/components/settings/SettingsSection"
+import { SettingsTextField } from "@/components/settings/SettingsTextField"
+import {
   projectRequest,
   updateProject
 } from "@/features/projects/atoms/projects"
@@ -36,127 +38,78 @@ function GeneralSettings() {
   const req = projectRequest(orgSlug, project.slug)
   const update = useAtomSet(updateProject(req), { mode: "promiseExit" })
   const updateState = useAtomValue(updateProject(req))
-  const remove = useAtomSet(deleteProject(req), { mode: "promiseExit" })
-  const removeState = useAtomValue(deleteProject(req))
-  const navigate = useNavigate()
   const actor = useProjectActor()
   const canEdit = ProjectPolicy.canUpdate(actor, { settings: true })
   const canEditBody = ProjectPolicy.canUpdate(actor, { body: true })
-  const canDelete = actor.call("projects", "delete")
-  const [name, setName] = useState(project.name)
   const [status, setStatus] = useState<SaveStatus>("idle")
 
-  useEffect(() => setName(project.name), [project.name])
-
-  async function onNameSubmit(event: FormEvent) {
-    event.preventDefault()
-    const trimmed = name.trim()
-    if (!trimmed || trimmed === project.name || !canEdit) return
-    await update({ name: trimmed })
-  }
-
-  async function onDelete() {
-    const exit = await remove()
-    if (Exit.isSuccess(exit)) {
-      void navigate({ to: "/orgs/$orgSlug/projects", params: { orgSlug } })
-    }
-  }
-
   return (
-    <div className="flex w-full flex-col gap-8">
-      <section className="flex flex-col gap-4">
-        <ProjectAppearanceSection
-          orgSlug={orgSlug}
-          slug={project.slug}
-          name={project.name}
-          projectKey={project.key}
-          icon={project.icon}
-          iconImage={project.iconImage}
-          color={project.color}
-          banner={project.banner}
-          canEdit={canEdit}
-        />
-        <form onSubmit={onNameSubmit} className="grid gap-2">
-          <label className="text-sm font-medium" htmlFor="project-name">
-            {m.project_settings_name_label()}
-          </label>
-          <div className="flex gap-2">
-            <Input
-              id="project-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              disabled={!canEdit || updateState.waiting}
+    <>
+      <ProjectAppearanceSection
+        orgSlug={orgSlug}
+        slug={project.slug}
+        name={project.name}
+        projectKey={project.key}
+        icon={project.icon}
+        iconImage={project.iconImage}
+        color={project.color}
+        banner={project.banner}
+        canEdit={canEdit}
+      />
+
+      <SettingsSection>
+        <SettingsGroup>
+          <SettingsRow
+            label={m.project_settings_name_label()}
+            error={
+              Result.isFailure(updateState)
+                ? m.project_settings_name_error()
+                : null
+            }
+          >
+            <SettingsTextField
+              value={project.name}
+              onCommit={(name) => update({ name })}
+              disabled={!canEdit}
+              waiting={updateState.waiting}
               maxLength={120}
             />
-            {canEdit ? (
-              <Button
-                type="submit"
-                variant="secondary"
-                disabled={updateState.waiting || name.trim() === project.name}
-              >
-                {m.project_settings_save_button()}
-              </Button>
-            ) : null}
-          </div>
-        </form>
-        <div className="grid gap-2">
-          <span className="text-sm font-medium">
-            {m.project_settings_key_label()}
-          </span>
-          <span className="w-fit rounded-md border border-border bg-background px-2 py-1 font-mono text-sm">
-            {project.key}
-          </span>
-        </div>
-      </section>
-
-      <section className="grid gap-2">
-        <span className="text-sm font-medium">
-          {m.project_settings_description_heading()}
-        </span>
-        {canEditBody ? (
-          <>
-            <LexicalEditor
-              key={project.slug}
-              markdown={project.body}
-              onChange={async (next) => {
-                await update({ body: next })
-              }}
-              onStatusChange={setStatus}
-              className="rounded-lg border border-border bg-background px-3 py-2"
-            />
-            <MarkdownSaveIndicator
-              status={status}
-              className="justify-self-end"
-            />
-          </>
-        ) : (
-          <Markdown>{project.body}</Markdown>
-        )}
-      </section>
-
-      {canDelete ? (
-        <section className="flex items-center justify-between gap-4 border-t border-border pt-6">
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight text-destructive">
-              {m.project_settings_delete_heading()}
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {m.project_settings_delete_description()}
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="tertiary"
-            className="border-destructive/40 text-destructive hover:bg-destructive/10"
-            disabled={removeState.waiting}
-            onClick={() => void onDelete()}
+          </SettingsRow>
+          <SettingsRow
+            label={m.project_settings_key_label()}
+            description={m.project_settings_key_description()}
           >
-            {Result.isInitial(removeState) || !removeState.waiting
-              ? m.project_detail_delete_button()
-              : m.project_detail_delete_in_progress()}
-          </Button>
-        </section>
-      ) : null}
-    </div>
+            <span className="font-mono text-[13px] text-muted-foreground">
+              {project.key}
+            </span>
+          </SettingsRow>
+          <SettingsRow
+            layout="stacked"
+            label={m.project_settings_description_heading()}
+            description={
+              canEditBody ? (
+                <MarkdownSaveIndicator status={status} />
+              ) : undefined
+            }
+          >
+            <div className="w-full">
+              {canEditBody ? (
+                <LexicalEditor
+                  key={project.slug}
+                  markdown={project.body}
+                  onChange={async (next) => {
+                    await update({ body: next })
+                  }}
+                  onStatusChange={setStatus}
+                  className="rounded-lg border border-border bg-background px-3 py-2"
+                />
+              ) : (
+                <Markdown>{project.body}</Markdown>
+              )}
+            </div>
+          </SettingsRow>
+        </SettingsGroup>
+      </SettingsSection>
+    </>
   )
 }

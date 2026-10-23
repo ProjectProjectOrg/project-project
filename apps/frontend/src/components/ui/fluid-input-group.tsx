@@ -166,7 +166,7 @@ const InputField = forwardRef<HTMLLabelElement, InputFieldProps>(
       bgClass = "bg-card"
       ringClass = "ring-border"
     } else if (isActive) {
-      bgClass = "bg-muted/50"
+      bgClass = "bg-hover"
       ringClass = "ring-border"
     } else {
       bgClass = "bg-transparent"

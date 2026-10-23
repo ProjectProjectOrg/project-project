@@ -1,0 +1,115 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "165e91de-549d-42a3-82ea-8114169827c7",
+  "prevIds": [
+    "05fc00c3-6f56-4374-8c77-2bdee5294e52"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "project_index",
+        "estimation"
+      ],
+      "writes": [
+        "s|col|public.project_index.estimation",
+        "n|col|public.project_index.estimation",
+        "e|col|public.project_index.estimation"
+      ],
+      "reads": [
+        "n|tbl|public.project_index",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ticket_index",
+        "estimate_unit"
+      ],
+      "writes": [
+        "s|col|public.ticket_index.estimate_unit",
+        "n|col|public.ticket_index.estimate_unit",
+        "e|col|public.ticket_index.estimate_unit"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_index",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ticket_index",
+        "estimate_value"
+      ],
+      "writes": [
+        "s|col|public.ticket_index.estimate_value",
+        "n|col|public.ticket_index.estimate_value",
+        "e|col|public.ticket_index.estimate_value"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_index",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_index",
+        "name": "estimation",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'off'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_index",
+        "name": "estimate_unit",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_index",
+        "name": "estimate_value",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

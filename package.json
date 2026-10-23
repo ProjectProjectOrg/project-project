@@ -49,11 +49,8 @@
     "@effect/platform-node-shared": "4.0.5"
   },
   "engines": {
-    "bun": ">=1.3.13",
+    "bun": ">=1.4.4",
     "node": "^22.18.0 || >=24.11.0"
   },
-  "packageManager": "bun@1.4.2",
-  "patchedDependencies": {
-    "drizzle-orm@1.0.0-rc.5-169397b": "patches/drizzle-orm@1.0.0-rc.5-169397b.patch"
-  }
+  "packageManager": "bun@1.4.4"
 }

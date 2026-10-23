@@ -7,6 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { BacklogGroupingControl } from "../BacklogGroupingControl"
 import { TicketToolbar } from "./TicketToolbar"
 
+const pickOption = (option: HTMLElement) => {
+  fireEvent.pointerDown(option)
+  fireEvent.click(option)
+}
+
 vi.mock("@/features/projects/atoms/projectStatuses", async () => {
   const DateTime = await import("effect/DateTime")
   const Atom = await import("effect/reactivity/Atom")
@@ -57,6 +62,7 @@ function Toolbar({
       members={[]}
       counts={{ all: 0 }}
       filters={["type"]}
+      estimation="off"
       showSort
       viewOptionsVariant={variant}
     >
@@ -115,8 +121,8 @@ describe("toolbar search ownership", () => {
   it("changes ordering and direction while keeping the panel open and filters intact", () => {
     render(<Toolbar />)
     fireEvent.click(screen.getByRole("button", { name: "View options" }))
-    fireEvent.click(screen.getByRole("button", { name: "Ordering: Title" }))
-    fireEvent.click(screen.getByRole("menuitem", { name: "Updated" }))
+    fireEvent.click(screen.getByRole("combobox", { name: "Ordering: Title" }))
+    pickOption(screen.getByRole("option", { name: "Updated" }))
     expect(commit.mock.lastCall?.[0]).toMatchObject({
       type: ["bug"],
       sort: { key: "updated", dir: "asc" }
@@ -127,27 +133,27 @@ describe("toolbar search ownership", () => {
       sort: { key: "updated", dir: "desc" }
     })
     expect(
-      screen.getByRole("button", { name: "Ordering: Updated" })
+      screen.getByRole("combobox", { name: "Ordering: Updated" })
     ).toBeTruthy()
   })
 
   it("filters by status inside the panel and clears it through the status picker", () => {
     render(<Toolbar />)
     fireEvent.click(screen.getByRole("button", { name: "View options" }))
-    fireEvent.click(screen.getByRole("button", { name: "Status: All" }))
-    fireEvent.click(screen.getByRole("menuitem", { name: /^Todo/ }))
+    fireEvent.click(screen.getByRole("combobox", { name: "Status: All" }))
+    pickOption(screen.getByRole("option", { name: /^Todo/ }))
     expect(commit.mock.lastCall?.[0]).toMatchObject({
       status: ["todo"],
       type: ["bug"]
     })
-    expect(screen.getByRole("button", { name: "Status: Todo" })).toBeTruthy()
+    expect(screen.getByRole("combobox", { name: "Status: Todo" })).toBeTruthy()
     expect(
       screen.getByRole("button", { name: "Status: Todo. Click to change." })
     ).toBeTruthy()
-    fireEvent.click(screen.getByRole("button", { name: "Status: Todo" }))
-    fireEvent.click(screen.getByRole("menuitem", { name: /^All/ }))
+    fireEvent.click(screen.getByRole("combobox", { name: "Status: Todo" }))
+    pickOption(screen.getByRole("option", { name: /^All/ }))
     expect(commit.mock.lastCall?.[0].status).toBeUndefined()
-    expect(screen.getByRole("button", { name: "Status: All" })).toBeTruthy()
+    expect(screen.getByRole("combobox", { name: "Status: All" })).toBeTruthy()
   })
 
   it("keeps draft typing local until the debounced query commits", () => {
@@ -206,9 +212,14 @@ describe("toolbar search ownership", () => {
               : "View options (1 active filters)"
         })
       )
-      if (variant === "panel")
-        fireEvent.click(screen.getByRole("button", { name: "Type: Bug" }))
-      fireEvent.click(screen.getByRole("menuitem", { name: "All types" }))
+      if (variant === "panel") {
+        fireEvent.click(screen.getByRole("combobox", { name: "Type: Bug" }))
+        pickOption(screen.getByRole("option", { name: "All types" }))
+      } else {
+        fireEvent.click(
+          screen.getByRole("menuitemradio", { name: "All types" })
+        )
+      }
       act(() => {
         vi.advanceTimersByTime(200)
       })

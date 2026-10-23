@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { TicketDetail } from "@pp/shared"
+import { activeEstimate, type TicketDetail } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Info } from "lucide-react"
 import { useState } from "react"
@@ -26,20 +26,10 @@ import {
   ticketTimePanelAtom,
   ticketTimeRequest
 } from "@/features/everhour/atoms/timeTracking"
+import { useEstimationMode } from "@/hooks/useEstimationMode"
 import { useProjectActor } from "@/lib/access"
+import { formatDuration } from "@/lib/duration"
 import * as m from "@/paraglide/messages"
-
-export const formatDuration = (seconds: number): string => {
-  const total = Math.max(0, Math.round(seconds / 60))
-  const hours = Math.floor(total / 60)
-  const minutes = total % 60
-  if (hours === 0 && minutes === 0)
-    return m.time_duration_minutes({ minutes: 0 })
-  return [
-    ...(hours > 0 ? [m.time_duration_hours({ hours })] : []),
-    ...(minutes > 0 ? [m.time_duration_minutes({ minutes })] : [])
-  ].join(" ")
-}
 
 export function TicketTimeSection({
   orgSlug,
@@ -133,6 +123,7 @@ export function TicketTimePanel({
                 : "flex items-center gap-5 tabular-nums"
             }
           >
+            <EstimatedFigure ticket={ticket} />
             <TrackedFigure
               label={m.time_tracked_total()}
               seconds={panel.time.totalSeconds}
@@ -198,12 +189,23 @@ function TicketTimeTotal({
     onError: (error) => <ErrorPage error={error} contained />,
     onDefect: (defect) => <ErrorPage error={defect} contained />,
     onSuccess: ({ value }) => (
-      <TrackedFigure
-        label={m.time_tracked_total()}
-        seconds={value.totalSeconds}
-      />
+      <div className="flex items-center gap-5 tabular-nums">
+        <EstimatedFigure ticket={ticket} />
+        <TrackedFigure
+          label={m.time_tracked_total()}
+          seconds={value.totalSeconds}
+        />
+      </div>
     )
   })
+}
+
+function EstimatedFigure({ ticket }: Readonly<{ ticket: TicketDetail }>) {
+  const estimate = activeEstimate(ticket.estimate, useEstimationMode())
+  if (estimate?.unit !== "time") return null
+  return (
+    <TrackedFigure label={m.time_estimated()} seconds={estimate.minutes * 60} />
+  )
 }
 
 function TrackedFigure({ label, seconds }: { label: string; seconds: number }) {

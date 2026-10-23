@@ -23,6 +23,11 @@ import {
 
 import { JiraMigrationForm, type JiraDraftSave } from "."
 
+const pickOption = (option: HTMLElement) => {
+  fireEvent.pointerDown(option)
+  fireEvent.click(option)
+}
+
 const mocks = vi.hoisted(() => ({
   mutate: vi.fn(),
   failedConfigure: false,
@@ -248,7 +253,7 @@ describe("JiraMigrationForm navigation", () => {
     render(<FormNavigationHarness />)
 
     fireEvent.click(screen.getByRole("combobox", { name: "Ada" }))
-    fireEvent.click(screen.getByRole("option", { name: "Don’t link" }))
+    pickOption(screen.getByRole("option", { name: "Don’t link" }))
     fireEvent.click(screen.getByRole("button", { name: "Continue" }))
 
     expect(
@@ -263,7 +268,7 @@ describe("JiraMigrationForm navigation", () => {
   it("hydrates a saved partial configuration after remount", async () => {
     const { unmount } = render(<FormNavigationHarness />)
     fireEvent.click(screen.getByRole("combobox", { name: "Ada" }))
-    fireEvent.click(screen.getByRole("option", { name: "Don’t link" }))
+    pickOption(screen.getByRole("option", { name: "Don’t link" }))
     fireEvent.click(screen.getByRole("button", { name: "Continue" }))
     await screen.findByRole("heading", { name: "Map statuses" })
     const saved = mocks.mutate.mock.calls[0]?.[0].configuration
@@ -288,14 +293,14 @@ describe("JiraMigrationForm navigation", () => {
     expect(screen.getByRole("heading", { name: "Link people" })).not.toBeNull()
 
     fireEvent.click(screen.getByRole("combobox", { name: "Ada" }))
-    fireEvent.click(screen.getByRole("option", { name: "Don’t link" }))
+    pickOption(screen.getByRole("option", { name: "Don’t link" }))
     fireEvent.click(screen.getByRole("button", { name: "Continue" }))
     expect(
       await screen.findByRole("heading", { name: "Map statuses" })
     ).not.toBeNull()
 
     fireEvent.click(screen.getByRole("combobox", { name: "Backlog" }))
-    fireEvent.click(screen.getByRole("option", { name: "Todo" }))
+    pickOption(screen.getByRole("option", { name: "Todo" }))
     fireEvent.click(screen.getByRole("combobox", { name: "Done elsewhere" }))
     const createOption = screen.getByRole("option", {
       name: "Create status “Done elsewhere”"
@@ -303,7 +308,7 @@ describe("JiraMigrationForm navigation", () => {
     expect(
       createOption.querySelector(".lucide-circle-question-mark")
     ).not.toBeNull()
-    fireEvent.click(createOption)
+    pickOption(createOption)
     expect(screen.getByText(/creates a nonterminal status/)).not.toBeNull()
     expect(
       screen

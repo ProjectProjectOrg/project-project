@@ -1,41 +1,43 @@
 {
+  "type": "base",
+  "version": "9",
+  "dialect": "postgres",
   "id": "8d103889-1908-49d2-bec7-172a704631b9",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
-  "version": "8",
-  "dialect": "postgres",
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "project_index"
+      ],
+      "writes": [
+        "s|tbl|public.project_index",
+        "n|tbl|public.project_index",
+        "e|tbl|public.project_index",
+        "n|rel|public.project_index",
+        "n|type|public.project_index",
+        "n|rel|public.project_index_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    }
+  ],
   "ddl": [
     {
-      "isRlsEnabled": false,
-      "name": "project_index",
       "schema": "public",
+      "name": "project_index",
+      "isRlsEnabled": false,
       "entityType": "tables"
     },
     {
-      "columns": [
-        "slug"
-      ],
-      "nameExplicit": false,
-      "name": "project_index_pkey",
       "schema": "public",
       "table": "project_index",
-      "entityType": "pks"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
       "name": "slug",
-      "schema": "public",
-      "table": "project_index",
-      "entityType": "columns"
-    },
-    {
       "type": "text",
       "typeSchema": null,
       "notNull": true,
@@ -43,12 +45,25 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "owner_id",
-      "schema": "public",
-      "table": "project_index",
       "entityType": "columns"
     },
     {
+      "schema": "public",
+      "table": "project_index",
+      "name": "owner_id",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "project_index",
+      "name": "created_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -56,11 +71,17 @@
       "default": "now()",
       "generated": null,
       "identity": null,
-      "name": "created_at",
+      "entityType": "columns"
+    },
+    {
       "schema": "public",
       "table": "project_index",
-      "entityType": "columns"
+      "name": "project_index_pkey",
+      "columns": [
+        "slug"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
     }
-  ],
-  "renames": []
+  ]
 }

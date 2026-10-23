@@ -42,8 +42,27 @@ afterEach(() => {
 
 const chooseType = async (label: string) => {
   fireEvent.click(screen.getByLabelText(/^Type: /))
-  fireEvent.click(await screen.findByRole("menuitem", { name: label }))
+  fireEvent.click(await screen.findByRole("menuitemradio", { name: label }))
 }
+
+const ticket = (id: string, title: string) => ({
+  id,
+  title,
+  status: "todo",
+  type: "feat",
+  priority: "med",
+  tags: [],
+  branch: null,
+  pr: null,
+  prState: null,
+  lastTransitionedPr: null,
+  gitState: { tag: "no_branch" },
+  assignees: [],
+  archivedAt: null,
+  createdBy: "user-1",
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z"
+})
 
 const submit = (input: HTMLInputElement, title: string) => {
   fireEvent.change(input, { target: { value: title } })
@@ -76,7 +95,7 @@ it.each(["focus", "hover"] as const)(
           />
         </RegistryContext.Provider>
       )
-      const input = screen.getByRole("textbox")
+      const input = screen.getByRole("combobox")
       expect(searches.size).toBe(0)
       if (intent === "hover") fireEvent.pointerEnter(input)
       else fireEvent.focus(input)
@@ -90,24 +109,6 @@ it.each(["focus", "hover"] as const)(
       await waitFor(() =>
         expect([...searches.keys()]).toEqual(["", "early", "latest"])
       )
-      const ticket = (id: string, title: string) => ({
-        id,
-        title,
-        status: "todo",
-        type: "feat",
-        priority: "med",
-        tags: [],
-        branch: null,
-        pr: null,
-        prState: null,
-        lastTransitionedPr: null,
-        gitState: { tag: "no_branch" },
-        assignees: [],
-        archivedAt: null,
-        createdBy: "user-1",
-        createdAt: "2026-01-01T00:00:00.000Z",
-        updatedAt: "2026-01-01T00:00:00.000Z"
-      })
       await act(async () =>
         searches.get("latest")?.(
           Response.json([ticket("T-2", "Latest result")])
@@ -157,7 +158,7 @@ const setupForTemplates = () => {
       />
     </RegistryContext.Provider>
   )
-  const input = screen.getByRole("textbox") as HTMLInputElement
+  const input = screen.getByRole("combobox") as HTMLInputElement
   fireEvent.focus(input)
   return { registry, posted, input }
 }
@@ -209,6 +210,49 @@ it("applies the template's type when no type was chosen explicitly", async () =>
       template: "bug-report"
     })
   } finally {
+    registry.dispose()
+  }
+})
+
+it("closes the results on the first Escape and the bar on the second", async () => {
+  const registry = Registry.make()
+  fetchStub.set((input: RequestInfo | URL) => {
+    const url = new URL(
+      input instanceof Request ? input.url : String(input),
+      "http://localhost"
+    )
+    return url.pathname.endsWith("/search")
+      ? Promise.resolve(Response.json([ticket("T-1", "Existing ticket")]))
+      : new Promise<Response>(() => {})
+  })
+  try {
+    render(
+      <RegistryContext.Provider value={registry}>
+        <SprintTicketCreator
+          orgSlug="org"
+          slug="project"
+          groupId={Schema.decodeSync(GroupId)("G-1")}
+          excludeIds={new Set()}
+        />
+      </RegistryContext.Provider>
+    )
+    const input = screen.getByRole("combobox")
+    const form = input.closest("form")!
+    act(() => input.focus())
+    await screen.findByRole("option", { name: /Existing ticket/ })
+    expect(input.getAttribute("aria-expanded")).toBe("true")
+
+    fireEvent.keyDown(input, { key: "Escape" })
+    expect(screen.queryByRole("listbox")).toBeNull()
+    expect(input.getAttribute("aria-expanded")).toBe("false")
+    expect(document.activeElement).toBe(input)
+    expect(form.hasAttribute("data-active")).toBe(true)
+
+    fireEvent.keyDown(input, { key: "Escape" })
+    expect(form.hasAttribute("data-active")).toBe(false)
+    expect(document.activeElement).not.toBe(input)
+  } finally {
+    cleanup()
     registry.dispose()
   }
 })

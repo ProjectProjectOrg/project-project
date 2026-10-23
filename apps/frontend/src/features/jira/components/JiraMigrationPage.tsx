@@ -393,7 +393,7 @@ function ResumeRegion({
                     <Link
                       to="/orgs/$orgSlug/migrations/jira/$migrationId"
                       params={{ orgSlug, migrationId: migration.id }}
-                      className="flex items-center justify-between gap-4 rounded-lg px-2 py-3 transition-colors hover:bg-accent/60 active:scale-[0.97]"
+                      className="flex items-center justify-between gap-4 rounded-lg px-2 py-3 transition-colors hover:bg-hover active:scale-[0.97]"
                     >
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-medium text-foreground">

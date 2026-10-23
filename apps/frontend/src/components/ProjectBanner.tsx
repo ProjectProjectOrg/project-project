@@ -9,6 +9,7 @@ import {
   useRef,
   useState
 } from "react"
+import { createPortal } from "react-dom"
 
 import {
   projectBannerPreviewAtom,
@@ -21,6 +22,7 @@ import {
 } from "@/lib/bannerRenderCache"
 import { bannerSource } from "@/lib/bannerSource"
 import { isImageLoaded, preloadImage } from "@/lib/imagePreload"
+import { usePageBackdrop } from "@/lib/page-backdrop"
 import { cn } from "@/lib/utils"
 
 import { CachedShaderBanner } from "./CachedShaderBanner"
@@ -40,17 +42,21 @@ export function ProjectBanner({
   slug,
   banner,
   waiting,
-  variant = "header"
+  variant = "header",
+  pageBackdrop = false
 }: {
   orgSlug: string
   slug: string
   banner: Banner | null
   waiting?: boolean
   variant?: "header" | "card" | "row"
+  pageBackdrop?: boolean
 }) {
   const preview = useAtomValue(
     projectBannerPreviewAtom(projectKey(orgSlug, slug))
   )
+  const pageBackdropSlot = usePageBackdrop()
+  const backdrop = pageBackdrop ? pageBackdropSlot : null
   const appliedSource = bannerSource(
     orgSlug,
     banner,
@@ -251,11 +257,11 @@ export function ProjectBanner({
   const fadeMask = bannerFadeMask(settings.fade)
   const { unblur, dissolve } = bannerCrossfadeTransitions(reduceMotion)
 
-  return (
+  const node = (
     <div
       ref={containerRef}
       aria-hidden="true"
-      className={`pointer-events-none absolute -z-10 overflow-hidden rounded-t-[inherit] ${variant === "header" ? "-inset-x-6 -top-6" : "inset-x-0 top-0"} ${waiting ? "animate-pulse" : ""}`}
+      className={`pointer-events-none absolute overflow-hidden rounded-t-[inherit] ${backdrop ? "inset-x-0 top-0" : variant === "header" ? "-inset-x-6 -top-6 -z-10" : "inset-x-0 top-0 -z-10"} ${waiting ? "animate-pulse" : ""}`}
       style={{
         height:
           variant === "header"
@@ -320,4 +326,19 @@ export function ProjectBanner({
       )}
     </div>
   )
+
+  return backdrop
+    ? createPortal(
+        <div
+          className="page-backdrop-follow pointer-events-none absolute inset-x-0 top-0"
+          style={{
+            height: bannerDefaults.height,
+            ["--page-backdrop-height" as string]: `${bannerDefaults.height}px`
+          }}
+        >
+          {node}
+        </div>,
+        backdrop
+      )
+    : node
 }

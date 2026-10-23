@@ -133,7 +133,7 @@ export const createComment = Atom.family((key: CreateCommentKey) =>
               )
             )
           )
-          yield* Reactivity.invalidate([Keys.ticketActivity(scopeOf(key.req))])
+          yield* Reactivity.invalidate([Keys.ticketComments(scopeOf(key.req))])
           return created
         })
       )
@@ -203,7 +203,7 @@ export const deleteComment = Atom.family(
               })
             )
             set(AsyncResult.map(get(comments(req)), (value) => value))
-            yield* Reactivity.invalidate([Keys.ticketActivity(scopeOf(req))])
+            yield* Reactivity.invalidate([Keys.ticketComments(scopeOf(req))])
             return commentId
           })
         )

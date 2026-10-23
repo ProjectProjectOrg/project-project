@@ -80,6 +80,8 @@ Buttons should scale to **97%** on `:active` with a **100–150ms** transform tr
 
 This applies to every clickable button in the app — not just the obvious primaries. Skip only when the element is non-interactive or the press is already conveyed by another animation (e.g. an inline-form trigger that immediately morphs).
 
+Buttons that open a popup (dropdown, popover, select, dialog) don't scale: the popup anchors to the trigger's box, so a press scale nudges it a pixel or two as it opens and closes. A global rule in `styles.css` cancels the scale for anything carrying `aria-haspopup`, which every Base UI trigger sets, so components don't need their own exception.
+
 ### Hover feel — instant in, eased out
 
 Hover (and Radix `[data-highlighted]` / `[data-selected]`) state changes should land **instantly on enter** and **ease out at ~150ms on exit**. That asymmetry is what makes the app feel responsive without feeling twitchy.
@@ -128,6 +130,7 @@ If extending the primitive feels disruptive (touches public API, would conflict 
 | `apps/frontend/messages/en/git.json`      | `git_`, `github_`                                      |
 | `apps/frontend/messages/en/sprints.json`  | `sprints_`, `error_sprint_`                            |
 | `apps/frontend/messages/en/time.json`     | `time_`                                                |
+| `apps/frontend/messages/en/slack.json`    | `slack_`                                               |
 | `apps/frontend/messages/en/figma.json`    | `figma_`                                               |
 | `apps/frontend/messages/en/jira.json`     | `jira_`                                                |
 | `apps/frontend/messages/en/templates.json` | `templates_`                                          |
@@ -272,6 +275,8 @@ Reference: `apps/frontend/src/routes/_authed/orgs/$orgSlug/projects/index.tsx` f
 ## Backend stack
 
 Effect HttpApi + Drizzle + Better Auth + Postgres, as set up in chapters 0–2. Extend within those choices unless we explicitly revisit them.
+
+Integration packages own provider behavior and consume PP capabilities through Effect host services supplied by the backend. Core must not import integration packages. Slack lives in `packages/integration-slack`; its host implementation and composition tests live in `apps/backend/src/slack`. Document writes persist provider-neutral events through the existing durable outbox, and each integration consumes only its own subscribed deliveries. Keep migrations in `db`, HTTP contracts in `shared`, and the SQL workflow engine shared across integrations. Do not add a universal integration-driver interface or migrate other integrations as part of ordinary Slack changes.
 
 ## Repo orientation
 

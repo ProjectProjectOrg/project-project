@@ -84,7 +84,7 @@ export function DashboardRow({
         className={cn(
           "col-span-full grid grid-cols-subgrid",
           below !== undefined &&
-            "relative isolate rounded-lg border border-border bg-card transition-colors hover:bg-muted/60"
+            "relative isolate rounded-lg border border-border bg-card transition-colors hover:bg-hover"
         )}
       >
         <Row

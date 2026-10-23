@@ -4,7 +4,10 @@ import {
   BranchNotFound,
   Conflict,
   DEFAULT_TICKET_SORT,
+  estimationUnit,
+  isStaleEstimate,
   GitStatesResponse,
+  summarizeEstimates,
   MentionInvalid,
   MY_TICKETS_DONE_WINDOW_DAYS,
   MY_TICKETS_PAGE_SIZE,
@@ -24,6 +27,7 @@ import {
   normalizeLineEndings,
   Validation,
   type ProjectKey,
+  type Estimate,
   type GroupId,
   type GroupIdFilter,
   type MyTicketsQuery,
@@ -43,33 +47,52 @@ import {
   sprintState,
   OrgScope,
   ProjectScope,
-  type ProjectScopeShape
+  ActivityActor,
+  type ProjectScopeShape,
+  type TransitionRecord,
+  type StackLayerState,
+  TicketBranchEntry
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Equal from "effect/Equal"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
+import * as Struct from "effect/Struct"
 
 import { Access } from "../access/Access"
+import { ticketChanges } from "../activity/changes"
+import { TicketActivity } from "../activity/TicketActivity"
 import { Attachments } from "../attachments/Attachments"
 import { validateBodyMentionsWithLookups } from "../comments/BodyMentions"
-import { Comments } from "../comments/Comments"
 import { FigmaLinks } from "../figma/FigmaLinks"
 import * as GitHub from "../github/GitHub"
 import { Groups } from "../groups/Groups"
 import { Library, type TemplateExpansion } from "../library/Library"
 import type { MarkdownError } from "../markdown/Markdown"
+import { ProjectDocs } from "../projects/ProjectDocs"
+import { ProjectGitAutomation } from "../projects/ProjectGitAutomation"
 import { Projects } from "../projects/Projects"
 import type { ProjectGithubIntegration } from "../projects/Projects"
+import { readProjectDocument } from "../projects/readProjectDocument"
 import { Users } from "../users/Users"
+import {
+  gitAutomationActivity,
+  moveForDeletedBranch,
+  withGitAutomation
+} from "./moveByGitAutomation"
+import { stackLayerStates } from "./stackLayerStates"
 import {
   MalformedTicketDocument,
   TicketDocs,
+  ticketFileContent,
   type TicketDocument
 } from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import {
   planAutomaticBranchLinks,
+  planAutomaticStacks,
+  planStackPullRequests,
   planTicketGitStates
 } from "./ticketGitStatePlanner"
 import {
@@ -81,6 +104,7 @@ import {
   type TicketIndexProject
 } from "./TicketIndex"
 import { Tickets, type TicketsShape } from "./Tickets"
+import { stackLayerFor, ticketBranches } from "./ticketStack"
 
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
 const makeUserId = Schema.decodeUnknownSync(UserId)
@@ -88,6 +112,54 @@ const makeTagName = Schema.decodeUnknownSync(TagName)
 const DEFAULT_STATUS = Schema.decodeSync(TicketStatus)("todo")
 
 type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
+
+type StackedTicketEntry = TicketIndexEntry &
+  Readonly<{
+    stack: ReadonlyArray<TicketBranchEntry>
+  }>
+
+const sameStack = Schema.toEquivalence(Schema.Array(TicketBranchEntry))
+
+type TicketBranches = Readonly<{
+  id: string
+  branch: string | null
+  stack: ReadonlyArray<TicketBranchEntry>
+}>
+
+const stacksOf = (
+  tickets: Iterable<TicketBranches>,
+  github: ProjectGithubIntegration,
+  raw?: GitHub.RawProjectStates
+): Record<string, ReadonlyArray<StackLayerState>> =>
+  Object.fromEntries(
+    [...tickets].flatMap((ticket) =>
+      ticket.stack.length === 0
+        ? []
+        : [
+            [
+              ticket.id,
+              stackLayerStates(ticket.branch, ticket.stack, github, raw)
+            ]
+          ]
+    )
+  )
+
+const mergeBasesAwaitingLanding = (
+  ticket: StackedTicketEntry
+): ReadonlyArray<string> => [
+  ...(ticket.prState === "merged" &&
+  ticket.prBase !== null &&
+  ticket.lastTransitionedPr !== ticket.pr
+    ? [ticket.prBase]
+    : []),
+  ...ticket.stack.flatMap((layer) =>
+    layer.prState === "merged" &&
+    layer.landed !== true &&
+    layer.base !== undefined
+      ? [layer.base]
+      : []
+  )
+]
 
 type GitView = Readonly<{
   integration: ProjectGithubIntegration | null
@@ -160,6 +232,7 @@ function documentToTicket(
   const { body: _body, commentsRegion: _commentsRegion, ...ticket } = document
   return presentTicket(view, {
     ...ticket,
+    estimate: document.estimate ?? null,
     gitState: pendingGitState(document, view.integration, branchDeletedAt)
   })
 }
@@ -218,6 +291,9 @@ function documentToDetail(
 ): TicketDetail {
   return {
     ...documentToTicket(document, view, branchDeletedAt),
+    stack: view.visible
+      ? stackLayerStates(document.branch, document.stack, view.integration)
+      : [],
     splitFrom: document.splitFrom ?? null,
     creator,
     updater,
@@ -259,6 +335,11 @@ const requireSplit = (
 const changed = <A>(next: A | undefined, current: A) =>
   next !== undefined && next !== current
 
+const estimateChanged = (
+  next: Estimate | null | undefined,
+  current: Estimate | undefined
+) => next !== undefined && !Equal.equals(next ?? undefined, current)
+
 const listChanged = (
   next: ReadonlyArray<string> | undefined,
   current: ReadonlyArray<string>
@@ -271,13 +352,15 @@ export const TicketsLive = Layer.effect(
   Tickets,
   Effect.gen(function* () {
     const ticketDocs = yield* TicketDocs
+    const ticketActivity = yield* TicketActivity
     const { withTicketDocumentLock, withRepositoryBranchLock } =
       yield* TicketDocumentLock.TicketDocumentLock
     const projects = yield* Projects
+    const gitAutomation = yield* ProjectGitAutomation
+    const projectDocs = yield* ProjectDocs
     const ticketIndex = yield* TicketIndex
     const github = yield* GitHub.GitHub
     const groups = yield* Groups
-    const comments = yield* Comments
     const db = yield* Db
     const attachments = yield* Attachments
     const figmaLinks = yield* FigmaLinks
@@ -295,10 +378,19 @@ export const TicketsLive = Layer.effect(
 
     const gitView = Effect.flatMap(ProjectScope, gitViewOf)
 
-    const queryable = (query: TicketPolicy.Query) =>
-      requirePolicy((scope) => TicketPolicy.canQuery(scope, query)).pipe(
-        Effect.andThen(ProjectScope)
-      )
+    const queryable = Effect.fnUntraced(function* (
+      query: TicketCountQuery | TicketListQuery
+    ) {
+      yield* requirePolicy((scope) => TicketPolicy.canQuery(scope, query))
+      const scope = yield* ProjectScope
+      if (
+        query.estimate?.length ||
+        ("sort" in query && query.sort.key === "estimate")
+      ) {
+        yield* readProjectDocument({ db, docs: projectDocs, project: scope })
+      }
+      return scope
+    })
 
     const detailOf = (
       document: TicketDocument,
@@ -661,6 +753,10 @@ export const TicketsLive = Layer.effect(
       const sprints = (yield* groups.list()).filter(
         (group) => group.kind === "sprint"
       )
+      const unit = estimationUnit(
+        (yield* readProjectDocument({ db, docs: projectDocs, project: scope }))
+          .estimation
+      )
       const sectionIds: ReadonlyArray<GroupIdFilter> = [
         ...new Set<GroupIdFilter>(
           query.groupId?.length
@@ -741,6 +837,17 @@ export const TicketsLive = Layer.effect(
                 limit: TICKET_LIST_LIMIT + 1
               }
             )
+            const estimates =
+              unit === null ||
+              groupId === "ungrouped" ||
+              ticketIds === undefined
+                ? null
+                : summarizeEstimates(
+                    (yield* ticketIndex.list(project, ticketIds)).filter(
+                      (entry) => entry.archivedAt === null
+                    ),
+                    unit
+                  )
             return {
               section: {
                 key: sprintSectionKey(groupId === "ungrouped" ? null : groupId),
@@ -750,7 +857,8 @@ export const TicketsLive = Layer.effect(
                       0
                     )
                   : counts.total,
-                page: ticketPage(entries, query, view, TICKET_LIST_LIMIT)
+                page: ticketPage(entries, query, view, TICKET_LIST_LIMIT),
+                estimates
               },
               counts
             }
@@ -845,6 +953,26 @@ export const TicketsLive = Layer.effect(
           })
         }
       })
+
+    const validateEstimate = Effect.fnUntraced(function* (
+      scope: ProjectScopeShape,
+      estimate: Estimate | null | undefined
+    ) {
+      if (estimate === undefined || estimate === null) return
+      const { estimation } = yield* readProjectDocument({
+        db,
+        docs: projectDocs,
+        project: scope
+      })
+      if (estimation === "off") {
+        return yield* new Validation({ reason: "estimation_off" })
+      }
+      if (estimate.unit !== estimation) {
+        return yield* new Validation({
+          reason: `estimate_unit_mismatch:${estimate.unit}:${estimation}`
+        })
+      }
+    })
 
     const validateBody = (
       body: string,
@@ -999,6 +1127,7 @@ export const TicketsLive = Layer.effect(
         if (input.assignees !== undefined && input.assignees.length > 0) {
           yield* validateAssigneesAreMembers(input.assignees)
         }
+        yield* validateEstimate(scope, input.estimate)
         const body = yield* library.resolveSynced(
           orgSlug,
           slug,
@@ -1019,6 +1148,7 @@ export const TicketsLive = Layer.effect(
             status: input.status ?? DEFAULT_STATUS,
             type: input.type ?? expansion?.type ?? "other",
             priority: input.priority ?? expansion?.priority ?? "med",
+            ...(input.estimate ? { estimate: input.estimate } : {}),
             tags: [...tags],
             branch: null,
             pr: null,
@@ -1042,6 +1172,9 @@ export const TicketsLive = Layer.effect(
       Effect.gen(function* () {
         const scope = yield* ProjectScope
         const { orgSlug, slug, userId, projectId } = scope
+        yield* validateEstimate(scope, input.estimate)
+        if (sort?.key === "estimate")
+          yield* readProjectDocument({ db, docs: projectDocs, project: scope })
         return yield* withTicketDocumentLock(
           orgSlug,
           slug,
@@ -1088,6 +1221,7 @@ export const TicketsLive = Layer.effect(
                     changed(input.title, existing.title) ||
                     changed(input.type, existing.type) ||
                     changed(input.priority, existing.priority) ||
+                    estimateChanged(input.estimate, existing.estimate) ||
                     changed(body, existing.body) ||
                     listChanged(input.tags, existing.tags)
                   const status = changed(input.status, existing.status)
@@ -1115,6 +1249,10 @@ export const TicketsLive = Layer.effect(
                     status: input.status ?? existing.status,
                     type: input.type ?? existing.type,
                     priority: input.priority ?? existing.priority,
+                    estimate:
+                      input.estimate !== undefined
+                        ? (input.estimate ?? undefined)
+                        : existing.estimate,
                     tags:
                       input.tags !== undefined
                         ? [...input.tags]
@@ -1160,6 +1298,76 @@ export const TicketsLive = Layer.effect(
             return { ticket, orderKey }
           })
         )
+      })
+
+    const clearStaleEstimates: TicketsShape["clearStaleEstimates"] = () =>
+      Effect.gen(function* () {
+        const scope = yield* ProjectScope
+        const project = indexProjectOf(scope)
+        yield* requireTicketChange({ content: true })
+        const { estimation } = yield* readProjectDocument({
+          db,
+          docs: projectDocs,
+          project: scope
+        })
+        const batches = yield* Effect.forEach([false, true], (archived) =>
+          Effect.gen(function* () {
+            const query = { estimate: ["stale" as const], archived }
+            const { total } = yield* ticketIndex.count(project, query, {
+              viewerId: scope.userId
+            })
+            if (total === 0) return []
+            return yield* ticketIndex.query(
+              project,
+              { ...query, sort: DEFAULT_TICKET_SORT },
+              { viewerId: scope.userId, limit: total }
+            )
+          })
+        )
+        const stale = batches.flat()
+        let cleared = 0
+        yield* Effect.forEach(
+          stale,
+          ({ entry }) =>
+            withTicketDocumentLock(
+              scope.orgSlug,
+              scope.slug,
+              entry.id,
+              Effect.gen(function* () {
+                let changed = false
+                yield* ticketDocs.update(
+                  scope.orgSlug,
+                  scope.slug,
+                  entry.id,
+                  Effect.fnUntraced(function* (current) {
+                    const latest = yield* projectDocs.read(
+                      scope.orgSlug,
+                      scope.slug
+                    )
+                    if (
+                      latest.estimation !== estimation ||
+                      !isStaleEstimate(
+                        current.estimate ?? null,
+                        latest.estimation
+                      )
+                    )
+                      return current
+                    changed = true
+                    return {
+                      ...current,
+                      estimate: undefined,
+                      updatedBy: scope.userId,
+                      updatedAt: yield* DateTime.nowAsDate
+                    }
+                  }),
+                  (next) => ticketIndex.upsertTicket(project, next)
+                )
+                if (changed) cleared++
+              })
+            ),
+          { concurrency: 4, discard: true }
+        )
+        return { cleared }
       })
 
     const moveInGroup: TicketsShape["moveInGroup"] = (
@@ -1383,7 +1591,8 @@ export const TicketsLive = Layer.effect(
                     updatedBy: userId,
                     updatedAt: now
                   }),
-                (next) => ticketIndex.upsertTicket(indexProject, next)
+                (next) => ticketIndex.upsertTicket(indexProject, next),
+                { silent: true }
               )
 
               return { original, retained, createdDocuments }
@@ -1489,6 +1698,30 @@ export const TicketsLive = Layer.effect(
           )
         )
 
+        yield* withTicketDocumentLock(
+          orgSlug,
+          slug,
+          id,
+          ticketActivity.record(
+            orgSlug,
+            slug,
+            {
+              kind: "ticket",
+              id,
+              content: ticketFileContent(written.retained)
+            },
+            [
+              ...ticketChanges(written.original, written.retained),
+              {
+                kind: "split" as const,
+                into: written.createdDocuments.map((document) => document.id)
+              }
+            ].map((change) => ({ ticketId: written.retained.id, change })),
+            null,
+            Effect.void
+          )
+        )
+
         return {
           retained: yield* detailOf(written.retained, view),
           created: yield* Effect.forEach(written.createdDocuments, (document) =>
@@ -1535,11 +1768,6 @@ export const TicketsLive = Layer.effect(
             yield* readTicket(orgSlug, slug, id)
             const indexProject = indexProjectOf(scope)
             const trimmed = reason?.trim()
-            if (trimmed !== undefined && trimmed.length > 0) {
-              yield* comments
-                .create(makeTicketId(id), { body: trimmed })
-                .pipe(Effect.asVoid)
-            }
             const next = yield* ticketDocs.update(
               orgSlug,
               slug,
@@ -1552,7 +1780,8 @@ export const TicketsLive = Layer.effect(
                     updatedAt: now
                   }))
                 ),
-              (next) => ticketIndex.upsertTicket(indexProject, next)
+              (next) => ticketIndex.upsertTicket(indexProject, next),
+              trimmed ? { archiveReason: trimmed } : {}
             )
             return yield* detailOf(next, yield* gitView)
           })
@@ -1595,7 +1824,7 @@ export const TicketsLive = Layer.effect(
       id: string,
       oldName: string,
       newName: string | null
-    ): Effect.Effect<boolean, TicketReadError> =>
+    ): Effect.Effect<boolean, TicketReadError, ActivityActor> =>
       withTicketDocumentLock(
         orgSlug,
         slug,
@@ -1625,7 +1854,8 @@ export const TicketsLive = Layer.effect(
             (next) =>
               replaced
                 ? ticketIndex.upsertTicket(indexProject, next)
-                : Effect.void
+                : Effect.void,
+            newName === null ? { cause: "tag_deleted" } : { silent: true }
           )
           if (!replaced) return false
           return true
@@ -1636,8 +1866,9 @@ export const TicketsLive = Layer.effect(
       orgSlug: string,
       slug: string,
       id: string,
-      newStatus: string
-    ): Effect.Effect<boolean, TicketReadError> =>
+      newStatus: string,
+      reason: "renamed" | "removed"
+    ): Effect.Effect<boolean, TicketReadError, ActivityActor> =>
       withTicketDocumentLock(
         orgSlug,
         slug,
@@ -1665,7 +1896,10 @@ export const TicketsLive = Layer.effect(
             (next) =>
               replaced
                 ? ticketIndex.upsertTicket(indexProject, next)
-                : Effect.void
+                : Effect.void,
+            reason === "renamed"
+              ? { silent: true }
+              : { cause: "status_removed" }
           )
           if (!replaced) return false
           return true
@@ -1680,23 +1914,37 @@ export const TicketsLive = Layer.effect(
         branchAutoLinkDisabled?: boolean
         pr?: number | null
         prState?: TicketDocument["prState"]
+        prDraft?: boolean
+        prBase?: string
         lastTransitionedPr?: number | null
-        status?: TicketDocument["status"]
+        stack?: ReadonlyArray<TicketBranchEntry>
+        ignoredBranches?: ReadonlyArray<string>
       }
-    ): Effect.Effect<TicketDocument, TicketReadError> =>
+    ): Effect.Effect<TicketDocument, TicketReadError, ActivityActor> =>
       ticketDocs.update(
         indexProject.orgSlug,
         indexProject.projectSlug,
         existing.id,
         (current) =>
           DateTime.nowAsDate.pipe(
-            Effect.map((updatedAt) => ({
-              ...current,
-              ...patch,
-              updatedAt
-            }))
+            Effect.flatMap((updatedAt) =>
+              withGitAutomation(
+                gitAutomation,
+                indexProject.projectId,
+                current,
+                {
+                  ...(patch.branch !== undefined &&
+                  patch.branch !== current.branch
+                    ? Struct.omit(current, ["prBase"])
+                    : current),
+                  ...patch,
+                  updatedAt
+                }
+              )
+            )
           ),
-        (next) => ticketIndex.upsertTicket(indexProject, next)
+        (next) => ticketIndex.upsertTicket(indexProject, next),
+        gitAutomationActivity
       )
 
     const createBranch: TicketsShape["createBranch"] = (id, input) =>
@@ -1732,6 +1980,7 @@ export const TicketsLive = Layer.effect(
                 branchAutoLinkDisabled: false,
                 pr: null,
                 prState: null,
+                prDraft: false,
                 lastTransitionedPr: null
               })
             )
@@ -1755,6 +2004,11 @@ export const TicketsLive = Layer.effect(
               return yield* new Conflict({ reason: "no_github_connection" })
             }
             const ticket = yield* readTicket(orgSlug, slug, id)
+            if (
+              (ticket.stack ?? []).some((layer) => layer.branch === input.name)
+            ) {
+              return yield* new Conflict({ reason: "branch_already_on_ticket" })
+            }
 
             const exists = yield* github.branchExistsInstallation(
               projectGithub.installationId,
@@ -1768,12 +2022,28 @@ export const TicketsLive = Layer.effect(
 
             const next = yield* withRepositoryBranchLock(
               projectGithub.repoId,
-              writeGitFields(indexProject, ticket, {
-                branch: input.name,
-                branchAutoLinkDisabled: false,
-                pr: null,
-                prState: null,
-                lastTransitionedPr: null
+              Effect.gen(function* () {
+                if (
+                  ticket.branch !== input.name &&
+                  (yield* ticketIndex.isRepositoryBranchAttached(
+                    projectGithub.repoId,
+                    input.name,
+                    true
+                  ))
+                ) {
+                  return yield* new Conflict({
+                    reason: "branch_on_other_ticket"
+                  })
+                }
+                return yield* writeGitFields(indexProject, ticket, {
+                  branch: input.name,
+                  branchAutoLinkDisabled: false,
+                  pr: null,
+                  prState: null,
+                  prDraft: false,
+                  lastTransitionedPr: null,
+                  prBase: undefined
+                })
               })
             )
             return yield* detailOf(next, yield* gitView)
@@ -1820,6 +2090,8 @@ export const TicketsLive = Layer.effect(
             yield* writeGitFields(indexProject, ticket, {
               pr: result.number,
               prState: "open",
+              prDraft: input.draft ?? false,
+              prBase: base,
               lastTransitionedPr: null
             })
             return result
@@ -1843,29 +2115,200 @@ export const TicketsLive = Layer.effect(
               branchAutoLinkDisabled: true,
               pr: null,
               prState: null,
-              lastTransitionedPr: null
+              prDraft: false,
+              lastTransitionedPr: null,
+              stack: []
             })
             return yield* detailOf(next, yield* gitView)
           })
         )
       })
 
+    const stackBranch: TicketsShape["stackBranch"] = (id, input) =>
+      Effect.gen(function* () {
+        const scope = yield* ProjectScope
+        const { orgSlug, slug } = scope
+        return yield* withTicketDocumentLock(
+          orgSlug,
+          slug,
+          id,
+          Effect.gen(function* () {
+            const indexProject = indexProjectOf(scope)
+            const projectGithub = yield* projects.githubIntegration()
+            if (!projectGithub) {
+              return yield* new Conflict({ reason: "no_github_connection" })
+            }
+            const ticket = yield* readTicket(orgSlug, slug, id)
+            if (!ticket.branch) {
+              return yield* new Conflict({ reason: "no_branch_on_ticket" })
+            }
+            if (ticketBranches(ticket).has(input.name)) {
+              return yield* new Conflict({ reason: "branch_already_on_ticket" })
+            }
+            const exists = yield* github.branchExistsInstallation(
+              projectGithub.installationId,
+              projectGithub.repoOwner,
+              projectGithub.repoName,
+              input.name
+            )
+            if (!exists) {
+              return yield* new BranchNotFound({ name: input.name })
+            }
+            const snapshot = yield* github.fetchInstallationProjectStates(
+              projectGithub.installationId,
+              projectGithub.repoOwner,
+              projectGithub.repoName,
+              [input.name]
+            )
+            const pr = snapshot.prByBranch.get(input.name)
+            const layer: TicketBranchEntry =
+              pr === undefined
+                ? { branch: input.name }
+                : stackLayerFor({
+                    branch: input.name,
+                    base: pr.baseRefName,
+                    number: pr.number,
+                    state: pr.state,
+                    draft: pr.draft,
+                    landed: pr.baseRefName === projectGithub.defaultBaseBranch
+                  })
+            const next = yield* withRepositoryBranchLock(
+              projectGithub.repoId,
+              Effect.gen(function* () {
+                if (
+                  yield* ticketIndex.isRepositoryBranchAttached(
+                    projectGithub.repoId,
+                    input.name
+                  )
+                ) {
+                  return yield* new Conflict({
+                    reason: "branch_on_other_ticket"
+                  })
+                }
+                return yield* writeGitFields(indexProject, ticket, {
+                  stack: [...(ticket.stack ?? []), layer],
+                  ignoredBranches: (ticket.ignoredBranches ?? []).filter(
+                    (branch) => branch !== input.name
+                  )
+                })
+              })
+            )
+            return yield* detailOf(next, yield* gitView)
+          })
+        )
+      })
+
+    const unstackBranch: TicketsShape["unstackBranch"] = (id, input) =>
+      Effect.gen(function* () {
+        const scope = yield* ProjectScope
+        const { orgSlug, slug } = scope
+        return yield* withTicketDocumentLock(
+          orgSlug,
+          slug,
+          id,
+          Effect.gen(function* () {
+            const indexProject = indexProjectOf(scope)
+            const ticket = yield* readTicket(orgSlug, slug, id)
+            const stack = ticket.stack ?? []
+            if (!stack.some((layer) => layer.branch === input.name)) {
+              return yield* new Conflict({ reason: "branch_not_stacked" })
+            }
+            const next = yield* writeGitFields(indexProject, ticket, {
+              stack: stack.filter((layer) => layer.branch !== input.name),
+              ignoredBranches: [...(ticket.ignoredBranches ?? []), input.name]
+            })
+            return yield* detailOf(next, yield* gitView)
+          })
+        )
+      })
+
+    const withMergeBaseChain = Effect.fn("Tickets.withMergeBaseChain")(
+      function* (
+        projectGithub: ProjectGithubIntegration,
+        raw: GitHub.RawProjectStates,
+        requested: ReadonlyArray<string>,
+        mergeBases: ReadonlyArray<string>
+      ) {
+        const fetched = new Set(requested)
+        const existingBranches = new Set(raw.existingBranches)
+        const prByBranch = new Map(raw.prByBranch)
+        const mergedPrsByBranch = new Map(raw.mergedPrsByBranch)
+        let frontier = mergeBases
+        while (frontier.length > 0) {
+          const next = [
+            ...new Set(
+              frontier.flatMap((branch) => {
+                const selected = prByBranch.get(branch)
+                const candidates = [
+                  ...(mergedPrsByBranch.get(branch) ?? []),
+                  ...(selected === undefined ? [] : [selected])
+                ]
+                return candidates.flatMap((pr) =>
+                  pr.state === "merged" &&
+                  pr.baseRefName !== projectGithub.defaultBaseBranch &&
+                  !fetched.has(pr.baseRefName)
+                    ? [pr.baseRefName]
+                    : []
+                )
+              })
+            )
+          ]
+          if (next.length === 0) break
+          const more = yield* github.fetchInstallationProjectStates(
+            projectGithub.installationId,
+            projectGithub.repoOwner,
+            projectGithub.repoName,
+            next
+          )
+          for (const branch of next) fetched.add(branch)
+          for (const branch of more.existingBranches)
+            existingBranches.add(branch)
+          for (const [branch, pr] of more.prByBranch) {
+            if (!prByBranch.has(branch)) prByBranch.set(branch, pr)
+          }
+          for (const [branch, history] of more.mergedPrsByBranch ?? []) {
+            const combined = new Map(
+              [...(mergedPrsByBranch.get(branch) ?? []), ...history].map(
+                (pr) => [pr.number, pr]
+              )
+            )
+            mergedPrsByBranch.set(branch, [...combined.values()])
+          }
+          frontier = next
+        }
+        return {
+          ...raw,
+          defaultBranch: projectGithub.defaultBaseBranch,
+          existingBranches,
+          prByBranch,
+          mergedPrsByBranch
+        }
+      }
+    )
+
     const fetchGitSnapshot = Effect.fn("Tickets.fetchGitSnapshot")(function* (
       projectGithub: ProjectGithubIntegration,
-      tickets: ReadonlyArray<TicketIndexEntry>
+      tickets: ReadonlyArray<StackedTicketEntry>
     ) {
       const branches = [
         ...new Set(
-          tickets.flatMap((ticket) =>
-            ticket.branch && ticket.branch.length > 0 ? [ticket.branch] : []
-          )
+          tickets.flatMap((ticket) => [
+            ...(ticket.branch && ticket.branch.length > 0
+              ? [ticket.branch]
+              : []),
+            ...(ticket.stack ?? []).map((layer) => layer.branch),
+            ...mergeBasesAwaitingLanding(ticket)
+          ])
         )
       ]
-      const unlinkedTicket = tickets.find(
-        (ticket) => ticket.branch === null && ticket.archivedAt === null
+      const mergeBases = [
+        ...new Set(tickets.flatMap(mergeBasesAwaitingLanding))
+      ]
+      const discoveryTicket = tickets.find(
+        (ticket) => ticket.archivedAt === null
       )
-      const branchQuery = unlinkedTicket
-        ? `${unlinkedTicket.id.slice(0, unlinkedTicket.id.lastIndexOf("-"))}-`
+      const branchQuery = discoveryTicket
+        ? `${discoveryTicket.id.slice(0, discoveryTicket.id.lastIndexOf("-"))}-`
         : undefined
       return yield* github
         .fetchInstallationProjectStates(
@@ -1876,6 +2319,9 @@ export const TicketsLive = Layer.effect(
           branchQuery
         )
         .pipe(
+          Effect.flatMap((raw) =>
+            withMergeBaseChain(projectGithub, raw, branches, mergeBases)
+          ),
           Effect.map((raw) => ({ ok: true as const, raw })),
           Effect.catchTags({
             RepoGone: () =>
@@ -1907,14 +2353,33 @@ export const TicketsLive = Layer.effect(
       function* (
         indexProject: TicketIndexProject,
         projectGithub: ProjectGithubIntegration,
-        tickets: ReadonlyArray<TicketIndexEntry>,
+        tickets: ReadonlyArray<StackedTicketEntry>,
         raw: GitHub.RawProjectStates
       ): Effect.fn.Return<GitStatesResponse, MarkdownError> {
         const { orgSlug, projectSlug: slug } = indexProject
         const automaticLinks = planAutomaticBranchLinks(
           tickets,
           raw.existingBranches,
-          raw.defaultBranch
+          projectGithub.defaultBaseBranch,
+          raw.openPullRequestText,
+          raw.prByBranch
+        )
+        const automaticStacks = planAutomaticStacks(
+          tickets,
+          automaticLinks,
+          raw.existingBranches,
+          projectGithub.defaultBaseBranch,
+          raw.openPullRequestText,
+          raw.prByBranch
+        )
+        const stackedTicketIds = tickets.flatMap((ticket) =>
+          automaticStacks.has(ticket.id) ||
+          !sameStack(
+            ticket.stack ?? [],
+            planStackPullRequests(ticket.stack, raw)
+          )
+            ? [ticket.id]
+            : []
         )
         const plannedTickets = tickets.map((ticket) => {
           const branch = automaticLinks.get(ticket.id)
@@ -1947,7 +2412,11 @@ export const TicketsLive = Layer.effect(
             : []
         )
         const resurrectedIds = new Set(resurrected)
+        const branchesById = new Map<TicketId, TicketBranches>(
+          tickets.map((ticket) => [ticket.id, ticket])
+        )
         const changedTicketIds = new Set<TicketId>()
+        const transitioned: Array<TransitionRecord> = []
         const writesById = new Map<
           TicketId,
           Parameters<typeof writeGitFields>[2]
@@ -1957,14 +2426,20 @@ export const TicketsLive = Layer.effect(
             branch,
             pr: null,
             prState: null,
+            prDraft: false,
             lastTransitionedPr: null,
             ...writesById.get(ticketId)
           })
         }
-        const ticketIds = new Set([...writesById.keys(), ...resurrectedIds])
+        const ticketIds = new Set([
+          ...writesById.keys(),
+          ...resurrectedIds,
+          ...stackedTicketIds
+        ])
 
         for (const ticketId of ticketIds) {
           const automaticBranch = automaticLinks.get(ticketId)
+          const automaticLayers = automaticStacks.get(ticketId) ?? []
           const reconcile = Effect.gen(function* () {
             const ticket = yield* readTicket(orgSlug, slug, ticketId).pipe(
               Effect.catchTags({
@@ -2012,6 +2487,7 @@ export const TicketsLive = Layer.effect(
               )
               if (
                 ticket.branchAutoLinkDisabled ||
+                (ticket.ignoredBranches ?? []).includes(automaticBranch) ||
                 ticket.archivedAt !== null ||
                 attached
               ) {
@@ -2024,16 +2500,54 @@ export const TicketsLive = Layer.effect(
               yield* ticketIndex.clearBranchStale(indexProject, [ticketId])
               changedTicketIds.add(ticketId)
             }
-            const write = writesById.get(ticketId)
-            if (!write) return
-            yield* writeGitFields(indexProject, ticket, write)
+            const addedLayers = yield* Effect.filter(automaticLayers, (layer) =>
+              Effect.map(
+                ticketIndex.isRepositoryBranchAttached(
+                  projectGithub.repoId,
+                  layer.branch
+                ),
+                (attached) => !attached
+              )
+            )
+            const stack = [
+              ...planStackPullRequests(ticket.stack, raw),
+              ...addedLayers
+            ]
+            const planned = writesById.get(ticketId)
+            const patch = sameStack(ticket.stack ?? [], stack)
+              ? planned
+              : { ...planned, stack }
+            if (!patch) return
+            const next = yield* writeGitFields(
+              indexProject,
+              ticket,
+              patch
+            ).pipe(
+              Effect.provideService(
+                ActivityActor,
+                ActivityActor.system("github")
+              )
+            )
+            branchesById.set(ticketId, {
+              id: ticketId,
+              branch: next.branch,
+              stack: next.stack ?? []
+            })
+            if (next.status !== ticket.status && next.pr !== null) {
+              transitioned.push({
+                ticketId,
+                fromStatus: ticket.status,
+                toStatus: next.status,
+                prNumber: next.pr
+              })
+            }
             changedTicketIds.add(ticketId)
           })
           yield* withTicketDocumentLock(
             orgSlug,
             slug,
             ticketId,
-            automaticBranch
+            automaticBranch || automaticLayers.length > 0
               ? withRepositoryBranchLock(projectGithub.repoId, reconcile)
               : reconcile
           ).pipe(
@@ -2061,13 +2575,52 @@ export const TicketsLive = Layer.effect(
           )
         }
 
+        const fetchedAt = raw.fetchedAt
+        const vanishedBranches = new Set(
+          fetchedAt === undefined
+            ? []
+            : tickets.flatMap((ticket) =>
+                ticket.branch !== null &&
+                ticket.branchDeletedAt === null &&
+                ticket.updatedAt.getTime() <= fetchedAt.getTime() &&
+                !raw.existingBranches.has(ticket.branch)
+                  ? [ticket.branch]
+                  : []
+              )
+        )
+        for (const branch of vanishedBranches) {
+          const deletedAt = yield* DateTime.nowAsDate
+          const ticketIds = tickets
+            .filter(
+              (ticket) =>
+                ticket.branch === branch && ticket.branchDeletedAt === null
+            )
+            .map((ticket) => ticket.id)
+          for (const ticketId of ticketIds) {
+            changedTicketIds.add(makeTicketId(ticketId))
+            yield* moveForDeletedBranch(
+              {
+                ticketDocs,
+                ticketIndex,
+                gitAutomation,
+                ticketDocumentLock: { withTicketDocumentLock }
+              },
+              { ...indexProject, ticketId, branch }
+            )
+          }
+          yield* ticketIndex.markBranchStale(
+            indexProject.projectId,
+            branch,
+            deletedAt
+          )
+        }
+
         return {
           states,
+          stacks: stacksOf(branchesById.values(), projectGithub, raw),
           refreshStatus: "fresh",
           changedTicketIds: [...changedTicketIds],
-          transitioned: plan.transitioned.filter(
-            (transition) => !staleTicketIds.has(transition.ticketId)
-          ),
+          transitioned,
           tokenStatus: "ok",
           repoStatus: "ok"
         }
@@ -2088,20 +2641,26 @@ export const TicketsLive = Layer.effect(
           }
         }
 
-        const tickets = yield* ticketIndex.list(indexProject)
+        const indexed = yield* ticketIndex.list(indexProject)
+        const stacks = yield* ticketIndex.stacksFor(indexProject)
+        const tickets = indexed.map(
+          (ticket): StackedTicketEntry =>
+            Object.assign({ stack: stacks.get(ticket.id) ?? [] }, ticket)
+        )
         const result = yield* fetchGitSnapshot(projectGithub, tickets)
 
         if (!result.ok) {
+          const gone = result.repoStatus === "gone"
           return {
-            states:
-              result.repoStatus === "gone"
-                ? {}
-                : Object.fromEntries(
-                    tickets.map((ticket) => [
-                      ticket.id,
-                      pendingGitState(ticket, projectGithub)
-                    ])
-                  ),
+            states: gone
+              ? {}
+              : Object.fromEntries(
+                  tickets.map((ticket) => [
+                    ticket.id,
+                    pendingGitState(ticket, projectGithub)
+                  ])
+                ),
+            stacks: gone ? {} : stacksOf(tickets, projectGithub),
             transitioned: [],
             changedTicketIds: [],
             tokenStatus: result.tokenStatus,
@@ -2130,6 +2689,7 @@ export const TicketsLive = Layer.effect(
                   : pendingGitState(ticket, projectGithub)
               ])
             ),
+            stacks: stacksOf(tickets, projectGithub, result.raw),
             transitioned: [],
             changedTicketIds: [],
             tokenStatus: "ok",
@@ -2152,9 +2712,11 @@ export const TicketsLive = Layer.effect(
         const all = yield* listGitStates()
         if (ticketId === undefined) return all
         const single = all.states[ticketId]
+        const stack = all.stacks?.[ticketId]
         return {
           ...all,
           states: single ? { [ticketId]: single } : {},
+          stacks: stack ? { [ticketId]: stack } : {},
           changedTicketIds: all.changedTicketIds?.filter(
             (id) => id === ticketId
           ),
@@ -2177,6 +2739,7 @@ export const TicketsLive = Layer.effect(
       quickCreate,
       create,
       update,
+      clearStaleEstimates,
       split,
       moveInGroup,
       remove,
@@ -2188,6 +2751,8 @@ export const TicketsLive = Layer.effect(
       attachBranch,
       openPr,
       clearBranch,
+      stackBranch,
+      unstackBranch,
       listGitStates,
       getGitState
     } satisfies TicketsShape

@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto"
 import { it } from "@effect/vitest"
 import { migrationsFolder } from "@pp/db"
 import {
+  TicketId,
   CurrentUser,
   NotFound,
   ProjectScope,
@@ -22,6 +23,7 @@ import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import { Access } from "../access/Access"
 import { testUser } from "../access/testing"
+import { asUser } from "../activity/testing"
 import { MalformedTicketDocument } from "../tickets/TicketDocs"
 import type { TicketIndex } from "../tickets/TicketIndex"
 import { Projects } from "./Projects"
@@ -46,6 +48,8 @@ type InvitationRow = Readonly<{
 
 type PendingInvitationRow = Readonly<{ role: string; grants: number }>
 
+const decodeTicketId = Schema.decodeUnknownSync(TicketId)
+
 describe.skipIf(!databaseUrl)("project members", () => {
   const organizationId = randomUUID()
   const orgSlug = `members-${organizationId}`
@@ -59,6 +63,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
   let pool: Pool
   let projectsLayer: Layer.Layer<Projects | TicketIndex | Access>
   const unassignAttempts: Array<string> = []
+  const ticketFiles: Array<TicketId> = []
 
   const runIn =
     (
@@ -74,6 +79,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
             access.project(orgSlug, projectSlug)
           ).pipe(Effect.provideService(CurrentUser, testUser(as)))
         ),
+        asUser(as),
         Effect.provide(layer())
       )
 
@@ -141,6 +147,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
     )
 
     projectsLayer = projectsOnPostgres(databaseUrl, [...users, admin], {
+      listIds: () => Effect.succeed([...ticketFiles]),
       update: (orgSlug, projectSlug, ticketId) =>
         Effect.suspend(
           (): Effect.Effect<never, MalformedTicketDocument | NotFound> => {
@@ -428,7 +435,9 @@ describe.skipIf(!databaseUrl)("project members", () => {
         )
       )
       unassignAttempts.length = 0
+      ticketFiles.push(decodeTicketId("MEM-901"), decodeTicketId("MEM-902"))
       yield* run(developer)((projects) => projects.leave())
+      ticketFiles.length = 0
       expect((yield* roles())[developer]).toBeUndefined()
       expect(unassignAttempts).toContain("MEM-901")
       yield* run(pm)((projects) =>

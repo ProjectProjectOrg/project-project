@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "c4069111-7548-49cc-a953-1b81e32af661",
+  "prevIds": [
+    "ebe89249-4e55-47f1-8ee8-548a4e156bed"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "github_pull_request_reconciliation",
+        "payload_hash"
+      ],
+      "writes": [
+        "s|col|public.github_pull_request_reconciliation.payload_hash",
+        "n|col|public.github_pull_request_reconciliation.payload_hash",
+        "e|col|public.github_pull_request_reconciliation.payload_hash"
+      ],
+      "reads": [
+        "n|tbl|public.github_pull_request_reconciliation",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "github_pull_request_reconciliation",
+        "name": "payload_hash",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "''",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

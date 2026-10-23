@@ -130,10 +130,22 @@ This is what gets shown on the project landing page.
 ---
 id: T-12
 title: Add primary button component
-status: in_progress # todo | in_progress | done
+status: in_progress # one of the project's statuses
 type: feat # feat | bug | chore | other
-branch: feat/T-12-add-primary-button # null until branch is created
-assignee: github_88 # nullable
+branches: # omitted until a branch is linked
+  - branch: feat/T-12-add-primary-button # the ticket's own branch
+    base: main # what its pull request targets
+    pr: 41
+    prState: merged # open | closed | merged
+    landed: true # its merge reached the default branch
+  - branch: feat/T-12-polish # stacked on the branch above
+    base: feat/T-12-add-primary-button
+    pr: 42
+    prState: open
+    prDraft: true
+ignoredBranches: # never linked automatically again
+  - feat/T-12-spike
+assignees: [github_88]
 createdBy: github_42
 createdAt: 2025-11-04T11:30:00Z
 updatedAt: 2025-11-04T15:12:00Z

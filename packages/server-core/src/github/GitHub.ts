@@ -31,14 +31,24 @@ export type ChecksStatus =
   | "neutral"
   | "none"
 
-export interface RawProjectStates {
-  readonly defaultBranch: string
-  readonly existingBranches: ReadonlySet<string>
-  readonly prByBranch: ReadonlyMap<string, RawBranchEntry>
-  readonly fetchedAt?: Date
-  readonly refreshStatus?: "stale" | "rate_limited"
-  readonly retryAt?: number
-}
+export type RawPullRequestText = Readonly<{
+  title: string
+  body: string
+}>
+
+export type RawMergedPullRequest = RawBranchEntry &
+  Readonly<{ state: "merged" }>
+
+export type RawProjectStates = Readonly<{
+  defaultBranch: string
+  existingBranches: ReadonlySet<string>
+  prByBranch: ReadonlyMap<string, RawBranchEntry>
+  mergedPrsByBranch?: ReadonlyMap<string, ReadonlyArray<RawMergedPullRequest>>
+  openPullRequestText?: ReadonlyMap<string, RawPullRequestText>
+  fetchedAt?: Date
+  refreshStatus?: "stale" | "rate_limited"
+  retryAt?: number
+}>
 
 export interface GitHubInstallationAccount {
   readonly installationId: string

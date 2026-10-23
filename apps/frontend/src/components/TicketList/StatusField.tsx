@@ -7,8 +7,8 @@ import type {
 } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ArrowRight, Check } from "lucide-react"
-import { useMemo } from "react"
+import { ArrowRight } from "lucide-react"
+import { type MouseEvent, useMemo } from "react"
 
 import { boardStatusesFor } from "@/components/sprints/board-utils"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
@@ -44,30 +46,27 @@ function StatusMenuItems({
   const slugs = boardStatusesFor(statuses)
   return (
     <>
-      {slugs.map((status) => {
-        const sMeta = statusMetaFor(status, statuses)
-        const SIcon = sMeta.icon
-        return (
-          <DropdownMenuItem
-            key={status}
-            onClick={() => {
-              if (status === current) return
-              onSelect(status as TicketStatus)
-            }}
-            className="cursor-pointer"
-          >
-            <SIcon
-              className={cn("size-4", sMeta.className)}
-              style={sMeta.color ? { color: sMeta.color } : undefined}
-              strokeWidth={1.75}
-            />
-            {sMeta.label}
-            {status === current && (
-              <Check className="ml-auto size-3.5 text-muted-foreground" />
-            )}
-          </DropdownMenuItem>
-        )
-      })}
+      <DropdownMenuRadioGroup
+        value={current}
+        onValueChange={(next: string) => {
+          if (next !== current) onSelect(next as TicketStatus)
+        }}
+      >
+        {slugs.map((status) => {
+          const sMeta = statusMetaFor(status, statuses)
+          const SIcon = sMeta.icon
+          return (
+            <DropdownMenuRadioItem key={status} value={status} closeOnClick>
+              <SIcon
+                className={cn("size-4", sMeta.className)}
+                style={sMeta.color ? { color: sMeta.color } : undefined}
+                strokeWidth={1.75}
+              />
+              {sMeta.label}
+            </DropdownMenuRadioItem>
+          )
+        })}
+      </DropdownMenuRadioGroup>
       <DropdownMenuSeparator />
       <DropdownMenuItem
         render={
@@ -85,64 +84,51 @@ function StatusMenuItems({
   )
 }
 
-export function StatusBadgeTrigger({
-  orgSlug,
-  slug,
-  ticket,
-  onPatch,
-  className
-}: {
-  orgSlug: string
-  slug: string
-  ticket: Ticket
-  onPatch: (patch: UpdateTicketInput) => void
-  className?: string
-}) {
-  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
-  const statusesResult = useAtomValue(statusesFor(req))
-  const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
-  const meta = statusMetaFor(ticket.status, statuses)
+function StatusTrigger({
+  meta,
+  label,
+  size,
+  disabled,
+  stopPropagation
+}: Readonly<{
+  meta: ReturnType<typeof statusMetaFor>
+  label: string
+  size: "sm" | "lg"
+  disabled: boolean
+  stopPropagation?: boolean
+}>) {
   const Icon = meta.icon
-  const statusLabel = statusLabelFor(ticket.status, statuses)
+  const icon = (
+    <Icon
+      className={size === "lg" ? cn("size-5", meta.className) : meta.className}
+      style={meta.color ? { color: meta.color } : undefined}
+      strokeWidth={1.75}
+    />
+  )
+  const triggerProps = {
+    onClick: (e: MouseEvent) => {
+      if (stopPropagation) e.stopPropagation()
+    },
+    "aria-label": disabled ? label : m.tickets_status_aria_label({ label }),
+    title: label,
+    disabled
+  }
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            type="button"
-            variant="chip"
-            onClick={(e) => e.stopPropagation()}
-            aria-label={m.tickets_status_aria_label({ label: statusLabel })}
-            className={className}
-          >
-            <Icon
-              className={cn("size-3.5", meta.className)}
-              style={meta.color ? { color: meta.color } : undefined}
-              strokeWidth={1.75}
-            />
-            <span>{statusLabel}</span>
+    <DropdownMenuTrigger
+      render={
+        size === "lg" ? (
+          <Hitbox mode="inline" margin="1" {...triggerProps}>
+            <span className="grid size-10 place-items-center rounded-lg bg-muted transition-colors group-hover/hitbox:bg-foreground/5">
+              {icon}
+            </span>
+          </Hitbox>
+        ) : (
+          <Button type="button" variant="chip" size="icon-sm" {...triggerProps}>
+            {icon}
           </Button>
-        }
-      />
-      <DropdownMenuContent
-        align="start"
-        sideOffset={6}
-        className="w-44"
-        finalFocus={false}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <StatusMenuItems
-          orgSlug={orgSlug}
-          slug={slug}
-          current={ticket.status}
-          statuses={statuses}
-          onSelect={(status) => {
-            if (status === ticket.status) return
-            onPatch({ status })
-          }}
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
+        )
+      }
+    />
   )
 }
 
@@ -167,41 +153,15 @@ export function StatusSelect({
   const statusesResult = useAtomValue(statusesFor(req))
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
   const meta = statusMetaFor(value, statuses)
-  const Icon = meta.icon
   const statusLabel = statusLabelFor(value, statuses)
-  const wrapperClass =
-    size === "lg"
-      ? "grid size-10 place-items-center rounded-lg bg-muted transition-colors group-hover/hitbox:bg-foreground/5"
-      : cn(
-          "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-foreground/5",
-          meta.className
-        )
-  const iconClass = size === "lg" ? cn("size-5", meta.className) : "size-4"
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Hitbox
-            mode="inline"
-            margin={size === "lg" ? "1" : "2"}
-            onClick={(e) => stopPropagation && e.stopPropagation()}
-            aria-label={
-              disabled
-                ? statusLabel
-                : m.tickets_status_aria_label({ label: statusLabel })
-            }
-            title={statusLabel}
-            disabled={disabled}
-          >
-            <span className={wrapperClass}>
-              <Icon
-                className={iconClass}
-                style={meta.color ? { color: meta.color } : undefined}
-                strokeWidth={1.75}
-              />
-            </span>
-          </Hitbox>
-        }
+      <StatusTrigger
+        meta={meta}
+        label={statusLabel}
+        size={size}
+        disabled={disabled}
+        stopPropagation={stopPropagation}
       />
       <DropdownMenuContent
         align="start"
@@ -238,63 +198,17 @@ export function StatusButton({
   onPatch: (patch: UpdateTicketInput) => void
   disabled?: boolean
 }) {
-  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
-  const statusesResult = useAtomValue(statusesFor(req))
-  const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
-  const meta = statusMetaFor(ticket.status, statuses)
-  const Icon = meta.icon
-  const statusLabel = statusLabelFor(ticket.status, statuses)
-  const wrapperClass =
-    size === "lg"
-      ? "grid size-10 place-items-center rounded-lg bg-muted transition-colors group-hover/hitbox:bg-foreground/5"
-      : cn(
-          "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-foreground/5",
-          meta.className
-        )
-  const iconClass = size === "lg" ? cn("size-5", meta.className) : "size-4"
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Hitbox
-            mode="inline"
-            margin={size === "lg" ? "1" : "2"}
-            onClick={(e) => stopPropagation && e.stopPropagation()}
-            aria-label={
-              disabled
-                ? statusLabel
-                : m.tickets_status_aria_label({ label: statusLabel })
-            }
-            title={statusLabel}
-            disabled={disabled}
-          >
-            <span className={wrapperClass}>
-              <Icon
-                className={iconClass}
-                style={meta.color ? { color: meta.color } : undefined}
-                strokeWidth={1.75}
-              />
-            </span>
-          </Hitbox>
-        }
-      />
-      <DropdownMenuContent
-        align="start"
-        sideOffset={6}
-        className="w-44"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <StatusMenuItems
-          orgSlug={orgSlug}
-          slug={slug}
-          current={ticket.status}
-          statuses={statuses}
-          onSelect={(status) => {
-            if (status === ticket.status) return
-            onPatch({ status })
-          }}
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <StatusSelect
+      orgSlug={orgSlug}
+      slug={slug}
+      value={ticket.status}
+      size={size}
+      disabled={disabled}
+      stopPropagation={stopPropagation}
+      onChange={(status) => {
+        if (status !== ticket.status) onPatch({ status })
+      }}
+    />
   )
 }

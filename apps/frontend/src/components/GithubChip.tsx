@@ -1,23 +1,34 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { GithubConnection, GithubRepo } from "@pp/shared"
+import { useDebouncedValue } from "@tanstack/react-pacer"
+import { Link } from "@tanstack/react-router"
+import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   AlertTriangle,
   ChevronDown,
+  ExternalLink,
   GitBranch as GithubIcon,
-  Search
+  Lock,
+  Settings2
 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { type ReactNode, useMemo, useState } from "react"
 
-import { Badge } from "@/components/ui/badge"
+import { IntegrationLogo } from "@/components/settings/IntegrationLogo"
+import { SettingsRow } from "@/components/settings/SettingsSection"
+import { SettingsTextField } from "@/components/settings/SettingsTextField"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuInput,
+  DropdownMenuItem,
+  DropdownMenuList,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
 import { me } from "@/features/auth/atoms/auth"
 import {
   connectGithub,
@@ -40,169 +51,249 @@ type Props = Readonly<{
   github: GithubConnection | null
 }>
 
-export function GithubChip({ orgSlug, slug, github }: Props) {
+function useCanManageGithub(orgSlug: string): boolean {
   const viewer = useAtomValue(me())
-  const canManage =
+  return (
     useProjectActor().call("projects", "connectGithub") &&
     Result.isSuccess(viewer) &&
     viewer.value.activeOrgSlug === orgSlug
+  )
+}
+
+function useGithubWarning(orgSlug: string, slug: string): string | null {
   const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
   const states = useAtomValue(projectGitStates(req))
+  if (!Result.isSuccess(states)) return null
+  const { tokenStatus, repoStatus } = states.value
+  if (tokenStatus === "expired") return m.git_github_token_expired_error()
+  if (tokenStatus === "scope_insufficient")
+    return m.git_github_scope_insufficient_error()
+  if (repoStatus === "gone") return m.git_repo_gone_error()
+  return null
+}
 
-  const flag: "token_expired" | "scope" | "repo_gone" | null = useMemo(() => {
-    if (!Result.isSuccess(states)) return null
-    const v = states.value
-    if (v.tokenStatus === "expired") return "token_expired"
-    if (v.tokenStatus === "scope_insufficient") return "scope"
-    if (v.repoStatus === "gone") return "repo_gone"
-    return null
-  }, [states])
+const repoUrl = (github: GithubConnection) =>
+  `https://github.com/${github.repoOwner}/${github.repoName}`
 
-  if (!github && !canManage) return null
+function RepoName({ owner, name }: Readonly<{ owner: string; name: string }>) {
+  return (
+    <span className="min-w-0 truncate">
+      <span className="text-muted-foreground">{owner}/</span>
+      <span className="text-foreground">{name}</span>
+    </span>
+  )
+}
+
+export function GithubChip({ orgSlug, slug, github }: Props) {
+  const canManage = useCanManageGithub(orgSlug)
+  const warning = useGithubWarning(orgSlug, slug)
 
   if (!github) {
-    return (
-      <Popover>
-        <PopoverTrigger
+    return canManage ? <ConnectMenu orgSlug={orgSlug} slug={slug} /> : null
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            variant="tertiary"
+            size="sm"
+            leadingIcon={warning ? AlertTriangle : GithubIcon}
+            trailingIcon={ChevronDown}
+            title={warning ?? undefined}
+            className={cn(warning && "text-state-warning")}
+          >
+            <RepoName owner={github.repoOwner} name={github.repoName} />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end" sideOffset={6} className="w-60">
+        {warning ? (
+          <>
+            <MenuNote tone="error">{warning}</MenuNote>
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
+        <DropdownMenuItem
           render={
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            >
-              <GithubIcon className="size-3.5" strokeWidth={1.75} />
-              {m.github_chip_connect_repo_button()}
-            </button>
+            <a href={repoUrl(github)} target="_blank" rel="noreferrer">
+              <ExternalLink strokeWidth={1.75} />
+              {m.github_chip_open_on_github()}
+            </a>
           }
         />
-        <PopoverContent className="w-80 p-0">
-          <ConnectPanel orgSlug={orgSlug} slug={slug} />
-        </PopoverContent>
-      </Popover>
-    )
-  }
-
-  return (
-    <ConnectedChip
-      orgSlug={orgSlug}
-      slug={slug}
-      github={github}
-      flag={flag}
-      canManage={canManage}
-    />
-  )
-}
-
-function ConnectedChip({
-  orgSlug,
-  slug,
-  github,
-  flag,
-  canManage
-}: {
-  orgSlug: string
-  slug: string
-  github: GithubConnection
-  flag: "token_expired" | "scope" | "repo_gone" | null
-  canManage: boolean
-}) {
-  const url = `https://github.com/${github.repoOwner}/${github.repoName}`
-  const warning =
-    flag === "token_expired"
-      ? m.git_github_token_expired_error()
-      : flag === "scope"
-        ? m.git_github_scope_insufficient_error()
-        : flag === "repo_gone"
-          ? m.git_repo_gone_error()
-          : null
-
-  if (warning) {
-    return (
-      <Badge tone="amber" size="md" className="border border-state-warning/40">
-        <AlertTriangle strokeWidth={1.75} />
-        <span>{warning}</span>
-        {canManage && (
-          <Popover>
-            <PopoverTrigger
-              render={
-                <button
-                  type="button"
-                  className="ml-1 underline-offset-2 hover:underline"
-                >
-                  {m.github_chip_manage_button()}
-                </button>
-              }
-            />
-            <PopoverContent className="w-80 p-3">
-              <ManagePanel orgSlug={orgSlug} slug={slug} github={github} />
-            </PopoverContent>
-          </Popover>
-        )}
-      </Badge>
-    )
-  }
-
-  return (
-    <div className="inline-flex items-stretch rounded-md border border-border bg-background text-xs font-medium text-muted-foreground">
-      <a
-        href={url}
-        target="_blank"
-        rel="noreferrer"
-        className={cn(
-          "inline-flex items-center gap-1.5 px-2.5 py-1 transition-colors hover:text-foreground",
-          canManage && "border-r border-border"
-        )}
-      >
-        <GithubIcon className="size-3.5" strokeWidth={1.75} />
-        <span className="font-mono text-xs">
-          {github.repoOwner}/{github.repoName}
-        </span>
-      </a>
-      {canManage && (
-        <Popover>
-          <PopoverTrigger
+        {canManage ? (
+          <DropdownMenuItem
             render={
-              <button
-                type="button"
-                aria-label={m.github_chip_manage_connection_aria_label()}
-                className={cn(
-                  "group grid w-6 place-items-center rounded-r-md transition-colors hover:bg-accent",
-                  "data-[popup-open]:bg-accent"
-                )}
+              <Link
+                to="/orgs/$orgSlug/projects/$slug/settings/integrations"
+                params={{ orgSlug, slug }}
               >
-                <ChevronDown
-                  className={cn(
-                    "size-3.5 transition-transform",
-                    "group-data-[popup-open]:rotate-180"
-                  )}
-                  strokeWidth={1.75}
-                />
-              </button>
+                <Settings2 strokeWidth={1.75} />
+                {m.github_chip_repository_settings()}
+              </Link>
             }
           />
-          <PopoverContent className="w-80 p-3">
-            <ManagePanel orgSlug={orgSlug} slug={slug} github={github} />
-          </PopoverContent>
-        </Popover>
-      )}
-    </div>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
-function ConnectPanel({
+export function GithubSettingsRows({ orgSlug, slug, github }: Props) {
+  const canManage = useCanManageGithub(orgSlug)
+  const warning = useGithubWarning(orgSlug, slug)
+  const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
+  const connect = useAtomSet(connectGithub(req))
+  const connectFailed = Result.isFailure(useAtomValue(connectGithub(req)))
+  const disconnect = useAtomSet(disconnectGithub(req), { mode: "promise" })
+
+  return (
+    <>
+      <SettingsRow
+        icon={<IntegrationLogo kind="github" />}
+        label={m.project_settings_github_heading()}
+        description={
+          github ? (
+            <a
+              href={repoUrl(github)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 hover:text-foreground"
+            >
+              {github.repoOwner}/{github.repoName}
+              <ExternalLink className="size-3" strokeWidth={1.75} />
+            </a>
+          ) : (
+            m.project_settings_github_not_connected()
+          )
+        }
+        error={warning}
+      >
+        {canManage ? (
+          github ? (
+            <ConfirmButton.Root>
+              <ConfirmButton.Trigger type="button" variant="tertiary" size="sm">
+                {m.github_chip_disconnect_button()}
+              </ConfirmButton.Trigger>
+              <ConfirmButton.Confirm>
+                <ConfirmButton.Action
+                  prompt={m.github_chip_disconnect_confirm({
+                    repo: `${github.repoOwner}/${github.repoName}`
+                  })}
+                  label={m.github_chip_disconnect_button()}
+                  onConfirm={async () => {
+                    await disconnect()
+                  }}
+                />
+              </ConfirmButton.Confirm>
+            </ConfirmButton.Root>
+          ) : (
+            <ConnectMenu orgSlug={orgSlug} slug={slug} />
+          )
+        ) : null}
+      </SettingsRow>
+      {github && canManage ? (
+        <SettingsRow
+          label={m.github_chip_default_base_branch_label()}
+          description={m.github_chip_default_base_branch_hint()}
+          error={connectFailed ? m.github_chip_connect_failed_error() : null}
+        >
+          <SettingsTextField
+            value={github.defaultBaseBranch ?? ""}
+            placeholder="main"
+            allowEmpty
+            onCommit={(next) =>
+              connect({
+                repoId: github.repoId,
+                repoOwner: github.repoOwner,
+                repoName: github.repoName,
+                defaultBaseBranch: next || null
+              })
+            }
+          />
+        </SettingsRow>
+      ) : null}
+    </>
+  )
+}
+
+function ConnectMenu({
   orgSlug,
   slug
 }: Readonly<{ orgSlug: string; slug: string }>) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
+  return (
+    <DropdownMenu
+      open={open}
+      onOpenChange={setOpen}
+      onOpenChangeComplete={(next) => {
+        if (!next) setQuery("")
+      }}
+      filterable={{ value: query, onValueChange: setQuery, filter: null }}
+    >
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            variant="tertiary"
+            size="sm"
+            leadingIcon={GithubIcon}
+          >
+            {m.github_chip_connect_repo_button()}
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end" sideOffset={6} className="w-80">
+        <ConnectMenuBody
+          orgSlug={orgSlug}
+          slug={slug}
+          query={query}
+          onConnected={() => setOpen(false)}
+        />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function MenuNote({
+  tone = "muted",
+  children
+}: Readonly<{ tone?: "muted" | "error"; children: ReactNode }>) {
+  return (
+    <p
+      role={tone === "error" ? "alert" : undefined}
+      className={cn(
+        "px-2 py-1.5 text-[13px] leading-5",
+        tone === "error" ? "text-destructive" : "text-muted-foreground"
+      )}
+    >
+      {children}
+    </p>
+  )
+}
+
+function ConnectMenuBody({
+  orgSlug,
+  slug,
+  query,
+  onConnected
+}: Readonly<{
+  orgSlug: string
+  slug: string
+  query: string
+  onConnected: () => void
+}>) {
   const canInstall = useOrgActor(orgSlug).call("projects", "startGithubInstall")
   const orgReq = useMemo(() => githubOrgRequest(orgSlug), [orgSlug])
   const orgIntegration = useAtomValue(githubIntegration(orgReq))
-  const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
-  const connect = useAtomSet(connectGithub(req))
-  const connectState = useAtomValue(connectGithub(req))
   const startInstall = useAtomSet(startGithubInstall(orgReq), {
     mode: "promise"
   })
   const startInstallState = useAtomValue(startGithubInstall(orgReq))
-  const busy = connectState.waiting
   const installing = startInstallState.waiting
   const installError = installing
     ? null
@@ -218,33 +309,6 @@ function ConnectPanel({
           ),
         onDefect: () => m.github_chip_install_app_failed_error()
       })
-  const errorString = connectState.waiting
-    ? null
-    : Result.matchWithError(connectState, {
-        onInitial: () => null,
-        onSuccess: () => null,
-        onError: (error) =>
-          Match.value(error).pipe(
-            Match.tag("GitHubTokenExpired", () =>
-              m.github_chip_connect_token_expired_error()
-            ),
-            Match.tag("GitHubScopeInsufficient", () =>
-              m.github_chip_connect_scope_insufficient_error()
-            ),
-            Match.tag("RepoGone", () => m.git_repo_gone_error()),
-            Match.orElse(() => m.github_chip_connect_failed_error())
-          ),
-        onDefect: () => m.github_chip_connect_failed_error()
-      })
-
-  function pick(repo: GithubRepo) {
-    connect({
-      repoId: repo.id,
-      repoOwner: repo.owner,
-      repoName: repo.name,
-      defaultBaseBranch: repo.defaultBranch
-    })
-  }
 
   async function installApp() {
     try {
@@ -256,269 +320,161 @@ function ConnectPanel({
   }
 
   if (Result.isInitial(orgIntegration)) {
-    return (
-      <div className="space-y-3 p-3">
-        <p className="text-sm text-muted-foreground">{m.chrome_loading()}</p>
-      </div>
-    )
+    return <MenuNote>{m.chrome_loading()}</MenuNote>
   }
 
-  if (Result.isFailure(orgIntegration)) {
+  if (
+    Result.isFailure(orgIntegration) ||
+    orgIntegration.value.status !== "active"
+  ) {
     return (
-      <div className="space-y-3 p-3">
-        <p className="text-sm text-destructive" role="alert">
-          {m.github_chip_install_app_failed_error()}
-        </p>
+      <>
+        <MenuNote tone={Result.isFailure(orgIntegration) ? "error" : "muted"}>
+          {Result.isFailure(orgIntegration)
+            ? m.github_chip_install_app_failed_error()
+            : m.github_chip_install_app_required()}
+        </MenuNote>
+        {installError ? <MenuNote tone="error">{installError}</MenuNote> : null}
+        <DropdownMenuSeparator />
         {canInstall ? (
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => void installApp()}
-            disabled={installing}
-            className="w-full"
+          <DropdownMenuItem
+            closeOnClick={false}
+            onClick={() => {
+              if (!installing) void installApp()
+            }}
           >
-            {installing
-              ? m.github_chip_install_app_loading()
-              : m.github_chip_install_app_button()}
-          </Button>
+            <GithubIcon strokeWidth={1.75} />
+            <span className={cn(installing && "animate-pulse")}>
+              {installing
+                ? m.github_chip_install_app_loading()
+                : m.github_chip_install_app_button()}
+            </span>
+          </DropdownMenuItem>
         ) : (
-          <p className="text-xs text-muted-foreground">
-            {m.github_chip_install_app_ask_admin()}
-          </p>
+          <MenuNote>{m.github_chip_install_app_ask_admin()}</MenuNote>
         )}
-      </div>
-    )
-  }
-
-  if (orgIntegration.value.status !== "active") {
-    return (
-      <div className="space-y-3 p-3">
-        <p className="text-sm text-muted-foreground">
-          {m.github_chip_install_app_required()}
-        </p>
-        {installError && (
-          <p className="text-xs text-destructive" role="alert">
-            {installError}
-          </p>
-        )}
-        {canInstall ? (
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => void installApp()}
-            disabled={installing}
-            className="w-full"
-          >
-            {installing
-              ? m.github_chip_install_app_loading()
-              : m.github_chip_install_app_button()}
-          </Button>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            {m.github_chip_install_app_ask_admin()}
-          </p>
-        )}
-      </div>
+      </>
     )
   }
 
   return (
-    <ActiveRepoList
+    <RepoList
       orgSlug={orgSlug}
       slug={slug}
-      busy={busy}
-      errorString={errorString}
-      onPick={pick}
+      query={query}
+      onConnected={onConnected}
     />
   )
 }
 
-function ActiveRepoList({
+function RepoList({
   orgSlug,
   slug,
-  busy,
-  errorString,
-  onPick
-}: {
+  query,
+  onConnected
+}: Readonly<{
   orgSlug: string
   slug: string
-  busy: boolean
-  errorString: string | null
-  onPick: (repo: GithubRepo) => void
-}) {
-  const [query, setQuery] = useState("")
-  const reposReq = useMemo(
-    () => githubReposRequest(orgSlug, slug, query),
-    [orgSlug, slug, query]
-  )
-  const repos = useAtomValue(githubRepos(reposReq))
-
-  return (
-    <div className="p-3">
-      <div className="mb-2 flex items-center gap-2">
-        <Search className="size-4 text-muted-foreground" strokeWidth={1.75} />
-        <Input
-          placeholder={m.github_chip_search_repos_placeholder()}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          autoFocus
-          className="h-8"
-        />
-      </div>
-      {errorString && (
-        <p className="mb-2 text-xs text-destructive" role="alert">
-          {errorString}
-        </p>
-      )}
-      <ul className="max-h-64 overflow-y-auto">
-        {Result.matchWithError(repos, {
-          onInitial: () => (
-            <li className="px-2 py-3 text-sm text-muted-foreground">
-              {m.chrome_loading()}
-            </li>
-          ),
-          onError: () => (
-            <li className="px-2 py-3 text-sm text-destructive">
-              {m.github_chip_load_repos_error()}
-            </li>
-          ),
-          onDefect: () => (
-            <li className="px-2 py-3 text-sm text-destructive">
-              {m.github_chip_load_repos_error()}
-            </li>
-          ),
-          onSuccess: ({ value }) => (
-            <>
-              {value.repos.length === 0 ? (
-                <li className="px-2 py-3 text-sm text-muted-foreground">
-                  {m.github_chip_no_repos()}
-                </li>
-              ) : (
-                value.repos.map((repo) => {
-                  const key = `${repo.owner}/${repo.name}`
-                  return (
-                    <li key={key}>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => onPick(repo)}
-                        className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent disabled:opacity-50"
-                      >
-                        <span className="min-w-0 flex-1 truncate font-mono">
-                          {repo.owner}/{repo.name}
-                        </span>
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          {repo.private
-                            ? m.github_chip_repo_private()
-                            : m.github_chip_repo_public()}
-                        </span>
-                      </button>
-                    </li>
-                  )
-                })
-              )}
-            </>
-          )
-        })}
-      </ul>
-    </div>
-  )
-}
-
-function ManagePanel({
-  orgSlug,
-  slug,
-  github
-}: {
-  orgSlug: string
-  slug: string
-  github: GithubConnection
-}) {
+  query: string
+  onConnected: () => void
+}>) {
   const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
-  const [base, setBase] = useState(github.defaultBaseBranch ?? "")
   const connect = useAtomSet(connectGithub(req), { mode: "promiseExit" })
   const connectState = useAtomValue(connectGithub(req))
-  const saving = connectState.waiting
-  const disconnect = useAtomSet(disconnectGithub(req))
-  const [confirmDisconnect, setConfirmDisconnect] = useState(false)
+  const [pending, setPending] = useState<string | null>(null)
+  const [debouncedQuery] = useDebouncedValue(query, { wait: 300 })
+  const reposReq = useMemo(
+    () => githubReposRequest(orgSlug, slug, debouncedQuery),
+    [orgSlug, slug, debouncedQuery]
+  )
+  const repos = useAtomValue(githubRepos(reposReq))
+  const error =
+    connectState.waiting || pending !== null
+      ? null
+      : Result.matchWithError(connectState, {
+          onInitial: () => null,
+          onSuccess: () => null,
+          onError: (failure) =>
+            Match.value(failure).pipe(
+              Match.tag("GitHubTokenExpired", () =>
+                m.github_chip_connect_token_expired_error()
+              ),
+              Match.tag("GitHubScopeInsufficient", () =>
+                m.github_chip_connect_scope_insufficient_error()
+              ),
+              Match.tag("RepoGone", () => m.git_repo_gone_error()),
+              Match.orElse(() => m.github_chip_connect_failed_error())
+            ),
+          onDefect: () => m.github_chip_connect_failed_error()
+        })
 
-  async function saveBase() {
-    await connect({
-      repoId: github.repoId,
-      repoOwner: github.repoOwner,
-      repoName: github.repoName,
-      defaultBaseBranch: base.trim() || null
+  async function pick(repo: GithubRepo) {
+    if (pending !== null) return
+    const key = `${repo.owner}/${repo.name}`
+    setPending(key)
+    const exit = await connect({
+      repoId: repo.id,
+      repoOwner: repo.owner,
+      repoName: repo.name,
+      defaultBaseBranch: repo.defaultBranch
     })
+    setPending(null)
+    if (Exit.isSuccess(exit)) onConnected()
   }
 
   return (
-    <div className="space-y-3">
-      <div>
-        <label
-          htmlFor="github-default-base"
-          className="block text-xs font-medium text-muted-foreground"
-        >
-          {m.github_chip_default_base_branch_label()}
-        </label>
-        <div className="mt-1 flex gap-2">
-          <Input
-            id="github-default-base"
-            placeholder="main"
-            value={base}
-            onChange={(e) => setBase(e.target.value)}
-            className="h-8"
-          />
-          <Button
-            type="button"
-            size="sm"
-            disabled={saving || base === (github.defaultBaseBranch ?? "")}
-            onClick={() => void saveBase()}
-          >
-            {m.common_save_button()}
-          </Button>
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {m.github_chip_default_base_branch_hint()}
-        </p>
-      </div>
-      <div className="border-t border-border pt-3">
-        {!confirmDisconnect ? (
-          <button
-            type="button"
-            onClick={() => setConfirmDisconnect(true)}
-            className="text-xs text-destructive hover:underline"
-          >
-            {m.github_chip_disconnect_repo_button()}
-          </button>
-        ) : (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              {m.github_chip_disconnect_confirm_prefix()}{" "}
-              <span className="font-mono">
-                {github.repoOwner}/{github.repoName}
-              </span>
-              {m.github_chip_disconnect_confirm_suffix()}
-            </span>
-            <Button
-              type="button"
-              size="sm"
-              variant="primary"
-              onClick={() => disconnect()}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {m.github_chip_disconnect_button()}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => setConfirmDisconnect(false)}
-            >
-              {m.common_cancel_button()}
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
+    <>
+      <DropdownMenuInput
+        placeholder={m.github_chip_search_repos_placeholder()}
+        aria-label={m.github_chip_search_repos_placeholder()}
+      />
+      {error ? <MenuNote tone="error">{error}</MenuNote> : null}
+      {Result.matchWithError(repos, {
+        onInitial: () => <MenuNote>{m.chrome_loading()}</MenuNote>,
+        onError: () => (
+          <MenuNote tone="error">{m.github_chip_load_repos_error()}</MenuNote>
+        ),
+        onDefect: () => (
+          <MenuNote tone="error">{m.github_chip_load_repos_error()}</MenuNote>
+        ),
+        onSuccess: ({ value }) =>
+          value.repos.length === 0 ? (
+            <MenuNote>{m.github_chip_no_repos()}</MenuNote>
+          ) : (
+            <DropdownMenuList className="max-h-72 overflow-y-auto">
+              {value.repos.map((repo) => {
+                const key = `${repo.owner}/${repo.name}`
+                return (
+                  <DropdownMenuItem
+                    key={key}
+                    label={key}
+                    closeOnClick={false}
+                    onClick={() => void pick(repo)}
+                  >
+                    <span
+                      className={cn(
+                        "min-w-0 flex-1 truncate",
+                        pending === key && "animate-pulse"
+                      )}
+                    >
+                      <span className="text-muted-foreground">
+                        {repo.owner}/
+                      </span>
+                      <span className="text-foreground">{repo.name}</span>
+                    </span>
+                    {repo.private ? (
+                      <Lock
+                        aria-label={m.github_chip_repo_private()}
+                        className="ml-auto size-3.5 text-muted-foreground"
+                        strokeWidth={1.75}
+                      />
+                    ) : null}
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuList>
+          )
+      })}
+    </>
   )
 }

@@ -41,13 +41,19 @@
 // `bun run db:migrate` to apply it against the running Postgres.
 
 import type {
+  GitAutomationEvent,
+  ProjectEvent,
+  ProjectEventKind,
+  SlackNotification,
   JiraMigrationConfiguration,
   OrgEverhourConfig,
   ProjectBanner,
-  ProjectIconImage
+  ProjectIconImage,
+  TicketActivityChangeEncoded
 } from "@pp/shared"
 import { defineRelations, sql } from "drizzle-orm"
 import {
+  bigint,
   boolean,
   check,
   foreignKey,
@@ -85,7 +91,15 @@ export const projectIndex = pgTable(
     color: text("color").notNull(),
     banner: jsonb("banner").$type<ProjectBanner>(),
     iconImage: jsonb("icon_image").$type<ProjectIconImage>(),
+    estimation: text("estimation", {
+      enum: ["off", "points", "tshirt", "time"]
+    })
+      .notNull()
+      .default("off"),
     nextTicketNumber: integer("next_ticket_number").notNull().default(1),
+    gitAutomationForwardOnly: boolean("git_automation_forward_only")
+      .notNull()
+      .default(true),
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -227,6 +241,25 @@ export const projectStatus = pgTable(
   ]
 )
 
+export const projectGitAutomation = pgTable(
+  "project_git_automation",
+  {
+    projectId: uuid("project_id").notNull(),
+    event: text("event").$type<GitAutomationEvent>().notNull(),
+    statusSlug: text("status_slug").notNull()
+  },
+  (t) => [
+    primaryKey({ columns: [t.projectId, t.event] }),
+    foreignKey({
+      name: "project_git_automation_status_fkey",
+      columns: [t.projectId, t.statusSlug],
+      foreignColumns: [projectStatus.projectId, projectStatus.slug]
+    })
+      .onDelete("cascade")
+      .onUpdate("cascade")
+  ]
+)
+
 export const organizationIntegration = pgTable(
   "organization_integration",
   {
@@ -235,7 +268,7 @@ export const organizationIntegration = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     provider: text("provider", {
-      enum: ["github", "everhour", "s3", "figma"]
+      enum: ["github", "everhour", "s3", "figma", "slack"]
     }).notNull(),
     status: text("status", {
       enum: ["active", "disconnected", "broken"]
@@ -283,6 +316,26 @@ export const organizationGithubIntegration = pgTable(
     )
   ]
 )
+
+export const organizationEmail = pgTable("organization_email", {
+  organizationId: text("organization_id")
+    .primaryKey()
+    .references(() => organization.id, { onDelete: "cascade" }),
+  revision: uuid("revision").notNull().defaultRandom(),
+  host: text("host").notNull(),
+  port: integer("port").notNull(),
+  security: text("security").$type<"tls" | "starttls">().notNull(),
+  username: text("username").notNull(),
+  senderName: text("sender_name").notNull(),
+  senderEmail: text("sender_email").notNull(),
+  replyTo: text("reply_to"),
+  ciphertext: text("ciphertext").notNull(),
+  nonce: text("nonce").notNull(),
+  tag: text("tag").notNull(),
+  lastTestAt: timestamp("last_test_at", { withTimezone: true }),
+  lastTestError:
+    text("last_test_error").$type<import("@pp/shared").EmailFailureReason>()
+})
 
 export const organizationS3Integration = pgTable(
   "organization_s3_integration",
@@ -342,11 +395,15 @@ export const projectIntegrationLink = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     organizationIntegrationId: uuid("organization_integration_id").notNull(),
     provider: text("provider", {
-      enum: ["github", "everhour", "figma"]
+      enum: ["github", "everhour", "figma", "slack"]
     }).notNull(),
     status: text("status", {
       enum: ["active", "disconnected", "broken"]
     }).notNull(),
+    subscribedEvents: jsonb("subscribed_events")
+      .$type<ReadonlyArray<ProjectEventKind>>()
+      .notNull()
+      .default([]),
     connectedAt: timestamp("connected_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -413,6 +470,24 @@ export const projectGithubRepository = pgTable(
     uniqueIndex("project_github_repository_active_repo_uidx")
       .on(t.organizationId, t.repoId)
       .where(sql`${t.status} = 'active'`)
+  ]
+)
+
+export const githubPullRequestReconciliation = pgTable(
+  "github_pull_request_reconciliation",
+  {
+    repositoryId: text("repository_id").notNull(),
+    number: integer("number").notNull(),
+    payloadHash: text("payload_hash").notNull().default(""),
+    branch: text("branch").notNull(),
+    base: text("base").notNull(),
+    state: text("state", { enum: ["open", "closed", "merged"] }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }),
+    mergedAt: timestamp("merged_at", { withTimezone: true })
+  },
+  (t) => [
+    primaryKey({ columns: [t.repositoryId, t.number] }),
+    index("github_pr_reconciliation_branch_idx").on(t.repositoryId, t.branch)
   ]
 )
 
@@ -584,6 +659,10 @@ export const ticketIndex = pgTable(
     priority: text("priority", {
       enum: ["low", "med", "high"]
     }).notNull(),
+    estimateUnit: text("estimate_unit", {
+      enum: ["points", "tshirt", "time"]
+    }),
+    estimateValue: integer("estimate_value"),
     tags: text("tags")
       .array()
       .notNull()
@@ -595,7 +674,14 @@ export const ticketIndex = pgTable(
     branch: text("branch"),
     pr: integer("pr"),
     prState: text("pr_state", { enum: ["open", "closed", "merged"] }),
+    prDraft: boolean("pr_draft").notNull().default(false),
+    prUpdatedAt: timestamp("pr_updated_at", { withTimezone: true }),
+    prBase: text("pr_base"),
     lastTransitionedPr: integer("last_transitioned_pr"),
+    ignoredBranches: text("ignored_branches")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     branchDeletedAt: timestamp("branch_deleted_at", { withTimezone: true }),
     checks: text("checks", {
       enum: ["passing", "failing", "pending", "neutral", "none"]
@@ -620,6 +706,31 @@ export const ticketIndex = pgTable(
     index("ticket_index_branch_idx").on(t.projectId, t.branch),
     index("ticket_index_updated_idx").on(t.projectId, t.updatedAt),
     index("ticket_index_assignees_idx").using("gin", t.assignees)
+  ]
+)
+
+export const ticketBranch = pgTable(
+  "ticket_branch",
+  {
+    projectId: uuid("project_id").notNull(),
+    ticketId: text("ticket_id").notNull(),
+    branch: text("branch").notNull(),
+    position: integer("position").notNull(),
+    base: text("base"),
+    pr: integer("pr"),
+    prState: text("pr_state", { enum: ["open", "closed", "merged"] }),
+    prDraft: boolean("pr_draft").notNull().default(false),
+    landed: boolean("landed").notNull().default(false)
+  },
+  (t) => [
+    primaryKey({ columns: [t.projectId, t.ticketId, t.branch] }),
+    foreignKey({
+      name: "ticket_branch_ticket_fkey",
+      columns: [t.projectId, t.ticketId],
+      foreignColumns: [ticketIndex.projectId, ticketIndex.ticketId]
+    }).onDelete("cascade"),
+    index("ticket_branch_branch_idx").on(t.projectId, t.branch),
+    index("ticket_branch_base_idx").on(t.projectId, t.base)
   ]
 )
 
@@ -662,6 +773,224 @@ export const commentIndex = pgTable(
     ),
     index("comment_index_ticket_idx").on(t.projectId, t.ticketId, t.createdAt),
     index("comment_index_author_idx").on(t.authorId, t.projectId, t.ticketId)
+  ]
+)
+
+export const ticketActivity = pgTable(
+  "ticket_activity",
+  {
+    id: uuid("id").primaryKey(),
+    seq: bigint("seq", { mode: "number" }).generatedAlwaysAsIdentity(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projectIndex.id, { onDelete: "cascade" }),
+    ticketId: text("ticket_id").notNull(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    actorKind: text("actor_kind", {
+      enum: ["user", "agent", "system"]
+    }).notNull(),
+    actorUserId: text("actor_user_id").references(() => user.id, {
+      onDelete: "cascade"
+    }),
+    actorClientId: text("actor_client_id"),
+    actorClientName: text("actor_client_name"),
+    actorSource: text("actor_source", {
+      enum: ["github", "automation", "import"]
+    }),
+    cause: text("cause", {
+      enum: [
+        "status_removed",
+        "tag_deleted",
+        "member_removed",
+        "sprint_completed",
+        "group_deleted",
+        "git_automation"
+      ]
+    }),
+    change: jsonb("change").$type<TicketActivityChangeEncoded>().notNull()
+  },
+  (t) => [
+    check(
+      "ticket_activity_actor_check",
+      sql`(
+        ${t.actorKind} = 'user'
+        and ${t.actorUserId} is not null
+        and ${t.actorClientId} is null
+        and ${t.actorClientName} is null
+        and ${t.actorSource} is null
+      ) or (
+        ${t.actorKind} = 'agent'
+        and ${t.actorUserId} is not null
+        and ${t.actorClientId} is not null
+        and ${t.actorClientName} is not null
+        and ${t.actorSource} is null
+      ) or (
+        ${t.actorKind} = 'system'
+        and ${t.actorUserId} is null
+        and ${t.actorClientId} is null
+        and ${t.actorClientName} is null
+        and ${t.actorSource} is not null
+      )`
+    ),
+    index("ticket_activity_ticket_idx").on(
+      t.projectId,
+      t.ticketId,
+      t.occurredAt,
+      t.seq
+    )
+  ]
+)
+
+export type TicketActivityRow = typeof ticketActivity.$inferInsert
+export type TicketActivityOutboxRow = Omit<TicketActivityRow, "occurredAt"> &
+  Readonly<{ occurredAt: string }>
+
+export const organizationSlackIntegration = pgTable(
+  "organization_slack_integration",
+  {
+    organizationIntegrationId: uuid("organization_integration_id")
+      .primaryKey()
+      .references(() => organizationIntegration.id, { onDelete: "cascade" }),
+    teamId: text("team_id").notNull().unique(),
+    teamName: text("team_name").notNull(),
+    appId: text("app_id").notNull().unique(),
+    botUserId: text("bot_user_id").notNull(),
+    clientId: text("client_id").notNull(),
+    ciphertext: text("ciphertext").notNull(),
+    nonce: text("nonce").notNull(),
+    tag: text("tag").notNull()
+  }
+)
+
+export const projectSlackIntegration = pgTable("project_slack_integration", {
+  projectIntegrationLinkId: uuid("project_integration_link_id")
+    .primaryKey()
+    .references(() => projectIntegrationLink.id, { onDelete: "cascade" }),
+  channelId: text("channel_id").notNull(),
+  channelName: text("channel_name").notNull()
+})
+
+export const userSlackIntegration = pgTable(
+  "user_slack_integration",
+  {
+    organizationIntegrationId: uuid("organization_integration_id")
+      .notNull()
+      .references(
+        () => organizationSlackIntegration.organizationIntegrationId,
+        { onDelete: "cascade" }
+      ),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    slackUserId: text("slack_user_id").notNull(),
+    displayName: text("display_name").notNull()
+  },
+  (t) => [
+    primaryKey({ columns: [t.organizationIntegrationId, t.userId] }),
+    uniqueIndex("user_slack_identity_uidx").on(
+      t.organizationIntegrationId,
+      t.slackUserId
+    )
+  ]
+)
+
+export const slackOauthState = pgTable("slack_oauth_state", {
+  stateHash: text("state_hash").primaryKey(),
+  organizationIntegrationId: uuid("organization_integration_id")
+    .notNull()
+    .references(() => organizationSlackIntegration.organizationIntegrationId, {
+      onDelete: "cascade"
+    }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  sessionHash: text("session_hash").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull()
+})
+
+export const projectIntegrationEvent = pgTable(
+  "project_integration_event",
+  {
+    id: text("id").primaryKey(),
+    projectIntegrationLinkId: uuid("project_integration_link_id")
+      .notNull()
+      .references(() => projectIntegrationLink.id, { onDelete: "cascade" }),
+    payload: jsonb("payload").$type<typeof ProjectEvent.Encoded>().notNull(),
+    actorId: text("actor_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true })
+  },
+  (t) => [
+    index("project_integration_event_pending_idx")
+      .on(t.projectIntegrationLinkId)
+      .where(sql`${t.consumedAt} is null`)
+  ]
+)
+
+export const slackNotification = pgTable(
+  "slack_notification",
+  {
+    id: text("id").primaryKey(),
+    projectIntegrationLinkId: uuid("project_integration_link_id")
+      .notNull()
+      .references(() => projectIntegrationLink.id, { onDelete: "cascade" }),
+    payload: jsonb("payload")
+      .$type<typeof SlackNotification.Encoded>()
+      .notNull(),
+    actorId: text("actor_id"),
+    availableAt: timestamp("available_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    dispatchedAt: timestamp("dispatched_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    error: text("error")
+  },
+  (t) => [index("slack_notification_dispatch_idx").on(t.dispatchedAt)]
+)
+
+export const ticketActivityOutbox = pgTable(
+  "ticket_activity_outbox",
+  {
+    batchId: uuid("batch_id").primaryKey(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projectIndex.id, { onDelete: "cascade" }),
+    documentKind: text("document_kind", {
+      enum: ["ticket", "group"]
+    }).notNull(),
+    documentId: text("document_id").notNull(),
+    contentHash: text("content_hash").notNull(),
+    integrationEvents: jsonb("integration_events")
+      .$type<
+        ReadonlyArray<
+          Readonly<{
+            id: string
+            linkId: string
+            event: typeof ProjectEvent.Encoded
+            actorId: string | null
+          }>
+        >
+      >()
+      .notNull()
+      .default([]),
+    rows: jsonb("rows")
+      .$type<ReadonlyArray<TicketActivityOutboxRow>>()
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    index("ticket_activity_outbox_document_idx").on(
+      t.projectId,
+      t.documentKind,
+      t.documentId
+    )
   ]
 )
 
@@ -1024,9 +1353,11 @@ export const relations = defineRelations(
     projectInviteGrant,
     projectTag,
     projectStatus,
+    projectGitAutomation,
     organizationIntegration,
     organizationGithubIntegration,
     organizationS3Integration,
+    organizationEmail,
     githubAppInstallSession,
     projectIntegrationLink,
     projectGithubRepository,
@@ -1037,7 +1368,10 @@ export const relations = defineRelations(
     everhourActiveTimer,
     everhourTimeAttribution,
     ticketIndex,
+    ticketBranch,
     commentIndex,
+    ticketActivity,
+    ticketActivityOutbox,
     attachmentIndex,
     attachmentReference
   },

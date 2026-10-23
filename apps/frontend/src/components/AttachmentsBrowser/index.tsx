@@ -3,14 +3,12 @@ import type {
   AttachmentRow as AttachmentRowData,
   AttachmentSort
 } from "@pp/shared"
-import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
-import { Button } from "@/components/ui/button"
-import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
+import { ConfirmButton } from "@/components/ui/confirm-button"
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import {
@@ -25,7 +23,6 @@ import {
   projectsRequest
 } from "@/features/projects/atoms/projects"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
-import { type AppError, errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 import { Pagination } from "./Pagination"
@@ -361,7 +358,7 @@ function DeleteCell({
         type="button"
         variant="ghost"
         size="sm"
-        className="opacity-0 transition-opacity group-hover/reveal:opacity-100 focus-visible:opacity-100"
+        className="opacity-0 transition-opacity group-hover/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 focus-visible:opacity-100"
       >
         {m.attachments_delete_button()}
       </ConfirmButton.Trigger>
@@ -391,49 +388,20 @@ function DeleteConfirm({
   onDelete: () => Promise<void>
   request: ReturnType<typeof orgAttachmentsRequest>
 }) {
-  const { close, busy, setBusy } = useConfirmButton()
-  const [error, setError] = useState<string | null>(null)
   const remove = useAtomSet(
     deleteOrgAttachments({ req: request, attachmentIds: ids }),
-    {
-      mode: "promiseExit"
-    }
+    { mode: "promiseExit" }
   )
-
-  async function run() {
-    setBusy(true)
-    setError(null)
-    const exit = await remove()
-    if (Exit.isSuccess(exit)) {
-      await onDelete()
-      close()
-      return
-    }
-    setBusy(false)
-    setError(errorMessage(Cause.squash(exit.cause) as AppError))
-  }
-
   return (
-    <>
-      <span className="inline-flex h-8 items-center text-xs whitespace-nowrap text-muted-foreground">
-        {prompt}
-      </span>
-      <Button
-        type="button"
-        size="sm"
-        variant="destructive"
-        onClick={() => void run()}
-        disabled={busy}
-      >
-        {m.attachments_delete_button()}
-      </Button>
-      <ConfirmButton.Cancel>{m.common_cancel_button()}</ConfirmButton.Cancel>
-      {error !== null ? (
-        <span role="alert" className="text-xs text-destructive">
-          {error}
-        </span>
-      ) : null}
-    </>
+    <ConfirmButton.Action
+      prompt={prompt}
+      label={m.attachments_delete_button()}
+      onConfirm={async () => {
+        const exit = await remove()
+        if (Exit.isSuccess(exit)) await onDelete()
+        return exit
+      }}
+    />
   )
 }
 

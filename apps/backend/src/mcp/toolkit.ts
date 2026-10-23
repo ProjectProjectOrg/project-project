@@ -104,6 +104,8 @@ export const McpToolkit = Toolkit.make(
   makeTool("prepare_ticket_attachment", McpTools.prepare_ticket_attachment),
   makeTool("create_comment", McpTools.create_comment),
   makeTool("attach_branch", McpTools.attach_branch),
+  makeTool("stack_branch", McpTools.stack_branch),
+  makeTool("unstack_branch", McpTools.unstack_branch),
   makeTool("create_sprint", McpTools.create_sprint),
   makeTool("update_sprint", McpTools.update_sprint),
   makeTool("complete_sprint", McpTools.complete_sprint),

@@ -1,17 +1,10 @@
 import type { JiraMigrationRequirements, TicketType } from "@pp/shared"
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger
-} from "@/components/ui/select"
 import { TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
 
-import { MappingLabel, MappingRow } from "./MappingRow"
+import { EnumMappingStep } from "./EnumMappingStep"
 import type { JiraMigrationForm } from "./opts"
-import { StepFrame } from "./StepFrame"
 
 const typeOptions: ReadonlyArray<{
   value: TicketType
@@ -23,94 +16,27 @@ const typeOptions: ReadonlyArray<{
   { value: "other", label: m.jira_migration_type_other }
 ]
 
-export function TypeStep({
-  form,
-  requirements,
-  waiting,
-  error,
-  onBack,
-  onNext
-}: StepProps) {
+export function TypeStep({ form, requirements, ...step }: StepProps) {
   return (
-    <StepFrame
+    <EnumMappingStep
+      {...step}
       title={m.jira_migration_type_title()}
       description={m.jira_migration_type_description()}
-      waiting={waiting}
-      error={error}
-      onBack={onBack}
-      onNext={onNext}
-    >
-      <div className="divide-y divide-border">
-        {requirements.issueTypes.map((issueType, index) => (
-          <MappingRow
-            key={issueType.jiraIssueTypeId}
-            source={
-              <MappingLabel
-                icon={
-                  <MigrationTypeIcon
-                    type={issueType.suggestedProjectType ?? "other"}
-                  />
-                }
-              >
-                {issueType.name}
-              </MappingLabel>
-            }
-          >
-            <form.Field name={`issueTypes[${index}].projectType`}>
-              {(field) => {
-                const selected = field.value
-                  ? TYPE_META[field.value]
-                  : undefined
-                return (
-                  <Select
-                    value={field.value ?? ""}
-                    onValueChange={(value) => {
-                      const option = typeOptions.find(
-                        (candidate) => candidate.value === value
-                      )
-                      if (option) field.handleChange(option.value)
-                    }}
-                  >
-                    <SelectTrigger
-                      aria-label={issueType.name}
-                      placeholder={m.jira_migration_type_title()}
-                      className="w-full"
-                      selectedLabel={
-                        selected && field.value ? (
-                          <MappingLabel
-                            icon={<MigrationTypeIcon type={field.value} />}
-                          >
-                            {typeOptions
-                              .find((option) => option.value === field.value)
-                              ?.label()}
-                          </MappingLabel>
-                        ) : undefined
-                      }
-                    />
-                    <SelectContent>
-                      {typeOptions.map((option, optionIndex) => (
-                        <SelectItem
-                          key={option.value}
-                          value={option.value}
-                          index={optionIndex}
-                          aria-label={option.label()}
-                        >
-                          <MappingLabel
-                            icon={<MigrationTypeIcon type={option.value} />}
-                          >
-                            {option.label()}
-                          </MappingLabel>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )
-              }}
-            </form.Field>
-          </MappingRow>
-        ))}
-      </div>
-    </StepFrame>
+      rows={requirements.issueTypes.map((issueType) => ({
+        key: issueType.jiraIssueTypeId,
+        name: issueType.name,
+        suggested: issueType.suggestedProjectType ?? "other"
+      }))}
+      options={typeOptions}
+      renderIcon={(type) => <MigrationTypeIcon type={type} />}
+      renderField={(index, render) => (
+        <form.Field name={`issueTypes[${index}].projectType`}>
+          {(field) =>
+            render({ value: field.value, onChange: field.handleChange })
+          }
+        </form.Field>
+      )}
+    />
   )
 }
 
