@@ -72,6 +72,7 @@ import {
   HORIZONTAL_RULE,
   HorizontalRuleEnterExtension
 } from "./Lexical/horizontalRuleTransformer"
+import { LinkFaviconsPlugin } from "./Lexical/LinkFaviconsPlugin"
 import { ListTabExtension } from "./Lexical/listTabExtension"
 import { registerMarkdownPaste } from "./Lexical/markdownPaste"
 import { MentionExtension } from "./Lexical/MentionExtension"
@@ -575,6 +576,7 @@ export function LexicalEditor({
             />
           ) : null}
           <LinkBlurActivationPlugin />
+          <LinkFaviconsPlugin />
           {blocks !== undefined ? (
             <TicketBlocksPlugins blocks={blocks} transformers={transformers} />
           ) : null}

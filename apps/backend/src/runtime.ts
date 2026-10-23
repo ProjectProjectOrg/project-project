@@ -39,6 +39,7 @@ import {
 import { JiraMigrationRetentionLive } from "@pp/server-core/jira/Retention"
 import { LibraryDocsLive } from "@pp/server-core/library/LibraryDocsLive"
 import { LibraryLive } from "@pp/server-core/library/LibraryLive"
+import { LinkPreviewsLive } from "@pp/server-core/linkPreviews/LinkPreviewsLive"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { OAuthApplicationsLive } from "@pp/server-core/oauth/OAuthApplicationsLive"
@@ -140,6 +141,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
     Layer.provideMerge(AttachmentUploadsLive),
     Layer.provideMerge(AttachmentsLive),
     Layer.provideMerge(FigmaLinksLive),
+    Layer.provideMerge(LinkPreviewsLive),
     Layer.provideMerge(CommentsLive),
     Layer.provideMerge(GroupsLive),
     Layer.provideMerge(ProjectsLive),
