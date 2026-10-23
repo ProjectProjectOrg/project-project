@@ -93,14 +93,14 @@ export const slackProject = Atom.family((req: SlackProjectRequest) =>
     })
   )
 )
+// Nothing mutates the channel list, so it stays an unwrapped query and its
+// `waiting` reports manual refreshes.
 export const slackChannels = Atom.family((req: SlackProjectRequest) =>
-  Atom.optimistic(
-    Api.query("slack", "channels", {
-      params: req.params,
-      timeToLive: "30 seconds",
-      reactivityKeys: [Keys.slackOrg(req.params.orgSlug)]
-    })
-  )
+  Api.query("slack", "channels", {
+    params: req.params,
+    timeToLive: "30 seconds",
+    reactivityKeys: [Keys.slackOrg(req.params.orgSlug)]
+  })
 )
 export const saveSlackProject = Atom.family((req: SlackProjectRequest) =>
   Atom.optimisticFn(slackProject(req), {

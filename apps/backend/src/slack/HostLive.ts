@@ -61,12 +61,12 @@ export const SlackHostLive = Layer.effect(
     const sprint: SlackHost["Service"]["sprint"] = Effect.fn(
       "SlackHost.sprint"
     )(function* ({ orgSlug, slug, id }) {
-      const group = yield* groups.read(orgSlug, slug, id).pipe(Effect.option)
-      return Option.isSome(group) && group.value.kind === "sprint"
-        ? {
-            startsAt: group.value.startsAt,
-            completed: group.value.completedAt !== null
-          }
+      const group = yield* groups.read(orgSlug, slug, id).pipe(
+        Effect.catchTag("NotFound", () => Effect.succeed(null)),
+        Effect.mapError(() => new SlackError({ reason: "sprint_unavailable" }))
+      )
+      return group?.kind === "sprint"
+        ? { startsAt: group.startsAt, completed: group.completedAt !== null }
         : null
     })
     return SlackHost.of({

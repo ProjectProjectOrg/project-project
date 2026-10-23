@@ -226,7 +226,9 @@ export const errorMessage = (error: AppError): string =>
           ? m.slack_error_encryption()
           : reason === "not_in_channel"
             ? m.slack_error_channel()
-            : m.slack_error_generic()
+            : reason === "app_mismatch"
+              ? m.slack_error_app_mismatch()
+              : m.slack_error_generic()
       ),
       Match.tag("FigmaNotConnected", () => m.figma_error_not_connected()),
       Match.tag("FigmaAuthInvalid", () => m.figma_error_auth_invalid()),

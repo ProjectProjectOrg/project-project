@@ -136,7 +136,8 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
     const response = {
       teamId: `T${suffix.toUpperCase()}`,
       slackUserId: "USHARER",
-      sendMode: "ok"
+      sendMode: "ok",
+      socketUrl: "wss://slack.example.test/socket?app_id=APPBOT"
     }
     const fetch: typeof globalThis.fetch = Object.assign(
       async (
@@ -172,10 +173,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
         if (method === "bots.info")
           return Response.json({ ok: true, bot: { app_id: "APPBOT" } })
         if (method === "apps.connections.open")
-          return Response.json({
-            ok: true,
-            url: "wss://slack.example.test/socket"
-          })
+          return Response.json({ ok: true, url: response.socketUrl })
         if (method === "conversations.info")
           return Response.json({ ok: true, channel })
         if (method === "conversations.list")
@@ -388,6 +386,8 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
       runtime,
       makeRuntime,
       makeWorkflowRuntime,
+      fs,
+      root,
       orgId,
       userId,
       projectId,
@@ -547,6 +547,25 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
     expect(result).toMatchObject({
       _tag: "Failure",
       failure: { _tag: "Conflict", reason: "slack_disconnect_first" }
+    })
+  })
+
+  it("rejects an app-level token that belongs to a different Slack app", async () => {
+    const f = await fixture()
+    f.response.socketUrl = "wss://slack.example.test/socket?app_id=AOTHER"
+    const result = await f.asOrg(
+      Effect.flatMap(SlackIntegrations, (slack) =>
+        slack.connectOrg({
+          botToken: "xoxb-other",
+          appToken: "xapp-other",
+          clientId: "123.456",
+          clientSecret: "client-secret"
+        })
+      ).pipe(Effect.result)
+    )
+    expect(result).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "SlackError", reason: "app_mismatch" }
     })
   })
 
@@ -844,6 +863,61 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
         )
       ).rows[0]?.error
     ).toBe("sprint_changed")
+  })
+
+  it("retries a sprint start when the sprint file cannot be read", async () => {
+    const f = await fixture()
+    await f.runtime.runPromise(
+      Effect.flatMap(GroupDocs, (docs) =>
+        docs.create(
+          f.orgId,
+          "project",
+          Schema.decodeSync(GroupDetail)({
+            id: "G-1",
+            name: "Sprint one",
+            kind: "sprint",
+            tickets: [],
+            color: "#aaaaaa",
+            startsAt: "2030-01-01T09:00:00.000Z",
+            endsAt: null,
+            completedAt: null,
+            createdBy: f.userId,
+            createdAt: "2026-10-19T00:00:00Z",
+            updatedAt: "2026-10-19T00:00:00Z",
+            body: ""
+          })
+        )
+      ).pipe(Effect.provideService(ActivityActor, ActivityActor.user(f.userId)))
+    )
+    await f.enqueue()
+    const jobs = await pool.query<{ id: string }>(
+      "select n.id from slack_notification n join project_integration_link l on l.id=n.project_integration_link_id where l.project_id=$1",
+      [f.projectId]
+    )
+    await Effect.runPromise(
+      f.fs.readDirectory(f.root, { recursive: true }).pipe(
+        Effect.map((names) =>
+          names
+            .map((name) => `${f.root}/${name}`)
+            .find((name) => name.endsWith("/G-1.md"))!
+        ),
+        Effect.tap((path) => f.fs.remove(path)),
+        Effect.tap((path) => f.fs.makeDirectory(path))
+      )
+    )
+    const id = jobs.rows[0]!.id
+    const outcome = await f.runtime.runPromise(
+      Effect.flatMap(SlackDelivery, (delivery) => delivery.deliver(id, 0))
+    )
+    expect(outcome.kind).toBe("retry")
+    expect(
+      (
+        await pool.query<{ finished_at: Date | null }>(
+          "select finished_at from slack_notification where id=$1",
+          [id]
+        )
+      ).rows[0]?.finished_at
+    ).toBeNull()
   })
 
   it("does not announce a sprint start for a sprint without a start date", async () => {

@@ -131,21 +131,6 @@ export const makeSlackDelivery = Effect.gen(function* () {
         yield* finish(id, "event_disabled")
         return { kind: "done" }
       }
-      if (event.kind === "sprint_started") {
-        const group = yield* host.sprint({
-          orgSlug: row.orgSlug,
-          slug: row.slug,
-          id: event.id
-        })
-        if (
-          group === null ||
-          group.completed ||
-          group.startsAt?.getTime() !== event.startsAt?.getTime()
-        ) {
-          yield* finish(id, "sprint_changed")
-          return { kind: "done" }
-        }
-      }
       const [actor] = row.actorId
         ? yield* db
             .select({ name: user.name })
@@ -176,6 +161,21 @@ export const makeSlackDelivery = Effect.gen(function* () {
               baseUrl
             ).toString()
       const outcome = yield* Effect.gen(function* () {
+        if (event.kind === "sprint_started") {
+          const group = yield* host.sprint({
+            orgSlug: row.orgSlug,
+            slug: row.slug,
+            id: event.id
+          })
+          if (
+            group === null ||
+            group.completed ||
+            group.startsAt?.getTime() !== event.startsAt?.getTime()
+          ) {
+            yield* finish(id, "sprint_changed")
+            return { kind: "done" as const }
+          }
+        }
         const credentials = yield* integrations.credentials(row.organizationId)
         yield* client.send(
           credentials.botToken,
@@ -198,6 +198,7 @@ export const makeSlackDelivery = Effect.gen(function* () {
               [
                 "connection",
                 "unavailable",
+                "sprint_unavailable",
                 "internal_error",
                 "fatal_error",
                 "service_unavailable"

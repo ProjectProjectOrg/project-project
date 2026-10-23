@@ -102,7 +102,11 @@ export function SlackConnectionForm({
                 </span>
               }
               error={
-                status.connection.lastError ? m.slack_error_socket() : null
+                status.connection.lastError === "credentials"
+                  ? m.slack_error_credentials()
+                  : status.connection.lastError
+                    ? m.slack_error_socket()
+                    : null
               }
             >
               {editing ? null : (

@@ -196,7 +196,10 @@ export const makeSlackIntegrations = Effect.gen(function* () {
     const scope = yield* OrgScope
     const identity = yield* client.identity(input.botToken)
     const appId = yield* client.appId(input.botToken, identity.bot_id)
-    yield* client.socketUrl(input.appToken)
+    const socketUrl = yield* client.socketUrl(input.appToken)
+    const socketAppId = new URL(socketUrl).searchParams.get("app_id")
+    if (socketAppId !== null && socketAppId !== appId)
+      return yield* new SlackError({ reason: "app_mismatch" })
     const serialized = yield* Schema.encodeEffect(
       Schema.fromJsonString(ConnectSlackInput)
     )(input).pipe(Effect.orDie)

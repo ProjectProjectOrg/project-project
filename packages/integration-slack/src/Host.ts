@@ -29,10 +29,13 @@ export class SlackHost extends Context.Service<
     ) => Effect.Effect<TicketSummary | null>
     sprint: (
       request: Readonly<{ orgSlug: string; slug: string; id: GroupId }>
-    ) => Effect.Effect<Readonly<{
-      startsAt: Date | null
-      completed: boolean
-    }> | null>
+    ) => Effect.Effect<
+      Readonly<{
+        startsAt: Date | null
+        completed: boolean
+      }> | null,
+      SlackError
+    >
     seal: (plaintext: string) => Effect.Effect<SealedSecret, SlackError>
     open: (sealed: SealedSecret) => Effect.Effect<string, SlackError>
   }>

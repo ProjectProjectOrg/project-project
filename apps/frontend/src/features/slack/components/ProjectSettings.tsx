@@ -189,12 +189,16 @@ function ManagedSlackRow({
           aria-label={m.slack_channel()}
           className="w-48"
           placeholder={m.slack_choose_channel()}
-          selectedLabel={channelName !== null ? `#${channelName}` : undefined}
+          selectedLabel={
+            channelName !== null
+              ? m.slack_channel_label({ channel: channelName })
+              : undefined
+          }
         />
         <SelectContent>
           {channels.map((channel) => (
             <SelectItem key={channel.id} value={channel.id}>
-              {`#${channel.name}`}
+              {m.slack_channel_label({ channel: channel.name })}
             </SelectItem>
           ))}
         </SelectContent>

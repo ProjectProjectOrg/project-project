@@ -58,6 +58,9 @@ export const SlackRuntimeLive = Layer.effectDiscard(
         )
         .pipe(Effect.orDie)
 
+    // The SDK's own reconnect loop swallows permanent failures after the first
+    // connection, so each session ends on disconnect and the loop reopens it,
+    // surfacing a failed reopen as a connection error.
     const openSocket = (organizationId: string, appToken: string) =>
       Effect.gen(function* () {
         const socket = yield* Effect.acquireRelease(
@@ -66,6 +69,7 @@ export const SlackRuntimeLive = Layer.effectDiscard(
               new SocketModeClient({
                 appToken,
                 logger: quietLogger,
+                autoReconnectEnabled: false,
                 clientOptions: { retryConfig: { retries: 0 }, timeout: 10_000 }
               })
           ),
@@ -96,9 +100,13 @@ export const SlackRuntimeLive = Layer.effectDiscard(
           catch: () => new SlackError({ reason: "socket_connection" })
         })
         yield* setSocketError(organizationId, null)
-        return yield* Effect.never
+        yield* Effect.callback<void>((resume) => {
+          socket.once("disconnected", () => resume(Effect.void))
+        })
       }).pipe(
         Effect.scoped,
+        Effect.repeat(Schedule.spaced("1 second")),
+        Effect.asVoid,
         Effect.catchCause(() =>
           Effect.gen(function* () {
             yield* setSocketError(organizationId, "socket_connection")
@@ -150,8 +158,12 @@ export const SlackRuntimeLive = Layer.effectDiscard(
           sockets.set(id, { token: credentials.appToken, fiber })
         }).pipe(
           Effect.catchCause(() =>
-            Effect.logWarning("Slack configuration could not be loaded", {
-              organizationId: id
+            Effect.gen(function* () {
+              yield* setSocketError(id, "credentials")
+              yield* Effect.logWarning(
+                "Slack configuration could not be loaded",
+                { organizationId: id }
+              )
             })
           )
         )
