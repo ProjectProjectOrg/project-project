@@ -5,6 +5,10 @@ export default defineConfig({
   test: {
     name: "backend",
     include: ["src/**/*.test.ts"],
-    environment: "node"
+    environment: "node",
+    env: {
+      ENTITY_MESSAGE_POLL_INTERVAL: "100 millis",
+      REFRESH_ASSIGNMENTS_INTERVAL: "100 millis"
+    }
   }
 })

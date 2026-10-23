@@ -16,6 +16,9 @@ const unsetHandler: FetchHandler = () =>
 export const stubFetch = (): { set: (handler: FetchHandler) => void } => {
   let handler: FetchHandler = unsetHandler
   beforeAll(() => {
+    if (typeof location === "undefined") {
+      vi.stubGlobal("location", new URL("http://localhost/"))
+    }
     vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
       handler(input, init)
     )
