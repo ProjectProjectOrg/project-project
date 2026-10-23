@@ -77,6 +77,8 @@ import {
   type TicketIndexProjectPreview,
   type TicketIndexQueryEntry,
   type TicketIndexQueryOptions,
+  type TicketIndexSections,
+  type TicketIndexSectionsOptions,
   type TicketIndexReconcileOptions,
   type TicketIndexReconcileProjectSummary,
   type TicketIndexReconcileSummary,
@@ -685,6 +687,132 @@ export const TicketIndexLive = Layer.effect(
           ),
           Effect.orDie
         )
+    }
+
+    const sectionExpression = (
+      sections: TicketIndexSectionsOptions["sections"]
+    ): SQL => {
+      if (sections === "status") return drizzleSql`${ticketIndex.status}`
+      const rest = sections.find((section) => section.ticketIds === undefined)
+      const branches = sections.flatMap((section) =>
+        section.ticketIds === undefined
+          ? []
+          : [
+              drizzleSql`when ${ticketIndex.ticketId} = any(${drizzleSql.param([
+                ...section.ticketIds
+              ])}::text[]) then ${section.key}::text`
+            ]
+      )
+      const fallback =
+        rest === undefined ? drizzleSql`null` : drizzleSql`${rest.key}::text`
+      return branches.length === 0
+        ? fallback
+        : drizzleSql`case ${drizzleSql.join(branches, drizzleSql` `)} else ${fallback} end`
+    }
+
+    const querySections = (
+      project: TicketIndexProject,
+      ticketQuery: TicketListQuery,
+      options: TicketIndexSectionsOptions
+    ): Effect.Effect<TicketIndexSections> => {
+      if (options.ticketIds?.length === 0) return Effect.succeed(new Map())
+      const section = sectionExpression(options.sections)
+      const explicitIds =
+        options.sections !== "status" &&
+        options.sections.every((entry) => entry.ticketIds !== undefined)
+          ? [
+              drizzleSql`${ticketIndex.ticketId} = any(${drizzleSql.param(
+                options.sections.flatMap((entry) => entry.ticketIds ?? [])
+              )}::text[])`
+            ]
+          : []
+      const expression = ticketSortExpression(ticketQuery.sort)
+      const ascending = ticketQuery.sort.dir === "asc"
+      const ranked = db
+        .select({
+          ...getTableColumns(ticketIndex),
+          sortValue: drizzleSql<string | Date>`${expression}`.as("sort_value"),
+          section: drizzleSql<string | null>`${section}`.as("section"),
+          rank: drizzleSql<number>`row_number() over (
+            partition by ${section}
+            order by ${expression} ${ascending ? drizzleSql`asc` : drizzleSql`desc`},
+              ${ticketIndex.ticketId} ${ascending ? drizzleSql`asc` : drizzleSql`desc`}
+          )`
+            .mapWith(Number)
+            .as("rank")
+        })
+        .from(ticketIndex)
+        .where(
+          and(
+            ...ticketWhereConditions(project, ticketQuery, options),
+            ...explicitIds
+          )
+        )
+        .as("ranked")
+      const rows = db
+        .select()
+        .from(ranked)
+        .where(
+          and(
+            isNotNull(ranked.section),
+            lte(ranked.rank, Math.max(1, options.limit))
+          )
+        )
+        .orderBy(asc(ranked.section), asc(ranked.rank))
+      const counts = db
+        .select({
+          section: drizzleSql<string | null>`${section}`,
+          status: ticketIndex.status,
+          total: drizzleCount()
+        })
+        .from(ticketIndex)
+        .where(
+          and(
+            ...ticketWhereConditions(
+              project,
+              { ...ticketQuery, status: undefined },
+              options
+            ),
+            ...explicitIds
+          )
+        )
+        .groupBy(drizzleSql`1`, drizzleSql`2`)
+      return Effect.all([rows, counts], { concurrency: 2 }).pipe(
+        Effect.map(([rows, counts]) => {
+          const out = new Map<
+            string,
+            {
+              counts: { total: number; byStatus: Record<string, number> }
+              entries: Array<TicketIndexQueryEntry>
+            }
+          >()
+          const at = (key: string) => {
+            let current = out.get(key)
+            if (current === undefined) {
+              current = { counts: { total: 0, byStatus: {} }, entries: [] }
+              out.set(key, current)
+            }
+            return current
+          }
+          for (const row of counts) {
+            if (row.section === null) continue
+            const current = at(row.section)
+            current.counts.byStatus[row.status] = row.total
+            current.counts.total += row.total
+          }
+          for (const { sortValue, section: key, rank: _rank, ...row } of rows) {
+            if (key === null) continue
+            const value = sortValueText(sortValue)
+            at(key).entries.push({
+              entry: toEntry(row),
+              sortValue: value,
+              orderKey: toOrderKey(value, row.ticketId)
+            })
+          }
+          return out
+        }),
+        Effect.orDie
+      )
     }
 
     const projectsFor = (
@@ -1716,6 +1844,7 @@ export const TicketIndexLive = Layer.effect(
       touchedBy,
       list,
       query,
+      querySections,
       orderKeyFor,
       count,
       listIds,

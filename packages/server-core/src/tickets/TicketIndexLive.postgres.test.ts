@@ -34,7 +34,7 @@ import {
   type TicketDocsShape,
   type TicketDocument
 } from "./TicketDocs"
-import { TicketIndex } from "./TicketIndex"
+import { TicketIndex, type TicketIndexSections } from "./TicketIndex"
 import { TICKET_ORDER_KEY_SEPARATOR, TicketIndexLive } from "./TicketIndexLive"
 
 const { Client } = pg
@@ -1060,6 +1060,79 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       expect(counts).toEqual({
         total: 2,
         byStatus: { todo: 1, in_progress: 1 }
+      })
+
+      const summarize = (sections: TicketIndexSections) =>
+        Object.fromEntries(
+          [...sections].map(([key, section]) => [
+            key,
+            {
+              ...section.counts,
+              ids: section.entries.map(({ entry }) => entry.id)
+            }
+          ])
+        )
+
+      const titleSort = { key: "title", dir: "asc" } as const
+      const byStatus = yield* index.querySections(
+        project,
+        { sort: titleSort, status: [ticketStatus("todo")] },
+        { viewerId: "viewer", limit: 2, sections: "status" }
+      )
+      // Each status is limited on its own; counts ignore the status filter.
+      expect(summarize(byStatus)).toEqual({
+        todo: { total: 3, byStatus: { todo: 3 }, ids: ["T-13", "T-14"] },
+        in_progress: { total: 2, byStatus: { in_progress: 2 }, ids: [] }
+      })
+      // Same entries as a plain query, so "load more" can continue from them.
+      expect(byStatus.get("todo")?.entries).toEqual(
+        yield* index.query(
+          project,
+          { sort: titleSort, status: [ticketStatus("todo")] },
+          { viewerId: "viewer", limit: 2 }
+        )
+      )
+
+      const bySprint = yield* index.querySections(
+        project,
+        { sort: { key: "id", dir: "asc" } },
+        {
+          viewerId: "viewer",
+          limit: 10,
+          sections: [
+            { key: "G-1", ticketIds: ["T-11", "T-2", "T-12"] },
+            { key: "ungrouped" }
+          ]
+        }
+      )
+      expect(summarize(bySprint)).toEqual({
+        "G-1": {
+          total: 2,
+          byStatus: { todo: 1, in_progress: 1 },
+          ids: ["T-2", "T-11"]
+        },
+        ungrouped: {
+          total: 3,
+          byStatus: { todo: 2, in_progress: 1 },
+          ids: ["T-10", "T-13", "T-14"]
+        }
+      })
+
+      const selectedOnly = yield* index.querySections(
+        project,
+        { sort: { key: "id", dir: "asc" } },
+        {
+          viewerId: "viewer",
+          limit: 10,
+          sections: [{ key: "G-1", ticketIds: ["T-11", "T-2", "T-12"] }]
+        }
+      )
+      expect(summarize(selectedOnly)).toEqual({
+        "G-1": {
+          total: 2,
+          byStatus: { todo: 1, in_progress: 1 },
+          ids: ["T-2", "T-11"]
+        }
       })
 
       const archived = yield* index.query(

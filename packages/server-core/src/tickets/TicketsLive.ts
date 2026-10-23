@@ -703,44 +703,37 @@ export const TicketsLive = Layer.effect(
         viewerId: userId,
         ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet]
       }
-      const counts = yield* ticketIndex.count(
+      const bySection = yield* ticketIndex.querySections(
         project,
-        {
-          ...query,
-          status: undefined
-        },
-        options
+        { ...query, cursor: undefined },
+        { ...options, limit: TICKET_LIST_LIMIT + 1, sections: "status" }
       )
+      const byStatus: Record<string, number> = {}
+      let total = 0
+      for (const [status, section] of bySection) {
+        byStatus[status] = section.counts.total
+        total += section.counts.total
+      }
+      const counts = { total, byStatus }
       const view = yield* gitView
-      const statuses = Object.keys(counts.byStatus).filter(
-        (status) =>
-          !query.status?.length ||
-          query.status.some((requested) => requested === status)
-      )
-      const pages = yield* Effect.forEach(
-        statuses,
-        (status) =>
-          ticketIndex
-            .query(
-              project,
-              {
-                ...query,
-                status: [Schema.decodeSync(Ticket.fields.status)(status)],
-                cursor: undefined
-              },
-              { ...options, limit: TICKET_LIST_LIMIT + 1 }
-            )
-            .pipe(
-              Effect.map(
-                (entries) =>
-                  [
-                    status,
-                    ticketPage(entries, query, view, TICKET_LIST_LIMIT)
-                  ] as const
+      const pages = Object.keys(byStatus)
+        .filter(
+          (status) =>
+            !query.status?.length ||
+            query.status.some((requested) => requested === status)
+        )
+        .map(
+          (status) =>
+            [
+              status,
+              ticketPage(
+                bySection.get(status)?.entries ?? [],
+                query,
+                view,
+                TICKET_LIST_LIMIT
               )
-            ),
-        { concurrency: 4 }
-      )
+            ] as const
+        )
       return { counts, sections: Object.fromEntries(pages) }
     })
 
@@ -787,12 +780,10 @@ export const TicketsLive = Layer.effect(
           bySprint.set(sprint.id, takeUnclaimed(sprint.tickets))
         }
       }
-      const claimedIds = [...claimed]
       const ungroupedMembers = query.groupId?.includes("ungrouped")
         ? yield* resolveGroupMembers(project, ["ungrouped"])
         : null
-      const countQuery = { ...query, groupId: undefined, status: undefined }
-      const pages = yield* Effect.forEach(
+      const members = yield* Effect.forEach(
         sectionIds,
         (groupId) =>
           Effect.gen(function* () {
@@ -812,59 +803,67 @@ export const TicketsLive = Layer.effect(
                           : [...members].filter((id) => !claimed.has(id))
                       )
                     )
-            const excludeTicketIds =
-              groupId === "ungrouped" &&
-              ungroupedMembers === null &&
-              claimedIds.length > 0
-                ? claimedIds
-                : undefined
-            const counts = yield* ticketIndex.count(project, countQuery, {
-              viewerId: userId,
-              ticketIds,
-              excludeTicketIds
-            })
-            const entries = yield* ticketIndex.query(
-              project,
-              {
-                ...query,
-                groupId: undefined,
-                cursor: undefined
-              },
-              {
-                viewerId: userId,
-                ticketIds,
-                excludeTicketIds,
-                limit: TICKET_LIST_LIMIT + 1
-              }
-            )
-            const estimates =
-              unit === null ||
-              groupId === "ungrouped" ||
-              ticketIds === undefined
-                ? null
-                : summarizeEstimates(
-                    (yield* ticketIndex.list(project, ticketIds)).filter(
-                      (entry) => entry.archivedAt === null
-                    ),
-                    unit
-                  )
-            return {
-              section: {
-                key: sprintSectionKey(groupId === "ungrouped" ? null : groupId),
-                count: query.status?.length
-                  ? [...new Set(query.status)].reduce(
-                      (sum, status) => sum + (counts.byStatus[status] ?? 0),
-                      0
-                    )
-                  : counts.total,
-                page: ticketPage(entries, query, view, TICKET_LIST_LIMIT),
-                estimates
-              },
-              counts
-            }
+            return { key: groupId, ticketIds }
           }),
         { concurrency: 4 }
       )
+      const bySection = yield* ticketIndex.querySections(
+        project,
+        { ...query, groupId: undefined, cursor: undefined },
+        {
+          viewerId: userId,
+          limit: TICKET_LIST_LIMIT + 1,
+          sections: members
+        }
+      )
+      const estimatedIds =
+        unit === null
+          ? []
+          : members.flatMap(({ key, ticketIds }) =>
+              key === "ungrouped" || ticketIds === undefined ? [] : ticketIds
+            )
+      const estimatedEntries = new Map(
+        (estimatedIds.length === 0
+          ? []
+          : yield* ticketIndex.list(project, estimatedIds)
+        ).map((entry): [string, typeof entry] => [entry.id, entry])
+      )
+      const emptyCounts = { total: 0, byStatus: {} as Record<string, number> }
+      const pages = members.map(({ key: groupId, ticketIds }) => {
+        const result = bySection.get(groupId)
+        const counts = result?.counts ?? emptyCounts
+        const estimates =
+          unit === null || groupId === "ungrouped" || ticketIds === undefined
+            ? null
+            : summarizeEstimates(
+                ticketIds.flatMap((id) => {
+                  const entry = estimatedEntries.get(id)
+                  return entry === undefined || entry.archivedAt !== null
+                    ? []
+                    : [entry]
+                }),
+                unit
+              )
+        return {
+          section: {
+            key: sprintSectionKey(groupId === "ungrouped" ? null : groupId),
+            count: query.status?.length
+              ? [...new Set(query.status)].reduce(
+                  (sum, status) => sum + (counts.byStatus[status] ?? 0),
+                  0
+                )
+              : counts.total,
+            page: ticketPage(
+              result?.entries ?? [],
+              query,
+              view,
+              TICKET_LIST_LIMIT
+            ),
+            estimates
+          },
+          counts
+        }
+      })
       const byStatus: Record<string, number> = {}
       for (const { counts } of pages) {
         for (const [status, count] of Object.entries(counts.byStatus)) {

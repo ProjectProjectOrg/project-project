@@ -25,7 +25,8 @@ import {
   type TicketListQuery,
   type User,
   ProjectScope,
-  type ProjectScopeShape
+  type ProjectScopeShape,
+  StatusSlug
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Deferred from "effect/Deferred"
@@ -68,6 +69,7 @@ import * as TicketDocumentLock from "./ticketDocumentLock"
 import {
   TicketIndex,
   type TicketIndexProject,
+  type TicketIndexQueryEntry,
   type TicketIndexShape
 } from "./TicketIndex"
 import { TICKET_ORDER_KEY_SEPARATOR } from "./TicketIndexLive"
@@ -484,6 +486,57 @@ const matchingDocuments = (
   )
 }
 
+const decodeStatusSlug = Schema.decodeSync(StatusSlug)
+
+const querySectionsVia =
+  (
+    index: Pick<TicketIndexShape, "query" | "count">
+  ): TicketIndexShape["querySections"] =>
+  (project, query, options) =>
+    Effect.gen(function* () {
+      const out = new Map<
+        string,
+        {
+          counts: { total: number; byStatus: Readonly<Record<string, number>> }
+          entries: ReadonlyArray<TicketIndexQueryEntry>
+        }
+      >()
+      const countQuery = { ...query, status: undefined }
+      if (options.sections === "status") {
+        const counts = yield* index.count(project, countQuery, options)
+        for (const [status, total] of Object.entries(counts.byStatus)) {
+          const requested =
+            query.status === undefined ||
+            query.status.some((value) => value === status)
+          const entries = requested
+            ? yield* index.query(
+                project,
+                { ...query, status: [decodeStatusSlug(status)] },
+                options
+              )
+            : []
+          out.set(status, {
+            counts: { total, byStatus: { [status]: total } },
+            entries
+          })
+        }
+        return out
+      }
+      const explicit = options.sections.flatMap(
+        (section) => section.ticketIds ?? []
+      )
+      for (const section of options.sections) {
+        const scoped =
+          section.ticketIds === undefined
+            ? { ...options, excludeTicketIds: explicit }
+            : { ...options, ticketIds: section.ticketIds }
+        const counts = yield* index.count(project, countQuery, scoped)
+        const entries = yield* index.query(project, query, scoped)
+        out.set(section.key, { counts, entries })
+      }
+      return out
+    })
+
 const makeFakeTicketIndex = (
   documents: Map<string, TicketDocument>,
   overrides: Partial<TicketIndexShape> = {}
@@ -495,7 +548,7 @@ const makeFakeTicketIndex = (
         Number(id.slice(id.lastIndexOf("-") + 1))
       )
     ) + 1
-  return Layer.succeed(TicketIndex, {
+  const index: TicketIndexShape = {
     projectsFor: () => Effect.succeed([]),
     assignedTo: () => Effect.succeed([]),
     touchedBy: () => Effect.succeed([]),
@@ -683,8 +736,11 @@ const makeFakeTicketIndex = (
         ],
         reconciled: 0
       }),
+    querySections: (project, query, options) =>
+      querySectionsVia(index)(project, query, options),
     ...overrides
-  } satisfies TicketIndexShape)
+  }
+  return Layer.succeed(TicketIndex, index)
 }
 
 const makeRecordingTicketIndex = (documents: Map<string, TicketDocument>) => {
