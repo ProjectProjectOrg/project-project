@@ -138,6 +138,22 @@ describe("EverhourLive response decoding", () => {
     }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
   )
 
+  it.effect("gives up on a request Everhour never answers", () =>
+    Effect.gen(function* () {
+      stubFetch(vi.fn(() => new Promise<Response>(() => {})))
+      const everhour = yield* Everhour
+      const pending = yield* everhour
+        .getCurrentUser("api-key")
+        .pipe(Effect.flip, Effect.forkChild)
+      yield* TestClock.adjust("31 seconds")
+      const error = yield* Fiber.join(pending)
+      expect(error).toMatchObject({
+        _tag: "EverhourError",
+        message: "Everhour did not respond in time"
+      })
+    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+  )
+
   it.effect("fails at once when Everhour asks to wait over ten seconds", () =>
     Effect.gen(function* () {
       const fetch = vi.fn<FetchImplementation>(async () => rateLimited(30))

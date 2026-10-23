@@ -1194,7 +1194,7 @@ export const EverhourIntegrationsLive = Layer.effect(
           .orderBy(projectEverhourIntegration.syncRequestedAt)
           .limit(10)
           .pipe(Effect.orDie)
-        yield* Effect.forEach(due, syncLink, { discard: true })
+        yield* Effect.forEach(due, syncLink, { concurrency: 4, discard: true })
       })
 
     const requestStaleSyncs: EverhourIntegrationsShape["requestStaleSyncs"] =

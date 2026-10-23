@@ -353,6 +353,7 @@ const payloadPreview = (payload: unknown) => {
 }
 
 const MAX_RATE_LIMIT_WAIT_SECONDS = 10
+const REQUEST_TIMEOUT = Duration.seconds(30)
 
 const rateLimitBackoff = Schedule.exponential("1 second").pipe(
   Schedule.jittered,
@@ -375,23 +376,35 @@ const send = <A>(
 ) =>
   Effect.gen(function* () {
     const fetch = yield* Effect.service(Fetch)
-    const response = yield* Effect.tryPromise({
-      try: () =>
-        fetch(`${baseUrl}${path}`, {
-          method,
-          headers: {
-            "Content-Type": "application/json",
-            "X-Api-Key": apiKey,
-            "X-Accept-Version": "1.2"
-          },
-          body: body === undefined ? undefined : Response.json(body).body
-        }),
-      catch: (cause) => new EverhourError({ message: String(cause) })
-    })
-    const payload =
-      response.status === 204
-        ? null
-        : yield* Effect.promise(() => response.json().catch(() => null))
+    const { response, payload } = yield* Effect.gen(function* () {
+      const response = yield* Effect.tryPromise({
+        try: (signal) =>
+          fetch(`${baseUrl}${path}`, {
+            method,
+            headers: {
+              "Content-Type": "application/json",
+              "X-Api-Key": apiKey,
+              "X-Accept-Version": "1.2"
+            },
+            body: body === undefined ? undefined : Response.json(body).body,
+            signal
+          }),
+        catch: (cause) => new EverhourError({ message: String(cause) })
+      })
+      const payload =
+        response.status === 204
+          ? null
+          : yield* Effect.promise(() => response.json().catch(() => null))
+      return { response, payload }
+    }).pipe(
+      Effect.timeoutOrElse({
+        duration: REQUEST_TIMEOUT,
+        orElse: () =>
+          Effect.fail(
+            new EverhourError({ message: "Everhour did not respond in time" })
+          )
+      })
+    )
     if (response.ok || (treatNotFound && response.status === 404)) {
       return onOk(payload, response.status)
     }

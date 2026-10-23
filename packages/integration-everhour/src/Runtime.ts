@@ -12,7 +12,15 @@ export const EverhourRuntimeLive = Layer.effectDiscard(
     const integrations = yield* EverhourIntegrations
     const scope = yield* Scope.Scope
     yield* events.enqueue().pipe(
-      Effect.andThen(integrations.syncRequested()),
+      Effect.catchCause(() =>
+        Effect.logWarning(
+          "Everhour event intake failed; pending events will be retried"
+        )
+      ),
+      Effect.repeat(Schedule.spaced("5 seconds")),
+      Effect.forkIn(scope)
+    )
+    yield* integrations.syncRequested().pipe(
       Effect.catchCause(() =>
         Effect.logWarning(
           "Everhour sync dispatch failed; requested syncs will be retried"
