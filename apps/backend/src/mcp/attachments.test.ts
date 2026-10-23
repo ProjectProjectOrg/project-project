@@ -31,6 +31,7 @@ import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
 import * as Library from "@pp/server-core/library/Library"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
+import * as ProjectGitAutomation from "@pp/server-core/projects/ProjectGitAutomation"
 import * as Projects from "@pp/server-core/projects/Projects"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
@@ -286,6 +287,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
       Layer.mock(GroupDocs.GroupDocs, {}),
       Layer.mock(TicketIndex.TicketIndex, {}),
       Layer.mock(ProjectStatuses.ProjectStatuses, {}),
+      Layer.mock(ProjectGitAutomation.ProjectGitAutomation, {}),
       Layer.mock(Library.Library, {})
     )
   )
@@ -910,6 +912,7 @@ describe("MCP attachment contracts", () => {
             Layer.mock(ProjectDocs.ProjectDocs, {}),
             Layer.mock(Projects.Projects, {}),
             Layer.mock(ProjectStatuses.ProjectStatuses, {}),
+            Layer.mock(ProjectGitAutomation.ProjectGitAutomation, {}),
             Layer.mock(Tags.Tags, {}),
             Layer.mock(TicketDocs.TicketDocs, {}),
             Layer.mock(TicketIndex.TicketIndex, {}),

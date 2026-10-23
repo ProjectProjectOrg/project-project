@@ -12,6 +12,7 @@ import { GroupDocs } from "@pp/server-core/groups/GroupDocs"
 import { Groups } from "@pp/server-core/groups/Groups"
 import { Library } from "@pp/server-core/library/Library"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
+import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
 import { Projects } from "@pp/server-core/projects/Projects"
 import { ProjectStatuses } from "@pp/server-core/projects/ProjectStatuses"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
@@ -30,6 +31,8 @@ import {
   Library as LibrarySchema,
   McpTools,
   type McpToolName,
+  ProjectStatus,
+  StatusSlug,
   BranchNotFound,
   CurrentUser,
   GroupId,
@@ -59,9 +62,7 @@ import { toolkitHandlers } from "./handlers"
 import { McpRequestUser } from "./McpRequestUser"
 import { toolFailure, type McpHandlerEnv } from "./toolkit"
 
-const decodeListStatusesOutput = Schema.decodeSync(
-  McpTools.list_statuses.output
-)
+const decodeProjectStatuses = Schema.decodeSync(Schema.Array(ProjectStatus))
 
 const decodeUnknownLibrarySchemaSync = Schema.decodeUnknownSync(LibrarySchema)
 
@@ -234,18 +235,44 @@ const TicketDocsStub = Layer.mock(TicketDocs, {
 const ProjectStatusesStub = Layer.mock(ProjectStatuses, {
   list: () =>
     Effect.succeed(
-      decodeListStatusesOutput([
+      decodeProjectStatuses([
         {
           slug: "code_test",
           label: "Code Test",
           icon: "ShieldCheck",
           color: "#3b82f6",
           orderKey: "a0",
+          description: "A PR is open and waiting for review",
+          createdBy: "u-1",
+          createdAt: "2026-05-01T00:00:00.000Z"
+        },
+        {
+          slug: "done",
+          label: "Done",
+          icon: "CircleCheck",
+          color: "#22c55e",
+          orderKey: "a1",
+          description: null,
           createdBy: "u-1",
           createdAt: "2026-05-01T00:00:00.000Z"
         }
       ])
     )
+})
+
+const ProjectGitAutomationStub = Layer.mock(ProjectGitAutomation, {
+  get: () =>
+    Effect.succeed({
+      rules: {
+        branch_linked: null,
+        pr_draft_opened: StatusSlug.make("code_test"),
+        pr_opened: StatusSlug.make("code_test"),
+        pr_merged: StatusSlug.make("done"),
+        pr_closed: null,
+        branch_deleted: null
+      },
+      forwardOnly: true
+    })
 })
 
 const TestLayer = Layer.mergeAll(
@@ -264,7 +291,8 @@ const TestLayer = Layer.mergeAll(
   TicketDocsStub,
   TicketIndexStub,
   ProjectStatusesStub,
-  Layer.mock(Library, {})
+  Layer.mock(Library, {}),
+  ProjectGitAutomationStub
 )
 
 describe("MCP handlers → list_tickets", () => {
@@ -300,24 +328,55 @@ describe("MCP handlers → list_tickets", () => {
 })
 
 describe("MCP handlers → list_statuses", () => {
-  it.effect("returns both the stable slug and user-facing label", () =>
-    Effect.gen(function* () {
-      const runtime = yield* Effect.context<HandlerServices>()
-      const registered = register(runtime)
-      const result = yield* Effect.suspend(() =>
-        withFakeUser(() =>
-          registered.get("list_statuses")!({
-            orgSlug: "acme",
-            projectSlug: "demo"
-          })
-        )
+  const listStatuses = Effect.gen(function* () {
+    const registered = register(yield* Effect.context<HandlerServices>())
+    const result = yield* Effect.suspend(() =>
+      withFakeUser(() =>
+        registered.get("list_statuses")!({
+          orgSlug: "acme",
+          projectSlug: "demo"
+        })
       )
+    )
+    expect(result.isError).toBeUndefined()
+    return parseJson(result.content[0].text)
+  })
 
-      expect(result.isError).toBeUndefined()
-      expect(parseJson(result.content[0].text)).toEqual([
-        expect.objectContaining({ slug: "code_test", label: "Code Test" })
+  it.effect(
+    "returns each status with its description and the git events that set it",
+    () =>
+      Effect.gen(function* () {
+        expect(yield* listStatuses).toEqual({
+          statuses: [
+            expect.objectContaining({
+              slug: "code_test",
+              label: "Code Test",
+              description: "A PR is open and waiting for review",
+              setBy: ["pr_draft_opened", "pr_opened"]
+            }),
+            expect.objectContaining({
+              slug: "done",
+              description: null,
+              setBy: ["pr_merged"]
+            })
+          ],
+          automationForwardOnly: true
+        })
+      }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("leaves automation out for callers who can't read GitHub", () =>
+    Effect.gen(function* () {
+      const payload = yield* listStatuses
+      expect(payload.automationForwardOnly).toBeUndefined()
+      expect(payload.statuses).toEqual([
+        expect.not.objectContaining({ setBy: expect.anything() }),
+        expect.not.objectContaining({ setBy: expect.anything() })
       ])
-    }).pipe(Effect.provide(TestLayer))
+      expect(payload.statuses[0].description).toBe(
+        "A PR is open and waiting for review"
+      )
+    }).pipe(Effect.provide(Layer.merge(TestLayer, accessAs("client"))))
   )
 })
 

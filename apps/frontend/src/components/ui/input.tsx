@@ -6,13 +6,15 @@ import { cn } from "@/lib/utils"
 // status-chip strip, and every other "control surface" in the app). Height
 // is 36px (`h-9`) — same as a status-chip strip outer container — so the
 // base Input drops in next to those controls without size drift.
-type InputVariant = "default" | "inline"
+type InputVariant = "default" | "inline" | "inline-muted"
 
 const INPUT_VARIANT: Record<InputVariant, string> = {
   default:
     "h-9 rounded-xl border border-border bg-background px-3 py-1.5 transition-[color,box-shadow] focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
   inline:
-    "rounded-md bg-transparent px-2 py-1 font-medium transition-colors placeholder:font-normal hover:bg-foreground/5 focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-ring aria-invalid:ring-1 aria-invalid:ring-destructive"
+    "rounded-md bg-transparent px-2 py-1 font-medium transition-colors placeholder:font-normal hover:bg-foreground/5 focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-ring aria-invalid:ring-1 aria-invalid:ring-destructive",
+  "inline-muted":
+    "rounded-md bg-transparent px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-foreground/5 focus-visible:bg-background focus-visible:text-foreground focus-visible:ring-1 focus-visible:ring-ring aria-invalid:ring-1 aria-invalid:ring-destructive"
 }
 
 function Input({

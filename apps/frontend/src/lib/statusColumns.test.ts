@@ -25,6 +25,7 @@ const status = (
     icon: "Circle",
     color,
     orderKey,
+    description: null,
     createdBy: "user-1",
     createdAt: "2026-01-01T00:00:00.000Z"
   })

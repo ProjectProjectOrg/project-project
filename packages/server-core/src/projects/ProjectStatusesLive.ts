@@ -34,6 +34,7 @@ const rowToStatus = (r: typeof projectStatus.$inferSelect): ProjectStatus => ({
   icon: r.icon,
   color: makeColor(r.color),
   orderKey: OrderKey.make(r.orderKey),
+  description: r.description,
   createdBy: r.createdBy,
   createdAt: r.createdAt
 })
@@ -145,7 +146,17 @@ export const ProjectStatusesLive = Layer.effect(
           .pipe(Effect.orDie)
         if (!current) return yield* new NotFound()
 
-        if (isReservedStatusSlug(statusSlug)) return yield* new Forbidden()
+        const touchesIdentity =
+          input.label !== undefined ||
+          input.icon !== undefined ||
+          input.color !== undefined
+        if (isReservedStatusSlug(statusSlug) && touchesIdentity)
+          return yield* new Forbidden()
+
+        const description =
+          input.description === undefined
+            ? current.description
+            : input.description
 
         const newLabel = input.label ?? current.label
         const newSlug = input.label
@@ -180,7 +191,8 @@ export const ProjectStatusesLive = Layer.effect(
             .set({
               label: newLabel,
               icon: input.icon ?? current.icon,
-              color: input.color ?? current.color
+              color: input.color ?? current.color,
+              description
             })
             .where(
               and(
@@ -211,7 +223,8 @@ export const ProjectStatusesLive = Layer.effect(
             slug: newSlug,
             label: newLabel,
             icon: input.icon ?? current.icon,
-            color: input.color ?? current.color
+            color: input.color ?? current.color,
+            description
           })
           .where(
             and(

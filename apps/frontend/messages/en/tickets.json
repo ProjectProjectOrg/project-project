@@ -272,6 +272,8 @@
   "tickets_status_delete_error_fallback": "Couldn't delete this status. Try again.",
   "tickets_status_delete_resets_git_automation": "Git automation rules that move tickets here will be reset.",
   "tickets_status_deleting": "Deleting…",
+  "tickets_status_description_aria": "Description of {label}",
+  "tickets_status_description_placeholder": "What this status means, for people and agents",
   "tickets_status_done": "Done",
   "tickets_status_drag_handle_aria": "Reorder {label}. Use arrow keys or drag.",
   "tickets_status_icon_option_aria": "Use {name} icon",

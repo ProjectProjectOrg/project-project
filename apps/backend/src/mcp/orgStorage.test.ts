@@ -7,6 +7,7 @@ import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
 import * as Library from "@pp/server-core/library/Library"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
+import * as ProjectGitAutomation from "@pp/server-core/projects/ProjectGitAutomation"
 import * as Projects from "@pp/server-core/projects/Projects"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
@@ -83,6 +84,7 @@ const unused = Layer.mergeAll(
   Layer.mock(TicketDocs.TicketDocs, {}),
   Layer.mock(TicketIndex.TicketIndex, {}),
   Layer.mock(ProjectStatuses.ProjectStatuses, {}),
+  Layer.mock(ProjectGitAutomation.ProjectGitAutomation, {}),
   Layer.mock(Library.Library, {})
 )
 

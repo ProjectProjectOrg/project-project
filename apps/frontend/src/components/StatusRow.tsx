@@ -1,14 +1,16 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import {
   isReservedStatusSlug,
+  STATUS_DESCRIPTION_MAX_LENGTH,
   type OrderKey,
   type ProjectStatus,
+  type UpdateStatusInput,
   StatusLabel,
   StatusColor
 } from "@pp/shared"
 import { GripVertical, Lock } from "lucide-react"
 import { Reorder, useDragControls, type DragControls } from "motion/react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { ColorPicker } from "@/components/ColorPicker"
 import { StatusDeleteConfirm } from "@/components/StatusDeleteConfirm"
@@ -107,7 +109,7 @@ export function StatusRow({
     >
       <div
         className={cn(
-          "flex items-center gap-2 px-3 py-1.5 transition-colors duration-150",
+          "flex items-start gap-2 px-3 py-1.5 transition-colors duration-150",
           isDragging && SURFACE_BG[Math.min(substrate + 1, 8)]
         )}
       >
@@ -149,14 +151,23 @@ export function StatusRow({
                 strokeWidth={1.75}
               />
             </div>
-            <span
-              className={cn(
-                "flex-1 truncate px-1 text-sm text-muted-foreground",
-                dataWaiting && "animate-pulse"
-              )}
-            >
-              {displayLabel}
-            </span>
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span
+                className={cn(
+                  "flex h-8 items-center truncate px-1 text-sm text-muted-foreground",
+                  dataWaiting && "animate-pulse"
+                )}
+              >
+                {displayLabel}
+              </span>
+              <StatusDescriptionInput
+                key={status.description ?? ""}
+                status={status}
+                label={displayLabel}
+                waiting={dataWaiting}
+                onCommit={update}
+              />
+            </div>
             <div
               role="img"
               aria-label={m.tickets_status_baseline_locked_aria()}
@@ -186,24 +197,30 @@ export function StatusRow({
                 onChange={(color) => update({ color: StatusColor.make(color) })}
               />
             </div>
-            <Input
-              variant="inline"
-              maxLength={40}
-              value={draftLabel}
-              onChange={(e) => setDraftLabel(e.target.value)}
-              onBlur={commitLabel}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") e.currentTarget.blur()
-                if (e.key === "Escape") {
-                  setDraftLabel(status.label)
-                  e.currentTarget.blur()
-                }
-              }}
-              className={cn(
-                "h-8 flex-1 rounded-md",
-                dataWaiting && "animate-pulse"
-              )}
-            />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <Input
+                variant="inline"
+                maxLength={40}
+                value={draftLabel}
+                onChange={(e) => setDraftLabel(e.target.value)}
+                onBlur={commitLabel}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur()
+                  if (e.key === "Escape") {
+                    setDraftLabel(status.label)
+                    e.currentTarget.blur()
+                  }
+                }}
+                className={cn("h-8 rounded-md", dataWaiting && "animate-pulse")}
+              />
+              <StatusDescriptionInput
+                key={status.description ?? ""}
+                status={status}
+                label={displayLabel}
+                waiting={dataWaiting}
+                onCommit={update}
+              />
+            </div>
             <StatusDeleteConfirm
               status={status}
               statuses={statuses}
@@ -214,6 +231,56 @@ export function StatusRow({
         )}
       </div>
     </Reorder.Item>
+  )
+}
+
+function StatusDescriptionInput({
+  status,
+  label,
+  waiting,
+  onCommit
+}: Readonly<{
+  status: ProjectStatus
+  label: string
+  waiting: boolean
+  onCommit: (patch: UpdateStatusInput) => void
+}>) {
+  const saved = status.description ?? ""
+  const [draft, setDraft] = useState(saved)
+  const discarding = useRef(false)
+
+  const commit = () => {
+    if (discarding.current) {
+      discarding.current = false
+      setDraft(saved)
+      return
+    }
+    const trimmed = draft.trim()
+    if (trimmed === saved) {
+      setDraft(saved)
+      return
+    }
+    onCommit({ description: trimmed.length === 0 ? null : trimmed })
+  }
+
+  return (
+    <Input
+      variant="inline-muted"
+      value={draft}
+      maxLength={STATUS_DESCRIPTION_MAX_LENGTH}
+      placeholder={m.tickets_status_description_placeholder()}
+      aria-label={m.tickets_status_description_aria({ label })}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur()
+        if (e.key === "Escape") {
+          discarding.current = true
+          e.currentTarget.blur()
+        }
+      }}
+      className={cn("h-6", waiting && "animate-pulse")}
+    />
   )
 }
 
