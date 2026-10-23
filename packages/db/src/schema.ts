@@ -532,7 +532,8 @@ export const projectEverhourIntegration = pgTable(
     lastSyncError: text("last_sync_error"),
     lastSyncActorUserId: text("last_sync_actor_user_id"),
     syncRequestedAt: timestamp("sync_requested_at", { withTimezone: true }),
-    syncClaimedUntil: timestamp("sync_claimed_until", { withTimezone: true })
+    syncClaimedUntil: timestamp("sync_claimed_until", { withTimezone: true }),
+    syncRetryAt: timestamp("sync_retry_at", { withTimezone: true })
   },
   (t) => [
     foreignKey({

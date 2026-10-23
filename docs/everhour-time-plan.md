@@ -139,7 +139,8 @@ Structure sync is a full, idempotent reconcile:
   requested, and a background loop runs the sync with the key of the manager who last synced
   the project. A failed sync keeps the request and retries after five minutes; an event that
   arrives during a sync triggers another one. Ticket mutations never trigger a sync.
-- **Hourly sweep** requests a sync for every connected project not synced in the last hour.
+- **Sweep** every five minutes requests a sync for every connected project not synced in
+  the last hour.
   That covers project renames, work-type changes and edits made in Everhour, which do not
   pass through the outbox.
 - **Sprint complete** → archive section + `close` its work-type tasks (time preserved;

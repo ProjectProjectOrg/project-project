@@ -17,8 +17,9 @@ consumes them from the shared outbox and marks the link's sync as requested;
 the runtime claims requested links with a lease and runs the full structure
 sync with the key of the manager who last synced the project. A failed sync
 keeps the request and retries later, and an event arriving during a sync
-triggers another one. An hourly sweep requests a sync for projects not synced
-in the last hour, which covers project renames and work-type changes.
+triggers another one. Retry delays never block a manual sync. Every five
+minutes a sweep requests a sync for projects not synced in the last hour, which
+covers project renames and work-type changes.
 
 Everhour keeps one time record per user, day and task and adds every write to it
 as a `history` entry, so attribution is keyed by history entry. Members can only

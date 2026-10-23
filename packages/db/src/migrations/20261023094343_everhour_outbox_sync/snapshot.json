@@ -2,7 +2,7 @@
   "type": "diff",
   "version": "9",
   "dialect": "postgres",
-  "id": "d743faed-bfbf-4efa-9efd-cfe2cf8721ef",
+  "id": "46cd2b69-0ebc-44d5-9626-077fd501ca51",
   "prevIds": [
     "aef984bb-bbea-421e-bf5f-a9baf8d5b3ff"
   ],
@@ -37,6 +37,24 @@
         "s|col|public.project_everhour_integration.sync_claimed_until",
         "n|col|public.project_everhour_integration.sync_claimed_until",
         "e|col|public.project_everhour_integration.sync_claimed_until"
+      ],
+      "reads": [
+        "n|tbl|public.project_everhour_integration",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "project_everhour_integration",
+        "sync_retry_at"
+      ],
+      "writes": [
+        "s|col|public.project_everhour_integration.sync_retry_at",
+        "n|col|public.project_everhour_integration.sync_retry_at",
+        "e|col|public.project_everhour_integration.sync_retry_at"
       ],
       "reads": [
         "n|tbl|public.project_everhour_integration",
@@ -87,6 +105,22 @@
         "schema": "public",
         "table": "project_everhour_integration",
         "name": "sync_claimed_until",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_everhour_integration",
+        "name": "sync_retry_at",
         "type": "timestamp with time zone",
         "typeSchema": null,
         "notNull": false,

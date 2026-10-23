@@ -612,8 +612,9 @@ const syncState = (fixture: Fixture) =>
     client.query<{
       sync_requested_at: Date | null
       sync_claimed_until: Date | null
+      sync_retry_at: Date | null
     }>(
-      `select sync_requested_at, sync_claimed_until from project_everhour_integration
+      `select sync_requested_at, sync_claimed_until, sync_retry_at from project_everhour_integration
          where project_integration_link_id = $1`,
       [fixture.linkId]
     )
@@ -663,7 +664,8 @@ describe.skipIf(!databaseUrl)("Everhour background sync", () => {
         expect(everhour.sections).toEqual(["Sprint 1"])
         expect(yield* syncState(fixture)).toEqual({
           sync_requested_at: null,
-          sync_claimed_until: null
+          sync_claimed_until: null,
+          sync_retry_at: null
         })
         const [event] = yield* withClient((client) =>
           client.query<{ consumed_at: Date | null }>(
@@ -688,7 +690,8 @@ describe.skipIf(!databaseUrl)("Everhour background sync", () => {
       }).pipe(Effect.provide(servicesLayer(fixture, everhour)))
       const state = yield* syncState(fixture)
       expect(state.sync_requested_at).not.toBeNull()
-      expect(state.sync_claimed_until).not.toBeNull()
+      expect(state.sync_claimed_until).toBeNull()
+      expect(state.sync_retry_at).not.toBeNull()
       expect(everhour.projectReads.count).toBe(1)
     }).pipe(Effect.scoped)
   )
@@ -786,7 +789,7 @@ describe.skipIf(!databaseUrl)("Everhour background sync", () => {
       const state = yield* syncState(fixture)
       const now = DateTime.toEpochMillis(yield* DateTime.now)
       expect(state.sync_requested_at).not.toBeNull()
-      expect(state.sync_claimed_until!.getTime()).toBeGreaterThan(
+      expect(state.sync_retry_at!.getTime()).toBeGreaterThan(
         now + 30 * 60 * 1000
       )
       expect(everhour.projectReads.count).toBe(0)
@@ -824,8 +827,36 @@ describe.skipIf(!databaseUrl)("Everhour background sync", () => {
         expect(readAt[0]).toBeGreaterThanOrEqual(until.getTime())
         expect(yield* syncState(fixture)).toEqual({
           sync_requested_at: null,
-          sync_claimed_until: null
+          sync_claimed_until: null,
+          sync_retry_at: null
         })
       }).pipe(Effect.scoped)
+  )
+
+  it.live("lets a manual sync run after a background sync failed", () =>
+    Effect.gen(function* () {
+      const fixture = yield* seed
+      const everhour = fakeEverhour([fixture.manager])
+      everhour.settings.failProjectRead = true
+      yield* requestSync(fixture)
+      yield* Effect.gen(function* () {
+        yield* syncRequested
+        expect((yield* syncState(fixture)).sync_retry_at).not.toBeNull()
+        everhour.settings.failProjectRead = false
+        yield* as(
+          fixture,
+          fixture.manager
+        )(
+          Effect.flatMap(EverhourIntegrations, (integrations) =>
+            integrations.syncProject()
+          )
+        ).pipe(Effect.timeout("5 seconds"))
+      }).pipe(Effect.provide(servicesLayer(fixture, everhour)))
+      expect(yield* syncState(fixture)).toEqual({
+        sync_requested_at: null,
+        sync_claimed_until: null,
+        sync_retry_at: null
+      })
+    }).pipe(Effect.scoped)
   )
 })

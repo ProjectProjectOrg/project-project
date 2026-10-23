@@ -237,6 +237,7 @@ const SYNC_LEASE = Duration.minutes(10)
 const SYNC_RENEW = Duration.minutes(2)
 const SYNC_RETRY = Duration.minutes(5)
 export const STALE_AFTER = Duration.hours(1)
+export const SWEEP_EVERY = Duration.minutes(5)
 
 export const EverhourIntegrationsLive = Layer.effect(
   EverhourIntegrations,
@@ -986,7 +987,14 @@ export const EverhourIntegrationsLive = Layer.effect(
           return yield* projectStatus(projectId)
         })
 
-    const releaseSync = (linkId: string, requestedAt: string | null) =>
+    const releaseClaim = (linkId: string) =>
+      db
+        .update(projectEverhourIntegration)
+        .set({ syncClaimedUntil: null })
+        .where(eq(projectEverhourIntegration.projectIntegrationLinkId, linkId))
+        .pipe(Effect.orDie)
+
+    const completeSync = (linkId: string, requestedAt: string | null) =>
       Effect.gen(function* () {
         if (requestedAt !== null)
           yield* db
@@ -1001,24 +1009,39 @@ export const EverhourIntegrationsLive = Layer.effect(
                 )
               )
             )
+            .pipe(Effect.orDie)
         yield* db
           .update(projectEverhourIntegration)
-          .set({ syncClaimedUntil: null })
+          .set({ syncClaimedUntil: null, syncRetryAt: null })
           .where(
             eq(projectEverhourIntegration.projectIntegrationLinkId, linkId)
           )
-      }).pipe(Effect.orDie)
+          .pipe(Effect.orDie)
+      })
 
-    const holdSync = (linkId: string, duration: Duration.Duration) =>
+    const later = (duration: Duration.Duration) =>
+      Effect.map(DateTime.now, (now) =>
+        DateTime.toDate(DateTime.addDuration(now, duration))
+      )
+
+    const renewClaim = (linkId: string) =>
       Effect.gen(function* () {
-        const now = yield* DateTime.now
+        const until = yield* later(SYNC_LEASE)
         yield* db
           .update(projectEverhourIntegration)
-          .set({
-            syncClaimedUntil: DateTime.toDate(
-              DateTime.addDuration(now, duration)
-            )
-          })
+          .set({ syncClaimedUntil: until })
+          .where(
+            eq(projectEverhourIntegration.projectIntegrationLinkId, linkId)
+          )
+          .pipe(Effect.orDie)
+      })
+
+    const deferSync = (linkId: string, duration: Duration.Duration) =>
+      Effect.gen(function* () {
+        const retryAt = yield* later(duration)
+        yield* db
+          .update(projectEverhourIntegration)
+          .set({ syncClaimedUntil: null, syncRetryAt: retryAt })
           .where(
             eq(projectEverhourIntegration.projectIntegrationLinkId, linkId)
           )
@@ -1064,17 +1087,14 @@ export const EverhourIntegrationsLive = Layer.effect(
     ) =>
       sync.pipe(
         Effect.raceFirst(
-          holdSync(linkId, SYNC_LEASE).pipe(
-            Effect.delay(SYNC_RENEW),
-            Effect.forever
-          )
+          renewClaim(linkId).pipe(Effect.delay(SYNC_RENEW), Effect.forever)
         ),
         Effect.onExit((exit) =>
           exit._tag === "Success"
-            ? releaseSync(linkId, requestedAt)
+            ? completeSync(linkId, requestedAt)
             : retryAfter === null
-              ? releaseSync(linkId, null)
-              : holdSync(linkId, retryAfter)
+              ? releaseClaim(linkId)
+              : deferSync(linkId, retryAfter)
         )
       )
 
@@ -1093,7 +1113,7 @@ export const EverhourIntegrationsLive = Layer.effect(
           yield* Effect.logWarning(
             "Everhour sync postponed: no published project or syncing manager"
           ).pipe(Effect.annotateLogs({ linkId: request.linkId }))
-          return yield* holdSync(request.linkId, STALE_AFTER)
+          return yield* deferSync(request.linkId, STALE_AFTER)
         }
         yield* whileClaimed(
           request.linkId,
@@ -1157,6 +1177,10 @@ export const EverhourIntegrationsLive = Layer.effect(
               or(
                 isNull(projectEverhourIntegration.syncClaimedUntil),
                 lt(projectEverhourIntegration.syncClaimedUntil, now)
+              ),
+              or(
+                isNull(projectEverhourIntegration.syncRetryAt),
+                lt(projectEverhourIntegration.syncRetryAt, now)
               )
             )
           )

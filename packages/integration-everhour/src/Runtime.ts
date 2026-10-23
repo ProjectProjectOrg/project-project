@@ -4,7 +4,7 @@ import * as Schedule from "effect/Schedule"
 import * as Scope from "effect/Scope"
 
 import { EverhourEvents } from "./Events"
-import { EverhourIntegrations, STALE_AFTER } from "./Integrations"
+import { EverhourIntegrations, SWEEP_EVERY } from "./Integrations"
 
 export const EverhourRuntimeLive = Layer.effectDiscard(
   Effect.gen(function* () {
@@ -23,7 +23,7 @@ export const EverhourRuntimeLive = Layer.effectDiscard(
     )
     yield* integrations.requestStaleSyncs().pipe(
       Effect.catchCause(() => Effect.logWarning("Everhour sync sweep failed")),
-      Effect.repeat(Schedule.spaced(STALE_AFTER)),
+      Effect.repeat(Schedule.spaced(SWEEP_EVERY)),
       Effect.forkIn(scope)
     )
   })
