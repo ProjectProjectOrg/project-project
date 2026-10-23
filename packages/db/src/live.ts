@@ -10,20 +10,6 @@ import { relations } from "./schema"
 
 export const pgTypes = PgTypes.makeRegistry()
 
-pgTypes.register(2205, {
-  encode: (value: number) => {
-    const bytes = new Uint8Array(4)
-    new DataView(bytes.buffer).setUint32(0, value)
-    return Result.succeed(bytes)
-  },
-  decode: (bytes) =>
-    Result.succeed(
-      new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(
-        0
-      )
-    )
-})
-
 pgTypes.register(2278, {
   encode: () => Result.succeed(new Uint8Array()),
   decode: () => Result.succeed(undefined)

@@ -5,8 +5,8 @@ import { eq } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
-import { Activity, Workflow } from "effect/unstable/workflow"
-import * as WorkflowEngine from "effect/unstable/workflow/WorkflowEngine"
+import { Activity, Workflow } from "effect/workflow"
+import * as WorkflowEngine from "effect/workflow/WorkflowEngine"
 
 import { fenceFor } from "./MigrationProjection"
 import type {

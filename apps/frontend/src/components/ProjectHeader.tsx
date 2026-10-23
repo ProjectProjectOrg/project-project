@@ -3,7 +3,7 @@ import { GroupPolicy, ProjectPolicy } from "@pp/access/policies"
 import type { ProjectDetail as ProjectDetailType } from "@pp/shared"
 import { Link, useMatches } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import {
   ArrowLeft,
   FileText,

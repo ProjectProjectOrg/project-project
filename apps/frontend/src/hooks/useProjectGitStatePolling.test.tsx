@@ -1,6 +1,6 @@
 import { RegistryContext } from "@effect/atom-react"
 import { cleanup, renderHook, waitFor, act } from "@testing-library/react"
-import * as Registry from "effect/unstable/reactivity/AtomRegistry"
+import * as Registry from "effect/reactivity/AtomRegistry"
 import { afterEach, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"

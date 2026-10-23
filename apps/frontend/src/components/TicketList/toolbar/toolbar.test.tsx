@@ -14,8 +14,8 @@ const pickOption = (option: HTMLElement) => {
 
 vi.mock("@/features/projects/atoms/projectStatuses", async () => {
   const DateTime = await import("effect/DateTime")
-  const Atom = await import("effect/unstable/reactivity/Atom")
-  const Result = await import("effect/unstable/reactivity/AsyncResult")
+  const Atom = await import("effect/reactivity/Atom")
+  const Result = await import("effect/reactivity/AsyncResult")
   return {
     statusesRequest: (orgSlug: string, slug: string) => ({
       params: { orgSlug, slug }

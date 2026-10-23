@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import { daysLeft, pickActiveSprint } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { useMemo } from "react"
 
 import {

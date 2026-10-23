@@ -14,14 +14,14 @@ import * as Effect from "effect/Effect"
 // `/orgs/:orgSlug/...`. Handlers read `path.orgSlug` and use it to scope all
 // downstream service calls. The `:orgSlug` is the URL-canonical source of
 // "which org am I acting in?" — see `services/CurrentOrg.ts` for the resolver.
-import * as Schema from "effect/Schema"
 import {
   HttpApi,
   HttpApiEndpoint,
   HttpApiGroup,
   HttpApiSchema,
   OpenApi
-} from "effect/unstable/httpapi"
+} from "effect/http-api"
+import * as Schema from "effect/Schema"
 
 import { IncludeDeletedOrg, OrgAccess, RequiresOrg } from "./access/OrgAccess"
 import { ProjectAccess, RequiresProject } from "./access/ProjectAccess"

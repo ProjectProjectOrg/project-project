@@ -1,5 +1,5 @@
 import type { BlockIconName, LibraryOrigin } from "@pp/shared"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { ChevronRight } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useState, type ReactNode } from "react"

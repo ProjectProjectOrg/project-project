@@ -12,17 +12,13 @@ import * as Clock from "effect/Clock"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Predicate from "effect/Predicate"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
-import {
-  FetchHttpClient,
-  HttpClient,
-  HttpClientRequest
-} from "effect/unstable/http"
 
 import {
   JiraRateLimited,

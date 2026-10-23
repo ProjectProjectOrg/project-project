@@ -14,7 +14,7 @@ import type {
   TicketType
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import {
   Bot,
   GitBranch,

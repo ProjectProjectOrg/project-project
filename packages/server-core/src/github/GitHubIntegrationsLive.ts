@@ -1,4 +1,5 @@
-import { randomBytes, createHash } from "node:crypto"
+// @effect-diagnostics-next-line nodeBuiltinImport:off
+import { createHash } from "node:crypto"
 
 import { Org } from "@pp/access/roles"
 import { Db } from "@pp/db"
@@ -23,11 +24,13 @@ import {
 } from "@pp/shared"
 import { and, eq, gt, inArray, isNull, or } from "drizzle-orm"
 import * as Config from "effect/Config"
+import * as Crypto from "effect/Crypto"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Base64Url from "effect/encoding/Base64Url"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
-import * as SqlClient from "effect/unstable/sql/SqlClient"
+import * as SqlClient from "effect/sql/SqlClient"
 
 import { GitHub } from "./GitHub"
 import {
@@ -71,6 +74,7 @@ export const GitHubIntegrationsLive = Layer.effect(
   GitHubIntegrations,
   Effect.gen(function* () {
     const db = yield* Db
+    const crypto = yield* Crypto.Crypto
     const sql = yield* SqlClient.SqlClient
     const github = yield* GitHub
 
@@ -161,8 +165,8 @@ export const GitHubIntegrationsLive = Layer.effect(
           return yield* new NotFound()
         }
 
-        const state = yield* Effect.sync(() =>
-          randomBytes(32).toString("base64url")
+        const state = Base64Url.encode(
+          yield* crypto.randomBytes(32).pipe(Effect.orDie)
         )
         const now = yield* DateTime.now
         const expiresAt = DateTime.toDate(DateTime.add(now, { minutes: 10 }))

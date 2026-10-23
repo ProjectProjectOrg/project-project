@@ -1,7 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { Library, TemplateKey, TicketDetail } from "@pp/shared"
 import * as Exit from "effect/Exit"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { LayoutTemplate } from "lucide-react"
 import { useId, useMemo, useState, type FormEvent } from "react"
 

@@ -2,7 +2,7 @@ import { FigmaIntegrations } from "@pp/server-core/figma/FigmaIntegrations"
 import { FigmaLinks } from "@pp/server-core/figma/FigmaLinks"
 import { AppApi, CurrentUser } from "@pp/shared"
 import * as Effect from "effect/Effect"
-import { HttpApiBuilder } from "effect/unstable/httpapi"
+import { HttpApiBuilder } from "effect/http-api"
 
 import { dieOnMarkdown } from "./lib"
 

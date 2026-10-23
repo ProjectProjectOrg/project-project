@@ -1,3 +1,4 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { randomUUID } from "node:crypto"
 
 import * as BunServices from "@effect/platform-bun/BunServices"
@@ -70,7 +71,7 @@ describe.skipIf(!databaseUrl)("Jira SQL workflow restart", () => {
         request.url.includes("/search/jql") && blockIssue
           ? pause === "interrupted request"
             ? Effect.never
-            : Effect.succeed(response({}, 429, { "retry-after": "15" }))
+            : Effect.succeed(response({}, 429, { "retry-after": "5" }))
           : Effect.succeed(scanFixtureResponse(request))
       )
       const objects = new Map<string, Uint8Array>()
@@ -193,7 +194,7 @@ describe.skipIf(!databaseUrl)("Jira SQL workflow restart", () => {
               while: (current) => current.status === "scanning",
               schedule: Schedule.spaced("10 millis")
             }),
-            Effect.timeout("10 seconds")
+            Effect.timeout("30 seconds")
           )
           expect(row.status).toBe("needs_configuration")
         }).pipe(Effect.provide(layer))

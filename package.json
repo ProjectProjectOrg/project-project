@@ -32,21 +32,21 @@
     "test:db": "vitest run --project db --project server-core --project backend --no-file-parallelism"
   },
   "devDependencies": {
-    "@effect/tsgo": "0.41.0",
+    "@effect/tsgo": "0.53.1",
     "@oxlint/plugins": "1.79.0",
     "@types/node": "^22.10.0",
-    "effect": "4.0.0-rc.116",
+    "effect": "4.0.5",
     "oxfmt": "0.59.0",
     "oxlint": "1.79.0",
     "oxlint-tsgolint": "7.0.2001",
     "turbo": "2.10.9",
     "typescript": "7.0.2",
     "vite": "8.1.5",
-    "vitest": "4.1.11"
+    "vitest": "5.0.5"
   },
   "overrides": {
     "@better-auth/oauth-provider": "1.7.3",
-    "@effect/platform-node-shared": "4.0.0-rc.116"
+    "@effect/platform-node-shared": "4.0.5"
   },
   "engines": {
     "bun": ">=1.4.4",

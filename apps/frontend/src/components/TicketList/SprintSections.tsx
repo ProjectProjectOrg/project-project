@@ -10,8 +10,8 @@ import {
   TicketStatus
 } from "@pp/shared"
 import * as Option from "effect/Option"
+import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { Inbox } from "lucide-react"
 import { useMemo, useState, type ReactNode, type ComponentProps } from "react"
 

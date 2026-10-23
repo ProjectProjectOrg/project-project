@@ -8,8 +8,8 @@ import {
   SlackNotConnected,
   SlackRateLimited
 } from "@pp/shared"
+import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
 
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"

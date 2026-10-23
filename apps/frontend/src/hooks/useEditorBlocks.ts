@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { TicketType } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useCallback, useMemo } from "react"
 
 import type { EditorBlocks } from "@/components/Lexical/blocks/editorBlocks"

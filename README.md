@@ -90,7 +90,7 @@ TypeScript 7, preserving the Effect diagnostics configured in
 first, and the Paraglide Vite plugin does the same for dev, build, and test.
 
 Every Effect package, `@effect/vitest` included, is pinned to
-`4.0.0-rc.112`. Upgrade the Vitest pin and rerun the full suite.
+`4.0.5`, which requires Vitest 5. Upgrade them together and rerun the full suite.
 
 Frontend tests run in forked workers with Node's native web storage disabled,
 so jsdom supplies browser-local storage.
@@ -208,6 +208,6 @@ bot are outside v1.
 
 ## Conventions
 
-- **Effect v4 release candidate.** Core APIs come from `effect`; HTTP, SQL, and atom modules live under `effect/unstable`. See [the migration handoff](docs/migrations/effect-v4-handoff.md).
+- **Effect v4.** Core APIs come from `effect`; HTTP, SQL, and atom modules live under `effect/http`, `effect/http-api`, `effect/sql`, and `effect/reactivity`. See [the migration handoff](docs/migrations/effect-v4-handoff.md).
 - **The shared package is the contract.** Endpoints declared in `packages/shared/src/api.ts` drive both the backend implementation and the frontend's typed client.
 - **Markdown is the source of truth.** Postgres holds only auth + a thin project index; everything else lives under `data/projects/`.

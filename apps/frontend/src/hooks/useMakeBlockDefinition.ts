@@ -1,9 +1,9 @@
 import { RegistryContext } from "@effect/atom-react"
 import { restoreDefinitionHints, type BlockDefinition } from "@pp/shared"
 import * as Effect from "effect/Effect"
-import type * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
-import type * as Atom from "effect/unstable/reactivity/Atom"
-import * as Registry from "effect/unstable/reactivity/AtomRegistry"
+import type * as AsyncResult from "effect/reactivity/AsyncResult"
+import type * as Atom from "effect/reactivity/Atom"
+import * as Registry from "effect/reactivity/AtomRegistry"
 import { useCallback, useContext } from "react"
 
 import type { EditorBlocks } from "@/components/Lexical/blocks/editorBlocks"

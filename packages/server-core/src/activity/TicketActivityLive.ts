@@ -106,7 +106,7 @@ export const TicketActivityLive = Layer.effect(
     const db = yield* Db
     const markdown = yield* Markdown
     const crypto = yield* Crypto.Crypto
-    const newId = crypto.randomUUIDv7.pipe(Effect.orDie)
+    const newId = crypto.randomUUIDv7().pipe(Effect.orDie)
 
     const projectIdOf = (orgSlug: string, slug: string) =>
       db

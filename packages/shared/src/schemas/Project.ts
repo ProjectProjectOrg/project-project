@@ -15,7 +15,7 @@ import { AttachmentId } from "./Attachment"
 import { EstimationMode } from "./Estimate"
 import { UserId } from "./User"
 
-export const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
+export const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/u
 
 export const Slug = Schema.String.pipe(
   Schema.check(Schema.isPattern(SLUG_PATTERN)),
@@ -25,7 +25,7 @@ export const Slug = Schema.String.pipe(
 export type Slug = typeof Slug.Type
 
 export const CreatableProjectKey = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^[A-Z][A-Z0-9]{1,9}$/)),
+  Schema.check(Schema.isPattern(/^[A-Z][A-Z0-9]{1,9}$/u)),
   Schema.brand("CreatableProjectKey")
 )
 export type CreatableProjectKey = typeof CreatableProjectKey.Type
@@ -50,7 +50,7 @@ export const ProjectIcon = Schema.String.pipe(
 export type ProjectIcon = typeof ProjectIcon.Type
 
 export const ProjectColor = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^#[0-9a-f]{6}$/i)),
+  Schema.check(Schema.isPattern(/^#[0-9a-fA-F]{6}$/u)),
   Schema.brand("ProjectColor")
 )
 export type ProjectColor = typeof ProjectColor.Type
@@ -148,7 +148,7 @@ export const BANNER_PLACEHOLDER_MAX_LENGTH = 4096
 export const ProjectBannerPlaceholder = Schema.NullOr(
   Schema.String.pipe(
     Schema.check(
-      Schema.isPattern(/^data:image\/webp;base64,[A-Za-z0-9+/]+=*$/)
+      Schema.isPattern(/^data:image\/webp;base64,[A-Za-z0-9+/]+=*$/u)
     ),
     Schema.check(Schema.isMaxLength(BANNER_PLACEHOLDER_MAX_LENGTH))
   )

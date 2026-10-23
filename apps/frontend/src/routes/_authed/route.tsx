@@ -8,7 +8,7 @@ import {
   useLocation,
   useParams
 } from "@tanstack/react-router"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import {
   FolderKanban,
   LayoutDashboard,

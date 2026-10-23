@@ -3,7 +3,7 @@ import type { JiraMigrationDetail } from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 
 import {

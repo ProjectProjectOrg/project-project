@@ -1,6 +1,6 @@
 import type { ProjectDetail } from "@pp/shared"
 import { cleanup, render, screen } from "@testing-library/react"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { afterEach, expect, it, vi } from "vitest"
 
 vi.mock("@tanstack/react-router", async (importOriginal) => ({

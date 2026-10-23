@@ -7,8 +7,8 @@ import {
 import { Navigate, createFileRoute, redirect } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
-import * as Registry from "effect/unstable/reactivity/AtomRegistry"
+import * as Result from "effect/reactivity/AsyncResult"
+import * as Registry from "effect/reactivity/AtomRegistry"
 
 import { ErrorPage } from "@/components/ErrorPage"
 import { PageContainer } from "@/components/page"

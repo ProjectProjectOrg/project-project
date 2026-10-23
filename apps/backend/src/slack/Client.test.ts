@@ -2,8 +2,8 @@ import { it } from "@effect/vitest"
 import { SlackClient } from "@pp/integration-slack/Client"
 import { ticketPreview } from "@pp/integration-slack/messages"
 import * as Effect from "effect/Effect"
+import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Schema from "effect/Schema"
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient"
 import { expect } from "vitest"
 
 it.effect("passes the bot ID to Slack's read endpoint", () => {

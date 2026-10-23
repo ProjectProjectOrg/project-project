@@ -1,8 +1,8 @@
 import type { EditorPreference } from "@pp/shared"
 import type { BetterFetchError } from "better-auth/react"
 import * as Effect from "effect/Effect"
-import * as Atom from "effect/unstable/reactivity/Atom"
-import * as Reactivity from "effect/unstable/reactivity/Reactivity"
+import * as Atom from "effect/reactivity/Atom"
+import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"

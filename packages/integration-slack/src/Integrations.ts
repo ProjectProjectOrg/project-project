@@ -1,4 +1,5 @@
-import { createHash, randomBytes } from "node:crypto"
+// @effect-diagnostics-next-line nodeBuiltinImport:off
+import { createHash } from "node:crypto"
 
 import { Db } from "@pp/db"
 import {
@@ -31,6 +32,7 @@ import * as Context from "effect/Context"
 import * as Crypto from "effect/Crypto"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Base64Url from "effect/encoding/Base64Url"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
@@ -437,7 +439,7 @@ export const makeSlackIntegrations = Effect.gen(function* () {
     yield* db
       .insert(slackNotification)
       .values({
-        id: yield* crypto.randomUUIDv7.pipe(Effect.orDie),
+        id: yield* crypto.randomUUIDv7().pipe(Effect.orDie),
         projectIntegrationLinkId: link.id,
         payload: {
           kind: "test",
@@ -538,8 +540,8 @@ export const makeSlackIntegrations = Effect.gen(function* () {
       .pipe(Effect.orDie)
     if (!org) return yield* new NotFound()
     const row = yield* credentials(org.id)
-    const state = yield* Effect.sync(() =>
-      randomBytes(32).toString("base64url")
+    const state = Base64Url.encode(
+      yield* crypto.randomBytes(32).pipe(Effect.orDie)
     )
     const now = yield* DateTime.nowAsDate
     yield* db

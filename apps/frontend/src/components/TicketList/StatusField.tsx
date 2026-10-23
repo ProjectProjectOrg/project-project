@@ -6,7 +6,7 @@ import type {
   UpdateTicketInput
 } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { ArrowRight } from "lucide-react"
 import { type MouseEvent, useMemo } from "react"
 

@@ -2,11 +2,7 @@ import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { JiraCredentials } from "@pp/server-core/jira/Credentials"
 import { JiraOAuthConfig } from "@pp/server-core/jira/OAuth"
 import * as Effect from "effect/Effect"
-import {
-  HttpRouter,
-  HttpServerRequest,
-  HttpServerResponse
-} from "effect/unstable/http"
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
 
 import { toWebHeaders } from "../http/toWebHeaders"
 

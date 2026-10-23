@@ -52,7 +52,7 @@
 // it provides matches the shared `User` shape.
 
 import * as Context from "effect/Context"
-import { HttpApiMiddleware, HttpApiSecurity } from "effect/unstable/httpapi"
+import { HttpApiMiddleware, HttpApiSecurity } from "effect/http-api"
 
 import type { ActivityActor } from "./access/ActivityActor"
 import { Unauthorized } from "./errors"

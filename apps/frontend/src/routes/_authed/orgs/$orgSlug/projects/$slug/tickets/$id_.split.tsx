@@ -1,8 +1,8 @@
 import { useAtomValue } from "@effect/atom-react"
 import { TicketId } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
+import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useMemo } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"

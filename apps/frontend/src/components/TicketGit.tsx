@@ -7,7 +7,7 @@ import type {
   TicketDetail
 } from "@pp/shared"
 import * as Option from "effect/Option"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import {
   AlertTriangle,
   ArrowUpRight,

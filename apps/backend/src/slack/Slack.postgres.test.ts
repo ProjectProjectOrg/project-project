@@ -1,3 +1,4 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { randomUUID } from "node:crypto"
 
 import * as BunServices from "@effect/platform-bun/BunServices"
@@ -37,16 +38,16 @@ import {
   TicketId,
   TicketStatus
 } from "@pp/shared"
+import { ClusterWorkflowEngine, SingleRunner } from "effect/cluster"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
+import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
 import * as ManagedRuntime from "effect/ManagedRuntime"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
-import { ClusterWorkflowEngine, SingleRunner } from "effect/unstable/cluster"
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient"
 import { Pool } from "pg"
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
 

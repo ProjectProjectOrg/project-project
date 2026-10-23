@@ -4,7 +4,7 @@ import { useDebouncedValue } from "@tanstack/react-pacer"
 import { Link } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import {
   AlertTriangle,
   ChevronDown,

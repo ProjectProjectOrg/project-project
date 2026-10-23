@@ -1,5 +1,7 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createHash, randomBytes, randomUUID } from "node:crypto"
 
+import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import { PgClient } from "@effect/sql-pg"
 import { DbLive } from "@pp/db"
 import { drizzle } from "drizzle-orm/node-postgres"
@@ -101,6 +103,7 @@ describe.skipIf(!databaseUrl)("JiraCredentials Postgres", () => {
         })
       ),
       Layer.provide(SecretCryptoLive),
+      Layer.provide(BunCrypto.layer),
       Layer.provide(database)
     )
     return { runtime: Effect.runPromise, layer, refreshCalls }

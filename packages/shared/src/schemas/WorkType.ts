@@ -1,7 +1,7 @@
 import * as Schema from "effect/Schema"
 
 export const WorkType = Schema.Struct({
-  key: Schema.String.pipe(Schema.check(Schema.isPattern(/^[a-z][a-z0-9_]*$/))),
+  key: Schema.String.pipe(Schema.check(Schema.isPattern(/^[a-z][a-z0-9_]*$/u))),
   label: Schema.String.pipe(
     Schema.check(Schema.isMinLength(1)),
     Schema.check(Schema.isMaxLength(100))

@@ -1,7 +1,7 @@
 import { TicketDetail } from "@pp/shared"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({

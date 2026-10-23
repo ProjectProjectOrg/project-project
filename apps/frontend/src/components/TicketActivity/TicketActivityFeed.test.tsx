@@ -8,8 +8,8 @@ import {
   waitFor
 } from "@testing-library/react"
 import * as DateTime from "effect/DateTime"
+import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"

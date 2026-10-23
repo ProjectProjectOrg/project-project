@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import { GroupPolicy } from "@pp/access/policies"
 import { type GroupId, type TicketListQuery } from "@pp/shared"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { useMemo } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"

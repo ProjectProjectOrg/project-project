@@ -1,3 +1,4 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createHmac, timingSafeEqual } from "node:crypto"
 
 import { Db } from "@pp/db"
@@ -75,16 +76,12 @@ import { count } from "drizzle-orm"
 import * as Config from "effect/Config"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
+import { HttpApiBuilder, HttpApiSwagger } from "effect/http-api"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
-import {
-  HttpRouter,
-  HttpServerRequest,
-  HttpServerResponse
-} from "effect/unstable/http"
-import { HttpApiBuilder, HttpApiSwagger } from "effect/unstable/httpapi"
 
 import { isClosedAuthPath } from "./auth/orgAccess"
 import { TicketActivityHandlerLive } from "./handlers/activity"

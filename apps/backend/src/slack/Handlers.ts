@@ -1,7 +1,7 @@
 import { SlackIntegrations } from "@pp/integration-slack/Integrations"
 import { AppApi, CurrentUser } from "@pp/shared"
 import * as Effect from "effect/Effect"
-import { HttpApiBuilder } from "effect/unstable/httpapi"
+import { HttpApiBuilder } from "effect/http-api"
 
 export const SlackHandlerLive = HttpApiBuilder.group(
   AppApi,

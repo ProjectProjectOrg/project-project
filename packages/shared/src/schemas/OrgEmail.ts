@@ -3,10 +3,10 @@ import * as Schema from "effect/Schema"
 const SingleLine = Schema.String.check(
   Schema.isMinLength(1),
   Schema.isMaxLength(320),
-  Schema.isPattern(/^[^\r\n]+$/)
+  Schema.isPattern(/^[^\r\n]+$/u)
 )
 export const EmailAddress = SingleLine.check(
-  Schema.isPattern(/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/)
+  Schema.isPattern(/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/u)
 )
 export const EmailSecurity = Schema.Literals(["tls", "starttls"])
 export const EmailFailureReason = Schema.Literals([
@@ -24,7 +24,7 @@ export const EmailFailureReason = Schema.Literals([
 export type EmailFailureReason = typeof EmailFailureReason.Type
 
 export const EmailSettings = Schema.Struct({
-  host: SingleLine.check(Schema.isPattern(/^[a-zA-Z0-9.-]+$/)),
+  host: SingleLine.check(Schema.isPattern(/^[a-zA-Z0-9.-]+$/u)),
   port: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 65535 })),
   security: EmailSecurity,
   username: SingleLine,

@@ -1,6 +1,6 @@
 import { createMemoryHistory, createRouter } from "@tanstack/react-router"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
-import * as Registry from "effect/unstable/reactivity/AtomRegistry"
+import * as Result from "effect/reactivity/AsyncResult"
+import * as Registry from "effect/reactivity/AtomRegistry"
 import { afterAll, afterEach, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"

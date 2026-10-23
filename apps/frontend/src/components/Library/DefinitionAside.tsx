@@ -11,8 +11,8 @@ import {
   type TicketType,
   typesDefaultingTo
 } from "@pp/shared"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import { ChevronDown, Plus, X } from "lucide-react"
 import { useState, type ReactNode } from "react"
 

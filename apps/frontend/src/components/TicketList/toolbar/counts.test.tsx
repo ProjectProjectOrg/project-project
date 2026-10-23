@@ -1,7 +1,7 @@
 import { GroupId, TicketListQuery } from "@pp/shared"
 import { cleanup, renderHook } from "@testing-library/react"
+import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { afterEach, expect, it, vi } from "vitest"
 
 import type { ViewCountsSource } from "@/features/tickets/atoms/viewCounts"
@@ -9,8 +9,8 @@ import type { ViewCountsSource } from "@/features/tickets/atoms/viewCounts"
 import { useViewTicketCounts } from "./counts"
 
 vi.mock("@/features/projects/atoms/projectStatuses", async () => {
-  const Atom = await import("effect/unstable/reactivity/Atom")
-  const AsyncResult = await import("effect/unstable/reactivity/AsyncResult")
+  const Atom = await import("effect/reactivity/Atom")
+  const AsyncResult = await import("effect/reactivity/AsyncResult")
   return {
     statusesRequest: (orgSlug: string, slug: string) => ({ orgSlug, slug }),
     statusesFor: Atom.family(() =>
@@ -26,8 +26,8 @@ vi.mock("@/features/projects/atoms/projectStatuses", async () => {
 })
 
 vi.mock("@/features/tickets/atoms/viewCounts", async () => {
-  const Atom = await import("effect/unstable/reactivity/Atom")
-  const AsyncResult = await import("effect/unstable/reactivity/AsyncResult")
+  const Atom = await import("effect/reactivity/Atom")
+  const AsyncResult = await import("effect/reactivity/AsyncResult")
   return {
     viewCounts: Atom.family((source: ViewCountsSource) =>
       Atom.make(

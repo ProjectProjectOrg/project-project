@@ -12,14 +12,14 @@ import {
   resolveAttachmentWidthRung
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
-import * as Option from "effect/Option"
-import * as Schema from "effect/Schema"
-import * as Stream from "effect/Stream"
 import {
   FetchHttpClient,
   HttpServerRequest,
   HttpServerResponse
-} from "effect/unstable/http"
+} from "effect/http"
+import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
+import * as Stream from "effect/Stream"
 import sharp from "sharp"
 
 import { toWebHeaders } from "./toWebHeaders"

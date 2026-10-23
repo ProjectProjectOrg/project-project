@@ -5,12 +5,8 @@ import {
 } from "@pp/integration-slack/Integrations"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import * as Effect from "effect/Effect"
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as Schema from "effect/Schema"
-import {
-  HttpRouter,
-  HttpServerRequest,
-  HttpServerResponse
-} from "effect/unstable/http"
 
 import { toWebHeaders } from "../http/toWebHeaders"
 

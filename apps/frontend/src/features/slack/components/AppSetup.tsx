@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { Download, ExternalLink } from "lucide-react"
 import { useState } from "react"
 

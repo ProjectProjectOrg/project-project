@@ -1,3 +1,4 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { randomUUID } from "node:crypto"
 
 import * as BunCrypto from "@effect/platform-bun/BunCrypto"
@@ -32,13 +33,9 @@ import {
   RunnerHealth,
   ShardingConfig,
   SqlMessageStorage
-} from "effect/unstable/cluster"
-import { SqlClient } from "effect/unstable/sql"
-import {
-  Activity,
-  DurableDeferred,
-  WorkflowEngine
-} from "effect/unstable/workflow"
+} from "effect/cluster"
+import { SqlClient } from "effect/sql"
+import { Activity, DurableDeferred, WorkflowEngine } from "effect/workflow"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 

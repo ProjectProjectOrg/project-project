@@ -1,7 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { GroupId, TicketId, WorkTypeOption } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { useState, type FormEvent } from "react"
 
 import { WorkTypeSelect } from "@/components/time/WorkTypeSelect"

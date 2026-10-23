@@ -5,7 +5,7 @@ import type {
   TicketType,
   UpdateTemplateDefaultsInput
 } from "@pp/shared"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { ChevronDown } from "lucide-react"
 import { useState } from "react"
 

@@ -7,9 +7,9 @@ import {
   renderHook,
   screen
 } from "@testing-library/react"
+import * as Result from "effect/reactivity/AsyncResult"
+import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
-import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import { afterEach, expect, it, vi } from "vitest"
 
 import { projectGitStates } from "@/features/github/atoms/github"

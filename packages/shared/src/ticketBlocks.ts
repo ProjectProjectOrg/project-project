@@ -2,7 +2,7 @@ export type TicketBlockSegment =
   | Readonly<{ kind: "markdown"; text: string }>
   | Readonly<{ kind: "block"; type: string; content: string; sync?: boolean }>
 
-export const TICKET_BLOCK_TYPE_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+export const TICKET_BLOCK_TYPE_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u
 
 export const TICKET_BLOCK_OPEN =
   /^ {0,3}<block\s+type="([a-z0-9]+(?:-[a-z0-9]+)*)"(\s+sync)?\s*>\s*$/

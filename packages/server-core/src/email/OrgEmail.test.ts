@@ -1,6 +1,8 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { randomBytes, randomUUID } from "node:crypto"
 import { inspect } from "node:util"
 
+import * as BunServices from "@effect/platform-bun/BunServices"
 import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { DbLive } from "@pp/db"
@@ -69,6 +71,7 @@ describe.skipIf(!databaseUrl)("organization email configuration", () => {
     OrgEmail.layer.pipe(
       Layer.provide(Layer.succeed(Smtp, { sendTest })),
       Layer.provide(SecretCryptoLive),
+      Layer.provide(BunServices.layer),
       Layer.provide(
         DbLive.pipe(
           Layer.provide(

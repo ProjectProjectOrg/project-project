@@ -1,10 +1,10 @@
 import type { User } from "@pp/shared"
+import { McpProtocol, McpServer, Tool, Toolkit } from "effect/ai"
 import * as Effect from "effect/Effect"
+import { HttpRouter } from "effect/http"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
-import { McpProtocol, McpServer, Tool, Toolkit } from "effect/unstable/ai"
-import { HttpRouter } from "effect/unstable/http"
 import { describe, expect, test } from "vitest"
 
 import { McpRequestUser } from "../mcp/McpRequestUser"

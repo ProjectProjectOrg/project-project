@@ -8,8 +8,8 @@ import {
   waitFor
 } from "@testing-library/react"
 import * as Exit from "effect/Exit"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
-import type * as Atom from "effect/unstable/reactivity/Atom"
+import * as Result from "effect/reactivity/AsyncResult"
+import type * as Atom from "effect/reactivity/Atom"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
 
 import { slackManifest, slackOrgRequest } from "@/features/slack/atoms/slack"

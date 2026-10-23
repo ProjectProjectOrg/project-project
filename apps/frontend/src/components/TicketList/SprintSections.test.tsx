@@ -1,6 +1,6 @@
 import type { TicketListQuery } from "@pp/shared"
 import { render, cleanup } from "@testing-library/react"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import type { ComponentProps } from "react"
 import { afterEach, expect, it, vi } from "vitest"
 

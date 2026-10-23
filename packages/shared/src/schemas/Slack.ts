@@ -7,15 +7,15 @@ const Secret = Schema.String.check(
   Schema.isMaxLength(4096)
 )
 export const SlackChannelId = Schema.String.check(
-  Schema.isPattern(/^[CG][A-Z0-9]+$/)
+  Schema.isPattern(/^[CG][A-Z0-9]+$/u)
 )
 export const SlackEvent = ProjectEventKind
 export type SlackEvent = typeof SlackEvent.Type
 
 export const ConnectSlackInput = Schema.Struct({
-  botToken: Secret.check(Schema.isPattern(/^xoxb-/)),
-  appToken: Secret.check(Schema.isPattern(/^xapp-/)),
-  clientId: Schema.String.check(Schema.isPattern(/^\d+\.\d+$/)),
+  botToken: Secret.check(Schema.isPattern(/^xoxb-/u)),
+  appToken: Secret.check(Schema.isPattern(/^xapp-/u)),
+  clientId: Schema.String.check(Schema.isPattern(/^\d+\.\d+$/u)),
   clientSecret: Secret
 })
 export type ConnectSlackInput = typeof ConnectSlackInput.Type

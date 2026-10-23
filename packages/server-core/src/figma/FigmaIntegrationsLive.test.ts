@@ -1,16 +1,19 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createHash } from "node:crypto"
 
+import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { relations } from "@pp/db/schema"
 import { FigmaAuthInvalid, FigmaError, FigmaNotConnected } from "@pp/shared"
 import { makeWithDefaults } from "drizzle-orm/effect-postgres"
 import * as ConfigProvider from "effect/ConfigProvider"
+import * as Crypto from "effect/Crypto"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient"
 import { afterEach, describe, expect, vi } from "vitest"
 
 import { chooseCredential, isTokenExpired } from "./FigmaIntegrations"
@@ -533,6 +536,7 @@ describe("startOauthFlow", () => {
       const error = yield* Effect.flip(
         startOauthFlow({
           db,
+          crypto: yield* Crypto.Crypto,
           client: figmaOAuthClient,
           redirectUri: Effect.succeed("https://example.test/callback"),
           userId: "user-1"
@@ -541,7 +545,10 @@ describe("startOauthFlow", () => {
       if (!Schema.is(FigmaError)(error)) throw error
       expect(error.reason).toBe("figma_oauth_unconfigured")
       expect(calls).toEqual([])
-    }).pipe(Effect.provideService(ConfigProvider.ConfigProvider, emptyConfig))
+    }).pipe(
+      Effect.provideService(ConfigProvider.ConfigProvider, emptyConfig),
+      Effect.provide(BunCrypto.layer)
+    )
   )
 })
 

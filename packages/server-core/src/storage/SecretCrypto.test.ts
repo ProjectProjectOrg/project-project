@@ -1,3 +1,4 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { randomBytes } from "node:crypto"
 
 import { it } from "@effect/vitest"

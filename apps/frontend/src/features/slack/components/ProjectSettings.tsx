@@ -1,7 +1,7 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { SlackEvent, type SlackProjectStatus } from "@pp/shared"
 import * as Exit from "effect/Exit"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { RefreshCw } from "lucide-react"
 import { useEffect, useState } from "react"
 

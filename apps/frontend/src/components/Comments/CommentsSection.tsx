@@ -1,6 +1,6 @@
 import { useAtomMount, useAtomValue } from "@effect/atom-react"
 import type { TicketId } from "@pp/shared"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronRight } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 import { useState } from "react"
