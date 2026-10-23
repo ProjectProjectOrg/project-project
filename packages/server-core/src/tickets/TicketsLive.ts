@@ -2265,7 +2265,7 @@ export const TicketsLive = Layer.effect(
           for (const [branch, pr] of more.prByBranch) {
             if (!prByBranch.has(branch)) prByBranch.set(branch, pr)
           }
-          for (const [branch, history] of more.mergedPrsByBranch ?? []) {
+          for (const [branch, history] of more.mergedPrsByBranch) {
             const combined = new Map(
               [...(mergedPrsByBranch.get(branch) ?? []), ...history].map(
                 (pr) => [pr.number, pr]
@@ -2472,8 +2472,7 @@ export const TicketsLive = Layer.effect(
                 ticket.updatedAt.getTime() ||
               indexedTicket.pr !== ticket.pr ||
               indexedTicket.prState !== ticket.prState ||
-              (raw.fetchedAt !== undefined &&
-                ticket.updatedAt.getTime() > raw.fetchedAt.getTime())
+              ticket.updatedAt.getTime() > raw.fetchedAt.getTime()
             ) {
               staleTicketIds.add(ticketId)
               states[ticketId] = pendingGitState(ticket, projectGithub)
@@ -2576,16 +2575,14 @@ export const TicketsLive = Layer.effect(
 
         const fetchedAt = raw.fetchedAt
         const vanishedBranches = new Set(
-          fetchedAt === undefined
-            ? []
-            : tickets.flatMap((ticket) =>
-                ticket.branch !== null &&
-                ticket.branchDeletedAt === null &&
-                ticket.updatedAt.getTime() <= fetchedAt.getTime() &&
-                !raw.existingBranches.has(ticket.branch)
-                  ? [ticket.branch]
-                  : []
-              )
+          tickets.flatMap((ticket) =>
+            ticket.branch !== null &&
+            ticket.branchDeletedAt === null &&
+            ticket.updatedAt.getTime() <= fetchedAt.getTime() &&
+            !raw.existingBranches.has(ticket.branch)
+              ? [ticket.branch]
+              : []
+          )
         )
         for (const branch of vanishedBranches) {
           const deletedAt = yield* DateTime.nowAsDate

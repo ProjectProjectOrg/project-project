@@ -20,8 +20,7 @@ vi.mock("./clients", () => ({
 
 import {
   buildProjectStateBatchQuery,
-  fetchProjectStatesWithToken,
-  projectStatesFromBatchResponses
+  fetchProjectStatesWithToken
 } from "./projectState"
 
 const run = <A, E>(
@@ -204,7 +203,7 @@ describe("projectState", () => {
       )
 
       expect(states.prByBranch.get("api")?.number).toBe(50)
-      expect(states.mergedPrsByBranch?.get("api")).toMatchObject([
+      expect(states.mergedPrsByBranch.get("api")).toMatchObject([
         {
           number: 40,
           state: "merged",
@@ -405,7 +404,7 @@ describe("projectState", () => {
           after: "branch-cursor-1",
           withPullRequests: false
         })
-        expect(states).not.toHaveProperty("openPullRequestText")
+        expect(states.openPullRequestText.size).toBe(0)
         expect(graphql.mock.calls[0]?.[0]).toContain(
           "repository(owner: $owner, name: $name)"
         )
@@ -709,133 +708,142 @@ describe("projectState", () => {
       })
   )
 
-  it("maps batched alias responses back to project state", () => {
-    const states = projectStatesFromBatchResponses([
-      {
-        branches: ["feat/T-1"],
-        response: {
+  it.effect(
+    "retains PR state for deleted branches alongside live branches",
+    () =>
+      Effect.gen(function* () {
+        graphql.mockResolvedValueOnce({
           repository: {
             defaultBranchRef: { name: "trunk" },
             b0: { name: "feat/T-1" },
-            p0: { nodes: [pr("feat/T-1")] }
-          }
-        }
-      },
-      {
-        branches: ["bug/T-2"],
-        response: {
-          repository: {
-            defaultBranchRef: { name: "trunk" },
-            b0: null,
-            p0: { nodes: [pr("bug/T-2", "CLOSED", "FAILURE")] }
-          }
-        }
-      }
-    ])
-
-    expect(states?.defaultBranch).toBe("trunk")
-    expect([...(states?.existingBranches ?? [])]).toEqual(["feat/T-1"])
-    expect(states?.prByBranch.get("feat/T-1")?.checks).toBe("passing")
-    expect(states?.prByBranch.get("bug/T-2")?.state).toBe("closed")
-    expect(states?.prByBranch.get("bug/T-2")?.checks).toBe("failing")
-  })
-
-  it("keeps the batch when one branch ref is stale", () => {
-    const states = projectStatesFromBatchResponses([
-      {
-        branches: ["feat/live", "feat/stale"],
-        response: {
-          repository: {
-            defaultBranchRef: { name: "main" },
-            b0: { name: "feat/live" },
-            p0: { nodes: [pr("feat/live")] },
+            p0: {
+              nodes: [pr("feat/T-1")],
+              pageInfo: { hasNextPage: false, endCursor: null }
+            },
             b1: null,
-            p1: null
+            p1: {
+              nodes: [pr("bug/T-2", "CLOSED", "FAILURE")],
+              pageInfo: { hasNextPage: false, endCursor: null }
+            },
+            b2: null,
+            p2: {
+              nodes: [],
+              pageInfo: { hasNextPage: false, endCursor: null }
+            }
           }
+        })
+        const states = yield* run(
+          fetchProjectStatesWithToken(
+            "token",
+            "acme",
+            "app",
+            ["feat/T-1", "bug/T-2", "feat/T-3"],
+            "installation"
+          )
+        )
+        expect(states.defaultBranch).toBe("trunk")
+        expect([...states.existingBranches]).toEqual(["feat/T-1"])
+        expect(states.prByBranch.get("feat/T-1")?.checks).toBe("passing")
+        expect(states.prByBranch.get("bug/T-2")?.state).toBe("closed")
+        expect(states.prByBranch.get("bug/T-2")?.checks).toBe("failing")
+        expect(states.prByBranch.has("feat/T-3")).toBe(false)
+      })
+  )
+
+  it.effect("rejects a missing pull-request alias", () =>
+    Effect.gen(function* () {
+      graphql.mockResolvedValueOnce({
+        repository: {
+          defaultBranchRef: { name: "main" },
+          b0: { name: "feat/T-1" }
         }
-      }
-    ])
+      })
+      const error = yield* run(
+        fetchProjectStatesWithToken(
+          "token",
+          "acme",
+          "app",
+          ["feat/T-1"],
+          "installation"
+        ).pipe(Effect.flip)
+      )
+      expect(error._tag).toBe("GitHubError")
+    })
+  )
 
-    expect(states).not.toBeNull()
-    expect([...(states?.existingBranches ?? [])]).toEqual(["feat/live"])
-    expect(states?.prByBranch.has("feat/live")).toBe(true)
-    expect(states?.prByBranch.has("feat/stale")).toBe(false)
-  })
+  it.effect("maps a missing repository to RepoGone", () =>
+    Effect.gen(function* () {
+      graphql.mockResolvedValueOnce({ repository: null })
+      const error = yield* run(
+        fetchProjectStatesWithToken(
+          "token",
+          "acme",
+          "app",
+          ["feat/T-1"],
+          "installation"
+        ).pipe(Effect.flip)
+      )
+      expect(error._tag).toBe("RepoGone")
+    })
+  )
 
-  it("keeps the batch when a branch's pull-request alias is missing", () => {
-    const states = projectStatesFromBatchResponses([
-      {
-        branches: ["feat/has-pr", "feat/no-pr"],
-        response: {
-          repository: {
-            defaultBranchRef: { name: "main" },
-            b0: { name: "feat/has-pr" },
-            p0: { nodes: [pr("feat/has-pr")] },
-            b1: { name: "feat/no-pr" }
-          }
-        }
-      }
-    ])
-
-    expect(states).not.toBeNull()
-    expect([...(states?.existingBranches ?? [])].toSorted()).toEqual([
-      "feat/has-pr",
-      "feat/no-pr"
-    ])
-    expect(states?.prByBranch.has("feat/has-pr")).toBe(true)
-    expect(states?.prByBranch.has("feat/no-pr")).toBe(false)
-  })
-
-  it("maps a missing repository to RepoGone", () => {
-    const states = projectStatesFromBatchResponses([
-      {
-        branches: ["feat/whatever"],
-        response: { repository: null }
-      }
-    ])
-
-    expect(states).toBeNull()
-  })
-
-  it("prefers a same-repository open PR over a newer closed or merged PR", () => {
-    const states = projectStatesFromBatchResponses([
-      {
-        branches: ["feat/T-3"],
-        response: {
+  it.effect(
+    "prefers a same-repository open PR over a newer closed or merged PR",
+    () =>
+      Effect.gen(function* () {
+        graphql.mockResolvedValueOnce({
           repository: {
             defaultBranchRef: { name: "main" },
             b0: { name: "feat/T-3" },
             p0: {
-              nodes: [pr("feat/T-3", "MERGED"), pr("feat/T-3", "OPEN")]
+              nodes: [pr("feat/T-3", "MERGED"), pr("feat/T-3", "OPEN")],
+              pageInfo: { hasNextPage: false, endCursor: null }
             }
           }
-        }
-      }
-    ])
+        })
+        const states = yield* run(
+          fetchProjectStatesWithToken(
+            "token",
+            "acme",
+            "app",
+            ["feat/T-3"],
+            "installation"
+          )
+        )
+        expect(states.prByBranch.get("feat/T-3")?.state).toBe("open")
+      })
+  )
 
-    expect(states?.prByBranch.get("feat/T-3")?.state).toBe("open")
-  })
-
-  it("ignores fork PRs even when they precede the same-repository PR", () => {
-    const forkPr = {
-      ...pr("feat/T-4", "OPEN"),
-      headRepository: { id: "fork-repo" }
-    }
-    const states = projectStatesFromBatchResponses([
-      {
-        branches: ["feat/T-4"],
-        response: {
+  it.effect(
+    "ignores fork PRs even when they precede the same-repository PR",
+    () =>
+      Effect.gen(function* () {
+        graphql.mockResolvedValueOnce({
           repository: {
             defaultBranchRef: { name: "main" },
             b0: { name: "feat/T-4" },
             p0: {
-              nodes: [forkPr, pr("feat/T-4", "CLOSED")]
+              nodes: [
+                {
+                  ...pr("feat/T-4", "OPEN"),
+                  headRepository: { id: "fork-repo" }
+                },
+                pr("feat/T-4", "CLOSED")
+              ],
+              pageInfo: { hasNextPage: false, endCursor: null }
             }
           }
-        }
-      }
-    ])
-
-    expect(states?.prByBranch.get("feat/T-4")?.state).toBe("closed")
-  })
+        })
+        const states = yield* run(
+          fetchProjectStatesWithToken(
+            "token",
+            "acme",
+            "app",
+            ["feat/T-4"],
+            "installation"
+          )
+        )
+        expect(states.prByBranch.get("feat/T-4")?.state).toBe("closed")
+      })
+  )
 })

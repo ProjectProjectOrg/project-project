@@ -36,9 +36,9 @@ export type RawProjectStates = Readonly<{
   defaultBranch: string
   existingBranches: ReadonlySet<string>
   prByBranch: ReadonlyMap<string, RawBranchEntry>
-  mergedPrsByBranch?: ReadonlyMap<string, ReadonlyArray<RawMergedPullRequest>>
-  openPullRequestText?: ReadonlyMap<string, RawPullRequestText>
-  fetchedAt?: Date
+  mergedPrsByBranch: ReadonlyMap<string, ReadonlyArray<RawMergedPullRequest>>
+  openPullRequestText: ReadonlyMap<string, RawPullRequestText>
+  fetchedAt: Date
   refreshStatus?: "stale" | "rate_limited"
   retryAt?: number
 }>
