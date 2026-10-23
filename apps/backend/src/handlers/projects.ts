@@ -12,7 +12,7 @@ import { AppApi, ProjectScope } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/http-api"
 
-import { dieOnMarkdown, thenSyncEverhour } from "./lib"
+import { dieOnMarkdown } from "./lib"
 
 export const ProjectsHandlerLive = HttpApiBuilder.group(
   AppApi,
@@ -36,8 +36,6 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
       )
       .handle("update", ({ payload }) =>
         Effect.flatMap(Projects, (projects) => projects.update(payload)).pipe(
-          (updated) =>
-            payload.name === undefined ? updated : thenSyncEverhour(updated),
           dieOnMarkdown
         )
       )

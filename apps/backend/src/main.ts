@@ -4,6 +4,7 @@ import { createHmac, timingSafeEqual } from "node:crypto"
 import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
 import { projectIndex } from "@pp/db/schema"
+import { EverhourRuntimeLive } from "@pp/integration-everhour/Runtime"
 import { GitHubIntegrations } from "@pp/integration-github/GitHubIntegrations"
 import { GitHubWebhooks } from "@pp/integration-github/GitHubWebhooks"
 import { SlackRuntimeLive } from "@pp/integration-slack/Runtime"
@@ -432,6 +433,7 @@ export const RouteLive = Layer.mergeAll(
 const ServerLive = HttpRouter.serve(RouteLive).pipe(
   Layer.provide(TicketActivityRecoveryLive),
   Layer.provide(SlackRuntimeLive),
+  Layer.provide(EverhourRuntimeLive),
   Layer.provide(BackendHttpServicesLive),
   Layer.provide(BackendInfrastructureLive)
 )

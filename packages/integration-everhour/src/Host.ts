@@ -28,6 +28,9 @@ export class EverhourHost extends Context.Service<
       slug: string
     ) => Effect.Effect<EverhourProjectRef>
     publishedName: (projectId: string) => Effect.Effect<string, NotFound>
+    projectPath: (
+      projectId: string
+    ) => Effect.Effect<Readonly<{ orgSlug: string; slug: string }> | null>
     memberIds: (projectId: string) => Effect.Effect<ReadonlyArray<string>>
     sprints: (
       orgSlug: string,

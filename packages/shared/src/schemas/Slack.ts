@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema"
 
-import { ProjectEvent, ProjectEventKind } from "./ProjectEvent"
+import { SprintEvent, TicketEvent } from "./ProjectEvent"
 
 const Secret = Schema.String.check(
   Schema.isMinLength(1),
@@ -9,7 +9,13 @@ const Secret = Schema.String.check(
 export const SlackChannelId = Schema.String.check(
   Schema.isPattern(/^[CG][A-Z0-9]+$/u)
 )
-export const SlackEvent = ProjectEventKind
+export const SlackEvent = Schema.Literals([
+  "ticket_created",
+  "ticket_completed",
+  "ticket_reopened",
+  "sprint_started",
+  "sprint_completed"
+])
 export type SlackEvent = typeof SlackEvent.Type
 
 export const ConnectSlackInput = Schema.Struct({
@@ -65,7 +71,11 @@ export const SlackProfile = Schema.Struct({
 export type SlackProfile = typeof SlackProfile.Type
 
 export const SlackNotification = Schema.Union([
-  ProjectEvent,
+  TicketEvent,
+  Schema.Struct({
+    ...SprintEvent.fields,
+    kind: Schema.Literals(["sprint_started", "sprint_completed"])
+  }),
   Schema.Struct({ kind: Schema.Literal("test"), title: Schema.String })
 ])
 export type SlackNotification = typeof SlackNotification.Type

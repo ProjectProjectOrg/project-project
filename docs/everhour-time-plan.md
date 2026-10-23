@@ -128,14 +128,20 @@ webhook `secret`.
 
 ## Structural sync, rebuilt
 
-Rework the existing `bestEffortProjectSync`:
+Structure sync is a full, idempotent reconcile:
 - **Retire** ticket→task (`syncTasks`, `everhour_task_link`).
 - **Drop** the synthetic backlog section (sprint-only tracking).
 - Sections = one per sprint. Work-type tasks created **eagerly on sprint create**, renamed
   on sprint rename.
-- **Triggers shrink to sprint lifecycle only** (create/rename/complete/delete). Ticket
-  mutations no longer trigger Everhour sync. Ticket→sprint assignment changes nothing
-  structurally; resolution happens at capture time.
+- **Triggers are sprint lifecycle events** (`sprint_created`, `sprint_renamed`,
+  `sprint_completed`, `sprint_reopened`, `sprint_deleted`) recorded through the durable
+  outbox. Everhour project links subscribe to them; consuming one marks the link's sync as
+  requested, and a background loop runs the sync with the key of the manager who last synced
+  the project. A failed sync keeps the request and retries after five minutes; an event that
+  arrives during a sync triggers another one. Ticket mutations never trigger a sync.
+- **Hourly sweep** requests a sync for every connected project not synced in the last hour.
+  That covers project renames, work-type changes and edits made in Everhour, which do not
+  pass through the outbox.
 - **Sprint complete** → archive section + `close` its work-type tasks (time preserved;
   reopening reopens them).
 - **Sprint delete** → never delete the Everhour tasks; archive/close and orphan them so

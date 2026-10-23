@@ -1,6 +1,6 @@
 import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
-import { projectMember } from "@pp/db/schema"
+import { organization, projectIndex, projectMember } from "@pp/db/schema"
 import { EverhourHost } from "@pp/integration-everhour/Host"
 import { Access } from "@pp/server-core/access/Access"
 import { GroupDocs } from "@pp/server-core/groups/GroupDocs"
@@ -8,7 +8,7 @@ import { SecretCrypto } from "@pp/server-core/storage/SecretCrypto"
 import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
 import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
 import { EverhourConfigMissing, NotFound } from "@pp/shared"
-import { eq } from "drizzle-orm"
+import { and, eq, isNull } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
@@ -73,6 +73,26 @@ export const EverhourHostLive = Layer.effect(
             Effect.flatMap((row) =>
               row ? Effect.succeed(row.name) : Effect.fail(new NotFound())
             )
+          ),
+      projectPath: (projectId) =>
+        db
+          .select({ orgSlug: organization.slug, slug: projectIndex.slug })
+          .from(projectIndex)
+          .innerJoin(
+            organization,
+            eq(organization.id, projectIndex.organizationId)
+          )
+          .where(
+            and(
+              eq(projectIndex.id, projectId),
+              publishedProject(),
+              isNull(organization.deletedAt)
+            )
+          )
+          .limit(1)
+          .pipe(
+            Effect.orDie,
+            Effect.map(([row]) => row ?? null)
           ),
       memberIds: (projectId) =>
         db

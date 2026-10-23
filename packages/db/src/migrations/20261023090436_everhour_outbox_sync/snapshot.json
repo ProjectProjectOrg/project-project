@@ -1,0 +1,81 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "88da6993-4203-4aa1-bdcd-da72e37aa8e5",
+  "prevIds": [
+    "7cc53ac6-4c32-4f28-bf63-da11d83d9533"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "project_everhour_integration",
+        "sync_requested_at"
+      ],
+      "writes": [
+        "s|col|public.project_everhour_integration.sync_requested_at",
+        "n|col|public.project_everhour_integration.sync_requested_at",
+        "e|col|public.project_everhour_integration.sync_requested_at"
+      ],
+      "reads": [
+        "n|tbl|public.project_everhour_integration",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "project_everhour_integration",
+        "sync_claimed_until"
+      ],
+      "writes": [
+        "s|col|public.project_everhour_integration.sync_claimed_until",
+        "n|col|public.project_everhour_integration.sync_claimed_until",
+        "e|col|public.project_everhour_integration.sync_claimed_until"
+      ],
+      "reads": [
+        "n|tbl|public.project_everhour_integration",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_everhour_integration",
+        "name": "sync_requested_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_everhour_integration",
+        "name": "sync_claimed_until",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

@@ -21,7 +21,17 @@ import {
   type PersonalEverhour,
   ProjectScope
 } from "@pp/shared"
-import { and, desc, eq, inArray } from "drizzle-orm"
+import {
+  and,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  lte,
+  or
+} from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as Crypto from "effect/Crypto"
 import * as DateTime from "effect/DateTime"
@@ -34,6 +44,7 @@ import * as SqlClient from "effect/sql/SqlClient"
 import { EverhourApiKeys } from "./ApiKeys"
 import { Everhour } from "./Client"
 import type { EverhourTaskPayload } from "./Client"
+import { EVERHOUR_EVENTS } from "./Events"
 import { EverhourHost } from "./Host"
 import { addProjectUsers } from "./ProjectUsers"
 
@@ -78,7 +89,8 @@ export type EverhourIntegrationsShape = Readonly<{
     never,
     ProjectScope
   >
-  bestEffortProjectSync: () => Effect.Effect<void, never, ProjectScope>
+  syncRequested: () => Effect.Effect<void>
+  requestStaleSyncs: () => Effect.Effect<void>
 }>
 
 export class EverhourIntegrations extends Context.Service<
@@ -218,6 +230,10 @@ const toStatus = (row: ActiveLink | null): EverhourProjectIntegrationStatus =>
         lastSyncError: row.lastSyncError,
         needsSync: row.status !== "active" || row.lastSyncStatus === "error"
       }
+
+const SYNC_LEASE = Duration.minutes(10)
+const SYNC_RETRY = Duration.minutes(5)
+export const STALE_AFTER = Duration.hours(1)
 
 export const EverhourIntegrationsLive = Layer.effect(
   EverhourIntegrations,
@@ -518,6 +534,7 @@ export const EverhourIntegrationsLive = Layer.effect(
               const [link] = yield* db
                 .insert(projectIntegrationLink)
                 .values({
+                  subscribedEvents: EVERHOUR_EVENTS,
                   projectId: project.projectId,
                   organizationId: project.organizationId,
                   organizationIntegrationId: activeOrgIntegration.id,
@@ -966,26 +983,154 @@ export const EverhourIntegrationsLive = Layer.effect(
           return yield* projectStatus(projectId)
         })
 
-    const bestEffortProjectSync: EverhourIntegrationsShape["bestEffortProjectSync"] =
-      () =>
-        Effect.flatMap(
-          ProjectScope,
-          ({ orgSlug, userId, slug, permissions }) =>
-            permissions.can({ settings: ["manage"] })
-              ? runFullSync(orgSlug, userId, slug, false)
-              : Effect.void
-        ).pipe(
-          Effect.timeout(Duration.seconds(5)),
-          Effect.catch((error) =>
-            Effect.logWarning("Everhour best-effort sync failed").pipe(
-              Effect.annotateLogs({
-                errorTag: errorTag(error),
-                error: formatError(error)
-              }),
-              Effect.asVoid
+    const releaseSync = (linkId: string, requestedAt: Date | null) =>
+      Effect.gen(function* () {
+        if (requestedAt !== null)
+          yield* db
+            .update(projectEverhourIntegration)
+            .set({ syncRequestedAt: null })
+            .where(
+              and(
+                eq(projectEverhourIntegration.projectIntegrationLinkId, linkId),
+                lte(projectEverhourIntegration.syncRequestedAt, requestedAt)
+              )
+            )
+        yield* db
+          .update(projectEverhourIntegration)
+          .set({ syncClaimedUntil: null })
+          .where(
+            eq(projectEverhourIntegration.projectIntegrationLinkId, linkId)
+          )
+      }).pipe(Effect.orDie)
+
+    const claimSync = (linkId: string) =>
+      Effect.gen(function* () {
+        const now = yield* DateTime.now
+        const claimed = yield* db
+          .update(projectEverhourIntegration)
+          .set({
+            syncClaimedUntil: DateTime.toDate(
+              DateTime.addDuration(now, SYNC_LEASE)
+            )
+          })
+          .where(
+            and(
+              eq(projectEverhourIntegration.projectIntegrationLinkId, linkId),
+              or(
+                isNull(projectEverhourIntegration.syncClaimedUntil),
+                lt(
+                  projectEverhourIntegration.syncClaimedUntil,
+                  DateTime.toDate(now)
+                )
+              )
             )
           )
-        )
+          .returning({
+            linkId: projectEverhourIntegration.projectIntegrationLinkId
+          })
+          .pipe(Effect.orDie)
+        return claimed.length > 0
+      })
+
+    const syncLink = (request: {
+      readonly linkId: string
+      readonly projectId: string
+      readonly requestedAt: Date | null
+      readonly ownerId: string | null
+    }) =>
+      Effect.gen(function* () {
+        if (!(yield* claimSync(request.linkId))) return
+        const path = yield* host.projectPath(request.projectId)
+        if (request.ownerId === null || path === null) {
+          yield* Effect.logWarning(
+            "Everhour sync request dropped: no published project or syncing manager"
+          ).pipe(Effect.annotateLogs({ linkId: request.linkId }))
+          return yield* releaseSync(request.linkId, request.requestedAt)
+        }
+        const result = yield* runFullSync(
+          path.orgSlug,
+          request.ownerId,
+          path.slug,
+          false
+        ).pipe(Effect.result)
+        if (result._tag === "Success")
+          return yield* releaseSync(request.linkId, request.requestedAt)
+        const now = yield* DateTime.now
+        yield* db
+          .update(projectEverhourIntegration)
+          .set({
+            syncClaimedUntil: DateTime.toDate(
+              DateTime.addDuration(now, SYNC_RETRY)
+            )
+          })
+          .where(
+            eq(
+              projectEverhourIntegration.projectIntegrationLinkId,
+              request.linkId
+            )
+          )
+          .pipe(Effect.orDie)
+      })
+
+    const syncRequested: EverhourIntegrationsShape["syncRequested"] = () =>
+      Effect.gen(function* () {
+        const now = yield* DateTime.nowAsDate
+        const due = yield* db
+          .select({
+            linkId: projectEverhourIntegration.projectIntegrationLinkId,
+            projectId: projectIntegrationLink.projectId,
+            requestedAt: projectEverhourIntegration.syncRequestedAt,
+            ownerId: projectEverhourIntegration.lastSyncActorUserId
+          })
+          .from(projectEverhourIntegration)
+          .innerJoin(
+            projectIntegrationLink,
+            eq(
+              projectIntegrationLink.id,
+              projectEverhourIntegration.projectIntegrationLinkId
+            )
+          )
+          .where(
+            and(
+              isNotNull(projectEverhourIntegration.syncRequestedAt),
+              inArray(projectIntegrationLink.status, ["active", "broken"]),
+              or(
+                isNull(projectEverhourIntegration.syncClaimedUntil),
+                lt(projectEverhourIntegration.syncClaimedUntil, now)
+              )
+            )
+          )
+          .orderBy(projectEverhourIntegration.syncRequestedAt)
+          .limit(10)
+          .pipe(Effect.orDie)
+        yield* Effect.forEach(due, syncLink, { discard: true })
+      })
+
+    const requestStaleSyncs: EverhourIntegrationsShape["requestStaleSyncs"] =
+      () =>
+        Effect.gen(function* () {
+          const now = yield* DateTime.now
+          yield* db
+            .update(projectEverhourIntegration)
+            .set({ syncRequestedAt: DateTime.toDate(now) })
+            .where(
+              and(
+                isNull(projectEverhourIntegration.syncRequestedAt),
+                inArray(projectEverhourIntegration.status, [
+                  "active",
+                  "broken"
+                ]),
+                or(
+                  isNull(projectEverhourIntegration.lastSyncedAt),
+                  lt(
+                    projectEverhourIntegration.lastSyncedAt,
+                    DateTime.toDate(DateTime.subtractDuration(now, STALE_AFTER))
+                  )
+                )
+              )
+            )
+            .pipe(Effect.orDie)
+        })
 
     const connectProject: EverhourIntegrationsShape["connectProject"] = () =>
       Effect.flatMap(ProjectScope, ({ orgSlug, userId, slug }) =>
@@ -1046,7 +1191,8 @@ export const EverhourIntegrationsLive = Layer.effect(
           runFullSync(orgSlug, userId, slug, false)
         ),
       disconnectProject,
-      bestEffortProjectSync
+      syncRequested,
+      requestStaleSyncs
     } satisfies EverhourIntegrationsShape
   })
 )

@@ -1,4 +1,3 @@
-import { EverhourIntegrations } from "@pp/integration-everhour/Integrations"
 import * as Effect from "effect/Effect"
 
 export const dieOnMarkdown = <A, E, R>(
@@ -18,10 +17,3 @@ export const dieOnMarkdown = <A, E, R>(
     Exclude<E, { readonly _tag: "MarkdownError" | "MalformedTicketDocument" }>,
     R
   >
-
-export const thenSyncEverhour = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-  Effect.tap(effect, () =>
-    Effect.flatMap(EverhourIntegrations, (everhour) =>
-      everhour.bestEffortProjectSync()
-    )
-  )
