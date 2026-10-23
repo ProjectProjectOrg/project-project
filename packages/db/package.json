@@ -11,7 +11,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --no-file-parallelism",
+    "test": "bun run --bun vitest run --no-file-parallelism",
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix",
     "db:generate": "drizzle-kit generate",

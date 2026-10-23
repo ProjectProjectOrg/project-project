@@ -284,6 +284,8 @@ Frontend tests default to Node with per-file isolation. `domTests` in `apps/fron
 
 Shared and database tests reuse their workers. Keep their process globals and module state clean, scope database resources, and validate changes with two shuffled file-order seeds. Backend Vitest uses shorter cluster polling intervals; real retry delays, restart boundaries, and production polling settings stay unchanged.
 
+Package test scripts use Bun to run Vitest for backend, database, shared, access, and the frontend Node project. Frontend jsdom and server-core remain on Node. Use `bun run test:all` for the CI runtime selection; a direct root Vitest invocation uses the runtime that launched it. Keep runtime comparisons on unchanged tests and verify failure exit codes as well as passing results.
+
 ## Backend stack
 
 Effect HttpApi + Drizzle + Better Auth + Postgres, as set up in chapters 0–2. Extend within those choices unless we explicitly revisit them.

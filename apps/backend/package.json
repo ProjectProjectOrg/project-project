@@ -8,7 +8,7 @@
     "start": "bun --cwd ../.. --env-file=.env \"$PWD/src/main.ts\"",
     "typecheck": "tsc --noEmit && bun run typecheck:scripts",
     "typecheck:scripts": "tsc --noEmit -p tsconfig.scripts.json",
-    "test": "vitest run --no-file-parallelism",
+    "test": "bun run --bun vitest run --no-file-parallelism",
     "test:watch": "vitest",
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix",
