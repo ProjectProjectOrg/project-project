@@ -392,7 +392,12 @@ export const EverhourIntegrationsLive = Layer.effect(
             lastCheckError: error,
             updatedAt: now
           })
-          .where(eq(projectIntegrationLink.id, linkId))
+          .where(
+            and(
+              eq(projectIntegrationLink.id, linkId),
+              inArray(projectIntegrationLink.status, ["active", "broken"])
+            )
+          )
           .pipe(Effect.orDie)
         yield* db
           .update(projectEverhourIntegration)
@@ -401,10 +406,15 @@ export const EverhourIntegrationsLive = Layer.effect(
             lastSyncedAt: now,
             lastSyncStatus: syncStatus,
             lastSyncError: error,
-            ...(syncStatus === "ok" ? { lastSyncActorUserId: actorUserId } : {})
+            ...(syncStatus === "ok"
+              ? { lastSyncActorUserId: actorUserId, syncRetryAt: null }
+              : {})
           })
           .where(
-            eq(projectEverhourIntegration.projectIntegrationLinkId, linkId)
+            and(
+              eq(projectEverhourIntegration.projectIntegrationLinkId, linkId),
+              inArray(projectEverhourIntegration.status, ["active", "broken"])
+            )
           )
           .pipe(Effect.orDie)
       })
@@ -1200,6 +1210,7 @@ export const EverhourIntegrationsLive = Layer.effect(
             .where(
               and(
                 isNull(projectEverhourIntegration.syncRequestedAt),
+                isNotNull(projectEverhourIntegration.lastSyncActorUserId),
                 inArray(projectEverhourIntegration.status, [
                   "active",
                   "broken"

@@ -859,4 +859,56 @@ describe.skipIf(!databaseUrl)("Everhour background sync", () => {
       })
     }).pipe(Effect.scoped)
   )
+
+  it.live("keeps a disconnect made while a background sync runs", () =>
+    Effect.gen(function* () {
+      const fixture = yield* seed
+      const everhour = fakeEverhour([fixture.manager])
+      everhour.hooks.beforeProjectRead = () =>
+        withClient(async (client) => {
+          await client.query(
+            "update project_integration_link set status = 'disconnected' where id = $1",
+            [fixture.linkId]
+          )
+          await client.query(
+            `update project_everhour_integration set status = 'disconnected'
+               where project_integration_link_id = $1`,
+            [fixture.linkId]
+          )
+        })
+      yield* requestSync(fixture)
+      yield* syncRequested.pipe(
+        Effect.provide(servicesLayer(fixture, everhour))
+      )
+      const [row] = yield* withClient((client) =>
+        client.query<{ link: string; integration: string }>(
+          `select l.status as link, p.status as integration
+             from project_integration_link l
+             join project_everhour_integration p on p.project_integration_link_id = l.id
+             where l.id = $1`,
+          [fixture.linkId]
+        )
+      ).pipe(Effect.map((result) => result.rows))
+      expect(row).toEqual({ link: "disconnected", integration: "disconnected" })
+    }).pipe(Effect.scoped)
+  )
+
+  it.live("leaves projects that never synced out of the sweep", () =>
+    Effect.gen(function* () {
+      const fixture = yield* seed
+      const everhour = fakeEverhour([fixture.manager])
+      yield* withClient((client) =>
+        client.query(
+          `update project_everhour_integration
+             set last_sync_actor_user_id = null, last_synced_at = null
+             where project_integration_link_id = $1`,
+          [fixture.linkId]
+        )
+      )
+      yield* Effect.flatMap(EverhourIntegrations, (integrations) =>
+        integrations.requestStaleSyncs()
+      ).pipe(Effect.provide(servicesLayer(fixture, everhour)))
+      expect((yield* syncState(fixture)).sync_requested_at).toBeNull()
+    }).pipe(Effect.scoped)
+  )
 })

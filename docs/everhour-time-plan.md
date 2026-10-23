@@ -140,9 +140,10 @@ Structure sync is a full, idempotent reconcile:
   the project. A failed sync keeps the request and retries after five minutes; an event that
   arrives during a sync triggers another one. Ticket mutations never trigger a sync.
 - **Sweep** every five minutes requests a sync for every connected project not synced in
-  the last hour.
-  That covers project renames, work-type changes and edits made in Everhour, which do not
-  pass through the outbox.
+  the last hour. That covers project renames and work-type changes, which do not pass
+  through the outbox. The reconcile compares ProjectProject's state with its own link
+  tables, not with Everhour, so sections or tasks renamed, archived or deleted directly in
+  Everhour are not restored.
 - **Sprint complete** → archive section + `close` its work-type tasks (time preserved;
   reopening reopens them).
 - **Sprint delete** → never delete the Everhour tasks; archive/close and orphan them so
