@@ -76,9 +76,15 @@ import { count } from "drizzle-orm"
 import * as Config from "effect/Config"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
-import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
+import {
+  FetchHttpClient,
+  HttpRouter,
+  HttpServerRequest,
+  HttpServerResponse
+} from "effect/http"
 import { HttpApiBuilder, HttpApiSwagger } from "effect/http-api"
 import * as Layer from "effect/Layer"
+import { OtlpSerialization, OtlpTracer } from "effect/observability"
 import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
@@ -469,7 +475,19 @@ const ReaperLive = AttachmentReaperLive.pipe(
   Layer.provide(BackendInfrastructureLive)
 )
 
-const AppLive = Layer.mergeAll(ServerLive, ReconcilerLive, ReaperLive)
+// Exports traces only when OTEL_EXPORTER_OTLP_ENDPOINT is set.
+// @effect-diagnostics-next-line unstableApiUsage:off
+const TracingLive = OtlpTracer.layerFromConfig({
+  resource: { serviceName: "projectproject-backend" }
+}).pipe(
+  // @effect-diagnostics-next-line unstableApiUsage:off
+  Layer.provide(OtlpSerialization.layerJson),
+  Layer.provide(FetchHttpClient.layer)
+)
+
+const AppLive = Layer.mergeAll(ServerLive, ReconcilerLive, ReaperLive).pipe(
+  Layer.provide(TracingLive)
+)
 
 // Only boot the real server when this file is the entry point. When tests
 // import { ApiLive } from this module, `import.meta.main` is false and we
