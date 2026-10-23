@@ -1,17 +1,8 @@
-import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
-import {
-  pickActiveSprint,
-  pickEarliestPlannedSprint,
-  type Group
-} from "@pp/shared"
-import { Navigate, createFileRoute, redirect } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
-import * as Result from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
-import { PageContainer } from "@/components/shell/Page"
 import {
   statusesFor,
   statusesRequest
@@ -25,8 +16,8 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
-import { SprintDetailSkeleton } from "@/features/sprints/components/SprintDetailSkeleton"
-import { SprintsEmpty } from "@/features/sprints/components/SprintsEmpty"
+import { SprintsIndex } from "@/features/sprints/components/SprintsIndex"
+import { pickRedirectTarget } from "@/features/sprints/lib/sprintTargets"
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/"
@@ -58,51 +49,3 @@ export const Route = createFileRoute(
     })
   }
 })
-
-function pickRedirectTarget(sprints: ReadonlyArray<Group>): Group | null {
-  const active = pickActiveSprint(sprints)
-  if (active) return active
-  const planned = pickEarliestPlannedSprint(sprints)
-  if (planned) return planned
-  const completed = sprints
-    .filter((s) => s.completedAt !== null)
-    .sort(
-      (a, b) =>
-        (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0)
-    )
-  return completed[0] ?? null
-}
-
-function SprintsIndex() {
-  const { orgSlug, slug } = Route.useParams()
-  const req = sprintListRequest(orgSlug, slug)
-  const list = useAtomValue(sprintList(req))
-
-  const refresh = useAtomRefresh(sprintList(req))
-
-  return Result.matchWithError(list, {
-    onInitial: () => (
-      <PageContainer>
-        <SprintDetailSkeleton />
-      </PageContainer>
-    ),
-    onError: (error) => <ErrorPage error={error} reset={refresh} contained />,
-    onDefect: (defect) => (
-      <ErrorPage error={defect} reset={refresh} contained />
-    ),
-    onSuccess: ({ value }) => {
-      const target = pickRedirectTarget(value)
-      return target ? (
-        <Navigate
-          to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
-          params={{ orgSlug, slug, groupId: target.id }}
-          replace
-        />
-      ) : (
-        <PageContainer>
-          <SprintsEmpty />
-        </PageContainer>
-      )
-    }
-  })
-}
