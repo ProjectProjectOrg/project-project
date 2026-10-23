@@ -1,17 +1,16 @@
 import type * as Effect from "effect/Effect"
 
 import type {
-  ChecksStatus,
   BranchExists,
-  BranchListResponse,
   BranchProtected,
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
-  GithubRepoPage,
   RateLimited,
   RepoGone
-} from "./index"
+} from "./errors"
+import type { ChecksStatus, BranchListResponse } from "./schemas/GitState"
+import type { GithubRepoPage } from "./schemas/Project"
 
 export type RawBranchEntry = Readonly<{
   headRefName: string
