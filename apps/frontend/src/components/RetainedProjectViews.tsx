@@ -133,29 +133,25 @@ export function RetainedProjectViews({
   ).view
   const backlogQuery = useMemo(() => {
     if (!lastBacklog) return defaultTicketListQuery
-    const { view: _view, ...query } = lastBacklog
-    return {
+    const { view: _view, estimate, ...query } = lastBacklog
+    const normalized = normalizeEstimateFilter(estimation, estimate)
+    const next = {
       ...query,
-      sort: normalizeEstimateSort(estimation, query.sort),
-      ...withDefined(
-        "estimate",
-        normalizeEstimateFilter(estimation, query.estimate)
-      )
+      sort: normalizeEstimateSort(estimation, query.sort)
     }
+    return normalized === undefined ? next : { ...next, estimate: normalized }
   }, [lastBacklog, estimation])
   const sprintId = lastSprint ? decodeGroupId(lastSprint.groupId) : null
   const sprintQuery = useMemo(() => {
     if (!lastSprint) return defaultTicketListQuery
-    const { view: _view, ...query } = lastSprint.search
-    return {
+    const { view: _view, estimate, ...query } = lastSprint.search
+    const normalized = normalizeEstimateFilter(estimation, estimate)
+    const next = {
       ...query,
       sort: normalizeEstimateSort(estimation, query.sort),
-      ...withDefined(
-        "estimate",
-        normalizeEstimateFilter(estimation, query.estimate)
-      ),
       groupId: sprintId ? [sprintId] : query.groupId
     }
+    return normalized === undefined ? next : { ...next, estimate: normalized }
   }, [lastSprint, sprintId, estimation])
 
   return (
@@ -204,6 +200,3 @@ export function RetainedProjectViews({
     </Activity>
   )
 }
-
-const withDefined = <K extends string, V>(key: K, value: V | undefined) =>
-  value === undefined ? {} : ({ [key]: value } as Record<K, V>)
