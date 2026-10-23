@@ -78,6 +78,17 @@ describe("EverhourLive response decoding", () => {
     }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
   )
 
+  it.effect("treats an omitted project user list as unknown, not empty", () =>
+    Effect.gen(function* () {
+      stubFetch(
+        vi.fn(async () => jsonResponse({ id: "ev:1", name: "Website" }))
+      )
+      const everhour = yield* Everhour
+      const project = yield* everhour.getProject("api-key", "ev:1")
+      expect(project.users).toBeNull()
+    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+  )
+
   it.effect("reports time on an unassigned project as access denied", () =>
     Effect.gen(function* () {
       stubFetch(

@@ -1,0 +1,1 @@
+ALTER TABLE "everhour_time_attribution" ADD COLUMN "origin" text DEFAULT 'pp' NOT NULL;

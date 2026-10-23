@@ -17,7 +17,7 @@ export interface EverhourProject {
   readonly id: string
   readonly name: string
   readonly type: "board" | "list"
-  readonly users: ReadonlyArray<string>
+  readonly users: ReadonlyArray<string> | null
 }
 
 export interface EverhourSection {
@@ -95,6 +95,9 @@ export interface EverhourShape {
     projectId: string,
     input: { readonly name: string }
   ) => Effect.Effect<EverhourProject, EverhourClientError>
+  readonly teamUserIds: (
+    apiKey: string
+  ) => Effect.Effect<ReadonlyArray<string>, EverhourClientError>
   readonly assignProjectUsers: (
     apiKey: string,
     projectId: string,

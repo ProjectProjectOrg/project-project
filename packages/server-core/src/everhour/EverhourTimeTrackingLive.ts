@@ -24,6 +24,7 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
+import * as SqlClient from "effect/sql/SqlClient"
 
 import { Access } from "../access/Access"
 import { GroupDocs } from "../groups/GroupDocs"
@@ -39,6 +40,7 @@ import {
   EverhourTimeTracking,
   type EverhourTimeTrackingShape
 } from "./EverhourTimeTracking"
+import { addProjectUsers } from "./ProjectUsers"
 
 const makeTicketId = Schema.decodeSync(TicketId)
 const makeGroupId = Schema.decodeSync(GroupId)
@@ -120,6 +122,7 @@ export const EverhourTimeTrackingLive = Layer.effect(
   EverhourTimeTracking,
   Effect.gen(function* () {
     const db = yield* Db
+    const sql = yield* SqlClient.SqlClient
     const everhour = yield* Everhour
     const groupDocs = yield* GroupDocs
     const ticketDocs = yield* TicketDocs
@@ -298,9 +301,14 @@ export const EverhourTimeTrackingLive = Layer.effect(
             ...context,
             seconds: entry.seconds,
             date: record.date,
+            origin: "pp",
             updatedAt: now
           })
-          .onConflictDoNothing()
+          .onConflictDoUpdate({
+            target: everhourTimeAttribution.everhourEntryId,
+            set: { ...context, origin: "pp", updatedAt: now },
+            setWhere: eq(everhourTimeAttribution.origin, "everhour")
+          })
           .pipe(Effect.orDie)
       })
 
@@ -340,6 +348,7 @@ export const EverhourTimeTrackingLive = Layer.effect(
               userId: template.userId,
               seconds: entry.seconds,
               date: record.date,
+              origin: "everhour" as const,
               updatedAt: now
             }))
           )
@@ -367,17 +376,12 @@ export const EverhourTimeTrackingLive = Layer.effect(
       Effect.gen(function* () {
         if (link.lastSyncActorUserId === null) return false
         const owner = yield* actorApiKey(link.lastSyncActorUserId)
-        const project = yield* everhour.getProject(
-          owner.apiKey,
-          link.everhourProjectId
-        )
-        if (project.users.includes(everhourUserId)) return false
-        yield* everhour.assignProjectUsers(
+        return yield* addProjectUsers(
+          { everhour, sql },
           owner.apiKey,
           link.everhourProjectId,
-          [...project.users, everhourUserId]
+          [everhourUserId]
         )
-        return true
       }).pipe(
         Effect.catch((error) =>
           Effect.logWarning("Everhour project assignment failed").pipe(

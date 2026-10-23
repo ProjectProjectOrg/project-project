@@ -38,6 +38,7 @@ import {
   EverhourIntegrations,
   type EverhourIntegrationsShape
 } from "./EverhourIntegrations"
+import { addProjectUsers } from "./ProjectUsers"
 
 type MutableSummary = {
   sectionsCreated: number
@@ -379,7 +380,7 @@ export const EverhourIntegrationsLive = Layer.effect(
             lastSyncedAt: now,
             lastSyncStatus: syncStatus,
             lastSyncError: error,
-            lastSyncActorUserId: actorUserId
+            ...(syncStatus === "ok" ? { lastSyncActorUserId: actorUserId } : {})
           })
           .where(
             eq(projectEverhourIntegration.projectIntegrationLinkId, linkId)
@@ -387,11 +388,7 @@ export const EverhourIntegrationsLive = Layer.effect(
           .pipe(Effect.orDie)
       })
 
-    const assignProjectMembers = (
-      apiKey: string,
-      link: ActiveLink,
-      assigned: ReadonlyArray<string>
-    ) =>
+    const assignProjectMembers = (apiKey: string, link: ActiveLink) =>
       Effect.gen(function* () {
         const members = yield* db
           .select({ everhourUserId: userEverhourIntegration.everhourUserId })
@@ -402,15 +399,26 @@ export const EverhourIntegrationsLive = Layer.effect(
           )
           .where(eq(projectMember.projectId, link.projectId))
           .pipe(Effect.orDie)
-        const missing = [
-          ...new Set(members.map((member) => member.everhourUserId))
-        ].filter((id) => !assigned.includes(id))
-        if (missing.length === 0) return
-        yield* everhour.assignProjectUsers(apiKey, link.everhourProjectId, [
-          ...assigned,
-          ...missing
-        ])
-      })
+        const team = new Set(yield* everhour.teamUserIds(apiKey))
+        yield* addProjectUsers(
+          { everhour, sql },
+          apiKey,
+          link.everhourProjectId,
+          members
+            .map((member) => member.everhourUserId)
+            .filter((id) => team.has(id))
+        )
+      }).pipe(
+        Effect.catch((error) =>
+          Effect.logWarning("Everhour project member assignment failed").pipe(
+            Effect.annotateLogs({
+              everhourProjectId: link.everhourProjectId,
+              errorTag: errorTag(error),
+              error: formatError(error)
+            })
+          )
+        )
+      )
 
     const createOrReuseProjectLink = (
       orgSlug: string,
@@ -776,7 +784,7 @@ export const EverhourIntegrationsLive = Layer.effect(
             )
         const index = yield* indexById(project.projectId)
         const summary = emptySummary()
-        const remote = yield* everhour
+        yield* everhour
           .getProject(apiKey, link.everhourProjectId)
           .pipe(
             Effect.catch((error) =>
@@ -804,7 +812,7 @@ export const EverhourIntegrationsLive = Layer.effect(
             )
             .pipe(Effect.orDie)
         }
-        yield* assignProjectMembers(apiKey, link, remote.users)
+        yield* assignProjectMembers(apiKey, link)
         yield* syncSections(apiKey, link, summary, orgSlug, slug)
         const orgIntegration = yield* db.query.organizationIntegration
           .findFirst({

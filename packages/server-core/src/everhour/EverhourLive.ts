@@ -51,10 +51,9 @@ const ProjectResponse = Schema.Struct({
     Schema.withDecodingDefaultTypeKey(Effect.succeed(""))
   ),
   type: Schema.optional(Schema.String),
-  users: Schema.Array(ExternalId).pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
-  )
+  users: Schema.optional(Schema.Array(ExternalId))
 })
+const TeamResponse = Schema.Array(Schema.Struct({ id: ExternalId }))
 const SectionResponse = Schema.Struct({
   id: ExternalId,
   name: Schema.String.pipe(
@@ -139,7 +138,7 @@ const mapProject = (
       id: String(project.id),
       name: project.name,
       type: project.type === "list" ? "list" : "board",
-      users: project.users.map(String)
+      users: project.users === undefined ? null : project.users.map(String)
     }))
   )
 
@@ -372,6 +371,14 @@ export const EverhourLive = Layer.effect(
             `/projects/${encodeURIComponent(projectId)}`,
             { name: input.name, type: "board" },
             mapProject
+          )
+        ),
+      teamUserIds: (apiKey) =>
+        withFetch(
+          request(apiKey, "GET", "/team/users", undefined, (value) =>
+            decodeResponse(TeamResponse, value).pipe(
+              Effect.map((users) => users.map((user) => String(user.id)))
+            )
           )
         ),
       assignProjectUsers: (apiKey, projectId, users) =>

@@ -631,6 +631,9 @@ export const everhourTimeAttribution = pgTable(
     userId: text("user_id").notNull(),
     seconds: integer("seconds").notNull(),
     date: text("date").notNull(),
+    origin: text("origin", { enum: ["pp", "everhour"] })
+      .notNull()
+      .default("pp"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull()
   },
   (t) => [

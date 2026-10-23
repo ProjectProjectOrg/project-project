@@ -5,10 +5,12 @@ import * as BunServices from "@effect/platform-bun/BunServices"
 import { it } from "@effect/vitest"
 import { DbLive, PgLive } from "@pp/db"
 import {
+  EverhourError,
   EverhourProjectAccessDenied,
   ProjectScope,
   type ProjectScopeShape
 } from "@pp/shared"
+import type * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import pg from "pg"
@@ -62,11 +64,21 @@ type FakeEverhour = Readonly<{
   service: EverhourShape
   project: { users: Array<string> }
   assignedWith: Array<string>
+  settings: {
+    team: ReadonlyArray<string>
+    failProjectRead: boolean
+    assignDelay: Duration.Input
+  }
 }>
 
 const fakeEverhour = (users: ReadonlyArray<string>): FakeEverhour => {
   const project = { users: [...users] }
   const assignedWith: Array<string> = []
+  const settings: FakeEverhour["settings"] = {
+    team: [],
+    failProjectRead: false,
+    assignDelay: 0
+  }
   const records = new Map<string, EverhourTimeRecord>()
   let nextEntry = 1000
   const userOf = (apiKey: string) => apiKey.replace(/^key-/, "")
@@ -78,15 +90,23 @@ const fakeEverhour = (users: ReadonlyArray<string>): FakeEverhour => {
   })
   const service: EverhourShape = {
     getCurrentUser: unexpected("getCurrentUser"),
-    getProject: () => Effect.succeed(remote()),
+    getProject: () =>
+      settings.failProjectRead
+        ? Effect.fail(new EverhourError({ message: "Everhour is down" }))
+        : Effect.sync(remote),
+    teamUserIds: () => Effect.sync(() => settings.team),
     createProject: unexpected("createProject"),
     updateProject: () => Effect.succeed(remote()),
     assignProjectUsers: (apiKey, _projectId, next) =>
-      Effect.sync(() => {
-        assignedWith.push(apiKey)
-        project.users = [...next]
-        return remote()
-      }),
+      Effect.sleep(settings.assignDelay).pipe(
+        Effect.andThen(
+          Effect.sync(() => {
+            assignedWith.push(apiKey)
+            project.users = [...next]
+            return remote()
+          })
+        )
+      ),
     createSection: (_apiKey, _projectId, input) =>
       Effect.succeed({ id: `section-${input.name}`, ...input }),
     updateSection: (_apiKey, id, input) => Effect.succeed({ id, ...input }),
@@ -122,7 +142,7 @@ const fakeEverhour = (users: ReadonlyArray<string>): FakeEverhour => {
     createWebhook: unexpected("createWebhook"),
     deleteWebhook: unexpected("deleteWebhook")
   }
-  return { service, project, assignedWith }
+  return { service, project, assignedWith, settings }
 }
 
 const seed = Effect.gen(function* () {
@@ -410,6 +430,54 @@ describe.skipIf(!databaseUrl)("Everhour time tracking", () => {
         }).pipe(Effect.provide(servicesLayer(fixture, everhour)))
       }).pipe(Effect.scoped)
   )
+
+  it.live(
+    "lets PP's own write take over an entry the webhook recorded first",
+    () =>
+      Effect.gen(function* () {
+        const fixture = yield* seed
+        const everhour = fakeEverhour([fixture.manager, fixture.developer])
+        yield* Effect.gen(function* () {
+          const developer = as(fixture, fixture.developer)
+          yield* developer(logTime("T-1", 600))
+          const [recordId] = yield* recordFor(fixture)
+          const time = yield* EverhourTimeTracking
+          yield* time.applyWebhookTimeEvent(fixture.linkId, {
+            id: recordId!,
+            taskId: "ev:task-dev",
+            userId: fixture.developer,
+            seconds: 900,
+            date: "2026-10-23",
+            comment: null,
+            history: [
+              { id: "1000", seconds: 600 },
+              { id: "1001", seconds: 300 }
+            ]
+          })
+          yield* developer(logTime("T-2", 300))
+          expect(yield* developer(ticketSeconds("T-1"))).toBe(600)
+          expect(yield* developer(ticketSeconds("T-2"))).toBe(300)
+        }).pipe(Effect.provide(servicesLayer(fixture, everhour)))
+      }).pipe(Effect.scoped)
+  )
+
+  it.live("keeps both members when two of them are assigned at once", () =>
+    Effect.gen(function* () {
+      const fixture = yield* seed
+      const everhour = fakeEverhour([fixture.manager])
+      everhour.settings.assignDelay = "100 millis"
+      yield* Effect.all(
+        [
+          as(fixture, fixture.developer)(logTime("T-1", 600)),
+          as(fixture, fixture.newcomer)(logTime("T-2", 300))
+        ],
+        { concurrency: "unbounded" }
+      ).pipe(Effect.provide(servicesLayer(fixture, everhour)))
+      expect([...everhour.project.users].sort()).toEqual(
+        [fixture.manager, fixture.developer, fixture.newcomer].sort()
+      )
+    }).pipe(Effect.scoped)
+  )
 })
 
 describe.skipIf(!databaseUrl)("Everhour project sync", () => {
@@ -425,6 +493,11 @@ describe.skipIf(!databaseUrl)("Everhour project sync", () => {
           )
         )
         const everhour = fakeEverhour([fixture.manager, "everhour-only-user"])
+        everhour.settings.team = [
+          fixture.manager,
+          fixture.developer,
+          "everhour-only-user"
+        ]
         yield* as(
           fixture,
           fixture.manager
@@ -439,6 +512,56 @@ describe.skipIf(!databaseUrl)("Everhour project sync", () => {
           "everhour-only-user",
           fixture.developer
         ])
+      }).pipe(Effect.scoped)
+  )
+
+  it.live("leaves members of another Everhour team out of the project", () =>
+    Effect.gen(function* () {
+      const fixture = yield* seed
+      const everhour = fakeEverhour([fixture.manager])
+      everhour.settings.team = [fixture.manager]
+      yield* as(
+        fixture,
+        fixture.manager
+      )(
+        Effect.flatMap(EverhourIntegrations, (integrations) =>
+          integrations.syncProject()
+        )
+      ).pipe(Effect.provide(servicesLayer(fixture, everhour)))
+      expect(everhour.assignedWith).toEqual([])
+      expect(everhour.project.users).toEqual([fixture.manager])
+    }).pipe(Effect.scoped)
+  )
+
+  it.live(
+    "keeps the last successful manager when another manager's sync fails",
+    () =>
+      Effect.gen(function* () {
+        const fixture = yield* seed
+        const everhour = fakeEverhour([fixture.manager])
+        everhour.settings.failProjectRead = true
+        yield* as(
+          fixture,
+          fixture.developer
+        )(
+          Effect.flatMap(EverhourIntegrations, (integrations) =>
+            integrations.syncProject()
+          )
+        ).pipe(Effect.flip, Effect.provide(servicesLayer(fixture, everhour)))
+        const [row] = yield* withClient((client) =>
+          client.query<{
+            last_sync_actor_user_id: string | null
+            last_sync_status: string
+          }>(
+            `select last_sync_actor_user_id, last_sync_status from project_everhour_integration
+             where project_integration_link_id = $1`,
+            [fixture.linkId]
+          )
+        ).pipe(Effect.map((result) => result.rows))
+        expect(row).toEqual({
+          last_sync_actor_user_id: fixture.manager,
+          last_sync_status: "error"
+        })
       }).pipe(Effect.scoped)
   )
 })
