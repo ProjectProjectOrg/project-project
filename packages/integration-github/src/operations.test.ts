@@ -37,14 +37,14 @@ vi.mock("./clients", () => ({
 
 const { GitHubLive } = await import("./GitHubLive")
 
-const fakeHost: GitHubHost["Service"] = {
+const fakeHost: Pick<GitHubHost["Service"], "userAccessToken"> = {
   userAccessToken: () => Effect.succeed("user-token")
 }
 
 const layer = GitHubLive.pipe(
   Layer.provide(
     Layer.mergeAll(
-      Layer.succeed(GitHubHost, fakeHost),
+      Layer.mock(GitHubHost, fakeHost),
       GitHubRequest.layer,
       ProjectStateCache.layer
     )

@@ -6,6 +6,11 @@ import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { migrationsFolder } from "@pp/db"
 import { DbLive } from "@pp/db"
+import { GitHub } from "@pp/integration-github/GitHub"
+import type { GitHubShape } from "@pp/integration-github/GitHub"
+import { GitHubIntegrations } from "@pp/integration-github/GitHubIntegrations"
+import { GitHubIntegrationsLive } from "@pp/integration-github/GitHubIntegrationsLive"
+import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { DateTime, Effect, Layer, Redacted } from "effect"
@@ -14,10 +19,7 @@ import * as Exit from "effect/Exit"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { GitHub } from "./GitHub"
-import type { GitHubShape } from "./GitHub"
-import { GitHubIntegrations } from "./GitHubIntegrations"
-import { GitHubIntegrationsLive } from "./GitHubIntegrationsLive"
+import { GitHubHostLive } from "./HostLive"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const date = (value: string) => DateTime.toDate(DateTime.makeUnsafe(value))
@@ -46,10 +48,12 @@ const makeGithub = (
 })
 
 describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
-  const userIds: string[] = []
-  const organizationIds: string[] = []
+  const userIds: Array<string> = []
+  const organizationIds: Array<string> = []
   const integrationLayer = GitHubIntegrationsLive.pipe(
     Layer.provide(Layer.succeed(GitHub, makeGithub())),
+    Layer.provide(GitHubHostLive),
+    Layer.provide(Layer.mock(BetterAuth, {})),
     Layer.provide(BunCrypto.layer),
     Layer.provide(
       DbLive.pipe(
@@ -191,6 +195,8 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       )
       const raceLayer = GitHubIntegrationsLive.pipe(
         Layer.provide(Layer.succeed(GitHub, raceGithub)),
+        Layer.provide(GitHubHostLive),
+        Layer.provide(Layer.mock(BetterAuth, {})),
         Layer.provide(BunCrypto.layer),
         Layer.provide(
           DbLive.pipe(

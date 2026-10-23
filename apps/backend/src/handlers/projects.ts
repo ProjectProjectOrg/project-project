@@ -4,8 +4,8 @@
 // (HTTP 500). It represents corruption (decode failure, fs blip), not a
 // routine outcome the wire needs to model.
 
+import { GitHubIntegrations } from "@pp/integration-github/GitHubIntegrations"
 import { Attachments } from "@pp/server-core/attachments/Attachments"
-import { GitHubIntegrations } from "@pp/server-core/github/GitHubIntegrations"
 import { Projects } from "@pp/server-core/projects/Projects"
 import { Tickets } from "@pp/server-core/tickets/Tickets"
 import { AppApi, ProjectScope } from "@pp/shared"

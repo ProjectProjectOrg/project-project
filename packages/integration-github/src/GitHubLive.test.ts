@@ -22,11 +22,11 @@ const { GitHubLive } = await import("./GitHubLive")
 
 const appAuthMock = vi.mocked(appAuth)
 
-const fakeHost: GitHubHost["Service"] = {
+const fakeHost: Pick<GitHubHost["Service"], "userAccessToken"> = {
   userAccessToken: () => Effect.die("not implemented")
 }
 
-const FakeBetterAuthLive = Layer.succeed(GitHubHost, fakeHost)
+const FakeBetterAuthLive = Layer.mock(GitHubHost, fakeHost)
 
 const buildGitHubLayer = (config: Map<string, string>) =>
   Layer.build(
