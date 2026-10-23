@@ -3,7 +3,6 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { describe, expect } from "vitest"
 
-import { databaseLayer } from "../../server-core/test/database"
 import type { EverhourTimeRecord } from "../src/Client"
 import {
   EverhourTimeTracking,
@@ -14,6 +13,7 @@ import {
   EverhourWebhooksLive,
   parseTimeRecord
 } from "../src/Webhooks"
+import { databaseLayer } from "./database"
 
 const unexpected = (method: string): Effect.Effect<never> =>
   Effect.die(new Error(`unexpected ${method} call`))

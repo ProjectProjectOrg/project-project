@@ -11,6 +11,7 @@ import { afterEach, describe, expect, vi } from "vitest"
 import { Everhour, EverhourLive } from "../src/Client"
 
 const isEverhourError = Schema.is(EverhourError)
+const isEverhourProjectAccessDenied = Schema.is(EverhourProjectAccessDenied)
 
 const jsonResponse = (body: Schema.Json) =>
   new Response(JSON.stringify(body), {
@@ -114,7 +115,7 @@ describe("EverhourLive response decoding", () => {
           date: "2026-10-23"
         })
       )
-      expect(Schema.is(EverhourProjectAccessDenied)(error)).toBe(true)
+      expect(isEverhourProjectAccessDenied(error)).toBe(true)
     }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
   )
 
