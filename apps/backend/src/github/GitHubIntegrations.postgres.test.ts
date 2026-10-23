@@ -339,7 +339,10 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
             return {
               defaultBranch: "main",
               existingBranches: new Set(),
-              prByBranch: new Map()
+              prByBranch: new Map(),
+              mergedPrsByBranch: new Map(),
+              openPullRequestText: new Map(),
+              fetchedAt: date("2026-04-01T00:00:00Z")
             }
           })
           yield* cache.cachedProjectStates(
@@ -403,7 +406,10 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
             return {
               defaultBranch: "main",
               existingBranches: new Set(),
-              prByBranch: new Map()
+              prByBranch: new Map(),
+              mergedPrsByBranch: new Map(),
+              openPullRequestText: new Map(),
+              fetchedAt: date("2026-04-01T00:00:00Z")
             }
           })
           yield* cache.cachedProjectStates("repo", "123", "repo", fetch)
