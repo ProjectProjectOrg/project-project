@@ -3,11 +3,11 @@ import { createHash } from "node:crypto"
 
 import type { Db } from "@pp/db"
 import { githubPullRequestReconciliation } from "@pp/db/schema"
+import type { GitHubPullRequestWebhookChange } from "@pp/shared"
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 
 import { pullRequestLanded } from "../tickets/ticketGitStatePlanner"
-import type { GitHubPullRequestWebhookChange } from "./GitHubWebhooks"
 
 export const rememberPullRequest = (
   db: Db["Service"],

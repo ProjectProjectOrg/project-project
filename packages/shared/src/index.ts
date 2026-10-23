@@ -60,3 +60,4 @@ export * from "./schemas/ProjectEvent"
 
 export * from "./github"
 export * from "./ticketReferences"
+export * from "./githubWebhooks"

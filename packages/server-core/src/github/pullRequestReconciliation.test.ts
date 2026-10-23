@@ -1,7 +1,7 @@
+import type { GitHubPullRequestWebhookChange } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import { expect, it } from "vitest"
 
-import type { GitHubPullRequestWebhookChange } from "./GitHubWebhooks"
 import { reconcilePullRequestChange } from "./pullRequestReconciliation"
 
 const change: GitHubPullRequestWebhookChange = {
