@@ -51,6 +51,30 @@ When you hit one of these, **stop and ask**. Present the options with tradeoffs;
 - **Fluid Functionalism components** from <https://www.fluidfunctionalism.com>, installed through the shadcn registry (`npx shadcn@latest registry add @fluid`). Also Radix-backed, so they coexist cleanly with shadcn defaults. Prefer these where they exist for richer motion-aware primitives before reaching for something custom.
 - Don't add other UI libraries (Headless UI, Mantine, Chakra, etc.) without asking — see the architecture rule above.
 
+### Frontend layout
+
+Code in `apps/frontend/src` is organised by feature:
+
+```
+features/<feature>/
+  atoms/        effect-atom reads and mutations
+  components/   feature UI
+  forms/<name>/ TanStack forms (opts.ts, index.tsx, one file per step)
+  hooks/        useX.ts
+  lib/          pure feature logic and its tests
+components/
+  ui/           design-system primitives only (shadcn and Fluid)
+  shell/        app chrome: layout, sidebar, nav, page and settings scaffolding, ErrorPage, NotFoundPage
+lib/            cross-feature helpers only
+hooks/          cross-feature hooks only
+routes/         route files
+```
+
+- **Routes stay thin.** A route file holds `createFileRoute` options (`beforeLoad`, `loader`, `validateSearch`) and renders one component imported from `features/*` or `components/shell`. Page components read params and search through `getRouteApi("<route id>")`; nothing outside `routes/` imports from `routes/`. Tests of route modules sit beside them with a `-` prefix so the router ignores them.
+- **Placement.** Code used by one feature lives in that feature; `lib/`, `hooks/` and `components/shell` hold what several features share.
+- **Naming.** Directories are kebab-case. React component files are PascalCase (`TicketHoverCard.tsx`), hooks are `useX.ts`, other modules are camelCase (`activityGroups.ts`). `components/ui` keeps the kebab-case names the shadcn CLI generates. A component folder such as `ticket-list/` may hold its private helpers and hooks.
+- Tests sit beside the module they test.
+
 ### Types: readonly type aliases, never interfaces
 
 Declare object shapes as `type` aliases wrapped in `Readonly<>`. Never use `interface`, and never
@@ -142,7 +166,7 @@ Within each message file, group keys by prefix in the order listed above, then s
 Multi-field and multi-step forms use **TanStack Form** (`@tanstack/react-form`, currently the v2 alpha). Setup follows the conventions in the `omgevingschat-platform` web app:
 
 - `apps/frontend/src/lib/form.ts` builds the hook via `createFormHook` and exports `useAppForm`, `useFormContext`, `appFormOptions`, `defineAppFieldGroup`, plus `useFormValues`. In v2 `createFormHook` no longer takes contexts, so there is no `form-context.ts`.
-- A form lives in `apps/frontend/src/forms/<name>/`, with shared options and schemas in `opts.ts` and the form in `index.tsx`. Multi-step forms get one file per step beside them.
+- A form lives in `apps/frontend/src/features/<feature>/forms/<name>/`, with shared options and schemas in `opts.ts` and the form in `index.tsx`. Multi-step forms get one file per step beside them (`SourceStep.tsx`, `CropStep.tsx`).
 
 **Validators are Effect Schema, not zod.** TanStack Form accepts any Standard Schema, and `Schema.toStandardSchemaV1` (Effect v4) produces one — so `@pp/shared` schemas can be used directly. Do not add zod; it is not a dependency and a second schema library is not wanted.
 
@@ -230,25 +254,25 @@ Never disable a control on `isSubmitting` when an atom is doing the work — pas
 **`waiting` means a mutation is in flight, never a read.** Once a wrapper holds a success it ignores a `Success { waiting: true }` from its source — see the `Success` branch of the source subscription in `Atom.optimistic` (`node_modules/effect/src/reactivity/Atom.ts`, around line 2557), which only adopts a source value that is not waiting and is not older. A refetch behind an already-loaded view is therefore invisible through the wrapper, and any loading state driven off a wrapper's `waiting` is dead code. Two consequences:
 
 - Surface `waiting` with `animate-pulse` on the data the mutation changed, never on idle controls.
-- When a view genuinely needs the read's in-flight state, expose it next to the wrapper as its own atom — `projectGitStatesWaiting` in `atoms/github.ts` is `Atom.readable((get) => get(gitStatesQuery(req)).waiting)`. For the same reason, don't wrap a read that nothing mutates: the wrapper costs the refetch transition and buys nothing.
+- When a view genuinely needs the read's in-flight state, expose it next to the wrapper as its own atom — `projectGitStatesWaiting` in `features/github/atoms/github.ts` is `Atom.readable((get) => get(gitStatesQuery(req)).waiting)`. For the same reason, don't wrap a read that nothing mutates: the wrapper costs the refetch transition and buys nothing.
 - A form reads its own submitting and error state off the mutation atom rather than mirroring it into `useState`: `const state = useAtomValue(createProject(req))` gives both `state.waiting` and the failure to render. Forms wired through reusable shells (`InlineForm`, `ConfirmButton`) keep their imperative `setBusy` / `setError` API — the shell doesn't know which atom is firing — as do callsites needing richer state than the atom carries, such as which row of a list is in flight.
 
 Types obey the repo rule above — nested `Readonly<{ ... }>`, `ReadonlyArray<T>`, `readonly [A, B]`, no `interface`, no per-field `readonly`. That covers request types, mutation inputs and composed view-model types.
 
-Reference: `apps/frontend/src/atoms/backlog.ts` (one sections query plus on-demand cursor pages, with sort-aware placement in the reducers), `apps/frontend/src/atoms/sprintBoard.ts` (a region composed from two queries), `apps/frontend/src/atoms/tags.ts` (`tagsFor` as a plain aggregate, `tagEditor` as a region composed from two wrappers).
+Reference: `apps/frontend/src/features/tickets/atoms/backlog.ts` (one sections query plus on-demand cursor pages, with sort-aware placement in the reducers), `apps/frontend/src/features/sprints/atoms/sprintBoard.ts` (a region composed from two queries), `apps/frontend/src/features/tags/atoms/tags.ts` (`tagsFor` as a plain aggregate, `tagEditor` as a region composed from two wrappers).
 
 ## Rendering atom AsyncResults — `AsyncResult.matchWithError` + `ErrorPage`
 
 A `useAtomValue` on a runtime atom returns a `AsyncResult<A, E>` with four variants: `Initial`, `Success`, `Failure-with-typed-error`, `Failure-with-defect`. **Always handle all four — never just check `AsyncResult.isSuccess` and render a forever-loading state on anything else.** That swallows real errors silently and makes failures invisible.
 
-**The canonical helper is `AsyncResult.matchWithError`** from `effect/reactivity/AsyncResult`. It splits the failure path into `onError` (your typed `E` channel — `NotFound`, `Unauthorized`, etc.) and `onDefect` (unexpected throws, decode failures, interruptions). Failed renders use the shared `ErrorPage` component (`apps/frontend/src/components/ErrorPage.tsx`), which wraps the dither shell with a retry button and a home link. Pass `contained` when rendering inside a settings panel or any non-full-page surface.
+**The canonical helper is `AsyncResult.matchWithError`** from `effect/reactivity/AsyncResult`. It splits the failure path into `onError` (your typed `E` channel — `NotFound`, `Unauthorized`, etc.) and `onDefect` (unexpected throws, decode failures, interruptions). Failed renders use the shared `ErrorPage` component (`apps/frontend/src/components/shell/ErrorPage.tsx`), which wraps the dither shell with a retry button and a home link. Pass `contained` when rendering inside a settings panel or any non-full-page surface.
 
 The minimal pattern:
 
 ```tsx
 import { useAtomValue } from "@effect/atom-react"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { ErrorPage } from "@/components/ErrorPage"
+import { ErrorPage } from "@/components/shell/ErrorPage"
 
 function ProjectStatusesSettings() {
   const result = useAtomValue(statusesFor(statusesRequest(orgSlug, slug)))
@@ -270,7 +294,7 @@ A few details worth knowing:
 - **Don't combine `AsyncResult.matchWithError` with a separate `if (!AsyncResult.isSuccess) ...` early return.** Pick one. The `match` form handles every case; mixing both is dead code and a refactor hazard.
 - **For tiny callsites where you only care about success vs anything else** (e.g. a sidebar count that defaults to 0), `AsyncResult.isSuccess(result) ? result.value : fallback` is fine. The match form pays for itself once the failure case needs visible UI.
 
-Reference: `apps/frontend/src/routes/_authed/orgs/$orgSlug/projects/index.tsx` for the standard project-list pattern, and for reading a mutation atom's own state next to it. `AsyncResult` is imported as `Result` in most components; either alias is fine, but keep one per file.
+Reference: `apps/frontend/src/features/projects/components/Projects.tsx` for the standard project-list pattern, and `CreateProjectRow.tsx` beside it for reading a mutation atom's own state next to it. `AsyncResult` is imported as `Result` in most components; either alias is fine, but keep one per file.
 
 ## Test scope
 
