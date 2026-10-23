@@ -1,3 +1,4 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto"
 
 import * as Effect from "effect/Effect"

@@ -9,7 +9,7 @@ import type {
 import { useNavigate } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { Archive } from "lucide-react"
 import { useMemo, useState } from "react"
 

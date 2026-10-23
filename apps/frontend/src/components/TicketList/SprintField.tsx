@@ -1,7 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { GroupPolicy } from "@pp/access/policies"
 import { type Group, type GroupId, type TicketId } from "@pp/shared"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { Plus } from "lucide-react"
 import { useMemo, useState } from "react"
 

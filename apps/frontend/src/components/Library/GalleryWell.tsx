@@ -13,7 +13,7 @@ import {
   type TemplateDraft
 } from "@pp/shared"
 import * as Exit from "effect/Exit"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { AnimatePresence, motion } from "motion/react"
 import { useMemo, useState, type ReactNode } from "react"
 

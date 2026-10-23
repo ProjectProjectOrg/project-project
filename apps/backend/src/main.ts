@@ -1,4 +1,10 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createHmac, timingSafeEqual } from "node:crypto"
+
+import { Db } from "@pp/db"
+import { publishedProject } from "@pp/db/projectVisibility"
+import { projectIndex } from "@pp/db/schema"
+import { SlackRuntimeLive } from "@pp/integration-slack/Runtime"
 // apps/backend/src/main.ts
 //
 // Backend entry point. This file's only job is to wire up the HttpApi from
@@ -56,10 +62,6 @@ import { createHmac, timingSafeEqual } from "node:crypto"
 //   long-lived resources; launch keeps the server alive for the lifetime of
 //   the process. `BunRuntime.runMain` adds Bun-specific signal handling and
 //   exit-code mapping.
-
-import { Db } from "@pp/db"
-import { publishedProject } from "@pp/db/projectVisibility"
-import { projectIndex } from "@pp/db/schema"
 import { TicketActivityRecoveryLive } from "@pp/server-core/activity/TicketActivityLive"
 import { AttachmentReaperLive } from "@pp/server-core/attachments/AttachmentReaperLive"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
@@ -74,16 +76,12 @@ import { count } from "drizzle-orm"
 import * as Config from "effect/Config"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
+import { HttpApiBuilder, HttpApiSwagger } from "effect/http-api"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
-import {
-  HttpRouter,
-  HttpServerRequest,
-  HttpServerResponse
-} from "effect/unstable/http"
-import { HttpApiBuilder, HttpApiSwagger } from "effect/unstable/httpapi"
 
 import { isClosedAuthPath } from "./auth/orgAccess"
 import { TicketActivityHandlerLive } from "./handlers/activity"
@@ -116,6 +114,8 @@ import { JiraMigrationsHandlerLive } from "./jira/MigrationHandlers"
 import { jiraOauthRoutes } from "./jira/OAuthRoutes"
 import { McpLive } from "./Layers/Mcp"
 import { BackendHttpServicesLive, BackendInfrastructureLive } from "./runtime"
+import { SlackHandlerLive } from "./slack/Handlers"
+import { slackOAuthRoutes } from "./slack/OAuthRoutes"
 
 // Exported so tests can compose them without booting a real Bun server.
 export const HealthHandlerLive = HttpApiBuilder.group(
@@ -164,7 +164,7 @@ export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(InvitationsHandlerLive),
   Layer.provide(ProjectsHandlerLive),
   Layer.provide(EverhourHandlerLive),
-  Layer.provide(FigmaHandlerLive),
+  Layer.provide(Layer.mergeAll(FigmaHandlerLive, SlackHandlerLive)),
   Layer.provide(JiraHandlerLive),
   Layer.provide(JiraMigrationsHandlerLive),
   Layer.provide(TicketsHandlerLive),
@@ -433,6 +433,7 @@ export const RouteLive = Layer.mergeAll(
   githubIntegrationRoutes,
   everhourIntegrationRoutes,
   figmaOauthRoutes,
+  slackOAuthRoutes,
   jiraOauthRoutes,
   HttpRouter.add(
     "GET",
@@ -451,6 +452,7 @@ export const RouteLive = Layer.mergeAll(
 
 const ServerLive = HttpRouter.serve(RouteLive).pipe(
   Layer.provide(TicketActivityRecoveryLive),
+  Layer.provide(SlackRuntimeLive),
   Layer.provide(GitHubWebhooksLive),
   Layer.provide(EverhourWebhooksLive),
   Layer.provide(BackendHttpServicesLive),

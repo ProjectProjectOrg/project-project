@@ -7,7 +7,7 @@ import {
   type TemplateKey
 } from "@pp/shared"
 import * as Exit from "effect/Exit"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useMemo, useState } from "react"
 
 import { m } from "@/paraglide/messages"

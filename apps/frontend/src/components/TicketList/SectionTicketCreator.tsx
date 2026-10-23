@@ -9,8 +9,8 @@ import {
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Random from "effect/Random"
+import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
 import {
   useContext,
   useEffect,

@@ -1,4 +1,5 @@
-import { createHash, randomBytes } from "node:crypto"
+// @effect-diagnostics-next-line nodeBuiltinImport:off
+import { createHash } from "node:crypto"
 
 import { Db } from "@pp/db"
 import {
@@ -22,14 +23,16 @@ import { and, desc, eq, gt, inArray, isNull } from "drizzle-orm"
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres"
 import * as Config from "effect/Config"
 import * as Context from "effect/Context"
+import * as Crypto from "effect/Crypto"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Base64Url from "effect/encoding/Base64Url"
+import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient"
-import * as SqlClient from "effect/unstable/sql/SqlClient"
+import * as SqlClient from "effect/sql/SqlClient"
 
 import { OrgStorage } from "../storage/OrgStorage"
 import { SecretCrypto } from "../storage/SecretCrypto"
@@ -306,6 +309,7 @@ export const requireConsumedState = (
 
 export const startOauthFlow = (input: {
   readonly db: EffectPgDatabase<typeof relations>
+  readonly crypto: Crypto.Crypto
   readonly client: Effect.Effect<FigmaOAuthClient, FigmaError>
   readonly redirectUri: Effect.Effect<string>
   readonly userId: string
@@ -316,7 +320,9 @@ export const startOauthFlow = (input: {
   Effect.gen(function* () {
     const { clientId } = yield* input.client
     const uri = yield* input.redirectUri
-    const state = randomBytes(32).toString("base64url")
+    const state = Base64Url.encode(
+      yield* input.crypto.randomBytes(32).pipe(Effect.orDie)
+    )
     const now = yield* DateTime.now
     const expiresAt = DateTime.toDate(
       DateTime.add(now, { minutes: STATE_TTL_MINUTES })
@@ -347,6 +353,7 @@ export const FigmaIntegrationsLive = Layer.effect(
   Effect.gen(function* () {
     const fetch = yield* Effect.service(Fetch)
     const db = yield* Db
+    const crypto = yield* Crypto.Crypto
     const sql = yield* SqlClient.SqlClient
     const figma = yield* Figma
     const secrets = yield* SecretCrypto
@@ -390,7 +397,7 @@ export const FigmaIntegrationsLive = Layer.effect(
         )
 
     const beginProfileConnect = (userId: string) =>
-      startOauthFlow({ db, client, redirectUri, userId })
+      startOauthFlow({ db, crypto, client, redirectUri, userId })
 
     const consumeState = (userId: string, state: string) =>
       Effect.gen(function* () {

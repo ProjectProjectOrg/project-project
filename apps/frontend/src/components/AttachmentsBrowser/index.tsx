@@ -4,7 +4,7 @@ import type {
   AttachmentSort
 } from "@pp/shared"
 import * as Exit from "effect/Exit"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { useState, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"

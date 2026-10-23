@@ -5,7 +5,7 @@ import {
   type EstimateUnit,
   type GroupId
 } from "@pp/shared"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 
 import { ErrorPage } from "@/components/ErrorPage"
 import { boardRequest, sprintBoard } from "@/features/sprints/atoms/sprintBoard"

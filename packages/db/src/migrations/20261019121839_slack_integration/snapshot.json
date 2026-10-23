@@ -1,0 +1,1418 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "1cb80437-c33c-4d68-914f-66fdd82aba59",
+  "prevIds": [
+    "c4069111-7548-49cc-a953-1b81e32af661"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "organization_slack_integration"
+      ],
+      "writes": [
+        "s|tbl|public.organization_slack_integration",
+        "n|tbl|public.organization_slack_integration",
+        "e|tbl|public.organization_slack_integration",
+        "n|rel|public.organization_slack_integration",
+        "n|type|public.organization_slack_integration",
+        "n|rel|public.organization_slack_integration_pkey",
+        "n|rel|public.organization_slack_integration_team_id_key",
+        "n|rel|public.organization_slack_integration_app_id_key"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "project_integration_event"
+      ],
+      "writes": [
+        "s|tbl|public.project_integration_event",
+        "n|tbl|public.project_integration_event",
+        "e|tbl|public.project_integration_event",
+        "n|rel|public.project_integration_event",
+        "n|type|public.project_integration_event",
+        "n|rel|public.project_integration_event_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "project_slack_integration"
+      ],
+      "writes": [
+        "s|tbl|public.project_slack_integration",
+        "n|tbl|public.project_slack_integration",
+        "e|tbl|public.project_slack_integration",
+        "n|rel|public.project_slack_integration",
+        "n|type|public.project_slack_integration",
+        "n|rel|public.project_slack_integration_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "slack_notification"
+      ],
+      "writes": [
+        "s|tbl|public.slack_notification",
+        "n|tbl|public.slack_notification",
+        "e|tbl|public.slack_notification",
+        "n|rel|public.slack_notification",
+        "n|type|public.slack_notification",
+        "n|rel|public.slack_notification_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "slack_oauth_state"
+      ],
+      "writes": [
+        "s|tbl|public.slack_oauth_state",
+        "n|tbl|public.slack_oauth_state",
+        "e|tbl|public.slack_oauth_state",
+        "n|rel|public.slack_oauth_state",
+        "n|type|public.slack_oauth_state",
+        "n|rel|public.slack_oauth_state_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "user_slack_integration"
+      ],
+      "writes": [
+        "s|tbl|public.user_slack_integration",
+        "n|tbl|public.user_slack_integration",
+        "e|tbl|public.user_slack_integration",
+        "n|rel|public.user_slack_integration",
+        "n|type|public.user_slack_integration",
+        "n|rel|public.user_slack_integration_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "project_integration_link",
+        "subscribed_events"
+      ],
+      "writes": [
+        "s|col|public.project_integration_link.subscribed_events",
+        "n|col|public.project_integration_link.subscribed_events",
+        "e|col|public.project_integration_link.subscribed_events"
+      ],
+      "reads": [
+        "n|tbl|public.project_integration_link",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ticket_activity_outbox",
+        "integration_events"
+      ],
+      "writes": [
+        "s|col|public.ticket_activity_outbox.integration_events",
+        "n|col|public.ticket_activity_outbox.integration_events",
+        "e|col|public.ticket_activity_outbox.integration_events"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_activity_outbox",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "project_integration_event",
+        "project_integration_event_pending_idx"
+      ],
+      "writes": [
+        "s|idx|public.project_integration_event_pending_idx",
+        "n|idx|public.project_integration_event_pending_idx",
+        "e|idx|public.project_integration_event_pending_idx",
+        "n|rel|public.project_integration_event_pending_idx"
+      ],
+      "reads": [
+        "n|tbl|public.project_integration_event",
+        "n|sch|public",
+        "n|col|public.project_integration_event.project_integration_link_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "slack_notification",
+        "slack_notification_dispatch_idx"
+      ],
+      "writes": [
+        "s|idx|public.slack_notification_dispatch_idx",
+        "n|idx|public.slack_notification_dispatch_idx",
+        "e|idx|public.slack_notification_dispatch_idx",
+        "n|rel|public.slack_notification_dispatch_idx"
+      ],
+      "reads": [
+        "n|tbl|public.slack_notification",
+        "n|sch|public",
+        "n|col|public.slack_notification.dispatched_at"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "user_slack_integration",
+        "user_slack_identity_uidx"
+      ],
+      "writes": [
+        "s|idx|public.user_slack_identity_uidx",
+        "n|idx|public.user_slack_identity_uidx",
+        "e|idx|public.user_slack_identity_uidx",
+        "n|rel|public.user_slack_identity_uidx"
+      ],
+      "reads": [
+        "n|tbl|public.user_slack_integration",
+        "n|sch|public",
+        "n|col|public.user_slack_integration.organization_integration_id",
+        "n|col|public.user_slack_integration.slack_user_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "organization_slack_integration"
+      ],
+      "writes": [
+        "s|fk|public.organization_slack_integration.organization_slack_integration_SWzQzIJvdeJP_fkey",
+        "n|fk|public.organization_slack_integration.organization_slack_integration_SWzQzIJvdeJP_fkey",
+        "e|fk|public.organization_slack_integration.organization_slack_integration_SWzQzIJvdeJP_fkey",
+        "n|con|public.organization_slack_integration.organization_slack_integration_SWzQzIJvdeJP_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.organization_slack_integration",
+        "n|sch|public",
+        "n|tbl|public.organization_integration",
+        "n|sch|public",
+        "n|col|public.organization_slack_integration.organization_integration_id",
+        "n|col|public.organization_integration.id",
+        "e|uniqueness|public.organization_integration.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "project_integration_event"
+      ],
+      "writes": [
+        "s|fk|public.project_integration_event.project_integration_event_MHUq3LsV4kd7_fkey",
+        "n|fk|public.project_integration_event.project_integration_event_MHUq3LsV4kd7_fkey",
+        "e|fk|public.project_integration_event.project_integration_event_MHUq3LsV4kd7_fkey",
+        "n|con|public.project_integration_event.project_integration_event_MHUq3LsV4kd7_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.project_integration_event",
+        "n|sch|public",
+        "n|tbl|public.project_integration_link",
+        "n|sch|public",
+        "n|col|public.project_integration_event.project_integration_link_id",
+        "n|col|public.project_integration_link.id",
+        "e|uniqueness|public.project_integration_link.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "project_slack_integration"
+      ],
+      "writes": [
+        "s|fk|public.project_slack_integration.project_slack_integration_S8X6OQjfDnDv_fkey",
+        "n|fk|public.project_slack_integration.project_slack_integration_S8X6OQjfDnDv_fkey",
+        "e|fk|public.project_slack_integration.project_slack_integration_S8X6OQjfDnDv_fkey",
+        "n|con|public.project_slack_integration.project_slack_integration_S8X6OQjfDnDv_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.project_slack_integration",
+        "n|sch|public",
+        "n|tbl|public.project_integration_link",
+        "n|sch|public",
+        "n|col|public.project_slack_integration.project_integration_link_id",
+        "n|col|public.project_integration_link.id",
+        "e|uniqueness|public.project_integration_link.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "slack_notification"
+      ],
+      "writes": [
+        "s|fk|public.slack_notification.slack_notification_3hWhFqDQSCRg_fkey",
+        "n|fk|public.slack_notification.slack_notification_3hWhFqDQSCRg_fkey",
+        "e|fk|public.slack_notification.slack_notification_3hWhFqDQSCRg_fkey",
+        "n|con|public.slack_notification.slack_notification_3hWhFqDQSCRg_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.slack_notification",
+        "n|sch|public",
+        "n|tbl|public.project_integration_link",
+        "n|sch|public",
+        "n|col|public.slack_notification.project_integration_link_id",
+        "n|col|public.project_integration_link.id",
+        "e|uniqueness|public.project_integration_link.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "slack_oauth_state"
+      ],
+      "writes": [
+        "s|fk|public.slack_oauth_state.slack_oauth_state_HSwv7oDp8gfc_fkey",
+        "n|fk|public.slack_oauth_state.slack_oauth_state_HSwv7oDp8gfc_fkey",
+        "e|fk|public.slack_oauth_state.slack_oauth_state_HSwv7oDp8gfc_fkey",
+        "n|con|public.slack_oauth_state.slack_oauth_state_HSwv7oDp8gfc_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.slack_oauth_state",
+        "n|sch|public",
+        "n|tbl|public.organization_slack_integration",
+        "n|sch|public",
+        "n|col|public.slack_oauth_state.organization_integration_id",
+        "n|col|public.organization_slack_integration.organization_integration_id",
+        "e|uniqueness|public.organization_slack_integration.organization_integration_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "slack_oauth_state"
+      ],
+      "writes": [
+        "s|fk|public.slack_oauth_state.slack_oauth_state_user_id_user_id_fkey",
+        "n|fk|public.slack_oauth_state.slack_oauth_state_user_id_user_id_fkey",
+        "e|fk|public.slack_oauth_state.slack_oauth_state_user_id_user_id_fkey",
+        "n|con|public.slack_oauth_state.slack_oauth_state_user_id_user_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.slack_oauth_state",
+        "n|sch|public",
+        "n|tbl|public.user",
+        "n|sch|public",
+        "n|col|public.slack_oauth_state.user_id",
+        "n|col|public.user.id",
+        "e|uniqueness|public.user.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "user_slack_integration"
+      ],
+      "writes": [
+        "s|fk|public.user_slack_integration.user_slack_integration_lj5xOUmtZ42r_fkey",
+        "n|fk|public.user_slack_integration.user_slack_integration_lj5xOUmtZ42r_fkey",
+        "e|fk|public.user_slack_integration.user_slack_integration_lj5xOUmtZ42r_fkey",
+        "n|con|public.user_slack_integration.user_slack_integration_lj5xOUmtZ42r_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.user_slack_integration",
+        "n|sch|public",
+        "n|tbl|public.organization_slack_integration",
+        "n|sch|public",
+        "n|col|public.user_slack_integration.organization_integration_id",
+        "n|col|public.organization_slack_integration.organization_integration_id",
+        "e|uniqueness|public.organization_slack_integration.organization_integration_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "user_slack_integration"
+      ],
+      "writes": [
+        "s|fk|public.user_slack_integration.user_slack_integration_user_id_user_id_fkey",
+        "n|fk|public.user_slack_integration.user_slack_integration_user_id_user_id_fkey",
+        "e|fk|public.user_slack_integration.user_slack_integration_user_id_user_id_fkey",
+        "n|con|public.user_slack_integration.user_slack_integration_user_id_user_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.user_slack_integration",
+        "n|sch|public",
+        "n|tbl|public.user",
+        "n|sch|public",
+        "n|col|public.user_slack_integration.user_id",
+        "n|col|public.user.id",
+        "e|uniqueness|public.user.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "organization_slack_integration",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "project_integration_event",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "project_slack_integration",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "slack_notification",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "slack_oauth_state",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "user_slack_integration",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "organization_slack_integration",
+        "name": "organization_integration_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "organization_slack_integration",
+        "name": "team_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "organization_slack_integration",
+        "name": "team_name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "organization_slack_integration",
+        "name": "app_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "organization_slack_integration",
+        "name": "bot_user_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "organization_slack_integration",
+        "name": "client_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "organization_slack_integration",
+        "name": "ciphertext",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "organization_slack_integration",
+        "name": "nonce",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "organization_slack_integration",
+        "name": "tag",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_integration_event",
+        "name": "id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_integration_event",
+        "name": "project_integration_link_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_integration_event",
+        "name": "payload",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_integration_event",
+        "name": "actor_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_integration_event",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_integration_event",
+        "name": "consumed_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_integration_link",
+        "name": "subscribed_events",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'[]'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_slack_integration",
+        "name": "project_integration_link_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_slack_integration",
+        "name": "channel_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_slack_integration",
+        "name": "channel_name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_notification",
+        "name": "id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_notification",
+        "name": "project_integration_link_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_notification",
+        "name": "payload",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_notification",
+        "name": "actor_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_notification",
+        "name": "available_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_notification",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_notification",
+        "name": "dispatched_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_notification",
+        "name": "finished_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_notification",
+        "name": "error",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_oauth_state",
+        "name": "state_hash",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_oauth_state",
+        "name": "organization_integration_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_oauth_state",
+        "name": "user_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_oauth_state",
+        "name": "session_hash",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_oauth_state",
+        "name": "expires_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_activity_outbox",
+        "name": "integration_events",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'[]'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_slack_integration",
+        "name": "organization_integration_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_slack_integration",
+        "name": "user_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_slack_integration",
+        "name": "slack_user_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_slack_integration",
+        "name": "display_name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_integration_event",
+        "name": "project_integration_event_pending_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "project_integration_link_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": "\"consumed_at\" is null",
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_notification",
+        "name": "slack_notification_dispatch_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "dispatched_at",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_slack_integration",
+        "name": "user_slack_identity_uidx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "organization_integration_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "slack_user_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "organization_slack_integration",
+        "name": "organization_slack_integration_SWzQzIJvdeJP_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "organization_integration_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "organization_integration",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_integration_event",
+        "name": "project_integration_event_MHUq3LsV4kd7_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "project_integration_link_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "project_integration_link",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_slack_integration",
+        "name": "project_slack_integration_S8X6OQjfDnDv_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "project_integration_link_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "project_integration_link",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_notification",
+        "name": "slack_notification_3hWhFqDQSCRg_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "project_integration_link_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "project_integration_link",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_oauth_state",
+        "name": "slack_oauth_state_HSwv7oDp8gfc_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "organization_integration_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "organization_slack_integration",
+        "columnsTo": [
+          "organization_integration_id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_oauth_state",
+        "name": "slack_oauth_state_user_id_user_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "user",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_slack_integration",
+        "name": "user_slack_integration_lj5xOUmtZ42r_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "organization_integration_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "organization_slack_integration",
+        "columnsTo": [
+          "organization_integration_id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_slack_integration",
+        "name": "user_slack_integration_user_id_user_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "user",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_slack_integration",
+        "name": "user_slack_integration_pkey",
+        "columns": [
+          "organization_integration_id",
+          "user_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "organization_slack_integration",
+        "name": "organization_slack_integration_pkey",
+        "columns": [
+          "organization_integration_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_integration_event",
+        "name": "project_integration_event_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_slack_integration",
+        "name": "project_slack_integration_pkey",
+        "columns": [
+          "project_integration_link_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_notification",
+        "name": "slack_notification_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "slack_oauth_state",
+        "name": "slack_oauth_state_pkey",
+        "columns": [
+          "state_hash"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "organization_slack_integration",
+        "name": "organization_slack_integration_team_id_key",
+        "nameExplicit": false,
+        "columns": [
+          "team_id"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "organization_slack_integration",
+        "name": "organization_slack_integration_app_id_key",
+        "nameExplicit": false,
+        "columns": [
+          "app_id"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    }
+  ]
+}

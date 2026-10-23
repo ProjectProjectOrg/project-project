@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { Library } from "@pp/shared"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { MotionConfig } from "motion/react"
 
 import { LibraryContext } from "@/components/blocks/blockChrome"

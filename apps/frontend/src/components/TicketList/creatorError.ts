@@ -1,7 +1,7 @@
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 
 import { errorMessage, type AppError } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"

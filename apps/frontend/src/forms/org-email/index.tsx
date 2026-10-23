@@ -7,8 +7,8 @@ import {
   type OrgEmailStatus
 } from "@pp/shared"
 import * as Exit from "effect/Exit"
+import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useState } from "react"
 
 import { SEGMENTED_ITEM_CLASS, SegmentedTabs } from "@/components/SegmentedTabs"

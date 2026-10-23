@@ -14,10 +14,10 @@ import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
 import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
 import { Tickets } from "@pp/server-core/tickets/Tickets"
 import { McpTools, type McpToolName } from "@pp/shared"
+import { Tool, Toolkit } from "effect/ai"
 import * as Effect from "effect/Effect"
 import * as Record from "effect/Record"
 import * as Schema from "effect/Schema"
-import { Tool, Toolkit } from "effect/unstable/ai"
 
 import { mappedToolErrorText } from "./errorMap"
 

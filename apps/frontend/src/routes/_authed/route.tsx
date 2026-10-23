@@ -8,7 +8,7 @@ import {
   useLocation,
   useParams
 } from "@tanstack/react-router"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import {
   FolderKanban,
   LayoutDashboard,
@@ -74,6 +74,7 @@ import {
   type UseFluidHoverReturn
 } from "@/hooks/use-fluid-hover"
 import { authedRouteRedirect } from "@/lib/authRedirect"
+import { PageBackdropContext } from "@/lib/page-backdrop"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -109,20 +110,33 @@ function AuthedLayout() {
 }
 
 function Shell({ user }: { user: User }) {
+  const [backdrop, setBackdrop] = useState<HTMLDivElement | null>(null)
   return (
     <div className="h-full transition-[padding] duration-300 ease-out motion-reduce:transition-none lg:p-3">
       <div className="grid h-full grid-cols-1 grid-rows-[3.5rem_1fr] overflow-hidden bg-background transition-[border-radius,box-shadow] duration-300 ease-out motion-reduce:transition-none lg:grid-cols-[14rem_1fr] lg:rounded-2xl lg:shadow-sm lg:ring-1 lg:ring-border/60">
         <Sidebar user={user} />
         <Topbar user={user} />
         <main className="flex min-h-0 overflow-hidden p-2 pt-0">
-          <div
-            data-scroll-root
-            className="min-w-0 flex-1 [scrollbar-gutter:stable] overflow-auto overscroll-y-contain rounded-xl bg-muted/60"
-          >
-            <div data-scroll-content className="flex min-h-full flex-col p-6">
-              <Outlet />
-            </div>
-            <div data-scroll-spacer aria-hidden />
+          <div className="relative isolate flex min-w-0 flex-1 overflow-hidden rounded-xl bg-muted/60 [timeline-scope:--page-scroll]">
+            <div
+              ref={setBackdrop}
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+            />
+            <PageBackdropContext value={backdrop}>
+              <div
+                data-scroll-root
+                className="relative min-w-0 flex-1 [scrollbar-gutter:stable] overflow-auto overscroll-y-contain [scroll-timeline:--page-scroll_y]"
+              >
+                <div
+                  data-scroll-content
+                  className="flex min-h-full flex-col p-6"
+                >
+                  <Outlet />
+                </div>
+                <div data-scroll-spacer aria-hidden />
+              </div>
+            </PageBackdropContext>
           </div>
         </main>
       </div>

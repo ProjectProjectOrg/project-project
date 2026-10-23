@@ -24,10 +24,10 @@ import {
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import { HttpRouter, HttpServer } from "effect/http"
+import { HttpApi, HttpApiBuilder } from "effect/http-api"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
-import { HttpRouter, HttpServer } from "effect/unstable/http"
-import { HttpApi, HttpApiBuilder } from "effect/unstable/httpapi"
 import { afterAll, beforeEach, expect } from "vitest"
 
 import { OrgAccessLive, ProjectAccessLive } from "../Layers/Access"

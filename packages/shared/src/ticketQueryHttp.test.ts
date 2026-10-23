@@ -3,17 +3,17 @@ import { Project } from "@pp/access/roles"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
-import * as Layer from "effect/Layer"
-import * as Ref from "effect/Ref"
-import * as Schema from "effect/Schema"
-import { HttpClientRequest, HttpServer } from "effect/unstable/http"
+import { HttpClientRequest, HttpServer } from "effect/http"
 import {
   HttpApi,
   HttpApiBuilder,
   HttpApiGroup,
   HttpApiMiddleware,
   HttpApiTest
-} from "effect/unstable/httpapi"
+} from "effect/http-api"
+import * as Layer from "effect/Layer"
+import * as Ref from "effect/Ref"
+import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
 import { ActivityActor } from "./access/ActivityActor"

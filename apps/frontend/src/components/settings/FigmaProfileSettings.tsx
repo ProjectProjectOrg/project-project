@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 
 import { ErrorPage } from "@/components/ErrorPage"
 import { IntegrationLogo } from "@/components/settings/IntegrationLogo"

@@ -38,8 +38,8 @@ import {
   Schema,
   Stream
 } from "effect"
-import { FetchHttpClient, HttpRouter, HttpServer } from "effect/unstable/http"
-import { HttpApiTest } from "effect/unstable/httpapi"
+import { FetchHttpClient, HttpRouter, HttpServer } from "effect/http"
+import { HttpApiTest } from "effect/http-api"
 import { expect } from "vitest"
 
 import { OrgAccessLive, ProjectAccessLive } from "../Layers/Access"

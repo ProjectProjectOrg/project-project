@@ -1,3 +1,4 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { randomUUID } from "node:crypto"
 
 import { PgClient } from "@effect/sql-pg"
@@ -10,7 +11,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
-import { WorkflowEngine } from "effect/unstable/workflow"
+import { WorkflowEngine } from "effect/workflow"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 

@@ -1,4 +1,4 @@
-import * as Registry from "effect/unstable/reactivity/AtomRegistry"
+import * as Registry from "effect/reactivity/AtomRegistry"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"

@@ -1,3 +1,4 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { randomUUID } from "node:crypto"
 
 import * as BunServices from "@effect/platform-bun/BunServices"
@@ -6,7 +7,7 @@ import { DbLive } from "@pp/db"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { ConfigProvider, Effect, Layer, Redacted, Schedule } from "effect"
-import { WorkflowEngine } from "effect/unstable/workflow"
+import { WorkflowEngine } from "effect/workflow"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 

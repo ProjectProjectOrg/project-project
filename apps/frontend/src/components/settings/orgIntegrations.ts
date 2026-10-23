@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 
 import type { IntegrationTone } from "@/components/settings/IntegrationDetail"
 import {
@@ -8,6 +8,7 @@ import {
 } from "@/features/github/atoms/github"
 import { emailRequest, orgEmail } from "@/features/organizations/atoms/email"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
+import { slackOrg, slackOrgRequest } from "@/features/slack/atoms/slack"
 import { m } from "@/paraglide/messages"
 
 export type IntegrationState = Readonly<{
@@ -78,6 +79,15 @@ export function useEmailState(orgSlug: string): IntegrationState {
   if (!settings) return notSetUp()
   if (lastTest?.error) return attention()
   return connected()
+}
+
+export function useSlackState(orgSlug: string): IntegrationState {
+  const result = useAtomValue(slackOrg(slackOrgRequest(orgSlug)))
+  if (Result.isInitial(result)) return loadingState
+  if (!Result.isSuccess(result)) return unavailable()
+  const { connection } = result.value
+  if (!connection) return notSetUp()
+  return connection.lastError ? attention() : connected()
 }
 
 export function perProjectState(

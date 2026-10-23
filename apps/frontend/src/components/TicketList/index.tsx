@@ -7,7 +7,7 @@ import type {
   TicketListQuery
 } from "@pp/shared"
 import * as Option from "effect/Option"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { Activity, useMemo, useState, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"

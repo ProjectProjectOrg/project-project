@@ -1,11 +1,11 @@
 import { describe, expect, test, it } from "@effect/vitest"
 import { McpTools, NotFound, Validation } from "@pp/shared"
 import Ajv from "ajv"
+import { Tool } from "effect/ai"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
-import { Tool } from "effect/unstable/ai"
 
 import legacy from "./__fixtures__/legacyInputSchemas.json"
 import { handle, McpToolFailure, McpToolkit, toolFailure } from "./toolkit"

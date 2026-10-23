@@ -3,7 +3,7 @@ import {
   Outlet,
   useRouterState
 } from "@tanstack/react-router"
-import type { AtomRegistry } from "effect/unstable/reactivity/AtomRegistry"
+import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
 import { useEffect } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"

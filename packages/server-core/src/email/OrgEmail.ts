@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto"
-
 import { Db } from "@pp/db"
 import { organizationEmail } from "@pp/db/schema"
 import {
@@ -11,6 +9,7 @@ import {
 } from "@pp/shared"
 import { and, eq } from "drizzle-orm"
 import * as Context from "effect/Context"
+import * as Crypto from "effect/Crypto"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -58,6 +57,7 @@ export class OrgEmail extends Context.Service<
   static readonly layer = Layer.effect(
     OrgEmail,
     Effect.gen(function* () {
+      const crypto = yield* Crypto.Crypto
       const db = yield* Db
       const secrets = yield* SecretCrypto
       const smtp = yield* Smtp
@@ -96,7 +96,7 @@ export class OrgEmail extends Context.Service<
           const { password, ...settings } = input
           const values = {
             ...settings,
-            revision: randomUUID(),
+            revision: yield* crypto.randomUUIDv4().pipe(Effect.orDie),
             lastTestAt: null,
             lastTestError: null
           }

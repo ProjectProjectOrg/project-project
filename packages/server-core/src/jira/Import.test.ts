@@ -1,3 +1,4 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createHash, randomUUID } from "node:crypto"
 
 import * as BunServices from "@effect/platform-bun/BunServices"

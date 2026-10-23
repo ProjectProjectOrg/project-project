@@ -6,9 +6,9 @@ import {
   FigmaRateLimited
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
+import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient"
 import { afterEach, describe, expect, vi } from "vitest"
 
 import { figmaAuthHeader, figmaImageScale, Figma } from "./Figma"

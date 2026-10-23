@@ -7,7 +7,7 @@ import {
   useNavigate
 } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { LogOut, MailCheck } from "lucide-react"
 import { useRef, useState } from "react"
 

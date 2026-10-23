@@ -4,7 +4,7 @@ import { parseFigmaThumbnailUrl } from "@pp/server-core/figma/FigmaLinks"
 import { Users } from "@pp/server-core/users/Users"
 import { CurrentUser } from "@pp/shared"
 import * as Effect from "effect/Effect"
-import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
+import { HttpServerRequest, HttpServerResponse } from "effect/http"
 
 import { toWebHeaders } from "./toWebHeaders"
 

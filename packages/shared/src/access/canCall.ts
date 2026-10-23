@@ -1,12 +1,12 @@
 import type { Statement } from "@pp/access"
 import type { Org, Project } from "@pp/access/roles"
 import * as Context from "effect/Context"
-import * as Option from "effect/Option"
 import {
   HttpApi,
   type HttpApiEndpoint,
   type HttpApiGroup
-} from "effect/unstable/httpapi"
+} from "effect/http-api"
+import * as Option from "effect/Option"
 
 import { AppApi } from "../api"
 import { type OrgRequirement, RequiresOrg } from "./OrgAccess"

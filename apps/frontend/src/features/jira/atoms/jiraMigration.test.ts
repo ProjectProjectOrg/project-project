@@ -120,8 +120,8 @@ describe("Jira migration atoms", () => {
 })
 import { JiraMigrationDetail } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
+import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import { vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"

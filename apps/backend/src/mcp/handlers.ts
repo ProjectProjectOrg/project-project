@@ -44,10 +44,10 @@ import {
   type UpdateGroupInput,
   type UpdateTicketInput
 } from "@pp/shared"
+import { Tool } from "effect/ai"
 import * as Effect from "effect/Effect"
 import type * as Layer from "effect/Layer"
 import type * as Schema from "effect/Schema"
-import { Tool } from "effect/unstable/ai"
 
 import { orgTool, projectTool } from "./access"
 import { McpCurrentUser } from "./McpRequestUser"

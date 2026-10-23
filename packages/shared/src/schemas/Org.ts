@@ -75,7 +75,8 @@ export type UserInvitation = typeof UserInvitation.Type
 
 // source must stay byte-equal to zod v4 regexes.email (better-auth uses z.email())
 export const INVITE_EMAIL_PATTERN = new RegExp(
-  "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+  "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+  "u"
 )
 
 export const InviteEmail = Schema.String.pipe(

@@ -23,15 +23,15 @@ import {
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
-import * as Layer from "effect/Layer"
-import * as Schema from "effect/Schema"
-import { HttpRouter, HttpServer } from "effect/unstable/http"
+import { HttpRouter, HttpServer } from "effect/http"
 import {
   HttpApi,
   HttpApiBuilder,
   HttpApiEndpoint,
   HttpApiGroup
-} from "effect/unstable/httpapi"
+} from "effect/http-api"
+import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 
 import { OrgAccessLive, ProjectAccessLive } from "./Access"
 

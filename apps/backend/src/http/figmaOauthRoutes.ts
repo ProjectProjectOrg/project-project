@@ -2,13 +2,9 @@ import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { FigmaIntegrations } from "@pp/server-core/figma/FigmaIntegrations"
 import * as Config from "effect/Config"
 import * as Effect from "effect/Effect"
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
-import {
-  HttpRouter,
-  HttpServerRequest,
-  HttpServerResponse
-} from "effect/unstable/http"
 
 import { toWebHeaders } from "./toWebHeaders"
 

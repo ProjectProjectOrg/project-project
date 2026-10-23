@@ -9,7 +9,7 @@ import type {
   TicketListQuery,
   TicketStatus
 } from "@pp/shared"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { Loader2 } from "lucide-react"
 import {
   useMemo,

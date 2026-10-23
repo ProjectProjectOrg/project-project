@@ -1,3 +1,4 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createHash } from "node:crypto"
 
 import { Db } from "@pp/db"

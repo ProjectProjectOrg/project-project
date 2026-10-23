@@ -1,7 +1,7 @@
 import { useAtomSet } from "@effect/atom-react"
 import { ATTACHMENT_MAX_BYTES, isProjectIconContentType } from "@pp/shared"
 import * as Effect from "effect/Effect"
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient"
+import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import { useEffect, useRef, useState } from "react"
 
 import { Api } from "@/api/Api"

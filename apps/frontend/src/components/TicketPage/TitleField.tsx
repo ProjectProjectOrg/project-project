@@ -1,7 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketDetail } from "@pp/shared"
 import * as Exit from "effect/Exit"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { useCallback, useId, useMemo, useRef, useState } from "react"
 
 import {

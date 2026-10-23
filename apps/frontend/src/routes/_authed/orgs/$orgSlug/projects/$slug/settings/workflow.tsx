@@ -5,7 +5,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 
 import { ErrorPage } from "@/components/ErrorPage"
 import { GitAutomationSettings } from "@/components/GitAutomationSettings"

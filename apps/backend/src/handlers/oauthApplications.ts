@@ -6,8 +6,8 @@ import { OAuthApplications } from "@pp/server-core/oauth/OAuthApplications"
 import { AppApi, CurrentUser, Validation } from "@pp/shared"
 import { isAPIError } from "better-auth/api"
 import * as Effect from "effect/Effect"
-import { HttpServerRequest } from "effect/unstable/http"
-import { HttpApiBuilder } from "effect/unstable/httpapi"
+import { HttpServerRequest } from "effect/http"
+import { HttpApiBuilder } from "effect/http-api"
 
 export const consentErrorToFailure = (error: BetterAuthError) => {
   const { cause } = error

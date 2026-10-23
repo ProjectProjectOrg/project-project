@@ -6,7 +6,7 @@ import {
 } from "@pp/shared"
 import type { ReactFormType } from "@tanstack/react-form"
 import * as Exit from "effect/Exit"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useEffect, useRef, useState } from "react"
 

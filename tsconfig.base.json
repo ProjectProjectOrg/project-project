@@ -21,8 +21,24 @@
       {
         "name": "@effect/language-service",
         "namespaceImportPackages": ["@effect/platform-node", "effect"],
+        "allowedUnstableApis": [
+          "effect/Crypto",
+          "effect/FileSystem",
+          "effect/Path",
+          "effect/ai",
+          "effect/cluster",
+          "effect/http",
+          "effect/http-api",
+          "effect/net",
+          "effect/reactivity",
+          "effect/sql",
+          "effect/workflow",
+          "@effect/atom-react",
+          "@effect/platform-bun",
+          "@effect/sql-pg",
+          "@effect/vitest"
+        ],
         "diagnosticSeverity": {
-          "importFromBarrel": "error",
           "anyUnknownInErrorContext": "error",
           "unsafeEffectTypeAssertion": "error",
           "instanceOfSchema": "error",

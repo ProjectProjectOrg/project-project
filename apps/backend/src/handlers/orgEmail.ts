@@ -1,7 +1,7 @@
 import { OrgEmail } from "@pp/server-core/email/OrgEmail"
 import { AppApi, CurrentUser } from "@pp/shared"
 import * as Effect from "effect/Effect"
-import { HttpApiBuilder } from "effect/unstable/httpapi"
+import { HttpApiBuilder } from "effect/http-api"
 
 export const OrgEmailHandlerLive = HttpApiBuilder.group(
   AppApi,

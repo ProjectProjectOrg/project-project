@@ -6,7 +6,7 @@ import {
   type ProjectStatus,
   type StatusSlug
 } from "@pp/shared"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import {
   GitBranch,
   GitBranchMinus,

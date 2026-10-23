@@ -1,8 +1,8 @@
 import { Project } from "@pp/access/roles"
 import { ProjectDetail, TicketListQuery, User } from "@pp/shared"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
+import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
-import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"

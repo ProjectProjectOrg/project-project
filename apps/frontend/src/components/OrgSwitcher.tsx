@@ -1,7 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { Org } from "@pp/shared"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronsUpDown, Plus } from "lucide-react"
 
 import {

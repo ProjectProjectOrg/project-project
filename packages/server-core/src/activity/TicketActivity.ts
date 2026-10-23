@@ -1,4 +1,5 @@
 import type {
+  ProjectEvent,
   ActivityActor,
   ActivityActorShape,
   ActivityCause,
@@ -33,7 +34,8 @@ export type TicketActivityShape = Readonly<{
     document: ActivityDocument,
     changes: ReadonlyArray<TicketScopedChange>,
     cause: ActivityCause | null,
-    write: Effect.Effect<A, E, R>
+    write: Effect.Effect<A, E, R>,
+    events?: ReadonlyArray<ProjectEvent>
   ) => Effect.Effect<A, E, R | ActivityActor>
   recover: () => Effect.Effect<void>
   removeTicket: (

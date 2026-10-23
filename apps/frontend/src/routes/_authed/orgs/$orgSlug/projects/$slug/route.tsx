@@ -2,7 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { ProjectDetail as ProjectDetailType } from "@pp/shared"
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Result from "effect/reactivity/AsyncResult"
 import { GitBranch, UserPlus, X } from "lucide-react"
 import { useCallback } from "react"
 
@@ -103,12 +103,16 @@ function ProjectLayout() {
           enabled={value.github !== null}
         />
         <ProjectSetupSlot orgSlug={orgSlug} slug={slug} project={value} />
-        <div className={cn("relative isolate flex flex-1 flex-col gap-3")}>
+        <div
+          data-page-banner={value.banner ? "" : undefined}
+          className={cn("relative isolate flex flex-1 flex-col gap-3")}
+        >
           <ProjectBanner
             orgSlug={orgSlug}
             slug={slug}
             banner={value.banner}
             waiting={waiting && projectUpdate.waiting}
+            pageBackdrop
           />
           <Outlet />
           <RetainedProjectViews

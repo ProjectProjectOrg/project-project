@@ -8,7 +8,7 @@ import {
   type TicketType
 } from "@pp/shared"
 import type * as Exit from "effect/Exit"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useCallback, useMemo, useState } from "react"
 
 import {

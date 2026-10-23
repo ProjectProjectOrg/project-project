@@ -6,8 +6,8 @@ import {
   type TicketListQuery,
   type TicketStatus
 } from "@pp/shared"
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
-import * as Atom from "effect/unstable/reactivity/Atom"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
+import * as Atom from "effect/reactivity/Atom"
 
 import { me } from "@/features/auth/atoms/auth"
 import {
