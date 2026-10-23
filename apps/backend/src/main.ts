@@ -78,6 +78,7 @@ import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import {
   FetchHttpClient,
+  HttpMiddleware,
   HttpRouter,
   HttpServerRequest,
   HttpServerResponse
@@ -475,18 +476,38 @@ const ReaperLive = AttachmentReaperLive.pipe(
   Layer.provide(BackendInfrastructureLive)
 )
 
-// Exports traces only when OTEL_EXPORTER_OTLP_ENDPOINT is set.
+const OtlpSerializationLive = Layer.unwrap(
+  Effect.gen(function* () {
+    const protocol = yield* Config.String(
+      "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL"
+    ).pipe(
+      Config.orElse(() => Config.String("OTEL_EXPORTER_OTLP_PROTOCOL")),
+      Config.withDefault("http/protobuf")
+    )
+    return protocol === "http/json"
+      ? // @effect-diagnostics-next-line unstableApiUsage:off
+        OtlpSerialization.layerJson
+      : // @effect-diagnostics-next-line unstableApiUsage:off
+        OtlpSerialization.layerProtobuf
+  })
+)
+
 // @effect-diagnostics-next-line unstableApiUsage:off
 const TracingLive = OtlpTracer.layerFromConfig({
   resource: { serviceName: "projectproject-backend" }
 }).pipe(
-  // @effect-diagnostics-next-line unstableApiUsage:off
-  Layer.provide(OtlpSerialization.layerJson),
+  Layer.provide(OtlpSerializationLive),
   Layer.provide(FetchHttpClient.layer)
 )
 
+const untracedPrefixes = ["/api/auth/", "/.well-known/", "/api/integrations/"]
+
+const TracerDisabledLive = Layer.succeed(HttpMiddleware.TracerDisabledWhen)(
+  (request) => untracedPrefixes.some((prefix) => request.url.startsWith(prefix))
+)
+
 const AppLive = Layer.mergeAll(ServerLive, ReconcilerLive, ReaperLive).pipe(
-  Layer.provide(TracingLive)
+  Layer.provide(Layer.mergeAll(TracingLive, TracerDisabledLive))
 )
 
 // Only boot the real server when this file is the entry point. When tests
