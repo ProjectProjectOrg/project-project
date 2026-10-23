@@ -208,7 +208,10 @@ describe("EverhourLive response decoding", () => {
           : everhour.stopTimer("api-key")
         expect(record?.history).toEqual([{ id: "101", seconds: 60 }])
         expect(fetch).toHaveBeenCalledTimes(2)
-        expect(String(fetch.mock.calls[1]?.[0])).toContain(
+        const request = fetch.mock.calls[1]?.[0]
+        expect(
+          request instanceof Request ? request.url : request?.toString()
+        ).toContain(
           "/users/42/time?from=2026-10-23&to=2026-10-23&limit=100&page=1"
         )
       }
@@ -270,7 +273,10 @@ describe("EverhourLive response decoding", () => {
       })
       expect(record.history).toEqual([{ id: "101", seconds: 60 }])
       expect(fetch).toHaveBeenCalledTimes(3)
-      expect(String(fetch.mock.calls[2]?.[0])).toContain("page=2")
+      const request = fetch.mock.calls[2]?.[0]
+      expect(
+        request instanceof Request ? request.url : request?.toString()
+      ).toContain("page=2")
     }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
   )
 })

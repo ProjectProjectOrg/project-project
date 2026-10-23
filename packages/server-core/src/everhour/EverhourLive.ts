@@ -334,7 +334,7 @@ const ensureTimeHistory = Effect.fn("Everhour.ensureTimeHistory")(function* (
     const records = yield* request(
       apiKey,
       "GET",
-      `/users/${encodeURIComponent(userId)}/time?${query}`,
+      `/users/${encodeURIComponent(userId)}/time?${query.toString()}`,
       undefined,
       (value) =>
         decodeResponse(Schema.Array(TimeRecordResponse), value).pipe(
