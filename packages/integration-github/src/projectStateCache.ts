@@ -8,14 +8,16 @@ import type { RawProjectStates } from "./GitHub"
 
 type ProjectStateFailure = RepoGone | RateLimited | GitHubError
 
-type Entry = Mutable<
-  Readonly<{
-    installationId: string
-    repoKey: string
-    run?: Effect.Effect<RawProjectStates, ProjectStateFailure>
-    snapshot?: RawProjectStates
-  }>
->
+type EntryState = Readonly<{
+  run?: Effect.Effect<RawProjectStates, ProjectStateFailure>
+  snapshot?: RawProjectStates
+}>
+
+type Entry = Readonly<{
+  installationId: string
+  repoKey: string
+  state: Mutable<EntryState>
+}>
 
 const LIMIT = 128
 
@@ -46,7 +48,7 @@ export const make = (): ProjectStateCache["Service"] => {
       const entry = yield* Effect.sync(() => {
         const existing = entries.get(key)
         if (existing) return existing
-        const created: Entry = { installationId, repoKey }
+        const created: Entry = { installationId, repoKey, state: {} }
         if (entries.size >= LIMIT) {
           const oldestKey = entries.keys().next().value
           if (oldestKey !== undefined) entries.delete(oldestKey)
@@ -54,29 +56,29 @@ export const make = (): ProjectStateCache["Service"] => {
         entries.set(key, created)
         return created
       })
-      if (!entry.run) {
+      if (!entry.state.run) {
         const run = yield* Effect.cachedWithTTL(fetch, "15 seconds")
-        entry.run ??= run
+        entry.state.run ??= run
       }
-      const run = entry.run
+      const run = entry.state.run
       return yield* run.pipe(
         Effect.map((value): RawProjectStates => {
           if (entries.get(key) !== entry)
             return { ...value, refreshStatus: "stale" }
-          entry.snapshot = value
+          entry.state.snapshot = value
           return value
         }),
         Effect.catch(
           (error): Effect.Effect<RawProjectStates, ProjectStateFailure> => {
-            if (entry.run === run) {
-              entry.run = undefined
-              if (error._tag === "RepoGone") entry.snapshot = undefined
+            if (entry.state.run === run) {
+              entry.state.run = undefined
+              if (error._tag === "RepoGone") entry.state.snapshot = undefined
             }
             if (error._tag === "RepoGone") return Effect.fail(error)
-            if (entries.get(key) !== entry || !entry.snapshot)
+            if (entries.get(key) !== entry || !entry.state.snapshot)
               return Effect.fail(error)
             return Effect.succeed({
-              ...entry.snapshot,
+              ...entry.state.snapshot,
               refreshStatus:
                 error._tag === "RateLimited" ? "rate_limited" : "stale",
               ...(error._tag === "RateLimited"
