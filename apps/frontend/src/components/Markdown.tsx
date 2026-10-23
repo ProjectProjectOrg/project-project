@@ -43,7 +43,9 @@ import {
   attachmentWidthStyle
 } from "@/components/Lexical/attachmentImageStyle"
 import { MentionChip } from "@/components/Lexical/MentionChip"
+import { PreviewLink } from "@/components/PreviewLink"
 import { Checkbox } from "@/components/ui/checkbox"
+import { previewableUrl } from "@/features/linkPreviews/linkPreviewUrl"
 import { cn } from "@/lib/utils"
 
 const prismPlugin = [
@@ -103,6 +105,18 @@ const linkedAttachmentContent = (
       ? child
       : cloneElement(child, {}, linkedAttachmentContent(nested, id))
   })
+
+const containsImage = (children: ReactNode): boolean =>
+  Children.toArray(children).some(
+    (child) =>
+      isValidElement<{ src?: string; children?: ReactNode }>(child) &&
+      (child.props.src !== undefined || containsImage(child.props.children))
+  )
+
+const plainText = (children: ReactNode): string | null => {
+  const parts = Children.toArray(children)
+  return parts.every((part) => typeof part === "string") ? parts.join("") : null
+}
 
 export type MarkdownBlocks = "frame" | "flat"
 
@@ -300,6 +314,23 @@ export function MarkdownSegment({
             )
           }
           const ref = href ? parseMentionHref(href) : null
+          const previewUrl = ref ? null : previewableUrl(href)
+          if (
+            href !== undefined &&
+            previewUrl !== null &&
+            !containsImage(linkChildren)
+          ) {
+            return (
+              <PreviewLink
+                href={href}
+                url={previewUrl}
+                label={plainText(linkChildren)}
+                {...rest}
+              >
+                {linkChildren}
+              </PreviewLink>
+            )
+          }
           if (!ref) {
             return (
               <a href={href} {...rest}>

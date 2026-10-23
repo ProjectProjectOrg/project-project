@@ -1348,6 +1348,13 @@ export const figmaReference = pgTable(
   ]
 )
 
+export const linkPreview = pgTable("link_preview", {
+  url: text("url").primaryKey(),
+  title: text("title"),
+  faviconUrl: text("favicon_url"),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull()
+})
+
 export const relations = defineRelations(
   {
     ...authSchema,

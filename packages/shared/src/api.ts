@@ -164,6 +164,7 @@ import {
   UpdateTemplateDefaultsInput,
   UpdateTemplateInput
 } from "./schemas/Library"
+import { LinkPreview, LinkPreviewQuery } from "./schemas/LinkPreview"
 import { OAuthApplication } from "./schemas/OAuthApplication"
 import {
   InviteMemberInput,
@@ -2634,6 +2635,16 @@ const PublicOAuthGroup = HttpApiGroup.make("publicOAuth").add(
   })
 )
 
+const LinkPreviewsGroup = HttpApiGroup.make("linkPreviews")
+  .add(
+    HttpApiEndpoint.get("get", "/link-previews", {
+      query: LinkPreviewQuery,
+      success: LinkPreview,
+      error: [Unauthorized]
+    })
+  )
+  .middleware(Authentication)
+
 const AppApi = HttpApi.make("projectproject")
   .add(HealthGroup)
   .add(DbGroup)
@@ -2643,6 +2654,7 @@ const AppApi = HttpApi.make("projectproject")
   .add(ProjectsGroup)
   .add(EverhourGroup)
   .add(FigmaGroup)
+  .add(LinkPreviewsGroup)
   .add(JiraGroup)
   .add(JiraMigrationsGroup)
   .add(StorageGroup)

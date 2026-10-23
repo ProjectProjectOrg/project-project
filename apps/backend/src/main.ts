@@ -100,6 +100,7 @@ import { GitAutomationHandlerLive } from "./handlers/gitAutomation"
 import { GroupsHandlerLive } from "./handlers/groups"
 import { InvitationsHandlerLive } from "./handlers/invitations"
 import { LibraryHandlerLive } from "./handlers/library"
+import { LinkPreviewsHandlerLive } from "./handlers/linkPreviews"
 import {
   OAuthApplicationsHandlerLive,
   PublicOAuthHandlerLive
@@ -170,7 +171,9 @@ export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(InvitationsHandlerLive),
   Layer.provide(ProjectsHandlerLive),
   Layer.provide(EverhourHandlerLive),
-  Layer.provide(Layer.mergeAll(FigmaHandlerLive, SlackHandlerLive)),
+  Layer.provide(
+    Layer.mergeAll(FigmaHandlerLive, SlackHandlerLive, LinkPreviewsHandlerLive)
+  ),
   Layer.provide(JiraHandlerLive),
   Layer.provide(JiraMigrationsHandlerLive),
   Layer.provide(TicketsHandlerLive),
