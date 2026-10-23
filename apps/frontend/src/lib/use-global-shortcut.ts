@@ -16,11 +16,11 @@ export function useGlobalShortcut(
         return
       }
       if (e.key !== key) return
-      const t = e.target as HTMLElement | null
+      const t = e.target
       if (
         t instanceof HTMLInputElement ||
         t instanceof HTMLTextAreaElement ||
-        (t && t.isContentEditable)
+        (t instanceof HTMLElement && t.isContentEditable)
       ) {
         return
       }

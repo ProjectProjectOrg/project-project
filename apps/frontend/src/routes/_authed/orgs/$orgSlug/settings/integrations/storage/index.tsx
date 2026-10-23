@@ -33,7 +33,7 @@ import {
   storageRequest
 } from "@/features/projects/atoms/storage"
 import { useOrgActor } from "@/lib/access"
-import { type AppError, errorMessage } from "@/lib/errorMessage"
+import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -156,7 +156,7 @@ function StorageConnectForm({
   const error = Result.matchWithError(connectState, {
     onInitial: () => null,
     onSuccess: () => null,
-    onError: (err) => errorMessage(err as AppError),
+    onError: (err) => errorMessage(err),
     onDefect: () => m.storage_error_fallback()
   })
 

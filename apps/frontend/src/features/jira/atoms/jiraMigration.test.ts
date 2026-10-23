@@ -42,7 +42,7 @@ const detail = (id: string): JiraMigrationDetail => ({
   finishedAt: null
 })
 const encoded = (id: string) =>
-  Response.json(Schema.encodeSync(JiraMigrationDetail)(detail(id)))
+  Response.json(encodeJiraMigrationDetailSync(detail(id)))
 
 describe("Jira migration atoms", () => {
   it("shares structurally equal view requests and isolates migration mutations", () => {
@@ -125,3 +125,5 @@ import * as Schema from "effect/Schema"
 import { vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
+
+const encodeJiraMigrationDetailSync = Schema.encodeSync(JiraMigrationDetail)

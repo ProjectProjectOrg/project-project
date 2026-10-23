@@ -17,7 +17,7 @@ import {
   type EverhourProjectIntegrationStatus,
   type EverhourRateLimited,
   type EverhourSyncSummary,
-  type OrgEverhourConfig,
+  OrgEverhourConfig,
   type PersonalEverhour,
   ProjectScope
 } from "@pp/shared"
@@ -40,7 +40,9 @@ import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import * as Base64Url from "effect/encoding/Base64Url"
 import * as Layer from "effect/Layer"
+import * as Result from "effect/Result"
 import * as Schedule from "effect/Schedule"
+import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 
 import { EverhourApiKeys } from "./ApiKeys"
@@ -126,6 +128,8 @@ type ActiveLink = Readonly<{
   lastSyncError: string | null
 }>
 
+const decodeOrgEverhourConfig = Schema.decodeUnknownSync(OrgEverhourConfig)
+
 const emptySummary = (): MutableSummary => ({
   sectionsCreated: 0,
   sectionsUpdated: 0,
@@ -141,21 +145,6 @@ const emptySummary = (): MutableSummary => ({
 const publicBaseUrl = Effect.sync(
   () => process.env.BETTER_AUTH_URL ?? "http://localhost:5173"
 )
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null
-
-const errorTag = (error: unknown) =>
-  isRecord(error) && typeof error._tag === "string" ? error._tag : "Unknown"
-
-const formatError = (error: unknown) => {
-  if (error instanceof Error) return error.message
-  if (isRecord(error)) {
-    if (typeof error.message === "string") return error.message
-    if (typeof error._tag === "string") return error._tag
-  }
-  return String(error)
-}
 
 export const workTypeTaskName = (sprintName: string, workTypeLabel: string) =>
   `${sprintName} — ${workTypeLabel}`
@@ -446,8 +435,8 @@ export const EverhourIntegrationsLive = Layer.effect(
           Effect.logWarning("Everhour project member assignment failed").pipe(
             Effect.annotateLogs({
               everhourProjectId: link.everhourProjectId,
-              errorTag: errorTag(error),
-              error: formatError(error)
+              errorTag: error._tag,
+              error: error.message
             })
           )
         )
@@ -466,7 +455,7 @@ export const EverhourIntegrationsLive = Layer.effect(
           const remote = yield* everhour
             .getProject(actor.apiKey, existing.everhourProjectId)
             .pipe(Effect.result)
-          if (remote._tag === "Success") return existing
+          if (Result.isSuccess(remote)) return existing
           yield* Effect.logWarning(
             "Everhour existing project is unavailable; creating replacement"
           ).pipe(
@@ -475,8 +464,8 @@ export const EverhourIntegrationsLive = Layer.effect(
               slug,
               userId,
               everhourProjectId: existing.everhourProjectId,
-              errorTag: errorTag(remote.failure),
-              error: formatError(remote.failure)
+              errorTag: remote.failure._tag,
+              error: remote.failure.message
             })
           )
           yield* recordProjectSync(
@@ -484,7 +473,7 @@ export const EverhourIntegrationsLive = Layer.effect(
             "broken",
             userId,
             "error",
-            formatError(remote.failure)
+            remote.failure.message
           )
         }
         const name = yield* host.publishedName(project.projectId)
@@ -586,7 +575,7 @@ export const EverhourIntegrationsLive = Layer.effect(
                   slug,
                   userId,
                   everhourProjectId: remote.id,
-                  error: formatError(error)
+                  error: error.message
                 }),
                 Effect.andThen(
                   Effect.fail(
@@ -812,7 +801,7 @@ export const EverhourIntegrationsLive = Layer.effect(
                 "broken",
                 userId,
                 "error",
-                formatError(error)
+                error.message
               ).pipe(Effect.andThen(Effect.fail(error)))
             )
           )
@@ -846,9 +835,11 @@ export const EverhourIntegrationsLive = Layer.effect(
             }
           })
           .pipe(Effect.orDie)
-        const config = (orgIntegration?.config as OrgEverhourConfig | null) ?? {
-          workTypes: DEFAULT_WORK_TYPES
-        }
+        const config =
+          orgIntegration?.config === null ||
+          orgIntegration?.config === undefined
+            ? { workTypes: DEFAULT_WORK_TYPES }
+            : decodeOrgEverhourConfig(orgIntegration.config)
         yield* syncWorkTypeTasks(apiKey, link, summary, config)
         yield* recordProjectSync(link.linkId, "active", userId, "ok", null)
         return summary
@@ -860,8 +851,8 @@ export const EverhourIntegrationsLive = Layer.effect(
               slug,
               userId,
               createIfMissing,
-              errorTag: errorTag(error),
-              error: formatError(error)
+              errorTag: error._tag,
+              error: error.message
             })
           )
         ),
@@ -875,7 +866,7 @@ export const EverhourIntegrationsLive = Layer.effect(
               link.status === "broken" ? "broken" : "active",
               userId,
               "error",
-              formatError(error)
+              error.message
             )
           })
         )
@@ -920,8 +911,8 @@ export const EverhourIntegrationsLive = Layer.effect(
             Effect.annotateLogs({
               orgSlug,
               slug,
-              errorTag: errorTag(error),
-              error: formatError(error)
+              errorTag: error._tag,
+              error: error.message
             }),
             Effect.asVoid
           )
@@ -1240,13 +1231,13 @@ export const EverhourIntegrationsLive = Layer.effect(
                   slug,
                   userId,
                   everhourProjectId: link.everhourProjectId,
-                  errorTag: errorTag(error),
-                  error: formatError(error)
+                  errorTag: error._tag,
+                  error: error.message
                 })
               )
               return {
                 ...emptySummary(),
-                errors: [formatError(error)]
+                errors: [error.message]
               }
             })
           ),

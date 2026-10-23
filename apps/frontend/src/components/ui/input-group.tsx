@@ -15,8 +15,9 @@ function InputGroup({
       onMouseDown={(e) => {
         onMouseDown?.(e)
         if (e.defaultPrevented) return
-        const target = e.target as HTMLElement
+        const target = e.target
         if (
+          target instanceof Element &&
           target.closest(
             "button, [role='button'], a, input, textarea, select, [contenteditable='true']"
           )

@@ -39,6 +39,7 @@ import * as Clock from "effect/Clock"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Result from "effect/Result"
 import { ulid } from "ulid"
 
 import { Access } from "../access/Access"
@@ -479,7 +480,7 @@ export const AttachmentsLive = Layer.effect(
               byAttachment.get(item.row.id) ?? []
             )
           ),
-          total: Number(counted[0]?.total ?? 0)
+          total: counted[0]?.total ?? 0
         }
       })
 
@@ -656,7 +657,7 @@ export const AttachmentsLive = Layer.effect(
         const statuses = planStatuses({
           rows,
           referenceCounts: new Map(
-            counts.map((row) => [row.attachmentId, Number(row.references)])
+            counts.map((row) => [row.attachmentId, row.references])
           )
         })
 
@@ -819,7 +820,7 @@ export const AttachmentsLive = Layer.effect(
             .requireConnection(orgSlug)
             .pipe(Effect.result)
 
-          if (connectionResult._tag === "Failure") {
+          if (Result.isFailure(connectionResult)) {
             yield* Effect.logError(
               "attachment reap failed to resolve org storage",
               { orgSlug, error: connectionResult.failure }
@@ -848,7 +849,7 @@ export const AttachmentsLive = Layer.effect(
               Effect.result
             )
 
-            if (outcome._tag === "Failure") {
+            if (Result.isFailure(outcome)) {
               yield* Effect.logError(
                 "attachment reap left an orphaned object in the bucket",
                 {
@@ -916,12 +917,12 @@ export const AttachmentsLive = Layer.effect(
           const connection = yield* orgStorage
             .requireConnection(row.orgSlug)
             .pipe(Effect.result)
-          if (connection._tag === "Failure") continue
+          if (Result.isFailure(connection)) continue
 
           const head = yield* s3
             .headObject(connection.success, row.objectKey)
             .pipe(Effect.result)
-          if (head._tag === "Failure" || head.success === null) continue
+          if (Result.isFailure(head) || head.success === null) continue
           if (head.success.contentHash === null) continue
 
           yield* db
@@ -997,7 +998,7 @@ export const AttachmentsLive = Layer.effect(
           const connection = yield* orgStorage
             .requireConnection(orgSlug)
             .pipe(Effect.result)
-          if (connection._tag === "Failure") continue
+          if (Result.isFailure(connection)) continue
 
           for (const repoint of repoints) {
             yield* db
@@ -1011,7 +1012,7 @@ export const AttachmentsLive = Layer.effect(
               objectKey: repoint.fromKey
             }).pipe(Effect.result)
 
-            if (freed._tag === "Failure") {
+            if (Result.isFailure(freed)) {
               yield* Effect.logError(
                 "attachment dedupe left a duplicate object in the bucket",
                 {

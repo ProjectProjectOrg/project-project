@@ -17,7 +17,6 @@ import { Tickets } from "@pp/server-core/tickets/Tickets"
 import { McpTools, type McpToolName } from "@pp/shared"
 import { Tool, Toolkit } from "effect/ai"
 import * as Effect from "effect/Effect"
-import * as Record from "effect/Record"
 import * as Schema from "effect/Schema"
 
 import { mappedToolErrorText } from "./errorMap"
@@ -54,10 +53,10 @@ export class McpToolFailure extends Schema.TaggedError<McpToolFailure>()(
   { message: Schema.String }
 ) {}
 
-export type McpHandlers<R> = {
+export type McpHandlers<R, E = HandlerError> = {
   readonly [K in McpToolName]: (
     input: InputOf<K>
-  ) => Effect.Effect<OutputOf<K>, HandlerError, R>
+  ) => Effect.Effect<OutputOf<K>, E, R>
 }
 
 const makeTool = <
@@ -142,11 +141,47 @@ export const handle =
   (input: I) =>
     toolFailure(handler(input)).pipe(Effect.withSpan(`mcp.tool.${name}`))
 
-type AnyHandler<R> = (input: never) => Effect.Effect<unknown, HandlerError, R>
-
-export const toToolkitHandlers = <R>(
+export const toToolkitHandlers = <R extends McpHandlerEnv>(
   handlers: McpHandlers<R>
-): Toolkit.HandlersFrom<McpToolsByName> =>
-  Record.map(handlers, (handler, name) =>
-    handle(name, handler as AnyHandler<R>)
-  ) as unknown as Toolkit.HandlersFrom<McpToolsByName>
+): McpHandlers<R, McpToolFailure> => ({
+  me: handle("me", handlers.me),
+  list_orgs: handle("list_orgs", handlers.list_orgs),
+  get_org: handle("get_org", handlers.get_org),
+  list_projects: handle("list_projects", handlers.list_projects),
+  get_project: handle("get_project", handlers.get_project),
+  list_groups: handle("list_groups", handlers.list_groups),
+  list_sprints: handle("list_sprints", handlers.list_sprints),
+  get_group: handle("get_group", handlers.get_group),
+  list_tickets: handle("list_tickets", handlers.list_tickets),
+  get_ticket: handle("get_ticket", handlers.get_ticket),
+  list_statuses: handle("list_statuses", handlers.list_statuses),
+  list_tags: handle("list_tags", handlers.list_tags),
+  list_members: handle("list_members", handlers.list_members),
+  get_git_state: handle("get_git_state", handlers.get_git_state),
+  get_project_doc: handle("get_project_doc", handlers.get_project_doc),
+  get_group_doc: handle("get_group_doc", handlers.get_group_doc),
+  get_ticket_doc: handle("get_ticket_doc", handlers.get_ticket_doc),
+  list_blocks: handle("list_blocks", handlers.list_blocks),
+  list_templates: handle("list_templates", handlers.list_templates),
+  create_ticket: handle("create_ticket", handlers.create_ticket),
+  update_ticket: handle("update_ticket", handlers.update_ticket),
+  prepare_ticket_attachment: handle(
+    "prepare_ticket_attachment",
+    handlers.prepare_ticket_attachment
+  ),
+  create_comment: handle("create_comment", handlers.create_comment),
+  attach_branch: handle("attach_branch", handlers.attach_branch),
+  stack_branch: handle("stack_branch", handlers.stack_branch),
+  unstack_branch: handle("unstack_branch", handlers.unstack_branch),
+  create_sprint: handle("create_sprint", handlers.create_sprint),
+  update_sprint: handle("update_sprint", handlers.update_sprint),
+  complete_sprint: handle("complete_sprint", handlers.complete_sprint),
+  rebuild_ticket_index: handle(
+    "rebuild_ticket_index",
+    handlers.rebuild_ticket_index
+  ),
+  add_tickets_to_group: handle(
+    "add_tickets_to_group",
+    handlers.add_tickets_to_group
+  )
+})

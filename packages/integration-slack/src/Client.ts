@@ -8,7 +8,28 @@ import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
+import * as Match from "effect/Match"
 import * as Schema from "effect/Schema"
+
+const decodeUnknownBotsInfoResponse = Schema.decodeUnknownEffect(
+  Schema.Struct({
+    bot: Schema.Struct({ app_id: Schema.NonEmptyString })
+  })
+)
+
+const decodeUnknownAppsConnectionsOpenResponse = Schema.decodeUnknownEffect(
+  Schema.Struct({
+    url: Schema.String.check(Schema.isPattern(/^wss:\/\//))
+  })
+)
+
+const decodeUnknownOpenidConnectTokenResponse = Schema.decodeUnknownEffect(
+  Schema.Struct({ access_token: Schema.NonEmptyString })
+)
+
+const encodeUnknownJson = Schema.encodeEffect(
+  Schema.fromJsonString(Schema.Unknown)
+)
 
 export type SlackCallError = SlackAuthInvalid | SlackError | SlackRateLimited
 export type SlackMessage = Readonly<{
@@ -32,28 +53,40 @@ const Identity = Schema.Struct({
   user_id: Schema.NonEmptyString,
   bot_id: Schema.NonEmptyString
 })
+
+const decodeUnknownIdentity = Schema.decodeUnknownEffect(Identity)
 const Channel = Schema.Struct({
   id: SlackChannelId,
   name: Schema.String,
   is_member: Schema.Boolean,
   is_archived: Schema.Boolean
 })
+
+const decodeUnknownConversationsInfoResponse = Schema.decodeUnknownEffect(
+  Schema.Struct({ channel: Channel })
+)
 const ChannelPage = Schema.Struct({
   channels: Schema.Array(Channel),
   response_metadata: Schema.optional(
     Schema.Struct({ next_cursor: Schema.optional(Schema.String) })
   )
 })
+
+const decodeUnknownChannelPage = Schema.decodeUnknownEffect(ChannelPage)
 const OAuthIdentity = Schema.Struct({
   sub: Schema.NonEmptyString,
   "https://slack.com/user_id": Schema.NonEmptyString,
   "https://slack.com/team_id": Schema.NonEmptyString,
   name: Schema.optional(Schema.String)
 })
+
+const decodeUnknownOAuthIdentity = Schema.decodeUnknownEffect(OAuthIdentity)
 const Envelope = Schema.Struct({
   ok: Schema.Boolean,
   error: Schema.optional(Schema.String)
 })
+
+const decodeUnknownEnvelope = Schema.decodeUnknownEffect(Envelope)
 
 export class SlackClient extends Context.Service<
   SlackClient,
@@ -108,11 +141,13 @@ export class SlackClient extends Context.Service<
     Effect.gen(function* () {
       const fetch = yield* FetchHttpClient.Fetch
       const request = Effect.fn("Slack.request")(
-        function* <S extends Schema.ConstraintDecoder<unknown>>(
+        function* <A>(
           token: string,
           method: string,
           body: Readonly<Record<string, unknown>>,
-          schema: S,
+          decode: ReturnType<
+            typeof Schema.decodeUnknownEffect<Schema.Decoder<A>>
+          >,
           form = false
         ) {
           const encodedBody = form
@@ -124,9 +159,7 @@ export class SlackClient extends Context.Service<
                   ])
                 )
               ).toString()
-            : yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
-                body
-              ).pipe(
+            : yield* encodeUnknownJson(body).pipe(
                 Effect.mapError(
                   () => new SlackError({ reason: "invalid_request" })
                 )
@@ -162,9 +195,7 @@ export class SlackClient extends Context.Service<
             try: () => response.json(),
             catch: () => new SlackError({ reason: "invalid_response" })
           })
-          const envelope = yield* Schema.decodeUnknownEffect(Envelope)(
-            json
-          ).pipe(
+          const envelope = yield* decodeUnknownEnvelope(json).pipe(
             Effect.mapError(
               () => new SlackError({ reason: "invalid_response" })
             )
@@ -187,7 +218,7 @@ export class SlackClient extends Context.Service<
               reason: /^[a-z_]+$/.test(reason) ? reason : "request_rejected"
             })
           }
-          return yield* Schema.decodeUnknownEffect(schema)(json).pipe(
+          return yield* decode(json).pipe(
             Effect.mapError(
               () => new SlackError({ reason: "invalid_response" })
             )
@@ -199,21 +230,25 @@ export class SlackClient extends Context.Service<
               Effect.logWarning("Slack API request failed", {
                 method,
                 error: error._tag,
-                ...(error._tag === "SlackError" ? { reason: error.reason } : {})
+                ...Match.value(error).pipe(
+                  Match.tag("SlackError", (error) => ({
+                    reason: error.reason
+                  })),
+                  Match.orElse(() => ({}))
+                )
               })
             )
           )
       )
       return SlackClient.of({
-        identity: (token) => request(token, "auth.test", {}, Identity),
+        identity: (token) =>
+          request(token, "auth.test", {}, decodeUnknownIdentity),
         appId: (token, bot) =>
           request(
             token,
             "bots.info",
             { bot },
-            Schema.Struct({
-              bot: Schema.Struct({ app_id: Schema.NonEmptyString })
-            }),
+            decodeUnknownBotsInfoResponse,
             true
           ).pipe(Effect.map((r) => r.bot.app_id)),
         socketUrl: (token) =>
@@ -221,9 +256,7 @@ export class SlackClient extends Context.Service<
             token,
             "apps.connections.open",
             {},
-            Schema.Struct({
-              url: Schema.String.check(Schema.isPattern(/^wss:\/\//))
-            })
+            decodeUnknownAppsConnectionsOpenResponse
           ).pipe(Effect.map((r) => r.url)),
         channels: (token, cursor) =>
           request(
@@ -235,7 +268,7 @@ export class SlackClient extends Context.Service<
               limit: 200,
               cursor
             },
-            ChannelPage,
+            decodeUnknownChannelPage,
             true
           ),
         channel: (token, channel) =>
@@ -243,7 +276,7 @@ export class SlackClient extends Context.Service<
             token,
             "conversations.info",
             { channel },
-            Schema.Struct({ channel: Channel }),
+            decodeUnknownConversationsInfoResponse,
             true
           ).pipe(Effect.map((r) => r.channel)),
         send: (token, channel, id, message) =>
@@ -257,12 +290,15 @@ export class SlackClient extends Context.Service<
               unfurl_links: false,
               unfurl_media: false
             },
-            Envelope
+            decodeUnknownEnvelope
           ).pipe(Effect.asVoid),
         unfurl: (token, target, unfurls) =>
-          request(token, "chat.unfurl", { ...target, unfurls }, Envelope).pipe(
-            Effect.asVoid
-          ),
+          request(
+            token,
+            "chat.unfurl",
+            { ...target, unfurls },
+            decodeUnknownEnvelope
+          ).pipe(Effect.asVoid),
         promptToConnect: (token, target, connectUrl) =>
           request(
             token,
@@ -271,7 +307,7 @@ export class SlackClient extends Context.Service<
               ...target,
               user_auth_message: `<${connectUrl}|Connect PP to show previews>\nConnect your Slack account once so ProjectProject can check your ticket access. Previews are visible to everyone in the conversation.`
             },
-            Envelope
+            decodeUnknownEnvelope
           ).pipe(Effect.asVoid),
         exchange: ({ clientId, clientSecret, code, redirectUri }) =>
           request(
@@ -284,11 +320,16 @@ export class SlackClient extends Context.Service<
               redirect_uri: redirectUri,
               grant_type: "authorization_code"
             },
-            Schema.Struct({ access_token: Schema.NonEmptyString }),
+            decodeUnknownOpenidConnectTokenResponse,
             true
           ).pipe(Effect.map((r) => r.access_token)),
         oauthIdentity: (token) =>
-          request(token, "openid.connect.userInfo", {}, OAuthIdentity)
+          request(
+            token,
+            "openid.connect.userInfo",
+            {},
+            decodeUnknownOAuthIdentity
+          )
       })
     })
   )

@@ -2,6 +2,7 @@ import {
   BANNER_PLACEHOLDER_BUDGET,
   BANNER_PLACEHOLDER_MAX_LENGTH
 } from "@pp/shared"
+import * as Match from "effect/Match"
 
 export interface CompressImageOptions {
   readonly maxEdge: number
@@ -41,8 +42,11 @@ const encodeCanvas = (
 
 const fileNameFor = (original: string, type: string): string => {
   const base = original.replace(/\.[^./\\]+$/, "")
-  const ext =
-    type === "image/webp" ? "webp" : type === "image/png" ? "png" : "bin"
+  const ext = Match.value(type).pipe(
+    Match.when("image/webp", () => "webp"),
+    Match.when("image/png", () => "png"),
+    Match.orElse(() => "bin")
+  )
   return `${base || "image"}.${ext}`
 }
 

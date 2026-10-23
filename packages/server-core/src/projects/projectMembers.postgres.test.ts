@@ -29,6 +29,8 @@ import type { TicketIndex } from "../tickets/TicketIndex"
 import { Projects } from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
 
+const decodeSlugSync = Schema.decodeSync(Slug)
+
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
 type InvitationGrantRow = Readonly<{
@@ -54,7 +56,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
   const organizationId = randomUUID()
   const orgSlug = `members-${organizationId}`
   const projectId = randomUUID()
-  const slug = Schema.decodeSync(Slug)(`members-${projectId}`)
+  const slug = decodeSlugSync(`members-${projectId}`)
   const pm = randomUUID()
   const second = randomUUID()
   const developer = randomUUID()

@@ -7,9 +7,14 @@ import {
   Validation
 } from "@pp/shared"
 import { Effect, Schema } from "effect"
+import * as Data from "effect/Data"
 import { describe, expect } from "vitest"
 
 import { mappedToolErrorText } from "./errorMap"
+
+const TestErrors = Data.taggedEnum<Readonly<{ _tag: "NotADomainError" }>>()
+
+const decodeUnknownString = Schema.decodeUnknownEffect(Schema.String)
 
 describe("mappedToolErrorText", () => {
   it("maps Unauthorized", () => {
@@ -74,14 +79,12 @@ describe("mappedToolErrorText", () => {
   })
 
   it("leaves unknown tags unmapped", () => {
-    expect(mappedToolErrorText({ _tag: "NotADomainError" })).toBeUndefined()
+    expect(mappedToolErrorText(TestErrors.NotADomainError())).toBeUndefined()
   })
 
   it.effect("preserves schema validation details", () =>
     Effect.gen(function* () {
-      const error = yield* Schema.decodeUnknownEffect(Schema.String)(42).pipe(
-        Effect.flip
-      )
+      const error = yield* decodeUnknownString(42).pipe(Effect.flip)
       const result = mappedToolErrorText(error)
       expect(result).toContain("Validation error:")
     })

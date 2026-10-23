@@ -1,6 +1,5 @@
 import { it } from "@effect/vitest"
-import { Db } from "@pp/db"
-import { projectImageReference } from "@pp/db/schema"
+import { attachmentIndex } from "@pp/db/schema"
 import {
   ATTACHMENT_MAX_BYTES,
   CurrentUser,
@@ -8,12 +7,12 @@ import {
   OrgScope,
   type OrgRole as Role
 } from "@pp/shared"
-import { PgDialect } from "drizzle-orm/pg-core"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { describe, expect } from "vitest"
 
+import { databaseLayer } from "../../test/database"
 import {
   accessLayer,
   orgScope,
@@ -390,20 +389,32 @@ const servingRow = {
   orphanedAt: null
 }
 
-const servingDb = Layer.succeed(Db, {
-  select: () => ({
-    from: () => {
-      const query = {
-        leftJoin: () => query,
-        where: () => ({
-          limit: () =>
-            Effect.succeed([{ row: servingRow, projectSlug: "apollo" }])
-        })
-      }
-      return query
-    }
-  })
-} as never)
+const attachmentValues = (
+  input: Readonly<Partial<typeof attachmentIndex.$inferSelect>>
+) => {
+  const row = { ...servingRow, contentHash: null, ...input }
+  return [
+    row.id,
+    row.organizationId,
+    row.orgSlug,
+    row.projectId,
+    row.ticketId,
+    row.objectKey,
+    row.filename,
+    row.contentType,
+    row.byteSize,
+    row.contentHash,
+    row.status,
+    row.uploadedBy,
+    row.createdAt.toISOString(),
+    row.committedAt?.toISOString() ?? null,
+    row.orphanedAt?.toISOString() ?? null
+  ]
+}
+
+const servingDb = databaseLayer(() =>
+  Effect.succeed([[...attachmentValues(servingRow), "apollo"]])
+)
 
 const connection = {
   endpoint: "https://acct.r2.cloudflarestorage.com",
@@ -415,13 +426,13 @@ const connection = {
   secretAccessKey: "secret"
 }
 
-const stubOrgStorage = Layer.succeed(OrgStorage, {
+const stubOrgStorage = Layer.mock(OrgStorage, {
   requireConnection: () => Effect.succeed(connection)
-} as never)
+})
 
-const stubS3 = Layer.succeed(S3Storage, {
+const stubS3 = Layer.mock(S3Storage, {
   presignGet: () => Effect.succeed("https://signed.example/shot.png")
-} as never)
+})
 
 const stubAccess = (role: Role) =>
   accessLayer({
@@ -471,10 +482,10 @@ describe("resolveForServing beyond project membership", () => {
     () =>
       Effect.gen(function* () {
         const result = yield* resolveAs("member")
-        expect(result._tag).toBe("Failure")
-        if (result._tag === "Failure") {
-          expect(result.failure._tag).toBe("NotFound")
-        }
+        expect(result).toMatchObject({
+          _tag: "Failure",
+          failure: { _tag: "NotFound" }
+        })
       })
   )
 })
@@ -490,70 +501,36 @@ const deletionHarness = (input: {
   }>
 }) => {
   const deletedKeys: Array<string> = []
-  const deletedRows: Array<unknown> = []
+  const deletedRows: Array<string> = []
   const order: Array<string> = []
   const layer = AttachmentsLive.pipe(
     Layer.provide(
-      Layer.succeed(Db, {
-        select: (shape?: Record<string, unknown>) => ({
-          from: (table: unknown) => {
-            let joined = false
-            const query = {
-              leftJoin: () => {
-                joined = true
-                return query
-              },
-              where: (cond: unknown) => {
-                void cond
-                const isSharerQuery = shape !== undefined && "id" in shape
-                return {
-                  limit: () =>
-                    Effect.succeed(
-                      table === projectImageReference
-                        ? input.imageSlot
-                          ? [{ slot: input.imageSlot }]
-                          : []
-                        : isSharerQuery
-                          ? (input.sharers ?? [])
-                          : joined
-                            ? [
-                                {
-                                  attachment: {
-                                    ...servingRow,
-                                    status: input.status
-                                  }
-                                }
-                              ]
-                            : [{ ...servingRow, status: input.status }]
-                    )
-                }
-              }
-            }
-            return query
+      databaseLayer(({ sql }) =>
+        Effect.sync(() => {
+          if (sql.startsWith("delete")) {
+            order.push("row")
+            deletedRows.push(sql)
+            return input.rowVanished === true ? [] : [[servingRow.id]]
           }
-        }),
-        delete: () => ({
-          where: (cond: unknown) => ({
-            returning: () => {
-              order.push("row")
-              deletedRows.push(cond)
-              return Effect.succeed(
-                input.rowVanished === true ? [] : [{ id: servingRow.id }]
-              )
-            }
-          })
+          if (sql.includes('from "project_image_reference"'))
+            return input.imageSlot
+              ? [["project-1", servingRow.id, input.imageSlot]]
+              : []
+          if (sql.startsWith('select "id"'))
+            return (input.sharers ?? []).map((row) => [row.id])
+          return [attachmentValues({ ...servingRow, status: input.status })]
         })
-      } as never)
+      )
     ),
     Layer.provide(stubOrgStorage),
     Layer.provide(
-      Layer.succeed(S3Storage, {
-        deleteObject: (_: unknown, key: string) => {
+      Layer.mock(S3Storage, {
+        deleteObject: (_, key) => {
           order.push("s3")
           deletedKeys.push(key)
           return Effect.void
         }
-      } as never)
+      })
     ),
     Layer.provide(stubAccess(input.role)),
     Layer.merge(Layer.succeed(OrgScope, orgScope(input.role)))
@@ -629,9 +606,10 @@ describe("deleteForOrg", () => {
           rowVanished: true
         })
         const result = yield* harness.run
-        expect(result._tag).toBe("Failure")
-        if (result._tag === "Failure")
-          expect(result.failure._tag).toBe("Forbidden")
+        expect(result).toMatchObject({
+          _tag: "Failure",
+          failure: { _tag: "Forbidden" }
+        })
         expect(harness.deletedKeys).toEqual([])
       })
   )
@@ -653,12 +631,19 @@ describe("deleteForOrg", () => {
   )
 })
 
-const dialect = new PgDialect()
-const sqlOf = (cond: unknown) => dialect.sqlToQuery(cond as never).sql
+const sqlOf = (sql: string | undefined) => sql ?? ""
 
 const listHarness = (input: {
   readonly role: Role
-  readonly rows?: ReadonlyArray<unknown>
+  readonly rows?: ReadonlyArray<
+    Readonly<
+      Pick<
+        typeof attachmentIndex.$inferSelect,
+        "objectKey" | "byteSize" | "status"
+      > &
+        Partial<typeof attachmentIndex.$inferSelect>
+    >
+  >
   readonly total?: number
   readonly references?: ReadonlyArray<{
     readonly attachmentId: string
@@ -667,53 +652,38 @@ const listHarness = (input: {
   }>
 }) => {
   const capture: {
-    where?: unknown
+    where?: string
     limit?: number
     offset?: number
-    groupBy?: unknown
   } = {}
   const rows = input.rows ?? []
   const layer = AttachmentsLive.pipe(
     Layer.provide(
-      Layer.succeed(Db, {
-        select: (shape?: Record<string, unknown>) => {
-          const listed = rows.map((row) => ({ row, projectSlug: "apollo" }))
-          const chain = {
-            leftJoin: () => chain,
-            innerJoin: () => chain,
-            where: (cond: unknown) => {
-              capture.where = cond
-              const isReferenceQuery =
-                shape !== undefined && "attachmentId" in shape
-              const isSummaryQuery = shape !== undefined && "objectKey" in shape
-              const settled = Effect.succeed(
-                isReferenceQuery
-                  ? (input.references ?? [])
-                  : isSummaryQuery
-                    ? rows
-                    : [{ total: input.total ?? 0 }]
-              ) as unknown as Record<string, unknown>
-              settled["orderBy"] = () => ({
-                limit: (n: number) => {
-                  capture.limit = n
-                  return {
-                    offset: (o: number) => {
-                      capture.offset = o
-                      return Effect.succeed(listed)
-                    }
-                  }
-                }
-              })
-              settled["groupBy"] = (grouped: unknown) => {
-                capture.groupBy = grouped
-                return Effect.succeed(rows)
-              }
-              return settled
-            }
-          }
-          return { from: () => chain }
-        }
-      } as never)
+      databaseLayer(({ sql, params }) =>
+        Effect.sync(() => {
+          capture.where = sql
+          if (sql.includes('from "attachment_reference"'))
+            return (input.references ?? []).map((row) => [
+              row.attachmentId,
+              row.projectSlug,
+              row.ticketId
+            ])
+          if (sql.startsWith("select count(")) return [[input.total ?? 0]]
+          if (sql.startsWith('select "attachment_index"."object_key"'))
+            return rows.map((row) => [row.objectKey, row.byteSize, row.status])
+          const limit = Array.from(sql.matchAll(/\blimit \$(\d+)/g)).at(-1)?.[1]
+          const offset = Array.from(sql.matchAll(/\boffset \$(\d+)/g)).at(
+            -1
+          )?.[1]
+          if (limit) capture.limit = Number(params[Number(limit) - 1])
+          if (offset) capture.offset = Number(params[Number(offset) - 1])
+          return rows.map((row) => {
+            const values = attachmentValues(row)
+            values.push("apollo")
+            return values
+          })
+        })
+      )
     ),
     Layer.provide(stubOrgStorage),
     Layer.provide(stubS3),
@@ -1143,21 +1113,17 @@ describe("summarizeAttachments", () => {
 
 describe("missingIds", () => {
   const resolvableHarness = (rows: ReadonlyArray<{ id: string }>) => {
-    const capture: { where?: unknown } = {}
+    const capture: { where?: string } = {}
     return {
       capture,
       layer: AttachmentsLive.pipe(
         Layer.provide(
-          Layer.succeed(Db, {
-            select: () => ({
-              from: () => ({
-                where: (cond: unknown) => {
-                  capture.where = cond
-                  return Effect.succeed(rows)
-                }
-              })
+          databaseLayer(({ sql }) =>
+            Effect.sync(() => {
+              capture.where = sql
+              return rows.map((row) => [row.id])
             })
-          } as never)
+          )
         ),
         Layer.provide(stubOrgStorage),
         Layer.provide(stubS3),

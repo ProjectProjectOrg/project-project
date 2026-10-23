@@ -1,6 +1,7 @@
+import { it } from "@effect/vitest"
 import { Effect } from "effect"
 import * as Schema from "effect/Schema"
-import { describe, expect, it } from "vitest"
+import { describe, expect } from "vitest"
 
 import {
   JIRA_MIGRATION_MANIFEST_VERSION,
@@ -12,6 +13,26 @@ import {
   type JiraMigrationManifestV2 as JiraMigrationManifestV2Type
 } from "./Manifest"
 import { validateScanManifestV2 } from "./ScanV2"
+
+const decodeManifestAttachment = Schema.decodeUnknownOption(
+  JiraMigrationManifestV2.fields.attachments.value
+)
+
+const decodeUnknownJiraMigrationManifestV1Sync = Schema.decodeUnknownSync(
+  JiraMigrationManifestV1
+)
+
+const decodeUnknownJiraMigrationManifestV2Sync = Schema.decodeUnknownSync(
+  JiraMigrationManifestV2
+)
+
+const encodeJiraMigrationManifestV2JsonSync = Schema.encodeSync(
+  Schema.fromJsonString(JiraMigrationManifestV2)
+)
+
+const decodeJiraMigrationManifestV2JsonSync = Schema.decodeSync(
+  Schema.fromJsonString(JiraMigrationManifestV2)
+)
 
 const manifest: JiraMigrationManifest = {
   version: 1 as const,
@@ -129,12 +150,8 @@ describe("JiraMigrationManifest", () => {
 
   it("keeps version 1 decoding explicit while version 2 is current", () => {
     expect(JIRA_MIGRATION_MANIFEST_VERSION).toBe(2)
-    expect(Schema.decodeUnknownSync(JiraMigrationManifestV1)(manifest)).toEqual(
-      manifest
-    )
-    expect(() =>
-      Schema.decodeUnknownSync(JiraMigrationManifestV2)(manifest)
-    ).toThrow()
+    expect(decodeUnknownJiraMigrationManifestV1Sync(manifest)).toEqual(manifest)
+    expect(() => decodeUnknownJiraMigrationManifestV2Sync(manifest)).toThrow()
   })
 })
 
@@ -388,12 +405,8 @@ const manifestV2: JiraMigrationManifestV2Type = {
 
 describe("JiraMigrationManifestV2", () => {
   it("round-trips every artifact-backed normalized category", () => {
-    const json = Schema.encodeSync(
-      Schema.fromJsonString(JiraMigrationManifestV2)
-    )(manifestV2)
-    const decoded = Schema.decodeSync(
-      Schema.fromJsonString(JiraMigrationManifestV2)
-    )(json)
+    const json = encodeJiraMigrationManifestV2JsonSync(manifestV2)
+    const decoded = decodeJiraMigrationManifestV2JsonSync(json)
 
     expect(decoded).toEqual(manifestV2)
     expect(json).not.toContain("rawPages")
@@ -425,9 +438,8 @@ describe("JiraMigrationManifestV2", () => {
 })
 
 it("requires scan attachment metadata rather than claiming downloaded binary content", () => {
-  const attachment = JiraMigrationManifestV2.fields.attachments.value
   expect(
-    Schema.decodeUnknownOption(attachment)({
+    decodeManifestAttachment({
       id: "a",
       issueId: "i",
       filename: "a.png",
@@ -438,7 +450,7 @@ it("requires scan attachment metadata rather than claiming downloaded binary con
   ).toBe("None")
 })
 
-it.each([
+it.effect.each([
   { ...manifestV2, issues: [...manifestV2.issues, manifestV2.issues[0]] },
   {
     ...manifestV2,
@@ -467,39 +479,44 @@ it.each([
   }
 ])(
   "rejects duplicate identities and dangling internal manifest references",
-  async (manifest) => {
-    expect(
-      await Effect.runPromise(Effect.result(validateScanManifestV2(manifest)))
-    ).toMatchObject({
-      _tag: "Failure",
-      failure: { _tag: "JiraScanFailure", retryable: false }
+  (manifest) =>
+    Effect.gen(function* () {
+      expect(
+        yield* Effect.result(validateScanManifestV2(manifest))
+      ).toMatchObject({
+        _tag: "Failure",
+        failure: { _tag: "JiraScanFailure", retryable: false }
+      })
     })
-  }
 )
 
-it("rejects ordinary issue types claimed as subtasks while preserving valid subtask references", async () => {
-  expect(
-    await Effect.runPromise(Effect.result(validateScanManifestV2(manifestV2)))
-  ).toMatchObject({
-    _tag: "Failure",
-    failure: {
-      _tag: "JiraScanFailure",
-      reason: "jira_migration_invalid_subtask"
-    }
-  })
-  const valid = {
-    ...manifestV2,
-    issueTypes: [
-      ...manifestV2.issueTypes,
-      { id: "subtask", name: "Subtask", subtask: true }
-    ],
-    issues: manifestV2.issues.map((issue) =>
-      issue.id === "issue-2"
-        ? Object.assign({}, issue, { issueTypeId: "subtask" })
-        : issue
-    )
-  }
-  expect(
-    await Effect.runPromise(Effect.result(validateScanManifestV2(valid)))
-  ).toMatchObject({ _tag: "Success" })
-})
+it.effect(
+  "rejects ordinary issue types claimed as subtasks while preserving valid subtask references",
+  () =>
+    Effect.gen(function* () {
+      expect(
+        yield* Effect.result(validateScanManifestV2(manifestV2))
+      ).toMatchObject({
+        _tag: "Failure",
+        failure: {
+          _tag: "JiraScanFailure",
+          reason: "jira_migration_invalid_subtask"
+        }
+      })
+      const valid = {
+        ...manifestV2,
+        issueTypes: [
+          ...manifestV2.issueTypes,
+          { id: "subtask", name: "Subtask", subtask: true }
+        ],
+        issues: manifestV2.issues.map((issue) =>
+          issue.id === "issue-2"
+            ? Object.assign({}, issue, { issueTypeId: "subtask" })
+            : issue
+        )
+      }
+      expect(yield* Effect.result(validateScanManifestV2(valid))).toMatchObject(
+        { _tag: "Success" }
+      )
+    })
+)

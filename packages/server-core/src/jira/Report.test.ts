@@ -13,6 +13,11 @@ import {
   type JiraMigrationOutcomeInput
 } from "./Report"
 
+const decodeJiraMigrationMappingsSync = Schema.decodeSync(JiraMigrationMappings)
+
+const decodeUnknownJiraPlannedArchiveSync =
+  Schema.decodeUnknownSync(JiraPlannedArchive)
+
 const convertedText = (markdown: string) => ({
   markdown,
   references: [],
@@ -156,7 +161,7 @@ const manifest = (): JiraMigrationManifest => ({
 })
 
 const mappings = () =>
-  Schema.decodeSync(JiraMigrationMappings)({
+  decodeJiraMigrationMappingsSync({
     project: { slug: "application", key: "APP", name: "Application" },
     identities: [
       {
@@ -274,7 +279,7 @@ describe("buildJiraMigrationArchive", () => {
 
 describe("skippedAttachmentsForArchive", () => {
   it("links skipped files to Jira and their destination tickets with honest replacement status", () => {
-    const archive = Schema.decodeUnknownSync(JiraPlannedArchive)({
+    const archive = decodeUnknownJiraPlannedArchiveSync({
       version: 1,
       manifestVersion: 2,
       migrationId: "migration-1",

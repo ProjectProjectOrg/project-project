@@ -1,5 +1,6 @@
 import { Project } from "@pp/access/roles"
 import { ProjectDetail, TicketListQuery, User } from "@pp/shared"
+import type { AnyRoute } from "@tanstack/react-router"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
@@ -62,12 +63,31 @@ let registry: Registry.AtomRegistry
 let requests: URL[]
 const params = { orgSlug: "org", slug: "project", groupId: "G-1", id: "T-1" }
 
-function load<A, R>(
-  loader: ((args: A) => R) | object | undefined,
-  args: Partial<A>
-) {
+const loaderDefaults = (route: AnyRoute) => ({
+  route,
+  abortController: new AbortController(),
+  preload: false,
+  deps: {},
+  location: {
+    href: "/",
+    publicHref: "/",
+    external: false,
+    pathname: "/",
+    search: {},
+    searchStr: "",
+    hash: "",
+    state: { __TSR_index: 0 }
+  },
+  navigate: () => {
+    throw new Error("Unexpected imperative navigation")
+  },
+  parentMatchPromise: new Promise<never>(() => {}),
+  cause: "enter" as const
+})
+
+function load<A, R>(loader: ((args: A) => R) | object | undefined, args: A) {
   if (typeof loader !== "function") throw new Error("Missing loader")
-  return loader(args as A)
+  return loader(args)
 }
 
 const fetchStub = stubFetch()
@@ -108,6 +128,7 @@ it("starts backlog sections alongside metadata without waiting, even with collap
   })
   expect(
     load(BacklogRoute.options.loader, {
+      ...loaderDefaults(BacklogRoute),
       context: { registry },
       params,
       deps: query
@@ -142,6 +163,7 @@ it("starts only sprint sections when the viewer groups the list by sprint", asyn
     sort: { key: "title", dir: "desc" }
   })
   load(BacklogRoute.options.loader, {
+    ...loaderDefaults(BacklogRoute),
     context: { registry },
     params,
     deps: query
@@ -162,6 +184,7 @@ it.each(["board", "list", "description"] as const)(
   async (view) => {
     expect(
       load(SprintRoute.options.loader, {
+        ...loaderDefaults(SprintRoute),
         context: { registry },
         params,
         deps: {
@@ -209,6 +232,7 @@ it("starts the sprint index target's data as soon as the list resolves", async (
       : new Promise<Response>(() => {})
   })
   const loaded = load(SprintIndexRoute.options.loader, {
+    ...loaderDefaults(SprintIndexRoute),
     context: { registry },
     params,
     abortController: new AbortController()

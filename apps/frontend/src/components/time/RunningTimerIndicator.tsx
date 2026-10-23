@@ -24,12 +24,7 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger
-} from "@/components/ui/select"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import {
   everhourProjectRequest,
   everhourProfileAtom,
@@ -478,22 +473,19 @@ function SprintSelect({
       : (sprints.find((sprint) => sprint.id === value)?.name ?? null)
   return (
     <Select
-      value={value ?? ""}
-      onValueChange={(next) => onChange(decodeGroupId(next))}
+      value={value}
+      onValueChange={onChange}
       disabled={disabled}
+      items={sprints.map((sprint) => ({
+        value: sprint.id,
+        label: sprint.name
+      }))}
     >
       <SelectTrigger
         placeholder={m.time_sprint_label()}
         selectedLabel={selectedLabel}
         aria-label={m.time_sprint_label()}
       />
-      <SelectContent>
-        {sprints.map((sprint) => (
-          <SelectItem key={sprint.id} value={sprint.id}>
-            {sprint.name}
-          </SelectItem>
-        ))}
-      </SelectContent>
     </Select>
   )
 }

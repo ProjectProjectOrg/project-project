@@ -4,7 +4,13 @@ import { randomUUID } from "node:crypto"
 import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { DbLive, migrationsFolder } from "@pp/db"
-import { ActivityActor, Forbidden, ProjectScope, StatusLabel } from "@pp/shared"
+import {
+  ActivityActor,
+  Forbidden,
+  ProjectScope,
+  StatusColor,
+  StatusLabel
+} from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as Effect from "effect/Effect"
@@ -102,7 +108,7 @@ describe.skipIf(!databaseUrl)("project status descriptions", () => {
         )
 
         const recoloured = yield* statuses.update("in_review", {
-          color: "#22c55e" as typeof described.color
+          color: StatusColor.make("#22c55e")
         })
         expect(recoloured.description).toBe(
           "A PR is open and waiting for review"

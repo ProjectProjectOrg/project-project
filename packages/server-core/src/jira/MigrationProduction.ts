@@ -39,31 +39,39 @@ import { finalizeJiraMigrationAttempt, scanSnapshot } from "./MigrationWorkflow"
 import * as MigrationWorkflow from "./MigrationWorkflow"
 import { JiraPublicationInvalid } from "./Preflight"
 
-const fenceForInput = (input: MigrationActivityInput): AttemptFence => ({
-  migrationId:
-    input.payload.command._tag === "Create"
-      ? input.executionId
-      : input.payload.command.migrationId,
-  workflowExecutionId: input.executionId,
-  workflowAttempt:
-    input.payload.command._tag === "Create"
-      ? 1
-      : input.payload.command.workflowAttempt
-})
+const isJiraPublicationInvalid = Schema.is(JiraPublicationInvalid)
+
+const fenceForInput = (input: MigrationActivityInput): AttemptFence =>
+  MigrationWorkflow.JiraMigrationWorkflowCommand.match(input.payload.command, {
+    Create: () => ({
+      migrationId: input.executionId,
+      workflowExecutionId: input.executionId,
+      workflowAttempt: 1
+    }),
+    Rescan: (command) => ({
+      migrationId: command.migrationId,
+      workflowExecutionId: input.executionId,
+      workflowAttempt: command.workflowAttempt
+    })
+  })
 
 const failure = (reason: string, retryable: boolean) =>
   JiraMigrationWorkflowFailure.make({ reason, retryable })
 
-const materializationFailure = (error: unknown) =>
+const materializationFailure = (error: Error) =>
   failure(
-    Schema.is(JiraPublicationInvalid)(error)
+    isJiraPublicationInvalid(error)
       ? "jira_migration_publication_invalid"
       : "jira_migration_materialization_failed",
-    !Schema.is(JiraPublicationInvalid)(error)
+    !isJiraPublicationInvalid(error)
   )
 
-export const preparationFailure = (error: unknown) =>
-  Schema.is(JiraPublicationInvalid)(error)
+export const preparationFailure = (
+  error: Effect.Error<
+    ReturnType<typeof buildJiraPreparedPublicationFromSnapshot>
+  >
+) =>
+  isJiraPublicationInvalid(error)
     ? failure("jira_migration_preparation_invalid", true)
     : materializationFailure(error)
 

@@ -1,15 +1,17 @@
 import { expect, it } from "@effect/vitest"
 import { Db } from "@pp/db"
+import { TicketStatus } from "@pp/shared"
 import { TicketId } from "@pp/shared"
-import * as Data from "effect/Data"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
+import { ConnectionError, SqlError } from "effect/sql/SqlError"
 import * as TestClock from "effect/testing/TestClock"
 
+import { databaseLayer } from "../../test/database"
 import { TicketDocs } from "./TicketDocs"
 import type { TicketDocument } from "./TicketDocs"
 import { TicketIndex, type TicketIndexProject } from "./TicketIndex"
@@ -27,7 +29,7 @@ const project: TicketIndexProject = {
 const document: TicketDocument = {
   id: ticketId("T-1"),
   title: "Publish me",
-  status: "todo" as TicketDocument["status"],
+  status: TicketStatus.make("todo"),
   type: "chore",
   priority: "med",
   tags: [],
@@ -45,51 +47,32 @@ const document: TicketDocument = {
   commentsRegion: ""
 }
 
-class FakeSqlError extends Data.TaggedError("FakeSqlError")<{
-  readonly reason: string
-}> {}
-
-const emptySelect = Effect.succeed([])
-const selectChain: unknown = new Proxy(emptySelect, {
-  get: (target, property, receiver) =>
-    property in target
-      ? Reflect.get(target, property, receiver)
-      : () => selectChain
-})
-
 const makeDb = (failures: number) => {
   const state = { attempts: 0 }
-  const layer = Layer.succeed(Db, {
-    select: () => selectChain,
-    delete: () => ({ where: () => Effect.void }),
-    insert: () => ({
-      values: () => ({
-        onConflictDoUpdate: () =>
-          Effect.suspend(() => {
-            state.attempts += 1
-            return state.attempts <= failures
-              ? Effect.fail(new FakeSqlError({ reason: "connection reset" }))
-              : Effect.void
-          })
-      })
+  const layer = databaseLayer(({ sql }) =>
+    Effect.suspend(() => {
+      if (!sql.startsWith('insert into "ticket_index"'))
+        return Effect.succeed([])
+      state.attempts += 1
+      return state.attempts <= failures
+        ? Effect.fail(
+            new SqlError({
+              reason: new ConnectionError({
+                cause: "connection reset",
+                message: "connection reset"
+              })
+            })
+          )
+        : Effect.succeed([])
     })
-  } as never)
+  )
   return { layer, state }
 }
 
 const layerFor = (
-  db: Layer.Layer<Db>,
-  docs: Layer.Layer<TicketDocs> = Layer.succeed(TicketDocs, {} as never)
-) =>
-  TicketIndexLive.pipe(
-    Layer.provide(db),
-    Layer.provide(
-      Layer.succeed(SqlClient.SqlClient, {
-        withTransaction: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect
-      } as never)
-    ),
-    Layer.provide(docs)
-  )
+  db: Layer.Layer<Db | SqlClient.SqlClient>,
+  docs: Layer.Layer<TicketDocs> = Layer.mock(TicketDocs, {})
+) => TicketIndexLive.pipe(Layer.provide(db), Layer.provide(docs))
 
 it.effect("retries a transient index publication failure", () => {
   const { layer, state } = makeDb(2)
@@ -121,13 +104,13 @@ it.effect("does not fail the request when publication stays broken", () => {
 it.effect("reconciles a project whose publication never landed", () => {
   const { layer } = makeDb(Number.POSITIVE_INFINITY)
   const docs = { listIdsCalls: 0 }
-  const docsLayer = Layer.succeed(TicketDocs, {
+  const docsLayer = Layer.mock(TicketDocs, {
     listIds: () =>
       Effect.sync(() => {
         docs.listIdsCalls += 1
         return []
       })
-  } as never)
+  })
 
   return Effect.gen(function* () {
     const index = yield* TicketIndex

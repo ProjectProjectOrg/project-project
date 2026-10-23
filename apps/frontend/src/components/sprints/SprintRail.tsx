@@ -260,7 +260,10 @@ function pickSprintNavigationTarget(
 function NewSprintForm({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   const Root = InlineForm.Root<"create">
   return (
-    <Root className="data-[mode=idle]:border-0 data-[mode=idle]:bg-transparent data-[mode=idle]:p-0">
+    <Root
+      actions={["create"]}
+      className="data-[mode=idle]:border-0 data-[mode=idle]:bg-transparent data-[mode=idle]:p-0"
+    >
       <InlineForm.Idle block>
         <InlineForm.Trigger
           action="create"
@@ -297,7 +300,7 @@ function CreateSprintFields({
     ? m.sprints_create_error_fallback()
     : null
   const navigate = useNavigate()
-  const { busy, setBusy, close } = useInlineForm<"create">()
+  const { busy, setBusy, close } = useInlineForm()
 
   const [name, setName] = useState("")
   const [range, setRange] = useState<DateRange>(defaultSprintRange)

@@ -14,6 +14,8 @@ import {
   uploadAttachmentRequest
 } from "./attachments"
 
+const decodeTicketIdSync = Schema.decodeSync(TicketId)
+
 const fetchStub = stubFetch()
 
 afterEach(() => {
@@ -62,11 +64,7 @@ it("sends a markdown upload with a matching content type when the browser leaves
 
   const registry = Registry.make()
   const upload = uploadAttachment(
-    uploadAttachmentRequest(
-      "org",
-      "project",
-      Schema.decodeSync(TicketId)("T-1")
-    )
+    uploadAttachmentRequest("org", "project", decodeTicketIdSync("T-1"))
   )
   registry.mount(upload)
   try {
@@ -142,11 +140,7 @@ it("refreshes the org inventory and summary only after upload commit succeeds", 
   const list = orgAttachments(req)
   const summary = orgAttachmentsSummary(req)
   const upload = uploadAttachment(
-    uploadAttachmentRequest(
-      "org",
-      "project",
-      Schema.decodeSync(TicketId)("T-1")
-    )
+    uploadAttachmentRequest("org", "project", decodeTicketIdSync("T-1"))
   )
   registry.mount(list)
   registry.mount(summary)

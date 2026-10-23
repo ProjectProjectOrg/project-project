@@ -64,13 +64,11 @@ export const appAuth = (): Effect.Effect<GitHubAppAuth, GitHubError> =>
       catch: (cause) => new GitHubError({ message: String(cause) })
     })
   }).pipe(
-    Effect.catch((cause) =>
-      cause._tag === "GitHubError"
-        ? Effect.fail(cause)
-        : Effect.fail(
-            new GitHubError({
-              message: "missing GitHub App configuration"
-            })
-          )
+    Effect.catchTag("ConfigError", () =>
+      Effect.fail(
+        new GitHubError({
+          message: "missing GitHub App configuration"
+        })
+      )
     )
   )

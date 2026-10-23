@@ -12,6 +12,13 @@ import {
   UpdateTemplateInput
 } from "./Library"
 
+const decodeBlockDraftSync = Schema.decodeSync(BlockDraft)
+
+const decodeUnknownTemplateDraftSync = Schema.decodeUnknownSync(TemplateDraft)
+
+const decodeUnknownUpdateTemplateInputSync =
+  Schema.decodeUnknownSync(UpdateTemplateInput)
+
 const decodeBlockKey = Schema.decodeUnknownExit(BlockKey)
 const decodeTemplateKey = Schema.decodeUnknownExit(TemplateKey)
 const decodeColor = Schema.decodeUnknownExit(LibraryColor)
@@ -58,7 +65,7 @@ describe("LibraryColor", () => {
   })
 
   it("defaults a missing colour to none", () => {
-    const draft = Schema.decodeSync(BlockDraft)({
+    const draft = decodeBlockDraftSync({
       key: "notes",
       name: "Notes",
       icon: "NotebookPen",
@@ -99,7 +106,7 @@ describe("UpdateTemplateDefaultsInput", () => {
 
 describe("TemplateDraft", () => {
   it("drops the retired type field that older clients still send", () => {
-    const draft = Schema.decodeUnknownSync(TemplateDraft)({
+    const draft = decodeUnknownTemplateDraftSync({
       key: "bug-report",
       name: "Bug report",
       icon: "Bug",
@@ -111,7 +118,7 @@ describe("TemplateDraft", () => {
     })
     expect("type" in draft).toBe(false)
     expect(
-      "type" in Schema.decodeUnknownSync(UpdateTemplateInput)({ type: "bug" })
+      "type" in decodeUnknownUpdateTemplateInputSync({ type: "bug" })
     ).toBe(false)
   })
 })

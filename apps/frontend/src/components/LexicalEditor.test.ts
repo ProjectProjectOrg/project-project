@@ -31,6 +31,8 @@ import {
   transformersForAttachments
 } from "./LexicalEditor"
 
+const decodeUnknownTicketIdSync = Schema.decodeUnknownSync(TicketId)
+
 function matchAutoLink(text: string) {
   for (const matcher of AUTO_LINK_MATCHERS) {
     const match = matcher(text)
@@ -83,7 +85,7 @@ function descriptionAttachments(storageActive: boolean) {
   return attachmentsForDescription({
     orgSlug: "acme",
     slug: "web",
-    ticketId: Schema.decodeUnknownSync(TicketId)("T-1"),
+    ticketId: decodeUnknownTicketIdSync("T-1"),
     storageActive
   })
 }

@@ -1,11 +1,13 @@
 import {
   deriveStatusSlug,
+  StatusSlug,
+  StatusColor,
+  OrderKey,
   pickStatusColor,
   type CreateStatusInput,
   type DeleteStatusInput,
   type ProjectStatus,
   type ReorderStatusInput,
-  type StatusSlug,
   type UpdateStatusInput
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -54,15 +56,15 @@ export const createStatus = Atom.family((req: StatusesRequest) =>
           return statuses
         }
         const synthetic: ProjectStatus = {
-          slug: derivedSlug as ProjectStatus["slug"],
+          slug: StatusSlug.make(derivedSlug),
           label: input.label,
           icon: input.icon ?? "Circle",
           color:
             input.color ??
-            (pickStatusColor(
-              statuses.map((status) => status.color)
-            ) as ProjectStatus["color"]),
-          orderKey: "zzz" as ProjectStatus["orderKey"],
+            StatusColor.make(
+              pickStatusColor(statuses.map((status) => status.color))
+            ),
+          orderKey: OrderKey.make("zzz"),
           description: null,
           createdBy: "",
           createdAt: DateTime.toDate(DateTime.nowUnsafe())

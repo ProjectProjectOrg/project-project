@@ -72,7 +72,11 @@ const cornerPatches = (image: RgbaImage) => {
         }
         n++
       }
-    const mean = sums.map((s) => s / n) as [number, number, number]
+    const mean: readonly [number, number, number] = [
+      sums[0] / n,
+      sums[1] / n,
+      sums[2] / n
+    ]
     const noise = Math.max(
       ...squares.map((sq, c) => Math.sqrt(Math.max(0, sq / n - mean[c] ** 2)))
     )
@@ -98,9 +102,11 @@ export const analyzeCutout = (
 
   const patches = cornerPatches(image)
 
-  const seed = [0, 1, 2].map((c) =>
-    median(patches.map((p) => p.mean[c]))
-  ) as unknown as readonly [number, number, number]
+  const seed: readonly [number, number, number] = [
+    median(patches.map((p) => p.mean[0])),
+    median(patches.map((p) => p.mean[1])),
+    median(patches.map((p) => p.mean[2]))
+  ]
   const agreeing = patches.filter(
     (p) => meanDistance(p.mean, seed) <= CORNER_AGREEMENT
   )
@@ -114,9 +120,11 @@ export const analyzeCutout = (
         meanDistance(consensus[a].mean, consensus[b].mean)
       )
   const cornerNoise = Math.max(...consensus.map((p) => p.noise))
-  const background = [0, 1, 2].map(
-    (c) => consensus.reduce((sum, p) => sum + p.mean[c], 0) / consensus.length
-  ) as unknown as readonly [number, number, number]
+  const background: readonly [number, number, number] = [
+    consensus.reduce((sum, p) => sum + p.mean[0], 0) / consensus.length,
+    consensus.reduce((sum, p) => sum + p.mean[1], 0) / consensus.length,
+    consensus.reduce((sum, p) => sum + p.mean[2], 0) / consensus.length
+  ]
 
   const pixels = width * height
   const removed = new Uint8Array(pixels)

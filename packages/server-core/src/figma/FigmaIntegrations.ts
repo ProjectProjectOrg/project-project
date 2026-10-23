@@ -12,7 +12,7 @@ import type {
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 
-import type { FigmaCredential } from "./Figma"
+import { FigmaCredential } from "./Figma"
 
 export const TOKEN_EXPIRY_SKEW_MS = 5 * 60 * 1000
 
@@ -24,10 +24,10 @@ export const chooseCredential = (input: {
   readonly projectToken: string | null
 }): FigmaCredential | null => {
   if (input.personalToken !== null) {
-    return { _tag: "Bearer", token: input.personalToken }
+    return FigmaCredential.Bearer({ token: input.personalToken })
   }
   if (input.projectToken !== null) {
-    return { _tag: "FigmaToken", token: input.projectToken }
+    return FigmaCredential.FigmaToken({ token: input.projectToken })
   }
   return null
 }

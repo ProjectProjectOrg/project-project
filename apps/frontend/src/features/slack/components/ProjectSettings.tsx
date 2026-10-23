@@ -14,12 +14,7 @@ import {
 } from "@/components/settings/SettingsSection"
 import { SettingsSwitch } from "@/components/settings/SettingsTextField"
 import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger
-} from "@/components/ui/select"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -174,7 +169,7 @@ function ManagedSlackRow({
       }
     >
       <Select
-        value={settings?.channelId ?? ""}
+        value={settings?.channelId ?? null}
         onValueChange={(id) => {
           const channel = channels.find((item) => item.id === id)
           if (channel)
@@ -184,6 +179,10 @@ function ManagedSlackRow({
             })
         }}
         disabled={busy || channels.length === 0}
+        items={channels.map((channel) => ({
+          value: channel.id,
+          label: m.slack_channel_label({ channel: channel.name })
+        }))}
       >
         <SelectTrigger
           aria-label={m.slack_channel()}
@@ -195,13 +194,6 @@ function ManagedSlackRow({
               : undefined
           }
         />
-        <SelectContent>
-          {channels.map((channel) => (
-            <SelectItem key={channel.id} value={channel.id}>
-              {m.slack_channel_label({ channel: channel.name })}
-            </SelectItem>
-          ))}
-        </SelectContent>
       </Select>
       <Button
         type="button"

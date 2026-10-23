@@ -146,20 +146,26 @@ it.effect(
 it.effect("does not return stale data when the repository is gone", () =>
   Effect.gen(function* () {
     const cache = yield* ProjectStateCache.ProjectStateCache
-    let shouldFail = false
+    let failure: RepoGone | GitHubError | undefined
     const { key, repoKey } = keyFor("gone")
     const fetch = Effect.gen(function* () {
-      if (shouldFail) return yield* new RepoGone()
+      if (failure) return yield* failure
       return snapshot
     })
 
     yield* cache.cachedProjectStates(key, "installation", repoKey, fetch)
     yield* TestClock.adjust(Duration.seconds(16))
-    shouldFail = true
+    failure = new RepoGone()
     const error = yield* cache
       .cachedProjectStates(key, "installation", repoKey, fetch)
       .pipe(Effect.flip)
     expect(error._tag).toBe("RepoGone")
+    failure = new GitHubError({ message: "offline" })
+    expect(
+      yield* cache
+        .cachedProjectStates(key, "installation", repoKey, fetch)
+        .pipe(Effect.flip)
+    ).toEqual(failure)
   }).pipe(Effect.provide(ProjectStateCache.layer))
 )
 

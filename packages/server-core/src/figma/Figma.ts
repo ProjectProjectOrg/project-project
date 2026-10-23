@@ -5,11 +5,14 @@ import type {
   FigmaRateLimited
 } from "@pp/shared"
 import * as Context from "effect/Context"
+import * as Data from "effect/Data"
 import type * as Effect from "effect/Effect"
 
 export type FigmaCredential =
-  | { readonly _tag: "Bearer"; readonly token: string }
-  | { readonly _tag: "FigmaToken"; readonly token: string }
+  | Readonly<{ _tag: "Bearer"; token: string }>
+  | Readonly<{ _tag: "FigmaToken"; token: string }>
+
+export const FigmaCredential = Data.taggedEnum<FigmaCredential>()
 
 export type FigmaCallError =
   | FigmaAuthInvalid
@@ -20,9 +23,10 @@ export type FigmaCallError =
 export const figmaAuthHeader = (
   credential: FigmaCredential
 ): Record<string, string> =>
-  credential._tag === "Bearer"
-    ? { Authorization: `Bearer ${credential.token}` }
-    : { "X-Figma-Token": credential.token }
+  FigmaCredential.$match(credential, {
+    Bearer: ({ token }) => ({ Authorization: `Bearer ${token}` }),
+    FigmaToken: ({ token }) => ({ "X-Figma-Token": token })
+  })
 
 export const figmaImageScale = (scale: number): number =>
   Math.min(4, Math.max(0.01, Number.isFinite(scale) ? scale : 1))

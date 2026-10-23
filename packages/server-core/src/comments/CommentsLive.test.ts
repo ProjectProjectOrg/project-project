@@ -3,8 +3,8 @@ import { randomUUID } from "node:crypto"
 
 import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import { it } from "@effect/vitest"
-import { Db } from "@pp/db"
 import { DbLive, migrationsFolder, PgLive } from "@pp/db"
+import { commentIndex } from "@pp/db/schema"
 import {
   ActivityActor,
   CommentId,
@@ -22,6 +22,7 @@ import * as Schema from "effect/Schema"
 import pg from "pg"
 import { beforeAll, describe, expect } from "vitest"
 
+import { databaseLayer } from "../../test/database"
 import { projectScope } from "../access/testing"
 import { MarkdownError } from "../markdown/Markdown"
 import { Projects, type ProjectsShape } from "../projects/Projects"
@@ -36,6 +37,10 @@ import { Users, type UsersShape } from "../users/Users"
 import { Comments } from "./Comments"
 import { parseCommentsRegion, serializeCommentsRegion } from "./comments-region"
 import { CommentsLive } from "./CommentsLive"
+
+const decodeCommentIdSync = Schema.decodeSync(CommentId)
+
+const decodeUnknownCommentId = Schema.decodeUnknownEffect(CommentId)
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -169,10 +174,26 @@ const FakeUsers = Layer.succeed(Users, {
   fullByIds: () => Effect.succeed([author])
 } satisfies UsersShape)
 
-const FakeDb = Layer.succeed(Db, {
-  insert: () => ({ values: () => Effect.void }),
-  delete: () => ({ where: () => Effect.void })
-} as never)
+const FakeDb = databaseLayer(({ sql }) =>
+  sql.startsWith("select")
+    ? Effect.die(new Error(`Unexpected SQL: ${sql}`))
+    : Effect.succeed([])
+)
+
+const commentRow = (
+  input: Readonly<Partial<typeof commentIndex.$inferSelect>>
+) => [
+  input.id ?? "c_moderation",
+  input.projectId ?? "project-1",
+  input.ticketId ?? "T-1",
+  input.origin ?? "native",
+  input.authorKind ?? "user",
+  input.authorId ?? "user-1",
+  input.jiraDisplayName ?? null,
+  input.jiraAccountId ?? null,
+  (input.createdAt ?? at("2026-01-01T00:00:00.000Z")).toISOString(),
+  input.editedAt?.toISOString() ?? null
+]
 
 const scopeFor = (
   userId: string,
@@ -258,29 +279,18 @@ it.effect("creates comments through TicketDocs", () => {
 it.effect(
   "imports Jira history with complete bodies and exact timestamps",
   () => {
-    const rows: Array<Record<string, unknown>> = []
+    const rows: Array<ReadonlyArray<unknown>> = []
     let current = document
-    const database = Layer.succeed(Db, {
-      query: {
-        commentIndex: {
-          findMany: () => Effect.sync(() => rows),
-          findFirst: () => Effect.sync(() => rows[0])
+    const database = databaseLayer(({ sql, params }) =>
+      Effect.sync(() => {
+        if (sql.startsWith("insert")) {
+          for (let index = 0; index < params.length; index += 10)
+            rows.push(params.slice(index, index + 10))
         }
-      },
-      insert: () => ({
-        values: (values: unknown) =>
-          Effect.sync(() => {
-            rows.push(...(Array.isArray(values) ? values : [values]))
-          })
-      }),
-      delete: () => ({
-        where: () =>
-          Effect.sync(() => {
-            rows.splice(0)
-          })
-      }),
-      update: () => ({ set: () => ({ where: () => Effect.void }) })
-    } as never)
+        if (sql.startsWith("delete")) rows.splice(0)
+        return sql.startsWith("select") ? rows : []
+      })
+    )
     const docs = makeTicketDocs({
       read: () => Effect.succeed(current),
       write: (_orgSlug, _slug, _ticketId, next) =>
@@ -416,21 +426,17 @@ it.effect("rejects incomplete Jira snapshot attribution", () => {
 })
 
 it.effect("removes imported index rows when the markdown write fails", () => {
-  const rows: Array<Record<string, unknown>> = []
-  const database = Layer.succeed(Db, {
-    insert: () => ({
-      values: (values: unknown) =>
-        Effect.sync(() => {
-          rows.push(...(Array.isArray(values) ? values : [values]))
-        })
-    }),
-    delete: () => ({
-      where: () =>
-        Effect.sync(() => {
-          rows.splice(0)
-        })
+  const rows: Array<ReadonlyArray<unknown>> = []
+  const database = databaseLayer(({ sql, params }) =>
+    Effect.sync(() => {
+      if (sql.startsWith("insert")) {
+        for (let index = 0; index < params.length; index += 10)
+          rows.push(params.slice(index, index + 10))
+      }
+      if (sql.startsWith("delete")) rows.splice(0)
+      return sql.startsWith("select") ? rows : []
     })
-  } as never)
+  )
   const failure = new MarkdownError({
     message: "fixture write failed",
     cause: new Error("write failed")
@@ -463,7 +469,7 @@ it.effect("restores markdown when an edit index update fails", () => {
     ...document,
     commentsRegion: ""
   }
-  const id = Schema.decodeSync(CommentId)("c_native")
+  const id = decodeCommentIdSync("c_native")
   current = {
     ...current,
     commentsRegion: serializeCommentsRegion([
@@ -494,30 +500,13 @@ it.effect("restores markdown when an edit index update fails", () => {
         Effect.tap((next) => (onPersist ? onPersist(next) : Effect.void))
       )
   })
-  const database = Layer.succeed(Db, {
-    query: {
-      commentIndex: {
-        findFirst: () =>
-          Effect.succeed({
-            id,
-            projectSlug: "project",
-            ticketId: "T-1",
-            origin: "native",
-            authorKind: "user",
-            authorId: "user-1",
-            jiraAccountId: null,
-            jiraDisplayName: null,
-            createdAt: at("2021-04-02T03:04:05.678Z"),
-            editedAt: null
-          })
-      }
-    },
-    update: () => ({
-      set: () => ({
-        where: () => Effect.die(new Error("index update failed"))
-      })
-    })
-  } as never)
+  const database = databaseLayer(({ sql }) =>
+    sql.startsWith("update")
+      ? Effect.die(new Error("index update failed"))
+      : Effect.succeed([
+          commentRow({ id, createdAt: at("2021-04-02T03:04:05.678Z") })
+        ])
+  )
   const layer = makeLayer(docs, database)
 
   return Effect.gen(function* () {
@@ -537,25 +526,15 @@ it.effect(
   "denies changes to Jira-origin comments without mutating markdown",
   () => {
     let updates = 0
-    const database = Layer.succeed(Db, {
-      query: {
-        commentIndex: {
-          findFirst: () =>
-            Effect.succeed({
-              id: "c_imported",
-              projectSlug: "project",
-              ticketId: "T-1",
-              origin: "jira",
-              authorKind: "user",
-              authorId: "user-1",
-              jiraAccountId: null,
-              jiraDisplayName: null,
-              createdAt: at("2021-04-02T03:04:05.678Z"),
-              editedAt: null
-            })
-        }
-      }
-    } as never)
+    const database = databaseLayer(() =>
+      Effect.succeed([
+        commentRow({
+          id: "c_imported",
+          origin: "jira",
+          createdAt: at("2021-04-02T03:04:05.678Z")
+        })
+      ])
+    )
     const layer = makeLayer(
       makeTicketDocs({
         update: () =>
@@ -566,7 +545,7 @@ it.effect(
       }),
       database
     )
-    const id = Schema.decodeSync(CommentId)("c_imported")
+    const id = decodeCommentIdSync("c_imported")
 
     return Effect.gen(function* () {
       const comments = yield* Comments
@@ -634,9 +613,7 @@ describe.skipIf(!databaseUrl)("comment persistence failure", () => {
             (client) => Effect.promise(() => client.end())
           )
           const userId = randomUUID()
-          const id = yield* Schema.decodeUnknownEffect(CommentId)(
-            `c_${randomUUID()}`
-          )
+          const id = yield* decodeUnknownCommentId(`c_${randomUUID()}`)
           const previousEdit = at("2026-01-01T01:00:00.000Z")
           yield* Effect.promise(() =>
             client.query(
@@ -706,19 +683,9 @@ const moderatedComment = Schema.decodeUnknownSync(CommentId)("c_moderation")
 describe("comment moderation", () => {
   const commentId = moderatedComment
   const authoredBy = (authorId: string) =>
-    Layer.succeed(Db, {
-      query: {
-        commentIndex: {
-          findFirst: () =>
-            Effect.succeed({
-              authorId,
-              createdAt: at("2026-01-01T00:00:00.000Z")
-            })
-        }
-      },
-      update: () => ({ set: () => ({ where: () => Effect.void }) }),
-      delete: () => ({ where: () => Effect.void })
-    } as never)
+    databaseLayer(({ sql }) =>
+      Effect.succeed(sql.startsWith("select") ? [commentRow({ authorId })] : [])
+    )
 
   const attempt = (
     operation: "edit" | "remove",

@@ -1,4 +1,4 @@
-import { S3Client } from "@aws-sdk/client-s3"
+import { ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3"
 import { it } from "@effect/vitest"
 import * as Effect from "effect/Effect"
 import { describe, expect, vi } from "vitest"
@@ -161,21 +161,23 @@ describe("listObjectKeys", () => {
   it.effect("follows every continuation token", () => {
     const send = vi
       .spyOn(S3Client.prototype, "send")
-      .mockImplementation(((command: {
-        input: { ContinuationToken?: string }
-      }) => {
+      .mockImplementation((command) => {
+        if (!(command instanceof ListObjectsV2Command))
+          throw new Error("Unexpected S3 command")
         if (command.input.ContinuationToken === undefined) {
           return Promise.resolve({
             Contents: [{ Key: "prefix/a" }],
+            $metadata: {},
             IsTruncated: true,
             NextContinuationToken: "page-2"
           })
         }
         return Promise.resolve({
           Contents: [{ Key: "prefix/b" }, {}],
+          $metadata: {},
           IsTruncated: false
         })
-      }) as never)
+      })
 
     return Effect.gen(function* () {
       const storage = yield* S3Storage
@@ -189,11 +191,14 @@ describe("listObjectKeys", () => {
   })
 
   it.effect("fails instead of looping on a repeated continuation token", () => {
-    const send = vi.spyOn(S3Client.prototype, "send").mockResolvedValue({
-      Contents: [],
-      IsTruncated: true,
-      NextContinuationToken: "same-token"
-    } as never)
+    const send = vi.spyOn(S3Client.prototype, "send").mockImplementation(() =>
+      Promise.resolve({
+        $metadata: {},
+        Contents: [],
+        IsTruncated: true,
+        NextContinuationToken: "same-token"
+      })
+    )
 
     return Effect.gen(function* () {
       const storage = yield* S3Storage
@@ -206,6 +211,48 @@ describe("listObjectKeys", () => {
         retryable: false
       })
       expect(send).toHaveBeenCalledTimes(2)
+    }).pipe(
+      Effect.provide(S3StorageLive),
+      Effect.ensuring(Effect.sync(() => send.mockRestore()))
+    )
+  })
+})
+
+describe("S3 failure classification", () => {
+  it.effect.each([
+    { cause: { name: "AccessDenied" }, reason: "auth", retryable: false },
+    {
+      cause: { $metadata: { httpStatusCode: 403 } },
+      reason: "auth",
+      retryable: false
+    },
+    {
+      cause: { name: "AccessDenied", $metadata: null },
+      reason: "auth",
+      retryable: false
+    },
+    {
+      cause: { name: 42, $metadata: { httpStatusCode: 403 } },
+      reason: "auth",
+      retryable: false
+    },
+    { cause: { name: 42 }, reason: "unknown", retryable: true }
+  ])("maps $cause to $reason", ({ cause, reason, retryable }) => {
+    const send = vi.spyOn(S3Client.prototype, "send").mockRejectedValue(cause)
+    return Effect.gen(function* () {
+      const storage = yield* S3Storage
+      const error = yield* Effect.flip(
+        storage.checkConnection({
+          endpoint: "https://storage.example.test",
+          bucket: "test",
+          region: "auto",
+          keyPrefix: null,
+          forcePathStyle: true,
+          accessKeyId: "test",
+          secretAccessKey: "test"
+        })
+      )
+      expect(error).toMatchObject({ reason, retryable })
     }).pipe(
       Effect.provide(S3StorageLive),
       Effect.ensuring(Effect.sync(() => send.mockRestore()))

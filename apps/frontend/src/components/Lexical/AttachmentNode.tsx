@@ -27,7 +27,8 @@ import {
   AnimatePresence,
   LayoutGroup,
   motion,
-  useReducedMotion
+  useReducedMotion,
+  type MotionProps
 } from "motion/react"
 import {
   useCallback,
@@ -144,12 +145,12 @@ function AttachmentImage({
     }
   }
 
-  const onPan = (_event: unknown, info: { offset: { x: number } }) => {
+  const onPan: MotionProps["onPan"] = (_event, info) => {
     if (!dragStart.current) return
     setDragWidth(measure(info.offset.x))
   }
 
-  const onPanEnd = (_event: unknown, info: { offset: { x: number } }) => {
+  const onPanEnd: MotionProps["onPanEnd"] = (_event, info) => {
     if (!dragStart.current) return
     const next = measure(info.offset.x)
     dragStart.current = null

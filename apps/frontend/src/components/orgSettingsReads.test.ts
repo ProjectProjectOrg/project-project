@@ -1,3 +1,4 @@
+import type { AnyRoute } from "@tanstack/react-router"
 import * as Registry from "effect/reactivity/AtomRegistry"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
 
@@ -29,22 +30,43 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function load<A, R>(
-  loader: ((args: A) => R) | object | undefined,
-  args: Partial<A>
-) {
+const loaderDefaults = (route: AnyRoute) => ({
+  route,
+  abortController: new AbortController(),
+  preload: false,
+  deps: {},
+  location: {
+    href: "/",
+    publicHref: "/",
+    external: false,
+    pathname: "/",
+    search: {},
+    searchStr: "",
+    hash: "",
+    state: { __TSR_index: 0 }
+  },
+  navigate: () => {
+    throw new Error("Unexpected imperative navigation")
+  },
+  parentMatchPromise: new Promise<never>(() => {}),
+  cause: "enter" as const
+})
+
+function load<A, R>(loader: ((args: A) => R) | object | undefined, args: A) {
   if (typeof loader !== "function") throw new Error("Missing loader")
-  return loader(args as A)
+  return loader(args)
 }
 
 it("starts members while the parent org loader is still waiting", async () => {
   const controller = new AbortController()
   const parent = load(OrgRoute.options.loader, {
+    ...loaderDefaults(OrgRoute),
     context: { registry },
     params: { orgSlug: "test" },
     abortController: controller
   })
   load(MembersRoute.options.loader, {
+    ...loaderDefaults(MembersRoute),
     context: { registry },
     params: { orgSlug: "test" }
   })

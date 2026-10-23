@@ -1,5 +1,5 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { ProjectStatus, StatusSlug } from "@pp/shared"
+import type { ProjectStatus } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronDown, Trash2 } from "lucide-react"
@@ -12,7 +12,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import {
@@ -127,16 +126,16 @@ function DeleteStatusForm({
     : 0
 
   const targets = statuses.filter((s) => s.slug !== status.slug)
-  const [target, setTarget] = useState<string>("")
-  const effectiveTarget = target || targets[0]?.slug || ""
+  const [target, setTarget] = useState<ProjectStatus["slug"] | null>(null)
+  const effectiveTarget =
+    targets.find((status) => status.slug === target)?.slug ?? targets[0]?.slug
   const [error, setError] = useState<string | null>(null)
 
   async function run() {
     setBusy(true)
     setError(null)
     const exit = await remove({
-      reassignTo:
-        affectedCount > 0 ? (effectiveTarget as StatusSlug) : undefined
+      reassignTo: affectedCount > 0 ? effectiveTarget : undefined
     })
     if (Exit.isSuccess(exit)) {
       close()
@@ -163,7 +162,7 @@ function DeleteStatusForm({
         <TargetPicker
           targets={targets}
           statuses={statuses}
-          value={effectiveTarget}
+          value={effectiveTarget ?? null}
           onChange={setTarget}
         />
       ) : null}
@@ -195,10 +194,10 @@ function TargetPicker({
 }: {
   targets: ReadonlyArray<ProjectStatus>
   statuses: ReadonlyArray<ProjectStatus>
-  value: string
-  onChange: (slug: string) => void
+  value: ProjectStatus["slug"] | null
+  onChange: (slug: ProjectStatus["slug"]) => void
 }) {
-  const selectedMeta = statusMetaFor(value, statuses)
+  const selectedMeta = statusMetaFor(value ?? "", statuses)
   const SelectedIcon = selectedMeta.icon
   return (
     <DropdownMenu>
@@ -212,7 +211,7 @@ function TargetPicker({
               }
               strokeWidth={1.75}
             />
-            <span>{statusLabelFor(value, statuses)}</span>
+            <span>{statusLabelFor(value ?? "", statuses)}</span>
             <ChevronDown className="ml-1 size-3.5 text-muted-foreground" />
           </Button>
         }
@@ -220,23 +219,26 @@ function TargetPicker({
       <DropdownMenuContent align="start" sideOffset={6} className="w-44">
         <DropdownMenuRadioGroup
           value={value}
-          onValueChange={(next: string) => onChange(next as typeof value)}
-        >
-          {targets.map((s) => {
+          onValueChange={onChange}
+          items={targets.map((s) => {
             const meta = statusMetaFor(s.slug, statuses)
             const Icon = meta.icon
-            return (
-              <DropdownMenuRadioItem key={s.slug} value={s.slug} closeOnClick>
-                <Icon
-                  className={cn("size-4", meta.className)}
-                  style={meta.color ? { color: meta.color } : undefined}
-                  strokeWidth={1.75}
-                />
-                {meta.label}
-              </DropdownMenuRadioItem>
-            )
+            return {
+              value: s.slug,
+              closeOnClick: true,
+              label: (
+                <>
+                  <Icon
+                    className={cn("size-4", meta.className)}
+                    style={meta.color ? { color: meta.color } : undefined}
+                    strokeWidth={1.75}
+                  />
+                  {meta.label}
+                </>
+              )
+            }
           })}
-        </DropdownMenuRadioGroup>
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest"
 
 import { decodeCursor, encodeCursor, Page, Pagination } from "./Pagination"
 
+const decodeUnknownPaginationSync = Schema.decodeUnknownSync(Pagination)
+
+const decodePageOfString = Schema.decodeUnknownSync(Page(Schema.String))
+
 describe("Pagination", () => {
   it("rejects limit below 1", () => {
     const decode = Schema.decodeUnknownExit(Pagination)
@@ -11,13 +15,12 @@ describe("Pagination", () => {
   })
 
   it("accepts limit at upper bound", async () => {
-    const decoded = Schema.decodeUnknownSync(Pagination)({ limit: 200 })
+    const decoded = decodeUnknownPaginationSync({ limit: 200 })
     expect(decoded.limit).toBe(200)
   })
 
   it("Page is a generic struct of items + nextCursor", () => {
-    const PageOfString = Page(Schema.String)
-    const decoded = Schema.decodeUnknownSync(PageOfString)({
+    const decoded = decodePageOfString({
       items: ["a", "b"],
       nextCursor: null
     })

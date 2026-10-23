@@ -1,13 +1,12 @@
 import { it } from "@effect/vitest"
-import { Db } from "@pp/db"
 import { OrgScope, type OrgRole } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as HttpClient from "effect/http/HttpClient"
 import * as Layer from "effect/Layer"
-import * as SqlClient from "effect/sql/SqlClient"
 import { describe, expect } from "vitest"
 
+import { databaseLayer } from "../../test/database"
 import { orgScope } from "../access/testing"
 import { OrgStorage } from "./OrgStorage"
 import { OrgStorageLive } from "./OrgStorageLive"
@@ -32,17 +31,26 @@ const row = {
 const storageLayer = OrgStorageLive.pipe(
   Layer.provide(
     Layer.mergeAll(
-      Layer.succeed(Db, {
-        select: () => ({
-          from: () => ({
-            leftJoin: () => ({
-              where: () => ({ limit: () => Effect.succeed([row]) })
-            })
-          })
-        })
-      } as never),
-      Layer.succeed(SqlClient.SqlClient, {} as never),
-      Layer.succeed(HttpClient.HttpClient, {} as never),
+      databaseLayer(() =>
+        Effect.succeed([
+          [
+            row.endpoint,
+            row.bucket,
+            row.region,
+            row.keyPrefix,
+            row.forcePathStyle,
+            row.accessKeyId,
+            row.status,
+            row.connectedAt.toISOString(),
+            row.lastCheckedAt.toISOString(),
+            row.lastCheckError
+          ]
+        ])
+      ),
+      Layer.succeed(
+        HttpClient.HttpClient,
+        HttpClient.make(() => Effect.die(new Error("Unexpected HTTP request")))
+      ),
       Layer.mock(S3Storage, {}),
       Layer.mock(SecretCrypto, {})
     )

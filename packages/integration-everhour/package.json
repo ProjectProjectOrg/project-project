@@ -20,6 +20,7 @@
   },
   "devDependencies": {
     "@effect/platform-bun": "4.0.5",
+    "@effect/sql-pg": "4.0.5",
     "@effect/vitest": "4.0.5",
     "@types/bun": "latest",
     "@types/pg": "^8.20.0",

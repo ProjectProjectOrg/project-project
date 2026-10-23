@@ -2,11 +2,8 @@
 import { createHash } from "node:crypto"
 
 import * as BunCrypto from "@effect/platform-bun/BunCrypto"
-import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
-import { relations } from "@pp/db/schema"
 import { FigmaAuthInvalid, FigmaError, FigmaNotConnected } from "@pp/shared"
-import { makeWithDefaults } from "drizzle-orm/effect-postgres"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as Crypto from "effect/Crypto"
 import * as DateTime from "effect/DateTime"
@@ -16,6 +13,7 @@ import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 import { afterEach, describe, expect, vi } from "vitest"
 
+import { makeDatabase } from "../../test/database"
 import { chooseCredential, isTokenExpired } from "./FigmaIntegrations"
 import {
   consumeOauthStateQuery,
@@ -27,6 +25,12 @@ import {
   startOauthFlow,
   type FigmaTokenGrant
 } from "./FigmaIntegrationsLive"
+
+const isFigmaAuthInvalid = Schema.is(FigmaAuthInvalid)
+
+const isFigmaError = Schema.is(FigmaError)
+
+const isFigmaNotConnected = Schema.is(FigmaNotConnected)
 
 const at = (iso: string): Date =>
   DateTime.toDate(DateTime.makeUnsafe(Date.parse(iso)))
@@ -74,7 +78,7 @@ const client = {
   clientSecret: Redacted.make("client-secret")
 }
 
-const jsonResponse = (status: number, body: unknown) =>
+const jsonResponse = (status: number, body: Schema.Json) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json" }
@@ -166,7 +170,7 @@ describe("credentialFor refresh on expiry", () => {
 
       const error = yield* Effect.flip(test.run("project-token"))
 
-      expect(Schema.is(FigmaAuthInvalid)(error)).toBe(true)
+      expect(isFigmaAuthInvalid(error)).toBe(true)
       expect(test.persisted).toEqual([])
       expect(test.rejections).toEqual(["rejected"])
     })
@@ -186,7 +190,7 @@ describe("credentialFor refresh on expiry", () => {
 
       const error = yield* Effect.flip(test.run("project-token"))
 
-      expect(Schema.is(FigmaAuthInvalid)(error)).toBe(true)
+      expect(isFigmaAuthInvalid(error)).toBe(true)
       expect(test.rejections).toEqual(["rejected"])
     })
   )
@@ -209,7 +213,7 @@ describe("credentialFor refresh on expiry", () => {
 
         const error = yield* Effect.flip(test.run("project-token"))
 
-        if (!Schema.is(FigmaError)(error)) throw error
+        if (!isFigmaError(error)) throw error
         expect(error.reason).toBe("figma_refresh_unreachable")
         expect(test.persisted).toEqual([])
         expect(test.rejections).toEqual([])
@@ -232,7 +236,7 @@ describe("credentialFor refresh on expiry", () => {
 
         const error = yield* Effect.flip(test.run("project-token"))
 
-        if (!Schema.is(FigmaError)(error)) throw error
+        if (!isFigmaError(error)) throw error
         expect(error.reason).toBe("figma_refresh_unavailable")
         expect(test.persisted).toEqual([])
         expect(test.rejections).toEqual([])
@@ -269,7 +273,7 @@ describe("credentialFor refresh on expiry", () => {
           onGrantRejected: Effect.void
         })
       )
-      expect(Schema.is(FigmaNotConnected)(error)).toBe(true)
+      expect(isFigmaNotConnected(error)).toBe(true)
     })
   )
 
@@ -295,7 +299,7 @@ describe("figmaOAuthClient", () => {
   it.effect("fails FigmaError when the figma credentials are absent", () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(figmaOAuthClient)
-      if (!Schema.is(FigmaError)(error)) throw error
+      if (!isFigmaError(error)) throw error
       expect(error.reason).toBe("figma_oauth_unconfigured")
     }).pipe(
       Effect.provideService(
@@ -308,7 +312,7 @@ describe("figmaOAuthClient", () => {
   it.effect("fails FigmaError when only the client id is present", () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(figmaOAuthClient)
-      expect(Schema.is(FigmaError)(error)).toBe(true)
+      expect(isFigmaError(error)).toBe(true)
     }).pipe(
       Effect.provideService(
         ConfigProvider.ConfigProvider,
@@ -411,7 +415,7 @@ describe("credentialFor without oauth configuration", () => {
             onGrantRejected: Effect.void
           })
         )
-        if (!Schema.is(FigmaError)(error)) throw error
+        if (!isFigmaError(error)) throw error
         expect(error.reason).toBe("figma_oauth_unconfigured")
       }).pipe(Effect.provideService(ConfigProvider.ConfigProvider, emptyConfig))
   )
@@ -422,19 +426,12 @@ const proxyDb = (rows: ReadonlyArray<ReadonlyArray<unknown>> = []) => {
     readonly sql: string
     readonly params: ReadonlyArray<unknown>
   }> = []
-  const client = {
-    unsafe: (sql: string, params: ReadonlyArray<unknown>) => {
-      const run = Effect.sync(() => {
+  return Effect.map(
+    makeDatabase(({ sql, params }) =>
+      Effect.sync(() => {
         calls.push({ sql, params })
         return rows
       })
-      return { values: run, withoutTransform: run, raw: run }
-    },
-    withTransaction: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect
-  }
-  return Effect.map(
-    makeWithDefaults({ relations }).pipe(
-      Effect.provideService(PgClient.PgClient, client as never)
     ),
     (db) => ({ calls, db })
   )
@@ -506,7 +503,7 @@ describe("oauth state replay defences", () => {
 
       const error = yield* Effect.flip(requireConsumedState(consumed))
 
-      expect(Schema.is(FigmaAuthInvalid)(error)).toBe(true)
+      expect(isFigmaAuthInvalid(error)).toBe(true)
       expect(calls).toHaveLength(1)
       expect(whereClauseOf(calls[0].sql)).toBe(CONSUME_WHERE_CLAUSE)
       expect(calls[0].params).toContain(STATE_HASH)
@@ -542,7 +539,7 @@ describe("startOauthFlow", () => {
           userId: "user-1"
         })
       )
-      if (!Schema.is(FigmaError)(error)) throw error
+      if (!isFigmaError(error)) throw error
       expect(error.reason).toBe("figma_oauth_unconfigured")
       expect(calls).toEqual([])
     }).pipe(
@@ -572,7 +569,7 @@ describe("exchangeAuthorizationCode", () => {
         vi.fn(async () => jsonResponse(400, { error: "invalid_grant" }))
       )
       const error = yield* Effect.flip(exchange())
-      expect(Schema.is(FigmaAuthInvalid)(error)).toBe(true)
+      expect(isFigmaAuthInvalid(error)).toBe(true)
     })
   )
 
@@ -585,7 +582,7 @@ describe("exchangeAuthorizationCode", () => {
         })
       )
       const error = yield* Effect.flip(exchange())
-      if (!Schema.is(FigmaError)(error)) throw error
+      if (!isFigmaError(error)) throw error
       expect(error.reason).toBe("figma_token_exchange_unreachable")
     })
   )
@@ -599,7 +596,7 @@ describe("exchangeAuthorizationCode", () => {
         )
       )
       const error = yield* Effect.flip(exchange())
-      if (!Schema.is(FigmaError)(error)) throw error
+      if (!isFigmaError(error)) throw error
       expect(error.reason).toBe("figma_token_response_invalid")
     })
   )

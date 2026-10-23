@@ -12,6 +12,10 @@ import * as Schema from "effect/Schema"
 
 import { appFormOptions } from "@/lib/form"
 
+const decodeUnknownJiraMigrationConfigurationSync = Schema.decodeUnknownSync(
+  JiraMigrationConfiguration
+)
+
 export type JiraMigrationDraft = Readonly<{
   destination: Readonly<{ name: string; slug: string; key: string }>
   identities: ReadonlyArray<
@@ -318,7 +322,7 @@ export function buildJiraMigrationDraft(
 export function toPartialJiraMigrationConfiguration(
   draft: JiraMigrationDraft
 ): JiraMigrationConfigurationType {
-  return Schema.decodeUnknownSync(JiraMigrationConfiguration)({
+  return decodeUnknownJiraMigrationConfigurationSync({
     ...draft,
     restrictedContent: draft.restrictedContent ?? null,
     identities: draft.identities.filter(

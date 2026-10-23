@@ -69,6 +69,10 @@ import {
   verifyGithubWebhook
 } from "./main"
 
+const encodeUnknownJsonSync = Schema.encodeSync(
+  Schema.fromJsonString(Schema.Unknown)
+)
+
 const healthGroup = Object.values(AppApi.groups).find(
   (group) => group.identifier === "health"
 )
@@ -107,10 +111,16 @@ it.effect("GET /api/me reaches authentication instead of returning 404", () =>
 // Layer that lets `HttpApiClient.make(AppApi)` reach our in-process handler
 // instead of the network. We override the `FetchHttpClient.Fetch` service —
 // the seam through which `FetchHttpClient.layer` makes its requests.
-const InProcessFetch = Layer.succeed(FetchHttpClient.Fetch, ((input, init) =>
-  handler(
-    input instanceof Request ? input : new Request(String(input), init)
-  )) as typeof fetch)
+const InProcessFetch = Layer.succeed(
+  FetchHttpClient.Fetch,
+  Object.assign(
+    (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+      handler(
+        input instanceof Request ? input : new Request(String(input), init)
+      ),
+    { preconnect: fetch.preconnect }
+  )
+)
 const TestHttpClientLayer = FetchHttpClient.layer.pipe(
   Layer.provide(InProcessFetch)
 )
@@ -192,8 +202,7 @@ it.effect("HttpApiClient.health.get() returns { status: 'ok' }", () =>
 )
 
 const webhookSecret = "test-webhook-secret"
-const jsonBody = (value: unknown) =>
-  Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))(value)
+const jsonBody = (value: Schema.Json) => encodeUnknownJsonSync(value)
 
 const signWebhookBody = (body: string) =>
   `sha256=${createHmac("sha256", webhookSecret).update(body).digest("hex")}`

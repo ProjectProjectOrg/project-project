@@ -17,7 +17,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
@@ -103,22 +102,20 @@ export function EstimateBadgeTrigger({
       >
         <DropdownMenuRadioGroup
           value={
-            ticket.estimate?.unit === "tshirt" ? ticket.estimate.value : ""
+            ticket.estimate?.unit === "tshirt" ? ticket.estimate.value : null
           }
-          onValueChange={(next: string) => {
-            const value = next as (typeof ESTIMATE_SIZES)[number]
+          onValueChange={(value) => {
             const selected =
               ticket.estimate?.unit === "tshirt" &&
               ticket.estimate.value === value
             if (!selected) onPatch({ estimate: { unit, value } })
           }}
-        >
-          {ESTIMATE_SIZES.map((value) => (
-            <DropdownMenuRadioItem key={value} value={value} closeOnClick>
-              {value}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
+          items={ESTIMATE_SIZES.map((value) => ({
+            value,
+            closeOnClick: true,
+            label: value
+          }))}
+        />
         {ticket.estimate !== null && (
           <>
             <DropdownMenuSeparator />

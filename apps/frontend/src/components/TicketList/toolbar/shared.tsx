@@ -1,7 +1,11 @@
 import { motion } from "motion/react"
 import type { ComponentProps, ReactNode } from "react"
 
-import { Select, SelectContent, SelectTrigger } from "@/components/ui/select"
+import {
+  Select,
+  SelectTrigger,
+  type SelectOption
+} from "@/components/ui/select"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -49,27 +53,34 @@ export function ControlSlot({ children }: { children: ReactNode }) {
   )
 }
 
-export function OptionPicker({
+export function OptionPicker<
+  const Items extends ReadonlyArray<SelectOption<string>>
+>({
   label,
   value,
   displayValue,
   onValueChange,
-  children,
+  items,
   action
 }: Readonly<{
   action?: ReactNode
   label: string
-  value: string
+  value: NoInfer<Items[number]["value"]>
   displayValue: string
-  onValueChange: (value: string) => void
-  children: ReactNode
+  onValueChange: (value: NoInfer<Items[number]["value"]>) => void
+  items: Items
 }>) {
   return (
     <div className="flex min-h-8 items-center justify-between gap-3">
       <span className="text-[13px] text-muted-foreground">{label}</span>
       <div className="ml-auto flex items-center gap-1">
         {action}
-        <Select value={value} onValueChange={onValueChange}>
+        <Select
+          items={items}
+          value={value}
+          onValueChange={onValueChange}
+          contentProps={{ align: "end", className: "w-56" }}
+        >
           <SelectTrigger
             aria-label={m.tickets_view_options_picker_aria_label({
               label,
@@ -78,9 +89,6 @@ export function OptionPicker({
             selectedLabel={displayValue}
             className="h-8 w-40 min-w-0"
           />
-          <SelectContent align="end" className="w-56">
-            {children}
-          </SelectContent>
         </Select>
       </div>
     </div>

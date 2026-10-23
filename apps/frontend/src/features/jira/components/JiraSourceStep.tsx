@@ -2,12 +2,7 @@ import type { JiraConnection, JiraProjectChoice, JiraSite } from "@pp/shared"
 import { Check, Link2, ScanSearch } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger
-} from "@/components/ui/select"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import { m } from "@/paraglide/messages"
 
 export function JiraSourceStep({
@@ -114,12 +109,16 @@ export function JiraSourceStep({
         <label className="flex flex-col gap-2 text-[13px] font-medium">
           <span>{m.jira_migration_site_label()}</span>
           <Select
-            value={selectedCloudId}
+            value={selectedCloudId || null}
             onValueChange={(cloudId) => {
               onCloudIdChange(cloudId)
               onProjectIdChange("")
             }}
             disabled={sitesLoading || sites.length === 0}
+            items={sites.map((site) => ({
+              value: site.cloudId,
+              label: site.name
+            }))}
           >
             <SelectTrigger
               aria-label={m.jira_migration_site_label()}
@@ -130,13 +129,6 @@ export function JiraSourceStep({
               }
               className="w-full"
             />
-            <SelectContent>
-              {sites.map((site) => (
-                <SelectItem key={site.cloudId} value={site.cloudId}>
-                  {site.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
           </Select>
           {!sitesLoading && sites.length === 0 ? (
             <span className="font-normal text-muted-foreground">
@@ -148,11 +140,15 @@ export function JiraSourceStep({
         <label className="flex flex-col gap-2 text-[13px] font-medium">
           <span>{m.jira_migration_project_label()}</span>
           <Select
-            value={selectedProjectId}
+            value={selectedProjectId || null}
             onValueChange={onProjectIdChange}
             disabled={
               !selectedCloudId || projectsLoading || projects.length === 0
             }
+            items={projects.map((project) => ({
+              value: project.id,
+              label: project.name
+            }))}
           >
             <SelectTrigger
               aria-label={m.jira_migration_project_label()}
@@ -163,13 +159,6 @@ export function JiraSourceStep({
               }
               className="w-full"
             />
-            <SelectContent>
-              {projects.map((project) => (
-                <SelectItem key={project.id} value={project.id}>
-                  {project.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
           </Select>
           {!projectsLoading && selectedCloudId && projects.length === 0 ? (
             <span className="font-normal text-muted-foreground">

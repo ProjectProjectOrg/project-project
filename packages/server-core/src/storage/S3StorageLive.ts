@@ -22,6 +22,8 @@ import {
   type S3Connection
 } from "./S3Storage"
 
+const decodeS3Endpoint = Schema.decodeEffect(S3Endpoint)
+
 const clientFor = (connection: S3Connection) =>
   new S3Client({
     region: connection.region,
@@ -33,11 +35,22 @@ const clientFor = (connection: S3Connection) =>
     }
   })
 
-const isAuthFailure = (cause: unknown) => {
-  const name = (cause as { name?: string } | null)?.name ?? ""
-  const status =
-    (cause as { $metadata?: { httpStatusCode?: number } } | null)?.$metadata
-      ?.httpStatusCode ?? 0
+const S3Failure = Schema.Struct({
+  name: Schema.optional(Schema.String).pipe(
+    Schema.catchDecoding(() => Effect.succeed(Option.none()))
+  ),
+  $metadata: Schema.optional(
+    Schema.Struct({
+      httpStatusCode: Schema.optional(Schema.Finite)
+    })
+  ).pipe(Schema.catchDecoding(() => Effect.succeed(Option.none())))
+})
+
+const decodeS3Failure = Schema.decodeUnknownOption(S3Failure)
+
+const isAuthFailure = (failure: typeof S3Failure.Type) => {
+  const { name, $metadata } = failure
+  const status = $metadata?.httpStatusCode
   return (
     status === 401 ||
     status === 403 ||
@@ -47,31 +60,36 @@ const isAuthFailure = (cause: unknown) => {
   )
 }
 
-const isNotFound = (cause: unknown) => {
-  const name = (cause as { name?: string } | null)?.name ?? ""
-  const status =
-    (cause as { $metadata?: { httpStatusCode?: number } } | null)?.$metadata
-      ?.httpStatusCode ?? 0
-  return status === 404 || name === "NotFound" || name === "NoSuchKey"
-}
+const isNotFound = (cause: unknown) =>
+  Option.exists(
+    decodeS3Failure(cause),
+    ({ name, $metadata }) =>
+      $metadata?.httpStatusCode === 404 ||
+      name === "NotFound" ||
+      name === "NoSuchKey"
+  )
 
 const attempt = <A>(run: () => Promise<A>) =>
   Effect.tryPromise({
     try: run,
-    catch: (cause) =>
-      new S3Unavailable({
-        reason: isAuthFailure(cause)
-          ? "auth"
-          : ((cause as { name?: string } | null)?.name ?? "unknown"),
-        retryable: !isAuthFailure(cause)
+    catch: (cause) => {
+      const failure: typeof S3Failure.Type = Option.getOrElse(
+        decodeS3Failure(cause),
+        () => ({})
+      )
+      const authFailure = isAuthFailure(failure)
+      return new S3Unavailable({
+        reason: authFailure ? "auth" : (failure.name ?? "unknown"),
+        retryable: !authFailure
       })
+    }
   })
 
 const withClientEffect = Effect.fn("S3Storage.withClientEffect")(function* <A>(
   connection: S3Connection,
   use: (client: S3Client) => Effect.Effect<A, S3Unavailable>
 ) {
-  yield* Schema.decodeEffect(S3Endpoint)(connection.endpoint).pipe(
+  yield* decodeS3Endpoint(connection.endpoint).pipe(
     Effect.mapError(
       () =>
         new S3Unavailable({

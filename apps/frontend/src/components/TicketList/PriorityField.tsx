@@ -5,7 +5,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import {
@@ -26,24 +25,27 @@ function PriorityMenuItems({
   return (
     <DropdownMenuRadioGroup
       value={current}
-      onValueChange={(next: string) => {
-        if (next !== current) onSelect(next as TicketPriority)
+      onValueChange={(next) => {
+        if (next !== current) onSelect(next)
       }}
-    >
-      {PRIORITY_ORDER.map((p) => {
+      items={PRIORITY_ORDER.map((p) => {
         const pMeta = PRIORITY_META[p]
         const PIcon = pMeta.icon
-        return (
-          <DropdownMenuRadioItem key={p} value={p} closeOnClick>
-            <PIcon
-              className={cn("size-4", pMeta.className)}
-              strokeWidth={1.75}
-            />
-            {PRIORITY_LABELS[p]()}
-          </DropdownMenuRadioItem>
-        )
+        return {
+          value: p,
+          closeOnClick: true,
+          label: (
+            <>
+              <PIcon
+                className={cn("size-4", pMeta.className)}
+                strokeWidth={1.75}
+              />
+              {PRIORITY_LABELS[p]()}
+            </>
+          )
+        }
       })}
-    </DropdownMenuRadioGroup>
+    />
   )
 }
 

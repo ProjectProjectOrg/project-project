@@ -1,11 +1,6 @@
 import type { WorkTypeOption } from "@pp/shared"
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger
-} from "@/components/ui/select"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import * as m from "@/paraglide/messages"
 
 export function WorkTypeSelect({
@@ -22,19 +17,20 @@ export function WorkTypeSelect({
   const selectedLabel =
     options.find((option) => option.key === value)?.label ?? null
   return (
-    <Select value={value} onValueChange={onChange} disabled={disabled}>
+    <Select
+      value={value || null}
+      onValueChange={onChange}
+      disabled={disabled}
+      items={options.map((option) => ({
+        value: option.key,
+        label: option.label
+      }))}
+    >
       <SelectTrigger
         placeholder={m.time_work_type_label()}
         selectedLabel={selectedLabel}
         aria-label={m.time_work_type_label()}
       />
-      <SelectContent>
-        {options.map((option) => (
-          <SelectItem key={option.key} value={option.key}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
     </Select>
   )
 }

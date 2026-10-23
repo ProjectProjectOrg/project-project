@@ -6,7 +6,6 @@ import {
   CUTOUT_DEFAULT_TOLERANCE,
   CUTOUT_MAX_TOLERANCE
 } from "@/lib/iconCutout"
-import type { IconTreatment } from "@/lib/iconDraft"
 
 export const IconSource = Schema.Union([
   Schema.Struct({
@@ -34,6 +33,14 @@ export const IconTreatmentShape = Schema.Struct({
   )
 })
 
+const iconFormSchema = Schema.toStandardSchemaV1(
+  Schema.Struct({
+    source: IconSource,
+    crop: IconCropShape,
+    treatment: IconTreatmentShape
+  })
+)
+
 export const sourceSchema = Schema.toStandardSchemaV1(IconSource)
 export const cropSchema = Schema.toStandardSchemaV1(IconCropShape)
 export const treatmentSchema = Schema.toStandardSchemaV1(IconTreatmentShape)
@@ -50,28 +57,22 @@ export const stepValidator = createValidator({
 })
 
 export const iconFormOpts = (icon: string, hasImage: boolean) =>
-  appFormOptions({
+  appFormOptions.looseSchema(iconFormSchema, {
     defaultValues: {
       source: {
-        kind: (hasImage ? "image" : "emoji") as "emoji" | "image",
+        kind: hasImage ? "image" : "emoji",
         emoji: icon,
-        objectUrl: null as string | null
+        objectUrl: null
       },
       crop: { x: 0.5, y: 0.5, zoom: 1 },
       treatment: {
-        kind: "sticker" as IconTreatment,
+        kind: "sticker",
         tolerance: CUTOUT_DEFAULT_TOLERANCE
       }
     },
     validators: [
       {
-        run: Schema.toStandardSchemaV1(
-          Schema.Struct({
-            source: IconSource,
-            crop: IconCropShape,
-            treatment: IconTreatmentShape
-          })
-        ),
+        run: iconFormSchema,
         triggers: []
       }
     ]

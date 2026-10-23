@@ -6,7 +6,7 @@ import {
   type BlockLookup,
   type TagName,
   type TemplateDraft,
-  type TemplateKey,
+  TemplateKey,
   type TicketPriority
 } from "@pp/shared"
 
@@ -64,11 +64,11 @@ export const freeTemplateKey = (
 ): TemplateKey => {
   const base = keyFromName(name) || FALLBACK_KEY
   const free = (key: string) => key !== BLANK_TEMPLATE_KEY && !taken.has(key)
-  if (free(base)) return base as TemplateKey
+  if (free(base)) return TemplateKey.make(base)
   for (let index = 2; ; index++) {
     const suffix = `-${index}`
     const candidate = `${base.slice(0, LIBRARY_KEY_MAX_LENGTH - suffix.length).replace(/-+$/, "")}${suffix}`
-    if (free(candidate)) return candidate as TemplateKey
+    if (free(candidate)) return TemplateKey.make(candidate)
   }
 }
 

@@ -9,6 +9,8 @@ import {
   type ProjectStatuses
 } from "./statusColumns"
 
+const decodeProjectStatusSync = Schema.decodeSync(ProjectStatus)
+
 const slug = Schema.decodeSync(StatusSlug)
 
 const status = (
@@ -17,7 +19,7 @@ const status = (
   orderKey: string,
   color = "#123456"
 ): ProjectStatus =>
-  Schema.decodeSync(ProjectStatus)({
+  decodeProjectStatusSync({
     slug: statusSlug,
     label,
     icon: "Circle",

@@ -16,6 +16,7 @@ import type {
   JiraComponent,
   JiraIssue,
   JiraIssueTypeStatuses,
+  JiraUser,
   JiraPriority,
   JiraProject,
   JiraSprint,
@@ -34,6 +35,14 @@ import {
   type JiraScanPageInput,
   type JiraScanPageResult
 } from "./MigrationActivities"
+
+const decodeUnknownJiraMigrationManifest = Schema.decodeUnknownEffect(
+  JiraMigrationManifest
+)
+
+const decodeUnknownJiraMigrationRequirements = Schema.decodeUnknownEffect(
+  JiraMigrationRequirements
+)
 
 export type JiraScanInput = Readonly<{
   migrationId: string
@@ -56,21 +65,7 @@ export type JiraScanInput = Readonly<{
   scannedAt: DateTime.Utc
 }>
 
-const record = (value: unknown): Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null
-    ? (value as Readonly<Record<string, unknown>>)
-    : {}
-
-const string = (value: unknown): string | null =>
-  typeof value === "string" && value.length > 0 ? value : null
-
-const boolean = (value: unknown): boolean | null =>
-  typeof value === "boolean" ? value : null
-
-const array = (value: unknown): ReadonlyArray<unknown> =>
-  Array.isArray(value) ? value : []
-
-const convertedText = (value: unknown) => {
+const convertedText = (value: Schema.Json | undefined) => {
   if (typeof value === "string") {
     return { markdown: value, warnings: [], references: [], adf: value }
   }
@@ -79,22 +74,17 @@ const convertedText = (value: unknown) => {
   return { ...converted, adf: value }
 }
 
-const userRecord = (value: unknown) => {
-  const source = record(value)
-  const accountId = string(source.accountId)
-  const displayName = string(source.displayName)
-  if (!accountId || !displayName) return null
-  return {
-    accountId,
-    displayName,
-    emailAddress: string(source.emailAddress),
-    active: boolean(source.active),
-    accountType: string(source.accountType),
-    raw: value
-  }
-}
-
-const sourceId = (value: unknown): string | null => string(record(value).id)
+const userRecord = (user: JiraUser | null | undefined) =>
+  user == null
+    ? null
+    : {
+        accountId: user.accountId,
+        displayName: user.displayName,
+        emailAddress: user.emailAddress || null,
+        active: user.active ?? null,
+        accountType: user.accountType || null,
+        raw: user
+      }
 
 const issueNumber = (key: string): number => {
   const value = Number(key.slice(key.lastIndexOf("-") + 1))
@@ -164,52 +154,34 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
       ({ id }) => id
     )
     const issueTypes = uniqueBy(
-      input.statuses.map(({ id, name, subtask }) => ({ id, name, subtask })),
+      input.statuses.map(({ statuses: _statuses, ...issueType }) => issueType),
       ({ id }) => id
     )
     const issues = input.issues.map((issue) => {
-      const fields = record(issue.fields)
-      const status = record(fields.status)
-      const issueType = record(fields.issuetype)
-      const priority = record(fields.priority)
-      const assignee = record(fields.assignee)
-      const parent = record(fields.parent)
+      const fields = issue.fields
       return {
         id: issue.id,
         key: issue.key,
         issueNumber: issueNumber(issue.key),
-        summary: string(fields.summary) ?? issue.key,
+        summary: fields.summary ?? issue.key,
         description: convertedText(fields.description),
-        statusId: string(status.id) ?? "unknown",
-        issueTypeId: string(issueType.id) ?? "unknown",
-        priorityId: string(priority.id),
-        assigneeAccountId: string(assignee.accountId),
-        labels: array(fields.labels).flatMap((value) =>
-          typeof value === "string" ? [value] : []
-        ),
-        componentIds: array(fields.components).flatMap((value) => {
-          const id = sourceId(value)
-          return id ? [id] : []
-        }),
+        statusId: fields.status?.id ?? "unknown",
+        issueTypeId: fields.issuetype?.id ?? "unknown",
+        priorityId: fields.priority?.id ?? null,
+        assigneeAccountId: fields.assignee?.accountId ?? null,
+        labels: fields.labels ?? [],
+        componentIds: (fields.components ?? []).map(({ id }) => id),
         groupIds: [
-          ...array(fields.fixVersions).flatMap((value) => {
-            const id = sourceId(value)
-            return id ? [`version:${id}`] : []
-          }),
+          ...(fields.fixVersions ?? []).map(({ id }) => `version:${id}`),
           ...input.sprints.flatMap(({ sprint, issueIds }) =>
             issueIds.includes(issue.id) ? [`sprint:${sprint.id}`] : []
           )
         ],
-        parentIssueId: string(parent.id),
-        attachmentIds: array(fields.attachment).flatMap((value) => {
-          const id = sourceId(value)
-          return id ? [id] : []
-        }),
+        parentIssueId: fields.parent?.id ?? null,
+        attachmentIds: (fields.attachment ?? []).map(({ id }) => id),
         restricted: fields.security !== null && fields.security !== undefined,
-        createdAt:
-          string(fields.created) ?? DateTime.formatIso(input.scannedAt),
-        updatedAt:
-          string(fields.updated) ?? DateTime.formatIso(input.scannedAt),
+        createdAt: fields.created ?? DateTime.formatIso(input.scannedAt),
+        updatedAt: fields.updated ?? DateTime.formatIso(input.scannedAt),
         raw: issue
       }
     })
@@ -232,27 +204,20 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
       }))
     )
     const attachments = input.issues.flatMap((issue) =>
-      array(issue.fields.attachment).flatMap((value) => {
-        const attachment = record(value)
-        const id = string(attachment.id)
-        const filename = string(attachment.filename)
+      (issue.fields.attachment ?? []).flatMap((attachment) => {
+        const { id, filename } = attachment
         if (!id || !filename) return []
         return [
           {
             id,
             issueId: issue.id,
             filename,
-            mimeType: string(attachment.mimeType) ?? "application/octet-stream",
-            byteSize:
-              typeof attachment.size === "number" &&
-              Number.isInteger(attachment.size) &&
-              attachment.size >= 0
-                ? attachment.size
-                : 0,
-            downloadUrl: string(attachment.content),
-            jiraUrl: string(attachment.self),
-            downloadAllowed: string(attachment.content) !== null,
-            raw: value
+            mimeType: attachment.mimeType ?? "application/octet-stream",
+            byteSize: attachment.size ?? 0,
+            downloadUrl: attachment.content ?? null,
+            jiraUrl: attachment.self ?? null,
+            downloadAllowed: (attachment.content ?? null) !== null,
+            raw: attachment
           }
         ]
       })
@@ -424,7 +389,7 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
       ]
     }
     const manifest = normalizeJiraManifest(
-      yield* Schema.decodeUnknownEffect(JiraMigrationManifest)(manifestRaw)
+      yield* decodeUnknownJiraMigrationManifest(manifestRaw)
     )
     const tags = buildTagCandidates(manifest)
     const collisions = new Map(
@@ -441,9 +406,7 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
         candidate.createOption
       ])
     )
-    const requirements = yield* Schema.decodeUnknownEffect(
-      JiraMigrationRequirements
-    )({
+    const requirements = yield* decodeUnknownJiraMigrationRequirements({
       destination: {
         suggestedName: input.project.name,
         suggestedSlug: suggestedSlug(input.project.name),

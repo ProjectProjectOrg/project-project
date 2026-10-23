@@ -22,7 +22,17 @@ import {
   ne,
   sql as sqlFragment
 } from "drizzle-orm"
-import { Context, DateTime, Effect, Layer, Predicate, Schema } from "effect"
+import {
+  Context,
+  DateTime,
+  Effect,
+  Layer,
+  Option,
+  Predicate,
+  Schema
+} from "effect"
+import * as Function from "effect/Function"
+import * as Match from "effect/Match"
 
 import { buildJiraStatusCreateOptions } from "./Mappings"
 import { JiraArtifactRef } from "./MigrationArtifacts"
@@ -30,6 +40,14 @@ import type {
   JiraMigrationSource,
   JiraMigrationMutationError
 } from "./Migrations"
+
+const decodeUnknownJiraMigrationConfiguration = Schema.decodeUnknownEffect(
+  JiraMigrationConfiguration
+)
+
+const encodeUnknownJson = Schema.encodeEffect(
+  Schema.fromJsonString(Schema.Unknown)
+)
 
 const PersistedJiraMigrationScanSummary = Schema.Struct({
   ...JiraMigrationScanSummary.fields,
@@ -46,7 +64,7 @@ export const JiraMigrationGate = Schema.Union([
     failureSequence: Schema.Int,
     phase: Schema.Literals(["scan", "import"])
   })
-])
+]).pipe(Schema.toTaggedUnion("_tag"))
 export type JiraMigrationGate = typeof JiraMigrationGate.Type
 
 export const JiraMigrationCheckpoint = Schema.Struct({
@@ -94,6 +112,14 @@ export const JiraMigrationCheckpoint = Schema.Struct({
     })
   )
 })
+
+const decodeUnknownJiraMigrationCheckpoint = Schema.decodeUnknownEffect(
+  JiraMigrationCheckpoint
+)
+
+const encodeJiraMigrationCheckpoint = Schema.encodeEffect(
+  JiraMigrationCheckpoint
+)
 export type JiraMigrationCheckpoint = typeof JiraMigrationCheckpoint.Type
 
 export type JiraMigrationRow = typeof jiraMigration.$inferSelect
@@ -159,21 +185,34 @@ export const toSummary = (row: JiraMigrationRow): JiraMigrationSummary => ({
   updatedAt: dateTime(row.updatedAt)
 })
 
-export const decodeCheckpoint = (value: unknown) =>
-  value == null
-    ? Effect.succeed<JiraMigrationCheckpoint>({})
-    : Schema.decodeUnknownEffect(JiraMigrationCheckpoint)(
-        enrichPersistedCheckpoint(value)
-      ).pipe(
-        Effect.mapError(() => new JiraError({ reason: "invalid_response" }))
-      )
+const decodePersistedJson = Function.compose(
+  Schema.decodeUnknownEffect(Schema.UndefinedOr(Schema.Json)),
+  Effect.mapError(() => new JiraError({ reason: "invalid_response" }))
+)
 
-export const decodeConfiguration = (value: unknown) =>
-  value == null
-    ? Effect.succeed<JiraMigrationConfiguration | null>(null)
-    : Schema.decodeUnknownEffect(JiraMigrationConfiguration)(value).pipe(
-        Effect.mapError(() => new JiraError({ reason: "invalid_response" }))
-      )
+export const decodeCheckpoint = Function.compose(
+  decodePersistedJson,
+  Effect.flatMap((value) =>
+    value == null
+      ? Effect.succeed<JiraMigrationCheckpoint>({})
+      : decodeUnknownJiraMigrationCheckpoint(
+          enrichPersistedCheckpoint(value)
+        ).pipe(
+          Effect.mapError(() => new JiraError({ reason: "invalid_response" }))
+        )
+  )
+)
+
+export const decodeConfiguration = Function.compose(
+  decodePersistedJson,
+  Effect.flatMap((value) =>
+    value == null
+      ? Effect.succeed<JiraMigrationConfiguration | null>(null)
+      : decodeUnknownJiraMigrationConfiguration(value).pipe(
+          Effect.mapError(() => new JiraError({ reason: "invalid_response" }))
+        )
+  )
+)
 
 export const toDetail = (row: JiraMigrationRow) =>
   Effect.gen(function* () {
@@ -335,25 +374,32 @@ export const isAllowedAttachmentCorrection = (
   )
 }
 
-function enrichPersistedCheckpoint(value: unknown): unknown {
-  if (!Predicate.isObject(value) || !Predicate.isObject(value.scan))
-    return value
-  const requirements = value.scan.requirements
-  if (!Predicate.isObject(requirements)) return value
+const decodeJsonObject = Schema.decodeUnknownOption(Schema.JsonObject)
+const isJsonObject = Schema.is(Schema.JsonObject)
+const isPersistedSourceStatus = Schema.is(
+  Schema.Struct({
+    jiraStatusId: Schema.String,
+    name: Schema.String,
+    categoryKey: Schema.NullOr(Schema.String)
+  })
+)
+
+function enrichPersistedCheckpoint(value: Schema.Json): Schema.Json {
+  const decodedValue = decodeJsonObject(value)
+  if (Option.isNone(decodedValue)) return value
+  const checkpoint = decodedValue.value
+  const decodedScan = decodeJsonObject(checkpoint.scan)
+  if (Option.isNone(decodedScan)) return value
+  const scan = decodedScan.value
+  const decodedRequirements = decodeJsonObject(scan.requirements)
+  if (Option.isNone(decodedRequirements)) return value
+  const requirements = decodedRequirements.value
   const sourceStatuses = Array.isArray(requirements.statuses)
-    ? requirements.statuses.filter(Predicate.isObject).flatMap((status) =>
-        typeof status.jiraStatusId === "string" &&
-        typeof status.name === "string" &&
-        (typeof status.categoryKey === "string" || status.categoryKey === null)
-          ? [
-              {
-                id: status.jiraStatusId,
-                name: status.name,
-                categoryKey: status.categoryKey
-              }
-            ]
-          : []
-      )
+    ? requirements.statuses.filter(isPersistedSourceStatus).map((status) => ({
+        id: status.jiraStatusId,
+        name: status.name,
+        categoryKey: status.categoryKey
+      }))
     : []
   const createOptions = new Map(
     buildJiraStatusCreateOptions(sourceStatuses).map((candidate) => [
@@ -363,7 +409,7 @@ function enrichPersistedCheckpoint(value: unknown): unknown {
   )
   const statuses = Array.isArray(requirements.statuses)
     ? requirements.statuses.map((status) =>
-        Predicate.isObject(status) && !("createOption" in status)
+        isJsonObject(status) && !Object.hasOwn(status, "createOption")
           ? {
               ...status,
               createOption:
@@ -377,8 +423,9 @@ function enrichPersistedCheckpoint(value: unknown): unknown {
   const statusOptions = Array.isArray(requirements.statusOptions)
     ? requirements.statusOptions.map((option) => {
         if (
-          !Predicate.isObject(option) ||
-          ("icon" in option && "color" in option)
+          !isJsonObject(option) ||
+          !Predicate.isString(option.slug) ||
+          (Object.hasOwn(option, "icon") && Object.hasOwn(option, "color"))
         ) {
           return option
         }
@@ -387,15 +434,15 @@ function enrichPersistedCheckpoint(value: unknown): unknown {
       })
     : requirements.statusOptions
   return {
-    ...value,
+    ...checkpoint,
     scan: {
-      ...value.scan,
+      ...scan,
       requirements: { ...requirements, statuses, statusOptions }
     }
   }
 }
 
-function baselineStatusStyle(slug: unknown) {
+function baselineStatusStyle(slug: string) {
   if (slug === "in_progress") {
     return { icon: "CircleDot", color: "#3b82f6" }
   }
@@ -466,7 +513,7 @@ export const JiraScanResumeResult = Schema.Union([
   Schema.TaggedStruct("Resumed", {}),
   Schema.TaggedStruct("AwaitRetry", { failureSequence: Schema.Int }),
   Schema.TaggedStruct("Rejected", {})
-])
+]).pipe(Schema.toTaggedUnion("_tag"))
 export type JiraScanResumeResult = typeof JiraScanResumeResult.Type
 
 export type JiraMigrationCleanupMode =
@@ -623,11 +670,11 @@ const conflict = () =>
 const databaseError = () => new JiraError({ reason: "server_error" })
 const cleanupStatuses = ["failed", "cancelled"] as const
 const cleanupStatusesFor = (mode: JiraMigrationCleanupMode) =>
-  mode === "reset_import"
-    ? resetStatuses
-    : mode === "post_success"
-      ? (["succeeded"] as const)
-      : cleanupStatuses
+  Match.value(mode).pipe(
+    Match.when("reset_import", () => resetStatuses),
+    Match.when("post_success", () => ["succeeded"] as const),
+    Match.orElse(() => cleanupStatuses)
+  )
 const resetStatuses = [
   "needs_configuration",
   "ready",
@@ -689,9 +736,7 @@ export class JiraMigrationProjection extends Context.Service<
                 yield* tx
                   .update(jiraMigration)
                   .set({
-                    checkpoint: yield* Schema.encodeEffect(
-                      JiraMigrationCheckpoint
-                    )({
+                    checkpoint: yield* encodeJiraMigrationCheckpoint({
                       ...checkpoint,
                       remoteWritesMayStillCommit: {
                         workflowExecutionId: fence.workflowExecutionId,
@@ -730,9 +775,7 @@ export class JiraMigrationProjection extends Context.Service<
                 yield* tx
                   .update(jiraMigration)
                   .set({
-                    checkpoint: yield* Schema.encodeEffect(
-                      JiraMigrationCheckpoint
-                    )(settled),
+                    checkpoint: yield* encodeJiraMigrationCheckpoint(settled),
                     updatedAt: now
                   })
                   .where(fenceWhere(fence))
@@ -785,9 +828,7 @@ export class JiraMigrationProjection extends Context.Service<
               yield* tx
                 .update(jiraMigration)
                 .set({
-                  checkpoint: yield* Schema.encodeEffect(
-                    JiraMigrationCheckpoint
-                  )({
+                  checkpoint: yield* encodeJiraMigrationCheckpoint({
                     ...checkpoint,
                     failedAttachments: { configurationRevision, ids }
                   }),
@@ -1028,9 +1069,9 @@ export class JiraMigrationProjection extends Context.Service<
         const checkpointJson =
           patch.checkpoint === undefined
             ? undefined
-            : yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
-                patch.checkpoint ?? {}
-              ).pipe(Effect.mapError(databaseError))
+            : yield* encodeUnknownJson(patch.checkpoint ?? {}).pipe(
+                Effect.mapError(databaseError)
+              )
         const rows = yield* db
           .update(jiraMigration)
           .set({
@@ -1122,18 +1163,15 @@ export class JiraMigrationProjection extends Context.Service<
                 yield* tx
                   .update(jiraMigration)
                   .set({
-                    checkpoint: yield* Schema.encodeEffect(
-                      JiraMigrationCheckpoint
-                    )({
+                    checkpoint: yield* encodeJiraMigrationCheckpoint({
                       ...checkpoint,
                       ...(!alreadyFailed
                         ? {
-                            currentGate: {
+                            currentGate: JiraMigrationGate.cases.Retry.make({
                               version: 1 as const,
-                              _tag: "Retry" as const,
                               failureSequence: sequence,
                               phase: "scan" as const
-                            }
+                            })
                           }
                         : {}),
                       scanFailureReceipts: {
@@ -1189,16 +1227,13 @@ export class JiraMigrationProjection extends Context.Service<
                 yield* tx
                   .update(jiraMigration)
                   .set({
-                    checkpoint: yield* Schema.encodeEffect(
-                      JiraMigrationCheckpoint
-                    )({
+                    checkpoint: yield* encodeJiraMigrationCheckpoint({
                       ...checkpoint,
-                      currentGate: {
+                      currentGate: JiraMigrationGate.cases.Retry.make({
                         version: 1 as const,
-                        _tag: "Retry" as const,
                         failureSequence: sequence,
                         phase: "import" as const
-                      },
+                      }),
                       importFailureReceipts: {
                         ...checkpoint.importFailureReceipts,
                         [operationKey]: sequence
@@ -1240,17 +1275,16 @@ export class JiraMigrationProjection extends Context.Service<
                   row.status
                 )
               )
-                return { _tag: "Rejected" } as const
+                return JiraScanResumeResult.cases.Rejected.make({})
               if (row.failureSequence > sequence)
-                return {
-                  _tag: "AwaitRetry",
+                return JiraScanResumeResult.cases.AwaitRetry.make({
                   failureSequence: row.failureSequence
-                } as const
+                })
               if (row.failureSequence !== sequence)
-                return { _tag: "Rejected" } as const
+                return JiraScanResumeResult.cases.Rejected.make({})
               return row.status === "migrating"
-                ? ({ _tag: "Resumed" } as const)
-                : ({ _tag: "Rejected" } as const)
+                ? JiraScanResumeResult.cases.Resumed.make({})
+                : JiraScanResumeResult.cases.Rejected.make({})
             })
           )
           .pipe(Effect.mapError(databaseError))
@@ -1272,7 +1306,7 @@ export class JiraMigrationProjection extends Context.Service<
                 )
                 .for("update")
               const row = rows[0]
-              if (!row) return { _tag: "Rejected" } as const
+              if (!row) return JiraScanResumeResult.cases.Rejected.make({})
               const scanned =
                 row.scanAt !== null &&
                 ["needs_configuration", "ready", "migrating"].includes(
@@ -1283,16 +1317,15 @@ export class JiraMigrationProjection extends Context.Service<
                 row.failureRetryable === true &&
                 ["failed", "reconnect_required"].includes(row.status)
               if (!scanned && !retryable && row.status !== "scanning")
-                return { _tag: "Rejected" } as const
+                return JiraScanResumeResult.cases.Rejected.make({})
               if (row.failureSequence > sequence)
-                return {
-                  _tag: "AwaitRetry",
+                return JiraScanResumeResult.cases.AwaitRetry.make({
                   failureSequence: row.failureSequence
-                } as const
+                })
               if (row.failureSequence !== sequence)
-                return { _tag: "Rejected" } as const
+                return JiraScanResumeResult.cases.Rejected.make({})
               if (scanned || row.status === "scanning")
-                return { _tag: "Resumed" } as const
+                return JiraScanResumeResult.cases.Resumed.make({})
               const now = yield* DateTime.nowAsDate
               yield* tx
                 .update(jiraMigration)
@@ -1312,7 +1345,7 @@ export class JiraMigrationProjection extends Context.Service<
                     isNull(jiraMigration.cleanupExecutionId)
                   )
                 )
-              return { _tag: "Resumed" } as const
+              return JiraScanResumeResult.cases.Resumed.make({})
             })
           )
           .pipe(Effect.mapError(databaseError))
@@ -1346,9 +1379,10 @@ export class JiraMigrationProjection extends Context.Service<
                 yield* tx
                   .update(jiraMigration)
                   .set({
-                    checkpoint: yield* Schema.encodeEffect(
-                      JiraMigrationCheckpoint
-                    )({ ...checkpoint, scanPages }),
+                    checkpoint: yield* encodeJiraMigrationCheckpoint({
+                      ...checkpoint,
+                      scanPages
+                    }),
                     progressDone: Object.values(scanPages).reduce(
                       (sum, value) => sum + value,
                       0
@@ -1397,16 +1431,13 @@ export class JiraMigrationProjection extends Context.Service<
                 )
               }
               if (row.status !== "scanning") return false
-              const encoded = yield* Schema.encodeEffect(
-                JiraMigrationCheckpoint
-              )({
+              const encoded = yield* encodeJiraMigrationCheckpoint({
                 ...checkpoint,
                 scan,
-                currentGate: {
+                currentGate: JiraMigrationGate.cases.StartImport.make({
                   version: 1,
-                  _tag: "StartImport",
                   scanRevision: row.scanRevision
-                }
+                })
               })
               const now = yield* DateTime.nowAsDate
               yield* tx
@@ -1508,17 +1539,16 @@ export class JiraMigrationProjection extends Context.Service<
                     configurationRevision: input.expectedRevision + 1,
                     configuration: configuration!
                   }
-            const acceptedCheckpoint = yield* Schema.encodeEffect(
-              JiraMigrationCheckpoint
-            )({ acceptedConfiguration }).pipe(Effect.mapError(databaseError))
-            const acceptedCheckpointJson = yield* Schema.encodeEffect(
-              Schema.fromJsonString(Schema.Unknown)
-            )(acceptedCheckpoint).pipe(Effect.mapError(databaseError))
+            const acceptedCheckpoint = yield* encodeJiraMigrationCheckpoint({
+              acceptedConfiguration
+            }).pipe(Effect.mapError(databaseError))
+            const acceptedCheckpointJson = yield* encodeUnknownJson(
+              acceptedCheckpoint
+            ).pipe(Effect.mapError(databaseError))
             return yield* updateRevision(row, input.expectedRevision, {
               status: scanRetry ? "scanning" : "migrating",
               phase: scanRetry ? "queued_scan" : "migrate",
-              checkpoint:
-                sqlFragment`coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) || ${acceptedCheckpointJson}::jsonb` as unknown as JiraMigrationRow["checkpoint"],
+              checkpoint: sqlFragment`coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) || ${acceptedCheckpointJson}::jsonb`,
               failureReason: null,
               failureRetryable: null,
               finishedAt: null,
@@ -1656,9 +1686,7 @@ export class JiraMigrationProjection extends Context.Service<
                   .update(jiraMigration)
                   .set({
                     cleanupExecutionId: null,
-                    checkpoint: yield* Schema.encodeEffect(
-                      JiraMigrationCheckpoint
-                    )({
+                    checkpoint: yield* encodeJiraMigrationCheckpoint({
                       ...checkpoint,
                       postSuccessCleanupCompleted: true
                     }),

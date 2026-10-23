@@ -20,6 +20,7 @@ import {
   TicketType
 } from "@pp/shared"
 import { DateTime, Effect, Schema } from "effect"
+import * as Match from "effect/Match"
 import { generateKeyBetween } from "fractional-indexing"
 import { ulid } from "ulid"
 
@@ -63,6 +64,12 @@ import {
   JiraPlannedArchive,
   JiraPlannedReport
 } from "./Report"
+
+const decodeUnknownAttachmentIdSync = Schema.decodeUnknownSync(AttachmentId)
+
+const decodeUnknownDateTimeUtcFromString = Schema.decodeUnknownEffect(
+  Schema.DateTimeUtcFromString
+)
 export type JiraReferenceTarget = Readonly<{
   url: string
   text?: string
@@ -258,7 +265,7 @@ export function aliasJiraMediaReferences(
         attachment.filename === filename &&
         (issueId === null || attachment.issueId === issueId)
     )
-    return matches.length === 1 ? matches[0]!.id : null
+    return matches.length === 1 ? matches[0].id : null
   }
   const apply = (issueId: string | null, text: JiraConvertedText) => {
     for (const reference of text.references) {
@@ -713,6 +720,14 @@ export const JiraResolvedConvertedText = Schema.Struct({
   ...ConvertedTextSchema.fields,
   adf: Schema.Json
 })
+
+const decodeUnknownJiraResolvedConvertedTextSync = Schema.decodeUnknownSync(
+  JiraResolvedConvertedText
+)
+
+const decodeUnknownJiraResolvedConvertedText = Schema.decodeUnknownEffect(
+  JiraResolvedConvertedText
+)
 export const JiraResolvedSource = Schema.Struct({
   projectDescription: Schema.NullOr(JiraResolvedConvertedText),
   artifacts: Schema.Array(
@@ -738,6 +753,9 @@ export const JiraPreparationInput = Schema.Struct({
   environment: JiraPreflightEnvironmentSchema,
   source: JiraResolvedSource
 })
+
+const decodeUnknownJiraPreparationInput =
+  Schema.decodeUnknownEffect(JiraPreparationInput)
 const PreparedAttachment = Schema.Struct({
   sourceAttachmentId: Schema.NonEmptyString,
   id: AttachmentId,
@@ -756,6 +774,14 @@ export const JiraPreparedPublicationV1 = Schema.Struct({
   projectId: Schema.String,
   attachments: Schema.Array(PreparedAttachment)
 })
+
+const decodeUnknownJiraPreparedPublicationV1 = Schema.decodeEffect(
+  JiraPreparedPublicationV1
+)
+
+const encodeJiraPreparedPublicationV1 = Schema.encodeEffect(
+  JiraPreparedPublicationV1
+)
 export type JiraPreparedPublicationV1 = typeof JiraPreparedPublicationV1.Type
 export const JiraAttachmentOutcome = Schema.Union([
   Schema.Struct({
@@ -772,6 +798,10 @@ export const JiraAttachmentOutcome = Schema.Union([
     kind: Schema.Literals(["skipped", "excluded"])
   })
 ])
+
+const decodeUnknownJiraAttachmentOutcomeArray = Schema.decodeEffect(
+  Schema.Array(JiraAttachmentOutcome)
+)
 export type JiraAttachmentOutcome = typeof JiraAttachmentOutcome.Type
 
 const digest = (value: string) =>
@@ -785,10 +815,10 @@ export function jiraAttachmentId(
     .update(JSON.stringify([migrationId, sourceAttachmentId]))
     .digest()
   let offset = 0
-  return Schema.decodeUnknownSync(AttachmentId)(
+  return decodeUnknownAttachmentIdSync(
     ulid(
       DateTime.toEpochMillis(DateTime.makeUnsafe(migrationCreatedAt)),
-      () => seed[offset++ % seed.length]! / 256
+      () => seed[offset++ % seed.length] / 256
     )
   )
 }
@@ -844,13 +874,11 @@ const sourceText = (
 ) =>
   ref === null
     ? null
-    : Schema.decodeUnknownSync(JiraResolvedConvertedText)(values.get(ref.key))
+    : decodeUnknownJiraResolvedConvertedTextSync(values.get(ref.key))
 
 export const prepareJiraPublication = Effect.fn("prepareJiraPublication")(
-  function* (raw: unknown) {
-    const input = yield* Schema.decodeUnknownEffect(JiraPreparationInput)(
-      raw
-    ).pipe(
+  function* (raw: Schema.Json) {
+    const input = yield* decodeUnknownJiraPreparationInput(raw).pipe(
       Effect.mapError(
         () =>
           new JiraPublicationInvalid({
@@ -904,7 +932,7 @@ export const prepareJiraPublication = Effect.fn("prepareJiraPublication")(
       ),
       ...input.manifest.comments.map((x) => x.bodyArtifact)
     ])
-      yield* Schema.decodeUnknownEffect(JiraResolvedConvertedText)(
+      yield* decodeUnknownJiraResolvedConvertedText(
         sourceValues(input).get(ref.key)
       ).pipe(
         Effect.mapError(
@@ -922,7 +950,7 @@ export const prepareJiraPublication = Effect.fn("prepareJiraPublication")(
         : []
     )
     const attachments = input.manifest.attachments
-      .map((attachment) => {
+      .map((attachment): typeof PreparedAttachment.Encoded => {
         const id = jiraAttachmentId(
           input.manifest.migrationId,
           attachment.id,
@@ -958,9 +986,7 @@ export const prepareJiraPublication = Effect.fn("prepareJiraPublication")(
       .toSorted((a, b) =>
         compareStrings(a.sourceAttachmentId, b.sourceAttachmentId)
       )
-    const prepared = yield* Schema.decodeUnknownEffect(
-      JiraPreparedPublicationV1
-    )({
+    const prepared = yield* decodeUnknownJiraPreparedPublicationV1({
       ...input,
       manifest: normalizeJiraMigrationManifestV2(input.manifest),
       configuration: normalizeConfiguration(input.configuration),
@@ -1195,6 +1221,12 @@ export const JiraPublicationPlanV1 = Schema.Struct({
   archiveDocument: PlannedDocument,
   reportDocument: PlannedDocument
 })
+
+const decodeUnknownJiraPublicationPlanV1 = Schema.decodeUnknownEffect(
+  JiraPublicationPlanV1
+)
+
+const encodeJiraPublicationPlanV1 = Schema.encodeEffect(JiraPublicationPlanV1)
 export type JiraPublicationPlanV1 = typeof JiraPublicationPlanV1.Type
 const documentFor = (path: string, content: string) => ({
   path,
@@ -1208,29 +1240,22 @@ const markdownDocument = (
 ) => documentFor(path, `---\n${canonicalJiraJson(frontmatter)}\n---\n${body}`)
 
 export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
-  function* (rawPrepared: unknown, rawOutcomes: unknown) {
-    const prepared = yield* Schema.decodeUnknownEffect(
-      JiraPreparedPublicationV1
-    )(rawPrepared)
+  function* (
+    rawPrepared: JiraPreparedPublicationV1,
+    rawOutcomes: ReadonlyArray<JiraAttachmentOutcome>
+  ) {
+    const prepared = yield* decodeUnknownJiraPreparedPublicationV1(rawPrepared)
     const rebuilt = yield* prepareJiraPublication(prepared)
     if (
-      canonicalJiraJson(
-        (yield* Schema.encodeEffect(JiraPreparedPublicationV1)(
-          rebuilt
-        )) as Schema.Json
-      ) !==
-      canonicalJiraJson(
-        (yield* Schema.encodeEffect(JiraPreparedPublicationV1)(
-          prepared
-        )) as Schema.Json
-      )
+      canonicalJiraJson(yield* encodeJiraPreparedPublicationV1(rebuilt)) !==
+      canonicalJiraJson(yield* encodeJiraPreparedPublicationV1(prepared))
     )
       return yield* new JiraPublicationInvalid({
         reasons: ["contradictory-preparation"]
       })
-    const outcomes = (yield* Schema.decodeUnknownEffect(
-      Schema.Array(JiraAttachmentOutcome)
-    )(rawOutcomes)).toSorted((a, b) =>
+    const outcomes = (yield* decodeUnknownJiraAttachmentOutcomeArray(
+      rawOutcomes
+    )).toSorted((a, b) =>
       compareStrings(a.sourceAttachmentId, b.sourceAttachmentId)
     )
     const seen = new Set<string>()
@@ -1509,7 +1534,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
       }),
       unresolvedJiraMediaReferences(source, safeMappings, urls)
     )
-    const plan = yield* Schema.decodeUnknownEffect(JiraPublicationPlanV1)({
+    const plan = yield* decodeUnknownJiraPublicationPlanV1({
       version: 1,
       manifestVersion: 2,
       migrationId: manifest.migrationId,
@@ -1653,9 +1678,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
       )
     })
     const bytes = new TextEncoder().encode(
-      canonicalJiraJson(
-        (yield* Schema.encodeEffect(JiraPublicationPlanV1)(plan)) as Schema.Json
-      )
+      canonicalJiraJson(yield* encodeJiraPublicationPlanV1(plan))
     )
     return {
       plan: freezeJiraValue(structuredClone(plan)),
@@ -1674,6 +1697,10 @@ const freezeJiraValue = <A>(value: A): A => {
 }
 const CustomFieldValuesSchema = Schema.Array(
   Schema.Struct({ issueId: Schema.NonEmptyString, value: Schema.Json })
+)
+
+const decodeUnknownCustomFieldValuesSchema = Schema.decodeUnknownEffect(
+  CustomFieldValuesSchema
 )
 const validatePublicationSource = Effect.fn("validatePublicationSource")(
   function* (input: typeof JiraPreparationInput.Type) {
@@ -1776,13 +1803,13 @@ const validatePublicationSource = Effect.fn("validatePublicationSource")(
         reasons.push("invalid-source-reference")
     for (const restriction of manifest.restrictions)
       if (
-        !(
-          restriction.targetKind === "issue"
-            ? manifest.issues
-            : restriction.targetKind === "comment"
-              ? manifest.comments
-              : manifest.worklogs
-        ).some((x) => x.id === restriction.targetId)
+        !Match.value(restriction.targetKind)
+          .pipe(
+            Match.when("issue", () => manifest.issues),
+            Match.when("comment", () => manifest.comments),
+            Match.orElse(() => manifest.worklogs)
+          )
+          .some((x) => x.id === restriction.targetId)
       )
         reasons.push("invalid-source-reference")
     for (const [kind, records] of [
@@ -1807,9 +1834,7 @@ const validatePublicationSource = Effect.fn("validatePublicationSource")(
       ...manifest.sprints.flatMap((x) => [x.startsAt, x.endsAt])
     ].filter((x) => x !== null)
     for (const timestamp of timestamps)
-      yield* Schema.decodeUnknownEffect(Schema.DateTimeUtcFromString)(
-        timestamp
-      ).pipe(
+      yield* decodeUnknownDateTimeUtcFromString(timestamp).pipe(
         Effect.mapError(
           () =>
             new JiraPublicationInvalid({
@@ -1819,7 +1844,7 @@ const validatePublicationSource = Effect.fn("validatePublicationSource")(
       )
     const values = sourceValues(input)
     for (const field of manifest.customFields) {
-      const rows = yield* Schema.decodeUnknownEffect(CustomFieldValuesSchema)(
+      const rows = yield* decodeUnknownCustomFieldValuesSchema(
         values.get(field.valuesArtifact.key)
       ).pipe(
         Effect.mapError(

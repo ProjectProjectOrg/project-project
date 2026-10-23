@@ -483,7 +483,7 @@ function NavItem({
     <Link
       ref={ref}
       to={to}
-      params={params as never}
+      params={params}
       activeOptions={{ exact: exact ?? false }}
       className={base}
       inactiveProps={{

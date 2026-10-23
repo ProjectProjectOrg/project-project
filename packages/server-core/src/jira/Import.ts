@@ -101,6 +101,39 @@ import {
   type JiraPublicationPlan
 } from "./PublicationPlan"
 
+const decodeUnknownJson = Schema.decodeUnknownEffect(Schema.Json)
+
+const decodeUnknownJiraMigrationManifestV2 = Schema.decodeUnknownEffect(
+  JiraMigrationManifestV2
+)
+
+const decodeUnknownJiraPreparedPublicationV1 = Schema.decodeUnknownEffect(
+  JiraPreparedPublicationV1
+)
+
+const decodeUnknownJiraPublicationPlanV1 = Schema.decodeUnknownEffect(
+  JiraPublicationPlanV1
+)
+
+const decodeUnknownJiraProject = Schema.decodeUnknownEffect(JiraProject)
+
+const decodeUnknownJiraResolvedSource =
+  Schema.decodeUnknownEffect(JiraResolvedSource)
+
+const encodeJiraPreparedPublicationV1 = Schema.encodeEffect(
+  JiraPreparedPublicationV1
+)
+
+const encodeJiraPublicationPlanV1 = Schema.encodeEffect(JiraPublicationPlanV1)
+
+const isJiraRateLimited = Schema.is(JiraRateLimited)
+
+const isJiraPublicationInvalid = Schema.is(JiraPublicationInvalid)
+
+const encodeJiraMigrationCheckpoint = Schema.encodeEffect(
+  JiraMigrationCheckpoint
+)
+
 export type JiraImportBlocked = {
   readonly kind: "blocked"
   readonly blockers: ReadonlyArray<{
@@ -119,7 +152,6 @@ export type JiraImportPublished = {
 
 export type JiraImportResult = JiraImportBlocked | JiraImportPublished
 
-const decodeConfiguration = Schema.decodeUnknownSync(JiraMigrationConfiguration)
 const decodeProjectKey = Schema.decodeUnknownSync(ProjectKey)
 const decodeGroupId = Schema.decodeUnknownSync(GroupId)
 const decodeGroupColor = Schema.decodeUnknownSync(GroupColor)
@@ -145,11 +177,10 @@ export const groupColors = (
 
 export const buildJiraImportContext = (
   manifest: JiraMigrationManifest,
-  rawConfiguration: unknown,
+  configuration: JiraMigrationConfiguration,
   environment: JiraPreflightEnvironment,
   attachmentUrlsBySourceId: Readonly<Record<string, string>>
 ) => {
-  const configuration = decodeConfiguration(rawConfiguration)
   const mappings = jiraConfigurationToMappings(manifest, configuration)
   const preflight = preflightJiraMigration(manifest, mappings, environment)
   const result = createJiraPublicationPlan(
@@ -163,13 +194,13 @@ export const buildJiraImportContext = (
 
 export const buildJiraImportPlan = (
   manifest: JiraMigrationManifest,
-  rawConfiguration: unknown,
+  configuration: JiraMigrationConfiguration,
   environment: JiraPreflightEnvironment,
   attachmentUrlsBySourceId: Readonly<Record<string, string>>
 ) =>
   buildJiraImportContext(
     manifest,
-    rawConfiguration,
+    configuration,
     environment,
     attachmentUrlsBySourceId
   ).result
@@ -196,7 +227,7 @@ export const resolveJiraPublicationSource = Effect.fn(
   const unique = [...new Map(refs.map((ref) => [ref.key, ref])).values()]
   const resolved = yield* Effect.forEach(unique, (ref) =>
     artifacts
-      .readJson(orgSlug, ref, Schema.Json)
+      .readJson(orgSlug, ref, decodeUnknownJson)
       .pipe(Effect.map((value) => ({ ref, value })))
   )
   const projectRefs = manifest.rawArtifacts.filter((ref) =>
@@ -208,7 +239,7 @@ export const resolveJiraPublicationSource = Effect.fn(
     })
   const projectRaw = projectRefs[0]
   const project = projectRaw
-    ? yield* Schema.decodeUnknownEffect(JiraProject)(
+    ? yield* decodeUnknownJiraProject(
         resolved.find(({ ref }) => ref.key === projectRaw.key)?.value
       ).pipe(
         Effect.mapError(
@@ -231,7 +262,7 @@ export const resolveJiraPublicationSource = Effect.fn(
             adf: description
           }
         : { ...convertAdfToMarkdown(description), adf: description }
-  return yield* Schema.decodeUnknownEffect(JiraResolvedSource)({
+  return yield* decodeUnknownJiraResolvedSource({
     projectDescription,
     artifacts: resolved
   }).pipe(
@@ -266,7 +297,7 @@ export const buildJiraPreparedPublicationFromSnapshot = Effect.fn(
   const manifest = yield* artifacts.readJson(
     input.orgSlug,
     input.manifestRef,
-    JiraMigrationManifestV2
+    decodeUnknownJiraMigrationManifestV2
   )
   if (
     manifest.migrationId !== input.fence.migrationId ||
@@ -398,9 +429,7 @@ export const persistJiraPreparedPublication = Effect.fn(
   prepared: JiraPreparedPublicationV1,
   artifacts: Pick<JiraMigrationArtifactsShape, "writeJson">
 ) {
-  const encoded = yield* Schema.encodeEffect(JiraPreparedPublicationV1)(
-    prepared
-  )
+  const encoded = yield* encodeJiraPreparedPublicationV1(prepared)
   const identity = createHash("sha256")
     .update(canonicalJiraJson(encoded))
     .digest("hex")
@@ -428,7 +457,7 @@ export const loadJiraPreparedPublication = Effect.fn(
   const prepared = yield* artifacts.readJson(
     orgSlug,
     ref,
-    JiraPreparedPublicationV1
+    decodeUnknownJiraPreparedPublicationV1
   )
   if (prepared.orgSlug !== orgSlug)
     return yield* new JiraPublicationInvalid({
@@ -471,8 +500,12 @@ export const loadJiraPublicationPlan = Effect.fn(
   artifacts: Pick<JiraMigrationArtifactsShape, "verify" | "readJson">
 ) {
   yield* artifacts.verify(orgSlug, ref)
-  const plan = yield* artifacts.readJson(orgSlug, ref, JiraPublicationPlanV1)
-  const encoded = yield* Schema.encodeEffect(JiraPublicationPlanV1)(plan)
+  const plan = yield* artifacts.readJson(
+    orgSlug,
+    ref,
+    decodeUnknownJiraPublicationPlanV1
+  )
+  const encoded = yield* encodeJiraPublicationPlanV1(plan)
   const publicationRevision = createHash("sha256")
     .update(canonicalJiraJson(encoded))
     .digest("hex")
@@ -607,30 +640,27 @@ export const makeJiraMaterializationDependencies = (
     createdBy: prepared.ownerId,
     createdAt: prepared.migrationCreatedAt
   }
-  const failure = (error: unknown) => {
-    if (Schema.is(JiraRateLimited)(error))
+  const failure = (error: Error) => {
+    if (isJiraRateLimited(error))
       return JiraMigrationWorkflowFailure.make({
         reason: "jira_rate_limited",
         retryable: true,
         retryAfterMillis: error.retryAfterMillis
       })
     const reconnect =
-      error !== null &&
-      typeof error === "object" &&
-      "_tag" in error &&
-      (error._tag === "JiraReconnectRequired" ||
-        error._tag === "JiraNotConnected")
+      Predicate.isTagged(error, "JiraReconnectRequired") ||
+      Predicate.isTagged(error, "JiraNotConnected")
     return JiraMigrationWorkflowFailure.make({
-      reason: Schema.is(JiraPublicationInvalid)(error)
+      reason: isJiraPublicationInvalid(error)
         ? "jira_migration_publication_invalid"
         : reconnect
           ? "jira_reconnect_required"
           : "jira_migration_materialization_failed",
-      retryable: !Schema.is(JiraPublicationInvalid)(error),
+      retryable: !isJiraPublicationInvalid(error),
       reconnect
     })
   }
-  const mapFailure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  const mapFailure = <A, E extends Error, R>(effect: Effect.Effect<A, E, R>) =>
     effect.pipe(Effect.mapError(failure))
   const load = (ref: JiraArtifactRef) =>
     loadJiraPublicationPlan(prepared.orgSlug, ref, services.artifacts)
@@ -759,7 +789,7 @@ export const publishJiraMigrationAtomically = Effect.fn(
 )(function* (input: JiraAtomicPublicationInput) {
   const db = yield* Db
   const { fence, plan, verified } = input
-  const encoded = yield* Schema.encodeEffect(JiraPublicationPlanV1)(plan)
+  const encoded = yield* encodeJiraPublicationPlanV1(plan)
   const checksum = createHash("sha256")
     .update(canonicalJiraJson(encoded))
     .digest("hex")
@@ -992,7 +1022,7 @@ export const publishJiraMigrationAtomically = Effect.fn(
             destinationProjectId: project.id,
             destinationProjectSlug: project.slug,
             reportPath: plan.reportDocument.path,
-            checkpoint: yield* Schema.encodeEffect(JiraMigrationCheckpoint)({
+            checkpoint: yield* encodeJiraMigrationCheckpoint({
               ...checkpoint,
               publishedPlan: {
                 planRef: input.planRef,

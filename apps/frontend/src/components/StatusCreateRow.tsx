@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { ProjectStatus } from "@pp/shared"
+import { StatusLabel } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Plus } from "lucide-react"
@@ -23,7 +23,7 @@ type Props = {
 export function StatusCreateRow({ orgSlug, slug }: Props) {
   const Root = InlineForm.Root<"create">
   return (
-    <Root variant="ghost" className="self-start">
+    <Root actions={["create"]} variant="ghost" className="self-start">
       <InlineForm.Idle>
         <InlineForm.Trigger
           action="create"
@@ -46,7 +46,7 @@ function CreateFields({ orgSlug, slug }: Props) {
   const createMutation = createStatus(req)
   const create = useAtomSet(createMutation, { mode: "promiseExit" })
   const createState = useAtomValue(createMutation)
-  const { close, busy, setBusy } = useInlineForm<"create">()
+  const { close, busy, setBusy } = useInlineForm()
   const [draft, setDraft] = useState("")
   const [didSubmit, setDidSubmit] = useState(false)
 
@@ -69,7 +69,7 @@ function CreateFields({ orgSlug, slug }: Props) {
     }
     setBusy(true)
     setDidSubmit(true)
-    const exit = await create({ label: trimmed as ProjectStatus["label"] })
+    const exit = await create({ label: StatusLabel.make(trimmed) })
     if (Exit.isSuccess(exit)) {
       setDraft("")
       close()
@@ -92,6 +92,7 @@ function CreateFields({ orgSlug, slug }: Props) {
         </span>
         <Input
           autoFocus
+          maxLength={40}
           value={draft}
           disabled={busy}
           onChange={(e) => setDraft(e.target.value)}

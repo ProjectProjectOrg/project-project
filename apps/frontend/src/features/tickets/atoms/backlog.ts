@@ -8,12 +8,12 @@ import {
   type TagName,
   type Ticket,
   type TicketCounts,
-  type TicketId,
+  TicketId,
   type TicketListRow,
   TicketListQuery,
   type TicketPriority,
   type TicketSort,
-  type TicketStatus,
+  TicketStatus,
   type Unauthorized,
   type Forbidden,
   type NotFound,
@@ -124,7 +124,7 @@ const loadedPagesAtom = Atom.family((_req: BacklogRequest) =>
 const pageQuery = (req: BacklogRequest, status: string, cursor: string) =>
   Api.query("tickets", "list", {
     params: req.params,
-    query: { ...req.query, status: [status as TicketStatus], cursor },
+    query: { ...req.query, status: [TicketStatus.make(status)], cursor },
     timeToLive: "2 minutes",
     reactivityKeys: [
       Keys.ticketsIn(scopeOf(req)),
@@ -226,7 +226,7 @@ export const loadMoreBacklog = Atom.family(
         const base = get(sectionsQuery(req))
         if (!AsyncResult.isSuccess(base)) return yield* Effect.void
         let pageCursor: string | null =
-          base.value.sections[status as TicketStatus]?.nextCursor ?? null
+          base.value.sections[TicketStatus.make(status)]?.nextCursor ?? null
         for (let index = 0; index < depth; index++) {
           if (pageCursor === null) break
           const page = pageQuery(req, status, pageCursor)
@@ -353,7 +353,7 @@ const patchRow = (
       if (sort.key === "updated" || patchesSortedField(patch, sort.key)) {
         patched = { ...patched, orderKey: localOrderKey(patched.ticket, sort) }
       }
-      from = status as TicketStatus
+      from = TicketStatus.make(status)
     }
     sections[status] = { ...section, items }
   }
@@ -502,8 +502,8 @@ const placeholderId = (
 ): TicketId => {
   const used = new Set(taken.map((row) => row.ticket.id))
   let n = 999999
-  while (used.has(`${prefix}-${n}` as TicketId)) n++
-  return `${prefix}-${n}` as TicketId
+  while (used.has(TicketId.make(`${prefix}-${n}`))) n++
+  return TicketId.make(`${prefix}-${n}`)
 }
 
 export const predictedTicket = (
@@ -537,7 +537,7 @@ export const quickCreateBacklogTicket = Atom.family((req: BacklogRequest) =>
   Atom.optimisticFn(backlog(req), {
     reducer: (current, input: QuickCreateArg) =>
       AsyncResult.map(current, (value) => {
-        const status = input.ticket.status ?? ("todo" as TicketStatus)
+        const status = input.ticket.status ?? TicketStatus.make("todo")
         const section = value.sections[status] ?? {
           items: [],
           nextCursor: null
@@ -893,7 +893,7 @@ export const quickCreateFlatBacklogTicket = Atom.family((req: BacklogRequest) =>
   Atom.optimisticFn(flatBacklog(req), {
     reducer: (current, input: QuickCreateArg) =>
       AsyncResult.map(current, (value) => {
-        const status = input.ticket.status ?? ("todo" as TicketStatus)
+        const status = input.ticket.status ?? TicketStatus.make("todo")
         const predicted = predictedTicket(
           input,
 

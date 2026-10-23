@@ -33,6 +33,8 @@ import { describe, expect } from "vitest"
 import { handlers } from "./handlers"
 import { McpRequestUser } from "./McpRequestUser"
 
+const encodeGetOrgOutput = Schema.encodeEffect(McpTools.get_org.output)
+
 const user = Schema.decodeSync(User)({
   id: "user-1",
   email: "user@example.com",
@@ -149,9 +151,7 @@ describe("MCP organization storage availability", () => {
               state === "not_connected" ? null : "2026-09-08T11:00:00.000Z"
           }
         }
-        const encoded = yield* Schema.encodeEffect(McpTools.get_org.output)(
-          result
-        )
+        const encoded = yield* encodeGetOrgOutput(result)
         expect(encoded).toEqual(expected)
         expect(Object.keys(result.storage).toSorted()).toEqual([
           "lastCheckedAt",

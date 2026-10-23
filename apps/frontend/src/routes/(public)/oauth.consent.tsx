@@ -80,7 +80,7 @@ function ConsentForm({
     onInitial: () => null,
     onSuccess: () => null,
     onError: oauthConsentErrorMessage,
-    onDefect: oauthConsentErrorMessage
+    onDefect: () => m.auth_oauth_consent_error_retry()
   })
 
   const onSubmit = async (accept: boolean) => {

@@ -4,7 +4,7 @@ import type {
   SlackNotConnected,
   SlackRateLimited
 } from "@pp/shared"
-import type { OrgEmailError, EmailFailureReason } from "@pp/shared"
+import type { OrgEmailError } from "@pp/shared"
 import {
   FigmaAuthInvalid,
   FigmaError,
@@ -32,7 +32,6 @@ import type {
   GitHubScopeInsufficient,
   GitHubTokenExpired,
   InvitationNotAcceptable,
-  InvitationNotAcceptableReason,
   LastProjectPmBlocked,
   MentionInvalid,
   NotFound,
@@ -46,8 +45,14 @@ import type {
   Unauthorized,
   Validation
 } from "@pp/shared"
+import { EmailFailureReason, InvitationNotAcceptableReason } from "@pp/shared"
 import * as Match from "effect/Match"
+import type * as Atom from "effect/reactivity/Atom"
+import * as Schema from "effect/Schema"
 
+import type { configureJiraMigrationAtom } from "@/features/jira/atoms/jiraMigration"
+import type { submitConsentAtom } from "@/features/oauth/atoms/oauthConsent"
+import type { createStatus } from "@/features/projects/atoms/projectStatuses"
 import type { InviteAcceptError } from "@/lib/invitations"
 import { m } from "@/paraglide/messages"
 
@@ -163,86 +168,142 @@ const conflictMessage = (reason: string): string => {
   }
 }
 
-export const errorMessage = (error: AppError): string =>
-  Match.value(error)
-    .pipe(
-      Match.tag("InvitationNotAcceptable", (error) =>
-        invitationNotAcceptableMessage(error.reason)
-      ),
-      Match.tag("InviteExpired", () => m.auth_invites_accept_error_expired()),
-      Match.tag("InviteNotFound", () =>
-        m.auth_invites_accept_error_not_found()
-      ),
-      Match.tag("InviteNotRecipient", () =>
-        m.auth_invites_accept_error_not_recipient()
-      ),
-      Match.tag("InviteEmailVerificationRequired", () =>
-        m.auth_invites_accept_error_email_verification_required()
-      ),
-      Match.tag("InviteAcceptFailed", () => m.auth_invites_accept_row_error()),
-      Match.tag("SprintCompletedImmutable", () =>
-        m.error_sprint_completed_immutable()
-      ),
-      Match.tag("Conflict", (error) => conflictMessage(error.reason)),
-      Match.tag("MentionInvalid", () => m.error_mention_invalid()),
-      Match.tag("EverhourApiKeyMissing", () =>
-        m.error_everhour_api_key_missing()
-      ),
-      Match.tag("EverhourAuthInvalid", () => m.error_everhour_auth_invalid()),
-      Match.tag("EverhourConfigMissing", () =>
-        m.error_everhour_config_missing()
-      ),
-      Match.tag("EverhourProjectAccessDenied", () =>
-        m.error_everhour_project_access_denied()
-      ),
-      Match.tag("EverhourRateLimited", (error) =>
-        m.error_everhour_rate_limited({
-          seconds: String(error.retryAfterSeconds ?? 60)
-        })
-      ),
-      Match.tag("EverhourError", (error) =>
-        m.error_everhour_upstream({ message: error.message })
-      ),
-      Match.tag("RateLimited", () => m.error_github_rate_limited()),
-      Match.tag("Forbidden", () => m.error_forbidden()),
-      Match.tag("LastProjectPmBlocked", () => m.members_last_pm_error()),
-      Match.tag("Unauthorized", () => m.error_unknown())
-    )
-    .pipe(
-      Match.tag("StorageAuthInvalid", () => m.storage_error_auth()),
-      Match.tag("OrgEmailError", (error) => emailFailureMessage(error.reason)),
-      Match.tag("StorageConfigMissing", () => m.storage_error_config()),
-      Match.tag("StorageError", () => m.storage_error_unreachable()),
-      Match.tag("StorageNotConnected", () => m.storage_error_unreachable()),
-      Match.tag("AttachmentTooLarge", () => m.editor_attachment_too_large()),
-      Match.tag("AttachmentTypeRejected", () =>
-        m.editor_attachment_type_rejected()
-      ),
-      Match.tag("AttachmentNotUploaded", () =>
-        m.editor_attachment_upload_failed()
-      ),
-      Match.tag("SlackAuthInvalid", () => m.slack_error_auth()),
-      Match.tag("SlackNotConnected", () => m.slack_error_not_connected()),
-      Match.tag("SlackRateLimited", ({ retryAfterSeconds }) =>
-        m.slack_error_rate_limited({ seconds: String(retryAfterSeconds) })
-      ),
-      Match.tag("SlackError", ({ reason }) =>
-        reason === "encryption"
-          ? m.slack_error_encryption()
-          : reason === "not_in_channel"
-            ? m.slack_error_channel()
-            : reason === "app_mismatch"
-              ? m.slack_error_app_mismatch()
-              : m.slack_error_generic()
-      ),
-      Match.tag("FigmaNotConnected", () => m.figma_error_not_connected()),
-      Match.tag("FigmaAuthInvalid", () => m.figma_error_auth_invalid()),
-      Match.tag("FigmaRateLimited", () => m.figma_error_rate_limited()),
-      Match.tag("FigmaFileNotFound", () => m.figma_error_file_not_found()),
-      Match.tag("FigmaError", () => m.figma_error_generic()),
-      Match.tag("Validation", (error) => validationMessage(error.reason)),
-      Match.orElse(() => m.error_unknown())
-    )
+const isInvitationNotAcceptableDetail = Schema.is(
+  Schema.TaggedStruct("InvitationNotAcceptable", {
+    reason: InvitationNotAcceptableReason
+  })
+)
+const isConflictDetail = Schema.is(
+  Schema.TaggedStruct("Conflict", { reason: Schema.String })
+)
+const isEverhourRateLimitedDetail = Schema.is(
+  Schema.TaggedStruct("EverhourRateLimited", {
+    retryAfterSeconds: Schema.Finite
+  })
+)
+const isEverhourErrorDetail = Schema.is(
+  Schema.TaggedStruct("EverhourError", { message: Schema.String })
+)
+const isOrgEmailErrorDetail = Schema.is(
+  Schema.TaggedStruct("OrgEmailError", { reason: EmailFailureReason })
+)
+const isSlackRateLimitedDetail = Schema.is(
+  Schema.TaggedStruct("SlackRateLimited", { retryAfterSeconds: Schema.Finite })
+)
+const isSlackErrorDetail = Schema.is(
+  Schema.TaggedStruct("SlackError", { reason: Schema.String })
+)
+const isValidationDetail = Schema.is(
+  Schema.TaggedStruct("Validation", { reason: Schema.String })
+)
+
+export const errorMessage = Match.type<unknown>()
+  .pipe(
+    Match.when(isInvitationNotAcceptableDetail, (error) =>
+      invitationNotAcceptableMessage(error.reason)
+    ),
+    Match.when({ _tag: "InviteExpired" }, () =>
+      m.auth_invites_accept_error_expired()
+    ),
+    Match.when({ _tag: "InviteNotFound" }, () =>
+      m.auth_invites_accept_error_not_found()
+    ),
+    Match.when({ _tag: "InviteNotRecipient" }, () =>
+      m.auth_invites_accept_error_not_recipient()
+    ),
+    Match.when({ _tag: "InviteEmailVerificationRequired" }, () =>
+      m.auth_invites_accept_error_email_verification_required()
+    ),
+    Match.when({ _tag: "InviteAcceptFailed" }, () =>
+      m.auth_invites_accept_row_error()
+    ),
+    Match.when({ _tag: "SprintCompletedImmutable" }, () =>
+      m.error_sprint_completed_immutable()
+    ),
+    Match.when(isConflictDetail, (error) => conflictMessage(error.reason)),
+    Match.when({ _tag: "MentionInvalid" }, () => m.error_mention_invalid()),
+    Match.when({ _tag: "EverhourApiKeyMissing" }, () =>
+      m.error_everhour_api_key_missing()
+    ),
+    Match.when({ _tag: "EverhourAuthInvalid" }, () =>
+      m.error_everhour_auth_invalid()
+    ),
+    Match.when({ _tag: "EverhourConfigMissing" }, () =>
+      m.error_everhour_config_missing()
+    ),
+    Match.when({ _tag: "EverhourProjectAccessDenied" }, () =>
+      m.error_everhour_project_access_denied()
+    ),
+    Match.when(isEverhourRateLimitedDetail, (error) =>
+      m.error_everhour_rate_limited({
+        seconds: String(error.retryAfterSeconds)
+      })
+    ),
+    Match.when({ _tag: "EverhourRateLimited" }, () =>
+      m.error_everhour_rate_limited({ seconds: "60" })
+    ),
+    Match.when(isEverhourErrorDetail, (error) =>
+      m.error_everhour_upstream({ message: error.message })
+    ),
+    Match.when({ _tag: "RateLimited" }, () => m.error_github_rate_limited()),
+    Match.when({ _tag: "Forbidden" }, () => m.error_forbidden()),
+    Match.when({ _tag: "LastProjectPmBlocked" }, () =>
+      m.members_last_pm_error()
+    ),
+    Match.when({ _tag: "Unauthorized" }, () => m.error_unknown())
+  )
+  .pipe(
+    Match.when({ _tag: "StorageAuthInvalid" }, () => m.storage_error_auth()),
+    Match.when(isOrgEmailErrorDetail, (error) =>
+      emailFailureMessage(error.reason)
+    ),
+    Match.when({ _tag: "StorageConfigMissing" }, () =>
+      m.storage_error_config()
+    ),
+    Match.when({ _tag: "StorageError" }, () => m.storage_error_unreachable()),
+    Match.when({ _tag: "StorageNotConnected" }, () =>
+      m.storage_error_unreachable()
+    ),
+    Match.when({ _tag: "AttachmentTooLarge" }, () =>
+      m.editor_attachment_too_large()
+    ),
+    Match.when({ _tag: "AttachmentTypeRejected" }, () =>
+      m.editor_attachment_type_rejected()
+    ),
+    Match.when({ _tag: "AttachmentNotUploaded" }, () =>
+      m.editor_attachment_upload_failed()
+    ),
+    Match.when({ _tag: "SlackAuthInvalid" }, () => m.slack_error_auth()),
+    Match.when({ _tag: "SlackNotConnected" }, () =>
+      m.slack_error_not_connected()
+    ),
+    Match.when(isSlackRateLimitedDetail, ({ retryAfterSeconds }) =>
+      m.slack_error_rate_limited({ seconds: String(retryAfterSeconds) })
+    ),
+    Match.when(isSlackErrorDetail, ({ reason }) =>
+      Match.value(reason).pipe(
+        Match.when("encryption", () => m.slack_error_encryption()),
+        Match.when("not_in_channel", () => m.slack_error_channel()),
+        Match.when("app_mismatch", () => m.slack_error_app_mismatch()),
+        Match.orElse(() => m.slack_error_generic())
+      )
+    ),
+    Match.when({ _tag: "FigmaNotConnected" }, () =>
+      m.figma_error_not_connected()
+    ),
+    Match.when({ _tag: "FigmaAuthInvalid" }, () =>
+      m.figma_error_auth_invalid()
+    ),
+    Match.when({ _tag: "FigmaRateLimited" }, () =>
+      m.figma_error_rate_limited()
+    ),
+    Match.when({ _tag: "FigmaFileNotFound" }, () =>
+      m.figma_error_file_not_found()
+    ),
+    Match.when({ _tag: "FigmaError" }, () => m.figma_error_generic()),
+    Match.when(isValidationDetail, (error) => validationMessage(error.reason)),
+    Match.orElse(() => m.error_unknown())
+  )
 
 export const figmaStatusErrorMessage = (reason: string): string => {
   const error: AppError = (() => {
@@ -262,74 +323,46 @@ export const figmaStatusErrorMessage = (reason: string): string => {
   return errorMessage(error)
 }
 
-const conflictReason = (error: unknown): string | null => {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "_tag" in error &&
-    error._tag === "Conflict" &&
-    "reason" in error &&
-    typeof (error as { reason: unknown }).reason === "string"
-  ) {
-    return (error as { reason: string }).reason
-  }
-  return null
-}
+type StatusCreateFailure = Atom.Failure<ReturnType<typeof createStatus>>
+type JiraMigrationSaveFailure = Atom.Failure<
+  ReturnType<typeof configureJiraMigrationAtom>
+>
+type OAuthConsentFailure = Atom.Failure<ReturnType<typeof submitConsentAtom>>
 
-export const statusCreateErrorMessage = (error: unknown): string => {
-  switch (conflictReason(error)) {
-    case "reserved_slug":
-      return m.tickets_status_validation_reserved()
-    case "slug_exists":
-      return m.tickets_status_validation_slug_exists()
-    case "invalid_label":
-      return m.tickets_status_validation_invalid_label()
-    default:
-      return m.tickets_status_create_error_fallback()
-  }
-}
-
-const tagOf = (value: unknown): string => {
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    "_tag" in value &&
-    typeof value._tag === "string"
-  ) {
-    return (value as { _tag: string })._tag
-  }
-  return "Unknown"
-}
-
-export const ticketListErrorMessage = (error: unknown): string => {
-  const tag = tagOf(error)
-  if (tag === "MalformedQuery") return m.tickets_list_malformed_query()
-  return m.tickets_list_load_error({ error: tag })
-}
-
-export const ticketListDefectMessage = (defect: unknown): string =>
-  m.tickets_list_defect({ defect: String(defect) })
-
-export const jiraMigrationSaveErrorMessage = (error: unknown): string =>
+export const statusCreateErrorMessage = (error: StatusCreateFailure): string =>
   Match.value(error).pipe(
-    Match.when(
-      { _tag: "Conflict", reason: "jira_migration_revision_conflict" },
-      () => m.jira_migration_save_conflict()
-    ),
-    Match.when({ _tag: "JiraReconnectRequired" }, () =>
-      m.jira_migration_reconnect_description()
-    ),
-    Match.orElse(() => m.jira_migration_error_generic())
+    Match.tag("Conflict", ({ reason }) => {
+      switch (reason) {
+        case "reserved_slug":
+          return m.tickets_status_validation_reserved()
+        case "slug_exists":
+          return m.tickets_status_validation_slug_exists()
+        case "invalid_label":
+          return m.tickets_status_validation_invalid_label()
+        default:
+          return m.tickets_status_create_error_fallback()
+      }
+    }),
+    Match.orElse(() => m.tickets_status_create_error_fallback())
   )
 
-export const oauthConsentErrorMessage = (error: unknown): string =>
+export const jiraMigrationSaveErrorMessage = (
+  error: JiraMigrationSaveFailure | undefined
+): string =>
+  error === undefined
+    ? m.jira_migration_error_generic()
+    : Match.value(error).pipe(
+        Match.tag("Conflict", () => m.jira_migration_save_conflict()),
+        Match.tag("JiraReconnectRequired", () =>
+          m.jira_migration_reconnect_description()
+        ),
+        Match.orElse(() => m.jira_migration_error_generic())
+      )
+
+export const oauthConsentErrorMessage = (error: OAuthConsentFailure): string =>
   Match.value(error).pipe(
-    Match.when({ _tag: "Validation", reason: "invalid_signature" }, () =>
-      m.auth_oauth_consent_error_invalid_link()
-    ),
-    Match.when({ _tag: "Unauthorized" }, () =>
-      m.auth_oauth_consent_error_session()
-    ),
+    Match.tag("Validation", () => m.auth_oauth_consent_error_invalid_link()),
+    Match.tag("Unauthorized", () => m.auth_oauth_consent_error_session()),
     Match.orElse(() => m.auth_oauth_consent_error_retry())
   )
 

@@ -1,5 +1,4 @@
 import { it } from "@effect/vitest"
-import { Db } from "@pp/db"
 import {
   ActivityActor,
   BranchNotFound,
@@ -36,6 +35,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
+import { databaseLayer } from "../../test/database"
 import { accessLayer, projectScope } from "../access/testing"
 import { asUser, passthroughTicketActivity } from "../activity/testing"
 import { Attachments, type AttachmentsShape } from "../attachments/Attachments"
@@ -75,6 +75,10 @@ import {
 import { TICKET_ORDER_KEY_SEPARATOR } from "./TicketIndexLive"
 import { Tickets } from "./Tickets"
 import { TicketsLive } from "./TicketsLive"
+
+const decodeGroupSync = Schema.decodeSync(Group)
+
+const decodeGroupDetailSync = Schema.decodeSync(GroupDetail)
 
 const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
 const ticketId = Schema.decodeUnknownSync(TicketId)
@@ -262,30 +266,13 @@ const testInfra = (scope = defaultScope) =>
     Layer.succeed(ActivityActor, ActivityActor.user(scope.userId))
   )
 
-const FakeDb = Layer.succeed(
-  Db,
-  new Proxy(
-    {},
-    {
-      get: (_target, prop) =>
-        prop === "query"
-          ? {
-              projectStatus: {
-                findMany: () =>
-                  Effect.succeed([
-                    { slug: "todo" },
-                    { slug: "in_progress" },
-                    { slug: "done" }
-                  ])
-              },
-              projectIndex: {
-                findFirst: () => Effect.succeed({ estimation: "points" })
-              }
-            }
-          : (..._args: ReadonlyArray<unknown>) =>
-              unexpected(`Db.${String(prop)}`)
-    }
-  ) as never
+const FakeDb = databaseLayer(({ sql }) =>
+  Effect.sync(() => {
+    if (sql.includes('from "project_status"'))
+      return [["todo"], ["in_progress"], ["done"]]
+    if (sql.includes('from "project_index"')) return [["points"]]
+    throw new Error(`Unexpected SQL: ${sql}`)
+  })
 )
 
 const makeFakeGroups = (overrides: Partial<GroupsShape> = {}) =>
@@ -403,7 +390,7 @@ const FakeUsers = Layer.succeed(Users, {
 
 const FakeComments = Layer.succeed(Comments, {
   list: () => unexpected("Comments.list"),
-  create: () => Effect.succeed({} as never),
+  create: () => unexpected("Comments.create"),
   importHistorical: () => unexpected("Comments.importHistorical"),
   edit: () => unexpected("Comments.edit"),
   remove: () => unexpected("Comments.remove")
@@ -994,26 +981,28 @@ it.effect(
       })
     )
     const merges = new Map(
-      [
-        ["feat/T-1", "release", 5, "2026-05-01T09:00:00Z"],
-        ["release", "staging", 6, "2026-05-01T10:00:00Z"],
-        ["staging", "b3", 7, "2026-05-01T11:00:00Z"],
-        ["b3", "b4", 8, "2026-05-01T12:00:00Z"],
-        ["b4", "b5", 9, "2026-05-01T13:00:00Z"],
-        ["b5", "b6", 10, "2026-05-01T14:00:00Z"],
-        ["b6", "b7", 11, "2026-05-01T15:00:00Z"],
-        ["b7", "main", 12, "2026-05-01T16:00:00Z"]
-      ].map(([head, base, number, mergedAt]) => [
+      (
+        [
+          ["feat/T-1", "release", 5, "2026-05-01T09:00:00Z"],
+          ["release", "staging", 6, "2026-05-01T10:00:00Z"],
+          ["staging", "b3", 7, "2026-05-01T11:00:00Z"],
+          ["b3", "b4", 8, "2026-05-01T12:00:00Z"],
+          ["b4", "b5", 9, "2026-05-01T13:00:00Z"],
+          ["b5", "b6", 10, "2026-05-01T14:00:00Z"],
+          ["b6", "b7", 11, "2026-05-01T15:00:00Z"],
+          ["b7", "main", 12, "2026-05-01T16:00:00Z"]
+        ] satisfies ReadonlyArray<readonly [string, string, number, string]>
+      ).map(([head, base, number, mergedAt]) => [
         head,
         {
-          headRefName: head as string,
-          baseRefName: base as string,
+          headRefName: head,
+          baseRefName: base,
           state: "merged" as const,
           draft: false,
-          number: number as number,
+          number: number,
           url: `https://github.com/acme/app/pull/${number}`,
-          title: head as string,
-          mergedAt: DateTime.toDate(DateTime.makeUnsafe(mergedAt as string)),
+          title: head,
+          mergedAt: DateTime.toDate(DateTime.makeUnsafe(mergedAt)),
           checks: "passing" as const
         }
       ])
@@ -2074,7 +2063,7 @@ it.effect(
   "list resolves the ungrouped filter without treating it as a group id",
   () => {
     const docs = makeFakeTicketDocs(["T-1", "T-2"])
-    const activeSprint = Schema.decodeSync(Group)({
+    const activeSprint = decodeGroupSync({
       id: "G-1",
       name: "Sprint",
       kind: "sprint",
@@ -2087,7 +2076,7 @@ it.effect(
       createdAt: "2026-04-01T00:00:00.000Z",
       updatedAt: "2026-04-01T00:00:00.000Z"
     })
-    const epic = Schema.decodeSync(Group)({
+    const epic = decodeGroupSync({
       id: "G-2",
       name: "Epic",
       kind: "epic",
@@ -2125,7 +2114,7 @@ it.effect(
 
 it.effect("list ungrouped filter excludes tickets in a planned sprint", () => {
   const docs = makeFakeTicketDocs(["T-1", "T-2"])
-  const plannedSprint = Schema.decodeSync(Group)({
+  const plannedSprint = decodeGroupSync({
     id: "G-1",
     name: "Planned",
     kind: "sprint",
@@ -3233,7 +3222,7 @@ it.effect(
     const docs = makeFakeTicketDocs([])
     docs.documents.set("T-1", makeTicketDocument("T-1"))
     const orders: Array<unknown> = []
-    const sprint = Schema.decodeSync(GroupDetail)({
+    const sprint = decodeGroupDetailSync({
       id: "G-1",
       name: "Sprint",
       kind: "sprint",

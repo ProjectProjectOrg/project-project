@@ -7,6 +7,7 @@ import { JiraOAuthConfig, JiraTokenEndpoint } from "@pp/server-core/jira/OAuth"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { Effect, Layer, Redacted, Schema } from "effect"
+import * as Exit from "effect/Exit"
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
 import { Pool } from "pg"
 
@@ -15,6 +16,10 @@ import {
   createJiraBrowserFixture,
   type JiraBrowserFixture
 } from "../src/jira/BrowserFixtures"
+
+const decodeUnknownJiraBrowserScenarioInputExit = Schema.decodeUnknownExit(
+  Schema.Struct({ scenario: JiraBrowserScenario })
+)
 
 export type JiraBrowserResources = Readonly<{
   databaseUrl: string
@@ -63,7 +68,7 @@ export const assertBrowserResources = (resources: JiraBrowserResources) => {
     throw new Error("Jira browser harness must bind to loopback")
 }
 
-const response = (body: unknown, status = 200) =>
+const response = (body: Schema.Json, status = 200) =>
   HttpServerResponse.fromWeb(
     new Response(JSON.stringify(body), {
       status,
@@ -119,10 +124,8 @@ export const makeJiraBrowserControlRoutes = (fixture: JiraBrowserFixture) =>
           const body = yield* Effect.tryPromise(() => web.json()).pipe(
             Effect.orElseSucceed(() => null)
           )
-          const parsed = Schema.decodeUnknownExit(
-            Schema.Struct({ scenario: JiraBrowserScenario })
-          )(body)
-          if (parsed._tag === "Failure")
+          const parsed = decodeUnknownJiraBrowserScenarioInputExit(body)
+          if (Exit.isFailure(parsed))
             return response({ error: "invalid_scenario" }, 400)
           yield* fixture.setScenario(parsed.value.scenario)
           return response({ scenario: parsed.value.scenario })

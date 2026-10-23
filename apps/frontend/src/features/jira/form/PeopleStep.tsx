@@ -1,12 +1,7 @@
 import type { JiraMigrationRequirements } from "@pp/shared"
 
 import { MemberAvatar } from "@/components/MemberAvatar"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger
-} from "@/components/ui/select"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import { m } from "@/paraglide/messages"
 
 import { MappingLabel, MappingRow } from "./MappingRow"
@@ -60,7 +55,7 @@ export function PeopleStep({
                   <Select
                     value={
                       field.value === undefined
-                        ? ""
+                        ? null
                         : field.value === null
                           ? unlinkedValue
                           : field.value
@@ -68,6 +63,32 @@ export function PeopleStep({
                     onValueChange={(value) =>
                       field.handleChange(value === unlinkedValue ? null : value)
                     }
+                    items={[
+                      {
+                        value: unlinkedValue,
+                        label: m.jira_migration_people_dont_link()
+                      },
+                      ...requirements.identityOptions.map((option) => ({
+                        value: option.id,
+                        textValue: option.name,
+                        label: (
+                          <MappingLabel
+                            icon={
+                              <MemberAvatar
+                                member={{
+                                  name: option.name,
+                                  email: option.email,
+                                  image: option.imageUrl
+                                }}
+                                size={20}
+                              />
+                            }
+                          >
+                            {option.name}
+                          </MappingLabel>
+                        )
+                      }))
+                    ]}
                   >
                     <SelectTrigger
                       aria-label={identity.displayName}
@@ -94,33 +115,6 @@ export function PeopleStep({
                         ) : undefined
                       }
                     />
-                    <SelectContent>
-                      <SelectItem value={unlinkedValue}>
-                        {m.jira_migration_people_dont_link()}
-                      </SelectItem>
-                      {requirements.identityOptions.map((option) => (
-                        <SelectItem
-                          key={option.id}
-                          value={option.id}
-                          aria-label={option.name}
-                        >
-                          <MappingLabel
-                            icon={
-                              <MemberAvatar
-                                member={{
-                                  name: option.name,
-                                  email: option.email,
-                                  image: option.imageUrl
-                                }}
-                                size={20}
-                              />
-                            }
-                          >
-                            {option.name}
-                          </MappingLabel>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
                   </Select>
                 )
               }}

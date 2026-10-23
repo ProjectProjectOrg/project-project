@@ -2,12 +2,7 @@ import type { JiraMigrationRequirements } from "@pp/shared"
 import { CircleHelp } from "lucide-react"
 import { createElement } from "react"
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger
-} from "@/components/ui/select"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import { getStatusIcon } from "@/lib/status-icons"
 import { m } from "@/paraglide/messages"
 
@@ -52,7 +47,7 @@ export function StatusStep({
                       value={
                         creating
                           ? createStatusValue
-                          : (field.value.projectStatusSlug ?? "")
+                          : (field.value.projectStatusSlug ?? null)
                       }
                       onValueChange={(value) => {
                         if (
@@ -77,6 +72,32 @@ export function StatusStep({
                           })
                         }
                       }}
+                      items={[
+                        ...requirements.statusOptions.map((option) => ({
+                          value: option.slug,
+                          textValue: option.label,
+                          label: <StatusOptionLabel option={option} wrap />
+                        })),
+                        ...(status.createOption
+                          ? [
+                              {
+                                value: createStatusValue,
+                                textValue: m.jira_migration_status_create({
+                                  status: status.createOption.label
+                                }),
+                                label: (
+                                  <CreateStatusOptionLabel
+                                    option={status.createOption}
+                                    wrap
+                                  />
+                                )
+                              }
+                            ]
+                          : [])
+                      ]}
+                      contentProps={{
+                        className: "max-w-[min(24rem,calc(100vw-1rem))]"
+                      }}
                     >
                       <SelectTrigger
                         aria-label={status.name}
@@ -92,30 +113,6 @@ export function StatusStep({
                           ) : undefined
                         }
                       />
-                      <SelectContent className="max-w-[min(24rem,calc(100vw-1rem))]">
-                        {requirements.statusOptions.map((option) => (
-                          <SelectItem
-                            key={option.slug}
-                            value={option.slug}
-                            aria-label={option.label}
-                          >
-                            <StatusOptionLabel option={option} wrap />
-                          </SelectItem>
-                        ))}
-                        {status.createOption ? (
-                          <SelectItem
-                            value={createStatusValue}
-                            aria-label={m.jira_migration_status_create({
-                              status: status.createOption.label
-                            })}
-                          >
-                            <CreateStatusOptionLabel
-                              option={status.createOption}
-                              wrap
-                            />
-                          </SelectItem>
-                        ) : null}
-                      </SelectContent>
                     </Select>
                     {creating && status.categoryKey === "done" ? (
                       <p className="text-xs leading-5 text-state-warning">

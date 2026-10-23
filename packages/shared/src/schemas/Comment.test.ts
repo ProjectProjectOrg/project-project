@@ -8,6 +8,14 @@ import {
   UpdateCommentInput
 } from "./Comment"
 
+const decodeCommentAuthorSync = Schema.decodeSync(CommentAuthor)
+
+const decodeUnknownCommentAuthorSync = Schema.decodeUnknownSync(CommentAuthor)
+
+const decodeCommentSync = Schema.decodeSync(Comment)
+
+const decodeUnknownCommentSync = Schema.decodeUnknownSync(Comment)
+
 const user = {
   id: "user-1",
   email: "user@example.com",
@@ -30,7 +38,7 @@ const user = {
 
 describe("CommentAuthor", () => {
   it("decodes linked ProjectProject users", () => {
-    const author = Schema.decodeSync(CommentAuthor)({
+    const author = decodeCommentAuthorSync({
       kind: "user",
       user
     })
@@ -41,7 +49,7 @@ describe("CommentAuthor", () => {
 
   it("decodes Jira author snapshots", () => {
     expect(
-      Schema.decodeSync(CommentAuthor)({
+      decodeCommentAuthorSync({
         kind: "jira",
         displayName: "Former Jira User",
         accountId: "jira-account-1"
@@ -55,7 +63,7 @@ describe("CommentAuthor", () => {
 
   it("rejects incomplete Jira author snapshots", () => {
     expect(() =>
-      Schema.decodeUnknownSync(CommentAuthor)({
+      decodeUnknownCommentAuthorSync({
         kind: "jira",
         displayName: "Former Jira User"
       })
@@ -65,7 +73,7 @@ describe("CommentAuthor", () => {
 
 describe("Comment", () => {
   it("keeps provenance independent from linked identity", () => {
-    const comment = Schema.decodeSync(Comment)({
+    const comment = decodeCommentSync({
       id: "c_imported",
       ticketId: "T-1",
       projectSlug: "project",
@@ -82,7 +90,7 @@ describe("Comment", () => {
 
   it("rejects Jira author snapshots on native comments", () => {
     expect(() =>
-      Schema.decodeUnknownSync(Comment)({
+      decodeUnknownCommentSync({
         id: "c_invalid",
         ticketId: "T-1",
         projectSlug: "project",
@@ -101,16 +109,12 @@ describe("Comment", () => {
 })
 
 describe("native comment inputs", () => {
-  it.each([CreateCommentInput, UpdateCommentInput])(
-    "retains the 1 to 20,000 character limit",
-    (schema) => {
-      expect(() => Schema.decodeSync(schema)({ body: "" })).toThrow()
-      expect(
-        Schema.decodeSync(schema)({ body: "x".repeat(20_000) }).body
-      ).toHaveLength(20_000)
-      expect(() =>
-        Schema.decodeSync(schema)({ body: "x".repeat(20_001) })
-      ).toThrow()
-    }
-  )
+  it.each([
+    Schema.decodeSync(CreateCommentInput),
+    Schema.decodeSync(UpdateCommentInput)
+  ])("retains the 1 to 20,000 character limit", (decode) => {
+    expect(() => decode({ body: "" })).toThrow()
+    expect(decode({ body: "x".repeat(20_000) }).body).toHaveLength(20_000)
+    expect(() => decode({ body: "x".repeat(20_001) })).toThrow()
+  })
 })

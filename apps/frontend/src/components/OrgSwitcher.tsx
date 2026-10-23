@@ -10,7 +10,6 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
@@ -70,18 +69,13 @@ export function OrgSwitcher() {
             const org = sorted.find((candidate) => candidate.slug === slug)
             if (org) switchTo(org)
           }}
-        >
-          {sorted.map((org) => (
-            <DropdownMenuRadioItem
-              key={org.slug}
-              value={org.slug}
-              closeOnClick
-              aria-label={m.org_switcher_switch_aria_label({ name: org.name })}
-            >
-              <span className="min-w-0 flex-1 truncate">{org.name}</span>
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
+          items={sorted.map((org) => ({
+            value: org.slug,
+            closeOnClick: true,
+            "aria-label": m.org_switcher_switch_aria_label({ name: org.name }),
+            label: <span className="min-w-0 flex-1 truncate">{org.name}</span>
+          }))}
+        />
         <DropdownMenuSeparator />
         <DropdownMenuItem
           render={

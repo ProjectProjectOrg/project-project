@@ -13,11 +13,11 @@ import {
   type SprintSectionKey,
   type Ticket,
   type TicketCounts,
-  type TicketId,
+  TicketId,
   type TicketListQuery,
   type TicketListRow,
   type TicketSort,
-  type TicketStatus,
+  TicketStatus,
   type Unauthorized,
   type UpdateTicketInput,
   type UserId
@@ -563,8 +563,8 @@ const placeholderId = (
 ): TicketId => {
   const used = new Set(taken.map((row) => row.ticket.id))
   let n = 999999
-  while (used.has(`${prefix}-${n}` as TicketId)) n++
-  return `${prefix}-${n}` as TicketId
+  while (used.has(TicketId.make(`${prefix}-${n}`))) n++
+  return TicketId.make(`${prefix}-${n}`)
 }
 
 const assignedSprintId = (key: SprintSectionKey): GroupId | undefined =>
@@ -583,7 +583,7 @@ export const quickCreateSprintSectionsTicket = Atom.family(
         AsyncResult.map(current, (value) => {
           const existing = value.sections.find((section) => section.key === key)
           const page = existing?.page ?? { items: [], nextCursor: null }
-          const status = input.ticket.status ?? ("todo" as TicketStatus)
+          const status = input.ticket.status ?? TicketStatus.make("todo")
           const predicted = predictedTicket(
             input,
             placeholderId(page.items, input.projectPrefix),

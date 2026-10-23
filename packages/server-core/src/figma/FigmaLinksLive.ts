@@ -25,6 +25,7 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
+import * as Match from "effect/Match"
 import { ulid } from "ulid"
 
 import { Access } from "../access/Access"
@@ -100,18 +101,15 @@ export const figmaThumbnailKey = (input: {
   return prefix === "" ? tail : `${prefix}/${tail}`
 }
 
-export const figmaCheckReason = (error: FigmaCallError): string => {
-  switch (error._tag) {
-    case "FigmaAuthInvalid":
-      return "figma_auth_invalid"
-    case "FigmaRateLimited":
-      return "figma_rate_limited"
-    case "FigmaFileNotFound":
-      return "figma_file_not_found"
-    default:
-      return "figma_unavailable"
-  }
-}
+export const figmaCheckReason = (error: FigmaCallError): string =>
+  Match.value(error).pipe(
+    Match.tagsExhaustive({
+      FigmaAuthInvalid: () => "figma_auth_invalid",
+      FigmaRateLimited: () => "figma_rate_limited",
+      FigmaFileNotFound: () => "figma_file_not_found",
+      FigmaError: () => "figma_unavailable"
+    })
+  )
 
 export const figmaLinkMetadata = (input: {
   readonly fileKey: string

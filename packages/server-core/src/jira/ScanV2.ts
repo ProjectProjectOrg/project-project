@@ -1,5 +1,6 @@
 import type { JiraMigrationUserOption } from "@pp/shared"
-import { DateTime, Effect, Option, Schema } from "effect"
+import { DateTime, Effect, Option, Result, Schema, SchemaIssue } from "effect"
+import * as Match from "effect/Match"
 
 import * as C from "./ClientSchemas"
 import {
@@ -14,6 +15,74 @@ import {
 import type { JiraArtifactRef } from "./MigrationArtifacts"
 import { buildJiraScanArtifacts } from "./Scan"
 
+const decodeUnknownJiraProjectArray = Schema.decodeUnknownEffect(
+  Schema.Array(C.JiraProject)
+)
+
+const decodeUnknownJiraUserArray = Schema.decodeUnknownEffect(
+  Schema.Array(C.JiraUser)
+)
+
+const decodeUnknownJiraIssueArray = Schema.decodeUnknownEffect(
+  Schema.Array(C.JiraIssue)
+)
+
+const decodeUnknownJiraFieldArray = Schema.decodeUnknownEffect(
+  Schema.Array(C.JiraField)
+)
+
+const decodeUnknownJiraIssueTypeStatusesArray = Schema.decodeUnknownEffect(
+  Schema.Array(C.JiraIssueTypeStatuses)
+)
+
+const decodeUnknownJiraPriorityArray = Schema.decodeUnknownEffect(
+  Schema.Array(C.JiraPriority)
+)
+
+const decodeUnknownJiraComponentArray = Schema.decodeUnknownEffect(
+  Schema.Array(C.JiraComponent)
+)
+
+const decodeUnknownJiraVersionArray = Schema.decodeUnknownEffect(
+  Schema.Array(C.JiraVersion)
+)
+
+const decodeUnknownJiraSprintArray = Schema.decodeUnknownEffect(
+  Schema.Array(C.JiraSprint)
+)
+
+const decodeUnknownJiraCommentArray = Schema.decodeUnknownEffect(
+  Schema.Array(C.JiraComment)
+)
+
+const decodeUnknownJiraChangelogArray = Schema.decodeUnknownEffect(
+  Schema.Array(C.JiraChangelog)
+)
+
+const decodeUnknownJiraWorklogArray = Schema.decodeUnknownEffect(
+  Schema.Array(C.JiraWorklog)
+)
+
+const decodeUnknownJiraWatchersArray = Schema.decodeUnknownEffect(
+  Schema.Array(C.JiraWatchers)
+)
+
+const decodeUnknownJiraVotesArray = Schema.decodeUnknownEffect(
+  Schema.Array(C.JiraVotes)
+)
+
+const decodeUnknownNonEmptyStringOption = Schema.decodeUnknownOption(
+  Schema.NonEmptyString
+)
+
+const decodeUnknownJiraIssueReferenceArray = Schema.decodeUnknownEffect(
+  Schema.Array(C.JiraIssueReference)
+)
+
+const decodeUnknownJiraMigrationManifestV2 = Schema.decodeUnknownEffect(
+  JiraMigrationManifestV2
+)
+
 export type ScanChunkReference = Readonly<{
   kind: JiraScanKind
   parentId: string | null
@@ -23,82 +92,121 @@ export type ScanChunkReference = Readonly<{
 }>
 export type ScanChunk = Readonly<
   ScanChunkReference & {
-    values: ReadonlyArray<unknown>
+    values: ReadonlyArray<Schema.Json>
   }
 >
-const RecordValue = Schema.Record(Schema.String, Schema.Unknown)
-const asRecord = (value: unknown): Readonly<Record<string, unknown>> =>
-  Schema.decodeUnknownOption(RecordValue)(value).pipe(
-    Option.getOrElse(() => ({}))
-  )
-const asString = (value: unknown) =>
-  Schema.decodeUnknownOption(Schema.NonEmptyString)(value).pipe(
-    Option.getOrNull
-  )
-const asArray = (value: unknown) =>
-  Schema.decodeUnknownOption(Schema.Array(Schema.Unknown))(value).pipe(
-    Option.getOrElse(() => [])
-  )
-const idOf = (value: unknown) => asString(asRecord(value).id)
-const userOf = (value: unknown) =>
-  Schema.decodeUnknownOption(C.JiraUser)(value).pipe(Option.getOrNull)
+const customFieldText = (value: Schema.Json | undefined) =>
+  decodeUnknownNonEmptyStringOption(value).pipe(Option.getOrNull)
 const unique = <A>(values: ReadonlyArray<A>, key: (value: A) => string) => [
   ...new Map(values.map((value) => [key(value), value])).values()
 ]
-
-export const normalizeScanPageValues = (values: ReadonlyArray<unknown>) =>
+const ScanValueIdentity = Schema.Struct({
+  id: Schema.optionalKey(Schema.Union([Schema.String, Schema.Finite])),
+  accountId: Schema.optionalKey(Schema.String)
+})
+const decodeScanValueIdentity = Schema.decodeUnknownOption(ScanValueIdentity)
+const pageValueKey = (value: Schema.Json): string =>
+  decodeScanValueIdentity(value).pipe(
+    Option.map((identity) => String(identity.id ?? identity.accountId ?? "")),
+    Option.getOrElse(() => "")
+  )
+export const normalizeScanPageValues = (values: ReadonlyArray<Schema.Json>) =>
   values.toSorted((left, right) => {
-    const key = (value: unknown) => {
-      const record = asRecord(value)
-      return Schema.decodeUnknownOption(
-        Schema.Union([Schema.String, Schema.Finite])
-      )(record.id ?? record.accountId).pipe(
-        Option.map(String),
-        Option.getOrElse(() => "")
-      )
-    }
-    return key(left) < key(right) ? -1 : key(left) > key(right) ? 1 : 0
+    const a = pageValueKey(left)
+    const b = pageValueKey(right)
+    return a < b ? -1 : a > b ? 1 : 0
   })
+
+const MetadataString = Schema.optionalKey(Schema.NullOr(Schema.NonEmptyString))
+const RecoveredMetadataString = Schema.optionalKey(
+  Schema.NullOr(Schema.NonEmptyString).pipe(
+    Schema.catchDecoding(() => Effect.succeed(Option.some(null)))
+  )
+)
+const StrictFieldMetadata = Schema.NullOr(
+  Schema.Struct({ type: MetadataString, custom: MetadataString })
+)
+const FieldMetadata = Schema.NullOr(
+  Schema.Struct({
+    type: RecoveredMetadataString,
+    custom: RecoveredMetadataString
+  })
+).pipe(Schema.catchDecoding(() => Effect.succeed(Option.some(null))))
+const decodeFieldMetadata = Schema.decodeUnknownSync(FieldMetadata)
+const checkFieldMetadata = Schema.decodeUnknownResult(StrictFieldMetadata, {
+  errors: "all"
+})
+const formatMetadataIssue = SchemaIssue.makeFormatterStandardSchemaV1()
 
 export const prepareScanV2 = Effect.fn("prepareScanV2")(function* (
   context: JiraScanContext,
   chunks: ReadonlyArray<ScanChunk>,
   identityOptions: ReadonlyArray<JiraMigrationUserOption>
 ) {
-  const read = <A>(kind: JiraScanKind, schema: Schema.Decoder<A>) =>
-    Schema.decodeUnknownEffect(Schema.Array(schema))(
+  const read = <A>(
+    kind: JiraScanKind,
+    decode: ReturnType<
+      typeof Schema.decodeUnknownEffect<Schema.Decoder<ReadonlyArray<A>>>
+    >
+  ) =>
+    decode(
       chunks
         .filter((chunk) => chunk.kind === kind)
         .flatMap((chunk) => chunk.values)
     )
-  const project = (yield* read("project", C.JiraProject))[0]
-  const account = (yield* read("account", C.JiraUser))[0]
+  const project = (yield* read("project", decodeUnknownJiraProjectArray))[0]
+  const account = (yield* read("account", decodeUnknownJiraUserArray))[0]
   if (!project || !account)
     return yield* scanFailure("jira_migration_missing_metadata")
-  const issues = yield* read("issues", C.JiraIssue)
-  const fields = yield* read("fields", C.JiraField)
-  const statuses = yield* read("statuses", C.JiraIssueTypeStatuses)
-  const priorities = yield* read("priorities", C.JiraPriority)
-  const components = yield* read("components", C.JiraComponent)
-  const versions = yield* read("versions", C.JiraVersion)
-  const sprints = unique(yield* read("sprints", C.JiraSprint), (sprint) =>
-    String(sprint.id)
+  const issues = yield* read("issues", decodeUnknownJiraIssueArray)
+  const fields = (yield* read("fields", decodeUnknownJiraFieldArray)).map(
+    (field) => {
+      const checked = checkFieldMetadata(field.schema ?? null)
+      return Object.assign({}, field, {
+        schema: decodeFieldMetadata(field.schema ?? null),
+        normalizationWarnings: Result.isFailure(checked)
+          ? formatMetadataIssue(checked.failure.issue).issues.map(
+              (issue) =>
+                `Normalized malformed metadata ${JSON.stringify(issue.path ?? [])} on ${field.id}`
+            )
+          : []
+      })
+    }
   )
-  const nested = <A>(kind: JiraScanKind, schema: Schema.Decoder<A>) =>
+  const statuses = yield* read(
+    "statuses",
+    decodeUnknownJiraIssueTypeStatusesArray
+  )
+  const priorities = yield* read("priorities", decodeUnknownJiraPriorityArray)
+  const components = yield* read("components", decodeUnknownJiraComponentArray)
+  const versions = yield* read("versions", decodeUnknownJiraVersionArray)
+  const sprints = unique(
+    yield* read("sprints", decodeUnknownJiraSprintArray),
+    (sprint) => String(sprint.id)
+  )
+  const nested = <A>(
+    kind: JiraScanKind,
+    decode: ReturnType<
+      typeof Schema.decodeUnknownEffect<Schema.Decoder<ReadonlyArray<A>>>
+    >
+  ) =>
     Effect.forEach(
       chunks.filter((chunk) => chunk.kind === kind),
       (chunk) =>
-        Schema.decodeUnknownEffect(Schema.Array(schema))(chunk.values).pipe(
+        decode(chunk.values).pipe(
           Effect.map((values) =>
             values.map((value) => ({ issueId: chunk.parentId!, value }))
           )
         )
     ).pipe(Effect.map((values) => values.flat()))
-  const comments = yield* nested("comments", C.JiraComment)
-  const changelogs = yield* nested("changelogs", C.JiraChangelog)
-  const worklogs = yield* nested("worklogs", C.JiraWorklog)
-  const watchers = yield* nested("watchers", C.JiraWatchers)
-  const votes = yield* nested("votes", C.JiraVotes)
+  const comments = yield* nested("comments", decodeUnknownJiraCommentArray)
+  const changelogs = yield* nested(
+    "changelogs",
+    decodeUnknownJiraChangelogArray
+  )
+  const worklogs = yield* nested("worklogs", decodeUnknownJiraWorklogArray)
+  const watchers = yield* nested("watchers", decodeUnknownJiraWatchersArray)
+  const votes = yield* nested("votes", decodeUnknownJiraVotesArray)
   const byIssue = <A>(values: ReadonlyArray<{ issueId: string; value: A }>) =>
     Object.fromEntries(
       issues.map((issue) => [
@@ -117,9 +225,7 @@ export const prepareScanV2 = Effect.fn("prepareScanV2")(function* (
             chunk.parentId?.endsWith(`:${sprint.id}`)
         )
         .flatMap((chunk) => chunk.values)
-      const refs = yield* Schema.decodeUnknownEffect(
-        Schema.Array(C.JiraIssueReference)
-      )(memberships)
+      const refs = yield* decodeUnknownJiraIssueReferenceArray(memberships)
       return {
         sprint,
         issueIds: unique(refs, (value) => value.id).map((value) => value.id)
@@ -128,10 +234,7 @@ export const prepareScanV2 = Effect.fn("prepareScanV2")(function* (
   )
   const extraUsers = [
     account,
-    ...issues.flatMap((issue) => [
-      userOf(issue.fields.reporter),
-      userOf(issue.fields.creator)
-    ]),
+    ...issues.flatMap((issue) => [issue.fields.reporter, issue.fields.creator]),
     ...changelogs.map((item) => item.value.author),
     ...watchers.flatMap((item) => item.value.watchers ?? []),
     ...votes.flatMap((item) => item.value.voters ?? [])
@@ -239,7 +342,7 @@ export const buildScanManifestV2 = Effect.fn("buildScanManifestV2")(function* (
 ) {
   const { context, legacy, issues, fields } = data
   const ref = (kind: string, id: string) => refs.get(`${kind}:${id}`)
-  const manifest = yield* Schema.decodeUnknownEffect(JiraMigrationManifestV2)({
+  const manifest = yield* decodeUnknownJiraMigrationManifestV2({
     version: 2,
     migrationId: context.migrationId,
     scanRevision: context.scanRevision,
@@ -264,7 +367,7 @@ export const buildScanManifestV2 = Effect.fn("buildScanManifestV2")(function* (
       id: field.id,
       key: field.key ?? field.id,
       name: field.name,
-      type: asString(asRecord(field.schema).type) ?? "unknown"
+      type: field.schema?.type ?? "unknown"
     })),
     workflows: data.statuses.map((type) => ({
       id: type.id,
@@ -280,7 +383,7 @@ export const buildScanManifestV2 = Effect.fn("buildScanManifestV2")(function* (
       ...issue,
       descriptionArtifact: ref("description", issue.id) ?? null,
       reporterAccountId:
-        userOf(issues.find((source) => source.id === issue.id)?.fields.reporter)
+        issues.find((source) => source.id === issue.id)?.fields.reporter
           ?.accountId ?? null,
       labelIds: issue.labels
     })),
@@ -294,9 +397,9 @@ export const buildScanManifestV2 = Effect.fn("buildScanManifestV2")(function* (
       authorAccountId: value.author?.accountId ?? null,
       createdAt: value.created,
       changes: value.items.map((item) => ({
-        fieldId: asString(item.fieldId) ?? asString(item.field) ?? "unknown",
-        from: asString(item.from),
-        to: asString(item.to)
+        fieldId: item.fieldId || item.field || "unknown",
+        from: item.from || null,
+        to: item.to || null
       }))
     })),
     worklogs: data.worklogs.map(({ issueId, value }) => ({
@@ -372,11 +475,11 @@ export const buildScanManifestV2 = Effect.fn("buildScanManifestV2")(function* (
       fields
         .filter(
           (field) =>
-            asString(asRecord(field.schema).custom)?.includes(":rank") ||
+            field.schema?.custom?.includes(":rank") ||
             field.name.toLowerCase() === "rank"
         )
         .flatMap((field) => {
-          const rank = asString(issue.fields[field.id])
+          const rank = customFieldText(issue.fields[field.id])
           return rank === null
             ? []
             : [{ id: `${issue.id}:${field.id}`, issueId: issue.id, rank }]
@@ -384,17 +487,16 @@ export const buildScanManifestV2 = Effect.fn("buildScanManifestV2")(function* (
     ),
     links: unique(
       issues.flatMap((issue) =>
-        asArray(issue.fields.issuelinks).flatMap((value) => {
-          const link = asRecord(value)
-          const id = asString(link.id)
-          const inward = idOf(link.inwardIssue)
-          const outward = idOf(link.outwardIssue)
+        (issue.fields.issuelinks ?? []).flatMap((link) => {
+          const id = link.id
+          const inward = link.inwardIssue?.id ?? null
+          const outward = link.outwardIssue?.id ?? null
           return id === null || (inward === null && outward === null)
             ? []
             : [
                 {
                   id,
-                  type: asString(asRecord(link.type).name) ?? "unknown",
+                  type: link.type?.name ?? "unknown",
                   inwardIssueId: inward ?? issue.id,
                   outwardIssueId: outward ?? issue.id
                 }
@@ -413,8 +515,8 @@ export const buildScanManifestV2 = Effect.fn("buildScanManifestV2")(function* (
       },
       ...unique(
         fields.flatMap((field) => {
-          const custom = asString(asRecord(field.schema).custom)
-          return custom === null
+          const custom = field.schema?.custom
+          return custom == null
             ? []
             : [{ id: custom, kind: "app", name: custom, detected: true }]
         }),
@@ -426,14 +528,22 @@ export const buildScanManifestV2 = Effect.fn("buildScanManifestV2")(function* (
       .map((field) => ({
         id: field.id,
         name: field.name,
-        type: asString(asRecord(field.schema).type) ?? "unknown",
+        type: field.schema?.type ?? "unknown",
         valuesArtifact: ref("custom-field", field.id)
       })),
     coverage: [...new Set(data.chunks.map((chunk) => chunk.kind))].map(
       (category) => {
-        const warnings = data.chunks
-          .filter((chunk) => chunk.kind === category)
-          .flatMap((chunk) => chunk.warnings)
+        const warnings = [
+          ...data.chunks
+            .filter((chunk) => chunk.kind === category)
+            .flatMap((chunk) => chunk.warnings),
+          ...(category === "issues"
+            ? issues.flatMap((issue) => issue.normalizationWarnings ?? [])
+            : []),
+          ...(category === "fields"
+            ? fields.flatMap((field) => field.normalizationWarnings)
+            : [])
+        ]
         return {
           category,
           visibility: warnings.length > 0 ? "partial" : "visible-only",
@@ -444,6 +554,20 @@ export const buildScanManifestV2 = Effect.fn("buildScanManifestV2")(function* (
       }
     ),
     warnings: [
+      ...fields.flatMap((field) =>
+        field.normalizationWarnings.map((message, index) => ({
+          id: `${field.id}:normalization:${index}`,
+          category: "fields",
+          message
+        }))
+      ),
+      ...issues.flatMap((issue) =>
+        (issue.normalizationWarnings ?? []).map((message, index) => ({
+          id: `${issue.id}:normalization:${index}`,
+          category: "issues",
+          message
+        }))
+      ),
       ...data.chunks.flatMap((chunk) =>
         chunk.warnings.map((reason) => ({
           id: `${chunk.raw.key}:${reason}`,
@@ -470,9 +594,12 @@ export const validateScanManifestV2 = Effect.fn("validateScanManifestV2")(
     for (const [name, values] of Object.entries(manifest)) {
       if (!Array.isArray(values)) continue
       const ids = values.flatMap((value) => {
-        const item = asRecord(value)
-        const id =
-          asString(item.id) ?? asString(item.accountId) ?? asString(item.key)
+        const id = Match.value(value).pipe(
+          Match.when({ id: Match.string }, ({ id }) => id),
+          Match.when({ accountId: Match.string }, ({ accountId }) => accountId),
+          Match.when({ key: Match.string }, ({ key }) => key),
+          Match.orElse(() => null)
+        )
         return id === null ? [] : [id]
       })
       if (new Set(ids).size !== ids.length)
@@ -489,12 +616,11 @@ export const validateScanManifestV2 = Effect.fn("validateScanManifestV2")(
     const commentIds = new Set(manifest.comments.map((value) => value.id))
     const worklogIds = new Set(manifest.worklogs.map((value) => value.id))
     for (const restriction of manifest.restrictions) {
-      const targets =
-        restriction.targetKind === "issue"
-          ? issues
-          : restriction.targetKind === "comment"
-            ? commentIds
-            : worklogIds
+      const targets = Match.value(restriction.targetKind).pipe(
+        Match.when("issue", () => issues),
+        Match.when("comment", () => commentIds),
+        Match.orElse(() => worklogIds)
+      )
       if (!targets.has(restriction.targetId))
         return yield* scanFailure("jira_migration_invalid_reference")
     }

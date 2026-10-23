@@ -1,6 +1,8 @@
 import { act, cleanup, renderHook } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+import type { JiraMigrationRequest } from "@/features/jira/atoms/jiraMigration"
+
 import { useJiraMigrationPolling } from "./useJiraMigrationPolling"
 
 const state = vi.hoisted(() => ({ refresh: vi.fn(), invalidate: vi.fn() }))
@@ -9,7 +11,7 @@ vi.mock("@effect/atom-react", () => ({
   useAtomRefresh: () => {
     throw new Error("Polling must use the public refresh command")
   },
-  useAtomSet: (key: unknown) =>
+  useAtomSet: (key: string | JiraMigrationRequest) =>
     typeof key === "string" ? state.invalidate : state.refresh
 }))
 
@@ -18,7 +20,7 @@ vi.mock("@/features/jira/atoms/jiraMigration", () => ({
   jiraMigrationKey: (orgSlug: string, migrationId: string) => ({
     params: { orgSlug, migrationId }
   }),
-  refreshJiraMigrationAtom: (req: unknown) => req
+  refreshJiraMigrationAtom: (req: JiraMigrationRequest) => req
 }))
 
 afterEach(() => {

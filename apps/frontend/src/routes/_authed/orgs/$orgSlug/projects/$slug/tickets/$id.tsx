@@ -1,6 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import { TicketId } from "@pp/shared"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { useEffect, useMemo, useRef } from "react"
@@ -85,14 +86,15 @@ function TicketDetailRoute() {
   return Result.matchWithError(result, {
     onInitial: () => <TicketPageSkeleton />,
     onError: (error) =>
-      error._tag === "NotFound" ? (
-        <NotFoundPage
-          contained
-          title={m.tickets_not_found_title()}
-          body={m.tickets_not_found_body()}
-        />
-      ) : (
-        <ErrorPage contained error={error} />
+      Match.value(error).pipe(
+        Match.tag("NotFound", () => (
+          <NotFoundPage
+            contained
+            title={m.tickets_not_found_title()}
+            body={m.tickets_not_found_body()}
+          />
+        )),
+        Match.orElse((error) => <ErrorPage contained error={error} />)
       ),
     onDefect: (defect) => <ErrorPage contained error={defect} />,
     onSuccess: ({ value }) => (

@@ -1,6 +1,5 @@
 import * as BunServices from "@effect/platform-bun/BunServices"
 import { it } from "@effect/vitest"
-import { Db } from "@pp/db"
 import {
   Forbidden,
   GroupColor,
@@ -24,6 +23,7 @@ import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
+import { databaseLayer } from "../../test/database"
 import { accessLayer, projectScope } from "../access/testing"
 import {
   recordingActivityLayer,
@@ -302,20 +302,15 @@ const FakeFigmaLinks = Layer.succeed(FigmaLinks, {
   resolveThumbnailUrl: () => unexpected("FigmaLinks.resolveThumbnailUrl")
 } satisfies FigmaLinksShape)
 
-const FakeDb = Layer.succeed(Db, {
-  query: {
-    projectIndex: { findFirst: () => Effect.succeed({ id: "project-1" }) },
-    projectTag: { findMany: () => Effect.succeed([{ name: "ui" }]) },
-    projectStatus: {
-      findMany: () =>
-        Effect.succeed([
-          { slug: "todo" },
-          { slug: "in_progress" },
-          { slug: "done" }
-        ])
-    }
-  }
-} as never)
+const FakeDb = databaseLayer(({ sql }) =>
+  Effect.sync(() => {
+    if (sql.includes('from "project_index"')) return [["project-1"]]
+    if (sql.includes('from "project_tag"')) return [["ui"]]
+    if (sql.includes('from "project_status"'))
+      return [["todo"], ["in_progress"], ["done"]]
+    throw new Error(`Unexpected SQL: ${sql}`)
+  })
+)
 
 const PassthroughLibrary = Layer.mock(Library, {
   resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body)
@@ -487,10 +482,10 @@ it.effect("split rejects fewer than two results", () =>
       })
     )
 
-    expect(attempt._tag).toBe("Failure")
-    if (attempt._tag === "Failure") {
-      expect(attempt.failure._tag).toBe("Validation")
-    }
+    expect(attempt).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "Validation" }
+    })
   }).pipe(Effect.provide(TestLayer))
 )
 
@@ -516,10 +511,10 @@ it.effect("split refuses a sprint the caller may not change", () =>
       })
     )
 
-    expect(attempt._tag).toBe("Failure")
-    if (attempt._tag === "Failure") {
-      expect(attempt.failure._tag).toBe("Forbidden")
-    }
+    expect(attempt).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "Forbidden" }
+    })
     expect(sprintAssignments).toEqual([])
     expect(yield* fs.exists(ticketFile(root, path, "T-2"))).toBe(false)
   }).pipe(Effect.provide(TestLayer))
@@ -608,10 +603,10 @@ it.effect(
         })
       )
 
-      expect(outcome._tag).toBe("Failure")
-      if (outcome._tag === "Failure") {
-        expect(outcome.failure._tag).toBe("MarkdownError")
-      }
+      expect(outcome).toMatchObject({
+        _tag: "Failure",
+        failure: { _tag: "MarkdownError" }
+      })
       const restored = yield* docs.read("org", "p", original.id)
       expect(restored.title).toBe(original.title)
       expect(sprintMemberships.get(original.id)).toBe(originalSprintId)

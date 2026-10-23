@@ -23,8 +23,8 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react"
 import { ErrorPage } from "@/components/ErrorPage"
 import {
   boardStatusesFor,
-  type ColumnDropData,
-  type DragData
+  isDragData,
+  isColumnDropData
 } from "@/components/sprints/board-utils"
 import { SprintBoardColumn } from "@/components/sprints/SprintBoardColumn"
 import { useBoardViewport } from "@/components/sprints/useBoardViewport"
@@ -61,8 +61,8 @@ type BacklogBoardProps = Readonly<{
   reorderMode: boolean
   onEnterReorder: () => void
   onExitReorder: () => void
-  dragOrder: ReadonlyArray<string> | null
-  setDragOrder: (next: ReadonlyArray<string> | null) => void
+  dragOrder: ReadonlyArray<TicketStatus> | null
+  setDragOrder: (next: ReadonlyArray<TicketStatus> | null) => void
 }>
 
 export function BacklogBoard(props: BacklogBoardProps) {
@@ -136,14 +136,19 @@ function BacklogBoardContent({
   const registry = useContext(RegistryContext)
 
   const statusSlugs = useMemo(() => {
-    const all = boardStatusesFor(statuses) as ReadonlyArray<TicketStatus>
+    const all = boardStatusesFor(statuses)
     const requested = query.status
     return requested !== undefined && requested.length > 0
       ? all.filter((s) => requested.includes(s))
       : all
   }, [statuses, query.status])
 
-  const order = dragOrder ?? statusSlugs
+  const order =
+    dragOrder === null
+      ? statusSlugs
+      : dragOrder.flatMap((slug) =>
+          statusSlugs.filter((status) => status === slug)
+        )
 
   const columns = useMemo(
     () => buildColumns(snapshot, statusSlugs),
@@ -174,16 +179,16 @@ function BacklogBoardContent({
       onDrop({ source, location }) {
         const target = location.current.dropTargets[0]
         if (!target) return
-        const src = source.data as unknown as DragData
-        const dst = target.data as unknown as ColumnDropData
-        if (src.type !== "card" || dst.type !== "column") return
+        const src = source.data
+        const dst = target.data
+        if (!isDragData(src) || !isColumnDropData(dst)) return
         if (dst.status === src.status) return
         const row = columnsRef.current
           .find((column) => column.status === src.status)
           ?.rows.find((r) => r.ticket.id === src.id)
         if (!row || row.pending) return
         registry.set(updateBacklogTicket({ req, id: src.id }), {
-          status: dst.status as TicketStatus
+          status: dst.status
         })
       }
     })
@@ -208,7 +213,7 @@ function BacklogBoardContent({
         ref={groupRef}
         as="div"
         axis="x"
-        values={order as Array<string>}
+        values={[...order]}
         onReorder={(next) => setDragOrder(next)}
         style={frozenWidth ? { width: `${frozenWidth}px` } : undefined}
         className="flex h-full gap-3"
@@ -236,7 +241,7 @@ function BacklogBoardContent({
                 column?.nextCursor != null ? (
                   <ColumnLoadMore
                     req={req}
-                    status={status as TicketStatus}
+                    status={status}
                     cursor={column.nextCursor}
                     remaining={Math.max(0, column.count - column.rows.length)}
                   />

@@ -118,7 +118,7 @@ it("discards an older tolerance render when returning to the cached tolerance", 
 
 it("closes a bitmap decoded after the editor unmounts", async () => {
   const close = vi.fn()
-  const bitmap = { close } as unknown as ImageBitmap
+  const bitmap: ImageBitmap = { close, width: 1, height: 1 }
   const pending = deferred<ImageBitmap>()
   vi.stubGlobal("createImageBitmap", () => pending.promise)
   const { result, unmount } = renderHook(() => useIconDraft())

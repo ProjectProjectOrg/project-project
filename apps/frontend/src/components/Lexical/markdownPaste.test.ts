@@ -9,6 +9,7 @@ import {
 } from "@lexical/markdown"
 import { HeadingNode, QuoteNode, registerRichText } from "@lexical/rich-text"
 import { TableNode, TableRowNode, TableCellNode } from "@lexical/table"
+import * as Match from "effect/Match"
 import {
   $createParagraphNode,
   $createTextNode,
@@ -54,7 +55,11 @@ function pasteEvent(text: string, html = "", files: File[] = []) {
       files,
       types: ["text/plain", ...(html ? ["text/html"] : [])],
       getData: (type: string) =>
-        type === "text/plain" ? text : type === "text/html" ? html : ""
+        Match.value(type).pipe(
+          Match.when("text/plain", () => text),
+          Match.when("text/html", () => html),
+          Match.orElse(() => "")
+        )
     }
   })
   return event
