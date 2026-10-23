@@ -50,6 +50,7 @@ import {
   sql as drizzleSql,
   type SQL
 } from "drizzle-orm"
+import * as Cause from "effect/Cause"
 import * as Clock from "effect/Clock"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -519,23 +520,24 @@ export const makeTicketIndexReconciler = (deps: TicketIndexReconcilerDeps) => {
   > =>
     Effect.gen(function* () {
       const projects = yield* deps.listProjects
-      // One broken project must not leave every later project unreconciled.
       const results = yield* Effect.forEach(
         projects,
         (project) =>
           reconcileProject(project).pipe(
             Effect.map((summary) => [summary]),
             Effect.catchCause((cause) =>
-              Effect.logError(
-                "ticket index project reconcile failed",
-                cause
-              ).pipe(
-                Effect.annotateLogs({
-                  orgSlug: project.orgSlug,
-                  slug: project.projectSlug
-                }),
-                Effect.as([])
-              )
+              Cause.hasInterrupts(cause)
+                ? Effect.failCause(cause)
+                : Effect.logError(
+                    "ticket index project reconcile failed",
+                    cause
+                  ).pipe(
+                    Effect.annotateLogs({
+                      orgSlug: project.orgSlug,
+                      slug: project.projectSlug
+                    }),
+                    Effect.as([])
+                  )
             )
           ),
         { concurrency: 1 }
@@ -1646,7 +1648,7 @@ export const TicketIndexLive = Layer.effect(
 
     const repairBackoff = new Map<
       string,
-      { failures: number; retryAt: number }
+      Readonly<{ failures: number; retryAt: number }>
     >()
     const repairUnpublished = Effect.gen(function* () {
       if (unpublished.size === 0) return

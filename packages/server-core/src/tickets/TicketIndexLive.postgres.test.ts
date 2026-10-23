@@ -796,7 +796,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         expect(summary.indexed).toBe(1)
 
         const rows = yield* withClient((client) =>
-          client.query<{ id: string }>(
+          client.query<Readonly<{ id: string }>>(
             "select id from comment_index where project_id = $1",
             [projectId]
           )
