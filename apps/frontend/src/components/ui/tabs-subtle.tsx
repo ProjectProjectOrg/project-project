@@ -12,16 +12,16 @@ import {
   type Ref
 } from "react"
 
-import { useProximityHover } from "@/hooks/use-proximity-hover"
-import { fontWeights } from "@/lib/font-weight"
+import { useProximityHover } from "@/hooks/useProximityHover"
+import { fontWeights } from "@/lib/fontWeight"
 import type { IconComponent } from "@/lib/icon"
 import {
   shapeMap,
   useShape,
   type ShapeClasses,
   type ShapeVariant
-} from "@/lib/shape-context"
-import type { SizeVariant } from "@/lib/size-context"
+} from "@/lib/shapeContext"
+import type { SizeVariant } from "@/lib/sizeContext"
 import { springs } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 

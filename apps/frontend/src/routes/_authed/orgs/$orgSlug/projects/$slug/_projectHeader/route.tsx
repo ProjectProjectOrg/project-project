@@ -24,33 +24,32 @@ import { CalendarRange, Info, ListChecks, type LucideIcon } from "lucide-react"
 import { startTransition, useOptimistic, type MouseEvent, useMemo } from "react"
 import { flushSync } from "react-dom"
 
-import { MarqueeIfOverflow } from "@/components/MarqueeIfOverflow"
-import { PageContainer } from "@/components/page"
-import { ProjectHeader } from "@/components/ProjectHeader"
+import { PageContainer } from "@/components/shell/Page"
+import { MarqueeIfOverflow } from "@/components/ui/marquee-if-overflow"
 import {
   SEGMENTED_ITEM_CLASS,
   SegmentedTabs,
   type SegmentedItem
-} from "@/components/SegmentedTabs"
-import { boardStatusesFor } from "@/components/sprints/board-utils"
-import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
+} from "@/components/ui/segmented-tabs"
 import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { ProjectHeader } from "@/features/projects/components/ProjectHeader"
+import { useProject } from "@/features/projects/hooks/useProject"
 import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
+import { SPRINT_STATE_META } from "@/features/sprints/components/SprintChip"
+import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import {
   countsRequest,
   ticketCounts
 } from "@/features/tickets/atoms/ticketCounts"
-import { statusMetaFor } from "@/lib/ticket-meta"
+import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-
-import { useProject } from "../-context"
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader"

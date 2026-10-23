@@ -5,11 +5,11 @@ import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
 
-import { DeletedOrgPage } from "@/components/DeletedOrgPage"
-import { ErrorPage } from "@/components/ErrorPage"
-import { NotFoundPage } from "@/components/NotFoundPage"
+import { ErrorPage } from "@/components/shell/ErrorPage"
+import { NotFoundPage } from "@/components/shell/NotFoundPage"
 import { DitherShell } from "@/components/ui/dither-shell"
 import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
+import { DeletedOrgPage } from "@/features/organizations/components/DeletedOrgPage"
 import {
   projectsFor,
   projectsRequest

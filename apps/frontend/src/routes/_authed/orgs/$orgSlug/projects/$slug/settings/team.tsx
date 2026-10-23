@@ -1,22 +1,21 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
 
-import { MembersSection } from "@/components/MembersSection"
 import {
   SettingsGroup,
   SettingsRow,
   SettingsSection
-} from "@/components/settings/SettingsSection"
+} from "@/components/shell/settings/SettingsSection"
 import { Button } from "@/components/ui/button"
+import { MembersSection } from "@/features/members/components/MembersSection"
 import {
   project,
   projectRequest,
   updateProjectSetup
 } from "@/features/projects/atoms/projects"
+import { useProject } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
-
-import { useProject } from "../-context"
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/settings/team"

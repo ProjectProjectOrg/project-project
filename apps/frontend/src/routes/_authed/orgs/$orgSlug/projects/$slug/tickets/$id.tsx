@@ -6,9 +6,8 @@ import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { useEffect, useMemo, useRef } from "react"
 
-import { ErrorPage } from "@/components/ErrorPage"
-import { NotFoundPage } from "@/components/NotFoundPage"
-import { TicketPage, TicketPageSkeleton } from "@/components/TicketPage"
+import { ErrorPage } from "@/components/shell/ErrorPage"
+import { NotFoundPage } from "@/components/shell/NotFoundPage"
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
 import {
   projectLibraryFor,
@@ -16,13 +15,16 @@ import {
 } from "@/features/library/atoms/library"
 import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
+import { useProject } from "@/features/projects/hooks/useProject"
 import {
   ticketDetail,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
+import {
+  TicketPage,
+  TicketPageSkeleton
+} from "@/features/tickets/components/ticket-page"
 import { m } from "@/paraglide/messages"
-
-import { useProject } from "../-context"
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 

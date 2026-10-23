@@ -32,7 +32,7 @@ import {
   applyTemplateRemove,
   applyTemplateUpdate,
   applyTemplateUpsert
-} from "../libraryPatch"
+} from "../lib/libraryPatch"
 
 export type OrgLibraryRequest = Readonly<{
   params: Readonly<{ orgSlug: string }>

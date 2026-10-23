@@ -6,7 +6,7 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
-import { clearBannerRenderCache } from "@/lib/bannerRenderCache"
+import { clearBannerRenderCache } from "@/features/projects/lib/bannerRenderCache"
 import { authClient } from "@/services/AuthClient"
 
 const meQuery = Api.query("auth", "me", {

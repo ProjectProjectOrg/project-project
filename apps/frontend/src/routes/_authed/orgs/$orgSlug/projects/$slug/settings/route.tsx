@@ -13,20 +13,20 @@ import {
 import { motion, useReducedMotion } from "motion/react"
 import { useCallback } from "react"
 
-import { ProjectIconDisplay } from "@/components/ProjectIconDisplay"
-import { RailBackLink } from "@/components/RailBackLink"
-import { SettingsPage } from "@/components/settings/SettingsPage"
+import { RailBackLink } from "@/components/shell/RailBackLink"
+import { SettingsPage } from "@/components/shell/settings/SettingsPage"
 import {
   SettingsRail as Rail,
   SettingsRailLink,
   SettingsRailNav
-} from "@/components/settings/SettingsRail"
-import { useSidebarSlot } from "@/components/SidebarSlot"
+} from "@/components/shell/settings/SettingsRail"
+import { useSidebarSlot } from "@/components/shell/SidebarSlot"
 import {
   project,
   projectActor,
   projectRequest
 } from "@/features/projects/atoms/projects"
+import { ProjectIconDisplay } from "@/features/projects/components/ProjectIconDisplay"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 

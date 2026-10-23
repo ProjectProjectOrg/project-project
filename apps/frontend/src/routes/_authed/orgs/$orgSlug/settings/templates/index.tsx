@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 
-import { LibraryPage } from "@/components/Library/LibraryPage"
-import { orgScope } from "@/components/Library/libraryScope"
+import { orgScope } from "@/features/library/atoms/libraryScope"
+import { LibraryPage } from "@/features/library/components/LibraryPage"
 import { m } from "@/paraglide/messages"
 
 const LibrarySearch = Schema.Struct({

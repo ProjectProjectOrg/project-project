@@ -1,7 +1,7 @@
 import Prism from "prismjs"
 import { useMemo } from "react"
 
-import "@/lib/prism-langs"
+import "@/lib/prismLangs"
 import { CopyButton } from "@/components/ui/copy-button"
 import { cn } from "@/lib/utils"
 

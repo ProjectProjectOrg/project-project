@@ -19,8 +19,8 @@ import {
   type Ref
 } from "react"
 
-import { fontWeights } from "@/lib/font-weight"
-import { useShape } from "@/lib/shape-context"
+import { fontWeights } from "@/lib/fontWeight"
+import { useShape } from "@/lib/shapeContext"
 import { sliderSprings as spring } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 

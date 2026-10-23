@@ -6,16 +6,15 @@ import {
   SettingsGroup,
   SettingsRow,
   SettingsSection
-} from "@/components/settings/SettingsSection"
+} from "@/components/shell/settings/SettingsSection"
 import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
   deleteProject,
   projectRequest
 } from "@/features/projects/atoms/projects"
+import { useProject } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
-
-import { useProject } from "../-context"
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/settings/danger"

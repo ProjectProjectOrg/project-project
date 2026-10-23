@@ -10,10 +10,8 @@ import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
 
-import { ErrorPage } from "@/components/ErrorPage"
-import { PageContainer } from "@/components/page"
-import { SprintDetailSkeleton } from "@/components/sprints/SprintDetailSkeleton"
-import { SprintsEmpty } from "@/components/sprints/SprintsEmpty"
+import { ErrorPage } from "@/components/shell/ErrorPage"
+import { PageContainer } from "@/components/shell/Page"
 import {
   statusesFor,
   statusesRequest
@@ -27,6 +25,8 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
+import { SprintDetailSkeleton } from "@/features/sprints/components/SprintDetailSkeleton"
+import { SprintsEmpty } from "@/features/sprints/components/SprintsEmpty"
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/"

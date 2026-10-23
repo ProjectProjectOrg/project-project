@@ -15,7 +15,7 @@ import * as Random from "effect/Random"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useRef, useState } from "react"
 
-import { ErrorPage } from "@/components/ErrorPage"
+import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
   cancelJiraMigrationAtom,
   createJiraMigrationAtom,
@@ -31,11 +31,15 @@ import {
   rescanJiraMigrationAtom,
   runJiraMigrationAtom
 } from "@/features/jira/atoms/jiraMigration"
-import { JiraMigrationForm, type JiraDraftSave } from "@/features/jira/form"
+import {
+  JiraMigrationForm,
+  type JiraDraftSave
+} from "@/features/jira/forms/migration"
 import { useJiraMigrationPolling } from "@/features/jira/hooks/useJiraMigrationPolling"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
+import { isActiveJiraMigration, jiraMigrationScreen } from "../lib/screen"
 import {
   isJiraMappingStep,
   isJiraWizardStep,
@@ -49,7 +53,6 @@ import {
 import { JiraProgressStep } from "./JiraProgressStep"
 import { JiraSourceStep } from "./JiraSourceStep"
 import { JiraTerminalStep } from "./JiraTerminalStep"
-import { isActiveJiraMigration, jiraMigrationScreen } from "./screen"
 
 export function JiraMigrationStartPage({ orgSlug }: { orgSlug: string }) {
   const profile = useAtomValue(jiraProfileAtom)

@@ -52,8 +52,8 @@ import * as Schema from "effect/Schema"
 
 import type { configureJiraMigrationAtom } from "@/features/jira/atoms/jiraMigration"
 import type { submitConsentAtom } from "@/features/oauth/atoms/oauthConsent"
+import type { InviteAcceptError } from "@/features/organizations/lib/invitations"
 import type { createStatus } from "@/features/projects/atoms/projectStatuses"
-import type { InviteAcceptError } from "@/lib/invitations"
 import { m } from "@/paraglide/messages"
 
 export type AppError =

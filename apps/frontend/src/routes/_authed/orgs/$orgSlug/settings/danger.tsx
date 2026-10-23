@@ -5,13 +5,13 @@ import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState, type FormEvent } from "react"
 
-import { ErrorPage } from "@/components/ErrorPage"
+import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
   SettingsGroup,
   SettingsRow,
   SettingsSection
-} from "@/components/settings/SettingsSection"
-import { SettingsSkeleton } from "@/components/settings/SettingsSkeleton"
+} from "@/components/shell/settings/SettingsSection"
+import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { setActiveOrganization } from "@/features/auth/atoms/auth"
@@ -21,8 +21,8 @@ import {
   softDeleteOrg,
   userOrgs
 } from "@/features/organizations/atoms/orgs"
+import { nextActiveOrgSlug } from "@/features/organizations/lib/orgReflow"
 import { useOrgActor } from "@/lib/access"
-import { nextActiveOrgSlug } from "@/lib/orgReflow"
 import { m } from "@/paraglide/messages"
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/settings/danger")({

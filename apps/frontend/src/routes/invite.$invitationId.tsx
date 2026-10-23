@@ -12,11 +12,11 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { LogOut, MailCheck } from "lucide-react"
 import { useRef, useState } from "react"
 
-import { ErrorPage } from "@/components/ErrorPage"
+import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
   OnboardingGateStatus,
   OnboardingShell
-} from "@/components/OnboardingShell"
+} from "@/components/shell/OnboardingShell"
 import { Button } from "@/components/ui/button"
 import { logout, me, setActiveOrganization } from "@/features/auth/atoms/auth"
 import {
@@ -24,8 +24,11 @@ import {
   invitations,
   rejectInvitation
 } from "@/features/organizations/atoms/invitations"
+import {
+  invitationInviterDetail,
+  invitationRoleLabel
+} from "@/features/organizations/lib/invitations"
 import { errorMessage } from "@/lib/errorMessage"
-import { invitationInviterDetail, invitationRoleLabel } from "@/lib/invitations"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 

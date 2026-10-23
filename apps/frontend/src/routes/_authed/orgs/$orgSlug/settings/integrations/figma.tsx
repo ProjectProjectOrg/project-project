@@ -3,22 +3,22 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import {
-  IntegrationDetail,
-  IntegrationStatus
-} from "@/components/settings/IntegrationDetail"
-import { IntegrationLogo } from "@/components/settings/IntegrationLogo"
-import { IntegrationProjects } from "@/components/settings/IntegrationProjects"
-import {
-  perProjectState,
-  useStorageState
-} from "@/components/settings/orgIntegrations"
-import {
   SettingsGroup,
   SettingsRow,
   SettingsSection
-} from "@/components/settings/SettingsSection"
+} from "@/components/shell/settings/SettingsSection"
 import { Button } from "@/components/ui/button"
 import { figmaProfileAtom } from "@/features/figma/atoms/figma"
+import {
+  IntegrationDetail,
+  IntegrationStatus
+} from "@/features/integrations/components/IntegrationDetail"
+import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
+import { IntegrationProjects } from "@/features/integrations/components/IntegrationProjects"
+import {
+  perProjectState,
+  useStorageState
+} from "@/features/integrations/hooks/useOrgIntegrations"
 import { m } from "@/paraglide/messages"
 
 export const Route = createFileRoute(

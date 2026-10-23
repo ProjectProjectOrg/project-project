@@ -6,10 +6,10 @@ import {
 import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
 import { useEffect } from "react"
 
-import { ErrorPage } from "@/components/ErrorPage"
-import { LoaderOverlay } from "@/components/LoaderOverlay"
-import { NotFoundPage } from "@/components/NotFoundPage"
-import { ShapeProvider } from "@/lib/shape-context"
+import { ErrorPage } from "@/components/shell/ErrorPage"
+import { LoaderOverlay } from "@/components/shell/LoaderOverlay"
+import { NotFoundPage } from "@/components/shell/NotFoundPage"
+import { ShapeProvider } from "@/lib/shapeContext"
 
 export interface RouterContext {
   registry: AtomRegistry

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { ConnectedAgentsSection } from "@/components/ConnectedAgentsSection"
+import { ConnectedAgentsSection } from "@/features/oauth/components/ConnectedAgentsSection"
 import { m } from "@/paraglide/messages"
 
 export const Route = createFileRoute("/_authed/profile/agents")({

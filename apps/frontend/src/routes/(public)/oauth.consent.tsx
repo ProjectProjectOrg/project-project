@@ -5,7 +5,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { useState, type ReactNode } from "react"
 
-import { Logo, Wordmark } from "@/components/Logo"
+import { Logo, Wordmark } from "@/components/shell/Logo"
 import { Button } from "@/components/ui/button"
 import { DitherShell } from "@/components/ui/dither-shell"
 import { me } from "@/features/auth/atoms/auth"
@@ -15,8 +15,8 @@ import {
   oauthConsentRequest,
   submitConsentAtom
 } from "@/features/oauth/atoms/oauthConsent"
+import { rawQueryFromSearch } from "@/features/oauth/lib/oauthQuery"
 import { oauthConsentErrorMessage } from "@/lib/errorMessage"
-import { rawQueryFromSearch } from "@/lib/oauthQuery"
 import { m } from "@/paraglide/messages"
 
 const OauthConsentSearch = Schema.Struct({

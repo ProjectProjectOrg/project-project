@@ -9,9 +9,7 @@ import { ChevronRight, FolderKanban, Plus } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useRef, useState, type FormEvent } from "react"
 
-import { PageContainer, PageHeader } from "@/components/page"
-import { ProjectBanner } from "@/components/ProjectBanner"
-import { ProjectTile } from "@/components/ProjectTile"
+import { PageContainer, PageHeader } from "@/components/shell/Page"
 import { Button } from "@/components/ui/button"
 import {
   InputGroup,
@@ -24,12 +22,14 @@ import {
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
+import { ProjectBanner } from "@/features/projects/components/ProjectBanner"
+import { ProjectTile } from "@/features/projects/components/ProjectIconTile"
+import { useGlobalShortcut } from "@/hooks/useGlobalShortcut"
 import { useOrgActor } from "@/lib/access"
 import { errorMessage } from "@/lib/errorMessage"
-import { formatRelative } from "@/lib/relative-time"
+import { formatRelative } from "@/lib/relativeTime"
 import { slugify } from "@/lib/slug"
 import { transitions } from "@/lib/springs"
-import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 

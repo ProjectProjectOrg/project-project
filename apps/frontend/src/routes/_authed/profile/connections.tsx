@@ -5,14 +5,12 @@ import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { type FormEvent, useEffect, useState } from "react"
 
-import { FigmaProfileSettings } from "@/components/settings/FigmaProfileSettings"
-import { IntegrationLogo } from "@/components/settings/IntegrationLogo"
 import {
   SettingsGroup,
   SettingsRow,
   SettingsSection
-} from "@/components/settings/SettingsSection"
-import { SettingsInput } from "@/components/settings/SettingsTextField"
+} from "@/components/shell/settings/SettingsSection"
+import { SettingsInput } from "@/components/shell/settings/SettingsTextField"
 import { Button } from "@/components/ui/button"
 import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
@@ -24,6 +22,8 @@ import {
   connectEverhourProfileAtom,
   disconnectEverhourProfileAtom
 } from "@/features/everhour/atoms/everhour"
+import { FigmaProfileSettings } from "@/features/figma/components/FigmaProfileSettings"
+import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
 import { SlackProfileSettings } from "@/features/slack/components/ProfileSettings"
 import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"

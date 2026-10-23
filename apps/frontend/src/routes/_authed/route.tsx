@@ -34,21 +34,17 @@ import {
   type RefObject
 } from "react"
 
-import { Breadcrumbs } from "@/components/Breadcrumbs"
-import { ErrorPage } from "@/components/ErrorPage"
-import { FluidHoverHighlight } from "@/components/fluid-hover-highlight"
-import { LoaderOverlay } from "@/components/LoaderOverlay"
-import { Logo, Wordmark } from "@/components/Logo"
-import { OrgSwitcher } from "@/components/OrgSwitcher"
-import { ProjectIconDisplay } from "@/components/ProjectIconDisplay"
+import { Breadcrumbs } from "@/components/shell/Breadcrumbs"
+import { ErrorPage } from "@/components/shell/ErrorPage"
+import { LoaderOverlay } from "@/components/shell/LoaderOverlay"
+import { Logo, Wordmark } from "@/components/shell/Logo"
 import {
   SidebarDrawerAutoCloseProvider,
   SidebarSlotProvider,
   useSidebarSectionContent,
   useSidebarSlotContent
-} from "@/components/SidebarSlot"
-import { ThemeSwitcher } from "@/components/ThemeSwitcher"
-import { RunningTimerIndicator } from "@/components/time/RunningTimerIndicator"
+} from "@/components/shell/SidebarSlot"
+import { ThemeSwitcher } from "@/components/shell/ThemeSwitcher"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -57,6 +53,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight"
 import {
   Sheet,
   SheetContent,
@@ -64,17 +61,20 @@ import {
   SheetTrigger
 } from "@/components/ui/sheet"
 import { logout, me } from "@/features/auth/atoms/auth"
+import { authedRouteRedirect } from "@/features/auth/lib/authRedirect"
+import { RunningTimerIndicator } from "@/features/everhour/components/RunningTimerIndicator"
+import { OrgSwitcher } from "@/features/organizations/components/OrgSwitcher"
 import {
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
+import { ProjectIconDisplay } from "@/features/projects/components/ProjectIconDisplay"
 import {
   useFluidHover,
   useRegisterFluidHoverItem,
   type UseFluidHoverReturn
-} from "@/hooks/use-fluid-hover"
-import { authedRouteRedirect } from "@/lib/authRedirect"
-import { PageBackdropContext } from "@/lib/page-backdrop"
+} from "@/hooks/useFluidHover"
+import { PageBackdropContext } from "@/lib/pageBackdrop"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"

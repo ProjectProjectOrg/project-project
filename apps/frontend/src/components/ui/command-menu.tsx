@@ -22,17 +22,17 @@ import {
 import {
   FluidHoverHighlight,
   type FluidHoverSource
-} from "@/components/fluid-hover-highlight"
+} from "@/components/ui/fluid-hover-highlight"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { TabsSubtle, TabsSubtleItem } from "@/components/ui/tabs-subtle"
 import {
   useFluidHover,
   useRegisterFluidHoverItem,
   type UseFluidHoverReturn
-} from "@/hooks/use-fluid-hover"
+} from "@/hooks/useFluidHover"
 import type { IconComponent } from "@/lib/icon"
-import { shapeMap } from "@/lib/shape-context"
-import { useSize } from "@/lib/size-context"
+import { shapeMap } from "@/lib/shapeContext"
+import { useSize } from "@/lib/sizeContext"
 import { spring } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"

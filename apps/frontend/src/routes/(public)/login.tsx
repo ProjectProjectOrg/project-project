@@ -6,17 +6,17 @@ import { Mail } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import type { FormEvent } from "react"
 
-import { Logo, Wordmark } from "@/components/Logo"
+import { Logo, Wordmark } from "@/components/shell/Logo"
 import { Button } from "@/components/ui/button"
 import { Dither, type TimeWarpZone } from "@/components/ui/dither"
 import { Input } from "@/components/ui/input"
 import { me } from "@/features/auth/atoms/auth"
+import { safeInternalPath } from "@/features/auth/lib/safeRedirect"
 import {
   hasSignedOAuthQuery,
   oauthAuthorizeUrl,
   rawQueryFromSearch
-} from "@/lib/oauthQuery"
-import { safeInternalPath } from "@/lib/safeRedirect"
+} from "@/features/oauth/lib/oauthQuery"
 import { m } from "@/paraglide/messages"
 import { authClient } from "@/services/AuthClient"
 
