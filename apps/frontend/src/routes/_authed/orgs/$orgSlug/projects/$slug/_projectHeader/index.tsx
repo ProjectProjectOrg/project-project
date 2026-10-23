@@ -1,7 +1,7 @@
 import { TicketListQuery } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
+import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import * as Result from "effect/unstable/reactivity/AsyncResult"
 
 import { readBacklogGrouping } from "@/components/TicketList/ProjectTicketLayout"
 import { me } from "@/features/auth/atoms/auth"
@@ -40,7 +40,6 @@ export const Route = createFileRoute(
     registry.mount(project(projectRequest(orgSlug, slug)))()
     registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
     registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
-    // Only prefetch the grouping this page will render; unknown viewer → both.
     const viewer = registry.get(me())
     const view = query.view ?? readViewPreference(orgSlug, slug, "backlog")
     const grouping =
