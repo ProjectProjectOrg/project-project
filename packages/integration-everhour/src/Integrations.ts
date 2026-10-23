@@ -1,12 +1,10 @@
 import { Db } from "@pp/db"
-import { publishedProject } from "@pp/db/projectVisibility"
 import {
   everhourSectionLink,
   everhourWorkTypeTaskLink,
   organizationIntegration,
   projectEverhourIntegration,
   projectIntegrationLink,
-  projectMember,
   userEverhourIntegration
 } from "@pp/db/schema"
 import {
@@ -15,12 +13,16 @@ import {
   EverhourConfigMissing,
   EverhourError,
   NotFound,
+  type EverhourAuthInvalid,
   type EverhourProjectIntegrationStatus,
+  type EverhourRateLimited,
+  type EverhourSyncSummary,
   type OrgEverhourConfig,
   type PersonalEverhour,
   ProjectScope
 } from "@pp/shared"
 import { and, desc, eq, inArray } from "drizzle-orm"
+import * as Context from "effect/Context"
 import * as Crypto from "effect/Crypto"
 import * as DateTime from "effect/DateTime"
 import * as Duration from "effect/Duration"
@@ -29,16 +31,61 @@ import * as Base64Url from "effect/encoding/Base64Url"
 import * as Layer from "effect/Layer"
 import * as SqlClient from "effect/sql/SqlClient"
 
-import { GroupDocs } from "../groups/GroupDocs"
-import { SecretCrypto } from "../storage/SecretCrypto"
-import { TicketIndex } from "../tickets/TicketIndex"
-import { Everhour } from "./Everhour"
-import type { EverhourTaskPayload } from "./Everhour"
-import {
-  EverhourIntegrations,
-  type EverhourIntegrationsShape
-} from "./EverhourIntegrations"
+import { Everhour } from "./Client"
+import type { EverhourTaskPayload } from "./Client"
+import { EverhourHost } from "./Host"
 import { addProjectUsers } from "./ProjectUsers"
+
+export type EverhourIntegrationError =
+  | NotFound
+  | EverhourApiKeyMissing
+  | EverhourAuthInvalid
+  | EverhourRateLimited
+  | EverhourConfigMissing
+  | EverhourError
+
+export interface EverhourIntegrationsShape {
+  readonly getProfile: (userId: string) => Effect.Effect<PersonalEverhour>
+  readonly connectProfile: (
+    userId: string,
+    apiKey: string
+  ) => Effect.Effect<
+    PersonalEverhour,
+    | EverhourAuthInvalid
+    | EverhourRateLimited
+    | EverhourConfigMissing
+    | EverhourError
+  >
+  readonly disconnectProfile: (
+    userId: string
+  ) => Effect.Effect<PersonalEverhour>
+  readonly getProjectStatus: () => Effect.Effect<
+    EverhourProjectIntegrationStatus,
+    never,
+    ProjectScope
+  >
+  readonly connectProject: () => Effect.Effect<
+    EverhourSyncSummary,
+    EverhourIntegrationError,
+    ProjectScope
+  >
+  readonly syncProject: () => Effect.Effect<
+    EverhourSyncSummary,
+    EverhourIntegrationError,
+    ProjectScope
+  >
+  readonly disconnectProject: () => Effect.Effect<
+    EverhourProjectIntegrationStatus,
+    never,
+    ProjectScope
+  >
+  readonly bestEffortProjectSync: () => Effect.Effect<void, never, ProjectScope>
+}
+
+export class EverhourIntegrations extends Context.Service<
+  EverhourIntegrations,
+  EverhourIntegrationsShape
+>()("@pp/integration-everhour/Integrations/EverhourIntegrations") {}
 
 type MutableSummary = {
   sectionsCreated: number
@@ -178,9 +225,7 @@ export const EverhourIntegrationsLive = Layer.effect(
     const crypto = yield* Crypto.Crypto
     const sql = yield* SqlClient.SqlClient
     const everhour = yield* Everhour
-    const ticketIndex = yield* TicketIndex
-    const groupDocs = yield* GroupDocs
-    const secrets = yield* SecretCrypto
+    const host = yield* EverhourHost
 
     const getProfile = (userId: string): Effect.Effect<PersonalEverhour> =>
       db.query.userEverhourIntegration
@@ -224,22 +269,18 @@ export const EverhourIntegrationsLive = Layer.effect(
           })
           .pipe(Effect.orDie)
         if (!row) return yield* new EverhourApiKeyMissing()
-        const apiKey = yield* secrets
-          .open({
-            ciphertext: row.encryptedApiKey,
-            nonce: row.apiKeyNonce,
-            tag: row.apiKeyTag
-          })
-          .pipe(Effect.mapError(() => new EverhourConfigMissing()))
+        const apiKey = yield* host.open({
+          ciphertext: row.encryptedApiKey,
+          nonce: row.apiKeyNonce,
+          tag: row.apiKeyTag
+        })
         return { apiKey, everhourUserId: row.everhourUserId }
       })
 
     const connectProfile = (userId: string, apiKey: string) =>
       Effect.gen(function* () {
         const verified = yield* everhour.getCurrentUser(apiKey)
-        const sealed = yield* secrets
-          .seal(apiKey)
-          .pipe(Effect.mapError(() => new EverhourConfigMissing()))
+        const sealed = yield* host.seal(apiKey)
         const encrypted = {
           encryptedApiKey: sealed.ciphertext,
           apiKeyNonce: sealed.nonce,
@@ -283,26 +324,7 @@ export const EverhourIntegrationsLive = Layer.effect(
         .where(eq(userEverhourIntegration.userId, userId))
         .pipe(Effect.orDie, Effect.andThen(getProfile(userId)))
 
-    const projectRow = (orgSlug: string, slug: string) =>
-      ticketIndex.projectFor(orgSlug, slug).pipe(Effect.orDie)
-
-    const indexById = (projectId: string) =>
-      db.query.projectIndex
-        .findFirst({
-          where: {
-            RAW: (table, _operators) =>
-              _operators.and(
-                _operators.eq(table.id, projectId),
-                publishedProject(table)
-              )!
-          }
-        })
-        .pipe(
-          Effect.orDie,
-          Effect.flatMap((row) =>
-            row ? Effect.succeed(row) : Effect.fail(new NotFound())
-          )
-        )
+    const projectRow = host.project
 
     const activeLink = (projectId: string) =>
       db
@@ -390,15 +412,17 @@ export const EverhourIntegrationsLive = Layer.effect(
 
     const assignProjectMembers = (apiKey: string, link: ActiveLink) =>
       Effect.gen(function* () {
-        const members = yield* db
-          .select({ everhourUserId: userEverhourIntegration.everhourUserId })
-          .from(projectMember)
-          .innerJoin(
-            userEverhourIntegration,
-            eq(userEverhourIntegration.userId, projectMember.userId)
-          )
-          .where(eq(projectMember.projectId, link.projectId))
-          .pipe(Effect.orDie)
+        const memberIds = yield* host.memberIds(link.projectId)
+        const members =
+          memberIds.length === 0
+            ? []
+            : yield* db
+                .select({
+                  everhourUserId: userEverhourIntegration.everhourUserId
+                })
+                .from(userEverhourIntegration)
+                .where(inArray(userEverhourIntegration.userId, memberIds))
+                .pipe(Effect.orDie)
         const team = new Set(yield* everhour.teamUserIds(apiKey))
         yield* addProjectUsers(
           { everhour, sql },
@@ -454,9 +478,9 @@ export const EverhourIntegrationsLive = Layer.effect(
             formatError(remote.failure)
           )
         }
-        const index = yield* indexById(project.projectId)
+        const name = yield* host.publishedName(project.projectId)
         const remote = yield* everhour.createProject(actor.apiKey, {
-          name: index.name,
+          name,
           type: "board",
           users: [actor.everhourUserId]
         })
@@ -577,28 +601,13 @@ export const EverhourIntegrationsLive = Layer.effect(
     ) =>
       Effect.gen(function* () {
         const now = yield* DateTime.nowAsDate
-        const ids = yield* groupDocs.listIds(orgSlug, slug).pipe(Effect.orDie)
-        const groups = yield* Effect.forEach(ids, (id) =>
-          groupDocs.read(orgSlug, slug, id).pipe(
-            Effect.catchTag("NotFound", () => Effect.succeed(null)),
-            Effect.orDie
-          )
-        )
-        const sprintSections = groups
-          .filter(
-            (group): group is NonNullable<(typeof groups)[number]> =>
-              group !== null && group.kind === "sprint"
-          )
-          .map((group) => ({
-            localKey: `sprint:${group.id}`,
-            groupId: group.id,
-            name: group.name,
-            status:
-              group.completedAt === null
-                ? ("open" as const)
-                : ("archived" as const)
-          }))
-        const desired = sprintSections
+        const sprints = yield* host.sprints(orgSlug, slug)
+        const desired = sprints.map((sprint) => ({
+          localKey: `sprint:${sprint.id}`,
+          groupId: sprint.id,
+          name: sprint.name,
+          status: sprint.completed ? ("archived" as const) : ("open" as const)
+        }))
         const existing = yield* db.query.everhourSectionLink
           .findMany({
             where: {
@@ -782,7 +791,7 @@ export const EverhourIntegrationsLive = Layer.effect(
                 row ? Effect.succeed(row) : Effect.fail(new NotFound())
               )
             )
-        const index = yield* indexById(project.projectId)
+        const name = yield* host.publishedName(project.projectId)
         const summary = emptySummary()
         yield* everhour
           .getProject(apiKey, link.everhourProjectId)
@@ -797,13 +806,13 @@ export const EverhourIntegrationsLive = Layer.effect(
               ).pipe(Effect.andThen(Effect.fail(error)))
             )
           )
-        if (link.everhourProjectName !== index.name) {
+        if (link.everhourProjectName !== name) {
           yield* everhour.updateProject(apiKey, link.everhourProjectId, {
-            name: index.name
+            name
           })
           yield* db
             .update(projectEverhourIntegration)
-            .set({ everhourProjectName: index.name })
+            .set({ everhourProjectName: name })
             .where(
               eq(
                 projectEverhourIntegration.projectIntegrationLinkId,

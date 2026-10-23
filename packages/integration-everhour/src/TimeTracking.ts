@@ -8,39 +8,95 @@ import {
 import {
   DEFAULT_WORK_TYPES,
   EverhourApiKeyMissing,
-  EverhourConfigMissing,
   GroupId,
   NotFound,
   TicketId,
   type ActiveTimer,
+  type EverhourAuthInvalid,
+  type EverhourConfigMissing,
+  type EverhourError,
+  type EverhourProjectAccessDenied,
+  type EverhourRateLimited,
+  type LogTimeInput,
   type OrgEverhourConfig,
+  type StartSprintTimerInput,
+  type StartTimerInput,
   type TicketTimeSummary,
   type WorkTypeOption,
   OrgScope,
   ProjectScope
 } from "@pp/shared"
 import { and, desc, eq, inArray } from "drizzle-orm"
+import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 
-import { Access } from "../access/Access"
-import { GroupDocs } from "../groups/GroupDocs"
-import { SecretCrypto } from "../storage/SecretCrypto"
-import { TicketDocs } from "../tickets/TicketDocs"
 import {
   Everhour,
   type EverhourTimeEntry,
   type EverhourTimeRecord,
   type EverhourTrackingError
-} from "./Everhour"
-import {
-  EverhourTimeTracking,
-  type EverhourTimeTrackingShape
-} from "./EverhourTimeTracking"
+} from "./Client"
+import { EverhourHost } from "./Host"
 import { addProjectUsers } from "./ProjectUsers"
+
+export type EverhourTimeTrackingError =
+  | NotFound
+  | EverhourApiKeyMissing
+  | EverhourAuthInvalid
+  | EverhourRateLimited
+  | EverhourConfigMissing
+  | EverhourError
+
+export type EverhourLogTimeError =
+  | EverhourTimeTrackingError
+  | EverhourProjectAccessDenied
+
+export interface EverhourTimeTrackingShape {
+  readonly workTypesForTicket: (
+    ticketId: string
+  ) => Effect.Effect<ReadonlyArray<WorkTypeOption>, NotFound, ProjectScope>
+  readonly startTicketTimer: (
+    ticketId: string,
+    input: StartTimerInput
+  ) => Effect.Effect<ActiveTimer, EverhourLogTimeError, ProjectScope>
+  readonly startSprintTimer: (
+    groupId: string,
+    input: StartSprintTimerInput
+  ) => Effect.Effect<ActiveTimer, EverhourLogTimeError, ProjectScope>
+  readonly stopTimer: () => Effect.Effect<
+    ActiveTimer | null,
+    EverhourTimeTrackingError,
+    OrgScope
+  >
+  readonly currentTimer: () => Effect.Effect<
+    ActiveTimer | null,
+    EverhourTimeTrackingError,
+    OrgScope
+  >
+  readonly logTime: (
+    input: LogTimeInput
+  ) => Effect.Effect<
+    TicketTimeSummary | null,
+    EverhourLogTimeError,
+    ProjectScope
+  >
+  readonly ticketTimeSummary: (
+    ticketId: string
+  ) => Effect.Effect<TicketTimeSummary, NotFound, ProjectScope>
+  readonly applyWebhookTimeEvent: (
+    projectIntegrationLinkId: string,
+    record: EverhourTimeRecord
+  ) => Effect.Effect<void>
+}
+
+export class EverhourTimeTracking extends Context.Service<
+  EverhourTimeTracking,
+  EverhourTimeTrackingShape
+>()("@pp/integration-everhour/TimeTracking/EverhourTimeTracking") {}
 
 const makeTicketId = Schema.decodeSync(TicketId)
 const makeGroupId = Schema.decodeSync(GroupId)
@@ -124,10 +180,7 @@ export const EverhourTimeTrackingLive = Layer.effect(
     const db = yield* Db
     const sql = yield* SqlClient.SqlClient
     const everhour = yield* Everhour
-    const groupDocs = yield* GroupDocs
-    const ticketDocs = yield* TicketDocs
-    const secrets = yield* SecretCrypto
-    const access = yield* Access
+    const host = yield* EverhourHost
 
     const activeLink = (projectId: string) =>
       db
@@ -185,29 +238,7 @@ export const EverhourTimeTrackingLive = Layer.effect(
           )
         )
 
-    const loadSprints = (orgSlug: string, slug: string) =>
-      Effect.gen(function* () {
-        const ids = yield* groupDocs.listIds(orgSlug, slug).pipe(Effect.orDie)
-        const groups = yield* Effect.forEach(
-          ids,
-          (id) =>
-            groupDocs.read(orgSlug, slug, id).pipe(
-              Effect.catchTag("NotFound", () => Effect.succeed(null)),
-              Effect.orDie
-            ),
-          { concurrency: 8 }
-        )
-        return groups
-          .filter(
-            (group): group is NonNullable<(typeof groups)[number]> =>
-              group !== null && group.kind === "sprint"
-          )
-          .map((group) => ({
-            id: group.id,
-            name: group.name,
-            tickets: group.tickets as ReadonlyArray<string>
-          }))
-      })
+    const loadSprints = host.sprints
 
     const actorApiKey = (userId: string) =>
       Effect.gen(function* () {
@@ -225,13 +256,11 @@ export const EverhourTimeTrackingLive = Layer.effect(
           })
           .pipe(Effect.orDie)
         if (!row) return yield* new EverhourApiKeyMissing()
-        const apiKey = yield* secrets
-          .open({
-            ciphertext: row.encryptedApiKey,
-            nonce: row.apiKeyNonce,
-            tag: row.apiKeyTag
-          })
-          .pipe(Effect.mapError(() => new EverhourConfigMissing()))
+        const apiKey = yield* host.open({
+          ciphertext: row.encryptedApiKey,
+          nonce: row.apiKeyNonce,
+          tag: row.apiKeyTag
+        })
         return { apiKey, everhourUserId: row.everhourUserId }
       })
 
@@ -274,11 +303,7 @@ export const EverhourTimeTrackingLive = Layer.effect(
         return { everhourTaskId: row.everhourTaskId, workTypeLabel: label }
       })
 
-    const ticketTitle = (orgSlug: string, slug: string, ticketId: string) =>
-      ticketDocs.read(orgSlug, slug, ticketId).pipe(
-        Effect.map((ticket) => ticket.title),
-        Effect.catch(() => Effect.succeed<string | null>(null))
-      )
+    const ticketTitle = host.ticketTitle
 
     const writeAttribution = (
       record: EverhourTimeRecord,
@@ -424,19 +449,17 @@ export const EverhourTimeTrackingLive = Layer.effect(
           })
           .pipe(Effect.orDie)
         if (!link || link.organizationId !== organizationId) return null
-        const project = (yield* access.projectsInOrg()).find(
-          (scope) => scope.projectId === link.projectId
-        )
-        if (!project?.permissions.can({ time: ["read"] })) return null
+        const slug = yield* host.timeReadableSlug(link.projectId)
+        if (slug === null) return null
         const config = yield* loadConfig(link.organizationId)
         const workTypeLabel =
           config.workTypes.find((workType) => workType.key === row.workTypeKey)
             ?.label ?? row.workTypeKey
         const title = row.ticketId
-          ? yield* ticketTitle(orgSlug, project.slug, row.ticketId)
+          ? yield* ticketTitle(orgSlug, slug, row.ticketId)
           : null
         const timer: ActiveTimer = {
-          slug: project.slug,
+          slug,
           ticketId: row.ticketId === null ? null : makeTicketId(row.ticketId),
           ticketTitle: title,
           groupId: makeGroupId(row.groupId),

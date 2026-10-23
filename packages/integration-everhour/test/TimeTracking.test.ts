@@ -6,7 +6,7 @@ import {
   summariseAttribution,
   timerComment,
   workTypeOptions
-} from "./EverhourTimeTrackingLive"
+} from "../src/TimeTracking"
 
 describe("timerComment", () => {
   it("stamps the ticket id and title", () => {

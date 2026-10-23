@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect"
 import type * as SqlClient from "effect/sql/SqlClient"
 
-import type { EverhourShape } from "./Everhour"
+import type { EverhourShape } from "./Client"
 
 export const addProjectUsers = (
   deps: Readonly<{ everhour: EverhourShape; sql: SqlClient.SqlClient }>,

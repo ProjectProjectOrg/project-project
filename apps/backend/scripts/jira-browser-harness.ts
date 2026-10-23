@@ -179,13 +179,8 @@ export const makeJiraBrowserHarnessLive = async (
 ) => {
   const [
     { RouteLive },
-    { EverhourWebhooksLive },
     { BackendInfrastructureLive, makeBackendHttpServicesLive }
-  ] = await Promise.all([
-    import("../src/main"),
-    import("@pp/server-core/everhour/EverhourWebhooksLive"),
-    import("../src/runtime")
-  ])
+  ] = await Promise.all([import("../src/main"), import("../src/runtime")])
   const services = makeBackendHttpServicesLive(
     Layer.succeed(JiraTransport, fixture.transport),
     Layer.succeed(JiraTokenEndpoint, fixture.tokenEndpoint),
@@ -198,11 +193,7 @@ export const makeJiraBrowserHarnessLive = async (
   )
   return HttpRouter.serve(
     Layer.mergeAll(RouteLive, makeJiraBrowserControlRoutes(fixture))
-  ).pipe(
-    Layer.provide(EverhourWebhooksLive),
-    Layer.provide(services),
-    Layer.provide(BackendInfrastructureLive)
-  )
+  ).pipe(Layer.provide(services), Layer.provide(BackendInfrastructureLive))
 }
 
 if (import.meta.main) {

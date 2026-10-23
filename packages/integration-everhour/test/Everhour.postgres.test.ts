@@ -16,22 +16,21 @@ import * as Layer from "effect/Layer"
 import pg from "pg"
 import { describe, expect } from "vitest"
 
-import { Access } from "../access/Access"
-import { projectScope } from "../access/testing"
-import { GroupDocs } from "../groups/GroupDocs"
-import { SecretCrypto } from "../storage/SecretCrypto"
-import { TicketDocs } from "../tickets/TicketDocs"
-import { TicketIndex } from "../tickets/TicketIndex"
 import {
   Everhour,
   type EverhourProject,
   type EverhourShape,
   type EverhourTimeRecord
-} from "./Everhour"
-import { EverhourIntegrations } from "./EverhourIntegrations"
-import { EverhourIntegrationsLive } from "./EverhourIntegrationsLive"
-import { EverhourTimeTracking } from "./EverhourTimeTracking"
-import { EverhourTimeTrackingLive } from "./EverhourTimeTrackingLive"
+} from "../src/Client"
+import { EverhourHost } from "../src/Host"
+import {
+  EverhourIntegrations,
+  EverhourIntegrationsLive
+} from "../src/Integrations"
+import {
+  EverhourTimeTracking,
+  EverhourTimeTrackingLive
+} from "../src/TimeTracking"
 
 const { Client } = pg
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
@@ -71,6 +70,8 @@ type FakeEverhour = Readonly<{
   }
 }>
 
+const userOf = (apiKey: string) => apiKey.replace(/^key-/, "")
+
 const fakeEverhour = (users: ReadonlyArray<string>): FakeEverhour => {
   const project = { users: [...users] }
   const assignedWith: Array<string> = []
@@ -81,7 +82,6 @@ const fakeEverhour = (users: ReadonlyArray<string>): FakeEverhour => {
   }
   const records = new Map<string, EverhourTimeRecord>()
   let nextEntry = 1000
-  const userOf = (apiKey: string) => apiKey.replace(/^key-/, "")
   const remote = (): EverhourProject => ({
     id: "ev:project",
     name: "Website",
@@ -170,22 +170,11 @@ const seed = Effect.gen(function* () {
          values ($1, 'Everhour', $2, now())`,
       [fixture.organizationId, fixture.orgSlug]
     )
-    for (const id of people)
-      await client.query(
-        `insert into member (id, organization_id, user_id, role, created_at)
-           values ($1, $2, $1, 'member', now())`,
-        [id, fixture.organizationId]
-      )
     await client.query(
       `insert into project_index
            (id, slug, organization_id, key, name, icon, color, created_by, created_at, published_at)
          values ($1, $2, $3, 'T', 'Website', 'folder', 'blue', $4, now(), now())`,
       [fixture.projectId, fixture.slug, fixture.organizationId, fixture.manager]
-    )
-    await client.query(
-      `insert into project_member (project_id, organization_id, user_id, role_id)
-         values ($1, $2, $3, 'pm'), ($1, $2, $4, 'developer'), ($1, $2, $5, 'developer')`,
-      [fixture.projectId, fixture.organizationId, ...people]
     )
     for (const id of people)
       await client.query(
@@ -242,47 +231,47 @@ const servicesLayer = (fixture: Fixture, everhour: FakeEverhour) =>
     Layer.provide(
       Layer.mergeAll(
         Layer.succeed(Everhour, everhour.service),
-        Layer.succeed(GroupDocs, {
-          listIds: () => Effect.succeed(["G-1"]),
-          read: () =>
-            Effect.succeed({
-              id: "G-1",
-              kind: "sprint",
-              name: "Sprint 1",
-              tickets: ["T-1", "T-2"],
-              completedAt: null
-            })
-        } as never),
-        Layer.succeed(TicketDocs, {
-          read: (_orgSlug: string, _slug: string, id: string) =>
-            Effect.succeed({ id, title: `Ticket ${id}` })
-        } as never),
-        Layer.succeed(TicketIndex, {
-          projectFor: () =>
+        Layer.succeed(EverhourHost, {
+          project: () =>
             Effect.succeed({
               projectId: fixture.projectId,
               organizationId: fixture.organizationId
-            })
-        } as never),
-        Layer.succeed(SecretCrypto, {
+            }),
+          publishedName: () => Effect.succeed("Website"),
+          memberIds: () =>
+            Effect.succeed([
+              fixture.manager,
+              fixture.developer,
+              fixture.newcomer
+            ]),
+          sprints: () =>
+            Effect.succeed([
+              {
+                id: "G-1",
+                name: "Sprint 1",
+                completed: false,
+                tickets: ["T-1", "T-2"]
+              }
+            ]),
+          ticketTitle: (_orgSlug, _slug, id) => Effect.succeed(`Ticket ${id}`),
+          timeReadableSlug: () => Effect.succeed(fixture.slug),
           seal: unexpected("seal"),
           open: (sealed) => Effect.succeed(sealed.ciphertext)
-        }),
-        Layer.succeed(Access, {} as never)
+        })
       )
     ),
     Layer.provide(DbLive.pipe(Layer.provideMerge(PgLive))),
     Layer.provide(BunServices.layer)
   )
 
-const scopeFor = (fixture: Fixture, userId: string): ProjectScopeShape =>
-  projectScope("member", userId === fixture.manager ? "pm" : "developer", {
+const scopeFor = (fixture: Fixture, userId: string) =>
+  ({
     userId,
     organizationId: fixture.organizationId,
     orgSlug: fixture.orgSlug,
     projectId: fixture.projectId,
     slug: fixture.slug
-  })
+  }) as ProjectScopeShape
 
 const as =
   (fixture: Fixture, userId: string) =>

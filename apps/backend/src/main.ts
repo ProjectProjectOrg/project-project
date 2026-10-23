@@ -67,8 +67,6 @@ import { SlackRuntimeLive } from "@pp/integration-slack/Runtime"
 import { TicketActivityRecoveryLive } from "@pp/server-core/activity/TicketActivityLive"
 import { AttachmentReaperLive } from "@pp/server-core/attachments/AttachmentReaperLive"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
-import { EverhourWebhooks } from "@pp/server-core/everhour/EverhourWebhooks"
-import { EverhourWebhooksLive } from "@pp/server-core/everhour/EverhourWebhooksLive"
 import { TicketIndexReconcilerLive } from "@pp/server-core/tickets/TicketIndexReconcilerLive"
 import { AppApi } from "@pp/shared"
 import { count } from "drizzle-orm"
@@ -90,11 +88,12 @@ import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 
 import { isClosedAuthPath } from "./auth/orgAccess"
+import { EverhourHandlerLive } from "./everhour/Handlers"
+import { everhourWebhookRoutes } from "./everhour/WebhookRoutes"
 import { TicketActivityHandlerLive } from "./handlers/activity"
 import { AttachmentsHandlerLive } from "./handlers/attachments"
 import { AuthHandlerLive } from "./handlers/auth"
 import { CommentsHandlerLive } from "./handlers/comments"
-import { EverhourHandlerLive } from "./handlers/everhour"
 import { FigmaHandlerLive } from "./handlers/figma"
 import { GitAutomationHandlerLive } from "./handlers/gitAutomation"
 import { GroupsHandlerLive } from "./handlers/groups"
@@ -402,32 +401,6 @@ const githubIntegrationRoutes = HttpRouter.addAll(
   { prefix: "/api/integrations/github" }
 )
 
-export const everhourWebhookRoute = Effect.gen(function* () {
-  const webhooks = yield* EverhourWebhooks
-  const req = yield* HttpServerRequest.HttpServerRequest
-  const webReq = yield* HttpServerRequest.toWeb(req)
-  const url = new URL(webReq.url)
-  const match = url.pathname.match(/\/webhook\/([^/]+)\/?$/)
-  const secret = match?.[1] ? decodeURIComponent(match[1]) : null
-  if (!secret) return badRequest("Missing webhook secret")
-  const body = yield* Effect.promise(() => webReq.text().catch(() => ""))
-  yield* webhooks.handle({ secret, body })
-  return HttpServerResponse.text("ok")
-}).pipe(
-  Effect.catchCause((cause) =>
-    Effect.andThen(
-      Effect.logError("everhour webhook route failure", cause),
-      Effect.succeed(HttpServerResponse.text("ok"))
-    )
-  )
-)
-
-const everhourIntegrationRoutes = HttpRouter.add(
-  "POST",
-  "/api/integrations/everhour/webhook/:secret",
-  everhourWebhookRoute
-)
-
 export const ApiRouterLive = Layer.effect(
   HttpRouter.HttpRouter,
   Effect.map(HttpRouter.HttpRouter, (router) => router.prefixed("/api"))
@@ -437,7 +410,7 @@ export const RouteLive = Layer.mergeAll(
   HttpRouter.add("*", "/api/auth/*", betterAuthApp),
   HttpRouter.add("*", "/.well-known/*", betterAuthApp),
   githubIntegrationRoutes,
-  everhourIntegrationRoutes,
+  everhourWebhookRoutes,
   figmaOauthRoutes,
   slackOAuthRoutes,
   jiraOauthRoutes,
@@ -459,7 +432,6 @@ export const RouteLive = Layer.mergeAll(
 const ServerLive = HttpRouter.serve(RouteLive).pipe(
   Layer.provide(TicketActivityRecoveryLive),
   Layer.provide(SlackRuntimeLive),
-  Layer.provide(EverhourWebhooksLive),
   Layer.provide(BackendHttpServicesLive),
   Layer.provide(BackendInfrastructureLive)
 )

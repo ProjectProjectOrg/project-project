@@ -1,4 +1,4 @@
-import { EverhourIntegrations } from "@pp/server-core/everhour/EverhourIntegrations"
+import { EverhourIntegrations } from "@pp/integration-everhour/Integrations"
 import * as Effect from "effect/Effect"
 
 export const dieOnMarkdown = <A, E, R>(

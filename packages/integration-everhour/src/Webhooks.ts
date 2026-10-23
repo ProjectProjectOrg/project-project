@@ -1,17 +1,31 @@
 import { Db } from "@pp/db"
+import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as SchemaTransformation from "effect/SchemaTransformation"
 
-import type { EverhourTimeRecord } from "./Everhour"
-import { TimeRecordResponse, toTimeRecord } from "./EverhourLive"
-import { EverhourTimeTracking } from "./EverhourTimeTracking"
 import {
+  TimeRecordResponse,
+  toTimeRecord,
+  type EverhourTimeRecord
+} from "./Client"
+import { EverhourTimeTracking } from "./TimeTracking"
+
+export interface EverhourWebhookDelivery {
+  readonly secret: string
+  readonly body: string
+}
+
+export interface EverhourWebhooksShape {
+  readonly handle: (delivery: EverhourWebhookDelivery) => Effect.Effect<void>
+}
+
+export class EverhourWebhooks extends Context.Service<
   EverhourWebhooks,
-  type EverhourWebhooksShape
-} from "./EverhourWebhooks"
+  EverhourWebhooksShape
+>()("@pp/integration-everhour/Webhooks/EverhourWebhooks") {}
 
 const wrapped = <K extends string>(key: K) =>
   Schema.Struct({ [key]: TimeRecordResponse }).pipe(

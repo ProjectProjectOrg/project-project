@@ -8,8 +8,7 @@ import * as Schema from "effect/Schema"
 import * as TestClock from "effect/testing/TestClock"
 import { afterEach, describe, expect, vi } from "vitest"
 
-import { Everhour } from "./Everhour"
-import { EverhourLive } from "./EverhourLive"
+import { Everhour, EverhourLive } from "../src/Client"
 
 const jsonResponse = (body: unknown) =>
   new Response(JSON.stringify(body), {

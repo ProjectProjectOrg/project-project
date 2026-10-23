@@ -4,13 +4,16 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { describe, expect } from "vitest"
 
-import type { EverhourTimeRecord } from "./Everhour"
+import type { EverhourTimeRecord } from "../src/Client"
 import {
   EverhourTimeTracking,
   type EverhourTimeTrackingShape
-} from "./EverhourTimeTracking"
-import { EverhourWebhooks } from "./EverhourWebhooks"
-import { EverhourWebhooksLive, parseTimeRecord } from "./EverhourWebhooksLive"
+} from "../src/TimeTracking"
+import {
+  EverhourWebhooks,
+  EverhourWebhooksLive,
+  parseTimeRecord
+} from "../src/Webhooks"
 
 const unexpected = (method: string): Effect.Effect<never> =>
   Effect.die(new Error(`unexpected ${method} call`))

@@ -2,6 +2,7 @@ import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
 import * as BunPath from "@effect/platform-bun/BunPath"
 import { DbLive, PgLive } from "@pp/db"
+import { EverhourServicesLive } from "@pp/integration-everhour/Services"
 import * as GitHubProjectStateCache from "@pp/integration-github/projectStateCache"
 import * as GitHubRequest from "@pp/integration-github/request"
 import { SlackServicesLive } from "@pp/integration-slack/Services"
@@ -13,9 +14,6 @@ import { AttachmentUploadsLive } from "@pp/server-core/attachments/AttachmentUpl
 import { CommentsLive } from "@pp/server-core/comments/CommentsLive"
 import { OrgEmail } from "@pp/server-core/email/OrgEmail"
 import { Smtp } from "@pp/server-core/email/Smtp"
-import { EverhourIntegrationsLive } from "@pp/server-core/everhour/EverhourIntegrationsLive"
-import { EverhourLive } from "@pp/server-core/everhour/EverhourLive"
-import { EverhourTimeTrackingLive } from "@pp/server-core/everhour/EverhourTimeTrackingLive"
 import { FigmaIntegrationsLive } from "@pp/server-core/figma/FigmaIntegrationsLive"
 import { FigmaLinksLive } from "@pp/server-core/figma/FigmaLinksLive"
 import { FigmaLive } from "@pp/server-core/figma/FigmaLive"
@@ -63,6 +61,7 @@ import * as Effect from "effect/Effect"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
 
+import { EverhourHostLive } from "./everhour/HostLive"
 import { GitHubLive } from "./github/GitHubLive"
 import { JiraWorkflowsLive } from "./jira/WorkflowRuntime"
 import { OrgAccessLive, ProjectAccessLive } from "./Layers/Access"
@@ -74,6 +73,11 @@ const SlackLive = SlackServicesLive.pipe(
   Layer.provideMerge(SlackHostLive),
   Layer.provideMerge(AccessLive),
   Layer.provideMerge(UsersLive)
+)
+
+const EverhourIntegrationLive = EverhourServicesLive.pipe(
+  Layer.provideMerge(EverhourHostLive),
+  Layer.provideMerge(AccessLive)
 )
 
 const makeJiraServicesLive = <TE, TR, EE, ER, CE, CR>(
@@ -140,17 +144,13 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
     Layer.provideMerge(GroupsLive),
     Layer.provideMerge(ProjectsLive),
     Layer.provideMerge(OrgLive),
-    Layer.provideMerge(EverhourTimeTrackingLive),
     Layer.provideMerge(AccessLive),
     Layer.provideMerge(GitHubLive),
     Layer.provideMerge(GitHubTicketEventsLive),
-    Layer.provideMerge(ProjectGitAutomationLive),
-    Layer.provideMerge(EverhourLive)
+    Layer.provideMerge(ProjectGitAutomationLive)
   )
     .pipe(
-      Layer.provideMerge(
-        EverhourIntegrationsLive.pipe(Layer.provideMerge(EverhourLive))
-      ),
+      Layer.provideMerge(EverhourIntegrationLive),
       Layer.provideMerge(
         FigmaIntegrationsLive.pipe(Layer.provideMerge(FigmaLive))
       ),
