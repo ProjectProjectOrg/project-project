@@ -2,12 +2,12 @@ import type {
   JiraTransportRequest,
   JiraTransportResponse,
   JiraTransportShape
-} from "@pp/server-core/jira/Client"
-import { JiraManifestSourceV2 } from "@pp/server-core/jira/Manifest"
+} from "@pp/integration-jira/Client"
+import { JiraManifestSourceV2 } from "@pp/integration-jira/Manifest"
 import {
   JIRA_SCOPES,
   type JiraTokenEndpointShape
-} from "@pp/server-core/jira/OAuth"
+} from "@pp/integration-jira/OAuth"
 import { JiraReconnectRequired } from "@pp/shared"
 import {
   DateTime,

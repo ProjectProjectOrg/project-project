@@ -3,8 +3,8 @@ import {
   JiraClient,
   JiraClientLive,
   JiraTransport
-} from "@pp/server-core/jira/Client"
-import { JiraCredentials } from "@pp/server-core/jira/Credentials"
+} from "@pp/integration-jira/Client"
+import { JiraCredentials } from "@pp/integration-jira/Credentials"
 import { DateTime, Effect, Fiber, Layer, Redacted, Stream } from "effect"
 import { describe, expect } from "vitest"
 

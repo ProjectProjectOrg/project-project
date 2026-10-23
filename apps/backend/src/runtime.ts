@@ -5,6 +5,23 @@ import { DbLive, PgLive } from "@pp/db"
 import { EverhourServicesLive } from "@pp/integration-everhour/Services"
 import * as GitHubProjectStateCache from "@pp/integration-github/projectStateCache"
 import * as GitHubRequest from "@pp/integration-github/request"
+import * as JiraCleanupWorkflow from "@pp/integration-jira/CleanupWorkflow"
+import {
+  JiraClientLive,
+  JiraTransport,
+  JiraTransportLive
+} from "@pp/integration-jira/Client"
+import { JiraCredentialsLive } from "@pp/integration-jira/Credentials"
+import { JiraMigrationArtifacts } from "@pp/integration-jira/MigrationArtifacts"
+import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
+import { JiraMigrationsDurableLive } from "@pp/integration-jira/Migrations"
+import {
+  JiraOAuthConfig,
+  JiraOAuthConfigLive,
+  JiraTokenEndpoint,
+  JiraTokenEndpointLive
+} from "@pp/integration-jira/OAuth"
+import { JiraMigrationRetentionLive } from "@pp/integration-jira/Retention"
 import { SlackServicesLive } from "@pp/integration-slack/Services"
 import { AccessLive } from "@pp/server-core/access/AccessLive"
 import { TicketActivityFeedLive } from "@pp/server-core/activity/TicketActivityFeed"
@@ -20,23 +37,6 @@ import { FigmaLive } from "@pp/server-core/figma/FigmaLive"
 import { GitHubTicketEventsLive } from "@pp/server-core/github/GitHubTicketEventsLive"
 import { GroupDocsLive } from "@pp/server-core/groups/GroupDocsLive"
 import { GroupsLive } from "@pp/server-core/groups/GroupsLive"
-import * as JiraCleanupWorkflow from "@pp/server-core/jira/CleanupWorkflow"
-import {
-  JiraClientLive,
-  JiraTransport,
-  JiraTransportLive
-} from "@pp/server-core/jira/Client"
-import { JiraCredentialsLive } from "@pp/server-core/jira/Credentials"
-import { JiraMigrationArtifacts } from "@pp/server-core/jira/MigrationArtifacts"
-import { JiraMigrationProjection } from "@pp/server-core/jira/MigrationProjection"
-import { JiraMigrationsDurableLive } from "@pp/server-core/jira/Migrations"
-import {
-  JiraOAuthConfig,
-  JiraOAuthConfigLive,
-  JiraTokenEndpoint,
-  JiraTokenEndpointLive
-} from "@pp/server-core/jira/OAuth"
-import { JiraMigrationRetentionLive } from "@pp/server-core/jira/Retention"
 import { LibraryDocsLive } from "@pp/server-core/library/LibraryDocsLive"
 import { LibraryLive } from "@pp/server-core/library/LibraryLive"
 import { LinkPreviewsLive } from "@pp/server-core/linkPreviews/LinkPreviewsLive"
@@ -64,6 +64,8 @@ import * as Layer from "effect/Layer"
 
 import { EverhourHostLive } from "./everhour/HostLive"
 import { GitHubLive } from "./github/GitHubLive"
+import { JiraDestinationQueriesLive } from "./jira/DestinationQueriesLive"
+import { JiraHostLive } from "./jira/HostLive"
 import { JiraWorkflowsLive } from "./jira/WorkflowRuntime"
 import { OrgAccessLive, ProjectAccessLive } from "./Layers/Access"
 import { AuthenticationLive } from "./Layers/Auth"
@@ -91,7 +93,7 @@ const makeJiraServicesLive = <TE, TR, EE, ER, CE, CR>(
     Layer.provideMerge(
       JiraCredentialsLive.pipe(
         Layer.provideMerge(tokenEndpoint.pipe(Layer.provideMerge(oauthConfig))),
-        Layer.provideMerge(SecretCryptoLive)
+        Layer.provideMerge(JiraHostLive.pipe(Layer.provide(SecretCryptoLive)))
       )
     )
   )
@@ -108,7 +110,7 @@ const JiraDurableServicesLive = Layer.unwrap(
           unresolvedFailedAttachments: projection.unresolvedFailedAttachments
         },
         artifacts
-      ),
+      ).pipe(Layer.provide(JiraDestinationQueriesLive)),
       JiraMigrationRetentionLive(cleanup)
     )
   })

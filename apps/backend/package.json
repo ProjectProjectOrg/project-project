@@ -37,6 +37,7 @@
     "@pp/db": "workspace:*",
     "@pp/integration-everhour": "workspace:*",
     "@pp/integration-github": "workspace:*",
+    "@pp/integration-jira": "workspace:*",
     "@pp/integration-slack": "workspace:*",
     "@pp/server-core": "workspace:*",
     "@pp/shared": "workspace:*",

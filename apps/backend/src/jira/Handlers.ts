@@ -1,5 +1,5 @@
-import { JiraClient, toPublicJiraError } from "@pp/server-core/jira/Client"
-import { JiraCredentials } from "@pp/server-core/jira/Credentials"
+import { JiraClient, toPublicJiraError } from "@pp/integration-jira/Client"
+import { JiraCredentials } from "@pp/integration-jira/Credentials"
 import {
   AppApi,
   CurrentUser,

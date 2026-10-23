@@ -2,19 +2,19 @@ import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
 import * as BunPath from "@effect/platform-bun/BunPath"
 import { it } from "@effect/vitest"
 import { assertFailure } from "@effect/vitest/utils"
-import { accessLayer, orgScope } from "@pp/server-core/access/testing"
 import {
   JiraRateLimited,
   JiraTransientFailure
-} from "@pp/server-core/jira/Blocked"
+} from "@pp/integration-jira/Blocked"
 import {
   JiraClient,
   JiraClientLive,
   JiraTransportLive,
   type JiraCallError
-} from "@pp/server-core/jira/Client"
-import { JiraCredentials } from "@pp/server-core/jira/Credentials"
-import { JiraMigrations } from "@pp/server-core/jira/Migrations"
+} from "@pp/integration-jira/Client"
+import { JiraCredentials } from "@pp/integration-jira/Credentials"
+import { JiraMigrations } from "@pp/integration-jira/Migrations"
+import { accessLayer, orgScope } from "@pp/server-core/access/testing"
 import { Markdown } from "@pp/server-core/markdown/Markdown"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import { JiraError, JiraRateLimited as PublicJiraRateLimited } from "@pp/shared"

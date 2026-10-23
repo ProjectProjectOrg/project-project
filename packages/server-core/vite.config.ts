@@ -6,7 +6,6 @@ const isolatedTests = [
   "src/email/OrgEmail.test.ts",
   "src/figma/FigmaIntegrationsLive.test.ts",
   "src/figma/FigmaLinksLive.test.ts",
-  "src/jira/Credentials.test.ts",
   "src/markdown/fileContent.test.ts",
   "src/storage/SecretCrypto.test.ts",
   "src/tickets/TicketIndexLive.postgres.test.ts"

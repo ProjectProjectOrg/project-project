@@ -1,13 +1,13 @@
-import * as CleanupOperations from "@pp/server-core/jira/CleanupOperations"
-import * as CleanupWorkflow from "@pp/server-core/jira/CleanupWorkflow"
-import { JiraMigrationArtifactsLive } from "@pp/server-core/jira/MigrationArtifacts"
-import * as MigrationProduction from "@pp/server-core/jira/MigrationProduction"
-import { JiraMigrationProjection } from "@pp/server-core/jira/MigrationProjection"
-import * as MigrationWorkflow from "@pp/server-core/jira/MigrationWorkflow"
+import * as CleanupWorkflow from "@pp/integration-jira/CleanupWorkflow"
+import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
+import * as MigrationWorkflow from "@pp/integration-jira/MigrationWorkflow"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
 import { WorkflowEngineLive } from "../workflows/Runtime"
+import { JiraMigrationArtifactsLive } from "./ArtifactsLive"
+import * as CleanupOperations from "./CleanupLive"
+import * as MigrationProduction from "./ProductionActivities"
 
 export const JiraWorkflowsLive = Layer.mergeAll(
   Layer.unwrap(

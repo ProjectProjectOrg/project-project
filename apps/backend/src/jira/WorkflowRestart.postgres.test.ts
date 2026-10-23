@@ -5,14 +5,9 @@ import * as BunServices from "@effect/platform-bun/BunServices"
 import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { DbLive, pgTypes } from "@pp/db"
-import { JiraClient } from "@pp/server-core/jira/Client"
-import { JiraMigrationProjection } from "@pp/server-core/jira/MigrationProjection"
-import { JiraMigrationWorkflow } from "@pp/server-core/jira/MigrationWorkflow"
-import {
-  makeScanTestLayer,
-  response,
-  scanFixtureResponse
-} from "@pp/server-core/jira/ScanTestSupport"
+import { JiraClient } from "@pp/integration-jira/Client"
+import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
+import { JiraMigrationWorkflow } from "@pp/integration-jira/MigrationWorkflow"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
@@ -23,6 +18,11 @@ import { ConfigProvider, Effect, Layer, Redacted, Schedule } from "effect"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
+import {
+  makeScanTestLayer,
+  response,
+  scanFixtureResponse
+} from "./ScanTestSupport"
 import { JiraWorkflowsLive } from "./WorkflowRuntime"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
