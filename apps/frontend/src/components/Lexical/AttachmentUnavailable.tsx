@@ -7,8 +7,6 @@ import {
   ATTACHMENT_TILE_PREVIEW_HEIGHT
 } from "./AttachmentTile"
 
-// A missing attachment holds the same slot as the tile it replaced, filename
-// row included.
 export const ATTACHMENT_UNAVAILABLE_WIDTH = ATTACHMENT_TILE_MIN_WIDTH
 export const ATTACHMENT_UNAVAILABLE_HEIGHT =
   ATTACHMENT_TILE_PREVIEW_HEIGHT + ATTACHMENT_TILE_FOOTER_HEIGHT

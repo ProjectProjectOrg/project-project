@@ -53,11 +53,7 @@ export function useProximityHover<T extends HTMLElement>(
     if (!container) return
     const rects: ItemRect[] = []
     itemsRef.current.forEach((element, index) => {
-      // Use offset* instead of getBoundingClientRect so measurements are
-      // unaffected by CSS transforms (e.g. scaleY animation on the parent
-      // motion.div). offsetTop/offsetLeft are layout values relative to the
-      // offsetParent (the scroll container), matching the coordinate space
-      // used by `position: absolute` children.
+      // offset* rather than getBoundingClientRect, so ancestor transforms don't skew measurements.
       rects[index] = {
         top: element.offsetTop,
         height: element.offsetHeight,
@@ -98,10 +94,7 @@ export function useProximityHover<T extends HTMLElement>(
           axis === "x" ? container.clientLeft : container.clientTop
         const containerEdge =
           axis === "x" ? containerRect.left : containerRect.top
-        // Item rects are layout values (offset*); the container's bounding rect
-        // reflects any cumulative ancestor transform: scale. Compute the scale
-        // factor so we can map layout coords into the same visual viewport
-        // space the mouse cursor lives in.
+        // Map layout coords into the cursor's visual space under any ancestor scale transform.
         const layoutSize =
           axis === "x" ? container.offsetWidth : container.offsetHeight
         const visualSize =
@@ -149,7 +142,6 @@ export function useProximityHover<T extends HTMLElement>(
     setActiveIndex(null)
   }, [])
 
-  // Clean up rAF on unmount
   useEffect(() => {
     return () => {
       if (rafIdRef.current !== null) {
@@ -173,10 +165,6 @@ export function useProximityHover<T extends HTMLElement>(
   }
 }
 
-/**
- * Hook for child items to register themselves with the proximity hover system.
- * Call in useEffect with the item's ref and index.
- */
 export function useRegisterProximityItem(
   registerItem: (index: number, element: HTMLElement | null) => void,
   index: number,

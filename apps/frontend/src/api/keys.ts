@@ -4,17 +4,7 @@ import type { GroupId, TicketId } from "@pp/shared"
 export const projectScope = (orgSlug: string, slug: string): string =>
   `${orgSlug}/${slug}`
 
-/**
- * Reactivity keys, array form only.
- *
- * Record form (`{ tickets: [...] }`) also hashes the bare key `tickets`, which
- * every ticket query would register under, so any ticket mutation would refresh
- * every ticket query. Array form keeps invalidation precise.
- *
- * The strings match the ones the pre-migration modules used. They are already
- * descriptive and keeping them keeps this change about structure rather than
- * string churn.
- */
+// Array form only: record form also hashes the bare key, so every query under it would refresh.
 export const Keys = {
   slackOrg: (orgSlug: string): string => `slack-org/${orgSlug}`,
   slackProject: (scope: string): string => `slack-project/${scope}`,

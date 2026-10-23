@@ -46,7 +46,6 @@ export const ticketQuery = (req: TicketRequest) =>
     ]
   })
 
-/** The detail value every consumer reads. */
 export const ticketDetail = Atom.family((req: TicketRequest) =>
   Atom.optimistic(ticketQuery(req))
 )

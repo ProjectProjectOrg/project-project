@@ -49,11 +49,6 @@ const ticketListQueryOf = (query: QueryWithView): TicketListQuery => {
   return rest
 }
 
-/**
- * Build the request that identifies one backlog. Status filter and cursor are
- * dropped because the sections endpoint returns every status with its own first
- * page. This replaces the old `ticketsSectionsKey` string builder.
- */
 export const backlogRequest = (
   orgSlug: string,
   slug: string,
@@ -113,11 +108,6 @@ const loadedPagesAtom = Atom.family((_req: BacklogRequest) =>
   )
 )
 
-/**
- * One cursor page. Registers `ticketPages` as well as `ticketsIn` so a mutation
- * can refresh pages without also re-invalidating the sections query, which the
- * optimistic wrapper already refreshes on commit.
- */
 const pageQuery = (req: BacklogRequest, status: string, cursor: string) =>
   Api.query("tickets", "list", {
     params: req.params,
@@ -143,10 +133,6 @@ const dedupeById = (
   return out
 }
 
-/**
- * The composed backlog value. Task 6 extends this readable with loaded cursor
- * pages; the wrapper below never changes.
- */
 const emptyBacklog = (): BacklogValue => ({
   counts: { total: 0, byStatus: {} },
   sections: {}
@@ -186,8 +172,7 @@ const backlogView = (req: BacklogRequest) =>
         }
       }
 
-      // A failed or unmounted page must not fail the region, so this cannot be
-      // `AsyncResult.all` over the pages. Waiting is the union across parts.
+      // A failed or unmounted page must not fail the region, so this is not `AsyncResult.all`.
       return AsyncResult.success<BacklogValue>(
         { counts: base.value.counts, sections },
         { waiting: parts.some((part) => part.waiting) }
@@ -196,7 +181,6 @@ const backlogView = (req: BacklogRequest) =>
     (refresh) => refresh(sectionsQuery(req))
   )
 
-/** The value every backlog consumer reads. */
 export const backlog = Atom.family((req: BacklogRequest) =>
   Atom.optimistic(backlogView(req))
 )
@@ -468,11 +452,6 @@ export const updateBacklogTicket = Atom.family(
     })
 )
 
-/**
- * Maps a server ticket id to the client key its row was created with, so the
- * row keeps its React identity when the optimistic placeholder is replaced by
- * the real ticket. View state, not cache.
- */
 const createdKeysAtom = Atom.family((_scope: string) =>
   Atom.make<ReadonlyMap<TicketId, string>>(new Map()).pipe(
     Atom.setIdleTTL("2 minutes")

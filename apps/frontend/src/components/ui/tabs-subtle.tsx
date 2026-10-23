@@ -88,7 +88,6 @@ function TabsSubtle({
     measureItems: measureTabs
   } = useProximityHover(containerRef, { axis: "x" })
 
-  // Track tab elements locally so we can observe their individual resizes
   const tabElementsRef = useRef(new Map<number, HTMLElement>())
   const registerTab = useCallback(
     (index: number, element: HTMLElement | null) => {
@@ -106,7 +105,6 @@ function TabsSubtle({
     measureTabs()
   }, [measureTabs, children])
 
-  // Observe individual tab buttons for resize (label expand/collapse in activeLabel mode)
   useEffect(() => {
     const elements = tabElementsRef.current
     if (elements.size === 0) return
@@ -115,7 +113,6 @@ function TabsSubtle({
     return () => ro.disconnect()
   }, [measureTabs, children])
 
-  // Wrap handlers to track isMouseInside
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       isMouseInside.current = true
@@ -208,7 +205,6 @@ function TabsSubtle({
         role="tablist"
         {...props}
       >
-        {/* Selected pill */}
         {selectedRect && (
           <motion.div
             className={cn(
@@ -230,7 +226,6 @@ function TabsSubtle({
           />
         )}
 
-        {/* Hover pill */}
         <AnimatePresence>
           {hoverRect && !isHoveringSelected && selectedRect && (
             <motion.div
@@ -275,7 +270,6 @@ function TabsSubtle({
           )}
         </AnimatePresence>
 
-        {/* Focus ring */}
         <AnimatePresence>
           {focusRect && (
             <motion.div

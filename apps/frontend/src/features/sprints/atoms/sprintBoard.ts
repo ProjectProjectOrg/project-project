@@ -105,7 +105,6 @@ const unsavedBoardTicketPatch = Atom.family((_key: BoardTicketUpdateKey) =>
   Atom.make<UpdateTicketInput>({}).pipe(Atom.setIdleTTL("10 minutes"))
 )
 
-/** Drag: reorder within a column, or move across columns (which changes status). */
 export const placeBoardTicket = Atom.family(
   ({ req, id }: BoardTicketUpdateKey) =>
     Atom.optimisticFn(sprintBoard(req), {
@@ -137,7 +136,6 @@ export const placeBoardTicket = Atom.family(
     })
 )
 
-/** Editing a card's fields from the board. */
 export const updateBoardTicket = Atom.family(
   ({ req, id }: BoardTicketUpdateKey) =>
     Atom.optimisticFn(sprintBoard(req), {

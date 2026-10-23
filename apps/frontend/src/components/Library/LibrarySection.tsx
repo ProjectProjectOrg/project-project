@@ -2,11 +2,6 @@ import type { ReactNode } from "react"
 
 import { cn } from "@/lib/utils"
 
-/**
- * The heading every section on the library page shares: a label and a
- * one-line description in the general settings style, with an optional
- * action (New template, New block) on the right.
- */
 export function LibrarySectionHeader({
   id,
   title,

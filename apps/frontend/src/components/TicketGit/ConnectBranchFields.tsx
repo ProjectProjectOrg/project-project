@@ -1,7 +1,4 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
-// Inline form body for "connect existing branch". Search input on top,
-// scrollable result list below, footer with cancel + connect. Hand-rolled
-// (no cmdk in this workspace) but keyboard-navigable.
 import type { BranchListItem, GithubConnection, TicketDetail } from "@pp/shared"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Cause from "effect/Cause"
@@ -179,8 +176,6 @@ export function ConnectBranchFields({
       return
     }
     setBusy(false)
-    // BranchNotFound: clear stale selection and refresh the branch list so
-    // the picker reflects what the server now believes exists.
     const failure = Cause.findErrorOption(exit.cause)
     if (
       Option.isSome(failure) &&

@@ -177,9 +177,6 @@ function GalleryWell({
     if (message !== null) setError({ key: tile.item.key, message })
   }
 
-  // Focus mode: while a tile is previewed, the others fade out and are
-  // lifted out of the grid (popLayout), so the preview grows into the space
-  // they leave. An adopted tile drops out of `tiles`, which ends focus mode.
   const focused = tiles.find((tile) => tile.item.key === expanded)
   const shown = focused === undefined ? tiles : [focused]
 

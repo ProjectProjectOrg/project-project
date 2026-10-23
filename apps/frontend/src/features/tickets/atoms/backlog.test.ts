@@ -525,9 +525,6 @@ describe("backlog status move", () => {
         })
       )
 
-      // Fire the second move while the first is still in flight, so the
-      // second reducer call runs against whatever `current` holds at that
-      // point rather than the original fetched value.
       registry.set(mutation, { status: inProgress })
       registry.set(mutation, { status: doneStatus })
 
@@ -539,9 +536,6 @@ describe("backlog status move", () => {
       expect(composed.value.sections.in_progress.items).toHaveLength(0)
       expect(composed.value.sections.done.items).toHaveLength(1)
       expect(composed.value.sections.done.items[0].ticket.id).toBe(ticket.id)
-      // `in_progress` was entered and left within the same batch — assert the
-      // observed count directly (0) rather than trusting the `Math.max(0, ...)`
-      // guard not to have been needed.
       expect(composed.value.counts.byStatus[ticket.status]).toBe(0)
       expect(composed.value.counts.byStatus[inProgress]).toBe(0)
       expect(composed.value.counts.byStatus[doneStatus]).toBe(1)
@@ -561,9 +555,6 @@ describe("backlog status move", () => {
   })
 
   it("carries a stacked field edit through a subsequent status move", async () => {
-    // A reducer that stopped deriving from `current` (e.g. re-read the
-    // original fetch instead) would apply the status move to the
-    // pre-priority-edit ticket and silently drop the priority change.
     const doing = decodeTicketStatusSync("in_progress")
     let finish = (_r: Response) => {}
     fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
@@ -1173,9 +1164,6 @@ describe("backlog quick create", () => {
 
   it("removes the optimistic row and restores the counts when creation fails", async () => {
     let finish = (_r: Response) => {}
-    // The sections refetch is made to hang after the initial load, so the row
-    // can only disappear by the overlay being dropped, never by server truth
-    // arriving. A commit path would leave the row on screen, waiting.
     let stallReads = false
     fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "POST") {

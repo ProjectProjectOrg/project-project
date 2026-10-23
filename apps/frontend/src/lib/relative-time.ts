@@ -1,9 +1,3 @@
-// Relative time formatter — "2 hours ago", "yesterday", etc. Used by the
-// projects list, dashboard tiles, and anywhere we surface a date.
-//
-// We deliberately keep this in lib/, not in a component, because the same
-// formatter wants to be available outside React (e.g. data tooltips).
-
 import * as DateTime from "effect/DateTime"
 
 import { getLocale } from "@/paraglide/runtime"

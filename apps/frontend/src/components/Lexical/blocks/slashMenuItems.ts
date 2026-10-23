@@ -308,11 +308,6 @@ const namedByQuery = (input: SlashMenuInput, item: SlashItem): boolean => {
   }
 }
 
-/**
- * With a query, items named by it come first, and so do the sections that hold
- * them, so `/bug` lands on "Bug report" rather than a block whose description
- * mentions a bug. Both sorts are stable.
- */
 const rankedByQuery = (
   input: SlashMenuInput,
   sections: ReadonlyArray<SlashSection>

@@ -67,20 +67,11 @@ export function useFreshKeys(
   return (key) => !initial.has(key)
 }
 
-/**
- * Whether the origin is worth a badge: every entry on the org page is the
- * org's, so only entries from another layer, or ones overriding it, say so.
- */
 export const showsOrigin = (
   entry: LibraryRowEntry,
   layer: LibraryOrigin
 ): boolean => entry.origin !== layer || entry.shadows !== null
 
-/**
- * One of this layer's templates or blocks. It reads like a gallery tile but
- * sits on the page instead of in the gallery well, carries the origin as a
- * badge, and opens its editor. Actions show on hover or focus.
- */
 export function LibraryCard({
   kind,
   scope,

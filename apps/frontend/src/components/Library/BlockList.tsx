@@ -154,8 +154,7 @@ function BlockUnhide({
   blockKey
 }: Readonly<{ scope: LibraryScope; blockKey: BlockKey }>) {
   const mutation = removeBlockAtom(scope, blockKey)
-  // Promise mode keeps the mutation mounted after the optimistic unhide
-  // unmounts this row, so the confirm and the refetch still run.
+  // promiseExit keeps the mutation mounted after the optimistic unhide unmounts this row.
   const unhide = useAtomSet(mutation, { mode: "promiseExit" })
   const state = useAtomValue(mutation)
   return (
