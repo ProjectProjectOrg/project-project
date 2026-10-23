@@ -16,6 +16,7 @@ import * as Layer from "effect/Layer"
 import pg from "pg"
 import { describe, expect } from "vitest"
 
+import { EverhourApiKeys } from "../src/ApiKeys"
 import {
   Everhour,
   type EverhourProject,
@@ -228,6 +229,7 @@ type Fixture = Effect.Success<typeof seed>
 
 const servicesLayer = (fixture: Fixture, everhour: FakeEverhour) =>
   Layer.mergeAll(EverhourTimeTrackingLive, EverhourIntegrationsLive).pipe(
+    Layer.provide(EverhourApiKeys.layer),
     Layer.provide(
       Layer.mergeAll(
         Layer.succeed(Everhour, everhour.service),

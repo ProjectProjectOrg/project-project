@@ -34,7 +34,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 
-import { makeActorApiKey } from "./ApiKeys"
+import { EverhourApiKeys } from "./ApiKeys"
 import {
   Everhour,
   type EverhourTimeEntry,
@@ -241,7 +241,7 @@ export const EverhourTimeTrackingLive = Layer.effect(
 
     const loadSprints = host.sprints
 
-    const actorApiKey = makeActorApiKey(db, host)
+    const actorApiKey = (yield* EverhourApiKeys).forUser
 
     const everhourUserIdFor = (userId: string) =>
       db.query.userEverhourIntegration

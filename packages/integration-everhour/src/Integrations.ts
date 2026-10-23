@@ -31,7 +31,7 @@ import * as Base64Url from "effect/encoding/Base64Url"
 import * as Layer from "effect/Layer"
 import * as SqlClient from "effect/sql/SqlClient"
 
-import { makeActorApiKey } from "./ApiKeys"
+import { EverhourApiKeys } from "./ApiKeys"
 import { Everhour } from "./Client"
 import type { EverhourTaskPayload } from "./Client"
 import { EverhourHost } from "./Host"
@@ -254,7 +254,7 @@ export const EverhourIntegrationsLive = Layer.effect(
           }))
         )
 
-    const actorApiKey = makeActorApiKey(db, host)
+    const actorApiKey = (yield* EverhourApiKeys).forUser
 
     const connectProfile = (userId: string, apiKey: string) =>
       Effect.gen(function* () {
