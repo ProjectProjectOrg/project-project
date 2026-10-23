@@ -167,8 +167,7 @@ function TemplateUnhide({
   templateKey
 }: Readonly<{ scope: LibraryScope; templateKey: TemplateKey }>) {
   const mutation = removeTemplateAtom(scope, templateKey)
-  // Promise mode keeps the mutation mounted after the optimistic unhide
-  // unmounts this row, so the confirm and the refetch still run.
+  // promiseExit keeps the mutation mounted after the optimistic unhide unmounts this row.
   const unhide = useAtomSet(mutation, { mode: "promiseExit" })
   const state = useAtomValue(mutation)
   return (

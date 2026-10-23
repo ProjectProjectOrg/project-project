@@ -1,22 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { GroupId, TicketId } from "@pp/shared"
-// Breadcrumbs aggregated from active route matches.
-//
-// PATTERN
-// ----------------------------------------------------------------------------
-// Each route's `loader` (or `staticData`) returns a `crumb` value. We walk the
-// matches via `useMatches()` and render in order. Two crumb shapes:
-//
-//   - `static`  — a literal `{ label, to?, params? }`. For pages whose name
-//                 is fixed (Dashboard, Projects, Profile).
-//   - `project` / `ticket` — a tagged descriptor with the params we need. The
-//                 component looks up the same atom the page uses, so the label
-//                 stays reactive (renames update the crumb instantly) and we
-//                 don't double-fetch alongside the page's own data.
-//
-// Routes can return EITHER a single crumb OR an array — the ticket route
-// returns `[{project}, {ticket}]` so navigating directly to a ticket URL
-// still renders the project crumb above it.
 import { Link, useMatches } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronRight } from "lucide-react"

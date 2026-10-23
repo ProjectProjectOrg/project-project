@@ -149,11 +149,6 @@ export function $activeHints(lookup: BlockLookup): ReadonlyArray<ActiveHint> {
     .flatMap((block) => $blockHints(block, lookup))
 }
 
-/**
- * True when the caret sits at the very end of a hinted element that holds only
- * its fixed prefix (`**Expected:**`), and that prefix has no trailing space.
- * Typing there would otherwise extend the bold prefix with no space between.
- */
 function $atBarePrefixEnd(lookup: BlockLookup): boolean {
   const selection = $getSelection()
   if (!$isRangeSelection(selection) || !selection.isCollapsed()) return false
@@ -179,17 +174,12 @@ function $atBarePrefixEnd(lookup: BlockLookup): boolean {
   })
 }
 
-/**
- * Typing after a bare prefix starts plain text after a space, so
- * `**Expected:**` plus typing gives `**Expected:** it works`.
- */
 function registerPrefixTyping(
   editor: LexicalEditor,
   lookup: BlockLookup
 ): () => void {
   return mergeRegister(
-    // A plain selection format makes Lexical route the next keystroke through
-    // CONTROLLED_TEXT_INSERTION_COMMAND instead of the native bold insertion.
+    // A plain selection format routes the next keystroke through CONTROLLED_TEXT_INSERTION_COMMAND.
     editor.registerCommand(
       SELECTION_CHANGE_COMMAND,
       () => {

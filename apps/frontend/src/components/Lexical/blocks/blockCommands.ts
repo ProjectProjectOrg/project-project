@@ -191,10 +191,6 @@ function $firstHintTarget(
   return null
 }
 
-/**
- * Puts the caret on the first hinted line of the body's blocks, for a ticket
- * that opens straight into its template. Returns false when nothing is hinted.
- */
 export function $selectFirstHint(lookup: BlockLookup): boolean {
   for (const block of $topLevelBlocks()) {
     if (!$isTicketBlockNode(block)) continue

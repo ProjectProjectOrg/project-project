@@ -1,5 +1,3 @@
-"use client"
-
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
 import * as Match from "effect/Match"
@@ -11,7 +9,7 @@ import {
   type Ref
 } from "react"
 
-import type { IconComponent } from "@/lib/icon-context"
+import type { IconComponent } from "@/lib/icon"
 import { useShape } from "@/lib/shape-context"
 import { SURFACE_BG } from "@/lib/surface-classes"
 import { useSurface } from "@/lib/surface-context"

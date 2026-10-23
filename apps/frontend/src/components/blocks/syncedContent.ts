@@ -41,11 +41,7 @@ export const syncedView = (
 
 const HINT = /\{\{([^{}\n]+)\}\}/g
 
-/**
- * Shows a definition's `{{hints}}` as emphasis, for read-only previews of what
- * a block asks for. Stripping them instead leaves bare markers, and a bare
- * `- [ ]` renders as the literal text "[ ]" rather than a checkbox.
- */
+// Bare hint markers would render `- [ ]` as literal text instead of a checkbox.
 export const hintsAsEmphasis = (markdown: string): string =>
   markdown.replace(HINT, (_, text: string) => `*${text.trim()}*`)
 

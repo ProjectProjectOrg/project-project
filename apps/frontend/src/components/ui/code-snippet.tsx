@@ -1,21 +1,9 @@
-"use client"
-
 import Prism from "prismjs"
 import { useMemo } from "react"
 
 import "@/lib/prism-langs"
 import { CopyButton } from "@/components/ui/copy-button"
 import { cn } from "@/lib/utils"
-
-// Inline syntax-highlighted code block with an overlay copy button. Uses
-// the same Prism token palette as the read-side Markdown component by
-// wrapping the <pre> in `.prose-md` — so a snippet shown here and the same
-// snippet inside a markdown body render identically.
-//
-// The copy button is positioned on the outer wrapper, not inside `.prose-md`,
-// to avoid the `.prose-md > * + *` sibling margin and to anchor cleanly
-// against the relative outer container regardless of the Button's own
-// CVA-applied `position` class.
 
 export function CodeSnippet({
   code,

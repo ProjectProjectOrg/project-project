@@ -8,6 +8,7 @@ import {
   refreshJiraMigrationAtom
 } from "@/features/jira/atoms/jiraMigration"
 import { isActiveJiraMigration } from "@/features/jira/components/screen"
+import { useVisibleInterval } from "@/hooks/useVisibleInterval"
 
 const POLL_INTERVAL_MS = 2_000
 
@@ -26,21 +27,5 @@ export function useJiraMigrationPolling(
     if (status === "succeeded") invalidateProjects(undefined)
   }, [invalidateProjects, status])
 
-  useEffect(() => {
-    if (!active || typeof document === "undefined") return undefined
-
-    const refreshIfVisible = () => {
-      if (document.visibilityState === "visible") refresh(undefined)
-    }
-
-    const interval = window.setInterval(refreshIfVisible, POLL_INTERVAL_MS)
-    document.addEventListener("visibilitychange", refreshIfVisible)
-    window.addEventListener("focus", refreshIfVisible)
-
-    return () => {
-      window.clearInterval(interval)
-      document.removeEventListener("visibilitychange", refreshIfVisible)
-      window.removeEventListener("focus", refreshIfVisible)
-    }
-  }, [active, refresh])
+  useVisibleInterval(() => refresh(undefined), POLL_INTERVAL_MS, active)
 }

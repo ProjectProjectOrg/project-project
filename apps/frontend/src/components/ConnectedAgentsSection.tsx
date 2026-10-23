@@ -1,15 +1,5 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { OAuthApplication } from "@pp/shared"
-// Connected agents card on the profile page.
-//
-// Lists OAuth clients (typically MCP agents) that have completed an
-// authorization with the user's account and lets them revoke any of them.
-// Schema comes from /api/oauth-applications; see shared/schemas/OAuthApplication.
-//
-// Below the list, a small disclosure offers ready-to-paste snippets for the
-// common MCP clients (Claude Code, Gemini CLI, Codex CLI). The URL is derived
-// from the current window origin — single-origin homelab deploys work without
-// edits; dev/split-origin setups can swap the host before pasting.
 import * as Result from "effect/reactivity/AsyncResult"
 import { KeyRound } from "lucide-react"
 import { useMemo, useState } from "react"

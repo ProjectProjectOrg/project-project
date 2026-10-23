@@ -1,5 +1,3 @@
-"use client"
-
 import { useEffect, useState } from "react"
 
 // Adapted from Lina by SameerJS6 (https://lina.sameer.sh), use-has-primary-touch.

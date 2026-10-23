@@ -1,12 +1,15 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { figmaRefKey, type FigmaRef } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { useEffect } from "react"
+import { useRef } from "react"
 
 import {
   figmaTicketLinksAtom,
   type FigmaTicketLinksRequest
 } from "@/features/figma/atoms/figma"
+import { useVisibleInterval } from "@/hooks/useVisibleInterval"
+
+const MAX_REFRESHES = 15
 
 export interface FigmaLinkMetadata {
   readonly name: string
@@ -29,28 +32,21 @@ export const useFigmaMetadata = (
           (link) => `${link.fileKey}/${link.nodeId ?? ""}` === refKey
         ) ?? null)
 
-  useEffect(() => {
-    if (refKey === null || metadata?.lastModified != null) return
-    let attempts = 0
-    let interval: number | undefined
-    const refreshIfVisible = () => {
-      if (attempts >= 15) return
-      if (document.visibilityState !== "visible") return
-      attempts += 1
-      refresh()
-      if (attempts >= 15) {
-        window.clearInterval(interval)
-        document.removeEventListener("visibilitychange", refreshIfVisible)
+  const pending = refKey !== null && metadata?.lastModified == null
+  const attempts = useRef({ refKey, count: 0 })
+  useVisibleInterval(
+    () => {
+      if (attempts.current.refKey !== refKey) {
+        attempts.current = { refKey, count: 0 }
       }
-    }
-    refreshIfVisible()
-    if (attempts < 15) interval = window.setInterval(refreshIfVisible, 1_000)
-    document.addEventListener("visibilitychange", refreshIfVisible)
-    return () => {
-      window.clearInterval(interval)
-      document.removeEventListener("visibilitychange", refreshIfVisible)
-    }
-  }, [metadata?.lastModified, refKey, refresh])
+      if (attempts.current.count >= MAX_REFRESHES) return
+      attempts.current.count += 1
+      refresh()
+    },
+    1_000,
+    pending,
+    { immediate: true }
+  )
 
   if (ref === null || !AsyncResult.isSuccess(result)) return null
   return metadata

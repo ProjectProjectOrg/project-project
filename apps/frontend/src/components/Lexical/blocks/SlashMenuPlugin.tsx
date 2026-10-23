@@ -80,7 +80,7 @@ import {
   type CommandMenuItemData
 } from "@/components/ui/command-menu"
 import { blockIconComponent } from "@/lib/block-icons"
-import type { IconComponent } from "@/lib/icon-context"
+import type { IconComponent } from "@/lib/icon"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 

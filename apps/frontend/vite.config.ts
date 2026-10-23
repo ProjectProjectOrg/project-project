@@ -54,13 +54,7 @@ const chunkGroups = [
   { name: "i18n", test: /[\\/]src[\\/]paraglide[\\/]/ },
   {
     name: "icons",
-    test: packages([
-      "lucide-react",
-      "@hugeicons/react",
-      "@hugeicons/core-free-icons",
-      "@tabler/icons-react",
-      "@phosphor-icons/react"
-    ])
+    test: packages(["lucide-react"])
   }
 ]
 

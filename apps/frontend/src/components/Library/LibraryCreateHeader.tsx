@@ -39,10 +39,6 @@ type CreateRowProps = Readonly<{
 
 type Heading = Readonly<{ id: string; title: string; description: string }>
 
-/**
- * The section header of a library list with its New button. The button sits
- * in the header, and the form opens right under it, above the cards.
- */
 export function LibraryCreateHeader({
   heading,
   ...props

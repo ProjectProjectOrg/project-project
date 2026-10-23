@@ -205,10 +205,6 @@ export function CollapsingLabel({
   )
 }
 
-// Shared item button styling. Exported so callsites that render plain
-// buttons get the exact same hit-target sizing and active/inactive text
-// treatment as the URL-driven tabs. Pass the same `variant` you passed to
-// SegmentedTabs so chrome and item sizing stay in sync.
 export const SEGMENTED_ITEM_CLASS = (
   active: boolean,
   variant: SegmentedVariant = "default"

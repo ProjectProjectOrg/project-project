@@ -42,10 +42,7 @@ export function useTheme() {
   }, [preference])
 
   const setPreference = useCallback((next: ThemePreference) => {
-    // The DOM mutation that drives the visual change (the `dark` class) has to
-    // happen *inside* the view-transition callback so the API can snapshot
-    // before/after. The React state update can lag behind safely — only the
-    // pill highlight depends on it, and it'll commit before paint.
+    // The `dark` class must change inside the view-transition callback so the API can snapshot both states.
     const apply = () => {
       applyResolved(next)
       window.localStorage.setItem(STORAGE_KEY, next)

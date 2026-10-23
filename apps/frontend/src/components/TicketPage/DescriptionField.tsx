@@ -173,9 +173,6 @@ export function DescriptionField({
     }
   }, [library, lookup, transformers])
 
-  // A ticket opened straight from a creator lands on its first hinted line
-  // (`**Expected:** ▏`), not on the first heading. Runs once, when the
-  // library that knows the hints has loaded.
   const landedRef = useRef(false)
   useEffect(() => {
     const editor = editorRef.current

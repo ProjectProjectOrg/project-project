@@ -70,8 +70,6 @@ function LibraryContent({
   tab,
   library
 }: Readonly<{ scope: LibraryScope; tab: LibraryTab; library: Library }>) {
-  // One transition for every layout animation on the page, so tiles, cards
-  // and their contents move together, and no motion for users who ask.
   return (
     <MotionConfig transition={transitions.layout} reducedMotion="user">
       <div className="flex flex-col gap-10">

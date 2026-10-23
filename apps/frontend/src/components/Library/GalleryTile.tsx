@@ -35,14 +35,6 @@ type GalleryTileProps = Readonly<{
   onAdd: () => void
 }>
 
-/**
- * A gallery entry. Every moving part (the tile, its header, description,
- * sketch, preview and buttons) takes the one layout transition from the
- * page's `MotionConfig`, and every text element animates by position only,
- * so nothing is scaled or left behind while the tile grows into a preview.
- * The tile forwards its ref so `AnimatePresence mode="popLayout"` can lift
- * it out of the grid while it fades.
- */
 export function GalleryTile({
   ref,
   kind,
