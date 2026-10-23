@@ -21,7 +21,7 @@ import * as Layer from "effect/Layer"
 import * as Match from "effect/Match"
 import * as Redacted from "effect/Redacted"
 
-import { SecretCrypto } from "../storage/SecretCrypto"
+import { JiraHost } from "./Host"
 import {
   hasRequiredScopes,
   jiraAuthorizeUrl,
@@ -41,7 +41,7 @@ export type JiraCredentialsShape = Readonly<{
   beginConnect: (
     userId: string,
     returnPath: string
-  ) => Effect.Effect<{ readonly authorizeUrl: string }, JiraError>
+  ) => Effect.Effect<Readonly<{ authorizeUrl: string }>, JiraError>
   completeConnect: (
     userId: string,
     code: string,
@@ -49,7 +49,7 @@ export type JiraCredentialsShape = Readonly<{
   ) => Effect.Effect<JiraConnection, JiraReconnectRequired | JiraError>
   accessTokenFor: (
     userId: string,
-    options?: { readonly forceRefresh?: boolean }
+    options?: Readonly<{ forceRefresh?: boolean }>
   ) => Effect.Effect<
     JiraAccessToken,
     JiraNotConnected | JiraReconnectRequired | JiraRateLimited | JiraError
@@ -68,7 +68,7 @@ type JiraCredentialsInternalShape = Readonly<
       code: string,
       state: string
     ) => Effect.Effect<
-      { readonly connection: JiraConnection; readonly returnPath: string },
+      Readonly<{ connection: JiraConnection; returnPath: string }>,
       JiraReconnectRequired | JiraError
     >
     markReconnectRequired: (
@@ -92,11 +92,13 @@ const disconnected = (): JiraConnection => ({
   connectedAt: null
 })
 
-const connectionFromRow = (row: {
-  readonly status: "active" | "reconnect_required"
-  readonly reconnectReason: "invalid_grant" | "missing_scopes" | null
-  readonly connectedAt: Date
-}): JiraConnection =>
+const connectionFromRow = (
+  row: Readonly<{
+    status: "active" | "reconnect_required"
+    reconnectReason: "invalid_grant" | "missing_scopes" | null
+    connectedAt: Date
+  }>
+): JiraConnection =>
   row.status === "active"
     ? {
         status: "connected",
@@ -114,7 +116,7 @@ export const JiraCredentialsLive = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db
     const crypto = yield* Crypto.Crypto
-    const secrets = yield* SecretCrypto
+    const secrets = yield* JiraHost
     const oauth = yield* JiraOAuthConfig
     const tokens = yield* JiraTokenEndpoint
 
@@ -345,7 +347,7 @@ export const JiraCredentialsLive = Layer.effect(
     const accessTokenFor = Effect.fn("JiraCredentials.accessTokenFor")(
       function* (
         userId: string,
-        options?: { readonly forceRefresh?: boolean }
+        options?: Readonly<{ forceRefresh?: boolean }>
       ): Effect.fn.Return<
         JiraAccessToken,
         JiraNotConnected | JiraReconnectRequired | JiraRateLimited | JiraError

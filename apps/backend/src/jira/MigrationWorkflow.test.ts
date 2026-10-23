@@ -1,20 +1,6 @@
 import { it } from "@effect/vitest"
-import { Clock, Deferred } from "effect"
-import * as Cause from "effect/Cause"
-import * as Effect from "effect/Effect"
-import * as Exit from "effect/Exit"
-import * as Layer from "effect/Layer"
-import * as Match from "effect/Match"
-import * as Option from "effect/Option"
-import * as Predicate from "effect/Predicate"
-import * as Ref from "effect/Ref"
-import * as Schema from "effect/Schema"
-import * as TestClock from "effect/testing/TestClock"
-import { DurableDeferred, WorkflowEngine } from "effect/workflow"
-import { describe, expect } from "vitest"
-
-import { JiraClient } from "./Client"
-import { JiraMigrationManifestV2 } from "./Manifest"
+import { JiraClient } from "@pp/server-core/jira/Client"
+import { JiraMigrationManifestV2 } from "@pp/server-core/jira/Manifest"
 import {
   JIRA_DOCUMENT_BATCH_SIZE,
   jiraCopyAttachmentActivityName,
@@ -29,10 +15,10 @@ import {
   publishJiraPreparedPublication,
   defineFinalizeMigrationActivity,
   defineStartMigrationActivity
-} from "./MigrationActivities"
-import { JiraMigrationArtifacts } from "./MigrationArtifacts"
-import type { JiraArtifactRef } from "./MigrationArtifacts"
-import { JiraScanResumeResult } from "./MigrationProjection"
+} from "@pp/server-core/jira/MigrationActivities"
+import { JiraMigrationArtifacts } from "@pp/server-core/jira/MigrationArtifacts"
+import type { JiraArtifactRef } from "@pp/server-core/jira/MigrationArtifacts"
+import { JiraScanResumeResult } from "@pp/server-core/jira/MigrationProjection"
 import {
   JiraMigrationWorkflow,
   JiraMigrationWorkflowFailure,
@@ -46,8 +32,22 @@ import {
   retryDeferredName,
   startImportDeferred,
   startImportDeferredName
-} from "./MigrationWorkflow"
-import { scanSnapshot } from "./MigrationWorkflow"
+} from "@pp/server-core/jira/MigrationWorkflow"
+import { scanSnapshot } from "@pp/server-core/jira/MigrationWorkflow"
+import { Clock, Deferred } from "effect"
+import * as Cause from "effect/Cause"
+import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
+import * as Layer from "effect/Layer"
+import * as Match from "effect/Match"
+import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
+import * as Ref from "effect/Ref"
+import * as Schema from "effect/Schema"
+import * as TestClock from "effect/testing/TestClock"
+import { DurableDeferred, WorkflowEngine } from "effect/workflow"
+import { describe, expect } from "vitest"
+
 import {
   makeScanTestLayer,
   response,
@@ -715,7 +715,7 @@ describe("durable snapshot workflow", () => {
 
 const snapshotHarness = (
   fixture: ReturnType<typeof makeScanTestLayer>,
-  identityOptions: import("./MigrationActivities").ScanSnapshotDependencies["identityOptions"] = Effect.succeed(
+  identityOptions: import("@pp/server-core/jira/MigrationActivities").ScanSnapshotDependencies["identityOptions"] = Effect.succeed(
     []
   ),
   hooks: {

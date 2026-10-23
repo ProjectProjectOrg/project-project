@@ -1,5 +1,36 @@
 import { Db } from "@pp/db"
 import { member, organization, jiraMigration, user } from "@pp/db/schema"
+import * as CleanupWorkflow from "@pp/server-core/jira/CleanupWorkflow"
+import { JiraClient } from "@pp/server-core/jira/Client"
+import {
+  materializeJiraPreparedPublication,
+  prepareJiraPublicationReference,
+  publishJiraPreparedPublication,
+  type MigrationActivityInput
+} from "@pp/server-core/jira/MigrationActivities"
+import { JiraMigrationArtifacts } from "@pp/server-core/jira/MigrationArtifacts"
+import {
+  decodeCheckpoint,
+  JiraMigrationProjection,
+  type AttemptFence
+} from "@pp/server-core/jira/MigrationProjection"
+import {
+  JiraMigrationWorkflowFailure,
+  withJiraRemoteWriteIntent
+} from "@pp/server-core/jira/MigrationWorkflow"
+import {
+  finalizeJiraMigrationAttempt,
+  scanSnapshot
+} from "@pp/server-core/jira/MigrationWorkflow"
+import * as MigrationWorkflow from "@pp/server-core/jira/MigrationWorkflow"
+import { JiraPublicationInvalid } from "@pp/server-core/jira/Preflight"
+import {
+  loadJiraPreparedPublication,
+  loadJiraPublicationPlan,
+  persistJiraPreparedPublication
+} from "@pp/server-core/jira/PublicationArtifacts"
+import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
+import { S3Storage } from "@pp/server-core/storage/S3Storage"
 import { JiraError } from "@pp/shared"
 import { eq } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
@@ -7,37 +38,11 @@ import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
 
-import { OrgStorage } from "../storage/OrgStorage"
-import { S3Storage } from "../storage/S3Storage"
-import * as CleanupWorkflow from "./CleanupWorkflow"
-import { JiraClient } from "./Client"
 import {
   buildJiraPreparedPublicationFromSnapshot,
-  loadJiraPreparedPublication,
-  loadJiraPublicationPlan,
-  persistJiraPreparedPublication,
   publishJiraMigrationAtomically
-} from "./Import"
-import * as JiraImport from "./Import"
-import {
-  materializeJiraPreparedPublication,
-  prepareJiraPublicationReference,
-  publishJiraPreparedPublication,
-  type MigrationActivityInput
-} from "./MigrationActivities"
-import { JiraMigrationArtifacts } from "./MigrationArtifacts"
-import {
-  decodeCheckpoint,
-  JiraMigrationProjection,
-  type AttemptFence
-} from "./MigrationProjection"
-import {
-  JiraMigrationWorkflowFailure,
-  withJiraRemoteWriteIntent
-} from "./MigrationWorkflow"
-import { finalizeJiraMigrationAttempt, scanSnapshot } from "./MigrationWorkflow"
-import * as MigrationWorkflow from "./MigrationWorkflow"
-import { JiraPublicationInvalid } from "./Preflight"
+} from "./PublicationLive"
+import * as JiraImport from "./PublicationLive"
 
 const isJiraPublicationInvalid = Schema.is(JiraPublicationInvalid)
 
@@ -276,7 +281,7 @@ export const makeJiraProductionActivities = Effect.gen(function* () {
 
   const publish = (
     input: MigrationActivityInput,
-    ready: import("./MigrationActivities").JiraReadyPublication,
+    ready: import("@pp/server-core/jira/MigrationActivities").JiraReadyPublication,
     operationTry = 0
   ) =>
     Effect.gen(function* () {

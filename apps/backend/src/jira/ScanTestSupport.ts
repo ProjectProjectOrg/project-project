@@ -1,16 +1,16 @@
-import { Effect, Layer, Redacted, Stream, Schema } from "effect"
-import { Workflow, WorkflowEngine } from "effect/workflow"
-
-import { OrgStorage } from "../storage/OrgStorage"
-import { S3Storage, S3Unavailable } from "../storage/S3Storage"
 import {
   JiraClientLive,
   JiraTransport,
   type JiraTransportRequest,
   type JiraTransportResponse
-} from "./Client"
-import { JiraCredentials } from "./Credentials"
-import { JiraMigrationArtifactsLive } from "./MigrationArtifacts"
+} from "@pp/server-core/jira/Client"
+import { JiraCredentials } from "@pp/server-core/jira/Credentials"
+import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
+import { S3Storage, S3Unavailable } from "@pp/server-core/storage/S3Storage"
+import { Effect, Layer, Redacted, Stream, Schema } from "effect"
+import { Workflow, WorkflowEngine } from "effect/workflow"
+
+import { JiraMigrationArtifactsLive } from "./ArtifactsLive"
 
 export const scanContext = {
   migrationId: "migration-1",

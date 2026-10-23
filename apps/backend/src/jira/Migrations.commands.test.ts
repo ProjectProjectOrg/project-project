@@ -6,6 +6,32 @@ import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { DbLive } from "@pp/db"
 import { Db } from "@pp/db"
+import { JiraScanFailure } from "@pp/server-core/jira/MigrationActivities"
+import {
+  JiraArtifactError,
+  type JiraArtifactRef
+} from "@pp/server-core/jira/MigrationArtifacts"
+import {
+  JiraMigrationProjection,
+  fenceFor,
+  type JiraMigrationProjectionShape
+} from "@pp/server-core/jira/MigrationProjection"
+import {
+  submitJiraMigrationRun,
+  JiraMigrations,
+  JiraMigrationsDurableLive,
+  type JiraMigrationCleanupCommands,
+  type JiraMigrationsShape
+} from "@pp/server-core/jira/Migrations"
+import { JiraMigrationWorkflowCommand } from "@pp/server-core/jira/MigrationWorkflow"
+import {
+  JiraMigrationWorkflow,
+  startImportDeferred,
+  retryDeferred,
+  makeJiraMigrationWorkflow,
+  makeProjectionMigrationActivities,
+  runScanUnit
+} from "@pp/server-core/jira/MigrationWorkflow"
 import {
   JiraMigrationConfiguration,
   JiraMigrationRequirements,
@@ -40,30 +66,6 @@ import { SqlClient } from "effect/sql"
 import { Activity, DurableDeferred, WorkflowEngine } from "effect/workflow"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
-
-import { JiraScanFailure } from "./MigrationActivities"
-import { JiraArtifactError, type JiraArtifactRef } from "./MigrationArtifacts"
-import {
-  JiraMigrationProjection,
-  fenceFor,
-  type JiraMigrationProjectionShape
-} from "./MigrationProjection"
-import {
-  submitJiraMigrationRun,
-  JiraMigrations,
-  JiraMigrationsDurableLive,
-  type JiraMigrationCleanupCommands,
-  type JiraMigrationsShape
-} from "./Migrations"
-import { JiraMigrationWorkflowCommand } from "./MigrationWorkflow"
-import {
-  JiraMigrationWorkflow,
-  startImportDeferred,
-  retryDeferred,
-  makeJiraMigrationWorkflow,
-  makeProjectionMigrationActivities,
-  runScanUnit
-} from "./MigrationWorkflow"
 
 const decodeUnknownJiraMigrationConfiguration = Schema.decodeUnknownEffect(
   JiraMigrationConfiguration
@@ -171,7 +173,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       throw new Error("Isolated database required")
     pool = new Pool({ connectionString: databaseUrl })
     await migrate(drizzle({ client: pool }), {
-      migrationsFolder: `${import.meta.dirname}/../../../db/src/migrations`
+      migrationsFolder: `${import.meta.dirname}/../../../../packages/db/src/migrations`
     })
     const pg = PgClient.layer({ url: Redacted.make(databaseUrl!) })
     const projection = JiraMigrationProjection.layer.pipe(
@@ -256,7 +258,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
           Effect.succeed(unresolvedFailedAttachmentIds)
       },
       artifacts(issueNumbers)
-    )
+    ).pipe(Layer.provide(JiraDestinationQueriesLive))
   const scanningWorkflow = (
     p: JiraMigrationProjectionShape,
     owner: Readonly<{ organizationId: string; userId: string }>,
@@ -1384,7 +1386,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                 })
             },
             artifacts()
-          )
+          ).pipe(Layer.provide(JiraDestinationQueriesLive))
           yield* Effect.gen(function* () {
             const m = yield* JiraMigrations
             const created = yield* createScanned(m, p, owner)
@@ -1979,3 +1981,5 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
     20000
   )
 })
+
+import { JiraDestinationQueriesLive } from "./DestinationQueriesLive"

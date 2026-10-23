@@ -1,5 +1,3 @@
-import { Db } from "@pp/db"
-import { projectIndex, ticketIndex } from "@pp/db/schema"
 import {
   Conflict,
   JiraError,
@@ -10,7 +8,6 @@ import {
   type JiraMigrationSummary,
   type JiraMigrationDestinationConflict
 } from "@pp/shared"
-import { and, eq, inArray } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -425,7 +422,7 @@ export const JiraMigrationsDurableLive = (
     Effect.gen(function* () {
       const projection = yield* JiraMigrationProjection
       const sql = yield* SqlClient.SqlClient
-      const db = yield* Db
+      const queries = yield* JiraDestinationQueries
       const engine = yield* WorkflowEngine.WorkflowEngine
       const provide = <A, E>(
         effect: Effect.Effect<
@@ -622,17 +619,6 @@ export const JiraMigrationsDurableLive = (
                   () => new JiraError({ reason: "invalid_response" })
                 )
               )
-            const projects = yield* db
-              .select({
-                id: projectIndex.id,
-                organizationId: projectIndex.organizationId,
-                slug: projectIndex.slug,
-                key: projectIndex.key
-              })
-              .from(projectIndex)
-              .pipe(
-                Effect.mapError(() => new JiraError({ reason: "server_error" }))
-              )
             const destinationTicketIds = manifest.issues.map(
               ({ issueNumber }) =>
                 jiraDestinationTicketId(
@@ -640,30 +626,10 @@ export const JiraMigrationsDurableLive = (
                   issueNumber
                 )
             )
-            const ticketIdBatches = Array.from(
-              { length: Math.ceil(destinationTicketIds.length / 1000) },
-              (_, index) =>
-                destinationTicketIds.slice(index * 1000, (index + 1) * 1000)
+            const { projects, tickets } = yield* queries.read(
+              organizationId,
+              destinationTicketIds
             )
-            const tickets = (yield* Effect.forEach(ticketIdBatches, (batch) =>
-              db
-                .select({
-                  projectId: ticketIndex.projectId,
-                  ticketId: ticketIndex.ticketId
-                })
-                .from(ticketIndex)
-                .where(
-                  and(
-                    eq(ticketIndex.organizationId, organizationId),
-                    inArray(ticketIndex.ticketId, batch)
-                  )
-                )
-                .pipe(
-                  Effect.mapError(
-                    () => new JiraError({ reason: "server_error" })
-                  )
-                )
-            )).flat()
             return jiraDestinationConflicts({
               organizationId,
               currentProjectId: jiraProjectIdFor(migrationId),
@@ -681,3 +647,19 @@ export const JiraMigrationsDurableLive = (
       )
     })
   )
+
+export class JiraDestinationQueries extends Context.Service<
+  JiraDestinationQueries,
+  Readonly<{
+    read: (
+      organizationId: string,
+      destinationTicketIds: ReadonlyArray<string>
+    ) => Effect.Effect<
+      Pick<
+        Parameters<typeof jiraDestinationConflicts>[0],
+        "projects" | "tickets"
+      >,
+      JiraError
+    >
+  }>
+>()("@pp/server-core/jira/Migrations/JiraDestinationQueries") {}

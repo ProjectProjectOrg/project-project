@@ -24,9 +24,8 @@ import * as Match from "effect/Match"
 import { generateKeyBetween } from "fractional-indexing"
 import { ulid } from "ulid"
 
-import { serializeCommentsRegion } from "../comments/comments-region"
-import { attachmentObjectKey } from "../storage/S3Storage"
 import { rewriteJiraReferences } from "./Adf"
+import { JiraPublicationFormat } from "./Host"
 import type {
   JiraConvertedText,
   JiraManifestAttachment,
@@ -878,6 +877,7 @@ const sourceText = (
 
 export const prepareJiraPublication = Effect.fn("prepareJiraPublication")(
   function* (raw: Schema.Json) {
+    const format = yield* JiraPublicationFormat
     const input = yield* decodeUnknownJiraPreparationInput(raw).pipe(
       Effect.mapError(
         () =>
@@ -967,7 +967,7 @@ export const prepareJiraPublication = Effect.fn("prepareJiraPublication")(
           filename: attachment.filename,
           contentType: attachment.mimeType,
           byteSize: attachment.byteSize,
-          objectKey: attachmentObjectKey({
+          objectKey: format.attachmentObjectKey({
             keyPrefix: input.storageKeyPrefix,
             orgSlug: input.orgSlug,
             projectSlug: input.configuration.destination.slug,
@@ -1244,6 +1244,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
     rawPrepared: JiraPreparedPublicationV1,
     rawOutcomes: ReadonlyArray<JiraAttachmentOutcome>
   ) {
+    const format = yield* JiraPublicationFormat
     const prepared = yield* decodeUnknownJiraPreparedPublicationV1(rawPrepared)
     const rebuilt = yield* prepareJiraPublication(prepared)
     if (
@@ -1411,7 +1412,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
         project.body || `# ${project.name}\n`
       ),
       ...tickets.map((ticket) => {
-        const region = serializeCommentsRegion(
+        const region = format.serializeCommentsRegion(
           comments
             .filter((comment) => comment.ticketId === ticket.id)
             .map((comment) => ({

@@ -5,6 +5,16 @@ import * as BunServices from "@effect/platform-bun/BunServices"
 import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { DbLive } from "@pp/db"
+import { JiraMigrationProjection } from "@pp/server-core/jira/MigrationProjection"
+import { JiraMigrationWorkflowCommand } from "@pp/server-core/jira/MigrationWorkflow"
+import {
+  JiraMigrationWorkflow,
+  makeJiraMigrationWorkflow
+} from "@pp/server-core/jira/MigrationWorkflow"
+import { JiraPublicationInvalid } from "@pp/server-core/jira/Preflight"
+import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
+import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
+import { S3Storage } from "@pp/server-core/storage/S3Storage"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { ConfigProvider, Effect, Layer, Redacted, Schedule } from "effect"
@@ -12,20 +22,10 @@ import { WorkflowEngine } from "effect/workflow"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { MarkdownLive } from "../markdown/MarkdownLive"
-import { OrgStorage } from "../storage/OrgStorage"
-import { S3Storage } from "../storage/S3Storage"
 import {
   makeJiraProductionActivities,
   preparationFailure
-} from "./MigrationProduction"
-import { JiraMigrationProjection } from "./MigrationProjection"
-import { JiraMigrationWorkflowCommand } from "./MigrationWorkflow"
-import {
-  JiraMigrationWorkflow,
-  makeJiraMigrationWorkflow
-} from "./MigrationWorkflow"
-import { JiraPublicationInvalid } from "./Preflight"
+} from "./ProductionActivities"
 import { makeScanTestLayer } from "./ScanTestSupport"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
@@ -54,7 +54,7 @@ describe.skipIf(!databaseUrl)("Jira production workflow composition", () => {
       throw new Error("Isolated database required")
     pool = new Pool({ connectionString: databaseUrl })
     await migrate(drizzle({ client: pool }), {
-      migrationsFolder: `${import.meta.dirname}/../../../db/src/migrations`
+      migrationsFolder: `${import.meta.dirname}/../../../../packages/db/src/migrations`
     })
   })
 

@@ -5,7 +5,35 @@ import * as BunServices from "@effect/platform-bun/BunServices"
 import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { DbLive } from "@pp/db"
-import { JiraMigrationConfiguration, TAG_DEFAULT_PALETTE } from "@pp/shared"
+import {
+  JiraMigrationManifestV2,
+  canonicalJiraJson,
+  type JiraConvertedText,
+  type JiraMigrationManifest
+} from "@pp/server-core/jira/Manifest"
+import { JiraMigrationProjection } from "@pp/server-core/jira/MigrationProjection"
+import {
+  finalizeJiraMigrationAttempt,
+  JiraMigrationWorkflowFailure
+} from "@pp/server-core/jira/MigrationWorkflow"
+import type { JiraPreflightEnvironment } from "@pp/server-core/jira/Preflight"
+import {
+  buildJiraImportPlan,
+  loadJiraPublicationPlan,
+  loadJiraPreparedPublication
+} from "@pp/server-core/jira/PublicationArtifacts"
+import { aliasJiraMediaReferences } from "@pp/server-core/jira/PublicationPlan"
+import {
+  JiraPublicationPlanV1,
+  jiraAttachmentId,
+  prepareJiraPublication as prepareJiraPublicationWithFormat
+} from "@pp/server-core/jira/PublicationPlan"
+import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
+import {
+  attachmentObjectKey,
+  type S3Connection
+} from "@pp/server-core/storage/S3Storage"
+import { JiraMigrationConfiguration } from "@pp/shared"
 import { attachmentUrl, TicketId } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
@@ -22,42 +50,16 @@ import {
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { MarkdownLive } from "../markdown/MarkdownLive"
-import { attachmentObjectKey, type S3Connection } from "../storage/S3Storage"
 import {
-  aliasJiraMediaReferences,
-  buildJiraImportPlan,
   copyJiraPreparedAttachment,
   ensureHiddenJiraProject,
-  groupColors,
-  loadJiraPublicationPlan,
-  loadJiraPreparedPublication,
   makeJiraMaterializationDependencies,
-  nextTicketNumberFor,
   prepareJiraPublicationFromSnapshot,
   publishJiraMigrationAtomically,
   verifyJiraPermanentArchive,
   verifyJiraHiddenMaterialization,
   writeJiraHiddenDocuments
-} from "./Import"
-import {
-  JiraMigrationManifestV2,
-  canonicalJiraJson,
-  type JiraConvertedText,
-  type JiraMigrationManifest
-} from "./Manifest"
-import { JiraMigrationProjection } from "./MigrationProjection"
-import {
-  finalizeJiraMigrationAttempt,
-  JiraMigrationWorkflowFailure
-} from "./MigrationWorkflow"
-import type { JiraPreflightEnvironment } from "./Preflight"
-import type { JiraPublicationPlan } from "./PublicationPlan"
-import {
-  JiraPublicationPlanV1,
-  jiraAttachmentId,
-  prepareJiraPublication
-} from "./PublicationPlan"
+} from "./PublicationLive"
 
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))
 
@@ -92,7 +94,7 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
       throw new Error("Isolated database required")
     pool = new Pool({ connectionString: databaseUrl })
     await migrate(drizzle({ client: pool }), {
-      migrationsFolder: `${import.meta.dirname}/../../../db/src/migrations`
+      migrationsFolder: `${import.meta.dirname}/../../../../packages/db/src/migrations`
     })
   })
 
@@ -1471,20 +1473,6 @@ describe("buildJiraImportPlan", () => {
   })
 })
 
-describe("nextTicketNumberFor", () => {
-  it("continues past the highest imported Jira number, preserving gaps", () => {
-    const result = buildJiraImportPlan(
-      manifest(),
-      configuration,
-      environment,
-      {}
-    )
-
-    if (result.kind !== "ready") throw new Error("expected a ready plan")
-    expect(nextTicketNumberFor(result.plan)).toBe(8)
-  })
-})
-
 describe("tag renaming", () => {
   it("uses the name chosen in the wizard instead of the suggestion", () => {
     const withRename = decodeConfiguration({
@@ -1512,57 +1500,6 @@ describe("tag renaming", () => {
 
     if (result.kind !== "ready") throw new Error("expected a ready plan")
     expect(result.plan.tags.map(({ name }) => name)).toContain("urgent")
-  })
-})
-
-describe("groupColors", () => {
-  const group = (
-    kind: JiraPublicationPlan["groups"][number]["kind"],
-    id: string
-  ) =>
-    ({
-      sourceGroupId: id,
-      kind,
-      name: id,
-      body: "",
-      ticketIds: [],
-      startsAt: null,
-      endsAt: null,
-      completedAt: null
-    }) satisfies JiraPublicationPlan["groups"][number]
-
-  it("gives every sprint the flat sprint colour", () => {
-    const colors = groupColors([
-      group("sprint", "s1"),
-      group("sprint", "s2"),
-      group("sprint", "s3")
-    ])
-
-    expect(new Set(colors)).toEqual(new Set(["#777777"]))
-  })
-
-  it("gives non-sprint groups distinct palette colours", () => {
-    const colors = groupColors([
-      group("epic", "e1"),
-      group("sprint", "s1"),
-      group("milestone", "m1"),
-      group("epic", "e2")
-    ])
-
-    expect(colors[1]).toBe("#777777")
-    const nonSprint = [colors[0], colors[2], colors[3]]
-    expect(new Set(nonSprint).size).toBe(3)
-    for (const color of nonSprint) {
-      expect(TAG_DEFAULT_PALETTE).toContain(color)
-    }
-  })
-
-  it("only ever produces valid hex colours", () => {
-    const colors = groupColors(
-      Array.from({ length: 20 }, (_, i) => group("epic", `e${i}`))
-    )
-
-    for (const color of colors) expect(color).toMatch(/^#[0-9a-f]{6}$/i)
   })
 })
 
@@ -1718,3 +1655,12 @@ describe("embedded image references", () => {
     expect(body).not.toContain("![spec.pdf]")
   })
 })
+
+const prepareJiraPublication = (
+  ...args: Parameters<typeof prepareJiraPublicationWithFormat>
+) =>
+  prepareJiraPublicationWithFormat(...args).pipe(
+    Effect.provide(JiraPublicationFormatLive)
+  )
+
+import { JiraPublicationFormatLive } from "./HostLive"

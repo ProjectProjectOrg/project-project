@@ -6,6 +6,15 @@ import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { assertTrue } from "@effect/vitest/utils"
 import { DbLive } from "@pp/db"
+import { JiraCredentialsLive } from "@pp/server-core/jira/Credentials"
+import { JiraCredentials } from "@pp/server-core/jira/Credentials"
+import {
+  JIRA_SCOPES,
+  JiraOAuthConfig,
+  JiraTokenEndpoint,
+  type JiraTokenGrant
+} from "@pp/server-core/jira/OAuth"
+import { SecretCryptoLive } from "@pp/server-core/storage/SecretCryptoLive"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as DateTime from "effect/DateTime"
@@ -22,15 +31,7 @@ import * as TestClock from "effect/testing/TestClock"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { SecretCryptoLive } from "../storage/SecretCryptoLive"
-import { JiraCredentialsLive } from "./Credentials"
-import { JiraCredentials } from "./Credentials"
-import {
-  JIRA_SCOPES,
-  JiraOAuthConfig,
-  JiraTokenEndpoint,
-  type JiraTokenGrant
-} from "./OAuth"
+import { JiraHostLive } from "./HostLive"
 
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))
 
@@ -38,6 +39,7 @@ const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
 describe.skipIf(!databaseUrl)("JiraCredentials Postgres", () => {
   const userIds: Array<string> = []
+  const previousEncryptionKey = process.env.USER_SECRET_ENCRYPTION_KEY
   let pool: Pool
 
   const insertUser = async () => {
@@ -62,11 +64,14 @@ describe.skipIf(!databaseUrl)("JiraCredentials Postgres", () => {
     process.env.USER_SECRET_ENCRYPTION_KEY = randomBytes(32).toString("base64")
     pool = new Pool({ connectionString: databaseUrl })
     await migrate(drizzle({ client: pool }), {
-      migrationsFolder: `${import.meta.dirname}/../../../db/src/migrations`
+      migrationsFolder: `${import.meta.dirname}/../../../../packages/db/src/migrations`
     })
   })
 
   afterAll(async () => {
+    if (previousEncryptionKey === undefined)
+      delete process.env.USER_SECRET_ENCRYPTION_KEY
+    else process.env.USER_SECRET_ENCRYPTION_KEY = previousEncryptionKey
     for (const userId of userIds) {
       await pool.query('delete from "user" where id = $1', [userId])
     }
@@ -114,7 +119,7 @@ describe.skipIf(!databaseUrl)("JiraCredentials Postgres", () => {
           publicBaseUrl: "https://app.example"
         })
       ),
-      Layer.provide(SecretCryptoLive),
+      Layer.provide(JiraHostLive.pipe(Layer.provide(SecretCryptoLive))),
       Layer.provide(BunCrypto.layer),
       Layer.provide(database)
     )

@@ -1,38 +1,41 @@
 import { it } from "@effect/vitest"
+import type {
+  JiraConvertedText,
+  JiraMigrationManifest
+} from "@pp/server-core/jira/Manifest"
+import { JiraMigrationManifestV2 } from "@pp/server-core/jira/Manifest"
+import { JiraMigrationMappings } from "@pp/server-core/jira/Mappings"
+import type {
+  JiraArtifactRef,
+  JiraMigrationArtifactsShape
+} from "@pp/server-core/jira/MigrationArtifacts"
+import type { JiraPreflightResult } from "@pp/server-core/jira/Preflight"
+import {
+  loadJiraPublicationPlan,
+  loadJiraPreparedPublication,
+  persistJiraPublicationPlan as persistJiraPublicationPlanWithFormat,
+  persistJiraPreparedPublication,
+  resolveJiraPublicationSource
+} from "@pp/server-core/jira/PublicationArtifacts"
+import {
+  createJiraPublicationPlan,
+  createJiraReferenceTargets,
+  rewriteJiraPublicationText
+} from "@pp/server-core/jira/PublicationPlan"
+import {
+  prepareJiraPublication as prepareJiraPublicationWithFormat,
+  finalizeJiraPublication as finalizeJiraPublicationWithFormat,
+  JiraPublicationPlanV1,
+  type JiraAttachmentOutcome,
+  jiraAttachmentId
+} from "@pp/server-core/jira/PublicationPlan"
 import { StatusSlug } from "@pp/shared"
 import { AttachmentId } from "@pp/shared"
 import { Effect, Stream } from "effect"
 import * as Schema from "effect/Schema"
 import { describe, expect } from "vitest"
 
-import {
-  loadJiraPublicationPlan,
-  loadJiraPreparedPublication,
-  makeJiraMaterializationDependencies,
-  persistJiraPublicationPlan,
-  persistJiraPreparedPublication,
-  resolveJiraPublicationSource
-} from "./Import"
-import type { JiraConvertedText, JiraMigrationManifest } from "./Manifest"
-import { JiraMigrationManifestV2 } from "./Manifest"
-import { JiraMigrationMappings } from "./Mappings"
-import type {
-  JiraArtifactRef,
-  JiraMigrationArtifactsShape
-} from "./MigrationArtifacts"
-import type { JiraPreflightResult } from "./Preflight"
-import {
-  createJiraPublicationPlan,
-  createJiraReferenceTargets,
-  rewriteJiraPublicationText
-} from "./PublicationPlan"
-import {
-  prepareJiraPublication,
-  finalizeJiraPublication,
-  JiraPublicationPlanV1,
-  type JiraAttachmentOutcome,
-  jiraAttachmentId
-} from "./PublicationPlan"
+import { makeJiraMaterializationDependencies } from "./PublicationLive"
 
 const decodeJiraMigrationMappingsSync = Schema.decodeSync(JiraMigrationMappings)
 
@@ -1716,7 +1719,7 @@ it.effect(
         { id: "status-2", name: "Review", categoryKey: "done" }
       ]
       const { buildJiraStatusCreateOptions } = yield* Effect.promise(
-        () => import("./Mappings")
+        () => import("@pp/server-core/jira/Mappings")
       )
       const created = buildJiraStatusCreateOptions(statuses)
       expect(
@@ -1801,7 +1804,7 @@ it.effect(
         () => import("gray-matter")
       )
       const { parseCommentsRegion } = yield* Effect.promise(
-        () => import("../comments/comments-region")
+        () => import("@pp/server-core/comments/comments-region")
       )
       const document = matter(
         final.plan.documents.find(
@@ -1855,3 +1858,26 @@ it.effect(
       expect(final.plan.archive.source.description).toEqual(description)
     })
 )
+
+const prepareJiraPublication = (
+  ...args: Parameters<typeof prepareJiraPublicationWithFormat>
+) =>
+  prepareJiraPublicationWithFormat(...args).pipe(
+    Effect.provide(JiraPublicationFormatLive)
+  )
+
+const finalizeJiraPublication = (
+  ...args: Parameters<typeof finalizeJiraPublicationWithFormat>
+) =>
+  finalizeJiraPublicationWithFormat(...args).pipe(
+    Effect.provide(JiraPublicationFormatLive)
+  )
+
+const persistJiraPublicationPlan = (
+  ...args: Parameters<typeof persistJiraPublicationPlanWithFormat>
+) =>
+  persistJiraPublicationPlanWithFormat(...args).pipe(
+    Effect.provide(JiraPublicationFormatLive)
+  )
+
+import { JiraPublicationFormatLive } from "./HostLive"

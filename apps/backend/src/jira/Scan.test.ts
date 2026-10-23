@@ -1,19 +1,19 @@
 import { it } from "@effect/vitest"
+import { JiraClient } from "@pp/server-core/jira/Client"
+import {
+  JiraScanPageResult,
+  defineScanPageActivity,
+  scanPageActivityName
+} from "@pp/server-core/jira/MigrationActivities"
+import { JiraMigrationArtifacts } from "@pp/server-core/jira/MigrationArtifacts"
+import { buildJiraScanArtifacts } from "@pp/server-core/jira/Scan"
+import { scanCollection } from "@pp/server-core/jira/Scan"
 import { Schema } from "effect"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Match from "effect/Match"
 import { describe, expect } from "vitest"
 
-import { JiraClient } from "./Client"
-import {
-  JiraScanPageResult,
-  defineScanPageActivity,
-  scanPageActivityName
-} from "./MigrationActivities"
-import { JiraMigrationArtifacts } from "./MigrationArtifacts"
-import { buildJiraScanArtifacts } from "./Scan"
-import { scanCollection } from "./Scan"
 import {
   makeScanTestLayer,
   scanContext,
@@ -481,7 +481,7 @@ it.effect(
     })
 )
 
-import { defineBuildManifestActivity } from "./MigrationActivities"
+import { defineBuildManifestActivity } from "@pp/server-core/jira/MigrationActivities"
 
 it.effect(
   "blocks configuration when a raw artifact referenced by a completed page has disappeared",
@@ -550,8 +550,13 @@ it.effect(
     })
 )
 
+import {
+  buildScanManifestV2,
+  prepareScanV2,
+  type ScanChunk
+} from "@pp/server-core/jira/ScanV2"
+
 import { scanUser } from "./ScanTestSupport"
-import { buildScanManifestV2, prepareScanV2, type ScanChunk } from "./ScanV2"
 
 const decodeUnknownArray = Schema.decodeUnknownEffect(Schema.Array(Schema.Json))
 

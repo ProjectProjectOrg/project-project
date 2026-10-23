@@ -63,6 +63,8 @@ import * as Layer from "effect/Layer"
 
 import { EverhourHostLive } from "./everhour/HostLive"
 import { GitHubLive } from "./github/GitHubLive"
+import { JiraDestinationQueriesLive } from "./jira/DestinationQueriesLive"
+import { JiraHostLive } from "./jira/HostLive"
 import { JiraWorkflowsLive } from "./jira/WorkflowRuntime"
 import { OrgAccessLive, ProjectAccessLive } from "./Layers/Access"
 import { AuthenticationLive } from "./Layers/Auth"
@@ -90,7 +92,7 @@ const makeJiraServicesLive = <TE, TR, EE, ER, CE, CR>(
     Layer.provideMerge(
       JiraCredentialsLive.pipe(
         Layer.provideMerge(tokenEndpoint.pipe(Layer.provideMerge(oauthConfig))),
-        Layer.provideMerge(SecretCryptoLive)
+        Layer.provideMerge(JiraHostLive.pipe(Layer.provide(SecretCryptoLive)))
       )
     )
   )
@@ -107,7 +109,7 @@ const JiraDurableServicesLive = Layer.unwrap(
           unresolvedFailedAttachments: projection.unresolvedFailedAttachments
         },
         artifacts
-      ),
+      ).pipe(Layer.provide(JiraDestinationQueriesLive)),
       JiraMigrationRetentionLive(cleanup)
     )
   })

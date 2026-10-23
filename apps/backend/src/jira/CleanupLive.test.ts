@@ -7,6 +7,16 @@ import { it } from "@effect/vitest"
 import { DbLive } from "@pp/db"
 import { Db } from "@pp/db"
 import { projectIndex } from "@pp/db/schema"
+import {
+  makeJiraCleanupCommands,
+  makeJiraMigrationCleanupWorkflow
+} from "@pp/server-core/jira/CleanupWorkflow"
+import { JiraMigrationArtifacts } from "@pp/server-core/jira/MigrationArtifacts"
+import { JiraMigrationProjection } from "@pp/server-core/jira/MigrationProjection"
+import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
+import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
+import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
+import { S3Storage } from "@pp/server-core/storage/S3Storage"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { ConfigProvider, Effect, Layer, Redacted } from "effect"
@@ -14,17 +24,7 @@ import { WorkflowEngine } from "effect/workflow"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { MarkdownLive } from "../markdown/MarkdownLive"
-import { ProjectDocs } from "../projects/ProjectDocs"
-import { OrgStorage } from "../storage/OrgStorage"
-import { S3Storage } from "../storage/S3Storage"
-import { makeJiraCleanupActivities } from "./CleanupOperations"
-import {
-  makeJiraCleanupCommands,
-  makeJiraMigrationCleanupWorkflow
-} from "./CleanupWorkflow"
-import { JiraMigrationArtifacts } from "./MigrationArtifacts"
-import { JiraMigrationProjection } from "./MigrationProjection"
+import { makeJiraCleanupActivities } from "./CleanupLive"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -41,7 +41,7 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
       throw new Error("Isolated database required")
     pool = new Pool({ connectionString: databaseUrl })
     await migrate(drizzle({ client: pool }), {
-      migrationsFolder: `${import.meta.dirname}/../../../db/src/migrations`
+      migrationsFolder: `${import.meta.dirname}/../../../../packages/db/src/migrations`
     })
   })
 

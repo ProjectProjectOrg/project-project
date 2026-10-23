@@ -1,21 +1,19 @@
 import { it } from "@effect/vitest"
-import * as Effect from "effect/Effect"
-import * as Layer from "effect/Layer"
-import * as Schema from "effect/Schema"
-import { describe, expect } from "vitest"
-
-import { OrgStorage } from "../storage/OrgStorage"
+import {
+  artifactKey,
+  JiraArtifactError,
+  JiraMigrationArtifacts
+} from "@pp/server-core/jira/MigrationArtifacts"
+import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import {
   S3Storage,
   type S3Connection,
   type S3StorageShape
-} from "../storage/S3Storage"
-import {
-  artifactKey,
-  JiraArtifactError,
-  JiraMigrationArtifacts,
-  JiraMigrationArtifactsLive
-} from "./MigrationArtifacts"
+} from "@pp/server-core/storage/S3Storage"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
+import { describe, expect } from "vitest"
 
 const decodeArtifactBody = Schema.decodeUnknownEffect(
   Schema.Struct({ body: Schema.String })
@@ -218,3 +216,5 @@ describe("JiraMigrationArtifacts", () => {
     }
   )
 })
+
+import { JiraMigrationArtifactsLive } from "./ArtifactsLive"

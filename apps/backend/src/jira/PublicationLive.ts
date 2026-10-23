@@ -17,21 +17,44 @@ import {
   ticketIndex,
   user as userTable
 } from "@pp/db/schema"
+import { JiraRateLimited } from "@pp/server-core/jira/Blocked"
+import type { JiraClientShape } from "@pp/server-core/jira/Client"
 import {
-  ActivityActor,
-  attachmentUrl,
+  canonicalJiraJson,
+  JiraMigrationManifestV2
+} from "@pp/server-core/jira/Manifest"
+import { jiraDestinationTicketId } from "@pp/server-core/jira/Mappings"
+import { jiraDocumentBatches } from "@pp/server-core/jira/MigrationActivities"
+import type {
+  JiraArtifactRef,
+  JiraMigrationArtifactsShape
+} from "@pp/server-core/jira/MigrationArtifacts"
+import { artifactKey } from "@pp/server-core/jira/MigrationArtifacts"
+import {
+  decodeCheckpoint,
+  JiraMigrationCheckpoint,
+  type AttemptFence
+} from "@pp/server-core/jira/MigrationProjection"
+import { JiraMigrationWorkflowFailure } from "@pp/server-core/jira/MigrationWorkflow"
+import { JiraPublicationInvalid } from "@pp/server-core/jira/Preflight"
+import {
+  jiraProjectIdFor,
+  JiraPreparedPublicationV1,
+  JiraPublicationPlanV1,
+  prepareJiraPublication,
+  type JiraAttachmentOutcome
+} from "@pp/server-core/jira/PublicationPlan"
+import { Markdown } from "@pp/server-core/markdown/Markdown"
+import {
+  type S3Connection,
+  type S3StorageShape
+} from "@pp/server-core/storage/S3Storage"
+import {
   BASELINE_STATUS_SEED,
   baselineStatusDescription,
   deriveProjectIdentity,
   GIT_AUTOMATION_SEED,
-  GroupColor,
-  GroupId,
-  JiraMigrationConfiguration,
-  pickStatusColor,
-  ProjectKey,
-  StatusSlug,
-  TagName,
-  TicketId
+  JiraMigrationConfiguration
 } from "@pp/shared"
 import { and, eq, inArray, sql as drizzleSql } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
@@ -41,87 +64,9 @@ import * as Path from "effect/Path"
 import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
-import { ulid } from "ulid"
-
-import type { AttachmentsShape } from "../attachments/Attachments"
-import {
-  serializeCommentsRegion,
-  type CommentBlock
-} from "../comments/comments-region"
-import type { GroupDocsShape } from "../groups/GroupDocs"
-import { Markdown } from "../markdown/Markdown"
-import type { ProjectDocsShape } from "../projects/ProjectDocs"
-import {
-  attachmentObjectKey,
-  type S3Connection,
-  type S3StorageShape
-} from "../storage/S3Storage"
-import type { TicketDocsShape } from "../tickets/TicketDocs"
-import type { TicketIndexShape } from "../tickets/TicketIndex"
-import { convertAdfToMarkdown } from "./Adf"
-import { JiraRateLimited } from "./Blocked"
-import type { JiraClientShape } from "./Client"
-import { JiraProject } from "./ClientSchemas"
-import {
-  canonicalJiraJson,
-  JiraMigrationManifestV2,
-  type JiraManifestAttachment,
-  type JiraMigrationManifest
-} from "./Manifest"
-import {
-  jiraConfigurationToMappings,
-  jiraDestinationTicketId
-} from "./Mappings"
-import { jiraDocumentBatches } from "./MigrationActivities"
-import type {
-  JiraArtifactRef,
-  JiraMigrationArtifactsShape
-} from "./MigrationArtifacts"
-import { artifactKey } from "./MigrationArtifacts"
-import {
-  decodeCheckpoint,
-  JiraMigrationCheckpoint,
-  type AttemptFence
-} from "./MigrationProjection"
-import { JiraMigrationWorkflowFailure } from "./MigrationWorkflow"
-import {
-  preflightJiraMigration,
-  JiraPublicationInvalid,
-  type JiraPreflightEnvironment
-} from "./Preflight"
-import {
-  createJiraPublicationPlan,
-  finalizeJiraPublication,
-  jiraProjectIdFor,
-  JiraPreparedPublicationV1,
-  JiraPublicationPlanV1,
-  JiraResolvedSource,
-  prepareJiraPublication,
-  type JiraAttachmentOutcome,
-  type JiraPublicationPlan
-} from "./PublicationPlan"
-
-const decodeUnknownJson = Schema.decodeUnknownEffect(Schema.Json)
 
 const decodeUnknownJiraMigrationManifestV2 = Schema.decodeUnknownEffect(
   JiraMigrationManifestV2
-)
-
-const decodeUnknownJiraPreparedPublicationV1 = Schema.decodeUnknownEffect(
-  JiraPreparedPublicationV1
-)
-
-const decodeUnknownJiraPublicationPlanV1 = Schema.decodeUnknownEffect(
-  JiraPublicationPlanV1
-)
-
-const decodeUnknownJiraProject = Schema.decodeUnknownEffect(JiraProject)
-
-const decodeUnknownJiraResolvedSource =
-  Schema.decodeUnknownEffect(JiraResolvedSource)
-
-const encodeJiraPreparedPublicationV1 = Schema.encodeEffect(
-  JiraPreparedPublicationV1
 )
 
 const encodeJiraPublicationPlanV1 = Schema.encodeEffect(JiraPublicationPlanV1)
@@ -134,147 +79,7 @@ const encodeJiraMigrationCheckpoint = Schema.encodeEffect(
   JiraMigrationCheckpoint
 )
 
-export type JiraImportBlocked = {
-  readonly kind: "blocked"
-  readonly blockers: ReadonlyArray<{
-    readonly code: string
-    readonly subject: string
-  }>
-}
-
-export type JiraImportPublished = {
-  readonly kind: "published"
-  readonly projectSlug: string
-  readonly ticketCount: number
-  readonly commentCount: number
-  readonly groupCount: number
-}
-
-export type JiraImportResult = JiraImportBlocked | JiraImportPublished
-
-const decodeProjectKey = Schema.decodeUnknownSync(ProjectKey)
-const decodeGroupId = Schema.decodeUnknownSync(GroupId)
-const decodeGroupColor = Schema.decodeUnknownSync(GroupColor)
-const decodeTicketId = Schema.decodeUnknownSync(TicketId)
-const decodeTagName = Schema.decodeUnknownSync(TagName)
-const decodeStatusSlug = Schema.decodeUnknownSync(StatusSlug)
-
 const toDate = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
-
-const SPRINT_GROUP_COLOR = "#777777"
-
-export const groupColors = (
-  groups: JiraPublicationPlan["groups"]
-): ReadonlyArray<string> => {
-  const used: Array<string> = []
-  return groups.map((group) => {
-    if (group.kind === "sprint") return SPRINT_GROUP_COLOR
-    const color = pickStatusColor(used)
-    used.push(color)
-    return color
-  })
-}
-
-export const buildJiraImportContext = (
-  manifest: JiraMigrationManifest,
-  configuration: JiraMigrationConfiguration,
-  environment: JiraPreflightEnvironment,
-  attachmentUrlsBySourceId: Readonly<Record<string, string>>
-) => {
-  const mappings = jiraConfigurationToMappings(manifest, configuration)
-  const preflight = preflightJiraMigration(manifest, mappings, environment)
-  const result = createJiraPublicationPlan(
-    manifest,
-    mappings,
-    preflight,
-    attachmentUrlsBySourceId
-  )
-  return { mappings, preflight, result }
-}
-
-export const buildJiraImportPlan = (
-  manifest: JiraMigrationManifest,
-  configuration: JiraMigrationConfiguration,
-  environment: JiraPreflightEnvironment,
-  attachmentUrlsBySourceId: Readonly<Record<string, string>>
-) =>
-  buildJiraImportContext(
-    manifest,
-    configuration,
-    environment,
-    attachmentUrlsBySourceId
-  ).result
-
-export const resolveJiraPublicationSource = Effect.fn(
-  "JiraImport.resolvePublicationSource"
-)(function* (
-  orgSlug: string,
-  manifest: JiraMigrationManifestV2,
-  artifacts: Pick<JiraMigrationArtifactsShape, "readJson">
-) {
-  const refs = [
-    ...manifest.rawArtifacts,
-    ...manifest.issues.flatMap((issue) =>
-      issue.descriptionArtifact === null ? [] : [issue.descriptionArtifact]
-    ),
-    ...manifest.comments.map((comment) => comment.bodyArtifact),
-    ...manifest.worklogs.flatMap((worklog) =>
-      worklog.bodyArtifact === null ? [] : [worklog.bodyArtifact]
-    ),
-    ...manifest.attachments.map((attachment) => attachment.metadataArtifact),
-    ...manifest.customFields.map((field) => field.valuesArtifact)
-  ]
-  const unique = [...new Map(refs.map((ref) => [ref.key, ref])).values()]
-  const resolved = yield* Effect.forEach(unique, (ref) =>
-    artifacts
-      .readJson(orgSlug, ref, decodeUnknownJson)
-      .pipe(Effect.map((value) => ({ ref, value })))
-  )
-  const projectRefs = manifest.rawArtifacts.filter((ref) =>
-    ref.key.includes("/raw/project/")
-  )
-  if (projectRefs.length > 1)
-    return yield* new JiraPublicationInvalid({
-      reasons: ["multiple-project-source-artifacts"]
-    })
-  const projectRaw = projectRefs[0]
-  const project = projectRaw
-    ? yield* decodeUnknownJiraProject(
-        resolved.find(({ ref }) => ref.key === projectRaw.key)?.value
-      ).pipe(
-        Effect.mapError(
-          () =>
-            new JiraPublicationInvalid({
-              reasons: ["invalid-project-source-artifact"]
-            })
-        )
-      )
-    : null
-  const description = project?.description
-  const projectDescription =
-    description === null || description === undefined
-      ? null
-      : Predicate.isString(description)
-        ? {
-            markdown: description,
-            warnings: [],
-            references: [],
-            adf: description
-          }
-        : { ...convertAdfToMarkdown(description), adf: description }
-  return yield* decodeUnknownJiraResolvedSource({
-    projectDescription,
-    artifacts: resolved
-  }).pipe(
-    Effect.mapError(
-      () =>
-        new JiraPublicationInvalid({
-          reasons: ["invalid-resolved-source-artifact"]
-        })
-    )
-  )
-})
-
 export type JiraPublicationSnapshotInput = Readonly<{
   fence: AttemptFence
   manifestRef: JiraArtifactRef
@@ -408,7 +213,7 @@ export const buildJiraPreparedPublicationFromSnapshot = Effect.fn(
     source
   })
   return prepared
-})
+}, Effect.provide(JiraPublicationFormatLive))
 
 export const prepareJiraPublicationFromSnapshot = Effect.fn(
   "JiraImport.prepareFromSnapshot"
@@ -421,95 +226,6 @@ export const prepareJiraPublicationFromSnapshot = Effect.fn(
     artifacts
   )
   return yield* persistJiraPreparedPublication(prepared, artifacts)
-})
-
-export const persistJiraPreparedPublication = Effect.fn(
-  "JiraImport.persistPreparedPublication"
-)(function* (
-  prepared: JiraPreparedPublicationV1,
-  artifacts: Pick<JiraMigrationArtifactsShape, "writeJson">
-) {
-  const encoded = yield* encodeJiraPreparedPublicationV1(prepared)
-  const identity = createHash("sha256")
-    .update(canonicalJiraJson(encoded))
-    .digest("hex")
-  return yield* artifacts.writeJson(
-    prepared.orgSlug,
-    {
-      migrationId: prepared.manifest.migrationId,
-      scanRevision: prepared.manifest.scanRevision,
-      area: "publication",
-      kind: "prepared-v1",
-      identity
-    },
-    prepared
-  )
-})
-
-export const loadJiraPreparedPublication = Effect.fn(
-  "JiraImport.loadPreparedPublication"
-)(function* (
-  orgSlug: string,
-  ref: JiraArtifactRef,
-  artifacts: Pick<JiraMigrationArtifactsShape, "verify" | "readJson">
-) {
-  yield* artifacts.verify(orgSlug, ref)
-  const prepared = yield* artifacts.readJson(
-    orgSlug,
-    ref,
-    decodeUnknownJiraPreparedPublicationV1
-  )
-  if (prepared.orgSlug !== orgSlug)
-    return yield* new JiraPublicationInvalid({
-      reasons: ["prepared-publication-org-conflict"]
-    })
-  return prepared
-})
-
-export const persistJiraPublicationPlan = Effect.fn(
-  "JiraImport.persistPublicationPlan"
-)(function* (
-  prepared: JiraPreparedPublicationV1,
-  outcomes: ReadonlyArray<JiraAttachmentOutcome>,
-  artifacts: Pick<JiraMigrationArtifactsShape, "writeJson">
-) {
-  const finalized = yield* finalizeJiraPublication(prepared, outcomes)
-  const planRef = yield* artifacts.writeJson(
-    prepared.orgSlug,
-    {
-      migrationId: prepared.manifest.migrationId,
-      scanRevision: prepared.manifest.scanRevision,
-      area: "publication",
-      kind: "plan-v1",
-      identity: finalized.publicationRevision
-    },
-    finalized.plan
-  )
-  return {
-    planRef,
-    publicationRevision: finalized.publicationRevision,
-    documentBatchCount: jiraDocumentBatches(finalized.plan.documents).length
-  }
-})
-
-export const loadJiraPublicationPlan = Effect.fn(
-  "JiraImport.loadPublicationPlan"
-)(function* (
-  orgSlug: string,
-  ref: JiraArtifactRef,
-  artifacts: Pick<JiraMigrationArtifactsShape, "verify" | "readJson">
-) {
-  yield* artifacts.verify(orgSlug, ref)
-  const plan = yield* artifacts.readJson(
-    orgSlug,
-    ref,
-    decodeUnknownJiraPublicationPlanV1
-  )
-  const encoded = yield* encodeJiraPublicationPlanV1(plan)
-  const publicationRevision = createHash("sha256")
-    .update(canonicalJiraJson(encoded))
-    .digest("hex")
-  return { plan, publicationRevision }
 })
 
 export const verifyJiraPermanentArchive = Effect.fn(
@@ -693,7 +409,9 @@ export const makeJiraMaterializationDependencies = (
       ),
     finalizePlan: (outcomes: ReadonlyArray<JiraAttachmentOutcome>) =>
       mapFailure(
-        persistJiraPublicationPlan(prepared, outcomes, services.artifacts)
+        persistJiraPublicationPlan(prepared, outcomes, services.artifacts).pipe(
+          Effect.provide(JiraPublicationFormatLive)
+        )
       ),
     writeDocumentBatch: (ref: JiraArtifactRef, ordinal: number) =>
       mapFailure(
@@ -1596,386 +1314,11 @@ export const verifyJiraHiddenMaterialization = Effect.fn(
   }
 })
 
-const commentBlocksFor = (
-  plan: JiraPublicationPlan,
-  ticketId: string
-): ReadonlyArray<CommentBlock> =>
-  plan.comments
-    .filter((comment) => comment.ticketId === ticketId)
-    .map((comment) => ({
-      id: comment.sourceCommentId.startsWith("c_")
-        ? comment.sourceCommentId
-        : `c_jira_${comment.sourceCommentId}`,
-      author: comment.author,
-      origin: "jira" as const,
-      createdAt: toDate(comment.createdAt),
-      editedAt: comment.editedAt === null ? null : toDate(comment.editedAt),
-      body: comment.body
-    }))
+import {
+  resolveJiraPublicationSource,
+  persistJiraPreparedPublication,
+  persistJiraPublicationPlan,
+  loadJiraPublicationPlan
+} from "@pp/server-core/jira/PublicationArtifacts"
 
-export type JiraImportDependencies = Readonly<{
-  db: Db["Service"]
-  projectDocs: ProjectDocsShape
-  ticketDocs: TicketDocsShape
-  groupDocs: GroupDocsShape
-  ticketIndex: TicketIndexShape
-}>
-
-export const writeJiraStagedDocuments = Effect.fn("JiraImport.writeDocuments")(
-  function* (
-    deps: JiraImportDependencies,
-    orgSlug: string,
-    ownerId: string,
-    plan: JiraPublicationPlan
-  ) {
-    const now = yield* DateTime.nowAsDate
-    const identity = deriveProjectIdentity(plan.project.slug)
-    yield* deps.projectDocs.write(orgSlug, plan.project.slug, {
-      org: orgSlug,
-      slug: plan.project.slug,
-      key: decodeProjectKey(plan.project.key),
-      name: plan.project.name,
-      icon: identity.icon,
-      color: identity.color,
-      createdBy: ownerId,
-      createdAt: now,
-      github: null,
-      estimation: "off",
-      setup: {
-        workflowReviewedAt: null,
-        invitePeopleDismissedAt: null,
-        connectGithubDismissedAt: null
-      },
-      body:
-        plan.project.body.trim() === ""
-          ? `# ${plan.project.name}
-`
-          : plan.project.body
-    })
-
-    yield* Effect.forEach(
-      plan.tickets,
-      (ticket) => {
-        const document = {
-          id: decodeTicketId(ticket.id),
-          title: ticket.title,
-          status: decodeStatusSlug(ticket.status),
-          type: ticket.type,
-          priority: ticket.priority,
-          tags: ticket.tags.map((tag) => decodeTagName(tag)),
-          branch: null,
-          pr: null,
-          prState: null,
-          lastTransitionedPr: null,
-          assignees: ticket.assignees,
-          archivedAt: null,
-          createdBy: ownerId,
-          updatedBy: ownerId,
-          createdAt: toDate(ticket.createdAt),
-          updatedAt: toDate(ticket.updatedAt),
-          body: ticket.body,
-          commentsRegion: serializeCommentsRegion(
-            commentBlocksFor(plan, ticket.id)
-          )
-        }
-        return deps.ticketDocs
-          .create(orgSlug, plan.project.slug, document)
-          .pipe(
-            Effect.catchTag("TicketIdTaken", () =>
-              deps.ticketDocs.write(
-                orgSlug,
-                plan.project.slug,
-                ticket.id,
-                document
-              )
-            )
-          )
-      },
-      { concurrency: 8, discard: true }
-    )
-
-    const colors = groupColors(plan.groups)
-    yield* Effect.forEach(
-      plan.groups.map((group, index) => ({ group, index })),
-      ({ group, index }) => {
-        const id = decodeGroupId(`G-${index + 1}`)
-        const document = {
-          id,
-          name: group.name,
-          kind: group.kind,
-          tickets: group.ticketIds.map((ticketId) => decodeTicketId(ticketId)),
-          color: decodeGroupColor(colors[index] ?? SPRINT_GROUP_COLOR),
-          startsAt: group.startsAt === null ? null : toDate(group.startsAt),
-          endsAt: group.endsAt === null ? null : toDate(group.endsAt),
-          completedAt:
-            group.completedAt === null ? null : toDate(group.completedAt),
-          createdBy: ownerId,
-          createdAt: now,
-          updatedAt: now,
-          body: group.body
-        }
-        return deps.groupDocs
-          .create(orgSlug, plan.project.slug, document)
-          .pipe(
-            Effect.catchTag("GroupIdTaken", () =>
-              deps.groupDocs.write(orgSlug, plan.project.slug, id, document)
-            )
-          )
-      },
-      { concurrency: 4, discard: true }
-    )
-  },
-  Effect.provideService(ActivityActor, ActivityActor.system("import"))
-)
-
-export function nextTicketNumberFor(plan: JiraPublicationPlan): number {
-  const numbers = plan.tickets.flatMap((ticket) => {
-    const parsed = Number.parseInt(ticket.id.split("-").at(-1) ?? "", 10)
-    return Number.isFinite(parsed) ? [parsed] : []
-  })
-  return numbers.length === 0 ? 1 : Math.max(...numbers) + 1
-}
-
-export type JiraImportMember = Readonly<{
-  userId: string
-  username: string
-  role: "owner" | "member"
-}>
-
-export const resolveJiraImportMembers = Effect.fn("JiraImport.members")(
-  function* (
-    deps: JiraImportDependencies,
-    ownerId: string,
-    plan: JiraPublicationPlan
-  ) {
-    const referenced = new Set<string>([ownerId])
-    for (const ticket of plan.tickets) {
-      for (const assignee of ticket.assignees) referenced.add(assignee)
-    }
-    for (const comment of plan.comments) {
-      if (comment.author.kind === "user") referenced.add(comment.author.userId)
-    }
-    const rows = yield* deps.db
-      .select({
-        id: userTable.id,
-        username: userTable.username,
-        email: userTable.email
-      })
-      .from(userTable)
-      .where(inArray(userTable.id, [...referenced]))
-      .pipe(Effect.orDie)
-    return rows.map(
-      (row): JiraImportMember => ({
-        userId: row.id,
-        username: row.username ?? row.email,
-        role: row.id === ownerId ? "owner" : "member"
-      })
-    )
-  }
-)
-
-export const jiraImportEnvironment = Effect.fn("JiraImport.environment")(
-  function* (
-    deps: JiraImportDependencies,
-    organizationId: string,
-    ownedProjectSlug: string | null = null
-  ) {
-    const projects = yield* deps.db
-      .select({ slug: projectIndex.slug, key: projectIndex.key })
-      .from(projectIndex)
-      .where(eq(projectIndex.organizationId, organizationId))
-      .pipe(Effect.orDie)
-    const tickets = yield* deps.db
-      .select({
-        ticketId: ticketIndex.ticketId,
-        projectSlug: projectIndex.slug
-      })
-      .from(ticketIndex)
-      .innerJoin(projectIndex, eq(projectIndex.id, ticketIndex.projectId))
-      .where(eq(ticketIndex.organizationId, organizationId))
-      .pipe(Effect.orDie)
-    const users = yield* deps.db
-      .select({ id: userTable.id })
-      .from(userTable)
-      .pipe(Effect.orDie)
-    const reservedSlugs = yield* deps.db
-      .select({ slug: projectIndex.slug })
-      .from(projectIndex)
-      .where(eq(projectIndex.organizationId, organizationId))
-      .pipe(Effect.orDie)
-    const owned = projects.filter(({ slug }) => slug === ownedProjectSlug)
-    const others = projects.filter(({ slug }) => slug !== ownedProjectSlug)
-    const ownedTicketIds = new Set(
-      owned.length === 0
-        ? []
-        : tickets
-            .filter(({ projectSlug }) => projectSlug === ownedProjectSlug)
-            .map(({ ticketId }) => ticketId)
-    )
-    return {
-      existingProjectSlugs: reservedSlugs
-        .map(({ slug }) => slug)
-        .filter((slug) => slug !== ownedProjectSlug),
-      existingProjectKeys: others.map(({ key }) => key),
-      existingTicketIds: tickets
-        .filter(({ ticketId }) => !ownedTicketIds.has(ticketId))
-        .map(({ ticketId }) => ticketId),
-      existingUserIds: users.map(({ id }) => id),
-      existingStatusSlugs: ["todo", "in_progress", "done"]
-    } satisfies JiraPreflightEnvironment
-  }
-)
-
-export type JiraAttachmentCopyInput = Readonly<{
-  organizationId: string
-  orgSlug: string
-  projectId: string
-  projectSlug: string
-  userId: string
-  cloudId: string
-  connection: S3Connection
-  ticketIdBySourceIssueId: ReadonlyMap<string, string>
-  attachments: ReadonlyArray<JiraManifestAttachment>
-}>
-
-export const copyJiraAttachments = Effect.fn("JiraImport.copyAttachments")(
-  function* (
-    deps: JiraImportDependencies,
-    jira: Pick<JiraClientShape, "attachmentContent">,
-    s3: S3StorageShape,
-    input: JiraAttachmentCopyInput
-  ) {
-    const urls: Record<string, string> = {}
-    const alreadyCopied = yield* deps.db
-      .select({
-        id: attachmentIndex.id,
-        ticketId: attachmentIndex.ticketId,
-        filename: attachmentIndex.filename,
-        byteSize: attachmentIndex.byteSize
-      })
-      .from(attachmentIndex)
-      .where(
-        and(
-          eq(attachmentIndex.organizationId, input.organizationId),
-          eq(attachmentIndex.projectId, input.projectId)
-        )
-      )
-      .pipe(Effect.orDie)
-    const existingByKey = new Map(
-      alreadyCopied.map((row) => [
-        `${row.ticketId}|${row.filename}|${row.byteSize}`,
-        row.id
-      ])
-    )
-
-    yield* Effect.forEach(
-      input.attachments,
-      (attachment) =>
-        Effect.gen(function* () {
-          const ticketId = input.ticketIdBySourceIssueId.get(attachment.issueId)
-          if (!ticketId) return
-          const existingId = existingByKey.get(
-            `${ticketId}|${attachment.filename}|${attachment.byteSize}`
-          )
-          if (existingId) {
-            urls[attachment.id] = attachmentUrl(input.orgSlug, existingId)
-            return
-          }
-          const id = ulid()
-          const objectKey = attachmentObjectKey({
-            keyPrefix: input.connection.keyPrefix,
-            orgSlug: input.orgSlug,
-            projectSlug: input.projectSlug,
-            ticketId,
-            attachmentId: id,
-            filename: attachment.filename
-          })
-          const chunks = yield* Stream.runCollect(
-            jira.attachmentContent(input.userId, input.cloudId, attachment.id)
-          )
-          const parts = [...chunks]
-          const total = parts.reduce((sum, part) => sum + part.length, 0)
-          const bytes = new Uint8Array(total)
-          let offset = 0
-          for (const part of parts) {
-            bytes.set(part, offset)
-            offset += part.length
-          }
-          yield* s3.putObject(
-            input.connection,
-            objectKey,
-            attachment.mimeType,
-            bytes
-          )
-          yield* deps.db
-            .insert(attachmentIndex)
-            .values({
-              id,
-              organizationId: input.organizationId,
-              orgSlug: input.orgSlug,
-              projectId: input.projectId,
-              ticketId,
-              objectKey,
-              filename: attachment.filename,
-              contentType: attachment.mimeType,
-              byteSize: bytes.length,
-              status: "pending",
-              uploadedBy: input.userId
-            })
-            .pipe(Effect.orDie)
-          urls[attachment.id] = attachmentUrl(input.orgSlug, id)
-        }),
-      { concurrency: 4, discard: true }
-    )
-    return urls
-  }
-)
-
-export const markJiraAttachmentsLive = Effect.fn("JiraImport.attachmentsLive")(
-  function* (
-    deps: JiraImportDependencies,
-    organizationId: string,
-    projectId: string
-  ) {
-    yield* deps.db
-      .update(attachmentIndex)
-      .set({ status: "live" })
-      .where(
-        and(
-          eq(attachmentIndex.organizationId, organizationId),
-          eq(attachmentIndex.projectId, projectId),
-          eq(attachmentIndex.status, "pending")
-        )
-      )
-      .pipe(Effect.orDie)
-  }
-)
-
-export { aliasJiraMediaReferences } from "./PublicationPlan"
-
-export const reconcileJiraAttachmentReferences = Effect.fn(
-  "JiraImport.reconcileAttachments"
-)(function* (
-  attachments: Pick<AttachmentsShape, "reconcileTicket">,
-  orgSlug: string,
-  plan: JiraPublicationPlan
-) {
-  const commentsByTicket = new Map<string, Array<string>>()
-  for (const comment of plan.comments) {
-    const existing = commentsByTicket.get(comment.ticketId)
-    if (existing) existing.push(comment.body)
-    else commentsByTicket.set(comment.ticketId, [comment.body])
-  }
-
-  yield* Effect.forEach(
-    plan.tickets,
-    (ticket) =>
-      attachments.reconcileTicket(
-        orgSlug,
-        plan.project.slug,
-        ticket.id,
-        [ticket.body, ...(commentsByTicket.get(ticket.id) ?? [])].join("\n\n")
-      ),
-    { concurrency: 8, discard: true }
-  )
-})
+import { JiraPublicationFormatLive } from "./HostLive"
