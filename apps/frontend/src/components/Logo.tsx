@@ -1,5 +1,5 @@
-import logoSvg from "../public/logo/logo.svg?raw"
-import wordmarkSvg from "../public/logo/wordmark.svg?raw"
+import logoSvg from "@/assets/logo/logo.svg?raw"
+import wordmarkSvg from "@/assets/logo/wordmark.svg?raw"
 
 // SVGs imported via Vite `?raw` at build time — static asset, never user input.
 
