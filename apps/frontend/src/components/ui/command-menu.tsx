@@ -32,7 +32,7 @@ import {
   useRegisterFluidHoverItem,
   type UseFluidHoverReturn
 } from "@/hooks/use-fluid-hover"
-import type { IconComponent } from "@/lib/icon-context"
+import type { IconComponent } from "@/lib/icon"
 import { shapeMap } from "@/lib/shape-context"
 import { useSize } from "@/lib/size-context"
 import { spring } from "@/lib/springs"

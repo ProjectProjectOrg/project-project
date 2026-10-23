@@ -16,7 +16,7 @@ import {
 
 import { useProximityHover } from "@/hooks/use-proximity-hover"
 import { fontWeights } from "@/lib/font-weight"
-import type { IconComponent } from "@/lib/icon-context"
+import type { IconComponent } from "@/lib/icon"
 import {
   shapeMap,
   useShape,

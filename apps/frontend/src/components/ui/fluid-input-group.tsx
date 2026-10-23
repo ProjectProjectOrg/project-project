@@ -14,7 +14,7 @@ import {
 } from "react"
 
 import { fontWeights } from "@/lib/font-weight"
-import type { IconComponent } from "@/lib/icon-context"
+import type { IconComponent } from "@/lib/icon"
 import { useShape } from "@/lib/shape-context"
 import { cn } from "@/lib/utils"
 
