@@ -3,7 +3,7 @@ import { AppApi } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/http-api"
 
-import { dieOnMarkdown, thenSyncEverhour } from "./lib"
+import { dieOnMarkdown } from "./lib"
 
 export const StatusesHandlerLive = HttpApiBuilder.group(
   AppApi,
@@ -23,7 +23,7 @@ export const StatusesHandlerLive = HttpApiBuilder.group(
       .handle("update", ({ params, payload }) =>
         Effect.flatMap(ProjectStatuses, (statuses) =>
           statuses.update(params.statusSlug, payload)
-        ).pipe(thenSyncEverhour, dieOnMarkdown)
+        ).pipe(dieOnMarkdown)
       )
       .handle("reorder", ({ params, payload }) =>
         Effect.flatMap(ProjectStatuses, (statuses) =>
@@ -33,6 +33,6 @@ export const StatusesHandlerLive = HttpApiBuilder.group(
       .handle("remove", ({ params, query }) =>
         Effect.flatMap(ProjectStatuses, (statuses) =>
           statuses.remove(params.statusSlug, { reassignTo: query.reassignTo })
-        ).pipe(thenSyncEverhour, dieOnMarkdown)
+        ).pipe(dieOnMarkdown)
       )
 )

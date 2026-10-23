@@ -101,7 +101,8 @@ describe("parseTimeRecord", () => {
         userId: "1304",
         seconds: 3600,
         date: "2018-01-20",
-        comment: "T-12 — Fix the thing"
+        comment: "T-12 — Fix the thing",
+        history: []
       })
     })
   )
@@ -117,7 +118,8 @@ describe("parseTimeRecord", () => {
           userId: "1362384",
           seconds: 60,
           date: "2024-10-18",
-          comment: null
+          comment: null,
+          history: [{ id: "370578249", seconds: 60 }]
         })
       })
   )

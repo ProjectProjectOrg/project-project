@@ -38,6 +38,7 @@ import {
   EverhourAuthInvalid,
   EverhourConfigMissing,
   EverhourError,
+  EverhourProjectAccessDenied,
   EverhourRateLimited,
   FigmaAuthInvalid,
   FigmaError,
@@ -897,6 +898,7 @@ const EverhourGroup = HttpApiGroup.make("everhour")
           Forbidden,
           EverhourApiKeyMissing,
           EverhourAuthInvalid,
+          EverhourProjectAccessDenied,
           EverhourRateLimited,
           EverhourConfigMissing,
           EverhourError
@@ -920,6 +922,7 @@ const EverhourGroup = HttpApiGroup.make("everhour")
           Forbidden,
           EverhourApiKeyMissing,
           EverhourAuthInvalid,
+          EverhourProjectAccessDenied,
           EverhourRateLimited,
           EverhourConfigMissing,
           EverhourError
@@ -981,6 +984,7 @@ const EverhourGroup = HttpApiGroup.make("everhour")
           Forbidden,
           EverhourApiKeyMissing,
           EverhourAuthInvalid,
+          EverhourProjectAccessDenied,
           EverhourRateLimited,
           EverhourConfigMissing,
           EverhourError

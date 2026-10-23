@@ -4,6 +4,7 @@ import type {
   EverhourAuthInvalid,
   EverhourConfigMissing,
   EverhourError,
+  EverhourProjectAccessDenied,
   EverhourRateLimited,
   LogTimeInput,
   NotFound,
@@ -27,6 +28,10 @@ export type EverhourTimeTrackingError =
   | EverhourConfigMissing
   | EverhourError
 
+export type EverhourLogTimeError =
+  | EverhourTimeTrackingError
+  | EverhourProjectAccessDenied
+
 export interface EverhourTimeTrackingShape {
   readonly workTypesForTicket: (
     ticketId: string
@@ -34,11 +39,11 @@ export interface EverhourTimeTrackingShape {
   readonly startTicketTimer: (
     ticketId: string,
     input: StartTimerInput
-  ) => Effect.Effect<ActiveTimer, EverhourTimeTrackingError, ProjectScope>
+  ) => Effect.Effect<ActiveTimer, EverhourLogTimeError, ProjectScope>
   readonly startSprintTimer: (
     groupId: string,
     input: StartSprintTimerInput
-  ) => Effect.Effect<ActiveTimer, EverhourTimeTrackingError, ProjectScope>
+  ) => Effect.Effect<ActiveTimer, EverhourLogTimeError, ProjectScope>
   readonly stopTimer: () => Effect.Effect<
     ActiveTimer | null,
     EverhourTimeTrackingError,
@@ -53,7 +58,7 @@ export interface EverhourTimeTrackingShape {
     input: LogTimeInput
   ) => Effect.Effect<
     TicketTimeSummary | null,
-    EverhourTimeTrackingError,
+    EverhourLogTimeError,
     ProjectScope
   >
   readonly ticketTimeSummary: (

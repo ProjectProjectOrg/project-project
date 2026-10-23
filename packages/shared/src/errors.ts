@@ -193,6 +193,12 @@ export class EverhourAuthInvalid extends Schema.TaggedError<EverhourAuthInvalid>
   { httpApiStatus: 401 }
 ) {}
 
+export class EverhourProjectAccessDenied extends Schema.TaggedError<EverhourProjectAccessDenied>()(
+  "EverhourProjectAccessDenied",
+  {},
+  { httpApiStatus: 403 }
+) {}
+
 export class EverhourRateLimited extends Schema.TaggedError<EverhourRateLimited>()(
   "EverhourRateLimited",
   { retryAfterSeconds: Schema.Finite },

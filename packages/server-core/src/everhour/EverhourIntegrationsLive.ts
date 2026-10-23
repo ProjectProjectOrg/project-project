@@ -6,6 +6,7 @@ import {
   organizationIntegration,
   projectEverhourIntegration,
   projectIntegrationLink,
+  projectMember,
   userEverhourIntegration
 } from "@pp/db/schema"
 import {
@@ -32,7 +33,7 @@ import { GroupDocs } from "../groups/GroupDocs"
 import { SecretCrypto } from "../storage/SecretCrypto"
 import { TicketIndex } from "../tickets/TicketIndex"
 import { Everhour } from "./Everhour"
-import type { EverhourClientError, EverhourTaskPayload } from "./Everhour"
+import type { EverhourTaskPayload } from "./Everhour"
 import {
   EverhourIntegrations,
   type EverhourIntegrationsShape
@@ -386,16 +387,29 @@ export const EverhourIntegrationsLive = Layer.effect(
           .pipe(Effect.orDie)
       })
 
-    const mutate = <A>(effect: Effect.Effect<A, EverhourClientError>) =>
+    const assignProjectMembers = (
+      apiKey: string,
+      link: ActiveLink,
+      assigned: ReadonlyArray<string>
+    ) =>
       Effect.gen(function* () {
-        yield* Effect.sleep(Duration.millis(600))
-        return yield* effect.pipe(
-          Effect.catchTag("EverhourRateLimited", (error) =>
-            Effect.sleep(Duration.seconds(error.retryAfterSeconds)).pipe(
-              Effect.andThen(effect)
-            )
+        const members = yield* db
+          .select({ everhourUserId: userEverhourIntegration.everhourUserId })
+          .from(projectMember)
+          .innerJoin(
+            userEverhourIntegration,
+            eq(userEverhourIntegration.userId, projectMember.userId)
           )
-        )
+          .where(eq(projectMember.projectId, link.projectId))
+          .pipe(Effect.orDie)
+        const missing = [
+          ...new Set(members.map((member) => member.everhourUserId))
+        ].filter((id) => !assigned.includes(id))
+        if (missing.length === 0) return
+        yield* everhour.assignProjectUsers(apiKey, link.everhourProjectId, [
+          ...assigned,
+          ...missing
+        ])
       })
 
     const createOrReuseProjectLink = (
@@ -433,13 +447,11 @@ export const EverhourIntegrationsLive = Layer.effect(
           )
         }
         const index = yield* indexById(project.projectId)
-        const remote = yield* mutate(
-          everhour.createProject(actor.apiKey, {
-            name: index.name,
-            type: "board",
-            users: [actor.everhourUserId]
-          })
-        )
+        const remote = yield* everhour.createProject(actor.apiKey, {
+          name: index.name,
+          type: "board",
+          users: [actor.everhourUserId]
+        })
         const now = yield* DateTime.nowAsDate
         const row = yield* sql
           .withTransaction(
@@ -593,8 +605,10 @@ export const EverhourIntegrationsLive = Layer.effect(
         for (const section of desired) {
           const row = existingByKey.get(section.localKey)
           if (!row) {
-            const created = yield* mutate(
-              everhour.createSection(apiKey, link.everhourProjectId, section)
+            const created = yield* everhour.createSection(
+              apiKey,
+              link.everhourProjectId,
+              section
             )
             yield* db
               .insert(everhourSectionLink)
@@ -613,8 +627,10 @@ export const EverhourIntegrationsLive = Layer.effect(
             row.name !== section.name ||
             row.status !== section.status
           ) {
-            const updated = yield* mutate(
-              everhour.updateSection(apiKey, row.everhourSectionId, section)
+            const updated = yield* everhour.updateSection(
+              apiKey,
+              row.everhourSectionId,
+              section
             )
             yield* db
               .update(everhourSectionLink)
@@ -638,12 +654,10 @@ export const EverhourIntegrationsLive = Layer.effect(
           if (desiredKeys.has(row.localKey) || row.status === "archived") {
             continue
           }
-          yield* mutate(
-            everhour.updateSection(apiKey, row.everhourSectionId, {
-              name: row.name,
-              status: "archived"
-            })
-          )
+          yield* everhour.updateSection(apiKey, row.everhourSectionId, {
+            name: row.name,
+            status: "archived"
+          })
           yield* db
             .update(everhourSectionLink)
             .set({ status: "archived", lastSyncedAt: now })
@@ -699,8 +713,10 @@ export const EverhourIntegrationsLive = Layer.effect(
             status: desired.status
           } satisfies EverhourTaskPayload
           if (action === "create") {
-            const created = yield* mutate(
-              everhour.createTask(apiKey, link.everhourProjectId, payload)
+            const created = yield* everhour.createTask(
+              apiKey,
+              link.everhourProjectId,
+              payload
             )
             yield* db
               .insert(everhourWorkTypeTaskLink)
@@ -717,9 +733,7 @@ export const EverhourIntegrationsLive = Layer.effect(
             summary.tasksCreated++
             continue
           }
-          yield* mutate(
-            everhour.updateTask(apiKey, row!.everhourTaskId, payload)
-          )
+          yield* everhour.updateTask(apiKey, row!.everhourTaskId, payload)
           yield* db
             .update(everhourWorkTypeTaskLink)
             .set({
@@ -762,7 +776,7 @@ export const EverhourIntegrationsLive = Layer.effect(
             )
         const index = yield* indexById(project.projectId)
         const summary = emptySummary()
-        yield* everhour
+        const remote = yield* everhour
           .getProject(apiKey, link.everhourProjectId)
           .pipe(
             Effect.catch((error) =>
@@ -776,11 +790,9 @@ export const EverhourIntegrationsLive = Layer.effect(
             )
           )
         if (link.everhourProjectName !== index.name) {
-          yield* mutate(
-            everhour.updateProject(apiKey, link.everhourProjectId, {
-              name: index.name
-            })
-          )
+          yield* everhour.updateProject(apiKey, link.everhourProjectId, {
+            name: index.name
+          })
           yield* db
             .update(projectEverhourIntegration)
             .set({ everhourProjectName: index.name })
@@ -792,6 +804,7 @@ export const EverhourIntegrationsLive = Layer.effect(
             )
             .pipe(Effect.orDie)
         }
+        yield* assignProjectMembers(apiKey, link, remote.users)
         yield* syncSections(apiKey, link, summary, orgSlug, slug)
         const orgIntegration = yield* db.query.organizationIntegration
           .findFirst({

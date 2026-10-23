@@ -29,7 +29,12 @@ import { Access } from "../access/Access"
 import { GroupDocs } from "../groups/GroupDocs"
 import { SecretCrypto } from "../storage/SecretCrypto"
 import { TicketDocs } from "../tickets/TicketDocs"
-import { Everhour, type EverhourTimeRecord } from "./Everhour"
+import {
+  Everhour,
+  type EverhourTimeEntry,
+  type EverhourTimeRecord,
+  type EverhourTrackingError
+} from "./Everhour"
 import {
   EverhourTimeTracking,
   type EverhourTimeTrackingShape
@@ -72,6 +77,15 @@ export const summariseAttribution = (
   return { totalSeconds, userSeconds }
 }
 
+export const latestEntry = (
+  record: EverhourTimeRecord
+): EverhourTimeEntry | null =>
+  record.history.reduce<EverhourTimeEntry | null>(
+    (latest, entry) =>
+      latest === null || Number(entry.id) > Number(latest.id) ? entry : latest,
+    null
+  )
+
 export const resolveSprintForTicket = (
   sprints: ReadonlyArray<{
     readonly id: string
@@ -88,6 +102,20 @@ export const workTypeOptions = (
     .sort((a, b) => a.order - b.order)
     .map((workType) => ({ key: workType.key, label: workType.label }))
 
+type AttributionContext = Readonly<{
+  projectIntegrationLinkId: string
+  ticketId: string | null
+  groupId: string
+  workTypeKey: string
+  everhourUserId: string
+  userId: string
+}>
+
+type TrackingLink = Readonly<{
+  everhourProjectId: string
+  lastSyncActorUserId: string | null
+}>
+
 export const EverhourTimeTrackingLive = Layer.effect(
   EverhourTimeTracking,
   Effect.gen(function* () {
@@ -103,7 +131,8 @@ export const EverhourTimeTrackingLive = Layer.effect(
         .select({
           linkId: projectIntegrationLink.id,
           organizationId: projectIntegrationLink.organizationId,
-          everhourProjectId: projectEverhourIntegration.everhourProjectId
+          everhourProjectId: projectEverhourIntegration.everhourProjectId,
+          lastSyncActorUserId: projectEverhourIntegration.lastSyncActorUserId
         })
         .from(projectIntegrationLink)
         .innerJoin(
@@ -250,35 +279,73 @@ export const EverhourTimeTrackingLive = Layer.effect(
 
     const writeAttribution = (
       record: EverhourTimeRecord,
-      context: {
-        readonly projectIntegrationLinkId: string
-        readonly ticketId: string | null
-        readonly groupId: string
-        readonly workTypeKey: string
-        readonly everhourUserId: string
-        readonly userId: string
-      },
+      context: AttributionContext,
       now: Date
     ) =>
-      db
-        .insert(everhourTimeAttribution)
-        .values({
-          everhourTimeId: record.id,
-          projectIntegrationLinkId: context.projectIntegrationLinkId,
-          ticketId: context.ticketId,
-          groupId: context.groupId,
-          workTypeKey: context.workTypeKey,
-          everhourUserId: context.everhourUserId,
-          userId: context.userId,
-          seconds: record.seconds,
-          date: record.date,
-          updatedAt: now
-        })
-        .onConflictDoUpdate({
-          target: everhourTimeAttribution.everhourTimeId,
-          set: { seconds: record.seconds, date: record.date, updatedAt: now }
-        })
-        .pipe(Effect.orDie)
+      Effect.gen(function* () {
+        const entry = latestEntry(record)
+        if (entry === null) {
+          yield* Effect.logWarning(
+            "Everhour time record has no history; attribution skipped"
+          ).pipe(Effect.annotateLogs({ everhourTimeId: record.id }))
+          return
+        }
+        yield* db
+          .insert(everhourTimeAttribution)
+          .values({
+            everhourEntryId: entry.id,
+            everhourTimeId: record.id,
+            ...context,
+            seconds: entry.seconds,
+            date: record.date,
+            updatedAt: now
+          })
+          .onConflictDoNothing()
+          .pipe(Effect.orDie)
+      })
+
+    const recordEverhourEdits = (record: EverhourTimeRecord, now: Date) =>
+      Effect.gen(function* () {
+        const known = yield* db.query.everhourTimeAttribution
+          .findMany({
+            where: {
+              RAW: (table, _operators) =>
+                _operators.eq(table.everhourTimeId, record.id)
+            }
+          })
+          .pipe(Effect.orDie)
+        const [template] = known
+        if (!template) return
+        if (record.seconds === 0) {
+          yield* db
+            .delete(everhourTimeAttribution)
+            .where(eq(everhourTimeAttribution.everhourTimeId, record.id))
+            .pipe(Effect.orDie)
+          return
+        }
+        const knownIds = new Set(known.map((row) => row.everhourEntryId))
+        const edits = record.history.filter((entry) => !knownIds.has(entry.id))
+        if (edits.length === 0) return
+        yield* db
+          .insert(everhourTimeAttribution)
+          .values(
+            edits.map((entry) => ({
+              everhourEntryId: entry.id,
+              everhourTimeId: record.id,
+              projectIntegrationLinkId: template.projectIntegrationLinkId,
+              ticketId: null,
+              groupId: template.groupId,
+              workTypeKey: template.workTypeKey,
+              everhourUserId: template.everhourUserId,
+              userId: template.userId,
+              seconds: entry.seconds,
+              date: record.date,
+              updatedAt: now
+            }))
+          )
+          .onConflictDoNothing()
+          .pipe(Effect.orDie)
+      })
 
     const clearActiveTimer = (everhourUserId: string) =>
       db
@@ -295,6 +362,50 @@ export const EverhourTimeTrackingLive = Layer.effect(
           }
         })
         .pipe(Effect.orDie)
+
+    const assignToProject = (link: TrackingLink, everhourUserId: string) =>
+      Effect.gen(function* () {
+        if (link.lastSyncActorUserId === null) return false
+        const owner = yield* actorApiKey(link.lastSyncActorUserId)
+        const project = yield* everhour.getProject(
+          owner.apiKey,
+          link.everhourProjectId
+        )
+        if (project.users.includes(everhourUserId)) return false
+        yield* everhour.assignProjectUsers(
+          owner.apiKey,
+          link.everhourProjectId,
+          [...project.users, everhourUserId]
+        )
+        return true
+      }).pipe(
+        Effect.catch((error) =>
+          Effect.logWarning("Everhour project assignment failed").pipe(
+            Effect.annotateLogs({
+              everhourProjectId: link.everhourProjectId,
+              everhourUserId,
+              errorTag: error._tag
+            }),
+            Effect.as(false)
+          )
+        )
+      )
+
+    const withProjectAccess = <A>(
+      link: TrackingLink,
+      everhourUserId: string,
+      track: Effect.Effect<A, EverhourTrackingError>
+    ) =>
+      track.pipe(
+        Effect.catchTag("EverhourProjectAccessDenied", (denied) =>
+          assignToProject(link, everhourUserId).pipe(
+            Effect.flatMap(
+              (assigned): Effect.Effect<A, EverhourTrackingError> =>
+                assigned ? track : Effect.fail(denied)
+            )
+          )
+        )
+      )
 
     const visibleTimer = (row: typeof everhourActiveTimer.$inferSelect) =>
       Effect.gen(function* () {
@@ -383,10 +494,14 @@ export const EverhourTimeTrackingLive = Layer.effect(
           : null
         yield* finalizeRunning(actor.apiKey, actor.everhourUserId)
         const comment = timerComment(ticketId, title, note)
-        const timer = yield* everhour.startTimer(actor.apiKey, {
-          task: task.everhourTaskId,
-          comment: comment.length > 0 ? comment : undefined
-        })
+        const timer = yield* withProjectAccess(
+          link,
+          actor.everhourUserId,
+          everhour.startTimer(actor.apiKey, {
+            task: task.everhourTaskId,
+            comment: comment.length > 0 ? comment : undefined
+          })
+        )
         const now = yield* DateTime.nowAsDate
         yield* db
           .insert(everhourActiveTimer)
@@ -528,12 +643,16 @@ export const EverhourTimeTrackingLive = Layer.effect(
           ? yield* ticketTitle(orgSlug, slug, ticketId)
           : null
         const comment = timerComment(ticketId, title, input.comment)
-        const record = yield* everhour.addTime(actor.apiKey, {
-          task: task.everhourTaskId,
-          time: input.seconds,
-          date: input.date,
-          comment: comment.length > 0 ? comment : undefined
-        })
+        const record = yield* withProjectAccess(
+          link,
+          actor.everhourUserId,
+          everhour.addTime(actor.apiKey, {
+            task: task.everhourTaskId,
+            time: input.seconds,
+            date: input.date,
+            comment: comment.length > 0 ? comment : undefined
+          })
+        )
         const now = yield* DateTime.nowAsDate
         yield* writeAttribution(
           record,
@@ -621,25 +740,7 @@ export const EverhourTimeTrackingLive = Layer.effect(
             yield* clearActiveTimer(matched.everhourUserId)
             return
           }
-          const existing = yield* db.query.everhourTimeAttribution
-            .findFirst({
-              where: {
-                RAW: (table, _operators) =>
-                  _operators.eq(table.everhourTimeId, record.id)
-              }
-            })
-            .pipe(Effect.orDie)
-          if (existing) {
-            yield* db
-              .update(everhourTimeAttribution)
-              .set({
-                seconds: record.seconds,
-                date: record.date,
-                updatedAt: now
-              })
-              .where(eq(everhourTimeAttribution.everhourTimeId, record.id))
-              .pipe(Effect.orDie)
-          }
+          yield* recordEverhourEdits(record, now)
         }).pipe(Effect.ignore)
 
     return {

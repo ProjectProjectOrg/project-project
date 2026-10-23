@@ -1,0 +1,120 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "7cc53ac6-4c32-4f28-bf63-da11d83d9533",
+  "prevIds": [
+    "1cb80437-c33c-4d68-914f-66fdd82aba59"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "everhour_time_attribution",
+        "everhour_entry_id"
+      ],
+      "writes": [
+        "s|col|public.everhour_time_attribution.everhour_entry_id",
+        "n|col|public.everhour_time_attribution.everhour_entry_id",
+        "e|col|public.everhour_time_attribution.everhour_entry_id"
+      ],
+      "reads": [
+        "n|tbl|public.everhour_time_attribution",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "alter_pk",
+      "statementTarget": [
+        "table",
+        "public",
+        "everhour_time_attribution"
+      ],
+      "writes": [
+        "s|pk|public.everhour_time_attribution"
+      ],
+      "reads": [
+        "n|tbl|public.everhour_time_attribution",
+        "n|sch|public",
+        "n|col|public.everhour_time_attribution.everhour_entry_id"
+      ],
+      "sharedWrites": [
+        "e|uniqueness|public.everhour_time_attribution.everhour_time_id"
+      ],
+      "sqlHash": "fb920bcfdbb3c21d"
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "everhour_time_attribution",
+        "everhour_time_attribution_time_idx"
+      ],
+      "writes": [
+        "s|idx|public.everhour_time_attribution_time_idx",
+        "n|idx|public.everhour_time_attribution_time_idx",
+        "e|idx|public.everhour_time_attribution_time_idx",
+        "n|rel|public.everhour_time_attribution_time_idx"
+      ],
+      "reads": [
+        "n|tbl|public.everhour_time_attribution",
+        "n|sch|public",
+        "n|col|public.everhour_time_attribution.everhour_time_id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "everhour_time_attribution",
+        "name": "everhour_entry_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "everhour_time_attribution",
+        "name": "everhour_time_attribution_time_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "everhour_time_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "pks\u0000[\"public\",\"everhour_time_attribution\",\"everhour_time_attribution_pkey\"]",
+      "set": {
+        "columns": [
+          "everhour_entry_id"
+        ]
+      }
+    }
+  ]
+}

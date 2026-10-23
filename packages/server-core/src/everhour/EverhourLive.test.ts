@@ -1,9 +1,11 @@
 import { it } from "@effect/vitest"
-import { EverhourError } from "@pp/shared"
+import { EverhourError, EverhourProjectAccessDenied } from "@pp/shared"
 import * as Effect from "effect/Effect"
+import * as Fiber from "effect/Fiber"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
+import * as TestClock from "effect/testing/TestClock"
 import { afterEach, describe, expect, vi } from "vitest"
 
 import { Everhour } from "./Everhour"
@@ -13,6 +15,15 @@ const jsonResponse = (body: unknown) =>
   new Response(JSON.stringify(body), {
     status: 200,
     headers: { "Content-Type": "application/json" }
+  })
+
+const rateLimited = (retryAfterSeconds: number) =>
+  new Response(JSON.stringify({ code: 429, message: "Too Many Requests" }), {
+    status: 429,
+    headers: {
+      "Content-Type": "application/json",
+      "Retry-After": String(retryAfterSeconds)
+    }
   })
 
 type FetchImplementation = (
@@ -64,6 +75,103 @@ describe("EverhourLive response decoding", () => {
       const everhour = yield* Everhour
       const error = yield* Effect.flip(everhour.getCurrentUser("api-key"))
       expect(Schema.is(EverhourError)(error)).toBe(true)
+    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+  )
+
+  it.effect("reports time on an unassigned project as access denied", () =>
+    Effect.gen(function* () {
+      stubFetch(
+        vi.fn(
+          async () =>
+            new Response(
+              JSON.stringify({
+                code: 400,
+                message:
+                  "Time tracking is limited, since task #7197217677721262 belongs to the projects you don't have access to",
+                errorType: "task_provider_no_task_access"
+              }),
+              { status: 400, headers: { "Content-Type": "application/json" } }
+            )
+        )
+      )
+      const everhour = yield* Everhour
+      const error = yield* Effect.flip(
+        everhour.addTime("api-key", {
+          task: "ev:197217677721262",
+          time: 60,
+          date: "2026-10-23"
+        })
+      )
+      expect(Schema.is(EverhourProjectAccessDenied)(error)).toBe(true)
+    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+  )
+
+  it.effect("retries a rate-limited request after Retry-After", () =>
+    Effect.gen(function* () {
+      const fetch = vi
+        .fn<FetchImplementation>()
+        .mockResolvedValueOnce(rateLimited(2))
+        .mockResolvedValueOnce(
+          jsonResponse({ id: 42, name: "Luuk", email: null })
+        )
+      stubFetch(fetch)
+      const everhour = yield* Everhour
+      const pending = yield* everhour
+        .getCurrentUser("api-key")
+        .pipe(Effect.forkChild)
+      yield* TestClock.adjust("1 second")
+      expect(fetch).toHaveBeenCalledTimes(1)
+      yield* TestClock.adjust("2 seconds")
+      const user = yield* Fiber.join(pending)
+      expect(user.id).toBe("42")
+      expect(fetch).toHaveBeenCalledTimes(2)
+    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+  )
+
+  it.effect("fails at once when Everhour asks to wait over ten seconds", () =>
+    Effect.gen(function* () {
+      const fetch = vi.fn<FetchImplementation>(async () => rateLimited(30))
+      stubFetch(fetch)
+      const everhour = yield* Everhour
+      const error = yield* Effect.flip(everhour.getCurrentUser("api-key"))
+      expect(error).toMatchObject({
+        _tag: "EverhourRateLimited",
+        retryAfterSeconds: 30
+      })
+      expect(fetch).toHaveBeenCalledTimes(1)
+    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+  )
+
+  it.effect("returns the record a stopped timer saved, with its history", () =>
+    Effect.gen(function* () {
+      stubFetch(
+        vi.fn(async () =>
+          jsonResponse({
+            status: "stopped",
+            taskTime: {
+              user: 1447327,
+              history: [
+                { id: 473389371, time: 60, previousTime: 0, action: "TIMER" }
+              ],
+              id: 277062174,
+              date: "2026-10-23",
+              time: 60,
+              comment: "T-1 — Fix the thing"
+            }
+          })
+        )
+      )
+      const everhour = yield* Everhour
+      const record = yield* everhour.stopTimer("api-key")
+      expect(record).toEqual({
+        id: "277062174",
+        taskId: null,
+        userId: "1447327",
+        seconds: 60,
+        date: "2026-10-23",
+        comment: "T-1 — Fix the thing",
+        history: [{ id: "473389371", seconds: 60 }]
+      })
     }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
   )
 })

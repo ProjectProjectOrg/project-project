@@ -621,7 +621,8 @@ export const everhourActiveTimer = pgTable(
 export const everhourTimeAttribution = pgTable(
   "everhour_time_attribution",
   {
-    everhourTimeId: text("everhour_time_id").primaryKey(),
+    everhourEntryId: text("everhour_entry_id").primaryKey(),
+    everhourTimeId: text("everhour_time_id").notNull(),
     projectIntegrationLinkId: uuid("project_integration_link_id").notNull(),
     ticketId: text("ticket_id"),
     groupId: text("group_id").notNull(),
@@ -641,7 +642,8 @@ export const everhourTimeAttribution = pgTable(
     index("everhour_time_attribution_ticket_idx").on(
       t.projectIntegrationLinkId,
       t.ticketId
-    )
+    ),
+    index("everhour_time_attribution_time_idx").on(t.everhourTimeId)
   ]
 )
 

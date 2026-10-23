@@ -1,6 +1,7 @@
 import type {
   EverhourAuthInvalid,
   EverhourError,
+  EverhourProjectAccessDenied,
   EverhourRateLimited
 } from "@pp/shared"
 import * as Context from "effect/Context"
@@ -16,6 +17,7 @@ export interface EverhourProject {
   readonly id: string
   readonly name: string
   readonly type: "board" | "list"
+  readonly users: ReadonlyArray<string>
 }
 
 export interface EverhourSection {
@@ -48,6 +50,11 @@ export interface EverhourTimer {
   readonly startedAt: string | null
 }
 
+export type EverhourTimeEntry = Readonly<{
+  id: string
+  seconds: number
+}>
+
 export interface EverhourTimeRecord {
   readonly id: string
   readonly taskId: string | null
@@ -55,12 +62,17 @@ export interface EverhourTimeRecord {
   readonly seconds: number
   readonly date: string
   readonly comment: string | null
+  readonly history: ReadonlyArray<EverhourTimeEntry>
 }
 
 export type EverhourClientError =
   | EverhourAuthInvalid
   | EverhourRateLimited
   | EverhourError
+
+export type EverhourTrackingError =
+  | EverhourClientError
+  | EverhourProjectAccessDenied
 
 export interface EverhourShape {
   readonly getCurrentUser: (
@@ -82,6 +94,11 @@ export interface EverhourShape {
     apiKey: string,
     projectId: string,
     input: { readonly name: string }
+  ) => Effect.Effect<EverhourProject, EverhourClientError>
+  readonly assignProjectUsers: (
+    apiKey: string,
+    projectId: string,
+    users: ReadonlyArray<string>
   ) => Effect.Effect<EverhourProject, EverhourClientError>
   readonly createSection: (
     apiKey: string,
@@ -114,7 +131,7 @@ export interface EverhourShape {
       readonly comment?: string
       readonly userDate?: string
     }
-  ) => Effect.Effect<EverhourTimer, EverhourClientError>
+  ) => Effect.Effect<EverhourTimer, EverhourTrackingError>
   readonly stopTimer: (
     apiKey: string
   ) => Effect.Effect<EverhourTimeRecord | null, EverhourClientError>
@@ -129,7 +146,7 @@ export interface EverhourShape {
       readonly date: string
       readonly comment?: string
     }
-  ) => Effect.Effect<EverhourTimeRecord, EverhourClientError>
+  ) => Effect.Effect<EverhourTimeRecord, EverhourTrackingError>
   readonly createWebhook: (
     apiKey: string,
     input: { readonly targetUrl: string; readonly project: string }
