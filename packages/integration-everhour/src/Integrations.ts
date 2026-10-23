@@ -997,12 +997,23 @@ export const EverhourIntegrationsLive = Layer.effect(
           return yield* projectStatus(projectId)
         })
 
-    const releaseClaim = (linkId: string) =>
+    const updateSyncState = (
+      linkId: string,
+      patch: Partial<
+        Pick<
+          typeof projectEverhourIntegration.$inferInsert,
+          "syncClaimedUntil" | "syncRetryAt"
+        >
+      >
+    ) =>
       db
         .update(projectEverhourIntegration)
-        .set({ syncClaimedUntil: null })
+        .set(patch)
         .where(eq(projectEverhourIntegration.projectIntegrationLinkId, linkId))
         .pipe(Effect.orDie)
+
+    const releaseClaim = (linkId: string) =>
+      updateSyncState(linkId, { syncClaimedUntil: null })
 
     const completeSync = (linkId: string, requestedAt: string | null) =>
       Effect.gen(function* () {
@@ -1020,13 +1031,10 @@ export const EverhourIntegrationsLive = Layer.effect(
               )
             )
             .pipe(Effect.orDie)
-        yield* db
-          .update(projectEverhourIntegration)
-          .set({ syncClaimedUntil: null, syncRetryAt: null })
-          .where(
-            eq(projectEverhourIntegration.projectIntegrationLinkId, linkId)
-          )
-          .pipe(Effect.orDie)
+        yield* updateSyncState(linkId, {
+          syncClaimedUntil: null,
+          syncRetryAt: null
+        })
       })
 
     const later = (duration: Duration.Duration) =>
@@ -1035,28 +1043,17 @@ export const EverhourIntegrationsLive = Layer.effect(
       )
 
     const renewClaim = (linkId: string) =>
-      Effect.gen(function* () {
-        const until = yield* later(SYNC_LEASE)
-        yield* db
-          .update(projectEverhourIntegration)
-          .set({ syncClaimedUntil: until })
-          .where(
-            eq(projectEverhourIntegration.projectIntegrationLinkId, linkId)
-          )
-          .pipe(Effect.orDie)
-      })
+      Effect.flatMap(later(SYNC_LEASE), (until) =>
+        updateSyncState(linkId, { syncClaimedUntil: until })
+      )
 
     const deferSync = (linkId: string, duration: Duration.Duration) =>
-      Effect.gen(function* () {
-        const retryAt = yield* later(duration)
-        yield* db
-          .update(projectEverhourIntegration)
-          .set({ syncClaimedUntil: null, syncRetryAt: retryAt })
-          .where(
-            eq(projectEverhourIntegration.projectIntegrationLinkId, linkId)
-          )
-          .pipe(Effect.orDie)
-      })
+      Effect.flatMap(later(duration), (retryAt) =>
+        updateSyncState(linkId, {
+          syncClaimedUntil: null,
+          syncRetryAt: retryAt
+        })
+      )
 
     const claimSync = (linkId: string) =>
       Effect.gen(function* () {

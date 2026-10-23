@@ -68,7 +68,6 @@ type FakeEverhour = Readonly<{
   assignedWith: Array<string>
   settings: {
     team: ReadonlyArray<string>
-    failProjectRead: boolean
     assignDelay: Duration.Input
   }
   sections: Array<string>
@@ -83,7 +82,6 @@ const fakeEverhour = (users: ReadonlyArray<string>): FakeEverhour => {
   const assignedWith: Array<string> = []
   const settings: FakeEverhour["settings"] = {
     team: [],
-    failProjectRead: false,
     assignDelay: 0
   }
   const sections: Array<string> = []
@@ -102,9 +100,7 @@ const fakeEverhour = (users: ReadonlyArray<string>): FakeEverhour => {
     getProject: () =>
       Effect.suspend(() => {
         projectReads.count++
-        return settings.failProjectRead
-          ? Effect.fail(new EverhourError({ message: "Everhour is down" }))
-          : hooks.beforeProjectRead()
+        return hooks.beforeProjectRead()
       }).pipe(Effect.as(remote())),
     teamUserIds: () => Effect.sync(() => settings.team),
     createProject: () => Effect.sync(remote),
@@ -580,7 +576,8 @@ describe.skipIf(!databaseUrl)("Everhour project sync", () => {
       Effect.gen(function* () {
         const fixture = yield* seed
         const everhour = fakeEverhour([fixture.manager])
-        everhour.settings.failProjectRead = true
+        everhour.hooks.beforeProjectRead = () =>
+          Effect.fail(new EverhourError({ message: "Everhour is down" }))
         yield* as(
           fixture,
           fixture.developer
@@ -837,12 +834,13 @@ describe.skipIf(!databaseUrl)("Everhour background sync", () => {
     Effect.gen(function* () {
       const fixture = yield* seed
       const everhour = fakeEverhour([fixture.manager])
-      everhour.settings.failProjectRead = true
+      everhour.hooks.beforeProjectRead = () =>
+        Effect.fail(new EverhourError({ message: "Everhour is down" }))
       yield* requestSync(fixture)
       yield* Effect.gen(function* () {
         yield* syncRequested
         expect((yield* syncState(fixture)).sync_retry_at).not.toBeNull()
-        everhour.settings.failProjectRead = false
+        everhour.hooks.beforeProjectRead = () => Effect.void
         yield* as(
           fixture,
           fixture.manager
