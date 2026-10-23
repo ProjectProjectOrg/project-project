@@ -5,6 +5,7 @@ import { GroupDocs } from "@pp/server-core/groups/GroupDocs"
 import { Groups } from "@pp/server-core/groups/Groups"
 import { Library } from "@pp/server-core/library/Library"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
+import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
 import * as Projects from "@pp/server-core/projects/Projects"
 import { ProjectStatuses } from "@pp/server-core/projects/ProjectStatuses"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
@@ -17,9 +18,11 @@ import {
   expandTemplateKeepingHints,
   formatAttachmentMarkdown,
   formatBlockIssue,
+  GIT_AUTOMATION_EVENTS,
   isPristineTemplateBody,
   isRasterImageContentType,
   parseTicketBlocks,
+  permits,
   ProjectScope,
   serializeTicketBlocks,
   stripDefinitionHints,
@@ -34,9 +37,11 @@ import {
   type CreateGroupInput,
   type CreateTicketInput,
   type GroupFilter,
+  type GitAutomation,
   type GroupId,
   type Pagination,
   type Library as LibraryValue,
+  type ProjectStatus,
   type SprintState,
   type TemplateKey,
   type TicketId,
@@ -223,8 +228,27 @@ const get_ticket = (input: {
     return withBlocks(detail)
   })
 
+const statusesWithAutomation = (
+  statuses: ReadonlyArray<ProjectStatus>,
+  automation: GitAutomation
+) => ({
+  statuses: statuses.map((status) => ({
+    ...status,
+    setBy: GIT_AUTOMATION_EVENTS.filter(
+      (event) => automation.rules[event] === status.slug
+    )
+  })),
+  automationForwardOnly: automation.forwardOnly
+})
+
 const list_statuses = (_input: { orgSlug: string; projectSlug: string }) =>
-  Effect.flatMap(ProjectStatuses, (statuses) => statuses.list())
+  Effect.gen(function* () {
+    const statuses = yield* (yield* ProjectStatuses).list()
+    const scope = yield* ProjectScope
+    if (!permits(scope.permissions, { github: ["read"] })) return { statuses }
+    const automation = yield* (yield* ProjectGitAutomation).get()
+    return statusesWithAutomation(statuses, automation)
+  })
 
 const list_tags = (
   input: { orgSlug: string; projectSlug: string } & Pagination

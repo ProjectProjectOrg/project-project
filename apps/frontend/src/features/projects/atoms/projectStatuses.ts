@@ -63,6 +63,7 @@ export const createStatus = Atom.family((req: StatusesRequest) =>
               statuses.map((status) => status.color)
             ) as ProjectStatus["color"]),
           orderKey: "zzz" as ProjectStatus["orderKey"],
+          description: null,
           createdBy: "",
           createdAt: DateTime.toDate(DateTime.nowUnsafe())
         }
@@ -105,7 +106,11 @@ export const updateStatus = Atom.family(
                   ...status,
                   label: patch.label ?? status.label,
                   icon: patch.icon ?? status.icon,
-                  color: patch.color ?? status.color
+                  color: patch.color ?? status.color,
+                  description:
+                    patch.description === undefined
+                      ? status.description
+                      : patch.description
                 }
               : status
           )

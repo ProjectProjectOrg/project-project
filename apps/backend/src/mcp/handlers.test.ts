@@ -14,6 +14,10 @@ import {
   ProjectDocs,
   type ProjectDocsShape
 } from "@pp/server-core/projects/ProjectDocs"
+import {
+  ProjectGitAutomation,
+  type ProjectGitAutomationShape
+} from "@pp/server-core/projects/ProjectGitAutomation"
 import { Projects, type ProjectsShape } from "@pp/server-core/projects/Projects"
 import {
   ProjectStatuses,
@@ -39,6 +43,7 @@ import {
   Library as LibrarySchema,
   McpTools,
   type McpToolName,
+  ProjectStatus,
   BranchNotFound,
   CurrentUser,
   GroupId,
@@ -233,19 +238,45 @@ const TicketDocsStub = Layer.succeed(TicketDocs, {
 const ProjectStatusesStub = Layer.succeed(ProjectStatuses, {
   list: () =>
     Effect.succeed(
-      Schema.decodeSync(McpTools.list_statuses.output)([
+      Schema.decodeSync(Schema.Array(ProjectStatus))([
         {
           slug: "code_test",
           label: "Code Test",
           icon: "ShieldCheck",
           color: "#3b82f6",
           orderKey: "a0",
+          description: "A PR is open and waiting for review",
+          createdBy: "u-1",
+          createdAt: "2026-05-01T00:00:00.000Z"
+        },
+        {
+          slug: "done",
+          label: "Done",
+          icon: "CircleCheck",
+          color: "#22c55e",
+          orderKey: "a1",
+          description: null,
           createdBy: "u-1",
           createdAt: "2026-05-01T00:00:00.000Z"
         }
       ])
     )
 } as unknown as ProjectStatusesShape)
+
+const ProjectGitAutomationStub = Layer.succeed(ProjectGitAutomation, {
+  get: () =>
+    Effect.succeed({
+      rules: {
+        branch_linked: null,
+        pr_draft_opened: "code_test",
+        pr_opened: "code_test",
+        pr_merged: "done",
+        pr_closed: null,
+        branch_deleted: null
+      },
+      forwardOnly: true
+    })
+} as unknown as ProjectGitAutomationShape)
 
 const TestLayer = Layer.mergeAll(
   AccessStub,
@@ -262,7 +293,8 @@ const TestLayer = Layer.mergeAll(
   GroupDocsStub,
   TicketDocsStub,
   TicketIndexStub,
-  ProjectStatusesStub
+  ProjectStatusesStub,
+  ProjectGitAutomationStub
 )
 
 describe("MCP handlers → list_tickets", () => {
@@ -298,24 +330,55 @@ describe("MCP handlers → list_tickets", () => {
 })
 
 describe("MCP handlers → list_statuses", () => {
-  it.effect("returns both the stable slug and user-facing label", () =>
-    Effect.gen(function* () {
-      const runtime = yield* Effect.context<HandlerServices>()
-      const registered = register(runtime)
-      const result = yield* Effect.suspend(() =>
-        withFakeUser(() =>
-          registered.get("list_statuses")!({
-            orgSlug: "acme",
-            projectSlug: "demo"
-          })
-        )
+  const listStatuses = Effect.gen(function* () {
+    const registered = register(yield* Effect.context<HandlerServices>())
+    const result = yield* Effect.suspend(() =>
+      withFakeUser(() =>
+        registered.get("list_statuses")!({
+          orgSlug: "acme",
+          projectSlug: "demo"
+        })
       )
+    )
+    expect(result.isError).toBeUndefined()
+    return parseJson(result.content[0].text)
+  })
 
-      expect(result.isError).toBeUndefined()
-      expect(parseJson(result.content[0].text)).toEqual([
-        expect.objectContaining({ slug: "code_test", label: "Code Test" })
+  it.effect(
+    "returns each status with its description and the git events that set it",
+    () =>
+      Effect.gen(function* () {
+        expect(yield* listStatuses).toEqual({
+          statuses: [
+            expect.objectContaining({
+              slug: "code_test",
+              label: "Code Test",
+              description: "A PR is open and waiting for review",
+              setBy: ["pr_draft_opened", "pr_opened"]
+            }),
+            expect.objectContaining({
+              slug: "done",
+              description: null,
+              setBy: ["pr_merged"]
+            })
+          ],
+          automationForwardOnly: true
+        })
+      }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("leaves automation out for callers who can't read GitHub", () =>
+    Effect.gen(function* () {
+      const payload = yield* listStatuses
+      expect(payload.automationForwardOnly).toBeUndefined()
+      expect(payload.statuses).toEqual([
+        expect.not.objectContaining({ setBy: expect.anything() }),
+        expect.not.objectContaining({ setBy: expect.anything() })
       ])
-    }).pipe(Effect.provide(TestLayer))
+      expect(payload.statuses[0].description).toBe(
+        "A PR is open and waiting for review"
+      )
+    }).pipe(Effect.provide(Layer.merge(TestLayer, accessAs("client"))))
   )
 })
 

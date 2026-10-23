@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "46d3835d-9b2e-4bc5-861f-b62df177d456",
+  "prevIds": [
+    "46cd2b69-0ebc-44d5-9626-077fd501ca51"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "project_status",
+        "description"
+      ],
+      "writes": [
+        "s|col|public.project_status.description",
+        "n|col|public.project_status.description",
+        "e|col|public.project_status.description"
+      ],
+      "reads": [
+        "n|tbl|public.project_status",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_status",
+        "name": "description",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

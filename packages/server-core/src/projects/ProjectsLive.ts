@@ -679,6 +679,7 @@ export const ProjectsLive = Layer.effect(
                         icon: baseline.icon,
                         color: baseline.color,
                         orderKey: baseline.orderKey,
+                        description: baseline.description,
                         createdBy
                       }))
                     )

@@ -11,23 +11,31 @@ export const BASELINE_STATUS_SEED = [
     label: "Todo",
     icon: "CircleDashed",
     color: "#a3a3a3",
-    orderKey: "a0"
+    orderKey: "a0",
+    description:
+      "Ready to be picked up: the work is defined and nobody has started it yet."
   },
   {
     slug: "in_progress",
     label: "In progress",
     icon: "CircleDot",
     color: "#3b82f6",
-    orderKey: "a1"
+    orderKey: "a1",
+    description: "Someone is actively working on it."
   },
   {
     slug: "done",
     label: "Done",
     icon: "CircleCheck",
     color: "#22c55e",
-    orderKey: "a2"
+    orderKey: "a2",
+    description: "Finished: the work is merged or otherwise complete."
   }
 ] as const
+
+export const baselineStatusDescription = (slug: string): string | null =>
+  BASELINE_STATUS_SEED.find((baseline) => baseline.slug === slug)
+    ?.description ?? null
 
 export const StatusSlug = Schema.String.pipe(
   Schema.check(Schema.isPattern(/^[a-z0-9_]+$/u)),
@@ -94,12 +102,20 @@ export const OrderKey = Schema.String.pipe(
 )
 export type OrderKey = typeof OrderKey.Type
 
+export const STATUS_DESCRIPTION_MAX_LENGTH = 500
+
+export const StatusDescription = Schema.String.pipe(
+  Schema.check(Schema.isMinLength(1)),
+  Schema.check(Schema.isMaxLength(STATUS_DESCRIPTION_MAX_LENGTH))
+)
+
 export const ProjectStatus = Schema.Struct({
   slug: StatusSlug,
   label: StatusLabel,
   icon: StatusIconValue,
   color: StatusColor,
   orderKey: OrderKey,
+  description: Schema.NullOr(StatusDescription),
   createdBy: Schema.String,
   createdAt: Schema.DateFromString
 })
@@ -115,7 +131,8 @@ export type CreateStatusInput = typeof CreateStatusInput.Type
 export const UpdateStatusInput = Schema.Struct({
   label: Schema.optional(StatusLabel),
   icon: Schema.optional(StatusIcon),
-  color: Schema.optional(StatusColor)
+  color: Schema.optional(StatusColor),
+  description: Schema.optional(Schema.NullOr(StatusDescription))
 })
 export type UpdateStatusInput = typeof UpdateStatusInput.Type
 

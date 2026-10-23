@@ -227,6 +227,7 @@ export const projectStatus = pgTable(
     icon: text("icon").notNull(),
     color: text("color").notNull(),
     orderKey: text("order_key").notNull(),
+    description: text("description"),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),

@@ -26,6 +26,7 @@ const makeStatus = (slug: StatusSlug, orderKey: string): ProjectStatus =>
     icon: "Circle",
     color: "#123456",
     orderKey,
+    description: null,
     createdBy: "user-1",
     createdAt: "2026-01-01T00:00:00.000Z"
   })

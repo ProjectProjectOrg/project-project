@@ -21,6 +21,7 @@ import {
   ActivityActor,
   attachmentUrl,
   BASELINE_STATUS_SEED,
+  baselineStatusDescription,
   deriveProjectIdentity,
   GIT_AUTOMATION_SEED,
   GroupColor,
@@ -871,6 +872,7 @@ export const publishJiraMigrationAtomically = Effect.fn(
           yield* tx.insert(projectStatus).values(
             plan.indexes.statuses.map((row) => ({
               ...row,
+              description: baselineStatusDescription(row.slug),
               createdAt: toDate(row.createdAt)
             }))
           )

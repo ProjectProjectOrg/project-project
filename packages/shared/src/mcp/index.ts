@@ -30,6 +30,7 @@ import {
 } from "../schemas/Attachment"
 import { Comment, CreateCommentInput } from "../schemas/Comment"
 import { ESTIMATE_MAX_MINUTES } from "../schemas/Estimate"
+import { GitAutomationEvent } from "../schemas/GitAutomation"
 import { AttachBranchInput, GitStatesResponse } from "../schemas/GitState"
 import {
   CompleteSprintInput,
@@ -68,6 +69,7 @@ import { MeOutput } from "./MeOutput"
 import { RebuildTicketIndexOutput } from "./RebuildTicketIndexOutput"
 
 export * from "./DocFile"
+export * from "./instructions"
 export * from "./MeOutput"
 export * from "./RebuildTicketIndexOutput"
 
@@ -84,12 +86,6 @@ const TicketDetailWithBlocks = Schema.Struct({
   )
 })
 
-const BLOCK_FORMAT_EXAMPLE =
-  '<block type="acceptance-criteria">\n\n' +
-  "## Acceptance criteria\n\n" +
-  "- [ ] Given a starting state, when something happens, then this is true\n\n" +
-  "</block>"
-
 const ESTIMATE_GUIDE =
   "`estimate` must use the project's estimation unit (the `estimation` " +
   'field of `get_project`): `{ unit: "points", value: <integer 1-999> }`, ' +
@@ -98,18 +94,19 @@ const ESTIMATE_GUIDE =
   "estimate in another unit, or any estimate while `estimation` is `off`, " +
   "fails with `Validation`."
 
-const BLOCK_FORMAT_GUIDE =
-  "Ticket bodies can contain named blocks: a reusable heading plus content " +
-  'wrapped as `<block type="key">`, a blank line, the content, a blank ' +
-  `line, then \`</block>\`, for example:\n\n${BLOCK_FORMAT_EXAMPLE}\n\n` +
-  "Discover the project's block and template keys via `list_blocks` and " +
-  "`list_templates` before writing one by hand. Fill blocks in rather " +
-  "than replacing them: keep the `<block>` tags and the heading, and " +
-  "replace each trailing `{{hint}}` with real content or leave the line " +
-  "empty. A block written with the trailing `sync` attribute " +
-  '(`<block type="key" sync>`) is managed elsewhere (e.g. a shared ' +
-  "definition of done) — leave its text alone and only tick or untick its " +
-  "checkboxes."
+const BLOCK_FORMAT_POINTER =
+  "The named-block format is described in the server instructions."
+
+const MENTION_GUIDE =
+  "Mentions are markdown links: `[Label](mention:user/<userId>)` for a " +
+  "project member (ids from `list_members`) and " +
+  "`[Label](mention:ticket/<T-N>)` for a ticket in the same project; " +
+  "unknown or malformed mentions fail with `MentionInvalid`."
+
+const StatusWithAutomation = Schema.Struct({
+  ...ProjectStatus.fields,
+  setBy: Schema.optional(Schema.Array(GitAutomationEvent))
+})
 
 export interface McpToolSpec<
   Input extends Schema.Top,
@@ -124,24 +121,32 @@ export interface McpToolSpec<
 
 export const McpTools = {
   me: {
-    description: "Identity of the authed user and their org/project roles.",
+    description:
+      "Who you are: the authenticated user, including the `id` to use " +
+      "when assigning yourself to a ticket, and each org you belong to " +
+      "with your role there. Call this first when you don't know which " +
+      "org to work in.",
     input: Schema.Record(Schema.String, Schema.Never),
     output: MeOutput,
     errors: [Unauthorized] as const
   },
   list_orgs: {
-    description: "List organizations the caller belongs to.",
+    description:
+      "List the organizations you belong to. Each `slug` is the `orgSlug` " +
+      "other tools take. Paginated: pass `nextCursor` back as `cursor`.",
     input: Pagination,
     output: Page(Org),
     errors: [Unauthorized] as const
   },
   get_org: {
     description:
-      "Fetch one organization by slug, including attachment storage status: " +
-      "not_connected, active, or broken, and lastCheckedAt (null when never checked). " +
-      "This is the stored connection status, not a live connectivity check. " +
-      "Upload preparation and file transfer still validate storage independently. " +
-      "If storage is not connected or broken, check organization storage settings.",
+      "Fetch one organization by slug, including its attachment storage " +
+      "status (`not_connected`, `active` or `broken`) and `lastCheckedAt` " +
+      "(null when never checked). This is the stored result of the last " +
+      "check, not a live test, and uploads still validate storage on " +
+      "their own. If storage is not connected or broken, the user has to " +
+      "fix it in organization settings before `prepare_ticket_attachment` " +
+      "can work.",
     input: Schema.Struct({ orgSlug: Slug }),
     output: Schema.Struct({
       ...Org.fields,
@@ -153,25 +158,35 @@ export const McpTools = {
     errors: [Unauthorized, NotFound] as const
   },
   list_projects: {
-    description: "List projects in an org the caller can see.",
+    description:
+      "List the projects in an org that you can see. Each `slug` is the " +
+      "`projectSlug` other tools take, and `key` is the prefix of its " +
+      "ticket ids (key `T` gives `T-12`). Paginated: pass `nextCursor` " +
+      "back as `cursor`.",
     input: Schema.Struct({ orgSlug: Slug, ...Pagination.fields }),
     output: Page(Project),
     errors: [Unauthorized, NotFound] as const
   },
   get_project: {
     description:
-      "Fetch one project including github connection, members, and raw markdown body.",
+      "Fetch one project: its name and ticket `key`, the GitHub " +
+      "connection (`github`, null when no repository is connected, in " +
+      "which case git automation never runs), the estimation unit " +
+      "(`estimation`, see `create_ticket`), members, your `permissions`, " +
+      "and `body`, the project's own markdown description. Read `body` " +
+      "for background before writing or refining tickets.",
     input: Schema.Struct({ orgSlug: Slug, projectSlug: Slug }),
     output: ProjectDetail,
     errors: [Unauthorized, NotFound] as const
   },
   list_groups: {
     description:
-      "List groups (sprints, epics, milestones) in a project, optionally " +
-      "filtered by kind or active state. `active` is a sprint-only filter " +
-      "(non-sprint groups are excluded when it is set); `active: true` keeps " +
-      "sprints that are currently running, `active: false` keeps planned or " +
-      "completed sprints.",
+      "List a project's groups: sprints, epics, milestones and other sets " +
+      "of tickets (ids like `G-3`). Filter by `kind`. `active` is a " +
+      "sprint-only filter (non-sprint groups are excluded when it is " +
+      "set): `true` keeps sprints running now, `false` keeps planned or " +
+      "completed ones. For sprints alone, `list_sprints` is simpler. " +
+      "Paginated: pass `nextCursor` back as `cursor`.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
@@ -183,11 +198,11 @@ export const McpTools = {
   },
   list_sprints: {
     description:
-      "List sprints in a project, optionally narrowed to a state. " +
-      "`state: 'active'` returns sprints that are currently running; " +
-      "'planned' returns future sprints; 'completed' returns past sprints; " +
-      "omitted returns all sprints. Uses the same active/planned/completed " +
-      "logic as the app's sprint page.",
+      "List a project's sprints, optionally narrowed by `state`: `active` " +
+      "(running now), `planned` (future) or `completed` (past); omit it " +
+      "for all. Uses the same rules as the app's sprint page. Use this to " +
+      "find the current sprint, and `list_groups` for epics and " +
+      "milestones. Paginated: pass `nextCursor` back as `cursor`.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
@@ -198,16 +213,37 @@ export const McpTools = {
     errors: [Unauthorized, NotFound] as const
   },
   get_group: {
-    description: "Fetch one group including raw markdown body.",
+    description:
+      "Fetch one group (sprint, epic or milestone) by id (`G-N`): its " +
+      "kind, dates, member ticket ids (`tickets`) and markdown `body`. To " +
+      "read those tickets, call `list_tickets` with `groupId`.",
     input: Schema.Struct({ orgSlug: Slug, projectSlug: Slug, id: GroupId }),
     output: GroupDetail,
     errors: [Unauthorized, NotFound] as const
   },
   list_tickets: {
     description:
-      "List tickets in a project with optional server-side filtering. Ticket " +
-      "`status` values are stable slugs; resolve them through `list_statuses` " +
-      "and use the corresponding label in conversation.",
+      "List a project's tickets, newest first unless `sort` says " +
+      "otherwise (`key`: `id`, `created`, `updated`, `title`, `priority` " +
+      "or `estimate`; `dir`: `asc` or `desc`). Items are summaries " +
+      "without the body; use `get_ticket` for a ticket's description. " +
+      "Filters combine with AND, and a list filter matches any of its " +
+      "values:\n" +
+      "- `q`: text in the title or ticket id (not the body)\n" +
+      "- `status`: status slugs from `list_statuses`\n" +
+      "- `assignee`: user ids, `mine` for you, or `unassigned`\n" +
+      "- `groupId`: group ids, or `ungrouped` for tickets in no planned " +
+      "or active sprint (the backlog)\n" +
+      "- `tags`, `type`: tag names and ticket types\n" +
+      "- `estimate`: `none`, `any`, `stale` (estimated in a unit the " +
+      "project no longer uses) or t-shirt sizes\n" +
+      "- `hasBranch`, `hasPr`: whether a branch or pull request is linked\n" +
+      "- `updatedAfter`: an ISO 8601 timestamp\n" +
+      "- `archived`: `true` lists only archived tickets; they are left " +
+      "out otherwise\n" +
+      "Ticket `status` values are slugs; use the label from " +
+      "`list_statuses` in conversation. Paginated: pass `nextCursor` back " +
+      "as `cursor`; `limit` is up to 200 (default 50).",
     input: TicketListQuery.pipe(
       Schema.fieldsAssign({
         orgSlug: Slug,
@@ -220,28 +256,46 @@ export const McpTools = {
   },
   get_ticket: {
     description:
-      "Fetch one ticket including raw markdown body. Its `status` is a stable " +
-      "slug; resolve it through `list_statuses` and use the corresponding " +
-      "label in conversation. `body` has any synced blocks already resolved " +
-      "to their current definition text (ticks preserved per ticket). " +
-      "`blocks` is a convenience breakdown of every named block found in " +
-      "`body` — same content, already split out by `type` — so you can " +
-      "inspect or diff a specific section without re-parsing the markdown.",
+      "Fetch one ticket with what you need to work on it: its status " +
+      "slug, assignees, branch, `stack`, pull request state (`gitState`) " +
+      "and `body`, the markdown description. Synced blocks in `body` are " +
+      "already resolved to their current definition text (ticks preserved " +
+      "per ticket), and `blocks` splits `body` into its named blocks by " +
+      "`type`, so you can read one section without parsing the markdown. " +
+      "Read a ticket before updating it: `update_ticket` replaces the " +
+      "whole body. Use the label from `list_statuses` when naming its " +
+      "status in conversation.",
     input: Schema.Struct({ orgSlug: Slug, projectSlug: Slug, id: TicketId }),
     output: TicketDetailWithBlocks,
     errors: [Unauthorized, NotFound] as const
   },
   list_statuses: {
     description:
-      "List the project's ticket statuses. Each status has a stable `slug` " +
-      "used by ticket tools and a user-facing `label`. Use the label when " +
-      "referring to a status in conversation.",
+      "List the project's statuses in workflow order. Each has a stable " +
+      "`slug` (what ticket tools take), a `label` (what to say in " +
+      "conversation) and an optional `description` of what the status " +
+      "means for the team; follow it when deciding whether a ticket is " +
+      "ready to start or finished. `setBy` lists the git events that move " +
+      "a ticket into the status on their own: `branch_linked`, " +
+      "`pr_draft_opened`, `pr_opened`, `pr_merged` (every pull request on " +
+      "the ticket merged), `pr_closed` and `branch_deleted`. Automation " +
+      "runs only while the project has a GitHub repository connected " +
+      "(`get_project`), and when `automationForwardOnly` is true it never " +
+      "moves a ticket backwards. Don't set a status by hand that " +
+      "automation will set for you. `setBy` and `automationForwardOnly` " +
+      "are left out when you can't read the project's GitHub settings.",
     input: Schema.Struct({ orgSlug: Slug, projectSlug: Slug }),
-    output: Schema.Array(ProjectStatus),
+    output: Schema.Struct({
+      statuses: Schema.Array(StatusWithAutomation),
+      automationForwardOnly: Schema.optional(Schema.Boolean)
+    }),
     errors: [Unauthorized, NotFound] as const
   },
   list_tags: {
-    description: "List tags defined in a project.",
+    description:
+      "List the tags defined in a project. Tickets can only use existing " +
+      "tags: `create_ticket` and `update_ticket` fail on an unknown name. " +
+      "Paginated: pass `nextCursor` back as `cursor`.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
@@ -251,7 +305,10 @@ export const McpTools = {
     errors: [Unauthorized, NotFound] as const
   },
   list_members: {
-    description: "List members of a project with their role.",
+    description:
+      "List the project's members with their role. Use a member's `id` in " +
+      "ticket `assignees` and in `[Label](mention:user/<id>)` mentions. " +
+      "Paginated: pass `nextCursor` back as `cursor`.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
@@ -262,7 +319,17 @@ export const McpTools = {
   },
   get_git_state: {
     description:
-      "Fetch git / PR state for a project, optionally narrowed to one ticket.",
+      "Fetch GitHub state for a project's tickets, keyed by ticket id in " +
+      "`states`, or for one ticket with `ticketId`. Each state's `tag` " +
+      "says where the ticket stands: `no_branch`, `branch_pending` or " +
+      "`pr_pending` (still being set up), `branch_no_pr`, `pr_open` (with " +
+      "`draft` and `checks`: `passing`, `failing`, `pending`, `neutral` " +
+      "or `none`), `pr_merged`, `pr_closed`, or `stale_branch` (the " +
+      "linked branch no longer exists on GitHub). `stacks` holds the pull " +
+      "request of each stacked layer, and `repoStatus` and `tokenStatus` " +
+      "report problems with the repository connection. Use this to check " +
+      "pull requests and CI across a project; `get_ticket` carries the " +
+      "same `gitState` for a single ticket.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
@@ -273,14 +340,19 @@ export const McpTools = {
   },
   get_project_doc: {
     description:
-      "Raw markdown source of a project's project.md (frontmatter + body).",
+      "Raw source of the project's `project.md`: YAML frontmatter and " +
+      "markdown body, exactly as stored. `get_project` returns the same " +
+      "data parsed, plus members and permissions; use this when you need " +
+      "the file verbatim.",
     input: Schema.Struct({ orgSlug: Slug, projectSlug: Slug }),
     output: DocFile,
     errors: [Unauthorized, NotFound] as const
   },
   get_group_doc: {
     description:
-      "Raw markdown source of a group's .md file (frontmatter + body).",
+      "Raw source of a group's markdown file: YAML frontmatter and body, " +
+      "exactly as stored. `get_group` returns the same data parsed; use " +
+      "this when you need the file verbatim.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
@@ -291,7 +363,10 @@ export const McpTools = {
   },
   get_ticket_doc: {
     description:
-      "Raw markdown source of a ticket's .md file (frontmatter + body).",
+      "Raw source of a ticket's markdown file: YAML frontmatter and body, " +
+      "exactly as stored. Prefer `get_ticket`, which returns the parsed " +
+      "ticket with resolved blocks and git state; use this when you need " +
+      "the file verbatim.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
@@ -303,18 +378,17 @@ export const McpTools = {
   list_blocks: {
     description:
       "List the blocks available to a project: the org's and the " +
-      "project's own, with project overriding org. Built-in starting points " +
-      "only count once the org or project has adopted them. " +
-      "Each entry's `content` is the block's canonical markdown, exactly as " +
-      'it should appear inside `<block type="key">…</block>` in a ticket ' +
-      "body — including any trailing `{{hint}}` placeholder text (e.g. " +
+      "project's own, with project overriding org. Built-in starting " +
+      "points only count once the org or project has adopted them. Each " +
+      "entry's `content` is the block's canonical markdown, exactly as it " +
+      'should appear inside `<block type="key">…</block>` in a ticket ' +
+      "body, including any trailing `{{hint}}` placeholder text (e.g. " +
       "`**Expected:**{{what should have happened}}`) showing what to fill " +
       "in. Hints are never written into a ticket: replace each one with " +
       "real content, or delete the hint text and leave the rest of the " +
       "line as-is. Hidden blocks are omitted. `sync` true means the block " +
-      "is a shared, managed definition — see `list_templates` and " +
-      "`create_ticket`/`update_ticket` for how synced blocks behave in a " +
-      "ticket body.",
+      "is a shared, managed definition. " +
+      BLOCK_FORMAT_POINTER,
     input: Schema.Struct({ orgSlug: Slug, projectSlug: Slug }),
     output: Schema.Array(
       Schema.Struct({
@@ -331,17 +405,18 @@ export const McpTools = {
   list_templates: {
     description:
       "List the templates available to a project: the org's and the " +
-      "project's own, with project overriding org. Each entry's `body` is the template fully " +
-      "expanded — its block references resolved to their current " +
-      "definitions — with `{{hint}}` placeholders kept so you can see what " +
-      "to fill in; pass this same `key` as `template` to `create_ticket` " +
-      "to have the server do the expansion (with hints stripped) when the " +
-      "ticket is actually created. `isDefaultFor` lists the ticket types " +
-      "the app preselects this template for; the server never applies it " +
-      "on its own, so pass `template` explicitly to `create_ticket`. When " +
+      "project's own, with project overriding org. Each entry's `body` is " +
+      "the template fully expanded, its block references resolved to " +
+      "their current definitions, with `{{hint}}` placeholders kept so " +
+      "you can see what to fill in. Pass the same `key` as `template` to " +
+      "`create_ticket` to have the server do the expansion (with hints " +
+      "stripped) when it creates the ticket. `isDefaultFor` lists the " +
+      "ticket types the app preselects this template for; the server " +
+      "never applies it on its own, so pass `template` explicitly. When " +
       "`isDefaultFor` names exactly one type, creating from the template " +
-      "without an explicit `type` gives the ticket that type. " +
-      `Hidden templates are omitted.\n\n${BLOCK_FORMAT_GUIDE}`,
+      "without an explicit `type` gives the ticket that type. Hidden " +
+      "templates are omitted. " +
+      BLOCK_FORMAT_POINTER,
     input: Schema.Struct({ orgSlug: Slug, projectSlug: Slug }),
     output: Schema.Array(
       Schema.Struct({
@@ -358,38 +433,32 @@ export const McpTools = {
   },
   create_ticket: {
     description:
-      "Create a new ticket in a project. `title` is required; everything " +
-      "else falls back to sensible defaults. `status` is a status slug from " +
-      "`list_statuses` (default `todo`); use its corresponding label when " +
-      "referring to the status in conversation. `type` is one of " +
-      "`feat` | `bug` | `chore` | `other` (default `other`). `priority` is " +
-      "one of `low` | `med` | `high` (default `med`). `tags` is an array of " +
-      "tag names that must already exist on the project — discover them via " +
-      "`list_tags`; the call fails if a name is unknown. `assignees` is an " +
-      "array of user ids who must be members of the project — discover them " +
-      "via `list_members`. " +
+      "Create a ticket in a project. Follow the ticket-writing guidance " +
+      "in the server instructions: check for an existing ticket first, " +
+      "start from a template, and write a title and summary that someone " +
+      "without your context can follow.\n\n" +
+      "`title` is required; every other field has a default. `status` is " +
+      "a slug from `list_statuses` (default `todo`). `type` is `feat`, " +
+      "`bug`, `chore` or `other` (default `other`). `priority` is `low`, " +
+      "`med` or `high` (default `med`). `tags` must already exist on the " +
+      "project (`list_tags`); an unknown name fails. `assignees` are user " +
+      "ids of project members (`list_members`). " +
       ESTIMATE_GUIDE +
-      " `template` is an optional key from " +
-      "`list_templates`; when set, the server applies its priority/tags " +
-      "defaults, sets the type the template is the default for when " +
-      "`isDefaultFor` names exactly one (an explicit `type` always wins), " +
-      "and, if no `body` is given, expands its blocks into the body (with " +
-      "hints stripped). Omit `template`, or pass `null`, for a blank " +
-      "ticket. If both `template` and `body` are given, `body` wins " +
-      "outright and the template only supplies those type/priority/tags " +
-      "defaults (D14: agents that fill in a template " +
-      "shouldn't get empty duplicate sections appended). `body` is the " +
-      "ticket description as CommonMark markdown; headings, lists, code " +
-      "fences and links are supported, and it may contain named blocks — " +
-      `see below for the format.\n\n${BLOCK_FORMAT_GUIDE}\n\nA malformed ` +
-      "`<block>` (unclosed, nested, or an invalid type) fails with " +
-      "`Validation` describing the offending line. Mentions use the exact " +
-      "syntax `[Label](mention:user/<userId>)` for people (use a project " +
-      "member's id from `list_members`) and " +
-      "`[Label](mention:ticket/<T-N>)` for tickets (use an existing ticket " +
-      "id in the same project). Malformed or unknown mentions are rejected " +
-      "with `MentionInvalid`. Returns the full ticket including the body, " +
-      "with the same `blocks` breakdown as `get_ticket`.",
+      "\n\n" +
+      "`template` is a key from `list_templates`. With a template and no " +
+      "`body`, the server expands the template into the body with hints " +
+      "stripped. With both, `body` wins and the template only supplies " +
+      "defaults: its priority and tags, and its type when `isDefaultFor` " +
+      "names exactly one (an explicit `type` always wins). Omit " +
+      "`template`, or pass null, for a blank ticket.\n\n" +
+      "`body` is the description as CommonMark markdown and may contain " +
+      "named blocks; a malformed block fails with `Validation` naming the " +
+      "line. " +
+      BLOCK_FORMAT_POINTER +
+      " " +
+      MENTION_GUIDE +
+      " Returns the full ticket, with the same `blocks` breakdown as " +
+      "`get_ticket`.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
@@ -400,35 +469,30 @@ export const McpTools = {
   },
   update_ticket: {
     description:
-      "Update an existing ticket. Every field is optional; omitted fields " +
-      "are left unchanged. Pass `tags: []` or `assignees: []` to clear the " +
-      "list. `status` is a status slug from `list_statuses`; use its " +
-      "corresponding label when referring to the status in conversation. " +
-      "`type` is " +
-      "one of `feat` | `bug` | `chore` | `other`. `priority` is one of " +
-      "`low` | `med` | `high`. `tags` entries must already exist on the " +
-      "project; `assignees` entries must be project members. " +
-      ESTIMATE_GUIDE +
-      " Pass `estimate: null` to clear it. `body` is " +
-      "CommonMark markdown and replaces the entire description in full — " +
-      "read the current body first (`get_ticket`) and edit that, rather " +
-      "than writing one from scratch, so existing content is preserved. " +
-      "It may contain named blocks; fill blocks in rather than replacing " +
-      "them — see below for the format. `template` is an optional key from " +
-      "`list_templates` that only shapes the body: type, priority and tags " +
-      "change only when passed explicitly. Without `body`, the server " +
-      "expands the template (hints stripped) into the description, but " +
-      "only when the description is empty or still an untouched template; " +
-      "otherwise it fails with `Validation`, and you fill in the " +
-      "template's body from `list_templates` and pass it as `body`. When " +
-      "both are given, `body` wins." +
-      `\n\n${BLOCK_FORMAT_GUIDE}\n\nA ` +
-      "malformed `<block>` (unclosed, nested, or an invalid type) fails " +
-      "with `Validation` describing the offending line. Mentions " +
-      "use `[Label](mention:user/<userId>)` and " +
-      "`[Label](mention:ticket/<T-N>)`; malformed or unknown mentions are " +
-      "rejected with `MentionInvalid`. Use `attach_branch` to associate a " +
-      "branch — `branch` is not editable through this tool. Returns the " +
+      "Update a ticket. Every field is optional and omitted fields are " +
+      "left unchanged. `status`, `type`, `priority`, `tags`, `assignees` " +
+      "and `estimate` take the same values as in `create_ticket`; pass " +
+      "`tags: []` or `assignees: []` to clear a list and `estimate: null` " +
+      "to clear the estimate. Before moving `status`, check `setBy` in " +
+      "`list_statuses`: don't set a status that git automation sets on " +
+      "its own.\n\n" +
+      "`body` replaces the entire description. Read the current body with " +
+      "`get_ticket`, edit it, and send it back in full so nothing is " +
+      "lost; ticking an acceptance criterion means changing its `- [ ]` " +
+      "to `- [x]` this way. Fill named blocks in rather than replacing " +
+      "them; a malformed block fails with `Validation` naming the line. " +
+      BLOCK_FORMAT_POINTER +
+      " " +
+      MENTION_GUIDE +
+      "\n\n" +
+      "`template` is a key from `list_templates` and only shapes the " +
+      "body; type, priority and tags change only when passed. Without " +
+      "`body`, the server expands the template (hints stripped) into the " +
+      "description, but only while the description is empty or still an " +
+      "untouched template; otherwise it fails with `Validation`, and you " +
+      "fill in the template's body from `list_templates` and pass it as " +
+      "`body`. When both are given, `body` wins.\n\n" +
+      "The branch can't be changed here; use `attach_branch`. Returns the " +
       "full ticket after the update, with the same `blocks` breakdown as " +
       "`get_ticket`.",
     input: Schema.Struct({
@@ -490,15 +554,12 @@ export const McpTools = {
   },
   create_comment: {
     description:
-      "Add a comment to a ticket. `body` is required CommonMark markdown " +
-      "(1–20,000 characters). The comment is attributed to the calling user. " +
-      "Useful for agents to record what they did on a ticket (e.g. " +
-      '"Opened PR #42, ready for review"). Mentions use ' +
-      "`[Label](mention:user/<userId>)` for people and " +
-      "`[Label](mention:ticket/<T-N>)` for tickets; the user must be a " +
-      "project member and the ticket must exist in this project. Malformed " +
-      "or unknown mentions are rejected with `MentionInvalid`. Returns the " +
-      "created comment.",
+      "Add a comment to a ticket, attributed to you. `body` is CommonMark " +
+      "markdown, 1–20,000 characters. Use it to record what you did, for " +
+      "example after opening a pull request: what changed, the PR link, " +
+      "and anything a reviewer should know. " +
+      MENTION_GUIDE +
+      " Returns the created comment.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
@@ -510,14 +571,21 @@ export const McpTools = {
   },
   attach_branch: {
     description:
-      "Attach an existing GitHub branch to a ticket. The branch must already " +
-      "exist on the project's connected repository — create it first via " +
-      "GitHub (your own tooling) and then call this tool with the exact ref " +
-      "name. The branch is verified against GitHub before the link is " +
-      "stored, so attaching a non-existent name fails with `BranchNotFound` " +
-      "rather than producing a dangling reference. This replaces the " +
-      "ticket's own branch; to add more branches built on top of it (a " +
-      "stack), use `stack_branch`. Returns the updated ticket.",
+      "Link a GitHub branch to a ticket as the ticket's own branch. " +
+      "Create and push the branch with your own git tooling first: the " +
+      "name is checked against the project's connected repository, and a " +
+      "branch that doesn't exist fails with `BranchNotFound`. Put the " +
+      "ticket id in the branch name (e.g. `feat/T-12-short-description`).\n\n" +
+      "Opening a pull request also links its branch automatically when " +
+      "the PR mentions exactly one ticket, through the branch name, the " +
+      "PR title or a closing keyword such as `Closes T-12` in its body. " +
+      "Call this tool to link the branch before a pull request exists, or " +
+      "when the PR doesn't mention the ticket.\n\n" +
+      "This replaces any branch the ticket already has (`branch` in " +
+      "`get_ticket`); to add branches on top of it for stacked pull " +
+      "requests, use `stack_branch`. Linking can move the ticket's status " +
+      "when a status is set by `branch_linked` (see `list_statuses`). " +
+      "Returns the updated ticket.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
@@ -540,14 +608,15 @@ export const McpTools = {
   },
   stack_branch: {
     description:
-      "Add an existing GitHub branch to the stack on top of a ticket's own " +
-      "branch, for work split into stacked pull requests (e.g. `gh stack`). " +
-      "Call it once for every layer above the ticket's branch, bottom to " +
-      "top. The ticket must already have a branch (`attach_branch`), the " +
-      "branch must exist on the connected repository (`BranchNotFound` " +
-      "otherwise) and may not belong to another ticket (`Conflict`). Pull " +
-      "request state for each layer is filled in from GitHub. Returns the " +
-      "updated ticket.",
+      "Add a GitHub branch to the stack on top of a ticket's own branch, " +
+      "for work split into stacked pull requests (e.g. with `gh stack`). " +
+      "Call it once per layer above the ticket's branch, bottom to top. " +
+      "The ticket needs a branch first (`attach_branch`), the branch must " +
+      "exist on the connected repository (`BranchNotFound` otherwise) and " +
+      "it can't belong to another ticket (`Conflict`). A pull request " +
+      "that mentions the ticket is also stacked automatically when it " +
+      "opens on a ticket that already has a branch. Pull request state " +
+      "for each layer comes from GitHub. Returns the updated ticket.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
@@ -585,15 +654,13 @@ export const McpTools = {
   },
   create_sprint: {
     description:
-      "Create a new sprint in a project. Forces `kind: 'sprint'` internally — " +
-      "use of this tool cannot create epics or milestones. `name` is " +
-      "required (1–200 chars); `color` is a `#RRGGBB` string; `startsAt` " +
-      "and `endsAt` are ISO 8601 dates and may be null; `tickets` is an " +
-      "optional list of ticket ids to attach on creation (sprint membership " +
-      "is exclusive across sprints, so existing sprint memberships for " +
-      "those tickets will be evicted). The sprint's `body` (markdown " +
-      "description) is set separately via `update_sprint` after creation. " +
-      "Returns the created sprint.",
+      "Create a sprint in a project. This tool only creates sprints, not " +
+      "epics or milestones. `name` is required (1–200 chars); `color` is " +
+      "a `#RRGGBB` string; `startsAt` and `endsAt` are ISO 8601 dates and " +
+      "may be null; `tickets` is an optional list of ticket ids to add on " +
+      "creation (sprint membership is exclusive across sprints, so those " +
+      "tickets leave any other sprint). Set the sprint's markdown `body` " +
+      "afterwards with `update_sprint`. Returns the created sprint.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
