@@ -103,6 +103,7 @@ export function TicketCreatorShell({
       className="relative"
     >
       <InputGroup
+        focused={expanded}
         className={cn(
           "transition-[padding] duration-200 ease-out",
           expanded && "pl-[5px]"
