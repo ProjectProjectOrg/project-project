@@ -1,5 +1,10 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react"
 
+function translateYOf(node: HTMLElement) {
+  const transform = getComputedStyle(node).transform
+  return transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m42
+}
+
 export function SprintCardMotion({
   start,
   offset,
@@ -14,20 +19,32 @@ export function SprintCardMotion({
   children: ReactNode
 }) {
   const element = useRef<HTMLDivElement>(null)
-  const previous = useRef<{ start: number; hidden: boolean } | null>(null)
+  const previous = useRef<{
+    start: number
+    offset: number
+    hidden: boolean
+  } | null>(null)
   const animation = useRef<Animation | null>(null)
 
   useLayoutEffect(() => {
     const node = element.current
     if (!node) return
     const before = previous.current
-    const transform = getComputedStyle(node).transform
+    if (
+      before &&
+      before.start === start &&
+      before.offset === offset &&
+      before.hidden === hidden
+    )
+      return
     const currentOffset =
-      transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m42
+      animation.current?.playState === "running"
+        ? translateYOf(node)
+        : (before?.offset ?? offset)
     const from = before ? before.start + currentOffset - start : offset
     animation.current?.cancel()
     node.style.transform = `translateY(${offset}px)`
-    previous.current = { start, hidden }
+    previous.current = { start, offset, hidden }
     if (
       !before ||
       before.hidden ||

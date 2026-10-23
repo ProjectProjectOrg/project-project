@@ -21,6 +21,7 @@ import {
 
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { SegmentedList } from "./SegmentedList"
+import { CreatorActiveScope, DimWhileCreating } from "./TicketCreatorShell"
 
 type TicketListProps = Readonly<{
   orgSlug: string
@@ -49,23 +50,25 @@ export function TicketList({
   ...props
 }: TicketListProps) {
   return (
-    <div className="group/list flex flex-col gap-3">
-      {creator ?? (
-        <BacklogTicketCreator
-          orgSlug={props.orgSlug}
-          slug={props.slug}
-          query={props.query}
-        />
-      )}
-      <div className="flex flex-col gap-3 transition-opacity duration-200 ease-out group-has-[form[data-active]]/list:opacity-35">
-        {toolbar}
-        <TicketListContent
-          {...props}
-          sections={sections}
-          showSections={showSections}
-        />
+    <CreatorActiveScope>
+      <div className="group/list flex flex-col gap-3">
+        {creator ?? (
+          <BacklogTicketCreator
+            orgSlug={props.orgSlug}
+            slug={props.slug}
+            query={props.query}
+          />
+        )}
+        <DimWhileCreating className="flex flex-col gap-3 transition-opacity duration-200 ease-out">
+          {toolbar}
+          <TicketListContent
+            {...props}
+            sections={sections}
+            showSections={showSections}
+          />
+        </DimWhileCreating>
       </div>
-    </div>
+    </CreatorActiveScope>
   )
 }
 

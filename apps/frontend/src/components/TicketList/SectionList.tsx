@@ -12,6 +12,10 @@ import type {
 import * as Result from "effect/reactivity/AsyncResult"
 import { Loader2 } from "lucide-react"
 import {
+  createContext,
+  use,
+  useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -42,6 +46,30 @@ import { AutoLoad, VirtualRows } from "./VirtualRows"
 const renderDefaultRow = (props: ComponentProps<typeof Row>) => (
   <Row {...props} />
 )
+
+const CreatingSectionContext = createContext<{
+  creatingId: string | null
+  setCreating: (id: string, creating: boolean) => void
+} | null>(null)
+
+export function CreatingSectionsProvider({
+  children
+}: Readonly<{ children: ReactNode }>) {
+  const [creatingId, setCreatingId] = useState<string | null>(null)
+  const value = useMemo(
+    () => ({
+      creatingId,
+      setCreating: (id: string, creating: boolean) =>
+        setCreatingId((current) =>
+          creating ? id : current === id ? null : current
+        )
+    }),
+    [creatingId]
+  )
+  return (
+    <CreatingSectionContext value={value}>{children}</CreatingSectionContext>
+  )
+}
 
 export function SectionList({
   orgSlug,
@@ -105,6 +133,17 @@ export function SectionList({
     [creationVariant, orgSlug, slug, query]
   )
   const [creating, setCreating] = useState(false)
+  const sectionId = useId()
+  const creatingSections = use(CreatingSectionContext)
+  const reportCreating = creatingSections?.setCreating
+  useEffect(() => {
+    if (!reportCreating) return
+    reportCreating(sectionId, creating)
+    return () => reportCreating(sectionId, false)
+  }, [reportCreating, sectionId, creating])
+  const dimmed =
+    creatingSections?.creatingId != null &&
+    creatingSections.creatingId !== sectionId
 
   const { items } = page
 
@@ -120,7 +159,10 @@ export function SectionList({
 
   return (
     <div
-      className="flex flex-col transition-opacity duration-200 ease-out"
+      className={cn(
+        "flex flex-col transition-opacity duration-200 ease-out",
+        dimmed && "opacity-35"
+      )}
       data-creating={creating || undefined}
     >
       <SectionHeader

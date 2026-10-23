@@ -35,7 +35,7 @@ import type {
 import { m } from "@/paraglide/messages"
 
 import { statusCollapseKey, useCollapsedInSet } from "./sectionCollapse"
-import { SectionList } from "./SectionList"
+import { CreatingSectionsProvider, SectionList } from "./SectionList"
 import { useTicketPreview } from "./useTicketPreview"
 
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
@@ -190,30 +190,32 @@ export function SegmentedList({
     <div
       key="sections"
       style={{ overflowAnchor: "none" }}
-      className="flex flex-col gap-1 has-[[data-creating]]:[&>:not([data-creating])]:opacity-35"
+      className="flex flex-col gap-1"
     >
-      {filteredStatuses.map((status) => (
-        <StatusSection
-          key={status}
-          persistKey={persistKey}
-          searchQuery={query.q}
-          orgSlug={orgSlug}
-          slug={slug}
-          status={status}
-          statuses={statuses}
-          query={query}
-          count={byStatus[status] ?? 0}
-          page={sections[status] ?? EMPTY_PAGE}
-          members={members}
-          sprintMembership={sprintMembership}
-          extraRowActions={extraRowActions}
-          showSprintCol={showSprintCol}
-          showExtraActionsCol={showExtraActionsCol}
-          activePreviewId={preview.activePreviewId}
-          onPreviewPointerEnter={preview.onPreviewPointerEnter}
-          onPreviewOpenChange={preview.onPreviewOpenChange}
-        />
-      ))}
+      <CreatingSectionsProvider>
+        {filteredStatuses.map((status) => (
+          <StatusSection
+            key={status}
+            persistKey={persistKey}
+            searchQuery={query.q}
+            orgSlug={orgSlug}
+            slug={slug}
+            status={status}
+            statuses={statuses}
+            query={query}
+            count={byStatus[status] ?? 0}
+            page={sections[status] ?? EMPTY_PAGE}
+            members={members}
+            sprintMembership={sprintMembership}
+            extraRowActions={extraRowActions}
+            showSprintCol={showSprintCol}
+            showExtraActionsCol={showExtraActionsCol}
+            activePreviewId={preview.activePreviewId}
+            onPreviewPointerEnter={preview.onPreviewPointerEnter}
+            onPreviewOpenChange={preview.onPreviewOpenChange}
+          />
+        ))}
+      </CreatingSectionsProvider>
     </div>
   )
 }

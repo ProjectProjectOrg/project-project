@@ -1,7 +1,7 @@
 import type { TicketListQuery } from "@pp/shared"
 import { render, cleanup } from "@testing-library/react"
 import * as Result from "effect/reactivity/AsyncResult"
-import type { ComponentProps } from "react"
+import type { ComponentProps, ReactNode } from "react"
 import { afterEach, expect, it, vi } from "vitest"
 
 import type { SprintSectionsValue } from "@/features/tickets/atoms/sprintSections"
@@ -28,6 +28,8 @@ vi.mock("@/features/tickets/atoms/sprintSections", () => ({
   updateSprintSectionsTicket: vi.fn<() => void>()
 }))
 vi.mock("./SectionList", () => ({
+  CreatingSectionsProvider: ({ children }: Readonly<{ children: ReactNode }>) =>
+    children,
   SectionList: ({
     count,
     query
