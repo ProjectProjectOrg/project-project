@@ -1,0 +1,159 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "46cd2b69-0ebc-44d5-9626-077fd501ca51",
+  "prevIds": [
+    "aef984bb-bbea-421e-bf5f-a9baf8d5b3ff"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "project_everhour_integration",
+        "sync_requested_at"
+      ],
+      "writes": [
+        "s|col|public.project_everhour_integration.sync_requested_at",
+        "n|col|public.project_everhour_integration.sync_requested_at",
+        "e|col|public.project_everhour_integration.sync_requested_at"
+      ],
+      "reads": [
+        "n|tbl|public.project_everhour_integration",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "project_everhour_integration",
+        "sync_claimed_until"
+      ],
+      "writes": [
+        "s|col|public.project_everhour_integration.sync_claimed_until",
+        "n|col|public.project_everhour_integration.sync_claimed_until",
+        "e|col|public.project_everhour_integration.sync_claimed_until"
+      ],
+      "reads": [
+        "n|tbl|public.project_everhour_integration",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "project_everhour_integration",
+        "sync_retry_at"
+      ],
+      "writes": [
+        "s|col|public.project_everhour_integration.sync_retry_at",
+        "n|col|public.project_everhour_integration.sync_retry_at",
+        "e|col|public.project_everhour_integration.sync_retry_at"
+      ],
+      "reads": [
+        "n|tbl|public.project_everhour_integration",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "project_everhour_integration",
+        "project_everhour_integration_sync_requested_idx"
+      ],
+      "writes": [
+        "s|idx|public.project_everhour_integration_sync_requested_idx",
+        "n|idx|public.project_everhour_integration_sync_requested_idx",
+        "e|idx|public.project_everhour_integration_sync_requested_idx",
+        "n|rel|public.project_everhour_integration_sync_requested_idx"
+      ],
+      "reads": [
+        "n|tbl|public.project_everhour_integration",
+        "n|sch|public",
+        "n|col|public.project_everhour_integration.sync_requested_at"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_everhour_integration",
+        "name": "sync_requested_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_everhour_integration",
+        "name": "sync_claimed_until",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_everhour_integration",
+        "name": "sync_retry_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_everhour_integration",
+        "name": "project_everhour_integration_sync_requested_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "sync_requested_at",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": "\"sync_requested_at\" is not null",
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    }
+  ]
+}

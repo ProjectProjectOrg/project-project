@@ -4,7 +4,7 @@ import { AppApi } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/http-api"
 
-import { dieOnMarkdown, thenSyncEverhour } from "./lib"
+import { dieOnMarkdown } from "./lib"
 
 export const GroupsHandlerLive = HttpApiBuilder.group(
   AppApi,
@@ -16,7 +16,6 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
       )
       .handle("create", ({ payload }) =>
         Effect.flatMap(Groups, (groups) => groups.create(payload)).pipe(
-          thenSyncEverhour,
           dieOnMarkdown
         )
       )
@@ -33,7 +32,7 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
       .handle("update", ({ params, payload }) =>
         Effect.flatMap(Groups, (groups) =>
           groups.update(params.id, payload)
-        ).pipe(thenSyncEverhour, dieOnMarkdown)
+        ).pipe(dieOnMarkdown)
       )
       .handle("updateTickets", ({ params, payload }) =>
         Effect.flatMap(Groups, (groups) =>
@@ -58,11 +57,10 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
       .handle("complete", ({ params, payload }) =>
         Effect.flatMap(Groups, (groups) =>
           groups.complete(params.id, payload)
-        ).pipe(thenSyncEverhour, dieOnMarkdown)
+        ).pipe(dieOnMarkdown)
       )
       .handle("delete", ({ params }) =>
         Effect.flatMap(Groups, (groups) => groups.remove(params.id)).pipe(
-          thenSyncEverhour,
           dieOnMarkdown
         )
       )

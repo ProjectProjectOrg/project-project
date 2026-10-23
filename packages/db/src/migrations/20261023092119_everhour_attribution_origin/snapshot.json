@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "aef984bb-bbea-421e-bf5f-a9baf8d5b3ff",
+  "prevIds": [
+    "7cc53ac6-4c32-4f28-bf63-da11d83d9533"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "everhour_time_attribution",
+        "origin"
+      ],
+      "writes": [
+        "s|col|public.everhour_time_attribution.origin",
+        "n|col|public.everhour_time_attribution.origin",
+        "e|col|public.everhour_time_attribution.origin"
+      ],
+      "reads": [
+        "n|tbl|public.everhour_time_attribution",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "everhour_time_attribution",
+        "name": "origin",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'pp'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

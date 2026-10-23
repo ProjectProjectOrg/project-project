@@ -37,7 +37,8 @@ Default work-type set (per org, seeded on connect): **Development, Design, Proje
 Management, Meetings & Workshops, Testing.**
 
 Per-ticket time is a **rebuildable index over Everhour's records**, not an independent
-ledger. Attribution is recoverable from the Everhour record comment (see below).
+ledger. Everhour keeps one time record per (user, date, task) and adds every write to
+it as a `history` entry, so attribution is keyed by history entry, not by record.
 
 ## Capture flows
 
@@ -86,7 +87,11 @@ Two layers:
 Tracking UI is visible to **any project member**. If the member hasn't connected their
 personal Everhour, the Start/Log controls show an **inline connect prompt** that captures
 the API key right there (reuses the existing `connectProfile` verify path), then proceeds.
-Project-membership-in-Everhour edge: surface Everhour's error verbatim; don't auto-provision.
+Everhour only lets members track time on projects they are assigned to. Each structure sync
+adds PP project members who connected Everhour (it never removes users, because updating a
+project's users replaces the list). A member who still hits `task_provider_no_task_access` is
+assigned with the key of the manager who last synced the project, then the call is retried;
+without that key PP reports `EverhourProjectAccessDenied`.
 
 ## Data model (new tables)
 
@@ -97,9 +102,11 @@ Project-membership-in-Everhour edge: surface Everhour's error verbatim; don't au
   projectIntegrationLinkId, everhourTaskId, workTypeKey, startedAt, everhourTimerId`.
   **Persisted** (a stop can arrive by webhook after a restart). Cleared on attribution.
 - **`everhour_time_attribution`** — the rebuildable per-ticket index.
-  `everhourTimeId (PK), ticketId (nullable), workTypeKey, everhourUserId, seconds, date,
-  projectIntegrationLinkId`. Written on PP-initiated capture; `seconds` updated / row removed
-  on `api:time:updated` / delete. PP reports read this.
+  `everhourEntryId (PK), everhourTimeId, ticketId (nullable), workTypeKey, everhourUserId,
+  seconds (the entry's delta), date, projectIntegrationLinkId`. PP-initiated capture writes the
+  newest history entry of the returned record. `api:time:updated` adds unseen entries of a known
+  record as ticket-less rows and removes the record's rows once its total is zero. PP reports
+  read this.
 
 Org config lives on `organization_integration` (provider=everhour) as a `config` jsonb:
 `{ workTypes: [{ key, label, order, isDefault }] }`, seeded with the default set on connect.
@@ -121,14 +128,22 @@ webhook `secret`.
 
 ## Structural sync, rebuilt
 
-Rework the existing `bestEffortProjectSync`:
+Structure sync is a full, idempotent reconcile:
 - **Retire** ticket→task (`syncTasks`, `everhour_task_link`).
 - **Drop** the synthetic backlog section (sprint-only tracking).
 - Sections = one per sprint. Work-type tasks created **eagerly on sprint create**, renamed
   on sprint rename.
-- **Triggers shrink to sprint lifecycle only** (create/rename/complete/delete). Ticket
-  mutations no longer trigger Everhour sync. Ticket→sprint assignment changes nothing
-  structurally; resolution happens at capture time.
+- **Triggers are sprint lifecycle events** (`sprint_created`, `sprint_renamed`,
+  `sprint_completed`, `sprint_reopened`, `sprint_deleted`) recorded through the durable
+  outbox. Everhour project links subscribe to them; consuming one marks the link's sync as
+  requested, and a background loop runs the sync with the key of the manager who last synced
+  the project. A failed sync keeps the request and retries after five minutes; an event that
+  arrives during a sync triggers another one. Ticket mutations never trigger a sync.
+- **Sweep** every five minutes requests a sync for every connected project not synced in
+  the last hour. That covers project renames and work-type changes, which do not pass
+  through the outbox. The reconcile compares ProjectProject's state with its own link
+  tables, not with Everhour, so sections or tasks renamed, archived or deleted directly in
+  Everhour are not restored.
 - **Sprint complete** → archive section + `close` its work-type tasks (time preserved;
   reopening reopens them).
 - **Sprint delete** → never delete the Everhour tasks; archive/close and orphan them so

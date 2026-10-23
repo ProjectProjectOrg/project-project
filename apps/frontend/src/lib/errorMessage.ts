@@ -25,6 +25,7 @@ import type {
   EverhourAuthInvalid,
   EverhourConfigMissing,
   EverhourError,
+  EverhourProjectAccessDenied,
   EverhourRateLimited,
   Forbidden,
   GitHubError,
@@ -64,6 +65,7 @@ export type AppError =
   | EverhourAuthInvalid
   | EverhourConfigMissing
   | EverhourError
+  | EverhourProjectAccessDenied
   | EverhourRateLimited
   | GitHubTokenExpired
   | GitHubScopeInsufficient
@@ -189,6 +191,9 @@ export const errorMessage = (error: AppError): string =>
       Match.tag("EverhourAuthInvalid", () => m.error_everhour_auth_invalid()),
       Match.tag("EverhourConfigMissing", () =>
         m.error_everhour_config_missing()
+      ),
+      Match.tag("EverhourProjectAccessDenied", () =>
+        m.error_everhour_project_access_denied()
       ),
       Match.tag("EverhourRateLimited", (error) =>
         m.error_everhour_rate_limited({

@@ -29,7 +29,7 @@
     "format:check": "oxfmt --check .",
     "prepare": "effect-tsgo patch",
     "check": "bun run format:check && bun run lint && bun run typecheck",
-    "test:db": "vitest run --project db --project \"server-core*\" --project backend --no-file-parallelism"
+    "test:db": "vitest run --project db --project \"server-core*\" --project integration-everhour --project backend --no-file-parallelism"
   },
   "devDependencies": {
     "@effect/tsgo": "0.53.1",

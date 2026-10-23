@@ -1,39 +1,36 @@
 import { Db } from "@pp/db"
+import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as SchemaTransformation from "effect/SchemaTransformation"
 
-import type { EverhourTimeRecord } from "./Everhour"
-import { EverhourTimeTracking } from "./EverhourTimeTracking"
 import {
-  EverhourWebhooks,
-  type EverhourWebhooksShape
-} from "./EverhourWebhooks"
+  TimeRecordResponse,
+  toTimeRecord,
+  type EverhourTimeRecord
+} from "./Client"
+import { EverhourTimeTracking } from "./TimeTracking"
 
-const ExternalId = Schema.Union([Schema.String, Schema.Finite])
-const TimeRecordPayload = Schema.Struct({
-  id: ExternalId,
-  time: Schema.Finite,
-  task: Schema.NullOr(Schema.Struct({ id: ExternalId })).pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
-  ),
-  user: Schema.NullOr(ExternalId).pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
-  ),
-  date: Schema.String.pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed(""))
-  ),
-  comment: Schema.NullOr(Schema.String).pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
-  )
-})
+export type EverhourWebhookDelivery = Readonly<{
+  secret: string
+  body: string
+}>
+
+export type EverhourWebhooksShape = Readonly<{
+  handle: (delivery: EverhourWebhookDelivery) => Effect.Effect<void>
+}>
+
+export class EverhourWebhooks extends Context.Service<
+  EverhourWebhooks,
+  EverhourWebhooksShape
+>()("@pp/integration-everhour/Webhooks/EverhourWebhooks") {}
 
 const wrapped = <K extends string>(key: K) =>
-  Schema.Struct({ [key]: TimeRecordPayload }).pipe(
+  Schema.Struct({ [key]: TimeRecordResponse }).pipe(
     Schema.decodeTo(
-      Schema.toType(TimeRecordPayload),
+      Schema.toType(TimeRecordResponse),
       SchemaTransformation.transform({
         decode: (input) => input[key],
         encode: (input) => ({ [key]: input })
@@ -42,10 +39,10 @@ const wrapped = <K extends string>(key: K) =>
   )
 
 const PayloadData = Schema.Struct({
-  payload: Schema.Struct({ data: TimeRecordPayload })
+  payload: Schema.Struct({ data: TimeRecordResponse })
 }).pipe(
   Schema.decodeTo(
-    Schema.toType(TimeRecordPayload),
+    Schema.toType(TimeRecordResponse),
     SchemaTransformation.transform({
       decode: (input) => input.payload.data,
       encode: (input) => ({ payload: { data: input } })
@@ -55,7 +52,7 @@ const PayloadData = Schema.Struct({
 
 const WebhookTimeRecord = Schema.fromJsonString(
   Schema.Union([
-    TimeRecordPayload,
+    TimeRecordResponse,
     wrapped("data"),
     wrapped("time"),
     wrapped("timeRecord"),
@@ -68,15 +65,7 @@ const decodeWebhookTimeRecord = Schema.decodeOption(WebhookTimeRecord)
 export const parseTimeRecord = (body: string): EverhourTimeRecord | null => {
   const decoded = decodeWebhookTimeRecord(body)
   if (Option.isNone(decoded)) return null
-  const record = decoded.value
-  return {
-    id: String(record.id),
-    taskId: record.task === null ? null : String(record.task.id),
-    userId: record.user === null ? null : String(record.user),
-    seconds: record.time,
-    date: record.date,
-    comment: record.comment
-  }
+  return toTimeRecord(decoded.value)
 }
 
 export const EverhourWebhooksLive = Layer.effect(

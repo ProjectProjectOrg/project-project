@@ -5,7 +5,7 @@ import {
   planWorkTypeTasks,
   workTypeTaskAction,
   workTypeTaskName
-} from "./EverhourIntegrationsLive"
+} from "../src/Integrations"
 
 const config: OrgEverhourConfig = { workTypes: DEFAULT_WORK_TYPES }
 

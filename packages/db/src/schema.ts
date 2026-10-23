@@ -530,7 +530,10 @@ export const projectEverhourIntegration = pgTable(
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
     lastSyncStatus: text("last_sync_status", { enum: ["ok", "error"] }),
     lastSyncError: text("last_sync_error"),
-    lastSyncActorUserId: text("last_sync_actor_user_id")
+    lastSyncActorUserId: text("last_sync_actor_user_id"),
+    syncRequestedAt: timestamp("sync_requested_at", { withTimezone: true }),
+    syncClaimedUntil: timestamp("sync_claimed_until", { withTimezone: true }),
+    syncRetryAt: timestamp("sync_retry_at", { withTimezone: true })
   },
   (t) => [
     foreignKey({
@@ -543,7 +546,10 @@ export const projectEverhourIntegration = pgTable(
     }).onDelete("cascade"),
     uniqueIndex("project_everhour_integration_active_project_uidx")
       .on(t.organizationId, t.everhourProjectId)
-      .where(sql`${t.status} = 'active'`)
+      .where(sql`${t.status} = 'active'`),
+    index("project_everhour_integration_sync_requested_idx")
+      .on(t.syncRequestedAt)
+      .where(sql`${t.syncRequestedAt} is not null`)
   ]
 )
 
@@ -621,7 +627,8 @@ export const everhourActiveTimer = pgTable(
 export const everhourTimeAttribution = pgTable(
   "everhour_time_attribution",
   {
-    everhourTimeId: text("everhour_time_id").primaryKey(),
+    everhourEntryId: text("everhour_entry_id").primaryKey(),
+    everhourTimeId: text("everhour_time_id").notNull(),
     projectIntegrationLinkId: uuid("project_integration_link_id").notNull(),
     ticketId: text("ticket_id"),
     groupId: text("group_id").notNull(),
@@ -630,6 +637,9 @@ export const everhourTimeAttribution = pgTable(
     userId: text("user_id").notNull(),
     seconds: integer("seconds").notNull(),
     date: text("date").notNull(),
+    origin: text("origin", { enum: ["pp", "everhour"] })
+      .notNull()
+      .default("pp"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull()
   },
   (t) => [
@@ -641,7 +651,8 @@ export const everhourTimeAttribution = pgTable(
     index("everhour_time_attribution_ticket_idx").on(
       t.projectIntegrationLinkId,
       t.ticketId
-    )
+    ),
+    index("everhour_time_attribution_time_idx").on(t.everhourTimeId)
   ]
 )
 

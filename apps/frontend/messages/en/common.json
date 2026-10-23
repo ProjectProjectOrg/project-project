@@ -24,6 +24,7 @@
   "error_everhour_api_key_missing": "Connect your Everhour API key before syncing this project.",
   "error_everhour_auth_invalid": "Everhour rejected this API key. Check the key and try again.",
   "error_everhour_config_missing": "Everhour encryption is not configured on the server.",
+  "error_everhour_project_access_denied": "You don't have access to this project in Everhour yet. Ask a project manager to run an Everhour sync for this project.",
   "error_everhour_rate_limited": "Everhour rate limited the sync. Try again in {seconds} seconds.",
   "error_everhour_upstream": "Everhour returned an error: {message}",
   "error_forbidden": "You don't have permission to do that.",

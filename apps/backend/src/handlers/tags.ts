@@ -4,7 +4,7 @@ import { AppApi } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/http-api"
 
-import { dieOnMarkdown, thenSyncEverhour } from "./lib"
+import { dieOnMarkdown } from "./lib"
 
 export const TagsHandlerLive = HttpApiBuilder.group(
   AppApi,
@@ -24,13 +24,11 @@ export const TagsHandlerLive = HttpApiBuilder.group(
       )
       .handle("update", ({ params, payload }) =>
         Effect.flatMap(Tags, (tags) => tags.update(params.name, payload)).pipe(
-          thenSyncEverhour,
           dieOnMarkdown
         )
       )
       .handle("delete", ({ params }) =>
         Effect.flatMap(Tags, (tags) => tags.remove(params.name)).pipe(
-          thenSyncEverhour,
           dieOnMarkdown
         )
       )

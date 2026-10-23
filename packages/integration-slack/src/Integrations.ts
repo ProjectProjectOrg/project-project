@@ -21,6 +21,7 @@ import {
   ProjectScope,
   SlackAuthInvalid,
   SlackError,
+  SlackEvent,
   SlackNotConnected,
   type SlackOrgStatus,
   type SlackProjectStatus,
@@ -38,6 +39,8 @@ import * as Schema from "effect/Schema"
 
 import { SlackClient } from "./Client"
 import { SlackHost } from "./Host"
+
+const isSlackEvent = Schema.is(SlackEvent)
 
 export const slackCallbackPath = "/api/integrations/slack/oauth/callback"
 export const slackPublicUrl = Config.String("BETTER_AUTH_URL").pipe(
@@ -302,7 +305,11 @@ export const makeSlackIntegrations = Effect.gen(function* () {
       return {
         workspace: { teamId: row.teamId, teamName: row.teamName },
         settings: settings
-          ? { ...settings, channelId: settings.channelId }
+          ? {
+              ...settings,
+              channelId: settings.channelId,
+              events: settings.events.filter(isSlackEvent)
+            }
           : null
       }
     }

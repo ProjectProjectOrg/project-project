@@ -1,10 +1,10 @@
-import { EverhourIntegrations } from "@pp/server-core/everhour/EverhourIntegrations"
-import { EverhourTimeTracking } from "@pp/server-core/everhour/EverhourTimeTracking"
+import { EverhourIntegrations } from "@pp/integration-everhour/Integrations"
+import { EverhourTimeTracking } from "@pp/integration-everhour/TimeTracking"
 import { AppApi, CurrentUser } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/http-api"
 
-import { dieOnMarkdown } from "./lib"
+import { dieOnMarkdown } from "../handlers/lib"
 
 export const EverhourHandlerLive = HttpApiBuilder.group(
   AppApi,

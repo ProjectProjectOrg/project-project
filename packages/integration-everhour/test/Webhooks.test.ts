@@ -4,13 +4,16 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { describe, expect } from "vitest"
 
-import type { EverhourTimeRecord } from "./Everhour"
+import type { EverhourTimeRecord } from "../src/Client"
 import {
   EverhourTimeTracking,
   type EverhourTimeTrackingShape
-} from "./EverhourTimeTracking"
-import { EverhourWebhooks } from "./EverhourWebhooks"
-import { EverhourWebhooksLive, parseTimeRecord } from "./EverhourWebhooksLive"
+} from "../src/TimeTracking"
+import {
+  EverhourWebhooks,
+  EverhourWebhooksLive,
+  parseTimeRecord
+} from "../src/Webhooks"
 
 const unexpected = (method: string): Effect.Effect<never> =>
   Effect.die(new Error(`unexpected ${method} call`))
@@ -101,7 +104,8 @@ describe("parseTimeRecord", () => {
         userId: "1304",
         seconds: 3600,
         date: "2018-01-20",
-        comment: "T-12 — Fix the thing"
+        comment: "T-12 — Fix the thing",
+        history: []
       })
     })
   )
@@ -117,7 +121,8 @@ describe("parseTimeRecord", () => {
           userId: "1362384",
           seconds: 60,
           date: "2024-10-18",
-          comment: null
+          comment: null,
+          history: [{ id: "370578249", seconds: 60 }]
         })
       })
   )

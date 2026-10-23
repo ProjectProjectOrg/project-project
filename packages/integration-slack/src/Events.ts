@@ -4,11 +4,25 @@ import {
   projectIntegrationLink,
   slackNotification
 } from "@pp/db/schema"
+import {
+  SlackEvent,
+  type ProjectEvent,
+  type SlackNotification
+} from "@pp/shared"
 import { and, eq, inArray, isNull } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
+
+const isSlackEvent = Schema.is(SlackEvent)
+const isSlackNotification = (
+  payload: typeof ProjectEvent.Encoded
+): payload is Extract<
+  typeof SlackNotification.Encoded,
+  Readonly<{ kind: SlackEvent }>
+> => isSlackEvent(payload.kind)
 
 export class SlackEvents extends Context.Service<
   SlackEvents,
@@ -45,27 +59,30 @@ export class SlackEvents extends Context.Service<
           .pipe(Effect.orDie)
         if (pending.length === 0) return
         const now = yield* DateTime.nowAsDate
+        const notifications = pending.flatMap(({ payload, ...event }) =>
+          isSlackNotification(payload)
+            ? [
+                {
+                  id: event.id,
+                  projectIntegrationLinkId: event.linkId,
+                  payload,
+                  actorId: event.actorId,
+                  availableAt:
+                    payload.kind === "sprint_started" && payload.startsAt
+                      ? DateTime.toDate(DateTime.makeUnsafe(payload.startsAt))
+                      : now
+                }
+              ]
+            : []
+        )
         yield* db
           .transaction(() =>
             Effect.gen(function* () {
-              yield* db
-                .insert(slackNotification)
-                .values(
-                  pending.map((event) => ({
-                    id: event.id,
-                    projectIntegrationLinkId: event.linkId,
-                    payload: event.payload,
-                    actorId: event.actorId,
-                    availableAt:
-                      event.payload.kind === "sprint_started" &&
-                      event.payload.startsAt
-                        ? DateTime.toDate(
-                            DateTime.makeUnsafe(event.payload.startsAt)
-                          )
-                        : now
-                  }))
-                )
-                .onConflictDoNothing()
+              if (notifications.length > 0)
+                yield* db
+                  .insert(slackNotification)
+                  .values(notifications)
+                  .onConflictDoNothing()
               yield* db
                 .update(projectIntegrationEvent)
                 .set({ consumedAt: now })
