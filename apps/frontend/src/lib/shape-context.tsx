@@ -98,11 +98,12 @@ function ShapeProvider({
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "r" && e.key !== "R") return
       if (e.metaKey || e.ctrlKey || e.altKey) return
-      const tag = (e.target as HTMLElement)?.tagName
+      const target = e.target
+      const tag = target instanceof Element ? target.tagName : undefined
       if (
         tag === "INPUT" ||
         tag === "TEXTAREA" ||
-        (e.target as HTMLElement)?.isContentEditable
+        (target instanceof HTMLElement && target.isContentEditable)
       )
         return
       e.preventDefault()

@@ -1,4 +1,5 @@
 import * as DateTime from "effect/DateTime"
+import type * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import {
@@ -106,7 +107,7 @@ describe("Jira OAuth", () => {
     expect(grant?.expiresAt.toISOString()).toBe("2026-09-14T13:00:00.000Z")
   })
 
-  it.each([
+  const malformedGrants: ReadonlyArray<Schema.Json> = [
     {},
     { access_token: "", refresh_token: "refresh", expires_in: 1 },
     { access_token: "access", refresh_token: "", expires_in: 1 },
@@ -117,7 +118,8 @@ describe("Jira OAuth", () => {
       expires_in: 1,
       token_type: "Basic"
     }
-  ])("rejects malformed token payloads", (payload) => {
+  ]
+  it.each(malformedGrants)("rejects malformed token payloads", (payload) => {
     expect(
       parseTokenGrant(payload, DateTime.makeUnsafe("2026-09-14T12:00:00Z"))
     ).toBeNull()

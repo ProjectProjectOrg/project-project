@@ -44,7 +44,7 @@ export const scanIssue = (id: number) => ({
   }
 })
 export const response = (
-  json: unknown,
+  json: Schema.Json,
   status = 200,
   headers: Record<string, string> = {}
 ): JiraTransportResponse => ({
@@ -59,7 +59,7 @@ export const scanFixtureResponse = (
   const url = new URL(request.url)
   const path = url.pathname
   const offset = Number(url.searchParams.get("startAt") ?? 0)
-  const page = (values: unknown[]) => ({
+  const page = (values: ReadonlyArray<Schema.Json>) => ({
     values,
     startAt: offset,
     maxResults: 100,

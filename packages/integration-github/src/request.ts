@@ -5,6 +5,7 @@ import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
 
 import { mapHttpError, type GitHubFailure, type TaggedFailure } from "./errors"
 
@@ -63,7 +64,7 @@ export const make = (): GitHubRequestState["Service"] => {
     })
   const rememberRateLimit = (key: string, error: GitHubFailure) =>
     Effect.sync(() => {
-      if (error._tag !== "RateLimited") return
+      if (!Predicate.isTagged(error, "RateLimited")) return
       const resetAt = error.resetAt
       if (!Number.isFinite(resetAt)) return
       const retryAt = resetAt * 1000

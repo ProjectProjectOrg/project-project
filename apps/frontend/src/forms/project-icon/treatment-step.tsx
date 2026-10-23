@@ -202,11 +202,8 @@ export function TreatmentStep({
                   value={treatment.tolerance}
                   valuePosition="top"
                   onChange={(tolerance) => {
-                    form.setFieldValue(
-                      "treatment.tolerance",
-                      tolerance as number
-                    )
-                    void draft.restyle("sticker", tolerance as number)
+                    form.setFieldValue("treatment.tolerance", tolerance)
+                    void draft.restyle("sticker", tolerance)
                   }}
                   endLabels={[
                     m.project_icon_background_removal_min(),

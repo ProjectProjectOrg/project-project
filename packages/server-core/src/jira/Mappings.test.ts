@@ -1,5 +1,6 @@
 import {
   BASELINE_STATUS_COLORS,
+  JiraMigrationConfiguration,
   CreatableProjectKey,
   TAG_DEFAULT_PALETTE
 } from "@pp/shared"
@@ -17,6 +18,14 @@ import {
   JiraMigrationMappings,
   normalizeJiraTag
 } from "./Mappings"
+
+const decodeConfiguration = Schema.decodeSync(JiraMigrationConfiguration)
+
+const decodeJiraMigrationMappingsSync = Schema.decodeSync(JiraMigrationMappings)
+
+const decodeCreatableProjectKeySync = Schema.decodeSync(CreatableProjectKey)
+
+const isJiraMigrationMappings = Schema.is(JiraMigrationMappings)
 
 const emptyManifest = (): JiraMigrationManifest => ({
   version: 1,
@@ -46,7 +55,7 @@ const emptyManifest = (): JiraMigrationManifest => ({
 
 describe("JiraMigrationMappings", () => {
   it("models explicit decisions using only existing destination statuses", () => {
-    const mappings = Schema.decodeSync(JiraMigrationMappings)({
+    const mappings = decodeJiraMigrationMappingsSync({
       project: { slug: "application", key: "APP", name: "Application" },
       identities: [
         {
@@ -260,7 +269,7 @@ describe("buildDefaultTicketIdMappings", () => {
     expect(
       buildDefaultTicketIdMappings(
         manifest,
-        Schema.decodeSync(CreatableProjectKey)("APP")
+        decodeCreatableProjectKeySync("APP")
       )
     ).toEqual([
       { sourceIssueId: "10001", destinationTicketId: "APP-1" },
@@ -270,7 +279,7 @@ describe("buildDefaultTicketIdMappings", () => {
     expect(
       buildDefaultTicketIdMappings(
         manifest,
-        Schema.decodeSync(CreatableProjectKey)("NEW")
+        decodeCreatableProjectKeySync("NEW")
       )
     ).toEqual([
       { sourceIssueId: "10001", destinationTicketId: "NEW-1" },
@@ -440,15 +449,15 @@ describe("jiraConfigurationToMappings", () => {
     restrictedContent: { policy: "exclude" as const },
     skippedAttachmentIds: ["att-1"],
     attachmentSkipsAccepted: true
-  }
+  } as const
 
   it("produces mappings the plan schema accepts", () => {
     const mappings = jiraConfigurationToMappings(
       manifest,
-      baseConfiguration as never
+      decodeConfiguration(baseConfiguration)
     )
 
-    expect(Schema.is(JiraMigrationMappings)(mappings)).toBe(true)
+    expect(isJiraMigrationMappings(mappings)).toBe(true)
     expect(mappings.project.slug).toBe("application")
     expect(mappings.identities).toEqual([
       {
@@ -465,7 +474,7 @@ describe("jiraConfigurationToMappings", () => {
   it("keeps create-status intent and omits it otherwise", () => {
     const mappings = jiraConfigurationToMappings(
       manifest,
-      baseConfiguration as never
+      decodeConfiguration(baseConfiguration)
     )
 
     expect(mappings.statuses[0]).toEqual({
@@ -481,15 +490,20 @@ describe("jiraConfigurationToMappings", () => {
 
   it("maps the restricted-content policy onto every manifest restriction", () => {
     expect(
-      jiraConfigurationToMappings(manifest, baseConfiguration as never)
-        .restrictions
+      jiraConfigurationToMappings(
+        manifest,
+        decodeConfiguration(baseConfiguration)
+      ).restrictions
     ).toEqual([{ restrictionId: "restriction-1", resolution: "exclude" }])
 
     expect(
-      jiraConfigurationToMappings(manifest, {
-        ...baseConfiguration,
-        restrictedContent: { policy: "include", disclosureAccepted: true }
-      } as never).restrictions
+      jiraConfigurationToMappings(
+        manifest,
+        decodeConfiguration({
+          ...baseConfiguration,
+          restrictedContent: { policy: "include", disclosureAccepted: true }
+        })
+      ).restrictions
     ).toEqual([
       { restrictionId: "restriction-1", resolution: "include_acknowledged" }
     ])
@@ -498,7 +512,7 @@ describe("jiraConfigurationToMappings", () => {
   it("carries sprint choices and acknowledged attachment skips", () => {
     const mappings = jiraConfigurationToMappings(
       manifest,
-      baseConfiguration as never
+      decodeConfiguration(baseConfiguration)
     )
 
     expect(mappings.openSprintMemberships).toEqual([
@@ -569,12 +583,12 @@ describe("jiraConfigurationToMappings priority gaps", () => {
     restrictedContent: { policy: "exclude" as const },
     skippedAttachmentIds: [],
     attachmentSkipsAccepted: true
-  }
+  } as const
 
   it("covers issues that carry no Jira priority", () => {
     const mappings = jiraConfigurationToMappings(
       withUnprioritised(null),
-      configuration as never
+      decodeConfiguration(configuration)
     )
 
     expect(
@@ -582,13 +596,13 @@ describe("jiraConfigurationToMappings priority gaps", () => {
         ({ sourcePriorityId }) => sourcePriorityId === null
       )
     ).toEqual({ sourcePriorityId: null, destinationPriority: "med" })
-    expect(Schema.is(JiraMigrationMappings)(mappings)).toBe(true)
+    expect(isJiraMigrationMappings(mappings)).toBe(true)
   })
 
   it("does not invent a null mapping when every issue has a priority", () => {
     const mappings = jiraConfigurationToMappings(
       withUnprioritised("3"),
-      configuration as never
+      decodeConfiguration(configuration)
     )
 
     expect(
@@ -644,11 +658,14 @@ describe("preflight honours wizard tag renames", () => {
       restrictedContent: { policy: "exclude" as const },
       skippedAttachmentIds: [],
       attachmentSkipsAccepted: true
-    }
+    } as const
 
     const unnamed = preflightJiraMigration(
       manifest,
-      jiraConfigurationToMappings(manifest, { ...base, tags: [] } as never),
+      jiraConfigurationToMappings(
+        manifest,
+        decodeConfiguration({ ...base, tags: [] })
+      ),
       environment
     )
     expect(unnamed.blockers.map(({ code }) => code)).toContain(
@@ -657,12 +674,15 @@ describe("preflight honours wizard tag renames", () => {
 
     const renamed = preflightJiraMigration(
       manifest,
-      jiraConfigurationToMappings(manifest, {
-        ...base,
-        tags: [
-          { source: { kind: "label", value: "-" }, destinationTagName: "no" }
-        ]
-      } as never),
+      jiraConfigurationToMappings(
+        manifest,
+        decodeConfiguration({
+          ...base,
+          tags: [
+            { source: { kind: "label", value: "-" }, destinationTagName: "no" }
+          ]
+        })
+      ),
       environment
     )
     expect(renamed.blockers.map(({ code }) => code)).not.toContain(

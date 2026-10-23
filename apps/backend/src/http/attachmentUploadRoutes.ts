@@ -12,7 +12,15 @@ const AttachmentUploadQuery = Schema.fromURLSearchParams(
   Schema.Struct({ token: Schema.NonEmptyString })
 )
 
-const failure = (error: unknown, status: number) =>
+const decodeAttachmentUploadQueryOption = Schema.decodeOption(
+  AttachmentUploadQuery
+)
+
+type UploadFailure = Effect.Error<
+  ReturnType<AttachmentUploads.AttachmentUploads["Service"]["receive"]>
+>
+
+const failure = (error: UploadFailure, status: number) =>
   HttpServerResponse.jsonUnsafe(
     { error: mappedToolErrorText(error) ?? "Internal error." },
     { status, headers: { "cache-control": "no-store" } }
@@ -21,7 +29,7 @@ const failure = (error: unknown, status: number) =>
 export const attachmentUploadRoute = Effect.gen(function* () {
   const request = yield* HttpServerRequest.HttpServerRequest
   const url = new URL(request.url, "http://localhost")
-  const query = Schema.decodeOption(AttachmentUploadQuery)(url.searchParams)
+  const query = decodeAttachmentUploadQueryOption(url.searchParams)
   const uploads = yield* AttachmentUploads.AttachmentUploads
   const attachment = yield* uploads.receive(
     Option.isSome(query) ? query.value.token : "",

@@ -14,7 +14,9 @@ import { and, eq, inArray } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Match from "effect/Match"
 import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
 import * as Schedule from "effect/Schedule"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
@@ -25,6 +27,7 @@ import { jiraDestinationTicketId } from "./Mappings"
 import { type JiraMigrationArtifactsShape } from "./MigrationArtifacts"
 import {
   actionsFor,
+  JiraMigrationGate,
   decodeCheckpoint,
   decodeConfiguration,
   toSummary,
@@ -38,10 +41,23 @@ import {
 } from "./MigrationProjection"
 import {
   JiraMigrationWorkflow,
+  JiraMigrationWorkflowCommand,
   retryDeferred,
   startImportDeferred
 } from "./MigrationWorkflow"
 import { jiraProjectIdFor } from "./PublicationPlan"
+
+const decodeUnknownManifestIssueNumbers = Schema.decodeUnknownEffect(
+  Schema.Struct({
+    issues: Schema.Array(
+      Schema.Struct({
+        issueNumber: Schema.Int.pipe(
+          Schema.check(Schema.isGreaterThanOrEqualTo(1))
+        )
+      })
+    )
+  })
+)
 export {
   actionsFor,
   isCompleteJiraConfiguration,
@@ -150,13 +166,12 @@ export const JiraMigrationsWorkflowLive = (
         ) {
           const executionId = yield* JiraMigrationWorkflow.execute(
             {
-              command: {
-                _tag: "Create",
+              command: JiraMigrationWorkflowCommand.cases.Create.make({
                 organizationId,
                 userId,
                 requestId,
                 source
-              }
+              })
             },
             { discard: true }
           )
@@ -164,14 +179,15 @@ export const JiraMigrationsWorkflowLive = (
             .owned({ organizationId, userId }, executionId)
             .pipe(
               Effect.retry({
-                while: (error) => error._tag === "NotFound",
+                while: Predicate.isTagged("NotFound"),
                 schedule: Schedule.spaced("20 millis")
               }),
               Effect.timeout("1 second"),
               Effect.mapError((error) =>
-                error._tag === "JiraError"
-                  ? error
-                  : new JiraError({ reason: "timeout" })
+                Match.value(error).pipe(
+                  Match.tag("JiraError", (error) => error),
+                  Match.orElse(() => new JiraError({ reason: "timeout" }))
+                )
               )
             )
           if (!matchesSource(row, source))
@@ -357,7 +373,7 @@ export const submitJiraMigrationRun = Effect.fn("submitJiraMigrationRun")(
           const gate = checkpoint.currentGate
           if (
             !gate ||
-            (gate._tag === "StartImport"
+            (JiraMigrationGate.guards.StartImport(gate)
               ? gate.scanRevision !== row.scanRevision
               : gate.failureSequence !== row.failureSequence)
           )
@@ -368,7 +384,7 @@ export const submitJiraMigrationRun = Effect.fn("submitJiraMigrationRun")(
             ...input,
             action: "run"
           })
-          if (gate._tag === "StartImport") {
+          if (JiraMigrationGate.guards.StartImport(gate)) {
             const deferred = startImportDeferred(gate.scanRevision)
             const token = DurableDeferred.tokenFromExecutionId(deferred, {
               workflow: JiraMigrationWorkflow,
@@ -599,15 +615,7 @@ export const JiraMigrationsDurableLive = (
               .readJson(
                 orgSlug,
                 checkpoint.scan.manifest,
-                Schema.Struct({
-                  issues: Schema.Array(
-                    Schema.Struct({
-                      issueNumber: Schema.Int.pipe(
-                        Schema.check(Schema.isGreaterThanOrEqualTo(1))
-                      )
-                    })
-                  )
-                })
+                decodeUnknownManifestIssueNumbers
               )
               .pipe(
                 Effect.mapError(

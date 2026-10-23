@@ -1,12 +1,16 @@
 import { it } from "@effect/vitest"
+import { assertFailure, assertTrue } from "@effect/vitest/utils"
 import { JiraError, JiraRateLimited as PublicJiraRateLimited } from "@pp/shared"
 import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import { FetchHttpClient } from "effect/http"
 import * as Layer from "effect/Layer"
+import * as Match from "effect/Match"
 import * as Redacted from "effect/Redacted"
 import * as Ref from "effect/Ref"
+import * as Result from "effect/Result"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import * as TestClock from "effect/testing/TestClock"
@@ -27,6 +31,16 @@ import {
 } from "./Client"
 import { JiraCredentials } from "./Credentials"
 
+const durableFailureJson = Schema.fromJsonString(
+  Schema.Union([JiraRateLimited, JiraTransientFailure])
+)
+const encodeDurableFailure = Schema.encodeEffect(durableFailureJson)
+const decodeDurableFailure = Schema.decodeUnknownEffect(durableFailureJson)
+const encodeRateLimited = Schema.encodeSync(JiraRateLimited)
+
+const decodeUnknownJiraRateLimitedOption =
+  Schema.decodeUnknownOption(JiraRateLimited)
+
 const stubCredentials = JiraCredentials.of({
   status: () => Effect.die("unused"),
   beginConnect: () => Effect.die("unused"),
@@ -39,440 +53,433 @@ const stubCredentials = JiraCredentials.of({
 })
 
 describe("Jira client", () => {
-  it("continues cursor pagination through an empty intermediate page", async () => {
-    const seen: Array<string | null> = []
-    const values = await Effect.runPromise(
-      paginateCursor((cursor) => {
-        seen.push(cursor)
-        return Effect.succeed(
-          cursor === null
-            ? { values: ["a"], nextPageToken: "next" }
-            : cursor === "next"
-              ? { values: [], nextPageToken: "last" }
-              : { values: ["b"], nextPageToken: null }
-        )
+  it.effect(
+    "continues cursor pagination through an empty intermediate page",
+    () =>
+      Effect.gen(function* () {
+        const seen: Array<string | null> = []
+        const values = yield* paginateCursor((cursor) => {
+          seen.push(cursor)
+          return Effect.succeed(
+            Match.value(cursor).pipe(
+              Match.when(null, () => ({
+                values: ["a"],
+                nextPageToken: "next"
+              })),
+              Match.when("next", () => ({ values: [], nextPageToken: "last" })),
+              Match.orElse(() => ({ values: ["b"], nextPageToken: null }))
+            )
+          )
+        })
+        expect(values).toEqual(["a", "b"])
+        expect(seen).toEqual([null, "next", "last"])
       })
-    )
+  )
 
-    expect(values).toEqual(["a", "b"])
-    expect(seen).toEqual([null, "next", "last"])
-  })
-
-  it("rejects a repeated cursor", async () => {
-    const result = await Effect.runPromise(
-      Effect.result(
+  it.effect("rejects a repeated cursor", () =>
+    Effect.gen(function* () {
+      const result = yield* Effect.result(
         paginateCursor(() =>
           Effect.succeed({ values: [], nextPageToken: "repeat" })
         )
       )
-    )
-
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
+      assertTrue(Result.isFailure(result))
       expect(result.failure).toMatchObject({
         _tag: "JiraError",
         reason: "invalid_response"
       })
-    }
-  })
+    })
+  )
 
-  it("uses server offset metadata and terminates an empty final page", async () => {
-    const seen: Array<number> = []
-    const values = await Effect.runPromise(
-      paginateOffset((startAt) => {
-        seen.push(startAt)
-        return Effect.succeed(
-          startAt === 0
-            ? {
+  it.effect(
+    "uses server offset metadata and terminates an empty final page",
+    () =>
+      Effect.gen(function* () {
+        const seen: Array<number> = []
+        const values = yield* paginateOffset((startAt) => {
+          seen.push(startAt)
+          return Effect.succeed(
+            Match.value(startAt).pipe(
+              Match.when(0, () => ({
                 values: ["a"],
                 startAt: 0,
                 maxResults: 1,
                 total: 3,
                 isLast: false
-              }
-            : startAt === 1
-              ? {
-                  values: [],
-                  startAt: 1,
-                  maxResults: 1,
-                  total: 3,
-                  isLast: false
-                }
-              : {
-                  values: ["b"],
-                  startAt: 2,
-                  maxResults: 1,
-                  total: 3,
-                  isLast: true
-                }
-        )
-      })
-    )
-
-    expect(values).toEqual(["a", "b"])
-    expect(seen).toEqual([0, 1, 2])
-  })
-
-  it("adds bearer auth and exhausts project pagination", async () => {
-    const requests = await Effect.runPromise(
-      Ref.make<Array<JiraTransportRequest>>([])
-    )
-    const transport = JiraTransport.of({
-      execute: (request) =>
-        Effect.gen(function* () {
-          yield* Ref.update(requests, (all) => [...all, request])
-          const url = new URL(request.url)
-          const startAt = Number(url.searchParams.get("startAt") ?? "0")
-          const body =
-            startAt === 0
-              ? {
-                  values: [
-                    {
-                      id: "1",
-                      key: "APP",
-                      name: "App",
-                      projectTypeKey: "software",
-                      simplified: false,
-                      style: "classic",
-                      avatarUrls: { "48x48": "https://avatar.example/app" }
-                    }
-                  ],
-                  startAt: 0,
-                  maxResults: 1,
-                  total: 2,
-                  isLast: false
-                }
-              : {
-                  values: [
-                    {
-                      id: "2",
-                      key: "OPS",
-                      name: "Ops",
-                      projectTypeKey: null,
-                      simplified: null,
-                      style: null,
-                      avatarUrls: {}
-                    }
-                  ],
-                  startAt: 1,
-                  maxResults: 1,
-                  total: 2,
-                  isLast: true
-                }
-          return {
-            status: 200,
-            headers: {},
-            json: Effect.succeed(body),
-            stream: Stream.empty
-          } satisfies JiraTransportResponse
+              })),
+              Match.when(1, () => ({
+                values: [],
+                startAt: 1,
+                maxResults: 1,
+                total: 3,
+                isLast: false
+              })),
+              Match.orElse(() => ({
+                values: ["b"],
+                startAt: 2,
+                maxResults: 1,
+                total: 3,
+                isLast: true
+              }))
+            )
+          )
         })
-    })
-    const credentials = JiraCredentials.of({
-      status: () => Effect.die("unused"),
-      beginConnect: () => Effect.die("unused"),
-      completeConnect: () => Effect.die("unused"),
-      completeConnectWithReturnPath: () => Effect.die("unused"),
-      returnPathForState: () => Effect.die("unused"),
-      accessTokenFor: () =>
-        Effect.succeed({ token: Redacted.make("access-token") }),
-      disconnect: () => Effect.die("unused"),
-      markReconnectRequired: () => Effect.void
-    })
-    const projects = await Effect.runPromise(
-      Effect.gen(function* () {
+        expect(values).toEqual(["a", "b"])
+        expect(seen).toEqual([0, 1, 2])
+      })
+  )
+
+  it.effect("adds bearer auth and exhausts project pagination", () =>
+    Effect.gen(function* () {
+      const requests = yield* Ref.make<Array<JiraTransportRequest>>([])
+      const transport = JiraTransport.of({
+        execute: (request) =>
+          Effect.gen(function* () {
+            yield* Ref.update(requests, (all) => [...all, request])
+            const url = new URL(request.url)
+            const startAt = Number(url.searchParams.get("startAt") ?? "0")
+            const body =
+              startAt === 0
+                ? {
+                    values: [
+                      {
+                        id: "1",
+                        key: "APP",
+                        name: "App",
+                        projectTypeKey: "software",
+                        simplified: false,
+                        style: "classic",
+                        avatarUrls: { "48x48": "https://avatar.example/app" }
+                      }
+                    ],
+                    startAt: 0,
+                    maxResults: 1,
+                    total: 2,
+                    isLast: false
+                  }
+                : {
+                    values: [
+                      {
+                        id: "2",
+                        key: "OPS",
+                        name: "Ops",
+                        projectTypeKey: null,
+                        simplified: null,
+                        style: null,
+                        avatarUrls: {}
+                      }
+                    ],
+                    startAt: 1,
+                    maxResults: 1,
+                    total: 2,
+                    isLast: true
+                  }
+            return {
+              status: 200,
+              headers: {},
+              json: Effect.succeed(body),
+              stream: Stream.empty
+            } satisfies JiraTransportResponse
+          })
+      })
+      const credentials = JiraCredentials.of({
+        status: () => Effect.die("unused"),
+        beginConnect: () => Effect.die("unused"),
+        completeConnect: () => Effect.die("unused"),
+        completeConnectWithReturnPath: () => Effect.die("unused"),
+        returnPathForState: () => Effect.die("unused"),
+        accessTokenFor: () =>
+          Effect.succeed({ token: Redacted.make("access-token") }),
+        disconnect: () => Effect.die("unused"),
+        markReconnectRequired: () => Effect.void
+      })
+      const projects = yield* Effect.gen(function* () {
         const client = yield* JiraClient
         return yield* client.projects("user-1", "cloud id")
       }).pipe(Effect.provide(clientLayer(transport, credentials)))
-    )
-    const recorded = await Effect.runPromise(Ref.get(requests))
-
-    expect(projects.map(({ key }) => key)).toEqual(["APP", "OPS"])
-    expect(recorded).toHaveLength(2)
-    expect(recorded[0]?.headers.authorization).toBe("Bearer access-token")
-    expect(recorded[0]?.url).toContain(
-      "/ex/jira/cloud%20id/rest/api/3/project/search"
-    )
-  })
-
-  it("decodes project statuses with top-level issue type fields", async () => {
-    const transport = JiraTransport.of({
-      execute: () =>
-        Effect.succeed({
-          status: 200,
-          headers: {},
-          json: Effect.succeed([
-            {
-              id: "10001",
-              name: "Bug",
-              subtask: false,
-              statuses: [
-                {
-                  id: "3",
-                  name: "In Progress",
-                  statusCategory: { id: 4, key: "indeterminate" }
-                }
-              ]
-            }
-          ]),
-          stream: Stream.empty
-        })
+      const recorded = yield* Ref.get(requests)
+      expect(projects.map(({ key }) => key)).toEqual(["APP", "OPS"])
+      expect(recorded).toHaveLength(2)
+      expect(recorded[0]?.headers.authorization).toBe("Bearer access-token")
+      expect(recorded[0]?.url).toContain(
+        "/ex/jira/cloud%20id/rest/api/3/project/search"
+      )
     })
-    const credentials = JiraCredentials.of({
-      status: () => Effect.die("unused"),
-      beginConnect: () => Effect.die("unused"),
-      completeConnect: () => Effect.die("unused"),
-      completeConnectWithReturnPath: () => Effect.die("unused"),
-      returnPathForState: () => Effect.die("unused"),
-      accessTokenFor: () => Effect.succeed({ token: Redacted.make("token") }),
-      disconnect: () => Effect.die("unused"),
-      markReconnectRequired: () => Effect.void
-    })
+  )
 
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
+  it.effect("decodes project statuses with top-level issue type fields", () =>
+    Effect.gen(function* () {
+      const transport = JiraTransport.of({
+        execute: () =>
+          Effect.succeed({
+            status: 200,
+            headers: {},
+            json: Effect.succeed([
+              {
+                id: "10001",
+                name: "Bug",
+                subtask: false,
+                statuses: [
+                  {
+                    id: "3",
+                    name: "In Progress",
+                    statusCategory: { id: 4, key: "indeterminate" }
+                  }
+                ]
+              }
+            ]),
+            stream: Stream.empty
+          })
+      })
+      const credentials = JiraCredentials.of({
+        status: () => Effect.die("unused"),
+        beginConnect: () => Effect.die("unused"),
+        completeConnect: () => Effect.die("unused"),
+        completeConnectWithReturnPath: () => Effect.die("unused"),
+        returnPathForState: () => Effect.die("unused"),
+        accessTokenFor: () => Effect.succeed({ token: Redacted.make("token") }),
+        disconnect: () => Effect.die("unused"),
+        markReconnectRequired: () => Effect.void
+      })
+      const result = yield* Effect.gen(function* () {
         const client = yield* JiraClient
         return yield* client.projectStatuses("user", "cloud", "APP")
       }).pipe(Effect.provide(clientLayer(transport, credentials)))
-    )
-
-    expect(result).toEqual([
-      {
-        id: "10001",
-        name: "Bug",
-        subtask: false,
-        statuses: [
-          {
-            id: "3",
-            name: "In Progress",
-            statusCategory: { id: 4, key: "indeterminate" }
-          }
-        ]
-      }
-    ])
-  })
-
-  it("omits an empty expand value from enhanced issue search", async () => {
-    const requests: Array<JiraTransportRequest> = []
-    const transport = JiraTransport.of({
-      execute: (request) => {
-        requests.push(request)
-        return Effect.succeed({
-          status: 200,
-          headers: {},
-          json: Effect.succeed({
-            isLast: true,
-            issues: [{ id: "10001", key: "APP-1", fields: {} }]
-          }),
-          stream: Stream.empty
-        })
-      }
+      expect(result).toEqual([
+        {
+          id: "10001",
+          name: "Bug",
+          subtask: false,
+          statuses: [
+            {
+              id: "3",
+              name: "In Progress",
+              statusCategory: { id: 4, key: "indeterminate" }
+            }
+          ]
+        }
+      ])
     })
-    const credentials = JiraCredentials.of({
-      status: () => Effect.die("unused"),
-      beginConnect: () => Effect.die("unused"),
-      completeConnect: () => Effect.die("unused"),
-      completeConnectWithReturnPath: () => Effect.die("unused"),
-      returnPathForState: () => Effect.die("unused"),
-      accessTokenFor: () => Effect.succeed({ token: Redacted.make("token") }),
-      disconnect: () => Effect.die("unused"),
-      markReconnectRequired: () => Effect.void
-    })
+  )
 
-    const issues = await Effect.runPromise(
-      Effect.gen(function* () {
+  it.effect("omits an empty expand value from enhanced issue search", () =>
+    Effect.gen(function* () {
+      const requests: Array<JiraTransportRequest> = []
+      const transport = JiraTransport.of({
+        execute: (request) => {
+          requests.push(request)
+          return Effect.succeed({
+            status: 200,
+            headers: {},
+            json: Effect.succeed({
+              isLast: true,
+              issues: [{ id: "10001", key: "APP-1", fields: {} }]
+            }),
+            stream: Stream.empty
+          })
+        }
+      })
+      const credentials = JiraCredentials.of({
+        status: () => Effect.die("unused"),
+        beginConnect: () => Effect.die("unused"),
+        completeConnect: () => Effect.die("unused"),
+        completeConnectWithReturnPath: () => Effect.die("unused"),
+        returnPathForState: () => Effect.die("unused"),
+        accessTokenFor: () => Effect.succeed({ token: Redacted.make("token") }),
+        disconnect: () => Effect.die("unused"),
+        markReconnectRequired: () => Effect.void
+      })
+      const issues = yield* Effect.gen(function* () {
         const client = yield* JiraClient
         return yield* client.searchIssues("user", "cloud", {
           jql: 'project = "APP"',
           fields: ["summary"]
         })
       }).pipe(Effect.provide(clientLayer(transport, credentials)))
-    )
-
-    expect(issues.map(({ key }) => key)).toEqual(["APP-1"])
-    expect(requests[0]?.body).toEqual({
-      jql: 'project = "APP"',
-      fields: ["summary"],
-      maxResults: 100
+      expect(issues.map(({ key }) => key)).toEqual(["APP-1"])
+      expect(requests[0]?.body).toEqual({
+        jql: 'project = "APP"',
+        fields: ["summary"],
+        maxResults: 100
+      })
     })
-  })
+  )
 
-  it("uses the board-scoped enhanced endpoint for sprint issues", async () => {
-    const requests: Array<JiraTransportRequest> = []
-    const transport = JiraTransport.of({
-      execute: (request) => {
-        requests.push(request)
-        const nextPageToken = new URL(request.url).searchParams.get(
-          "nextPageToken"
-        )
-        return Effect.succeed({
-          status: 200,
-          headers: {},
-          json: Effect.succeed(
-            nextPageToken === null
-              ? {
-                  isLast: false,
-                  nextPageToken: "next",
-                  issues: [
-                    {
-                      expand: "",
-                      id: "10001",
-                      key: "APP-1",
-                      self: "https://example.test/issue/10001"
-                    }
-                  ]
-                }
-              : {
-                  isLast: true,
-                  issues: [
-                    {
-                      expand: "",
-                      id: "10002",
-                      key: "APP-2",
-                      self: "https://example.test/issue/10002"
-                    }
-                  ]
-                }
-          ),
-          stream: Stream.empty
-        })
-      }
-    })
-    const credentials = JiraCredentials.of({
-      status: () => Effect.die("unused"),
-      beginConnect: () => Effect.die("unused"),
-      completeConnect: () => Effect.die("unused"),
-      completeConnectWithReturnPath: () => Effect.die("unused"),
-      returnPathForState: () => Effect.die("unused"),
-      accessTokenFor: () => Effect.succeed({ token: Redacted.make("token") }),
-      disconnect: () => Effect.die("unused"),
-      markReconnectRequired: () => Effect.void
-    })
-
-    const exit = await Effect.runPromise(
-      Effect.gen(function* () {
+  it.effect("uses the board-scoped enhanced endpoint for sprint issues", () =>
+    Effect.gen(function* () {
+      const requests: Array<JiraTransportRequest> = []
+      const transport = JiraTransport.of({
+        execute: (request) => {
+          requests.push(request)
+          const nextPageToken = new URL(request.url).searchParams.get(
+            "nextPageToken"
+          )
+          return Effect.succeed({
+            status: 200,
+            headers: {},
+            json: Effect.succeed<Schema.Json>(
+              nextPageToken === null
+                ? {
+                    isLast: false,
+                    nextPageToken: "next",
+                    issues: [
+                      {
+                        expand: "",
+                        id: "10001",
+                        key: "APP-1",
+                        self: "https://example.test/issue/10001"
+                      }
+                    ]
+                  }
+                : {
+                    isLast: true,
+                    issues: [
+                      {
+                        expand: "",
+                        id: "10002",
+                        key: "APP-2",
+                        self: "https://example.test/issue/10002"
+                      }
+                    ]
+                  }
+            ),
+            stream: Stream.empty
+          })
+        }
+      })
+      const credentials = JiraCredentials.of({
+        status: () => Effect.die("unused"),
+        beginConnect: () => Effect.die("unused"),
+        completeConnect: () => Effect.die("unused"),
+        completeConnectWithReturnPath: () => Effect.die("unused"),
+        returnPathForState: () => Effect.die("unused"),
+        accessTokenFor: () => Effect.succeed({ token: Redacted.make("token") }),
+        disconnect: () => Effect.die("unused"),
+        markReconnectRequired: () => Effect.void
+      })
+      const exit = yield* Effect.gen(function* () {
         const client = yield* JiraClient
         return yield* Effect.exit(
           client.sprintIssues("user", "cloud", 84, 37, ["id"])
         )
       }).pipe(Effect.provide(clientLayer(transport, credentials)))
-    )
-
-    expect(exit._tag).toBe("Success")
-    if (exit._tag === "Failure") return
-    expect(exit.value.map(({ key }) => key)).toEqual(["APP-1", "APP-2"])
-    expect(
-      requests.map(({ url }) => {
-        const parsed = new URL(url)
-        return {
-          pathname: parsed.pathname,
-          fields: parsed.searchParams.get("fields"),
-          maxResults: parsed.searchParams.get("maxResults"),
-          nextPageToken: parsed.searchParams.get("nextPageToken")
-        }
-      })
-    ).toEqual([
-      {
-        pathname: "/ex/jira/cloud/rest/software/1.0/board/84/sprint/37/issue",
-        fields: "id",
-        maxResults: "100",
-        nextPageToken: null
-      },
-      {
-        pathname: "/ex/jira/cloud/rest/software/1.0/board/84/sprint/37/issue",
-        fields: "id",
-        maxResults: "100",
-        nextPageToken: "next"
-      }
-    ])
-  })
-
-  it("maps permission failures without reading the upstream body", async () => {
-    let bodyRead = false
-    const transport = JiraTransport.of({
-      execute: () =>
-        Effect.succeed({
-          status: 403,
-          headers: {},
-          json: Effect.sync(() => {
-            bodyRead = true
-            return { secret: "must-not-read" }
-          }),
-          stream: Stream.empty
+      assertTrue(Exit.isSuccess(exit))
+      expect(exit.value.map(({ key }) => key)).toEqual(["APP-1", "APP-2"])
+      expect(
+        requests.map(({ url }) => {
+          const parsed = new URL(url)
+          return {
+            pathname: parsed.pathname,
+            fields: parsed.searchParams.get("fields"),
+            maxResults: parsed.searchParams.get("maxResults"),
+            nextPageToken: parsed.searchParams.get("nextPageToken")
+          }
         })
+      ).toEqual([
+        {
+          pathname: "/ex/jira/cloud/rest/software/1.0/board/84/sprint/37/issue",
+          fields: "id",
+          maxResults: "100",
+          nextPageToken: null
+        },
+        {
+          pathname: "/ex/jira/cloud/rest/software/1.0/board/84/sprint/37/issue",
+          fields: "id",
+          maxResults: "100",
+          nextPageToken: "next"
+        }
+      ])
     })
-    const credentials = JiraCredentials.of({
-      status: () => Effect.die("unused"),
-      beginConnect: () => Effect.die("unused"),
-      completeConnect: () => Effect.die("unused"),
-      completeConnectWithReturnPath: () => Effect.die("unused"),
-      returnPathForState: () => Effect.die("unused"),
-      accessTokenFor: () => Effect.succeed({ token: Redacted.make("token") }),
-      disconnect: () => Effect.die("unused"),
-      markReconnectRequired: () => Effect.void
-    })
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
+  )
+
+  it.effect("maps permission failures without reading the upstream body", () =>
+    Effect.gen(function* () {
+      let bodyRead = false
+      const transport = JiraTransport.of({
+        execute: () =>
+          Effect.succeed({
+            status: 403,
+            headers: {},
+            json: Effect.sync(() => {
+              bodyRead = true
+              return { secret: "must-not-read" }
+            }),
+            stream: Stream.empty
+          })
+      })
+      const credentials = JiraCredentials.of({
+        status: () => Effect.die("unused"),
+        beginConnect: () => Effect.die("unused"),
+        completeConnect: () => Effect.die("unused"),
+        completeConnectWithReturnPath: () => Effect.die("unused"),
+        returnPathForState: () => Effect.die("unused"),
+        accessTokenFor: () => Effect.succeed({ token: Redacted.make("token") }),
+        disconnect: () => Effect.die("unused"),
+        markReconnectRequired: () => Effect.void
+      })
+      const result = yield* Effect.gen(function* () {
         const client = yield* JiraClient
         return yield* Effect.result(client.fields("user", "cloud"))
       }).pipe(Effect.provide(clientLayer(transport, credentials)))
-    )
-
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("JiraAccessDenied")
-    }
-    expect(bodyRead).toBe(false)
-  })
-
-  it("refreshes once when attachment download returns unauthorized", async () => {
-    const requests: Array<JiraTransportRequest> = []
-    const refreshes: Array<boolean | undefined> = []
-    const transport = JiraTransport.of({
-      execute: (request) => {
-        requests.push(request)
-        return Effect.succeed({
-          status: requests.length === 1 ? 401 : 206,
-          headers: {},
-          json: Effect.die("unused"),
-          stream: Stream.make(new Uint8Array([1, 2, 3]))
-        })
-      }
+      expect(result).toMatchObject({
+        _tag: "Failure",
+        failure: { _tag: "JiraAccessDenied" }
+      })
+      expect(bodyRead).toBe(false)
     })
-    const credentials = JiraCredentials.of({
-      status: () => Effect.die("unused"),
-      beginConnect: () => Effect.die("unused"),
-      completeConnect: () => Effect.die("unused"),
-      completeConnectWithReturnPath: () => Effect.die("unused"),
-      returnPathForState: () => Effect.die("unused"),
-      accessTokenFor: (_userId, options) => {
-        refreshes.push(options?.forceRefresh)
-        return Effect.succeed({
-          token: Redacted.make(options?.forceRefresh ? "rotated" : "initial")
-        })
-      },
-      disconnect: () => Effect.die("unused"),
-      markReconnectRequired: () => Effect.void
-    })
+  )
 
-    await Effect.runPromise(
+  it.effect(
+    "refreshes once when attachment download returns unauthorized",
+    () =>
       Effect.gen(function* () {
-        const client = yield* JiraClient
-        yield* client
-          .attachmentContent("user", "cloud", "123", "bytes=2-4")
-          .pipe(Stream.runDrain)
-      }).pipe(Effect.provide(clientLayer(transport, credentials)))
-    )
-
-    expect(refreshes).toEqual([undefined, true])
-    expect(requests.map(({ headers }) => headers.authorization)).toEqual([
-      "Bearer initial",
-      "Bearer rotated"
-    ])
-    expect(requests.map(({ headers }) => headers.range)).toEqual([
-      "bytes=2-4",
-      "bytes=2-4"
-    ])
-  })
+        const requests: Array<JiraTransportRequest> = []
+        const refreshes: Array<boolean | undefined> = []
+        const transport = JiraTransport.of({
+          execute: (request) => {
+            requests.push(request)
+            return Effect.succeed({
+              status: requests.length === 1 ? 401 : 206,
+              headers: {},
+              json: Effect.die("unused"),
+              stream: Stream.make(new Uint8Array([1, 2, 3]))
+            })
+          }
+        })
+        const credentials = JiraCredentials.of({
+          status: () => Effect.die("unused"),
+          beginConnect: () => Effect.die("unused"),
+          completeConnect: () => Effect.die("unused"),
+          completeConnectWithReturnPath: () => Effect.die("unused"),
+          returnPathForState: () => Effect.die("unused"),
+          accessTokenFor: (_userId, options) => {
+            refreshes.push(options?.forceRefresh)
+            return Effect.succeed({
+              token: Redacted.make(
+                options?.forceRefresh ? "rotated" : "initial"
+              )
+            })
+          },
+          disconnect: () => Effect.die("unused"),
+          markReconnectRequired: () => Effect.void
+        })
+        yield* Effect.gen(function* () {
+          const client = yield* JiraClient
+          yield* client
+            .attachmentContent("user", "cloud", "123", "bytes=2-4")
+            .pipe(Stream.runDrain)
+        }).pipe(Effect.provide(clientLayer(transport, credentials)))
+        expect(refreshes).toEqual([undefined, true])
+        expect(requests.map(({ headers }) => headers.authorization)).toEqual([
+          "Bearer initial",
+          "Bearer rotated"
+        ])
+        expect(requests.map(({ headers }) => headers.range)).toEqual([
+          "bytes=2-4",
+          "bytes=2-4"
+        ])
+      })
+  )
 })
 
 const clientLayer = (
@@ -489,7 +496,7 @@ const clientLayer = (
   )
 const response = (
   status: number,
-  body: unknown = {},
+  body: Schema.Json = {},
   headers: Record<string, string> = {}
 ): JiraTransportResponse => ({
   status,
@@ -861,7 +868,15 @@ describe("Jira boundary edge cases", () => {
       })
   )
 
-  for (const fixture of [
+  const offsetPageCases: ReadonlyArray<
+    Readonly<{
+      body: Schema.Json
+      expected: Omit<
+        Effect.Success<ReturnType<JiraClientShape["componentsPage"]>>,
+        "raw"
+      >
+    }>
+  > = [
     {
       body: { values: [], startAt: 0, maxResults: 100 },
       expected: {
@@ -892,7 +907,8 @@ describe("Jira boundary edge cases", () => {
         isLast: false
       }
     }
-  ]) {
+  ]
+  for (const fixture of offsetPageCases) {
     it.effect(
       `normalizes offset continuation ${JSON.stringify(fixture.body)}`,
       () =>
@@ -917,13 +933,14 @@ describe("Jira boundary edge cases", () => {
     )
   }
 
-  for (const body of [
+  const malformedOffsetPages: ReadonlyArray<Schema.Json> = [
     { values: [], startAt: 99, maxResults: 100 },
     { values: [], startAt: 0, maxResults: 0 },
     { values: [], startAt: 0, maxResults: 1.5 },
     { values: [], startAt: 0, maxResults: 100, total: -1 },
     { values: [{ id: "1" }], startAt: 0, maxResults: 100 }
-  ]) {
+  ]
+  for (const body of malformedOffsetPages) {
     it.effect(`rejects malformed offset page ${JSON.stringify(body)}`, () =>
       Effect.gen(function* () {
         const result = yield* Effect.gen(function* () {
@@ -1059,29 +1076,26 @@ describe("Jira boundary edge cases", () => {
     [
       429,
       "15",
-      {
-        _tag: "JiraRateLimited",
+      new JiraRateLimited({
         operation: "attachmentContent",
         retryAfterMillis: 15000
-      }
+      })
     ],
     [
       429,
       "-1",
-      {
-        _tag: "JiraTransientFailure",
+      new JiraTransientFailure({
         operation: "attachmentContent",
         reason: "invalid_retry_after"
-      }
+      })
     ],
     [
       503,
       "",
-      {
-        _tag: "JiraTransientFailure",
+      new JiraTransientFailure({
         operation: "attachmentContent",
         reason: "server_error"
-      }
+      })
     ]
   ] as const) {
     it.effect(
@@ -1104,7 +1118,7 @@ describe("Jira boundary edge cases", () => {
                 .pipe(Stream.runDrain)
             )
           }).pipe(Effect.provide(clientLayer(transport)))
-          expect(result).toMatchObject({ _tag: "Failure", failure: expected })
+          assertFailure(result, expected)
           expect(requests).toBe(1)
         })
     )
@@ -1151,21 +1165,21 @@ describe("Jira boundary edge cases", () => {
 
   it.effect("encodes private failures for durable Activity history", () =>
     Effect.gen(function* () {
-      const schema = Schema.fromJsonString(
-        Schema.Union([JiraRateLimited, JiraTransientFailure])
-      )
+      const rateLimited = new JiraRateLimited({
+        operation: "issues",
+        retryAfterMillis: 15000
+      })
       for (const error of [
-        new JiraRateLimited({ operation: "issues", retryAfterMillis: 15000 }),
+        rateLimited,
         new JiraTransientFailure({ operation: "issues", reason: "network" })
       ]) {
-        const encoded = yield* Schema.encodeEffect(schema)(error)
-        const decoded = yield* Schema.decodeUnknownEffect(schema)(encoded)
+        const encoded = yield* encodeDurableFailure(error)
+        const decoded = yield* decodeDurableFailure(encoded)
         expect(decoded).toEqual(error)
       }
       expect(
-        Schema.decodeUnknownOption(JiraRateLimited)({
-          _tag: "JiraRateLimited",
-          operation: "issues",
+        decodeUnknownJiraRateLimitedOption({
+          ...encodeRateLimited(rateLimited),
           retryAfterMillis: 86400001
         })._tag
       ).toBe("None")
@@ -1269,10 +1283,10 @@ describe("Jira live JSON response transport", () => {
   for (const [kind, expected] of [
     [
       "body reset",
-      { _tag: "JiraTransientFailure", operation: "fields", reason: "network" }
+      new JiraTransientFailure({ operation: "fields", reason: "network" })
     ],
-    ["malformed JSON", { _tag: "JiraError", reason: "invalid_response" }],
-    ["invalid schema", { _tag: "JiraError", reason: "invalid_response" }]
+    ["malformed JSON", new JiraError({ reason: "invalid_response" })],
+    ["invalid schema", new JiraError({ reason: "invalid_response" })]
   ] as const) {
     it.effect(`classifies ${kind} after successful response headers`, () =>
       Effect.gen(function* () {
@@ -1288,9 +1302,11 @@ describe("Jira live JSON response transport", () => {
               expect(new Headers(init?.headers).get("authorization")).toBe(
                 "Bearer token"
               )
-              const body =
-                kind === "body reset"
-                  ? new ReadableStream<Uint8Array>({
+              const body = Match.value(kind).pipe(
+                Match.when(
+                  "body reset",
+                  () =>
+                    new ReadableStream<Uint8Array>({
                       start(controller) {
                         controller.enqueue(new TextEncoder().encode("["))
                         controller.error(
@@ -1298,9 +1314,10 @@ describe("Jira live JSON response transport", () => {
                         )
                       }
                     })
-                  : kind === "malformed JSON"
-                    ? "{"
-                    : "{}"
+                ),
+                Match.when("malformed JSON", () => "{"),
+                Match.orElse(() => "{}")
+              )
               return new Response(body, {
                 status: 200,
                 headers: { "content-type": "application/json" }
@@ -1322,7 +1339,7 @@ describe("Jira live JSON response transport", () => {
           const client = yield* JiraClient
           return yield* Effect.result(client.fields("user", "cloud"))
         }).pipe(Effect.provide(live))
-        expect(result).toMatchObject({ _tag: "Failure", failure: expected })
+        assertFailure(result, expected)
         expect(requests).toBe(1)
       })
     )
@@ -1330,56 +1347,60 @@ describe("Jira live JSON response transport", () => {
 })
 
 describe("scan source provenance", () => {
-  it("keeps original page and metadata JSON including unknown fields", async () => {
-    const raw = {
-      issues: [
-        {
-          id: "1",
-          key: "APP-1",
-          fields: { summary: "x" },
-          hiddenExtension: "nested-marker"
-        }
-      ],
-      nextPageToken: null,
-      unknownEnvelope: "envelope-marker"
-    }
-    const projectRaw = {
-      id: "1",
-      key: "APP",
-      name: "Application",
-      hiddenExtension: "metadata-marker"
-    }
-    const layer = clientLayer(
-      JiraTransport.of({
-        execute: (request) =>
-          Effect.succeed({
-            status: 200,
-            headers: {},
-            json: Effect.succeed(request.method === "POST" ? raw : projectRaw),
-            stream: Stream.empty
-          })
-      }),
-      stubCredentials
-    )
-    await Effect.runPromise(
+  it.effect(
+    "keeps original page and metadata JSON including unknown fields",
+    () =>
       Effect.gen(function* () {
-        const client = yield* JiraClient
-        const page = yield* client.searchIssuesPage({
-          userId: "u",
-          cloudId: "c",
-          jql: "project = APP",
-          fields: ["*all"]
-        })
-        expect(page.raw).toEqual(raw)
-        expect(page.values[0]).not.toHaveProperty("hiddenExtension")
-        const snapshot = yield* client.snapshots.project("u", "c", "1")
-        expect(snapshot.raw).toEqual(projectRaw)
-        expect(snapshot.value).toEqual({
+        const raw = {
+          issues: [
+            {
+              id: "1",
+              key: "APP-1",
+              fields: { summary: "x" },
+              hiddenExtension: "nested-marker"
+            }
+          ],
+          nextPageToken: null,
+          unknownEnvelope: "envelope-marker"
+        }
+        const projectRaw = {
           id: "1",
           key: "APP",
-          name: "Application"
-        })
-      }).pipe(Effect.provide(layer))
-    )
-  })
+          name: "Application",
+          hiddenExtension: "metadata-marker"
+        }
+        const layer = clientLayer(
+          JiraTransport.of({
+            execute: (request) =>
+              Effect.succeed({
+                status: 200,
+                headers: {},
+                json: Effect.succeed(
+                  request.method === "POST" ? raw : projectRaw
+                ),
+                stream: Stream.empty
+              })
+          }),
+          stubCredentials
+        )
+        yield* Effect.gen(function* () {
+          const client = yield* JiraClient
+          const page = yield* client.searchIssuesPage({
+            userId: "u",
+            cloudId: "c",
+            jql: "project = APP",
+            fields: ["*all"]
+          })
+          expect(page.raw).toEqual(raw)
+          expect(page.values[0]).not.toHaveProperty("hiddenExtension")
+          const snapshot = yield* client.snapshots.project("u", "c", "1")
+          expect(snapshot.raw).toEqual(projectRaw)
+          expect(snapshot.value).toEqual({
+            id: "1",
+            key: "APP",
+            name: "Application"
+          })
+        }).pipe(Effect.provide(layer))
+      })
+  )
 })

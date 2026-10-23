@@ -5,7 +5,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { m } from "@/paraglide/messages"
@@ -46,21 +45,13 @@ export function GroupingMenu<K extends string>({
       <DropdownMenuContent align="end">
         <DropdownMenuRadioGroup
           value={value}
-          onValueChange={(next) => {
-            const option = options.find((item) => item.key === next)
-            if (option) onChange(option.key)
-          }}
-        >
-          {options.map((option) => (
-            <DropdownMenuRadioItem
-              key={option.key}
-              value={option.key}
-              closeOnClick
-            >
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
+          onValueChange={onChange}
+          items={options.map((option) => ({
+            value: option.key,
+            closeOnClick: true,
+            label: option.label
+          }))}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   )

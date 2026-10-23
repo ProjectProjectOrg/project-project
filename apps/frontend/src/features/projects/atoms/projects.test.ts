@@ -27,6 +27,12 @@ import {
   updateProjectSetup
 } from "./projects"
 
+const decodeMemberSync = Schema.decodeSync(Member)
+
+const decodeUnknownUpdateProjectSetupInputSync = Schema.decodeUnknownSync(
+  UpdateProjectSetupInput
+)
+
 const detail = Schema.decodeSync(ProjectDetail)({
   org: "acme",
   slug: "web",
@@ -161,7 +167,7 @@ describe("project member mutations", () => {
   })
 
   it("keeps a later role change when an earlier response arrives first", async () => {
-    const secondMember = Schema.decodeSync(Member)({
+    const secondMember = decodeMemberSync({
       ...detail.members[0],
       id: "user-3",
       username: "john",
@@ -462,7 +468,7 @@ describe("project setup mutations", () => {
       if (init?.method === "PATCH") {
         const request =
           input instanceof Request ? input : new Request(input, init)
-        const payload = Schema.decodeUnknownSync(UpdateProjectSetupInput)(
+        const payload = decodeUnknownUpdateProjectSetupInputSync(
           await request.json()
         )
         payloads.push(payload)

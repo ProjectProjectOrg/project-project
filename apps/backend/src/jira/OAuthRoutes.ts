@@ -3,6 +3,8 @@ import { JiraCredentials } from "@pp/server-core/jira/Credentials"
 import { JiraOAuthConfig } from "@pp/server-core/jira/OAuth"
 import * as Effect from "effect/Effect"
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
+import * as Match from "effect/Match"
+import * as Result from "effect/Result"
 
 import { toWebHeaders } from "../http/toWebHeaders"
 
@@ -89,15 +91,19 @@ const callbackRoute = Effect.gen(function* () {
   const result = yield* Effect.result(
     credentials.completeConnect(session.user.id, code, state)
   )
-  if (result._tag === "Success") {
+  if (Result.isSuccess(result)) {
     return redirect(config.publicBaseUrl, returnPath)
   }
   return redirect(
     config.publicBaseUrl,
     returnPath,
-    result.failure._tag === "JiraReconnectRequired"
-      ? `jira_reconnect_${result.failure.reason}`
-      : "jira_oauth_callback_failed"
+    Match.value(result.failure).pipe(
+      Match.tag(
+        "JiraReconnectRequired",
+        (failure) => `jira_reconnect_${failure.reason}`
+      ),
+      Match.orElse(() => "jira_oauth_callback_failed")
+    )
   )
 }).pipe(
   Effect.catchCause(() =>

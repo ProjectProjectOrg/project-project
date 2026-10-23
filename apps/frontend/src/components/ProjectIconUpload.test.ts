@@ -1,10 +1,10 @@
-import type { AttachmentId } from "@pp/shared"
+import { AttachmentId } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
 import { buildIconImage } from "@/lib/iconDraft"
 
-const sourceAttachmentId = "attachment_source" as AttachmentId
-const renderedAttachmentId = "attachment_rendered" as AttachmentId
+const sourceAttachmentId = AttachmentId.make("01ARZ3NDEKTSV4RRFFQ69G5FAV")
+const renderedAttachmentId = AttachmentId.make("01ARZ3NDEKTSV4RRFFQ69G5FAW")
 const crop = { x: 0.5, y: 0.5, zoom: 1 }
 
 describe("buildIconImage", () => {

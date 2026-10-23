@@ -9,6 +9,7 @@ import {
   type TicketListQuery,
   TicketStatus
 } from "@pp/shared"
+import * as Match from "effect/Match"
 import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
@@ -224,12 +225,11 @@ function SprintSection({
   }
   const label = sprint?.name ?? m.tickets_grouping_unscheduled()
   const state = sprint ? sprintState(sprint) : null
-  const stateLabel =
-    state === "planned"
-      ? m.tickets_grouping_planned()
-      : state === "active"
-        ? m.tickets_grouping_active()
-        : m.tickets_grouping_completed()
+  const stateLabel = Match.value(state).pipe(
+    Match.when("planned", () => m.tickets_grouping_planned()),
+    Match.when("active", () => m.tickets_grouping_active()),
+    Match.orElse(() => m.tickets_grouping_completed())
+  )
   const dates =
     sprint &&
     [sprint.startsAt, sprint.endsAt]

@@ -22,6 +22,23 @@ import type {
   JiraPreparedPublicationV1,
   JiraAttachmentOutcome
 } from "./PublicationPlan"
+
+const decodeUnknownAttachmentOutcomesSync = Schema.decodeUnknownSync(
+  Schema.Array(Schema.Struct({ kind: Schema.String }))
+)
+
+const decodeUnknownCoverageEntriesSync = Schema.decodeUnknownSync(
+  Schema.Array(
+    Schema.Struct({
+      category: Schema.String,
+      visibility: Schema.String,
+      reason: Schema.NullOr(Schema.String)
+    })
+  )
+)
+
+const decodeUnknownJiraManifestSourceV2Sync =
+  Schema.decodeUnknownSync(JiraManifestSourceV2)
 export type JiraMigrationOutcomeInput = Readonly<{
   migrationId: string
   orgSlug: string
@@ -392,10 +409,16 @@ export const JiraPlannedArchive = Schema.Struct({
   converterVersions: Schema.Array(Schema.Json)
 })
 
+const decodeUnknownJiraPlannedArchiveSync =
+  Schema.decodeUnknownSync(JiraPlannedArchive)
+
 const ArchivedIssueLink = Schema.Struct({
   id: Schema.NonEmptyString,
   key: Schema.NonEmptyString
 })
+
+const decodeUnknownArchivedIssueLinkSync =
+  Schema.decodeUnknownSync(ArchivedIssueLink)
 
 const ArchivedAttachmentLink = Schema.Struct({
   id: Schema.NonEmptyString,
@@ -404,6 +427,10 @@ const ArchivedAttachmentLink = Schema.Struct({
   mimeType: Schema.NonEmptyString,
   byteSize: Schema.Int
 })
+
+const decodeUnknownArchivedAttachmentLinkSync = Schema.decodeUnknownSync(
+  ArchivedAttachmentLink
+)
 
 const ArchivedSkippedOutcome = Schema.Struct({
   sourceAttachmentId: Schema.NonEmptyString,
@@ -425,13 +452,13 @@ export const skippedAttachmentsForArchive = (
   return archive.attachmentOutcomes
     .filter(Schema.is(ArchivedSkippedOutcome))
     .map((outcome) => {
-      const attachment = Schema.decodeUnknownSync(ArchivedAttachmentLink)(
+      const attachment = decodeUnknownArchivedAttachmentLinkSync(
         attachments.find(
           (item) =>
             Predicate.isObject(item) && item.id === outcome.sourceAttachmentId
         )
       )
-      const issue = Schema.decodeUnknownSync(ArchivedIssueLink)(
+      const issue = decodeUnknownArchivedIssueLinkSync(
         issues.find(
           (item) => Predicate.isObject(item) && item.id === attachment.issueId
         )
@@ -466,9 +493,15 @@ export const JiraPlannedReport = Schema.Struct({
   archivedCounts: Schema.Record(Schema.String, Schema.Int),
   markdown: Schema.String
 })
+
+const decodeUnknownJiraPlannedReportSync =
+  Schema.decodeUnknownSync(JiraPlannedReport)
 const CustomFieldValues = Schema.Array(
   Schema.Struct({ issueId: Schema.NonEmptyString, value: Schema.Json })
 )
+
+const decodeUnknownCustomFieldValuesSync =
+  Schema.decodeUnknownSync(CustomFieldValues)
 
 export function buildJiraArchiveV2(
   prepared: JiraPreparedPublicationV1,
@@ -562,7 +595,7 @@ export function buildJiraArchiveV2(
   categories.customFields = manifest.customFields.map(
     ({ valuesArtifact, ...field }) => ({
       ...field,
-      values: Schema.decodeUnknownSync(CustomFieldValues)(
+      values: decodeUnknownCustomFieldValuesSync(
         values.get(valuesArtifact.key)
       ).map((value) =>
         excludedIssue(value.issueId)
@@ -625,7 +658,7 @@ export function buildJiraArchiveV2(
   }
   for (const [category, records] of Object.entries(metadata))
     categories[category] = records
-  return Schema.decodeUnknownSync(JiraPlannedArchive)({
+  return decodeUnknownJiraPlannedArchiveSync({
     version: 1,
     manifestVersion: 2,
     migrationId: manifest.migrationId,
@@ -675,18 +708,12 @@ export function buildJiraReportV2(
       values.length
     ])
   )
-  const outcomes = Schema.decodeUnknownSync(
-    Schema.Array(Schema.Struct({ kind: Schema.String }))
-  )(archive.attachmentOutcomes)
-  const coverage = Schema.decodeUnknownSync(
-    Schema.Array(
-      Schema.Struct({
-        category: Schema.String,
-        visibility: Schema.String,
-        reason: Schema.NullOr(Schema.String)
-      })
-    )
-  )(archive.categories.coverage ?? [])
+  const outcomes = decodeUnknownAttachmentOutcomesSync(
+    archive.attachmentOutcomes
+  )
+  const coverage = decodeUnknownCoverageEntriesSync(
+    archive.categories.coverage ?? []
+  )
   const partialSuccess =
     outcomes.some((x) => x.kind !== "copied") ||
     archive.exclusions.some((x) => x.excludedReason === "excluded_by_user") ||
@@ -714,9 +741,7 @@ export function buildJiraReportV2(
     "# Jira migration report",
     "",
     `Migration: ${archive.migrationId}`,
-    canonicalJiraJson(
-      Schema.decodeUnknownSync(JiraManifestSourceV2)(archive.source)
-    ),
+    canonicalJiraJson(decodeUnknownJiraManifestSourceV2Sync(archive.source)),
     "Only data visible to the connected Jira account was scanned. Inaccessible data may be absent.",
     "",
     `Partial success: ${partialSuccess ? "yes" : "no"}`,
@@ -811,7 +836,7 @@ export function buildJiraReportV2(
     canonicalJiraJson(archive.schemaVersions),
     canonicalJiraJson(archive.converterVersions)
   ].join("\n")
-  return Schema.decodeUnknownSync(JiraPlannedReport)({
+  return decodeUnknownJiraPlannedReportSync({
     version: 1,
     partialSuccess,
     nativeCounts,

@@ -18,6 +18,7 @@ import {
   Schema,
   Stream
 } from "effect"
+import * as Match from "effect/Match"
 
 export const JiraBrowserScenario = Schema.Literals([
   "happy_path",
@@ -220,8 +221,8 @@ const issues = [
 const offsetPage = (
   startAt: number,
   field: string,
-  first: unknown,
-  second: unknown
+  first: Schema.Json,
+  second: Schema.Json
 ) => ({
   [field]: [startAt === 0 ? first : second],
   startAt,
@@ -231,7 +232,7 @@ const offsetPage = (
 })
 
 const response = (
-  body: unknown,
+  body: Schema.Json,
   status = 200,
   headers: Readonly<Record<string, string>> = {},
   stream: Stream.Stream<Uint8Array> = Stream.empty
@@ -261,12 +262,11 @@ const pageFromRequest = (request: JiraTransportRequest) => {
   if (issueCollection) {
     const [, issueId, collection] = issueCollection
     return {
-      operation:
-        collection === "comment"
-          ? "comments"
-          : collection === "worklog"
-            ? "worklogs"
-            : "changelogs",
+      operation: Match.value(collection).pipe(
+        Match.when("comment", () => "comments"),
+        Match.when("worklog", () => "worklogs"),
+        Match.orElse(() => "changelogs")
+      ),
       page: `${decodeURIComponent(issueId)}:${startAt}`
     }
   }
@@ -307,7 +307,7 @@ const pageFromRequest = (request: JiraTransportRequest) => {
   return { operation: "unknown", page: "single" }
 }
 
-const jsonForRequest = (request: JiraTransportRequest) => {
+const jsonForRequest = (request: JiraTransportRequest): Schema.Json => {
   const url = new URL(request.url)
   const path = url.pathname
   const startAt = Number(url.searchParams.get("startAt") ?? "0")
@@ -473,11 +473,11 @@ const jsonForRequest = (request: JiraTransportRequest) => {
   )
   if (issueCollection && !["APP-1", "10001"].includes(issueCollection[1]))
     return {
-      [issueCollection[2] === "changelog"
-        ? "values"
-        : issueCollection[2] === "comment"
-          ? "comments"
-          : "worklogs"]: [],
+      [Match.value(issueCollection[2]).pipe(
+        Match.when("changelog", () => "values"),
+        Match.when("comment", () => "comments"),
+        Match.orElse(() => "worklogs")
+      )]: [],
       startAt,
       maxResults: 100,
       total: 0,

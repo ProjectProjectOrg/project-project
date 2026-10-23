@@ -1,3 +1,4 @@
+import * as Match from "effect/Match"
 import { HardDrive, Mail, Timer, type LucideIcon } from "lucide-react"
 
 import figmaLogo from "@/assets/logos/figma.svg"
@@ -38,17 +39,20 @@ export function IntegrationLogo({
         className
       )}
     >
-      {kind === "github" ? (
-        <>
-          <img src={githubLightLogo} alt="" className="dark:hidden" />
-          <img src={githubDarkLogo} alt="" className="hidden dark:block" />
-        </>
-      ) : kind === "figma" ? (
-        <img src={figmaLogo} alt="" className="object-contain" />
-      ) : kind === "slack" ? (
-        <img src={slackLogo} alt="" className="object-contain" />
-      ) : (
-        <IconTile kind={kind} />
+      {Match.value(kind).pipe(
+        Match.when("github", () => (
+          <>
+            <img src={githubLightLogo} alt="" className="dark:hidden" />
+            <img src={githubDarkLogo} alt="" className="hidden dark:block" />
+          </>
+        )),
+        Match.when("figma", () => (
+          <img src={figmaLogo} alt="" className="object-contain" />
+        )),
+        Match.when("slack", () => (
+          <img src={slackLogo} alt="" className="object-contain" />
+        )),
+        Match.orElse((kind) => <IconTile kind={kind} />)
       )}
     </span>
   )

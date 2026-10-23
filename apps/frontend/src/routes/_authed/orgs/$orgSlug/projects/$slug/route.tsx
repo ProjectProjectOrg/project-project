@@ -2,6 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { ProjectDetail as ProjectDetailType } from "@pp/shared"
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
+import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import { GitBranch, UserPlus, X } from "lucide-react"
 import { useCallback } from "react"
@@ -73,19 +74,22 @@ function ProjectLayout() {
       </PageContainer>
     ),
     onError: (error) =>
-      error._tag === "NotFound" ? (
-        <NotFoundPage
-          contained
-          title={m.project_detail_not_found_title()}
-          body={m.project_detail_not_found_body({ slug })}
-        />
-      ) : (
-        <ErrorPage
-          contained
-          error={error}
-          title={m.project_detail_load_error_title()}
-          body={m.project_detail_load_error_body()}
-        />
+      Match.value(error).pipe(
+        Match.tag("NotFound", () => (
+          <NotFoundPage
+            contained
+            title={m.project_detail_not_found_title()}
+            body={m.project_detail_not_found_body({ slug })}
+          />
+        )),
+        Match.orElse((error) => (
+          <ErrorPage
+            contained
+            error={error}
+            title={m.project_detail_load_error_title()}
+            body={m.project_detail_load_error_body()}
+          />
+        ))
       ),
     onDefect: (defect) => (
       <ErrorPage

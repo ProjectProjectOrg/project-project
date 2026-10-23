@@ -21,6 +21,8 @@ import {
   type FigmaShape
 } from "./Figma"
 
+const decodeJson = Schema.decodeUnknownEffect(Schema.Json)
+
 const baseUrl = "https://api.figma.com"
 
 const Fetch = FetchHttpClient.Fetch as Context.Key<
@@ -37,11 +39,15 @@ const ErrorPayload = Schema.Struct({
   err: Schema.optional(Schema.String),
   error: Schema.optional(Schema.String)
 })
+
+const decodeUnknownErrorPayloadOption = Schema.decodeUnknownOption(ErrorPayload)
 const UserResponse = Schema.Struct({
   id: ExternalId,
   handle: NullableString,
   email: NullableString
 })
+
+const decodeUnknownUserResponse = Schema.decodeUnknownEffect(UserResponse)
 const FileResponse = Schema.Struct({
   name: Schema.String.pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed(""))
@@ -51,6 +57,8 @@ const FileResponse = Schema.Struct({
   ),
   thumbnailUrl: NullableString
 })
+
+const decodeUnknownFileResponse = Schema.decodeUnknownEffect(FileResponse)
 const DevResource = Schema.Struct({
   id: ExternalId,
   url: Schema.String
@@ -60,15 +68,22 @@ const DevResourcesResponse = Schema.Struct({
     Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
   )
 })
+
+const decodeUnknownDevResourcesResponse =
+  Schema.decodeUnknownEffect(DevResourcesResponse)
 const NodeResponse = Schema.Struct({
   document: Schema.Struct({ name: Schema.String })
 })
 const NodesResponse = Schema.Struct({
   nodes: Schema.Record(Schema.String, Schema.NullOr(NodeResponse))
 })
+
+const decodeUnknownNodesResponse = Schema.decodeUnknownEffect(NodesResponse)
 const ImagesResponse = Schema.Struct({
   images: Schema.Record(Schema.String, Schema.NullOr(Schema.String))
 })
+
+const decodeUnknownImagesResponse = Schema.decodeUnknownEffect(ImagesResponse)
 const DevResourceMutationResponse = Schema.Struct({
   errors: Schema.Array(Schema.Struct({ error: Schema.String })).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
@@ -78,16 +93,12 @@ const DevResourceMutationResponse = Schema.Struct({
   )
 })
 
-const errorMessage = (payload: unknown): string => {
-  const decoded = Schema.decodeUnknownOption(ErrorPayload)(payload)
-  if (Option.isNone(decoded)) return "Figma error"
-  return (
-    decoded.value.message ??
-    decoded.value.err ??
-    decoded.value.error ??
-    "Figma error"
-  )
-}
+const decodeUnknownDevResourceMutationResponse = Schema.decodeUnknownEffect(
+  DevResourceMutationResponse
+)
+
+const errorMessage = (payload: typeof ErrorPayload.Type): string =>
+  payload.message ?? payload.err ?? payload.error ?? "Figma error"
 
 const parseRetryAfterSeconds = (response: Response): number => {
   const header = response.headers.get("Retry-After")
@@ -118,7 +129,7 @@ const send = (
   credential: FigmaCredential,
   method: string,
   path: string,
-  body: unknown
+  body: Schema.Json | undefined
 ) =>
   Effect.gen(function* () {
     const fetch = yield* Effect.service(Fetch)
@@ -137,27 +148,39 @@ const send = (
     const payload =
       response.status === 204
         ? null
-        : yield* Effect.promise(() => response.json().catch(() => null))
+        : yield* Effect.promise(() => response.json().catch(() => null)).pipe(
+            Effect.flatMap(decodeJson),
+            Effect.orElseSucceed(() => null)
+          )
     return { response, payload }
   })
 
-const request = <S extends Schema.ConstraintDecoder<unknown>>(
+const request = <A>(
   credential: FigmaCredential,
   method: string,
   path: string,
-  body: unknown,
+  body: Schema.Json | undefined,
   fileKey: string | null,
-  schema: S
-): Effect.Effect<S["Type"], FigmaCallError> =>
+  decode: ReturnType<typeof Schema.decodeUnknownEffect<Schema.Decoder<A>>>
+): Effect.Effect<A, FigmaCallError> =>
   send(credential, method, path, body).pipe(
     Effect.flatMap(({ response, payload }) =>
       response.ok
-        ? Schema.decodeUnknownEffect(schema)(payload).pipe(
+        ? decode(payload).pipe(
             Effect.mapError(
               (cause) => new FigmaError({ reason: String(cause) })
             )
           )
-        : Effect.fail(errorForStatus(response, fileKey, errorMessage(payload)))
+        : Effect.fail(
+            errorForStatus(
+              response,
+              fileKey,
+              decodeUnknownErrorPayloadOption(payload).pipe(
+                Option.map(errorMessage),
+                Option.getOrElse(() => "Figma error")
+              )
+            )
+          )
     )
   )
 
@@ -190,7 +213,7 @@ const getFile = (
     `/v1/files/${encodeURIComponent(fileKey)}?depth=1`,
     undefined,
     fileKey,
-    FileResponse
+    decodeUnknownFileResponse
   )
 
 const findExistingDevResourceId = (
@@ -205,7 +228,7 @@ const findExistingDevResourceId = (
     `/v1/files/${encodeURIComponent(fileKey)}/dev_resources?node_ids=${encodeURIComponent(nodeId)}`,
     undefined,
     fileKey,
-    DevResourcesResponse
+    decodeUnknownDevResourcesResponse
   ).pipe(
     Effect.map((payload) => {
       const match = payload.dev_resources.find(
@@ -233,7 +256,7 @@ export const FigmaLive = Layer.effect(
             "/v1/me",
             undefined,
             null,
-            UserResponse
+            decodeUnknownUserResponse
           ).pipe(
             Effect.map((user) => ({
               id: String(user.id),
@@ -253,7 +276,7 @@ export const FigmaLive = Layer.effect(
             `/v1/files/${encodeURIComponent(fileKey)}/nodes?ids=${encodeURIComponent(nodeId)}`,
             undefined,
             fileKey,
-            NodesResponse
+            decodeUnknownNodesResponse
           ).pipe(
             Effect.flatMap((payload) => {
               const node = payload.nodes[nodeId]
@@ -281,7 +304,7 @@ export const FigmaLive = Layer.effect(
               `/v1/images/${encodeURIComponent(fileKey)}?ids=${encodeURIComponent(nodeId)}&format=png&scale=${clampedScale}`,
               undefined,
               fileKey,
-              ImagesResponse
+              decodeUnknownImagesResponse
             )
             const imageUrl = payload.images[nodeId]
             if (imageUrl == null) {
@@ -306,12 +329,17 @@ export const FigmaLive = Layer.effect(
             Effect.flatMap(({ response, payload }) => {
               if (!response.ok) {
                 return Effect.fail(
-                  errorForStatus(response, null, errorMessage(payload))
+                  errorForStatus(
+                    response,
+                    null,
+                    decodeUnknownErrorPayloadOption(payload).pipe(
+                      Option.map(errorMessage),
+                      Option.getOrElse(() => "Figma error")
+                    )
+                  )
                 )
               }
-              return Schema.decodeUnknownEffect(DevResourceMutationResponse)(
-                payload
-              ).pipe(
+              return decodeUnknownDevResourceMutationResponse(payload).pipe(
                 Effect.mapError(
                   (cause) => new FigmaError({ reason: String(cause) })
                 ),
@@ -358,7 +386,14 @@ export const FigmaLive = Layer.effect(
               response.ok || response.status === 404
                 ? Effect.void
                 : Effect.fail(
-                    errorForStatus(response, null, errorMessage(payload))
+                    errorForStatus(
+                      response,
+                      null,
+                      decodeUnknownErrorPayloadOption(payload).pipe(
+                        Option.map(errorMessage),
+                        Option.getOrElse(() => "Figma error")
+                      )
+                    )
                   )
             )
           )

@@ -1,4 +1,5 @@
 import { it } from "@effect/vitest"
+import { Unauthorized } from "@pp/shared"
 import {
   createMemoryHistory,
   createRootRoute,
@@ -74,7 +75,7 @@ it.effect(
           return Promise.resolve(
             identity
               ? Response.json(user(identity))
-              : Response.json({ _tag: "Unauthorized" }, { status: 401 })
+              : Response.json(new Unauthorized(), { status: 401 })
           )
         if (identity === "alice")
           return new Promise<Response>((resolve) => {

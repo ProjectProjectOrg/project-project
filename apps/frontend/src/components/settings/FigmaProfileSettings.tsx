@@ -9,7 +9,7 @@ import {
   figmaProfileAtom,
   disconnectFigmaProfileAtom
 } from "@/features/figma/atoms/figma"
-import { type AppError, errorMessage } from "@/lib/errorMessage"
+import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -63,7 +63,7 @@ function FigmaProfileContent({
   const disconnectError = Result.matchWithError(disconnectState, {
     onInitial: () => null,
     onSuccess: () => null,
-    onError: (err) => errorMessage(err as AppError),
+    onError: (err) => errorMessage(err),
     onDefect: () => m.error_unknown()
   })
   const error = oauthError ?? disconnectError

@@ -30,6 +30,31 @@ import {
 } from "./auth"
 import { orgAccessControl, orgRoles } from "./auth/orgAccess"
 
+const hookTimestamp = DateTime.toDate(
+  DateTime.makeUnsafe("2026-10-23T00:00:00Z")
+)
+const hookUser = {
+  id: "u",
+  name: "User",
+  email: "u@example.test",
+  emailVerified: true,
+  createdAt: hookTimestamp,
+  updatedAt: hookTimestamp
+}
+const hookOrganization = {
+  id: "o",
+  name: "Organization",
+  slug: "organization",
+  createdAt: hookTimestamp
+}
+const hookMember = {
+  id: "m",
+  organizationId: "o",
+  userId: "u",
+  role: "admin",
+  createdAt: hookTimestamp
+}
+
 describe("Better Auth plugin wiring", () => {
   it("signs users in through a magic link and marks the email verified", async () => {
     const magicLinkPlugin = configuredPlugin("magic-link")
@@ -242,8 +267,8 @@ describe("Better Auth plugin wiring", () => {
     const update = (organization: Readonly<Record<string, unknown>>) =>
       hooks?.beforeUpdateOrganization?.({
         organization,
-        user: {} as never,
-        member: {} as never
+        user: hookUser,
+        member: hookMember
       })
     await expect(update({ name: "Renamed" })).resolves.toBeUndefined()
     await expect(update({ slug: "elsewhere" })).rejects.toMatchObject({
@@ -258,10 +283,10 @@ describe("Better Auth plugin wiring", () => {
     const hooks = configuredPlugin("organization").options?.organizationHooks
     await expect(
       hooks?.beforeUpdateMemberRole?.({
-        member: {} as never,
+        member: hookMember,
         newRole: "member,admin",
-        user: {} as never,
-        organization: {} as never
+        user: hookUser,
+        organization: hookOrganization
       })
     ).rejects.toMatchObject({ body: { code: "ROLE_NOT_FOUND" } })
     await expect(
@@ -272,8 +297,8 @@ describe("Better Auth plugin wiring", () => {
           organizationId: "o",
           inviterId: "u"
         },
-        inviter: {} as never,
-        organization: {} as never
+        inviter: hookUser,
+        organization: hookOrganization
       })
     ).rejects.toMatchObject({ body: { code: "ROLE_NOT_FOUND" } })
   })
@@ -386,9 +411,7 @@ describe("project-owner removal guard", () => {
     expect(error).toBeInstanceOf(APIError)
     expect(error?.statusCode).toBe(409)
     expect(error?.body?.code).toBe("LAST_PROJECT_PM_BLOCKED")
-    expect(
-      (error?.body as { projectSlugs?: ReadonlyArray<string> })?.projectSlugs
-    ).toEqual(["alpha", "beta"])
+    expect(error?.body).toMatchObject({ projectSlugs: ["alpha", "beta"] })
   })
 })
 
@@ -514,9 +537,12 @@ type ConfiguredPlugin = NonNullable<typeof auth.options.plugins>[number]
 function configuredPlugin<Id extends ConfiguredPlugin["id"]>(
   id: Id
 ): Extract<ConfiguredPlugin, { readonly id: Id }> {
-  const plugin = auth.options.plugins?.find((plugin) => plugin.id === id)
+  const plugin = auth.options.plugins?.find(
+    (plugin): plugin is Extract<ConfiguredPlugin, Readonly<{ id: Id }>> =>
+      plugin.id === id
+  )
   if (!plugin) throw new Error(`Missing Better Auth plugin: ${id}`)
-  return plugin as Extract<ConfiguredPlugin, { readonly id: Id }>
+  return plugin
 }
 
 function testOrganizationPlugin() {

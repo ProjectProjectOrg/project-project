@@ -6,6 +6,15 @@ import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
+const decodeUnknownUnfurls = Schema.decodeUnknownEffect(
+  Schema.Struct({
+    unfurls: Schema.Record(
+      Schema.String,
+      Schema.Record(Schema.String, Schema.Unknown)
+    )
+  })
+)
+
 it.effect("passes the bot ID to Slack's read endpoint", () => {
   const fetch = Object.assign(
     async (input: string | URL | Request, init?: RequestInit) => {
@@ -69,14 +78,7 @@ it.effect(
           })
         }
       )
-      const payload = yield* Schema.decodeUnknownEffect(
-        Schema.Struct({
-          unfurls: Schema.Record(
-            Schema.String,
-            Schema.Record(Schema.String, Schema.Unknown)
-          )
-        })
-      )(body)
+      const payload = yield* decodeUnknownUnfurls(body)
       expect(payload.unfurls[url]).not.toHaveProperty("text")
       expect(payload.unfurls[url]?.blocks).toEqual(
         expect.arrayContaining([

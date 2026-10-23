@@ -3,21 +3,13 @@
 import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cva, type VariantProps } from "class-variance-authority"
 import { CheckIcon, ChevronDown } from "lucide-react"
-import {
-  Children,
-  isValidElement,
-  useMemo,
-  type ComponentProps,
-  type ReactElement,
-  type ReactNode
-} from "react"
+import { type ComponentProps, type ReactElement, type ReactNode } from "react"
 
 import { MenuHighlight } from "@/components/ui/menu-highlight"
 import {
   menuChoiceIndicatorClass,
   menuChoiceItemClass,
   menuItemClass,
-  menuLabelClass,
   menuPopupClass,
   menuSeparatorClass
 } from "@/components/ui/menu-styles"
@@ -25,30 +17,18 @@ import type { IconComponent } from "@/lib/icon-context"
 import { useShape } from "@/lib/shape-context"
 import { cn } from "@/lib/utils"
 
-type SelectItemEntry = Readonly<{ value: string; label: ReactNode }>
+export type SelectOption<Value extends string> = Readonly<{
+  value: Value
+  label: ReactNode
+  textValue?: string
+  separated?: boolean
+  disabled?: boolean
+}>
 
-const collectItems = (
-  node: ReactNode,
-  out: Array<SelectItemEntry> = []
-): Array<SelectItemEntry> => {
-  Children.forEach(node, (child) => {
-    if (!isValidElement(child)) return
-    const props = child.props as Readonly<{
-      value?: unknown
-      label?: ReactNode
-      children?: ReactNode
-    }>
-    if (typeof props.value === "string") {
-      out.push({ value: props.value, label: props.label ?? props.children })
-    } else if (props.children) {
-      collectItems(props.children, out)
-    }
-  })
-  return out
-}
-
-type SelectBaseProps = Readonly<{
+type SelectBaseProps<Value extends string> = Readonly<{
+  items: ReadonlyArray<SelectOption<Value>>
   children: ReactNode
+  contentProps?: Omit<SelectContentProps, "children">
   disabled?: boolean
   name?: string
   required?: boolean
@@ -56,30 +36,39 @@ type SelectBaseProps = Readonly<{
   onOpenChange?: (open: boolean) => void
 }>
 
-type SingleSelectProps = SelectBaseProps &
+type SingleSelectProps<Value extends string> = SelectBaseProps<Value> &
   Readonly<{
     multiple?: false
-    value?: string
-    defaultValue?: string
-    onValueChange?: (value: string) => void
+    value?: NoInfer<Value> | null
+    defaultValue?: NoInfer<Value> | null
+    onValueChange?: (value: NoInfer<Value>) => void
   }>
 
-type MultipleSelectProps = SelectBaseProps &
+type MultipleSelectProps<Value extends string> = SelectBaseProps<Value> &
   Readonly<{
     multiple: true
-    value?: ReadonlyArray<string>
-    defaultValue?: ReadonlyArray<string>
-    onValueChange?: (value: Array<string>) => void
+    value?: ReadonlyArray<NoInfer<Value>>
+    defaultValue?: ReadonlyArray<NoInfer<Value>>
+    onValueChange?: (value: ReadonlyArray<NoInfer<Value>>) => void
   }>
 
-export type SelectProps = SingleSelectProps | MultipleSelectProps
+export type SelectProps<Value extends string = string> =
+  | SingleSelectProps<Value>
+  | MultipleSelectProps<Value>
 
-const toRootValue = (value: string | undefined) =>
-  value === undefined ? undefined : value === "" ? null : value
-
-function Select(props: SelectProps) {
-  const { children, disabled, name, required, open, onOpenChange } = props
-  const items = useMemo(() => collectItems(children), [children])
+function Select<const Items extends ReadonlyArray<SelectOption<string>>>(
+  props: SelectProps<Items[number]["value"]> & Readonly<{ items: Items }>
+) {
+  const {
+    items,
+    children,
+    contentProps,
+    disabled,
+    name,
+    required,
+    open,
+    onOpenChange
+  } = props
   const shared = {
     items,
     disabled,
@@ -91,29 +80,49 @@ function Select(props: SelectProps) {
       : undefined,
     modal: false
   }
+  const content = (
+    <SelectContent {...contentProps}>
+      {items.map((item) => (
+        <SelectItem
+          key={item.value}
+          value={item.value}
+          label={item.textValue}
+          aria-label={item.textValue}
+          separated={item.separated}
+          disabled={item.disabled}
+        >
+          {item.label}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  )
 
   if (props.multiple) {
     return (
-      <SelectPrimitive.Root
+      <SelectPrimitive.Root<Items[number]["value"], true>
         {...shared}
         multiple
-        value={props.value ? [...props.value] : undefined}
-        defaultValue={props.defaultValue ? [...props.defaultValue] : undefined}
-        onValueChange={(next) => props.onValueChange?.(next ?? [])}
+        value={props.value}
+        defaultValue={props.defaultValue}
+        onValueChange={(next) => props.onValueChange?.(next)}
       >
         {children}
+        {content}
       </SelectPrimitive.Root>
     )
   }
 
   return (
-    <SelectPrimitive.Root
+    <SelectPrimitive.Root<Items[number]["value"]>
       {...shared}
-      value={toRootValue(props.value)}
-      defaultValue={toRootValue(props.defaultValue)}
-      onValueChange={(next) => props.onValueChange?.(next ?? "")}
+      value={props.value}
+      defaultValue={props.defaultValue}
+      onValueChange={(next) => {
+        if (next !== null) props.onValueChange?.(next)
+      }}
     >
       {children}
+      {content}
     </SelectPrimitive.Root>
   )
 }
@@ -304,22 +313,6 @@ function SelectItem({
   )
 }
 
-function SelectGroup(props: ComponentProps<typeof SelectPrimitive.Group>) {
-  return <SelectPrimitive.Group {...props} />
-}
-
-function SelectLabel({
-  className,
-  ...props
-}: ComponentProps<typeof SelectPrimitive.GroupLabel>) {
-  return (
-    <SelectPrimitive.GroupLabel
-      className={cn(menuLabelClass, className)}
-      {...props}
-    />
-  )
-}
-
 function SelectSeparator({
   className,
   ...props
@@ -332,16 +325,6 @@ function SelectSeparator({
   )
 }
 
-export {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-  triggerVariants
-}
+export { Select, SelectTrigger, SelectValue, triggerVariants }
 
-export type { SelectContentProps, SelectItemProps, SelectTriggerProps }
+export type { SelectContentProps, SelectTriggerProps }

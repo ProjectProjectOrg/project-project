@@ -112,8 +112,8 @@ describe("ticketIndexRowsFor", () => {
             updatedAt
           }
         ])
-        expect(rows[0]!.tags).not.toBe(tags)
-        expect(rows[0]!.assignees).not.toBe(assignees)
+        expect(rows[0].tags).not.toBe(tags)
+        expect(rows[0].assignees).not.toBe(assignees)
       })
   )
 })

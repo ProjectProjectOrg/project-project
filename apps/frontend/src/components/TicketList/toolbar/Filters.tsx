@@ -4,7 +4,7 @@ import {
   type AssigneeFilter,
   type EstimateFilterValue,
   type EstimationMode,
-  type TicketType,
+  TicketType,
   type TicketFilter,
   type Member
 } from "@pp/shared"
@@ -27,7 +27,6 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { me } from "@/features/auth/atoms/auth"
@@ -221,23 +220,27 @@ function FilterType({
       <SectionLabel>{m.tickets_filters_section_type()}</SectionLabel>
       <DropdownMenuRadioGroup
         value={typeFilter}
-        onValueChange={(next: string) =>
-          setTypeFilter(next as typeof typeFilter)
-        }
-      >
-        <DropdownMenuRadioItem separated value="all">
-          {m.tickets_filters_all_types()}
-        </DropdownMenuRadioItem>
-        {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
-          const TIcon = TYPE_META[t].icon
-          return (
-            <DropdownMenuRadioItem key={t} value={t}>
-              <TIcon className="size-4" strokeWidth={1.75} />
-              {TYPE_LABELS[t]()}
-            </DropdownMenuRadioItem>
-          )
-        })}
-      </DropdownMenuRadioGroup>
+        onValueChange={setTypeFilter}
+        items={[
+          {
+            separated: true,
+            value: "all",
+            label: m.tickets_filters_all_types()
+          },
+          ...TicketType.literals.map((t) => {
+            const TIcon = TYPE_META[t].icon
+            return {
+              value: t,
+              label: (
+                <>
+                  <TIcon className="size-4" strokeWidth={1.75} />
+                  {TYPE_LABELS[t]()}
+                </>
+              )
+            }
+          })
+        ]}
+      />
     </FilterSection>
   )
 }
@@ -262,32 +265,38 @@ function FilterAssignee({
       <SectionLabel>{m.tickets_filters_section_assignee()}</SectionLabel>
       <DropdownMenuRadioGroup
         value={assigneeFilter}
-        onValueChange={(next: string) =>
-          setAssigneeFilter(next as typeof assigneeFilter)
-        }
-      >
-        <DropdownMenuRadioItem value="all">
-          {m.tickets_filters_assignee_anyone()}
-        </DropdownMenuRadioItem>
-        {viewerId && (
-          <DropdownMenuRadioItem value="mine">
-            <UserRound className="size-4" strokeWidth={1.75} />
-            {m.tickets_filters_assignee_mine()}
-          </DropdownMenuRadioItem>
-        )}
-        <DropdownMenuRadioItem
-          separated={members.length > 0}
-          value="unassigned"
-        >
-          {m.tickets_filters_assignee_unassigned()}
-        </DropdownMenuRadioItem>
-        {members.map((member) => (
-          <DropdownMenuRadioItem key={member.id} value={member.id}>
-            <MemberAvatar member={member} size={20} />
-            <span className="truncate">{member.name}</span>
-          </DropdownMenuRadioItem>
-        ))}
-      </DropdownMenuRadioGroup>
+        onValueChange={setAssigneeFilter}
+        items={[
+          { value: "all", label: m.tickets_filters_assignee_anyone() },
+          ...(viewerId
+            ? [
+                {
+                  value: "mine" as const,
+                  label: (
+                    <>
+                      <UserRound className="size-4" strokeWidth={1.75} />
+                      {m.tickets_filters_assignee_mine()}
+                    </>
+                  )
+                }
+              ]
+            : []),
+          {
+            separated: members.length > 0,
+            value: "unassigned",
+            label: m.tickets_filters_assignee_unassigned()
+          },
+          ...members.map((member) => ({
+            value: member.id,
+            label: (
+              <>
+                <MemberAvatar member={member} size={20} />
+                <span className="truncate">{member.name}</span>
+              </>
+            )
+          }))
+        ]}
+      />
     </FilterSection>
   )
 }
@@ -311,17 +320,19 @@ function FilterEstimate({
       <SectionLabel>{m.tickets_filters_section_estimate()}</SectionLabel>
       <DropdownMenuRadioGroup
         value={selected}
-        onValueChange={(next: string) => select(next as typeof selected)}
-      >
-        <DropdownMenuRadioItem separated value="all">
-          {m.tickets_filters_estimate_all()}
-        </DropdownMenuRadioItem>
-        {options.map((option) => (
-          <DropdownMenuRadioItem key={option} value={option}>
-            {estimateFilterLabel(option)}
-          </DropdownMenuRadioItem>
-        ))}
-      </DropdownMenuRadioGroup>
+        onValueChange={select}
+        items={[
+          {
+            separated: true,
+            value: "all",
+            label: m.tickets_filters_estimate_all()
+          },
+          ...options.map((option) => ({
+            value: option,
+            label: estimateFilterLabel(option)
+          }))
+        ]}
+      />
     </FilterSection>
   )
 }
@@ -357,33 +368,32 @@ function FilterSprint({
       <SectionLabel>{m.tickets_filters_section_sprint()}</SectionLabel>
       <DropdownMenuRadioGroup
         value={sprintFilter}
-        onValueChange={(next: string) =>
-          setSprintFilter(next as typeof sprintFilter)
-        }
-      >
-        <DropdownMenuRadioItem value="all">
-          {m.tickets_filters_sprint_any()}
-        </DropdownMenuRadioItem>
-        <DropdownMenuRadioItem
-          separated={sprintOptions.length > 0}
-          value="ungrouped"
-        >
-          {m.tickets_filters_sprint_none()}
-        </DropdownMenuRadioItem>
-        {sprintOptions.map((s) => {
-          const meta = SPRINT_STATE_META[sprintState(s, now)]
-          const SIcon = meta.icon
-          return (
-            <DropdownMenuRadioItem key={s.id} value={s.id}>
-              <SIcon
-                className={cn("size-4", meta.className)}
-                strokeWidth={1.75}
-              />
-              <span className="truncate">{s.name}</span>
-            </DropdownMenuRadioItem>
-          )
-        })}
-      </DropdownMenuRadioGroup>
+        onValueChange={setSprintFilter}
+        items={[
+          { value: "all", label: m.tickets_filters_sprint_any() },
+          {
+            separated: sprintOptions.length > 0,
+            value: "ungrouped",
+            label: m.tickets_filters_sprint_none()
+          },
+          ...sprintOptions.map((s) => {
+            const meta = SPRINT_STATE_META[sprintState(s, now)]
+            const SIcon = meta.icon
+            return {
+              value: s.id,
+              label: (
+                <>
+                  <SIcon
+                    className={cn("size-4", meta.className)}
+                    strokeWidth={1.75}
+                  />
+                  <span className="truncate">{s.name}</span>
+                </>
+              )
+            }
+          })
+        ]}
+      />
     </FilterSection>
   )
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import type { User } from "@pp/shared"
+import { testUser } from "@pp/server-core/access/testing"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -7,7 +7,7 @@ import * as Option from "effect/Option"
 
 import { McpCurrentUser, McpRequestUser } from "./McpRequestUser"
 
-const user = { id: "u-1" } as User
+const user = testUser("u-1")
 
 describe("McpCurrentUser", () => {
   it.effect("dies when no user was set for the request", () =>

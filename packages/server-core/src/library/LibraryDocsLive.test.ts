@@ -15,6 +15,10 @@ import { MarkdownLive } from "../markdown/MarkdownLive"
 import { LibraryDocs } from "./LibraryDocs"
 import { LibraryDocsLive } from "./LibraryDocsLive"
 
+const decodeUnknownBlockDraft = Schema.decodeUnknownEffect(BlockDraft)
+
+const decodeUnknownTemplateDraft = Schema.decodeUnknownEffect(TemplateDraft)
+
 const TestLayer = Layer.unwrap(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
@@ -93,11 +97,11 @@ describe("LibraryDocs (real fs)", () => {
     Effect.gen(function* () {
       const docs = yield* LibraryDocs
       const body = "---js\nthrow new Error('executed')\n---\nExample"
-      const literalBlock = yield* Schema.decodeUnknownEffect(BlockDraft)({
+      const literalBlock = yield* decodeUnknownBlockDraft({
         ...block,
         content: body
       })
-      const literalTemplate = yield* Schema.decodeUnknownEffect(TemplateDraft)({
+      const literalTemplate = yield* decodeUnknownTemplateDraft({
         ...template,
         body
       })

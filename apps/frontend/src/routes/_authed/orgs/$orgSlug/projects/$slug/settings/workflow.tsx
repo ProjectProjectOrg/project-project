@@ -29,7 +29,7 @@ import {
   staleEstimateCountWaiting
 } from "@/features/tickets/atoms/staleEstimates"
 import { useProjectActor } from "@/lib/access"
-import { type AppError, errorMessage } from "@/lib/errorMessage"
+import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -103,7 +103,7 @@ function EstimationSettings({
   const error = Result.matchWithError(updateState, {
     onInitial: () => null,
     onSuccess: () => null,
-    onError: (error) => errorMessage(error as AppError),
+    onError: (error) => errorMessage(error),
     onDefect: () => m.error_unknown()
   })
 

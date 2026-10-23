@@ -12,6 +12,7 @@ import {
   type UpdateTemplateDefaultsInput,
   type UpdateTemplateInput
 } from "@pp/shared"
+import * as Record from "effect/Record"
 
 type Keyed = Readonly<{ key: string; name: string }>
 
@@ -27,9 +28,7 @@ const byNameThenKey = (a: Keyed, b: Keyed) =>
   a.name.localeCompare(b.name, "en") || a.key.localeCompare(b.key, "en")
 
 const definedFields = <A extends object>(patch: A): Partial<A> =>
-  Object.fromEntries(
-    Object.entries(patch).filter(([, value]) => value !== undefined)
-  ) as Partial<A>
+  Record.filter(patch, (value) => value !== undefined)
 
 const upsert = <A extends Keyed>(
   entries: ReadonlyArray<A>,

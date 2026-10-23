@@ -15,11 +15,7 @@ import {
   figmaProjectStatusAtom
 } from "@/features/figma/atoms/figma"
 import { useOrgActor } from "@/lib/access"
-import {
-  type AppError,
-  errorMessage,
-  figmaStatusErrorMessage
-} from "@/lib/errorMessage"
+import { errorMessage, figmaStatusErrorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -96,13 +92,13 @@ function FigmaProjectContent({
     Result.matchWithError(connectState, {
       onInitial: () => null,
       onSuccess: () => null,
-      onError: (err) => errorMessage(err as AppError),
+      onError: (err) => errorMessage(err),
       onDefect: () => m.error_unknown()
     }) ??
     Result.matchWithError(disconnectState, {
       onInitial: () => null,
       onSuccess: () => null,
-      onError: (err) => errorMessage(err as AppError),
+      onError: (err) => errorMessage(err),
       onDefect: () => m.error_unknown()
     })
   const error = status.lastCheckError

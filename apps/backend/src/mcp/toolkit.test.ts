@@ -3,14 +3,20 @@ import { McpTools, NotFound, Validation } from "@pp/shared"
 import Ajv from "ajv"
 import { Tool } from "effect/ai"
 import * as Cause from "effect/Cause"
+import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
+import * as Record from "effect/Record"
 import * as Schema from "effect/Schema"
 
 import legacy from "./__fixtures__/legacyInputSchemas.json"
 import { handle, McpToolFailure, McpToolkit, toolFailure } from "./toolkit"
 
-const fixtures: Record<string, ReadonlyArray<unknown>> = {
+const TestErrors = Data.taggedEnum<Readonly<{ _tag: "NotADomainError" }>>()
+
+const isMcpToolFailure = Schema.is(McpToolFailure)
+
+const fixtures = {
   me: [{}, [], { extra: 1 }],
   create_ticket: [
     { orgSlug: "acme", projectSlug: "demo", title: "Valid ticket" },
@@ -24,7 +30,7 @@ const fixtures: Record<string, ReadonlyArray<unknown>> = {
     { orgSlug: "acme" }
   ],
   get_org: [{ orgSlug: "acme" }, {}]
-}
+} satisfies Partial<Record<keyof typeof McpTools, ReadonlyArray<unknown>>>
 
 describe("McpToolkit", () => {
   test("me uses Effect's empty-object parameter schema", () => {
@@ -35,29 +41,18 @@ describe("McpToolkit", () => {
   })
 
   test("input schemas are structurally identical to the legacy schemas", () => {
-    for (const name of Object.keys(McpTools)) {
-      const { $defs, ...before } = legacy[
-        name as keyof typeof legacy
-      ] as Record<string, unknown>
+    for (const name of Record.keys(McpTools)) {
+      const { $defs, ...before } = legacy[name]
       expect($defs).toEqual({})
-      expect(
-        Tool.getJsonSchema(
-          McpToolkit.tools[name as keyof typeof McpToolkit.tools]
-        ),
-        name
-      ).toEqual(before)
+      expect(Tool.getJsonSchema(McpToolkit.tools[name]), name).toEqual(before)
     }
   })
 
   test("input schemas accept and reject the same inputs as before", () => {
     const ajv = new Ajv({ strict: false, allErrors: true })
-    for (const [name, inputs] of Object.entries(fixtures)) {
-      const before = ajv.compile(legacy[name as keyof typeof legacy])
-      const after = ajv.compile(
-        Tool.getJsonSchema(
-          McpToolkit.tools[name as keyof typeof McpToolkit.tools]
-        )
-      )
+    for (const [name, inputs] of Record.toEntries(fixtures)) {
+      const before = ajv.compile(legacy[name])
+      const after = ajv.compile(Tool.getJsonSchema(McpToolkit.tools[name]))
       for (const input of inputs) {
         expect(after(input), `${name} ${JSON.stringify(input)}`).toBe(
           before(input)
@@ -93,7 +88,7 @@ describe("McpToolkit", () => {
   test("the failure carries the text as an Error message, not a JSON string", () => {
     const failure = new McpToolFailure({ message: "Not found." })
     expect(failure.message).toBe("Not found.")
-    expect(Schema.is(McpToolFailure)(failure)).toBe(true)
+    expect(isMcpToolFailure(failure)).toBe(true)
   })
 
   it.effect("toolFailure leaves defects for McpServer to scrub", () =>
@@ -109,7 +104,7 @@ describe("McpToolkit", () => {
     () =>
       Effect.gen(function* () {
         const exit = yield* Effect.exit(
-          toolFailure(Effect.fail({ _tag: "NotADomainError" }))
+          toolFailure(Effect.fail(TestErrors.NotADomainError()))
         )
         expect(Exit.isFailure(exit)).toBe(true)
         if (Exit.isFailure(exit)) expect(Cause.hasDies(exit.cause)).toBe(true)

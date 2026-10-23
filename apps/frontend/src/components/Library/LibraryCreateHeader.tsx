@@ -2,9 +2,9 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import {
   FALLBACK_BLOCK_ICON,
   type BlockDraft,
-  type BlockKey,
+  BlockKey,
   type TemplateDraft,
-  type TemplateKey
+  TemplateKey
 } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -49,7 +49,7 @@ export function LibraryCreateHeader({
 }: CreateRowProps & Readonly<{ heading: Heading }>) {
   const Root = InlineForm.Root<"create">
   return (
-    <Root variant="ghost" className="flex flex-col gap-3">
+    <Root actions={["create"]} variant="ghost" className="flex flex-col gap-3">
       <LibrarySectionHeader
         {...heading}
         action={
@@ -79,7 +79,7 @@ export function LibraryCreateHeader({
 }
 
 const templateDraft = (key: string, name: string): TemplateDraft => ({
-  key: key as TemplateKey,
+  key: TemplateKey.make(key),
   name,
   icon: "LayoutTemplate",
   color: null,
@@ -90,7 +90,7 @@ const templateDraft = (key: string, name: string): TemplateDraft => ({
 })
 
 const blockDraft = (key: string, name: string): BlockDraft => ({
-  key: key as BlockKey,
+  key: BlockKey.make(key),
   name,
   icon: FALLBACK_BLOCK_ICON,
   color: null,
@@ -151,7 +151,7 @@ function CreateFields({
     name: string
   ) => Promise<Exit.Exit<unknown, Readonly<{ _tag: string }>>>
 }>) {
-  const { close, busy, setBusy } = useInlineForm<"create">()
+  const { close, busy, setBusy } = useInlineForm()
   const openEntry = useOpenEntry(scope)
   const [name, setName] = useState("")
   const [typedKey, setTypedKey] = useState<string | null>(null)

@@ -31,6 +31,8 @@ import {
 import { TicketDetail } from "./schemas/Ticket"
 import { User } from "./schemas/User"
 
+const decodeTicketListQuery = Schema.decodeEffect(TicketListQuery)
+
 const endpoints = AppApi.groups.tickets.endpoints
 const api = HttpApi.make("TicketQueryTest").add(
   HttpApiGroup.make("tickets").add(
@@ -156,7 +158,7 @@ it.effect(
 it.effect("preserves filters and keeps an omitted update sort absent", () =>
   Effect.gen(function* () {
     const { client, received, receivedUpdate } = yield* makeHarness
-    const query = yield* Schema.decodeEffect(TicketListQuery)({
+    const query = yield* decodeTicketListQuery({
       sort: { key: "updated", dir: "desc" },
       status: ["todo", "in_progress"],
       type: ["bug"],

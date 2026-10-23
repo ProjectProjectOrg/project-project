@@ -2,10 +2,39 @@ import * as Result from "effect/Result"
 import * as Schema from "effect/Schema"
 import { useCallback, useMemo, useRef, useSyncExternalStore } from "react"
 
-type Snapshot = { readonly raw: string | null; readonly value: unknown }
+type Snapshot<A> = Readonly<{ raw: string | null; value: A }>
 
-const snapshots = new Map<string, Snapshot>()
+type LocalStorageCodec<A> = Readonly<{
+  readSnapshot: (key: string, initial: A) => A
+  encode: (value: A) => string
+}>
+
 const listeners = new Map<string, Set<() => void>>()
+
+export function createLocalStorageCodec<
+  S extends Schema.ConstraintDecoder<unknown> &
+    Schema.ConstraintEncoder<unknown>
+>(schema: S): LocalStorageCodec<S["Type"]> {
+  const json = Schema.fromJsonString(schema)
+  const decode = Schema.decodeResult(json)
+  const encode = Schema.encodeSync(json)
+  const snapshots = new Map<string, Snapshot<S["Type"]>>()
+  return {
+    encode,
+    readSnapshot: (key, initial) => {
+      const raw = readRaw(key)
+      const cached = snapshots.get(key)
+      if (cached !== undefined && cached.raw === raw) return cached.value
+      const decoded = raw === null ? undefined : decode(raw)
+      const value =
+        decoded !== undefined && Result.isSuccess(decoded)
+          ? decoded.success
+          : initial
+      snapshots.set(key, { raw, value })
+      return value
+    }
+  }
+}
 
 function readRaw(key: string): string | null {
   if (typeof window === "undefined") return null
@@ -16,32 +45,12 @@ function readRaw(key: string): string | null {
   }
 }
 
-function decode<
-  S extends Schema.ConstraintDecoder<unknown> &
-    Schema.ConstraintEncoder<unknown>
->(raw: string | null, schema: S, initial: S["Type"]): S["Type"] {
-  if (raw === null) return initial
-  const decoded = Schema.decodeResult(Schema.fromJsonString(schema))(raw)
-  return Result.isSuccess(decoded) ? decoded.success : initial
-}
-
-function snapshot<
-  S extends Schema.ConstraintDecoder<unknown> &
-    Schema.ConstraintEncoder<unknown>
->(key: string, schema: S, initial: S["Type"]): S["Type"] {
-  const raw = readRaw(key)
-  const cached = snapshots.get(key)
-  if (cached !== undefined && cached.raw === raw) return cached.value
-  const value = decode(raw, schema, initial)
-  snapshots.set(key, { raw, value })
-  return value
-}
-
-export function readLocalStorage<
-  S extends Schema.ConstraintDecoder<unknown> &
-    Schema.ConstraintEncoder<unknown>
->(key: string, schema: S, initial: S["Type"]): S["Type"] {
-  return snapshot(key, schema, initial)
+export function readLocalStorage<A>(
+  key: string,
+  codec: LocalStorageCodec<A>,
+  initial: NoInfer<A>
+): A {
+  return codec.readSnapshot(key, initial)
 }
 
 function notify(key: string): void {
@@ -56,11 +65,9 @@ function attachWindowListener(): void {
   windowListenerAttached = true
   window.addEventListener("storage", (event) => {
     if (event.key === null) {
-      snapshots.clear()
       for (const key of listeners.keys()) notify(key)
       return
     }
-    snapshots.delete(event.key)
     notify(event.key)
   })
 }
@@ -82,34 +89,29 @@ function subscribeLocalStorage(
   }
 }
 
-function setLocalStorageSnapshot<
-  S extends Schema.ConstraintDecoder<unknown> &
-    Schema.ConstraintEncoder<unknown>
->(key: string, schema: S, next: S["Type"]): void {
+function setLocalStorageSnapshot<A>(
+  key: string,
+  codec: LocalStorageCodec<A>,
+  next: A
+): void {
   if (typeof window !== "undefined") {
     try {
-      const encoded = Schema.encodeSync(Schema.fromJsonString(schema))(next)
-      window.localStorage.setItem(key, encoded)
+      window.localStorage.setItem(key, codec.encode(next))
     } catch {
       return
     }
   }
-  snapshots.delete(key)
   notify(key)
 }
 
-export function useLocalStorageSelect<
-  S extends Schema.ConstraintDecoder<unknown> &
-    Schema.ConstraintEncoder<unknown>,
-  T
->(
+export function useLocalStorageSelect<A, T>(
   key: string,
-  schema: S,
-  initial: S["Type"],
-  select: (value: S["Type"]) => T
-): readonly [T, (update: (current: S["Type"]) => S["Type"]) => void] {
-  const schemaRef = useRef(schema)
-  schemaRef.current = schema
+  codec: LocalStorageCodec<A>,
+  initial: NoInfer<A>,
+  select: (value: A) => T
+): readonly [T, (update: (current: A) => A) => void] {
+  const codecRef = useRef(codec)
+  codecRef.current = codec
   const initialRef = useRef(initial)
   initialRef.current = initial
   const selectRef = useRef(select)
@@ -121,7 +123,7 @@ export function useLocalStorageSelect<
   )
   const getSnapshot = useCallback(
     () =>
-      selectRef.current(snapshot(key, schemaRef.current, initialRef.current)),
+      selectRef.current(codecRef.current.readSnapshot(key, initialRef.current)),
     [key]
   )
   const getServerSnapshot = useCallback(
@@ -130,25 +132,22 @@ export function useLocalStorageSelect<
   )
   const value = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
   const write = useCallback(
-    (update: (current: S["Type"]) => S["Type"]) => {
-      const current = snapshot(key, schemaRef.current, initialRef.current)
-      setLocalStorageSnapshot(key, schemaRef.current, update(current))
+    (update: (current: A) => A) => {
+      const current = codecRef.current.readSnapshot(key, initialRef.current)
+      setLocalStorageSnapshot(key, codecRef.current, update(current))
     },
     [key]
   )
   return useMemo(() => [value, write] as const, [value, write])
 }
 
-export function useLocalStorageState<
-  S extends Schema.ConstraintDecoder<unknown> &
-    Schema.ConstraintEncoder<unknown>
->(
+export function useLocalStorageState<A>(
   key: string,
-  schema: S,
-  initial: S["Type"]
-): readonly [S["Type"], (next: S["Type"]) => void] {
-  const [value, update] = useLocalStorageSelect(key, schema, initial, identity)
-  const write = useCallback((next: S["Type"]) => update(() => next), [update])
+  codec: LocalStorageCodec<A>,
+  initial: NoInfer<A>
+): readonly [A, (next: A) => void] {
+  const [value, update] = useLocalStorageSelect(key, codec, initial, identity)
+  const write = useCallback((next: A) => update(() => next), [update])
   return useMemo(() => [value, write] as const, [value, write])
 }
 

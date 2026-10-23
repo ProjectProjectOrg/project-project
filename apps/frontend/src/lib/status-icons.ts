@@ -1,4 +1,5 @@
-import { STATUS_ICONS, type StatusIconName } from "@pp/shared"
+import { STATUS_ICONS, StatusIcon, type StatusIconName } from "@pp/shared"
+import * as Schema from "effect/Schema"
 import {
   AlertCircle,
   AlertTriangle,
@@ -74,6 +75,8 @@ const ICON_MAP: Record<StatusIconName, LucideIcon> = {
 
 export const STATUS_ICON_NAMES = STATUS_ICONS
 
+const isStatusIcon = Schema.is(StatusIcon)
+
 export function getStatusIcon(name: string): LucideIcon {
-  return ICON_MAP[name as StatusIconName] ?? Circle
+  return isStatusIcon(name) ? ICON_MAP[name] : Circle
 }

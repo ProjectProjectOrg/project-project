@@ -1,7 +1,6 @@
-import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
+import { assertTrue } from "@effect/vitest/utils"
 import { Db } from "@pp/db"
-import { relations } from "@pp/db/schema"
 import {
   CurrentUser,
   FigmaAuthInvalid,
@@ -12,17 +11,19 @@ import {
   StorageNotConnected,
   type ProjectScopeShape
 } from "@pp/shared"
-import { makeWithDefaults } from "drizzle-orm/effect-postgres"
 import * as DateTime from "effect/DateTime"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
 import { describe, expect, vi } from "vitest"
 
+import { makeDatabase } from "../../test/database"
 import { accessLayer, projectScope, testUser } from "../access/testing"
 import { OrgStorage } from "../storage/OrgStorage"
 import { S3Storage } from "../storage/S3Storage"
-import { Figma } from "./Figma"
+import { FigmaCredential } from "./Figma"
+import { Figma, type FigmaShape } from "./Figma"
 import { FigmaIntegrations } from "./FigmaIntegrations"
 import {
   devResourceName,
@@ -238,21 +239,14 @@ const effectDb = (
   execute: (
     sql: string,
     params: ReadonlyArray<unknown>
-  ) => ReadonlyArray<unknown>
+  ) => ReadonlyArray<ReadonlyArray<unknown>>
 ) => {
-  const client = {
-    unsafe: (sql: string, params: ReadonlyArray<unknown>) => {
-      const run = Effect.sync(() =>
-        sql.startsWith("select") && sql.includes('from "project_index"')
-          ? [["project-1", "org-1"]]
-          : execute(sql, params)
-      )
-      return { values: run, withoutTransform: run, raw: run }
-    },
-    withTransaction: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect
-  }
-  return makeWithDefaults({ relations }).pipe(
-    Effect.provideService(PgClient.PgClient, client as never)
+  return makeDatabase(({ sql, params }) =>
+    Effect.sync(() =>
+      sql.startsWith("select") && sql.includes('from "project_index"')
+        ? [["project-1", "org-1"]]
+        : execute(sql, params)
+    )
   )
 }
 
@@ -318,7 +312,7 @@ type HarnessInput = Readonly<{
   db: TestDb
   credential?: Effect.Effect<never, FigmaAuthInvalid | FigmaNotConnected>
   figma?: Partial<Record<string, unknown>>
-  storage?: Effect.Effect<unknown, FigmaError | StorageNotConnected>
+  storage?: ReturnType<OrgStorage["Service"]["requireConnection"]>
   viewer?: ProjectScopeShape
   markProjectCredentialRejected?: (
     orgSlug: string,
@@ -329,41 +323,41 @@ type HarnessInput = Readonly<{
 
 const harness = (input: HarnessInput) =>
   FigmaLinksLive.pipe(
-    Layer.provide(Layer.succeed(Db, input.db as never)),
+    Layer.provide(Layer.succeed(Db, input.db)),
     Layer.provide(
       accessLayer({
         projects: input.viewer === undefined ? [] : [input.viewer]
       })
     ),
     Layer.provide(
-      Layer.succeed(FigmaIntegrations, {
+      Layer.mock(FigmaIntegrations, {
         credentialFor: () =>
           input.credential ??
-          Effect.succeed({ _tag: "FigmaToken", token: "secret-pat" }),
+          Effect.succeed(FigmaCredential.FigmaToken({ token: "secret-pat" })),
         markProjectCredentialRejected:
           input.markProjectCredentialRejected ?? (() => Effect.void)
-      } as never)
+      })
     ),
     Layer.provide(
-      Layer.succeed(Figma, {
+      Layer.mock(Figma, {
         getFile: () => Effect.fail(new FigmaAuthInvalid()),
         getNodeName: () => Effect.fail(new FigmaAuthInvalid()),
         renderNode: () => Effect.fail(new FigmaAuthInvalid()),
         ...input.figma
-      } as never)
+      })
     ),
     Layer.provide(
-      Layer.succeed(OrgStorage, {
+      Layer.mock(OrgStorage, {
         requireConnection: () =>
-          input.storage ?? Effect.fail(new FigmaError({ reason: "no storage" }))
-      } as never)
+          input.storage ?? Effect.fail(new StorageNotConnected())
+      })
     ),
 
     Layer.provide(
-      Layer.succeed(S3Storage, {
+      Layer.mock(S3Storage, {
         presignPut: () => Effect.succeed("https://signed.example/put"),
         presignGet: () => Effect.succeed("https://signed.example/get")
-      } as never)
+      })
     )
   )
 
@@ -622,15 +616,8 @@ describe("reconcileTicket dev mode backlink", () => {
     () =>
       Effect.gen(function* () {
         const createDevResource = vi.fn(
-          (
-            _credential: unknown,
-            _input: {
-              readonly fileKey: string
-              readonly nodeId: string
-              readonly name: string
-              readonly url: string
-            }
-          ) => Effect.succeed("dev-99")
+          (..._args: Parameters<FigmaShape["createDevResource"]>) =>
+            Effect.succeed("dev-99")
         )
         const { params, db } = yield* recordingDb((sql) => {
           if (sql.startsWith("select") && sql.includes("project_index")) {
@@ -662,15 +649,8 @@ describe("reconcileTicket dev mode backlink", () => {
     () =>
       Effect.gen(function* () {
         const createDevResource = vi.fn(
-          (
-            _credential: unknown,
-            _input: {
-              readonly fileKey: string
-              readonly nodeId: string
-              readonly name: string
-              readonly url: string
-            }
-          ) => Effect.succeed("dev-42")
+          (..._args: Parameters<FigmaShape["createDevResource"]>) =>
+            Effect.succeed("dev-42")
         )
         const { params, db } = yield* recordingDb((sql) => {
           if (sql.startsWith("select") && sql.includes("project_index")) {
@@ -860,12 +840,22 @@ describe("resolveThumbnailUrl", () => {
           : []
       )
       const exit = yield* resolve(
-        harness({ db, viewer, storage: Effect.succeed({} as never) })
+        harness({
+          db,
+          viewer,
+          storage: Effect.succeed({
+            endpoint: "https://storage.example.test",
+            bucket: "figma",
+            region: "auto",
+            keyPrefix: null,
+            forcePathStyle: true,
+            accessKeyId: "key",
+            secretAccessKey: "secret"
+          })
+        })
       )
-      expect(exit._tag).toBe("Success")
-      if (exit._tag === "Success") {
-        expect(exit.value).toBe("https://signed.example/get")
-      }
+      assertTrue(Exit.isSuccess(exit))
+      expect(exit.value).toBe("https://signed.example/get")
     })
   )
 
@@ -879,10 +869,8 @@ describe("resolveThumbnailUrl", () => {
             : []
         )
         const exit = yield* resolve(harness({ db }))
-        expect(exit._tag).toBe("Failure")
-        if (exit._tag === "Failure") {
-          expect(exit.cause.toString()).toContain("NotFound")
-        }
+        assertTrue(Exit.isFailure(exit))
+        expect(exit.cause.toString()).toContain("NotFound")
       })
   )
 
@@ -894,10 +882,8 @@ describe("resolveThumbnailUrl", () => {
       const exit = yield* resolve(
         harness({ db, viewer: viewerAs("member", "developer") })
       )
-      expect(exit._tag).toBe("Failure")
-      if (exit._tag === "Failure") {
-        expect(exit.cause.toString()).toContain("NotFound")
-      }
+      assertTrue(Exit.isFailure(exit))
+      expect(exit.cause.toString()).toContain("NotFound")
     })
   )
 
@@ -917,10 +903,8 @@ describe("resolveThumbnailUrl", () => {
             storage: Effect.fail(new StorageNotConnected())
           })
         )
-        expect(exit._tag).toBe("Failure")
-        if (exit._tag === "Failure") {
-          expect(exit.cause.toString()).toContain("StorageNotConnected")
-        }
+        assertTrue(Exit.isFailure(exit))
+        expect(exit.cause.toString()).toContain("StorageNotConnected")
       })
   )
 })

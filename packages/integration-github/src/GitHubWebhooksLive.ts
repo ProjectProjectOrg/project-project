@@ -9,7 +9,9 @@ import type { ChecksStatus, GitHubRepositoryMetadataChange } from "@pp/shared"
 import { and, eq, inArray } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
+import * as Result from "effect/Result"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 
@@ -21,6 +23,10 @@ import {
 } from "./GitHubWebhooks"
 import { GitHubHost } from "./Host"
 import * as ProjectStateCache from "./projectStateCache"
+const decodeUnknownJson = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(Schema.Unknown)
+)
+
 const GitHubId = Schema.Union([Schema.Number, Schema.String])
 
 const InstallationPayload = Schema.Struct({
@@ -29,6 +35,9 @@ const InstallationPayload = Schema.Struct({
     id: GitHubId
   })
 })
+
+const decodeUnknownInstallationPayloadExit =
+  Schema.decodeUnknownExit(InstallationPayload)
 
 const InstallationRepositoriesPayload = Schema.Struct({
   action: Schema.String,
@@ -41,6 +50,9 @@ const InstallationRepositoriesPayload = Schema.Struct({
     })
   )
 })
+
+const decodeUnknownInstallationRepositoriesPayloadExit =
+  Schema.decodeUnknownExit(InstallationRepositoriesPayload)
 
 const PullRequestPayload = Schema.Struct({
   action: Schema.String,
@@ -72,6 +84,9 @@ const PullRequestPayload = Schema.Struct({
   })
 })
 
+const decodeUnknownPullRequestPayloadExit =
+  Schema.decodeUnknownExit(PullRequestPayload)
+
 const DeletePayload = Schema.Struct({
   ref: Schema.String,
   ref_type: Schema.String,
@@ -83,6 +98,8 @@ const DeletePayload = Schema.Struct({
     default_branch: Schema.optional(Schema.String)
   })
 })
+
+const decodeUnknownDeletePayloadExit = Schema.decodeUnknownExit(DeletePayload)
 
 const RepositoryPayload = Schema.Struct({
   action: Schema.String,
@@ -101,6 +118,9 @@ const RepositoryPayload = Schema.Struct({
   })
 })
 
+const decodeUnknownRepositoryPayloadExit =
+  Schema.decodeUnknownExit(RepositoryPayload)
+
 const CheckSuitePayload = Schema.Struct({
   installation: Schema.Struct({
     id: GitHubId
@@ -116,6 +136,9 @@ const CheckSuitePayload = Schema.Struct({
     updated_at: Schema.DateFromString
   })
 })
+
+const decodeUnknownCheckSuitePayloadExit =
+  Schema.decodeUnknownExit(CheckSuitePayload)
 
 const StatusPayload = Schema.Struct({
   installation: Schema.Struct({
@@ -136,6 +159,8 @@ const StatusPayload = Schema.Struct({
     })
   )
 })
+
+const decodeUnknownStatusPayloadExit = Schema.decodeUnknownExit(StatusPayload)
 
 const idToString = (id: typeof GitHubId.Type): string => String(id)
 
@@ -179,8 +204,7 @@ const repositoryMetadata = (
   }
 }
 
-const parseJson = (body: string) =>
-  Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(body)
+const parseJson = (body: string) => decodeUnknownJson(body)
 
 const logIgnored = (
   message: string,
@@ -211,18 +235,18 @@ const logMalformed = (
     })
   )
 
-const decodePayload = <S extends Schema.ConstraintDecoder<unknown>>(
-  schema: S,
+const decodePayload = <A>(
+  decode: ReturnType<typeof Schema.decodeUnknownExit<Schema.Decoder<A>>>,
   delivery: GitHubWebhookDelivery
-): Effect.Effect<S["Type"] | null> =>
+): Effect.Effect<A | null> =>
   Effect.gen(function* () {
     const json = yield* parseJson(delivery.body).pipe(Effect.result)
-    if (json._tag === "Failure") {
+    if (Result.isFailure(json)) {
       yield* logMalformed(delivery, "invalid_json")
       return null
     }
-    const decoded = Schema.decodeUnknownExit(schema)(json.success)
-    if (decoded._tag === "Failure") {
+    const decoded = decode(json.success)
+    if (Exit.isFailure(decoded)) {
       yield* logMalformed(delivery, "invalid_payload")
       return null
     }
@@ -234,7 +258,10 @@ const handleInstallation = (
   delivery: GitHubWebhookDelivery
 ) =>
   Effect.gen(function* () {
-    const payload = yield* decodePayload(InstallationPayload, delivery)
+    const payload = yield* decodePayload(
+      decodeUnknownInstallationPayloadExit,
+      delivery
+    )
     if (!payload) return
     const installationId = idToString(payload.installation.id)
     if (payload.action === "deleted") {
@@ -261,7 +288,7 @@ const handleInstallationRepositories = (
 ) =>
   Effect.gen(function* () {
     const payload = yield* decodePayload(
-      InstallationRepositoriesPayload,
+      decodeUnknownInstallationRepositoriesPayloadExit,
       delivery
     )
     if (!payload) return
@@ -303,7 +330,10 @@ const handlePullRequest = (
   delivery: GitHubWebhookDelivery
 ) =>
   Effect.gen(function* () {
-    const payload = yield* decodePayload(PullRequestPayload, delivery)
+    const payload = yield* decodePayload(
+      decodeUnknownPullRequestPayloadExit,
+      delivery
+    )
     if (!payload) return
     const action = pullRequestAction(payload.action)
     const installationId = idToString(payload.installation.id)
@@ -355,7 +385,10 @@ const handleDelete = (
   delivery: GitHubWebhookDelivery
 ) =>
   Effect.gen(function* () {
-    const payload = yield* decodePayload(DeletePayload, delivery)
+    const payload = yield* decodePayload(
+      decodeUnknownDeletePayloadExit,
+      delivery
+    )
     if (!payload) return
     const installationId = idToString(payload.installation.id)
     const repositoryId = idToString(payload.repository.id)
@@ -389,7 +422,10 @@ const handleCheckSuite = (
   delivery: GitHubWebhookDelivery
 ) =>
   Effect.gen(function* () {
-    const payload = yield* decodePayload(CheckSuitePayload, delivery)
+    const payload = yield* decodePayload(
+      decodeUnknownCheckSuitePayloadExit,
+      delivery
+    )
     if (!payload) return
     const installationId = idToString(payload.installation.id)
     const repositoryId = idToString(payload.repository.id)
@@ -426,7 +462,10 @@ const handleStatus = (
   delivery: GitHubWebhookDelivery
 ) =>
   Effect.gen(function* () {
-    const payload = yield* decodePayload(StatusPayload, delivery)
+    const payload = yield* decodePayload(
+      decodeUnknownStatusPayloadExit,
+      delivery
+    )
     if (!payload) return
     const installationId = idToString(payload.installation.id)
     const repositoryId = idToString(payload.repository.id)
@@ -477,7 +516,10 @@ const handleRepository = (
   delivery: GitHubWebhookDelivery
 ) =>
   Effect.gen(function* () {
-    const payload = yield* decodePayload(RepositoryPayload, delivery)
+    const payload = yield* decodePayload(
+      decodeUnknownRepositoryPayloadExit,
+      delivery
+    )
     if (!payload) return
     const installationId = idToString(payload.installation.id)
     const repoId = idToString(payload.repository.id)

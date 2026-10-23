@@ -21,6 +21,10 @@ import {
   jiraRestrictionPolicy,
   jiraV2MappingSource
 } from "./Mappings"
+
+const decodeUnknownJiraMigrationConfiguration = Schema.decodeUnknownEffect(
+  JiraMigrationConfiguration
+)
 export type JiraPreflightBlockerCode =
   | "incompatible-project-key"
   | "invalid-configuration"
@@ -510,6 +514,10 @@ export const JiraPreflightEnvironmentSchema = Schema.Struct({
   existingUserIds: Schema.Array(Schema.String),
   existingStatusSlugs: Schema.Array(Schema.String)
 })
+
+const decodeUnknownJiraPreflightEnvironmentSchema = Schema.decodeUnknownEffect(
+  JiraPreflightEnvironmentSchema
+)
 export class JiraPublicationInvalid extends Schema.TaggedError<JiraPublicationInvalid>()(
   "JiraPublicationInvalid",
   {
@@ -529,12 +537,12 @@ export const preflightJiraMigrationV2 = Effect.fn("preflightJiraMigrationV2")(
     }>
   ) {
     const manifest = yield* decodeFrozenManifest(input.manifest)
-    const configuration = yield* Schema.decodeUnknownEffect(
-      JiraMigrationConfiguration
-    )(input.configuration)
-    const environment = yield* Schema.decodeUnknownEffect(
-      JiraPreflightEnvironmentSchema
-    )(input.environment)
+    const configuration = yield* decodeUnknownJiraMigrationConfiguration(
+      input.configuration
+    )
+    const environment = yield* decodeUnknownJiraPreflightEnvironmentSchema(
+      input.environment
+    )
     const source = {
       ...jiraV2MappingSource(manifest),
       comments: manifest.comments.map((comment) => ({

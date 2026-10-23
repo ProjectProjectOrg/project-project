@@ -1,10 +1,12 @@
+import type { StatusIconName } from "@pp/shared"
+
 import { IconGridPicker } from "@/components/ui/icon-grid-picker"
 import { STATUS_ICON_NAMES, getStatusIcon } from "@/lib/status-icons"
 import { m } from "@/paraglide/messages"
 
 type Props = {
   value: string
-  onChange: (icon: string) => void
+  onChange: (icon: StatusIconName) => void
   onOpenChange?: (open: boolean) => void
   className?: string
   disabled?: boolean
@@ -22,7 +24,7 @@ export function StatusIconPicker({
   const Current = getStatusIcon(value)
   return (
     <IconGridPicker
-      value={value}
+      value={STATUS_ICON_NAMES.find((name) => name === value) ?? "Circle"}
       options={STATUS_ICON_NAMES}
       onChange={onChange}
       onOpenChange={onOpenChange}

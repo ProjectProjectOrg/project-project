@@ -1,7 +1,9 @@
 import { it } from "@effect/vitest"
+import { assertTrue } from "@effect/vitest/utils"
 import { GitHubError } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
 import { afterEach, describe, expect, vi } from "vitest"
 
@@ -22,6 +24,8 @@ import {
   buildProjectStateBatchQuery,
   fetchProjectStatesWithToken
 } from "./projectState"
+
+const encodeUnknownGitHubErrorSync = Schema.encodeUnknownSync(GitHubError)
 
 const run = <A, E>(
   effect: Effect.Effect<A, E, GitHubRequest.GitHubRequestState>
@@ -78,7 +82,7 @@ describe("projectState", () => {
 
     expect(error.cause).toBe(cause)
     expect(JSON.stringify(error)).not.toContain("secret wire payload")
-    expect(Schema.encodeUnknownSync(GitHubError)(error)).toEqual({
+    expect(encodeUnknownGitHubErrorSync(error)).toEqual({
       _tag: "GitHubError",
       message: "GitHub returned an invalid pull-request page"
     })
@@ -296,13 +300,11 @@ describe("projectState", () => {
         )
       )
 
-      expect(error._tag).toBe("GitHubError")
-      if (error._tag === "GitHubError") {
-        expect(Object.getOwnPropertyDescriptor(error, "operation")?.value).toBe(
-          "fetchProjectStateBatch"
-        )
-        expect(error.cause).toBeDefined()
-      }
+      assertTrue(Predicate.isTagged(error, "GitHubError"))
+      expect(Object.getOwnPropertyDescriptor(error, "operation")?.value).toBe(
+        "fetchProjectStateBatch"
+      )
+      expect(error.cause).toBeDefined()
     })
   )
 

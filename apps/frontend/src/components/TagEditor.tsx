@@ -120,9 +120,9 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const ticketHasTag = (name: string) =>
     (displayedNames as ReadonlyArray<string>).includes(name)
 
-  const usageCountFor = (currentName: string) =>
+  const usageCountFor = (currentName: TagName) =>
     Result.isSuccess(usageResult)
-      ? (usageResult.value[currentName as TagName] ?? 0)
+      ? (usageResult.value[currentName] ?? 0)
       : ticketHasTag(currentName)
         ? 1
         : 0

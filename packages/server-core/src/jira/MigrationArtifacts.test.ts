@@ -12,9 +12,18 @@ import {
 } from "../storage/S3Storage"
 import {
   artifactKey,
+  JiraArtifactError,
   JiraMigrationArtifacts,
   JiraMigrationArtifactsLive
 } from "./MigrationArtifacts"
+
+const decodeArtifactBody = Schema.decodeUnknownEffect(
+  Schema.Struct({ body: Schema.String })
+)
+
+const encodeUnknownJson = Schema.encodeEffect(
+  Schema.fromJsonString(Schema.Unknown)
+)
 
 const connection: S3Connection = {
   endpoint: "https://storage.example.test",
@@ -116,9 +125,7 @@ describe("JiraMigrationArtifacts", () => {
         body: "SENSITIVE-MARKER"
       })
       const activityResult = { manifest: ref, issueCount: 1, warnings: [] }
-      const encodedActivityResult = yield* Schema.encodeEffect(
-        Schema.fromJsonString(Schema.Unknown)
-      )(activityResult)
+      const encodedActivityResult = yield* encodeUnknownJson(activityResult)
 
       expect(ref).toEqual({
         key: artifactKey(coordinates),
@@ -130,16 +137,17 @@ describe("JiraMigrationArtifacts", () => {
     }).pipe(Effect.provide(layer))
   })
 
-  it.effect("verifies size and checksum before decoding JSON", () => {
+  it.effect("verifies integrity before validating decoded JSON", () => {
     const { layer } = makeLayer()
     return Effect.gen(function* () {
       const artifacts = yield* JiraMigrationArtifacts
-      const schema = Schema.Struct({ body: Schema.String })
       const ref = yield* artifacts.writeJson("acme", coordinates, {
         body: "safe"
       })
 
-      expect(yield* artifacts.readJson("acme", ref, schema)).toEqual({
+      expect(
+        yield* artifacts.readJson("acme", ref, decodeArtifactBody)
+      ).toEqual({
         body: "safe"
       })
       expect(
@@ -147,15 +155,28 @@ describe("JiraMigrationArtifacts", () => {
           artifacts.readJson(
             "acme",
             { ...ref, byteSize: ref.byteSize + 1 },
-            schema
+            decodeArtifactBody
           )
         ))._tag
       ).toBe("Failure")
       expect(
         (yield* Effect.result(
-          artifacts.readJson("acme", { ...ref, sha256: "wrong" }, schema)
+          artifacts.readJson(
+            "acme",
+            { ...ref, sha256: "wrong" },
+            decodeArtifactBody
+          )
         ))._tag
       ).toBe("Failure")
+      const invalid = yield* artifacts.writeJson("acme", coordinates, {
+        body: 42
+      })
+      const error = yield* artifacts
+        .readJson("acme", invalid, decodeArtifactBody)
+        .pipe(Effect.flip)
+      expect(error).toEqual(
+        new JiraArtifactError({ key: invalid.key, reason: "schema" })
+      )
     }).pipe(Effect.provide(layer))
   })
 

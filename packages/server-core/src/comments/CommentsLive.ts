@@ -36,6 +36,8 @@ import {
   validateCommentBody
 } from "./comments-region"
 
+const isHistoricalCommentAuthor = Schema.is(HistoricalCommentAuthor)
+
 const decodeCommentId = Schema.decodeUnknownSync(CommentId)
 
 export const CommentsLive = Layer.effect(
@@ -247,7 +249,7 @@ export const CommentsLive = Layer.effect(
         const { orgSlug, slug, projectId } = yield* ProjectScope
         yield* Effect.forEach(input, (comment) =>
           Effect.gen(function* () {
-            if (!Schema.is(HistoricalCommentAuthor)(comment.author)) {
+            if (!isHistoricalCommentAuthor(comment.author)) {
               return yield* new InvalidCommentAuthor({
                 reason: "invalid_attribution"
               })

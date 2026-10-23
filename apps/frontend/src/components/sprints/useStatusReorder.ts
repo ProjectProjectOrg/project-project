@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { ProjectStatus, StatusSlug } from "@pp/shared"
+import { OrderKey, type ProjectStatus, type StatusSlug } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { generateKeyBetween } from "fractional-indexing"
 import { useCallback, useMemo, useState } from "react"
@@ -12,10 +12,10 @@ import {
 
 export type StatusReorder = Readonly<{
   reorderMode: boolean
-  dragOrder: ReadonlyArray<string> | null
+  dragOrder: ReadonlyArray<StatusSlug> | null
   enterReorder: () => void
   cancelReorder: () => void
-  setDragOrder: (next: ReadonlyArray<string> | null) => void
+  setDragOrder: (next: ReadonlyArray<StatusSlug> | null) => void
   saveReorder: () => void
 }>
 
@@ -26,7 +26,7 @@ export function useStatusReorder(
 ): StatusReorder {
   const [reorder, setReorder] = useState<{
     key: string
-    order: ReadonlyArray<string> | null
+    order: ReadonlyArray<StatusSlug> | null
   } | null>(null)
   if (reorder !== null && reorder.key !== scopeKey) setReorder(null)
 
@@ -47,7 +47,7 @@ export function useStatusReorder(
   const cancelReorder = useCallback(() => setReorder(null), [])
 
   const setDragOrder = useCallback(
-    (next: ReadonlyArray<string> | null) =>
+    (next: ReadonlyArray<StatusSlug> | null) =>
       setReorder({ key: scopeKey, order: next }),
     [scopeKey]
   )
@@ -66,6 +66,8 @@ export function useStatusReorder(
       let lastKey: string | null = null
       for (let i = 0; i < dragOrder.length; i++) {
         const columnSlug = dragOrder[i]
+        const status = statuses.find((status) => status.slug === columnSlug)
+        if (status === undefined) continue
         const myKey = keys.get(columnSlug)
         if (!myKey) continue
         if (lastKey === null || myKey > lastKey) {
@@ -83,8 +85,8 @@ export function useStatusReorder(
         const newKey = generateKeyBetween(lastKey, nextValid)
         keys.set(columnSlug, newKey)
         reorders.push({
-          statusSlug: columnSlug as StatusSlug,
-          orderKey: newKey as ProjectStatus["orderKey"]
+          statusSlug: status.slug,
+          orderKey: OrderKey.make(newKey)
         })
         lastKey = newKey
       }

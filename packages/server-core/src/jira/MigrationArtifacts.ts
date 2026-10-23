@@ -15,6 +15,10 @@ import {
   type S3Unavailable
 } from "../storage/S3Storage"
 
+const decodeJson = Schema.decodeEffect(Schema.fromJsonString(Schema.Json))
+
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Json))
+
 export const JiraArtifactRef = Schema.Struct({
   key: Schema.NonEmptyString,
   contentType: Schema.NonEmptyString,
@@ -56,12 +60,12 @@ export type JiraMigrationArtifactsShape = Readonly<{
   writeJson: (
     orgSlug: string,
     coordinates: JiraArtifactCoordinates,
-    value: unknown
+    value: Schema.Json
   ) => Effect.Effect<JiraArtifactRef, JiraMigrationArtifactError>
   readJson: <A>(
     orgSlug: string,
     ref: JiraArtifactRef,
-    schema: Schema.Decoder<A>
+    decode: ReturnType<typeof Schema.decodeUnknownEffect<Schema.Decoder<A>>>
   ) => Effect.Effect<A, JiraMigrationArtifactError>
   verify: (
     orgSlug: string,
@@ -141,9 +145,7 @@ export const JiraMigrationArtifactsLive = Layer.effect(
       writeJson: (orgSlug, coordinates, value) =>
         Effect.gen(function* () {
           const key = artifactKey(coordinates)
-          const json = yield* Schema.encodeEffect(
-            Schema.fromJsonString(Schema.Unknown)
-          )(value).pipe(
+          const json = yield* encodeJson(value).pipe(
             Effect.mapError(
               () => new JiraArtifactError({ key, reason: "invalid_json" })
             )
@@ -163,12 +165,11 @@ export const JiraMigrationArtifactsLive = Layer.effect(
             sha256: sha256(bytes)
           }
         }),
-      readJson: (orgSlug, ref, schema) =>
+      readJson: (orgSlug, ref, decode) =>
         Effect.gen(function* () {
           const bytes = yield* getVerified(orgSlug, ref)
-          return yield* Schema.decodeEffect(Schema.fromJsonString(schema))(
-            new TextDecoder().decode(bytes)
-          ).pipe(
+          return yield* decodeJson(new TextDecoder().decode(bytes)).pipe(
+            Effect.flatMap(decode),
             Effect.mapError(
               () => new JiraArtifactError({ key: ref.key, reason: "schema" })
             )

@@ -79,6 +79,30 @@ import { mappedToolErrorText } from "./errorMap"
 import { handlers } from "./handlers"
 import { McpRequestUser } from "./McpRequestUser"
 
+const sealedCodec = Schema.fromJsonString(
+  Schema.Record(Schema.String, Schema.String)
+)
+const decodeSealedGrant = Schema.decodeEffect(sealedCodec)
+const encodeSealedGrant = Schema.encodeEffect(sealedCodec)
+
+const decodeTicketId = Schema.decodeEffect(TicketId)
+
+const decodeTicketStatusSync = Schema.decodeSync(TicketStatus)
+
+const decodePrepareTicketAttachmentInput = Schema.decodeEffect(
+  McpTools.prepare_ticket_attachment.input
+)
+
+const isPrepareTicketAttachmentInput = Schema.is(
+  McpTools.prepare_ticket_attachment.input
+)
+
+const decodeDateFromStringSync = Schema.decodeSync(Schema.DateFromString)
+
+const isPrepareTicketAttachmentOutput = Schema.is(
+  McpTools.prepare_ticket_attachment.output
+)
+
 const user = Schema.decodeSync(User)({
   id: "user-1",
   email: "user@example.com",
@@ -127,7 +151,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
   const scope = {
     orgSlug: slug,
     projectSlug: slug,
-    ticketId: yield* Schema.decodeEffect(TicketId)("T-122")
+    ticketId: yield* decodeTicketId("T-122")
   }
   yield* db
     .insert(organization)
@@ -192,7 +216,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
               title: "Ticket",
               body: "Original description",
               commentsRegion: "",
-              status: Schema.decodeSync(TicketStatus)("todo"),
+              status: decodeTicketStatusSync("todo"),
               type: "feat",
               priority: "med",
               tags: [],
@@ -268,9 +292,10 @@ const fixture = Effect.fn("attachmentFixture")(function* (
   const prepare = Effect.fn("attachmentFixture.prepare")(function* (
     input = upload
   ) {
-    const decoded = yield* Schema.decodeEffect(
-      McpTools.prepare_ticket_attachment.input
-    )({ ...scope, ...input })
+    const decoded = yield* decodePrepareTicketAttachmentInput({
+      ...scope,
+      ...input
+    })
     return yield* handlers
       .prepare_ticket_attachment(decoded)
       .pipe(Effect.provide(context))
@@ -529,16 +554,13 @@ describe.skipIf(!databaseUrl)("MCP attachment upload with Postgres", () => {
           .receive(url.toString(), Stream.die("must not read body"))
           .pipe(Effect.flip))._tag
       ).toBe("Unauthorized")
-      const sealedCodec = Schema.fromJsonString(
-        Schema.Record(Schema.String, Schema.String)
-      )
-      const sealed = yield* Schema.decodeEffect(sealedCodec)(
+      const sealed = yield* decodeSealedGrant(
         Buffer.from(
           new URL(prepared.uploadUrl).searchParams.get("token")!,
           "base64url"
         ).toString("utf8")
       )
-      const tampered = yield* Schema.encodeEffect(sealedCodec)({
+      const tampered = yield* encodeSealedGrant({
         ...sealed,
         tag: Buffer.alloc(16).toString("base64")
       })
@@ -798,7 +820,7 @@ describe("MCP attachment contracts", () => {
     { width: 1 }
   ])("accepts attachment display options %j", (options) => {
     expect(
-      Schema.is(McpTools.prepare_ticket_attachment.input)({
+      isPrepareTicketAttachmentInput({
         orgSlug: "acme",
         projectSlug: "demo",
         ticketId: "T-122",
@@ -817,7 +839,7 @@ describe("MCP attachment contracts", () => {
     { width: Infinity }
   ])("rejects invalid attachment display options %j", (options) => {
     expect(
-      Schema.is(McpTools.prepare_ticket_attachment.input)({
+      isPrepareTicketAttachmentInput({
         orgSlug: "acme",
         projectSlug: "demo",
         ticketId: "T-122",
@@ -856,15 +878,11 @@ describe("MCP attachment contracts", () => {
           id: "01JBX7Q2K9ZWCVE8MTQ4RXPGHN",
           url,
           uploadUrl: "https://example.test/upload?token=secret",
-          expiresAt: Schema.decodeSync(Schema.DateFromString)(
-            "2026-09-09T00:00:00Z"
-          )
+          expiresAt: decodeDateFromStringSync("2026-09-09T00:00:00Z")
         })
       )
       const { expected, ...input } = options
-      const decoded = yield* Schema.decodeEffect(
-        McpTools.prepare_ticket_attachment.input
-      )({
+      const decoded = yield* decodePrepareTicketAttachmentInput({
         orgSlug: "acme",
         projectSlug: "demo",
         ticketId: "T-122",
@@ -908,16 +926,14 @@ describe("MCP attachment contracts", () => {
         filename: input.filename,
         contentType: input.contentType
       })
-      expect(Schema.is(McpTools.prepare_ticket_attachment.output)(result)).toBe(
-        true
-      )
+      expect(isPrepareTicketAttachmentOutput(result)).toBe(true)
     })
   )
 
   it("requires a ticket but no byte size", () => {
     const scope = { orgSlug: "acme", projectSlug: "demo", ticketId: "T-122" }
     expect(
-      Schema.is(McpTools.prepare_ticket_attachment.input)({
+      isPrepareTicketAttachmentInput({
         ...scope,
         ...upload
       })
@@ -926,7 +942,7 @@ describe("MCP attachment contracts", () => {
       Object.keys(McpTools.prepare_ticket_attachment.input.fields)
     ).not.toContain("byteSize")
     expect(
-      Schema.is(McpTools.prepare_ticket_attachment.input)({
+      isPrepareTicketAttachmentInput({
         ...scope,
         ...upload,
         ticketId: "bad"

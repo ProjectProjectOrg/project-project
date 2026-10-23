@@ -1,3 +1,4 @@
+import { Unauthorized } from "@pp/shared"
 import { createMemoryHistory, createRouter } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
@@ -104,7 +105,7 @@ it.each([{ projects: [project] }, { projects: [] }])(
 )
 
 it.each([
-  Response.json({ _tag: "Unauthorized" }, { status: 401 }),
+  Response.json(new Unauthorized(), { status: 401 }),
   Response.json({ malformed: true })
 ])(
   "does not turn a project-list failure into an org route error",

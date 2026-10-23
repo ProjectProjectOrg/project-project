@@ -1,4 +1,6 @@
 import { it } from "@effect/vitest"
+import { assertTrue } from "@effect/vitest/utils"
+import { GroupColor } from "@pp/shared"
 import {
   ActivityActor,
   GroupId,
@@ -11,6 +13,7 @@ import type { GroupDetail, OrgRole, Role } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Result from "effect/Result"
 import * as Schema from "effect/Schema"
 import * as TestClock from "effect/testing/TestClock"
 import { expect } from "vitest"
@@ -327,10 +330,10 @@ it.effect("create with kind=sprint fails for non-admin member", () =>
         kind: "sprint"
       })
     )
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("Forbidden")
-    }
+    expect(result).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "Forbidden" }
+    })
   }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
@@ -356,10 +359,10 @@ it.effect("updateTickets rejects unknown ticket ids", () =>
         tickets: [ticketId("T-99")]
       })
     )
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("NotFound")
-    }
+    expect(result).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "NotFound" }
+    })
   }).pipe(
     Effect.provide(
       makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "developer" })
@@ -375,10 +378,10 @@ it.effect("updateTickets returns NotFound before validating tickets", () =>
         tickets: [ticketId("T-99")]
       })
     )
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("NotFound")
-    }
+    expect(result).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "NotFound" }
+    })
   }).pipe(
     Effect.provide(
       makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "developer" })
@@ -396,10 +399,10 @@ it.effect("create rejects endsAt before startsAt", () =>
         endsAt: isoDate("2026-05-01")
       })
     )
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("Validation")
-    }
+    expect(result).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "Validation" }
+    })
   }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
@@ -416,10 +419,10 @@ it.effect("update rejects endsAt before existing startsAt", () =>
         endsAt: isoDate("2026-05-15")
       })
     )
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("Validation")
-    }
+    expect(result).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "Validation" }
+    })
   }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
@@ -435,10 +438,10 @@ it.effect("update rejects completedAt in the future", () =>
         completedAt: future
       })
     )
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("Validation")
-    }
+    expect(result).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "Validation" }
+    })
   }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
@@ -455,10 +458,10 @@ it.effect("update rejects completedAt before startsAt", () =>
         completedAt: isoDate("2026-03-01")
       })
     )
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("Validation")
-    }
+    expect(result).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "Validation" }
+    })
   }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
@@ -561,10 +564,10 @@ it.effect(
           tickets: [ticketId("T-1")]
         })
       )
-      expect(result._tag).toBe("Failure")
-      if (result._tag === "Failure") {
-        expect(result.failure._tag).toBe("SprintCompletedImmutable")
-      }
+      expect(result).toMatchObject({
+        _tag: "Failure",
+        failure: { _tag: "SprintCompletedImmutable" }
+      })
     }).pipe(
       Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "pm" }))
     )
@@ -715,10 +718,10 @@ it.effect(
         })
       )
 
-      expect(result._tag).toBe("Failure")
-      if (result._tag === "Failure") {
-        expect(result.failure._tag).toBe("SprintCompletedImmutable")
-      }
+      expect(result).toMatchObject({
+        _tag: "Failure",
+        failure: { _tag: "SprintCompletedImmutable" }
+      })
     }).pipe(Effect.provide(makeGroupsLayer({ ticketIds: [] }, { role: "pm" })))
 )
 
@@ -750,10 +753,10 @@ it.effect(
         })
       )
 
-      expect(result._tag).toBe("Failure")
-      if (result._tag === "Failure") {
-        expect(result.failure._tag).toBe("SprintCompletedImmutable")
-      }
+      expect(result).toMatchObject({
+        _tag: "Failure",
+        failure: { _tag: "SprintCompletedImmutable" }
+      })
     }).pipe(Effect.provide(makeGroupsLayer({ ticketIds: [] }, { role: "pm" })))
 )
 
@@ -771,10 +774,10 @@ it.effect("complete fails with Validation when source is not a sprint", () =>
       })
     )
 
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("Validation")
-    }
+    expect(result).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "Validation" }
+    })
   }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "pm" })))
 )
 
@@ -800,10 +803,10 @@ it.effect(
         })
       )
 
-      expect(result._tag).toBe("Failure")
-      if (result._tag === "Failure") {
-        expect(result.failure._tag).toBe("Validation")
-      }
+      expect(result).toMatchObject({
+        _tag: "Failure",
+        failure: { _tag: "Validation" }
+      })
     }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "pm" })))
 )
 
@@ -816,10 +819,8 @@ it.effect("complete fails for non-admin members", () =>
       })
     )
 
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(["Forbidden", "NotFound"]).toContain(result.failure._tag)
-    }
+    assertTrue(Result.isFailure(result))
+    expect(["Forbidden", "NotFound"]).toContain(result.failure._tag)
   }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
@@ -912,10 +913,10 @@ it.effect("updateTicketOrder rejects when ticket is not in the group", () =>
         after: null
       })
     )
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("NotFound")
-    }
+    expect(result).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "NotFound" }
+    })
   }).pipe(
     Effect.provide(
       makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "developer" })
@@ -936,10 +937,10 @@ it.effect("updateTicketOrder rejects when after refers to itself", () =>
         after: ticketId("T-1")
       })
     )
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("Validation")
-    }
+    expect(result).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "Validation" }
+    })
   }).pipe(
     Effect.provide(
       makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "developer" })
@@ -964,10 +965,10 @@ it.effect("updateTicketOrder rejects on completed sprint", () =>
         after: null
       })
     )
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("SprintCompletedImmutable")
-    }
+    expect(result).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "SprintCompletedImmutable" }
+    })
   }).pipe(
     Effect.provide(
       makeGroupsLayer(
@@ -994,7 +995,7 @@ function makeSprintDoc(
     name: id,
     kind: "sprint",
     tickets: [],
-    color: "#abcdef" as GroupDocument["color"],
+    color: GroupColor.make("#abcdef"),
     startsAt: null,
     endsAt: null,
     completedAt: null,
@@ -1279,10 +1280,10 @@ it.effect("addTickets refuses to mutate a completed sprint", () =>
     const outcome = yield* Effect.result(
       groups.addTickets(created.id, [ticketId("T-2")])
     )
-    expect(outcome._tag).toBe("Failure")
-    if (outcome._tag === "Failure") {
-      expect(outcome.failure._tag).toBe("SprintCompletedImmutable")
-    }
+    expect(outcome).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "SprintCompletedImmutable" }
+    })
   }).pipe(
     Effect.provide(
       makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "pm" })
@@ -1390,10 +1391,10 @@ it.effect("removeTickets refuses to mutate a completed sprint", () =>
     const outcome = yield* Effect.result(
       groups.removeTickets(created.id, [ticketId("T-1")])
     )
-    expect(outcome._tag).toBe("Failure")
-    if (outcome._tag === "Failure") {
-      expect(outcome.failure._tag).toBe("SprintCompletedImmutable")
-    }
+    expect(outcome).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "SprintCompletedImmutable" }
+    })
   }).pipe(
     Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "pm" }))
   )

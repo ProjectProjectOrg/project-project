@@ -41,6 +41,17 @@ import { SlackClient } from "./Client"
 import { SlackHost } from "./Host"
 
 const isSlackEvent = Schema.is(SlackEvent)
+const encodeUnknownJsonSync = Schema.encodeSync(
+  Schema.fromJsonString(Schema.Unknown)
+)
+
+const decodeUnknownConnectSlackInputJson = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(ConnectSlackInput)
+)
+
+const encodeConnectSlackInputJson = Schema.encodeEffect(
+  Schema.fromJsonString(ConnectSlackInput)
+)
 
 export const slackCallbackPath = "/api/integrations/slack/oauth/callback"
 export const slackPublicUrl = Config.String("BETTER_AUTH_URL").pipe(
@@ -55,7 +66,7 @@ export const makeSlackManifest = (baseUrl: string) => {
   const supportsUnfurls =
     host.includes(".") && !/^[\d.]+$/.test(host) && !host.includes(":")
   const redirectUri = new URL(slackCallbackPath, url).toString()
-  const manifest = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))({
+  const manifest = encodeUnknownJsonSync({
     display_information: {
       name: "ProjectProject",
       description: "Project updates and ticket previews"
@@ -139,9 +150,7 @@ export const makeSlackIntegrations = Effect.gen(function* () {
     const row = yield* connection(organizationId)
     if (!row) return yield* new SlackNotConnected()
     const plaintext = yield* secrets.open(row)
-    const values = yield* Schema.decodeUnknownEffect(
-      Schema.fromJsonString(ConnectSlackInput)
-    )(plaintext).pipe(
+    const values = yield* decodeUnknownConnectSlackInputJson(plaintext).pipe(
       Effect.mapError(() => new SlackError({ reason: "encryption" }))
     )
     return { ...row, ...values }
@@ -205,9 +214,9 @@ export const makeSlackIntegrations = Effect.gen(function* () {
     const socketAppId = new URL(socketUrl).searchParams.get("app_id")
     if (socketAppId !== null && socketAppId !== appId)
       return yield* new SlackError({ reason: "app_mismatch" })
-    const serialized = yield* Schema.encodeEffect(
-      Schema.fromJsonString(ConnectSlackInput)
-    )(input).pipe(Effect.orDie)
+    const serialized = yield* encodeConnectSlackInputJson(input).pipe(
+      Effect.orDie
+    )
     const encrypted = yield* secrets.seal(serialized)
     const now = yield* DateTime.nowAsDate
     yield* db

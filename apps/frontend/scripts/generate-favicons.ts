@@ -76,7 +76,7 @@ async function main() {
   const sizes = [16, 32, 48, 180, 192, 512] as const
   const pngs = Object.fromEntries(
     await Promise.all(sizes.map(async (s) => [s, await renderPng(s)] as const))
-  ) as Record<(typeof sizes)[number], Buffer>
+  )
 
   await writeFile(resolve(OUT_DIR, "apple-touch-icon.png"), pngs[180])
   await writeFile(resolve(OUT_DIR, "icon-192.png"), pngs[192])

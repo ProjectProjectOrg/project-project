@@ -1,4 +1,5 @@
-import { BANNER_PLACEHOLDER_BUDGET } from "@pp/shared"
+import { BANNER_PLACEHOLDER_BUDGET, ProjectBanner } from "@pp/shared"
+import * as Schema from "effect/Schema"
 import sharp from "sharp"
 import { describe, expect, it } from "vitest"
 
@@ -15,33 +16,41 @@ const photo = (width: number, height: number) => {
     .toBuffer()
 }
 
+const decodeProjectBanner = Schema.decodeSync(ProjectBanner)
+
 describe("bannerNeedsPlaceholder", () => {
   it("is true only for an attachment banner missing its placeholder", () => {
     const crop = { x: 0.5, y: 0.5, zoom: 1 }
     const attachmentId = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
     expect(
-      bannerNeedsPlaceholder({
-        type: "attachment",
-        attachmentId,
-        crop,
-        placeholder: null
-      } as never)
+      bannerNeedsPlaceholder(
+        decodeProjectBanner({
+          type: "attachment",
+          attachmentId,
+          crop,
+          placeholder: null
+        })
+      )
     ).toBe(true)
     expect(
-      bannerNeedsPlaceholder({
-        type: "attachment",
-        attachmentId,
-        crop,
-        placeholder: "data:image/webp;base64,AAAA"
-      } as never)
+      bannerNeedsPlaceholder(
+        decodeProjectBanner({
+          type: "attachment",
+          attachmentId,
+          crop,
+          placeholder: "data:image/webp;base64,AAAA"
+        })
+      )
     ).toBe(false)
     expect(
-      bannerNeedsPlaceholder({
-        type: "preset",
-        preset: "sunset",
-        crop,
-        placeholder: null
-      } as never)
+      bannerNeedsPlaceholder(
+        decodeProjectBanner({
+          type: "preset",
+          preset: "sunset",
+          crop,
+          placeholder: null
+        })
+      )
     ).toBe(false)
     expect(bannerNeedsPlaceholder(null)).toBe(false)
   })

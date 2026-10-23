@@ -30,7 +30,6 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
-import { SelectItem } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { me } from "@/features/auth/atoms/auth"
 import {
@@ -228,30 +227,28 @@ function FilterType({
     <OptionPicker
       label={m.tickets_filters_section_type()}
       value={typeFilter}
-      onValueChange={(next) => setTypeFilter(next as typeof typeFilter)}
+      onValueChange={setTypeFilter}
       displayValue={
         typeFilter === "all"
           ? m.tickets_filters_all_types()
           : TYPE_LABELS[typeFilter]()
       }
-    >
-      <SelectItem separated value="all">
-        {m.tickets_filters_all_types()}
-      </SelectItem>
-      {TicketType.literals.map((t) => {
-        const TIcon = TYPE_META[t].icon
-        return (
-          <SelectItem
-            key={t}
-
-            value={t}
-          >
-            <TIcon className="size-4" strokeWidth={1.75} />
-            {TYPE_LABELS[t]()}
-          </SelectItem>
-        )
-      })}
-    </OptionPicker>
+      items={[
+        { separated: true, value: "all", label: m.tickets_filters_all_types() },
+        ...TicketType.literals.map((t) => {
+          const TIcon = TYPE_META[t].icon
+          return {
+            value: t,
+            label: (
+              <>
+                <TIcon className="size-4" strokeWidth={1.75} />
+                {TYPE_LABELS[t]()}
+              </>
+            )
+          }
+        })
+      ]}
+    />
   )
 }
 
@@ -274,7 +271,7 @@ function FilterAssignee({
     <OptionPicker
       label={m.tickets_filters_section_assignee()}
       value={assigneeFilter}
-      onValueChange={(next) => setAssigneeFilter(next as typeof assigneeFilter)}
+      onValueChange={setAssigneeFilter}
       displayValue={Match.value(assigneeFilter).pipe(
         Match.when("all", () => m.tickets_filters_assignee_anyone()),
         Match.when("mine", () => m.tickets_filters_assignee_mine()),
@@ -283,28 +280,37 @@ function FilterAssignee({
           (id) => members.find((member) => member.id === id)?.name ?? id
         )
       )}
-    >
-      <SelectItem value="all">{m.tickets_filters_assignee_anyone()}</SelectItem>
-      {viewerId && (
-        <SelectItem value="mine">
-          <UserRound className="size-4" strokeWidth={1.75} />
-          {m.tickets_filters_assignee_mine()}
-        </SelectItem>
-      )}
-      <SelectItem separated={members.length > 0} value="unassigned">
-        {m.tickets_filters_assignee_unassigned()}
-      </SelectItem>
-      {members.map((member) => (
-        <SelectItem
-          key={member.id}
-
-          value={member.id}
-        >
-          <MemberAvatar member={member} size={20} />
-          <span className="truncate">{member.name}</span>
-        </SelectItem>
-      ))}
-    </OptionPicker>
+      items={[
+        { value: "all", label: m.tickets_filters_assignee_anyone() },
+        ...(viewerId
+          ? [
+              {
+                value: "mine" as const,
+                label: (
+                  <>
+                    <UserRound className="size-4" strokeWidth={1.75} />
+                    {m.tickets_filters_assignee_mine()}
+                  </>
+                )
+              }
+            ]
+          : []),
+        {
+          separated: members.length > 0,
+          value: "unassigned",
+          label: m.tickets_filters_assignee_unassigned()
+        },
+        ...members.map((member) => ({
+          value: member.id,
+          label: (
+            <>
+              <MemberAvatar member={member} size={20} />
+              <span className="truncate">{member.name}</span>
+            </>
+          )
+        }))
+      ]}
+    />
   )
 }
 
@@ -326,22 +332,24 @@ function FilterEstimate({
     <OptionPicker
       label={m.tickets_filters_section_estimate()}
       value={selected}
-      onValueChange={(next) => select(next as typeof selected)}
+      onValueChange={select}
       displayValue={
         selected === "all"
           ? m.tickets_filters_estimate_all()
           : estimateFilterLabel(selected)
       }
-    >
-      <SelectItem separated value="all">
-        {m.tickets_filters_estimate_all()}
-      </SelectItem>
-      {options.map((option) => (
-        <SelectItem key={option} value={option}>
-          {estimateFilterLabel(option)}
-        </SelectItem>
-      ))}
-    </OptionPicker>
+      items={[
+        {
+          separated: true,
+          value: "all",
+          label: m.tickets_filters_estimate_all()
+        },
+        ...options.map((option) => ({
+          value: option,
+          label: estimateFilterLabel(option)
+        }))
+      ]}
+    />
   )
 }
 
@@ -375,7 +383,7 @@ function FilterSprint({
     <OptionPicker
       label={m.tickets_filters_section_sprint()}
       value={sprintFilter}
-      onValueChange={(next) => setSprintFilter(next as typeof sprintFilter)}
+      onValueChange={setSprintFilter}
       displayValue={Match.value(sprintFilter).pipe(
         Match.when("all", () => m.tickets_filters_sprint_any()),
         Match.when("ungrouped", () => m.tickets_filters_sprint_none()),
@@ -383,29 +391,31 @@ function FilterSprint({
           (id) => allSprints.find((sprint) => sprint.id === id)?.name ?? id
         )
       )}
-    >
-      <SelectItem value="all">{m.tickets_filters_sprint_any()}</SelectItem>
-      <SelectItem separated={sprintOptions.length > 0} value="ungrouped">
-        {m.tickets_filters_sprint_none()}
-      </SelectItem>
-      {sprintOptions.map((s) => {
-        const meta = SPRINT_STATE_META[sprintState(s, now)]
-        const SIcon = meta.icon
-        return (
-          <SelectItem
-            key={s.id}
-
-            value={s.id}
-          >
-            <SIcon
-              className={cn("size-4", meta.className)}
-              strokeWidth={1.75}
-            />
-            <span className="truncate">{s.name}</span>
-          </SelectItem>
-        )
-      })}
-    </OptionPicker>
+      items={[
+        { value: "all", label: m.tickets_filters_sprint_any() },
+        {
+          separated: sprintOptions.length > 0,
+          value: "ungrouped",
+          label: m.tickets_filters_sprint_none()
+        },
+        ...sprintOptions.map((s) => {
+          const meta = SPRINT_STATE_META[sprintState(s, now)]
+          const SIcon = meta.icon
+          return {
+            value: s.id,
+            label: (
+              <>
+                <SIcon
+                  className={cn("size-4", meta.className)}
+                  strokeWidth={1.75}
+                />
+                <span className="truncate">{s.name}</span>
+              </>
+            )
+          }
+        })
+      ]}
+    />
   )
 }
 
@@ -480,7 +490,7 @@ function Ordering() {
         onValueChange={(next) =>
           onQueryChange({
             ...query,
-            sort: { ...query.sort, key: next as typeof query.sort.key }
+            sort: { ...query.sort, key: next }
           })
         }
         displayValue={SORT_FIELD_LABELS[query.sort.key]()}
@@ -508,13 +518,11 @@ function Ordering() {
             <DirectionIcon />
           </Button>
         }
-      >
-        {sortKeysFor(estimation).map((key) => (
-          <SelectItem key={key} value={key}>
-            {SORT_FIELD_LABELS[key]()}
-          </SelectItem>
-        ))}
-      </OptionPicker>
+        items={sortKeysFor(estimation).map((key) => ({
+          value: key,
+          label: SORT_FIELD_LABELS[key]()
+        }))}
+      />
     </div>
   )
 }

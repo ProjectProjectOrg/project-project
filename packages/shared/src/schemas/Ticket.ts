@@ -17,13 +17,15 @@ import { StatusSlug } from "./Status"
 import { TagName } from "./Tag"
 import { User } from "./User"
 
+const isProjectKey = Schema.is(ProjectKey)
+
 export const TicketId = Schema.String.pipe(
   Schema.check(Schema.isPattern(/^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$/u)),
   Schema.check(
     Schema.makeFilter((id: string) => {
       const dash = id.lastIndexOf("-")
       if (dash < 0) return false
-      return Schema.is(ProjectKey)(id.slice(0, dash))
+      return isProjectKey(id.slice(0, dash))
     })
   ),
   Schema.brand("TicketId")

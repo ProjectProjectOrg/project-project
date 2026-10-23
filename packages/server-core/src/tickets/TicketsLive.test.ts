@@ -1,6 +1,6 @@
 import * as BunServices from "@effect/platform-bun/BunServices"
 import { it } from "@effect/vitest"
-import { Db } from "@pp/db"
+import { Slug } from "@pp/shared"
 import {
   BlockDraft,
   BUILTIN_BLOCKS,
@@ -10,7 +10,7 @@ import {
   ProjectKey,
   TemplateDraft,
   TemplateKey,
-  type TicketStatus,
+  TicketStatus,
   type User,
   UserId,
   ProjectScope,
@@ -26,6 +26,7 @@ import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
+import { databaseLayer } from "../../test/database"
 import { accessLayer, projectScope } from "../access/testing"
 import {
   recordingTicketActivity,
@@ -214,24 +215,15 @@ const FakeFigmaLinks = Layer.succeed(FigmaLinks, {
   resolveThumbnailUrl: () => unexpected("FigmaLinks.resolveThumbnailUrl")
 } satisfies FigmaLinksShape)
 
-const FakeDb = Layer.succeed(Db, {
-  query: {
-    projectIndex: {
-      findFirst: () => Effect.succeed({ id: "project-1" })
-    },
-    projectTag: {
-      findMany: () => Effect.succeed([{ name: "frontend" }])
-    },
-    projectStatus: {
-      findMany: () =>
-        Effect.succeed([
-          { slug: "todo" },
-          { slug: "in_progress" },
-          { slug: "done" }
-        ])
-    }
-  }
-} as never)
+const FakeDb = databaseLayer(({ sql }) =>
+  Effect.sync(() => {
+    if (sql.includes('from "project_index"')) return [["project-1"]]
+    if (sql.includes('from "project_tag"')) return [["frontend"]]
+    if (sql.includes('from "project_status"'))
+      return [["todo"], ["in_progress"], ["done"]]
+    throw new Error(`Unexpected SQL: ${sql}`)
+  })
+)
 
 const recordedActivity: Array<RecordedActivity> = []
 
@@ -246,7 +238,25 @@ const TestLayer = Layer.unwrap(
       Layer.provideMerge(LibraryDocsLive),
       Layer.provide(
         Layer.mock(ProjectDocs, {
-          read: () => Effect.succeed({ templateDefaults: {} } as never)
+          read: () =>
+            Effect.succeed({
+              slug: Slug.make("project"),
+              name: "Project",
+              icon: "P",
+              color: "#123456",
+              createdAt: DateTime.toDate(
+                DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")
+              ),
+              github: null,
+              estimation: "points",
+              setup: {
+                workflowReviewedAt: null,
+                invitePeopleDismissedAt: null,
+                connectGithubDismissedAt: null
+              },
+              templateDefaults: {},
+              body: ""
+            })
         })
       ),
       Layer.provideMerge(TicketDocsLive),
@@ -323,7 +333,7 @@ it.effect("honors a custom status on quickCreate", () =>
     const tickets = yield* Tickets
     const created = yield* tickets.quickCreate({
       title: "in progress at birth",
-      status: "in_progress" as TicketStatus
+      status: TicketStatus.make("in_progress")
     })
     expect(created.status).toBe("in_progress")
   }).pipe(Effect.provide(TestLayer))
@@ -345,13 +355,13 @@ it.effect("rejects an unknown status on quickCreate", () =>
     const result = yield* Effect.result(
       tickets.quickCreate({
         title: "bogus",
-        status: "not_a_real_status" as never
+        status: TicketStatus.make("not_a_real_status")
       })
     )
-    expect(result._tag).toBe("Failure")
-    if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("Validation")
-    }
+    expect(result).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "Validation" }
+    })
   }).pipe(Effect.provide(TestLayer))
 )
 

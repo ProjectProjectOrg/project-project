@@ -611,7 +611,7 @@ export const TicketsLive = Layer.effect(
       return rows.map(
         (row, index): RecentTicketRow => ({
           ...row,
-          activity: recentActivityOf(entries[index]!, viewerId)
+          activity: recentActivityOf(entries[index], viewerId)
         })
       )
     })
@@ -1887,7 +1887,7 @@ export const TicketsLive = Layer.effect(
               return DateTime.nowAsDate.pipe(
                 Effect.map((updatedAt) => ({
                   ...existing,
-                  status: newStatus as typeof existing.status,
+                  status: TicketStatus.make(newStatus),
                   updatedAt
                 }))
               )

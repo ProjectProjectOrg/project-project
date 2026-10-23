@@ -2,6 +2,7 @@
 
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
+import * as Match from "effect/Match"
 import {
   useState,
   type ButtonHTMLAttributes,
@@ -199,8 +200,12 @@ function Button({
     size === "icon-xs" ||
     size === "icon-sm" ||
     size === "icon-lg"
-  const iconSize =
-    size === "xs" ? 12 : size === "sm" ? 14 : size === "lg" ? 20 : 16
+  const iconSize = Match.value(size).pipe(
+    Match.when("xs", () => 12),
+    Match.when("sm", () => 14),
+    Match.when("lg", () => 20),
+    Match.orElse(() => 16)
+  )
   const spinnerClassName =
     size === "xs" || size === "icon-xs"
       ? "size-3"

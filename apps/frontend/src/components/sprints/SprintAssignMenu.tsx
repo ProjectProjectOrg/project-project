@@ -7,7 +7,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
@@ -133,17 +132,20 @@ function SprintAssignMenuItems({
           const next = eligible.find((s) => s.id === id)
           if (next && id !== selectedId) onSelect(next)
         }}
-      >
-        {eligible.map((s) => (
-          <DropdownMenuRadioItem key={s.id} value={s.id} closeOnClick>
-            <SprintStateIcon sprint={s} size="xs" />
-            <span className="min-w-0 flex-1 truncate">{s.name}</span>
-            <span data-menu-meta className={menuItemMetaClass}>
-              {rangeText(s)}
-            </span>
-          </DropdownMenuRadioItem>
-        ))}
-      </DropdownMenuRadioGroup>
+        items={eligible.map((s) => ({
+          value: s.id,
+          closeOnClick: true,
+          label: (
+            <>
+              <SprintStateIcon sprint={s} size="xs" />
+              <span className="min-w-0 flex-1 truncate">{s.name}</span>
+              <span data-menu-meta className={menuItemMetaClass}>
+                {rangeText(s)}
+              </span>
+            </>
+          )
+        }))}
+      />
       {(onRequestNewSprint || onClear) && <DropdownMenuSeparator />}
       {onRequestNewSprint && (
         <DropdownMenuItem onClick={() => onRequestNewSprint()}>

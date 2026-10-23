@@ -28,6 +28,8 @@ import { maskAccessKeyId, OrgStorage, type OrgStorageShape } from "./OrgStorage"
 import { S3Endpoint, S3Storage, type S3Connection } from "./S3Storage"
 import { SecretCrypto } from "./SecretCrypto"
 
+const decodeS3Endpoint = Schema.decodeEffect(S3Endpoint)
+
 const notConnectedStatus: OrgStorageStatus = {
   status: "not_connected",
   endpoint: null,
@@ -314,7 +316,7 @@ export const OrgStorageLive = Layer.effect(
         const row = rows[0]
         if (!row) return yield* new StorageNotConnected()
 
-        yield* Schema.decodeEffect(S3Endpoint)(row.endpoint).pipe(
+        yield* decodeS3Endpoint(row.endpoint).pipe(
           Effect.mapError(() => new StorageConfigMissing())
         )
 

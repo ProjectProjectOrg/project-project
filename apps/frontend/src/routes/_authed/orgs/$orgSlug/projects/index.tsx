@@ -25,13 +25,15 @@ import {
   projectsRequest
 } from "@/features/projects/atoms/projects"
 import { useOrgActor } from "@/lib/access"
-import { errorMessage, type AppError } from "@/lib/errorMessage"
+import { errorMessage } from "@/lib/errorMessage"
 import { formatRelative } from "@/lib/relative-time"
 import { slugify } from "@/lib/slug"
 import { transitions } from "@/lib/springs"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+
+const decodeCreatableProjectKeySync = Schema.decodeSync(CreatableProjectKey)
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/")({
   component: Projects,
@@ -155,7 +157,7 @@ function CreateRow({
   const error = Result.matchWithError(createState, {
     onInitial: () => null,
     onSuccess: () => null,
-    onError: (err) => errorMessage(err as AppError),
+    onError: (err) => errorMessage(err),
     onDefect: () => m.projects_create_error_fallback()
   })
   const [name, setName] = useState("")
@@ -203,7 +205,7 @@ function CreateRow({
     if (!canSubmit || submitting) return
     const exit = await create({
       name: trimmed,
-      key: Schema.decodeSync(CreatableProjectKey)(effectiveKey)
+      key: decodeCreatableProjectKeySync(effectiveKey)
     })
     if (Exit.isSuccess(exit)) {
       const activeElement = document.activeElement

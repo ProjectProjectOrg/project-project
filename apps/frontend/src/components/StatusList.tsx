@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { ProjectStatus } from "@pp/shared"
+import { OrderKey, type ProjectStatus } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { generateKeyBetween } from "fractional-indexing"
 import { Reorder } from "motion/react"
@@ -80,7 +80,7 @@ function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
     const nextKey = list[idx + 1]?.orderKey ?? null
     const newKey = generateKeyBetween(prevKey, nextKey)
     setDragOrder(null)
-    return newKey as ProjectStatus["orderKey"]
+    return OrderKey.make(newKey)
   }
 
   const moveBy = (
@@ -96,7 +96,7 @@ function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
     const prevKey = next[targetIdx - 1]?.orderKey ?? null
     const nextKey = next[targetIdx + 1]?.orderKey ?? null
     const newKey = generateKeyBetween(prevKey, nextKey)
-    return newKey as ProjectStatus["orderKey"]
+    return OrderKey.make(newKey)
   }
 
   return (
@@ -105,7 +105,7 @@ function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
         <Reorder.Group
           as="ul"
           axis="y"
-          values={order as ProjectStatus[]}
+          values={[...order]}
           onReorder={(next) => setDragOrder(next)}
           className="divide-y divide-border"
         >
@@ -122,7 +122,7 @@ function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
               onDragEnd={() => commitDrop(s.slug)}
               onMoveUp={i > 0 ? () => moveBy(s.slug, -1) : undefined}
               onMoveDown={
-                i < order.length - 1 ? () => moveBy(s.slug, +1) : undefined
+                i < order.length - 1 ? () => moveBy(s.slug, 1) : undefined
               }
             />
           ))}

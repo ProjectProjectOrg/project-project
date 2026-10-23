@@ -18,6 +18,7 @@ import {
   useNavigate
 } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
+import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import { CalendarRange, Info, ListChecks, type LucideIcon } from "lucide-react"
 import { startTransition, useOptimistic, type MouseEvent, useMemo } from "react"
@@ -187,14 +188,12 @@ function TabsNav({
     key: t.key,
     label: t.label(),
     icon: t.icon,
-    badge:
-      t.countFor === "tickets"
-        ? ticketsCount
-        : t.countFor === "sprints"
-          ? sprintsCount
-          : t.countFor === "members"
-            ? project.members.length
-            : null
+    badge: Match.value(t.countFor).pipe(
+      Match.when("tickets", () => ticketsCount),
+      Match.when("sprints", () => sprintsCount),
+      Match.when("members", () => project.members.length),
+      Match.orElse(() => null)
+    )
   }))
 
   return (

@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { ProjectBanner as Banner } from "@pp/shared"
+import * as Match from "effect/Match"
 import { motion, useReducedMotion } from "motion/react"
 import {
   Suspense,
@@ -250,7 +251,11 @@ export function ProjectBanner({
     cachedRender !== null && !(changed && painted) ? cachedRender : null
   const shaderVisible = settled === null && (skipBlur || painted)
   const settings = { ...bannerDefaults, ...crop }
-  const blurRadius = variant === "header" ? 12 : variant === "card" ? 6 : 3
+  const blurRadius = Match.value(variant).pipe(
+    Match.when("header", () => 12),
+    Match.when("card", () => 6),
+    Match.orElse(() => 3)
+  )
   const blurSize = naturalSize ?? placeholderSize
   const cropStyle = blurSize
     ? bannerCropStyle(
@@ -270,12 +275,11 @@ export function ProjectBanner({
       aria-hidden="true"
       className={`pointer-events-none absolute overflow-hidden rounded-t-[inherit] ${backdrop ? "inset-x-0 top-0" : variant === "header" ? "-inset-x-6 -top-6 -z-10" : "inset-x-0 top-0 -z-10"} ${waiting ? "animate-pulse" : ""}`}
       style={{
-        height:
-          variant === "header"
-            ? bannerDefaults.height
-            : variant === "card"
-              ? 120
-              : "100%",
+        height: Match.value(variant).pipe(
+          Match.when("header", () => bannerDefaults.height),
+          Match.when("card", () => 120),
+          Match.orElse(() => "100%")
+        ),
         opacity: bannerDefaults.overallOpacity
       }}
     >

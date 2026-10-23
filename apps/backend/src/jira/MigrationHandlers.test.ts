@@ -1,6 +1,7 @@
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
 import * as BunPath from "@effect/platform-bun/BunPath"
 import { it } from "@effect/vitest"
+import { assertFailure } from "@effect/vitest/utils"
 import { accessLayer, orgScope } from "@pp/server-core/access/testing"
 import {
   JiraRateLimited,
@@ -14,8 +15,9 @@ import {
 } from "@pp/server-core/jira/Client"
 import { JiraCredentials } from "@pp/server-core/jira/Credentials"
 import { JiraMigrations } from "@pp/server-core/jira/Migrations"
-import { Markdown, type MarkdownShape } from "@pp/server-core/markdown/Markdown"
+import { Markdown } from "@pp/server-core/markdown/Markdown"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
+import { JiraError, JiraRateLimited as PublicJiraRateLimited } from "@pp/shared"
 import {
   ActivityActor,
   AppApi,
@@ -45,6 +47,14 @@ import { expect } from "vitest"
 import { OrgAccessLive, ProjectAccessLive } from "../Layers/Access"
 import { JiraHandlerLive } from "./Handlers"
 import { JiraMigrationsHandlerLive } from "./MigrationHandlers"
+
+const encodeUnknownJson = Schema.encodeEffect(
+  Schema.fromJsonString(Schema.Unknown)
+)
+
+const decodeUnknownJiraMigrationConfiguration = Schema.decodeUnknownEffect(
+  JiraMigrationConfiguration
+)
 
 const unused = () => Effect.die("Unexpected dependency call")
 const user: User = {
@@ -90,9 +100,11 @@ const dependenciesFor = (
   Layer.mergeAll(
     BunFileSystem.layer,
     BunPath.layer,
-    Layer.succeed(Markdown)({
-      projectDir: () => root
-    } as unknown as MarkdownShape),
+    Layer.mock(Markdown, {
+      root,
+      projectDir: () => root,
+      libraryDir: () => root
+    }),
     Layer.succeed(JiraCredentials)({
       status: unused,
       beginConnect: unused,
@@ -201,9 +213,7 @@ it.effect(
         })
         const archiveDir = path.join(root, "imports", "jira", "migration-1")
         yield* fs.makeDirectory(archiveDir, { recursive: true })
-        const archiveJson = yield* Schema.encodeEffect(
-          Schema.fromJsonString(Schema.Unknown)
-        )({
+        const archiveJson = yield* encodeUnknownJson({
           version: 1,
           manifestVersion: 2,
           migrationId: "migration-1",
@@ -515,18 +525,18 @@ for (const failureAt of ["sites", "projects"] as const) {
   for (const [failure, expected] of [
     [
       new JiraRateLimited({ operation: "projects", retryAfterMillis: 15000 }),
-      { _tag: "JiraRateLimited", retryAfterSeconds: 15 }
+      new PublicJiraRateLimited({ retryAfterSeconds: 15 })
     ],
     [
       new JiraTransientFailure({ operation: "projects", reason: "network" }),
-      { _tag: "JiraError", reason: "network" }
+      new JiraError({ reason: "network" })
     ],
     [
       new JiraTransientFailure({
         operation: "projects",
         reason: "invalid_retry_after"
       }),
-      { _tag: "JiraError", reason: "invalid_response" }
+      new JiraError({ reason: "invalid_response" })
     ]
   ] as const) {
     it.effect(
@@ -567,14 +577,9 @@ for (const failureAt of ["sites", "projects"] as const) {
                     .projects({ params: { cloudId: "cloud-1" } })
                     .pipe(Effect.asVoid)
             )
-            expect(selected).toMatchObject({
-              _tag: "Failure",
-              failure: expected
-            })
-            if (selected._tag === "Failure") {
-              expect(selected.failure).not.toHaveProperty("operation")
-              expect(selected.failure).not.toHaveProperty("retryAfterMillis")
-            }
+            assertFailure(selected, expected)
+            expect(selected.failure).not.toHaveProperty("operation")
+            expect(selected.failure).not.toHaveProperty("retryAfterMillis")
             const created = yield* Effect.result(
               client.jiraMigrations.create({
                 params: { orgSlug: "organization" },
@@ -585,14 +590,9 @@ for (const failureAt of ["sites", "projects"] as const) {
                 }
               })
             )
-            expect(created).toMatchObject({
-              _tag: "Failure",
-              failure: expected
-            })
-            if (created._tag === "Failure") {
-              expect(created.failure).not.toHaveProperty("operation")
-              expect(created.failure).not.toHaveProperty("retryAfterMillis")
-            }
+            assertFailure(created, expected)
+            expect(created.failure).not.toHaveProperty("operation")
+            expect(created.failure).not.toHaveProperty("retryAfterMillis")
           }).pipe(
             Effect.provide(
               Layer.mergeAll(handlers, HttpServer.layerServices).pipe(
@@ -701,8 +701,7 @@ for (const kind of ["body reset", "malformed JSON"] as const) {
                 reason: kind === "body reset" ? "network" : "invalid_response"
               }
             })
-            if (result._tag === "Failure")
-              expect(result.failure).not.toHaveProperty("operation")
+            expect(result).not.toHaveProperty("failure.operation")
           }
           expect(requests).toBe(2)
         }).pipe(
@@ -720,9 +719,7 @@ it.effect(
   "preserves whole incomplete configuration and expected revision at the authorized command boundary",
   () =>
     Effect.gen(function* () {
-      const configuration = yield* Schema.decodeUnknownEffect(
-        JiraMigrationConfiguration
-      )({
+      const configuration = yield* decodeUnknownJiraMigrationConfiguration({
         destination: { name: "Application", slug: "application", key: "APP" },
         identities: [],
         statuses: [],

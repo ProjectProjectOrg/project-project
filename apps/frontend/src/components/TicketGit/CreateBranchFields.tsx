@@ -1,10 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import type {
-  GithubConnection,
-  ProjectStatus,
-  TicketDetail,
-  TicketStatus
-} from "@pp/shared"
+import { TicketStatus } from "@pp/shared"
+import type { GithubConnection, ProjectStatus, TicketDetail } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
@@ -38,7 +34,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
@@ -104,7 +99,7 @@ export function CreateBranchFields({
   )
   const [base, setBase] = useState(github.defaultBaseBranch ?? "")
   const [status, setStatus] = useState<TicketStatus>(
-    "in_progress" as TicketStatus
+    TicketStatus.make("in_progress")
   )
   const [didSubmit, setDidSubmit] = useState(false)
   const [attemptedName, setAttemptedName] = useState("")
@@ -287,9 +282,9 @@ function StatusInlinePills({
   onChange: (next: TicketStatus) => void
   disabled?: boolean
   statuses: ReadonlyArray<ProjectStatus>
-  slugs: ReadonlyArray<string>
+  slugs: ReadonlyArray<TicketStatus>
 }) {
-  const items: ReadonlyArray<SegmentedItem<string>> = slugs.map((key) => {
+  const items: ReadonlyArray<SegmentedItem<TicketStatus>> = slugs.map((key) => {
     const sMeta = statusMetaFor(key, statuses)
     return {
       key,
@@ -306,7 +301,7 @@ function StatusInlinePills({
       renderItem={(item, content, { active }) => (
         <button
           type="button"
-          onClick={() => onChange(item.key as TicketStatus)}
+          onClick={() => onChange(item.key)}
           disabled={disabled}
           aria-pressed={active}
           className={cn(
@@ -332,7 +327,7 @@ function StatusDropdown({
   onChange: (next: TicketStatus) => void
   disabled?: boolean
   statuses: ReadonlyArray<ProjectStatus>
-  slugs: ReadonlyArray<string>
+  slugs: ReadonlyArray<TicketStatus>
 }) {
   const current = statusMetaFor(value, statuses)
   const Icon = current.icon
@@ -366,23 +361,26 @@ function StatusDropdown({
       <DropdownMenuContent align="start" sideOffset={6} className="w-44">
         <DropdownMenuRadioGroup
           value={value}
-          onValueChange={(next: string) => onChange(next as TicketStatus)}
-        >
-          {slugs.map((key) => {
+          onValueChange={onChange}
+          items={slugs.map((key) => {
             const meta = statusMetaFor(key, statuses)
             const SIcon = meta.icon
-            return (
-              <DropdownMenuRadioItem key={key} value={key} closeOnClick>
-                <SIcon
-                  className={cn("size-4", meta.className)}
-                  style={meta.color ? { color: meta.color } : undefined}
-                  strokeWidth={1.75}
-                />
-                {statusLabelFor(key, statuses)}
-              </DropdownMenuRadioItem>
-            )
+            return {
+              value: key,
+              closeOnClick: true,
+              label: (
+                <>
+                  <SIcon
+                    className={cn("size-4", meta.className)}
+                    style={meta.color ? { color: meta.color } : undefined}
+                    strokeWidth={1.75}
+                  />
+                  {statusLabelFor(key, statuses)}
+                </>
+              )
+            }
           })}
-        </DropdownMenuRadioGroup>
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   )

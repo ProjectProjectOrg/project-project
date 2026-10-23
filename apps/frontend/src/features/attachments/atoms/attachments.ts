@@ -17,6 +17,8 @@ import * as Schema from "effect/Schema"
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
 
+const decodeAttachmentId = Schema.decodeEffect(AttachmentId)
+
 export class AttachmentUploadFailed extends Schema.TaggedError<AttachmentUploadFailed>()(
   "AttachmentUploadFailed",
   {
@@ -167,9 +169,7 @@ export const uploadProjectImage = Atom.family(
         )
         yield* Reactivity.invalidate([Keys.attachments(req.orgSlug)])
         return {
-          id: yield* Schema.decodeEffect(AttachmentId)(committed.id).pipe(
-            Effect.orDie
-          ),
+          id: yield* decodeAttachmentId(committed.id).pipe(Effect.orDie),
           url: committed.url,
           filename: committed.filename,
           contentType: committed.contentType

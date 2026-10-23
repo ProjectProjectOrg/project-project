@@ -4,7 +4,7 @@ import {
   type BlockLookup,
   type Library,
   type TemplateDefinition,
-  type TemplateKey
+  TemplateKey
 } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -95,7 +95,7 @@ export function TemplateList({ scope, library }: TemplateListProps) {
           unhide: canUnhide(template, scope.layer, library.canEdit)
         }))}
         renderUnhide={(key) => (
-          <TemplateUnhide scope={scope} templateKey={key as TemplateKey} />
+          <TemplateUnhide scope={scope} templateKey={key} />
         )}
       />
     </section>
@@ -135,7 +135,7 @@ function TemplateCard({
         ? draft
         : {
             ...draft,
-            key: copyKey(template.key, taken) as TemplateKey,
+            key: TemplateKey.make(copyKey(template.key, taken)),
             name: m
               .templates_settings_copy_name({ name: template.name })
               .slice(0, 60)

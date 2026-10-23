@@ -25,6 +25,10 @@ import {
   updateSprintSectionsTicket
 } from "./sprintSections"
 
+const decodeTicketIdSync = Schema.decodeSync(TicketId)
+
+const decodeTicketStatusSync = Schema.decodeSync(TicketStatus)
+
 const ticket = {
   id: Schema.decodeSync(TicketId)("T-1"),
   title: "Before",
@@ -97,7 +101,7 @@ const fetchStub = stubFetch()
 
 describe("ticket sprint sections", () => {
   it("keeps appended pages scoped to their query", async () => {
-    const second = { ...ticket, id: Schema.decodeSync(TicketId)("T-2") }
+    const second = { ...ticket, id: decodeTicketIdSync("T-2") }
     fetchStub.set((input: RequestInfo | URL) => {
       const url = new URL(
         input instanceof Request ? input.url : String(input),
@@ -161,7 +165,7 @@ describe("ticket sprint sections", () => {
   })
 
   it("moves status counts with an optimistic status change", async () => {
-    const doing = Schema.decodeSync(TicketStatus)("in_progress")
+    const doing = decodeTicketStatusSync("in_progress")
     fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) =>
       init?.method === "PATCH"
         ? new Promise<Response>(() => {})
@@ -197,7 +201,7 @@ describe("ticket sprint sections", () => {
   })
 
   it("shifts the section's estimate totals with an optimistic estimate and status change", async () => {
-    const done = Schema.decodeSync(TicketStatus)("done")
+    const done = decodeTicketStatusSync("done")
     fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) =>
       init?.method === "PATCH"
         ? new Promise<Response>(() => {})

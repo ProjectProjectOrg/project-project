@@ -1,3 +1,4 @@
+import * as Match from "effect/Match"
 import * as Option from "effect/Option"
 import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
@@ -33,11 +34,13 @@ export const isStaleEstimate = (
 ): boolean => estimate !== null && estimate.unit !== mode
 
 export const estimateRank = (estimate: Estimate): number =>
-  estimate.unit === "time"
-    ? estimate.minutes
-    : estimate.unit === "tshirt"
-      ? ESTIMATE_SIZES.indexOf(estimate.value) + 1
-      : estimate.value
+  Match.value(estimate).pipe(
+    Match.discriminatorsExhaustive("unit")({
+      time: (estimate) => estimate.minutes,
+      tshirt: (estimate) => ESTIMATE_SIZES.indexOf(estimate.value) + 1,
+      points: (estimate) => estimate.value
+    })
+  )
 
 export const estimateToken = (estimate: Estimate): string | number =>
   estimate.unit === "time" ? `${estimate.minutes}m` : estimate.value

@@ -12,7 +12,7 @@ import {
 } from "react"
 
 import { Button, type ButtonProps } from "@/components/ui/button"
-import { errorMessage, type AppError } from "@/lib/errorMessage"
+import { errorMessage } from "@/lib/errorMessage"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -133,7 +133,7 @@ function Cancel({
 type ConfirmOutcome<E> = void | boolean | Exit.Exit<unknown, E>
 
 const describeFailure = (cause: Cause.Cause<unknown>): string =>
-  errorMessage(Cause.squash(cause) as AppError)
+  errorMessage(Cause.squash(cause))
 
 const CONFIRM_SIZES = {
   sm: {

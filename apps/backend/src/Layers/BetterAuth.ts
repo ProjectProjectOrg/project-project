@@ -39,6 +39,38 @@ import {
 } from "../auth"
 import { orgRoleOf, pendingInvitations } from "../handlers/org"
 
+const decodeOrgMember = Schema.decodeEffect(OrgMember)
+
+const decodeOrgMembers = Schema.decodeEffect(OrgMembers)
+
+const decodePersonalGithub = Schema.decodeEffect(PersonalGithub)
+
+const decodePersonalEverhour = Schema.decodeEffect(PersonalEverhour)
+
+const decodeOrgMembership = Schema.decodeEffect(
+  Schema.Struct({
+    orgSlug: Schema.String,
+    role: OrgRole
+  })
+)
+
+const decodeOrg = Schema.decodeEffect(Org)
+
+const decodeOrgInvitation = Schema.decodeEffect(OrgInvitation)
+
+const decodeUserInvitation = Schema.decodeEffect(UserInvitation)
+
+const decodeInvitationState = Schema.decodeEffect(InvitationState)
+
+const TransferOutcome = Schema.Union([
+  Schema.TaggedStruct("ok", {}),
+  Schema.TaggedStruct("not_found", {}),
+  Schema.TaggedStruct("forbidden", {}),
+  Schema.TaggedStruct("invalid", {})
+])
+
+const decodeTransferOutcome = Schema.decodeEffect(TransferOutcome)
+
 export const BetterAuthLive = Layer.effect(
   BetterAuth,
   Effect.sync(() => {
@@ -104,7 +136,7 @@ export const BetterAuthLive = Layer.effect(
       )
       const first = rows[0]
       if (!first) return yield* new NotFound()
-      return yield* Schema.decodeEffect(OrgMember)({
+      return yield* decodeOrgMember({
         userId: first.userId,
         role: orgRoleOf(first.role),
         name: first.name,
@@ -127,7 +159,7 @@ export const BetterAuthLive = Layer.effect(
       )
       if (!full) return yield* new NotFound()
       const now = DateTime.toDate(yield* DateTime.now)
-      return yield* Schema.decodeEffect(OrgMembers)({
+      return yield* decodeOrgMembers({
         members: full.members.map((row) => ({
           userId: row.userId,
           role: orgRoleOf(row.role),
@@ -140,13 +172,6 @@ export const BetterAuthLive = Layer.effect(
         )
       }).pipe(Effect.orDie)
     })
-
-    const TransferOutcome = Schema.Union([
-      Schema.TaggedStruct("ok", {}),
-      Schema.TaggedStruct("not_found", {}),
-      Schema.TaggedStruct("forbidden", {}),
-      Schema.TaggedStruct("invalid", {})
-    ])
 
     const transferRoles = Effect.fn("BetterAuth.transferRoles")(function* (
       orgSlug: string,
@@ -211,9 +236,7 @@ export const BetterAuthLive = Layer.effect(
                 return { _tag: "ok" as const }
               })
             )
-      const outcome = yield* Schema.decodeEffect(TransferOutcome)(raw).pipe(
-        Effect.orDie
-      )
+      const outcome = yield* decodeTransferOutcome(raw).pipe(Effect.orDie)
       return yield* Match.value(outcome).pipe(
         Match.tagsExhaustive({
           ok: () => Effect.void,
@@ -288,7 +311,7 @@ export const BetterAuthLive = Layer.effect(
             where: { userId, providerId: "github" }
           })
         )
-        return yield* Schema.decodeEffect(PersonalGithub)({
+        return yield* decodePersonalGithub({
           connected: row !== undefined
         }).pipe(Effect.orDie)
       }),
@@ -306,7 +329,7 @@ export const BetterAuthLive = Layer.effect(
               where: { userId }
             })
           )
-          return yield* Schema.decodeEffect(PersonalEverhour)({
+          return yield* decodePersonalEverhour({
             connected: row !== undefined,
             everhourUserId: row?.everhourUserId ?? null,
             name: row?.name ?? null,
@@ -329,12 +352,7 @@ export const BetterAuthLive = Layer.effect(
             )
         )
         return yield* Effect.forEach(rows, (row) =>
-          Schema.decodeEffect(
-            Schema.Struct({
-              orgSlug: Schema.String,
-              role: OrgRole
-            })
-          )({
+          decodeOrgMembership({
             orgSlug: row.slug,
             role: orgRoleOf(row.role)
           }).pipe(Effect.orDie)
@@ -363,7 +381,7 @@ export const BetterAuthLive = Layer.effect(
               )
           )
           const orgs = yield* Effect.forEach(rows, (row) =>
-            Schema.decodeEffect(Org)({
+            decodeOrg({
               slug: row.slug,
               name: row.name,
               role: orgRoleOf(row.role)
@@ -405,7 +423,7 @@ export const BetterAuthLive = Layer.effect(
         )
         const first = row[0]
         if (!first) return yield* new NotFound()
-        return yield* Schema.decodeEffect(Org)({
+        return yield* decodeOrg({
           slug: first.slug,
           name: first.name,
           role: orgRoleOf(first.role)
@@ -470,7 +488,7 @@ export const BetterAuthLive = Layer.effect(
             request
           })
         )
-        return yield* Schema.decodeEffect(OrgInvitation)({
+        return yield* decodeOrgInvitation({
           id: created.id,
           email: created.email,
           role: orgRoleOf(created.role),
@@ -637,7 +655,7 @@ export const BetterAuthLive = Layer.effect(
               }
             ]
           }),
-          (row) => Schema.decodeEffect(UserInvitation)(row).pipe(Effect.orDie)
+          (row) => decodeUserInvitation(row).pipe(Effect.orDie)
         )
       }),
       getInvitation: Effect.fn("BetterAuth.getInvitation")(function* (
@@ -652,7 +670,7 @@ export const BetterAuthLive = Layer.effect(
             request
           })
         )
-        return yield* Schema.decodeEffect(UserInvitation)({
+        return yield* decodeUserInvitation({
           id: found.id,
           orgSlug: found.organizationSlug,
           orgName: found.organizationName,
@@ -672,7 +690,7 @@ export const BetterAuthLive = Layer.effect(
           })
         )
         if (!row) return null
-        return yield* Schema.decodeEffect(InvitationState)({
+        return yield* decodeInvitationState({
           status: row.status,
           email: row.email,
           expiresAt: row.expiresAt
@@ -709,7 +727,7 @@ export const BetterAuthLive = Layer.effect(
         )
         const org = rows[0]
         if (!org) return yield* new NotFound()
-        return yield* Schema.decodeEffect(Org)({
+        return yield* decodeOrg({
           slug: org.slug,
           name: org.name,
           role: orgRoleOf(acceptedMember.role)

@@ -258,14 +258,59 @@ function DropdownMenuCheckboxItem({
   )
 }
 
-function DropdownMenuRadioGroup({
+export type DropdownMenuRadioOption<Value extends string> = Readonly<{
+  value: Value
+  label: React.ReactNode
+  textValue?: string
+  disabled?: boolean
+  separated?: boolean
+  closeOnClick?: boolean
+  "aria-label"?: string
+}>
+
+export type DropdownMenuRadioGroupProps<Value extends string> = Readonly<
+  Omit<
+    React.ComponentProps<typeof MenuPrimitive.RadioGroup>,
+    "children" | "value" | "defaultValue" | "onValueChange"
+  >
+> &
+  Readonly<{
+    items: ReadonlyArray<DropdownMenuRadioOption<Value>>
+    value?: NoInfer<Value> | null
+    defaultValue?: NoInfer<Value> | null
+    onValueChange?: (
+      value: NoInfer<Value>,
+      details: MenuPrimitive.RadioGroup.ChangeEventDetails
+    ) => void
+  }>
+
+function DropdownMenuRadioGroup<
+  const Items extends ReadonlyArray<DropdownMenuRadioOption<string>>
+>({
+  items,
+  onValueChange,
   ...props
-}: React.ComponentProps<typeof MenuPrimitive.RadioGroup>) {
+}: DropdownMenuRadioGroupProps<Items[number]["value"]> &
+  Readonly<{ items: Items }>) {
   return (
     <MenuPrimitive.RadioGroup
       data-slot="dropdown-menu-radio-group"
       {...props}
-    />
+      onValueChange={(next, details) => {
+        const item = items.find((item) => item.value === next)
+        if (item === undefined) {
+          details.cancel()
+          return
+        }
+        onValueChange?.(item.value, details)
+      }}
+    >
+      {items.map(({ label, textValue, ...item }) => (
+        <DropdownMenuRadioItem key={item.value} label={textValue} {...item}>
+          {label}
+        </DropdownMenuRadioItem>
+      ))}
+    </MenuPrimitive.RadioGroup>
   )
 }
 
@@ -274,9 +319,13 @@ function DropdownMenuRadioItem({
   children,
   separated = false,
   ...props
-}: React.ComponentProps<typeof MenuPrimitive.RadioItem> & {
-  separated?: boolean
-}) {
+}: Readonly<
+  Omit<React.ComponentProps<typeof MenuPrimitive.RadioItem>, "value">
+> &
+  Readonly<{
+    value: string
+    separated?: boolean
+  }>) {
   const item = (
     <MenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
@@ -489,7 +538,6 @@ export {
   DropdownMenuItem,
   DropdownMenuCheckboxItem,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuSub,

@@ -31,7 +31,19 @@ import { cn } from "@/lib/utils"
 // Types
 // ---------------------------------------------------------------------------
 
-type SliderValue = number | [number, number]
+type SliderValue = number | readonly [number, number]
+
+type SliderSelection =
+  | Readonly<{
+      range?: false
+      value: number
+      onChange: (value: number) => void
+    }>
+  | Readonly<{
+      range: true
+      value: readonly [number, number]
+      onChange: (value: readonly [number, number]) => void
+    }>
 type ValuePosition = "left" | "right" | "top" | "bottom" | "tooltip"
 
 /** Props of the compact engine — the feature-rich design (ranges, discrete
@@ -40,35 +52,35 @@ type ValuePosition = "left" | "right" | "top" | "bottom" | "tooltip"
 type SliderEngineProps = Omit<
   HTMLAttributes<HTMLDivElement>,
   "onChange" | "defaultValue"
-> & {
-  value: SliderValue
-  onChange: (value: SliderValue) => void
-  min?: number
-  max?: number
-  step?: number
-  /**
-   * Discrete list of allowed values, e.g. [0.1, 0.5, 0.7, 1.1, 1.3].
-   *
-   * When set, the thumb snaps only to these values (positioned proportionally
-   * along the track) and arrow keys walk the list. `min`/`max` derive from the
-   * list's extremes and `step` is ignored.
-   */
-  steps?: number[]
-  showSteps?: boolean
-  showValue?: boolean
-  valuePosition?: ValuePosition
-  formatValue?: (v: number) => string
-  label?: string
-  endLabels?: readonly [string, string]
-  disabled?: boolean
-  trackClassName?: string
-  trackStyle?: CSSProperties
-  fillClassName?: string
-  fillStyle?: CSSProperties
-  hideFill?: boolean
-  thumbColor?: string
-  thumbBorderColor?: string
-}
+> &
+  SliderSelection &
+  Readonly<{
+    min?: number
+    max?: number
+    step?: number
+    /**
+     * Discrete list of allowed values, e.g. [0.1, 0.5, 0.7, 1.1, 1.3].
+     *
+     * When set, the thumb snaps only to these values (positioned proportionally
+     * along the track) and arrow keys walk the list. `min`/`max` derive from the
+     * list's extremes and `step` is ignored.
+     */
+    steps?: ReadonlyArray<number>
+    showSteps?: boolean
+    showValue?: boolean
+    valuePosition?: ValuePosition
+    formatValue?: (v: number) => string
+    label?: string
+    endLabels?: readonly [string, string]
+    disabled?: boolean
+    trackClassName?: string
+    trackStyle?: CSSProperties
+    fillClassName?: string
+    fillStyle?: CSSProperties
+    hideFill?: boolean
+    thumbColor?: string
+    thumbBorderColor?: string
+  }>
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -121,16 +133,12 @@ function pixelToValue(
   return Math.max(min, Math.min(max, snapped))
 }
 
-function toRadixValue(value: SliderValue): number[] {
-  return Array.isArray(value) ? value : [value]
-}
-
 // ---------------------------------------------------------------------------
 // ValueDisplay (internal)
 // ---------------------------------------------------------------------------
 
 type ValueDisplayProps = {
-  values: number[]
+  values: ReadonlyArray<number>
   editingIndex: number | null
   onStartEdit: (index: number) => void
   onCommitEdit: (index: number, v: number) => void
@@ -325,6 +333,7 @@ function TooltipValue({ value, formatValue, motionX }: TooltipValueProps) {
 const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
   (
     {
+      range,
       value,
       onChange,
       min: minProp = 0,
@@ -350,8 +359,8 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
     },
     ref
   ) => {
-    const isRange = Array.isArray(value)
-    const values = toRadixValue(value)
+    const isRange = range === true
+    const values = isRange ? value : [value]
     const shape = useShape()
 
     // Non-uniform step mode: sorted, deduped list of allowed values. Keyed on
@@ -421,9 +430,9 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
       motionX0,
       (x) => x + THUMB_SIZE / 2 - TRACK_INSET
     )
-    const fillWidthRange = useTransform(
-      [motionX0, motionX1] as MotionValue<number>[],
-      ([x0, x1]) => (x1 as number) - (x0 as number)
+    const fillWidthRange = useTransform<number, number>(
+      [motionX0, motionX1],
+      ([x0, x1]) => x1 - x0
     )
     const fillWidth = isRange ? fillWidthRange : fillWidthSingle
 
@@ -432,11 +441,11 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
       const edge = x + THUMB_SIZE / 2
       return `linear-gradient(to right, transparent ${edge}px, black ${edge + 2}px)`
     })
-    const stepDotsMaskRange = useTransform(
-      [motionX0, motionX1] as MotionValue<number>[],
+    const stepDotsMaskRange = useTransform<number, string>(
+      [motionX0, motionX1],
       ([x0, x1]) => {
-        const left = (x0 as number) + THUMB_SIZE / 2
-        const right = (x1 as number) + THUMB_SIZE / 2
+        const left = x0 + THUMB_SIZE / 2
+        const right = x1 + THUMB_SIZE / 2
         return `linear-gradient(to right, black ${left - 2}px, transparent ${left}px, transparent ${right}px, black ${right + 2}px)`
       }
     )
@@ -566,14 +575,14 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
     const emitChange = useCallback(
       (thumbIndex: number, newValue: number) => {
         if (isRange) {
-          const newValues: [number, number] = [...(values as [number, number])]
+          const newValues: [number, number] = [value[0], value[1]]
           newValues[thumbIndex] = newValue
           onChange(newValues)
         } else {
           onChange(newValue)
         }
       },
-      [isRange, values, onChange]
+      [isRange, value, onChange]
     )
 
     // --- Pointer handlers on track ---
@@ -721,13 +730,13 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
     // In steps mode the primitive runs on indices (0..len-1, step 1) so arrow
     // keys walk the list; map indices back to actual values on the way out.
     const handleRadixChange = useCallback(
-      (newValues: number[]) => {
+      (newValues: ReadonlyArray<number>) => {
         if (dragging.current) return
         const mapped = stepValues
           ? newValues.map((i) => stepValues[Math.round(i)])
           : newValues
         if (isRange) {
-          onChange(mapped as [number, number])
+          if (mapped.length === 2) onChange([mapped[0], mapped[1]])
         } else {
           onChange(mapped[0])
         }
@@ -1260,29 +1269,28 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
     const zeroOffset = useMotionValue(value === min ? zeroTarget : 0)
 
     const fillWidthStyle = useTransform(fillPercent, (p) => `${p * 100}%`)
-    const handleLeftStyle = useTransform(
-      [fillPercent, zeroOffset] as MotionValue<number>[],
-      ([p, zo]) => `calc(${(p as number) * 100}% - 8px + ${zo as number}px)`
+    const handleLeftStyle = useTransform<number, string>(
+      [fillPercent, zeroOffset],
+      ([p, zo]) => `calc(${p * 100}% - 8px + ${zo}px)`
     )
-    const handleLineLeftStyle = useTransform(
-      [fillPercent, zeroOffset] as MotionValue<number>[],
-      ([p, zo]) => `calc(${(p as number) * 100}% - 9px + ${zo as number}px)`
+    const handleLineLeftStyle = useTransform<number, string>(
+      [fillPercent, zeroOffset],
+      ([p, zo]) => `calc(${p * 100}% - 9px + ${zo}px)`
     )
     // Pips-specific: offset by px-3 (12px) padding so fill edge aligns with active pip center
-    const pipsFillWidthStyle = useTransform(
-      [fillPercent, zeroOffset] as MotionValue<number>[],
-      ([p, zo]) =>
-        `calc(${(p as number) * 100}% + ${20 - 20 * (p as number) - (zo as number) * 2.5}px)`
+    const pipsFillWidthStyle = useTransform<number, string>(
+      [fillPercent, zeroOffset],
+      ([p, zo]) => `calc(${p * 100}% + ${20 - 20 * p - zo * 2.5}px)`
     )
     const pipsHandleLineLeftStyle = useTransform(
       fillPercent,
       (p) => `calc(${p * 100}% + ${11 - 24 * p}px)`
     )
-    const pipsMaskStyle = useTransform(
-      [fillPercent, zeroOffset] as MotionValue<number>[],
+    const pipsMaskStyle = useTransform<number, string>(
+      [fillPercent, zeroOffset],
       ([p, zo]) => {
-        const offset = 20 - 20 * (p as number) - (zo as number) * 2.5
-        return `linear-gradient(to right, transparent calc(${(p as number) * 100}% + ${offset}px), black calc(${(p as number) * 100}% + ${offset + 2}px))`
+        const offset = 20 - 20 * p - zo * 2.5
+        return `linear-gradient(to right, transparent calc(${p * 100}% + ${offset}px), black calc(${p * 100}% + ${offset + 2}px))`
       }
     )
 
@@ -1490,7 +1498,7 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
     }, [])
 
     const handleRadixChange = useCallback(
-      (newValues: number[]) => {
+      (newValues: ReadonlyArray<number>) => {
         onChange(newValues[0])
       },
       [onChange]
@@ -1669,7 +1677,7 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
               )}
               <span
                 className="ml-auto bg-background px-2 text-[13px] text-transparent tabular-nums select-none"
-                style={{ minWidth: `${String(formatValue(max)).length}ch` }}
+                style={{ minWidth: `${formatValue(max).length}ch` }}
               >
                 {formatValue(value)}
               </span>
@@ -1736,7 +1744,7 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
                 }}
                 transition={spring.fast}
                 style={{
-                  minWidth: `${String(formatValue(max)).length}ch`,
+                  minWidth: `${formatValue(max).length}ch`,
                   textAlign: "right"
                 }}
               >
@@ -1807,7 +1815,7 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
                     : "var(--muted-foreground)"
                 }}
                 transition={spring.fast}
-                style={{ minWidth: `${String(formatValue(max)).length}ch` }}
+                style={{ minWidth: `${formatValue(max).length}ch` }}
               >
                 {formatValue(value)}
               </motion.span>
@@ -1853,20 +1861,20 @@ ComfortableSlider.displayName = "SliderComfortable"
 // it regardless of the resolved step, so no capability is ever lost.
 // ---------------------------------------------------------------------------
 
-type SliderProps = SliderEngineProps & {
-  /** Default-step layout: value pips along the track, or an edge-to-edge
-   *  scrubber. Ignored when the compact design renders. */
-  variant?: "pips" | "scrubber"
-  /** Pins the slider to one step of the size ladder (see /docs/sizes).
-   *  Omitted, it follows the surrounding SizeProvider. */
-  size?: SizeVariant
-}
+type SliderProps = SliderEngineProps &
+  Readonly<{
+    /** Default-step layout: value pips along the track, or an edge-to-edge
+     *  scrubber. Ignored when the compact design renders. */
+    variant?: "pips" | "scrubber"
+    /** Pins the slider to one step of the size ladder (see /docs/sizes).
+     *  Omitted, it follows the surrounding SizeProvider. */
+    size?: SizeVariant
+  }>
 
 const Slider = forwardRef<HTMLDivElement, SliderProps>(
   ({ size, variant = "pips", ...props }, ref) => {
     const resolved = useSizeVariant(size)
     const needsCompactEngine =
-      Array.isArray(props.value) ||
       props.steps !== undefined ||
       props.showSteps !== undefined ||
       props.showValue !== undefined ||
@@ -1879,11 +1887,12 @@ const Slider = forwardRef<HTMLDivElement, SliderProps>(
       props.thumbColor !== undefined ||
       props.thumbBorderColor !== undefined
 
-    if (resolved === "compact" || needsCompactEngine) {
+    if (props.range === true || resolved === "compact" || needsCompactEngine) {
       return <CompactSlider ref={ref} {...props} />
     }
 
     const {
+      range: _range,
       value,
       onChange,
       min,
@@ -1911,7 +1920,7 @@ const Slider = forwardRef<HTMLDivElement, SliderProps>(
     return (
       <ComfortableSlider
         ref={ref}
-        value={value as number}
+        value={value}
         onChange={onChange}
         min={min}
         max={max}
@@ -1920,7 +1929,7 @@ const Slider = forwardRef<HTMLDivElement, SliderProps>(
         label={label}
         formatValue={formatValue}
         disabled={disabled}
-        {...(html as Omit<SliderComfortableProps, "value" | "onChange">)}
+        {...html}
       />
     )
   }

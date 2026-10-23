@@ -6,12 +6,16 @@ import * as Schema from "effect/Schema"
 import type { TicketDocument } from "./TicketDocs"
 import { clearedPrMetadata, hasPrMetadata } from "./ticketPrMetadata"
 
+const decodeUnknownTicketIdSync = Schema.decodeUnknownSync(TicketId)
+
+const decodeUnknownTicketStatusSync = Schema.decodeUnknownSync(TicketStatus)
+
 const createdAt = DateTime.toDate(DateTime.makeUnsafe("2026-09-07T10:00:00Z"))
 
 const ticket = (overrides: Partial<TicketDocument>): TicketDocument => ({
-  id: Schema.decodeUnknownSync(TicketId)("T-1"),
+  id: decodeUnknownTicketIdSync("T-1"),
   title: "Ticket",
-  status: Schema.decodeUnknownSync(TicketStatus)("todo"),
+  status: decodeUnknownTicketStatusSync("todo"),
   type: "chore",
   priority: "med",
   tags: [],

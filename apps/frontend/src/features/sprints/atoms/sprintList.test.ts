@@ -30,6 +30,12 @@ import {
   updateSprint
 } from "./sprintList"
 
+const decodeTicketStatusSync = Schema.decodeSync(TicketStatus)
+
+const decodeUnknownUpdateGroupTicketsInputSync = Schema.decodeUnknownSync(
+  UpdateGroupTicketsInput
+)
+
 const groupId = Schema.decodeSync(GroupId)("G-1")
 const otherGroupId = Schema.decodeSync(GroupId)("G-2")
 const ticketA = Schema.decodeSync(TicketId)("T-1")
@@ -59,7 +65,7 @@ const otherSprint: Group = {
 const makeTicket = (id: TicketId): Ticket => ({
   id,
   title: `Ticket ${id}`,
-  status: Schema.decodeSync(TicketStatus)("todo"),
+  status: decodeTicketStatusSync("todo"),
   type: "chore",
   priority: "med",
   estimate: null,
@@ -592,7 +598,7 @@ describe("ticket membership mutations", () => {
         url.pathname.includes(`/groups/${group.id}`)
       )
       if (request.method === "PATCH" && selected) {
-        const payload = Schema.decodeUnknownSync(UpdateGroupTicketsInput)(
+        const payload = decodeUnknownUpdateGroupTicketsInputSync(
           await request.json()
         )
         const adding = url.pathname.endsWith("/tickets/add")
@@ -845,7 +851,7 @@ describe("ticket membership mutations", () => {
       if (init?.method === "PATCH") {
         const request = new Request(input, init)
         expect(new URL(request.url).pathname).toContain("/tickets/add")
-        const payload = Schema.decodeUnknownSync(UpdateGroupTicketsInput)(
+        const payload = decodeUnknownUpdateGroupTicketsInputSync(
           await request.json()
         )
         return new Promise<Response>((resolve) => {

@@ -1,3 +1,5 @@
+import { assertTrue } from "@effect/vitest/utils"
+import * as Predicate from "effect/Predicate"
 import { expect, it } from "vitest"
 
 import { mapHttpError } from "./errors"
@@ -11,10 +13,8 @@ it("maps existing branch errors with branch context", () => {
     { branch: "feat/T-1-test" }
   )
 
-  expect(error._tag).toBe("BranchExists")
-  if (error._tag === "BranchExists") {
-    expect(error.branch).toBe("feat/T-1-test")
-  }
+  assertTrue(Predicate.isTagged(error, "BranchExists"))
+  expect(error.branch).toBe("feat/T-1-test")
 })
 
 it("maps protected branch errors with branch context", () => {
@@ -24,10 +24,8 @@ it("maps protected branch errors with branch context", () => {
     { branch: "main" }
   )
 
-  expect(error._tag).toBe("BranchProtected")
-  if (error._tag === "BranchProtected") {
-    expect(error.branch).toBe("main")
-  }
+  assertTrue(Predicate.isTagged(error, "BranchProtected"))
+  expect(error.branch).toBe("main")
 })
 
 it("does not fabricate an empty branch when context is missing", () => {
@@ -54,8 +52,8 @@ it("maps exhausted 403 responses to a rate limit", () => {
     nowSeconds
   )
 
-  expect(error._tag).toBe("RateLimited")
-  if (error._tag === "RateLimited") expect(error.resetAt).toBe(2000)
+  assertTrue(Predicate.isTagged(error, "RateLimited"))
+  expect(error.resetAt).toBe(2000)
 })
 
 it("prefers Retry-After over the rate limit reset header", () => {
@@ -72,8 +70,8 @@ it("prefers Retry-After over the rate limit reset header", () => {
     nowSeconds
   )
 
-  expect(error._tag).toBe("RateLimited")
-  if (error._tag === "RateLimited") expect(error.resetAt).toBe(1010)
+  assertTrue(Predicate.isTagged(error, "RateLimited"))
+  expect(error.resetAt).toBe(1010)
 })
 
 it("maps GraphQL not-found errors returned with HTTP 200", () => {
@@ -98,6 +96,6 @@ it("maps GraphQL rate-limit errors returned with HTTP 200", () => {
     nowSeconds
   )
 
-  expect(error._tag).toBe("RateLimited")
-  if (error._tag === "RateLimited") expect(error.resetAt).toBe(1200)
+  assertTrue(Predicate.isTagged(error, "RateLimited"))
+  expect(error.resetAt).toBe(1200)
 })

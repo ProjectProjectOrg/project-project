@@ -12,6 +12,10 @@ import { expect } from "vitest"
 
 import type { GitHubWebhookMutationSink } from "./GitHubWebhooks"
 import { makeGitHubWebhooks } from "./GitHubWebhooksLive"
+const encodeUnknownJsonSync = Schema.encodeSync(
+  Schema.fromJsonString(Schema.Unknown)
+)
+
 type Call =
   | Readonly<{ type: "deleted"; installationId: string }>
   | Readonly<{ type: "suspended"; installationId: string }>
@@ -108,10 +112,10 @@ const makeSink = (calls: Array<Call>): GitHubWebhookMutationSink => ({
     })
 })
 
-const delivery = (event: string, body: unknown) => ({
+const delivery = (event: string, body: Schema.Json) => ({
   event,
   deliveryId: "delivery-1",
-  body: Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))(body)
+  body: encodeUnknownJsonSync(body)
 })
 
 it.effect("dispatches installation.deleted", () =>

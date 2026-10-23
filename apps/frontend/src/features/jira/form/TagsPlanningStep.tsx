@@ -2,12 +2,7 @@ import type { JiraMigrationRequirements } from "@pp/shared"
 import { Rows3, Tag } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger
-} from "@/components/ui/select"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import { m } from "@/paraglide/messages"
 
 import { MappingLabel, MappingRow } from "./MappingRow"
@@ -92,7 +87,7 @@ export function TagsPlanningStep({
                         value={
                           field.value === null
                             ? backlogValue
-                            : (field.value ?? "")
+                            : (field.value ?? null)
                         }
                         onValueChange={(value) => {
                           if (value === backlogValue) {
@@ -104,6 +99,16 @@ export function TagsPlanningStep({
                           )
                           if (option) field.handleChange(option.jiraSprintId)
                         }}
+                        items={[
+                          {
+                            value: backlogValue,
+                            label: m.jira_migration_backlog()
+                          },
+                          ...choice.options.map((option) => ({
+                            value: option.jiraSprintId,
+                            label: option.name
+                          }))
+                        ]}
                       >
                         <SelectTrigger
                           aria-label={choice.issueKey}
@@ -118,19 +123,6 @@ export function TagsPlanningStep({
                                 )?.name
                           }
                         />
-                        <SelectContent>
-                          <SelectItem value={backlogValue}>
-                            {m.jira_migration_backlog()}
-                          </SelectItem>
-                          {choice.options.map((option) => (
-                            <SelectItem
-                              key={option.jiraSprintId}
-                              value={option.jiraSprintId}
-                            >
-                              {option.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
                       </Select>
                     )}
                   </form.Field>

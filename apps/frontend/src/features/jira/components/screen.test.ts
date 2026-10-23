@@ -1,4 +1,4 @@
-import type { JiraMigrationStatus } from "@pp/shared"
+import { JiraMigrationStatus } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
 import { isActiveJiraMigration, jiraMigrationScreen } from "./screen"
@@ -21,18 +21,10 @@ describe("jiraMigrationScreen", () => {
 
 describe("isActiveJiraMigration", () => {
   it("polls only work that can still make server-side progress", () => {
-    expect(
-      [
-        "scanning",
-        "needs_configuration",
-        "ready",
-        "migrating",
-        "cancelling",
-        "reconnect_required",
-        "failed",
-        "cancelled",
-        "succeeded"
-      ].filter((status) => isActiveJiraMigration(status as JiraMigrationStatus))
-    ).toEqual(["scanning", "migrating", "cancelling"])
+    expect(JiraMigrationStatus.literals.filter(isActiveJiraMigration)).toEqual([
+      "scanning",
+      "migrating",
+      "cancelling"
+    ])
   })
 })

@@ -99,11 +99,15 @@ const hasLayoutBox = (element: HTMLElement): boolean =>
 const rectWithin = (element: HTMLElement, container: HTMLElement): ItemRect => {
   let top = element.offsetTop
   let left = element.offsetLeft
-  let ancestor = element.offsetParent as HTMLElement | null
-  while (ancestor && ancestor !== container && container.contains(ancestor)) {
+  let ancestor = element.offsetParent
+  while (
+    ancestor instanceof HTMLElement &&
+    ancestor !== container &&
+    container.contains(ancestor)
+  ) {
     top += ancestor.offsetTop + ancestor.clientTop
     left += ancestor.offsetLeft + ancestor.clientLeft
-    ancestor = ancestor.offsetParent as HTMLElement | null
+    ancestor = ancestor.offsetParent
   }
   return {
     top,
@@ -278,13 +282,14 @@ export function useFluidHover<T extends HTMLElement>(
   }, [])
 
   const handleClick = useCallback((e: ReactMouseEvent) => {
-    const target = e.target as Node | null
-    if (!target) return
+    const target = e.target
+    if (!(target instanceof Node)) return
     for (const element of itemsRef.current.values()) {
       if (element.contains(target)) return
     }
     if (!target.isConnected) return
-    if ((target as Element).closest?.(GAP_CONTROL_SELECTOR)) return
+    if (target instanceof Element && target.closest(GAP_CONTROL_SELECTOR))
+      return
     const index = activeIndexRef.current
     if (index === null) return
     const element = itemsRef.current.get(index)

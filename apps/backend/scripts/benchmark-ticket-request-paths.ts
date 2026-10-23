@@ -49,6 +49,7 @@ import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
+import * as Match from "effect/Match"
 import * as Schema from "effect/Schema"
 import matter from "gray-matter"
 import pg from "pg"
@@ -232,20 +233,17 @@ const fixtureFor = (index: number, ticketCount: number) => {
         : number % 3 === 0
           ? ("in_progress" as const)
           : ("todo" as const),
-    type:
-      number % 4 === 0
-        ? ("bug" as const)
-        : number % 4 === 1
-          ? ("feat" as const)
-          : number % 4 === 2
-            ? ("chore" as const)
-            : ("other" as const),
-    priority:
-      number % 3 === 0
-        ? ("high" as const)
-        : number % 3 === 1
-          ? ("med" as const)
-          : ("low" as const),
+    type: Match.value(number % 4).pipe(
+      Match.when(0, () => "bug" as const),
+      Match.when(1, () => "feat" as const),
+      Match.when(2, () => "chore" as const),
+      Match.orElse(() => "other" as const)
+    ),
+    priority: Match.value(number % 3).pipe(
+      Match.when(0, () => "high" as const),
+      Match.when(1, () => "med" as const),
+      Match.orElse(() => "low" as const)
+    ),
     tags:
       number % 10 === 0
         ? ["performance", "backend"]

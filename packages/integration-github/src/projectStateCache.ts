@@ -68,25 +68,37 @@ export const make = (): ProjectStateCache["Service"] => {
           entry.state.snapshot = value
           return value
         }),
-        Effect.catch(
-          (error): Effect.Effect<RawProjectStates, ProjectStateFailure> => {
+        Effect.tapErrorTag("RepoGone", () =>
+          Effect.sync(() => {
+            if (entry.state.run === run) entry.state.snapshot = undefined
+          })
+        ),
+        Effect.tapError(() =>
+          Effect.sync(() => {
             if (entry.state.run === run) {
               entry.state.run = undefined
-              if (error._tag === "RepoGone") entry.state.snapshot = undefined
             }
-            if (error._tag === "RepoGone") return Effect.fail(error)
+          })
+        ),
+        Effect.catchTags({
+          RateLimited: (error) => {
             if (entries.get(key) !== entry || !entry.state.snapshot)
               return Effect.fail(error)
             return Effect.succeed({
               ...entry.state.snapshot,
-              refreshStatus:
-                error._tag === "RateLimited" ? "rate_limited" : "stale",
-              ...(error._tag === "RateLimited"
-                ? { retryAt: error.resetAt }
-                : {})
+              refreshStatus: "rate_limited" as const,
+              retryAt: error.resetAt
+            })
+          },
+          GitHubError: (error) => {
+            if (entries.get(key) !== entry || !entry.state.snapshot)
+              return Effect.fail(error)
+            return Effect.succeed({
+              ...entry.state.snapshot,
+              refreshStatus: "stale" as const
             })
           }
-        )
+        })
       )
     }
   )

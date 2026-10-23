@@ -19,6 +19,12 @@ import * as Schema from "effect/Schema"
 
 import type { JiraMigrationManifest, JiraMigrationManifestV2 } from "./Manifest"
 
+const isStatusSlug = Schema.is(StatusSlug)
+
+const isStatusLabel = Schema.is(StatusLabel)
+
+const decodeTicketIdSync = Schema.decodeSync(TicketId)
+
 export const JiraIdentityResolution = Schema.Union([
   Schema.Struct({
     kind: Schema.Literal("link"),
@@ -146,9 +152,7 @@ export function buildJiraStatusCreateOptions(
       const style = statusStyle(status.categoryKey)
       const derived = deriveStatusSlug(status.name)
       const slug =
-        Schema.is(StatusSlug)(derived) && Schema.is(StatusLabel)(status.name)
-          ? derived
-          : null
+        isStatusSlug(derived) && isStatusLabel(status.name) ? derived : null
       return {
         sourceStatusId: status.id,
         baseSlug: slug,
@@ -234,7 +238,7 @@ export function buildDefaultTicketIdMappings(
 export const jiraDestinationTicketId = (
   destinationKey: CreatableProjectKey,
   issueNumber: number
-): TicketId => Schema.decodeSync(TicketId)(`${destinationKey}-${issueNumber}`)
+): TicketId => decodeTicketIdSync(`${destinationKey}-${issueNumber}`)
 
 export function normalizeJiraTag(
   sourceValue: string,

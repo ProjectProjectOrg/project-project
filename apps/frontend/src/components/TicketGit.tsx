@@ -309,7 +309,12 @@ function PanelForState({
     const Root = InlineForm.Root<NoBranchAction>
     const baseBranch = github.defaultBaseBranch ?? "main"
     return (
-      <Root key="no_branch" variant={variant} className={GIT_PANEL_CONTAINER}>
+      <Root
+        actions={["create", "connect"]}
+        key="no_branch"
+        variant={variant}
+        className={GIT_PANEL_CONTAINER}
+      >
         <InlineForm.Idle className={IDLE_STACK}>
           <InlineForm.Display<NoBranchAction>
             previews={{
@@ -379,6 +384,7 @@ function PanelForState({
     const Root = InlineForm.Root<"clear">
     return (
       <Root
+        actions={["clear"]}
         key={`branch_pending:${state.name}`}
         variant={variant}
         className={GIT_PANEL_CONTAINER}
@@ -421,6 +427,7 @@ function PanelForState({
     const Root = InlineForm.Root<"clear">
     return (
       <Root
+        actions={["clear"]}
         key={`branch_no_pr:${state.name}`}
         variant={variant}
         className={GIT_PANEL_CONTAINER}
@@ -541,6 +548,7 @@ function PanelForState({
     const Root = InlineForm.Root<"clear">
     return (
       <Root
+        actions={["clear"]}
         key={`stale_branch:${state.name}`}
         variant={variant}
         className={GIT_PANEL_CONTAINER}
@@ -655,6 +663,13 @@ export function BranchChip({
   )
 }
 
+const pullRequestIcons = {
+  open: GitPullRequest,
+  draft: GitPullRequest,
+  merged: GitMerge,
+  closed: GitPullRequestClosed
+}
+
 function StackChip({
   own,
   stack
@@ -711,12 +726,7 @@ export function PrLink({
       : tone === "closed" || tone === "draft"
         ? "muted"
         : "emerald"
-  const Icon =
-    tone === "merged"
-      ? GitMerge
-      : tone === "closed"
-        ? GitPullRequestClosed
-        : GitPullRequest
+  const Icon = pullRequestIcons[tone]
   return (
     <Badge
       render={

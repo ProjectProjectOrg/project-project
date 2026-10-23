@@ -32,6 +32,8 @@ const SharedLink = Schema.Struct({
   })
 })
 
+const decodeUnknownSharedLinkOption = Schema.decodeUnknownOption(SharedLink)
+
 export const makeSlackPreviews = Effect.gen(function* () {
   const db = yield* Db
   const host = yield* SlackHost
@@ -42,7 +44,7 @@ export const makeSlackPreviews = Effect.gen(function* () {
     organizationId: string,
     body: unknown
   ) {
-    const decoded = Schema.decodeUnknownOption(SharedLink)(body)
+    const decoded = decodeUnknownSharedLinkOption(body)
     if (Option.isNone(decoded)) return
     const row = yield* integrations.credentials(organizationId)
     const { event, team_id, api_app_id } = decoded.value

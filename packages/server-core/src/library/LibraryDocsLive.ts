@@ -18,6 +18,7 @@ import {
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Match from "effect/Match"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
@@ -126,20 +127,18 @@ type ClassifiedFile<A> =
   | Readonly<{ _tag: "hidden"; key: string }>
   | Readonly<{ _tag: "skipped"; key: string }>
 
-const classifyFile = <A>(
-  file: LibraryFile,
-  decode: (file: ParsedFile) => Option.Option<A>
-): ClassifiedFile<A> => {
-  const parsed = parseFile(file)
-  if (Option.isNone(parsed)) return { _tag: "skipped", key: file.key }
-  if (isTombstone(parsed.value.data)) return { _tag: "hidden", key: file.key }
-  return Option.match(decode(parsed.value), {
-    onNone: (): ClassifiedFile<A> => ({ _tag: "skipped", key: file.key }),
-    onSome: (definition): ClassifiedFile<A> => ({
-      _tag: "definition",
-      definition
+const classifyFile = <A>(decode: (file: ParsedFile) => Option.Option<A>) => {
+  const ClassifiedFile = Data.taggedEnum<ClassifiedFile<A>>()
+  return (file: LibraryFile): ClassifiedFile<A> => {
+    const parsed = parseFile(file)
+    if (Option.isNone(parsed)) return ClassifiedFile.skipped({ key: file.key })
+    if (isTombstone(parsed.value.data))
+      return ClassifiedFile.hidden({ key: file.key })
+    return Option.match(decode(parsed.value), {
+      onNone: () => ClassifiedFile.skipped({ key: file.key }),
+      onSome: (definition) => ClassifiedFile.definition({ definition })
     })
-  })
+  }
 }
 
 type OrgLibraryFile = Readonly<{
@@ -202,10 +201,13 @@ export const LibraryDocsLive = Layer.effect(
           projectSlug,
           kind
         )
-        const classified = files.map((file) => classifyFile(file, decode))
+        const classified = files.map(classifyFile(decode))
         yield* Effect.forEach(
           classified.flatMap((entry) =>
-            entry._tag === "skipped" ? [entry.key] : []
+            Match.value(entry).pipe(
+              Match.tag("skipped", (entry) => [entry.key]),
+              Match.orElse(() => [])
+            )
           ),
           (key) =>
             Effect.logWarning("skipping unreadable library file").pipe(
@@ -215,10 +217,16 @@ export const LibraryDocsLive = Layer.effect(
         )
         return {
           definitions: classified.flatMap((entry) =>
-            entry._tag === "definition" ? [entry.definition] : []
+            Match.value(entry).pipe(
+              Match.tag("definition", (entry) => [entry.definition]),
+              Match.orElse(() => [])
+            )
           ),
           hidden: classified.flatMap((entry) =>
-            entry._tag === "hidden" ? [entry.key] : []
+            Match.value(entry).pipe(
+              Match.tag("hidden", (entry) => [entry.key]),
+              Match.orElse(() => [])
+            )
           )
         }
       })

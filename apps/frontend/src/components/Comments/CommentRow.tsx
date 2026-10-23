@@ -58,6 +58,7 @@ export function CommentRow({
 
   return (
     <InlineForm.Root<Mode>
+      actions={["edit"]}
       className={cn(
         "ticket-comment rounded-md p-(--ticket-comment-pad)",
         waiting && "animate-pulse"
@@ -111,7 +112,7 @@ export function CommentRow({
           <Markdown>{comment.body}</Markdown>
         </div>
       </InlineForm.Idle>
-      <InlineForm.Form<Mode> action="edit">
+      <InlineForm.Form action="edit">
         <EditForm
           comment={comment}
           orgSlug={orgSlug}

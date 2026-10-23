@@ -1,6 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import { GroupPolicy } from "@pp/access/policies"
 import { type GroupId, type TicketListQuery } from "@pp/shared"
+import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useMemo } from "react"
 
@@ -53,19 +54,22 @@ export function SprintDetail({
   return Result.matchWithError(sprint, {
     onInitial: () => <SprintDetailSkeleton />,
     onError: (error) =>
-      error._tag === "NotFound" ? (
-        <NotFoundPage
-          contained
-          title={m.sprints_not_found_title()}
-          body={m.sprints_not_found_body()}
-        />
-      ) : (
-        <ErrorPage
-          contained
-          error={error}
-          title={m.sprints_load_error_title()}
-          body={m.sprints_load_error_body()}
-        />
+      Match.value(error).pipe(
+        Match.tag("NotFound", () => (
+          <NotFoundPage
+            contained
+            title={m.sprints_not_found_title()}
+            body={m.sprints_not_found_body()}
+          />
+        )),
+        Match.orElse((error) => (
+          <ErrorPage
+            contained
+            error={error}
+            title={m.sprints_load_error_title()}
+            body={m.sprints_load_error_body()}
+          />
+        ))
       ),
     onDefect: (defect) => (
       <ErrorPage

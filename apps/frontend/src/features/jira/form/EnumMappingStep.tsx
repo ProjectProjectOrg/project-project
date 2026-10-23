@@ -1,11 +1,6 @@
 import type { ReactNode } from "react"
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger
-} from "@/components/ui/select"
+import { Select, SelectTrigger } from "@/components/ui/select"
 
 import { MappingLabel, MappingRow } from "./MappingRow"
 import { StepFrame } from "./StepFrame"
@@ -75,11 +70,17 @@ export function EnumMappingStep<V extends string>({
               const selected = optionFor(value)
               return (
                 <Select
-                  value={value ?? ""}
-                  onValueChange={(next) => {
-                    const option = optionFor(next ?? undefined)
-                    if (option) onChange(option.value)
-                  }}
+                  value={value ?? null}
+                  onValueChange={onChange}
+                  items={options.map((option) => ({
+                    value: option.value,
+                    textValue: option.label(),
+                    label: (
+                      <MappingLabel icon={renderIcon(option.value)}>
+                        {option.label()}
+                      </MappingLabel>
+                    )
+                  }))}
                 >
                   <SelectTrigger
                     aria-label={row.name}
@@ -93,19 +94,6 @@ export function EnumMappingStep<V extends string>({
                       ) : undefined
                     }
                   />
-                  <SelectContent>
-                    {options.map((option) => (
-                      <SelectItem
-                        key={option.value}
-                        value={option.value}
-                        aria-label={option.label()}
-                      >
-                        <MappingLabel icon={renderIcon(option.value)}>
-                          {option.label()}
-                        </MappingLabel>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
                 </Select>
               )
             })}

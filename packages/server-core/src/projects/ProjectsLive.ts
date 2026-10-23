@@ -23,12 +23,15 @@ import {
   type ProjectScopeShape
 } from "@pp/shared"
 import { and, asc, eq, gt, inArray, sql as sqlFragment } from "drizzle-orm"
+import type { EffectDrizzleQueryError } from "drizzle-orm/effect-core"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Match from "effect/Match"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
+import * as SqlError from "effect/sql/SqlError"
 import { ulid } from "ulid"
 
 const decodeUserId = Schema.decodeSync(UserId)
@@ -118,25 +121,15 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "")
 }
 
-function uniqueConstraint(error: unknown, constraint: string): boolean {
-  if (typeof error === "object" && error !== null) {
-    const record = error as Record<string, unknown>
-    if (record.constraint === constraint) return true
-    if (
-      typeof record.message === "string" &&
-      record.message.includes(constraint)
-    ) {
-      return true
-    }
-    return [
-      record.cause,
-      record.error,
-      record.originalError,
-      record.cause instanceof Error ? record.cause.cause : undefined
-    ].some((value) => uniqueConstraint(value, constraint))
-  }
-  return typeof error === "string" && error.includes(constraint)
-}
+const uniqueConstraint = (
+  error: EffectDrizzleQueryError,
+  constraint: string
+): boolean =>
+  SqlError.isSqlError(error.cause) &&
+  Match.value(error.cause.reason).pipe(
+    Match.tag("UniqueViolation", (reason) => reason.constraint === constraint),
+    Match.orElse(() => false)
+  )
 
 const presentDetail = (
   scope: ProjectScopeShape,

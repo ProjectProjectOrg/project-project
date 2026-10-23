@@ -29,25 +29,25 @@ export type AdfReferenceDestination = Readonly<{
 type AdfNode = Readonly<{
   type: string
   text?: string | undefined
-  attrs?: Readonly<Record<string, unknown>> | undefined
+  attrs?: Readonly<Record<string, Schema.Json>> | undefined
   marks?: ReadonlyArray<AdfMark> | undefined
   content?: ReadonlyArray<AdfNode> | undefined
 }>
 
 type AdfMark = Readonly<{
   type: string
-  attrs?: Readonly<Record<string, unknown>> | undefined
+  attrs?: Readonly<Record<string, Schema.Json>> | undefined
 }>
 
 const AdfMarkSchema: Schema.Codec<AdfMark> = Schema.Struct({
   type: Schema.String,
-  attrs: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  attrs: Schema.optional(Schema.Record(Schema.String, Schema.Json))
 })
 
 const AdfNodeSchema: Schema.Codec<AdfNode> = Schema.Struct({
   type: Schema.String,
   text: Schema.optional(Schema.String),
-  attrs: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  attrs: Schema.optional(Schema.Record(Schema.String, Schema.Json)),
   marks: Schema.optional(Schema.Array(AdfMarkSchema)),
   content: Schema.optional(
     Schema.Array(Schema.suspend((): Schema.Codec<AdfNode> => AdfNodeSchema))
@@ -61,7 +61,7 @@ type ConversionState = Readonly<{
   references: Array<AdfReference>
 }>
 
-export function convertAdfToMarkdown(input: unknown): AdfConversionResult {
+export function convertAdfToMarkdown(input: Schema.Json): AdfConversionResult {
   const decoded = decodeAdfNode(input)
   if (Option.isNone(decoded) || decoded.value.type !== "doc") {
     return {
@@ -408,7 +408,9 @@ function longestRun(value: string, character: string): number {
 }
 
 function stringAttribute(
-  value: Readonly<{ attrs?: Readonly<Record<string, unknown>> | undefined }>,
+  value: Readonly<{
+    attrs?: Readonly<Record<string, Schema.Json>> | undefined
+  }>,
   key: string
 ): string | null {
   const attribute = value.attrs?.[key]

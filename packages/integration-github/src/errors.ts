@@ -158,7 +158,7 @@ export const narrow =
     | RateLimited
     | GitHubError => {
     const err = mapHttpError(cause, nowSecs)
-    if (err._tag === "RateLimited") return err
+    if (Predicate.isTagged(err, "RateLimited")) return err
     if (isAllowedFailure(err, allow)) return err
     return new GitHubError({ message: err._tag })
   }

@@ -39,7 +39,7 @@ export const SlackRuntimeLive = Layer.effectDiscard(
     const scope = yield* Scope.Scope
     const sockets = new Map<
       string,
-      Readonly<{ token: string; fiber: Fiber.Fiber<void, never> }>
+      Readonly<{ token: string; fiber: Fiber.Fiber<void> }>
     >()
 
     const setSocketError = (

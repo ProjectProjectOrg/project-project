@@ -7,7 +7,7 @@ import { useState, type ReactNode } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ConfirmButton } from "@/components/ui/confirm-button"
-import { errorMessage, type AppError } from "@/lib/errorMessage"
+import { errorMessage } from "@/lib/errorMessage"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -200,7 +200,8 @@ function DeleteAction({
   )
 }
 
-type HiddenEntry = LibraryRowEntry & Readonly<{ unhide: boolean }>
+type HiddenEntry<Key extends string> = LibraryRowEntry &
+  Readonly<{ key: Key; unhide: boolean }>
 
 export function UnhideButton({
   waiting,
@@ -227,12 +228,12 @@ export function UnhideButton({
   )
 }
 
-export function HiddenEntries({
+export function HiddenEntries<Key extends string>({
   entries,
   renderUnhide
 }: Readonly<{
-  entries: ReadonlyArray<HiddenEntry>
-  renderUnhide: (key: string) => ReactNode
+  entries: ReadonlyArray<HiddenEntry<Key>>
+  renderUnhide: (key: Key) => ReactNode
 }>) {
   const [open, setOpen] = useState(false)
   if (entries.length === 0) return null
@@ -299,7 +300,7 @@ export const failureText = (
     ? AsyncResult.matchWithError(result, {
         onInitial: () => null,
         onSuccess: () => null,
-        onError: (error) => errorMessage(error as AppError),
+        onError: (error) => errorMessage(error),
         onDefect: () => m.error_unknown()
       })
     : null

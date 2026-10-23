@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto"
 
 import * as BunServices from "@effect/platform-bun/BunServices"
 import { PgClient } from "@effect/sql-pg"
+import { it } from "@effect/vitest"
 import { DbLive } from "@pp/db"
 import { JiraMigrationConfiguration, TAG_DEFAULT_PALETTE } from "@pp/shared"
 import { attachmentUrl, TicketId } from "@pp/shared"
@@ -19,7 +20,7 @@ import {
   Stream
 } from "effect"
 import { Pool } from "pg"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import { MarkdownLive } from "../markdown/MarkdownLive"
 import { attachmentObjectKey, type S3Connection } from "../storage/S3Storage"
@@ -58,6 +59,24 @@ import {
   prepareJiraPublication
 } from "./PublicationPlan"
 
+const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))
+
+const decodeTicketIdSync = Schema.decodeSync(TicketId)
+
+const decodeUnknownJiraMigrationConfigurationSync = Schema.decodeUnknownSync(
+  JiraMigrationConfiguration
+)
+
+const encodeUnknownJson = Schema.encodeEffect(
+  Schema.fromJsonString(Schema.Unknown)
+)
+
+const encodeJiraPublicationPlanV1 = Schema.encodeEffect(JiraPublicationPlanV1)
+
+const decodeUnknownJiraMigrationManifestV2Sync = Schema.decodeUnknownSync(
+  JiraMigrationManifestV2
+)
+
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
 describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
@@ -87,677 +106,649 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
     await pool.end()
   })
 
-  it("creates one hidden row for the current attempt and rejects a stale retry", async () => {
-    const organizationId = randomUUID()
-    const otherOrganizationId = randomUUID()
-    const userId = randomUUID()
-    const migrationId = randomUUID()
-    const projectId = randomUUID()
-    const slug = `jira-${randomUUID()}`
-    owners.push({ organizationId, userId })
-    owners.push({ organizationId: otherOrganizationId, userId })
-    await pool.query(
-      'insert into "user" (id,name,email,email_verified,created_at,updated_at) values ($1,$1,$2,false,now(),now())',
-      [userId, `${userId}@example.test`]
-    )
-    await pool.query(
-      'insert into "organization" (id,name,slug,created_at) values ($1,$1,$1,now()), ($2,$2,$2,now())',
-      [organizationId, otherOrganizationId]
-    )
-    await pool.query(
-      "insert into project_index (slug,organization_id,key,name,icon,color,created_by) values ($1,$2,'OTH','Other','x','#000000',$3)",
-      [slug, otherOrganizationId, userId]
-    )
-    await pool.query(
-      `insert into jira_migration (id,request_id,organization_id,initiated_by,source_cloud_id,source_site_name,source_site_url,source_project_id,source_project_key,source_project_name,staging_prefix,workflow_execution_id,workflow_attempt,scan_revision,status,phase,checkpoint) values ($1,$2,$3,$4,'cloud','Site','https://example.test','10000','APP','Application',$5,$1,1,1,'migrating','migrate',$6)`,
-      [
-        migrationId,
-        randomUUID(),
-        organizationId,
-        userId,
-        `migrations/jira/${migrationId}`,
-        JSON.stringify({
-          remoteWritesMayStillCommit: {
-            workflowExecutionId: migrationId,
-            workflowAttempt: 1
-          }
-        })
-      ]
-    )
-    const input = {
-      fence: {
-        migrationId,
-        workflowExecutionId: migrationId,
-        workflowAttempt: 1
-      },
-      project: {
-        id: projectId,
-        organizationId,
-        slug,
-        key: "APP",
-        name: "Application",
-        icon: "📦",
-        color: "#123456",
-        nextTicketNumber: 2,
-        createdBy: userId,
-        createdAt: "2026-09-22T10:00:00.000Z"
-      }
-    }
-    const layer = DbLive.pipe(
-      Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
-    )
-    await Effect.runPromise(
-      ensureHiddenJiraProject(input).pipe(Effect.provide(layer))
-    )
-    await Effect.runPromise(
-      ensureHiddenJiraProject(input).pipe(Effect.provide(layer))
-    )
-    const rows = await pool.query(
-      "select id,published_at from project_index where slug = $1 and organization_id = $2",
-      [slug, organizationId]
-    )
-    expect(rows.rows).toEqual([{ id: projectId, published_at: null }])
-    const reserved = await pool.query(
-      "select destination_project_id,destination_project_slug from jira_migration where id = $1",
-      [migrationId]
-    )
-    expect(reserved.rows).toEqual([
-      {
-        destination_project_id: projectId,
-        destination_project_slug: slug
-      }
-    ])
-    const content = "---\nname: Application\n---\n# Application\n"
-    const archive = '{"version":1}'
-    const documents = [
-      {
-        path: "project.md",
-        content,
-        sha256: createHash("sha256").update(content).digest("hex")
-      }
-    ]
-    const archiveDocument = {
-      path: `imports/jira/${migrationId}/archive.json`,
-      content: archive,
-      sha256: createHash("sha256").update(archive).digest("hex")
-    }
-    const reportContent = "Import report"
-    const reportDocument = {
-      path: `imports/jira/${migrationId}/report.md`,
-      content: reportContent,
-      sha256: createHash("sha256").update(reportContent).digest("hex")
-    }
-    const writeDocuments = Effect.scoped(
+  it.effect(
+    "creates one hidden row for the current attempt and rejects a stale retry",
+    () =>
       Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem
-        const root = yield* fs.makeTempDirectoryScoped({
-          prefix: "jira-hidden-"
-        })
-        const markdownLayer = MarkdownLive.pipe(
-          Layer.provide(
-            ConfigProvider.layer(
-              ConfigProvider.fromUnknown({ PROJECTS_DIR: root })
-            )
+        const organizationId = randomUUID()
+        const otherOrganizationId = randomUUID()
+        const userId = randomUUID()
+        const migrationId = randomUUID()
+        const projectId = randomUUID()
+        const slug = `jira-${randomUUID()}`
+        owners.push({ organizationId, userId })
+        owners.push({ organizationId: otherOrganizationId, userId })
+        yield* Effect.promise(() =>
+          pool.query(
+            'insert into "user" (id,name,email,email_verified,created_at,updated_at) values ($1,$1,$2,false,now(),now())',
+            [userId, `${userId}@example.test`]
           )
         )
-        const write = writeJiraHiddenDocuments({
-          fence: input.fence,
-          projectId,
-          orgSlug: organizationId,
-          projectSlug: slug,
-          documents: [...documents, archiveDocument, reportDocument]
-        }).pipe(Effect.provide(markdownLayer))
-        expect(yield* write).toBe(3)
-        expect(yield* write).toBe(3)
-        const stored = yield* fs.readFileString(
-          `${root}/orgs/${organizationId}/projects/${slug}/project.md`
-        )
-        expect(stored).toBe(content)
-        expect(
-          yield* fs.readFileString(
-            `${root}/orgs/${organizationId}/projects/${slug}/imports/jira/${migrationId}/archive.json`
+        yield* Effect.promise(() =>
+          pool.query(
+            'insert into "organization" (id,name,slug,created_at) values ($1,$1,$1,now()), ($2,$2,$2,now())',
+            [organizationId, otherOrganizationId]
           )
-        ).toBe(archive)
-        const verify = verifyJiraHiddenMaterialization(
-          {
-            getObject: () => Effect.succeed(null),
-            headObject: () => Effect.succeed(null)
-          },
-          {
-            fence: input.fence,
-            projectId,
-            orgSlug: organizationId,
-            projectSlug: slug,
-            planSha256: "a".repeat(64),
-            documents,
-            archiveDocument,
-            reportDocument,
-            attachments: [],
-            connection: {
-              endpoint: "http://127.0.0.1:59000",
-              bucket: "projectproject-t172-local-test",
-              region: "us-east-1",
-              keyPrefix: null,
-              forcePathStyle: true,
-              accessKeyId: "test",
-              secretAccessKey: "test"
-            }
-          }
-        ).pipe(Effect.provide(markdownLayer))
-        expect(yield* verify).toEqual({
-          planSha256: "a".repeat(64),
-          documentCount: 3,
-          attachmentCount: 0,
-          unresolvedReferenceCount: 0
-        })
-        yield* fs.remove(
-          `${root}/orgs/${organizationId}/projects/${slug}/project.md`
         )
-        expect((yield* Effect.result(verify))._tag).toBe("Failure")
-        const unsafe = yield* Effect.result(
-          writeJiraHiddenDocuments({
-            fence: input.fence,
-            projectId,
-            orgSlug: organizationId,
-            projectSlug: slug,
-            documents: [{ ...documents[0]!, path: "../escape.md" }]
-          }).pipe(Effect.provide(markdownLayer))
+        yield* Effect.promise(() =>
+          pool.query(
+            "insert into project_index (slug,organization_id,key,name,icon,color,created_by) values ($1,$2,'OTH','Other','x','#000000',$3)",
+            [slug, otherOrganizationId, userId]
+          )
         )
-        expect(unsafe._tag).toBe("Failure")
-      })
-    ).pipe(Effect.provide(Layer.mergeAll(layer, BunServices.layer)))
-    await Effect.runPromise(writeDocuments)
-    const conflicting = await Effect.runPromise(
-      Effect.result(
-        ensureHiddenJiraProject({
-          ...input,
-          project: { ...input.project, name: "Different" }
-        })
-      ).pipe(Effect.provide(layer))
-    )
-    expect(conflicting._tag).toBe("Failure")
-    await pool.query(
-      "update jira_migration set destination_project_id = $2 where id = $1",
-      [migrationId, randomUUID()]
-    )
-    const conflictingReservation = await Effect.runPromise(
-      Effect.result(ensureHiddenJiraProject(input)).pipe(Effect.provide(layer))
-    )
-    expect(conflictingReservation._tag).toBe("Failure")
-    await pool.query(
-      "update jira_migration set workflow_attempt = 2 where id = $1",
-      [migrationId]
-    )
-    const stale = await Effect.runPromise(
-      Effect.result(ensureHiddenJiraProject(input)).pipe(Effect.provide(layer))
-    )
-    expect(stale._tag).toBe("Failure")
-    expect(
-      (
-        await pool.query(
-          "select count(*)::int as count from project_index where slug = $1 and organization_id = $2",
-          [slug, organizationId]
+        yield* Effect.promise(() =>
+          pool.query(
+            `insert into jira_migration (id,request_id,organization_id,initiated_by,source_cloud_id,source_site_name,source_site_url,source_project_id,source_project_key,source_project_name,staging_prefix,workflow_execution_id,workflow_attempt,scan_revision,status,phase,checkpoint) values ($1,$2,$3,$4,'cloud','Site','https://example.test','10000','APP','Application',$5,$1,1,1,'migrating','migrate',$6)`,
+            [
+              migrationId,
+              randomUUID(),
+              organizationId,
+              userId,
+              `migrations/jira/${migrationId}`,
+              encodeJson({
+                remoteWritesMayStillCommit: {
+                  workflowExecutionId: migrationId,
+                  workflowAttempt: 1
+                }
+              })
+            ]
+          )
         )
-      ).rows[0]?.count
-    ).toBe(1)
-  })
-
-  it("adopts a completed attachment upload after result loss without downloading again", async () => {
-    const organizationId = randomUUID()
-    const userId = randomUUID()
-    const migrationId = randomUUID()
-    const projectId = randomUUID()
-    const slug = `jira-${randomUUID()}`
-    owners.push({ organizationId, userId })
-    await pool.query(
-      'insert into "user" (id,name,email,email_verified,created_at,updated_at) values ($1,$1,$2,false,now(),now())',
-      [userId, `${userId}@example.test`]
-    )
-    await pool.query(
-      'insert into "organization" (id,name,slug,created_at) values ($1,$1,$1,now())',
-      [organizationId]
-    )
-    await pool.query(
-      `insert into jira_migration (id,request_id,organization_id,initiated_by,source_cloud_id,source_site_name,source_site_url,source_project_id,source_project_key,source_project_name,staging_prefix,workflow_execution_id,workflow_attempt,status,phase,checkpoint) values ($1,$2,$3,$4,'cloud','Site','https://example.test','10000','APP','Application',$5,$1,1,'migrating','migrate',$6)`,
-      [
-        migrationId,
-        randomUUID(),
-        organizationId,
-        userId,
-        `migrations/jira/${migrationId}`,
-        JSON.stringify({
-          remoteWritesMayStillCommit: {
+        const input = {
+          fence: {
+            migrationId,
             workflowExecutionId: migrationId,
             workflowAttempt: 1
+          },
+          project: {
+            id: projectId,
+            organizationId,
+            slug,
+            key: "APP",
+            name: "Application",
+            icon: "📦",
+            color: "#123456",
+            nextTicketNumber: 2,
+            createdBy: userId,
+            createdAt: "2026-09-22T10:00:00.000Z"
           }
-        })
-      ]
-    )
-    const fence = {
-      migrationId,
-      workflowExecutionId: migrationId,
-      workflowAttempt: 1
-    }
-    const dbLayer = DbLive.pipe(
-      Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
-    )
-    await Effect.runPromise(
-      ensureHiddenJiraProject({
-        fence,
-        project: {
-          id: projectId,
-          organizationId,
-          slug,
-          key: "APP",
-          name: "Application",
-          icon: "📦",
-          color: "#123456",
-          nextTicketNumber: 2,
-          createdBy: userId,
-          createdAt: "2026-09-22T10:00:00.000Z"
         }
-      }).pipe(Effect.provide(dbLayer))
-    )
-    const attachmentId = jiraAttachmentId(
-      migrationId,
-      "jira-attachment-1",
-      "2026-09-22T10:00:00.000Z"
-    )
-    const connection: S3Connection = {
-      endpoint: "http://127.0.0.1:59000",
-      bucket: "projectproject-t172-local-test",
-      region: "us-east-1",
-      keyPrefix: null,
-      forcePathStyle: true,
-      accessKeyId: "test",
-      secretAccessKey: "test"
-    }
-    const bytes = new TextEncoder().encode("Jira attachment")
-    const objectKey = attachmentObjectKey({
-      keyPrefix: null,
-      orgSlug: organizationId,
-      projectSlug: slug,
-      ticketId: "APP-1",
-      attachmentId,
-      filename: "note.txt"
-    })
-    const stored = new Map<string, Uint8Array>([[objectKey, bytes]])
-    let downloads = 0
-    const jira = {
-      attachmentContent: () => {
-        downloads += 1
-        return Stream.fromIterable([bytes])
-      }
-    }
-    const s3 = {
-      getObject: (_connection: S3Connection, key: string) =>
-        Effect.succeed(stored.get(key) ?? null),
-      headObject: (_connection: S3Connection, key: string) =>
-        Effect.succeed(
-          stored.has(key)
-            ? {
-                byteSize: stored.get(key)!.length,
-                contentType: "text/plain",
-                contentHash: null
-              }
-            : null
-        ),
-      putObject: (
-        _connection: S3Connection,
-        key: string,
-        _contentType: string,
-        value: Uint8Array
-      ) => Effect.sync(() => void stored.set(key, value))
-    }
-    const input = {
-      fence,
-      projectId,
-      organizationId,
-      orgSlug: organizationId,
-      projectSlug: slug,
-      uploadedBy: userId,
-      cloudId: "cloud",
-      connection,
-      attachment: {
-        sourceAttachmentId: "jira-attachment-1",
-        id: attachmentId,
-        issueId: "issue-1",
-        ticketId: Schema.decodeSync(TicketId)("APP-1"),
-        objectKey,
-        url: attachmentUrl(organizationId, attachmentId),
-        filename: "note.txt",
-        contentType: "text/plain",
-        byteSize: bytes.length,
-        decision: "copy" as const
-      }
-    }
-    const copy = copyJiraPreparedAttachment(jira, s3, input).pipe(
-      Effect.provide(dbLayer)
-    )
-    const first = await Effect.runPromise(copy)
-    expect(await Effect.runPromise(copy)).toEqual(first)
-    expect(first).toMatchObject({
-      kind: "copied",
-      attachmentId,
-      contentSha256: createHash("sha256").update(bytes).digest("hex")
-    })
-    expect(downloads).toBe(0)
-    stored.delete(objectKey)
-    expect(await Effect.runPromise(copy)).toEqual(first)
-    expect(downloads).toBe(1)
-    expect(stored.get(objectKey)).toEqual(bytes)
-    expect(
-      (
-        await pool.query(
-          "select id,status,object_key from attachment_index where id = $1",
-          [attachmentId]
+        const layer = DbLive.pipe(
+          Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
         )
-      ).rows
-    ).toEqual([{ id: attachmentId, status: "pending", object_key: objectKey }])
-    const migrationCreatedAt = (
-      await pool.query("select created_at from jira_migration where id = $1", [
-        migrationId
-      ])
-    ).rows[0]?.created_at
-    const attachmentCreatedAt = (
-      await pool.query(
-        "select created_at from attachment_index where id = $1",
-        [attachmentId]
-      )
-    ).rows[0]?.created_at
-    expect(attachmentCreatedAt).toEqual(migrationCreatedAt)
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const fs = yield* FileSystem.FileSystem
-          const root = yield* fs.makeTempDirectoryScoped({
-            prefix: "jira-verify-"
-          })
-          const markdownLayer = MarkdownLive.pipe(
-            Layer.provide(
-              ConfigProvider.layer(
-                ConfigProvider.fromUnknown({ PROJECTS_DIR: root })
+        yield* ensureHiddenJiraProject(input).pipe(Effect.provide(layer))
+        yield* ensureHiddenJiraProject(input).pipe(Effect.provide(layer))
+        const rows = yield* Effect.promise(() =>
+          pool.query(
+            "select id,published_at from project_index where slug = $1 and organization_id = $2",
+            [slug, organizationId]
+          )
+        )
+        expect(rows.rows).toEqual([{ id: projectId, published_at: null }])
+        const reserved = yield* Effect.promise(() =>
+          pool.query(
+            "select destination_project_id,destination_project_slug from jira_migration where id = $1",
+            [migrationId]
+          )
+        )
+        expect(reserved.rows).toEqual([
+          {
+            destination_project_id: projectId,
+            destination_project_slug: slug
+          }
+        ])
+        const content = "---\nname: Application\n---\n# Application\n"
+        const archive = '{"version":1}'
+        const documents = [
+          {
+            path: "project.md",
+            content,
+            sha256: createHash("sha256").update(content).digest("hex")
+          }
+        ]
+        const archiveDocument = {
+          path: `imports/jira/${migrationId}/archive.json`,
+          content: archive,
+          sha256: createHash("sha256").update(archive).digest("hex")
+        }
+        const reportContent = "Import report"
+        const reportDocument = {
+          path: `imports/jira/${migrationId}/report.md`,
+          content: reportContent,
+          sha256: createHash("sha256").update(reportContent).digest("hex")
+        }
+        const writeDocuments = Effect.scoped(
+          Effect.gen(function* () {
+            const fs = yield* FileSystem.FileSystem
+            const root = yield* fs.makeTempDirectoryScoped({
+              prefix: "jira-hidden-"
+            })
+            const markdownLayer = MarkdownLive.pipe(
+              Layer.provide(
+                ConfigProvider.layer(
+                  ConfigProvider.fromUnknown({ PROJECTS_DIR: root })
+                )
               )
             )
-          )
-          const archiveContent = "{}"
-          const reportContent = "Report"
-          const archiveDocument = {
-            path: `imports/jira/${migrationId}/archive.json`,
-            content: archiveContent,
-            sha256: createHash("sha256").update(archiveContent).digest("hex")
-          }
-          const reportDocument = {
-            path: `imports/jira/${migrationId}/report.md`,
-            content: reportContent,
-            sha256: createHash("sha256").update(reportContent).digest("hex")
-          }
-          const verify = verifyJiraHiddenMaterialization(s3, {
-            fence,
-            projectId,
-            orgSlug: organizationId,
-            projectSlug: slug,
-            planSha256: "b".repeat(64),
-            documents: [],
-            archiveDocument,
-            reportDocument,
-            attachments: [first],
-            connection
-          }).pipe(Effect.provide(markdownLayer))
-          expect((yield* Effect.result(verify))._tag).toBe("Failure")
-          const reports = `${root}/orgs/${organizationId}/projects/${slug}/imports/jira/${migrationId}`
-          yield* fs.makeDirectory(reports, { recursive: true })
-          yield* fs.writeFileString(`${reports}/archive.json`, archiveContent)
-          yield* fs.writeFileString(`${reports}/report.md`, reportContent)
-          expect(yield* verify).toMatchObject({
-            attachmentCount: 1,
-            unresolvedReferenceCount: 0
+            const write = writeJiraHiddenDocuments({
+              fence: input.fence,
+              projectId,
+              orgSlug: organizationId,
+              projectSlug: slug,
+              documents: [...documents, archiveDocument, reportDocument]
+            }).pipe(Effect.provide(markdownLayer))
+            expect(yield* write).toBe(3)
+            expect(yield* write).toBe(3)
+            const stored = yield* fs.readFileString(
+              `${root}/orgs/${organizationId}/projects/${slug}/project.md`
+            )
+            expect(stored).toBe(content)
+            expect(
+              yield* fs.readFileString(
+                `${root}/orgs/${organizationId}/projects/${slug}/imports/jira/${migrationId}/archive.json`
+              )
+            ).toBe(archive)
+            const verify = verifyJiraHiddenMaterialization(
+              {
+                getObject: () => Effect.succeed(null),
+                headObject: () => Effect.succeed(null)
+              },
+              {
+                fence: input.fence,
+                projectId,
+                orgSlug: organizationId,
+                projectSlug: slug,
+                planSha256: "a".repeat(64),
+                documents,
+                archiveDocument,
+                reportDocument,
+                attachments: [],
+                connection: {
+                  endpoint: "http://127.0.0.1:59000",
+                  bucket: "projectproject-t172-local-test",
+                  region: "us-east-1",
+                  keyPrefix: null,
+                  forcePathStyle: true,
+                  accessKeyId: "test",
+                  secretAccessKey: "test"
+                }
+              }
+            ).pipe(Effect.provide(markdownLayer))
+            expect(yield* verify).toEqual({
+              planSha256: "a".repeat(64),
+              documentCount: 3,
+              attachmentCount: 0,
+              unresolvedReferenceCount: 0
+            })
+            yield* fs.remove(
+              `${root}/orgs/${organizationId}/projects/${slug}/project.md`
+            )
+            expect((yield* Effect.result(verify))._tag).toBe("Failure")
+            const unsafe = yield* Effect.result(
+              writeJiraHiddenDocuments({
+                fence: input.fence,
+                projectId,
+                orgSlug: organizationId,
+                projectSlug: slug,
+                documents: [{ ...documents[0], path: "../escape.md" }]
+              }).pipe(Effect.provide(markdownLayer))
+            )
+            expect(unsafe._tag).toBe("Failure")
           })
-          stored.set(objectKey, new TextEncoder().encode("Corrupt blob!!!!"))
-          expect((yield* Effect.result(verify))._tag).toBe("Failure")
-        })
-      ).pipe(Effect.provide(Layer.mergeAll(dbLayer, BunServices.layer)))
-    )
-  })
-
-  it("materializes a prepared plan through the real hidden project and document callbacks", async () => {
-    const organizationId = randomUUID()
-    const userId = randomUUID()
-    const migrationId = randomUUID()
-    const slug = `jira-${randomUUID()}`
-    owners.push({ organizationId, userId })
-    await pool.query(
-      'insert into "user" (id,name,email,email_verified,created_at,updated_at) values ($1,$1,$2,false,now(),now())',
-      [userId, `${userId}@example.test`]
-    )
-    await pool.query(
-      'insert into "organization" (id,name,slug,created_at) values ($1,$1,$1,now())',
-      [organizationId]
-    )
-    await pool.query(
-      'insert into "member" (id,organization_id,user_id,role,created_at) values ($1,$2,$3,$4,now())',
-      [randomUUID(), organizationId, userId, "owner"]
-    )
-    await pool.query(
-      `insert into jira_migration (id,request_id,organization_id,initiated_by,source_cloud_id,source_site_name,source_site_url,source_project_id,source_project_key,source_project_name,staging_prefix,workflow_execution_id,workflow_attempt,scan_revision,status,phase,checkpoint) values ($1,$2,$3,$4,'cloud','Site','https://example.test','10000','APP','Application',$5,$1,1,1,'migrating','migrate',$6)`,
-      [
-        migrationId,
-        randomUUID(),
-        organizationId,
-        userId,
-        `migrations/jira/${migrationId}`,
-        JSON.stringify({
-          remoteWritesMayStillCommit: {
-            workflowExecutionId: migrationId,
-            workflowAttempt: 1
-          }
-        })
-      ]
-    )
-    const migrationCreatedAt = (
-      await pool.query("select created_at from jira_migration where id = $1", [
-        migrationId
-      ])
-    ).rows[0]!.created_at.toISOString()
-    const attachmentBytes = new TextEncoder().encode("Imported Jira file")
-    const metadata = {
-      ref: {
-        key: `migrations/jira/${migrationId}/scan-1/raw/attachments/file.json`,
-        sha256: "b".repeat(64),
-        byteSize: 1,
-        contentType: "application/json"
-      },
-      value: { id: "jira-file" }
-    }
-    const sourceManifest = manifestV2(migrationId)
-    const migrationManifest = {
-      ...sourceManifest,
-      attachments: [
-        {
-          id: "jira-file",
-          issueId: "issue-1",
-          filename: "file.png",
-          mimeType: "image/png",
-          byteSize: attachmentBytes.length,
-          metadataArtifact: metadata.ref,
-          downloadUrl: "https://example.test/file",
-          jiraUrl: null,
-          downloadAllowed: true
-        }
-      ]
-    }
-    const acceptedConfiguration = Schema.decodeUnknownSync(
-      JiraMigrationConfiguration
-    )({
-      ...configuration,
-      destination: { name: "Application", slug, key: "APP" },
-      identities: configuration.identities.map((identity) =>
-        identity.projectProjectUserId === null
-          ? identity
-          : { ...identity, projectProjectUserId: userId }
-      )
-    })
-    const prepared = await Effect.runPromise(
-      prepareJiraPublication({
-        manifest: migrationManifest,
-        manifestSha256: "a".repeat(64),
-        configurationRevision: 1,
-        configuration: acceptedConfiguration,
-        migrationCreatedAt,
-        organizationId,
-        orgSlug: organizationId,
-        ownerId: userId,
-        storageKeyPrefix: "",
-        users: [{ userId, username: "owner" }],
-        environment: {
-          existingProjectSlugs: [],
-          existingProjectKeys: [],
-          existingTicketIds: [],
-          existingUserIds: [userId],
-          existingStatusSlugs: ["todo", "in_progress", "done"]
-        },
-        source: { projectDescription: null, artifacts: [metadata] }
+        ).pipe(Effect.provide(Layer.mergeAll(layer, BunServices.layer)))
+        yield* writeDocuments
+        const conflicting = yield* Effect.result(
+          ensureHiddenJiraProject({
+            ...input,
+            project: { ...input.project, name: "Different" }
+          })
+        ).pipe(Effect.provide(layer))
+        expect(conflicting._tag).toBe("Failure")
+        yield* Effect.promise(() =>
+          pool.query(
+            "update jira_migration set destination_project_id = $2 where id = $1",
+            [migrationId, randomUUID()]
+          )
+        )
+        const conflictingReservation = yield* Effect.result(
+          ensureHiddenJiraProject(input)
+        ).pipe(Effect.provide(layer))
+        expect(conflictingReservation._tag).toBe("Failure")
+        yield* Effect.promise(() =>
+          pool.query(
+            "update jira_migration set workflow_attempt = 2 where id = $1",
+            [migrationId]
+          )
+        )
+        const stale = yield* Effect.result(ensureHiddenJiraProject(input)).pipe(
+          Effect.provide(layer)
+        )
+        expect(stale._tag).toBe("Failure")
+        expect(
+          (yield* Effect.promise(() =>
+            pool.query(
+              "select count(*)::int as count from project_index where slug = $1 and organization_id = $2",
+              [slug, organizationId]
+            )
+          )).rows[0]?.count
+        ).toBe(1)
       })
-    )
-    const connection: S3Connection = {
-      endpoint: "http://127.0.0.1:59000",
-      bucket: "projectproject-t172-local-test",
-      region: "us-east-1",
-      keyPrefix: null,
-      forcePathStyle: true,
-      accessKeyId: "test",
-      secretAccessKey: "test"
-    }
-    const stored = new Map<string, unknown>()
-    const manifestRef = {
-      key: `migrations/jira/${migrationId}/scan-1/manifest/current.json`,
-      contentType: "application/json",
-      byteSize: 1,
-      sha256: "a".repeat(64)
-    }
-    stored.set(manifestRef.key, migrationManifest)
-    stored.set(metadata.ref.key, metadata.value)
-    const storedAttachments = new Map<string, Uint8Array>()
-    const callbacks = makeJiraMaterializationDependencies(
-      prepared,
-      { migrationId, workflowExecutionId: migrationId, workflowAttempt: 1 },
-      {
-        connection,
-        jira: {
-          attachmentContent: () => Stream.fromIterable([attachmentBytes])
-        },
-        s3: {
-          getObject: (_connection, key) =>
-            Effect.succeed(storedAttachments.get(key) ?? null),
-          putObject: (_connection, key, _contentType, bytes) =>
-            Effect.sync(() => void storedAttachments.set(key, bytes)),
-          headObject: (_connection, key) =>
+  )
+
+  it.effect(
+    "adopts a completed attachment upload after result loss without downloading again",
+    () =>
+      Effect.gen(function* () {
+        const organizationId = randomUUID()
+        const userId = randomUUID()
+        const migrationId = randomUUID()
+        const projectId = randomUUID()
+        const slug = `jira-${randomUUID()}`
+        owners.push({ organizationId, userId })
+        yield* Effect.promise(() =>
+          pool.query(
+            'insert into "user" (id,name,email,email_verified,created_at,updated_at) values ($1,$1,$2,false,now(),now())',
+            [userId, `${userId}@example.test`]
+          )
+        )
+        yield* Effect.promise(() =>
+          pool.query(
+            'insert into "organization" (id,name,slug,created_at) values ($1,$1,$1,now())',
+            [organizationId]
+          )
+        )
+        yield* Effect.promise(() =>
+          pool.query(
+            `insert into jira_migration (id,request_id,organization_id,initiated_by,source_cloud_id,source_site_name,source_site_url,source_project_id,source_project_key,source_project_name,staging_prefix,workflow_execution_id,workflow_attempt,status,phase,checkpoint) values ($1,$2,$3,$4,'cloud','Site','https://example.test','10000','APP','Application',$5,$1,1,'migrating','migrate',$6)`,
+            [
+              migrationId,
+              randomUUID(),
+              organizationId,
+              userId,
+              `migrations/jira/${migrationId}`,
+              encodeJson({
+                remoteWritesMayStillCommit: {
+                  workflowExecutionId: migrationId,
+                  workflowAttempt: 1
+                }
+              })
+            ]
+          )
+        )
+        const fence = {
+          migrationId,
+          workflowExecutionId: migrationId,
+          workflowAttempt: 1
+        }
+        const dbLayer = DbLive.pipe(
+          Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
+        )
+        yield* ensureHiddenJiraProject({
+          fence,
+          project: {
+            id: projectId,
+            organizationId,
+            slug,
+            key: "APP",
+            name: "Application",
+            icon: "📦",
+            color: "#123456",
+            nextTicketNumber: 2,
+            createdBy: userId,
+            createdAt: "2026-09-22T10:00:00.000Z"
+          }
+        }).pipe(Effect.provide(dbLayer))
+        const attachmentId = jiraAttachmentId(
+          migrationId,
+          "jira-attachment-1",
+          "2026-09-22T10:00:00.000Z"
+        )
+        const connection: S3Connection = {
+          endpoint: "http://127.0.0.1:59000",
+          bucket: "projectproject-t172-local-test",
+          region: "us-east-1",
+          keyPrefix: null,
+          forcePathStyle: true,
+          accessKeyId: "test",
+          secretAccessKey: "test"
+        }
+        const bytes = new TextEncoder().encode("Jira attachment")
+        const objectKey = attachmentObjectKey({
+          keyPrefix: null,
+          orgSlug: organizationId,
+          projectSlug: slug,
+          ticketId: "APP-1",
+          attachmentId,
+          filename: "note.txt"
+        })
+        const stored = new Map<string, Uint8Array>([[objectKey, bytes]])
+        let downloads = 0
+        const jira = {
+          attachmentContent: () => {
+            downloads += 1
+            return Stream.fromIterable([bytes])
+          }
+        }
+        const s3 = {
+          getObject: (_connection: S3Connection, key: string) =>
+            Effect.succeed(stored.get(key) ?? null),
+          headObject: (_connection: S3Connection, key: string) =>
             Effect.succeed(
-              storedAttachments.has(key)
+              stored.has(key)
                 ? {
-                    byteSize: storedAttachments.get(key)!.length,
-                    contentType: "image/png",
+                    byteSize: stored.get(key)!.length,
+                    contentType: "text/plain",
                     contentHash: null
                   }
                 : null
-            )
-        },
-        artifacts: {
-          writeJson: (_orgSlug, coordinates, value) =>
-            Effect.gen(function* () {
-              const key = `migrations/jira/${coordinates.migrationId}/scan-${coordinates.scanRevision}/${coordinates.area}/${coordinates.kind}/${coordinates.identity}.json`
-              stored.set(key, value)
-              const bytes = new TextEncoder().encode(
-                yield* Schema.encodeEffect(
-                  Schema.fromJsonString(Schema.Unknown)
-                )(value).pipe(Effect.orDie)
-              )
-              return {
-                key,
-                contentType: "application/json",
-                byteSize: bytes.length,
-                sha256: createHash("sha256").update(bytes).digest("hex")
-              }
-            }),
-          verify: () => Effect.void,
-          readJson: (_orgSlug, ref, schema) =>
-            Schema.decodeUnknownEffect(schema)(stored.get(ref.key)).pipe(
-              Effect.orDie
-            )
+            ),
+          putObject: (
+            _connection: S3Connection,
+            key: string,
+            _contentType: string,
+            value: Uint8Array
+          ) => Effect.sync(() => void stored.set(key, value))
         }
-      }
-    )
-    const dbLayer = DbLive.pipe(
-      Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
-    )
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const fs = yield* FileSystem.FileSystem
-          const root = yield* fs.makeTempDirectoryScoped({
-            prefix: "jira-plan-"
-          })
-          const markdownLayer = MarkdownLive.pipe(
-            Layer.provide(
-              ConfigProvider.layer(
-                ConfigProvider.fromUnknown({ PROJECTS_DIR: root })
+        const input = {
+          fence,
+          projectId,
+          organizationId,
+          orgSlug: organizationId,
+          projectSlug: slug,
+          uploadedBy: userId,
+          cloudId: "cloud",
+          connection,
+          attachment: {
+            sourceAttachmentId: "jira-attachment-1",
+            id: attachmentId,
+            issueId: "issue-1",
+            ticketId: decodeTicketIdSync("APP-1"),
+            objectKey,
+            url: attachmentUrl(organizationId, attachmentId),
+            filename: "note.txt",
+            contentType: "text/plain",
+            byteSize: bytes.length,
+            decision: "copy" as const
+          }
+        }
+        const copy = copyJiraPreparedAttachment(jira, s3, input).pipe(
+          Effect.provide(dbLayer)
+        )
+        const first = yield* copy
+        expect(yield* copy).toEqual(first)
+        expect(first).toMatchObject({
+          kind: "copied",
+          attachmentId,
+          contentSha256: createHash("sha256").update(bytes).digest("hex")
+        })
+        expect(downloads).toBe(0)
+        stored.delete(objectKey)
+        expect(yield* copy).toEqual(first)
+        expect(downloads).toBe(1)
+        expect(stored.get(objectKey)).toEqual(bytes)
+        expect(
+          (yield* Effect.promise(() =>
+            pool.query(
+              "select id,status,object_key from attachment_index where id = $1",
+              [attachmentId]
+            )
+          )).rows
+        ).toEqual([
+          { id: attachmentId, status: "pending", object_key: objectKey }
+        ])
+        const migrationCreatedAt = (yield* Effect.promise(() =>
+          pool.query("select created_at from jira_migration where id = $1", [
+            migrationId
+          ])
+        )).rows[0]?.created_at
+        const attachmentCreatedAt = (yield* Effect.promise(() =>
+          pool.query("select created_at from attachment_index where id = $1", [
+            attachmentId
+          ])
+        )).rows[0]?.created_at
+        expect(attachmentCreatedAt).toEqual(migrationCreatedAt)
+        yield* Effect.scoped(
+          Effect.gen(function* () {
+            const fs = yield* FileSystem.FileSystem
+            const root = yield* fs.makeTempDirectoryScoped({
+              prefix: "jira-verify-"
+            })
+            const markdownLayer = MarkdownLive.pipe(
+              Layer.provide(
+                ConfigProvider.layer(
+                  ConfigProvider.fromUnknown({ PROJECTS_DIR: root })
+                )
               )
             )
+            const archiveContent = "{}"
+            const reportContent = "Report"
+            const archiveDocument = {
+              path: `imports/jira/${migrationId}/archive.json`,
+              content: archiveContent,
+              sha256: createHash("sha256").update(archiveContent).digest("hex")
+            }
+            const reportDocument = {
+              path: `imports/jira/${migrationId}/report.md`,
+              content: reportContent,
+              sha256: createHash("sha256").update(reportContent).digest("hex")
+            }
+            const verify = verifyJiraHiddenMaterialization(s3, {
+              fence,
+              projectId,
+              orgSlug: organizationId,
+              projectSlug: slug,
+              planSha256: "b".repeat(64),
+              documents: [],
+              archiveDocument,
+              reportDocument,
+              attachments: [first],
+              connection
+            }).pipe(Effect.provide(markdownLayer))
+            expect((yield* Effect.result(verify))._tag).toBe("Failure")
+            const reports = `${root}/orgs/${organizationId}/projects/${slug}/imports/jira/${migrationId}`
+            yield* fs.makeDirectory(reports, { recursive: true })
+            yield* fs.writeFileString(`${reports}/archive.json`, archiveContent)
+            yield* fs.writeFileString(`${reports}/report.md`, reportContent)
+            expect(yield* verify).toMatchObject({
+              attachmentCount: 1,
+              unresolvedReferenceCount: 0
+            })
+            stored.set(objectKey, new TextEncoder().encode("Corrupt blob!!!!"))
+            expect((yield* Effect.result(verify))._tag).toBe("Failure")
+          })
+        ).pipe(Effect.provide(Layer.mergeAll(dbLayer, BunServices.layer)))
+      })
+  )
+
+  it.effect(
+    "materializes a prepared plan through the real hidden project and document callbacks",
+    () =>
+      Effect.gen(function* () {
+        const organizationId = randomUUID()
+        const userId = randomUUID()
+        const migrationId = randomUUID()
+        const slug = `jira-${randomUUID()}`
+        owners.push({ organizationId, userId })
+        yield* Effect.promise(() =>
+          pool.query(
+            'insert into "user" (id,name,email,email_verified,created_at,updated_at) values ($1,$1,$2,false,now(),now())',
+            [userId, `${userId}@example.test`]
           )
-          const run = Effect.gen(function* () {
-            const preparation = prepareJiraPublicationFromSnapshot(
-              {
-                fence: {
-                  migrationId,
+        )
+        yield* Effect.promise(() =>
+          pool.query(
+            'insert into "organization" (id,name,slug,created_at) values ($1,$1,$1,now())',
+            [organizationId]
+          )
+        )
+        yield* Effect.promise(() =>
+          pool.query(
+            'insert into "member" (id,organization_id,user_id,role,created_at) values ($1,$2,$3,$4,now())',
+            [randomUUID(), organizationId, userId, "owner"]
+          )
+        )
+        yield* Effect.promise(() =>
+          pool.query(
+            `insert into jira_migration (id,request_id,organization_id,initiated_by,source_cloud_id,source_site_name,source_site_url,source_project_id,source_project_key,source_project_name,staging_prefix,workflow_execution_id,workflow_attempt,scan_revision,status,phase,checkpoint) values ($1,$2,$3,$4,'cloud','Site','https://example.test','10000','APP','Application',$5,$1,1,1,'migrating','migrate',$6)`,
+            [
+              migrationId,
+              randomUUID(),
+              organizationId,
+              userId,
+              `migrations/jira/${migrationId}`,
+              encodeJson({
+                remoteWritesMayStillCommit: {
                   workflowExecutionId: migrationId,
                   workflowAttempt: 1
-                },
-                manifestRef,
-                configurationRevision: 1,
-                configuration: acceptedConfiguration,
-                migrationCreatedAt,
-                organizationId,
-                orgSlug: organizationId,
-                ownerId: userId,
-                connection
-              },
-              {
-                readJson: (_orgSlug, ref, schema) =>
-                  Schema.decodeUnknownEffect(schema)(stored.get(ref.key)).pipe(
-                    Effect.orDie
-                  ),
-                writeJson: (_orgSlug, coordinates, value) =>
-                  Effect.sync(() => {
-                    const ref = {
-                      key: `migrations/jira/${coordinates.migrationId}/scan-${coordinates.scanRevision}/${coordinates.area}/${coordinates.kind}/${coordinates.identity}.json`,
-                      contentType: "application/json",
-                      byteSize: 1,
-                      sha256: "b".repeat(64)
-                    }
-                    stored.set(ref.key, value)
-                    return ref
-                  })
-              }
-            )
-            const preparedRef = yield* preparation
-            const outsideUserId = randomUUID()
-            owners.push({ organizationId, userId: outsideUserId })
-            yield* Effect.promise(() =>
-              pool.query(
-                'insert into "user" (id,name,email,email_verified,created_at,updated_at) values ($1,$1,$2,false,now(),now())',
-                [outsideUserId, `${outsideUserId}@example.test`]
-              )
-            )
-            const outsideConfiguration = {
-              ...acceptedConfiguration,
-              identities: acceptedConfiguration.identities.map((identity) =>
-                identity.projectProjectUserId === null
-                  ? identity
-                  : { ...identity, projectProjectUserId: outsideUserId }
-              )
+                }
+              })
+            ]
+          )
+        )
+        const migrationCreatedAt = (yield* Effect.promise(() =>
+          pool.query("select created_at from jira_migration where id = $1", [
+            migrationId
+          ])
+        )).rows[0]!.created_at.toISOString()
+        const attachmentBytes = new TextEncoder().encode("Imported Jira file")
+        const metadata = {
+          ref: {
+            key: `migrations/jira/${migrationId}/scan-1/raw/attachments/file.json`,
+            sha256: "b".repeat(64),
+            byteSize: 1,
+            contentType: "application/json"
+          },
+          value: { id: "jira-file" }
+        }
+        const sourceManifest = manifestV2(migrationId)
+        const migrationManifest = {
+          ...sourceManifest,
+          attachments: [
+            {
+              id: "jira-file",
+              issueId: "issue-1",
+              filename: "file.png",
+              mimeType: "image/png",
+              byteSize: attachmentBytes.length,
+              metadataArtifact: metadata.ref,
+              downloadUrl: "https://example.test/file",
+              jiraUrl: null,
+              downloadAllowed: true
             }
-            const outsideError = yield* Effect.flip(
-              prepareJiraPublicationFromSnapshot(
+          ]
+        }
+        const acceptedConfiguration =
+          decodeUnknownJiraMigrationConfigurationSync({
+            ...configuration,
+            destination: { name: "Application", slug, key: "APP" },
+            identities: configuration.identities.map((identity) =>
+              identity.projectProjectUserId === null
+                ? identity
+                : { ...identity, projectProjectUserId: userId }
+            )
+          })
+        const prepared = yield* prepareJiraPublication({
+          manifest: migrationManifest,
+          manifestSha256: "a".repeat(64),
+          configurationRevision: 1,
+          configuration: acceptedConfiguration,
+          migrationCreatedAt,
+          organizationId,
+          orgSlug: organizationId,
+          ownerId: userId,
+          storageKeyPrefix: "",
+          users: [{ userId, username: "owner" }],
+          environment: {
+            existingProjectSlugs: [],
+            existingProjectKeys: [],
+            existingTicketIds: [],
+            existingUserIds: [userId],
+            existingStatusSlugs: ["todo", "in_progress", "done"]
+          },
+          source: { projectDescription: null, artifacts: [metadata] }
+        })
+        const connection: S3Connection = {
+          endpoint: "http://127.0.0.1:59000",
+          bucket: "projectproject-t172-local-test",
+          region: "us-east-1",
+          keyPrefix: null,
+          forcePathStyle: true,
+          accessKeyId: "test",
+          secretAccessKey: "test"
+        }
+        const stored = new Map<string, unknown>()
+        const manifestRef = {
+          key: `migrations/jira/${migrationId}/scan-1/manifest/current.json`,
+          contentType: "application/json",
+          byteSize: 1,
+          sha256: "a".repeat(64)
+        }
+        stored.set(manifestRef.key, migrationManifest)
+        stored.set(metadata.ref.key, metadata.value)
+        const storedAttachments = new Map<string, Uint8Array>()
+        const callbacks = makeJiraMaterializationDependencies(
+          prepared,
+          { migrationId, workflowExecutionId: migrationId, workflowAttempt: 1 },
+          {
+            connection,
+            jira: {
+              attachmentContent: () => Stream.fromIterable([attachmentBytes])
+            },
+            s3: {
+              getObject: (_connection, key) =>
+                Effect.succeed(storedAttachments.get(key) ?? null),
+              putObject: (_connection, key, _contentType, bytes) =>
+                Effect.sync(() => void storedAttachments.set(key, bytes)),
+              headObject: (_connection, key) =>
+                Effect.succeed(
+                  storedAttachments.has(key)
+                    ? {
+                        byteSize: storedAttachments.get(key)!.length,
+                        contentType: "image/png",
+                        contentHash: null
+                      }
+                    : null
+                )
+            },
+            artifacts: {
+              writeJson: (_orgSlug, coordinates, value) =>
+                Effect.gen(function* () {
+                  const key = `migrations/jira/${coordinates.migrationId}/scan-${coordinates.scanRevision}/${coordinates.area}/${coordinates.kind}/${coordinates.identity}.json`
+                  stored.set(key, value)
+                  const bytes = new TextEncoder().encode(
+                    yield* encodeUnknownJson(value).pipe(Effect.orDie)
+                  )
+                  return {
+                    key,
+                    contentType: "application/json",
+                    byteSize: bytes.length,
+                    sha256: createHash("sha256").update(bytes).digest("hex")
+                  }
+                }),
+              verify: () => Effect.void,
+              readJson: (_orgSlug, ref, decode) =>
+                decode(stored.get(ref.key)).pipe(Effect.orDie)
+            }
+          }
+        )
+        const dbLayer = DbLive.pipe(
+          Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
+        )
+        yield* Effect.scoped(
+          Effect.gen(function* () {
+            const fs = yield* FileSystem.FileSystem
+            const root = yield* fs.makeTempDirectoryScoped({
+              prefix: "jira-plan-"
+            })
+            const markdownLayer = MarkdownLive.pipe(
+              Layer.provide(
+                ConfigProvider.layer(
+                  ConfigProvider.fromUnknown({ PROJECTS_DIR: root })
+                )
+              )
+            )
+            const run = Effect.gen(function* () {
+              const preparation = prepareJiraPublicationFromSnapshot(
                 {
                   fence: {
                     migrationId,
@@ -765,8 +756,8 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
                     workflowAttempt: 1
                   },
                   manifestRef,
-                  configurationRevision: 2,
-                  configuration: outsideConfiguration,
+                  configurationRevision: 1,
+                  configuration: acceptedConfiguration,
                   migrationCreatedAt,
                   organizationId,
                   orgSlug: organizationId,
@@ -774,393 +765,441 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
                   connection
                 },
                 {
-                  readJson: (_orgSlug, ref, schema) =>
-                    Schema.decodeUnknownEffect(schema)(
-                      stored.get(ref.key)
-                    ).pipe(Effect.orDie),
-                  writeJson: () => Effect.die("An invalid link must not write")
+                  readJson: (_orgSlug, ref, decode) =>
+                    decode(stored.get(ref.key)).pipe(Effect.orDie),
+                  writeJson: (_orgSlug, coordinates, value) =>
+                    Effect.sync(() => {
+                      const ref = {
+                        key: `migrations/jira/${coordinates.migrationId}/scan-${coordinates.scanRevision}/${coordinates.area}/${coordinates.kind}/${coordinates.identity}.json`,
+                        contentType: "application/json",
+                        byteSize: 1,
+                        sha256: "b".repeat(64)
+                      }
+                      stored.set(ref.key, value)
+                      return ref
+                    })
                 }
               )
-            )
-            expect(outsideError).toMatchObject({
-              _tag: "JiraPublicationInvalid",
-              reasons: expect.arrayContaining([
-                "invalid-linked-user:account-linked"
-              ])
-            })
-            const reloaded = yield* loadJiraPreparedPublication(
-              organizationId,
-              preparedRef,
-              {
-                verify: () => Effect.void,
-                readJson: (_orgSlug, ref, schema) =>
-                  Schema.decodeUnknownEffect(schema)(stored.get(ref.key)).pipe(
-                    Effect.orDie
-                  )
-              }
-            )
-            expect(reloaded.projectId).toBe(prepared.projectId)
-            expect(reloaded.attachments).toEqual(prepared.attachments)
-            expect(yield* callbacks.createHidden).toBe(prepared.projectId)
-            yield* Effect.promise(() =>
-              pool.query(
-                "insert into project_index (id,slug,organization_id,key,name,icon,color,created_by,published_at) values ($1,$2,$3,$4,$5,$6,$7,$8,now())",
-                [
-                  randomUUID(),
-                  `unrelated-${randomUUID()}`,
-                  organizationId,
-                  "OTHER",
-                  "Other project",
-                  "📦",
-                  "#777777",
-                  userId
-                ]
-              )
-            )
-            expect(yield* preparation).toEqual(preparedRef)
-            const attachmentOutcome = yield* callbacks.copyAttachment(
-              prepared.attachments[0]!
-            )
-            expect(attachmentOutcome.kind).toBe("copied")
-            const finalized = yield* callbacks.finalizePlan([attachmentOutcome])
-            for (
-              let ordinal = 0;
-              ordinal < finalized.documentBatchCount;
-              ordinal++
-            )
-              yield* callbacks.writeDocumentBatch(finalized.planRef, ordinal)
-            yield* callbacks.writeArchive(finalized.planRef)
-            yield* callbacks.writeReport(finalized.planRef)
-            const verified = yield* callbacks.verify(finalized.planRef)
-            expect(verified.planSha256).toBe(finalized.publicationRevision)
-            expect(verified.documentCount).toBeGreaterThanOrEqual(3)
-            expect(verified.attachmentCount).toBe(1)
-            const [before] = (yield* Effect.promise(() =>
-              pool.query(
-                "select published_at from project_index where id = $1",
-                [prepared.projectId]
-              )
-            )).rows
-            expect(before?.published_at).toBeNull()
-            const projection = yield* JiraMigrationProjection
-            expect(
-              yield* projection.settleRemoteWrites({
-                migrationId,
-                workflowExecutionId: migrationId,
-                workflowAttempt: 1
-              })
-            ).toBe(true)
-            const loaded = yield* loadJiraPublicationPlan(
-              prepared.orgSlug,
-              finalized.planRef,
-              {
-                verify: () => Effect.void,
-                readJson: (_orgSlug, ref, schema) =>
-                  Schema.decodeUnknownEffect(schema)(stored.get(ref.key)).pipe(
-                    Effect.orDie
-                  )
-              }
-            )
-            const publishInput = {
-              fence: {
-                migrationId,
-                workflowExecutionId: migrationId,
-                workflowAttempt: 1
-              },
-              planRef: finalized.planRef,
-              plan: loaded.plan,
-              publicationRevision: loaded.publicationRevision,
-              verified
-            }
-            const planRefForRevision = (revision: string) => ({
-              ...finalized.planRef,
-              key: `migrations/jira/${migrationId}/scan-1/publication/plan-v1/${revision}.json`
-            })
-            const missingAttachmentId = jiraAttachmentId(
-              migrationId,
-              "missing-attachment",
-              migrationCreatedAt
-            )
-            const invalidPlan = {
-              ...loaded.plan,
-              indexes: {
-                ...loaded.plan.indexes,
-                attachmentReferences: [
-                  {
-                    attachmentId: missingAttachmentId,
-                    orgSlug: prepared.orgSlug,
-                    projectSlug: prepared.configuration.destination.slug,
-                    ticketId: loaded.plan.tickets[0]!.id,
-                    createdAt: migrationCreatedAt
-                  }
-                ]
-              }
-            }
-            const invalidRevision = createHash("sha256")
-              .update(
-                canonicalJiraJson(
-                  yield* Schema.encodeEffect(JiraPublicationPlanV1)(invalidPlan)
+              const preparedRef = yield* preparation
+              const outsideUserId = randomUUID()
+              owners.push({ organizationId, userId: outsideUserId })
+              yield* Effect.promise(() =>
+                pool.query(
+                  'insert into "user" (id,name,email,email_verified,created_at,updated_at) values ($1,$1,$2,false,now(),now())',
+                  [outsideUserId, `${outsideUserId}@example.test`]
                 )
               )
-              .digest("hex")
-            const invalidResult = yield* Effect.result(
-              publishJiraMigrationAtomically({
-                ...publishInput,
-                planRef: planRefForRevision(invalidRevision),
-                plan: invalidPlan,
-                publicationRevision: invalidRevision,
-                verified: { ...verified, planSha256: invalidRevision }
+              const outsideConfiguration = {
+                ...acceptedConfiguration,
+                identities: acceptedConfiguration.identities.map((identity) =>
+                  identity.projectProjectUserId === null
+                    ? identity
+                    : { ...identity, projectProjectUserId: outsideUserId }
+                )
+              }
+              const outsideError = yield* Effect.flip(
+                prepareJiraPublicationFromSnapshot(
+                  {
+                    fence: {
+                      migrationId,
+                      workflowExecutionId: migrationId,
+                      workflowAttempt: 1
+                    },
+                    manifestRef,
+                    configurationRevision: 2,
+                    configuration: outsideConfiguration,
+                    migrationCreatedAt,
+                    organizationId,
+                    orgSlug: organizationId,
+                    ownerId: userId,
+                    connection
+                  },
+                  {
+                    readJson: (_orgSlug, ref, decode) =>
+                      decode(stored.get(ref.key)).pipe(Effect.orDie),
+                    writeJson: () =>
+                      Effect.die("An invalid link must not write")
+                  }
+                )
+              )
+              expect(outsideError).toMatchObject({
+                _tag: "JiraPublicationInvalid",
+                reasons: expect.arrayContaining([
+                  "invalid-linked-user:account-linked"
+                ])
               })
-            )
-            expect(invalidResult._tag).toBe("Failure")
-            if (invalidResult._tag === "Failure")
-              expect(invalidResult.failure._tag).toBe("EffectDrizzleQueryError")
-            const [afterRollback] = (yield* Effect.promise(() =>
-              pool.query(
-                "select published_at from project_index where id = $1",
-                [prepared.projectId]
+              const reloaded = yield* loadJiraPreparedPublication(
+                organizationId,
+                preparedRef,
+                {
+                  verify: () => Effect.void,
+                  readJson: (_orgSlug, ref, decode) =>
+                    decode(stored.get(ref.key)).pipe(Effect.orDie)
+                }
               )
-            )).rows
-            expect(afterRollback?.published_at).toBeNull()
-            const [statusCount] = (yield* Effect.promise(() =>
-              pool.query(
-                "select count(*)::int as count from project_status where project_id = $1",
-                [prepared.projectId]
+              expect(reloaded.projectId).toBe(prepared.projectId)
+              expect(reloaded.attachments).toEqual(prepared.attachments)
+              expect(yield* callbacks.createHidden).toBe(prepared.projectId)
+              yield* Effect.promise(() =>
+                pool.query(
+                  "insert into project_index (id,slug,organization_id,key,name,icon,color,created_by,published_at) values ($1,$2,$3,$4,$5,$6,$7,$8,now())",
+                  [
+                    randomUUID(),
+                    `unrelated-${randomUUID()}`,
+                    organizationId,
+                    "OTHER",
+                    "Other project",
+                    "📦",
+                    "#777777",
+                    userId
+                  ]
+                )
               )
-            )).rows
-            expect(statusCount?.count).toBe(0)
-            yield* Effect.promise(() =>
-              pool.query(
-                'delete from "member" where organization_id = $1 and user_id = $2',
-                [organizationId, userId]
+              expect(yield* preparation).toEqual(preparedRef)
+              const attachmentOutcome = yield* callbacks.copyAttachment(
+                prepared.attachments[0]
               )
-            )
-            const missingMember = yield* Effect.flip(
-              publishJiraMigrationAtomically(publishInput)
-            )
-            expect(missingMember).toMatchObject({
-              _tag: "JiraPublicationInvalid",
-              reasons: ["publication-member-conflict"]
-            })
-            yield* Effect.promise(() =>
-              pool.query(
-                'insert into "member" (id,organization_id,user_id,role,created_at) values ($1,$2,$3,$4,now())',
-                [randomUUID(), organizationId, userId, "owner"]
+              expect(attachmentOutcome.kind).toBe("copied")
+              const finalized = yield* callbacks.finalizePlan([
+                attachmentOutcome
+              ])
+              for (
+                let ordinal = 0;
+                ordinal < finalized.documentBatchCount;
+                ordinal++
               )
-            )
-            yield* Effect.promise(() =>
-              pool.query(
-                "update jira_migration set status = 'cancelling' where id = $1",
-                [migrationId]
+                yield* callbacks.writeDocumentBatch(finalized.planRef, ordinal)
+              yield* callbacks.writeArchive(finalized.planRef)
+              yield* callbacks.writeReport(finalized.planRef)
+              const verified = yield* callbacks.verify(finalized.planRef)
+              expect(verified.planSha256).toBe(finalized.publicationRevision)
+              expect(verified.documentCount).toBeGreaterThanOrEqual(3)
+              expect(verified.attachmentCount).toBe(1)
+              const [before] = (yield* Effect.promise(() =>
+                pool.query(
+                  "select published_at from project_index where id = $1",
+                  [prepared.projectId]
+                )
+              )).rows
+              expect(before?.published_at).toBeNull()
+              const projection = yield* JiraMigrationProjection
+              expect(
+                yield* projection.settleRemoteWrites({
+                  migrationId,
+                  workflowExecutionId: migrationId,
+                  workflowAttempt: 1
+                })
+              ).toBe(true)
+              const loaded = yield* loadJiraPublicationPlan(
+                prepared.orgSlug,
+                finalized.planRef,
+                {
+                  verify: () => Effect.void,
+                  readJson: (_orgSlug, ref, decode) =>
+                    decode(stored.get(ref.key)).pipe(Effect.orDie)
+                }
               )
-            )
-            expect(
-              (yield* Effect.result(
-                publishJiraMigrationAtomically(publishInput)
-              ))._tag
-            ).toBe("Failure")
-            yield* finalizeJiraMigrationAttempt(
-              projection,
-              publishInput.fence,
-              Exit.fail(
-                JiraMigrationWorkflowFailure.make({
-                  reason: "cancelled-before-publish",
-                  retryable: false
+              const publishInput = {
+                fence: {
+                  migrationId,
+                  workflowExecutionId: migrationId,
+                  workflowAttempt: 1
+                },
+                planRef: finalized.planRef,
+                plan: loaded.plan,
+                publicationRevision: loaded.publicationRevision,
+                verified
+              }
+              const planRefForRevision = (revision: string) => ({
+                ...finalized.planRef,
+                key: `migrations/jira/${migrationId}/scan-1/publication/plan-v1/${revision}.json`
+              })
+              const missingAttachmentId = jiraAttachmentId(
+                migrationId,
+                "missing-attachment",
+                migrationCreatedAt
+              )
+              const invalidPlan = {
+                ...loaded.plan,
+                indexes: {
+                  ...loaded.plan.indexes,
+                  attachmentReferences: [
+                    {
+                      attachmentId: missingAttachmentId,
+                      orgSlug: prepared.orgSlug,
+                      projectSlug: prepared.configuration.destination.slug,
+                      ticketId: loaded.plan.tickets[0].id,
+                      createdAt: migrationCreatedAt
+                    }
+                  ]
+                }
+              }
+              const invalidRevision = createHash("sha256")
+                .update(
+                  canonicalJiraJson(
+                    yield* encodeJiraPublicationPlanV1(invalidPlan)
+                  )
+                )
+                .digest("hex")
+              const invalidResult = yield* Effect.result(
+                publishJiraMigrationAtomically({
+                  ...publishInput,
+                  planRef: planRefForRevision(invalidRevision),
+                  plan: invalidPlan,
+                  publicationRevision: invalidRevision,
+                  verified: { ...verified, planSha256: invalidRevision }
                 })
               )
-            )
-            const [cancelled] = (yield* Effect.promise(() =>
-              pool.query("select status from jira_migration where id = $1", [
-                migrationId
-              ])
-            )).rows
-            expect(cancelled?.status).toBe("cancelled")
-            yield* Effect.promise(() =>
-              pool.query(
-                "update jira_migration set status = 'migrating' where id = $1",
-                [migrationId]
+              expect(invalidResult).toMatchObject({
+                _tag: "Failure",
+                failure: { _tag: "EffectDrizzleQueryError" }
+              })
+              const [afterRollback] = (yield* Effect.promise(() =>
+                pool.query(
+                  "select published_at from project_index where id = $1",
+                  [prepared.projectId]
+                )
+              )).rows
+              expect(afterRollback?.published_at).toBeNull()
+              const [statusCount] = (yield* Effect.promise(() =>
+                pool.query(
+                  "select count(*)::int as count from project_status where project_id = $1",
+                  [prepared.projectId]
+                )
+              )).rows
+              expect(statusCount?.count).toBe(0)
+              yield* Effect.promise(() =>
+                pool.query(
+                  'delete from "member" where organization_id = $1 and user_id = $2',
+                  [organizationId, userId]
+                )
               )
-            )
-            const [beforeRace] = (yield* Effect.promise(() =>
-              pool.query("select revision from jira_migration where id = $1", [
-                migrationId
-              ])
-            )).rows
-            const [publicationRace, cancellationRace] = yield* Effect.all(
-              [
-                Effect.result(callbacks.publish(finalized.planRef, verified)),
-                Effect.result(
-                  projection.transition({
-                    owner: { organizationId, userId },
-                    migrationId,
-                    expectedRevision: beforeRace!.revision,
-                    action: "cancel"
+              const missingMember = yield* Effect.flip(
+                publishJiraMigrationAtomically(publishInput)
+              )
+              expect(missingMember).toMatchObject({
+                _tag: "JiraPublicationInvalid",
+                reasons: ["publication-member-conflict"]
+              })
+              yield* Effect.promise(() =>
+                pool.query(
+                  'insert into "member" (id,organization_id,user_id,role,created_at) values ($1,$2,$3,$4,now())',
+                  [randomUUID(), organizationId, userId, "owner"]
+                )
+              )
+              yield* Effect.promise(() =>
+                pool.query(
+                  "update jira_migration set status = 'cancelling' where id = $1",
+                  [migrationId]
+                )
+              )
+              expect(
+                (yield* Effect.result(
+                  publishJiraMigrationAtomically(publishInput)
+                ))._tag
+              ).toBe("Failure")
+              yield* finalizeJiraMigrationAttempt(
+                projection,
+                publishInput.fence,
+                Exit.fail(
+                  JiraMigrationWorkflowFailure.make({
+                    reason: "cancelled-before-publish",
+                    retryable: false
                   })
                 )
-              ],
-              { concurrency: 2 }
-            )
-            const [afterRace] = (yield* Effect.promise(() =>
-              pool.query("select status from jira_migration where id = $1", [
-                migrationId
-              ])
-            )).rows
-            const [projectAfterRace] = (yield* Effect.promise(() =>
-              pool.query(
-                "select published_at from project_index where id = $1",
-                [prepared.projectId]
               )
-            )).rows
-            if (projectAfterRace?.published_at === null) {
-              expect(afterRace?.status).toBe("cancelling")
-              expect(publicationRace._tag).toBe("Failure")
-              expect(cancellationRace._tag).toBe("Success")
+              const [cancelled] = (yield* Effect.promise(() =>
+                pool.query("select status from jira_migration where id = $1", [
+                  migrationId
+                ])
+              )).rows
+              expect(cancelled?.status).toBe("cancelled")
               yield* Effect.promise(() =>
                 pool.query(
                   "update jira_migration set status = 'migrating' where id = $1",
                   [migrationId]
                 )
               )
-              expect(
-                yield* callbacks.publish(finalized.planRef, verified)
-              ).toBe(true)
-            } else {
-              expect(afterRace?.status).toBe("succeeded")
-              expect(publicationRace._tag).toBe("Success")
-              expect(cancellationRace._tag).toBe("Failure")
-            }
-            const [publishedMigration] = (yield* Effect.promise(() =>
-              pool.query(
-                "select checkpoint from jira_migration where id = $1",
-                [migrationId]
-              )
-            )).rows
-            expect(publishedMigration?.checkpoint?.publishedPlan).toEqual({
-              planRef: finalized.planRef,
-              publicationRevision: loaded.publicationRevision,
-              archive: {
-                path: loaded.plan.archiveDocument.path,
-                sha256: loaded.plan.archiveDocument.sha256
-              }
-            })
-            expect(
-              yield* projection.beginRemoteWrites(publishInput.fence)
-            ).toBe(true)
-            const [replayed] = (yield* Effect.promise(() =>
-              pool.query(
-                "select checkpoint from jira_migration where id = $1",
-                [migrationId]
-              )
-            )).rows
-            expect(replayed?.checkpoint).not.toHaveProperty(
-              "remoteWritesMayStillCommit"
-            )
-            const verifyArchive = verifyJiraPermanentArchive(
-              publishInput.fence,
-              prepared.orgSlug,
-              {
-                verify: () => Effect.void,
-                readJson: (_orgSlug, ref, schema) =>
-                  Schema.decodeUnknownEffect(schema)(stored.get(ref.key)).pipe(
-                    Effect.orDie
+              const [beforeRace] = (yield* Effect.promise(() =>
+                pool.query(
+                  "select revision from jira_migration where id = $1",
+                  [migrationId]
+                )
+              )).rows
+              const [publicationRace, cancellationRace] = yield* Effect.all(
+                [
+                  Effect.result(callbacks.publish(finalized.planRef, verified)),
+                  Effect.result(
+                    projection.transition({
+                      owner: { organizationId, userId },
+                      migrationId,
+                      expectedRevision: beforeRace!.revision,
+                      action: "cancel"
+                    })
                   )
+                ],
+                { concurrency: 2 }
+              )
+              const [afterRace] = (yield* Effect.promise(() =>
+                pool.query("select status from jira_migration where id = $1", [
+                  migrationId
+                ])
+              )).rows
+              const [projectAfterRace] = (yield* Effect.promise(() =>
+                pool.query(
+                  "select published_at from project_index where id = $1",
+                  [prepared.projectId]
+                )
+              )).rows
+              if (projectAfterRace?.published_at === null) {
+                expect(afterRace?.status).toBe("cancelling")
+                expect(publicationRace._tag).toBe("Failure")
+                expect(cancellationRace._tag).toBe("Success")
+                yield* Effect.promise(() =>
+                  pool.query(
+                    "update jira_migration set status = 'migrating' where id = $1",
+                    [migrationId]
+                  )
+                )
+                expect(
+                  yield* callbacks.publish(finalized.planRef, verified)
+                ).toBe(true)
+              } else {
+                expect(afterRace?.status).toBe("succeeded")
+                expect(publicationRace._tag).toBe("Success")
+                expect(cancellationRace._tag).toBe("Failure")
               }
-            )
-            yield* verifyArchive
-            stored.delete(finalized.planRef.key)
-            yield* verifyArchive
-            const archivePath = `${root}/orgs/${prepared.orgSlug}/projects/${prepared.configuration.destination.slug}/${loaded.plan.archiveDocument.path}`
-            yield* fs.writeFileString(archivePath, "tampered archive")
-            expect((yield* Effect.result(verifyArchive))._tag).toBe("Failure")
-            yield* fs.writeFileString(
-              archivePath,
-              loaded.plan.archiveDocument.content
-            )
-            expect(yield* publishJiraMigrationAtomically(publishInput)).toBe(
-              true
-            )
-            const [liveAttachment] = (yield* Effect.promise(() =>
-              pool.query("select status from attachment_index where id = $1", [
-                prepared.attachments[0]!.id
-              ])
-            )).rows
-            expect(liveAttachment?.status).toBe("live")
-            const foreignPlan = {
-              ...publishInput.plan,
-              reportDocument: {
-                ...publishInput.plan.reportDocument,
-                path: `imports/jira/${migrationId}/foreign-report.md`
+              const [publishedMigration] = (yield* Effect.promise(() =>
+                pool.query(
+                  "select checkpoint from jira_migration where id = $1",
+                  [migrationId]
+                )
+              )).rows
+              expect(publishedMigration?.checkpoint?.publishedPlan).toEqual({
+                planRef: finalized.planRef,
+                publicationRevision: loaded.publicationRevision,
+                archive: {
+                  path: loaded.plan.archiveDocument.path,
+                  sha256: loaded.plan.archiveDocument.sha256
+                }
+              })
+              expect(
+                yield* projection.beginRemoteWrites(publishInput.fence)
+              ).toBe(true)
+              const [replayed] = (yield* Effect.promise(() =>
+                pool.query(
+                  "select checkpoint from jira_migration where id = $1",
+                  [migrationId]
+                )
+              )).rows
+              expect(replayed?.checkpoint).not.toHaveProperty(
+                "remoteWritesMayStillCommit"
+              )
+              const verifyArchive = verifyJiraPermanentArchive(
+                publishInput.fence,
+                prepared.orgSlug,
+                {
+                  verify: () => Effect.void,
+                  readJson: (_orgSlug, ref, decode) =>
+                    decode(stored.get(ref.key)).pipe(Effect.orDie)
+                }
+              )
+              yield* verifyArchive
+              stored.delete(finalized.planRef.key)
+              yield* verifyArchive
+              const archivePath = `${root}/orgs/${prepared.orgSlug}/projects/${prepared.configuration.destination.slug}/${loaded.plan.archiveDocument.path}`
+              yield* fs.writeFileString(archivePath, "tampered archive")
+              expect((yield* Effect.result(verifyArchive))._tag).toBe("Failure")
+              yield* fs.writeFileString(
+                archivePath,
+                loaded.plan.archiveDocument.content
+              )
+              expect(yield* publishJiraMigrationAtomically(publishInput)).toBe(
+                true
+              )
+              const [liveAttachment] = (yield* Effect.promise(() =>
+                pool.query(
+                  "select status from attachment_index where id = $1",
+                  [prepared.attachments[0].id]
+                )
+              )).rows
+              expect(liveAttachment?.status).toBe("live")
+              const foreignPlan = {
+                ...publishInput.plan,
+                reportDocument: {
+                  ...publishInput.plan.reportDocument,
+                  path: `imports/jira/${migrationId}/foreign-report.md`
+                }
               }
-            }
-            const foreignRevision = createHash("sha256")
-              .update(
-                canonicalJiraJson(
-                  yield* Schema.encodeEffect(JiraPublicationPlanV1)(foreignPlan)
+              const foreignRevision = createHash("sha256")
+                .update(
+                  canonicalJiraJson(
+                    yield* encodeJiraPublicationPlanV1(foreignPlan)
+                  )
+                )
+                .digest("hex")
+              expect(
+                (yield* Effect.result(
+                  publishJiraMigrationAtomically({
+                    ...publishInput,
+                    planRef: planRefForRevision(foreignRevision),
+                    plan: foreignPlan,
+                    publicationRevision: foreignRevision,
+                    verified: { ...verified, planSha256: foreignRevision }
+                  })
+                ))._tag
+              ).toBe("Failure")
+              expect(
+                yield* projection.finalizeInterrupted({
+                  migrationId,
+                  workflowExecutionId: migrationId,
+                  workflowAttempt: 1
+                })
+              ).toBe(false)
+              yield* finalizeJiraMigrationAttempt(
+                projection,
+                {
+                  migrationId,
+                  workflowExecutionId: migrationId,
+                  workflowAttempt: 1
+                },
+                Exit.fail(
+                  JiraMigrationWorkflowFailure.make({
+                    reason: "late-failure",
+                    retryable: true
+                  })
                 )
               )
-              .digest("hex")
-            expect(
-              (yield* Effect.result(
-                publishJiraMigrationAtomically({
-                  ...publishInput,
-                  planRef: planRefForRevision(foreignRevision),
-                  plan: foreignPlan,
-                  publicationRevision: foreignRevision,
-                  verified: { ...verified, planSha256: foreignRevision }
-                })
-              ))._tag
-            ).toBe("Failure")
-            expect(
-              yield* projection.finalizeInterrupted({
-                migrationId,
-                workflowExecutionId: migrationId,
-                workflowAttempt: 1
-              })
-            ).toBe(false)
-            yield* finalizeJiraMigrationAttempt(
-              projection,
-              {
-                migrationId,
-                workflowExecutionId: migrationId,
-                workflowAttempt: 1
-              },
-              Exit.fail(
-                JiraMigrationWorkflowFailure.make({
-                  reason: "late-failure",
-                  retryable: true
-                })
-              )
+            }).pipe(Effect.provide(markdownLayer))
+            yield* run
+          })
+        ).pipe(
+          Effect.provide(
+            Layer.mergeAll(
+              dbLayer,
+              BunServices.layer,
+              JiraMigrationProjection.layer.pipe(Layer.provide(dbLayer))
             )
-          }).pipe(Effect.provide(markdownLayer))
-          yield* run
-        })
-      ).pipe(
-        Effect.provide(
-          Layer.mergeAll(
-            dbLayer,
-            BunServices.layer,
-            JiraMigrationProjection.layer.pipe(Layer.provide(dbLayer))
           )
         )
-      )
-    )
-    const [project] = (
-      await pool.query("select published_at from project_index where id = $1", [
-        prepared.projectId
-      ])
-    ).rows
-    expect(project?.published_at).not.toBeNull()
-    const [migration] = (
-      await pool.query(
-        "select status,destination_project_id from jira_migration where id = $1",
-        [migrationId]
-      )
-    ).rows
-    expect(migration).toEqual({
-      status: "succeeded",
-      destination_project_id: prepared.projectId
-    })
-  })
+        const [project] = (yield* Effect.promise(() =>
+          pool.query("select published_at from project_index where id = $1", [
+            prepared.projectId
+          ])
+        )).rows
+        expect(project?.published_at).not.toBeNull()
+        const [migration] = (yield* Effect.promise(() =>
+          pool.query(
+            "select status,destination_project_id from jira_migration where id = $1",
+            [migrationId]
+          )
+        )).rows
+        expect(migration).toEqual({
+          status: "succeeded",
+          destination_project_id: prepared.projectId
+        })
+      })
+  )
 })
 
 const convertedText = (markdown: string): JiraConvertedText => ({
@@ -1276,7 +1315,7 @@ const manifest = (): JiraMigrationManifest => ({
 
 const manifestV2 = (migrationId: string) => {
   const source = manifest()
-  return Schema.decodeUnknownSync(JiraMigrationManifestV2)({
+  return decodeUnknownJiraMigrationManifestV2Sync({
     ...source,
     version: 2,
     migrationId,
@@ -1319,7 +1358,9 @@ const manifestV2 = (migrationId: string) => {
   })
 }
 
-const configuration = {
+const decodeConfiguration = Schema.decodeSync(JiraMigrationConfiguration)
+
+const configuration = decodeConfiguration({
   destination: { name: "Application", slug: "application", key: "APP" },
   identities: [
     { jiraAccountId: "account-linked", projectProjectUserId: "user-1" },
@@ -1340,7 +1381,7 @@ const configuration = {
   restrictedContent: { policy: "exclude" },
   skippedAttachmentIds: [],
   attachmentSkipsAccepted: true
-}
+})
 
 const environment: JiraPreflightEnvironment = {
   existingProjectSlugs: [],
@@ -1446,12 +1487,12 @@ describe("nextTicketNumberFor", () => {
 
 describe("tag renaming", () => {
   it("uses the name chosen in the wizard instead of the suggestion", () => {
-    const withRename = {
+    const withRename = decodeConfiguration({
       ...configuration,
       tags: [
         { source: { kind: "label", value: "Urgent" }, destinationTagName: "p0" }
       ]
-    }
+    })
     const result = buildJiraImportPlan(manifest(), withRename, environment, {})
 
     if (result.kind !== "ready") throw new Error("expected a ready plan")
@@ -1545,7 +1586,7 @@ describe("aliasJiraMediaReferences", () => {
       ],
       comments: [
         {
-          ...base.comments[0]!,
+          ...base.comments[0],
           body: {
             markdown: "see jira-reference:000000",
             references: [
@@ -1588,11 +1629,11 @@ describe("aliasJiraMediaReferences", () => {
       ...base,
       attachments: [
         ...base.attachments,
-        { ...base.attachments[0]!, id: "10999", issueId: "issue-other" }
+        { ...base.attachments[0], id: "10999", issueId: "issue-other" }
       ],
       comments: [
         {
-          ...base.comments[0]!,
+          ...base.comments[0],
           issueId: "issue-unrelated"
         }
       ]
@@ -1638,7 +1679,7 @@ describe("embedded image references", () => {
       ],
       comments: [
         {
-          ...base.comments[0]!,
+          ...base.comments[0],
           body: {
             markdown: "shot jira-reference:000000 doc jira-reference:000001",
             references: [
@@ -1670,8 +1711,8 @@ describe("embedded image references", () => {
     })
 
     if (result.kind !== "ready")
-      throw new Error(`blocked: ${JSON.stringify(result.blockers)}`)
-    const body = result.plan.comments[0]!.body
+      throw new Error(`blocked: ${encodeJson(result.blockers)}`)
+    const body = result.plan.comments[0].body
     expect(body).toContain("![Screenshot.png](/api/attachments/example/IMG)")
     expect(body).toContain("[spec.pdf](/api/attachments/example/DOC)")
     expect(body).not.toContain("![spec.pdf]")

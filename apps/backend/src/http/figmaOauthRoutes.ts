@@ -19,6 +19,8 @@ const FigmaCallbackQuery = Schema.fromURLSearchParams(
   })
 )
 
+const decodeFigmaCallbackQueryOption = Schema.decodeOption(FigmaCallbackQuery)
+
 const profileSettingsUrl = (params?: Record<string, string>) =>
   Effect.gen(function* () {
     const baseUrl = yield* publicBaseUrl.pipe(Effect.orDie)
@@ -78,7 +80,7 @@ const figmaOauthCallbackRoute = Effect.gen(function* () {
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
   const url = new URL(webReq.url)
-  const query = Schema.decodeOption(FigmaCallbackQuery)(url.searchParams)
+  const query = decodeFigmaCallbackQueryOption(url.searchParams)
   if (Option.isNone(query)) {
     const redirectUrl = yield* profileSettingsUrl({
       figmaError: "figma_oauth_callback_invalid"

@@ -1,3 +1,4 @@
+import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
@@ -26,10 +27,11 @@ export type CommentBlockAuthor =
     }>
 
 const CommentBlockDate = Schema.Union([Schema.DateFromString, Schema.Date])
-const decodeEditedAt = (value: unknown): Date | null => {
-  if (value == null) return null
-  return Option.getOrNull(Schema.decodeUnknownOption(CommentBlockDate)(value))
-}
+
+const EditedAt = Schema.NullOr(CommentBlockDate).pipe(
+  Schema.catchDecoding(() => Effect.succeed(Option.some(null))),
+  Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+)
 const UserBlockAuthor = Schema.Struct({
   kind: Schema.Literal("user"),
   userId: Schema.NonEmptyString
@@ -42,25 +44,25 @@ const JiraBlockAuthor = Schema.Struct({
 const LegacyCommentData = Schema.Struct({
   author: Schema.NonEmptyString,
   createdAt: CommentBlockDate,
-  editedAt: Schema.optionalKey(Schema.Unknown)
+  editedAt: EditedAt
 })
 const NativeCommentData = Schema.Struct({
   author: UserBlockAuthor,
   origin: Schema.Literal("native"),
   createdAt: CommentBlockDate,
-  editedAt: Schema.optionalKey(Schema.Unknown)
+  editedAt: EditedAt
 })
 const LinkedJiraCommentData = Schema.Struct({
   author: UserBlockAuthor,
   origin: Schema.Literal("jira"),
   createdAt: CommentBlockDate,
-  editedAt: Schema.optionalKey(Schema.Unknown)
+  editedAt: EditedAt
 })
 const SnapshotJiraCommentData = Schema.Struct({
   author: JiraBlockAuthor,
   origin: Schema.Literal("jira"),
   createdAt: CommentBlockDate,
-  editedAt: Schema.optionalKey(Schema.Unknown)
+  editedAt: EditedAt
 })
 const CommentBlockData = Schema.Union([
   LegacyCommentData,
@@ -68,6 +70,9 @@ const CommentBlockData = Schema.Union([
   LinkedJiraCommentData,
   SnapshotJiraCommentData
 ])
+
+const decodeUnknownCommentBlockDataOption =
+  Schema.decodeUnknownOption(CommentBlockData)
 
 export type ValidationResult =
   | Readonly<{ ok: true }>
@@ -115,7 +120,7 @@ export function parseCommentsRegion(
     while (end < lines.length && !COMMENT_MARKER.test(lines[end].trim())) end++
     const blockText = lines.slice(i, end).join("\n").trim()
     const parsed = parseMarkdownFile(blockText)
-    const decoded = Schema.decodeUnknownOption(CommentBlockData)(parsed.data)
+    const decoded = decodeUnknownCommentBlockDataOption(parsed.data)
     if (Option.isSome(decoded)) {
       const data = decoded.value
       let author: CommentBlockAuthor
@@ -132,7 +137,7 @@ export function parseCommentsRegion(
         author,
         origin,
         createdAt: data.createdAt,
-        editedAt: decodeEditedAt(data.editedAt),
+        editedAt: data.editedAt,
         body: parsed.content.replace(/^\n+/, "").replace(/\s+$/, "")
       })
     }
