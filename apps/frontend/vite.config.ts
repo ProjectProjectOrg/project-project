@@ -9,6 +9,37 @@ import { defineConfig } from "vite"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+const packages = (names: ReadonlyArray<string>) =>
+  new RegExp(
+    `[\\\\/]node_modules[\\\\/](?:${names.map((name) => name.replace("/", "[\\\\/]")).join("|")})[\\\\/]`
+  )
+
+const chunkGroups = [
+  { name: "vendor-react", test: packages(["react", "react-dom", "scheduler"]) },
+  {
+    name: "vendor-router",
+    test: packages([
+      "@tanstack/react-router",
+      "@tanstack/router-core",
+      "@tanstack/history",
+      "@tanstack/store",
+      "@tanstack/react-store"
+    ])
+  },
+  { name: "vendor-effect", test: packages(["effect", "@effect/atom-react"]) },
+  { name: "i18n", test: /[\\/]src[\\/]paraglide[\\/]/ },
+  {
+    name: "icons",
+    test: packages([
+      "lucide-react",
+      "@hugeicons/react",
+      "@hugeicons/core-free-icons",
+      "@tabler/icons-react",
+      "@phosphor-icons/react"
+    ])
+  }
+]
+
 export default defineConfig(({ mode }) => ({
   root: __dirname,
   resolve: {
@@ -17,6 +48,15 @@ export default defineConfig(({ mode }) => ({
     }
   },
   publicDir: path.resolve(__dirname, "src/public"),
+  build: {
+    chunkImportMap: true,
+    rolldownOptions: {
+      output: {
+        codeSplitting: { groups: chunkGroups },
+        minifyInternalExports: false
+      }
+    }
+  },
   plugins: [
     ...(mode === "test"
       ? []
