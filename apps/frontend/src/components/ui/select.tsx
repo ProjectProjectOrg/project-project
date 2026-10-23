@@ -1,5 +1,3 @@
-"use client"
-
 import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cva, type VariantProps } from "class-variance-authority"
 import { CheckIcon, ChevronDown } from "lucide-react"

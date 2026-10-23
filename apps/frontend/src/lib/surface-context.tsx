@@ -1,5 +1,3 @@
-"use client"
-
 import { createContext, useContext, type ReactNode } from "react"
 
 // No provider means the page itself.

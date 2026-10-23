@@ -1,5 +1,3 @@
-"use client"
-
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
 import * as Match from "effect/Match"

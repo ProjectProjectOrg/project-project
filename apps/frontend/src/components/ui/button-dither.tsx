@@ -1,5 +1,3 @@
-"use client"
-
 import { useEffect, useMemo, useRef, useState } from "react"
 
 export type DitherDirection = "r" | "l" | "t" | "b" | "tr" | "tl" | "br" | "bl"

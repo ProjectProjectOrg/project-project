@@ -1,9 +1,6 @@
-"use client"
-
 import { animate, motion, useReducedMotion } from "motion/react"
 import {
   createContext,
-  forwardRef,
   memo,
   useCallback,
   useContext,
@@ -17,6 +14,7 @@ import {
   type Dispatch,
   type HTMLAttributes,
   type ReactNode,
+  type Ref,
   type RefObject,
   type SetStateAction
 } from "react"
@@ -227,203 +225,206 @@ export type CommandMenuProps = Omit<
     children: ReactNode
   }>
 
-const CommandMenu = forwardRef<HTMLDivElement, CommandMenuProps>(
-  ({ items, onSelect, className, children, ...props }, ref) => {
-    const listId = useId()
-    const listRef = useRef<HTMLDivElement | null>(null)
+function CommandMenu({
+  items,
+  onSelect,
+  className,
+  children,
+  ref,
+  ...props
+}: CommandMenuProps & Readonly<{ ref?: Ref<HTMLDivElement> }>) {
+  const listId = useId()
+  const listRef = useRef<HTMLDivElement | null>(null)
 
-    const itemsByValue = useMemo(
-      () => new Map(items.map((item) => [item.value, item] as const)),
-      [items]
-    )
+  const itemsByValue = useMemo(
+    () => new Map(items.map((item) => [item.value, item] as const)),
+    [items]
+  )
 
-    const sections = useMemo(() => sectionRows(items), [items])
-    const rows = useMemo(() => sections.flatMap((s) => s.items), [sections])
-    const rowsKey = rows.map((row) => row.value).join("\u0000")
+  const sections = useMemo(() => sectionRows(items), [items])
+  const rows = useMemo(() => sections.flatMap((s) => s.items), [sections])
+  const rowsKey = rows.map((row) => row.value).join("\u0000")
 
-    const hover = useFluidHover(listRef)
-    const {
-      activeIndex,
-      setActiveIndex,
+  const hover = useFluidHover(listRef)
+  const {
+    activeIndex,
+    setActiveIndex,
+    registerItem,
+    itemRects,
+    isMeasured,
+    sessionRef
+  } = hover
+  const { onMouseEnter, onMouseMove, onMouseLeave, onClick } = hover.handlers
+  const listHandlers = useMemo(
+    () => ({ onMouseEnter, onMouseMove, onMouseLeave, onClick }),
+    [onMouseEnter, onMouseMove, onMouseLeave, onClick]
+  )
+
+  const highlightRef = useRef<number | null>(null)
+  const listenersRef = useRef(new Set<() => void>())
+  const highlight = useMemo<HighlightStore>(
+    () => ({
+      get: () => highlightRef.current,
+      subscribe: (listener) => {
+        listenersRef.current.add(listener)
+        return () => {
+          listenersRef.current.delete(listener)
+        }
+      }
+    }),
+    []
+  )
+  useIsoLayoutEffect(() => {
+    highlightRef.current = activeIndex
+    listenersRef.current.forEach((listener) => listener())
+  }, [activeIndex])
+  const fill = useMemo<FluidHoverSource>(
+    () => ({ activeIndex, itemRects, isMeasured, sessionRef }),
+    [activeIndex, itemRects, isMeasured, sessionRef]
+  )
+
+  const reduceMotion = useReducedMotion() ?? false
+  const scrollAnimationRef = useRef<{ stop: () => void } | null>(null)
+  const scrollToRow = useCallback(
+    (index: number) => {
+      const list = listRef.current
+      const viewport = list?.closest<HTMLElement>(
+        '[data-slot="scroll-area-viewport"]'
+      )
+      if (!list || !viewport) return
+      scrollAnimationRef.current?.stop()
+      scrollAnimationRef.current = null
+      if (index === 0) {
+        viewport.scrollTop = 0
+        return
+      }
+      const row = list.querySelector<HTMLElement>(
+        `[data-fluid-hover-index="${index}"]`
+      )
+      if (!row) return
+      const rowTop = row.offsetTop + list.offsetTop
+      const target = Math.max(
+        0,
+        Math.min(
+          rowTop + row.offsetHeight / 2 - viewport.clientHeight / 2,
+          viewport.scrollHeight - viewport.clientHeight
+        )
+      )
+      if (reduceMotion) {
+        viewport.scrollTop = target
+        return
+      }
+      scrollAnimationRef.current = animate(viewport.scrollTop, target, {
+        ...spring.fast,
+        onUpdate: (value) => {
+          viewport.scrollTop = value
+        }
+      })
+    },
+    [reduceMotion]
+  )
+  useEffect(() => () => scrollAnimationRef.current?.stop(), [])
+
+  const rowsRef = useRef(rows)
+  rowsRef.current = rows
+  useEffect(() => {
+    setActiveIndex(rowsRef.current.length === 0 ? null : 0)
+    scrollToRow(0)
+  }, [rowsKey, setActiveIndex, scrollToRow])
+
+  const move = useCallback(
+    (to: 1 | -1) => {
+      const count = rowsRef.current.length
+      if (count === 0) return
+      const current = highlightRef.current
+      const next =
+        current === null
+          ? to === 1
+            ? 0
+            : count - 1
+          : (current + to + count) % count
+      setActiveIndex(next)
+      scrollToRow(next)
+    },
+    [setActiveIndex, scrollToRow]
+  )
+
+  const onSelectRef = useRef(onSelect)
+  onSelectRef.current = onSelect
+  const select = useCallback((item: CommandMenuItemData) => {
+    onSelectRef.current?.(item)
+  }, [])
+
+  const ctx = useMemo<CommandMenuContextValue>(
+    () => ({
+      sections,
+      rows,
+      itemsByValue,
+      listId,
+      listRef,
       registerItem,
-      itemRects,
-      isMeasured,
-      sessionRef
-    } = hover
-    const { onMouseEnter, onMouseMove, onMouseLeave, onClick } = hover.handlers
-    const listHandlers = useMemo(
-      () => ({ onMouseEnter, onMouseMove, onMouseLeave, onClick }),
-      [onMouseEnter, onMouseMove, onMouseLeave, onClick]
-    )
+      setActiveIndex,
+      listHandlers,
+      highlight,
+      select,
+      move
+    }),
+    [
+      sections,
+      rows,
+      itemsByValue,
+      listId,
+      registerItem,
+      setActiveIndex,
+      listHandlers,
+      highlight,
+      select,
+      move
+    ]
+  )
 
-    const highlightRef = useRef<number | null>(null)
-    const listenersRef = useRef(new Set<() => void>())
-    const highlight = useMemo<HighlightStore>(
-      () => ({
-        get: () => highlightRef.current,
-        subscribe: (listener) => {
-          listenersRef.current.add(listener)
-          return () => {
-            listenersRef.current.delete(listener)
-          }
-        }
-      }),
-      []
-    )
-    useIsoLayoutEffect(() => {
-      highlightRef.current = activeIndex
-      listenersRef.current.forEach((listener) => listener())
-    }, [activeIndex])
-    const fill = useMemo<FluidHoverSource>(
-      () => ({ activeIndex, itemRects, isMeasured, sessionRef }),
-      [activeIndex, itemRects, isMeasured, sessionRef]
-    )
+  const columnRef = useRef<HTMLDivElement | null>(null)
+  const [height, setHeight] = useState<number | null>(null)
+  useEffect(() => {
+    const el = columnRef.current
+    if (!el || typeof ResizeObserver === "undefined") return
+    const update = () => setHeight(el.offsetHeight)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
-    const reduceMotion = useReducedMotion() ?? false
-    const scrollAnimationRef = useRef<{ stop: () => void } | null>(null)
-    const scrollToRow = useCallback(
-      (index: number) => {
-        const list = listRef.current
-        const viewport = list?.closest<HTMLElement>(
-          '[data-slot="scroll-area-viewport"]'
-        )
-        if (!list || !viewport) return
-        scrollAnimationRef.current?.stop()
-        scrollAnimationRef.current = null
-        if (index === 0) {
-          viewport.scrollTop = 0
-          return
-        }
-        const row = list.querySelector<HTMLElement>(
-          `[data-fluid-hover-index="${index}"]`
-        )
-        if (!row) return
-        const rowTop = row.offsetTop + list.offsetTop
-        const target = Math.max(
-          0,
-          Math.min(
-            rowTop + row.offsetHeight / 2 - viewport.clientHeight / 2,
-            viewport.scrollHeight - viewport.clientHeight
-          )
-        )
-        if (reduceMotion) {
-          viewport.scrollTop = target
-          return
-        }
-        scrollAnimationRef.current = animate(viewport.scrollTop, target, {
-          ...spring.fast,
-          onUpdate: (value) => {
-            viewport.scrollTop = value
-          }
-        })
-      },
-      [reduceMotion]
-    )
-    useEffect(() => () => scrollAnimationRef.current?.stop(), [])
-
-    const rowsRef = useRef(rows)
-    rowsRef.current = rows
-    useEffect(() => {
-      setActiveIndex(rowsRef.current.length === 0 ? null : 0)
-      scrollToRow(0)
-    }, [rowsKey, setActiveIndex, scrollToRow])
-
-    const move = useCallback(
-      (to: 1 | -1) => {
-        const count = rowsRef.current.length
-        if (count === 0) return
-        const current = highlightRef.current
-        const next =
-          current === null
-            ? to === 1
-              ? 0
-              : count - 1
-            : (current + to + count) % count
-        setActiveIndex(next)
-        scrollToRow(next)
-      },
-      [setActiveIndex, scrollToRow]
-    )
-
-    const onSelectRef = useRef(onSelect)
-    onSelectRef.current = onSelect
-    const select = useCallback((item: CommandMenuItemData) => {
-      onSelectRef.current?.(item)
-    }, [])
-
-    const ctx = useMemo<CommandMenuContextValue>(
-      () => ({
-        sections,
-        rows,
-        itemsByValue,
-        listId,
-        listRef,
-        registerItem,
-        setActiveIndex,
-        listHandlers,
-        highlight,
-        select,
-        move
-      }),
-      [
-        sections,
-        rows,
-        itemsByValue,
-        listId,
-        registerItem,
-        setActiveIndex,
-        listHandlers,
-        highlight,
-        select,
-        move
-      ]
-    )
-
-    const columnRef = useRef<HTMLDivElement | null>(null)
-    const [height, setHeight] = useState<number | null>(null)
-    useEffect(() => {
-      const el = columnRef.current
-      if (!el || typeof ResizeObserver === "undefined") return
-      const update = () => setHeight(el.offsetHeight)
-      update()
-      const ro = new ResizeObserver(update)
-      ro.observe(el)
-      return () => ro.disconnect()
-    }, [])
-
-    return (
-      <CommandMenuContext.Provider value={ctx}>
-        <CommandMenuFillContext.Provider value={fill}>
-          <div
-            ref={ref}
-            data-slot="command-menu"
-            className={cn(
-              "relative max-h-[inherit] w-full overflow-hidden",
-              className
-            )}
-            {...props}
+  return (
+    <CommandMenuContext.Provider value={ctx}>
+      <CommandMenuFillContext.Provider value={fill}>
+        <div
+          ref={ref}
+          data-slot="command-menu"
+          className={cn(
+            "relative max-h-[inherit] w-full overflow-hidden",
+            className
+          )}
+          {...props}
+        >
+          <motion.div
+            className="max-h-[inherit] overflow-hidden"
+            initial={false}
+            animate={height === null ? {} : { height }}
+            transition={reduceMotion ? { duration: 0 } : spring.moderate}
           >
-            <motion.div
-              className="max-h-[inherit] overflow-hidden"
-              initial={false}
-              animate={height === null ? {} : { height }}
-              transition={reduceMotion ? { duration: 0 } : spring.moderate}
+            <div
+              ref={columnRef}
+              className="flex max-h-[inherit] min-h-0 flex-col"
             >
-              <div
-                ref={columnRef}
-                className="flex max-h-[inherit] min-h-0 flex-col"
-              >
-                {children}
-              </div>
-            </motion.div>
-          </div>
-        </CommandMenuFillContext.Provider>
-      </CommandMenuContext.Provider>
-    )
-  }
-)
-
-CommandMenu.displayName = "CommandMenu"
+              {children}
+            </div>
+          </motion.div>
+        </div>
+      </CommandMenuFillContext.Provider>
+    </CommandMenuContext.Provider>
+  )
+}
 
 export type CommandMenuTab = Readonly<{
   value: string
@@ -443,56 +444,60 @@ export type CommandMenuTabsProps = Omit<
     tabsLabel: string
   }>
 
-const CommandMenuTabs = forwardRef<HTMLDivElement, CommandMenuTabsProps>(
-  ({ tabs, value, onValueChange, tabsLabel, className, ...props }, ref) => {
-    const compact = useSize().variant === "compact"
-    const selectedIndex = Math.max(
-      0,
-      tabs.findIndex((tab) => tab.value === value)
-    )
+function CommandMenuTabs({
+  tabs,
+  value,
+  onValueChange,
+  tabsLabel,
+  className,
+  ref,
+  ...props
+}: CommandMenuTabsProps & Readonly<{ ref?: Ref<HTMLDivElement> }>) {
+  const compact = useSize().variant === "compact"
+  const selectedIndex = Math.max(
+    0,
+    tabs.findIndex((tab) => tab.value === value)
+  )
 
-    return (
+  return (
+    <div
+      ref={ref}
+      data-slot="command-menu-tabs"
+      className={cn(
+        "flex shrink-0 items-center",
+        compact ? "gap-1 px-2 pb-1.5" : "gap-2 px-2.5 pb-2",
+        className
+      )}
+      {...props}
+    >
       <div
-        ref={ref}
-        data-slot="command-menu-tabs"
-        className={cn(
-          "flex shrink-0 items-center",
-          compact ? "gap-1 px-2 pb-1.5" : "gap-2 px-2.5 pb-2",
-          className
-        )}
-        {...props}
+        onMouseDown={(e) => e.preventDefault()}
+        className="flex min-w-0 flex-1 items-center"
       >
-        <div
-          onMouseDown={(e) => e.preventDefault()}
-          className="flex min-w-0 flex-1 items-center"
+        <TabsSubtle
+          size="compact"
+          shape="rounded"
+          selectedIndex={selectedIndex}
+          onSelect={(index) => {
+            const tab = tabs[index]
+            if (tab) onValueChange(tab.value)
+          }}
+          aria-label={tabsLabel}
         >
-          <TabsSubtle
-            size="compact"
-            shape="rounded"
-            selectedIndex={selectedIndex}
-            onSelect={(index) => {
-              const tab = tabs[index]
-              if (tab) onValueChange(tab.value)
-            }}
-            aria-label={tabsLabel}
-          >
-            {tabs.map((tab, index) => (
-              <TabsSubtleItem
-                key={tab.value}
-                index={index}
-                label={tab.label}
-                icon={tab.icon}
-                count={tab.count}
-              />
-            ))}
-          </TabsSubtle>
-        </div>
+          {tabs.map((tab, index) => (
+            <TabsSubtleItem
+              key={tab.value}
+              index={index}
+              label={tab.label}
+              icon={tab.icon}
+              count={tab.count}
+            />
+          ))}
+        </TabsSubtle>
       </div>
-    )
-  }
-)
-
-CommandMenuTabs.displayName = "CommandMenuTabs"
+    </div>
+  )
+}
 
 export type CommandMenuListProps = HTMLAttributes<HTMLDivElement> &
   Readonly<{
@@ -500,165 +505,166 @@ export type CommandMenuListProps = HTMLAttributes<HTMLDivElement> &
     children?: ReactNode
   }>
 
-const CommandMenuList = forwardRef<HTMLDivElement, CommandMenuListProps>(
-  ({ className, children, renderItem, ...props }, ref) => {
-    const { sections, rows, listId, listRef, setActiveIndex, listHandlers } =
-      useCommandMenu()
-    const fill = useContext(CommandMenuFillContext)
-    const compact = useSize().variant === "compact"
-    const empty = rows.length === 0
+function CommandMenuList({
+  className,
+  children,
+  renderItem,
+  ref,
+  ...props
+}: CommandMenuListProps & Readonly<{ ref?: Ref<HTMLDivElement> }>) {
+  const { sections, rows, listId, listRef, setActiveIndex, listHandlers } =
+    useCommandMenu()
+  const fill = useContext(CommandMenuFillContext)
+  const compact = useSize().variant === "compact"
+  const empty = rows.length === 0
 
-    const lastActiveRef = useRef<number | null>(null)
-    if (fill && fill.activeIndex !== null)
-      lastActiveRef.current = fill.activeIndex
-    const handleMouseLeave = () => {
-      listHandlers.onMouseLeave()
-      setActiveIndex(lastActiveRef.current)
-    }
-
-    return (
-      <ScrollArea
-        className="scroll-divider flex min-h-0 flex-1 flex-col border-t border-border/60 [&::before]:!-top-px"
-        viewportClassName="min-h-0 flex-1 [&>div[style]]:!block [&>div[style]]:!min-w-0 [--scroll-fade-size:32px] scroll-fade"
-      >
-        <div
-          ref={(node) => {
-            listRef.current = node
-            if (typeof ref === "function") ref(node)
-            else if (ref) ref.current = node
-          }}
-          id={listId}
-          role="listbox"
-          tabIndex={-1}
-          data-slot="command-menu-list"
-          data-empty={empty || undefined}
-          onMouseEnter={listHandlers.onMouseEnter}
-          onMouseMove={listHandlers.onMouseMove}
-          onMouseLeave={handleMouseLeave}
-          onClick={listHandlers.onClick}
-          onMouseDown={(e) => e.preventDefault()}
-          className={cn(
-            "relative flex flex-col gap-1 p-1 outline-none data-[empty]:p-0",
-            className
-          )}
-          {...props}
-        >
-          {fill && (
-            <FluidHoverHighlight hover={fill} className={listShape.bg} />
-          )}
-          {children}
-          {sections.map((section, sectionIndex) => {
-            const headingId = section.heading
-              ? `${listId}-group-${sectionIndex}`
-              : undefined
-            return (
-              <div
-                key={section.id}
-                role="group"
-                aria-labelledby={headingId}
-                className="flex flex-col"
-              >
-                {section.heading && (
-                  <div
-                    id={headingId}
-                    role="presentation"
-                    className={cn(
-                      "flex shrink-0 items-center text-xs text-muted-foreground",
-                      compact ? "h-6 px-1.5" : "h-7 px-2"
-                    )}
-                  >
-                    {section.heading}
-                  </div>
-                )}
-                {section.items.map((item, i) => {
-                  const index = section.start + i
-                  return (
-                    <CommandMenuIndexContext.Provider
-                      key={item.value}
-                      value={index}
-                    >
-                      {renderItem(item, index)}
-                    </CommandMenuIndexContext.Provider>
-                  )
-                })}
-              </div>
-            )
-          })}
-        </div>
-      </ScrollArea>
-    )
+  const lastActiveRef = useRef<number | null>(null)
+  if (fill && fill.activeIndex !== null)
+    lastActiveRef.current = fill.activeIndex
+  const handleMouseLeave = () => {
+    listHandlers.onMouseLeave()
+    setActiveIndex(lastActiveRef.current)
   }
-)
 
-CommandMenuList.displayName = "CommandMenuList"
-
-export type CommandMenuEmptyProps = HTMLAttributes<HTMLDivElement>
-
-const CommandMenuEmpty = forwardRef<HTMLDivElement, CommandMenuEmptyProps>(
-  ({ className, ...props }, ref) => {
-    const { rows } = useCommandMenu()
-    const sizeClasses = useSize()
-    if (rows.length > 0) return null
-    return (
+  return (
+    <ScrollArea
+      className="scroll-divider flex min-h-0 flex-1 flex-col border-t border-border/60 [&::before]:!-top-px"
+      viewportClassName="min-h-0 flex-1 [&>div[style]]:!block [&>div[style]]:!min-w-0 [--scroll-fade-size:32px] scroll-fade"
+    >
       <div
-        ref={ref}
-        role="status"
-        aria-live="polite"
-        data-slot="command-menu-empty"
+        ref={(node) => {
+          listRef.current = node
+          if (typeof ref === "function") ref(node)
+          else if (ref) ref.current = node
+        }}
+        id={listId}
+        role="listbox"
+        tabIndex={-1}
+        data-slot="command-menu-list"
+        data-empty={empty || undefined}
+        onMouseEnter={listHandlers.onMouseEnter}
+        onMouseMove={listHandlers.onMouseMove}
+        onMouseLeave={handleMouseLeave}
+        onClick={listHandlers.onClick}
+        onMouseDown={(e) => e.preventDefault()}
         className={cn(
-          "px-3 py-6 text-center text-muted-foreground",
-          sizeClasses.text,
+          "relative flex flex-col gap-1 p-1 outline-none data-[empty]:p-0",
           className
         )}
         {...props}
-      />
-    )
-  }
-)
+      >
+        {fill && <FluidHoverHighlight hover={fill} className={listShape.bg} />}
+        {children}
+        {sections.map((section, sectionIndex) => {
+          const headingId = section.heading
+            ? `${listId}-group-${sectionIndex}`
+            : undefined
+          return (
+            <div
+              key={section.id}
+              role="group"
+              aria-labelledby={headingId}
+              className="flex flex-col"
+            >
+              {section.heading && (
+                <div
+                  id={headingId}
+                  role="presentation"
+                  className={cn(
+                    "flex shrink-0 items-center text-xs text-muted-foreground",
+                    compact ? "h-6 px-1.5" : "h-7 px-2"
+                  )}
+                >
+                  {section.heading}
+                </div>
+              )}
+              {section.items.map((item, i) => {
+                const index = section.start + i
+                return (
+                  <CommandMenuIndexContext.Provider
+                    key={item.value}
+                    value={index}
+                  >
+                    {renderItem(item, index)}
+                  </CommandMenuIndexContext.Provider>
+                )
+              })}
+            </div>
+          )
+        })}
+      </div>
+    </ScrollArea>
+  )
+}
 
-CommandMenuEmpty.displayName = "CommandMenuEmpty"
+export type CommandMenuEmptyProps = HTMLAttributes<HTMLDivElement>
+
+function CommandMenuEmpty({
+  className,
+  ref,
+  ...props
+}: CommandMenuEmptyProps & Readonly<{ ref?: Ref<HTMLDivElement> }>) {
+  const { rows } = useCommandMenu()
+  const sizeClasses = useSize()
+  if (rows.length > 0) return null
+  return (
+    <div
+      ref={ref}
+      role="status"
+      aria-live="polite"
+      data-slot="command-menu-empty"
+      className={cn(
+        "px-3 py-6 text-center text-muted-foreground",
+        sizeClasses.text,
+        className
+      )}
+      {...props}
+    />
+  )
+}
 
 export type CommandMenuShortcutProps = HTMLAttributes<HTMLElement> &
   Readonly<{
     keys: string | ReadonlyArray<string>
   }>
 
-const CommandMenuShortcut = forwardRef<HTMLElement, CommandMenuShortcutProps>(
-  ({ keys, className, ...props }, ref) => {
-    const mac = useIsMac()
-    const compact = useSize().variant === "compact"
-    const caps = (typeof keys === "string" ? [keys] : keys).flatMap((k) =>
-      formatShortcut(k, mac)
-    )
-    return (
-      <kbd
-        ref={ref}
-        data-slot="command-menu-shortcut"
-        className={cn(
-          "ml-auto inline-flex shrink-0 items-center gap-0.5 align-middle font-sans",
-          className
-        )}
-        {...props}
-      >
-        {caps.map((cap, i) => (
-          <span
-            key={`${cap}-${i}`}
-            className={cn(
-              "flex items-center justify-center rounded-[5px] bg-hover text-muted-foreground",
-              compact
-                ? "h-4 min-w-4 px-1 text-[10px]"
-                : "h-5 min-w-5 px-1 text-[11px]"
-            )}
-          >
-            {cap}
-          </span>
-        ))}
-      </kbd>
-    )
-  }
-)
-
-CommandMenuShortcut.displayName = "CommandMenuShortcut"
+function CommandMenuShortcut({
+  keys,
+  className,
+  ref,
+  ...props
+}: CommandMenuShortcutProps & Readonly<{ ref?: Ref<HTMLElement> }>) {
+  const mac = useIsMac()
+  const compact = useSize().variant === "compact"
+  const caps = (typeof keys === "string" ? [keys] : keys).flatMap((k) =>
+    formatShortcut(k, mac)
+  )
+  return (
+    <kbd
+      ref={ref}
+      data-slot="command-menu-shortcut"
+      className={cn(
+        "ml-auto inline-flex shrink-0 items-center gap-0.5 align-middle font-sans",
+        className
+      )}
+      {...props}
+    >
+      {caps.map((cap, i) => (
+        <span
+          key={`${cap}-${i}`}
+          className={cn(
+            "flex items-center justify-center rounded-[5px] bg-hover text-muted-foreground",
+            compact
+              ? "h-4 min-w-4 px-1 text-[10px]"
+              : "h-5 min-w-5 px-1 text-[11px]"
+          )}
+        >
+          {cap}
+        </span>
+      ))}
+    </kbd>
+  )
+}
 
 export type CommandMenuItemProps = Omit<
   HTMLAttributes<HTMLDivElement>,
@@ -669,99 +675,99 @@ export type CommandMenuItemProps = Omit<
     children: ReactNode
   }>
 
-const CommandMenuItem = memo(
-  forwardRef<HTMLDivElement, CommandMenuItemProps>(
-    ({ value, className, onClick, children, ...props }, ref) => {
-      const { itemsByValue, listId, registerItem, highlight, select } =
-        useCommandMenu()
-      const index = useContext(CommandMenuIndexContext)
-      const internalRef = useRef<HTMLDivElement | null>(null)
-      const sizeClasses = useSize()
-      const isActive = useSyncExternalStore(
-        highlight.subscribe,
-        () => highlight.get() === index,
-        () => false
-      )
-
-      const item = itemsByValue.get(value) ?? { value, label: value }
-      const Icon = item.icon
-
-      useRegisterFluidHoverItem(registerItem, index, internalRef)
-
-      return (
-        <div
-          ref={(node) => {
-            internalRef.current = node
-            if (typeof ref === "function") ref(node)
-            else if (ref) ref.current = node
-          }}
-          id={`${listId}-${index}`}
-          role="option"
-          aria-selected={isActive}
-          data-fluid-hover-index={index}
-          data-value={value}
-          data-slot="command-menu-item"
-          onClick={(e) => {
-            onClick?.(e)
-            if (!e.defaultPrevented) select(item)
-          }}
-          className={cn(
-            "relative z-10 flex shrink-0 cursor-pointer items-center outline-none select-none",
-            sizeClasses.control,
-            sizeClasses.gap,
-            sizeClasses.itemPx,
-            sizeClasses.text,
-            listShape.item,
-            "transition-[color] duration-80",
-            isActive ? "text-foreground" : "text-muted-foreground",
-            className
-          )}
-          {...props}
-        >
-          {Icon && (
-            <Icon
-              size={sizeClasses.icon}
-              strokeWidth={isActive ? 2 : 1.5}
-              className="shrink-0 transition-[color,stroke-width] duration-80"
-            />
-          )}
-          {children}
-        </div>
-      )
-    }
+const CommandMenuItem = memo(function CommandMenuItem({
+  value,
+  className,
+  onClick,
+  children,
+  ref,
+  ...props
+}: CommandMenuItemProps & Readonly<{ ref?: Ref<HTMLDivElement> }>) {
+  const { itemsByValue, listId, registerItem, highlight, select } =
+    useCommandMenu()
+  const index = useContext(CommandMenuIndexContext)
+  const internalRef = useRef<HTMLDivElement | null>(null)
+  const sizeClasses = useSize()
+  const isActive = useSyncExternalStore(
+    highlight.subscribe,
+    () => highlight.get() === index,
+    () => false
   )
-)
 
-CommandMenuItem.displayName = "CommandMenuItem"
+  const item = itemsByValue.get(value) ?? { value, label: value }
+  const Icon = item.icon
+
+  useRegisterFluidHoverItem(registerItem, index, internalRef)
+
+  return (
+    <div
+      ref={(node) => {
+        internalRef.current = node
+        if (typeof ref === "function") ref(node)
+        else if (ref) ref.current = node
+      }}
+      id={`${listId}-${index}`}
+      role="option"
+      aria-selected={isActive}
+      data-fluid-hover-index={index}
+      data-value={value}
+      data-slot="command-menu-item"
+      onClick={(e) => {
+        onClick?.(e)
+        if (!e.defaultPrevented) select(item)
+      }}
+      className={cn(
+        "relative z-10 flex shrink-0 cursor-pointer items-center outline-none select-none",
+        sizeClasses.control,
+        sizeClasses.gap,
+        sizeClasses.itemPx,
+        sizeClasses.text,
+        listShape.item,
+        "transition-[color] duration-80",
+        isActive ? "text-foreground" : "text-muted-foreground",
+        className
+      )}
+      {...props}
+    >
+      {Icon && (
+        <Icon
+          size={sizeClasses.icon}
+          strokeWidth={isActive ? 2 : 1.5}
+          className="shrink-0 transition-[color,stroke-width] duration-80"
+        />
+      )}
+      {children}
+    </div>
+  )
+})
 
 export type CommandMenuFooterProps = HTMLAttributes<HTMLDivElement> &
   Readonly<{
     children: ReactNode
   }>
 
-const CommandMenuFooter = forwardRef<HTMLDivElement, CommandMenuFooterProps>(
-  ({ className, children, ...props }, ref) => {
-    const compact = useSize().variant === "compact"
-    return (
-      <div
-        ref={ref}
-        data-slot="command-menu-footer"
-        className={cn(
-          "flex shrink-0 items-center overflow-hidden text-muted-foreground",
-          compact
-            ? "h-8 gap-3 px-3 text-[11px]"
-            : "h-10 gap-4 px-4 text-[12px]",
-          className
-        )}
-        {...props}
-      >
-        {children}
-      </div>
-    )
-  }
-)
-
-CommandMenuFooter.displayName = "CommandMenuFooter"
+function CommandMenuFooter({
+  className,
+  children,
+  ref,
+  ...props
+}: CommandMenuFooterProps & Readonly<{ ref?: Ref<HTMLDivElement> }>) {
+  const compact = useSize().variant === "compact"
+  return (
+    <div
+      ref={ref}
+      data-slot="command-menu-footer"
+      className={cn(
+        "flex shrink-0 items-center overflow-hidden text-muted-foreground",
+        compact ? "h-8 gap-3 px-3 text-[11px]" : "h-10 gap-4 px-4 text-[12px]",
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </div>
+  )
+}
 
 export {
   useCommandMenu,

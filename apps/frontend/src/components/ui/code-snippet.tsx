@@ -1,5 +1,3 @@
-"use client"
-
 import Prism from "prismjs"
 import { useMemo } from "react"
 

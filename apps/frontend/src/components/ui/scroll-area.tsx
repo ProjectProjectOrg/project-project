@@ -1,13 +1,5 @@
-"use client"
-
 import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area"
-import {
-  createContext,
-  forwardRef,
-  useContext,
-  type ComponentPropsWithoutRef,
-  type ComponentRef
-} from "react"
+import { createContext, useContext, type ComponentProps } from "react"
 
 import { useTouchPrimary } from "@/hooks/use-touch-primary"
 import { useShape } from "@/lib/shape-context"
@@ -18,89 +10,78 @@ const ScrollAreaContext = createContext<boolean>(false)
 
 type Orientation = "vertical" | "horizontal" | "both"
 
-type ScrollAreaProps = ComponentPropsWithoutRef<"div"> &
+type ScrollAreaProps = ComponentProps<"div"> &
   Readonly<{
     viewportClassName?: string
     orientation?: Orientation
   }>
 
-const ScrollArea = forwardRef<
-  ComponentRef<typeof ScrollAreaPrimitive.Root>,
-  ScrollAreaProps
->(
-  (
-    {
-      className,
-      children,
-      viewportClassName,
-      orientation = "vertical",
-      ...props
-    },
-    ref
-  ) => {
-    const isTouch = useTouchPrimary()
+function ScrollArea({
+  className,
+  children,
+  viewportClassName,
+  orientation = "vertical",
+  ref,
+  ...props
+}: ScrollAreaProps) {
+  const isTouch = useTouchPrimary()
 
-    return (
-      <ScrollAreaContext.Provider value={isTouch}>
-        {isTouch ? (
+  return (
+    <ScrollAreaContext.Provider value={isTouch}>
+      {isTouch ? (
+        <div
+          ref={ref}
+          role="group"
+          data-slot="scroll-area"
+          aria-roledescription={m.common_scroll_area_label()}
+          className={cn("relative overflow-hidden", className)}
+          {...props}
+        >
           <div
-            ref={ref}
-            role="group"
-            data-slot="scroll-area"
-            aria-roledescription={m.common_scroll_area_label()}
-            className={cn("relative overflow-hidden", className)}
-            {...props}
+            data-slot="scroll-area-viewport"
+            className={cn(
+              "size-full rounded-[inherit]",
+              orientation === "vertical" && "overflow-y-auto",
+              orientation === "horizontal" && "overflow-x-auto",
+              orientation === "both" && "overflow-auto",
+              viewportClassName
+            )}
+            // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scroll viewport takes focus so the keyboard can scroll it
+            tabIndex={0}
           >
-            <div
-              data-slot="scroll-area-viewport"
-              className={cn(
-                "size-full rounded-[inherit]",
-                orientation === "vertical" && "overflow-y-auto",
-                orientation === "horizontal" && "overflow-x-auto",
-                orientation === "both" && "overflow-auto",
-                viewportClassName
-              )}
-              // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scroll viewport takes focus so the keyboard can scroll it
-              tabIndex={0}
-            >
-              {children}
-            </div>
+            {children}
           </div>
-        ) : (
-          <ScrollAreaPrimitive.Root
-            ref={ref}
-            data-slot="scroll-area"
-            className={cn("relative overflow-hidden", className)}
-            {...props}
+        </div>
+      ) : (
+        <ScrollAreaPrimitive.Root
+          ref={ref}
+          data-slot="scroll-area"
+          className={cn("relative overflow-hidden", className)}
+          {...props}
+        >
+          <ScrollAreaPrimitive.Viewport
+            data-slot="scroll-area-viewport"
+            className={cn("size-full rounded-[inherit]", viewportClassName)}
           >
-            <ScrollAreaPrimitive.Viewport
-              data-slot="scroll-area-viewport"
-              className={cn("size-full rounded-[inherit]", viewportClassName)}
-            >
-              <ScrollAreaPrimitive.Content>
-                {children}
-              </ScrollAreaPrimitive.Content>
-            </ScrollAreaPrimitive.Viewport>
-            {orientation !== "horizontal" && (
-              <ScrollBar orientation="vertical" />
-            )}
-            {orientation !== "vertical" && (
-              <ScrollBar orientation="horizontal" />
-            )}
-            {orientation === "both" && <ScrollAreaPrimitive.Corner />}
-          </ScrollAreaPrimitive.Root>
-        )}
-      </ScrollAreaContext.Provider>
-    )
-  }
-)
+            <ScrollAreaPrimitive.Content>
+              {children}
+            </ScrollAreaPrimitive.Content>
+          </ScrollAreaPrimitive.Viewport>
+          {orientation !== "horizontal" && <ScrollBar orientation="vertical" />}
+          {orientation !== "vertical" && <ScrollBar orientation="horizontal" />}
+          {orientation === "both" && <ScrollAreaPrimitive.Corner />}
+        </ScrollAreaPrimitive.Root>
+      )}
+    </ScrollAreaContext.Provider>
+  )
+}
 
-ScrollArea.displayName = "ScrollArea"
-
-const ScrollBar = forwardRef<
-  ComponentRef<typeof ScrollAreaPrimitive.Scrollbar>,
-  ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Scrollbar>
->(({ className, orientation = "vertical", ...props }, ref) => {
+function ScrollBar({
+  className,
+  orientation = "vertical",
+  ref,
+  ...props
+}: ComponentProps<typeof ScrollAreaPrimitive.Scrollbar>) {
   const isTouch = useContext(ScrollAreaContext)
   const shape = useShape()
 
@@ -137,9 +118,7 @@ const ScrollBar = forwardRef<
       />
     </ScrollAreaPrimitive.Scrollbar>
   )
-})
-
-ScrollBar.displayName = "ScrollBar"
+}
 
 export { ScrollArea, ScrollBar }
 export type { ScrollAreaProps }
