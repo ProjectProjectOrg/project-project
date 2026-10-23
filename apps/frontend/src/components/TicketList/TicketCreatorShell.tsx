@@ -20,16 +20,18 @@ import { comboboxProps, type ListboxState } from "@/components/ui/menu-listbox"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 
-const CreatorActiveContext = createContext<{
+type CreatorActive = Readonly<{
   active: boolean
   setActive: (active: boolean) => void
-} | null>(null)
+}>
+
+const CreatorActiveContext = createContext<CreatorActive | null>(null)
 
 export function CreatorActiveScope({
   children
 }: Readonly<{ children: ReactNode }>) {
   const [active, setActive] = useState(false)
-  const value = useMemo(() => ({ active, setActive }), [active])
+  const value = useMemo<CreatorActive>(() => ({ active, setActive }), [active])
   return <CreatorActiveContext value={value}>{children}</CreatorActiveContext>
 }
 
@@ -89,9 +91,8 @@ export function TicketCreatorShell({
 
   const setCreatorActive = use(CreatorActiveContext)?.setActive
   useEffect(() => {
-    if (!setCreatorActive) return
-    setCreatorActive(expanded)
-    return () => setCreatorActive(false)
+    setCreatorActive?.(expanded)
+    return () => setCreatorActive?.(false)
   }, [setCreatorActive, expanded])
 
   return (

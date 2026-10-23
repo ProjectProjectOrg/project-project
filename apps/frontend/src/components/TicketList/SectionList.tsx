@@ -13,6 +13,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { Loader2 } from "lucide-react"
 import {
   createContext,
+  useCallback,
   use,
   useEffect,
   useId,
@@ -47,24 +48,33 @@ const renderDefaultRow = (props: ComponentProps<typeof Row>) => (
   <Row {...props} />
 )
 
-const CreatingSectionContext = createContext<{
-  creatingId: string | null
+type CreatingSections = Readonly<{
+  creatingIds: ReadonlySet<string>
   setCreating: (id: string, creating: boolean) => void
-} | null>(null)
+}>
+
+const CreatingSectionContext = createContext<CreatingSections | null>(null)
 
 export function CreatingSectionsProvider({
   children
 }: Readonly<{ children: ReactNode }>) {
-  const [creatingId, setCreatingId] = useState<string | null>(null)
-  const value = useMemo(
-    () => ({
-      creatingId,
-      setCreating: (id: string, creating: boolean) =>
-        setCreatingId((current) =>
-          creating ? id : current === id ? null : current
-        )
-    }),
-    [creatingId]
+  const [creatingIds, setCreatingIds] = useState<ReadonlySet<string>>(
+    () => new Set()
+  )
+  const setCreating = useCallback(
+    (id: string, creating: boolean) =>
+      setCreatingIds((current) => {
+        if (current.has(id) === creating) return current
+        const next = new Set(current)
+        if (creating) next.add(id)
+        else next.delete(id)
+        return next
+      }),
+    []
+  )
+  const value = useMemo<CreatingSections>(
+    () => ({ creatingIds, setCreating }),
+    [creatingIds, setCreating]
   )
   return (
     <CreatingSectionContext value={value}>{children}</CreatingSectionContext>
@@ -137,13 +147,13 @@ export function SectionList({
   const creatingSections = use(CreatingSectionContext)
   const reportCreating = creatingSections?.setCreating
   useEffect(() => {
-    if (!reportCreating) return
-    reportCreating(sectionId, creating)
-    return () => reportCreating(sectionId, false)
+    reportCreating?.(sectionId, creating)
+    return () => reportCreating?.(sectionId, false)
   }, [reportCreating, sectionId, creating])
   const dimmed =
-    creatingSections?.creatingId != null &&
-    creatingSections.creatingId !== sectionId
+    creatingSections !== null &&
+    creatingSections.creatingIds.size > 0 &&
+    !creatingSections.creatingIds.has(sectionId)
 
   const { items } = page
 

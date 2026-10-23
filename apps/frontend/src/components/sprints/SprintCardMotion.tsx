@@ -19,11 +19,11 @@ export function SprintCardMotion({
   children: ReactNode
 }) {
   const element = useRef<HTMLDivElement>(null)
-  const previous = useRef<{
+  const previous = useRef<Readonly<{
     start: number
     offset: number
     hidden: boolean
-  } | null>(null)
+  }> | null>(null)
   const animation = useRef<Animation | null>(null)
 
   useLayoutEffect(() => {
@@ -35,8 +35,10 @@ export function SprintCardMotion({
       before.start === start &&
       before.offset === offset &&
       before.hidden === hidden
-    )
+    ) {
+      if (reducedMotion) animation.current?.cancel()
       return
+    }
     const currentOffset =
       animation.current?.playState === "running"
         ? translateYOf(node)
