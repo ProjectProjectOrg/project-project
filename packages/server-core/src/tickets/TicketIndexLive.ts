@@ -7,7 +7,8 @@ import {
   projectIndex,
   projectIntegrationLink,
   ticketBranch,
-  ticketIndex
+  ticketIndex,
+  user
 } from "@pp/db/schema"
 import {
   ESTIMATE_SIZES,
@@ -49,6 +50,7 @@ import {
   sql as drizzleSql,
   type SQL
 } from "drizzle-orm"
+import * as Clock from "effect/Clock"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -517,11 +519,28 @@ export const makeTicketIndexReconciler = (deps: TicketIndexReconcilerDeps) => {
   > =>
     Effect.gen(function* () {
       const projects = yield* deps.listProjects
-      const summaries = yield* Effect.forEach(
+      // One broken project must not leave every later project unreconciled.
+      const results = yield* Effect.forEach(
         projects,
-        (project) => reconcileProject(project),
+        (project) =>
+          reconcileProject(project).pipe(
+            Effect.map((summary) => [summary]),
+            Effect.catchCause((cause) =>
+              Effect.logError(
+                "ticket index project reconcile failed",
+                cause
+              ).pipe(
+                Effect.annotateLogs({
+                  orgSlug: project.orgSlug,
+                  slug: project.projectSlug
+                }),
+                Effect.as([])
+              )
+            )
+          ),
         { concurrency: 1 }
       )
+      const summaries = results.flat()
       return {
         projects: summaries,
         reconciled: summaries.filter((summary) => summary.rebuilt).length
@@ -534,6 +553,8 @@ export const makeTicketIndexReconciler = (deps: TicketIndexReconcilerDeps) => {
 const TICKET_INDEX_PUBLISH_RETRY_BASE = "50 millis"
 const TICKET_INDEX_PUBLISH_RETRY_BUDGET = "1 second"
 const TICKET_INDEX_REPAIR_INTERVAL = "5 seconds"
+const REPAIR_BACKOFF_BASE_MS = 5_000
+const REPAIR_BACKOFF_MAX_MS = 5 * 60_000
 
 export const TicketIndexLive = Layer.effect(
   TicketIndex,
@@ -1514,10 +1535,32 @@ export const TicketIndexLive = Layer.effect(
       const branches = documents.flatMap((document) =>
         ticketBranchRowsFor(project, document)
       )
-      const comments = commentIndexRowsFor(project, documents)
+      const allComments = commentIndexRowsFor(project, documents)
       return sql
         .withTransaction(
           Effect.gen(function* () {
+            // Comments by since-deleted users would fail the author foreign key.
+            const authorIds = [
+              ...new Set(
+                allComments.flatMap((comment) =>
+                  comment.authorId == null ? [] : [comment.authorId]
+                )
+              )
+            ]
+            const knownAuthors =
+              authorIds.length === 0
+                ? new Set<string>()
+                : new Set(
+                    (yield* db
+                      .select({ id: user.id })
+                      .from(user)
+                      .where(inArray(user.id, authorIds))
+                      .pipe(Effect.orDie)).map((row) => row.id)
+                  )
+            const comments = allComments.filter(
+              (comment) =>
+                comment.authorId == null || knownAuthors.has(comment.authorId)
+            )
             yield* db
               .delete(ticketIndex)
               .where(eq(ticketIndex.projectId, project.projectId))
@@ -1601,10 +1644,17 @@ export const TicketIndexLive = Layer.effect(
       writeProject: writeProjectIndex
     })
 
+    const repairBackoff = new Map<
+      string,
+      { failures: number; retryAt: number }
+    >()
     const repairUnpublished = Effect.gen(function* () {
       if (unpublished.size === 0) return
-      const pending = [...unpublished.values()]
-      unpublished.clear()
+      const now = yield* Clock.currentTimeMillis
+      const pending = [...unpublished.values()].filter(
+        (project) => (repairBackoff.get(project.projectId)?.retryAt ?? 0) <= now
+      )
+      for (const project of pending) unpublished.delete(project.projectId)
       yield* Effect.forEach(
         pending,
         (project) =>
@@ -1616,15 +1666,30 @@ export const TicketIndexLive = Layer.effect(
                 rebuilt: summary.rebuilt
               })
             ),
+            Effect.tap(() =>
+              Effect.sync(() => repairBackoff.delete(project.projectId))
+            ),
             Effect.catchCause((cause) =>
-              Effect.logError(
-                "ticket index repair failed; requeued",
-                cause
-              ).pipe(
-                Effect.andThen(
-                  Effect.sync(() => {
-                    unpublished.set(project.projectId, project)
+              Clock.currentTimeMillis.pipe(
+                Effect.map((now) => {
+                  const failures =
+                    (repairBackoff.get(project.projectId)?.failures ?? 0) + 1
+                  const delay = Math.min(
+                    REPAIR_BACKOFF_MAX_MS,
+                    REPAIR_BACKOFF_BASE_MS * 2 ** (failures - 1)
+                  )
+                  repairBackoff.set(project.projectId, {
+                    failures,
+                    retryAt: now + delay
                   })
+                  unpublished.set(project.projectId, project)
+                  return delay
+                }),
+                Effect.flatMap((delay) =>
+                  Effect.logError(
+                    "ticket index repair failed; requeued",
+                    cause
+                  ).pipe(Effect.annotateLogs({ retryInMs: delay }))
                 )
               )
             )
