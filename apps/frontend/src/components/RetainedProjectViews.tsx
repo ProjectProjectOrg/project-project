@@ -137,7 +137,10 @@ export function RetainedProjectViews({
     return {
       ...query,
       sort: normalizeEstimateSort(estimation, query.sort),
-      estimate: normalizeEstimateFilter(estimation, query.estimate)
+      ...withDefined(
+        "estimate",
+        normalizeEstimateFilter(estimation, query.estimate)
+      )
     }
   }, [lastBacklog, estimation])
   const sprintId = lastSprint ? decodeGroupId(lastSprint.groupId) : null
@@ -147,7 +150,10 @@ export function RetainedProjectViews({
     return {
       ...query,
       sort: normalizeEstimateSort(estimation, query.sort),
-      estimate: normalizeEstimateFilter(estimation, query.estimate),
+      ...withDefined(
+        "estimate",
+        normalizeEstimateFilter(estimation, query.estimate)
+      ),
       groupId: sprintId ? [sprintId] : query.groupId
     }
   }, [lastSprint, sprintId, estimation])
@@ -198,3 +204,6 @@ export function RetainedProjectViews({
     </Activity>
   )
 }
+
+const withDefined = <K extends string, V>(key: K, value: V | undefined) =>
+  value === undefined ? {} : ({ [key]: value } as Record<K, V>)
