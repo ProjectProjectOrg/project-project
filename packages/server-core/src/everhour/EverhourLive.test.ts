@@ -196,7 +196,9 @@ describe("EverhourLive response decoding", () => {
             jsonResponse(operation === "log" ? wire : { taskTime: wire })
           )
           .mockResolvedValueOnce(
-            jsonResponse([{ ...wire, history: [{ id: 101, time: 60 }] }])
+            jsonResponse([
+              { ...wire, history: [{ id: 101, time: 60, previousTime: 0 }] }
+            ])
           )
         stubFetch(fetch)
         const record = yield* operation === "log"
@@ -262,7 +264,9 @@ describe("EverhourLive response decoding", () => {
           )
         )
         .mockResolvedValueOnce(
-          jsonResponse([{ ...wire, history: [{ id: 101, time: 60 }] }])
+          jsonResponse([
+            { ...wire, history: [{ id: 101, time: 60, previousTime: 0 }] }
+          ])
         )
       stubFetch(fetch)
       const everhour = yield* Everhour
@@ -278,5 +282,77 @@ describe("EverhourLive response decoding", () => {
         request instanceof Request ? request.url : request?.toString()
       ).toContain("page=2")
     }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+  )
+  it.effect(
+    "recovers the entry from the mutation snapshot when a later write appears",
+    () =>
+      Effect.gen(function* () {
+        const wire = { id: 277062174, user: 42, date: "2026-10-23", time: 60 }
+        const everhour = yield* Everhour
+        for (const operation of ["log", "stop"] as const) {
+          stubFetch(
+            vi
+              .fn<FetchImplementation>()
+              .mockResolvedValueOnce(
+                jsonResponse(operation === "log" ? wire : { taskTime: wire })
+              )
+              .mockResolvedValueOnce(
+                jsonResponse([
+                  {
+                    ...wire,
+                    time: 180,
+                    history: [
+                      { id: 101, time: 60, previousTime: 0 },
+                      { id: 102, time: 120, previousTime: 60 }
+                    ]
+                  }
+                ])
+              )
+          )
+          const record = yield* operation === "log"
+            ? everhour.addTime("api-key", {
+                task: "task",
+                time: 60,
+                date: wire.date
+              })
+            : everhour.stopTimer("api-key")
+          expect(record?.seconds).toBe(60)
+          expect(record?.history).toEqual([{ id: "101", seconds: 60 }])
+        }
+      }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+  )
+
+  it.effect(
+    "rejects recovery when several entries match the mutation total",
+    () =>
+      Effect.gen(function* () {
+        const wire = { id: 277062174, user: 42, date: "2026-10-23", time: 60 }
+        stubFetch(
+          vi
+            .fn<FetchImplementation>()
+            .mockResolvedValueOnce(jsonResponse(wire))
+            .mockResolvedValueOnce(
+              jsonResponse([
+                {
+                  ...wire,
+                  history: [
+                    { id: 101, time: 60, previousTime: 0 },
+                    { id: 102, time: -60, previousTime: 60 },
+                    { id: 103, time: 60, previousTime: 0 }
+                  ]
+                }
+              ])
+            )
+        )
+        const everhour = yield* Everhour
+        const error = yield* Effect.flip(
+          everhour.addTime("api-key", {
+            task: "task",
+            time: 60,
+            date: wire.date
+          })
+        )
+        expect(error._tag).toBe("EverhourError")
+      }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
   )
 })

@@ -83,7 +83,8 @@ const TimerResponse = Schema.Struct({
 })
 const TimeEntryResponse = Schema.Struct({
   id: ExternalId,
-  time: Schema.Finite
+  time: Schema.Finite,
+  previousTime: Schema.optional(Schema.Finite)
 })
 export const TimeRecordResponse = Schema.Struct({
   id: ExternalId,
@@ -318,7 +319,8 @@ const requestNullable = <A>(
 
 const ensureTimeHistory = Effect.fn("Everhour.ensureTimeHistory")(function* (
   apiKey: string,
-  record: EverhourTimeRecord
+  record: EverhourTimeRecord,
+  expectedDelta?: number
 ) {
   if (record.history.length > 0 || record.seconds === 0) return record
   const userId =
@@ -336,14 +338,25 @@ const ensureTimeHistory = Effect.fn("Everhour.ensureTimeHistory")(function* (
       "GET",
       `/users/${encodeURIComponent(userId)}/time?${query.toString()}`,
       undefined,
-      (value) =>
-        decodeResponse(Schema.Array(TimeRecordResponse), value).pipe(
-          Effect.map((records) => records.map(toTimeRecord))
-        )
+      (value) => decodeResponse(Schema.Array(TimeRecordResponse), value)
     )
-    const saved = records.find((candidate) => candidate.id === record.id)
+    const saved = records.find(
+      (candidate) => String(candidate.id) === record.id
+    )
     if (saved) {
-      if (saved.history.length > 0) return { ...record, history: saved.history }
+      if (saved.history.some((entry) => entry.previousTime === undefined)) break
+      const matches = saved.history.filter(
+        (entry) =>
+          entry.previousTime !== undefined &&
+          entry.previousTime + entry.time === record.seconds &&
+          (expectedDelta === undefined || entry.time === expectedDelta)
+      )
+      const entry = matches.length === 1 ? matches[0] : undefined
+      if (entry)
+        return {
+          ...record,
+          history: [{ id: String(entry.id), seconds: entry.time }]
+        }
       break
     }
     if (records.length < 100) break
@@ -505,7 +518,9 @@ export const EverhourLive = Layer.effect(
       addTime: (apiKey, input) =>
         tracking(
           request(apiKey, "POST", "/time", input, mapTimeRecord).pipe(
-            Effect.flatMap((record) => ensureTimeHistory(apiKey, record))
+            Effect.flatMap((record) =>
+              ensureTimeHistory(apiKey, record, input.time)
+            )
           )
         ),
       createWebhook: (apiKey, input) =>
