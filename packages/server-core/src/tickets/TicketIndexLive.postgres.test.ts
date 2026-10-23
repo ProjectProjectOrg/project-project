@@ -711,6 +711,101 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
     }).pipe(Effect.provide(indexLayer))
   })
 
+  it.effect(
+    "rebuilds a project whose tickets keep comments by deleted users",
+    () => {
+      const suffix = randomUUID()
+      const organizationId = `ticket-index-deleted-author-${suffix}`
+      const orgSlug = organizationId
+      const projectSlug = organizationId
+      const projectId = randomUUID()
+      const userId = `ticket-index-author-${suffix}`
+      const keptId = commentId(`c_${randomUUID()}`)
+      const createdAt = DateTime.toDate(
+        DateTime.makeUnsafe("2021-04-01T01:02:03.456Z")
+      )
+      const document: TicketDocument = {
+        ...rebuiltDocument,
+        id: ticketId("T-43"),
+        createdBy: userId,
+        commentsRegion: serializeCommentsRegion([
+          {
+            id: keptId,
+            author: { kind: "user", userId },
+            origin: "native",
+            createdAt,
+            editedAt: null,
+            body: "Still here"
+          },
+          {
+            id: commentId(`c_${randomUUID()}`),
+            author: { kind: "user", userId: `deleted-user-${suffix}` },
+            origin: "native",
+            createdAt,
+            editedAt: null,
+            body: "Author was deleted"
+          }
+        ])
+      }
+      const indexLayer = TicketIndexLive.pipe(
+        Layer.provide(
+          Layer.succeed(TicketDocs, {
+            listIds: () => Effect.succeed([document.id]),
+            read: () => Effect.succeed(document),
+            create: () => unexpected("TicketDocs.create"),
+            write: () => unexpected("TicketDocs.write"),
+            update: () => unexpected("TicketDocs.update"),
+            remove: () => unexpected("TicketDocs.remove"),
+            readRaw: () => unexpected("TicketDocs.readRaw")
+          } satisfies TicketDocsShape)
+        ),
+        Layer.provide(DatabaseLive)
+      )
+
+      return Effect.gen(function* () {
+        yield* withClient(async (client) => {
+          await client.query(
+            `insert into "user" (id, name, email, created_at, updated_at)
+             values ($1, 'Author', $2, now(), now())`,
+            [userId, `${userId}@example.com`]
+          )
+          await client.query(
+            `insert into organization (id, name, slug, created_at)
+             values ($1, 'Deleted author', $2, now())`,
+            [organizationId, orgSlug]
+          )
+          await client.query(
+            `insert into project_index
+               (id, slug, organization_id, key, name, icon, color, created_by, created_at)
+             values ($1, $2, $3, 'T', 'Deleted author', 'folder', 'blue', $4, now())`,
+            [projectId, projectSlug, organizationId, userId]
+          )
+        })
+        yield* Effect.addFinalizer(() =>
+          withClient(async (client) => {
+            await client.query("delete from organization where id = $1", [
+              organizationId
+            ])
+            await client.query('delete from "user" where id = $1', [userId])
+          })
+        )
+
+        const index = yield* TicketIndex
+        const project = yield* index.projectFor(orgSlug, projectSlug)
+        const summary = yield* index.rebuildProject(project)
+        expect(summary.indexed).toBe(1)
+
+        const rows = yield* withClient((client) =>
+          client.query<Readonly<{ id: string }>>(
+            "select id from comment_index where project_id = $1",
+            [projectId]
+          )
+        )
+        expect(rows.rows).toEqual([{ id: keptId }])
+      }).pipe(Effect.provide(indexLayer))
+    }
+  )
+
   it.effect("queries, filters, paginates, and counts indexed tickets", () =>
     Effect.gen(function* () {
       const suffix = randomUUID()
