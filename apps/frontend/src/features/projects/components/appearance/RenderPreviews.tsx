@@ -6,7 +6,7 @@ import {
 } from "@/features/projects/components/appearance/IconPreviewTile"
 import { ProjectBanner as ProjectBannerSurface } from "@/features/projects/components/ProjectBanner"
 import { ProjectIconDisplay } from "@/features/projects/components/ProjectIconDisplay"
-import { ProjectTile } from "@/features/projects/components/ProjectIconTile"
+import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -34,7 +34,7 @@ export function RenderPreviews({
   waiting?: boolean
 }) {
   const header = (
-    <ProjectTile
+    <ProjectIconTile
       orgSlug={orgSlug}
       icon={live?.kind === "emoji" ? live.emoji : icon}
       iconImage={live ? null : iconImage}

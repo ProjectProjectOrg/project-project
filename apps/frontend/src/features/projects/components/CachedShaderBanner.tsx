@@ -7,11 +7,11 @@ import {
   type BannerRenderKey
 } from "@/features/projects/lib/bannerRenderCache"
 
-import type { BannerPrototypeSettings } from "./BannerShader"
+import type { BannerShaderSettings } from "./BannerShader"
 
-const ProjectBannerPrototypeShader = lazy(() =>
+const BannerShader = lazy(() =>
   import("./BannerShader").then((module) => ({
-    default: module.ProjectBannerPrototypeShader
+    default: module.BannerShader
   }))
 )
 import { m } from "@/paraglide/messages"
@@ -31,10 +31,8 @@ type Rendered = {
   readonly signature: string
 }
 
-const signatureOf = (
-  image: HTMLImageElement,
-  settings: BannerPrototypeSettings
-) => `${image.src}|${settings.x}|${settings.y}|${settings.zoom}`
+const signatureOf = (image: HTMLImageElement, settings: BannerShaderSettings) =>
+  `${image.src}|${settings.x}|${settings.y}|${settings.zoom}`
 
 export function CachedShaderBanner({
   image,
@@ -44,7 +42,7 @@ export function CachedShaderBanner({
   onFirstRender
 }: {
   image: HTMLImageElement
-  settings: BannerPrototypeSettings
+  settings: BannerShaderSettings
   cacheKey: BannerRenderKey | null
   live?: boolean
   onFirstRender?: () => void
@@ -131,7 +129,7 @@ export function CachedShaderBanner({
         size.width > 0 &&
         size.height > 0 && (
           <Suspense fallback={null}>
-            <ProjectBannerPrototypeShader
+            <BannerShader
               image={image}
               settings={settings}
               mode="mask"

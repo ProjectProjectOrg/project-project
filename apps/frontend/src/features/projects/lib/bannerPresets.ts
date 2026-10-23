@@ -12,7 +12,7 @@ import {
 } from "@/features/projects/lib/bannerSource"
 import { m } from "@/paraglide/messages"
 
-import type { BannerPrototypeSettings } from "../components/BannerShader"
+import type { BannerShaderSettings } from "../components/BannerShader"
 
 export { bannerSource }
 
@@ -97,7 +97,7 @@ export const bannerPresets: ReadonlyArray<BannerPreset> = [
   }
 ]
 
-export const bannerDefaults: BannerPrototypeSettings = {
+export const bannerDefaults: BannerShaderSettings = {
   pixelSize: 2,
   strength: 0.85,
   color: 0.5,

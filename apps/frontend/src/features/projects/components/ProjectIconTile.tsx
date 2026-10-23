@@ -62,7 +62,7 @@ const EMOJI_SHADOW = [
   "drop-shadow(0 6px 8px rgba(0,0,0,0.35))"
 ].join(" ")
 
-export function ProjectTile({
+export function ProjectIconTile({
   orgSlug,
   icon,
   iconImage,

@@ -1,7 +1,7 @@
 import * as Match from "effect/Match"
 import { useEffect, useRef, useState } from "react"
 
-export type BannerPrototypeSettings = {
+export type BannerShaderSettings = {
   pixelSize: number
   strength: number
   color: number
@@ -103,7 +103,7 @@ void main() {
   fragColor = vec4(color, alpha * sampled.a);
 }`
 
-export function ProjectBannerPrototypeShader({
+export function BannerShader({
   image,
   settings,
   mode,
@@ -111,7 +111,7 @@ export function ProjectBannerPrototypeShader({
   onRender
 }: {
   image: HTMLImageElement
-  settings: BannerPrototypeSettings
+  settings: BannerShaderSettings
   mode: "image" | "mask" | "original"
   label: string
   onRender?: (canvas: HTMLCanvasElement) => void
