@@ -30,7 +30,9 @@ import "prismjs/components/prism-toml.js"
 // looks like `refractor/jsx` (not `refractor/lang/jsx.js`).
 import { refractor } from "refractor"
 import jsx from "refractor/jsx"
+import toml from "refractor/toml"
 import tsx from "refractor/tsx"
 
 refractor.register(jsx)
 refractor.register(tsx)
+refractor.register(toml)

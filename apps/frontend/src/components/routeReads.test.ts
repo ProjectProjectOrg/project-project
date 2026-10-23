@@ -117,22 +117,44 @@ it("starts backlog sections alongside metadata without waiting, even with collap
   const sections = requests.find((url) =>
     url.pathname.endsWith("/tickets/sections")
   )
-  const sprintSections = requests.find((url) =>
-    url.pathname.endsWith("/tickets/sprint-sections")
-  )
   expect(sections?.searchParams.get("q")).toBe("search")
   expect(sections?.searchParams.has("status")).toBe(false)
   expect(sections?.searchParams.get("sort")).toBe(
     '{"key":"title","dir":"desc"}'
   )
-  expect(sprintSections?.searchParams.get("q")).toBe("search")
-  expect(sprintSections?.searchParams.get("status")).toBe("review")
-  expect(sprintSections?.searchParams.get("sort")).toBe(
-    '{"key":"title","dir":"desc"}'
-  )
   expect(requests.map((url) => url.pathname)).toContain(
     "/api/orgs/org/projects/project/statuses"
   )
+  expect(
+    requests.some((url) => url.pathname.endsWith("/tickets/sprint-sections"))
+  ).toBe(false)
+  expect(requests.map((url) => url.pathname)).toContain("/api/me")
+})
+
+it("starts only sprint sections when the viewer groups the list by sprint", async () => {
+  localStorage.setItem(
+    "projectproject:backlog-grouping:user-1:org/project",
+    JSON.stringify("sprint")
+  )
+  const query = decodeTicketListQuery({
+    q: "search",
+    status: ["review"],
+    sort: { key: "title", dir: "desc" }
+  })
+  load(BacklogRoute.options.loader, {
+    context: { registry },
+    params,
+    deps: query
+  })
+  await vi.waitFor(() => expect(requests).toHaveLength(5))
+  const sprintSections = requests.find((url) =>
+    url.pathname.endsWith("/tickets/sprint-sections")
+  )
+  expect(sprintSections?.searchParams.get("q")).toBe("search")
+  expect(sprintSections?.searchParams.get("status")).toBe("review")
+  expect(
+    requests.some((url) => url.pathname.endsWith("/tickets/sections"))
+  ).toBe(false)
 })
 
 it.each(["board", "list", "description"] as const)(

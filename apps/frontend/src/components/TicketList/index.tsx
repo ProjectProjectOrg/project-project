@@ -74,17 +74,27 @@ export function TicketListContent({
   showSections = false,
   ...props
 }: Omit<TicketListProps, "creator" | "toolbar">) {
+  const statusShown = useShownOnce(!showSections)
+  const sectionsShown = useShownOnce(showSections)
   const statusSections = <StatusSections {...props} />
   return sections ? (
     <>
       <Activity mode={showSections ? "hidden" : "visible"}>
-        {statusSections}
+        {statusShown && statusSections}
       </Activity>
-      <Activity mode={showSections ? "visible" : "hidden"}>{sections}</Activity>
+      <Activity mode={showSections ? "visible" : "hidden"}>
+        {sectionsShown && sections}
+      </Activity>
     </>
   ) : (
     statusSections
   )
+}
+
+function useShownOnce(visible: boolean): boolean {
+  const [shown, setShown] = useState(visible)
+  if (visible && !shown) setShown(true)
+  return shown || visible
 }
 
 function StatusSections({

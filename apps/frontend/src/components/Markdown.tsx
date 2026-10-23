@@ -17,7 +17,7 @@ import {
   type ReactNode
 } from "react"
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown"
-import rehypePrismPlus from "rehype-prism-plus"
+import rehypePrismPlus from "rehype-prism-plus/common"
 
 import "@/lib/prism-langs"
 import remarkGfm from "remark-gfm"

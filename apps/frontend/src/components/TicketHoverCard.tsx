@@ -12,9 +12,8 @@ import { flattenTicketBlocks } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import type { ComponentProps } from "react"
-import { useMemo } from "react"
+import { lazy, Suspense, useMemo } from "react"
 
-import { Markdown } from "@/components/Markdown"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { TicketGitChip } from "@/components/TicketGit"
 import { EstimateChip } from "@/components/TicketList/EstimateField"
@@ -40,6 +39,10 @@ import {
 } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+
+const Markdown = lazy(() =>
+  import("@/components/Markdown").then((mod) => ({ default: mod.Markdown }))
+)
 
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
 
@@ -109,12 +112,14 @@ export function TicketHoverCard({
               <MetaRow ticket={ticket} scope={scope} statuses={statuses} />
               {body.length > 0 && (
                 <div className="relative">
-                  <Markdown
-                    className="line-clamp-6 text-xs leading-relaxed text-muted-foreground [&_*]:!my-0 [&_pre]:!my-1"
-                    blocks="flat"
-                  >
-                    {body}
-                  </Markdown>
+                  <Suspense fallback={null}>
+                    <Markdown
+                      className="line-clamp-6 text-xs leading-relaxed text-muted-foreground [&_*]:!my-0 [&_pre]:!my-1"
+                      blocks="flat"
+                    >
+                      {body}
+                    </Markdown>
+                  </Suspense>
                   {isOverflowing && interactive && (
                     <>
                       <div
