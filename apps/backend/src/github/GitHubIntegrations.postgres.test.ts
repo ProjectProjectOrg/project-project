@@ -25,6 +25,8 @@ import * as Cause from "effect/Cause"
 import * as Deferred from "effect/Deferred"
 import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
+import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
@@ -247,7 +249,9 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
         results.filter((result) => {
           if (!Exit.isFailure(result)) return false
           const error = Cause.findErrorOption(result.cause)
-          return error._tag === "Some" && error.value._tag === "NotFound"
+          return (
+            Option.isSome(error) && Predicate.isTagged(error.value, "NotFound")
+          )
         })
       ).toHaveLength(1)
       const result = yield* Effect.promise(() =>

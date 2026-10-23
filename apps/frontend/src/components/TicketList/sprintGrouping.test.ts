@@ -5,12 +5,14 @@ import { describe, expect, it } from "vitest"
 
 import { backlogSprintSections } from "./sprintGrouping"
 
+const decodeGroupSync = Schema.decodeSync(Group)
+
 const sprint = (
   id: string,
   startsAt: string | null,
   completedAt: string | null = null
 ) =>
-  Schema.decodeSync(Group)({
+  decodeGroupSync({
     id,
     name: id,
     kind: "sprint",

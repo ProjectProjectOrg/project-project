@@ -1,10 +1,11 @@
+import type * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import { convertAdfToMarkdown, rewriteJiraReferences } from "./Adf"
 
 describe("convertAdfToMarkdown", () => {
   it("converts the supported block and inline nodes to deterministic Markdown", () => {
-    const document = {
+    const document: Schema.Json = {
       version: 1,
       type: "doc",
       content: [
@@ -182,7 +183,7 @@ describe("convertAdfToMarkdown", () => {
   })
 
   it("extracts every Jira reference with stable document-order placeholders", () => {
-    const document = {
+    const document: Schema.Json = {
       version: 1,
       type: "doc",
       content: [

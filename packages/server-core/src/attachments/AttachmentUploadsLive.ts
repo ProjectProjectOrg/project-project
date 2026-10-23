@@ -34,6 +34,8 @@ import { Users } from "../users/Users"
 import * as Attachments from "./Attachments"
 import * as AttachmentUploads from "./AttachmentUploads"
 
+const decodeAttachmentId = Schema.decodeEffect(AttachmentId)
+
 const UploadGrant = Schema.fromJsonString(
   Schema.Struct({
     purpose: Schema.Literal("ticket-attachment-upload"),
@@ -45,6 +47,10 @@ const UploadGrant = Schema.fromJsonString(
     expiresAt: Schema.Finite
   })
 )
+
+const encodeUploadGrant = Schema.encodeEffect(UploadGrant)
+
+const decodeUploadGrant = Schema.decodeEffect(UploadGrant)
 const SealedGrant = Schema.fromJsonString(
   Schema.Struct({
     ciphertext: Schema.String,
@@ -52,6 +58,10 @@ const SealedGrant = Schema.fromJsonString(
     tag: Schema.String
   })
 )
+
+const encodeSealedGrant = Schema.encodeEffect(SealedGrant)
+
+const decodeSealedGrant = Schema.decodeEffect(SealedGrant)
 
 export const AttachmentUploadsLive = Layer.effect(
   AttachmentUploads.AttachmentUploads,
@@ -99,10 +109,10 @@ export const AttachmentUploadsLive = Layer.effect(
         )
           return yield* new StorageConfigMissing()
         const prepared = yield* attachments.prepare(ticketId, input)
-        const attachmentId = yield* Schema.decodeEffect(AttachmentId)(
-          prepared.id
-        ).pipe(Effect.orDie)
-        const payload = yield* Schema.encodeEffect(UploadGrant)({
+        const attachmentId = yield* decodeAttachmentId(prepared.id).pipe(
+          Effect.orDie
+        )
+        const payload = yield* encodeUploadGrant({
           purpose: "ticket-attachment-upload",
           orgSlug,
           projectSlug,
@@ -114,9 +124,7 @@ export const AttachmentUploadsLive = Layer.effect(
         const grant = yield* secrets
           .seal(payload)
           .pipe(Effect.mapError(() => new StorageConfigMissing()))
-        const encoded = yield* Schema.encodeEffect(SealedGrant)(grant).pipe(
-          Effect.orDie
-        )
+        const encoded = yield* encodeSealedGrant(grant).pipe(Effect.orDie)
         url.searchParams.set(
           "token",
           Buffer.from(encoded).toString("base64url")
@@ -134,7 +142,7 @@ export const AttachmentUploadsLive = Layer.effect(
         function* (token, contentType, body) {
           if (token.length === 0 || token.length > 4096)
             return yield* new Unauthorized()
-          const sealed = yield* Schema.decodeEffect(SealedGrant)(
+          const sealed = yield* decodeSealedGrant(
             Buffer.from(token, "base64url").toString("utf8")
           ).pipe(Effect.mapError(() => new Unauthorized()))
           const plaintext = yield* secrets
@@ -146,7 +154,7 @@ export const AttachmentUploadsLive = Layer.effect(
                   : new StorageConfigMissing()
               )
             )
-          const grant = yield* Schema.decodeEffect(UploadGrant)(plaintext).pipe(
+          const grant = yield* decodeUploadGrant(plaintext).pipe(
             Effect.mapError(() => new Unauthorized())
           )
           const checkExpiry = Effect.gen(function* () {

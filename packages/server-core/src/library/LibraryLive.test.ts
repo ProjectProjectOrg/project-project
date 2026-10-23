@@ -1,5 +1,4 @@
 import { it } from "@effect/vitest"
-import { Db } from "@pp/db"
 import {
   BlockDraft,
   BUILTIN_BLOCKS,
@@ -19,9 +18,11 @@ import {
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
 import { describe, expect } from "vitest"
 
+import { databaseLayer } from "../../test/database"
 import { orgScope, projectScope } from "../access/testing"
 import * as KeyedLock from "../locks/KeyedLock"
 import type { LibraryKind } from "../markdown/Markdown"
@@ -165,30 +166,20 @@ const projectDocument = (
   body: "# Web\n"
 })
 
-const fakeDb = Layer.succeed(Db, {
-  query: {
-    projectIndex: {
-      findFirst: () => Effect.succeed({ id: "project-1" })
-    },
-    projectTag: {
-      findMany: () => Effect.succeed([{ name: "frontend" }])
-    },
-    projectMember: {
-      findMany: () =>
-        Effect.succeed([{ userId: "project-admin" }, { userId: "member" }])
-    },
-    member: {
-      findMany: (query: {
-        readonly where: { readonly userId: { readonly in: Array<string> } }
-      }) =>
-        Effect.succeed(
-          query.where.userId.in
-            .filter((userId) => userId in ORG_ROLES)
-            .map((userId) => ({ userId }))
-        )
-    }
-  }
-} as never)
+const fakeDb = databaseLayer(({ sql, params }) =>
+  Effect.sync(() => {
+    const table = sql.match(/from "([^"]+)"/)?.[1]
+    if (table === "project_index") return [["project-1"]]
+    if (table === "project_tag") return [["frontend"]]
+    if (table === "project_member") return [["project-admin"], ["member"]]
+    if (table === "member")
+      return params
+        .filter(Predicate.isString)
+        .filter((userId) => userId in ORG_ROLES)
+        .map((userId) => [userId])
+    throw new Error(`Unexpected SQL: ${sql}`)
+  })
+)
 
 const makeWorld = (): World => ({
   layers: new Map(),

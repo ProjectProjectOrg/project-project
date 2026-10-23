@@ -56,7 +56,9 @@ import * as Layer from "effect/Layer"
 
 import { toWebHeaders } from "../http/toWebHeaders"
 
-function normalizeEditorPreference(value: unknown): EditorPreference {
+function normalizeEditorPreference(
+  value: string | null | undefined
+): EditorPreference {
   switch (value) {
     case "github_dev":
     case "vscode":

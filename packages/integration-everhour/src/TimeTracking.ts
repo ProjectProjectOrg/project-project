@@ -18,7 +18,7 @@ import {
   type EverhourProjectAccessDenied,
   type EverhourRateLimited,
   type LogTimeInput,
-  type OrgEverhourConfig,
+  OrgEverhourConfig,
   type StartSprintTimerInput,
   type StartTimerInput,
   type TicketTimeSummary,
@@ -98,6 +98,8 @@ export class EverhourTimeTracking extends Context.Service<
   EverhourTimeTracking,
   EverhourTimeTrackingShape
 >()("@pp/integration-everhour/TimeTracking/EverhourTimeTracking") {}
+
+const decodeOrgEverhourConfig = Schema.decodeUnknownSync(OrgEverhourConfig)
 
 const makeTicketId = Schema.decodeSync(TicketId)
 const makeGroupId = Schema.decodeSync(GroupId)
@@ -237,9 +239,9 @@ export const EverhourTimeTrackingLive = Layer.effect(
           Effect.orDie,
           Effect.map(
             (row): OrgEverhourConfig =>
-              (row?.config as OrgEverhourConfig | null) ?? {
-                workTypes: DEFAULT_WORK_TYPES
-              }
+              row?.config === null || row?.config === undefined
+                ? { workTypes: DEFAULT_WORK_TYPES }
+                : decodeOrgEverhourConfig(row.config)
           )
         )
 
@@ -542,14 +544,14 @@ export const EverhourTimeTrackingLive = Layer.effect(
           .pipe(Effect.orDie)
         return {
           slug,
-          ticketId,
+          ticketId: ticketId === null ? null : makeTicketId(ticketId),
           ticketTitle: title,
-          groupId,
+          groupId: makeGroupId(groupId),
           workTypeKey,
           workTypeLabel: task.workTypeLabel,
           everhourTaskId: task.everhourTaskId,
           startedAt: now
-        } as ActiveTimer
+        } satisfies ActiveTimer
       })
 
     const workTypesForTicket: EverhourTimeTrackingShape["workTypesForTicket"] =
@@ -689,10 +691,10 @@ export const EverhourTimeTrackingLive = Layer.effect(
         const link = yield* activeLink(project.projectId)
         if (!link) {
           return {
-            ticketId,
+            ticketId: makeTicketId(ticketId),
             totalSeconds: 0,
             userSeconds: 0
-          } as TicketTimeSummary
+          } satisfies TicketTimeSummary
         }
         const rows = yield* db.query.everhourTimeAttribution
           .findMany({
@@ -711,7 +713,11 @@ export const EverhourTimeTrackingLive = Layer.effect(
           rows,
           everhourUserId
         )
-        return { ticketId, totalSeconds, userSeconds } as TicketTimeSummary
+        return {
+          ticketId: makeTicketId(ticketId),
+          totalSeconds,
+          userSeconds
+        } satisfies TicketTimeSummary
       })
 
     const applyWebhookTimeEvent: EverhourTimeTrackingShape["applyWebhookTimeEvent"] =

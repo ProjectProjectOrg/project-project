@@ -17,6 +17,11 @@ import { stubFetch } from "@/api/testFetch"
 
 import { ticketDetail, ticketRequest, updateTicketDetail } from "./ticketDetail"
 
+const encodeTicketUpdateResultSync = Schema.encodeSync(TicketUpdateResult)
+
+const decodeUnknownUpdateTicketInputSync =
+  Schema.decodeUnknownSync(UpdateTicketInput)
+
 const ticket = {
   id: Schema.decodeSync(TicketId)("T-1"),
   title: "Before",
@@ -42,7 +47,7 @@ const ticket = {
 
 const encode = Schema.encodeSync(TicketDetail)
 const encodeUpdate = (t: TicketDetail) =>
-  Schema.encodeSync(TicketUpdateResult)({ ticket: t, orderKey: null })
+  encodeTicketUpdateResultSync({ ticket: t, orderKey: null })
 const req = ticketRequest("acme", "web", ticket.id)
 
 const fetchStub = stubFetch()
@@ -184,9 +189,7 @@ describe("ticket detail optimistic update", () => {
       if (init?.method === "PATCH") {
         const request =
           input instanceof Request ? input : new Request(input, init)
-        const payload = Schema.decodeUnknownSync(UpdateTicketInput)(
-          await request.json()
-        )
+        const payload = decodeUnknownUpdateTicketInputSync(await request.json())
         payloads.push(payload)
         if (payload.type !== undefined) {
           served = confirmed

@@ -1,3 +1,4 @@
+import * as Match from "effect/Match"
 import { useEffect, useRef, useState } from "react"
 
 export type BannerPrototypeSettings = {
@@ -278,7 +279,11 @@ export function ProjectBannerPrototypeShader({
       gl.uniform1f(uniforms.noiseScale, s.noiseScale ?? 5)
       gl.uniform1i(
         uniforms.mode,
-        currentMode === "image" ? 0 : currentMode === "mask" ? 1 : 2
+        Match.value(currentMode).pipe(
+          Match.when("image", () => 0),
+          Match.when("mask", () => 1),
+          Match.orElse(() => 2)
+        )
       )
       gl.drawArrays(gl.TRIANGLES, 0, 6)
       options.current.onRender?.(canvas)

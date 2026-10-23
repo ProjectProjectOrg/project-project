@@ -112,7 +112,7 @@ export function SegmentedList({
 
   const filteredStatuses: ReadonlyArray<TicketStatus> = useMemo(() => {
     const requested = query.status
-    const allOrdered = boardStatusesFor(statuses) as ReadonlyArray<TicketStatus>
+    const allOrdered = boardStatusesFor(statuses)
     if (requested !== undefined && requested.length > 0) {
       return allOrdered.filter((s) => requested.includes(s))
     }

@@ -4,6 +4,8 @@ import * as Schema from "effect/Schema"
 
 import type { SlackMessage, SlackUnfurl } from "./Client"
 
+const decodeUnknownTicketIdOption = Schema.decodeUnknownOption(TicketId)
+
 const escape = (text: string) =>
   text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
 const text = (value: string) =>
@@ -36,9 +38,9 @@ export const parseTicketLink = (baseUrl: string, value: string) => {
       url.pathname
     )
   if (!match) return null
-  const id = Schema.decodeUnknownOption(TicketId)(match[3])
+  const id = decodeUnknownTicketIdOption(match[3])
   return Option.isSome(id)
-    ? { orgSlug: match[1]!, slug: match[2]!, id: id.value }
+    ? { orgSlug: match[1], slug: match[2], id: id.value }
     : null
 }
 

@@ -24,7 +24,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { IconGridPicker } from "@/components/ui/icon-grid-picker"
@@ -44,7 +43,7 @@ import { TICKET_TYPES } from "./libraryModel"
 import { failureText } from "./LibraryRow"
 import { setDefaultsAtom, type LibraryScope } from "./libraryScope"
 
-const NO_PRIORITY = "none"
+const NO_PRIORITY = "none" as const
 
 type CommitInputProps = Readonly<{
   value: string
@@ -231,37 +230,32 @@ export function NullablePriorityField({
       <DropdownMenuContent align="start" sideOffset={6} className="w-44">
         <DropdownMenuRadioGroup
           value={value ?? NO_PRIORITY}
-          onValueChange={(next: string) =>
-            onChange(
-              next === NO_PRIORITY
-                ? null
-                : (next as (typeof PRIORITY_ORDER)[number])
-            )
-          }
-        >
-          {[null, ...PRIORITY_ORDER].map((priority) => {
+          onValueChange={(next) => onChange(next === NO_PRIORITY ? null : next)}
+          items={[null, ...PRIORITY_ORDER].map((priority) => {
             const itemMeta = priority === null ? null : PRIORITY_META[priority]
             const ItemIcon = itemMeta?.icon ?? null
-            return (
-              <DropdownMenuRadioItem
-                key={priority ?? NO_PRIORITY}
-                value={priority ?? NO_PRIORITY}
-                closeOnClick
-                separated={priority === null}
-              >
-                {ItemIcon === null ? (
-                  <span className="size-4" aria-hidden />
-                ) : (
-                  <ItemIcon
-                    className={cn("size-4", itemMeta?.className)}
-                    strokeWidth={1.75}
-                  />
-                )}
-                {priority === null ? noneLabel() : PRIORITY_LABELS[priority]()}
-              </DropdownMenuRadioItem>
-            )
+            return {
+              value: priority ?? NO_PRIORITY,
+              closeOnClick: true,
+              separated: priority === null,
+              label: (
+                <>
+                  {ItemIcon === null ? (
+                    <span className="size-4" aria-hidden />
+                  ) : (
+                    <ItemIcon
+                      className={cn("size-4", itemMeta?.className)}
+                      strokeWidth={1.75}
+                    />
+                  )}
+                  {priority === null
+                    ? noneLabel()
+                    : PRIORITY_LABELS[priority]()}
+                </>
+              )
+            }
           })}
-        </DropdownMenuRadioGroup>
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -1,5 +1,6 @@
 import { sprintState } from "@pp/shared"
 import type { Group } from "@pp/shared"
+import * as Match from "effect/Match"
 import { Flag, Trophy, Zap } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
@@ -33,13 +34,12 @@ export function SprintStateIcon({
     <Icon
       className={cn(
         "shrink-0",
-        size === "xs"
-          ? "size-3"
-          : size === "sm"
-            ? "size-3.5"
-            : size === "lg"
-              ? "size-5"
-              : "size-4",
+        Match.value(size).pipe(
+          Match.when("xs", () => "size-3"),
+          Match.when("sm", () => "size-3.5"),
+          Match.when("lg", () => "size-5"),
+          Match.orElse(() => "size-4")
+        ),
         stateClass,
         className
       )}

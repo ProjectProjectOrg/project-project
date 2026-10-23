@@ -33,7 +33,7 @@ export const JiraConvertedText = Schema.Struct({
   markdown: Schema.String,
   warnings: Schema.Array(JiraAdfWarning),
   references: Schema.Array(JiraAdfReference),
-  adf: Schema.Unknown
+  adf: Schema.Json
 })
 export type JiraConvertedText = typeof JiraConvertedText.Type
 
@@ -46,7 +46,7 @@ export const JiraManifestSource = Schema.Struct({
   productType: Schema.NullOr(Schema.String),
   scannedAt: Schema.NonEmptyString,
   description: Schema.optional(Schema.NullOr(JiraConvertedText)),
-  raw: Schema.optional(Schema.Unknown)
+  raw: Schema.optional(Schema.Json)
 })
 export type JiraManifestSource = typeof JiraManifestSource.Type
 
@@ -56,7 +56,7 @@ export const JiraManifestIdentity = Schema.Struct({
   emailAddress: Schema.NullOr(Schema.String),
   active: Schema.NullOr(Schema.Boolean),
   accountType: Schema.NullOr(Schema.String),
-  raw: Schema.Unknown
+  raw: Schema.Json
 })
 export type JiraManifestIdentity = typeof JiraManifestIdentity.Type
 
@@ -64,7 +64,7 @@ export const JiraManifestStatus = Schema.Struct({
   id: Schema.NonEmptyString,
   name: Schema.NonEmptyString,
   categoryKey: Schema.NullOr(Schema.String),
-  raw: Schema.Unknown
+  raw: Schema.Json
 })
 export type JiraManifestStatus = typeof JiraManifestStatus.Type
 
@@ -72,14 +72,14 @@ export const JiraManifestIssueType = Schema.Struct({
   id: Schema.NonEmptyString,
   name: Schema.NonEmptyString,
   subtask: Schema.Boolean,
-  raw: Schema.Unknown
+  raw: Schema.Json
 })
 export type JiraManifestIssueType = typeof JiraManifestIssueType.Type
 
 export const JiraManifestPriority = Schema.Struct({
   id: Schema.NonEmptyString,
   name: Schema.NonEmptyString,
-  raw: Schema.Unknown
+  raw: Schema.Json
 })
 export type JiraManifestPriority = typeof JiraManifestPriority.Type
 
@@ -87,7 +87,7 @@ export const JiraManifestComponent = Schema.Struct({
   id: Schema.NonEmptyString,
   name: Schema.NonEmptyString,
   description: Schema.NullOr(Schema.String),
-  raw: Schema.Unknown
+  raw: Schema.Json
 })
 export type JiraManifestComponent = typeof JiraManifestComponent.Type
 
@@ -109,7 +109,7 @@ export const JiraManifestIssue = Schema.Struct({
   restricted: Schema.Boolean,
   createdAt: Schema.NonEmptyString,
   updatedAt: Schema.NonEmptyString,
-  raw: Schema.Unknown
+  raw: Schema.Json
 })
 export type JiraManifestIssue = typeof JiraManifestIssue.Type
 
@@ -122,7 +122,7 @@ export const JiraManifestComment = Schema.Struct({
   createdAt: Schema.NonEmptyString,
   updatedAt: Schema.NullOr(Schema.String),
   restricted: Schema.Boolean,
-  raw: Schema.Unknown
+  raw: Schema.Json
 })
 export type JiraManifestComment = typeof JiraManifestComment.Type
 
@@ -135,7 +135,7 @@ export const JiraManifestAttachment = Schema.Struct({
   downloadUrl: Schema.NullOr(Schema.String),
   jiraUrl: Schema.NullOr(Schema.String),
   downloadAllowed: Schema.Boolean,
-  raw: Schema.Unknown
+  raw: Schema.Json
 })
 export type JiraManifestAttachment = typeof JiraManifestAttachment.Type
 
@@ -151,7 +151,7 @@ export const JiraManifestGroup = Schema.Struct({
   startsAt: Schema.NullOr(Schema.String),
   endsAt: Schema.NullOr(Schema.String),
   completedAt: Schema.NullOr(Schema.String),
-  raw: Schema.Unknown
+  raw: Schema.Json
 })
 export type JiraManifestGroup = typeof JiraManifestGroup.Type
 
@@ -160,7 +160,7 @@ export const JiraManifestRestriction = Schema.Struct({
   targetKind: Schema.Literals(["issue", "comment", "worklog"]),
   targetId: Schema.NonEmptyString,
   source: Schema.String,
-  raw: Schema.Unknown
+  raw: Schema.Json
 })
 export type JiraManifestRestriction = typeof JiraManifestRestriction.Type
 
@@ -179,7 +179,7 @@ export type JiraManifestCoverage = typeof JiraManifestCoverage.Type
 export const JiraManifestRawPage = Schema.Struct({
   kind: Schema.NonEmptyString,
   cursor: Schema.NullOr(Schema.String),
-  records: Schema.Array(Schema.Unknown)
+  records: Schema.Array(Schema.Json)
 })
 export type JiraManifestRawPage = typeof JiraManifestRawPage.Type
 

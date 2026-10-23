@@ -29,7 +29,6 @@ import * as Effect from "effect/Effect"
 import * as Base64Url from "effect/encoding/Base64Url"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
-import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
@@ -37,7 +36,7 @@ import * as SqlClient from "effect/sql/SqlClient"
 import { OrgStorage } from "../storage/OrgStorage"
 import { SecretCrypto } from "../storage/SecretCrypto"
 import { TicketIndex } from "../tickets/TicketIndex"
-import { Figma, type FigmaCredential } from "./Figma"
+import { Figma, FigmaCredential } from "./Figma"
 import {
   chooseCredential,
   FigmaIntegrations,
@@ -80,7 +79,7 @@ const FigmaTokenResponse = Schema.Struct({
   refresh_token: Schema.optional(Schema.NonEmptyString),
   expires_in: Schema.optional(Schema.Finite.check(Schema.isGreaterThan(0)))
 })
-const decodeFigmaTokenResponse = Schema.decodeUnknownOption(FigmaTokenResponse)
+const decodeFigmaTokenResponse = Schema.decodeUnknownEffect(FigmaTokenResponse)
 
 const hashState = (state: string) =>
   createHash("sha256").update(state).digest("hex")
@@ -143,24 +142,30 @@ const postForm = <E>(
     })
   })
 
-const readJson = <E>(response: Response, onError: () => E) =>
+const readTokenResponse = <E>(
+  response: Response,
+  onError: () => E,
+  onInvalid: () => E
+) =>
   Effect.tryPromise({
     try: () => response.json(),
     catch: onError
-  })
+  }).pipe(
+    Effect.flatMap((payload) =>
+      decodeFigmaTokenResponse(payload).pipe(Effect.mapError(onInvalid))
+    )
+  )
 
 export const toTokenGrant = (
-  payload: unknown,
+  payload: typeof FigmaTokenResponse.Type,
   now: Date,
   fallbackRefreshToken: string | null
 ): FigmaTokenGrant | null => {
-  const decoded = decodeFigmaTokenResponse(payload)
-  if (Option.isNone(decoded)) return null
-  const refreshToken = decoded.value.refresh_token ?? fallbackRefreshToken
+  const refreshToken = payload.refresh_token ?? fallbackRefreshToken
   if (refreshToken === null) return null
-  const seconds = decoded.value.expires_in ?? DEFAULT_TOKEN_TTL_SECONDS
+  const seconds = payload.expires_in ?? DEFAULT_TOKEN_TTL_SECONDS
   return {
-    accessToken: decoded.value.access_token,
+    accessToken: payload.access_token,
     refreshToken,
     expiresAt: DateTime.toDate(
       DateTime.add(DateTime.fromDateUnsafe(now), { seconds })
@@ -201,9 +206,10 @@ export const exchangeAuthorizationCode = (input: {
         ? new FigmaAuthInvalid()
         : new FigmaError({ reason: "figma_token_exchange_failed" })
     }
-    const payload = yield* readJson(
+    const payload = yield* readTokenResponse(
       response,
-      () => new FigmaError({ reason: "figma_token_response_unreadable" })
+      () => new FigmaError({ reason: "figma_token_response_unreadable" }),
+      () => new FigmaError({ reason: "figma_token_response_invalid" })
     )
     const grant = toTokenGrant(payload, input.now, null)
     if (grant === null) {
@@ -231,9 +237,10 @@ export const refreshAccessToken = (input: {
     if (!response.ok) {
       return yield* new FigmaError({ reason: "figma_refresh_unavailable" })
     }
-    const payload = yield* readJson(
+    const payload = yield* readTokenResponse(
       response,
-      () => new FigmaError({ reason: "figma_refresh_response_unreadable" })
+      () => new FigmaError({ reason: "figma_refresh_response_unreadable" }),
+      () => new FigmaError({ reason: "figma_refresh_response_invalid" })
     )
     const grant = toTokenGrant(payload, input.now, input.refreshToken)
     if (grant === null) {
@@ -268,19 +275,14 @@ export const resolveCredential = <E = never>(input: {
       projectToken: input.projectToken
     })
     if (chosen === null) return yield* new FigmaNotConnected()
-    if (chosen._tag !== "Bearer" || personal === null) return chosen
+    if (!FigmaCredential.$is("Bearer")(chosen) || personal === null)
+      return chosen
     if (!isTokenExpired(personal.expiresAt, input.now)) return chosen
     const grant = yield* input
       .refresh(personal.refreshToken)
-      .pipe(
-        Effect.tapError((error) =>
-          error._tag === "FigmaAuthInvalid"
-            ? input.onGrantRejected
-            : Effect.void
-        )
-      )
+      .pipe(Effect.tapErrorTag("FigmaAuthInvalid", () => input.onGrantRejected))
     yield* input.persist(grant)
-    return { _tag: "Bearer", token: grant.accessToken }
+    return FigmaCredential.Bearer({ token: grant.accessToken })
   })
 
 export const consumeOauthStateQuery = (
@@ -491,7 +493,7 @@ export const FigmaIntegrationsLive = Layer.effect(
           now
         }).pipe(Effect.provideService(Fetch, fetch))
         const identity = yield* figma
-          .getMe({ _tag: "Bearer", token: grant.accessToken })
+          .getMe(FigmaCredential.Bearer({ token: grant.accessToken }))
           .pipe(
             Effect.catchTags({
               FigmaRateLimited: () =>
@@ -655,7 +657,7 @@ export const FigmaIntegrationsLive = Layer.effect(
           .requireConnection(orgSlug)
           .pipe(Effect.mapError(() => new StorageNotConnected()))
         const identity = yield* figma
-          .getMe({ _tag: "FigmaToken", token: accessToken })
+          .getMe(FigmaCredential.FigmaToken({ token: accessToken }))
           .pipe(
             Effect.catchTag("FigmaFileNotFound", () =>
               Effect.fail(

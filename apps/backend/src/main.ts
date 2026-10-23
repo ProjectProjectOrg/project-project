@@ -204,6 +204,8 @@ const GithubSetupQuery = Schema.fromURLSearchParams(
     installation_id: Schema.NonEmptyString
   })
 )
+
+const decodeGithubSetupQueryOption = Schema.decodeOption(GithubSetupQuery)
 const GithubCallbackQuery = Schema.fromURLSearchParams(
   Schema.Struct({
     state: Schema.NonEmptyString,
@@ -211,12 +213,14 @@ const GithubCallbackQuery = Schema.fromURLSearchParams(
   })
 )
 
+const decodeGithubCallbackQueryOption = Schema.decodeOption(GithubCallbackQuery)
+
 const githubSetupRoute = Effect.gen(function* () {
   const integrations = yield* GitHubIntegrations
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
   const url = new URL(webReq.url)
-  const query = Schema.decodeOption(GithubSetupQuery)(url.searchParams)
+  const query = decodeGithubSetupQueryOption(url.searchParams)
   if (Option.isNone(query)) return badRequest("Missing GitHub setup state")
   const { authorizeUrl } = yield* integrations.completeSetup(
     query.value.state,
@@ -249,7 +253,7 @@ const githubCallbackRoute = Effect.gen(function* () {
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
   const url = new URL(webReq.url)
-  const query = Schema.decodeOption(GithubCallbackQuery)(url.searchParams)
+  const query = decodeGithubCallbackQueryOption(url.searchParams)
   if (Option.isNone(query)) return badRequest("Missing GitHub callback state")
   const { redirectUrl } = yield* integrations.completeCallback(
     query.value.state,

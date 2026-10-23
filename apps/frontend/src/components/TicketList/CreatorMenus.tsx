@@ -1,4 +1,4 @@
-import type { Group, TicketType } from "@pp/shared"
+import { TicketType, type Group } from "@pp/shared"
 import { Plus } from "lucide-react"
 import { useRef, type ComponentProps, type RefObject } from "react"
 
@@ -8,7 +8,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
@@ -81,18 +80,21 @@ export function CreatorTypeMenu({
       >
         <DropdownMenuRadioGroup
           value={type}
-          onValueChange={(next: TicketType) => onTypeChange(next)}
-        >
-          {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
+          onValueChange={onTypeChange}
+          items={TicketType.literals.map((t) => {
             const TIcon = TYPE_META[t].icon
-            return (
-              <DropdownMenuRadioItem key={t} value={t} closeOnClick>
-                <TIcon className="size-4" strokeWidth={1.75} />
-                {TYPE_LABELS[t]()}
-              </DropdownMenuRadioItem>
-            )
+            return {
+              value: t,
+              closeOnClick: true,
+              label: (
+                <>
+                  <TIcon className="size-4" strokeWidth={1.75} />
+                  {TYPE_LABELS[t]()}
+                </>
+              )
+            }
           })}
-        </DropdownMenuRadioGroup>
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   )

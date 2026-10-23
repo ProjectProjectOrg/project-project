@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { BlockDefinition, BlockKey, Library } from "@pp/shared"
+import { BlockKey, type BlockDefinition, type Library } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useMemo, useState } from "react"
@@ -85,9 +85,7 @@ export function BlockList({ scope, library }: BlockListProps) {
           ...block,
           unhide: canUnhide(block, scope.layer, library.canEdit)
         }))}
-        renderUnhide={(key) => (
-          <BlockUnhide scope={scope} blockKey={key as BlockKey} />
-        )}
+        renderUnhide={(key) => <BlockUnhide scope={scope} blockKey={key} />}
       />
     </section>
   )
@@ -124,7 +122,7 @@ function BlockCard({
         ? draft
         : {
             ...draft,
-            key: copyKey(block.key, taken) as BlockKey,
+            key: BlockKey.make(copyKey(block.key, taken)),
             name: m
               .templates_settings_copy_name({ name: block.name })
               .slice(0, 60)

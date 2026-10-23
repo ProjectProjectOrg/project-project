@@ -10,6 +10,10 @@ import { GitHubHost } from "./Host"
 import * as ProjectStateCache from "./projectStateCache"
 import * as GitHubRequest from "./request"
 
+const decodeUnknownJson = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(Schema.Unknown)
+)
+
 const { authenticate, fetch } = vi.hoisted(() => ({
   authenticate:
     vi.fn<
@@ -63,7 +67,7 @@ const pullRequest = {
   head: { ref: args.head, repo: { id: 1 } },
   base: { ref: args.base, repo: { id: 1 } }
 }
-const json = (body: unknown, status = 200) =>
+const json = (body: Schema.Json, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json" }
@@ -226,9 +230,7 @@ describe("GitHub PR creation", () => {
         "GET",
         "POST"
       ])
-      const payload = yield* Schema.decodeUnknownEffect(
-        Schema.fromJsonString(Schema.Unknown)
-      )(fetch.mock.calls[1]?.[1]?.body)
+      const payload = yield* decodeUnknownJson(fetch.mock.calls[1]?.[1]?.body)
       expect(payload).toMatchObject(args)
     }).pipe(Effect.provide(layer))
   )

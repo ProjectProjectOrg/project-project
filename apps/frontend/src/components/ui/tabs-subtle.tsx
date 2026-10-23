@@ -182,9 +182,11 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
           }}
           onKeyDown={(e) => {
             const items = Array.from(
-              containerRef.current?.querySelectorAll('[role="tab"]') ?? []
-            ) as HTMLElement[]
-            const currentIdx = items.indexOf(e.target as HTMLElement)
+              containerRef.current?.querySelectorAll<HTMLElement>(
+                '[role="tab"]'
+              ) ?? []
+            )
+            const currentIdx = items.findIndex((item) => item === e.target)
             if (currentIdx === -1) return
 
             if (

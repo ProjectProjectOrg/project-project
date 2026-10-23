@@ -2,7 +2,10 @@ import { Duration, Semaphore, Stream } from "effect"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
+import * as Match from "effect/Match"
 import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
+import * as Result from "effect/Result"
 import * as Schema from "effect/Schema"
 import { Activity, DurableClock } from "effect/workflow"
 import * as DurableDeferred from "effect/workflow/DurableDeferred"
@@ -39,6 +42,18 @@ import type { JiraMigrationSource } from "./Migrations"
 import { scanCollection, ISSUE_DEPENDENT_CONCURRENCY } from "./Scan"
 import type { ScanChunkReference } from "./ScanV2"
 
+const decodeUnknownJiraIssueArray = Schema.decodeUnknownEffect(
+  Schema.Array(JiraIssue)
+)
+
+const decodeUnknownJiraBoardArray = Schema.decodeUnknownEffect(
+  Schema.Array(JiraBoard)
+)
+
+const decodeUnknownJiraSprintArray = Schema.decodeUnknownEffect(
+  Schema.Array(JiraSprint)
+)
+
 export { activityName, type MigrationActivities } from "./MigrationActivities"
 
 export const PersistedJiraMigrationSource = Schema.Struct({
@@ -64,7 +79,7 @@ export const JiraMigrationWorkflowCommand = Schema.Union([
     workflowAttempt: Schema.Int,
     scanRevision: Schema.Int
   })
-])
+]).pipe(Schema.toTaggedUnion("_tag"))
 
 export const JiraMigrationWorkflowPayload = Schema.Struct({
   command: JiraMigrationWorkflowCommand
@@ -85,6 +100,8 @@ export const JiraMigrationWorkflowFailure = Schema.TaggedStruct(
     reconnect: Schema.optional(Schema.Boolean)
   }
 )
+
+const isJiraMigrationWorkflowFailure = Schema.is(JiraMigrationWorkflowFailure)
 export type JiraMigrationWorkflowFailureValue =
   typeof JiraMigrationWorkflowFailure.Type
 export const JiraMigrationWorkflowError = JiraMigrationWorkflowFailure
@@ -96,9 +113,12 @@ export const JiraMigrationWorkflow = Workflow.make(
     success: JiraMigrationWorkflowSuccess,
     error: JiraMigrationWorkflowError,
     idempotencyKey: ({ command }) =>
-      command._tag === "Create"
-        ? `create:${command.organizationId}:${command.userId}:${command.requestId}`
-        : `${command.migrationId}:${command.workflowAttempt}:${command.expectedRevision}`
+      JiraMigrationWorkflowCommand.match(command, {
+        Create: (command) =>
+          `create:${command.organizationId}:${command.userId}:${command.requestId}`,
+        Rescan: (command) =>
+          `${command.migrationId}:${command.workflowAttempt}:${command.expectedRevision}`
+      })
   }
 )
 
@@ -125,12 +145,13 @@ const migrationIdentity = (
   payload: JiraMigrationWorkflowPayloadValue,
   executionId: string
 ) =>
-  payload.command._tag === "Create"
-    ? { migrationId: executionId, scanRevision: 1 }
-    : {
-        migrationId: payload.command.migrationId,
-        scanRevision: payload.command.scanRevision
-      }
+  JiraMigrationWorkflowCommand.match(payload.command, {
+    Create: () => ({ migrationId: executionId, scanRevision: 1 }),
+    Rescan: (command) => ({
+      migrationId: command.migrationId,
+      scanRevision: command.scanRevision
+    })
+  })
 
 export const makeJiraMigrationWorkflow = <R>(
   activities: MigrationActivities<R>
@@ -152,7 +173,7 @@ export const makeJiraMigrationWorkflow = <R>(
           let operationTry = 0
           while (true) {
             const result = yield* Effect.result(run(operationTry))
-            if (result._tag === "Success") return result.success
+            if (Result.isSuccess(result)) return result.success
             const failure = result.failure
             if (failure.retryAfterMillis !== undefined) {
               yield* DurableClock.sleep({
@@ -196,8 +217,8 @@ export const makeJiraMigrationWorkflow = <R>(
                 error: JiraMigrationWorkflowFailure,
                 execute: activities.resumeImport(input, awaitedSequence)
               })
-              if (resumed._tag === "Resumed") break
-              if (resumed._tag === "Rejected")
+              if (JiraScanResumeResult.guards.Resumed(resumed)) break
+              if (JiraScanResumeResult.guards.Rejected(resumed))
                 return yield* Effect.fail(
                   JiraMigrationWorkflowFailure.make({
                     reason: "jira_migration_superseded",
@@ -279,7 +300,7 @@ export const finalizeJiraMigrationAttempt = Effect.fn(
   if (cancelled || Cause.hasInterruptsOnly(exit.cause)) return
   const error = Cause.findErrorOption(exit.cause)
   const failure =
-    Option.isSome(error) && Schema.is(JiraMigrationWorkflowFailure)(error.value)
+    Option.isSome(error) && isJiraMigrationWorkflowFailure(error.value)
       ? error.value
       : JiraMigrationWorkflowFailure.make({
           reason: "jira_migration_workflow_defect",
@@ -295,23 +316,23 @@ export const makeProjectionMigrationActivities = <R>(
   materialize: MigrationActivities<R>["materialize"],
   publish: MigrationActivities<R>["publish"]
 ): MigrationActivities<R | WorkflowEngine.WorkflowEngine> => {
-  const fenceForActivity = (
-    input: Parameters<typeof scan>[0]
-  ): AttemptFence => ({
-    migrationId:
-      input.payload.command._tag === "Create"
-        ? input.executionId
-        : input.payload.command.migrationId,
-    workflowExecutionId: input.executionId,
-    workflowAttempt:
-      input.payload.command._tag === "Create"
-        ? 1
-        : input.payload.command.workflowAttempt
-  })
+  const fenceForActivity = (input: Parameters<typeof scan>[0]): AttemptFence =>
+    JiraMigrationWorkflowCommand.match(input.payload.command, {
+      Create: () => ({
+        migrationId: input.executionId,
+        workflowExecutionId: input.executionId,
+        workflowAttempt: 1
+      }),
+      Rescan: (command) => ({
+        migrationId: command.migrationId,
+        workflowExecutionId: input.executionId,
+        workflowAttempt: command.workflowAttempt
+      })
+    })
   return {
     start: ({ payload, executionId }) =>
       Effect.gen(function* () {
-        if (payload.command._tag === "Create") {
+        if (JiraMigrationWorkflowCommand.guards.Create(payload.command)) {
           yield* projection.ensureCreated({ ...payload.command, executionId })
         } else {
           const row = yield* projection.beginRescan({
@@ -321,11 +342,12 @@ export const makeProjectionMigrationActivities = <R>(
           yield* JiraMigrationWorkflow.interrupt(row.supersededExecutionId)
         }
       }).pipe(
-        Effect.mapError((error) => ({
-          _tag: "JiraMigrationWorkflowFailure" as const,
-          reason: error.reason,
-          retryable: error._tag === "JiraError"
-        }))
+        Effect.mapError((error) =>
+          JiraMigrationWorkflowFailure.make({
+            reason: error.reason,
+            retryable: Predicate.isTagged(error, "JiraError")
+          })
+        )
       ),
     finalize,
     scan,
@@ -370,19 +392,21 @@ export const runScanUnit = <A>(
     let operationTry = 0
     while (true) {
       const result = yield* Effect.result(run(operationTry))
-      if (result._tag === "Success") return result.success
+      if (Result.isSuccess(result)) return result.success
       const failure = result.failure
-      if (failure._tag === "JiraRateLimited") {
+      if (Predicate.isTagged(failure, "JiraRateLimited")) {
         yield* DurableClock.sleep({
           name: `v1/rate-limit/${logicalName}/${operationTry}`,
           duration: Duration.millis(failure.retryAfterMillis),
           inMemoryThreshold: Duration.zero
         })
       } else {
-        const persisted =
-          failure._tag === "JiraTransientFailure"
-            ? scanFailure(`jira_${failure.reason}`, true)
-            : failure
+        const persisted = Match.value(failure).pipe(
+          Match.tag("JiraTransientFailure", (failure) =>
+            scanFailure(`jira_${failure.reason}`, true)
+          ),
+          Match.orElse((failure) => failure)
+        )
         if (!persisted.retryable) return yield* persisted
         const operationKey = `${logicalName}/${operationTry}`
         const sequence = yield* Activity.make({
@@ -406,8 +430,8 @@ export const runScanUnit = <A>(
               .resume(context, awaitedSequence)
               .pipe(Effect.mapError(scanError))
           })
-          if (resumed._tag === "Resumed") break
-          if (resumed._tag === "Rejected")
+          if (JiraScanResumeResult.guards.Resumed(resumed)) break
+          if (JiraScanResumeResult.guards.Rejected(resumed))
             return yield* scanFailure("jira_migration_superseded")
           awaitedSequence = resumed.failureSequence
         }
@@ -483,7 +507,9 @@ export const scanSnapshot = Effect.fn("scanSnapshot")(
       yield* collection(kind)
     const readChunks = <A>(
       references: ReadonlyArray<ScanChunkReference>,
-      schema: Schema.Decoder<A>
+      decode: ReturnType<
+        typeof Schema.decodeUnknownEffect<Schema.Decoder<ReadonlyArray<A>>>
+      >
     ) =>
       Effect.forEach(references, (ref) =>
         runScanUnit(
@@ -492,7 +518,7 @@ export const scanSnapshot = Effect.fn("scanSnapshot")(
           `read-chunk/${ref.normalized.key}`,
           () =>
             dependencies.artifacts
-              .readJson(context.orgSlug, ref.normalized, Schema.Array(schema))
+              .readJson(context.orgSlug, ref.normalized, decode)
               .pipe(Effect.mapError(scanError))
         )
       ).pipe(Effect.map((pages) => pages.flat()))
@@ -500,7 +526,7 @@ export const scanSnapshot = Effect.fn("scanSnapshot")(
     const issueSources = yield* Effect.forEach(
       chunks.filter((chunk) => chunk.kind === "issues"),
       (chunk) =>
-        readChunks([chunk], JiraIssue).pipe(
+        readChunks([chunk], decodeUnknownJiraIssueArray).pipe(
           Effect.map((issues) =>
             issues.map((issue) => ({
               id: issue.id,
@@ -540,7 +566,7 @@ export const scanSnapshot = Effect.fn("scanSnapshot")(
     )
     const boards = yield* readChunks(
       chunks.filter((chunk) => chunk.kind === "boards"),
-      JiraBoard
+      decodeUnknownJiraBoardArray
     )
     for (const board of boards) {
       yield* collection("boardConfiguration", String(board.id))
@@ -551,7 +577,7 @@ export const scanSnapshot = Effect.fn("scanSnapshot")(
           (chunk) =>
             chunk.kind === "sprints" && chunk.parentId === String(board.id)
         ),
-        JiraSprint
+        decodeUnknownJiraSprintArray
       )
       for (const sprint of sprints)
         yield* collection("sprintIssues", `${board.id}:${sprint.id}`)
@@ -601,12 +627,17 @@ export const makeProjectionScanDependencies = (
           )
           .pipe(
             Effect.mapError((error) =>
-              error._tag === "JiraMigrationWorkflowFailure"
-                ? new JiraArtifactError({
-                    key: artifactKey(coordinates),
-                    reason: "write_intent"
-                  })
-                : error
+              Match.value(error).pipe(
+                Match.tag(
+                  "JiraMigrationWorkflowFailure",
+                  () =>
+                    new JiraArtifactError({
+                      key: artifactKey(coordinates),
+                      reason: "write_intent"
+                    })
+                ),
+                Match.orElse((error) => error)
+              )
             )
           )
     },

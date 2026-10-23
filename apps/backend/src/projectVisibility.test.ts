@@ -4,10 +4,11 @@ import { randomUUID } from "node:crypto"
 import { readFile } from "node:fs/promises"
 
 import { PgClient } from "@effect/sql-pg"
+import { it } from "@effect/vitest"
 import { DbLive } from "@pp/db"
 import { Access } from "@pp/server-core/access/Access"
 import { AccessLive } from "@pp/server-core/access/AccessLive"
-import { orgScope } from "@pp/server-core/access/testing"
+import { orgScope, testUser } from "@pp/server-core/access/testing"
 import { Attachments } from "@pp/server-core/attachments/Attachments"
 import { AttachmentsLive } from "@pp/server-core/attachments/AttachmentsLive"
 import { Figma } from "@pp/server-core/figma/Figma"
@@ -41,10 +42,9 @@ import * as Effect from "effect/Effect"
 import { HttpRouter, HttpServer } from "effect/http"
 import { HttpApi, HttpApiBuilder } from "effect/http-api"
 import * as Layer from "effect/Layer"
-import * as ManagedRuntime from "effect/ManagedRuntime"
 import * as Redacted from "effect/Redacted"
 import { Pool } from "pg"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import { TicketsHandlerLive } from "./handlers/tickets"
 import { OrgAccessLive, ProjectAccessLive } from "./Layers/Access"
@@ -57,8 +57,8 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
   const publishedId = randomUUID()
   const hiddenId = randomUUID()
   let pool: Pool
-  let projectsRuntime: ManagedRuntime.ManagedRuntime<Projects | Access, never>
-  let ticketIndexRuntime: ManagedRuntime.ManagedRuntime<TicketIndex, never>
+  let projectsLayer: Layer.Layer<Projects | Access>
+  let ticketIndexLayer: Layer.Layer<TicketIndex>
   let reconciledSlugs: ReadonlyArray<string> = []
 
   const dbLayer = () =>
@@ -82,9 +82,9 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
   const access = () => AccessLive.pipe(Layer.provide(dbLayer()))
 
   const asOwner = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-    Effect.provideService(effect, CurrentUser, { id: userId } as never)
+    Effect.provideService(effect, CurrentUser, testUser(userId))
 
-  const storage = Layer.succeed(OrgStorage, {
+  const storage = Layer.mock(OrgStorage, {
     requireConnection: () =>
       Effect.succeed({
         endpoint: "https://storage.example.test",
@@ -95,7 +95,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
         accessKeyId: "key",
         secretAccessKey: "secret"
       })
-  } as never)
+  })
 
   const insertAttachment = (
     id: string,
@@ -181,30 +181,26 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
       Layer.provide(ticketDocs),
       Layer.orDie
     )
-    ticketIndexRuntime = ManagedRuntime.make(ticketIndex)
-    projectsRuntime = ManagedRuntime.make(
-      ProjectsLive.pipe(
-        Layer.provideMerge(AccessLive),
-        Layer.provide(TicketDocumentLock.layer),
-        Layer.provide(
-          Layer.mergeAll(
-            db,
-            ticketIndex,
-            ticketDocs,
-            Layer.mock(BannerPlaceholders, {}),
-            Layer.mock(ProjectDocs, {}),
-            Layer.mock(Users, {}),
-            Layer.mock(GitHub, {})
-          )
-        ),
-        Layer.orDie
-      )
+    ticketIndexLayer = ticketIndex
+    projectsLayer = ProjectsLive.pipe(
+      Layer.provideMerge(AccessLive),
+      Layer.provide(TicketDocumentLock.layer),
+      Layer.provide(
+        Layer.mergeAll(
+          db,
+          ticketIndex,
+          ticketDocs,
+          Layer.mock(BannerPlaceholders, {}),
+          Layer.mock(ProjectDocs, {}),
+          Layer.mock(Users, {}),
+          Layer.mock(GitHub, {})
+        )
+      ),
+      Layer.orDie
     )
   })
 
   afterAll(async () => {
-    await projectsRuntime?.dispose()
-    await ticketIndexRuntime?.dispose()
     if (pool) {
       await pool.query("delete from organization where id = $1", [
         organizationId
@@ -214,343 +210,372 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
     }
   })
 
-  it("hides unpublished projects from public project and ticket access", async () => {
-    const result = await projectsRuntime.runPromise(
-      Effect.gen(function* () {
-        const projects = yield* Projects
-        const access = yield* Access
-        const listed = yield* projects.list()
-        const scopes = yield* access.projectsInOrg()
-        const hiddenProject = yield* Effect.result(
-          access.project(`visibility-${organizationId}`, "hidden")
-        )
-        return { listed, scopes, hiddenProject }
-      }).pipe(Effect.provideService(OrgScope, ownerScope), asOwner)
-    )
-
-    expect(result.listed.map((project) => project.slug)).toEqual(["published"])
-    expect(result.scopes.map((scope) => scope.slug)).toEqual(["published"])
-    expect(result.hiddenProject).toMatchObject({
-      _tag: "Failure",
-      failure: { _tag: "NotFound" }
-    })
-    await expect(
-      ticketIndexRuntime.runPromise(
-        Effect.flatMap(TicketIndex, (index) =>
-          index.projectFor(`visibility-${organizationId}`, "hidden")
-        )
-      )
-    ).rejects.toMatchObject({ _tag: "NotFound" })
-  })
-
-  it("returns HTTP 404 for the public hidden-project ticket list route", async () => {
-    const ticketsGroup = AppApi.groups.tickets
-    const api = HttpApiBuilder.layer(
-      HttpApi.make(AppApi.identifier).add(ticketsGroup)
-    ).pipe(
-      Layer.provide(TicketsHandlerLive),
-      Layer.provide(Layer.mock(Tickets, {})),
-      Layer.provide(
-        Layer.mergeAll(OrgAccessLive, ProjectAccessLive).pipe(
-          Layer.provide(access())
-        )
-      ),
-      Layer.provide(
-        Layer.succeed(Authentication, {
-          sessionCookie: (httpEffect) =>
-            httpEffect.pipe(
-              Effect.provideService(CurrentUser, { id: userId } as never),
-              Effect.provideService(ActivityActor, ActivityActor.user(userId))
+  it.layer(
+    Layer.suspend(() => Layer.mergeAll(projectsLayer, ticketIndexLayer))
+  )((it) => {
+    it.effect(
+      "hides unpublished projects from public project and ticket access",
+      () =>
+        Effect.gen(function* () {
+          const result = yield* Effect.gen(function* () {
+            const projects = yield* Projects
+            const access = yield* Access
+            const listed = yield* projects.list()
+            const scopes = yield* access.projectsInOrg()
+            const hiddenProject = yield* Effect.result(
+              access.project(`visibility-${organizationId}`, "hidden")
             )
+            return { listed, scopes, hiddenProject }
+          }).pipe(Effect.provideService(OrgScope, ownerScope), asOwner)
+          expect(result.listed.map((project) => project.slug)).toEqual([
+            "published"
+          ])
+          expect(result.scopes.map((scope) => scope.slug)).toEqual([
+            "published"
+          ])
+          expect(result.hiddenProject).toMatchObject({
+            _tag: "Failure",
+            failure: { _tag: "NotFound" }
+          })
+          expect(
+            yield* Effect.flip(
+              Effect.flatMap(TicketIndex, (index) =>
+                index.projectFor(`visibility-${organizationId}`, "hidden")
+              )
+            )
+          ).toMatchObject({ _tag: "NotFound" })
         })
-      ),
-      Layer.provide(apiRouter)
     )
-    const { handler, dispose } = HttpRouter.toWebHandler(
-      api.pipe(Layer.provideMerge(HttpServer.layerServices))
-    )
-    try {
-      const response = await handler(
-        new Request(
-          `http://localhost/api/orgs/visibility-${organizationId}/projects/hidden/tickets`,
-          { headers: { Cookie: "better-auth.session_token=test" } }
+
+    it("returns HTTP 404 for the public hidden-project ticket list route", async () => {
+      const ticketsGroup = AppApi.groups.tickets
+      const api = HttpApiBuilder.layer(
+        HttpApi.make(AppApi.identifier).add(ticketsGroup)
+      ).pipe(
+        Layer.provide(TicketsHandlerLive),
+        Layer.provideMerge(Layer.mock(Tickets, {})),
+        Layer.provide(
+          Layer.mergeAll(OrgAccessLive, ProjectAccessLive).pipe(
+            Layer.provide(access())
+          )
         ),
-        Context.empty() as never
-      )
-      expect(response.status).toBe(404)
-      expect(await response.json()).toEqual({ _tag: "NotFound" })
-    } finally {
-      void dispose()
-    }
-  })
-
-  it("skips unpublished projects during index reconciliation while direct migration lookup retains them", async () => {
-    const summary = await ticketIndexRuntime.runPromise(
-      Effect.flatMap(TicketIndex, (index) => index.reconcileAllProjects())
-    )
-    const hidden = await pool.query(
-      "select id from project_index where id = $1",
-      [hiddenId]
-    )
-
-    expect(
-      summary.projects
-        .filter(({ project }) => project.organizationId === organizationId)
-        .map(({ project }) => project.projectSlug)
-    ).toEqual(["published"])
-    expect(reconciledSlugs).toEqual(["published"])
-    expect(hidden.rows).toEqual([{ id: hiddenId }])
-  })
-
-  it("keeps hidden-only attachment and thumbnail resources from reaching object signing", async () => {
-    const attachmentId = `hidden-attachment-${randomUUID()}`
-    const linkId = `hidden-figma-${randomUUID()}`
-    await insertAttachment(attachmentId, hiddenId)
-    await pool.query(
-      "insert into figma_link_index (id, organization_id, project_id, file_key, node_id, kind, thumbnail_key) values ($1, $2, $3, 'file-key', null, 'design', 'visibility/thumbnail.png')",
-      [linkId, organizationId, hiddenId]
-    )
-    await pool.query(
-      "insert into figma_reference (link_id, project_id, ticket_id) values ($1, $2, 'T-1')",
-      [linkId, hiddenId]
-    )
-
-    let attachmentSigns = 0
-    const attachments = await Effect.runPromise(
-      Attachments.pipe(
-        Effect.flatMap((service) =>
-          Effect.exit(
-            asOwner(
-              service.resolveForServing(
-                `visibility-${organizationId}`,
-                attachmentId
+        Layer.provide(
+          Layer.succeed(Authentication, {
+            sessionCookie: (httpEffect) =>
+              httpEffect.pipe(
+                Effect.provideService(CurrentUser, testUser(userId)),
+                Effect.provideService(ActivityActor, ActivityActor.user(userId))
               )
-            )
-          )
-        ),
-        Effect.provide(
-          AttachmentsLive.pipe(
-            Layer.provide(dbLayer()),
-            Layer.provide(access()),
-            Layer.provide(storage),
-            Layer.provide(
-              Layer.succeed(S3Storage, {
-                presignGet: () =>
-                  Effect.sync(() => {
-                    attachmentSigns += 1
-                    return "https://signed.example/attachment"
-                  })
-              } as never)
-            )
-          )
-        )
-      )
-    )
-
-    let thumbnailSigns = 0
-    const thumbnails = await Effect.runPromise(
-      FigmaLinks.pipe(
-        Effect.flatMap((service) =>
-          Effect.exit(
-            asOwner(
-              service.resolveThumbnailUrl(
-                `visibility-${organizationId}`,
-                linkId
-              )
-            )
-          )
-        ),
-        Effect.provide(
-          FigmaLinksLive.pipe(
-            Layer.provide(dbLayer()),
-            Layer.provide(access()),
-            Layer.provide(storage),
-            Layer.provide(Layer.succeed(Figma, {} as never)),
-            Layer.provide(Layer.succeed(FigmaIntegrations, {} as never)),
-            Layer.provide(
-              Layer.succeed(S3Storage, {
-                presignGet: () =>
-                  Effect.sync(() => {
-                    thumbnailSigns += 1
-                    return "https://signed.example/thumbnail"
-                  })
-              } as never)
-            )
-          )
-        )
-      )
-    )
-
-    expect(attachments).toMatchObject({ _tag: "Failure" })
-    expect(thumbnails).toMatchObject({ _tag: "Failure" })
-    expect(attachmentSigns).toBe(0)
-    expect(thumbnailSigns).toBe(0)
-  })
-
-  it("serves a genuine orphaned attachment to an organization admin", async () => {
-    const attachmentId = `orphaned-serving-${randomUUID()}`
-    await insertAttachment(attachmentId, null, "orphaned")
-    let signs = 0
-    const result = await Effect.runPromise(
-      Attachments.pipe(
-        Effect.flatMap((service) =>
-          Effect.exit(
-            asOwner(
-              service.resolveForServing(
-                `visibility-${organizationId}`,
-                attachmentId
-              )
-            )
-          )
-        ),
-        Effect.provide(
-          AttachmentsLive.pipe(
-            Layer.provide(dbLayer()),
-            Layer.provide(access()),
-            Layer.provide(storage),
-            Layer.provide(
-              Layer.succeed(S3Storage, {
-                presignGet: () =>
-                  Effect.sync(() => {
-                    signs += 1
-                    return "https://signed.example/orphan"
-                  })
-              } as never)
-            )
-          )
-        )
-      )
-    )
-
-    expect(result).toMatchObject({
-      _tag: "Success",
-      value: { url: "https://signed.example/orphan" }
-    })
-    expect(signs).toBe(1)
-  })
-
-  it("shows published and orphaned attachment library records while excluding hidden project data", async () => {
-    const publishedAttachment = `published-attachment-${randomUUID()}`
-    const hiddenAttachment = `hidden-attachment-${randomUUID()}`
-    const orphanedAttachment = `orphaned-attachment-${randomUUID()}`
-    await insertAttachment(publishedAttachment, publishedId)
-    await insertAttachment(hiddenAttachment, hiddenId)
-    await insertAttachment(orphanedAttachment, null, "orphaned")
-    await pool.query(
-      "insert into attachment_reference (attachment_id, project_id, ticket_id) values ($1, $2, 'T-1'), ($1, $3, 'T-2')",
-      [publishedAttachment, publishedId, hiddenId]
-    )
-
-    const result = await Effect.runPromise(
-      Attachments.pipe(
-        Effect.flatMap((service) =>
-          Effect.all({
-            page: service.listForOrg({}),
-            summary: service.summarizeForOrg()
           })
         ),
-        Effect.provideService(OrgScope, ownerScope),
-        Effect.provide(
-          AttachmentsLive.pipe(
-            Layer.provide(dbLayer()),
-            Layer.provide(access()),
-            Layer.provide(storage),
-            Layer.provide(Layer.succeed(S3Storage, {} as never))
-          )
-        )
+        Layer.provide(apiRouter)
       )
+      const { handler, dispose } = HttpRouter.toWebHandler(
+        api.pipe(Layer.provideMerge(HttpServer.layerServices))
+      )
+      try {
+        const response = await handler(
+          new Request(
+            `http://localhost/api/orgs/visibility-${organizationId}/projects/hidden/tickets`,
+            { headers: { Cookie: "better-auth.session_token=test" } }
+          ),
+          Context.empty()
+        )
+        expect(response.status).toBe(404)
+        expect(await response.json()).toEqual({ _tag: "NotFound" })
+      } finally {
+        void dispose()
+      }
+    })
+
+    it.effect(
+      "skips unpublished projects during index reconciliation while direct migration lookup retains them",
+      () =>
+        Effect.gen(function* () {
+          const summary = yield* Effect.flatMap(TicketIndex, (index) =>
+            index.reconcileAllProjects()
+          )
+          const hidden = yield* Effect.promise(() =>
+            pool.query("select id from project_index where id = $1", [hiddenId])
+          )
+          expect(
+            summary.projects
+              .filter(
+                ({ project }) => project.organizationId === organizationId
+              )
+              .map(({ project }) => project.projectSlug)
+          ).toEqual(["published"])
+          expect(reconciledSlugs).toEqual(["published"])
+          expect(hidden.rows).toEqual([{ id: hiddenId }])
+        })
     )
 
-    const ids = result.page.items.map((item) => item.id)
-    expect(ids).toContain(publishedAttachment)
-    expect(ids).toContain(orphanedAttachment)
-    expect(ids).not.toContain(hiddenAttachment)
-    expect(
-      result.page.items.find((item) => item.id === publishedAttachment)?.tickets
-    ).toEqual([{ projectSlug: "published", ticketId: "T-1" }])
-    expect(result.summary.count).toBe(3)
-  })
-
-  it("refuses to delete a hidden-project attachment from the organization library", async () => {
-    const attachmentId = `hidden-delete-${randomUUID()}`
-    await insertAttachment(attachmentId, hiddenId)
-    let deletedObjects = 0
-    const result = await Effect.runPromise(
-      Attachments.pipe(
-        Effect.flatMap((service) =>
-          Effect.exit(service.deleteForOrg(attachmentId))
-        ),
-        Effect.provideService(OrgScope, ownerScope),
-        Effect.provide(
-          AttachmentsLive.pipe(
-            Layer.provide(dbLayer()),
-            Layer.provide(access()),
-            Layer.provide(storage),
-            Layer.provide(
-              Layer.succeed(S3Storage, {
-                deleteObject: () =>
-                  Effect.sync(() => {
-                    deletedObjects += 1
-                  })
-              } as never)
+    it.effect(
+      "keeps hidden-only attachment and thumbnail resources from reaching object signing",
+      () =>
+        Effect.gen(function* () {
+          const attachmentId = `hidden-attachment-${randomUUID()}`
+          const linkId = `hidden-figma-${randomUUID()}`
+          yield* Effect.promise(() => insertAttachment(attachmentId, hiddenId))
+          yield* Effect.promise(() =>
+            pool.query(
+              "insert into figma_link_index (id, organization_id, project_id, file_key, node_id, kind, thumbnail_key) values ($1, $2, $3, 'file-key', null, 'design', 'visibility/thumbnail.png')",
+              [linkId, organizationId, hiddenId]
             )
           )
+          yield* Effect.promise(() =>
+            pool.query(
+              "insert into figma_reference (link_id, project_id, ticket_id) values ($1, $2, 'T-1')",
+              [linkId, hiddenId]
+            )
+          )
+          let attachmentSigns = 0
+          const attachments = yield* Attachments.pipe(
+            Effect.flatMap((service) =>
+              Effect.exit(
+                asOwner(
+                  service.resolveForServing(
+                    `visibility-${organizationId}`,
+                    attachmentId
+                  )
+                )
+              )
+            ),
+            Effect.provide(
+              AttachmentsLive.pipe(
+                Layer.provide(dbLayer()),
+                Layer.provide(access()),
+                Layer.provide(storage),
+                Layer.provide(
+                  Layer.mock(S3Storage, {
+                    presignGet: () =>
+                      Effect.sync(() => {
+                        attachmentSigns += 1
+                        return "https://signed.example/attachment"
+                      })
+                  })
+                )
+              )
+            )
+          )
+          let thumbnailSigns = 0
+          const thumbnails = yield* FigmaLinks.pipe(
+            Effect.flatMap((service) =>
+              Effect.exit(
+                asOwner(
+                  service.resolveThumbnailUrl(
+                    `visibility-${organizationId}`,
+                    linkId
+                  )
+                )
+              )
+            ),
+            Effect.provide(
+              FigmaLinksLive.pipe(
+                Layer.provide(dbLayer()),
+                Layer.provide(access()),
+                Layer.provide(storage),
+                Layer.provide(Layer.mock(Figma, {})),
+                Layer.provide(Layer.mock(FigmaIntegrations, {})),
+                Layer.provide(
+                  Layer.mock(S3Storage, {
+                    presignGet: () =>
+                      Effect.sync(() => {
+                        thumbnailSigns += 1
+                        return "https://signed.example/thumbnail"
+                      })
+                  })
+                )
+              )
+            )
+          )
+          expect(attachments).toMatchObject({ _tag: "Failure" })
+          expect(thumbnails).toMatchObject({ _tag: "Failure" })
+          expect(attachmentSigns).toBe(0)
+          expect(thumbnailSigns).toBe(0)
+        })
+    )
+
+    it.effect(
+      "serves a genuine orphaned attachment to an organization admin",
+      () =>
+        Effect.gen(function* () {
+          const attachmentId = `orphaned-serving-${randomUUID()}`
+          yield* Effect.promise(() =>
+            insertAttachment(attachmentId, null, "orphaned")
+          )
+          let signs = 0
+          const result = yield* Attachments.pipe(
+            Effect.flatMap((service) =>
+              Effect.exit(
+                asOwner(
+                  service.resolveForServing(
+                    `visibility-${organizationId}`,
+                    attachmentId
+                  )
+                )
+              )
+            ),
+            Effect.provide(
+              AttachmentsLive.pipe(
+                Layer.provide(dbLayer()),
+                Layer.provide(access()),
+                Layer.provide(storage),
+                Layer.provide(
+                  Layer.mock(S3Storage, {
+                    presignGet: () =>
+                      Effect.sync(() => {
+                        signs += 1
+                        return "https://signed.example/orphan"
+                      })
+                  })
+                )
+              )
+            )
+          )
+          expect(result).toMatchObject({
+            _tag: "Success",
+            value: { url: "https://signed.example/orphan" }
+          })
+          expect(signs).toBe(1)
+        })
+    )
+
+    it.effect(
+      "shows published and orphaned attachment library records while excluding hidden project data",
+      () =>
+        Effect.gen(function* () {
+          const publishedAttachment = `published-attachment-${randomUUID()}`
+          const hiddenAttachment = `hidden-attachment-${randomUUID()}`
+          const orphanedAttachment = `orphaned-attachment-${randomUUID()}`
+          yield* Effect.promise(() =>
+            insertAttachment(publishedAttachment, publishedId)
+          )
+          yield* Effect.promise(() =>
+            insertAttachment(hiddenAttachment, hiddenId)
+          )
+          yield* Effect.promise(() =>
+            insertAttachment(orphanedAttachment, null, "orphaned")
+          )
+          yield* Effect.promise(() =>
+            pool.query(
+              "insert into attachment_reference (attachment_id, project_id, ticket_id) values ($1, $2, 'T-1'), ($1, $3, 'T-2')",
+              [publishedAttachment, publishedId, hiddenId]
+            )
+          )
+          const result = yield* Attachments.pipe(
+            Effect.flatMap((service) =>
+              Effect.all({
+                page: service.listForOrg({}),
+                summary: service.summarizeForOrg()
+              })
+            ),
+            Effect.provideService(OrgScope, ownerScope),
+            Effect.provide(
+              AttachmentsLive.pipe(
+                Layer.provide(dbLayer()),
+                Layer.provide(access()),
+                Layer.provide(storage),
+                Layer.provide(Layer.mock(S3Storage, {}))
+              )
+            )
+          )
+          const ids = result.page.items.map((item) => item.id)
+          expect(ids).toContain(publishedAttachment)
+          expect(ids).toContain(orphanedAttachment)
+          expect(ids).not.toContain(hiddenAttachment)
+          expect(
+            result.page.items.find((item) => item.id === publishedAttachment)
+              ?.tickets
+          ).toEqual([{ projectSlug: "published", ticketId: "T-1" }])
+          expect(result.summary.count).toBe(3)
+        })
+    )
+
+    it.effect(
+      "refuses to delete a hidden-project attachment from the organization library",
+      () =>
+        Effect.gen(function* () {
+          const attachmentId = `hidden-delete-${randomUUID()}`
+          yield* Effect.promise(() => insertAttachment(attachmentId, hiddenId))
+          let deletedObjects = 0
+          const result = yield* Attachments.pipe(
+            Effect.flatMap((service) =>
+              Effect.exit(service.deleteForOrg(attachmentId))
+            ),
+            Effect.provideService(OrgScope, ownerScope),
+            Effect.provide(
+              AttachmentsLive.pipe(
+                Layer.provide(dbLayer()),
+                Layer.provide(access()),
+                Layer.provide(storage),
+                Layer.provide(
+                  Layer.mock(S3Storage, {
+                    deleteObject: () =>
+                      Effect.sync(() => {
+                        deletedObjects += 1
+                      })
+                  })
+                )
+              )
+            )
+          )
+          expect(result).toMatchObject({ _tag: "Failure" })
+          expect(deletedObjects).toBe(0)
+          expect(
+            yield* Effect.promise(() =>
+              pool.query("select id from attachment_index where id = $1", [
+                attachmentId
+              ])
+            )
+          ).toMatchObject({ rowCount: 1 })
+        })
+    )
+
+    it("backfills existing projects from created_at and defaults newly inserted projects to published", async () => {
+      const createdAt = "2024-01-02T03:04:05.000Z"
+      const schema = `migration_visibility_${randomUUID().replaceAll("-", "")}`
+      const migration = await readFile(
+        new URL(
+          "../../../packages/db/src/migrations/20260922120000_jira_effect_workflow/migration.sql",
+          import.meta.url
+        ),
+        "utf8"
+      )
+      const client = await pool.connect()
+      try {
+        await client.query("begin")
+        await client.query(`create schema "${schema}"`)
+        await client.query(`set local search_path to "${schema}"`)
+        await client.query(
+          "create table project_index (slug text primary key, created_at timestamp with time zone not null)"
         )
-      )
-    )
+        await client.query("create table jira_migration (id uuid not null)")
+        await client.query(
+          "insert into project_index (slug, created_at) values ('legacy', $1)",
+          [createdAt]
+        )
+        for (const statement of migration.split("--> statement-breakpoint")) {
+          const sql = statement.trim()
+          if (sql !== "") await client.query(sql)
+        }
+        await client.query(
+          "insert into project_index (slug, created_at) values ('default', now())"
+        )
+        const rows = await client.query(
+          "select slug, created_at, published_at from project_index order by slug"
+        )
 
-    expect(result).toMatchObject({ _tag: "Failure" })
-    expect(deletedObjects).toBe(0)
-    expect(
-      await pool.query("select id from attachment_index where id = $1", [
-        attachmentId
-      ])
-    ).toMatchObject({ rowCount: 1 })
-  })
-
-  it("backfills existing projects from created_at and defaults newly inserted projects to published", async () => {
-    const createdAt = "2024-01-02T03:04:05.000Z"
-    const schema = `migration_visibility_${randomUUID().replaceAll("-", "")}`
-    const migration = await readFile(
-      new URL(
-        "../../../packages/db/src/migrations/20260922120000_jira_effect_workflow/migration.sql",
-        import.meta.url
-      ),
-      "utf8"
-    )
-    const client = await pool.connect()
-    try {
-      await client.query("begin")
-      await client.query(`create schema "${schema}"`)
-      await client.query(`set local search_path to "${schema}"`)
-      await client.query(
-        "create table project_index (slug text primary key, created_at timestamp with time zone not null)"
-      )
-      await client.query("create table jira_migration (id uuid not null)")
-      await client.query(
-        "insert into project_index (slug, created_at) values ('legacy', $1)",
-        [createdAt]
-      )
-      for (const statement of migration.split("--> statement-breakpoint")) {
-        const sql = statement.trim()
-        if (sql !== "") await client.query(sql)
+        expect(
+          rows.rows.find((row) => row.slug === "legacy")?.published_at
+        ).toEqual(rows.rows.find((row) => row.slug === "legacy")?.created_at)
+        expect(
+          rows.rows.find((row) => row.slug === "default")?.published_at
+        ).not.toBeNull()
+      } finally {
+        await client.query("rollback")
+        client.release()
       }
-      await client.query(
-        "insert into project_index (slug, created_at) values ('default', now())"
-      )
-      const rows = await client.query(
-        "select slug, created_at, published_at from project_index order by slug"
-      )
-
-      expect(
-        rows.rows.find((row) => row.slug === "legacy")?.published_at
-      ).toEqual(rows.rows.find((row) => row.slug === "legacy")?.created_at)
-      expect(
-        rows.rows.find((row) => row.slug === "default")?.published_at
-      ).not.toBeNull()
-    } finally {
-      await client.query("rollback")
-      client.release()
-    }
+    })
   })
 })

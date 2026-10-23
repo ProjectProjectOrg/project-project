@@ -4,7 +4,9 @@ import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
+import * as Match from "effect/Match"
 import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
 import * as Ref from "effect/Ref"
 import * as Schema from "effect/Schema"
 import * as TestClock from "effect/testing/TestClock"
@@ -30,6 +32,7 @@ import {
 } from "./MigrationActivities"
 import { JiraMigrationArtifacts } from "./MigrationArtifacts"
 import type { JiraArtifactRef } from "./MigrationArtifacts"
+import { JiraScanResumeResult } from "./MigrationProjection"
 import {
   JiraMigrationWorkflow,
   JiraMigrationWorkflowFailure,
@@ -54,7 +57,47 @@ import {
 } from "./ScanTestSupport"
 import { scanUser } from "./ScanTestSupport"
 
-const offsetPage = (values: unknown[]) => ({
+const decodeUnknownJiraMigrationManifestV2 = Schema.decodeUnknownEffect(
+  JiraMigrationManifestV2
+)
+
+const decodeUnknownPageCursorOption = Schema.decodeUnknownOption(
+  Schema.Struct({ nextPageToken: Schema.optional(Schema.String) })
+)
+
+const encodeJiraMigrationWorkflowPayloadSync = Schema.encodeSync(
+  JiraMigrationWorkflowPayload
+)
+
+const encodeJiraMigrationWorkflowSuccessSync = Schema.encodeSync(
+  JiraMigrationWorkflowSuccess
+)
+
+const encodeJiraMigrationWorkflowFailureSync = Schema.encodeSync(
+  JiraMigrationWorkflowFailure
+)
+
+const decodeJiraMigrationWorkflowPayloadSync = Schema.decodeSync(
+  JiraMigrationWorkflowPayload
+)
+
+const decodeJiraMigrationWorkflowSuccessSync = Schema.decodeSync(
+  JiraMigrationWorkflowSuccess
+)
+
+const decodeJiraMigrationWorkflowFailureSync = Schema.decodeSync(
+  JiraMigrationWorkflowFailure
+)
+
+const decodeStartImportSignalSync = Schema.decodeSync(StartImportSignal)
+
+const encodeStartImportSignalSync = Schema.encodeSync(StartImportSignal)
+
+const decodeRetrySignalSync = Schema.decodeSync(RetrySignal)
+
+const encodeRetrySignalSync = Schema.encodeSync(RetrySignal)
+
+const offsetPage = (values: ReadonlyArray<Schema.Json>) => ({
   values,
   startAt: 0,
   maxResults: 100,
@@ -62,10 +105,8 @@ const offsetPage = (values: unknown[]) => ({
   isLast: true
 })
 
-const requestCursor = (body: unknown) =>
-  Schema.decodeUnknownOption(
-    Schema.Struct({ nextPageToken: Schema.optional(Schema.String) })
-  )(body).pipe(
+const requestCursor = (body: Schema.Json | undefined) =>
+  decodeUnknownPageCursorOption(body).pipe(
     Option.flatMap((value) => Option.fromUndefinedOr(value.nextPageToken)),
     Option.getOrUndefined
   )
@@ -118,9 +159,12 @@ const waitUntilSuspended = (executionId: string) =>
   Effect.gen(function* () {
     while (true) {
       const result = yield* JiraMigrationWorkflow.poll(executionId)
-      if (Option.isSome(result) && result.value._tag === "Suspended")
+      if (
+        Option.isSome(result) &&
+        Predicate.isTagged(result.value, "Suspended")
+      )
         return undefined
-      if (Option.isSome(result) && result.value._tag === "Complete")
+      if (Option.isSome(result) && Predicate.isTagged(result.value, "Complete"))
         return yield* Effect.die("Workflow completed before suspension")
       yield* Effect.yieldNow
     }
@@ -295,49 +339,40 @@ describe("Jira migration workflow contracts", () => {
   })
 
   it("round trips persisted payload, success, and failure values", () => {
-    const createPayloadEncoded = Schema.encodeSync(
-      JiraMigrationWorkflowPayload
-    )(createPayload)
-    const payloadEncoded = Schema.encodeSync(JiraMigrationWorkflowPayload)(
-      rescanPayload
-    )
+    const createPayloadEncoded =
+      encodeJiraMigrationWorkflowPayloadSync(createPayload)
+    const payloadEncoded = encodeJiraMigrationWorkflowPayloadSync(rescanPayload)
     const success = { migrationId: "migration-1" }
-    const successEncoded = Schema.encodeSync(JiraMigrationWorkflowSuccess)(
-      success
-    )
+    const successEncoded = encodeJiraMigrationWorkflowSuccessSync(success)
     const failure = {
       _tag: "JiraMigrationWorkflowFailure" as const,
       reason: "jira_unavailable",
       retryable: true
     }
-    const failureEncoded = Schema.encodeSync(JiraMigrationWorkflowFailure)(
-      failure
-    )
+    const failureEncoded = encodeJiraMigrationWorkflowFailureSync(failure)
     const startImportSignal = { scanRevision: 5 }
     const retrySignal = { failureSequence: 3 }
 
     expect(
-      Schema.decodeSync(JiraMigrationWorkflowPayload)(createPayloadEncoded)
+      decodeJiraMigrationWorkflowPayloadSync(createPayloadEncoded)
     ).toEqual(createPayload)
+    expect(decodeJiraMigrationWorkflowPayloadSync(payloadEncoded)).toEqual(
+      rescanPayload
+    )
+    expect(decodeJiraMigrationWorkflowSuccessSync(successEncoded)).toEqual(
+      success
+    )
+    expect(decodeJiraMigrationWorkflowFailureSync(failureEncoded)).toEqual(
+      failure
+    )
     expect(
-      Schema.decodeSync(JiraMigrationWorkflowPayload)(payloadEncoded)
-    ).toEqual(rescanPayload)
-    expect(
-      Schema.decodeSync(JiraMigrationWorkflowSuccess)(successEncoded)
-    ).toEqual(success)
-    expect(
-      Schema.decodeSync(JiraMigrationWorkflowFailure)(failureEncoded)
-    ).toEqual(failure)
-    expect(
-      Schema.decodeSync(StartImportSignal)(
-        Schema.encodeSync(StartImportSignal)(startImportSignal)
+      decodeStartImportSignalSync(
+        encodeStartImportSignalSync(startImportSignal)
       )
     ).toEqual(startImportSignal)
-    expect(
-      Schema.decodeSync(RetrySignal)(
-        Schema.encodeSync(RetrySignal)(retrySignal)
-      )
-    ).toEqual(retrySignal)
+    expect(decodeRetrySignalSync(encodeRetrySignalSync(retrySignal))).toEqual(
+      retrySignal
+    )
   })
 
   it.effect("replays a completed activity without repeating its effect", () =>
@@ -507,7 +542,7 @@ describe("Jira migration workflow contracts", () => {
           migrationId: id
         })
         expect(attempts.at(-1)).toBe(1)
-        expect(times.at(-1)! - times[0]!).toBe(7000)
+        expect(times.at(-1)! - times[0]).toBe(7000)
         expect(recordedFailures).toBe(0)
       }).pipe(Effect.provide(layer))
     }
@@ -578,14 +613,19 @@ describe("durable snapshot workflow", () => {
           return Effect.succeed(
             response({
               issues: [
-                scanIssue(token === "page-3" ? 3 : token === "page-2" ? 2 : 1)
+                scanIssue(
+                  Match.value(token).pipe(
+                    Match.when("page-3", () => 3),
+                    Match.when("page-2", () => 2),
+                    Match.orElse(() => 1)
+                  )
+                )
               ],
-              nextPageToken:
-                token === "page-3"
-                  ? undefined
-                  : token === "page-2"
-                    ? "page-3"
-                    : "page-2",
+              nextPageToken: Match.value(token).pipe(
+                Match.when("page-3", () => null),
+                Match.when("page-2", () => "page-3"),
+                Match.orElse(() => "page-2")
+              ),
               isLast: token === "page-3"
             })
           )
@@ -605,7 +645,8 @@ describe("durable snapshot workflow", () => {
               artifacts,
               progress: () => Effect.succeed(true),
               recordFailure: () => Effect.sync(() => ++sequence),
-              resume: () => Effect.succeed({ _tag: "Resumed" }),
+              resume: () =>
+                Effect.succeed(JiraScanResumeResult.cases.Resumed.make({})),
               identityOptions: Effect.succeed([]),
               configured: (_fence, result) =>
                 Effect.sync(() => {
@@ -615,7 +656,11 @@ describe("durable snapshot workflow", () => {
                 })
             })
             const manifest = yield* artifacts
-              .readJson("acme", result.manifest, JiraMigrationManifestV2)
+              .readJson(
+                "acme",
+                result.manifest,
+                decodeUnknownJiraMigrationManifestV2
+              )
               .pipe(Effect.orDie)
             expect(manifest.issues.map((issue) => issue.id)).toEqual([
               "1",
@@ -713,14 +758,13 @@ const snapshotHarness = (
               Effect.andThen(
                 Effect.sync(() => {
                   if (sequence < state.sequence)
-                    return {
-                      _tag: "AwaitRetry",
+                    return JiraScanResumeResult.cases.AwaitRetry.make({
                       failureSequence: state.sequence
-                    } as const
+                    })
                   if (sequence !== state.sequence)
-                    return { _tag: "Rejected" } as const
+                    return JiraScanResumeResult.cases.Rejected.make({})
                   state.failed = false
-                  return { _tag: "Resumed" } as const
+                  return JiraScanResumeResult.cases.Resumed.make({})
                 })
               )
             ),
@@ -857,11 +901,14 @@ describe("scan retry and coverage", () => {
                     }
                   ],
                   fixVersions: [{ id: "v1" }],
-                  ...(id === 1
-                    ? { issuetype: { id: "epic" } }
-                    : id === 6
-                      ? { issuetype: { id: "subtask" }, parent: { id: "2" } }
-                      : { parent: { id: "1" } }),
+                  ...Match.value(id).pipe(
+                    Match.when(1, () => ({ issuetype: { id: "epic" } })),
+                    Match.when(6, () => ({
+                      issuetype: { id: "subtask" },
+                      parent: { id: "2" }
+                    })),
+                    Match.orElse(() => ({ parent: { id: "1" } }))
+                  ),
                   security: { id: "restricted" },
                   issuelinks:
                     id === 1
@@ -984,7 +1031,7 @@ describe("scan retry and coverage", () => {
         const manifest = yield* artifacts.readJson(
           "acme",
           harness.state.manifest!,
-          JiraMigrationManifestV2
+          decodeUnknownJiraMigrationManifestV2
         )
         for (const category of [
           "fieldDefinitions",
@@ -1050,7 +1097,7 @@ describe("scan retry and coverage", () => {
         const manifest = yield* artifacts.readJson(
           "acme",
           harness.state.manifest!,
-          JiraMigrationManifestV2
+          decodeUnknownJiraMigrationManifestV2
         )
         expect(manifest.watchers).toEqual([])
         expect(manifest.coverage).toContainEqual({

@@ -27,7 +27,7 @@ const stubCanvas = (
   return vi
     .spyOn(document, "createElement")
     .mockImplementation((tag: string) => {
-      const element = originalCreateElement(tag) as HTMLCanvasElement
+      const element = originalCreateElement(tag)
       if (tag !== "canvas") return element
       Object.defineProperty(element, "getContext", {
         value: () => ({ drawImage })
@@ -132,7 +132,7 @@ describe("compressImage", () => {
       ) => callback(new Blob([new Uint8Array(1)], { type: "image/webp" }))
     )
     vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
-      const element = originalCreateElement(tag) as HTMLCanvasElement
+      const element = originalCreateElement(tag)
       if (tag !== "canvas") return element
       Object.defineProperty(element, "getContext", {
         value: () => ({ drawImage: vi.fn() })

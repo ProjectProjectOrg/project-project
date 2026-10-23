@@ -26,12 +26,7 @@ import {
 } from "@/components/settings/SettingsSection"
 import { SettingsSkeleton } from "@/components/settings/SettingsSkeleton"
 import { SettingsSwitch } from "@/components/settings/SettingsTextField"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger
-} from "@/components/ui/select"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import {
   gitAutomationFor,
   gitAutomationRequest,
@@ -204,6 +199,20 @@ function RuleRow({
             statuses.find((status) => status.slug === value)?.slug ?? null
           if (next !== target) onChange(next)
         }}
+        items={[
+          {
+            separated: statuses.length > 0,
+            value: DONT_MOVE,
+            textValue: m.git_automation_dont_move(),
+            label: <DontMoveOption />
+          },
+          ...statuses.map((status) => ({
+            value: status.slug,
+            textValue: status.label,
+            label: <StatusOption slug={status.slug} statuses={statuses} />
+          }))
+        ]}
+        contentProps={{ align: "end", className: "w-48" }}
       >
         <SelectTrigger
           aria-label={meta.label()}
@@ -216,24 +225,6 @@ function RuleRow({
             )
           }
         />
-        <SelectContent align="end" className="w-48">
-          <SelectItem
-            separated={statuses.length > 0}
-            value={DONT_MOVE}
-            label={m.git_automation_dont_move()}
-          >
-            <DontMoveOption />
-          </SelectItem>
-          {statuses.map((status) => (
-            <SelectItem
-              key={status.slug}
-              value={status.slug}
-              label={status.label}
-            >
-              <StatusOption slug={status.slug} statuses={statuses} />
-            </SelectItem>
-          ))}
-        </SelectContent>
       </Select>
     </SettingsRow>
   )

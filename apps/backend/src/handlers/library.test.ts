@@ -17,7 +17,8 @@ import {
   type BlockDefinition,
   type Library as LibraryValue,
   type TemplateDefinition,
-  type UserId,
+  UserId,
+  TemplateKey,
   OrgScope,
   ProjectScope
 } from "@pp/shared"
@@ -27,6 +28,7 @@ import * as Effect from "effect/Effect"
 import { HttpRouter, HttpServer } from "effect/http"
 import { HttpApi, HttpApiBuilder } from "effect/http-api"
 import * as Layer from "effect/Layer"
+import * as Match from "effect/Match"
 import * as Schema from "effect/Schema"
 import { afterAll, beforeEach, expect } from "vitest"
 
@@ -63,14 +65,14 @@ const inProjectScope = <A, E>(
   })
 
 const block: BlockDefinition = {
-  ...BUILTIN_BLOCKS[0]!,
+  ...BUILTIN_BLOCKS[0],
   origin: "org",
   shadows: null,
   hidden: false
 }
 
 const template: TemplateDefinition = {
-  key: "bug-report" as TemplateDefinition["key"],
+  key: TemplateKey.make("bug-report"),
   name: "Bug report",
   icon: "Bug",
   color: null,
@@ -102,11 +104,13 @@ const failFor = <A>(
   key: string,
   value: A
 ): Effect.Effect<A, NotFound | MarkdownError> =>
-  key === "missing"
-    ? Effect.fail(new NotFound())
-    : key === "broken"
-      ? Effect.fail(new MarkdownError({ cause: null, message: "disk" }))
-      : Effect.succeed(value)
+  Match.value(key).pipe(
+    Match.when("missing", () => Effect.fail(new NotFound())),
+    Match.when("broken", () =>
+      Effect.fail(new MarkdownError({ cause: null, message: "disk" }))
+    ),
+    Match.orElse(() => Effect.succeed(value))
+  )
 
 const fakeLibrary: LibraryShape = {
   orgLibrary: () => inOrgScope("orgLibrary", [], Effect.succeed(library)),
@@ -181,7 +185,7 @@ const ApiUnderTestLive = HttpApiBuilder.layer(TestApi).pipe(
       sessionCookie: (httpEffect) =>
         httpEffect.pipe(
           Effect.provideService(CurrentUser, {
-            id: USER_ID as UserId,
+            id: UserId.make(USER_ID),
             email: "u@example.com",
             name: "U",
             username: null,
@@ -214,7 +218,7 @@ beforeEach(() => {
   calls.length = 0
 })
 
-const send = (method: string, path: string, body?: unknown) =>
+const send = (method: string, path: string, body?: Schema.Json) =>
   Effect.promise(() =>
     handler(
       new Request(`http://localhost${path}`, {

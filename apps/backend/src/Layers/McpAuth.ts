@@ -114,15 +114,18 @@ export const McpAuthMiddlewareLive = HttpRouter.middleware(
             }
           ),
         catch: (cause) => new TokenRejected({ cause })
-      })
+      }).pipe(
+        Effect.flatMap((claims) =>
+          decodeClaims(claims).pipe(
+            Effect.mapError(() => new InvalidAccessToken())
+          )
+        )
+      )
     })
 
     const resolveUser = Effect.fn("McpAuth.resolveUser")(function* (
-      claims: unknown
+      decoded: typeof AccessTokenClaims.Type
     ) {
-      const decoded = yield* decodeClaims(claims).pipe(
-        Effect.mapError(() => new InvalidAccessToken())
-      )
       const consents = yield* db
         .select({ id: oauthConsent.id, clientName: oauthClient.name })
         .from(oauthConsent)

@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Link, createFileRoute } from "@tanstack/react-router"
+import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import { ErrorPage } from "@/components/ErrorPage"
@@ -30,7 +31,7 @@ import {
   SlackProjectRow
 } from "@/features/slack/components/ProjectSettings"
 import { useProjectActor } from "@/lib/access"
-import { type AppError, errorMessage } from "@/lib/errorMessage"
+import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -206,19 +207,19 @@ function EverhourSettingsContent({
     Result.matchWithError(connectState, {
       onInitial: () => null,
       onSuccess: () => null,
-      onError: (err) => errorMessage(err as AppError),
+      onError: (err) => errorMessage(err),
       onDefect: () => m.project_settings_everhour_action_error()
     }) ??
     Result.matchWithError(syncState, {
       onInitial: () => null,
       onSuccess: () => null,
-      onError: (err) => errorMessage(err as AppError),
+      onError: (err) => errorMessage(err),
       onDefect: () => m.project_settings_everhour_action_error()
     }) ??
     Result.matchWithError(disconnectState, {
       onInitial: () => null,
       onSuccess: () => null,
-      onError: (err) => errorMessage(err as AppError),
+      onError: (err) => errorMessage(err),
       onDefect: () => m.project_settings_everhour_action_error()
     })
   const error =
@@ -238,11 +239,13 @@ function EverhourSettingsContent({
       description={
         <span className={cn("flex flex-col gap-0.5", busy && "animate-pulse")}>
           <span>
-            {status.status === "active"
-              ? m.project_settings_everhour_connected()
-              : status.status === "broken"
-                ? m.project_settings_everhour_broken()
-                : m.project_settings_everhour_not_connected()}
+            {Match.value(status.status).pipe(
+              Match.when("active", () =>
+                m.project_settings_everhour_connected()
+              ),
+              Match.when("broken", () => m.project_settings_everhour_broken()),
+              Match.orElse(() => m.project_settings_everhour_not_connected())
+            )}
           </span>
           {status.everhourProjectId ? (
             <span className="font-mono">

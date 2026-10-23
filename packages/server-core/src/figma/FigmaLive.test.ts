@@ -11,18 +11,33 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { afterEach, describe, expect, vi } from "vitest"
 
-import { figmaAuthHeader, figmaImageScale, Figma } from "./Figma"
+import {
+  figmaAuthHeader,
+  figmaImageScale,
+  Figma,
+  FigmaCredential
+} from "./Figma"
 import { FigmaLive } from "./FigmaLive"
+
+const isFigmaAuthInvalid = Schema.is(FigmaAuthInvalid)
+
+const isFigmaFileNotFound = Schema.is(FigmaFileNotFound)
+
+const isFigmaRateLimited = Schema.is(FigmaRateLimited)
+
+const isFigmaError = Schema.is(FigmaError)
 
 describe("figmaAuthHeader", () => {
   it("uses a bearer header for an oauth credential", () => {
-    expect(figmaAuthHeader({ _tag: "Bearer", token: "abc" })).toEqual({
+    expect(figmaAuthHeader(FigmaCredential.Bearer({ token: "abc" }))).toEqual({
       Authorization: "Bearer abc"
     })
   })
 
   it("uses the figma token header for a personal access token", () => {
-    expect(figmaAuthHeader({ _tag: "FigmaToken", token: "abc" })).toEqual({
+    expect(
+      figmaAuthHeader(FigmaCredential.FigmaToken({ token: "abc" }))
+    ).toEqual({
       "X-Figma-Token": "abc"
     })
   })
@@ -46,7 +61,7 @@ const credential = { _tag: "FigmaToken" as const, token: "secret-token" }
 
 const jsonResponse = (
   status: number,
-  body: unknown,
+  body: Schema.Json,
   headers?: Record<string, string>
 ) =>
   new Response(JSON.stringify(body), {
@@ -92,7 +107,7 @@ describe("FigmaLive status mapping", () => {
       stubFetch(vi.fn(async () => jsonResponse(401, { message: "bad token" })))
       const figma = yield* Figma
       const error = yield* Effect.flip(figma.getFile(credential, "abc123"))
-      expect(Schema.is(FigmaAuthInvalid)(error)).toBe(true)
+      expect(isFigmaAuthInvalid(error)).toBe(true)
     }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
   )
 
@@ -101,7 +116,7 @@ describe("FigmaLive status mapping", () => {
       stubFetch(vi.fn(async () => jsonResponse(403, { message: "forbidden" })))
       const figma = yield* Figma
       const error = yield* Effect.flip(figma.getFile(credential, "abc123"))
-      expect(Schema.is(FigmaAuthInvalid)(error)).toBe(true)
+      expect(isFigmaAuthInvalid(error)).toBe(true)
     }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
   )
 
@@ -110,7 +125,7 @@ describe("FigmaLive status mapping", () => {
       stubFetch(vi.fn(async () => jsonResponse(404, { message: "not found" })))
       const figma = yield* Figma
       const error = yield* Effect.flip(figma.getFile(credential, "missing-key"))
-      if (!Schema.is(FigmaFileNotFound)(error)) throw error
+      if (!isFigmaFileNotFound(error)) throw error
       expect(error.fileKey).toBe("missing-key")
     }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
   )
@@ -124,7 +139,7 @@ describe("FigmaLive status mapping", () => {
       )
       const figma = yield* Figma
       const error = yield* Effect.flip(figma.getFile(credential, "abc123"))
-      if (!Schema.is(FigmaRateLimited)(error)) throw error
+      if (!isFigmaRateLimited(error)) throw error
       expect(error.retryAfterSeconds).toBe(42)
     }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
   )
@@ -138,7 +153,7 @@ describe("FigmaLive status mapping", () => {
         )
         const figma = yield* Figma
         const error = yield* Effect.flip(figma.getFile(credential, "abc123"))
-        if (!Schema.is(FigmaRateLimited)(error)) throw error
+        if (!isFigmaRateLimited(error)) throw error
         expect(error.retryAfterSeconds).toBe(60)
       }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
   )
@@ -158,7 +173,7 @@ describe("FigmaLive status mapping", () => {
         )
         const figma = yield* Figma
         const error = yield* Effect.flip(figma.getFile(credential, "abc123"))
-        if (!Schema.is(FigmaRateLimited)(error)) throw error
+        if (!isFigmaRateLimited(error)) throw error
         expect(error.retryAfterSeconds).toBe(60)
       }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
   )
@@ -168,7 +183,7 @@ describe("FigmaLive status mapping", () => {
       stubFetch(vi.fn(async () => jsonResponse(500, { message: "kaboom" })))
       const figma = yield* Figma
       const error = yield* Effect.flip(figma.getFile(credential, "abc123"))
-      if (!Schema.is(FigmaError)(error)) throw error
+      if (!isFigmaError(error)) throw error
       expect(error.reason).toBe("kaboom")
     }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
   )
@@ -197,7 +212,7 @@ describe("FigmaLive status mapping", () => {
       stubFetch(vi.fn(async () => jsonResponse(200, { lastModified: 42 })))
       const figma = yield* Figma
       const error = yield* Effect.flip(figma.getFile(credential, "abc123"))
-      expect(Schema.is(FigmaError)(error)).toBe(true)
+      expect(isFigmaError(error)).toBe(true)
     }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
   )
 })
@@ -346,7 +361,7 @@ describe("FigmaLive subtle behaviours", () => {
             url: "https://example.com/spec"
           })
         )
-        expect(Schema.is(FigmaRateLimited)(error)).toBe(true)
+        expect(isFigmaRateLimited(error)).toBe(true)
       }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
   )
 
@@ -367,7 +382,7 @@ describe("FigmaLive subtle behaviours", () => {
         const error = yield* Effect.flip(
           figma.getNodeName(credential, "abc123", "1:2")
         )
-        if (!Schema.is(FigmaFileNotFound)(error)) throw error
+        if (!isFigmaFileNotFound(error)) throw error
         expect(error.fileKey).toBe("abc123")
       }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
   )
@@ -405,7 +420,7 @@ describe("FigmaLive subtle behaviours", () => {
         const error = yield* Effect.flip(
           figma.renderNode(credential, "abc123", "1:2", 1)
         )
-        if (!Schema.is(FigmaError)(error)) throw error
+        if (!isFigmaError(error)) throw error
         expect(error.reason).toBe("node_not_renderable")
       }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
   )

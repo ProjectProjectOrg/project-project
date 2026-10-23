@@ -19,6 +19,10 @@ import {
 } from "./ticketActivity"
 import { ticketRequest, updateTicketDetail } from "./ticketDetail"
 
+const encodeTicketUpdateResultSync = Schema.encodeSync(TicketUpdateResult)
+
+const encodeTicketDetailSync = Schema.encodeSync(TicketDetail)
+
 const fetchStub = stubFetch()
 const ticketId = Schema.decodeSync(TicketId)("T-1")
 const req = ticketActivityRequest("acme", "web", ticketId)
@@ -111,7 +115,7 @@ describe("ticketActivity", () => {
       if (init?.method === "PATCH") {
         return Promise.resolve(
           Response.json(
-            Schema.encodeSync(TicketUpdateResult)({
+            encodeTicketUpdateResultSync({
               ticket: { ...ticket, body: "After" },
               orderKey: null
             })
@@ -123,9 +127,7 @@ describe("ticketActivity", () => {
         "http://localhost"
       )
       if (!url.pathname.endsWith("/activity")) {
-        return Promise.resolve(
-          Response.json(Schema.encodeSync(TicketDetail)(ticket))
-        )
+        return Promise.resolve(Response.json(encodeTicketDetailSync(ticket)))
       }
       fetched.push(url.searchParams.get("cursor"))
       return Promise.resolve(

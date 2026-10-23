@@ -1,4 +1,5 @@
 import type { Member, TicketId, UpdateTicketInput } from "@pp/shared"
+import * as Match from "effect/Match"
 import { UserRound } from "lucide-react"
 import type { ReactNode } from "react"
 
@@ -39,11 +40,11 @@ function rowLabel(resolved: ReadonlyArray<Member>): string {
 }
 
 function chipLabel(resolved: ReadonlyArray<Member>): string {
-  return resolved.length === 0
-    ? m.tickets_assignee_unassigned()
-    : resolved.length === 1
-      ? resolved[0].name
-      : m.tickets_assignee_count({ count: resolved.length })
+  return Match.value(resolved.length).pipe(
+    Match.when(0, () => m.tickets_assignee_unassigned()),
+    Match.when(1, () => resolved[0].name),
+    Match.orElse(() => m.tickets_assignee_count({ count: resolved.length }))
+  )
 }
 
 function Avatars({

@@ -55,7 +55,7 @@ export function SprintBoardColumn({
   slug: string
   req?: BoardRequest
   backlogReq?: BacklogRequest
-  status: string
+  status: Ticket["status"]
   statuses: ReadonlyArray<ProjectStatus>
   tickets: ReadonlyArray<Ticket>
   count?: number
@@ -254,7 +254,7 @@ function CardSlot({
   req?: BoardRequest
   backlogReq?: BacklogRequest
   ticket: Ticket
-  status: string
+  status: Ticket["status"]
   members: ReadonlyArray<Member>
   isDraggable: boolean
   ordered: boolean
@@ -288,7 +288,8 @@ function CardSlot({
           }),
           render: ({ container }) => {
             const rect = card.getBoundingClientRect()
-            const clone = card.cloneNode(true) as HTMLElement
+            const clone = card.cloneNode(true)
+            if (!(clone instanceof HTMLElement)) return
             clone.style.width = `${rect.width}px`
             clone.style.height = `${rect.height}px`
             container.appendChild(clone)

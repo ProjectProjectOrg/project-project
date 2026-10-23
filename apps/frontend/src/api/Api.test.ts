@@ -1,3 +1,4 @@
+import { TicketId } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import { describe, expect, it, vi } from "vitest"
@@ -43,7 +44,7 @@ describe("keys", () => {
     expect(scope).toBe("acme/web")
     expect(Keys.ticketsIn(scope)).toBe("tickets/acme/web")
     expect(Keys.ticketLists(scope)).toBe("ticket-lists/acme/web")
-    expect(Keys.ticket(scope, "T-1" as never)).toBe(
+    expect(Keys.ticket(scope, TicketId.make("T-1"))).toBe(
       "ticket-content/acme/web/T-1"
     )
   })

@@ -148,7 +148,7 @@ describe("project banner input", () => {
   })
 
   it("accepts an inline webp placeholder and rejects other payloads", () => {
-    const withPlaceholder = (placeholder: unknown) =>
+    const withPlaceholder = (placeholder: string) =>
       decode({ banner: { ...banner, placeholder } })._tag
     expect(withPlaceholder("data:image/webp;base64,UklGRhoAAABXRUJQ")).toBe(
       "Success"

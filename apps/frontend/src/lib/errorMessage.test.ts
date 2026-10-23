@@ -5,6 +5,9 @@ import {
   Unauthorized,
   Validation
 } from "@pp/shared"
+import { HttpClientError, TransportError } from "effect/http/HttpClientError"
+import * as HttpClientRequest from "effect/http/HttpClientRequest"
+import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import {
@@ -74,7 +77,16 @@ describe("oauthConsentErrorMessage", () => {
     )
   })
   it("gives recovery instructions without exposing unexpected errors", () => {
-    expect(oauthConsentErrorMessage(new Error("private failure"))).toBe(
+    expect(
+      oauthConsentErrorMessage(
+        new HttpClientError({
+          reason: new TransportError({
+            request: HttpClientRequest.post("/api/oauthApplications/consent"),
+            description: "private failure"
+          })
+        })
+      )
+    ).toBe(
       "Couldn’t complete authorization. Try again. If it keeps failing, start a new connection from your agent."
     )
   })
@@ -103,6 +115,22 @@ describe("library error messages", () => {
       errorMessage(new Validation({ reason: "unknown_template:bug-report" }))
     ).toBe('The template "bug-report" doesn\'t exist anymore.')
     expect(errorMessage(new Validation({ reason: "other" }))).toBe(
+      "Something went wrong."
+    )
+  })
+})
+
+const decodeErrorPayload = Schema.decodeSync(
+  Schema.fromJsonString(Schema.Unknown)
+)
+
+describe("unexpected error details", () => {
+  it.each([
+    '{"_tag":"Validation","reason":42}',
+    '{"_tag":"InvitationNotAcceptable","reason":"unrecognized"}',
+    '{"_tag":"OrgEmailError","reason":"unrecognized"}'
+  ])("returns the generic message for %s", (payload) => {
+    expect(errorMessage(decodeErrorPayload(payload))).toBe(
       "Something went wrong."
     )
   })

@@ -1,9 +1,9 @@
 import { it } from "@effect/vitest"
-import { Db } from "@pp/db"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { describe, expect } from "vitest"
 
+import { databaseLayer } from "../../server-core/test/database"
 import type { EverhourTimeRecord } from "../src/Client"
 import {
   EverhourTimeTracking,
@@ -21,13 +21,9 @@ const unexpected = (method: string): Effect.Effect<never> =>
 const fakeDb = (
   integration: { projectIntegrationLinkId: string } | undefined
 ) =>
-  Layer.succeed(Db, {
-    query: {
-      projectEverhourIntegration: {
-        findFirst: () => Effect.succeed(integration)
-      }
-    }
-  } as never)
+  databaseLayer(() =>
+    Effect.succeed(integration ? [[integration.projectIntegrationLinkId]] : [])
+  )
 
 const recordingTimeTracking = (
   calls: Array<{ linkId: string; record: EverhourTimeRecord }>

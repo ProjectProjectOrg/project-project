@@ -1,10 +1,10 @@
+import { TagName } from "@pp/shared"
 import {
   BUILTIN_BLOCKS,
   blockLookupFor,
   formatTicketBlock,
   stripHints,
-  type BlockDefinition,
-  type TagName
+  type BlockDefinition
 } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
@@ -46,7 +46,7 @@ const body = [
 const ticket = {
   type: "bug" as const,
   priority: "high" as const,
-  tags: ["auth" as TagName],
+  tags: [TagName.make("auth")],
   body
 }
 

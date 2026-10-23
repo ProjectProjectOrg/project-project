@@ -7,7 +7,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import {
@@ -73,18 +72,21 @@ export function RoleSelect<R extends string>({
       <DropdownMenuContent align="end" sideOffset={6} className="w-32">
         <DropdownMenuRadioGroup
           value={value}
-          onValueChange={(next: R) => onChange(next)}
-        >
-          {roles.map((role) => {
+          onValueChange={onChange}
+          items={roles.map((role) => {
             const RoleIcon = meta[role].icon
-            return (
-              <DropdownMenuRadioItem key={role} value={role} closeOnClick>
-                <RoleIcon className="size-4" strokeWidth={1.75} />
-                {meta[role].label()}
-              </DropdownMenuRadioItem>
-            )
+            return {
+              value: role,
+              closeOnClick: true,
+              label: (
+                <>
+                  <RoleIcon className="size-4" strokeWidth={1.75} />
+                  {meta[role].label()}
+                </>
+              )
+            }
           })}
-        </DropdownMenuRadioGroup>
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   )

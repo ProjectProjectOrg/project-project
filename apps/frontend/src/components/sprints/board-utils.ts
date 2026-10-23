@@ -1,30 +1,44 @@
-import type { ProjectStatus, Ticket, TicketId } from "@pp/shared"
+import {
+  TicketId,
+  TicketStatus,
+  type ProjectStatus,
+  type Ticket
+} from "@pp/shared"
+import * as Schema from "effect/Schema"
 
 import { compareByOrderKey } from "@/lib/orderKey"
 
-export type DragData = {
-  type: "card"
-  id: TicketId
-  status: string
-}
+export const DragData = Schema.Struct({
+  type: Schema.Literal("card"),
+  id: TicketId,
+  status: TicketStatus
+})
+export type DragData = typeof DragData.Type
 
-export type CardDropData = {
-  type: "card"
-  id: TicketId
-  status: string
-  edge: "top" | "bottom"
-}
+export const CardDropData = Schema.Struct({
+  type: Schema.Literal("card"),
+  id: TicketId,
+  status: TicketStatus,
+  edge: Schema.Literals(["top", "bottom"])
+})
+export type CardDropData = typeof CardDropData.Type
 
-export type ColumnDropData = {
-  type: "column"
-  status: string
-}
+export const ColumnDropData = Schema.Struct({
+  type: Schema.Literal("column"),
+  status: TicketStatus
+})
+export type ColumnDropData = typeof ColumnDropData.Type
 
-export type DropData = CardDropData | ColumnDropData
+export const DropData = Schema.Union([CardDropData, ColumnDropData])
+export type DropData = typeof DropData.Type
+
+export const isDragData = Schema.is(DragData)
+export const isDropData = Schema.is(DropData)
+export const isColumnDropData = Schema.is(ColumnDropData)
 
 export function boardStatusesFor(
   statuses: ReadonlyArray<ProjectStatus>
-): ReadonlyArray<string> {
+): ReadonlyArray<TicketStatus> {
   return [...statuses].toSorted(compareByOrderKey).map((s) => s.slug)
 }
 

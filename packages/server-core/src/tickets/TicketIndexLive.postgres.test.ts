@@ -1712,8 +1712,8 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
           viewerId,
           doneAfter: at("2026-01-01T00:00:00.000Z"),
           cursor: encodeCursor({
-            id: firstPage[0]!.entry.id,
-            sort: firstPage[0]!.sortValue
+            id: firstPage[0].entry.id,
+            sort: firstPage[0].sortValue
           }),
           limit: 10
         })

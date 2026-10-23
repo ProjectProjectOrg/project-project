@@ -1,15 +1,14 @@
-import type { AttachmentId, ProjectIconImage } from "@pp/shared"
+import { AttachmentId, ProjectIconImage } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
 import { iconPreviewChanged, type IconDraftValues } from "./iconDraft"
 
 const TOLERANCE = 24
-const attachment = (id: string) => id as AttachmentId
 
 const sticker: ProjectIconImage = {
   type: "sticker",
-  sourceAttachmentId: attachment("att_source"),
-  renderedAttachmentId: attachment("att_rendered"),
+  sourceAttachmentId: AttachmentId.make("01ARZ3NDEKTSV4RRFFQ69G5FAV"),
+  renderedAttachmentId: AttachmentId.make("01ARZ3NDEKTSV4RRFFQ69G5FAW"),
   cutoutTolerance: TOLERANCE,
   crop: { x: 0.5, y: 0.5, zoom: 1 }
 }

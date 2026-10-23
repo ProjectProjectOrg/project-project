@@ -35,6 +35,19 @@ import {
 } from "./backlog"
 import { applyTicketPatch } from "./ticketPatch"
 
+const decodeUnknownUpdateTicketInputSync =
+  Schema.decodeUnknownSync(UpdateTicketInput)
+
+const decodeTicketStatusSync = Schema.decodeSync(TicketStatus)
+
+const decodeTicketIdSync = Schema.decodeSync(TicketId)
+
+const decodeGroupIdSync = Schema.decodeSync(GroupId)
+
+const decodeTemplateKeySync = Schema.decodeSync(TemplateKey)
+
+const decodeTagNameSync = Schema.decodeSync(TagName)
+
 const ticket = {
   id: Schema.decodeSync(TicketId)("T-1"),
   title: "Before",
@@ -151,7 +164,7 @@ describe("backlog optimistic update", () => {
     fetchStub.set(async (_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "PATCH") {
         bodies.push(
-          Schema.decodeUnknownSync(UpdateTicketInput)(
+          decodeUnknownUpdateTicketInputSync(
             await new Response(init.body).json()
           )
         )
@@ -198,7 +211,7 @@ describe("backlog optimistic update", () => {
     const pending = new Map<string, (response: Response) => void>()
     fetchStub.set(async (_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "PATCH") {
-        const body = Schema.decodeUnknownSync(UpdateTicketInput)(
+        const body = decodeUnknownUpdateTicketInputSync(
           await new Response(init.body).json()
         )
         return new Promise<Response>((resolve) =>
@@ -344,7 +357,7 @@ describe("backlog optimistic update", () => {
 
 describe("backlog status move", () => {
   it("moves the row between sections and adjusts counts", async () => {
-    const doing = Schema.decodeSync(TicketStatus)("in_progress")
+    const doing = decodeTicketStatusSync("in_progress")
     let finish = (_r: Response) => {}
     fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "PATCH") {
@@ -398,14 +411,14 @@ describe("backlog status move", () => {
   })
 
   it("retains a status move when an assignee change supersedes it", async () => {
-    const doing = Schema.decodeSync(TicketStatus)("in_progress")
+    const doing = decodeTicketStatusSync("in_progress")
     const bodies: Array<UpdateTicketInput> = []
     const pending: Array<(response: Response) => void> = []
     let served: ReadonlyArray<Ticket> = [ticket]
     fetchStub.set(async (_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "PATCH") {
         bodies.push(
-          Schema.decodeUnknownSync(UpdateTicketInput)(
+          decodeUnknownUpdateTicketInputSync(
             await new Response(init.body).json()
           )
         )
@@ -484,8 +497,8 @@ describe("backlog status move", () => {
   })
 
   it("composes two stacked status moves out of `current`, not the original server value", async () => {
-    const inProgress = Schema.decodeSync(TicketStatus)("in_progress")
-    const doneStatus = Schema.decodeSync(TicketStatus)("done")
+    const inProgress = decodeTicketStatusSync("in_progress")
+    const doneStatus = decodeTicketStatusSync("done")
     let finish = (_r: Response) => {}
     fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "PATCH") {
@@ -556,7 +569,7 @@ describe("backlog status move", () => {
     // A reducer that stopped deriving from `current` (e.g. re-read the
     // original fetch instead) would apply the status move to the
     // pre-priority-edit ticket and silently drop the priority change.
-    const doing = Schema.decodeSync(TicketStatus)("in_progress")
+    const doing = decodeTicketStatusSync("in_progress")
     let finish = (_r: Response) => {}
     fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "PATCH") {
@@ -607,7 +620,7 @@ describe("backlog status move", () => {
 
 describe("backlog pagination", () => {
   it("keeps loaded pages across an optimistic commit refresh", async () => {
-    const second = { ...ticket, id: Schema.decodeSync(TicketId)("T-2") }
+    const second = { ...ticket, id: decodeTicketIdSync("T-2") }
     let finish = (_r: Response) => {}
     fetchStub.set((input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(
@@ -749,9 +762,7 @@ describe("backlog pagination", () => {
         return Promise.resolve(new Response("nope", { status: 500 }))
       return Promise.resolve(
         Response.json({
-          items: [
-            serverRow({ ...ticket, id: Schema.decodeSync(TicketId)("T-2") })
-          ],
+          items: [serverRow({ ...ticket, id: decodeTicketIdSync("T-2") })],
           nextCursor: null
         })
       )
@@ -895,7 +906,7 @@ describe("backlog quick create", () => {
     { filter: { q: "missing" } },
     { filter: { type: ["bug"] } },
     { filter: { assignee: ["mine"] } },
-    { filter: { groupId: [Schema.decodeSync(GroupId)("G-1")] } }
+    { filter: { groupId: [decodeGroupIdSync("G-1")] } }
   ] as const)(
     "does not count a creation excluded by $filter",
     async ({ filter }) => {
@@ -940,11 +951,9 @@ describe("backlog quick create", () => {
 
   it("sends the template and predicts the template's priority and tags", async () => {
     const payloads: Array<unknown> = []
-    fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
+    fetchStub.set(async (_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "POST") {
-        payloads.push(
-          JSON.parse(new TextDecoder().decode(init.body as Uint8Array))
-        )
+        payloads.push(await new Response(init.body).json())
         return new Promise<Response>(() => {})
       }
       return Promise.resolve(sections([ticket]))
@@ -962,7 +971,7 @@ describe("backlog quick create", () => {
         ticket: {
           title: "Login loops",
           type: "bug",
-          template: Schema.decodeSync(TemplateKey)("bug-report")
+          template: decodeTemplateKeySync("bug-report")
         },
         viewerId: "user-1",
         projectPrefix: "T",
@@ -970,7 +979,7 @@ describe("backlog quick create", () => {
         clientId: "creation-1",
         prediction: {
           priority: "high",
-          tags: [Schema.decodeSync(TagName)("auth")]
+          tags: [decodeTagNameSync("auth")]
         }
       })
       const optimistic = registry.get(view)
@@ -995,7 +1004,7 @@ describe("backlog quick create", () => {
   it("keeps the caller's row key when the server row arrives", async () => {
     const created = {
       ...ticket,
-      id: Schema.decodeSync(TicketId)("T-9"),
+      id: decodeTicketIdSync("T-9"),
       title: "Created"
     }
     let served = [ticket]
@@ -1060,7 +1069,7 @@ describe("backlog quick create", () => {
   it("keeps the caller's row key on the flat list after confirmation", async () => {
     const created = {
       ...ticket,
-      id: Schema.decodeSync(TicketId)("T-9"),
+      id: decodeTicketIdSync("T-9"),
       title: "Created"
     }
     let served = [ticket]
@@ -1168,9 +1177,7 @@ describe("backlog quick create", () => {
       }
       return Promise.resolve(
         Response.json({
-          items: [
-            serverRow({ ...ticket, id: Schema.decodeSync(TicketId)("T-2") })
-          ],
+          items: [serverRow({ ...ticket, id: decodeTicketIdSync("T-2") })],
           nextCursor: null
         })
       )
@@ -1225,7 +1232,7 @@ describe("backlog quick create", () => {
   it("refreshes retained sibling sort variants after creation", async () => {
     const created = {
       ...ticket,
-      id: Schema.decodeSync(TicketId)("T-9"),
+      id: decodeTicketIdSync("T-9"),
       title: "Created"
     }
     let createdVisible = false
@@ -1441,7 +1448,7 @@ const at = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
 
 const withTicket = (id: string, fields: Partial<Ticket>): Ticket => ({
   ...ticket,
-  id: Schema.decodeSync(TicketId)(id),
+  id: decodeTicketIdSync(id),
   ...fields
 })
 

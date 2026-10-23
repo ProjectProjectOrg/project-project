@@ -27,6 +27,8 @@ import {
   updateTagInEditor
 } from "./tags"
 
+const encodeTicketUpdateResultSync = Schema.encodeSync(TicketUpdateResult)
+
 const name = Schema.decodeSync(TagName)("before")
 const nextName = Schema.decodeSync(TagName)("after")
 const color = Schema.decodeSync(TagColor)("#7c3aed")
@@ -63,7 +65,7 @@ const ticket = {
 } satisfies TicketDetail
 const encodeTicket = Schema.encodeSync(TicketDetail)
 const encodeUpdate = (t: TicketDetail) =>
-  Schema.encodeSync(TicketUpdateResult)({ ticket: t, orderKey: null })
+  encodeTicketUpdateResultSync({ ticket: t, orderKey: null })
 const editorReq = tagEditorRequest("acme", "web", ticket.id)
 const fetchStub = stubFetch()
 

@@ -4,6 +4,7 @@ import {
   Conflict,
   Forbidden,
   NotFound,
+  OrderKey,
   ProjectStatus,
   StatusColor,
   StatusLabel,
@@ -32,7 +33,7 @@ const rowToStatus = (r: typeof projectStatus.$inferSelect): ProjectStatus => ({
   label: makeLabel(r.label),
   icon: r.icon,
   color: makeColor(r.color),
-  orderKey: r.orderKey as ProjectStatus["orderKey"],
+  orderKey: OrderKey.make(r.orderKey),
   createdBy: r.createdBy,
   createdAt: r.createdAt
 })

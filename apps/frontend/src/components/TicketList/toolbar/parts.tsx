@@ -18,7 +18,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import {
@@ -28,7 +27,6 @@ import {
 } from "@/components/ui/input-group"
 import { Kbd } from "@/components/ui/kbd"
 import { menuItemMetaClass } from "@/components/ui/menu-styles"
-import { SelectItem } from "@/components/ui/select"
 import {
   statusesFor,
   statusesRequest
@@ -114,7 +112,7 @@ export function Status({
 
   const options = [
     {
-      value: "all",
+      value: "all" as const,
       label: m.tickets_status_all(),
       icon: (
         <Circle className="size-4 text-muted-foreground" strokeWidth={1.75} />
@@ -144,30 +142,27 @@ export function Status({
         {count ?? 0}
       </span>
     ) : null
-  const onValueChange = (next: string) =>
-    setStatus(next as TicketStatus | "all")
 
   if (variant === "panel")
     return (
       <OptionPicker
         label={m.tickets_filters_section_status()}
         value={status}
-        onValueChange={onValueChange}
+        onValueChange={setStatus}
         displayValue={currentLabel}
-      >
-        {options.map((option, index) => (
-          <SelectItem
-            key={option.value}
-            separated={index === 0}
-            value={option.value}
-            label={option.label}
-          >
-            {option.icon}
-            <span className="truncate">{option.label}</span>
-            {countBadge(option.count)}
-          </SelectItem>
-        ))}
-      </OptionPicker>
+        items={options.map((option, index) => ({
+          separated: index === 0,
+          value: option.value,
+          textValue: option.label,
+          label: (
+            <>
+              {option.icon}
+              <span className="truncate">{option.label}</span>
+              {countBadge(option.count)}
+            </>
+          )
+        }))}
+      />
     )
 
   return (
@@ -209,20 +204,22 @@ export function Status({
           className="w-52"
           finalFocus={false}
         >
-          <DropdownMenuRadioGroup value={status} onValueChange={onValueChange}>
-            {options.map((option, index) => (
-              <DropdownMenuRadioItem
-                key={option.value}
-                separated={index === 0}
-                value={option.value}
-                closeOnClick
-              >
-                {option.icon}
-                <span className="truncate">{option.label}</span>
-                {countBadge(option.count)}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
+          <DropdownMenuRadioGroup
+            value={status}
+            onValueChange={setStatus}
+            items={options.map((option, index) => ({
+              separated: index === 0,
+              value: option.value,
+              closeOnClick: true,
+              label: (
+                <>
+                  {option.icon}
+                  <span className="truncate">{option.label}</span>
+                  {countBadge(option.count)}
+                </>
+              )
+            }))}
+          />
         </DropdownMenuContent>
       </DropdownMenu>
     </ControlSlot>
@@ -256,14 +253,13 @@ export function Sort() {
         <DropdownMenuContent align="end" sideOffset={6} className="w-44">
           <DropdownMenuRadioGroup
             value={sortKey}
-            onValueChange={(next: string) => setSortKey(next as SortKey)}
-          >
-            {sortKeysFor(estimation).map((k) => (
-              <DropdownMenuRadioItem key={k} value={k} closeOnClick>
-                {SORT_LABELS[k]()}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
+            onValueChange={setSortKey}
+            items={sortKeysFor(estimation).map((k) => ({
+              value: k,
+              closeOnClick: true,
+              label: SORT_LABELS[k]()
+            }))}
+          />
         </DropdownMenuContent>
       </DropdownMenu>
     </motion.div>

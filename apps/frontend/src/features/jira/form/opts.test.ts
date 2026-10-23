@@ -1,4 +1,5 @@
-import type { JiraMigrationRequirements } from "@pp/shared"
+import { JiraMigrationRequirements, TagName } from "@pp/shared"
+import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import {
@@ -6,13 +7,13 @@ import {
   toPartialJiraMigrationConfiguration
 } from "./opts"
 
-const requirements: JiraMigrationRequirements = {
+const decodeRequirements = Schema.decodeSync(JiraMigrationRequirements)
+
+const requirements = decodeRequirements({
   destination: {
     suggestedName: "Engineering",
-    suggestedSlug:
-      "engineering" as JiraMigrationRequirements["destination"]["suggestedSlug"],
-    suggestedKey:
-      "ENG" as JiraMigrationRequirements["destination"]["suggestedKey"]
+    suggestedSlug: "engineering",
+    suggestedKey: "ENG"
   },
   identities: [
     {
@@ -35,30 +36,22 @@ const requirements: JiraMigrationRequirements = {
       jiraStatusId: "status-1",
       name: "Doing",
       categoryKey: "indeterminate",
-      suggestedProjectStatusSlug:
-        "in_progress" as JiraMigrationRequirements["statuses"][number]["suggestedProjectStatusSlug"],
+      suggestedProjectStatusSlug: "in_progress",
       createOption: {
-        slug: "doing" as NonNullable<
-          JiraMigrationRequirements["statuses"][number]["createOption"]
-        >["slug"],
-        label:
-          "Doing" as JiraMigrationRequirements["statusOptions"][number]["label"],
+        slug: "doing",
+        label: "Doing",
         icon: "CircleDot",
-        color: "#6B7280" as NonNullable<
-          JiraMigrationRequirements["statuses"][number]["createOption"]
-        >["color"],
+        color: "#6B7280",
         isTerminal: false
       }
     }
   ],
   statusOptions: [
     {
-      slug: "in_progress" as JiraMigrationRequirements["statusOptions"][number]["slug"],
-      label:
-        "In progress" as JiraMigrationRequirements["statusOptions"][number]["label"],
+      slug: "in_progress",
+      label: "In progress",
       icon: "CircleDot",
-      color:
-        "#6B7280" as JiraMigrationRequirements["statusOptions"][number]["color"],
+      color: "#6B7280",
       isTerminal: false
     }
   ],
@@ -80,8 +73,7 @@ const requirements: JiraMigrationRequirements = {
   tags: [
     {
       source: { kind: "component", value: "Web" },
-      suggestedDestinationTagName:
-        "component:web" as JiraMigrationRequirements["tags"][number]["suggestedDestinationTagName"],
+      suggestedDestinationTagName: "component:web",
       collisionSourceValues: []
     }
   ],
@@ -102,7 +94,7 @@ const requirements: JiraMigrationRequirements = {
       forcedSkipReason: "too_large"
     }
   ]
-}
+})
 
 const excludeRestrictedContent = (
   draft: ReturnType<typeof buildJiraMigrationDraft>
@@ -202,8 +194,7 @@ describe("Jira migration draft", () => {
       tags: [
         {
           source: { kind: "component", value: "Web" },
-          destinationTagName:
-            "frontend" as (typeof initial.tags)[number]["destinationTagName"]
+          destinationTagName: TagName.make("frontend")
         }
       ]
     })
@@ -232,7 +223,7 @@ describe("Jira migration draft", () => {
       statuses: [
         {
           jiraStatusId: "status-1",
-          projectStatusSlug: requirements.statuses[0]!.createOption!.slug,
+          projectStatusSlug: requirements.statuses[0].createOption!.slug,
           createStatus: true as const
         }
       ]

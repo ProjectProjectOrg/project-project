@@ -6,6 +6,7 @@ import * as Config from "effect/Config"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http"
 import * as Layer from "effect/Layer"
 import * as Predicate from "effect/Predicate"
@@ -27,7 +28,14 @@ const JiraTokenResponse = Schema.Struct({
   token_type: Schema.Literal("Bearer")
 })
 
+const decodeUnknownJiraTokenResponseExit =
+  Schema.decodeUnknownExit(JiraTokenResponse)
+
 const JiraTokenErrorResponse = Schema.Struct({ error: Schema.String })
+
+const decodeUnknownJiraTokenErrorResponseExit = Schema.decodeUnknownExit(
+  JiraTokenErrorResponse
+)
 
 export type JiraTokenGrant = Readonly<{
   accessToken: string
@@ -38,7 +46,7 @@ export type JiraTokenGrant = Readonly<{
 
 export type JiraOAuthConfigShape = Readonly<{
   clientId: string
-  clientSecret: Redacted.Redacted<string>
+  clientSecret: Redacted.Redacted
   publicBaseUrl: string
   authorizationEndpoint?: string
 }>
@@ -113,11 +121,11 @@ export const validateReturnPath = (value: string): string | null => {
 }
 
 export const parseTokenGrant = (
-  payload: unknown,
+  payload: Schema.Json,
   now: DateTime.Utc
 ): JiraTokenGrant | null => {
-  const result = Schema.decodeUnknownExit(JiraTokenResponse)(payload)
-  if (result._tag === "Failure") return null
+  const result = decodeUnknownJiraTokenResponseExit(payload)
+  if (Exit.isFailure(result)) return null
   const token = result.value
   return {
     accessToken: token.access_token,
@@ -145,10 +153,10 @@ export type JiraTokenRejection =
   | "invalid_response"
 
 export const classifyTokenRejection = (
-  payload: unknown
+  payload: Schema.Json
 ): JiraTokenRejection => {
-  const result = Schema.decodeUnknownExit(JiraTokenErrorResponse)(payload)
-  if (result._tag === "Failure") return "invalid_response"
+  const result = decodeUnknownJiraTokenErrorResponseExit(payload)
+  if (Exit.isFailure(result)) return "invalid_response"
   return result.value.error === "invalid_grant" ? "invalid_grant" : "transient"
 }
 
@@ -188,7 +196,7 @@ const requestGrant = Effect.fn("JiraTokenEndpoint.requestGrant")(function* (
   const response = yield* client.execute(request).pipe(
     Effect.timeout("20 seconds"),
     Effect.mapError((error) =>
-      Predicate.isObject(error) && error._tag === "TimeoutError"
+      Predicate.isTagged(error, "TimeoutError")
         ? new JiraError({ reason: "timeout" })
         : new JiraError({ reason: "network" })
     )
@@ -202,7 +210,7 @@ const requestGrant = Effect.fn("JiraTokenEndpoint.requestGrant")(function* (
   if (response.status >= 500) {
     return yield* new JiraError({ reason: "server_error" })
   }
-  const body = yield* HttpClientResponse.schemaBodyJson(Schema.Unknown)(
+  const body = yield* HttpClientResponse.schemaBodyJson(Schema.Json)(
     response
   ).pipe(Effect.mapError(() => new JiraError({ reason: "invalid_response" })))
   if (response.status < 200 || response.status >= 300) {

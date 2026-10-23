@@ -11,6 +11,7 @@ import {
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Match from "effect/Match"
 import * as Schema from "effect/Schema"
 
 import { graphqlFor } from "./clients"
@@ -303,12 +304,12 @@ const pullRequestTextMentionsTicketId = (pr: RawPullRequestText): boolean =>
 const rawPullRequest = (pr: PullRequestNode): RawBranchEntry => ({
   headRefName: pr.headRefName,
   baseRefName: pr.baseRefName,
-  state:
-    pr.state === "MERGED"
-      ? "merged"
-      : pr.state === "CLOSED"
-        ? "closed"
-        : "open",
+  state: Match.value(pr.state).pipe(
+    Match.withReturnType<RawBranchEntry["state"]>(),
+    Match.when("MERGED", () => "merged"),
+    Match.when("CLOSED", () => "closed"),
+    Match.orElse(() => "open")
+  ),
   draft: pr.isDraft,
   number: pr.number,
   url: pr.url,

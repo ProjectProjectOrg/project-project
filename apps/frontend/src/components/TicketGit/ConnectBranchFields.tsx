@@ -1,14 +1,14 @@
+import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 // Inline form body for "connect existing branch". Search input on top,
 // scrollable result list below, footer with cancel + connect. Hand-rolled
 // (no cmdk in this workspace) but keyboard-navigable.
-
-import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { BranchListItem, GithubConnection, TicketDetail } from "@pp/shared"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
 import * as Result from "effect/reactivity/AsyncResult"
 import { GitBranch } from "lucide-react"
 import { useMemo, useRef, useState } from "react"
@@ -182,7 +182,10 @@ export function ConnectBranchFields({
     // BranchNotFound: clear stale selection and refresh the branch list so
     // the picker reflects what the server now believes exists.
     const failure = Cause.findErrorOption(exit.cause)
-    if (Option.isSome(failure) && failure.value._tag === "BranchNotFound") {
+    if (
+      Option.isSome(failure) &&
+      Predicate.isTagged(failure.value, "BranchNotFound")
+    ) {
       setSelected(null)
       refreshBranches()
     }

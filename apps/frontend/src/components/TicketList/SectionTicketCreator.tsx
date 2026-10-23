@@ -48,6 +48,8 @@ import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
 import { useCreatorFocus } from "./useCreatorFocus"
 import { useTemplateChoice, useTicketTypeChoice } from "./useTemplateChoice"
 
+const isGroupId = Schema.is(GroupId)
+
 export function SectionTicketCreator({
   orgSlug,
   slug,
@@ -74,7 +76,7 @@ export function SectionTicketCreator({
   )
   const sprintReqForCreate = snapshotReq ?? sectionsReq
   const sprintKey = sprintSectionKey(
-    Schema.is(GroupId)(query.groupId?.[0]) ? query.groupId[0] : null
+    isGroupId(query.groupId?.[0]) ? query.groupId[0] : null
   )
   const createSections = useAtomSet(quickCreateBacklogTicket(sectionsReq), {
     mode: "promiseExit"
@@ -126,7 +128,7 @@ export function SectionTicketCreator({
   const groupIdFilter = query.groupId
   const singleGroupIdFilter =
     groupIdFilter && groupIdFilter.length === 1 ? groupIdFilter[0] : undefined
-  const activeSprintId = Schema.is(GroupId)(singleGroupIdFilter)
+  const activeSprintId = isGroupId(singleGroupIdFilter)
     ? singleGroupIdFilter
     : null
   const isExplicitNoSprintFilter = singleGroupIdFilter === "ungrouped"

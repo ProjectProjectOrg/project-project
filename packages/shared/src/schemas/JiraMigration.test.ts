@@ -11,6 +11,21 @@ import {
 } from "./JiraMigration"
 import { TagName } from "./Tag"
 
+const decodeUnknownJiraMigrationConfigurationSync = Schema.decodeUnknownSync(
+  JiraMigrationConfiguration
+)
+
+const decodeUnknownJiraSiteSync = Schema.decodeUnknownSync(JiraSite)
+
+const decodeUnknownJiraProjectChoiceSync =
+  Schema.decodeUnknownSync(JiraProjectChoice)
+
+const decodeUnknownJiraMigrationRequirementsSync = Schema.decodeUnknownSync(
+  JiraMigrationRequirements
+)
+
+const decodeUnknownTagNameSync = Schema.decodeUnknownSync(TagName)
+
 const decodeConnection = Schema.decodeUnknownSync(JiraConnection)
 const connectedAt = DateTime.makeUnsafe("2026-09-14T12:00:00Z")
 
@@ -28,24 +43,22 @@ describe("JiraMigration schemas", () => {
       skippedAttachmentIds: [],
       attachmentSkipsAccepted: false
     }
-    expect(Schema.decodeUnknownSync(JiraMigrationConfiguration)(draft)).toEqual(
-      draft
-    )
+    expect(decodeUnknownJiraMigrationConfigurationSync(draft)).toEqual(draft)
     expect(
-      Schema.decodeUnknownSync(JiraMigrationConfiguration)({
+      decodeUnknownJiraMigrationConfigurationSync({
         ...draft,
         restrictedContent: null
       }).restrictedContent
     ).toBeNull()
     for (const key of ["name", "slug", "key"] as const)
       expect(() =>
-        Schema.decodeUnknownSync(JiraMigrationConfiguration)({
+        decodeUnknownJiraMigrationConfigurationSync({
           ...draft,
           destination: { ...draft.destination, [key]: "" }
         })
       ).toThrow()
     expect(() =>
-      Schema.decodeUnknownSync(JiraMigrationConfiguration)({
+      decodeUnknownJiraMigrationConfigurationSync({
         ...draft,
         restrictedContent: {}
       })
@@ -98,13 +111,13 @@ describe("JiraMigration schemas", () => {
   })
 
   it("decodes minimal site and project choices", () => {
-    const site = Schema.decodeUnknownSync(JiraSite)({
+    const site = decodeUnknownJiraSiteSync({
       cloudId: "cloud-1",
       name: "Example",
       url: "https://example.atlassian.net",
       avatarUrl: null
     })
-    const project = Schema.decodeUnknownSync(JiraProjectChoice)({
+    const project = decodeUnknownJiraProjectChoiceSync({
       id: "10000",
       key: "APP",
       name: "Application",
@@ -119,9 +132,12 @@ describe("JiraMigration schemas", () => {
   })
 
   it.each([
-    [JiraSite, { cloudId: 1, name: "Example", url: "bad", avatarUrl: null }],
     [
-      JiraProjectChoice,
+      decodeUnknownJiraSiteSync,
+      { cloudId: 1, name: "Example", url: "bad", avatarUrl: null }
+    ],
+    [
+      decodeUnknownJiraProjectChoiceSync,
       {
         id: "10000",
         key: null,
@@ -132,12 +148,12 @@ describe("JiraMigration schemas", () => {
         avatarUrl: null
       }
     ]
-  ])("rejects malformed public values", (schema, input) => {
-    expect(() => Schema.decodeUnknownSync(schema)(input)).toThrow()
+  ])("rejects malformed public values", (decode, input) => {
+    expect(() => decode(input)).toThrow()
   })
 
   it("decodes the approved complete migration configuration", () => {
-    const configuration = Schema.decodeUnknownSync(JiraMigrationConfiguration)({
+    const configuration = decodeUnknownJiraMigrationConfigurationSync({
       destination: { name: "Application", slug: "application", key: "APP" },
       identities: [{ jiraAccountId: "jira-user", projectProjectUserId: null }],
       statuses: [{ jiraStatusId: "1", projectStatusSlug: "in_progress" }],
@@ -160,7 +176,7 @@ describe("JiraMigration schemas", () => {
   })
 
   it("keeps legacy status mappings and accepts explicit status creation", () => {
-    const legacy = Schema.decodeUnknownSync(JiraMigrationConfiguration)({
+    const legacy = decodeUnknownJiraMigrationConfigurationSync({
       destination: { name: "Application", slug: "application", key: "APP" },
       identities: [],
       statuses: [{ jiraStatusId: "1", projectStatusSlug: "in_progress" }],
@@ -172,7 +188,7 @@ describe("JiraMigration schemas", () => {
       skippedAttachmentIds: [],
       attachmentSkipsAccepted: false
     })
-    const created = Schema.decodeUnknownSync(JiraMigrationConfiguration)({
+    const created = decodeUnknownJiraMigrationConfigurationSync({
       ...legacy,
       statuses: [
         {
@@ -188,7 +204,7 @@ describe("JiraMigration schemas", () => {
   })
 
   it("decodes display-ready existing and creatable status metadata", () => {
-    const requirements = Schema.decodeUnknownSync(JiraMigrationRequirements)({
+    const requirements = decodeUnknownJiraMigrationRequirementsSync({
       destination: {
         suggestedName: "Application",
         suggestedSlug: "application",
@@ -235,12 +251,12 @@ describe("JiraMigration schemas", () => {
   })
 
   it("allows only the reserved component namespace in tag names", () => {
-    expect(
-      Schema.decodeUnknownSync(TagName)("component:payments-platform")
-    ).toBe("component:payments-platform")
-    expect(() => Schema.decodeUnknownSync(TagName)("team:payments")).toThrow()
+    expect(decodeUnknownTagNameSync("component:payments-platform")).toBe(
+      "component:payments-platform"
+    )
+    expect(() => decodeUnknownTagNameSync("team:payments")).toThrow()
     expect(() =>
-      Schema.decodeUnknownSync(TagName)("component:payments-platform-long")
+      decodeUnknownTagNameSync("component:payments-platform-long")
     ).toThrow()
   })
 })

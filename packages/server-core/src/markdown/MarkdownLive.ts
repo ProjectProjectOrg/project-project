@@ -1,3 +1,4 @@
+import { LIBRARY_KEY_MAX_LENGTH, NotFound, TicketId } from "@pp/shared"
 // Markdown service — filesystem-backed read/write for projects on disk.
 //
 // Source of truth is markdown on disk under
@@ -5,13 +6,12 @@
 // public method takes `orgSlug` explicitly — there is no implicit "active
 // org" lookup at this layer; callers (handlers via the Projects service)
 // thread it through.
-
-import { LIBRARY_KEY_MAX_LENGTH, NotFound, TicketId } from "@pp/shared"
 import * as Config from "effect/Config"
 import * as Crypto from "effect/Crypto"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
+import * as Match from "effect/Match"
 import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
 
@@ -86,15 +86,17 @@ export const MarkdownLive = Layer.effect(
       Effect.gen(function* () {
         yield* ensureSafeOrgAndProject(orgSlug, slug)
         const file = projectFilePath(orgSlug, slug)
-        const raw = yield* fs
-          .readFileString(file, "utf8")
-          .pipe(
-            Effect.mapError((cause): NotFound | MarkdownError =>
-              cause.reason._tag === "NotFound"
-                ? new NotFound()
-                : new MarkdownError({ cause, message: `read failed: ${file}` })
+        const raw = yield* fs.readFileString(file, "utf8").pipe(
+          Effect.mapError((cause): NotFound | MarkdownError =>
+            Match.value(cause.reason).pipe(
+              Match.tag("NotFound", () => new NotFound()),
+              Match.orElse(
+                () =>
+                  new MarkdownError({ cause, message: `read failed: ${file}` })
+              )
             )
           )
+        )
         const parsed = yield* Effect.try({
           try: () => parseMarkdownFile(raw),
           catch: (cause) =>
@@ -116,15 +118,17 @@ export const MarkdownLive = Layer.effect(
       Effect.gen(function* () {
         yield* ensureSafeOrgAndProject(orgSlug, slug)
         const file = projectFilePath(orgSlug, slug)
-        const content = yield* fs
-          .readFileString(file, "utf8")
-          .pipe(
-            Effect.mapError((cause): NotFound | MarkdownError =>
-              cause.reason._tag === "NotFound"
-                ? new NotFound()
-                : new MarkdownError({ cause, message: `read failed: ${file}` })
+        const content = yield* fs.readFileString(file, "utf8").pipe(
+          Effect.mapError((cause): NotFound | MarkdownError =>
+            Match.value(cause.reason).pipe(
+              Match.tag("NotFound", () => new NotFound()),
+              Match.orElse(
+                () =>
+                  new MarkdownError({ cause, message: `read failed: ${file}` })
+              )
             )
           )
+        )
         return {
           path: `orgs/${orgSlug}/projects/${slug}/project.md`,
           content
@@ -211,15 +215,17 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeOrgAndProject(orgSlug, slug)
         yield* ensureSafeId(id)
         const file = ticketFilePath(orgSlug, slug, id)
-        const raw = yield* fs
-          .readFileString(file, "utf8")
-          .pipe(
-            Effect.mapError((cause): NotFound | MarkdownError =>
-              cause.reason._tag === "NotFound"
-                ? new NotFound()
-                : new MarkdownError({ cause, message: `read failed: ${file}` })
+        const raw = yield* fs.readFileString(file, "utf8").pipe(
+          Effect.mapError((cause): NotFound | MarkdownError =>
+            Match.value(cause.reason).pipe(
+              Match.tag("NotFound", () => new NotFound()),
+              Match.orElse(
+                () =>
+                  new MarkdownError({ cause, message: `read failed: ${file}` })
+              )
             )
           )
+        )
         const parsed = yield* Effect.try({
           try: () => parseMarkdownFile(raw),
           catch: (cause) =>
@@ -259,15 +265,17 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeOrgAndProject(orgSlug, slug)
         yield* ensureSafeId(id)
         const file = ticketFilePath(orgSlug, slug, id)
-        const content = yield* fs
-          .readFileString(file, "utf8")
-          .pipe(
-            Effect.mapError((cause): NotFound | MarkdownError =>
-              cause.reason._tag === "NotFound"
-                ? new NotFound()
-                : new MarkdownError({ cause, message: `read failed: ${file}` })
+        const content = yield* fs.readFileString(file, "utf8").pipe(
+          Effect.mapError((cause): NotFound | MarkdownError =>
+            Match.value(cause.reason).pipe(
+              Match.tag("NotFound", () => new NotFound()),
+              Match.orElse(
+                () =>
+                  new MarkdownError({ cause, message: `read failed: ${file}` })
+              )
             )
           )
+        )
         return {
           path: `orgs/${orgSlug}/projects/${slug}/tickets/${id}.md`,
           content
@@ -308,12 +316,16 @@ export const MarkdownLive = Layer.effect(
           )
           yield* fs.link(temporary, file).pipe(
             Effect.mapError((cause): MarkdownError | TicketIdTaken =>
-              cause.reason._tag === "AlreadyExists"
-                ? new TicketIdTaken()
-                : new MarkdownError({
-                    cause,
-                    message: `create failed: ${file}`
-                  })
+              Match.value(cause.reason).pipe(
+                Match.tag("AlreadyExists", () => new TicketIdTaken()),
+                Match.orElse(
+                  () =>
+                    new MarkdownError({
+                      cause,
+                      message: `create failed: ${file}`
+                    })
+                )
+              )
             )
           )
         }).pipe(
@@ -387,12 +399,16 @@ export const MarkdownLive = Layer.effect(
         const file = ticketFilePath(orgSlug, slug, id)
         yield* fs.remove(file).pipe(
           Effect.mapError((cause): NotFound | MarkdownError =>
-            cause.reason._tag === "NotFound"
-              ? new NotFound()
-              : new MarkdownError({
-                  cause,
-                  message: `remove failed: ${file}`
-                })
+            Match.value(cause.reason).pipe(
+              Match.tag("NotFound", () => new NotFound()),
+              Match.orElse(
+                () =>
+                  new MarkdownError({
+                    cause,
+                    message: `remove failed: ${file}`
+                  })
+              )
+            )
           )
         )
       })
@@ -405,15 +421,15 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeOrgAndProject(orgSlug, slug)
         const dir = ticketsDir(orgSlug, slug)
         const entries = yield* fs.readDirectory(dir).pipe(
-          Effect.catch((cause) =>
-            cause.reason._tag === "NotFound"
-              ? Effect.succeed([] as ReadonlyArray<string>)
-              : Effect.fail(
-                  new MarkdownError({
-                    cause,
-                    message: `list failed: ${dir}`
-                  })
-                )
+          Effect.catchReason("PlatformError", "NotFound", () =>
+            Effect.succeed<ReadonlyArray<string>>([])
+          ),
+          Effect.mapError(
+            (cause) =>
+              new MarkdownError({
+                cause,
+                message: `list failed: ${dir}`
+              })
           )
         )
         return entries
@@ -450,15 +466,17 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeOrgAndProject(orgSlug, slug)
         yield* ensureSafeGroupId(id)
         const file = groupFilePath(orgSlug, slug, id)
-        const raw = yield* fs
-          .readFileString(file, "utf8")
-          .pipe(
-            Effect.mapError((cause): NotFound | MarkdownError =>
-              cause.reason._tag === "NotFound"
-                ? new NotFound()
-                : new MarkdownError({ cause, message: `read failed: ${file}` })
+        const raw = yield* fs.readFileString(file, "utf8").pipe(
+          Effect.mapError((cause): NotFound | MarkdownError =>
+            Match.value(cause.reason).pipe(
+              Match.tag("NotFound", () => new NotFound()),
+              Match.orElse(
+                () =>
+                  new MarkdownError({ cause, message: `read failed: ${file}` })
+              )
             )
           )
+        )
         const parsed = yield* Effect.try({
           try: () => parseMarkdownFile(raw),
           catch: (cause) =>
@@ -482,15 +500,17 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeOrgAndProject(orgSlug, slug)
         yield* ensureSafeGroupId(id)
         const file = groupFilePath(orgSlug, slug, id)
-        const content = yield* fs
-          .readFileString(file, "utf8")
-          .pipe(
-            Effect.mapError((cause): NotFound | MarkdownError =>
-              cause.reason._tag === "NotFound"
-                ? new NotFound()
-                : new MarkdownError({ cause, message: `read failed: ${file}` })
+        const content = yield* fs.readFileString(file, "utf8").pipe(
+          Effect.mapError((cause): NotFound | MarkdownError =>
+            Match.value(cause.reason).pipe(
+              Match.tag("NotFound", () => new NotFound()),
+              Match.orElse(
+                () =>
+                  new MarkdownError({ cause, message: `read failed: ${file}` })
+              )
             )
           )
+        )
         return {
           path: `orgs/${orgSlug}/projects/${slug}/groups/${id}.md`,
           content
@@ -520,12 +540,16 @@ export const MarkdownLive = Layer.effect(
           )
         yield* fs.writeFileString(file, content, { flag: "wx" }).pipe(
           Effect.mapError((cause): MarkdownError | GroupIdTaken =>
-            cause.reason._tag === "AlreadyExists"
-              ? new GroupIdTaken()
-              : new MarkdownError({
-                  cause,
-                  message: `create failed: ${file}`
-                })
+            Match.value(cause.reason).pipe(
+              Match.tag("AlreadyExists", () => new GroupIdTaken()),
+              Match.orElse(
+                () =>
+                  new MarkdownError({
+                    cause,
+                    message: `create failed: ${file}`
+                  })
+              )
+            )
           )
         )
       })
@@ -594,12 +618,16 @@ export const MarkdownLive = Layer.effect(
         const file = groupFilePath(orgSlug, slug, id)
         yield* fs.remove(file).pipe(
           Effect.mapError((cause): NotFound | MarkdownError =>
-            cause.reason._tag === "NotFound"
-              ? new NotFound()
-              : new MarkdownError({
-                  cause,
-                  message: `remove failed: ${file}`
-                })
+            Match.value(cause.reason).pipe(
+              Match.tag("NotFound", () => new NotFound()),
+              Match.orElse(
+                () =>
+                  new MarkdownError({
+                    cause,
+                    message: `remove failed: ${file}`
+                  })
+              )
+            )
           )
         )
       })
@@ -612,15 +640,15 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeOrgAndProject(orgSlug, slug)
         const dir = groupsDir(orgSlug, slug)
         const entries = yield* fs.readDirectory(dir).pipe(
-          Effect.catch((cause) =>
-            cause.reason._tag === "NotFound"
-              ? Effect.succeed([] as ReadonlyArray<string>)
-              : Effect.fail(
-                  new MarkdownError({
-                    cause,
-                    message: `list failed: ${dir}`
-                  })
-                )
+          Effect.catchReason("PlatformError", "NotFound", () =>
+            Effect.succeed<ReadonlyArray<string>>([])
+          ),
+          Effect.mapError(
+            (cause) =>
+              new MarkdownError({
+                cause,
+                message: `list failed: ${dir}`
+              })
           )
         )
         return entries
@@ -675,12 +703,12 @@ export const MarkdownLive = Layer.effect(
       const file = path.join(dir, `${key}.md`)
       return fs.readFileString(file, "utf8").pipe(
         Effect.map((content) => [{ key, content }]),
-        Effect.catch((cause) =>
-          cause.reason._tag === "NotFound"
-            ? Effect.succeed([])
-            : Effect.fail(
-                new MarkdownError({ cause, message: `read failed: ${file}` })
-              )
+        Effect.catchReason("PlatformError", "NotFound", () =>
+          Effect.succeed([])
+        ),
+        Effect.mapError(
+          (cause) =>
+            new MarkdownError({ cause, message: `read failed: ${file}` })
         )
       )
     }
@@ -693,17 +721,15 @@ export const MarkdownLive = Layer.effect(
       Effect.gen(function* () {
         yield* ensureSafeLibraryScope(orgSlug, projectSlug)
         const dir = libraryDir(orgSlug, projectSlug, kind)
-        const entries = yield* fs
-          .readDirectory(dir)
-          .pipe(
-            Effect.catch((cause) =>
-              cause.reason._tag === "NotFound"
-                ? Effect.succeed([] as ReadonlyArray<string>)
-                : Effect.fail(
-                    new MarkdownError({ cause, message: `list failed: ${dir}` })
-                  )
-            )
+        const entries = yield* fs.readDirectory(dir).pipe(
+          Effect.catchReason("PlatformError", "NotFound", () =>
+            Effect.succeed<ReadonlyArray<string>>([])
+          ),
+          Effect.mapError(
+            (cause) =>
+              new MarkdownError({ cause, message: `list failed: ${dir}` })
           )
+        )
         const keys = entries
           .filter((entry) => entry.endsWith(".md"))
           .map((entry) => entry.slice(0, -3))
@@ -756,15 +782,15 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeSlug(orgSlug)
         const file = orgLibraryFilePath(orgSlug)
         return yield* fs.readFileString(file, "utf8").pipe(
-          Effect.catch((cause) =>
-            cause.reason._tag === "NotFound"
-              ? Effect.succeed(null)
-              : Effect.fail(
-                  new MarkdownError({
-                    cause,
-                    message: `read failed: ${file}`
-                  })
-                )
+          Effect.catchReason("PlatformError", "NotFound", () =>
+            Effect.succeed(null)
+          ),
+          Effect.mapError(
+            (cause) =>
+              new MarkdownError({
+                cause,
+                message: `read failed: ${file}`
+              })
           )
         )
       })
@@ -806,15 +832,15 @@ export const MarkdownLive = Layer.effect(
         const file = libraryFilePath(orgSlug, projectSlug, kind, key)
         return yield* fs.remove(file).pipe(
           Effect.as(true),
-          Effect.catch((cause) =>
-            cause.reason._tag === "NotFound"
-              ? Effect.succeed(false)
-              : Effect.fail(
-                  new MarkdownError({
-                    cause,
-                    message: `remove failed: ${file}`
-                  })
-                )
+          Effect.catchReason("PlatformError", "NotFound", () =>
+            Effect.succeed(false)
+          ),
+          Effect.mapError(
+            (cause) =>
+              new MarkdownError({
+                cause,
+                message: `remove failed: ${file}`
+              })
           )
         )
       })

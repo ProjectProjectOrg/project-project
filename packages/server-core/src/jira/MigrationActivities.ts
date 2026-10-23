@@ -11,6 +11,8 @@ import { Schedule } from "effect"
 import { DateTime } from "effect"
 import * as Effect from "effect/Effect"
 import type * as Exit from "effect/Exit"
+import * as Match from "effect/Match"
+import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
 import { Activity } from "effect/workflow"
 
@@ -35,6 +37,20 @@ import {
   normalizeScanPageValues,
   type ScanChunkReference
 } from "./ScanV2"
+
+const decodeUnknownJiraIssueArray = Schema.decodeUnknownEffect(
+  Schema.Array(JiraIssue)
+)
+
+const decodeUnknownJiraMigrationUserOptionArray = Schema.decodeUnknownEffect(
+  Schema.Array(JiraMigrationUserOption)
+)
+
+const encodeJiraAttachmentOutcomeArray = Schema.encodeEffect(
+  Schema.Array(JiraAttachmentOutcome)
+)
+
+const decodeUnknownArray = Schema.decodeUnknownEffect(Schema.Array(Schema.Json))
 
 export const VerifiedJiraMaterialization = Schema.Struct({
   planSha256: Schema.String,
@@ -163,9 +179,9 @@ export const materializeJiraPreparedPublication = <
         }),
       { concurrency: 4 }
     )
-    const encodedOutcomes = yield* Schema.encodeEffect(
-      Schema.Array(JiraAttachmentOutcome)
-    )(outcomes).pipe(
+    const encodedOutcomes = yield* encodeJiraAttachmentOutcomeArray(
+      outcomes
+    ).pipe(
       Effect.mapError(() =>
         dependencies.error.make({
           reason: "jira_migration_attachment_outcome_invalid",
@@ -507,24 +523,24 @@ export const scanFailure = (
   retryable = false,
   reconnect = false
 ) => new JiraScanFailure({ reason, retryable, reconnect })
-export const scanError = (error: {
-  readonly _tag: string
-}): JiraScanFailure => {
-  switch (error._tag) {
-    case "JiraNotConnected":
-    case "JiraReconnectRequired":
-      return scanFailure("jira_reconnect_required", true, true)
-    case "JiraArtifactError":
-    case "S3Unavailable":
-    case "StorageNotConnected":
-    case "StorageConfigMissing":
-      return scanFailure("jira_migration_storage_failed", true)
-    case "MarkdownError":
-      return scanFailure("jira_migration_markdown_failed", true)
-    default:
-      return scanFailure("jira_migration_invalid_response")
-  }
-}
+export const scanError = (error: Readonly<{ _tag: string }>): JiraScanFailure =>
+  Match.value(error).pipe(
+    Match.tag("JiraNotConnected", "JiraReconnectRequired", () =>
+      scanFailure("jira_reconnect_required", true, true)
+    ),
+    Match.tag(
+      "JiraArtifactError",
+      "S3Unavailable",
+      "StorageNotConnected",
+      "StorageConfigMissing",
+      () => scanFailure("jira_migration_storage_failed", true)
+    ),
+    Match.tag("MarkdownError", () =>
+      scanFailure("jira_migration_markdown_failed", true)
+    ),
+    Match.orElse(() => scanFailure("jira_migration_invalid_response"))
+  )
+
 export const cursorHash = (cursor: string | null) =>
   createHash("sha256")
     .update(cursor ?? "")
@@ -560,7 +576,7 @@ export type ScanPageDependencies = Readonly<{
   ) => Effect.Effect<boolean, JiraError>
 }>
 const singleSnapshotPage = <A>(
-  effect: Effect.Effect<{ raw: unknown; value: A }, JiraCallError>
+  effect: Effect.Effect<{ raw: Schema.Json; value: A }, JiraCallError>
 ) =>
   effect.pipe(
     Effect.map(({ raw, value }) => ({
@@ -571,7 +587,7 @@ const singleSnapshotPage = <A>(
   )
 const collectionSnapshotPage = <A>(
   effect: Effect.Effect<
-    { raw: unknown; value: ReadonlyArray<A> },
+    { raw: Schema.Json; value: ReadonlyArray<A> },
     JiraCallError
   >
 ) =>
@@ -583,7 +599,11 @@ const pageResponse = Effect.fn("Jira.scanPageResponse")(function* (
   input: JiraScanPageInput,
   client: JiraClientShape
 ): Effect.fn.Return<
-  { raw: unknown; values: ReadonlyArray<unknown>; nextCursor: string | null },
+  {
+    raw: Schema.Json
+    values: ReadonlyArray<Schema.Json>
+    nextCursor: string | null
+  },
   JiraCallError
 > {
   const { userId, cloudId, projectId, parentId, kind, cursor } = input
@@ -656,24 +676,24 @@ const pageResponse = Effect.fn("Jira.scanPageResponse")(function* (
       }
     }
   }
-  const fetch: Effect.Effect<JiraOffsetPage<unknown>, JiraCallError> = kind ===
-  "comments"
-    ? client.commentsPage(issue)
-    : kind === "changelogs"
-      ? client.changelogsPage(issue)
-      : kind === "worklogs"
-        ? client.worklogsPage(issue)
-        : kind === "components"
-          ? client.componentsPage(project)
-          : kind === "versions"
-            ? client.versionsPage(project)
-            : kind === "boards"
-              ? client.boardsPage(project)
-              : client.sprintsPage({
-                  ...base,
-                  boardId: Number(parentId),
-                  startAt: offset
-                })
+  const fetch: Effect.Effect<
+    JiraOffsetPage<Schema.Json>,
+    JiraCallError
+  > = Match.value(kind).pipe(
+    Match.when("comments", () => client.commentsPage(issue)),
+    Match.when("changelogs", () => client.changelogsPage(issue)),
+    Match.when("worklogs", () => client.worklogsPage(issue)),
+    Match.when("components", () => client.componentsPage(project)),
+    Match.when("versions", () => client.versionsPage(project)),
+    Match.when("boards", () => client.boardsPage(project)),
+    Match.orElse(() =>
+      client.sprintsPage({
+        ...base,
+        boardId: Number(parentId),
+        startAt: offset
+      })
+    )
+  )
   const page = yield* fetch
   const next = page.startAt + page.maxResults
   if (
@@ -717,10 +737,23 @@ export const defineScanPageActivity = (
     success: JiraScanPageResult,
     error: JiraScanPageError,
     execute: Effect.gen(function* () {
+      const unavailablePage = (
+        reason: "permission_denied" | "unsupported_or_missing"
+      ) =>
+        Effect.succeed({
+          raw: {
+            kind: input.kind,
+            parentId: input.parentId,
+            unavailable: reason
+          },
+          values: [],
+          nextCursor: null,
+          warnings: [reason]
+        })
       const fetched: Effect.Effect<
         {
-          raw: unknown
-          values: ReadonlyArray<unknown>
+          raw: Schema.Json
+          values: ReadonlyArray<Schema.Json>
           nextCursor: string | null
         },
         | JiraCallError
@@ -734,41 +767,29 @@ export const defineScanPageActivity = (
               const issues = yield* dependencies.artifacts.readJson(
                 input.orgSlug,
                 input.sourceArtifact,
-                Schema.Array(JiraIssue)
+                decodeUnknownJiraIssueArray
               )
               const issue = issues.find((issue) => issue.id === input.parentId)
               if (!issue)
                 return yield* scanFailure("jira_migration_missing_issue")
-              const values = yield* Schema.decodeUnknownEffect(
-                Schema.Array(Schema.Unknown)
-              )(issue.fields.attachment ?? []).pipe(Effect.mapError(scanError))
+              const values = yield* decodeUnknownArray(
+                issue.fields.attachment ?? []
+              ).pipe(Effect.mapError(scanError))
               return { raw: values, values, nextCursor: null }
             })
           : pageResponse(input, dependencies.client)
       const page = yield* fetched.pipe(
         Effect.map((page) => ({ ...page, warnings: [] as string[] })),
-        Effect.catchIf(
-          (error) =>
-            OPTIONAL_SCAN_KINDS.has(input.kind) &&
-            (error._tag === "JiraAccessDenied" ||
-              error._tag === "JiraResourceNotFound"),
-          (error) => {
-            const reason =
-              error._tag === "JiraAccessDenied"
-                ? "permission_denied"
-                : "unsupported_or_missing"
-            return Effect.succeed({
-              raw: {
-                kind: input.kind,
-                parentId: input.parentId,
-                unavailable: reason
-              },
-              values: [],
-              nextCursor: null,
-              warnings: [reason]
-            })
-          }
-        ),
+        Effect.catchTags({
+          JiraAccessDenied: (error) =>
+            OPTIONAL_SCAN_KINDS.has(input.kind)
+              ? unavailablePage("permission_denied")
+              : Effect.fail(error),
+          JiraResourceNotFound: (error) =>
+            OPTIONAL_SCAN_KINDS.has(input.kind)
+              ? unavailablePage("unsupported_or_missing")
+              : Effect.fail(error)
+        }),
         Effect.retry(
           Schedule.max([
             Schedule.exponential("250 millis").pipe(Schedule.jittered),
@@ -781,7 +802,7 @@ export const defineScanPageActivity = (
             >(),
             Schedule.while(
               ({ input }) =>
-                input._tag === "JiraTransientFailure" &&
+                Predicate.isTagged(input, "JiraTransientFailure") &&
                 input.reason !== "invalid_retry_after"
             )
           )
@@ -819,11 +840,15 @@ export const defineScanPageActivity = (
       }
     }).pipe(
       Effect.mapError((error) =>
-        error._tag === "JiraRateLimited" ||
-        error._tag === "JiraTransientFailure" ||
-        error._tag === "JiraScanFailure"
-          ? error
-          : scanError(error)
+        Match.value(error).pipe(
+          Match.tag(
+            "JiraRateLimited",
+            "JiraTransientFailure",
+            "JiraScanFailure",
+            (error) => error
+          ),
+          Match.orElse((error) => scanError(error))
+        )
       )
     )
   })
@@ -921,7 +946,7 @@ export const defineBuildManifestActivity = (
                 dependencies.artifacts.readJson(
                   context.orgSlug,
                   ref.normalized,
-                  Schema.Array(Schema.Unknown)
+                  decodeUnknownArray
                 )
               )
             )
@@ -933,7 +958,7 @@ export const defineBuildManifestActivity = (
         yield* dependencies.artifacts.readJson(
           context.orgSlug,
           identityOptionsArtifact,
-          Schema.Array(JiraMigrationUserOption)
+          decodeUnknownJiraMigrationUserOptionArray
         )
       )
       const refs = new Map<string, JiraArtifactRef>()
@@ -1001,7 +1026,10 @@ export const defineBuildManifestActivity = (
       return { manifest, requirements, summary }
     }).pipe(
       Effect.mapError((error) =>
-        error._tag === "JiraScanFailure" ? error : scanError(error)
+        Match.value(error).pipe(
+          Match.tag("JiraScanFailure", (error) => error),
+          Match.orElse((error) => scanError(error))
+        )
       )
     )
   })

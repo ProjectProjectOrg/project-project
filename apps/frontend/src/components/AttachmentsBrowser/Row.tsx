@@ -6,12 +6,7 @@ import { Download, FileText } from "lucide-react"
 
 import { Checkbox } from "@/components/ui/checkbox"
 import { CopyButton } from "@/components/ui/copy-button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger
-} from "@/components/ui/select"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import {
   Tooltip,
   TooltipContent,
@@ -206,11 +201,15 @@ function TicketCell({
   return (
     <div onClick={(event) => event.stopPropagation()}>
       <Select
-        value=""
+        value={null}
         onValueChange={(value) => {
           const ref = row.tickets.find((entry) => refKey(entry) === value)
           if (ref) onOpen(ref)
         }}
+        items={row.tickets.map((ref) => ({
+          value: refKey(ref),
+          label: ref.ticketId
+        }))}
       >
         <SelectTrigger
           className="h-7 w-auto gap-1.5 px-2 font-mono text-[13px]"
@@ -222,13 +221,6 @@ function TicketCell({
           })}
           aria-label={m.attachments_ticket_pick()}
         />
-        <SelectContent>
-          {row.tickets.map((ref) => (
-            <SelectItem key={refKey(ref)} value={refKey(ref)}>
-              {ref.ticketId}
-            </SelectItem>
-          ))}
-        </SelectContent>
       </Select>
     </div>
   )

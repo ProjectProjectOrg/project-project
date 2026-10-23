@@ -9,6 +9,7 @@ import {
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Predicate from "effect/Predicate"
 
 import { appAuth } from "./appAuth"
 import { octokitFor } from "./clients"
@@ -267,7 +268,7 @@ export const GitHubLive = Layer.effect(
             }),
           (cause, now) => {
             const err = mapHttpError(cause, now)
-            if (err._tag === "RepoGone") {
+            if (Predicate.isTagged(err, "RepoGone")) {
               return new GitHubError({
                 message: `base branch "${baseBranch}" not found`
               })

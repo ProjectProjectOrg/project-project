@@ -1,4 +1,5 @@
-import type { GitStatesResponse, TicketId } from "@pp/shared"
+import { TicketId } from "@pp/shared"
+import type { GitStatesResponse } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import { describe, expect, it, vi } from "vitest"
@@ -40,7 +41,7 @@ const pathOf = (input: RequestInfo | URL): string =>
 const pending = () => new Promise<Response>(() => {})
 
 const req = projectRequest("acme", "app")
-const ticketId = "T-1" as TicketId
+const ticketId = TicketId.make("T-1")
 
 const noBranch: GitStatesResponse = {
   states: { "T-1": { tag: "no_branch", baseBranch: "main" } },

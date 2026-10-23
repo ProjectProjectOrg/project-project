@@ -1,26 +1,38 @@
-import type { BetterAuthError } from "@pp/server-core/auth/BetterAuth"
-import type {
+import { BetterAuthError } from "@pp/server-core/auth/BetterAuth"
+import {
   GroupIdTaken,
   MarkdownError,
   TicketIdTaken
 } from "@pp/server-core/markdown/Markdown"
-import type {
+import {
+  McpTools,
   AttachmentNotUploaded,
   BranchExists,
   BranchProtected,
-  McpToolError
+  type McpToolError
 } from "@pp/shared"
-import type * as Schema from "effect/Schema"
+import * as Match from "effect/Match"
+import * as Schema from "effect/Schema"
 
-type BackendToolError =
-  | AttachmentNotUploaded
-  | BetterAuthError
-  | BranchExists
-  | BranchProtected
-  | GroupIdTaken
-  | MarkdownError
-  | Schema.SchemaError
-  | TicketIdTaken
+const BackendToolError = Schema.Union([
+  AttachmentNotUploaded,
+  BetterAuthError,
+  BranchExists,
+  BranchProtected,
+  Schema.instanceOf(GroupIdTaken),
+  Schema.instanceOf(MarkdownError),
+  Schema.instanceOf(Schema.SchemaError),
+  Schema.instanceOf(TicketIdTaken)
+])
+type BackendToolError = typeof BackendToolError.Type
+const isBackendError = Schema.is(BackendToolError)
+const isCatalogError = Schema.is(
+  Schema.Union(
+    Object.values(McpTools).flatMap<
+      (typeof McpTools)[keyof typeof McpTools]["errors"][number]
+    >((spec) => spec.errors)
+  )
+)
 
 type Messages<E extends { readonly _tag: string }> = {
   readonly [K in E["_tag"]]: (error: Extract<E, { readonly _tag: K }>) => string
@@ -107,14 +119,11 @@ const backendMessages: Messages<BackendToolError> = {
   BranchProtected: () => "Branch is protected."
 }
 
-const messages: Partial<Record<string, (error: never) => string>> = {
-  ...catalogMessages,
-  ...backendMessages
-}
+const catalogMessage = Match.typeTags<McpToolError>()(catalogMessages)
+const backendMessage = Match.typeTags<BackendToolError>()(backendMessages)
 
-export const mappedToolErrorText = (error: unknown): string | undefined => {
-  if (typeof error !== "object" || error === null || !("_tag" in error)) {
-    return undefined
-  }
-  return messages[String(error._tag)]?.(error as never)
-}
+export const mappedToolErrorText = Match.type<unknown>().pipe(
+  Match.when(isCatalogError, catalogMessage),
+  Match.when(isBackendError, backendMessage),
+  Match.orElse(() => undefined)
+)

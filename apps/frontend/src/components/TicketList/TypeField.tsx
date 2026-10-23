@@ -1,11 +1,10 @@
-import type { TicketId, TicketType, UpdateTicketInput } from "@pp/shared"
+import { TicketType, type TicketId, type UpdateTicketInput } from "@pp/shared"
 
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
@@ -22,20 +21,23 @@ function TypeMenuItems({
   return (
     <DropdownMenuRadioGroup
       value={current}
-      onValueChange={(next: string) => {
-        if (next !== current) onSelect(next as TicketType)
+      onValueChange={(next) => {
+        if (next !== current) onSelect(next)
       }}
-    >
-      {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
+      items={TicketType.literals.map((t) => {
         const TIcon = TYPE_META[t].icon
-        return (
-          <DropdownMenuRadioItem key={t} value={t} closeOnClick>
-            <TIcon className="size-4" strokeWidth={1.75} />
-            {TYPE_LABELS[t]()}
-          </DropdownMenuRadioItem>
-        )
+        return {
+          value: t,
+          closeOnClick: true,
+          label: (
+            <>
+              <TIcon className="size-4" strokeWidth={1.75} />
+              {TYPE_LABELS[t]()}
+            </>
+          )
+        }
       })}
-    </DropdownMenuRadioGroup>
+    />
   )
 }
 

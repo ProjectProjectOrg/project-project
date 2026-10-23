@@ -42,6 +42,12 @@ import * as SqlClient from "effect/sql/SqlClient"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
+const decodeSlugSync = Schema.decodeSync(Slug)
+
+const decodeTicketIdSync = Schema.decodeSync(TicketId)
+
+const decodeTicketStatusSync = Schema.decodeSync(TicketStatus)
+
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const unused = () =>
   Effect.die(new Error("Unexpected repository switch dependency call"))
@@ -52,15 +58,15 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
   const projectId = randomUUID()
   const integrationId = randomUUID()
   const linkId = randomUUID()
-  const slug = Schema.decodeSync(Slug)(`switch-${projectId}`)
-  const ticketId = Schema.decodeSync(TicketId)("T-1")
+  const slug = decodeSlugSync(`switch-${projectId}`)
+  const ticketId = decodeTicketIdSync("T-1")
   const createdAt = DateTime.toDateUtc(
     DateTime.makeUnsafe("2026-09-08T00:00:00Z")
   )
   const initialTicket: TicketDocument = {
     id: ticketId,
     title: "Keep branch, clear old PR",
-    status: Schema.decodeSync(TicketStatus)("todo"),
+    status: decodeTicketStatusSync("todo"),
     type: "feat",
     priority: "med",
     tags: [],

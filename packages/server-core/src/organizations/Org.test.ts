@@ -1,14 +1,13 @@
 import { it } from "@effect/vitest"
-import { Db } from "@pp/db"
-import { member } from "@pp/db/schema"
 import { Conflict, OrgScope, type OrgRole } from "@pp/shared"
-import { PgDialect } from "drizzle-orm/pg-core"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import * as TestClock from "effect/testing/TestClock"
 import { expect } from "vitest"
 
+import { databaseLayer } from "../../test/database"
 import { orgScope } from "../access/testing"
 import { Org } from "./Org"
 import { OrgLive } from "./OrgLive"
@@ -18,8 +17,7 @@ const setNow = TestClock.setTime(
   DateTime.toEpochMillis(DateTime.makeUnsafe(NOW))
 )
 
-const dialect = new PgDialect()
-const sqlOf = (cond: unknown) => dialect.sqlToQuery(cond as never).sql
+const sqlOf = (sql: string | undefined) => sql ?? ""
 
 const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
 const nowDate = isoDate(NOW)
@@ -29,9 +27,9 @@ const plusGrace = (d: Date) =>
   DateTime.toDate(DateTime.add(DateTime.fromDateUnsafe(d), { days: 14 }))
 
 interface Capture {
-  myOrgsWhere?: unknown
+  myOrgsWhere?: string
   updateSet?: { deletedAt: Date | null }
-  updateWhere?: unknown
+  updateWhere?: string
 }
 
 interface DbState {
@@ -43,43 +41,30 @@ const makeState = (
   myOrgRows?: ReadonlyArray<{ slug: string; name: string; role: string }>
 ): DbState => ({ myOrgRows, capture: {} })
 
+const decodeTimestamp = Schema.decodeUnknownSync(Schema.String)
+
 const makeDb = (state: DbState) =>
-  Layer.succeed(Db, {
-    select: () => ({
-      from: (table: unknown) =>
-        table === member
-          ? {
-              innerJoin: () => ({
-                where: (cond: unknown) => {
-                  state.capture.myOrgsWhere = cond
-                  return Effect.succeed(state.myOrgRows ?? [])
-                }
-              })
-            }
-          : {
-              where: () => ({
-                limit: () =>
-                  Effect.succeed([
-                    {
-                      name: "Acme",
-                      createdAt: isoDate("2026-01-01T00:00:00.000Z")
-                    }
-                  ])
-              })
-            }
-    }),
-    update: () => ({
-      set: (values: { deletedAt: Date | null }) => {
-        state.capture.updateSet = values
-        return {
-          where: (cond: unknown) => {
-            state.capture.updateWhere = cond
-            return Effect.succeed([])
-          }
+  databaseLayer(({ sql, params }) =>
+    Effect.sync(() => {
+      if (sql.startsWith("update")) {
+        state.capture.updateWhere = sql
+        state.capture.updateSet = {
+          deletedAt:
+            params[0] === null ? null : isoDate(decodeTimestamp(params[0]))
         }
+        return []
       }
+      if (sql.includes('from "member"')) {
+        state.capture.myOrgsWhere = sql
+        return (state.myOrgRows ?? []).map((row) => [
+          row.slug,
+          row.name,
+          row.role
+        ])
+      }
+      return [["Acme", "2026-01-01 00:00:00"]]
     })
-  } as never)
+  )
 
 const inScope = (
   state: DbState,

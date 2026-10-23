@@ -69,16 +69,7 @@ function LoginPage() {
 
   if (Result.isSuccess(viewer)) {
     if (oauthContinuationTarget) return null
-    const queryIndex = redirectTarget.indexOf("?")
-    const pathname =
-      queryIndex === -1 ? redirectTarget : redirectTarget.slice(0, queryIndex)
-    const search =
-      queryIndex === -1
-        ? {}
-        : Object.fromEntries(
-            new URLSearchParams(redirectTarget.slice(queryIndex + 1))
-          )
-    return <Navigate to={pathname as never} search={search as never} />
+    return <Navigate to="/" href={redirectTarget} />
   }
 
   async function handleMagicLinkSubmit(event: FormEvent<HTMLFormElement>) {

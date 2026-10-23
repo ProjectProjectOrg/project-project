@@ -20,6 +20,25 @@ import { HttpRouter } from "effect/http"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 
+const decodeUnknownAuthorizationServerMetadataSync = Schema.decodeUnknownSync(
+  Schema.Struct({
+    authorization_endpoint: Schema.String,
+    token_endpoint: Schema.String,
+    registration_endpoint: Schema.String
+  })
+)
+
+const decodeUnknownProtectedResourceMetadataSync = Schema.decodeUnknownSync(
+  Schema.Struct({
+    resource: Schema.String,
+    authorization_servers: Schema.Array(Schema.String)
+  })
+)
+
+const decodeUnknownClientMetadataSupportSync = Schema.decodeUnknownSync(
+  Schema.Struct({ client_id_metadata_document_supported: Schema.Boolean })
+)
+
 vi.mock("../auth/cimdTransport", () => ({
   fetchClientMetadataResource: vi.fn()
 }))
@@ -28,11 +47,17 @@ const httpFetch = globalThis.fetch.bind(globalThis)
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const Client = Schema.Struct({ client_id: Schema.String })
+
+const decodeUnknownClientSync = Schema.decodeUnknownSync(Client)
 const Redirect = Schema.Struct({ url: Schema.String })
+
+const decodeUnknownRedirectSync = Schema.decodeUnknownSync(Redirect)
 const Token = Schema.Struct({
   access_token: Schema.String,
   refresh_token: Schema.String
 })
+
+const decodeUnknownTokenSync = Schema.decodeUnknownSync(Token)
 
 describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
   let server: Server
@@ -227,13 +252,9 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       `${baseUrl}/.well-known/oauth-authorization-server/api/auth`
     )
     expect(discovery.status).toBe(200)
-    const metadata = Schema.decodeUnknownSync(
-      Schema.Struct({
-        authorization_endpoint: Schema.String,
-        token_endpoint: Schema.String,
-        registration_endpoint: Schema.String
-      })
-    )(await discovery.json())
+    const metadata = decodeUnknownAuthorizationServerMetadataSync(
+      await discovery.json()
+    )
     expect(metadata.authorization_endpoint).toBe(
       `${baseUrl}/api/auth/oauth2/authorize`
     )
@@ -242,12 +263,9 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       `${baseUrl}/.well-known/oauth-protected-resource/mcp`
     )
     expect(resourceMetadata.status).toBe(200)
-    const protectedMetadata = Schema.decodeUnknownSync(
-      Schema.Struct({
-        resource: Schema.String,
-        authorization_servers: Schema.Array(Schema.String)
-      })
-    )(await resourceMetadata.json())
+    const protectedMetadata = decodeUnknownProtectedResourceMetadataSync(
+      await resourceMetadata.json()
+    )
     expect(protectedMetadata.resource).toBe(resource)
     expect(protectedMetadata.authorization_servers).toContain(
       `${baseUrl}/api/auth`
@@ -265,9 +283,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       })
     })
     expect(registration.status, await registration.clone().text()).toBe(201)
-    clientId = Schema.decodeUnknownSync(Client)(
-      await registration.json()
-    ).client_id
+    clientId = decodeUnknownClientSync(await registration.json()).client_id
     await pool.query(
       "INSERT INTO oauth_client (id, client_id, redirect_uris, user_id) VALUES ($1, $1, $2, $3)",
       [unrelatedClientId, ["http://localhost/unrelated"], userId]
@@ -328,7 +344,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     })
     expect(consent.status).toBe(200)
     const callback = new URL(
-      Schema.decodeUnknownSync(Redirect)(await consent.json()).url
+      decodeUnknownRedirectSync(await consent.json()).url
     )
     expect(callback.searchParams.get("state")).toBe("roundtrip-state")
     const code = callback.searchParams.get("code")
@@ -346,7 +362,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       body: tokenBody
     })
     expect(tokenResponse.status, await tokenResponse.clone().text()).toBe(200)
-    const token = Schema.decodeUnknownSync(Token)(await tokenResponse.json())
+    const token = decodeUnknownTokenSync(await tokenResponse.json())
     const protectedHandler = requireMcpAuth(
       auth,
       async (_request, claims) => {
@@ -426,7 +442,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       body: refreshBody
     })
     expect(refreshed.status, await refreshed.clone().text()).toBe(200)
-    const rotated = Schema.decodeUnknownSync(Token)(await refreshed.json())
+    const rotated = decodeUnknownTokenSync(await refreshed.json())
     expect(rotated.refresh_token).not.toBe(token.refresh_token)
     // Within `refreshTokenReuseInterval` a retried refresh replays the rotated
     // response instead of tripping breach detection, which would delete every
@@ -436,7 +452,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       body: refreshBody
     })
     expect(refreshReplay.status, await refreshReplay.clone().text()).toBe(200)
-    const replayed = Schema.decodeUnknownSync(Token)(await refreshReplay.json())
+    const replayed = decodeUnknownTokenSync(await refreshReplay.json())
     expect(replayed.refresh_token).toBe(rotated.refresh_token)
     const replay = await httpFetch(metadata.token_endpoint, {
       method: "POST",
@@ -450,9 +466,9 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       `${baseUrl}/.well-known/oauth-authorization-server/api/auth`
     )
     expect(response.status).toBe(200)
-    const metadata = Schema.decodeUnknownSync(
-      Schema.Struct({ client_id_metadata_document_supported: Schema.Boolean })
-    )(await response.json())
+    const metadata = decodeUnknownClientMetadataSupportSync(
+      await response.json()
+    )
     expect(metadata.client_id_metadata_document_supported).toBe(true)
   })
 

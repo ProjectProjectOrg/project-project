@@ -240,7 +240,7 @@ export function StackedBranches({
   const count = stackPullRequestCount(own, stack)
   const Root = InlineForm.Root<StackAction>
   return (
-    <Root variant={variant}>
+    <Root actions={["stack", "clear"]} variant={variant}>
       <InlineForm.Idle block>
         <section
           className="flex flex-col gap-1.5"
@@ -312,7 +312,7 @@ export function AddStackedBranch({
   if (!canWrite) return null
   const Root = InlineForm.Root<"stack">
   return (
-    <Root variant="ghost">
+    <Root actions={["stack"]} variant="ghost">
       <InlineForm.Idle>
         <InlineForm.Trigger
           action="stack"
@@ -352,7 +352,7 @@ function BranchMenu({
   busy: boolean
   onRemove: () => void
 }>) {
-  const { open } = useInlineForm<StackAction>()
+  const { open } = useInlineForm()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger

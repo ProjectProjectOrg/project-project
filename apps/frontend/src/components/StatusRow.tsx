@@ -3,7 +3,8 @@ import {
   isReservedStatusSlug,
   type OrderKey,
   type ProjectStatus,
-  type StatusIconName
+  StatusLabel,
+  StatusColor
 } from "@pp/shared"
 import { GripVertical, Lock } from "lucide-react"
 import { Reorder, useDragControls, type DragControls } from "motion/react"
@@ -73,7 +74,7 @@ export function StatusRow({
       setDraftLabel(status.label)
       return
     }
-    update({ label: trimmed as ProjectStatus["label"] })
+    update({ label: StatusLabel.make(trimmed) })
   }
 
   const baselineMeta = baseline ? statusMetaFor(status.slug, statuses) : null
@@ -171,7 +172,7 @@ export function StatusRow({
               value={status.icon}
               color={status.color}
               onOpenChange={setIconMenuOpen}
-              onChange={(icon) => update({ icon: icon as StatusIconName })}
+              onChange={(icon) => update({ icon })}
             />
             <div
               className={cn(
@@ -182,21 +183,20 @@ export function StatusRow({
               <ColorPicker
                 value={status.color}
                 onOpenChange={setColorMenuOpen}
-                onChange={(color) =>
-                  update({ color: color as ProjectStatus["color"] })
-                }
+                onChange={(color) => update({ color: StatusColor.make(color) })}
               />
             </div>
             <Input
               variant="inline"
+              maxLength={40}
               value={draftLabel}
               onChange={(e) => setDraftLabel(e.target.value)}
               onBlur={commitLabel}
               onKeyDown={(e) => {
-                if (e.key === "Enter") (e.target as HTMLInputElement).blur()
+                if (e.key === "Enter") e.currentTarget.blur()
                 if (e.key === "Escape") {
                   setDraftLabel(status.label)
-                  ;(e.target as HTMLInputElement).blur()
+                  e.currentTarget.blur()
                 }
               }}
               className={cn(

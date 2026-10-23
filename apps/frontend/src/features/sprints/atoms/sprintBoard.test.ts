@@ -24,6 +24,11 @@ import {
   updateBoardTicket
 } from "./sprintBoard"
 
+const encodeTicketUpdateResultSync = Schema.encodeSync(TicketUpdateResult)
+
+const decodeUnknownUpdateTicketInputSync =
+  Schema.decodeUnknownSync(UpdateTicketInput)
+
 const groupId = Schema.decodeSync(GroupId)("G-1")
 const ticketAId = Schema.decodeSync(TicketId)("T-1")
 const ticketBId = Schema.decodeSync(TicketId)("T-2")
@@ -70,7 +75,7 @@ const group: Group = {
 const encodeGroup = Schema.encodeSync(GroupDetail)
 const encodeTicket = Schema.encodeSync(Ticket)
 const encodeTicketUpdate = (ticket: TicketDetail) =>
-  Schema.encodeSync(TicketUpdateResult)({ ticket, orderKey: null })
+  encodeTicketUpdateResultSync({ ticket, orderKey: null })
 const asGroupDetail = (g: Group): GroupDetail => ({ ...g, body: "" })
 const asTicketDetail = (t: Ticket): TicketDetail => ({
   ...t,
@@ -550,9 +555,7 @@ describe("updateBoardTicket", () => {
       const request =
         input instanceof Request ? input : new Request(input, init)
       if (request.method === "PATCH") {
-        const payload = Schema.decodeUnknownSync(UpdateTicketInput)(
-          await request.json()
-        )
+        const payload = decodeUnknownUpdateTicketInputSync(await request.json())
         payloads.push(payload)
         if (payload.type !== undefined) {
           served = confirmed

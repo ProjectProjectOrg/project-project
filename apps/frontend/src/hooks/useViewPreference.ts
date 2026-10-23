@@ -1,9 +1,14 @@
 import * as Schema from "effect/Schema"
 import { useLayoutEffect, useRef } from "react"
 
-import { readLocalStorage, useLocalStorageState } from "./useLocalStorageState"
+import {
+  createLocalStorageCodec,
+  readLocalStorage,
+  useLocalStorageState
+} from "./useLocalStorageState"
 
 const ViewPreference = Schema.Literals(["list", "board"])
+const viewPreferenceCodec = createLocalStorageCodec(ViewPreference)
 
 export type ViewPreference = typeof ViewPreference.Type
 
@@ -19,7 +24,7 @@ export function readViewPreference(
 ): ViewPreference {
   return readLocalStorage(
     viewPreferenceKey(orgSlug, slug, scope),
-    ViewPreference,
+    viewPreferenceCodec,
     "list"
   )
 }
@@ -31,7 +36,7 @@ export function useViewPreference(
 ): readonly [ViewPreference, (next: ViewPreference) => void] {
   return useLocalStorageState(
     viewPreferenceKey(orgSlug, slug, scope),
-    ViewPreference,
+    viewPreferenceCodec,
     "list"
   )
 }

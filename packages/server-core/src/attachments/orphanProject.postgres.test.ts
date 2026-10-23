@@ -109,9 +109,9 @@ describe.skipIf(!databaseUrl)("orphanProject", () => {
     )
     layer = AttachmentsLive.pipe(
       Layer.provideMerge(db),
-      Layer.provide(Layer.succeed(Access, {} as never)),
-      Layer.provide(Layer.succeed(OrgStorage, {} as never)),
-      Layer.provide(Layer.succeed(S3Storage, {} as never)),
+      Layer.provide(Layer.mock(Access, {})),
+      Layer.provide(Layer.mock(OrgStorage, {})),
+      Layer.provide(Layer.mock(S3Storage, {})),
       Layer.orDie
     )
   })

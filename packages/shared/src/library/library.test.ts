@@ -36,6 +36,9 @@ import {
   withDefaultsUpdate
 } from "./library"
 
+const decodeUnknownTemplateDefaultsSync =
+  Schema.decodeUnknownSync(TemplateDefaults)
+
 const blockDraft = Schema.decodeUnknownSync(BlockDraft)
 const templateDefaults = Schema.decodeUnknownSync(PartialTemplateDefaults)
 const isLibrary = Schema.is(Library)
@@ -315,7 +318,7 @@ describe("templateFor", () => {
 })
 
 describe("ticketTypeForTemplate", () => {
-  const defaults = Schema.decodeUnknownSync(TemplateDefaults)({
+  const defaults = decodeUnknownTemplateDefaultsSync({
     feat: "feature",
     bug: "bug-report",
     chore: "bug-report",

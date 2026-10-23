@@ -17,7 +17,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
@@ -39,7 +38,7 @@ function StatusMenuItems({
 }: {
   orgSlug: string
   slug: string
-  current: string
+  current: TicketStatus
   statuses: ReadonlyArray<ProjectStatus>
   onSelect: (next: TicketStatus) => void
 }) {
@@ -48,25 +47,28 @@ function StatusMenuItems({
     <>
       <DropdownMenuRadioGroup
         value={current}
-        onValueChange={(next: string) => {
-          if (next !== current) onSelect(next as TicketStatus)
+        onValueChange={(next) => {
+          if (next !== current) onSelect(next)
         }}
-      >
-        {slugs.map((status) => {
+        items={slugs.map((status) => {
           const sMeta = statusMetaFor(status, statuses)
           const SIcon = sMeta.icon
-          return (
-            <DropdownMenuRadioItem key={status} value={status} closeOnClick>
-              <SIcon
-                className={cn("size-4", sMeta.className)}
-                style={sMeta.color ? { color: sMeta.color } : undefined}
-                strokeWidth={1.75}
-              />
-              {sMeta.label}
-            </DropdownMenuRadioItem>
-          )
+          return {
+            value: status,
+            closeOnClick: true,
+            label: (
+              <>
+                <SIcon
+                  className={cn("size-4", sMeta.className)}
+                  style={sMeta.color ? { color: sMeta.color } : undefined}
+                  strokeWidth={1.75}
+                />
+                {sMeta.label}
+              </>
+            )
+          }
         })}
-      </DropdownMenuRadioGroup>
+      />
       <DropdownMenuSeparator />
       <DropdownMenuItem
         render={

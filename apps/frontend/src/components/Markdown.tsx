@@ -46,7 +46,12 @@ import { MentionChip } from "@/components/Lexical/MentionChip"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 
-const prismPlugin = [rehypePrismPlus, { ignoreMissing: true }] as const
+const prismPlugin = [
+  rehypePrismPlus,
+  { ignoreMissing: true }
+] satisfies NonNullable<
+  Parameters<typeof ReactMarkdown>[0]["rehypePlugins"]
+>[number]
 
 const allowMentionUrls = (url: string) => {
   if (url.startsWith("mention:")) return url
@@ -253,7 +258,7 @@ export function MarkdownSegment({
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
-      rehypePlugins={[prismPlugin as never]}
+      rehypePlugins={[prismPlugin]}
       urlTransform={allowMentionUrls}
       components={{
         ...(onToggleTask === undefined

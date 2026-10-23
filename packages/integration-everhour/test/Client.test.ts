@@ -10,7 +10,9 @@ import { afterEach, describe, expect, vi } from "vitest"
 
 import { Everhour, EverhourLive } from "../src/Client"
 
-const jsonResponse = (body: unknown) =>
+const isEverhourError = Schema.is(EverhourError)
+
+const jsonResponse = (body: Schema.Json) =>
   new Response(JSON.stringify(body), {
     status: 200,
     headers: { "Content-Type": "application/json" }
@@ -73,7 +75,7 @@ describe("EverhourLive response decoding", () => {
       stubFetch(vi.fn(async () => jsonResponse({ id: null })))
       const everhour = yield* Everhour
       const error = yield* Effect.flip(everhour.getCurrentUser("api-key"))
-      expect(Schema.is(EverhourError)(error)).toBe(true)
+      expect(isEverhourError(error)).toBe(true)
     }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
   )
 

@@ -25,7 +25,7 @@ import {
   type TicketFilter,
   type TicketListQuery,
   type TicketSort,
-  type TicketStatus
+  TicketStatus
 } from "@pp/shared"
 import {
   and,
@@ -55,6 +55,7 @@ import * as Clock from "effect/Clock"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Match from "effect/Match"
 import * as Option from "effect/Option"
 import * as Schedule from "effect/Schedule"
 import * as Schema from "effect/Schema"
@@ -95,12 +96,14 @@ const estimateFromIndex = (
   value: number | null
 ): Estimate | null => {
   if (unit === null || value === null) return null
-  const candidate =
-    unit === "time"
-      ? { unit, minutes: value }
-      : unit === "tshirt"
-        ? { unit, value: ESTIMATE_SIZES[value - 1] }
-        : { unit, value }
+  const candidate = Match.value(unit).pipe(
+    Match.when("time", (unit) => ({ unit, minutes: value })),
+    Match.when("tshirt", (unit) => ({
+      unit,
+      value: ESTIMATE_SIZES[value - 1]
+    })),
+    Match.orElse((unit) => ({ unit, value }))
+  )
   return Option.getOrNull(decodeEstimate(candidate))
 }
 
@@ -603,7 +606,7 @@ export const TicketIndexLive = Layer.effect(
     ): TicketIndexEntry => ({
       id: makeTicketId(row.ticketId),
       title: row.title,
-      status: row.status as TicketStatus,
+      status: TicketStatus.make(row.status),
       type: row.type,
       priority: row.priority,
       estimate: estimateFromIndex(row.estimateUnit, row.estimateValue),
@@ -924,7 +927,7 @@ export const TicketIndexLive = Layer.effect(
               return [
                 {
                   project,
-                  status: row.status as TicketStatus,
+                  status: TicketStatus.make(row.status),
                   count: row.count
                 }
               ]

@@ -2,6 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { UserInvitation } from "@pp/shared"
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
+import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Inbox, LogOut, MailCheck, UserRound } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -254,9 +255,10 @@ function InviteRow({
     onInitial: () => null,
     onSuccess: () => null,
     onError: (error) =>
-      error._tag === "InvitationNotAcceptable"
-        ? errorMessage(error)
-        : m.auth_invites_accept_row_error(),
+      Match.value(error).pipe(
+        Match.tag("InvitationNotAcceptable", (error) => errorMessage(error)),
+        Match.orElse(() => m.auth_invites_accept_row_error())
+      ),
     onDefect: () => m.auth_invites_accept_row_error()
   })
   const declineFailed = Result.isFailure(rejectState)

@@ -4,6 +4,7 @@ import { useRouter } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState } from "react"
 
@@ -59,7 +60,7 @@ function DeletedBody({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
     const failure = Cause.findErrorOption(exit.cause)
     const graceExpired =
       Option.isSome(failure) &&
-      failure.value._tag === "Conflict" &&
+      Predicate.isTagged(failure.value, "Conflict") &&
       failure.value.reason === "grace_expired"
     setError(
       graceExpired

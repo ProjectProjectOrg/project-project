@@ -27,6 +27,8 @@ import { SlackHost } from "./Host"
 import { SlackIntegrations, slackPublicUrl } from "./Integrations"
 import { notificationMessage, ticketLink } from "./messages"
 
+const decodeSlackNotification = Schema.decodeEffect(SlackNotification)
+
 const DeliveryOutcome = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("done") }),
   Schema.Struct({ kind: Schema.Literal("retry"), seconds: Schema.Finite })
@@ -121,9 +123,9 @@ export const makeSlackDelivery = Effect.gen(function* () {
         yield* finish(id, "connection_changed")
         return { kind: "done" }
       }
-      const event = yield* Schema.decodeEffect(SlackNotification)(
-        row.payload
-      ).pipe(Effect.orDie)
+      const event = yield* decodeSlackNotification(row.payload).pipe(
+        Effect.orDie
+      )
       if (
         event.kind !== "test" &&
         !row.events.some((kind) => kind === event.kind)
@@ -191,10 +193,19 @@ export const makeSlackDelivery = Effect.gen(function* () {
         yield* finish(id, null)
         return { kind: "done" as const }
       }).pipe(
-        Effect.catch((error): Effect.Effect<typeof DeliveryOutcome.Type> => {
-          const retryable =
-            error._tag === "SlackRateLimited" ||
-            (error._tag === "SlackError" &&
+        Effect.catchTags(
+          {
+            SlackRateLimited: (error) =>
+              attempt < 12
+                ? Effect.succeed({
+                    kind: "retry" as const,
+                    seconds: Math.max(1, error.retryAfterSeconds)
+                  })
+                : finish(id, error._tag).pipe(
+                    Effect.as({ kind: "done" as const })
+                  ),
+            SlackError: (error) =>
+              attempt < 12 &&
               [
                 "connection",
                 "unavailable",
@@ -202,20 +213,18 @@ export const makeSlackDelivery = Effect.gen(function* () {
                 "internal_error",
                 "fatal_error",
                 "service_unavailable"
-              ].includes(error.reason))
-          return retryable && attempt < 12
-            ? Effect.succeed({
-                kind: "retry" as const,
-                seconds:
-                  error._tag === "SlackRateLimited"
-                    ? Math.max(1, error.retryAfterSeconds)
-                    : Math.min(3600, 2 ** attempt)
-              })
-            : finish(
-                id,
-                error._tag === "SlackError" ? error.reason : error._tag
-              ).pipe(Effect.as({ kind: "done" as const }))
-        })
+              ].includes(error.reason)
+                ? Effect.succeed({
+                    kind: "retry" as const,
+                    seconds: Math.min(3600, 2 ** attempt)
+                  })
+                : finish(id, error.reason).pipe(
+                    Effect.as({ kind: "done" as const })
+                  )
+          },
+          (error) =>
+            finish(id, error._tag).pipe(Effect.as({ kind: "done" as const }))
+        )
       )
       return outcome
     },

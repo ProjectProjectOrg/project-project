@@ -6,36 +6,38 @@ import { Button, type ButtonProps } from "@/components/ui/button"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 
-interface InlineFormContextValue<A extends string = string> {
-  mode: "idle" | A
-  open: (action: A) => void
+type InlineFormContextValue = Readonly<{
+  mode: string
+  open: (action: string) => void
   close: () => void
   busy: boolean
   setBusy: (b: boolean) => void
-  hoveredAction: A | null
-  setHoveredAction: (a: A | null) => void
-}
+  hoveredAction: string | null
+  setHoveredAction: (a: string | null) => void
+}>
 
 const InlineFormContext = createContext<InlineFormContextValue | null>(null)
 
-export function useInlineForm<A extends string = string>() {
+export function useInlineForm() {
   const ctx = use(InlineFormContext)
   if (!ctx) {
     throw new Error("useInlineForm must be used inside <InlineForm.Root>")
   }
-  return ctx as unknown as InlineFormContextValue<A>
+  return ctx
 }
 
-interface RootProps<A extends string> {
-  defaultMode?: "idle" | A
-  mode?: "idle" | A
-  onModeChange?: (mode: "idle" | A) => void
+type RootProps<A extends string> = Readonly<{
+  actions: ReadonlyArray<A>
+  defaultMode?: "idle" | NoInfer<A>
+  mode?: "idle" | NoInfer<A>
+  onModeChange?: (mode: "idle" | NoInfer<A>) => void
   className?: string
   variant?: "bordered" | "ghost"
   children: React.ReactNode
-}
+}>
 
-function Root<A extends string = string>({
+function Root<const A extends string = string>({
+  actions,
   defaultMode = "idle",
   mode: controlledMode,
   onModeChange,
@@ -45,7 +47,7 @@ function Root<A extends string = string>({
 }: RootProps<A>) {
   const [uncontrolled, setUncontrolled] = useState<"idle" | A>(defaultMode)
   const [busy, setBusy] = useState(false)
-  const [hoveredAction, setHoveredAction] = useState<A | null>(null)
+  const [hoveredAction, setHoveredAction] = useState<string | null>(null)
   const isControlled = controlledMode !== undefined
   const mode = isControlled ? controlledMode : uncontrolled
 
@@ -57,13 +59,19 @@ function Root<A extends string = string>({
     [isControlled, onModeChange]
   )
 
-  const open = useCallback((action: A) => setMode(action), [setMode])
+  const open = useCallback(
+    (action: string) => {
+      const allowed = actions.find((candidate) => candidate === action)
+      if (allowed !== undefined) setMode(allowed)
+    },
+    [actions, setMode]
+  )
   const close = useCallback(() => {
     setBusy(false)
     setMode("idle")
   }, [setMode])
 
-  const value = useMemo<InlineFormContextValue<A>>(
+  const value = useMemo<InlineFormContextValue>(
     () => ({
       mode,
       open,
@@ -77,7 +85,7 @@ function Root<A extends string = string>({
   )
 
   return (
-    <InlineFormContext value={value as unknown as InlineFormContextValue}>
+    <InlineFormContext value={value}>
       <div
         data-mode={mode === "idle" ? "idle" : "active"}
         className={cn(
@@ -127,9 +135,13 @@ function Display<A extends string = string>({
   children: React.ReactNode
   previews?: Partial<Record<A, React.ReactNode>>
 }) {
-  const { hoveredAction } = useInlineForm<A>()
+  const { hoveredAction } = useInlineForm()
   const preview =
-    previews && hoveredAction ? previews[hoveredAction] : undefined
+    previews && hoveredAction
+      ? Object.entries<React.ReactNode>(previews).find(
+          ([action]) => action === hoveredAction
+        )?.[1]
+      : undefined
   return (
     <div className={cn("relative min-w-0", className)}>
       <AnimatePresence initial={false} mode="wait">
@@ -173,9 +185,10 @@ function Actions({
   )
 }
 
-interface TriggerProps<A extends string> extends Omit<ButtonProps, "onClick"> {
-  action: A
-}
+type TriggerProps<A extends string> = Omit<ButtonProps, "onClick"> &
+  Readonly<{
+    action: A
+  }>
 
 function Trigger<A extends string>({
   action,
@@ -183,7 +196,7 @@ function Trigger<A extends string>({
   children,
   ...rest
 }: TriggerProps<A>) {
-  const { open, busy, setHoveredAction } = useInlineForm<A>()
+  const { open, busy, setHoveredAction } = useInlineForm()
   return (
     <Button
       {...rest}
@@ -199,16 +212,16 @@ function Trigger<A extends string>({
   )
 }
 
-function Form<A extends string>({
+function Form({
   action,
   className,
   children
 }: {
-  action: A
+  action: string
   className?: string
   children: React.ReactNode
 }) {
-  const { mode, close, busy } = useInlineForm<A>()
+  const { mode, close, busy } = useInlineForm()
   if (mode !== action) return null
   return (
     <motion.div

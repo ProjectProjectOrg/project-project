@@ -37,9 +37,8 @@ import { cn } from "@/lib/utils"
 import {
   boardStatusesFor,
   groupTicketsByStatus,
-  type CardDropData,
-  type ColumnDropData,
-  type DragData
+  isDragData,
+  isDropData
 } from "./board-utils"
 import { SprintBoardColumn } from "./SprintBoardColumn"
 import { useBoardTickets } from "./useBoardTickets"
@@ -55,8 +54,8 @@ type SprintBoardProps = {
   reorderMode: boolean
   onEnterReorder: () => void
   onExitReorder: () => void
-  dragOrder: ReadonlyArray<string> | null
-  setDragOrder: (next: ReadonlyArray<string> | null) => void
+  dragOrder: ReadonlyArray<TicketStatus> | null
+  setDragOrder: (next: ReadonlyArray<TicketStatus> | null) => void
 }
 
 export function SprintBoard(props: SprintBoardProps) {
@@ -188,14 +187,14 @@ function SprintBoardContent({
       onDrop({ source, location }) {
         const target = location.current.dropTargets[0]
         if (!target) return
-        const src = source.data as unknown as DragData
-        const dst = target.data as unknown as CardDropData | ColumnDropData
-        if (src.type !== "card") return
+        const src = source.data
+        const dst = target.data
+        if (!isDragData(src) || !isDropData(dst)) return
         if (dst.type === "card" && dst.id === src.id) return
 
         const current = unfilteredGroupedRef.current
         let after: TicketId | null
-        let nextStatus: string
+        let nextStatus: TicketStatus
         if (dst.type === "card") {
           nextStatus = dst.status
           const inColumn = current[dst.status] ?? []
@@ -211,8 +210,7 @@ function SprintBoardContent({
           after = inColumn.length > 0 ? inColumn[inColumn.length - 1].id : null
         }
         if (after === src.id) return
-        const status =
-          nextStatus !== src.status ? (nextStatus as TicketStatus) : undefined
+        const status = nextStatus !== src.status ? nextStatus : undefined
         if (status !== undefined && !canTransition) return
         registry.set(placeBoardTicket({ req, id: src.id }), {
           ticketId: src.id,
@@ -244,7 +242,7 @@ function SprintBoardContent({
         ref={groupRef}
         as="div"
         axis="x"
-        values={order as Array<string>}
+        values={[...order]}
         onReorder={(next) => setDragOrder(next)}
         style={frozenWidth ? { width: `${frozenWidth}px` } : undefined}
         className="flex h-full gap-3"

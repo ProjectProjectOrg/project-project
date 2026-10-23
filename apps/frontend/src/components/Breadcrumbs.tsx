@@ -47,23 +47,19 @@ export type Crumb =
 
 export type CrumbData = Crumb | ReadonlyArray<Crumb>
 
-// Loader-data shape. `loaderData` is `unknown` from the router's perspective;
-// we narrow at the read site.
-type WithCrumb = { crumb?: CrumbData }
-
-function flatten(crumbs: ReadonlyArray<CrumbData | undefined>): Crumb[] {
-  const out: Crumb[] = []
-  for (const c of crumbs) {
-    if (!c) continue
-    if (Array.isArray(c)) out.push(...c)
-    else out.push(c as Crumb)
-  }
-  return out
+function flatten(
+  crumbs: ReadonlyArray<CrumbData | undefined>
+): ReadonlyArray<Crumb> {
+  return crumbs.flatMap((crumb) =>
+    crumb === undefined ? [] : "type" in crumb ? [crumb] : crumb
+  )
 }
 
 export function Breadcrumbs({ className }: { className?: string }) {
   const matches = useMatches()
-  const raw = matches.map((m) => (m.loaderData as WithCrumb | undefined)?.crumb)
+  const raw = matches.map(({ loaderData }) =>
+    loaderData && "crumb" in loaderData ? loaderData.crumb : undefined
+  )
   const crumbs = flatten(raw)
 
   if (crumbs.length === 0) return null
@@ -259,7 +255,7 @@ function CrumbText({
     )
   }
   return (
-    <Link to={to} params={params as never} className={className}>
+    <Link to={to} params={params} className={className}>
       {children}
     </Link>
   )

@@ -1,10 +1,15 @@
 import * as Schema from "effect/Schema"
 import { useCallback, useMemo, useRef, useSyncExternalStore } from "react"
 
-import { useLocalStorageSelect } from "@/hooks/useLocalStorageState"
+import {
+  createLocalStorageCodec,
+  useLocalStorageSelect
+} from "@/hooks/useLocalStorageState"
 
 const ListSchema = Schema.Array(Schema.String)
+const listCodec = createLocalStorageCodec(ListSchema)
 const RecordSchema = Schema.Record(Schema.String, Schema.Boolean)
+const recordCodec = createLocalStorageCodec(RecordSchema)
 const EMPTY_LIST: ReadonlyArray<string> = []
 const EMPTY_RECORD: Readonly<Record<string, boolean>> = {}
 
@@ -94,7 +99,7 @@ export function useCollapsedInSet(
 ): readonly [boolean, () => void] {
   const [persisted, setPersisted] = useLocalStorageSelect(
     persistKey,
-    ListSchema,
+    listCodec,
     EMPTY_LIST,
     (ids) => ids.includes(id)
   )
@@ -124,7 +129,7 @@ export function useCollapsedInRecord(
 ): readonly [boolean, () => void] {
   const [persisted, setPersisted] = useLocalStorageSelect(
     persistKey,
-    RecordSchema,
+    recordCodec,
     EMPTY_RECORD,
     (record) => record[id] ?? defaultCollapsed
   )

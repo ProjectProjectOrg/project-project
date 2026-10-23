@@ -1,12 +1,7 @@
 import type { AttachmentSort, AttachmentStatus } from "@pp/shared"
 
 import { SEGMENTED_ITEM_CLASS, SegmentedTabs } from "@/components/SegmentedTabs"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger
-} from "@/components/ui/select"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import { m } from "@/paraglide/messages"
 
 export type StatusFilter = AttachmentStatus | "all"
@@ -76,6 +71,13 @@ export function Toolbar({
         onValueChange={(value) =>
           onProjectChange(value === ALL_PROJECTS ? null : value)
         }
+        items={[
+          { value: ALL_PROJECTS, label: m.attachments_filter_project_all() },
+          ...projects.map((project) => ({
+            value: project.slug,
+            label: project.name
+          }))
+        ]}
       >
         <SelectTrigger
           placeholder={m.attachments_filter_project_all()}
@@ -84,37 +86,18 @@ export function Toolbar({
           }
           aria-label={m.attachments_filter_project_label()}
         />
-        <SelectContent>
-          <SelectItem value={ALL_PROJECTS}>
-            {m.attachments_filter_project_all()}
-          </SelectItem>
-          {projects.map((project) => (
-            <SelectItem key={project.slug} value={project.slug}>
-              {project.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
       </Select>
 
       <Select
         value={sort}
-        onValueChange={(value) => {
-          const next = SORTS.find((key) => key === value)
-          if (next) onSortChange(next)
-        }}
+        onValueChange={onSortChange}
+        items={SORTS.map((key) => ({ value: key, label: SORT_LABEL[key]() }))}
       >
         <SelectTrigger
           placeholder={m.attachments_sort_label()}
           selectedLabel={SORT_LABEL[sort]()}
           aria-label={m.attachments_sort_label()}
         />
-        <SelectContent>
-          {SORTS.map((key) => (
-            <SelectItem key={key} value={key}>
-              {SORT_LABEL[key]()}
-            </SelectItem>
-          ))}
-        </SelectContent>
       </Select>
     </div>
   )

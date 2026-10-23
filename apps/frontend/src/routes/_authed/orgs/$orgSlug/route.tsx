@@ -1,6 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { createFileRoute, Outlet } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
+import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
 
@@ -42,10 +43,9 @@ function OrgLayout() {
   return Result.matchWithError(result, {
     onInitial: () => <DitherShell animated>{null}</DitherShell>,
     onError: (error) =>
-      error._tag === "NotFound" ? (
-        <NotFoundPage />
-      ) : (
-        <ErrorPage error={error} reset={refresh} />
+      Match.value(error).pipe(
+        Match.tag("NotFound", () => <NotFoundPage />),
+        Match.orElse((error) => <ErrorPage error={error} reset={refresh} />)
       ),
     onDefect: (defect) => <ErrorPage error={defect} reset={refresh} />,
     onSuccess: ({ value }) =>

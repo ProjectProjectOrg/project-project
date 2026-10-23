@@ -344,9 +344,11 @@ export const auth = betterAuth({
       },
       delete: {
         before: async (sessionData) => {
-          const orgId = (
-            sessionData as { activeOrganizationId?: string | null }
-          ).activeOrganizationId
+          const orgId =
+            "activeOrganizationId" in sessionData &&
+            typeof sessionData.activeOrganizationId === "string"
+              ? sessionData.activeOrganizationId
+              : null
           if (!orgId) return
           await db
             .update(user)

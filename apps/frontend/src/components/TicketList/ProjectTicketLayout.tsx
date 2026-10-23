@@ -21,6 +21,7 @@ import {
 import { viewCounts } from "@/features/tickets/atoms/viewCounts"
 import {
   readLocalStorage,
+  createLocalStorageCodec,
   useLocalStorageState
 } from "@/hooks/useLocalStorageState"
 import { useProjectActor } from "@/lib/access"
@@ -40,6 +41,7 @@ import {
 import { ViewSwitcher } from "./ViewSwitcher"
 
 const GroupingSchema = Schema.Literals(["status", "sprint"])
+const groupingCodec = createLocalStorageCodec(GroupingSchema)
 
 const backlogGroupingKey = (preferencesKey: string) =>
   `projectproject:backlog-grouping:${preferencesKey}`
@@ -51,7 +53,7 @@ export const readBacklogGrouping = (
 ) =>
   readLocalStorage(
     backlogGroupingKey(`${viewerId}:${orgSlug}/${slug}`),
-    GroupingSchema,
+    groupingCodec,
     "status"
   )
 
@@ -88,7 +90,7 @@ export function ProjectTicketLayout({
   const preferencesKey = `${viewerId}:${orgSlug}/${slug}`
   const [grouping, setGrouping] = useLocalStorageState(
     backlogGroupingKey(preferencesKey),
-    GroupingSchema,
+    groupingCodec,
     "status"
   )
   const scope = groupId ?? "backlog"

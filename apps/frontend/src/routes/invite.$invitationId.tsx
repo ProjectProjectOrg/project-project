@@ -7,6 +7,7 @@ import {
   useNavigate
 } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
+import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import { LogOut, MailCheck } from "lucide-react"
 import { useRef, useState } from "react"
@@ -106,9 +107,10 @@ function InviteAccept({ invite }: { invite: UserInvitation }) {
     onInitial: () => null,
     onSuccess: () => null,
     onError: (error) =>
-      error._tag === "InvitationNotAcceptable"
-        ? errorMessage(error)
-        : m.auth_invite_accept_error(),
+      Match.value(error).pipe(
+        Match.tag("InvitationNotAcceptable", (error) => errorMessage(error)),
+        Match.orElse(() => m.auth_invite_accept_error())
+      ),
     onDefect: () => m.auth_invite_accept_error()
   })
 

@@ -18,6 +18,7 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Base64Url from "effect/encoding/Base64Url"
 import * as Layer from "effect/Layer"
+import * as Match from "effect/Match"
 import * as Redacted from "effect/Redacted"
 
 import { SecretCrypto } from "../storage/SecretCrypto"
@@ -32,7 +33,7 @@ import {
 } from "./OAuth"
 
 export type JiraAccessToken = Readonly<{
-  token: Redacted.Redacted<string>
+  token: Redacted.Redacted
 }>
 
 export type JiraCredentialsShape = Readonly<{
@@ -274,10 +275,8 @@ export const JiraCredentialsLive = Layer.effect(
           Effect.catchTag("JiraRateLimited", () =>
             Effect.fail(new JiraError({ reason: "server_error" }))
           ),
-          Effect.tapError((error) =>
-            error._tag === "JiraReconnectRequired"
-              ? markReconnectRequired(userId, error.reason)
-              : Effect.void
+          Effect.tapErrorTag("JiraReconnectRequired", (error) =>
+            markReconnectRequired(userId, error.reason)
           )
         )
       if (!hasRequiredScopes(grant.grantedScopes)) {
@@ -441,8 +440,9 @@ export const JiraCredentialsLive = Layer.effect(
 
           const grant = yield* tokens.refresh(refreshToken).pipe(
             Effect.tapError((error) =>
-              error._tag === "JiraReconnectRequired"
-                ? Effect.gen(function* () {
+              Match.value(error).pipe(
+                Match.tag("JiraReconnectRequired", (error) =>
+                  Effect.gen(function* () {
                     const failedAt = yield* DateTime.now
                     yield* db
                       .update(userJiraIntegration)
@@ -461,7 +461,9 @@ export const JiraCredentialsLive = Layer.effect(
                       )
                       .pipe(Effect.orDie)
                   })
-                : clearLease(userId, leaseId)
+                ),
+                Match.orElse(() => clearLease(userId, leaseId))
+              )
             )
           )
           if (!hasRequiredScopes(grant.grantedScopes)) {

@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { GroupId, TicketId, WorkTypeOption } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
+import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState, type FormEvent } from "react"
 
@@ -74,7 +75,7 @@ export function LogTimeForm({
       ticketId,
       groupId: ticketId ? undefined : (groupId ?? undefined)
     })
-    if (exit._tag === "Success") {
+    if (Exit.isSuccess(exit)) {
       setDuration("")
       setNote("")
       onDone?.()

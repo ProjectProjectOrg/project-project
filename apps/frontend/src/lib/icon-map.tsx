@@ -156,7 +156,7 @@ import {
   Play,
   Pause
 } from "lucide-react"
-import type { ComponentType } from "react"
+import type { ComponentType, ComponentProps } from "react"
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -260,7 +260,9 @@ function phosphor(
 }
 
 // HugeIcons: wraps icon definition in HugeiconsIcon renderer
-function hugeicons(iconDef: unknown): IconComponent {
+function hugeicons(
+  iconDef: ComponentProps<typeof HugeiconsIcon>["icon"]
+): IconComponent {
   return function HugeIconsAdapter({
     size,
     strokeWidth,
@@ -268,8 +270,7 @@ function hugeicons(iconDef: unknown): IconComponent {
   }: IconComponentProps) {
     return (
       <HugeiconsIcon
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        icon={iconDef as any}
+        icon={iconDef}
         size={size}
         strokeWidth={strokeWidth}
         className={className}

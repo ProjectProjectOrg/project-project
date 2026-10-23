@@ -27,7 +27,10 @@ import {
   type CountedColumn,
   type OrgTicketsRequest
 } from "@/features/tickets/atoms/myTickets"
-import { useLocalStorageState } from "@/hooks/useLocalStorageState"
+import {
+  createLocalStorageCodec,
+  useLocalStorageState
+} from "@/hooks/useLocalStorageState"
 import { getStatusIcon } from "@/lib/status-icons"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -55,6 +58,7 @@ type MyTicketsSectionProps = Readonly<{
 }>
 
 const GroupingSchema = Schema.Literals(["project", "status", "none"])
+const groupingCodec = createLocalStorageCodec(GroupingSchema)
 
 const GROUPING_OPTIONS = [
   { key: "project", label: m.tickets_grouping_project() },
@@ -77,7 +81,7 @@ export function MyTicketsSection({
   const preferencesKey = `${viewerId}:${orgSlug}`
   const [grouping, setGrouping] = useLocalStorageState(
     `projectproject:dashboard-grouping:${preferencesKey}`,
-    GroupingSchema,
+    groupingCodec,
     "project"
   )
   return (

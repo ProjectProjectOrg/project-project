@@ -21,6 +21,10 @@ import { HttpApiBuilder } from "effect/http-api"
 import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
 
+const decodeJiraPlannedArchiveJson = Schema.decodeEffect(
+  Schema.fromJsonString(JiraPlannedArchive)
+)
+
 const context = Effect.gen(function* () {
   const user = yield* CurrentUser
   const org = yield* OrgScope
@@ -143,9 +147,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
             .pipe(
               Effect.mapError(() => new JiraError({ reason: "server_error" }))
             )
-          const archive = yield* Schema.decodeEffect(
-            Schema.fromJsonString(JiraPlannedArchive)
-          )(contents).pipe(
+          const archive = yield* decodeJiraPlannedArchiveJson(contents).pipe(
             Effect.mapError(() => new JiraError({ reason: "invalid_response" }))
           )
           if (archive.migrationId !== detail.id)

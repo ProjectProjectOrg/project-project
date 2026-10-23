@@ -41,7 +41,8 @@ export function ColorPicker({
     if (!open) return
     const onPointer = (e: PointerEvent) => {
       const root = rootRef.current
-      if (root && !root.contains(e.target as Node)) setOpen(false)
+      if (root && e.target instanceof Node && !root.contains(e.target))
+        setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false)

@@ -4,10 +4,10 @@ import { LogLevel, SocketModeClient } from "@slack/socket-mode"
 import type { ServerWebSocket } from "bun"
 
 test("keeps Socket Mode connected through heartbeat checks and acknowledges events", async () => {
-  const sockets = new Set<ServerWebSocket<undefined>>()
+  const sockets = new Set<ServerWebSocket>()
   let connections = 0
   const acknowledgement = Promise.withResolvers<unknown>()
-  const server = Bun.serve<undefined>({
+  const server = Bun.serve({
     port: 0,
     fetch(request, server) {
       if (new URL(request.url).pathname === "/socket") {

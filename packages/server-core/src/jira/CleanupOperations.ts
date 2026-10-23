@@ -7,6 +7,7 @@ import {
 } from "@pp/db/schema"
 import { and, eq, isNull } from "drizzle-orm"
 import * as Effect from "effect/Effect"
+import * as Match from "effect/Match"
 
 import { ProjectDocs } from "../projects/ProjectDocs"
 import { OrgStorage } from "../storage/OrgStorage"
@@ -261,13 +262,19 @@ export const makeJiraCleanupActivities = Effect.gen(function* () {
       const fence = fenceFor(row)
       if (!fence)
         return yield* Effect.fail(cleanupFailure("cleanup-claim-lost"))
-      const completed = yield* (
-        payload.mode === "reset_import"
-          ? projection.completeResetCleanup(fence, executionId)
-          : payload.mode === "post_success"
-            ? projection.completePostSuccessCleanup(fence, executionId)
-            : projection.deleteAfterCleanup(fence, executionId)
-      ).pipe(Effect.mapError(() => cleanupFailure("cleanup-completion-failed")))
+      const completed = yield* Match.value(payload.mode)
+        .pipe(
+          Match.when("reset_import", () =>
+            projection.completeResetCleanup(fence, executionId)
+          ),
+          Match.when("post_success", () =>
+            projection.completePostSuccessCleanup(fence, executionId)
+          ),
+          Match.orElse(() => projection.deleteAfterCleanup(fence, executionId))
+        )
+        .pipe(
+          Effect.mapError(() => cleanupFailure("cleanup-completion-failed"))
+        )
       if (!completed)
         return yield* Effect.fail(cleanupFailure("cleanup-completion-rejected"))
     })

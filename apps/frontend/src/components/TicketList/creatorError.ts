@@ -1,20 +1,22 @@
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 
-import { errorMessage, type AppError } from "@/lib/errorMessage"
+import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 type Tagged = Readonly<{ _tag: string; reason?: unknown }>
 
 export const isUnknownTemplate = (error: Tagged): boolean =>
-  error._tag === "Validation" &&
+  Predicate.isTagged(error, "Validation") &&
+  "reason" in error &&
   typeof error.reason === "string" &&
   error.reason.startsWith("unknown_template")
 
 const explains = (error: Tagged): boolean =>
-  error._tag === "MentionInvalid" || isUnknownTemplate(error)
+  Predicate.isTagged(error, "MentionInvalid") || isUnknownTemplate(error)
 
 export const creatorErrorText = (
   result: AsyncResult.AsyncResult<unknown, Tagged>
@@ -25,7 +27,7 @@ export const creatorErrorText = (
         onSuccess: () => null,
         onError: (error) =>
           explains(error)
-            ? errorMessage(error as AppError)
+            ? errorMessage(error)
             : m.tickets_create_error_fallback(),
         onDefect: () => m.tickets_create_error_fallback()
       })

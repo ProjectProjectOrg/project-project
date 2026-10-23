@@ -7,6 +7,7 @@ import type {
 } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
+import * as Match from "effect/Match"
 import { Crown, LogOut, ShieldCheck, Trash2, UserRound } from "lucide-react"
 import { motion } from "motion/react"
 import { useState, type FormEvent } from "react"
@@ -402,102 +403,109 @@ function MemberMenu({
     >
       <MemberMenuTrigger label={m.members_actions_aria_label()} />
       <DropdownMenuContent align="end" sideOffset={6} className="w-60">
-        {confirm?.kind === "remove" ? (
-          <MemberMenuConfirm
-            prompt={m.members_remove_confirm_prompt({
-              name: member.name || member.email
-            })}
-            confirmLabel={
-              busy ? m.members_remove_in_progress() : m.members_remove_button()
-            }
-            busy={busy}
-            error={orgErrorText(error)}
-            onConfirm={() => void onRemove()}
-            onCancel={() => setConfirm(null)}
-          />
-        ) : confirm?.kind === "transfer" ? (
-          <MemberMenuConfirm
-            prompt={m.org_members_transfer_confirm_prompt({
-              name: member.name || member.email
-            })}
-            confirmLabel={
-              busy
-                ? m.org_members_transfer_in_progress()
-                : m.org_members_make_owner()
-            }
-            busy={busy}
-            error={orgErrorText(error)}
-            onConfirm={() => void onTransfer()}
-            onCancel={() => setConfirm(null)}
-          />
-        ) : confirm?.kind === "leave" ? (
-          <MemberMenuConfirm
-            prompt={m.org_members_leave_confirm_prompt({ org: orgName })}
-            confirmLabel={
-              busy
-                ? m.org_members_leave_in_progress()
-                : m.org_members_leave_button()
-            }
-            busy={busy}
-            error={orgErrorText(error)}
-            onConfirm={() => void onLeave()}
-            onCancel={() => setConfirm(null)}
-          />
-        ) : (
-          <>
-            {canChangeRole &&
-              ASSIGNABLE_ROLES.filter((r) => r !== member.role).map((r) => {
-                const meta = ROLE_META[r]
-                const RIcon = meta.icon
-                const makeLabel =
-                  r === "admin"
-                    ? m.members_make_admin()
-                    : m.members_make_member()
-                return (
-                  <DropdownMenuItem
-                    key={r}
-                    onClick={() => void onUpdateRole(r)}
-                    className="cursor-pointer"
-                  >
-                    <RIcon className="size-4" strokeWidth={1.75} />
-                    {makeLabel}
-                  </DropdownMenuItem>
-                )
+        {Match.value(confirm?.kind).pipe(
+          Match.when("remove", () => (
+            <MemberMenuConfirm
+              prompt={m.members_remove_confirm_prompt({
+                name: member.name || member.email
               })}
-            {canTransfer && (
-              <DropdownMenuItem
-                closeOnClick={false}
-                onClick={() => setConfirm({ kind: "transfer" })}
-                className="cursor-pointer"
-              >
-                <Crown className="size-4" strokeWidth={1.75} />
-                {m.org_members_make_owner()}
-              </DropdownMenuItem>
-            )}
-            {(canChangeRole || canTransfer) && (canRemove || canLeave) && (
-              <DropdownMenuSeparator />
-            )}
-            {canRemove && (
-              <DropdownMenuItem
-                closeOnClick={false}
-                onClick={() => setConfirm({ kind: "remove" })}
-                variant="destructive"
-              >
-                <Trash2 className="size-4" strokeWidth={1.75} />
-                {m.members_remove_button()}
-              </DropdownMenuItem>
-            )}
-            {canLeave && (
-              <DropdownMenuItem
-                closeOnClick={false}
-                onClick={() => setConfirm({ kind: "leave" })}
-                variant="destructive"
-              >
-                <LogOut className="size-4" strokeWidth={1.75} />
-                {m.org_members_leave_button()}
-              </DropdownMenuItem>
-            )}
-          </>
+              confirmLabel={
+                busy
+                  ? m.members_remove_in_progress()
+                  : m.members_remove_button()
+              }
+              busy={busy}
+              error={orgErrorText(error)}
+              onConfirm={() => void onRemove()}
+              onCancel={() => setConfirm(null)}
+            />
+          )),
+          Match.when("transfer", () => (
+            <MemberMenuConfirm
+              prompt={m.org_members_transfer_confirm_prompt({
+                name: member.name || member.email
+              })}
+              confirmLabel={
+                busy
+                  ? m.org_members_transfer_in_progress()
+                  : m.org_members_make_owner()
+              }
+              busy={busy}
+              error={orgErrorText(error)}
+              onConfirm={() => void onTransfer()}
+              onCancel={() => setConfirm(null)}
+            />
+          )),
+          Match.when("leave", () => (
+            <MemberMenuConfirm
+              prompt={m.org_members_leave_confirm_prompt({ org: orgName })}
+              confirmLabel={
+                busy
+                  ? m.org_members_leave_in_progress()
+                  : m.org_members_leave_button()
+              }
+              busy={busy}
+              error={orgErrorText(error)}
+              onConfirm={() => void onLeave()}
+              onCancel={() => setConfirm(null)}
+            />
+          )),
+          Match.orElse(() => (
+            <>
+              {canChangeRole &&
+                ASSIGNABLE_ROLES.filter((r) => r !== member.role).map((r) => {
+                  const meta = ROLE_META[r]
+                  const RIcon = meta.icon
+                  const makeLabel =
+                    r === "admin"
+                      ? m.members_make_admin()
+                      : m.members_make_member()
+                  return (
+                    <DropdownMenuItem
+                      key={r}
+                      onClick={() => void onUpdateRole(r)}
+                      className="cursor-pointer"
+                    >
+                      <RIcon className="size-4" strokeWidth={1.75} />
+                      {makeLabel}
+                    </DropdownMenuItem>
+                  )
+                })}
+              {canTransfer && (
+                <DropdownMenuItem
+                  closeOnClick={false}
+                  onClick={() => setConfirm({ kind: "transfer" })}
+                  className="cursor-pointer"
+                >
+                  <Crown className="size-4" strokeWidth={1.75} />
+                  {m.org_members_make_owner()}
+                </DropdownMenuItem>
+              )}
+              {(canChangeRole || canTransfer) && (canRemove || canLeave) && (
+                <DropdownMenuSeparator />
+              )}
+              {canRemove && (
+                <DropdownMenuItem
+                  closeOnClick={false}
+                  onClick={() => setConfirm({ kind: "remove" })}
+                  variant="destructive"
+                >
+                  <Trash2 className="size-4" strokeWidth={1.75} />
+                  {m.members_remove_button()}
+                </DropdownMenuItem>
+              )}
+              {canLeave && (
+                <DropdownMenuItem
+                  closeOnClick={false}
+                  onClick={() => setConfirm({ kind: "leave" })}
+                  variant="destructive"
+                >
+                  <LogOut className="size-4" strokeWidth={1.75} />
+                  {m.org_members_leave_button()}
+                </DropdownMenuItem>
+              )}
+            </>
+          ))
         )}
       </DropdownMenuContent>
     </DropdownMenu>

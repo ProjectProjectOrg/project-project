@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketDetail } from "@pp/shared"
 import * as Exit from "effect/Exit"
+import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useCallback, useId, useMemo, useRef, useState } from "react"
 
@@ -32,11 +33,12 @@ export function TitleField({
     onInitial: () => null,
     onSuccess: () => null,
     onError: (error) =>
-      error._tag === "HttpClientError" ||
-      error._tag === "SchemaError" ||
-      error._tag === "Validation"
-        ? m.tickets_title_save_error()
-        : errorMessage(error),
+      Match.value(error).pipe(
+        Match.tag("HttpClientError", "SchemaError", "Validation", () =>
+          m.tickets_title_save_error()
+        ),
+        Match.orElse((error) => errorMessage(error))
+      ),
     onDefect: () => m.tickets_title_save_error()
   })
 
