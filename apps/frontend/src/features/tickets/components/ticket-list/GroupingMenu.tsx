@@ -6,7 +6,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { CollapsingLabel } from "@/components/ui/segmented-tabs"
+import { CollapsingLabel } from "@/components/ui/collapsing-label"
 import { m } from "@/paraglide/messages"
 
 import { ToolbarButton } from "./toolbar/shared"

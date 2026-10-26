@@ -3,7 +3,6 @@ import { useEffect, useRef, useState, type ComponentProps } from "react"
 import { useSettingsRow } from "@/components/shell/settings/SettingsSection"
 import { Input } from "@/components/ui/input"
 import {
-  SEGMENTED_ITEM_CLASS,
   SegmentedTabs,
   type SegmentedItem
 } from "@/components/ui/segmented-tabs"
@@ -112,20 +111,9 @@ export function SettingsSegmented<K extends string>({
     <div role="group" aria-labelledby={labelId}>
       <SegmentedTabs
         items={items}
-        isActive={(key) => key === value}
+        value={value}
+        onValueChange={onValueChange}
         className={cn(waiting && "animate-pulse")}
-        renderItem={(item, content, { active }) => (
-          <button
-            type="button"
-            aria-pressed={active}
-            onClick={() => {
-              if (!active) onValueChange(item.key)
-            }}
-            className={SEGMENTED_ITEM_CLASS(active)}
-          >
-            {content}
-          </button>
-        )}
       />
     </div>
   )

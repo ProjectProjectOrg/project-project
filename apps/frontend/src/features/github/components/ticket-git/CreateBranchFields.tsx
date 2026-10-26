@@ -38,7 +38,6 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import {
-  SEGMENTED_ITEM_CLASS,
   SegmentedTabs,
   type SegmentedItem
 } from "@/components/ui/segmented-tabs"
@@ -300,21 +299,9 @@ function StatusInlinePills({
     <SegmentedTabs
       items={items}
       variant="inline"
-      isActive={(k) => k === value}
-      renderItem={(item, content, { active }) => (
-        <button
-          type="button"
-          onClick={() => onChange(item.key)}
-          disabled={disabled}
-          aria-pressed={active}
-          className={cn(
-            SEGMENTED_ITEM_CLASS(active, "inline"),
-            "disabled:cursor-not-allowed disabled:opacity-50"
-          )}
-        >
-          {content}
-        </button>
-      )}
+      value={value}
+      onValueChange={onChange}
+      disabled={disabled}
     />
   )
 }

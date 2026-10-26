@@ -25,7 +25,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { CollapsingLabel } from "@/components/ui/segmented-tabs"
+import { CollapsingLabel } from "@/components/ui/collapsing-label"
 import { me } from "@/features/auth/atoms/auth"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import {

@@ -8,8 +8,7 @@ import { useRef, useState } from "react"
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { Button } from "@/components/ui/button"
 import {
-  SegmentedTabs,
-  SEGMENTED_ITEM_CLASS
+  SegmentedTabs
 } from "@/components/ui/segmented-tabs"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import { StepHeading } from "@/features/projects/components/appearance/AppearanceCard"
@@ -70,23 +69,8 @@ export function BannerSourceStep({
                   { key: "artwork", label: m.project_banner_tab_artwork() },
                   { key: "upload", label: m.project_banner_tab_upload() }
                 ]}
-                isActive={(key) =>
-                  key === (field.value === "none" ? "artwork" : field.value)
-                }
-                renderItem={(item, content, { active }) => (
-                  <button
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() =>
-                      field.handleChange(
-                        item.key === "upload" ? "upload" : "artwork"
-                      )
-                    }
-                    className={SEGMENTED_ITEM_CLASS(active, "inline")}
-                  >
-                    {content}
-                  </button>
-                )}
+                value={field.value === "none" ? "artwork" : field.value}
+                onValueChange={field.handleChange}
               />
             )}
           </group.Field>

@@ -26,7 +26,7 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
-import { CollapsingLabel } from "@/components/ui/segmented-tabs"
+import { CollapsingLabel } from "@/components/ui/collapsing-label"
 import { Switch } from "@/components/ui/switch"
 import { me } from "@/features/auth/atoms/auth"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"

@@ -2,7 +2,6 @@ import { ArrowLeft } from "lucide-react"
 import type { ReactNode } from "react"
 
 import {
-  SEGMENTED_ITEM_CLASS,
   SegmentedTabs,
   type SegmentedItem
 } from "@/components/ui/segmented-tabs"
@@ -50,17 +49,8 @@ export function LibraryEditorHeader({
         {tab === undefined || onTabChange === undefined ? null : (
           <SegmentedTabs
             items={items}
-            isActive={(key) => key === tab}
-            renderItem={(item, content, { active }) => (
-              <button
-                type="button"
-                aria-pressed={active}
-                onClick={() => onTabChange(item.key)}
-                className={SEGMENTED_ITEM_CLASS(active)}
-              >
-                {content}
-              </button>
-            )}
+            value={tab}
+            onValueChange={onTabChange}
           />
         )}
       </div>

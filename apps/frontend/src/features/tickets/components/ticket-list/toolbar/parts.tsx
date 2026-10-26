@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/input-group"
 import { Kbd } from "@/components/ui/kbd"
 import { menuItemMetaClass } from "@/components/ui/menu-styles"
-import { CollapsingLabel } from "@/components/ui/segmented-tabs"
+import { CollapsingLabel } from "@/components/ui/collapsing-label"
 import {
   statusesFor,
   statusesRequest

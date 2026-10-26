@@ -5,7 +5,6 @@ import { MotionConfig } from "motion/react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
-  SEGMENTED_ITEM_CLASS,
   SegmentedTabs,
   type SegmentedItem
 } from "@/components/ui/segmented-tabs"
@@ -39,17 +38,8 @@ export function LibraryPage({ scope, tab, onTabChange }: LibraryPageProps) {
       <SegmentedTabs
         className="self-start"
         items={items}
-        isActive={(key) => key === tab}
-        renderItem={(item, content, { active }) => (
-          <button
-            type="button"
-            aria-pressed={active}
-            onClick={() => onTabChange(item.key)}
-            className={SEGMENTED_ITEM_CLASS(active)}
-          >
-            {content}
-          </button>
-        )}
+        value={tab}
+        onValueChange={onTabChange}
       />
       {AsyncResult.matchWithError(result, {
         onInitial: () => <LibrarySkeleton />,

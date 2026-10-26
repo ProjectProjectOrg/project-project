@@ -15,7 +15,6 @@ import { flushSync } from "react-dom"
 
 import { MarqueeIfOverflow } from "@/components/ui/marquee-if-overflow"
 import {
-  SEGMENTED_ITEM_CLASS,
   SegmentedTabs,
   type SegmentedItem
 } from "@/components/ui/segmented-tabs"
@@ -35,7 +34,6 @@ import {
   ticketCounts
 } from "@/features/tickets/atoms/ticketCounts"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type TabKey = "tickets" | "sprints" | "about"
@@ -123,7 +121,6 @@ export function TabsNav({
     TABS.find((tab) => matchesTab(tab.key))?.key ?? "tickets"
   )
   const navigate = useNavigate()
-  const isActive = (key: TabKey) => selectedTab === key
 
   const statusReq = useMemo(
     () => statusesRequest(orgSlug, slug),
@@ -142,125 +139,62 @@ export function TabsNav({
   const sprintTarget = Result.isSuccess(sprintsResult)
     ? pickSprintNavigationTarget(sprintsResult.value)
     : null
-  const items: ReadonlyArray<SegmentedItem<TabKey>> = TABS.map((t) => ({
-    key: t.key,
-    label: t.label(),
-    icon: t.icon,
-    badge: Match.value(t.countFor).pipe(
-      Match.when("tickets", () => ticketsCount),
-      Match.when("sprints", () => sprintsCount),
-      Match.when("members", () => project.members.length),
-      Match.orElse(() => null)
-    )
-  }))
+  const items: ReadonlyArray<SegmentedItem<TabKey>> = TABS.map((t) => {
+    const destination =
+      t.key === "sprints" && sprintTarget
+        ? {
+            to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId" as const,
+            params: { orgSlug, slug, groupId: sprintTarget.id }
+          }
+        : { to: t.to, params: { orgSlug, slug } }
+    const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      )
+        return
+      event.preventDefault()
+      startTransition(async () => {
+        flushSync(() => selectTab(t.key))
+        await navigate({ ...destination, viewTransition: false })
+      })
+    }
+    return {
+      key: t.key,
+      label: t.label(),
+      icon: t.icon,
+      badge: Match.value(t.countFor).pipe(
+        Match.when("tickets", () => ticketsCount),
+        Match.when("sprints", () => sprintsCount),
+        Match.when("members", () => project.members.length),
+        Match.orElse(() => null)
+      ),
+      hoverContent: Match.value(t.key).pipe(
+        Match.when("tickets", () =>
+          ticketsCount === null ? undefined : (
+            <MarqueeIfOverflow>
+              <TicketsBreakdown counts={ticketBreakdown} statuses={statuses} />
+            </MarqueeIfOverflow>
+          )
+        ),
+        Match.when("sprints", () =>
+          sprintsCount === null ? undefined : (
+            <SprintsBreakdown sprints={sprints} />
+          )
+        ),
+        Match.orElse(() => undefined)
+      ),
+      render: <Link onClick={onClick} {...destination} />
+    }
+  })
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <SegmentedTabs
-        items={items}
-        className="project-tabs"
-        isActive={isActive}
-        renderItem={(item, content, { active }) => {
-          const def = TABS.find((t) => t.key === item.key)!
-          const destination =
-            item.key === "sprints" && sprintTarget
-              ? {
-                  to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId" as const,
-                  params: { orgSlug, slug, groupId: sprintTarget.id }
-                }
-              : { to: def.to, params: { orgSlug, slug } }
-          const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
-            if (
-              event.defaultPrevented ||
-              event.button !== 0 ||
-              event.metaKey ||
-              event.ctrlKey ||
-              event.shiftKey ||
-              event.altKey
-            )
-              return
-            event.preventDefault()
-            startTransition(async () => {
-              flushSync(() => selectTab(item.key))
-              await navigate({ ...destination, viewTransition: false })
-            })
-          }
-
-          if (item.key === "tickets" && ticketsCount !== null) {
-            return (
-              <Link
-                onClick={onClick}
-                {...destination}
-                className={SEGMENTED_ITEM_CLASS(active)}
-              >
-                <span className="relative z-10 inline-flex items-center gap-1.5 transition-opacity group-hover/seg-item:opacity-0 group-hover/seg-item:duration-0">
-                  <ListChecks className="size-3.5" strokeWidth={1.75} />
-                  <span>{m.project_detail_tab_backlog()}</span>
-                  <span
-                    className={cn(
-                      "rounded-full px-1.5 font-mono text-[10px] tabular-nums",
-                      active
-                        ? "bg-foreground/10 text-foreground"
-                        : "bg-muted text-muted-foreground"
-                    )}
-                  >
-                    {ticketsCount}
-                  </span>
-                </span>
-                <span className="pointer-events-none absolute inset-0 z-10 opacity-0 transition-opacity group-hover/seg-item:opacity-100 group-hover/seg-item:duration-0">
-                  <MarqueeIfOverflow>
-                    <TicketsBreakdown
-                      counts={ticketBreakdown}
-                      statuses={statuses}
-                    />
-                  </MarqueeIfOverflow>
-                </span>
-              </Link>
-            )
-          }
-          if (item.key === "sprints" && sprintsCount !== null) {
-            const children = (
-              <>
-                <span className="relative z-10 inline-flex items-center gap-1.5 transition-opacity group-hover/seg-item:opacity-0 group-hover/seg-item:duration-0">
-                  <CalendarRange className="size-3.5" strokeWidth={1.75} />
-                  <span>{m.project_detail_tab_sprints()}</span>
-                  <span
-                    className={cn(
-                      "rounded-full px-1.5 font-mono text-[10px] tabular-nums",
-                      active
-                        ? "bg-foreground/10 text-foreground"
-                        : "bg-muted text-muted-foreground"
-                    )}
-                  >
-                    {sprintsCount}
-                  </span>
-                </span>
-                <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-2 whitespace-nowrap opacity-0 transition-opacity group-hover/seg-item:opacity-100 group-hover/seg-item:duration-0">
-                  <SprintsBreakdown sprints={sprints} />
-                </span>
-              </>
-            )
-            return (
-              <Link
-                onClick={onClick}
-                {...destination}
-                className={SEGMENTED_ITEM_CLASS(active)}
-              >
-                {children}
-              </Link>
-            )
-          }
-          return (
-            <Link
-              onClick={onClick}
-              {...destination}
-              className={SEGMENTED_ITEM_CLASS(active)}
-            >
-              {content}
-            </Link>
-          )
-        }}
-      />
+      <SegmentedTabs items={items} className="project-tabs" value={selectedTab} />
     </div>
   )
 }
