@@ -1,18 +1,9 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection"
-import { mergeRegister } from "@lexical/utils"
 import { parseFigmaUrl, type FigmaDensity, type FigmaRef } from "@pp/shared"
 import {
   $applyNodeReplacement,
   $getNodeByKey,
-  $getSelection,
-  $isNodeSelection,
-  CLICK_COMMAND,
-  COMMAND_PRIORITY_LOW,
   DecoratorNode,
-  KEY_BACKSPACE_COMMAND,
-  KEY_DELETE_COMMAND,
-  KEY_ESCAPE_COMMAND,
   type LexicalNode,
   type NodeKey,
   type SerializedLexicalNode,
@@ -25,17 +16,9 @@ import {
   motion,
   useReducedMotion
 } from "motion/react"
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  type MouseEvent as ReactMouseEvent,
-  type ReactElement,
-  type ReactNode
-} from "react"
+import { useCallback, useLayoutEffect, useRef, type ReactElement } from "react"
 
-import { Button } from "@/components/ui/button"
+import { useDecoratorSelection } from "@/features/editor/hooks/useDecoratorSelection"
 import type { FigmaTicketLinksRequest } from "@/features/figma/atoms/figma"
 import { standardEaseCss, transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
@@ -43,6 +26,7 @@ import { m } from "@/paraglide/messages"
 
 import { FigmaChip } from "./FigmaChip"
 import { FigmaEmbed } from "./FigmaEmbed"
+import { NodeOverlayAction } from "./NodeOverlayAction"
 
 export interface FigmaPayload {
   readonly url: string
@@ -62,12 +46,6 @@ export type SerializedFigmaNode = Spread<
 >
 
 const INTERACTIVE_SELECTOR = "a, button, iframe, [data-figma-action]"
-
-const isInteractiveTarget = (target: EventTarget | null): boolean =>
-  target instanceof Element && target.closest(INTERACTIVE_SELECTOR) !== null
-
-const OVERLAY_REVEAL =
-  "invisible opacity-0 transition-opacity group-focus-within/editing:visible group-hover/hitbox:opacity-100 group-focus-within/hitbox:opacity-100"
 
 const OVERLAY_SLOT = "absolute flex h-8 items-center"
 
@@ -205,14 +183,10 @@ function FigmaSelectable({
   request: FigmaTicketLinksRequest | null
 }) {
   const [editor] = useLexicalComposerContext()
-  const [isSelected, setSelected, clearSelection] =
-    useLexicalNodeSelection(nodeKey)
-
-  const remove = useCallback(() => {
-    editor.update(() => {
-      $getNodeByKey(nodeKey)?.remove()
-    })
-  }, [editor, nodeKey])
+  const { isSelected, remove, selectOnPointer } = useDecoratorSelection(
+    nodeKey,
+    { interactive: INTERACTIVE_SELECTOR }
+  )
 
   const wrapperRef = useRef<HTMLSpanElement>(null)
   const contentRef = useRef<HTMLSpanElement>(null)
@@ -273,63 +247,6 @@ function FigmaSelectable({
     })
   }, [editor, nodeKey])
 
-  useEffect(() => {
-    const onDelete = (event: KeyboardEvent) => {
-      if (!isSelected || !$isNodeSelection($getSelection())) return false
-      event.preventDefault()
-      remove()
-      return true
-    }
-
-    return mergeRegister(
-      editor.registerCommand(
-        CLICK_COMMAND,
-        (event: MouseEvent) => {
-          const element = editor.getElementByKey(nodeKey)
-          const target = event.target
-          if (!element || !(target instanceof Node)) return false
-          if (!element.contains(target)) return false
-          if (isInteractiveTarget(target)) return false
-          event.preventDefault()
-          clearSelection()
-          setSelected(true)
-          return true
-        },
-        COMMAND_PRIORITY_LOW
-      ),
-      editor.registerCommand(
-        KEY_DELETE_COMMAND,
-        onDelete,
-        COMMAND_PRIORITY_LOW
-      ),
-      editor.registerCommand(
-        KEY_BACKSPACE_COMMAND,
-        onDelete,
-        COMMAND_PRIORITY_LOW
-      ),
-      editor.registerCommand(
-        KEY_ESCAPE_COMMAND,
-        () => {
-          if (!isSelected) return false
-          clearSelection()
-          return true
-        },
-        COMMAND_PRIORITY_LOW
-      )
-    )
-  }, [editor, nodeKey, isSelected, setSelected, clearSelection, remove])
-
-  const selectOnPointer = (event: ReactMouseEvent<HTMLElement>) => {
-    if (isInteractiveTarget(event.target)) return
-    event.preventDefault()
-    const root = editor.getRootElement()
-    if (root && document.activeElement !== root) {
-      root.focus({ preventScroll: true })
-    }
-    clearSelection()
-    setSelected(true)
-  }
-
   const compact = density === "compact"
   const morphId = `figma-${nodeKey}`
   const overlaySlot = cn(
@@ -384,7 +301,7 @@ function FigmaSelectable({
               )}
             </motion.span>
           </AnimatePresence>
-          <OverlayAction
+          <NodeOverlayAction
             morphId={`${morphId}-remove`}
             slot={cn(overlaySlot, compact ? "right-full mr-1" : "-left-2")}
             label={m.figma_embed_remove()}
@@ -392,20 +309,27 @@ function FigmaSelectable({
             onClick={remove}
           >
             <Trash2 strokeWidth={1.75} />
-          </OverlayAction>
+          </NodeOverlayAction>
           {reference === null || compact ? null : (
-            <OverlayAction
+            <NodeOverlayAction
               morphId={`${morphId}-open`}
               slot={cn(OVERLAY_SLOT, "-right-2 -bottom-2")}
               label={m.figma_embed_open_in_figma()}
               variant="overlay"
-              href={url}
+              render={
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  data-figma-action="open"
+                />
+              }
             >
               <ExternalLink strokeWidth={1.75} />
-            </OverlayAction>
+            </NodeOverlayAction>
           )}
           {reference === null ? null : (
-            <OverlayAction
+            <NodeOverlayAction
               morphId={`${morphId}-density`}
               slot={cn(overlaySlot, compact ? "left-full ml-1" : "-right-2")}
               label={
@@ -419,60 +343,11 @@ function FigmaSelectable({
               ) : (
                 <Minimize2 strokeWidth={1.75} />
               )}
-            </OverlayAction>
+            </NodeOverlayAction>
           )}
         </LayoutGroup>
       </span>
     </span>
-  )
-}
-
-function OverlayAction({
-  morphId,
-  slot,
-  label,
-  variant,
-  onClick,
-  href,
-  children
-}: {
-  morphId: string
-  slot: string
-  label: string
-  variant: "overlay" | "overlay-destructive"
-  onClick?: () => void
-  href?: string
-  children: ReactNode
-}) {
-  return (
-    <motion.span
-      layoutId={morphId}
-      layout="position"
-      transition={transitions.morph}
-      className={slot}
-    >
-      <Button
-        variant={variant}
-        size="icon-sm"
-        aria-label={label}
-        title={label}
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={onClick}
-        className={OVERLAY_REVEAL}
-        render={
-          href === undefined ? undefined : (
-            <a
-              href={href}
-              target="_blank"
-              rel="noreferrer noopener"
-              data-figma-action="open"
-            />
-          )
-        }
-      >
-        {children}
-      </Button>
-    </motion.span>
   )
 }
 
