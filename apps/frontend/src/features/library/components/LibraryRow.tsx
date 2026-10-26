@@ -1,5 +1,4 @@
 import type { BlockIconName, LibraryOrigin } from "@pp/shared"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { ChevronRight } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useState, type ReactNode } from "react"
@@ -7,7 +6,6 @@ import { useState, type ReactNode } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ConfirmButton } from "@/components/ui/confirm-button"
-import { errorMessage } from "@/lib/errorMessage"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -287,15 +285,3 @@ export function HiddenEntries<Key extends string>({
     </div>
   )
 }
-
-export const failureText = (
-  result: AsyncResult.AsyncResult<unknown, Readonly<{ _tag: string }>>
-): string | null =>
-  AsyncResult.isFailure(result)
-    ? AsyncResult.matchWithError(result, {
-        onInitial: () => null,
-        onSuccess: () => null,
-        onError: (error) => errorMessage(error),
-        onDefect: () => m.error_unknown()
-      })
-    : null

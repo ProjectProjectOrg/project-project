@@ -59,6 +59,7 @@ import {
   statusMetaFor,
   statusLabelFor
 } from "@/features/tickets/lib/ticketMeta"
+import { mutationErrorText } from "@/lib/mutationError"
 import { slugify } from "@/lib/slug"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -130,10 +131,9 @@ export function CreateBranchFields({
 
   const errorString =
     didSubmit && !createState.waiting
-      ? Result.matchWithError(createState, {
-          onInitial: () => null,
-          onSuccess: () => null,
-          onError: (error) =>
+      ? mutationErrorText(
+          createState,
+          (error) =>
             Match.value(error).pipe(
               Match.tag("BranchExists", () =>
                 m.git_branch_exists_error({ name: attemptedName })
@@ -150,8 +150,8 @@ export function CreateBranchFields({
               Match.tag("RepoGone", () => m.git_repo_gone_error()),
               Match.orElse(() => m.git_create_branch_error())
             ),
-          onDefect: () => m.git_create_branch_error()
-        })
+          m.git_create_branch_error
+        )
       : null
 
   async function submit() {

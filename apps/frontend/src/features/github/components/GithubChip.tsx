@@ -42,6 +42,7 @@ import {
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useOrgActor, useProjectActor } from "@/lib/access"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -297,18 +298,17 @@ function ConnectMenuBody({
   const installing = startInstallState.waiting
   const installError = installing
     ? null
-    : Result.matchWithError(startInstallState, {
-        onInitial: () => null,
-        onSuccess: () => null,
-        onError: (error) =>
+    : mutationErrorText(
+        startInstallState,
+        (error) =>
           Match.value(error).pipe(
             Match.tag("Forbidden", () =>
               m.github_chip_install_app_forbidden_error()
             ),
             Match.orElse(() => m.github_chip_install_app_failed_error())
           ),
-        onDefect: () => m.github_chip_install_app_failed_error()
-      })
+        m.github_chip_install_app_failed_error
+      )
 
   async function installApp() {
     try {
@@ -391,10 +391,9 @@ function RepoList({
   const error =
     connectState.waiting || pending !== null
       ? null
-      : Result.matchWithError(connectState, {
-          onInitial: () => null,
-          onSuccess: () => null,
-          onError: (failure) =>
+      : mutationErrorText(
+          connectState,
+          (failure) =>
             Match.value(failure).pipe(
               Match.tag("GitHubTokenExpired", () =>
                 m.github_chip_connect_token_expired_error()
@@ -405,8 +404,8 @@ function RepoList({
               Match.tag("RepoGone", () => m.git_repo_gone_error()),
               Match.orElse(() => m.github_chip_connect_failed_error())
             ),
-          onDefect: () => m.github_chip_connect_failed_error()
-        })
+          m.github_chip_connect_failed_error
+        )
 
   async function pick(repo: GithubRepo) {
     if (pending !== null) return

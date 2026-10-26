@@ -23,6 +23,7 @@ import {
 } from "@/features/integrations/components/IntegrationDetail"
 import { useGithubAppState } from "@/features/integrations/hooks/useOrgIntegrations"
 import { useOrgActor } from "@/lib/access"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -47,18 +48,17 @@ export function GithubIntegrationPage() {
   const status = Result.isSuccess(integration) ? integration.value : null
   const installError = installState.waiting
     ? null
-    : Result.matchWithError(installState, {
-        onInitial: () => null,
-        onSuccess: () => null,
-        onError: (error) =>
+    : mutationErrorText(
+        installState,
+        (error) =>
           Match.value(error).pipe(
             Match.tag("Forbidden", () =>
               m.github_chip_install_app_forbidden_error()
             ),
             Match.orElse(() => m.github_chip_install_app_failed_error())
           ),
-        onDefect: () => m.github_chip_install_app_failed_error()
-      })
+        m.github_chip_install_app_failed_error
+      )
 
   async function install() {
     if (installState.waiting) return

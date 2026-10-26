@@ -16,8 +16,7 @@ import {
   projectLibraryRequest
 } from "@/features/library/atoms/library"
 import type { TemplatePrediction } from "@/features/tickets/lib/ticketRows"
-
-import { failedOnUnknownTemplate } from "../../lib/creatorError"
+import { failedOnUnknownTemplate } from "@/lib/mutationError"
 
 export type TemplateChoice = Readonly<{
   templates: ReadonlyArray<TemplateDefinition>

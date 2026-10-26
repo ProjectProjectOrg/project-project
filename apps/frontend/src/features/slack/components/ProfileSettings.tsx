@@ -5,6 +5,7 @@ import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
 import { Button } from "@/components/ui/button"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
+import { mutationErrorText, slackActionErrorMessage } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -13,7 +14,6 @@ import {
   slackOrgRequest,
   slackProfiles
 } from "../atoms/slack"
-import { slackActionError } from "../lib/actionError"
 
 export function SlackProfileSettings({
   oauthError
@@ -78,7 +78,8 @@ function ProfileRow({
         </span>
       }
       error={
-        slackActionError(state) ?? (profile.slackUserId ? null : oauthError)
+        mutationErrorText(state, slackActionErrorMessage) ??
+        (profile.slackUserId ? null : oauthError)
       }
     >
       {profile.slackUserId ? (

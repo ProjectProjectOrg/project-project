@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { TYPE_LABELS, TYPE_META } from "@/features/tickets/lib/ticketMeta"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -28,7 +29,6 @@ import {
   type DefaultState
 } from "../lib/libraryModel"
 import { BlockIconGlyph } from "./BlockIconGlyph"
-import { failureText } from "./LibraryRow"
 import { LibrarySectionHeader } from "./LibrarySection"
 
 export function TemplateDefaultsRow({
@@ -99,7 +99,7 @@ function DefaultRow({
   const setDefaults = useAtomSet(mutation, { mode: "promiseExit" })
   const { waiting } = useAtomValue(mutation)
   const update = async (input: UpdateTemplateDefaultsInput) =>
-    onSettled(failureText(AsyncResult.fromExit(await setDefaults(input))))
+    onSettled(mutationErrorText(AsyncResult.fromExit(await setDefaults(input))))
   const onPick = (key: TemplateKey | null) =>
     void update({ defaults: { [type]: key } })
   const onInherit = () => void update({ defaults: {}, reset: [type] })

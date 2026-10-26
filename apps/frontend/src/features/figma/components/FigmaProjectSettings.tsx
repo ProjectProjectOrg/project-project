@@ -1,6 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Link } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
 import { type FormEvent, useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
@@ -15,7 +14,8 @@ import {
 } from "@/features/figma/atoms/figma"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
 import { useOrgActor } from "@/lib/access"
-import { errorMessage, figmaStatusErrorMessage } from "@/lib/errorMessage"
+import { figmaStatusErrorMessage } from "@/lib/errorMessage"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -91,18 +91,7 @@ function FigmaProjectContent({
   const busy = waiting || connectState.waiting || disconnectState.waiting
 
   const mutationError =
-    Result.matchWithError(connectState, {
-      onInitial: () => null,
-      onSuccess: () => null,
-      onError: (err) => errorMessage(err),
-      onDefect: () => m.error_unknown()
-    }) ??
-    Result.matchWithError(disconnectState, {
-      onInitial: () => null,
-      onSuccess: () => null,
-      onError: (err) => errorMessage(err),
-      onDefect: () => m.error_unknown()
-    })
+    mutationErrorText(connectState) ?? mutationErrorText(disconnectState)
   const error = status.lastCheckError
     ? figmaStatusErrorMessage(status.lastCheckError)
     : mutationError

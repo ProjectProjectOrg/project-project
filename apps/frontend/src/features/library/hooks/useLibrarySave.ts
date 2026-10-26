@@ -15,6 +15,7 @@ import { useCallback, useContext, useRef, useState } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
 import type { SaveStatus } from "@/features/editor/components/LexicalEditor"
+import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
 import {
@@ -25,7 +26,6 @@ import {
   updateTemplateAtom,
   type LibraryScope
 } from "../atoms/libraryScope"
-import { failureText } from "../components/LibraryRow"
 import { blockDraftOf, templateDraftOf } from "../lib/libraryModel"
 
 type Task = (registry: Registry.AtomRegistry) => Promise<string | null>
@@ -35,7 +35,9 @@ export const runLibraryMutation = <A, E extends Readonly<{ _tag: string }>, I>(
   atom: Atom.Writable<AsyncResult.AsyncResult<A, E>, I>,
   input: I
 ): Promise<string | null> =>
-  fireMutation(registry, atom, input).then(failureText)
+  fireMutation(registry, atom, input).then((result) =>
+    mutationErrorText(result)
+  )
 
 const currentLibrary = (
   registry: Registry.AtomRegistry,

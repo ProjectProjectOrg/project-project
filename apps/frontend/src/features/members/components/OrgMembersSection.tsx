@@ -27,11 +27,12 @@ import {
   transferOwnership,
   updateMemberRole
 } from "@/features/organizations/atoms/orgs"
-import {
-  orgActionError,
-  orgActionErrorFromExit
-} from "@/features/organizations/lib/orgErrors"
 import { useOrgActor } from "@/lib/access"
+import {
+  mutationFailure,
+  orgActionDefect,
+  orgActionError
+} from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
 const ROLE_META: Readonly<Record<OrgRole, RoleMeta>> = {
@@ -66,8 +67,7 @@ const ASSIGNABLE_ROLES = [
 type OrgFailure = Parameters<typeof orgActionError>[0]
 
 const orgErrorText = <A,>(state: Result.AsyncResult<A, OrgFailure>) => {
-  if (!Result.isFailure(state)) return null
-  const error = orgActionErrorFromExit(Exit.failCause(state.cause))
+  const error = mutationFailure(state, orgActionError, orgActionDefect)
   if (!error) return null
   return (
     <>

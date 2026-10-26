@@ -44,9 +44,12 @@ import {
   type SprintSectionsRequest
 } from "@/features/tickets/atoms/sprintSections"
 import type { QuickCreateInput } from "@/features/tickets/lib/ticketRows"
+import {
+  mutationErrorText,
+  ticketCreateErrorMessage
+} from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
-import { creatorErrorText } from "../../lib/creatorError"
 import { CreatorSprintMenu, CreatorTypeMenu } from "./CreatorMenus"
 import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
 import { useCreatorFocus } from "./useCreatorFocus"
@@ -98,7 +101,11 @@ function StatusSectionTicketCreator(props: CreatorProps) {
       {...props}
       create={create}
       submitting={state.waiting}
-      error={creatorErrorText(state)}
+      error={mutationErrorText(
+        state,
+        ticketCreateErrorMessage,
+        m.tickets_create_error_fallback
+      )}
       assignsSprint
     />
   )
@@ -116,7 +123,11 @@ function SprintSectionTicketCreator(
   })
   const state = useAtomValue(quickCreateSprintSectionsTicket({ req, key }))
   const error = Result.isFailure(state)
-    ? creatorErrorText(state)
+    ? mutationErrorText(
+        state,
+        ticketCreateErrorMessage,
+        m.tickets_create_error_fallback
+      )
     : Result.isSuccess(state) && state.value.sprintAssignmentFailed
       ? m.tickets_create_sprint_assignment_failed()
       : null

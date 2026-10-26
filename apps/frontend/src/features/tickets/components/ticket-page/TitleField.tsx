@@ -2,7 +2,6 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketDetail } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
-import * as Result from "effect/reactivity/AsyncResult"
 import { useCallback, useId, useMemo, useRef, useState } from "react"
 
 import {
@@ -10,6 +9,7 @@ import {
   updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
 import { errorMessage } from "@/lib/errorMessage"
+import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
 export function TitleField({
@@ -29,18 +29,17 @@ export function TitleField({
   const update = useAtomSet(atom, { mode: "promiseExit" })
   const result = useAtomValue(atom)
   const pending = result.waiting
-  const error = Result.matchWithError(result, {
-    onInitial: () => null,
-    onSuccess: () => null,
-    onError: (error) =>
+  const error = mutationErrorText(
+    result,
+    (error) =>
       Match.value(error).pipe(
         Match.tag("HttpClientError", "SchemaError", "Validation", () =>
           m.tickets_title_save_error()
         ),
         Match.orElse((error) => errorMessage(error))
       ),
-    onDefect: () => m.tickets_title_save_error()
-  })
+    m.tickets_title_save_error
+  )
 
   const [draft, setDraft] = useState<string | null>(null)
   const editing = useRef(false)

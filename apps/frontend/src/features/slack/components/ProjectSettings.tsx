@@ -15,6 +15,7 @@ import { SettingsSwitch } from "@/components/shell/settings/SettingsTextField"
 import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger } from "@/components/ui/select"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
+import { mutationErrorText, slackActionErrorMessage } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -27,7 +28,6 @@ import {
   testSlackProject,
   type SlackProjectRequest
 } from "../atoms/slack"
-import { slackActionError } from "../lib/actionError"
 
 type ProjectProps = Readonly<{
   orgSlug: string
@@ -165,10 +165,12 @@ function ManagedSlackRow({
         </span>
       }
       error={
-        slackActionError(saveState) ??
-        slackActionError(disconnectState) ??
-        slackActionError(testState) ??
-        (channelsResult.waiting ? null : slackActionError(channelsResult))
+        mutationErrorText(saveState, slackActionErrorMessage) ??
+        mutationErrorText(disconnectState, slackActionErrorMessage) ??
+        mutationErrorText(testState, slackActionErrorMessage) ??
+        (channelsResult.waiting
+          ? null
+          : mutationErrorText(channelsResult, slackActionErrorMessage))
       }
     >
       <Select

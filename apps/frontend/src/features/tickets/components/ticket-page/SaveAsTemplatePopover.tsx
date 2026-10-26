@@ -30,9 +30,9 @@ import {
   type LibraryScope
 } from "@/features/library/atoms/libraryScope"
 import { LibraryEntryLink } from "@/features/library/components/LibraryEntryLink"
-import { failureText } from "@/features/library/components/LibraryRow"
 import { TYPE_LABELS } from "@/features/tickets/lib/ticketMeta"
 import { useOrgActor } from "@/lib/access"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -113,7 +113,7 @@ export function SaveAsTemplateForm({
   const mutation = createTemplateAtom(scope)
   const create = useAtomSet(mutation, { mode: "promiseExit" })
   const state = useAtomValue(mutation)
-  const error = failureText(state)
+  const error = mutationErrorText(state)
   const lookup = useMemo(
     () => lookupForLayer(lookupFor(library), layer),
     [layer, library]

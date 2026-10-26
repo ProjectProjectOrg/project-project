@@ -17,6 +17,7 @@ import {
 import { EverhourApiKeyWalkthrough } from "@/features/everhour/components/EverhourApiKeyWalkthrough"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
 import { errorMessage } from "@/lib/errorMessage"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -107,24 +108,21 @@ function EverhourSettingsContent({
     syncState.waiting ||
     disconnectState.waiting
   const mutationError =
-    Result.matchWithError(connectState, {
-      onInitial: () => null,
-      onSuccess: () => null,
-      onError: (err) => errorMessage(err),
-      onDefect: () => m.project_settings_everhour_action_error()
-    }) ??
-    Result.matchWithError(syncState, {
-      onInitial: () => null,
-      onSuccess: () => null,
-      onError: (err) => errorMessage(err),
-      onDefect: () => m.project_settings_everhour_action_error()
-    }) ??
-    Result.matchWithError(disconnectState, {
-      onInitial: () => null,
-      onSuccess: () => null,
-      onError: (err) => errorMessage(err),
-      onDefect: () => m.project_settings_everhour_action_error()
-    })
+    mutationErrorText(
+      connectState,
+      errorMessage,
+      m.project_settings_everhour_action_error
+    ) ??
+    mutationErrorText(
+      syncState,
+      errorMessage,
+      m.project_settings_everhour_action_error
+    ) ??
+    mutationErrorText(
+      disconnectState,
+      errorMessage,
+      m.project_settings_everhour_action_error
+    )
   const error =
     status.lastSyncStatus === "ok"
       ? null

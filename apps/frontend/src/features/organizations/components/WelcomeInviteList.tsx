@@ -19,6 +19,7 @@ import {
   pickActiveInvitation
 } from "@/features/organizations/lib/invitations"
 import { errorMessage } from "@/lib/errorMessage"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -162,16 +163,15 @@ function InviteRow({
   const rejectState = useAtomValue(rejectInvitation(mutationKey))
   const accepting = acceptState.waiting
   const declining = rejectState.waiting
-  const acceptError = Result.matchWithError(acceptState, {
-    onInitial: () => null,
-    onSuccess: () => null,
-    onError: (error) =>
+  const acceptError = mutationErrorText(
+    acceptState,
+    (error) =>
       Match.value(error).pipe(
         Match.tag("InvitationNotAcceptable", (error) => errorMessage(error)),
         Match.orElse(() => m.auth_invites_accept_row_error())
       ),
-    onDefect: () => m.auth_invites_accept_row_error()
-  })
+    m.auth_invites_accept_row_error
+  )
   const declineFailed = Result.isFailure(rejectState)
 
   useEffect(

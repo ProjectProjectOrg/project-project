@@ -1,7 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { StatusLabel } from "@pp/shared"
 import * as Exit from "effect/Exit"
-import * as Result from "effect/reactivity/AsyncResult"
 import { Plus } from "lucide-react"
 import { useMemo, useState } from "react"
 
@@ -13,6 +12,7 @@ import {
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
 import { statusCreateErrorMessage } from "@/lib/errorMessage"
+import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
 type Props = {
@@ -52,12 +52,11 @@ function CreateFields({ orgSlug, slug }: Props) {
 
   const error =
     didSubmit && !createState.waiting
-      ? Result.matchWithError(createState, {
-          onInitial: () => null,
-          onSuccess: () => null,
-          onError: (e) => statusCreateErrorMessage(e),
-          onDefect: () => m.tickets_status_create_error_fallback()
-        })
+      ? mutationErrorText(
+          createState,
+          statusCreateErrorMessage,
+          m.tickets_status_create_error_fallback
+        )
       : null
 
   const submit = async () => {

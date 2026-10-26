@@ -1,5 +1,4 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import * as Result from "effect/reactivity/AsyncResult"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
@@ -9,7 +8,7 @@ import {
   disconnectFigmaProfileAtom
 } from "@/features/figma/atoms/figma"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
-import { errorMessage } from "@/lib/errorMessage"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -62,12 +61,7 @@ function FigmaProfileContent({
   })
   const disconnectState = useAtomValue(disconnectFigmaProfileAtom)
   const busy = waiting || disconnectState.waiting
-  const disconnectError = Result.matchWithError(disconnectState, {
-    onInitial: () => null,
-    onSuccess: () => null,
-    onError: (err) => errorMessage(err),
-    onDefect: () => m.error_unknown()
-  })
+  const disconnectError = mutationErrorText(disconnectState)
   const error = oauthError ?? disconnectError
 
   return (

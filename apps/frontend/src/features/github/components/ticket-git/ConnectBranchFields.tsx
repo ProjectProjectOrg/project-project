@@ -20,6 +20,7 @@ import {
   stackBranch
 } from "@/features/github/atoms/github"
 import { projectRequest } from "@/features/projects/atoms/projects"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -134,10 +135,9 @@ export function ConnectBranchFields({
 
   const errorString =
     didSubmit && !attachState.waiting
-      ? Result.matchWithError(attachState, {
-          onInitial: () => null,
-          onSuccess: () => null,
-          onError: (error) =>
+      ? mutationErrorText(
+          attachState,
+          (error) =>
             Match.value(error).pipe(
               Match.tag("BranchNotFound", () =>
                 m.git_branch_not_found_error({ name: attemptedName })
@@ -162,8 +162,8 @@ export function ConnectBranchFields({
               ),
               Match.orElse(() => m.git_attach_branch_error())
             ),
-          onDefect: () => m.git_attach_branch_error()
-        })
+          m.git_attach_branch_error
+        )
       : null
 
   async function submit(branchName: string) {

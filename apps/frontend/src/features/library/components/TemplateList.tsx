@@ -10,6 +10,7 @@ import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useMemo, useState } from "react"
 
+import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
 import {
@@ -31,7 +32,6 @@ import { BlockStrip } from "./BlockSketch"
 import { LibraryCreateHeader } from "./LibraryCreateHeader"
 import { LibraryEmpty } from "./LibraryEmpty"
 import {
-  failureText,
   HiddenEntries,
   LibraryCard,
   useFreshKeys,
@@ -143,7 +143,7 @@ function TemplateCard({
     )
     setCreating(false)
     if (Exit.isFailure(exit))
-      setCreateError(failureText(AsyncResult.fromExit(exit)))
+      setCreateError(mutationErrorText(AsyncResult.fromExit(exit)))
     return Exit.isSuccess(exit)
   }
 
@@ -156,7 +156,7 @@ function TemplateCard({
       actions={rowActions(template, scope.layer, library.canEdit)}
       onAction={onAction}
       waiting={dropState.waiting || creating}
-      error={createError ?? failureText(dropState)}
+      error={createError ?? mutationErrorText(dropState)}
       fresh={fresh}
     />
   )
@@ -173,7 +173,7 @@ function TemplateUnhide({
   return (
     <UnhideButton
       waiting={state.waiting}
-      error={failureText(state)}
+      error={mutationErrorText(state)}
       onUnhide={() => void unhide()}
     />
   )

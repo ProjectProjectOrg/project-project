@@ -41,9 +41,12 @@ import {
   ticketSearch
 } from "@/features/tickets/atoms/ticketSearch"
 import { TYPE_META } from "@/features/tickets/lib/ticketMeta"
+import {
+  mutationErrorText,
+  ticketCreateErrorMessage
+} from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
-import { creatorErrorText } from "../../lib/creatorError"
 import { CreatorTypeMenu } from "./CreatorMenus"
 import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
 import { TicketCreatorShell } from "./TicketCreatorShell"
@@ -76,7 +79,11 @@ export function SprintTicketCreator({
   const create = useAtomSet(createAtom, { mode: "promiseExit" })
   const createState = useAtomValue(createAtom)
   const submitting = createState.waiting
-  const error = creatorErrorText(createState)
+  const error = mutationErrorText(
+    createState,
+    ticketCreateErrorMessage,
+    m.tickets_create_error_fallback
+  )
   const projectReq = useMemo(
     () => projectRequest(orgSlug, slug),
     [orgSlug, slug]

@@ -14,6 +14,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import { Input } from "@/components/ui/input"
+import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
 import {
@@ -28,7 +29,6 @@ import {
   type LibraryKind
 } from "../lib/libraryModel"
 import { useOpenEntry } from "./LibraryEntryLink"
-import { failureText } from "./LibraryRow"
 import { LibrarySectionHeader } from "./LibrarySection"
 
 type CreateRowProps = Readonly<{
@@ -182,7 +182,7 @@ function CreateFields({
       openEntry(kind, key)
       return
     }
-    setFailure(failureText(AsyncResult.fromExit(exit)))
+    setFailure(mutationErrorText(AsyncResult.fromExit(exit)))
     setBusy(false)
   }
 

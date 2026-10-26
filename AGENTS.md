@@ -322,6 +322,7 @@ A few details worth knowing:
 - **`onSuccess` argument is the Success variant** (`{ value, waiting }`), not the raw value. Destructure `value` to get your data. The `waiting: true` flag is set during an in-flight optimistic mutation (per the optimistic-mutation conventions above) — useful when you want to pulse the success view while a refresh is happening.
 - **Don't combine `AsyncView` or `matchWithError` with a separate `if (!AsyncResult.isSuccess) ...` early return.** Pick one. Mixing both is dead code and a refactor hazard.
 - **For tiny callsites where you only care about success vs anything else** (e.g. a sidebar count that defaults to 0), `AsyncResult.isSuccess(result) ? result.value : fallback` is fine. Use `AsyncView` once the failure case needs visible UI.
+- **Inline mutation errors** come from `mutationErrorText(result, describe?, defect?)` in `lib/mutationError.ts`: `null` until the result fails, then the typed error through `describe` (default `errorMessage`) or `defect` (default `m.error_unknown`). Feature mappers such as `ticketCreateErrorMessage`, `slackActionErrorMessage` and `orgActionError` live beside it. Never show a raw `error.message`.
 
 Reference: `apps/frontend/src/features/statuses/components/StatusList.tsx` for `AsyncView`, `apps/frontend/src/features/projects/components/Projects.tsx` for an inline failure through `matchWithError`, and `CreateProjectRow.tsx` beside it for reading a mutation atom's own state next to it. `AsyncResult` is imported as `Result` in most components; either alias is fine, but keep one per file.
 

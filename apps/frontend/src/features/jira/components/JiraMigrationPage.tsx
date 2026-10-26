@@ -37,6 +37,7 @@ import {
   type JiraDraftSave
 } from "@/features/jira/forms/migration"
 import { useJiraMigrationPolling } from "@/features/jira/hooks/useJiraMigrationPolling"
+import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -155,12 +156,7 @@ function ConnectedSource({
   const requestId = useRef<string | null>(null)
   const [cloudId, setCloudId] = useState("")
   const [projectId, setProjectId] = useState("")
-  const scanError = Result.matchWithError(createResult, {
-    onInitial: () => null,
-    onSuccess: () => null,
-    onError: () => m.jira_migration_error_generic(),
-    onDefect: () => m.jira_migration_error_generic()
-  })
+  const scanError = jiraMigrationActionError(createResult)
 
   const changeCloudId = (nextCloudId: string) => {
     requestId.current = null
@@ -645,12 +641,11 @@ function JiraMigrationDetailPage({
 function jiraMigrationActionError(
   result: Result.AsyncResult<unknown, unknown>
 ): string | null {
-  return Result.matchWithError(result, {
-    onInitial: () => null,
-    onSuccess: () => null,
-    onError: () => m.jira_migration_error_generic(),
-    onDefect: () => m.jira_migration_error_generic()
-  })
+  return mutationErrorText(
+    result,
+    () => m.jira_migration_error_generic(),
+    m.jira_migration_error_generic
+  )
 }
 
 function stageIndex(step: JiraMigrationStep) {

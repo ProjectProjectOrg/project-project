@@ -17,8 +17,8 @@ import {
   disconnectSlackOrg,
   slackOrgRequest
 } from "@/features/slack/atoms/slack"
-import { slackActionError } from "@/features/slack/lib/actionError"
 import { useAppForm } from "@/lib/form"
+import { mutationErrorText, slackActionErrorMessage } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -82,7 +82,7 @@ export function SlackConnectionForm({
       total: steps.length
     }),
     busy,
-    error: slackActionError(saveState),
+    error: mutationErrorText(saveState, slackActionErrorMessage),
     onCancel: status.connection ? cancel : undefined
   }
 
