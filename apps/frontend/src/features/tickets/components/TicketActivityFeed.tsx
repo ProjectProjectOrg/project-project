@@ -1,32 +1,13 @@
 import { useAtom, useAtomValue } from "@effect/atom-react"
 import type {
-  ActivityCause,
   ActivitySystemSource,
-  GroupKind,
-  Member,
-  ProjectStatus,
-  Tag,
   TicketActivityActor,
-  TicketActivityChange,
-  TicketActivityEntry,
-  TicketId,
-  TicketPriority,
-  TicketType
+  TicketId
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import {
-  Bot,
-  GitBranch,
-  GitMerge,
-  GitPullRequest,
-  GitPullRequestClosed,
-  Import,
-  Layers,
-  Zap,
-  type LucideIcon
-} from "lucide-react"
-import { useState, type ReactNode } from "react"
+import { Bot, GitBranch, Import, type LucideIcon } from "lucide-react"
+import { useState } from "react"
 
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import {
@@ -38,29 +19,22 @@ import {
   useProjectRoute
 } from "@/features/projects/hooks/useProject"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
-import { TagChip } from "@/features/tags/components/TagChip"
 import {
   olderActivityPages,
   ticketActivity,
   ticketActivityRequest
 } from "@/features/tickets/atoms/ticketActivity"
 import {
+  ActivityLineView,
+  type ActivityLookups
+} from "@/features/tickets/components/TicketActivityLine"
+import {
   activityItems,
   dayKey,
   groupActivity,
-  type ActivityGroup,
-  type ActivityItem
+  type ActivityGroup
 } from "@/features/tickets/lib/activityGroups"
-import { formatEstimate } from "@/features/tickets/lib/estimateMeta"
-import {
-  PRIORITY_LABELS,
-  PRIORITY_META
-} from "@/features/tickets/lib/priorityMeta"
-import {
-  statusMetaFor,
-  TYPE_LABELS,
-  TYPE_META
-} from "@/features/tickets/lib/ticketMeta"
+import { activityLines } from "@/features/tickets/lib/activityLines"
 import { formatRelative } from "@/lib/relativeTime"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -78,392 +52,6 @@ const SYSTEM_NAMES: Readonly<Record<ActivitySystemSource, () => string>> = {
   github: () => m.tickets_activity_actor_github(),
   automation: () => m.tickets_activity_actor_automation(),
   import: () => m.tickets_activity_actor_import()
-}
-
-const CAUSES: Readonly<Record<ActivityCause, () => string>> = {
-  status_removed: () => m.tickets_activity_cause_status_removed(),
-  tag_deleted: () => m.tickets_activity_cause_tag_deleted(),
-  member_removed: () => m.tickets_activity_cause_member_removed(),
-  sprint_completed: () => m.tickets_activity_cause_sprint_completed(),
-  group_deleted: () => m.tickets_activity_cause_group_deleted(),
-  git_automation: () => m.tickets_activity_cause_git_automation()
-}
-
-const GROUP_ICONS: Readonly<Record<GroupKind, LucideIcon>> = {
-  sprint: Zap,
-  epic: Layers,
-  milestone: Layers,
-  other: Layers
-}
-
-type Lookups = Readonly<{
-  members: ReadonlyArray<Member>
-  statuses: ReadonlyArray<ProjectStatus>
-  tags: ReadonlyArray<Tag>
-}>
-
-function Value({
-  icon: Icon,
-  iconClassName,
-  iconColor,
-  children
-}: Readonly<{
-  icon?: LucideIcon
-  iconClassName?: string
-  iconColor?: string | null
-  children: ReactNode
-}>) {
-  return (
-    <span className="inline-flex items-center gap-1 align-bottom whitespace-nowrap text-foreground">
-      {Icon && (
-        <Icon
-          className={cn("size-3.5 shrink-0", iconClassName)}
-          style={iconColor ? { color: iconColor } : undefined}
-          strokeWidth={1.75}
-        />
-      )}
-      {children}
-    </span>
-  )
-}
-
-function Literal({ children }: Readonly<{ children: ReactNode }>) {
-  return <span className="font-mono text-[13px]">{children}</span>
-}
-
-function StatusValue({
-  slug,
-  statuses
-}: Readonly<{ slug: string; statuses: ReadonlyArray<ProjectStatus> }>) {
-  const meta = statusMetaFor(slug, statuses)
-  return (
-    <Value
-      icon={meta.icon}
-      iconClassName={meta.className}
-      iconColor={meta.color}
-    >
-      {meta.label}
-    </Value>
-  )
-}
-
-function PriorityValue({ priority }: Readonly<{ priority: TicketPriority }>) {
-  return (
-    <Value
-      icon={PRIORITY_META[priority].icon}
-      iconClassName={PRIORITY_META[priority].className}
-    >
-      {PRIORITY_LABELS[priority]()}
-    </Value>
-  )
-}
-
-function TypeValue({ type }: Readonly<{ type: TicketType }>) {
-  return <Value icon={TYPE_META[type].icon}>{TYPE_LABELS[type]()}</Value>
-}
-
-function People({
-  ids,
-  members
-}: Readonly<{ ids: ReadonlyArray<string>; members: ReadonlyArray<Member> }>) {
-  return (
-    <span className="inline-flex flex-wrap items-center gap-x-2 align-bottom">
-      {ids.map((id) => {
-        const member = members.find((candidate) => candidate.id === id)
-        return (
-          <span
-            key={id}
-            className="inline-flex items-center gap-1 whitespace-nowrap text-foreground"
-          >
-            {member && <MemberAvatar member={member} size={16} />}
-            {member?.name ||
-              member?.email ||
-              m.tickets_activity_actor_unknown()}
-          </span>
-        )
-      })}
-    </span>
-  )
-}
-
-function Tags({
-  names,
-  tags
-}: Readonly<{ names: ReadonlyArray<string>; tags: ReadonlyArray<Tag> }>) {
-  return (
-    <span className="inline-flex flex-wrap items-center gap-1 align-bottom">
-      {names.map((name) => (
-        <TagChip
-          key={name}
-          name={name}
-          size="xs"
-          color={tags.find((tag) => tag.name === name)?.color ?? null}
-        />
-      ))}
-    </span>
-  )
-}
-
-const fieldChange = (label: string, from: ReactNode, to: ReactNode) => (
-  <>
-    {label} {from}
-    <span aria-hidden="true" className="mx-1">
-      →
-    </span>
-    <span className="sr-only"> {m.tickets_activity_field_to()} </span>
-    {to}
-  </>
-)
-
-const verbWith = (verb: string, value: ReactNode) => (
-  <>
-    {verb} {value}
-  </>
-)
-
-const changeLines = (
-  change: TicketActivityChange,
-  lookups: Lookups
-): ReadonlyArray<ReactNode> => {
-  switch (change.kind) {
-    case "title_changed":
-      return [
-        verbWith(m.tickets_activity_title_changed(), <Value>{change.to}</Value>)
-      ]
-    case "status_changed":
-      return [
-        fieldChange(
-          m.tickets_activity_field_status(),
-          <StatusValue slug={change.from} statuses={lookups.statuses} />,
-          <StatusValue slug={change.to} statuses={lookups.statuses} />
-        )
-      ]
-    case "priority_changed":
-      return [
-        fieldChange(
-          m.tickets_activity_field_priority(),
-          <PriorityValue priority={change.from} />,
-          <PriorityValue priority={change.to} />
-        )
-      ]
-    case "type_changed":
-      return [
-        fieldChange(
-          m.tickets_activity_field_type(),
-          <TypeValue type={change.from} />,
-          <TypeValue type={change.to} />
-        )
-      ]
-    case "estimate_changed":
-      return [
-        fieldChange(
-          m.tickets_activity_field_estimate(),
-          <Value>
-            {change.from === null
-              ? m.tickets_filters_estimate_none()
-              : formatEstimate(change.from)}
-          </Value>,
-          <Value>
-            {change.to === null
-              ? m.tickets_filters_estimate_none()
-              : formatEstimate(change.to)}
-          </Value>
-        )
-      ]
-    case "assignees_changed":
-      return [
-        ...(change.added.length > 0
-          ? [
-              verbWith(
-                m.tickets_activity_assignees_added(),
-                <People ids={change.added} members={lookups.members} />
-              )
-            ]
-          : []),
-        ...(change.removed.length > 0
-          ? [
-              verbWith(
-                m.tickets_activity_assignees_removed(),
-                <People ids={change.removed} members={lookups.members} />
-              )
-            ]
-          : [])
-      ]
-    case "tags_changed":
-      return [
-        ...(change.added.length > 0
-          ? [
-              verbWith(
-                m.tickets_activity_tags_added(),
-                <Tags names={change.added} tags={lookups.tags} />
-              )
-            ]
-          : []),
-        ...(change.removed.length > 0
-          ? [
-              verbWith(
-                m.tickets_activity_tags_removed(),
-                <Tags names={change.removed} tags={lookups.tags} />
-              )
-            ]
-          : [])
-      ]
-    case "description_edited":
-      return [m.tickets_activity_description_edited()]
-    case "archived":
-      return [
-        change.reason === undefined ? (
-          m.tickets_activity_archived()
-        ) : (
-          <>
-            {m.tickets_activity_archived()}{" "}
-            <span className="mt-1 block border-l-2 border-border pl-2.5 whitespace-pre-line text-foreground">
-              {change.reason}
-            </span>
-          </>
-        )
-      ]
-    case "unarchived":
-      return [m.tickets_activity_unarchived()]
-    case "split":
-      return [
-        verbWith(
-          m.tickets_activity_split(),
-          <Value>
-            <Literal>{change.into.join(", ")}</Literal>
-          </Value>
-        )
-      ]
-    case "group_added":
-      return [
-        verbWith(
-          m.tickets_activity_group_added(),
-          <Value icon={GROUP_ICONS[change.groupKind]}>{change.name}</Value>
-        )
-      ]
-    case "group_removed":
-      return [
-        verbWith(
-          m.tickets_activity_group_removed(),
-          <Value icon={GROUP_ICONS[change.groupKind]}>{change.name}</Value>
-        )
-      ]
-    case "branch_linked":
-      return [
-        verbWith(
-          m.tickets_activity_branch_linked(),
-          <Value icon={GitBranch} iconClassName="text-muted-foreground">
-            <Literal>{change.branch}</Literal>
-          </Value>
-        )
-      ]
-    case "branch_unlinked":
-      return [
-        verbWith(
-          m.tickets_activity_branch_unlinked(),
-          <Value icon={GitBranch} iconClassName="text-muted-foreground">
-            <Literal>{change.branch}</Literal>
-          </Value>
-        )
-      ]
-    case "stack_branch_added":
-      return [
-        verbWith(
-          m.tickets_activity_stack_branch_added(),
-          <Value icon={Layers} iconClassName="text-muted-foreground">
-            <Literal>{change.branch}</Literal>
-          </Value>
-        )
-      ]
-    case "stack_branch_removed":
-      return [
-        verbWith(
-          m.tickets_activity_stack_branch_removed(),
-          <Value icon={Layers} iconClassName="text-muted-foreground">
-            <Literal>{change.branch}</Literal>
-          </Value>
-        )
-      ]
-    case "pr_opened":
-      return [
-        verbWith(
-          m.tickets_activity_pr_opened(),
-          <Value icon={GitPullRequest} iconClassName="text-state-info">
-            <Literal>#{change.number}</Literal>
-          </Value>
-        )
-      ]
-    case "pr_merged":
-      return [
-        verbWith(
-          m.tickets_activity_pr_merged(),
-          <Value icon={GitMerge} iconClassName="text-state-merged">
-            <Literal>#{change.number}</Literal>
-          </Value>
-        )
-      ]
-    case "pr_closed":
-      return [
-        verbWith(
-          m.tickets_activity_pr_closed(),
-          <Value
-            icon={GitPullRequestClosed}
-            iconClassName="text-muted-foreground"
-          >
-            <Literal>#{change.number}</Literal>
-          </Value>
-        )
-      ]
-  }
-}
-
-const withCause = (
-  lines: ReadonlyArray<ReactNode>,
-  cause: ActivityCause | null
-): ReadonlyArray<ReactNode> => {
-  if (cause === null) return lines
-  const text = CAUSES[cause]()
-  return lines.map((line) => (
-    <>
-      {line} {text}
-    </>
-  ))
-}
-
-const itemLines = (
-  item: ActivityItem,
-  lookups: Lookups
-): ReadonlyArray<ReactNode> =>
-  item.kind === "entry"
-    ? entryLines(item.entry, lookups)
-    : withCause(
-        [
-          fieldChange(
-            m.tickets_activity_field_sprint(),
-            <Value icon={GROUP_ICONS.sprint}>{item.from}</Value>,
-            <Value icon={GROUP_ICONS.sprint}>{item.to}</Value>
-          )
-        ],
-        item.cause
-      )
-
-const entryLines = (
-  entry: TicketActivityEntry,
-  lookups: Lookups
-): ReadonlyArray<ReactNode> => {
-  if (entry.kind === "created") {
-    return [
-      entry.splitFrom === null
-        ? m.tickets_activity_created()
-        : verbWith(
-            m.tickets_activity_split_from(),
-            <Value>
-              <Literal>{entry.splitFrom}</Literal>
-            </Value>
-          )
-    ]
-  }
-  return withCause(changeLines(entry.change, lookups), entry.cause)
 }
 
 function ActorMark({ actor }: Readonly<{ actor: TicketActivityActor | null }>) {
@@ -536,7 +124,7 @@ function GroupRow({
   railToNode
 }: Readonly<{
   group: ActivityGroup
-  lookups: Lookups
+  lookups: ActivityLookups
   railFromNode: boolean
   railToNode: boolean
 }>) {
@@ -568,12 +156,12 @@ function GroupRow({
       </div>
       <ul className="col-start-2 mt-1.5 flex flex-col gap-2">
         {activityItems(group.entries).flatMap((item) =>
-          itemLines(item, lookups).map((line, index) => (
+          activityLines(item).map((line, index) => (
             <li
               key={`${item.key}-${index}`}
               className="text-sm leading-5 text-muted-foreground"
             >
-              {line}
+              <ActivityLineView line={line} lookups={lookups} />
             </li>
           ))
         )}
@@ -612,7 +200,7 @@ export function TicketActivityFeed({
     )
   }
 
-  const lookups: Lookups = {
+  const lookups: ActivityLookups = {
     members: project.members,
     statuses: AsyncResult.isSuccess(statusesResult) ? statusesResult.value : [],
     tags: AsyncResult.isSuccess(tagsResult) ? tagsResult.value : []
