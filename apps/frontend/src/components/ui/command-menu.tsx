@@ -33,8 +33,6 @@ import {
   type UseFluidHoverReturn
 } from "@/hooks/useFluidHover"
 import type { IconComponent } from "@/lib/icon"
-import { shapeMap } from "@/lib/shapeContext"
-import { useSize } from "@/lib/sizeContext"
 import { spring } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -52,8 +50,6 @@ type CommandMenuSection = Readonly<{
   items: ReadonlyArray<CommandMenuItemData>
   start: number
 }>
-
-const listShape = shapeMap.rounded
 
 const MODIFIER_TOKENS: Readonly<Record<string, string>> = {
   mod: "mod",
@@ -455,14 +451,13 @@ function CommandMenuTabs({
   ref,
   ...props
 }: CommandMenuTabsProps & Readonly<{ ref?: Ref<HTMLDivElement> }>) {
-  const compact = useSize().variant === "compact"
   return (
     <div
       ref={ref}
       data-slot="command-menu-tabs"
       className={cn(
         "flex shrink-0 items-center",
-        compact ? "gap-1 px-2 pb-1.5" : "gap-2 px-2.5 pb-2",
+        "gap-2 px-2.5 pb-2",
         className
       )}
       {...props}
@@ -555,7 +550,6 @@ function CommandMenuList({
   const { sections, rows, listId, listRef, setActiveIndex, listHandlers } =
     useCommandMenu()
   const fill = useContext(CommandMenuFillContext)
-  const compact = useSize().variant === "compact"
   const empty = rows.length === 0
 
   const lastActiveRef = useRef<number | null>(null)
@@ -593,7 +587,7 @@ function CommandMenuList({
         )}
         {...props}
       >
-        {fill && <FluidHoverHighlight hover={fill} className={listShape.bg} />}
+        {fill && <FluidHoverHighlight hover={fill} className="rounded-lg" />}
         {children}
         {sections.map((section, sectionIndex) => {
           const headingId = section.heading
@@ -612,7 +606,7 @@ function CommandMenuList({
                   role="presentation"
                   className={cn(
                     "flex shrink-0 items-center text-xs text-muted-foreground",
-                    compact ? "h-6 px-1.5" : "h-7 px-2"
+                    "h-7 px-2"
                   )}
                 >
                   {section.heading}
@@ -645,7 +639,6 @@ function CommandMenuEmpty({
   ...props
 }: CommandMenuEmptyProps & Readonly<{ ref?: Ref<HTMLDivElement> }>) {
   const { rows } = useCommandMenu()
-  const sizeClasses = useSize()
   if (rows.length > 0) return null
   return (
     <div
@@ -655,7 +648,7 @@ function CommandMenuEmpty({
       data-slot="command-menu-empty"
       className={cn(
         "px-3 py-6 text-center text-muted-foreground",
-        sizeClasses.text,
+        "text-[13px]",
         className
       )}
       {...props}
@@ -675,7 +668,6 @@ function CommandMenuShortcut({
   ...props
 }: CommandMenuShortcutProps & Readonly<{ ref?: Ref<HTMLElement> }>) {
   const mac = useIsMac()
-  const compact = useSize().variant === "compact"
   const caps = (typeof keys === "string" ? [keys] : keys).flatMap((k) =>
     formatShortcut(k, mac)
   )
@@ -694,9 +686,7 @@ function CommandMenuShortcut({
           key={`${cap}-${i}`}
           className={cn(
             "flex items-center justify-center rounded-[5px] bg-hover text-muted-foreground",
-            compact
-              ? "h-4 min-w-4 px-1 text-[10px]"
-              : "h-5 min-w-5 px-1 text-[11px]"
+            "h-5 min-w-5 px-1 text-[11px]"
           )}
         >
           {cap}
@@ -727,7 +717,6 @@ const CommandMenuItem = memo(function CommandMenuItem({
     useCommandMenu()
   const index = useContext(CommandMenuIndexContext)
   const internalRef = useRef<HTMLDivElement | null>(null)
-  const sizeClasses = useSize()
   const isActive = useSyncExternalStore(
     highlight.subscribe,
     () => highlight.get() === index,
@@ -758,11 +747,7 @@ const CommandMenuItem = memo(function CommandMenuItem({
       }}
       className={cn(
         "relative z-10 flex shrink-0 cursor-pointer items-center outline-none select-none",
-        sizeClasses.control,
-        sizeClasses.gap,
-        sizeClasses.itemPx,
-        sizeClasses.text,
-        listShape.item,
+        "h-9 gap-2 px-2 text-[13px] rounded-lg",
         "transition-[color] duration-80",
         isActive ? "text-foreground" : "text-muted-foreground",
         className
@@ -771,7 +756,7 @@ const CommandMenuItem = memo(function CommandMenuItem({
     >
       {Icon && (
         <Icon
-          size={sizeClasses.icon}
+          size={16}
           strokeWidth={isActive ? 2 : 1.5}
           className="shrink-0 transition-[color,stroke-width] duration-80"
         />
@@ -792,14 +777,13 @@ function CommandMenuFooter({
   ref,
   ...props
 }: CommandMenuFooterProps & Readonly<{ ref?: Ref<HTMLDivElement> }>) {
-  const compact = useSize().variant === "compact"
   return (
     <div
       ref={ref}
       data-slot="command-menu-footer"
       className={cn(
         "flex shrink-0 items-center overflow-hidden text-muted-foreground",
-        compact ? "h-8 gap-3 px-3 text-[11px]" : "h-10 gap-4 px-4 text-[12px]",
+        "h-10 gap-4 px-4 text-[12px]",
         className
       )}
       {...props}

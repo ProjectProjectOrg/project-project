@@ -10,7 +10,6 @@ import {
 } from "react"
 
 import type { IconComponent } from "@/lib/icon"
-import { useShape } from "@/lib/shapeContext"
 import { SURFACE_BG } from "@/lib/surfaceClasses"
 import { useSurface } from "@/lib/surfaceContext"
 import { cn } from "@/lib/utils"
@@ -212,7 +211,6 @@ function Button({
         : size === "lg" || size === "icon-lg"
           ? "size-6"
           : "size-5"
-  const shape = useShape()
   const surface = useSurface()
 
   const compClassName = cn(
@@ -223,7 +221,7 @@ function Button({
       iconRight: !isIconOnly && !!TrailingIcon
     }),
     variant === "tertiary" && SURFACE_BG[Math.min(surface + 2, 8)],
-    shape.button,
+    "rounded-[20px]",
     className
   )
   const leadingIconNode = LeadingIcon && (

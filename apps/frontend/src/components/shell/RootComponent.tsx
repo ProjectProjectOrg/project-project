@@ -2,7 +2,6 @@ import { Outlet, useRouterState } from "@tanstack/react-router"
 import { useEffect } from "react"
 
 import { LoaderOverlay } from "@/components/shell/LoaderOverlay"
-import { ShapeProvider } from "@/lib/shapeContext"
 
 export function RootComponent() {
   const isLoading = useRouterState({ select: (s) => s.isLoading })
@@ -17,9 +16,9 @@ export function RootComponent() {
   }, [])
 
   return (
-    <ShapeProvider>
+    <>
       <Outlet />
       <LoaderOverlay active={isLoading} />
-    </ShapeProvider>
+    </>
   )
 }
