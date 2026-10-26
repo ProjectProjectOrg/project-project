@@ -88,10 +88,7 @@ export function SectionTicketCreator({
 
 function StatusSectionTicketCreator(props: CreatorProps) {
   const { orgSlug, slug, query } = props
-  const req = useMemo(
-    () => backlogRequest(orgSlug, slug, query),
-    [orgSlug, slug, query]
-  )
+  const req = backlogRequest(orgSlug, slug, query)
   const create = useAtomSet(quickCreateBacklogTicket(req), {
     mode: "promiseExit"
   })
@@ -171,10 +168,7 @@ function SectionCreatorForm({
     ? project.value.estimation
     : "off"
 
-  const sprintReq = useMemo(
-    () => sprintListRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const sprintReq = sprintListRequest(orgSlug, slug)
   const sprintListResult = useAtomValue(sprintList(sprintReq))
   const sprints = useMemo<ReadonlyArray<Group>>(
     () => (Result.isSuccess(sprintListResult) ? sprintListResult.value : []),

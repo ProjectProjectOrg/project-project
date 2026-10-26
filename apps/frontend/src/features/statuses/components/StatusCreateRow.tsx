@@ -2,7 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { StatusLabel } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import { Plus } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
@@ -42,7 +42,7 @@ export function StatusCreateRow({ orgSlug, slug }: Props) {
 }
 
 function CreateFields({ orgSlug, slug }: Props) {
-  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+  const req = statusesRequest(orgSlug, slug)
   const createMutation = createStatus(req)
   const create = useAtomSet(createMutation, { mode: "promiseExit" })
   const createState = useAtomValue(createMutation)

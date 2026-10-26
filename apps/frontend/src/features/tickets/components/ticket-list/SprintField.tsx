@@ -3,7 +3,7 @@ import { GroupPolicy } from "@pp/access/policies"
 import { type Group, type GroupId, type TicketId } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Plus } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
@@ -35,7 +35,7 @@ export function SprintField({
   variant?: "default" | "responsive"
   onRequestNewSprint?: () => void
 }) {
-  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const req = sprintListRequest(orgSlug, slug)
   const list = useAtomValue(sprintList(req))
   const addTickets = useAtomSet(addTicketsToSprint({ req, ticketId }))
   const addState = useAtomValue(addTicketsToSprint({ req, ticketId }))
@@ -107,7 +107,7 @@ export function SprintSelect({
   value: GroupId | null
   onChange: (groupId: GroupId | null) => void
 }) {
-  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const req = sprintListRequest(orgSlug, slug)
   const list = useAtomValue(sprintList(req))
   const [open, setOpen] = useState(false)
   const sprints = Result.isSuccess(list) ? list.value : []
@@ -165,7 +165,7 @@ export function SprintBadgeTrigger({
   ticketId: TicketId
   className?: string
 }) {
-  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const req = sprintListRequest(orgSlug, slug)
   const list = useAtomValue(sprintList(req))
   const membership = useAtomValue(sprintMembership(req))
   const addTickets = useAtomSet(addTicketsToSprint({ req, ticketId }))

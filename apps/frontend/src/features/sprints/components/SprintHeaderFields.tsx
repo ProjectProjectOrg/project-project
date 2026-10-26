@@ -17,7 +17,7 @@ import {
   Trash2,
   Trophy
 } from "lucide-react"
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
+import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 import type { DateRange } from "react-day-picker"
 
 import { Calendar } from "@/components/ui/calendar"
@@ -65,7 +65,7 @@ export function SprintStatusSelect({
   sprint: Group
   sprints: ReadonlyArray<Group>
 }) {
-  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const req = sprintListRequest(orgSlug, slug)
   const complete = useAtomSet(completeSprint({ req, groupId: sprint.id }))
   const completeState = useAtomValue(
     completeSprint({ req, groupId: sprint.id })
@@ -166,7 +166,7 @@ export function SprintNameField({
   sprint: Group
   disabled: boolean
 }) {
-  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const req = sprintListRequest(orgSlug, slug)
   const update = useAtomSet(updateSprint({ req, groupId: sprint.id }), {
     mode: "promiseExit"
   })
@@ -295,7 +295,7 @@ function SprintDatesField({
   sprint: Group
   disabled: boolean
 }) {
-  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const req = sprintListRequest(orgSlug, slug)
   const update = useAtomSet(updateSprint({ req, groupId: sprint.id }))
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<DateRange>({
@@ -375,7 +375,7 @@ export function SprintDeleteMenu({
   sprints: ReadonlyArray<Group>
 }) {
   const navigate = useNavigate()
-  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const req = sprintListRequest(orgSlug, slug)
   const complete = useAtomSet(completeSprint({ req, groupId: sprint.id }))
   const completeState = useAtomValue(
     completeSprint({ req, groupId: sprint.id })

@@ -12,7 +12,7 @@ import { flattenTicketBlocks } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import type { ComponentProps } from "react"
-import { lazy, Suspense, useMemo } from "react"
+import { lazy, Suspense } from "react"
 
 import { PopoverContent } from "@/components/ui/popover"
 import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
@@ -79,15 +79,9 @@ export function TicketHoverCard({
   anchor?: ComponentProps<typeof PopoverContent>["anchor"]
   interactive?: boolean
 }) {
-  const req = useMemo(
-    () => ticketRequest(scope.orgSlug, scope.slug, ticketId),
-    [scope.orgSlug, scope.slug, ticketId]
-  )
+  const req = ticketRequest(scope.orgSlug, scope.slug, ticketId)
   const result = useAtomValue(ticketDetail(req))
-  const statusesReq = useMemo(
-    () => statusesRequest(scope.orgSlug, scope.slug),
-    [scope.orgSlug, scope.slug]
-  )
+  const statusesReq = statusesRequest(scope.orgSlug, scope.slug)
   const statusesResult = useAtomValue(statusesFor(statusesReq))
   const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(
     statusesResult

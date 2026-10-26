@@ -3,7 +3,6 @@ import { GroupPolicy } from "@pp/access/policies"
 import { type GroupId, type TicketListQuery } from "@pp/shared"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useMemo } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { NotFoundPage } from "@/components/shell/NotFoundPage"
@@ -40,10 +39,7 @@ export function SprintDetail({
   const actor = useProjectActor()
   const canPlan = GroupPolicy.can(actor, "sprint", "manage")
   const canReorder = actor.call("statuses", "reorder")
-  const req = useMemo(
-    () => sprintRequest(orgSlug, slug, groupId),
-    [orgSlug, slug, groupId]
-  )
+  const req = sprintRequest(orgSlug, slug, groupId)
   const sprint = useAtomValue(sprintDetail(req))
   const { reorderMode, dragOrder, enterReorder, cancelReorder, setDragOrder } =
     reorder

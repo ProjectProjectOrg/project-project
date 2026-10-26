@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { Ticket, TicketListQuery } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useCallback, useMemo } from "react"
+import { useCallback } from "react"
 
 import { useProject } from "@/features/projects/hooks/useProject"
 import {
@@ -38,10 +38,7 @@ export function BacklogView({
 }>) {
   const project = useProject()
   const canReorder = useProjectActor().call("statuses", "reorder")
-  const sprintReq = useMemo(
-    () => sprintListRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const sprintReq = sprintListRequest(orgSlug, slug)
   const membershipResult = useAtomValue(sprintMembership(sprintReq))
   const membership = Result.isSuccess(membershipResult)
     ? membershipResult.value

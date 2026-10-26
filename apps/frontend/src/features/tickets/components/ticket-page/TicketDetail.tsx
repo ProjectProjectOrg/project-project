@@ -4,7 +4,7 @@ import { getRouteApi } from "@tanstack/react-router"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useRef } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { NotFoundPage } from "@/components/shell/NotFoundPage"
@@ -30,10 +30,7 @@ export function TicketDetail() {
   const search = routeApi.useSearch()
   const navigate = routeApi.useNavigate()
   const ticketId = decodeTicketId(id)
-  const req = useMemo(
-    () => ticketRequest(orgSlug, slug, ticketId),
-    [orgSlug, slug, ticketId]
-  )
+  const req = ticketRequest(orgSlug, slug, ticketId)
   const result = useAtomValue(ticketDetail(req))
   const project = useProject()
   const autoFocusBody = useRef(search.focusBody === 1).current

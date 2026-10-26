@@ -2,7 +2,6 @@ import { useAtomValue } from "@effect/atom-react"
 import { daysLeft, pickActiveSprint } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useMemo } from "react"
 
 import {
   sprintList,
@@ -19,7 +18,7 @@ export function ActiveSprintLine({
   orgSlug: string
   slug: string
 }) {
-  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const req = sprintListRequest(orgSlug, slug)
   const list = useAtomValue(sprintList(req))
   const sprints = Result.isSuccess(list) ? list.value : []
   const active = pickActiveSprint(sprints)

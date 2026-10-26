@@ -2,7 +2,6 @@ import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import type { Member, TicketDetail, TicketId } from "@pp/shared"
 import { useCanGoBack, useNavigate, useRouter } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useMemo } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { DitherShell } from "@/components/ui/dither-shell"
@@ -31,14 +30,8 @@ export function TicketSplitPage({
   const router = useRouter()
   const canGoBack = useCanGoBack()
   const navigate = useNavigate()
-  const commentsReq = useMemo(
-    () => commentsRequest(orgSlug, slug, ticket.id),
-    [orgSlug, slug, ticket.id]
-  )
-  const sprintsReq = useMemo(
-    () => sprintListRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const commentsReq = commentsRequest(orgSlug, slug, ticket.id)
+  const sprintsReq = sprintListRequest(orgSlug, slug)
   const commentsResult = useAtomValue(comments(commentsReq))
   const sprintsResult = useAtomValue(sprintList(sprintsReq))
   const membershipResult = useAtomValue(sprintMembership(sprintsReq))

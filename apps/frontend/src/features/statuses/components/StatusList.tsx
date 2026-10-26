@@ -26,7 +26,7 @@ type Props = {
 }
 
 export function StatusList({ orgSlug, slug }: Props) {
-  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+  const req = statusesRequest(orgSlug, slug)
   const result = useAtomValue(statusesFor(req))
 
   return (

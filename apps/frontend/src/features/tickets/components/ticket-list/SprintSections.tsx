@@ -9,12 +9,13 @@ import {
   type TicketListQuery,
   TicketStatus
 } from "@pp/shared"
+import * as Equal from "effect/Equal"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { Inbox } from "lucide-react"
-import { useMemo, useState, type ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
@@ -73,13 +74,11 @@ const queryHasActiveFilter = (query: TicketListQuery) =>
 
 export function SprintSections(props: Props) {
   const persistKey = sprintCollapseKey(props.preferencesKey)
-  const groupsReq = useMemo(
-    () => sprintListRequest(props.orgSlug, props.slug),
-    [props.orgSlug, props.slug]
-  )
-  const snapshotReq = useMemo(
-    () => sprintSectionsRequest(props.orgSlug, props.slug, props.query),
-    [props.orgSlug, props.slug, props.query]
+  const groupsReq = sprintListRequest(props.orgSlug, props.slug)
+  const snapshotReq = sprintSectionsRequest(
+    props.orgSlug,
+    props.slug,
+    props.query
   )
   const preview = useTicketPreview()
   const groupsResult = useAtomValue(sprintList(groupsReq))
@@ -94,7 +93,8 @@ export function SprintSections(props: Props) {
   }> | null>(null)
   if (
     Result.isSuccess(snapshotResult) &&
-    (previous?.req !== snapshotReq || previous.value !== snapshotResult.value)
+    (!Equal.equals(previous?.req, snapshotReq) ||
+      previous?.value !== snapshotResult.value)
   ) {
     setPrevious({
       req: snapshotReq,

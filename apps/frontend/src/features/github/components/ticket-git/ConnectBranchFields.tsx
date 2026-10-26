@@ -99,10 +99,7 @@ export function ConnectBranchFields({
       return { repoId: github.repoId, index }
     })
 
-  const branchesReq = useMemo(
-    () => branchesRequest(orgSlug, slug, q),
-    [orgSlug, slug, q]
-  )
+  const branchesReq = branchesRequest(orgSlug, slug, q)
   const result = useAtomValue(branches(branchesReq))
   const refreshBranches = useAtomRefresh(branches(branchesReq))
   const attachRequest = useMemo(

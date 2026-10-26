@@ -13,7 +13,7 @@ import {
   CircleCheck,
   GitBranch
 } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -105,27 +105,14 @@ export function CreateBranchFields({
   )
   const [didSubmit, setDidSubmit] = useState(false)
   const [attemptedName, setAttemptedName] = useState("")
-  const projectReq = useMemo(
-    () => projectRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
-  const createRequest = useMemo(
-    () => ({ req: projectReq, id: ticket.id }),
-    [projectReq, ticket.id]
-  )
+  const createRequest = { req: projectRequest(orgSlug, slug), id: ticket.id }
   const create = useAtomSet(createBranch(createRequest), {
     mode: "promiseExit"
   })
   const createState = useAtomValue(createBranch(createRequest))
-  const req = useMemo(
-    () => ticketRequest(orgSlug, slug, ticket.id),
-    [orgSlug, slug, ticket.id]
-  )
+  const req = ticketRequest(orgSlug, slug, ticket.id)
   const updateTicket = useAtomSet(updateTicketDetail(req))
-  const statusesReq = useMemo(
-    () => statusesRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const statusesReq = statusesRequest(orgSlug, slug)
   const statusesResult = useAtomValue(statusesFor(statusesReq))
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
 
@@ -403,10 +390,7 @@ function BaseBranchCombobox({
     }
   }, [search])
 
-  const branchesReq = useMemo(
-    () => branchesRequest(orgSlug, slug, q),
-    [orgSlug, slug, q]
-  )
+  const branchesReq = branchesRequest(orgSlug, slug, q)
   const result = useAtomValue(branches(branchesReq))
   const items = Result.isSuccess(result) ? result.value.items : []
   const loading = Result.isInitial(result) || Result.isWaiting(result)

@@ -2,7 +2,7 @@ import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { ProjectStatus } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronDown } from "lucide-react"
-import { useMemo, useState, type ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
@@ -107,7 +107,7 @@ function DeleteStatusForm({
   automationReady,
   children
 }: Props & Readonly<{ automationReady: boolean; children?: ReactNode }>) {
-  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+  const req = statusesRequest(orgSlug, slug)
   const mutation = deleteStatus({ req, statusSlug: status.slug })
   const remove = useAtomSet(mutation, { mode: "promiseExit" })
   const removeState = useAtomValue(mutation)

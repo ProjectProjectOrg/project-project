@@ -2,7 +2,7 @@ import { useAtomValue } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
 import type { Member, Ticket } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useMemo, type ReactNode } from "react"
+import { type ReactNode } from "react"
 
 import { me } from "@/features/auth/atoms/auth"
 import {
@@ -63,10 +63,7 @@ export function DashboardRow({
   onPreviewOpenChange
 }: DashboardRowProps) {
   const updates = useTicketUpdates(update, item)
-  const projectReq = useMemo(
-    () => projectRequest(orgSlug, item.project.slug),
-    [orgSlug, item.project.slug]
-  )
+  const projectReq = projectRequest(orgSlug, item.project.slug)
   const members = useProjectMembers(orgSlug, item.project.slug)
   const editable = TicketPolicy.canChange(
     useAtomValue(projectActor(projectReq)),
@@ -108,10 +105,7 @@ export function DashboardRow({
 
 export function DashboardCard({ orgSlug, item, update }: DashboardTicketProps) {
   const updates = useTicketUpdates(update, item)
-  const projectReq = useMemo(
-    () => projectRequest(orgSlug, item.project.slug),
-    [orgSlug, item.project.slug]
-  )
+  const projectReq = projectRequest(orgSlug, item.project.slug)
   const members = useProjectMembers(orgSlug, item.project.slug)
   return (
     <ProjectContext.Provider value={projectReq}>

@@ -11,7 +11,7 @@ import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { CircleCheck, Plus } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
-import { useEffect, useMemo, useState, type FormEvent } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import type { DateRange } from "react-day-picker"
 
 import { RailBackLink } from "@/components/shell/RailBackLink"
@@ -76,7 +76,7 @@ export function SprintRail({
   slug: string
   canPlan: boolean
 }) {
-  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const req = sprintListRequest(orgSlug, slug)
   const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
   const projectName = Result.isSuccess(project) ? project.value.name : slug
   const projectIcon = Result.isSuccess(project) ? project.value.icon : null
@@ -293,7 +293,7 @@ function CreateSprintFields({
   orgSlug: string
   slug: string
 }) {
-  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const req = sprintListRequest(orgSlug, slug)
   const create = useAtomSet(createSprint(req), { mode: "promiseExit" })
   const state = useAtomValue(createSprint(req))
   const error = Result.isFailure(state)

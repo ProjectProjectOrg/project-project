@@ -95,10 +95,7 @@ export function DescriptionField({
   onStatusChange: (status: SaveStatus) => void
   ref?: Ref<DescriptionHandle>
 }>) {
-  const req = useMemo(
-    () => ticketRequest(orgSlug, slug, ticket.id),
-    [orgSlug, slug, ticket.id]
-  )
+  const req = ticketRequest(orgSlug, slug, ticket.id)
   const update = useAtomSet(updateTicketDetail(req), { mode: "promiseExit" })
   const updateState = useAtomValue(updateTicketDetail(req))
   const bodyDraft = useAtomValue(ticketBodyDraft(req))

@@ -66,10 +66,7 @@ export function SprintBoard(props: SprintBoardProps) {
     [orgSlug, slug, groupId]
   )
   const board = useAtomValue(sprintBoard(req))
-  const statusReq = useMemo(
-    () => statusesRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const statusReq = statusesRequest(orgSlug, slug)
   const statuses = useAtomValue(statusesFor(statusReq))
   const refreshBoard = useAtomRefresh(sprintBoard(req))
   const refreshStatuses = useAtomRefresh(statusesFor(statusReq))

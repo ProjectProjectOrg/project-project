@@ -27,10 +27,7 @@ export function useBoardTickets(
   tickets: ReadonlyArray<Ticket>,
   query: TicketListQuery
 ): BoardTickets {
-  const statusReq = useMemo(
-    () => statusesRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const statusReq = statusesRequest(orgSlug, slug)
   const statusesResult = useAtomValue(statusesFor(statusReq))
   const viewer = useAtomValue(me())
   const viewerId = Result.isSuccess(viewer) ? viewer.value.id : undefined

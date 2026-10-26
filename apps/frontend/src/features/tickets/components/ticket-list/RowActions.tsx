@@ -10,7 +10,7 @@ import {
   Split,
   Trash2
 } from "lucide-react"
-import { useMemo, useRef, useState } from "react"
+import { useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { ConfirmButton } from "@/components/ui/confirm-button"
@@ -46,10 +46,7 @@ export function TicketRowActions({
   const [archiving, setArchiving] = useState(false)
   const [reason, setReason] = useState("")
   const trigger = useRef<HTMLButtonElement>(null)
-  const req = useMemo(
-    () => ticketRequest(orgSlug, slug, id),
-    [orgSlug, slug, id]
-  )
+  const req = ticketRequest(orgSlug, slug, id)
   const archive = useAtomSet(archiveTicket(req), { mode: "promiseExit" })
   const archiveState = useAtomValue(archiveTicket(req))
   const unarchive = useAtomSet(unarchiveTicket(req))

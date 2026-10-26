@@ -8,7 +8,7 @@ import type {
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ArrowRight } from "lucide-react"
-import { type MouseEvent, useMemo } from "react"
+import { type MouseEvent } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -154,7 +154,7 @@ export function StatusSelect({
   stopPropagation?: boolean
   disabled?: boolean
 }) {
-  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+  const req = statusesRequest(orgSlug, slug)
   const statusesResult = useAtomValue(statusesFor(req))
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
   const meta = statusMetaFor(value, statuses)

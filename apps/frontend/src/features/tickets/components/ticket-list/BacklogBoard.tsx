@@ -68,10 +68,7 @@ type BacklogBoardProps = Readonly<{
 
 export function BacklogBoard(props: BacklogBoardProps) {
   const { orgSlug, slug } = props
-  const statusReq = useMemo(
-    () => statusesRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const statusReq = statusesRequest(orgSlug, slug)
   const statuses = useAtomValue(statusesFor(statusReq))
   const refreshStatuses = useAtomRefresh(statusesFor(statusReq))
 

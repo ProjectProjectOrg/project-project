@@ -48,7 +48,7 @@ export function useGitStack(
   ticket: Pick<Ticket, "id"> &
     Readonly<{ stack?: ReadonlyArray<StackLayerState> | undefined }>
 ): ReadonlyArray<StackLayerState> {
-  const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
+  const req = projectRequest(orgSlug, slug)
   const states = useAtomValue(projectGitStates(req))
   const value = Option.getOrUndefined(Result.value(states))
   return value === undefined

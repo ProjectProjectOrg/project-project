@@ -371,10 +371,7 @@ function FilterSprint({
   const sprintFilter = groups?.length === 1 ? groups[0] : "all"
   const setSprintFilter = (sprint: SprintFilterValue) =>
     onChange(sprint === "all" ? undefined : [sprint])
-  const sprintReq = useMemo(
-    () => sprintListRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const sprintReq = sprintListRequest(orgSlug, slug)
   const sprintsList = useAtomValue(sprintList(sprintReq))
   const allSprints = Result.isSuccess(sprintsList) ? sprintsList.value : []
   const now = DateTime.toDate(DateTime.nowUnsafe())
@@ -436,7 +433,7 @@ function FilterTags({
   const selectedTags = value ?? []
   const setSelectedTags = (tags: typeof selectedTags) =>
     onChange(tags.length ? tags : undefined)
-  const req = useMemo(() => tagsRequest(orgSlug, slug), [orgSlug, slug])
+  const req = tagsRequest(orgSlug, slug)
   const tags = useAtomValue(tagsFor(req))
   const tagList = useMemo(
     () => (Result.isSuccess(tags) ? sortTagsByColor(tags.value) : []),

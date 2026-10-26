@@ -71,10 +71,7 @@ export function SprintTicketCreator({
   excludeIds: ReadonlySet<TicketId>
 }) {
   const registry = useContext(RegistryContext)
-  const sprintReq = useMemo(
-    () => sprintListRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const sprintReq = sprintListRequest(orgSlug, slug)
   const createAtom = quickCreateInSprint({ req: sprintReq, groupId })
   const create = useAtomSet(createAtom, { mode: "promiseExit" })
   const createState = useAtomValue(createAtom)
@@ -84,10 +81,7 @@ export function SprintTicketCreator({
     ticketCreateErrorMessage,
     m.tickets_create_error_fallback
   )
-  const projectReq = useMemo(
-    () => projectRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const projectReq = projectRequest(orgSlug, slug)
   const refreshGitStates = useAtomRefresh(projectGitStates(projectReq))
   const navigate = useNavigate()
 

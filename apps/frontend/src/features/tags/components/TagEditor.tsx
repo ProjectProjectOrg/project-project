@@ -50,11 +50,8 @@ const matchesTag = (text: string, query: string) =>
 const idleUsageCountsAtom = Atom.make(Result.initial<Record<string, number>>())
 
 export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
-  const tagsReq = useMemo(() => tagsRequest(orgSlug, slug), [orgSlug, slug])
-  const editorReq = useMemo(
-    () => tagEditorRequest(orgSlug, slug, ticket.id),
-    [orgSlug, slug, ticket.id]
-  )
+  const tagsReq = tagsRequest(orgSlug, slug)
+  const editorReq = tagEditorRequest(orgSlug, slug, ticket.id)
   const editorResult = useAtomValue(tagEditor(editorReq))
   const [managedTag, setManagedTag] = useState<string | null>(null)
   const usageResult = useAtomValue(

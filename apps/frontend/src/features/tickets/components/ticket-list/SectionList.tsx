@@ -129,10 +129,7 @@ export function SectionList({
   const actor = useProjectActor()
   const editable = TicketPolicy.canChange(actor, { content: true })
   const canCreateTickets = canCreate && actor.call("tickets", "quickCreate")
-  const req = useMemo(
-    () => backlogRequest(orgSlug, slug, query),
-    [orgSlug, slug, query]
-  )
+  const req = backlogRequest(orgSlug, slug, query)
   const [creating, setCreating] = useState(false)
   const sectionId = useId()
   const creatingSections = use(CreatingSectionContext)

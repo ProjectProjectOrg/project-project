@@ -10,7 +10,7 @@ import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Archive } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 
 import { ConfirmButton } from "@/components/ui/confirm-button"
 import { CommentsSection } from "@/features/comments/components/CommentsSection"
@@ -68,10 +68,7 @@ export function TicketPage({
   autoFocusBody?: boolean
   splitInto?: ReadonlyArray<TicketId>
 }) {
-  const req = useMemo(
-    () => ticketRequest(orgSlug, slug, ticket.id),
-    [orgSlug, slug, ticket.id]
-  )
+  const req = ticketRequest(orgSlug, slug, ticket.id)
   const remove = useAtomSet(deleteTicket(req), { mode: "promiseExit" })
   const deleteState = useAtomValue(deleteTicket(req))
   const updateTicket = useAtomSet(updateTicketDetail(req))

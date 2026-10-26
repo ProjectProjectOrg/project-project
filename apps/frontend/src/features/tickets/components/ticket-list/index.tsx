@@ -6,9 +6,10 @@ import type {
   TicketId,
   TicketListQuery
 } from "@pp/shared"
+import * as Equal from "effect/Equal"
 import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Activity, useMemo, useState, type ReactNode } from "react"
+import { Activity, useState, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
@@ -110,10 +111,7 @@ function StatusSections({
   alternate,
   showAlternate = false
 }: Omit<TicketListProps, "creator" | "toolbar" | "sections">) {
-  const req = useMemo(
-    () => backlogRequest(orgSlug, slug, query),
-    [orgSlug, slug, query]
-  )
+  const req = backlogRequest(orgSlug, slug, query)
   const result = useAtomValue(backlog(req))
   const refresh = useAtomRefresh(backlog(req))
   const [previous, setPrevious] = useState<{
@@ -123,14 +121,14 @@ function StatusSections({
   } | null>(null)
   if (
     Result.isSuccess(result) &&
-    (previous?.req !== req || previous.value !== result.value)
+    (!Equal.equals(previous?.req, req) || previous?.value !== result.value)
   ) {
     setPrevious({ req, query, value: result.value })
   }
   const retainedResult = useAtomValue(backlog(previous?.req ?? req))
   const active = Result.isSuccess(result)
     ? { req, query, value: result.value }
-    : Result.isFailure(result) && previous?.req !== req
+    : Result.isFailure(result) && !Equal.equals(previous?.req, req)
       ? null
       : previous && {
           ...previous,

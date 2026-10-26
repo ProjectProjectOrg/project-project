@@ -13,7 +13,7 @@ import {
   Lock,
   Settings2
 } from "lucide-react"
-import { type ReactNode, useMemo, useState } from "react"
+import { type ReactNode, useState } from "react"
 
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
 import { SettingsTextField } from "@/components/shell/settings/SettingsTextField"
@@ -62,7 +62,7 @@ function useCanManageGithub(orgSlug: string): boolean {
 }
 
 function useGithubWarning(orgSlug: string, slug: string): string | null {
-  const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
+  const req = projectRequest(orgSlug, slug)
   const states = useAtomValue(projectGitStates(req))
   if (!Result.isSuccess(states)) return null
   const { tokenStatus, repoStatus } = states.value
@@ -146,7 +146,7 @@ export function GithubChip({ orgSlug, slug, github }: Props) {
 export function GithubSettingsRows({ orgSlug, slug, github }: Props) {
   const canManage = useCanManageGithub(orgSlug)
   const warning = useGithubWarning(orgSlug, slug)
-  const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
+  const req = projectRequest(orgSlug, slug)
   const connect = useAtomSet(connectGithub(req))
   const connectFailed = Result.isFailure(useAtomValue(connectGithub(req)))
   const disconnect = useAtomSet(disconnectGithub(req), {
@@ -289,7 +289,7 @@ function ConnectMenuBody({
   onConnected: () => void
 }>) {
   const canInstall = useOrgActor(orgSlug).call("projects", "startGithubInstall")
-  const orgReq = useMemo(() => githubOrgRequest(orgSlug), [orgSlug])
+  const orgReq = githubOrgRequest(orgSlug)
   const orgIntegration = useAtomValue(githubIntegration(orgReq))
   const startInstall = useAtomSet(startGithubInstall(orgReq), {
     mode: "promiseExit"
@@ -374,15 +374,12 @@ function RepoList({
   query: string
   onConnected: () => void
 }>) {
-  const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
+  const req = projectRequest(orgSlug, slug)
   const connect = useAtomSet(connectGithub(req), { mode: "promiseExit" })
   const connectState = useAtomValue(connectGithub(req))
   const [pending, setPending] = useState<string | null>(null)
   const [debouncedQuery] = useDebouncedValue(query, { wait: 300 })
-  const reposReq = useMemo(
-    () => githubReposRequest(orgSlug, slug, debouncedQuery),
-    [orgSlug, slug, debouncedQuery]
-  )
+  const reposReq = githubReposRequest(orgSlug, slug, debouncedQuery)
   const repos = useAtomValue(githubRepos(reposReq))
   const error =
     connectState.waiting || pending !== null

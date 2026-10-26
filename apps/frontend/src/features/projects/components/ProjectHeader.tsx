@@ -16,13 +16,7 @@ import {
   motion,
   useReducedMotion
 } from "motion/react"
-import {
-  useEffect,
-  useMemo,
-  useState,
-  type KeyboardEvent,
-  type ReactNode
-} from "react"
+import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -120,10 +114,7 @@ export function ProjectHeader({
     ? (sprintMatch.params as { groupId: string }).groupId
     : null
 
-  const sprintReq = useMemo(
-    () => sprintListRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const sprintReq = sprintListRequest(orgSlug, slug)
   const sprintsResult = useAtomValue(sprintList(sprintReq))
   const sprintsLoaded = Result.isSuccess(sprintsResult)
   const sprints = sprintsLoaded ? sprintsResult.value : []

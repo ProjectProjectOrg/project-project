@@ -10,7 +10,7 @@ import {
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Split } from "lucide-react"
-import { useMemo, useRef } from "react"
+import { useRef } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -64,10 +64,7 @@ export function TicketSplitForm({
   onSplit: (created: ReadonlyArray<TicketId>) => void
   onCancel: () => void
 }) {
-  const req = useMemo(
-    () => ticketRequest(orgSlug, slug, ticket.id),
-    [orgSlug, slug, ticket.id]
-  )
+  const req = ticketRequest(orgSlug, slug, ticket.id)
   const split = useAtomSet(splitTicket(req), { mode: "promiseExit" })
   const splitState = useAtomValue(splitTicket(req))
   const left = useRef(false)

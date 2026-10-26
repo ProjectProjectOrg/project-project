@@ -19,7 +19,6 @@ import {
   Layers,
   Plus
 } from "lucide-react"
-import { useMemo } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -48,7 +47,7 @@ function useGitState(
   slug: string,
   ticket: Pick<Ticket, "id" | "gitState">
 ): { state: GitState | null; waiting: boolean } {
-  const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
+  const req = projectRequest(orgSlug, slug)
   const states = useAtomValue(projectGitStates(req))
   const value = Option.getOrUndefined(Result.value(states))
   const entry = value?.states[ticket.id]

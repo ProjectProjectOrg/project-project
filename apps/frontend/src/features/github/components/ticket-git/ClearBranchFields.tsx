@@ -1,7 +1,6 @@
 import { useAtomSet } from "@effect/atom-react"
 import type { TicketId } from "@pp/shared"
 import * as Exit from "effect/Exit"
-import { useMemo } from "react"
 
 import { Button } from "@/components/ui/button"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
@@ -22,7 +21,7 @@ export function ClearBranchFields({
 }) {
   const { busy, setBusy, close } = useInlineForm()
   const buttonSize = variant === "bordered" ? "sm" : "xs"
-  const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
+  const req = projectRequest(orgSlug, slug)
   const clear = useAtomSet(clearBranch({ req, id }), {
     mode: "promiseExit"
   })

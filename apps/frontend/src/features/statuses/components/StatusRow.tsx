@@ -10,7 +10,7 @@ import {
 } from "@pp/shared"
 import { GripVertical, Lock } from "lucide-react"
 import { Reorder, useDragControls, type DragControls } from "motion/react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { ColorPicker } from "@/components/ui/color-picker"
 import { Input } from "@/components/ui/input"
@@ -52,7 +52,7 @@ export function StatusRow({
   onMoveDown
 }: Props) {
   const baseline = isReservedStatusSlug(status.slug)
-  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+  const req = statusesRequest(orgSlug, slug)
   const updateMutation = updateStatus({ req, statusSlug: status.slug })
   const reorderMutation = reorderStatus({ req, statusSlug: status.slug })
   const update = useAtomSet(updateMutation)

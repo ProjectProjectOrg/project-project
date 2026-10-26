@@ -2,7 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketDetail } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
-import { useCallback, useId, useMemo, useRef, useState } from "react"
+import { useCallback, useId, useRef, useState } from "react"
 
 import {
   ticketRequest,
@@ -21,10 +21,7 @@ export function TitleField({
   slug: string
   ticket: TicketDetail
 }) {
-  const req = useMemo(
-    () => ticketRequest(orgSlug, slug, ticket.id),
-    [orgSlug, slug, ticket.id]
-  )
+  const req = ticketRequest(orgSlug, slug, ticket.id)
   const atom = updateTicketDetail(req)
   const update = useAtomSet(atom, { mode: "promiseExit" })
   const result = useAtomValue(atom)

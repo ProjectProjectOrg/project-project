@@ -57,10 +57,7 @@ export function BacklogTicketCreator({
   query: TicketListQuery
 }) {
   const registry = useContext(RegistryContext)
-  const req = useMemo(
-    () => backlogRequest(orgSlug, slug, query),
-    [orgSlug, slug, query]
-  )
+  const req = backlogRequest(orgSlug, slug, query)
   const create = useAtomSet(quickCreateBacklogTicket(req), {
     mode: "promiseExit"
   })
@@ -71,10 +68,7 @@ export function BacklogTicketCreator({
     ticketCreateErrorMessage,
     m.tickets_create_error_fallback
   )
-  const projectReq = useMemo(
-    () => projectRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const projectReq = projectRequest(orgSlug, slug)
   const refreshGitStates = useAtomRefresh(projectGitStates(projectReq))
   const navigate = useNavigate()
 
@@ -87,10 +81,7 @@ export function BacklogTicketCreator({
     ? project.value.estimation
     : "off"
 
-  const sprintReq = useMemo(
-    () => sprintListRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const sprintReq = sprintListRequest(orgSlug, slug)
   const sprintListResult = useAtomValue(sprintList(sprintReq))
   const sprints = useMemo<ReadonlyArray<Group>>(
     () => (Result.isSuccess(sprintListResult) ? sprintListResult.value : []),

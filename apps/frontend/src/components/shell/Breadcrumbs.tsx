@@ -3,7 +3,7 @@ import type { GroupId, TicketId } from "@pp/shared"
 import { Link, useMatches } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronRight } from "lucide-react"
-import { Fragment, useMemo } from "react"
+import { Fragment } from "react"
 
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import {
@@ -129,10 +129,7 @@ function SprintCrumb({
   groupId: GroupId
   isLast: boolean
 }) {
-  const req = useMemo(
-    () => sprintRequest(orgSlug, slug, groupId),
-    [orgSlug, slug, groupId]
-  )
+  const req = sprintRequest(orgSlug, slug, groupId)
   const result = useAtomValue(sprintDetail(req))
   if (!Result.isSuccess(result)) {
     return (
@@ -195,10 +192,7 @@ function TicketCrumb({
   id: TicketId
   isLast: boolean
 }) {
-  const req = useMemo(
-    () => ticketRequest(orgSlug, slug, id),
-    [orgSlug, slug, id]
-  )
+  const req = ticketRequest(orgSlug, slug, id)
   const result = useAtomValue(ticketDetail(req))
   const label = Result.isSuccess(result) ? result.value.title : id
   return (
