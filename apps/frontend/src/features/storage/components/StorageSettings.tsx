@@ -12,8 +12,8 @@ import { useStorageState } from "@/features/integrations/hooks/useOrgIntegration
 import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import { StorageConnectedPanel } from "@/features/storage/components/StorageConnectedPanel"
-import { StorageConnectForm } from "@/features/storage/components/StorageConnectForm"
 import { StorageStatusRows } from "@/features/storage/components/StorageStatusRows"
+import { StorageConnectForm } from "@/features/storage/forms/storage-connection"
 import { useOrgActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
