@@ -1,11 +1,9 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomSet } from "@effect/atom-react"
 import type { Group, Member, Ticket } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
 import { AnimatePresence, motion } from "motion/react"
 import { memo, useRef, useState, type ReactNode } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
 import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
@@ -68,7 +66,6 @@ function RowImpl({
   onPreviewOpenChange
 }: RowProps) {
   const onPatch = useAtomSet(update(ticket.id))
-  const updateState = useAtomValue(update(ticket.id))
   const dashIdx = ticket.id.lastIndexOf("-")
   const idPrefix = dashIdx >= 0 ? ticket.id.slice(0, dashIdx) : ticket.id
   const idTail = dashIdx >= 0 ? ticket.id.slice(dashIdx + 1) : ""
@@ -204,20 +201,6 @@ function RowImpl({
           )}
         </Popover>
       </DeferredDropdownMenus>
-      {Result.matchWithError(updateState, {
-        onInitial: () => null,
-        onSuccess: () => null,
-        onError: (error) => (
-          <div className="col-span-full">
-            <ErrorPage error={error} contained />
-          </div>
-        ),
-        onDefect: (defect) => (
-          <div className="col-span-full">
-            <ErrorPage error={defect} contained />
-          </div>
-        )
-      })}
     </div>
   )
 }

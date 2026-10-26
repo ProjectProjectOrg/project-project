@@ -1,11 +1,9 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomSet } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
 import type { Member, Ticket, UpdateTicketInput } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
 import { memo } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
 import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
 import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
@@ -31,23 +29,14 @@ function SprintBoardCardImpl({
   members: ReadonlyArray<Member>
 }>) {
   const onPatch = useAtomSet(update(ticket.id))
-  const state = useAtomValue(update(ticket.id))
   return (
-    <>
-      <BoardCardFields
-        orgSlug={orgSlug}
-        slug={slug}
-        ticket={ticket}
-        members={members}
-        onPatch={onPatch}
-      />
-      {Result.matchWithError(state, {
-        onInitial: () => null,
-        onSuccess: () => null,
-        onError: (error) => <ErrorPage error={error} contained />,
-        onDefect: (defect) => <ErrorPage error={defect} contained />
-      })}
-    </>
+    <BoardCardFields
+      orgSlug={orgSlug}
+      slug={slug}
+      ticket={ticket}
+      members={members}
+      onPatch={onPatch}
+    />
   )
 }
 

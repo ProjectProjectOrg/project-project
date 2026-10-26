@@ -4,6 +4,7 @@ import type { Member, Ticket } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useMemo, type ReactNode } from "react"
 
+import { ErrorPage } from "@/components/shell/ErrorPage"
 import { me } from "@/features/auth/atoms/auth"
 import {
   project,
@@ -63,6 +64,7 @@ export function DashboardRow({
   onPreviewOpenChange
 }: DashboardRowProps) {
   const updates = useTicketUpdates(update, item)
+  const state = useAtomValue(updates(item.ticket.id))
   const projectReq = useMemo(
     () => projectRequest(orgSlug, item.project.slug),
     [orgSlug, item.project.slug]
@@ -101,6 +103,20 @@ export function DashboardRow({
             {below}
           </div>
         )}
+        {Result.matchWithError(state, {
+          onInitial: () => null,
+          onSuccess: () => null,
+          onError: (error) => (
+            <div className="col-span-full">
+              <ErrorPage error={error} contained />
+            </div>
+          ),
+          onDefect: (defect) => (
+            <div className="col-span-full">
+              <ErrorPage error={defect} contained />
+            </div>
+          )
+        })}
       </div>
     </ProjectContext.Provider>
   )
@@ -108,6 +124,7 @@ export function DashboardRow({
 
 export function DashboardCard({ orgSlug, item, update }: DashboardTicketProps) {
   const updates = useTicketUpdates(update, item)
+  const state = useAtomValue(updates(item.ticket.id))
   const projectReq = useMemo(
     () => projectRequest(orgSlug, item.project.slug),
     [orgSlug, item.project.slug]
@@ -123,6 +140,12 @@ export function DashboardCard({ orgSlug, item, update }: DashboardTicketProps) {
           members={members}
           update={updates}
         />
+        {Result.matchWithError(state, {
+          onInitial: () => null,
+          onSuccess: () => null,
+          onError: (error) => <ErrorPage error={error} contained />,
+          onDefect: (defect) => <ErrorPage error={defect} contained />
+        })}
       </div>
     </ProjectContext.Provider>
   )
