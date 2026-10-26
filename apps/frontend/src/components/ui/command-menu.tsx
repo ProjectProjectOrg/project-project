@@ -24,7 +24,7 @@ import {
   type FluidHoverSource
 } from "@/components/ui/fluid-hover-highlight"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { TabsSubtle, TabsSubtleItem } from "@/components/ui/tabs-subtle"
+import { SegmentedTabs } from "@/components/ui/segmented-tabs"
 import {
   useFluidHover,
   useRegisterFluidHoverItem,
@@ -454,11 +454,6 @@ function CommandMenuTabs({
   ...props
 }: CommandMenuTabsProps & Readonly<{ ref?: Ref<HTMLDivElement> }>) {
   const compact = useSize().variant === "compact"
-  const selectedIndex = Math.max(
-    0,
-    tabs.findIndex((tab) => tab.value === value)
-  )
-
   return (
     <div
       ref={ref}
@@ -474,26 +469,17 @@ function CommandMenuTabs({
         onMouseDown={(e) => e.preventDefault()}
         className="flex min-w-0 flex-1 items-center"
       >
-        <TabsSubtle
-          size="compact"
-          shape="rounded"
-          selectedIndex={selectedIndex}
-          onSelect={(index) => {
-            const tab = tabs[index]
-            if (tab) onValueChange(tab.value)
-          }}
+        <SegmentedTabs
           aria-label={tabsLabel}
-        >
-          {tabs.map((tab, index) => (
-            <TabsSubtleItem
-              key={tab.value}
-              index={index}
-              label={tab.label}
-              icon={tab.icon}
-              count={tab.count}
-            />
-          ))}
-        </TabsSubtle>
+          value={value}
+          onValueChange={onValueChange}
+          items={tabs.map((tab) => ({
+            key: tab.value,
+            label: tab.label,
+            icon: tab.icon,
+            badge: tab.count
+          }))}
+        />
       </div>
     </div>
   )
