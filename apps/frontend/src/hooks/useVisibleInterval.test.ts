@@ -73,3 +73,22 @@ it("runs immediately when asked, and calls the latest callback", () => {
   expect(first).toHaveBeenCalledTimes(1)
   expect(second).toHaveBeenCalledTimes(1)
 })
+
+it("skips focus when asked, but still runs on visibility changes", () => {
+  vi.useFakeTimers()
+  vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible")
+  const callback = vi.fn<() => void>()
+  renderHook(() =>
+    useVisibleInterval(callback, 1_000, true, { onFocus: false })
+  )
+
+  act(() => {
+    window.dispatchEvent(new Event("focus"))
+  })
+  expect(callback).not.toHaveBeenCalled()
+
+  act(() => {
+    document.dispatchEvent(new Event("visibilitychange"))
+  })
+  expect(callback).toHaveBeenCalledTimes(1)
+})

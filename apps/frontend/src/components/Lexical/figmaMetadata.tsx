@@ -45,7 +45,7 @@ export const useFigmaMetadata = (
     },
     1_000,
     pending,
-    { immediate: true }
+    { immediate: true, onFocus: false }
   )
 
   if (ref === null || !AsyncResult.isSuccess(result)) return null

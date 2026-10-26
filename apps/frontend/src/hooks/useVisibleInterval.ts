@@ -1,12 +1,15 @@
 import { useEffect, useEffectEvent } from "react"
 
-type VisibleIntervalOptions = Readonly<{ immediate?: boolean }>
+type VisibleIntervalOptions = Readonly<{
+  immediate?: boolean
+  onFocus?: boolean
+}>
 
 export function useVisibleInterval(
   callback: () => void,
   intervalMs: number,
   enabled: boolean,
-  { immediate = false }: VisibleIntervalOptions = {}
+  { immediate = false, onFocus = true }: VisibleIntervalOptions = {}
 ) {
   const onTick = useEffectEvent(callback)
 
@@ -20,12 +23,12 @@ export function useVisibleInterval(
     if (immediate) runIfVisible()
     const interval = window.setInterval(runIfVisible, intervalMs)
     document.addEventListener("visibilitychange", runIfVisible)
-    window.addEventListener("focus", runIfVisible)
+    if (onFocus) window.addEventListener("focus", runIfVisible)
 
     return () => {
       window.clearInterval(interval)
       document.removeEventListener("visibilitychange", runIfVisible)
       window.removeEventListener("focus", runIfVisible)
     }
-  }, [enabled, intervalMs, immediate])
+  }, [enabled, intervalMs, immediate, onFocus])
 }
