@@ -3,6 +3,7 @@ import { Download, FileText, Image as ImageIcon } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
 
+import { Chip } from "@/components/ui/chip"
 import { MorphIconLink } from "@/components/ui/morph-icon-link"
 import {
   Popover,
@@ -11,9 +12,6 @@ import {
 } from "@/components/ui/popover"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
-
-const CHIP =
-  "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 align-baseline text-xs transition-colors duration-100 group-focus-within/editing:hover:bg-hover"
 
 const HOVER_DELAY_MS = 450
 
@@ -82,18 +80,18 @@ export function AttachmentChip({
 
   if (variant === "linked") {
     return (
-      <span className={CHIP}>
+      <Chip>
         <ChipBody filename={filename} kind={kind} morphId={morphId} />
-      </span>
+      </Chip>
     )
   }
 
   if (kind !== "image" || broken) {
     return (
-      <span className={CHIP}>
+      <Chip>
         <ChipBody filename={filename} kind={kind} morphId={morphId} />
         {download}
-      </span>
+      </Chip>
     )
   }
 
@@ -103,7 +101,7 @@ export function AttachmentChip({
         nativeButton={false}
         openOnHover
         delay={HOVER_DELAY_MS}
-        render={<span className={CHIP} />}
+        render={<Chip />}
         contentEditable={false}
       >
         <ChipBody filename={filename} kind={kind} morphId={morphId} />

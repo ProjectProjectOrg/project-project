@@ -18,6 +18,7 @@ import {
   type ReactElement
 } from "react"
 
+import { Chip } from "@/components/ui/chip"
 import { Input } from "@/components/ui/input"
 import { useDecoratorSelection } from "@/features/editor/hooks/useDecoratorSelection"
 import { cn } from "@/lib/utils"
@@ -39,9 +40,6 @@ export type SerializedPaperNode = Spread<
 >
 
 const INTERACTIVE_SELECTOR = "a, button, input, [data-paper-action]"
-
-const CHIP =
-  "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 align-baseline text-xs transition-[color,background-color,border-color,transform] duration-100 active:scale-[0.97] group-focus-within/editing:hover:bg-hover"
 
 export class PaperNode extends DecoratorNode<ReactElement> {
   __url: string
@@ -204,7 +202,7 @@ function PaperSelectable({
             }}
           />
         ) : (
-          <span className={CHIP}>
+          <Chip press="scale">
             <PaperGlyph className="size-3 shrink-0" />
             <span className="truncate">{resolvedLabel}</span>
             <a
@@ -223,7 +221,7 @@ function PaperSelectable({
                 aria-hidden="true"
               />
             </a>
-          </span>
+          </Chip>
         )}
         <NodeOverlayAction
           slot="absolute right-full -top-1 mr-1 flex h-8 items-center before:absolute before:inset-y-0 before:-inset-x-3 before:content-['']"

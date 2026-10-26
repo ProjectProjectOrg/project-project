@@ -3,6 +3,7 @@ import { ExternalLink } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
 
+import { Chip } from "@/components/ui/chip"
 import { MorphIconLink } from "@/components/ui/morph-icon-link"
 import {
   Popover,
@@ -15,9 +16,6 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { useFigmaMetadata } from "./figmaMetadata"
-
-const CHIP =
-  "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 align-baseline text-xs transition-colors duration-100 group-focus-within/editing:hover:bg-hover"
 
 const HOVER_DELAY_MS = 450
 
@@ -104,15 +102,10 @@ function FigmaChipContent({
 
   if (reference === null) {
     return (
-      <span
-        className={cn(
-          CHIP,
-          "border-dashed text-muted-foreground hover:bg-transparent"
-        )}
-      >
+      <Chip className="border-dashed text-muted-foreground hover:bg-transparent">
         <FigmaGlyph className="h-3 opacity-50" />
         {m.figma_chip_unavailable()}
-      </span>
+      </Chip>
     )
   }
 
@@ -157,11 +150,7 @@ function FigmaChipContent({
   )
 
   if (!showThumbnail) {
-    return (
-      <span className={CHIP} title={metadata?.fileName ?? resolvedName}>
-        {body}
-      </span>
-    )
+    return <Chip title={metadata?.fileName ?? resolvedName}>{body}</Chip>
   }
 
   return (
@@ -169,9 +158,7 @@ function FigmaChipContent({
       <PopoverTrigger
         openOnHover
         delay={HOVER_DELAY_MS}
-        render={
-          <span className={CHIP} title={metadata?.fileName ?? resolvedName} />
-        }
+        render={<Chip title={metadata?.fileName ?? resolvedName} />}
         contentEditable={false}
       >
         {body}
