@@ -1,12 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import type {
-  GitState,
-  GithubConnection,
-  StackLayerState,
-  Ticket,
-  TicketDetail
-} from "@pp/shared"
-import * as Option from "effect/Option"
+import type { GitState, GithubConnection, StackLayerState, Ticket, TicketDetail } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   AlertTriangle,
@@ -25,7 +18,6 @@ import { Button } from "@/components/ui/button"
 import { CopyButton } from "@/components/ui/copy-button"
 import { InlineForm } from "@/components/ui/inline-form"
 import { me } from "@/features/auth/atoms/auth"
-import { projectGitStates } from "@/features/github/atoms/github"
 import { ClearBranchFields } from "@/features/github/components/ticket-git/ClearBranchFields"
 import { ConnectBranchFields } from "@/features/github/components/ticket-git/ConnectBranchFields"
 import { CreateBranchFields } from "@/features/github/components/ticket-git/CreateBranchFields"
@@ -33,30 +25,15 @@ import {
   AddStackedBranch,
   layerTone,
   StackedBranches,
-  stackPullRequestCount,
-  useGitStack
+  stackPullRequestCount
 } from "@/features/github/components/ticket-git/TicketStack"
+import { useTicketGit } from "@/features/github/hooks/useTicketGit"
 import { branchOpensInNewTab, branchUrl } from "@/features/github/lib/branchUrl"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-
-function useGitState(
-  orgSlug: string,
-  slug: string,
-  ticket: Pick<Ticket, "id" | "gitState">
-): { state: GitState | null; waiting: boolean } {
-  const req = projectRequest(orgSlug, slug)
-  const states = useAtomValue(projectGitStates(req))
-  const value = Option.getOrUndefined(Result.value(states))
-  const entry = value?.states[ticket.id]
-  return {
-    state: entry ?? ticket.gitState,
-    waiting: states.waiting
-  }
-}
 
 function truncate(name: string, max = 18) {
   return name.length > max ? `${name.slice(0, max - 1)}…` : name
@@ -120,8 +97,7 @@ function ConnectedGitChip({
   ticket: Pick<Ticket, "id" | "gitState">
   github: GithubConnection
 }>) {
-  const { state, waiting } = useGitState(orgSlug, slug, ticket)
-  const stack = useGitStack(orgSlug, slug, ticket)
+  const { state, waiting, stack } = useTicketGit(orgSlug, slug, ticket)
   if (!state || state.tag === "no_branch") return <span aria-hidden />
   const pending = state.tag === "branch_pending" || state.tag === "pr_pending"
   const pulse = (waiting || pending) && "animate-pulse"
@@ -216,8 +192,7 @@ export function TicketGitPanel({
   variant?: "bordered" | "ghost"
 }) {
   const { orgSlug, slug } = useProjectRoute()
-  const { state, waiting } = useGitState(orgSlug, slug, ticket)
-  const stack = useGitStack(orgSlug, slug, ticket)
+  const { state, waiting, stack } = useTicketGit(orgSlug, slug, ticket)
   if (!github) return null
   if (state !== null && stack.length > 0) {
     return (

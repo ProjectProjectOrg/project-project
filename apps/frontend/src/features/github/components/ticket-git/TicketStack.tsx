@@ -1,16 +1,7 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import type {
-  ChecksStatus,
-  GitState,
-  GithubConnection,
-  StackLayerState,
-  Ticket,
-  TicketDetail
-} from "@pp/shared"
+import { useAtomSet } from "@effect/atom-react"
+import type { ChecksStatus, GitState, GithubConnection, StackLayerState, TicketDetail } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
-import * as Option from "effect/Option"
-import * as Result from "effect/reactivity/AsyncResult"
 import {
   AlertTriangle,
   GitBranch,
@@ -34,7 +25,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
-import { projectGitStates, unstackBranch } from "@/features/github/atoms/github"
+import { unstackBranch } from "@/features/github/atoms/github"
 import { ClearBranchFields } from "@/features/github/components/ticket-git/ClearBranchFields"
 import { ConnectBranchFields } from "@/features/github/components/ticket-git/ConnectBranchFields"
 import { projectRequest } from "@/features/projects/atoms/projects"
@@ -42,20 +33,6 @@ import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-
-export function useGitStack(
-  orgSlug: string,
-  slug: string,
-  ticket: Pick<Ticket, "id"> &
-    Readonly<{ stack?: ReadonlyArray<StackLayerState> | undefined }>
-): ReadonlyArray<StackLayerState> {
-  const req = projectRequest(orgSlug, slug)
-  const states = useAtomValue(projectGitStates(req))
-  const value = Option.getOrUndefined(Result.value(states))
-  return value === undefined
-    ? (ticket.stack ?? [])
-    : (value.stacks?.[ticket.id] ?? [])
-}
 
 type LayerTone = "draft" | "open" | "merged" | "closed" | "none" | "deleted"
 

@@ -15,7 +15,7 @@ const domTests = [
   "src/features/editor/components/LexicalEditor.test.ts",
   "src/features/editor/lexical/**/*.test.ts",
   "src/features/everhour/components/RunningTimerIndicator.test.ts",
-  "src/features/github/components/ticket-git/TicketStack.test.tsx",
+  "src/features/github/hooks/useTicketGit.test.tsx",
   "src/features/projects/forms/project-icon/useIconDraft.test.ts",
   "src/features/projects/lib/bannerRenderCache.test.ts",
   "src/features/projects/lib/imageCompression.test.ts",
