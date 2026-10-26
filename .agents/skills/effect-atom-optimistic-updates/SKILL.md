@@ -62,8 +62,9 @@ export const updateBacklogTicket = Atom.family(
 `Atom.optimisticFn` with the rules built in: `predict` is mapped over
 the current `AsyncResult`, `confirm` goes through `set` before the call
 returns, `publish` only takes keys from `Keys`. The real backlog mutation uses
-`coalescingTicketUpdate`, which also merges an interrupted edit's fields into
-the next request.
+`coalescingTicketUpdate`, which serializes writes per mutation key and merges
+waiting edits into the next request. Nested patches supply a `merge` callback; flat patches use
+the default shallow merge.
 
 Component: the view binds the family to its request and the row binds the id.
 
@@ -97,9 +98,12 @@ update({ priority: "high" })
    React key and get swapped by `set` on response. Loaded depth survives a
    refresh, but cursor boundaries must follow refreshed pages rather than old
    cursor strings. Expose failed-page state and retry that page.
-8. Rapid ticket edits retain unconfirmed payload fields when superseding an
-   earlier request. Mutation bookkeeping is registry/resource-scoped and never
-   becomes an additional source of rendered data.
+8. Rapid ticket edits accumulate waiting payload fields while earlier writes
+   finish. Sent fields leave the queue and are not replayed after success or
+   failure. Saves keep their mutation and view mounted until settlement.
+   Requests run sequentially per mutation key; waiting edits coalesce, and an
+   earlier response never replaces a newer prediction. Mutation bookkeeping is
+   registry/resource-scoped and never becomes an additional source of rendered data.
 9. Use a consistent comparator while edits are pending and after confirmation.
    Moving by a new field value while retaining old binary-search keys is invalid.
 

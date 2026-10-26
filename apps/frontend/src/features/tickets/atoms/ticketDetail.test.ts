@@ -179,6 +179,7 @@ describe("ticket detail optimistic update", () => {
 
   it("stacks two rapid edits", async () => {
     const payloads: Array<unknown> = []
+    let finishFirst: ((response: Response) => void) | undefined
     let served: TicketDetail = ticket
     const confirmed = {
       ...ticket,
@@ -195,7 +196,9 @@ describe("ticket detail optimistic update", () => {
           served = confirmed
           return Response.json(encodeUpdate(confirmed))
         }
-        return new Promise<Response>(() => {})
+        return new Promise<Response>((resolve) => {
+          finishFirst = resolve
+        })
       }
       return Promise.resolve(Response.json(encode(served)))
     })
@@ -216,8 +219,11 @@ describe("ticket detail optimistic update", () => {
       expect(registry.get(view)).toMatchObject({
         value: { priority: "high", type: "bug" }
       })
+      await vi.waitFor(() => expect(payloads).toHaveLength(1))
+      served = { ...ticket, priority: "high" }
+      finishFirst?.(Response.json(encodeUpdate(served)))
       await vi.waitFor(() =>
-        expect(payloads).toContainEqual({ priority: "high", type: "bug" })
+        expect(payloads).toEqual([{ priority: "high" }, { type: "bug" }])
       )
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
       expect(registry.get(view)).toMatchObject({

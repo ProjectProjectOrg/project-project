@@ -543,8 +543,9 @@ describe("updateBoardTicket", () => {
     }
   })
 
-  it("merges rapid card edits into the successor request", async () => {
+  it("saves rapid card edits in order", async () => {
     const payloads: Array<unknown> = []
+    let finishFirst: ((response: Response) => void) | undefined
     let served = ticketA
     const confirmed = { ...ticketA, title: "Renamed", type: "bug" as const }
     fetchStub.set(async (input, init) => {
@@ -557,7 +558,9 @@ describe("updateBoardTicket", () => {
           served = confirmed
           return Response.json(encodeTicketUpdate(asTicketDetail(confirmed)))
         }
-        return new Promise<Response>(() => {})
+        return new Promise<Response>((resolve) => {
+          finishFirst = resolve
+        })
       }
       if (request.url.endsWith("/tickets")) {
         return Response.json([encodeTicket(served), encodeTicket(ticketB)])
@@ -584,8 +587,11 @@ describe("updateBoardTicket", () => {
         title: "Renamed",
         type: "bug"
       })
+      await vi.waitFor(() => expect(payloads).toHaveLength(1))
+      served = { ...ticketA, title: "Renamed" }
+      finishFirst?.(Response.json(encodeTicketUpdate(asTicketDetail(served))))
       await vi.waitFor(() =>
-        expect(payloads).toContainEqual({ title: "Renamed", type: "bug" })
+        expect(payloads).toEqual([{ title: "Renamed" }, { type: "bug" }])
       )
       await vi.waitFor(() => {
         expect(registry.get(mutation)).toMatchObject({

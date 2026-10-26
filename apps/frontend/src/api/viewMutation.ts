@@ -1,4 +1,3 @@
-import * as Cause from "effect/Cause"
 import type * as Context from "effect/Context"
 import type * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
@@ -6,6 +5,7 @@ import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Reactivity from "effect/reactivity/Reactivity"
+import * as Semaphore from "effect/Semaphore"
 
 import { Api } from "./Api"
 import type { ReactivityKey } from "./keys"
@@ -63,6 +63,7 @@ export const viewMutation = <V, VE, Input, A, E>(
 export type CoalescingMutation<V, Patch, A, E> = Readonly<{
   name: string
   idleTTL: Duration.Input
+  merge?: (pending: NoInfer<Patch>, next: NoInfer<Patch>) => NoInfer<Patch>
   predict: (value: V, patch: Patch) => V
   call: (client: ApiClient, payload: Patch) => Effect.Effect<A, E, CallContext>
   confirm: (value: V, confirmed: A, payload: Patch) => V
@@ -73,37 +74,83 @@ export const coalescingMutation = <V, VE, Patch extends object, A, E>(
   view: OptimisticView<V, VE>,
   mutation: CoalescingMutation<V, Patch, A, E>
 ) => {
-  const unsaved = Atom.make<Partial<Patch>>({}).pipe(
-    Atom.setIdleTTL(mutation.idleTTL)
-  )
-  return Atom.optimisticFn(view, {
+  const pending = Atom.make<
+    Readonly<{ token: object; patch: Patch | undefined }>
+  >({
+    token: {},
+    patch: undefined
+  }).pipe(Atom.setIdleTTL(mutation.idleTTL))
+  const gate = Atom.make((get) => {
+    let active = true
+    get.addFinalizer(() => {
+      active = false
+    })
+    return {
+      semaphore: Semaphore.makeUnsafe(1),
+      isActive: () => active,
+      registry: get.registry
+    }
+  }).pipe(Atom.setIdleTTL(mutation.idleTTL))
+  const result = Atom.optimisticFn(view, {
     reducer: (current, patch: Patch) =>
       AsyncResult.map(current, (value) => mutation.predict(value, patch)),
     fn: (set) =>
       Api.runtime.fn(
         Effect.fn(mutation.name)(function* (patch: Patch, get) {
-          const payload: Patch = { ...get(unsaved), ...patch }
-          get.set(unsaved, payload)
-          const confirmed = yield* Effect.catchCause(
-            Api.use((client) => mutation.call(client, payload)),
-            (cause) => {
-              if (!Cause.hasInterruptsOnly(cause) && get(unsaved) === payload) {
-                get.set(unsaved, {})
-              }
-              return Effect.failCause(cause)
-            }
-          )
-          if (get(unsaved) === payload) get.set(unsaved, {})
-          set(
-            AsyncResult.map(get(view), (value) =>
-              mutation.confirm(value, confirmed, payload)
+          const previous = get(pending).patch
+          const payload =
+            previous === undefined
+              ? patch
+              : mutation.merge
+                ? mutation.merge(previous, patch)
+                : { ...previous, ...patch }
+          const token = {}
+          get.registry.set(pending, { token, patch: payload })
+          const queue = get(gate)
+          return yield* queue.semaphore.withPermit(
+            Effect.uninterruptible(
+              Effect.gen(function* () {
+                if (
+                  !queue.isActive() ||
+                  get.registry.get(pending).token !== token
+                )
+                  return yield* Effect.interrupt
+                get.registry.set(pending, { token, patch: undefined })
+                const confirmed = yield* Api.use((client) =>
+                  mutation.call(client, payload)
+                )
+                if (!queue.isActive()) return confirmed
+                if (get.registry.get(pending).token === token) {
+                  set(
+                    AsyncResult.map(get(view), (value) =>
+                      mutation.confirm(value, confirmed, payload)
+                    )
+                  )
+                } else {
+                  get.registry.refresh(view)
+                }
+                yield* publish(mutation.publish?.(confirmed, payload))
+                return confirmed
+              })
             )
           )
-          yield* publish(mutation.publish?.(confirmed, payload))
-          return confirmed
         })
       )
   })
+  return Atom.writable(
+    (get) => get(result),
+    (ctx, input: Patch | Atom.Reset | Atom.Interrupt) => {
+      const registry = ctx.get(gate).registry
+      const unmountView = registry.mount(view)
+      const unmountPending = registry.mount(pending)
+      const unmountGate = registry.mount(gate)
+      void fireMutation(registry, result, input).finally(() => {
+        unmountView()
+        unmountPending()
+        unmountGate()
+      })
+    }
+  )
 }
 
 export const replaceWith = <V>(_current: V, confirmed: V): V => confirmed
