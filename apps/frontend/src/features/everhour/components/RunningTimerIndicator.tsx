@@ -38,8 +38,8 @@ import {
   ticketTimeRequest,
   workTypesForTicketAtom
 } from "@/features/everhour/atoms/timeTracking"
-import { LogTimeForm } from "@/features/everhour/components/LogTimeForm"
 import { TimeControls } from "@/features/everhour/components/TimeControls"
+import { LogTimeForm } from "@/features/everhour/forms/log-time"
 import {
   sprintList,
   sprintListRequest

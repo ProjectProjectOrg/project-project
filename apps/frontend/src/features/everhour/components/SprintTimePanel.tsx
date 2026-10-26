@@ -18,8 +18,8 @@ import {
 } from "@/features/everhour/atoms/timeTracking"
 import { ConnectEverhourInline } from "@/features/everhour/components/ConnectEverhourInline"
 import { EverhourSetupHint } from "@/features/everhour/components/EverhourSetupHint"
-import { LogTimeForm } from "@/features/everhour/components/LogTimeForm"
 import { TimeControls } from "@/features/everhour/components/TimeControls"
+import { LogTimeForm } from "@/features/everhour/forms/log-time"
 import { useProjectActor } from "@/lib/access"
 
 const options = DEFAULT_WORK_TYPES.map((workType) => ({
