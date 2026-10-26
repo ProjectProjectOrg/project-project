@@ -10,13 +10,14 @@ import {
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
-import * as Reactivity from "effect/reactivity/Reactivity"
 import * as Schema from "effect/Schema"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { keepPredicted, viewMutation } from "@/api/viewMutation"
 
 export type CommentsRequest = Readonly<{
+  _view: "comments"
   params: Readonly<{
     orgSlug: string
     slug: string
@@ -28,7 +29,7 @@ export const commentsRequest = (
   orgSlug: string,
   slug: string,
   id: TicketId
-): CommentsRequest => ({ params: { orgSlug, slug, id } })
+): CommentsRequest => ({ _view: "comments", params: { orgSlug, slug, id } })
 
 const scopeOf = (req: CommentsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -100,112 +101,85 @@ const placeholderComment = (
 })
 
 export const createComment = Atom.family((key: CreateCommentKey) =>
-  Atom.optimisticFn(comments(key.req), {
-    reducer: (current, input: CreateCommentInput) =>
-      AsyncResult.map(current, (value) => [
-        ...value,
-        {
-          comment: placeholderComment(key, input),
-          key: key.clientId,
-          pending: true
-        }
-      ]),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("createComment")(function* (input: CreateCommentInput, get) {
-          const created = yield* Api.use((client) =>
-            client.ticketComments.create({
-              params: key.req.params,
-              payload: input
-            })
-          )
-          const identities = createdKeys(key.req)
-          get.set(
-            identities,
-            new Map(get(identities)).set(created.id, key.clientId)
-          )
-          set(
-            AsyncResult.map(get(comments(key.req)), (value) =>
-              value.map((row) =>
-                row.key === key.clientId
-                  ? { comment: created, key: key.clientId, pending: false }
-                  : row
-              )
-            )
-          )
-          yield* Reactivity.invalidate([Keys.ticketComments(scopeOf(key.req))])
-          return created
+  viewMutation(comments(key.req), {
+    name: "createComment",
+    predict: (value, input: CreateCommentInput) => [
+      ...value,
+      {
+        comment: placeholderComment(key, input),
+        key: key.clientId,
+        pending: true
+      }
+    ],
+    call: (input, get) =>
+      Api.use((client) =>
+        client.ticketComments.create({
+          params: key.req.params,
+          payload: input
         })
+      ).pipe(
+        Effect.tap((created) =>
+          Effect.sync(() => {
+            const identities = createdKeys(key.req)
+            get.set(
+              identities,
+              new Map(get(identities)).set(created.id, key.clientId)
+            )
+          })
+        )
+      ),
+    confirm: (value, created) =>
+      value.map((row) =>
+        row.key === key.clientId
+          ? { comment: created, key: key.clientId, pending: false }
+          : row
+      ),
+    publish: () => [Keys.ticketComments(scopeOf(key.req))]
+  })
+)
+
+type CommentKey = Readonly<{
+  req: CommentsRequest
+  commentId: CommentId
+}>
+
+export const editComment = Atom.family(({ req, commentId }: CommentKey) =>
+  viewMutation(comments(req), {
+    name: "editComment",
+    predict: (value, input: UpdateCommentInput) =>
+      value.map((row) =>
+        row.comment.id === commentId
+          ? { ...row, comment: { ...row.comment, body: input.body } }
+          : row
+      ),
+    call: (input) =>
+      Api.use((client) =>
+        client.ticketComments.update({
+          params: { ...req.params, commentId },
+          payload: input
+        })
+      ),
+    confirm: (value, updated) =>
+      value.map((row) =>
+        row.comment.id === commentId
+          ? { ...row, comment: updated, pending: false }
+          : row
       )
   })
 )
 
-export const editComment = Atom.family(
-  ({
-    req,
-    commentId
-  }: Readonly<{
-    req: CommentsRequest
-    commentId: CommentId
-  }>) =>
-    Atom.optimisticFn(comments(req), {
-      reducer: (current, input: UpdateCommentInput) =>
-        AsyncResult.map(current, (value) =>
-          value.map((row) =>
-            row.comment.id === commentId
-              ? { ...row, comment: { ...row.comment, body: input.body } }
-              : row
-          )
-        ),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("editComment")(function* (input: UpdateCommentInput, get) {
-            const updated = yield* Api.use((client) =>
-              client.ticketComments.update({
-                params: { ...req.params, commentId },
-                payload: input
-              })
-            )
-            set(
-              AsyncResult.map(get(comments(req)), (value) =>
-                value.map((row) =>
-                  row.comment.id === commentId
-                    ? { ...row, comment: updated, pending: false }
-                    : row
-                )
-              )
-            )
-            return updated
-          })
-        )
-    })
-)
-
-export const deleteComment = Atom.family(
-  ({
-    req,
-    commentId
-  }: Readonly<{
-    req: CommentsRequest
-    commentId: CommentId
-  }>) =>
-    Atom.optimisticFn(comments(req), {
-      reducer: (current, _input: void) =>
-        AsyncResult.map(current, (value) =>
-          value.filter((row) => row.comment.id !== commentId)
-        ),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("deleteComment")(function* (_input: void, get) {
-            yield* Api.use((client) =>
-              client.ticketComments.delete({
-                params: { ...req.params, commentId }
-              })
-            )
-            set(AsyncResult.map(get(comments(req)), (value) => value))
-            yield* Reactivity.invalidate([Keys.ticketComments(scopeOf(req))])
-            return commentId
-          })
-        )
-    })
+export const deleteComment = Atom.family(({ req, commentId }: CommentKey) =>
+  viewMutation(comments(req), {
+    name: "deleteComment",
+    predict: (value, _input: void) =>
+      value.filter((row) => row.comment.id !== commentId),
+    call: () =>
+      Api.use((client) =>
+        client.ticketComments.delete({
+          params: { ...req.params, commentId }
+        })
+      ).pipe(Effect.as(commentId)),
+    confirm: keepPredicted,
+    publish: () => [Keys.ticketComments(scopeOf(req))]
+  })
 )

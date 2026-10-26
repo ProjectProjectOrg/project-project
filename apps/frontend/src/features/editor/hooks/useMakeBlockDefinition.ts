@@ -1,11 +1,11 @@
 import { RegistryContext } from "@effect/atom-react"
 import { restoreDefinitionHints, type BlockDefinition } from "@pp/shared"
-import * as Effect from "effect/Effect"
 import type * as AsyncResult from "effect/reactivity/AsyncResult"
 import type * as Atom from "effect/reactivity/Atom"
-import * as Registry from "effect/reactivity/AtomRegistry"
+import type * as Registry from "effect/reactivity/AtomRegistry"
 import { useCallback, useContext } from "react"
 
+import { fireMutation } from "@/api/viewMutation"
 import type { EditorBlocks } from "@/features/editor/lexical/blocks/editorBlocks"
 import {
   projectLibraryRequest,
@@ -20,14 +20,9 @@ const fire = <A, E extends Readonly<{ _tag: string }>, I>(
   input: I,
   onError: (message: string) => void
 ) => {
-  const unmount = registry.mount(atom)
-  registry.set(atom, input)
-  void Effect.runPromiseExit(
-    Registry.getResult(registry, atom, { suspendOnWaiting: true })
-  ).finally(() => {
-    const message = failureText(registry.get(atom))
+  void fireMutation(registry, atom, input).then((result) => {
+    const message = failureText(result)
     if (message !== null) onError(message)
-    unmount()
   })
 }
 

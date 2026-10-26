@@ -67,10 +67,10 @@ export const bannerCropStyle = (
   }
 }
 
-export type BannerPreview = {
-  readonly source: string | null
-  readonly crop: BannerFrameCrop
-}
+export type BannerPreview = Readonly<{
+  source: string | null
+  crop: BannerFrameCrop
+}>
 
 export const bannerPreviewChanged = (
   preview: BannerPreview | null,

@@ -11,17 +11,15 @@ import {
   type UpdateStatusInput
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
-import * as Effect from "effect/Effect"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
-import * as Registry from "effect/reactivity/AtomRegistry"
-import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { fireMutation, viewMutation } from "@/api/viewMutation"
 import { compareByOrderKey } from "@/lib/orderKey"
 
 export type StatusesRequest = Readonly<{
+  _view: "statuses"
   params: Readonly<{ orgSlug: string; slug: string }>
 }>
 
@@ -29,6 +27,7 @@ export const statusesRequest = (
   orgSlug: string,
   slug: string
 ): StatusesRequest => ({
+  _view: "statuses",
   params: { orgSlug, slug }
 })
 
@@ -46,151 +45,112 @@ export const statusesFor = Atom.family((req: StatusesRequest) =>
   Atom.optimistic(statusesQuery(req))
 )
 
+type StatusKey = Readonly<{
+  req: StatusesRequest
+  statusSlug: StatusSlug
+}>
+
+const replaceStatus = (
+  statuses: ReadonlyArray<ProjectStatus>,
+  statusSlug: StatusSlug,
+  update: (status: ProjectStatus) => ProjectStatus
+) =>
+  statuses.map((status) =>
+    status.slug === statusSlug ? update(status) : status
+  )
+
+const syntheticStatus = (
+  statuses: ReadonlyArray<ProjectStatus>,
+  input: CreateStatusInput
+): ReadonlyArray<ProjectStatus> => {
+  const derivedSlug = deriveStatusSlug(input.label)
+  if (derivedSlug.length === 0) return statuses
+  if (statuses.some((status) => status.slug === derivedSlug)) return statuses
+  const synthetic: ProjectStatus = {
+    slug: StatusSlug.make(derivedSlug),
+    label: input.label,
+    icon: input.icon ?? "Circle",
+    color:
+      input.color ??
+      StatusColor.make(pickStatusColor(statuses.map((status) => status.color))),
+    orderKey: OrderKey.make("zzz"),
+    description: null,
+    createdBy: "",
+    createdAt: DateTime.toDate(DateTime.nowUnsafe())
+  }
+  return [...statuses, synthetic]
+}
+
 export const createStatus = Atom.family((req: StatusesRequest) =>
-  Atom.optimisticFn(statusesFor(req), {
-    reducer: (current, input: CreateStatusInput) =>
-      AsyncResult.map(current, (statuses) => {
-        const derivedSlug = deriveStatusSlug(input.label)
-        if (derivedSlug.length === 0) return statuses
-        if (statuses.some((status) => status.slug === derivedSlug)) {
-          return statuses
-        }
-        const synthetic: ProjectStatus = {
-          slug: StatusSlug.make(derivedSlug),
-          label: input.label,
-          icon: input.icon ?? "Circle",
-          color:
-            input.color ??
-            StatusColor.make(
-              pickStatusColor(statuses.map((status) => status.color))
-            ),
-          orderKey: OrderKey.make("zzz"),
-          description: null,
-          createdBy: "",
-          createdAt: DateTime.toDate(DateTime.nowUnsafe())
-        }
-        return [...statuses, synthetic]
-      }),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("createStatus")(function* (input: CreateStatusInput, get) {
-          const created = yield* Api.use((client) =>
-            client.statuses.create({ params: req.params, payload: input })
-          )
-          const derivedSlug = deriveStatusSlug(input.label)
-          set(
-            AsyncResult.map(get(statusesFor(req)), (statuses) =>
-              statuses.map((status) =>
-                status.slug === derivedSlug ? created : status
-              )
-            )
-          )
-          return created
-        })
+  viewMutation(statusesFor(req), {
+    name: "createStatus",
+    predict: syntheticStatus,
+    call: (input) =>
+      Api.use((client) =>
+        client.statuses.create({ params: req.params, payload: input })
+      ),
+    confirm: (statuses, created, input) =>
+      replaceStatus(
+        statuses,
+        StatusSlug.make(deriveStatusSlug(input.label)),
+        () => created
       )
   })
 )
 
-export const updateStatus = Atom.family(
-  ({
-    req,
-    statusSlug
-  }: Readonly<{
-    req: StatusesRequest
-    statusSlug: StatusSlug
-  }>) =>
-    Atom.optimisticFn(statusesFor(req), {
-      reducer: (current, patch: UpdateStatusInput) =>
-        AsyncResult.map(current, (statuses) =>
-          statuses.map((status) =>
-            status.slug === statusSlug
-              ? {
-                  ...status,
-                  label: patch.label ?? status.label,
-                  icon: patch.icon ?? status.icon,
-                  color: patch.color ?? status.color,
-                  description:
-                    patch.description === undefined
-                      ? status.description
-                      : patch.description
-                }
-              : status
-          )
-        ),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("updateStatus")(function* (patch: UpdateStatusInput, get) {
-            const updated = yield* Api.use((client) =>
-              client.statuses.update({
-                params: { ...req.params, statusSlug },
-                payload: patch
-              })
-            )
-            set(
-              AsyncResult.map(get(statusesFor(req)), (statuses) =>
-                statuses.map((status) =>
-                  status.slug === statusSlug ? updated : status
-                )
-              )
-            )
-            if (patch.label !== undefined) {
-              yield* Reactivity.invalidate([
-                Keys.ticketsIn(scopeOf(req)),
-                Keys.ticketLists(scopeOf(req)),
-                Keys.ticketPages(scopeOf(req)),
-                Keys.gitAutomation(scopeOf(req))
-              ])
-            }
-            return updated
-          })
-        )
-    })
+const statusRenameKeys = (req: StatusesRequest) => [
+  ...Keys.ticketsChanged(scopeOf(req)),
+  Keys.gitAutomation(scopeOf(req))
+]
+
+export const updateStatus = Atom.family(({ req, statusSlug }: StatusKey) =>
+  viewMutation(statusesFor(req), {
+    name: "updateStatus",
+    predict: (statuses, patch: UpdateStatusInput) =>
+      replaceStatus(statuses, statusSlug, (status) => ({
+        ...status,
+        label: patch.label ?? status.label,
+        icon: patch.icon ?? status.icon,
+        color: patch.color ?? status.color,
+        description:
+          patch.description === undefined
+            ? status.description
+            : patch.description
+      })),
+    call: (patch) =>
+      Api.use((client) =>
+        client.statuses.update({
+          params: { ...req.params, statusSlug },
+          payload: patch
+        })
+      ),
+    confirm: (statuses, updated) =>
+      replaceStatus(statuses, statusSlug, () => updated),
+    publish: (_updated, patch) =>
+      patch.label === undefined ? [] : statusRenameKeys(req)
+  })
 )
 
-export const reorderStatus = Atom.family(
-  ({
-    req,
-    statusSlug
-  }: Readonly<{
-    req: StatusesRequest
-    statusSlug: StatusSlug
-  }>) =>
-    Atom.optimisticFn(statusesFor(req), {
-      reducer: (current, input: ReorderStatusInput) =>
-        AsyncResult.map(current, (statuses) =>
-          statuses
-            .map((status) =>
-              status.slug === statusSlug
-                ? { ...status, orderKey: input.orderKey }
-                : status
-            )
-            .toSorted(compareByOrderKey)
-        ),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("reorderStatus")(function* (
-            input: ReorderStatusInput,
-            get
-          ) {
-            const reordered = yield* Api.use((client) =>
-              client.statuses.reorder({
-                params: { ...req.params, statusSlug },
-                payload: input
-              })
-            )
-            set(
-              AsyncResult.map(get(statusesFor(req)), (statuses) =>
-                statuses
-                  .map((status) =>
-                    status.slug === statusSlug ? reordered : status
-                  )
-                  .toSorted(compareByOrderKey)
-              )
-            )
-            return reordered
-          })
-        )
-    })
+export const reorderStatus = Atom.family(({ req, statusSlug }: StatusKey) =>
+  viewMutation(statusesFor(req), {
+    name: "reorderStatus",
+    predict: (statuses, input: ReorderStatusInput) =>
+      replaceStatus(statuses, statusSlug, (status) => ({
+        ...status,
+        orderKey: input.orderKey
+      })).toSorted(compareByOrderKey),
+    call: (input) =>
+      Api.use((client) =>
+        client.statuses.reorder({
+          params: { ...req.params, statusSlug },
+          payload: input
+        })
+      ),
+    confirm: (statuses, reordered) =>
+      replaceStatus(statuses, statusSlug, () => reordered).toSorted(
+        compareByOrderKey
+      )
+  })
 )
 
 export type StatusReorder = Readonly<{
@@ -201,50 +161,31 @@ export type StatusReorder = Readonly<{
 export const dispatchStatusReorders = Atom.family((req: StatusesRequest) =>
   Atom.fnSync((reorders: ReadonlyArray<StatusReorder>, get) => {
     for (const { statusSlug, orderKey } of reorders) {
-      const mutation = reorderStatus({ req, statusSlug })
-      const unmount = get.registry.mount(mutation)
-      get.set(mutation, { orderKey })
-      void Effect.runPromiseExit(
-        Registry.getResult(get.registry, mutation, { suspendOnWaiting: true })
-      ).finally(unmount)
+      void fireMutation(get.registry, reorderStatus({ req, statusSlug }), {
+        orderKey
+      })
     }
   })
 )
 
-export const deleteStatus = Atom.family(
-  ({
-    req,
-    statusSlug
-  }: Readonly<{
-    req: StatusesRequest
-    statusSlug: StatusSlug
-  }>) =>
-    Atom.optimisticFn(statusesFor(req), {
-      reducer: (current, _input: DeleteStatusInput) =>
-        AsyncResult.map(current, (statuses) =>
-          statuses.filter((status) => status.slug !== statusSlug)
-        ),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("deleteStatus")(function* (input: DeleteStatusInput, get) {
-            yield* Api.use((client) =>
-              client.statuses.remove({
-                params: { ...req.params, statusSlug },
-                query: input
-              })
-            )
-            set(
-              AsyncResult.map(get(statusesFor(req)), (statuses) =>
-                statuses.filter((status) => status.slug !== statusSlug)
-              )
-            )
-            yield* Reactivity.invalidate([
-              Keys.ticketsIn(scopeOf(req)),
-              Keys.ticketLists(scopeOf(req)),
-              Keys.ticketPages(scopeOf(req)),
-              Keys.gitAutomation(scopeOf(req))
-            ])
-          })
-        )
-    })
+const withoutStatus = (
+  statuses: ReadonlyArray<ProjectStatus>,
+  statusSlug: StatusSlug
+) => statuses.filter((status) => status.slug !== statusSlug)
+
+export const deleteStatus = Atom.family(({ req, statusSlug }: StatusKey) =>
+  viewMutation(statusesFor(req), {
+    name: "deleteStatus",
+    predict: (statuses, _input: DeleteStatusInput) =>
+      withoutStatus(statuses, statusSlug),
+    call: (input) =>
+      Api.use((client) =>
+        client.statuses.remove({
+          params: { ...req.params, statusSlug },
+          query: input
+        })
+      ),
+    confirm: (statuses) => withoutStatus(statuses, statusSlug),
+    publish: () => statusRenameKeys(req)
+  })
 )

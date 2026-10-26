@@ -13,8 +13,9 @@ import {
 import { createPortal } from "react-dom"
 
 import {
-  projectBannerPreviewAtom,
-  projectKey
+  projectBannerPreview,
+  projectKey,
+  projectRequest
 } from "@/features/projects/atoms/projects"
 import {
   bucketRenderWidth,
@@ -57,7 +58,7 @@ export function ProjectBanner({
   pageBackdrop?: boolean
 }) {
   const preview = useAtomValue(
-    projectBannerPreviewAtom(projectKey(orgSlug, slug))
+    projectBannerPreview(projectRequest(orgSlug, slug))
   )
   const pageBackdropSlot = usePageBackdrop()
   const backdrop = pageBackdrop ? pageBackdropSlot : null

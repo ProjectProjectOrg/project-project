@@ -8,7 +8,9 @@ import {
   hideProjectBlock,
   hideProjectTemplate,
   orgLibraryFor,
+  orgLibraryRequest,
   projectLibraryFor,
+  projectLibraryRequest,
   removeOrgBlock,
   removeOrgTemplate,
   removeProjectBlock,
@@ -31,12 +33,12 @@ export type LibraryScope =
 
 export const orgScope = (orgSlug: string): LibraryScope => ({
   layer: "org",
-  req: { params: { orgSlug } }
+  req: orgLibraryRequest(orgSlug)
 })
 
 export const projectScope = (orgSlug: string, slug: string): LibraryScope => ({
   layer: "project",
-  req: { params: { orgSlug, slug } }
+  req: projectLibraryRequest(orgSlug, slug)
 })
 
 export const libraryView = (scope: LibraryScope) =>
