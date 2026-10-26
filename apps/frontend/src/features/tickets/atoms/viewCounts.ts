@@ -9,7 +9,7 @@ import {
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
-import { me } from "@/features/auth/atoms/auth"
+import { currentUserId } from "@/features/auth/atoms/auth"
 import {
   projectEstimation,
   projectRequest
@@ -62,10 +62,7 @@ const sprintBoardCounts = Atom.family(
       ...filter
     } = query
     return Atom.make((get) => {
-      const viewer = get(me())
-      const viewerId = AsyncResult.isSuccess(viewer)
-        ? viewer.value.id
-        : undefined
+      const viewerId = get(currentUserId)
       const estimation = get(
         projectEstimation(projectRequest(req.params.orgSlug, req.params.slug))
       )

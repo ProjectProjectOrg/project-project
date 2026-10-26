@@ -1,5 +1,4 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
-import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { Columns3, Rows3 } from "lucide-react"
 import { useState, type ReactNode } from "react"
@@ -9,7 +8,7 @@ import {
   SegmentedTabs,
   type SegmentedItem
 } from "@/components/ui/segmented-tabs"
-import { me } from "@/features/auth/atoms/auth"
+import { currentUserId } from "@/features/auth/atoms/auth"
 import {
   BoardColumnShell,
   BOARD_COLUMN_CLASS
@@ -76,9 +75,8 @@ export function MyTicketsSection({
   view,
   onViewChange
 }: MyTicketsSectionProps) {
-  const viewer = useAtomValue(me())
-  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
-  const preferencesKey = `${viewerId}:${orgSlug}`
+  const viewerId = useAtomValue(currentUserId)
+  const preferencesKey = `${viewerId ?? ""}:${orgSlug}`
   const [grouping, setGrouping] = useLocalStorageState(
     `projectproject:dashboard-grouping:${preferencesKey}`,
     groupingCodec,

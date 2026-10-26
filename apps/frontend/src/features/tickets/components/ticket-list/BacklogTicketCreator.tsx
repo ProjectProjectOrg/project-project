@@ -19,7 +19,7 @@ import {
   type FormEvent
 } from "react"
 
-import { me } from "@/features/auth/atoms/auth"
+import { currentUserId } from "@/features/auth/atoms/auth"
 import { projectGitStates } from "@/features/github/atoms/github"
 import {
   project as projectView,
@@ -66,8 +66,7 @@ export function BacklogTicketCreator({ query }: { query: TicketListQuery }) {
   const refreshGitStates = useAtomRefresh(projectGitStates(projectReq))
   const navigate = useNavigate()
 
-  const viewer = useAtomValue(me())
-  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
+  const viewerId = useAtomValue(currentUserId)
 
   const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
   const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
@@ -116,7 +115,7 @@ export function BacklogTicketCreator({ query }: { query: TicketListQuery }) {
       payload: { title: trimmed, type, ...templateChoice.payload },
       prediction: {
         clientId: Effect.runSync(Random.next).toString(36),
-        createdBy: viewerId,
+        createdBy: viewerId ?? "",
         projectPrefix,
         estimation,
         ...templateChoice.prediction

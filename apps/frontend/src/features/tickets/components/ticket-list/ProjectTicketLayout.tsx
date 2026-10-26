@@ -8,7 +8,7 @@ import { Activity, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { PageContainer } from "@/components/shell/Page"
-import { me } from "@/features/auth/atoms/auth"
+import { currentUserId } from "@/features/auth/atoms/auth"
 import {
   useProject,
   useProjectRoute
@@ -85,9 +85,8 @@ export function ProjectTicketLayout({
   const canCreate = actor.call("tickets", "quickCreate")
   const canAddToSprint = GroupPolicy.can(actor, "sprint", "add_ticket")
   const showCreator = groupId ? canAddToSprint : canCreate
-  const viewer = useAtomValue(me())
-  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
-  const preferencesKey = `${viewerId}:${orgSlug}/${slug}`
+  const viewerId = useAtomValue(currentUserId)
+  const preferencesKey = `${viewerId ?? ""}:${orgSlug}/${slug}`
   const [grouping, setGrouping] = useLocalStorageState(
     backlogGroupingKey(preferencesKey),
     groupingCodec,

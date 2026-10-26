@@ -26,7 +26,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { me } from "@/features/auth/atoms/auth"
+import { currentUserId } from "@/features/auth/atoms/auth"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
@@ -252,8 +252,7 @@ function FilterAssignee({
   onChange: (value: TicketFilter["assignee"]) => void
   members: ReadonlyArray<Member>
 }) {
-  const viewer = useAtomValue(me())
-  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : null
+  const viewerId = useAtomValue(currentUserId)
   const assignees = value
   const assigneeFilter = assignees?.length === 1 ? assignees[0] : "all"
   const setAssigneeFilter = (assignee: AssigneeFilter | "all") =>

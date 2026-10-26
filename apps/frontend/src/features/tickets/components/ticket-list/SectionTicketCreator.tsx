@@ -24,7 +24,7 @@ import {
 } from "react"
 
 import { comboboxProps } from "@/components/ui/menu-listbox"
-import { me } from "@/features/auth/atoms/auth"
+import { currentUserId } from "@/features/auth/atoms/auth"
 import {
   project as projectView,
   projectRequest
@@ -158,8 +158,7 @@ function SectionCreatorForm({
   const { orgSlug, slug } = useProjectRoute()
   const registry = useContext(RegistryContext)
 
-  const viewer = useAtomValue(me())
-  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
+  const viewerId = useAtomValue(currentUserId)
 
   const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
   const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
@@ -229,7 +228,7 @@ function SectionCreatorForm({
       },
       prediction: {
         clientId: Effect.runSync(Random.next).toString(36),
-        createdBy: viewerId,
+        createdBy: viewerId ?? "",
         projectPrefix,
         estimation,
         ...templateChoice.prediction

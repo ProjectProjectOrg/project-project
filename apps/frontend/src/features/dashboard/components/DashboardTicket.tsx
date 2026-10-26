@@ -4,7 +4,7 @@ import type { Member, Ticket } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { type ReactNode } from "react"
 
-import { me } from "@/features/auth/atoms/auth"
+import { currentUserId } from "@/features/auth/atoms/auth"
 import {
   project,
   projectActor,
@@ -27,9 +27,9 @@ import { cn } from "@/lib/utils"
 const NO_MEMBERS: ReadonlyArray<Member> = []
 
 const useTicketUpdates = (update: OrgTicketUpdates, item: OrgTicket) => {
-  const viewer = useAtomValue(me())
+  const viewerId = useAtomValue(currentUserId)
   return update({
-    viewerId: Result.isSuccess(viewer) ? viewer.value.id : "",
+    viewerId: viewerId ?? "",
     projectSlug: item.project.slug
   })
 }

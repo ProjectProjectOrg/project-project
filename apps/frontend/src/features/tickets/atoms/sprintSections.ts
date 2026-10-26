@@ -24,7 +24,7 @@ import * as Atom from "effect/reactivity/Atom"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { bindRowMutation, viewMutation } from "@/api/viewMutation"
-import { me } from "@/features/auth/atoms/auth"
+import { currentUserId } from "@/features/auth/atoms/auth"
 import {
   projectEstimation,
   projectRequest
@@ -133,9 +133,8 @@ const pageQuery = (
   })
 
 const viewerOf = (get: Atom.AtomContext, req: SprintSectionsRequest) => {
-  const viewer = get(me())
   return {
-    id: AsyncResult.isSuccess(viewer) ? viewer.value.id : undefined,
+    id: get(currentUserId),
     estimation: get(
       projectEstimation(projectRequest(req.params.orgSlug, req.params.slug))
     )
