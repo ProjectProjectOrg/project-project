@@ -126,6 +126,17 @@ Concrete example: the inline-pill version of `SegmentedTabs` (used for "Update s
 
 If extending the primitive feels disruptive (touches public API, would conflict with other callsites), stop and ask before going local.
 
+### One primitive per pattern
+
+Each UI pattern has exactly one primitive. Reach for it (or add a variant to it) before writing a second version:
+
+- **Segmented tabs:** `SegmentedTabs` (`components/ui/segmented-tabs.tsx`), controlled by `value` / `onValueChange`, with `default | inline | view` variants and `labels="active"` for icon-only tabs. A tab that must be a router link passes an item `render` element.
+- **Command menu:** the Fluid `CommandMenu` (`components/ui/command-menu.tsx`), with `CommandMenuInput` when the list filters from a text box. There is no cmdk.
+- **Confirm:** `ConfirmButton` (`components/ui/confirm-button.tsx`). It owns its open state; callers never keep a `confirming` boolean. It covers inline swaps (`Trigger`, `DeleteTrigger`, `Confirm`), confirms opened from a menu (`MenuItem`, `Popover`, or `Idle` plus `Confirm` inside the menu), typed confirmation (`Action typed`), and the mutation atom's `waiting` / `error`.
+- **Inline embed chip:** `Chip` (`components/ui/chip.tsx`) for bordered inline chips in the editor. Tinted labels and tags use `Badge`.
+- **Icon chrome buttons:** `Button variant="quiet"` with `size="square-7" | "square-8" | "square-9"`, not hand-pasted `grid size-N … hover:bg-hover` buttons.
+- **Sliding highlights:** `useFluidHover` + `FluidHoverHighlight` when we own the pointer and keyboard index (nav rails, command menu); `MenuHighlight` when Base UI owns `data-highlighted` (menus, selects); `SegmentedIndicator` for the selected tab.
+
 ## i18n
 
 - All user-facing strings go through paraglide messages (`m.*` from `@/paraglide/messages`); raw literals in JSX are forbidden.
