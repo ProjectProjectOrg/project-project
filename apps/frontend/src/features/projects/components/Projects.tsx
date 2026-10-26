@@ -11,8 +11,8 @@ import {
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
-import { CreateProjectRow } from "@/features/projects/forms/create-project"
 import { ProjectRow } from "@/features/projects/components/ProjectRow"
+import { CreateProjectRow } from "@/features/projects/forms/create-project"
 import { useOrgActor } from "@/lib/access"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
