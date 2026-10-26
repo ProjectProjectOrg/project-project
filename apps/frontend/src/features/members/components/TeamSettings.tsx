@@ -7,7 +7,7 @@ import {
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
 import { Button } from "@/components/ui/button"
-import { MembersSection } from "@/features/members/components/MembersSection"
+import { ProjectMembersSection } from "@/features/members/components/ProjectMembersSection"
 import {
   project,
   projectRequest,
@@ -32,7 +32,7 @@ export function TeamSettings() {
   return (
     <>
       <SettingsSection>
-        <MembersSection
+        <ProjectMembersSection
           orgSlug={orgSlug}
           slug={projectDetail.slug}
           members={projectDetail.members}
