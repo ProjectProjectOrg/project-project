@@ -1,7 +1,12 @@
 import * as DateTime from "effect/DateTime"
 import { describe, expect, it } from "vitest"
 
-import { sprintDateDraft, sprintDatesPatch } from "./sprintDates"
+import {
+  defaultSprintRange,
+  formatSprintRange,
+  sprintDateDraft,
+  sprintDatesPatch
+} from "./sprintDates"
 
 const date = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
 const may1 = date("2026-05-01T00:00:00.000Z")
@@ -52,5 +57,26 @@ describe("sprintDatesPatch", () => {
 
   it("sends nothing for an empty draft on an undated sprint", () => {
     expect(sprintDatesPatch({ startsAt: null, endsAt: null }, {})).toBeNull()
+  })
+})
+
+describe("formatSprintRange", () => {
+  it("prints both ends as short month and day", () => {
+    expect(
+      formatSprintRange(
+        date("2026-05-01T12:00:00.000Z"),
+        date("2026-05-14T12:00:00.000Z")
+      )
+    ).toBe("May 1 – May 14")
+  })
+})
+
+describe("defaultSprintRange", () => {
+  it("runs two weeks from now", () => {
+    const now = DateTime.makeUnsafe("2026-05-01T00:00:00.000Z")
+    expect(defaultSprintRange(now)).toEqual({
+      from: may1,
+      to: date("2026-05-15T00:00:00.000Z")
+    })
   })
 })
