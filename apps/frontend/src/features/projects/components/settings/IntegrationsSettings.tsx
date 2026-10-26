@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { EverhourSettingsRow } from "@/features/everhour/components/EverhourProjectSettings"
 import { FigmaProjectSettings } from "@/features/figma/components/FigmaProjectSettings"
-import { GithubSettingsRows } from "@/features/github/components/GithubChip"
+import { GithubSettingsRows } from "@/features/github/components/GithubSettingsRows"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
 import {
   projectRequest,

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 
-import { branchOpensInNewTab, branchUrl } from "./branchUrl"
+import {
+  branchOpensInNewTab,
+  branchUrl,
+  compareUrl,
+  repoUrl
+} from "./branchUrl"
 
 const repo = "acme/widgets"
 const branch = "feat/T-46-editor"
@@ -40,5 +45,21 @@ describe("branchOpensInNewTab", () => {
   it("hands desktop editor schemes to the OS without a new tab", () => {
     expect(branchOpensInNewTab("vscode")).toBe(false)
     expect(branchOpensInNewTab("cursor")).toBe(false)
+  })
+})
+
+describe("compareUrl", () => {
+  it("opens GitHub's quick pull request form from base to branch", () => {
+    expect(compareUrl(repo, "main", branch)).toBe(
+      "https://github.com/acme/widgets/compare/main...feat/T-46-editor?quick_pull=1"
+    )
+  })
+})
+
+describe("repoUrl", () => {
+  it("links to the repository home page", () => {
+    expect(repoUrl({ repoOwner: "acme", repoName: "widgets" })).toBe(
+      "https://github.com/acme/widgets"
+    )
   })
 })
