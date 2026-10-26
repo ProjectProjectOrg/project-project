@@ -2,10 +2,10 @@ import type { ConnectEverhourProfileInput } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
-import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 export type EverhourProjectRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
@@ -28,56 +28,33 @@ export const everhourProfileQuery = Api.query("everhour", "profile", {
 
 export const everhourProfileAtom = Atom.optimistic(everhourProfileQuery)
 
-export const connectEverhourProfileAtom = Atom.optimisticFn(
-  everhourProfileAtom,
-  {
-    reducer: (current, _input: ConnectEverhourProfileInput) =>
-      AsyncResult.map(current, (profile) => ({
-        ...profile,
-        connected: true,
-        lastCheckError: null
-      })),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("connectEverhourProfile")(function* (
-          input: ConnectEverhourProfileInput
-        ) {
-          const profile = yield* Api.use((client) =>
-            client.everhour.connectProfile({ payload: input })
-          )
-          set(AsyncResult.success(profile))
-          yield* Reactivity.invalidate([Keys.me()])
-          return profile
-        })
-      )
-  }
-)
+export const connectEverhourProfileAtom = viewMutation(everhourProfileAtom, {
+  name: "connectEverhourProfile",
+  predict: (profile, _input: ConnectEverhourProfileInput) => ({
+    ...profile,
+    connected: true,
+    lastCheckError: null
+  }),
+  call: (input) =>
+    Api.use((client) => client.everhour.connectProfile({ payload: input })),
+  confirm: replaceWith,
+  publish: () => [Keys.me()]
+})
 
-export const disconnectEverhourProfileAtom = Atom.optimisticFn(
-  everhourProfileAtom,
-  {
-    reducer: (current, _input: void) =>
-      AsyncResult.map(current, () => ({
-        connected: false,
-        everhourUserId: null,
-        name: null,
-        email: null,
-        lastVerifiedAt: null,
-        lastCheckError: null
-      })),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("disconnectEverhourProfile")(function* (_input: void) {
-          const profile = yield* Api.use((client) =>
-            client.everhour.disconnectProfile()
-          )
-          set(AsyncResult.success(profile))
-          yield* Reactivity.invalidate([Keys.me()])
-          return profile
-        })
-      )
-  }
-)
+export const disconnectEverhourProfileAtom = viewMutation(everhourProfileAtom, {
+  name: "disconnectEverhourProfile",
+  predict: (_profile, _input: void) => ({
+    connected: false,
+    everhourUserId: null,
+    name: null,
+    email: null,
+    lastVerifiedAt: null,
+    lastCheckError: null
+  }),
+  call: () => Api.use((client) => client.everhour.disconnectProfile()),
+  confirm: replaceWith,
+  publish: () => [Keys.me()]
+})
 
 const everhourProjectQuery = (req: EverhourProjectRequest) =>
   Api.query("everhour", "projectStatus", {
@@ -140,27 +117,22 @@ export const syncEverhourProjectAtom = Atom.family(
 
 export const disconnectEverhourProjectAtom = Atom.family(
   (req: EverhourProjectRequest) =>
-    Atom.optimisticFn(everhourProjectStatusAtom(req), {
-      reducer: (current, _input: void) =>
-        AsyncResult.map(current, (status) => ({
-          ...status,
-          status: "not_connected" as const,
-          everhourProjectId: null,
-          everhourProjectName: null,
-          lastSyncedAt: null,
-          lastSyncStatus: null,
-          lastSyncError: null,
-          needsSync: false
-        })),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("disconnectEverhourProject")(function* (_input: void) {
-            const status = yield* Api.use((client) =>
-              client.everhour.disconnectProject({ params: req.params })
-            )
-            set(AsyncResult.success(status))
-            return status
-          })
-        )
+    viewMutation(everhourProjectStatusAtom(req), {
+      name: "disconnectEverhourProject",
+      predict: (status, _input: void) => ({
+        ...status,
+        status: "not_connected" as const,
+        everhourProjectId: null,
+        everhourProjectName: null,
+        lastSyncedAt: null,
+        lastSyncStatus: null,
+        lastSyncError: null,
+        needsSync: false
+      }),
+      call: () =>
+        Api.use((client) =>
+          client.everhour.disconnectProject({ params: req.params })
+        ),
+      confirm: replaceWith
     })
 )

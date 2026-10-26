@@ -1,11 +1,9 @@
 import type { UserInvitation } from "@pp/shared"
-import * as Effect from "effect/Effect"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
-import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
+import { viewMutation } from "@/api/viewMutation"
 
 export type InvitationRequest = Readonly<{
   invitationId: string
@@ -28,44 +26,27 @@ const without = (
 
 export const acceptInvitation = Atom.family(
   ({ invitationId }: InvitationRequest) =>
-    Atom.optimisticFn(invitations(), {
-      reducer: (current, _input: void) =>
-        AsyncResult.map(current, (value) => without(value, invitationId)),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("acceptInvitation")(function* (_input: void, get) {
-            const org = yield* Api.use((client) =>
-              client.invitations.accept({ params: { invitationId } })
-            )
-            set(
-              AsyncResult.map(get(invitations()), (value) =>
-                without(value, invitationId)
-              )
-            )
-            yield* Reactivity.invalidate([Keys.orgs()])
-            return org
-          })
-        )
+    viewMutation(invitations(), {
+      name: "acceptInvitation",
+      predict: (value, _input: void) => without(value, invitationId),
+      call: () =>
+        Api.use((client) =>
+          client.invitations.accept({ params: { invitationId } })
+        ),
+      confirm: (value) => without(value, invitationId),
+      publish: () => [Keys.orgs()]
     })
 )
 
 export const rejectInvitation = Atom.family(
   ({ invitationId }: InvitationRequest) =>
-    Atom.optimisticFn(invitations(), {
-      reducer: (current, _input: void) =>
-        AsyncResult.map(current, (value) => without(value, invitationId)),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("rejectInvitation")(function* (_input: void, get) {
-            yield* Api.use((client) =>
-              client.invitations.reject({ params: { invitationId } })
-            )
-            set(
-              AsyncResult.map(get(invitations()), (value) =>
-                without(value, invitationId)
-              )
-            )
-          })
-        )
+    viewMutation(invitations(), {
+      name: "rejectInvitation",
+      predict: (value, _input: void) => without(value, invitationId),
+      call: () =>
+        Api.use((client) =>
+          client.invitations.reject({ params: { invitationId } })
+        ),
+      confirm: (value) => without(value, invitationId)
     })
 )

@@ -4,12 +4,11 @@ import type {
   SlackProfile
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
-import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
-import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 export type SlackOrgRequest = Readonly<{
   params: Readonly<{ orgSlug: string }>
@@ -42,43 +41,30 @@ export const slackManifest = Atom.family((req: SlackOrgRequest) =>
     })
   )
 )
+const slackOrgKeys = (req: SlackOrgRequest) => [
+  Keys.slackOrg(req.params.orgSlug),
+  Keys.slackProfiles()
+]
 export const connectSlackOrg = Atom.family((req: SlackOrgRequest) =>
-  Atom.optimisticFn(slackOrg(req), {
-    reducer: (current, _input: ConnectSlackInput) => current,
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("connectSlackOrg")(function* (input: ConnectSlackInput) {
-          const status = yield* Api.use((api) =>
-            api.slack.connectOrg({ params: req.params, payload: input })
-          )
-          set(Result.success(status))
-          yield* Reactivity.invalidate([
-            Keys.slackOrg(req.params.orgSlug),
-            Keys.slackProfiles()
-          ])
-          return status
-        })
-      )
+  viewMutation(slackOrg(req), {
+    name: "connectSlackOrg",
+    predict: (status, _input: ConnectSlackInput) => status,
+    call: (input) =>
+      Api.use((api) =>
+        api.slack.connectOrg({ params: req.params, payload: input })
+      ),
+    confirm: replaceWith,
+    publish: () => slackOrgKeys(req)
   })
 )
 export const disconnectSlackOrg = Atom.family((req: SlackOrgRequest) =>
-  Atom.optimisticFn(slackOrg(req), {
-    reducer: (current, _input: void) =>
-      Result.map(current, () => ({ connection: null })),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("disconnectSlackOrg")(function* (_input: void) {
-          const status = yield* Api.use((api) =>
-            api.slack.disconnectOrg({ params: req.params })
-          )
-          set(Result.success(status))
-          yield* Reactivity.invalidate([
-            Keys.slackOrg(req.params.orgSlug),
-            Keys.slackProfiles()
-          ])
-          return status
-        })
-      )
+  viewMutation(slackOrg(req), {
+    name: "disconnectSlackOrg",
+    predict: (_status, _input: void) => ({ connection: null }),
+    call: () =>
+      Api.use((api) => api.slack.disconnectOrg({ params: req.params })),
+    confirm: replaceWith,
+    publish: () => slackOrgKeys(req)
   })
 )
 export const slackProject = Atom.family((req: SlackProjectRequest) =>
@@ -101,44 +87,32 @@ export const slackChannels = Atom.family((req: SlackProjectRequest) =>
   })
 )
 export const saveSlackProject = Atom.family((req: SlackProjectRequest) =>
-  Atom.optimisticFn(slackProject(req), {
-    reducer: (current, input: SaveSlackProjectInput) =>
-      Result.map(current, (status) => ({
-        ...status,
-        settings: {
-          ...input,
-          channelName:
-            status.settings?.channelId === input.channelId
-              ? status.settings.channelName
-              : input.channelId
-        }
-      })),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("saveSlackProject")(function* (input: SaveSlackProjectInput) {
-          const status = yield* Api.use((api) =>
-            api.slack.saveProject({ params: req.params, payload: input })
-          )
-          set(Result.success(status))
-          return status
-        })
-      )
+  viewMutation(slackProject(req), {
+    name: "saveSlackProject",
+    predict: (status, input: SaveSlackProjectInput) => ({
+      ...status,
+      settings: {
+        ...input,
+        channelName:
+          status.settings?.channelId === input.channelId
+            ? status.settings.channelName
+            : input.channelId
+      }
+    }),
+    call: (input) =>
+      Api.use((api) =>
+        api.slack.saveProject({ params: req.params, payload: input })
+      ),
+    confirm: replaceWith
   })
 )
 export const disconnectSlackProject = Atom.family((req: SlackProjectRequest) =>
-  Atom.optimisticFn(slackProject(req), {
-    reducer: (current, _input: void) =>
-      Result.map(current, (status) => ({ ...status, settings: null })),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("disconnectSlackProject")(function* (_input: void) {
-          const status = yield* Api.use((api) =>
-            api.slack.disconnectProject({ params: req.params })
-          )
-          set(Result.success(status))
-          return status
-        })
-      )
+  viewMutation(slackProject(req), {
+    name: "disconnectSlackProject",
+    predict: (status, _input: void) => ({ ...status, settings: null }),
+    call: () =>
+      Api.use((api) => api.slack.disconnectProject({ params: req.params })),
+    confirm: replaceWith
   })
 )
 export const testSlackProject = Atom.family((req: SlackProjectRequest) =>
@@ -158,24 +132,13 @@ export const slackProfiles = Atom.family(
     )
 )
 export const disconnectSlackProfile = Atom.family((req: SlackOrgRequest) =>
-  Atom.optimisticFn(slackProfiles({}), {
-    reducer: (current, _input: void) =>
-      Result.map(current, (profiles) =>
-        unlinkProfile(profiles, req.params.orgSlug)
-      ),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("disconnectSlackProfile")(function* (_input: void, get) {
-          yield* Api.use((api) =>
-            api.slack.disconnectProfile({ params: req.params })
-          )
-          set(
-            Result.map(get(slackProfiles({})), (profiles) =>
-              unlinkProfile(profiles, req.params.orgSlug)
-            )
-          )
-        })
-      )
+  viewMutation(slackProfiles({}), {
+    name: "disconnectSlackProfile",
+    predict: (profiles, _input: void) =>
+      unlinkProfile(profiles, req.params.orgSlug),
+    call: () =>
+      Api.use((api) => api.slack.disconnectProfile({ params: req.params })),
+    confirm: (profiles) => unlinkProfile(profiles, req.params.orgSlug)
   })
 )
 

@@ -1,26 +1,26 @@
 import { act, cleanup, renderHook } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import type { JiraMigrationRequest } from "@/features/jira/atoms/jiraMigration"
-
 import { useJiraMigrationPolling } from "./useJiraMigrationPolling"
 
 const state = vi.hoisted(() => ({ refresh: vi.fn(), invalidate: vi.fn() }))
 
 vi.mock("@effect/atom-react", () => ({
-  useAtomRefresh: () => {
-    throw new Error("Polling must use the public refresh command")
-  },
-  useAtomSet: (key: string | JiraMigrationRequest) =>
-    typeof key === "string" ? state.invalidate : state.refresh
+  useAtomRefresh: (atom: string) =>
+    atom === "migration:org/migration" ? state.refresh : undefined,
+  useAtomSet: (atom: string) =>
+    atom === "invalidate-projects:org" ? state.invalidate : undefined
 }))
 
 vi.mock("@/features/jira/atoms/jiraMigration", () => ({
-  invalidateJiraProjectsAtom: (orgSlug: string) => orgSlug,
-  jiraMigrationKey: (orgSlug: string, migrationId: string) => ({
+  invalidateJiraProjects: (req: { params: { orgSlug: string } }) =>
+    `invalidate-projects:${req.params.orgSlug}`,
+  jiraMigration: (req: { params: { orgSlug: string; migrationId: string } }) =>
+    `migration:${req.params.orgSlug}/${req.params.migrationId}`,
+  jiraMigrationRequest: (orgSlug: string, migrationId: string) => ({
     params: { orgSlug, migrationId }
   }),
-  refreshJiraMigrationAtom: (req: JiraMigrationRequest) => req
+  jiraOrgRequest: (orgSlug: string) => ({ params: { orgSlug } })
 }))
 
 afterEach(() => {

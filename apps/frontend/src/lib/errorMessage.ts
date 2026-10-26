@@ -50,7 +50,7 @@ import * as Match from "effect/Match"
 import type * as Atom from "effect/reactivity/Atom"
 import * as Schema from "effect/Schema"
 
-import type { configureJiraMigrationAtom } from "@/features/jira/atoms/jiraMigration"
+import type { configureJiraMigration } from "@/features/jira/atoms/jiraMigration"
 import type { submitConsentAtom } from "@/features/oauth/atoms/oauthConsent"
 import type { InviteAcceptError } from "@/features/organizations/lib/invitations"
 import type { createStatus } from "@/features/projects/atoms/projectStatuses"
@@ -325,7 +325,7 @@ export const figmaStatusErrorMessage = (reason: string): string => {
 
 type StatusCreateFailure = Atom.Failure<ReturnType<typeof createStatus>>
 type JiraMigrationSaveFailure = Atom.Failure<
-  ReturnType<typeof configureJiraMigrationAtom>
+  ReturnType<typeof configureJiraMigration>
 >
 type OAuthConsentFailure = Atom.Failure<ReturnType<typeof submitConsentAtom>>
 

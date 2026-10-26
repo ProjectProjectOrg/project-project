@@ -7,9 +7,9 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 
 import {
-  configureJiraMigrationAtom,
-  jiraMigrationKey,
-  runJiraMigrationAtom
+  configureJiraMigration,
+  jiraMigrationRequest,
+  runJiraMigration
 } from "@/features/jira/atoms/jiraMigration"
 import {
   jiraMappingSteps,
@@ -102,17 +102,17 @@ function ConfiguredJiraMigrationForm({
   onExitCorrection?: () => void
   draftSaveRef: JiraDraftSaveRef
 }>) {
-  const key = jiraMigrationKey(orgSlug, detail.id)
+  const key = jiraMigrationRequest(orgSlug, detail.id)
   const revision = useRef(detail.revision)
   const [savedRevision, setSavedRevision] = useState(detail.revision)
   const saveQueue = useRef<Promise<unknown>>(Promise.resolve())
   const [validationError, setValidationError] = useState<string | null>(null)
-  const configure = useAtomSet(configureJiraMigrationAtom(key), {
+  const configure = useAtomSet(configureJiraMigration(key), {
     mode: "promiseExit"
   })
-  const run = useAtomSet(runJiraMigrationAtom(key), { mode: "promiseExit" })
-  const configureState = useAtomValue(configureJiraMigrationAtom(key))
-  const runState = useAtomValue(runJiraMigrationAtom(key))
+  const run = useAtomSet(runJiraMigration(key), { mode: "promiseExit" })
+  const configureState = useAtomValue(configureJiraMigration(key))
+  const runState = useAtomValue(runJiraMigration(key))
   const error = validationError ?? mutationError(configureState, runState)
   const waiting = configureState.waiting || runState.waiting
 

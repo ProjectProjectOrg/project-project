@@ -17,7 +17,10 @@ export type OptimisticView<V, E = unknown> = Atom.Writable<
 export type ViewMutation<V, Input, A, E> = Readonly<{
   name: string
   predict: (value: V, input: Input) => V
-  call: (input: Input, get: Atom.FnContext) => Effect.Effect<A, E, Api>
+  call: (
+    input: Input,
+    get: Atom.FnContext
+  ) => Effect.Effect<A, E, Api | Reactivity.Reactivity>
   confirm: (value: V, confirmed: A, input: Input) => V
   publish?: (confirmed: A, input: Input) => ReadonlyArray<ReactivityKey>
 }>
@@ -53,7 +56,7 @@ export type CoalescingMutation<V, Patch, A, E> = Readonly<{
   name: string
   idleTTL: Duration.Input
   predict: (value: V, patch: Patch) => V
-  call: (payload: Patch) => Effect.Effect<A, E, Api>
+  call: (payload: Patch) => Effect.Effect<A, E, Api | Reactivity.Reactivity>
   confirm: (value: V, confirmed: A, payload: Patch) => V
   publish?: (confirmed: A, payload: Patch) => ReadonlyArray<ReactivityKey>
 }>

@@ -17,19 +17,19 @@ import { useRef, useState } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
-  cancelJiraMigrationAtom,
-  createJiraMigrationAtom,
-  discardJiraMigrationAtom,
-  jiraMigrationAtom,
-  jiraMigrationKey,
-  jiraMigrationsAtom,
+  cancelJiraMigration,
+  createJiraMigration,
+  discardJiraMigration,
+  jiraMigration,
+  jiraMigrationRequest,
+  jiraMigrations,
   jiraOrgRequest,
-  jiraProfileAtom,
-  jiraProjectsAtom,
+  jiraProfile,
+  jiraProjects,
   jiraProjectsRequest,
-  jiraSitesAtom,
-  rescanJiraMigrationAtom,
-  runJiraMigrationAtom
+  jiraSites,
+  rescanJiraMigration,
+  runJiraMigration
 } from "@/features/jira/atoms/jiraMigration"
 import {
   JiraMigrationForm,
@@ -55,9 +55,9 @@ import { JiraSourceStep } from "./JiraSourceStep"
 import { JiraTerminalStep } from "./JiraTerminalStep"
 
 export function JiraMigrationStartPage({ orgSlug }: { orgSlug: string }) {
-  const profile = useAtomValue(jiraProfileAtom)
-  const refreshProfile = useAtomRefresh(jiraProfileAtom)
-  const migrations = useAtomValue(jiraMigrationsAtom(jiraOrgRequest(orgSlug)))
+  const profile = useAtomValue(jiraProfile)
+  const refreshProfile = useAtomRefresh(jiraProfile)
+  const migrations = useAtomValue(jiraMigrations(jiraOrgRequest(orgSlug)))
 
   return Result.matchWithError(profile, {
     onInitial: () => (
@@ -137,18 +137,18 @@ function ConnectedSource({
   orgSlug: string
   connection: JiraConnection
 }) {
-  const sitesResult = useAtomValue(jiraSitesAtom)
-  const refreshSites = useAtomRefresh(jiraSitesAtom)
-  const refreshProfile = useAtomRefresh(jiraProfileAtom)
+  const sitesResult = useAtomValue(jiraSites)
+  const refreshSites = useAtomRefresh(jiraSites)
+  const refreshProfile = useAtomRefresh(jiraProfile)
   const retrySites = () => {
     refreshProfile()
     refreshSites()
   }
-  const create = useAtomSet(createJiraMigrationAtom(jiraOrgRequest(orgSlug)), {
+  const create = useAtomSet(createJiraMigration(jiraOrgRequest(orgSlug)), {
     mode: "promiseExit"
   })
   const createResult = useAtomValue(
-    createJiraMigrationAtom(jiraOrgRequest(orgSlug))
+    createJiraMigration(jiraOrgRequest(orgSlug))
   )
   const navigate = useNavigate()
   const requestId = useRef<string | null>(null)
@@ -207,20 +207,35 @@ function ConnectedSource({
     onDefect: (defect) => (
       <ErrorPage error={defect} reset={retrySites} contained />
     ),
-    onSuccess: ({ value }) => (
-      <ProjectsSource
-        orgSlug={orgSlug}
-        connection={connection}
-        sites={value}
-        cloudId={cloudId}
-        projectId={projectId}
-        setCloudId={changeCloudId}
-        setProjectId={changeProjectId}
-        scanWaiting={createResult.waiting}
-        scanError={scanError}
-        onScan={() => void scan()}
-      />
-    )
+    onSuccess: ({ value }) =>
+      cloudId ? (
+        <ProjectsSource
+          orgSlug={orgSlug}
+          connection={connection}
+          sites={value}
+          cloudId={cloudId}
+          projectId={projectId}
+          setCloudId={changeCloudId}
+          setProjectId={changeProjectId}
+          scanWaiting={createResult.waiting}
+          scanError={scanError}
+          onScan={() => void scan()}
+        />
+      ) : (
+        <SourceView
+          orgSlug={orgSlug}
+          connection={connection}
+          sites={value}
+          projects={[]}
+          cloudId={cloudId}
+          projectId={projectId}
+          setCloudId={changeCloudId}
+          setProjectId={changeProjectId}
+          scanWaiting={createResult.waiting}
+          scanError={scanError}
+          onScan={() => void scan()}
+        />
+      )
   })
 }
 
@@ -254,10 +269,10 @@ function ProjectsSource({
   scanError: string | null
   onScan: () => void
 }) {
-  const projectsAtom = jiraProjectsAtom(jiraProjectsRequest(cloudId))
+  const projectsAtom = jiraProjects(jiraProjectsRequest(cloudId))
   const projectsResult = useAtomValue(projectsAtom)
   const refreshProjects = useAtomRefresh(projectsAtom)
-  const refreshProfile = useAtomRefresh(jiraProfileAtom)
+  const refreshProfile = useAtomRefresh(jiraProfile)
   const retryProjects = () => {
     refreshProfile()
     refreshProjects()
@@ -274,7 +289,7 @@ function ProjectsSource({
         projectId={projectId}
         setCloudId={setCloudId}
         setProjectId={setProjectId}
-        projectsLoading={Boolean(cloudId)}
+        projectsLoading
         scanWaiting={scanWaiting}
         scanError={scanError}
         onScan={onScan}
@@ -361,7 +376,7 @@ function ResumeRegion({
   result: Result.AsyncResult<ReadonlyArray<JiraMigrationSummary>, unknown>
 }) {
   const refreshMigrations = useAtomRefresh(
-    jiraMigrationsAtom(jiraOrgRequest(orgSlug))
+    jiraMigrations(jiraOrgRequest(orgSlug))
   )
   return (
     <div className="border-t border-border py-6">
@@ -434,8 +449,8 @@ export function JiraMigrationItemPage({
   orgSlug: string
   migrationId: string
 }) {
-  const key = jiraMigrationKey(orgSlug, migrationId)
-  const detailAtom = jiraMigrationAtom(key)
+  const key = jiraMigrationRequest(orgSlug, migrationId)
+  const detailAtom = jiraMigration(key)
   const detail = useAtomValue(detailAtom)
   const refreshDetail = useAtomRefresh(detailAtom)
 
@@ -466,22 +481,22 @@ function JiraMigrationDetailPage({
   detail: JiraMigrationDetail
   waiting: boolean
 }) {
-  const key = jiraMigrationKey(orgSlug, detail.id)
+  const key = jiraMigrationRequest(orgSlug, detail.id)
   const navigate = useNavigate()
-  const run = useAtomSet(runJiraMigrationAtom(key), { mode: "promiseExit" })
-  const rescan = useAtomSet(rescanJiraMigrationAtom(key), {
+  const run = useAtomSet(runJiraMigration(key), { mode: "promiseExit" })
+  const rescan = useAtomSet(rescanJiraMigration(key), {
     mode: "promiseExit"
   })
-  const cancel = useAtomSet(cancelJiraMigrationAtom(key), {
+  const cancel = useAtomSet(cancelJiraMigration(key), {
     mode: "promiseExit"
   })
-  const discard = useAtomSet(discardJiraMigrationAtom(key), {
+  const discard = useAtomSet(discardJiraMigration(key), {
     mode: "promiseExit"
   })
-  const runState = useAtomValue(runJiraMigrationAtom(key))
-  const rescanState = useAtomValue(rescanJiraMigrationAtom(key))
-  const cancelState = useAtomValue(cancelJiraMigrationAtom(key))
-  const discardState = useAtomValue(discardJiraMigrationAtom(key))
+  const runState = useAtomValue(runJiraMigration(key))
+  const rescanState = useAtomValue(rescanJiraMigration(key))
+  const cancelState = useAtomValue(cancelJiraMigration(key))
+  const discardState = useAtomValue(discardJiraMigration(key))
   const actionError =
     jiraMigrationActionError(runState) ??
     jiraMigrationActionError(rescanState) ??

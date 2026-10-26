@@ -17,6 +17,7 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
+import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 export type OrgRequest = Readonly<{
   params: Readonly<{ orgSlug: string }>
@@ -67,20 +68,15 @@ export const orgMembers = Atom.family((req: OrgRequest) =>
 )
 
 export const renameOrg = Atom.family((req: OrgRequest) =>
-  Atom.optimisticFn(orgDetail(req), {
-    reducer: (current, input: RenameOrgInput) =>
-      AsyncResult.map(current, (org) => ({ ...org, name: input.name })),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("renameOrg")(function* (input: RenameOrgInput) {
-          const renamed = yield* Api.use((client) =>
-            client.org.rename({ params: req.params, payload: input })
-          )
-          set(AsyncResult.success(renamed))
-          yield* Reactivity.invalidate([Keys.orgs()])
-          return renamed
-        })
-      )
+  viewMutation(orgDetail(req), {
+    name: "renameOrg",
+    predict: (org, input: RenameOrgInput) => ({ ...org, name: input.name }),
+    call: (input) =>
+      Api.use((client) =>
+        client.org.rename({ params: req.params, payload: input })
+      ),
+    confirm: replaceWith,
+    publish: () => [Keys.orgs()]
   })
 )
 
@@ -94,80 +90,57 @@ const softDeleted = (org: OrgDetail): OrgDetail => {
 }
 
 export const softDeleteOrg = Atom.family((req: OrgRequest) =>
-  Atom.optimisticFn(orgDetail(req), {
-    reducer: (current, _input: void) => AsyncResult.map(current, softDeleted),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("softDeleteOrg")(function* (_input: void) {
-          const deleted = yield* Api.use((client) =>
-            client.org.softDelete({ params: req.params })
-          )
-          set(AsyncResult.success(deleted))
-          yield* Reactivity.invalidate([Keys.orgs()])
-          return deleted
-        })
-      )
+  viewMutation(orgDetail(req), {
+    name: "softDeleteOrg",
+    predict: (org, _input: void) => softDeleted(org),
+    call: () =>
+      Api.use((client) => client.org.softDelete({ params: req.params })),
+    confirm: replaceWith,
+    publish: () => [Keys.orgs()]
   })
 )
 
 export const restoreOrg = Atom.family((req: OrgRequest) =>
-  Atom.optimisticFn(orgDetail(req), {
-    reducer: (current, _input: void) =>
-      AsyncResult.map(current, (org) => ({
-        ...org,
-        deletedAt: null,
-        purgeAt: null
-      })),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("restoreOrg")(function* (_input: void) {
-          const restored = yield* Api.use((client) =>
-            client.org.restore({ params: req.params })
-          )
-          set(AsyncResult.success(restored))
-          yield* Reactivity.invalidate([Keys.orgs()])
-          return restored
-        })
-      )
+  viewMutation(orgDetail(req), {
+    name: "restoreOrg",
+    predict: (org, _input: void) => ({
+      ...org,
+      deletedAt: null,
+      purgeAt: null
+    }),
+    call: () => Api.use((client) => client.org.restore({ params: req.params })),
+    confirm: replaceWith,
+    publish: () => [Keys.orgs()]
   })
 )
 
 const pendingInvitationId = (email: string) => `pending-invitation:${email}`
 
 export const inviteMember = Atom.family((req: OrgRequest) =>
-  Atom.optimisticFn(orgMembers(req), {
-    reducer: (current, input: InviteMemberInput) =>
-      AsyncResult.map(current, (value) => ({
-        ...value,
-        invitations: [
-          ...value.invitations,
-          {
-            id: pendingInvitationId(input.email),
-            email: input.email,
-            role: input.role,
-            status: "pending" as const
-          }
-        ]
-      })),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("inviteMember")(function* (input: InviteMemberInput, get) {
-          const invitation = yield* Api.use((client) =>
-            client.org.inviteMember({ params: req.params, payload: input })
-          )
-          set(
-            AsyncResult.map(get(orgMembers(req)), (value) => ({
-              ...value,
-              invitations: value.invitations.map((pending) =>
-                pending.id === pendingInvitationId(input.email)
-                  ? invitation
-                  : pending
-              )
-            }))
-          )
-          return invitation
-        })
+  viewMutation(orgMembers(req), {
+    name: "inviteMember",
+    predict: (value, input: InviteMemberInput) => ({
+      ...value,
+      invitations: [
+        ...value.invitations,
+        {
+          id: pendingInvitationId(input.email),
+          email: input.email,
+          role: input.role,
+          status: "pending" as const
+        }
+      ]
+    }),
+    call: (input) =>
+      Api.use((client) =>
+        client.org.inviteMember({ params: req.params, payload: input })
+      ),
+    confirm: (value, invitation, input) => ({
+      ...value,
+      invitations: value.invitations.map((pending) =>
+        pending.id === pendingInvitationId(input.email) ? invitation : pending
       )
+    })
   })
 )
 
@@ -182,37 +155,26 @@ const withMemberRole = (
   )
 })
 
-export const updateMemberRole = Atom.family(
-  ({ req, userId }: Readonly<{ req: OrgRequest; userId: string }>) =>
-    Atom.optimisticFn(orgMembers(req), {
-      reducer: (current, input: UpdateMemberRoleInput) =>
-        AsyncResult.map(current, (value) => ({
-          ...value,
-          members: value.members.map((member) =>
-            member.userId === userId ? { ...member, role: input.role } : member
-          )
-        })),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("updateMemberRole")(function* (
-            input: UpdateMemberRoleInput,
-            get
-          ) {
-            const member = yield* Api.use((client) =>
-              client.org.updateMemberRole({
-                params: { ...req.params, userId },
-                payload: input
-              })
-            )
-            set(
-              AsyncResult.map(get(orgMembers(req)), (value) =>
-                withMemberRole(value, userId, member)
-              )
-            )
-            return member
-          })
-        )
-    })
+type MemberKey = Readonly<{ req: OrgRequest; userId: string }>
+
+export const updateMemberRole = Atom.family(({ req, userId }: MemberKey) =>
+  viewMutation(orgMembers(req), {
+    name: "updateMemberRole",
+    predict: (value, input: UpdateMemberRoleInput) => ({
+      ...value,
+      members: value.members.map((member) =>
+        member.userId === userId ? { ...member, role: input.role } : member
+      )
+    }),
+    call: (input) =>
+      Api.use((client) =>
+        client.org.updateMemberRole({
+          params: { ...req.params, userId },
+          payload: input
+        })
+      ),
+    confirm: (value, member) => withMemberRole(value, userId, member)
+  })
 )
 
 const withoutMember = (value: OrgMembers, userId: string): OrgMembers => ({
@@ -220,29 +182,20 @@ const withoutMember = (value: OrgMembers, userId: string): OrgMembers => ({
   members: value.members.filter((member) => member.userId !== userId)
 })
 
-export const removeMember = Atom.family(
-  ({ req, userId }: Readonly<{ req: OrgRequest; userId: string }>) =>
-    Atom.optimisticFn(orgMembers(req), {
-      reducer: (current, _input: void) =>
-        AsyncResult.map(current, (value) => withoutMember(value, userId)),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("removeMember")(function* (_input: void, get) {
-            yield* Api.use((client) =>
-              client.org.removeMember({ params: { ...req.params, userId } })
-            )
-            set(
-              AsyncResult.map(get(orgMembers(req)), (value) =>
-                withoutMember(value, userId)
-              )
-            )
-            yield* Reactivity.invalidate([
-              Keys.orgMembers(req.params.orgSlug),
-              Keys.projects(req.params.orgSlug)
-            ])
-          })
-        )
-    })
+export const removeMember = Atom.family(({ req, userId }: MemberKey) =>
+  viewMutation(orgMembers(req), {
+    name: "removeMember",
+    predict: (value, _input: void) => withoutMember(value, userId),
+    call: () =>
+      Api.use((client) =>
+        client.org.removeMember({ params: { ...req.params, userId } })
+      ),
+    confirm: (value) => withoutMember(value, userId),
+    publish: () => [
+      Keys.orgMembers(req.params.orgSlug),
+      Keys.projects(req.params.orgSlug)
+    ]
+  })
 )
 
 const withoutInvitation = (
@@ -260,26 +213,16 @@ export const cancelInvitation = Atom.family(
     req,
     invitationId
   }: Readonly<{ req: OrgRequest; invitationId: string }>) =>
-    Atom.optimisticFn(orgMembers(req), {
-      reducer: (current, _input: void) =>
-        AsyncResult.map(current, (value) =>
-          withoutInvitation(value, invitationId)
-        ),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("cancelInvitation")(function* (_input: void, get) {
-            yield* Api.use((client) =>
-              client.org.cancelInvitation({
-                params: { ...req.params, invitationId }
-              })
-            )
-            set(
-              AsyncResult.map(get(orgMembers(req)), (value) =>
-                withoutInvitation(value, invitationId)
-              )
-            )
+    viewMutation(orgMembers(req), {
+      name: "cancelInvitation",
+      predict: (value, _input: void) => withoutInvitation(value, invitationId),
+      call: () =>
+        Api.use((client) =>
+          client.org.cancelInvitation({
+            params: { ...req.params, invitationId }
           })
-        )
+        ),
+      confirm: (value) => withoutInvitation(value, invitationId)
     })
 )
 
@@ -303,30 +246,16 @@ export const transferOwnership = Atom.family(
     req,
     callerUserId
   }: Readonly<{ req: OrgRequest; callerUserId: string }>) =>
-    Atom.optimisticFn(orgMembers(req), {
-      reducer: (current, input: TransferOrgOwnershipInput) =>
-        AsyncResult.map(current, (value) =>
-          withOwnershipTransferred(value, input.userId, callerUserId)
+    viewMutation(orgMembers(req), {
+      name: "transferOwnership",
+      predict: (value, input: TransferOrgOwnershipInput) =>
+        withOwnershipTransferred(value, input.userId, callerUserId),
+      call: (input) =>
+        Api.use((client) =>
+          client.org.transferOwnership({ params: req.params, payload: input })
         ),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("transferOwnership")(function* (
-            input: TransferOrgOwnershipInput
-          ) {
-            const members = yield* Api.use((client) =>
-              client.org.transferOwnership({
-                params: req.params,
-                payload: input
-              })
-            )
-            set(AsyncResult.success(members))
-            yield* Reactivity.invalidate([
-              Keys.org(req.params.orgSlug),
-              Keys.orgs()
-            ])
-            return members
-          })
-        )
+      confirm: replaceWith,
+      publish: () => [Keys.org(req.params.orgSlug), Keys.orgs()]
     })
 )
 

@@ -1,10 +1,9 @@
 import type { GitAutomation, UpdateGitAutomationInput } from "@pp/shared"
-import * as Effect from "effect/Effect"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 export type GitAutomationRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
@@ -33,26 +32,16 @@ export const gitAutomationFor = Atom.family((req: GitAutomationRequest) =>
 )
 
 export const updateGitAutomation = Atom.family((req: GitAutomationRequest) =>
-  Atom.optimisticFn(gitAutomationFor(req), {
-    reducer: (current, input: UpdateGitAutomationInput) =>
-      AsyncResult.map(
-        current,
-        (value): GitAutomation => ({
-          rules: { ...value.rules, ...input.rules },
-          forwardOnly: input.forwardOnly ?? value.forwardOnly
-        })
+  viewMutation(gitAutomationFor(req), {
+    name: "updateGitAutomation",
+    predict: (value, input: UpdateGitAutomationInput): GitAutomation => ({
+      rules: { ...value.rules, ...input.rules },
+      forwardOnly: input.forwardOnly ?? value.forwardOnly
+    }),
+    call: (input) =>
+      Api.use((client) =>
+        client.gitAutomation.update({ params: req.params, payload: input })
       ),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("updateGitAutomation")(function* (
-          input: UpdateGitAutomationInput
-        ) {
-          const saved = yield* Api.use((client) =>
-            client.gitAutomation.update({ params: req.params, payload: input })
-          )
-          set(AsyncResult.success(saved))
-          return saved
-        })
-      )
+    confirm: replaceWith
   })
 )

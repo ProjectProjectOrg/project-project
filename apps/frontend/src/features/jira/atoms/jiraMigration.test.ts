@@ -1,14 +1,13 @@
 import { describe, expect, it } from "vitest"
 
 import {
-  cancelJiraMigrationAtom,
-  configureJiraMigrationAtom,
-  jiraMigrationAtom,
-  jiraMigrationKey,
-  jiraMigrationsAtom,
+  cancelJiraMigration,
+  configureJiraMigration,
+  jiraMigration,
+  jiraMigrationRequest,
+  jiraMigrations,
   jiraOrgRequest,
-  refreshJiraMigrationAtom,
-  runJiraMigrationAtom
+  runJiraMigration
 } from "./jiraMigration"
 
 const fetchStub = stubFetch()
@@ -46,28 +45,21 @@ const encoded = (id: string) =>
 
 describe("Jira migration atoms", () => {
   it("shares structurally equal view requests and isolates migration mutations", () => {
-    const first = jiraMigrationKey("org", "migration-a")
-    const equal = jiraMigrationKey("org", "migration-a")
-    const other = jiraMigrationKey("org", "migration-b")
+    const first = jiraMigrationRequest("org", "migration-a")
+    const equal = jiraMigrationRequest("org", "migration-a")
+    const other = jiraMigrationRequest("org", "migration-b")
 
-    expect(jiraMigrationAtom(first)).toBe(jiraMigrationAtom(equal))
-    expect(jiraMigrationAtom(first)).not.toBe(jiraMigrationAtom(other))
-    expect(jiraMigrationsAtom(jiraOrgRequest("org"))).toBe(
-      jiraMigrationsAtom(jiraOrgRequest("org"))
+    expect(jiraMigration(first)).toBe(jiraMigration(equal))
+    expect(jiraMigration(first)).not.toBe(jiraMigration(other))
+    expect(jiraMigrations(jiraOrgRequest("org"))).toBe(
+      jiraMigrations(jiraOrgRequest("org"))
     )
-    expect(configureJiraMigrationAtom(first)).toBe(
-      configureJiraMigrationAtom(equal)
+    expect(configureJiraMigration(first)).toBe(configureJiraMigration(equal))
+    expect(configureJiraMigration(first)).not.toBe(
+      configureJiraMigration(other)
     )
-    expect(configureJiraMigrationAtom(first)).not.toBe(
-      configureJiraMigrationAtom(other)
-    )
-    expect(runJiraMigrationAtom(first)).not.toBe(runJiraMigrationAtom(other))
-    expect(cancelJiraMigrationAtom(first)).not.toBe(
-      cancelJiraMigrationAtom(other)
-    )
-    expect(refreshJiraMigrationAtom(first)).toBe(
-      refreshJiraMigrationAtom(equal)
-    )
+    expect(runJiraMigration(first)).not.toBe(runJiraMigration(other))
+    expect(cancelJiraMigration(first)).not.toBe(cancelJiraMigration(other))
   })
 
   it("keeps mutation progress with the migration that was edited", async () => {
@@ -85,12 +77,12 @@ describe("Jira migration atoms", () => {
     })
 
     const registry = Registry.make()
-    const first = jiraMigrationKey("org", "migration-a")
-    const second = jiraMigrationKey("org", "migration-b")
-    const firstView = jiraMigrationAtom(first)
-    const secondView = jiraMigrationAtom(second)
-    const firstRun = runJiraMigrationAtom(first)
-    const secondRun = runJiraMigrationAtom(second)
+    const first = jiraMigrationRequest("org", "migration-a")
+    const second = jiraMigrationRequest("org", "migration-b")
+    const firstView = jiraMigration(first)
+    const secondView = jiraMigration(second)
+    const firstRun = runJiraMigration(first)
+    const secondRun = runJiraMigration(second)
     registry.mount(firstView)
     registry.mount(secondView)
     registry.mount(firstRun)
