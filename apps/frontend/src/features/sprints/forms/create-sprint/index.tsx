@@ -8,7 +8,7 @@ import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
-import { useInlineForm } from "@/components/ui/inline-form"
+import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import {
   Popover,
   PopoverContent,
@@ -35,18 +35,19 @@ export function CreateSprintForm() {
     ? m.sprints_create_error_fallback()
     : null
   const navigate = useNavigate()
-  const { close } = useInlineForm()
+  const { close, setBusy } = useInlineForm()
   const [pickerOpen, setPickerOpen] = useState(false)
   const form = useAppForm({
     ...createSprintFormOpts(),
     onSubmit: async ({ value }) => {
       if (!value.range.from || !value.range.to) return
+      setBusy(true)
       const exit = await create({
         name: value.name.trim(),
         startsAt: value.range.from,
         endsAt: value.range.to
       })
-      if (!Exit.isSuccess(exit)) return
+      if (!Exit.isSuccess(exit)) return setBusy(false)
       close()
       void navigate({
         to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
@@ -60,9 +61,6 @@ export function CreateSprintForm() {
       onSubmit={(event) => {
         event.preventDefault()
         if (!busy) void form.handleSubmit()
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape" && busy) event.preventDefault()
       }}
       className="flex flex-col gap-2"
     >
@@ -135,15 +133,9 @@ export function CreateSprintForm() {
         )}
       </form.Field>
       <div className="flex justify-end gap-1">
-        <Button
-          type="button"
-          size="xs"
-          variant="tertiary"
-          disabled={busy}
-          onClick={close}
-        >
+        <InlineForm.Cancel size="xs" variant="tertiary" leadingIcon={undefined}>
           {m.common_cancel_button()}
-        </Button>
+        </InlineForm.Cancel>
         <Button
           type="submit"
           variant="primary"
