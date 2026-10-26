@@ -23,6 +23,14 @@ export const currentUserId = Atom.make((get) => {
   return AsyncResult.isSuccess(viewer) ? viewer.value.id : undefined
 })
 
+export const sendMagicLink = Api.runtime.fn(
+  Effect.fn("sendMagicLink")(function* (
+    input: Readonly<{ email: string; callbackURL: string }>
+  ) {
+    yield* Effect.tryPromise(() => authData(authClient.signIn.magicLink(input)))
+  })
+)
+
 export const logout = Api.runtime.fn(
   Effect.fn("logout")(function* (_: void) {
     yield* Effect.tryPromise(() => authData(authClient.signOut()))
