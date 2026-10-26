@@ -1,4 +1,3 @@
-import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element"
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import {
   RegistryContext,
@@ -18,7 +17,7 @@ import type {
 import * as Result from "effect/reactivity/AsyncResult"
 import { Loader2 } from "lucide-react"
 import { motion, Reorder } from "motion/react"
-import { useContext, useEffect, useMemo, useRef, useState } from "react"
+import { useContext, useEffect, useMemo, useRef } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
@@ -30,6 +29,8 @@ import {
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { SprintBoardColumn } from "@/features/sprints/components/SprintBoardColumn"
 import { useBoardViewport } from "@/features/sprints/hooks/useBoardViewport"
+import { useHorizontalAutoScroll } from "@/features/sprints/hooks/useHorizontalAutoScroll"
+import { useReorderMode } from "@/features/sprints/hooks/useReorderMode"
 import {
   boardStatusesFor,
   isDragData,
@@ -106,27 +107,9 @@ function BacklogBoardContent({
   )
   const ref = useRef<HTMLDivElement>(null)
   const canMove = TicketPolicy.canChange(useProjectActor(), { status: true })
-  const groupRef = useRef<HTMLDivElement>(null)
-  const [frozenWidth, setFrozenWidth] = useState<number | null>(null)
+  const groupRef = useReorderMode(reorderMode, onExitReorder)
   const { height, hasRightOverflow } = useBoardViewport(ref)
-
-  useEffect(() => {
-    if (reorderMode) {
-      const w = groupRef.current?.scrollWidth ?? null
-      if (w) setFrozenWidth(w)
-    } else {
-      setFrozenWidth(null)
-    }
-  }, [reorderMode])
-
-  useEffect(() => {
-    if (!reorderMode) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onExitReorder()
-    }
-    document.addEventListener("keydown", onKey)
-    return () => document.removeEventListener("keydown", onKey)
-  }, [reorderMode, onExitReorder])
+  useHorizontalAutoScroll(ref, !reorderMode && canMove)
 
   const registry = useContext(RegistryContext)
 
@@ -166,11 +149,7 @@ function BacklogBoardContent({
   useEffect(() => {
     const el = ref.current
     if (!el || reorderMode || !canMove) return
-    const cleanupAutoScroll = autoScrollForElements({
-      element: el,
-      getAllowedAxis: () => "horizontal"
-    })
-    const cleanupMonitor = monitorForElements({
+    return monitorForElements({
       onDrop({ source, location }) {
         const target = location.current.dropTargets[0]
         if (!target) return
@@ -187,10 +166,6 @@ function BacklogBoardContent({
         })
       }
     })
-    return () => {
-      cleanupAutoScroll()
-      cleanupMonitor()
-    }
   }, [canMove, reorderMode, req, registry])
 
   return (
@@ -210,7 +185,6 @@ function BacklogBoardContent({
         axis="x"
         values={[...order]}
         onReorder={(next) => setDragOrder(next)}
-        style={frozenWidth ? { width: `${frozenWidth}px` } : undefined}
         className="flex h-full gap-3"
       >
         {order.map((status) => {

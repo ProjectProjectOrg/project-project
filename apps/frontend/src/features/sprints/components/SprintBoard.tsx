@@ -1,4 +1,3 @@
-import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element"
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import {
   RegistryContext,
@@ -33,6 +32,8 @@ import {
   type BoardRequest,
   type BoardValue
 } from "@/features/sprints/atoms/sprintBoard"
+import { useHorizontalAutoScroll } from "@/features/sprints/hooks/useHorizontalAutoScroll"
+import { useReorderMode } from "@/features/sprints/hooks/useReorderMode"
 import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 
@@ -119,30 +120,12 @@ function SprintBoardContent({
 }) {
   const { orgSlug, slug } = useProjectRoute()
   const ref = useRef<HTMLDivElement>(null)
-  const groupRef = useRef<HTMLDivElement>(null)
+  const groupRef = useReorderMode(reorderMode, onExitReorder)
   const actor = useProjectActor()
   const canReorder = GroupPolicy.can(actor, "sprint", "reorder")
   const canTransition = TicketPolicy.canChange(actor, { status: true })
-  const [frozenWidth, setFrozenWidth] = useState<number | null>(null)
   const { height, hasRightOverflow } = useBoardViewport(ref)
-
-  useEffect(() => {
-    if (reorderMode) {
-      const w = groupRef.current?.scrollWidth ?? null
-      if (w) setFrozenWidth(w)
-    } else {
-      setFrozenWidth(null)
-    }
-  }, [reorderMode])
-
-  useEffect(() => {
-    if (!reorderMode) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onExitReorder()
-    }
-    document.addEventListener("keydown", onKey)
-    return () => document.removeEventListener("keydown", onKey)
-  }, [reorderMode, onExitReorder])
+  useHorizontalAutoScroll(ref, !isCompleted && !reorderMode && canReorder)
 
   const registry = useContext(RegistryContext)
   const statusSlugs = useMemo(() => boardStatusesFor(statuses), [statuses])
@@ -177,11 +160,7 @@ function SprintBoardContent({
   useEffect(() => {
     const el = ref.current
     if (!el || isCompleted || reorderMode || !canReorder) return
-    const cleanupAutoScroll = autoScrollForElements({
-      element: el,
-      getAllowedAxis: () => "horizontal"
-    })
-    const cleanupMonitor = monitorForElements({
+    return monitorForElements({
       onDrop({ source, location }) {
         const target = location.current.dropTargets[0]
         if (!target) return
@@ -218,10 +197,6 @@ function SprintBoardContent({
         flash(src.id)
       }
     })
-    return () => {
-      cleanupAutoScroll()
-      cleanupMonitor()
-    }
   }, [canReorder, canTransition, isCompleted, reorderMode, req, registry])
 
   return (
@@ -242,7 +217,6 @@ function SprintBoardContent({
         axis="x"
         values={[...order]}
         onReorder={(next) => setDragOrder(next)}
-        style={frozenWidth ? { width: `${frozenWidth}px` } : undefined}
         className="flex h-full gap-3"
       >
         {order.map((status) => (
