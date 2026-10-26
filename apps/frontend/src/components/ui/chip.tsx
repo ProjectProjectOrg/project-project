@@ -30,8 +30,8 @@ function Chip({
     defaultTagName: "span",
     render,
     props: {
-      ...props,
       "data-slot": "chip",
+      ...props,
       className: cn(chipVariants({ press }), className)
     }
   })
