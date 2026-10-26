@@ -74,6 +74,7 @@ routes/         route files
 - **Placement.** Code used by one feature lives in that feature; `lib/`, `hooks/` and `components/shell` hold what several features share.
 - **Naming.** Directories are kebab-case. React component files are PascalCase (`TicketHoverCard.tsx`), hooks are `useX.ts`, other modules are camelCase (`activityGroups.ts`). `components/ui` keeps the kebab-case names the shadcn CLI generates. A component folder such as `ticket-list/` may hold its private helpers and hooks.
 - Tests sit beside the module they test.
+- **Pure logic lives in `lib/` with tests.** Sorting, grouping, formatting, payload building and state transitions that a component holds move to `features/<x>/lib/` with a sibling test, not into `*.logic.ts` files beside the component; the component keeps rendering and wiring.
 - **Project scope.** Components rendered only inside a project read `orgSlug` and `slug` from `useProjectRoute()` (`features/projects/hooks/useProject.ts`), which reads `ProjectContext`. `ProjectLayout` provides it for the project route and `DashboardTicket` for each dashboard row, so don't drill the slugs as props. Components also rendered at org scope (dashboard lists, project tiles, hover cards that show another project's ticket) keep explicit props. Sidebar slots render outside the project tree, so a project-scoped slot wraps its content in `ProjectContext`.
 
 ### Types: readonly type aliases, never interfaces
@@ -191,6 +192,13 @@ Follow the upstream multi-step wizard example. There is no stepped-form componen
 - The last step's group `onSubmit` calls `form.handleSubmit()`.
 - Put the whole-form schema in the form's own `validators` with `triggers: []`, so it runs on `form.handleSubmit()` only. That validates every step regardless of which groups are mounted.
 - Use `createValidator` for the per-step validators so a step only revalidates on change after its first submit attempt — don't show errors before the user has tried.
+
+### Single-step forms
+
+- Wrap the form's Effect Schema in `validateAfterSubmit` from `lib/form.ts`. It runs on submit, then on change and blur after the first attempt. Include blur: a blur clears submit errors from validators that don't run on blur.
+- Validators that depend on runtime data (taken keys, a derived key) are a `Schema.makeFilter` on the struct returning `{ path: ["field"], issue: m.message() }`, so the issue lands on that field.
+- Keep the payload builder (`toLogTimeInput`, `toConnectStorageInput`) in `opts.ts` and test it there.
+- Inside an `InlineForm` shell, read busy and failure from the mutation atom; call the shell's `setBusy` around the awaited mutation only when its `Cancel` or Escape handling must respect it. Never mirror the atom into the shell from an effect.
 - Type a form passed to step components with `ReactFormType<typeof yourFormOpts>`.
 
 ### The form owns validity; the atom owns the mutation
