@@ -19,14 +19,6 @@ type SlotContext = {
 
 const Ctx = createContext<SlotContext | null>(null)
 
-const DrawerAutoCloseCtx = createContext<(() => void) | null>(null)
-
-export const SidebarDrawerAutoCloseProvider = DrawerAutoCloseCtx.Provider
-
-export function useSuppressSidebarAutoClose() {
-  return useContext(DrawerAutoCloseCtx)
-}
-
 const lastValue = (entries: Entries): ReactNode | null =>
   entries.length > 0 ? entries[entries.length - 1][1] : null
 

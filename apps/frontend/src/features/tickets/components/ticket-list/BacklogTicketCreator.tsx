@@ -10,13 +10,7 @@ import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Random from "effect/Random"
 import * as Result from "effect/reactivity/AsyncResult"
-import {
-  useContext,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent
-} from "react"
+import { useContext, useMemo, useRef, useState, type FormEvent } from "react"
 
 import { currentUserId } from "@/features/auth/atoms/auth"
 import { projectGitStates } from "@/features/github/atoms/github"
