@@ -1,11 +1,13 @@
 import { useAtomValue } from "@effect/atom-react"
-import * as Result from "effect/reactivity/AsyncResult"
+import type { User } from "@pp/shared"
 
+import { AsyncView } from "@/components/shell/AsyncView"
 import {
   SettingsGroup,
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
+import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { me } from "@/features/auth/atoms/auth"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { m } from "@/paraglide/messages"
@@ -13,9 +15,17 @@ import { getLocale } from "@/paraglide/runtime"
 
 export function Account() {
   const viewer = useAtomValue(me())
-  if (!Result.isSuccess(viewer)) return null
-  const user = viewer.value
+  return (
+    <AsyncView
+      result={viewer}
+      contained
+      onInitial={() => <SettingsSkeleton rows={3} />}
+      onSuccess={({ value }) => <AccountDetails user={value} />}
+    />
+  )
+}
 
+function AccountDetails({ user }: Readonly<{ user: User }>) {
   return (
     <SettingsSection>
       <SettingsGroup>

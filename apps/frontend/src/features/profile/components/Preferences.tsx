@@ -4,11 +4,13 @@ import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState } from "react"
 
+import { AsyncView } from "@/components/shell/AsyncView"
 import {
   SettingsGroup,
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
+import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { SettingsSegmented } from "@/components/shell/settings/SettingsTextField"
 import { me, updateEditorPreference } from "@/features/auth/atoms/auth"
 import { m } from "@/paraglide/messages"
@@ -39,8 +41,16 @@ function editorHint(preference: EditorPreference): string {
 
 export function Preferences() {
   const viewer = useAtomValue(me())
-  if (!Result.isSuccess(viewer)) return null
-  return <EditorPreferenceRow preference={viewer.value.editorPreference} />
+  return (
+    <AsyncView
+      result={viewer}
+      contained
+      onInitial={() => <SettingsSkeleton />}
+      onSuccess={({ value }) => (
+        <EditorPreferenceRow preference={value.editorPreference} />
+      )}
+    />
+  )
 }
 
 function EditorPreferenceRow({
