@@ -254,11 +254,9 @@ function ConnectedProjectTimerIndicator({
   const stopState = useAtomValue(stopTimerAtom(timerReq))
   const reduceMotion = useReducedMotion()
   const [open, setOpen] = useState(false)
-  const [workType, setWorkType] = useState(options[0].key)
+  const [pickedWorkType, setPickedWorkType] = useState<string | null>(null)
   const [showLog, setShowLog] = useState(false)
-  const [selectedGroupId, setSelectedGroupId] = useState<GroupId | null>(
-    routeGroupId
-  )
+  const [pickedGroupId, setPickedGroupId] = useState<GroupId | null>(null)
   const elapsed = useElapsed(timer ? timer.startedAt : null)
   const connected =
     Result.isSuccess(profileResult) && profileResult.value.connected
@@ -266,11 +264,9 @@ function ConnectedProjectTimerIndicator({
     () => (Result.isSuccess(sprintsResult) ? sprintsResult.value : []),
     [sprintsResult]
   )
-  const selectedSprint = selectedGroupId
-    ? sprints.find((s) => s.id === selectedGroupId)
-    : null
-  const fallbackSprint = defaultSprint(sprints, routeGroupId, timer, slug)
-  const effectiveSprint = selectedSprint ?? fallbackSprint
+  const pickedSprint = sprints.find((s) => s.id === pickedGroupId)
+  const effectiveSprint =
+    pickedSprint ?? defaultSprint(sprints, routeGroupId, timer, slug)
   const effectiveGroupId = effectiveSprint?.id ?? null
   const runningForSelected =
     timer !== null &&
@@ -308,38 +304,18 @@ function ConnectedProjectTimerIndicator({
         : options,
     [ticketId, ticketWorkTypesResult]
   )
+  const workType =
+    [pickedWorkType, timer?.workTypeKey].find((key) =>
+      availableOptions.some((option) => option.key === key)
+    ) ??
+    availableOptions[0]?.key ??
+    options[0].key
   const busy =
     timerWaiting ||
     startState.waiting ||
     startTicketState.waiting ||
     stopState.waiting ||
     ticketOptionsLoading
-
-  useEffect(() => {
-    const next = defaultSprint(sprints, routeGroupId, timer, slug)
-    if (!next) {
-      setSelectedGroupId(null)
-      return
-    }
-    setSelectedGroupId((current) =>
-      current && sprints.some((s) => s.id === current) ? current : next.id
-    )
-  }, [routeGroupId, slug, sprints, timer])
-
-  useEffect(() => {
-    if (timer?.workTypeKey) setWorkType(timer.workTypeKey)
-  }, [timer?.workTypeKey])
-
-  useEffect(() => {
-    if (!availableOptions.some((option) => option.key === workType)) {
-      const first = availableOptions[0]
-      if (first) setWorkType(first.key)
-    }
-  }, [availableOptions, workType])
-
-  useEffect(() => {
-    if (!open) setShowLog(false)
-  }, [open])
 
   if (Result.isInitial(profileResult)) {
     return <div className="h-7 w-48 animate-pulse rounded-lg bg-accent/60" />
@@ -376,7 +352,13 @@ function ConnectedProjectTimerIndicator({
   )
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) setShowLog(false)
+      }}
+    >
       <PopoverTrigger render={trigger} />
       <PopoverContent
         align="end"
@@ -411,7 +393,7 @@ function ConnectedProjectTimerIndicator({
                 value={effectiveGroupId}
                 sprints={sprints}
                 disabled={busy || sprints.length === 0}
-                onChange={setSelectedGroupId}
+                onChange={setPickedGroupId}
               />
             </label>
           )}
@@ -419,7 +401,7 @@ function ConnectedProjectTimerIndicator({
           {ticketId !== null || effectiveGroupId ? (
             <TimeControls
               value={workType}
-              onValueChange={setWorkType}
+              onValueChange={setPickedWorkType}
               options={availableOptions}
               running={runningForSelected}
               busy={busy}
