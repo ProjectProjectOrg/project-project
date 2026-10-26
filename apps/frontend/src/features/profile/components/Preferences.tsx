@@ -2,7 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { EditorPreference } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 import {
   SettingsGroup,
@@ -51,8 +51,12 @@ function EditorPreferenceRow({
   })
   const updateState = useAtomValue(updateEditorPreference)
   const [selected, setSelected] = useState(preference)
+  const [syncedPreference, setSyncedPreference] = useState(preference)
 
-  useEffect(() => setSelected(preference), [preference])
+  if (preference !== syncedPreference) {
+    setSyncedPreference(preference)
+    setSelected(preference)
+  }
 
   function choose(next: EditorPreference) {
     if (next === selected) return

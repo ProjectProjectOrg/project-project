@@ -10,7 +10,7 @@ import {
 } from "@pp/shared"
 import { GripVertical, Lock } from "lucide-react"
 import { Reorder, useDragControls, type DragControls } from "motion/react"
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 
 import { ColorPicker } from "@/components/ui/color-picker"
 import { Input } from "@/components/ui/input"
@@ -66,10 +66,12 @@ export function StatusRow({
   const [iconMenuOpen, setIconMenuOpen] = useState(false)
   const [colorMenuOpen, setColorMenuOpen] = useState(false)
   const menuOpen = iconMenuOpen || colorMenuOpen
+  const [syncedLabel, setSyncedLabel] = useState<string>(status.label)
 
-  useEffect(() => {
+  if (status.label !== syncedLabel) {
+    setSyncedLabel(status.label)
     setDraftLabel(status.label)
-  }, [status.label])
+  }
 
   const commitLabel = () => {
     if (baseline || draftLabel === status.label) return

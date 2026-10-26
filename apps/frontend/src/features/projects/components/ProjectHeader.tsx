@@ -16,7 +16,7 @@ import {
   motion,
   useReducedMotion
 } from "motion/react"
-import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react"
+import { useState, type KeyboardEvent, type ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -264,10 +264,6 @@ function NameField({ name, canEdit }: { name: string; canEdit: boolean }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(name)
 
-  useEffect(() => {
-    if (!editing) setDraft(name)
-  }, [editing, name])
-
   async function commit() {
     const trimmed = draft.trim()
     if (!trimmed || trimmed === name) {
@@ -294,7 +290,11 @@ function NameField({ name, canEdit }: { name: string; canEdit: boolean }) {
     return (
       <button
         type="button"
-        onClick={() => canEdit && setEditing(true)}
+        onClick={() => {
+          if (!canEdit) return
+          setDraft(name)
+          setEditing(true)
+        }}
         disabled={!canEdit}
         className={cn(
           "-mx-1 truncate rounded px-1 text-left text-2xl font-semibold tracking-tight transition-colors transition-transform duration-100 active:scale-[0.97]",
