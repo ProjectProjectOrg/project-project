@@ -85,10 +85,8 @@ export const archiveTicket = Atom.family((req: TicketRequest) =>
       ticket.archivedAt === null
         ? { ...ticket, archivedAt: DateTime.toDate(DateTime.nowUnsafe()) }
         : ticket,
-    call: (input) =>
-      Api.use((client) =>
-        client.tickets.archive({ params: req.params, payload: input })
-      ),
+    call: (client, input) =>
+      client.tickets.archive({ params: req.params, payload: input }),
     confirm: replaceWith,
     publish: () => Keys.ticketsChanged(scopeOf(req))
   })
@@ -98,8 +96,7 @@ export const unarchiveTicket = Atom.family((req: TicketRequest) =>
   viewMutation(ticketDetail(req), {
     name: "unarchiveTicket",
     predict: (ticket, _input: void) => ({ ...ticket, archivedAt: null }),
-    call: () =>
-      Api.use((client) => client.tickets.unarchive({ params: req.params })),
+    call: (client) => client.tickets.unarchive({ params: req.params }),
     confirm: replaceWith,
     publish: () => Keys.ticketsChanged(scopeOf(req))
   })

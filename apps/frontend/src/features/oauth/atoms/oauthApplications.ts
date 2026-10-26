@@ -36,10 +36,7 @@ export const revokeOAuthApplicationAtom = Atom.family(
       name: "deleteOauthApplication",
       predict: (applications, _input: void) =>
         withoutApplication(applications, id),
-      call: () =>
-        Api.use((client) =>
-          client.oauthApplications.revoke({ params: { id } })
-        ),
+      call: (client) => client.oauthApplications.revoke({ params: { id } }),
       confirm: (applications) => withoutApplication(applications, id)
     })
 )

@@ -145,20 +145,20 @@ export const updateProject = Atom.family((req: ProjectRequest) =>
   viewMutation(project(req), {
     name: "updateProject",
     predict: (value, input: UpdateProjectInput) => ({ ...value, ...input }),
-    call: (input) =>
-      Api.use((client) =>
-        client.projects.update({ params: req.params, payload: input })
-      ).pipe(
-        Effect.tap(() =>
-          "banner" in input
-            ? Effect.promise(() =>
-                evictBannerRenders(
-                  projectKey(req.params.orgSlug, req.params.slug)
+    call: (client, input) =>
+      client.projects
+        .update({ params: req.params, payload: input })
+        .pipe(
+          Effect.tap(() =>
+            "banner" in input
+              ? Effect.promise(() =>
+                  evictBannerRenders(
+                    projectKey(req.params.orgSlug, req.params.slug)
+                  )
                 )
-              )
-            : Effect.void
-        )
-      ),
+              : Effect.void
+          )
+        ),
     confirm: confirmProjectUpdate,
     publish: (_updated, input) =>
       input.estimation === undefined
@@ -178,10 +178,8 @@ export const updateProjectSetup = Atom.family((req: ProjectRequest) =>
       ...value,
       setup: { ...value.setup, ...input }
     }),
-    call: (payload) =>
-      Api.use((client) =>
-        client.projects.updateSetup({ params: req.params, payload })
-      ),
+    call: (client, payload) =>
+      client.projects.updateSetup({ params: req.params, payload }),
     confirm: confirmSetupUpdate,
     publish: () => [Keys.projects(req.params.orgSlug)]
   })
@@ -334,10 +332,8 @@ export const addMember = Atom.family(({ req, id }: MemberMutationRequest) =>
         }
       ]
     }),
-    call: (input) =>
-      Api.use((client) =>
-        client.projects.addMember({ params: req.params, payload: input })
-      ),
+    call: (client, input) =>
+      client.projects.addMember({ params: req.params, payload: input }),
     confirm: (current, updated, input) =>
       confirmAddedMember(current, updated, input.email),
     publish: () => [Keys.orgMembers(req.params.orgSlug)]
@@ -349,13 +345,11 @@ export const updateMember = Atom.family(({ req, id }: MemberMutationRequest) =>
     name: "updateProjectMember",
     predict: (value, input: UpdateMemberInput) =>
       replaceMember(value, id, input),
-    call: (input) =>
-      Api.use((client) =>
-        client.projects.updateMember({
-          params: { ...req.params, userId: id },
-          payload: input
-        })
-      ),
+    call: (client, input) =>
+      client.projects.updateMember({
+        params: { ...req.params, userId: id },
+        payload: input
+      }),
     confirm: (current, updated, input) => {
       const member = updated.members.find((item) => item.id === id)
       const confirmed = withCallerGrants(current, updated)
@@ -380,10 +374,8 @@ export const removeMember = Atom.family(({ req, id }: MemberMutationRequest) =>
   viewMutation(project(req), {
     name: "removeProjectMember",
     predict: (value, _input: void) => withoutMember(value, id),
-    call: () =>
-      Api.use((client) =>
-        client.projects.removeMember({ params: { ...req.params, userId: id } })
-      ),
+    call: (client) =>
+      client.projects.removeMember({ params: { ...req.params, userId: id } }),
     confirm: (current, updated) =>
       withoutMember(withCallerGrants(current, updated), id)
   })
@@ -421,12 +413,10 @@ export const cancelPendingMember = Atom.family(
     viewMutation(project(req), {
       name: "cancelPendingMember",
       predict: (value, _input: void) => withoutPendingMember(value, id),
-      call: () =>
-        Api.use((client) =>
-          client.projects.cancelPendingMember({
-            params: { ...req.params, invitationId: id }
-          })
-        ),
+      call: (client) =>
+        client.projects.cancelPendingMember({
+          params: { ...req.params, invitationId: id }
+        }),
       confirm: (current) => withoutPendingMember(current, id),
       publish: () => [Keys.orgMembers(req.params.orgSlug)]
     })

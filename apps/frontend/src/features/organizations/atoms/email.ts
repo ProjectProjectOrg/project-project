@@ -39,10 +39,10 @@ export const saveOrgEmail = Atom.family((req: EmailRequest) =>
       settings,
       lastTest: null
     }),
-    call: (input) =>
-      Api.use((client) =>
-        client.orgEmail.save({ params: req.params, payload: input })
-      ).pipe(republishOnFailure(req)),
+    call: (client, input) =>
+      client.orgEmail
+        .save({ params: req.params, payload: input })
+        .pipe(republishOnFailure(req)),
     confirm: replaceWith
   })
 )
@@ -51,10 +51,10 @@ export const testOrgEmail = Atom.family((req: EmailRequest) =>
   viewMutation(orgEmail(req), {
     name: "testOrgEmail",
     predict: (status, _input: void) => status,
-    call: () =>
-      Api.use((client) => client.orgEmail.test({ params: req.params })).pipe(
-        republishOnFailure(req)
-      ),
+    call: (client) =>
+      client.orgEmail
+        .test({ params: req.params })
+        .pipe(republishOnFailure(req)),
     confirm: replaceWith
   })
 )
@@ -63,8 +63,7 @@ export const disconnectOrgEmail = Atom.family((req: EmailRequest) =>
   viewMutation(orgEmail(req), {
     name: "disconnectOrgEmail",
     predict: (_status, _input: void) => ({ settings: null, lastTest: null }),
-    call: () =>
-      Api.use((client) => client.orgEmail.disconnect({ params: req.params })),
+    call: (client) => client.orgEmail.disconnect({ params: req.params }),
     confirm: replaceWith
   })
 )

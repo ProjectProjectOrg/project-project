@@ -49,10 +49,8 @@ export const connectSlackOrg = Atom.family((req: SlackOrgRequest) =>
   viewMutation(slackOrg(req), {
     name: "connectSlackOrg",
     predict: (status, _input: ConnectSlackInput) => status,
-    call: (input) =>
-      Api.use((api) =>
-        api.slack.connectOrg({ params: req.params, payload: input })
-      ),
+    call: (api, input) =>
+      api.slack.connectOrg({ params: req.params, payload: input }),
     confirm: replaceWith,
     publish: () => slackOrgKeys(req)
   })
@@ -61,8 +59,7 @@ export const disconnectSlackOrg = Atom.family((req: SlackOrgRequest) =>
   viewMutation(slackOrg(req), {
     name: "disconnectSlackOrg",
     predict: (_status, _input: void) => ({ connection: null }),
-    call: () =>
-      Api.use((api) => api.slack.disconnectOrg({ params: req.params })),
+    call: (api) => api.slack.disconnectOrg({ params: req.params }),
     confirm: replaceWith,
     publish: () => slackOrgKeys(req)
   })
@@ -99,10 +96,8 @@ export const saveSlackProject = Atom.family((req: SlackProjectRequest) =>
             : input.channelId
       }
     }),
-    call: (input) =>
-      Api.use((api) =>
-        api.slack.saveProject({ params: req.params, payload: input })
-      ),
+    call: (api, input) =>
+      api.slack.saveProject({ params: req.params, payload: input }),
     confirm: replaceWith
   })
 )
@@ -110,8 +105,7 @@ export const disconnectSlackProject = Atom.family((req: SlackProjectRequest) =>
   viewMutation(slackProject(req), {
     name: "disconnectSlackProject",
     predict: (status, _input: void) => ({ ...status, settings: null }),
-    call: () =>
-      Api.use((api) => api.slack.disconnectProject({ params: req.params })),
+    call: (api) => api.slack.disconnectProject({ params: req.params }),
     confirm: replaceWith
   })
 )
@@ -136,8 +130,7 @@ export const disconnectSlackProfile = Atom.family((req: SlackOrgRequest) =>
     name: "disconnectSlackProfile",
     predict: (profiles, _input: void) =>
       unlinkProfile(profiles, req.params.orgSlug),
-    call: () =>
-      Api.use((api) => api.slack.disconnectProfile({ params: req.params })),
+    call: (api) => api.slack.disconnectProfile({ params: req.params }),
     confirm: (profiles) => unlinkProfile(profiles, req.params.orgSlug)
   })
 )

@@ -51,7 +51,7 @@ export const disconnectFigmaProfileAtom = viewMutation(figmaProfileAtom, {
     lastVerifiedAt: null,
     lastCheckError: null
   }),
-  call: () => Api.use((client) => client.figma.disconnectProfile()),
+  call: (client) => client.figma.disconnectProfile(),
   confirm: replaceWith
 })
 
@@ -75,10 +75,8 @@ export const connectFigmaProjectAtom = Atom.family((req: FigmaProjectRequest) =>
       lastCheckStatus: "ok" as const,
       lastCheckError: null
     }),
-    call: (input) =>
-      Api.use((client) =>
-        client.figma.connectProject({ params: req.params, payload: input })
-      ),
+    call: (client, input) =>
+      client.figma.connectProject({ params: req.params, payload: input }),
     confirm: replaceWith,
     publish: () => [Keys.figmaTicketLinks(scopeOf(req))]
   })
@@ -107,10 +105,7 @@ export const disconnectFigmaProjectAtom = Atom.family(
         lastCheckStatus: null,
         lastCheckError: null
       }),
-      call: () =>
-        Api.use((client) =>
-          client.figma.disconnectProject({ params: req.params })
-        ),
+      call: (client) => client.figma.disconnectProject({ params: req.params }),
       confirm: replaceWith,
       publish: () => [Keys.figmaTicketLinks(scopeOf(req))]
     })

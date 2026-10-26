@@ -298,7 +298,7 @@ export const deleteOrgAttachments = Atom.family(
           summary: removeFromSummary(value.summary, removed)
         }
       },
-      call: () =>
+      call: (_client) =>
         Effect.forEach(
           attachmentIds,
           (attachmentId) =>

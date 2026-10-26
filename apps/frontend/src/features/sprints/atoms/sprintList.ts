@@ -113,10 +113,8 @@ export const createSprint = Atom.family((req: SprintListRequest) =>
       buildSyntheticSprint(input),
       ...sprints
     ],
-    call: (input) =>
-      Api.use((client) =>
-        client.groups.create({ params: req.params, payload: input })
-      ),
+    call: (client, input) =>
+      client.groups.create({ params: req.params, payload: input }),
     confirm: (sprints, created, input) =>
       confirmCreatedSprint(sprints, input, created)
   })
@@ -140,13 +138,11 @@ export const updateSprint = Atom.family(({ req, groupId }: SprintKey) =>
       replaceSprint(sprints, groupId, (sprint) =>
         applySprintPatch(sprint, patch)
       ),
-    call: (patch) =>
-      Api.use((client) =>
-        client.groups.update({
-          params: { ...req.params, id: groupId },
-          payload: patch
-        })
-      ),
+    call: (client, patch) =>
+      client.groups.update({
+        params: { ...req.params, id: groupId },
+        payload: patch
+      }),
     confirm: (sprints, updated) =>
       replaceSprint(sprints, groupId, () => updated),
     publish: () => [Keys.sprint(scopeOf(req), groupId)]
@@ -160,10 +156,8 @@ export const deleteSprint = Atom.family(({ req, groupId }: SprintKey) =>
   viewMutation(sprintList(req), {
     name: "deleteSprint",
     predict: (sprints, _input: void) => withoutSprint(sprints, groupId),
-    call: () =>
-      Api.use((client) =>
-        client.groups.delete({ params: { ...req.params, id: groupId } })
-      ),
+    call: (client) =>
+      client.groups.delete({ params: { ...req.params, id: groupId } }),
     confirm: (sprints) => withoutSprint(sprints, groupId),
     publish: () => [
       Keys.sprintMembership(scopeOf(req)),
@@ -205,13 +199,11 @@ export const completeSprint = Atom.family(({ req, groupId }: SprintKey) =>
         ...sprint,
         completedAt: DateTime.toDate(DateTime.nowUnsafe())
       })),
-    call: (input) =>
-      Api.use((client) =>
-        client.groups.complete({
-          params: { ...req.params, id: groupId },
-          payload: input
-        })
-      ),
+    call: (client, input) =>
+      client.groups.complete({
+        params: { ...req.params, id: groupId },
+        payload: input
+      }),
     confirm: (sprints, result, input) =>
       applyCompleteSprintResult(sprints, groupId, input.destination, result),
     publish: (_result, input) => [
@@ -316,13 +308,11 @@ export const addTicketsToSprint = Atom.family(
           }
         })
       },
-      call: ({ groupId }) =>
-        Api.use((client) =>
-          client.groups.addTickets({
-            params: { ...req.params, id: groupId },
-            payload: { tickets: [ticketId] }
-          })
-        ),
+      call: (client, { groupId }) =>
+        client.groups.addTickets({
+          params: { ...req.params, id: groupId },
+          payload: { tickets: [ticketId] }
+        }),
       confirm: (sprints, result, { groupId }) =>
         confirmAddedTicket(sprints, groupId, ticketId, result),
       publish: (result, { groupId }) =>
@@ -351,13 +341,11 @@ export const removeTicketsFromSprint = Atom.family(
           tickets: sprint.tickets.filter((id) => id !== ticketId),
           updatedAt: DateTime.toDate(DateTime.nowUnsafe())
         })),
-      call: ({ groupId }) =>
-        Api.use((client) =>
-          client.groups.removeTickets({
-            params: { ...req.params, id: groupId },
-            payload: { tickets: [ticketId] }
-          })
-        ),
+      call: (client, { groupId }) =>
+        client.groups.removeTickets({
+          params: { ...req.params, id: groupId },
+          payload: { tickets: [ticketId] }
+        }),
       confirm: (sprints, result, { groupId }) =>
         confirmRemovedTicket(sprints, groupId, ticketId, result),
       publish: (result, { groupId }) =>
@@ -402,7 +390,7 @@ export const quickCreateInSprint = Atom.family(({ req, groupId }: SprintKey) =>
     name: "quickCreateInSprint",
     predict: (sprints, _payload: QuickCreateTicketInput) =>
       keepPredicted(sprints),
-    call: (payload) => createInSprint(req.params, payload, groupId),
+    call: (_client, payload) => createInSprint(req.params, payload, groupId),
     confirm: (sprints, created) =>
       created.sprintAssignmentFailed
         ? sprints

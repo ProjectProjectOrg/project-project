@@ -239,10 +239,8 @@ export const connectGithub = Atom.family((req: ProjectRequest) =>
         defaultBaseBranch: input.defaultBaseBranch ?? null
       }
     }),
-    call: (input) =>
-      Api.use((client) =>
-        client.projects.connectGithub({ params: req.params, payload: input })
-      ),
+    call: (client, input) =>
+      client.projects.connectGithub({ params: req.params, payload: input }),
     confirm: (current, updated, input) => ({
       ...current,
       github:
@@ -258,10 +256,7 @@ export const disconnectGithub = Atom.family((req: ProjectRequest) =>
   viewMutation(project(req), {
     name: "disconnectGithub",
     predict: (value, _input: void) => ({ ...value, github: null }),
-    call: () =>
-      Api.use((client) =>
-        client.projects.disconnectGithub({ params: req.params })
-      ),
+    call: (client) => client.projects.disconnectGithub({ params: req.params }),
     confirm: (current, updated) => ({
       ...current,
       github: current.github === null ? updated.github : current.github
@@ -319,13 +314,11 @@ export const createBranch = Atom.family(
           baseBranch: input.baseBranch,
           pendingOperation: "create"
         }),
-      call: (input) =>
-        Api.use((client) =>
-          client.tickets.createBranch({
-            params: { ...req.params, id },
-            payload: { name: input.name, baseBranch: input.baseBranch }
-          })
-        ),
+      call: (client, input) =>
+        client.tickets.createBranch({
+          params: { ...req.params, id },
+          payload: { name: input.name, baseBranch: input.baseBranch }
+        }),
       confirm: (value, updated) => withGitState(value, id, updated.gitState),
       publish: () => [...branchKeys(req, id), Keys.branches(scopeOf(req))]
     })
@@ -342,13 +335,11 @@ export const attachBranch = Atom.family(
           baseBranch: gitStateBaseBranch(value.states[id]),
           pendingOperation: "connect"
         }),
-      call: (input) =>
-        Api.use((client) =>
-          client.tickets.attachBranch({
-            params: { ...req.params, id },
-            payload: { name: input.name }
-          })
-        ),
+      call: (client, input) =>
+        client.tickets.attachBranch({
+          params: { ...req.params, id },
+          payload: { name: input.name }
+        }),
       confirm: (value, updated) => withGitState(value, id, updated.gitState),
       publish: () => branchKeys(req, id)
     })
@@ -382,13 +373,11 @@ export const stackBranch = Atom.family(({ req, id }: GitStateMutationRequest) =>
         ...(value.stacks?.[id] ?? []),
         { branch: input.name, base: null, depth: 1, pr: null, deleted: false }
       ]),
-    call: (input) =>
-      Api.use((client) =>
-        client.tickets.stackBranch({
-          params: { ...req.params, id },
-          payload: { name: input.name }
-        })
-      ),
+    call: (client, input) =>
+      client.tickets.stackBranch({
+        params: { ...req.params, id },
+        payload: { name: input.name }
+      }),
     confirm: (value, updated) => confirmStack(value, id, updated),
     publish: () => branchKeys(req, id)
   })
@@ -406,13 +395,11 @@ export const unstackBranch = Atom.family(
             (layer) => layer.branch !== input.name
           )
         ),
-      call: (input) =>
-        Api.use((client) =>
-          client.tickets.unstackBranch({
-            params: { ...req.params, id },
-            payload: { name: input.name }
-          })
-        ),
+      call: (client, input) =>
+        client.tickets.unstackBranch({
+          params: { ...req.params, id },
+          payload: { name: input.name }
+        }),
       confirm: (value, updated) => confirmStack(value, id, updated),
       publish: () => branchKeys(req, id)
     })
@@ -433,10 +420,8 @@ export const clearBranch = Atom.family(({ req, id }: GitStateMutationRequest) =>
         []
       )
     },
-    call: () =>
-      Api.use((client) =>
-        client.tickets.clearBranch({ params: { ...req.params, id } })
-      ),
+    call: (client) =>
+      client.tickets.clearBranch({ params: { ...req.params, id } }),
     confirm: (value, updated) =>
       withStack(
         withGitState(value, id, updated.gitState),

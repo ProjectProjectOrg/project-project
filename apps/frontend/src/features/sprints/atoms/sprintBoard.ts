@@ -116,13 +116,11 @@ export const placeBoardTicket = Atom.family(
       name: "placeBoardTicket",
       predict: (value, input: UpdateTicketOrderInput) =>
         placeTicket(value, { ...input, ticketId: id }),
-      call: (input) =>
-        Api.use((client) =>
-          client.groups.updateTicketOrder({
-            params: req.params,
-            payload: { ...input, ticketId: id }
-          })
-        ),
+      call: (client, input) =>
+        client.groups.updateTicketOrder({
+          params: req.params,
+          payload: { ...input, ticketId: id }
+        }),
       confirm: keepPredicted,
       publish: (_confirmed, input) =>
         input.status === undefined ? [] : boardTicketKeys(req, id)

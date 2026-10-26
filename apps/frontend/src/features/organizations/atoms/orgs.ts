@@ -71,10 +71,8 @@ export const renameOrg = Atom.family((req: OrgRequest) =>
   viewMutation(orgDetail(req), {
     name: "renameOrg",
     predict: (org, input: RenameOrgInput) => ({ ...org, name: input.name }),
-    call: (input) =>
-      Api.use((client) =>
-        client.org.rename({ params: req.params, payload: input })
-      ),
+    call: (client, input) =>
+      client.org.rename({ params: req.params, payload: input }),
     confirm: replaceWith,
     publish: () => [Keys.orgs()]
   })
@@ -93,8 +91,7 @@ export const softDeleteOrg = Atom.family((req: OrgRequest) =>
   viewMutation(orgDetail(req), {
     name: "softDeleteOrg",
     predict: (org, _input: void) => softDeleted(org),
-    call: () =>
-      Api.use((client) => client.org.softDelete({ params: req.params })),
+    call: (client) => client.org.softDelete({ params: req.params }),
     confirm: replaceWith,
     publish: () => [Keys.orgs()]
   })
@@ -108,7 +105,7 @@ export const restoreOrg = Atom.family((req: OrgRequest) =>
       deletedAt: null,
       purgeAt: null
     }),
-    call: () => Api.use((client) => client.org.restore({ params: req.params })),
+    call: (client) => client.org.restore({ params: req.params }),
     confirm: replaceWith,
     publish: () => [Keys.orgs()]
   })
@@ -131,10 +128,8 @@ export const inviteMember = Atom.family((req: OrgRequest) =>
         }
       ]
     }),
-    call: (input) =>
-      Api.use((client) =>
-        client.org.inviteMember({ params: req.params, payload: input })
-      ),
+    call: (client, input) =>
+      client.org.inviteMember({ params: req.params, payload: input }),
     confirm: (value, invitation, input) => ({
       ...value,
       invitations: value.invitations.map((pending) =>
@@ -166,13 +161,11 @@ export const updateMemberRole = Atom.family(({ req, userId }: MemberKey) =>
         member.userId === userId ? { ...member, role: input.role } : member
       )
     }),
-    call: (input) =>
-      Api.use((client) =>
-        client.org.updateMemberRole({
-          params: { ...req.params, userId },
-          payload: input
-        })
-      ),
+    call: (client, input) =>
+      client.org.updateMemberRole({
+        params: { ...req.params, userId },
+        payload: input
+      }),
     confirm: (value, member) => withMemberRole(value, userId, member)
   })
 )
@@ -186,10 +179,8 @@ export const removeMember = Atom.family(({ req, userId }: MemberKey) =>
   viewMutation(orgMembers(req), {
     name: "removeMember",
     predict: (value, _input: void) => withoutMember(value, userId),
-    call: () =>
-      Api.use((client) =>
-        client.org.removeMember({ params: { ...req.params, userId } })
-      ),
+    call: (client) =>
+      client.org.removeMember({ params: { ...req.params, userId } }),
     confirm: (value) => withoutMember(value, userId),
     publish: () => [
       Keys.orgMembers(req.params.orgSlug),
@@ -216,12 +207,10 @@ export const cancelInvitation = Atom.family(
     viewMutation(orgMembers(req), {
       name: "cancelInvitation",
       predict: (value, _input: void) => withoutInvitation(value, invitationId),
-      call: () =>
-        Api.use((client) =>
-          client.org.cancelInvitation({
-            params: { ...req.params, invitationId }
-          })
-        ),
+      call: (client) =>
+        client.org.cancelInvitation({
+          params: { ...req.params, invitationId }
+        }),
       confirm: (value) => withoutInvitation(value, invitationId)
     })
 )
@@ -250,10 +239,8 @@ export const transferOwnership = Atom.family(
       name: "transferOwnership",
       predict: (value, input: TransferOrgOwnershipInput) =>
         withOwnershipTransferred(value, input.userId, callerUserId),
-      call: (input) =>
-        Api.use((client) =>
-          client.org.transferOwnership({ params: req.params, payload: input })
-        ),
+      call: (client, input) =>
+        client.org.transferOwnership({ params: req.params, payload: input }),
       confirm: replaceWith,
       publish: () => [Keys.org(req.params.orgSlug), Keys.orgs()]
     })

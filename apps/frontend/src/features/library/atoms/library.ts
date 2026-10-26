@@ -109,7 +109,7 @@ const libraryMutation = <Input, A, E, ViewError>(
   viewMutation(target.view, {
     name,
     predict,
-    call,
+    call: (_client, input) => call(input),
     confirm,
     publish: () => target.publish
   })

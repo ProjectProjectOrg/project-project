@@ -10,7 +10,7 @@
     "paraglide:compile": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy cookie preferredLanguage baseLocale --emit-ts-declarations --silent",
     "typecheck": "bun run paraglide:compile && tsc --noEmit",
     "test": "bun run paraglide:compile && bun run --bun vitest run --project node && vitest run --project dom",
-    "lint": "../../node_modules/.bin/oxlint . --max-warnings=544",
+    "lint": "../../node_modules/.bin/oxlint . --max-warnings=538",
     "lint:fix": "../../node_modules/.bin/oxlint . --fix",
     "favicons": "bun scripts/generate-favicons.ts"
   },

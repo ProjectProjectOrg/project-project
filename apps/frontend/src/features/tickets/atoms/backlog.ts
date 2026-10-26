@@ -345,24 +345,24 @@ export const quickCreateBacklogTicket = Atom.family((req: BacklogRequest) =>
     name: "quickCreateBacklogTicket",
     predict: (value, input: QuickCreateInput) =>
       insertCreated(req, value, input),
-    call: (input, get) =>
-      Api.use((client) =>
-        client.tickets.quickCreate({
+    call: (client, input, get) =>
+      client.tickets
+        .quickCreate({
           params: req.params,
           payload: input.payload
         })
-      ).pipe(
-        Effect.tap((created) =>
-          Effect.sync(() =>
-            recordCreatedKey(
-              get,
-              scopeOf(req),
-              created.id,
-              input.prediction.clientId
+        .pipe(
+          Effect.tap((created) =>
+            Effect.sync(() =>
+              recordCreatedKey(
+                get,
+                scopeOf(req),
+                created.id,
+                input.prediction.clientId
+              )
             )
           )
-        )
-      ),
+        ),
     confirm: confirmCreated,
     publish: () => Keys.ticketsChanged(scopeOf(req))
   })

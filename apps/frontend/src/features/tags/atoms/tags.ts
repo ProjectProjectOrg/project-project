@@ -205,14 +205,14 @@ export const applyTagsInEditor = Atom.family((req: TagEditorRequest) =>
     name: "applyTagsInEditor",
     predict: (value, input: ApplyTagsInput) =>
       applyEditorTags(value, input.tags),
-    call: (input) =>
-      Api.use((client) =>
-        client.tickets.update({
+    call: (client, input) =>
+      client.tickets
+        .update({
           params: req.params,
           query: {},
           payload: { tags: input.tags }
         })
-      ).pipe(Effect.map(({ ticket }) => ticket)),
+        .pipe(Effect.map(({ ticket }) => ticket)),
     confirm: (value, updated) => applyEditorTags(value, updated.tags),
     publish: () => tagsChanged(editorScope(req))
   })
@@ -222,13 +222,11 @@ export const createTagInEditor = Atom.family((req: TagEditorRequest) =>
   viewMutation(tagEditor(req), {
     name: "createTagInEditor",
     predict: createEditorTag,
-    call: (input) =>
-      Api.use((client) =>
-        client.tags.create({
-          params: { orgSlug: req.params.orgSlug, slug: req.params.slug },
-          payload: input
-        })
-      ),
+    call: (client, input) =>
+      client.tags.create({
+        params: { orgSlug: req.params.orgSlug, slug: req.params.slug },
+        payload: input
+      }),
     confirm: (value, created, input) => ({
       ...value,
       tags: value.tags.map((tag) => (tag.name === input.name ? created : tag))
@@ -244,17 +242,15 @@ export const updateTagInEditor = Atom.family(({ req, name }: EditorTagKey) =>
     name: "updateTagInEditor",
     predict: (value, patch: UpdateTagInput) =>
       updateEditorValue(value, name, patch),
-    call: (patch) =>
-      Api.use((client) =>
-        client.tags.update({
-          params: {
-            orgSlug: req.params.orgSlug,
-            slug: req.params.slug,
-            name
-          },
-          payload: patch
-        })
-      ),
+    call: (client, patch) =>
+      client.tags.update({
+        params: {
+          orgSlug: req.params.orgSlug,
+          slug: req.params.slug,
+          name
+        },
+        payload: patch
+      }),
     confirm: (value, updated, patch) =>
       confirmEditorUpdate(value, name, patch.name, updated),
     publish: (_updated, patch) =>
@@ -266,16 +262,14 @@ export const deleteTagInEditor = Atom.family(({ req, name }: EditorTagKey) =>
   viewMutation(tagEditor(req), {
     name: "deleteTagInEditor",
     predict: (value, _input: void) => deleteEditorTag(value, name),
-    call: () =>
-      Api.use((client) =>
-        client.tags.delete({
-          params: {
-            orgSlug: req.params.orgSlug,
-            slug: req.params.slug,
-            name
-          }
-        })
-      ),
+    call: (client) =>
+      client.tags.delete({
+        params: {
+          orgSlug: req.params.orgSlug,
+          slug: req.params.slug,
+          name
+        }
+      }),
     confirm: (value) => deleteEditorTag(value, name),
     publish: () => tagsChanged(editorScope(req))
   })
@@ -285,10 +279,8 @@ export const createTag = Atom.family((req: TagsRequest) =>
   viewMutation(tagsFor(req), {
     name: "createTag",
     predict: (tags, input: CreateTagInput) => [...tags, syntheticTag(input)],
-    call: (input) =>
-      Api.use((client) =>
-        client.tags.create({ params: req.params, payload: input })
-      ),
+    call: (client, input) =>
+      client.tags.create({ params: req.params, payload: input }),
     confirm: (tags, created, input) =>
       tags.map((tag) => (tag.name === input.name ? created : tag)),
     publish: () => [Keys.tagUsage(scopeOf(req))]
@@ -310,13 +302,11 @@ export const updateTag = Atom.family(({ req, name }: TagKey) =>
             }
           : tag
       ),
-    call: (patch) =>
-      Api.use((client) =>
-        client.tags.update({
-          params: { ...req.params, name },
-          payload: patch
-        })
-      ),
+    call: (client, patch) =>
+      client.tags.update({
+        params: { ...req.params, name },
+        payload: patch
+      }),
     confirm: (tags, updated, patch) =>
       tags.map((tag) =>
         tag.name === name || tag.name === patch.name ? updated : tag
@@ -333,10 +323,7 @@ export const deleteTag = Atom.family(({ req, name }: TagKey) =>
   viewMutation(tagsFor(req), {
     name: "deleteTag",
     predict: (tags, _input: void) => withoutTag(tags, name),
-    call: () =>
-      Api.use((client) =>
-        client.tags.delete({ params: { ...req.params, name } })
-      ),
+    call: (client) => client.tags.delete({ params: { ...req.params, name } }),
     confirm: (tags) => withoutTag(tags, name),
     publish: () => tagsChanged(scopeOf(req))
   })

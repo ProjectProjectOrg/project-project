@@ -38,10 +38,8 @@ export const updateGitAutomation = Atom.family((req: GitAutomationRequest) =>
       rules: { ...value.rules, ...input.rules },
       forwardOnly: input.forwardOnly ?? value.forwardOnly
     }),
-    call: (input) =>
-      Api.use((client) =>
-        client.gitAutomation.update({ params: req.params, payload: input })
-      ),
+    call: (client, input) =>
+      client.gitAutomation.update({ params: req.params, payload: input }),
     confirm: replaceWith
   })
 )

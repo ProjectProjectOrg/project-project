@@ -111,23 +111,23 @@ export const createComment = Atom.family((key: CreateCommentKey) =>
         pending: true
       }
     ],
-    call: (input, get) =>
-      Api.use((client) =>
-        client.ticketComments.create({
+    call: (client, input, get) =>
+      client.ticketComments
+        .create({
           params: key.req.params,
           payload: input
         })
-      ).pipe(
-        Effect.tap((created) =>
-          Effect.sync(() => {
-            const identities = createdKeys(key.req)
-            get.set(
-              identities,
-              new Map(get(identities)).set(created.id, key.clientId)
-            )
-          })
-        )
-      ),
+        .pipe(
+          Effect.tap((created) =>
+            Effect.sync(() => {
+              const identities = createdKeys(key.req)
+              get.set(
+                identities,
+                new Map(get(identities)).set(created.id, key.clientId)
+              )
+            })
+          )
+        ),
     confirm: (value, created) =>
       value.map((row) =>
         row.key === key.clientId
@@ -152,13 +152,11 @@ export const editComment = Atom.family(({ req, commentId }: CommentKey) =>
           ? { ...row, comment: { ...row.comment, body: input.body } }
           : row
       ),
-    call: (input) =>
-      Api.use((client) =>
-        client.ticketComments.update({
-          params: { ...req.params, commentId },
-          payload: input
-        })
-      ),
+    call: (client, input) =>
+      client.ticketComments.update({
+        params: { ...req.params, commentId },
+        payload: input
+      }),
     confirm: (value, updated) =>
       value.map((row) =>
         row.comment.id === commentId
@@ -173,12 +171,12 @@ export const deleteComment = Atom.family(({ req, commentId }: CommentKey) =>
     name: "deleteComment",
     predict: (value, _input: void) =>
       value.filter((row) => row.comment.id !== commentId),
-    call: () =>
-      Api.use((client) =>
-        client.ticketComments.delete({
+    call: (client) =>
+      client.ticketComments
+        .delete({
           params: { ...req.params, commentId }
         })
-      ).pipe(Effect.as(commentId)),
+        .pipe(Effect.as(commentId)),
     confirm: keepPredicted,
     publish: () => [Keys.ticketComments(scopeOf(req))]
   })

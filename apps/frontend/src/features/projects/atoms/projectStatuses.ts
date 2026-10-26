@@ -85,10 +85,8 @@ export const createStatus = Atom.family((req: StatusesRequest) =>
   viewMutation(statusesFor(req), {
     name: "createStatus",
     predict: syntheticStatus,
-    call: (input) =>
-      Api.use((client) =>
-        client.statuses.create({ params: req.params, payload: input })
-      ),
+    call: (client, input) =>
+      client.statuses.create({ params: req.params, payload: input }),
     confirm: (statuses, created, input) =>
       replaceStatus(
         statuses,
@@ -117,13 +115,11 @@ export const updateStatus = Atom.family(({ req, statusSlug }: StatusKey) =>
             ? status.description
             : patch.description
       })),
-    call: (patch) =>
-      Api.use((client) =>
-        client.statuses.update({
-          params: { ...req.params, statusSlug },
-          payload: patch
-        })
-      ),
+    call: (client, patch) =>
+      client.statuses.update({
+        params: { ...req.params, statusSlug },
+        payload: patch
+      }),
     confirm: (statuses, updated) =>
       replaceStatus(statuses, statusSlug, () => updated),
     publish: (_updated, patch) =>
@@ -139,13 +135,11 @@ export const reorderStatus = Atom.family(({ req, statusSlug }: StatusKey) =>
         ...status,
         orderKey: input.orderKey
       })).toSorted(compareByOrderKey),
-    call: (input) =>
-      Api.use((client) =>
-        client.statuses.reorder({
-          params: { ...req.params, statusSlug },
-          payload: input
-        })
-      ),
+    call: (client, input) =>
+      client.statuses.reorder({
+        params: { ...req.params, statusSlug },
+        payload: input
+      }),
     confirm: (statuses, reordered) =>
       replaceStatus(statuses, statusSlug, () => reordered).toSorted(
         compareByOrderKey
@@ -178,13 +172,11 @@ export const deleteStatus = Atom.family(({ req, statusSlug }: StatusKey) =>
     name: "deleteStatus",
     predict: (statuses, _input: DeleteStatusInput) =>
       withoutStatus(statuses, statusSlug),
-    call: (input) =>
-      Api.use((client) =>
-        client.statuses.remove({
-          params: { ...req.params, statusSlug },
-          query: input
-        })
-      ),
+    call: (client, input) =>
+      client.statuses.remove({
+        params: { ...req.params, statusSlug },
+        query: input
+      }),
     confirm: (statuses) => withoutStatus(statuses, statusSlug),
     publish: () => statusRenameKeys(req)
   })

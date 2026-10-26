@@ -1,5 +1,4 @@
 import type {
-  Ticket,
   TicketId,
   TicketSort,
   TicketUpdateResult,
@@ -9,7 +8,6 @@ import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
-import { Api } from "@/api/Api"
 import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
 import { coalescingMutation, type OptimisticView } from "@/api/viewMutation"
 
@@ -144,14 +142,12 @@ export const coalescingTicketUpdate = <V, VE>(
     name: update.name,
     idleTTL: update.idleTTL ?? "2 minutes",
     predict: update.predict,
-    call: (payload: UpdateTicketInput) =>
-      Api.use((client) =>
-        client.tickets.update({
-          params: update.path,
-          query: update.sort === undefined ? {} : { sort: update.sort },
-          payload
-        })
-      ),
+    call: (client, payload: UpdateTicketInput) =>
+      client.tickets.update({
+        params: update.path,
+        query: update.sort === undefined ? {} : { sort: update.sort },
+        payload
+      }),
     confirm: (value, confirmed) => update.confirm(value, confirmed),
     publish: (_confirmed, payload) =>
       update.publish?.(payload) ??
@@ -160,6 +156,3 @@ export const coalescingTicketUpdate = <V, VE>(
         update.path.id
       )
   })
-
-export const replaceTicket = (ticket: Ticket) => (current: Ticket) =>
-  current.id === ticket.id ? ticket : current

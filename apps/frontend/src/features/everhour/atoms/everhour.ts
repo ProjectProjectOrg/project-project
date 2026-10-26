@@ -35,8 +35,7 @@ export const connectEverhourProfileAtom = viewMutation(everhourProfileAtom, {
     connected: true,
     lastCheckError: null
   }),
-  call: (input) =>
-    Api.use((client) => client.everhour.connectProfile({ payload: input })),
+  call: (client, input) => client.everhour.connectProfile({ payload: input }),
   confirm: replaceWith,
   publish: () => [Keys.me()]
 })
@@ -51,7 +50,7 @@ export const disconnectEverhourProfileAtom = viewMutation(everhourProfileAtom, {
     lastVerifiedAt: null,
     lastCheckError: null
   }),
-  call: () => Api.use((client) => client.everhour.disconnectProfile()),
+  call: (client) => client.everhour.disconnectProfile(),
   confirm: replaceWith,
   publish: () => [Keys.me()]
 })
@@ -129,10 +128,8 @@ export const disconnectEverhourProjectAtom = Atom.family(
         lastSyncError: null,
         needsSync: false
       }),
-      call: () =>
-        Api.use((client) =>
-          client.everhour.disconnectProject({ params: req.params })
-        ),
+      call: (client) =>
+        client.everhour.disconnectProject({ params: req.params }),
       confirm: replaceWith
     })
 )

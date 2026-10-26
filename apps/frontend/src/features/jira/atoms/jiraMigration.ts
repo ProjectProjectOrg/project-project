@@ -125,10 +125,8 @@ const lifecycleMutation = (
   viewMutation(jiraMigration(req), {
     name: "jiraMigrationLifecycle",
     predict: (migration, _input: JiraMigrationRevisionInput) => migration,
-    call: (input) =>
-      Api.use((client) =>
-        client.jiraMigrations[operation]({ params: req.params, payload: input })
-      ),
+    call: (client, input) =>
+      client.jiraMigrations[operation]({ params: req.params, payload: input }),
     confirm: replaceWith,
     publish: (migration) => [
       Keys.jiraMigrations(req.params.orgSlug),
@@ -154,13 +152,11 @@ export const configureJiraMigration = Atom.family((req: JiraMigrationRequest) =>
   viewMutation(jiraMigration(req), {
     name: "configureJiraMigration",
     predict: (migration, _input: ConfigureJiraMigrationInput) => migration,
-    call: (input) =>
-      Api.use((client) =>
-        client.jiraMigrations.configure({
-          params: req.params,
-          payload: input
-        })
-      ),
+    call: (client, input) =>
+      client.jiraMigrations.configure({
+        params: req.params,
+        payload: input
+      }),
     confirm: replaceWith,
     publish: () => [Keys.jiraMigrations(req.params.orgSlug)]
   })

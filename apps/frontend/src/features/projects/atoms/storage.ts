@@ -43,10 +43,8 @@ export const connectStorage = Atom.family((req: StorageRequest) =>
       forcePathStyle: input.forcePathStyle,
       lastCheckError: null
     }),
-    call: (input) =>
-      Api.use((client) =>
-        client.storage.connect({ params: req.params, payload: input })
-      ),
+    call: (client, input) =>
+      client.storage.connect({ params: req.params, payload: input }),
     confirm: replaceWith
   })
 )
@@ -66,8 +64,7 @@ export const disconnectStorage = Atom.family((req: StorageRequest) =>
       lastCheckedAt: null,
       lastCheckError: null
     }),
-    call: () =>
-      Api.use((client) => client.storage.disconnect({ params: req.params })),
+    call: (client) => client.storage.disconnect({ params: req.params }),
     confirm: replaceWith
   })
 )

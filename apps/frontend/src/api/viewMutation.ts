@@ -1,4 +1,5 @@
 import * as Cause from "effect/Cause"
+import type * as Context from "effect/Context"
 import type * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -14,13 +15,18 @@ export type OptimisticView<V, E = unknown> = Atom.Writable<
   Atom.Atom<AsyncResult.AsyncResult<AsyncResult.AsyncResult<V, E>, unknown>>
 >
 
+export type ApiClient = Context.Service.Shape<typeof Api>
+
+type CallContext = Api | Reactivity.Reactivity
+
 export type ViewMutation<V, Input, A, E> = Readonly<{
   name: string
   predict: (value: V, input: Input) => V
   call: (
+    client: ApiClient,
     input: Input,
     get: Atom.FnContext
-  ) => Effect.Effect<A, E, Api | Reactivity.Reactivity>
+  ) => Effect.Effect<A, E, CallContext>
   confirm: (value: V, confirmed: A, input: Input) => V
   publish?: (confirmed: A, input: Input) => ReadonlyArray<ReactivityKey>
 }>
@@ -40,7 +46,9 @@ export const viewMutation = <V, VE, Input, A, E>(
     fn: (set) =>
       Api.runtime.fn(
         Effect.fn(mutation.name)(function* (input: Input, get) {
-          const confirmed = yield* mutation.call(input, get)
+          const confirmed = yield* Api.use((client) =>
+            mutation.call(client, input, get)
+          )
           set(
             AsyncResult.map(get(view), (value) =>
               mutation.confirm(value, confirmed, input)
@@ -56,7 +64,7 @@ export type CoalescingMutation<V, Patch, A, E> = Readonly<{
   name: string
   idleTTL: Duration.Input
   predict: (value: V, patch: Patch) => V
-  call: (payload: Patch) => Effect.Effect<A, E, Api | Reactivity.Reactivity>
+  call: (client: ApiClient, payload: Patch) => Effect.Effect<A, E, CallContext>
   confirm: (value: V, confirmed: A, payload: Patch) => V
   publish?: (confirmed: A, payload: Patch) => ReadonlyArray<ReactivityKey>
 }>
@@ -77,7 +85,7 @@ export const coalescingMutation = <V, VE, Patch extends object, A, E>(
           const payload: Patch = { ...get(unsaved), ...patch }
           get.set(unsaved, payload)
           const confirmed = yield* Effect.catchCause(
-            mutation.call(payload),
+            Api.use((client) => mutation.call(client, payload)),
             (cause) => {
               if (!Cause.hasInterruptsOnly(cause) && get(unsaved) === payload) {
                 get.set(unsaved, {})

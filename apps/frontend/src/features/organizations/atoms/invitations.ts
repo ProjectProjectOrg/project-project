@@ -29,10 +29,7 @@ export const acceptInvitation = Atom.family(
     viewMutation(invitations(), {
       name: "acceptInvitation",
       predict: (value, _input: void) => without(value, invitationId),
-      call: () =>
-        Api.use((client) =>
-          client.invitations.accept({ params: { invitationId } })
-        ),
+      call: (client) => client.invitations.accept({ params: { invitationId } }),
       confirm: (value) => without(value, invitationId),
       publish: () => [Keys.orgs()]
     })
@@ -43,10 +40,7 @@ export const rejectInvitation = Atom.family(
     viewMutation(invitations(), {
       name: "rejectInvitation",
       predict: (value, _input: void) => without(value, invitationId),
-      call: () =>
-        Api.use((client) =>
-          client.invitations.reject({ params: { invitationId } })
-        ),
+      call: (client) => client.invitations.reject({ params: { invitationId } }),
       confirm: (value) => without(value, invitationId)
     })
 )

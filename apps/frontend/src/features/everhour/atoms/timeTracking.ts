@@ -320,8 +320,7 @@ export const stopTimerAtom = Atom.family((req: ActiveTimerRequest) =>
   viewMutation(activeTimerAtom(req), {
     name: "stopTimer",
     predict: (_timer, _input: void) => null,
-    call: () =>
-      Api.use((client) => client.everhour.stopTimer({ params: req.params })),
+    call: (client) => client.everhour.stopTimer({ params: req.params }),
     confirm: () => null,
     publish: (stopped) => publishPreviousTicket(req.params.orgSlug, stopped)
   })
@@ -331,10 +330,8 @@ export const stopTicketTimerAtom = Atom.family((req: TicketTimeRequest) =>
   viewMutation(ticketTimePanelAtom(req), {
     name: "stopTicketTimer",
     predict: (panel, _input: void) => ({ ...panel, activeTimer: null }),
-    call: () =>
-      Api.use((client) =>
-        client.everhour.stopTimer({ params: { orgSlug: req.params.orgSlug } })
-      ),
+    call: (client) =>
+      client.everhour.stopTimer({ params: { orgSlug: req.params.orgSlug } }),
     confirm: (panel) => ({ ...panel, activeTimer: null }),
     publish: (stopped) =>
       publishPreviousTicket(req.params.orgSlug, stopped, {
@@ -355,13 +352,11 @@ export const logTicketTimeAtom = Atom.family((req: TicketTimeRequest) =>
         userSeconds: panel.time.userSeconds + input.seconds
       }
     }),
-    call: (input) =>
-      Api.use((client) =>
-        client.everhour.logTime({
-          params: { orgSlug: req.params.orgSlug, slug: req.params.slug },
-          payload: input
-        })
-      ),
+    call: (client, input) =>
+      client.everhour.logTime({
+        params: { orgSlug: req.params.orgSlug, slug: req.params.slug },
+        payload: input
+      }),
     confirm: (panel, summary) => ({ ...panel, time: summary ?? panel.time })
   })
 )

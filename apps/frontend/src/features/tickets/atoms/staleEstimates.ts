@@ -3,7 +3,6 @@ import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Reactivity from "effect/reactivity/Reactivity"
 
-import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { viewMutation } from "@/api/viewMutation"
 import type { ProjectRequest } from "@/features/projects/atoms/projects"
@@ -44,14 +43,14 @@ export const clearStaleEstimates = Atom.family((req: ProjectRequest) =>
   viewMutation(staleEstimateCount(req), {
     name: "clearStaleEstimates",
     predict: (_count, _input: void) => 0,
-    call: () =>
-      Api.use((client) =>
-        client.tickets.clearStaleEstimates({ params: req.params })
-      ).pipe(
-        Effect.ensuring(
-          Reactivity.invalidate(Keys.ticketsChanged(scopeOf(req)))
-        )
-      ),
+    call: (client) =>
+      client.tickets
+        .clearStaleEstimates({ params: req.params })
+        .pipe(
+          Effect.ensuring(
+            Reactivity.invalidate(Keys.ticketsChanged(scopeOf(req)))
+          )
+        ),
     confirm: () => 0
   })
 )
