@@ -1,5 +1,11 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { GitState, GithubConnection, StackLayerState, Ticket, TicketDetail } from "@pp/shared"
+import type {
+  GitState,
+  GithubConnection,
+  StackLayerState,
+  Ticket,
+  TicketDetail
+} from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   AlertTriangle,

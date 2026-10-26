@@ -11,29 +11,44 @@ type LocalStorageCodec<A> = Readonly<{
 
 const listeners = new Map<string, Set<() => void>>()
 
-export function createLocalStorageCodec<
-  S extends Schema.ConstraintDecoder<unknown> &
-    Schema.ConstraintEncoder<unknown>
->(schema: S): LocalStorageCodec<S["Type"]> {
-  const json = Schema.fromJsonString(schema)
-  const decode = Schema.decodeResult(json)
-  const encode = Schema.encodeSync(json)
-  const snapshots = new Map<string, Snapshot<S["Type"]>>()
+const snapshotCodec = <A>(
+  parse: (raw: string) => Result.Result<A, unknown>,
+  encode: (value: A) => string
+): LocalStorageCodec<A> => {
+  const snapshots = new Map<string, Snapshot<A>>()
   return {
     encode,
     readSnapshot: (key, initial) => {
       const raw = readRaw(key)
       const cached = snapshots.get(key)
       if (cached !== undefined && cached.raw === raw) return cached.value
-      const decoded = raw === null ? undefined : decode(raw)
+      const parsed = raw === null ? undefined : parse(raw)
       const value =
-        decoded !== undefined && Result.isSuccess(decoded)
-          ? decoded.success
+        parsed !== undefined && Result.isSuccess(parsed)
+          ? parsed.success
           : initial
       snapshots.set(key, { raw, value })
       return value
     }
   }
+}
+
+export function createLocalStorageCodec<
+  S extends Schema.ConstraintDecoder<unknown> &
+    Schema.ConstraintEncoder<unknown>
+>(schema: S): LocalStorageCodec<S["Type"]> {
+  const json = Schema.fromJsonString(schema)
+  return snapshotCodec(Schema.decodeResult(json), Schema.encodeSync(json))
+}
+
+export function createLocalStorageStringCodec<A extends string>(
+  schema: Schema.Codec<A, A>
+): LocalStorageCodec<A> {
+  const isA = Schema.is(schema)
+  return snapshotCodec(
+    (raw) => (isA(raw) ? Result.succeed(raw) : Result.fail(raw)),
+    (value) => value
+  )
 }
 
 function readRaw(key: string): string | null {

@@ -1,17 +1,17 @@
-import { useCallback, useEffect, useState } from "react"
+import * as Schema from "effect/Schema"
+import { useCallback, useEffect } from "react"
 
-export type ThemePreference = "light" | "dark" | "system"
+import {
+  createLocalStorageStringCodec,
+  useLocalStorageState
+} from "@/hooks/useLocalStorageState"
+
+const ThemePreference = Schema.Literals(["light", "dark", "system"])
+export type ThemePreference = typeof ThemePreference.Type
 export type ResolvedTheme = "light" | "dark"
 
 const STORAGE_KEY = "projectproject:theme"
-
-function readPreference(): ThemePreference {
-  if (typeof window === "undefined") return "system"
-  const stored = window.localStorage.getItem(STORAGE_KEY)
-  if (stored === "light" || stored === "dark" || stored === "system")
-    return stored
-  return "system"
-}
+const themeCodec = createLocalStorageStringCodec(ThemePreference)
 
 function systemPrefersDark(): boolean {
   if (typeof window === "undefined") return false
@@ -29,11 +29,14 @@ function applyResolved(pref: ThemePreference) {
 }
 
 export function useTheme() {
-  const [preference, setPreferenceState] =
-    useState<ThemePreference>(readPreference)
+  const [preference, storePreference] = useLocalStorageState(
+    STORAGE_KEY,
+    themeCodec,
+    "system"
+  )
 
-  // Live-track OS-level theme changes when the user has chosen "system".
   useEffect(() => {
+    applyResolved(preference)
     if (preference !== "system") return
     const mq = window.matchMedia("(prefers-color-scheme: dark)")
     const onChange = () => applyResolved("system")
@@ -41,20 +44,23 @@ export function useTheme() {
     return () => mq.removeEventListener("change", onChange)
   }, [preference])
 
-  const setPreference = useCallback((next: ThemePreference) => {
-    // The `dark` class must change inside the view-transition callback so the API can snapshot both states.
-    const apply = () => {
-      applyResolved(next)
-      window.localStorage.setItem(STORAGE_KEY, next)
-      setPreferenceState(next)
-    }
-
-    if (typeof document !== "undefined" && "startViewTransition" in document) {
-      document.startViewTransition(apply)
-    } else {
-      apply()
-    }
-  }, [])
+  const setPreference = useCallback(
+    (next: ThemePreference) => {
+      const apply = () => {
+        applyResolved(next)
+        storePreference(next)
+      }
+      if (
+        typeof document !== "undefined" &&
+        "startViewTransition" in document
+      ) {
+        document.startViewTransition(apply)
+      } else {
+        apply()
+      }
+    },
+    [storePreference]
+  )
 
   return { preference, setPreference }
 }

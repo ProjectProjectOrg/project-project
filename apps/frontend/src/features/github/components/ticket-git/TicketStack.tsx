@@ -1,5 +1,11 @@
 import { useAtomSet } from "@effect/atom-react"
-import type { ChecksStatus, GitState, GithubConnection, StackLayerState, TicketDetail } from "@pp/shared"
+import type {
+  ChecksStatus,
+  GitState,
+  GithubConnection,
+  StackLayerState,
+  TicketDetail
+} from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import {
