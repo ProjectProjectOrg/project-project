@@ -185,7 +185,7 @@ function ProjectMemberRow({
   const removeState = useAtomValue(removeMember(key))
   const leave = useAtomSet(leaveProject(req), { mode: "promiseExit" })
   const leaveState = useAtomValue(leaveProject(req))
-  const forget = useAtomSet(forgetProject(req), { mode: "promise" })
+  const forget = useAtomSet(forgetProject(req), { mode: "promiseExit" })
   const isSelf = member.id === scope.callerId
   const manage = scope.canManage && !onlyPm
   const canExit = isSelf ? !onlyPm : manage

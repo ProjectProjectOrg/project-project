@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Link } from "@tanstack/react-router"
+import * as Exit from "effect/Exit"
 import { type FormEvent, useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
@@ -81,11 +82,9 @@ function FigmaProjectContent({
   const canSetUpStorage = useOrgActor(orgSlug).call("storage", "connect")
   const [accessToken, setAccessToken] = useState("")
   const connect = useAtomSet(connectFigmaProjectAtom(req), {
-    mode: "promise"
+    mode: "promiseExit"
   })
-  const disconnect = useAtomSet(disconnectFigmaProjectAtom(req), {
-    mode: "promise"
-  })
+  const disconnect = useAtomSet(disconnectFigmaProjectAtom(req))
   const connectState = useAtomValue(connectFigmaProjectAtom(req))
   const disconnectState = useAtomValue(disconnectFigmaProjectAtom(req))
   const busy = waiting || connectState.waiting || disconnectState.waiting
@@ -100,8 +99,8 @@ function FigmaProjectContent({
     event.preventDefault()
     const trimmed = accessToken.trim()
     if (!trimmed || !status.storageConnected) return
-    await connect({ accessToken: trimmed })
-    setAccessToken("")
+    const exit = await connect({ accessToken: trimmed })
+    if (Exit.isSuccess(exit)) setAccessToken("")
   }
 
   return (
@@ -133,7 +132,7 @@ function FigmaProjectContent({
           size="sm"
           loading={disconnectState.waiting}
           disabled={busy}
-          onClick={() => void disconnect()}
+          onClick={() => disconnect()}
         >
           {m.figma_project_disconnect_button()}
         </Button>

@@ -1,6 +1,7 @@
 import { useAtomSet } from "@effect/atom-react"
 import { ATTACHMENT_MAX_BYTES, isProjectIconContentType } from "@pp/shared"
 import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import { useEffect, useRef, useState } from "react"
 
@@ -35,7 +36,7 @@ const fetchIcon = Api.runtime.fn(
 )
 
 export function useIconDraft() {
-  const fetchIconUrl = useAtomSet(fetchIcon, { mode: "promise" })
+  const fetchIconUrl = useAtomSet(fetchIcon, { mode: "promiseExit" })
   const [preview, setPreview] = useState<IconPreview | null>(null)
   const [rejected, setRejected] = useState(false)
   const bitmapRef = useRef<ImageBitmap | null>(null)
@@ -155,15 +156,19 @@ export function useIconDraft() {
   ) => {
     if (bitmapRef.current) return
     const token = draftToken.current
+    const release = () => {
+      if (mounted.current && token === draftToken.current) setRejected(false)
+    }
+    const exit = await fetchIconUrl(url)
+    if (Exit.isFailure(exit)) return release()
+    if (!exit.value.ok) return
     try {
-      const response = await fetchIconUrl(url)
-      if (!response.ok) return
-      const blob = await response.blob()
+      const blob = await exit.value.blob()
       if (!mounted.current || token !== draftToken.current || bitmapRef.current)
         return
       await accept(new File([blob], "icon", { type: blob.type }), initial, true)
     } catch {
-      if (mounted.current && token === draftToken.current) setRejected(false)
+      release()
     }
   }
 

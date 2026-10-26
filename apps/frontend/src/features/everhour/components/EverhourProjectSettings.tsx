@@ -92,13 +92,9 @@ function EverhourSettingsContent({
   canManage: boolean
 }) {
   const req = everhourProjectRequest(orgSlug, slug)
-  const connect = useAtomSet(connectEverhourProjectAtom(req), {
-    mode: "promise"
-  })
-  const sync = useAtomSet(syncEverhourProjectAtom(req), { mode: "promise" })
-  const disconnect = useAtomSet(disconnectEverhourProjectAtom(req), {
-    mode: "promise"
-  })
+  const connect = useAtomSet(connectEverhourProjectAtom(req))
+  const sync = useAtomSet(syncEverhourProjectAtom(req))
+  const disconnect = useAtomSet(disconnectEverhourProjectAtom(req))
   const connectState = useAtomValue(connectEverhourProjectAtom(req))
   const syncState = useAtomValue(syncEverhourProjectAtom(req))
   const disconnectState = useAtomValue(disconnectEverhourProjectAtom(req))
@@ -179,7 +175,7 @@ function EverhourSettingsContent({
           size="sm"
           loading={connectState.waiting}
           disabled={busy}
-          onClick={() => void connect()}
+          onClick={() => connect()}
         >
           {m.project_settings_everhour_connect_button()}
         </Button>
@@ -192,7 +188,7 @@ function EverhourSettingsContent({
             size="sm"
             loading={syncState.waiting}
             disabled={busy}
-            onClick={() => void sync()}
+            onClick={() => sync()}
           >
             {m.project_settings_everhour_sync_button()}
           </Button>
@@ -202,7 +198,7 @@ function EverhourSettingsContent({
             size="sm"
             loading={disconnectState.waiting}
             disabled={busy}
-            onClick={() => void disconnect()}
+            onClick={() => disconnect()}
           >
             {m.project_settings_everhour_disconnect_button()}
           </Button>

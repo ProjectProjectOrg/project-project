@@ -56,9 +56,7 @@ function FigmaProfileContent({
   waiting: boolean
   oauthError: string | null
 }) {
-  const disconnect = useAtomSet(disconnectFigmaProfileAtom, {
-    mode: "promise"
-  })
+  const disconnect = useAtomSet(disconnectFigmaProfileAtom)
   const disconnectState = useAtomValue(disconnectFigmaProfileAtom)
   const busy = waiting || disconnectState.waiting
   const disconnectError = mutationErrorText(disconnectState)
@@ -85,7 +83,7 @@ function FigmaProfileContent({
           variant="tertiary"
           size="sm"
           disabled={busy}
-          onClick={() => void disconnect()}
+          onClick={() => disconnect()}
         >
           {m.figma_profile_disconnect_button()}
         </Button>

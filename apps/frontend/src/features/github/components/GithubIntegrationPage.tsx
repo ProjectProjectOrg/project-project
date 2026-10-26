@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { GithubOrgIntegrationStatus } from "@pp/shared"
 import { getRouteApi } from "@tanstack/react-router"
+import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ExternalLink } from "lucide-react"
@@ -42,7 +43,9 @@ export function GithubIntegrationPage() {
   const canInstall = useOrgActor(orgSlug).call("projects", "startGithubInstall")
   const req = githubOrgRequest(orgSlug)
   const integration = useAtomValue(githubIntegration(req))
-  const startInstall = useAtomSet(startGithubInstall(req), { mode: "promise" })
+  const startInstall = useAtomSet(startGithubInstall(req), {
+    mode: "promiseExit"
+  })
   const installState = useAtomValue(startGithubInstall(req))
   const state = useGithubAppState(orgSlug)
   const status = Result.isSuccess(integration) ? integration.value : null
@@ -62,12 +65,8 @@ export function GithubIntegrationPage() {
 
   async function install() {
     if (installState.waiting) return
-    try {
-      const { installUrl } = await startInstall({ returnProjectSlug: null })
-      window.location.assign(installUrl)
-    } catch {
-      return
-    }
+    const exit = await startInstall({ returnProjectSlug: null })
+    if (Exit.isSuccess(exit)) window.location.assign(exit.value.installUrl)
   }
 
   const actions =

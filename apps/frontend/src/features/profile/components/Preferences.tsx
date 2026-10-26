@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { EditorPreference } from "@pp/shared"
+import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useEffect, useState } from "react"
 
@@ -45,7 +46,9 @@ export function Preferences() {
 function EditorPreferenceRow({
   preference
 }: Readonly<{ preference: EditorPreference }>) {
-  const update = useAtomSet(updateEditorPreference, { mode: "promise" })
+  const update = useAtomSet(updateEditorPreference, {
+    mode: "promiseExit"
+  })
   const updateState = useAtomValue(updateEditorPreference)
   const [selected, setSelected] = useState(preference)
 
@@ -54,7 +57,9 @@ function EditorPreferenceRow({
   function choose(next: EditorPreference) {
     if (next === selected) return
     setSelected(next)
-    void update(next).catch(() => setSelected(preference))
+    void update(next).then((exit) => {
+      if (Exit.isFailure(exit)) setSelected(preference)
+    })
   }
 
   return (

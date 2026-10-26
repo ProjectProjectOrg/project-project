@@ -149,7 +149,9 @@ export function GithubSettingsRows({ orgSlug, slug, github }: Props) {
   const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
   const connect = useAtomSet(connectGithub(req))
   const connectFailed = Result.isFailure(useAtomValue(connectGithub(req)))
-  const disconnect = useAtomSet(disconnectGithub(req), { mode: "promise" })
+  const disconnect = useAtomSet(disconnectGithub(req), {
+    mode: "promiseExit"
+  })
 
   return (
     <>
@@ -185,9 +187,7 @@ export function GithubSettingsRows({ orgSlug, slug, github }: Props) {
                     repo: `${github.repoOwner}/${github.repoName}`
                   })}
                   label={m.github_chip_disconnect_button()}
-                  onConfirm={async () => {
-                    await disconnect()
-                  }}
+                  onConfirm={async () => Exit.isSuccess(await disconnect())}
                 />
               </ConfirmButton.Confirm>
             </ConfirmButton.Root>
@@ -292,7 +292,7 @@ function ConnectMenuBody({
   const orgReq = useMemo(() => githubOrgRequest(orgSlug), [orgSlug])
   const orgIntegration = useAtomValue(githubIntegration(orgReq))
   const startInstall = useAtomSet(startGithubInstall(orgReq), {
-    mode: "promise"
+    mode: "promiseExit"
   })
   const startInstallState = useAtomValue(startGithubInstall(orgReq))
   const installing = startInstallState.waiting
@@ -311,12 +311,8 @@ function ConnectMenuBody({
       )
 
   async function installApp() {
-    try {
-      const result = await startInstall({ returnProjectSlug: slug })
-      window.location.assign(result.installUrl)
-    } catch {
-      return
-    }
+    const exit = await startInstall({ returnProjectSlug: slug })
+    if (Exit.isSuccess(exit)) window.location.assign(exit.value.installUrl)
   }
 
   if (Result.isInitial(orgIntegration)) {
