@@ -17,7 +17,7 @@ import {
   Trash2,
   Trophy
 } from "lucide-react"
-import { useEffect, useRef, useState, type KeyboardEvent } from "react"
+import { useRef, useState, type KeyboardEvent } from "react"
 import type { DateRange } from "react-day-picker"
 
 import { Calendar } from "@/components/ui/calendar"
@@ -171,10 +171,6 @@ export function SprintNameField({
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(sprint.name)
 
-  useEffect(() => {
-    if (!editing) setDraft(sprint.name)
-  }, [editing, sprint.name])
-
   async function commit() {
     const trimmed = draft.trim()
     if (!trimmed || trimmed === sprint.name) {
@@ -201,7 +197,11 @@ export function SprintNameField({
     return (
       <button
         type="button"
-        onClick={() => !disabled && setEditing(true)}
+        onClick={() => {
+          if (disabled) return
+          setDraft(sprint.name)
+          setEditing(true)
+        }}
         disabled={disabled}
         className={cn(
           "-mx-1 truncate rounded px-1 text-left text-2xl font-semibold tracking-tight transition-colors transition-transform duration-100 active:scale-[0.97]",
@@ -286,15 +286,6 @@ function SprintDatesField({
     to: sprint.endsAt ?? undefined
   })
 
-  useEffect(() => {
-    if (!open) {
-      setDraft({
-        from: sprint.startsAt ?? undefined,
-        to: sprint.endsAt ?? undefined
-      })
-    }
-  }, [open, sprint.startsAt, sprint.endsAt])
-
   const fmt = shortDateFormatter()
   const label =
     sprint.startsAt && sprint.endsAt
@@ -309,7 +300,12 @@ function SprintDatesField({
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
-        if (!next) {
+        if (next) {
+          setDraft({
+            from: sprint.startsAt ?? undefined,
+            to: sprint.endsAt ?? undefined
+          })
+        } else {
           const nextStart = draft.from ?? null
           const nextEnd = draft.to ?? null
           const prevStart = sprint.startsAt ?? null
