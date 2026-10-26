@@ -13,6 +13,7 @@ import * as Random from "effect/Random"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import {
+  useCallback,
   useContext,
   useId,
   useMemo,
@@ -187,6 +188,10 @@ function SectionCreatorForm({
   const { type, setType, applyTemplateDefault } = useTicketTypeChoice()
   const [pickedSprint, setPickedSprint] = useState<Group | null>()
   const inputRef = useRef<HTMLInputElement>(null)
+  const focusOnMount = useCallback((input: HTMLInputElement | null) => {
+    inputRef.current = input
+    input?.focus()
+  }, [])
   const errorId = useId()
   const trimmed = title.trim()
   const templateChoice = useTemplateChoice(orgSlug, slug, type)
@@ -264,8 +269,7 @@ function SectionCreatorForm({
       {sprintAddon}
 
       <input
-        ref={inputRef}
-        autoFocus
+        ref={focusOnMount}
         type="text"
         {...comboboxProps(slash.listbox)}
         value={title}

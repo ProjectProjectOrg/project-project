@@ -7,7 +7,7 @@ export function useHorizontalAutoScroll(
 ) {
   useEffect(() => {
     const element = ref.current
-    if (!element || !enabled) return
+    if (!element || !enabled) return undefined
     return autoScrollForElements({
       element,
       getAllowedAxis: () => "horizontal"

@@ -14,7 +14,7 @@ export function useReorderMode(reorderMode: boolean, onExit: () => void) {
   }, [reorderMode])
 
   useEffect(() => {
-    if (!reorderMode) return
+    if (!reorderMode) return undefined
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onExit()
     }
