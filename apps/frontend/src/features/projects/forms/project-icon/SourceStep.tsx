@@ -41,12 +41,12 @@ export function SourceStep({
   const [dragging, setDragging] = useState(false)
 
   const take = async (file: File) => {
-    const url = await draft.accept(file)
-    if (!url) return false
-    form.setFieldValue("source.objectUrl", url)
+    const accepted = await draft.accept(file)
+    if (!accepted) return false
+    form.setFieldValue("source.objectUrl", accepted.url)
     form.setFieldValue("crop", { x: 0.5, y: 0.5, zoom: 1 })
     form.setFieldValue("treatment", {
-      kind: "sticker",
+      kind: accepted.treatment,
       tolerance: CUTOUT_DEFAULT_TOLERANCE
     })
     return true

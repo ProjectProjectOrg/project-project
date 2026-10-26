@@ -69,6 +69,11 @@ export function TreatmentStep({
   const values = useFormValues(form)
   const preview = draft.preview
   const failed = preview?.clean === false
+  const restyle = async (treatment: IconTreatment, tolerance: number) => {
+    const resolved = await draft.restyle(treatment, tolerance)
+    if (resolved && resolved !== form.state.values.treatment.kind)
+      form.setFieldValue("treatment.kind", resolved)
+  }
 
   const tile = (treatment: IconTreatment) => {
     const src =
@@ -120,7 +125,7 @@ export function TreatmentStep({
                   preview={tile("sticker")}
                   onSelect={() => {
                     field.handleChange("sticker")
-                    void draft.restyle(
+                    void restyle(
                       "sticker",
                       form.state.values.treatment.tolerance
                     )
@@ -134,7 +139,7 @@ export function TreatmentStep({
                   preview={tile("full_bleed")}
                   onSelect={() => {
                     field.handleChange("full_bleed")
-                    void draft.restyle(
+                    void restyle(
                       "full_bleed",
                       form.state.values.treatment.tolerance
                     )
@@ -168,7 +173,7 @@ export function TreatmentStep({
                     size="sm"
                     onClick={() => {
                       form.setFieldValue("treatment.kind", "full_bleed")
-                      void draft.restyle(
+                      void restyle(
                         "full_bleed",
                         form.state.values.treatment.tolerance
                       )
@@ -202,7 +207,7 @@ export function TreatmentStep({
                   valuePosition="top"
                   onChange={(tolerance) => {
                     form.setFieldValue("treatment.tolerance", tolerance)
-                    void draft.restyle("sticker", tolerance)
+                    void restyle("sticker", tolerance)
                   }}
                   endLabels={[
                     m.project_icon_background_removal_min(),
