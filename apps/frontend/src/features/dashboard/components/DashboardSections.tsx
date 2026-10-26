@@ -4,7 +4,7 @@ import * as Schema from "effect/Schema"
 import { Columns3, Rows3 } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import {
   SegmentedTabs,
   type SegmentedItem
@@ -145,78 +145,82 @@ function FlatTicketList({ req }: Readonly<{ req: MyTicketsRequest }>) {
   const [expanded, setExpanded] = useState(false)
   const result = useAtomValue(myTickets(req))
   const refresh = useAtomRefresh(myTickets(req))
-  return Result.matchWithError(result, {
-    onInitial: () => <RowsSkeleton count={4} />,
-    onError: (error) => <ErrorPage error={error} reset={refresh} contained />,
-    onDefect: (defect) => (
-      <ErrorPage error={defect} reset={refresh} contained />
-    ),
-    onSuccess: ({ value }) =>
-      value.tickets.length === 0 ? (
-        <EmptyTickets />
-      ) : (
-        <>
-          <DashboardRows
-            orgSlug={req.params.orgSlug}
-            tickets={
-              expanded
-                ? value.tickets
-                : value.tickets.slice(0, COMPACT_TICKET_LIMIT)
-            }
-            update={myTicketUpdates(req)}
-            preview={preview}
-          />
-          {expanded ? (
-            <>
-              <MyTicketsPagination
-                req={req}
-                nextCursor={value.nextCursor}
-                loaded={value.tickets.length}
-                total={value.total}
-              />
-              <ShowLessButton onCollapse={() => setExpanded(false)} />
-            </>
-          ) : (
-            value.total > COMPACT_TICKET_LIMIT && (
-              <RevealMoreButton
-                remaining={value.total - COMPACT_TICKET_LIMIT}
-                onReveal={() => setExpanded(true)}
-              />
-            )
-          )}
-        </>
-      )
-  })
+  return (
+    <AsyncView
+      result={result}
+      contained
+      reset={refresh}
+      onInitial={() => <RowsSkeleton count={4} />}
+      onSuccess={({ value }) =>
+        value.tickets.length === 0 ? (
+          <EmptyTickets />
+        ) : (
+          <>
+            <DashboardRows
+              orgSlug={req.params.orgSlug}
+              tickets={
+                expanded
+                  ? value.tickets
+                  : value.tickets.slice(0, COMPACT_TICKET_LIMIT)
+              }
+              update={myTicketUpdates(req)}
+              preview={preview}
+            />
+            {expanded ? (
+              <>
+                <MyTicketsPagination
+                  req={req}
+                  nextCursor={value.nextCursor}
+                  loaded={value.tickets.length}
+                  total={value.total}
+                />
+                <ShowLessButton onCollapse={() => setExpanded(false)} />
+              </>
+            ) : (
+              value.total > COMPACT_TICKET_LIMIT && (
+                <RevealMoreButton
+                  remaining={value.total - COMPACT_TICKET_LIMIT}
+                  onReveal={() => setExpanded(true)}
+                />
+              )
+            )}
+          </>
+        )
+      }
+    />
+  )
 }
 
 function MyTicketsBoard({ orgSlug }: Readonly<{ orgSlug: string }>) {
   const req = myTicketsRequest(orgSlug)
   const result = useAtomValue(myTicketBoard(req))
   const refresh = useAtomRefresh(myTicketBoard(req))
-  return Result.matchWithError(result, {
-    onInitial: () => <BoardSkeleton />,
-    onError: (error) => <ErrorPage error={error} reset={refresh} contained />,
-    onDefect: (defect) => (
-      <ErrorPage error={defect} reset={refresh} contained />
-    ),
-    onSuccess: ({ value }) =>
-      value.columns.every((column) => column.items.length === 0) ? (
-        <EmptyTickets />
-      ) : (
-        <>
-          <TicketBoard req={req} columns={value.columns} />
-          <MyTicketsPagination
-            req={req}
-            nextCursor={value.nextCursor}
-            loaded={value.columns.reduce(
-              (sum, column) => sum + column.items.length,
-              0
-            )}
-            total={value.total}
-          />
-        </>
-      )
-  })
+  return (
+    <AsyncView
+      result={result}
+      contained
+      reset={refresh}
+      onInitial={() => <BoardSkeleton />}
+      onSuccess={({ value }) =>
+        value.columns.every((column) => column.items.length === 0) ? (
+          <EmptyTickets />
+        ) : (
+          <>
+            <TicketBoard req={req} columns={value.columns} />
+            <MyTicketsPagination
+              req={req}
+              nextCursor={value.nextCursor}
+              loaded={value.columns.reduce(
+                (sum, column) => sum + column.items.length,
+                0
+              )}
+              total={value.total}
+            />
+          </>
+        )
+      }
+    />
+  )
 }
 
 export function RecentTicketsSection({
@@ -231,15 +235,12 @@ export function RecentTicketsSection({
       <h2 className="text-lg font-semibold tracking-tight">
         {m.org_dashboard_recent_heading()}
       </h2>
-      {Result.matchWithError(result, {
-        onInitial: () => <RowsSkeleton count={3} />,
-        onError: (error) => (
-          <ErrorPage error={error} reset={refresh} contained />
-        ),
-        onDefect: (defect) => (
-          <ErrorPage error={defect} reset={refresh} contained />
-        ),
-        onSuccess: ({ value }) =>
+      <AsyncView
+        result={result}
+        contained
+        reset={refresh}
+        onInitial={() => <RowsSkeleton count={3} />}
+        onSuccess={({ value }) =>
           value.tickets.length === 0 ? (
             <EmptyNote>{m.org_dashboard_recent_empty()}</EmptyNote>
           ) : (
@@ -251,7 +252,8 @@ export function RecentTicketsSection({
               below={(item) => <TicketActivityLabel activity={item.activity} />}
             />
           )
-      })}
+        }
+      />
     </section>
   )
 }

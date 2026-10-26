@@ -7,10 +7,9 @@ import {
   type TemplateDefinition,
   type UpdateBlockInput
 } from "@pp/shared"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useCallback, useId, useMemo, useState } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { Switch } from "@/components/ui/switch"
 import {
   LexicalEditor,
@@ -66,31 +65,33 @@ export function BlockEditorPage({
   blockKey
 }: Readonly<{ scope: LibraryScope; blockKey: string }>) {
   const result = useAtomValue(libraryView(scope))
-  return AsyncResult.matchWithError(result, {
-    onInitial: () => (
-      <div className="flex w-full flex-col gap-4">
-        <LibraryEditorHeader scope={scope} kind="block" status="idle" />
-        <LibraryEditorSkeleton />
-      </div>
-    ),
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value }) => {
-      const block = value.blocks.find((entry) => entry.key === blockKey)
-      return (
-        <LibraryContext value={value}>
-          {block === undefined ? (
-            <div className="flex w-full flex-col gap-4">
-              <LibraryEditorHeader scope={scope} kind="block" status="idle" />
-              <LibraryEntryMissing />
-            </div>
-          ) : (
-            <BlockEditor scope={scope} library={value} block={block} />
-          )}
-        </LibraryContext>
-      )
-    }
-  })
+  return (
+    <AsyncView
+      result={result}
+      contained
+      onInitial={() => (
+        <div className="flex w-full flex-col gap-4">
+          <LibraryEditorHeader scope={scope} kind="block" status="idle" />
+          <LibraryEditorSkeleton />
+        </div>
+      )}
+      onSuccess={({ value }) => {
+        const block = value.blocks.find((entry) => entry.key === blockKey)
+        return (
+          <LibraryContext value={value}>
+            {block === undefined ? (
+              <div className="flex w-full flex-col gap-4">
+                <LibraryEditorHeader scope={scope} kind="block" status="idle" />
+                <LibraryEntryMissing />
+              </div>
+            ) : (
+              <BlockEditor scope={scope} library={value} block={block} />
+            )}
+          </LibraryContext>
+        )
+      }}
+    />
+  )
 }
 
 function BlockEditor({

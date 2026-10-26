@@ -13,7 +13,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { FilterX, ListChecks } from "lucide-react"
 import { useMemo, type ReactNode } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
 import {
   Empty,
@@ -131,21 +131,20 @@ export function SegmentedList({
   const showExtraActionsCol = extraRowActions !== undefined
 
   if (!Result.isSuccess(statusesResult)) {
-    return Result.matchWithError(statusesResult, {
-      onInitial: () => (
-        <div
-          aria-busy="true"
-          className="h-96 animate-pulse rounded-lg bg-muted/40 motion-reduce:animate-none"
-        />
-      ),
-      onError: (error) => (
-        <ErrorPage error={error} reset={refreshStatuses} contained />
-      ),
-      onDefect: (defect) => (
-        <ErrorPage error={defect} reset={refreshStatuses} contained />
-      ),
-      onSuccess: () => null
-    })
+    return (
+      <AsyncView
+        result={statusesResult}
+        contained
+        reset={refreshStatuses}
+        onInitial={() => (
+          <div
+            aria-busy="true"
+            className="h-96 animate-pulse rounded-lg bg-muted/40 motion-reduce:animate-none"
+          />
+        )}
+        onSuccess={() => null}
+      />
+    )
   }
 
   if (counts.total === 0 && !hasActiveFilter) {

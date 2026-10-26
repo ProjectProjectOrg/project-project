@@ -20,7 +20,7 @@ import { Loader2 } from "lucide-react"
 import { motion, Reorder } from "motion/react"
 import { useContext, useEffect, useMemo, useRef, useState } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
 import { DitherShell } from "@/components/ui/dither-shell"
 import {
@@ -75,22 +75,21 @@ export function BacklogBoard(props: BacklogBoardProps) {
   const statuses = useAtomValue(statusesFor(statusReq))
   const refreshStatuses = useAtomRefresh(statusesFor(statusReq))
 
-  return Result.matchWithError(statuses, {
-    onInitial: () => (
-      <DitherShell contained animated>
-        {null}
-      </DitherShell>
-    ),
-    onError: (error) => (
-      <ErrorPage error={error} reset={refreshStatuses} contained />
-    ),
-    onDefect: (defect) => (
-      <ErrorPage error={defect} reset={refreshStatuses} contained />
-    ),
-    onSuccess: ({ value }) => (
-      <BacklogBoardContent {...props} statuses={value} />
-    )
-  })
+  return (
+    <AsyncView
+      result={statuses}
+      contained
+      reset={refreshStatuses}
+      onInitial={() => (
+        <DitherShell contained animated>
+          {null}
+        </DitherShell>
+      )}
+      onSuccess={({ value }) => (
+        <BacklogBoardContent {...props} statuses={value} />
+      )}
+    />
+  )
 }
 
 function BacklogBoardContent({
@@ -298,16 +297,13 @@ function ColumnLoadMore({
 
   return (
     <>
-      {Result.matchWithError(loadMoreState, {
-        onInitial: () => null,
-        onError: (error) => (
-          <ErrorPage error={error} reset={() => loadMore()} contained />
-        ),
-        onDefect: (defect) => (
-          <ErrorPage error={defect} reset={() => loadMore()} contained />
-        ),
-        onSuccess: () => null
-      })}
+      <AsyncView
+        result={loadMoreState}
+        contained
+        reset={() => loadMore()}
+        onInitial={() => null}
+        onSuccess={() => null}
+      />
       <AutoLoad
         key={cursor}
         cursor={cursor}

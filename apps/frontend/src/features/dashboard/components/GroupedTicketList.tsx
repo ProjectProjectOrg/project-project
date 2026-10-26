@@ -1,10 +1,9 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { Link } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
 import { ArrowRight } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
 import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
 import { getStatusIcon } from "@/features/statuses/lib/statusIcons"
@@ -57,91 +56,93 @@ export function ProjectGroupedList(props: GroupedListProps) {
   const req = myTicketsByProjectRequest(props.orgSlug)
   const result = useAtomValue(myTicketsByProject(req))
   const refresh = useAtomRefresh(myTicketsByProject(req))
-  return Result.matchWithError(result, {
-    onInitial: () => props.loading,
-    onError: (error) => <ErrorPage error={error} reset={refresh} contained />,
-    onDefect: (defect) => (
-      <ErrorPage error={defect} reset={refresh} contained />
-    ),
-    onSuccess: ({ value }) => (
-      <GroupedSections
-        {...props}
-        update={projectTicketUpdates(req)}
-        groups={value.groups.map((group) => ({
-          id: group.project.slug,
-          heading: {
-            label: group.project.name,
-            icon: (
-              <ProjectIconTile
-                orgSlug={req.params.orgSlug}
-                icon={group.project.icon}
-                iconImage={group.project.iconImage}
-                color={group.project.color}
-                size="xs"
-                seed={group.project.slug}
-              />
-            )
-          },
-          count: group.total,
-          tickets: group.tickets,
-          footer:
-            group.total > group.tickets.length ? (
-              <ViewAllInProject orgSlug={req.params.orgSlug} group={group} />
-            ) : undefined
-        }))}
-      />
-    )
-  })
+  return (
+    <AsyncView
+      result={result}
+      contained
+      reset={refresh}
+      onInitial={() => props.loading}
+      onSuccess={({ value }) => (
+        <GroupedSections
+          {...props}
+          update={projectTicketUpdates(req)}
+          groups={value.groups.map((group) => ({
+            id: group.project.slug,
+            heading: {
+              label: group.project.name,
+              icon: (
+                <ProjectIconTile
+                  orgSlug={req.params.orgSlug}
+                  icon={group.project.icon}
+                  iconImage={group.project.iconImage}
+                  color={group.project.color}
+                  size="xs"
+                  seed={group.project.slug}
+                />
+              )
+            },
+            count: group.total,
+            tickets: group.tickets,
+            footer:
+              group.total > group.tickets.length ? (
+                <ViewAllInProject orgSlug={req.params.orgSlug} group={group} />
+              ) : undefined
+          }))}
+        />
+      )}
+    />
+  )
 }
 
 export function StatusGroupedList(props: GroupedListProps) {
   const req = myTicketsRequest(props.orgSlug)
   const result = useAtomValue(myTicketBoard(req))
   const refresh = useAtomRefresh(myTicketBoard(req))
-  return Result.matchWithError(result, {
-    onInitial: () => props.loading,
-    onError: (error) => <ErrorPage error={error} reset={refresh} contained />,
-    onDefect: (defect) => (
-      <ErrorPage error={defect} reset={refresh} contained />
-    ),
-    onSuccess: ({ value }) => (
-      <GroupedSections
-        {...props}
-        update={myTicketUpdates(req)}
-        groups={value.columns.map((column) => {
-          const Icon = getStatusIcon(column.icon)
-          return {
-            id: column.key,
-            heading: {
-              label: column.label,
-              icon: (
-                <Icon
-                  className="size-4"
-                  style={{ color: column.color }}
-                  strokeWidth={1.75}
-                />
-              )
-            },
-            count: column.count,
-            tickets: column.items,
-            expandable: {
-              pagination: (
-                <MyTicketsPagination
-                  req={req}
-                  nextCursor={value.nextCursor}
-                  loaded={value.columns.reduce(
-                    (sum, candidate) => sum + candidate.items.length,
-                    0
-                  )}
-                  total={value.total}
-                />
-              )
+  return (
+    <AsyncView
+      result={result}
+      contained
+      reset={refresh}
+      onInitial={() => props.loading}
+      onSuccess={({ value }) => (
+        <GroupedSections
+          {...props}
+          update={myTicketUpdates(req)}
+          groups={value.columns.map((column) => {
+            const Icon = getStatusIcon(column.icon)
+            return {
+              id: column.key,
+              heading: {
+                label: column.label,
+                icon: (
+                  <Icon
+                    className="size-4"
+                    style={{ color: column.color }}
+                    strokeWidth={1.75}
+                  />
+                )
+              },
+              count: column.count,
+              tickets: column.items,
+              expandable: {
+                pagination: (
+                  <MyTicketsPagination
+                    req={req}
+                    nextCursor={value.nextCursor}
+                    loaded={value.columns.reduce(
+                      (sum, candidate) => sum + candidate.items.length,
+                      0
+                    )}
+                    total={value.total}
+                  />
+                )
+              }
             }
-          }
-        })}
-      />
-    )
-  })
+          })}
+        />
+      )}
+    />
+  )
 }
 
 function ViewAllInProject({

@@ -7,7 +7,7 @@ import type {
 import * as Result from "effect/reactivity/AsyncResult"
 import { Check } from "lucide-react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { jiraDestinationConflicts } from "@/features/jira/atoms/jiraMigration"
@@ -107,19 +107,16 @@ export function ReviewStep({
           </form.Subscribe>
         </div>
 
-        {Result.matchWithError(conflicts, {
-          onInitial: () => (
+        <AsyncView
+          result={conflicts}
+          contained
+          reset={refreshConflicts}
+          onInitial={() => (
             <p role="status" className="text-sm text-muted-foreground">
               {m.jira_migration_review_conflicts_checking()}
             </p>
-          ),
-          onError: (error) => (
-            <ErrorPage error={error} reset={refreshConflicts} contained />
-          ),
-          onDefect: (defect) => (
-            <ErrorPage error={defect} reset={refreshConflicts} contained />
-          ),
-          onSuccess: ({ value }) =>
+          )}
+          onSuccess={({ value }) =>
             value.length === 0 ? (
               <p role="status" className="text-sm text-muted-foreground">
                 {m.jira_migration_review_conflicts_clear()}
@@ -141,7 +138,8 @@ export function ReviewStep({
                 </ul>
               </div>
             )
-        })}
+          }
+        />
 
         {hasRestrictedContent ? (
           <div>

@@ -1,10 +1,9 @@
 import { useAtomValue } from "@effect/atom-react"
 import { Link } from "@tanstack/react-router"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { Database, Upload } from "lucide-react"
 import { useRef, useState } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
 import {
   EmojiPicker,
@@ -108,18 +107,16 @@ export function SourceStep({
                     )}
                   </group.Field>
                 ) : (
-                  AsyncResult.matchWithError(storage, {
-                    onInitial: () => (
+                  <AsyncView
+                    result={storage}
+                    contained
+                    onInitial={() => (
                       <div
                         aria-busy="true"
                         className="h-32 animate-pulse rounded-md bg-muted"
                       />
-                    ),
-                    onError: (error) => <ErrorPage error={error} contained />,
-                    onDefect: (defect) => (
-                      <ErrorPage error={defect} contained />
-                    ),
-                    onSuccess: ({ value }) =>
+                    )}
+                    onSuccess={({ value }) =>
                       value.status !== "active" ? (
                         <div className="flex gap-3 rounded-md bg-muted p-3">
                           <Database
@@ -181,7 +178,8 @@ export function SourceStep({
                           </span>
                         </Button>
                       )
-                  })
+                    }
+                  />
                 )
               }
             </group.Subscribe>

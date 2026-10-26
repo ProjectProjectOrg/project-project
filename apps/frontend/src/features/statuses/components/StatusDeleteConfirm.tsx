@@ -4,7 +4,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronDown } from "lucide-react"
 import { useMemo, useState, type ReactNode } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
 import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
@@ -78,25 +78,23 @@ function AutomationConfirmBody(props: Props) {
   const refresh = useAtomRefresh(atom)
   return (
     <DeleteStatusForm {...props} automationReady={Result.isSuccess(automation)}>
-      {Result.matchWithError(automation, {
-        onInitial: () => (
+      <AsyncView
+        result={automation}
+        contained
+        reset={refresh}
+        onInitial={() => (
           <output className="text-xs text-muted-foreground">
             {m.tickets_status_loading()}
           </output>
-        ),
-        onError: (error) => (
-          <ErrorPage error={error} reset={refresh} contained />
-        ),
-        onDefect: (defect) => (
-          <ErrorPage error={defect} reset={refresh} contained />
-        ),
-        onSuccess: ({ value }) =>
+        )}
+        onSuccess={({ value }) =>
           Object.values(value.rules).includes(props.status.slug) ? (
             <span className="inline-flex h-8 items-center text-xs text-muted-foreground">
               {m.tickets_status_delete_resets_git_automation()}
             </span>
           ) : null
-      })}
+        }
+      />
     </DeleteStatusForm>
   )
 }

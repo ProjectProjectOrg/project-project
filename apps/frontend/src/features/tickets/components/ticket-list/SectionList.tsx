@@ -23,7 +23,7 @@ import {
   type ReactNode
 } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
 import {
   backlogRequest,
@@ -272,16 +272,13 @@ function SectionPagination({
   const remaining = Math.max(0, count - items.length)
   return (
     <>
-      {Result.matchWithError(loadMoreState, {
-        onInitial: () => null,
-        onError: (error) => (
-          <ErrorPage error={error} reset={() => loadMore()} contained />
-        ),
-        onDefect: (defect) => (
-          <ErrorPage error={defect} reset={() => loadMore()} contained />
-        ),
-        onSuccess: () => null
-      })}
+      <AsyncView
+        result={loadMoreState}
+        contained
+        reset={() => loadMore()}
+        onInitial={() => null}
+        onSuccess={() => null}
+      />
       <TicketPagination
         requestKey={`${req.params.orgSlug}/${req.params.slug}:${encodeTicketListQuery(req.query)}`}
         nextCursor={nextCursor}

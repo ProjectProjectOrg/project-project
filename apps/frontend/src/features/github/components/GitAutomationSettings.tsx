@@ -18,7 +18,7 @@ import {
   Minus
 } from "lucide-react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import {
   SettingsGroup,
   SettingsRow,
@@ -97,13 +97,13 @@ export function GitAutomationSettings({ orgSlug, slug, canEdit }: Props) {
       title={m.git_automation_heading()}
       description={m.git_automation_description()}
     >
-      {AsyncResult.matchWithError(AsyncResult.all([automation, statuses]), {
-        onInitial: () => (
+      <AsyncView
+        result={AsyncResult.all([automation, statuses])}
+        contained
+        onInitial={() => (
           <SettingsSkeleton rows={GIT_AUTOMATION_EVENTS.length} />
-        ),
-        onError: (error) => <ErrorPage error={error} contained />,
-        onDefect: (defect) => <ErrorPage error={defect} contained />,
-        onSuccess: ({ value: [current, statusList] }) => (
+        )}
+        onSuccess={({ value: [current, statusList] }) => (
           <Rules
             orgSlug={orgSlug}
             slug={slug}
@@ -111,8 +111,8 @@ export function GitAutomationSettings({ orgSlug, slug, canEdit }: Props) {
             automation={current}
             statuses={statusList}
           />
-        )
-      })}
+        )}
+      />
     </SettingsSection>
   )
 }

@@ -5,7 +5,7 @@ import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ExternalLink } from "lucide-react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import {
   SettingsGroup,
   SettingsRow,
@@ -130,44 +130,49 @@ function GithubAccount({
   integration: Result.AsyncResult<GithubOrgIntegrationStatus, unknown>
   installError: string | null
 }>) {
-  return Result.matchWithError(integration, {
-    onInitial: () => null,
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value: status }) =>
-      status.status !== "not_connected" ? (
-        <SettingsSection>
-          <SettingsGroup>
-            <SettingsRow
-              label={m.org_integrations_github_account_label()}
-              error={installError ?? status.lastCheckError}
-            >
-              <span className="text-[13px] text-muted-foreground">
-                {status.accountLogin ?? "—"}
-              </span>
-            </SettingsRow>
-            <SettingsRow label={m.org_integrations_github_account_type_label()}>
-              <span className="text-[13px] text-muted-foreground">
-                {status.accountType === "Organization"
-                  ? m.org_integrations_github_account_type_org()
-                  : m.org_integrations_github_account_type_user()}
-              </span>
-            </SettingsRow>
-            {status.lastCheckedAt ? (
+  return (
+    <AsyncView
+      result={integration}
+      contained
+      onInitial={() => null}
+      onSuccess={({ value: status }) =>
+        status.status !== "not_connected" ? (
+          <SettingsSection>
+            <SettingsGroup>
               <SettingsRow
-                label={m.org_integrations_github_last_checked_label()}
+                label={m.org_integrations_github_account_label()}
+                error={installError ?? status.lastCheckError}
               >
                 <span className="text-[13px] text-muted-foreground">
-                  {status.lastCheckedAt.toLocaleDateString(getLocale())}
+                  {status.accountLogin ?? "—"}
                 </span>
               </SettingsRow>
-            ) : null}
-          </SettingsGroup>
-        </SettingsSection>
-      ) : installError ? (
-        <p role="alert" className="text-xs text-destructive">
-          {installError}
-        </p>
-      ) : null
-  })
+              <SettingsRow
+                label={m.org_integrations_github_account_type_label()}
+              >
+                <span className="text-[13px] text-muted-foreground">
+                  {status.accountType === "Organization"
+                    ? m.org_integrations_github_account_type_org()
+                    : m.org_integrations_github_account_type_user()}
+                </span>
+              </SettingsRow>
+              {status.lastCheckedAt ? (
+                <SettingsRow
+                  label={m.org_integrations_github_last_checked_label()}
+                >
+                  <span className="text-[13px] text-muted-foreground">
+                    {status.lastCheckedAt.toLocaleDateString(getLocale())}
+                  </span>
+                </SettingsRow>
+              ) : null}
+            </SettingsGroup>
+          </SettingsSection>
+        ) : installError ? (
+          <p role="alert" className="text-xs text-destructive">
+            {installError}
+          </p>
+        ) : null
+      }
+    />
+  )
 }

@@ -7,10 +7,9 @@ import {
   type TemplateDefinition,
   type UpdateTemplateInput
 } from "@pp/shared"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useCallback, useMemo, useState } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import {
   LexicalEditor,
   type SaveStatus
@@ -75,37 +74,43 @@ export function TemplateEditorPage({
   templateKey
 }: Readonly<{ scope: LibraryScope; templateKey: string }>) {
   const result = useAtomValue(libraryView(scope))
-  return AsyncResult.matchWithError(result, {
-    onInitial: () => (
-      <div className="flex w-full flex-col gap-4">
-        <LibraryEditorHeader scope={scope} kind="template" status="idle" />
-        <LibraryEditorSkeleton />
-      </div>
-    ),
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value }) => {
-      const template = value.templates.find(
-        (entry) => entry.key === templateKey
-      )
-      return (
-        <LibraryContext value={value}>
-          {template === undefined ? (
-            <div className="flex w-full flex-col gap-4">
-              <LibraryEditorHeader
+  return (
+    <AsyncView
+      result={result}
+      contained
+      onInitial={() => (
+        <div className="flex w-full flex-col gap-4">
+          <LibraryEditorHeader scope={scope} kind="template" status="idle" />
+          <LibraryEditorSkeleton />
+        </div>
+      )}
+      onSuccess={({ value }) => {
+        const template = value.templates.find(
+          (entry) => entry.key === templateKey
+        )
+        return (
+          <LibraryContext value={value}>
+            {template === undefined ? (
+              <div className="flex w-full flex-col gap-4">
+                <LibraryEditorHeader
+                  scope={scope}
+                  kind="template"
+                  status="idle"
+                />
+                <LibraryEntryMissing />
+              </div>
+            ) : (
+              <TemplateEditor
                 scope={scope}
-                kind="template"
-                status="idle"
+                library={value}
+                template={template}
               />
-              <LibraryEntryMissing />
-            </div>
-          ) : (
-            <TemplateEditor scope={scope} library={value} template={template} />
-          )}
-        </LibraryContext>
-      )
-    }
-  })
+            )}
+          </LibraryContext>
+        )
+      }}
+    />
+  )
 }
 
 function TemplateEditor({

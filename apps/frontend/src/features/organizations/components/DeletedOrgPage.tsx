@@ -5,10 +5,9 @@ import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
 import * as Predicate from "effect/Predicate"
-import * as Result from "effect/reactivity/AsyncResult"
 import { useState } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
 import { DitherShell } from "@/components/ui/dither-shell"
 import {
@@ -26,16 +25,18 @@ const formatDate = (date: Date): string =>
 export function DeletedOrgPage({ orgSlug }: { orgSlug: string }) {
   const result = useAtomValue(orgDetail(orgRequest(orgSlug)))
 
-  return Result.matchWithError(result, {
-    onInitial: () => (
-      <DitherShell contained animated>
-        {null}
-      </DitherShell>
-    ),
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value }) => <DeletedBody orgSlug={orgSlug} org={value} />
-  })
+  return (
+    <AsyncView
+      result={result}
+      contained
+      onInitial={() => (
+        <DitherShell contained animated>
+          {null}
+        </DitherShell>
+      )}
+      onSuccess={({ value }) => <DeletedBody orgSlug={orgSlug} org={value} />}
+    />
+  )
 }
 
 function DeletedBody({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {

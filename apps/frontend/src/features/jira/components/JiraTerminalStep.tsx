@@ -1,9 +1,8 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import type { JiraMigrationDetail, JiraSkippedAttachment } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
 import {
   jiraMigrationRequest,
@@ -142,62 +141,62 @@ function SkippedAttachments({
   )
   const result = useAtomValue(skippedAtom)
   const refreshSkipped = useAtomRefresh(skippedAtom)
-  return Result.matchWithError(result, {
-    onInitial: () => (
-      <p className="mt-6 text-sm text-muted-foreground">
-        {m.jira_migration_skipped_loading()}
-      </p>
-    ),
-    onError: (error) => (
-      <ErrorPage error={error} reset={refreshSkipped} contained />
-    ),
-    onDefect: (defect) => (
-      <ErrorPage error={defect} reset={refreshSkipped} contained />
-    ),
-    onSuccess: ({ value }) =>
-      value.length === 0 ? null : (
-        <section className="mt-8 text-left">
-          <h3 className="text-sm font-semibold text-foreground">
-            {m.jira_migration_skipped_title()}
-          </h3>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            {m.jira_migration_success_skipped()}
-          </p>
-          <ul className="mt-4 divide-y divide-border border-y border-border">
-            {value.map((attachment) => (
-              <li key={attachment.sourceAttachmentId} className="py-3">
-                <div className="min-w-0 font-mono text-[13px] break-all text-foreground">
-                  {attachment.filename}
-                </div>
-                <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                  <a
-                    href={attachment.sourceIssueUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-foreground underline decoration-border underline-offset-4 transition-colors hover:decoration-foreground"
-                  >
-                    {m.jira_migration_skipped_jira_issue({
-                      issueKey: attachment.sourceIssueKey
-                    })}
-                  </a>
-                  <a
-                    href={attachment.targetTicketUrl}
-                    className="text-foreground underline decoration-border underline-offset-4 transition-colors hover:decoration-foreground"
-                  >
-                    {m.jira_migration_skipped_ticket({
-                      ticketId: attachment.targetTicketId
-                    })}
-                  </a>
-                </div>
-                <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
-                  {replacementMessage(attachment.replacement)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )
-  })
+  return (
+    <AsyncView
+      result={result}
+      contained
+      reset={refreshSkipped}
+      onInitial={() => (
+        <p className="mt-6 text-sm text-muted-foreground">
+          {m.jira_migration_skipped_loading()}
+        </p>
+      )}
+      onSuccess={({ value }) =>
+        value.length === 0 ? null : (
+          <section className="mt-8 text-left">
+            <h3 className="text-sm font-semibold text-foreground">
+              {m.jira_migration_skipped_title()}
+            </h3>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              {m.jira_migration_success_skipped()}
+            </p>
+            <ul className="mt-4 divide-y divide-border border-y border-border">
+              {value.map((attachment) => (
+                <li key={attachment.sourceAttachmentId} className="py-3">
+                  <div className="min-w-0 font-mono text-[13px] break-all text-foreground">
+                    {attachment.filename}
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                    <a
+                      href={attachment.sourceIssueUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-foreground underline decoration-border underline-offset-4 transition-colors hover:decoration-foreground"
+                    >
+                      {m.jira_migration_skipped_jira_issue({
+                        issueKey: attachment.sourceIssueKey
+                      })}
+                    </a>
+                    <a
+                      href={attachment.targetTicketUrl}
+                      className="text-foreground underline decoration-border underline-offset-4 transition-colors hover:decoration-foreground"
+                    >
+                      {m.jira_migration_skipped_ticket({
+                        ticketId: attachment.targetTicketId
+                      })}
+                    </a>
+                  </div>
+                  <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+                    {replacementMessage(attachment.replacement)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
+    />
+  )
 }
 
 function replacementMessage(

@@ -3,7 +3,7 @@ import { DEFAULT_WORK_TYPES, type GroupId } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import {
   everhourProjectRequest,
   everhourProfileAtom,
@@ -66,20 +66,24 @@ export function SprintTimePanel({
     return <div className="h-8 animate-pulse rounded bg-muted/40" />
   }
   if (Result.isFailure(statusResult)) {
-    return Result.matchWithError(statusResult, {
-      onInitial: () => null,
-      onError: (error) => <ErrorPage error={error} contained />,
-      onDefect: (defect) => <ErrorPage error={defect} contained />,
-      onSuccess: () => null
-    })
+    return (
+      <AsyncView
+        result={statusResult}
+        contained
+        onInitial={() => null}
+        onSuccess={() => null}
+      />
+    )
   }
   if (Result.isFailure(profileResult)) {
-    return Result.matchWithError(profileResult, {
-      onInitial: () => null,
-      onError: (error) => <ErrorPage error={error} contained />,
-      onDefect: (defect) => <ErrorPage error={defect} contained />,
-      onSuccess: () => null
-    })
+    return (
+      <AsyncView
+        result={profileResult}
+        contained
+        onInitial={() => null}
+        onSuccess={() => null}
+      />
+    )
   }
 
   const connected =
@@ -92,12 +96,14 @@ export function SprintTimePanel({
     return <div className="h-8 animate-pulse rounded bg-muted/40" />
   }
   if (Result.isFailure(activeTimerResult)) {
-    return Result.matchWithError(activeTimerResult, {
-      onInitial: () => null,
-      onError: (error) => <ErrorPage error={error} contained />,
-      onDefect: (defect) => <ErrorPage error={defect} contained />,
-      onSuccess: () => null
-    })
+    return (
+      <AsyncView
+        result={activeTimerResult}
+        contained
+        onInitial={() => null}
+        onSuccess={() => null}
+      />
+    )
   }
 
   const running =

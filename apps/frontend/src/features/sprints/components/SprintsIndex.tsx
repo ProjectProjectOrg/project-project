@@ -1,8 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { getRouteApi, Navigate } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { PageContainer } from "@/components/shell/Page"
 import {
   sprintList,
@@ -23,29 +22,30 @@ export function SprintsIndex() {
 
   const refresh = useAtomRefresh(sprintList(req))
 
-  return Result.matchWithError(list, {
-    onInitial: () => (
-      <PageContainer>
-        <SprintDetailSkeleton />
-      </PageContainer>
-    ),
-    onError: (error) => <ErrorPage error={error} reset={refresh} contained />,
-    onDefect: (defect) => (
-      <ErrorPage error={defect} reset={refresh} contained />
-    ),
-    onSuccess: ({ value }) => {
-      const target = pickRedirectTarget(value)
-      return target ? (
-        <Navigate
-          to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
-          params={{ orgSlug, slug, groupId: target.id }}
-          replace
-        />
-      ) : (
+  return (
+    <AsyncView
+      result={list}
+      contained
+      reset={refresh}
+      onInitial={() => (
         <PageContainer>
-          <SprintsEmpty />
+          <SprintDetailSkeleton />
         </PageContainer>
-      )
-    }
-  })
+      )}
+      onSuccess={({ value }) => {
+        const target = pickRedirectTarget(value)
+        return target ? (
+          <Navigate
+            to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
+            params={{ orgSlug, slug, groupId: target.id }}
+            replace
+          />
+        ) : (
+          <PageContainer>
+            <SprintsEmpty />
+          </PageContainer>
+        )
+      }}
+    />
+  )
 }

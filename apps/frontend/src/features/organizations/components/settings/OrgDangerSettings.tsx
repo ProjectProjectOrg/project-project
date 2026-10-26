@@ -4,7 +4,7 @@ import { getRouteApi, useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import {
   SettingsGroup,
   SettingsRow,
@@ -30,24 +30,27 @@ export function OrgDangerSettings() {
   const result = useAtomValue(orgDetail(orgRequest(orgSlug)))
   const canDelete = useOrgActor(orgSlug).call("org", "softDelete")
 
-  return Result.matchWithError(result, {
-    onInitial: () => <SettingsSkeleton rows={2} />,
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value }) =>
-      canDelete ? (
-        <DeleteCard orgSlug={orgSlug} org={value} />
-      ) : (
-        <SettingsSection>
-          <SettingsGroup>
-            <SettingsRow
-              label={m.org_danger_delete_heading()}
-              description={m.org_danger_owner_only()}
-            />
-          </SettingsGroup>
-        </SettingsSection>
-      )
-  })
+  return (
+    <AsyncView
+      result={result}
+      contained
+      onInitial={() => <SettingsSkeleton rows={2} />}
+      onSuccess={({ value }) =>
+        canDelete ? (
+          <DeleteCard orgSlug={orgSlug} org={value} />
+        ) : (
+          <SettingsSection>
+            <SettingsGroup>
+              <SettingsRow
+                label={m.org_danger_delete_heading()}
+                description={m.org_danger_owner_only()}
+              />
+            </SettingsGroup>
+          </SettingsSection>
+        )
+      }
+    />
+  )
 }
 
 function DeleteCard({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {

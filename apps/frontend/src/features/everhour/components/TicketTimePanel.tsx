@@ -4,7 +4,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { Info } from "lucide-react"
 import { useState } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import {
   Popover,
   PopoverContent,
@@ -54,13 +54,13 @@ export function TicketTimeSection({
 
   return (
     <MetaRow label={m.time_section_label()}>
-      {Result.matchWithError(statusResult, {
-        onInitial: () => (
+      <AsyncView
+        result={statusResult}
+        contained
+        onInitial={() => (
           <div className="h-8 animate-pulse rounded bg-muted/40" />
-        ),
-        onError: (error) => <ErrorPage error={error} contained />,
-        onDefect: (defect) => <ErrorPage error={defect} contained />,
-        onSuccess: ({ value }) =>
+        )}
+        onSuccess={({ value }) =>
           value.status === "not_connected" ? (
             <EverhourSetupHint orgSlug={orgSlug} slug={slug} />
           ) : canLog ? (
@@ -68,7 +68,8 @@ export function TicketTimeSection({
           ) : (
             <TicketTimeTotal orgSlug={orgSlug} slug={slug} ticket={ticket} />
           )
-      })}
+        }
+      />
     </MetaRow>
   )
 }
@@ -93,83 +94,87 @@ export function TicketTimePanel({
   const [workType, setWorkType] = useState<string | null>(null)
   const [showLog, setShowLog] = useState(false)
 
-  return Result.matchWithError(panelResult, {
-    onInitial: () => <div className="h-16 animate-pulse rounded bg-muted/40" />,
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value: panel, waiting }) => {
-      if (!panel.profile.connected) return <ConnectEverhourInline />
-      const options = panel.workTypes
-      if (options.length === 0) {
+  return (
+    <AsyncView
+      result={panelResult}
+      contained
+      onInitial={() => (
+        <div className="h-16 animate-pulse rounded bg-muted/40" />
+      )}
+      onSuccess={({ value: panel, waiting }) => {
+        if (!panel.profile.connected) return <ConnectEverhourInline />
+        const options = panel.workTypes
+        if (options.length === 0) {
+          return (
+            <p className="text-xs text-muted-foreground">
+              {m.time_no_sprint_hint()}
+            </p>
+          )
+        }
+        const effectiveWorkType = workType ?? options[0].key
+        const running =
+          panel.activeTimer !== null && panel.activeTimer.ticketId === ticket.id
+        const busy =
+          startState.waiting || stopState.waiting || panelResult.waiting
+        const timePulse = waiting || startState.waiting || stopState.waiting
+
         return (
-          <p className="text-xs text-muted-foreground">
-            {m.time_no_sprint_hint()}
-          </p>
-        )
-      }
-      const effectiveWorkType = workType ?? options[0].key
-      const running =
-        panel.activeTimer !== null && panel.activeTimer.ticketId === ticket.id
-      const busy =
-        startState.waiting || stopState.waiting || panelResult.waiting
-      const timePulse = waiting || startState.waiting || stopState.waiting
+          <div className="flex flex-col gap-3">
+            <div
+              className={
+                timePulse
+                  ? "flex animate-pulse items-center gap-5 tabular-nums"
+                  : "flex items-center gap-5 tabular-nums"
+              }
+            >
+              <EstimatedFigure ticket={ticket} />
+              <TrackedFigure
+                label={m.time_tracked_total()}
+                seconds={panel.time.totalSeconds}
+              />
+              <TrackedFigure
+                label={m.time_tracked_yours()}
+                seconds={panel.time.userSeconds}
+              />
+              <Popover>
+                <PopoverTrigger
+                  aria-label={m.time_sync_explainer()}
+                  className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-100 hover:text-foreground active:scale-[0.97]"
+                >
+                  <Info className="h-4 w-4" />
+                </PopoverTrigger>
+                <PopoverContent className="w-72 text-xs text-muted-foreground">
+                  {m.time_sync_explainer()}
+                </PopoverContent>
+              </Popover>
+            </div>
 
-      return (
-        <div className="flex flex-col gap-3">
-          <div
-            className={
-              timePulse
-                ? "flex animate-pulse items-center gap-5 tabular-nums"
-                : "flex items-center gap-5 tabular-nums"
-            }
-          >
-            <EstimatedFigure ticket={ticket} />
-            <TrackedFigure
-              label={m.time_tracked_total()}
-              seconds={panel.time.totalSeconds}
-            />
-            <TrackedFigure
-              label={m.time_tracked_yours()}
-              seconds={panel.time.userSeconds}
-            />
-            <Popover>
-              <PopoverTrigger
-                aria-label={m.time_sync_explainer()}
-                className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-100 hover:text-foreground active:scale-[0.97]"
-              >
-                <Info className="h-4 w-4" />
-              </PopoverTrigger>
-              <PopoverContent className="w-72 text-xs text-muted-foreground">
-                {m.time_sync_explainer()}
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          <TimeControls
-            value={effectiveWorkType}
-            onValueChange={setWorkType}
-            options={options}
-            running={running}
-            busy={busy}
-            onStart={() => void start({ workTypeKey: effectiveWorkType })}
-            onStop={() => void stop()}
-            logOpen={showLog}
-            onLogOpenChange={setShowLog}
-          >
-            <LogTimeForm
-              orgSlug={orgSlug}
-              slug={slug}
-              ticketId={ticket.id}
-              request={req}
+            <TimeControls
+              value={effectiveWorkType}
+              onValueChange={setWorkType}
               options={options}
-              defaultWorkType={effectiveWorkType}
-              onDone={() => setShowLog(false)}
-            />
-          </TimeControls>
-        </div>
-      )
-    }
-  })
+              running={running}
+              busy={busy}
+              onStart={() => void start({ workTypeKey: effectiveWorkType })}
+              onStop={() => void stop()}
+              logOpen={showLog}
+              onLogOpenChange={setShowLog}
+            >
+              <LogTimeForm
+                orgSlug={orgSlug}
+                slug={slug}
+                ticketId={ticket.id}
+                request={req}
+                options={options}
+                defaultWorkType={effectiveWorkType}
+                onDone={() => setShowLog(false)}
+              />
+            </TimeControls>
+          </div>
+        )
+      }}
+    />
+  )
 }
 
 function TicketTimeTotal({
@@ -184,20 +189,24 @@ function TicketTimeTotal({
   const result = useAtomValue(
     ticketTimeAtom(ticketTimeRequest(orgSlug, slug, ticket.id))
   )
-  return Result.matchWithError(result, {
-    onInitial: () => <div className="h-8 animate-pulse rounded bg-muted/40" />,
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value }) => (
-      <div className="flex items-center gap-5 tabular-nums">
-        <EstimatedFigure ticket={ticket} />
-        <TrackedFigure
-          label={m.time_tracked_total()}
-          seconds={value.totalSeconds}
-        />
-      </div>
-    )
-  })
+  return (
+    <AsyncView
+      result={result}
+      contained
+      onInitial={() => (
+        <div className="h-8 animate-pulse rounded bg-muted/40" />
+      )}
+      onSuccess={({ value }) => (
+        <div className="flex items-center gap-5 tabular-nums">
+          <EstimatedFigure ticket={ticket} />
+          <TrackedFigure
+            label={m.time_tracked_total()}
+            seconds={value.totalSeconds}
+          />
+        </div>
+      )}
+    />
+  )
 }
 
 function EstimatedFigure({ ticket }: Readonly<{ ticket: TicketDetail }>) {

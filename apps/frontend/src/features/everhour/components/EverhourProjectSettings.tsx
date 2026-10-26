@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
 import { Button } from "@/components/ui/button"
 import { me } from "@/features/auth/atoms/auth"
@@ -34,35 +34,37 @@ export function EverhourSettingsRow({
   const status = useAtomValue(everhourProjectStatusAtom(req))
   const viewer = useAtomValue(me())
 
-  return Result.matchWithError(status, {
-    onInitial: () => (
-      <SettingsRow
-        icon={<IntegrationLogo kind="everhour" />}
-        label={m.project_settings_everhour_heading()}
-        description={
-          <span className="animate-pulse">
-            {m.project_settings_everhour_loading()}
-          </span>
-        }
-      />
-    ),
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value, waiting }) => {
-      const user = Result.isSuccess(viewer) ? viewer.value : null
-      const hasKey = user?.personalEverhour.connected === true
-      return (
-        <EverhourSettingsContent
-          orgSlug={orgSlug}
-          slug={slug}
-          status={value}
-          waiting={waiting}
-          hasKey={hasKey}
-          canManage={canManage}
+  return (
+    <AsyncView
+      result={status}
+      contained
+      onInitial={() => (
+        <SettingsRow
+          icon={<IntegrationLogo kind="everhour" />}
+          label={m.project_settings_everhour_heading()}
+          description={
+            <span className="animate-pulse">
+              {m.project_settings_everhour_loading()}
+            </span>
+          }
         />
-      )
-    }
-  })
+      )}
+      onSuccess={({ value, waiting }) => {
+        const user = Result.isSuccess(viewer) ? viewer.value : null
+        const hasKey = user?.personalEverhour.connected === true
+        return (
+          <EverhourSettingsContent
+            orgSlug={orgSlug}
+            slug={slug}
+            status={value}
+            waiting={waiting}
+            hasKey={hasKey}
+            canManage={canManage}
+          />
+        )
+      }}
+    />
+  )
 }
 
 function EverhourSettingsContent({

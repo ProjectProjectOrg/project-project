@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { type FormEvent, useState } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,28 +33,30 @@ export function FigmaProjectSettings({
   const req = figmaProjectRequest(orgSlug, slug)
   const status = useAtomValue(figmaProjectStatusAtom(req))
 
-  return Result.matchWithError(status, {
-    onInitial: () => (
-      <SettingsRow
-        icon={<IntegrationLogo kind="figma" />}
-        label={m.figma_project_title()}
-        description={
-          <span className="block h-3 w-40 animate-pulse rounded bg-muted" />
-        }
-      />
-    ),
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value, waiting }) => (
-      <FigmaProjectContent
-        orgSlug={orgSlug}
-        slug={slug}
-        status={value}
-        waiting={waiting}
-        canManage={canManage}
-      />
-    )
-  })
+  return (
+    <AsyncView
+      result={status}
+      contained
+      onInitial={() => (
+        <SettingsRow
+          icon={<IntegrationLogo kind="figma" />}
+          label={m.figma_project_title()}
+          description={
+            <span className="block h-3 w-40 animate-pulse rounded bg-muted" />
+          }
+        />
+      )}
+      onSuccess={({ value, waiting }) => (
+        <FigmaProjectContent
+          orgSlug={orgSlug}
+          slug={slug}
+          status={value}
+          waiting={waiting}
+          canManage={canManage}
+        />
+      )}
+    />
+  )
 }
 
 function FigmaProjectContent({

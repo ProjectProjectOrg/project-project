@@ -1,11 +1,10 @@
 import { useAtomValue } from "@effect/atom-react"
 import { OrderKey, type ProjectStatus } from "@pp/shared"
-import * as Result from "effect/reactivity/AsyncResult"
 import { generateKeyBetween } from "fractional-indexing"
 import { Reorder } from "motion/react"
 import { useMemo, useRef, useState } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsGroup } from "@/components/shell/settings/SettingsSection"
 import {
   statusesFor,
@@ -30,20 +29,22 @@ export function StatusList({ orgSlug, slug }: Props) {
   const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
   const result = useAtomValue(statusesFor(req))
 
-  return Result.matchWithError(result, {
-    onInitial: () => (
-      <SettingsGroup>
-        <p className="px-4 py-3 text-[13px] text-muted-foreground">
-          {m.tickets_status_loading()}
-        </p>
-      </SettingsGroup>
-    ),
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value }) => (
-      <OrderedStatuses orgSlug={orgSlug} slug={slug} statuses={value} />
-    )
-  })
+  return (
+    <AsyncView
+      result={result}
+      contained
+      onInitial={() => (
+        <SettingsGroup>
+          <p className="px-4 py-3 text-[13px] text-muted-foreground">
+            {m.tickets_status_loading()}
+          </p>
+        </SettingsGroup>
+      )}
+      onSuccess={({ value }) => (
+        <OrderedStatuses orgSlug={orgSlug} slug={slug} statuses={value} />
+      )}
+    />
+  )
 }
 
 type OrderedProps = Props & {

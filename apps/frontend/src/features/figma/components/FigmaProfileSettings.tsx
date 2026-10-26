@@ -1,7 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Result from "effect/reactivity/AsyncResult"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
 import { Button } from "@/components/ui/button"
 import {
@@ -20,26 +20,28 @@ export function FigmaProfileSettings({
 }) {
   const profile = useAtomValue(figmaProfileAtom)
 
-  return Result.matchWithError(profile, {
-    onInitial: () => (
-      <SettingsRow
-        icon={<IntegrationLogo kind="figma" />}
-        label={m.figma_profile_title()}
-        description={
-          <span className="block h-3 w-40 animate-pulse rounded bg-muted" />
-        }
-      />
-    ),
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value, waiting }) => (
-      <FigmaProfileContent
-        profile={value}
-        waiting={waiting}
-        oauthError={oauthError}
-      />
-    )
-  })
+  return (
+    <AsyncView
+      result={profile}
+      contained
+      onInitial={() => (
+        <SettingsRow
+          icon={<IntegrationLogo kind="figma" />}
+          label={m.figma_profile_title()}
+          description={
+            <span className="block h-3 w-40 animate-pulse rounded bg-muted" />
+          }
+        />
+      )}
+      onSuccess={({ value, waiting }) => (
+        <FigmaProfileContent
+          profile={value}
+          waiting={waiting}
+          oauthError={oauthError}
+        />
+      )}
+    />
+  )
 }
 
 function FigmaProfileContent({

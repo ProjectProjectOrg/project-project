@@ -1,10 +1,9 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { OAuthApplication } from "@pp/shared"
-import * as Result from "effect/reactivity/AsyncResult"
 import { KeyRound } from "lucide-react"
 import { useMemo, useState } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsDisclosureItem } from "@/components/shell/settings/SettingsDisclosureItem"
 import {
   SettingsGroup,
@@ -33,15 +32,12 @@ export function ConnectedAgentsSection() {
   return (
     <>
       <SettingsSection>
-        {Result.matchWithError(applications, {
-          onInitial: () => <SettingsSkeleton rows={2} />,
-          onError: (error) => (
-            <ErrorPage error={error} reset={refresh} contained />
-          ),
-          onDefect: (defect) => (
-            <ErrorPage error={defect} reset={refresh} contained />
-          ),
-          onSuccess: ({ value, waiting }) => (
+        <AsyncView
+          result={applications}
+          contained
+          reset={refresh}
+          onInitial={() => <SettingsSkeleton rows={2} />}
+          onSuccess={({ value, waiting }) => (
             <SettingsGroup
               className={cn(
                 waiting && "animate-pulse motion-reduce:animate-none"
@@ -61,8 +57,8 @@ export function ConnectedAgentsSection() {
                 ))
               )}
             </SettingsGroup>
-          )
-        })}
+          )}
+        />
       </SettingsSection>
       <ConnectMcpDisclosure />
     </>

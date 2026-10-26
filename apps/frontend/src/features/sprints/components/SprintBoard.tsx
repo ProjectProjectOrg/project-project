@@ -18,7 +18,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { motion, Reorder } from "motion/react"
 import { useContext, useEffect, useMemo, useRef, useState } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { DitherShell } from "@/components/ui/dither-shell"
 import {
   statusesFor,
@@ -78,26 +78,27 @@ export function SprintBoard(props: SprintBoardProps) {
     if (Result.isFailure(statuses)) refreshStatuses()
   }
 
-  return Result.matchWithError(Result.all({ board, statuses }), {
-    onInitial: () => (
-      <DitherShell contained animated>
-        {null}
-      </DitherShell>
-    ),
-    onError: (error) => <ErrorPage error={error} reset={refresh} contained />,
-    onDefect: (defect) => (
-      <ErrorPage error={defect} reset={refresh} contained />
-    ),
-    onSuccess: ({ value, waiting }) => (
-      <SprintBoardContent
-        {...props}
-        req={req}
-        board={value.board}
-        statuses={value.statuses}
-        waiting={waiting}
-      />
-    )
-  })
+  return (
+    <AsyncView
+      result={Result.all({ board, statuses })}
+      contained
+      reset={refresh}
+      onInitial={() => (
+        <DitherShell contained animated>
+          {null}
+        </DitherShell>
+      )}
+      onSuccess={({ value, waiting }) => (
+        <SprintBoardContent
+          {...props}
+          req={req}
+          board={value.board}
+          statuses={value.statuses}
+          waiting={waiting}
+        />
+      )}
+    />
+  )
 }
 
 function SprintBoardContent({

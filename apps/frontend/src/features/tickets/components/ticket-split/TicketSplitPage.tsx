@@ -4,7 +4,7 @@ import { useCanGoBack, useNavigate, useRouter } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useMemo } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { DitherShell } from "@/components/ui/dither-shell"
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
 import {
@@ -58,21 +58,20 @@ export function TicketSplitPage({
     })
   }
 
-  const content = Result.matchWithError(
-    Result.all({
-      comments: commentsResult,
-      sprints: sprintsResult,
-      membership: membershipResult
-    }),
-    {
-      onInitial: () => (
+  const content = (
+    <AsyncView
+      result={Result.all({
+        comments: commentsResult,
+        sprints: sprintsResult,
+        membership: membershipResult
+      })}
+      contained
+      onInitial={() => (
         <DitherShell contained animated>
           {null}
         </DitherShell>
-      ),
-      onError: (error) => <ErrorPage contained error={error} />,
-      onDefect: (defect) => <ErrorPage contained error={defect} />,
-      onSuccess: ({ value }) => (
+      )}
+      onSuccess={({ value }) => (
         <TicketSplitForm
           orgSlug={orgSlug}
           slug={slug}
@@ -83,8 +82,8 @@ export function TicketSplitPage({
           onSplit={returnToOrigin}
           onCancel={() => returnToOrigin([])}
         />
-      )
-    }
+      )}
+    />
   )
 
   return (

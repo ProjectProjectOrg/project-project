@@ -1,7 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Result from "effect/reactivity/AsyncResult"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
 import {
   loadMoreMyTickets,
@@ -28,16 +28,13 @@ export function MyTicketsPagination({
   const state = useAtomValue(loadMoreMyTickets(req))
   return (
     <>
-      {Result.matchWithError(state, {
-        onInitial: () => null,
-        onSuccess: () => null,
-        onError: (error) => (
-          <ErrorPage error={error} reset={() => loadMore()} contained />
-        ),
-        onDefect: (defect) => (
-          <ErrorPage error={defect} reset={() => loadMore()} contained />
-        )
-      })}
+      <AsyncView
+        result={state}
+        contained
+        reset={() => loadMore()}
+        onInitial={() => null}
+        onSuccess={() => null}
+      />
       <TicketPagination
         requestKey={req.params.orgSlug}
         nextCursor={nextCursor}

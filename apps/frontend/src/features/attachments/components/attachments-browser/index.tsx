@@ -7,7 +7,7 @@ import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState, type ReactNode } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ConfirmButton } from "@/components/ui/confirm-button"
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty"
@@ -96,18 +96,18 @@ export function AttachmentsBrowser({ orgSlug }: { orgSlug: string }) {
   return (
     <AttachmentStorageGate orgSlug={orgSlug}>
       <div className="flex w-full flex-col gap-4">
-        {Result.matchWithError(summaryResult, {
-          onInitial: () => (
+        <AsyncView
+          result={summaryResult}
+          contained
+          onInitial={() => (
             <div className="h-16 animate-pulse rounded-lg bg-muted" />
-          ),
-          onError: (error) => <ErrorPage error={error} contained />,
-          onDefect: (defect) => <ErrorPage error={defect} contained />,
-          onSuccess: ({ value, waiting }) => (
+          )}
+          onSuccess={({ value, waiting }) => (
             <div className={waiting ? "animate-pulse" : undefined}>
               <Totals summary={value} />
             </div>
-          )
-        })}
+          )}
+        />
 
         <Toolbar
           status={status}
@@ -128,11 +128,11 @@ export function AttachmentsBrowser({ orgSlug }: { orgSlug: string }) {
           }}
         />
 
-        {Result.matchWithError(listResult, {
-          onInitial: () => <TableSkeleton />,
-          onError: (error) => <ErrorPage error={error} contained />,
-          onDefect: (defect) => <ErrorPage error={defect} contained />,
-          onSuccess: ({ value, waiting }) => (
+        <AsyncView
+          result={listResult}
+          contained
+          onInitial={() => <TableSkeleton />}
+          onSuccess={({ value, waiting }) => (
             <AttachmentsTable
               orgSlug={orgSlug}
               rows={value.items}
@@ -160,8 +160,8 @@ export function AttachmentsBrowser({ orgSlug }: { orgSlug: string }) {
               }}
               request={req}
             />
-          )
-        })}
+          )}
+        />
       </div>
     </AttachmentStorageGate>
   )
@@ -175,24 +175,30 @@ function AttachmentStorageGate({
   children: ReactNode
 }) {
   const storage = useAtomValue(orgStorage(storageRequest(orgSlug)))
-  return Result.matchWithError(storage, {
-    onInitial: () => <TableSkeleton />,
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value }) =>
-      value.status === "not_connected" ? (
-        <Empty variant="inline" className="border border-dashed border-border">
-          <EmptyTitle className="text-sm font-medium">
-            {m.attachments_empty_no_storage_title()}
-          </EmptyTitle>
-          <EmptyDescription className="max-w-sm text-xs">
-            {m.attachments_empty_no_storage_body()}
-          </EmptyDescription>
-        </Empty>
-      ) : (
-        <TooltipProvider>{children}</TooltipProvider>
-      )
-  })
+  return (
+    <AsyncView
+      result={storage}
+      contained
+      onInitial={() => <TableSkeleton />}
+      onSuccess={({ value }) =>
+        value.status === "not_connected" ? (
+          <Empty
+            variant="inline"
+            className="border border-dashed border-border"
+          >
+            <EmptyTitle className="text-sm font-medium">
+              {m.attachments_empty_no_storage_title()}
+            </EmptyTitle>
+            <EmptyDescription className="max-w-sm text-xs">
+              {m.attachments_empty_no_storage_body()}
+            </EmptyDescription>
+          </Empty>
+        ) : (
+          <TooltipProvider>{children}</TooltipProvider>
+        )
+      }
+    />
+  )
 }
 
 function AttachmentsTable({
