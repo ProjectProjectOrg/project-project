@@ -1,3 +1,4 @@
+import { SearchIcon } from "lucide-react"
 import { animate, motion, useReducedMotion } from "motion/react"
 import {
   createContext,
@@ -13,6 +14,7 @@ import {
   useSyncExternalStore,
   type Dispatch,
   type HTMLAttributes,
+  type InputHTMLAttributes,
   type ReactNode,
   type Ref,
   type RefObject,
@@ -485,6 +487,58 @@ function CommandMenuTabs({
   )
 }
 
+export type CommandMenuInputProps = InputHTMLAttributes<HTMLInputElement>
+
+function CommandMenuInput({
+  className,
+  onKeyDown,
+  ref,
+  ...props
+}: CommandMenuInputProps & Readonly<{ ref?: Ref<HTMLInputElement> }>) {
+  const { move, select, rows, highlight, listId } = useCommandMenu()
+  const index = useSyncExternalStore(
+    highlight.subscribe,
+    highlight.get,
+    () => null
+  )
+  return (
+    <div
+      data-slot="command-menu-input"
+      className="flex h-9 shrink-0 items-center gap-2 px-3"
+    >
+      <SearchIcon className="size-4 shrink-0 text-muted-foreground" />
+      <input
+        ref={ref}
+        role="combobox"
+        aria-expanded
+        aria-controls={listId}
+        aria-autocomplete="list"
+        aria-activedescendant={index === null ? undefined : `${listId}-${index}`}
+        onKeyDown={(event) => {
+          onKeyDown?.(event)
+          if (event.defaultPrevented) return
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault()
+            move(event.key === "ArrowDown" ? 1 : -1)
+            return
+          }
+          if (event.key !== "Enter") return
+          const current = highlight.get()
+          const row = current === null ? undefined : rows[current]
+          if (row === undefined) return
+          event.preventDefault()
+          select(row)
+        }}
+        className={cn(
+          "h-9 w-full min-w-0 bg-transparent text-sm outline-hidden placeholder:text-muted-foreground",
+          className
+        )}
+        {...props}
+      />
+    </div>
+  )
+}
+
 export type CommandMenuListProps = HTMLAttributes<HTMLDivElement> &
   Readonly<{
     renderItem: (item: CommandMenuItemData, index: number) => ReactNode
@@ -759,6 +813,7 @@ export {
   useCommandMenu,
   CommandMenu,
   CommandMenuTabs,
+  CommandMenuInput,
   CommandMenuList,
   CommandMenuEmpty,
   CommandMenuItem,
