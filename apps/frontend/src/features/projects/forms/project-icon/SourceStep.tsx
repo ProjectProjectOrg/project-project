@@ -11,9 +11,7 @@ import {
   EmojiPickerContent,
   EmojiPickerSearch
 } from "@/components/ui/emoji-picker"
-import {
-  SegmentedTabs
-} from "@/components/ui/segmented-tabs"
+import { SegmentedTabs } from "@/components/ui/segmented-tabs"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import { StepHeading } from "@/features/projects/components/appearance/AppearanceCard"
 import { CUTOUT_DEFAULT_TOLERANCE } from "@/features/projects/lib/iconCutout"

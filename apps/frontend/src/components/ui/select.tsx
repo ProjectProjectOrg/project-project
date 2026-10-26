@@ -170,7 +170,6 @@ function SelectTrigger({
   children,
   ...props
 }: SelectTriggerProps) {
-
   if (render) {
     return (
       <SelectPrimitive.Trigger render={render} className={className} {...props}>

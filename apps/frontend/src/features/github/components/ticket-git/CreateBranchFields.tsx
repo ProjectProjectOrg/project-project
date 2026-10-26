@@ -456,7 +456,10 @@ function BaseBranchCombobox({
             renderItem={(row) => {
               const branch = protectedByName.get(row.value)
               return (
-                <CommandMenuItem value={row.value} className="font-mono text-xs">
+                <CommandMenuItem
+                  value={row.value}
+                  className="font-mono text-xs"
+                >
                   <Check
                     className={cn(
                       "size-3",

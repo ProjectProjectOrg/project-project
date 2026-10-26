@@ -7,9 +7,7 @@ import { useRef, useState } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { Button } from "@/components/ui/button"
-import {
-  SegmentedTabs
-} from "@/components/ui/segmented-tabs"
+import { SegmentedTabs } from "@/components/ui/segmented-tabs"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import { StepHeading } from "@/features/projects/components/appearance/AppearanceCard"
 import { bannerPresets } from "@/features/projects/lib/bannerPresets"

@@ -51,6 +51,8 @@ const buttonVariants = cva(
           "border border-border text-foreground hover:bg-[image:linear-gradient(var(--hover),var(--hover))] active:bg-[image:linear-gradient(var(--active),var(--active))]",
         ghost:
           "bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-active",
+        quiet:
+          "rounded-md bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground",
         step: "w-full justify-start rounded-xl bg-transparent text-left text-muted-foreground hover:bg-hover hover:text-foreground",
         raised:
           "bg-surface-5 text-foreground shadow-surface-1 hover:bg-surface-7 hover:shadow-surface-1-hover active:bg-surface-6",
@@ -89,7 +91,10 @@ const buttonVariants = cva(
         "block-grip": "size-5 p-0",
         "icon-sm": "h-8 w-8 p-0 [&_svg]:h-3.5 [&_svg]:w-3.5",
         icon: "h-9 w-9 p-0 [&_svg]:h-4 [&_svg]:w-4",
-        "icon-lg": "h-10 w-10 p-0 [&_svg]:h-5 [&_svg]:w-5"
+        "icon-lg": "h-10 w-10 p-0 [&_svg]:h-5 [&_svg]:w-5",
+        "square-7": "size-7 shrink-0 p-0",
+        "square-8": "size-8 shrink-0 p-0",
+        "square-9": "size-9 shrink-0 p-0"
       },
       iconLeft: { true: "" },
       iconRight: { true: "" }
@@ -221,7 +226,7 @@ function Button({
       iconRight: !isIconOnly && !!TrailingIcon
     }),
     variant === "tertiary" && SURFACE_BG[Math.min(surface + 2, 8)],
-    "rounded-[20px]",
+    variant !== "quiet" && "rounded-[20px]",
     className
   )
   const leadingIconNode = LeadingIcon && (

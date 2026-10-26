@@ -12,6 +12,7 @@ import { AnimatePresence, motion } from "motion/react"
 import { useMemo, useRef } from "react"
 
 import { Button } from "@/components/ui/button"
+import { CollapsingLabel } from "@/components/ui/collapsing-label"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +26,6 @@ import {
 } from "@/components/ui/input-group"
 import { Kbd } from "@/components/ui/kbd"
 import { menuItemMetaClass } from "@/components/ui/menu-styles"
-import { CollapsingLabel } from "@/components/ui/collapsing-label"
 import {
   statusesFor,
   statusesRequest

@@ -508,7 +508,9 @@ function CommandMenuInput({
         aria-expanded
         aria-controls={listId}
         aria-autocomplete="list"
-        aria-activedescendant={index === null ? undefined : `${listId}-${index}`}
+        aria-activedescendant={
+          index === null ? undefined : `${listId}-${index}`
+        }
         onKeyDown={(event) => {
           onKeyDown?.(event)
           if (event.defaultPrevented) return
@@ -747,7 +749,7 @@ const CommandMenuItem = memo(function CommandMenuItem({
       }}
       className={cn(
         "relative z-10 flex shrink-0 cursor-pointer items-center outline-none select-none",
-        "h-9 gap-2 px-2 text-[13px] rounded-lg",
+        "h-9 gap-2 rounded-lg px-2 text-[13px]",
         "transition-[color] duration-80",
         isActive ? "text-foreground" : "text-muted-foreground",
         className

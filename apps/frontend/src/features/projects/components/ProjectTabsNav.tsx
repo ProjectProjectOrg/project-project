@@ -194,7 +194,11 @@ export function TabsNav({
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <SegmentedTabs items={items} className="project-tabs" value={selectedTab} />
+      <SegmentedTabs
+        items={items}
+        className="project-tabs"
+        value={selectedTab}
+      />
     </div>
   )
 }

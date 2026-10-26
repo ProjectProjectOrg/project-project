@@ -1,8 +1,6 @@
 import type { AttachmentSort, AttachmentStatus } from "@pp/shared"
 
-import {
-  SegmentedTabs
-} from "@/components/ui/segmented-tabs"
+import { SegmentedTabs } from "@/components/ui/segmented-tabs"
 import { Select, SelectTrigger } from "@/components/ui/select"
 import { m } from "@/paraglide/messages"
 
