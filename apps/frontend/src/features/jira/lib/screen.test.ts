@@ -1,7 +1,27 @@
 import { JiraMigrationStatus } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
-import { isActiveJiraMigration, jiraMigrationScreen } from "./screen"
+import {
+  isActiveJiraMigration,
+  jiraMigrationScreen,
+  jiraMigrationStatusLabel
+} from "./screen"
+
+describe("jiraMigrationStatusLabel", () => {
+  it.each<readonly [JiraMigrationStatus, string]>([
+    ["scanning", "Scanning"],
+    ["needs_configuration", "Needs configuration"],
+    ["ready", "Ready"],
+    ["migrating", "Migrating"],
+    ["cancelling", "Cancelling"],
+    ["reconnect_required", "Reconnect required"],
+    ["failed", "Needs attention"],
+    ["cancelled", "Cancelled"],
+    ["succeeded", "Complete"]
+  ])("labels %s as %s", (status, expected) => {
+    expect(jiraMigrationStatusLabel(status)).toBe(expected)
+  })
+})
 
 describe("jiraMigrationScreen", () => {
   it.each<readonly [JiraMigrationStatus, string]>([

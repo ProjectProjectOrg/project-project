@@ -8,7 +8,9 @@ import {
   type LibraryOrigin,
   type TemplateDefinition,
   type TemplateDraft,
-  type TicketType
+  type TemplateKey,
+  type TicketType,
+  type UpdateTemplateDefaultsInput
 } from "@pp/shared"
 
 import { slugify } from "@/lib/slug"
@@ -124,6 +126,15 @@ export const defaultState = (
   if (layer === "org") return "own"
   return type in library.ownDefaults ? "overridden" : "inherited"
 }
+
+export const defaultRemoval = (
+  ownDefaults: Library["ownDefaults"],
+  type: TicketType,
+  templateKey: TemplateKey
+): UpdateTemplateDefaultsInput =>
+  ownDefaults[type] === templateKey
+    ? { defaults: {}, reset: [type] }
+    : { defaults: { [type]: null } }
 
 export const layoutIdFor = (kind: LibraryKind, key: string): string =>
   `library-${kind}:${key}`

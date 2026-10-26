@@ -42,6 +42,12 @@ import {
   estimateFilterLabel,
   estimateFilterValues
 } from "@/features/tickets/lib/estimateMeta"
+import {
+  filterableSprints,
+  singleFilter,
+  singleFilterValue,
+  toggledTags
+} from "@/features/tickets/lib/ticketFilters"
 import { TYPE_LABELS, TYPE_META } from "@/features/tickets/lib/ticketMeta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -217,10 +223,9 @@ function FilterType({
   value: TicketFilter["type"]
   onChange: (value: TicketFilter["type"]) => void
 }>) {
-  const types = value
-  const typeFilter = types?.length === 1 ? types[0] : "all"
+  const typeFilter = singleFilterValue(value)
   const setTypeFilter = (type: TicketType | "all") =>
-    onChange(type === "all" ? undefined : [type])
+    onChange(singleFilter(type))
   return (
     <OptionPicker
       label={m.tickets_filters_section_type()}
@@ -260,10 +265,9 @@ function FilterAssignee({
   members: ReadonlyArray<Member>
 }>) {
   const viewerId = useAtomValue(currentUserId)
-  const assignees = value
-  const assigneeFilter = assignees?.length === 1 ? assignees[0] : "all"
+  const assigneeFilter = singleFilterValue(value)
   const setAssigneeFilter = (assignee: AssigneeFilter | "all") =>
-    onChange(assignee === "all" ? undefined : [assignee])
+    onChange(singleFilter(assignee))
   return (
     <OptionPicker
       label={m.tickets_filters_section_assignee()}
@@ -322,9 +326,9 @@ function FilterEstimate({
 }>) {
   const options = estimateFilterValues(estimation)
   if (options.length === 0) return null
-  const selected = value?.length === 1 ? value[0] : "all"
+  const selected = singleFilterValue(value)
   const select = (next: EstimateFilterValue | "all") =>
-    onChange(next === "all" ? undefined : [next])
+    onChange(singleFilter(next))
   return (
     <OptionPicker
       label={m.tickets_filters_section_estimate()}
@@ -358,18 +362,14 @@ function FilterSprint({
   onChange: (value: TicketFilter["groupId"]) => void
 }>) {
   const { orgSlug, slug } = useProjectRoute()
-  const groups = value
-  const sprintFilter = groups?.length === 1 ? groups[0] : "all"
+  const sprintFilter = singleFilterValue(value)
   const setSprintFilter = (sprint: SprintFilterValue) =>
-    onChange(sprint === "all" ? undefined : [sprint])
+    onChange(singleFilter(sprint))
   const sprintReq = sprintListRequest(orgSlug, slug)
   const sprintsList = useAtomValue(sprintList(sprintReq))
   const allSprints = Result.isSuccess(sprintsList) ? sprintsList.value : []
   const now = DateTime.toDate(DateTime.nowUnsafe())
-  const sprintOptions = allSprints.filter((s) => {
-    const st = sprintState(s, now)
-    return st === "active" || st === "planned"
-  })
+  const sprintOptions = filterableSprints(allSprints, now)
   return (
     <OptionPicker
       label={m.tickets_filters_section_sprint()}
@@ -419,8 +419,6 @@ function FilterTags({
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const selectedTags = value ?? []
-  const setSelectedTags = (tags: typeof selectedTags) =>
-    onChange(tags.length ? tags : undefined)
   const req = tagsRequest(orgSlug, slug)
   const tags = useAtomValue(tagsFor(req))
   const tagList = useMemo(
@@ -442,11 +440,7 @@ function FilterTags({
               type="button"
               onClick={(e) => {
                 e.preventDefault()
-                setSelectedTags(
-                  selected
-                    ? selectedTags.filter((t) => t !== tag.name)
-                    : [...selectedTags, tag.name]
-                )
+                onChange(toggledTags(selectedTags, tag.name))
               }}
               aria-pressed={selected}
               className="rounded-md ring-offset-background transition-transform duration-100 outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"

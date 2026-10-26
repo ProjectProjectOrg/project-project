@@ -1,6 +1,30 @@
+import { TemplateKey } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
-import { copyKey, keyFromName, keyProblem, rowActions } from "./libraryModel"
+import {
+  copyKey,
+  defaultRemoval,
+  keyFromName,
+  keyProblem,
+  rowActions
+} from "./libraryModel"
+
+describe("defaultRemoval", () => {
+  const chore = TemplateKey.make("chore")
+
+  it("resets a default this layer set itself", () => {
+    expect(defaultRemoval({ bug: chore }, "bug", chore)).toEqual({
+      defaults: {},
+      reset: ["bug"]
+    })
+  })
+
+  it("clears an inherited default with an explicit null", () => {
+    expect(defaultRemoval({}, "bug", chore)).toEqual({
+      defaults: { bug: null }
+    })
+  })
+})
 
 const entry = (
   origin: "org" | "project",

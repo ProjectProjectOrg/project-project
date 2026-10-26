@@ -2,7 +2,6 @@ import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type {
   JiraConnection,
   JiraMigrationDetail,
-  JiraMigrationStatus,
   JiraMigrationSummary,
   JiraProjectChoice,
   JiraSite
@@ -41,7 +40,11 @@ import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
-import { isActiveJiraMigration, jiraMigrationScreen } from "../lib/screen"
+import {
+  isActiveJiraMigration,
+  jiraMigrationScreen,
+  jiraMigrationStatusLabel
+} from "../lib/screen"
 import {
   isJiraMappingStep,
   isJiraWizardStep,
@@ -416,7 +419,7 @@ function ResumeRegion({
                       </span>
                       <span className="shrink-0 text-right text-xs text-muted-foreground">
                         <span className="block">
-                          {migrationStatusLabel(migration.status)}
+                          {jiraMigrationStatusLabel(migration.status)}
                         </span>
                         <span className="block">
                           {new Intl.DateTimeFormat(getLocale(), {
@@ -651,31 +654,6 @@ function jiraMigrationActionError(
 function stageIndex(step: JiraMigrationStep) {
   const stage = jiraMigrationStageForStep(step)
   return jiraMigrationStages.findIndex((candidate) => candidate.id === stage)
-}
-
-function migrationStatusLabel(status: JiraMigrationStatus): string {
-  switch (status) {
-    case "scanning":
-      return m.jira_migration_status_scanning()
-    case "needs_configuration":
-      return m.jira_migration_status_needs_configuration()
-    case "ready":
-      return m.jira_migration_status_ready()
-    case "migrating":
-      return m.jira_migration_status_migrating()
-    case "cancelling":
-      return m.jira_migration_status_cancelling()
-    case "reconnect_required":
-      return m.jira_migration_status_reconnect_required()
-    case "failed":
-      return m.jira_migration_status_failed()
-    case "cancelled":
-      return m.jira_migration_status_cancelled()
-    case "succeeded":
-      return m.jira_migration_status_succeeded()
-  }
-  status satisfies never
-  throw new Error("Unreachable Jira migration status")
 }
 
 function SourceSkeleton() {
