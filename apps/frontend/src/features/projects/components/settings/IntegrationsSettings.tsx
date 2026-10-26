@@ -41,11 +41,7 @@ export function IntegrationsSettings() {
       <SettingsSection>
         <SettingsGroup>
           {actor.call("projects", "gitStates") ? (
-            <GithubSettingsRows
-              orgSlug={orgSlug}
-              slug={project.slug}
-              github={project.github}
-            />
+            <GithubSettingsRows github={project.github} />
           ) : (
             <SettingsRow
               icon={<IntegrationLogo kind="github" />}
@@ -71,28 +67,16 @@ export function IntegrationsSettings() {
           ) : null}
           {actor.call("everhour", "projectStatus") && (
             <EverhourSettingsRow
-              orgSlug={orgSlug}
-              slug={project.slug}
               canManage={actor.call("everhour", "connectProject")}
             />
           )}
           <FigmaProjectSettings
-            orgSlug={orgSlug}
-            slug={project.slug}
             canManage={actor.call("figma", "connectProject")}
           />
-          <SlackProjectRow
-            orgSlug={orgSlug}
-            slug={project.slug}
-            canManage={canManageSlack}
-          />
+          <SlackProjectRow canManage={canManageSlack} />
         </SettingsGroup>
       </SettingsSection>
-      <SlackProjectEvents
-        orgSlug={orgSlug}
-        slug={project.slug}
-        canManage={canManageSlack}
-      />
+      <SlackProjectEvents canManage={canManageSlack} />
     </>
   )
 }

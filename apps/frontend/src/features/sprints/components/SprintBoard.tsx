@@ -24,6 +24,7 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   boardRequest,
   boardTicketUpdates,
@@ -46,8 +47,6 @@ import {
 import { SprintBoardColumn } from "./SprintBoardColumn"
 
 type SprintBoardProps = {
-  orgSlug: string
-  slug: string
   groupId: GroupId
   query: TicketListQuery
   members: ReadonlyArray<Member>
@@ -60,7 +59,8 @@ type SprintBoardProps = {
 }
 
 export function SprintBoard(props: SprintBoardProps) {
-  const { orgSlug, slug, groupId } = props
+  const { orgSlug, slug } = useProjectRoute()
+  const { groupId } = props
   const req = useMemo(
     () => boardRequest(orgSlug, slug, groupId),
     [orgSlug, slug, groupId]
@@ -99,8 +99,6 @@ export function SprintBoard(props: SprintBoardProps) {
 }
 
 function SprintBoardContent({
-  orgSlug,
-  slug,
   req,
   query,
   members,
@@ -119,6 +117,7 @@ function SprintBoardContent({
   statuses: ReadonlyArray<ProjectStatus>
   waiting: boolean
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const ref = useRef<HTMLDivElement>(null)
   const groupRef = useRef<HTMLDivElement>(null)
   const actor = useProjectActor()
@@ -249,8 +248,6 @@ function SprintBoardContent({
         {order.map((status) => (
           <SprintBoardColumn
             key={status}
-            orgSlug={orgSlug}
-            slug={slug}
             update={boardTicketUpdates(req)}
             status={status}
             statuses={statuses}

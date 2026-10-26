@@ -25,21 +25,15 @@ import { ConnectEverhourInline } from "@/features/everhour/components/ConnectEve
 import { EverhourSetupHint } from "@/features/everhour/components/EverhourSetupHint"
 import { LogTimeForm } from "@/features/everhour/components/LogTimeForm"
 import { TimeControls } from "@/features/everhour/components/TimeControls"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { useProjectActor } from "@/lib/access"
 import { formatDuration } from "@/lib/duration"
 import * as m from "@/paraglide/messages"
 
-export function TicketTimeSection({
-  orgSlug,
-  slug,
-  ticket
-}: {
-  orgSlug: string
-  slug: string
-  ticket: TicketDetail
-}) {
+export function TicketTimeSection({ ticket }: { ticket: TicketDetail }) {
+  const { orgSlug, slug } = useProjectRoute()
   const statusResult = useAtomValue(
     everhourProjectStatusAtom(everhourProjectRequest(orgSlug, slug))
   )
@@ -62,11 +56,11 @@ export function TicketTimeSection({
         )}
         onSuccess={({ value }) =>
           value.status === "not_connected" ? (
-            <EverhourSetupHint orgSlug={orgSlug} slug={slug} />
+            <EverhourSetupHint />
           ) : canLog ? (
-            <TicketTimePanel orgSlug={orgSlug} slug={slug} ticket={ticket} />
+            <TicketTimePanel ticket={ticket} />
           ) : (
-            <TicketTimeTotal orgSlug={orgSlug} slug={slug} ticket={ticket} />
+            <TicketTimeTotal ticket={ticket} />
           )
         }
       />
@@ -74,15 +68,8 @@ export function TicketTimeSection({
   )
 }
 
-export function TicketTimePanel({
-  orgSlug,
-  slug,
-  ticket
-}: {
-  orgSlug: string
-  slug: string
-  ticket: TicketDetail
-}) {
+export function TicketTimePanel({ ticket }: { ticket: TicketDetail }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = ticketTimeRequest(orgSlug, slug, ticket.id)
   const panelResult = useAtomValue(ticketTimePanelAtom(req))
   const start = useAtomSet(startTicketTimerAtom(req), {
@@ -178,14 +165,11 @@ export function TicketTimePanel({
 }
 
 function TicketTimeTotal({
-  orgSlug,
-  slug,
   ticket
 }: Readonly<{
-  orgSlug: string
-  slug: string
   ticket: TicketDetail
 }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const result = useAtomValue(
     ticketTimeAtom(ticketTimeRequest(orgSlug, slug, ticket.id))
   )

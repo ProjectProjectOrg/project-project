@@ -5,15 +5,11 @@ import { StatusButton } from "@/features/tickets/components/ticket-list/StatusFi
 import { TitleField } from "@/features/tickets/components/ticket-page/TitleField"
 
 export function TicketPageHeader({
-  orgSlug,
-  slug,
   ticket,
   readOnly = false,
   onPatch,
   meta
 }: {
-  orgSlug: string
-  slug: string
   ticket: TicketDetail
   readOnly?: boolean
   onPatch?: (patch: UpdateTicketInput) => void
@@ -23,8 +19,6 @@ export function TicketPageHeader({
     <header className="flex items-start gap-2">
       <div className="mt-1.5 flex h-[1lh] w-(--ticket-status-column) shrink-0 items-center justify-center text-xl">
         <StatusButton
-          orgSlug={orgSlug}
-          slug={slug}
           ticket={ticket}
           size="lg"
           disabled={readOnly}
@@ -38,12 +32,7 @@ export function TicketPageHeader({
               {ticket.title}
             </span>
           ) : (
-            <TitleField
-              key={ticket.id}
-              orgSlug={orgSlug}
-              slug={slug}
-              ticket={ticket}
-            />
+            <TitleField key={ticket.id} ticket={ticket} />
           )}
         </h1>
         <div className="flex items-center gap-1.5 px-2">

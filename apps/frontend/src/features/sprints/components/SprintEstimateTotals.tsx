@@ -7,14 +7,13 @@ import {
 } from "@pp/shared"
 
 import { AsyncView } from "@/components/shell/AsyncView"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { boardRequest, sprintBoard } from "@/features/sprints/atoms/sprintBoard"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { formatEstimateSummary } from "@/features/tickets/lib/estimateMeta"
 import { cn } from "@/lib/utils"
 
 type SprintEstimateTotalsProps = Readonly<{
-  orgSlug: string
-  slug: string
   groupId: GroupId
 }>
 
@@ -24,11 +23,10 @@ export function SprintEstimateTotals(props: SprintEstimateTotalsProps) {
 }
 
 function SprintEstimateSummary({
-  orgSlug,
-  slug,
   groupId,
   unit
 }: SprintEstimateTotalsProps & Readonly<{ unit: EstimateUnit }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = boardRequest(orgSlug, slug, groupId)
   const board = useAtomValue(sprintBoard(req))
   const refresh = useAtomRefresh(sprintBoard(req))

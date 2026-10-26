@@ -43,8 +43,6 @@ export function ProjectGeneralSettings() {
   return (
     <>
       <ProjectAppearanceSection
-        orgSlug={orgSlug}
-        slug={project.slug}
         name={project.name}
         projectKey={project.key}
         icon={project.icon}

@@ -11,16 +11,12 @@ import {
   createStatus,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { statusCreateErrorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
-type Props = {
-  orgSlug: string
-  slug: string
-}
-
-export function StatusCreateRow({ orgSlug, slug }: Props) {
+export function StatusCreateRow() {
   const Root = InlineForm.Root<"create">
   return (
     <Root actions={["create"]} variant="ghost" className="self-start">
@@ -35,13 +31,14 @@ export function StatusCreateRow({ orgSlug, slug }: Props) {
         </InlineForm.Trigger>
       </InlineForm.Idle>
       <InlineForm.Form action="create" className="space-y-0">
-        <CreateFields orgSlug={orgSlug} slug={slug} />
+        <CreateFields />
       </InlineForm.Form>
     </Root>
   )
 }
 
-function CreateFields({ orgSlug, slug }: Props) {
+function CreateFields() {
+  const { orgSlug, slug } = useProjectRoute()
   const req = statusesRequest(orgSlug, slug)
   const createMutation = createStatus(req)
   const create = useAtomSet(createMutation, { mode: "promiseExit" })

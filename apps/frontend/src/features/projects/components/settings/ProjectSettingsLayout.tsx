@@ -26,6 +26,10 @@ import {
   projectRequest
 } from "@/features/projects/atoms/projects"
 import { ProjectIconDisplay } from "@/features/projects/components/ProjectIconDisplay"
+import {
+  useProjectRoute,
+  ProjectContext
+} from "@/features/projects/hooks/useProject"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
@@ -96,7 +100,11 @@ export function ProjectSettingsLayout() {
   const { orgSlug, slug } = routeApi.useParams()
   const location = useLocation()
   const renderRail = useCallback(
-    () => <ProjectSettingsRail orgSlug={orgSlug} slug={slug} />,
+    () => (
+      <ProjectContext value={projectRequest(orgSlug, slug)}>
+        <ProjectSettingsRail />
+      </ProjectContext>
+    ),
     [orgSlug, slug]
   )
   useSidebarSlot(`settings:${orgSlug}/${slug}`, renderRail)
@@ -123,13 +131,8 @@ function projectSettingsLayoutId(orgSlug: string, slug: string) {
   return `project-settings-row:${orgSlug}/${slug}`
 }
 
-function ProjectSettingsRail({
-  orgSlug,
-  slug
-}: {
-  orgSlug: string
-  slug: string
-}) {
+function ProjectSettingsRail() {
+  const { orgSlug, slug } = useProjectRoute()
   const reduceMotion = useReducedMotion()
   const canDelete = useAtomValue(
     projectActor(projectRequest(orgSlug, slug))

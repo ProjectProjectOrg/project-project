@@ -16,21 +16,15 @@ import {
 } from "@/features/everhour/atoms/everhour"
 import { EverhourApiKeyWalkthrough } from "@/features/everhour/components/EverhourApiKeyWalkthrough"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { errorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
-export function EverhourSettingsRow({
-  orgSlug,
-  slug,
-  canManage
-}: {
-  orgSlug: string
-  slug: string
-  canManage: boolean
-}) {
+export function EverhourSettingsRow({ canManage }: { canManage: boolean }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = everhourProjectRequest(orgSlug, slug)
   const status = useAtomValue(everhourProjectStatusAtom(req))
   const viewer = useAtomValue(me())
@@ -55,8 +49,6 @@ export function EverhourSettingsRow({
         const hasKey = user?.personalEverhour.connected === true
         return (
           <EverhourSettingsContent
-            orgSlug={orgSlug}
-            slug={slug}
             status={value}
             waiting={waiting}
             hasKey={hasKey}
@@ -69,15 +61,11 @@ export function EverhourSettingsRow({
 }
 
 function EverhourSettingsContent({
-  orgSlug,
-  slug,
   status,
   waiting,
   hasKey,
   canManage
 }: {
-  orgSlug: string
-  slug: string
   status: {
     status: "not_connected" | "active" | "broken"
     everhourProjectId: string | null
@@ -91,6 +79,7 @@ function EverhourSettingsContent({
   hasKey: boolean
   canManage: boolean
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = everhourProjectRequest(orgSlug, slug)
   const connect = useAtomSet(connectEverhourProjectAtom(req))
   const sync = useAtomSet(syncEverhourProjectAtom(req))

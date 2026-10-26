@@ -17,6 +17,7 @@ import {
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { Markdown } from "@/features/editor/components/Markdown"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/lib/access"
 import { errorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
@@ -29,16 +30,14 @@ type Mode = "idle" | "edit"
 export function CommentRow({
   comment,
   pending = false,
-  orgSlug,
-  slug,
+
   ticketId
 }: {
   comment: Comment
   pending?: boolean
-  orgSlug: string
-  slug: string
   ticketId: TicketId
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const actor = useProjectActor()
   const linkedAuthor =
     comment.author.kind === "user" ? comment.author.user : null
@@ -123,12 +122,7 @@ export function CommentRow({
         </div>
       </InlineForm.Idle>
       <InlineForm.Form action="edit">
-        <EditForm
-          comment={comment}
-          orgSlug={orgSlug}
-          slug={slug}
-          ticketId={ticketId}
-        />
+        <EditForm comment={comment} ticketId={ticketId} />
       </InlineForm.Form>
     </InlineForm.Root>
   )
@@ -136,15 +130,13 @@ export function CommentRow({
 
 function EditForm({
   comment,
-  orgSlug,
-  slug,
+
   ticketId
 }: {
   comment: Comment
-  orgSlug: string
-  slug: string
   ticketId: TicketId
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const [body, setBody] = useState(comment.body)
   const [error, setError] = useState<string | null>(null)
   const edit = useAtomSet(

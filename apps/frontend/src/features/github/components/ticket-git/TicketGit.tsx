@@ -38,6 +38,7 @@ import {
 } from "@/features/github/components/ticket-git/TicketStack"
 import { branchOpensInNewTab, branchUrl } from "@/features/github/lib/branchUrl"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -204,28 +205,23 @@ function ConnectedGitChip({
 }
 
 export function TicketGitPanel({
-  orgSlug,
-  slug,
   ticket,
   github,
   branchTemplate,
   variant = "bordered"
 }: {
-  orgSlug: string
-  slug: string
   ticket: TicketDetail
   github: GithubConnection | null
   branchTemplate: string | null
   variant?: "bordered" | "ghost"
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const { state, waiting } = useGitState(orgSlug, slug, ticket)
   const stack = useGitStack(orgSlug, slug, ticket)
   if (!github) return null
   if (state !== null && stack.length > 0) {
     return (
       <StackedBranches
-        orgSlug={orgSlug}
-        slug={slug}
         ticket={ticket}
         github={github}
         own={state}
@@ -255,8 +251,6 @@ export function TicketGitPanel({
   return (
     <div className="flex flex-col gap-3">
       <PanelForState
-        orgSlug={orgSlug}
-        slug={slug}
         ticket={ticket}
         state={state}
         waiting={waiting}
@@ -265,21 +259,13 @@ export function TicketGitPanel({
         variant={variant}
       />
       {stackable && (
-        <AddStackedBranch
-          orgSlug={orgSlug}
-          slug={slug}
-          ticket={ticket}
-          github={github}
-          variant={variant}
-        />
+        <AddStackedBranch ticket={ticket} github={github} variant={variant} />
       )}
     </div>
   )
 }
 
 function PanelForState({
-  orgSlug,
-  slug,
   ticket,
   state,
   waiting,
@@ -287,8 +273,6 @@ function PanelForState({
   branchTemplate,
   variant
 }: {
-  orgSlug: string
-  slug: string
   ticket: TicketDetail
   state: GitState
   waiting: boolean
@@ -358,8 +342,6 @@ function PanelForState({
         </InlineForm.Idle>
         <InlineForm.Form action="create">
           <CreateBranchFields
-            orgSlug={orgSlug}
-            slug={slug}
             ticket={ticket}
             github={github}
             branchTemplate={branchTemplate}
@@ -368,8 +350,6 @@ function PanelForState({
         </InlineForm.Form>
         <InlineForm.Form action="connect">
           <ConnectBranchFields
-            orgSlug={orgSlug}
-            slug={slug}
             ticket={ticket}
             github={github}
             variant={variant}
@@ -410,12 +390,7 @@ function PanelForState({
           )}
         </InlineForm.Idle>
         <InlineForm.Form action="clear">
-          <ClearBranchFields
-            orgSlug={orgSlug}
-            slug={slug}
-            id={ticket.id}
-            variant={variant}
-          />
+          <ClearBranchFields id={ticket.id} variant={variant} />
         </InlineForm.Form>
       </Root>
     )
@@ -461,12 +436,7 @@ function PanelForState({
           )}
         </InlineForm.Idle>
         <InlineForm.Form action="clear">
-          <ClearBranchFields
-            orgSlug={orgSlug}
-            slug={slug}
-            id={ticket.id}
-            variant={variant}
-          />
+          <ClearBranchFields id={ticket.id} variant={variant} />
         </InlineForm.Form>
       </Root>
     )
@@ -579,12 +549,7 @@ function PanelForState({
           )}
         </InlineForm.Idle>
         <InlineForm.Form action="clear">
-          <ClearBranchFields
-            orgSlug={orgSlug}
-            slug={slug}
-            id={ticket.id}
-            variant={variant}
-          />
+          <ClearBranchFields id={ticket.id} variant={variant} />
         </InlineForm.Form>
       </Root>
     )

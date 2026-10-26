@@ -7,6 +7,7 @@ import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   addTicketsToSprint,
   removeTicketsFromSprint,
@@ -21,20 +22,17 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function SprintField({
-  orgSlug,
-  slug,
   ticketId,
   membership,
   variant = "default",
   onRequestNewSprint
 }: {
-  orgSlug: string
-  slug: string
   ticketId: TicketId
   membership: Group | null
   variant?: "default" | "responsive"
   onRequestNewSprint?: () => void
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = sprintListRequest(orgSlug, slug)
   const list = useAtomValue(sprintList(req))
   const addTickets = useAtomSet(addTicketsToSprint({ req, ticketId }))
@@ -97,16 +95,13 @@ export function SprintField({
 }
 
 export function SprintSelect({
-  orgSlug,
-  slug,
   value,
   onChange
 }: {
-  orgSlug: string
-  slug: string
   value: GroupId | null
   onChange: (groupId: GroupId | null) => void
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = sprintListRequest(orgSlug, slug)
   const list = useAtomValue(sprintList(req))
   const [open, setOpen] = useState(false)
@@ -155,16 +150,13 @@ export function SprintSelect({
 }
 
 export function SprintBadgeTrigger({
-  orgSlug,
-  slug,
   ticketId,
   className
 }: {
-  orgSlug: string
-  slug: string
   ticketId: TicketId
   className?: string
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = sprintListRequest(orgSlug, slug)
   const list = useAtomValue(sprintList(req))
   const membership = useAtomValue(sprintMembership(req))

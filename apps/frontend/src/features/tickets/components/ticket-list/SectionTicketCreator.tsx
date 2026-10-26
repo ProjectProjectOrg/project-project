@@ -29,6 +29,7 @@ import {
   project as projectView,
   projectRequest
 } from "@/features/projects/atoms/projects"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   assignTicketToSprint,
   sprintList,
@@ -58,8 +59,6 @@ import { useTemplateChoice, useTicketTypeChoice } from "./useTemplateChoice"
 const isGroupId = Schema.is(GroupId)
 
 type CreatorProps = Readonly<{
-  orgSlug: string
-  slug: string
   status: TicketStatus
   query: TicketListQuery
   containerRef: RefObject<HTMLDivElement | null>
@@ -87,7 +86,8 @@ export function SectionTicketCreator({
 }
 
 function StatusSectionTicketCreator(props: CreatorProps) {
-  const { orgSlug, slug, query } = props
+  const { orgSlug, slug } = useProjectRoute()
+  const { query } = props
   const req = backlogRequest(orgSlug, slug, query)
   const create = useAtomSet(quickCreateBacklogTicket(req), {
     mode: "promiseExit"
@@ -140,8 +140,6 @@ function SprintSectionTicketCreator(
 }
 
 function SectionCreatorForm({
-  orgSlug,
-  slug,
   status,
   query,
   containerRef,
@@ -157,6 +155,7 @@ function SectionCreatorForm({
     error: string | null
     assignsSprint: boolean
   }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const registry = useContext(RegistryContext)
 
   const viewer = useAtomValue(me())

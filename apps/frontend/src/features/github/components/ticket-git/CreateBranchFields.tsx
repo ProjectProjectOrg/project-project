@@ -50,6 +50,7 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import {
   ticketRequest,
@@ -80,20 +81,17 @@ function defaultBranchName(
 }
 
 export function CreateBranchFields({
-  orgSlug,
-  slug,
   ticket,
   github,
   branchTemplate,
   variant = "bordered"
 }: {
-  orgSlug: string
-  slug: string
   ticket: TicketDetail
   github: GithubConnection
   branchTemplate: string | null
   variant?: "bordered" | "ghost"
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const buttonSize = variant === "bordered" ? "sm" : "xs"
   const { busy, setBusy, close } = useInlineForm()
   const [name, setName] = useState(() =>
@@ -183,8 +181,6 @@ export function CreateBranchFields({
             {m.git_base_branch_label()}
           </span>
           <BaseBranchCombobox
-            orgSlug={orgSlug}
-            slug={slug}
             value={base}
             onChange={setBase}
             placeholder={github.defaultBaseBranch ?? "main"}
@@ -363,20 +359,17 @@ function StatusDropdown({
 }
 
 function BaseBranchCombobox({
-  orgSlug,
-  slug,
   value,
   onChange,
   placeholder,
   disabled
 }: {
-  orgSlug: string
-  slug: string
   value: string
   onChange: (next: string) => void
   placeholder: string
   disabled?: boolean
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
   const [q, setQ] = useState("")

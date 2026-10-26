@@ -31,6 +31,7 @@ import {
   updateProject
 } from "@/features/projects/atoms/projects"
 import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   sprintList,
   sprintListRequest
@@ -90,16 +91,13 @@ function MorphSlot({
 }
 
 export function ProjectHeader({
-  orgSlug,
-  slug,
   name,
   project
 }: {
-  orgSlug: string
-  slug: string
   name: string
   project: ProjectDetailType
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const actor = useProjectActor()
   const canEdit = ProjectPolicy.canUpdate(actor, { settings: true })
   const reduce = useReducedMotion() ?? false
@@ -138,12 +136,7 @@ export function ProjectHeader({
           {sprintGroupId ? (
             sprint ? (
               <fieldset disabled={!canPlan} className="contents">
-                <SprintStatusSelect
-                  orgSlug={orgSlug}
-                  slug={slug}
-                  sprint={sprint}
-                  sprints={sprints}
-                />
+                <SprintStatusSelect sprint={sprint} sprints={sprints} />
               </fieldset>
             ) : sprintMissing ? (
               <div className="-mt-1 size-10 shrink-0 rounded-lg bg-muted/40" />
@@ -175,8 +168,6 @@ export function ProjectHeader({
               sprint ? (
                 <>
                   <SprintNameField
-                    orgSlug={orgSlug}
-                    slug={slug}
                     sprint={sprint}
                     disabled={isCompleted || !canPlan}
                   />
@@ -216,12 +207,7 @@ export function ProjectHeader({
                 <div className="h-6 w-40 animate-pulse rounded bg-muted/60" />
               )
             ) : (
-              <NameField
-                orgSlug={orgSlug}
-                slug={slug}
-                name={name}
-                canEdit={canEdit}
-              />
+              <NameField name={name} canEdit={canEdit} />
             )}
           </MorphSlot>
           <MorphSlot
@@ -233,8 +219,6 @@ export function ProjectHeader({
             {sprintGroupId ? (
               sprint ? (
                 <SprintSubtitle
-                  orgSlug={orgSlug}
-                  slug={slug}
                   sprint={sprint}
                   disabled={isCompleted || !canPlan}
                 />
@@ -242,7 +226,7 @@ export function ProjectHeader({
                 <div className="h-3.5 w-28 animate-pulse rounded bg-muted/60" />
               )
             ) : (
-              <ActiveSprintLine orgSlug={orgSlug} slug={slug} />
+              <ActiveSprintLine />
             )}
           </MorphSlot>
         </div>
@@ -251,12 +235,7 @@ export function ProjectHeader({
           {sprintGroupId ? (
             sprint ? (
               canPlan ? (
-                <SprintDeleteMenu
-                  orgSlug={orgSlug}
-                  slug={slug}
-                  sprint={sprint}
-                  sprints={sprints}
-                />
+                <SprintDeleteMenu sprint={sprint} sprints={sprints} />
               ) : null
             ) : sprintMissing ? null : (
               <div className="size-8" />
@@ -264,13 +243,9 @@ export function ProjectHeader({
           ) : (
             <div className="flex items-center gap-3">
               {actor.call("projects", "gitStates") && (
-                <GithubChip
-                  orgSlug={orgSlug}
-                  slug={slug}
-                  github={project.github}
-                />
+                <GithubChip github={project.github} />
               )}
-              <ProjectMenu orgSlug={orgSlug} slug={slug} />
+              <ProjectMenu />
             </div>
           )}
         </MorphSlot>
@@ -279,17 +254,8 @@ export function ProjectHeader({
   )
 }
 
-function NameField({
-  orgSlug,
-  slug,
-  name,
-  canEdit
-}: {
-  orgSlug: string
-  slug: string
-  name: string
-  canEdit: boolean
-}) {
+function NameField({ name, canEdit }: { name: string; canEdit: boolean }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = projectRequest(orgSlug, slug)
   const update = useAtomSet(updateProject(req), { mode: "promiseExit" })
   const updateState = useAtomValue(updateProject(req))
@@ -364,7 +330,8 @@ function NameField({
   )
 }
 
-function ProjectMenu({ orgSlug, slug }: { orgSlug: string; slug: string }) {
+function ProjectMenu() {
+  const { orgSlug, slug } = useProjectRoute()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger

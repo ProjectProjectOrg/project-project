@@ -28,6 +28,7 @@ import {
   projectRequest
 } from "@/features/projects/atoms/projects"
 import { ProjectIconDisplay } from "@/features/projects/components/ProjectIconDisplay"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   createSprint,
   sprintList,
@@ -67,15 +68,8 @@ function sortByStart(a: Group, b: Group) {
   return (a.startsAt?.getTime() ?? 0) - (b.startsAt?.getTime() ?? 0)
 }
 
-export function SprintRail({
-  orgSlug,
-  slug,
-  canPlan
-}: {
-  orgSlug: string
-  slug: string
-  canPlan: boolean
-}) {
+export function SprintRail({ canPlan }: { canPlan: boolean }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = sprintListRequest(orgSlug, slug)
   const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
   const projectName = Result.isSuccess(project) ? project.value.name : slug
@@ -137,31 +131,25 @@ export function SprintRail({
           {projectName}
         </span>
       </motion.div>
-      {canPlan && <NewSprintForm orgSlug={orgSlug} slug={slug} />}
+      {canPlan && <NewSprintForm />}
       <div className="flex flex-col gap-5 overflow-y-auto">
         <Section
           label={m.sprints_active_label()}
           count={active.length}
           sprints={active}
           selectedSprintId={selectedSprintId}
-          orgSlug={orgSlug}
-          slug={slug}
         />
         <Section
           label={m.sprints_planned_label()}
           count={planned.length}
           sprints={planned}
           selectedSprintId={selectedSprintId}
-          orgSlug={orgSlug}
-          slug={slug}
         />
         <Section
           label={m.sprints_completed_label()}
           count={completed.length}
           sprints={completed}
           selectedSprintId={selectedSprintId}
-          orgSlug={orgSlug}
-          slug={slug}
           dim
         />
       </div>
@@ -174,16 +162,13 @@ function Section({
   count,
   sprints,
   selectedSprintId,
-  orgSlug,
-  slug,
+
   dim
 }: {
   label: string
   count: number
   sprints: ReadonlyArray<Group>
   selectedSprintId?: string
-  orgSlug: string
-  slug: string
   dim?: boolean
 }) {
   if (count === 0) return null
@@ -196,12 +181,7 @@ function Section({
       <ul className={cn("flex flex-col", dim && "opacity-80")}>
         {sprints.map((s) => (
           <li key={s.id}>
-            <RailRow
-              sprint={s}
-              selected={selectedSprintId === s.id}
-              orgSlug={orgSlug}
-              slug={slug}
-            />
+            <RailRow sprint={s} selected={selectedSprintId === s.id} />
           </li>
         ))}
       </ul>
@@ -209,17 +189,8 @@ function Section({
   )
 }
 
-function RailRow({
-  sprint,
-  selected,
-  orgSlug,
-  slug
-}: {
-  sprint: Group
-  selected: boolean
-  orgSlug: string
-  slug: string
-}) {
+function RailRow({ sprint, selected }: { sprint: Group; selected: boolean }) {
+  const { orgSlug, slug } = useProjectRoute()
   return (
     <Link
       to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
@@ -257,7 +228,7 @@ function pickSprintNavigationTarget(
   return completed[0] ?? null
 }
 
-function NewSprintForm({ orgSlug, slug }: { orgSlug: string; slug: string }) {
+function NewSprintForm() {
   const Root = InlineForm.Root<"create">
   return (
     <Root
@@ -280,19 +251,14 @@ function NewSprintForm({ orgSlug, slug }: { orgSlug: string; slug: string }) {
         </InlineForm.Trigger>
       </InlineForm.Idle>
       <InlineForm.Form action="create">
-        <CreateSprintFields orgSlug={orgSlug} slug={slug} />
+        <CreateSprintFields />
       </InlineForm.Form>
     </Root>
   )
 }
 
-function CreateSprintFields({
-  orgSlug,
-  slug
-}: {
-  orgSlug: string
-  slug: string
-}) {
+function CreateSprintFields() {
+  const { orgSlug, slug } = useProjectRoute()
   const req = sprintListRequest(orgSlug, slug)
   const create = useAtomSet(createSprint(req), { mode: "promiseExit" })
   const state = useAtomValue(createSprint(req))

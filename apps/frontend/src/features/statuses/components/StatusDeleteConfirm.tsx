@@ -21,6 +21,7 @@ import {
   deleteStatus,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   countsRequest,
   ticketCounts
@@ -36,28 +37,16 @@ import { m } from "@/paraglide/messages"
 type Props = Readonly<{
   status: ProjectStatus
   statuses: ReadonlyArray<ProjectStatus>
-  orgSlug: string
-  slug: string
 }>
 
-export function StatusDeleteConfirm({
-  status,
-  statuses,
-  orgSlug,
-  slug
-}: Props) {
+export function StatusDeleteConfirm({ status, statuses }: Props) {
   return (
     <ConfirmButton.Root>
       <ConfirmButton.DeleteTrigger
         aria-label={m.tickets_status_delete_button()}
       />
       <ConfirmButton.Confirm>
-        <ConfirmBody
-          status={status}
-          statuses={statuses}
-          orgSlug={orgSlug}
-          slug={slug}
-        />
+        <ConfirmBody status={status} statuses={statuses} />
       </ConfirmButton.Confirm>
     </ConfirmButton.Root>
   )
@@ -73,7 +62,8 @@ function ConfirmBody(props: Props) {
 }
 
 function AutomationConfirmBody(props: Props) {
-  const atom = gitAutomationFor(gitAutomationRequest(props.orgSlug, props.slug))
+  const { orgSlug, slug } = useProjectRoute()
+  const atom = gitAutomationFor(gitAutomationRequest(orgSlug, slug))
   const automation = useAtomValue(atom)
   const refresh = useAtomRefresh(atom)
   return (
@@ -102,11 +92,11 @@ function AutomationConfirmBody(props: Props) {
 function DeleteStatusForm({
   status,
   statuses,
-  orgSlug,
-  slug,
+
   automationReady,
   children
 }: Props & Readonly<{ automationReady: boolean; children?: ReactNode }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = statusesRequest(orgSlug, slug)
   const mutation = deleteStatus({ req, statusSlug: status.slug })
   const remove = useAtomSet(mutation, { mode: "promiseExit" })

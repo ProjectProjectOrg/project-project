@@ -41,14 +41,13 @@ import {
 } from "@/features/github/atoms/github"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
 import { projectRequest } from "@/features/projects/atoms/projects"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useOrgActor, useProjectActor } from "@/lib/access"
 import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type Props = Readonly<{
-  orgSlug: string
-  slug: string
   github: GithubConnection | null
 }>
 
@@ -85,12 +84,13 @@ function RepoName({ owner, name }: Readonly<{ owner: string; name: string }>) {
   )
 }
 
-export function GithubChip({ orgSlug, slug, github }: Props) {
+export function GithubChip({ github }: Props) {
+  const { orgSlug, slug } = useProjectRoute()
   const canManage = useCanManageGithub(orgSlug)
   const warning = useGithubWarning(orgSlug, slug)
 
   if (!github) {
-    return canManage ? <ConnectMenu orgSlug={orgSlug} slug={slug} /> : null
+    return canManage ? <ConnectMenu /> : null
   }
 
   return (
@@ -143,7 +143,8 @@ export function GithubChip({ orgSlug, slug, github }: Props) {
   )
 }
 
-export function GithubSettingsRows({ orgSlug, slug, github }: Props) {
+export function GithubSettingsRows({ github }: Props) {
+  const { orgSlug, slug } = useProjectRoute()
   const canManage = useCanManageGithub(orgSlug)
   const warning = useGithubWarning(orgSlug, slug)
   const req = projectRequest(orgSlug, slug)
@@ -192,7 +193,7 @@ export function GithubSettingsRows({ orgSlug, slug, github }: Props) {
               </ConfirmButton.Confirm>
             </ConfirmButton.Root>
           ) : (
-            <ConnectMenu orgSlug={orgSlug} slug={slug} />
+            <ConnectMenu />
           )
         ) : null}
       </SettingsRow>
@@ -221,10 +222,7 @@ export function GithubSettingsRows({ orgSlug, slug, github }: Props) {
   )
 }
 
-function ConnectMenu({
-  orgSlug,
-  slug
-}: Readonly<{ orgSlug: string; slug: string }>) {
+function ConnectMenu() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   return (
@@ -249,12 +247,7 @@ function ConnectMenu({
         }
       />
       <DropdownMenuContent align="end" sideOffset={6} className="w-80">
-        <ConnectMenuBody
-          orgSlug={orgSlug}
-          slug={slug}
-          query={query}
-          onConnected={() => setOpen(false)}
-        />
+        <ConnectMenuBody query={query} onConnected={() => setOpen(false)} />
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -278,16 +271,13 @@ function MenuNote({
 }
 
 function ConnectMenuBody({
-  orgSlug,
-  slug,
   query,
   onConnected
 }: Readonly<{
-  orgSlug: string
-  slug: string
   query: string
   onConnected: () => void
 }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const canInstall = useOrgActor(orgSlug).call("projects", "startGithubInstall")
   const orgReq = githubOrgRequest(orgSlug)
   const orgIntegration = useAtomValue(githubIntegration(orgReq))
@@ -353,27 +343,17 @@ function ConnectMenuBody({
     )
   }
 
-  return (
-    <RepoList
-      orgSlug={orgSlug}
-      slug={slug}
-      query={query}
-      onConnected={onConnected}
-    />
-  )
+  return <RepoList query={query} onConnected={onConnected} />
 }
 
 function RepoList({
-  orgSlug,
-  slug,
   query,
   onConnected
 }: Readonly<{
-  orgSlug: string
-  slug: string
   query: string
   onConnected: () => void
 }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = projectRequest(orgSlug, slug)
   const connect = useAtomSet(connectGithub(req), { mode: "promiseExit" })
   const connectState = useAtomValue(connectGithub(req))

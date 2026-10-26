@@ -30,6 +30,7 @@ import {
 import { menuItemMetaClass } from "@/components/ui/menu-styles"
 import { projectGitStates } from "@/features/github/atoms/github"
 import { projectRequest } from "@/features/projects/atoms/projects"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   assignTicketToSprint,
   quickCreateInSprint,
@@ -60,16 +61,13 @@ type Item =
   | { kind: "existing"; ticket: Ticket; otherSprintName: string | null }
 
 export function SprintTicketCreator({
-  orgSlug,
-  slug,
   groupId,
   excludeIds
 }: {
-  orgSlug: string
-  slug: string
   groupId: GroupId
   excludeIds: ReadonlySet<TicketId>
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const registry = useContext(RegistryContext)
   const sprintReq = sprintListRequest(orgSlug, slug)
   const createAtom = quickCreateInSprint({ req: sprintReq, groupId })

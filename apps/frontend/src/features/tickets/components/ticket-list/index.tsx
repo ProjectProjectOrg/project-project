@@ -12,6 +12,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { Activity, useState, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   backlog,
   backlogRequest,
@@ -25,8 +26,6 @@ import { SegmentedList } from "./SegmentedList"
 import { CreatorActiveScope, DimWhileCreating } from "./TicketCreatorShell"
 
 type TicketListProps = Readonly<{
-  orgSlug: string
-  slug: string
   query: TicketListQuery
   members: ReadonlyArray<Member>
   extraRowActions?: (ticket: Ticket) => ReactNode
@@ -53,13 +52,7 @@ export function TicketList({
   return (
     <CreatorActiveScope>
       <div className="group/list flex flex-col gap-3">
-        {creator ?? (
-          <BacklogTicketCreator
-            orgSlug={props.orgSlug}
-            slug={props.slug}
-            query={props.query}
-          />
-        )}
+        {creator ?? <BacklogTicketCreator query={props.query} />}
         <DimWhileCreating className="flex flex-col gap-3 transition-opacity duration-200 ease-out">
           {toolbar}
           <TicketListContent
@@ -102,8 +95,6 @@ function useShownOnce(visible: boolean): boolean {
 }
 
 function StatusSections({
-  orgSlug,
-  slug,
   query,
   members,
   extraRowActions,
@@ -111,6 +102,7 @@ function StatusSections({
   alternate,
   showAlternate = false
 }: Omit<TicketListProps, "creator" | "toolbar" | "sections">) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = backlogRequest(orgSlug, slug, query)
   const result = useAtomValue(backlog(req))
   const refresh = useAtomRefresh(backlog(req))
@@ -143,8 +135,6 @@ function StatusSections({
         <Activity mode={showAlternate ? "hidden" : "visible"}>
           <SegmentedList
             key={`${orgSlug}/${slug}`}
-            orgSlug={orgSlug}
-            slug={slug}
             query={active.query}
             members={members}
             snapshot={active.value}

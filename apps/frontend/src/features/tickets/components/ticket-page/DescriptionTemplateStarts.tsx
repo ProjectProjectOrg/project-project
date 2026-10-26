@@ -4,6 +4,7 @@ import { type MouseEvent } from "react"
 
 import { Button } from "@/components/ui/button"
 import { BlockIconGlyph } from "@/features/library/components/BlockIconGlyph"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -12,8 +13,6 @@ import { templateStarts } from "./descriptionTemplates"
 const keepEditorFocus = (event: MouseEvent) => event.preventDefault()
 
 export function DescriptionTemplateStarts({
-  orgSlug,
-  slug,
   library,
   ticketType,
   body,
@@ -21,8 +20,6 @@ export function DescriptionTemplateStarts({
   onMore,
   className
 }: Readonly<{
-  orgSlug: string
-  slug: string
   library: Library
   ticketType: TicketType
   body: string
@@ -30,6 +27,7 @@ export function DescriptionTemplateStarts({
   onMore: () => void
   className?: string
 }>) {
+  const { orgSlug, slug } = useProjectRoute()
   if (body.trim() !== "") return null
   const starts = templateStarts(library, ticketType)
   return (

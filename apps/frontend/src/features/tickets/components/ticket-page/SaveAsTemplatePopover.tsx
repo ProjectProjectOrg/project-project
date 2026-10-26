@@ -30,6 +30,7 @@ import {
   type LibraryScope
 } from "@/features/library/atoms/libraryScope"
 import { LibraryEntryLink } from "@/features/library/components/LibraryEntryLink"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TYPE_LABELS } from "@/features/tickets/lib/ticketMeta"
 import { useOrgActor } from "@/lib/access"
 import { mutationErrorText } from "@/lib/mutationError"
@@ -43,8 +44,6 @@ import {
 } from "./saveAsTemplate"
 
 type SaveAsTemplateProps = Readonly<{
-  orgSlug: string
-  slug: string
   ticket: Pick<TicketDetail, "type" | "priority" | "tags">
   body: string
 }>
@@ -57,13 +56,11 @@ const scopeFor = (
   layer === "org" ? orgScope(orgSlug) : projectScope(orgSlug, slug)
 
 export function SaveAsTemplatePopover(props: SaveAsTemplateProps) {
+  const { orgSlug, slug } = useProjectRoute()
   const libraryResult = useAtomValue(
-    projectLibraryFor(projectLibraryRequest(props.orgSlug, props.slug))
+    projectLibraryFor(projectLibraryRequest(orgSlug, slug))
   )
-  const orgAdmin = useOrgActor(props.orgSlug).call(
-    "library",
-    "createOrgTemplate"
-  )
+  const orgAdmin = useOrgActor(orgSlug).call("library", "createOrgTemplate")
   if (!AsyncResult.isSuccess(libraryResult)) return null
   const library = libraryResult.value
   const layers: ReadonlyArray<LibraryLayer> = [
@@ -95,14 +92,13 @@ export function SaveAsTemplatePopover(props: SaveAsTemplateProps) {
 }
 
 export function SaveAsTemplateForm({
-  orgSlug,
-  slug,
   ticket,
   body,
   library,
   layers
 }: SaveAsTemplateProps &
   Readonly<{ library: Library; layers: ReadonlyArray<LibraryLayer> }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const [layer, setLayer] = useState<LibraryLayer>(layers[0] ?? "project")
   const [name, setName] = useState(() => TYPE_LABELS[ticket.type]())
   const [includePriority, setIncludePriority] = useState(false)

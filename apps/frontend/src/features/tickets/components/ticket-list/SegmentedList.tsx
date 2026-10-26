@@ -27,6 +27,7 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import {
   backlogRequest,
@@ -45,22 +46,19 @@ const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
 const EMPTY_PAGE: TicketRowPage = { items: [], nextCursor: null }
 
 export function SegmentedList({
-  orgSlug,
-  slug,
   query,
   members,
   extraRowActions,
   sprintMembership,
   snapshot
 }: {
-  orgSlug: string
-  slug: string
   query: TicketListQuery
   members: ReadonlyArray<Member>
   extraRowActions?: (ticket: Ticket) => ReactNode
   sprintMembership?: ReadonlyMap<TicketId, Group>
   snapshot: BacklogValue
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const router = useRouter()
   const navigate = useNavigate()
   const resetFilters = () => {
@@ -198,8 +196,6 @@ export function SegmentedList({
             key={status}
             persistKey={persistKey}
             searchQuery={query.q}
-            orgSlug={orgSlug}
-            slug={slug}
             status={status}
             statuses={statuses}
             query={query}
@@ -224,8 +220,7 @@ export function SegmentedList({
 function StatusSection({
   persistKey,
   searchQuery,
-  orgSlug,
-  slug,
+
   status,
   statuses,
   query,
@@ -243,8 +238,6 @@ function StatusSection({
 }: {
   persistKey: string
   searchQuery: string | undefined
-  orgSlug: string
-  slug: string
   status: TicketStatus
   statuses: ReadonlyArray<ProjectStatus>
   query: TicketListQuery
@@ -267,8 +260,6 @@ function StatusSection({
   )
   return (
     <SectionList
-      orgSlug={orgSlug}
-      slug={slug}
       status={status}
       statuses={statuses}
       query={query}

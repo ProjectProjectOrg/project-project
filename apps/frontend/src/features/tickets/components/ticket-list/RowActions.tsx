@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent } from "@/components/ui/popover"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   archiveTicket,
   deleteTicket,
@@ -33,16 +34,13 @@ import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
 export function TicketRowActions({
-  orgSlug,
-  slug,
   id,
   archived
 }: {
-  orgSlug: string
-  slug: string
   id: TicketId
   archived: boolean
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const [archiving, setArchiving] = useState(false)
   const [reason, setReason] = useState("")
   const trigger = useRef<HTMLButtonElement>(null)

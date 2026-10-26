@@ -30,6 +30,7 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import {
   statusMetaFor,
@@ -96,8 +97,8 @@ export function SearchInput() {
 export function Status({
   variant = "toolbar"
 }: Readonly<{ variant?: "toolbar" | "panel" }>) {
-  const { query, patchFilter, counts, orgSlug, slug, controlsCompact } =
-    useTicketToolbar()
+  const { query, patchFilter, counts, controlsCompact } = useTicketToolbar()
+  const { orgSlug, slug } = useProjectRoute()
   const selected = query.status
   const status = selected?.length === 1 ? selected[0] : "all"
   const setStatus = (status: TicketStatus | "all") =>

@@ -18,6 +18,7 @@ import { Inbox } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   sprintList,
   sprintListRequest
@@ -52,8 +53,6 @@ const EMPTY_PAGE: TicketRowPage = { items: [], nextCursor: null }
 
 type Props = Readonly<{
   preferencesKey: string
-  orgSlug: string
-  slug: string
   query: TicketListQuery
   members: ReadonlyArray<Member>
   extraRowActions: (ticket: Ticket) => ReactNode
@@ -73,13 +72,10 @@ const queryHasActiveFilter = (query: TicketListQuery) =>
   query.archived !== undefined
 
 export function SprintSections(props: Props) {
+  const { orgSlug, slug } = useProjectRoute()
   const persistKey = sprintCollapseKey(props.preferencesKey)
-  const groupsReq = sprintListRequest(props.orgSlug, props.slug)
-  const snapshotReq = sprintSectionsRequest(
-    props.orgSlug,
-    props.slug,
-    props.query
-  )
+  const groupsReq = sprintListRequest(orgSlug, slug)
+  const snapshotReq = sprintSectionsRequest(orgSlug, slug, props.query)
   const preview = useTicketPreview()
   const groupsResult = useAtomValue(sprintList(groupsReq))
   const snapshotResult = useAtomValue(sprintSections(snapshotReq))
@@ -107,8 +103,8 @@ export function SprintSections(props: Props) {
   )
   const active = Result.isSuccess(snapshotResult)
     ? { req: snapshotReq, query: props.query, value: snapshotResult.value }
-    : previous?.req.params.orgSlug === props.orgSlug &&
-        previous.req.params.slug === props.slug &&
+    : previous?.req.params.orgSlug === orgSlug &&
+        previous.req.params.slug === slug &&
         !Result.isFailure(snapshotResult)
       ? {
           ...previous,
@@ -212,7 +208,7 @@ function SprintSection({
     props.query.q,
     !props.query.q && sprint !== null && sprintState(sprint) !== "planned"
   )
-  const { orgSlug, slug, members, extraRowActions } = props
+  const { members, extraRowActions } = props
   const query = {
     ...props.query,
     groupId: [sprint?.id ?? "ungrouped"] as TicketListQuery["groupId"],
@@ -240,8 +236,6 @@ function SprintSection({
   return (
     <div aria-busy={waiting}>
       <SectionList
-        orgSlug={orgSlug}
-        slug={slug}
         query={query}
         status={
           selectedStatuses?.length === 1

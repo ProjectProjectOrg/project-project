@@ -7,6 +7,7 @@ import { memo, useRef, useState, type ReactNode } from "react"
 import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import { TicketHoverCard } from "@/features/tickets/components/TicketHoverCard"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
@@ -34,8 +35,6 @@ export const rowGridClassName = (showExtraActionsCol: boolean) =>
 export type RowProps = Readonly<{
   update: TicketUpdates
   variant?: "standalone" | "embedded"
-  orgSlug: string
-  slug: string
   ticket: Ticket
   members: ReadonlyArray<Member>
   showSprintCol: boolean
@@ -52,8 +51,6 @@ export type RowProps = Readonly<{
 function RowImpl({
   update,
   variant = "standalone",
-  orgSlug,
-  slug,
   ticket,
   members,
   showSprintCol,
@@ -66,6 +63,7 @@ function RowImpl({
   onPreviewPointerEnter,
   onPreviewOpenChange
 }: RowProps) {
+  const { orgSlug, slug } = useProjectRoute()
   const onPatch = useAtomSet(update(ticket.id))
   const dashIdx = ticket.id.lastIndexOf("-")
   const idPrefix = dashIdx >= 0 ? ticket.id.slice(0, dashIdx) : ticket.id
@@ -132,13 +130,7 @@ function RowImpl({
               </PopoverTrigger>
             </Link>
             <fieldset disabled={!editable} className="contents">
-              <StatusButton
-                orgSlug={orgSlug}
-                slug={slug}
-                ticket={ticket}
-                stopPropagation
-                onPatch={onPatch}
-              />
+              <StatusButton ticket={ticket} stopPropagation onPatch={onPatch} />
               <PriorityButton
                 ticket={ticket}
                 stopPropagation
@@ -168,8 +160,6 @@ function RowImpl({
                 {showSprintCol && (
                   <SprintField
                     variant="responsive"
-                    orgSlug={orgSlug}
-                    slug={slug}
                     ticketId={ticket.id}
                     membership={sprintMembership}
                   />

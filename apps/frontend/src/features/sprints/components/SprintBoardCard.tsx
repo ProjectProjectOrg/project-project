@@ -6,6 +6,7 @@ import { memo, type ReactNode } from "react"
 
 import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
 import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import { AssigneeField } from "@/features/tickets/components/ticket-list/AssigneeField"
 import { EstimateChip } from "@/features/tickets/components/ticket-list/EstimateField"
@@ -17,14 +18,10 @@ import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { useProjectActor } from "@/lib/access"
 
 function SprintBoardCardImpl({
-  orgSlug,
-  slug,
   update,
   ticket,
   members
 }: Readonly<{
-  orgSlug: string
-  slug: string
   update: TicketUpdates
   ticket: Ticket
   members: ReadonlyArray<Member>
@@ -32,8 +29,6 @@ function SprintBoardCardImpl({
   const onPatch = useAtomSet(update(ticket.id))
   return (
     <BoardCardFields
-      orgSlug={orgSlug}
-      slug={slug}
       ticket={ticket}
       members={members}
       onPatch={onPatch}
@@ -43,20 +38,17 @@ function SprintBoardCardImpl({
 }
 
 function BoardCardFields({
-  orgSlug,
-  slug,
   ticket,
   members,
   onPatch,
   failure
 }: Readonly<{
-  orgSlug: string
-  slug: string
   ticket: Ticket
   members: ReadonlyArray<Member>
   onPatch: (patch: UpdateTicketInput) => void
   failure: ReactNode
 }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const actor = useProjectActor()
   const editable = TicketPolicy.canChange(actor, { content: true })
   const canAssign = TicketPolicy.canChange(actor, { assignees: true })
@@ -95,8 +87,6 @@ function BoardCardFields({
           </div>
           {editable && actor.call("tickets", "split") && (
             <SplitTicketControl
-              orgSlug={orgSlug}
-              slug={slug}
               id={ticket.id}
               size="icon-xs"
               className="opacity-0 group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100"

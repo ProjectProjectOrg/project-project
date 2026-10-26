@@ -61,8 +61,6 @@ export function TicketDetail() {
     onDefect: (defect) => <ErrorPage contained error={defect} />,
     onSuccess: ({ value }) => (
       <TicketPage
-        orgSlug={orgSlug}
-        slug={slug}
         ticket={value}
         members={project.members}
         github={project.github}

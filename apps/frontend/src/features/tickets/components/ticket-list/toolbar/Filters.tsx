@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { me } from "@/features/auth/atoms/auth"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   sprintList,
   sprintListRequest
@@ -61,8 +62,6 @@ export function Filters() {
     patchFilter: onChange,
     filters,
     members,
-    orgSlug,
-    slug,
     estimation,
     searchActive: compact
   } = useTicketToolbar()
@@ -152,8 +151,6 @@ export function Filters() {
                     key={dimension}
                     value={value?.groupId}
                     onChange={(groupId) => onChange({ groupId })}
-                    orgSlug={orgSlug}
-                    slug={slug}
                   />
                 )
               case "estimate":
@@ -171,8 +168,6 @@ export function Filters() {
                     key={dimension}
                     value={value?.tags}
                     onChange={(tags) => onChange({ tags })}
-                    orgSlug={orgSlug}
-                    slug={slug}
                   />
                 )
             }
@@ -342,15 +337,12 @@ function FilterEstimate({
 
 function FilterSprint({
   value,
-  onChange,
-  orgSlug,
-  slug
+  onChange
 }: {
   value: TicketFilter["groupId"]
   onChange: (value: TicketFilter["groupId"]) => void
-  orgSlug: string
-  slug: string
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const groups = value
   const sprintFilter = groups?.length === 1 ? groups[0] : "all"
   const setSprintFilter = (sprint: SprintFilterValue) =>
@@ -400,15 +392,12 @@ function FilterSprint({
 
 function FilterTags({
   value,
-  onChange,
-  orgSlug,
-  slug
+  onChange
 }: {
   value: TicketFilter["tags"]
   onChange: (value: TicketFilter["tags"]) => void
-  orgSlug: string
-  slug: string
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const selectedTags = value ?? []
   const setSelectedTags = (tags: typeof selectedTags) =>
     onChange(tags.length ? tags : undefined)

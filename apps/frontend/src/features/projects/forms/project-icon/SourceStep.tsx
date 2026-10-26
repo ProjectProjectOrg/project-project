@@ -13,6 +13,7 @@ import {
 import { SegmentedTabs } from "@/components/ui/segmented-tabs"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import { StepHeading } from "@/features/projects/components/appearance/AppearanceCard"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { CUTOUT_DEFAULT_TOLERANCE } from "@/features/projects/lib/iconCutout"
 import { m } from "@/paraglide/messages"
 
@@ -23,18 +24,18 @@ import type { IconDraft } from "./useIconDraft"
 export function SourceStep({
   form,
   draft,
-  orgSlug,
+
   busy,
   error,
   onAdvance
 }: {
   form: IconForm
   draft: IconDraft
-  orgSlug: string
   busy: boolean
   error: boolean
   onAdvance: () => void
 }) {
+  const { orgSlug } = useProjectRoute()
   const storage = useAtomValue(orgStorage(storageRequest(orgSlug)))
   const fileRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)

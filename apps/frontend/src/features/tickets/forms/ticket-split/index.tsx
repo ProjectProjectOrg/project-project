@@ -14,6 +14,7 @@ import { useRef } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   splitTicket,
   ticketRequest
@@ -46,8 +47,6 @@ const pendingTicketId = (ticketId: string) =>
   `${ticketId.slice(0, ticketId.lastIndexOf("-"))}-${PENDING_NUMBER}`
 
 export function TicketSplitForm({
-  orgSlug,
-  slug,
   ticket,
   members,
   commentCount,
@@ -55,8 +54,6 @@ export function TicketSplitForm({
   onSplit,
   onCancel
 }: {
-  orgSlug: string
-  slug: string
   ticket: TicketDetail
   members: ReadonlyArray<Member>
   commentCount: number
@@ -64,6 +61,7 @@ export function TicketSplitForm({
   onSplit: (created: ReadonlyArray<TicketId>) => void
   onCancel: () => void
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = ticketRequest(orgSlug, slug, ticket.id)
   const split = useAtomSet(splitTicket(req), { mode: "promiseExit" })
   const splitState = useAtomValue(splitTicket(req))
@@ -125,8 +123,6 @@ export function TicketSplitForm({
                     <form.Field name={`results[${index}].status`}>
                       {(statusField) => (
                         <StatusSelect
-                          orgSlug={orgSlug}
-                          slug={slug}
                           value={statusField.value}
                           onChange={statusField.handleChange}
                         />
@@ -164,8 +160,6 @@ export function TicketSplitForm({
                     <form.Field name={`results[${index}].sprintId`}>
                       {(sprintField) => (
                         <SprintSelect
-                          orgSlug={orgSlug}
-                          slug={slug}
                           value={sprintField.value}
                           onChange={sprintField.handleChange}
                         />

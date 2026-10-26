@@ -30,6 +30,7 @@ import {
   removeMember,
   updateMember
 } from "@/features/projects/atoms/projects"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { errorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
@@ -85,18 +86,17 @@ type ProjectScope = Readonly<{
 }>
 
 export function ProjectMembersSection({
-  orgSlug,
-  slug,
   members,
   pendingMembers,
   waiting,
   canManage,
   callerId
-}: ProjectScope &
+}: Omit<ProjectScope, "orgSlug" | "slug"> &
   Readonly<{
     members: ReadonlyArray<Member>
     pendingMembers: ReadonlyArray<PendingProjectMember>
   }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const scope = { orgSlug, slug, waiting, canManage, callerId }
   const pmCount = members.filter((member) => member.role === "pm").length
   return (

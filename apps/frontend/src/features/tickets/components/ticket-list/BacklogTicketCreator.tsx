@@ -25,6 +25,7 @@ import {
   project as projectView,
   projectRequest
 } from "@/features/projects/atoms/projects"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   assignTicketToSprint,
   sprintList,
@@ -47,15 +48,8 @@ import { TicketCreatorShell } from "./TicketCreatorShell"
 import { useCreatorFocus } from "./useCreatorFocus"
 import { useTemplateChoice, useTicketTypeChoice } from "./useTemplateChoice"
 
-export function BacklogTicketCreator({
-  orgSlug,
-  slug,
-  query
-}: {
-  orgSlug: string
-  slug: string
-  query: TicketListQuery
-}) {
+export function BacklogTicketCreator({ query }: { query: TicketListQuery }) {
+  const { orgSlug, slug } = useProjectRoute()
   const registry = useContext(RegistryContext)
   const req = backlogRequest(orgSlug, slug, query)
   const create = useAtomSet(quickCreateBacklogTicket(req), {

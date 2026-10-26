@@ -58,9 +58,7 @@ export function SprintTimePanel({
     Result.isSuccess(statusResult) &&
     statusResult.value.status === "not_connected"
   if (notConnected) {
-    return canManage ? (
-      <EverhourSetupHint orgSlug={orgSlug} slug={slug} />
-    ) : null
+    return canManage ? <EverhourSetupHint /> : null
   }
   if (Result.isInitial(statusResult) || Result.isInitial(profileResult)) {
     return <div className="h-8 animate-pulse rounded bg-muted/40" />

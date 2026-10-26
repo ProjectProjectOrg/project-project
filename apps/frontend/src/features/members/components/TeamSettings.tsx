@@ -33,8 +33,6 @@ export function TeamSettings() {
     <>
       <SettingsSection>
         <ProjectMembersSection
-          orgSlug={orgSlug}
-          slug={projectDetail.slug}
           members={projectDetail.members}
           pendingMembers={projectDetail.pendingMembers}
           waiting={projectResult.waiting}

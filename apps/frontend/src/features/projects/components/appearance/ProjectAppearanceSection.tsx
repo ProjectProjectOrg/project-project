@@ -29,6 +29,7 @@ import { CroppedImage } from "@/features/projects/components/CroppedImage"
 import { ProjectIconDisplay } from "@/features/projects/components/ProjectIconDisplay"
 import { ProjectBannerForm } from "@/features/projects/forms/project-banner"
 import { ProjectIconForm } from "@/features/projects/forms/project-icon"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   bannerDefaults,
   bannerSource,
@@ -40,8 +41,6 @@ import { m } from "@/paraglide/messages"
 const makeProjectColor = Schema.decodeUnknownSync(ProjectColor)
 
 export function ProjectAppearanceSection({
-  orgSlug,
-  slug,
   name,
   projectKey,
   icon,
@@ -50,8 +49,6 @@ export function ProjectAppearanceSection({
   banner,
   canEdit
 }: {
-  orgSlug: string
-  slug: string
   name: string
   projectKey: string
   icon: string
@@ -60,6 +57,7 @@ export function ProjectAppearanceSection({
   banner: ProjectBanner | null
   canEdit: boolean
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = projectRequest(orgSlug, slug)
   const update = useAtomSet(updateProject(req))
   const updateState = useAtomValue(updateProject(req))
@@ -115,8 +113,6 @@ export function ProjectAppearanceSection({
                       }}
                     />
                     <ProjectIconForm
-                      orgSlug={orgSlug}
-                      slug={slug}
                       icon={icon}
                       iconImage={iconImage}
                       accent={color}
@@ -206,8 +202,6 @@ export function ProjectAppearanceSection({
                     />
                     <ProjectBannerForm
                       key={makeProjectKey(orgSlug, slug)}
-                      orgSlug={orgSlug}
-                      slug={slug}
                       banner={banner}
                       onDone={() => setEditing(null)}
                     />
@@ -269,8 +263,6 @@ export function ProjectAppearanceSection({
           </div>
           <div className="hidden lg:block">
             <RenderPreviews
-              orgSlug={orgSlug}
-              slug={slug}
               name={name}
               projectKey={projectKey}
               icon={icon}
@@ -287,8 +279,6 @@ export function ProjectAppearanceSection({
             </summary>
             <div className="pt-3">
               <RenderPreviews
-                orgSlug={orgSlug}
-                slug={slug}
                 name={name}
                 projectKey={projectKey}
                 icon={icon}

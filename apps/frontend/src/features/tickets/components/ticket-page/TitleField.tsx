@@ -4,6 +4,7 @@ import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import { useCallback, useId, useRef, useState } from "react"
 
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   ticketRequest,
   updateTicketDetail
@@ -12,15 +13,8 @@ import { errorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
-export function TitleField({
-  orgSlug,
-  slug,
-  ticket
-}: {
-  orgSlug: string
-  slug: string
-  ticket: TicketDetail
-}) {
+export function TitleField({ ticket }: { ticket: TicketDetail }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = ticketRequest(orgSlug, slug, ticket.id)
   const atom = updateTicketDetail(req)
   const update = useAtomSet(atom, { mode: "promiseExit" })

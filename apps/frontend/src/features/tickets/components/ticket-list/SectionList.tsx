@@ -25,6 +25,7 @@ import {
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   backlogRequest,
   encodeTicketListQuery,
@@ -78,8 +79,6 @@ export function CreatingSectionsProvider({
 }
 
 export function SectionList({
-  orgSlug,
-  slug,
   status,
   statuses,
   query,
@@ -108,8 +107,6 @@ export function SectionList({
   update: TicketUpdates
   snapshotReq?: SprintSectionsRequest
   emptyMessage?: string
-  orgSlug: string
-  slug: string
   status: TicketStatus
   statuses: ReadonlyArray<ProjectStatus>
   query: TicketListQuery
@@ -126,6 +123,7 @@ export function SectionList({
   onPreviewPointerEnter: (ticketId: TicketId) => void
   onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const actor = useProjectActor()
   const editable = TicketPolicy.canChange(actor, { content: true })
   const canCreateTickets = canCreate && actor.call("tickets", "quickCreate")
@@ -177,8 +175,6 @@ export function SectionList({
         onDismissCreate={onDismissCreate}
         creator={
           <SectionTicketCreator
-            orgSlug={orgSlug}
-            slug={slug}
             status={status}
             query={query}
             snapshotReq={snapshotReq}
@@ -214,8 +210,6 @@ export function SectionList({
                 >
                   <Row
                     update={update}
-                    orgSlug={orgSlug}
-                    slug={slug}
                     ticket={ticket}
                     members={members}
                     showSprintCol={showSprintCol}

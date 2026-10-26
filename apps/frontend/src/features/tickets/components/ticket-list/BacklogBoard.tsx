@@ -27,6 +27,7 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { SprintBoardColumn } from "@/features/sprints/components/SprintBoardColumn"
 import { useBoardViewport } from "@/features/sprints/hooks/useBoardViewport"
 import {
@@ -54,8 +55,6 @@ const COLUMN_SCROLL_SELECTOR = "[data-virtual-sprint-column]"
 const NO_TICKETS: ReadonlyArray<Ticket> = []
 
 type BacklogBoardProps = Readonly<{
-  orgSlug: string
-  slug: string
   query: TicketListQuery
   members: ReadonlyArray<Member>
   snapshot: BacklogValue
@@ -67,7 +66,7 @@ type BacklogBoardProps = Readonly<{
 }>
 
 export function BacklogBoard(props: BacklogBoardProps) {
-  const { orgSlug, slug } = props
+  const { orgSlug, slug } = useProjectRoute()
   const statusReq = statusesRequest(orgSlug, slug)
   const statuses = useAtomValue(statusesFor(statusReq))
   const refreshStatuses = useAtomRefresh(statusesFor(statusReq))
@@ -90,8 +89,6 @@ export function BacklogBoard(props: BacklogBoardProps) {
 }
 
 function BacklogBoardContent({
-  orgSlug,
-  slug,
   query,
   members,
   snapshot,
@@ -102,6 +99,7 @@ function BacklogBoardContent({
   dragOrder,
   setDragOrder
 }: BacklogBoardProps & { statuses: ReadonlyArray<ProjectStatus> }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = useMemo(
     () => backlogRequest(orgSlug, slug, query),
     [orgSlug, slug, query]
@@ -220,8 +218,6 @@ function BacklogBoardContent({
           return (
             <SprintBoardColumn
               key={status}
-              orgSlug={orgSlug}
-              slug={slug}
               update={backlogTicketUpdates(req)}
               status={status}
               statuses={statuses}

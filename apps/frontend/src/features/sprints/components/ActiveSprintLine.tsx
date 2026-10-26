@@ -3,6 +3,7 @@ import { daysLeft, pickActiveSprint } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   sprintList,
   sprintListRequest
@@ -11,13 +12,8 @@ import { m } from "@/paraglide/messages"
 
 import { SprintStateIcon } from "./SprintChip"
 
-export function ActiveSprintLine({
-  orgSlug,
-  slug
-}: {
-  orgSlug: string
-  slug: string
-}) {
+export function ActiveSprintLine() {
+  const { orgSlug, slug } = useProjectRoute()
   const req = sprintListRequest(orgSlug, slug)
   const list = useAtomValue(sprintList(req))
   const sprints = Result.isSuccess(list) ? list.value : []

@@ -20,6 +20,7 @@ import {
   stackBranch
 } from "@/features/github/atoms/github"
 import { projectRequest } from "@/features/projects/atoms/projects"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -58,20 +59,17 @@ export function branchItemsView({
 }
 
 export function ConnectBranchFields({
-  orgSlug,
-  slug,
   ticket,
   github,
   variant = "bordered",
   mode = "connect"
 }: {
-  orgSlug: string
-  slug: string
   ticket: TicketDetail
   github: GithubConnection
   variant?: "bordered" | "ghost"
   mode?: "connect" | "stack"
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const buttonSize = variant === "bordered" ? "sm" : "xs"
   const { busy, setBusy, close } = useInlineForm()
   const [input, setInput] = useState("")

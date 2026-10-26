@@ -19,6 +19,7 @@ import { Markdown } from "@/features/editor/components/Markdown"
 import { MarkdownSaveIndicator } from "@/features/editor/components/MarkdownSaveIndicator"
 import { TicketTimeSection } from "@/features/everhour/components/TicketTimePanel"
 import { TicketGitPanel } from "@/features/github/components/ticket-git/TicketGit"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TagEditor } from "@/features/tags/components/TagEditor"
 import {
   archiveTicket,
@@ -52,22 +53,19 @@ import { m } from "@/paraglide/messages"
 const NO_SPLIT_RESULTS: ReadonlyArray<TicketId> = []
 
 export function TicketPage({
-  orgSlug,
-  slug,
   ticket,
   members,
   github,
   autoFocusBody = false,
   splitInto = NO_SPLIT_RESULTS
 }: {
-  orgSlug: string
-  slug: string
   ticket: TicketDetail
   members: ReadonlyArray<Member>
   github: GithubConnection | null
   autoFocusBody?: boolean
   splitInto?: ReadonlyArray<TicketId>
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = ticketRequest(orgSlug, slug, ticket.id)
   const remove = useAtomSet(deleteTicket(req), { mode: "promiseExit" })
   const deleteState = useAtomValue(deleteTicket(req))
@@ -104,13 +102,11 @@ export function TicketPage({
         <>
           <MarkdownSaveIndicator status={bodyStatus} />
           <SaveAsTemplatePopover
-            orgSlug={orgSlug}
-            slug={slug}
             ticket={ticket}
             body={bodyDraft ?? ticket.body}
           />
           {canEdit && actor.call("tickets", "split") && (
-            <SplitTicketControl orgSlug={orgSlug} slug={slug} id={ticket.id} />
+            <SplitTicketControl id={ticket.id} />
           )}
           {actor.call("tickets", "archive") && (
             <ArchiveTicketControl
@@ -157,8 +153,6 @@ export function TicketPage({
       }
       header={
         <TicketPageHeader
-          orgSlug={orgSlug}
-          slug={slug}
           ticket={ticket}
           readOnly={!canEdit}
           onPatch={updateTicket}
@@ -181,17 +175,13 @@ export function TicketPage({
         />
       }
     >
-      {splitInto.length > 0 && (
-        <SplitResultBanner orgSlug={orgSlug} slug={slug} created={splitInto} />
-      )}
+      {splitInto.length > 0 && <SplitResultBanner created={splitInto} />}
 
       <div className="grid grid-cols-1 gap-x-8 gap-y-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <main className="flex min-w-0 flex-col gap-6 sm:pl-(--ticket-rail-inset)">
           {canEdit ? (
             <DescriptionField
               ref={descriptionRef}
-              orgSlug={orgSlug}
-              slug={slug}
               ticket={ticket}
               members={members}
               autoFocus={autoFocusBody}
@@ -201,7 +191,7 @@ export function TicketPage({
             <Markdown>{ticket.body}</Markdown>
           )}
 
-          <CommentsSection orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
+          <CommentsSection ticketId={ticket.id} />
         </main>
 
         <aside className="flex min-w-0 flex-col gap-4 sm:pl-(--ticket-rail-inset) lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:self-start lg:overflow-y-auto lg:border-l lg:border-border/60 lg:pl-5">
@@ -219,11 +209,7 @@ export function TicketPage({
               </MetaRow>
             )}
             <MetaRow label={m.tickets_page_meta_sprint()}>
-              <SprintBadgeTrigger
-                orgSlug={orgSlug}
-                slug={slug}
-                ticketId={ticket.id}
-              />
+              <SprintBadgeTrigger ticketId={ticket.id} />
             </MetaRow>
             <MetaRow label={m.tickets_page_meta_assignees()}>
               <AssigneePicker
@@ -234,8 +220,6 @@ export function TicketPage({
             </MetaRow>
             <MetaRow label={m.tickets_page_meta_tags()}>
               <TagEditor
-                orgSlug={orgSlug}
-                slug={slug}
                 ticket={ticket}
                 canManageTags={actor.call("tags", "create")}
               />
@@ -244,8 +228,6 @@ export function TicketPage({
           {github && (
             <MetaRow label={m.tickets_page_meta_git()}>
               <TicketGitPanel
-                orgSlug={orgSlug}
-                slug={slug}
                 ticket={ticket}
                 github={github}
                 branchTemplate={null}
@@ -253,9 +235,9 @@ export function TicketPage({
               />
             </MetaRow>
           )}
-          <TicketDesignLinks orgSlug={orgSlug} slug={slug} ticket={ticket} />
+          <TicketDesignLinks ticket={ticket} />
           {actor.call("everhour", "ticketTime") && (
-            <TicketTimeSection orgSlug={orgSlug} slug={slug} ticket={ticket} />
+            <TicketTimeSection ticket={ticket} />
           )}
           <MetaRow label={m.tickets_page_meta_created()}>
             <UserTimestamp user={ticket.creator} timestamp={ticket.createdAt} />

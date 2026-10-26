@@ -20,6 +20,7 @@ import {
   figmaTicketLinksRequest,
   type FigmaTicketLinksRequest
 } from "@/features/figma/atoms/figma"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   ticketBodyDraft,
   ticketRequest
@@ -171,15 +172,8 @@ function PaperDesignLink({
   )
 }
 
-export function TicketDesignLinks({
-  orgSlug,
-  slug,
-  ticket
-}: {
-  orgSlug: string
-  slug: string
-  ticket: TicketDetail
-}) {
+export function TicketDesignLinks({ ticket }: { ticket: TicketDetail }) {
+  const { orgSlug, slug } = useProjectRoute()
   const figmaRequest = figmaTicketLinksRequest(orgSlug, slug, ticket.id)
   const bodyDraft = useAtomValue(
     ticketBodyDraft(ticketRequest(orgSlug, slug, ticket.id))

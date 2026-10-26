@@ -3,7 +3,10 @@ import { useMatches, useNavigate, useRouter } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 import { Activity, useEffect, useMemo, useState } from "react"
 
-import { useProject } from "@/features/projects/hooks/useProject"
+import {
+  useProject,
+  useProjectRoute
+} from "@/features/projects/hooks/useProject"
 import {
   normalizeEstimateFilter,
   normalizeEstimateSort
@@ -18,13 +21,8 @@ const decodeGroupId = Schema.decodeUnknownSync(GroupId)
 const defaultTicketListQuery = Schema.decodeSync(TicketListQuery)({})
 const encodeTicketListQuery = Schema.encodeSync(TicketListQuery)
 
-export function RetainedProjectViews({
-  orgSlug,
-  slug
-}: {
-  orgSlug: string
-  slug: string
-}) {
+export function RetainedProjectViews() {
+  const { orgSlug, slug } = useProjectRoute()
   const { estimation } = useProject()
   const router = useRouter()
   const navigate = useNavigate()
@@ -158,8 +156,6 @@ export function RetainedProjectViews({
     <Activity mode={backlog || sprint ? "visible" : "hidden"}>
       {(lastBacklog || lastSprint) && (
         <ProjectTicketLayout
-          orgSlug={orgSlug}
-          slug={slug}
           groupId={sprint ? sprintId : null}
           view={sprint ? sprintView : backlogView}
           query={sprint ? sprintQuery : backlogQuery}
@@ -170,8 +166,6 @@ export function RetainedProjectViews({
               <Activity mode={backlog ? "visible" : "hidden"}>
                 {lastBacklog && (
                   <BacklogView
-                    orgSlug={orgSlug}
-                    slug={slug}
                     view={backlogView === "board" ? "board" : "list"}
                     query={backlogQuery}
                     grouping={grouping}
@@ -184,8 +178,6 @@ export function RetainedProjectViews({
                 {lastSprint && sprintId && (
                   <SprintDetail
                     key={sprintId}
-                    orgSlug={orgSlug}
-                    slug={slug}
                     groupId={sprintId}
                     view={sprintView}
                     listQuery={sprintQuery}

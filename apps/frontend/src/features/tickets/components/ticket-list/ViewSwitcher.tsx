@@ -7,16 +7,12 @@ import {
   SegmentedTabs,
   type SegmentedItem
 } from "@/components/ui/segmented-tabs"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectView } from "@/hooks/useViewPreference"
 import { m } from "@/paraglide/messages"
 
-export function ViewSwitcher({
-  orgSlug,
-  slug
-}: Readonly<{
-  orgSlug: string
-  slug: string
-}>) {
+export function ViewSwitcher() {
+  const { orgSlug, slug } = useProjectRoute()
   const navigate = useNavigate()
   const sprintMatch = useMatch({
     from: "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId",

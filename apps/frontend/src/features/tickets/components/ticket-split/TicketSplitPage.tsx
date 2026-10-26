@@ -6,6 +6,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { AsyncView } from "@/components/shell/AsyncView"
 import { DitherShell } from "@/components/ui/dither-shell"
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   sprintList,
   sprintListRequest,
@@ -17,16 +18,13 @@ import { TicketSplitForm } from "@/features/tickets/forms/ticket-split"
 import { m } from "@/paraglide/messages"
 
 export function TicketSplitPage({
-  orgSlug,
-  slug,
   ticket,
   members
 }: {
-  orgSlug: string
-  slug: string
   ticket: TicketDetail
   members: ReadonlyArray<Member>
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const router = useRouter()
   const canGoBack = useCanGoBack()
   const navigate = useNavigate()
@@ -66,8 +64,6 @@ export function TicketSplitPage({
       )}
       onSuccess={({ value }) => (
         <TicketSplitForm
-          orgSlug={orgSlug}
-          slug={slug}
           ticket={ticket}
           members={members}
           commentCount={value.comments.length}
@@ -87,8 +83,6 @@ export function TicketSplitPage({
       }}
       header={
         <TicketPageHeader
-          orgSlug={orgSlug}
-          slug={slug}
           ticket={ticket}
           readOnly
           meta={

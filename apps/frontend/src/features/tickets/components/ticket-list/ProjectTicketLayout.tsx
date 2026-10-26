@@ -9,7 +9,10 @@ import { Activity, type ReactNode } from "react"
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { PageContainer } from "@/components/shell/Page"
 import { me } from "@/features/auth/atoms/auth"
-import { useProject } from "@/features/projects/hooks/useProject"
+import {
+  useProject,
+  useProjectRoute
+} from "@/features/projects/hooks/useProject"
 import {
   sprintDetail,
   sprintRequest
@@ -64,22 +67,19 @@ type TicketLayoutState = Readonly<{
 }>
 
 export function ProjectTicketLayout({
-  orgSlug,
-  slug,
   groupId,
   view,
   query,
   onQueryChange,
   children
 }: Readonly<{
-  orgSlug: string
-  slug: string
   groupId: GroupId | null
   view: "list" | "board" | "description"
   query: TicketListQuery
   onQueryChange: (query: TicketListQuery) => void
   children: (state: TicketLayoutState) => ReactNode
 }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const project = useProject()
   const actor = useProjectActor()
   const canCreate = actor.call("tickets", "quickCreate")
@@ -149,20 +149,9 @@ export function ProjectTicketLayout({
               >
                 {groupId
                   ? canAddToSprint && (
-                      <SprintCreator
-                        key={groupId}
-                        orgSlug={orgSlug}
-                        slug={slug}
-                        groupId={groupId}
-                      />
+                      <SprintCreator key={groupId} groupId={groupId} />
                     )
-                  : canCreate && (
-                      <BacklogTicketCreator
-                        orgSlug={orgSlug}
-                        slug={slug}
-                        query={query}
-                      />
-                    )}
+                  : canCreate && <BacklogTicketCreator query={query} />}
               </motion.div>
             </div>
           )}
@@ -177,8 +166,6 @@ export function ProjectTicketLayout({
               aria-hidden={reorder.reorderMode}
             >
               <TicketToolbar
-                orgSlug={orgSlug}
-                slug={slug}
                 scopeKey={scope}
                 query={query}
                 onQueryChange={onQueryChange}
@@ -191,7 +178,7 @@ export function ProjectTicketLayout({
                 }
                 estimation={project.estimation}
                 showSort={!groupId || !isBoard}
-                viewControls={<ViewSwitcher orgSlug={orgSlug} slug={slug} />}
+                viewControls={<ViewSwitcher />}
               >
                 {!groupId && !isBoard && (
                   <BacklogGroupingControl
@@ -216,11 +203,8 @@ export function ProjectTicketLayout({
   )
 }
 
-function SprintCreator({
-  orgSlug,
-  slug,
-  groupId
-}: Readonly<{ orgSlug: string; slug: string; groupId: GroupId }>) {
+function SprintCreator({ groupId }: Readonly<{ groupId: GroupId }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const result = useAtomValue(
     sprintDetail(sprintRequest(orgSlug, slug, groupId))
   )
@@ -237,8 +221,6 @@ function SprintCreator({
         </p>
       ) : (
         <SprintTicketCreator
-          orgSlug={orgSlug}
-          slug={slug}
           groupId={groupId}
           excludeIds={new Set(value.tickets)}
         />

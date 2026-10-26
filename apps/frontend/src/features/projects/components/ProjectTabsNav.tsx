@@ -22,6 +22,7 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   sprintList,
   sprintListRequest
@@ -76,15 +77,8 @@ const TABS: ReadonlyArray<TabDef> = [
   }
 ]
 
-export function TabsNav({
-  orgSlug,
-  slug,
-  project
-}: {
-  orgSlug: string
-  slug: string
-  project: ProjectDetailType
-}) {
+export function TabsNav({ project }: { project: ProjectDetailType }) {
+  const { orgSlug, slug } = useProjectRoute()
   const pathname = useMatches({
     select: (matches) => matches[matches.length - 1]?.pathname ?? ""
   })

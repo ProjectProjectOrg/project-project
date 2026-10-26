@@ -20,6 +20,7 @@ import {
   updateProject
 } from "@/features/projects/atoms/projects"
 import { StepSummaryRow } from "@/features/projects/components/appearance/AppearanceCard"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { bannerPreviewChanged } from "@/features/projects/lib/bannerFrame"
 import {
   bannerDefaults,
@@ -41,16 +42,13 @@ import { BannerSourceStep } from "./SourceStep"
 export type BannerForm = ReactFormType<ReturnType<typeof bannerFormOpts>>
 
 export function ProjectBannerForm({
-  orgSlug,
-  slug,
   banner,
   onDone
 }: {
-  orgSlug: string
-  slug: string
   banner: ProjectBanner | null
   onDone?: () => void
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = projectRequest(orgSlug, slug)
   const uploadReq = uploadProjectImageRequest(orgSlug, slug)
   const update = useAtomSet(updateProject(req), { mode: "promiseExit" })
@@ -249,7 +247,6 @@ export function ProjectBannerForm({
           >
             <BannerSourceStep
               form={form}
-              orgSlug={orgSlug}
               rejected={rejected}
               onPickPreset={() => {
                 fileRef.current = null

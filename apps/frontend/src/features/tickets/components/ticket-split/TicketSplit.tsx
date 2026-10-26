@@ -44,12 +44,7 @@ export function TicketSplit() {
       ),
     onDefect: (defect) => <ErrorPage contained error={defect} />,
     onSuccess: ({ value }) => (
-      <TicketSplitPage
-        orgSlug={orgSlug}
-        slug={slug}
-        ticket={value}
-        members={project.members}
-      />
+      <TicketSplitPage ticket={value} members={project.members} />
     )
   })
 }

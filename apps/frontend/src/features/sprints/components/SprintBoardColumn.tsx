@@ -31,8 +31,6 @@ const QUICK_S = 0.2
 const REORDER_EASE = [0.32, 0.72, 0, 1] as const
 
 export function SprintBoardColumn({
-  orgSlug,
-  slug,
   update,
   status,
   statuses,
@@ -49,8 +47,6 @@ export function SprintBoardColumn({
   onActivateReorder,
   footer
 }: {
-  orgSlug: string
-  slug: string
   update: TicketUpdates
   status: Ticket["status"]
   statuses: ReadonlyArray<ProjectStatus>
@@ -208,8 +204,6 @@ export function SprintBoardColumn({
         >
           {(ticket) => (
             <CardSlot
-              orgSlug={orgSlug}
-              slug={slug}
               update={update}
               ordered={ordered}
               ticket={ticket}
@@ -232,8 +226,6 @@ export function SprintBoardColumn({
 }
 
 function CardSlot({
-  orgSlug,
-  slug,
   update,
   ticket,
   status,
@@ -244,8 +236,6 @@ function CardSlot({
   pending,
   flashKey
 }: {
-  orgSlug: string
-  slug: string
   update: TicketUpdates
   ticket: Ticket
   status: Ticket["status"]
@@ -333,13 +323,7 @@ function CardSlot({
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="rounded-md"
         >
-          <SprintBoardCard
-            orgSlug={orgSlug}
-            slug={slug}
-            update={update}
-            ticket={ticket}
-            members={members}
-          />
+          <SprintBoardCard update={update} ticket={ticket} members={members} />
         </motion.div>
       </div>
     </div>

@@ -14,6 +14,7 @@ import {
   figmaProjectStatusAtom
 } from "@/features/figma/atoms/figma"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useOrgActor } from "@/lib/access"
 import { figmaStatusErrorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
@@ -22,15 +23,8 @@ import { m } from "@/paraglide/messages"
 
 import { FigmaTokenWalkthrough } from "./FigmaTokenWalkthrough"
 
-export function FigmaProjectSettings({
-  orgSlug,
-  slug,
-  canManage
-}: {
-  orgSlug: string
-  slug: string
-  canManage: boolean
-}) {
+export function FigmaProjectSettings({ canManage }: { canManage: boolean }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = figmaProjectRequest(orgSlug, slug)
   const status = useAtomValue(figmaProjectStatusAtom(req))
 
@@ -49,8 +43,6 @@ export function FigmaProjectSettings({
       )}
       onSuccess={({ value, waiting }) => (
         <FigmaProjectContent
-          orgSlug={orgSlug}
-          slug={slug}
           status={value}
           waiting={waiting}
           canManage={canManage}
@@ -61,14 +53,10 @@ export function FigmaProjectSettings({
 }
 
 function FigmaProjectContent({
-  orgSlug,
-  slug,
   status,
   waiting,
   canManage
 }: {
-  orgSlug: string
-  slug: string
   status: {
     connected: boolean
     handle: string | null
@@ -78,6 +66,7 @@ function FigmaProjectContent({
   waiting: boolean
   canManage: boolean
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = figmaProjectRequest(orgSlug, slug)
   const canSetUpStorage = useOrgActor(orgSlug).call("storage", "connect")
   const [accessToken, setAccessToken] = useState("")

@@ -15,6 +15,7 @@ import {
   createComment
 } from "@/features/comments/atoms/comments"
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
@@ -23,38 +24,20 @@ const newCommentIdentity = () => ({
   createdAt: DateTime.toDate(DateTime.nowUnsafe())
 })
 
-export function CommentComposer({
-  orgSlug,
-  slug,
-  ticketId
-}: {
-  orgSlug: string
-  slug: string
-  ticketId: TicketId
-}) {
+export function CommentComposer({ ticketId }: { ticketId: TicketId }) {
   const viewer = useAtomValue(me())
   if (!Result.isSuccess(viewer)) return null
-  return (
-    <ReadyCommentComposer
-      orgSlug={orgSlug}
-      slug={slug}
-      ticketId={ticketId}
-      author={viewer.value}
-    />
-  )
+  return <ReadyCommentComposer ticketId={ticketId} author={viewer.value} />
 }
 
 function ReadyCommentComposer({
-  orgSlug,
-  slug,
   ticketId,
   author
 }: {
-  orgSlug: string
-  slug: string
   ticketId: TicketId
   author: User
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const [body, setBody] = useState("")
   const [expanded, setExpanded] = useState(false)
   const [editorVersion, setEditorVersion] = useState(0)

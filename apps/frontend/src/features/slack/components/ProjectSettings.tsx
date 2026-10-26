@@ -15,6 +15,7 @@ import { SettingsSwitch } from "@/components/shell/settings/SettingsTextField"
 import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger } from "@/components/ui/select"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { mutationErrorText, slackActionErrorMessage } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -30,8 +31,6 @@ import {
 } from "../atoms/slack"
 
 type ProjectProps = Readonly<{
-  orgSlug: string
-  slug: string
   canManage: boolean
 }>
 
@@ -43,7 +42,8 @@ const EVENT_LABELS: Readonly<Record<SlackEvent, () => string>> = {
   sprint_completed: () => m.slack_event_sprint_completed()
 }
 
-export function SlackProjectRow({ orgSlug, slug, canManage }: ProjectProps) {
+export function SlackProjectRow({ canManage }: ProjectProps) {
+  const { orgSlug, slug } = useProjectRoute()
   const result = useAtomValue(slackProject(slackProjectRequest(orgSlug, slug)))
   return (
     <AsyncView
@@ -244,7 +244,8 @@ function ManagedSlackRow({
   )
 }
 
-export function SlackProjectEvents({ orgSlug, slug, canManage }: ProjectProps) {
+export function SlackProjectEvents({ canManage }: ProjectProps) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = slackProjectRequest(orgSlug, slug)
   const result = useAtomValue(slackProject(req))
   const save = useAtomSet(saveSlackProject(req))

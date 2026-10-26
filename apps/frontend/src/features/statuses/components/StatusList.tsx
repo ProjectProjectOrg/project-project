@@ -10,6 +10,7 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { StatusCreateRow } from "@/features/statuses/components/StatusCreateRow"
 import { StatusRow } from "@/features/statuses/components/StatusRow"
 import {
@@ -20,12 +21,8 @@ import { useProjectActor } from "@/lib/access"
 import { compareByOrderKey } from "@/lib/orderKey"
 import { m } from "@/paraglide/messages"
 
-type Props = {
-  orgSlug: string
-  slug: string
-}
-
-export function StatusList({ orgSlug, slug }: Props) {
+export function StatusList() {
+  const { orgSlug, slug } = useProjectRoute()
   const req = statusesRequest(orgSlug, slug)
   const result = useAtomValue(statusesFor(req))
 
@@ -40,18 +37,17 @@ export function StatusList({ orgSlug, slug }: Props) {
           </p>
         </SettingsGroup>
       )}
-      onSuccess={({ value }) => (
-        <OrderedStatuses orgSlug={orgSlug} slug={slug} statuses={value} />
-      )}
+      onSuccess={({ value }) => <OrderedStatuses statuses={value} />}
     />
   )
 }
 
-type OrderedProps = Props & {
+type OrderedProps = Readonly<{
   statuses: ReadonlyArray<ProjectStatus>
-}
+}>
 
-function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
+function OrderedStatuses({ statuses }: OrderedProps) {
+  const { orgSlug, slug } = useProjectRoute()
   useAtomValue(ticketCounts(countsRequest(orgSlug, slug, {})))
   const canManage = useProjectActor().call("statuses", "update")
 
@@ -115,8 +111,6 @@ function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
               key={s.slug}
               status={s}
               statuses={order}
-              orgSlug={orgSlug}
-              slug={slug}
               onDragStart={() => {
                 if (dragOrder === null) setDragOrder(sorted)
               }}
@@ -131,7 +125,7 @@ function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
       </fieldset>
       {canManage && (
         <div className="px-3 py-2">
-          <StatusCreateRow orgSlug={orgSlug} slug={slug} />
+          <StatusCreateRow />
         </div>
       )}
     </SettingsGroup>

@@ -74,6 +74,7 @@ routes/         route files
 - **Placement.** Code used by one feature lives in that feature; `lib/`, `hooks/` and `components/shell` hold what several features share.
 - **Naming.** Directories are kebab-case. React component files are PascalCase (`TicketHoverCard.tsx`), hooks are `useX.ts`, other modules are camelCase (`activityGroups.ts`). `components/ui` keeps the kebab-case names the shadcn CLI generates. A component folder such as `ticket-list/` may hold its private helpers and hooks.
 - Tests sit beside the module they test.
+- **Project scope.** Components rendered only inside a project read `orgSlug` and `slug` from `useProjectRoute()` (`features/projects/hooks/useProject.ts`), which reads `ProjectContext`. `ProjectLayout` provides it for the project route and `DashboardTicket` for each dashboard row, so don't drill the slugs as props. Components also rendered at org scope (dashboard lists, project tiles, hover cards that show another project's ticket) keep explicit props. Sidebar slots render outside the project tree, so a project-scoped slot wraps its content in `ProjectContext`.
 
 ### Types: readonly type aliases, never interfaces
 

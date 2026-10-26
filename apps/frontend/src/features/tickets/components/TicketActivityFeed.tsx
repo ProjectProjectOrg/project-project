@@ -33,7 +33,10 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
-import { useProject } from "@/features/projects/hooks/useProject"
+import {
+  useProject,
+  useProjectRoute
+} from "@/features/projects/hooks/useProject"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import { TagChip } from "@/features/tags/components/TagChip"
 import {
@@ -580,10 +583,9 @@ function GroupRow({
 }
 
 export function TicketActivityFeed({
-  orgSlug,
-  slug,
   ticketId
-}: Readonly<{ orgSlug: string; slug: string; ticketId: TicketId }>) {
+}: Readonly<{ ticketId: TicketId }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = ticketActivityRequest(orgSlug, slug, ticketId)
   const result = useAtomValue(ticketActivity(req))
   const [olderPages, setOlderPages] = useAtom(olderActivityPages(req))

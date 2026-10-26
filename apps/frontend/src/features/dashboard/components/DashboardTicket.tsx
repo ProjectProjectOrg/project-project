@@ -80,8 +80,6 @@ export function DashboardRow({
       >
         <Row
           variant={below === undefined ? "standalone" : "embedded"}
-          orgSlug={orgSlug}
-          slug={item.project.slug}
           ticket={item.ticket}
           members={members}
           showSprintCol={false}
@@ -111,8 +109,6 @@ export function DashboardCard({ orgSlug, item, update }: DashboardTicketProps) {
     <ProjectContext.Provider value={projectReq}>
       <div className={BOARD_CARD_SLOT_CLASS}>
         <SprintBoardCard
-          orgSlug={orgSlug}
-          slug={item.project.slug}
           ticket={item.ticket}
           members={members}
           update={updates}

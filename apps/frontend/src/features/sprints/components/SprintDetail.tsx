@@ -6,7 +6,10 @@ import * as Result from "effect/reactivity/AsyncResult"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { NotFoundPage } from "@/components/shell/NotFoundPage"
-import { useProject } from "@/features/projects/hooks/useProject"
+import {
+  useProject,
+  useProjectRoute
+} from "@/features/projects/hooks/useProject"
 import {
   sprintDetail,
   sprintRequest
@@ -21,20 +24,17 @@ import { SprintDetailSkeleton } from "./SprintDetailSkeleton"
 import { SprintTicketList } from "./SprintTicketList"
 
 export function SprintDetail({
-  orgSlug,
-  slug,
   groupId,
   view,
   listQuery,
   reorder
 }: Readonly<{
-  orgSlug: string
-  slug: string
   groupId: GroupId
   view: "list" | "board" | "description"
   listQuery: TicketListQuery
   reorder: StatusReorder
 }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const project = useProject()
   const actor = useProjectActor()
   const canPlan = GroupPolicy.can(actor, "sprint", "manage")
@@ -78,16 +78,9 @@ export function SprintDetail({
     onSuccess: ({ value }) => {
       const isCompleted = value.completedAt !== null
       return isDescription ? (
-        <SprintDescription
-          orgSlug={orgSlug}
-          slug={slug}
-          sprint={value}
-          disabled={isCompleted || !canPlan}
-        />
+        <SprintDescription sprint={value} disabled={isCompleted || !canPlan} />
       ) : isBoard ? (
         <SprintBoard
-          orgSlug={orgSlug}
-          slug={slug}
           groupId={value.id}
           query={listQuery}
           members={project.members}
@@ -99,12 +92,7 @@ export function SprintDetail({
           setDragOrder={setDragOrder}
         />
       ) : (
-        <SprintTicketList
-          orgSlug={orgSlug}
-          slug={slug}
-          query={listQuery}
-          members={project.members}
-        />
+        <SprintTicketList query={listQuery} members={project.members} />
       )
     }
   })

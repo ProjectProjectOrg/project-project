@@ -38,6 +38,7 @@ import { projectGitStates, unstackBranch } from "@/features/github/atoms/github"
 import { ClearBranchFields } from "@/features/github/components/ticket-git/ClearBranchFields"
 import { ConnectBranchFields } from "@/features/github/components/ticket-git/ConnectBranchFields"
 import { projectRequest } from "@/features/projects/atoms/projects"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -216,8 +217,6 @@ const compareUrl = (repoSlug: string, base: string, branch: string): string =>
 type StackAction = "stack" | "clear"
 
 export function StackedBranches({
-  orgSlug,
-  slug,
   ticket,
   github,
   own,
@@ -225,8 +224,6 @@ export function StackedBranches({
   pulse,
   variant
 }: Readonly<{
-  orgSlug: string
-  slug: string
   ticket: TicketDetail
   github: GithubConnection
   own: GitState
@@ -250,8 +247,6 @@ export function StackedBranches({
             {rows.map((layer, index) => (
               <StackLayerRow
                 key={layer.branch}
-                orgSlug={orgSlug}
-                slug={slug}
                 ticket={ticket}
                 layer={layer}
                 previousBranch={rows[index - 1]?.branch ?? null}
@@ -275,8 +270,6 @@ export function StackedBranches({
       </InlineForm.Idle>
       <InlineForm.Form action="stack">
         <ConnectBranchFields
-          orgSlug={orgSlug}
-          slug={slug}
           ticket={ticket}
           github={github}
           variant={variant}
@@ -284,26 +277,17 @@ export function StackedBranches({
         />
       </InlineForm.Form>
       <InlineForm.Form action="clear">
-        <ClearBranchFields
-          orgSlug={orgSlug}
-          slug={slug}
-          id={ticket.id}
-          variant={variant}
-        />
+        <ClearBranchFields id={ticket.id} variant={variant} />
       </InlineForm.Form>
     </Root>
   )
 }
 
 export function AddStackedBranch({
-  orgSlug,
-  slug,
   ticket,
   github,
   variant
 }: Readonly<{
-  orgSlug: string
-  slug: string
   ticket: TicketDetail
   github: GithubConnection
   variant: "bordered" | "ghost"
@@ -325,8 +309,6 @@ export function AddStackedBranch({
       </InlineForm.Idle>
       <InlineForm.Form action="stack">
         <ConnectBranchFields
-          orgSlug={orgSlug}
-          slug={slug}
           ticket={ticket}
           github={github}
           variant={variant}
@@ -415,8 +397,6 @@ function BranchMenu({
 }
 
 function StackLayerRow({
-  orgSlug,
-  slug,
   ticket,
   layer,
   previousBranch,
@@ -427,8 +407,6 @@ function StackLayerRow({
   repoSlug,
   canWrite
 }: Readonly<{
-  orgSlug: string
-  slug: string
   ticket: TicketDetail
   layer: StackLayerState
   previousBranch: string | null
@@ -439,6 +417,7 @@ function StackLayerRow({
   repoSlug: string
   canWrite: boolean
 }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const tone = layerTone(layer)
   const { icon: Icon, className, label: toneLabel } = TONES[tone]
   const label = toneLabel()

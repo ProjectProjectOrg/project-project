@@ -3,22 +3,20 @@ import { Link } from "@tanstack/react-router"
 import { Split } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function SplitTicketControl({
-  orgSlug,
-  slug,
   id,
   size = "icon-sm",
   className
 }: {
-  orgSlug: string
-  slug: string
   id: TicketId
   size?: "icon-xs" | "icon-sm"
   className?: string
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   return (
     <Button
       type="button"
