@@ -1,13 +1,12 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { ProjectStatus } from "@pp/shared"
-import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ChevronDown, Trash2 } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import { useMemo, useState, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { Button } from "@/components/ui/button"
-import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
+import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,14 +48,9 @@ export function StatusDeleteConfirm({
 }: Props) {
   return (
     <ConfirmButton.Root>
-      <ConfirmButton.Trigger
-        variant="ghost"
-        size="icon-sm"
+      <ConfirmButton.DeleteTrigger
         aria-label={m.tickets_status_delete_button()}
-        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-      >
-        <Trash2 strokeWidth={1.75} />
-      </ConfirmButton.Trigger>
+      />
       <ConfirmButton.Confirm>
         <ConfirmBody
           status={status}
@@ -115,11 +109,10 @@ function DeleteStatusForm({
   automationReady,
   children
 }: Props & Readonly<{ automationReady: boolean; children?: ReactNode }>) {
-  const { close, busy, setBusy } = useConfirmButton()
   const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
-  const remove = useAtomSet(deleteStatus({ req, statusSlug: status.slug }), {
-    mode: "promiseExit"
-  })
+  const mutation = deleteStatus({ req, statusSlug: status.slug })
+  const remove = useAtomSet(mutation, { mode: "promiseExit" })
+  const removeState = useAtomValue(mutation)
 
   const countResult = useAtomValue(
     ticketCounts(countsRequest(orgSlug, slug, {}))
@@ -132,34 +125,25 @@ function DeleteStatusForm({
   const [target, setTarget] = useState<ProjectStatus["slug"] | null>(null)
   const effectiveTarget =
     targets.find((status) => status.slug === target)?.slug ?? targets[0]?.slug
-  const [error, setError] = useState<string | null>(null)
-
-  async function run() {
-    setBusy(true)
-    setError(null)
-    const exit = await remove({
-      reassignTo: affectedCount > 0 ? effectiveTarget : undefined
-    })
-    if (Exit.isSuccess(exit)) {
-      close()
-      return
-    }
-    setBusy(false)
-    setError(m.tickets_status_delete_error_fallback())
-  }
-
-  const blocked =
-    busy || !automationReady || (affectedCount > 0 && !effectiveTarget)
 
   return (
-    <>
-      <span className="inline-flex h-8 items-center text-xs text-muted-foreground">
-        {affectedCount > 0
+    <ConfirmButton.Action
+      prompt={
+        affectedCount > 0
           ? m.tickets_status_delete_confirm_with_tickets({
               count: affectedCount
             })
-          : m.tickets_status_delete_confirm_empty()}
-      </span>
+          : m.tickets_status_delete_confirm_empty()
+      }
+      label={m.tickets_status_delete_button()}
+      busyLabel={m.tickets_status_deleting()}
+      waiting={removeState.waiting}
+      describeError={() => m.tickets_status_delete_error_fallback()}
+      disabled={!automationReady || (affectedCount > 0 && !effectiveTarget)}
+      onConfirm={() =>
+        remove({ reassignTo: affectedCount > 0 ? effectiveTarget : undefined })
+      }
+    >
       {children}
       {affectedCount > 0 ? (
         <TargetPicker
@@ -169,23 +153,7 @@ function DeleteStatusForm({
           onChange={setTarget}
         />
       ) : null}
-      <Button
-        size="sm"
-        onClick={() => {
-          void run()
-        }}
-        disabled={blocked}
-        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-      >
-        {busy ? m.tickets_status_deleting() : m.tickets_status_delete_button()}
-      </Button>
-      <ConfirmButton.Cancel />
-      {error !== null ? (
-        <span role="alert" className="text-xs text-destructive">
-          {error}
-        </span>
-      ) : null}
-    </>
+    </ConfirmButton.Action>
   )
 }
 

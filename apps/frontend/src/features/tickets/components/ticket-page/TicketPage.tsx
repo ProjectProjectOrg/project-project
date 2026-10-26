@@ -7,13 +7,12 @@ import type {
   TicketId
 } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
-import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Archive } from "lucide-react"
 import { useMemo, useState } from "react"
 
-import { ConfirmDeleteIcon } from "@/components/ui/confirm-delete-icon"
+import { ConfirmButton } from "@/components/ui/confirm-button"
 import { CommentsSection } from "@/features/comments/components/CommentsSection"
 import { type SaveStatus } from "@/features/editor/components/LexicalEditor"
 import { Markdown } from "@/features/editor/components/Markdown"
@@ -74,6 +73,7 @@ export function TicketPage({
     [orgSlug, slug, ticket.id]
   )
   const remove = useAtomSet(deleteTicket(req), { mode: "promiseExit" })
+  const deleteState = useAtomValue(deleteTicket(req))
   const updateTicket = useAtomSet(updateTicketDetail(req))
   const patchTicket = useAtomSet(updateTicketDetail(req), {
     mode: "promiseExit"
@@ -86,7 +86,6 @@ export function TicketPage({
   const unarchiveState = useAtomValue(unarchiveTicket(req))
   const [bodyStatus, setBodyStatus] = useState<SaveStatus>("idle")
   const bodyDraft = useAtomValue(ticketBodyDraft(req))
-  const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
   const actor = useProjectActor()
   const estimation = useEstimationMode()
@@ -134,24 +133,28 @@ export function TicketPage({
             />
           )}
           {actor.call("tickets", "delete") && (
-            <ConfirmDeleteIcon
-              ariaLabel={m.tickets_detail_delete_aria_label()}
-              message={m.tickets_detail_delete_confirm()}
-              disabled={deleting}
-              onConfirm={async () => {
-                setDeleting(true)
-                const exit = await remove()
-                if (Exit.isSuccess(exit)) {
-                  void navigate({
-                    to: "/orgs/$orgSlug/projects/$slug",
-                    params: { orgSlug, slug }
-                  })
-                  return
-                }
-                setDeleting(false)
-                throw Cause.squash(exit.cause)
-              }}
-            />
+            <ConfirmButton.Root>
+              <ConfirmButton.DeleteTrigger
+                aria-label={m.tickets_detail_delete_aria_label()}
+              />
+              <ConfirmButton.Confirm>
+                <ConfirmButton.Action
+                  prompt={m.tickets_detail_delete_confirm()}
+                  label={m.common_delete_confirm_button()}
+                  busyLabel={m.common_deleting_button()}
+                  waiting={deleteState.waiting}
+                  onConfirm={async () => {
+                    const exit = await remove()
+                    if (Exit.isSuccess(exit))
+                      void navigate({
+                        to: "/orgs/$orgSlug/projects/$slug",
+                        params: { orgSlug, slug }
+                      })
+                    return exit
+                  }}
+                />
+              </ConfirmButton.Confirm>
+            </ConfirmButton.Root>
           )}
         </>
       }

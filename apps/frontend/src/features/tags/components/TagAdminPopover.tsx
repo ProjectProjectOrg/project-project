@@ -165,7 +165,7 @@ function Editor({
         />
         <button
           type="button"
-          onClick={openConfirm}
+          onClick={() => openConfirm()}
           aria-label={m.tags_delete_button()}
           className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-100 hover:bg-destructive/10 hover:text-destructive active:scale-[0.97]"
         >

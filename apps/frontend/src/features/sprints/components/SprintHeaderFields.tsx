@@ -21,7 +21,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import type { DateRange } from "react-day-picker"
 
 import { Calendar } from "@/components/ui/calendar"
-import { ConfirmDeleteForm } from "@/components/ui/confirm-delete-form"
+import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -391,7 +391,6 @@ export function SprintDeleteMenu({
   const planned = pickEarliestPlannedSprint(sprints)
   const completeTo = (destination: CompleteSprintDestination) =>
     complete({ destination })
-  const [confirming, setConfirming] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
 
   async function onDelete() {
@@ -402,10 +401,11 @@ export function SprintDeleteMenu({
         params: { orgSlug, slug }
       })
     }
+    return exit
   }
 
   return (
-    <>
+    <ConfirmButton.Root bare>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -473,33 +473,26 @@ export function SprintDeleteMenu({
                 {m.sprints_complete_button()}
               </DropdownMenuItem>
             ))}
-          <DropdownMenuItem
-            onClick={() => setConfirming(true)}
+          <ConfirmButton.MenuItem
             variant="destructive"
             className="cursor-pointer"
           >
             <Trash2 className="size-4" strokeWidth={1.75} />
             {m.sprints_delete_button()}
-          </DropdownMenuItem>
+          </ConfirmButton.MenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <Popover open={confirming} onOpenChange={setConfirming}>
-        <PopoverContent
-          anchor={trigger}
-          align="end"
-          sideOffset={6}
-          className="w-72"
-        >
-          <ConfirmDeleteForm
-            title={m.sprints_delete_confirm_title()}
-            description={m.sprints_delete_confirm_description()}
-            error={deleteFailed ? m.sprints_delete_error_fallback() : undefined}
-            waiting={deleting}
-            onConfirm={() => void onDelete()}
-            onCancel={() => setConfirming(false)}
-          />
-        </PopoverContent>
-      </Popover>
-    </>
+      <ConfirmButton.Popover anchor={trigger} className="w-72">
+        <ConfirmButton.Action
+          layout="stacked"
+          prompt={m.sprints_delete_confirm_title()}
+          description={m.sprints_delete_confirm_description()}
+          label={m.common_delete_confirm_button()}
+          waiting={deleting}
+          error={deleteFailed ? m.sprints_delete_error_fallback() : null}
+          onConfirm={onDelete}
+        />
+      </ConfirmButton.Popover>
+    </ConfirmButton.Root>
   )
 }

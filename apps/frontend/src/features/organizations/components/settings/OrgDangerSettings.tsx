@@ -3,7 +3,6 @@ import { ORG_DELETE_GRACE_DAYS, type OrgDetail } from "@pp/shared"
 import { getRouteApi, useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useState, type FormEvent } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
@@ -12,8 +11,7 @@ import {
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { ConfirmButton } from "@/components/ui/confirm-button"
 import { setActiveOrganization } from "@/features/auth/atoms/auth"
 import {
   orgDetail,
@@ -61,19 +59,10 @@ function DeleteCard({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
     mode: "promiseExit"
   })
   const orgsResult = useAtomValue(userOrgs())
-  const [confirm, setConfirm] = useState("")
 
-  const submitting = deleteState.waiting
-  const error = Result.isFailure(deleteState)
-    ? m.org_danger_delete_error()
-    : null
-  const canDelete = confirm.trim() === org.slug && !submitting
-
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault()
-    if (!canDelete) return
+  async function onDelete() {
     const exit = await softDelete()
-    if (!Exit.isSuccess(exit)) return
+    if (!Exit.isSuccess(exit)) return exit
 
     const orgs = Result.isSuccess(orgsResult) ? orgsResult.value : []
     const nextSlug = nextActiveOrgSlug(orgs, orgSlug)
@@ -83,6 +72,7 @@ function DeleteCard({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
     } else {
       await navigate({ to: "/welcome" })
     }
+    return exit
   }
 
   return (
@@ -94,39 +84,28 @@ function DeleteCard({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
           description={m.org_danger_delete_description({
             days: ORG_DELETE_GRACE_DAYS
           })}
-          error={error}
         >
-          <form onSubmit={onSubmit} className="flex w-full flex-col gap-2">
-            <label
-              htmlFor="org-delete-confirm"
-              className="text-xs text-muted-foreground"
-            >
-              {m.org_danger_delete_confirm_label({ slug: org.slug })}
-            </label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="org-delete-confirm"
-                value={confirm}
-                onChange={(event) => setConfirm(event.target.value)}
-                disabled={submitting}
-                placeholder={org.slug}
-                autoComplete="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                className="w-64 font-mono"
+          <ConfirmButton.Root className="w-full">
+            <ConfirmButton.Trigger variant="destructive" size="sm">
+              {m.org_danger_delete_button()}
+            </ConfirmButton.Trigger>
+            <ConfirmButton.Confirm className="w-full">
+              <ConfirmButton.Action
+                layout="stacked"
+                prompt={m.org_danger_delete_confirm_label({ slug: org.slug })}
+                typed={org.slug}
+                label={m.org_danger_delete_button()}
+                busyLabel={m.org_danger_delete_in_progress()}
+                waiting={deleteState.waiting}
+                error={
+                  Result.isFailure(deleteState)
+                    ? m.org_danger_delete_error()
+                    : null
+                }
+                onConfirm={onDelete}
               />
-              <Button
-                type="submit"
-                variant="destructive"
-                size="sm"
-                disabled={!canDelete}
-              >
-                {submitting
-                  ? m.org_danger_delete_in_progress()
-                  : m.org_danger_delete_button()}
-              </Button>
-            </div>
-          </form>
+            </ConfirmButton.Confirm>
+          </ConfirmButton.Root>
         </SettingsRow>
       </SettingsGroup>
     </SettingsSection>
