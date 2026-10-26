@@ -1,23 +1,18 @@
 import type {
   AssignedStatusCount,
-  Forbidden,
-  NotFound,
   OrgTicketRow,
   Project,
   RecentTicketActivity,
   Ticket,
-  TicketId,
-  Unauthorized,
-  UpdateTicketInput
+  TicketId
 } from "@pp/shared"
-import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
-import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import type { OptimisticView } from "@/api/viewMutation"
 import {
   projectsFor,
   projectsRequest
@@ -33,13 +28,43 @@ import {
 } from "@/features/statuses/lib/statusColumns"
 import { getLocale } from "@/paraglide/runtime"
 
-import { applyTicketPatch } from "./ticketPatch"
+import { applyTicketPatch } from "../lib/ticketPatch"
+import {
+  coalescingTicketUpdate,
+  loadNextPage,
+  readLoadedPages,
+  type TicketUpdateAtom,
+  type TicketUpdates
+} from "./ticketRows"
 
-export type OrgTicketsRequest = Readonly<{
-  params: Readonly<{ orgSlug: string }>
-}>
+type OrgTicketsView = "myTickets" | "myTicketsByProject" | "recentTickets"
 
-export const orgTicketsRequest = (orgSlug: string): OrgTicketsRequest => ({
+export type OrgTicketsRequest<View extends OrgTicketsView = OrgTicketsView> =
+  Readonly<{
+    _view: View
+    params: Readonly<{ orgSlug: string }>
+  }>
+
+export type MyTicketsRequest = OrgTicketsRequest<"myTickets">
+export type MyTicketsByProjectRequest = OrgTicketsRequest<"myTicketsByProject">
+export type RecentTicketsRequest = OrgTicketsRequest<"recentTickets">
+
+export const myTicketsRequest = (orgSlug: string): MyTicketsRequest => ({
+  _view: "myTickets",
+  params: { orgSlug }
+})
+
+export const myTicketsByProjectRequest = (
+  orgSlug: string
+): MyTicketsByProjectRequest => ({
+  _view: "myTicketsByProject",
+  params: { orgSlug }
+})
+
+export const recentTicketsRequest = (
+  orgSlug: string
+): RecentTicketsRequest => ({
+  _view: "recentTickets",
   params: { orgSlug }
 })
 
@@ -152,11 +177,11 @@ const byProjectName = (a: Project, b: Project) =>
 const visibleProjects = (req: OrgTicketsRequest) =>
   projectsFor(projectsRequest(req.params.orgSlug))
 
-const loadedPages = Atom.family((_req: OrgTicketsRequest) =>
+const loadedPages = Atom.family((_req: MyTicketsRequest) =>
   Atom.make(0).pipe(Atom.setIdleTTL("2 minutes"))
 )
 
-const myTicketsView = (req: OrgTicketsRequest) => {
+const myTicketsView = (req: MyTicketsRequest) => {
   let lastScoped: ScopedRequest | undefined
   return Atom.readable(
     (get) => {
@@ -166,29 +191,20 @@ const myTicketsView = (req: OrgTicketsRequest) => {
         lastScoped = scoped
         const first = get(mineQuery(scoped, undefined))
         return AsyncResult.flatMap(first, (firstPage) => {
-          const rows: Array<OrgTicketRow> = [...firstPage.items]
-          const parts: Array<AsyncResult.AsyncResult<unknown, unknown>> = [
-            visible,
-            first
-          ]
-          let nextCursor = firstPage.nextCursor
-          const depth = get(loadedPages(req))
-          for (let index = 0; index < depth; index++) {
-            if (nextCursor === null) break
-            const page = get(mineQuery(scoped, nextCursor))
-            parts.push(page)
-            if (!AsyncResult.isSuccess(page)) break
-            rows.push(...page.value.items)
-            nextCursor = page.value.nextCursor
-          }
+          const pages = readLoadedPages(
+            get,
+            firstPage,
+            get(loadedPages(req)),
+            (cursor) => mineQuery(scoped, cursor)
+          )
           return AsyncResult.success<OrgTicketsValue>(
             {
-              tickets: withProjects(projects, dedupeRows(rows)),
-              nextCursor,
+              tickets: withProjects(projects, dedupeRows(pages.items)),
+              nextCursor: pages.nextCursor,
               total: firstPage.total,
               statusCounts: firstPage.statusCounts
             },
-            { waiting: parts.some((part) => part.waiting) }
+            { waiting: visible.waiting || first.waiting || pages.waiting }
           )
         })
       })
@@ -200,7 +216,7 @@ const myTicketsView = (req: OrgTicketsRequest) => {
   )
 }
 
-const myTicketsByProjectView = (req: OrgTicketsRequest) => {
+const myTicketsByProjectView = (req: MyTicketsByProjectRequest) => {
   let lastScoped: ScopedRequest | undefined
   return Atom.readable(
     (get) => {
@@ -242,7 +258,7 @@ const myTicketsByProjectView = (req: OrgTicketsRequest) => {
   )
 }
 
-const recentTicketsView = (req: OrgTicketsRequest) => {
+const recentTicketsView = (req: RecentTicketsRequest) => {
   let lastScoped: ScopedRequest | undefined
   return Atom.readable(
     (get) => {
@@ -271,79 +287,60 @@ const recentTicketsView = (req: OrgTicketsRequest) => {
   )
 }
 
-export const myTickets = Atom.family((req: OrgTicketsRequest) =>
+export const myTickets = Atom.family((req: MyTicketsRequest) =>
   Atom.optimistic(myTicketsView(req))
 )
 
-export const myTicketsByProject = Atom.family((req: OrgTicketsRequest) =>
-  Atom.optimistic(myTicketsByProjectView(req))
+export const myTicketsByProject = Atom.family(
+  (req: MyTicketsByProjectRequest) =>
+    Atom.optimistic(myTicketsByProjectView(req))
 )
 
-export const recentTickets = Atom.family((req: OrgTicketsRequest) =>
+export const recentTickets = Atom.family((req: RecentTicketsRequest) =>
   Atom.optimistic(recentTicketsView(req))
 )
 
-export const loadMoreMyTickets = Atom.family((req: OrgTicketsRequest) =>
+export const loadMoreMyTickets = Atom.family((req: MyTicketsRequest) =>
   Api.runtime.fn(
     Effect.fn("loadMoreMyTickets")(function* (
       _input: void,
       get: Atom.FnContext
     ) {
       const current = get(myTickets(req))
-      if (!AsyncResult.isSuccess(current)) return yield* Effect.void
-      const cursor = current.value.nextCursor
-      if (!cursor) return yield* Effect.void
+      if (!AsyncResult.isSuccess(current) || !current.value.nextCursor)
+        return yield* Effect.void
       const visible = get(visibleProjects(req))
       if (!AsyncResult.isSuccess(visible)) return yield* Effect.void
       const scoped = scopedOf(req, visible.value)
-      const first = get(mineQuery(scoped, undefined))
-      if (!AsyncResult.isSuccess(first)) return yield* Effect.void
-      const depth = get(loadedPages(req))
-      let pageCursor: string | null = first.value.nextCursor
-      for (let index = 0; index < depth; index++) {
-        if (pageCursor === null) break
-        const page = mineQuery(scoped, pageCursor)
-        if (pageCursor === cursor) {
-          return yield* Effect.callback<
-            unknown,
-            Forbidden | NotFound | Unauthorized
-          >((resume) => {
-            let cancel: (() => void) | undefined
-            cancel = get.registry.subscribe(
-              page,
-              (result) => {
-                if (AsyncResult.isSuccess(result) && !result.waiting) {
-                  cancel?.()
-                  resume(Effect.succeed(result.value))
-                } else if (AsyncResult.isFailure(result) && !result.waiting) {
-                  cancel?.()
-                  resume(Effect.failCause(result.cause))
-                }
-              },
-              { immediate: false }
-            )
-            get.refresh(page)
-            return Effect.sync(() => cancel?.())
-          })
-        }
-        const result = get(page)
-        if (!AsyncResult.isSuccess(result)) return yield* Effect.void
-        pageCursor = result.value.nextCursor
-      }
-      get.set(loadedPages(req), depth + 1)
-      return yield* get.result(mineQuery(scoped, cursor), {
-        suspendOnWaiting: true
+      return yield* loadNextPage(get, {
+        visibleCursor: () => current.value.nextCursor,
+        depth: () => get(loadedPages(req)),
+        firstCursor: () => {
+          const first = get(mineQuery(scoped, undefined))
+          return AsyncResult.isSuccess(first)
+            ? first.value.nextCursor
+            : undefined
+        },
+        page: (cursor) => mineQuery(scoped, cursor),
+        deepen: (depth) => get.set(loadedPages(req), depth)
       })
     })
   )
 )
 
-export type OrgTicketKey = Readonly<{
-  req: OrgTicketsRequest
-  viewerId: string
-  projectSlug: string
-  id: TicketId
-}>
+export type OrgTicketScope<R extends OrgTicketsRequest = OrgTicketsRequest> =
+  Readonly<{
+    req: R
+    viewerId: string
+    projectSlug: string
+  }>
+
+export type OrgTicketKey<R extends OrgTicketsRequest = OrgTicketsRequest> =
+  OrgTicketScope<R> & Readonly<{ id: TicketId }>
+
+export type OrgTicketUpdates = (
+  scope: Readonly<{ viewerId: string; projectSlug: string }>
+) => TicketUpdates
 
 type TicketUpdate = (ticket: Ticket) => Ticket
 
@@ -430,72 +427,24 @@ const patchByProject: PatchView<MyTicketsByProjectValue> = (
   })
 })
 
-type OptimisticView<V, E> = Atom.Writable<
-  AsyncResult.AsyncResult<V, E>,
-  Atom.Atom<AsyncResult.AsyncResult<AsyncResult.AsyncResult<V, E>, unknown>>
->
-
-const updateOrgTicket = <V, E>(
+const updateOrgTicket = <R extends OrgTicketsRequest, V, E>(
   name: string,
-  view: (req: OrgTicketsRequest) => OptimisticView<V, E>,
+  view: (req: R) => OptimisticView<V, E>,
   patch: PatchView<V>
-) => {
-  const unsavedPatch = Atom.family((_key: OrgTicketKey) =>
-    Atom.make<UpdateTicketInput>({}).pipe(Atom.setIdleTTL("2 minutes"))
-  )
-  return Atom.family((key: OrgTicketKey) =>
-    Atom.optimisticFn(view(key.req), {
-      reducer: (current, input: UpdateTicketInput) =>
-        AsyncResult.map(current, (value) =>
-          patch(value, key, (ticket) => applyTicketPatch(ticket, input))
-        ),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn(name)(function* (input: UpdateTicketInput, get) {
-            const unsaved = unsavedPatch(key)
-            const payload: UpdateTicketInput = { ...get(unsaved), ...input }
-            get.set(unsaved, payload)
-            const { ticket: updated } = yield* Effect.catchCause(
-              Api.use((client) =>
-                client.tickets.update({
-                  params: {
-                    orgSlug: key.req.params.orgSlug,
-                    slug: key.projectSlug,
-                    id: key.id
-                  },
-                  query: {},
-                  payload
-                })
-              ),
-              (cause) => {
-                if (
-                  !Cause.hasInterruptsOnly(cause) &&
-                  get(unsaved) === payload
-                ) {
-                  get.set(unsaved, {})
-                }
-                return Effect.failCause(cause)
-              }
-            )
-            if (get(unsaved) === payload) get.set(unsaved, {})
-            set(
-              AsyncResult.map(get(view(key.req)), (value) =>
-                patch(value, key, () => updated)
-              )
-            )
-            const scope = projectScope(key.req.params.orgSlug, key.projectSlug)
-            yield* Reactivity.invalidate([
-              Keys.ticket(scope, key.id),
-              Keys.ticketsIn(scope),
-              Keys.ticketLists(scope),
-              Keys.ticketPages(scope)
-            ])
-            return updated
-          })
-        )
+) =>
+  Atom.family((key: OrgTicketKey<R>) =>
+    coalescingTicketUpdate(view(key.req), {
+      name,
+      path: {
+        orgSlug: key.req.params.orgSlug,
+        slug: key.projectSlug,
+        id: key.id
+      },
+      predict: (value, input) =>
+        patch(value, key, (ticket) => applyTicketPatch(ticket, input)),
+      confirm: (value, { ticket }) => patch(value, key, () => ticket)
     })
   )
-}
 
 export const updateMyTicket = updateOrgTicket(
   "updateMyTicket",
@@ -515,10 +464,31 @@ export const updateRecentTicket = updateOrgTicket(
   patchRecent
 )
 
-const statusesOf = (req: OrgTicketsRequest, slug: string) =>
+const bindOrgTicketUpdates = <R extends OrgTicketsRequest>(
+  family: (key: OrgTicketKey<R>) => TicketUpdateAtom
+) => {
+  const rows = Atom.family(
+    (scope: OrgTicketScope<R>): TicketUpdates =>
+      (id) =>
+        family({ ...scope, id })
+  )
+  return Atom.family(
+    (req: R): OrgTicketUpdates =>
+      ({ viewerId, projectSlug }) =>
+        rows({ req, viewerId, projectSlug })
+  )
+}
+
+export const myTicketUpdates = bindOrgTicketUpdates(updateMyTicket)
+
+export const projectTicketUpdates = bindOrgTicketUpdates(updateProjectTicket)
+
+export const recentTicketUpdates = bindOrgTicketUpdates(updateRecentTicket)
+
+const statusesOf = (req: MyTicketsRequest, slug: string) =>
   statusesFor(statusesRequest(req.params.orgSlug, slug))
 
-export const myTicketBoard = Atom.family((req: OrgTicketsRequest) => {
+export const myTicketBoard = Atom.family((req: MyTicketsRequest) => {
   let lastSlugs: ReadonlyArray<string> = []
   return Atom.readable(
     (get) => {

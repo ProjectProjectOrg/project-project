@@ -1,15 +1,14 @@
 import type { GroupId, UpdateGroupInput } from "@pp/shared"
-import * as Effect from "effect/Effect"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
-import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 import { applySprintDetailPatch } from "./sprintPatch"
 
 export type SprintRequest = Readonly<{
+  _view: "sprintDetail"
   params: Readonly<{
     orgSlug: string
     slug: string
@@ -21,7 +20,7 @@ export const sprintRequest = (
   orgSlug: string,
   slug: string,
   id: GroupId
-): SprintRequest => ({ params: { orgSlug, slug, id } })
+): SprintRequest => ({ _view: "sprintDetail", params: { orgSlug, slug, id } })
 
 const scopeOf = (req: SprintRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -38,21 +37,15 @@ export const sprintDetail = Atom.family((req: SprintRequest) =>
 )
 
 export const updateSprintDetail = Atom.family((req: SprintRequest) =>
-  Atom.optimisticFn(sprintDetail(req), {
-    reducer: (current, patch: UpdateGroupInput) =>
-      AsyncResult.map(current, (sprint) =>
-        applySprintDetailPatch(sprint, patch)
+  viewMutation(sprintDetail(req), {
+    name: "updateSprintDetail",
+    predict: (sprint, patch: UpdateGroupInput) =>
+      applySprintDetailPatch(sprint, patch),
+    call: (patch) =>
+      Api.use((client) =>
+        client.groups.update({ params: req.params, payload: patch })
       ),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("updateSprintDetail")(function* (patch: UpdateGroupInput) {
-          const updated = yield* Api.use((client) =>
-            client.groups.update({ params: req.params, payload: patch })
-          )
-          set(AsyncResult.success(updated))
-          yield* Reactivity.invalidate([Keys.sprints(scopeOf(req))])
-          return updated
-        })
-      )
+    confirm: replaceWith,
+    publish: () => [Keys.sprints(scopeOf(req))]
   })
 )

@@ -20,6 +20,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
 
+import { applyTicketPatch } from "../lib/ticketPatch"
 import {
   backlog,
   backlogRequest,
@@ -28,7 +29,6 @@ import {
   quickCreateBacklogTicket,
   updateBacklogTicket
 } from "./backlog"
-import { applyTicketPatch } from "./ticketPatch"
 
 const decodeUnknownUpdateTicketInputSync =
   Schema.decodeUnknownSync(UpdateTicketInput)
@@ -915,11 +915,13 @@ describe("backlog quick create", () => {
           expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
         )
         registry.set(create, {
-          ticket: { title: "Created", type: "chore" },
-          viewerId: "user-1",
-          projectPrefix: "T",
-          estimation: "off",
-          clientId: "creation-filtered"
+          payload: { title: "Created", type: "chore" },
+          prediction: {
+            clientId: "creation-filtered",
+            createdBy: "user-1",
+            projectPrefix: "T",
+            estimation: "off"
+          }
         })
         const optimistic = registry.get(view)
         if (!AsyncResult.isSuccess(optimistic))
@@ -954,16 +956,16 @@ describe("backlog quick create", () => {
         expect(registry.get(view)).toMatchObject({ _tag: "Success" })
       )
       registry.set(create, {
-        ticket: {
+        payload: {
           title: "Login loops",
           type: "bug",
           template: decodeTemplateKeySync("bug-report")
         },
-        viewerId: "user-1",
-        projectPrefix: "T",
-        estimation: "off",
-        clientId: "creation-1",
         prediction: {
+          clientId: "creation-1",
+          createdBy: "user-1",
+          projectPrefix: "T",
+          estimation: "off",
           priority: "high",
           tags: [decodeTagNameSync("auth")]
         }
@@ -1016,11 +1018,13 @@ describe("backlog quick create", () => {
         })
       )
       registry.set(create, {
-        ticket: { title: "Created", status: ticket.status },
-        viewerId: "user-1",
-        projectPrefix: "T",
-        estimation: "off",
-        clientId: "creation-1"
+        payload: { title: "Created", status: ticket.status },
+        prediction: {
+          clientId: "creation-1",
+          createdBy: "user-1",
+          projectPrefix: "T",
+          estimation: "off"
+        }
       })
 
       const optimistic = registry.get(view)
@@ -1121,11 +1125,13 @@ describe("backlog quick create", () => {
       })
       stopIdView()
       registry.set(create, {
-        ticket: { title: created.title, status: ticket.status },
-        viewerId: "user-1",
-        projectPrefix: "T",
-        estimation: "off",
-        clientId: "creation-sibling"
+        payload: { title: created.title, status: ticket.status },
+        prediction: {
+          clientId: "creation-sibling",
+          createdBy: "user-1",
+          projectPrefix: "T",
+          estimation: "off"
+        }
       })
       await vi.waitFor(() => expect(registry.get(create).waiting).toBe(false))
       registry.mount(idView)
@@ -1193,11 +1199,13 @@ describe("backlog quick create", () => {
 
       stallReads = true
       registry.set(create, {
-        ticket: { title: "Doomed", status: ticket.status },
-        viewerId: "user-1",
-        projectPrefix: "T",
-        estimation: "off",
-        clientId: "creation-doomed"
+        payload: { title: "Doomed", status: ticket.status },
+        prediction: {
+          clientId: "creation-doomed",
+          createdBy: "user-1",
+          projectPrefix: "T",
+          estimation: "off"
+        }
       })
 
       const optimistic = registry.get(view)

@@ -1,16 +1,15 @@
-import { useAtomSet } from "@effect/atom-react"
-import type { Group, Member, Ticket, UpdateTicketInput } from "@pp/shared"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import type { Group, Member, Ticket } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
+import * as Result from "effect/reactivity/AsyncResult"
 import { AnimatePresence, motion } from "motion/react"
 import { memo, useRef, useState, type ReactNode } from "react"
 
+import { ErrorPage } from "@/components/shell/ErrorPage"
 import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
-import {
-  updateBacklogTicket,
-  type BacklogRequest
-} from "@/features/tickets/atoms/backlog"
+import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import { TicketHoverCard } from "@/features/tickets/components/TicketHoverCard"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { transitions } from "@/lib/springs"
@@ -33,48 +32,26 @@ export const rowGridClassName = (showExtraActionsCol: boolean) =>
       : "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto]"
   )
 
-type RowPatchSource =
-  | Readonly<{
-      onUpdate: (patch: UpdateTicketInput) => void
-      req?: BacklogRequest
-    }>
-  | Readonly<{ onUpdate?: undefined; req: BacklogRequest }>
+export type RowProps = Readonly<{
+  update: TicketUpdates
+  variant?: "standalone" | "embedded"
+  orgSlug: string
+  slug: string
+  ticket: Ticket
+  members: ReadonlyArray<Member>
+  showSprintCol: boolean
+  showExtraActionsCol: boolean
+  sprintMembership: Group | null
+  extraRowActions?: (ticket: Ticket) => ReactNode
+  pending?: boolean
+  editable?: boolean
+  previewOpen: boolean
+  onPreviewPointerEnter: (ticketId: Ticket["id"]) => void
+  onPreviewOpenChange: (ticketId: Ticket["id"], open: boolean) => void
+}>
 
-type RowProps = RowPatchSource &
-  Readonly<{
-    variant?: "standalone" | "embedded"
-    orgSlug: string
-    slug: string
-    ticket: Ticket
-    members: ReadonlyArray<Member>
-    showSprintCol: boolean
-    showExtraActionsCol: boolean
-    sprintMembership: Group | null
-    extraRowActions?: (ticket: Ticket) => ReactNode
-    pending?: boolean
-    editable?: boolean
-    previewOpen: boolean
-    onPreviewPointerEnter: (ticketId: Ticket["id"]) => void
-    onPreviewOpenChange: (ticketId: Ticket["id"], open: boolean) => void
-  }>
-
-function RowImpl(props: RowProps) {
-  if (props.onUpdate) {
-    return <RowView {...props} onPatch={props.onUpdate} />
-  }
-  return <BacklogMutatingRow {...props} req={props.req} />
-}
-
-function BacklogMutatingRow(
-  props: RowProps & Readonly<{ req: BacklogRequest }>
-) {
-  const update = useAtomSet(
-    updateBacklogTicket({ req: props.req, id: props.ticket.id })
-  )
-  return <RowView {...props} onPatch={update} />
-}
-
-function RowView({
+function RowImpl({
+  update,
   variant = "standalone",
   orgSlug,
   slug,
@@ -88,11 +65,10 @@ function RowView({
   editable = true,
   previewOpen,
   onPreviewPointerEnter,
-  onPreviewOpenChange,
-  onPatch
-}: RowProps & {
-  onPatch: (patch: UpdateTicketInput) => void
-}) {
+  onPreviewOpenChange
+}: RowProps) {
+  const onPatch = useAtomSet(update(ticket.id))
+  const updateState = useAtomValue(update(ticket.id))
   const dashIdx = ticket.id.lastIndexOf("-")
   const idPrefix = dashIdx >= 0 ? ticket.id.slice(0, dashIdx) : ticket.id
   const idTail = dashIdx >= 0 ? ticket.id.slice(dashIdx + 1) : ""
@@ -228,6 +204,20 @@ function RowView({
           )}
         </Popover>
       </DeferredDropdownMenus>
+      {Result.matchWithError(updateState, {
+        onInitial: () => null,
+        onSuccess: () => null,
+        onError: (error) => (
+          <div className="col-span-full">
+            <ErrorPage error={error} contained />
+          </div>
+        ),
+        onDefect: (defect) => (
+          <div className="col-span-full">
+            <ErrorPage error={defect} contained />
+          </div>
+        )
+      })}
     </div>
   )
 }

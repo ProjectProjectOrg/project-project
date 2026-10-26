@@ -97,6 +97,33 @@ function sprintSection<E>(
   return result.value.sections.find((section) => section.key === key)
 }
 
+const pathOf = (input: RequestInfo | URL) =>
+  new URL(
+    input instanceof Request ? input.url : String(input),
+    "http://localhost"
+  ).pathname
+
+const viewer = () =>
+  Response.json({
+    id: viewerId,
+    email: "sam@example.com",
+    name: "Sam",
+    username: null,
+    image: null,
+    createdAt: "2026-09-15T10:00:00.000Z",
+    activeOrgSlug: "org",
+    personalGithub: { connected: false },
+    editorPreference: "github",
+    personalEverhour: {
+      connected: false,
+      everhourUserId: null,
+      name: null,
+      email: null,
+      lastVerifiedAt: null,
+      lastCheckError: null
+    }
+  })
+
 const fetchStub = stubFetch()
 
 describe("ticket sprint sections", () => {
@@ -175,9 +202,7 @@ describe("ticket sprint sections", () => {
     const view = sprintSections(req)
     const mutation = updateSprintSectionsTicket({
       req,
-      id: ticket.id,
-      viewerId,
-      estimation: "off"
+      id: ticket.id
     })
     registry.mount(view)
     registry.mount(mutation)
@@ -218,9 +243,7 @@ describe("ticket sprint sections", () => {
     const view = sprintSections(req)
     const mutation = updateSprintSectionsTicket({
       req,
-      id: ticket.id,
-      viewerId,
-      estimation: "points"
+      id: ticket.id
     })
     registry.mount(view)
     registry.mount(mutation)
@@ -260,9 +283,7 @@ describe("ticket sprint sections", () => {
     const view = sprintSections(filteredReq)
     const mutation = updateSprintSectionsTicket({
       req: filteredReq,
-      id: ticket.id,
-      viewerId,
-      estimation: "off"
+      id: ticket.id
     })
     registry.mount(view)
     registry.mount(mutation)
@@ -309,24 +330,27 @@ describe("ticket sprint sections", () => {
         ...query,
         ...filter
       })
-      fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) =>
+      fetchStub.set((input: RequestInfo | URL, init?: RequestInit) =>
         init?.method === "PATCH"
           ? new Promise<Response>(() => {})
-          : Promise.resolve(snapshot([assigned]))
+          : Promise.resolve(
+              pathOf(input).endsWith("/me") ? viewer() : snapshot([assigned])
+            )
       )
       const registry = AtomRegistry.make()
       const view = sprintSections(filteredReq)
       const mutation = updateSprintSectionsTicket({
         req: filteredReq,
-        id: ticket.id,
-        viewerId,
-        estimation: "off"
+        id: ticket.id
       })
       registry.mount(view)
       registry.mount(mutation)
       try {
         await vi.waitFor(() =>
-          expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
+          expect(registry.get(view)).toMatchObject({
+            _tag: "Success",
+            value: { viewer: { id: viewerId } }
+          })
         )
         registry.set(mutation, patch)
         const result = registry.get(view)
@@ -368,11 +392,13 @@ describe("ticket sprint sections", () => {
         expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
       )
       registry.set(mutation, {
-        clientId: "new-ticket",
-        ticket: { title: "New", type: "chore", status: doing },
-        viewerId: "user-1",
-        projectPrefix: "T",
-        estimation: "off"
+        payload: { title: "New", type: "chore", status: doing },
+        prediction: {
+          clientId: "new-ticket",
+          createdBy: "user-1",
+          projectPrefix: "T",
+          estimation: "off"
+        }
       })
       const result = registry.get(view)
       if (!AsyncResult.isSuccess(result)) throw new Error("no optimistic value")
@@ -411,11 +437,13 @@ describe("ticket sprint sections", () => {
         expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
       )
       registry.set(mutation, {
-        clientId: "new-ticket",
-        ticket: { title: "New", type: "chore" },
-        viewerId: "user-1",
-        projectPrefix: "T",
-        estimation: "off"
+        payload: { title: "New", type: "chore" },
+        prediction: {
+          clientId: "new-ticket",
+          createdBy: "user-1",
+          projectPrefix: "T",
+          estimation: "off"
+        }
       })
       const result = registry.get(view)
       if (!AsyncResult.isSuccess(result)) throw new Error("no optimistic value")

@@ -19,12 +19,13 @@ import { getStatusIcon } from "@/features/statuses/lib/statusIcons"
 import {
   myTicketBoard,
   myTickets,
-  orgTicketsRequest,
+  myTicketsRequest,
+  myTicketUpdates,
   recentTickets,
-  updateMyTicket,
-  updateRecentTicket,
+  recentTicketsRequest,
+  recentTicketUpdates,
   type CountedColumn,
-  type OrgTicketsRequest
+  type MyTicketsRequest
 } from "@/features/tickets/atoms/myTickets"
 import { GroupingMenu } from "@/features/tickets/components/ticket-list/GroupingMenu"
 import { useTicketPreview } from "@/features/tickets/components/ticket-list/useTicketPreview"
@@ -140,19 +141,18 @@ function MyTicketsList({
   grouping: DashboardGrouping
   collapseKey: string
 }>) {
-  const req = orgTicketsRequest(orgSlug)
   const grouped = {
-    req,
+    orgSlug,
     collapseKey,
     loading: <RowsSkeleton count={4} />,
     empty: <EmptyTickets />
   }
   if (grouping === "project") return <ProjectGroupedList {...grouped} />
   if (grouping === "status") return <StatusGroupedList {...grouped} />
-  return <FlatTicketList req={req} />
+  return <FlatTicketList req={myTicketsRequest(orgSlug)} />
 }
 
-function FlatTicketList({ req }: Readonly<{ req: OrgTicketsRequest }>) {
+function FlatTicketList({ req }: Readonly<{ req: MyTicketsRequest }>) {
   const preview = useTicketPreview()
   const [expanded, setExpanded] = useState(false)
   const result = useAtomValue(myTickets(req))
@@ -169,13 +169,13 @@ function FlatTicketList({ req }: Readonly<{ req: OrgTicketsRequest }>) {
       ) : (
         <>
           <DashboardRows
-            req={req}
+            orgSlug={req.params.orgSlug}
             tickets={
               expanded
                 ? value.tickets
                 : value.tickets.slice(0, COMPACT_TICKET_LIMIT)
             }
-            update={updateMyTicket}
+            update={myTicketUpdates(req)}
             preview={preview}
           />
           {expanded ? (
@@ -202,7 +202,7 @@ function FlatTicketList({ req }: Readonly<{ req: OrgTicketsRequest }>) {
 }
 
 function MyTicketsBoard({ orgSlug }: Readonly<{ orgSlug: string }>) {
-  const req = orgTicketsRequest(orgSlug)
+  const req = myTicketsRequest(orgSlug)
   const result = useAtomValue(myTicketBoard(req))
   const refresh = useAtomRefresh(myTicketBoard(req))
   return Result.matchWithError(result, {
@@ -234,7 +234,7 @@ function MyTicketsBoard({ orgSlug }: Readonly<{ orgSlug: string }>) {
 export function RecentTicketsSection({
   orgSlug
 }: Readonly<{ orgSlug: string }>) {
-  const req = orgTicketsRequest(orgSlug)
+  const req = recentTicketsRequest(orgSlug)
   const preview = useTicketPreview()
   const result = useAtomValue(recentTickets(req))
   const refresh = useAtomRefresh(recentTickets(req))
@@ -256,9 +256,9 @@ export function RecentTicketsSection({
             <EmptyNote>{m.org_dashboard_recent_empty()}</EmptyNote>
           ) : (
             <DashboardRows
-              req={req}
+              orgSlug={orgSlug}
               tickets={value.tickets}
-              update={updateRecentTicket}
+              update={recentTicketUpdates(req)}
               preview={preview}
               below={(item) => <TicketActivityLabel activity={item.activity} />}
             />
@@ -272,7 +272,7 @@ function TicketBoard({
   req,
   columns
 }: Readonly<{
-  req: OrgTicketsRequest
+  req: MyTicketsRequest
   columns: ReadonlyArray<CountedColumn>
 }>) {
   return (
@@ -292,9 +292,9 @@ function TicketBoard({
             {column.items.map((item) => (
               <DashboardCard
                 key={`${item.project.slug}/${item.ticket.id}`}
-                req={req}
+                orgSlug={req.params.orgSlug}
                 item={item}
-                update={updateMyTicket}
+                update={myTicketUpdates(req)}
               />
             ))}
           </BoardColumnShell>

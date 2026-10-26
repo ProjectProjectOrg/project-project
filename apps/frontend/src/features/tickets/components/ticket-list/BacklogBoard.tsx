@@ -39,9 +39,10 @@ import {
   loadMoreBacklog,
   updateBacklogTicket,
   type BacklogRequest,
-  type BacklogRow,
+  backlogTicketUpdates,
   type BacklogValue
 } from "@/features/tickets/atoms/backlog"
+import type { TicketRow } from "@/features/tickets/lib/ticketRows"
 import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -225,7 +226,7 @@ function BacklogBoardContent({
               key={status}
               orgSlug={orgSlug}
               slug={slug}
-              backlogReq={req}
+              update={backlogTicketUpdates(req)}
               status={status}
               statuses={statuses}
               tickets={column?.tickets ?? NO_TICKETS}
@@ -257,7 +258,7 @@ function BacklogBoardContent({
 
 type BoardColumn = Readonly<{
   status: string
-  rows: ReadonlyArray<BacklogRow>
+  rows: ReadonlyArray<TicketRow>
   tickets: ReadonlyArray<Ticket>
   count: number
   nextCursor: string | null

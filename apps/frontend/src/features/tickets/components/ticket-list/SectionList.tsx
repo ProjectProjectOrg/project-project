@@ -20,8 +20,7 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode,
-  type ComponentProps
+  type ReactNode
 } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
@@ -30,9 +29,11 @@ import {
   backlogRequest,
   encodeTicketListQuery,
   loadMoreBacklog,
-  type BacklogRequest,
-  type BacklogSection
+  type BacklogRequest
 } from "@/features/tickets/atoms/backlog"
+import type { SprintSectionsRequest } from "@/features/tickets/atoms/sprintSections"
+import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
+import type { TicketRowPage } from "@/features/tickets/lib/ticketRows"
 import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -42,10 +43,6 @@ import { SectionBody } from "./SectionBody"
 import { SectionHeader, type SectionHeading } from "./SectionHeader"
 import { SectionTicketCreator } from "./SectionTicketCreator"
 import { AutoLoad, VirtualRows } from "./VirtualRows"
-
-const renderDefaultRow = (props: ComponentProps<typeof Row>) => (
-  <Row {...props} />
-)
 
 type CreatingSections = Readonly<{
   creatingIds: ReadonlySet<string>
@@ -101,17 +98,15 @@ export function SectionList({
   heading,
   canCreate = true,
   pagination,
-  renderRow = renderDefaultRow,
+  update,
   emptyMessage,
-  creationVariant = "status",
   snapshotReq
 }: {
   heading?: SectionHeading
   canCreate?: boolean
   pagination?: ReactNode
-  renderRow?: (props: ComponentProps<typeof Row>) => ReactNode
-  creationVariant?: "status" | "flat"
-  snapshotReq?: BacklogRequest
+  update: TicketUpdates
+  snapshotReq?: SprintSectionsRequest
   emptyMessage?: string
   orgSlug: string
   slug: string
@@ -119,7 +114,7 @@ export function SectionList({
   statuses: ReadonlyArray<ProjectStatus>
   query: TicketListQuery
   count: number
-  page: BacklogSection
+  page: TicketRowPage
   collapsed: boolean
   onToggleCollapsed: () => void
   members: ReadonlyArray<Member>
@@ -185,7 +180,6 @@ export function SectionList({
         onDismissCreate={onDismissCreate}
         creator={
           <SectionTicketCreator
-            variant={creationVariant}
             orgSlug={orgSlug}
             slug={slug}
             status={status}
@@ -221,22 +215,22 @@ export function SectionList({
                     pending && "pointer-events-none animate-pulse"
                   )}
                 >
-                  {renderRow({
-                    orgSlug,
-                    slug,
-                    ticket,
-                    req,
-                    members,
-                    showSprintCol,
-                    showExtraActionsCol,
-                    sprintMembership: sprintMembership?.get(ticket.id) ?? null,
-                    extraRowActions,
-                    pending,
-                    editable,
-                    previewOpen: activePreviewId === ticket.id,
-                    onPreviewPointerEnter,
-                    onPreviewOpenChange
-                  })}
+                  <Row
+                    update={update}
+                    orgSlug={orgSlug}
+                    slug={slug}
+                    ticket={ticket}
+                    members={members}
+                    showSprintCol={showSprintCol}
+                    showExtraActionsCol={showExtraActionsCol}
+                    sprintMembership={sprintMembership?.get(ticket.id) ?? null}
+                    extraRowActions={extraRowActions}
+                    pending={pending}
+                    editable={editable}
+                    previewOpen={activePreviewId === ticket.id}
+                    onPreviewPointerEnter={onPreviewPointerEnter}
+                    onPreviewOpenChange={onPreviewOpenChange}
+                  />
                 </div>
               )
             }}
@@ -266,7 +260,7 @@ function SectionPagination({
 }: {
   req: BacklogRequest
   status: TicketStatus
-  page: BacklogSection
+  page: TicketRowPage
   count: number
   collapsed: boolean
 }) {

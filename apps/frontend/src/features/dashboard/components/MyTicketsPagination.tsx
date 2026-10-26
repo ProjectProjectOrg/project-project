@@ -5,14 +5,14 @@ import { ErrorPage } from "@/components/shell/ErrorPage"
 import { Button } from "@/components/ui/button"
 import {
   loadMoreMyTickets,
-  type OrgTicketsRequest
+  type MyTicketsRequest
 } from "@/features/tickets/atoms/myTickets"
 import { TicketPagination } from "@/features/tickets/components/ticket-list/SectionList"
 import { keepInPlace } from "@/lib/keepInPlace"
 import { m } from "@/paraglide/messages"
 
 type MyTicketsPaginationProps = Readonly<{
-  req: OrgTicketsRequest
+  req: MyTicketsRequest
   nextCursor: string | null
   loaded: number
   total: number

@@ -2,22 +2,25 @@ import type {
   GroupId,
   Ticket,
   TicketId,
-  UpdateTicketInput,
   UpdateTicketOrderInput
 } from "@pp/shared"
-import * as Cause from "effect/Cause"
-import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
-import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
-import { applyTicketPatch } from "@/features/tickets/atoms/ticketPatch"
+import {
+  bindRowMutation,
+  keepPredicted,
+  viewMutation
+} from "@/api/viewMutation"
+import { coalescingTicketUpdate } from "@/features/tickets/atoms/ticketRows"
+import { applyTicketPatch } from "@/features/tickets/lib/ticketPatch"
 
-import { sprintQuery } from "./sprintDetail"
+import { sprintQuery, sprintRequest } from "./sprintDetail"
 
 export type BoardRequest = Readonly<{
+  _view: "sprintBoard"
   params: Readonly<{
     orgSlug: string
     slug: string
@@ -29,7 +32,7 @@ export const boardRequest = (
   orgSlug: string,
   slug: string,
   id: GroupId
-): BoardRequest => ({ params: { orgSlug, slug, id } })
+): BoardRequest => ({ _view: "sprintBoard", params: { orgSlug, slug, id } })
 
 const scopeOf = (req: BoardRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -50,13 +53,13 @@ const ticketsQuery = (req: BoardRequest) =>
     ]
   })
 
-const boardView = (req: BoardRequest) =>
-  Atom.readable(
+const boardView = (req: BoardRequest) => {
+  const sprint = sprintQuery(
+    sprintRequest(req.params.orgSlug, req.params.slug, req.params.id)
+  )
+  return Atom.readable(
     (get) => {
-      const combined = AsyncResult.all([
-        get(sprintQuery(req)),
-        get(ticketsQuery(req))
-      ])
+      const combined = AsyncResult.all([get(sprint), get(ticketsQuery(req))])
       return AsyncResult.map(combined, ([group, tickets]): BoardValue => {
         const byId = new Map(tickets.map((t) => [t.id, t]))
         const ordered: Array<Ticket> = []
@@ -68,10 +71,11 @@ const boardView = (req: BoardRequest) =>
       })
     },
     (refresh) => {
-      refresh(sprintQuery(req))
+      refresh(sprint)
       refresh(ticketsQuery(req))
     }
   )
+}
 
 export const sprintBoard = Atom.family((req: BoardRequest) =>
   Atom.optimistic(boardView(req))
@@ -101,96 +105,48 @@ type BoardTicketUpdateKey = Readonly<{
   id: TicketId
 }>
 
-const unsavedBoardTicketPatch = Atom.family((_key: BoardTicketUpdateKey) =>
-  Atom.make<UpdateTicketInput>({}).pipe(Atom.setIdleTTL("10 minutes"))
-)
+const boardTicketKeys = (req: BoardRequest, id: TicketId) => [
+  ...Keys.ticketChanged(scopeOf(req), id),
+  Keys.ticketUpdatedQuery(scopeOf(req))
+]
 
 export const placeBoardTicket = Atom.family(
   ({ req, id }: BoardTicketUpdateKey) =>
-    Atom.optimisticFn(sprintBoard(req), {
-      reducer: (current, input: UpdateTicketOrderInput) =>
-        AsyncResult.map(current, (value) =>
-          placeTicket(value, { ...input, ticketId: id })
+    viewMutation(sprintBoard(req), {
+      name: "placeBoardTicket",
+      predict: (value, input: UpdateTicketOrderInput) =>
+        placeTicket(value, { ...input, ticketId: id }),
+      call: (input) =>
+        Api.use((client) =>
+          client.groups.updateTicketOrder({
+            params: req.params,
+            payload: { ...input, ticketId: id }
+          })
         ),
-      fn: Api.runtime.fn(
-        Effect.fn("placeBoardTicket")(function* (
-          input: UpdateTicketOrderInput
-        ) {
-          yield* Api.use((client) =>
-            client.groups.updateTicketOrder({
-              params: req.params,
-              payload: { ...input, ticketId: id }
-            })
-          )
-          if (input.status !== undefined) {
-            yield* Reactivity.invalidate([
-              Keys.ticket(scopeOf(req), id),
-              Keys.ticketsIn(scopeOf(req)),
-              Keys.ticketLists(scopeOf(req)),
-              Keys.ticketPages(scopeOf(req)),
-              Keys.ticketUpdatedQuery(scopeOf(req))
-            ])
-          }
-        })
-      )
+      confirm: keepPredicted,
+      publish: (_confirmed, input) =>
+        input.status === undefined ? [] : boardTicketKeys(req, id)
     })
 )
 
 export const updateBoardTicket = Atom.family(
   ({ req, id }: BoardTicketUpdateKey) =>
-    Atom.optimisticFn(sprintBoard(req), {
-      reducer: (current, patch: UpdateTicketInput) =>
-        AsyncResult.map(current, (value) => ({
-          ...value,
-          tickets: value.tickets.map((t) =>
-            t.id === id ? applyTicketPatch(t, patch) : t
-          )
-        })),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("updateBoardTicket")(function* (
-            patch: UpdateTicketInput,
-            get
-          ) {
-            const unsaved = unsavedBoardTicketPatch({ req, id })
-            const payload: UpdateTicketInput = { ...get(unsaved), ...patch }
-            get.set(unsaved, payload)
-            const updated = yield* Effect.catchCause(
-              Api.use((client) =>
-                client.tickets.update({
-                  params: { ...req.params, id },
-                  query: {},
-                  payload
-                })
-              ),
-              (cause) => {
-                if (
-                  !Cause.hasInterruptsOnly(cause) &&
-                  get(unsaved) === payload
-                ) {
-                  get.set(unsaved, {})
-                }
-                return Effect.failCause(cause)
-              }
-            )
-            if (get(unsaved) === payload) get.set(unsaved, {})
-            set(
-              AsyncResult.map(get(sprintBoard(req)), (value) => ({
-                ...value,
-                tickets: value.tickets.map((t) =>
-                  t.id === id ? updated.ticket : t
-                )
-              }))
-            )
-            yield* Reactivity.invalidate([
-              Keys.ticket(scopeOf(req), id),
-              Keys.ticketsIn(scopeOf(req)),
-              Keys.ticketLists(scopeOf(req)),
-              Keys.ticketPages(scopeOf(req)),
-              Keys.ticketUpdatedQuery(scopeOf(req))
-            ])
-            return updated.ticket
-          })
+    coalescingTicketUpdate(sprintBoard(req), {
+      name: "updateBoardTicket",
+      path: { ...req.params, id },
+      idleTTL: "10 minutes",
+      predict: (value, patch) => ({
+        ...value,
+        tickets: value.tickets.map((t) =>
+          t.id === id ? applyTicketPatch(t, patch) : t
         )
+      }),
+      confirm: (value, { ticket }) => ({
+        ...value,
+        tickets: value.tickets.map((t) => (t.id === id ? ticket : t))
+      }),
+      publish: () => boardTicketKeys(req, id)
     })
 )
+
+export const boardTicketUpdates = bindRowMutation(updateBoardTicket)

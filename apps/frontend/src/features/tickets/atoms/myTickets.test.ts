@@ -21,9 +21,11 @@ import {
   loadMoreMyTickets,
   myTicketBoard,
   myTickets,
-  orgTicketsRequest,
   myTicketsByProject,
+  myTicketsByProjectRequest,
+  myTicketsRequest,
   recentTickets,
+  recentTicketsRequest,
   updateMyTicket,
   updateProjectTicket
 } from "./myTickets"
@@ -253,12 +255,14 @@ const successOf = <A, E>(result: AsyncResult.AsyncResult<A, E>): A => {
   return result.value
 }
 
-const req = orgTicketsRequest("acme")
+const req = myTicketsRequest("acme")
+const byProjectReq = myTicketsByProjectRequest("acme")
+const recentReq = recentTicketsRequest("acme")
 
 describe("myTickets", () => {
   it("shares one atom between structurally equal requests", () => {
-    expect(myTickets(orgTicketsRequest("acme"))).toBe(myTickets(req))
-    expect(myTicketBoard(orgTicketsRequest("acme"))).toBe(myTicketBoard(req))
+    expect(myTickets(myTicketsRequest("acme"))).toBe(myTickets(req))
+    expect(myTicketBoard(myTicketsRequest("acme"))).toBe(myTicketBoard(req))
   })
 
   it("pairs each row with its project and drops rows it cannot see", async () => {
@@ -342,7 +346,7 @@ describe("recentTickets", () => {
       []
     )
     const registry = AtomRegistry.make()
-    const view = recentTickets(req)
+    const view = recentTickets(recentReq)
     registry.mount(view)
     try {
       await vi.waitFor(() =>
@@ -501,7 +505,7 @@ describe("myTicketsByProject", () => {
       []
     )
     const registry = AtomRegistry.make()
-    const view = myTicketsByProject(req)
+    const view = myTicketsByProject(byProjectReq)
     registry.mount(view)
     try {
       await vi.waitFor(() =>
@@ -541,9 +545,9 @@ describe("myTicketsByProject", () => {
       () => new Promise<Response>(() => {})
     )
     const registry = AtomRegistry.make()
-    const view = myTicketsByProject(req)
+    const view = myTicketsByProject(byProjectReq)
     const mutation = updateProjectTicket({
-      req,
+      req: byProjectReq,
       viewerId: "user-1",
       projectSlug: "web",
       id: webTicketId

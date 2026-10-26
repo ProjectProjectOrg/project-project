@@ -11,10 +11,12 @@ import { getStatusIcon } from "@/features/statuses/lib/statusIcons"
 import {
   myTicketBoard,
   myTicketsByProject,
-  updateMyTicket,
-  updateProjectTicket,
+  myTicketsByProjectRequest,
+  myTicketsRequest,
+  myTicketUpdates,
+  projectTicketUpdates,
   type OrgTicket,
-  type OrgTicketsRequest,
+  type OrgTicketUpdates,
   type ProjectTicketGroup
 } from "@/features/tickets/atoms/myTickets"
 import { SectionBody } from "@/features/tickets/components/ticket-list/SectionBody"
@@ -26,11 +28,7 @@ import {
 import { useTicketPreview } from "@/features/tickets/components/ticket-list/useTicketPreview"
 import { m } from "@/paraglide/messages"
 
-import {
-  DashboardRows,
-  type OrgTicketUpdate,
-  type TicketPreview
-} from "./DashboardTicket"
+import { DashboardRows, type TicketPreview } from "./DashboardTicket"
 import {
   COMPACT_TICKET_LIMIT,
   MyTicketsPagination,
@@ -40,7 +38,7 @@ import {
 export type DashboardGrouping = "project" | "status" | "none"
 
 type GroupedListProps = Readonly<{
-  req: OrgTicketsRequest
+  orgSlug: string
   collapseKey: string
   loading: ReactNode
   empty: ReactNode
@@ -56,7 +54,7 @@ type Group = Readonly<{
 }>
 
 export function ProjectGroupedList(props: GroupedListProps) {
-  const { req } = props
+  const req = myTicketsByProjectRequest(props.orgSlug)
   const result = useAtomValue(myTicketsByProject(req))
   const refresh = useAtomRefresh(myTicketsByProject(req))
   return Result.matchWithError(result, {
@@ -68,7 +66,7 @@ export function ProjectGroupedList(props: GroupedListProps) {
     onSuccess: ({ value }) => (
       <GroupedSections
         {...props}
-        update={updateProjectTicket}
+        update={projectTicketUpdates(req)}
         groups={value.groups.map((group) => ({
           id: group.project.slug,
           heading: {
@@ -97,7 +95,7 @@ export function ProjectGroupedList(props: GroupedListProps) {
 }
 
 export function StatusGroupedList(props: GroupedListProps) {
-  const { req } = props
+  const req = myTicketsRequest(props.orgSlug)
   const result = useAtomValue(myTicketBoard(req))
   const refresh = useAtomRefresh(myTicketBoard(req))
   return Result.matchWithError(result, {
@@ -109,7 +107,7 @@ export function StatusGroupedList(props: GroupedListProps) {
     onSuccess: ({ value }) => (
       <GroupedSections
         {...props}
-        update={updateMyTicket}
+        update={myTicketUpdates(req)}
         groups={value.columns.map((column) => {
           const Icon = getStatusIcon(column.icon)
           return {
@@ -174,7 +172,7 @@ function ViewAllInProject({
 }
 
 function GroupedSections({
-  req,
+  orgSlug,
   collapseKey,
   empty,
   groups,
@@ -182,7 +180,7 @@ function GroupedSections({
 }: GroupedListProps &
   Readonly<{
     groups: ReadonlyArray<Group>
-    update: OrgTicketUpdate
+    update: OrgTicketUpdates
   }>) {
   const preview = useTicketPreview()
   if (groups.every((group) => group.tickets.length === 0)) return empty
@@ -192,7 +190,7 @@ function GroupedSections({
         {groups.map((group) => (
           <GroupSection
             key={group.id}
-            req={req}
+            orgSlug={orgSlug}
             collapseKey={collapseKey}
             group={group}
             update={update}
@@ -205,16 +203,16 @@ function GroupedSections({
 }
 
 function GroupSection({
-  req,
+  orgSlug,
   collapseKey,
   group,
   update,
   preview
 }: Readonly<{
-  req: OrgTicketsRequest
+  orgSlug: string
   collapseKey: string
   group: Group
-  update: OrgTicketUpdate
+  update: OrgTicketUpdates
   preview: TicketPreview
 }>) {
   const [collapsed, toggle] = useCollapsedInSet(
@@ -247,7 +245,7 @@ function GroupSection({
           </div>
         ) : (
           <DashboardRows
-            req={req}
+            orgSlug={orgSlug}
             tickets={shown}
             update={update}
             preview={preview}

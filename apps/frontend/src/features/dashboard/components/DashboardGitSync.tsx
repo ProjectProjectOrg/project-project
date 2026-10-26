@@ -6,15 +6,18 @@ import { project, projectRequest } from "@/features/projects/atoms/projects"
 import {
   myTickets,
   myTicketsByProject,
-  orgTicketsRequest,
-  recentTickets
+  myTicketsByProjectRequest,
+  myTicketsRequest,
+  recentTickets,
+  recentTicketsRequest
 } from "@/features/tickets/atoms/myTickets"
 
 export function DashboardGitSync({ orgSlug }: Readonly<{ orgSlug: string }>) {
-  const req = orgTicketsRequest(orgSlug)
-  const mine = useAtomValue(myTickets(req))
-  const recent = useAtomValue(recentTickets(req))
-  const byProject = useAtomValue(myTicketsByProject(req))
+  const mine = useAtomValue(myTickets(myTicketsRequest(orgSlug)))
+  const recent = useAtomValue(recentTickets(recentTicketsRequest(orgSlug)))
+  const byProject = useAtomValue(
+    myTicketsByProject(myTicketsByProjectRequest(orgSlug))
+  )
   const slugs = new Set([
     ...[mine, recent].flatMap((result) =>
       Result.isSuccess(result)

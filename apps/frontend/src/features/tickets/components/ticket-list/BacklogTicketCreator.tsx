@@ -121,12 +121,14 @@ export function BacklogTicketCreator({
     inputRef.current?.blur()
     leave()
     const exit = await create({
-      clientId: Effect.runSync(Random.next).toString(36),
-      ticket: { title: trimmed, type, ...templateChoice.payload },
-      viewerId,
-      projectPrefix,
-      estimation,
-      prediction: templateChoice.prediction
+      payload: { title: trimmed, type, ...templateChoice.payload },
+      prediction: {
+        clientId: Effect.runSync(Random.next).toString(36),
+        createdBy: viewerId,
+        projectPrefix,
+        estimation,
+        ...templateChoice.prediction
+      }
     })
     templateChoice.recover(exit)
     if (Exit.isSuccess(exit)) {

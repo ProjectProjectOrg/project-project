@@ -3,6 +3,7 @@ import {
   GroupId,
   sprintSectionKey,
   type Group,
+  type TicketId,
   type TicketListQuery,
   type TicketStatus
 } from "@pp/shared"
@@ -36,10 +37,13 @@ import {
 import { pickDefaultSprint } from "@/features/sprints/components/SprintAssignMenu"
 import {
   backlogRequest,
-  quickCreateBacklogTicket,
-  type BacklogRequest
+  quickCreateBacklogTicket
 } from "@/features/tickets/atoms/backlog"
-import { quickCreateSprintSectionsTicket } from "@/features/tickets/atoms/sprintSections"
+import {
+  quickCreateSprintSectionsTicket,
+  type SprintSectionsRequest
+} from "@/features/tickets/atoms/sprintSections"
+import type { QuickCreateInput } from "@/features/tickets/lib/ticketRows"
 import { m } from "@/paraglide/messages"
 
 import { creatorErrorText } from "../../lib/creatorError"
@@ -50,61 +54,102 @@ import { useTemplateChoice, useTicketTypeChoice } from "./useTemplateChoice"
 
 const isGroupId = Schema.is(GroupId)
 
-export function SectionTicketCreator({
-  orgSlug,
-  slug,
-  status,
-  query,
-  snapshotReq,
-  variant = "status",
-  containerRef,
-  onDone
-}: {
+type CreatorProps = Readonly<{
   orgSlug: string
   slug: string
   status: TicketStatus
   query: TicketListQuery
-  snapshotReq?: BacklogRequest
-  variant?: "status" | "flat"
   containerRef: RefObject<HTMLDivElement | null>
   onDone: () => void
-}) {
-  const registry = useContext(RegistryContext)
-  const sectionsReq = useMemo(
+}>
+
+type CreatedTicket = Readonly<{
+  id: TicketId
+  sprintAssignmentFailed?: boolean
+}>
+
+type CreateTicket = (
+  input: QuickCreateInput
+) => Promise<Exit.Exit<CreatedTicket, Readonly<{ _tag: string }>>>
+
+export function SectionTicketCreator({
+  snapshotReq,
+  ...props
+}: CreatorProps & Readonly<{ snapshotReq?: SprintSectionsRequest }>) {
+  return snapshotReq ? (
+    <SprintSectionTicketCreator {...props} req={snapshotReq} />
+  ) : (
+    <StatusSectionTicketCreator {...props} />
+  )
+}
+
+function StatusSectionTicketCreator(props: CreatorProps) {
+  const { orgSlug, slug, query } = props
+  const req = useMemo(
     () => backlogRequest(orgSlug, slug, query),
     [orgSlug, slug, query]
   )
-  const sprintReqForCreate = snapshotReq ?? sectionsReq
-  const sprintKey = sprintSectionKey(
-    isGroupId(query.groupId?.[0]) ? query.groupId[0] : null
-  )
-  const createSections = useAtomSet(quickCreateBacklogTicket(sectionsReq), {
+  const create = useAtomSet(quickCreateBacklogTicket(req), {
     mode: "promiseExit"
   })
-  const createSectionsState = useAtomValue(
-    quickCreateBacklogTicket(sectionsReq)
+  const state = useAtomValue(quickCreateBacklogTicket(req))
+  return (
+    <SectionCreatorForm
+      {...props}
+      create={create}
+      submitting={state.waiting}
+      error={creatorErrorText(state)}
+      assignsSprint
+    />
   )
-  const createSprint = useAtomSet(
-    quickCreateSprintSectionsTicket({
-      req: sprintReqForCreate,
-      key: sprintKey
-    }),
-    { mode: "promiseExit" }
+}
+
+function SprintSectionTicketCreator(
+  props: CreatorProps & Readonly<{ req: SprintSectionsRequest }>
+) {
+  const { req, query } = props
+  const key = sprintSectionKey(
+    isGroupId(query.groupId?.[0]) ? query.groupId[0] : null
   )
-  const createSprintState = useAtomValue(
-    quickCreateSprintSectionsTicket({ req: sprintReqForCreate, key: sprintKey })
-  )
-  const create = variant === "flat" ? createSprint : createSections
-  const createState =
-    variant === "flat" ? createSprintState : createSectionsState
-  const submitting = createState.waiting
-  const error = Result.isFailure(createState)
-    ? creatorErrorText(createState)
-    : Result.isSuccess(createState) &&
-        "sprintAssignmentFailed" in createState.value &&
-        createState.value.sprintAssignmentFailed
+  const create = useAtomSet(quickCreateSprintSectionsTicket({ req, key }), {
+    mode: "promiseExit"
+  })
+  const state = useAtomValue(quickCreateSprintSectionsTicket({ req, key }))
+  const error = Result.isFailure(state)
+    ? creatorErrorText(state)
+    : Result.isSuccess(state) && state.value.sprintAssignmentFailed
       ? m.tickets_create_sprint_assignment_failed()
       : null
+  return (
+    <SectionCreatorForm
+      {...props}
+      create={create}
+      submitting={state.waiting}
+      error={error}
+      assignsSprint={false}
+    />
+  )
+}
+
+function SectionCreatorForm({
+  orgSlug,
+  slug,
+  status,
+  query,
+  containerRef,
+  onDone,
+  create,
+  submitting,
+  error,
+  assignsSprint
+}: CreatorProps &
+  Readonly<{
+    create: CreateTicket
+    submitting: boolean
+    error: string | null
+    assignsSprint: boolean
+  }>) {
+  const registry = useContext(RegistryContext)
 
   const viewer = useAtomValue(me())
   const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
@@ -172,17 +217,19 @@ export function SectionTicketCreator({
     setTitle("")
     inputRef.current?.focus()
     const exit = await create({
-      clientId: Effect.runSync(Random.next).toString(36),
-      ticket: {
+      payload: {
         title: submittedTitle,
         type,
         status,
         ...templateChoice.payload
       },
-      viewerId,
-      projectPrefix,
-      estimation,
-      prediction: templateChoice.prediction
+      prediction: {
+        clientId: Effect.runSync(Random.next).toString(36),
+        createdBy: viewerId,
+        projectPrefix,
+        estimation,
+        ...templateChoice.prediction
+      }
     })
     if (Exit.isFailure(exit)) {
       templateChoice.recover(exit)
@@ -190,7 +237,7 @@ export function SectionTicketCreator({
       return
     }
     const attachTo = activeSprintId ?? selectedSprint?.id ?? null
-    if (attachTo !== null && variant !== "flat") {
+    if (attachTo !== null && assignsSprint) {
       assignTicketToSprint(registry, sprintReq, exit.value.id, attachTo)
     }
   }

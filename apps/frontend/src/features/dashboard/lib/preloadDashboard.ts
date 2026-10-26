@@ -10,8 +10,10 @@ import {
 import {
   myTickets,
   myTicketsByProject,
-  orgTicketsRequest,
+  myTicketsByProjectRequest,
+  myTicketsRequest,
   recentTickets,
+  recentTicketsRequest,
   type MyTicketsByProjectValue,
   type OrgTicketsValue
 } from "@/features/tickets/atoms/myTickets"
@@ -38,18 +40,21 @@ export const preloadDashboard = (
   orgSlug: string
 ) =>
   Effect.gen(function* () {
-    const req = orgTicketsRequest(orgSlug)
     const [lists, byProject] = yield* Effect.all(
       [
         Effect.all(
-          [myTickets(req), recentTickets(req)].map((atom) =>
+          [
+            myTickets(myTicketsRequest(orgSlug)),
+            recentTickets(recentTicketsRequest(orgSlug))
+          ].map((atom) =>
             Registry.getResult(registry, atom).pipe(Effect.option)
           ),
           { concurrency: "unbounded" }
         ),
-        Registry.getResult(registry, myTicketsByProject(req)).pipe(
-          Effect.option
-        )
+        Registry.getResult(
+          registry,
+          myTicketsByProject(myTicketsByProjectRequest(orgSlug))
+        ).pipe(Effect.option)
       ],
       { concurrency: "unbounded" }
     )

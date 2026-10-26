@@ -1,19 +1,14 @@
-import { useAtomSet } from "@effect/atom-react"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
 import type { Member, Ticket, UpdateTicketInput } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
+import * as Result from "effect/reactivity/AsyncResult"
 import { memo } from "react"
 
+import { ErrorPage } from "@/components/shell/ErrorPage"
 import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
 import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
-import {
-  updateBoardTicket,
-  type BoardRequest
-} from "@/features/sprints/atoms/sprintBoard"
-import {
-  updateBacklogTicket,
-  type BacklogRequest
-} from "@/features/tickets/atoms/backlog"
+import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import { AssigneeField } from "@/features/tickets/components/ticket-list/AssigneeField"
 import { EstimateChip } from "@/features/tickets/components/ticket-list/EstimateField"
 import { PriorityButton } from "@/features/tickets/components/ticket-list/PriorityField"
@@ -25,22 +20,20 @@ import { useProjectActor } from "@/lib/access"
 function SprintBoardCardImpl({
   orgSlug,
   slug,
-  req,
-  backlogReq,
-  onPatch,
+  update,
   ticket,
   members
-}: {
+}: Readonly<{
   orgSlug: string
   slug: string
-  req?: BoardRequest
-  backlogReq?: BacklogRequest
-  onPatch?: (patch: UpdateTicketInput) => void
+  update: TicketUpdates
   ticket: Ticket
   members: ReadonlyArray<Member>
-}) {
-  if (onPatch) {
-    return (
+}>) {
+  const onPatch = useAtomSet(update(ticket.id))
+  const state = useAtomValue(update(ticket.id))
+  return (
+    <>
       <BoardCardFields
         orgSlug={orgSlug}
         slug={slug}
@@ -48,88 +41,13 @@ function SprintBoardCardImpl({
         members={members}
         onPatch={onPatch}
       />
-    )
-  }
-  if (backlogReq) {
-    return (
-      <BacklogMutatingCard
-        orgSlug={orgSlug}
-        slug={slug}
-        req={backlogReq}
-        ticket={ticket}
-        members={members}
-      />
-    )
-  }
-  if (req) {
-    return (
-      <BoardMutatingCard
-        orgSlug={orgSlug}
-        slug={slug}
-        req={req}
-        ticket={ticket}
-        members={members}
-      />
-    )
-  }
-  return (
-    <BoardCardFields
-      orgSlug={orgSlug}
-      slug={slug}
-      ticket={ticket}
-      members={members}
-      onPatch={noopPatch}
-    />
-  )
-}
-
-function BacklogMutatingCard({
-  orgSlug,
-  slug,
-  req,
-  ticket,
-  members
-}: {
-  orgSlug: string
-  slug: string
-  req: BacklogRequest
-  ticket: Ticket
-  members: ReadonlyArray<Member>
-}) {
-  const update = useAtomSet(updateBacklogTicket({ req, id: ticket.id }))
-  return (
-    <BoardCardFields
-      orgSlug={orgSlug}
-      slug={slug}
-      ticket={ticket}
-      members={members}
-      onPatch={update}
-    />
-  )
-}
-
-function BoardMutatingCard({
-  orgSlug,
-  slug,
-  req,
-  ticket,
-  members
-}: {
-  orgSlug: string
-  slug: string
-  req: BoardRequest
-  ticket: Ticket
-  members: ReadonlyArray<Member>
-}) {
-  const update = useAtomSet(updateBoardTicket({ req, id: ticket.id }))
-  return (
-    <BoardCardFields
-      orgSlug={orgSlug}
-      slug={slug}
-      ticket={ticket}
-      members={members}
-      onPatch={update}
-    />
+      {Result.matchWithError(state, {
+        onInitial: () => null,
+        onSuccess: () => null,
+        onError: (error) => <ErrorPage error={error} contained />,
+        onDefect: (defect) => <ErrorPage error={defect} contained />
+      })}
+    </>
   )
 }
 
@@ -203,7 +121,5 @@ function BoardCardFields({
     </DeferredDropdownMenus>
   )
 }
-
-const noopPatch = (_patch: UpdateTicketInput) => {}
 
 export const SprintBoardCard = memo(SprintBoardCardImpl)

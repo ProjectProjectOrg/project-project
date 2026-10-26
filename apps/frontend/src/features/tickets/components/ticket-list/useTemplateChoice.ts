@@ -15,7 +15,7 @@ import {
   projectLibraryFor,
   projectLibraryRequest
 } from "@/features/library/atoms/library"
-import type { QuickCreatePrediction } from "@/features/tickets/atoms/backlog"
+import type { TemplatePrediction } from "@/features/tickets/lib/ticketRows"
 
 import { failedOnUnknownTemplate } from "../../lib/creatorError"
 
@@ -28,7 +28,7 @@ export type TemplateChoice = Readonly<{
   pick: (key: TemplateKey | null) => void
   ticketTypeOf: (key: TemplateKey) => TicketType | null
   payload: Readonly<{ template?: TemplateKey }>
-  prediction: QuickCreatePrediction | undefined
+  prediction: TemplatePrediction | undefined
   recover: (exit: Exit.Exit<unknown, Readonly<{ _tag: string }>>) => void
 }>
 
