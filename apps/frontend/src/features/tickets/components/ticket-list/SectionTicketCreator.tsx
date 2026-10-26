@@ -14,7 +14,6 @@ import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import {
   useContext,
-  useEffect,
   useId,
   useMemo,
   useRef,
@@ -186,8 +185,7 @@ function SectionCreatorForm({
 
   const [title, setTitle] = useState("")
   const { type, setType, applyTemplateDefault } = useTicketTypeChoice()
-  const [selectedSprint, setSelectedSprint] = useState<Group | null>(null)
-  const [sprintCleared, setSprintCleared] = useState(false)
+  const [pickedSprint, setPickedSprint] = useState<Group | null>()
   const inputRef = useRef<HTMLInputElement>(null)
   const errorId = useId()
   const trimmed = title.trim()
@@ -202,16 +200,12 @@ function SectionCreatorForm({
   })
   useCreatorFocus(containerRef, onDone)
 
-  useEffect(() => {
-    if (!showSprintAddon) return
-    if (selectedSprint || sprintCleared) return
-    const def = pickDefaultSprint(sprints)
-    if (def) setSelectedSprint(def)
-  }, [showSprintAddon, sprints, selectedSprint, sprintCleared])
-
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
+  const selectedSprint =
+    pickedSprint === undefined
+      ? showSprintAddon
+        ? (pickDefaultSprint(sprints) ?? null)
+        : null
+      : pickedSprint
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -249,10 +243,7 @@ function SectionCreatorForm({
     <CreatorSprintMenu
       sprints={sprints}
       selected={selectedSprint}
-      onSelectedChange={(s) => {
-        setSelectedSprint(s)
-        setSprintCleared(s === null)
-      }}
+      onSelectedChange={setPickedSprint}
       expanded
       inputRef={inputRef}
     />
@@ -274,6 +265,7 @@ function SectionCreatorForm({
 
       <input
         ref={inputRef}
+        autoFocus
         type="text"
         {...comboboxProps(slash.listbox)}
         value={title}

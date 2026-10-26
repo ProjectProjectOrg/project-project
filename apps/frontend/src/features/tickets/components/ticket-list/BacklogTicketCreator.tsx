@@ -12,7 +12,6 @@ import * as Random from "effect/Random"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   useContext,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -84,8 +83,7 @@ export function BacklogTicketCreator({ query }: { query: TicketListQuery }) {
 
   const [title, setTitle] = useState("")
   const { type, setType, applyTemplateDefault } = useTicketTypeChoice()
-  const [selectedSprint, setSelectedSprint] = useState<Group | null>(null)
-  const [sprintCleared, setSprintCleared] = useState(false)
+  const [pickedSprint, setPickedSprint] = useState<Group | null>()
   const inputRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const { active: expanded, leave } = useCreatorFocus(formRef)
@@ -100,11 +98,10 @@ export function BacklogTicketCreator({ query }: { query: TicketListQuery }) {
     }
   })
 
-  useEffect(() => {
-    if (selectedSprint || sprintCleared) return
-    const def = pickDefaultSprint(sprints)
-    if (def) setSelectedSprint(def)
-  }, [sprints, selectedSprint, sprintCleared])
+  const selectedSprint =
+    pickedSprint === undefined
+      ? (pickDefaultSprint(sprints) ?? null)
+      : pickedSprint
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -150,10 +147,7 @@ export function BacklogTicketCreator({ query }: { query: TicketListQuery }) {
     <CreatorSprintMenu
       sprints={sprints}
       selected={selectedSprint}
-      onSelectedChange={(s) => {
-        setSelectedSprint(s)
-        setSprintCleared(s === null)
-      }}
+      onSelectedChange={setPickedSprint}
       expanded={expanded}
       inputRef={inputRef}
     />
