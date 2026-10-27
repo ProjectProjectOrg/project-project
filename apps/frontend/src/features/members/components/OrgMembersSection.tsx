@@ -179,7 +179,11 @@ function OrgMemberRow({
   const updateState = useAtomValue(updateMemberRole(key))
   const remove = useAtomSet(removeMember(key), { mode: "promiseExit" })
   const removeState = useAtomValue(removeMember(key))
-  const transferKey = { req, callerUserId: scope.callerUserId }
+  const transferKey = {
+    req,
+    callerUserId: scope.callerUserId,
+    userId: member.userId
+  }
   const transfer = useAtomSet(transferOwnership(transferKey), {
     mode: "promiseExit"
   })
@@ -221,7 +225,7 @@ function OrgMemberRow({
               busyLabel: m.org_members_transfer_in_progress(),
               waiting: transferState.waiting,
               error: orgErrorText(transferState),
-              run: () => transfer({ userId: member.userId })
+              run: () => transfer(undefined)
             }
           : null,
         exit: canRemove
