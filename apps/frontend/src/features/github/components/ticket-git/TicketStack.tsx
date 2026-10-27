@@ -34,6 +34,7 @@ import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import { unstackBranch } from "@/features/github/atoms/github"
 import { ClearBranchFields } from "@/features/github/components/ticket-git/ClearBranchFields"
 import { ConnectBranchFields } from "@/features/github/components/ticket-git/ConnectBranchFields"
+import { compareUrl } from "@/features/github/lib/branchUrl"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/lib/access"
@@ -193,9 +194,6 @@ const ownLayer = (
     ),
     Match.exhaustive
   )
-
-const compareUrl = (repoSlug: string, base: string, branch: string): string =>
-  `https://github.com/${repoSlug}/compare/${base}...${branch}?quick_pull=1`
 
 type StackAction = "stack" | "clear"
 

@@ -1,28 +1,18 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import {
   pickActiveSprint,
   pickEarliestPlannedSprint,
   sprintState,
   type Group
 } from "@pp/shared"
-import { Link, useNavigate, useParams } from "@tanstack/react-router"
+import { Link, useParams } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
-import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { CircleCheck, Plus } from "lucide-react"
+import { Plus } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
-import { useEffect, useState, type FormEvent } from "react"
-import type { DateRange } from "react-day-picker"
 
 import { RailBackLink } from "@/components/shell/RailBackLink"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
+import { InlineForm } from "@/components/ui/inline-form"
 import {
   project as projectView,
   projectRequest
@@ -30,38 +20,23 @@ import {
 import { ProjectIconDisplay } from "@/features/projects/components/ProjectIconDisplay"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
-  createSprint,
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
+import { CreateSprintForm } from "@/features/sprints/forms/create-sprint"
+import { formatSprintRange } from "@/features/sprints/lib/sprintDates"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-import { getLocale } from "@/paraglide/runtime"
 
 import { SprintStateIcon } from "./SprintChip"
 
-function railDateFormatter() {
-  return new Intl.DateTimeFormat(getLocale(), {
-    month: "short",
-    day: "numeric"
-  })
-}
-
 function formatRange(s: Group): string {
   if (!s.startsAt || !s.endsAt) return ""
-  const fmt = railDateFormatter()
-  return `${fmt.format(s.startsAt)} – ${fmt.format(s.endsAt)}`
+  return formatSprintRange(s.startsAt, s.endsAt)
 }
 function sprintProjectLayoutId(orgSlug: string, slug: string) {
   return `project-settings-row:${orgSlug}/${slug}`
-}
-
-function defaultSprintRange(): DateRange {
-  const now = DateTime.nowUnsafe()
-  const today = DateTime.toDate(now)
-  const end = DateTime.toDate(DateTime.add(now, { days: 14 }))
-  return { from: today, to: end }
 }
 
 function sortByStart(a: Group, b: Group) {
@@ -251,108 +226,8 @@ function NewSprintForm() {
         </InlineForm.Trigger>
       </InlineForm.Idle>
       <InlineForm.Form action="create">
-        <CreateSprintFields />
+        <CreateSprintForm />
       </InlineForm.Form>
     </Root>
-  )
-}
-
-function CreateSprintFields() {
-  const { orgSlug, slug } = useProjectRoute()
-  const req = sprintListRequest(orgSlug, slug)
-  const create = useAtomSet(createSprint(req), { mode: "promiseExit" })
-  const state = useAtomValue(createSprint(req))
-  const error = Result.isFailure(state)
-    ? m.sprints_create_error_fallback()
-    : null
-  const navigate = useNavigate()
-  const { busy, setBusy, close } = useInlineForm()
-
-  const [name, setName] = useState("")
-  const [range, setRange] = useState<DateRange>(defaultSprintRange)
-  const [pickerOpen, setPickerOpen] = useState(false)
-
-  useEffect(() => {
-    setBusy(state.waiting)
-  }, [state.waiting, setBusy])
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault()
-    const trimmed = name.trim()
-    if (!trimmed || busy || !range.from || !range.to) return
-    const exit = await create({
-      name: trimmed,
-      startsAt: range.from,
-      endsAt: range.to
-    })
-    if (Exit.isSuccess(exit)) {
-      const created = exit.value
-      close()
-      void navigate({
-        to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
-        params: { orgSlug, slug, groupId: created.id }
-      })
-    }
-  }
-
-  return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-2">
-      <input
-        autoFocus
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder={m.sprints_new_name_placeholder()}
-        disabled={busy}
-        className="w-full bg-transparent text-sm outline-none"
-        maxLength={120}
-      />
-      <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-        <PopoverTrigger
-          render={
-            <Button
-              type="button"
-              variant="chip"
-              disabled={busy}
-              className="self-start text-muted-foreground hover:text-foreground"
-            >
-              <span className="font-mono text-[11px] tabular-nums">
-                {range.from && range.to
-                  ? (() => {
-                      const fmt = railDateFormatter()
-                      return `${fmt.format(range.from)} – ${fmt.format(range.to)}`
-                    })()
-                  : m.sprints_date_range_label()}
-              </span>
-            </Button>
-          }
-        />
-        <PopoverContent align="start" className="w-auto p-0">
-          <Calendar
-            mode="range"
-            selected={range}
-            onSelect={(r) => {
-              if (r) setRange(r)
-            }}
-            numberOfMonths={1}
-            defaultMonth={range.from ?? DateTime.toDate(DateTime.nowUnsafe())}
-          />
-        </PopoverContent>
-      </Popover>
-      {error && <p className="text-xs text-destructive">{error}</p>}
-      <div className="flex justify-end gap-1">
-        <InlineForm.Cancel size="xs" variant="tertiary" leadingIcon={undefined}>
-          {m.common_cancel_button()}
-        </InlineForm.Cancel>
-        <Button
-          type="submit"
-          variant="primary"
-          size="xs"
-          leadingIcon={CircleCheck}
-          disabled={!name.trim() || !range.from || !range.to || busy}
-        >
-          {busy ? m.sprints_create_in_progress() : m.sprints_create_button()}
-        </Button>
-      </div>
-    </form>
   )
 }

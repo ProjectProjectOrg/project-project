@@ -22,6 +22,20 @@ export function branchUrl(
   }
 }
 
+export function compareUrl(
+  repoSlug: string,
+  base: string,
+  branch: string
+): string {
+  return `https://github.com/${repoSlug}/compare/${base}...${branch}?quick_pull=1`
+}
+
+export function repoUrl(
+  github: Readonly<{ repoOwner: string; repoName: string }>
+): string {
+  return `https://github.com/${github.repoOwner}/${github.repoName}`
+}
+
 export function branchOpensInNewTab(preference: EditorPreference): boolean {
   return preference === "github" || preference === "github_dev"
 }

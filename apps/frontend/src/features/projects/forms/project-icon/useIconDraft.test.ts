@@ -37,7 +37,7 @@ vi.mock("@/features/projects/lib/iconDraft", async (importOriginal) => {
   }
 })
 
-import { useIconDraft } from "./useIconDraft"
+import { useIconDraft, type AcceptedIcon } from "./useIconDraft"
 
 const TOLERANCE = 24
 
@@ -69,12 +69,13 @@ it("switches treatment without rebuilding the renders", async () => {
   const result = await acceptedDraft()
   expect(built.calls).toBe(1)
 
+  let resolved: IconTreatment | null = null
   await act(async () => {
-    await result.current.restyle("full_bleed", TOLERANCE)
+    resolved = await result.current.restyle("full_bleed", TOLERANCE)
   })
 
   expect(built.calls).toBe(1)
-  expect(result.current.preview?.treatment).toBe("full_bleed")
+  expect(resolved).toBe("full_bleed")
   expect(result.current.preview?.cutoutUrl).toBe(`blob:cutout-${TOLERANCE}`)
   expect(result.current.preview?.fullUrl).toBe(`blob:full-${TOLERANCE}`)
 })
@@ -98,12 +99,13 @@ it("discards an older tolerance render when returning to the cached tolerance", 
   const result = await acceptedDraft()
   const pending = deferred<Awaited<ReturnType<typeof buildDraftPreview>>>()
   vi.mocked(buildDraftPreview).mockReturnValueOnce(pending.promise)
-  let restyling: Promise<void>
+  let restyling: Promise<IconTreatment | null>
+  let latest: IconTreatment | null = null
   act(() => {
     restyling = result.current.restyle("sticker", TOLERANCE + 10)
   })
   await act(async () => {
-    await result.current.restyle("full_bleed", TOLERANCE)
+    latest = await result.current.restyle("full_bleed", TOLERANCE)
     pending.resolve({
       cutoutUrl: "blob:stale-cutout",
       fullUrl: "blob:stale-full",
@@ -112,9 +114,9 @@ it("discards an older tolerance render when returning to the cached tolerance", 
       transparent: false,
       treatment: "sticker"
     })
-    await restyling
+    expect(await restyling).toBeNull()
   })
-  expect(result.current.preview?.treatment).toBe("full_bleed")
+  expect(latest).toBe("full_bleed")
   expect(result.current.preview?.fullUrl).toBe(`blob:full-${TOLERANCE}`)
 })
 
@@ -142,7 +144,7 @@ it("revokes preview URLs produced after the editor unmounts", async () => {
     revokeObjectURL: revoke
   })
   const { result, unmount } = renderHook(() => useIconDraft())
-  let accepting: Promise<string | null>
+  let accepting: Promise<AcceptedIcon | null>
   await act(async () => {
     accepting = result.current.accept(pngFile())
     await Promise.resolve()
@@ -202,7 +204,7 @@ it("never reports a saved source as a newly picked file during priming", async (
   expect(names.every((name) => name === null)).toBe(true)
 })
 
-it("preserves the saved treatment when priming reclassifies the source", async () => {
+it("keeps the saved treatment when a saved source reclassifies", async () => {
   const { buildDraftPreview } =
     await import("@/features/projects/lib/iconDraft")
   vi.mocked(buildDraftPreview).mockResolvedValueOnce({
@@ -213,16 +215,14 @@ it("preserves the saved treatment when priming reclassifies the source", async (
     transparent: false,
     treatment: "full_bleed"
   })
-  vi.stubGlobal("fetch", async () => ({
-    ok: true,
-    blob: async () => pngFile()
-  }))
   const { result } = renderHook(() => useIconDraft())
+  let accepted: AcceptedIcon | null = null
   await act(async () => {
-    await result.current.primeFrom("/saved-icon", {
-      treatment: "sticker",
-      tolerance: TOLERANCE
-    })
+    accepted = await result.current.accept(
+      pngFile(),
+      { treatment: "sticker", tolerance: TOLERANCE },
+      true
+    )
   })
-  expect(result.current.preview?.treatment).toBe("sticker")
+  expect(accepted).toEqual({ url: "blob:source", treatment: "sticker" })
 })

@@ -14,17 +14,20 @@ import {
   type IconTreatment
 } from "@/features/projects/lib/iconDraft"
 
-export type IconPreview = {
-  readonly cutoutUrl: string
-  readonly fullUrl: string
-  readonly clean: boolean
-  readonly reason: CutoutRejection | null
-  readonly transparent: boolean
-  readonly treatment: IconTreatment
-}
+export type IconPreview = Readonly<{
+  cutoutUrl: string
+  fullUrl: string
+  clean: boolean
+  reason: CutoutRejection | null
+  transparent: boolean
+}>
 
-export const draftPreviewUrl = (preview: IconPreview): string =>
-  preview.treatment === "sticker" ? preview.cutoutUrl : preview.fullUrl
+export type AcceptedIcon = Readonly<{ url: string; treatment: IconTreatment }>
+
+export const draftPreviewUrl = (
+  preview: IconPreview,
+  treatment: IconTreatment
+): string => (treatment === "sticker" ? preview.cutoutUrl : preview.fullUrl)
 
 export type IconDraft = ReturnType<typeof useIconDraft>
 
@@ -37,7 +40,12 @@ const fetchIcon = Api.runtime.fn(
 
 export function useIconDraft() {
   const fetchIconUrl = useAtomSet(fetchIcon, { mode: "promiseExit" })
-  const [preview, setPreview] = useState<IconPreview | null>(null)
+  const [preview, setPreviewState] = useState<IconPreview | null>(null)
+  const previewRef = useRef<IconPreview | null>(null)
+  const setPreview = (next: IconPreview | null) => {
+    previewRef.current = next
+    setPreviewState(next)
+  }
   const [rejected, setRejected] = useState(false)
   const bitmapRef = useRef<ImageBitmap | null>(null)
   const fileRef = useRef<File | null>(null)
@@ -65,26 +73,24 @@ export function useIconDraft() {
     }
   }, [])
 
-  const restyle = async (treatment: IconTreatment, tolerance: number) => {
+  const restyle = async (
+    treatment: IconTreatment,
+    tolerance: number
+  ): Promise<IconTreatment | null> => {
     const bitmap = bitmapRef.current
-    if (!bitmap || !mounted.current) return
+    if (!bitmap || !mounted.current) return null
     const token = ++restyleToken.current
     const draft = draftToken.current
     if (renderedTolerance.current === tolerance) {
-      setPreview((current) =>
-        current
-          ? {
-              ...current,
-              treatment: resolveIconTreatment({
-                treatment,
-                clean: current.clean,
-                transparent: current.transparent,
-                tolerance
-              })
-            }
-          : current
-      )
-      return
+      const current = previewRef.current
+      return current
+        ? resolveIconTreatment({
+            treatment,
+            clean: current.clean,
+            transparent: current.transparent,
+            tolerance
+          })
+        : null
     }
     const initializingSaved =
       primed.current && renderedTolerance.current === null
@@ -94,19 +100,21 @@ export function useIconDraft() {
     } catch {
       if (token === restyleToken.current && draft === draftToken.current)
         setRejected(true)
-      return
+      return null
     }
     const fresh = [next.cutoutUrl, next.fullUrl].filter(
       (url, index, all) => all.indexOf(url) === index
     )
     if (token !== restyleToken.current || draft !== draftToken.current) {
       fresh.forEach((url) => URL.revokeObjectURL(url))
-      return
+      return null
     }
     renderedTolerance.current = tolerance
     previewUrls.current.forEach((url) => URL.revokeObjectURL(url))
     previewUrls.current = fresh
-    setPreview(initializingSaved ? { ...next, treatment } : next)
+    const { treatment: resolved, ...rendered } = next
+    setPreview(rendered)
+    return initializingSaved ? treatment : resolved
   }
 
   const accept = async (
@@ -116,7 +124,7 @@ export function useIconDraft() {
       tolerance: CUTOUT_DEFAULT_TOLERANCE
     },
     savedSource = false
-  ): Promise<string | null> => {
+  ): Promise<AcceptedIcon | null> => {
     if (!mounted.current) return null
     if (
       !isProjectIconContentType(file.type) ||
@@ -142,8 +150,10 @@ export function useIconDraft() {
       if (sourceUrl.current) URL.revokeObjectURL(sourceUrl.current)
       const url = URL.createObjectURL(file)
       sourceUrl.current = url
-      await restyle(initial.treatment, initial.tolerance)
-      return token === draftToken.current ? url : null
+      const treatment = await restyle(initial.treatment, initial.tolerance)
+      return token === draftToken.current
+        ? { url, treatment: treatment ?? initial.treatment }
+        : null
     } catch {
       if (token === draftToken.current) setRejected(true)
       return null
@@ -172,10 +182,10 @@ export function useIconDraft() {
     }
   }
 
-  const markUnclean = () =>
-    setPreview((current) =>
-      current ? { ...current, clean: false, treatment: "full_bleed" } : current
-    )
+  const markUnclean = () => {
+    const current = previewRef.current
+    if (current) setPreview({ ...current, clean: false })
+  }
 
   return {
     preview,

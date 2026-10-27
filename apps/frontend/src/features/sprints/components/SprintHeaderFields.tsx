@@ -42,6 +42,10 @@ import {
   sprintListRequest,
   updateSprint
 } from "@/features/sprints/atoms/sprintList"
+import {
+  sprintDateDraft,
+  sprintDatesPatch
+} from "@/features/sprints/lib/sprintDates"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -281,10 +285,7 @@ function SprintDatesField({
   const req = sprintListRequest(orgSlug, slug)
   const update = useAtomSet(updateSprint({ req, groupId: sprint.id }))
   const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState<DateRange>({
-    from: sprint.startsAt ?? undefined,
-    to: sprint.endsAt ?? undefined
-  })
+  const [draft, setDraft] = useState<DateRange>(sprintDateDraft(sprint))
 
   const fmt = shortDateFormatter()
   const label =
@@ -301,22 +302,11 @@ function SprintDatesField({
       onOpenChange={(next) => {
         setOpen(next)
         if (next) {
-          setDraft({
-            from: sprint.startsAt ?? undefined,
-            to: sprint.endsAt ?? undefined
-          })
-        } else {
-          const nextStart = draft.from ?? null
-          const nextEnd = draft.to ?? null
-          const prevStart = sprint.startsAt ?? null
-          const prevEnd = sprint.endsAt ?? null
-          if (
-            nextStart?.getTime() !== prevStart?.getTime() ||
-            nextEnd?.getTime() !== prevEnd?.getTime()
-          ) {
-            update({ startsAt: nextStart, endsAt: nextEnd })
-          }
+          setDraft(sprintDateDraft(sprint))
+          return
         }
+        const patch = sprintDatesPatch(sprint, draft)
+        if (patch) update(patch)
       }}
     >
       <PopoverTrigger

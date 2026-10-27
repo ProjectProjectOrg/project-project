@@ -157,6 +157,7 @@ export function ProjectIconForm({
         const wantsSticker = value.treatment.kind === "sticker"
         if (wantsSticker && !clean) {
           draft.markUnclean()
+          form.setFieldValue("treatment.kind", "full_bleed")
           return
         }
         classification = {
@@ -202,7 +203,9 @@ export function ProjectIconForm({
   })
 
   const values = useFormValues(form)
-  const previewUrl = draft.preview ? draftPreviewUrl(draft.preview) : null
+  const previewUrl = draft.preview
+    ? draftPreviewUrl(draft.preview, values.treatment.kind)
+    : null
 
   const thumb = (src: string | null) =>
     src ? (
@@ -233,12 +236,6 @@ export function ProjectIconForm({
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [iconImage, orgSlug])
-
-  const resolved = draft.preview?.treatment
-  useEffect(() => {
-    if (resolved && resolved !== form.state.values.treatment.kind)
-      form.setFieldValue("treatment.kind", resolved)
-  }, [form, resolved, values.source.objectUrl])
 
   const changed = iconPreviewChanged(
     values,

@@ -40,7 +40,7 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { setDefaultsAtom, type LibraryScope } from "../atoms/libraryScope"
-import { TICKET_TYPES } from "../lib/libraryModel"
+import { defaultRemoval, TICKET_TYPES } from "../lib/libraryModel"
 import { BlockIconGlyph } from "./BlockIconGlyph"
 
 const NO_PRIORITY = "none" as const
@@ -436,11 +436,7 @@ export function DefaultForField({
   const add = (type: TicketType) =>
     setDefaults({ defaults: { [type]: templateKey } })
   const remove = (type: TicketType) =>
-    setDefaults(
-      library.ownDefaults[type] === templateKey
-        ? { defaults: {}, reset: [type] }
-        : { defaults: { [type]: null } }
-    )
+    setDefaults(defaultRemoval(library.ownDefaults, type, templateKey))
 
   return (
     <div className="flex flex-col gap-1">

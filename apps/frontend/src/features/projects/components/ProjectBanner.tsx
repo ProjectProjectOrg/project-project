@@ -18,15 +18,15 @@ import {
   projectRequest
 } from "@/features/projects/atoms/projects"
 import {
+  useBannerImage,
+  usePlaceholderSize
+} from "@/features/projects/hooks/useBannerImage"
+import type { BannerImageSize } from "@/features/projects/lib/bannerImageState"
+import {
   bucketRenderWidth,
-  readBannerRender,
   type BannerRenderKey
 } from "@/features/projects/lib/bannerRenderCache"
 import { bannerSource } from "@/features/projects/lib/bannerSource"
-import {
-  isImageLoaded,
-  preloadImage
-} from "@/features/projects/lib/imagePreload"
 import { usePageBackdrop } from "@/lib/pageBackdrop"
 import { cn } from "@/lib/utils"
 
@@ -34,7 +34,8 @@ import {
   bannerCropStyle,
   bannerCrossfadeTransitions,
   bannerFadeMask,
-  bannerPreviewChanged
+  bannerPreviewChanged,
+  type BannerFrameCrop
 } from "../lib/bannerFrame"
 import { bannerDefaults, bannerPresets } from "../lib/bannerPresets"
 import { CachedShaderBanner } from "./CachedShaderBanner"
@@ -80,33 +81,10 @@ export function ProjectBanner({
   const placeholder = changed
     ? null
     : (banner?.placeholder ?? presetThumb ?? null)
-  const reduceMotion = useReducedMotion() ?? false
-  const [shaderImage, setShaderImage] = useState<HTMLImageElement | null>(null)
-  const [naturalSize, setNaturalSize] = useState<{
-    width: number
-    height: number
-  } | null>(null)
-  const [painted, setPainted] = useState(false)
-  const [placeholderFailed, setPlaceholderFailed] = useState(false)
-  const [shaderFailed, setShaderFailed] = useState(false)
-  const [placeholderSize, setPlaceholderSize] = useState<{
-    width: number
-    height: number
-  } | null>(null)
-  const wasCached = useMemo(
-    () => (source ? isImageLoaded(source) : false),
-    [source]
-  )
+  const placeholderSize = usePlaceholderSize(placeholder)
   const observerRef = useRef<ResizeObserver | null>(null)
-  const requestedSourceRef = useRef<string | null>(null)
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
-  const [cachedRender, setCachedRender] = useState<string | null>(null)
-  const [lookupSettled, setLookupSettled] = useState(false)
   const [measured, setMeasured] = useState(false)
-
-  useEffect(() => {
-    if (source) void preloadImage(source)
-  }, [source])
 
   const bucketedWidth =
     containerSize.width > 0 ? bucketRenderWidth(containerSize.width) : 0
@@ -165,113 +143,7 @@ export function ProjectBanner({
 
   useEffect(() => () => observerRef.current?.disconnect(), [])
 
-  useEffect(() => {
-    if (!measured) return undefined
-    setLookupSettled(cacheKey === null)
-    if (cacheKey === null) return undefined
-    setCachedRender(null)
-    let cancelled = false
-    let objectUrl: string | null = null
-    void readBannerRender(cacheKey).then((blob) => {
-      if (cancelled) return
-      if (blob) {
-        objectUrl = URL.createObjectURL(blob)
-        setCachedRender(objectUrl)
-      }
-      setLookupSettled(true)
-    })
-    return () => {
-      cancelled = true
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
-    }
-  }, [cacheKey, measured])
-
-  useEffect(() => {
-    requestedSourceRef.current = null
-    setShaderImage(null)
-    setNaturalSize(null)
-    setPainted(false)
-    setPlaceholderFailed(false)
-    setCachedRender(null)
-    setShaderFailed(false)
-  }, [source])
-
-  useEffect(() => {
-    if (!source || !lookupSettled) return undefined
-    if (cachedRender !== null && !editing) return undefined
-    if (requestedSourceRef.current === source) return undefined
-    requestedSourceRef.current = source
-    const photo = new Image()
-    photo.crossOrigin = "anonymous"
-    const stillWanted = () => requestedSourceRef.current === source
-    photo.onload = () => {
-      if (!stillWanted()) return
-      setNaturalSize({
-        width: photo.naturalWidth,
-        height: photo.naturalHeight
-      })
-      void photo
-        .decode()
-        .then(() => {
-          if (stillWanted()) setShaderImage(photo)
-        })
-        .catch(() => {
-          if (stillWanted()) setShaderFailed(true)
-        })
-    }
-    photo.onerror = () => {
-      if (!stillWanted()) return
-      requestedSourceRef.current = null
-      setPlaceholderFailed(true)
-    }
-    photo.src = source
-    return undefined
-  }, [source, lookupSettled, cachedRender, editing])
-
-  useEffect(() => {
-    setPlaceholderSize(null)
-    if (!placeholder) return undefined
-    let cancelled = false
-    const thumbnail = new Image()
-    thumbnail.onload = () => {
-      if (!cancelled)
-        setPlaceholderSize({
-          width: thumbnail.naturalWidth,
-          height: thumbnail.naturalHeight
-        })
-    }
-    thumbnail.src = placeholder
-    return () => {
-      cancelled = true
-    }
-  }, [placeholder])
-
-  const onShaderRender = useCallback(() => setPainted(true), [])
-
   if (!source) return null
-
-  const skipBlur = wasCached
-  const settled =
-    cachedRender !== null && !(changed && painted) ? cachedRender : null
-  const shaderVisible = settled === null && (skipBlur || painted)
-  const settings = { ...bannerDefaults, ...crop }
-  const blurRadius = Match.value(variant).pipe(
-    Match.when("header", () => 12),
-    Match.when("card", () => 6),
-    Match.orElse(() => 3)
-  )
-  const blurSize = naturalSize ?? placeholderSize
-  const cropStyle = blurSize
-    ? bannerCropStyle(
-        blurSize.width,
-        blurSize.height,
-        containerSize.width,
-        containerSize.height,
-        crop
-      )
-    : undefined
-  const fadeMask = bannerFadeMask(settings.fade)
-  const { unblur, dissolve } = bannerCrossfadeTransitions(reduceMotion)
 
   const node = (
     <div
@@ -287,6 +159,90 @@ export function ProjectBanner({
         opacity: bannerDefaults.overallOpacity
       }}
     >
+      <BannerLayers
+        key={source}
+        source={source}
+        cacheKey={cacheKey}
+        crop={crop}
+        variant={variant}
+        placeholder={placeholder}
+        placeholderSize={placeholderSize}
+        containerSize={containerSize}
+        measured={measured}
+        editing={editing}
+        changed={changed}
+      />
+    </div>
+  )
+
+  return backdrop
+    ? createPortal(
+        <div
+          className="page-backdrop-follow pointer-events-none absolute inset-x-0 top-0"
+          style={{
+            height: bannerDefaults.height,
+            ["--page-backdrop-height" as string]: `${bannerDefaults.height}px`
+          }}
+        >
+          {node}
+        </div>,
+        backdrop
+      )
+    : node
+}
+
+function BannerLayers({
+  source,
+  cacheKey,
+  crop,
+  variant,
+  placeholder,
+  placeholderSize,
+  containerSize,
+  measured,
+  editing,
+  changed
+}: Readonly<{
+  source: string
+  cacheKey: BannerRenderKey | null
+  crop: BannerFrameCrop
+  variant: "header" | "card" | "row"
+  placeholder: string | null
+  placeholderSize: BannerImageSize | null
+  containerSize: BannerImageSize
+  measured: boolean
+  editing: boolean
+  changed: boolean
+}>) {
+  const reduceMotion = useReducedMotion() ?? false
+  const image = useBannerImage(source, cacheKey, { measured, editing })
+  const { painted, shaderFailed, shaderImage, cachedRender } = image
+
+  const skipBlur = image.wasCached
+  const settled =
+    cachedRender !== null && !(changed && painted) ? cachedRender : null
+  const shaderVisible = settled === null && (skipBlur || painted)
+  const settings = { ...bannerDefaults, ...crop }
+  const blurRadius = Match.value(variant).pipe(
+    Match.when("header", () => 12),
+    Match.when("card", () => 6),
+    Match.orElse(() => 3)
+  )
+  const blurSize = image.naturalSize ?? placeholderSize
+  const cropStyle = blurSize
+    ? bannerCropStyle(
+        blurSize.width,
+        blurSize.height,
+        containerSize.width,
+        containerSize.height,
+        crop
+      )
+    : undefined
+  const fadeMask = bannerFadeMask(settings.fade)
+  const { unblur, dissolve } = bannerCrossfadeTransitions(reduceMotion)
+
+  return (
+    <>
       {settled !== null && (
         <img
           src={settled}
@@ -294,7 +250,7 @@ export function ProjectBanner({
           className="absolute inset-0 block size-full"
         />
       )}
-      {settled === null && !skipBlur && !placeholderFailed && (
+      {settled === null && !skipBlur && !image.placeholderFailed && (
         <div
           className="absolute inset-0 overflow-hidden"
           style={{ maskImage: fadeMask, WebkitMaskImage: fadeMask }}
@@ -302,7 +258,7 @@ export function ProjectBanner({
           <motion.img
             src={placeholder ?? source}
             alt=""
-            onError={() => setPlaceholderFailed(true)}
+            onError={image.onPlaceholderFailed}
             className={cn(
               "absolute",
               !cropStyle && "inset-0 size-full object-cover"
@@ -334,26 +290,11 @@ export function ProjectBanner({
               settings={settings}
               cacheKey={cacheKey}
               live={editing}
-              onFirstRender={onShaderRender}
+              onFirstRender={image.onPainted}
             />
           </Suspense>
         </motion.div>
       )}
-    </div>
+    </>
   )
-
-  return backdrop
-    ? createPortal(
-        <div
-          className="page-backdrop-follow pointer-events-none absolute inset-x-0 top-0"
-          style={{
-            height: bannerDefaults.height,
-            ["--page-backdrop-height" as string]: `${bannerDefaults.height}px`
-          }}
-        >
-          {node}
-        </div>,
-        backdrop
-      )
-    : node
 }
