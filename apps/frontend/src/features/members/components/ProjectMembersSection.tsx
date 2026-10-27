@@ -7,10 +7,8 @@ import type {
   Role
 } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
-import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
-import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { Briefcase, ShieldCheck, UserRound } from "lucide-react"
@@ -32,7 +30,9 @@ import {
   removeMember,
   updateMember
 } from "@/features/projects/atoms/projects"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { errorMessage } from "@/lib/errorMessage"
+import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
 const ROLE_META: Readonly<Record<Role, RoleMeta>> = {
@@ -68,15 +68,14 @@ const ASSIGNABLE_ROLES = [
 const isLastProjectPmBlocked = Schema.is(LastProjectPmBlocked)
 
 const memberActionError = <A, E>(state: Result.AsyncResult<A, E>) =>
-  Result.isFailure(state)
-    ? Option.match(Cause.findErrorOption(state.cause), {
-        onNone: () => m.members_action_error(),
-        onSome: (failure) =>
-          isLastProjectPmBlocked(failure)
-            ? errorMessage(failure)
-            : m.members_action_error()
-      })
-    : null
+  mutationErrorText(
+    state,
+    (failure) =>
+      isLastProjectPmBlocked(failure)
+        ? errorMessage(failure)
+        : m.members_action_error(),
+    m.members_action_error
+  )
 
 type ProjectScope = Readonly<{
   orgSlug: string
@@ -87,18 +86,17 @@ type ProjectScope = Readonly<{
 }>
 
 export function ProjectMembersSection({
-  orgSlug,
-  slug,
   members,
   pendingMembers,
   waiting,
   canManage,
   callerId
-}: ProjectScope &
+}: Omit<ProjectScope, "orgSlug" | "slug"> &
   Readonly<{
     members: ReadonlyArray<Member>
     pendingMembers: ReadonlyArray<PendingProjectMember>
   }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const scope = { orgSlug, slug, waiting, canManage, callerId }
   const pmCount = members.filter((member) => member.role === "pm").length
   return (
@@ -157,18 +155,17 @@ function ProjectAddMember({
       invite={{
         submit: (role) => add({ email: trimmed, role }),
         waiting: state.waiting,
-        error: Result.isFailure(state)
-          ? Option.match(Cause.findErrorOption(state.cause), {
-              onNone: () => m.members_add_error_fallback(),
-              onSome: (failure) =>
-                Match.value(failure).pipe(
-                  Match.tag("Forbidden", () =>
-                    m.members_add_error_outsider_client_only()
-                  ),
-                  Match.orElse(() => m.members_add_error_fallback())
-                )
-            })
-          : null
+        error: mutationErrorText(
+          state,
+          (failure) =>
+            Match.value(failure).pipe(
+              Match.tag("Forbidden", () =>
+                m.members_add_error_outsider_client_only()
+              ),
+              Match.orElse(() => m.members_add_error_fallback())
+            ),
+          m.members_add_error_fallback
+        )
       }}
     />
   )
@@ -188,7 +185,7 @@ function ProjectMemberRow({
   const removeState = useAtomValue(removeMember(key))
   const leave = useAtomSet(leaveProject(req), { mode: "promiseExit" })
   const leaveState = useAtomValue(leaveProject(req))
-  const forget = useAtomSet(forgetProject(req), { mode: "promise" })
+  const forget = useAtomSet(forgetProject(req), { mode: "promiseExit" })
   const isSelf = member.id === scope.callerId
   const manage = scope.canManage && !onlyPm
   const canExit = isSelf ? !onlyPm : manage

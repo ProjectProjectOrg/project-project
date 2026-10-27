@@ -29,6 +29,7 @@ import {
   invitationRoleLabel
 } from "@/features/organizations/lib/invitations"
 import { errorMessage } from "@/lib/errorMessage"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -104,16 +105,15 @@ function InviteAccept({ invite }: { invite: UserInvitation }) {
   const accepting = acceptState.waiting || pending === "accept"
   const declining = declineState.waiting || pending === "decline"
   const busy = accepting || declining
-  const acceptError = Result.matchWithError(acceptState, {
-    onInitial: () => null,
-    onSuccess: () => null,
-    onError: (error) =>
+  const acceptError = mutationErrorText(
+    acceptState,
+    (error) =>
       Match.value(error).pipe(
         Match.tag("InvitationNotAcceptable", (error) => errorMessage(error)),
         Match.orElse(() => m.auth_invite_accept_error())
       ),
-    onDefect: () => m.auth_invite_accept_error()
-  })
+    m.auth_invite_accept_error
+  )
 
   const onAccept = async () => {
     setError(null)

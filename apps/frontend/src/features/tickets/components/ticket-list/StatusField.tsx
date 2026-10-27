@@ -8,7 +8,7 @@ import type {
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ArrowRight } from "lucide-react"
-import { type MouseEvent, useMemo } from "react"
+import { type MouseEvent } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -24,6 +24,7 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import {
   statusMetaFor,
@@ -33,18 +34,15 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 function StatusMenuItems({
-  orgSlug,
-  slug,
   current,
   statuses,
   onSelect
 }: {
-  orgSlug: string
-  slug: string
   current: TicketStatus
   statuses: ReadonlyArray<ProjectStatus>
   onSelect: (next: TicketStatus) => void
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const slugs = boardStatusesFor(statuses)
   return (
     <>
@@ -138,23 +136,20 @@ function StatusTrigger({
 }
 
 export function StatusSelect({
-  orgSlug,
-  slug,
   value,
   onChange,
   size = "sm",
   stopPropagation,
   disabled = false
 }: {
-  orgSlug: string
-  slug: string
   value: TicketStatus
   onChange: (status: TicketStatus) => void
   size?: "sm" | "lg"
   stopPropagation?: boolean
   disabled?: boolean
 }) {
-  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+  const { orgSlug, slug } = useProjectRoute()
+  const req = statusesRequest(orgSlug, slug)
   const statusesResult = useAtomValue(statusesFor(req))
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
   const meta = statusMetaFor(value, statuses)
@@ -175,8 +170,6 @@ export function StatusSelect({
         onClick={(e) => e.stopPropagation()}
       >
         <StatusMenuItems
-          orgSlug={orgSlug}
-          slug={slug}
           current={value}
           statuses={statuses}
           onSelect={onChange}
@@ -187,16 +180,12 @@ export function StatusSelect({
 }
 
 export function StatusButton({
-  orgSlug,
-  slug,
   ticket,
   stopPropagation,
   size = "sm",
   onPatch,
   disabled = false
 }: {
-  orgSlug: string
-  slug: string
   ticket: Ticket
   stopPropagation?: boolean
   size?: "sm" | "lg"
@@ -205,8 +194,6 @@ export function StatusButton({
 }) {
   return (
     <StatusSelect
-      orgSlug={orgSlug}
-      slug={slug}
       value={ticket.status}
       size={size}
       disabled={disabled}

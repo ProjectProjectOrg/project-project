@@ -10,21 +10,15 @@ import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Random from "effect/Random"
 import * as Result from "effect/reactivity/AsyncResult"
-import {
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent
-} from "react"
+import { useContext, useMemo, useRef, useState, type FormEvent } from "react"
 
-import { me } from "@/features/auth/atoms/auth"
+import { currentUserId } from "@/features/auth/atoms/auth"
 import { projectGitStates } from "@/features/github/atoms/github"
 import {
   project as projectView,
   projectRequest
 } from "@/features/projects/atoms/projects"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   assignTicketToSprint,
   sprintList,
@@ -35,44 +29,37 @@ import {
   backlogRequest,
   quickCreateBacklogTicket
 } from "@/features/tickets/atoms/backlog"
+import {
+  mutationErrorText,
+  ticketCreateErrorMessage
+} from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
-import { creatorErrorText } from "../../lib/creatorError"
 import { CreatorSprintMenu, CreatorTypeMenu } from "./CreatorMenus"
 import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
 import { TicketCreatorShell } from "./TicketCreatorShell"
 import { useCreatorFocus } from "./useCreatorFocus"
 import { useTemplateChoice, useTicketTypeChoice } from "./useTemplateChoice"
 
-export function BacklogTicketCreator({
-  orgSlug,
-  slug,
-  query
-}: {
-  orgSlug: string
-  slug: string
-  query: TicketListQuery
-}) {
+export function BacklogTicketCreator({ query }: { query: TicketListQuery }) {
+  const { orgSlug, slug } = useProjectRoute()
   const registry = useContext(RegistryContext)
-  const req = useMemo(
-    () => backlogRequest(orgSlug, slug, query),
-    [orgSlug, slug, query]
-  )
+  const req = backlogRequest(orgSlug, slug, query)
   const create = useAtomSet(quickCreateBacklogTicket(req), {
     mode: "promiseExit"
   })
   const createState = useAtomValue(quickCreateBacklogTicket(req))
   const submitting = createState.waiting
-  const error = creatorErrorText(createState)
-  const projectReq = useMemo(
-    () => projectRequest(orgSlug, slug),
-    [orgSlug, slug]
+  const error = mutationErrorText(
+    createState,
+    ticketCreateErrorMessage,
+    m.tickets_create_error_fallback
   )
+  const projectReq = projectRequest(orgSlug, slug)
   const refreshGitStates = useAtomRefresh(projectGitStates(projectReq))
   const navigate = useNavigate()
 
-  const viewer = useAtomValue(me())
-  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
+  const viewerId = useAtomValue(currentUserId)
 
   const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
   const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
@@ -80,10 +67,7 @@ export function BacklogTicketCreator({
     ? project.value.estimation
     : "off"
 
-  const sprintReq = useMemo(
-    () => sprintListRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const sprintReq = sprintListRequest(orgSlug, slug)
   const sprintListResult = useAtomValue(sprintList(sprintReq))
   const sprints = useMemo<ReadonlyArray<Group>>(
     () => (Result.isSuccess(sprintListResult) ? sprintListResult.value : []),
@@ -93,8 +77,7 @@ export function BacklogTicketCreator({
 
   const [title, setTitle] = useState("")
   const { type, setType, applyTemplateDefault } = useTicketTypeChoice()
-  const [selectedSprint, setSelectedSprint] = useState<Group | null>(null)
-  const [sprintCleared, setSprintCleared] = useState(false)
+  const [pickedSprint, setPickedSprint] = useState<Group | null>()
   const inputRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const { active: expanded, leave } = useCreatorFocus(formRef)
@@ -109,11 +92,10 @@ export function BacklogTicketCreator({
     }
   })
 
-  useEffect(() => {
-    if (selectedSprint || sprintCleared) return
-    const def = pickDefaultSprint(sprints)
-    if (def) setSelectedSprint(def)
-  }, [sprints, selectedSprint, sprintCleared])
+  const selectedSprint =
+    pickedSprint === undefined
+      ? (pickDefaultSprint(sprints) ?? null)
+      : pickedSprint
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -124,7 +106,7 @@ export function BacklogTicketCreator({
       payload: { title: trimmed, type, ...templateChoice.payload },
       prediction: {
         clientId: Effect.runSync(Random.next).toString(36),
-        createdBy: viewerId,
+        createdBy: viewerId ?? "",
         projectPrefix,
         estimation,
         ...templateChoice.prediction
@@ -159,10 +141,7 @@ export function BacklogTicketCreator({
     <CreatorSprintMenu
       sprints={sprints}
       selected={selectedSprint}
-      onSelectedChange={(s) => {
-        setSelectedSprint(s)
-        setSprintCleared(s === null)
-      }}
+      onSelectedChange={setPickedSprint}
       expanded={expanded}
       inputRef={inputRef}
     />

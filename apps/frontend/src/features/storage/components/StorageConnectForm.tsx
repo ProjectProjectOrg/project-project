@@ -1,7 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { OrgStorageStatus } from "@pp/shared"
 import * as Exit from "effect/Exit"
-import * as Result from "effect/reactivity/AsyncResult"
 import { useState, type FormEvent } from "react"
 
 import {
@@ -21,6 +20,7 @@ import {
 import { StorageCorsPanel } from "@/features/storage/components/StorageCorsPanel"
 import { StorageStatusRows } from "@/features/storage/components/StorageStatusRows"
 import { errorMessage } from "@/lib/errorMessage"
+import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
 export function StorageConnectForm({
@@ -45,12 +45,11 @@ export function StorageConnectForm({
   const [forcePathStyle, setForcePathStyle] = useState(true)
 
   const submitting = waiting || connectState.waiting
-  const error = Result.matchWithError(connectState, {
-    onInitial: () => null,
-    onSuccess: () => null,
-    onError: (err) => errorMessage(err),
-    onDefect: () => m.storage_error_fallback()
-  })
+  const error = mutationErrorText(
+    connectState,
+    errorMessage,
+    m.storage_error_fallback
+  )
 
   const canSubmit =
     endpoint.trim().length > 0 &&

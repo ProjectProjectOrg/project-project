@@ -1,7 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { CreatableProjectKey } from "@pp/shared"
 import * as Exit from "effect/Exit"
-import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Schema from "effect/Schema"
 import { Plus } from "lucide-react"
@@ -21,6 +20,7 @@ import {
 import { deriveKey } from "@/features/projects/lib/deriveKey"
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut"
 import { errorMessage } from "@/lib/errorMessage"
+import { mutationErrorText } from "@/lib/mutationError"
 import { slugify } from "@/lib/slug"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
@@ -43,12 +43,11 @@ export function CreateProjectRow({
   const resetCreate = useAtomSet(createProject(req))
   const createState = useAtomValue(createProject(req))
   const submitting = createState.waiting
-  const error = Result.matchWithError(createState, {
-    onInitial: () => null,
-    onSuccess: () => null,
-    onError: (err) => errorMessage(err),
-    onDefect: () => m.projects_create_error_fallback()
-  })
+  const error = mutationErrorText(
+    createState,
+    errorMessage,
+    m.projects_create_error_fallback
+  )
   const [name, setName] = useState("")
   const [keyOverride, setKeyOverride] = useState("")
   const [keyTouched, setKeyTouched] = useState(false)

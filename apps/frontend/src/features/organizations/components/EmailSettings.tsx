@@ -1,8 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import { getRouteApi } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import {
   IntegrationDetail,
@@ -53,29 +52,34 @@ function EmailContent() {
   const { orgSlug } = routeApi.useParams()
   const orgResult = useAtomValue(orgDetail(orgRequest(orgSlug)))
   const canManage = useOrgActor(orgSlug).call("orgEmail", "get")
-  return Result.matchWithError(orgResult, {
-    onInitial: () => <SettingsSkeleton />,
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: () =>
-      canManage ? (
-        <EmailConnection key={orgSlug} orgSlug={orgSlug} />
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          {m.org_email_forbidden()}
-        </p>
-      )
-  })
+  return (
+    <AsyncView
+      result={orgResult}
+      contained
+      onInitial={() => <SettingsSkeleton />}
+      onSuccess={() =>
+        canManage ? (
+          <EmailConnection key={orgSlug} orgSlug={orgSlug} />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {m.org_email_forbidden()}
+          </p>
+        )
+      }
+    />
+  )
 }
 
 function EmailConnection({ orgSlug }: Readonly<{ orgSlug: string }>) {
   const result = useAtomValue(orgEmail(emailRequest(orgSlug)))
-  return Result.matchWithError(result, {
-    onInitial: () => <SettingsSkeleton />,
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value, waiting }) => (
-      <OrgEmailForm orgSlug={orgSlug} status={value} waiting={waiting} />
-    )
-  })
+  return (
+    <AsyncView
+      result={result}
+      contained
+      onInitial={() => <SettingsSkeleton />}
+      onSuccess={({ value, waiting }) => (
+        <OrgEmailForm orgSlug={orgSlug} status={value} waiting={waiting} />
+      )}
+    />
+  )
 }

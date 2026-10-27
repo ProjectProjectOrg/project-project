@@ -13,7 +13,7 @@ import {
   CircleCheck,
   GitBranch
 } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -50,6 +50,7 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import {
   ticketRequest,
@@ -59,6 +60,7 @@ import {
   statusMetaFor,
   statusLabelFor
 } from "@/features/tickets/lib/ticketMeta"
+import { mutationErrorText } from "@/lib/mutationError"
 import { slugify } from "@/lib/slug"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -79,20 +81,17 @@ function defaultBranchName(
 }
 
 export function CreateBranchFields({
-  orgSlug,
-  slug,
   ticket,
   github,
   branchTemplate,
   variant = "bordered"
 }: {
-  orgSlug: string
-  slug: string
   ticket: TicketDetail
   github: GithubConnection
   branchTemplate: string | null
   variant?: "bordered" | "ghost"
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const buttonSize = variant === "bordered" ? "sm" : "xs"
   const { busy, setBusy, close } = useInlineForm()
   const [name, setName] = useState(() =>
@@ -104,36 +103,22 @@ export function CreateBranchFields({
   )
   const [didSubmit, setDidSubmit] = useState(false)
   const [attemptedName, setAttemptedName] = useState("")
-  const projectReq = useMemo(
-    () => projectRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
-  const createRequest = useMemo(
-    () => ({ req: projectReq, id: ticket.id }),
-    [projectReq, ticket.id]
-  )
+  const createRequest = { req: projectRequest(orgSlug, slug), id: ticket.id }
   const create = useAtomSet(createBranch(createRequest), {
     mode: "promiseExit"
   })
   const createState = useAtomValue(createBranch(createRequest))
-  const req = useMemo(
-    () => ticketRequest(orgSlug, slug, ticket.id),
-    [orgSlug, slug, ticket.id]
-  )
+  const req = ticketRequest(orgSlug, slug, ticket.id)
   const updateTicket = useAtomSet(updateTicketDetail(req))
-  const statusesReq = useMemo(
-    () => statusesRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const statusesReq = statusesRequest(orgSlug, slug)
   const statusesResult = useAtomValue(statusesFor(statusesReq))
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
 
   const errorString =
     didSubmit && !createState.waiting
-      ? Result.matchWithError(createState, {
-          onInitial: () => null,
-          onSuccess: () => null,
-          onError: (error) =>
+      ? mutationErrorText(
+          createState,
+          (error) =>
             Match.value(error).pipe(
               Match.tag("BranchExists", () =>
                 m.git_branch_exists_error({ name: attemptedName })
@@ -150,8 +135,8 @@ export function CreateBranchFields({
               Match.tag("RepoGone", () => m.git_repo_gone_error()),
               Match.orElse(() => m.git_create_branch_error())
             ),
-          onDefect: () => m.git_create_branch_error()
-        })
+          m.git_create_branch_error
+        )
       : null
 
   async function submit() {
@@ -196,8 +181,6 @@ export function CreateBranchFields({
             {m.git_base_branch_label()}
           </span>
           <BaseBranchCombobox
-            orgSlug={orgSlug}
-            slug={slug}
             value={base}
             onChange={setBase}
             placeholder={github.defaultBaseBranch ?? "main"}
@@ -376,20 +359,17 @@ function StatusDropdown({
 }
 
 function BaseBranchCombobox({
-  orgSlug,
-  slug,
   value,
   onChange,
   placeholder,
   disabled
 }: {
-  orgSlug: string
-  slug: string
   value: string
   onChange: (next: string) => void
   placeholder: string
   disabled?: boolean
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
   const [q, setQ] = useState("")
@@ -403,10 +383,7 @@ function BaseBranchCombobox({
     }
   }, [search])
 
-  const branchesReq = useMemo(
-    () => branchesRequest(orgSlug, slug, q),
-    [orgSlug, slug, q]
-  )
+  const branchesReq = branchesRequest(orgSlug, slug, q)
   const result = useAtomValue(branches(branchesReq))
   const items = Result.isSuccess(result) ? result.value.items : []
   const loading = Result.isInitial(result) || Result.isWaiting(result)

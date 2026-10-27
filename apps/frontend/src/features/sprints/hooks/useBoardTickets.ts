@@ -4,7 +4,7 @@ import type { Ticket, TicketListQuery } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useMemo } from "react"
 
-import { me } from "@/features/auth/atoms/auth"
+import { currentUserId } from "@/features/auth/atoms/auth"
 import {
   projectEstimation,
   projectRequest
@@ -27,13 +27,9 @@ export function useBoardTickets(
   tickets: ReadonlyArray<Ticket>,
   query: TicketListQuery
 ): BoardTickets {
-  const statusReq = useMemo(
-    () => statusesRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const statusReq = statusesRequest(orgSlug, slug)
   const statusesResult = useAtomValue(statusesFor(statusReq))
-  const viewer = useAtomValue(me())
-  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : undefined
+  const viewerId = useAtomValue(currentUserId)
   const estimation = useAtomValue(
     projectEstimation(projectRequest(orgSlug, slug))
   )

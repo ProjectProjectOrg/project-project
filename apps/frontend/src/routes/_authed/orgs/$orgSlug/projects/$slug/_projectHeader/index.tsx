@@ -1,9 +1,8 @@
 import { TicketListQuery } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 
-import { me } from "@/features/auth/atoms/auth"
+import { currentUserId } from "@/features/auth/atoms/auth"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import {
   statusesFor,
@@ -40,14 +39,14 @@ export const Route = createFileRoute(
     registry.mount(project(projectRequest(orgSlug, slug)))()
     registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
     registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
-    const viewer = registry.get(me())
+    const viewerId = registry.get(currentUserId)
     const view = query.view ?? readViewPreference(orgSlug, slug, "backlog")
     const grouping =
       view === "board"
         ? "status"
-        : Result.isSuccess(viewer)
-          ? readBacklogGrouping(viewer.value.id, orgSlug, slug)
-          : undefined
+        : viewerId === undefined
+          ? undefined
+          : readBacklogGrouping(viewerId, orgSlug, slug)
     if (grouping !== "sprint") {
       registry.mount(backlog(backlogRequest(orgSlug, slug, query)))()
     }

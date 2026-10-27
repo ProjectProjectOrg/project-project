@@ -4,6 +4,7 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest"
 
 import {
   createLocalStorageCodec,
+  createLocalStorageStringCodec,
   useLocalStorageState
 } from "./useLocalStorageState"
 
@@ -76,5 +77,34 @@ describe("useLocalStorageState", () => {
       window.dispatchEvent(new StorageEvent("storage", { key: null }))
     })
     expect(result.current[0]).toEqual(["fallback"])
+  })
+})
+
+describe("createLocalStorageStringCodec", () => {
+  const Mode = Schema.Literals(["light", "dark", "system"])
+  const modeCodec = createLocalStorageStringCodec(Mode)
+
+  afterEach(cleanup)
+
+  beforeEach(() => {
+    window.localStorage.clear()
+  })
+
+  it("reads and writes the bare string", () => {
+    window.localStorage.setItem("test:mode", "dark")
+    const { result } = renderHook(() =>
+      useLocalStorageState("test:mode", modeCodec, "system")
+    )
+    expect(result.current[0]).toBe("dark")
+    act(() => result.current[1]("light"))
+    expect(window.localStorage.getItem("test:mode")).toBe("light")
+  })
+
+  it("falls back to initial for a value outside the schema", () => {
+    window.localStorage.setItem("test:mode", '"dark"')
+    const { result } = renderHook(() =>
+      useLocalStorageState("test:mode", modeCodec, "system")
+    )
+    expect(result.current[0]).toBe("system")
   })
 })

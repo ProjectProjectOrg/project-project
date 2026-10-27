@@ -10,7 +10,7 @@ import {
 } from "@pp/shared"
 import { GripVertical, Lock } from "lucide-react"
 import { Reorder, useDragControls, type DragControls } from "motion/react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useRef, useState } from "react"
 
 import { ColorPicker } from "@/components/ui/color-picker"
 import { Input } from "@/components/ui/input"
@@ -19,6 +19,7 @@ import {
   statusesRequest,
   updateStatus
 } from "@/features/projects/atoms/projectStatuses"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { StatusDeleteConfirm } from "@/features/statuses/components/StatusDeleteConfirm"
 import { StatusIconPicker } from "@/features/statuses/components/StatusIconPicker"
 import {
@@ -33,8 +34,6 @@ import { m } from "@/paraglide/messages"
 type Props = {
   status: ProjectStatus
   statuses: ReadonlyArray<ProjectStatus>
-  orgSlug: string
-  slug: string
   onDragStart: () => void
   onDragEnd: () => OrderKey | null
   onMoveUp?: () => OrderKey | null
@@ -44,15 +43,15 @@ type Props = {
 export function StatusRow({
   status,
   statuses,
-  orgSlug,
-  slug,
+
   onDragStart,
   onDragEnd,
   onMoveUp,
   onMoveDown
 }: Props) {
+  const { orgSlug, slug } = useProjectRoute()
   const baseline = isReservedStatusSlug(status.slug)
-  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+  const req = statusesRequest(orgSlug, slug)
   const updateMutation = updateStatus({ req, statusSlug: status.slug })
   const reorderMutation = reorderStatus({ req, statusSlug: status.slug })
   const update = useAtomSet(updateMutation)
@@ -67,10 +66,12 @@ export function StatusRow({
   const [iconMenuOpen, setIconMenuOpen] = useState(false)
   const [colorMenuOpen, setColorMenuOpen] = useState(false)
   const menuOpen = iconMenuOpen || colorMenuOpen
+  const [syncedLabel, setSyncedLabel] = useState<string>(status.label)
 
-  useEffect(() => {
+  if (status.label !== syncedLabel) {
+    setSyncedLabel(status.label)
     setDraftLabel(status.label)
-  }, [status.label])
+  }
 
   const commitLabel = () => {
     if (baseline || draftLabel === status.label) return
@@ -224,12 +225,7 @@ export function StatusRow({
                 onCommit={update}
               />
             </div>
-            <StatusDeleteConfirm
-              status={status}
-              statuses={statuses}
-              orgSlug={orgSlug}
-              slug={slug}
-            />
+            <StatusDeleteConfirm status={status} statuses={statuses} />
           </>
         )}
       </div>

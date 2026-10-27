@@ -15,7 +15,10 @@ import {
 import { ProjectBanner } from "@/features/projects/components/ProjectBanner"
 import { ProjectSetupSlot } from "@/features/projects/components/ProjectSetupRail"
 import { RetainedProjectViews } from "@/features/projects/components/RetainedProjectViews"
-import { ProjectContext } from "@/features/projects/hooks/useProject"
+import {
+  ProjectContext,
+  useProjectRoute
+} from "@/features/projects/hooks/useProject"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -61,12 +64,8 @@ export function ProjectLayout() {
     ),
     onSuccess: ({ value, waiting }) => (
       <ProjectContext.Provider value={req}>
-        <ProjectGitStatePolling
-          orgSlug={orgSlug}
-          slug={slug}
-          enabled={value.github !== null}
-        />
-        <ProjectSetupSlot orgSlug={orgSlug} slug={slug} project={value} />
+        <ProjectGitStatePolling enabled={value.github !== null} />
+        <ProjectSetupSlot project={value} />
         <div
           data-page-banner={value.banner ? "" : undefined}
           className={cn("relative isolate flex flex-1 flex-col gap-3")}
@@ -79,26 +78,15 @@ export function ProjectLayout() {
             pageBackdrop
           />
           <Outlet />
-          <RetainedProjectViews
-            key={`${orgSlug}/${slug}`}
-            orgSlug={orgSlug}
-            slug={slug}
-          />
+          <RetainedProjectViews key={`${orgSlug}/${slug}`} />
         </div>
       </ProjectContext.Provider>
     )
   })
 }
 
-function ProjectGitStatePolling({
-  orgSlug,
-  slug,
-  enabled
-}: {
-  orgSlug: string
-  slug: string
-  enabled: boolean
-}) {
+function ProjectGitStatePolling({ enabled }: { enabled: boolean }) {
+  const { orgSlug, slug } = useProjectRoute()
   useProjectGitStatePolling(orgSlug, slug, enabled)
   return null
 }

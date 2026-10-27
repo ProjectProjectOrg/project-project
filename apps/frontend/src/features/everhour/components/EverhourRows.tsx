@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { type FormEvent, useState } from "react"
 
@@ -26,9 +27,11 @@ export function EverhourRows({
   }>
 }>) {
   const [apiKey, setApiKey] = useState("")
-  const connect = useAtomSet(connectEverhourProfileAtom, { mode: "promise" })
+  const connect = useAtomSet(connectEverhourProfileAtom, {
+    mode: "promiseExit"
+  })
   const disconnect = useAtomSet(disconnectEverhourProfileAtom, {
-    mode: "promise"
+    mode: "promiseExit"
   })
   const connectState = useAtomValue(connectEverhourProfileAtom)
   const disconnectState = useAtomValue(disconnectEverhourProfileAtom)
@@ -43,8 +46,8 @@ export function EverhourRows({
     event.preventDefault()
     const trimmed = apiKey.trim()
     if (!trimmed) return
-    await connect({ apiKey: trimmed })
-    setApiKey("")
+    const exit = await connect({ apiKey: trimmed })
+    if (Exit.isSuccess(exit)) setApiKey("")
   }
 
   return (
@@ -75,9 +78,7 @@ export function EverhourRows({
               <ConfirmButton.Action
                 prompt={m.profile_everhour_disconnect_confirm()}
                 label={m.profile_everhour_disconnect_button()}
-                onConfirm={async () => {
-                  await disconnect()
-                }}
+                onConfirm={async () => Exit.isSuccess(await disconnect())}
               />
             </ConfirmButton.Confirm>
           </ConfirmButton.Root>

@@ -18,6 +18,7 @@ import { AnimatePresence, motion } from "motion/react"
 import { useMemo, useState, type ReactNode } from "react"
 
 import { LibraryContext } from "@/features/editor/lib/blockChrome"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -38,7 +39,6 @@ import {
 } from "../lib/libraryModel"
 import { DitheredBlocks } from "./DitheredBlocks"
 import { GalleryTile, type GalleryItem } from "./GalleryTile"
-import { failureText } from "./LibraryRow"
 import { LIBRARY_GRID_CLASS, LibrarySectionHeader } from "./LibrarySection"
 import { LibrarySyncedLabel } from "./LibrarySyncedLabel"
 
@@ -49,7 +49,7 @@ type GalleryProps = Readonly<{ scope: LibraryScope; library: Library }>
 type Exited = Exit.Exit<unknown, Readonly<{ _tag: string }>>
 
 const failureOf = (exit: Exited): string | null =>
-  Exit.isFailure(exit) ? failureText(AsyncResult.fromExit(exit)) : null
+  Exit.isFailure(exit) ? mutationErrorText(AsyncResult.fromExit(exit)) : null
 
 const withGalleryBlocks = (library: Library, scope: LibraryScope): Library => ({
   ...library,

@@ -1,6 +1,7 @@
 import type { EditorPreference } from "@pp/shared"
 import type { BetterFetchError } from "better-auth/react"
 import * as Effect from "effect/Effect"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Reactivity from "effect/reactivity/Reactivity"
 
@@ -16,6 +17,11 @@ const meQuery = Api.query("auth", "me", {
 const meAtom = Atom.optimistic(meQuery)
 
 export const me = () => meAtom
+
+export const currentUserId = Atom.make((get) => {
+  const viewer = get(meAtom)
+  return AsyncResult.isSuccess(viewer) ? viewer.value.id : undefined
+})
 
 export const logout = Api.runtime.fn(
   Effect.fn("logout")(function* (_: void) {

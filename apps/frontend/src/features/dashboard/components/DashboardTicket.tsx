@@ -2,9 +2,9 @@ import { useAtomValue } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
 import type { Member, Ticket } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useMemo, type ReactNode } from "react"
+import { type ReactNode } from "react"
 
-import { me } from "@/features/auth/atoms/auth"
+import { currentUserId } from "@/features/auth/atoms/auth"
 import {
   project,
   projectActor,
@@ -27,9 +27,9 @@ import { cn } from "@/lib/utils"
 const NO_MEMBERS: ReadonlyArray<Member> = []
 
 const useTicketUpdates = (update: OrgTicketUpdates, item: OrgTicket) => {
-  const viewer = useAtomValue(me())
+  const viewerId = useAtomValue(currentUserId)
   return update({
-    viewerId: Result.isSuccess(viewer) ? viewer.value.id : "",
+    viewerId: viewerId ?? "",
     projectSlug: item.project.slug
   })
 }
@@ -63,10 +63,7 @@ export function DashboardRow({
   onPreviewOpenChange
 }: DashboardRowProps) {
   const updates = useTicketUpdates(update, item)
-  const projectReq = useMemo(
-    () => projectRequest(orgSlug, item.project.slug),
-    [orgSlug, item.project.slug]
-  )
+  const projectReq = projectRequest(orgSlug, item.project.slug)
   const members = useProjectMembers(orgSlug, item.project.slug)
   const editable = TicketPolicy.canChange(
     useAtomValue(projectActor(projectReq)),
@@ -83,8 +80,6 @@ export function DashboardRow({
       >
         <Row
           variant={below === undefined ? "standalone" : "embedded"}
-          orgSlug={orgSlug}
-          slug={item.project.slug}
           ticket={item.ticket}
           members={members}
           showSprintCol={false}
@@ -108,17 +103,12 @@ export function DashboardRow({
 
 export function DashboardCard({ orgSlug, item, update }: DashboardTicketProps) {
   const updates = useTicketUpdates(update, item)
-  const projectReq = useMemo(
-    () => projectRequest(orgSlug, item.project.slug),
-    [orgSlug, item.project.slug]
-  )
+  const projectReq = projectRequest(orgSlug, item.project.slug)
   const members = useProjectMembers(orgSlug, item.project.slug)
   return (
     <ProjectContext.Provider value={projectReq}>
       <div className={BOARD_CARD_SLOT_CLASS}>
         <SprintBoardCard
-          orgSlug={orgSlug}
-          slug={item.project.slug}
           ticket={item.ticket}
           members={members}
           update={updates}

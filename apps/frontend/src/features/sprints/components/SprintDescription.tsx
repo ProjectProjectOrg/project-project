@@ -1,11 +1,14 @@
 import { useAtomSet } from "@effect/atom-react"
 import type { GroupDetail } from "@pp/shared"
-import { lazy, Suspense, useMemo, useState } from "react"
+import { lazy, Suspense, useState } from "react"
 
 import type { SaveStatus } from "@/features/editor/components/LexicalEditor"
 import { MarkdownSaveIndicator } from "@/features/editor/components/MarkdownSaveIndicator"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
-import { useProject } from "@/features/projects/hooks/useProject"
+import {
+  useProject,
+  useProjectRoute
+} from "@/features/projects/hooks/useProject"
 import {
   sprintRequest,
   updateSprintDetail
@@ -24,21 +27,15 @@ const LexicalEditor = lazy(() =>
 )
 
 export function SprintDescription({
-  orgSlug,
-  slug,
   sprint,
   disabled
 }: {
-  orgSlug: string
-  slug: string
   sprint: GroupDetail
   disabled: boolean
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const project = useProject()
-  const req = useMemo(
-    () => sprintRequest(orgSlug, slug, sprint.id),
-    [orgSlug, slug, sprint.id]
-  )
+  const req = sprintRequest(orgSlug, slug, sprint.id)
   const update = useAtomSet(updateSprintDetail(req))
   const [status, setStatus] = useState<SaveStatus>("idle")
 

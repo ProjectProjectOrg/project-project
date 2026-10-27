@@ -1,12 +1,13 @@
 import { useAtomValue } from "@effect/atom-react"
 import { getRouteApi } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
 import { useEffect, useState } from "react"
 
+import { AsyncView } from "@/components/shell/AsyncView"
 import {
   SettingsGroup,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
+import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { me } from "@/features/auth/atoms/auth"
 import { EverhourRows } from "@/features/everhour/components/EverhourRows"
 import { FigmaProfileSettings } from "@/features/figma/components/FigmaProfileSettings"
@@ -39,21 +40,25 @@ export function Connections() {
     void navigate({ to: ".", search: () => ({}), replace: true })
   }, [navigate, search.error, search.figmaError, search.slackError])
 
-  if (!Result.isSuccess(viewer)) return null
-  const user = viewer.value
-
   return (
-    <SettingsSection>
-      <SettingsGroup>
-        <GithubRow
-          connected={user.personalGithub.connected}
-          email={user.email}
-          oauthError={githubOAuthError}
-        />
-        <EverhourRows everhour={user.personalEverhour} />
-        <FigmaProfileSettings oauthError={figmaOAuthError} />
-        <SlackProfileSettings oauthError={slackOAuthError} />
-      </SettingsGroup>
-    </SettingsSection>
+    <AsyncView
+      result={viewer}
+      contained
+      onInitial={() => <SettingsSkeleton rows={4} />}
+      onSuccess={({ value: user }) => (
+        <SettingsSection>
+          <SettingsGroup>
+            <GithubRow
+              connected={user.personalGithub.connected}
+              email={user.email}
+              oauthError={githubOAuthError}
+            />
+            <EverhourRows everhour={user.personalEverhour} />
+            <FigmaProfileSettings oauthError={figmaOAuthError} />
+            <SlackProfileSettings oauthError={slackOAuthError} />
+          </SettingsGroup>
+        </SettingsSection>
+      )}
+    />
   )
 }

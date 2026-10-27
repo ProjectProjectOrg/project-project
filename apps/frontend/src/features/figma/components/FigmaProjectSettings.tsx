@@ -1,9 +1,9 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Link } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
+import * as Exit from "effect/Exit"
 import { type FormEvent, useState } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,58 +14,49 @@ import {
   figmaProjectStatusAtom
 } from "@/features/figma/atoms/figma"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useOrgActor } from "@/lib/access"
-import { errorMessage, figmaStatusErrorMessage } from "@/lib/errorMessage"
+import { figmaStatusErrorMessage } from "@/lib/errorMessage"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { FigmaTokenWalkthrough } from "./FigmaTokenWalkthrough"
 
-export function FigmaProjectSettings({
-  orgSlug,
-  slug,
-  canManage
-}: {
-  orgSlug: string
-  slug: string
-  canManage: boolean
-}) {
+export function FigmaProjectSettings({ canManage }: { canManage: boolean }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = figmaProjectRequest(orgSlug, slug)
   const status = useAtomValue(figmaProjectStatusAtom(req))
 
-  return Result.matchWithError(status, {
-    onInitial: () => (
-      <SettingsRow
-        icon={<IntegrationLogo kind="figma" />}
-        label={m.figma_project_title()}
-        description={
-          <span className="block h-3 w-40 animate-pulse rounded bg-muted" />
-        }
-      />
-    ),
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value, waiting }) => (
-      <FigmaProjectContent
-        orgSlug={orgSlug}
-        slug={slug}
-        status={value}
-        waiting={waiting}
-        canManage={canManage}
-      />
-    )
-  })
+  return (
+    <AsyncView
+      result={status}
+      contained
+      onInitial={() => (
+        <SettingsRow
+          icon={<IntegrationLogo kind="figma" />}
+          label={m.figma_project_title()}
+          description={
+            <span className="block h-3 w-40 animate-pulse rounded bg-muted" />
+          }
+        />
+      )}
+      onSuccess={({ value, waiting }) => (
+        <FigmaProjectContent
+          status={value}
+          waiting={waiting}
+          canManage={canManage}
+        />
+      )}
+    />
+  )
 }
 
 function FigmaProjectContent({
-  orgSlug,
-  slug,
   status,
   waiting,
   canManage
 }: {
-  orgSlug: string
-  slug: string
   status: {
     connected: boolean
     handle: string | null
@@ -75,32 +66,20 @@ function FigmaProjectContent({
   waiting: boolean
   canManage: boolean
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = figmaProjectRequest(orgSlug, slug)
   const canSetUpStorage = useOrgActor(orgSlug).call("storage", "connect")
   const [accessToken, setAccessToken] = useState("")
   const connect = useAtomSet(connectFigmaProjectAtom(req), {
-    mode: "promise"
+    mode: "promiseExit"
   })
-  const disconnect = useAtomSet(disconnectFigmaProjectAtom(req), {
-    mode: "promise"
-  })
+  const disconnect = useAtomSet(disconnectFigmaProjectAtom(req))
   const connectState = useAtomValue(connectFigmaProjectAtom(req))
   const disconnectState = useAtomValue(disconnectFigmaProjectAtom(req))
   const busy = waiting || connectState.waiting || disconnectState.waiting
 
   const mutationError =
-    Result.matchWithError(connectState, {
-      onInitial: () => null,
-      onSuccess: () => null,
-      onError: (err) => errorMessage(err),
-      onDefect: () => m.error_unknown()
-    }) ??
-    Result.matchWithError(disconnectState, {
-      onInitial: () => null,
-      onSuccess: () => null,
-      onError: (err) => errorMessage(err),
-      onDefect: () => m.error_unknown()
-    })
+    mutationErrorText(connectState) ?? mutationErrorText(disconnectState)
   const error = status.lastCheckError
     ? figmaStatusErrorMessage(status.lastCheckError)
     : mutationError
@@ -109,8 +88,8 @@ function FigmaProjectContent({
     event.preventDefault()
     const trimmed = accessToken.trim()
     if (!trimmed || !status.storageConnected) return
-    await connect({ accessToken: trimmed })
-    setAccessToken("")
+    const exit = await connect({ accessToken: trimmed })
+    if (Exit.isSuccess(exit)) setAccessToken("")
   }
 
   return (
@@ -142,7 +121,7 @@ function FigmaProjectContent({
           size="sm"
           loading={disconnectState.waiting}
           disabled={busy}
-          onClick={() => void disconnect()}
+          onClick={() => disconnect()}
         >
           {m.figma_project_disconnect_button()}
         </Button>

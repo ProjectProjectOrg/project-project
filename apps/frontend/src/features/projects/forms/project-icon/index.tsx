@@ -18,6 +18,7 @@ import {
 import { StepSummaryRow } from "@/features/projects/components/appearance/AppearanceCard"
 import type { LiveIcon } from "@/features/projects/components/appearance/IconPreviewTile"
 import { IconPreviewTile } from "@/features/projects/components/appearance/IconPreviewTile"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   CUTOUT_DEFAULT_TOLERANCE,
   hasAlpha
@@ -46,22 +47,19 @@ const makeProjectIcon = Schema.decodeUnknownSync(ProjectIcon)
 export type IconForm = ReactFormType<ReturnType<typeof iconFormOpts>>
 
 export function ProjectIconForm({
-  orgSlug,
-  slug,
   icon,
   iconImage,
   accent,
   onDone,
   onLiveChange
 }: {
-  orgSlug: string
-  slug: string
   icon: string
   iconImage: ProjectIconImage | null
   accent: string
   onDone?: () => void
   onLiveChange?: (live: LiveIcon | null) => void
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = projectRequest(orgSlug, slug)
   const uploadReq = uploadProjectImageRequest(orgSlug, slug)
   const update = useAtomSet(updateProject(req), { mode: "promiseExit" })
@@ -344,7 +342,6 @@ export function ProjectIconForm({
             <SourceStep
               form={form}
               draft={draft}
-              orgSlug={orgSlug}
               busy={busy}
               error={failed}
               onAdvance={() => {

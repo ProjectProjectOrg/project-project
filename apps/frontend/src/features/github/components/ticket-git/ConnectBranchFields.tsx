@@ -20,6 +20,8 @@ import {
   stackBranch
 } from "@/features/github/atoms/github"
 import { projectRequest } from "@/features/projects/atoms/projects"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -57,20 +59,17 @@ export function branchItemsView({
 }
 
 export function ConnectBranchFields({
-  orgSlug,
-  slug,
   ticket,
   github,
   variant = "bordered",
   mode = "connect"
 }: {
-  orgSlug: string
-  slug: string
   ticket: TicketDetail
   github: GithubConnection
   variant?: "bordered" | "ghost"
   mode?: "connect" | "stack"
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const buttonSize = variant === "bordered" ? "sm" : "xs"
   const { busy, setBusy, close } = useInlineForm()
   const [input, setInput] = useState("")
@@ -98,10 +97,7 @@ export function ConnectBranchFields({
       return { repoId: github.repoId, index }
     })
 
-  const branchesReq = useMemo(
-    () => branchesRequest(orgSlug, slug, q),
-    [orgSlug, slug, q]
-  )
+  const branchesReq = branchesRequest(orgSlug, slug, q)
   const result = useAtomValue(branches(branchesReq))
   const refreshBranches = useAtomRefresh(branches(branchesReq))
   const attachRequest = useMemo(
@@ -134,10 +130,9 @@ export function ConnectBranchFields({
 
   const errorString =
     didSubmit && !attachState.waiting
-      ? Result.matchWithError(attachState, {
-          onInitial: () => null,
-          onSuccess: () => null,
-          onError: (error) =>
+      ? mutationErrorText(
+          attachState,
+          (error) =>
             Match.value(error).pipe(
               Match.tag("BranchNotFound", () =>
                 m.git_branch_not_found_error({ name: attemptedName })
@@ -162,8 +157,8 @@ export function ConnectBranchFields({
               ),
               Match.orElse(() => m.git_attach_branch_error())
             ),
-          onDefect: () => m.git_attach_branch_error()
-        })
+          m.git_attach_branch_error
+        )
       : null
 
   async function submit(branchName: string) {

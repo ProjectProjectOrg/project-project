@@ -1,9 +1,8 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { StatusLabel } from "@pp/shared"
 import * as Exit from "effect/Exit"
-import * as Result from "effect/reactivity/AsyncResult"
 import { Plus } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
@@ -12,15 +11,12 @@ import {
   createStatus,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { statusCreateErrorMessage } from "@/lib/errorMessage"
+import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
-type Props = {
-  orgSlug: string
-  slug: string
-}
-
-export function StatusCreateRow({ orgSlug, slug }: Props) {
+export function StatusCreateRow() {
   const Root = InlineForm.Root<"create">
   return (
     <Root actions={["create"]} variant="ghost" className="self-start">
@@ -35,14 +31,15 @@ export function StatusCreateRow({ orgSlug, slug }: Props) {
         </InlineForm.Trigger>
       </InlineForm.Idle>
       <InlineForm.Form action="create" className="space-y-0">
-        <CreateFields orgSlug={orgSlug} slug={slug} />
+        <CreateFields />
       </InlineForm.Form>
     </Root>
   )
 }
 
-function CreateFields({ orgSlug, slug }: Props) {
-  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+function CreateFields() {
+  const { orgSlug, slug } = useProjectRoute()
+  const req = statusesRequest(orgSlug, slug)
   const createMutation = createStatus(req)
   const create = useAtomSet(createMutation, { mode: "promiseExit" })
   const createState = useAtomValue(createMutation)
@@ -52,12 +49,11 @@ function CreateFields({ orgSlug, slug }: Props) {
 
   const error =
     didSubmit && !createState.waiting
-      ? Result.matchWithError(createState, {
-          onInitial: () => null,
-          onSuccess: () => null,
-          onError: (e) => statusCreateErrorMessage(e),
-          onDefect: () => m.tickets_status_create_error_fallback()
-        })
+      ? mutationErrorText(
+          createState,
+          statusCreateErrorMessage,
+          m.tickets_status_create_error_fallback
+        )
       : null
 
   const submit = async () => {

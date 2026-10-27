@@ -12,7 +12,7 @@ import {
   updateOrgBlockFromProject,
   updateProjectBlock
 } from "@/features/library/atoms/library"
-import { failureText } from "@/features/library/components/LibraryRow"
+import { mutationErrorText } from "@/lib/mutationError"
 
 const fire = <A, E extends Readonly<{ _tag: string }>, I>(
   registry: Registry.AtomRegistry,
@@ -21,7 +21,7 @@ const fire = <A, E extends Readonly<{ _tag: string }>, I>(
   onError: (message: string) => void
 ) => {
   void fireMutation(registry, atom, input).then((result) => {
-    const message = failureText(result)
+    const message = mutationErrorText(result)
     if (message !== null) onError(message)
   })
 }

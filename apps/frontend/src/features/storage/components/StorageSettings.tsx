@@ -1,9 +1,8 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { OrgStorageStatus } from "@pp/shared"
 import { getRouteApi } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import {
   IntegrationDetail,
@@ -57,20 +56,23 @@ function StorageContent() {
   const orgResult = useAtomValue(orgDetail(orgRequest(orgSlug)))
   const storageResult = useAtomValue(orgStorage(storageRequest(orgSlug)))
 
-  return Result.matchWithError(orgResult, {
-    onInitial: () => <SettingsSkeleton rows={2} />,
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: () =>
-      Result.matchWithError(storageResult, {
-        onInitial: () => <SettingsSkeleton rows={2} />,
-        onError: (error) => <ErrorPage error={error} contained />,
-        onDefect: (defect) => <ErrorPage error={defect} contained />,
-        onSuccess: ({ value: status, waiting }) => (
-          <StorageForm orgSlug={orgSlug} status={status} waiting={waiting} />
-        )
-      })
-  })
+  return (
+    <AsyncView
+      result={orgResult}
+      contained
+      onInitial={() => <SettingsSkeleton rows={2} />}
+      onSuccess={() => (
+        <AsyncView
+          result={storageResult}
+          contained
+          onInitial={() => <SettingsSkeleton rows={2} />}
+          onSuccess={({ value: status, waiting }) => (
+            <StorageForm orgSlug={orgSlug} status={status} waiting={waiting} />
+          )}
+        />
+      )}
+    />
+  )
 }
 
 function StorageForm({

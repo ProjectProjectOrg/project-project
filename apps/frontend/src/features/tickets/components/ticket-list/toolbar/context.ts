@@ -10,8 +10,6 @@ import type { useTicketSearch } from "../search"
 import type { FilterDimension } from "./model"
 
 export type TicketToolbarProps = Readonly<{
-  orgSlug: string
-  slug: string
   query: TicketListQuery
   onQueryChange: (query: TicketListQuery) => void
   members: ReadonlyArray<Member>

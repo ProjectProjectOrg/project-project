@@ -9,7 +9,7 @@ import {
   X
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
-import { useMemo, useRef } from "react"
+import { useRef } from "react"
 
 import { Button } from "@/components/ui/button"
 import { CollapsingLabel } from "@/components/ui/collapsing-label"
@@ -30,6 +30,7 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import {
   statusMetaFor,
@@ -96,13 +97,13 @@ export function SearchInput() {
 export function Status({
   variant = "toolbar"
 }: Readonly<{ variant?: "toolbar" | "panel" }>) {
-  const { query, patchFilter, counts, orgSlug, slug, controlsCompact } =
-    useTicketToolbar()
+  const { query, patchFilter, counts, controlsCompact } = useTicketToolbar()
+  const { orgSlug, slug } = useProjectRoute()
   const selected = query.status
   const status = selected?.length === 1 ? selected[0] : "all"
   const setStatus = (status: TicketStatus | "all") =>
     patchFilter({ status: status === "all" ? undefined : [status] })
-  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+  const req = statusesRequest(orgSlug, slug)
   const result = useAtomValue(statusesFor(req))
   const statuses = Result.isSuccess(result) ? result.value : []
   const slugs = boardStatusesFor(statuses)

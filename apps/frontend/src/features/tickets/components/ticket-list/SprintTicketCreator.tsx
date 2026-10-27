@@ -30,6 +30,7 @@ import {
 import { menuItemMetaClass } from "@/components/ui/menu-styles"
 import { projectGitStates } from "@/features/github/atoms/github"
 import { projectRequest } from "@/features/projects/atoms/projects"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   assignTicketToSprint,
   quickCreateInSprint,
@@ -41,9 +42,12 @@ import {
   ticketSearch
 } from "@/features/tickets/atoms/ticketSearch"
 import { TYPE_META } from "@/features/tickets/lib/ticketMeta"
+import {
+  mutationErrorText,
+  ticketCreateErrorMessage
+} from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
-import { creatorErrorText } from "../../lib/creatorError"
 import { CreatorTypeMenu } from "./CreatorMenus"
 import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
 import { TicketCreatorShell } from "./TicketCreatorShell"
@@ -57,30 +61,25 @@ type Item =
   | { kind: "existing"; ticket: Ticket; otherSprintName: string | null }
 
 export function SprintTicketCreator({
-  orgSlug,
-  slug,
   groupId,
   excludeIds
 }: {
-  orgSlug: string
-  slug: string
   groupId: GroupId
   excludeIds: ReadonlySet<TicketId>
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const registry = useContext(RegistryContext)
-  const sprintReq = useMemo(
-    () => sprintListRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const sprintReq = sprintListRequest(orgSlug, slug)
   const createAtom = quickCreateInSprint({ req: sprintReq, groupId })
   const create = useAtomSet(createAtom, { mode: "promiseExit" })
   const createState = useAtomValue(createAtom)
   const submitting = createState.waiting
-  const error = creatorErrorText(createState)
-  const projectReq = useMemo(
-    () => projectRequest(orgSlug, slug),
-    [orgSlug, slug]
+  const error = mutationErrorText(
+    createState,
+    ticketCreateErrorMessage,
+    m.tickets_create_error_fallback
   )
+  const projectReq = projectRequest(orgSlug, slug)
   const refreshGitStates = useAtomRefresh(projectGitStates(projectReq))
   const navigate = useNavigate()
 

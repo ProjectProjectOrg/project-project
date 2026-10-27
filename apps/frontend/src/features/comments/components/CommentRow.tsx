@@ -2,6 +2,8 @@ import { useAtomValue, useAtomSet } from "@effect/atom-react"
 import { CommentPolicy } from "@pp/access/policies"
 import type { Comment, TicketId } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
+import * as Exit from "effect/Exit"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -15,7 +17,10 @@ import {
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { Markdown } from "@/features/editor/components/Markdown"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/lib/access"
+import { errorMessage } from "@/lib/errorMessage"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -25,16 +30,14 @@ type Mode = "idle" | "edit"
 export function CommentRow({
   comment,
   pending = false,
-  orgSlug,
-  slug,
+
   ticketId
 }: {
   comment: Comment
   pending?: boolean
-  orgSlug: string
-  slug: string
   ticketId: TicketId
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const actor = useProjectActor()
   const linkedAuthor =
     comment.author.kind === "user" ? comment.author.user : null
@@ -54,7 +57,7 @@ export function CommentRow({
   const editState = useAtomValue(editComment(key))
   const deleteState = useAtomValue(deleteComment(key))
   const waiting = pending || editState.waiting || deleteState.waiting
-  const remove = useAtomSet(deleteComment(key), { mode: "promise" })
+  const remove = useAtomSet(deleteComment(key), { mode: "promiseExit" })
 
   return (
     <InlineForm.Root<Mode>
@@ -106,9 +109,7 @@ export function CommentRow({
                       prompt={m.comments_delete_confirm()}
                       label={m.common_delete_confirm_button()}
                       busyLabel={m.common_deleting_button()}
-                      onConfirm={async () => {
-                        await remove()
-                      }}
+                      onConfirm={async () => Exit.isSuccess(await remove())}
                     />
                   </ConfirmButton.Confirm>
                 </ConfirmButton.Root>
@@ -121,12 +122,7 @@ export function CommentRow({
         </div>
       </InlineForm.Idle>
       <InlineForm.Form action="edit">
-        <EditForm
-          comment={comment}
-          orgSlug={orgSlug}
-          slug={slug}
-          ticketId={ticketId}
-        />
+        <EditForm comment={comment} ticketId={ticketId} />
       </InlineForm.Form>
     </InlineForm.Root>
   )
@@ -134,15 +130,13 @@ export function CommentRow({
 
 function EditForm({
   comment,
-  orgSlug,
-  slug,
+
   ticketId
 }: {
   comment: Comment
-  orgSlug: string
-  slug: string
   ticketId: TicketId
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const [body, setBody] = useState(comment.body)
   const [error, setError] = useState<string | null>(null)
   const edit = useAtomSet(
@@ -150,7 +144,7 @@ function EditForm({
       req: commentsRequest(orgSlug, slug, ticketId),
       commentId: comment.id
     }),
-    { mode: "promise" }
+    { mode: "promiseExit" }
   )
   const { close, busy, setBusy } = useInlineForm()
 
@@ -158,13 +152,16 @@ function EditForm({
     if (!body.trim() || busy) return
     setBusy(true)
     setError(null)
-    try {
-      await edit({ body })
-      close()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : m.comments_save_failed())
-      setBusy(false)
-    }
+    const exit = await edit({ body })
+    if (Exit.isSuccess(exit)) return close()
+    setError(
+      mutationErrorText(
+        AsyncResult.fromExit(exit),
+        errorMessage,
+        m.comments_save_failed
+      )
+    )
+    setBusy(false)
   }
 
   return (

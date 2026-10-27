@@ -1,11 +1,12 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { GithubOrgIntegrationStatus } from "@pp/shared"
 import { getRouteApi } from "@tanstack/react-router"
+import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ExternalLink } from "lucide-react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import {
   SettingsGroup,
   SettingsRow,
@@ -23,6 +24,7 @@ import {
 } from "@/features/integrations/components/IntegrationDetail"
 import { useGithubAppState } from "@/features/integrations/hooks/useOrgIntegrations"
 import { useOrgActor } from "@/lib/access"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -41,33 +43,30 @@ export function GithubIntegrationPage() {
   const canInstall = useOrgActor(orgSlug).call("projects", "startGithubInstall")
   const req = githubOrgRequest(orgSlug)
   const integration = useAtomValue(githubIntegration(req))
-  const startInstall = useAtomSet(startGithubInstall(req), { mode: "promise" })
+  const startInstall = useAtomSet(startGithubInstall(req), {
+    mode: "promiseExit"
+  })
   const installState = useAtomValue(startGithubInstall(req))
   const state = useGithubAppState(orgSlug)
   const status = Result.isSuccess(integration) ? integration.value : null
   const installError = installState.waiting
     ? null
-    : Result.matchWithError(installState, {
-        onInitial: () => null,
-        onSuccess: () => null,
-        onError: (error) =>
+    : mutationErrorText(
+        installState,
+        (error) =>
           Match.value(error).pipe(
             Match.tag("Forbidden", () =>
               m.github_chip_install_app_forbidden_error()
             ),
             Match.orElse(() => m.github_chip_install_app_failed_error())
           ),
-        onDefect: () => m.github_chip_install_app_failed_error()
-      })
+        m.github_chip_install_app_failed_error
+      )
 
   async function install() {
     if (installState.waiting) return
-    try {
-      const { installUrl } = await startInstall({ returnProjectSlug: null })
-      window.location.assign(installUrl)
-    } catch {
-      return
-    }
+    const exit = await startInstall({ returnProjectSlug: null })
+    if (Exit.isSuccess(exit)) window.location.assign(exit.value.installUrl)
   }
 
   const actions =
@@ -130,44 +129,49 @@ function GithubAccount({
   integration: Result.AsyncResult<GithubOrgIntegrationStatus, unknown>
   installError: string | null
 }>) {
-  return Result.matchWithError(integration, {
-    onInitial: () => null,
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value: status }) =>
-      status.status !== "not_connected" ? (
-        <SettingsSection>
-          <SettingsGroup>
-            <SettingsRow
-              label={m.org_integrations_github_account_label()}
-              error={installError ?? status.lastCheckError}
-            >
-              <span className="text-[13px] text-muted-foreground">
-                {status.accountLogin ?? "—"}
-              </span>
-            </SettingsRow>
-            <SettingsRow label={m.org_integrations_github_account_type_label()}>
-              <span className="text-[13px] text-muted-foreground">
-                {status.accountType === "Organization"
-                  ? m.org_integrations_github_account_type_org()
-                  : m.org_integrations_github_account_type_user()}
-              </span>
-            </SettingsRow>
-            {status.lastCheckedAt ? (
+  return (
+    <AsyncView
+      result={integration}
+      contained
+      onInitial={() => null}
+      onSuccess={({ value: status }) =>
+        status.status !== "not_connected" ? (
+          <SettingsSection>
+            <SettingsGroup>
               <SettingsRow
-                label={m.org_integrations_github_last_checked_label()}
+                label={m.org_integrations_github_account_label()}
+                error={installError ?? status.lastCheckError}
               >
                 <span className="text-[13px] text-muted-foreground">
-                  {status.lastCheckedAt.toLocaleDateString(getLocale())}
+                  {status.accountLogin ?? "—"}
                 </span>
               </SettingsRow>
-            ) : null}
-          </SettingsGroup>
-        </SettingsSection>
-      ) : installError ? (
-        <p role="alert" className="text-xs text-destructive">
-          {installError}
-        </p>
-      ) : null
-  })
+              <SettingsRow
+                label={m.org_integrations_github_account_type_label()}
+              >
+                <span className="text-[13px] text-muted-foreground">
+                  {status.accountType === "Organization"
+                    ? m.org_integrations_github_account_type_org()
+                    : m.org_integrations_github_account_type_user()}
+                </span>
+              </SettingsRow>
+              {status.lastCheckedAt ? (
+                <SettingsRow
+                  label={m.org_integrations_github_last_checked_label()}
+                >
+                  <span className="text-[13px] text-muted-foreground">
+                    {status.lastCheckedAt.toLocaleDateString(getLocale())}
+                  </span>
+                </SettingsRow>
+              ) : null}
+            </SettingsGroup>
+          </SettingsSection>
+        ) : installError ? (
+          <p role="alert" className="text-xs text-destructive">
+            {installError}
+          </p>
+        ) : null
+      }
+    />
+  )
 }

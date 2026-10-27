@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
 import { Button } from "@/components/ui/button"
 import { me } from "@/features/auth/atoms/auth"
@@ -16,65 +16,56 @@ import {
 } from "@/features/everhour/atoms/everhour"
 import { EverhourApiKeyWalkthrough } from "@/features/everhour/components/EverhourApiKeyWalkthrough"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { errorMessage } from "@/lib/errorMessage"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
-export function EverhourSettingsRow({
-  orgSlug,
-  slug,
-  canManage
-}: {
-  orgSlug: string
-  slug: string
-  canManage: boolean
-}) {
+export function EverhourSettingsRow({ canManage }: { canManage: boolean }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = everhourProjectRequest(orgSlug, slug)
   const status = useAtomValue(everhourProjectStatusAtom(req))
   const viewer = useAtomValue(me())
 
-  return Result.matchWithError(status, {
-    onInitial: () => (
-      <SettingsRow
-        icon={<IntegrationLogo kind="everhour" />}
-        label={m.project_settings_everhour_heading()}
-        description={
-          <span className="animate-pulse">
-            {m.project_settings_everhour_loading()}
-          </span>
-        }
-      />
-    ),
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value, waiting }) => {
-      const user = Result.isSuccess(viewer) ? viewer.value : null
-      const hasKey = user?.personalEverhour.connected === true
-      return (
-        <EverhourSettingsContent
-          orgSlug={orgSlug}
-          slug={slug}
-          status={value}
-          waiting={waiting}
-          hasKey={hasKey}
-          canManage={canManage}
+  return (
+    <AsyncView
+      result={status}
+      contained
+      onInitial={() => (
+        <SettingsRow
+          icon={<IntegrationLogo kind="everhour" />}
+          label={m.project_settings_everhour_heading()}
+          description={
+            <span className="animate-pulse">
+              {m.project_settings_everhour_loading()}
+            </span>
+          }
         />
-      )
-    }
-  })
+      )}
+      onSuccess={({ value, waiting }) => {
+        const user = Result.isSuccess(viewer) ? viewer.value : null
+        const hasKey = user?.personalEverhour.connected === true
+        return (
+          <EverhourSettingsContent
+            status={value}
+            waiting={waiting}
+            hasKey={hasKey}
+            canManage={canManage}
+          />
+        )
+      }}
+    />
+  )
 }
 
 function EverhourSettingsContent({
-  orgSlug,
-  slug,
   status,
   waiting,
   hasKey,
   canManage
 }: {
-  orgSlug: string
-  slug: string
   status: {
     status: "not_connected" | "active" | "broken"
     everhourProjectId: string | null
@@ -88,14 +79,11 @@ function EverhourSettingsContent({
   hasKey: boolean
   canManage: boolean
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = everhourProjectRequest(orgSlug, slug)
-  const connect = useAtomSet(connectEverhourProjectAtom(req), {
-    mode: "promise"
-  })
-  const sync = useAtomSet(syncEverhourProjectAtom(req), { mode: "promise" })
-  const disconnect = useAtomSet(disconnectEverhourProjectAtom(req), {
-    mode: "promise"
-  })
+  const connect = useAtomSet(connectEverhourProjectAtom(req))
+  const sync = useAtomSet(syncEverhourProjectAtom(req))
+  const disconnect = useAtomSet(disconnectEverhourProjectAtom(req))
   const connectState = useAtomValue(connectEverhourProjectAtom(req))
   const syncState = useAtomValue(syncEverhourProjectAtom(req))
   const disconnectState = useAtomValue(disconnectEverhourProjectAtom(req))
@@ -105,24 +93,21 @@ function EverhourSettingsContent({
     syncState.waiting ||
     disconnectState.waiting
   const mutationError =
-    Result.matchWithError(connectState, {
-      onInitial: () => null,
-      onSuccess: () => null,
-      onError: (err) => errorMessage(err),
-      onDefect: () => m.project_settings_everhour_action_error()
-    }) ??
-    Result.matchWithError(syncState, {
-      onInitial: () => null,
-      onSuccess: () => null,
-      onError: (err) => errorMessage(err),
-      onDefect: () => m.project_settings_everhour_action_error()
-    }) ??
-    Result.matchWithError(disconnectState, {
-      onInitial: () => null,
-      onSuccess: () => null,
-      onError: (err) => errorMessage(err),
-      onDefect: () => m.project_settings_everhour_action_error()
-    })
+    mutationErrorText(
+      connectState,
+      errorMessage,
+      m.project_settings_everhour_action_error
+    ) ??
+    mutationErrorText(
+      syncState,
+      errorMessage,
+      m.project_settings_everhour_action_error
+    ) ??
+    mutationErrorText(
+      disconnectState,
+      errorMessage,
+      m.project_settings_everhour_action_error
+    )
   const error =
     status.lastSyncStatus === "ok"
       ? null
@@ -179,7 +164,7 @@ function EverhourSettingsContent({
           size="sm"
           loading={connectState.waiting}
           disabled={busy}
-          onClick={() => void connect()}
+          onClick={() => connect()}
         >
           {m.project_settings_everhour_connect_button()}
         </Button>
@@ -192,7 +177,7 @@ function EverhourSettingsContent({
             size="sm"
             loading={syncState.waiting}
             disabled={busy}
-            onClick={() => void sync()}
+            onClick={() => sync()}
           >
             {m.project_settings_everhour_sync_button()}
           </Button>
@@ -202,7 +187,7 @@ function EverhourSettingsContent({
             size="sm"
             loading={disconnectState.waiting}
             disabled={busy}
-            onClick={() => void disconnect()}
+            onClick={() => disconnect()}
           >
             {m.project_settings_everhour_disconnect_button()}
           </Button>

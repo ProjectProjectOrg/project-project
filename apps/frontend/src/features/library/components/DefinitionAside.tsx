@@ -35,13 +35,13 @@ import {
   PRIORITY_ORDER
 } from "@/features/tickets/lib/priorityMeta"
 import { TYPE_LABELS } from "@/features/tickets/lib/ticketMeta"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { setDefaultsAtom, type LibraryScope } from "../atoms/libraryScope"
 import { TICKET_TYPES } from "../lib/libraryModel"
 import { BlockIconGlyph } from "./BlockIconGlyph"
-import { failureText } from "./LibraryRow"
 
 const NO_PRIORITY = "none" as const
 
@@ -430,7 +430,7 @@ export function DefaultForField({
   const mutation = setDefaultsAtom(scope)
   const setDefaults = useAtomSet(mutation)
   const state = useAtomValue(mutation)
-  const error = failureText(state)
+  const error = mutationErrorText(state)
   const current = typesDefaultingTo(library.defaults, templateKey)
   const others = TICKET_TYPES.filter((type) => !current.includes(type))
   const add = (type: TicketType) =>

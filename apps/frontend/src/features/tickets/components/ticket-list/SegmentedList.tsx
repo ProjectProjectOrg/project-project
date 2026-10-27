@@ -13,7 +13,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { FilterX, ListChecks } from "lucide-react"
 import { useMemo, type ReactNode } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
 import {
   Empty,
@@ -27,6 +27,7 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import {
   backlogRequest,
@@ -45,22 +46,19 @@ const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
 const EMPTY_PAGE: TicketRowPage = { items: [], nextCursor: null }
 
 export function SegmentedList({
-  orgSlug,
-  slug,
   query,
   members,
   extraRowActions,
   sprintMembership,
   snapshot
 }: {
-  orgSlug: string
-  slug: string
   query: TicketListQuery
   members: ReadonlyArray<Member>
   extraRowActions?: (ticket: Ticket) => ReactNode
   sprintMembership?: ReadonlyMap<TicketId, Group>
   snapshot: BacklogValue
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const router = useRouter()
   const navigate = useNavigate()
   const resetFilters = () => {
@@ -88,10 +86,7 @@ export function SegmentedList({
   const preview = useTicketPreview()
   const update = backlogTicketUpdates(backlogRequest(orgSlug, slug, query))
 
-  const statusReq = useMemo(
-    () => statusesRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const statusReq = statusesRequest(orgSlug, slug)
   const statusesResult = useAtomValue(statusesFor(statusReq))
   const refreshStatuses = useAtomRefresh(statusesFor(statusReq))
   const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(
@@ -131,21 +126,20 @@ export function SegmentedList({
   const showExtraActionsCol = extraRowActions !== undefined
 
   if (!Result.isSuccess(statusesResult)) {
-    return Result.matchWithError(statusesResult, {
-      onInitial: () => (
-        <div
-          aria-busy="true"
-          className="h-96 animate-pulse rounded-lg bg-muted/40 motion-reduce:animate-none"
-        />
-      ),
-      onError: (error) => (
-        <ErrorPage error={error} reset={refreshStatuses} contained />
-      ),
-      onDefect: (defect) => (
-        <ErrorPage error={defect} reset={refreshStatuses} contained />
-      ),
-      onSuccess: () => null
-    })
+    return (
+      <AsyncView
+        result={statusesResult}
+        contained
+        reset={refreshStatuses}
+        onInitial={() => (
+          <div
+            aria-busy="true"
+            className="h-96 animate-pulse rounded-lg bg-muted/40 motion-reduce:animate-none"
+          />
+        )}
+        onSuccess={() => null}
+      />
+    )
   }
 
   if (counts.total === 0 && !hasActiveFilter) {
@@ -202,8 +196,6 @@ export function SegmentedList({
             key={status}
             persistKey={persistKey}
             searchQuery={query.q}
-            orgSlug={orgSlug}
-            slug={slug}
             status={status}
             statuses={statuses}
             query={query}
@@ -228,8 +220,7 @@ export function SegmentedList({
 function StatusSection({
   persistKey,
   searchQuery,
-  orgSlug,
-  slug,
+
   status,
   statuses,
   query,
@@ -247,8 +238,6 @@ function StatusSection({
 }: {
   persistKey: string
   searchQuery: string | undefined
-  orgSlug: string
-  slug: string
   status: TicketStatus
   statuses: ReadonlyArray<ProjectStatus>
   query: TicketListQuery
@@ -271,8 +260,6 @@ function StatusSection({
   )
   return (
     <SectionList
-      orgSlug={orgSlug}
-      slug={slug}
       status={status}
       statuses={statuses}
       query={query}

@@ -15,6 +15,7 @@ import * as Random from "effect/Random"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useRef, useState } from "react"
 
+import { AsyncView } from "@/components/shell/AsyncView"
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
   cancelJiraMigration,
@@ -36,6 +37,7 @@ import {
   type JiraDraftSave
 } from "@/features/jira/forms/migration"
 import { useJiraMigrationPolling } from "@/features/jira/hooks/useJiraMigrationPolling"
+import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -154,12 +156,7 @@ function ConnectedSource({
   const requestId = useRef<string | null>(null)
   const [cloudId, setCloudId] = useState("")
   const [projectId, setProjectId] = useState("")
-  const scanError = Result.matchWithError(createResult, {
-    onInitial: () => null,
-    onSuccess: () => null,
-    onError: () => m.jira_migration_error_generic(),
-    onDefect: () => m.jira_migration_error_generic()
-  })
+  const scanError = jiraMigrationActionError(createResult)
 
   const changeCloudId = (nextCloudId: string) => {
     requestId.current = null
@@ -184,59 +181,59 @@ function ConnectedSource({
     }
   }
 
-  return Result.matchWithError(sitesResult, {
-    onInitial: () => (
-      <SourceView
-        orgSlug={orgSlug}
-        connection={connection}
-        sites={[]}
-        projects={[]}
-        cloudId={cloudId}
-        projectId={projectId}
-        setCloudId={changeCloudId}
-        setProjectId={changeProjectId}
-        sitesLoading
-        scanWaiting={createResult.waiting}
-        scanError={scanError}
-        onScan={() => void scan()}
-      />
-    ),
-    onError: (error) => (
-      <ErrorPage error={error} reset={retrySites} contained />
-    ),
-    onDefect: (defect) => (
-      <ErrorPage error={defect} reset={retrySites} contained />
-    ),
-    onSuccess: ({ value }) =>
-      cloudId ? (
-        <ProjectsSource
-          orgSlug={orgSlug}
-          connection={connection}
-          sites={value}
-          cloudId={cloudId}
-          projectId={projectId}
-          setCloudId={changeCloudId}
-          setProjectId={changeProjectId}
-          scanWaiting={createResult.waiting}
-          scanError={scanError}
-          onScan={() => void scan()}
-        />
-      ) : (
+  return (
+    <AsyncView
+      result={sitesResult}
+      contained
+      reset={retrySites}
+      onInitial={() => (
         <SourceView
           orgSlug={orgSlug}
           connection={connection}
-          sites={value}
+          sites={[]}
           projects={[]}
           cloudId={cloudId}
           projectId={projectId}
           setCloudId={changeCloudId}
           setProjectId={changeProjectId}
+          sitesLoading
           scanWaiting={createResult.waiting}
           scanError={scanError}
           onScan={() => void scan()}
         />
-      )
-  })
+      )}
+      onSuccess={({ value }) =>
+        cloudId ? (
+          <ProjectsSource
+            orgSlug={orgSlug}
+            connection={connection}
+            sites={value}
+            cloudId={cloudId}
+            projectId={projectId}
+            setCloudId={changeCloudId}
+            setProjectId={changeProjectId}
+            scanWaiting={createResult.waiting}
+            scanError={scanError}
+            onScan={() => void scan()}
+          />
+        ) : (
+          <SourceView
+            orgSlug={orgSlug}
+            connection={connection}
+            sites={value}
+            projects={[]}
+            cloudId={cloudId}
+            projectId={projectId}
+            setCloudId={changeCloudId}
+            setProjectId={changeProjectId}
+            scanWaiting={createResult.waiting}
+            scanError={scanError}
+            onScan={() => void scan()}
+          />
+        )
+      }
+    />
+  )
 }
 
 function makeRequestId(): string {
@@ -278,45 +275,44 @@ function ProjectsSource({
     refreshProjects()
   }
 
-  return Result.matchWithError(projectsResult, {
-    onInitial: () => (
-      <SourceView
-        orgSlug={orgSlug}
-        connection={connection}
-        sites={sites}
-        projects={[]}
-        cloudId={cloudId}
-        projectId={projectId}
-        setCloudId={setCloudId}
-        setProjectId={setProjectId}
-        projectsLoading
-        scanWaiting={scanWaiting}
-        scanError={scanError}
-        onScan={onScan}
-      />
-    ),
-    onError: (error) => (
-      <ErrorPage error={error} reset={retryProjects} contained />
-    ),
-    onDefect: (defect) => (
-      <ErrorPage error={defect} reset={retryProjects} contained />
-    ),
-    onSuccess: ({ value }) => (
-      <SourceView
-        orgSlug={orgSlug}
-        connection={connection}
-        sites={sites}
-        projects={value}
-        cloudId={cloudId}
-        projectId={projectId}
-        setCloudId={setCloudId}
-        setProjectId={setProjectId}
-        scanWaiting={scanWaiting}
-        scanError={scanError}
-        onScan={onScan}
-      />
-    )
-  })
+  return (
+    <AsyncView
+      result={projectsResult}
+      contained
+      reset={retryProjects}
+      onInitial={() => (
+        <SourceView
+          orgSlug={orgSlug}
+          connection={connection}
+          sites={sites}
+          projects={[]}
+          cloudId={cloudId}
+          projectId={projectId}
+          setCloudId={setCloudId}
+          setProjectId={setProjectId}
+          projectsLoading
+          scanWaiting={scanWaiting}
+          scanError={scanError}
+          onScan={onScan}
+        />
+      )}
+      onSuccess={({ value }) => (
+        <SourceView
+          orgSlug={orgSlug}
+          connection={connection}
+          sites={sites}
+          projects={value}
+          cloudId={cloudId}
+          projectId={projectId}
+          setCloudId={setCloudId}
+          setProjectId={setProjectId}
+          scanWaiting={scanWaiting}
+          scanError={scanError}
+          onScan={onScan}
+        />
+      )}
+    />
+  )
 }
 
 function SourceView({
@@ -387,19 +383,16 @@ function ResumeRegion({
         {m.jira_migration_resume_description()}
       </p>
       <div className="mt-4">
-        {Result.matchWithError(result, {
-          onInitial: () => (
+        <AsyncView
+          result={result}
+          contained
+          reset={refreshMigrations}
+          onInitial={() => (
             <p className="text-sm text-muted-foreground">
               {m.jira_migration_resume_loading()}
             </p>
-          ),
-          onError: (error) => (
-            <ErrorPage error={error} reset={refreshMigrations} contained />
-          ),
-          onDefect: (defect) => (
-            <ErrorPage error={defect} reset={refreshMigrations} contained />
-          ),
-          onSuccess: ({ value }) =>
+          )}
+          onSuccess={({ value }) =>
             value.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 {m.jira_migration_resume_empty()}
@@ -436,7 +429,8 @@ function ResumeRegion({
                 ))}
               </ul>
             )
-        })}
+          }
+        />
       </div>
     </div>
   )
@@ -454,22 +448,24 @@ export function JiraMigrationItemPage({
   const detail = useAtomValue(detailAtom)
   const refreshDetail = useAtomRefresh(detailAtom)
 
-  return Result.matchWithError(detail, {
-    onInitial: () => (
-      <JiraMigrationShell orgSlug={orgSlug} currentStep="snapshot">
-        <SourceSkeleton />
-      </JiraMigrationShell>
-    ),
-    onError: (error) => <ErrorPage error={error} reset={refreshDetail} />,
-    onDefect: (defect) => <ErrorPage error={defect} reset={refreshDetail} />,
-    onSuccess: ({ value, waiting }) => (
-      <JiraMigrationDetailPage
-        orgSlug={orgSlug}
-        detail={value}
-        waiting={waiting}
-      />
-    )
-  })
+  return (
+    <AsyncView
+      result={detail}
+      reset={refreshDetail}
+      onInitial={() => (
+        <JiraMigrationShell orgSlug={orgSlug} currentStep="snapshot">
+          <SourceSkeleton />
+        </JiraMigrationShell>
+      )}
+      onSuccess={({ value, waiting }) => (
+        <JiraMigrationDetailPage
+          orgSlug={orgSlug}
+          detail={value}
+          waiting={waiting}
+        />
+      )}
+    />
+  )
 }
 
 function JiraMigrationDetailPage({
@@ -645,12 +641,11 @@ function JiraMigrationDetailPage({
 function jiraMigrationActionError(
   result: Result.AsyncResult<unknown, unknown>
 ): string | null {
-  return Result.matchWithError(result, {
-    onInitial: () => null,
-    onSuccess: () => null,
-    onError: () => m.jira_migration_error_generic(),
-    onDefect: () => m.jira_migration_error_generic()
-  })
+  return mutationErrorText(
+    result,
+    () => m.jira_migration_error_generic(),
+    m.jira_migration_error_generic
+  )
 }
 
 function stageIndex(step: JiraMigrationStep) {

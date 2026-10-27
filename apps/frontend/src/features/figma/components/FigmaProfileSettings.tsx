@@ -1,7 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import * as Result from "effect/reactivity/AsyncResult"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
 import { Button } from "@/components/ui/button"
 import {
@@ -9,7 +8,7 @@ import {
   disconnectFigmaProfileAtom
 } from "@/features/figma/atoms/figma"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
-import { errorMessage } from "@/lib/errorMessage"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -20,26 +19,28 @@ export function FigmaProfileSettings({
 }) {
   const profile = useAtomValue(figmaProfileAtom)
 
-  return Result.matchWithError(profile, {
-    onInitial: () => (
-      <SettingsRow
-        icon={<IntegrationLogo kind="figma" />}
-        label={m.figma_profile_title()}
-        description={
-          <span className="block h-3 w-40 animate-pulse rounded bg-muted" />
-        }
-      />
-    ),
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value, waiting }) => (
-      <FigmaProfileContent
-        profile={value}
-        waiting={waiting}
-        oauthError={oauthError}
-      />
-    )
-  })
+  return (
+    <AsyncView
+      result={profile}
+      contained
+      onInitial={() => (
+        <SettingsRow
+          icon={<IntegrationLogo kind="figma" />}
+          label={m.figma_profile_title()}
+          description={
+            <span className="block h-3 w-40 animate-pulse rounded bg-muted" />
+          }
+        />
+      )}
+      onSuccess={({ value, waiting }) => (
+        <FigmaProfileContent
+          profile={value}
+          waiting={waiting}
+          oauthError={oauthError}
+        />
+      )}
+    />
+  )
 }
 
 function FigmaProfileContent({
@@ -55,17 +56,10 @@ function FigmaProfileContent({
   waiting: boolean
   oauthError: string | null
 }) {
-  const disconnect = useAtomSet(disconnectFigmaProfileAtom, {
-    mode: "promise"
-  })
+  const disconnect = useAtomSet(disconnectFigmaProfileAtom)
   const disconnectState = useAtomValue(disconnectFigmaProfileAtom)
   const busy = waiting || disconnectState.waiting
-  const disconnectError = Result.matchWithError(disconnectState, {
-    onInitial: () => null,
-    onSuccess: () => null,
-    onError: (err) => errorMessage(err),
-    onDefect: () => m.error_unknown()
-  })
+  const disconnectError = mutationErrorText(disconnectState)
   const error = oauthError ?? disconnectError
 
   return (
@@ -89,7 +83,7 @@ function FigmaProfileContent({
           variant="tertiary"
           size="sm"
           disabled={busy}
-          onClick={() => void disconnect()}
+          onClick={() => disconnect()}
         >
           {m.figma_profile_disconnect_button()}
         </Button>

@@ -19,6 +19,7 @@ import {
   DropdownMenuList,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   applyTagsInEditor,
   createTagInEditor,
@@ -36,8 +37,6 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type Props = {
-  orgSlug: string
-  slug: string
   ticket: TicketDetail
   canManageTags: boolean
 }
@@ -49,12 +48,10 @@ const matchesTag = (text: string, query: string) =>
   text.includes(query.toLowerCase())
 const idleUsageCountsAtom = Atom.make(Result.initial<Record<string, number>>())
 
-export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
-  const tagsReq = useMemo(() => tagsRequest(orgSlug, slug), [orgSlug, slug])
-  const editorReq = useMemo(
-    () => tagEditorRequest(orgSlug, slug, ticket.id),
-    [orgSlug, slug, ticket.id]
-  )
+export function TagEditor({ ticket, canManageTags }: Props) {
+  const { orgSlug, slug } = useProjectRoute()
+  const tagsReq = tagsRequest(orgSlug, slug)
+  const editorReq = tagEditorRequest(orgSlug, slug, ticket.id)
   const editorResult = useAtomValue(tagEditor(editorReq))
   const [managedTag, setManagedTag] = useState<string | null>(null)
   const usageResult = useAtomValue(

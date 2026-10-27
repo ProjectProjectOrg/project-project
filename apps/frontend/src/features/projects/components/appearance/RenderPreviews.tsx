@@ -7,12 +7,11 @@ import {
 import { ProjectBanner as ProjectBannerSurface } from "@/features/projects/components/ProjectBanner"
 import { ProjectIconDisplay } from "@/features/projects/components/ProjectIconDisplay"
 import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function RenderPreviews({
-  orgSlug,
-  slug,
   name,
   projectKey,
   icon,
@@ -22,8 +21,6 @@ export function RenderPreviews({
   live,
   waiting = false
 }: {
-  orgSlug: string
-  slug: string
   name: string
   projectKey: string
   icon: string
@@ -33,6 +30,7 @@ export function RenderPreviews({
   live?: LiveIcon | null
   waiting?: boolean
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const header = (
     <ProjectIconTile
       orgSlug={orgSlug}

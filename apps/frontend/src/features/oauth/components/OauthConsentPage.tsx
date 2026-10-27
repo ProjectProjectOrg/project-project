@@ -16,6 +16,7 @@ import {
 } from "@/features/oauth/atoms/oauthConsent"
 import { rawQueryFromSearch } from "@/features/oauth/lib/oauthQuery"
 import { oauthConsentErrorMessage } from "@/lib/errorMessage"
+import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi("/(public)/oauth/consent")
@@ -67,12 +68,11 @@ function ConsentForm({
       ? clientName.value.name?.trim() || null
       : null) ?? m.auth_oauth_consent_client_fallback()
   const [pending, setPending] = useState<"accept" | "deny" | null>(null)
-  const error = Result.matchWithError(submitState, {
-    onInitial: () => null,
-    onSuccess: () => null,
-    onError: oauthConsentErrorMessage,
-    onDefect: () => m.auth_oauth_consent_error_retry()
-  })
+  const error = mutationErrorText(
+    submitState,
+    oauthConsentErrorMessage,
+    m.auth_oauth_consent_error_retry
+  )
 
   const onSubmit = async (accept: boolean) => {
     setPending(accept ? "accept" : "deny")

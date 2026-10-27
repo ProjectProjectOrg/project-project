@@ -7,7 +7,6 @@ import {
   type OrgEmailStatus
 } from "@pp/shared"
 import * as Exit from "effect/Exit"
-import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { useState } from "react"
 
@@ -28,6 +27,7 @@ import {
 } from "@/features/organizations/atoms/email"
 import { errorMessage, emailFailureMessage } from "@/lib/errorMessage"
 import { useAppForm } from "@/lib/form"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -59,19 +59,15 @@ export function OrgEmailForm({
   >(null)
   const actionError =
     lastAction &&
-    Result.matchWithError(
+    mutationErrorText(
       { save: saveState, test: testState, disconnect: disconnectState }[
         lastAction
       ],
-      {
-        onInitial: () => null,
-        onSuccess: () => null,
-        onError: (error) =>
-          isExpectedError(error)
-            ? errorMessage(error)
-            : m.org_email_error_delivery(),
-        onDefect: () => m.org_email_error_delivery()
-      }
+      (error) =>
+        isExpectedError(error)
+          ? errorMessage(error)
+          : m.org_email_error_delivery(),
+      m.org_email_error_delivery
     )
   const form = useAppForm({
     ...emailFormOpts,

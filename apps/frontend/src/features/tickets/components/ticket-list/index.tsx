@@ -6,11 +6,13 @@ import type {
   TicketId,
   TicketListQuery
 } from "@pp/shared"
+import * as Equal from "effect/Equal"
 import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Activity, useMemo, useState, type ReactNode } from "react"
+import { Activity, useState, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   backlog,
   backlogRequest,
@@ -24,8 +26,6 @@ import { SegmentedList } from "./SegmentedList"
 import { CreatorActiveScope, DimWhileCreating } from "./TicketCreatorShell"
 
 type TicketListProps = Readonly<{
-  orgSlug: string
-  slug: string
   query: TicketListQuery
   members: ReadonlyArray<Member>
   extraRowActions?: (ticket: Ticket) => ReactNode
@@ -52,13 +52,7 @@ export function TicketList({
   return (
     <CreatorActiveScope>
       <div className="group/list flex flex-col gap-3">
-        {creator ?? (
-          <BacklogTicketCreator
-            orgSlug={props.orgSlug}
-            slug={props.slug}
-            query={props.query}
-          />
-        )}
+        {creator ?? <BacklogTicketCreator query={props.query} />}
         <DimWhileCreating className="flex flex-col gap-3 transition-opacity duration-200 ease-out">
           {toolbar}
           <TicketListContent
@@ -101,8 +95,6 @@ function useShownOnce(visible: boolean): boolean {
 }
 
 function StatusSections({
-  orgSlug,
-  slug,
   query,
   members,
   extraRowActions,
@@ -110,10 +102,8 @@ function StatusSections({
   alternate,
   showAlternate = false
 }: Omit<TicketListProps, "creator" | "toolbar" | "sections">) {
-  const req = useMemo(
-    () => backlogRequest(orgSlug, slug, query),
-    [orgSlug, slug, query]
-  )
+  const { orgSlug, slug } = useProjectRoute()
+  const req = backlogRequest(orgSlug, slug, query)
   const result = useAtomValue(backlog(req))
   const refresh = useAtomRefresh(backlog(req))
   const [previous, setPrevious] = useState<{
@@ -123,14 +113,14 @@ function StatusSections({
   } | null>(null)
   if (
     Result.isSuccess(result) &&
-    (previous?.req !== req || previous.value !== result.value)
+    (!Equal.equals(previous?.req, req) || previous?.value !== result.value)
   ) {
     setPrevious({ req, query, value: result.value })
   }
   const retainedResult = useAtomValue(backlog(previous?.req ?? req))
   const active = Result.isSuccess(result)
     ? { req, query, value: result.value }
-    : Result.isFailure(result) && previous?.req !== req
+    : Result.isFailure(result) && !Equal.equals(previous?.req, req)
       ? null
       : previous && {
           ...previous,
@@ -145,8 +135,6 @@ function StatusSections({
         <Activity mode={showAlternate ? "hidden" : "visible"}>
           <SegmentedList
             key={`${orgSlug}/${slug}`}
-            orgSlug={orgSlug}
-            slug={slug}
             query={active.query}
             members={members}
             snapshot={active.value}

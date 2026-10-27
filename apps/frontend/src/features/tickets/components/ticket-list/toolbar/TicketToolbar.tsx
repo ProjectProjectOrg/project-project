@@ -9,8 +9,6 @@ import { ClearAll, SearchInput, Status } from "./parts"
 import { ViewOptions } from "./ViewOptions"
 
 export function TicketToolbar({
-  orgSlug,
-  slug,
   query,
   onQueryChange,
   members,
@@ -60,8 +58,6 @@ export function TicketToolbar({
   return (
     <TicketToolbarContext
       value={{
-        orgSlug,
-        slug,
         viewControls,
         query,
         onQueryChange,

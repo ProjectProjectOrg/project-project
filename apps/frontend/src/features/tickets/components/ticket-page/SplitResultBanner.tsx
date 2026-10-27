@@ -3,17 +3,15 @@ import { Link, useNavigate } from "@tanstack/react-router"
 import { Split, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { m } from "@/paraglide/messages"
 
 export function SplitResultBanner({
-  orgSlug,
-  slug,
   created
 }: {
-  orgSlug: string
-  slug: string
   created: ReadonlyArray<TicketId>
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const navigate = useNavigate({
     from: "/orgs/$orgSlug/projects/$slug/tickets/$id"
   })

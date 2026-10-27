@@ -1,7 +1,7 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { GitStatesResponse } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useRef } from "react"
 
 import {
   invalidateGitStateTickets,
@@ -22,7 +22,7 @@ export function useProjectGitStatePolling(
   slug: string,
   enabled: boolean
 ) {
-  const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
+  const req = projectRequest(orgSlug, slug)
   const states = useAtomValue(projectGitStates(req))
   const refresh = useAtomRefresh(projectGitStates(req))
   const invalidateTickets = useAtomSet(invalidateGitStateTickets(req))

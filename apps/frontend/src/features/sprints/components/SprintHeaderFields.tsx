@@ -17,7 +17,7 @@ import {
   Trash2,
   Trophy
 } from "lucide-react"
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
+import { useRef, useState, type KeyboardEvent } from "react"
 import type { DateRange } from "react-day-picker"
 
 import { Calendar } from "@/components/ui/calendar"
@@ -35,6 +35,7 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   completeSprint,
   deleteSprint,
@@ -55,17 +56,14 @@ const shortDateFormatter = () =>
   })
 
 export function SprintStatusSelect({
-  orgSlug,
-  slug,
   sprint,
   sprints
 }: {
-  orgSlug: string
-  slug: string
   sprint: Group
   sprints: ReadonlyArray<Group>
 }) {
-  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const { orgSlug, slug } = useProjectRoute()
+  const req = sprintListRequest(orgSlug, slug)
   const complete = useAtomSet(completeSprint({ req, groupId: sprint.id }))
   const completeState = useAtomValue(
     completeSprint({ req, groupId: sprint.id })
@@ -156,17 +154,14 @@ export function SprintStatusSelect({
 }
 
 export function SprintNameField({
-  orgSlug,
-  slug,
   sprint,
   disabled
 }: {
-  orgSlug: string
-  slug: string
   sprint: Group
   disabled: boolean
 }) {
-  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const { orgSlug, slug } = useProjectRoute()
+  const req = sprintListRequest(orgSlug, slug)
   const update = useAtomSet(updateSprint({ req, groupId: sprint.id }), {
     mode: "promiseExit"
   })
@@ -175,10 +170,6 @@ export function SprintNameField({
   const failed = Result.isFailure(updateState)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(sprint.name)
-
-  useEffect(() => {
-    if (!editing) setDraft(sprint.name)
-  }, [editing, sprint.name])
 
   async function commit() {
     const trimmed = draft.trim()
@@ -206,7 +197,11 @@ export function SprintNameField({
     return (
       <button
         type="button"
-        onClick={() => !disabled && setEditing(true)}
+        onClick={() => {
+          if (disabled) return
+          setDraft(sprint.name)
+          setEditing(true)
+        }}
         disabled={disabled}
         className={cn(
           "-mx-1 truncate rounded px-1 text-left text-2xl font-semibold tracking-tight transition-colors transition-transform duration-100 active:scale-[0.97]",
@@ -242,13 +237,9 @@ export function SprintNameField({
 }
 
 export function SprintSubtitle({
-  orgSlug,
-  slug,
   sprint,
   disabled
 }: {
-  orgSlug: string
-  slug: string
   sprint: Group
   disabled: boolean
 }) {
@@ -256,12 +247,7 @@ export function SprintSubtitle({
   const left = daysLeft(sprint.endsAt)
   return (
     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-      <SprintDatesField
-        orgSlug={orgSlug}
-        slug={slug}
-        sprint={sprint}
-        disabled={disabled}
-      />
+      <SprintDatesField sprint={sprint} disabled={disabled} />
       {state === "active" && left !== null && left >= 0 && (
         <span className="font-mono tabular-nums">
           {m.sprints_active_with_days_left({ days: left })}
@@ -279,38 +265,26 @@ export function SprintSubtitle({
           })}
         </span>
       )}
-      <SprintEstimateTotals orgSlug={orgSlug} slug={slug} groupId={sprint.id} />
+      <SprintEstimateTotals groupId={sprint.id} />
     </div>
   )
 }
 
 function SprintDatesField({
-  orgSlug,
-  slug,
   sprint,
   disabled
 }: {
-  orgSlug: string
-  slug: string
   sprint: Group
   disabled: boolean
 }) {
-  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const { orgSlug, slug } = useProjectRoute()
+  const req = sprintListRequest(orgSlug, slug)
   const update = useAtomSet(updateSprint({ req, groupId: sprint.id }))
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<DateRange>({
     from: sprint.startsAt ?? undefined,
     to: sprint.endsAt ?? undefined
   })
-
-  useEffect(() => {
-    if (!open) {
-      setDraft({
-        from: sprint.startsAt ?? undefined,
-        to: sprint.endsAt ?? undefined
-      })
-    }
-  }, [open, sprint.startsAt, sprint.endsAt])
 
   const fmt = shortDateFormatter()
   const label =
@@ -326,7 +300,12 @@ function SprintDatesField({
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
-        if (!next) {
+        if (next) {
+          setDraft({
+            from: sprint.startsAt ?? undefined,
+            to: sprint.endsAt ?? undefined
+          })
+        } else {
           const nextStart = draft.from ?? null
           const nextEnd = draft.to ?? null
           const prevStart = sprint.startsAt ?? null
@@ -364,18 +343,15 @@ function SprintDatesField({
 }
 
 export function SprintDeleteMenu({
-  orgSlug,
-  slug,
   sprint,
   sprints
 }: {
-  orgSlug: string
-  slug: string
   sprint: Group
   sprints: ReadonlyArray<Group>
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const navigate = useNavigate()
-  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const req = sprintListRequest(orgSlug, slug)
   const complete = useAtomSet(completeSprint({ req, groupId: sprint.id }))
   const completeState = useAtomValue(
     completeSprint({ req, groupId: sprint.id })

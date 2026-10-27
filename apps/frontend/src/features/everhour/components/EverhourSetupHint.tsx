@@ -1,14 +1,10 @@
 import { Link } from "@tanstack/react-router"
 
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import * as m from "@/paraglide/messages"
 
-export function EverhourSetupHint({
-  orgSlug,
-  slug
-}: {
-  orgSlug: string
-  slug: string
-}) {
+export function EverhourSetupHint() {
+  const { orgSlug, slug } = useProjectRoute()
   return (
     <div className="flex flex-col gap-1">
       <p className="text-xs text-muted-foreground">{m.time_setup_hint()}</p>

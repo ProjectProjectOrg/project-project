@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState, type FormEvent } from "react"
 
@@ -13,7 +14,9 @@ export function ConnectEverhourInline({
   onConnected?: () => void
 }) {
   const [apiKey, setApiKey] = useState("")
-  const connect = useAtomSet(connectEverhourProfileAtom, { mode: "promise" })
+  const connect = useAtomSet(connectEverhourProfileAtom, {
+    mode: "promiseExit"
+  })
   const connectState = useAtomValue(connectEverhourProfileAtom)
   const waiting = connectState.waiting
   const error = Result.isFailure(connectState) ? m.time_connect_error() : null
@@ -22,9 +25,10 @@ export function ConnectEverhourInline({
     event.preventDefault()
     const trimmed = apiKey.trim()
     if (!trimmed) return
-    const profile = await connect({ apiKey: trimmed })
+    const exit = await connect({ apiKey: trimmed })
+    if (Exit.isFailure(exit)) return
     setApiKey("")
-    if (profile.connected) onConnected?.()
+    if (exit.value.connected) onConnected?.()
   }
 
   return (

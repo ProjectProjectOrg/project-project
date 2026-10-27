@@ -13,8 +13,8 @@ import * as Random from "effect/Random"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import {
+  useCallback,
   useContext,
-  useEffect,
   useId,
   useMemo,
   useRef,
@@ -24,11 +24,12 @@ import {
 } from "react"
 
 import { comboboxProps } from "@/components/ui/menu-listbox"
-import { me } from "@/features/auth/atoms/auth"
+import { currentUserId } from "@/features/auth/atoms/auth"
 import {
   project as projectView,
   projectRequest
 } from "@/features/projects/atoms/projects"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   assignTicketToSprint,
   sprintList,
@@ -44,9 +45,12 @@ import {
   type SprintSectionsRequest
 } from "@/features/tickets/atoms/sprintSections"
 import type { QuickCreateInput } from "@/features/tickets/lib/ticketRows"
+import {
+  mutationErrorText,
+  ticketCreateErrorMessage
+} from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
-import { creatorErrorText } from "../../lib/creatorError"
 import { CreatorSprintMenu, CreatorTypeMenu } from "./CreatorMenus"
 import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
 import { useCreatorFocus } from "./useCreatorFocus"
@@ -55,8 +59,6 @@ import { useTemplateChoice, useTicketTypeChoice } from "./useTemplateChoice"
 const isGroupId = Schema.is(GroupId)
 
 type CreatorProps = Readonly<{
-  orgSlug: string
-  slug: string
   status: TicketStatus
   query: TicketListQuery
   containerRef: RefObject<HTMLDivElement | null>
@@ -84,11 +86,9 @@ export function SectionTicketCreator({
 }
 
 function StatusSectionTicketCreator(props: CreatorProps) {
-  const { orgSlug, slug, query } = props
-  const req = useMemo(
-    () => backlogRequest(orgSlug, slug, query),
-    [orgSlug, slug, query]
-  )
+  const { orgSlug, slug } = useProjectRoute()
+  const { query } = props
+  const req = backlogRequest(orgSlug, slug, query)
   const create = useAtomSet(quickCreateBacklogTicket(req), {
     mode: "promiseExit"
   })
@@ -98,7 +98,11 @@ function StatusSectionTicketCreator(props: CreatorProps) {
       {...props}
       create={create}
       submitting={state.waiting}
-      error={creatorErrorText(state)}
+      error={mutationErrorText(
+        state,
+        ticketCreateErrorMessage,
+        m.tickets_create_error_fallback
+      )}
       assignsSprint
     />
   )
@@ -116,7 +120,11 @@ function SprintSectionTicketCreator(
   })
   const state = useAtomValue(quickCreateSprintSectionsTicket({ req, key }))
   const error = Result.isFailure(state)
-    ? creatorErrorText(state)
+    ? mutationErrorText(
+        state,
+        ticketCreateErrorMessage,
+        m.tickets_create_error_fallback
+      )
     : Result.isSuccess(state) && state.value.sprintAssignmentFailed
       ? m.tickets_create_sprint_assignment_failed()
       : null
@@ -132,8 +140,6 @@ function SprintSectionTicketCreator(
 }
 
 function SectionCreatorForm({
-  orgSlug,
-  slug,
   status,
   query,
   containerRef,
@@ -149,10 +155,10 @@ function SectionCreatorForm({
     error: string | null
     assignsSprint: boolean
   }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const registry = useContext(RegistryContext)
 
-  const viewer = useAtomValue(me())
-  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
+  const viewerId = useAtomValue(currentUserId)
 
   const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
   const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
@@ -160,10 +166,7 @@ function SectionCreatorForm({
     ? project.value.estimation
     : "off"
 
-  const sprintReq = useMemo(
-    () => sprintListRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const sprintReq = sprintListRequest(orgSlug, slug)
   const sprintListResult = useAtomValue(sprintList(sprintReq))
   const sprints = useMemo<ReadonlyArray<Group>>(
     () => (Result.isSuccess(sprintListResult) ? sprintListResult.value : []),
@@ -183,9 +186,12 @@ function SectionCreatorForm({
 
   const [title, setTitle] = useState("")
   const { type, setType, applyTemplateDefault } = useTicketTypeChoice()
-  const [selectedSprint, setSelectedSprint] = useState<Group | null>(null)
-  const [sprintCleared, setSprintCleared] = useState(false)
+  const [pickedSprint, setPickedSprint] = useState<Group | null>()
   const inputRef = useRef<HTMLInputElement>(null)
+  const focusOnMount = useCallback((input: HTMLInputElement | null) => {
+    inputRef.current = input
+    input?.focus()
+  }, [])
   const errorId = useId()
   const trimmed = title.trim()
   const templateChoice = useTemplateChoice(orgSlug, slug, type)
@@ -199,16 +205,12 @@ function SectionCreatorForm({
   })
   useCreatorFocus(containerRef, onDone)
 
-  useEffect(() => {
-    if (!showSprintAddon) return
-    if (selectedSprint || sprintCleared) return
-    const def = pickDefaultSprint(sprints)
-    if (def) setSelectedSprint(def)
-  }, [showSprintAddon, sprints, selectedSprint, sprintCleared])
-
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
+  const selectedSprint =
+    pickedSprint === undefined
+      ? showSprintAddon
+        ? (pickDefaultSprint(sprints) ?? null)
+        : null
+      : pickedSprint
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -225,7 +227,7 @@ function SectionCreatorForm({
       },
       prediction: {
         clientId: Effect.runSync(Random.next).toString(36),
-        createdBy: viewerId,
+        createdBy: viewerId ?? "",
         projectPrefix,
         estimation,
         ...templateChoice.prediction
@@ -246,10 +248,7 @@ function SectionCreatorForm({
     <CreatorSprintMenu
       sprints={sprints}
       selected={selectedSprint}
-      onSelectedChange={(s) => {
-        setSelectedSprint(s)
-        setSprintCleared(s === null)
-      }}
+      onSelectedChange={setPickedSprint}
       expanded
       inputRef={inputRef}
     />
@@ -270,7 +269,7 @@ function SectionCreatorForm({
       {sprintAddon}
 
       <input
-        ref={inputRef}
+        ref={focusOnMount}
         type="text"
         {...comboboxProps(slash.listbox)}
         value={title}

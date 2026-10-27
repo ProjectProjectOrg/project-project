@@ -1,15 +1,15 @@
 import { useAtomValue } from "@effect/atom-react"
 import { Link } from "@tanstack/react-router"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { Database, Upload } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
 import { useRef, useState } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
 import { SegmentedTabs } from "@/components/ui/segmented-tabs"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import { StepHeading } from "@/features/projects/components/appearance/AppearanceCard"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { bannerPresets } from "@/features/projects/lib/bannerPresets"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
@@ -20,19 +20,19 @@ import { bannerSourceSchema, bannerStepValidator } from "./opts"
 
 export function BannerSourceStep({
   form,
-  orgSlug,
+
   onAdvance,
   onPickFile,
   onPickPreset,
   rejected
 }: {
   form: BannerForm
-  orgSlug: string
   onAdvance: () => void
   onPickFile: (file: File) => boolean
   onPickPreset: () => void
   rejected: boolean
 }) {
+  const { orgSlug } = useProjectRoute()
   const storage = useAtomValue(orgStorage(storageRequest(orgSlug)))
   const fileRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
@@ -76,16 +76,16 @@ export function BannerSourceStep({
           <group.Subscribe selector={(state) => state.values}>
             {(source) =>
               source.kind === "upload" ? (
-                AsyncResult.matchWithError(storage, {
-                  onInitial: () => (
+                <AsyncView
+                  result={storage}
+                  contained
+                  onInitial={() => (
                     <div
                       aria-busy="true"
                       className="h-32 animate-pulse rounded-md bg-muted"
                     />
-                  ),
-                  onError: (error) => <ErrorPage error={error} contained />,
-                  onDefect: (defect) => <ErrorPage error={defect} contained />,
-                  onSuccess: ({ value }) =>
+                  )}
+                  onSuccess={({ value }) =>
                     value.status !== "active" ? (
                       <div className="flex gap-3 rounded-md bg-muted p-3">
                         <Database
@@ -142,7 +142,8 @@ export function BannerSourceStep({
                         </span>
                       </Button>
                     )
-                })
+                  }
+                />
               ) : (
                 <div
                   role="group"

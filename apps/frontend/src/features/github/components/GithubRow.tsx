@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
@@ -17,8 +18,10 @@ export function GithubRow({
   email,
   oauthError
 }: Readonly<{ connected: boolean; email: string; oauthError: string | null }>) {
-  const connect = useAtomSet(connectPersonalGithub, { mode: "promise" })
-  const disconnect = useAtomSet(disconnectPersonalGithub, { mode: "promise" })
+  const connect = useAtomSet(connectPersonalGithub, { mode: "promiseExit" })
+  const disconnect = useAtomSet(disconnectPersonalGithub, {
+    mode: "promiseExit"
+  })
   const connectState = useAtomValue(connectPersonalGithub)
   const disconnectState = useAtomValue(disconnectPersonalGithub)
   const waiting = connectState.waiting || disconnectState.waiting
@@ -63,9 +66,7 @@ export function GithubRow({
               <ConfirmButton.Action
                 prompt={m.profile_github_disconnect_confirm_prompt()}
                 label={m.profile_github_disconnect_confirm_button()}
-                onConfirm={async () => {
-                  await disconnect()
-                }}
+                onConfirm={async () => Exit.isSuccess(await disconnect())}
               />
             </ConfirmButton.Confirm>
           </ConfirmButton.Root>

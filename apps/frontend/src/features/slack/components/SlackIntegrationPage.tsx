@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import { getRouteApi, Link } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
 
+import { AsyncView } from "@/components/shell/AsyncView"
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
   SettingsGroup,
@@ -66,63 +66,67 @@ export function SlackIntegrationPage() {
 
 function SlackContent({ orgSlug }: Readonly<{ orgSlug: string }>) {
   const result = useAtomValue(slackOrg(slackOrgRequest(orgSlug)))
-  return Result.matchWithError(result, {
-    onInitial: () => <SettingsSkeleton />,
-    onError: (error) => <ErrorPage contained error={error} />,
-    onDefect: (defect) => <ErrorPage contained error={defect} />,
-    onSuccess: ({ value }) => (
-      <>
-        <SlackConnectionForm orgSlug={orgSlug} status={value} />
-        {value.connection ? (
-          <>
-            <SettingsSection>
-              <SettingsGroup>
-                <PersonalAccountRow orgSlug={orgSlug} />
-              </SettingsGroup>
-            </SettingsSection>
-            <IntegrationProjects orgSlug={orgSlug} />
-            <SettingsSection title={m.slack_app_configuration()}>
-              <SlackAppSetup orgSlug={orgSlug} includeCreate={false} />
-            </SettingsSection>
-          </>
-        ) : null}
-      </>
-    )
-  })
+  return (
+    <AsyncView
+      result={result}
+      contained
+      onInitial={() => <SettingsSkeleton />}
+      onSuccess={({ value }) => (
+        <>
+          <SlackConnectionForm orgSlug={orgSlug} status={value} />
+          {value.connection ? (
+            <>
+              <SettingsSection>
+                <SettingsGroup>
+                  <PersonalAccountRow orgSlug={orgSlug} />
+                </SettingsGroup>
+              </SettingsSection>
+              <IntegrationProjects orgSlug={orgSlug} />
+              <SettingsSection title={m.slack_app_configuration()}>
+                <SlackAppSetup orgSlug={orgSlug} includeCreate={false} />
+              </SettingsSection>
+            </>
+          ) : null}
+        </>
+      )}
+    />
+  )
 }
 
 function PersonalAccountRow({ orgSlug }: Readonly<{ orgSlug: string }>) {
   const profiles = useAtomValue(slackProfiles({}))
-  return Result.matchWithError(profiles, {
-    onInitial: () => (
-      <SettingsRow
-        label={m.slack_personal_label()}
-        description={
-          <span className="block h-3 w-40 animate-pulse rounded bg-muted" />
-        }
-      />
-    ),
-    onError: (error) => <ErrorPage contained error={error} />,
-    onDefect: (defect) => <ErrorPage contained error={defect} />,
-    onSuccess: ({ value }) => (
-      <SettingsRow
-        label={m.slack_personal_label()}
-        description={
-          value.some(
-            (profile) => profile.orgSlug === orgSlug && profile.slackUserId
-          )
-            ? m.org_integrations_personal_connected()
-            : m.org_integrations_personal_not_connected()
-        }
-      >
-        <Button
-          variant="tertiary"
-          size="sm"
-          render={<Link to="/profile/connections" />}
+  return (
+    <AsyncView
+      result={profiles}
+      contained
+      onInitial={() => (
+        <SettingsRow
+          label={m.slack_personal_label()}
+          description={
+            <span className="block h-3 w-40 animate-pulse rounded bg-muted" />
+          }
+        />
+      )}
+      onSuccess={({ value }) => (
+        <SettingsRow
+          label={m.slack_personal_label()}
+          description={
+            value.some(
+              (profile) => profile.orgSlug === orgSlug && profile.slackUserId
+            )
+              ? m.org_integrations_personal_connected()
+              : m.org_integrations_personal_not_connected()
+          }
         >
-          {m.org_integrations_personal_button()}
-        </Button>
-      </SettingsRow>
-    )
-  })
+          <Button
+            variant="tertiary"
+            size="sm"
+            render={<Link to="/profile/connections" />}
+          >
+            {m.org_integrations_personal_button()}
+          </Button>
+        </SettingsRow>
+      )}
+    />
+  )
 }

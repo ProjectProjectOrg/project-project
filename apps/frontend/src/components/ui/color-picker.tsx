@@ -33,19 +33,23 @@ export function ColorPicker({
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    onOpenChange?.(open)
-  }, [open, onOpenChange])
+  const changeOpen = (next: boolean) => {
+    setOpen(next)
+    onOpenChange?.(next)
+  }
 
   useEffect(() => {
     if (!open) return
+    const close = () => {
+      setOpen(false)
+      onOpenChange?.(false)
+    }
     const onPointer = (e: PointerEvent) => {
       const root = rootRef.current
-      if (root && e.target instanceof Node && !root.contains(e.target))
-        setOpen(false)
+      if (root && e.target instanceof Node && !root.contains(e.target)) close()
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false)
+      if (e.key === "Escape") close()
     }
     document.addEventListener("pointerdown", onPointer)
     document.addEventListener("keydown", onKey)
@@ -53,11 +57,11 @@ export function ColorPicker({
       document.removeEventListener("pointerdown", onPointer)
       document.removeEventListener("keydown", onKey)
     }
-  }, [open])
+  }, [open, onOpenChange])
 
   const select = (hex: string) => {
     onChange(hex)
-    if (closeOnSelect) setOpen(false)
+    if (closeOnSelect) changeOpen(false)
   }
 
   return (
@@ -73,7 +77,7 @@ export function ColorPicker({
         type="button"
         aria-label={ariaLabel ?? m.color_picker_aria_label()}
         aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => changeOpen(!open)}
         className="relative z-10 grid place-items-center rounded-full border border-border/60 shadow-sm transition-transform duration-100 hover:scale-[1.06] active:scale-[0.94]"
         style={{ width: CENTER, height: CENTER, backgroundColor: value }}
       />

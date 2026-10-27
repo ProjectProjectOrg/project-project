@@ -1,16 +1,16 @@
 import { useAtomValue } from "@effect/atom-react"
 import { OrderKey, type ProjectStatus } from "@pp/shared"
-import * as Result from "effect/reactivity/AsyncResult"
 import { generateKeyBetween } from "fractional-indexing"
 import { Reorder } from "motion/react"
 import { useMemo, useRef, useState } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsGroup } from "@/components/shell/settings/SettingsSection"
 import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { StatusCreateRow } from "@/features/statuses/components/StatusCreateRow"
 import { StatusRow } from "@/features/statuses/components/StatusRow"
 import {
@@ -21,36 +21,33 @@ import { useProjectActor } from "@/lib/access"
 import { compareByOrderKey } from "@/lib/orderKey"
 import { m } from "@/paraglide/messages"
 
-type Props = {
-  orgSlug: string
-  slug: string
-}
-
-export function StatusList({ orgSlug, slug }: Props) {
-  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+export function StatusList() {
+  const { orgSlug, slug } = useProjectRoute()
+  const req = statusesRequest(orgSlug, slug)
   const result = useAtomValue(statusesFor(req))
 
-  return Result.matchWithError(result, {
-    onInitial: () => (
-      <SettingsGroup>
-        <p className="px-4 py-3 text-[13px] text-muted-foreground">
-          {m.tickets_status_loading()}
-        </p>
-      </SettingsGroup>
-    ),
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value }) => (
-      <OrderedStatuses orgSlug={orgSlug} slug={slug} statuses={value} />
-    )
-  })
+  return (
+    <AsyncView
+      result={result}
+      contained
+      onInitial={() => (
+        <SettingsGroup>
+          <p className="px-4 py-3 text-[13px] text-muted-foreground">
+            {m.tickets_status_loading()}
+          </p>
+        </SettingsGroup>
+      )}
+      onSuccess={({ value }) => <OrderedStatuses statuses={value} />}
+    />
+  )
 }
 
-type OrderedProps = Props & {
+type OrderedProps = Readonly<{
   statuses: ReadonlyArray<ProjectStatus>
-}
+}>
 
-function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
+function OrderedStatuses({ statuses }: OrderedProps) {
+  const { orgSlug, slug } = useProjectRoute()
   useAtomValue(ticketCounts(countsRequest(orgSlug, slug, {})))
   const canManage = useProjectActor().call("statuses", "update")
 
@@ -114,8 +111,6 @@ function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
               key={s.slug}
               status={s}
               statuses={order}
-              orgSlug={orgSlug}
-              slug={slug}
               onDragStart={() => {
                 if (dragOrder === null) setDragOrder(sorted)
               }}
@@ -130,7 +125,7 @@ function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
       </fieldset>
       {canManage && (
         <div className="px-3 py-2">
-          <StatusCreateRow orgSlug={orgSlug} slug={slug} />
+          <StatusCreateRow />
         </div>
       )}
     </SettingsGroup>

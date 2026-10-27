@@ -23,8 +23,9 @@ import {
   type ReactNode
 } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   backlogRequest,
   encodeTicketListQuery,
@@ -78,8 +79,6 @@ export function CreatingSectionsProvider({
 }
 
 export function SectionList({
-  orgSlug,
-  slug,
   status,
   statuses,
   query,
@@ -108,8 +107,6 @@ export function SectionList({
   update: TicketUpdates
   snapshotReq?: SprintSectionsRequest
   emptyMessage?: string
-  orgSlug: string
-  slug: string
   status: TicketStatus
   statuses: ReadonlyArray<ProjectStatus>
   query: TicketListQuery
@@ -126,13 +123,11 @@ export function SectionList({
   onPreviewPointerEnter: (ticketId: TicketId) => void
   onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const actor = useProjectActor()
   const editable = TicketPolicy.canChange(actor, { content: true })
   const canCreateTickets = canCreate && actor.call("tickets", "quickCreate")
-  const req = useMemo(
-    () => backlogRequest(orgSlug, slug, query),
-    [orgSlug, slug, query]
-  )
+  const req = backlogRequest(orgSlug, slug, query)
   const [creating, setCreating] = useState(false)
   const sectionId = useId()
   const creatingSections = use(CreatingSectionContext)
@@ -180,8 +175,6 @@ export function SectionList({
         onDismissCreate={onDismissCreate}
         creator={
           <SectionTicketCreator
-            orgSlug={orgSlug}
-            slug={slug}
             status={status}
             query={query}
             snapshotReq={snapshotReq}
@@ -217,8 +210,6 @@ export function SectionList({
                 >
                   <Row
                     update={update}
-                    orgSlug={orgSlug}
-                    slug={slug}
                     ticket={ticket}
                     members={members}
                     showSprintCol={showSprintCol}
@@ -272,16 +263,13 @@ function SectionPagination({
   const remaining = Math.max(0, count - items.length)
   return (
     <>
-      {Result.matchWithError(loadMoreState, {
-        onInitial: () => null,
-        onError: (error) => (
-          <ErrorPage error={error} reset={() => loadMore()} contained />
-        ),
-        onDefect: (defect) => (
-          <ErrorPage error={defect} reset={() => loadMore()} contained />
-        ),
-        onSuccess: () => null
-      })}
+      <AsyncView
+        result={loadMoreState}
+        contained
+        reset={() => loadMore()}
+        onInitial={() => null}
+        onSuccess={() => null}
+      />
       <TicketPagination
         requestKey={`${req.params.orgSlug}/${req.params.slug}:${encodeTicketListQuery(req.query)}`}
         nextCursor={nextCursor}

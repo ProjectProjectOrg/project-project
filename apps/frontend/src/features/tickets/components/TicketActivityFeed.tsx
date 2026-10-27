@@ -33,7 +33,10 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
-import { useProject } from "@/features/projects/hooks/useProject"
+import {
+  useProject,
+  useProjectRoute
+} from "@/features/projects/hooks/useProject"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import { TagChip } from "@/features/tags/components/TagChip"
 import {
@@ -580,10 +583,9 @@ function GroupRow({
 }
 
 export function TicketActivityFeed({
-  orgSlug,
-  slug,
   ticketId
-}: Readonly<{ orgSlug: string; slug: string; ticketId: TicketId }>) {
+}: Readonly<{ ticketId: TicketId }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = ticketActivityRequest(orgSlug, slug, ticketId)
   const result = useAtomValue(ticketActivity(req))
   const [olderPages, setOlderPages] = useAtom(olderActivityPages(req))
@@ -601,7 +603,14 @@ export function TicketActivityFeed({
       </p>
     )
   }
-  if (!AsyncResult.isSuccess(result)) return null
+  if (!AsyncResult.isSuccess(result)) {
+    return (
+      <div aria-busy="true" className="space-y-2">
+        <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+        <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
+      </div>
+    )
+  }
 
   const lookups: Lookups = {
     members: project.members,

@@ -11,7 +11,10 @@ import {
 } from "@/components/ui/segmented-tabs"
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
-import { useProject } from "@/features/projects/hooks/useProject"
+import {
+  useProject,
+  useProjectRoute
+} from "@/features/projects/hooks/useProject"
 import {
   ticketActivity,
   ticketActivityRequest
@@ -28,15 +31,8 @@ const INITIAL_VISIBLE = 3
 
 type DiscussionTab = "comments" | "activity"
 
-export function CommentsSection({
-  orgSlug,
-  slug,
-  ticketId
-}: {
-  orgSlug: string
-  slug: string
-  ticketId: TicketId
-}) {
+export function CommentsSection({ ticketId }: { ticketId: TicketId }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = commentsRequest(orgSlug, slug, ticketId)
   const result = useAtomValue(comments(req))
   useAtomMount(ticketActivity(ticketActivityRequest(orgSlug, slug, ticketId)))
@@ -108,20 +104,12 @@ export function CommentsSection({
               className="overflow-y-clip"
             >
               {tab === "activity" ? (
-                <TicketActivityFeed
-                  orgSlug={orgSlug}
-                  slug={slug}
-                  ticketId={ticketId}
-                />
+                <TicketActivityFeed ticketId={ticketId} />
               ) : (
                 <>
                   {canComment && (
                     <div className="mb-3">
-                      <CommentComposer
-                        orgSlug={orgSlug}
-                        slug={slug}
-                        ticketId={ticketId}
-                      />
+                      <CommentComposer ticketId={ticketId} />
                     </div>
                   )}
                   <div className="space-y-3">
@@ -135,8 +123,6 @@ export function CommentsSection({
                         <CommentRow
                           comment={row.comment}
                           pending={row.pending}
-                          orgSlug={orgSlug}
-                          slug={slug}
                           ticketId={ticketId}
                         />
                       </AnimatePresence>

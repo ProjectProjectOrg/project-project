@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ComponentProps } from "react"
+import { useRef, useState, type ComponentProps } from "react"
 
 import { useSettingsRow } from "@/components/shell/settings/SettingsSection"
 import { Input } from "@/components/ui/input"
@@ -32,9 +32,13 @@ export function SettingsTextField({
 }: SettingsTextFieldProps) {
   const { labelId, descriptionId } = useSettingsRow()
   const [draft, setDraft] = useState(value)
+  const [syncedValue, setSyncedValue] = useState(value)
   const cancelled = useRef(false)
 
-  useEffect(() => setDraft(value), [value])
+  if (value !== syncedValue) {
+    setSyncedValue(value)
+    setDraft(value)
+  }
 
   const commit = () => {
     const trimmed = draft.trim()

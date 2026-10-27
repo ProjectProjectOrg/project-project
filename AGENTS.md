@@ -74,6 +74,7 @@ routes/         route files
 - **Placement.** Code used by one feature lives in that feature; `lib/`, `hooks/` and `components/shell` hold what several features share.
 - **Naming.** Directories are kebab-case. React component files are PascalCase (`TicketHoverCard.tsx`), hooks are `useX.ts`, other modules are camelCase (`activityGroups.ts`). `components/ui` keeps the kebab-case names the shadcn CLI generates. A component folder such as `ticket-list/` may hold its private helpers and hooks.
 - Tests sit beside the module they test.
+- **Project scope.** Components rendered only inside a project read `orgSlug` and `slug` from `useProjectRoute()` (`features/projects/hooks/useProject.ts`), which reads `ProjectContext`. `ProjectLayout` provides it for the project route and `DashboardTicket` for each dashboard row, so don't drill the slugs as props. Components also rendered at org scope (dashboard lists, project tiles, hover cards that show another project's ticket) keep explicit props. Sidebar slots render outside the project tree, so a project-scoped slot wraps its content in `ProjectContext`.
 
 ### Types: readonly type aliases, never interfaces
 
@@ -286,40 +287,45 @@ Types obey the repo rule above — nested `Readonly<{ ... }>`, `ReadonlyArray<T>
 
 Reference: `apps/frontend/src/features/tickets/atoms/backlog.ts` (one sections query plus on-demand cursor pages through `readLoadedPages` and `loadNextPage`, with sort-aware placement in the reducers), `apps/frontend/src/features/sprints/atoms/sprintBoard.ts` (a region composed from two queries), `apps/frontend/src/features/tags/atoms/tags.ts` (`tagsFor` as a plain aggregate, `tagEditor` as a region composed from two wrappers).
 
-## Rendering atom AsyncResults — `AsyncResult.matchWithError` + `ErrorPage`
+## Rendering atom AsyncResults — `AsyncView`, with `AsyncResult.matchWithError` as the escape hatch
 
 A `useAtomValue` on a runtime atom returns a `AsyncResult<A, E>` with four variants: `Initial`, `Success`, `Failure-with-typed-error`, `Failure-with-defect`. **Always handle all four — never just check `AsyncResult.isSuccess` and render a forever-loading state on anything else.** That swallows real errors silently and makes failures invisible.
 
-**The canonical helper is `AsyncResult.matchWithError`** from `effect/reactivity/AsyncResult`. It splits the failure path into `onError` (your typed `E` channel — `NotFound`, `Unauthorized`, etc.) and `onDefect` (unexpected throws, decode failures, interruptions). Failed renders use the shared `ErrorPage` component (`apps/frontend/src/components/shell/ErrorPage.tsx`), which wraps the dither shell with a retry button and a home link. Pass `contained` when rendering inside a settings panel or any non-full-page surface.
-
-The minimal pattern:
+**The default is `AsyncView`** (`apps/frontend/src/components/shell/AsyncView.tsx`). It takes the result, an `onInitial` render and an `onSuccess` render, and draws both failure paths (typed error and defect) with the shared `ErrorPage` (`apps/frontend/src/components/shell/ErrorPage.tsx`), which wraps the dither shell with a retry button and a home link. Pass `contained` when rendering inside a settings panel or any non-full-page surface, and `reset` to refresh the atom on retry.
 
 ```tsx
-import { useAtomValue } from "@effect/atom-react"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
+import { AsyncView } from "@/components/shell/AsyncView"
 
 function ProjectStatusesSettings() {
-  const result = useAtomValue(statusesFor(statusesRequest(orgSlug, slug)))
+  const req = statusesRequest(orgSlug, slug)
+  const result = useAtomValue(statusesFor(req))
+  const refresh = useAtomRefresh(statusesFor(req))
 
-  return AsyncResult.matchWithError(result, {
-    onInitial: () => <LoadingSkeleton />,
-    onError: (error) => <ErrorPage error={error} contained />,
-    onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value }) => <StatusList statuses={value} />
-  })
+  return (
+    <AsyncView
+      result={result}
+      reset={refresh}
+      contained
+      onInitial={() => <LoadingSkeleton />}
+      onSuccess={({ value }) => <StatusList statuses={value} />}
+    />
+  )
 }
 ```
 
+**Reach for `AsyncResult.matchWithError`** from `effect/reactivity/AsyncResult` only when a failure needs different UI than `ErrorPage`: a `NotFoundPage` for `NotFound`, a custom title and body, an inline message, or extra content beside the error. It splits the failure path into `onError` (your typed `E` channel — `NotFound`, `Unauthorized`, etc.) and `onDefect` (unexpected throws, decode failures, interruptions). `ProjectLayout.tsx` and `TicketDetail.tsx` are examples.
+
 A few details worth knowing:
 
-- **`onError` receives the typed error itself** (the value from the `E` channel, with its `_tag`), not the Failure variant. Narrow on `error._tag` if you want to render different messages per error kind — but `ErrorPage` already does this via `lib/errorMessage.ts` for any `AppError`, so most callsites just pass `error` through.
+- **`onError` receives the typed error itself** (the value from the `E` channel, with its `_tag`), not the Failure variant. Narrow on `error._tag` if you want to render different messages per error kind — but `ErrorPage` already does this via `lib/errorMessage.ts` for any `AppError`, so most callsites use `AsyncView`.
 - **`onDefect` receives the unknown cause** (a Cause defect, a thrown JS error, a decode failure). Treat it the same way — pass it to `ErrorPage`, which falls back to `String(defect)` for the detail line.
 - **`onSuccess` argument is the Success variant** (`{ value, waiting }`), not the raw value. Destructure `value` to get your data. The `waiting: true` flag is set during an in-flight optimistic mutation (per the optimistic-mutation conventions above) — useful when you want to pulse the success view while a refresh is happening.
-- **Don't combine `AsyncResult.matchWithError` with a separate `if (!AsyncResult.isSuccess) ...` early return.** Pick one. The `match` form handles every case; mixing both is dead code and a refactor hazard.
-- **For tiny callsites where you only care about success vs anything else** (e.g. a sidebar count that defaults to 0), `AsyncResult.isSuccess(result) ? result.value : fallback` is fine. The match form pays for itself once the failure case needs visible UI.
+- **Don't combine `AsyncView` or `matchWithError` with a separate `if (!AsyncResult.isSuccess) ...` early return.** Pick one. Mixing both is dead code and a refactor hazard.
+- **For tiny callsites where you only care about success vs anything else** (e.g. a sidebar count that defaults to 0), `AsyncResult.isSuccess(result) ? result.value : fallback` is fine. Use `AsyncView` once the failure case needs visible UI.
+- **Inline mutation errors** come from `mutationErrorText(result, describe?, defect?)` in `lib/mutationError.ts`: `null` until the result fails, then the typed error through `describe` (default `errorMessage`) or `defect` (default `m.error_unknown`). Feature mappers such as `ticketCreateErrorMessage`, `slackActionErrorMessage` and `orgActionError` live beside it. Never show a raw `error.message`.
 
-Reference: `apps/frontend/src/features/projects/components/Projects.tsx` for the standard project-list pattern, and `CreateProjectRow.tsx` beside it for reading a mutation atom's own state next to it. `AsyncResult` is imported as `Result` in most components; either alias is fine, but keep one per file.
+Reference: `apps/frontend/src/features/statuses/components/StatusList.tsx` for `AsyncView`, `apps/frontend/src/features/projects/components/Projects.tsx` for an inline failure through `matchWithError`, and `CreateProjectRow.tsx` beside it for reading a mutation atom's own state next to it. `AsyncResult` is imported as `Result` in most components; either alias is fine, but keep one per file.
 
 ## Test scope
 

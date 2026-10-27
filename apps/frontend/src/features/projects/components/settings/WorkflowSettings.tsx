@@ -35,13 +35,11 @@ export function WorkflowSettings() {
         title={m.project_settings_workflow_statuses_label()}
         description={m.project_settings_workflow_statuses_description()}
       >
-        <StatusList orgSlug={orgSlug} slug={project.slug} />
+        <StatusList />
       </SettingsSection>
 
       {canReadGitAutomation ? (
         <GitAutomationSettings
-          orgSlug={orgSlug}
-          slug={project.slug}
           canEdit={actor.call("gitAutomation", "update")}
         />
       ) : null}

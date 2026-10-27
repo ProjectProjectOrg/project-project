@@ -22,6 +22,7 @@ import {
 } from "@/features/tickets/atoms/staleEstimates"
 import { useProjectActor } from "@/lib/access"
 import { errorMessage } from "@/lib/errorMessage"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -48,12 +49,7 @@ export function EstimationSettings({
   const update = useAtomSet(updateProject(req))
   const updateState = useAtomValue(updateProject(req))
 
-  const error = Result.matchWithError(updateState, {
-    onInitial: () => null,
-    onSuccess: () => null,
-    onError: (error) => errorMessage(error),
-    onDefect: () => m.error_unknown()
-  })
+  const error = mutationErrorText(updateState)
 
   return (
     <>

@@ -10,7 +10,7 @@ import * as DateTime from "effect/DateTime"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import { CalendarRange, Info, ListChecks, type LucideIcon } from "lucide-react"
-import { startTransition, useOptimistic, type MouseEvent, useMemo } from "react"
+import { startTransition, useOptimistic, type MouseEvent } from "react"
 import { flushSync } from "react-dom"
 
 import { MarqueeIfOverflow } from "@/components/ui/marquee-if-overflow"
@@ -22,6 +22,7 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   sprintList,
   sprintListRequest
@@ -76,31 +77,18 @@ const TABS: ReadonlyArray<TabDef> = [
   }
 ]
 
-export function TabsNav({
-  orgSlug,
-  slug,
-  project
-}: {
-  orgSlug: string
-  slug: string
-  project: ProjectDetailType
-}) {
+export function TabsNav({ project }: { project: ProjectDetailType }) {
+  const { orgSlug, slug } = useProjectRoute()
   const pathname = useMatches({
     select: (matches) => matches[matches.length - 1]?.pathname ?? ""
   })
   const base = `/orgs/${orgSlug}/projects/${slug}`
-  const countsReq = useMemo(
-    () => countsRequest(orgSlug, slug, {}),
-    [orgSlug, slug]
-  )
+  const countsReq = countsRequest(orgSlug, slug, {})
   const ticketsResult = useAtomValue(ticketCounts(countsReq))
   const ticketsCount = Result.isSuccess(ticketsResult)
     ? ticketsResult.value.total
     : null
-  const sprintReq = useMemo(
-    () => sprintListRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const sprintReq = sprintListRequest(orgSlug, slug)
   const sprintsResult = useAtomValue(sprintList(sprintReq))
   const sprintsCount = Result.isSuccess(sprintsResult)
     ? activeAndPlannedCount(sprintsResult.value)
@@ -122,10 +110,7 @@ export function TabsNav({
   )
   const navigate = useNavigate()
 
-  const statusReq = useMemo(
-    () => statusesRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const statusReq = statusesRequest(orgSlug, slug)
   const statusesResult = useAtomValue(statusesFor(statusReq))
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
   const statusSlugs = boardStatusesFor(statuses)

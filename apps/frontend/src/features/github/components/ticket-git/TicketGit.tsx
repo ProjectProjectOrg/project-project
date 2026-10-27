@@ -6,7 +6,6 @@ import type {
   Ticket,
   TicketDetail
 } from "@pp/shared"
-import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   AlertTriangle,
@@ -19,14 +18,12 @@ import {
   Layers,
   Plus
 } from "lucide-react"
-import { useMemo } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CopyButton } from "@/components/ui/copy-button"
 import { InlineForm } from "@/components/ui/inline-form"
 import { me } from "@/features/auth/atoms/auth"
-import { projectGitStates } from "@/features/github/atoms/github"
 import { ClearBranchFields } from "@/features/github/components/ticket-git/ClearBranchFields"
 import { ConnectBranchFields } from "@/features/github/components/ticket-git/ConnectBranchFields"
 import { CreateBranchFields } from "@/features/github/components/ticket-git/CreateBranchFields"
@@ -34,29 +31,15 @@ import {
   AddStackedBranch,
   layerTone,
   StackedBranches,
-  stackPullRequestCount,
-  useGitStack
+  stackPullRequestCount
 } from "@/features/github/components/ticket-git/TicketStack"
+import { useTicketGit } from "@/features/github/hooks/useTicketGit"
 import { branchOpensInNewTab, branchUrl } from "@/features/github/lib/branchUrl"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-
-function useGitState(
-  orgSlug: string,
-  slug: string,
-  ticket: Pick<Ticket, "id" | "gitState">
-): { state: GitState | null; waiting: boolean } {
-  const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
-  const states = useAtomValue(projectGitStates(req))
-  const value = Option.getOrUndefined(Result.value(states))
-  const entry = value?.states[ticket.id]
-  return {
-    state: entry ?? ticket.gitState,
-    waiting: states.waiting
-  }
-}
 
 function truncate(name: string, max = 18) {
   return name.length > max ? `${name.slice(0, max - 1)}…` : name
@@ -120,8 +103,7 @@ function ConnectedGitChip({
   ticket: Pick<Ticket, "id" | "gitState">
   github: GithubConnection
 }>) {
-  const { state, waiting } = useGitState(orgSlug, slug, ticket)
-  const stack = useGitStack(orgSlug, slug, ticket)
+  const { state, waiting, stack } = useTicketGit(orgSlug, slug, ticket)
   if (!state || state.tag === "no_branch") return <span aria-hidden />
   const pending = state.tag === "branch_pending" || state.tag === "pr_pending"
   const pulse = (waiting || pending) && "animate-pulse"
@@ -205,28 +187,22 @@ function ConnectedGitChip({
 }
 
 export function TicketGitPanel({
-  orgSlug,
-  slug,
   ticket,
   github,
   branchTemplate,
   variant = "bordered"
 }: {
-  orgSlug: string
-  slug: string
   ticket: TicketDetail
   github: GithubConnection | null
   branchTemplate: string | null
   variant?: "bordered" | "ghost"
 }) {
-  const { state, waiting } = useGitState(orgSlug, slug, ticket)
-  const stack = useGitStack(orgSlug, slug, ticket)
+  const { orgSlug, slug } = useProjectRoute()
+  const { state, waiting, stack } = useTicketGit(orgSlug, slug, ticket)
   if (!github) return null
   if (state !== null && stack.length > 0) {
     return (
       <StackedBranches
-        orgSlug={orgSlug}
-        slug={slug}
         ticket={ticket}
         github={github}
         own={state}
@@ -256,8 +232,6 @@ export function TicketGitPanel({
   return (
     <div className="flex flex-col gap-3">
       <PanelForState
-        orgSlug={orgSlug}
-        slug={slug}
         ticket={ticket}
         state={state}
         waiting={waiting}
@@ -266,21 +240,13 @@ export function TicketGitPanel({
         variant={variant}
       />
       {stackable && (
-        <AddStackedBranch
-          orgSlug={orgSlug}
-          slug={slug}
-          ticket={ticket}
-          github={github}
-          variant={variant}
-        />
+        <AddStackedBranch ticket={ticket} github={github} variant={variant} />
       )}
     </div>
   )
 }
 
 function PanelForState({
-  orgSlug,
-  slug,
   ticket,
   state,
   waiting,
@@ -288,8 +254,6 @@ function PanelForState({
   branchTemplate,
   variant
 }: {
-  orgSlug: string
-  slug: string
   ticket: TicketDetail
   state: GitState
   waiting: boolean
@@ -359,8 +323,6 @@ function PanelForState({
         </InlineForm.Idle>
         <InlineForm.Form action="create">
           <CreateBranchFields
-            orgSlug={orgSlug}
-            slug={slug}
             ticket={ticket}
             github={github}
             branchTemplate={branchTemplate}
@@ -369,8 +331,6 @@ function PanelForState({
         </InlineForm.Form>
         <InlineForm.Form action="connect">
           <ConnectBranchFields
-            orgSlug={orgSlug}
-            slug={slug}
             ticket={ticket}
             github={github}
             variant={variant}
@@ -411,12 +371,7 @@ function PanelForState({
           )}
         </InlineForm.Idle>
         <InlineForm.Form action="clear">
-          <ClearBranchFields
-            orgSlug={orgSlug}
-            slug={slug}
-            id={ticket.id}
-            variant={variant}
-          />
+          <ClearBranchFields id={ticket.id} variant={variant} />
         </InlineForm.Form>
       </Root>
     )
@@ -462,12 +417,7 @@ function PanelForState({
           )}
         </InlineForm.Idle>
         <InlineForm.Form action="clear">
-          <ClearBranchFields
-            orgSlug={orgSlug}
-            slug={slug}
-            id={ticket.id}
-            variant={variant}
-          />
+          <ClearBranchFields id={ticket.id} variant={variant} />
         </InlineForm.Form>
       </Root>
     )
@@ -580,12 +530,7 @@ function PanelForState({
           )}
         </InlineForm.Idle>
         <InlineForm.Form action="clear">
-          <ClearBranchFields
-            orgSlug={orgSlug}
-            slug={slug}
-            id={ticket.id}
-            variant={variant}
-          />
+          <ClearBranchFields id={ticket.id} variant={variant} />
         </InlineForm.Form>
       </Root>
     )

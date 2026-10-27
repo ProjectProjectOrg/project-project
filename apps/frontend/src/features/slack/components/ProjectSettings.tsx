@@ -5,7 +5,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { RefreshCw } from "lucide-react"
 import { useEffect, useState } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import {
   SettingsGroup,
   SettingsRow,
@@ -15,6 +15,8 @@ import { SettingsSwitch } from "@/components/shell/settings/SettingsTextField"
 import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger } from "@/components/ui/select"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import { mutationErrorText, slackActionErrorMessage } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -27,11 +29,8 @@ import {
   testSlackProject,
   type SlackProjectRequest
 } from "../atoms/slack"
-import { slackActionError } from "../lib/actionError"
 
 type ProjectProps = Readonly<{
-  orgSlug: string
-  slug: string
   canManage: boolean
 }>
 
@@ -43,37 +42,41 @@ const EVENT_LABELS: Readonly<Record<SlackEvent, () => string>> = {
   sprint_completed: () => m.slack_event_sprint_completed()
 }
 
-export function SlackProjectRow({ orgSlug, slug, canManage }: ProjectProps) {
+export function SlackProjectRow({ canManage }: ProjectProps) {
+  const { orgSlug, slug } = useProjectRoute()
   const result = useAtomValue(slackProject(slackProjectRequest(orgSlug, slug)))
-  return Result.matchWithError(result, {
-    onInitial: () => (
-      <SettingsRow
-        icon={<IntegrationLogo kind="slack" />}
-        label={m.slack_heading()}
-        description={
-          <span className="block h-3 w-40 animate-pulse rounded bg-muted" />
-        }
-      />
-    ),
-    onError: (error) => <ErrorPage contained error={error} />,
-    onDefect: (defect) => <ErrorPage contained error={defect} />,
-    onSuccess: ({ value, waiting }) =>
-      value.workspace ? (
-        <SlackProjectContent
-          req={slackProjectRequest(orgSlug, slug)}
-          status={value}
-          workspace={value.workspace.teamName}
-          waiting={waiting}
-          canManage={canManage}
-        />
-      ) : (
+  return (
+    <AsyncView
+      result={result}
+      contained
+      onInitial={() => (
         <SettingsRow
           icon={<IntegrationLogo kind="slack" />}
           label={m.slack_heading()}
-          description={m.slack_project_unavailable()}
+          description={
+            <span className="block h-3 w-40 animate-pulse rounded bg-muted" />
+          }
         />
-      )
-  })
+      )}
+      onSuccess={({ value, waiting }) =>
+        value.workspace ? (
+          <SlackProjectContent
+            req={slackProjectRequest(orgSlug, slug)}
+            status={value}
+            workspace={value.workspace.teamName}
+            waiting={waiting}
+            canManage={canManage}
+          />
+        ) : (
+          <SettingsRow
+            icon={<IntegrationLogo kind="slack" />}
+            label={m.slack_heading()}
+            description={m.slack_project_unavailable()}
+          />
+        )
+      }
+    />
+  )
 }
 
 function SlackProjectContent({
@@ -162,10 +165,12 @@ function ManagedSlackRow({
         </span>
       }
       error={
-        slackActionError(saveState) ??
-        slackActionError(disconnectState) ??
-        slackActionError(testState) ??
-        (channelsResult.waiting ? null : slackActionError(channelsResult))
+        mutationErrorText(saveState, slackActionErrorMessage) ??
+        mutationErrorText(disconnectState, slackActionErrorMessage) ??
+        mutationErrorText(testState, slackActionErrorMessage) ??
+        (channelsResult.waiting
+          ? null
+          : mutationErrorText(channelsResult, slackActionErrorMessage))
       }
     >
       <Select
@@ -239,7 +244,8 @@ function ManagedSlackRow({
   )
 }
 
-export function SlackProjectEvents({ orgSlug, slug, canManage }: ProjectProps) {
+export function SlackProjectEvents({ canManage }: ProjectProps) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = slackProjectRequest(orgSlug, slug)
   const result = useAtomValue(slackProject(req))
   const save = useAtomSet(saveSlackProject(req))

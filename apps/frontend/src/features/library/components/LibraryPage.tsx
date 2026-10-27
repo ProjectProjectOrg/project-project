@@ -1,9 +1,8 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { Library } from "@pp/shared"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { MotionConfig } from "motion/react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import {
   SegmentedTabs,
   type SegmentedItem
@@ -41,16 +40,16 @@ export function LibraryPage({ scope, tab, onTabChange }: LibraryPageProps) {
         value={tab}
         onValueChange={onTabChange}
       />
-      {AsyncResult.matchWithError(result, {
-        onInitial: () => <LibrarySkeleton />,
-        onError: (error) => <ErrorPage error={error} contained />,
-        onDefect: (defect) => <ErrorPage error={defect} contained />,
-        onSuccess: ({ value }) => (
+      <AsyncView
+        result={result}
+        contained
+        onInitial={() => <LibrarySkeleton />}
+        onSuccess={({ value }) => (
           <LibraryContext value={value}>
             <LibraryContent scope={scope} tab={tab} library={value} />
           </LibraryContext>
-        )
-      })}
+        )}
+      />
     </div>
   )
 }

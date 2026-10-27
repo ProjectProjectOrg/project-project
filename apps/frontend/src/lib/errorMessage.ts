@@ -1,8 +1,12 @@
 import type {
+  Conflict,
+  Forbidden,
+  NotFound,
   SlackAuthInvalid,
   SlackError,
   SlackNotConnected,
-  SlackRateLimited
+  SlackRateLimited,
+  Unauthorized
 } from "@pp/shared"
 import type { OrgEmailError } from "@pp/shared"
 import {
@@ -20,21 +24,18 @@ import type {
   BranchExists,
   BranchNotFound,
   BranchProtected,
-  Conflict,
   EverhourApiKeyMissing,
   EverhourAuthInvalid,
   EverhourConfigMissing,
   EverhourError,
   EverhourProjectAccessDenied,
   EverhourRateLimited,
-  Forbidden,
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
   InvitationNotAcceptable,
   LastProjectPmBlocked,
   MentionInvalid,
-  NotFound,
   RateLimited,
   RepoGone,
   SprintCompletedImmutable,
@@ -42,7 +43,6 @@ import type {
   StorageConfigMissing,
   StorageError,
   StorageNotConnected,
-  Unauthorized,
   Validation
 } from "@pp/shared"
 import { EmailFailureReason, InvitationNotAcceptableReason } from "@pp/shared"
@@ -193,7 +193,7 @@ const isSlackRateLimitedDetail = Schema.is(
 const isSlackErrorDetail = Schema.is(
   Schema.TaggedStruct("SlackError", { reason: Schema.String })
 )
-const isValidationDetail = Schema.is(
+export const isValidationDetail = Schema.is(
   Schema.TaggedStruct("Validation", { reason: Schema.String })
 )
 

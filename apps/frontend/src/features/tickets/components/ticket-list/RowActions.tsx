@@ -10,7 +10,7 @@ import {
   Split,
   Trash2
 } from "lucide-react"
-import { useMemo, useRef, useState } from "react"
+import { useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { ConfirmButton } from "@/components/ui/confirm-button"
@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent } from "@/components/ui/popover"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   archiveTicket,
   deleteTicket,
@@ -33,23 +34,17 @@ import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
 export function TicketRowActions({
-  orgSlug,
-  slug,
   id,
   archived
 }: {
-  orgSlug: string
-  slug: string
   id: TicketId
   archived: boolean
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const [archiving, setArchiving] = useState(false)
   const [reason, setReason] = useState("")
   const trigger = useRef<HTMLButtonElement>(null)
-  const req = useMemo(
-    () => ticketRequest(orgSlug, slug, id),
-    [orgSlug, slug, id]
-  )
+  const req = ticketRequest(orgSlug, slug, id)
   const archive = useAtomSet(archiveTicket(req), { mode: "promiseExit" })
   const archiveState = useAtomValue(archiveTicket(req))
   const unarchive = useAtomSet(unarchiveTicket(req))

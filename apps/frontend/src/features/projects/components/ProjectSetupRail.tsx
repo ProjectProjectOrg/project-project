@@ -12,23 +12,22 @@ import {
   projectRequest,
   updateProjectSetup
 } from "@/features/projects/atoms/projects"
+import {
+  useProjectRoute,
+  ProjectContext
+} from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
-export function ProjectSetupSlot({
-  orgSlug,
-  slug,
-  project
-}: {
-  orgSlug: string
-  slug: string
-  project: ProjectDetailType
-}) {
+export function ProjectSetupSlot({ project }: { project: ProjectDetailType }) {
+  const { orgSlug, slug } = useProjectRoute()
   const canManage = useProjectActor().call("projects", "updateSetup")
   const render = useCallback(
     () =>
       canManage ? (
-        <ProjectSetupRail orgSlug={orgSlug} slug={slug} project={project} />
+        <ProjectContext value={projectRequest(orgSlug, slug)}>
+          <ProjectSetupRail project={project} />
+        </ProjectContext>
       ) : null,
     [orgSlug, slug, project, canManage]
   )
@@ -36,15 +35,8 @@ export function ProjectSetupSlot({
   return null
 }
 
-function ProjectSetupRail({
-  orgSlug,
-  slug,
-  project
-}: {
-  orgSlug: string
-  slug: string
-  project: ProjectDetailType
-}) {
+function ProjectSetupRail({ project }: { project: ProjectDetailType }) {
+  const { orgSlug, slug } = useProjectRoute()
   const req = projectRequest(orgSlug, slug)
   const gitStates = useAtomValue(projectGitStates(req))
   const updateSetup = useAtomSet(updateProjectSetup(req))

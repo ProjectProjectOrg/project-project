@@ -2,7 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { OrderKey, type ProjectStatus, type StatusSlug } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { generateKeyBetween } from "fractional-indexing"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useState } from "react"
 
 import {
   dispatchStatusReorders,
@@ -30,10 +30,7 @@ export function useStatusReorder(
   } | null>(null)
   if (reorder !== null && reorder.key !== scopeKey) setReorder(null)
 
-  const statusReq = useMemo(
-    () => statusesRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const statusReq = statusesRequest(orgSlug, slug)
   const statusesResult = useAtomValue(statusesFor(statusReq))
   const reorderStatuses = useAtomSet(dispatchStatusReorders(statusReq))
 

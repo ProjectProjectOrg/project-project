@@ -13,7 +13,7 @@ import {
   Lock,
   Settings2
 } from "lucide-react"
-import { type ReactNode, useMemo, useState } from "react"
+import { type ReactNode, useState } from "react"
 
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
 import { SettingsTextField } from "@/components/shell/settings/SettingsTextField"
@@ -41,13 +41,13 @@ import {
 } from "@/features/github/atoms/github"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
 import { projectRequest } from "@/features/projects/atoms/projects"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useOrgActor, useProjectActor } from "@/lib/access"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type Props = Readonly<{
-  orgSlug: string
-  slug: string
   github: GithubConnection | null
 }>
 
@@ -61,7 +61,7 @@ function useCanManageGithub(orgSlug: string): boolean {
 }
 
 function useGithubWarning(orgSlug: string, slug: string): string | null {
-  const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
+  const req = projectRequest(orgSlug, slug)
   const states = useAtomValue(projectGitStates(req))
   if (!Result.isSuccess(states)) return null
   const { tokenStatus, repoStatus } = states.value
@@ -84,12 +84,13 @@ function RepoName({ owner, name }: Readonly<{ owner: string; name: string }>) {
   )
 }
 
-export function GithubChip({ orgSlug, slug, github }: Props) {
+export function GithubChip({ github }: Props) {
+  const { orgSlug, slug } = useProjectRoute()
   const canManage = useCanManageGithub(orgSlug)
   const warning = useGithubWarning(orgSlug, slug)
 
   if (!github) {
-    return canManage ? <ConnectMenu orgSlug={orgSlug} slug={slug} /> : null
+    return canManage ? <ConnectMenu /> : null
   }
 
   return (
@@ -142,13 +143,16 @@ export function GithubChip({ orgSlug, slug, github }: Props) {
   )
 }
 
-export function GithubSettingsRows({ orgSlug, slug, github }: Props) {
+export function GithubSettingsRows({ github }: Props) {
+  const { orgSlug, slug } = useProjectRoute()
   const canManage = useCanManageGithub(orgSlug)
   const warning = useGithubWarning(orgSlug, slug)
-  const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
+  const req = projectRequest(orgSlug, slug)
   const connect = useAtomSet(connectGithub(req))
   const connectFailed = Result.isFailure(useAtomValue(connectGithub(req)))
-  const disconnect = useAtomSet(disconnectGithub(req), { mode: "promise" })
+  const disconnect = useAtomSet(disconnectGithub(req), {
+    mode: "promiseExit"
+  })
 
   return (
     <>
@@ -184,14 +188,12 @@ export function GithubSettingsRows({ orgSlug, slug, github }: Props) {
                     repo: `${github.repoOwner}/${github.repoName}`
                   })}
                   label={m.github_chip_disconnect_button()}
-                  onConfirm={async () => {
-                    await disconnect()
-                  }}
+                  onConfirm={async () => Exit.isSuccess(await disconnect())}
                 />
               </ConfirmButton.Confirm>
             </ConfirmButton.Root>
           ) : (
-            <ConnectMenu orgSlug={orgSlug} slug={slug} />
+            <ConnectMenu />
           )
         ) : null}
       </SettingsRow>
@@ -220,10 +222,7 @@ export function GithubSettingsRows({ orgSlug, slug, github }: Props) {
   )
 }
 
-function ConnectMenu({
-  orgSlug,
-  slug
-}: Readonly<{ orgSlug: string; slug: string }>) {
+function ConnectMenu() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   return (
@@ -248,12 +247,7 @@ function ConnectMenu({
         }
       />
       <DropdownMenuContent align="end" sideOffset={6} className="w-80">
-        <ConnectMenuBody
-          orgSlug={orgSlug}
-          slug={slug}
-          query={query}
-          onConnected={() => setOpen(false)}
-        />
+        <ConnectMenuBody query={query} onConnected={() => setOpen(false)} />
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -277,46 +271,38 @@ function MenuNote({
 }
 
 function ConnectMenuBody({
-  orgSlug,
-  slug,
   query,
   onConnected
 }: Readonly<{
-  orgSlug: string
-  slug: string
   query: string
   onConnected: () => void
 }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const canInstall = useOrgActor(orgSlug).call("projects", "startGithubInstall")
-  const orgReq = useMemo(() => githubOrgRequest(orgSlug), [orgSlug])
+  const orgReq = githubOrgRequest(orgSlug)
   const orgIntegration = useAtomValue(githubIntegration(orgReq))
   const startInstall = useAtomSet(startGithubInstall(orgReq), {
-    mode: "promise"
+    mode: "promiseExit"
   })
   const startInstallState = useAtomValue(startGithubInstall(orgReq))
   const installing = startInstallState.waiting
   const installError = installing
     ? null
-    : Result.matchWithError(startInstallState, {
-        onInitial: () => null,
-        onSuccess: () => null,
-        onError: (error) =>
+    : mutationErrorText(
+        startInstallState,
+        (error) =>
           Match.value(error).pipe(
             Match.tag("Forbidden", () =>
               m.github_chip_install_app_forbidden_error()
             ),
             Match.orElse(() => m.github_chip_install_app_failed_error())
           ),
-        onDefect: () => m.github_chip_install_app_failed_error()
-      })
+        m.github_chip_install_app_failed_error
+      )
 
   async function installApp() {
-    try {
-      const result = await startInstall({ returnProjectSlug: slug })
-      window.location.assign(result.installUrl)
-    } catch {
-      return
-    }
+    const exit = await startInstall({ returnProjectSlug: slug })
+    if (Exit.isSuccess(exit)) window.location.assign(exit.value.installUrl)
   }
 
   if (Result.isInitial(orgIntegration)) {
@@ -357,44 +343,30 @@ function ConnectMenuBody({
     )
   }
 
-  return (
-    <RepoList
-      orgSlug={orgSlug}
-      slug={slug}
-      query={query}
-      onConnected={onConnected}
-    />
-  )
+  return <RepoList query={query} onConnected={onConnected} />
 }
 
 function RepoList({
-  orgSlug,
-  slug,
   query,
   onConnected
 }: Readonly<{
-  orgSlug: string
-  slug: string
   query: string
   onConnected: () => void
 }>) {
-  const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
+  const { orgSlug, slug } = useProjectRoute()
+  const req = projectRequest(orgSlug, slug)
   const connect = useAtomSet(connectGithub(req), { mode: "promiseExit" })
   const connectState = useAtomValue(connectGithub(req))
   const [pending, setPending] = useState<string | null>(null)
   const [debouncedQuery] = useDebouncedValue(query, { wait: 300 })
-  const reposReq = useMemo(
-    () => githubReposRequest(orgSlug, slug, debouncedQuery),
-    [orgSlug, slug, debouncedQuery]
-  )
+  const reposReq = githubReposRequest(orgSlug, slug, debouncedQuery)
   const repos = useAtomValue(githubRepos(reposReq))
   const error =
     connectState.waiting || pending !== null
       ? null
-      : Result.matchWithError(connectState, {
-          onInitial: () => null,
-          onSuccess: () => null,
-          onError: (failure) =>
+      : mutationErrorText(
+          connectState,
+          (failure) =>
             Match.value(failure).pipe(
               Match.tag("GitHubTokenExpired", () =>
                 m.github_chip_connect_token_expired_error()
@@ -405,8 +377,8 @@ function RepoList({
               Match.tag("RepoGone", () => m.git_repo_gone_error()),
               Match.orElse(() => m.github_chip_connect_failed_error())
             ),
-          onDefect: () => m.github_chip_connect_failed_error()
-        })
+          m.github_chip_connect_failed_error
+        )
 
   async function pick(repo: GithubRepo) {
     if (pending !== null) return

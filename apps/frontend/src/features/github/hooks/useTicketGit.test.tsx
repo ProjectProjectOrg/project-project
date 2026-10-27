@@ -9,7 +9,7 @@ import { afterEach, expect, it, vi } from "vitest"
 import { projectGitStates } from "@/features/github/atoms/github"
 import { projectRequest } from "@/features/projects/atoms/projects"
 
-import { useGitStack } from "./TicketStack"
+import { useTicketGit } from "./useTicketGit"
 
 const ticket = Schema.decodeSync(TicketDetail)({
   id: "T-1",
@@ -58,7 +58,7 @@ it("clears the cached stack when the live response omits its final layer", () =>
     pr: null
   }
   const { result } = renderHook(
-    () => useGitStack("acme", "app", { ...ticket, stack: [layer] }),
+    () => useTicketGit("acme", "app", { ...ticket, stack: [layer] }).stack,
     {
       wrapper: ({ children }) => (
         <RegistryContext.Provider value={activeRegistry}>

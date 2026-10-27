@@ -4,7 +4,6 @@ import { getRouteApi } from "@tanstack/react-router"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import { useMemo } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { NotFoundPage } from "@/components/shell/NotFoundPage"
@@ -26,10 +25,7 @@ const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 export function TicketSplit() {
   const { orgSlug, slug, id } = routeApi.useParams()
   const ticketId = decodeTicketId(id)
-  const req = useMemo(
-    () => ticketRequest(orgSlug, slug, ticketId),
-    [orgSlug, slug, ticketId]
-  )
+  const req = ticketRequest(orgSlug, slug, ticketId)
   const result = useAtomValue(ticketDetail(req))
   const project = useProject()
 
@@ -48,12 +44,7 @@ export function TicketSplit() {
       ),
     onDefect: (defect) => <ErrorPage contained error={defect} />,
     onSuccess: ({ value }) => (
-      <TicketSplitPage
-        orgSlug={orgSlug}
-        slug={slug}
-        ticket={value}
-        members={project.members}
-      />
+      <TicketSplitPage ticket={value} members={project.members} />
     )
   })
 }

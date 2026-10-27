@@ -1,4 +1,3 @@
-import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element"
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import {
   RegistryContext,
@@ -18,12 +17,13 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { motion, Reorder } from "motion/react"
 import { useContext, useEffect, useMemo, useRef, useState } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import { DitherShell } from "@/components/ui/dither-shell"
 import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   boardRequest,
   boardTicketUpdates,
@@ -32,6 +32,8 @@ import {
   type BoardRequest,
   type BoardValue
 } from "@/features/sprints/atoms/sprintBoard"
+import { useHorizontalAutoScroll } from "@/features/sprints/hooks/useHorizontalAutoScroll"
+import { useReorderMode } from "@/features/sprints/hooks/useReorderMode"
 import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 
@@ -46,8 +48,6 @@ import {
 import { SprintBoardColumn } from "./SprintBoardColumn"
 
 type SprintBoardProps = {
-  orgSlug: string
-  slug: string
   groupId: GroupId
   query: TicketListQuery
   members: ReadonlyArray<Member>
@@ -60,16 +60,14 @@ type SprintBoardProps = {
 }
 
 export function SprintBoard(props: SprintBoardProps) {
-  const { orgSlug, slug, groupId } = props
+  const { orgSlug, slug } = useProjectRoute()
+  const { groupId } = props
   const req = useMemo(
     () => boardRequest(orgSlug, slug, groupId),
     [orgSlug, slug, groupId]
   )
   const board = useAtomValue(sprintBoard(req))
-  const statusReq = useMemo(
-    () => statusesRequest(orgSlug, slug),
-    [orgSlug, slug]
-  )
+  const statusReq = statusesRequest(orgSlug, slug)
   const statuses = useAtomValue(statusesFor(statusReq))
   const refreshBoard = useAtomRefresh(sprintBoard(req))
   const refreshStatuses = useAtomRefresh(statusesFor(statusReq))
@@ -78,31 +76,30 @@ export function SprintBoard(props: SprintBoardProps) {
     if (Result.isFailure(statuses)) refreshStatuses()
   }
 
-  return Result.matchWithError(Result.all({ board, statuses }), {
-    onInitial: () => (
-      <DitherShell contained animated>
-        {null}
-      </DitherShell>
-    ),
-    onError: (error) => <ErrorPage error={error} reset={refresh} contained />,
-    onDefect: (defect) => (
-      <ErrorPage error={defect} reset={refresh} contained />
-    ),
-    onSuccess: ({ value, waiting }) => (
-      <SprintBoardContent
-        {...props}
-        req={req}
-        board={value.board}
-        statuses={value.statuses}
-        waiting={waiting}
-      />
-    )
-  })
+  return (
+    <AsyncView
+      result={Result.all({ board, statuses })}
+      contained
+      reset={refresh}
+      onInitial={() => (
+        <DitherShell contained animated>
+          {null}
+        </DitherShell>
+      )}
+      onSuccess={({ value, waiting }) => (
+        <SprintBoardContent
+          {...props}
+          req={req}
+          board={value.board}
+          statuses={value.statuses}
+          waiting={waiting}
+        />
+      )}
+    />
+  )
 }
 
 function SprintBoardContent({
-  orgSlug,
-  slug,
   req,
   query,
   members,
@@ -121,31 +118,14 @@ function SprintBoardContent({
   statuses: ReadonlyArray<ProjectStatus>
   waiting: boolean
 }) {
+  const { orgSlug, slug } = useProjectRoute()
   const ref = useRef<HTMLDivElement>(null)
-  const groupRef = useRef<HTMLDivElement>(null)
+  const groupRef = useReorderMode(reorderMode, onExitReorder)
   const actor = useProjectActor()
   const canReorder = GroupPolicy.can(actor, "sprint", "reorder")
   const canTransition = TicketPolicy.canChange(actor, { status: true })
-  const [frozenWidth, setFrozenWidth] = useState<number | null>(null)
   const { height, hasRightOverflow } = useBoardViewport(ref)
-
-  useEffect(() => {
-    if (reorderMode) {
-      const w = groupRef.current?.scrollWidth ?? null
-      if (w) setFrozenWidth(w)
-    } else {
-      setFrozenWidth(null)
-    }
-  }, [reorderMode])
-
-  useEffect(() => {
-    if (!reorderMode) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onExitReorder()
-    }
-    document.addEventListener("keydown", onKey)
-    return () => document.removeEventListener("keydown", onKey)
-  }, [reorderMode, onExitReorder])
+  useHorizontalAutoScroll(ref, !isCompleted && !reorderMode && canReorder)
 
   const registry = useContext(RegistryContext)
   const statusSlugs = useMemo(() => boardStatusesFor(statuses), [statuses])
@@ -180,11 +160,7 @@ function SprintBoardContent({
   useEffect(() => {
     const el = ref.current
     if (!el || isCompleted || reorderMode || !canReorder) return
-    const cleanupAutoScroll = autoScrollForElements({
-      element: el,
-      getAllowedAxis: () => "horizontal"
-    })
-    const cleanupMonitor = monitorForElements({
+    return monitorForElements({
       onDrop({ source, location }) {
         const target = location.current.dropTargets[0]
         if (!target) return
@@ -221,10 +197,6 @@ function SprintBoardContent({
         flash(src.id)
       }
     })
-    return () => {
-      cleanupAutoScroll()
-      cleanupMonitor()
-    }
   }, [canReorder, canTransition, isCompleted, reorderMode, req, registry])
 
   return (
@@ -245,14 +217,11 @@ function SprintBoardContent({
         axis="x"
         values={[...order]}
         onReorder={(next) => setDragOrder(next)}
-        style={frozenWidth ? { width: `${frozenWidth}px` } : undefined}
         className="flex h-full gap-3"
       >
         {order.map((status) => (
           <SprintBoardColumn
             key={status}
-            orgSlug={orgSlug}
-            slug={slug}
             update={boardTicketUpdates(req)}
             status={status}
             statuses={statuses}

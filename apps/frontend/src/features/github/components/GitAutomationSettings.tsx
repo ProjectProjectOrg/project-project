@@ -18,7 +18,7 @@ import {
   Minus
 } from "lucide-react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
+import { AsyncView } from "@/components/shell/AsyncView"
 import {
   SettingsGroup,
   SettingsRow,
@@ -36,6 +36,7 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -81,12 +82,11 @@ const EVENTS: Readonly<
 }
 
 type Props = Readonly<{
-  orgSlug: string
-  slug: string
   canEdit: boolean
 }>
 
-export function GitAutomationSettings({ orgSlug, slug, canEdit }: Props) {
+export function GitAutomationSettings({ canEdit }: Props) {
+  const { orgSlug, slug } = useProjectRoute()
   const automation = useAtomValue(
     gitAutomationFor(gitAutomationRequest(orgSlug, slug))
   )
@@ -97,29 +97,21 @@ export function GitAutomationSettings({ orgSlug, slug, canEdit }: Props) {
       title={m.git_automation_heading()}
       description={m.git_automation_description()}
     >
-      {AsyncResult.matchWithError(AsyncResult.all([automation, statuses]), {
-        onInitial: () => (
+      <AsyncView
+        result={AsyncResult.all([automation, statuses])}
+        contained
+        onInitial={() => (
           <SettingsSkeleton rows={GIT_AUTOMATION_EVENTS.length} />
-        ),
-        onError: (error) => <ErrorPage error={error} contained />,
-        onDefect: (defect) => <ErrorPage error={defect} contained />,
-        onSuccess: ({ value: [current, statusList] }) => (
-          <Rules
-            orgSlug={orgSlug}
-            slug={slug}
-            canEdit={canEdit}
-            automation={current}
-            statuses={statusList}
-          />
-        )
-      })}
+        )}
+        onSuccess={({ value: [current, statusList] }) => (
+          <Rules canEdit={canEdit} automation={current} statuses={statusList} />
+        )}
+      />
     </SettingsSection>
   )
 }
 
 function Rules({
-  orgSlug,
-  slug,
   canEdit,
   automation,
   statuses
@@ -128,6 +120,7 @@ function Rules({
     automation: GitAutomation
     statuses: ReadonlyArray<ProjectStatus>
   }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const mutation = updateGitAutomation(gitAutomationRequest(orgSlug, slug))
   const save = useAtomSet(mutation)
   const failed = AsyncResult.isFailure(useAtomValue(mutation))

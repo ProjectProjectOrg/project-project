@@ -42,6 +42,7 @@ import { OPEN_SLASH_MENU_COMMAND } from "@/features/editor/lexical/blocks/SlashM
 import { lookupFor } from "@/features/editor/lib/blockChrome"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   ticketBodyDraft,
   ticketRequest,
@@ -79,28 +80,21 @@ const COLLAPSE_THRESHOLD_VH = 0.5
 const DESCRIPTION_REGION_ID = "ticket-description-region"
 
 export function DescriptionField({
-  orgSlug,
-  slug,
   ticket,
   members,
   autoFocus,
   onStatusChange,
   ref
 }: Readonly<{
-  orgSlug: string
-  slug: string
   ticket: TicketDetail
   members: ReadonlyArray<Member>
   autoFocus: boolean
   onStatusChange: (status: SaveStatus) => void
   ref?: Ref<DescriptionHandle>
 }>) {
-  const req = useMemo(
-    () => ticketRequest(orgSlug, slug, ticket.id),
-    [orgSlug, slug, ticket.id]
-  )
+  const { orgSlug, slug } = useProjectRoute()
+  const req = ticketRequest(orgSlug, slug, ticket.id)
   const update = useAtomSet(updateTicketDetail(req), { mode: "promiseExit" })
-  const updateState = useAtomValue(updateTicketDetail(req))
   const bodyDraft = useAtomValue(ticketBodyDraft(req))
   const [definitionError, setDefinitionError] = useState<string | null>(null)
   const blocks = useEditorBlocks(orgSlug, slug, ticket.type, setDefinitionError)
@@ -184,16 +178,6 @@ export function DescriptionField({
     })
   }, [autoFocus, library, lookup])
 
-  useEffect(() => {
-    if (
-      !updateState.waiting &&
-      bodyDraft !== null &&
-      ticket.body === bodyDraft
-    ) {
-      setBodyDraft(null)
-    }
-  }, [bodyDraft, setBodyDraft, ticket.body, updateState.waiting])
-
   const wrapperRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const [collapsedPx, setCollapsedPx] = useState(0)
@@ -275,6 +259,7 @@ export function DescriptionField({
                 onChange={async (next) => {
                   const exit = await update({ body: next })
                   if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
+                  setBodyDraft((draft) => (draft === next ? null : draft))
                 }}
                 onStatusChange={onStatusChange}
                 autoFocus={autoFocus ? "start" : false}
@@ -287,8 +272,6 @@ export function DescriptionField({
           </MentionScopeProvider>
           {library !== null && (
             <DescriptionTemplateStarts
-              orgSlug={orgSlug}
-              slug={slug}
               library={library}
               ticketType={ticket.type}
               body={bodyDraft ?? ticket.body}

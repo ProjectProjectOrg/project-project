@@ -1,11 +1,10 @@
 import type { User } from "@pp/shared"
-import { useLocation } from "@tanstack/react-router"
+import { useRouter } from "@tanstack/react-router"
 import { Menu } from "lucide-react"
 import { LayoutGroup } from "motion/react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 
 import { SidebarContent } from "@/components/shell/Sidebar"
-import { SidebarDrawerAutoCloseProvider } from "@/components/shell/SidebarSlot"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -17,19 +16,15 @@ import { m } from "@/paraglide/messages"
 
 export function MobileNav({ user }: { user: User }) {
   const [open, setOpen] = useState(false)
-  const { pathname } = useLocation()
-  const skipNextAutoClose = useRef(false)
-  const suppressAutoClose = useCallback(() => {
-    skipNextAutoClose.current = true
-  }, [])
+  const router = useRouter()
 
-  useEffect(() => {
-    if (skipNextAutoClose.current) {
-      skipNextAutoClose.current = false
-      return
-    }
-    setOpen(false)
-  }, [pathname])
+  useEffect(
+    () =>
+      router.subscribe("onResolved", ({ pathChanged, toLocation }) => {
+        if (pathChanged && !toLocation.state.keepSidebarDrawer) setOpen(false)
+      }),
+    [router]
+  )
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)")
@@ -56,11 +51,9 @@ export function MobileNav({ user }: { user: User }) {
       />
       <SheetContent side="left" showCloseButton={false}>
         <SheetTitle className="sr-only">{m.chrome_nav_menu_title()}</SheetTitle>
-        <SidebarDrawerAutoCloseProvider value={suppressAutoClose}>
-          <LayoutGroup id="sidebar-drawer">
-            <SidebarContent user={user} />
-          </LayoutGroup>
-        </SidebarDrawerAutoCloseProvider>
+        <LayoutGroup id="sidebar-drawer">
+          <SidebarContent user={user} />
+        </LayoutGroup>
       </SheetContent>
     </Sheet>
   )
