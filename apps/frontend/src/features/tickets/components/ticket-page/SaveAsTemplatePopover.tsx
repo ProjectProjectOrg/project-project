@@ -14,7 +14,6 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import {
-  SEGMENTED_ITEM_CLASS,
   SegmentedTabs,
   type SegmentedItem
 } from "@/components/ui/segmented-tabs"
@@ -193,17 +192,8 @@ export function SaveAsTemplateForm({
           variant="inline"
           className="self-start"
           items={layerItems}
-          isActive={(key) => key === layer}
-          renderItem={(item, content, { active }) => (
-            <button
-              type="button"
-              aria-pressed={active}
-              onClick={() => setLayer(item.key)}
-              className={SEGMENTED_ITEM_CLASS(active, "inline")}
-            >
-              {content}
-            </button>
-          )}
+          value={layer}
+          onValueChange={setLayer}
         />
       ) : null}
       <div className="flex flex-col gap-1.5">

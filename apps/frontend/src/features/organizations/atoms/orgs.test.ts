@@ -113,7 +113,11 @@ describe("org members optimistic updates", () => {
     })
     const registry = AtomRegistry.make()
     const view = orgMembers(req)
-    const mutation = transferOwnership({ req, callerUserId: owner.userId })
+    const mutation = transferOwnership({
+      req,
+      callerUserId: owner.userId,
+      userId: plain.userId
+    })
     registry.mount(view)
     registry.mount(mutation)
     try {
@@ -124,7 +128,7 @@ describe("org members optimistic updates", () => {
         })
       )
 
-      registry.set(mutation, { userId: plain.userId })
+      registry.set(mutation, undefined)
       const optimistic = registry.get(view)
       if (!AsyncResult.isSuccess(optimistic)) {
         throw new Error("no optimistic value")

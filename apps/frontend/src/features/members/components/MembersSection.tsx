@@ -1,33 +1,22 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { LastProjectPmBlocked } from "@pp/shared"
-import type {
-  AssignableRole,
-  Member,
-  PendingProjectMember,
-  Role
-} from "@pp/shared"
-import { useNavigate } from "@tanstack/react-router"
-import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
-import * as Match from "effect/Match"
-import * as Option from "effect/Option"
-import * as Result from "effect/reactivity/AsyncResult"
-import * as Schema from "effect/Schema"
-import { Briefcase, LogOut, ShieldCheck, Trash2, UserRound } from "lucide-react"
+import { Crown, LogOut, Trash2 } from "lucide-react"
 import { motion } from "motion/react"
-import { useState, type FormEvent } from "react"
+import { useState, type FormEvent, type ReactNode } from "react"
 
 import { SettingsGroup } from "@/components/shell/settings/SettingsSection"
+import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
+import {
+  MemberAvatar,
+  type AvatarSubject
+} from "@/features/members/components/MemberAvatar"
 import {
   AddMemberForm,
-  MemberMenuConfirm,
   MemberMenuSpacer,
   MemberMenuTrigger,
   MemberRowLayout,
@@ -36,85 +25,45 @@ import {
   RoleSelect,
   type RoleMeta
 } from "@/features/members/components/MemberList"
-import {
-  addMember,
-  cancelPendingMember,
-  forgetProject,
-  leaveProject,
-  projectRequest,
-  removeMember,
-  updateMember
-} from "@/features/projects/atoms/projects"
-import { errorMessage } from "@/lib/errorMessage"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
-const ROLE_META: Record<Role, RoleMeta & Readonly<{ assign: () => string }>> = {
-  pm: {
-    label: () => m.members_role_pm(),
-    assign: () => m.members_make_pm(),
-    icon: ShieldCheck,
-    tone: "muted"
-  },
-  developer: {
-    label: () => m.members_role_developer(),
-    assign: () => m.members_make_developer(),
-    icon: UserRound,
-    tone: "muted"
-  },
-  client: {
-    label: () => m.members_role_client(),
-    assign: () => m.members_make_client(),
-    icon: Briefcase,
-    tone: "muted"
-  }
-}
+export type MemberConfirm = Readonly<{
+  prompt: ReactNode
+  label: string
+  busyLabel: string
+  run: () => Promise<Exit.Exit<unknown, unknown>>
+  waiting: boolean
+  error: ReactNode
+}>
 
-const isLastProjectPmBlocked = Schema.is(LastProjectPmBlocked)
+export type MemberMenuModel<A extends string> = Readonly<{
+  assign: ReadonlyArray<Readonly<{ role: A; label: string }>>
+  changeRole: (role: A) => void
+  transfer: MemberConfirm | null
+  exit: (MemberConfirm & Readonly<{ kind: "remove" | "leave" }>) | null
+}>
 
-const memberActionMessage = <E,>(failure: E) =>
-  isLastProjectPmBlocked(failure)
-    ? errorMessage(failure)
-    : m.members_action_error()
-
-const memberActionError = <A, E>(state: Result.AsyncResult<A, E>) =>
-  Result.isFailure(state)
-    ? Option.match(Cause.findErrorOption(state.cause), {
-        onNone: () => m.members_action_error(),
-        onSome: memberActionMessage
-      })
-    : null
-const ASSIGNABLE_ROLES = [
-  "pm",
-  "developer",
-  "client"
-] satisfies ReadonlyArray<AssignableRole>
+export type InviteModel<A extends string> = Readonly<{
+  submit: (role: A) => Promise<Exit.Exit<unknown, unknown>>
+  waiting: boolean
+  error: ReactNode
+}>
 
 export function MembersSection({
-  orgSlug,
-  slug,
-  members,
-  pendingMembers,
-  waiting,
-  canManage,
-  callerId
-}: {
-  orgSlug: string
-  slug: string
-  members: ReadonlyArray<Member>
-  pendingMembers: ReadonlyArray<PendingProjectMember>
-  waiting: boolean
-  canManage: boolean
-  callerId: string
-}) {
-  const pmCount = members.filter((member) => member.role === "pm").length
+  renderAdd,
+  footer,
+  children
+}: Readonly<{
+  renderAdd?: (onFocusChange: (focused: boolean) => void) => ReactNode
+  footer?: ReactNode
+  children: ReactNode
+}>) {
   const [adding, setAdding] = useState(false)
 
   return (
     <div className="flex flex-col gap-3">
-      {canManage && (
-        <AddMemberRow orgSlug={orgSlug} slug={slug} onFocusChange={setAdding} />
-      )}
+      {renderAdd?.(setAdding)}
 
       <SettingsGroup
         render={
@@ -124,74 +73,47 @@ export function MembersSection({
           />
         }
       >
-        {members.map((member) => (
-          <li key={member.id}>
-            <MemberRow
-              orgSlug={orgSlug}
-              slug={slug}
-              member={member}
-              canManage={canManage}
-              onlyPm={member.role === "pm" && pmCount === 1}
-              callerId={callerId}
-              projectWaiting={waiting}
-            />
-          </li>
-        ))}
-        {pendingMembers.map((member) => (
-          <li key={member.invitationId}>
-            <PendingMemberRow
-              orgSlug={orgSlug}
-              slug={slug}
-              member={member}
-              canManage={canManage}
-              projectWaiting={waiting}
-            />
-          </li>
-        ))}
+        {children}
       </SettingsGroup>
+
+      {footer}
     </div>
   )
 }
 
-function AddMemberRow({
-  orgSlug,
-  slug,
+export function AddMemberRow<A extends string>({
+  email,
+  onEmailChange,
+  invite,
+  roles,
+  assignable,
+  defaultRole,
+  placeholder,
   onFocusChange
-}: {
-  orgSlug: string
-  slug: string
-  onFocusChange?: (focused: boolean) => void
-}) {
-  const [email, setEmail] = useState("")
-  const [role, setRole] = useState<AssignableRole>("developer")
+}: Readonly<{
+  email: string
+  onEmailChange: (email: string) => void
+  invite: InviteModel<A>
+  roles: Readonly<Record<A, RoleMeta>>
+  assignable: ReadonlyArray<A>
+  defaultRole: A
+  placeholder: string
+  onFocusChange: (focused: boolean) => void
+}>) {
+  const [role, setRole] = useState<A>(defaultRole)
   const [submitted, setSubmitted] = useState(false)
+  const [attempted, setAttempted] = useState<string | null>(null)
   const trimmed = email.trim()
-  const req = projectRequest(orgSlug, slug)
-  const memberMutation = addMember({ req, id: trimmed })
-  const add = useAtomSet(memberMutation, { mode: "promiseExit" })
-  const addState = useAtomValue(memberMutation)
-  const submitting = addState.waiting
-  const error = Result.isFailure(addState)
-    ? Option.match(Cause.findErrorOption(addState.cause), {
-        onNone: () => m.members_add_error_fallback(),
-        onSome: (failure) =>
-          Match.value(failure).pipe(
-            Match.tag("Forbidden", () =>
-              m.members_add_error_outsider_client_only()
-            ),
-            Match.orElse(() => m.members_add_error_fallback())
-          )
-      })
-    : null
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!trimmed || submitting) return
-    onFocusChange?.(false)
+    if (!trimmed || invite.waiting) return
+    onFocusChange(false)
     setSubmitted(false)
-    const exit = await add({ email: trimmed, role })
+    setAttempted(trimmed)
+    const exit = await invite.submit(role)
     if (Exit.isSuccess(exit)) {
-      setEmail("")
+      onEmailChange("")
       setSubmitted(true)
     }
   }
@@ -200,19 +122,19 @@ function AddMemberRow({
     <AddMemberForm
       email={email}
       onEmailChange={(next) => {
-        setEmail(next)
+        onEmailChange(next)
         setSubmitted(false)
       }}
-      placeholder={m.members_add_email_placeholder()}
-      submitting={submitting}
+      placeholder={placeholder}
+      submitting={invite.waiting}
       submitted={submitted}
-      error={error}
+      error={attempted === trimmed ? invite.error : null}
       roleSelect={
         <RoleSelect
           value={role}
           onChange={setRole}
-          roles={ASSIGNABLE_ROLES}
-          meta={ROLE_META}
+          roles={assignable}
+          meta={roles}
         />
       }
       onSubmit={onSubmit}
@@ -221,266 +143,181 @@ function AddMemberRow({
   )
 }
 
-function MemberRow({
-  orgSlug,
-  slug,
-  member,
-  canManage,
-  onlyPm,
-  callerId,
-  projectWaiting
-}: {
-  orgSlug: string
-  slug: string
-  member: Member
-  canManage: boolean
-  onlyPm: boolean
-  callerId: string
-  projectWaiting: boolean
-}) {
-  const isSelf = member.id === callerId
-  const updateState = useAtomValue(
-    updateMember({ req: projectRequest(orgSlug, slug), id: member.id })
-  )
-  const updating = projectWaiting && updateState.waiting
-  return (
-    <MemberRowLayout
-      leading={<MemberAvatar member={member} size={32} />}
-      title={member.name}
-      isSelf={isSelf}
-      subtitle={
-        <>
-          {member.username ? (
-            <>
-              <span className="font-mono">@{member.username}</span>
-              <span className="mx-1.5">·</span>
-            </>
-          ) : null}
-          {member.email}
-        </>
-      }
-      error={memberActionError(updateState)}
-      pulsing={updating}
-    >
-      <RoleBadge meta={ROLE_META[member.role]} />
-      <MemberMenu
-        orgSlug={orgSlug}
-        slug={slug}
-        member={member}
-        canManage={canManage && !onlyPm}
-        isSelf={isSelf}
-        canLeave={!onlyPm}
-      />
-    </MemberRowLayout>
-  )
-}
-
-function PendingMemberRow({
-  orgSlug,
-  slug,
-  member,
-  canManage,
-  projectWaiting
-}: {
-  orgSlug: string
-  slug: string
-  member: PendingProjectMember
-  canManage: boolean
-  projectWaiting: boolean
-}) {
-  return (
-    <PendingInviteRow
-      email={member.email}
-      role={ROLE_META[member.role]}
-      pulsing={projectWaiting && member.invitationId.startsWith("optimistic:")}
-      menu={
-        <PendingMemberMenu
-          orgSlug={orgSlug}
-          slug={slug}
-          member={member}
-          canManage={canManage}
-        />
-      }
-    />
-  )
-}
-
-function PendingMemberMenu({
-  orgSlug,
-  slug,
-  member,
-  canManage
-}: {
-  orgSlug: string
-  slug: string
-  member: PendingProjectMember
-  canManage: boolean
-}) {
-  const mutation = cancelPendingMember({
-    req: projectRequest(orgSlug, slug),
-    id: member.invitationId
-  })
-  const cancel = useAtomSet(mutation, {
-    mode: "promiseExit"
-  })
-  const cancelState = useAtomValue(mutation)
-  const canceling = cancelState.waiting
-  const [confirming, setConfirming] = useState(false)
-  if (!canManage) return <MemberMenuSpacer />
-
-  async function onCancel() {
-    await cancel()
-  }
-
-  return (
-    <DropdownMenu
-      onOpenChange={(open) => {
-        if (!open) setConfirming(false)
-      }}
-    >
-      <MemberMenuTrigger label={m.members_pending_actions_aria_label()} />
-      <DropdownMenuContent align="end" sideOffset={6} className="w-52">
-        {confirming ? (
-          <MemberMenuConfirm
-            prompt={m.members_pending_cancel_confirm_prompt({
-              email: member.email
-            })}
-            confirmLabel={
-              canceling
-                ? m.members_pending_cancel_in_progress()
-                : m.members_pending_cancel_button()
-            }
-            busy={canceling}
-            onConfirm={() => void onCancel()}
-            onCancel={() => setConfirming(false)}
-          />
-        ) : (
-          <DropdownMenuItem
-            closeOnClick={false}
-            onClick={() => setConfirming(true)}
-            variant="destructive"
-          >
-            <Trash2 className="size-4" strokeWidth={1.75} />
-            {m.members_pending_cancel_button()}
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
-function MemberMenu({
-  orgSlug,
-  slug,
-  member,
-  canManage,
+export function MemberRowView<R extends string, A extends R>({
+  roles,
+  avatar,
+  title,
+  subtitle,
   isSelf,
-  canLeave
+  role,
+  error,
+  pulsing = false,
+  menu
 }: Readonly<{
-  orgSlug: string
-  slug: string
-  member: Member
-  canManage: boolean
+  roles: Readonly<Record<R, RoleMeta>>
+  avatar: AvatarSubject
+  title: ReactNode
+  subtitle: ReactNode
   isSelf: boolean
-  canLeave: boolean
+  role: R
+  error: ReactNode
+  pulsing?: boolean
+  menu: MemberMenuModel<A>
 }>) {
-  const navigate = useNavigate()
-  const req = projectRequest(orgSlug, slug)
-  const mutationKey = { req, id: member.id }
-  const updateMutation = updateMember(mutationKey)
-  const update = useAtomSet(updateMutation)
-  const remove = useAtomSet(removeMember(mutationKey), {
-    mode: "promiseExit"
-  })
-  const removeState = useAtomValue(removeMember(mutationKey))
-  const leave = useAtomSet(leaveProject(req), { mode: "promiseExit" })
-  const forget = useAtomSet(forgetProject(req), { mode: "promise" })
-  const leaveState = useAtomValue(leaveProject(req))
-  const removing = isSelf ? leaveState.waiting : removeState.waiting
-  const removeError = isSelf
-    ? memberActionError(leaveState)
-    : memberActionError(removeState)
-  const [confirming, setConfirming] = useState(false)
-  const canExit = isSelf ? canLeave : canManage
+  return (
+    <li>
+      <MemberRowLayout
+        leading={<MemberAvatar member={avatar} size={32} />}
+        title={title}
+        isSelf={isSelf}
+        subtitle={subtitle}
+        error={error ?? menu.exit?.error ?? menu.transfer?.error}
+        pulsing={pulsing}
+      >
+        <RoleBadge meta={roles[role]} />
+        <MemberMenu roles={roles} menu={menu} />
+      </MemberRowLayout>
+    </li>
+  )
+}
 
-  if (!canManage && !canExit) return <MemberMenuSpacer />
-
-  async function onRemove() {
-    if (!isSelf) {
-      await remove()
-      return
-    }
-    const exit = await leave()
-    if (Exit.isSuccess(exit)) {
-      await navigate({ to: "/orgs/$orgSlug/projects", params: { orgSlug } })
-      await forget()
-    }
-  }
+function MemberMenu<R extends string, A extends R>({
+  roles,
+  menu
+}: Readonly<{
+  roles: Readonly<Record<R, RoleMeta>>
+  menu: MemberMenuModel<A>
+}>) {
+  const { assign, transfer, exit } = menu
+  if (assign.length === 0 && transfer === null && exit === null)
+    return <MemberMenuSpacer />
 
   return (
-    <DropdownMenu
-      onOpenChange={(open) => {
-        if (!open) setConfirming(false)
-      }}
-    >
+    <DropdownMenu>
       <MemberMenuTrigger label={m.members_actions_aria_label()} />
-      <DropdownMenuContent align="end" sideOffset={6} className="w-52">
-        {confirming ? (
-          <MemberMenuConfirm
-            prompt={
-              isSelf
-                ? m.members_leave_confirm_prompt()
-                : m.members_remove_confirm_prompt({ name: member.name })
-            }
-            confirmLabel={
-              isSelf
-                ? removing
-                  ? m.members_leave_in_progress()
-                  : m.members_leave_button()
-                : removing
-                  ? m.members_remove_in_progress()
-                  : m.members_remove_button()
-            }
-            busy={removing}
-            error={removeError}
-            onConfirm={() => void onRemove()}
-            onCancel={() => setConfirming(false)}
-          />
-        ) : (
-          <>
-            {canManage &&
-              ASSIGNABLE_ROLES.filter((r) => r !== member.role).map((r) => {
-                const meta = ROLE_META[r]
-                const RIcon = meta.icon
-                return (
-                  <DropdownMenuItem
-                    key={r}
-                    onClick={() => update({ role: r })}
-                    className="cursor-pointer"
-                  >
-                    <RIcon className="size-4" strokeWidth={1.75} />
-                    {meta.assign()}
-                  </DropdownMenuItem>
-                )
-              })}
-            {canManage && canExit && <DropdownMenuSeparator />}
-            {canExit && (
-              <DropdownMenuItem
+      <DropdownMenuContent align="end" sideOffset={6} className="w-60">
+        <ConfirmButton.Root bare>
+          <ConfirmButton.Idle>
+            {assign.map(({ role, label }) => {
+              const RoleIcon = roles[role].icon
+              return (
+                <DropdownMenuItem
+                  key={role}
+                  onClick={() => menu.changeRole(role)}
+                  className="cursor-pointer"
+                >
+                  <RoleIcon className="size-4" strokeWidth={1.75} />
+                  {label}
+                </DropdownMenuItem>
+              )
+            })}
+            {transfer && (
+              <ConfirmButton.MenuItem
+                confirm="transfer"
                 closeOnClick={false}
-                onClick={() => setConfirming(true)}
+                className="cursor-pointer"
+              >
+                <Crown className="size-4" strokeWidth={1.75} />
+                {transfer.label}
+              </ConfirmButton.MenuItem>
+            )}
+            {(assign.length > 0 || transfer) && exit && (
+              <DropdownMenuSeparator />
+            )}
+            {exit && (
+              <ConfirmButton.MenuItem
+                confirm="exit"
+                closeOnClick={false}
                 variant="destructive"
               >
-                {isSelf ? (
+                {exit.kind === "leave" ? (
                   <LogOut className="size-4" strokeWidth={1.75} />
                 ) : (
                   <Trash2 className="size-4" strokeWidth={1.75} />
                 )}
-                {isSelf ? m.members_leave_button() : m.members_remove_button()}
-              </DropdownMenuItem>
+                {exit.label}
+              </ConfirmButton.MenuItem>
             )}
-          </>
-        )}
+          </ConfirmButton.Idle>
+          {transfer && (
+            <MenuConfirm
+              when="transfer"
+              confirm={{ ...transfer, error: null }}
+            />
+          )}
+          {exit && (
+            <MenuConfirm when="exit" confirm={{ ...exit, error: null }} />
+          )}
+        </ConfirmButton.Root>
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+function MenuConfirm({
+  when,
+  confirm
+}: Readonly<{ when: string; confirm: MemberConfirm }>) {
+  return (
+    <ConfirmButton.Confirm when={when} className="block">
+      <ConfirmButton.Action
+        layout="menu"
+        prompt={confirm.prompt}
+        label={confirm.label}
+        busyLabel={confirm.busyLabel}
+        waiting={confirm.waiting}
+        error={confirm.error}
+        onConfirm={confirm.run}
+      />
+    </ConfirmButton.Confirm>
+  )
+}
+
+export function PendingRowView<R extends string>({
+  roles,
+  email,
+  role,
+  pulsing = false,
+  cancel
+}: Readonly<{
+  roles: Readonly<Record<R, RoleMeta>>
+  email: string
+  role: R
+  pulsing?: boolean
+  cancel: MemberConfirm | null
+}>) {
+  return (
+    <li>
+      <PendingInviteRow
+        email={email}
+        role={roles[role]}
+        pulsing={pulsing}
+        menu={
+          cancel === null ? (
+            <MemberMenuSpacer />
+          ) : (
+            <DropdownMenu>
+              <MemberMenuTrigger
+                label={m.members_pending_actions_aria_label()}
+              />
+              <DropdownMenuContent align="end" sideOffset={6} className="w-52">
+                <ConfirmButton.Root bare>
+                  <ConfirmButton.Idle>
+                    <ConfirmButton.MenuItem
+                      closeOnClick={false}
+                      variant="destructive"
+                    >
+                      <Trash2 className="size-4" strokeWidth={1.75} />
+                      {cancel.label}
+                    </ConfirmButton.MenuItem>
+                  </ConfirmButton.Idle>
+                  <MenuConfirm when="default" confirm={cancel} />
+                </ConfirmButton.Root>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        }
+      />
+    </li>
   )
 }

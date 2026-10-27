@@ -378,13 +378,14 @@ function ProjectMenu({ orgSlug, slug }: { orgSlug: string; slug: string }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <button
-            type="button"
+          <Button
+            variant="quiet"
+            size="square-8"
             aria-label={m.project_detail_actions_aria_label()}
-            className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+            className="focus-visible:ring-2"
           >
             <MoreHorizontal className="size-4" strokeWidth={1.75} />
-          </button>
+          </Button>
         }
       />
       <DropdownMenuContent align="end" sideOffset={6} className="w-44">

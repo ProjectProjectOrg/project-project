@@ -4,7 +4,6 @@ import { startTransition } from "react"
 import { flushSync } from "react-dom"
 
 import {
-  SEGMENTED_ITEM_CLASS,
   SegmentedTabs,
   type SegmentedItem
 } from "@/components/ui/segmented-tabs"
@@ -117,19 +116,8 @@ function SwitcherTabs<K extends string>({
       <SegmentedTabs
         variant={variant}
         items={items}
-        isActive={(k) => k === current}
-        renderItem={(item, content, { active }) => (
-          <button
-            type="button"
-            onClick={() => {
-              if (item.key !== current) onSelect(item.key)
-            }}
-            aria-pressed={active}
-            className={SEGMENTED_ITEM_CLASS(active, variant)}
-          >
-            {content}
-          </button>
-        )}
+        value={current}
+        onValueChange={onSelect}
       />
     </div>
   )

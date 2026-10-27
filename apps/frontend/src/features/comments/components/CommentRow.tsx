@@ -5,7 +5,7 @@ import * as DateTime from "effect/DateTime"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { ConfirmDeleteIcon } from "@/components/ui/confirm-delete-icon"
+import { ConfirmButton } from "@/components/ui/confirm-button"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import {
   commentsRequest,
@@ -97,13 +97,21 @@ export function CommentRow({
                 </InlineForm.Trigger>
               )}
               {canDelete && (
-                <ConfirmDeleteIcon
-                  ariaLabel={m.comments_delete_aria_label()}
-                  message={m.comments_delete_confirm()}
-                  onConfirm={async () => {
-                    await remove()
-                  }}
-                />
+                <ConfirmButton.Root>
+                  <ConfirmButton.DeleteTrigger
+                    aria-label={m.comments_delete_aria_label()}
+                  />
+                  <ConfirmButton.Confirm>
+                    <ConfirmButton.Action
+                      prompt={m.comments_delete_confirm()}
+                      label={m.common_delete_confirm_button()}
+                      busyLabel={m.common_deleting_button()}
+                      onConfirm={async () => {
+                        await remove()
+                      }}
+                    />
+                  </ConfirmButton.Confirm>
+                </ConfirmButton.Root>
               )}
             </div>
           )}

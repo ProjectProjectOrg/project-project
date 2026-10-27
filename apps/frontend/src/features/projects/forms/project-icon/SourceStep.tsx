@@ -11,10 +11,7 @@ import {
   EmojiPickerContent,
   EmojiPickerSearch
 } from "@/components/ui/emoji-picker"
-import {
-  SegmentedTabs,
-  SEGMENTED_ITEM_CLASS
-} from "@/components/ui/segmented-tabs"
+import { SegmentedTabs } from "@/components/ui/segmented-tabs"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import { StepHeading } from "@/features/projects/components/appearance/AppearanceCard"
 import { CUTOUT_DEFAULT_TOLERANCE } from "@/features/projects/lib/iconCutout"
@@ -84,21 +81,8 @@ export function SourceStep({
                     { key: "emoji", label: m.project_icon_source_emoji_tab() },
                     { key: "image", label: m.project_icon_source_image_tab() }
                   ]}
-                  isActive={(key) => key === field.value}
-                  renderItem={(item, content, { active }) => (
-                    <button
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() =>
-                        field.handleChange(
-                          item.key === "image" ? "image" : "emoji"
-                        )
-                      }
-                      className={SEGMENTED_ITEM_CLASS(active, "inline")}
-                    >
-                      {content}
-                    </button>
-                  )}
+                  value={field.value}
+                  onValueChange={field.handleChange}
                 />
               )}
             </group.Field>

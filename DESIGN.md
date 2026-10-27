@@ -312,7 +312,7 @@ Everything that only changes state on hover or press uses the overlays instead a
 
 ### Buttons
 
-The single primitive lives in `components/ui/button.tsx`, exposing variants `primary | secondary | destructive | tertiary | ghost | raised | chip | dither` and sizes `xs | sm | md | lg | icon-*`. Shape is shared across the app via a `useShape()` context — round-rectangle by default; the same primitive can adopt other corner shapes without per-callsite styling.
+The single primitive lives in `components/ui/button.tsx`, exposing variants `primary | secondary | destructive | tertiary | ghost | raised | chip | dither` and sizes `xs | sm | md | lg | icon-*`. Shape is the app's pill radius (`rounded-[20px]`), baked into the primitive so callsites never set it.
 
 - **Primary:** `bg-foreground text-background`, hover dims to `/90`, active to `/80`. Always pairs with `active:scale-[0.97]` and `transition-all duration-100`.
 - **Secondary:** see-through `--tint`, `--tint-hover` on hover. It takes on whatever surface it sits on, so it works on the page and inside settings groups alike.

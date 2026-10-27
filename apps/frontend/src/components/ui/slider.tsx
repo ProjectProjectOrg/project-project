@@ -20,7 +20,6 @@ import {
 } from "react"
 
 import { fontWeights } from "@/lib/fontWeight"
-import { useShape } from "@/lib/shapeContext"
 import { sliderSprings as spring } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -108,7 +107,6 @@ function ValueDisplay({
   isRange,
   isInteracting
 }: ValueDisplayProps) {
-  const shape = useShape()
   const [inputValue, setInputValue] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -166,7 +164,7 @@ function ValueDisplay({
               aria-label={`Edit slider value${isRange ? (index === 0 ? " (start)" : " (end)") : ""}`}
               className={cn(
                 "w-[5ch] border-b border-border bg-transparent text-center text-foreground outline-none",
-                shape.input
+                "rounded-[20px]"
               )}
               style={{ fontVariationSettings: fontWeights.medium }}
             />
@@ -233,7 +231,6 @@ type TooltipValueProps = {
 }
 
 function TooltipValue({ value, formatValue, motionX }: TooltipValueProps) {
-  const shape = useShape()
   const tooltipX = useTransform(motionX, (x) => x + THUMB_SIZE / 2)
   return (
     <motion.div
@@ -250,7 +247,7 @@ function TooltipValue({ value, formatValue, motionX }: TooltipValueProps) {
       <span
         className={cn(
           "bg-foreground px-2 py-1 text-[12px] whitespace-nowrap text-background tabular-nums",
-          shape.bg
+          "rounded-[20px]"
         )}
         style={{ fontVariationSettings: fontWeights.medium }}
       >
@@ -288,7 +285,6 @@ function Slider({
 }: SliderProps) {
   const isRange = range === true
   const values = isRange ? value : [value]
-  const shape = useShape()
 
   const stepsKey = steps ? steps.join(",") : ""
   const stepValues = useMemo(() => {
@@ -895,7 +891,7 @@ function Slider({
                   <span
                     className={cn(
                       "bg-foreground px-2 py-1 text-[12px] whitespace-nowrap text-background tabular-nums",
-                      shape.bg
+                      "rounded-[20px]"
                     )}
                     style={{ fontVariationSettings: fontWeights.medium }}
                   >

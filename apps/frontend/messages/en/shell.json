@@ -15,5 +15,6 @@
   "nav_crumb_loading_placeholder": "…",
   "theme_dark": "Dark",
   "theme_light": "Light",
+  "theme_switcher_aria_label": "Theme",
   "theme_system": "System"
 }

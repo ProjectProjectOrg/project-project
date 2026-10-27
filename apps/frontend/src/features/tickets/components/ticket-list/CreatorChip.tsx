@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactNode } from "react"
 
 import { BADGE_TONES, type BadgeTone } from "@/components/ui/badge"
-import { CollapsingLabel } from "@/components/ui/segmented-tabs"
+import { CollapsingLabel } from "@/components/ui/collapsing-label"
 import { cn } from "@/lib/utils"
 
 export type CreatorChipProps = Readonly<

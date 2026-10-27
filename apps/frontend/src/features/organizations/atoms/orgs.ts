@@ -6,7 +6,6 @@ import {
   type OrgMember,
   type OrgMembers,
   type RenameOrgInput,
-  type TransferOrgOwnershipInput,
   type UpdateMemberRoleInput
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -233,14 +232,18 @@ const withOwnershipTransferred = (
 export const transferOwnership = Atom.family(
   ({
     req,
-    callerUserId
-  }: Readonly<{ req: OrgRequest; callerUserId: string }>) =>
+    callerUserId,
+    userId
+  }: Readonly<{ req: OrgRequest; callerUserId: string; userId: string }>) =>
     viewMutation(orgMembers(req), {
       name: "transferOwnership",
-      predict: (value, input: TransferOrgOwnershipInput) =>
-        withOwnershipTransferred(value, input.userId, callerUserId),
-      call: (client, input) =>
-        client.org.transferOwnership({ params: req.params, payload: input }),
+      predict: (value, _input: void) =>
+        withOwnershipTransferred(value, userId, callerUserId),
+      call: (client) =>
+        client.org.transferOwnership({
+          params: req.params,
+          payload: { userId }
+        }),
       confirm: replaceWith,
       publish: () => [Keys.org(req.params.orgSlug), Keys.orgs()]
     })

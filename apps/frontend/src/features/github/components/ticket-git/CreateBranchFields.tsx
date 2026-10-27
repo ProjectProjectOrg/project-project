@@ -17,13 +17,12 @@ import { useEffect, useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList
-} from "@/components/ui/command"
+  CommandMenu,
+  CommandMenuEmpty,
+  CommandMenuInput,
+  CommandMenuItem,
+  CommandMenuList
+} from "@/components/ui/command-menu"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,7 +37,6 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import {
-  SEGMENTED_ITEM_CLASS,
   SegmentedTabs,
   type SegmentedItem
 } from "@/components/ui/segmented-tabs"
@@ -300,21 +298,9 @@ function StatusInlinePills({
     <SegmentedTabs
       items={items}
       variant="inline"
-      isActive={(k) => k === value}
-      renderItem={(item, content, { active }) => (
-        <button
-          type="button"
-          onClick={() => onChange(item.key)}
-          disabled={disabled}
-          aria-pressed={active}
-          className={cn(
-            SEGMENTED_ITEM_CLASS(active, "inline"),
-            "disabled:cursor-not-allowed disabled:opacity-50"
-          )}
-        >
-          {content}
-        </button>
-      )}
+      value={value}
+      onValueChange={onChange}
+      disabled={disabled}
     />
   )
 }
@@ -424,6 +410,7 @@ function BaseBranchCombobox({
   const result = useAtomValue(branches(branchesReq))
   const items = Result.isSuccess(result) ? result.value.items : []
   const loading = Result.isInitial(result) || Result.isWaiting(result)
+  const protectedByName = new Map(items.map((b) => [b.name, b.isProtected]))
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -450,49 +437,51 @@ function BaseBranchCombobox({
         align="start"
         className="w-[--radix-popover-trigger-width] p-0"
       >
-        <Command shouldFilter={false}>
-          <CommandInput
+        <CommandMenu
+          className="max-h-[300px]"
+          items={
+            loading ? [] : items.map((b) => ({ value: b.name, label: b.name }))
+          }
+          onSelect={(picked) => {
+            onChange(picked.value)
+            setOpen(false)
+          }}
+        >
+          <CommandMenuInput
             placeholder={m.git_search_branches_placeholder()}
             value={search}
-            onValueChange={setSearch}
-            className="h-8"
+            onChange={(event) => setSearch(event.target.value)}
           />
-          <CommandList>
-            {loading ? (
-              <CommandEmpty>{m.git_branches_loading()}</CommandEmpty>
-            ) : items.length === 0 ? (
-              <CommandEmpty>{m.git_no_branches_found()}</CommandEmpty>
-            ) : (
-              <CommandGroup>
-                {items.map((b) => (
-                  <CommandItem
-                    key={b.name}
-                    value={b.name}
-                    onSelect={(picked) => {
-                      onChange(picked)
-                      setOpen(false)
-                    }}
-                    className="font-mono text-xs"
-                  >
-                    <Check
-                      className={cn(
-                        "size-3",
-                        value === b.name ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    <GitBranch className="size-3" strokeWidth={1.75} />
-                    <span className="truncate">{b.name}</span>
-                    {b.isProtected && (
-                      <span className="ml-auto text-[10px] text-muted-foreground">
-                        {m.git_branch_protected_pill()}
-                      </span>
+          <CommandMenuList
+            renderItem={(row) => {
+              const branch = protectedByName.get(row.value)
+              return (
+                <CommandMenuItem
+                  value={row.value}
+                  className="font-mono text-xs"
+                >
+                  <Check
+                    className={cn(
+                      "size-3",
+                      value === row.value ? "opacity-100" : "opacity-0"
                     )}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-          </CommandList>
-        </Command>
+                  />
+                  <GitBranch className="size-3" strokeWidth={1.75} />
+                  <span className="truncate">{row.value}</span>
+                  {branch === true && (
+                    <span className="ml-auto text-[10px] text-muted-foreground">
+                      {m.git_branch_protected_pill()}
+                    </span>
+                  )}
+                </CommandMenuItem>
+              )
+            }}
+          >
+            <CommandMenuEmpty className="text-sm">
+              {loading ? m.git_branches_loading() : m.git_no_branches_found()}
+            </CommandMenuEmpty>
+          </CommandMenuList>
+        </CommandMenu>
       </PopoverContent>
     </Popover>
   )

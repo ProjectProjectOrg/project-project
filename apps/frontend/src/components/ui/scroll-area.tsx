@@ -2,7 +2,6 @@ import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area"
 import { createContext, useContext, type ComponentProps } from "react"
 
 import { useTouchPrimary } from "@/hooks/useTouchPrimary"
-import { useShape } from "@/lib/shapeContext"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -83,7 +82,6 @@ function ScrollBar({
   ...props
 }: ComponentProps<typeof ScrollAreaPrimitive.Scrollbar>) {
   const isTouch = useContext(ScrollAreaContext)
-  const shape = useShape()
 
   if (isTouch) return null
 
@@ -109,7 +107,7 @@ function ScrollBar({
         className={cn(
           "relative bg-[rgb(var(--overlay)/0.08)] transition-[background-color,width,height] duration-160 ease-in-out",
           "group-hover/scrollbar:bg-[rgb(var(--overlay)/0.12)] active:!bg-[rgb(var(--overlay)/0.16)]",
-          shape.bg,
+          "rounded-[20px]",
           orientation === "vertical" &&
             "mx-auto my-1 h-[var(--scroll-area-thumb-height)] w-1 -translate-x-0.5 group-hover/scrollbar:w-1.5",
           orientation === "horizontal" &&

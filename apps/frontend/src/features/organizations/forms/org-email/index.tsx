@@ -19,10 +19,7 @@ import {
 import { SettingsInput } from "@/components/shell/settings/SettingsTextField"
 import { Button } from "@/components/ui/button"
 import { ConfirmButton } from "@/components/ui/confirm-button"
-import {
-  SEGMENTED_ITEM_CLASS,
-  SegmentedTabs
-} from "@/components/ui/segmented-tabs"
+import { SegmentedTabs } from "@/components/ui/segmented-tabs"
 import {
   disconnectOrgEmail,
   emailRequest,
@@ -204,17 +201,8 @@ export function OrgEmailForm({
                         { key: "starttls", label: m.org_email_starttls() },
                         { key: "tls", label: m.org_email_tls() }
                       ]}
-                      isActive={(key) => key === field.value}
-                      renderItem={(item, content, { active }) => (
-                        <button
-                          type="button"
-                          aria-pressed={active}
-                          onClick={() => field.handleChange(item.key)}
-                          className={SEGMENTED_ITEM_CLASS(active)}
-                        >
-                          {content}
-                        </button>
-                      )}
+                      value={field.value}
+                      onValueChange={field.handleChange}
                     />
                   </fieldset>
                 </SettingsRow>

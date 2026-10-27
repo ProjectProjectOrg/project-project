@@ -1,9 +1,6 @@
 import type { AttachmentSort, AttachmentStatus } from "@pp/shared"
 
-import {
-  SEGMENTED_ITEM_CLASS,
-  SegmentedTabs
-} from "@/components/ui/segmented-tabs"
+import { SegmentedTabs } from "@/components/ui/segmented-tabs"
 import { Select, SelectTrigger } from "@/components/ui/select"
 import { m } from "@/paraglide/messages"
 
@@ -56,17 +53,8 @@ export function Toolbar({
     <div className="flex flex-wrap items-center gap-3">
       <SegmentedTabs
         items={STATUS_ITEMS}
-        isActive={(key) => key === status}
-        renderItem={(item, content, { active }) => (
-          <button
-            type="button"
-            onClick={() => onStatusChange(item.key)}
-            aria-pressed={active}
-            className={SEGMENTED_ITEM_CLASS(active)}
-          >
-            {content}
-          </button>
-        )}
+        value={status}
+        onValueChange={onStatusChange}
       />
 
       <Select

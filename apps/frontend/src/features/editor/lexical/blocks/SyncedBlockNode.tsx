@@ -1,18 +1,9 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection"
-import { mergeRegister } from "@lexical/utils"
 import {
   $applyNodeReplacement,
   $getNodeByKey,
-  $getSelection,
-  $isNodeSelection,
   $isRootNode,
-  CLICK_COMMAND,
-  COMMAND_PRIORITY_LOW,
   DecoratorNode,
-  KEY_BACKSPACE_COMMAND,
-  KEY_DELETE_COMMAND,
-  KEY_ESCAPE_COMMAND,
   createCommand,
   defineExtension,
   type LexicalCommand,
@@ -21,7 +12,13 @@ import {
   type SerializedLexicalNode,
   type Spread
 } from "lexical"
-import { useContext, useEffect, useId, type ReactElement } from "react"
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useId,
+  type ReactElement
+} from "react"
 
 import { MarkdownSegment } from "@/features/editor/components/Markdown"
 import {
@@ -33,6 +30,7 @@ import {
   syncedChipLabel,
   syncedEditAction
 } from "@/features/editor/components/SyncedBlock"
+import { useDecoratorSelection } from "@/features/editor/hooks/useDecoratorSelection"
 import { useBlockLookup } from "@/features/editor/lib/blockChrome"
 import {
   splitLeadingHeading,
@@ -63,9 +61,6 @@ export type SerializedSyncedBlockNode = Spread<
 >
 
 const INTERACTIVE_SELECTOR = "a, button, input, label"
-
-const isInteractiveTarget = (target: EventTarget | null): boolean =>
-  target instanceof Element && target.closest(INTERACTIVE_SELECTOR) !== null
 
 export class SyncedBlockNode extends DecoratorNode<ReactElement> {
   __blockType: string
@@ -190,8 +185,17 @@ function SyncedBlockView({
   mode: SyncedBlockMode
 }>) {
   const [editor] = useLexicalComposerContext()
-  const [isSelected, setSelected, clearSelection] =
-    useLexicalNodeSelection(nodeKey)
+  const $removeBlock = useCallback(() => {
+    const node = $getNodeByKey(nodeKey)
+    if (node === null) return false
+    node.selectPrevious()
+    node.remove()
+    return true
+  }, [nodeKey])
+  const { isSelected, selectOnPointer } = useDecoratorSelection(nodeKey, {
+    interactive: INTERACTIVE_SELECTOR,
+    onRemove: $removeBlock
+  })
   const scope = useContext(EditorBlocksContext)
   const morphId = useId()
   const view = syncedView(useBlockLookup(), blockType, snapshot, mode)
@@ -200,17 +204,11 @@ function SyncedBlockView({
     const element = editor.getElementByKey(nodeKey)
     if (element === null) return
     const select = (event: MouseEvent) => {
-      if (isInteractiveTarget(event.target) || !editor.isEditable()) return
-      event.preventDefault()
-      const root = editor.getRootElement()
-      if (root !== null && document.activeElement !== root)
-        root.focus({ preventScroll: true })
-      clearSelection()
-      setSelected(true)
+      if (editor.isEditable()) selectOnPointer(event)
     }
     element.addEventListener("mousedown", select)
     return () => element.removeEventListener("mousedown", select)
-  }, [clearSelection, editor, nodeKey, setSelected])
+  }, [editor, nodeKey, selectOnPointer])
 
   useEffect(() => {
     const element = editor.getElementByKey(nodeKey)
@@ -218,50 +216,6 @@ function SyncedBlockView({
     if (isSelected) element.dataset.selected = ""
     else delete element.dataset.selected
   }, [editor, isSelected, nodeKey])
-
-  useEffect(() => {
-    const remove = (event: KeyboardEvent | null) => {
-      if (!isSelected || !$isNodeSelection($getSelection())) return false
-      event?.preventDefault()
-      const node = $getNodeByKey(nodeKey)
-      if (node === null) return false
-      node.selectPrevious()
-      node.remove()
-      return true
-    }
-    return mergeRegister(
-      editor.registerCommand(
-        CLICK_COMMAND,
-        (event: MouseEvent) => {
-          const element = editor.getElementByKey(nodeKey)
-          const target = event.target
-          if (element === null || !(target instanceof Node)) return false
-          if (!element.contains(target) || isInteractiveTarget(target))
-            return false
-          event.preventDefault()
-          clearSelection()
-          setSelected(true)
-          return true
-        },
-        COMMAND_PRIORITY_LOW
-      ),
-      editor.registerCommand(
-        KEY_BACKSPACE_COMMAND,
-        remove,
-        COMMAND_PRIORITY_LOW
-      ),
-      editor.registerCommand(KEY_DELETE_COMMAND, remove, COMMAND_PRIORITY_LOW),
-      editor.registerCommand(
-        KEY_ESCAPE_COMMAND,
-        () => {
-          if (!isSelected) return false
-          clearSelection()
-          return true
-        },
-        COMMAND_PRIORITY_LOW
-      )
-    )
-  }, [clearSelection, editor, isSelected, nodeKey, setSelected])
 
   if (view.kind === "removed") {
     const { heading, rest } = splitLeadingHeading(view.content)

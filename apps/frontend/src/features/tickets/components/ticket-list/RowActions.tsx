@@ -13,7 +13,7 @@ import {
 import { useMemo, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { ConfirmDeleteForm } from "@/components/ui/confirm-delete-form"
+import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,7 +44,6 @@ export function TicketRowActions({
   archived: boolean
 }) {
   const [archiving, setArchiving] = useState(false)
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [reason, setReason] = useState("")
   const trigger = useRef<HTMLButtonElement>(null)
   const req = useMemo(
@@ -69,13 +68,8 @@ export function TicketRowActions({
     return exit
   }
 
-  const removeAndClose = async () => {
-    const exit = await remove()
-    if (Exit.isSuccess(exit)) setConfirmingDelete(false)
-  }
-
   return (
-    <>
+    <ConfirmButton.Root bare>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -136,14 +130,13 @@ export function TicketRowActions({
           )}
           {canArchive && canDelete && <DropdownMenuSeparator />}
           {canDelete && (
-            <DropdownMenuItem
+            <ConfirmButton.MenuItem
               variant="destructive"
-              onClick={() => setConfirmingDelete(true)}
               className="cursor-pointer"
             >
               <Trash2 className="size-4" strokeWidth={1.75} />
               {m.tickets_row_delete_menu_item()}
-            </DropdownMenuItem>
+            </ConfirmButton.MenuItem>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -171,28 +164,21 @@ export function TicketRowActions({
           />
         </PopoverContent>
       </Popover>
-      <Popover open={confirmingDelete} onOpenChange={setConfirmingDelete}>
-        <PopoverContent
-          anchor={trigger}
-          align="end"
-          sideOffset={6}
-          className="w-72"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <ConfirmDeleteForm
-            title={m.tickets_row_delete_confirm()}
-            description={m.tickets_row_delete_description()}
-            error={
-              Result.isFailure(removeState)
-                ? m.tickets_row_delete_error_fallback()
-                : undefined
-            }
-            waiting={removeState.waiting}
-            onConfirm={() => void removeAndClose()}
-            onCancel={() => setConfirmingDelete(false)}
-          />
-        </PopoverContent>
-      </Popover>
-    </>
+      <ConfirmButton.Popover anchor={trigger} className="w-72">
+        <ConfirmButton.Action
+          layout="stacked"
+          prompt={m.tickets_row_delete_confirm()}
+          description={m.tickets_row_delete_description()}
+          label={m.common_delete_confirm_button()}
+          waiting={removeState.waiting}
+          error={
+            Result.isFailure(removeState)
+              ? m.tickets_row_delete_error_fallback()
+              : null
+          }
+          onConfirm={() => remove()}
+        />
+      </ConfirmButton.Popover>
+    </ConfirmButton.Root>
   )
 }

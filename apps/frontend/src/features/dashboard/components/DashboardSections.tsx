@@ -6,7 +6,6 @@ import { useState, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
-  SEGMENTED_ITEM_CLASS,
   SegmentedTabs,
   type SegmentedItem
 } from "@/components/ui/segmented-tabs"
@@ -102,19 +101,8 @@ export function MyTicketsSection({
           <div role="group" aria-label={m.org_dashboard_view_tabs_aria_label()}>
             <SegmentedTabs
               items={VIEW_ITEMS}
-              isActive={(key) => key === view}
-              renderItem={(item, content, { active }) => (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (item.key !== view) onViewChange(item.key)
-                  }}
-                  aria-pressed={active}
-                  className={SEGMENTED_ITEM_CLASS(active)}
-                >
-                  {content}
-                </button>
-              )}
+              value={view}
+              onValueChange={onViewChange}
             />
           </div>
         </div>

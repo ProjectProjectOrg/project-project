@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from "motion/react"
 import { useState } from "react"
 
 import {
-  SEGMENTED_ITEM_CLASS,
   SegmentedTabs,
   type SegmentedItem
 } from "@/components/ui/segmented-tabs"
@@ -88,25 +87,15 @@ export function CommentsSection({
               }
             />
           </button>
-          <div role="group" aria-label={m.tickets_activity_tabs_aria_label()}>
-            <SegmentedTabs
-              items={tabs}
-              isActive={(key) => key === tab}
-              renderItem={(item, content, { active }) => (
-                <button
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => {
-                    setTab(item.key)
-                    setCollapsed(false)
-                  }}
-                  className={SEGMENTED_ITEM_CLASS(active)}
-                >
-                  {content}
-                </button>
-              )}
-            />
-          </div>
+          <SegmentedTabs
+            aria-label={m.tickets_activity_tabs_aria_label()}
+            items={tabs}
+            value={tab}
+            onValueChange={(next) => {
+              setTab(next)
+              setCollapsed(false)
+            }}
+          />
         </div>
         <AnimatePresence initial={false}>
           {!collapsed && (

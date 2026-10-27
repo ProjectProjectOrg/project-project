@@ -1,38 +1,37 @@
-import { AnimatePresence, motion } from "motion/react"
-import type { ComponentType, ReactNode } from "react"
-import { Fragment, useLayoutEffect, useRef, useState } from "react"
+import { useRender } from "@base-ui/react/use-render"
+import type { ComponentType, ReactElement, ReactNode } from "react"
 
-import { transitions } from "@/lib/springs"
 import { SURFACE_BG } from "@/lib/surfaceClasses"
 import { useSurface } from "@/lib/surfaceContext"
 import { cn } from "@/lib/utils"
 
+import { CollapsingLabel } from "./collapsing-label"
 import { SegmentedIndicator } from "./segmented-indicator"
 
 type IconCmp = ComponentType<{ className?: string; strokeWidth?: number }>
 
-export type SegmentedItem<K extends string> = {
+export type SegmentedItem<K extends string> = Readonly<{
   key: K
   label: string
   icon?: IconCmp
   iconClassName?: string
   badge?: number | string | null
-  badgeNode?: ReactNode
-  compactAriaLabel?: string
-}
+  hoverContent?: ReactNode
+  render?: ReactElement
+}>
 
 export type SegmentedVariant = "default" | "inline" | "view"
 
-type VariantTokens = {
+type VariantTokens = Readonly<{
   container: string
   innerGap: string
   innerGapPx: number
   iconSize: string
   pillRounding: string
   itemBase: string
-}
+}>
 
-const VARIANTS: Record<SegmentedVariant, VariantTokens> = {
+const VARIANTS: Readonly<Record<SegmentedVariant, VariantTokens>> = {
   default: {
     container: "inline-flex items-center gap-0.5 rounded-xl p-1",
     innerGap: "gap-1.5",
@@ -59,32 +58,34 @@ const VARIANTS: Record<SegmentedVariant, VariantTokens> = {
   }
 }
 
-export interface SegmentedTabsProps<K extends string> {
+export type SegmentedTabsProps<K extends string> = Readonly<{
   items: ReadonlyArray<SegmentedItem<K>>
-  isActive: (key: K) => boolean
-  renderItem: (
-    item: SegmentedItem<K>,
-    content: ReactNode,
-    args: { active: boolean }
-  ) => ReactNode
-  compact?: boolean
+  value: K | null
+  onValueChange?: (key: K) => void
   variant?: SegmentedVariant
+  labels?: "all" | "active"
+  disabled?: boolean
   className?: string
-}
+  "aria-label"?: string
+}>
 
 export function SegmentedTabs<K extends string>({
   items,
-  isActive,
-  renderItem,
-  compact = false,
+  value,
+  onValueChange,
   variant = "default",
-  className
+  labels = "all",
+  disabled,
+  className,
+  "aria-label": ariaLabel
 }: SegmentedTabsProps<K>) {
   const v = VARIANTS[variant]
   const surface = useSurface()
   const pillLevel = Math.min(surface + 4, 8)
   return (
     <div
+      role={ariaLabel === undefined ? undefined : "group"}
+      aria-label={ariaLabel}
       className={cn(
         "relative",
         v.container,
@@ -93,7 +94,7 @@ export function SegmentedTabs<K extends string>({
       )}
     >
       <SegmentedIndicator
-        activeIndex={items.findIndex((item) => isActive(item.key))}
+        activeIndex={items.findIndex((item) => item.key === value)}
         className={cn(
           variant === "inline"
             ? cn(SURFACE_BG[pillLevel], "shadow-surface-1")
@@ -101,117 +102,100 @@ export function SegmentedTabs<K extends string>({
           v.pillRounding
         )}
       />
-      {items.map((it) => {
-        const active = isActive(it.key)
-        const Icon = it.icon
-        const content = (
-          <>
-            <span
-              className={cn(
-                "relative z-10 inline-flex items-center",
-                v.innerGap
-              )}
-            >
-              {Icon && (
-                <Icon
-                  className={cn(v.iconSize, it.iconClassName)}
-                  strokeWidth={1.75}
-                />
-              )}
-              <CollapsingLabel show={!compact} gap={v.innerGapPx}>
-                {it.label}
-              </CollapsingLabel>
-              {it.badgeNode ??
-                (it.badge !== undefined && it.badge !== null && (
-                  <span
-                    className={cn(
-                      "rounded-full px-1.5 font-mono text-[10px] tabular-nums",
-                      active
-                        ? "bg-foreground/10 text-foreground"
-                        : "bg-muted text-muted-foreground"
-                    )}
-                  >
-                    {it.badge}
-                  </span>
-                ))}
-            </span>
-          </>
-        )
-        return (
-          <Fragment key={it.key}>
-            {renderItem(it, content, { active })}
-          </Fragment>
-        )
-      })}
+      {items.map((item) => (
+        <SegmentedTab
+          key={item.key}
+          item={item}
+          active={item.key === value}
+          showLabel={labels === "all" || item.key === value}
+          variant={variant}
+          disabled={disabled}
+          onSelect={() => {
+            if (item.key !== value) onValueChange?.(item.key)
+          }}
+        />
+      ))}
     </div>
   )
 }
 
-export function CollapsingLabel({
-  show,
-  children,
-  contentKey,
-  gap = 8
-}: {
-  show: boolean
-  children: ReactNode
-  contentKey?: string | number
-  gap?: number
-}) {
-  const innerRef = useRef<HTMLSpanElement>(null)
-  const [width, setWidth] = useState<number | "auto">("auto")
-
-  useLayoutEffect(() => {
-    const el = innerRef.current
-    if (!el) return
-    setWidth(el.offsetWidth)
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry)
-        setWidth(
-          Math.ceil(entry.borderBoxSize[0]?.inlineSize ?? el.offsetWidth)
-        )
-    })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
-  return (
-    <motion.span
-      initial={false}
-      animate={
-        show
-          ? { width, opacity: 1, marginLeft: 0 }
-          : { width: 0, opacity: 0, marginLeft: -gap }
-      }
-      transition={transitions.presence}
-      aria-hidden={!show}
-      className="inline-flex items-center overflow-hidden whitespace-nowrap"
-    >
-      <span ref={innerRef} className="inline-flex shrink-0 items-center">
-        <AnimatePresence initial={false} mode="popLayout">
-          <motion.span
-            key={contentKey ?? "content"}
-            initial={{ opacity: 0, filter: "blur(4px)" }}
-            animate={{ opacity: 1, filter: "blur(0px)" }}
-            exit={{ opacity: 0, filter: "blur(4px)" }}
-            transition={transitions.presence}
-            className="inline-flex items-center"
+function SegmentedTab({
+  item,
+  active,
+  showLabel,
+  variant,
+  disabled,
+  onSelect
+}: Readonly<{
+  item: SegmentedItem<string>
+  active: boolean
+  showLabel: boolean
+  variant: SegmentedVariant
+  disabled?: boolean
+  onSelect: () => void
+}>) {
+  const v = VARIANTS[variant]
+  const Icon = item.icon
+  const hovers = item.hoverContent !== undefined
+  const children = (
+    <>
+      <span
+        className={cn(
+          "relative z-10 inline-flex items-center",
+          v.innerGap,
+          hovers &&
+            "transition-opacity group-hover/seg-item:opacity-0 group-hover/seg-item:duration-0"
+        )}
+      >
+        {Icon && (
+          <Icon
+            className={cn(v.iconSize, item.iconClassName)}
+            strokeWidth={1.75}
+          />
+        )}
+        <CollapsingLabel show={showLabel} gap={v.innerGapPx}>
+          {item.label}
+        </CollapsingLabel>
+        {item.badge !== undefined && item.badge !== null && (
+          <span
+            className={cn(
+              "rounded-full px-1.5 font-mono text-[10px] tabular-nums",
+              active
+                ? "bg-foreground/10 text-foreground"
+                : "bg-muted text-muted-foreground"
+            )}
           >
-            {children}
-          </motion.span>
-        </AnimatePresence>
+            {item.badge}
+          </span>
+        )}
       </span>
-    </motion.span>
+      {hovers && (
+        <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-2 whitespace-nowrap opacity-0 transition-opacity group-hover/seg-item:opacity-100 group-hover/seg-item:duration-0">
+          {item.hoverContent}
+        </span>
+      )}
+    </>
   )
-}
-
-export const SEGMENTED_ITEM_CLASS = (
-  active: boolean,
-  variant: SegmentedVariant = "default"
-) =>
-  cn(
-    "group/seg-item relative inline-flex items-center transition-all duration-100 active:scale-[0.97]",
-    VARIANTS[variant].itemBase,
-    VARIANTS[variant].innerGap,
+  const className = cn(
+    "group/seg-item relative inline-flex items-center transition-all duration-100 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50",
+    v.itemBase,
+    v.innerGap,
     active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
   )
+  return useRender({
+    defaultTagName: "button",
+    render: item.render,
+    props:
+      item.render === undefined
+        ? {
+            type: "button",
+            className,
+            children,
+            disabled,
+            onClick: onSelect,
+            "aria-pressed": active,
+            "aria-label": showLabel ? undefined : item.label
+          }
+        : { className, children }
+  })
+}

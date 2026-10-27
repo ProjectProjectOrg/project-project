@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { SidebarContent } from "@/components/shell/Sidebar"
 import { SidebarDrawerAutoCloseProvider } from "@/components/shell/SidebarSlot"
+import { Button } from "@/components/ui/button"
 import {
   Sheet,
   SheetContent,
@@ -43,13 +44,14 @@ export function MobileNav({ user }: { user: User }) {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         render={
-          <button
-            type="button"
+          <Button
+            variant="quiet"
+            size="square-9"
             aria-label={m.chrome_nav_open()}
-            className="grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97] lg:hidden"
+            className="lg:hidden"
           >
             <Menu className="size-5" strokeWidth={1.75} />
-          </button>
+          </Button>
         }
       />
       <SheetContent side="left" showCloseButton={false}>

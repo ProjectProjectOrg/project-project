@@ -12,7 +12,6 @@ import {
   menuSeparatorClass
 } from "@/components/ui/menu-styles"
 import type { IconComponent } from "@/lib/icon"
-import { useShape } from "@/lib/shapeContext"
 import { cn } from "@/lib/utils"
 
 export type SelectOption<Value extends string> = Readonly<{
@@ -171,8 +170,6 @@ function SelectTrigger({
   children,
   ...props
 }: SelectTriggerProps) {
-  const shape = useShape()
-
   if (render) {
     return (
       <SelectPrimitive.Trigger render={render} className={className} {...props}>
@@ -187,7 +184,7 @@ function SelectTrigger({
         aria-invalid={error ? true : undefined}
         className={cn(
           triggerVariants({ variant }),
-          shape.input,
+          "rounded-[20px]",
           error && "border-destructive/50 hover:border-destructive/50",
           className
         )}

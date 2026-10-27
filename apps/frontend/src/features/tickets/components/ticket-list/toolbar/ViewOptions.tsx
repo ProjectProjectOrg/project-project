@@ -21,12 +21,12 @@ import {
 import { useMemo, useRef, useState, type ComponentProps } from "react"
 
 import { Button } from "@/components/ui/button"
+import { CollapsingLabel } from "@/components/ui/collapsing-label"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
-import { CollapsingLabel } from "@/components/ui/segmented-tabs"
 import { Switch } from "@/components/ui/switch"
 import { me } from "@/features/auth/atoms/auth"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"

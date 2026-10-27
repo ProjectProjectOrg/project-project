@@ -1,6 +1,4 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection"
-import { mergeRegister } from "@lexical/utils"
 import {
   ATTACHMENT_MIN_WIDTH,
   clampAttachmentWidth,
@@ -9,37 +7,14 @@ import {
 import {
   $applyNodeReplacement,
   $getNodeByKey,
-  $getSelection,
-  $isNodeSelection,
-  CLICK_COMMAND,
-  COMMAND_PRIORITY_LOW,
   DecoratorNode,
-  KEY_BACKSPACE_COMMAND,
-  KEY_DELETE_COMMAND,
-  KEY_ESCAPE_COMMAND,
   type LexicalNode,
   type NodeKey,
   type SerializedLexicalNode,
   type Spread
 } from "lexical"
-import { Maximize2, Minimize2, Trash2 } from "lucide-react"
-import {
-  AnimatePresence,
-  LayoutGroup,
-  motion,
-  useReducedMotion,
-  type MotionProps
-} from "motion/react"
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type MouseEvent as ReactMouseEvent,
-  type ReactElement,
-  type ReactNode
-} from "react"
+import { motion, type MotionProps } from "motion/react"
+import { useRef, useState, type ReactElement } from "react"
 
 import { Button } from "@/components/ui/button"
 import { AttachmentChip } from "@/features/attachments/components/AttachmentChip"
@@ -48,11 +23,11 @@ import {
   attachmentWidthStyle
 } from "@/features/editor/lexical/attachmentImageStyle"
 import { AttachmentTile } from "@/features/editor/lexical/AttachmentTile"
-import { standardEaseCss, transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { useAttachmentResolves } from "./attachmentAvailability"
+import { AttachmentSelectable } from "./AttachmentSelectable"
 import { AttachmentUnavailable } from "./AttachmentUnavailable"
 
 export type AttachmentKind = "image" | "file"
@@ -80,19 +55,6 @@ export type SerializedAttachmentNode = Spread<
   },
   SerializedLexicalNode
 >
-
-const INTERACTIVE_SELECTOR =
-  "a, button, [data-attachment-action], [data-attachment-resize]"
-
-const isInteractiveTarget = (target: EventTarget | null): boolean =>
-  target instanceof Element && target.closest(INTERACTIVE_SELECTOR) !== null
-
-const OVERLAY_REVEAL =
-  "invisible opacity-0 transition-opacity group-focus-within/editing:visible group-hover/hitbox:opacity-100 group-focus-within/hitbox:opacity-100"
-
-const CONTENT_MORPH = { ...transitions.morph, opacity: transitions.fade }
-
-const morphSizes = new WeakMap<HTMLElement, { width: number; height: number }>()
 
 const contentWidth = (element: HTMLElement | null): number | null => {
   if (element === null) return null
@@ -410,7 +372,6 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
         nodeKey={this.getKey()}
         deletable={!this.__failed}
         density={this.__density}
-        toggleable={false}
       >
         {this.__failed ? (
           <AttachmentFailed uploadId={this.__uploadId} />
@@ -439,6 +400,7 @@ function AttachmentSettled({
   width: number | null
   density: AttachmentDensity
 }) {
+  const [editor] = useLexicalComposerContext()
   const [broken, setBroken] = useState(false)
   const resolves = useAttachmentResolves(url)
   const missing = broken || !resolves
@@ -449,7 +411,13 @@ function AttachmentSettled({
       nodeKey={nodeKey}
       deletable
       density={density}
-      toggleable
+      onToggleDensity={() =>
+        editor.update(() => {
+          const node = $getNodeByKey(nodeKey)
+          if (!$isAttachmentNode(node)) return
+          node.setDensity(node.getDensity() === "compact" ? "rich" : "compact")
+        })
+      }
     >
       {missing ? (
         <AttachmentUnavailable
@@ -481,277 +449,6 @@ function AttachmentSettled({
         />
       )}
     </AttachmentSelectable>
-  )
-}
-
-function AttachmentSelectable({
-  nodeKey,
-  deletable,
-  density,
-  toggleable,
-  children
-}: {
-  nodeKey: string
-  deletable: boolean
-  density: AttachmentDensity
-  toggleable: boolean
-  children: ReactNode
-}) {
-  const [editor] = useLexicalComposerContext()
-  const [isSelected, setSelected, clearSelection] =
-    useLexicalNodeSelection(nodeKey)
-
-  const remove = useCallback(() => {
-    editor.update(() => {
-      $getNodeByKey(nodeKey)?.remove()
-    })
-  }, [editor, nodeKey])
-
-  const wrapperRef = useRef<HTMLSpanElement>(null)
-  const contentRef = useRef<HTMLSpanElement>(null)
-  const reduceMotion = useReducedMotion() ?? false
-
-  useLayoutEffect(() => {
-    const element = wrapperRef.current
-    if (element === null) return undefined
-    const previous = morphSizes.get(element)
-    let animation: Animation | undefined
-    let cancelled = false
-
-    const unpin = () => {
-      element.style.removeProperty("width")
-      element.style.removeProperty("height")
-      element.style.removeProperty("overflow")
-      const content = contentRef.current
-      content?.style.removeProperty("width")
-      content?.style.removeProperty("height")
-    }
-
-    const settle = () => {
-      if (cancelled) return
-      unpin()
-      const rect = element.getBoundingClientRect()
-      const next = { width: rect.width, height: rect.height }
-      morphSizes.set(element, next)
-      if (previous === undefined || reduceMotion) return
-      if (
-        Math.abs(previous.width - next.width) < 0.5 &&
-        Math.abs(previous.height - next.height) < 0.5
-      ) {
-        return
-      }
-      const content = contentRef.current
-      if (content !== null) {
-        content.style.width = `${next.width}px`
-        content.style.height = `${next.height}px`
-      }
-      animation = element.animate(
-        [
-          { width: `${previous.width}px`, height: `${previous.height}px` },
-          { width: `${next.width}px`, height: `${next.height}px` }
-        ],
-        { duration: transitions.morph.duration * 1000, easing: standardEaseCss }
-      )
-      animation.addEventListener("finish", unpin, { once: true })
-    }
-
-    const image = element.querySelector("img")
-    if (previous !== undefined && image !== null && !image.complete) {
-      element.style.width = `${previous.width}px`
-      element.style.height = `${previous.height}px`
-      element.style.overflow = "hidden"
-      image.addEventListener("load", settle, { once: true })
-      image.addEventListener("error", settle, { once: true })
-      return () => {
-        cancelled = true
-        image.removeEventListener("load", settle)
-        image.removeEventListener("error", settle)
-        animation?.cancel()
-        unpin()
-      }
-    }
-
-    settle()
-    return () => {
-      cancelled = true
-      animation?.cancel()
-      unpin()
-    }
-  }, [density, reduceMotion])
-
-  const toggleDensity = useCallback(() => {
-    editor.update(() => {
-      const node = $getNodeByKey(nodeKey)
-      if (!$isAttachmentNode(node)) return
-      node.setDensity(node.getDensity() === "compact" ? "rich" : "compact")
-    })
-  }, [editor, nodeKey])
-
-  useEffect(() => {
-    const onDelete = (event: KeyboardEvent) => {
-      if (!isSelected || !$isNodeSelection($getSelection())) return false
-      event.preventDefault()
-      remove()
-      return true
-    }
-
-    return mergeRegister(
-      editor.registerCommand(
-        CLICK_COMMAND,
-        (event: MouseEvent) => {
-          const element = editor.getElementByKey(nodeKey)
-          const target = event.target
-          if (!element || !(target instanceof Node)) return false
-          if (!element.contains(target)) return false
-          if (isInteractiveTarget(target)) return false
-          event.preventDefault()
-          clearSelection()
-          setSelected(true)
-          return true
-        },
-        COMMAND_PRIORITY_LOW
-      ),
-      editor.registerCommand(
-        KEY_DELETE_COMMAND,
-        onDelete,
-        COMMAND_PRIORITY_LOW
-      ),
-      editor.registerCommand(
-        KEY_BACKSPACE_COMMAND,
-        onDelete,
-        COMMAND_PRIORITY_LOW
-      ),
-      editor.registerCommand(
-        KEY_ESCAPE_COMMAND,
-        () => {
-          if (!isSelected) return false
-          clearSelection()
-          return true
-        },
-        COMMAND_PRIORITY_LOW
-      )
-    )
-  }, [editor, nodeKey, isSelected, setSelected, clearSelection, remove])
-
-  const selectOnPointer = (event: ReactMouseEvent<HTMLElement>) => {
-    if (isInteractiveTarget(event.target)) return
-    event.preventDefault()
-    const root = editor.getRootElement()
-    if (root && document.activeElement !== root) {
-      root.focus({ preventScroll: true })
-    }
-    clearSelection()
-    setSelected(true)
-  }
-
-  const compact = density === "compact"
-  const overlaySlot = cn(
-    "absolute flex h-8 items-center",
-    compact
-      ? "-top-1 before:absolute before:-inset-x-3 before:inset-y-0 before:content-['']"
-      : "-top-2"
-  )
-  const morphId = `attachment-${nodeKey}`
-
-  return (
-    <span
-      className="inline-block max-w-full align-middle"
-      onMouseDown={selectOnPointer}
-    >
-      <span
-        ref={wrapperRef}
-        data-attachment-selected={isSelected ? "true" : undefined}
-        className={cn(
-          "group/hitbox relative inline-block max-w-full align-middle transition-shadow duration-150 focus-within:z-20 hover:z-20",
-          compact ? "my-0.5 rounded-md" : "my-2 rounded-xl",
-          isSelected
-            ? "z-20 ring-2 ring-ring ring-offset-2 ring-offset-background"
-            : "z-0 ring-0 ring-transparent"
-        )}
-      >
-        <LayoutGroup id={morphId}>
-          <AnimatePresence initial={false} mode="popLayout">
-            <motion.span
-              ref={contentRef}
-              data-attachment-content="true"
-              key={compact ? "compact" : "expanded"}
-              layoutId={morphId}
-              transition={CONTENT_MORPH}
-              className="block"
-            >
-              {children}
-            </motion.span>
-          </AnimatePresence>
-          {deletable ? (
-            <OverlayAction
-              morphId={`${morphId}-remove`}
-              slot={cn(overlaySlot, compact ? "right-full mr-1" : "-left-2")}
-              label={m.editor_attachment_remove()}
-              variant="overlay-destructive"
-              onClick={remove}
-            >
-              <Trash2 strokeWidth={1.75} />
-            </OverlayAction>
-          ) : null}
-          {toggleable ? (
-            <OverlayAction
-              morphId={`${morphId}-density`}
-              slot={cn(overlaySlot, compact ? "left-full ml-1" : "-right-2")}
-              label={
-                compact
-                  ? m.editor_attachment_view_rich()
-                  : m.editor_attachment_view_compact()
-              }
-              variant="overlay"
-              onClick={toggleDensity}
-            >
-              {compact ? (
-                <Maximize2 strokeWidth={1.75} />
-              ) : (
-                <Minimize2 strokeWidth={1.75} />
-              )}
-            </OverlayAction>
-          ) : null}
-        </LayoutGroup>
-      </span>
-    </span>
-  )
-}
-
-function OverlayAction({
-  morphId,
-  slot,
-  label,
-  variant,
-  onClick,
-  children
-}: {
-  morphId: string
-  slot: string
-  label: string
-  variant: "overlay" | "overlay-destructive"
-  onClick: () => void
-  children: ReactNode
-}) {
-  return (
-    <motion.span
-      layoutId={morphId}
-      layout="position"
-      transition={transitions.morph}
-      className={slot}
-    >
-      <Button
-        variant={variant}
-        size="icon-sm"
-        aria-label={label}
-        title={label}
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={onClick}
-        className={OVERLAY_REVEAL}
-      >
-        {children}
-      </Button>
-    </motion.span>
   )
 }
 

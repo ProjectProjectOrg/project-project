@@ -1,7 +1,7 @@
 import { Monitor, Moon, Sun } from "lucide-react"
 import type { MouseEvent } from "react"
 
-import { TabsSubtle, TabsSubtleItem } from "@/components/ui/tabs-subtle"
+import { SegmentedTabs } from "@/components/ui/segmented-tabs"
 import { useTheme, type ThemePreference } from "@/hooks/useTheme"
 import { getThemeRevealRadius } from "@/lib/themeReveal"
 import { m } from "@/paraglide/messages"
@@ -18,7 +18,6 @@ const options: ReadonlyArray<{
 
 export function ThemeSwitcher() {
   const { preference, setPreference } = useTheme()
-  const selectedIndex = options.findIndex((o) => o.value === preference)
 
   const handleClickCapture = (e: MouseEvent<HTMLDivElement>) => {
     const root = document.documentElement
@@ -35,29 +34,19 @@ export function ThemeSwitcher() {
     )
   }
 
-  const handleSelect = (i: number) => {
-    const next = options[i].value
-    if (next === preference) return
-    setPreference(next)
-  }
-
   return (
     <div onClickCapture={handleClickCapture}>
-      <TabsSubtle
-        selectedIndex={selectedIndex}
-        onSelect={handleSelect}
-        activeLabel
-        idPrefix="theme-switcher"
-      >
-        {options.map((opt, i) => (
-          <TabsSubtleItem
-            key={opt.value}
-            index={i}
-            icon={opt.icon}
-            label={opt.label()}
-          />
-        ))}
-      </TabsSubtle>
+      <SegmentedTabs
+        aria-label={m.theme_switcher_aria_label()}
+        labels="active"
+        value={preference}
+        onValueChange={setPreference}
+        items={options.map((opt) => ({
+          key: opt.value,
+          label: opt.label(),
+          icon: opt.icon
+        }))}
+      />
     </div>
   )
 }

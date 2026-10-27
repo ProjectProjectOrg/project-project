@@ -11,6 +11,7 @@ import {
   navFocusRing,
   useNavHoverItem
 } from "@/components/shell/NavItem"
+import { Button } from "@/components/ui/button"
 import {
   projectsFor,
   projectsRequest
@@ -148,18 +149,21 @@ function ProjectsGroupRow({
         </span>
         <span className="min-w-0 flex-1 truncate">{name}</span>
       </Link>
-      <Link
-        to="/orgs/$orgSlug/projects/$slug/settings"
-        params={{ orgSlug, slug }}
+      <Button
+        variant="quiet"
+        size="square-7"
+        render={
+          <Link
+            to="/orgs/$orgSlug/projects/$slug/settings"
+            params={{ orgSlug, slug }}
+          />
+        }
         aria-label={settingsLabel}
         title={settingsLabel}
-        className={cn(
-          "mr-1 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97]",
-          "opacity-0 group-focus-within/project-row:opacity-100 group-hover/project-row:opacity-100 group-data-[fluid-hover-active]/project-row:opacity-100"
-        )}
+        className="mr-1 opacity-0 group-focus-within/project-row:opacity-100 group-hover/project-row:opacity-100 group-data-[fluid-hover-active]/project-row:opacity-100"
       >
         <Settings className="size-3.5" strokeWidth={1.75} />
-      </Link>
+      </Button>
     </motion.li>
   )
 }

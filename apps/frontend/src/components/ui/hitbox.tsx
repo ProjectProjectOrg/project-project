@@ -1,6 +1,5 @@
 import type { ComponentProps } from "react"
 
-import { useShape } from "@/lib/shapeContext"
 import { cn } from "@/lib/utils"
 
 type Margin = "1" | "2" | "3" | "4"
@@ -26,13 +25,12 @@ export function Hitbox({
   children,
   ...rest
 }: HitboxProps) {
-  const shape = useShape()
   return (
     <button
       type="button"
       className={cn(
         "group/hitbox cursor-pointer outline-none before:absolute before:content-[''] focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-default",
-        shape.button,
+        "rounded-[20px]",
         mode === "absolute"
           ? "absolute inset-0"
           : "relative inline-flex items-center",

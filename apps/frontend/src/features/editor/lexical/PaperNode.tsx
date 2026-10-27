@@ -1,17 +1,8 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection"
-import { mergeRegister } from "@lexical/utils"
 import {
   $applyNodeReplacement,
   $getNodeByKey,
-  $getSelection,
-  $isNodeSelection,
-  CLICK_COMMAND,
-  COMMAND_PRIORITY_LOW,
   DecoratorNode,
-  KEY_BACKSPACE_COMMAND,
-  KEY_DELETE_COMMAND,
-  KEY_ESCAPE_COMMAND,
   type LexicalNode,
   type NodeKey,
   type SerializedLexicalNode,
@@ -24,15 +15,16 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
-  type ReactElement,
-  type ReactNode
+  type ReactElement
 } from "react"
 
-import { Button } from "@/components/ui/button"
+import { Chip } from "@/components/ui/chip"
 import { Input } from "@/components/ui/input"
+import { useDecoratorSelection } from "@/features/editor/hooks/useDecoratorSelection"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+
+import { NodeOverlayAction } from "./NodeOverlayAction"
 
 export interface PaperPayload {
   readonly url: string
@@ -48,15 +40,6 @@ export type SerializedPaperNode = Spread<
 >
 
 const INTERACTIVE_SELECTOR = "a, button, input, [data-paper-action]"
-
-const isInteractiveTarget = (target: EventTarget | null): boolean =>
-  target instanceof Element && target.closest(INTERACTIVE_SELECTOR) !== null
-
-const CHIP =
-  "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 align-baseline text-xs transition-[color,background-color,border-color,transform] duration-100 active:scale-[0.97] group-focus-within/editing:hover:bg-hover"
-
-const OVERLAY_REVEAL =
-  "invisible opacity-0 transition-opacity group-focus-within/editing:visible group-hover/hitbox:opacity-100 group-focus-within/hitbox:opacity-100"
 
 export class PaperNode extends DecoratorNode<ReactElement> {
   __url: string
@@ -147,10 +130,12 @@ function PaperSelectable({
   label: string
 }) {
   const [editor] = useLexicalComposerContext()
-  const [isSelected, setSelected, clearSelection] =
-    useLexicalNodeSelection(nodeKey)
   const resolvedLabel = label.trim() || m.editor_paper_default_name()
   const [editing, setEditing] = useState(false)
+  const { isSelected, select, remove, selectOnPointer } = useDecoratorSelection(
+    nodeKey,
+    { interactive: INTERACTIVE_SELECTOR, removable: !editing }
+  )
   const [draft, setDraft] = useState(resolvedLabel)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -160,12 +145,6 @@ function PaperSelectable({
     inputRef.current?.select()
   }, [editing])
 
-  const remove = useCallback(() => {
-    editor.update(() => {
-      $getNodeByKey(nodeKey)?.remove()
-    })
-  }, [editor, nodeKey])
-
   const commitLabel = useCallback(() => {
     const next = draft.trim() || m.editor_paper_default_name()
     editor.update(() => {
@@ -174,72 +153,6 @@ function PaperSelectable({
     })
     setEditing(false)
   }, [draft, editor, nodeKey])
-
-  useEffect(() => {
-    const onDelete = (event: globalThis.KeyboardEvent) => {
-      if (editing) return false
-      if (!isSelected || !$isNodeSelection($getSelection())) return false
-      event.preventDefault()
-      remove()
-      return true
-    }
-
-    return mergeRegister(
-      editor.registerCommand(
-        CLICK_COMMAND,
-        (event: MouseEvent) => {
-          const element = editor.getElementByKey(nodeKey)
-          const target = event.target
-          if (!element || !(target instanceof Node)) return false
-          if (!element.contains(target)) return false
-          if (isInteractiveTarget(target)) return false
-          event.preventDefault()
-          clearSelection()
-          setSelected(true)
-          return true
-        },
-        COMMAND_PRIORITY_LOW
-      ),
-      editor.registerCommand(
-        KEY_DELETE_COMMAND,
-        onDelete,
-        COMMAND_PRIORITY_LOW
-      ),
-      editor.registerCommand(
-        KEY_BACKSPACE_COMMAND,
-        onDelete,
-        COMMAND_PRIORITY_LOW
-      ),
-      editor.registerCommand(
-        KEY_ESCAPE_COMMAND,
-        () => {
-          if (!isSelected) return false
-          clearSelection()
-          return true
-        },
-        COMMAND_PRIORITY_LOW
-      )
-    )
-  }, [
-    editor,
-    nodeKey,
-    isSelected,
-    setSelected,
-    clearSelection,
-    remove,
-    editing
-  ])
-
-  const selectOnPointer = (event: ReactMouseEvent<HTMLElement>) => {
-    if (isInteractiveTarget(event.target)) return
-    event.preventDefault()
-    const root = editor.getRootElement()
-    if (root && document.activeElement !== root) {
-      root.focus({ preventScroll: true })
-    }
-    clearSelection()
-    setSelected(true)
-  }
 
   const handleInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     event.stopPropagation()
@@ -254,8 +167,7 @@ function PaperSelectable({
   }
 
   const startEditing = () => {
-    clearSelection()
-    setSelected(true)
+    select()
     setDraft(resolvedLabel)
     setEditing(true)
   }
@@ -290,7 +202,7 @@ function PaperSelectable({
             }}
           />
         ) : (
-          <span className={CHIP}>
+          <Chip press="scale">
             <PaperGlyph className="size-3 shrink-0" />
             <span className="truncate">{resolvedLabel}</span>
             <a
@@ -309,24 +221,24 @@ function PaperSelectable({
                 aria-hidden="true"
               />
             </a>
-          </span>
+          </Chip>
         )}
-        <OverlayAction
+        <NodeOverlayAction
           slot="absolute right-full -top-1 mr-1 flex h-8 items-center before:absolute before:inset-y-0 before:-inset-x-3 before:content-['']"
           label={m.editor_paper_remove()}
           variant="overlay-destructive"
           onClick={remove}
         >
           <Trash2 strokeWidth={1.75} />
-        </OverlayAction>
-        <OverlayAction
+        </NodeOverlayAction>
+        <NodeOverlayAction
           slot="absolute left-full -top-1 ml-1 flex h-8 items-center before:absolute before:inset-y-0 before:-inset-x-3 before:content-['']"
           label={m.editor_paper_edit_name()}
           variant="overlay"
           onClick={startEditing}
         >
           <Pencil strokeWidth={1.75} />
-        </OverlayAction>
+        </NodeOverlayAction>
       </span>
     </span>
   )
@@ -355,36 +267,6 @@ export function PaperGlyph({ className }: { className?: string }) {
         d="M3.5 5H5v4.5h4.5v3H3.5z"
       />
     </svg>
-  )
-}
-
-function OverlayAction({
-  slot,
-  label,
-  variant,
-  onClick,
-  children
-}: {
-  slot: string
-  label: string
-  variant: "overlay" | "overlay-destructive"
-  onClick: () => void
-  children: ReactNode
-}) {
-  return (
-    <span className={slot}>
-      <Button
-        variant={variant}
-        size="icon-sm"
-        aria-label={label}
-        title={label}
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={onClick}
-        className={OVERLAY_REVEAL}
-      >
-        {children}
-      </Button>
-    </span>
   )
 }
 

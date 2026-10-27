@@ -1,12 +1,12 @@
 import { ChevronDown, Layers } from "lucide-react"
 
+import { CollapsingLabel } from "@/components/ui/collapsing-label"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { CollapsingLabel } from "@/components/ui/segmented-tabs"
 import { m } from "@/paraglide/messages"
 
 import { ToolbarButton } from "./toolbar/shared"
