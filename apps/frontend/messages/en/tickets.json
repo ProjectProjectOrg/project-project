@@ -187,6 +187,7 @@
   "tickets_row_delete_description": "This can't be undone.",
   "tickets_row_delete_error_fallback": "Couldn't delete this ticket. Try again.",
   "tickets_row_delete_menu_item": "Delete",
+  "tickets_row_update_error_fallback": "Couldn't save this change.",
   "tickets_save_status_dirty": "Unsaved changes",
   "tickets_save_status_saved": "Saved",
   "tickets_save_status_saving": "Saving…",

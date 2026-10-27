@@ -26,6 +26,7 @@ import {
 } from "@/features/projects/atoms/projectStatuses"
 import {
   boardRequest,
+  boardTicketUpdates,
   placeBoardTicket,
   sprintBoard,
   type BoardRequest,
@@ -252,7 +253,7 @@ function SprintBoardContent({
             key={status}
             orgSlug={orgSlug}
             slug={slug}
-            req={req}
+            update={boardTicketUpdates(req)}
             status={status}
             statuses={statuses}
             tickets={grouped[status] ?? []}

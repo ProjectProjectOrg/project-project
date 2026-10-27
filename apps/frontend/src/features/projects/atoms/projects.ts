@@ -14,7 +14,6 @@ import {
   type UpdateProjectInput,
   type UpdateProjectSetupInput
 } from "@pp/shared"
-import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -23,7 +22,9 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { coalescingMutation, viewMutation } from "@/api/viewMutation"
 import { me } from "@/features/auth/atoms/auth"
+import type { BannerPreview } from "@/features/projects/lib/bannerFrame"
 import { evictBannerRenders } from "@/features/projects/lib/bannerRenderCache"
 import { bannerSource } from "@/features/projects/lib/bannerSource"
 import { preloadImage } from "@/features/projects/lib/imagePreload"
@@ -141,87 +142,46 @@ export const projectEstimation = Atom.family((req: ProjectRequest) =>
 )
 
 export const updateProject = Atom.family((req: ProjectRequest) =>
-  Atom.optimisticFn(project(req), {
-    reducer: (current, input: UpdateProjectInput) =>
-      AsyncResult.map(current, (value) => ({ ...value, ...input })),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("updateProject")(function* (input: UpdateProjectInput, get) {
-          const updated = yield* Api.use((client) =>
-            client.projects.update({ params: req.params, payload: input })
+  viewMutation(project(req), {
+    name: "updateProject",
+    predict: (value, input: UpdateProjectInput) => ({ ...value, ...input }),
+    call: (client, input) =>
+      client.projects
+        .update({ params: req.params, payload: input })
+        .pipe(
+          Effect.tap(() =>
+            "banner" in input
+              ? Effect.promise(() =>
+                  evictBannerRenders(
+                    projectKey(req.params.orgSlug, req.params.slug)
+                  )
+                )
+              : Effect.void
           )
-          if ("banner" in input) {
-            yield* Effect.promise(() =>
-              evictBannerRenders(
-                projectKey(req.params.orgSlug, req.params.slug)
-              )
-            )
-          }
-          set(
-            AsyncResult.map(get(project(req)), (current) =>
-              confirmProjectUpdate(current, updated, input)
-            )
-          )
-          yield* Reactivity.invalidate(
-            input.estimation === undefined
-              ? [Keys.projects(req.params.orgSlug)]
-              : [
-                  Keys.projects(req.params.orgSlug),
-                  Keys.ticketsIn(scopeOf(req)),
-                  Keys.ticketLists(scopeOf(req)),
-                  Keys.ticketPages(scopeOf(req))
-                ]
-          )
-          return updated
-        })
-      )
+        ),
+    confirm: confirmProjectUpdate,
+    publish: (_updated, input) =>
+      input.estimation === undefined
+        ? [Keys.projects(req.params.orgSlug)]
+        : [
+            Keys.projects(req.params.orgSlug),
+            ...Keys.ticketsChanged(scopeOf(req))
+          ]
   })
 )
 
-const unsavedProjectSetup = Atom.family((_req: ProjectRequest) =>
-  Atom.make<UpdateProjectSetupInput>({}).pipe(Atom.setIdleTTL("10 minutes"))
-)
-
 export const updateProjectSetup = Atom.family((req: ProjectRequest) =>
-  Atom.optimisticFn(project(req), {
-    reducer: (current, input: UpdateProjectSetupInput) =>
-      AsyncResult.map(current, (value) => ({
-        ...value,
-        setup: { ...value.setup, ...input }
-      })),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("updateProjectSetup")(function* (
-          input: UpdateProjectSetupInput,
-          get
-        ) {
-          const unsaved = unsavedProjectSetup(req)
-          const payload: UpdateProjectSetupInput = { ...get(unsaved), ...input }
-          get.set(unsaved, payload)
-          const updated = yield* Effect.catchCause(
-            Api.use((client) =>
-              client.projects.updateSetup({
-                params: req.params,
-                payload
-              })
-            ),
-            (cause) => {
-              if (!Cause.hasInterruptsOnly(cause) && get(unsaved) === payload) {
-                get.set(unsaved, {})
-              }
-              return Effect.failCause(cause)
-            }
-          )
-          if (get(unsaved) === payload) get.set(unsaved, {})
-          set(
-            AsyncResult.map(get(project(req)), (current) =>
-              confirmSetupUpdate(current, updated, payload)
-            )
-          )
-          yield* Reactivity.invalidate([Keys.projects(req.params.orgSlug)])
-          return updated
-        })
-      )
+  coalescingMutation(project(req), {
+    name: "updateProjectSetup",
+    idleTTL: "10 minutes",
+    predict: (value, input: UpdateProjectSetupInput) => ({
+      ...value,
+      setup: { ...value.setup, ...input }
+    }),
+    call: (client, payload) =>
+      client.projects.updateSetup({ params: req.params, payload }),
+    confirm: confirmSetupUpdate,
+    publish: () => [Keys.projects(req.params.orgSlug)]
   })
 )
 
@@ -354,105 +314,70 @@ const confirmAddedMember = (
 }
 
 export const addMember = Atom.family(({ req, id }: MemberMutationRequest) =>
-  Atom.optimisticFn(project(req), {
-    reducer: (current, input: AddMemberInput) =>
-      AsyncResult.map(current, (value) => ({
-        ...value,
-        pendingMembers: [
-          ...value.pendingMembers.filter(
-            (member) => member.email !== input.email
-          ),
-          {
-            invitationId: `optimistic:${id}`,
-            email: input.email,
-            role: input.role,
-            expiresAt: DateTime.toDate(
-              DateTime.makeUnsafe("1970-01-01T00:00:00.000Z")
-            )
-          }
-        ]
-      })),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("addProjectMember")(function* (input: AddMemberInput, get) {
-          const updated = yield* Api.use((client) =>
-            client.projects.addMember({
-              params: req.params,
-              payload: input
-            })
+  viewMutation(project(req), {
+    name: "addProjectMember",
+    predict: (value, input: AddMemberInput) => ({
+      ...value,
+      pendingMembers: [
+        ...value.pendingMembers.filter(
+          (member) => member.email !== input.email
+        ),
+        {
+          invitationId: `optimistic:${id}`,
+          email: input.email,
+          role: input.role,
+          expiresAt: DateTime.toDate(
+            DateTime.makeUnsafe("1970-01-01T00:00:00.000Z")
           )
-          set(
-            AsyncResult.map(get(project(req)), (current) =>
-              confirmAddedMember(current, updated, input.email)
-            )
-          )
-          yield* Reactivity.invalidate([Keys.orgMembers(req.params.orgSlug)])
-          return updated
-        })
-      )
+        }
+      ]
+    }),
+    call: (client, input) =>
+      client.projects.addMember({ params: req.params, payload: input }),
+    confirm: (current, updated, input) =>
+      confirmAddedMember(current, updated, input.email),
+    publish: () => [Keys.orgMembers(req.params.orgSlug)]
   })
 )
 
 export const updateMember = Atom.family(({ req, id }: MemberMutationRequest) =>
-  Atom.optimisticFn(project(req), {
-    reducer: (current, input: UpdateMemberInput) =>
-      AsyncResult.map(current, (value) => replaceMember(value, id, input)),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("updateProjectMember")(function* (
-          input: UpdateMemberInput,
-          get
-        ) {
-          const updated = yield* Api.use((client) =>
-            client.projects.updateMember({
-              params: { ...req.params, userId: id },
-              payload: input
-            })
-          )
-          const member = updated.members.find((item) => item.id === id)
-          set(
-            AsyncResult.map(get(project(req)), (current) => {
-              const confirmed = withCallerGrants(current, updated)
-              return member
-                ? {
-                    ...confirmed,
-                    members: confirmed.members.map((item) =>
-                      item.id === id && item.role === input.role ? member : item
-                    )
-                  }
-                : confirmed
-            })
-          )
-          return updated
-        })
-      )
+  viewMutation(project(req), {
+    name: "updateProjectMember",
+    predict: (value, input: UpdateMemberInput) =>
+      replaceMember(value, id, input),
+    call: (client, input) =>
+      client.projects.updateMember({
+        params: { ...req.params, userId: id },
+        payload: input
+      }),
+    confirm: (current, updated, input) => {
+      const member = updated.members.find((item) => item.id === id)
+      const confirmed = withCallerGrants(current, updated)
+      return member
+        ? {
+            ...confirmed,
+            members: confirmed.members.map((item) =>
+              item.id === id && item.role === input.role ? member : item
+            )
+          }
+        : confirmed
+    }
   })
 )
 
+const withoutMember = (value: ProjectDetail, id: string): ProjectDetail => ({
+  ...value,
+  members: value.members.filter((member) => member.id !== id)
+})
+
 export const removeMember = Atom.family(({ req, id }: MemberMutationRequest) =>
-  Atom.optimisticFn(project(req), {
-    reducer: (current, _input: void) =>
-      AsyncResult.map(current, (value) => ({
-        ...value,
-        members: value.members.filter((member) => member.id !== id)
-      })),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("removeProjectMember")(function* (_input: void, get) {
-          const updated = yield* Api.use((client) =>
-            client.projects.removeMember({
-              params: { ...req.params, userId: id }
-            })
-          )
-          set(
-            AsyncResult.map(get(project(req)), (current) => ({
-              ...withCallerGrants(current, updated),
-              members: current.members.filter((item) => item.id !== id)
-            }))
-          )
-          return updated
-        })
-      )
+  viewMutation(project(req), {
+    name: "removeProjectMember",
+    predict: (value, _input: void) => withoutMember(value, id),
+    call: (client) =>
+      client.projects.removeMember({ params: { ...req.params, userId: id } }),
+    confirm: (current, updated) =>
+      withoutMember(withCallerGrants(current, updated), id)
   })
 )
 
@@ -473,36 +398,27 @@ export const forgetProject = Atom.family((req: ProjectRequest) =>
   )
 )
 
+const withoutPendingMember = (
+  value: ProjectDetail,
+  id: string
+): ProjectDetail => ({
+  ...value,
+  pendingMembers: value.pendingMembers.filter(
+    (member) => member.invitationId !== id
+  )
+})
+
 export const cancelPendingMember = Atom.family(
   ({ req, id }: MemberMutationRequest) =>
-    Atom.optimisticFn(project(req), {
-      reducer: (current, _input: void) =>
-        AsyncResult.map(current, (value) => ({
-          ...value,
-          pendingMembers: value.pendingMembers.filter(
-            (member) => member.invitationId !== id
-          )
-        })),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("cancelPendingMember")(function* (_input: void, get) {
-            const updated = yield* Api.use((client) =>
-              client.projects.cancelPendingMember({
-                params: { ...req.params, invitationId: id }
-              })
-            )
-            set(
-              AsyncResult.map(get(project(req)), (current) => ({
-                ...current,
-                pendingMembers: current.pendingMembers.filter(
-                  (item) => item.invitationId !== id
-                )
-              }))
-            )
-            yield* Reactivity.invalidate([Keys.orgMembers(req.params.orgSlug)])
-            return updated
-          })
-        )
+    viewMutation(project(req), {
+      name: "cancelPendingMember",
+      predict: (value, _input: void) => withoutPendingMember(value, id),
+      call: (client) =>
+        client.projects.cancelPendingMember({
+          params: { ...req.params, invitationId: id }
+        }),
+      confirm: (current) => withoutPendingMember(current, id),
+      publish: () => [Keys.orgMembers(req.params.orgSlug)]
     })
 )
 
@@ -522,9 +438,6 @@ export const createProject = Atom.family((req: ProjectsRequest) =>
   )
 )
 
-export const projectBannerPreviewAtom = Atom.family((_key: string) =>
-  Atom.make<{
-    source: string | null
-    crop: { x: number; y: number; zoom: number }
-  } | null>(null)
+export const projectBannerPreview = Atom.family((_req: ProjectRequest) =>
+  Atom.make<BannerPreview | null>(null).pipe(Atom.setIdleTTL("1 minute"))
 )

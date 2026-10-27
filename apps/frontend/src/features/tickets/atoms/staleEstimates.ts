@@ -3,8 +3,8 @@ import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Reactivity from "effect/reactivity/Reactivity"
 
-import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { viewMutation } from "@/api/viewMutation"
 import type { ProjectRequest } from "@/features/projects/atoms/projects"
 
 import { countsRequest, ticketCounts } from "./ticketCounts"
@@ -40,26 +40,17 @@ export const staleEstimateCountWaiting = Atom.family((req: ProjectRequest) =>
 )
 
 export const clearStaleEstimates = Atom.family((req: ProjectRequest) =>
-  Atom.optimisticFn(staleEstimateCount(req), {
-    reducer: (current, _input: void) => AsyncResult.map(current, () => 0),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("clearStaleEstimates")(
-          function* (_input: void, get) {
-            const result = yield* Api.use((client) =>
-              client.tickets.clearStaleEstimates({ params: req.params })
-            )
-            set(AsyncResult.map(get(staleEstimateCount(req)), () => 0))
-            return result
-          },
+  viewMutation(staleEstimateCount(req), {
+    name: "clearStaleEstimates",
+    predict: (_count, _input: void) => 0,
+    call: (client) =>
+      client.tickets
+        .clearStaleEstimates({ params: req.params })
+        .pipe(
           Effect.ensuring(
-            Reactivity.invalidate([
-              Keys.ticketsIn(scopeOf(req)),
-              Keys.ticketLists(scopeOf(req)),
-              Keys.ticketPages(scopeOf(req))
-            ])
+            Reactivity.invalidate(Keys.ticketsChanged(scopeOf(req)))
           )
-        )
-      )
+        ),
+    confirm: () => 0
   })
 )

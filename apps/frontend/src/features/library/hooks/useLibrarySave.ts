@@ -8,12 +8,12 @@ import type {
   UpdateBlockInput,
   UpdateTemplateInput
 } from "@pp/shared"
-import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import type * as Atom from "effect/reactivity/Atom"
-import * as Registry from "effect/reactivity/AtomRegistry"
+import type * as Registry from "effect/reactivity/AtomRegistry"
 import { useCallback, useContext, useRef, useState } from "react"
 
+import { fireMutation } from "@/api/viewMutation"
 import type { SaveStatus } from "@/features/editor/components/LexicalEditor"
 import { m } from "@/paraglide/messages"
 
@@ -34,15 +34,8 @@ export const runLibraryMutation = <A, E extends Readonly<{ _tag: string }>, I>(
   registry: Registry.AtomRegistry,
   atom: Atom.Writable<AsyncResult.AsyncResult<A, E>, I>,
   input: I
-): Promise<string | null> => {
-  const unmount = registry.mount(atom)
-  registry.set(atom, input)
-  return Effect.runPromiseExit(
-    Registry.getResult(registry, atom, { suspendOnWaiting: true })
-  )
-    .then(() => failureText(registry.get(atom)))
-    .finally(unmount)
-}
+): Promise<string | null> =>
+  fireMutation(registry, atom, input).then(failureText)
 
 const currentLibrary = (
   registry: Registry.AtomRegistry,

@@ -21,7 +21,11 @@ import {
 } from "@/features/sprints/atoms/sprintBoard"
 
 import { backlog, backlogRequest, type BacklogRequest } from "./backlog"
-import { sprintSections, sprintSectionsRequest } from "./sprintSections"
+import {
+  sprintSections,
+  sprintSectionsRequest,
+  type SprintSectionsRequest
+} from "./sprintSections"
 
 export type ViewCountsSource = Readonly<{
   orgSlug: string
@@ -44,7 +48,7 @@ const backlogCounts = Atom.family((req: BacklogRequest) =>
   backlog(req).pipe(Atom.mapResult((value) => value.counts))
 )
 
-const sprintSectionsCounts = Atom.family((req: BacklogRequest) =>
+const sprintSectionsCounts = Atom.family((req: SprintSectionsRequest) =>
   sprintSections(req).pipe(Atom.mapResult((value) => value.counts))
 )
 

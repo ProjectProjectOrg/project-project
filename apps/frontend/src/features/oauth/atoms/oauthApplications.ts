@@ -1,9 +1,8 @@
-import * as Effect from "effect/Effect"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
+import { viewMutation } from "@/api/viewMutation"
 
 export type OAuthApplicationsRequest = Readonly<{}>
 
@@ -20,6 +19,11 @@ export const oauthApplicationsAtom = Atom.family(
     Atom.optimistic(oauthApplicationsQuery(req))
 )
 
+const withoutApplication = <A extends Readonly<{ id: string }>>(
+  applications: ReadonlyArray<A>,
+  id: string
+) => applications.filter((application) => application.id !== id)
+
 export const revokeOAuthApplicationAtom = Atom.family(
   ({
     req,
@@ -28,24 +32,11 @@ export const revokeOAuthApplicationAtom = Atom.family(
     req: OAuthApplicationsRequest
     id: string
   }>) =>
-    Atom.optimisticFn(oauthApplicationsAtom(req), {
-      reducer: (current, _input: void) =>
-        AsyncResult.map(current, (applications) =>
-          applications.filter((application) => application.id !== id)
-        ),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("deleteOauthApplication")(function* (_input: void, get) {
-            const result = yield* Api.use((client) =>
-              client.oauthApplications.revoke({ params: { id } })
-            )
-            set(
-              AsyncResult.map(get(oauthApplicationsAtom(req)), (applications) =>
-                applications.filter((application) => application.id !== id)
-              )
-            )
-            return result
-          })
-        )
+    viewMutation(oauthApplicationsAtom(req), {
+      name: "deleteOauthApplication",
+      predict: (applications, _input: void) =>
+        withoutApplication(applications, id),
+      call: (client) => client.oauthApplications.revoke({ params: { id } }),
+      confirm: (applications) => withoutApplication(applications, id)
     })
 )

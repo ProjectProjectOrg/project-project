@@ -28,7 +28,8 @@ what a wrapper around that view prevents.
 // 1. Query. Declares what it listens to.
 const backlogQuery = (req: BacklogRequest) =>
   Api.query("tickets", "sections", {
-    ...req,
+    params: req.params,
+    query: req.query,
     timeToLive: "2 minutes",
     reactivityKeys: [Keys.ticketsIn(project(req))]
   })
@@ -40,38 +41,38 @@ export const backlog = Atom.family((req: BacklogRequest) =>
 
 // 3. Mutation. Keyed by view request + entity id. Input is the API payload.
 export const updateBacklogTicket = Atom.family(
-  ({ req, id }: { req: BacklogRequest; id: TicketId }) =>
-    Atom.optimisticFn(backlog(req), {
-      reducer: (current, patch: UpdateTicketInput) =>
-        Result.map(current, (s) => applyTicketPatch(s, id, patch)),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn(function* (patch: UpdateTicketInput, get) {
-            const { ticket } = yield* Api.use((c) =>
-              c.tickets.update({
-                params: { ...req.params, id },
-                query: { sort: req.query.sort },
-                payload: patch
-              })
-            )
-            set(Result.map(get(backlog(req)), (s) => replaceTicket(s, ticket)))
-            yield* Reactivity.invalidate([
-              Keys.ticket(project(req), id),
-              Keys.ticketsIn(project(req)),
-              Keys.ticketPages(project(req))
-            ])
-            return ticket
-          })
-        )
+  ({ req, id }: Readonly<{ req: BacklogRequest; id: TicketId }>) =>
+    viewMutation(backlog(req), {
+      name: "updateBacklogTicket",
+      predict: (sections, patch: UpdateTicketInput) =>
+        applyTicketPatch(sections, id, patch),
+      call: (client, patch) =>
+        client.tickets.update({
+          params: { ...req.params, id },
+          query: { sort: req.query.sort },
+          payload: patch
+        }),
+      confirm: (sections, { ticket }) => replaceTicket(sections, ticket),
+      publish: () => Keys.ticketChanged(project(req), id)
     })
 )
 ```
 
-Component:
+`viewMutation` (`apps/frontend/src/api/viewMutation.ts`) wraps
+`Atom.optimisticFn` with the rules built in: `predict` is mapped over
+the current `AsyncResult`, `confirm` goes through `set` before the call
+returns, `publish` only takes keys from `Keys`. The real backlog mutation uses
+`coalescingTicketUpdate`, which serializes writes per mutation key and merges
+waiting edits into the next request. Nested patches supply a `merge` callback; flat patches use
+the default shallow merge.
+
+Component: the view binds the family to its request and the row binds the id.
 
 ```tsx
 const sections = useAtomValue(backlog(req))
-const update = useAtomSet(updateBacklogTicket({ req, id: ticket.id }))
+<Row update={backlogTicketUpdates(req)} ticket={ticket} />
+// inside Row
+const update = useAtomSet(props.update(ticket.id))
 update({ priority: "high" })
 ```
 
@@ -83,8 +84,8 @@ update({ priority: "high" })
    builds a fresh wrapper each render and loses transition state.
 3. Reducer: `Result.map(current, …)`, derive from `current`, stay pure.
    `current` already includes in-flight edits, so edits stack.
-4. `fn`: call the API, push the confirmed value with `set`, publish keys for
-   other views, return. Never wait on another atom to hold the transition.
+4. `call` runs the API, `confirm` pushes the server's value, `publish` names
+   the keys for other views. Never wait on another atom to hold the transition.
 5. Keys live in the atom module. Components send the payload only. Publish
    every key needed by affected sibling queries, even when the initiating query
    shares that key. Check all sources of composed views. Batch mutations that
@@ -97,9 +98,12 @@ update({ priority: "high" })
    React key and get swapped by `set` on response. Loaded depth survives a
    refresh, but cursor boundaries must follow refreshed pages rather than old
    cursor strings. Expose failed-page state and retry that page.
-8. Rapid ticket edits retain unconfirmed payload fields when superseding an
-   earlier request. Mutation bookkeeping is registry/resource-scoped and never
-   becomes an additional source of rendered data.
+8. Rapid ticket edits accumulate waiting payload fields while earlier writes
+   finish. Sent fields leave the queue and are not replayed after success or
+   failure. Saves keep their mutation and view mounted until settlement.
+   Requests run sequentially per mutation key; waiting edits coalesce, and an
+   earlier response never replaces a newer prediction. Mutation bookkeeping is
+   registry/resource-scoped and never becomes an additional source of rendered data.
 9. Use a consistent comparator while edits are pending and after confirmation.
    Moving by a new field value while retaining old binary-search keys is invalid.
 

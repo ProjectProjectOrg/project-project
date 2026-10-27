@@ -12,13 +12,12 @@ import type {
   UpdateTemplateDefaultsInput,
   UpdateTemplateInput
 } from "@pp/shared"
-import * as Effect from "effect/Effect"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
+import type * as Effect from "effect/Effect"
 import * as Atom from "effect/reactivity/Atom"
-import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
-import { Keys, projectScope } from "@/api/keys"
+import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
+import { viewMutation, type OptimisticView } from "@/api/viewMutation"
 
 import {
   applyBlockCreate,
@@ -35,21 +34,27 @@ import {
 } from "../lib/libraryPatch"
 
 export type OrgLibraryRequest = Readonly<{
+  _view: "orgLibrary"
   params: Readonly<{ orgSlug: string }>
 }>
 
 export type ProjectLibraryRequest = Readonly<{
+  _view: "projectLibrary"
   params: Readonly<{ orgSlug: string; slug: string }>
 }>
 
 export const orgLibraryRequest = (orgSlug: string): OrgLibraryRequest => ({
+  _view: "orgLibrary",
   params: { orgSlug }
 })
 
 export const projectLibraryRequest = (
   orgSlug: string,
   slug: string
-): ProjectLibraryRequest => ({ params: { orgSlug, slug } })
+): ProjectLibraryRequest => ({
+  _view: "projectLibrary",
+  params: { orgSlug, slug }
+})
 
 const scopeOf = (req: ProjectLibraryRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -79,16 +84,9 @@ export const projectLibraryFor = Atom.family((req: ProjectLibraryRequest) =>
   Atom.optimistic(projectLibraryQuery(req))
 )
 
-type LibraryView<E> = Atom.Writable<
-  AsyncResult.AsyncResult<Library, E>,
-  Atom.Atom<
-    AsyncResult.AsyncResult<AsyncResult.AsyncResult<Library, E>, unknown>
-  >
->
-
 type LibraryTarget<E> = Readonly<{
-  view: LibraryView<E>
-  publish: ReadonlyArray<string>
+  view: OptimisticView<Library, E>
+  publish: ReadonlyArray<ReactivityKey>
 }>
 
 const orgTarget = (req: OrgLibraryRequest) => ({
@@ -108,22 +106,12 @@ const libraryMutation = <Input, A, E, ViewError>(
   call: (input: Input) => Effect.Effect<A, E, Api>,
   confirm: (library: Library, confirmed: A, input: Input) => Library
 ) =>
-  Atom.optimisticFn(target.view, {
-    reducer: (current, input: Input) =>
-      AsyncResult.map(current, (library) => predict(library, input)),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn(name)(function* (input: Input, get) {
-          const confirmed = yield* call(input)
-          set(
-            AsyncResult.map(get(target.view), (library) =>
-              confirm(library, confirmed, input)
-            )
-          )
-          yield* Reactivity.invalidate(target.publish)
-          return confirmed
-        })
-      )
+  viewMutation(target.view, {
+    name,
+    predict,
+    call: (_client, input) => call(input),
+    confirm,
+    publish: () => target.publish
   })
 
 type OrgKeyed<Key> = Readonly<{ req: OrgLibraryRequest; key: Key }>

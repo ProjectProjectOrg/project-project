@@ -14,34 +14,29 @@ import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { Inbox } from "lucide-react"
-import { useMemo, useState, type ReactNode, type ComponentProps } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
-import { me } from "@/features/auth/atoms/auth"
 import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
-import {
-  encodeTicketListQuery,
-  type BacklogRequest,
-  type BacklogSection
-} from "@/features/tickets/atoms/backlog"
+import { encodeTicketListQuery } from "@/features/tickets/atoms/backlog"
 import {
   loadMoreSprintSections,
   sprintSections,
   sprintSectionsRequest,
-  updateSprintSectionsTicket,
+  sprintSectionsTicketUpdates,
+  type SprintSectionsRequest,
   type SprintSectionValue,
   type SprintSectionsValue
 } from "@/features/tickets/atoms/sprintSections"
-import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { formatEstimateSummary } from "@/features/tickets/lib/estimateMeta"
+import type { TicketRowPage } from "@/features/tickets/lib/ticketRows"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
-import { Row } from "./Row"
 import { sprintCollapseKey, useCollapsedInRecord } from "./sectionCollapse"
 import {
   CreatingSectionsProvider,
@@ -52,7 +47,7 @@ import { backlogSprintSections } from "./sprintGrouping"
 import { useTicketPreview } from "./useTicketPreview"
 
 const defaultCreateStatus = Schema.decodeSync(TicketStatus)("todo")
-const EMPTY_PAGE: BacklogSection = { items: [], nextCursor: null }
+const EMPTY_PAGE: TicketRowPage = { items: [], nextCursor: null }
 
 type Props = Readonly<{
   preferencesKey: string
@@ -93,7 +88,7 @@ export function SprintSections(props: Props) {
   const refreshSnapshot = useAtomRefresh(sprintSections(snapshotReq))
   const groups = Option.getOrUndefined(Result.value(groupsResult))
   const [previous, setPrevious] = useState<Readonly<{
-    req: BacklogRequest
+    req: SprintSectionsRequest
     query: TicketListQuery
     value: SprintSectionsValue
   }> | null>(null)
@@ -186,9 +181,9 @@ export function SprintSections(props: Props) {
 type SprintSectionProps = Props &
   Readonly<{
     persistKey: string
-    snapshotReq: BacklogRequest
+    snapshotReq: SprintSectionsRequest
     sprint: Group | null
-    page: BacklogSection
+    page: TicketRowPage
     count: number
     estimates: SprintSectionValue["estimates"]
     waiting: boolean
@@ -292,10 +287,7 @@ function SprintSection({
             collapsed={collapsed}
           />
         }
-        renderRow={(rowProps) => (
-          <SprintRow {...rowProps} snapshotReq={snapshotReq} />
-        )}
-        creationVariant="flat"
+        update={sprintSectionsTicketUpdates(snapshotReq)}
         snapshotReq={snapshotReq}
         collapsed={collapsed}
         onToggleCollapsed={onToggleCollapsed}
@@ -314,42 +306,6 @@ function SprintSection({
   )
 }
 
-function SprintRow({
-  snapshotReq,
-  ...props
-}: ComponentProps<typeof Row> & { snapshotReq: BacklogRequest }) {
-  const viewer = useAtomValue(me())
-  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : undefined
-  const estimation = useEstimationMode()
-  const mutation = updateSprintSectionsTicket({
-    req: snapshotReq,
-    id: props.ticket.id,
-    viewerId,
-    estimation
-  })
-  const update = useAtomSet(mutation)
-  const state = useAtomValue(mutation)
-  return (
-    <>
-      <Row {...props} onUpdate={update} />
-      {Result.matchWithError(state, {
-        onInitial: () => null,
-        onSuccess: () => null,
-        onError: (error) => (
-          <div className="col-span-full">
-            <ErrorPage error={error} contained />
-          </div>
-        ),
-        onDefect: (error) => (
-          <div className="col-span-full">
-            <ErrorPage error={error} contained />
-          </div>
-        )
-      })}
-    </>
-  )
-}
-
 function SprintSectionPagination({
   req,
   sectionKey,
@@ -358,7 +314,7 @@ function SprintSectionPagination({
   nextCursor,
   collapsed
 }: {
-  req: BacklogRequest
+  req: SprintSectionsRequest
   sectionKey: SprintSectionsValue["sections"][number]["key"]
   count: number
   loaded: number

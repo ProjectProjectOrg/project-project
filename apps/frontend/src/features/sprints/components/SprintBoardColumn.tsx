@@ -10,8 +10,7 @@ import { GripVertical } from "lucide-react"
 import { motion, Reorder, useDragControls } from "motion/react"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 
-import type { BoardRequest } from "@/features/sprints/atoms/sprintBoard"
-import type { BacklogRequest } from "@/features/tickets/atoms/backlog"
+import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import { cn } from "@/lib/utils"
 
@@ -34,8 +33,7 @@ const REORDER_EASE = [0.32, 0.72, 0, 1] as const
 export function SprintBoardColumn({
   orgSlug,
   slug,
-  req,
-  backlogReq,
+  update,
   status,
   statuses,
   tickets,
@@ -53,8 +51,7 @@ export function SprintBoardColumn({
 }: {
   orgSlug: string
   slug: string
-  req?: BoardRequest
-  backlogReq?: BacklogRequest
+  update: TicketUpdates
   status: Ticket["status"]
   statuses: ReadonlyArray<ProjectStatus>
   tickets: ReadonlyArray<Ticket>
@@ -213,8 +210,7 @@ export function SprintBoardColumn({
             <CardSlot
               orgSlug={orgSlug}
               slug={slug}
-              req={req}
-              backlogReq={backlogReq}
+              update={update}
               ordered={ordered}
               ticket={ticket}
               status={status}
@@ -238,8 +234,7 @@ export function SprintBoardColumn({
 function CardSlot({
   orgSlug,
   slug,
-  req,
-  backlogReq,
+  update,
   ticket,
   status,
   members,
@@ -251,8 +246,7 @@ function CardSlot({
 }: {
   orgSlug: string
   slug: string
-  req?: BoardRequest
-  backlogReq?: BacklogRequest
+  update: TicketUpdates
   ticket: Ticket
   status: Ticket["status"]
   members: ReadonlyArray<Member>
@@ -342,8 +336,7 @@ function CardSlot({
           <SprintBoardCard
             orgSlug={orgSlug}
             slug={slug}
-            req={req}
-            backlogReq={backlogReq}
+            update={update}
             ticket={ticket}
             members={members}
           />

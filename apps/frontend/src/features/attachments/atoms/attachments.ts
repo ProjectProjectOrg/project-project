@@ -16,6 +16,7 @@ import * as Schema from "effect/Schema"
 
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
+import { keepPredicted, viewMutation } from "@/api/viewMutation"
 
 const decodeAttachmentId = Schema.decodeEffect(AttachmentId)
 
@@ -284,40 +285,34 @@ export type DeleteOrgAttachmentsKey = Readonly<{
 
 export const deleteOrgAttachments = Atom.family(
   ({ req, attachmentIds }: DeleteOrgAttachmentsKey) =>
-    Atom.optimisticFn(orgAttachmentsRegion(req), {
-      reducer: (current, _input: void) =>
-        AsyncResult.map(current, (value) => {
-          const selected = new Set(attachmentIds)
-          const removed = value.list.items.filter((row) => selected.has(row.id))
-          return {
-            list: {
-              items: value.list.items.filter((row) => !selected.has(row.id)),
-              total: Math.max(0, value.list.total - removed.length)
-            },
-            summary: removeFromSummary(value.summary, removed)
-          }
-        }),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("deleteOrgAttachments")(function* (_input: void, get) {
-            yield* Effect.forEach(
-              attachmentIds,
-              (attachmentId) =>
-                Api.use((client) =>
-                  client.attachments.remove({
-                    params: { orgSlug: req.params.orgSlug, attachmentId }
-                  })
-                ),
-              { concurrency: 4 }
-            ).pipe(
-              Effect.ensuring(
-                Reactivity.invalidate([Keys.attachments(req.params.orgSlug)])
-              )
-            )
-            set(
-              AsyncResult.map(get(orgAttachmentsRegion(req)), (value) => value)
-            )
-          })
-        )
+    viewMutation(orgAttachmentsRegion(req), {
+      name: "deleteOrgAttachments",
+      predict: (value, _input: void) => {
+        const selected = new Set(attachmentIds)
+        const removed = value.list.items.filter((row) => selected.has(row.id))
+        return {
+          list: {
+            items: value.list.items.filter((row) => !selected.has(row.id)),
+            total: Math.max(0, value.list.total - removed.length)
+          },
+          summary: removeFromSummary(value.summary, removed)
+        }
+      },
+      call: (_client) =>
+        Effect.forEach(
+          attachmentIds,
+          (attachmentId) =>
+            Api.use((client) =>
+              client.attachments.remove({
+                params: { orgSlug: req.params.orgSlug, attachmentId }
+              })
+            ),
+          { concurrency: 4, discard: true }
+        ).pipe(
+          Effect.ensuring(
+            Reactivity.invalidate([Keys.attachments(req.params.orgSlug)])
+          )
+        ),
+      confirm: keepPredicted
     })
 )

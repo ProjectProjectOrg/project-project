@@ -7,9 +7,7 @@ import {
 import type { GroupId, Ticket, TicketId } from "@pp/shared"
 import { useDebouncer } from "@tanstack/react-pacer"
 import { useNavigate } from "@tanstack/react-router"
-import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
-import * as Random from "effect/Random"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import { Plus } from "lucide-react"
@@ -30,21 +28,14 @@ import {
   type ListboxState
 } from "@/components/ui/menu-listbox"
 import { menuItemMetaClass } from "@/components/ui/menu-styles"
-import { me } from "@/features/auth/atoms/auth"
 import { projectGitStates } from "@/features/github/atoms/github"
-import {
-  project as projectView,
-  projectRequest
-} from "@/features/projects/atoms/projects"
+import { projectRequest } from "@/features/projects/atoms/projects"
 import {
   assignTicketToSprint,
+  quickCreateInSprint,
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
-import {
-  backlogRequest,
-  quickCreateBacklogTicket
-} from "@/features/tickets/atoms/backlog"
 import {
   searchRequest,
   ticketSearch
@@ -81,27 +72,10 @@ export function SprintTicketCreator({
     () => sprintListRequest(orgSlug, slug),
     [orgSlug, slug]
   )
-  const req = useMemo(
-    () =>
-      backlogRequest(orgSlug, slug, {
-        sort: { key: "updated", dir: "desc" },
-        groupId: [groupId]
-      }),
-    [orgSlug, slug, groupId]
-  )
-
-  const create = useAtomSet(quickCreateBacklogTicket(req), {
-    mode: "promiseExit"
-  })
-  const createState = useAtomValue(quickCreateBacklogTicket(req))
+  const createAtom = quickCreateInSprint({ req: sprintReq, groupId })
+  const create = useAtomSet(createAtom, { mode: "promiseExit" })
+  const createState = useAtomValue(createAtom)
   const submitting = createState.waiting
-  const viewer = useAtomValue(me())
-  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
-  const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
-  const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
-  const estimation = Result.isSuccess(project)
-    ? project.value.estimation
-    : "off"
   const error = creatorErrorText(createState)
   const projectReq = useMemo(
     () => projectRequest(orgSlug, slug),
@@ -203,6 +177,17 @@ export function SprintTicketCreator({
     })
   }
 
+  async function createTicket(title: string) {
+    if (submitting) return
+    const exit = await create({ title, type, ...templateChoice.payload })
+    templateChoice.recover(exit)
+    if (Exit.isSuccess(exit)) {
+      refreshGitStates()
+      reset()
+      openCreatedTicket(exit.value.id)
+    }
+  }
+
   async function commit(item: Item | undefined) {
     if (!item) return
     if (item.kind === "existing") {
@@ -210,22 +195,7 @@ export function SprintTicketCreator({
       reset()
       return
     }
-    if (submitting) return
-    const exit = await create({
-      clientId: Effect.runSync(Random.next).toString(36),
-      ticket: { title: item.label, type, ...templateChoice.payload },
-      viewerId,
-      projectPrefix,
-      estimation,
-      prediction: templateChoice.prediction
-    })
-    templateChoice.recover(exit)
-    if (Exit.isSuccess(exit)) {
-      assignTicketToSprint(registry, sprintReq, exit.value.id, groupId)
-      refreshGitStates()
-      reset()
-      openCreatedTicket(exit.value.id)
-    }
+    await createTicket(item.label)
   }
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -234,22 +204,7 @@ export function SprintTicketCreator({
       await commit(items[safeHighlight])
       return
     }
-    if (!trimmed || submitting) return
-    const exit = await create({
-      clientId: Effect.runSync(Random.next).toString(36),
-      ticket: { title: trimmed, type, ...templateChoice.payload },
-      viewerId,
-      projectPrefix,
-      estimation,
-      prediction: templateChoice.prediction
-    })
-    templateChoice.recover(exit)
-    if (Exit.isSuccess(exit)) {
-      assignTicketToSprint(registry, sprintReq, exit.value.id, groupId)
-      refreshGitStates()
-      reset()
-      openCreatedTicket(exit.value.id)
-    }
+    if (trimmed) await createTicket(trimmed)
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {

@@ -1,10 +1,9 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
 import type { Member, Ticket } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useMemo, type ReactNode } from "react"
 
-import { ErrorPage } from "@/components/shell/ErrorPage"
 import { me } from "@/features/auth/atoms/auth"
 import {
   project,
@@ -16,8 +15,7 @@ import { BOARD_CARD_SLOT_CLASS } from "@/features/sprints/components/BoardColumn
 import { SprintBoardCard } from "@/features/sprints/components/SprintBoardCard"
 import type {
   OrgTicket,
-  OrgTicketsRequest,
-  updateMyTicket
+  OrgTicketUpdates
 } from "@/features/tickets/atoms/myTickets"
 import {
   Row,
@@ -28,16 +26,12 @@ import { cn } from "@/lib/utils"
 
 const NO_MEMBERS: ReadonlyArray<Member> = []
 
-export type OrgTicketUpdate = typeof updateMyTicket
-
-const useTicketKey = (req: OrgTicketsRequest, item: OrgTicket) => {
+const useTicketUpdates = (update: OrgTicketUpdates, item: OrgTicket) => {
   const viewer = useAtomValue(me())
-  return {
-    req,
+  return update({
     viewerId: Result.isSuccess(viewer) ? viewer.value.id : "",
-    projectSlug: item.project.slug,
-    id: item.ticket.id
-  }
+    projectSlug: item.project.slug
+  })
 }
 
 const useProjectMembers = (orgSlug: string, slug: string) => {
@@ -46,9 +40,9 @@ const useProjectMembers = (orgSlug: string, slug: string) => {
 }
 
 type DashboardTicketProps = Readonly<{
-  req: OrgTicketsRequest
+  orgSlug: string
   item: OrgTicket
-  update: OrgTicketUpdate
+  update: OrgTicketUpdates
 }>
 
 type DashboardRowProps = DashboardTicketProps &
@@ -60,7 +54,7 @@ type DashboardRowProps = DashboardTicketProps &
   }>
 
 export function DashboardRow({
-  req,
+  orgSlug,
   item,
   update,
   below,
@@ -68,8 +62,7 @@ export function DashboardRow({
   onPreviewPointerEnter,
   onPreviewOpenChange
 }: DashboardRowProps) {
-  const { orgSlug } = req.params
-  const key = useTicketKey(req, item)
+  const updates = useTicketUpdates(update, item)
   const projectReq = useMemo(
     () => projectRequest(orgSlug, item.project.slug),
     [orgSlug, item.project.slug]
@@ -79,8 +72,6 @@ export function DashboardRow({
     useAtomValue(projectActor(projectReq)),
     { content: true }
   )
-  const patch = useAtomSet(update(key))
-  const state = useAtomValue(update(key))
   return (
     <ProjectContext.Provider value={projectReq}>
       <div
@@ -100,7 +91,7 @@ export function DashboardRow({
           showExtraActionsCol={false}
           sprintMembership={null}
           editable={editable}
-          onUpdate={patch}
+          update={updates}
           previewOpen={previewOpen}
           onPreviewPointerEnter={onPreviewPointerEnter}
           onPreviewOpenChange={onPreviewOpenChange}
@@ -110,35 +101,18 @@ export function DashboardRow({
             {below}
           </div>
         )}
-        {Result.matchWithError(state, {
-          onInitial: () => null,
-          onSuccess: () => null,
-          onError: (error) => (
-            <div className="col-span-full">
-              <ErrorPage error={error} contained />
-            </div>
-          ),
-          onDefect: (defect) => (
-            <div className="col-span-full">
-              <ErrorPage error={defect} contained />
-            </div>
-          )
-        })}
       </div>
     </ProjectContext.Provider>
   )
 }
 
-export function DashboardCard({ req, item, update }: DashboardTicketProps) {
-  const { orgSlug } = req.params
-  const key = useTicketKey(req, item)
+export function DashboardCard({ orgSlug, item, update }: DashboardTicketProps) {
+  const updates = useTicketUpdates(update, item)
   const projectReq = useMemo(
     () => projectRequest(orgSlug, item.project.slug),
     [orgSlug, item.project.slug]
   )
   const members = useProjectMembers(orgSlug, item.project.slug)
-  const patch = useAtomSet(update(key))
-  const state = useAtomValue(update(key))
   return (
     <ProjectContext.Provider value={projectReq}>
       <div className={BOARD_CARD_SLOT_CLASS}>
@@ -147,14 +121,8 @@ export function DashboardCard({ req, item, update }: DashboardTicketProps) {
           slug={item.project.slug}
           ticket={item.ticket}
           members={members}
-          onPatch={patch}
+          update={updates}
         />
-        {Result.matchWithError(state, {
-          onInitial: () => null,
-          onSuccess: () => null,
-          onError: (error) => <ErrorPage error={error} contained />,
-          onDefect: (defect) => <ErrorPage error={defect} contained />
-        })}
       </div>
     </ProjectContext.Provider>
   )
@@ -163,15 +131,15 @@ export function DashboardCard({ req, item, update }: DashboardTicketProps) {
 export type TicketPreview = ReturnType<typeof useTicketPreview>
 
 export function DashboardRows({
-  req,
+  orgSlug,
   tickets,
   update,
   preview,
   below
 }: Readonly<{
-  req: OrgTicketsRequest
+  orgSlug: string
   tickets: ReadonlyArray<OrgTicket>
-  update: OrgTicketUpdate
+  update: OrgTicketUpdates
   preview: TicketPreview
   below?: (item: OrgTicket) => ReactNode
 }>) {
@@ -182,7 +150,7 @@ export function DashboardRows({
       {tickets.map((item) => (
         <DashboardRow
           key={`${item.project.slug}/${item.ticket.id}`}
-          req={req}
+          orgSlug={orgSlug}
           item={item}
           update={update}
           below={below?.(item)}

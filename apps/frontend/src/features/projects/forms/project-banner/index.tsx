@@ -15,8 +15,7 @@ import {
   uploadProjectImageRequest
 } from "@/features/attachments/atoms/attachments"
 import {
-  projectBannerPreviewAtom,
-  projectKey,
+  projectBannerPreview,
   projectRequest,
   updateProject
 } from "@/features/projects/atoms/projects"
@@ -61,7 +60,7 @@ export function ProjectBannerForm({
   const updateState = useAtomValue(updateProject(req))
   const uploadState = useAtomValue(uploadProjectImage(uploadReq))
   const setPreview = useAtomSet(
-    projectBannerPreviewAtom(projectKey(orgSlug, slug))
+    projectBannerPreview(projectRequest(orgSlug, slug))
   )
   const busy = updateState.waiting || uploadState.waiting
   const failed =

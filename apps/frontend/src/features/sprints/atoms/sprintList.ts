@@ -6,31 +6,33 @@ import {
   type CompleteSprintOutput,
   type CreateGroupInput,
   type Group,
+  type QuickCreateTicketInput,
   type TicketId,
   type UpdateGroupInput,
   type UpdateGroupTicketsOutput
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
+import * as Exit from "effect/Exit"
 import * as Atom from "effect/reactivity/Atom"
-import * as Registry from "effect/reactivity/AtomRegistry"
-import * as Reactivity from "effect/reactivity/Reactivity"
+import type * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
 
 import { Api } from "@/api/Api"
-import { Keys, projectScope } from "@/api/keys"
+import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
+import { fireMutation, keepPredicted, viewMutation } from "@/api/viewMutation"
 
 import { applySprintPatch } from "./sprintPatch"
 
 export type SprintListRequest = Readonly<{
-  params: Readonly<{ orgSlug: string; readonly slug: string }>
+  _view: "sprintList"
+  params: Readonly<{ orgSlug: string; slug: string }>
 }>
 
 export const sprintListRequest = (
   orgSlug: string,
   slug: string
-): SprintListRequest => ({ params: { orgSlug, slug } })
+): SprintListRequest => ({ _view: "sprintList", params: { orgSlug, slug } })
 
 const scopeOf = (req: SprintListRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -105,93 +107,64 @@ const confirmCreatedSprint = (
 }
 
 export const createSprint = Atom.family((req: SprintListRequest) =>
-  Atom.optimisticFn(sprintList(req), {
-    reducer: (current, input: CreateGroupInput) =>
-      AsyncResult.map(current, (sprints) => [
-        buildSyntheticSprint(input),
-        ...sprints
-      ]),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("createSprint")(function* (input: CreateGroupInput, get) {
-          const created = yield* Api.use((client) =>
-            client.groups.create({ params: req.params, payload: input })
-          )
-          set(
-            AsyncResult.map(get(sprintList(req)), (sprints) =>
-              confirmCreatedSprint(sprints, input, created)
-            )
-          )
-          return created
-        })
-      )
+  viewMutation(sprintList(req), {
+    name: "createSprint",
+    predict: (sprints, input: CreateGroupInput) => [
+      buildSyntheticSprint(input),
+      ...sprints
+    ],
+    call: (client, input) =>
+      client.groups.create({ params: req.params, payload: input }),
+    confirm: (sprints, created, input) =>
+      confirmCreatedSprint(sprints, input, created)
   })
 )
 
-export const updateSprint = Atom.family(
-  ({
-    req,
-    groupId
-  }: Readonly<{
-    req: SprintListRequest
-    groupId: GroupId
-  }>) =>
-    Atom.optimisticFn(sprintList(req), {
-      reducer: (current, patch: UpdateGroupInput) =>
-        AsyncResult.map(current, (sprints) =>
-          sprints.map((sprint) =>
-            sprint.id === groupId ? applySprintPatch(sprint, patch) : sprint
-          )
-        ),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("updateSprint")(function* (patch: UpdateGroupInput, get) {
-            const updated = yield* Api.use((client) =>
-              client.groups.update({
-                params: { ...req.params, id: groupId },
-                payload: patch
-              })
-            )
-            set(
-              AsyncResult.map(get(sprintList(req)), (sprints) =>
-                sprints.map((sprint) =>
-                  sprint.id === groupId ? updated : sprint
-                )
-              )
-            )
-            yield* Reactivity.invalidate([Keys.sprint(scopeOf(req), groupId)])
-            return updated
-          })
-        )
-    })
+type SprintKey = Readonly<{
+  req: SprintListRequest
+  groupId: GroupId
+}>
+
+const replaceSprint = (
+  sprints: ReadonlyArray<Group>,
+  groupId: GroupId,
+  update: (sprint: Group) => Group
+) => sprints.map((sprint) => (sprint.id === groupId ? update(sprint) : sprint))
+
+export const updateSprint = Atom.family(({ req, groupId }: SprintKey) =>
+  viewMutation(sprintList(req), {
+    name: "updateSprint",
+    predict: (sprints, patch: UpdateGroupInput) =>
+      replaceSprint(sprints, groupId, (sprint) =>
+        applySprintPatch(sprint, patch)
+      ),
+    call: (client, patch) =>
+      client.groups.update({
+        params: { ...req.params, id: groupId },
+        payload: patch
+      }),
+    confirm: (sprints, updated) =>
+      replaceSprint(sprints, groupId, () => updated),
+    publish: () => [Keys.sprint(scopeOf(req), groupId)]
+  })
 )
 
-export const deleteSprint = Atom.family(
-  ({
-    req,
-    groupId
-  }: Readonly<{
-    req: SprintListRequest
-    groupId: GroupId
-  }>) =>
-    Atom.optimisticFn(sprintList(req), {
-      reducer: (current, _input: void) =>
-        AsyncResult.map(current, (sprints) =>
-          sprints.filter((sprint) => sprint.id !== groupId)
-        ),
-      fn: Api.runtime.fn(
-        Effect.fn("deleteSprint")(function* (_input: void) {
-          yield* Api.use((client) =>
-            client.groups.delete({ params: { ...req.params, id: groupId } })
-          )
-          yield* Reactivity.invalidate([
-            Keys.sprintMembership(scopeOf(req)),
-            Keys.ticketsIn(scopeOf(req)),
-            Keys.sprint(scopeOf(req), groupId)
-          ])
-        })
-      )
-    })
+const withoutSprint = (sprints: ReadonlyArray<Group>, groupId: GroupId) =>
+  sprints.filter((sprint) => sprint.id !== groupId)
+
+export const deleteSprint = Atom.family(({ req, groupId }: SprintKey) =>
+  viewMutation(sprintList(req), {
+    name: "deleteSprint",
+    predict: (sprints, _input: void) => withoutSprint(sprints, groupId),
+    call: (client) =>
+      client.groups.delete({ params: { ...req.params, id: groupId } }),
+    confirm: (sprints) => withoutSprint(sprints, groupId),
+    publish: () => [
+      Keys.sprintMembership(scopeOf(req)),
+      Keys.ticketsIn(scopeOf(req)),
+      Keys.sprint(scopeOf(req), groupId)
+    ]
+  })
 )
 
 const applyCompleteSprintResult = (
@@ -218,64 +191,39 @@ const applyCompleteSprintResult = (
   })
 }
 
-export const completeSprint = Atom.family(
-  ({
-    req,
-    groupId
-  }: Readonly<{
-    req: SprintListRequest
-    groupId: GroupId
-  }>) =>
-    Atom.optimisticFn(sprintList(req), {
-      reducer: (current, _input: CompleteSprintInput) =>
-        AsyncResult.map(current, (sprints) =>
-          sprints.map((sprint) =>
-            sprint.id === groupId
-              ? {
-                  ...sprint,
-                  completedAt: DateTime.toDate(DateTime.nowUnsafe())
-                }
-              : sprint
-          )
-        ),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("completeSprint")(function* (
-            input: CompleteSprintInput,
-            get
-          ) {
-            const result = yield* Api.use((client) =>
-              client.groups.complete({
-                params: { ...req.params, id: groupId },
-                payload: input
-              })
-            )
-            set(
-              AsyncResult.map(get(sprintList(req)), (sprints) =>
-                applyCompleteSprintResult(
-                  sprints,
-                  groupId,
-                  input.destination,
-                  result
-                )
-              )
-            )
-            yield* Reactivity.invalidate([
-              Keys.sprintMembership(scopeOf(req)),
-              Keys.ticketsIn(scopeOf(req)),
-              Keys.sprint(scopeOf(req), groupId),
-              ...(input.destination.kind === "sprint"
-                ? [Keys.sprint(scopeOf(req), input.destination.groupId)]
-                : [])
-            ])
-            return result
-          })
-        )
-    })
+export const completeSprint = Atom.family(({ req, groupId }: SprintKey) =>
+  viewMutation(sprintList(req), {
+    name: "completeSprint",
+    predict: (sprints, _input: CompleteSprintInput) =>
+      replaceSprint(sprints, groupId, (sprint) => ({
+        ...sprint,
+        completedAt: DateTime.toDate(DateTime.nowUnsafe())
+      })),
+    call: (client, input) =>
+      client.groups.complete({
+        params: { ...req.params, id: groupId },
+        payload: input
+      }),
+    confirm: (sprints, result, input) =>
+      applyCompleteSprintResult(sprints, groupId, input.destination, result),
+    publish: (_result, input) => [
+      Keys.sprintMembership(scopeOf(req)),
+      Keys.ticketsIn(scopeOf(req)),
+      Keys.sprint(scopeOf(req), groupId),
+      ...(input.destination.kind === "sprint"
+        ? [Keys.sprint(scopeOf(req), input.destination.groupId)]
+        : [])
+    ]
+  })
 )
 
 type SprintAssignmentInput = Readonly<{
   groupId: GroupId
+}>
+
+type SprintTicketKey = Readonly<{
+  req: SprintListRequest
+  ticketId: TicketId
 }>
 
 const confirmAddedTicket = (
@@ -320,72 +268,55 @@ const confirmRemovedTicket = (
       : sprint
   )
 
+const membershipKeys = (
+  scope: string,
+  groupId: GroupId,
+  result: UpdateGroupTicketsOutput
+): ReadonlyArray<ReactivityKey> => [
+  Keys.sprintMembership(scope),
+  Keys.sprintMembership(scope, groupId),
+  Keys.sprint(scope, groupId),
+  ...result.evicted.map((evicted) =>
+    Keys.sprintMembership(scope, evicted.groupId)
+  ),
+  ...result.evicted.map((evicted) => Keys.sprint(scope, evicted.groupId)),
+  Keys.ticketsIn(scope),
+  Keys.ticketLists(scope)
+]
+
 export const addTicketsToSprint = Atom.family(
-  ({
-    req,
-    ticketId
-  }: Readonly<{
-    req: SprintListRequest
-    ticketId: TicketId
-  }>) =>
-    Atom.optimisticFn(sprintList(req), {
-      reducer: (current, input: SprintAssignmentInput) =>
-        AsyncResult.map(current, (sprints) => {
-          const { groupId } = input
-          const now = DateTime.toDate(DateTime.nowUnsafe())
-          return sprints.map((sprint) => {
-            if (sprint.id === groupId) {
-              if (sprint.tickets.includes(ticketId)) return sprint
-              return {
-                ...sprint,
-                tickets: [...sprint.tickets, ticketId],
-                updatedAt: now
-              }
-            }
-            if (sprint.completedAt !== null) return sprint
-            if (!sprint.tickets.includes(ticketId)) return sprint
+  ({ req, ticketId }: SprintTicketKey) =>
+    viewMutation(sprintList(req), {
+      name: "addTicketsToSprint",
+      predict: (sprints, { groupId }: SprintAssignmentInput) => {
+        const now = DateTime.toDate(DateTime.nowUnsafe())
+        return sprints.map((sprint) => {
+          if (sprint.id === groupId) {
+            if (sprint.tickets.includes(ticketId)) return sprint
             return {
               ...sprint,
-              tickets: sprint.tickets.filter((id) => id !== ticketId),
+              tickets: [...sprint.tickets, ticketId],
               updatedAt: now
             }
-          })
+          }
+          if (sprint.completedAt !== null) return sprint
+          if (!sprint.tickets.includes(ticketId)) return sprint
+          return {
+            ...sprint,
+            tickets: sprint.tickets.filter((id) => id !== ticketId),
+            updatedAt: now
+          }
+        })
+      },
+      call: (client, { groupId }) =>
+        client.groups.addTickets({
+          params: { ...req.params, id: groupId },
+          payload: { tickets: [ticketId] }
         }),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("addTicketsToSprint")(function* (
-            input: SprintAssignmentInput,
-            get
-          ) {
-            const { groupId } = input
-            const scope = scopeOf(req)
-            const result = yield* Api.use((client) =>
-              client.groups.addTickets({
-                params: { ...req.params, id: groupId },
-                payload: { tickets: [ticketId] }
-              })
-            )
-            set(
-              AsyncResult.map(get(sprintList(req)), (sprints) =>
-                confirmAddedTicket(sprints, groupId, ticketId, result)
-              )
-            )
-            yield* Reactivity.invalidate([
-              Keys.sprintMembership(scope),
-              Keys.sprintMembership(scope, groupId),
-              Keys.sprint(scope, groupId),
-              ...result.evicted.map((evicted) =>
-                Keys.sprintMembership(scope, evicted.groupId)
-              ),
-              ...result.evicted.map((evicted) =>
-                Keys.sprint(scope, evicted.groupId)
-              ),
-              Keys.ticketsIn(scope),
-              Keys.ticketLists(scope)
-            ])
-            return result
-          })
-        )
+      confirm: (sprints, result, { groupId }) =>
+        confirmAddedTicket(sprints, groupId, ticketId, result),
+      publish: (result, { groupId }) =>
+        membershipKeys(scopeOf(req), groupId, result)
     })
 )
 
@@ -395,71 +326,82 @@ export const assignTicketToSprint = (
   ticketId: TicketId,
   groupId: GroupId
 ): void => {
-  const atom = addTicketsToSprint({ req, ticketId })
-  const unmount = registry.mount(atom)
-  registry.set(atom, { groupId })
-  void Effect.runPromiseExit(
-    Registry.getResult(registry, atom, { suspendOnWaiting: true })
-  ).finally(unmount)
+  void fireMutation(registry, addTicketsToSprint({ req, ticketId }), {
+    groupId
+  })
 }
 
 export const removeTicketsFromSprint = Atom.family(
-  ({
-    req,
-    ticketId
-  }: Readonly<{
-    req: SprintListRequest
-    ticketId: TicketId
-  }>) =>
-    Atom.optimisticFn(sprintList(req), {
-      reducer: (current, input: SprintAssignmentInput) =>
-        AsyncResult.map(current, (sprints) => {
-          const { groupId } = input
-          const now = DateTime.toDate(DateTime.nowUnsafe())
-          return sprints.map((sprint) =>
-            sprint.id === groupId
-              ? {
-                  ...sprint,
-                  tickets: sprint.tickets.filter((id) => id !== ticketId),
-                  updatedAt: now
-                }
-              : sprint
-          )
+  ({ req, ticketId }: SprintTicketKey) =>
+    viewMutation(sprintList(req), {
+      name: "removeTicketsFromSprint",
+      predict: (sprints, { groupId }: SprintAssignmentInput) =>
+        replaceSprint(sprints, groupId, (sprint) => ({
+          ...sprint,
+          tickets: sprint.tickets.filter((id) => id !== ticketId),
+          updatedAt: DateTime.toDate(DateTime.nowUnsafe())
+        })),
+      call: (client, { groupId }) =>
+        client.groups.removeTickets({
+          params: { ...req.params, id: groupId },
+          payload: { tickets: [ticketId] }
         }),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("removeTicketsFromSprint")(function* (
-            input: SprintAssignmentInput,
-            get
-          ) {
-            const { groupId } = input
-            const scope = scopeOf(req)
-            const result = yield* Api.use((client) =>
-              client.groups.removeTickets({
-                params: { ...req.params, id: groupId },
-                payload: { tickets: [ticketId] }
-              })
-            )
-            set(
-              AsyncResult.map(get(sprintList(req)), (sprints) =>
-                confirmRemovedTicket(sprints, groupId, ticketId, result)
-              )
-            )
-            yield* Reactivity.invalidate([
-              Keys.sprintMembership(scope),
-              Keys.sprintMembership(scope, groupId),
-              Keys.sprint(scope, groupId),
-              ...result.evicted.map((evicted) =>
-                Keys.sprintMembership(scope, evicted.groupId)
-              ),
-              ...result.evicted.map((evicted) =>
-                Keys.sprint(scope, evicted.groupId)
-              ),
-              Keys.ticketsIn(scope),
-              Keys.ticketLists(scope)
-            ])
-            return result
+      confirm: (sprints, result, { groupId }) =>
+        confirmRemovedTicket(sprints, groupId, ticketId, result),
+      publish: (result, { groupId }) =>
+        membershipKeys(scopeOf(req), groupId, result)
+    })
+)
+
+export const sprintAssignmentKeys = (
+  scope: string,
+  groupId: GroupId | undefined
+): ReadonlyArray<ReactivityKey> => [
+  Keys.sprints(scope),
+  Keys.sprintMembership(scope),
+  ...(groupId === undefined
+    ? []
+    : [Keys.sprintMembership(scope, groupId), Keys.sprint(scope, groupId)])
+]
+
+export const createInSprint = Effect.fnUntraced(function* (
+  params: SprintListRequest["params"],
+  payload: QuickCreateTicketInput,
+  groupId: GroupId | undefined
+) {
+  const created = yield* Api.use((client) =>
+    client.tickets.quickCreate({ params, payload })
+  )
+  const assignment = yield* Effect.exit(
+    groupId === undefined
+      ? Effect.void
+      : Api.use((client) =>
+          client.groups.addTickets({
+            params: { ...params, id: groupId },
+            payload: { tickets: [created.id] }
           })
         )
-    })
+  )
+  return { ...created, sprintAssignmentFailed: Exit.isFailure(assignment) }
+})
+
+export const quickCreateInSprint = Atom.family(({ req, groupId }: SprintKey) =>
+  viewMutation(sprintList(req), {
+    name: "quickCreateInSprint",
+    predict: (sprints, _payload: QuickCreateTicketInput) =>
+      keepPredicted(sprints),
+    call: (_client, payload) => createInSprint(req.params, payload, groupId),
+    confirm: (sprints, created) =>
+      created.sprintAssignmentFailed
+        ? sprints
+        : replaceSprint(sprints, groupId, (sprint) =>
+            sprint.tickets.includes(created.id)
+              ? sprint
+              : { ...sprint, tickets: [...sprint.tickets, created.id] }
+          ),
+    publish: () => [
+      ...Keys.ticketsChanged(scopeOf(req)),
+      ...sprintAssignmentKeys(scopeOf(req), groupId)
+    ]
+  })
 )

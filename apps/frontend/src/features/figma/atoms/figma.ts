@@ -1,11 +1,9 @@
 import type { ConnectFigmaProjectInput, TicketId } from "@pp/shared"
-import * as Effect from "effect/Effect"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
-import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 export type FigmaProjectRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
@@ -42,27 +40,19 @@ const figmaProfileQuery = Api.query("figma", "profile", {
 
 export const figmaProfileAtom = Atom.optimistic(figmaProfileQuery)
 
-export const disconnectFigmaProfileAtom = Atom.optimisticFn(figmaProfileAtom, {
-  reducer: (current, _input: void) =>
-    AsyncResult.map(current, (profile) => ({
-      ...profile,
-      connected: false,
-      figmaUserId: null,
-      handle: null,
-      email: null,
-      lastVerifiedAt: null,
-      lastCheckError: null
-    })),
-  fn: (set) =>
-    Api.runtime.fn(
-      Effect.fn("disconnectFigmaProfile")(function* (_input: void) {
-        const profile = yield* Api.use((client) =>
-          client.figma.disconnectProfile()
-        )
-        set(AsyncResult.success(profile))
-        return profile
-      })
-    )
+export const disconnectFigmaProfileAtom = viewMutation(figmaProfileAtom, {
+  name: "disconnectFigmaProfile",
+  predict: (profile, _input: void) => ({
+    ...profile,
+    connected: false,
+    figmaUserId: null,
+    handle: null,
+    email: null,
+    lastVerifiedAt: null,
+    lastCheckError: null
+  }),
+  call: (client) => client.figma.disconnectProfile(),
+  confirm: replaceWith
 })
 
 const figmaProjectQuery = (req: FigmaProjectRequest) =>
@@ -77,30 +67,18 @@ export const figmaProjectStatusAtom = Atom.family((req: FigmaProjectRequest) =>
 )
 
 export const connectFigmaProjectAtom = Atom.family((req: FigmaProjectRequest) =>
-  Atom.optimisticFn(figmaProjectStatusAtom(req), {
-    reducer: (current, _input: ConnectFigmaProjectInput) =>
-      AsyncResult.map(current, (status) => ({
-        ...status,
-        connected: true,
-        lastCheckStatus: "ok" as const,
-        lastCheckError: null
-      })),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("connectFigmaProject")(function* (
-          input: ConnectFigmaProjectInput
-        ) {
-          const status = yield* Api.use((client) =>
-            client.figma.connectProject({
-              params: req.params,
-              payload: input
-            })
-          )
-          set(AsyncResult.success(status))
-          yield* Reactivity.invalidate([Keys.figmaTicketLinks(scopeOf(req))])
-          return status
-        })
-      )
+  viewMutation(figmaProjectStatusAtom(req), {
+    name: "connectFigmaProject",
+    predict: (status, _input: ConnectFigmaProjectInput) => ({
+      ...status,
+      connected: true,
+      lastCheckStatus: "ok" as const,
+      lastCheckError: null
+    }),
+    call: (client, input) =>
+      client.figma.connectProject({ params: req.params, payload: input }),
+    confirm: replaceWith,
+    publish: () => [Keys.figmaTicketLinks(scopeOf(req))]
   })
 )
 
@@ -117,26 +95,18 @@ export const figmaTicketLinksAtom = Atom.family(
 
 export const disconnectFigmaProjectAtom = Atom.family(
   (req: FigmaProjectRequest) =>
-    Atom.optimisticFn(figmaProjectStatusAtom(req), {
-      reducer: (current, _input: void) =>
-        AsyncResult.map(current, (status) => ({
-          ...status,
-          connected: false,
-          handle: null,
-          connectedAt: null,
-          lastCheckStatus: null,
-          lastCheckError: null
-        })),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("disconnectFigmaProject")(function* (_input: void) {
-            const status = yield* Api.use((client) =>
-              client.figma.disconnectProject({ params: req.params })
-            )
-            set(AsyncResult.success(status))
-            yield* Reactivity.invalidate([Keys.figmaTicketLinks(scopeOf(req))])
-            return status
-          })
-        )
+    viewMutation(figmaProjectStatusAtom(req), {
+      name: "disconnectFigmaProject",
+      predict: (status, _input: void) => ({
+        ...status,
+        connected: false,
+        handle: null,
+        connectedAt: null,
+        lastCheckStatus: null,
+        lastCheckError: null
+      }),
+      call: (client) => client.figma.disconnectProject({ params: req.params }),
+      confirm: replaceWith,
+      publish: () => [Keys.figmaTicketLinks(scopeOf(req))]
     })
 )

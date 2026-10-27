@@ -10,7 +10,7 @@ import { Check } from "lucide-react"
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { jiraDestinationConflictsAtom } from "@/features/jira/atoms/jiraMigration"
+import { jiraDestinationConflicts } from "@/features/jira/atoms/jiraMigration"
 import { useFormValues } from "@/lib/form"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -31,7 +31,7 @@ export function ReviewStep({
   onBack,
   onNext
 }: StepProps) {
-  const conflictsAtom = jiraDestinationConflictsAtom({
+  const conflictsAtom = jiraDestinationConflicts({
     params: { orgSlug, migrationId },
     query: { expectedRevision: revision }
   })

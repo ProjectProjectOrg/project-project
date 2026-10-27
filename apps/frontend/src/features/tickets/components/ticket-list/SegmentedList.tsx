@@ -28,10 +28,13 @@ import {
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
 import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
-import type {
-  BacklogSection,
-  BacklogValue
+import {
+  backlogRequest,
+  backlogTicketUpdates,
+  type BacklogValue
 } from "@/features/tickets/atoms/backlog"
+import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
+import type { TicketRowPage } from "@/features/tickets/lib/ticketRows"
 import { m } from "@/paraglide/messages"
 
 import { statusCollapseKey, useCollapsedInSet } from "./sectionCollapse"
@@ -39,7 +42,7 @@ import { CreatingSectionsProvider, SectionList } from "./SectionList"
 import { useTicketPreview } from "./useTicketPreview"
 
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
-const EMPTY_PAGE: BacklogSection = { items: [], nextCursor: null }
+const EMPTY_PAGE: TicketRowPage = { items: [], nextCursor: null }
 
 export function SegmentedList({
   orgSlug,
@@ -83,6 +86,7 @@ export function SegmentedList({
     })
   }
   const preview = useTicketPreview()
+  const update = backlogTicketUpdates(backlogRequest(orgSlug, slug, query))
 
   const statusReq = useMemo(
     () => statusesRequest(orgSlug, slug),
@@ -203,6 +207,7 @@ export function SegmentedList({
             status={status}
             statuses={statuses}
             query={query}
+            update={update}
             count={byStatus[status] ?? 0}
             page={sections[status] ?? EMPTY_PAGE}
             members={members}
@@ -228,6 +233,7 @@ function StatusSection({
   status,
   statuses,
   query,
+  update,
   count,
   page,
   members,
@@ -246,8 +252,9 @@ function StatusSection({
   status: TicketStatus
   statuses: ReadonlyArray<ProjectStatus>
   query: TicketListQuery
+  update: TicketUpdates
   count: number
-  page: BacklogSection
+  page: TicketRowPage
   members: ReadonlyArray<Member>
   sprintMembership?: ReadonlyMap<TicketId, Group>
   extraRowActions?: (ticket: Ticket) => ReactNode
@@ -269,6 +276,7 @@ function StatusSection({
       status={status}
       statuses={statuses}
       query={query}
+      update={update}
       count={count}
       page={page}
       collapsed={collapsed}

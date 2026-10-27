@@ -9,7 +9,7 @@ import { Keys, projectScope } from "@/api/keys"
 import { stubFetch } from "@/api/testFetch"
 
 import { sprintDetail, sprintRequest, updateSprintDetail } from "./sprintDetail"
-import { updateSprint } from "./sprintList"
+import { sprintListRequest, updateSprint } from "./sprintList"
 
 const groupId = Schema.decodeSync(GroupId)("G-1")
 
@@ -71,7 +71,7 @@ describe("sprintDetail", () => {
     })
     const registry = AtomRegistry.make()
     const view = sprintDetail(req)
-    const listReq = { params: { orgSlug: "acme", slug: "web" } }
+    const listReq = sprintListRequest("acme", "web")
     const mutation = updateSprint({ req: listReq, groupId })
     registry.mount(view)
     registry.mount(mutation)

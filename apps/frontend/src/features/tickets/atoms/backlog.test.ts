@@ -20,6 +20,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
 
+import { applyTicketPatch } from "../lib/ticketPatch"
 import {
   backlog,
   backlogRequest,
@@ -28,7 +29,6 @@ import {
   quickCreateBacklogTicket,
   updateBacklogTicket
 } from "./backlog"
-import { applyTicketPatch } from "./ticketPatch"
 
 const decodeUnknownUpdateTicketInputSync =
   Schema.decodeUnknownSync(UpdateTicketInput)
@@ -153,7 +153,7 @@ describe("backlog optimistic update", () => {
     }
   })
 
-  it("merges a canceled rapid edit into the surviving request", async () => {
+  it("preserves rapid edits while requests run sequentially", async () => {
     const bodies: Array<UpdateTicketInput> = []
     const pending: Array<(response: Response) => void> = []
     fetchStub.set(async (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -182,8 +182,13 @@ describe("backlog optimistic update", () => {
       registry.set(mutation, { priority: "high" })
       await vi.waitFor(() => expect(bodies).toHaveLength(1))
       registry.set(mutation, { type: "bug" })
+      pending[0](
+        Response.json(
+          encodeUpdateResponse(asUpdateResult({ ...ticket, priority: "high" }))
+        )
+      )
       await vi.waitFor(() => expect(bodies).toHaveLength(2))
-      expect(bodies[1]).toEqual({ priority: "high", type: "bug" })
+      expect(bodies[1]).toEqual({ type: "bug" })
 
       pending[1](
         Response.json(
@@ -453,10 +458,12 @@ describe("backlog status move", () => {
       registry.set(mutation, { status: doing })
       await vi.waitFor(() => expect(bodies).toHaveLength(1))
       registry.set(mutation, { assignees: ["alice"] })
+      served = [{ ...ticket, status: doing }]
+      pending[0](Response.json(encodeUpdateResponse(asUpdateResult(served[0]))))
       await vi.waitFor(() => expect(bodies).toHaveLength(2))
 
       expect(bodies[0]).toEqual({ status: doing })
-      expect(bodies[1]).toEqual({ status: doing, assignees: ["alice"] })
+      expect(bodies[1]).toEqual({ assignees: ["alice"] })
 
       const stacked = registry.get(view)
       if (!AsyncResult.isSuccess(stacked))
@@ -494,11 +501,11 @@ describe("backlog status move", () => {
   it("composes two stacked status moves out of `current`, not the original server value", async () => {
     const inProgress = decodeTicketStatusSync("in_progress")
     const doneStatus = decodeTicketStatusSync("done")
-    let finish = (_r: Response) => {}
+    const pending: Array<(response: Response) => void> = []
     fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "PATCH") {
         return new Promise<Response>((resolve) => {
-          finish = resolve
+          pending.push(resolve)
         })
       }
       return Promise.resolve(
@@ -541,7 +548,16 @@ describe("backlog status move", () => {
       expect(composed.value.counts.byStatus[doneStatus]).toBe(1)
       expect(composed.value.counts.total).toBe(1)
 
-      finish(
+      await vi.waitFor(() => expect(pending).toHaveLength(1))
+      pending[0](
+        Response.json(
+          encodeUpdateResponse(
+            asUpdateResult({ ...ticket, status: inProgress })
+          )
+        )
+      )
+      await vi.waitFor(() => expect(pending).toHaveLength(2))
+      pending[1](
         Response.json(
           encodeUpdateResponse(
             asUpdateResult({ ...ticket, status: doneStatus })
@@ -556,11 +572,11 @@ describe("backlog status move", () => {
 
   it("carries a stacked field edit through a subsequent status move", async () => {
     const doing = decodeTicketStatusSync("in_progress")
-    let finish = (_r: Response) => {}
+    const pending: Array<(response: Response) => void> = []
     fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "PATCH") {
         return new Promise<Response>((resolve) => {
-          finish = resolve
+          pending.push(resolve)
         })
       }
       return Promise.resolve(
@@ -596,7 +612,14 @@ describe("backlog status move", () => {
         "high"
       )
 
-      finish(new Response("nope", { status: 500 }))
+      await vi.waitFor(() => expect(pending).toHaveLength(1))
+      pending[0](
+        Response.json(
+          encodeUpdateResponse(asUpdateResult({ ...ticket, priority: "high" }))
+        )
+      )
+      await vi.waitFor(() => expect(pending).toHaveLength(2))
+      pending[1](new Response("nope", { status: 500 }))
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
     } finally {
       registry.dispose()
@@ -915,11 +938,13 @@ describe("backlog quick create", () => {
           expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
         )
         registry.set(create, {
-          ticket: { title: "Created", type: "chore" },
-          viewerId: "user-1",
-          projectPrefix: "T",
-          estimation: "off",
-          clientId: "creation-filtered"
+          payload: { title: "Created", type: "chore" },
+          prediction: {
+            clientId: "creation-filtered",
+            createdBy: "user-1",
+            projectPrefix: "T",
+            estimation: "off"
+          }
         })
         const optimistic = registry.get(view)
         if (!AsyncResult.isSuccess(optimistic))
@@ -954,16 +979,16 @@ describe("backlog quick create", () => {
         expect(registry.get(view)).toMatchObject({ _tag: "Success" })
       )
       registry.set(create, {
-        ticket: {
+        payload: {
           title: "Login loops",
           type: "bug",
           template: decodeTemplateKeySync("bug-report")
         },
-        viewerId: "user-1",
-        projectPrefix: "T",
-        estimation: "off",
-        clientId: "creation-1",
         prediction: {
+          clientId: "creation-1",
+          createdBy: "user-1",
+          projectPrefix: "T",
+          estimation: "off",
           priority: "high",
           tags: [decodeTagNameSync("auth")]
         }
@@ -1016,11 +1041,13 @@ describe("backlog quick create", () => {
         })
       )
       registry.set(create, {
-        ticket: { title: "Created", status: ticket.status },
-        viewerId: "user-1",
-        projectPrefix: "T",
-        estimation: "off",
-        clientId: "creation-1"
+        payload: { title: "Created", status: ticket.status },
+        prediction: {
+          clientId: "creation-1",
+          createdBy: "user-1",
+          projectPrefix: "T",
+          estimation: "off"
+        }
       })
 
       const optimistic = registry.get(view)
@@ -1121,11 +1148,13 @@ describe("backlog quick create", () => {
       })
       stopIdView()
       registry.set(create, {
-        ticket: { title: created.title, status: ticket.status },
-        viewerId: "user-1",
-        projectPrefix: "T",
-        estimation: "off",
-        clientId: "creation-sibling"
+        payload: { title: created.title, status: ticket.status },
+        prediction: {
+          clientId: "creation-sibling",
+          createdBy: "user-1",
+          projectPrefix: "T",
+          estimation: "off"
+        }
       })
       await vi.waitFor(() => expect(registry.get(create).waiting).toBe(false))
       registry.mount(idView)
@@ -1193,11 +1222,13 @@ describe("backlog quick create", () => {
 
       stallReads = true
       registry.set(create, {
-        ticket: { title: "Doomed", status: ticket.status },
-        viewerId: "user-1",
-        projectPrefix: "T",
-        estimation: "off",
-        clientId: "creation-doomed"
+        payload: { title: "Doomed", status: ticket.status },
+        prediction: {
+          clientId: "creation-doomed",
+          createdBy: "user-1",
+          projectPrefix: "T",
+          estimation: "off"
+        }
       })
 
       const optimistic = registry.get(view)
@@ -1329,9 +1360,16 @@ const orderAfterRoundTrip = async (
       (row) => row.ticket.id
     )
     const back = items.find(([t]) => t.id === movedId)!
-    for (const resolve of pending) {
-      resolve(Response.json(encodeUpdateResponse(asUpdateResult(back[0]))))
-    }
+    await vi.waitFor(() => expect(pending).toHaveLength(1))
+    pending[0](
+      Response.json(
+        encodeUpdateResponse(
+          asUpdateResult({ ...back[0], status: inProgressStatus })
+        )
+      )
+    )
+    await vi.waitFor(() => expect(pending).toHaveLength(2))
+    pending[1](Response.json(encodeUpdateResponse(asUpdateResult(back[0]))))
     await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
     return order
   } finally {

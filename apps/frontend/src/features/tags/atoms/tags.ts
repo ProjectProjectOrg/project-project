@@ -10,21 +10,23 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
-import * as Reactivity from "effect/reactivity/Reactivity"
 import * as Schema from "effect/Schema"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { viewMutation } from "@/api/viewMutation"
 import {
   ticketQuery,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 
 export type TagsRequest = Readonly<{
+  _view: "tags"
   params: Readonly<{ orgSlug: string; slug: string }>
 }>
 
 export const tagsRequest = (orgSlug: string, slug: string): TagsRequest => ({
+  _view: "tags",
   params: { orgSlug, slug }
 })
 
@@ -61,6 +63,7 @@ export const tagUsage = Atom.family((req: TagsRequest) =>
 const makeTagColor = Schema.decodeUnknownSync(TagColor)
 
 export type TagEditorRequest = Readonly<{
+  _view: "tagEditor"
   params: Readonly<{
     orgSlug: string
     slug: string
@@ -82,11 +85,10 @@ export const tagEditorRequest = (
   orgSlug: string,
   slug: string,
   id: TicketId
-): TagEditorRequest => ({ params: { orgSlug, slug, id } })
+): TagEditorRequest => ({ _view: "tagEditor", params: { orgSlug, slug, id } })
 
-const tagsRequestOf = (req: TagEditorRequest): TagsRequest => ({
-  params: { orgSlug: req.params.orgSlug, slug: req.params.slug }
-})
+const tagsRequestOf = (req: TagEditorRequest) =>
+  tagsRequest(req.params.orgSlug, req.params.slug)
 
 const ticketRequestOf = (req: TagEditorRequest) =>
   ticketRequest(req.params.orgSlug, req.params.slug, req.params.id)
@@ -144,20 +146,19 @@ const deleteEditorTag = (
   applied: value.applied.filter((tag) => tag.name !== name)
 })
 
+const syntheticTag = (input: CreateTagInput): Tag => ({
+  name: input.name,
+  color: input.color ?? makeTagColor("#7c3aed"),
+  createdBy: "",
+  createdAt: DateTime.toDate(DateTime.nowUnsafe())
+})
+
 const createEditorTag = (
   value: TagEditorValue,
   input: CreateTagInput
 ): TagEditorValue => ({
   ...value,
-  tags: [
-    ...value.tags,
-    {
-      name: input.name,
-      color: input.color ?? makeTagColor("#7c3aed"),
-      createdBy: "",
-      createdAt: DateTime.toDate(DateTime.nowUnsafe())
-    }
-  ]
+  tags: [...value.tags, syntheticTag(input)]
 })
 
 const applyEditorTags = (
@@ -188,248 +189,142 @@ const confirmEditorUpdate = (
   )
 })
 
+const editorScope = (req: TagEditorRequest) =>
+  projectScope(req.params.orgSlug, req.params.slug)
+
+const tagsChanged = (scope: string) => [
+  Keys.tagUsage(scope),
+  ...Keys.ticketsChanged(scope)
+]
+
+const renames = (name: TagName, patch: UpdateTagInput) =>
+  patch.name !== undefined && patch.name !== name
+
 export const applyTagsInEditor = Atom.family((req: TagEditorRequest) =>
-  Atom.optimisticFn(tagEditor(req), {
-    reducer: (current, input: ApplyTagsInput) =>
-      AsyncResult.map(current, (value) => applyEditorTags(value, input.tags)),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("applyTagsInEditor")(function* (input: ApplyTagsInput, get) {
-          const { ticket: updated } = yield* Api.use((client) =>
-            client.tickets.update({
-              params: req.params,
-              query: {},
-              payload: { tags: input.tags }
-            })
-          )
-          set(
-            AsyncResult.map(get(tagEditor(req)), (value) =>
-              applyEditorTags(value, updated.tags)
-            )
-          )
-          const scope = projectScope(req.params.orgSlug, req.params.slug)
-          yield* Reactivity.invalidate([
-            Keys.tagUsage(scope),
-            Keys.ticketsIn(scope),
-            Keys.ticketLists(scope),
-            Keys.ticketPages(scope)
-          ])
-          return updated
+  viewMutation(tagEditor(req), {
+    name: "applyTagsInEditor",
+    predict: (value, input: ApplyTagsInput) =>
+      applyEditorTags(value, input.tags),
+    call: (client, input) =>
+      client.tickets
+        .update({
+          params: req.params,
+          query: {},
+          payload: { tags: input.tags }
         })
-      )
+        .pipe(Effect.map(({ ticket }) => ticket)),
+    confirm: (value, updated) => applyEditorTags(value, updated.tags),
+    publish: () => tagsChanged(editorScope(req))
   })
 )
 
 export const createTagInEditor = Atom.family((req: TagEditorRequest) =>
-  Atom.optimisticFn(tagEditor(req), {
-    reducer: (current, input: CreateTagInput) =>
-      AsyncResult.map(current, (value) => createEditorTag(value, input)),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("createTagInEditor")(function* (input: CreateTagInput, get) {
-          const created = yield* Api.use((client) =>
-            client.tags.create({
-              params: {
-                orgSlug: req.params.orgSlug,
-                slug: req.params.slug
-              },
-              payload: input
-            })
-          )
-          set(
-            AsyncResult.map(get(tagEditor(req)), (value) => ({
-              ...value,
-              tags: value.tags.map((tag) =>
-                tag.name === input.name ? created : tag
-              )
-            }))
-          )
-          yield* Reactivity.invalidate([
-            Keys.tagUsage(projectScope(req.params.orgSlug, req.params.slug))
-          ])
-          return created
-        })
-      )
+  viewMutation(tagEditor(req), {
+    name: "createTagInEditor",
+    predict: createEditorTag,
+    call: (client, input) =>
+      client.tags.create({
+        params: { orgSlug: req.params.orgSlug, slug: req.params.slug },
+        payload: input
+      }),
+    confirm: (value, created, input) => ({
+      ...value,
+      tags: value.tags.map((tag) => (tag.name === input.name ? created : tag))
+    }),
+    publish: () => [Keys.tagUsage(editorScope(req))]
   })
 )
 
-export const updateTagInEditor = Atom.family(
-  ({ req, name }: Readonly<{ req: TagEditorRequest; name: TagName }>) =>
-    Atom.optimisticFn(tagEditor(req), {
-      reducer: (current, patch: UpdateTagInput) =>
-        AsyncResult.map(current, (value) =>
-          updateEditorValue(value, name, patch)
-        ),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("updateTagInEditor")(function* (
-            patch: UpdateTagInput,
-            get
-          ) {
-            const updated = yield* Api.use((client) =>
-              client.tags.update({
-                params: {
-                  orgSlug: req.params.orgSlug,
-                  slug: req.params.slug,
-                  name
-                },
-                payload: patch
-              })
-            )
-            set(
-              AsyncResult.map(get(tagEditor(req)), (value) =>
-                confirmEditorUpdate(value, name, patch.name, updated)
-              )
-            )
-            if (patch.name !== undefined && patch.name !== name) {
-              const scope = projectScope(req.params.orgSlug, req.params.slug)
-              yield* Reactivity.invalidate([
-                Keys.tagUsage(scope),
-                Keys.ticketsIn(scope),
-                Keys.ticketLists(scope),
-                Keys.ticketPages(scope)
-              ])
-            }
-            return updated
-          })
-        )
-    })
+type EditorTagKey = Readonly<{ req: TagEditorRequest; name: TagName }>
+
+export const updateTagInEditor = Atom.family(({ req, name }: EditorTagKey) =>
+  viewMutation(tagEditor(req), {
+    name: "updateTagInEditor",
+    predict: (value, patch: UpdateTagInput) =>
+      updateEditorValue(value, name, patch),
+    call: (client, patch) =>
+      client.tags.update({
+        params: {
+          orgSlug: req.params.orgSlug,
+          slug: req.params.slug,
+          name
+        },
+        payload: patch
+      }),
+    confirm: (value, updated, patch) =>
+      confirmEditorUpdate(value, name, patch.name, updated),
+    publish: (_updated, patch) =>
+      renames(name, patch) ? tagsChanged(editorScope(req)) : []
+  })
 )
 
-export const deleteTagInEditor = Atom.family(
-  ({ req, name }: Readonly<{ req: TagEditorRequest; name: TagName }>) =>
-    Atom.optimisticFn(tagEditor(req), {
-      reducer: (current, _input: void) =>
-        AsyncResult.map(current, (value) => deleteEditorTag(value, name)),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("deleteTagInEditor")(function* (_input: void, get) {
-            yield* Api.use((client) =>
-              client.tags.delete({
-                params: {
-                  orgSlug: req.params.orgSlug,
-                  slug: req.params.slug,
-                  name
-                }
-              })
-            )
-            set(
-              AsyncResult.map(get(tagEditor(req)), (value) =>
-                deleteEditorTag(value, name)
-              )
-            )
-            const scope = projectScope(req.params.orgSlug, req.params.slug)
-            yield* Reactivity.invalidate([
-              Keys.tagUsage(scope),
-              Keys.ticketsIn(scope),
-              Keys.ticketLists(scope),
-              Keys.ticketPages(scope)
-            ])
-          })
-        )
-    })
+export const deleteTagInEditor = Atom.family(({ req, name }: EditorTagKey) =>
+  viewMutation(tagEditor(req), {
+    name: "deleteTagInEditor",
+    predict: (value, _input: void) => deleteEditorTag(value, name),
+    call: (client) =>
+      client.tags.delete({
+        params: {
+          orgSlug: req.params.orgSlug,
+          slug: req.params.slug,
+          name
+        }
+      }),
+    confirm: (value) => deleteEditorTag(value, name),
+    publish: () => tagsChanged(editorScope(req))
+  })
 )
 
 export const createTag = Atom.family((req: TagsRequest) =>
-  Atom.optimisticFn(tagsFor(req), {
-    reducer: (current, input: CreateTagInput) =>
-      AsyncResult.map(current, (tags) => {
-        const synthetic: Tag = {
-          name: input.name,
-          color: input.color ?? makeTagColor("#7c3aed"),
-          createdBy: "",
-          createdAt: DateTime.toDate(DateTime.nowUnsafe())
-        }
-        return [...tags, synthetic]
-      }),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("createTag")(function* (input: CreateTagInput, get) {
-          const created = yield* Api.use((client) =>
-            client.tags.create({ params: req.params, payload: input })
-          )
-          set(
-            AsyncResult.map(get(tagsFor(req)), (tags) =>
-              tags.map((tag) => (tag.name === input.name ? created : tag))
-            )
-          )
-          yield* Reactivity.invalidate([Keys.tagUsage(scopeOf(req))])
-          return created
-        })
-      )
+  viewMutation(tagsFor(req), {
+    name: "createTag",
+    predict: (tags, input: CreateTagInput) => [...tags, syntheticTag(input)],
+    call: (client, input) =>
+      client.tags.create({ params: req.params, payload: input }),
+    confirm: (tags, created, input) =>
+      tags.map((tag) => (tag.name === input.name ? created : tag)),
+    publish: () => [Keys.tagUsage(scopeOf(req))]
   })
 )
 
-export const updateTag = Atom.family(
-  ({ req, name }: Readonly<{ req: TagsRequest; name: TagName }>) =>
-    Atom.optimisticFn(tagsFor(req), {
-      reducer: (current, patch: UpdateTagInput) =>
-        AsyncResult.map(current, (tags) =>
-          tags.map((tag) =>
-            tag.name === name
-              ? {
-                  ...tag,
-                  name: patch.name ?? tag.name,
-                  color: patch.color ?? tag.color
-                }
-              : tag
-          )
-        ),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("updateTag")(function* (patch: UpdateTagInput, get) {
-            const updated = yield* Api.use((client) =>
-              client.tags.update({
-                params: { ...req.params, name },
-                payload: patch
-              })
-            )
-            set(
-              AsyncResult.map(get(tagsFor(req)), (tags) =>
-                tags.map((tag) =>
-                  tag.name === name || tag.name === patch.name ? updated : tag
-                )
-              )
-            )
-            if (patch.name !== undefined && patch.name !== name) {
-              yield* Reactivity.invalidate([
-                Keys.tagUsage(scopeOf(req)),
-                Keys.ticketsIn(scopeOf(req)),
-                Keys.ticketLists(scopeOf(req)),
-                Keys.ticketPages(scopeOf(req))
-              ])
+type TagKey = Readonly<{ req: TagsRequest; name: TagName }>
+
+export const updateTag = Atom.family(({ req, name }: TagKey) =>
+  viewMutation(tagsFor(req), {
+    name: "updateTag",
+    predict: (tags, patch: UpdateTagInput) =>
+      tags.map((tag) =>
+        tag.name === name
+          ? {
+              ...tag,
+              name: patch.name ?? tag.name,
+              color: patch.color ?? tag.color
             }
-            return updated
-          })
-        )
-    })
+          : tag
+      ),
+    call: (client, patch) =>
+      client.tags.update({
+        params: { ...req.params, name },
+        payload: patch
+      }),
+    confirm: (tags, updated, patch) =>
+      tags.map((tag) =>
+        tag.name === name || tag.name === patch.name ? updated : tag
+      ),
+    publish: (_updated, patch) =>
+      renames(name, patch) ? tagsChanged(scopeOf(req)) : []
+  })
 )
 
-export const deleteTag = Atom.family(
-  ({ req, name }: Readonly<{ req: TagsRequest; name: TagName }>) =>
-    Atom.optimisticFn(tagsFor(req), {
-      reducer: (current, _input: void) =>
-        AsyncResult.map(current, (tags) =>
-          tags.filter((tag) => tag.name !== name)
-        ),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("deleteTag")(function* (_input: void, get) {
-            yield* Api.use((client) =>
-              client.tags.delete({ params: { ...req.params, name } })
-            )
-            set(
-              AsyncResult.map(get(tagsFor(req)), (tags) =>
-                tags.filter((tag) => tag.name !== name)
-              )
-            )
-            yield* Reactivity.invalidate([
-              Keys.tagUsage(scopeOf(req)),
-              Keys.ticketsIn(scopeOf(req)),
-              Keys.ticketLists(scopeOf(req)),
-              Keys.ticketPages(scopeOf(req))
-            ])
-          })
-        )
-    })
+const withoutTag = (tags: ReadonlyArray<Tag>, name: TagName) =>
+  tags.filter((tag) => tag.name !== name)
+
+export const deleteTag = Atom.family(({ req, name }: TagKey) =>
+  viewMutation(tagsFor(req), {
+    name: "deleteTag",
+    predict: (tags, _input: void) => withoutTag(tags, name),
+    call: (client) => client.tags.delete({ params: { ...req.params, name } }),
+    confirm: (tags) => withoutTag(tags, name),
+    publish: () => tagsChanged(scopeOf(req))
+  })
 )

@@ -447,8 +447,12 @@ describe("forgetting a left project", () => {
 })
 
 describe("project setup mutations", () => {
-  it("carries a pending setup field into a superseding update", async () => {
+  it("saves rapid setup edits sequentially without losing fields", async () => {
     const payloads: Array<unknown> = []
+    let finishFirst: ((response: Response) => void) | undefined
+    const firstResponse = new Promise<Response>((resolve) => {
+      finishFirst = resolve
+    })
     const inviteAt = DateTime.toDate(
       DateTime.makeUnsafe("2026-04-01T00:00:00.000Z")
     )
@@ -476,7 +480,7 @@ describe("project setup mutations", () => {
           served = confirmed
           return Response.json(encode(confirmed))
         }
-        return new Promise<Response>(() => {})
+        return firstResponse
       }
       return Promise.resolve(Response.json(encode(served)))
     })
@@ -505,11 +509,17 @@ describe("project setup mutations", () => {
           }
         }
       })
+      await vi.waitFor(() => expect(payloads).toHaveLength(1))
+      served = {
+        ...detail,
+        setup: { ...detail.setup, invitePeopleDismissedAt: inviteAt }
+      }
+      finishFirst?.(Response.json(encode(served)))
       await vi.waitFor(() =>
-        expect(payloads).toContainEqual({
-          invitePeopleDismissedAt: inviteAt,
-          connectGithubDismissedAt: githubAt
-        })
+        expect(payloads).toEqual([
+          { invitePeopleDismissedAt: inviteAt },
+          { connectGithubDismissedAt: githubAt }
+        ])
       )
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
       expect(registry.get(view)).toMatchObject({

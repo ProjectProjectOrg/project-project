@@ -1,11 +1,12 @@
-import { useAtomSet } from "@effect/atom-react"
+import { useAtomRefresh, useAtomSet } from "@effect/atom-react"
 import type { JiraMigrationStatus } from "@pp/shared"
 import { useEffect } from "react"
 
 import {
-  invalidateJiraProjectsAtom,
-  jiraMigrationKey,
-  refreshJiraMigrationAtom
+  invalidateJiraProjects,
+  jiraMigration,
+  jiraMigrationRequest,
+  jiraOrgRequest
 } from "@/features/jira/atoms/jiraMigration"
 import { isActiveJiraMigration } from "@/features/jira/lib/screen"
 import { useVisibleInterval } from "@/hooks/useVisibleInterval"
@@ -17,15 +18,17 @@ export function useJiraMigrationPolling(
   migrationId: string,
   status: JiraMigrationStatus
 ) {
-  const refresh = useAtomSet(
-    refreshJiraMigrationAtom(jiraMigrationKey(orgSlug, migrationId))
+  const refresh = useAtomRefresh(
+    jiraMigration(jiraMigrationRequest(orgSlug, migrationId))
   )
-  const invalidateProjects = useAtomSet(invalidateJiraProjectsAtom(orgSlug))
+  const invalidateProjects = useAtomSet(
+    invalidateJiraProjects(jiraOrgRequest(orgSlug))
+  )
   const active = isActiveJiraMigration(status)
 
   useEffect(() => {
     if (status === "succeeded") invalidateProjects(undefined)
   }, [invalidateProjects, status])
 
-  useVisibleInterval(() => refresh(undefined), POLL_INTERVAL_MS, active)
+  useVisibleInterval(refresh, POLL_INTERVAL_MS, active)
 }

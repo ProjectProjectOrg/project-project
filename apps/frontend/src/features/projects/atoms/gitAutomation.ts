@@ -1,10 +1,9 @@
 import type { GitAutomation, UpdateGitAutomationInput } from "@pp/shared"
-import * as Effect from "effect/Effect"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { coalescingMutation, replaceWith } from "@/api/viewMutation"
 
 export type GitAutomationRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
@@ -33,26 +32,20 @@ export const gitAutomationFor = Atom.family((req: GitAutomationRequest) =>
 )
 
 export const updateGitAutomation = Atom.family((req: GitAutomationRequest) =>
-  Atom.optimisticFn(gitAutomationFor(req), {
-    reducer: (current, input: UpdateGitAutomationInput) =>
-      AsyncResult.map(
-        current,
-        (value): GitAutomation => ({
-          rules: { ...value.rules, ...input.rules },
-          forwardOnly: input.forwardOnly ?? value.forwardOnly
-        })
-      ),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("updateGitAutomation")(function* (
-          input: UpdateGitAutomationInput
-        ) {
-          const saved = yield* Api.use((client) =>
-            client.gitAutomation.update({ params: req.params, payload: input })
-          )
-          set(AsyncResult.success(saved))
-          return saved
-        })
-      )
+  coalescingMutation(gitAutomationFor(req), {
+    name: "updateGitAutomation",
+    idleTTL: "5 minutes",
+    predict: (value, input: UpdateGitAutomationInput): GitAutomation => ({
+      rules: { ...value.rules, ...input.rules },
+      forwardOnly: input.forwardOnly ?? value.forwardOnly
+    }),
+    merge: (pending, next) => {
+      const merged = { ...pending, ...next }
+      if (pending.rules === undefined && next.rules === undefined) return merged
+      return { ...merged, rules: { ...pending.rules, ...next.rules } }
+    },
+    call: (client, input) =>
+      client.gitAutomation.update({ params: req.params, payload: input }),
+    confirm: replaceWith
   })
 )

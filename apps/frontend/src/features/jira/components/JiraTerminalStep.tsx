@@ -6,8 +6,8 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { Button } from "@/components/ui/button"
 import {
-  jiraMigrationKey,
-  jiraSkippedAttachmentsAtom
+  jiraMigrationRequest,
+  jiraSkippedAttachments
 } from "@/features/jira/atoms/jiraMigration"
 import { m } from "@/paraglide/messages"
 
@@ -137,8 +137,8 @@ function SkippedAttachments({
   orgSlug,
   migrationId
 }: Readonly<{ orgSlug: string; migrationId: string }>) {
-  const skippedAtom = jiraSkippedAttachmentsAtom(
-    jiraMigrationKey(orgSlug, migrationId)
+  const skippedAtom = jiraSkippedAttachments(
+    jiraMigrationRequest(orgSlug, migrationId)
   )
   const result = useAtomValue(skippedAtom)
   const refreshSkipped = useAtomRefresh(skippedAtom)

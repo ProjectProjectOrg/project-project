@@ -17,7 +17,8 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 import * as Schema from "effect/Schema"
 
 import { Api } from "@/api/Api"
-import { Keys, projectScope } from "@/api/keys"
+import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
+import { viewMutation } from "@/api/viewMutation"
 
 import { everhourProfileQuery } from "./everhour"
 
@@ -174,7 +175,7 @@ const previousTicketKey = (
   orgSlug: string,
   timer: ActiveTimer | null,
   except?: Readonly<{ slug: string; id: TicketId }>
-): string | null =>
+): ReactivityKey | null =>
   timer?.ticketId &&
   (except === undefined ||
     timer.slug !== except.slug ||
@@ -306,90 +307,57 @@ export const startSprintTimerAtom = Atom.family(
     })
 )
 
+const publishPreviousTicket = (
+  orgSlug: string,
+  stopped: ActiveTimer | null,
+  except?: Readonly<{ slug: string; id: TicketId }>
+) => {
+  const key = previousTicketKey(orgSlug, stopped, except)
+  return key === null ? [] : [key]
+}
+
 export const stopTimerAtom = Atom.family((req: ActiveTimerRequest) =>
-  Atom.optimisticFn(activeTimerAtom(req), {
-    reducer: (current, _input: void) => AsyncResult.map(current, () => null),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("stopTimer")(function* (_input: void) {
-          const stopped = yield* Api.use((client) =>
-            client.everhour.stopTimer({ params: req.params })
-          )
-          set(AsyncResult.success(null))
-          const keyToInvalidate = previousTicketKey(req.params.orgSlug, stopped)
-          if (keyToInvalidate) {
-            yield* Reactivity.invalidate([keyToInvalidate])
-          }
-          return stopped
-        })
-      )
+  viewMutation(activeTimerAtom(req), {
+    name: "stopTimer",
+    predict: (_timer, _input: void) => null,
+    call: (client) => client.everhour.stopTimer({ params: req.params }),
+    confirm: () => null,
+    publish: (stopped) => publishPreviousTicket(req.params.orgSlug, stopped)
   })
 )
 
 export const stopTicketTimerAtom = Atom.family((req: TicketTimeRequest) =>
-  Atom.optimisticFn(ticketTimePanelAtom(req), {
-    reducer: (current, _input: void) =>
-      AsyncResult.map(current, (panel) => ({ ...panel, activeTimer: null })),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("stopTicketTimer")(function* (_input: void, get) {
-          const stopped = yield* Api.use((client) =>
-            client.everhour.stopTimer({
-              params: { orgSlug: req.params.orgSlug }
-            })
-          )
-          set(
-            AsyncResult.map(get(ticketTimePanelAtom(req)), (panel) => ({
-              ...panel,
-              activeTimer: null
-            }))
-          )
-          const keyToInvalidate = previousTicketKey(
-            req.params.orgSlug,
-            stopped,
-            { slug: req.params.slug, id: req.params.id }
-          )
-          if (keyToInvalidate) {
-            yield* Reactivity.invalidate([keyToInvalidate])
-          }
-          return stopped
-        })
-      )
+  viewMutation(ticketTimePanelAtom(req), {
+    name: "stopTicketTimer",
+    predict: (panel, _input: void) => ({ ...panel, activeTimer: null }),
+    call: (client) =>
+      client.everhour.stopTimer({ params: { orgSlug: req.params.orgSlug } }),
+    confirm: (panel) => ({ ...panel, activeTimer: null }),
+    publish: (stopped) =>
+      publishPreviousTicket(req.params.orgSlug, stopped, {
+        slug: req.params.slug,
+        id: req.params.id
+      })
   })
 )
 
 export const logTicketTimeAtom = Atom.family((req: TicketTimeRequest) =>
-  Atom.optimisticFn(ticketTimePanelAtom(req), {
-    reducer: (current, input: LogTimeInput) =>
-      AsyncResult.map(current, (panel) => ({
-        ...panel,
-        time: {
-          ...panel.time,
-          totalSeconds: panel.time.totalSeconds + input.seconds,
-          userSeconds: panel.time.userSeconds + input.seconds
-        }
-      })),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("logTicketTime")(function* (input: LogTimeInput, get) {
-          const summary = yield* Api.use((client) =>
-            client.everhour.logTime({
-              params: {
-                orgSlug: req.params.orgSlug,
-                slug: req.params.slug
-              },
-              payload: input
-            })
-          )
-          set(
-            AsyncResult.map(get(ticketTimePanelAtom(req)), (panel) => ({
-              ...panel,
-              time: summary ?? panel.time
-            }))
-          )
-          return summary
-        })
-      )
+  viewMutation(ticketTimePanelAtom(req), {
+    name: "logTicketTime",
+    predict: (panel, input: LogTimeInput) => ({
+      ...panel,
+      time: {
+        ...panel.time,
+        totalSeconds: panel.time.totalSeconds + input.seconds,
+        userSeconds: panel.time.userSeconds + input.seconds
+      }
+    }),
+    call: (client, input) =>
+      client.everhour.logTime({
+        params: { orgSlug: req.params.orgSlug, slug: req.params.slug },
+        payload: input
+      }),
+    confirm: (panel, summary) => ({ ...panel, time: summary ?? panel.time })
   })
 )
 

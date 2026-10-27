@@ -4,19 +4,20 @@ import type {
   TicketId,
   UpdateTicketInput
 } from "@pp/shared"
-import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { replaceWith, viewMutation } from "@/api/viewMutation"
 
-import { applyTicketDetailPatch } from "./ticketPatch"
+import { applyTicketDetailPatch } from "../lib/ticketPatch"
+import { coalescingTicketUpdate } from "./ticketRows"
 
 export type TicketRequest = Readonly<{
+  _view: "ticketDetail"
   params: Readonly<{
     orgSlug: string
     slug: string
@@ -28,7 +29,7 @@ export const ticketRequest = (
   orgSlug: string,
   slug: string,
   id: TicketId
-): TicketRequest => ({ params: { orgSlug, slug, id } })
+): TicketRequest => ({ _view: "ticketDetail", params: { orgSlug, slug, id } })
 
 const scopeOf = (req: TicketRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -58,13 +59,7 @@ const publishFor = (req: TicketRequest, patch: UpdateTicketInput) => {
   const scope = scopeOf(req)
   const fields = Object.keys(patch)
   const contentOnly = fields.every((f) => f === "title" || f === "body")
-  if (!contentOnly) {
-    return [
-      Keys.ticketsIn(scope),
-      Keys.ticketLists(scope),
-      Keys.ticketPages(scope)
-    ]
-  }
+  if (!contentOnly) return Keys.ticketsChanged(scope)
   const keys = [Keys.ticketUpdatedQuery(scope), Keys.ticketsIn(scope)]
   if (patch.title !== undefined) {
     keys.push(Keys.ticketTitleQuery(scope))
@@ -72,94 +67,38 @@ const publishFor = (req: TicketRequest, patch: UpdateTicketInput) => {
   return keys
 }
 
-const unsavedTicketPatch = Atom.family((_req: TicketRequest) =>
-  Atom.make<UpdateTicketInput>({}).pipe(Atom.setIdleTTL("10 minutes"))
-)
-
 export const updateTicketDetail = Atom.family((req: TicketRequest) =>
-  Atom.optimisticFn(ticketDetail(req), {
-    reducer: (current, patch: UpdateTicketInput) =>
-      AsyncResult.map(current, (ticket) =>
-        applyTicketDetailPatch(ticket, patch)
-      ),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("updateTicketDetail")(function* (
-          patch: UpdateTicketInput,
-          get
-        ) {
-          const unsaved = unsavedTicketPatch(req)
-          const payload: UpdateTicketInput = { ...get(unsaved), ...patch }
-          get.set(unsaved, payload)
-          const { ticket: updated } = yield* Effect.catchCause(
-            Api.use((client) =>
-              client.tickets.update({
-                params: req.params,
-                query: {},
-                payload
-              })
-            ),
-            (cause) => {
-              if (!Cause.hasInterruptsOnly(cause) && get(unsaved) === payload) {
-                get.set(unsaved, {})
-              }
-              return Effect.failCause(cause)
-            }
-          )
-          if (get(unsaved) === payload) get.set(unsaved, {})
-          set(AsyncResult.success(updated))
-          yield* Reactivity.invalidate(publishFor(req, payload))
-          return updated
-        })
-      )
+  coalescingTicketUpdate(ticketDetail(req), {
+    name: "updateTicketDetail",
+    path: req.params,
+    idleTTL: "10 minutes",
+    predict: applyTicketDetailPatch,
+    confirm: (_ticket, { ticket }) => ticket,
+    publish: (patch) => publishFor(req, patch)
   })
 )
 
 export const archiveTicket = Atom.family((req: TicketRequest) =>
-  Atom.optimisticFn(ticketDetail(req), {
-    reducer: (current, _input: ArchiveTicketInput) =>
-      AsyncResult.map(current, (ticket) =>
-        ticket.archivedAt === null
-          ? { ...ticket, archivedAt: DateTime.toDate(DateTime.nowUnsafe()) }
-          : ticket
-      ),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("archiveTicket")(function* (input: ArchiveTicketInput) {
-          const updated = yield* Api.use((client) =>
-            client.tickets.archive({ params: req.params, payload: input })
-          )
-          set(AsyncResult.success(updated))
-          yield* Reactivity.invalidate([
-            Keys.ticketsIn(scopeOf(req)),
-            Keys.ticketLists(scopeOf(req)),
-            Keys.ticketPages(scopeOf(req))
-          ])
-          return updated
-        })
-      )
+  viewMutation(ticketDetail(req), {
+    name: "archiveTicket",
+    predict: (ticket, _input: ArchiveTicketInput) =>
+      ticket.archivedAt === null
+        ? { ...ticket, archivedAt: DateTime.toDate(DateTime.nowUnsafe()) }
+        : ticket,
+    call: (client, input) =>
+      client.tickets.archive({ params: req.params, payload: input }),
+    confirm: replaceWith,
+    publish: () => Keys.ticketsChanged(scopeOf(req))
   })
 )
 
 export const unarchiveTicket = Atom.family((req: TicketRequest) =>
-  Atom.optimisticFn(ticketDetail(req), {
-    reducer: (current, _input: void) =>
-      AsyncResult.map(current, (ticket) => ({ ...ticket, archivedAt: null })),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn("unarchiveTicket")(function* (_input: void) {
-          const updated = yield* Api.use((client) =>
-            client.tickets.unarchive({ params: req.params })
-          )
-          set(AsyncResult.success(updated))
-          yield* Reactivity.invalidate([
-            Keys.ticketsIn(scopeOf(req)),
-            Keys.ticketLists(scopeOf(req)),
-            Keys.ticketPages(scopeOf(req))
-          ])
-          return updated
-        })
-      )
+  viewMutation(ticketDetail(req), {
+    name: "unarchiveTicket",
+    predict: (ticket, _input: void) => ({ ...ticket, archivedAt: null }),
+    call: (client) => client.tickets.unarchive({ params: req.params }),
+    confirm: replaceWith,
+    publish: () => Keys.ticketsChanged(scopeOf(req))
   })
 )
 
@@ -167,11 +106,7 @@ export const deleteTicket = Atom.family((req: TicketRequest) =>
   Api.runtime.fn(
     Effect.fn("deleteTicket")(function* (_input: void) {
       yield* Api.use((client) => client.tickets.delete({ params: req.params }))
-      yield* Reactivity.invalidate([
-        Keys.ticketsIn(scopeOf(req)),
-        Keys.ticketLists(scopeOf(req)),
-        Keys.ticketPages(scopeOf(req))
-      ])
+      yield* Reactivity.invalidate(Keys.ticketsChanged(scopeOf(req)))
     })
   )
 )
@@ -186,10 +121,7 @@ export const splitTicket = Atom.family((req: TicketRequest) =>
         })
       )
       yield* Reactivity.invalidate([
-        Keys.ticket(scopeOf(req), req.params.id),
-        Keys.ticketsIn(scopeOf(req)),
-        Keys.ticketLists(scopeOf(req)),
-        Keys.ticketPages(scopeOf(req)),
+        ...Keys.ticketChanged(scopeOf(req), req.params.id),
         Keys.sprintMembership(scopeOf(req))
       ])
       return result

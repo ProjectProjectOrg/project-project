@@ -1,59 +1,59 @@
 import {
-  estimateRank,
   matchesTicketQuery,
-  padNumericIdSort,
-  type EstimationMode,
-  type QuickCreateTicketInput,
-  type TagName,
   type Ticket,
   type TicketCounts,
-  TicketId,
-  type TicketListRow,
+  type TicketId,
   TicketListQuery,
-  type TicketPriority,
   type TicketSort,
   TicketStatus,
-  type Unauthorized,
-  type Forbidden,
-  type NotFound,
   type UpdateTicketInput
 } from "@pp/shared"
-import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
-import * as Reactivity from "effect/reactivity/Reactivity"
 import * as Schema from "effect/Schema"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
-import { PRIORITY_META } from "@/features/tickets/lib/priorityMeta"
-import { compareCodePoints } from "@/lib/orderKey"
+import { bindRowMutation, viewMutation } from "@/api/viewMutation"
+import {
+  insertByOrderKey,
+  patchTicketRow,
+  placeholderRow,
+  ticketListQueryOf,
+  toRow,
+  withCreatedKeys,
+  type QueryWithView,
+  type QuickCreateInput,
+  type TicketRow,
+  type TicketRowPage
+} from "@/features/tickets/lib/ticketRows"
 
-import { applyTicketPatch } from "./ticketPatch"
+import {
+  coalescingTicketUpdate,
+  createdKeys,
+  loadNextPage,
+  readLoadedPages,
+  recordCreatedKey
+} from "./ticketRows"
 
 export const encodeTicketListQuery = Schema.encodeSync(
   Schema.fromJsonString(TicketListQuery)
 )
 
 export type BacklogRequest = Readonly<{
-  params: Readonly<{ orgSlug: string; readonly slug: string }>
+  _view: "backlog"
+  params: Readonly<{ orgSlug: string; slug: string }>
   query: TicketListQuery
 }>
-
-type QueryWithView = TicketListQuery & Readonly<{ view?: unknown }>
-
-const ticketListQueryOf = (query: QueryWithView): TicketListQuery => {
-  const { view: _view, ...rest } = query
-  return rest
-}
 
 export const backlogRequest = (
   orgSlug: string,
   slug: string,
   query: QueryWithView
 ): BacklogRequest => ({
+  _view: "backlog",
   params: { orgSlug, slug },
   query: {
     ...ticketListQueryOf(query),
@@ -65,31 +65,10 @@ export const backlogRequest = (
 const scopeOf = (req: BacklogRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-export type BacklogRow = Readonly<{
-  ticket: Ticket
-  /** React key. Equals the ticket id except for rows created in this session. */
-  key: string
-  /** Server sort position, or the matching local position while an edit is pending. */
-  orderKey: string | null
-  pending: boolean
-}>
-
-export type BacklogSection = Readonly<{
-  items: ReadonlyArray<BacklogRow>
-  nextCursor: string | null
-}>
-
 export type BacklogValue = Readonly<{
   counts: TicketCounts
-  sections: Readonly<Record<string, BacklogSection>>
+  sections: Readonly<Record<string, TicketRowPage>>
 }>
-
-const toRow = (row: TicketListRow): BacklogRow => ({
-  ticket: row.ticket,
-  key: row.ticket.id,
-  orderKey: row.orderKey,
-  pending: false
-})
 
 const sectionsQuery = (req: BacklogRequest) =>
   Api.query("tickets", "sections", {
@@ -120,19 +99,6 @@ const pageQuery = (req: BacklogRequest, status: string, cursor: string) =>
     ]
   })
 
-const dedupeById = (
-  rows: ReadonlyArray<BacklogRow>
-): ReadonlyArray<BacklogRow> => {
-  const seen = new Set<string>()
-  const out: Array<BacklogRow> = []
-  for (const row of rows) {
-    if (seen.has(row.ticket.id)) continue
-    seen.add(row.ticket.id)
-    out.push(row)
-  }
-  return out
-}
-
 const emptyBacklog = (): BacklogValue => ({
   counts: { total: 0, byStatus: {} },
   sections: {}
@@ -146,36 +112,28 @@ const backlogView = (req: BacklogRequest) =>
         return AsyncResult.map(base, emptyBacklog)
       }
       const loaded = get(loadedPagesAtom(req))
-      const createdKeys = get(createdKeysAtom(scopeOf(req)))
-      const parts: Array<AsyncResult.AsyncResult<unknown, unknown>> = [base]
-      const sections: Record<string, BacklogSection> = {}
+      const created = get(createdKeys(scopeOf(req)))
+      let waiting = base.waiting
+      const sections: Record<string, TicketRowPage> = {}
 
       for (const [status, page] of Object.entries(base.value.sections)) {
-        const rows: Array<BacklogRow> = page.items.map(toRow)
-        let nextCursor = page.nextCursor
-        const depth = loaded[status] ?? 0
-        for (let index = 0; index < depth; index++) {
-          if (nextCursor === null) break
-          const cursor = nextCursor
-          const result = get(pageQuery(req, status, cursor))
-          parts.push(result)
-          if (!AsyncResult.isSuccess(result)) break
-          for (const item of result.value.items) rows.push(toRow(item))
-          nextCursor = result.value.nextCursor
-        }
+        const pages = readLoadedPages(
+          get,
+          page,
+          loaded[status] ?? 0,
+          (cursor) => pageQuery(req, status, cursor)
+        )
+        waiting = waiting || pages.waiting
         sections[status] = {
-          items: dedupeById(rows).map((row) => ({
-            ...row,
-            key: createdKeys.get(row.ticket.id) ?? row.key
-          })),
-          nextCursor
+          items: withCreatedKeys(pages.items.map(toRow), created),
+          nextCursor: pages.nextCursor
         }
       }
 
       // A failed or unmounted page must not fail the region, so this is not `AsyncResult.all`.
       return AsyncResult.success<BacklogValue>(
         { counts: base.value.counts, sections },
-        { waiting: parts.some((part) => part.waiting) }
+        { waiting }
       )
     },
     (refresh) => refresh(sectionsQuery(req))
@@ -198,116 +156,31 @@ export const loadMoreBacklog = Atom.family(
         _input: void,
         get: Atom.FnContext
       ) {
-        const current = get(backlog(req))
-        if (!AsyncResult.isSuccess(current)) return yield* Effect.void
-        const cursor = current.value.sections[status]?.nextCursor
-        if (!cursor) return yield* Effect.void
-        const loaded = get(loadedPagesAtom(req))
-        const depth = loaded[status] ?? 0
-        const base = get(sectionsQuery(req))
-        if (!AsyncResult.isSuccess(base)) return yield* Effect.void
-        let pageCursor: string | null =
-          base.value.sections[TicketStatus.make(status)]?.nextCursor ?? null
-        for (let index = 0; index < depth; index++) {
-          if (pageCursor === null) break
-          const page = pageQuery(req, status, pageCursor)
-          if (pageCursor === cursor) {
-            return yield* Effect.callback<
-              unknown,
-              NotFound | Forbidden | Unauthorized
-            >((resume) => {
-              let cancel: (() => void) | undefined
-              cancel = get.registry.subscribe(
-                page,
-                (result) => {
-                  if (AsyncResult.isSuccess(result) && !result.waiting) {
-                    cancel?.()
-                    resume(Effect.succeed(result.value))
-                  } else if (AsyncResult.isFailure(result) && !result.waiting) {
-                    cancel?.()
-                    resume(Effect.failCause(result.cause))
-                  }
-                },
-                { immediate: false }
-              )
-              get.refresh(page)
-              return Effect.sync(() => cancel?.())
+        return yield* loadNextPage(get, {
+          visibleCursor: () => {
+            const current = get(backlog(req))
+            return AsyncResult.isSuccess(current)
+              ? current.value.sections[status]?.nextCursor
+              : undefined
+          },
+          depth: () => get(loadedPagesAtom(req))[status] ?? 0,
+          firstCursor: () => {
+            const base = get(sectionsQuery(req))
+            return AsyncResult.isSuccess(base)
+              ? (base.value.sections[TicketStatus.make(status)]?.nextCursor ??
+                  null)
+              : undefined
+          },
+          page: (cursor) => pageQuery(req, status, cursor),
+          deepen: (depth) =>
+            get.set(loadedPagesAtom(req), {
+              ...get(loadedPagesAtom(req)),
+              [status]: depth
             })
-          }
-          const result = get(page)
-          if (!AsyncResult.isSuccess(result)) return yield* Effect.void
-          pageCursor = result.value.nextCursor
-        }
-        get.set(loadedPagesAtom(req), { ...loaded, [status]: depth + 1 })
-        return yield* get.result(pageQuery(req, status, cursor), {
-          suspendOnWaiting: true
         })
       })
     )
 )
-
-const insertByOrderKey = (
-  items: ReadonlyArray<BacklogRow>,
-  row: BacklogRow,
-  dir: TicketSort["dir"]
-): ReadonlyArray<BacklogRow> => {
-  const orderKey = row.orderKey
-  if (orderKey === null) return [row, ...items]
-  let low = 0
-  let high = items.length
-  while (low < high) {
-    const middle = (low + high) >>> 1
-    const candidate = items[middle].orderKey
-    const sortsBefore =
-      candidate === null ||
-      (dir === "asc"
-        ? compareCodePoints(candidate, orderKey) < 0
-        : compareCodePoints(candidate, orderKey) > 0)
-    if (sortsBefore) low = middle + 1
-    else high = middle
-  }
-  return [...items.slice(0, low), row, ...items.slice(low)]
-}
-
-const patchesSortedField = (
-  patch: UpdateTicketInput,
-  key: TicketSort["key"]
-): boolean => {
-  if (key === "title") return patch.title !== undefined
-  if (key === "priority") return patch.priority !== undefined
-  if (key === "estimate") return patch.estimate !== undefined
-  return false
-}
-
-const localOrderKey = (ticket: Ticket, sort: TicketSort): string => {
-  let value: string
-  switch (sort.key) {
-    case "id":
-      value = padNumericIdSort(ticket.id) ?? ticket.id
-      break
-    case "created":
-      value = ticket.createdAt.toISOString()
-      break
-    case "updated":
-      value = ticket.updatedAt.toISOString()
-      break
-    case "title":
-      value = ticket.title.toLowerCase()
-      break
-    case "priority":
-      value = String(PRIORITY_META[ticket.priority].ordinal + 1).padStart(
-        2,
-        "0"
-      )
-      break
-    case "estimate":
-      value = String(
-        ticket.estimate === null ? 0 : estimateRank(ticket.estimate)
-      ).padStart(6, "0")
-      break
-  }
-  return `${value}\u0000${ticket.id}`
-}
 
 const patchRow = (
   value: BacklogValue,
@@ -316,24 +189,18 @@ const patchRow = (
   sort: TicketSort,
   now: Date
 ): BacklogValue => {
-  let patched: BacklogRow | undefined
+  let patched: TicketRow | undefined
   let from: TicketStatus | undefined
-  const sections: Record<string, BacklogSection> = {}
+  const sections: Record<string, TicketRowPage> = {}
 
   for (const [status, section] of Object.entries(value.sections)) {
-    const items: Array<BacklogRow> = []
+    const items: Array<TicketRow> = []
     for (const row of section.items) {
       if (row.ticket.id !== id) {
         items.push(row)
         continue
       }
-      patched = {
-        ...row,
-        ticket: { ...applyTicketPatch(row.ticket, patch), updatedAt: now }
-      }
-      if (sort.key === "updated" || patchesSortedField(patch, sort.key)) {
-        patched = { ...patched, orderKey: localOrderKey(patched.ticket, sort) }
-      }
+      patched = patchTicketRow(row, patch, sort, now)
       from = TicketStatus.make(status)
     }
     sections[status] = { ...section, items }
@@ -363,7 +230,7 @@ const replaceRow = (
   orderKey: string | null,
   sort: TicketSort
 ): BacklogValue => {
-  const sections: Record<string, BacklogSection> = {}
+  const sections: Record<string, TicketRowPage> = {}
   for (const [status, section] of Object.entries(value.sections)) {
     if (orderKey === null) {
       sections[status] = {
@@ -374,8 +241,8 @@ const replaceRow = (
       }
       continue
     }
-    const items: Array<BacklogRow> = []
-    let moved: BacklogRow | undefined
+    const items: Array<TicketRow> = []
+    let moved: TicketRow | undefined
     for (const row of section.items) {
       if (row.ticket.id === ticket.id) moved = { ...row, ticket, orderKey }
       else items.push(row)
@@ -389,198 +256,114 @@ const replaceRow = (
   return { ...value, sections }
 }
 
-const unsavedPatchAtom = Atom.family(
-  (_key: Readonly<{ req: BacklogRequest; id: TicketId }>) =>
-    Atom.make<UpdateTicketInput>({}).pipe(Atom.setIdleTTL("2 minutes"))
-)
-
 export const updateBacklogTicket = Atom.family(
   ({ req, id }: Readonly<{ req: BacklogRequest; id: TicketId }>) =>
-    Atom.optimisticFn(backlog(req), {
-      reducer: (current, patch: UpdateTicketInput) =>
-        AsyncResult.map(current, (value) =>
-          patchRow(
-            value,
-            id,
-            patch,
-            req.query.sort,
-            DateTime.toDate(DateTime.nowUnsafe())
-          )
+    coalescingTicketUpdate(backlog(req), {
+      name: "updateBacklogTicket",
+      path: { ...req.params, id },
+      sort: req.query.sort,
+      predict: (value, patch) =>
+        patchRow(
+          value,
+          id,
+          patch,
+          req.query.sort,
+          DateTime.toDate(DateTime.nowUnsafe())
         ),
-      fn: (set) =>
-        Api.runtime.fn(
-          Effect.fn("updateBacklogTicket")(function* (
-            patch: UpdateTicketInput,
-            get
-          ) {
-            const unsaved = unsavedPatchAtom({ req, id })
-            const payload: UpdateTicketInput = { ...get(unsaved), ...patch }
-            get.set(unsaved, payload)
-            const { ticket: updated, orderKey } = yield* Effect.catchCause(
-              Api.use((client) =>
-                client.tickets.update({
-                  params: { ...req.params, id },
-                  query: { sort: req.query.sort },
-                  payload
-                })
-              ),
-              (cause) => {
-                if (
-                  !Cause.hasInterruptsOnly(cause) &&
-                  get(unsaved) === payload
-                ) {
-                  get.set(unsaved, {})
-                }
-                return Effect.failCause(cause)
-              }
-            )
-            set(
-              AsyncResult.map(get(backlog(req)), (value) =>
-                replaceRow(value, updated, orderKey, req.query.sort)
-              )
-            )
-            yield* Reactivity.invalidate([
-              Keys.ticketsIn(scopeOf(req)),
-              Keys.ticket(scopeOf(req), id),
-              Keys.ticketLists(scopeOf(req)),
-              Keys.ticketPages(scopeOf(req))
-            ])
-            if (get(unsaved) === payload) get.set(unsaved, {})
-            return updated
-          })
-        )
+      confirm: (value, { ticket, orderKey }) =>
+        replaceRow(value, ticket, orderKey, req.query.sort)
     })
 )
 
-const createdKeysAtom = Atom.family((_scope: string) =>
-  Atom.make<ReadonlyMap<TicketId, string>>(new Map()).pipe(
-    Atom.setIdleTTL("2 minutes")
-  )
-)
+export const backlogTicketUpdates = bindRowMutation(updateBacklogTicket)
 
-export type QuickCreatePrediction = Readonly<{
-  priority: TicketPriority | null
-  tags: ReadonlyArray<TagName>
-}>
+const filtersBySprint = (req: BacklogRequest) =>
+  (req.query.groupId?.length ?? 0) > 0 &&
+  !req.query.groupId?.includes("ungrouped")
 
-export type QuickCreateArg = Readonly<{
-  ticket: QuickCreateTicketInput
-  viewerId: string
-  projectPrefix: string
-  estimation: EstimationMode
-  clientId: string
-  prediction?: QuickCreatePrediction
-}>
-
-const placeholderId = (
-  taken: ReadonlyArray<BacklogRow>,
-  prefix: string
-): TicketId => {
-  const used = new Set(taken.map((row) => row.ticket.id))
-  let n = 999999
-  while (used.has(TicketId.make(`${prefix}-${n}`))) n++
-  return TicketId.make(`${prefix}-${n}`)
-}
-
-export const predictedTicket = (
-  input: QuickCreateArg,
-  id: TicketId,
-  status: TicketStatus
-): Ticket => {
-  const now = DateTime.toDate(DateTime.nowUnsafe())
-  return {
-    id,
-    title: input.ticket.title,
+const insertCreated = (
+  req: BacklogRequest,
+  value: BacklogValue,
+  input: QuickCreateInput
+): BacklogValue => {
+  const status = input.payload.status ?? TicketStatus.make("todo")
+  const section = value.sections[status] ?? { items: [], nextCursor: null }
+  const row = placeholderRow(
+    input,
+    section.items,
     status,
-    type: input.ticket.type ?? "other",
-    priority: input.prediction?.priority ?? "med",
-    estimate: null,
-    tags: input.prediction?.tags ?? [],
-    branch: null,
-    pr: null,
-    prState: null,
-    lastTransitionedPr: null,
-    gitState: { tag: "no_branch", baseBranch: "" },
-    assignees: [],
-    archivedAt: null,
-    createdBy: input.viewerId,
-    createdAt: now,
-    updatedAt: now
+    DateTime.toDate(DateTime.nowUnsafe())
+  )
+  if (
+    !matchesTicketQuery(
+      row.ticket,
+      { ...req.query, status: undefined },
+      undefined,
+      input.prediction.estimation
+    ) ||
+    filtersBySprint(req)
+  )
+    return value
+  return {
+    counts: {
+      total: value.counts.total + 1,
+      byStatus: {
+        ...value.counts.byStatus,
+        [status]: (value.counts.byStatus[status] ?? 0) + 1
+      }
+    },
+    sections: {
+      ...value.sections,
+      [status]: { ...section, items: [row, ...section.items] }
+    }
   }
 }
 
+const confirmCreated = (
+  value: BacklogValue,
+  created: Ticket,
+  input: QuickCreateInput
+): BacklogValue => ({
+  ...value,
+  sections: Object.fromEntries(
+    Object.entries(value.sections).map(([status, section]) => [
+      status,
+      {
+        ...section,
+        items: section.items.map((row) =>
+          row.key === input.prediction.clientId
+            ? { ...row, ticket: created, pending: false }
+            : row
+        )
+      }
+    ])
+  )
+})
+
 export const quickCreateBacklogTicket = Atom.family((req: BacklogRequest) =>
-  Atom.optimisticFn(backlog(req), {
-    reducer: (current, input: QuickCreateArg) =>
-      AsyncResult.map(current, (value) => {
-        const status = input.ticket.status ?? TicketStatus.make("todo")
-        const section = value.sections[status] ?? {
-          items: [],
-          nextCursor: null
-        }
-        const predicted = predictedTicket(
-          input,
-
-          placeholderId(section.items, input.projectPrefix),
-
-          status
-        )
-        if (
-          !matchesTicketQuery(
-            predicted,
-            { ...req.query, status: undefined },
-            undefined,
-            input.estimation
-          ) ||
-          (req.query.groupId?.length &&
-            !req.query.groupId.includes("ungrouped"))
-        )
-          return value
-        return {
-          counts: {
-            total: value.counts.total + 1,
-            byStatus: {
-              ...value.counts.byStatus,
-              [status]: (value.counts.byStatus[status] ?? 0) + 1
-            }
-          },
-          sections: {
-            ...value.sections,
-            [status]: {
-              ...section,
-              items: [
-                {
-                  ticket: predicted,
-                  key: input.clientId,
-                  orderKey: null,
-                  pending: true
-                },
-                ...section.items
-              ]
-            }
-          }
-        }
-      }),
-    fn: Api.runtime.fn(
-      Effect.fn("quickCreateBacklogTicket")(function* (
-        input: QuickCreateArg,
-        get
-      ) {
-        const created = yield* Api.use((client) =>
-          client.tickets.quickCreate({
-            params: req.params,
-            payload: input.ticket
-          })
-        )
-        const index = createdKeysAtom(scopeOf(req))
-        get.set(index, new Map(get(index)).set(created.id, input.clientId))
-        yield* Reactivity.invalidate([
-          Keys.ticketsIn(scopeOf(req)),
-          Keys.ticketLists(scopeOf(req)),
-          Keys.ticketPages(scopeOf(req))
-        ])
-        return created
-      })
-    )
+  viewMutation(backlog(req), {
+    name: "quickCreateBacklogTicket",
+    predict: (value, input: QuickCreateInput) =>
+      insertCreated(req, value, input),
+    call: (client, input, get) =>
+      client.tickets
+        .quickCreate({
+          params: req.params,
+          payload: input.payload
+        })
+        .pipe(
+          Effect.tap((created) =>
+            Effect.sync(() =>
+              recordCreatedKey(
+                get,
+                scopeOf(req),
+                created.id,
+                input.prediction.clientId
+              )
+            )
+          )
+        ),
+    confirm: confirmCreated,
+    publish: () => Keys.ticketsChanged(scopeOf(req))
   })
 )
