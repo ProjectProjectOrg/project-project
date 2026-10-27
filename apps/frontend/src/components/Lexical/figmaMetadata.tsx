@@ -1,7 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { figmaRefKey, type FigmaRef } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { useRef } from "react"
+import { useState } from "react"
 
 import {
   figmaTicketLinksAtom,
@@ -33,18 +33,16 @@ export const useFigmaMetadata = (
         ) ?? null)
 
   const pending = refKey !== null && metadata?.lastModified == null
-  const attempts = useRef({ refKey, count: 0 })
+  const [polled, setPolled] = useState({ refKey, count: 0 })
+  if (polled.refKey !== refKey) setPolled({ refKey, count: 0 })
+  const exhausted = polled.refKey === refKey && polled.count >= MAX_REFRESHES
   useVisibleInterval(
     () => {
-      if (attempts.current.refKey !== refKey) {
-        attempts.current = { refKey, count: 0 }
-      }
-      if (attempts.current.count >= MAX_REFRESHES) return
-      attempts.current.count += 1
+      setPolled((current) => ({ ...current, count: current.count + 1 }))
       refresh()
     },
     1_000,
-    pending,
+    pending && !exhausted,
     { immediate: true, onFocus: false }
   )
 
