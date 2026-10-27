@@ -57,17 +57,17 @@ function Shell({ user }: { user: User }) {
         <Sidebar user={user} />
         <Topbar user={user} />
         <main className="flex min-h-0 overflow-hidden p-2 pt-0">
-          <div className="relative isolate flex min-w-0 flex-1 overflow-hidden rounded-xl bg-muted/60 [timeline-scope:--page-scroll]">
-            <div
-              ref={setBackdrop}
-              aria-hidden
-              className="pointer-events-none absolute inset-0"
-            />
+          <div className="relative isolate flex min-w-0 flex-1 overflow-hidden rounded-xl bg-muted/60">
             <PageBackdropContext value={backdrop}>
               <div
                 data-scroll-root
-                className="relative min-w-0 flex-1 [scrollbar-gutter:stable] overflow-auto overscroll-y-contain [scroll-timeline:--page-scroll_y]"
+                className="relative isolate min-w-0 flex-1 [scrollbar-gutter:stable] overflow-auto overscroll-y-none"
               >
+                <div
+                  ref={setBackdrop}
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 top-0 -z-10"
+                />
                 <div
                   data-scroll-content
                   className="flex min-h-full flex-col p-6"
