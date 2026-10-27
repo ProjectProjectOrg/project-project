@@ -254,8 +254,6 @@ describe("sprintBoard", () => {
               method === "GET" && url.pathname.endsWith("/tickets"),
             () => {
               if (!ticketsResolved) {
-                // First (initial) load resolves immediately; subsequent refetch hangs
-                // until the test releases it explicitly.
                 ticketsResolved = true
                 return Promise.resolve(
                   Response.json([encodeTicket(ticketA), encodeTicket(ticketB)])
@@ -304,8 +302,6 @@ describe("sprintBoard", () => {
       finishOrder(Response.json(encodeGroup(asGroupDetail(reordered))))
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
 
-      // The mutation has settled but the tickets refetch has not: the view must
-      // still be waiting and must not have reverted the optimistic status.
       await vi.waitFor(() =>
         expect(registry.get(view)).toMatchObject({
           _tag: "Success",

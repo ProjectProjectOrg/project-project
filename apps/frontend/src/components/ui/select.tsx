@@ -1,5 +1,3 @@
-"use client"
-
 import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cva, type VariantProps } from "class-variance-authority"
 import { CheckIcon, ChevronDown } from "lucide-react"
@@ -13,7 +11,7 @@ import {
   menuPopupClass,
   menuSeparatorClass
 } from "@/components/ui/menu-styles"
-import type { IconComponent } from "@/lib/icon-context"
+import type { IconComponent } from "@/lib/icon"
 import { useShape } from "@/lib/shape-context"
 import { cn } from "@/lib/utils"
 

@@ -8,11 +8,7 @@ export type FetchHandler = (
 const unsetHandler: FetchHandler = () =>
   Promise.reject(new Error("no fetch handler set for this test"))
 
-/**
- * `FetchHttpClient.Fetch` memoises `globalThis.fetch` on first read, so a
- * per-test `vi.stubGlobal` is ignored after the first request in a file.
- * One dispatcher is installed for the file; tests swap the handler behind it.
- */
+// FetchHttpClient.Fetch memoises globalThis.fetch on first read, so one stub dispatches to a swappable handler.
 export const stubFetch = (): { set: (handler: FetchHandler) => void } => {
   let handler: FetchHandler = unsetHandler
   beforeAll(() => {

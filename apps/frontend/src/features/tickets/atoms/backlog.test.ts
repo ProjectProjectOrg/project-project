@@ -24,14 +24,9 @@ import {
   backlog,
   backlogRequest,
   encodeTicketListQuery,
-  flatBacklog,
-  flatBacklogRequest,
   loadMoreBacklog,
-  loadMoreFlatBacklog,
   quickCreateBacklogTicket,
-  quickCreateFlatBacklogTicket,
-  updateBacklogTicket,
-  updateFlatBacklogTicket
+  updateBacklogTicket
 } from "./backlog"
 import { applyTicketPatch } from "./ticketPatch"
 
@@ -530,9 +525,6 @@ describe("backlog status move", () => {
         })
       )
 
-      // Fire the second move while the first is still in flight, so the
-      // second reducer call runs against whatever `current` holds at that
-      // point rather than the original fetched value.
       registry.set(mutation, { status: inProgress })
       registry.set(mutation, { status: doneStatus })
 
@@ -544,9 +536,6 @@ describe("backlog status move", () => {
       expect(composed.value.sections.in_progress.items).toHaveLength(0)
       expect(composed.value.sections.done.items).toHaveLength(1)
       expect(composed.value.sections.done.items[0].ticket.id).toBe(ticket.id)
-      // `in_progress` was entered and left within the same batch — assert the
-      // observed count directly (0) rather than trusting the `Math.max(0, ...)`
-      // guard not to have been needed.
       expect(composed.value.counts.byStatus[ticket.status]).toBe(0)
       expect(composed.value.counts.byStatus[inProgress]).toBe(0)
       expect(composed.value.counts.byStatus[doneStatus]).toBe(1)
@@ -566,9 +555,6 @@ describe("backlog status move", () => {
   })
 
   it("carries a stacked field edit through a subsequent status move", async () => {
-    // A reducer that stopped deriving from `current` (e.g. re-read the
-    // original fetch instead) would apply the status move to the
-    // pre-priority-edit ticket and silently drop the priority change.
     const doing = decodeTicketStatusSync("in_progress")
     let finish = (_r: Response) => {}
     fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
@@ -1066,169 +1052,6 @@ describe("backlog quick create", () => {
     }
   })
 
-  it("keeps the caller's row key on the flat list after confirmation", async () => {
-    const created = {
-      ...ticket,
-      id: decodeTicketIdSync("T-9"),
-      title: "Created"
-    }
-    let served = [ticket]
-    let finish = (_r: Response) => {}
-    let stallReads = false
-    fetchStub.set((input: RequestInfo | URL, init?: RequestInit) => {
-      if (init?.method === "POST") {
-        return new Promise<Response>((resolve) => {
-          finish = resolve
-        })
-      }
-      if (stallReads) return new Promise<Response>(() => {})
-      const url = new URL(
-        input instanceof Request ? input.url : String(input),
-        "http://localhost"
-      )
-      if (url.pathname.endsWith("/tickets/count")) {
-        return Promise.resolve(
-          Response.json({
-            total: served.length,
-            byStatus: { todo: served.length }
-          })
-        )
-      }
-      return Promise.resolve(
-        Response.json({
-          items: served.map((item) => serverRow(item)),
-          nextCursor: null
-        })
-      )
-    })
-    const request = flatBacklogRequest("acme", "web", {
-      sort: { key: "id", dir: "asc" }
-    })
-    const registry = AtomRegistry.make()
-    const view = flatBacklog(request)
-    const create = quickCreateFlatBacklogTicket(request)
-    registry.mount(view)
-    registry.mount(create)
-    try {
-      await vi.waitFor(() =>
-        expect(registry.get(view)).toMatchObject({
-          _tag: "Success",
-          waiting: false
-        })
-      )
-      stallReads = true
-      registry.set(create, {
-        ticket: { title: "Created", status: ticket.status },
-        viewerId: "user-1",
-        projectPrefix: "T",
-        estimation: "off",
-        clientId: "creation-flat"
-      })
-
-      const optimistic = registry.get(view)
-      if (!AsyncResult.isSuccess(optimistic)) {
-        throw new Error("no optimistic value")
-      }
-      expect(optimistic.value.items[0]).toMatchObject({
-        key: "creation-flat",
-        pending: true
-      })
-
-      finish(Response.json(encodeDetail(asDetail(created))))
-      await vi.waitFor(() => {
-        const confirmed = registry.get(view)
-        if (!AsyncResult.isSuccess(confirmed)) {
-          throw new Error("did not confirm")
-        }
-        expect(confirmed.value.items[0]).toMatchObject({
-          key: "creation-flat",
-          pending: false,
-          ticket: { id: "T-9" }
-        })
-      })
-    } finally {
-      registry.dispose()
-    }
-  })
-
-  it("surfaces a failed flat page and retries the same cursor", async () => {
-    let pageAttempts = 0
-    fetchStub.set((input: RequestInfo | URL) => {
-      const url = new URL(input instanceof Request ? input.url : String(input))
-      if (url.pathname.endsWith("/tickets/count")) {
-        return Promise.resolve(
-          Response.json({
-            total: 2,
-            byStatus: { todo: 2 }
-          })
-        )
-      }
-      if (url.searchParams.get("cursor") === null) {
-        return Promise.resolve(
-          Response.json({
-            items: [serverRow(ticket)],
-            nextCursor: "cursor-1"
-          })
-        )
-      }
-      pageAttempts++
-      if (pageAttempts === 1) {
-        return Promise.resolve(new Response("nope", { status: 500 }))
-      }
-      return Promise.resolve(
-        Response.json({
-          items: [serverRow({ ...ticket, id: decodeTicketIdSync("T-2") })],
-          nextCursor: null
-        })
-      )
-    })
-    const request = flatBacklogRequest("acme", "web", {
-      sort: { key: "id", dir: "asc" }
-    })
-    const registry = AtomRegistry.make()
-    const view = flatBacklog(request)
-    const loadMore = loadMoreFlatBacklog(request)
-    registry.mount(view)
-    registry.mount(loadMore)
-    try {
-      await vi.waitFor(() =>
-        expect(registry.get(view)).toMatchObject({
-          _tag: "Success",
-          waiting: false
-        })
-      )
-      registry.set(loadMore, undefined)
-      await vi.waitFor(() =>
-        expect(registry.get(loadMore)).toMatchObject({
-          _tag: "Failure",
-          waiting: false
-        })
-      )
-      expect(registry.get(view)).toMatchObject({
-        value: { nextCursor: "cursor-1" }
-      })
-
-      registry.set(loadMore, undefined)
-      await vi.waitFor(() =>
-        expect(registry.get(loadMore)).toMatchObject({
-          _tag: "Success",
-          waiting: false
-        })
-      )
-      expect(pageAttempts).toBe(2)
-      await vi.waitFor(() => {
-        const result = registry.get(view)
-        if (!AsyncResult.isSuccess(result)) throw new Error("no view")
-        expect(result.value.items.map(({ ticket }) => ticket.id)).toEqual([
-          "T-1",
-          "T-2"
-        ])
-      })
-    } finally {
-      registry.dispose()
-    }
-  })
-
   it("refreshes retained sibling sort variants after creation", async () => {
     const created = {
       ...ticket,
@@ -1341,9 +1164,6 @@ describe("backlog quick create", () => {
 
   it("removes the optimistic row and restores the counts when creation fails", async () => {
     let finish = (_r: Response) => {}
-    // The sections refetch is made to hang after the initial load, so the row
-    // can only disappear by the overlay being dropped, never by server truth
-    // arriving. A commit path would leave the row on screen, waiting.
     let stallReads = false
     fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "POST") {
@@ -1915,136 +1735,5 @@ describe("backlog edits to the sorted field move the row", () => {
     )
     expect(outcome.optimistic).toEqual(["T-2", "T-1"])
     expect(outcome.settled).toEqual(["T-2", "T-1"])
-  })
-})
-
-const orderAfterFlatFieldEdit = async (
-  query: TicketListQuery,
-  items: ReadonlyArray<ServedRow>,
-  editedId: TicketId,
-  patch: UpdateTicketInput,
-  response: (edited: Ticket) => TicketUpdateResult
-): Promise<EditOutcome> => {
-  let listsServed = 0
-  let finish = (_r: Response) => {}
-  let patchUrl: URL | undefined
-  fetchStub.set((input: RequestInfo | URL, init?: RequestInit) => {
-    if (init?.method === "PATCH") {
-      patchUrl = new URL(
-        input instanceof Request ? input.url : String(input),
-        "http://localhost"
-      )
-      return new Promise<Response>((resolve) => {
-        finish = resolve
-      })
-    }
-    const url = new URL(
-      input instanceof Request ? input.url : String(input),
-      "http://localhost"
-    )
-    if (url.pathname.endsWith("/tickets/count")) {
-      return Promise.resolve(
-        Response.json({
-          total: items.length,
-          byStatus: { todo: items.length }
-        })
-      )
-    }
-    listsServed++
-    if (listsServed > 1) return new Promise<Response>(() => {})
-    return Promise.resolve(
-      Response.json({
-        items: items.map(([t, key]) => serverRow(t, key)),
-        nextCursor: null
-      })
-    )
-  })
-  const request = flatBacklogRequest("acme", "web", query)
-  const registry = AtomRegistry.make()
-  const view = flatBacklog(request)
-  const mutation = updateFlatBacklogTicket({ req: request, id: editedId })
-  registry.mount(view)
-  registry.mount(mutation)
-  try {
-    await vi.waitFor(() =>
-      expect(registry.get(view)).toMatchObject({
-        _tag: "Success",
-        waiting: false
-      })
-    )
-    registry.set(mutation, patch)
-    const moved = registry.get(view)
-    if (!AsyncResult.isSuccess(moved)) throw new Error("no optimistic value")
-    const optimistic = moved.value.items.map((row) => row.ticket.id)
-
-    const before = items.find(([t]) => t.id === editedId)![0]
-    finish(
-      Response.json(
-        encodeUpdateResponse(response(applyTicketPatch(before, patch)))
-      )
-    )
-    await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
-    const after = registry.get(view)
-    if (!AsyncResult.isSuccess(after)) throw new Error("no settled value")
-    return {
-      optimistic,
-      settled: after.value.items.map((row) => row.ticket.id),
-      patchUrl: patchUrl!
-    }
-  } finally {
-    registry.dispose()
-  }
-}
-
-describe("flat backlog edits to the sorted field move the row", () => {
-  it("re-alphabetizes the row under `title asc`", async () => {
-    const items = [
-      withTicket("T-1", { title: "Alpha" }),
-      withTicket("T-2", { title: "Beta" }),
-      withTicket("T-3", { title: "Gamma" })
-    ]
-    const outcome = await orderAfterFlatFieldEdit(
-      { sort: { key: "title", dir: "asc" } },
-      items.map(titleRow),
-      items[0].id,
-      { title: "Zulu" },
-      (edited) => asUpdateResult(edited, titleKey(edited))
-    )
-    expect(outcome.optimistic).toEqual(["T-2", "T-3", "T-1"])
-    expect(outcome.settled).toEqual(["T-2", "T-3", "T-1"])
-  })
-
-  it("leaves the row alone when the edit misses the sorted field", async () => {
-    const items = [
-      withTicket("T-1", { title: "Alpha", priority: "low" }),
-      withTicket("T-2", { title: "Beta", priority: "low" }),
-      withTicket("T-3", { title: "Gamma", priority: "low" })
-    ]
-    const outcome = await orderAfterFlatFieldEdit(
-      { sort: { key: "title", dir: "asc" } },
-      items.map(titleRow),
-      items[1].id,
-      { priority: "high" },
-      (edited) => asUpdateResult(edited, titleKey(edited))
-    )
-    expect(outcome.optimistic).toEqual(["T-1", "T-2", "T-3"])
-    expect(outcome.settled).toEqual(["T-1", "T-2", "T-3"])
-  })
-
-  it("defers to the order key the response carries when it disagrees", async () => {
-    const items = [
-      withTicket("T-1", { title: "Alpha", priority: "high" }),
-      withTicket("T-2", { title: "Beta", priority: "med" }),
-      withTicket("T-3", { title: "Gamma", priority: "low" })
-    ]
-    const outcome = await orderAfterFlatFieldEdit(
-      { sort: { key: "priority", dir: "desc" } },
-      items.map(priorityRow),
-      items[2].id,
-      { priority: "high" },
-      (edited) => asUpdateResult(edited, orderKey("01", edited.id))
-    )
-    expect(outcome.optimistic).toEqual(["T-3", "T-1", "T-2"])
-    expect(outcome.settled).toEqual(["T-1", "T-2", "T-3"])
   })
 })

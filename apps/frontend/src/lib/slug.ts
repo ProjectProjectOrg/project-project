@@ -1,6 +1,4 @@
-// Mirrors the server's slugify rule so the user sees the same slug they're
-// going to get. The server is still authoritative — it owns conflict
-// resolution by appending `-2`, `-3`, etc.
+// Mirrors the server's slugify rule; the server stays authoritative on conflicts.
 
 export function slugify(input: string): string {
   return input

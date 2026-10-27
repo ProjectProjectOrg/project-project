@@ -14,7 +14,6 @@ export function ConfirmDeleteIcon({
   message: string
   onConfirm: () => Promise<void> | void
   disabled?: boolean
-  /** Pull the icon up/down with -my-2 so it nests cleanly into a row of larger controls (e.g. an input). */
   dense?: boolean
 }) {
   return (

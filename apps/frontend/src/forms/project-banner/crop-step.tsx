@@ -66,7 +66,6 @@ export function BannerCropStep({
                   />
                 </motion.div>
                 <Slider
-                  size="compact"
                   label={m.project_banner_settings_zoom()}
                   min={1}
                   max={4}

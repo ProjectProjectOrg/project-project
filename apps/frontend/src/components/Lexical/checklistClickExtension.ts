@@ -1,8 +1,5 @@
 import { $isListItemNode, CheckListExtension } from "@lexical/list"
-// Bypass @lexical/list's click handler: it stamps a 500ms per-LI dedup
-// timestamp before its bounds check, so a click just outside the checkbox
-// silently swallows the next one. We intercept in capture phase with a
-// wider hit zone and toggle directly.
+// Bypasses @lexical/list's click handler, whose per-LI dedup stamp swallows the click after a near miss.
 import {
   $getNearestNodeFromDOMNode,
   defineExtension,

@@ -1,5 +1,3 @@
-"use client"
-
 import * as Effect from "effect/Effect"
 import {
   createContext,

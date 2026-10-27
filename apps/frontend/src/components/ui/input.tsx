@@ -2,10 +2,6 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-// Project chrome: `border-border bg-background` (matches InputGroup, the
-// status-chip strip, and every other "control surface" in the app). Height
-// is 36px (`h-9`) — same as a status-chip strip outer container — so the
-// base Input drops in next to those controls without size drift.
 type InputVariant = "default" | "inline" | "inline-muted"
 
 const INPUT_VARIANT: Record<InputVariant, string> = {

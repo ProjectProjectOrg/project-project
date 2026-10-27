@@ -9,6 +9,7 @@ import {
   projectGitStatesWaiting
 } from "@/features/github/atoms/github"
 import { projectRequest } from "@/features/projects/atoms/projects"
+import { useVisibleInterval } from "@/hooks/useVisibleInterval"
 import {
   changedGitStateTicketIds,
   shouldInvalidateTicketsForGitStates
@@ -28,6 +29,7 @@ export function useProjectGitStatePolling(
   const reading = useAtomValue(projectGitStatesWaiting(req))
   const waiting = useRef(reading)
   const seen = useRef<GitStatesResponse | undefined>(undefined)
+  const scheduled = useRef<number | undefined>(undefined)
   waiting.current = reading
 
   useEffect(() => {
@@ -44,29 +46,24 @@ export function useProjectGitStatePolling(
   }, [enabled, states, invalidateTickets])
 
   useEffect(() => {
-    if (!enabled || typeof document === "undefined") return
+    if (!enabled) return undefined
+    return () => {
+      window.clearTimeout(scheduled.current)
+      scheduled.current = undefined
+    }
+  }, [enabled])
 
-    let scheduled: number | undefined
-    const refreshIfVisible = () => {
-      if (document.visibilityState !== "visible" || scheduled !== undefined)
-        return
-      scheduled = window.setTimeout(() => {
-        scheduled = undefined
+  useVisibleInterval(
+    () => {
+      if (scheduled.current !== undefined) return
+      scheduled.current = window.setTimeout(() => {
+        scheduled.current = undefined
         if (document.visibilityState === "visible" && !waiting.current) {
           refresh()
         }
       }, 50)
-    }
-
-    const interval = window.setInterval(refreshIfVisible, POLL_INTERVAL_MS)
-    document.addEventListener("visibilitychange", refreshIfVisible)
-    window.addEventListener("focus", refreshIfVisible)
-
-    return () => {
-      window.clearInterval(interval)
-      window.clearTimeout(scheduled)
-      document.removeEventListener("visibilitychange", refreshIfVisible)
-      window.removeEventListener("focus", refreshIfVisible)
-    }
-  }, [enabled, refresh])
+    },
+    POLL_INTERVAL_MS,
+    enabled
+  )
 }

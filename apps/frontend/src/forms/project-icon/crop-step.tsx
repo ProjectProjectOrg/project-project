@@ -60,7 +60,6 @@ export function CropStep({
                   />
                 </motion.div>
                 <Slider
-                  size="compact"
                   label={m.project_icon_crop_zoom()}
                   min={1}
                   max={4}
