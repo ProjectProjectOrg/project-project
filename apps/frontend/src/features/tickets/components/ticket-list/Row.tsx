@@ -19,6 +19,7 @@ import { PriorityButton } from "./PriorityField"
 import { SprintField } from "./SprintField"
 import { StatusButton } from "./StatusField"
 import { TypeButton } from "./TypeField"
+import { UpdateFailureMarker } from "./UpdateFailureMarker"
 
 const TICKET_PREVIEW_DELAY_MS = 550
 
@@ -161,6 +162,7 @@ function RowImpl({
                 </AnimatePresence>
               </span>
               <div className="flex shrink-0 items-center justify-end gap-2">
+                <UpdateFailureMarker update={update(ticket.id)} />
                 <TicketGitChip orgSlug={orgSlug} slug={slug} ticket={ticket} />
                 <EstimateChip ticket={ticket} mode={estimation} />
                 {showSprintCol && (

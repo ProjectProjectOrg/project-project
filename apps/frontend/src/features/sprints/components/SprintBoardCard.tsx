@@ -2,7 +2,7 @@ import { useAtomSet } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
 import type { Member, Ticket, UpdateTicketInput } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
-import { memo } from "react"
+import { memo, type ReactNode } from "react"
 
 import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
 import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
@@ -12,6 +12,7 @@ import { EstimateChip } from "@/features/tickets/components/ticket-list/Estimate
 import { PriorityButton } from "@/features/tickets/components/ticket-list/PriorityField"
 import { SplitTicketControl } from "@/features/tickets/components/ticket-list/SplitControl"
 import { TypeButton } from "@/features/tickets/components/ticket-list/TypeField"
+import { UpdateFailureMarker } from "@/features/tickets/components/ticket-list/UpdateFailureMarker"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { useProjectActor } from "@/lib/access"
 
@@ -36,6 +37,7 @@ function SprintBoardCardImpl({
       ticket={ticket}
       members={members}
       onPatch={onPatch}
+      failure={<UpdateFailureMarker update={update(ticket.id)} />}
     />
   )
 }
@@ -45,14 +47,16 @@ function BoardCardFields({
   slug,
   ticket,
   members,
-  onPatch
-}: {
+  onPatch,
+  failure
+}: Readonly<{
   orgSlug: string
   slug: string
   ticket: Ticket
   members: ReadonlyArray<Member>
   onPatch: (patch: UpdateTicketInput) => void
-}) {
+  failure: ReactNode
+}>) {
   const actor = useProjectActor()
   const editable = TicketPolicy.canChange(actor, { content: true })
   const canAssign = TicketPolicy.canChange(actor, { assignees: true })
@@ -84,6 +88,7 @@ function BoardCardFields({
           <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
             {ticket.id}
           </span>
+          {failure}
           <EstimateChip ticket={ticket} mode={estimation} />
           <div className="flex min-w-0 flex-1 items-center">
             <TicketGitChip orgSlug={orgSlug} slug={slug} ticket={ticket} />
