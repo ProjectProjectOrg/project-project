@@ -35,6 +35,7 @@ import {
   ticketCounts
 } from "@/features/tickets/atoms/ticketCounts"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
+import { withoutEpicsByDefault } from "@/features/tickets/lib/ticketRows"
 import { m } from "@/paraglide/messages"
 
 type TabKey = "tickets" | "sprints" | "about"
@@ -83,7 +84,7 @@ export function TabsNav({ project }: { project: ProjectDetailType }) {
     select: (matches) => matches[matches.length - 1]?.pathname ?? ""
   })
   const base = `/orgs/${orgSlug}/projects/${slug}`
-  const countsReq = countsRequest(orgSlug, slug, {})
+  const countsReq = countsRequest(orgSlug, slug, withoutEpicsByDefault({}))
   const ticketsResult = useAtomValue(ticketCounts(countsReq))
   const ticketsCount = Result.isSuccess(ticketsResult)
     ? ticketsResult.value.total

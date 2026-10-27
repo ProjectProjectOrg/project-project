@@ -1,11 +1,5 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
-import type {
-  Group,
-  Member,
-  Ticket,
-  TicketId,
-  TicketListQuery
-} from "@pp/shared"
+import type { Member, TicketListQuery } from "@pp/shared"
 import * as Equal from "effect/Equal"
 import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -28,8 +22,6 @@ import { CreatorActiveScope, DimWhileCreating } from "./TicketCreatorShell"
 type TicketListProps = Readonly<{
   query: TicketListQuery
   members: ReadonlyArray<Member>
-  extraRowActions?: (ticket: Ticket) => ReactNode
-  sprintMembership?: ReadonlyMap<TicketId, Group>
   creator?: ReactNode
   toolbar: ReactNode
   sections?: ReactNode
@@ -97,8 +89,6 @@ function useShownOnce(visible: boolean): boolean {
 function StatusSections({
   query,
   members,
-  extraRowActions,
-  sprintMembership,
   alternate,
   showAlternate = false
 }: Omit<TicketListProps, "creator" | "toolbar" | "sections">) {
@@ -138,8 +128,6 @@ function StatusSections({
             query={active.query}
             members={members}
             snapshot={active.value}
-            extraRowActions={extraRowActions}
-            sprintMembership={sprintMembership}
           />
         </Activity>
         {alternate && (

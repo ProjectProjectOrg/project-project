@@ -31,9 +31,15 @@ const steps = definition("steps-to-reproduce", "org")
 const lookup = blockLookupFor({
   blocks: [context, steps],
   templates: [],
-  defaults: { feat: null, bug: null, chore: null, other: null },
+  defaults: { feat: null, bug: null, chore: null, other: null, epic: null },
   ownDefaults: {},
-  inheritedDefaults: { feat: null, bug: null, chore: null, other: null },
+  inheritedDefaults: {
+    feat: null,
+    bug: null,
+    chore: null,
+    other: null,
+    epic: null
+  },
   canEdit: true
 })
 

@@ -91,7 +91,8 @@ describe("built-in templates", () => {
       feat: "feature",
       bug: "bug-report",
       chore: "chore",
-      other: null
+      other: null,
+      epic: null
     })
   })
 

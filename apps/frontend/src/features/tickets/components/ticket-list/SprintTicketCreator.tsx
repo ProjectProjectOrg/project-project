@@ -11,6 +11,7 @@ import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import { Plus } from "lucide-react"
+import { AnimatePresence } from "motion/react"
 import {
   useContext,
   useId,
@@ -33,6 +34,7 @@ import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   assignTicketToSprint,
+  bulkAddTicketsToSprint,
   quickCreateInSprint,
   sprintList,
   sprintListRequest
@@ -41,14 +43,17 @@ import {
   searchRequest,
   ticketSearch
 } from "@/features/tickets/atoms/ticketSearch"
-import { TYPE_META } from "@/features/tickets/lib/ticketMeta"
+import { NON_EPIC_TYPES, TYPE_META } from "@/features/tickets/lib/ticketMeta"
 import {
   mutationErrorText,
   ticketCreateErrorMessage
 } from "@/lib/mutationError"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { CreatorTypeMenu } from "./CreatorMenus"
+import { EpicTextPrefix } from "./EpicLabel"
+import { EpicSubTicketPicker, useEpicPicker } from "./EpicSubTicketPicker"
 import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
 import { TicketCreatorShell } from "./TicketCreatorShell"
 import { useCreatorFocus } from "./useCreatorFocus"
@@ -74,11 +79,14 @@ export function SprintTicketCreator({
   const create = useAtomSet(createAtom, { mode: "promiseExit" })
   const createState = useAtomValue(createAtom)
   const submitting = createState.waiting
-  const error = mutationErrorText(
-    createState,
-    ticketCreateErrorMessage,
-    m.tickets_create_error_fallback
-  )
+  const bulkAdd = useAtomSet(bulkAddTicketsToSprint(sprintReq))
+  const bulkAddState = useAtomValue(bulkAddTicketsToSprint(sprintReq))
+  const error =
+    mutationErrorText(
+      createState,
+      ticketCreateErrorMessage,
+      m.tickets_create_error_fallback
+    ) ?? (Result.isFailure(bulkAddState) ? m.sprints_add_epic_failed() : null)
   const projectReq = projectRequest(orgSlug, slug)
   const refreshGitStates = useAtomRefresh(projectGitStates(projectReq))
   const navigate = useNavigate()
@@ -88,6 +96,8 @@ export function SprintTicketCreator({
   const [inputFocused, setInputFocused] = useState(false)
   const [listDismissed, setListDismissed] = useState(false)
   const [highlight, setHighlight] = useState(0)
+  const picker = useEpicPicker(excludeIds)
+  const pendingEpic = picker.epic
   const inputRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const listboxId = useId()
@@ -102,7 +112,9 @@ export function SprintTicketCreator({
       setSearchQuery("")
       setTitle("")
       setHighlight(0)
-      if (ticketType !== null) applyTemplateDefault(ticketType)
+      if (ticketType !== null && NON_EPIC_TYPES.includes(ticketType)) {
+        applyTemplateDefault(ticketType)
+      }
     }
   })
 
@@ -138,10 +150,17 @@ export function SprintTicketCreator({
     const lowered = trimmed.toLowerCase()
     const all = Result.isSuccess(ticketsResult) ? ticketsResult.value : []
     const eligible = all.filter(
-      (t) => t.status !== "done" && !excludeIds.has(t.id)
+      (t) =>
+        t.status !== "done" &&
+        !excludeIds.has(t.id) &&
+        (trimmed.length > 0 || !t.parent)
     )
+    const ordered = [
+      ...eligible.filter((t) => t.type === "epic"),
+      ...eligible.filter((t) => t.type !== "epic")
+    ]
     const exactTitle = all.some((t) => t.title.toLowerCase() === lowered)
-    const existing: Array<Item> = eligible.slice(0, 8).map((t) => ({
+    const existing: Array<Item> = ordered.slice(0, 8).map((t) => ({
       kind: "existing" as const,
       ticket: t,
       otherSprintName: memberOfOtherSprint.get(t.id) ?? null
@@ -151,7 +170,9 @@ export function SprintTicketCreator({
   }, [trimmed, ticketsResult, excludeIds, memberOfOtherSprint])
 
   const dropdownOpen =
-    inputFocused && !listDismissed && !slash.open && items.length > 0
+    inputFocused &&
+    !slash.open &&
+    (pendingEpic !== null || (!listDismissed && items.length > 0))
   const safeHighlight = items.length === 0 ? 0 : highlight % items.length
   const listbox: ListboxState = slash.open
     ? slash.listbox
@@ -162,6 +183,7 @@ export function SprintTicketCreator({
       }
 
   function reset() {
+    picker.close()
     searchDebouncer.cancel()
     setSearchQuery("")
     setTitle("")
@@ -189,6 +211,10 @@ export function SprintTicketCreator({
 
   async function commit(item: Item | undefined) {
     if (!item) return
+    if (item.kind === "existing" && item.ticket.type === "epic") {
+      picker.open(item.ticket)
+      return
+    }
     if (item.kind === "existing") {
       assignTicketToSprint(registry, sprintReq, item.ticket.id, groupId)
       reset()
@@ -197,8 +223,18 @@ export function SprintTicketCreator({
     await createTicket(item.label)
   }
 
+  function addPendingEpic() {
+    if (picker.selection.length === 0) return
+    bulkAdd({ groupId, tickets: picker.selection.map((ticket) => ticket.id) })
+    reset()
+  }
+
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (pendingEpic !== null) {
+      addPendingEpic()
+      return
+    }
     if (dropdownOpen) {
       await commit(items[safeHighlight])
       return
@@ -208,6 +244,10 @@ export function SprintTicketCreator({
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (slash.onKeyDown(e)) return
+    if (pendingEpic !== null) {
+      picker.onKeyDown(e)
+      return
+    }
     if (e.key === "Escape" && dropdownOpen) {
       e.preventDefault()
       setListDismissed(true)
@@ -227,6 +267,7 @@ export function SprintTicketCreator({
   const typeAddon = (
     <CreatorTypeMenu
       type={type}
+      types={NON_EPIC_TYPES}
       onTypeChange={setType}
       expanded={expanded}
       inputRef={inputRef}
@@ -236,25 +277,53 @@ export function SprintTicketCreator({
   const dropdown = slash.open ? (
     <TemplateSlashList slash={slash} choice={templateChoice} />
   ) : dropdownOpen ? (
-    <MenuListbox id={listboxId} aria-label={m.sprints_combobox_placeholder()}>
-      {items.map((item, idx) => (
-        <MenuOption
-          key={item.kind === "create" ? "__create" : item.ticket.id}
-          id={optionId(listboxId, idx)}
-          highlighted={idx === safeHighlight}
-          onHighlight={() => setHighlight(idx)}
-          onSelect={() => void commit(item)}
-        >
-          {item.kind === "create" ? (
-            <CreateOption label={item.label} />
-          ) : (
-            <ExistingOption
-              ticket={item.ticket}
-              otherSprintName={item.otherSprintName}
-            />
-          )}
-        </MenuOption>
-      ))}
+    <MenuListbox
+      id={listboxId}
+      aria-label={m.sprints_combobox_placeholder()}
+      className={cn(pendingEpic !== null && "max-h-96")}
+    >
+      {items.map((item, idx) => {
+        const opened =
+          item.kind === "existing" && pendingEpic?.id === item.ticket.id
+        return (
+          <div
+            key={item.kind === "create" ? "__create" : item.ticket.id}
+            className={cn(
+              "transition-opacity duration-200",
+              pendingEpic !== null &&
+                !opened &&
+                "pointer-events-none opacity-35"
+            )}
+          >
+            <MenuOption
+              id={optionId(listboxId, idx)}
+              highlighted={
+                pendingEpic === null ? idx === safeHighlight : opened
+              }
+              onHighlight={() => setHighlight(idx)}
+              onSelect={() => (opened ? picker.close() : void commit(item))}
+            >
+              {item.kind === "create" ? (
+                <CreateOption label={item.label} />
+              ) : (
+                <ExistingOption
+                  ticket={item.ticket}
+                  otherSprintName={item.otherSprintName}
+                />
+              )}
+            </MenuOption>
+            <AnimatePresence initial={false}>
+              {opened && (
+                <EpicSubTicketPicker
+                  key="picker"
+                  {...picker.pickerProps}
+                  onAdd={addPendingEpic}
+                />
+              )}
+            </AnimatePresence>
+          </div>
+        )
+      })}
     </MenuListbox>
   ) : null
 
@@ -265,6 +334,7 @@ export function SprintTicketCreator({
       shortcut="c"
       value={title}
       onValueChange={(v) => {
+        picker.close()
         slash.onTitleChange(title, v)
         setTitle(v)
         setHighlight(0)
@@ -315,12 +385,22 @@ function ExistingOption({
   ticket,
   otherSprintName
 }: Readonly<{ ticket: Ticket; otherSprintName: string | null }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const Icon = TYPE_META[ticket.type].icon
   return (
     <>
       <Icon strokeWidth={1.75} />
       <span className="font-mono text-[11px] tabular-nums">{ticket.id}</span>
-      <span className="min-w-0 flex-1 truncate">{ticket.title}</span>
+      <span className="min-w-0 flex-1 truncate">
+        {ticket.parent && (
+          <EpicTextPrefix
+            orgSlug={orgSlug}
+            slug={slug}
+            epicId={ticket.parent}
+          />
+        )}
+        {ticket.title}
+      </span>
       {otherSprintName && (
         <span data-menu-meta className={menuItemMetaClass}>
           {m.sprints_add_tickets_in_other_sprint({ name: otherSprintName })}

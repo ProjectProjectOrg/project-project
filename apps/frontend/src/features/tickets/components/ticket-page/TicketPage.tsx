@@ -4,7 +4,8 @@ import type {
   GithubConnection,
   Member,
   TicketDetail,
-  TicketId
+  TicketId,
+  UpdateTicketInput
 } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
@@ -13,7 +14,6 @@ import { Archive } from "lucide-react"
 import { useState } from "react"
 
 import { ConfirmButton } from "@/components/ui/confirm-button"
-import { CommentsSection } from "@/features/comments/components/CommentsSection"
 import { type SaveStatus } from "@/features/editor/components/LexicalEditor"
 import { Markdown } from "@/features/editor/components/Markdown"
 import { MarkdownSaveIndicator } from "@/features/editor/components/MarkdownSaveIndicator"
@@ -37,11 +37,13 @@ import { SplitTicketControl } from "@/features/tickets/components/ticket-list/Sp
 import { SprintBadgeTrigger } from "@/features/tickets/components/ticket-list/SprintField"
 import { TypeBadgeTrigger } from "@/features/tickets/components/ticket-list/TypeField"
 import { DescriptionField } from "@/features/tickets/components/ticket-page/DescriptionField"
+import { EpicField } from "@/features/tickets/components/ticket-page/EpicField"
 import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
 import { SaveAsTemplatePopover } from "@/features/tickets/components/ticket-page/SaveAsTemplatePopover"
 import { SplitResultBanner } from "@/features/tickets/components/ticket-page/SplitResultBanner"
 import { TemplateSwapNote } from "@/features/tickets/components/ticket-page/TemplateSwapNote"
 import { TicketDesignLinks } from "@/features/tickets/components/ticket-page/TicketDesignLinks"
+import { TicketDiscussion } from "@/features/tickets/components/ticket-page/TicketDiscussion"
 import { TicketPageHeader } from "@/features/tickets/components/ticket-page/TicketPageHeader"
 import { TicketPageShell } from "@/features/tickets/components/ticket-page/TicketPageShell"
 import { UserTimestamp } from "@/features/tickets/components/ticket-page/UserTimestamp"
@@ -191,7 +193,7 @@ export function TicketPage({
             <Markdown>{ticket.body}</Markdown>
           )}
 
-          <CommentsSection ticketId={ticket.id} />
+          <TicketDiscussion ticket={ticket} members={members} />
         </main>
 
         <aside className="flex min-w-0 flex-col gap-4 sm:pl-(--ticket-rail-inset) lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:self-start lg:overflow-y-auto lg:border-l lg:border-border/60 lg:pl-5">
@@ -208,9 +210,7 @@ export function TicketPage({
                 />
               </MetaRow>
             )}
-            <MetaRow label={m.tickets_page_meta_sprint()}>
-              <SprintBadgeTrigger ticketId={ticket.id} />
-            </MetaRow>
+            <PlanningMetaRows ticket={ticket} onPatch={updateTicket} />
             <MetaRow label={m.tickets_page_meta_assignees()}>
               <AssigneePicker
                 ticket={ticket}
@@ -248,5 +248,25 @@ export function TicketPage({
         </aside>
       </div>
     </TicketPageShell>
+  )
+}
+
+function PlanningMetaRows({
+  ticket,
+  onPatch
+}: Readonly<{
+  ticket: TicketDetail
+  onPatch: (patch: UpdateTicketInput) => void
+}>) {
+  if (ticket.type === "epic") return null
+  return (
+    <>
+      <MetaRow label={m.tickets_page_meta_sprint()}>
+        <SprintBadgeTrigger ticketId={ticket.id} />
+      </MetaRow>
+      <MetaRow label={m.tickets_page_meta_epic()}>
+        <EpicField ticket={ticket} onPatch={onPatch} />
+      </MetaRow>
+    </>
   )
 }

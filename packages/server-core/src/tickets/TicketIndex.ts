@@ -64,6 +64,7 @@ export type TicketIndexEntry = Readonly<{
   checksHeadSha: string | null
   checksUpdatedAt: Date | null
   assignees: ReadonlyArray<string>
+  parent: TicketId | null
   archivedAt: Date | null
   createdBy: string
   createdAt: Date
@@ -79,7 +80,7 @@ export type TicketIndexSection = Readonly<{
 export type TicketIndexSectionsOptions = TicketIndexCountOptions &
   Readonly<{
     limit: number
-    sections: "status" | ReadonlyArray<TicketIndexSection>
+    sections: "status" | "parent" | ReadonlyArray<TicketIndexSection>
   }>
 
 export type TicketIndexSections = ReadonlyMap<

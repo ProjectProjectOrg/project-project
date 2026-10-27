@@ -138,6 +138,9 @@ Each UI pattern has exactly one primitive. Reach for it (or add a variant to it)
 - **Inline embed chip:** `Chip` (`components/ui/chip.tsx`) for bordered inline chips in the editor. Tinted labels and tags use `Badge`.
 - **Icon chrome buttons:** `Button variant="quiet"` with `size="square-7" | "square-8" | "square-9"`, not hand-pasted `grid size-N … hover:bg-hover` buttons.
 - **Sliding highlights:** `useFluidHover` + `FluidHoverHighlight` when we own the pointer and keyboard index (nav rails, command menu); `MenuHighlight` when Base UI owns `data-highlighted` (menus, selects); `SegmentedIndicator` for the selected tab.
+### Ticket rows are one component
+
+Render every ticket in a list with `Row` (`apps/frontend/src/features/tickets/components/ticket-list/Row.tsx`) inside a `rowGridClassName` grid. `Row` owns its columns — sprint chip, actions menu, epic prefix — and reads the data it needs itself, so callsites pass the ticket and its mutation, nothing about which columns to show. Don't hand-build a ticket row, and add new row behaviour to `Row` rather than to a list. The visual rule is "The One Ticket Row Rule" in `DESIGN.md`.
 
 ## i18n
 

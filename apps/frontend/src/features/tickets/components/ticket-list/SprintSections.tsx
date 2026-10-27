@@ -4,7 +4,6 @@ import {
   sprintState,
   type Group,
   type Member,
-  type Ticket,
   type TicketId,
   type TicketListQuery,
   TicketStatus
@@ -15,7 +14,7 @@ import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { Inbox } from "lucide-react"
-import { useState, type ReactNode } from "react"
+import { useState } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -55,10 +54,9 @@ type Props = Readonly<{
   preferencesKey: string
   query: TicketListQuery
   members: ReadonlyArray<Member>
-  extraRowActions: (ticket: Ticket) => ReactNode
 }>
 
-const queryHasActiveFilter = (query: TicketListQuery) =>
+export const queryHasActiveFilter = (query: TicketListQuery) =>
   (query.q !== undefined && query.q.length > 0) ||
   (query.status?.length ?? 0) > 0 ||
   (query.type?.length ?? 0) > 0 ||
@@ -208,7 +206,7 @@ function SprintSection({
     props.query.q,
     !props.query.q && sprint !== null && sprintState(sprint) !== "planned"
   )
-  const { members, extraRowActions } = props
+  const { members } = props
   const query = {
     ...props.query,
     groupId: [sprint?.id ?? "ungrouped"] as TicketListQuery["groupId"],
@@ -286,12 +284,6 @@ function SprintSection({
         collapsed={collapsed}
         onToggleCollapsed={onToggleCollapsed}
         members={members}
-        sprintMembership={
-          sprint ? new Map(sprint.tickets.map((id) => [id, sprint])) : undefined
-        }
-        extraRowActions={extraRowActions}
-        showSprintCol
-        showExtraActionsCol
         activePreviewId={activePreviewId}
         onPreviewPointerEnter={onPreviewPointerEnter}
         onPreviewOpenChange={onPreviewOpenChange}

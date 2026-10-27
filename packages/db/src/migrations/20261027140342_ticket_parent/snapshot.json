@@ -1,0 +1,100 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "245446a2-2494-4a1b-9fe1-017253c4f66b",
+  "prevIds": [
+    "52f4eeae-551c-4861-a472-1e86c8181dcb",
+    "46d3835d-9b2e-4bc5-861f-b62df177d456"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ticket_index",
+        "parent"
+      ],
+      "writes": [
+        "s|col|public.ticket_index.parent",
+        "n|col|public.ticket_index.parent",
+        "e|col|public.ticket_index.parent"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_index",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "ticket_index",
+        "ticket_index_parent_idx"
+      ],
+      "writes": [
+        "s|idx|public.ticket_index_parent_idx",
+        "n|idx|public.ticket_index_parent_idx",
+        "e|idx|public.ticket_index_parent_idx",
+        "n|rel|public.ticket_index_parent_idx"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_index",
+        "n|sch|public",
+        "n|col|public.ticket_index.project_id",
+        "n|col|public.ticket_index.parent"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_index",
+        "name": "parent",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_index",
+        "name": "ticket_index_parent_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "project_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "parent",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    }
+  ]
+}

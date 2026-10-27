@@ -1,7 +1,9 @@
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import {
+  EPIC_SECTION_NONE,
   GroupId,
   sprintSectionKey,
+  TicketType,
   type Group,
   type TicketId,
   type TicketListQuery,
@@ -41,9 +43,14 @@ import {
   quickCreateBacklogTicket
 } from "@/features/tickets/atoms/backlog"
 import {
+  quickCreateEpicSectionsTicket,
+  type EpicSectionsRequest
+} from "@/features/tickets/atoms/epicSections"
+import {
   quickCreateSprintSectionsTicket,
   type SprintSectionsRequest
 } from "@/features/tickets/atoms/sprintSections"
+import { NON_EPIC_TYPES } from "@/features/tickets/lib/ticketMeta"
 import type { QuickCreateInput } from "@/features/tickets/lib/ticketRows"
 import {
   mutationErrorText,
@@ -77,7 +84,11 @@ type CreateTicket = (
 export function SectionTicketCreator({
   snapshotReq,
   ...props
-}: CreatorProps & Readonly<{ snapshotReq?: SprintSectionsRequest }>) {
+}: CreatorProps &
+  Readonly<{ snapshotReq?: SprintSectionsRequest | EpicSectionsRequest }>) {
+  if (snapshotReq?._view === "epicSections") {
+    return <EpicSectionTicketCreator {...props} req={snapshotReq} />
+  }
   return snapshotReq ? (
     <SprintSectionTicketCreator {...props} req={snapshotReq} />
   ) : (
@@ -139,6 +150,31 @@ function SprintSectionTicketCreator(
   )
 }
 
+function EpicSectionTicketCreator(
+  props: CreatorProps & Readonly<{ req: EpicSectionsRequest }>
+) {
+  const { req, query } = props
+  const key = query.parent?.[0] ?? EPIC_SECTION_NONE
+  const create = useAtomSet(quickCreateEpicSectionsTicket({ req, key }), {
+    mode: "promiseExit"
+  })
+  const state = useAtomValue(quickCreateEpicSectionsTicket({ req, key }))
+  return (
+    <SectionCreatorForm
+      {...props}
+      parent={key === EPIC_SECTION_NONE ? undefined : key}
+      create={create}
+      submitting={state.waiting}
+      error={mutationErrorText(
+        state,
+        ticketCreateErrorMessage,
+        m.tickets_create_error_fallback
+      )}
+      assignsSprint
+    />
+  )
+}
+
 function SectionCreatorForm({
   status,
   query,
@@ -147,13 +183,15 @@ function SectionCreatorForm({
   create,
   submitting,
   error,
-  assignsSprint
+  assignsSprint,
+  parent
 }: CreatorProps &
   Readonly<{
     create: CreateTicket
     submitting: boolean
     error: string | null
     assignsSprint: boolean
+    parent?: TicketId
   }>) {
   const { orgSlug, slug } = useProjectRoute()
   const registry = useContext(RegistryContext)
@@ -183,6 +221,10 @@ function SectionCreatorForm({
   const hasSprints = sprints.some((s) => s.completedAt === null)
   const showSprintAddon =
     activeSprintId === null && !isExplicitNoSprintFilter && hasSprints
+  const types =
+    activeSprintId !== null || parent !== undefined
+      ? NON_EPIC_TYPES
+      : TicketType.literals
 
   const [title, setTitle] = useState("")
   const { type, setType, applyTemplateDefault } = useTicketTypeChoice()
@@ -200,7 +242,9 @@ function SectionCreatorForm({
     choice: templateChoice,
     onChoose: (_template, ticketType) => {
       setTitle("")
-      if (ticketType !== null) applyTemplateDefault(ticketType)
+      if (ticketType !== null && types.includes(ticketType)) {
+        applyTemplateDefault(ticketType)
+      }
     }
   })
   useCreatorFocus(containerRef, onDone)
@@ -223,6 +267,7 @@ function SectionCreatorForm({
         title: submittedTitle,
         type,
         status,
+        parent,
         ...templateChoice.payload
       },
       prediction: {
@@ -239,20 +284,21 @@ function SectionCreatorForm({
       return
     }
     const attachTo = activeSprintId ?? selectedSprint?.id ?? null
-    if (attachTo !== null && assignsSprint) {
+    if (attachTo !== null && assignsSprint && type !== "epic") {
       assignTicketToSprint(registry, sprintReq, exit.value.id, attachTo)
     }
   }
 
-  const sprintAddon = showSprintAddon ? (
-    <CreatorSprintMenu
-      sprints={sprints}
-      selected={selectedSprint}
-      onSelectedChange={setPickedSprint}
-      expanded
-      inputRef={inputRef}
-    />
-  ) : null
+  const sprintAddon =
+    showSprintAddon && type !== "epic" ? (
+      <CreatorSprintMenu
+        sprints={sprints}
+        selected={selectedSprint}
+        onSelectedChange={setPickedSprint}
+        expanded
+        inputRef={inputRef}
+      />
+    ) : null
 
   return (
     <form
@@ -261,6 +307,7 @@ function SectionCreatorForm({
     >
       <CreatorTypeMenu
         type={type}
+        types={types}
         onTypeChange={setType}
         expanded
         inputRef={inputRef}

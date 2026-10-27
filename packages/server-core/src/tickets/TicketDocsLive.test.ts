@@ -448,6 +448,29 @@ describe("TicketDocs estimate persistence", () => {
   )
 })
 
+describe("TicketDocs epic parent persistence", () => {
+  it.effect(
+    "writes the parent into frontmatter and drops it once cleared",
+    () =>
+      Effect.gen(function* () {
+        const docs = yield* TicketDocs
+        yield* docs.create("acme", "project", {
+          ...ticketDocument("T-16"),
+          parent: ticketId("T-1")
+        })
+
+        const filed = yield* docs.read("acme", "project", "T-16")
+        const filedRaw = yield* docs.readRaw("acme", "project", "T-16")
+        yield* docs.write("acme", "project", "T-16", ticketDocument("T-16"))
+        const clearedRaw = yield* docs.readRaw("acme", "project", "T-16")
+
+        expect(filed.parent).toBe("T-1")
+        expect(filedRaw.content).toContain("parent: T-1")
+        expect(clearedRaw.content).not.toContain("parent:")
+      }).pipe(Effect.provide(TestLayer))
+  )
+})
+
 describe("TicketDocs activity capture", () => {
   const later = DateTime.toDate(DateTime.makeUnsafe("2026-09-08T10:00:00Z"))
 

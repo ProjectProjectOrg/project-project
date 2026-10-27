@@ -43,7 +43,7 @@ import {
 } from "./toolbar"
 import { ViewSwitcher } from "./ViewSwitcher"
 
-const GroupingSchema = Schema.Literals(["status", "sprint"])
+const GroupingSchema = Schema.Literals(["status", "sprint", "epic"])
 const groupingCodec = createLocalStorageCodec(GroupingSchema)
 
 const backlogGroupingKey = (preferencesKey: string) =>

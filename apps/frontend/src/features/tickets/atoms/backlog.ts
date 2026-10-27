@@ -27,7 +27,8 @@ import {
   type QueryWithView,
   type QuickCreateInput,
   type TicketRow,
-  type TicketRowPage
+  type TicketRowPage,
+  withoutEpicsByDefault
 } from "@/features/tickets/lib/ticketRows"
 
 import {
@@ -56,7 +57,7 @@ export const backlogRequest = (
   _view: "backlog",
   params: { orgSlug, slug },
   query: {
-    ...ticketListQueryOf(query),
+    ...withoutEpicsByDefault(ticketListQueryOf(query)),
     status: undefined,
     cursor: undefined
   }

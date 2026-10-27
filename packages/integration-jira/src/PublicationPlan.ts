@@ -83,7 +83,7 @@ export type JiraStagedTicket = Readonly<{
   id: string
   title: string
   status: string
-  type: "feat" | "bug" | "chore" | "other"
+  type: TicketType
   priority: "low" | "med" | "high"
   tags: ReadonlyArray<string>
   assignees: ReadonlyArray<string>

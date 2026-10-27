@@ -43,7 +43,8 @@ import {
   type QueryWithView,
   type QuickCreateInput,
   type TicketRow,
-  type TicketRowPage
+  type TicketRowPage,
+  withoutEpicsByDefault
 } from "@/features/tickets/lib/ticketRows"
 
 import {
@@ -67,7 +68,10 @@ export const sprintSectionsRequest = (
 ): SprintSectionsRequest => ({
   _view: "sprintSections",
   params: { orgSlug, slug },
-  query: { ...ticketListQueryOf(query), cursor: undefined }
+  query: {
+    ...withoutEpicsByDefault(ticketListQueryOf(query)),
+    cursor: undefined
+  }
 })
 
 const scopeOf = (req: SprintSectionsRequest) =>

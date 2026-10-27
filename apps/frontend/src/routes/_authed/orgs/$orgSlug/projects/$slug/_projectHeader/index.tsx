@@ -13,6 +13,7 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { backlog, backlogRequest } from "@/features/tickets/atoms/backlog"
+import { epicsRequest, openEpicTitles } from "@/features/tickets/atoms/epics"
 import {
   sprintSections,
   sprintSectionsRequest
@@ -39,6 +40,7 @@ export const Route = createFileRoute(
     registry.mount(project(projectRequest(orgSlug, slug)))()
     registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
     registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
+    registry.mount(openEpicTitles(epicsRequest(orgSlug, slug)))()
     const viewerId = registry.get(currentUserId)
     const view = query.view ?? readViewPreference(orgSlug, slug, "backlog")
     const grouping =

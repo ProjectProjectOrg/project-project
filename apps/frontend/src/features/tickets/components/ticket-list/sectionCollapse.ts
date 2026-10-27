@@ -19,6 +19,9 @@ export const statusCollapseKey = (orgSlug: string, slug: string) =>
 export const sprintCollapseKey = (preferencesKey: string) =>
   `projectproject:sprint-sections-collapsed:${preferencesKey}`
 
+export const epicCollapseKey = (preferencesKey: string) =>
+  `projectproject:epic-sections-collapsed:${preferencesKey}`
+
 type MemorySnapshot = Readonly<{
   q: string | undefined
   list: ReadonlyArray<string>

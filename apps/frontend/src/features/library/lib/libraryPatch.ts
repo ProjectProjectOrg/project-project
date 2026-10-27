@@ -189,7 +189,8 @@ export const applyTemplateDefaults = (
     feat: resolveType("feat"),
     bug: resolveType("bug"),
     chore: resolveType("chore"),
-    other: resolveType("other")
+    other: resolveType("other"),
+    epic: resolveType("epic")
   }
   return { ...library, ownDefaults, defaults }
 }

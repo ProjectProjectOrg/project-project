@@ -88,9 +88,21 @@ const template: TemplateDefinition = {
 const library: LibraryValue = {
   blocks: [block],
   templates: [template],
-  defaults: { feat: null, bug: template.key, chore: null, other: null },
+  defaults: {
+    feat: null,
+    bug: template.key,
+    chore: null,
+    other: null,
+    epic: null
+  },
   ownDefaults: { bug: template.key },
-  inheritedDefaults: { feat: null, bug: null, chore: null, other: null },
+  inheritedDefaults: {
+    feat: null,
+    bug: null,
+    chore: null,
+    other: null,
+    epic: null
+  },
   canEdit: true
 }
 

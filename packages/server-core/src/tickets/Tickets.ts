@@ -1,6 +1,8 @@
 import type {
   ActivityActor,
   AttachBranchInput,
+  BulkUpdateTicketsInput,
+  BulkUpdateTicketsResult,
   ClearStaleEstimatesResult,
   SprintCompletedImmutable,
   BranchExists,
@@ -36,6 +38,7 @@ import type {
   TicketListQuery,
   TicketSections,
   TicketSort,
+  TicketEpicSections,
   TicketSprintSections,
   TicketUpdateResult,
   UpdateTicketInput,
@@ -80,6 +83,13 @@ export type TicketsShape = Readonly<{
     query: TicketListQuery
   ) => Effect.Effect<
     TicketSprintSections,
+    Forbidden | NotFound | MarkdownError,
+    ProjectScope
+  >
+  epicSections: (
+    query: TicketListQuery
+  ) => Effect.Effect<
+    TicketEpicSections,
     Forbidden | NotFound | MarkdownError,
     ProjectScope
   >
@@ -172,6 +182,13 @@ export type TicketsShape = Readonly<{
     | Validation
     | MentionInvalid
     | SprintCompletedImmutable,
+    ProjectScope | ActivityActor
+  >
+  bulkUpdate: (
+    input: BulkUpdateTicketsInput
+  ) => Effect.Effect<
+    BulkUpdateTicketsResult,
+    TicketReadError | Validation | Forbidden | SprintCompletedImmutable,
     ProjectScope | ActivityActor
   >
   remove: (

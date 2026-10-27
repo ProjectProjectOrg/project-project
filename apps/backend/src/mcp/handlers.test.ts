@@ -480,9 +480,21 @@ const hiddenTemplate = {
 const fakeLibrary = Schema.decodeUnknownSync(LibrarySchema)({
   blocks: [acceptanceCriteriaBlock, hiddenBlock],
   templates: [bugReportTemplate, hiddenTemplate],
-  defaults: { feat: null, bug: "bug-report", chore: null, other: null },
+  defaults: {
+    feat: null,
+    bug: "bug-report",
+    chore: null,
+    other: null,
+    epic: null
+  },
   ownDefaults: { bug: "bug-report" },
-  inheritedDefaults: { feat: null, bug: null, chore: null, other: null },
+  inheritedDefaults: {
+    feat: null,
+    bug: null,
+    chore: null,
+    other: null,
+    epic: null
+  },
   canEdit: true
 })
 
@@ -555,9 +567,21 @@ const BigLibraryStub = Layer.mock(Library, {
             )
           }
         ],
-        defaults: { feat: null, bug: null, chore: null, other: null },
+        defaults: {
+          feat: null,
+          bug: null,
+          chore: null,
+          other: null,
+          epic: null
+        },
         ownDefaults: {},
-        inheritedDefaults: { feat: null, bug: null, chore: null, other: null },
+        inheritedDefaults: {
+          feat: null,
+          bug: null,
+          chore: null,
+          other: null,
+          epic: null
+        },
         canEdit: true
       })
     )

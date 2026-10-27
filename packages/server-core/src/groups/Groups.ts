@@ -78,7 +78,11 @@ export interface GroupsShape {
     input: UpdateGroupTicketsInput
   ) => Effect.Effect<
     UpdateGroupTicketsOutput,
-    Forbidden | NotFound | SprintCompletedImmutable | MarkdownError,
+    | Forbidden
+    | NotFound
+    | SprintCompletedImmutable
+    | Validation
+    | MarkdownError,
     ProjectScope | ActivityActor
   >
   readonly addTickets: (
@@ -86,7 +90,11 @@ export interface GroupsShape {
     ticketIds: ReadonlyArray<TicketId>
   ) => Effect.Effect<
     UpdateGroupTicketsOutput,
-    Forbidden | NotFound | SprintCompletedImmutable | MarkdownError,
+    | Forbidden
+    | NotFound
+    | SprintCompletedImmutable
+    | Validation
+    | MarkdownError,
     ProjectScope | ActivityActor
   >
   readonly removeTickets: (
