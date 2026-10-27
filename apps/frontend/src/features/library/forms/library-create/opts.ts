@@ -37,14 +37,21 @@ const libraryCreateSchema = (kind: LibraryKind, taken: ReadonlySet<string>) =>
     })
   )
 
+const afterSubmitOrKeyed = ({
+  formApi
+}: Readonly<{
+  formApi: Readonly<{
+    state: Readonly<{
+      submissionAttempts: number
+      values: LibraryCreateValues
+    }>
+  }>
+}>) => formApi.state.submissionAttempts > 0 || formApi.state.values.key !== null
+
 const validateOnceKeyed = createValidator({
   triggers: [
-    {
-      trigger: "change",
-      when: ({ formApi }) =>
-        formApi.state.submissionAttempts > 0 ||
-        formApi.state.values.key !== null
-    }
+    { trigger: "change", when: afterSubmitOrKeyed },
+    { trigger: "blur", when: afterSubmitOrKeyed }
   ]
 })
 
