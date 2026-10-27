@@ -23,6 +23,7 @@ import { fontWeights } from "@/lib/font-weight"
 import { useShape } from "@/lib/shape-context"
 import { sliderSprings as spring } from "@/lib/springs"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 
 import {
   nearestStepIndex,
@@ -664,8 +665,11 @@ function Slider({
 
   const thumbAriaLabel = (index: number): string | undefined => {
     if (!isRange) return label
-    if (!label) return index === 0 ? "Minimum" : "Maximum"
-    return index === 0 ? `${label} minimum` : `${label} maximum`
+    if (!label)
+      return index === 0 ? m.common_slider_minimum() : m.common_slider_maximum()
+    return index === 0
+      ? m.common_slider_named_minimum({ label })
+      : m.common_slider_named_maximum({ label })
   }
 
   const valueDisplay = showValue && valuePosition !== "tooltip" && (
