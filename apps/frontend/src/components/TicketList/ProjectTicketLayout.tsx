@@ -29,7 +29,7 @@ import { SprintTicketCreator } from "./SprintTicketCreator"
 import { TicketToolbar, useViewTicketCounts } from "./toolbar"
 import { ViewSwitcher } from "./ViewSwitcher"
 
-const GroupingSchema = Schema.Literals(["status", "sprint"])
+const GroupingSchema = Schema.Literals(["status", "sprint", "epic"])
 
 type TicketLayoutState = Readonly<{
   grouping: typeof GroupingSchema.Type

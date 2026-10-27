@@ -1,5 +1,7 @@
 import type {
   AttachBranchInput,
+  BulkUpdateTicketsInput,
+  BulkUpdateTicketsResult,
   Forbidden,
   SprintCompletedImmutable,
   BranchExists,
@@ -34,6 +36,7 @@ import type {
   TicketListQuery,
   TicketSections,
   TicketSort,
+  TicketEpicSections,
   TicketSprintSections,
   TicketUpdateResult,
   UpdateTicketInput,
@@ -74,6 +77,12 @@ export interface TicketsShape {
     slug: string,
     query: TicketListQuery
   ) => Effect.Effect<TicketSprintSections, NotFound | MarkdownError>
+  readonly epicSections: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    query: TicketListQuery
+  ) => Effect.Effect<TicketEpicSections, NotFound | MarkdownError>
   readonly list: (
     orgSlug: string,
     userId: string,
@@ -153,6 +162,15 @@ export interface TicketsShape {
     | MentionInvalid
     | Forbidden
     | SprintCompletedImmutable
+  >
+  readonly bulkUpdate: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    input: BulkUpdateTicketsInput
+  ) => Effect.Effect<
+    BulkUpdateTicketsResult,
+    TicketReadError | Validation | Forbidden | SprintCompletedImmutable
   >
   readonly remove: (
     orgSlug: string,

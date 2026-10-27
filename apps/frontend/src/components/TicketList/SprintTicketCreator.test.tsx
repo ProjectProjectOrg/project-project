@@ -1,5 +1,5 @@
 import { RegistryContext } from "@effect/atom-react"
-import { GroupId, Library } from "@pp/shared"
+import { GroupId, Library, TicketId } from "@pp/shared"
 import {
   act,
   cleanup,
@@ -209,6 +209,92 @@ it("applies the template's type when no type was chosen explicitly", async () =>
       template: "bug-report"
     })
   } finally {
+    registry.dispose()
+  }
+})
+
+it("adds an epic's chosen open sub-tickets in one bulk request", async () => {
+  const registry = Registry.make()
+  const bulk: Array<Posted> = []
+  const ticket = (
+    id: string,
+    title: string,
+    extra: Readonly<Record<string, unknown>> = {}
+  ) => ({
+    id,
+    title,
+    status: "todo",
+    type: "feat",
+    priority: "med",
+    tags: [],
+    branch: null,
+    pr: null,
+    prState: null,
+    lastTransitionedPr: null,
+    gitState: { tag: "no_branch" },
+    assignees: [],
+    parent: null,
+    archivedAt: null,
+    createdBy: "user-1",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    ...extra
+  })
+  fetchStub.set((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(
+      input instanceof Request ? input.url : String(input),
+      "http://localhost"
+    )
+    if (url.pathname.endsWith("/search"))
+      return Promise.resolve(
+        Response.json([
+          ticket("T-4", "Passkeys"),
+          ticket("T-1", "Estimation", { type: "epic" })
+        ])
+      )
+    if (url.pathname.endsWith("/tickets") && init?.method !== "POST")
+      return Promise.resolve(
+        Response.json({
+          items: ["T-2", "T-3", "T-5"].map((id) => ({
+            ticket: ticket(id, `Sub-ticket ${id}`, { parent: "T-1" }),
+            orderKey: id
+          })),
+          nextCursor: null
+        })
+      )
+    if (init?.method === "POST" && url.pathname.endsWith("/tickets/bulk")) {
+      bulk.push(
+        JSON.parse(new TextDecoder().decode(init.body as Uint8Array)) as Posted
+      )
+      return Promise.resolve(Response.json({ tickets: [], sprint: null }))
+    }
+    return new Promise<Response>(() => {})
+  })
+  try {
+    render(
+      <RegistryContext.Provider value={registry}>
+        <SprintTicketCreator
+          orgSlug="org"
+          slug="project"
+          groupId={Schema.decodeSync(GroupId)("G-1")}
+          excludeIds={new Set([Schema.decodeSync(TicketId)("T-5")])}
+        />
+      </RegistryContext.Provider>
+    )
+    const input = screen.getByRole("textbox") as HTMLInputElement
+    fireEvent.focus(input)
+    const options = await screen.findAllByRole("button", { name: /^T-\d/ })
+    expect(options[0]?.textContent).toContain("Estimation")
+    fireEvent.mouseDown(options[0]!)
+    await screen.findByText("Sub-ticket T-3")
+    expect(screen.getByText("In this sprint")).toBeTruthy()
+    fireEvent.keyDown(input, { key: "ArrowDown" })
+    fireEvent.keyDown(input, { key: " " })
+    fireEvent.submit(input.closest("form")!)
+    await waitFor(() => expect(bulk).toHaveLength(1))
+    expect(bulk[0]).toEqual({ tickets: ["T-2"], patch: { sprint: "G-1" } })
+  } finally {
+    cleanup()
     registry.dispose()
   }
 })

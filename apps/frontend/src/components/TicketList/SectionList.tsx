@@ -1,9 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type {
-  Group,
   Member,
   ProjectStatus,
-  Ticket,
   TicketId,
   TicketListQuery,
   TicketStatus
@@ -52,10 +50,6 @@ export function SectionList({
   collapsed,
   onToggleCollapsed,
   members,
-  sprintMembership,
-  extraRowActions,
-  showSprintCol,
-  showExtraActionsCol,
   activePreviewId,
   onPreviewPointerEnter,
   onPreviewOpenChange,
@@ -71,7 +65,7 @@ export function SectionList({
   canCreate?: boolean
   pagination?: ReactNode
   renderRow?: (props: ComponentProps<typeof Row>) => ReactNode
-  creationVariant?: "status" | "flat"
+  creationVariant?: "status" | "flat" | "epic"
   snapshotReq?: BacklogRequest
   emptyMessage?: string
   orgSlug: string
@@ -84,17 +78,13 @@ export function SectionList({
   collapsed: boolean
   onToggleCollapsed: () => void
   members: ReadonlyArray<Member>
-  sprintMembership?: ReadonlyMap<TicketId, Group>
-  extraRowActions?: (ticket: Ticket) => ReactNode
-  showSprintCol: boolean
-  showExtraActionsCol: boolean
   activePreviewId: TicketId | null
   onPreviewPointerEnter: (ticketId: TicketId) => void
   onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
 }) {
   const req = useMemo(
     () =>
-      creationVariant === "flat"
+      creationVariant !== "status"
         ? flatBacklogRequest(orgSlug, slug, query)
         : backlogRequest(orgSlug, slug, query),
     [creationVariant, orgSlug, slug, query]
@@ -103,7 +93,7 @@ export function SectionList({
 
   const { items } = page
 
-  const gridCols = rowGridClassName(showExtraActionsCol)
+  const gridCols = rowGridClassName
 
   const shellRef = useRef<HTMLDivElement>(null)
 
@@ -175,10 +165,6 @@ export function SectionList({
                     ticket,
                     req,
                     members,
-                    showSprintCol,
-                    showExtraActionsCol,
-                    sprintMembership: sprintMembership?.get(ticket.id) ?? null,
-                    extraRowActions,
                     pending,
                     previewOpen: activePreviewId === ticket.id,
                     onPreviewPointerEnter,

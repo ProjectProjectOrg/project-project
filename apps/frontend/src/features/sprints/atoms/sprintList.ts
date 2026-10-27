@@ -278,10 +278,10 @@ type SprintAssignmentInput = Readonly<{
   groupId: GroupId
 }>
 
-const confirmAddedTicket = (
+const confirmAddedTickets = (
   sprints: ReadonlyArray<Group>,
   groupId: GroupId,
-  ticketId: TicketId,
+  ticketIds: ReadonlyArray<TicketId>,
   result: UpdateGroupTicketsOutput
 ): Array<Group> => {
   const evicted = new Map(
@@ -291,9 +291,10 @@ const confirmAddedTicket = (
     if (sprint.id === groupId) {
       return {
         ...result.target,
-        tickets: sprint.tickets.includes(ticketId)
-          ? sprint.tickets
-          : [...sprint.tickets, ticketId]
+        tickets: [
+          ...sprint.tickets,
+          ...ticketIds.filter((id) => !sprint.tickets.includes(id))
+        ]
       }
     }
     const dropped = evicted.get(sprint.id)
@@ -367,7 +368,7 @@ export const addTicketsToSprint = Atom.family(
             )
             set(
               AsyncResult.map(get(sprintList(req)), (sprints) =>
-                confirmAddedTicket(sprints, groupId, ticketId, result)
+                confirmAddedTickets(sprints, groupId, [ticketId], result)
               )
             )
             yield* Reactivity.invalidate([
@@ -387,6 +388,85 @@ export const addTicketsToSprint = Atom.family(
           })
         )
     })
+)
+
+export type BulkSprintAssignmentInput = Readonly<{
+  groupId: GroupId
+  tickets: ReadonlyArray<TicketId>
+}>
+
+export const bulkAddTicketsToSprint = Atom.family((req: SprintListRequest) =>
+  Atom.optimisticFn(sprintList(req), {
+    reducer: (current, input: BulkSprintAssignmentInput) =>
+      AsyncResult.map(current, (sprints) => {
+        const now = DateTime.toDate(DateTime.nowUnsafe())
+        return sprints.map((sprint) => {
+          if (sprint.id === input.groupId) {
+            return {
+              ...sprint,
+              tickets: [
+                ...sprint.tickets,
+                ...input.tickets.filter((id) => !sprint.tickets.includes(id))
+              ],
+              updatedAt: now
+            }
+          }
+          if (sprint.completedAt !== null) return sprint
+          if (!sprint.tickets.some((id) => input.tickets.includes(id))) {
+            return sprint
+          }
+          return {
+            ...sprint,
+            tickets: sprint.tickets.filter((id) => !input.tickets.includes(id)),
+            updatedAt: now
+          }
+        })
+      }),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn("bulkAddTicketsToSprint")(function* (
+          input: BulkSprintAssignmentInput,
+          get
+        ) {
+          const scope = scopeOf(req)
+          const result = yield* Api.use((client) =>
+            client.tickets.bulkUpdate({
+              params: req.params,
+              payload: {
+                tickets: input.tickets,
+                patch: { sprint: input.groupId }
+              }
+            })
+          )
+          const change = result.sprint
+          if (change !== null) {
+            set(
+              AsyncResult.map(get(sprintList(req)), (sprints) =>
+                confirmAddedTickets(
+                  sprints,
+                  input.groupId,
+                  input.tickets,
+                  change
+                )
+              )
+            )
+          }
+          const evicted = change?.evicted ?? []
+          yield* Reactivity.invalidate([
+            Keys.sprintMembership(scope),
+            Keys.sprintMembership(scope, input.groupId),
+            Keys.sprint(scope, input.groupId),
+            ...evicted.map((entry) =>
+              Keys.sprintMembership(scope, entry.groupId)
+            ),
+            ...evicted.map((entry) => Keys.sprint(scope, entry.groupId)),
+            Keys.ticketsIn(scope),
+            Keys.ticketLists(scope)
+          ])
+          return result
+        })
+      )
+  })
 )
 
 export const assignTicketToSprint = (

@@ -88,7 +88,14 @@ it("starts backlog sections alongside metadata without waiting, even with collap
       deps: query
     })
   ).toBeUndefined()
-  await waitFor(() => expect(requests).toHaveLength(5))
+  await waitFor(() => expect(requests).toHaveLength(6))
+  expect(
+    requests.some(
+      (url) =>
+        url.pathname.endsWith("/tickets") &&
+        url.searchParams.get("type") === "epic"
+    )
+  ).toBe(true)
   const sections = requests.find((url) =>
     url.pathname.endsWith("/tickets/sections")
   )
@@ -239,9 +246,6 @@ it.each(["row", "card"] as const)(
             ticket={ticket}
             req={backlogRequest("org", "project", decodeTicketListQuery({}))}
             members={[]}
-            showSprintCol={false}
-            showExtraActionsCol={false}
-            sprintMembership={null}
             previewOpen={false}
             onPreviewPointerEnter={() => {}}
             onPreviewOpenChange={() => {}}

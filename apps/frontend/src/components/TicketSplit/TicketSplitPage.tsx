@@ -21,12 +21,14 @@ export function TicketSplitPage({
   orgSlug,
   slug,
   ticket,
-  members
+  members,
+  openedFromList = false
 }: {
   orgSlug: string
   slug: string
   ticket: TicketDetail
   members: ReadonlyArray<Member>
+  openedFromList?: boolean
 }) {
   const router = useRouter()
   const canGoBack = useCanGoBack()
@@ -45,11 +47,11 @@ export function TicketSplitPage({
   const refreshSprints = useAtomRefresh(sprintList(sprintsReq))
 
   const returnToOrigin = (created: ReadonlyArray<TicketId>) => {
-    if (created.length === 0 && canGoBack) {
+    if (created.length > 0) refreshSprints()
+    if (canGoBack && (created.length === 0 || openedFromList)) {
       router.history.back()
       return
     }
-    if (created.length > 0) refreshSprints()
     void navigate({
       to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
       params: { orgSlug, slug, id: ticket.id },

@@ -51,7 +51,13 @@ export const templateDraft = (
   ...overrides
 })
 
-const NO_DEFAULTS = { feat: null, bug: null, chore: null, other: null }
+const NO_DEFAULTS = {
+  feat: null,
+  bug: null,
+  chore: null,
+  other: null,
+  epic: null
+}
 
 export const libraryOf = (
   blocks: ReadonlyArray<BlockDefinition>,

@@ -82,7 +82,8 @@ export const NO_TEMPLATE_DEFAULTS: TemplateDefaults = {
   feat: null,
   bug: null,
   chore: null,
-  other: null
+  other: null,
+  epic: null
 }
 
 const SYNCED_OPENER = /<block[^>]*\ssync/
@@ -154,7 +155,8 @@ const TICKET_TYPES: ReadonlyArray<TicketType> = [
   "feat",
   "bug",
   "chore",
-  "other"
+  "other",
+  "epic"
 ]
 
 const resolveDefaults = (
@@ -170,7 +172,8 @@ const resolveDefaults = (
     feat: resolveType("feat"),
     bug: resolveType("bug"),
     chore: resolveType("chore"),
-    other: resolveType("other")
+    other: resolveType("other"),
+    epic: resolveType("epic")
   }
 }
 

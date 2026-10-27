@@ -17,6 +17,7 @@ import {
 } from "@/features/sprints/atoms/sprintBoard"
 
 import { backlog, backlogRequest, type BacklogRequest } from "./backlog"
+import { epicSections, epicSectionsRequest } from "./epicSections"
 import { sprintSections, sprintSectionsRequest } from "./sprintSections"
 
 export type ViewCountsSource = Readonly<{
@@ -24,7 +25,7 @@ export type ViewCountsSource = Readonly<{
   slug: string
   groupId: GroupId | null
   view: "list" | "board" | "description"
-  grouping: "status" | "sprint"
+  grouping: "status" | "sprint" | "epic"
   query: TicketListQuery
 }>
 
@@ -42,6 +43,10 @@ const backlogCounts = Atom.family((req: BacklogRequest) =>
 
 const sprintSectionsCounts = Atom.family((req: BacklogRequest) =>
   sprintSections(req).pipe(Atom.mapResult((value) => value.counts))
+)
+
+const epicSectionsCounts = Atom.family((req: BacklogRequest) =>
+  epicSections(req).pipe(Atom.mapResult((value) => value.counts))
 )
 
 const sprintBoardCounts = Atom.family(
@@ -87,5 +92,7 @@ export const viewCounts = ({
     })
   if (!groupId && view === "list" && grouping === "sprint")
     return sprintSectionsCounts(sprintSectionsRequest(orgSlug, slug, query))
+  if (!groupId && view === "list" && grouping === "epic")
+    return epicSectionsCounts(epicSectionsRequest(orgSlug, slug, query))
   return backlogCounts(backlogRequest(orgSlug, slug, query))
 }

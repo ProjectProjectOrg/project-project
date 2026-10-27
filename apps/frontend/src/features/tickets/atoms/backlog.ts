@@ -6,6 +6,7 @@ import {
   type TagName,
   type Ticket,
   type TicketCounts,
+  type TicketFilter,
   type TicketId,
   type TicketListRow,
   TicketListQuery,
@@ -29,6 +30,7 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { compareCodePoints } from "@/lib/orderKey"
 import { PRIORITY_META } from "@/lib/priority-meta"
+import { NON_EPIC_TYPES } from "@/lib/ticket-meta"
 
 import { countsRequest, ticketCounts } from "./ticketCounts"
 import { applyTicketPatch } from "./ticketPatch"
@@ -54,6 +56,9 @@ const ticketListQueryOf = (query: QueryWithView): TicketListQuery => {
  * dropped because the sections endpoint returns every status with its own first
  * page. This replaces the old `ticketsSectionsKey` string builder.
  */
+export const withoutEpicsByDefault = <Q extends TicketFilter>(query: Q): Q =>
+  query.type?.length ? query : { ...query, type: NON_EPIC_TYPES }
+
 export const backlogRequest = (
   orgSlug: string,
   slug: string,
@@ -61,7 +66,7 @@ export const backlogRequest = (
 ): BacklogRequest => ({
   params: { orgSlug, slug },
   query: {
-    ...ticketListQueryOf(query),
+    ...withoutEpicsByDefault(ticketListQueryOf(query)),
     status: undefined,
     cursor: undefined
   }
@@ -488,8 +493,8 @@ export type QuickCreateArg = Readonly<{
   prediction?: QuickCreatePrediction
 }>
 
-const placeholderId = (
-  taken: ReadonlyArray<BacklogRow>,
+export const placeholderId = (
+  taken: ReadonlyArray<Readonly<{ ticket: Ticket }>>,
   prefix: string
 ): TicketId => {
   const used = new Set(taken.map((row) => row.ticket.id))
@@ -517,6 +522,7 @@ export const predictedTicket = (
     lastTransitionedPr: null,
     gitState: { tag: "no_branch", baseBranch: "" },
     assignees: [],
+    parent: input.ticket.parent ?? null,
     archivedAt: null,
     createdBy: input.viewerId,
     createdAt: now,
@@ -605,7 +611,10 @@ export const flatBacklogRequest = (
   query: QueryWithView
 ): BacklogRequest => ({
   params: { orgSlug, slug },
-  query: { ...ticketListQueryOf(query), cursor: undefined }
+  query: {
+    ...withoutEpicsByDefault(ticketListQueryOf(query)),
+    cursor: undefined
+  }
 })
 
 export type FlatBacklogValue = Readonly<{

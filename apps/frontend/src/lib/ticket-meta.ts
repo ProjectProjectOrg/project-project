@@ -1,4 +1,4 @@
-import type { ProjectStatus, TicketType } from "@pp/shared"
+import { TicketType, type ProjectStatus } from "@pp/shared"
 import {
   Bug,
   Check,
@@ -7,6 +7,7 @@ import {
   CircleDot,
   Hammer,
   HelpCircle,
+  Layers,
   Sparkles,
   type LucideIcon
 } from "lucide-react"
@@ -93,12 +94,17 @@ export const TYPE_META: Record<
   feat: { label: "Feature", icon: Sparkles, tone: "emerald" },
   bug: { label: "Bug", icon: Bug, tone: "red" },
   chore: { label: "Chore", icon: Hammer, tone: "amber" },
-  other: { label: "Other", icon: HelpCircle, tone: "muted" }
+  other: { label: "Other", icon: HelpCircle, tone: "muted" },
+  epic: { label: "Epic", icon: Layers, tone: "blue" }
 }
+
+export const NON_EPIC_TYPES: ReadonlyArray<TicketType> =
+  TicketType.literals.filter((type) => type !== "epic")
 
 export const TYPE_LABELS: Record<TicketType, () => string> = {
   feat: () => m.tickets_type_feat(),
   bug: () => m.tickets_type_bug(),
   chore: () => m.tickets_type_chore(),
-  other: () => m.tickets_type_other()
+  other: () => m.tickets_type_other(),
+  epic: () => m.tickets_type_epic()
 }

@@ -6,18 +6,18 @@ import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import { errorMessage, type AppError } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
-type Tagged = Readonly<{ _tag: string; reason?: unknown }>
+export type CreatorError = Readonly<{ _tag: string; reason?: unknown }>
 
-export const isUnknownTemplate = (error: Tagged): boolean =>
+export const isUnknownTemplate = (error: CreatorError): boolean =>
   error._tag === "Validation" &&
   typeof error.reason === "string" &&
   error.reason.startsWith("unknown_template")
 
-const explains = (error: Tagged): boolean =>
+const explains = (error: CreatorError): boolean =>
   error._tag === "MentionInvalid" || isUnknownTemplate(error)
 
 export const creatorErrorText = (
-  result: AsyncResult.AsyncResult<unknown, Tagged>
+  result: AsyncResult.AsyncResult<unknown, CreatorError>
 ): string | null =>
   AsyncResult.isFailure(result)
     ? AsyncResult.matchWithError(result, {
@@ -32,7 +32,7 @@ export const creatorErrorText = (
     : null
 
 export const failedOnUnknownTemplate = (
-  exit: Exit.Exit<unknown, Tagged>
+  exit: Exit.Exit<unknown, CreatorError>
 ): boolean =>
   Exit.isFailure(exit) &&
   Option.exists(Cause.findErrorOption(exit.cause), isUnknownTemplate)

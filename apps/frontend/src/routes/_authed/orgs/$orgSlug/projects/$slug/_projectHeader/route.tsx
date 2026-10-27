@@ -41,6 +41,7 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
+import { withoutEpicsByDefault } from "@/features/tickets/atoms/backlog"
 import {
   countsRequest,
   ticketCounts
@@ -56,7 +57,9 @@ export const Route = createFileRoute(
 )({
   component: ProjectHeaderLayout,
   loader: ({ context: { registry }, params: { orgSlug, slug } }) => {
-    registry.mount(ticketCounts(countsRequest(orgSlug, slug, {})))()
+    registry.mount(
+      ticketCounts(countsRequest(orgSlug, slug, withoutEpicsByDefault({})))
+    )()
   }
 })
 
@@ -133,7 +136,7 @@ function TabsNav({
   })
   const base = `/orgs/${orgSlug}/projects/${slug}`
   const countsReq = useMemo(
-    () => countsRequest(orgSlug, slug, {}),
+    () => countsRequest(orgSlug, slug, withoutEpicsByDefault({})),
     [orgSlug, slug]
   )
   const ticketsResult = useAtomValue(ticketCounts(countsReq))

@@ -81,6 +81,7 @@ function ticketIndexEntryFromDocument(ticket: TicketDocument) {
   const { body: _body, commentsRegion: _commentsRegion, ...entry } = ticket
   return {
     ...entry,
+    parent: entry.parent ?? null,
     branchDeletedAt: null,
     checks: null,
     checksHeadSha: null,
@@ -91,6 +92,7 @@ function ticketIndexEntryFromDocument(ticket: TicketDocument) {
 function makeFakeDocs(initial?: {
   ticketIds?: ReadonlyArray<string>
   ticketStatuses?: Record<string, TicketStatus>
+  epicIds?: ReadonlyArray<string>
   groups?: Record<string, GroupDetail>
 }) {
   const groups = new Map<string, GroupDocument>(
@@ -100,10 +102,13 @@ function makeFakeDocs(initial?: {
   const ticketsById = new Map<string, TicketDocument>(
     ticketIds.map((id) => [
       id,
-      makeTicketDocument(
-        id,
-        initial?.ticketStatuses?.[id] ?? defaultTicketStatus
-      )
+      {
+        ...makeTicketDocument(
+          id,
+          initial?.ticketStatuses?.[id] ?? defaultTicketStatus
+        ),
+        ...(initial?.epicIds?.includes(id) ? { type: "epic" as const } : {})
+      }
     ])
   )
 
@@ -207,6 +212,8 @@ function makeFakeDocs(initial?: {
     query: () => Effect.die(new Error("unexpected TicketIndex.query")),
     orderKeyFor: () =>
       Effect.die(new Error("unexpected TicketIndex.orderKeyFor")),
+    groupByParent: () =>
+      Effect.die(new Error("unexpected TicketIndex.groupByParent")),
     count: () => Effect.die(new Error("unexpected TicketIndex.count")),
     listIds: () => Effect.succeed([...ticketsById.keys()]),
     existingIds: (_project, ticketIds) =>
@@ -1227,6 +1234,47 @@ it.effect(
         makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
       )
     )
+)
+
+it.effect("epics can't be planned in a sprint", () =>
+  Effect.gen(function* () {
+    const groups = yield* Groups
+    const sprint = yield* groups.create("org", "user-1", "p", {
+      name: "Sprint 1",
+      kind: "sprint"
+    })
+    const added = yield* groups
+      .addTickets("org", "user-1", "p", sprint.id, [ticketId("T-1")])
+      .pipe(Effect.flip)
+    const created = yield* groups
+      .create("org", "user-1", "p", {
+        name: "Sprint 2",
+        kind: "sprint",
+        tickets: [ticketId("T-1")]
+      })
+      .pipe(Effect.flip)
+    const plainGroup = yield* groups.create("org", "user-1", "p", {
+      name: "Shortlist",
+      tickets: [ticketId("T-1")]
+    })
+
+    expect(added).toMatchObject({
+      _tag: "Validation",
+      reason: "epic_in_sprint"
+    })
+    expect(created).toMatchObject({
+      _tag: "Validation",
+      reason: "epic_in_sprint"
+    })
+    expect(plainGroup.tickets).toEqual(["T-1"])
+  }).pipe(
+    Effect.provide(
+      makeGroupsLayer(
+        { ticketIds: ["T-1"], epicIds: ["T-1"] },
+        { role: "admin" }
+      )
+    )
+  )
 )
 
 it.effect("addTickets deduplicates against current membership", () =>

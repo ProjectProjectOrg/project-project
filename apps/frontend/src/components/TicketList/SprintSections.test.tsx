@@ -60,8 +60,7 @@ const props: ComponentProps<typeof SprintSections> = {
   slug: "project",
   preferencesKey: "project",
   query: { sort: { key: "priority", dir: "desc" } },
-  members: [],
-  extraRowActions: () => null
+  members: []
 }
 
 afterEach(cleanup)

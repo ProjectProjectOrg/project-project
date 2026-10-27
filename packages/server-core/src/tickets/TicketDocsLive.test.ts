@@ -189,3 +189,26 @@ describe("TicketDocs branch matching persistence", () => {
     }).pipe(Effect.provide(TestLayer))
   )
 })
+
+describe("TicketDocs epic parent persistence", () => {
+  it.effect(
+    "writes the parent into frontmatter and drops it once cleared",
+    () =>
+      Effect.gen(function* () {
+        const docs = yield* TicketDocs
+        yield* docs.create("acme", "project", {
+          ...ticketDocument("T-6"),
+          parent: ticketId("T-1")
+        })
+
+        const filed = yield* docs.read("acme", "project", "T-6")
+        const filedRaw = yield* docs.readRaw("acme", "project", "T-6")
+        yield* docs.write("acme", "project", "T-6", ticketDocument("T-6"))
+        const clearedRaw = yield* docs.readRaw("acme", "project", "T-6")
+
+        expect(filed.parent).toBe("T-1")
+        expect(filedRaw.content).toContain("parent: T-1")
+        expect(clearedRaw.content).not.toContain("parent:")
+      }).pipe(Effect.provide(TestLayer))
+  )
+})

@@ -353,7 +353,10 @@ export const McpTools = {
       "else falls back to sensible defaults. `status` is a status slug from " +
       "`list_statuses` (default `todo`); use its corresponding label when " +
       "referring to the status in conversation. `type` is one of " +
-      "`feat` | `bug` | `chore` | `other` (default `other`). `priority` is " +
+      "`feat` | `bug` | `chore` | `other` | `epic` (default `other`). " +
+      "`parent` is the id of an epic in the same project; the new ticket " +
+      "becomes one of its sub-tickets. An epic itself can't have a parent. " +
+      "`priority` is " +
       "one of `low` | `med` | `high` (default `med`). `tags` is an array of " +
       "tag names that must already exist on the project — discover them via " +
       "`list_tags`; the call fails if a name is unknown. `assignees` is an " +
@@ -394,7 +397,10 @@ export const McpTools = {
       "list. `status` is a status slug from `list_statuses`; use its " +
       "corresponding label when referring to the status in conversation. " +
       "`type` is " +
-      "one of `feat` | `bug` | `chore` | `other`. `priority` is one of " +
+      "one of `feat` | `bug` | `chore` | `other` | `epic`; an epic with " +
+      "sub-tickets keeps its type, and a sub-ticket can't become an epic. " +
+      "`parent` is the id of an epic in the same project, or `null` to " +
+      "take the ticket out of its epic. `priority` is one of " +
       "`low` | `med` | `high`. `tags` entries must already exist on the " +
       "project; `assignees` entries must be project members. `body` is " +
       "CommonMark markdown and replaces the entire description in full — " +

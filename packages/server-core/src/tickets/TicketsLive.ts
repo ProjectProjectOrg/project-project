@@ -2,6 +2,8 @@ import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
 import {
   AttachBranchInput,
+  type BulkUpdateTicketsInput,
+  type BulkUpdateTicketsResult,
   BranchExists,
   BranchNotFound,
   BranchProtected,
@@ -58,7 +60,11 @@ import {
   type TicketSort,
   type TemplateKey,
   type TicketSprintSections,
+  type TicketEpicSections,
+  type EpicSectionKey,
+  EPIC_SECTION_NONE,
   type TicketStatus,
+  TicketType,
   type TicketUpdateResult,
   type User,
   sprintSectionKey,
@@ -101,6 +107,9 @@ import {
 import { Tickets, type TicketsShape } from "./Tickets"
 
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
+
+const EPIC_SECTION_SORT: TicketSort = { key: "title", dir: "asc" }
+const EPIC_SECTIONS_LIMIT = 200
 const makeUserId = Schema.decodeUnknownSync(UserId)
 const makeTagName = Schema.decodeUnknownSync(TagName)
 
@@ -160,6 +169,7 @@ function documentToTicket(
   const { body: _body, commentsRegion: _commentsRegion, ...ticket } = document
   return {
     ...ticket,
+    parent: document.parent ?? null,
     gitState: pendingGitState(document, github, branchDeletedAt)
   }
 }
@@ -804,6 +814,124 @@ export const TicketsLive = Layer.effect(
       }
     })
 
+    const epicSections = Effect.fn("Tickets.epicSections")(function* (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      query: TicketListQuery
+    ): Effect.fn.Return<TicketEpicSections, NotFound | MarkdownError> {
+      yield* ensureAccess(orgSlug, userId, slug)
+      const project = yield* ticketIndex.projectFor(orgSlug, slug)
+      const groupMemberSet = yield* resolveGroupMembers(
+        project,
+        orgSlug,
+        userId,
+        slug,
+        query.groupId
+      )
+      const options = {
+        viewerId: userId,
+        ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet]
+      }
+      const openEpics = yield* ticketIndex.query(
+        project,
+        { type: ["epic"], sort: EPIC_SECTION_SORT },
+        { viewerId: userId, limit: EPIC_SECTIONS_LIMIT }
+      )
+      const archivedEpics = yield* ticketIndex.query(
+        project,
+        { type: ["epic"], archived: true, sort: EPIC_SECTION_SORT },
+        { viewerId: userId, limit: EPIC_SECTIONS_LIMIT }
+      )
+      const archivedIds = new Set<string>(
+        archivedEpics.map(({ entry }) => entry.id)
+      )
+      const projectGithub = yield* projects.getGithubIntegration(
+        orgSlug,
+        userId,
+        slug
+      )
+      const sectionQuery: TicketListQuery = {
+        ...query,
+        type: (query.type?.length ? query.type : TicketType.literals).filter(
+          (type) => type !== "epic"
+        ),
+        groupId: undefined,
+        cursor: undefined
+      }
+      const sectionsWanted: ReadonlyArray<
+        Readonly<{ key: EpicSectionKey; title: string | null }>
+      > = [
+        ...[...openEpics, ...archivedEpics]
+          .map(({ entry }) => ({ key: entry.id, title: entry.title }))
+          .toSorted((a, b) => a.title.localeCompare(b.title)),
+        { key: EPIC_SECTION_NONE, title: null }
+      ]
+      const grouped = yield* ticketIndex.groupByParent(
+        project,
+        { ...sectionQuery, parent: sectionsWanted.map(({ key }) => key) },
+        { ...options, limit: TICKET_LIST_LIMIT + 1 }
+      )
+      const sectionOf = (parent: TicketId | null): EpicSectionKey =>
+        parent ?? EPIC_SECTION_NONE
+      const countsBySection = new Map<EpicSectionKey, TicketCounts>()
+      for (const row of grouped.counts) {
+        const key = sectionOf(row.parent)
+        const current = countsBySection.get(key) ?? { total: 0, byStatus: {} }
+        countsBySection.set(key, {
+          total: current.total + row.total,
+          byStatus: { ...current.byStatus, [row.status]: row.total }
+        })
+      }
+      const entriesBySection = new Map<
+        EpicSectionKey,
+        Array<TicketIndexQueryEntry>
+      >()
+      for (const row of grouped.entries) {
+        const key = sectionOf(row.entry.parent)
+        entriesBySection.set(key, [...(entriesBySection.get(key) ?? []), row])
+      }
+      const pages = sectionsWanted.map(({ key, title }) => {
+        const counts = countsBySection.get(key) ?? { total: 0, byStatus: {} }
+        return {
+          section: {
+            key,
+            title,
+            count: query.status?.length
+              ? [...new Set(query.status)].reduce(
+                  (sum, status) => sum + (counts.byStatus[status] ?? 0),
+                  0
+                )
+              : counts.total,
+            page: ticketPage(
+              entriesBySection.get(key) ?? [],
+              query,
+              projectGithub,
+              TICKET_LIST_LIMIT
+            )
+          },
+          counts
+        }
+      })
+      const byStatus: Record<string, number> = {}
+      for (const { counts } of pages) {
+        for (const [status, count] of Object.entries(counts.byStatus)) {
+          byStatus[status] = (byStatus[status] ?? 0) + count
+        }
+      }
+      const sections = pages
+        .map(({ section }) => section)
+        .filter((section) => section.count > 0 || !archivedIds.has(section.key))
+      return {
+        total: sections.reduce((sum, section) => sum + section.count, 0),
+        counts: {
+          total: pages.reduce((sum, { counts }) => sum + counts.total, 0),
+          byStatus
+        },
+        sections
+      }
+    })
+
     const get = (
       orgSlug: string,
       ownerId: string,
@@ -962,6 +1090,43 @@ export const TicketsLive = Layer.effect(
         }
       })
 
+    const validateParent = (
+      indexProject: TicketIndexProject,
+      child: string | null,
+      parent: TicketId
+    ): Effect.Effect<void, Validation> =>
+      Effect.gen(function* () {
+        const [entry] = yield* ticketIndex.list(indexProject, [parent])
+        if (
+          entry === undefined ||
+          entry.archivedAt !== null ||
+          entry.id === child ||
+          entry.type !== "epic"
+        ) {
+          return yield* new Validation({ reason: `invalid_parent:${parent}` })
+        }
+      })
+
+    const validateNewParent = (
+      indexProject: TicketIndexProject,
+      type: TicketType,
+      parent: TicketId | undefined
+    ): Effect.Effect<void, Validation> =>
+      parent === undefined
+        ? Effect.void
+        : type === "epic"
+          ? Effect.fail(new Validation({ reason: "epic_with_parent" }))
+          : validateParent(indexProject, null, parent)
+
+    const hasSubTickets = (
+      indexProject: TicketIndexProject,
+      viewerId: string,
+      id: string
+    ): Effect.Effect<boolean> =>
+      ticketIndex
+        .count(indexProject, { parent: [makeTicketId(id)] }, { viewerId })
+        .pipe(Effect.map((counts) => counts.total > 0))
+
     const writeWithIdAllocation = (
       orgSlug: string,
       slug: string,
@@ -1043,6 +1208,8 @@ export const TicketsLive = Layer.effect(
         if (body !== "") {
           yield* validateBody(orgSlug, ownerId, slug, body, indexProject)
         }
+        const type = input.type ?? expansion?.type ?? "other"
+        yield* validateNewParent(indexProject, type, input.parent)
         const projectKey = yield* projects.getKey(orgSlug, ownerId, slug)
         const now = yield* DateTime.nowAsDate
         const document = yield* writeWithIdAllocation(
@@ -1054,7 +1221,7 @@ export const TicketsLive = Layer.effect(
             id,
             title: input.title,
             status: (input.status ?? "todo") as TicketStatus,
-            type: input.type ?? expansion?.type ?? "other",
+            type,
             priority: expansion?.priority ?? "med",
             tags: [...tags],
             branch: null,
@@ -1062,6 +1229,7 @@ export const TicketsLive = Layer.effect(
             prState: null,
             lastTransitionedPr: null,
             assignees: [],
+            parent: input.parent,
             archivedAt: null,
             createdBy: ownerId,
             createdAt: now,
@@ -1106,6 +1274,8 @@ export const TicketsLive = Layer.effect(
         if (body !== "") {
           yield* validateBody(orgSlug, ownerId, slug, body, indexProject)
         }
+        const type = input.type ?? expansion?.type ?? "other"
+        yield* validateNewParent(indexProject, type, input.parent)
         const now = yield* DateTime.nowAsDate
         const document = yield* writeWithIdAllocation(
           orgSlug,
@@ -1116,7 +1286,7 @@ export const TicketsLive = Layer.effect(
             id,
             title: input.title,
             status: (input.status ?? "todo") as TicketStatus,
-            type: input.type ?? expansion?.type ?? "other",
+            type,
             priority: input.priority ?? expansion?.priority ?? "med",
             tags: [...tags],
             branch: null,
@@ -1125,6 +1295,7 @@ export const TicketsLive = Layer.effect(
             lastTransitionedPr: null,
             assignees:
               input.assignees !== undefined ? [...input.assignees] : [],
+            parent: input.parent,
             archivedAt: null,
             createdBy: ownerId,
             createdAt: now,
@@ -1206,11 +1377,48 @@ export const TicketsLive = Layer.effect(
                     yield* validateAssigneesAreMembers(orgSlug, slug, newcomers)
                   }
                 }
+                const type = input.type ?? existing.type
+                const parent =
+                  input.parent === undefined
+                    ? existing.parent
+                    : (input.parent ?? undefined)
+                if (parent !== undefined && type === "epic") {
+                  return yield* new Validation({ reason: "epic_with_parent" })
+                }
+                if (
+                  input.parent !== undefined &&
+                  input.parent !== null &&
+                  input.parent !== existing.parent
+                ) {
+                  yield* validateParent(indexProject, id, input.parent)
+                }
+                if (
+                  type === "epic" &&
+                  existing.type !== "epic" &&
+                  (yield* groups.list(orgSlug, ownerId, slug)).some(
+                    (group) =>
+                      group.kind === "sprint" &&
+                      group.completedAt === null &&
+                      group.tickets.includes(existing.id)
+                  )
+                ) {
+                  return yield* new Validation({ reason: "epic_in_sprint" })
+                }
+                if (
+                  existing.type === "epic" &&
+                  type !== "epic" &&
+                  (yield* hasSubTickets(indexProject, ownerId, id))
+                ) {
+                  return yield* new Validation({
+                    reason: "epic_has_sub_tickets"
+                  })
+                }
                 return {
                   ...existing,
                   title: input.title ?? existing.title,
                   status: input.status ?? existing.status,
-                  type: input.type ?? existing.type,
+                  type,
+                  parent,
                   priority: input.priority ?? existing.priority,
                   tags:
                     input.tags !== undefined ? [...input.tags] : existing.tags,
@@ -1255,6 +1463,182 @@ export const TicketsLive = Layer.effect(
           return { ticket, orderKey }
         })
       )
+
+    const withTicketLocks = <A, E, R>(
+      orgSlug: string,
+      slug: string,
+      ids: ReadonlyArray<string>,
+      effect: Effect.Effect<A, E, R>
+    ): Effect.Effect<A, E, R> =>
+      ids
+        .toSorted()
+        .reduceRight(
+          (inner, id) => withTicketDocumentLock(orgSlug, slug, id, inner),
+          effect
+        )
+
+    const bulkUpdate = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      input: BulkUpdateTicketsInput
+    ): Effect.Effect<
+      BulkUpdateTicketsResult,
+      TicketReadError | Validation | Forbidden | SprintCompletedImmutable
+    > =>
+      Effect.gen(function* () {
+        yield* ensureAccess(orgSlug, userId, slug)
+        const ids = [...new Set(input.tickets)]
+        const { sprint, ...fields } = input.patch
+        const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
+        if (fields.status !== undefined) {
+          yield* validateStatusExists(slug, fields.status)
+        }
+        if (fields.tags !== undefined) {
+          yield* validateTagsExist(slug, fields.tags)
+        }
+        if (fields.assignees !== undefined && fields.assignees.length > 0) {
+          yield* validateAssigneesAreMembers(orgSlug, slug, fields.assignees)
+        }
+        if (fields.parent !== undefined && fields.parent !== null) {
+          yield* validateParent(indexProject, null, fields.parent)
+        }
+        if (sprint !== undefined && sprint !== null) {
+          yield* groups.ensureSprintAssignable(orgSlug, userId, slug, [sprint])
+        }
+        const openSprints = (yield* groups.list(orgSlug, userId, slug)).filter(
+          (group) => group.kind === "sprint" && group.completedAt === null
+        )
+        const projectGithub = yield* projects.getGithubIntegration(
+          orgSlug,
+          userId,
+          slug
+        )
+        const touchesTickets = Object.keys(fields).length > 0
+
+        // Groups locks the project before tickets, so release ticket locks first.
+        const written: Array<TicketDocument> = []
+        const restoreWritten = (originals: ReadonlyArray<TicketDocument>) =>
+          Effect.forEach(
+            originals.filter((original) =>
+              written.some((next) => next.id === original.id)
+            ),
+            (original) =>
+              ticketDocs
+                .write(orgSlug, slug, original.id, original)
+                .pipe(
+                  Effect.andThen(
+                    ticketIndex.upsertTicket(indexProject, original)
+                  )
+                ),
+            { discard: true }
+          ).pipe(Effect.ignore)
+        const { originals, nexts } = yield* withTicketLocks(
+          orgSlug,
+          slug,
+          ids,
+          Effect.gen(function* () {
+            const originals = yield* Effect.forEach(ids, (id) =>
+              ticketDocs.read(orgSlug, slug, id)
+            )
+            const now = yield* DateTime.nowAsDate
+            const nexts: Array<TicketDocument> = []
+            for (const existing of originals) {
+              const type = fields.type ?? existing.type
+              const parent =
+                fields.parent === undefined
+                  ? existing.parent
+                  : (fields.parent ?? undefined)
+              if (parent !== undefined && type === "epic") {
+                return yield* new Validation({ reason: "epic_with_parent" })
+              }
+              if (parent === existing.id) {
+                return yield* new Validation({
+                  reason: `invalid_parent:${parent}`
+                })
+              }
+              const plannedInSprint =
+                sprint === undefined
+                  ? openSprints.some((group) =>
+                      group.tickets.includes(existing.id)
+                    )
+                  : sprint !== null
+              if (type === "epic" && plannedInSprint) {
+                return yield* new Validation({ reason: "epic_in_sprint" })
+              }
+              if (
+                existing.type === "epic" &&
+                type !== "epic" &&
+                (yield* hasSubTickets(indexProject, userId, existing.id))
+              ) {
+                return yield* new Validation({
+                  reason: "epic_has_sub_tickets"
+                })
+              }
+              nexts.push(
+                touchesTickets
+                  ? {
+                      ...existing,
+                      status: fields.status ?? existing.status,
+                      type,
+                      priority: fields.priority ?? existing.priority,
+                      tags:
+                        fields.tags !== undefined
+                          ? [...fields.tags]
+                          : existing.tags,
+                      assignees:
+                        fields.assignees !== undefined
+                          ? [...fields.assignees]
+                          : existing.assignees,
+                      parent,
+                      updatedBy: userId,
+                      updatedAt: now
+                    }
+                  : existing
+              )
+            }
+
+            if (touchesTickets) {
+              yield* Effect.gen(function* () {
+                for (const next of nexts) {
+                  yield* ticketDocs.write(orgSlug, slug, next.id, next)
+                  written.push(next)
+                  yield* ticketIndex.upsertTicket(indexProject, next)
+                }
+              }).pipe(Effect.onError(() => restoreWritten(originals)))
+            }
+            return { originals, nexts }
+          })
+        )
+
+        const sprintChange = yield* Effect.gen(function* () {
+          if (sprint === undefined) return null
+          if (sprint !== null) {
+            return yield* groups.addTickets(orgSlug, userId, slug, sprint, ids)
+          }
+          for (const group of openSprints) {
+            const leaving = group.tickets.filter((id) => ids.includes(id))
+            if (leaving.length === 0) continue
+            yield* groups.removeTickets(
+              orgSlug,
+              userId,
+              slug,
+              group.id,
+              leaving
+            )
+          }
+          return null
+        }).pipe(
+          Effect.onError(() =>
+            withTicketLocks(orgSlug, slug, ids, restoreWritten(originals))
+          )
+        )
+
+        return {
+          tickets: nexts.map((next) => documentToTicket(next, projectGithub)),
+          sprint: sprintChange
+        }
+      })
 
     const discardSplitResult = (
       orgSlug: string,
@@ -1344,6 +1728,13 @@ export const TicketsLive = Layer.effect(
         )
 
         const originalId = makeTicketId(id)
+        if (
+          input.results.some(
+            (result) => result.type === "epic" && result.sprintId !== null
+          )
+        ) {
+          return yield* new Validation({ reason: "epic_in_sprint" })
+        }
         const sprintTargets = input.results
           .map((result) => result.sprintId)
           .filter((sprintId) => sprintId !== null)
@@ -1376,6 +1767,19 @@ export const TicketsLive = Layer.effect(
           id,
           Effect.gen(function* () {
             const original = yield* ticketDocs.read(orgSlug, slug, id)
+            if (
+              original.parent !== undefined &&
+              retainedInput.type === "epic"
+            ) {
+              return yield* new Validation({ reason: "epic_with_parent" })
+            }
+            if (
+              original.type === "epic" &&
+              retainedInput.type !== "epic" &&
+              (yield* hasSubTickets(indexProject, userId, original.id))
+            ) {
+              return yield* new Validation({ reason: "epic_has_sub_tickets" })
+            }
             const now = yield* DateTime.nowAsDate
             const persisted: Array<TicketDocument> = []
 
@@ -1401,6 +1805,8 @@ export const TicketsLive = Layer.effect(
                       prState: null,
                       lastTransitionedPr: null,
                       splitFrom: originalId,
+                      parent:
+                        result.type === "epic" ? undefined : original.parent,
                       assignees: [...result.assignees],
                       archivedAt: original.archivedAt,
                       createdBy: userId,
@@ -1562,6 +1968,44 @@ export const TicketsLive = Layer.effect(
                 Effect.andThen(ticketIndex.deleteTicket(indexProject, id))
               )
           )
+        )
+        yield* releaseSubTickets(orgSlug, ownerId, slug, indexProject, id)
+      })
+
+    const releaseSubTickets = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      indexProject: TicketIndexProject,
+      epicId: string
+    ): Effect.Effect<void> =>
+      Effect.gen(function* () {
+        const children = (yield* ticketIndex.list(indexProject)).filter(
+          (entry) => entry.parent === epicId
+        )
+        const now = yield* DateTime.nowAsDate
+        yield* Effect.forEach(
+          children,
+          (child) =>
+            withTicketDocumentLock(
+              orgSlug,
+              slug,
+              child.id,
+              ticketDocs.update(
+                orgSlug,
+                slug,
+                child.id,
+                (existing) =>
+                  Effect.succeed({
+                    ...existing,
+                    parent: undefined,
+                    updatedBy: userId,
+                    updatedAt: now
+                  }),
+                (next) => ticketIndex.upsertTicket(indexProject, next)
+              )
+            ).pipe(Effect.ignore),
+          { discard: true }
         )
       })
 
@@ -2302,6 +2746,8 @@ export const TicketsLive = Layer.effect(
       list,
       sections,
       sprintSections,
+      epicSections,
+      bulkUpdate,
       count,
       search,
       listInGroup,

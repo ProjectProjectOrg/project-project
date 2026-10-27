@@ -58,6 +58,7 @@ export interface TicketIndexEntry {
   readonly checksHeadSha: string | null
   readonly checksUpdatedAt: Date | null
   readonly assignees: ReadonlyArray<string>
+  readonly parent: TicketId | null
   readonly archivedAt: Date | null
   readonly createdBy: string
   readonly createdAt: Date
@@ -68,6 +69,17 @@ export type TicketIndexQueryEntry = Readonly<{
   entry: TicketIndexEntry
   sortValue: string
   orderKey: string
+}>
+
+export type TicketIndexParentCount = Readonly<{
+  parent: TicketId | null
+  status: string
+  total: number
+}>
+
+export type TicketIndexParentGroups = Readonly<{
+  counts: ReadonlyArray<TicketIndexParentCount>
+  entries: ReadonlyArray<TicketIndexQueryEntry>
 }>
 
 export type TicketIndexOrgEntry = Readonly<{
@@ -182,6 +194,11 @@ export interface TicketIndexShape {
     query: TicketListQuery,
     options: TicketIndexQueryOptions
   ) => Effect.Effect<ReadonlyArray<TicketIndexQueryEntry>>
+  readonly groupByParent: (
+    project: TicketIndexProject,
+    query: TicketListQuery,
+    options: TicketIndexQueryOptions
+  ) => Effect.Effect<TicketIndexParentGroups>
   readonly orderKeyFor: (
     project: TicketIndexProject,
     ticketId: string,

@@ -1,13 +1,18 @@
-import { useAtomSet } from "@effect/atom-react"
-import type { Group, Member, Ticket, UpdateTicketInput } from "@pp/shared"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import type { Member, Ticket, TicketId, UpdateTicketInput } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
+import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { AnimatePresence, motion } from "motion/react"
-import { memo, useRef, useState, type ReactNode } from "react"
+import { memo, useRef, useState } from "react"
 
 import { TicketGitChip } from "@/components/TicketGit"
 import { TicketHoverCard } from "@/components/TicketHoverCard"
 import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
+import {
+  sprintListRequest,
+  sprintMembership
+} from "@/features/sprints/atoms/sprintList"
 import {
   updateBacklogTicket,
   type BacklogRequest
@@ -16,20 +21,16 @@ import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 
 import { AssigneeField } from "./AssigneeField"
+import { EpicLink, EpicSeparator, useEpicTitle } from "./EpicLabel"
 import { PriorityButton } from "./PriorityField"
+import { TicketRowActions } from "./RowActions"
 import { SprintField } from "./SprintField"
 import { StatusButton } from "./StatusField"
-import { TypeButton } from "./TypeField"
 
 const TICKET_PREVIEW_DELAY_MS = 550
 
-export const rowGridClassName = (showExtraActionsCol: boolean) =>
-  cn(
-    "grid gap-y-1",
-    showExtraActionsCol
-      ? "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto]"
-      : "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto]"
-  )
+export const rowGridClassName =
+  "grid gap-y-1 grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto]"
 
 type RowPatchSource =
   | Readonly<{
@@ -45,10 +46,7 @@ type RowProps = RowPatchSource &
     slug: string
     ticket: Ticket
     members: ReadonlyArray<Member>
-    showSprintCol: boolean
-    showExtraActionsCol: boolean
-    sprintMembership: Group | null
-    extraRowActions?: (ticket: Ticket) => ReactNode
+    showParent?: boolean
     pending?: boolean
     previewOpen: boolean
     onPreviewPointerEnter: (ticketId: Ticket["id"]) => void
@@ -77,10 +75,7 @@ function RowView({
   slug,
   ticket,
   members,
-  showSprintCol,
-  showExtraActionsCol,
-  sprintMembership,
-  extraRowActions,
+  showParent = true,
   pending,
   previewOpen,
   onPreviewPointerEnter,
@@ -118,40 +113,49 @@ function RowView({
                 "relative isolate rounded-lg transition-colors hover:bg-muted/60"
             )}
           >
-            <Link
-              to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-              params={{ orgSlug, slug, id: ticket.id }}
-              preload="intent"
-              data-row-link
-              className="col-start-4 row-start-1 flex min-w-0 items-center self-stretch outline-none after:absolute after:inset-0 after:z-10 after:rounded-lg after:content-[''] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
-            >
-              <PopoverTrigger
-                openOnHover
-                delay={TICKET_PREVIEW_DELAY_MS}
-                nativeButton={false}
-                onPointerEnter={handleTitlePointerEnter}
-                onPointerLeave={handleTitlePointerLeave}
-                render={(triggerProps) => (
-                  <div
-                    {...triggerProps}
-                    role={undefined}
-                    tabIndex={undefined}
-                    aria-controls={undefined}
-                    aria-expanded={undefined}
-                    aria-haspopup={undefined}
-                    onClick={undefined}
-                    onKeyDown={undefined}
-                    onKeyUp={undefined}
-                    onPointerDown={undefined}
-                    className="relative z-20 flex min-w-0 flex-1 items-center self-stretch"
-                  />
-                )}
+            <div className="col-start-4 row-start-1 flex min-w-0 items-center self-stretch">
+              {showParent && ticket.parent && (
+                <EpicPrefix
+                  orgSlug={orgSlug}
+                  slug={slug}
+                  epicId={ticket.parent}
+                />
+              )}
+              <Link
+                to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+                params={{ orgSlug, slug, id: ticket.id }}
+                preload="intent"
+                data-row-link
+                className="flex min-w-0 flex-1 items-center self-stretch outline-none after:absolute after:inset-0 after:z-10 after:rounded-lg after:content-[''] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
               >
-                <span className="min-w-0 truncate text-sm font-medium">
-                  {ticket.title}
-                </span>
-              </PopoverTrigger>
-            </Link>
+                <PopoverTrigger
+                  openOnHover
+                  delay={TICKET_PREVIEW_DELAY_MS}
+                  nativeButton={false}
+                  onPointerEnter={handleTitlePointerEnter}
+                  onPointerLeave={handleTitlePointerLeave}
+                  render={(triggerProps) => (
+                    <div
+                      {...triggerProps}
+                      role={undefined}
+                      tabIndex={undefined}
+                      aria-controls={undefined}
+                      aria-expanded={undefined}
+                      aria-haspopup={undefined}
+                      onClick={undefined}
+                      onKeyDown={undefined}
+                      onKeyUp={undefined}
+                      onPointerDown={undefined}
+                      className="relative z-20 flex min-w-0 flex-1 items-center self-stretch"
+                    />
+                  )}
+                >
+                  <span className="min-w-0 truncate text-sm font-medium">
+                    {ticket.title}
+                  </span>
+                </PopoverTrigger>
+              </Link>
+            </div>
             <StatusButton
               orgSlug={orgSlug}
               slug={slug}
@@ -179,15 +183,7 @@ function RowView({
             </span>
             <div className="flex shrink-0 items-center justify-end gap-2">
               <TicketGitChip orgSlug={orgSlug} slug={slug} ticket={ticket} />
-              {showSprintCol && (
-                <SprintField
-                  variant="responsive"
-                  orgSlug={orgSlug}
-                  slug={slug}
-                  ticketId={ticket.id}
-                  membership={sprintMembership}
-                />
-              )}
+              <RowSprint orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
               <AssigneeField
                 ticket={ticket}
                 members={members}
@@ -195,16 +191,14 @@ function RowView({
                 className="hidden sm:inline-flex"
               />
             </div>
-            <TypeButton
-              ticket={ticket}
-              onPatch={onPatch}
-              className="hidden sm:inline-flex"
-            />
-            {showExtraActionsCol && (
-              <span className="relative z-20 inline-flex shrink-0 items-center">
-                {extraRowActions?.(ticket)}
-              </span>
-            )}
+            <span className="relative z-20 inline-flex shrink-0 items-center">
+              <TicketRowActions
+                orgSlug={orgSlug}
+                slug={slug}
+                id={ticket.id}
+                archived={ticket.archivedAt !== null}
+              />
+            </span>
           </div>
           {previewMounted && (
             <TicketHoverCard
@@ -217,6 +211,38 @@ function RowView({
         </Popover>
       </DeferredDropdownMenus>
     </div>
+  )
+}
+
+function RowSprint({
+  orgSlug,
+  slug,
+  ticketId
+}: Readonly<{ orgSlug: string; slug: string; ticketId: TicketId }>) {
+  const membership = useAtomValue(
+    sprintMembership(sprintListRequest(orgSlug, slug))
+  )
+  if (!Result.isSuccess(membership) || membership.value.size === 0) return null
+  return (
+    <SprintField
+      variant="responsive"
+      orgSlug={orgSlug}
+      slug={slug}
+      ticketId={ticketId}
+      membership={membership.value.get(ticketId) ?? null}
+    />
+  )
+}
+
+function EpicPrefix(
+  ref: Readonly<{ orgSlug: string; slug: string; epicId: TicketId }>
+) {
+  if (useEpicTitle(ref) === null) return null
+  return (
+    <>
+      <EpicLink {...ref} className="text-sm" />
+      <EpicSeparator className="shrink-0 text-sm" />
+    </>
   )
 }
 

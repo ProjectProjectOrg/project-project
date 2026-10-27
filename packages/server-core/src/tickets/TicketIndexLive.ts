@@ -62,6 +62,7 @@ import {
   type TicketIndexAssignedScope,
   type TicketIndexCounts,
   type TicketIndexOrgEntry,
+  type TicketIndexParentGroups,
   type TicketIndexProject,
   type TicketIndexProjectPreview,
   type TicketIndexQueryEntry,
@@ -91,6 +92,7 @@ const ticketIndexRowFor = (
   priority: document.priority,
   tags: [...document.tags],
   assignees: [...document.assignees],
+  parent: document.parent ?? null,
   branch: document.branch,
   pr: document.pr,
   prState: document.prState,
@@ -295,6 +297,17 @@ const ticketWhereConditions = (
     conditions.push(
       filter.hasPr ? isNotNull(ticketIndex.pr) : isNull(ticketIndex.pr)
     )
+  }
+  if (filter?.parent !== undefined) {
+    const parentIds = filter.parent.filter((parent) => parent !== "none")
+    const parentConditions: Array<SQL> = []
+    if (filter.parent.includes("none")) {
+      parentConditions.push(isNull(ticketIndex.parent))
+    }
+    if (parentIds.length > 0) {
+      parentConditions.push(inArray(ticketIndex.parent, parentIds))
+    }
+    conditions.push(or(...parentConditions) ?? drizzleSql`false`)
   }
   if (filter?.updatedAfter !== undefined) {
     conditions.push(gt(ticketIndex.updatedAt, filter.updatedAfter))
@@ -505,6 +518,7 @@ export const TicketIndexLive = Layer.effect(
       checksHeadSha: row.checksHeadSha,
       checksUpdatedAt: row.checksUpdatedAt,
       assignees: row.assignees,
+      parent: row.parent === null ? null : makeTicketId(row.parent),
       archivedAt: row.archivedAt,
       createdBy: row.createdBy,
       createdAt: row.createdAt,
@@ -572,6 +586,70 @@ export const TicketIndexLive = Layer.effect(
           ),
           Effect.orDie
         )
+    }
+
+    const groupByParent = (
+      project: TicketIndexProject,
+      ticketQuery: TicketListQuery,
+      options: TicketIndexQueryOptions
+    ): Effect.Effect<TicketIndexParentGroups> => {
+      if (options.ticketIds?.length === 0) {
+        return Effect.succeed({ counts: [], entries: [] })
+      }
+      const expression = ticketSortExpression(ticketQuery.sort)
+      const direction =
+        ticketQuery.sort.dir === "asc" ? drizzleSql`asc` : drizzleSql`desc`
+      const counts = db
+        .select({
+          parent: ticketIndex.parent,
+          status: ticketIndex.status,
+          total: drizzleCount()
+        })
+        .from(ticketIndex)
+        .where(
+          and(
+            ...ticketWhereConditions(
+              project,
+              { ...ticketQuery, status: undefined },
+              options
+            )
+          )
+        )
+        .groupBy(ticketIndex.parent, ticketIndex.status)
+      const ranked = db
+        .select({
+          ...getTableColumns(ticketIndex),
+          sortValue: expression.as("sort_value"),
+          rank: drizzleSql<number>`row_number() over (partition by ${ticketIndex.parent} order by ${expression} ${direction}, ${ticketIndex.ticketId} ${direction})`.as(
+            "rank"
+          )
+        })
+        .from(ticketIndex)
+        .where(and(...ticketWhereConditions(project, ticketQuery, options)))
+        .as("ranked")
+      const pages = db
+        .select()
+        .from(ranked)
+        .where(lte(ranked.rank, Math.max(1, options.limit)))
+        .orderBy(asc(ranked.rank))
+      return Effect.all([counts, pages], { concurrency: 2 }).pipe(
+        Effect.map(([countRows, pageRows]) => ({
+          counts: countRows.map((row) => ({
+            parent: row.parent === null ? null : makeTicketId(row.parent),
+            status: row.status,
+            total: row.total
+          })),
+          entries: pageRows.map(({ sortValue, rank: _rank, ...row }) => {
+            const value = sortValueText(sortValue)
+            return {
+              entry: toEntry(row),
+              sortValue: value,
+              orderKey: toOrderKey(value, row.ticketId)
+            }
+          })
+        })),
+        Effect.orDie
+      )
     }
 
     const projectsFor = (
@@ -1366,6 +1444,7 @@ export const TicketIndexLive = Layer.effect(
       list,
       query,
       orderKeyFor,
+      groupByParent,
       count,
       listIds,
       existingIds,

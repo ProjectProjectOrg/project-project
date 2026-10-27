@@ -24,10 +24,15 @@ import { useProject } from "../-context"
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 
+const TicketSplitSearch = Schema.Struct({
+  from: Schema.optional(Schema.Literal("list"))
+})
+
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/tickets/$id_/split"
 )({
   component: TicketSplitRoute,
+  validateSearch: Schema.toStandardSchemaV1(TicketSplitSearch),
   loader: ({ context, params }) => {
     const id = decodeTicketId(params.id)
     context.registry.mount(
@@ -52,6 +57,7 @@ export const Route = createFileRoute(
 
 function TicketSplitRoute() {
   const { orgSlug, slug, id } = Route.useParams()
+  const { from } = Route.useSearch()
   const ticketId = decodeTicketId(id)
   const req = useMemo(
     () => ticketRequest(orgSlug, slug, ticketId),
@@ -79,6 +85,7 @@ function TicketSplitRoute() {
         slug={slug}
         ticket={value}
         members={project.members}
+        openedFromList={from === "list"}
       />
     )
   })

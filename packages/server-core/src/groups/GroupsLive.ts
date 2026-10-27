@@ -115,6 +115,21 @@ export const GroupsLive = Layer.effect(
         }
       })
 
+    const rejectEpicsInSprint = (
+      orgSlug: string,
+      slug: string,
+      kind: GroupKind,
+      ticketIds: ReadonlyArray<string>
+    ): Effect.Effect<void, NotFound | Validation> =>
+      Effect.gen(function* () {
+        if (kind !== "sprint" || ticketIds.length === 0) return
+        const project = yield* ticketIndex.projectFor(orgSlug, slug)
+        const entries = yield* ticketIndex.list(project, ticketIds)
+        if (entries.some((entry) => entry.type === "epic")) {
+          return yield* new Validation({ reason: "epic_in_sprint" })
+        }
+      })
+
     const validateInterval = (
       startsAt: Date | null,
       endsAt: Date | null
@@ -306,6 +321,7 @@ export const GroupsLive = Layer.effect(
 
           const requestedTickets = input.tickets ?? []
           yield* validateTicketIds(orgSlug, slug, requestedTickets)
+          yield* rejectEpicsInSprint(orgSlug, slug, kind, requestedTickets)
           yield* validateInterval(input.startsAt ?? null, input.endsAt ?? null)
 
           const ids = yield* groupDocs.listIds(orgSlug, slug)
@@ -472,7 +488,11 @@ export const GroupsLive = Layer.effect(
       input: UpdateGroupTicketsInput
     ): Effect.Effect<
       UpdateGroupTicketsOutput,
-      NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+      | NotFound
+      | Forbidden
+      | SprintCompletedImmutable
+      | Validation
+      | MarkdownError
     > =>
       withProjectLock(
         orgSlug,
@@ -485,6 +505,12 @@ export const GroupsLive = Layer.effect(
             return yield* new SprintCompletedImmutable()
           }
           yield* validateTicketIds(orgSlug, slug, input.tickets)
+          yield* rejectEpicsInSprint(
+            orgSlug,
+            slug,
+            existing.kind,
+            input.tickets
+          )
           return yield* applyTicketsChange(
             orgSlug,
             slug,
@@ -502,7 +528,11 @@ export const GroupsLive = Layer.effect(
       ticketIds: ReadonlyArray<TicketId>
     ): Effect.Effect<
       UpdateGroupTicketsOutput,
-      NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+      | NotFound
+      | Forbidden
+      | SprintCompletedImmutable
+      | Validation
+      | MarkdownError
     > =>
       withProjectLock(
         orgSlug,
@@ -530,6 +560,7 @@ export const GroupsLive = Layer.effect(
           }
 
           yield* validateTicketIds(orgSlug, slug, additions)
+          yield* rejectEpicsInSprint(orgSlug, slug, existing.kind, additions)
           const merged = [...existing.tickets, ...additions]
           return yield* applyTicketsChange(orgSlug, slug, existing, merged)
         })

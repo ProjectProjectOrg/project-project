@@ -1,11 +1,15 @@
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import {
+  EPIC_SECTION_NONE,
   GroupId,
+  SPRINT_SECTION_UNSCHEDULED,
   sprintSectionKey,
+  TicketType,
+  type EpicSectionKey,
   type Group,
+  type QuickCreateTicketInput,
   type TicketListQuery,
-  type TicketStatus,
-  type TicketType
+  type TicketStatus
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -21,7 +25,8 @@ import {
   useState,
   type FormEvent,
   type KeyboardEvent,
-  type RefObject
+  type RefObject,
+  Fragment
 } from "react"
 
 import { CollapsingLabel } from "@/components/SegmentedTabs"
@@ -35,6 +40,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { me } from "@/features/auth/atoms/auth"
@@ -52,8 +58,9 @@ import {
   quickCreateBacklogTicket,
   type BacklogRequest
 } from "@/features/tickets/atoms/backlog"
+import { quickCreateEpicSectionsTicket } from "@/features/tickets/atoms/epicSections"
 import { quickCreateSprintSectionsTicket } from "@/features/tickets/atoms/sprintSections"
-import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
+import { NON_EPIC_TYPES, TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -77,7 +84,7 @@ export function SectionTicketCreator({
   status: TicketStatus
   query: TicketListQuery
   snapshotReq?: BacklogRequest
-  variant?: "status" | "flat"
+  variant?: "status" | "flat" | "epic"
   containerRef: RefObject<HTMLDivElement | null>
   onDone: () => void
 }) {
@@ -106,9 +113,20 @@ export function SectionTicketCreator({
   const createSprintState = useAtomValue(
     quickCreateSprintSectionsTicket({ req: sprintReqForCreate, key: sprintKey })
   )
-  const create = variant === "flat" ? createSprint : createSections
-  const createState =
-    variant === "flat" ? createSprintState : createSectionsState
+  const epicKey: EpicSectionKey = query.parent?.[0] ?? EPIC_SECTION_NONE
+  const parent = epicKey === EPIC_SECTION_NONE ? undefined : epicKey
+  const createEpic = useAtomSet(
+    quickCreateEpicSectionsTicket({ req: sprintReqForCreate, key: epicKey }),
+    { mode: "promiseExit" }
+  )
+  const createEpicState = useAtomValue(
+    quickCreateEpicSectionsTicket({ req: sprintReqForCreate, key: epicKey })
+  )
+  const { create, state: createState } = {
+    status: { create: createSections, state: createSectionsState },
+    flat: { create: createSprint, state: createSprintState },
+    epic: { create: createEpic, state: createEpicState }
+  }[variant]
   const submitting = createState.waiting
   const error = Result.isFailure(createState)
     ? creatorErrorText(createState)
@@ -142,6 +160,11 @@ export function SectionTicketCreator({
     : null
   const isExplicitNoSprintFilter = singleGroupIdFilter === "ungrouped"
   const hasSprints = sprints.some((s) => s.completedAt === null)
+  const sprintBound =
+    activeSprintId !== null ||
+    (variant === "flat" && sprintKey !== SPRINT_SECTION_UNSCHEDULED)
+  const types =
+    sprintBound || parent !== undefined ? NON_EPIC_TYPES : TicketType.literals
   const showSprintAddon =
     activeSprintId === null && !isExplicitNoSprintFilter && hasSprints
 
@@ -160,7 +183,9 @@ export function SectionTicketCreator({
     choice: templateChoice,
     onChoose: (_template, ticketType) => {
       setTitle("")
-      if (ticketType !== null) applyTemplateDefault(ticketType)
+      if (ticketType !== null && types.includes(ticketType)) {
+        applyTemplateDefault(ticketType)
+      }
     }
   })
   const menuOpen = typeMenuOpen || sprintMenuOpen
@@ -229,14 +254,15 @@ export function SectionTicketCreator({
     const submittedTitle = trimmed
     setTitle("")
     inputRef.current?.focus()
+    const fields: QuickCreateTicketInput = {
+      title: submittedTitle,
+      type,
+      status,
+      ...templateChoice.payload
+    }
     const exit = await create({
       clientId: Effect.runSync(Random.next).toString(36),
-      ticket: {
-        title: submittedTitle,
-        type,
-        status,
-        ...templateChoice.payload
-      },
+      ticket: parent === undefined ? fields : { ...fields, parent },
       viewerId,
       projectPrefix,
       prediction: templateChoice.prediction
@@ -247,7 +273,7 @@ export function SectionTicketCreator({
       return
     }
     const attachTo = activeSprintId ?? selectedSprint?.id ?? null
-    if (attachTo !== null && variant !== "flat") {
+    if (attachTo !== null && variant !== "flat" && type !== "epic") {
       assignTicketToSprint(registry, sprintReq, exit.value.id, attachTo)
     }
   }
@@ -262,61 +288,62 @@ export function SectionTicketCreator({
 
   const TypeIcon = TYPE_META[type].icon
 
-  const sprintAddon = showSprintAddon ? (
-    <SprintAssignMenu
-      open={sprintMenuOpen}
-      onOpenChange={(open) => {
-        setSprintMenuOpen(open)
-        refocusAfterMenu(open)
-      }}
-      finalFocus={() => {
-        setClosingMenu(false)
-        return inputRef.current
-      }}
-      sprints={sprints}
-      selectedId={selectedSprint?.id ?? null}
-      onSelect={(s) => {
-        setSelectedSprint(s)
-        setSprintCleared(false)
-      }}
-      onClear={() => {
-        setSelectedSprint(null)
-        setSprintCleared(true)
-      }}
-      clearLabel={m.tickets_sprint_popover_no_assignment_action()}
-      trigger={
-        <button
-          type="button"
-          aria-label={
-            selectedSprint
-              ? m.tickets_sprint_chip_aria({ name: selectedSprint.name })
-              : m.tickets_assign_sprint_chip()
-          }
-          className={cn(
-            "transition-expand inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2",
-            BADGE_TONES.muted
-          )}
-        >
-          {selectedSprint ? (
-            <SprintStateIcon sprint={selectedSprint} size="md" />
-          ) : (
-            <Plus className="size-4 shrink-0" strokeWidth={1.75} />
-          )}
-          <CollapsingLabel
-            show
-            contentKey={selectedSprint?.id ?? "none"}
-            gap={6}
+  const sprintAddon =
+    showSprintAddon && type !== "epic" ? (
+      <SprintAssignMenu
+        open={sprintMenuOpen}
+        onOpenChange={(open) => {
+          setSprintMenuOpen(open)
+          refocusAfterMenu(open)
+        }}
+        finalFocus={() => {
+          setClosingMenu(false)
+          return inputRef.current
+        }}
+        sprints={sprints}
+        selectedId={selectedSprint?.id ?? null}
+        onSelect={(s) => {
+          setSelectedSprint(s)
+          setSprintCleared(false)
+        }}
+        onClear={() => {
+          setSelectedSprint(null)
+          setSprintCleared(true)
+        }}
+        clearLabel={m.tickets_sprint_popover_no_assignment_action()}
+        trigger={
+          <button
+            type="button"
+            aria-label={
+              selectedSprint
+                ? m.tickets_sprint_chip_aria({ name: selectedSprint.name })
+                : m.tickets_assign_sprint_chip()
+            }
+            className={cn(
+              "transition-expand inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2",
+              BADGE_TONES.muted
+            )}
           >
-            <span className="max-w-[10ch] truncate text-xs">
-              {selectedSprint
-                ? selectedSprint.name
-                : m.tickets_assign_sprint_chip()}
-            </span>
-          </CollapsingLabel>
-        </button>
-      }
-    />
-  ) : null
+            {selectedSprint ? (
+              <SprintStateIcon sprint={selectedSprint} size="md" />
+            ) : (
+              <Plus className="size-4 shrink-0" strokeWidth={1.75} />
+            )}
+            <CollapsingLabel
+              show
+              contentKey={selectedSprint?.id ?? "none"}
+              gap={6}
+            >
+              <span className="max-w-[10ch] truncate text-xs">
+                {selectedSprint
+                  ? selectedSprint.name
+                  : m.tickets_assign_sprint_chip()}
+              </span>
+            </CollapsingLabel>
+          </button>
+        }
+      />
+    ) : null
 
   return (
     <form
@@ -353,17 +380,19 @@ export function SectionTicketCreator({
             return inputRef.current
           }}
         >
-          {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
+          {types.map((t) => {
             const TIcon = TYPE_META[t].icon
             return (
-              <DropdownMenuItem
-                key={t}
-                onClick={() => setType(t)}
-                className="cursor-pointer"
-              >
-                <TIcon className="size-4" strokeWidth={1.75} />
-                {TYPE_LABELS[t]()}
-              </DropdownMenuItem>
+              <Fragment key={t}>
+                {t === "epic" && <DropdownMenuSeparator />}
+                <DropdownMenuItem
+                  onClick={() => setType(t)}
+                  className="cursor-pointer"
+                >
+                  <TIcon className="size-4" strokeWidth={1.75} />
+                  {TYPE_LABELS[t]()}
+                </DropdownMenuItem>
+              </Fragment>
             )
           })}
         </DropdownMenuContent>

@@ -46,7 +46,7 @@ const layer = (overrides: Partial<Layer>): Layer => ({
 })
 
 const NO_DEFAULTS = {
-  org: { feat: null, bug: null, chore: null, other: null },
+  org: { feat: null, bug: null, chore: null, other: null, epic: null },
   project: null
 } as const
 
@@ -101,7 +101,8 @@ describe("resolveLibrary", () => {
       feat: null,
       bug: null,
       chore: null,
-      other: null
+      other: null,
+      epic: null
     })
     expect(isLibrary(empty)).toBe(true)
   })
@@ -202,7 +203,8 @@ describe("template defaults", () => {
       feat: null,
       bug: "bug-report",
       chore: null,
-      other: null
+      other: null,
+      epic: null
     })
     expect(library.ownDefaults).toEqual({ bug: "bug-report", feat: "feature" })
     expect(library.inheritedDefaults).toEqual(NO_DEFAULTS.org)
@@ -222,13 +224,15 @@ describe("template defaults", () => {
       feat: null,
       bug: "spike",
       chore: null,
-      other: null
+      other: null,
+      epic: null
     })
     expect(library.inheritedDefaults).toEqual({
       feat: null,
       bug: "bug-report",
       chore: "chore",
-      other: null
+      other: null,
+      epic: null
     })
     expect(library.ownDefaults).toEqual({ bug: "spike", chore: null })
   })
@@ -319,7 +323,8 @@ describe("ticketTypeForTemplate", () => {
     feat: "feature",
     bug: "bug-report",
     chore: "bug-report",
-    other: null
+    other: null,
+    epic: null
   })
 
   it("is the one type a template is the default for", () => {

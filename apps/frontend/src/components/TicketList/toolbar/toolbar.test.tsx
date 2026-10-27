@@ -38,7 +38,9 @@ const commit = vi.fn<(query: TicketListQuery) => void>()
 function Toolbar({
   variant = "panel"
 }: Readonly<{ variant?: "legacy" | "panel" }>) {
-  const [grouping, setGrouping] = useState<"status" | "sprint">("status")
+  const [grouping, setGrouping] = useState<"status" | "sprint" | "epic">(
+    "status"
+  )
   const [query, setQuery] = useState(
     decodeTicketListQuery({
       type: ["bug"],

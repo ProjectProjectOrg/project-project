@@ -40,6 +40,7 @@ const TicketFrontmatterOnDisk = Schema.Struct({
   ),
   assignees: Schema.optionalKey(Schema.Array(Schema.String)),
   assignee: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  parent: Schema.optionalKey(TicketId),
   archivedAt: Schema.NullOr(Schema.DateFromString).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
   ),
@@ -54,6 +55,7 @@ const TicketFrontmatterValue = Schema.Struct(
   Struct.evolve(Struct.omit(TicketFrontmatterOnDisk.fields, ["assignee"]), {
     branchAutoLinkDisabled: () => Schema.optional(Schema.Boolean),
     assignees: () => Schema.Array(Schema.String),
+    parent: () => Schema.optional(TicketId),
     splitFrom: () => Schema.optional(TicketId),
     updatedBy: () => Schema.String
   })
@@ -69,6 +71,7 @@ export const TicketFrontmatter = TicketFrontmatterOnDisk.pipe(
             "assignee",
             "assignees",
             "updatedBy",
+            "parent",
             "splitFrom"
           ]),
           {
@@ -78,15 +81,17 @@ export const TicketFrontmatter = TicketFrontmatterOnDisk.pipe(
                 ? []
                 : [input.assignee]),
             updatedBy: input.updatedBy ?? input.createdBy,
+            ...(input.parent ? { parent: input.parent } : {}),
             ...(input.splitFrom ? { splitFrom: input.splitFrom } : {})
           }
         ),
       encode: (input) =>
         Object.assign(
-          Struct.omit(input, ["branchAutoLinkDisabled", "splitFrom"]),
+          Struct.omit(input, ["branchAutoLinkDisabled", "parent", "splitFrom"]),
           input.branchAutoLinkDisabled
             ? { branchAutoLinkDisabled: true as const }
             : {},
+          input.parent ? { parent: input.parent } : {},
           input.splitFrom ? { splitFrom: input.splitFrom } : {}
         )
     })

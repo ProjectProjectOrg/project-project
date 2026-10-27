@@ -284,7 +284,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["feat", "bug", "chore", "other"]
+              "enum": ["feat", "bug", "chore", "other", "epic"]
             }
           },
           {
@@ -371,6 +371,28 @@
                 {
                   "type": "string",
                   "pattern": "^G-[1-9][0-9]*$"
+                }
+              ]
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "parent": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["none"]
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
                 }
               ]
             }
@@ -765,7 +787,7 @@
         "anyOf": [
           {
             "type": "string",
-            "enum": ["feat", "bug", "chore", "other"]
+            "enum": ["feat", "bug", "chore", "other", "epic"]
           },
           {
             "type": "null"
@@ -814,6 +836,17 @@
         "anyOf": [
           {
             "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "parent": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
           },
           {
             "type": "null"
@@ -892,7 +925,7 @@
         "anyOf": [
           {
             "type": "string",
-            "enum": ["feat", "bug", "chore", "other"]
+            "enum": ["feat", "bug", "chore", "other", "epic"]
           },
           {
             "type": "null"
@@ -941,6 +974,24 @@
         "anyOf": [
           {
             "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "parent": {
+        "anyOf": [
+          {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           {
             "type": "null"

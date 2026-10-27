@@ -791,6 +791,7 @@ const makeFakeIndex = (overrides: Partial<TicketIndexShape> = {}) => {
     list: () => Effect.succeed([]),
     query: () => Effect.succeed([]),
     orderKeyFor: () => Effect.succeed(null),
+    groupByParent: () => Effect.succeed({ counts: [], entries: [] }),
     count: () => Effect.succeed({ total: 0, byStatus: {} }),
     listIds: () => Effect.succeed([]),
     existingIds: () => Effect.succeed(new Set()),

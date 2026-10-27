@@ -1,9 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import type {
-  Group,
   Member,
   ProjectStatus,
-  Ticket,
   TicketId,
   TicketListQuery,
   TicketStatus
@@ -11,7 +9,7 @@ import type {
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { FilterX, ListChecks } from "lucide-react"
-import { useMemo, type ReactNode } from "react"
+import { useMemo } from "react"
 
 import { ErrorPage } from "@/components/ErrorPage"
 import { boardStatusesFor } from "@/components/sprints/board-utils"
@@ -46,16 +44,12 @@ export function SegmentedList({
   slug,
   query,
   members,
-  extraRowActions,
-  sprintMembership,
   snapshot
 }: {
   orgSlug: string
   slug: string
   query: TicketListQuery
   members: ReadonlyArray<Member>
-  extraRowActions?: (ticket: Ticket) => ReactNode
-  sprintMembership?: ReadonlyMap<TicketId, Group>
   snapshot: BacklogValue
 }) {
   const router = useRouter()
@@ -121,10 +115,6 @@ export function SegmentedList({
   }, [statuses, query.status, hasActiveFilter, byStatus])
 
   const persistKey = statusCollapseKey(orgSlug, slug)
-
-  const showSprintCol =
-    sprintMembership !== undefined && sprintMembership.size > 0
-  const showExtraActionsCol = extraRowActions !== undefined
 
   if (!Result.isSuccess(statusesResult)) {
     return Result.matchWithError(statusesResult, {
@@ -205,10 +195,6 @@ export function SegmentedList({
           count={byStatus[status] ?? 0}
           page={sections[status] ?? EMPTY_PAGE}
           members={members}
-          sprintMembership={sprintMembership}
-          extraRowActions={extraRowActions}
-          showSprintCol={showSprintCol}
-          showExtraActionsCol={showExtraActionsCol}
           activePreviewId={preview.activePreviewId}
           onPreviewPointerEnter={preview.onPreviewPointerEnter}
           onPreviewOpenChange={preview.onPreviewOpenChange}
@@ -229,10 +215,6 @@ function StatusSection({
   count,
   page,
   members,
-  sprintMembership,
-  extraRowActions,
-  showSprintCol,
-  showExtraActionsCol,
   activePreviewId,
   onPreviewPointerEnter,
   onPreviewOpenChange
@@ -247,10 +229,6 @@ function StatusSection({
   count: number
   page: BacklogSection
   members: ReadonlyArray<Member>
-  sprintMembership?: ReadonlyMap<TicketId, Group>
-  extraRowActions?: (ticket: Ticket) => ReactNode
-  showSprintCol: boolean
-  showExtraActionsCol: boolean
   activePreviewId: TicketId | null
   onPreviewPointerEnter: (ticketId: TicketId) => void
   onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
@@ -272,10 +250,6 @@ function StatusSection({
       collapsed={collapsed}
       onToggleCollapsed={toggleCollapsed}
       members={members}
-      sprintMembership={sprintMembership}
-      extraRowActions={extraRowActions}
-      showSprintCol={showSprintCol}
-      showExtraActionsCol={showExtraActionsCol}
       activePreviewId={activePreviewId}
       onPreviewPointerEnter={onPreviewPointerEnter}
       onPreviewOpenChange={onPreviewOpenChange}

@@ -1,11 +1,13 @@
 import type { TicketId, TicketType, UpdateTicketInput } from "@pp/shared"
 import { Check } from "lucide-react"
+import { Fragment } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { Hitbox } from "@/components/ui/hitbox"
@@ -55,20 +57,22 @@ export function TypeSelect({
           const tMeta = TYPE_META[t]
           const TIcon = tMeta.icon
           return (
-            <DropdownMenuItem
-              key={t}
-              onClick={() => {
-                if (t === value) return
-                onChange(t)
-              }}
-              className="cursor-pointer"
-            >
-              <TIcon className="size-4" strokeWidth={1.75} />
-              {TYPE_LABELS[t]()}
-              {t === value && (
-                <Check className="ml-auto size-3.5 text-muted-foreground" />
-              )}
-            </DropdownMenuItem>
+            <Fragment key={t}>
+              {t === "epic" && <DropdownMenuSeparator />}
+              <DropdownMenuItem
+                onClick={() => {
+                  if (t === value) return
+                  onChange(t)
+                }}
+                className="cursor-pointer"
+              >
+                <TIcon className="size-4" strokeWidth={1.75} />
+                {TYPE_LABELS[t]()}
+                {t === value && (
+                  <Check className="ml-auto size-3.5 text-muted-foreground" />
+                )}
+              </DropdownMenuItem>
+            </Fragment>
           )
         })}
       </DropdownMenuContent>
@@ -115,20 +119,22 @@ export function TypeBadgeTrigger({
           const tMeta = TYPE_META[t]
           const TIcon = tMeta.icon
           return (
-            <DropdownMenuItem
-              key={t}
-              onClick={() => {
-                if (t === ticket.type) return
-                onPatch({ type: t })
-              }}
-              className="cursor-pointer"
-            >
-              <TIcon className="size-4" strokeWidth={1.75} />
-              {TYPE_LABELS[t]()}
-              {t === ticket.type && (
-                <Check className="ml-auto size-3.5 text-muted-foreground" />
-              )}
-            </DropdownMenuItem>
+            <Fragment key={t}>
+              {t === "epic" && <DropdownMenuSeparator />}
+              <DropdownMenuItem
+                onClick={() => {
+                  if (t === ticket.type) return
+                  onPatch({ type: t })
+                }}
+                className="cursor-pointer"
+              >
+                <TIcon className="size-4" strokeWidth={1.75} />
+                {TYPE_LABELS[t]()}
+                {t === ticket.type && (
+                  <Check className="ml-auto size-3.5 text-muted-foreground" />
+                )}
+              </DropdownMenuItem>
+            </Fragment>
           )
         })}
       </DropdownMenuContent>
@@ -203,20 +209,22 @@ export function TypeButton({
           const tMeta = TYPE_META[t]
           const TIcon = tMeta.icon
           return (
-            <DropdownMenuItem
-              key={t}
-              onClick={() => {
-                if (t === ticket.type) return
-                onPatch({ type: t })
-              }}
-              className="cursor-pointer"
-            >
-              <TIcon className="size-4" strokeWidth={1.75} />
-              {TYPE_LABELS[t]()}
-              {t === ticket.type && (
-                <Check className="ml-auto size-3.5 text-muted-foreground" />
-              )}
-            </DropdownMenuItem>
+            <Fragment key={t}>
+              {t === "epic" && <DropdownMenuSeparator />}
+              <DropdownMenuItem
+                onClick={() => {
+                  if (t === ticket.type) return
+                  onPatch({ type: t })
+                }}
+                className="cursor-pointer"
+              >
+                <TIcon className="size-4" strokeWidth={1.75} />
+                {TYPE_LABELS[t]()}
+                {t === ticket.type && (
+                  <Check className="ml-auto size-3.5 text-muted-foreground" />
+                )}
+              </DropdownMenuItem>
+            </Fragment>
           )
         })}
       </DropdownMenuContent>

@@ -25,9 +25,11 @@ import { SplitTicketControl } from "@/components/TicketList/SplitControl"
 import { SprintBadgeTrigger } from "@/components/TicketList/SprintField"
 import { TypeBadgeTrigger } from "@/components/TicketList/TypeField"
 import { DescriptionField } from "@/components/TicketPage/DescriptionField"
+import { EpicField } from "@/components/TicketPage/EpicField"
 import { MetaRow } from "@/components/TicketPage/MetaRow"
 import { SaveAsTemplatePopover } from "@/components/TicketPage/SaveAsTemplatePopover"
 import { SplitResultBanner } from "@/components/TicketPage/SplitResultBanner"
+import { SubTicketsSection } from "@/components/TicketPage/SubTicketsSection"
 import { TemplateSwapNote } from "@/components/TicketPage/TemplateSwapNote"
 import { TicketDesignLinks } from "@/components/TicketPage/TicketDesignLinks"
 import { TicketPageHeader } from "@/components/TicketPage/TicketPageHeader"
@@ -182,6 +184,15 @@ export function TicketPage({
             onStatusChange={setBodyStatus}
           />
 
+          {ticket.type === "epic" && (
+            <SubTicketsSection
+              orgSlug={orgSlug}
+              slug={slug}
+              epicId={ticket.id}
+              members={members}
+            />
+          )}
+
           <CommentsSection orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
         </main>
 
@@ -189,13 +200,25 @@ export function TicketPage({
           <MetaRow label={m.tickets_page_meta_priority()}>
             <PriorityBadgeTrigger ticket={ticket} onPatch={updateTicket} />
           </MetaRow>
-          <MetaRow label={m.tickets_page_meta_sprint()}>
-            <SprintBadgeTrigger
-              orgSlug={orgSlug}
-              slug={slug}
-              ticketId={ticket.id}
-            />
-          </MetaRow>
+          {ticket.type !== "epic" && (
+            <>
+              <MetaRow label={m.tickets_page_meta_sprint()}>
+                <SprintBadgeTrigger
+                  orgSlug={orgSlug}
+                  slug={slug}
+                  ticketId={ticket.id}
+                />
+              </MetaRow>
+              <MetaRow label={m.tickets_page_meta_epic()}>
+                <EpicField
+                  orgSlug={orgSlug}
+                  slug={slug}
+                  ticket={ticket}
+                  onPatch={updateTicket}
+                />
+              </MetaRow>
+            </>
+          )}
           <MetaRow label={m.tickets_page_meta_assignees()}>
             <AssigneePicker
               ticket={ticket}

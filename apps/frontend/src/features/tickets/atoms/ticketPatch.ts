@@ -12,7 +12,8 @@ export function applyTicketPatch(
     type: patch.type ?? ticket.type,
     priority: patch.priority ?? ticket.priority,
     tags: patch.tags ?? ticket.tags,
-    assignees: patch.assignees ?? ticket.assignees
+    assignees: patch.assignees ?? ticket.assignees,
+    parent: patch.parent === undefined ? ticket.parent : patch.parent
   }
 }
 

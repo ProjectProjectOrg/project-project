@@ -68,6 +68,20 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           )
         }).pipe(dieOnMarkdown)
       )
+      .handle("epicSections", ({ params, query }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
+          const tickets = yield* Tickets
+          return yield* tickets.epicSections(
+            org.orgSlug,
+            user.id,
+            params.slug,
+            query
+          )
+        }).pipe(dieOnMarkdown)
+      )
       .handle("list", ({ params, query }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
@@ -150,6 +164,20 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
             params.id,
             payload,
             query.sort
+          )
+        }).pipe(dieOnMarkdown)
+      )
+      .handle("bulkUpdate", ({ params, payload }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
+          const tickets = yield* Tickets
+          return yield* tickets.bulkUpdate(
+            org.orgSlug,
+            user.id,
+            params.slug,
+            payload
           )
         }).pipe(dieOnMarkdown)
       )

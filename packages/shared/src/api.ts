@@ -76,6 +76,7 @@ import {
   TicketSort,
   TicketCountQuery,
   TicketCounts,
+  TicketEpicSections,
   TicketListPage,
   TicketListQuery,
   TicketOrderKeyQuery,
@@ -94,6 +95,10 @@ import {
   PrepareAttachmentInput,
   PrepareAttachmentResult
 } from "./schemas/Attachment"
+import {
+  BulkUpdateTicketsInput,
+  BulkUpdateTicketsResult
+} from "./schemas/BulkTickets"
 import {
   Comment,
   CommentId,
@@ -1335,6 +1340,36 @@ const TicketsGroup = HttpApiGroup.make("tickets")
     )
   )
   .add(
+    HttpApiEndpoint.post(
+      "bulkUpdate",
+      "/orgs/:orgSlug/projects/:slug/tickets/bulk",
+      {
+        params: ProjectPath,
+        payload: BulkUpdateTicketsInput,
+        success: BulkUpdateTicketsResult,
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          Validation,
+          SprintCompletedImmutable
+        ]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "epicSections",
+      "/orgs/:orgSlug/projects/:slug/tickets/epic-sections",
+      {
+        params: ProjectPath,
+        query: TicketListHttpQuery,
+        success: TicketEpicSections,
+        error: [Unauthorized, NotFound]
+      }
+    )
+  )
+  .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/tickets", {
       params: ProjectPath,
       query: TicketListHttpQuery,
@@ -1756,7 +1791,13 @@ const GroupsGroup = HttpApiGroup.make("groups")
         params: GroupPath,
         payload: UpdateGroupTicketsInput,
         success: UpdateGroupTicketsOutput,
-        error: [Unauthorized, NotFound, Forbidden, SprintCompletedImmutable]
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          SprintCompletedImmutable,
+          Validation
+        ]
       }
     )
   )
@@ -1768,7 +1809,13 @@ const GroupsGroup = HttpApiGroup.make("groups")
         params: GroupPath,
         payload: UpdateGroupTicketsInput,
         success: UpdateGroupTicketsOutput,
-        error: [Unauthorized, NotFound, Forbidden, SprintCompletedImmutable]
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          SprintCompletedImmutable,
+          Validation
+        ]
       }
     )
   )

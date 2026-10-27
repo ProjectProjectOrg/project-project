@@ -16,6 +16,7 @@ export interface MatchableTicket {
   readonly pr: number | null
   readonly prState?: PullRequestState | null
   readonly assignees: ReadonlyArray<string>
+  readonly parent?: string | null
   readonly archivedAt: Date | null
   readonly updatedAt: Date
 }
@@ -64,6 +65,16 @@ export const matchesTicketFilter = (
   if (filter.hasPr !== undefined) {
     if (filter.hasPr && ticket.pr === null) return false
     if (!filter.hasPr && ticket.pr !== null) return false
+  }
+
+  if (filter.parent !== undefined) {
+    const parent = ticket.parent ?? null
+    if (
+      !filter.parent.some((wanted) =>
+        wanted === "none" ? parent === null : wanted === parent
+      )
+    )
+      return false
   }
 
   if (filter.updatedAfter !== undefined) {

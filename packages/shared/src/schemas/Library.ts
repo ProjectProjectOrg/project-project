@@ -103,7 +103,8 @@ export const TemplateDefaults = Schema.Struct({
   feat: defaultTemplate,
   bug: defaultTemplate,
   chore: defaultTemplate,
-  other: defaultTemplate
+  other: defaultTemplate,
+  epic: defaultTemplate
 })
 export type TemplateDefaults = typeof TemplateDefaults.Type
 
@@ -111,7 +112,8 @@ export const PartialTemplateDefaults = Schema.Struct({
   feat: Schema.optionalKey(defaultTemplate),
   bug: Schema.optionalKey(defaultTemplate),
   chore: Schema.optionalKey(defaultTemplate),
-  other: Schema.optionalKey(defaultTemplate)
+  other: Schema.optionalKey(defaultTemplate),
+  epic: Schema.optionalKey(defaultTemplate)
 })
 export type PartialTemplateDefaults = typeof PartialTemplateDefaults.Type
 

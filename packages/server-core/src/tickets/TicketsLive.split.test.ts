@@ -235,6 +235,7 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
   list: () => Effect.succeed([]),
   query: () => Effect.succeed([]),
   orderKeyFor: () => Effect.succeed(null),
+  groupByParent: () => Effect.succeed({ counts: [], entries: [] }),
   count: () => Effect.succeed({ total: 0, byStatus: {} }),
   listIds: () => Effect.succeed([]),
   existingIds: () => Effect.succeed(new Set()),
@@ -429,6 +430,28 @@ it.effect("split retains the original and creates the remaining tickets", () =>
       original.id,
       outcome.created[0].id
     ])
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect("split keeps the new tickets in the original's epic", () =>
+  Effect.gen(function* () {
+    yield* resetFakes
+    const tickets = yield* Tickets
+    const docs = yield* TicketDocs
+    const original = yield* seedOriginal
+    const epicId = decodeTicketId("T-99")
+    const stored = yield* docs.read("org", "p", original.id)
+    yield* docs.write("org", "p", original.id, { ...stored, parent: epicId })
+
+    const outcome = yield* tickets.split("org", "user-1", "p", original.id, {
+      results: [
+        result("Detail page layout", "feat"),
+        result("Sidebar API", "feat")
+      ]
+    })
+
+    expect(outcome.retained.parent).toBe(epicId)
+    expect(outcome.created.map((created) => created.parent)).toEqual([epicId])
   }).pipe(Effect.provide(TestLayer))
 )
 

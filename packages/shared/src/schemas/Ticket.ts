@@ -35,7 +35,13 @@ export function isCarryover(status: TicketStatus): boolean {
   return status !== "done"
 }
 
-export const TicketType = Schema.Literals(["feat", "bug", "chore", "other"])
+export const TicketType = Schema.Literals([
+  "feat",
+  "bug",
+  "chore",
+  "other",
+  "epic"
+])
 export type TicketType = typeof TicketType.Type
 
 export const TicketPriority = Schema.Literals(["low", "med", "high"])
@@ -63,6 +69,7 @@ export const Ticket = Schema.Struct({
   lastTransitionedPr: Schema.NullOr(Schema.Finite),
   gitState: GitState,
   assignees: Schema.Array(Schema.String),
+  parent: Schema.optional(Schema.NullOr(TicketId)),
   archivedAt: Schema.NullOr(Schema.DateFromString),
   createdBy: Schema.String,
   createdAt: Schema.DateFromString,
@@ -87,6 +94,7 @@ export const QuickCreateTicketInput = Schema.Struct({
   ),
   type: Schema.optional(TicketType),
   status: Schema.optional(TicketStatus),
+  parent: Schema.optional(TicketId),
   template: Schema.optional(Schema.NullOr(TemplateKey))
 })
 export type QuickCreateTicketInput = typeof QuickCreateTicketInput.Type
@@ -102,6 +110,7 @@ export const CreateTicketInput = Schema.Struct({
   tags: Schema.optional(Schema.Array(TagName)),
   assignees: Schema.optional(Schema.Array(Schema.String)),
   body: Schema.optional(Schema.String),
+  parent: Schema.optional(TicketId),
   template: Schema.optional(Schema.NullOr(TemplateKey))
 })
 export type CreateTicketInput = typeof CreateTicketInput.Type
@@ -125,7 +134,8 @@ export const UpdateTicketInput = Schema.Struct({
   priority: Schema.optional(TicketPriority),
   tags: Schema.optional(Schema.Array(TagName)),
   assignees: Schema.optional(Schema.Array(Schema.String)),
-  body: Schema.optional(Schema.String)
+  body: Schema.optional(Schema.String),
+  parent: Schema.optional(Schema.NullOr(TicketId))
 })
 export type UpdateTicketInput = typeof UpdateTicketInput.Type
 

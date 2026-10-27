@@ -100,6 +100,10 @@ Concrete example: the inline-pill version of `SegmentedTabs` (used for "Update s
 
 If extending the primitive feels disruptive (touches public API, would conflict with other callsites), stop and ask before going local.
 
+### Ticket rows are one component
+
+Render every ticket in a list with `Row` (`apps/frontend/src/components/TicketList/Row.tsx`) inside a `rowGridClassName` grid. `Row` owns its columns — sprint chip, actions menu, epic prefix — and reads the data it needs itself, so callsites pass the ticket and its mutation, nothing about which columns to show. Don't hand-build a ticket row, and add new row behaviour to `Row` rather than to a list. The visual rule is "The One Ticket Row Rule" in `DESIGN.md`.
+
 ## i18n
 
 - All user-facing strings go through paraglide messages (`m.*` from `@/paraglide/messages`); raw literals in JSX are forbidden.

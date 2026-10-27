@@ -16,6 +16,7 @@ import { useMemo } from "react"
 import { Markdown } from "@/components/Markdown"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { TicketGitChip } from "@/components/TicketGit"
+import { EpicTextPrefix } from "@/components/TicketList/EpicLabel"
 import { PopoverContent } from "@/components/ui/popover"
 import {
   statusesFor,
@@ -98,6 +99,13 @@ export function TicketHoverCard({
           return (
             <div className="space-y-2">
               <div className="line-clamp-2 text-sm leading-snug font-medium">
+                {ticket.parent && (
+                  <EpicTextPrefix
+                    orgSlug={scope.orgSlug}
+                    slug={scope.slug}
+                    epicId={ticket.parent}
+                  />
+                )}
                 {ticket.title}
               </div>
               <MetaRow ticket={ticket} scope={scope} statuses={statuses} />

@@ -4,7 +4,7 @@ import {
   useAtomSet,
   useAtomValue
 } from "@effect/atom-react"
-import type { GroupId, Ticket, TicketId, TicketType } from "@pp/shared"
+import type { GroupId, Ticket, TicketId } from "@pp/shared"
 import { useDebouncer } from "@tanstack/react-pacer"
 import { useNavigate } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
@@ -13,6 +13,7 @@ import * as Random from "effect/Random"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
 import { Plus } from "lucide-react"
+import { AnimatePresence } from "motion/react"
 import {
   useContext,
   useMemo,
@@ -36,6 +37,7 @@ import {
 } from "@/features/projects/atoms/projects"
 import {
   assignTicketToSprint,
+  bulkAddTicketsToSprint,
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
@@ -44,20 +46,30 @@ import {
   quickCreateBacklogTicket
 } from "@/features/tickets/atoms/backlog"
 import {
+  subTickets,
+  subTicketsRequest,
+  type SubTicketRow
+} from "@/features/tickets/atoms/epics"
+import {
   searchRequest,
   ticketSearch
 } from "@/features/tickets/atoms/ticketSearch"
-import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
+import { NON_EPIC_TYPES, TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { CreatorChip } from "./CreatorChip"
 import { creatorErrorText } from "./creatorError"
+import { EpicTextPrefix } from "./EpicLabel"
+import { EpicSubTicketPicker } from "./EpicSubTicketPicker"
 import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
 import { TicketCreatorShell } from "./TicketCreatorShell"
 import { useTemplateChoice, useTicketTypeChoice } from "./useTemplateChoice"
 
 const idleSearchAtom = Atom.make(Result.initial<ReadonlyArray<Ticket>>())
+const idleSubTicketsAtom = Atom.make(
+  Result.initial<ReadonlyArray<SubTicketRow>>()
+)
 
 type Item =
   | { kind: "create"; label: string }
@@ -97,7 +109,11 @@ export function SprintTicketCreator({
   const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
   const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
   const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
-  const error = creatorErrorText(createState)
+  const bulkAdd = useAtomSet(bulkAddTicketsToSprint(sprintReq))
+  const bulkAddState = useAtomValue(bulkAddTicketsToSprint(sprintReq))
+  const error =
+    creatorErrorText(createState) ??
+    (Result.isFailure(bulkAddState) ? m.sprints_add_epic_failed() : null)
   const projectReq = useMemo(
     () => projectRequest(orgSlug, slug),
     [orgSlug, slug]
@@ -111,6 +127,24 @@ export function SprintTicketCreator({
   const [typeMenuOpen, setTypeMenuOpen] = useState(false)
   const [closingMenu, setClosingMenu] = useState(false)
   const [highlight, setHighlight] = useState(0)
+  const [pendingEpic, setPendingEpic] = useState<Ticket | null>(null)
+  const [deselected, setDeselected] = useState<ReadonlySet<TicketId>>(
+    () => new Set()
+  )
+  const [epicCursor, setEpicCursor] = useState(0)
+  const pendingEpicRows = useAtomValue(
+    pendingEpic === null
+      ? idleSubTicketsAtom
+      : subTickets(subTicketsRequest(orgSlug, slug, pendingEpic.id))
+  )
+  const epicSubTickets = Result.isSuccess(pendingEpicRows)
+    ? pendingEpicRows.value
+        .map((row) => row.ticket)
+        .filter((t) => t.status !== "done")
+    : null
+  const epicToggleable =
+    epicSubTickets?.filter((t) => !excludeIds.has(t.id)) ?? []
+  const epicSelection = epicToggleable.filter((t) => !deselected.has(t.id))
   const inputRef = useRef<HTMLInputElement>(null)
   const trimmed = title.trim()
   const expanded = focused || typeMenuOpen || closingMenu
@@ -123,7 +157,9 @@ export function SprintTicketCreator({
       setSearchQuery("")
       setTitle("")
       setHighlight(0)
-      if (ticketType !== null) applyTemplateDefault(ticketType)
+      if (ticketType !== null && NON_EPIC_TYPES.includes(ticketType)) {
+        applyTemplateDefault(ticketType)
+      }
     }
   })
 
@@ -169,10 +205,17 @@ export function SprintTicketCreator({
     const lowered = trimmed.toLowerCase()
     const all = Result.isSuccess(ticketsResult) ? ticketsResult.value : []
     const eligible = all.filter(
-      (t) => t.status !== "done" && !excludeIds.has(t.id)
+      (t) =>
+        t.status !== "done" &&
+        !excludeIds.has(t.id) &&
+        (trimmed.length > 0 || !t.parent)
     )
+    const ordered = [
+      ...eligible.filter((t) => t.type === "epic"),
+      ...eligible.filter((t) => t.type !== "epic")
+    ]
     const exactTitle = all.some((t) => t.title.toLowerCase() === lowered)
-    const existing: Array<Item> = eligible.slice(0, 8).map((t) => ({
+    const existing: Array<Item> = ordered.slice(0, 8).map((t) => ({
       kind: "existing" as const,
       ticket: t,
       otherSprintName: memberOfOtherSprint.get(t.id) ?? null
@@ -181,10 +224,27 @@ export function SprintTicketCreator({
     return [{ kind: "create" as const, label: trimmed }, ...existing]
   }, [trimmed, ticketsResult, excludeIds, memberOfOtherSprint])
 
-  const dropdownOpen = expanded && !slash.open && items.length > 0
+  const dropdownOpen =
+    expanded && !slash.open && (items.length > 0 || pendingEpic !== null)
   const safeHighlight = items.length === 0 ? 0 : highlight % items.length
 
+  function openEpic(epic: Ticket) {
+    setPendingEpic(epic)
+    setDeselected(new Set())
+    setEpicCursor(0)
+  }
+
+  function toggleSubTicket(id: TicketId) {
+    if (excludeIds.has(id)) return
+    setDeselected((current) => {
+      const next = new Set(current)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
+  }
+
   function reset() {
+    setPendingEpic(null)
     searchDebouncer.cancel()
     setSearchQuery("")
     setTitle("")
@@ -201,6 +261,10 @@ export function SprintTicketCreator({
 
   async function commit(item: Item | undefined) {
     if (!item) return
+    if (item.kind === "existing" && item.ticket.type === "epic") {
+      openEpic(item.ticket)
+      return
+    }
     if (item.kind === "existing") {
       assignTicketToSprint(registry, sprintReq, item.ticket.id, groupId)
       reset()
@@ -223,8 +287,18 @@ export function SprintTicketCreator({
     }
   }
 
+  function addPendingEpic() {
+    if (epicSelection.length === 0) return
+    bulkAdd({ groupId, tickets: epicSelection.map((ticket) => ticket.id) })
+    reset()
+  }
+
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (pendingEpic !== null) {
+      addPendingEpic()
+      return
+    }
     if (items.length > 0) {
       await commit(items[safeHighlight])
       return
@@ -249,6 +323,23 @@ export function SprintTicketCreator({
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (slash.onKeyDown(e)) return
     if (!dropdownOpen) return
+    if (pendingEpic !== null) {
+      const rows = epicToggleable
+      if (e.key === "Escape") {
+        e.preventDefault()
+        setPendingEpic(null)
+      } else if (e.key === "ArrowDown" && rows.length > 0) {
+        e.preventDefault()
+        setEpicCursor((c) => (c + 1) % rows.length)
+      } else if (e.key === "ArrowUp" && rows.length > 0) {
+        e.preventDefault()
+        setEpicCursor((c) => (c - 1 + rows.length) % rows.length)
+      } else if (e.key === " " && rows[epicCursor]) {
+        e.preventDefault()
+        toggleSubTicket(rows[epicCursor].id)
+      }
+      return
+    }
     if (e.key === "ArrowDown") {
       e.preventDefault()
       setHighlight((h) => (items.length ? (h + 1) % items.length : 0))
@@ -295,7 +386,7 @@ export function SprintTicketCreator({
           return inputRef.current
         }}
       >
-        {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
+        {NON_EPIC_TYPES.map((t) => {
           const TIcon = TYPE_META[t].icon
           return (
             <DropdownMenuItem
@@ -316,9 +407,17 @@ export function SprintTicketCreator({
     <TemplateSlashList slash={slash} choice={templateChoice} />
   ) : dropdownOpen ? (
     <div className="absolute top-full right-0 left-0 z-30 mt-1 overflow-hidden rounded-lg border border-border bg-popover shadow-md">
-      <ul className="flex max-h-72 flex-col overflow-y-auto p-1">
+      <ul className="flex max-h-96 flex-col overflow-y-auto p-1">
         {items.map((item, idx) => (
-          <li key={item.kind === "create" ? "__create" : item.ticket.id}>
+          <li
+            key={item.kind === "create" ? "__create" : item.ticket.id}
+            className={cn(
+              "transition-opacity duration-200",
+              pendingEpic !== null &&
+                (item.kind === "create" || item.ticket.id !== pendingEpic.id) &&
+                "pointer-events-none opacity-35"
+            )}
+          >
             {item.kind === "create" ? (
               <CreateRow
                 label={item.label}
@@ -330,16 +429,53 @@ export function SprintTicketCreator({
                 }}
               />
             ) : (
-              <ExistingRow
-                ticket={item.ticket}
-                otherSprintName={item.otherSprintName}
-                active={idx === safeHighlight}
-                onMouseEnter={() => setHighlight(idx)}
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  void commit(item)
-                }}
-              />
+              <>
+                <ExistingRow
+                  orgSlug={orgSlug}
+                  slug={slug}
+                  ticket={item.ticket}
+                  otherSprintName={item.otherSprintName}
+                  active={
+                    pendingEpic === null
+                      ? idx === safeHighlight
+                      : pendingEpic.id === item.ticket.id
+                  }
+                  onMouseEnter={() => setHighlight(idx)}
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    if (pendingEpic?.id === item.ticket.id) {
+                      setPendingEpic(null)
+                    } else {
+                      void commit(item)
+                    }
+                  }}
+                />
+                <AnimatePresence initial={false}>
+                  {pendingEpic?.id === item.ticket.id && (
+                    <EpicSubTicketPicker
+                      key="picker"
+                      tickets={epicSubTickets}
+                      failure={
+                        Result.isFailure(pendingEpicRows)
+                          ? pendingEpicRows
+                          : null
+                      }
+                      inSprint={excludeIds}
+                      deselected={deselected}
+                      cursorId={epicToggleable[epicCursor]?.id ?? null}
+                      onToggle={toggleSubTicket}
+                      onHover={(id) => {
+                        const index = epicToggleable.findIndex(
+                          (t) => t.id === id
+                        )
+                        if (index >= 0) setEpicCursor(index)
+                      }}
+                      onAdd={addPendingEpic}
+                      onCancel={() => setPendingEpic(null)}
+                    />
+                  )}
+                </AnimatePresence>
+              </>
             )}
           </li>
         ))}
@@ -357,6 +493,7 @@ export function SprintTicketCreator({
       inputRef={inputRef}
       value={title}
       onValueChange={(v) => {
+        setPendingEpic(null)
         slash.onTitleChange(title, v)
         setTitle(v)
         setHighlight(0)
@@ -419,12 +556,16 @@ function CreateRow({
 }
 
 function ExistingRow({
+  orgSlug,
+  slug,
   ticket,
   otherSprintName,
   active,
   onMouseEnter,
   onMouseDown
 }: {
+  orgSlug: string
+  slug: string
   ticket: Ticket
   otherSprintName: string | null
   active: boolean
@@ -445,6 +586,13 @@ function ExistingRow({
       <Icon className="size-3.5 shrink-0" strokeWidth={1.75} />
       <span className="font-mono text-[11px] tabular-nums">{ticket.id}</span>
       <span className="min-w-0 flex-1 truncate text-foreground">
+        {ticket.parent && (
+          <EpicTextPrefix
+            orgSlug={orgSlug}
+            slug={slug}
+            epicId={ticket.parent}
+          />
+        )}
         {ticket.title}
       </span>
       {otherSprintName && (

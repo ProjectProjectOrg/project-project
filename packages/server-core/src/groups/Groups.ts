@@ -81,7 +81,7 @@ export interface GroupsShape {
     input: UpdateGroupTicketsInput
   ) => Effect.Effect<
     UpdateGroupTicketsOutput,
-    NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+    NotFound | Forbidden | SprintCompletedImmutable | Validation | MarkdownError
   >
   readonly addTickets: (
     orgSlug: string,
@@ -91,7 +91,7 @@ export interface GroupsShape {
     ticketIds: ReadonlyArray<TicketId>
   ) => Effect.Effect<
     UpdateGroupTicketsOutput,
-    NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+    NotFound | Forbidden | SprintCompletedImmutable | Validation | MarkdownError
   >
   readonly removeTickets: (
     orgSlug: string,

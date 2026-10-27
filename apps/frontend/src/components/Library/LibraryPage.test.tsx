@@ -455,7 +455,8 @@ describe("LibraryPage", () => {
       "feat",
       "bug",
       "chore",
-      "other"
+      "other",
+      "epic"
     ])
     const bug = rows[1]!
     expect(bug.textContent).toMatch(/^Bug/)

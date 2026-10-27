@@ -1,19 +1,13 @@
 import {
   matchesTicketQuery,
-  padNumericIdSort,
   SPRINT_SECTION_UNSCHEDULED,
   type GroupId,
   type GroupIdFilter,
-  type NotFound,
   type SprintSectionKey,
-  type Ticket,
-  type TicketCounts,
   type TicketId,
   type TicketListQuery,
   type TicketListRow,
-  type TicketSort,
   type TicketStatus,
-  type Unauthorized,
   type UpdateTicketInput,
   type UserId
 } from "@pp/shared"
@@ -27,17 +21,22 @@ import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
-import { compareCodePoints } from "@/lib/orderKey"
-import { PRIORITY_META } from "@/lib/priority-meta"
 
 import {
   type BacklogRequest,
   type BacklogRow,
-  type BacklogSection,
   predictedTicket,
-  type QuickCreateArg
+  type QuickCreateArg,
+  withoutEpicsByDefault
 } from "./backlog"
-import { applyTicketPatch } from "./ticketPatch"
+import {
+  dedupeById,
+  loadMoreSection,
+  patchSectionsRow,
+  replaceSectionsRow,
+  type SectionsValue,
+  type SectionValue
+} from "./sectionRows"
 
 type QueryWithView = TicketListQuery & Readonly<{ view?: unknown }>
 
@@ -52,23 +51,18 @@ export const sprintSectionsRequest = (
   query: QueryWithView
 ): BacklogRequest => ({
   params: { orgSlug, slug },
-  query: { ...ticketListQueryOf(query), cursor: undefined }
+  query: {
+    ...withoutEpicsByDefault(ticketListQueryOf(query)),
+    cursor: undefined
+  }
 })
 
 const scopeOf = (req: BacklogRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-export type SprintSectionValue = Readonly<{
-  key: SprintSectionKey
-  count: number
-  page: BacklogSection
-}>
+export type SprintSectionValue = SectionValue<SprintSectionKey>
 
-export type SprintSectionsValue = Readonly<{
-  total: number
-  counts: TicketCounts
-  sections: ReadonlyArray<SprintSectionValue>
-}>
+export type SprintSectionsValue = SectionsValue<SprintSectionValue>
 
 const toRow = (row: TicketListRow): BacklogRow => ({
   ticket: row.ticket,
@@ -118,19 +112,6 @@ const pageQuery = (
       Keys.orgMembers(req.params.orgSlug)
     ]
   })
-
-const dedupeById = (
-  rows: ReadonlyArray<BacklogRow>
-): ReadonlyArray<BacklogRow> => {
-  const seen = new Set<string>()
-  const out: Array<BacklogRow> = []
-  for (const row of rows) {
-    if (seen.has(row.ticket.id)) continue
-    seen.add(row.ticket.id)
-    out.push(row)
-  }
-  return out
-}
 
 const emptySprintSections = (): SprintSectionsValue => ({
   total: 0,
@@ -204,223 +185,16 @@ export const loadMoreSprintSections = Atom.family(
         _input: void,
         get: Atom.FnContext
       ) {
-        const current = get(sprintSections(req))
-        if (!AsyncResult.isSuccess(current)) return yield* Effect.void
-        const cursor = current.value.sections.find(
-          (section) => section.key === key
-        )?.page.nextCursor
-        if (!cursor) return yield* Effect.void
-        const loaded = get(loadedPagesAtom(req))
-        const depth = loaded[key] ?? 0
-        const base = get(snapshotQuery(req))
-        if (!AsyncResult.isSuccess(base)) return yield* Effect.void
-        let pageCursor: string | null =
-          base.value.sections.find((section) => section.key === key)?.page
-            .nextCursor ?? null
-        for (let index = 0; index < depth; index++) {
-          if (pageCursor === null) break
-          const page = pageQuery(req, key, pageCursor)
-          if (pageCursor === cursor) {
-            return yield* Effect.callback<unknown, NotFound | Unauthorized>(
-              (resume) => {
-                let cancel: (() => void) | undefined
-                cancel = get.registry.subscribe(
-                  page,
-                  (result) => {
-                    if (AsyncResult.isSuccess(result) && !result.waiting) {
-                      cancel?.()
-                      resume(Effect.succeed(result.value))
-                    } else if (
-                      AsyncResult.isFailure(result) &&
-                      !result.waiting
-                    ) {
-                      cancel?.()
-                      resume(Effect.failCause(result.cause))
-                    }
-                  },
-                  { immediate: false }
-                )
-                get.refresh(page)
-                return Effect.sync(() => cancel?.())
-              }
-            )
-          }
-          const result = get(page)
-          if (!AsyncResult.isSuccess(result)) return yield* Effect.void
-          pageCursor = result.value.nextCursor
-        }
-        get.set(loadedPagesAtom(req), { ...loaded, [key]: depth + 1 })
-        return yield* get.result(pageQuery(req, key, cursor), {
-          suspendOnWaiting: true
+        return yield* loadMoreSection(get, {
+          key,
+          sections: sprintSections(req),
+          snapshot: snapshotQuery(req),
+          loadedPages: loadedPagesAtom(req),
+          pageQuery: (cursor) => pageQuery(req, key, cursor)
         })
       })
     )
 )
-
-const insertByOrderKey = (
-  items: ReadonlyArray<BacklogRow>,
-  row: BacklogRow,
-  dir: TicketSort["dir"]
-): ReadonlyArray<BacklogRow> => {
-  const orderKey = row.orderKey
-  if (orderKey === null) return [row, ...items]
-  let low = 0
-  let high = items.length
-  while (low < high) {
-    const middle = (low + high) >>> 1
-    const candidate = items[middle].orderKey
-    const sortsBefore =
-      candidate === null ||
-      (dir === "asc"
-        ? compareCodePoints(candidate, orderKey) < 0
-        : compareCodePoints(candidate, orderKey) > 0)
-    if (sortsBefore) low = middle + 1
-    else high = middle
-  }
-  return [...items.slice(0, low), row, ...items.slice(low)]
-}
-
-const patchesSortedField = (
-  patch: UpdateTicketInput,
-  key: TicketSort["key"]
-): boolean => {
-  if (key === "title") return patch.title !== undefined
-  if (key === "priority") return patch.priority !== undefined
-  return false
-}
-
-const localOrderKey = (ticket: Ticket, sort: TicketSort): string => {
-  let value: string
-  switch (sort.key) {
-    case "id":
-      value = padNumericIdSort(ticket.id) ?? ticket.id
-      break
-    case "created":
-      value = ticket.createdAt.toISOString()
-      break
-    case "updated":
-      value = ticket.updatedAt.toISOString()
-      break
-    case "title":
-      value = ticket.title.toLowerCase()
-      break
-    case "priority":
-      value = String(PRIORITY_META[ticket.priority].ordinal + 1).padStart(
-        2,
-        "0"
-      )
-      break
-  }
-  return `${value}\u0000${ticket.id}`
-}
-
-const patchRow = (
-  value: SprintSectionsValue,
-  id: TicketId,
-  patch: UpdateTicketInput,
-  query: TicketListQuery,
-  viewerId: UserId | undefined,
-  now: Date
-): SprintSectionsValue => {
-  let patched: BacklogRow | undefined
-  let from: TicketStatus | undefined
-  let staysCounted = true
-  let staysVisible = true
-  const sections = value.sections.map((section) => {
-    const items: Array<BacklogRow> = []
-    let found: BacklogRow | undefined
-    for (const row of section.page.items) {
-      if (row.ticket.id !== id) {
-        items.push(row)
-        continue
-      }
-      from = row.ticket.status
-      found = {
-        ...row,
-        ticket: { ...applyTicketPatch(row.ticket, patch), updatedAt: now },
-        pending: true
-      }
-      if (
-        query.sort.key === "updated" ||
-        patchesSortedField(patch, query.sort.key)
-      ) {
-        found = { ...found, orderKey: localOrderKey(found.ticket, query.sort) }
-      }
-      patched = found
-      staysCounted = matchesTicketQuery(
-        found.ticket,
-        { ...query, status: undefined },
-        viewerId
-      )
-      staysVisible = matchesTicketQuery(found.ticket, query, viewerId)
-    }
-    if (found === undefined) return section
-    return {
-      ...section,
-      count: section.count - (staysVisible ? 0 : 1),
-      page: {
-        ...section.page,
-        items: staysVisible
-          ? insertByOrderKey(items, found, query.sort.dir)
-          : items
-      }
-    }
-  })
-  if (!patched || from === undefined) return value
-  const to = patched.ticket.status
-  if (to === from && staysCounted && staysVisible) return { ...value, sections }
-  const byStatus = { ...value.counts.byStatus }
-  byStatus[from] = Math.max(0, (byStatus[from] ?? 0) - 1)
-  if (staysCounted) byStatus[to] = (byStatus[to] ?? 0) + 1
-  return {
-    ...value,
-    total: value.total - (staysVisible ? 0 : 1),
-    counts: {
-      total: value.counts.total - (staysCounted ? 0 : 1),
-      byStatus
-    },
-    sections
-  }
-}
-
-const replaceRow = (
-  value: SprintSectionsValue,
-  ticket: Ticket,
-  orderKey: string | null,
-  sort: TicketSort
-): SprintSectionsValue => ({
-  ...value,
-  sections: value.sections.map((section) => {
-    if (orderKey === null) {
-      return {
-        ...section,
-        page: {
-          ...section.page,
-          items: section.page.items.map((row) =>
-            row.ticket.id === ticket.id
-              ? { ...row, ticket, pending: false }
-              : row
-          )
-        }
-      }
-    }
-    const items: Array<BacklogRow> = []
-    let moved: BacklogRow | undefined
-    for (const row of section.page.items) {
-      if (row.ticket.id === ticket.id)
-        moved = { ...row, ticket, orderKey, pending: false }
-      else items.push(row)
-    }
-    if (moved === undefined) return section
-    return {
-      ...section,
-      page: {
-        ...section.page,
-        items: insertByOrderKey(items, moved, sort.dir)
-      }
-    }
-  })
-})
 
 const unsavedPatchAtom = Atom.family(
   (_key: Readonly<{ req: BacklogRequest; id: TicketId }>) =>
@@ -440,7 +214,7 @@ export const updateSprintSectionsTicket = Atom.family(
     Atom.optimisticFn(sprintSections(req), {
       reducer: (current, patch: UpdateTicketInput) =>
         AsyncResult.map(current, (value) =>
-          patchRow(
+          patchSectionsRow(
             value,
             id,
             patch,
@@ -478,7 +252,7 @@ export const updateSprintSectionsTicket = Atom.family(
             )
             set(
               AsyncResult.map(get(sprintSections(req)), (value) =>
-                replaceRow(value, updated, orderKey, req.query.sort)
+                replaceSectionsRow(value, updated, orderKey, req.query.sort)
               )
             )
             yield* Reactivity.invalidate([
