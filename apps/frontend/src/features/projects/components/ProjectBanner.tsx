@@ -1,15 +1,8 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { ProjectBanner as Banner } from "@pp/shared"
 import * as Match from "effect/Match"
-import { motion, useReducedMotion } from "motion/react"
-import {
-  Suspense,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState
-} from "react"
+import { useReducedMotion } from "motion/react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 
 import {
@@ -24,15 +17,16 @@ import {
 import type { BannerImageSize } from "@/features/projects/lib/bannerImageState"
 import {
   bucketRenderWidth,
+  matchesBannerRender,
+  type BannerRenderIdentity,
   type BannerRenderKey
 } from "@/features/projects/lib/bannerRenderCache"
 import { bannerSource } from "@/features/projects/lib/bannerSource"
 import { usePageBackdrop } from "@/lib/pageBackdrop"
-import { cn } from "@/lib/utils"
+import { standardEaseCss, transitions } from "@/lib/springs"
 
 import {
   bannerCropStyle,
-  bannerCrossfadeTransitions,
   bannerFadeMask,
   bannerPreviewChanged,
   type BannerFrameCrop
@@ -50,14 +44,14 @@ export function ProjectBanner({
   waiting,
   variant = "header",
   pageBackdrop = false
-}: {
+}: Readonly<{
   orgSlug: string
   slug: string
   banner: Banner | null
   waiting?: boolean
   variant?: "header" | "card" | "row"
   pageBackdrop?: boolean
-}) {
+}>) {
   const preview = useAtomValue(
     projectBannerPreview(projectRequest(orgSlug, slug))
   )
@@ -88,35 +82,38 @@ export function ProjectBanner({
 
   const bucketedWidth =
     containerSize.width > 0 ? bucketRenderWidth(containerSize.width) : 0
+  const pixelRatio = devicePixelRatio()
 
-  const cacheKey = useMemo<BannerRenderKey | null>(
+  const identity = useMemo<BannerRenderIdentity | null>(
     () =>
-      source === null ||
-      changed ||
-      bucketedWidth <= 0 ||
-      containerSize.height <= 0
+      source === null || changed
         ? null
         : {
             project: projectKey(orgSlug, slug),
             source,
             variant,
             crop: { x: crop.x, y: crop.y, zoom: crop.zoom },
-            width: bucketedWidth,
-            height: containerSize.height,
-            pixelRatio: devicePixelRatio()
+            pixelRatio
           },
     [
       source,
       changed,
-      bucketedWidth,
-      containerSize.height,
       orgSlug,
       slug,
       variant,
       crop.x,
       crop.y,
-      crop.zoom
+      crop.zoom,
+      pixelRatio
     ]
+  )
+
+  const cacheKey = useMemo<BannerRenderKey | null>(
+    () =>
+      identity && bucketedWidth > 0 && containerSize.height > 0
+        ? { ...identity, width: bucketedWidth, height: containerSize.height }
+        : null,
+    [identity, bucketedWidth, containerSize.height]
   )
 
   const containerRef = useCallback((node: HTMLDivElement | null) => {
@@ -160,8 +157,9 @@ export function ProjectBanner({
       }}
     >
       <BannerLayers
-        key={source}
+        key={`${orgSlug}/${slug}/${source}/${variant}`}
         source={source}
+        identity={identity}
         cacheKey={cacheKey}
         crop={crop}
         variant={variant}
@@ -170,7 +168,6 @@ export function ProjectBanner({
         containerSize={containerSize}
         measured={measured}
         editing={editing}
-        changed={changed}
       />
     </div>
   )
@@ -190,6 +187,7 @@ export function ProjectBanner({
 
 function BannerLayers({
   source,
+  identity,
   cacheKey,
   crop,
   variant,
@@ -197,10 +195,10 @@ function BannerLayers({
   placeholderSize,
   containerSize,
   measured,
-  editing,
-  changed
+  editing
 }: Readonly<{
   source: string
+  identity: BannerRenderIdentity | null
   cacheKey: BannerRenderKey | null
   crop: BannerFrameCrop
   variant: "header" | "card" | "row"
@@ -209,89 +207,114 @@ function BannerLayers({
   containerSize: BannerImageSize
   measured: boolean
   editing: boolean
-  changed: boolean
 }>) {
   const reduceMotion = useReducedMotion() ?? false
-  const image = useBannerImage(source, cacheKey, { measured, editing })
-  const { painted, shaderFailed, shaderImage, cachedRender } = image
+  const image = useBannerImage(source, cacheKey, {
+    identity,
+    measured,
+    editing
+  })
+  const { painted, shaderImage, cachedRender } = image
+  const [revealComplete, setRevealComplete] = useState(image.initiallyReady)
 
-  const skipBlur = image.wasCached
-  const settled =
-    cachedRender !== null && !(changed && painted) ? cachedRender : null
-  const shaderVisible = settled === null && (skipBlur || painted)
-  const settings = { ...bannerDefaults, ...crop }
+  const showingPreview =
+    painted &&
+    (editing ||
+      (cachedRender !== null &&
+        identity !== null &&
+        !matchesBannerRender(cachedRender, identity)))
+  const settled = showingPreview ? null : cachedRender
+  const ready = settled !== null || painted
+  const revealed = revealComplete || (reduceMotion && ready)
+  const renderShader =
+    shaderImage !== null &&
+    (settled === null || editing || image.lookup === "miss")
+  const settings = useMemo(
+    () => ({ ...bannerDefaults, x: crop.x, y: crop.y, zoom: crop.zoom }),
+    [crop.x, crop.y, crop.zoom]
+  )
   const blurRadius = Match.value(variant).pipe(
     Match.when("header", () => 12),
     Match.when("card", () => 6),
     Match.orElse(() => 3)
   )
-  const blurSize = image.naturalSize ?? placeholderSize
-  const cropStyle = blurSize
+  const cropStyle = placeholderSize
     ? bannerCropStyle(
-        blurSize.width,
-        blurSize.height,
+        placeholderSize.width,
+        placeholderSize.height,
         containerSize.width,
         containerSize.height,
         crop
       )
     : undefined
   const fadeMask = bannerFadeMask(settings.fade)
-  const { unblur, dissolve } = bannerCrossfadeTransitions(reduceMotion)
+  const transition =
+    reduceMotion || revealed
+      ? "none"
+      : `opacity ${transitions.fade.duration}s ${standardEaseCss}`
+  const mixBlendMode = revealed ? "normal" : "plus-lighter"
 
   return (
-    <>
-      {settled !== null && (
-        <img
-          src={settled}
-          alt=""
-          className="absolute inset-0 block size-full"
-        />
-      )}
-      {settled === null && !skipBlur && !image.placeholderFailed && (
+    <div className="absolute inset-0 isolate">
+      {!revealed && placeholder && cropStyle && !image.placeholderFailed && (
         <div
           className="absolute inset-0 overflow-hidden"
-          style={{ maskImage: fadeMask, WebkitMaskImage: fadeMask }}
+          style={{
+            maskImage: fadeMask,
+            WebkitMaskImage: fadeMask,
+            mixBlendMode,
+            opacity: ready ? 0 : 1,
+            transition
+          }}
         >
-          <motion.img
-            src={placeholder ?? source}
+          <img
+            src={placeholder}
             alt=""
             onError={image.onPlaceholderFailed}
-            className={cn(
-              "absolute",
-              !cropStyle && "inset-0 size-full object-cover"
-            )}
-            style={{ ...cropStyle }}
-            initial={false}
-            animate={{
-              filter:
-                painted || shaderFailed
-                  ? `blur(0px) grayscale(${1 - settings.color})`
-                  : `blur(${blurRadius}px) grayscale(${1 - settings.color})`,
-              opacity: painted ? 0 : 1
+            className="absolute"
+            style={{
+              ...cropStyle,
+              filter: `blur(${blurRadius}px) grayscale(${1 - settings.color})`
             }}
-            transition={{ filter: unblur, opacity: dissolve }}
           />
         </div>
       )}
-      {shaderImage && (
-        <motion.div
-          className="absolute inset-0 size-full"
-          initial={false}
-          animate={{ opacity: shaderVisible ? 1 : 0 }}
-          transition={skipBlur || settled !== null ? { duration: 0 } : dissolve}
-        >
-          <Suspense fallback={null}>
+      <div
+        className="absolute inset-0 size-full"
+        style={{ mixBlendMode, opacity: ready ? 1 : 0, transition }}
+        onTransitionEnd={(event) => {
+          if (
+            event.target === event.currentTarget &&
+            event.propertyName === "opacity" &&
+            ready
+          )
+            setRevealComplete(true)
+        }}
+      >
+        {settled !== null && (
+          <img
+            src={settled}
+            alt=""
+            className="absolute inset-0 block size-full object-cover"
+          />
+        )}
+        {renderShader && (
+          <div
+            className="absolute inset-0 size-full"
+            style={{ opacity: settled === null ? 1 : 0 }}
+          >
             <CachedShaderBanner
-              key={`${source}/${variant}`}
               image={shaderImage}
               settings={settings}
               cacheKey={cacheKey}
               live={editing}
               onFirstRender={image.onPainted}
+              onRenderStarted={image.onRenderStarted}
+              onRenderReady={image.onRenderReady}
             />
-          </Suspense>
-        </motion.div>
-      )}
-    </>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

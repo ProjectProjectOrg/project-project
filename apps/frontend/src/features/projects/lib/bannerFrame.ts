@@ -1,7 +1,4 @@
-import type { Transition } from "motion/react"
 import type { CSSProperties } from "react"
-
-import { transitions } from "@/lib/springs"
 
 export type BannerFrameCrop = {
   readonly x: number
@@ -101,27 +98,4 @@ export const bannerFadeMask = (fadeDepth: number): string => {
     stops.push(`rgba(0,0,0,${alpha.toFixed(3)}) ${(y * 100).toFixed(2)}%`)
   }
   return `linear-gradient(to bottom, ${stops.join(", ")})`
-}
-
-export type BannerCrossfadeTweens = {
-  readonly unblur: Transition
-  readonly dissolve: Transition
-}
-
-export const bannerCrossfadeTransitions = (
-  reduceMotion: boolean
-): BannerCrossfadeTweens => {
-  if (reduceMotion)
-    return {
-      unblur: { duration: 0 },
-      dissolve: { duration: 0, delay: 0 }
-    }
-  const delay = Math.max(
-    transitions.morph.duration - transitions.fade.duration,
-    0
-  )
-  return {
-    unblur: transitions.morph,
-    dissolve: { ...transitions.fade, delay }
-  }
 }

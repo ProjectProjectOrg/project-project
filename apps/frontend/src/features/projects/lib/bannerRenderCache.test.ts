@@ -2,10 +2,16 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import {
   bannerRenderUrl,
+  bannerRenderGeneration,
   bucketRenderWidth,
+  clearBannerRenderCache,
   evictBannerRenders,
+  peekBannerRender,
+  prepareBannerRender as prepareLeasedBannerRender,
   readBannerRender,
+  readReadyBannerRender,
   resetBannerRenderCacheHandle,
+  retainBannerRender,
   writeBannerRender
 } from "./bannerRenderCache"
 
@@ -38,15 +44,57 @@ class FakeCache {
 
 const stubCaches = () => {
   const cache = new FakeCache()
-  vi.stubGlobal("caches", { open: () => Promise.resolve(cache) })
+  vi.stubGlobal("caches", {
+    open: () => Promise.resolve(cache),
+    delete: () => Promise.resolve(cache.store.clear())
+  })
   resetBannerRenderCacheHandle()
   return cache
 }
 
 const blob = (text: string) => new Blob([text], { type: "image/webp" })
 
-afterEach(() => {
+const prepareBannerRender = async (
+  ...args: Parameters<typeof prepareLeasedBannerRender>
+) => {
+  const lease = await prepareLeasedBannerRender(...args)
+  const render = lease?.render ?? null
+  lease?.release()
+  return render
+}
+
+const deferred = () => {
+  let resolve: (() => void) | undefined
+  const promise = new Promise<void>((done) => {
+    resolve = done
+  })
+  return { promise, resolve: () => resolve?.() }
+}
+
+const stubImages = (decode: () => Promise<void> = () => Promise.resolve()) => {
+  let nextUrl = 0
+  const revoke = vi.fn<(url: string) => void>()
+  vi.stubGlobal(
+    "Image",
+    class {
+      src = ""
+      decode = decode
+    }
+  )
+  vi.stubGlobal(
+    "URL",
+    class extends URL {
+      static createObjectURL = () => `blob:banner-${++nextUrl}`
+      static revokeObjectURL = revoke
+    }
+  )
+  return revoke
+}
+
+afterEach(async () => {
+  await clearBannerRenderCache()
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
   resetBannerRenderCacheHandle()
 })
 
@@ -173,5 +221,147 @@ describe("evictBannerRenders", () => {
     const remaining = [...cache.store.keys()]
     expect(remaining).toHaveLength(1)
     expect(remaining[0]).toContain(encodeURIComponent("acme/other"))
+  })
+})
+
+describe("ready banner renders", () => {
+  it("publishes a disk hit synchronously only after its image decodes", async () => {
+    stubCaches()
+    const decoding = deferred()
+    const decode = vi.fn<() => Promise<void>>(() => decoding.promise)
+    stubImages(decode)
+    await writeBannerRender(key, blob("rendered"))
+
+    const reading = readReadyBannerRender(key)
+    await vi.waitFor(() => expect(decode).toHaveBeenCalledOnce())
+    expect(peekBannerRender(key)).toBeNull()
+    decoding.resolve()
+    const lease = await reading
+    const ready = lease?.render ?? null
+
+    expect(ready?.url).toBe("blob:banner-1")
+    const unmeasured = { ...key, width: 0, height: 0 }
+    expect(peekBannerRender(unmeasured)).toBe(ready)
+    expect(
+      peekBannerRender({ ...key, crop: { ...key.crop, zoom: 3 } })
+    ).toBeNull()
+    expect(peekBannerRender({ ...key, project: "acme/other" })).toBeNull()
+    lease?.release()
+  })
+
+  it("retries a failed decode without retaining its unusable URL", async () => {
+    const decode = vi.fn<() => Promise<void>>()
+    decode.mockRejectedValueOnce(new Error("decode failed"))
+    decode.mockResolvedValue(undefined)
+    const revoke = stubImages(decode)
+
+    expect(await prepareBannerRender(key, blob("bad"))).toBeNull()
+    expect(peekBannerRender(key)).toBeNull()
+    expect(revoke).toHaveBeenCalledWith("blob:banner-1")
+    expect((await prepareBannerRender(key, blob("good")))?.url).toBe(
+      "blob:banner-2"
+    )
+  })
+
+  it("keeps replaced URLs alive until every mounted user releases them", async () => {
+    const revoke = stubImages()
+    await prepareBannerRender(key, blob("first"))
+    const releaseFirst = retainBannerRender("blob:banner-1")
+    const releaseSecond = retainBannerRender("blob:banner-1")
+
+    await prepareBannerRender({ ...key, width: 1400 }, blob("resized"))
+    expect(revoke).not.toHaveBeenCalledWith("blob:banner-1")
+    releaseFirst()
+    expect(revoke).not.toHaveBeenCalledWith("blob:banner-1")
+    releaseSecond()
+    expect(revoke).toHaveBeenCalledWith("blob:banner-1")
+  })
+
+  it("leases decoded results before a batch can evict them ahead of React committing", async () => {
+    const revoke = stubImages()
+    const leases = await Promise.all(
+      Array.from({ length: 25 }, (_, index) =>
+        prepareLeasedBannerRender(
+          { ...key, project: `acme/tile-${index}` },
+          blob("tile")
+        )
+      )
+    )
+
+    expect(peekBannerRender({ ...key, project: "acme/tile-0" })).toBeNull()
+    expect(revoke).not.toHaveBeenCalledWith("blob:banner-1")
+
+    for (const lease of leases) lease?.release()
+    expect(revoke).toHaveBeenCalledWith("blob:banner-1")
+  })
+
+  it("bounds memory and keeps recently displayed banners", async () => {
+    const revoke = stubImages()
+    await prepareBannerRender(key, blob("first"))
+    for (let index = 1; index < 24; index++) {
+      await prepareBannerRender(
+        { ...key, project: `acme/project-${index}` },
+        blob("other")
+      )
+    }
+    const release = retainBannerRender("blob:banner-1")
+    release()
+    await prepareBannerRender({ ...key, project: "acme/last" }, blob("last"))
+
+    expect(peekBannerRender(key)?.url).toBe("blob:banner-1")
+    expect(peekBannerRender({ ...key, project: "acme/project-1" })).toBeNull()
+    expect(revoke).toHaveBeenCalledWith("blob:banner-2")
+  })
+
+  it("rejects work started before invalidation without replacing a newer banner", async () => {
+    const cache = stubCaches()
+    const decoding = deferred()
+    const decode = vi.fn<() => Promise<void>>()
+    decode.mockReturnValueOnce(decoding.promise)
+    decode.mockResolvedValue(undefined)
+    const revoke = stubImages(decode)
+    const generation = bannerRenderGeneration(key.project)
+    const old = prepareBannerRender(key, blob("old"), generation)
+
+    await evictBannerRenders(key.project)
+    const newer = await prepareBannerRender(key, blob("new"))
+    decoding.resolve()
+
+    expect(await old).toBeNull()
+    expect(peekBannerRender(key)).toBe(newer)
+    expect(revoke).toHaveBeenCalledWith("blob:banner-1")
+    await writeBannerRender(key, blob("stale"), generation)
+    expect(cache.store.size).toBe(0)
+  })
+
+  it("finishes an active disk write before deleting invalidated renders", async () => {
+    const cache = stubCaches()
+    const putting = deferred()
+    const put = vi
+      .spyOn(cache, "put")
+      .mockImplementation(async (url, response) => {
+        await putting.promise
+        cache.store.set(url, response)
+      })
+    const writing = writeBannerRender(key, blob("old"))
+    await vi.waitFor(() => expect(put).toHaveBeenCalled())
+    const evicting = evictBannerRenders(key.project)
+    putting.resolve()
+    await Promise.all([writing, evicting])
+    expect(cache.store.size).toBe(0)
+  })
+
+  it("clears ready images on logout even without disk storage", async () => {
+    vi.stubGlobal("caches", undefined)
+    const revoke = stubImages()
+    await prepareBannerRender(key, blob("rendered"))
+    const release = retainBannerRender("blob:banner-1")
+
+    await clearBannerRenderCache()
+
+    expect(peekBannerRender(key)).toBeNull()
+    expect(revoke).not.toHaveBeenCalledWith("blob:banner-1")
+    release()
+    expect(revoke).toHaveBeenCalledWith("blob:banner-1")
   })
 })
