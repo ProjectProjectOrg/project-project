@@ -191,7 +191,8 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
           ShardingConfig.layerFromEnv({
             shardsPerGroup: 1,
             entityMessagePollInterval: "20 millis",
-            entityReplyPollInterval: "20 millis"
+            entityReplyPollInterval: "20 millis",
+            entityTerminationTimeout: "1 second"
           })
         )
       )
