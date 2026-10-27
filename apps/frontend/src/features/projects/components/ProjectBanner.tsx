@@ -178,11 +178,8 @@ export function ProjectBanner({
   return backdrop
     ? createPortal(
         <div
-          className="page-backdrop-follow pointer-events-none absolute inset-x-0 top-0"
-          style={{
-            height: bannerDefaults.height,
-            ["--page-backdrop-height" as string]: `${bannerDefaults.height}px`
-          }}
+          className="pointer-events-none absolute inset-x-0 top-0"
+          style={{ height: bannerDefaults.height }}
         >
           {node}
         </div>,
