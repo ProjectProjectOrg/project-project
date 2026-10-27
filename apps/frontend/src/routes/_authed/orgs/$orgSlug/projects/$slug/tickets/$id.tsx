@@ -1,14 +1,7 @@
-import { useAtomValue } from "@effect/atom-react"
 import { TicketId } from "@pp/shared"
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import * as Match from "effect/Match"
-import * as Result from "effect/reactivity/AsyncResult"
+import { createFileRoute } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
-import { useEffect, useMemo, useRef } from "react"
 
-import { ErrorPage } from "@/components/ErrorPage"
-import { NotFoundPage } from "@/components/NotFoundPage"
-import { TicketPage, TicketPageSkeleton } from "@/components/TicketPage"
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
 import {
   projectLibraryFor,
@@ -20,9 +13,7 @@ import {
   ticketDetail,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
-import { m } from "@/paraglide/messages"
-
-import { useProject } from "../-context"
+import { TicketDetail } from "@/features/tickets/components/ticket-page/TicketDetail"
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 
@@ -34,7 +25,7 @@ const TicketDetailSearch = Schema.Struct({
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/tickets/$id"
 )({
-  component: TicketDetailRoute,
+  component: TicketDetail,
   validateSearch: Schema.toStandardSchemaV1(TicketDetailSearch),
   loader: ({ context, params }) => {
     const id = decodeTicketId(params.id)
@@ -59,54 +50,3 @@ export const Route = createFileRoute(
     }
   }
 })
-
-function TicketDetailRoute() {
-  const { orgSlug, slug, id } = Route.useParams()
-  const search = Route.useSearch()
-  const navigate = useNavigate({ from: Route.fullPath })
-  const ticketId = decodeTicketId(id)
-  const req = useMemo(
-    () => ticketRequest(orgSlug, slug, ticketId),
-    [orgSlug, slug, ticketId]
-  )
-  const result = useAtomValue(ticketDetail(req))
-  const project = useProject()
-  const autoFocusBody = useRef(search.focusBody === 1).current
-
-  useEffect(() => {
-    if (!autoFocusBody) return
-    void navigate({
-      to: ".",
-      search: ({ splitInto }) =>
-        splitInto && splitInto.length > 0 ? { splitInto } : {},
-      replace: true
-    })
-  }, [autoFocusBody, navigate])
-
-  return Result.matchWithError(result, {
-    onInitial: () => <TicketPageSkeleton />,
-    onError: (error) =>
-      Match.value(error).pipe(
-        Match.tag("NotFound", () => (
-          <NotFoundPage
-            contained
-            title={m.tickets_not_found_title()}
-            body={m.tickets_not_found_body()}
-          />
-        )),
-        Match.orElse((error) => <ErrorPage contained error={error} />)
-      ),
-    onDefect: (defect) => <ErrorPage contained error={defect} />,
-    onSuccess: ({ value }) => (
-      <TicketPage
-        orgSlug={orgSlug}
-        slug={slug}
-        ticket={value}
-        members={project.members}
-        github={project.github}
-        autoFocusBody={autoFocusBody}
-        splitInto={search.splitInto ?? []}
-      />
-    )
-  })
-}

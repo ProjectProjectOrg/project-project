@@ -2,10 +2,10 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { SlackProfile } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 
-import { ErrorPage } from "@/components/ErrorPage"
-import { IntegrationLogo } from "@/components/settings/IntegrationLogo"
-import { SettingsRow } from "@/components/settings/SettingsSection"
+import { ErrorPage } from "@/components/shell/ErrorPage"
+import { SettingsRow } from "@/components/shell/settings/SettingsSection"
 import { Button } from "@/components/ui/button"
+import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -14,7 +14,7 @@ import {
   slackOrgRequest,
   slackProfiles
 } from "../atoms/slack"
-import { slackActionError } from "./actionError"
+import { slackActionError } from "../lib/actionError"
 
 export function SlackProfileSettings({
   oauthError

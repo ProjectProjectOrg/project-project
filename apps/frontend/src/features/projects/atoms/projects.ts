@@ -24,9 +24,9 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { me } from "@/features/auth/atoms/auth"
-import { evictBannerRenders } from "@/lib/bannerRenderCache"
-import { bannerSource } from "@/lib/bannerSource"
-import { preloadImage } from "@/lib/imagePreload"
+import { evictBannerRenders } from "@/features/projects/lib/bannerRenderCache"
+import { bannerSource } from "@/features/projects/lib/bannerSource"
+import { preloadImage } from "@/features/projects/lib/imagePreload"
 
 export type ProjectsRequest = Readonly<{
   params: Readonly<{ orgSlug: string }>

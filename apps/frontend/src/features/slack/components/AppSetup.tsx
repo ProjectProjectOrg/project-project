@@ -3,13 +3,13 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { Download, ExternalLink } from "lucide-react"
 import { useState } from "react"
 
-import { ErrorPage } from "@/components/ErrorPage"
-import { SettingsDisclosureItem } from "@/components/settings/SettingsDisclosureItem"
+import { ErrorPage } from "@/components/shell/ErrorPage"
+import { SettingsDisclosureItem } from "@/components/shell/settings/SettingsDisclosureItem"
 import {
   SettingsGroup,
   SettingsRow
-} from "@/components/settings/SettingsSection"
-import { SettingsSkeleton } from "@/components/settings/SettingsSkeleton"
+} from "@/components/shell/settings/SettingsSection"
+import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
 

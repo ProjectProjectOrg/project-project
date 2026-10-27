@@ -12,7 +12,7 @@ import {
   menuSeparatorClass
 } from "@/components/ui/menu-styles"
 import type { IconComponent } from "@/lib/icon"
-import { useShape } from "@/lib/shape-context"
+import { useShape } from "@/lib/shapeContext"
 import { cn } from "@/lib/utils"
 
 export type SelectOption<Value extends string> = Readonly<{

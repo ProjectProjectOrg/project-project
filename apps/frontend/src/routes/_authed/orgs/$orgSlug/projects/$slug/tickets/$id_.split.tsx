@@ -1,15 +1,7 @@
-import { useAtomValue } from "@effect/atom-react"
 import { TicketId } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
-import * as Match from "effect/Match"
-import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import { useMemo } from "react"
 
-import { ErrorPage } from "@/components/ErrorPage"
-import { NotFoundPage } from "@/components/NotFoundPage"
-import { TicketPageSkeleton } from "@/components/TicketPage"
-import { TicketSplitPage } from "@/components/TicketSplit/TicketSplitPage"
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
 import {
   sprintList,
@@ -19,16 +11,14 @@ import {
   ticketDetail,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
-import { m } from "@/paraglide/messages"
-
-import { useProject } from "../-context"
+import { TicketSplit } from "@/features/tickets/components/ticket-split/TicketSplit"
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/tickets/$id_/split"
 )({
-  component: TicketSplitRoute,
+  component: TicketSplit,
   loader: ({ context, params }) => {
     const id = decodeTicketId(params.id)
     context.registry.mount(
@@ -50,38 +40,3 @@ export const Route = createFileRoute(
     }
   }
 })
-
-function TicketSplitRoute() {
-  const { orgSlug, slug, id } = Route.useParams()
-  const ticketId = decodeTicketId(id)
-  const req = useMemo(
-    () => ticketRequest(orgSlug, slug, ticketId),
-    [orgSlug, slug, ticketId]
-  )
-  const result = useAtomValue(ticketDetail(req))
-  const project = useProject()
-
-  return Result.matchWithError(result, {
-    onInitial: () => <TicketPageSkeleton />,
-    onError: (error) =>
-      Match.value(error).pipe(
-        Match.tag("NotFound", () => (
-          <NotFoundPage
-            contained
-            title={m.tickets_not_found_title()}
-            body={m.tickets_not_found_body()}
-          />
-        )),
-        Match.orElse((error) => <ErrorPage contained error={error} />)
-      ),
-    onDefect: (defect) => <ErrorPage contained error={defect} />,
-    onSuccess: ({ value }) => (
-      <TicketSplitPage
-        orgSlug={orgSlug}
-        slug={slug}
-        ticket={value}
-        members={project.members}
-      />
-    )
-  })
-}

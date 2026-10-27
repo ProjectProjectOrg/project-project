@@ -293,7 +293,7 @@ Use the ladder when a surface must sit on another surface — board columns and 
 
 ### Surface context
 
-Components that **elevate** read the surface level they sit on instead of hard-coding one (`useSurface()` / `SurfaceProvider` from `lib/surface-context`, class lookups from `lib/surface-classes`, both from `@fluid`). The page is level 1; a container that raises itself re-provides its own level so anything inside keeps stepping up.
+Components that **elevate** read the surface level they sit on instead of hard-coding one (`useSurface()` / `SurfaceProvider` from `lib/surfaceContext`, class lookups from `lib/surfaceClasses`, both from `@fluid`). The page is level 1; a container that raises itself re-provides its own level so anything inside keeps stepping up.
 
 - **`SettingsGroup`** uses `--card` and provides level 1. In dark that is a recessed well (`0.205`, the same value as `--surface-1`), so the controls inside lift out of it instead of stacking a card on the already-raised content region. In light it is a white card: a grey well on the light region reads muddy, so this is the one deliberate exception to layering both themes the same way.
 - **Segmented pill:** substrate + 4 with the `--shadow-1` hairline. Fluid uses + 3, but our page region sits above `--surface-1`, so + 3 leaves the pill indistinct from its `bg-hover` track.
@@ -370,9 +370,9 @@ Shared rules, all from `components/ui/menu-styles.ts`:
 
 - **Style:** flat list of links, `rounded-lg` (16px) tap target, `8px 12px` padding.
 - **Default:** `muted-foreground` text.
-- **Hover:** one `bg-hover` pill per rail that springs between items (`use-fluid-hover` + `FluidHoverHighlight`); text flips to `foreground`.
+- **Hover:** one `bg-hover` pill per rail that springs between items (`useFluidHover` + `FluidHoverHighlight`); text flips to `foreground`.
 - **Active:** one `bg-accent` pill that travels to the active route, plus `font-medium` `foreground` text. No vertical accent stripe, no colored border.
-- **Settings rails** use `SettingsRail` / `SettingsRailNav` / `SettingsRailLink` from `components/settings/SettingsRail.tsx`; don't hand-roll nav links.
+- **Settings rails** use `SettingsRail` / `SettingsRailNav` / `SettingsRailLink` from `components/shell/settings/SettingsRail.tsx`; don't hand-roll nav links.
 - **Press:** `active:scale-[0.97]` like every other clickable.
 
 ### Settings Pages
@@ -383,7 +383,7 @@ Shared rules, all from `components/ui/menu-styles.ts`:
 - **Organization** is shared setup every project relies on, managed by admins: members, integrations (GitHub App, storage with its files, email), the template library.
 - **Project** is how this project works, managed by PMs: appearance, team, workflow, project templates on top of the organization's, and integration *links* (which repo, which board). A project screen never sets up a shared service; when a prerequisite is missing it points to where that service is set up.
 
-Every settings area — organization, project, profile — uses the same rail and the same page anatomy (`components/settings/`):
+Every settings area — organization, project, profile — uses the same rail and the same page anatomy (`components/shell/settings/`):
 
 - **`SettingsPage`:** page title and one-line description, then sections at `gap-8`. Full width up to `96rem`, then centered, so ultra-wide screens settle into a column without squeezing layouts designed for width.
 - **`SettingsSection`:** a 13px/500 title and optional 12px muted description, outside the group. Optional when a section is a single obvious row.

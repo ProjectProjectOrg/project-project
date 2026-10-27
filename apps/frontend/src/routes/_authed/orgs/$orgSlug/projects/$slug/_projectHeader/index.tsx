@@ -3,7 +3,6 @@ import { createFileRoute } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 
-import { readBacklogGrouping } from "@/components/TicketList/ProjectTicketLayout"
 import { me } from "@/features/auth/atoms/auth"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import {
@@ -19,6 +18,7 @@ import {
   sprintSections,
   sprintSectionsRequest
 } from "@/features/tickets/atoms/sprintSections"
+import { readBacklogGrouping } from "@/features/tickets/components/ticket-list/ProjectTicketLayout"
 import { readViewPreference } from "@/hooks/useViewPreference"
 
 const BacklogRouteSearchSchema = TicketListQuery.pipe(

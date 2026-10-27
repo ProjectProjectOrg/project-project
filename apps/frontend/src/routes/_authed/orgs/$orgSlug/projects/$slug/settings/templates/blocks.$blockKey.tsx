@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { BlockEditorPage } from "@/components/Library/BlockEditorPage"
-import { projectScope } from "@/components/Library/libraryScope"
+import { projectScope } from "@/features/library/atoms/libraryScope"
+import { BlockEditorPage } from "@/features/library/components/BlockEditorPage"
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/settings/templates/blocks/$blockKey"

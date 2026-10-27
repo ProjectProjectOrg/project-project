@@ -5,16 +5,16 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { RefreshCw } from "lucide-react"
 import { useEffect, useState } from "react"
 
-import { ErrorPage } from "@/components/ErrorPage"
-import { IntegrationLogo } from "@/components/settings/IntegrationLogo"
+import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
   SettingsGroup,
   SettingsRow,
   SettingsSection
-} from "@/components/settings/SettingsSection"
-import { SettingsSwitch } from "@/components/settings/SettingsTextField"
+} from "@/components/shell/settings/SettingsSection"
+import { SettingsSwitch } from "@/components/shell/settings/SettingsTextField"
 import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger } from "@/components/ui/select"
+import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -27,7 +27,7 @@ import {
   testSlackProject,
   type SlackProjectRequest
 } from "../atoms/slack"
-import { slackActionError } from "./actionError"
+import { slackActionError } from "../lib/actionError"
 
 type ProjectProps = Readonly<{
   orgSlug: string

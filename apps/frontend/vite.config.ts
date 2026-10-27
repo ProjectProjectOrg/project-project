@@ -10,27 +10,26 @@ import { defineConfig } from "vite"
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const domTests = [
-  "src/components/Lexical/**/*.test.ts",
-  "src/components/LexicalEditor.test.ts",
-  "src/components/TicketGit/TicketStack.test.tsx",
-  "src/components/TicketList/search.test.tsx",
-  "src/components/TicketList/sectionCollapse.test.ts",
-  "src/components/TicketList/toolbar/counts.test.tsx",
-  "src/components/TicketList/useTicketPreview.test.ts",
-  "src/components/TicketPage/descriptionTemplates.test.ts",
-  "src/components/TicketPage/useTemplateSwap.test.ts",
-  "src/components/routeReads.test.ts",
-  "src/components/time/RunningTimerIndicator.test.ts",
   "src/features/*/hooks/**/*.test.{ts,tsx}",
   "src/features/attachments/atoms/attachments.test.ts",
-  "src/forms/project-icon/useIconDraft.test.ts",
+  "src/features/editor/components/LexicalEditor.test.ts",
+  "src/features/editor/lexical/**/*.test.ts",
+  "src/features/everhour/components/RunningTimerIndicator.test.ts",
+  "src/features/github/components/ticket-git/TicketStack.test.tsx",
+  "src/features/projects/forms/project-icon/useIconDraft.test.ts",
+  "src/features/projects/lib/bannerRenderCache.test.ts",
+  "src/features/projects/lib/imageCompression.test.ts",
+  "src/features/projects/lib/imagePreload.test.ts",
+  "src/features/tickets/components/ticket-list/search.test.tsx",
+  "src/features/tickets/components/ticket-list/sectionCollapse.test.ts",
+  "src/features/tickets/components/ticket-list/toolbar/counts.test.tsx",
+  "src/features/tickets/components/ticket-list/useTicketPreview.test.ts",
+  "src/features/tickets/components/ticket-page/descriptionTemplates.test.ts",
+  "src/features/tickets/components/ticket-page/useTemplateSwap.test.ts",
   "src/hooks/**/*.test.{ts,tsx}",
-  "src/lib/bannerRenderCache.test.ts",
   "src/lib/form.test.ts",
-  "src/lib/imageCompression.test.ts",
-  "src/lib/imagePreload.test.ts",
   "src/lib/keepInPlace.test.ts",
-  "src/lib/useMountedRef.test.ts"
+  "src/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/-routeReads.test.ts"
 ]
 
 const packages = (names: ReadonlyArray<string>) =>

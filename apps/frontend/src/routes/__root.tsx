@@ -1,15 +1,10 @@
-import {
-  createRootRouteWithContext,
-  Outlet,
-  useRouterState
-} from "@tanstack/react-router"
+import { createRootRouteWithContext } from "@tanstack/react-router"
 import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
-import { useEffect } from "react"
 
-import { ErrorPage } from "@/components/ErrorPage"
-import { LoaderOverlay } from "@/components/LoaderOverlay"
-import { NotFoundPage } from "@/components/NotFoundPage"
-import { ShapeProvider } from "@/lib/shape-context"
+import { ErrorPage } from "@/components/shell/ErrorPage"
+import { NotFoundPage } from "@/components/shell/NotFoundPage"
+import { RootComponent } from "@/components/shell/RootComponent"
+import { ShapeProvider } from "@/lib/shapeContext"
 
 export interface RouterContext {
   registry: AtomRegistry
@@ -28,23 +23,3 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     </ShapeProvider>
   )
 })
-
-function RootComponent() {
-  const isLoading = useRouterState({ select: (s) => s.isLoading })
-
-  useEffect(() => {
-    document.documentElement.setAttribute("data-app-ready", "")
-    const boot = document.getElementById("app-loader")
-    if (!boot) return
-    const remove = () => boot.remove()
-    boot.addEventListener("transitionend", remove, { once: true })
-    return () => boot.removeEventListener("transitionend", remove)
-  }, [])
-
-  return (
-    <ShapeProvider>
-      <Outlet />
-      <LoaderOverlay active={isLoading} />
-    </ShapeProvider>
-  )
-}

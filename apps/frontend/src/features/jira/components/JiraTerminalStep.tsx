@@ -3,7 +3,7 @@ import type { JiraMigrationDetail, JiraSkippedAttachment } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 
-import { ErrorPage } from "@/components/ErrorPage"
+import { ErrorPage } from "@/components/shell/ErrorPage"
 import { Button } from "@/components/ui/button"
 import {
   jiraMigrationKey,

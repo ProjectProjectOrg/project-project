@@ -1,15 +1,9 @@
-import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
-import { createFileRoute, Outlet } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
-import * as Match from "effect/Match"
-import * as Result from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
 
-import { DeletedOrgPage } from "@/components/DeletedOrgPage"
-import { ErrorPage } from "@/components/ErrorPage"
-import { NotFoundPage } from "@/components/NotFoundPage"
-import { DitherShell } from "@/components/ui/dither-shell"
 import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
+import { OrgLayout } from "@/features/organizations/components/OrgLayout"
 import {
   projectsFor,
   projectsRequest
@@ -34,25 +28,3 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug")({
     await projects
   }
 })
-
-function OrgLayout() {
-  const { orgSlug } = Route.useParams()
-  const result = useAtomValue(orgDetail(orgRequest(orgSlug)))
-  const refresh = useAtomRefresh(orgDetail(orgRequest(orgSlug)))
-
-  return Result.matchWithError(result, {
-    onInitial: () => <DitherShell animated>{null}</DitherShell>,
-    onError: (error) =>
-      Match.value(error).pipe(
-        Match.tag("NotFound", () => <NotFoundPage />),
-        Match.orElse((error) => <ErrorPage error={error} reset={refresh} />)
-      ),
-    onDefect: (defect) => <ErrorPage error={defect} reset={refresh} />,
-    onSuccess: ({ value }) =>
-      value.deletedAt !== null ? (
-        <DeletedOrgPage orgSlug={orgSlug} />
-      ) : (
-        <Outlet />
-      )
-  })
-}

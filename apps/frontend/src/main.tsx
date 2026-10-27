@@ -8,7 +8,7 @@ import {
 import { StrictMode, useSyncExternalStore } from "react"
 import ReactDOM from "react-dom/client"
 
-import { createSessionCache } from "./lib/sessionCache"
+import { createSessionCache } from "./features/auth/lib/sessionCache"
 import { routeTree } from "./routeTree.gen"
 import { authClient } from "./services/AuthClient"
 
