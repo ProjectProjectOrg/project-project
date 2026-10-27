@@ -48,13 +48,16 @@ describe("bannerImageReducer", () => {
     expect(shouldLoadBannerImage(hit, true)).toBe(true)
   })
 
-  it("clears the cached render when a new lookup starts", () => {
+  it("keeps the displayed render while looking up its replacement", () => {
     const relooked = run(
       { type: "lookupStarted" },
       { type: "lookupHit", url: "blob:render" },
       { type: "lookupStarted" }
     )
-    expect(relooked).toMatchObject({ lookup: "pending", cachedRender: null })
+    expect(relooked).toMatchObject({
+      lookup: "pending",
+      cachedRender: "blob:render"
+    })
   })
 
   it("keeps the cached render when the lookup is skipped", () => {
@@ -64,7 +67,7 @@ describe("bannerImageReducer", () => {
       { type: "lookupSkipped" }
     )
     expect(skipped).toMatchObject({
-      lookup: "settled",
+      lookup: "miss",
       cachedRender: "blob:render"
     })
   })

@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useState
+} from "react"
 
 import {
   bannerImageReducer,
@@ -8,37 +14,47 @@ import {
   type BannerImageState
 } from "@/features/projects/lib/bannerImageState"
 import {
-  readBannerRender,
+  peekBannerRender,
+  bannerRenderUrl,
+  readReadyBannerRender,
+  retainBannerRender,
+  type BannerRenderIdentity,
   type BannerRenderKey
 } from "@/features/projects/lib/bannerRenderCache"
-import {
-  isImageLoaded,
-  preloadImage
-} from "@/features/projects/lib/imagePreload"
 
 export type BannerImage = BannerImageState<HTMLImageElement> &
   Readonly<{
-    wasCached: boolean
+    initiallyReady: boolean
     onPainted: () => void
+    onRenderStarted: () => void
+    onRenderReady: (url: string) => void
     onPlaceholderFailed: () => void
   }>
 
 export function useBannerImage(
   source: string,
   cacheKey: BannerRenderKey | null,
-  options: Readonly<{ measured: boolean; editing: boolean }>
+  options: Readonly<{
+    identity: BannerRenderIdentity | null
+    measured: boolean
+    editing: boolean
+  }>
 ): BannerImage {
-  const { measured, editing } = options
+  const { identity, measured, editing } = options
   const [state, dispatch] = useReducer(
     bannerImageReducer<HTMLImageElement>,
-    initialBannerImageState
+    identity,
+    (key) => ({
+      ...initialBannerImageState,
+      cachedRender: key ? (peekBannerRender(key)?.url ?? null) : null
+    })
   )
-  const [wasCached] = useState(() => isImageLoaded(source))
-  const requested = useRef(false)
+  const [initiallyReady] = useState(() => state.cachedRender !== null)
 
-  useEffect(() => {
-    void preloadImage(source)
-  }, [source])
+  useLayoutEffect(() => {
+    if (state.cachedRender) return retainBannerRender(state.cachedRender)
+    return undefined
+  }, [state.cachedRender])
 
   useEffect(() => {
     if (!measured) return undefined
@@ -48,59 +64,80 @@ export function useBannerImage(
     }
     dispatch({ type: "lookupStarted" })
     let cancelled = false
-    let objectUrl: string | null = null
-    void readBannerRender(cacheKey).then((blob) => {
-      if (cancelled) return
-      if (blob) {
-        objectUrl = URL.createObjectURL(blob)
-        dispatch({ type: "lookupHit", url: objectUrl })
-      } else dispatch({ type: "lookupMissed" })
+    let release: (() => void) | undefined
+    void readReadyBannerRender(cacheKey).then((lease) => {
+      if (cancelled) {
+        lease?.release()
+        return
+      }
+      if (lease) {
+        release = lease.release
+        dispatch({ type: "lookupHit", url: lease.render.url })
+      } else {
+        const ready = peekBannerRender(cacheKey)
+        if (ready && bannerRenderUrl(ready.key) === bannerRenderUrl(cacheKey)) {
+          release = retainBannerRender(ready.url)
+          dispatch({ type: "lookupHit", url: ready.url })
+        } else dispatch({ type: "lookupMissed" })
+      }
     })
     return () => {
       cancelled = true
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
+      release?.()
     }
   }, [cacheKey, measured])
 
   const load = shouldLoadBannerImage(state, editing)
   useEffect(() => {
-    if (!load || requested.current) return undefined
-    requested.current = true
+    if (!load || state.shaderImage !== null) return undefined
+    let cancelled = false
     const photo = new Image()
     photo.crossOrigin = "anonymous"
-    photo.addEventListener("load", () => {
-      if (!requested.current) return
-      dispatch({
-        type: "imageLoaded",
-        size: { width: photo.naturalWidth, height: photo.naturalHeight }
-      })
-      void photo
-        .decode()
-        .then(() => {
-          if (requested.current)
-            dispatch({ type: "imageDecoded", image: photo })
-        })
-        .catch(() => {
-          if (requested.current) dispatch({ type: "decodeFailed" })
-        })
-    })
-    photo.addEventListener("error", () => {
-      if (!requested.current) return
-      requested.current = false
-      dispatch({ type: "imageFailed" })
-    })
     photo.src = source
-    return undefined
-  }, [source, load])
+    void photo.decode().then(
+      () => {
+        if (cancelled) return
+        dispatch({
+          type: "imageLoaded",
+          size: { width: photo.naturalWidth, height: photo.naturalHeight }
+        })
+        dispatch({ type: "imageDecoded", image: photo })
+      },
+      () => {
+        if (!cancelled) dispatch({ type: "decodeFailed" })
+      }
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [source, load, state.shaderImage])
 
   const onPainted = useCallback(() => dispatch({ type: "painted" }), [])
+  const onRenderStarted = useCallback(
+    () => dispatch({ type: "renderStarted" }),
+    []
+  )
+  const onRenderReady = useCallback(
+    (url: string) => dispatch({ type: "lookupHit", url }),
+    []
+  )
   const onPlaceholderFailed = useCallback(
     () => dispatch({ type: "imageFailed" }),
     []
   )
 
-  return { ...state, wasCached, onPainted, onPlaceholderFailed }
+  return {
+    ...state,
+    initiallyReady,
+    onPainted,
+    onRenderStarted,
+    onRenderReady,
+    onPlaceholderFailed
+  }
 }
+
+const placeholderSizes = new Map<string, BannerImageSize>()
+const PLACEHOLDER_LIMIT = 24
 
 export function usePlaceholderSize(
   placeholder: string | null
@@ -110,23 +147,33 @@ export function usePlaceholderSize(
     size: BannerImageSize
   }> | null>(null)
   useEffect(() => {
-    if (!placeholder) return undefined
+    if (!placeholder || placeholderSizes.has(placeholder)) return undefined
     let cancelled = false
     const thumbnail = new Image()
-    thumbnail.addEventListener("load", () => {
-      if (!cancelled)
-        setLoaded({
-          src: placeholder,
-          size: {
-            width: thumbnail.naturalWidth,
-            height: thumbnail.naturalHeight
-          }
-        })
-    })
     thumbnail.src = placeholder
+    void thumbnail.decode().then(
+      () => {
+        if (cancelled) return
+        const size = {
+          width: thumbnail.naturalWidth,
+          height: thumbnail.naturalHeight
+        }
+        placeholderSizes.set(placeholder, size)
+        if (placeholderSizes.size > PLACEHOLDER_LIMIT) {
+          const oldest = placeholderSizes.keys().next().value
+          if (oldest !== undefined) placeholderSizes.delete(oldest)
+        }
+        setLoaded({ src: placeholder, size })
+      },
+      () => undefined
+    )
     return () => {
       cancelled = true
     }
   }, [placeholder])
-  return loaded !== null && loaded.src === placeholder ? loaded.size : null
+  if (placeholder === null) return null
+  return (
+    placeholderSizes.get(placeholder) ??
+    (loaded?.src === placeholder ? loaded.size : null)
+  )
 }

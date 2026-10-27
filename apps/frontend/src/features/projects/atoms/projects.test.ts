@@ -15,6 +15,7 @@ import { describe, expect, it, vi } from "vitest"
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
 import { stubFetch } from "@/api/testFetch"
+import { bannerRenderGeneration } from "@/features/projects/lib/bannerRenderCache"
 
 import {
   addMember,
@@ -22,8 +23,10 @@ import {
   forgetProject,
   leaveProject,
   project,
+  projectKey,
   projectRequest,
   updateMember,
+  updateProject,
   updateProjectSetup
 } from "./projects"
 
@@ -68,6 +71,58 @@ const detail = Schema.decodeSync(ProjectDetail)({
 const encode = Schema.encodeSync(ProjectDetail)
 const encodeNotFound = Schema.encodeSync(NotFound)
 const fetchStub = stubFetch()
+
+describe("project banner mutations", () => {
+  it("keeps renders captured during a save valid after the server confirms", async () => {
+    const banner = {
+      type: "preset",
+      preset: "sunset",
+      crop: { x: 0.5, y: 0.25, zoom: 1.3 },
+      placeholder: null
+    } satisfies ProjectDetail["banner"]
+    const confirmed = { ...detail, banner }
+    let served = detail
+    let requested = false
+    let finish: ((response: Response) => void) | undefined
+    const response = new Promise<Response>((resolve) => {
+      finish = resolve
+    })
+    fetchStub.set((_input, init) => {
+      if (init?.method === "PATCH") {
+        requested = true
+        return response
+      }
+      return Promise.resolve(Response.json(encode(served)))
+    })
+    const req = projectRequest("acme", "web")
+    const scope = projectKey("acme", "web")
+    const view = project(req)
+    const mutation = updateProject(req)
+    const registry = AtomRegistry.make()
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
+      )
+      const previous = bannerRenderGeneration(scope)
+      registry.set(mutation, { banner })
+      await vi.waitFor(() => expect(requested).toBe(true))
+      const duringSave = bannerRenderGeneration(scope)
+      expect(duringSave).not.toBe(previous)
+
+      served = confirmed
+      finish?.(Response.json(encode(confirmed)))
+      await vi.waitFor(() =>
+        expect(AsyncResult.isSuccess(registry.get(mutation))).toBe(true)
+      )
+
+      expect(bannerRenderGeneration(scope)).toBe(duringSave)
+    } finally {
+      registry.dispose()
+    }
+  })
+})
 
 describe("project member mutations", () => {
   it("paints a role change immediately", async () => {

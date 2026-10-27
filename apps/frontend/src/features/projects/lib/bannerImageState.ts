@@ -1,7 +1,7 @@
 export type BannerImageSize = Readonly<{ width: number; height: number }>
 
 export type BannerImageState<I> = Readonly<{
-  lookup: "idle" | "pending" | "settled"
+  lookup: "idle" | "pending" | "hit" | "miss"
   cachedRender: string | null
   naturalSize: BannerImageSize | null
   shaderImage: I | null
@@ -19,6 +19,7 @@ export type BannerImageEvent<I> =
   | Readonly<{ type: "imageDecoded"; image: I }>
   | Readonly<{ type: "decodeFailed" }>
   | Readonly<{ type: "imageFailed" }>
+  | Readonly<{ type: "renderStarted" }>
   | Readonly<{ type: "painted" }>
 
 export const initialBannerImageState: BannerImageState<never> = {
@@ -37,13 +38,13 @@ export const bannerImageReducer = <I>(
 ): BannerImageState<I> => {
   switch (event.type) {
     case "lookupSkipped":
-      return { ...state, lookup: "settled" }
+      return { ...state, lookup: "miss" }
     case "lookupStarted":
-      return { ...state, lookup: "pending", cachedRender: null }
+      return { ...state, lookup: "pending" }
     case "lookupHit":
-      return { ...state, lookup: "settled", cachedRender: event.url }
+      return { ...state, lookup: "hit", cachedRender: event.url }
     case "lookupMissed":
-      return { ...state, lookup: "settled" }
+      return { ...state, lookup: "miss" }
     case "imageLoaded":
       return { ...state, naturalSize: event.size }
     case "imageDecoded":
@@ -52,6 +53,8 @@ export const bannerImageReducer = <I>(
       return { ...state, shaderFailed: true }
     case "imageFailed":
       return { ...state, placeholderFailed: true }
+    case "renderStarted":
+      return state.painted ? { ...state, painted: false } : state
     case "painted":
       return state.painted ? state : { ...state, painted: true }
     default:
@@ -62,5 +65,4 @@ export const bannerImageReducer = <I>(
 export const shouldLoadBannerImage = (
   state: BannerImageState<unknown>,
   editing: boolean
-): boolean =>
-  state.lookup === "settled" && (state.cachedRender === null || editing)
+): boolean => state.lookup === "miss" || editing

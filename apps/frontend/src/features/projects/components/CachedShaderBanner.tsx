@@ -1,11 +1,21 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef
+} from "react"
 
 import {
+  bannerRenderGeneration,
   bannerRenderUrl,
-  bucketRenderWidth,
+  prepareBannerRender,
   writeBannerRender,
   type BannerRenderKey
 } from "@/features/projects/lib/bannerRenderCache"
+import { m } from "@/paraglide/messages"
 
 import type { BannerShaderSettings } from "./BannerShader"
 
@@ -14,7 +24,6 @@ const BannerShader = lazy(() =>
     default: module.BannerShader
   }))
 )
-import { m } from "@/paraglide/messages"
 
 const RENDER_QUALITY = 0.9
 
@@ -24,121 +33,80 @@ const toBlob = (canvas: HTMLCanvasElement): Promise<Blob | null> =>
     canvas.toBlob(resolve, "image/webp", RENDER_QUALITY)
   })
 
-type Rendered = {
-  readonly src: string
-  readonly width: number
-  readonly height: number
-  readonly signature: string
-}
-
-const signatureOf = (image: HTMLImageElement, settings: BannerShaderSettings) =>
-  `${image.src}|${settings.x}|${settings.y}|${settings.zoom}`
-
 export function CachedShaderBanner({
   image,
   settings,
   cacheKey,
   live = false,
-  onFirstRender
-}: {
+  onFirstRender,
+  onRenderStarted,
+  onRenderReady
+}: Readonly<{
   image: HTMLImageElement
   settings: BannerShaderSettings
   cacheKey: BannerRenderKey | null
   live?: boolean
-  onFirstRender?: () => void
-}) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [size, setSize] = useState({ width: 0, height: 0 })
-  const [rendered, setRendered] = useState<Rendered | null>(null)
+  onFirstRender: () => void
+  onRenderStarted: () => void
+  onRenderReady: (url: string) => void
+}>) {
+  const generation = useMemo(
+    () => (cacheKey ? bannerRenderGeneration(cacheKey.project) : null),
+    [cacheKey]
+  )
+  const mounted = useRef(false)
+  const captured = useRef<string | null>(null)
+  const leases = useRef(new Set<() => void>())
 
-  useEffect(() => {
-    const node = ref.current
-    if (!node) return undefined
-    const observer = new ResizeObserver(([entry]) => {
-      if (!entry) return
-      const width = Math.round(entry.contentRect.width)
-      const height = Math.round(entry.contentRect.height)
-      setSize((current) =>
-        current.width === width && current.height === height
-          ? current
-          : { width, height }
-      )
-    })
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [])
+  useLayoutEffect(onRenderStarted, [onRenderStarted])
 
-  useEffect(() => {
-    setRendered(null)
-  }, [cacheKey])
-
-  const mounted = useRef(true)
   useEffect(() => {
     mounted.current = true
+    const pending = leases.current
     return () => {
       mounted.current = false
+      for (const release of pending) release()
+      pending.clear()
     }
   }, [])
 
-  useEffect(
-    () => () => {
-      if (rendered) URL.revokeObjectURL(rendered.src)
-    },
-    [rendered]
-  )
-
-  const signature = signatureOf(image, settings)
-  const captured = useRef<string | null>(null)
-
   const capture = useCallback(
     (canvas: HTMLCanvasElement) => {
-      onFirstRender?.()
-      if (live) return
-      if (
-        canvas.width <= 0 ||
-        canvas.height <= 0 ||
-        size.width <= 0 ||
-        size.height <= 0
-      )
-        return
-      if (!cacheKey) return
-      const entry = `${bannerRenderUrl(cacheKey)}|${signature}`
+      if (canvas.width <= 0 || canvas.height <= 0) return
+      onFirstRender()
+      if (live || !cacheKey || !generation) return
+      const entry = bannerRenderUrl(cacheKey)
       if (captured.current === entry) return
       captured.current = entry
-      void toBlob(canvas).then((blob) => {
-        if (!blob) return
-        void writeBannerRender(cacheKey, blob)
-        if (!mounted.current) return
-        setRendered({ src: URL.createObjectURL(blob), ...size, signature })
-      })
+      void toBlob(canvas)
+        .then(async (blob) => {
+          if (!blob) return
+          const lease = await prepareBannerRender(cacheKey, blob, generation)
+          if (!lease) return
+          void writeBannerRender(cacheKey, blob, generation)
+          if (!mounted.current || captured.current !== entry) {
+            lease.release()
+            return
+          }
+          leases.current.add(lease.release)
+          onRenderReady(lease.render.url)
+        })
+        .catch(() => {
+          if (captured.current === entry) captured.current = null
+        })
     },
-    [size, onFirstRender, cacheKey, live, signature]
+    [cacheKey, generation, live, onFirstRender, onRenderReady]
   )
 
-  const usable =
-    rendered &&
-    bucketRenderWidth(rendered.width) === bucketRenderWidth(size.width) &&
-    rendered.height === size.height &&
-    rendered.signature === signature
-
   return (
-    <div ref={ref} className="size-full">
-      {usable && !live ? (
-        <img src={rendered.src} alt="" className="block size-full" />
-      ) : (
-        size.width > 0 &&
-        size.height > 0 && (
-          <Suspense fallback={null}>
-            <BannerShader
-              image={image}
-              settings={settings}
-              mode="mask"
-              label={m.project_banner_settings_live_preview()}
-              onRender={capture}
-            />
-          </Suspense>
-        )
-      )}
-    </div>
+    <Suspense fallback={null}>
+      <BannerShader
+        image={image}
+        settings={settings}
+        mode="mask"
+        label={m.project_banner_settings_live_preview()}
+        onRender={capture}
+      />
+    </Suspense>
   )
 }

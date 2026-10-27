@@ -146,19 +146,16 @@ export const updateProject = Atom.family((req: ProjectRequest) =>
     name: "updateProject",
     predict: (value, input: UpdateProjectInput) => ({ ...value, ...input }),
     call: (client, input) =>
-      client.projects
-        .update({ params: req.params, payload: input })
-        .pipe(
-          Effect.tap(() =>
-            "banner" in input
-              ? Effect.promise(() =>
-                  evictBannerRenders(
-                    projectKey(req.params.orgSlug, req.params.slug)
-                  )
-                )
-              : Effect.void
+      ("banner" in input
+        ? Effect.promise(() =>
+            evictBannerRenders(projectKey(req.params.orgSlug, req.params.slug))
           )
-        ),
+        : Effect.void
+      ).pipe(
+        Effect.andThen(
+          client.projects.update({ params: req.params, payload: input })
+        )
+      ),
     confirm: confirmProjectUpdate,
     publish: (_updated, input) =>
       input.estimation === undefined
@@ -189,6 +186,9 @@ export const deleteProject = Atom.family((req: ProjectRequest) =>
   Api.runtime.fn(
     Effect.fn("deleteProject")(function* (_input: void) {
       yield* Api.use((client) => client.projects.delete({ params: req.params }))
+      yield* Effect.promise(() =>
+        evictBannerRenders(projectKey(req.params.orgSlug, req.params.slug))
+      )
       yield* Reactivity.invalidate([
         Keys.project(scopeOf(req)),
         Keys.projects(req.params.orgSlug),
