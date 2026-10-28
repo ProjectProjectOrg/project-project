@@ -176,9 +176,7 @@ export function SlashMenuPlugin({
     [editor, switchTab]
   )
 
-  // Lexical's typeahead only closes when the editor selection changes, and a
-  // click outside the editor leaves the selection alone. Dropping it closes
-  // the menu.
+  // Lexical's typeahead ignores outside clicks; clearing the selection closes it.
   const open = query !== null
   useEffect(() => {
     if (!open) return undefined
