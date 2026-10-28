@@ -10,6 +10,7 @@ import {
   childTickets,
   childTicketsRequest
 } from "@/features/tickets/atoms/childTickets"
+import { NestToggle } from "@/features/tickets/components/ticket-list/NestTree"
 import { StatusButton } from "@/features/tickets/components/ticket-list/StatusField"
 import { useSubTicketExpansion } from "@/features/tickets/components/ticket-list/SubTicketExpansion"
 import { SubTicketProgress } from "@/features/tickets/components/ticket-list/SubTicketProgress"
@@ -21,18 +22,17 @@ type Parent = Pick<Ticket, "id" | "subTicketCount" | "subTicketDoneCount">
 
 export function BoardCardProgress({ ticket }: Readonly<{ ticket: Parent }>) {
   const expansion = useSubTicketExpansion()
+  if ((ticket.subTicketCount ?? 0) === 0) return null
   return (
-    <SubTicketProgress
-      ticket={ticket}
-      toggle={
-        expansion === null
-          ? undefined
-          : {
-              expanded: expansion.isExpanded(ticket.id),
-              onToggle: () => expansion.toggle(ticket.id)
-            }
-      }
-    />
+    <span className="inline-flex items-center gap-0.5">
+      {expansion !== null && (
+        <NestToggle
+          expanded={expansion.isExpanded(ticket.id)}
+          onToggle={() => expansion.toggle(ticket.id)}
+        />
+      )}
+      <SubTicketProgress ticket={ticket} />
+    </span>
   )
 }
 
