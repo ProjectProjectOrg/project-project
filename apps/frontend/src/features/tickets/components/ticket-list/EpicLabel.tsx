@@ -38,7 +38,8 @@ export function useParentLabel({
 }
 
 export function useEpicTitle(ref: EpicRef) {
-  return useParentLabel(ref)?.title ?? null
+  const label = useParentLabel(ref)
+  return label?.epic === true ? label.title : null
 }
 
 export function EpicLink({

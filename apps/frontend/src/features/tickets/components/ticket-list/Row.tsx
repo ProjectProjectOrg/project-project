@@ -100,7 +100,7 @@ function RowImpl({
           >
             <NestTree nest={nest} />
             <div className="col-start-4 row-start-1 flex min-w-0 items-center self-stretch pl-1.5">
-              {nest === undefined && showParent && ticket.parent && (
+              {!isChild && showParent && ticket.parent && (
                 <EpicPrefix epicId={ticket.parent} />
               )}
               <Link
@@ -146,7 +146,7 @@ function RowImpl({
                 ticket={ticket}
                 className="relative z-20 ml-2"
               />
-              {nest === undefined && ticket.parent && (
+              {!isChild && ticket.parent && (
                 <SubTicketMarker parentId={ticket.parent} />
               )}
             </div>
