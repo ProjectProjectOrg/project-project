@@ -211,10 +211,16 @@ export const githubRepos = Atom.family((req: GithubReposRequest) =>
   )
 )
 
+const BRANCH_PAGE_SIZE = 100
+
 const branchPage = (req: BranchesRequest, after: string | null) =>
   Api.query("projects", "listBranches", {
     params: req.params,
-    query: after === null ? req.query : { ...req.query, after },
+    query: {
+      ...req.query,
+      first: BRANCH_PAGE_SIZE,
+      ...(after === null ? {} : { after })
+    },
     timeToLive: "1 minute",
     reactivityKeys: [
       Keys.branches(scopeOf(req)),
@@ -231,6 +237,15 @@ export type BranchListView = Readonly<{
 
 export const moreBranchPages = Atom.family((_req: BranchesRequest) =>
   Atom.make(0).pipe(Atom.setIdleTTL("1 minute"))
+)
+
+export type BranchAttempt = Readonly<{
+  action: "create" | "attach" | "stack"
+  name: string
+}>
+
+export const branchAttempt = Atom.family((_id: TicketId) =>
+  Atom.make<BranchAttempt | null>(null)
 )
 
 export const branches = Atom.family((req: BranchesRequest) =>

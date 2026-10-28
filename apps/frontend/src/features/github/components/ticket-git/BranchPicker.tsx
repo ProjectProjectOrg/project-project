@@ -1,20 +1,22 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { RegistryContext, useAtomSet } from "@effect/atom-react"
 import { TicketStatus } from "@pp/shared"
 import type { BranchListItem, GithubConnection, TicketDetail } from "@pp/shared"
+import { Link } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
-import * as Exit from "effect/Exit"
-import * as Match from "effect/Match"
 import * as Option from "effect/Option"
 import * as Predicate from "effect/Predicate"
-import type * as Atom from "effect/reactivity/Atom"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { GitBranch, Plus } from "lucide-react"
-import { useState, type ReactElement } from "react"
+import { useContext, useState, type ReactElement } from "react"
 
+import { fireMutation } from "@/api/viewMutation"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuInput,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuList,
   DropdownMenuSeparator,
   DropdownMenuSub,
@@ -24,11 +26,17 @@ import {
 } from "@/components/ui/dropdown-menu"
 import {
   attachBranch,
+  branchAttempt,
+  branches,
+  branchesRequest,
   createBranch,
   stackBranch
 } from "@/features/github/atoms/github"
-import { MenuNote } from "@/features/github/components/MenuNote"
-import { useBranchResults } from "@/features/github/hooks/useBranchResults"
+import {
+  useBranchResults,
+  usePreloadBranches
+} from "@/features/github/hooks/useBranchResults"
+import { useCanCreateBranches } from "@/features/github/hooks/useCanCreateBranches"
 import {
   branchMenuFilter,
   branchPickerEntries,
@@ -40,11 +48,9 @@ import {
   ticketRequest,
   updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
-import { mutationErrorText } from "@/lib/mutationError"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import { BranchPagingNote, BranchResultsNote } from "./BranchPickerNotes"
+import { BranchPagingNote, BranchResultsFrame } from "./BranchPickerNotes"
 import { BaseBranchSubmenu, StatusSubmenu } from "./BranchPickerOptions"
 
 export type BranchPickerMode = "link" | "stack"
@@ -56,20 +62,23 @@ type BranchPickerProps = Readonly<{
   mode: BranchPickerMode
 }>
 
-type SubmitAction = "create" | "attach"
-
 export function BranchPicker({
   trigger,
   align = "end",
   ...props
 }: BranchPickerProps &
   Readonly<{ trigger: ReactElement; align?: "start" | "end" }>) {
+  usePreloadBranches()
+  const setAttempt = useAtomSet(branchAttempt(props.ticket.id))
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   return (
     <DropdownMenu
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={(next) => {
+        if (next) setAttempt(null)
+        setOpen(next)
+      }}
       onOpenChangeComplete={(next) => {
         if (!next) setQuery("")
       }}
@@ -96,6 +105,7 @@ export function BranchPickerSubmenu({
   onDone,
   ...props
 }: BranchPickerProps & Readonly<{ label: ReactElement; onDone: () => void }>) {
+  usePreloadBranches()
   const [query, setQuery] = useState("")
   return (
     <DropdownMenuSub filterable={branchMenuFilter(query, setQuery, true)}>
@@ -116,28 +126,17 @@ function BranchPickerBody({
   onDone
 }: BranchPickerProps & Readonly<{ query: string; onDone: () => void }>) {
   const { orgSlug, slug } = useProjectRoute()
-  const results = useBranchResults(github, query)
+  const results = useBranchResults(query)
   const defaultBase = github.defaultBaseBranch ?? "main"
   const [base, setBase] = useState(defaultBase)
   const [status, setStatus] = useState(TicketStatus.make("in_progress"))
-  const [pending, setPending] = useState<string | null>(null)
-  const [attempt, setAttempt] = useState<Readonly<{
-    action: SubmitAction
-    name: string
-  }> | null>(null)
-
+  const registry = useContext(RegistryContext)
+  const setAttempt = useAtomSet(branchAttempt(ticket.id))
   const request = { req: projectRequest(orgSlug, slug), id: ticket.id }
-  const create = useAtomSet(createBranch(request), { mode: "promiseExit" })
-  const createState = useAtomValue(createBranch(request))
-  const attachAtom =
-    mode === "stack" ? stackBranch(request) : attachBranch(request)
-  const attach = useAtomSet(attachAtom, { mode: "promiseExit" })
-  const attachState = useAtomValue(attachAtom)
-  const updateTicket = useAtomSet(
-    updateTicketDetail(ticketRequest(orgSlug, slug, ticket.id))
-  )
 
-  const canCreate = mode === "link"
+  const canCreateBranches = useCanCreateBranches()
+  const needsGithub = mode === "link" && !canCreateBranches
+  const canCreate = mode === "link" && canCreateBranches
   const entries = branchPickerEntries({
     query,
     suggested: defaultBranchName(
@@ -147,46 +146,38 @@ function BranchPickerBody({
       ticket.title
     ),
     items: results.view?.items ?? [],
-    canCreate
+    canCreate,
+    ticketId: ticket.id,
+    defaultBase
   })
 
-  const errorText =
-    attempt === null || pending !== null
-      ? null
-      : attempt.action === "create"
-        ? createErrorText(createState, attempt.name)
-        : attachErrorText(attachState, attempt.name)
-
-  function begin(action: SubmitAction, name: string): boolean {
-    if (pending !== null) return false
-    setPending(name)
-    setAttempt({ action, name })
-    return true
-  }
-
   async function createNamed(name: string) {
-    if (!begin("create", name)) return
-    const exit = await create({ name, baseBranch: base })
-    setPending(null)
-    if (Exit.isFailure(exit)) return
-    if (status !== ticket.status) updateTicket({ status })
+    setAttempt({ action: "create", name })
     onDone()
+    const result = await fireMutation(registry, createBranch(request), {
+      name,
+      baseBranch: base
+    })
+    if (AsyncResult.isSuccess(result) && status !== ticket.status) {
+      registry.set(
+        updateTicketDetail(ticketRequest(orgSlug, slug, ticket.id)),
+        { status }
+      )
+    }
   }
 
   async function connect(name: string) {
-    if (!begin("attach", name)) return
-    const exit = await attach({ name })
-    setPending(null)
-    if (Exit.isSuccess(exit)) {
-      onDone()
-      return
-    }
-    const failure = Cause.findErrorOption(exit.cause)
+    setAttempt({ action: mode === "stack" ? "stack" : "attach", name })
+    onDone()
+    const atom = mode === "stack" ? stackBranch(request) : attachBranch(request)
+    const result = await fireMutation(registry, atom, { name })
+    if (!AsyncResult.isFailure(result)) return
+    const failure = Cause.findErrorOption(result.cause)
     if (
       Option.isSome(failure) &&
       Predicate.isTagged(failure.value, "BranchNotFound")
     ) {
-      results.refresh()
+      registry.refresh(branches(branchesRequest(orgSlug, slug, "")))
     }
   }
 
@@ -203,62 +194,64 @@ function BranchPickerBody({
             ? m.git_branch_picker_placeholder()
             : m.git_search_branches_placeholder()
         }
-        className="font-mono"
+        className="font-mono placeholder:font-sans"
       />
-      {errorText === null ? null : (
-        <MenuNote tone="error">{errorText}</MenuNote>
-      )}
-      <BranchResultsNote results={results} empty={entries.length === 0} />
-      <DropdownMenuList
-        className="max-h-64 overflow-y-auto"
-        onScroll={results.onScroll}
-      >
-        {entries.map((entry) =>
-          entry.kind === "create" ? (
+      <BranchResultsFrame results={results} empty={entries.length === 0}>
+        <DropdownMenuList
+          className="min-h-0 flex-1 overflow-y-auto"
+          onScroll={results.onScroll}
+        >
+          {needsGithub ? (
             <DropdownMenuItem
-              key={`create:${entry.name}`}
-              label={entry.name}
-              closeOnClick={false}
-              onClick={() => void createNamed(entry.name)}
+              label={m.git_branch_picker_connect_github()}
+              render={<Link to="/profile/connections" />}
             >
               <Plus strokeWidth={1.75} />
-              <span
-                className={cn(
-                  "min-w-0 flex-1 truncate",
-                  pending === entry.name && "animate-pulse"
-                )}
-              >
-                {m.git_branch_picker_create()}{" "}
-                <span className="font-mono text-foreground">{entry.name}</span>
-              </span>
+              {m.git_branch_picker_connect_github()}
             </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem
-              key={`branch:${entry.branch.name}`}
-              label={entry.branch.name}
-              closeOnClick={false}
-              onClick={() => void connect(entry.branch.name)}
-            >
-              <GitBranch strokeWidth={1.75} />
-              <span
-                className={cn(
-                  "min-w-0 flex-1 truncate font-mono",
-                  pending === entry.branch.name && "animate-pulse"
-                )}
+          ) : null}
+          {entries.map((entry) =>
+            entry.kind === "create" ? (
+              <DropdownMenuItem
+                key={`create:${entry.name}`}
+                label={entry.name}
+                onClick={() => void createNamed(entry.name)}
               >
-                {entry.branch.name}
-              </span>
-              <BranchBadge branch={entry.branch} defaultBase={defaultBase} />
-            </DropdownMenuItem>
-          )
-        )}
-      </DropdownMenuList>
-      <BranchPagingNote view={results.view} />
+                <Plus strokeWidth={1.75} />
+                <span className="min-w-0 flex-1 truncate">
+                  {m.git_branch_picker_create()}{" "}
+                  <span className="font-mono text-foreground">
+                    {entry.name}
+                  </span>
+                </span>
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                key={`branch:${entry.branch.name}`}
+                label={entry.branch.name}
+                onClick={() => void connect(entry.branch.name)}
+              >
+                <GitBranch strokeWidth={1.75} />
+                <span className="min-w-0 flex-1 truncate font-mono text-foreground">
+                  {entry.branch.name}
+                </span>
+                <BranchBadge branch={entry.branch} defaultBase={defaultBase} />
+              </DropdownMenuItem>
+            )
+          )}
+        </DropdownMenuList>
+      </BranchResultsFrame>
+      <BranchPagingNote results={results} />
       {canCreate ? (
         <>
           <DropdownMenuSeparator />
-          <BaseBranchSubmenu github={github} value={base} onChange={setBase} />
-          <StatusSubmenu value={status} onChange={setStatus} />
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>
+              {m.git_branch_picker_options_label()}
+            </DropdownMenuLabel>
+            <BaseBranchSubmenu value={base} onChange={setBase} />
+            <StatusSubmenu value={status} onChange={setStatus} />
+          </DropdownMenuGroup>
         </>
       ) : null}
     </>
@@ -280,63 +273,5 @@ function BranchBadge({
     <span data-menu-meta className="ml-auto text-[11px] text-muted-foreground">
       {badge}
     </span>
-  )
-}
-
-function createErrorText(
-  state: Atom.Type<ReturnType<typeof createBranch>>,
-  name: string
-): string | null {
-  return mutationErrorText(
-    state,
-    (error) =>
-      Match.value(error).pipe(
-        Match.tag("BranchExists", () => m.git_branch_exists_error({ name })),
-        Match.tag("BranchProtected", () => m.git_branch_protected_error()),
-        Match.tag("GitHubTokenExpired", () =>
-          m.git_github_token_expired_error()
-        ),
-        Match.tag("GitHubScopeInsufficient", () =>
-          m.git_github_scope_insufficient_error()
-        ),
-        Match.tag("RepoGone", () => m.git_repo_gone_error()),
-        Match.orElse(() => m.git_create_branch_error())
-      ),
-    m.git_create_branch_error
-  )
-}
-
-function attachErrorText(
-  state: Atom.Type<ReturnType<typeof attachBranch>>,
-  name: string
-): string | null {
-  return mutationErrorText(
-    state,
-    (error) =>
-      Match.value(error).pipe(
-        Match.tag("BranchNotFound", () =>
-          m.git_branch_not_found_error({ name })
-        ),
-        Match.tag("GitHubTokenExpired", () =>
-          m.git_github_token_expired_error()
-        ),
-        Match.tag("GitHubScopeInsufficient", () =>
-          m.git_github_scope_insufficient_error()
-        ),
-        Match.tag("RepoGone", () => m.git_repo_gone_error()),
-        Match.tag("Conflict", ({ reason }) =>
-          Match.value(reason).pipe(
-            Match.when("branch_on_other_ticket", () =>
-              m.git_stack_branch_on_other_ticket_error()
-            ),
-            Match.when("branch_already_on_ticket", () =>
-              m.git_stack_branch_already_on_ticket_error()
-            ),
-            Match.orElse(() => m.git_attach_branch_error())
-          )
-        ),
-        Match.orElse(() => m.git_attach_branch_error())
-      ),
-    m.git_attach_branch_error
   )
 }

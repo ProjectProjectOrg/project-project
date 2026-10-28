@@ -6,13 +6,11 @@ import type {
   Ticket,
   TicketDetail
 } from "@pp/shared"
-import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import { AlertTriangle, Circle, Layers } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import {
-  AddStackedBranch,
   layerTone,
   StackedBranches,
   stackPullRequestCount
@@ -25,17 +23,12 @@ import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
+import { BranchAttemptError } from "./BranchAttemptError"
 import { BranchChip } from "./BranchChip"
-import { BranchNoPrPanel } from "./BranchNoPrPanel"
-import { BranchPendingPanel } from "./BranchPendingPanel"
+import { GitField } from "./GitField"
 import { PANEL_CHROME, type GitPanelFrame } from "./gitPanelFrame"
 import { NoBranchPanel } from "./NoBranchPanel"
-import { PrClosedPanel } from "./PrClosedPanel"
 import { PrLink } from "./PrLink"
-import { PrMergedPanel } from "./PrMergedPanel"
-import { PrOpenPanel } from "./PrOpenPanel"
-import { PrPendingPanel } from "./PrPendingPanel"
-import { StaleBranchPanel } from "./StaleBranchPanel"
 
 function truncate(name: string, max = 18) {
   return name.length > max ? `${name.slice(0, max - 1)}…` : name
@@ -113,7 +106,6 @@ function ConnectedGitChip({
           slug={repoSlug}
           name={state.name}
           displayName={truncate(state.name)}
-          variant="ghost"
         />
       </span>
     )
@@ -175,18 +167,21 @@ export function TicketGitPanel({
   if (!github) return null
   if (state !== null && stack.length > 0) {
     return (
-      <StackedBranches
-        ticket={ticket}
-        github={github}
-        own={state}
-        stack={stack}
-        pulse={
-          waiting ||
-          state.tag === "branch_pending" ||
-          state.tag === "pr_pending"
-        }
-        variant={variant}
-      />
+      <div className="flex flex-col gap-3">
+        <StackedBranches
+          ticket={ticket}
+          github={github}
+          own={state}
+          stack={stack}
+          pulse={
+            waiting ||
+            state.tag === "branch_pending" ||
+            state.tag === "pr_pending"
+          }
+          variant={variant}
+        />
+        <BranchAttemptError id={ticket.id} />
+      </div>
     )
   }
   if (state === null) {
@@ -196,12 +191,6 @@ export function TicketGitPanel({
       </div>
     )
   }
-  const stackable =
-    state.tag === "branch_no_pr" ||
-    state.tag === "pr_open" ||
-    state.tag === "pr_pending" ||
-    state.tag === "pr_merged" ||
-    state.tag === "pr_closed"
   return (
     <div className="flex flex-col gap-3">
       <PanelForState
@@ -212,7 +201,7 @@ export function TicketGitPanel({
         branchTemplate={branchTemplate}
         variant={variant}
       />
-      {stackable && <AddStackedBranch ticket={ticket} github={github} />}
+      <BranchAttemptError id={ticket.id} />
     </div>
   )
 }
@@ -242,21 +231,13 @@ function PanelForState({
     canWrite,
     repoSlug: `${github.repoOwner}/${github.repoName}`,
     pulse: (waiting || pending) && "animate-pulse",
-    panelChrome: variant === "bordered" ? PANEL_CHROME : undefined,
-    buttonSize: variant === "bordered" ? "sm" : "xs"
+    panelChrome: variant === "bordered" ? PANEL_CHROME : undefined
   }
 
-  return Match.value(state).pipe(
-    Match.discriminatorsExhaustive("tag")({
-      no_branch: () => <NoBranchPanel frame={frame} />,
-      branch_pending: (s) => <BranchPendingPanel state={s} frame={frame} />,
-      branch_no_pr: (s) => <BranchNoPrPanel state={s} frame={frame} />,
-      pr_open: (s) => <PrOpenPanel state={s} frame={frame} />,
-      pr_pending: (s) => <PrPendingPanel state={s} frame={frame} />,
-      pr_merged: (s) => <PrMergedPanel state={s} frame={frame} />,
-      pr_closed: (s) => <PrClosedPanel state={s} frame={frame} />,
-      stale_branch: (s) => <StaleBranchPanel state={s} frame={frame} />
-    })
+  return state.tag === "no_branch" ? (
+    <NoBranchPanel frame={frame} />
+  ) : (
+    <GitField state={state} frame={frame} />
   )
 }
 

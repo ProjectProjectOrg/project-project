@@ -3,8 +3,9 @@ import { describe, expect, it } from "vitest"
 
 import {
   branchPickerEntries,
+  branchSearchView,
   defaultBranchName,
-  retainLatest,
+  mentionsTicket,
   sanitizeBranchName,
   shouldLoadMoreBranches
 } from "./branchPicker"
@@ -31,73 +32,95 @@ describe("sanitizeBranchName", () => {
   })
 })
 
-describe("branchPickerEntries", () => {
-  const items = [branch("main"), branch("feat/login")]
+const names = (entries: ReturnType<typeof branchPickerEntries>) =>
+  entries.map((entry) =>
+    entry.kind === "create" ? `+${entry.name}` : entry.branch.name
+  )
 
-  it("leads with the suggested branch when nothing is typed", () => {
-    expect(
-      branchPickerEntries({
-        query: "",
-        suggested: "feat/T-1-x",
-        items,
-        canCreate: true
-      })
-    ).toEqual([
-      { kind: "create", name: "feat/T-1-x" },
-      { kind: "branch", branch: branch("main") },
-      { kind: "branch", branch: branch("feat/login") }
+describe("mentionsTicket", () => {
+  it("matches the ticket id as a whole token", () => {
+    expect(mentionsTicket("bug/PROJ-7-login", "PROJ-7")).toBe(true)
+    expect(mentionsTicket("proj-7", "PROJ-7")).toBe(true)
+  })
+
+  it("ignores longer ids that share a prefix", () => {
+    expect(mentionsTicket("bug/PROJ-70-login", "PROJ-7")).toBe(false)
+    expect(mentionsTicket("XPROJ-7", "PROJ-7")).toBe(false)
+  })
+})
+
+describe("branchPickerEntries", () => {
+  const items = [
+    branch("feat/login"),
+    branch("main"),
+    branch("bug/PROJ-7-old"),
+    branch("chore/cleanup")
+  ]
+  const base = {
+    suggested: "bug/PROJ-7-new",
+    canCreate: true,
+    ticketId: "PROJ-7",
+    defaultBase: "main"
+  }
+  it("puts this ticket's branches first, then create, default, and the rest", () => {
+    expect(names(branchPickerEntries({ ...base, query: "", items }))).toEqual([
+      "bug/PROJ-7-old",
+      "+bug/PROJ-7-new",
+      "main",
+      "feat/login",
+      "chore/cleanup"
     ])
   })
 
   it("offers the typed name last, sanitized", () => {
     expect(
-      branchPickerEntries({
-        query: "feat new",
-        suggested: "feat/T-1-x",
-        items: [],
-        canCreate: true
-      })
-    ).toEqual([{ kind: "create", name: "feat-new" }])
+      names(branchPickerEntries({ ...base, query: "feat new", items: [] }))
+    ).toEqual(["+feat-new"])
   })
 
   it("skips create when the sanitized name already exists", () => {
     expect(
-      branchPickerEntries({
-        query: " feat/login ",
-        suggested: "feat/T-1-x",
-        items,
-        canCreate: true
-      }).map((entry) => entry.kind)
-    ).toEqual(["branch", "branch"])
+      names(branchPickerEntries({ ...base, query: " feat/login ", items }))
+    ).not.toContain("+feat/login")
   })
 
   it("never offers create when creating is off", () => {
     expect(
-      branchPickerEntries({
-        query: "",
-        suggested: "feat/T-1-x",
-        items,
-        canCreate: false
-      }).map((entry) => entry.kind)
-    ).toEqual(["branch", "branch"])
+      names(
+        branchPickerEntries({ ...base, canCreate: false, query: "", items })
+      ).some((name) => name.startsWith("+"))
+    ).toBe(false)
   })
 })
 
-describe("retainLatest", () => {
-  it("keeps the previous value while the same key reloads", () => {
-    const cache = retainLatest({ key: "repo-a", value: null }, "repo-a", [1])
-    expect(retainLatest(cache, "repo-a", null)).toEqual({
-      key: "repo-a",
-      value: [1]
+describe("branchSearchView", () => {
+  const base = {
+    items: [branch("main"), branch("feat/Login"), branch("fix/logout")],
+    totalCount: 40,
+    hasMore: true,
+    loadingMore: false
+  }
+
+  it("prefers the server's results for the current term", () => {
+    const exact = { ...base, items: [branch("feat/login-v2")] }
+    expect(branchSearchView({ term: "login", exact, base })).toBe(exact)
+  })
+
+  it("filters the loaded branches while the search is in flight", () => {
+    expect(branchSearchView({ term: "LOG", exact: null, base })).toEqual({
+      items: [branch("feat/Login"), branch("fix/logout")],
+      totalCount: 2,
+      hasMore: false,
+      loadingMore: false
     })
   })
 
-  it("drops the previous value when the key changes", () => {
-    const cache = retainLatest({ key: "repo-a", value: null }, "repo-a", [1])
-    expect(retainLatest(cache, "repo-b", null)).toEqual({
-      key: "repo-b",
-      value: null
-    })
+  it("shows the loaded branches as they are without a term", () => {
+    expect(branchSearchView({ term: "", exact: null, base })).toBe(base)
+  })
+
+  it("has nothing to show before any branches load", () => {
+    expect(branchSearchView({ term: "x", exact: null, base: null })).toBeNull()
   })
 })
 
