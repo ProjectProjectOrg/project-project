@@ -91,6 +91,7 @@ export const Ticket = Schema.Struct({
   assignees: Schema.Array(Schema.String),
   parent: Schema.optional(Schema.NullOr(TicketId)),
   subTicketCount: Schema.optional(Schema.Number),
+  subTicketDoneCount: Schema.optional(Schema.Number),
   archivedAt: Schema.NullOr(Schema.DateFromString),
   createdBy: Schema.String,
   createdAt: Schema.DateFromString,
