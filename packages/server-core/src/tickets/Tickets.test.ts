@@ -2202,11 +2202,16 @@ it.effect("deleting with cascadeSubTickets deletes the whole subtree", () => {
     "T-3",
     makeTicketDocument("T-3", { parent: ticketId("T-2") })
   )
+  docs.documents.set("T-4", makeTicketDocument("T-4"))
+  docs.documents.set(
+    "T-5",
+    makeTicketDocument("T-5", { parent: ticketId("T-4") })
+  )
   return Effect.gen(function* () {
     const tickets = yield* Tickets
     yield* tickets.remove("T-1", { cascadeSubTickets: true })
 
-    expect([...docs.documents.keys()]).toEqual([])
+    expect([...docs.documents.keys()]).toEqual(["T-4", "T-5"])
   }).pipe(Effect.provide(layer))
 })
 
