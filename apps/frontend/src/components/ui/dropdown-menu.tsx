@@ -378,7 +378,7 @@ function DropdownMenuList({
   return (
     <MenuPrimitive.List
       data-slot="dropdown-menu-list"
-      className={cn("relative", className)}
+      className={cn("relative overflow-x-hidden", className)}
       {...props}
     >
       <MenuHighlight />
@@ -477,7 +477,7 @@ function DropdownMenuSubTrigger({
       className={cn(
         "relative flex cursor-pointer items-center gap-2 rounded-md border-y border-transparent bg-clip-padding px-2 py-[7px] text-[13px] leading-5 text-muted-foreground outline-hidden transition-colors",
         "data-[highlighted]:text-foreground",
-        "data-[popup-open]:bg-active data-[popup-open]:text-foreground",
+        "data-[popup-open]:bg-active data-[popup-open]:text-foreground data-[popup-open]:transition-none",
         "data-[inset]:pl-8",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className

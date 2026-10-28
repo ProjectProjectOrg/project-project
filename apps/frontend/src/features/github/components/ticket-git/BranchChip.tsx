@@ -2,6 +2,7 @@ import { useAtomValue } from "@effect/atom-react"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ArrowUpRight, GitBranch } from "lucide-react"
 
+import { MiddleTruncate } from "@/components/ui/middle-truncate"
 import { me } from "@/features/auth/atoms/auth"
 import { branchOpensInNewTab, branchUrl } from "@/features/github/lib/branchUrl"
 
@@ -37,7 +38,7 @@ export function BranchChip({
       className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-xs text-muted-foreground transition-colors duration-100 hover:bg-hover hover:text-foreground"
     >
       <GitBranch className="size-3 shrink-0" strokeWidth={1.75} />
-      <span className="min-w-0 truncate">{displayName ?? name}</span>
+      <MiddleTruncate value={displayName ?? name} title={name} />
       <ArrowUpRight className="size-3 shrink-0" strokeWidth={1.75} />
     </a>
   )

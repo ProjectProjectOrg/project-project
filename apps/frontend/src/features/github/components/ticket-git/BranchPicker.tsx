@@ -1,35 +1,28 @@
 import { RegistryContext, useAtomSet } from "@effect/atom-react"
-import { TicketStatus } from "@pp/shared"
-import type { BranchListItem, GithubConnection, TicketDetail } from "@pp/shared"
+import type { GithubConnection, TicketDetail } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Option from "effect/Option"
 import * as Predicate from "effect/Predicate"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { GitBranch, Plus } from "lucide-react"
-import { useContext, useState, type ReactElement } from "react"
+import { useContext, useState, type ReactElement, type RefObject } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuInput,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuList,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { MiddleTruncate } from "@/components/ui/middle-truncate"
 import {
   attachBranch,
   branchAttempt,
   branches,
   branchesRequest,
-  createBranch,
   stackBranch
 } from "@/features/github/atoms/github"
 import {
@@ -44,14 +37,11 @@ import {
 } from "@/features/github/lib/branchPicker"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import {
-  ticketRequest,
-  updateTicketDetail
-} from "@/features/tickets/atoms/ticketDetail"
 import { m } from "@/paraglide/messages"
 
 import { BranchPagingNote, BranchResultsFrame } from "./BranchPickerNotes"
-import { BaseBranchSubmenu, StatusSubmenu } from "./BranchPickerOptions"
+import { BranchBadge } from "./BranchPickerOptions"
+import { CreateBranchSubmenu } from "./CreateBranchSubmenu"
 
 export type BranchPickerMode = "link" | "stack"
 
@@ -62,16 +52,28 @@ type BranchPickerProps = Readonly<{
   mode: BranchPickerMode
 }>
 
-export function BranchPicker({
-  trigger,
-  align = "end",
-  ...props
-}: BranchPickerProps &
-  Readonly<{ trigger: ReactElement; align?: "start" | "end" }>) {
+type BranchPickerPlacement = Readonly<{
+  align?: "start" | "end"
+}> &
+  (
+    | Readonly<{ trigger: ReactElement }>
+    | Readonly<{
+        anchor: RefObject<HTMLElement | null>
+        open: boolean
+        onOpenChange: (open: boolean) => void
+      }>
+  )
+
+export function BranchPicker(props: BranchPickerProps & BranchPickerPlacement) {
   usePreloadBranches()
-  const setAttempt = useAtomSet(branchAttempt(props.ticket.id))
-  const [open, setOpen] = useState(false)
+  const { ticket, github, align = "end" } = props
+  const setAttempt = useAtomSet(branchAttempt(ticket.id))
+  const [ownOpen, setOwnOpen] = useState(false)
   const [query, setQuery] = useState("")
+  const controlled = "anchor" in props
+  const open = controlled ? props.open : ownOpen
+  const setOpen = controlled ? props.onOpenChange : setOwnOpen
+
   return (
     <DropdownMenu
       open={open}
@@ -88,14 +90,20 @@ export function BranchPicker({
         props.mode === "link" ? "always" : true
       )}
     >
-      <DropdownMenuTrigger render={trigger} />
+      {"trigger" in props ? (
+        <DropdownMenuTrigger render={props.trigger} />
+      ) : null}
       <DropdownMenuContent
+        anchor={controlled ? props.anchor : undefined}
         align={align}
         sideOffset={6}
         className="flex w-80 flex-col"
       >
-        <BranchPickerBody
-          {...props}
+        <BranchPickerList
+          ticket={ticket}
+          github={github}
+          branchTemplate={props.branchTemplate}
+          mode={props.mode}
           query={query}
           onDone={() => setOpen(false)}
         />
@@ -104,24 +112,7 @@ export function BranchPicker({
   )
 }
 
-export function BranchPickerSubmenu({
-  label,
-  onDone,
-  ...props
-}: BranchPickerProps & Readonly<{ label: ReactElement; onDone: () => void }>) {
-  usePreloadBranches()
-  const [query, setQuery] = useState("")
-  return (
-    <DropdownMenuSub filterable={branchMenuFilter(query, setQuery, true)}>
-      <DropdownMenuSubTrigger>{label}</DropdownMenuSubTrigger>
-      <DropdownMenuSubContent className="w-80">
-        <BranchPickerBody {...props} query={query} onDone={onDone} />
-      </DropdownMenuSubContent>
-    </DropdownMenuSub>
-  )
-}
-
-function BranchPickerBody({
+function BranchPickerList({
   ticket,
   github,
   branchTemplate = null,
@@ -132,8 +123,6 @@ function BranchPickerBody({
   const { orgSlug, slug } = useProjectRoute()
   const results = useBranchResults(query)
   const defaultBase = github.defaultBaseBranch ?? "main"
-  const [base, setBase] = useState(defaultBase)
-  const [status, setStatus] = useState(TicketStatus.make("in_progress"))
   const registry = useContext(RegistryContext)
   const setAttempt = useAtomSet(branchAttempt(ticket.id))
   const request = { req: projectRequest(orgSlug, slug), id: ticket.id }
@@ -155,21 +144,6 @@ function BranchPickerBody({
     defaultBase
   })
 
-  async function createNamed(name: string) {
-    setAttempt({ action: "create", name })
-    onDone()
-    const result = await fireMutation(registry, createBranch(request), {
-      name,
-      baseBranch: base
-    })
-    if (AsyncResult.isSuccess(result) && status !== ticket.status) {
-      registry.set(
-        updateTicketDetail(ticketRequest(orgSlug, slug, ticket.id)),
-        { status }
-      )
-    }
-  }
-
   async function connect(name: string) {
     setAttempt({ action: mode === "stack" ? "stack" : "attach", name })
     onDone()
@@ -185,19 +159,15 @@ function BranchPickerBody({
     }
   }
 
+  const placeholder = canCreate
+    ? m.git_branch_picker_placeholder()
+    : m.git_search_branches_placeholder()
+
   return (
     <>
       <DropdownMenuInput
-        placeholder={
-          canCreate
-            ? m.git_branch_picker_placeholder()
-            : m.git_search_branches_placeholder()
-        }
-        aria-label={
-          canCreate
-            ? m.git_branch_picker_placeholder()
-            : m.git_search_branches_placeholder()
-        }
+        placeholder={placeholder}
+        aria-label={placeholder}
         className="font-mono placeholder:font-sans"
       />
       <BranchResultsFrame results={results} empty={entries.length === 0}>
@@ -216,19 +186,13 @@ function BranchPickerBody({
           ) : null}
           {entries.map((entry) =>
             entry.kind === "create" ? (
-              <DropdownMenuItem
+              <CreateBranchSubmenu
                 key={`create:${entry.name}`}
-                label={entry.name}
-                onClick={() => void createNamed(entry.name)}
-              >
-                <Plus strokeWidth={1.75} />
-                <span className="min-w-0 flex-1 truncate">
-                  {m.git_branch_picker_create()}{" "}
-                  <span className="font-mono text-foreground">
-                    {entry.name}
-                  </span>
-                </span>
-              </DropdownMenuItem>
+                ticket={ticket}
+                github={github}
+                suggestedName={entry.name}
+                onDone={onDone}
+              />
             ) : (
               <DropdownMenuItem
                 key={`branch:${entry.branch.name}`}
@@ -236,9 +200,10 @@ function BranchPickerBody({
                 onClick={() => void connect(entry.branch.name)}
               >
                 <GitBranch strokeWidth={1.75} />
-                <span className="min-w-0 flex-1 truncate font-mono text-foreground">
-                  {entry.branch.name}
-                </span>
+                <MiddleTruncate
+                  value={entry.branch.name}
+                  className="flex-1 font-mono text-foreground"
+                />
                 <BranchBadge branch={entry.branch} defaultBase={defaultBase} />
               </DropdownMenuItem>
             )
@@ -246,36 +211,6 @@ function BranchPickerBody({
         </DropdownMenuList>
       </BranchResultsFrame>
       <BranchPagingNote results={results} />
-      {canCreate ? (
-        <>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>
-              {m.git_branch_picker_options_label()}
-            </DropdownMenuLabel>
-            <BaseBranchSubmenu value={base} onChange={setBase} />
-            <StatusSubmenu value={status} onChange={setStatus} />
-          </DropdownMenuGroup>
-        </>
-      ) : null}
     </>
-  )
-}
-
-function BranchBadge({
-  branch,
-  defaultBase
-}: Readonly<{ branch: BranchListItem; defaultBase: string }>) {
-  const badge =
-    branch.name === defaultBase
-      ? m.git_branch_default_pill()
-      : branch.isProtected
-        ? m.git_branch_protected_pill()
-        : null
-  if (badge === null) return null
-  return (
-    <span data-menu-meta className="ml-auto text-[11px] text-muted-foreground">
-      {badge}
-    </span>
   )
 }

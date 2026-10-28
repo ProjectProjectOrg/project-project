@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { TicketStatus } from "@pp/shared"
+import type { BranchListItem, TicketStatus } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { GitBranch } from "lucide-react"
 import { useState } from "react"
@@ -12,8 +12,12 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
 } from "@/components/ui/dropdown-menu"
+import { MiddleTruncate } from "@/components/ui/middle-truncate"
 import { useBranchResults } from "@/features/github/hooks/useBranchResults"
-import { branchMenuFilter } from "@/features/github/lib/branchPicker"
+import {
+  baseBranchOrder,
+  branchMenuFilter
+} from "@/features/github/lib/branchPicker"
 import {
   statusesFor,
   statusesRequest
@@ -30,29 +34,31 @@ import { m } from "@/paraglide/messages"
 import { BranchPagingNote, BranchResultsFrame } from "./BranchPickerNotes"
 
 const OPTION_VALUE =
-  "inline-flex max-w-40 min-w-0 items-center gap-1.5 text-foreground"
+  "flex min-w-0 flex-1 items-center justify-end gap-1.5 text-foreground"
 
-export function BaseBranchSubmenu({
-  value,
-  onChange
-}: Readonly<{
+type BaseBranchProps = Readonly<{
   value: string
   onChange: (next: string) => void
-}>) {
+  ticketId: string
+  defaultBase: string
+}>
+
+export function BaseBranchSubmenu(props: BaseBranchProps) {
+  const { value } = props
   const [query, setQuery] = useState("")
   return (
     <DropdownMenuSub filterable={branchMenuFilter(query, setQuery, true)}>
-      <DropdownMenuSubTrigger>
-        <span className="min-w-0 flex-1">
+      <DropdownMenuSubTrigger openOnHover={false}>
+        <span className="shrink-0 whitespace-nowrap">
           {m.git_branch_picker_base_label()}
         </span>
         <span data-menu-meta className={OPTION_VALUE}>
           <GitBranch className="size-3.5" strokeWidth={1.75} />
-          <span className="truncate font-mono">{value}</span>
+          <MiddleTruncate value={value} className="font-mono" />
         </span>
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="w-72">
-        <BaseBranchOptions query={query} value={value} onChange={onChange} />
+        <BaseBranchOptions {...props} query={query} />
       </DropdownMenuSubContent>
     </DropdownMenuSub>
   )
@@ -61,14 +67,16 @@ export function BaseBranchSubmenu({
 function BaseBranchOptions({
   query,
   value,
-  onChange
-}: Readonly<{
-  query: string
-  value: string
-  onChange: (next: string) => void
-}>) {
+  onChange,
+  ticketId,
+  defaultBase
+}: BaseBranchProps & Readonly<{ query: string }>) {
   const results = useBranchResults(query)
-  const items = results.view?.items ?? []
+  const items = baseBranchOrder({
+    items: results.view?.items ?? [],
+    ticketId,
+    defaultBase
+  })
   return (
     <>
       <DropdownMenuInput
@@ -88,9 +96,13 @@ function BaseBranchOptions({
               value: branch.name,
               textValue: branch.name,
               label: (
-                <span className="min-w-0 flex-1 truncate font-mono text-foreground">
-                  {branch.name}
-                </span>
+                <>
+                  <MiddleTruncate
+                    value={branch.name}
+                    className="flex-1 font-mono text-foreground"
+                  />
+                  <BranchBadge branch={branch} defaultBase={defaultBase} />
+                </>
               )
             }))}
           />
@@ -117,8 +129,8 @@ export function StatusSubmenu({
   const CurrentIcon = current.icon
   return (
     <DropdownMenuSub>
-      <DropdownMenuSubTrigger>
-        <span className="min-w-0 flex-1">
+      <DropdownMenuSubTrigger openOnHover={false}>
+        <span className="shrink-0 whitespace-nowrap">
           {m.git_branch_picker_status_label()}
         </span>
         <span data-menu-meta className={OPTION_VALUE}>
@@ -155,5 +167,23 @@ export function StatusSubmenu({
         />
       </DropdownMenuSubContent>
     </DropdownMenuSub>
+  )
+}
+
+export function BranchBadge({
+  branch,
+  defaultBase
+}: Readonly<{ branch: BranchListItem; defaultBase: string }>) {
+  const badge =
+    branch.name === defaultBase
+      ? m.git_branch_default_pill()
+      : branch.isProtected
+        ? m.git_branch_protected_pill()
+        : null
+  if (badge === null) return null
+  return (
+    <span data-menu-meta className="ml-auto text-[11px] text-muted-foreground">
+      {badge}
+    </span>
   )
 }
