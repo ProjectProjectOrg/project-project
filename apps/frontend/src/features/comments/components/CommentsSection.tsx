@@ -3,7 +3,7 @@ import type { TicketId } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronRight } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 
 import {
   SegmentedTabs,
@@ -29,9 +29,18 @@ import { CommentRow } from "./CommentRow"
 
 const INITIAL_VISIBLE = 3
 
-type DiscussionTab = "comments" | "activity"
+type DiscussionTab = "leading" | "comments" | "activity"
 
-export function CommentsSection({ ticketId }: { ticketId: TicketId }) {
+export type LeadingTab = Readonly<{
+  label: string
+  badge: number | null
+  content: ReactNode
+}>
+
+export function CommentsSection({
+  ticketId,
+  leadingTab
+}: Readonly<{ ticketId: TicketId; leadingTab?: LeadingTab }>) {
   const { orgSlug, slug } = useProjectRoute()
   const req = commentsRequest(orgSlug, slug, ticketId)
   const result = useAtomValue(comments(req))
@@ -40,7 +49,9 @@ export function CommentsSection({ ticketId }: { ticketId: TicketId }) {
   const canComment = useProjectActor().call("ticketComments", "create")
   const [collapsed, setCollapsed] = useState(false)
   const [showAll, setShowAll] = useState(false)
-  const [tab, setTab] = useState<DiscussionTab>("comments")
+  const [tab, setTab] = useState<DiscussionTab>(
+    leadingTab ? "leading" : "comments"
+  )
 
   const rows = Result.isSuccess(result) ? result.value : []
   const total = rows.length
@@ -52,6 +63,15 @@ export function CommentsSection({ ticketId }: { ticketId: TicketId }) {
   const hidden = total - visibleSlice.length
 
   const tabs: ReadonlyArray<SegmentedItem<DiscussionTab>> = [
+    ...(leadingTab
+      ? [
+          {
+            key: "leading" as const,
+            label: leadingTab.label,
+            badge: leadingTab.badge
+          }
+        ]
+      : []),
     {
       key: "comments",
       label: m.tickets_activity_tab_comments(),
@@ -103,7 +123,9 @@ export function CommentsSection({ ticketId }: { ticketId: TicketId }) {
               transition={transitions.layout}
               className="overflow-y-clip"
             >
-              {tab === "activity" ? (
+              {tab === "leading" && leadingTab ? (
+                leadingTab.content
+              ) : tab === "activity" ? (
                 <TicketActivityFeed ticketId={ticketId} />
               ) : (
                 <>

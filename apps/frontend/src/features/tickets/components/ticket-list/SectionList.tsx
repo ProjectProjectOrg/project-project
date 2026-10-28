@@ -1,10 +1,8 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
 import type {
-  Group,
   Member,
   ProjectStatus,
-  Ticket,
   TicketId,
   TicketListQuery,
   TicketStatus
@@ -32,6 +30,7 @@ import {
   loadMoreBacklog,
   type BacklogRequest
 } from "@/features/tickets/atoms/backlog"
+import type { EpicSectionsRequest } from "@/features/tickets/atoms/epicSections"
 import type { SprintSectionsRequest } from "@/features/tickets/atoms/sprintSections"
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import type { TicketRowPage } from "@/features/tickets/lib/ticketRows"
@@ -87,10 +86,6 @@ export function SectionList({
   collapsed,
   onToggleCollapsed,
   members,
-  sprintMembership,
-  extraRowActions,
-  showSprintCol,
-  showExtraActionsCol,
   activePreviewId,
   onPreviewPointerEnter,
   onPreviewOpenChange,
@@ -105,7 +100,7 @@ export function SectionList({
   canCreate?: boolean
   pagination?: ReactNode
   update: TicketUpdates
-  snapshotReq?: SprintSectionsRequest
+  snapshotReq?: SprintSectionsRequest | EpicSectionsRequest
   emptyMessage?: string
   status: TicketStatus
   statuses: ReadonlyArray<ProjectStatus>
@@ -115,10 +110,6 @@ export function SectionList({
   collapsed: boolean
   onToggleCollapsed: () => void
   members: ReadonlyArray<Member>
-  sprintMembership?: ReadonlyMap<TicketId, Group>
-  extraRowActions?: (ticket: Ticket) => ReactNode
-  showSprintCol: boolean
-  showExtraActionsCol: boolean
   activePreviewId: TicketId | null
   onPreviewPointerEnter: (ticketId: TicketId) => void
   onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
@@ -142,8 +133,12 @@ export function SectionList({
     !creatingSections.creatingIds.has(sectionId)
 
   const { items } = page
+  const inOneSprint =
+    snapshotReq?._view !== "sprintSections" &&
+    query.groupId?.length === 1 &&
+    query.groupId[0] !== "ungrouped"
 
-  const gridCols = rowGridClassName(showExtraActionsCol)
+  const gridCols = rowGridClassName
 
   const shellRef = useRef<HTMLDivElement>(null)
 
@@ -210,12 +205,10 @@ export function SectionList({
                 >
                   <Row
                     update={update}
+                    showParent={snapshotReq?._view !== "epicSections"}
+                    showSprint={!inOneSprint}
                     ticket={ticket}
                     members={members}
-                    showSprintCol={showSprintCol}
-                    showExtraActionsCol={showExtraActionsCol}
-                    sprintMembership={sprintMembership?.get(ticket.id) ?? null}
-                    extraRowActions={extraRowActions}
                     pending={pending}
                     editable={editable}
                     previewOpen={activePreviewId === ticket.id}

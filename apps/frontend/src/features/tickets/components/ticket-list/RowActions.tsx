@@ -94,6 +94,7 @@ export function TicketRowActions({
                   <Link
                     to="/orgs/$orgSlug/projects/$slug/tickets/$id/split"
                     params={{ orgSlug, slug, id }}
+                    search={{ from: "list" }}
                     className="cursor-pointer"
                   />
                 }

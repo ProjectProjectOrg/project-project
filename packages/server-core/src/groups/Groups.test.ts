@@ -82,6 +82,7 @@ function ticketIndexEntryFromDocument(ticket: TicketDocument) {
     prDraft: entry.prDraft ?? false,
     prBase: entry.prBase ?? null,
     ignoredBranches: entry.ignoredBranches ?? [],
+    parent: entry.parent ?? null,
     branchDeletedAt: null,
     checks: null,
     checksHeadSha: null,
@@ -97,6 +98,7 @@ class StatusWriteFailed extends Schema.TaggedError<StatusWriteFailed>()(
 function makeFakeDocs(initial?: {
   ticketIds?: ReadonlyArray<string>
   ticketStatuses?: Record<string, TicketStatus>
+  epicIds?: ReadonlyArray<string>
   groups?: Record<string, GroupDetail>
   failingWrites?: ReadonlyArray<string>
 }) {
@@ -107,10 +109,13 @@ function makeFakeDocs(initial?: {
   const ticketsById = new Map<string, TicketDocument>(
     ticketIds.map((id) => [
       id,
-      makeTicketDocument(
-        id,
-        initial?.ticketStatuses?.[id] ?? defaultTicketStatus
-      )
+      {
+        ...makeTicketDocument(
+          id,
+          initial?.ticketStatuses?.[id] ?? defaultTicketStatus
+        ),
+        ...(initial?.epicIds?.includes(id) ? { type: "epic" as const } : {})
+      }
     ])
   )
 
@@ -294,6 +299,7 @@ function groupsLayer(docs?: Parameters<typeof makeFakeDocs>[0]) {
   return GroupsLive.pipe(
     Layer.provide(fakeDocs.groupLayer),
     Layer.provide(fakeDocs.ticketLayer),
+    Layer.provide(fakeDocs.ticketIndexLayer),
     Layer.provide(KeyedLock.layer),
     Layer.merge(actorLayer)
   )
@@ -1163,6 +1169,41 @@ it.effect(
         makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "pm" })
       )
     )
+)
+
+it.effect("epics can't be planned in a sprint", () =>
+  Effect.gen(function* () {
+    const groups = yield* Groups
+    const sprint = yield* groups.create({ name: "Sprint 1", kind: "sprint" })
+    const added = yield* groups
+      .addTickets(sprint.id, [ticketId("T-1")])
+      .pipe(Effect.flip)
+    const created = yield* groups
+      .create({
+        name: "Sprint 2",
+        kind: "sprint",
+        tickets: [ticketId("T-1")]
+      })
+      .pipe(Effect.flip)
+    const plainGroup = yield* groups.create({
+      name: "Shortlist",
+      tickets: [ticketId("T-1")]
+    })
+
+    expect(added).toMatchObject({
+      _tag: "Validation",
+      reason: "epic_in_sprint"
+    })
+    expect(created).toMatchObject({
+      _tag: "Validation",
+      reason: "epic_in_sprint"
+    })
+    expect(plainGroup.tickets).toEqual(["T-1"])
+  }).pipe(
+    Effect.provide(
+      makeGroupsLayer({ ticketIds: ["T-1"], epicIds: ["T-1"] }, { role: "pm" })
+    )
+  )
 )
 
 it.effect("addTickets deduplicates against current membership", () =>

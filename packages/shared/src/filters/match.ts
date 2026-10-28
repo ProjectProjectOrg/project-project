@@ -19,6 +19,7 @@ export type MatchableTicket = Readonly<{
   prState?: PullRequestState | null
   assignees: ReadonlyArray<string>
   estimate: Estimate | null
+  parent?: string | null
   archivedAt: Date | null
   updatedAt: Date
 }>
@@ -73,6 +74,16 @@ export const matchesTicketFilter = (
   if (filter.estimate !== undefined) {
     if (filter.estimate.length === 0) return false
     if (!matchesEstimateFilter(ticket.estimate, filter.estimate, estimation))
+      return false
+  }
+
+  if (filter.parent !== undefined) {
+    const parent = ticket.parent ?? null
+    if (
+      !filter.parent.some((wanted) =>
+        wanted === "none" ? parent === null : wanted === parent
+      )
+    )
       return false
   }
 

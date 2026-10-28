@@ -144,6 +144,14 @@ const validationMessage = (reason: string): string => {
       return m.templates_error_attachments_not_allowed()
     case "blocks_not_allowed":
       return m.templates_error_blocks_not_allowed()
+    case "epic_in_sprint":
+      return m.tickets_error_epic_in_sprint()
+    case "epic_has_sub_tickets":
+      return m.tickets_error_epic_has_sub_tickets()
+    case "epic_with_parent":
+      return m.tickets_error_epic_with_parent()
+    case "invalid_parent":
+      return m.tickets_error_invalid_parent()
     case "invalid_blocks":
       return invalidBlocksMessage(detail)
     case "unknown_template":

@@ -80,11 +80,9 @@ export function DashboardRow({
       >
         <Row
           variant={below === undefined ? "standalone" : "embedded"}
+          showSprint={false}
           ticket={item.ticket}
           members={members}
-          showSprintCol={false}
-          showExtraActionsCol={false}
-          sprintMembership={null}
           editable={editable}
           update={updates}
           previewOpen={previewOpen}
@@ -134,9 +132,7 @@ export function DashboardRows({
   below?: (item: OrgTicket) => ReactNode
 }>) {
   return (
-    <div
-      className={cn(rowGridClassName(false), below !== undefined && "gap-y-2")}
-    >
+    <div className={cn(rowGridClassName, below !== undefined && "gap-y-2")}>
       {tickets.map((item) => (
         <DashboardRow
           key={`${item.project.slug}/${item.ticket.id}`}

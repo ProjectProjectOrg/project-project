@@ -6,6 +6,7 @@ import {
   type QuickCreateTicketInput,
   type TagName,
   type Ticket,
+  type TicketFilter,
   type TicketListQuery,
   type TicketListRow,
   type TicketPriority,
@@ -17,6 +18,7 @@ import {
 import { compareCodePoints } from "@/lib/orderKey"
 
 import { PRIORITY_META } from "./priorityMeta"
+import { NON_EPIC_TYPES } from "./ticketMeta"
 import { applyTicketPatch } from "./ticketPatch"
 
 export type TicketRow = Readonly<{
@@ -39,6 +41,9 @@ export const ticketListQueryOf = (query: QueryWithView): TicketListQuery => {
   const { view: _view, ...rest } = query
   return rest
 }
+
+export const withoutEpicsByDefault = <Q extends TicketFilter>(query: Q): Q =>
+  query.type?.length ? query : { ...query, type: NON_EPIC_TYPES }
 
 export const toRow = (row: TicketListRow): TicketRow => ({
   ticket: row.ticket,
@@ -180,6 +185,7 @@ export const predictedTicket = (
   lastTransitionedPr: null,
   gitState: { tag: "no_branch", baseBranch: "" },
   assignees: [],
+  parent: input.payload.parent ?? null,
   archivedAt: null,
   createdBy: input.prediction.createdBy,
   createdAt: now,

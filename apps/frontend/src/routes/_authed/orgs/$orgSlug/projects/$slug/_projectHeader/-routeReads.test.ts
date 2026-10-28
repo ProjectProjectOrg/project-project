@@ -134,7 +134,14 @@ it("starts backlog sections alongside metadata without waiting, even with collap
       deps: query
     })
   ).toBeUndefined()
-  await vi.waitFor(() => expect(requests).toHaveLength(5))
+  await vi.waitFor(() => expect(requests).toHaveLength(6))
+  expect(
+    requests.some(
+      (url) =>
+        url.pathname.endsWith("/tickets") &&
+        url.searchParams.get("type") === "epic"
+    )
+  ).toBe(true)
   const sections = requests.find((url) =>
     url.pathname.endsWith("/tickets/sections")
   )
@@ -168,7 +175,7 @@ it("starts only sprint sections when the viewer groups the list by sprint", asyn
     params,
     deps: query
   })
-  await vi.waitFor(() => expect(requests).toHaveLength(5))
+  await vi.waitFor(() => expect(requests).toHaveLength(6))
   const sprintSections = requests.find((url) =>
     url.pathname.endsWith("/tickets/sprint-sections")
   )

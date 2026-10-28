@@ -226,10 +226,10 @@ type SprintTicketKey = Readonly<{
   ticketId: TicketId
 }>
 
-const confirmAddedTicket = (
+const confirmAddedTickets = (
   sprints: ReadonlyArray<Group>,
   groupId: GroupId,
-  ticketId: TicketId,
+  ticketIds: ReadonlyArray<TicketId>,
   result: UpdateGroupTicketsOutput
 ): Array<Group> => {
   const evicted = new Map(
@@ -239,9 +239,10 @@ const confirmAddedTicket = (
     if (sprint.id === groupId) {
       return {
         ...result.target,
-        tickets: sprint.tickets.includes(ticketId)
-          ? sprint.tickets
-          : [...sprint.tickets, ticketId]
+        tickets: [
+          ...sprint.tickets,
+          ...ticketIds.filter((id) => !sprint.tickets.includes(id))
+        ]
       }
     }
     const dropped = evicted.get(sprint.id)
@@ -314,10 +315,63 @@ export const addTicketsToSprint = Atom.family(
           payload: { tickets: [ticketId] }
         }),
       confirm: (sprints, result, { groupId }) =>
-        confirmAddedTicket(sprints, groupId, ticketId, result),
+        confirmAddedTickets(sprints, groupId, [ticketId], result),
       publish: (result, { groupId }) =>
         membershipKeys(scopeOf(req), groupId, result)
     })
+)
+
+export type BulkSprintAssignmentInput = Readonly<{
+  groupId: GroupId
+  tickets: ReadonlyArray<TicketId>
+}>
+
+export const bulkAddTicketsToSprint = Atom.family((req: SprintListRequest) =>
+  viewMutation(sprintList(req), {
+    name: "bulkAddTicketsToSprint",
+    predict: (sprints, input: BulkSprintAssignmentInput) => {
+      const now = DateTime.toDate(DateTime.nowUnsafe())
+      return sprints.map((sprint) => {
+        if (sprint.id === input.groupId) {
+          return {
+            ...sprint,
+            tickets: [
+              ...sprint.tickets,
+              ...input.tickets.filter((id) => !sprint.tickets.includes(id))
+            ],
+            updatedAt: now
+          }
+        }
+        if (sprint.completedAt !== null) return sprint
+        if (!sprint.tickets.some((id) => input.tickets.includes(id))) {
+          return sprint
+        }
+        return {
+          ...sprint,
+          tickets: sprint.tickets.filter((id) => !input.tickets.includes(id)),
+          updatedAt: now
+        }
+      })
+    },
+    call: (client, input) =>
+      client.tickets.bulkUpdate({
+        params: req.params,
+        payload: { tickets: input.tickets, patch: { sprint: input.groupId } }
+      }),
+    confirm: (sprints, result, input) =>
+      result.sprint === null
+        ? sprints
+        : confirmAddedTickets(
+            sprints,
+            input.groupId,
+            input.tickets,
+            result.sprint
+          ),
+    publish: (result, input) =>
+      result.sprint === null
+        ? Keys.ticketsChanged(scopeOf(req))
+        : membershipKeys(scopeOf(req), input.groupId, result.sprint)
+  })
 )
 
 export const assignTicketToSprint = (

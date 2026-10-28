@@ -37,6 +37,11 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           tickets.sprintSections(query)
         ).pipe(dieOnMarkdown)
       )
+      .handle("epicSections", ({ query }) =>
+        Effect.flatMap(Tickets, (tickets) => tickets.epicSections(query)).pipe(
+          dieOnMarkdown
+        )
+      )
       .handle("list", ({ query }) =>
         Effect.flatMap(Tickets, (tickets) => tickets.list(query)).pipe(
           dieOnMarkdown
@@ -76,6 +81,11 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
         Effect.flatMap(Tickets, (tickets) =>
           tickets.update(params.id, payload, query.sort)
         ).pipe(dieOnMarkdown)
+      )
+      .handle("bulkUpdate", ({ payload }) =>
+        Effect.flatMap(Tickets, (tickets) => tickets.bulkUpdate(payload)).pipe(
+          dieOnMarkdown
+        )
       )
       .handle("delete", ({ params }) =>
         Effect.flatMap(Tickets, (tickets) => tickets.remove(params.id)).pipe(

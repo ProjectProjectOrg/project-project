@@ -306,7 +306,8 @@ describe("reading", () => {
           feat: null,
           bug: null,
           chore: null,
-          other: null
+          other: null,
+          epic: null
         })
 
         adopt(world, null, ["context", "chore"])
@@ -343,13 +344,15 @@ describe("reading", () => {
           feat: null,
           bug: "bug-report",
           chore: "chore",
-          other: null
+          other: null,
+          epic: null
         })
         expect(project.defaults).toEqual({
           feat: null,
           bug: null,
           chore: "chore",
-          other: "spike"
+          other: "spike",
+          epic: null
         })
         expect(project.inheritedDefaults).toEqual(org.defaults)
         expect(project.ownDefaults).toEqual({ bug: null, other: "spike" })
@@ -708,7 +711,8 @@ describe("template defaults", () => {
             feat: null,
             bug: null,
             chore: null,
-            other: "spike"
+            other: "spike",
+            epic: null
           })
           expect(overridden.inheritedDefaults.bug).toBe("bug-report")
           expect(world.defaults.current).toEqual({ bug: null, other: "spike" })

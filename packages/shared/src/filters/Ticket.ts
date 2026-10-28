@@ -6,7 +6,7 @@ import { EstimateFilterValue, EstimateSummary } from "../schemas/Estimate"
 import { GroupId } from "../schemas/Group"
 import { Slug } from "../schemas/Project"
 import { TagName } from "../schemas/Tag"
-import { TicketStatus, TicketType } from "../schemas/Ticket"
+import { TicketId, TicketStatus, TicketType } from "../schemas/Ticket"
 import { Ticket, TicketDetail } from "../schemas/Ticket"
 import { UserId } from "../schemas/User"
 
@@ -55,6 +55,9 @@ export const GroupIdFilter = Schema.Union([
 ])
 export type GroupIdFilter = typeof GroupIdFilter.Type
 
+export const ParentFilter = Schema.Union([Schema.Literal("none"), TicketId])
+export type ParentFilter = typeof ParentFilter.Type
+
 const TicketFilterFields = {
   status: Schema.optional(Schema.Array(TicketStatus)),
   type: Schema.optional(Schema.Array(TicketType)),
@@ -65,6 +68,7 @@ const TicketFilterFields = {
   updatedAfter: Schema.optional(Schema.DateFromString),
   groupId: Schema.optional(Schema.Array(GroupIdFilter)),
   estimate: Schema.optional(Schema.Array(EstimateFilterValue)),
+  parent: Schema.optional(Schema.Array(ParentFilter)),
   archived: Schema.optional(Schema.Boolean)
 } as const
 
@@ -226,3 +230,23 @@ export const TicketSprintSections = Schema.Struct({
   sections: Schema.Array(TicketSprintSection)
 })
 export type TicketSprintSections = typeof TicketSprintSections.Type
+
+export const EPIC_SECTION_NONE = "none" as const
+
+export const EpicSectionKey = ParentFilter
+export type EpicSectionKey = typeof EpicSectionKey.Type
+
+export const TicketEpicSection = Schema.Struct({
+  key: EpicSectionKey,
+  title: Schema.NullOr(Schema.String),
+  count: Schema.Finite,
+  page: TicketListPage
+})
+export type TicketEpicSection = typeof TicketEpicSection.Type
+
+export const TicketEpicSections = Schema.Struct({
+  total: Schema.Finite,
+  counts: TicketCounts,
+  sections: Schema.Array(TicketEpicSection)
+})
+export type TicketEpicSections = typeof TicketEpicSections.Type

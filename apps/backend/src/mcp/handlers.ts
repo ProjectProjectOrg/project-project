@@ -120,7 +120,8 @@ const TICKET_TYPES: ReadonlyArray<TicketType> = [
   "feat",
   "bug",
   "chore",
-  "other"
+  "other",
+  "epic"
 ]
 
 const me = (_input: {}) =>

@@ -3,7 +3,7 @@ import { m } from "@/paraglide/messages"
 import { GroupingMenu } from "./GroupingMenu"
 import { useTicketToolbar } from "./toolbar/context"
 
-type BacklogGrouping = "status" | "sprint"
+type BacklogGrouping = "status" | "sprint" | "epic"
 
 export function BacklogGroupingControl({
   value,
@@ -18,7 +18,8 @@ export function BacklogGroupingControl({
       value={value}
       options={[
         { key: "status", label: m.tickets_grouping_status() },
-        { key: "sprint", label: m.tickets_grouping_sprint() }
+        { key: "sprint", label: m.tickets_grouping_sprint() },
+        { key: "epic", label: m.tickets_grouping_epic() }
       ]}
       onChange={onChange}
       compact={controlsCompact}

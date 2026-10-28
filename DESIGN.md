@@ -416,6 +416,8 @@ It never appears on functional controls.
 
 **The Hide-or-Disable Rule.** A control the viewer's role can never use is not rendered. A control the viewer may use in principle but that the current state blocks (a completed sprint, the last PM, a pending save) is rendered disabled. Role gates read from `useProjectActor` / `useOrgActor`; nothing else decides who may do what.
 
+**The One Ticket Row Rule.** A ticket in a list is always the shared ticket row, wherever the list lives — backlog, sprint, epic grouping, an epic's sub-tickets, the dashboard. It looks and behaves the same everywhere: status, priority, ID, epic prefix and title, git, estimate, sprint, assignee, actions menu. A list may leave out only what its container already says (the epic prefix inside that epic's own list or section); it never drops a control or builds its own row. New row behaviour goes into the row, so every list gets it at once.
+
 ## 6. Do's and Don'ts
 
 ### Do

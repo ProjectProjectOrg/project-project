@@ -391,5 +391,6 @@ export const BUILTIN_TEMPLATE_DEFAULTS: TemplateDefaults =
     feat: "feature",
     bug: "bug-report",
     chore: "chore",
-    other: null
+    other: null,
+    epic: null
   })

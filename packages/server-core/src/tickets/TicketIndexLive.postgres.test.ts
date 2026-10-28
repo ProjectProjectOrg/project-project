@@ -1147,6 +1147,76 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
     }).pipe(Effect.provide(TestLayer))
   )
 
+  it.effect("groups tickets by epic in one pass", () =>
+    Effect.gen(function* () {
+      const suffix = randomUUID()
+      const organizationId = `ticket-index-parent-${suffix}`
+      const orgSlug = `ticket-index-parent-${suffix}`
+      const projectSlug = `ticket-index-parent-${suffix}`
+      const projectId = randomUUID()
+      yield* withClient(async (client) => {
+        await client.query(
+          `insert into organization (id, name, slug, created_at)
+             values ($1, 'Ticket index parent', $2, now())`,
+          [organizationId, orgSlug]
+        )
+        await client.query(
+          `insert into project_index
+               (id, slug, organization_id, key, name, icon, color, created_by, created_at)
+             values ($1, $2, $3, 'T', 'Ticket index parent', 'folder', 'blue', 'test-user', now())`,
+          [projectId, projectSlug, organizationId]
+        )
+      })
+      yield* Effect.addFinalizer(() =>
+        withClient((client) =>
+          client.query("delete from organization where id = $1", [
+            organizationId
+          ])
+        )
+      )
+
+      const index = yield* TicketIndex
+      const project = yield* index.projectFor(orgSlug, projectSlug)
+      const epic = ticketId("T-1")
+      yield* Effect.forEach(
+        [
+          indexedDocument("T-1", { type: "epic" }),
+          indexedDocument("T-2", { parent: epic }),
+          indexedDocument("T-3", {
+            parent: epic,
+            status: ticketStatus("in_progress")
+          }),
+          indexedDocument("T-4", { parent: epic }),
+          indexedDocument("T-5", {})
+        ],
+        (document) => index.upsertTicket(project, document)
+      )
+
+      const grouped = yield* index.querySections(
+        project,
+        {
+          type: ["feat", "bug", "chore", "other"],
+          parent: [epic, "none"],
+          sort: { key: "id", dir: "asc" }
+        },
+        { viewerId: "viewer", limit: 2, sections: "parent" }
+      )
+
+      const idsUnder = (key: string) =>
+        grouped.get(key)?.entries.map(({ entry }) => entry.id)
+      expect(grouped.get(epic)?.counts).toEqual({
+        total: 3,
+        byStatus: { in_progress: 1, todo: 2 }
+      })
+      expect(grouped.get("none")?.counts).toEqual({
+        total: 1,
+        byStatus: { todo: 1 }
+      })
+      expect(idsUnder(epic)).toEqual(["T-2", "T-3"])
+      expect(idsUnder("none")).toEqual(["T-5"])
+    }).pipe(Effect.provide(TestLayer))
+  )
+
   it.effect("orders rows exactly as a string compare of the order key", () =>
     Effect.gen(function* () {
       const suffix = randomUUID()

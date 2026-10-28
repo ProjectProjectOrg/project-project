@@ -24,6 +24,7 @@ const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 
 export function TicketSplit() {
   const { orgSlug, slug, id } = routeApi.useParams()
+  const { from } = routeApi.useSearch()
   const ticketId = decodeTicketId(id)
   const req = ticketRequest(orgSlug, slug, ticketId)
   const result = useAtomValue(ticketDetail(req))
@@ -44,7 +45,11 @@ export function TicketSplit() {
       ),
     onDefect: (defect) => <ErrorPage contained error={defect} />,
     onSuccess: ({ value }) => (
-      <TicketSplitPage ticket={value} members={project.members} />
+      <TicketSplitPage
+        ticket={value}
+        members={project.members}
+        openedFromList={from === "list"}
+      />
     )
   })
 }

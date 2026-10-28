@@ -470,6 +470,28 @@ it.effect("split retains the original and creates the remaining tickets", () =>
   }).pipe(Effect.provide(TestLayer))
 )
 
+it.effect("split keeps the new tickets in the original's epic", () =>
+  Effect.gen(function* () {
+    yield* resetFakes
+    const tickets = yield* Tickets
+    const docs = yield* TicketDocs
+    const original = yield* seedOriginal
+    const epicId = decodeTicketId("T-99")
+    const stored = yield* docs.read("org", "p", original.id)
+    yield* docs.write("org", "p", original.id, { ...stored, parent: epicId })
+
+    const outcome = yield* tickets.split(original.id, {
+      results: [
+        result("Detail page layout", "feat"),
+        result("Sidebar API", "feat")
+      ]
+    })
+
+    expect(outcome.retained.parent).toBe(epicId)
+    expect(outcome.created.map((created) => created.parent)).toEqual([epicId])
+  }).pipe(Effect.provide(TestLayer))
+)
+
 it.effect("split rejects fewer than two results", () =>
   Effect.gen(function* () {
     yield* resetFakes

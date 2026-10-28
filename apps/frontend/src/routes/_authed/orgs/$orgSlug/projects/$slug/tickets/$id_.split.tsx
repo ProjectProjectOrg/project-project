@@ -15,10 +15,15 @@ import { TicketSplit } from "@/features/tickets/components/ticket-split/TicketSp
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 
+const TicketSplitSearch = Schema.Struct({
+  from: Schema.optional(Schema.Literal("list"))
+})
+
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/tickets/$id_/split"
 )({
   component: TicketSplit,
+  validateSearch: Schema.toStandardSchemaV1(TicketSplitSearch),
   loader: ({ context, params }) => {
     const id = decodeTicketId(params.id)
     context.registry.mount(

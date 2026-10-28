@@ -13,6 +13,11 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { backlog, backlogRequest } from "@/features/tickets/atoms/backlog"
+import { epicsRequest, openEpicTitles } from "@/features/tickets/atoms/epics"
+import {
+  epicSections,
+  epicSectionsRequest
+} from "@/features/tickets/atoms/epicSections"
 import {
   sprintSections,
   sprintSectionsRequest
@@ -39,6 +44,7 @@ export const Route = createFileRoute(
     registry.mount(project(projectRequest(orgSlug, slug)))()
     registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
     registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
+    registry.mount(openEpicTitles(epicsRequest(orgSlug, slug)))()
     const viewerId = registry.get(currentUserId)
     const view = query.view ?? readViewPreference(orgSlug, slug, "backlog")
     const grouping =
@@ -50,10 +56,13 @@ export const Route = createFileRoute(
     if (grouping !== "sprint") {
       registry.mount(backlog(backlogRequest(orgSlug, slug, query)))()
     }
-    if (grouping !== "status") {
+    if (grouping === "sprint") {
       registry.mount(
         sprintSections(sprintSectionsRequest(orgSlug, slug, query))
       )()
+    }
+    if (grouping === "epic") {
+      registry.mount(epicSections(epicSectionsRequest(orgSlug, slug, query)))()
     }
   },
   validateSearch: Schema.toStandardSchemaV1(BacklogRouteSearchSchema)

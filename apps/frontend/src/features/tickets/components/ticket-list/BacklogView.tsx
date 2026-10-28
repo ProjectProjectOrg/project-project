@@ -1,25 +1,15 @@
-import { useAtomValue } from "@effect/atom-react"
-import type { Ticket, TicketListQuery } from "@pp/shared"
-import * as Result from "effect/reactivity/AsyncResult"
-import { useCallback } from "react"
+import type { TicketListQuery } from "@pp/shared"
 
-import {
-  useProject,
-  useProjectRoute
-} from "@/features/projects/hooks/useProject"
-import {
-  sprintListRequest,
-  sprintMembership
-} from "@/features/sprints/atoms/sprintList"
+import { useProject } from "@/features/projects/hooks/useProject"
 import {
   ignoreReorder,
   type StatusReorder
 } from "@/features/sprints/hooks/useStatusReorder"
 import { TicketListContent } from "@/features/tickets/components/ticket-list"
 import { BacklogBoard } from "@/features/tickets/components/ticket-list/BacklogBoard"
-import { TicketRowActions } from "@/features/tickets/components/ticket-list/RowActions"
 import { useProjectActor } from "@/lib/access"
 
+import { EpicSections } from "./EpicSections"
 import { SprintSections } from "./SprintSections"
 
 export function BacklogView({
@@ -31,33 +21,19 @@ export function BacklogView({
 }: Readonly<{
   view: "list" | "board"
   query: TicketListQuery
-  grouping: "status" | "sprint"
+  grouping: "status" | "sprint" | "epic"
   preferencesKey: string
   reorder: StatusReorder
 }>) {
-  const { orgSlug, slug } = useProjectRoute()
   const project = useProject()
   const canReorder = useProjectActor().call("statuses", "reorder")
-  const sprintReq = sprintListRequest(orgSlug, slug)
-  const membershipResult = useAtomValue(sprintMembership(sprintReq))
-  const membership = Result.isSuccess(membershipResult)
-    ? membershipResult.value
-    : undefined
   const { reorderMode, dragOrder, enterReorder, cancelReorder, setDragOrder } =
     reorder
-  const rowActions = useCallback(
-    (ticket: Ticket) => (
-      <TicketRowActions id={ticket.id} archived={ticket.archivedAt !== null} />
-    ),
-    []
-  )
   const isBoard = view === "board"
   return (
     <TicketListContent
       query={query}
       members={project.members}
-      sprintMembership={membership}
-      extraRowActions={rowActions}
       showAlternate={isBoard}
       alternate={({ key, query: activeQuery, snapshot }) => (
         <BacklogBoard
@@ -72,15 +48,23 @@ export function BacklogView({
           setDragOrder={setDragOrder}
         />
       )}
-      showSections={!isBoard && grouping === "sprint"}
+      showSections={!isBoard && grouping !== "status"}
       sections={
-        <SprintSections
-          key={preferencesKey}
-          preferencesKey={preferencesKey}
-          query={query}
-          members={project.members}
-          extraRowActions={rowActions}
-        />
+        grouping === "epic" ? (
+          <EpicSections
+            key={preferencesKey}
+            preferencesKey={preferencesKey}
+            query={query}
+            members={project.members}
+          />
+        ) : (
+          <SprintSections
+            key={preferencesKey}
+            preferencesKey={preferencesKey}
+            query={query}
+            members={project.members}
+          />
+        )
       }
     />
   )

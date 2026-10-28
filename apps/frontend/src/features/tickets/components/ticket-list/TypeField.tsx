@@ -11,6 +11,22 @@ import { TYPE_LABELS, TYPE_META } from "@/features/tickets/lib/ticketMeta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
+export const typeRadioItems = (types: ReadonlyArray<TicketType>) =>
+  types.map((t, index) => {
+    const TIcon = TYPE_META[t].icon
+    return {
+      value: t,
+      closeOnClick: true,
+      separated: types[index + 1] === "epic",
+      label: (
+        <>
+          <TIcon className="size-4" strokeWidth={1.75} />
+          {TYPE_LABELS[t]()}
+        </>
+      )
+    }
+  })
+
 function TypeMenuItems({
   current,
   onSelect
@@ -24,19 +40,7 @@ function TypeMenuItems({
       onValueChange={(next) => {
         if (next !== current) onSelect(next)
       }}
-      items={TicketType.literals.map((t) => {
-        const TIcon = TYPE_META[t].icon
-        return {
-          value: t,
-          closeOnClick: true,
-          label: (
-            <>
-              <TIcon className="size-4" strokeWidth={1.75} />
-              {TYPE_LABELS[t]()}
-            </>
-          )
-        }
-      })}
+      items={typeRadioItems(TicketType.literals)}
     />
   )
 }

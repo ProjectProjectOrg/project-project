@@ -1,4 +1,4 @@
-import { TicketType, type Group } from "@pp/shared"
+import type { Group, TicketType } from "@pp/shared"
 import { Plus } from "lucide-react"
 import { useRef, type ComponentProps, type RefObject } from "react"
 
@@ -14,6 +14,7 @@ import { TYPE_LABELS, TYPE_META } from "@/features/tickets/lib/ticketMeta"
 import { m } from "@/paraglide/messages"
 
 import { CreatorChip } from "./CreatorChip"
+import { typeRadioItems } from "./TypeField"
 
 type OnOpenChange = NonNullable<
   ComponentProps<typeof DropdownMenu>["onOpenChange"]
@@ -46,12 +47,14 @@ function useCreatorMenuFocus(inputRef: RefObject<HTMLInputElement | null>) {
 
 export function CreatorTypeMenu({
   type,
+  types,
   onTypeChange,
   expanded,
   inputRef
 }: CreatorMenuProps &
   Readonly<{
     type: TicketType
+    types: ReadonlyArray<TicketType>
     onTypeChange: (type: TicketType) => void
   }>) {
   const TypeIcon = TYPE_META[type].icon
@@ -81,19 +84,7 @@ export function CreatorTypeMenu({
         <DropdownMenuRadioGroup
           value={type}
           onValueChange={onTypeChange}
-          items={TicketType.literals.map((t) => {
-            const TIcon = TYPE_META[t].icon
-            return {
-              value: t,
-              closeOnClick: true,
-              label: (
-                <>
-                  <TIcon className="size-4" strokeWidth={1.75} />
-                  {TYPE_LABELS[t]()}
-                </>
-              )
-            }
-          })}
+          items={typeRadioItems(types)}
         />
       </DropdownMenuContent>
     </DropdownMenu>

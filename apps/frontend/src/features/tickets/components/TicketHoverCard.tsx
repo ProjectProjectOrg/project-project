@@ -29,6 +29,7 @@ import {
   ticketDetail,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
+import { EpicTextPrefix } from "@/features/tickets/components/ticket-list/EpicLabel"
 import { EstimateChip } from "@/features/tickets/components/ticket-list/EstimateField"
 import {
   PRIORITY_LABELS,
@@ -106,6 +107,13 @@ export function TicketHoverCard({
           return (
             <div className="space-y-2">
               <div className="line-clamp-2 text-sm leading-snug font-medium">
+                {ticket.parent && (
+                  <EpicTextPrefix
+                    orgSlug={scope.orgSlug}
+                    slug={scope.slug}
+                    epicId={ticket.parent}
+                  />
+                )}
                 {ticket.title}
               </div>
               <MetaRow ticket={ticket} scope={scope} statuses={statuses} />

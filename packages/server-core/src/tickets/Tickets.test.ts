@@ -14,6 +14,7 @@ import {
   GroupId,
   ProjectKey,
   RateLimited,
+  SprintCompletedImmutable,
   TICKET_LIST_LIMIT,
   TicketId,
   TicketStatus,
@@ -416,6 +417,7 @@ const entryFromDocument = (document: TicketDocument) => {
   return {
     ...entry,
     estimate: entry.estimate ?? null,
+    parent: entry.parent ?? null,
     prDraft: entry.prDraft ?? false,
     prBase: entry.prBase ?? null,
     ignoredBranches: entry.ignoredBranches ?? [],
@@ -502,6 +504,19 @@ const querySectionsVia =
             counts: { total, byStatus: { [status]: total } },
             entries
           })
+        }
+        return out
+      }
+      if (options.sections === "parent") {
+        for (const parent of query.parent ?? []) {
+          const scopedQuery = { ...query, parent: [parent] }
+          const counts = yield* index.count(
+            project,
+            { ...scopedQuery, status: undefined },
+            options
+          )
+          const entries = yield* index.query(project, scopedQuery, options)
+          out.set(parent, { counts, entries })
         }
         return out
       }
@@ -2016,6 +2031,259 @@ it.effect(
     }).pipe(Effect.provide(layer))
   }
 )
+
+const makeEpicFixture = () => {
+  const docs = makeFakeTicketDocs(["T-1", "T-2"])
+  docs.documents.set("T-1", makeTicketDocument("T-1", { type: "epic" }))
+  const layer = makeTicketsLayer("T", docs.layer, {
+    ticketIndex: makeFakeTicketIndex(docs.documents)
+  })
+  return { docs, layer }
+}
+
+it.effect("create files a sub-ticket under an epic", () => {
+  const { docs, layer } = makeEpicFixture()
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const created = yield* tickets.quickCreate({
+      title: "Estimate field",
+      parent: ticketId("T-1")
+    })
+
+    expect(created.parent).toBe("T-1")
+    expect(docs.documents.get(created.id)?.parent).toBe("T-1")
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect(
+  "create rejects a parent that isn't an epic, and an epic with a parent",
+  () => {
+    const { layer } = makeEpicFixture()
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const notAnEpic = yield* tickets
+        .create({
+          title: "Child",
+          parent: ticketId("T-2")
+        })
+        .pipe(Effect.flip)
+      const nestedEpic = yield* tickets
+        .create({
+          title: "Nested",
+          type: "epic",
+          parent: ticketId("T-1")
+        })
+        .pipe(Effect.flip)
+
+      expect(notAnEpic).toMatchObject({
+        _tag: "Validation",
+        reason: "invalid_parent:T-2"
+      })
+      expect(nestedEpic).toMatchObject({
+        _tag: "Validation",
+        reason: "epic_with_parent"
+      })
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect("deleting an epic takes its sub-tickets out of it", () => {
+  const { docs, layer } = makeEpicFixture()
+  docs.documents.set(
+    "T-2",
+    makeTicketDocument("T-2", { parent: ticketId("T-1") })
+  )
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    yield* tickets.remove("T-1")
+
+    expect(docs.documents.has("T-1")).toBe(false)
+    expect(docs.documents.get("T-2")?.parent).toBeUndefined()
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("an epic keeps its type while it has sub-tickets", () => {
+  const { layer } = makeEpicFixture()
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    yield* tickets.update("T-2", {
+      parent: ticketId("T-1")
+    })
+    const blocked = yield* tickets
+      .update("T-1", { type: "feat" })
+      .pipe(Effect.flip)
+    yield* tickets.update("T-2", { parent: null })
+    const freed = yield* tickets.update("T-1", {
+      type: "feat"
+    })
+
+    expect(blocked).toMatchObject({
+      _tag: "Validation",
+      reason: "epic_has_sub_tickets"
+    })
+    expect(freed.ticket.type).toBe("feat")
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("a ticket in an open sprint can't become an epic", () => {
+  const docs = makeFakeTicketDocs(["T-1"])
+  const sprint = decodeGroupSync({
+    id: "G-1",
+    name: "Sprint",
+    kind: "sprint",
+    tickets: ["T-1"],
+    color: "#123456",
+    startsAt: null,
+    endsAt: null,
+    completedAt: null,
+    createdBy: "user-1",
+    createdAt: "2026-04-01T00:00:00.000Z",
+    updatedAt: "2026-04-01T00:00:00.000Z"
+  })
+  const layer = makeTicketsLayer("T", docs.layer, {
+    ticketIndex: makeFakeTicketIndex(docs.documents),
+    groups: makeFakeGroups({ list: () => Effect.succeed([sprint]) })
+  })
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const error = yield* tickets
+      .update("T-1", { type: "epic" })
+      .pipe(Effect.flip)
+
+    expect(error).toMatchObject({
+      _tag: "Validation",
+      reason: "epic_in_sprint"
+    })
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("epicSections groups tickets under their epic, then No epic", () => {
+  const docs = makeFakeTicketDocs([])
+  const add = (id: string, overrides: Partial<TicketDocument>) =>
+    docs.documents.set(id, makeTicketDocument(id, overrides))
+  add("T-1", { type: "epic", title: "Estimation" })
+  add("T-2", { title: "Estimate field", parent: ticketId("T-1") })
+  add("T-3", { title: "Passkeys" })
+  add("T-4", { type: "epic", title: "Access control" })
+  const layer = makeTicketsLayer("T", docs.layer, {
+    ticketIndex: makeFakeTicketIndex(docs.documents)
+  })
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets.epicSections({
+      sort: DEFAULT_TICKET_SORT
+    })
+
+    expect(
+      result.sections.map((section) => ({
+        key: section.key,
+        title: section.title,
+        ids: section.page.items.map((row) => row.ticket.id)
+      }))
+    ).toEqual([
+      { key: "T-4", title: "Access control", ids: [] },
+      { key: "T-1", title: "Estimation", ids: ["T-2"] },
+      { key: "none", title: null, ids: ["T-3"] }
+    ])
+    expect(result.total).toBe(2)
+  }).pipe(Effect.provide(layer))
+})
+
+const bulkSprint = decodeGroupSync({
+  id: "G-1",
+  name: "Sprint",
+  kind: "sprint",
+  tickets: [],
+  color: "#123456",
+  startsAt: null,
+  endsAt: null,
+  completedAt: null,
+  createdBy: "user-1",
+  createdAt: "2026-04-01T00:00:00.000Z",
+  updatedAt: "2026-04-01T00:00:00.000Z"
+})
+
+const makeBulkFixture = (addTickets: GroupsShape["addTickets"]) => {
+  const docs = makeFakeTicketDocs(["T-1", "T-2", "T-3"])
+  docs.documents.set(
+    "T-3",
+    makeTicketDocument("T-3", { type: "epic", title: "Estimation" })
+  )
+  const layer = makeTicketsLayer("T", docs.layer, {
+    ticketIndex: makeFakeTicketIndex(docs.documents),
+    groups: makeFakeGroups({ list: () => Effect.succeed([]), addTickets })
+  })
+  return { docs, layer }
+}
+
+it.effect("bulkUpdate patches every ticket and plans them in one call", () => {
+  const added: Array<ReadonlyArray<string>> = []
+  const { docs, layer } = makeBulkFixture((_id, ids) =>
+    Effect.sync(() => {
+      added.push(ids)
+      return {
+        target: { ...bulkSprint, tickets: [...ids], body: "" },
+        evicted: []
+      }
+    })
+  )
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets.bulkUpdate({
+      tickets: [ticketId("T-1"), ticketId("T-2")],
+      patch: {
+        priority: "high",
+        parent: ticketId("T-3"),
+        sprint: bulkSprint.id
+      }
+    })
+
+    expect(result.tickets.map((ticket) => ticket.priority)).toEqual([
+      "high",
+      "high"
+    ])
+    expect(docs.documents.get("T-2")?.parent).toBe("T-3")
+    expect(added).toEqual([["T-1", "T-2"]])
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("bulkUpdate writes nothing when one ticket breaks a rule", () => {
+  const { docs, layer } = makeBulkFixture(() => unexpected("Groups.addTickets"))
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const error = yield* tickets
+      .bulkUpdate({
+        tickets: [ticketId("T-1"), ticketId("T-3")],
+        patch: { priority: "high", sprint: bulkSprint.id }
+      })
+      .pipe(Effect.flip)
+
+    expect(error).toMatchObject({
+      _tag: "Validation",
+      reason: "epic_in_sprint"
+    })
+    expect(docs.documents.get("T-1")?.priority).toBe("med")
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("bulkUpdate restores the tickets when planning fails", () => {
+  const { docs, layer } = makeBulkFixture(() =>
+    Effect.fail(new SprintCompletedImmutable())
+  )
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const error = yield* tickets
+      .bulkUpdate({
+        tickets: [ticketId("T-1"), ticketId("T-2")],
+        patch: { priority: "high", sprint: bulkSprint.id }
+      })
+      .pipe(Effect.flip)
+
+    expect(error._tag).toBe("SprintCompletedImmutable")
+    expect(docs.documents.get("T-1")?.priority).toBe("med")
+    expect(docs.documents.get("T-2")?.priority).toBe("med")
+  }).pipe(Effect.provide(layer))
+})
 
 it.effect("ticket mention validation trusts the ticket index", () => {
   const docs = makeFakeTicketDocs(["T-1"])

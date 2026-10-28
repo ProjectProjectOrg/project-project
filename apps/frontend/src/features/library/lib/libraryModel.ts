@@ -113,7 +113,8 @@ export const TICKET_TYPES: ReadonlyArray<TicketType> = [
   "feat",
   "bug",
   "chore",
-  "other"
+  "other",
+  "epic"
 ]
 
 export type DefaultState = "own" | "inherited" | "overridden"

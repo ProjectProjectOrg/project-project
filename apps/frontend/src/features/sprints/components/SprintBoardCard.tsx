@@ -9,6 +9,7 @@ import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import { AssigneeField } from "@/features/tickets/components/ticket-list/AssigneeField"
+import { EpicLink } from "@/features/tickets/components/ticket-list/EpicLabel"
 import { EstimateChip } from "@/features/tickets/components/ticket-list/EstimateField"
 import { PriorityButton } from "@/features/tickets/components/ticket-list/PriorityField"
 import { SplitTicketControl } from "@/features/tickets/components/ticket-list/SplitControl"
@@ -56,6 +57,14 @@ function BoardCardFields({
   return (
     <DeferredDropdownMenus>
       <div className="group/reveal relative isolate flex flex-col gap-2 rounded-sm bg-surface-3 px-1.5 pt-3 pb-1.5 text-left shadow-surface-1 transition outline-none hover:bg-surface-4 hover:shadow-surface-1-hover has-[[data-popup-open]]:bg-surface-4 has-[[data-popup-open]]:shadow-surface-1-hover [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20">
+        {ticket.parent && (
+          <EpicLink
+            orgSlug={orgSlug}
+            slug={slug}
+            epicId={ticket.parent}
+            className="-mb-1 self-start px-1 text-[11px]"
+          />
+        )}
         <div className="flex min-h-[2lh] items-start gap-1.5 text-[13px] leading-snug">
           <Link
             to="/orgs/$orgSlug/projects/$slug/tickets/$id"

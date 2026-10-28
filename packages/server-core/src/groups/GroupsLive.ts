@@ -30,6 +30,7 @@ import * as Schema from "effect/Schema"
 import { KeyedLock, LockKey } from "../locks/KeyedLock"
 import type { MarkdownError } from "../markdown/Markdown"
 import { TicketDocs } from "../tickets/TicketDocs"
+import { TicketIndex } from "../tickets/TicketIndex"
 import { GroupDocs, type GroupDocument } from "./GroupDocs"
 import {
   Groups,
@@ -78,6 +79,7 @@ export const GroupsLive = Layer.effect(
   Effect.gen(function* () {
     const groupDocs = yield* GroupDocs
     const ticketDocs = yield* TicketDocs
+    const ticketIndex = yield* TicketIndex
     const keyedLock = yield* KeyedLock
 
     const withGroupFilesLock = <A, E, R>(
@@ -107,6 +109,27 @@ export const GroupsLive = Layer.effect(
           if (!set.has(id)) {
             return yield* new NotFound()
           }
+        }
+      })
+
+    const rejectEpicsInSprint = (
+      scope: ProjectScopeShape,
+      kind: GroupKind,
+      ticketIds: ReadonlyArray<string>
+    ): Effect.Effect<void, Validation> =>
+      Effect.gen(function* () {
+        if (kind !== "sprint" || ticketIds.length === 0) return
+        const entries = yield* ticketIndex.list(
+          {
+            orgSlug: scope.orgSlug,
+            organizationId: scope.organizationId,
+            projectId: scope.projectId,
+            projectSlug: scope.slug
+          },
+          ticketIds
+        )
+        if (entries.some((entry) => entry.type === "epic")) {
+          return yield* new Validation({ reason: "epic_in_sprint" })
         }
       })
 
@@ -240,13 +263,15 @@ export const GroupsLive = Layer.effect(
       })
 
     const create: GroupsShape["create"] = (input) =>
-      lockedInScope(({ orgSlug, slug, userId }) =>
+      lockedInScope((scope) =>
         Effect.gen(function* () {
+          const { orgSlug, slug, userId } = scope
           const kind: GroupKind = input.kind ?? "other"
           yield* requireGroupAction(kind, "manage")
 
           const requestedTickets = input.tickets ?? []
           yield* validateTicketIds(orgSlug, slug, requestedTickets)
+          yield* rejectEpicsInSprint(scope, kind, requestedTickets)
           yield* validateInterval(input.startsAt ?? null, input.endsAt ?? null)
 
           const ids = yield* groupDocs.listIds(orgSlug, slug)
@@ -461,20 +486,23 @@ export const GroupsLive = Layer.effect(
       })
 
     const updateTickets: GroupsShape["updateTickets"] = (id, input) =>
-      lockedInScope(({ orgSlug, slug }) =>
+      lockedInScope((scope) =>
         Effect.gen(function* () {
+          const { orgSlug, slug } = scope
           const existing = yield* groupDocs.read(orgSlug, slug, id)
           if (existing.completedAt !== null) {
             return yield* new SprintCompletedImmutable()
           }
           yield* validateTicketIds(orgSlug, slug, input.tickets)
+          yield* rejectEpicsInSprint(scope, existing.kind, input.tickets)
           return yield* changeTickets(orgSlug, slug, existing, input.tickets)
         })
       )
 
     const addTickets: GroupsShape["addTickets"] = (id, ticketIds) =>
-      lockedInScope(({ orgSlug, slug }) =>
+      lockedInScope((scope) =>
         Effect.gen(function* () {
+          const { orgSlug, slug } = scope
           const existing = yield* groupDocs.read(orgSlug, slug, id)
           yield* requireGroupAction(existing.kind, "add_ticket")
           if (existing.completedAt !== null) {
@@ -496,6 +524,7 @@ export const GroupsLive = Layer.effect(
           }
 
           yield* validateTicketIds(orgSlug, slug, additions)
+          yield* rejectEpicsInSprint(scope, existing.kind, additions)
           const merged = [...existing.tickets, ...additions]
           return yield* changeTickets(orgSlug, slug, existing, merged)
         })

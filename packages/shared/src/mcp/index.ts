@@ -439,7 +439,9 @@ export const McpTools = {
       "without your context can follow.\n\n" +
       "`title` is required; every other field has a default. `status` is " +
       "a slug from `list_statuses` (default `todo`). `type` is `feat`, " +
-      "`bug`, `chore` or `other` (default `other`). `priority` is `low`, " +
+      "`bug`, `chore`, `other` or `epic` (default `other`). `parent` is " +
+      "the id of an epic in the same project; the ticket becomes one of " +
+      "its sub-tickets. An epic can't have a parent. `priority` is `low`, " +
       "`med` or `high` (default `med`). `tags` must already exist on the " +
       "project (`list_tags`); an unknown name fails. `assignees` are user " +
       "ids of project members (`list_members`). " +
@@ -473,7 +475,10 @@ export const McpTools = {
       "left unchanged. `status`, `type`, `priority`, `tags`, `assignees` " +
       "and `estimate` take the same values as in `create_ticket`; pass " +
       "`tags: []` or `assignees: []` to clear a list and `estimate: null` " +
-      "to clear the estimate. Before moving `status`, check `setBy` in " +
+      "to clear the estimate. `parent` is the id of an epic in the same " +
+      "project, or null to take the ticket out of its epic; an epic with " +
+      "sub-tickets keeps its type, and a sub-ticket can't become an epic. " +
+      "Before moving `status`, check `setBy` in " +
       "`list_statuses`: don't set a status that git automation sets on " +
       "its own.\n\n" +
       "`body` replaces the entire description. Read the current body with " +
