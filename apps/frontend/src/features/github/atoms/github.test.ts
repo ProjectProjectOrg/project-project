@@ -16,6 +16,7 @@ import {
   createBranch,
   githubIntegration,
   githubOrgRequest,
+  moreBranchPages,
   projectGitStates,
   stackBranch,
   unstackBranch
@@ -422,7 +423,8 @@ describe("branches", () => {
           return Promise.resolve(
             Response.json({
               items: [{ name: "feat/only-in-repo-a", isProtected: false }],
-              hasMore: false
+              nextCursor: null,
+              totalCount: 1
             })
           )
         }
@@ -461,13 +463,91 @@ describe("branches", () => {
       await vi.waitFor(() => expect(finishBranches).toBeDefined())
       expect(AsyncResult.isWaiting(registry.get(view))).toBe(true)
 
-      finishBranches?.(Response.json({ items: [], hasMore: false }))
+      finishBranches?.(
+        Response.json({ items: [], nextCursor: null, totalCount: 0 })
+      )
       await vi.waitFor(() => {
         const settled = registry.get(view)
         if (!AsyncResult.isSuccess(settled)) throw new Error("no branches")
         expect(settled.waiting).toBe(false)
         expect(settled.value.items).toEqual([])
       })
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
+describe("branch pages", () => {
+  it("appends the next page once another page is requested", async () => {
+    let finishSecond: ((response: Response) => void) | undefined
+    const cursors: Array<string | null> = []
+    fetchStub.set((input) => {
+      const url = new URL(
+        input instanceof Request ? input.url : String(input),
+        "http://localhost"
+      )
+      if (!url.pathname.endsWith("/github/branches")) return pending()
+      const after = url.searchParams.get("after")
+      cursors.push(after)
+      if (after === null) {
+        return Promise.resolve(
+          Response.json({
+            items: [{ name: "main", isProtected: true }],
+            nextCursor: "cursor-1",
+            totalCount: 2
+          })
+        )
+      }
+      return new Promise<Response>((resolve) => {
+        finishSecond = resolve
+      })
+    })
+
+    const branchesReq = branchesRequest("acme", "app", "")
+    const view = branches(branchesReq)
+    const registry = AtomRegistry.make()
+    registry.mount(view)
+    try {
+      await vi.waitFor(() => {
+        const result = registry.get(view)
+        if (!AsyncResult.isSuccess(result)) throw new Error("no branches")
+        expect(result.value).toEqual({
+          items: [{ name: "main", isProtected: true }],
+          totalCount: 2,
+          hasMore: true,
+          loadingMore: false
+        })
+      })
+
+      registry.set(moreBranchPages(branchesReq), 1)
+
+      await vi.waitFor(() => expect(finishSecond).toBeDefined())
+      const loading = registry.get(view)
+      if (!AsyncResult.isSuccess(loading)) throw new Error("no branches")
+      expect(loading.value.loadingMore).toBe(true)
+
+      finishSecond?.(
+        Response.json({
+          items: [{ name: "feat/next", isProtected: false }],
+          nextCursor: null,
+          totalCount: 2
+        })
+      )
+      await vi.waitFor(() => {
+        const result = registry.get(view)
+        if (!AsyncResult.isSuccess(result)) throw new Error("no branches")
+        expect(result.value).toEqual({
+          items: [
+            { name: "main", isProtected: true },
+            { name: "feat/next", isProtected: false }
+          ],
+          totalCount: 2,
+          hasMore: false,
+          loadingMore: false
+        })
+      })
+      expect(cursors).toEqual([null, "cursor-1"])
     } finally {
       registry.dispose()
     }

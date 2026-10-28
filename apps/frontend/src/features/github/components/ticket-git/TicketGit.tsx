@@ -212,9 +212,7 @@ export function TicketGitPanel({
         branchTemplate={branchTemplate}
         variant={variant}
       />
-      {stackable && (
-        <AddStackedBranch ticket={ticket} github={github} variant={variant} />
-      )}
+      {stackable && <AddStackedBranch ticket={ticket} github={github} />}
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import type {
   AttachBranchInput,
+  BranchListItem,
   ConnectGithubInput,
   GitState,
   GitStatesResponse,
@@ -210,16 +211,70 @@ export const githubRepos = Atom.family((req: GithubReposRequest) =>
   )
 )
 
-export const branches = Atom.family((req: BranchesRequest) =>
+const branchPage = (req: BranchesRequest, after: string | null) =>
   Api.query("projects", "listBranches", {
     params: req.params,
-    query: req.query,
+    query: after === null ? req.query : { ...req.query, after },
     timeToLive: "1 minute",
     reactivityKeys: [
       Keys.branches(scopeOf(req)),
       Keys.githubAuth(req.params.orgSlug)
     ]
   })
+
+export type BranchListView = Readonly<{
+  items: ReadonlyArray<BranchListItem>
+  totalCount: number
+  hasMore: boolean
+  loadingMore: boolean
+}>
+
+export const moreBranchPages = Atom.family((_req: BranchesRequest) =>
+  Atom.make(0).pipe(Atom.setIdleTTL("1 minute"))
+)
+
+export const branches = Atom.family((req: BranchesRequest) =>
+  Atom.readable(
+    (get) => {
+      const first = get(branchPage(req, null))
+      if (!AsyncResult.isSuccess(first)) {
+        return AsyncResult.map(
+          first,
+          (): BranchListView => ({
+            items: [],
+            totalCount: 0,
+            hasMore: false,
+            loadingMore: false
+          })
+        )
+      }
+      const items = [...first.value.items]
+      let nextCursor = first.value.nextCursor
+      let waiting = first.waiting
+      let loadingMore = false
+      const depth = get(moreBranchPages(req))
+      for (let index = 0; index < depth && nextCursor !== null; index++) {
+        const page = get(branchPage(req, nextCursor))
+        waiting ||= page.waiting
+        if (!AsyncResult.isSuccess(page)) {
+          loadingMore = AsyncResult.isInitial(page)
+          break
+        }
+        items.push(...page.value.items)
+        nextCursor = page.value.nextCursor
+      }
+      return AsyncResult.success<BranchListView>(
+        {
+          items,
+          totalCount: first.value.totalCount,
+          hasMore: nextCursor !== null,
+          loadingMore
+        },
+        { waiting }
+      )
+    },
+    (refresh) => refresh(branchPage(req, null))
+  )
 )
 
 const githubKeys = (req: ProjectRequest) => [

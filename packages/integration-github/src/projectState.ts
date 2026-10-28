@@ -35,14 +35,17 @@ const LIST_BRANCHES_QUERY = /* GraphQL */ `
     $name: String!
     $q: String
     $first: Int!
+    $after: String
   ) {
     repository(owner: $owner, name: $name) {
       refs(
         refPrefix: "refs/heads/"
         query: $q
         first: $first
+        after: $after
         orderBy: { field: TAG_COMMIT_DATE, direction: DESC }
       ) {
+        totalCount
         nodes {
           name
           branchProtectionRule {
@@ -51,6 +54,7 @@ const LIST_BRANCHES_QUERY = /* GraphQL */ `
         }
         pageInfo {
           hasNextPage
+          endCursor
         }
       }
     }
@@ -249,13 +253,14 @@ const decodeFetchProjectStateBatchResponse = Schema.decodeUnknownEffect(
 type ListBranchesResponse = Readonly<{
   repository: Readonly<{
     refs: Readonly<{
+      totalCount: number
       nodes: ReadonlyArray<
         Readonly<{
           name: string
           branchProtectionRule: Readonly<{ id: string }> | null
         }>
       >
-      pageInfo: Readonly<{ hasNextPage: boolean }>
+      pageInfo: Readonly<{ hasNextPage: boolean; endCursor: string | null }>
     }>
   }> | null
 }>
@@ -423,7 +428,10 @@ const branchListFromResponse = (
       name: n.name,
       isProtected: n.branchProtectionRule !== null
     })),
-    hasMore: data.repository.refs.pageInfo.hasNextPage
+    nextCursor: data.repository.refs.pageInfo.hasNextPage
+      ? data.repository.refs.pageInfo.endCursor
+      : null,
+    totalCount: data.repository.refs.totalCount
   }
 }
 
@@ -716,6 +724,7 @@ export const listBranchesWithToken = (
   name: string,
   query: string | undefined,
   first: number,
+  after: string | undefined,
   tokenSource: "user" | "installation",
   scopeKey?: string
 ): Effect.Effect<
@@ -733,7 +742,8 @@ export const listBranchesWithToken = (
         repoOwner: owner,
         repoName: name,
         query: query ?? null,
-        first
+        first,
+        after: after ?? null
       },
       (signal) =>
         gql<ListBranchesResponse>(LIST_BRANCHES_QUERY, {
@@ -741,6 +751,7 @@ export const listBranchesWithToken = (
           name,
           q: query ?? null,
           first,
+          after: after ?? null,
           request: { signal }
         }),
       narrow(["RepoGone", "RateLimited"] as const)

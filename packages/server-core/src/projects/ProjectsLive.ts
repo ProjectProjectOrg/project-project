@@ -519,17 +519,22 @@ export const ProjectsLive = Layer.effect(
         loadGithubIntegration(scope.projectId)
       )
 
-    const githubBranches: ProjectsShape["githubBranches"] = (query, first) =>
+    const githubBranches: ProjectsShape["githubBranches"] = (
+      query,
+      first,
+      after
+    ) =>
       Effect.gen(function* () {
         const { projectId } = yield* ProjectScope
         const integration = yield* loadGithubIntegration(projectId)
-        if (!integration) return { items: [], hasMore: false }
+        if (!integration) return { items: [], nextCursor: null, totalCount: 0 }
         return yield* github.listInstallationBranches(
           integration.installationId,
           integration.repoOwner,
           integration.repoName,
           query,
-          first
+          first,
+          after
         )
       })
 

@@ -130,7 +130,8 @@ export type GitHubShape = Readonly<{
     owner: string,
     name: string,
     query: string | undefined,
-    first: number
+    first: number,
+    after: string | undefined
   ) => Effect.Effect<BranchListResponse, RepoGone | RateLimited | GitHubError>
   branchExistsInstallation: (
     installationId: string,

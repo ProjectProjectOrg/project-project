@@ -112,7 +112,7 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
       )
       .handle("listBranches", ({ query }) =>
         Effect.flatMap(Projects, (projects) =>
-          projects.githubBranches(query.q, query.first ?? 30)
+          projects.githubBranches(query.q, query.first ?? 30, query.after)
         ).pipe(dieOnMarkdown)
       )
 )

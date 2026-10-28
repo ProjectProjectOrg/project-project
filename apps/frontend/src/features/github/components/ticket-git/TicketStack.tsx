@@ -32,8 +32,11 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import { unstackBranch } from "@/features/github/atoms/github"
+import {
+  BranchPicker,
+  BranchPickerSubmenu
+} from "@/features/github/components/ticket-git/BranchPicker"
 import { ClearBranchFields } from "@/features/github/components/ticket-git/ClearBranchFields"
-import { ConnectBranchFields } from "@/features/github/components/ticket-git/ConnectBranchFields"
 import { compareUrl } from "@/features/github/lib/branchUrl"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -195,8 +198,6 @@ const ownLayer = (
     Match.exhaustive
   )
 
-type StackAction = "stack" | "clear"
-
 export function StackedBranches({
   ticket,
   github,
@@ -216,9 +217,9 @@ export function StackedBranches({
   const bottom = ownLayer(own, ticket, github.defaultBaseBranch ?? "main")
   const rows = bottom === null ? stack : [bottom, ...stack]
   const count = stackPullRequestCount(own, stack)
-  const Root = InlineForm.Root<StackAction>
+  const Root = InlineForm.Root<"clear">
   return (
-    <Root actions={["stack", "clear"]} variant={variant}>
+    <Root actions={["clear"]} variant={variant}>
       <InlineForm.Idle block>
         <section
           className="flex flex-col gap-1.5"
@@ -229,6 +230,7 @@ export function StackedBranches({
               <StackLayerRow
                 key={layer.branch}
                 ticket={ticket}
+                github={github}
                 layer={layer}
                 previousBranch={rows[index - 1]?.branch ?? null}
                 first={index === 0}
@@ -249,14 +251,6 @@ export function StackedBranches({
           </span>
         </section>
       </InlineForm.Idle>
-      <InlineForm.Form action="stack">
-        <ConnectBranchFields
-          ticket={ticket}
-          github={github}
-          variant={variant}
-          mode="stack"
-        />
-      </InlineForm.Form>
       <InlineForm.Form action="clear">
         <ClearBranchFields id={ticket.id} variant={variant} />
       </InlineForm.Form>
@@ -266,41 +260,31 @@ export function StackedBranches({
 
 export function AddStackedBranch({
   ticket,
-  github,
-  variant
+  github
 }: Readonly<{
   ticket: TicketDetail
   github: GithubConnection
-  variant: "bordered" | "ghost"
 }>) {
   const canWrite = useProjectActor().call("tickets", "stackBranch")
   if (!canWrite) return null
-  const Root = InlineForm.Root<"stack">
   return (
-    <Root actions={["stack"]} variant="ghost">
-      <InlineForm.Idle>
-        <InlineForm.Trigger
-          action="stack"
-          size="xs"
-          variant="ghost"
-          leadingIcon={Layers}
-        >
+    <BranchPicker
+      mode="stack"
+      ticket={ticket}
+      github={github}
+      align="start"
+      trigger={
+        <Button size="xs" variant="ghost" leadingIcon={Layers}>
           {m.git_stack_add_button()}
-        </InlineForm.Trigger>
-      </InlineForm.Idle>
-      <InlineForm.Form action="stack">
-        <ConnectBranchFields
-          ticket={ticket}
-          github={github}
-          variant={variant}
-          mode="stack"
-        />
-      </InlineForm.Form>
-    </Root>
+        </Button>
+      }
+    />
   )
 }
 
 function BranchMenu({
+  ticket,
+  github,
   layer,
   own,
   repoSlug,
@@ -308,6 +292,8 @@ function BranchMenu({
   busy,
   onRemove
 }: Readonly<{
+  ticket: TicketDetail
+  github: GithubConnection
   layer: StackLayerState
   own: boolean
   repoSlug: string
@@ -316,8 +302,9 @@ function BranchMenu({
   onRemove: () => void
 }>) {
   const { open } = useInlineForm()
+  const [menuOpen, setMenuOpen] = useState(false)
   return (
-    <DropdownMenu>
+    <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
       <DropdownMenuTrigger
         render={
           <Button
@@ -355,10 +342,18 @@ function BranchMenu({
             </DropdownMenuItem>
           )}
         {canWrite && (
-          <DropdownMenuItem onClick={() => open("stack")}>
-            <Layers strokeWidth={1.75} />
-            {m.git_stack_add_button()}
-          </DropdownMenuItem>
+          <BranchPickerSubmenu
+            mode="stack"
+            ticket={ticket}
+            github={github}
+            onDone={() => setMenuOpen(false)}
+            label={
+              <>
+                <Layers strokeWidth={1.75} />
+                {m.git_stack_add_button()}
+              </>
+            }
+          />
         )}
         {canWrite &&
           (own ? (
@@ -379,6 +374,7 @@ function BranchMenu({
 
 function StackLayerRow({
   ticket,
+  github,
   layer,
   previousBranch,
   first,
@@ -389,6 +385,7 @@ function StackLayerRow({
   canWrite
 }: Readonly<{
   ticket: TicketDetail
+  github: GithubConnection
   layer: StackLayerState
   previousBranch: string | null
   first: boolean
@@ -499,6 +496,8 @@ function StackLayerRow({
         )}
       </div>
       <BranchMenu
+        ticket={ticket}
+        github={github}
         layer={layer}
         own={own}
         repoSlug={repoSlug}
