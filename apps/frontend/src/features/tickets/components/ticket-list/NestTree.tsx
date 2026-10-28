@@ -46,31 +46,41 @@ export function NestTree({ nest }: Readonly<{ nest: RowNest | undefined }>) {
           )}
         />
       )}
-      <span className="absolute top-1/2 left-[-2px] z-20 -translate-y-1/2">
-        <button
-          type="button"
-          aria-expanded={nest.expanded}
-          aria-label={
-            nest.expanded
-              ? m.tickets_sub_tickets_collapse()
-              : m.tickets_sub_tickets_expand()
-          }
-          onClick={(event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            nest.onToggle()
-          }}
-          className="grid size-4 place-items-center rounded text-muted-foreground transition-[color,background-color] duration-100 hover:bg-hover hover:text-foreground"
-        >
-          <ChevronRight
-            className={cn(
-              "size-3 transition-transform duration-150",
-              nest.expanded && "rotate-90"
-            )}
-            strokeWidth={2}
-          />
-        </button>
+      <span className="absolute top-1/2 left-[-4px] z-20 -translate-y-1/2">
+        <NestToggle expanded={nest.expanded} onToggle={nest.onToggle} />
       </span>
     </>
+  )
+}
+
+export function NestToggle({
+  expanded,
+  onToggle
+}: Readonly<{ expanded: boolean; onToggle: () => void }>) {
+  return (
+    <button
+      type="button"
+      aria-expanded={expanded}
+      aria-label={
+        expanded
+          ? m.tickets_sub_tickets_collapse()
+          : m.tickets_sub_tickets_expand()
+      }
+      onClick={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        onToggle()
+      }}
+      className="grid size-5 place-items-center rounded-md text-muted-foreground transition-[color,background-color] duration-100 hover:bg-hover hover:text-foreground"
+    >
+      <ChevronRight
+        aria-hidden
+        className={cn(
+          "size-3.5 transition-transform duration-150",
+          expanded && "rotate-90"
+        )}
+        strokeWidth={1.75}
+      />
+    </button>
   )
 }

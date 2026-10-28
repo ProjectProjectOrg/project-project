@@ -72,6 +72,7 @@ function RowImpl({
   const idTail = dashIdx >= 0 ? ticket.id.slice(dashIdx + 1) : ""
   const rowElement = useRef<HTMLDivElement>(null)
   const estimation = useEstimationMode()
+  const isChild = nest?.role === "child"
   const [previewMounted, setPreviewMounted] = useState(false)
   const handleTitlePointerEnter = () => {
     onPreviewPointerEnter(ticket.id)
@@ -131,7 +132,12 @@ function RowImpl({
                     />
                   )}
                 >
-                  <span className="min-w-0 truncate text-sm font-medium">
+                  <span
+                    className={cn(
+                      "min-w-0 truncate text-sm font-medium",
+                      isChild && "text-foreground/65"
+                    )}
+                  >
                     {ticket.title}
                   </span>
                 </PopoverTrigger>
