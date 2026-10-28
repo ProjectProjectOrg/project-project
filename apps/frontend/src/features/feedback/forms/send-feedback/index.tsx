@@ -11,6 +11,7 @@ import {
   type DragEvent,
   type KeyboardEvent
 } from "react"
+import { flushSync } from "react-dom"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -110,11 +111,16 @@ export function SendFeedbackForm({
   const sendAnother = () => {
     form.reset()
     files.reset()
-    setSent(false)
+    flushSync(() => setSent(false))
     titleRef.current?.focus()
   }
   const attachPasted = (event: ClipboardEvent) => {
-    if (!attachments || event.clipboardData.files.length === 0) return
+    if (
+      !attachments ||
+      event.clipboardData.files.length === 0 ||
+      event.clipboardData.getData("text/plain") !== ""
+    )
+      return
     event.preventDefault()
     files.add([...event.clipboardData.files])
   }

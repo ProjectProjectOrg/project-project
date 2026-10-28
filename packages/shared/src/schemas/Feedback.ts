@@ -12,6 +12,7 @@ const SingleLine = (max: number) =>
 
 export const FEEDBACK_MAX_ATTACHMENTS = 5
 export const FEEDBACK_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024
+const FEEDBACK_REPORT_MAX_BYTES = 256 * 1024
 
 export const FeedbackKind = Schema.Literals(["bug", "feature"])
 export type FeedbackKind = typeof FeedbackKind.Type
@@ -94,9 +95,10 @@ export const FeedbackIntakePayload = Schema.Struct({
 }).pipe(
   HttpApiSchema.asMultipart({
     maxParts: FEEDBACK_MAX_ATTACHMENTS + 1,
-    maxFieldSize: 64 * 1024,
+    maxFieldSize: FEEDBACK_REPORT_MAX_BYTES,
     maxFileSize: FEEDBACK_ATTACHMENT_MAX_BYTES,
     maxTotalSize:
-      FEEDBACK_MAX_ATTACHMENTS * FEEDBACK_ATTACHMENT_MAX_BYTES + 64 * 1024
+      FEEDBACK_MAX_ATTACHMENTS * FEEDBACK_ATTACHMENT_MAX_BYTES +
+      FEEDBACK_REPORT_MAX_BYTES
   })
 )

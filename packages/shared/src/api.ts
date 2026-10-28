@@ -2742,7 +2742,7 @@ const FeedbackIntakeGroup = HttpApiGroup.make("feedbackIntake")
     HttpApiEndpoint.post("receive", "/feedback/intake", {
       payload: FeedbackIntakePayload,
       success: HttpApiSchema.NoContent,
-      error: [NotFound, RateLimited]
+      error: [NotFound, RateLimited, Conflict]
     })
   )
   .middleware(FeedbackIntakeGuard)

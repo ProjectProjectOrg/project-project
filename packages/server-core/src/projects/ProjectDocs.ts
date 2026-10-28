@@ -9,6 +9,7 @@ import type {
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
+import type * as Option from "effect/Option"
 
 import type { MarkdownError } from "../markdown/Markdown"
 import type { SystemProjectRole } from "./systemProjectFrontmatter"
@@ -26,7 +27,6 @@ export type ProjectDocument = Readonly<{
   estimation: EstimationMode
   setup: ProjectSetup
   templateDefaults: PartialTemplateDefaults
-  system?: SystemProjectRole
   body: string
 }>
 
@@ -60,6 +60,10 @@ export interface ProjectDocsShape {
     slug: string,
     defaults: PartialTemplateDefaults
   ) => Effect.Effect<void, NotFound | MarkdownError>
+  readonly systemRole: (
+    orgSlug: string,
+    slug: string
+  ) => Effect.Effect<Option.Option<SystemProjectRole>, NotFound | MarkdownError>
   readonly markSystem: (
     orgSlug: string,
     slug: string,

@@ -990,9 +990,7 @@ export const feedbackAttachment = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
     outboxId: text("outbox_id").references(() => feedbackOutbox.id, {
       onDelete: "cascade"
     }),
@@ -1013,9 +1011,11 @@ export const feedbackAttachment = pgTable(
 export const feedbackReceipt = pgTable("feedback_receipt", {
   reportId: text("report_id").primaryKey(),
   ticketId: text("ticket_id"),
+  verbatim: boolean("verbatim").notNull().default(false),
   receivedAt: timestamp("received_at", { withTimezone: true })
     .notNull()
-    .defaultNow()
+    .defaultNow(),
+  completedAt: timestamp("completed_at", { withTimezone: true })
 })
 
 export const ticketActivityOutbox = pgTable(

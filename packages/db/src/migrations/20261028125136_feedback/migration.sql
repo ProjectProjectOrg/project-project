@@ -22,12 +22,13 @@ CREATE TABLE "feedback_outbox" (
 CREATE TABLE "feedback_receipt" (
 	"report_id" text PRIMARY KEY,
 	"ticket_id" text,
-	"received_at" timestamp with time zone DEFAULT now() NOT NULL
+	"verbatim" boolean DEFAULT false NOT NULL,
+	"received_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"completed_at" timestamp with time zone
 );
 --> statement-breakpoint
 CREATE INDEX "feedback_attachment_outbox_idx" ON "feedback_attachment" ("outbox_id");--> statement-breakpoint
 CREATE INDEX "feedback_attachment_unclaimed_idx" ON "feedback_attachment" ("created_at");--> statement-breakpoint
 CREATE INDEX "feedback_outbox_dispatch_idx" ON "feedback_outbox" ("dispatched_at");--> statement-breakpoint
 ALTER TABLE "feedback_attachment" ADD CONSTRAINT "feedback_attachment_organization_id_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organization"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "feedback_attachment" ADD CONSTRAINT "feedback_attachment_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "feedback_attachment" ADD CONSTRAINT "feedback_attachment_outbox_id_feedback_outbox_id_fkey" FOREIGN KEY ("outbox_id") REFERENCES "feedback_outbox"("id") ON DELETE CASCADE;

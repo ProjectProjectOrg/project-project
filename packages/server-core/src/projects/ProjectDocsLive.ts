@@ -164,10 +164,6 @@ export const ProjectDocsLive = Layer.effect(
             icon: frontmatter.icon ?? fallback.icon,
             color: frontmatter.color ?? fallback.color,
             templateDefaults: templateDefaultsFrom(file.data),
-            ...Option.match(systemRoleFrom(file.data), {
-              onNone: () => ({}),
-              onSome: (system) => ({ system })
-            }),
             body: file.body
           }
         })
@@ -227,6 +223,16 @@ export const ProjectDocsLive = Layer.effect(
         })
       )
 
+    const systemRole: ProjectDocsShape["systemRole"] = (orgSlug, slug) =>
+      withProjectDocTelemetry(
+        "systemRole",
+        orgSlug,
+        slug,
+        markdown
+          .readProjectFile(orgSlug, slug)
+          .pipe(Effect.map((file) => systemRoleFrom(file.data)))
+      )
+
     const markSystem: ProjectDocsShape["markSystem"] = (orgSlug, slug, role) =>
       withProjectDocTelemetry(
         "markSystem",
@@ -272,6 +278,7 @@ export const ProjectDocsLive = Layer.effect(
       read,
       write,
       writeTemplateDefaults,
+      systemRole,
       markSystem,
       removeDir,
       readRaw

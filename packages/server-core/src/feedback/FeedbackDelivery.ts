@@ -1,6 +1,6 @@
 import { Db } from "@pp/db"
 import { feedbackOutbox } from "@pp/db/schema"
-import { AppApi, FeedbackReport, NotFound } from "@pp/shared"
+import { AppApi, FeedbackReport, NotFound, Validation } from "@pp/shared"
 import { and, eq, isNull } from "drizzle-orm"
 import * as Cause from "effect/Cause"
 import * as Clock from "effect/Clock"
@@ -120,7 +120,11 @@ const makeFeedbackDelivery = Effect.gen(function* () {
               contentType,
               byteSize
             }))
-          }).pipe(Effect.orDie)
+          }).pipe(
+            Effect.mapError(
+              () => new Validation({ reason: "invalid_feedback_report" })
+            )
+          )
           yield* db
             .insert(feedbackOutbox)
             .values({ id, payload })

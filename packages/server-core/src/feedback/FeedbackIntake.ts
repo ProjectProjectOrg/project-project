@@ -3,6 +3,7 @@ import { feedbackReceipt } from "@pp/db/schema"
 import {
   ActivityActor,
   attachmentUploadContentType,
+  Conflict,
   type FeedbackReport,
   isRasterImageContentType,
   NotFound,
@@ -11,6 +12,7 @@ import {
 } from "@pp/shared"
 import { eq } from "drizzle-orm"
 import * as Context from "effect/Context"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import type { Multipart } from "effect/http"
@@ -44,13 +46,19 @@ const skipFile =
       cause
     }).pipe(Effect.as(Option.none<StoredFeedbackAttachment>()))
 
+type Receipt = Readonly<{
+  ticketId: string | null
+  verbatim: boolean
+  completedAt: Date | null
+}>
+
 type Intake = Option.Option.Value<FeedbackConfigShape["intake"]>
 
 export type FeedbackIntakeShape = Readonly<{
   receive: (
     report: FeedbackReport,
     files: ReadonlyArray<Multipart.PersistedFile>
-  ) => Effect.Effect<void, NotFound>
+  ) => Effect.Effect<void, NotFound | Conflict>
 }>
 
 export class FeedbackIntake extends Context.Service<
@@ -67,16 +75,28 @@ export class FeedbackIntake extends Context.Service<
       const attachments = yield* Attachments
       const fs = yield* FileSystem.FileSystem
 
-      const claimReceipt = (reportId: string) =>
-        db
+      const openReceipt = Effect.fn("FeedbackIntake.openReceipt")(function* (
+        reportId: string
+      ) {
+        const inserted = yield* db
           .insert(feedbackReceipt)
           .values({ reportId })
           .onConflictDoNothing()
           .returning({ reportId: feedbackReceipt.reportId })
-          .pipe(
-            Effect.map((rows) => rows.length > 0),
-            Effect.orDie
-          )
+          .pipe(Effect.orDie)
+        if (inserted.length > 0) return Option.none<Receipt>()
+        const [existing] = yield* db
+          .select({
+            ticketId: feedbackReceipt.ticketId,
+            verbatim: feedbackReceipt.verbatim,
+            completedAt: feedbackReceipt.completedAt
+          })
+          .from(feedbackReceipt)
+          .where(eq(feedbackReceipt.reportId, reportId))
+          .limit(1)
+          .pipe(Effect.orDie)
+        return Option.fromNullishOr(existing)
+      })
 
       const releaseReceipt = (reportId: string) =>
         db
@@ -84,12 +104,25 @@ export class FeedbackIntake extends Context.Service<
           .where(eq(feedbackReceipt.reportId, reportId))
           .pipe(Effect.orDie)
 
-      const recordTicket = (reportId: string, ticketId: string) =>
+      const recordTicket = (
+        reportId: string,
+        ticketId: string,
+        verbatim: boolean
+      ) =>
         db
           .update(feedbackReceipt)
-          .set({ ticketId })
+          .set({ ticketId, verbatim })
           .where(eq(feedbackReceipt.reportId, reportId))
           .pipe(Effect.orDie)
+
+      const completeReceipt = (reportId: string) =>
+        Effect.flatMap(DateTime.nowAsDate, (completedAt) =>
+          db
+            .update(feedbackReceipt)
+            .set({ completedAt })
+            .where(eq(feedbackReceipt.reportId, reportId))
+            .pipe(Effect.orDie)
+        )
 
       const storeFile = Effect.fn("FeedbackIntake.storeFile")(
         function* (ticketId: string, file: Multipart.PersistedFile) {
@@ -150,11 +183,8 @@ export class FeedbackIntake extends Context.Service<
           )
       )
 
-      const fileTicket = Effect.fn("FeedbackIntake.fileTicket")(function* (
-        intake: Intake,
-        report: FeedbackReport
-      ) {
-        const scope = yield* systemProjects
+      const feedbackScope = (intake: Intake) =>
+        systemProjects
           .ensure({
             role: "feedback",
             orgSlug: intake.orgSlug,
@@ -170,6 +200,11 @@ export class FeedbackIntake extends Context.Service<
             ),
             Effect.catchTag("MarkdownError", Effect.die)
           )
+
+      const fileTicket = Effect.fn("FeedbackIntake.fileTicket")(function* (
+        scope: ProjectScopeShape,
+        report: FeedbackReport
+      ) {
         const create = (verbatim: boolean) =>
           tickets
             .create({
@@ -177,38 +212,65 @@ export class FeedbackIntake extends Context.Service<
               type: feedbackTicketType(report),
               body: feedbackTicketBody(report, { verbatim })
             })
-            .pipe(Effect.map((ticket) => ({ ticket, verbatim })))
-        const created = yield* create(false).pipe(
+            .pipe(Effect.map((ticket) => ({ ticketId: ticket.id, verbatim })))
+        return yield* create(false).pipe(
           Effect.catchTag("Validation", () => create(true)),
           Effect.provideService(ProjectScope, scope),
           Effect.orDie
         )
-        return { scope, ...created }
+      })
+
+      const finish = Effect.fn("FeedbackIntake.finish")(function* (
+        scope: ProjectScopeShape,
+        report: FeedbackReport,
+        filed: Readonly<{ ticketId: string; verbatim: boolean }>,
+        files: ReadonlyArray<Multipart.PersistedFile>
+      ) {
+        if (files.length > 0 || report.attachments.length > 0) {
+          yield* attachFiles(
+            scope,
+            report,
+            filed.ticketId,
+            filed.verbatim,
+            files
+          )
+        }
+        yield* completeReceipt(report.id)
+        yield* Effect.logInfo("feedback received", {
+          ticketId: filed.ticketId,
+          instance: report.instance.url,
+          files: files.length
+        })
       })
 
       const receive: FeedbackIntakeShape["receive"] = Effect.fn(
         "FeedbackIntake.receive"
       )(function* (report, files) {
         if (Option.isNone(config.intake)) return yield* new NotFound()
-        if (!(yield* claimReceipt(report.id))) {
+        const intake = config.intake.value
+        const receipt = yield* openReceipt(report.id)
+        if (Option.isNone(receipt)) {
+          const scope = yield* feedbackScope(intake).pipe(
+            Effect.onError(() => releaseReceipt(report.id))
+          )
+          const filed = yield* fileTicket(scope, report).pipe(
+            Effect.onError(() => releaseReceipt(report.id))
+          )
+          yield* recordTicket(report.id, filed.ticketId, filed.verbatim)
+          return yield* finish(scope, report, filed, files)
+        }
+        const { ticketId, verbatim, completedAt } = receipt.value
+        if (completedAt !== null) {
           yield* Effect.logInfo("feedback already received", {
             reportId: report.id
           })
           return
         }
-        const { scope, ticket, verbatim } = yield* fileTicket(
-          config.intake.value,
-          report
-        ).pipe(Effect.onError(() => releaseReceipt(report.id)))
-        yield* recordTicket(report.id, ticket.id)
-        if (files.length > 0 || report.attachments.length > 0) {
-          yield* attachFiles(scope, report, ticket.id, verbatim, files)
+        if (ticketId === null) {
+          return yield* new Conflict({ reason: "feedback_in_progress" })
         }
-        yield* Effect.logInfo("feedback received", {
-          ticketId: ticket.id,
-          instance: report.instance.url,
-          files: files.length
-        })
+        const scope = yield* feedbackScope(intake)
+        yield* finish(scope, report, { ticketId, verbatim }, files)
       })
 
       return { receive } satisfies FeedbackIntakeShape

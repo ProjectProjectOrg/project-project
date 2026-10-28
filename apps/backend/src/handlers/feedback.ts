@@ -2,6 +2,7 @@ import { FeedbackAttachments } from "@pp/server-core/feedback/FeedbackAttachment
 import { FeedbackConfig } from "@pp/server-core/feedback/FeedbackConfig"
 import { FeedbackDelivery } from "@pp/server-core/feedback/FeedbackDelivery"
 import { FeedbackIntake } from "@pp/server-core/feedback/FeedbackIntake"
+import { singleLine } from "@pp/server-core/feedback/feedbackTicket"
 import { AppApi, CurrentUser } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -46,7 +47,10 @@ export const FeedbackHandlerLive = HttpApiBuilder.group(
               kind: payload.kind,
               title: payload.title,
               description: payload.description,
-              reporter: { name: user.name || user.email, email: user.email },
+              reporter: {
+                name: singleLine(user.name, 200) || user.email,
+                email: user.email
+              },
               instance: {
                 url: config.instanceUrl,
                 version: Option.getOrNull(config.version)

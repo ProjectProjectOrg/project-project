@@ -19,11 +19,14 @@ export type FeedbackTicketAttachments = Readonly<{
 
 const NO_ATTACHMENTS: FeedbackTicketAttachments = { stored: [], notStored: [] }
 
-export const singleLineFilename = (name: string): string =>
-  name
+export const singleLine = (text: string, max: number): string =>
+  text
     .replace(/[\r\n]+/gu, " ")
     .trim()
-    .slice(0, 255) || "file"
+    .slice(0, max)
+
+export const singleLineFilename = (name: string): string =>
+  singleLine(name, 255) || "file"
 
 export const feedbackTicketType = (report: FeedbackReport): TicketType =>
   report.kind === "bug" ? "bug" : "feat"

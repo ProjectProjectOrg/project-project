@@ -126,14 +126,26 @@ const makeFeedbackAttachments = Effect.gen(function* () {
     return rows
   })
 
-  const claim = (ids: ReadonlyArray<string>, outboxId: string) =>
-    ids.length === 0
-      ? Effect.void
-      : db
-          .update(feedbackAttachment)
-          .set({ outboxId })
-          .where(inArray(feedbackAttachment.id, [...ids]))
-          .pipe(Effect.orDie, Effect.asVoid)
+  const claim = Effect.fn("FeedbackAttachments.claim")(function* (
+    ids: ReadonlyArray<string>,
+    outboxId: string
+  ) {
+    if (ids.length === 0) return
+    const claimed = yield* db
+      .update(feedbackAttachment)
+      .set({ outboxId })
+      .where(
+        and(
+          inArray(feedbackAttachment.id, [...ids]),
+          isNull(feedbackAttachment.outboxId)
+        )
+      )
+      .returning({ id: feedbackAttachment.id })
+      .pipe(Effect.orDie)
+    if (claimed.length !== ids.length) {
+      return yield* new Validation({ reason: "attachment_already_sent" })
+    }
+  })
 
   const rowsFor = (outboxId: string) =>
     db
@@ -193,7 +205,13 @@ const makeFeedbackAttachments = Effect.gen(function* () {
           Effect.flatMap((connection) =>
             s3.deleteObject(connection, row.objectKey)
           ),
-          Effect.catch(() => Effect.void),
+          Effect.catch((error) =>
+            Effect.logWarning("feedback attachment object not deleted", {
+              attachmentId: row.id,
+              objectKey: row.objectKey,
+              error
+            })
+          ),
           Effect.andThen(
             db
               .delete(feedbackAttachment)

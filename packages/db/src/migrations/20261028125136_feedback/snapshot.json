@@ -2,7 +2,7 @@
   "type": "diff",
   "version": "9",
   "dialect": "postgres",
-  "id": "04cb8088-d7a2-457e-99f8-61ca8da1ae1d",
+  "id": "e0e1dcfb-5149-4d93-8b71-9baec79b7fda",
   "prevIds": [
     "245446a2-2494-4a1b-9fe1-017253c4f66b"
   ],
@@ -145,29 +145,6 @@
         "n|col|public.feedback_attachment.organization_id",
         "n|col|public.organization.id",
         "e|uniqueness|public.organization.id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
-        "feedback_attachment"
-      ],
-      "writes": [
-        "s|fk|public.feedback_attachment.feedback_attachment_user_id_user_id_fkey",
-        "n|fk|public.feedback_attachment.feedback_attachment_user_id_user_id_fkey",
-        "e|fk|public.feedback_attachment.feedback_attachment_user_id_user_id_fkey",
-        "n|con|public.feedback_attachment.feedback_attachment_user_id_user_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.feedback_attachment",
-        "n|sch|public",
-        "n|tbl|public.user",
-        "n|sch|public",
-        "n|col|public.feedback_attachment.user_id",
-        "n|col|public.user.id",
-        "e|uniqueness|public.user.id"
       ]
     },
     {
@@ -499,12 +476,44 @@
       "row": {
         "schema": "public",
         "table": "feedback_receipt",
+        "name": "verbatim",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "feedback_receipt",
         "name": "received_at",
         "type": "timestamp with time zone",
         "typeSchema": null,
         "notNull": true,
         "dimensions": 0,
         "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "feedback_receipt",
+        "name": "completed_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
         "generated": null,
         "identity": null,
         "entityType": "columns"
@@ -594,26 +603,6 @@
         ],
         "schemaTo": "public",
         "tableTo": "organization",
-        "columnsTo": [
-          "id"
-        ],
-        "onUpdate": "NO ACTION",
-        "onDelete": "CASCADE",
-        "entityType": "fks"
-      }
-    },
-    {
-      "op": "create",
-      "row": {
-        "schema": "public",
-        "table": "feedback_attachment",
-        "name": "feedback_attachment_user_id_user_id_fkey",
-        "nameExplicit": false,
-        "columns": [
-          "user_id"
-        ],
-        "schemaTo": "public",
-        "tableTo": "user",
         "columnsTo": [
           "id"
         ],

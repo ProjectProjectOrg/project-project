@@ -390,4 +390,8 @@ files that couldn't be stored. A report delivered twice is filed once.
 
 The endpoint allows 30 reports per client IP per hour. Behind
 nginx-proxy-manager plus the bundled nginx, set `TRUSTED_PROXY_HOPS=2` so the
-limit applies to the real client rather than the proxy.
+limit applies to the real client rather than the proxy. That setting trusts the
+address nginx-proxy-manager adds, so `WEB_PORT` must only be reachable from
+nginx-proxy-manager: bind it to loopback when both run on the same host, or
+firewall it to the proxy's address. A caller that can reach `WEB_PORT`
+directly could otherwise choose the address it is rate-limited under.
