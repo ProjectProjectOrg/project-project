@@ -1,4 +1,4 @@
-import type { Ticket } from "@pp/shared"
+import { hasSubTickets, type Ticket } from "@pp/shared"
 
 type Parent = Pick<Ticket, "id" | "type">
 
@@ -11,5 +11,5 @@ export const attachCandidates = (
       ticket.type !== "epic" &&
       ticket.id !== parent.id &&
       ticket.parent !== parent.id &&
-      (parent.type === "epic" || (ticket.subTicketCount ?? 0) === 0)
+      (parent.type === "epic" || !hasSubTickets(ticket))
   )

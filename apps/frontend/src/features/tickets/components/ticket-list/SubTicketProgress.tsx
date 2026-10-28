@@ -1,4 +1,4 @@
-import type { Ticket } from "@pp/shared"
+import { hasSubTickets, type Ticket } from "@pp/shared"
 
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -41,51 +41,23 @@ function ProgressPie({
 
 export function SubTicketProgress({
   ticket,
-  toggle,
   className
-}: Readonly<{
-  ticket: Counted
-  toggle?: Readonly<{ expanded: boolean; onToggle: () => void }>
-  className?: string
-}>) {
+}: Readonly<{ ticket: Counted; className?: string }>) {
+  if (!hasSubTickets(ticket)) return null
   const total = ticket.subTicketCount ?? 0
-  if (total === 0) return null
   const done = ticket.subTicketDoneCount ?? 0
-  const label = m.tickets_sub_tickets_progress({ done, total })
-  const content = (
-    <>
+  return (
+    <span
+      title={m.tickets_sub_tickets_progress({ done, total })}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 text-muted-foreground",
+        className
+      )}
+    >
       <ProgressPie done={done} total={total} />
       <span className="font-mono text-xs tabular-nums">
         {done}/{total}
       </span>
-    </>
-  )
-  const base = "inline-flex shrink-0 items-center gap-1 text-muted-foreground"
-  if (toggle === undefined) {
-    return (
-      <span title={label} className={cn(base, className)}>
-        {content}
-      </span>
-    )
-  }
-  return (
-    <button
-      type="button"
-      aria-expanded={toggle.expanded}
-      aria-label={label}
-      onClick={(event) => {
-        event.preventDefault()
-        event.stopPropagation()
-        toggle.onToggle()
-      }}
-      className={cn(
-        base,
-        "-mx-1 rounded-md px-1 py-0.5 transition-[color,background-color,transform] duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]",
-        toggle.expanded && "bg-active text-foreground",
-        className
-      )}
-    >
-      {content}
-    </button>
+    </span>
   )
 }

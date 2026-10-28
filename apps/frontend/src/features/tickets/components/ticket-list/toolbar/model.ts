@@ -8,14 +8,27 @@ export type FilterDimension =
   | "sprint"
   | "estimate"
   | "archived"
-  | "subTickets"
+  | "subTicketExpansion"
+
+const FILTER_KEYS: Readonly<
+  Record<FilterDimension, keyof TicketFilter | null>
+> = {
+  type: "type",
+  assignee: "assignee",
+  tags: "tags",
+  sprint: "groupId",
+  estimate: "estimate",
+  archived: "archived",
+  subTicketExpansion: null
+}
 
 export function activeFilterCount(
   filter: TicketFilter | undefined,
   dimensions: ReadonlyArray<FilterDimension>
 ) {
   return dimensions.filter((dimension) => {
-    const value = filter?.[dimension === "sprint" ? "groupId" : dimension]
+    const key = FILTER_KEYS[dimension]
+    const value = key === null ? undefined : filter?.[key]
     return Array.isArray(value) ? value.length > 0 : value === true
   }).length
 }

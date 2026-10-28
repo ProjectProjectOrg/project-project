@@ -8,12 +8,13 @@ import { withExpandedChildren, withoutNestedChildren } from "./nestedRows"
 import type { TicketRow } from "./ticketRows"
 
 const ticketId = Schema.decodeSync(TicketId)
+const todo = Schema.decodeSync(TicketStatus)("todo")
 const now = DateTime.toDate(DateTime.makeUnsafe("2026-01-02T00:00:00.000Z"))
 
 const ticket = (id: string, fields: Partial<Ticket> = {}): Ticket => ({
   id: ticketId(id),
   title: id,
-  status: Schema.decodeSync(TicketStatus)("todo"),
+  status: todo,
   type: "feat",
   priority: "med",
   tags: [],
@@ -51,6 +52,7 @@ describe("withExpandedChildren", () => {
       AsyncResult.success(children)
     )
     expect(keys(entries)).toEqual(["T-1", "T-1/T-3", "T-2"])
+    expect(entries[1]).toMatchObject({ parent: "T-1", last: true })
   })
 
   it("marks an expanded parent's children as loading or failed", () => {

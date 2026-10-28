@@ -9,6 +9,7 @@ export type NestedEntry =
       key: string
       row: TicketRow
       parent: TicketId | null
+      last: boolean
     }>
   | Readonly<{
       kind: "children"
@@ -32,11 +33,12 @@ const childrenEntries = (
   if (AsyncResult.isFailure(children)) {
     return [{ kind: "children", key: `${parent}/…`, parent, state: "failed" }]
   }
-  return children.value.map((child) => ({
+  return children.value.map((child, index) => ({
     kind: "row",
     key: `${parent}/${child.key}`,
     row: child,
-    parent
+    parent,
+    last: index === children.value.length - 1
   }))
 }
 
@@ -47,7 +49,7 @@ export const withExpandedChildren = (
 ): ReadonlyArray<NestedEntry> =>
   rows.flatMap(
     (row): ReadonlyArray<NestedEntry> => [
-      { kind: "row", key: row.key, row, parent: null },
+      { kind: "row", key: row.key, row, parent: null, last: false },
       ...(expanded.has(row.ticket.id)
         ? childrenEntries(row.ticket.id, childrenOf(row.ticket.id))
         : [])
@@ -61,7 +63,8 @@ export const withoutNestedChildren = <
 ): ReadonlyArray<T> => {
   const typeOf = new Map(tickets.map(({ id, type }) => [id, type]))
   return tickets.filter(({ parent }) => {
-    const parentType = parent == null ? undefined : typeOf.get(parent)
+    const parentType =
+      parent === undefined || parent === null ? undefined : typeOf.get(parent)
     return parentType === undefined || parentType === "epic"
   })
 }

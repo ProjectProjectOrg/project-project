@@ -176,7 +176,7 @@ export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
                       />
                     )
                   case "tags":
-                  case "subTickets":
+                  case "subTicketExpansion":
                     return null
                 }
                 return null
@@ -193,7 +193,7 @@ export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
                   onChange={(tags) => onChange({ tags })}
                 />
               )}
-              {filters.includes("subTickets") && <ExpandSubTickets />}
+              {filters.includes("subTicketExpansion") && <ExpandSubTickets />}
             </div>
           </div>
         </PopoverContent>
