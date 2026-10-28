@@ -27,9 +27,11 @@
   "git_branch_picker_connect_github": "Connect GitHub to create branches",
   "git_branch_picker_count": "Showing {shown} of {total}",
   "git_branch_picker_create": "Create",
+  "git_branch_picker_load_more_error": "Couldn't load more branches.",
   "git_branch_picker_loading_more": "Loading more…",
   "git_branch_picker_options_label": "New branch",
   "git_branch_picker_placeholder": "Search or create a branch…",
+  "git_branch_picker_retry": "Retry",
   "git_branch_picker_searching": "Searching…",
   "git_branch_picker_status_label": "Status",
   "git_branch_picker_total": [

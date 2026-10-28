@@ -233,6 +233,7 @@ export type BranchListView = Readonly<{
   totalCount: number
   hasMore: boolean
   loadingMore: boolean
+  loadMoreFailed: boolean
 }>
 
 export const moreBranchPages = Atom.family((_req: BranchesRequest) =>
@@ -248,49 +249,61 @@ export const branchAttempt = Atom.family((_id: TicketId) =>
   Atom.make<BranchAttempt | null>(null)
 )
 
-export const branches = Atom.family((req: BranchesRequest) =>
-  Atom.readable(
+export const branches = Atom.family((req: BranchesRequest) => {
+  let readCursors: ReadonlyArray<string> = []
+  return Atom.readable(
     (get) => {
       const first = get(branchPage(req, null))
       if (!AsyncResult.isSuccess(first)) {
+        readCursors = []
         return AsyncResult.map(
           first,
           (): BranchListView => ({
             items: [],
             totalCount: 0,
             hasMore: false,
-            loadingMore: false
+            loadingMore: false,
+            loadMoreFailed: false
           })
         )
       }
       const items = [...first.value.items]
+      const cursors: Array<string> = []
       let nextCursor = first.value.nextCursor
       let waiting = first.waiting
       let loadingMore = false
+      let loadMoreFailed = false
       const depth = get(moreBranchPages(req))
       for (let index = 0; index < depth && nextCursor !== null; index++) {
+        cursors.push(nextCursor)
         const page = get(branchPage(req, nextCursor))
         waiting ||= page.waiting
         if (!AsyncResult.isSuccess(page)) {
           loadingMore = AsyncResult.isInitial(page)
+          loadMoreFailed = AsyncResult.isFailure(page)
           break
         }
         items.push(...page.value.items)
         nextCursor = page.value.nextCursor
       }
+      readCursors = cursors
       return AsyncResult.success<BranchListView>(
         {
           items,
           totalCount: first.value.totalCount,
           hasMore: nextCursor !== null,
-          loadingMore
+          loadingMore,
+          loadMoreFailed
         },
         { waiting }
       )
     },
-    (refresh) => refresh(branchPage(req, null))
+    (refresh) => {
+      refresh(branchPage(req, null))
+      for (const cursor of readCursors) refresh(branchPage(req, cursor))
+    }
   )
-)
+})
 
 const githubKeys = (req: ProjectRequest) => [
   Keys.gitStates(scopeOf(req)),

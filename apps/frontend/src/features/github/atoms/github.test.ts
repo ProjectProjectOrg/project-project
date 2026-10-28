@@ -516,7 +516,8 @@ describe("branch pages", () => {
           items: [{ name: "main", isProtected: true }],
           totalCount: 2,
           hasMore: true,
-          loadingMore: false
+          loadingMore: false,
+          loadMoreFailed: false
         })
       })
 
@@ -544,10 +545,78 @@ describe("branch pages", () => {
           ],
           totalCount: 2,
           hasMore: false,
-          loadingMore: false
+          loadingMore: false,
+          loadMoreFailed: false
         })
       })
       expect(cursors).toEqual([null, "cursor-1"])
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
+describe("branch page failures", () => {
+  it("reports a failed later page and refetches it on refresh", async () => {
+    let secondPageCalls = 0
+    fetchStub.set((input) => {
+      const url = new URL(
+        input instanceof Request ? input.url : String(input),
+        "http://localhost"
+      )
+      if (!url.pathname.endsWith("/github/branches")) return pending()
+      if (url.searchParams.get("after") === null) {
+        return Promise.resolve(
+          Response.json({
+            items: [{ name: "main", isProtected: false }],
+            nextCursor: "cursor-1",
+            totalCount: 2
+          })
+        )
+      }
+      secondPageCalls += 1
+      return Promise.resolve(
+        secondPageCalls === 1
+          ? Response.json(
+              { _tag: "GitHubError", message: "boom" },
+              { status: 502 }
+            )
+          : Response.json({
+              items: [{ name: "feat/next", isProtected: false }],
+              nextCursor: null,
+              totalCount: 2
+            })
+      )
+    })
+
+    const branchesReq = branchesRequest("acme", "app", "")
+    const view = branches(branchesReq)
+    const registry = AtomRegistry.make()
+    registry.mount(view)
+    try {
+      await vi.waitFor(() => {
+        expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
+      })
+      registry.set(moreBranchPages(branchesReq), 1)
+      await vi.waitFor(() => {
+        const result = registry.get(view)
+        if (!AsyncResult.isSuccess(result)) throw new Error("no branches")
+        expect(result.value.loadMoreFailed).toBe(true)
+        expect(result.value.hasMore).toBe(true)
+      })
+
+      registry.refresh(view)
+
+      await vi.waitFor(() => {
+        const result = registry.get(view)
+        if (!AsyncResult.isSuccess(result)) throw new Error("no branches")
+        expect(result.value.items.map((item) => item.name)).toEqual([
+          "main",
+          "feat/next"
+        ])
+        expect(result.value.loadMoreFailed).toBe(false)
+      })
+      expect(secondPageCalls).toBe(2)
     } finally {
       registry.dispose()
     }

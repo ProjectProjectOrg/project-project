@@ -95,7 +95,8 @@ export const branchSearchView = ({
     items,
     totalCount: items.length,
     hasMore: false,
-    loadingMore: false
+    loadingMore: false,
+    loadMoreFailed: false
   }
 }
 

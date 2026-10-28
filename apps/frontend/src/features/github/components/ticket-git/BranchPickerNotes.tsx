@@ -38,6 +38,25 @@ function BranchResultsNote({
 export function BranchPagingNote({
   results
 }: Readonly<{ results: BranchResults }>) {
+  if (results.view?.loadMoreFailed === true && !results.searching) {
+    return (
+      <p
+        role="alert"
+        className={cn(menuLabelClass, "flex h-7 items-center gap-1.5")}
+      >
+        <span className="text-destructive">
+          {m.git_branch_picker_load_more_error()}
+        </span>
+        <button
+          type="button"
+          onClick={results.refresh}
+          className="text-foreground underline decoration-foreground/30 underline-offset-2 transition-colors hover:decoration-foreground"
+        >
+          {m.git_branch_picker_retry()}
+        </button>
+      </p>
+    )
+  }
   return (
     <p aria-live="polite" className={cn(menuLabelClass, "h-7 tabular-nums")}>
       {pagingText(results)}

@@ -58,7 +58,7 @@ export function useBranchResults(query: string): BranchResults {
     refresh,
     onScroll: (event) => {
       if (exact === null || !Result.isSuccess(result) || result.waiting) return
-      if (!exact.hasMore || exact.loadingMore) return
+      if (!exact.hasMore || exact.loadingMore || exact.loadMoreFailed) return
       if (shouldLoadMoreBranches(event.currentTarget)) setPages(pages + 1)
     }
   }

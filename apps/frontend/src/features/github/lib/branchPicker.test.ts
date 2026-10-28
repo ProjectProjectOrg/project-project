@@ -98,7 +98,8 @@ describe("branchSearchView", () => {
     items: [branch("main"), branch("feat/Login"), branch("fix/logout")],
     totalCount: 40,
     hasMore: true,
-    loadingMore: false
+    loadingMore: false,
+    loadMoreFailed: false
   }
 
   it("prefers the server's results for the current term", () => {
@@ -111,7 +112,8 @@ describe("branchSearchView", () => {
       items: [branch("feat/Login"), branch("fix/logout")],
       totalCount: 2,
       hasMore: false,
-      loadingMore: false
+      loadingMore: false,
+      loadMoreFailed: false
     })
   })
 
