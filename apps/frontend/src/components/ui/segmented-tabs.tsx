@@ -205,7 +205,8 @@ function SegmentedTab({
           <Icon
             className={cn(
               v.iconSize,
-              subtle && "transition-[stroke-width] duration-75",
+              subtle &&
+                "transition-[stroke-width] duration-150 group-hover/seg-item:duration-0",
               item.iconClassName
             )}
             strokeWidth={subtle ? (active || hovered ? 2 : 1.5) : 1.75}
