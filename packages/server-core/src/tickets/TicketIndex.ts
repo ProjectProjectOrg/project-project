@@ -65,6 +65,7 @@ export type TicketIndexEntry = Readonly<{
   checksUpdatedAt: Date | null
   assignees: ReadonlyArray<string>
   parent: TicketId | null
+  subTicketCount: number
   archivedAt: Date | null
   createdBy: string
   createdAt: Date

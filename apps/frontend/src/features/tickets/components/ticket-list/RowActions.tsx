@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { TicketPolicy } from "@pp/access/policies"
 import type { ArchiveTicketInput, TicketId } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
@@ -8,7 +9,8 @@ import {
   ArchiveRestore,
   MoreHorizontal,
   Split,
-  Trash2
+  Trash2,
+  Unlink
 } from "lucide-react"
 import { useRef, useState } from "react"
 
@@ -35,10 +37,14 @@ import { m } from "@/paraglide/messages"
 
 export function TicketRowActions({
   id,
-  archived
+  archived,
+  parent,
+  onDetach
 }: {
   id: TicketId
   archived: boolean
+  parent: TicketId | null
+  onDetach?: () => void
 }) {
   const { orgSlug, slug } = useProjectRoute()
   const [archiving, setArchiving] = useState(false)
@@ -54,8 +60,12 @@ export function TicketRowActions({
   const actor = useProjectActor()
   const canArchive = actor.call("tickets", "archive")
   const canDelete = actor.call("tickets", "delete")
+  const detachFrom =
+    onDetach !== undefined && TicketPolicy.canChange(actor, { content: true })
+      ? parent
+      : null
 
-  if (!canArchive && !canDelete) return null
+  if (!canArchive && !canDelete && detachFrom === null) return null
 
   const archiveAndClose = async (input: ArchiveTicketInput) => {
     const exit = await archive(input)
@@ -87,6 +97,15 @@ export function TicketRowActions({
           className="w-48"
           onClick={(e) => e.stopPropagation()}
         >
+          {detachFrom !== null && (
+            <DropdownMenuItem onClick={onDetach} className="cursor-pointer">
+              <Unlink className="size-4" strokeWidth={1.75} />
+              {m.tickets_row_detach_action({ id: detachFrom })}
+            </DropdownMenuItem>
+          )}
+          {detachFrom !== null && (canArchive || canDelete) && (
+            <DropdownMenuSeparator />
+          )}
           {canArchive && (
             <>
               <DropdownMenuItem
@@ -172,7 +191,7 @@ export function TicketRowActions({
               ? m.tickets_row_delete_error_fallback()
               : null
           }
-          onConfirm={() => remove()}
+          onConfirm={() => remove({})}
         />
       </ConfirmButton.Popover>
     </ConfirmButton.Root>

@@ -236,7 +236,7 @@ function SegmentedTab({
               subtle
                 ? "text-xs text-muted-foreground"
                 : cn(
-                    "rounded-full px-1.5 font-mono text-[10px]",
+                    "inline-block rounded-full px-1.5 py-1 font-mono text-[10px] leading-none [text-box:trim-both_cap_alphabetic]",
                     active
                       ? "bg-foreground/10 text-foreground"
                       : "bg-muted text-muted-foreground"

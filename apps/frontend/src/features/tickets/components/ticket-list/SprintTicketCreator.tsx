@@ -62,7 +62,7 @@ import { m } from "@/paraglide/messages"
 
 import { CreatorTypeMenu } from "./CreatorMenus"
 import { EpicTextPrefix } from "./EpicLabel"
-import { EpicSubTicketPicker, useEpicPicker } from "./EpicSubTicketPicker"
+import { EpicTicketPicker, useEpicPicker } from "./EpicTicketPicker"
 import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
 import { TicketCreatorShell } from "./TicketCreatorShell"
 import { useCreatorFocus } from "./useCreatorFocus"
@@ -333,7 +333,7 @@ export function SprintTicketCreator({
             </MenuOption>
             <AnimatePresence initial={false}>
               {opened && (
-                <EpicSubTicketPicker
+                <EpicTicketPicker
                   key="picker"
                   {...picker.pickerProps}
                   onAdd={addPendingEpic}

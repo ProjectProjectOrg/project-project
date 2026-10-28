@@ -102,6 +102,11 @@ import {
   planTicketGitStates
 } from "./ticketGitStatePlanner"
 import {
+  validateHierarchy,
+  type HierarchyLookups,
+  type HierarchyNode
+} from "./ticketHierarchy"
+import {
   TicketIndex,
   type TicketIndexEntry,
   type TicketIndexOrgEntry,
@@ -1006,7 +1011,8 @@ export const TicketsLive = Layer.effect(
 
     const get: TicketsShape["get"] = (id) =>
       Effect.gen(function* () {
-        const { orgSlug, slug } = yield* ProjectScope
+        const scope = yield* ProjectScope
+        const { orgSlug, slug, userId } = scope
         const view = yield* gitView
         const ticket = yield* readTicket(orgSlug, slug, id)
         const body = yield* library.resolveSynced(orgSlug, slug, ticket.body)
@@ -1015,10 +1021,20 @@ export const TicketsLive = Layer.effect(
           slug,
           id
         )
-        return yield* withMissingAttachments(
-          orgSlug,
-          yield* detailOf({ ...ticket, body }, view, branchDeletedAt)
+        const { total: subTicketCount } = yield* ticketIndex.count(
+          indexProjectOf(scope),
+          { parent: [ticket.id] },
+          { viewerId: userId }
         )
+        const detail = yield* detailOf(
+          { ...ticket, body },
+          view,
+          branchDeletedAt
+        )
+        return yield* withMissingAttachments(orgSlug, {
+          ...detail,
+          subTicketCount
+        })
       })
 
     const withMissingAttachments = (orgSlug: string, detail: TicketDetail) =>
@@ -1119,35 +1135,38 @@ export const TicketsLive = Layer.effect(
         }
       })
 
-    const validateParent = (
+    const hierarchyLookups = (
       indexProject: TicketIndexProject,
-      child: string | null,
-      parent: TicketId
-    ): Effect.Effect<void, Validation> =>
-      Effect.gen(function* () {
-        const [entry] = yield* ticketIndex.list(indexProject, [parent])
-        if (
-          entry === undefined ||
-          entry.archivedAt !== null ||
-          entry.id === child ||
-          entry.type !== "epic"
-        ) {
-          return yield* new Validation({ reason: `invalid_parent:${parent}` })
-        }
-      })
+      viewerId: string
+    ): HierarchyLookups => {
+      const found = new Map<TicketId, HierarchyNode | undefined>()
+      return {
+        find: (id) =>
+          found.has(id)
+            ? Effect.succeed(found.get(id))
+            : ticketIndex.list(indexProject, [id]).pipe(
+                Effect.map(([entry]) => entry),
+                Effect.tap((entry) => Effect.sync(() => found.set(id, entry)))
+              ),
+        hasChildren: (id) => hasChildren(indexProject, viewerId, id)
+      }
+    }
 
     const validateNewParent = (
       indexProject: TicketIndexProject,
+      viewerId: string,
       type: TicketType,
       parent: TicketId | undefined
     ): Effect.Effect<void, Validation> =>
-      parent === undefined
-        ? Effect.void
-        : type === "epic"
-          ? Effect.fail(new Validation({ reason: "epic_with_parent" }))
-          : validateParent(indexProject, null, parent)
+      validateHierarchy(hierarchyLookups(indexProject, viewerId), {
+        id: null,
+        fromType: null,
+        type,
+        parent,
+        parentChanged: parent !== undefined
+      })
 
-    const subTicketIds = (
+    const childIds = (
       indexProject: TicketIndexProject,
       viewerId: string,
       id: string
@@ -1171,7 +1190,7 @@ export const TicketsLive = Layer.effect(
         { concurrency: 2 }
       ).pipe(Effect.map((pages) => pages.flat()))
 
-    const hasSubTickets = (
+    const hasChildren = (
       indexProject: TicketIndexProject,
       viewerId: string,
       id: string
@@ -1267,7 +1286,7 @@ export const TicketsLive = Layer.effect(
           yield* validateBody(body, indexProject)
         }
         const type = input.type ?? expansion?.type ?? "other"
-        yield* validateNewParent(indexProject, type, input.parent)
+        yield* validateNewParent(indexProject, ownerId, type, input.parent)
         const projectKey = yield* projects.key()
         const now = yield* DateTime.nowAsDate
         const document = yield* writeWithIdAllocation(
@@ -1330,7 +1349,7 @@ export const TicketsLive = Layer.effect(
           yield* validateBody(body, indexProject)
         }
         const type = input.type ?? expansion?.type ?? "other"
-        yield* validateNewParent(indexProject, type, input.parent)
+        yield* validateNewParent(indexProject, ownerId, type, input.parent)
         const now = yield* DateTime.nowAsDate
         const document = yield* writeWithIdAllocation(
           orgSlug,
@@ -1446,16 +1465,16 @@ export const TicketsLive = Layer.effect(
                     input.parent === undefined
                       ? existing.parent
                       : (input.parent ?? undefined)
-                  if (parent !== undefined && type === "epic") {
-                    return yield* new Validation({ reason: "epic_with_parent" })
-                  }
-                  if (
-                    input.parent !== undefined &&
-                    input.parent !== null &&
-                    input.parent !== existing.parent
-                  ) {
-                    yield* validateParent(indexProject, id, input.parent)
-                  }
+                  yield* validateHierarchy(
+                    hierarchyLookups(indexProject, userId),
+                    {
+                      id: existing.id,
+                      fromType: existing.type,
+                      type,
+                      parent,
+                      parentChanged: parent !== existing.parent
+                    }
+                  )
                   if (
                     type === "epic" &&
                     existing.type !== "epic" &&
@@ -1467,15 +1486,6 @@ export const TicketsLive = Layer.effect(
                     )
                   ) {
                     return yield* new Validation({ reason: "epic_in_sprint" })
-                  }
-                  if (
-                    existing.type === "epic" &&
-                    type !== "epic" &&
-                    (yield* hasSubTickets(indexProject, userId, id))
-                  ) {
-                    return yield* new Validation({
-                      reason: "epic_has_sub_tickets"
-                    })
                   }
                   return {
                     ...existing,
@@ -1778,19 +1788,13 @@ export const TicketsLive = Layer.effect(
           Effect.gen(function* () {
             const original = yield* ticketDocs.read(orgSlug, slug, id)
             yield* requireSplit(original, retainedInput, newInputs)
-            if (
-              original.parent !== undefined &&
-              retainedInput.type === "epic"
-            ) {
-              return yield* new Validation({ reason: "epic_with_parent" })
-            }
-            if (
-              original.type === "epic" &&
-              retainedInput.type !== "epic" &&
-              (yield* hasSubTickets(indexProject, userId, original.id))
-            ) {
-              return yield* new Validation({ reason: "epic_has_sub_tickets" })
-            }
+            yield* validateHierarchy(hierarchyLookups(indexProject, userId), {
+              id: original.id,
+              fromType: original.type,
+              type: retainedInput.type,
+              parent: original.parent,
+              parentChanged: false
+            })
             const now = yield* DateTime.nowAsDate
             const persisted: Array<TicketDocument> = []
 
@@ -1987,7 +1991,7 @@ export const TicketsLive = Layer.effect(
         }
       })
 
-    const remove: TicketsShape["remove"] = (id) =>
+    const remove: TicketsShape["remove"] = (id, options) =>
       Effect.gen(function* () {
         const scope = yield* ProjectScope
         const { orgSlug, slug, userId } = scope
@@ -2011,18 +2015,37 @@ export const TicketsLive = Layer.effect(
               )
           )
         )
-        yield* releaseSubTickets(orgSlug, slug, userId, indexProject, id)
+        const children = yield* childIds(indexProject, userId, id)
+        if (options?.cascadeSubTickets === true) {
+          yield* Effect.forEach(
+            children,
+            (childId) =>
+              remove(childId, options).pipe(
+                Effect.catchTag("NotFound", () => Effect.void)
+              ),
+            { discard: true }
+          )
+        } else {
+          yield* releaseChildren(
+            orgSlug,
+            slug,
+            userId,
+            indexProject,
+            id,
+            children
+          )
+        }
       })
 
-    const releaseSubTickets = (
+    const releaseChildren = (
       orgSlug: string,
       slug: string,
       userId: string,
       indexProject: TicketIndexProject,
-      epicId: string
+      parentId: string,
+      children: ReadonlyArray<string>
     ) =>
       Effect.gen(function* () {
-        const children = yield* subTicketIds(indexProject, userId, epicId)
         const now = yield* DateTime.nowAsDate
         yield* Effect.forEach(
           children,
@@ -2046,10 +2069,10 @@ export const TicketsLive = Layer.effect(
               )
             ).pipe(
               Effect.catchCause((cause) =>
-                Effect.logError("remove: releasing sub-ticket failed", {
+                Effect.logError("remove: releasing child ticket failed", {
                   orgSlug,
                   slug,
-                  epicId,
+                  parentId,
                   childId,
                   cause
                 })
@@ -2107,9 +2130,6 @@ export const TicketsLive = Layer.effect(
           yield* validateAssigneesAreMembers(fields.assignees)
         }
         yield* validateEstimate(scope, fields.estimate)
-        if (fields.parent !== undefined && fields.parent !== null) {
-          yield* validateParent(indexProject, null, fields.parent)
-        }
         if (sprint !== undefined && sprint !== null) {
           yield* groups.ensureSprintAssignable([sprint])
         }
@@ -2143,6 +2163,7 @@ export const TicketsLive = Layer.effect(
               ticketDocs.read(orgSlug, slug, id)
             )
             const now = yield* DateTime.nowAsDate
+            const lookups = hierarchyLookups(indexProject, userId)
             const nexts: Array<TicketDocument> = []
             for (const existing of originals) {
               const type = fields.type ?? existing.type
@@ -2150,14 +2171,13 @@ export const TicketsLive = Layer.effect(
                 fields.parent === undefined
                   ? existing.parent
                   : (fields.parent ?? undefined)
-              if (parent !== undefined && type === "epic") {
-                return yield* new Validation({ reason: "epic_with_parent" })
-              }
-              if (parent === existing.id) {
-                return yield* new Validation({
-                  reason: `invalid_parent:${parent}`
-                })
-              }
+              yield* validateHierarchy(lookups, {
+                id: existing.id,
+                fromType: existing.type,
+                type,
+                parent,
+                parentChanged: parent !== existing.parent
+              })
               const plannedInSprint =
                 sprint === undefined
                   ? openSprints.some((group) =>
@@ -2166,15 +2186,6 @@ export const TicketsLive = Layer.effect(
                   : sprint !== null
               if (type === "epic" && plannedInSprint) {
                 return yield* new Validation({ reason: "epic_in_sprint" })
-              }
-              if (
-                existing.type === "epic" &&
-                type !== "epic" &&
-                (yield* hasSubTickets(indexProject, userId, existing.id))
-              ) {
-                return yield* new Validation({
-                  reason: "epic_has_sub_tickets"
-                })
               }
               nexts.push(
                 touchesTickets

@@ -29,18 +29,19 @@ import { CommentRow } from "./CommentRow"
 
 const INITIAL_VISIBLE = 3
 
-type DiscussionTab = "leading" | "comments" | "activity"
+type DiscussionTab = "extra" | "comments" | "activity"
 
-export type LeadingTab = Readonly<{
+export type ExtraTab = Readonly<{
   label: string
   badge: number | null
   content: ReactNode
+  placement: "first" | "last"
 }>
 
 export function CommentsSection({
   ticketId,
-  leadingTab
-}: Readonly<{ ticketId: TicketId; leadingTab?: LeadingTab }>) {
+  extraTab
+}: Readonly<{ ticketId: TicketId; extraTab?: ExtraTab }>) {
   const { orgSlug, slug } = useProjectRoute()
   const req = commentsRequest(orgSlug, slug, ticketId)
   const result = useAtomValue(comments(req))
@@ -50,7 +51,7 @@ export function CommentsSection({
   const [collapsed, setCollapsed] = useState(false)
   const [showAll, setShowAll] = useState(false)
   const [tab, setTab] = useState<DiscussionTab>(
-    leadingTab ? "leading" : "comments"
+    extraTab?.placement === "first" ? "extra" : "comments"
   )
 
   const rows = Result.isSuccess(result) ? result.value : []
@@ -62,22 +63,18 @@ export function CommentsSection({
       : ordered.slice(0, INITIAL_VISIBLE)
   const hidden = total - visibleSlice.length
 
+  const extraItems: ReadonlyArray<SegmentedItem<DiscussionTab>> = extraTab
+    ? [{ key: "extra", label: extraTab.label, badge: extraTab.badge }]
+    : []
   const tabs: ReadonlyArray<SegmentedItem<DiscussionTab>> = [
-    ...(leadingTab
-      ? [
-          {
-            key: "leading" as const,
-            label: leadingTab.label,
-            badge: leadingTab.badge
-          }
-        ]
-      : []),
+    ...(extraTab?.placement === "first" ? extraItems : []),
     {
       key: "comments",
       label: m.tickets_activity_tab_comments(),
       badge: total > 0 ? total : null
     },
-    { key: "activity", label: m.tickets_activity_tab() }
+    { key: "activity", label: m.tickets_activity_tab() },
+    ...(extraTab?.placement === "last" ? extraItems : [])
   ]
 
   const headingLabel =
@@ -123,8 +120,8 @@ export function CommentsSection({
               transition={transitions.layout}
               className="overflow-y-clip"
             >
-              {tab === "leading" && leadingTab ? (
-                leadingTab.content
+              {tab === "extra" && extraTab ? (
+                extraTab.content
               ) : tab === "activity" ? (
                 <TicketActivityFeed ticketId={ticketId} />
               ) : (

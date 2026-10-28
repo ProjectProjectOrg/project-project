@@ -1217,6 +1217,78 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
     }).pipe(Effect.provide(TestLayer))
   )
 
+  it.effect("counts sub-tickets and nests them under a matching parent", () =>
+    Effect.gen(function* () {
+      const suffix = randomUUID()
+      const organizationId = `ticket-index-sub-${suffix}`
+      const orgSlug = `ticket-index-sub-${suffix}`
+      const projectSlug = `ticket-index-sub-${suffix}`
+      const projectId = randomUUID()
+      yield* withClient(async (client) => {
+        await client.query(
+          `insert into organization (id, name, slug, created_at)
+             values ($1, 'Ticket index sub-tickets', $2, now())`,
+          [organizationId, orgSlug]
+        )
+        await client.query(
+          `insert into project_index
+               (id, slug, organization_id, key, name, icon, color, created_by, created_at)
+             values ($1, $2, $3, 'T', 'Ticket index sub-tickets', 'folder', 'blue', 'test-user', now())`,
+          [projectId, projectSlug, organizationId]
+        )
+      })
+      yield* Effect.addFinalizer(() =>
+        withClient((client) =>
+          client.query("delete from organization where id = $1", [
+            organizationId
+          ])
+        )
+      )
+
+      const index = yield* TicketIndex
+      const project = yield* index.projectFor(orgSlug, projectSlug)
+      const epic = ticketId("T-1")
+      const parent = ticketId("T-2")
+      yield* Effect.forEach(
+        [
+          indexedDocument("T-1", { type: "epic" }),
+          indexedDocument("T-2", { parent: epic }),
+          indexedDocument("T-3", { parent }),
+          indexedDocument("T-4", {
+            parent,
+            archivedAt: DateTime.toDate(DateTime.nowUnsafe())
+          }),
+          indexedDocument("T-5", { parent, status: ticketStatus("done") })
+        ],
+        (document) => index.upsertTicket(project, document)
+      )
+
+      const ids = (status: string) =>
+        index
+          .query(
+            project,
+            {
+              status: [ticketStatus(status)],
+              subTickets: "nested",
+              sort: { key: "id", dir: "asc" }
+            },
+            { viewerId: "viewer", limit: 10 }
+          )
+          .pipe(Effect.map((rows) => rows.map(({ entry }) => entry.id)))
+      const counts = new Map(
+        (yield* index.list(project)).map((entry) => [
+          entry.id,
+          entry.subTicketCount
+        ])
+      )
+
+      expect(counts.get(epic)).toBe(1)
+      expect(counts.get(parent)).toBe(2)
+      expect(yield* ids("todo")).toEqual(["T-1", "T-2"])
+      expect(yield* ids("done")).toEqual(["T-5"])
+    }).pipe(Effect.provide(TestLayer))
+  )
+
   it.effect("orders rows exactly as a string compare of the order key", () =>
     Effect.gen(function* () {
       const suffix = randomUUID()

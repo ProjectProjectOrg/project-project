@@ -87,10 +87,10 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           dieOnMarkdown
         )
       )
-      .handle("delete", ({ params }) =>
-        Effect.flatMap(Tickets, (tickets) => tickets.remove(params.id)).pipe(
-          dieOnMarkdown
-        )
+      .handle("delete", ({ params, query }) =>
+        Effect.flatMap(Tickets, (tickets) =>
+          tickets.remove(params.id, query)
+        ).pipe(dieOnMarkdown)
       )
       .handle("split", ({ params, payload }) =>
         Effect.flatMap(Tickets, (tickets) =>
