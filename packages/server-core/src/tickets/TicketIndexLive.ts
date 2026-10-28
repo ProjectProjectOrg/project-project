@@ -307,19 +307,37 @@ const columnOf = (table: SQL, column: AnyPgColumn): SQL =>
 const parentRow = drizzleSql`${ticketIndex}`
 const childRow = drizzleSql`${drizzleSql.identifier("child_tickets")}`
 
-const subTicketCount = drizzleSql<number>`(
+const finishedStatus = (
+  row: SQL
+): SQL => drizzleSql`(${columnOf(row, ticketIndex.status)} = 'done' or exists (
+  select 1 from ${projectStatus} s
+  join ${projectStatus} anchor
+    on anchor.project_id = s.project_id and anchor.slug = 'done'
+  where s.project_id = ${columnOf(row, ticketIndex.projectId)}
+    and s.slug = ${columnOf(row, ticketIndex.status)}
+    and s.slug not in ('todo', 'in_progress')
+    and s.order_key collate "C" > anchor.order_key collate "C"
+))`
+
+const childTicketCount = (condition: SQL) =>
+  drizzleSql<number>`(
   select count(*) from ${ticketIndex} as ${childRow}
   where ${columnOf(childRow, ticketIndex.projectId)} = ${columnOf(parentRow, ticketIndex.projectId)}
     and ${columnOf(childRow, ticketIndex.parent)} = ${columnOf(parentRow, ticketIndex.ticketId)}
     and ${columnOf(childRow, ticketIndex.archivedAt)} is null
-)`
-  .mapWith(Number)
-  .as("sub_ticket_count")
+    and ${condition}
+)`.mapWith(Number)
 
-const entryColumns = { ...getTableColumns(ticketIndex), subTicketCount }
+const entryColumns = {
+  ...getTableColumns(ticketIndex),
+  subTicketCount: childTicketCount(drizzleSql`true`).as("sub_ticket_count"),
+  subTicketDoneCount: childTicketCount(finishedStatus(childRow)).as(
+    "sub_ticket_done_count"
+  )
+}
 
 type EntryRow = typeof ticketIndex.$inferSelect &
-  Readonly<{ subTicketCount: number }>
+  Readonly<{ subTicketCount: number; subTicketDoneCount: number }>
 
 const escapedLikePattern = (value: string): string =>
   `%${value.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_")}%`
@@ -673,6 +691,7 @@ export const TicketIndexLive = Layer.effect(
       assignees: row.assignees,
       parent: row.parent === null ? null : makeTicketId(row.parent),
       subTicketCount: row.subTicketCount,
+      subTicketDoneCount: row.subTicketDoneCount,
       archivedAt: row.archivedAt,
       createdBy: row.createdBy,
       createdAt: row.createdAt,
@@ -949,15 +968,7 @@ export const TicketIndexLive = Layer.effect(
         )
     }
 
-    const finishedTicket = drizzleSql`(${ticketIndex.status} = 'done' or exists (
-      select 1 from ${projectStatus} s
-      join ${projectStatus} anchor
-        on anchor.project_id = s.project_id and anchor.slug = 'done'
-      where s.project_id = ${ticketIndex.projectId}
-        and s.slug = ${ticketIndex.status}
-        and s.slug not in ('todo', 'in_progress')
-        and s.order_key collate "C" > anchor.order_key collate "C"
-    ))`
+    const finishedTicket = finishedStatus(parentRow)
 
     const assignedConditions = (scope: TicketIndexAssignedScope) => [
       arrayContains(ticketIndex.assignees, [scope.viewerId]),

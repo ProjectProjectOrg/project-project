@@ -251,7 +251,8 @@ export const McpTools = {
       "matches the same filters; `flat` (default) lists every match\n" +
       "- `archived`: `true` lists only archived tickets; they are left " +
       "out otherwise\n" +
-      "Items carry `parent` and `subTicketCount`. Ticket `status` values " +
+      "Items carry `parent`, `subTicketCount` and `subTicketDoneCount`. " +
+      "Ticket `status` values " +
       "are slugs; use the label from `list_statuses` in conversation. " +
       "Paginated: pass `nextCursor` back " +
       "as `cursor`; `limit` is up to 200 (default 50).",
