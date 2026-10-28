@@ -114,11 +114,6 @@ export function StatusStep({
                         }
                       />
                     </Select>
-                    {creating && status.categoryKey === "done" ? (
-                      <p className="text-xs leading-5 text-state-warning">
-                        {m.jira_migration_status_create_done_warning()}
-                      </p>
-                    ) : null}
                   </div>
                 )
               }}

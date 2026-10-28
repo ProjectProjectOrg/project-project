@@ -23,6 +23,7 @@ import type { TicketActivity } from "../activity/TicketActivity"
 import * as KeyedLock from "../locks/KeyedLock"
 import { Markdown } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
+import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { TicketDocs, type TicketDocument } from "./TicketDocs"
 import { TicketDocsLive } from "./TicketDocsLive"
 
@@ -36,7 +37,9 @@ const testLayer = (
         prefix: "projectproject-ticket-docs-"
       })
       return TicketDocsLive.pipe(
-        Layer.provide(KeyedLock.layer),
+        Layer.provide(
+          Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
+        ),
         Layer.provide(activity),
         Layer.provideMerge(
           MarkdownLive.pipe(

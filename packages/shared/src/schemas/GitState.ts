@@ -184,6 +184,7 @@ export type BranchListItem = typeof BranchListItem.Type
 
 export const BranchListResponse = Schema.Struct({
   items: Schema.Array(BranchListItem),
-  hasMore: Schema.Boolean
+  nextCursor: Schema.NullOr(Schema.String),
+  totalCount: Schema.Number
 })
 export type BranchListResponse = typeof BranchListResponse.Type

@@ -53,6 +53,7 @@ import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { OAuthApplicationsLive } from "@pp/server-core/oauth/OAuthApplicationsLive"
 import { OrgLive } from "@pp/server-core/organizations/OrgLive"
 import { BannerPlaceholdersLive } from "@pp/server-core/projects/BannerPlaceholdersLive"
+import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import { ProjectDocsLive } from "@pp/server-core/projects/ProjectDocsLive"
 import { ProjectGitAutomationLive } from "@pp/server-core/projects/ProjectGitAutomationLive"
 import { ProjectsLive } from "@pp/server-core/projects/ProjectsLive"
@@ -186,6 +187,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(JiraWorkflowsLive),
       Layer.provideMerge(ProjectDocsLive),
       Layer.provideMerge(TicketDocsLive),
+      Layer.provideMerge(FinishedStatuses.layer),
       Layer.provideMerge(GroupDocsLive),
       Layer.provideMerge(TicketActivityLive),
       Layer.provideMerge(LibraryDocsLive),

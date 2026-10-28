@@ -1662,10 +1662,10 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
               "delete from comment_index where author_id = $1",
               [viewerId]
             )
-            await client.query('delete from "user" where id = $1', [viewerId])
             await client.query("delete from organization where id = $1", [
               organizationId
             ])
+            await client.query('delete from "user" where id = $1', [viewerId])
           })
         )
 
@@ -1858,6 +1858,41 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
             limit: 10
           })
         ).toEqual([])
+
+        yield* withClient((client) =>
+          client.query(
+            `insert into project_status (project_id, slug, label, icon, color, order_key, created_by)
+               values ($1, 'done', 'Done', 'CircleCheck', '#22c55e', 'a2', $2),
+                      ($1, 'wont_do', 'Won''t do', 'Ban', '#a3a3a3', 'a3', $2),
+                      ($1, 'review', 'Review', 'Eye', '#e0a03b', 'a1V', $2)`,
+            [alpha.projectId, viewerId]
+          )
+        )
+        yield* Effect.forEach(
+          [
+            indexedDocument("AL-5", {
+              status: ticketStatus("wont_do"),
+              assignees: [viewerId],
+              updatedAt: at("2026-02-15T00:00:00.000Z")
+            }),
+            indexedDocument("AL-6", {
+              status: ticketStatus("review"),
+              assignees: [viewerId],
+              updatedAt: at("2026-02-16T00:00:00.000Z")
+            })
+          ],
+          (document) => index.upsertTicket(alpha, document)
+        )
+        const withPhases = yield* index.assignedTo(visible, {
+          viewerId,
+          doneAfter: at("2026-03-01T00:00:00.000Z"),
+          limit: 10
+        })
+        expect(idsOf(withPhases)).toEqual([
+          `${alphaSlug}:AL-1`,
+          `${betaSlug}:BE-1`,
+          `${alphaSlug}:AL-6`
+        ])
       }).pipe(Effect.provide(TestLayer))
   )
 })

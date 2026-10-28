@@ -331,13 +331,16 @@ export const figmaStatusErrorMessage = (reason: string): string => {
   return errorMessage(error)
 }
 
-type StatusCreateFailure = Atom.Failure<ReturnType<typeof createStatus>>
+type StatusSaveFailure = Atom.Failure<ReturnType<typeof createStatus>>
 type JiraMigrationSaveFailure = Atom.Failure<
   ReturnType<typeof configureJiraMigration>
 >
 type OAuthConsentFailure = Atom.Failure<ReturnType<typeof submitConsentAtom>>
 
-export const statusCreateErrorMessage = (error: StatusCreateFailure): string =>
+export const statusSaveErrorMessage = (
+  error: StatusSaveFailure,
+  fallback: () => string = m.tickets_status_create_error_fallback
+): string =>
   Match.value(error).pipe(
     Match.tag("Conflict", ({ reason }) => {
       switch (reason) {
@@ -348,10 +351,10 @@ export const statusCreateErrorMessage = (error: StatusCreateFailure): string =>
         case "invalid_label":
           return m.tickets_status_validation_invalid_label()
         default:
-          return m.tickets_status_create_error_fallback()
+          return fallback()
       }
     }),
-    Match.orElse(() => m.tickets_status_create_error_fallback())
+    Match.orElse(fallback)
   )
 
 export const jiraMigrationSaveErrorMessage = (

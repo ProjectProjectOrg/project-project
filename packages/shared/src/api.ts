@@ -736,7 +736,8 @@ const ProjectsGroup = HttpApiGroup.make("projects")
         params: ProjectPath,
         query: Schema.Struct({
           q: Schema.optional(Schema.String),
-          first: Schema.optional(Schema.FiniteFromString)
+          first: Schema.optional(Schema.FiniteFromString),
+          after: Schema.optional(Schema.String)
         }),
         success: BranchListResponse,
         error: [
@@ -2198,7 +2199,7 @@ const StatusesGroup = HttpApiGroup.make("statuses")
         params: ProjectStatusPath,
         payload: ReorderStatusInput,
         success: ProjectStatus,
-        error: [Unauthorized, NotFound, Forbidden]
+        error: [Unauthorized, NotFound, Forbidden, Conflict]
       }
     ).annotate(RequiresProject, { workflow: ["manage"] })
   )

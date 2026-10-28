@@ -14,6 +14,7 @@ import { TicketIndex } from "../tickets/TicketIndex"
 import { TicketIndexLive } from "../tickets/TicketIndexLive"
 import { Users } from "../users/Users"
 import { BannerPlaceholders } from "./BannerPlaceholders"
+import { FinishedStatuses } from "./FinishedStatuses"
 import { ProjectDocs } from "./ProjectDocs"
 import type { Projects } from "./Projects"
 import { ProjectsLive } from "./ProjectsLive"
@@ -50,6 +51,7 @@ export const projectsOnPostgres = (
     Layer.provideMerge(AccessLive.pipe(Layer.provide(db))),
     Layer.provide(docs),
     Layer.provide(TicketDocumentLock.layer),
+    Layer.provide(FinishedStatuses.layer.pipe(Layer.provide(db))),
     Layer.provide(db),
     Layer.provide(
       Layer.succeed(BannerPlaceholders, {

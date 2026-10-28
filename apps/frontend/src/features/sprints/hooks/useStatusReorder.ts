@@ -1,7 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { OrderKey, type ProjectStatus, type StatusSlug } from "@pp/shared"
+import type { StatusSlug } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
-import { generateKeyBetween } from "fractional-indexing"
 import { useCallback, useState } from "react"
 
 import {
@@ -9,6 +8,10 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import {
+  boardReorders,
+  keepsBaselineOrder
+} from "@/features/statuses/lib/statusPhases"
 
 export type StatusReorder = Readonly<{
   reorderMode: boolean
@@ -44,51 +47,18 @@ export function useStatusReorder(
   const cancelReorder = useCallback(() => setReorder(null), [])
 
   const setDragOrder = useCallback(
-    (next: ReadonlyArray<StatusSlug> | null) =>
-      setReorder({ key: scopeKey, order: next }),
+    (next: ReadonlyArray<StatusSlug> | null) => {
+      if (next !== null && !keepsBaselineOrder(next)) return
+      setReorder({ key: scopeKey, order: next })
+    },
     [scopeKey]
   )
 
   const saveReorder = useCallback(() => {
     if (!Result.isSuccess(statusesResult)) return
     const statuses = statusesResult.value
-    if (dragOrder && statuses.length > 0) {
-      const reorders: Array<{
-        statusSlug: StatusSlug
-        orderKey: ProjectStatus["orderKey"]
-      }> = []
-      const keys = new Map<string, string>(
-        statuses.map((s) => [s.slug as string, s.orderKey as string])
-      )
-      let lastKey: string | null = null
-      for (let i = 0; i < dragOrder.length; i++) {
-        const columnSlug = dragOrder[i]
-        const status = statuses.find((status) => status.slug === columnSlug)
-        if (status === undefined) continue
-        const myKey = keys.get(columnSlug)
-        if (!myKey) continue
-        if (lastKey === null || myKey > lastKey) {
-          lastKey = myKey
-          continue
-        }
-        let nextValid: string | null = null
-        for (let j = i + 1; j < dragOrder.length; j++) {
-          const k = keys.get(dragOrder[j])
-          if (k && k > lastKey) {
-            nextValid = k
-            break
-          }
-        }
-        const newKey = generateKeyBetween(lastKey, nextValid)
-        keys.set(columnSlug, newKey)
-        reorders.push({
-          statusSlug: status.slug,
-          orderKey: OrderKey.make(newKey)
-        })
-        lastKey = newKey
-      }
-      reorderStatuses(reorders)
-    }
+    if (dragOrder && statuses.length > 0)
+      reorderStatuses(boardReorders(dragOrder, statuses))
     setReorder(null)
   }, [dragOrder, reorderStatuses, statusesResult])
 

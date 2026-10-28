@@ -37,7 +37,7 @@ export interface ProjectStatusesShape {
   readonly reorder: (
     statusSlug: string,
     input: ReorderStatusInput
-  ) => Effect.Effect<ProjectStatus, NotFound, ProjectScope>
+  ) => Effect.Effect<ProjectStatus, NotFound | Conflict, ProjectScope>
 
   readonly remove: (
     statusSlug: string,

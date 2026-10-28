@@ -46,11 +46,12 @@ describe("isCarryover", () => {
   it.each([
     [decodeStatus("todo"), true],
     [decodeStatus("in_progress"), true],
-    [decodeStatus("done"), false]
+    [decodeStatus("done"), false],
+    [decodeStatus("wont_do"), false]
   ] as ReadonlyArray<[TicketStatus, boolean]>)(
     "%s -> %s",
     (status: TicketStatus, expected: boolean) => {
-      expect(isCarryover(status)).toBe(expected)
+      expect(isCarryover(status, new Set(["done", "wont_do"]))).toBe(expected)
     }
   )
 })

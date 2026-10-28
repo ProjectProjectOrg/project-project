@@ -449,7 +449,8 @@ export const GitHubLive = Layer.effect(
       owner: string,
       name: string,
       query: string | undefined,
-      first: number
+      first: number,
+      after: string | undefined
     ) {
       const token = yield* installationTokenFor(installationId)
       return yield* ProjectState.listBranchesWithToken(
@@ -458,6 +459,7 @@ export const GitHubLive = Layer.effect(
         name,
         query,
         first,
+        after,
         "installation",
         installationId
       ).pipe(

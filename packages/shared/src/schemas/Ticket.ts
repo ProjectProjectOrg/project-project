@@ -35,8 +35,11 @@ export type TicketId = typeof TicketId.Type
 export const TicketStatus = StatusSlug
 export type TicketStatus = typeof TicketStatus.Type
 
-export function isCarryover(status: TicketStatus): boolean {
-  return status !== "done"
+export function isCarryover(
+  status: TicketStatus,
+  finished: ReadonlySet<string>
+): boolean {
+  return !finished.has(status)
 }
 
 export const TicketType = Schema.Literals([

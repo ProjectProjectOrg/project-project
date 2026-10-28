@@ -1,8 +1,8 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { ProjectStatus } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ChevronDown } from "lucide-react"
-import { useState, type ReactNode } from "react"
+import { ChevronDown, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { useRef, useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
@@ -10,7 +10,9 @@ import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import {
@@ -39,15 +41,60 @@ type Props = Readonly<{
   statuses: ReadonlyArray<ProjectStatus>
 }>
 
-export function StatusDeleteConfirm({ status, statuses }: Props) {
+export function StatusActionsMenu({
+  status,
+  statuses,
+  label,
+  canDelete,
+  onEdit,
+  triggerClassName
+}: Props &
+  Readonly<{
+    label: string
+    canDelete: boolean
+    onEdit: () => void
+    triggerClassName?: string
+  }>) {
+  const trigger = useRef<HTMLButtonElement>(null)
   return (
-    <ConfirmButton.Root>
-      <ConfirmButton.DeleteTrigger
-        aria-label={m.tickets_status_delete_button()}
-      />
-      <ConfirmButton.Confirm>
+    <ConfirmButton.Root bare>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              ref={trigger}
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={m.tickets_status_actions_aria({ label })}
+              className={cn("shrink-0", triggerClassName)}
+            >
+              <MoreHorizontal strokeWidth={1.75} />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="end" sideOffset={6} className="w-40">
+          <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
+            <Pencil className="size-4" strokeWidth={1.75} />
+            {m.tickets_status_edit()}
+          </DropdownMenuItem>
+          {canDelete ? (
+            <>
+              <DropdownMenuSeparator />
+              <ConfirmButton.MenuItem
+                variant="destructive"
+                className="cursor-pointer"
+              >
+                <Trash2 className="size-4" strokeWidth={1.75} />
+                {m.tickets_status_delete_button()}
+              </ConfirmButton.MenuItem>
+            </>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ConfirmButton.Popover anchor={trigger} className="w-72">
         <ConfirmBody status={status} statuses={statuses} />
-      </ConfirmButton.Confirm>
+      </ConfirmButton.Popover>
     </ConfirmButton.Root>
   )
 }
@@ -123,6 +170,7 @@ function DeleteStatusForm({
             })
           : m.tickets_status_delete_confirm_empty()
       }
+      layout="stacked"
       label={m.tickets_status_delete_button()}
       busyLabel={m.tickets_status_deleting()}
       waiting={removeState.waiting}

@@ -6,7 +6,9 @@ import { it } from "@effect/vitest"
 import { DbLive, migrationsFolder } from "@pp/db"
 import {
   ActivityActor,
+  Conflict,
   Forbidden,
+  OrderKey,
   ProjectScope,
   StatusColor,
   StatusLabel
@@ -29,7 +31,7 @@ import { ProjectStatusesLive } from "./ProjectStatusesLive"
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const label = Schema.decodeSync(StatusLabel)
 
-describe.skipIf(!databaseUrl)("project status descriptions", () => {
+describe.skipIf(!databaseUrl)("project statuses", () => {
   const id = randomUUID()
   const scope = projectScope("member", "pm", {
     userId: id,
@@ -65,7 +67,7 @@ describe.skipIf(!databaseUrl)("project status descriptions", () => {
       [id, id, id]
     )
     await pool.query(
-      "INSERT INTO project_status (project_id,slug,label,icon,color,order_key,created_by) VALUES ($1,'todo','Todo','Circle','#a3a3a3','a0',$2), ($1,'in_review','In review','Eye','#e0a03b','a1',$2)",
+      "INSERT INTO project_status (project_id,slug,label,icon,color,order_key,created_by) VALUES ($1,'todo','Todo','Circle','#a3a3a3','a0',$2), ($1,'in_review','In review','Eye','#e0a03b','a1',$2), ($1,'in_progress','In progress','CircleDot','#3b82f6','a2',$2), ($1,'done','Done','CircleCheck','#22c55e','a3',$2)",
       [id, id]
     )
     layer = ProjectStatusesLive.pipe(
@@ -123,7 +125,7 @@ describe.skipIf(!databaseUrl)("project status descriptions", () => {
   )
 
   it.effect(
-    "lets a baseline status take a description but not a new label",
+    "lets a baseline status take a description and color but not a new label or icon",
     () =>
       run(
         Effect.gen(function* () {
@@ -142,7 +144,56 @@ describe.skipIf(!databaseUrl)("project status descriptions", () => {
           )
           expect(renamed).toBeInstanceOf(Forbidden)
           expect((yield* statuses.list())[0].label).toBe("Todo")
+
+          const recolored = yield* statuses.update("todo", {
+            color: StatusColor.make("#e0a03b")
+          })
+          expect(recolored).toMatchObject({ icon: "Circle", color: "#e0a03b" })
+
+          const reiconed = yield* Effect.flip(
+            statuses.update("todo", { icon: "Eye" })
+          )
+          expect(reiconed).toBeInstanceOf(Forbidden)
         })
       )
+  )
+
+  it.effect("creates a status at the end of the requested phase", () =>
+    run(
+      Effect.gen(function* () {
+        const statuses = yield* ProjectStatuses
+        const review = yield* statuses.create({ label: label("Code review") })
+        expect(review.orderKey > "a2" && review.orderKey < "a3").toBe(true)
+
+        const wontDo = yield* statuses.create({
+          label: label("Won't do"),
+          phase: "finished"
+        })
+        expect(wontDo.orderKey > "a3").toBe(true)
+
+        const refine = yield* statuses.create({
+          label: label("Needs refinement"),
+          phase: "unstarted"
+        })
+        expect(refine.orderKey > "a1" && refine.orderKey < "a2").toBe(true)
+      })
+    )
+  )
+
+  it.effect("refuses to move a built-in status past another one", () =>
+    run(
+      Effect.gen(function* () {
+        const statuses = yield* ProjectStatuses
+        const error = yield* Effect.flip(
+          statuses.reorder("done", { orderKey: OrderKey.make("a1V") })
+        )
+        expect(error).toEqual(new Conflict({ reason: "baseline_order" }))
+
+        const moved = yield* statuses.reorder("todo", {
+          orderKey: OrderKey.make("a1V")
+        })
+        expect(moved.orderKey).toBe("a1V")
+      })
+    )
   )
 })

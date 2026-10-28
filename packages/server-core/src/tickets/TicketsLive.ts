@@ -75,6 +75,7 @@ import * as GitHub from "../github/GitHub"
 import { Groups } from "../groups/Groups"
 import { Library, type TemplateExpansion } from "../library/Library"
 import type { MarkdownError } from "../markdown/Markdown"
+import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { ProjectDocs } from "../projects/ProjectDocs"
 import { ProjectGitAutomation } from "../projects/ProjectGitAutomation"
 import { Projects } from "../projects/Projects"
@@ -309,6 +310,12 @@ function documentToDetail(
   }
 }
 
+const withoutIgnored = (
+  ticket: Pick<TicketDocument, "ignoredBranches">,
+  branch: string
+): ReadonlyArray<string> =>
+  (ticket.ignoredBranches ?? []).filter((ignored) => ignored !== branch)
+
 const indexProjectOf = (scope: ProjectScopeShape): TicketIndexProject => ({
   orgSlug: scope.orgSlug,
   organizationId: scope.organizationId,
@@ -370,6 +377,7 @@ export const TicketsLive = Layer.effect(
     const github = yield* GitHub.GitHub
     const groups = yield* Groups
     const db = yield* Db
+    const finishedStatuses = yield* FinishedStatuses
     const attachments = yield* Attachments
     const figmaLinks = yield* FigmaLinks
     const users = yield* Users
@@ -836,12 +844,22 @@ export const TicketsLive = Layer.effect(
           : yield* ticketIndex.list(project, estimatedIds)
         ).map((entry): [string, typeof entry] => [entry.id, entry])
       )
+      const finished =
+        unit === null
+          ? null
+          : yield* finishedStatuses.forProject(
+              project.orgSlug,
+              project.projectSlug
+            )
       const emptyCounts = { total: 0, byStatus: {} as Record<string, number> }
       const pages = members.map(({ key: groupId, ticketIds }) => {
         const result = bySection.get(groupId)
         const counts = result?.counts ?? emptyCounts
         const estimates =
-          unit === null || groupId === "ungrouped" || ticketIds === undefined
+          unit === null ||
+          finished === null ||
+          groupId === "ungrouped" ||
+          ticketIds === undefined
             ? null
             : summarizeEstimates(
                 ticketIds.flatMap((id) => {
@@ -850,7 +868,8 @@ export const TicketsLive = Layer.effect(
                     ? []
                     : [entry]
                 }),
-                unit
+                unit,
+                finished
               )
         return {
           section: {
@@ -2443,7 +2462,8 @@ export const TicketsLive = Layer.effect(
                 pr: null,
                 prState: null,
                 prDraft: false,
-                lastTransitionedPr: null
+                lastTransitionedPr: null,
+                ignoredBranches: withoutIgnored(ticket, input.name)
               })
             )
             return yield* detailOf(next, yield* gitView)
@@ -2504,7 +2524,8 @@ export const TicketsLive = Layer.effect(
                   prState: null,
                   prDraft: false,
                   lastTransitionedPr: null,
-                  prBase: undefined
+                  prBase: undefined,
+                  ignoredBranches: withoutIgnored(ticket, input.name)
                 })
               })
             )
@@ -2572,6 +2593,10 @@ export const TicketsLive = Layer.effect(
           Effect.gen(function* () {
             const indexProject = indexProjectOf(scope)
             const ticket = yield* readTicket(orgSlug, slug, id)
+            const removed = [
+              ...(ticket.branch === null ? [] : [ticket.branch]),
+              ...(ticket.stack ?? []).map((layer) => layer.branch)
+            ]
             const next = yield* writeGitFields(indexProject, ticket, {
               branch: null,
               branchAutoLinkDisabled: true,
@@ -2579,7 +2604,10 @@ export const TicketsLive = Layer.effect(
               prState: null,
               prDraft: false,
               lastTransitionedPr: null,
-              stack: []
+              stack: [],
+              ignoredBranches: [
+                ...new Set([...(ticket.ignoredBranches ?? []), ...removed])
+              ]
             })
             return yield* detailOf(next, yield* gitView)
           })
@@ -2649,9 +2677,7 @@ export const TicketsLive = Layer.effect(
                 }
                 return yield* writeGitFields(indexProject, ticket, {
                   stack: [...(ticket.stack ?? []), layer],
-                  ignoredBranches: (ticket.ignoredBranches ?? []).filter(
-                    (branch) => branch !== input.name
-                  )
+                  ignoredBranches: withoutIgnored(ticket, input.name)
                 })
               })
             )

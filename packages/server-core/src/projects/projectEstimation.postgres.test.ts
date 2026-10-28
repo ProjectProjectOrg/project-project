@@ -32,6 +32,7 @@ import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import { Tickets } from "../tickets/Tickets"
 import { TicketsLive } from "../tickets/TicketsLive"
 import { Users } from "../users/Users"
+import { FinishedStatuses } from "./FinishedStatuses"
 import { gitAutomationTestLayer } from "./gitAutomationTesting"
 import { ProjectDocs, type ProjectDocument } from "./ProjectDocs"
 import { Projects } from "./Projects"
@@ -117,6 +118,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
       Layer.provideMerge(projectsOnPostgres(databaseUrl, [id], {}, docs)),
       Layer.provide(docs),
       Layer.provide(testActivityLayer(id)),
+      Layer.provide(FinishedStatuses.layer.pipe(Layer.provide(db))),
       Layer.provide(db),
       Layer.provide(TicketDocumentLock.layer),
       Layer.provide(accessLayer({})),

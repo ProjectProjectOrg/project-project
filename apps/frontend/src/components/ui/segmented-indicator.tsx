@@ -22,9 +22,10 @@ export function SegmentedIndicator({
     const node = ref.current
     const root = node?.parentElement
     if (!root || !node) return undefined
-    const target = Array.from(root.children).filter((child) => child !== node)[
-      activeIndex
-    ]
+    const tabs = Array.from(root.children).filter(
+      (child) => !child.hasAttribute("data-native-tab-indicator")
+    )
+    const target = tabs[activeIndex]
     if (!(target instanceof HTMLElement)) {
       animation.current?.cancel()
       node.style.visibility = "hidden"
@@ -75,8 +76,7 @@ export function SegmentedIndicator({
     update()
     const observer = new ResizeObserver(update)
     observer.observe(root)
-    for (const child of root.children)
-      if (child !== node) observer.observe(child)
+    for (const tab of tabs) observer.observe(tab)
     return () => observer.disconnect()
   }, [activeIndex, reducedMotion])
 
