@@ -45,6 +45,7 @@ import type {
   ProjectEvent,
   ProjectEventKind,
   SlackNotification,
+  FeedbackReport,
   JiraMigrationConfiguration,
   OrgEverhourConfig,
   ProjectBanner,
@@ -966,6 +967,56 @@ export const slackNotification = pgTable(
   },
   (t) => [index("slack_notification_dispatch_idx").on(t.dispatchedAt)]
 )
+
+export const feedbackOutbox = pgTable(
+  "feedback_outbox",
+  {
+    id: text("id").primaryKey(),
+    payload: jsonb("payload").$type<typeof FeedbackReport.Encoded>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    dispatchedAt: timestamp("dispatched_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    error: text("error")
+  },
+  (t) => [index("feedback_outbox_dispatch_idx").on(t.dispatchedAt)]
+)
+
+export const feedbackAttachment = pgTable(
+  "feedback_attachment",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    outboxId: text("outbox_id").references(() => feedbackOutbox.id, {
+      onDelete: "cascade"
+    }),
+    objectKey: text("object_key").notNull(),
+    filename: text("filename").notNull(),
+    contentType: text("content_type").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    index("feedback_attachment_outbox_idx").on(t.outboxId),
+    index("feedback_attachment_unclaimed_idx").on(t.createdAt)
+  ]
+)
+
+export const feedbackReceipt = pgTable("feedback_receipt", {
+  reportId: text("report_id").primaryKey(),
+  ticketId: text("ticket_id"),
+  verbatim: boolean("verbatim").notNull().default(false),
+  receivedAt: timestamp("received_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  completedAt: timestamp("completed_at", { withTimezone: true })
+})
 
 export const ticketActivityOutbox = pgTable(
   "ticket_activity_outbox",

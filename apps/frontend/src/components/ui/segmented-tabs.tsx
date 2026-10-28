@@ -26,7 +26,7 @@ export type SegmentedItem<K extends string> = Readonly<{
   render?: ReactElement
 }>
 
-export type SegmentedVariant = "default" | "inline" | "view" | "subtle"
+export type SegmentedVariant = "default" | "inline" | "rail" | "view" | "subtle"
 
 type VariantTokens = Readonly<{
   container: string
@@ -54,6 +54,14 @@ const VARIANTS: Readonly<Record<SegmentedVariant, VariantTokens>> = {
     pillRounding: "rounded-lg",
     itemBase: "h-7 flex-1 justify-center rounded-lg px-2.5 text-xs"
   },
+  rail: {
+    container: "inline-flex items-center gap-0.5 rounded-lg bg-tint p-0.5",
+    innerGap: "gap-1",
+    innerGapPx: 4,
+    iconSize: "size-3",
+    pillRounding: "rounded-md",
+    itemBase: "h-6 rounded-md px-2 text-xs"
+  },
   inline: {
     container: "inline-flex items-center gap-0.5",
     innerGap: "gap-1",
@@ -74,6 +82,7 @@ const VARIANTS: Readonly<Record<SegmentedVariant, VariantTokens>> = {
 
 const BARE_VARIANTS: ReadonlySet<SegmentedVariant> = new Set([
   "inline",
+  "rail",
   "subtle"
 ])
 
@@ -100,7 +109,7 @@ export function SegmentedTabs<K extends string>({
 }: SegmentedTabsProps<K>) {
   const v = VARIANTS[variant]
   const surface = useSurface()
-  const pillLevel = Math.min(surface + 4, 8)
+  const pillLevel = Math.min(surface + (variant === "rail" ? 7 : 4), 8)
   const subtle = variant === "subtle"
   const [hovered, setHovered] = useState<K | null>(null)
   const hoveringOther = hovered !== null && hovered !== value
@@ -127,13 +136,14 @@ export function SegmentedTabs<K extends string>({
       <SegmentedIndicator
         activeIndex={items.findIndex((item) => item.key === value)}
         className={cn(
-          variant === "inline" && cn(SURFACE_BG[pillLevel], "shadow-surface-1"),
+          (variant === "inline" || variant === "rail") &&
+            cn(SURFACE_BG[pillLevel], "shadow-surface-1"),
           subtle &&
             cn(
               "bg-selected/50 transition-opacity duration-150 dark:bg-accent/40",
               hoveringOther && "opacity-80"
             ),
-          variant !== "inline" && !subtle && "bg-tint",
+          variant !== "inline" && variant !== "rail" && !subtle && "bg-tint",
           v.pillRounding
         )}
       />

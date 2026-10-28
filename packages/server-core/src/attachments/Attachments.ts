@@ -210,6 +210,14 @@ export interface AttachmentsShape {
     AttachmentUploadError | AttachmentNotUploaded,
     ProjectScope
   >
+  readonly storeBytes: (
+    ticketId: string,
+    file: Readonly<{ filename: string; contentType: string; bytes: Uint8Array }>
+  ) => Effect.Effect<
+    Attachment,
+    AttachmentUploadError | AttachmentNotUploaded,
+    ProjectScope
+  >
   readonly resolveForServing: (
     orgSlug: string,
     attachmentId: string,

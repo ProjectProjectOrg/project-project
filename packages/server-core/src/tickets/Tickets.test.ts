@@ -305,6 +305,7 @@ const makeFakeAttachments = (
   Layer.succeed(Attachments, {
     prepare: () => unexpected("Attachments.prepare"),
     commit: () => unexpected("Attachments.commit"),
+    storeBytes: () => unexpected("Attachments.storeBytes"),
     resolveForServing: () => unexpected("Attachments.resolveForServing"),
     reconcileTicket: () => Effect.void,
     orphanProject: () => unexpected("Attachments.orphanProject"),

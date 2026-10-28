@@ -244,6 +244,8 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
             }),
           write: () => Effect.void,
           writeTemplateDefaults: unused,
+          markSystem: unused,
+          systemRole: unused,
           removeDir: unused,
           readRaw: unused
         })

@@ -2,13 +2,14 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-type InputVariant = "default" | "inline" | "inline-muted"
+type InputVariant = "default" | "inline" | "inline-muted" | "bare"
 
 const INPUT_VARIANT: Record<InputVariant, string> = {
   default:
     "h-9 rounded-xl border border-border bg-background px-3 py-1.5 transition-[color,box-shadow] focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
   inline:
     "rounded-md bg-transparent px-2 py-1 font-medium transition-colors placeholder:font-normal hover:bg-foreground/5 focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-ring aria-invalid:ring-1 aria-invalid:ring-destructive",
+  bare: "bg-transparent",
   "inline-muted":
     "rounded-md bg-transparent px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-foreground/5 focus-visible:bg-background focus-visible:text-foreground focus-visible:ring-1 focus-visible:ring-ring aria-invalid:ring-1 aria-invalid:ring-destructive"
 }

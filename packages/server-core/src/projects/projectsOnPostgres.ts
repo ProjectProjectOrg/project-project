@@ -82,6 +82,8 @@ export const projectsOnPostgres = (
             }),
           write: () => Effect.void,
           writeTemplateDefaults: unused,
+          markSystem: unused,
+          systemRole: unused,
           removeDir: () => Effect.void,
           readRaw: unused
         })

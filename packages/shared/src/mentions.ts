@@ -37,6 +37,9 @@ export interface MentionLink {
 
 const MENTION_LINK_RE = /\[([^\]]*)\]\((mention:[^)]+)\)/g
 
+export const stripMentionLinks = (text: string): string =>
+  text.replace(MENTION_LINK_RE, "$1")
+
 export function extractMentionLinks(body: string): ReadonlyArray<MentionLink> {
   const out: MentionLink[] = []
   for (const m of body.matchAll(MENTION_LINK_RE)) {

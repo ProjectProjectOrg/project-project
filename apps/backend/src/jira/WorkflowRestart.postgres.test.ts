@@ -133,6 +133,8 @@ describe.skipIf(!databaseUrl)("Jira SQL workflow restart", () => {
               write: () => Effect.die("unused"),
               readRaw: () => Effect.die("unused"),
               writeTemplateDefaults: () => Effect.die("unused"),
+              markSystem: () => Effect.die("unused"),
+              systemRole: () => Effect.die("unused"),
               removeDir: () => Effect.die("unused")
             })
           )
