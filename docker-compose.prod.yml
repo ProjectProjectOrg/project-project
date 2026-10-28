@@ -6,9 +6,13 @@
 # forward to it.
 #
 # Lifecycle:
-#   - GitHub Actions builds and pushes `app` + `web` images to ghcr on
-#     every push to `main`.
-#   - Watchtower polls ghcr every 5 minutes; when a tag's digest changes
+#   - GitHub Actions pushes `app` + `web` images to ghcr on every green push
+#     to `main`, then promotes them to the `nightly` and `stable` channels
+#     by retagging (see docs/deploy.md, "Releasing").
+#   - IMAGE_TAG picks the channel this instance follows: `stable` (the
+#     default, aliased as `latest`), `nightly`, `main`, or a pinned
+#     `sha-<short>` / `vX.Y.Z` for rollbacks.
+#   - Watchtower polls ghcr every 5 minutes; when the tag's digest changes
 #     it pulls and recreates the container.
 #   - On recreation, `migrations` runs first (apply Drizzle migrations),
 #     then `app` starts.

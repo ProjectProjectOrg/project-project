@@ -1,0 +1,122 @@
+# Promotes a nightly to the `stable` channel. By default it takes the newest
+# nightly older than STABLE_MIN_SOAK_HOURS (repository variable, default 2) so
+# stable only ships images the nightly instance has already run. The images are
+# retagged, not rebuilt. Afterwards the version bump is committed to main so the
+# next nightly previews the next patch.
+
+name: stable
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (for example 0.2.0). Defaults to the version the chosen nightly previewed."
+        type: string
+        required: false
+      ref:
+        description: "Explicit commit to release instead of the latest soaked nightly (hotfixes)."
+        type: string
+        required: false
+
+concurrency:
+  group: release-stable
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      short_sha: ${{ steps.resolve.outputs.short_sha }}
+      version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      minor_tag: ${{ steps.resolve.outputs.minor_tag }}
+      previous_tag: ${{ steps.resolve.outputs.previous_tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: resolve
+        uses: actions/github-script@v7
+        env:
+          SOAK_HOURS: ${{ vars.STABLE_MIN_SOAK_HOURS || '2' }}
+          VERSION: ${{ inputs.version }}
+          REF: ${{ inputs.ref }}
+        with:
+          script: |
+            const { resolveStable } = require("./.github/scripts/release.cjs");
+            await resolveStable({
+              github, context, core,
+              soakHours: Number(process.env.SOAK_HOURS),
+              version: process.env.VERSION,
+              ref: process.env.REF,
+            });
+
+  publish:
+    needs: resolve
+    runs-on: ubuntu-latest
+    env:
+      SHA: ${{ needs.resolve.outputs.sha }}
+      SHORT_SHA: ${{ needs.resolve.outputs.short_sha }}
+      VERSION: ${{ needs.resolve.outputs.version }}
+      TAG: ${{ needs.resolve.outputs.tag }}
+      MINOR_TAG: ${{ needs.resolve.outputs.minor_tag }}
+      PREVIOUS_TAG: ${{ needs.resolve.outputs.previous_tag }}
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Retag as stable
+        run: |
+          prefix="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/projectproject"
+          for name in app web; do
+            docker buildx imagetools inspect "$prefix-$name:sha-$SHORT_SHA" >/dev/null
+          done
+          for name in app web; do
+            docker buildx imagetools create \
+              -t "$prefix-$name:$TAG" \
+              -t "$prefix-$name:$MINOR_TAG" \
+              -t "$prefix-$name:stable" \
+              -t "$prefix-$name:latest" \
+              "$prefix-$name:sha-$SHORT_SHA"
+          done
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          args=(--target "$SHA" --latest --generate-notes --title "ProjectProject $TAG")
+          [ -n "$PREVIOUS_TAG" ] && args+=(--notes-start-tag "$PREVIOUS_TAG")
+          gh release create "$TAG" "${args[@]}"
+
+  finalize:
+    needs: [resolve, publish]
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Commit version bump
+        run: |
+          current=$(node -p "require('./package.json').version")
+          [ "$current" = "$VERSION" ] && exit 0
+          node -e "
+            const fs = require('node:fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = process.env.VERSION;
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore: release v$VERSION"
+          git push origin HEAD:main

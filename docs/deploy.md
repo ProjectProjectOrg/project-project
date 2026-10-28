@@ -5,16 +5,25 @@ How ProjectProject is hosted on a homelab Proxmox box. The pipeline:
 ```
 push to main
    ↓
-GitHub Actions builds two images
+GitHub Actions `ci` runs check + tests, then pushes
+ghcr.io/<owner>/projectproject-{app,web}:{sha-<short>,main}
    ↓
-ghcr.io/<owner>/projectproject-{app,web}:latest
+`nightly` workflow (hourly, gated) retags the tip of main as :nightly
    ↓
-Watchtower (on the deploy VM) polls GHCR every 5 minutes
+`stable` workflow (manual) retags a soaked nightly as :vX.Y.Z, :X.Y, :stable, :latest
+   ↓
+each instance pulls the channel its IMAGE_TAG names
    ↓
 docker compose recreates `app` + `web` with the new image
    ↓
 nginx-proxy-manager continues to forward your public hostname → `web` :8080
 ```
+
+Channels are image tags. `main` is every green push, `nightly` is `main`
+promoted at most once per `NIGHTLY_MIN_GAP_HOURS` (repository variable, default
+2), `stable` and `latest` are a nightly promoted by hand. Promotion retags the
+digest CI built; nothing is rebuilt, so the bytes that ran on the nightly
+instance are the bytes production gets. See [Releasing](#releasing).
 
 No SSH from CI to the homelab. No public ports on the homelab beyond what NPM
 already exposes. Image tags are immutable per commit (`sha-<short>`) so
@@ -174,13 +183,36 @@ the next poll:
 docker compose stop watchtower
 ```
 
-When you want to re-track latest:
+When you want to re-track the channel:
 
 ```sh
-# remove IMAGE_TAG from .env
+# set IMAGE_TAG back to stable (or nightly) in .env
 docker compose up -d
 docker compose start watchtower
 ```
+
+Rollback across a migration is only safe when the migrations between the two
+tags are additive. Keep schema changes expand/contract across one stable
+release so the previous tag can always run against the current database.
+
+---
+
+## Releasing
+
+- **Nightly** (`.github/workflows/nightly.yml`) runs hourly. It publishes when
+  `main` is ahead of the last nightly and that nightly is older than
+  `NIGHTLY_MIN_GAP_HOURS`. Set the variable to `0` for a nightly per push.
+  Run it with `force` to publish regardless of the gap. The version is the
+  root `package.json` version plus one patch, as `X.Y.Z-nightly.<date>.<run>`,
+  published as a GitHub prerelease with generated notes.
+- **Stable** (`.github/workflows/stable.yml`) is a manual dispatch from `main`.
+  It takes the newest nightly older than `STABLE_MIN_SOAK_HOURS` (default 2),
+  retags it as `vX.Y.Z`, `X.Y`, `stable` and `latest`, publishes a GitHub
+  Release with notes since the previous stable, and commits the version bump to
+  `main`. Pass `version` to choose a number other than the one the nightly
+  previewed (a minor or major bump), or `ref` to ship an explicit commit.
+- Point the homelab at `IMAGE_TAG=nightly` and production at `IMAGE_TAG=stable`.
+  A box that should follow every merge uses `IMAGE_TAG=main`.
 
 ---
 

@@ -1,0 +1,97 @@
+# Promotes the tip of main to the `nightly` channel by retagging the images CI
+# already pushed. Runs hourly but only publishes when main has new commits and
+# the last nightly is older than NIGHTLY_MIN_GAP_HOURS (repository variable,
+# default 2). Set it to 0 for a nightly per push.
+
+name: nightly
+
+on:
+  schedule:
+    - cron: "8 * * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Publish even if the gap has not passed
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      publish: ${{ steps.resolve.outputs.publish }}
+      sha: ${{ steps.resolve.outputs.sha }}
+      short_sha: ${{ steps.resolve.outputs.short_sha }}
+      version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      previous_tag: ${{ steps.resolve.outputs.previous_tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: resolve
+        uses: actions/github-script@v7
+        env:
+          GAP_HOURS: ${{ vars.NIGHTLY_MIN_GAP_HOURS || '2' }}
+          FORCE: ${{ inputs.force || 'false' }}
+        with:
+          script: |
+            const { resolveNightly } = require("./.github/scripts/release.cjs");
+            await resolveNightly({
+              github, context, core,
+              gapHours: Number(process.env.GAP_HOURS),
+              force: process.env.FORCE === "true",
+            });
+
+  publish:
+    needs: resolve
+    if: needs.resolve.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    env:
+      SHA: ${{ needs.resolve.outputs.sha }}
+      SHORT_SHA: ${{ needs.resolve.outputs.short_sha }}
+      VERSION: ${{ needs.resolve.outputs.version }}
+      TAG: ${{ needs.resolve.outputs.tag }}
+      PREVIOUS_TAG: ${{ needs.resolve.outputs.previous_tag }}
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Retag CI images as nightly
+        run: |
+          prefix="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/projectproject"
+          for name in app web; do
+            src="$prefix-$name:sha-$SHORT_SHA"
+            if ! docker buildx imagetools inspect "$src" >/dev/null 2>&1; then
+              echo "::notice::$src is not published yet (CI still running or red). Skipping."
+              exit 0
+            fi
+          done
+          for name in app web; do
+            docker buildx imagetools create \
+              -t "$prefix-$name:nightly" \
+              -t "$prefix-$name:$TAG" \
+              "$prefix-$name:sha-$SHORT_SHA"
+          done
+          echo "retagged=true" >> "$GITHUB_ENV"
+
+      - name: Publish prerelease
+        if: env.retagged == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          args=(--target "$SHA" --prerelease --generate-notes --title "ProjectProject nightly $VERSION ($SHORT_SHA)")
+          [ -n "$PREVIOUS_TAG" ] && args+=(--notes-start-tag "$PREVIOUS_TAG")
+          gh release create "$TAG" "${args[@]}"
