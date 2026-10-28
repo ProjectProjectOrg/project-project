@@ -311,6 +311,9 @@ const columnOf = (table: SQL, column: AnyPgColumn): SQL =>
 const parentRow = drizzleSql`${ticketIndex}`
 const childRow = drizzleSql`${drizzleSql.identifier("child_tickets")}`
 
+const isChildRow = drizzleSql`${columnOf(childRow, ticketIndex.projectId)} = ${columnOf(parentRow, ticketIndex.projectId)}
+  and ${columnOf(childRow, ticketIndex.parent)} = ${columnOf(parentRow, ticketIndex.ticketId)}`
+
 const finishedStatus = (
   row: SQL
 ): SQL => drizzleSql`(${columnOf(row, ticketIndex.status)} = 'done' or exists (
@@ -326,8 +329,7 @@ const finishedStatus = (
 const childTicketCount = (condition: SQL) =>
   drizzleSql<number>`(
   select count(*) from ${ticketIndex} as ${childRow}
-  where ${columnOf(childRow, ticketIndex.projectId)} = ${columnOf(parentRow, ticketIndex.projectId)}
-    and ${columnOf(childRow, ticketIndex.parent)} = ${columnOf(parentRow, ticketIndex.ticketId)}
+  where ${isChildRow}
     and ${columnOf(childRow, ticketIndex.archivedAt)} is null
     and ${condition}
 )`.mapWith(Number)
@@ -356,8 +358,7 @@ const attachableConditions = (
           ? [
               drizzleSql`not exists (
                 select 1 from ${ticketIndex} as ${childRow}
-                where ${columnOf(childRow, ticketIndex.projectId)} = ${columnOf(parentRow, ticketIndex.projectId)}
-                  and ${columnOf(childRow, ticketIndex.parent)} = ${columnOf(parentRow, ticketIndex.ticketId)}
+                where ${isChildRow}
               )`
             ]
           : [])
