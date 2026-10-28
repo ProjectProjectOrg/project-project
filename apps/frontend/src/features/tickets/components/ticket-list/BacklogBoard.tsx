@@ -49,6 +49,7 @@ import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
+import { SubTicketExpansionProvider } from "./SubTicketExpansion"
 import { AutoLoad } from "./VirtualRows"
 
 const COLUMN_SCROLL_SELECTOR = "[data-virtual-sprint-column]"
@@ -169,56 +170,58 @@ function BacklogBoardContent({
   }, [canMove, reorderMode, req, registry])
 
   return (
-    <motion.div
-      ref={ref}
-      layoutScroll
-      style={{ height: height ?? 240 }}
-      className={cn(
-        "overflow-x-auto overscroll-x-contain",
-        hasRightOverflow &&
-          "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
-      )}
-    >
-      <Reorder.Group
-        ref={groupRef}
-        as="div"
-        axis="x"
-        values={[...order]}
-        onReorder={(next) => setDragOrder(next)}
-        className="flex h-full gap-3"
+    <SubTicketExpansionProvider>
+      <motion.div
+        ref={ref}
+        layoutScroll
+        style={{ height: height ?? 240 }}
+        className={cn(
+          "overflow-x-auto overscroll-x-contain",
+          hasRightOverflow &&
+            "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
+        )}
       >
-        {order.map((status) => {
-          const column = columns.find((c) => c.status === status)
-          return (
-            <SprintBoardColumn
-              key={status}
-              update={backlogTicketUpdates(req)}
-              status={status}
-              statuses={statuses}
-              tickets={column?.tickets ?? NO_TICKETS}
-              count={column?.count ?? 0}
-              members={members}
-              isDraggable={canMove}
-              ordered={false}
-              inertTicketIds={inertTicketIds}
-              lastFlash={null}
-              reorderMode={reorderMode}
-              onActivateReorder={onEnterReorder}
-              footer={
-                column?.nextCursor != null ? (
-                  <ColumnLoadMore
-                    req={req}
-                    status={status}
-                    cursor={column.nextCursor}
-                    remaining={Math.max(0, column.count - column.rows.length)}
-                  />
-                ) : null
-              }
-            />
-          )
-        })}
-      </Reorder.Group>
-    </motion.div>
+        <Reorder.Group
+          ref={groupRef}
+          as="div"
+          axis="x"
+          values={[...order]}
+          onReorder={(next) => setDragOrder(next)}
+          className="flex h-full gap-3"
+        >
+          {order.map((status) => {
+            const column = columns.find((c) => c.status === status)
+            return (
+              <SprintBoardColumn
+                key={status}
+                update={backlogTicketUpdates(req)}
+                status={status}
+                statuses={statuses}
+                tickets={column?.tickets ?? NO_TICKETS}
+                count={column?.count ?? 0}
+                members={members}
+                isDraggable={canMove}
+                ordered={false}
+                inertTicketIds={inertTicketIds}
+                lastFlash={null}
+                reorderMode={reorderMode}
+                onActivateReorder={onEnterReorder}
+                footer={
+                  column?.nextCursor != null ? (
+                    <ColumnLoadMore
+                      req={req}
+                      status={status}
+                      cursor={column.nextCursor}
+                      remaining={Math.max(0, column.count - column.rows.length)}
+                    />
+                  ) : null
+                }
+              />
+            )
+          })}
+        </Reorder.Group>
+      </motion.div>
+    </SubTicketExpansionProvider>
   )
 }
 

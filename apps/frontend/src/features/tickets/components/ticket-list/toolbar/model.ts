@@ -8,6 +8,7 @@ export type FilterDimension =
   | "sprint"
   | "estimate"
   | "archived"
+  | "subTickets"
 
 export function activeFilterCount(
   filter: TicketFilter | undefined,

@@ -20,12 +20,15 @@ import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 
 import { AssigneeField } from "./AssigneeField"
-import { EpicLink, EpicSeparator, useEpicTitle } from "./EpicLabel"
+import { EpicLink, EpicSeparator, useParentLabel } from "./EpicLabel"
 import { EstimateChip } from "./EstimateField"
+import { NestTree, type RowNest } from "./NestTree"
 import { PriorityButton } from "./PriorityField"
 import { TicketRowActions } from "./RowActions"
 import { SprintField } from "./SprintField"
 import { StatusButton } from "./StatusField"
+import { SubTicketMarker } from "./SubTicketMarker"
+import { SubTicketProgress } from "./SubTicketProgress"
 import { UpdateFailureMarker } from "./UpdateFailureMarker"
 
 const TICKET_PREVIEW_DELAY_MS = 550
@@ -40,6 +43,7 @@ export type RowProps = Readonly<{
   members: ReadonlyArray<Member>
   showParent?: boolean
   showSprint?: boolean
+  nest?: RowNest
   pending?: boolean
   editable?: boolean
   previewOpen: boolean
@@ -54,6 +58,7 @@ function RowImpl({
   members,
   showParent = true,
   showSprint = true,
+  nest,
   pending,
   editable = true,
   previewOpen,
@@ -92,8 +97,9 @@ function RowImpl({
                 "relative isolate rounded-lg transition-colors hover:bg-hover has-[[data-popup-open]]:bg-hover"
             )}
           >
+            <NestTree nest={nest} />
             <div className="col-start-4 row-start-1 flex min-w-0 items-center self-stretch pl-1.5">
-              {showParent && ticket.parent && (
+              {nest === undefined && showParent && ticket.parent && (
                 <EpicPrefix epicId={ticket.parent} />
               )}
               <Link
@@ -101,7 +107,7 @@ function RowImpl({
                 params={{ orgSlug, slug, id: ticket.id }}
                 preload="intent"
                 data-row-link
-                className="flex min-w-0 flex-1 items-center self-stretch outline-none after:absolute after:inset-0 after:z-10 after:rounded-lg after:content-[''] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
+                className="flex min-w-0 items-center self-stretch outline-none after:absolute after:inset-0 after:z-10 after:rounded-lg after:content-[''] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
               >
                 <PopoverTrigger
                   openOnHover
@@ -130,6 +136,13 @@ function RowImpl({
                   </span>
                 </PopoverTrigger>
               </Link>
+              <SubTicketProgress
+                ticket={ticket}
+                className="relative z-20 ml-2"
+              />
+              {nest === undefined && ticket.parent && (
+                <SubTicketMarker parentId={ticket.parent} />
+              )}
             </div>
             <fieldset disabled={!editable} className="contents">
               <StatusButton ticket={ticket} stopPropagation onPatch={onPatch} />
@@ -211,7 +224,7 @@ function RowSprint({ ticketId }: Readonly<{ ticketId: TicketId }>) {
 function EpicPrefix({ epicId }: Readonly<{ epicId: TicketId }>) {
   const { orgSlug, slug } = useProjectRoute()
   const ref = { orgSlug, slug, epicId }
-  if (useEpicTitle(ref) === null) return null
+  if (useParentLabel(ref)?.epic !== true) return null
   return (
     <>
       <EpicLink {...ref} className="text-sm" />

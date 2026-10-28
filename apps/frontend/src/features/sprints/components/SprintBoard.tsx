@@ -34,6 +34,7 @@ import {
 } from "@/features/sprints/atoms/sprintBoard"
 import { useHorizontalAutoScroll } from "@/features/sprints/hooks/useHorizontalAutoScroll"
 import { useReorderMode } from "@/features/sprints/hooks/useReorderMode"
+import { SubTicketExpansionProvider } from "@/features/tickets/components/ticket-list/SubTicketExpansion"
 import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 
@@ -139,7 +140,7 @@ function SprintBoardContent({
   const flash = (id: TicketId) =>
     setLastFlash((prev) => ({ id, tick: (prev?.tick ?? 0) + 1 }))
 
-  const { matchingTickets } = useBoardTickets(
+  const { visibleTickets } = useBoardTickets(
     orgSlug,
     slug,
     board.tickets,
@@ -147,8 +148,8 @@ function SprintBoardContent({
   )
 
   const grouped = useMemo(
-    () => groupTicketsByStatus(matchingTickets, order),
-    [matchingTickets, order]
+    () => groupTicketsByStatus(visibleTickets, order),
+    [visibleTickets, order]
   )
   const unfilteredGrouped = useMemo(
     () => groupTicketsByStatus(board.tickets, order),
@@ -200,40 +201,42 @@ function SprintBoardContent({
   }, [canReorder, canTransition, isCompleted, reorderMode, req, registry])
 
   return (
-    <motion.div
-      ref={ref}
-      layoutScroll
-      aria-busy={waiting}
-      style={{ height: height ?? 240 }}
-      className={cn(
-        "overflow-x-auto overscroll-x-contain",
-        hasRightOverflow &&
-          "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
-      )}
-    >
-      <Reorder.Group
-        ref={groupRef}
-        as="div"
-        axis="x"
-        values={[...order]}
-        onReorder={(next) => setDragOrder(next)}
-        className="flex h-full gap-3"
+    <SubTicketExpansionProvider>
+      <motion.div
+        ref={ref}
+        layoutScroll
+        aria-busy={waiting}
+        style={{ height: height ?? 240 }}
+        className={cn(
+          "overflow-x-auto overscroll-x-contain",
+          hasRightOverflow &&
+            "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
+        )}
       >
-        {order.map((status) => (
-          <SprintBoardColumn
-            key={status}
-            update={boardTicketUpdates(req)}
-            status={status}
-            statuses={statuses}
-            tickets={grouped[status] ?? []}
-            members={members}
-            isDraggable={!isCompleted && canReorder}
-            lastFlash={lastFlash}
-            reorderMode={reorderMode}
-            onActivateReorder={onEnterReorder}
-          />
-        ))}
-      </Reorder.Group>
-    </motion.div>
+        <Reorder.Group
+          ref={groupRef}
+          as="div"
+          axis="x"
+          values={[...order]}
+          onReorder={(next) => setDragOrder(next)}
+          className="flex h-full gap-3"
+        >
+          {order.map((status) => (
+            <SprintBoardColumn
+              key={status}
+              update={boardTicketUpdates(req)}
+              status={status}
+              statuses={statuses}
+              tickets={grouped[status] ?? []}
+              members={members}
+              isDraggable={!isCompleted && canReorder}
+              lastFlash={lastFlash}
+              reorderMode={reorderMode}
+              onActivateReorder={onEnterReorder}
+            />
+          ))}
+        </Reorder.Group>
+      </motion.div>
+    </SubTicketExpansionProvider>
   )
 }

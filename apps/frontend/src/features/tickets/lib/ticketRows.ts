@@ -45,6 +45,11 @@ export const ticketListQueryOf = (query: QueryWithView): TicketListQuery => {
 export const withoutEpicsByDefault = <Q extends TicketFilter>(query: Q): Q =>
   query.type?.length ? query : { ...query, type: NON_EPIC_TYPES }
 
+export const viewQuery = (query: QueryWithView): TicketListQuery => ({
+  ...withoutEpicsByDefault(ticketListQueryOf(query)),
+  subTickets: "nested"
+})
+
 export const toRow = (row: TicketListRow): TicketRow => ({
   ticket: row.ticket,
   key: row.ticket.id,
