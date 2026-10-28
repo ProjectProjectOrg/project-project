@@ -1321,6 +1321,7 @@ it.effect(
       expect(docs.documents.get("T-1")).toMatchObject({
         branch: null,
         branchAutoLinkDisabled: true,
+        ignoredBranches: ["feat/T-1"],
         title: "Renamed"
       })
       expect(result.states["T-1"]).toEqual({
@@ -1334,6 +1335,7 @@ it.effect(
         branch: "feat/T-1",
         branchAutoLinkDisabled: false
       })
+      expect(docs.documents.get("T-1")?.ignoredBranches ?? []).toEqual([])
     }).pipe(Effect.provide(layer))
   }
 )

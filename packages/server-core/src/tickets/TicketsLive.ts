@@ -301,6 +301,12 @@ function documentToDetail(
   }
 }
 
+const withoutIgnored = (
+  ticket: Pick<TicketDocument, "ignoredBranches">,
+  branch: string
+): ReadonlyArray<string> =>
+  (ticket.ignoredBranches ?? []).filter((ignored) => ignored !== branch)
+
 const indexProjectOf = (scope: ProjectScopeShape): TicketIndexProject => ({
   orgSlug: scope.orgSlug,
   organizationId: scope.organizationId,
@@ -1980,7 +1986,8 @@ export const TicketsLive = Layer.effect(
                 pr: null,
                 prState: null,
                 prDraft: false,
-                lastTransitionedPr: null
+                lastTransitionedPr: null,
+                ignoredBranches: withoutIgnored(ticket, input.name)
               })
             )
             return yield* detailOf(next, yield* gitView)
@@ -2041,7 +2048,8 @@ export const TicketsLive = Layer.effect(
                   prState: null,
                   prDraft: false,
                   lastTransitionedPr: null,
-                  prBase: undefined
+                  prBase: undefined,
+                  ignoredBranches: withoutIgnored(ticket, input.name)
                 })
               })
             )
@@ -2109,6 +2117,10 @@ export const TicketsLive = Layer.effect(
           Effect.gen(function* () {
             const indexProject = indexProjectOf(scope)
             const ticket = yield* readTicket(orgSlug, slug, id)
+            const removed = [
+              ...(ticket.branch === null ? [] : [ticket.branch]),
+              ...(ticket.stack ?? []).map((layer) => layer.branch)
+            ]
             const next = yield* writeGitFields(indexProject, ticket, {
               branch: null,
               branchAutoLinkDisabled: true,
@@ -2116,7 +2128,10 @@ export const TicketsLive = Layer.effect(
               prState: null,
               prDraft: false,
               lastTransitionedPr: null,
-              stack: []
+              stack: [],
+              ignoredBranches: [
+                ...new Set([...(ticket.ignoredBranches ?? []), ...removed])
+              ]
             })
             return yield* detailOf(next, yield* gitView)
           })
@@ -2186,9 +2201,7 @@ export const TicketsLive = Layer.effect(
                 }
                 return yield* writeGitFields(indexProject, ticket, {
                   stack: [...(ticket.stack ?? []), layer],
-                  ignoredBranches: (ticket.ignoredBranches ?? []).filter(
-                    (branch) => branch !== input.name
-                  )
+                  ignoredBranches: withoutIgnored(ticket, input.name)
                 })
               })
             )
