@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { Ticket, TicketId } from "@pp/shared"
+import { finishedStatusSlugs, type Ticket, type TicketId } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import { Check } from "lucide-react"
@@ -9,6 +9,10 @@ import { useState, type KeyboardEvent } from "react"
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
+import {
+  statusesFor,
+  statusesRequest
+} from "@/features/projects/atoms/projectStatuses"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { subTickets, subTicketsRequest } from "@/features/tickets/atoms/epics"
 import type { TicketRow } from "@/features/tickets/lib/ticketRows"
@@ -34,9 +38,16 @@ export function useEpicPicker(inSprint: ReadonlySet<TicketId>) {
       ? idleSubTicketsAtom
       : subTickets(subTicketsRequest(orgSlug, slug, epic.id))
   )
-  const tickets = Result.isSuccess(rows)
-    ? rows.value.map((row) => row.ticket).filter((t) => t.status !== "done")
+  const statuses = useAtomValue(statusesFor(statusesRequest(orgSlug, slug)))
+  const finished = Result.isSuccess(statuses)
+    ? finishedStatusSlugs(statuses.value)
     : null
+  const tickets =
+    Result.isSuccess(rows) && finished !== null
+      ? rows.value
+          .map((row) => row.ticket)
+          .filter((t) => !finished.has(t.status))
+      : null
   const toggleable = tickets?.filter((t) => !inSprint.has(t.id)) ?? []
   const selection = toggleable.filter((t) => !deselected.has(t.id))
 
@@ -77,7 +88,11 @@ export function useEpicPicker(inSprint: ReadonlySet<TicketId>) {
     onKeyDown,
     pickerProps: {
       tickets,
-      failure: Result.isFailure(rows) ? rows : null,
+      failure: Result.isFailure(rows)
+        ? rows
+        : Result.isFailure(statuses)
+          ? statuses
+          : null,
       inSprint,
       deselected,
       cursorId: toggleable[cursor]?.id ?? null,

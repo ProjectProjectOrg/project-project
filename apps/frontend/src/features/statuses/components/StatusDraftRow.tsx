@@ -15,8 +15,8 @@ import {
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { StatusEditor } from "@/features/statuses/components/StatusEditor"
-import { statusCreateErrorMessage } from "@/lib/errorMessage"
+import { StatusEditorForm } from "@/features/statuses/forms/status-editor"
+import { statusSaveErrorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
@@ -40,7 +40,7 @@ export function StatusDraftRow({ phase, statuses, onClose }: Props) {
     didSubmit && !createState.waiting
       ? mutationErrorText(
           createState,
-          statusCreateErrorMessage,
+          statusSaveErrorMessage,
           m.tickets_status_create_error_fallback
         )
       : null
@@ -52,7 +52,7 @@ export function StatusDraftRow({ phase, statuses, onClose }: Props) {
       transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
       className="list-none"
     >
-      <StatusEditor
+      <StatusEditorForm
         initial={{ label: "", icon: "Circle", color, description: "" }}
         identityLocked={false}
         submitLabel={m.tickets_status_create_add()}

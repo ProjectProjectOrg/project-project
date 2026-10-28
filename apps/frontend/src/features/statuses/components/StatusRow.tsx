@@ -7,7 +7,9 @@ import {
   StatusLabel,
   StatusColor
 } from "@pp/shared"
+import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
+import * as Option from "effect/Option"
 import { GripVertical } from "lucide-react"
 import { Reorder, useDragControls, type DragControls } from "motion/react"
 import { useState } from "react"
@@ -20,9 +22,9 @@ import {
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { StatusActionsMenu } from "@/features/statuses/components/StatusActionsMenu"
 import {
-  StatusEditor,
-  type StatusDraft
-} from "@/features/statuses/components/StatusEditor"
+  StatusEditorForm,
+  type StatusEditorValues
+} from "@/features/statuses/forms/status-editor"
 import { STATUS_ICON_NAMES } from "@/features/statuses/lib/statusIcons"
 import {
   isPinnedStatus,
@@ -33,6 +35,7 @@ import {
   statusMetaFor
 } from "@/features/tickets/lib/ticketMeta"
 import { useProjectActor } from "@/lib/access"
+import { statusSaveErrorMessage } from "@/lib/errorMessage"
 import { SURFACE_BG } from "@/lib/surfaceClasses"
 import { useSurface } from "@/lib/surfaceContext"
 import { cn } from "@/lib/utils"
@@ -51,14 +54,14 @@ type Props = Readonly<{
 const REVEAL =
   "opacity-0 transition-all group-hover/reveal:opacity-100 focus-visible:opacity-100 data-[popup-open]:opacity-100"
 
-const isUnchanged = (status: ProjectStatus, draft: StatusDraft) =>
+const isUnchanged = (status: ProjectStatus, draft: StatusEditorValues) =>
   draft.label.trim() === status.label &&
   draft.icon === status.icon &&
   draft.color === status.color &&
   draft.description.trim() === (status.description ?? "")
 
 const updatePatch = (
-  draft: StatusDraft,
+  draft: StatusEditorValues,
   baseline: boolean
 ): UpdateStatusInput => {
   const trimmed = draft.description.trim()
@@ -141,7 +144,7 @@ export function StatusRow({
       }}
     >
       {editing ? (
-        <StatusEditor
+        <StatusEditorForm
           initial={{
             label: displayLabel,
             icon:
@@ -158,7 +161,16 @@ export function StatusRow({
             if (!isUnchanged(status, draft)) {
               const exit = await update(updatePatch(draft, baseline))
               if (Exit.isFailure(exit)) {
-                setEditError(m.tickets_status_update_error_fallback())
+                setEditError(
+                  Option.match(Cause.findErrorOption(exit.cause), {
+                    onNone: m.tickets_status_update_error_fallback,
+                    onSome: (error) =>
+                      statusSaveErrorMessage(
+                        error,
+                        m.tickets_status_update_error_fallback
+                      )
+                  })
+                )
                 return false
               }
             }
