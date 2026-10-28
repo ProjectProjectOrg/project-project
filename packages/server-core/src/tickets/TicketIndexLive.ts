@@ -26,7 +26,10 @@ import {
   type TicketCountQuery,
   type TicketFilter,
   type TicketListQuery,
+  type TicketPageQuery,
+  type TicketSection,
   type TicketSort,
+  type ParentFilter,
   TicketStatus
 } from "@pp/shared"
 import {
@@ -308,19 +311,39 @@ const columnOf = (table: SQL, column: AnyPgColumn): SQL =>
 const parentRow = drizzleSql`${ticketIndex}`
 const childRow = drizzleSql`${drizzleSql.identifier("child_tickets")}`
 
-const subTicketCount = drizzleSql<number>`(
-  select count(*) from ${ticketIndex} as ${childRow}
-  where ${columnOf(childRow, ticketIndex.projectId)} = ${columnOf(parentRow, ticketIndex.projectId)}
-    and ${columnOf(childRow, ticketIndex.parent)} = ${columnOf(parentRow, ticketIndex.ticketId)}
-    and ${columnOf(childRow, ticketIndex.archivedAt)} is null
-)`
-  .mapWith(Number)
-  .as("sub_ticket_count")
+const isChildRow = drizzleSql`${columnOf(childRow, ticketIndex.projectId)} = ${columnOf(parentRow, ticketIndex.projectId)}
+  and ${columnOf(childRow, ticketIndex.parent)} = ${columnOf(parentRow, ticketIndex.ticketId)}`
 
-const entryColumns = { ...getTableColumns(ticketIndex), subTicketCount }
+const finishedStatus = (
+  row: SQL
+): SQL => drizzleSql`(${columnOf(row, ticketIndex.status)} = 'done' or exists (
+  select 1 from ${projectStatus} s
+  join ${projectStatus} anchor
+    on anchor.project_id = s.project_id and anchor.slug = 'done'
+  where s.project_id = ${columnOf(row, ticketIndex.projectId)}
+    and s.slug = ${columnOf(row, ticketIndex.status)}
+    and s.slug not in ('todo', 'in_progress')
+    and s.order_key collate "C" > anchor.order_key collate "C"
+))`
+
+const childTicketCount = (condition: SQL) =>
+  drizzleSql<number>`(
+  select count(*) from ${ticketIndex} as ${childRow}
+  where ${isChildRow}
+    and ${columnOf(childRow, ticketIndex.archivedAt)} is null
+    and ${condition}
+)`.mapWith(Number)
+
+const entryColumns = {
+  ...getTableColumns(ticketIndex),
+  subTicketCount: childTicketCount(drizzleSql`true`).as("sub_ticket_count"),
+  subTicketDoneCount: childTicketCount(finishedStatus(childRow)).as(
+    "sub_ticket_done_count"
+  )
+}
 
 type EntryRow = typeof ticketIndex.$inferSelect &
-  Readonly<{ subTicketCount: number }>
+  Readonly<{ subTicketCount: number; subTicketDoneCount: number }>
 
 const attachableConditions = (
   attachable: TicketIndexAttachable | undefined
@@ -335,8 +358,7 @@ const attachableConditions = (
           ? [
               drizzleSql`not exists (
                 select 1 from ${ticketIndex} as ${childRow}
-                where ${columnOf(childRow, ticketIndex.projectId)} = ${columnOf(parentRow, ticketIndex.projectId)}
-                  and ${columnOf(childRow, ticketIndex.parent)} = ${columnOf(parentRow, ticketIndex.ticketId)}
+                where ${isChildRow}
               )`
             ]
           : [])
@@ -344,6 +366,35 @@ const attachableConditions = (
 
 const escapedLikePattern = (value: string): string =>
   `%${value.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_")}%`
+
+const statusCondition = (status: ReadonlyArray<string>): SQL =>
+  status.length === 0
+    ? drizzleSql`false`
+    : inArray(ticketIndex.status, [...status])
+
+const parentCondition = (parents: ReadonlyArray<ParentFilter>): SQL => {
+  const parentIds = parents.filter((parent) => parent !== "none")
+  const conditions: Array<SQL> = []
+  if (parents.includes("none")) conditions.push(isNull(ticketIndex.parent))
+  if (parentIds.length > 0) {
+    conditions.push(inArray(ticketIndex.parent, parentIds))
+  }
+  return or(...conditions) ?? drizzleSql`false`
+}
+
+const ticketIdsCondition = (ticketIds: ReadonlyArray<string>): SQL =>
+  drizzleSql`${ticketIndex.ticketId} = any(${drizzleSql.param([...ticketIds])}::text[])`
+
+const sectionConditions = (
+  section: TicketSection | undefined,
+  sectionTicketIds: ReadonlyArray<string> | undefined
+): ReadonlyArray<SQL> => [
+  ...(section?.status === undefined ? [] : [statusCondition(section.status)]),
+  ...(section?.parent === undefined ? [] : [parentCondition(section.parent)]),
+  ...(sectionTicketIds === undefined
+    ? []
+    : [ticketIdsCondition(sectionTicketIds)])
+]
 
 interface TicketWhereOptions {
   readonly viewerId: string
@@ -364,11 +415,7 @@ const ticketWhereConditions = (
       : isNull(ticketIndex.archivedAt)
   ]
   if (options.ticketIds !== undefined) {
-    conditions.push(
-      drizzleSql`${ticketIndex.ticketId} = any(${drizzleSql.param([
-        ...options.ticketIds
-      ])}::text[])`
-    )
+    conditions.push(ticketIdsCondition(options.ticketIds))
   }
   if (options.excludeTicketIds && options.excludeTicketIds.length > 0) {
     conditions.push(
@@ -378,11 +425,7 @@ const ticketWhereConditions = (
     )
   }
   if (filter?.status !== undefined) {
-    conditions.push(
-      filter.status.length === 0
-        ? drizzleSql`false`
-        : inArray(ticketIndex.status, [...filter.status])
-    )
+    conditions.push(statusCondition(filter.status))
   }
   if (filter?.type !== undefined) {
     conditions.push(
@@ -431,15 +474,7 @@ const ticketWhereConditions = (
     )
   }
   if (filter?.parent !== undefined) {
-    const parentIds = filter.parent.filter((parent) => parent !== "none")
-    const parentConditions: Array<SQL> = []
-    if (filter.parent.includes("none")) {
-      parentConditions.push(isNull(ticketIndex.parent))
-    }
-    if (parentIds.length > 0) {
-      parentConditions.push(inArray(ticketIndex.parent, parentIds))
-    }
-    conditions.push(or(...parentConditions) ?? drizzleSql`false`)
+    conditions.push(parentCondition(filter.parent))
   }
   if (filter?.subTickets === "nested") {
     const matchingParents = and(
@@ -694,6 +729,7 @@ export const TicketIndexLive = Layer.effect(
       assignees: row.assignees,
       parent: row.parent === null ? null : makeTicketId(row.parent),
       subTicketCount: row.subTicketCount,
+      subTicketDoneCount: row.subTicketDoneCount,
       archivedAt: row.archivedAt,
       createdBy: row.createdBy,
       createdAt: row.createdAt,
@@ -726,13 +762,14 @@ export const TicketIndexLive = Layer.effect(
 
     const query = (
       project: TicketIndexProject,
-      ticketQuery: TicketListQuery,
+      ticketQuery: TicketPageQuery,
       options: TicketIndexQueryOptions
     ): Effect.Effect<ReadonlyArray<TicketIndexQueryEntry>> => {
       if (options.ticketIds?.length === 0) return Effect.succeed([])
       const expression = ticketSortExpression(ticketQuery.sort)
       const conditions = [
         ...ticketWhereConditions(project, ticketQuery, options),
+        ...sectionConditions(ticketQuery.section, options.sectionTicketIds),
         ...attachableConditions(options.attachableTo),
         ticketCursorCondition(ticketQuery, expression)
       ].filter((condition) => condition !== undefined)
@@ -971,15 +1008,7 @@ export const TicketIndexLive = Layer.effect(
         )
     }
 
-    const finishedTicket = drizzleSql`(${ticketIndex.status} = 'done' or exists (
-      select 1 from ${projectStatus} s
-      join ${projectStatus} anchor
-        on anchor.project_id = s.project_id and anchor.slug = 'done'
-      where s.project_id = ${ticketIndex.projectId}
-        and s.slug = ${ticketIndex.status}
-        and s.slug not in ('todo', 'in_progress')
-        and s.order_key collate "C" > anchor.order_key collate "C"
-    ))`
+    const finishedTicket = finishedStatus(parentRow)
 
     const assignedConditions = (scope: TicketIndexAssignedScope) => [
       arrayContains(ticketIndex.assignees, [scope.viewerId]),

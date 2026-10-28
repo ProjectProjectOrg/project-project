@@ -1,4 +1,4 @@
-import type { TicketType } from "./schemas/Ticket"
+import type { Ticket, TicketType } from "./schemas/Ticket"
 
 type Typed = Readonly<{ type: TicketType }>
 
@@ -10,3 +10,7 @@ export const canHoldChildren = (
   parent === null ||
   parent === undefined ||
   parent.type === "epic"
+
+export const hasSubTickets = (
+  ticket: Pick<Ticket, "subTicketCount">
+): boolean => (ticket.subTicketCount ?? 0) > 0

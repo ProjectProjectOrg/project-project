@@ -21,14 +21,13 @@ import {
   insertByOrderKey,
   patchTicketRow,
   placeholderRow,
-  ticketListQueryOf,
   toRow,
   withCreatedKeys,
   type QueryWithView,
   type QuickCreateInput,
   type TicketRow,
   type TicketRowPage,
-  withoutEpicsByDefault
+  viewQuery
 } from "@/features/tickets/lib/ticketRows"
 
 import {
@@ -57,7 +56,7 @@ export const backlogRequest = (
   _view: "backlog",
   params: { orgSlug, slug },
   query: {
-    ...withoutEpicsByDefault(ticketListQueryOf(query)),
+    ...viewQuery(query),
     status: undefined,
     cursor: undefined
   }
@@ -91,7 +90,11 @@ const loadedPagesAtom = Atom.family((_req: BacklogRequest) =>
 const pageQuery = (req: BacklogRequest, status: string, cursor: string) =>
   Api.query("tickets", "list", {
     params: req.params,
-    query: { ...req.query, status: [TicketStatus.make(status)], cursor },
+    query: {
+      ...req.query,
+      section: { status: [TicketStatus.make(status)] },
+      cursor
+    },
     timeToLive: "2 minutes",
     reactivityKeys: [
       Keys.ticketsIn(scopeOf(req)),

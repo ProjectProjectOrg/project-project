@@ -1278,14 +1278,29 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       const counts = new Map(
         (yield* index.list(project)).map((entry) => [
           entry.id,
-          entry.subTicketCount
+          [entry.subTicketDoneCount, entry.subTicketCount]
         ])
       )
 
-      expect(counts.get(epic)).toBe(1)
-      expect(counts.get(parent)).toBe(2)
+      expect(counts.get(epic)).toEqual([0, 1])
+      expect(counts.get(parent)).toEqual([1, 2])
       expect(yield* ids("todo")).toEqual(["T-1", "T-2"])
       expect(yield* ids("done")).toEqual(["T-5"])
+
+      const doneSection = (subTickets: "nested" | "flat") =>
+        index
+          .query(
+            project,
+            {
+              subTickets,
+              section: { status: [ticketStatus("done")] },
+              sort: { key: "id", dir: "asc" }
+            },
+            { viewerId: "viewer", limit: 10 }
+          )
+          .pipe(Effect.map((rows) => rows.map(({ entry }) => entry.id)))
+      expect(yield* doneSection("nested")).toEqual([])
+      expect(yield* doneSection("flat")).toEqual(["T-5"])
     }).pipe(Effect.provide(TestLayer))
   )
 

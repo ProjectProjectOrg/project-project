@@ -82,6 +82,40 @@ export const childTickets = Atom.family((req: ChildTicketsRequest) =>
   Atom.optimistic(childTicketsView(req))
 )
 
+export type ExpandedChildrenRequest = Readonly<{
+  params: Readonly<{ orgSlug: string; slug: string }>
+  parents: ReadonlyArray<TicketId>
+}>
+
+export const expandedChildrenRequest = (
+  orgSlug: string,
+  slug: string,
+  parents: ReadonlySet<TicketId>
+): ExpandedChildrenRequest => ({
+  params: { orgSlug, slug },
+  parents: [...parents].toSorted()
+})
+
+const childOf = (req: ExpandedChildrenRequest, parent: TicketId) =>
+  childTicketsRequest(req.params.orgSlug, req.params.slug, parent)
+
+export const expandedChildTickets = Atom.family(
+  (req: ExpandedChildrenRequest) =>
+    Atom.readable(
+      (get) =>
+        new Map(
+          req.parents.map((parent) => [
+            parent,
+            get(childTickets(childOf(req, parent)))
+          ])
+        ),
+      (refresh) =>
+        req.parents.forEach((parent) =>
+          refresh(childTickets(childOf(req, parent)))
+        )
+    )
+)
+
 export const quickCreateChildTicket = Atom.family((req: ChildTicketsRequest) =>
   viewMutation(childTickets(req), {
     name: "quickCreateChildTicket",
