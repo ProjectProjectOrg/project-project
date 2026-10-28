@@ -37,6 +37,7 @@ import type {
   TicketDetail,
   TicketListPage,
   TicketListQuery,
+  TicketPageQuery,
   TicketSections,
   TicketSort,
   TicketEpicSections,
@@ -95,7 +96,7 @@ export type TicketsShape = Readonly<{
     ProjectScope
   >
   list: (
-    query: TicketListQuery,
+    query: TicketPageQuery,
     limit?: number
   ) => Effect.Effect<
     TicketListPage,

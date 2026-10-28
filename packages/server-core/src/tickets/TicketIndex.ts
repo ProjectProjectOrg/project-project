@@ -9,6 +9,7 @@ import type {
   TicketType,
   TicketCountQuery,
   TicketListQuery,
+  TicketPageQuery,
   TicketSort,
   TicketBranchEntry
 } from "@pp/shared"
@@ -30,6 +31,7 @@ export interface TicketIndexQueryOptions {
   readonly viewerId: string
   readonly ticketIds?: ReadonlyArray<string>
   readonly excludeTicketIds?: ReadonlyArray<string>
+  readonly sectionTicketIds?: ReadonlyArray<string>
   readonly attachableTo?: TicketIndexAttachable
   readonly limit: number
 }
@@ -214,7 +216,7 @@ export type TicketIndexShape = Readonly<{
   ) => Effect.Effect<ReadonlyArray<TicketIndexEntry>>
   query: (
     project: TicketIndexProject,
-    query: TicketListQuery,
+    query: TicketPageQuery,
     options: TicketIndexQueryOptions
   ) => Effect.Effect<ReadonlyArray<TicketIndexQueryEntry>>
   querySections: (

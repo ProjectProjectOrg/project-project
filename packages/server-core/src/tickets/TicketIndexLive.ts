@@ -26,7 +26,10 @@ import {
   type TicketCountQuery,
   type TicketFilter,
   type TicketListQuery,
+  type TicketPageQuery,
+  type TicketSection,
   type TicketSort,
+  type ParentFilter,
   TicketStatus
 } from "@pp/shared"
 import {
@@ -363,6 +366,35 @@ const attachableConditions = (
 const escapedLikePattern = (value: string): string =>
   `%${value.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_")}%`
 
+const statusCondition = (status: ReadonlyArray<string>): SQL =>
+  status.length === 0
+    ? drizzleSql`false`
+    : inArray(ticketIndex.status, [...status])
+
+const parentCondition = (parents: ReadonlyArray<ParentFilter>): SQL => {
+  const parentIds = parents.filter((parent) => parent !== "none")
+  const conditions: Array<SQL> = []
+  if (parents.includes("none")) conditions.push(isNull(ticketIndex.parent))
+  if (parentIds.length > 0) {
+    conditions.push(inArray(ticketIndex.parent, parentIds))
+  }
+  return or(...conditions) ?? drizzleSql`false`
+}
+
+const ticketIdsCondition = (ticketIds: ReadonlyArray<string>): SQL =>
+  drizzleSql`${ticketIndex.ticketId} = any(${drizzleSql.param([...ticketIds])}::text[])`
+
+const sectionConditions = (
+  section: TicketSection | undefined,
+  sectionTicketIds: ReadonlyArray<string> | undefined
+): ReadonlyArray<SQL> => [
+  ...(section?.status === undefined ? [] : [statusCondition(section.status)]),
+  ...(section?.parent === undefined ? [] : [parentCondition(section.parent)]),
+  ...(sectionTicketIds === undefined
+    ? []
+    : [ticketIdsCondition(sectionTicketIds)])
+]
+
 interface TicketWhereOptions {
   readonly viewerId: string
   readonly ticketIds?: ReadonlyArray<string>
@@ -382,11 +414,7 @@ const ticketWhereConditions = (
       : isNull(ticketIndex.archivedAt)
   ]
   if (options.ticketIds !== undefined) {
-    conditions.push(
-      drizzleSql`${ticketIndex.ticketId} = any(${drizzleSql.param([
-        ...options.ticketIds
-      ])}::text[])`
-    )
+    conditions.push(ticketIdsCondition(options.ticketIds))
   }
   if (options.excludeTicketIds && options.excludeTicketIds.length > 0) {
     conditions.push(
@@ -396,11 +424,7 @@ const ticketWhereConditions = (
     )
   }
   if (filter?.status !== undefined) {
-    conditions.push(
-      filter.status.length === 0
-        ? drizzleSql`false`
-        : inArray(ticketIndex.status, [...filter.status])
-    )
+    conditions.push(statusCondition(filter.status))
   }
   if (filter?.type !== undefined) {
     conditions.push(
@@ -449,15 +473,7 @@ const ticketWhereConditions = (
     )
   }
   if (filter?.parent !== undefined) {
-    const parentIds = filter.parent.filter((parent) => parent !== "none")
-    const parentConditions: Array<SQL> = []
-    if (filter.parent.includes("none")) {
-      parentConditions.push(isNull(ticketIndex.parent))
-    }
-    if (parentIds.length > 0) {
-      parentConditions.push(inArray(ticketIndex.parent, parentIds))
-    }
-    conditions.push(or(...parentConditions) ?? drizzleSql`false`)
+    conditions.push(parentCondition(filter.parent))
   }
   if (filter?.subTickets === "nested") {
     const matchingParents = and(
@@ -745,13 +761,14 @@ export const TicketIndexLive = Layer.effect(
 
     const query = (
       project: TicketIndexProject,
-      ticketQuery: TicketListQuery,
+      ticketQuery: TicketPageQuery,
       options: TicketIndexQueryOptions
     ): Effect.Effect<ReadonlyArray<TicketIndexQueryEntry>> => {
       if (options.ticketIds?.length === 0) return Effect.succeed([])
       const expression = ticketSortExpression(ticketQuery.sort)
       const conditions = [
         ...ticketWhereConditions(project, ticketQuery, options),
+        ...sectionConditions(ticketQuery.section, options.sectionTicketIds),
         ...attachableConditions(options.attachableTo),
         ticketCursorCondition(ticketQuery, expression)
       ].filter((condition) => condition !== undefined)
