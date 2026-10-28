@@ -12,7 +12,7 @@ export function BranchResultsFrame({
   children
 }: Readonly<{ results: BranchResults; empty: boolean; children: ReactNode }>) {
   return (
-    <div className="flex h-64 flex-col">
+    <div className="flex h-64 min-h-0 flex-col">
       <BranchResultsNote results={results} empty={empty} />
       {children}
     </div>

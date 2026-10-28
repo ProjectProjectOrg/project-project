@@ -89,7 +89,11 @@ export function BranchPicker({
       )}
     >
       <DropdownMenuTrigger render={trigger} />
-      <DropdownMenuContent align={align} sideOffset={6} className="w-80">
+      <DropdownMenuContent
+        align={align}
+        sideOffset={6}
+        className="flex w-80 flex-col"
+      >
         <BranchPickerBody
           {...props}
           query={query}
