@@ -188,6 +188,7 @@ export type TicketCountQuery = typeof TicketCountQuery.Type
 export const TicketSearchQuery = Schema.Struct({
   q: Schema.optional(Schema.String),
   excludeGroupId: Schema.optional(GroupId),
+  attachableTo: Schema.optional(TicketId),
   limit: Schema.optional(
     Schema.FiniteFromString.pipe(
       Schema.check(Schema.isInt()),

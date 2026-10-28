@@ -672,12 +672,23 @@ export const TicketsLive = Layer.effect(
           Math.max(1, options.limit ?? SEARCH_DEFAULT_LIMIT),
           SEARCH_MAX_LIMIT
         )
+        const attachParent =
+          options.attachableTo === undefined
+            ? undefined
+            : (yield* ticketIndex.list(project, [options.attachableTo]))[0]
         const queryEntries = yield* ticketIndex.query(
           project,
           { q: options.q, sort: DEFAULT_TICKET_SORT },
           {
             viewerId: userId,
             excludeTicketIds: excludedTicketIds,
+            attachableTo:
+              options.attachableTo === undefined
+                ? undefined
+                : {
+                    parent: options.attachableTo,
+                    leavesOnly: attachParent?.type !== "epic"
+                  },
             limit
           }
         )

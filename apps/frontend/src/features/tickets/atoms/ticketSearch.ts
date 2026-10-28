@@ -1,4 +1,4 @@
-import type { GroupId, TicketSearchQuery } from "@pp/shared"
+import type { GroupId, TicketId, TicketSearchQuery } from "@pp/shared"
 import * as Atom from "effect/reactivity/Atom"
 
 import { Api } from "@/api/Api"
@@ -7,6 +7,7 @@ import { Keys, projectScope } from "@/api/keys"
 export type TicketSearchOptions = Readonly<{
   q?: string
   excludeGroupId?: GroupId
+  attachableTo?: TicketId
   limit?: number
 }>
 

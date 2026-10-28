@@ -30,8 +30,14 @@ export interface TicketIndexQueryOptions {
   readonly viewerId: string
   readonly ticketIds?: ReadonlyArray<string>
   readonly excludeTicketIds?: ReadonlyArray<string>
+  readonly attachableTo?: TicketIndexAttachable
   readonly limit: number
 }
+
+export type TicketIndexAttachable = Readonly<{
+  parent: string
+  leavesOnly: boolean
+}>
 
 export interface TicketIndexCountOptions {
   readonly viewerId: string

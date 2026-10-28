@@ -28,14 +28,13 @@ import {
   searchRequest,
   ticketSearch
 } from "@/features/tickets/atoms/ticketSearch"
-import { attachCandidates } from "@/features/tickets/lib/childTickets"
 import { m } from "@/paraglide/messages"
 
 const idleSearch = Atom.make(Result.initial<ReadonlyArray<Ticket>>())
 
 export function AttachTicketPicker({
   parent
-}: Readonly<{ parent: Pick<Ticket, "id" | "type"> }>) {
+}: Readonly<{ parent: Pick<Ticket, "id"> }>) {
   const { orgSlug, slug } = useProjectRoute()
   const registry = useContext(RegistryContext)
   const [open, setOpen] = useState(false)
@@ -45,13 +44,15 @@ export function AttachTicketPicker({
   const result = useAtomValue(
     open
       ? ticketSearch(
-          searchRequest(orgSlug, slug, { q: query || undefined, limit: 24 })
+          searchRequest(orgSlug, slug, {
+            q: query || undefined,
+            attachableTo: parent.id,
+            limit: 24
+          })
         )
       : idleSearch
   )
-  const candidates = Result.isSuccess(result)
-    ? attachCandidates(result.value, parent)
-    : []
+  const candidates = Result.isSuccess(result) ? result.value : []
   const byId = new Map<string, Ticket>(
     candidates.map((ticket) => [ticket.id, ticket])
   )

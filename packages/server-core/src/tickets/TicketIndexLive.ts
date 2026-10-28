@@ -80,6 +80,7 @@ import {
   type TicketIndexProject,
   type TicketIndexProjectPreview,
   type TicketIndexQueryEntry,
+  type TicketIndexAttachable,
   type TicketIndexQueryOptions,
   type TicketIndexSections,
   type TicketIndexSectionsOptions,
@@ -320,6 +321,26 @@ const entryColumns = { ...getTableColumns(ticketIndex), subTicketCount }
 
 type EntryRow = typeof ticketIndex.$inferSelect &
   Readonly<{ subTicketCount: number }>
+
+const attachableConditions = (
+  attachable: TicketIndexAttachable | undefined
+): ReadonlyArray<SQL> =>
+  attachable === undefined
+    ? []
+    : [
+        ne(ticketIndex.type, "epic"),
+        ne(ticketIndex.ticketId, attachable.parent),
+        drizzleSql`${ticketIndex.parent} is distinct from ${attachable.parent}`,
+        ...(attachable.leavesOnly
+          ? [
+              drizzleSql`not exists (
+                select 1 from ${ticketIndex} as ${childRow}
+                where ${columnOf(childRow, ticketIndex.projectId)} = ${columnOf(parentRow, ticketIndex.projectId)}
+                  and ${columnOf(childRow, ticketIndex.parent)} = ${columnOf(parentRow, ticketIndex.ticketId)}
+              )`
+            ]
+          : [])
+      ]
 
 const escapedLikePattern = (value: string): string =>
   `%${value.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_")}%`
@@ -712,6 +733,7 @@ export const TicketIndexLive = Layer.effect(
       const expression = ticketSortExpression(ticketQuery.sort)
       const conditions = [
         ...ticketWhereConditions(project, ticketQuery, options),
+        ...attachableConditions(options.attachableTo),
         ticketCursorCondition(ticketQuery, expression)
       ].filter((condition) => condition !== undefined)
       return db
