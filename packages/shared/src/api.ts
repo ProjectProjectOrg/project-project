@@ -82,6 +82,7 @@ import {
   TicketEpicSections,
   TicketListPage,
   TicketListQuery,
+  TicketSection,
   TicketOrderKeyQuery,
   TicketSearchQuery,
   TicketSections,
@@ -1646,6 +1647,12 @@ const TicketListHttpQuery = TicketListQuery.pipe(
   })
 )
 
+const TicketPageHttpQuery = TicketListHttpQuery.pipe(
+  Schema.fieldsAssign({
+    section: Schema.optional(Schema.fromJsonString(TicketSection))
+  })
+)
+
 const TicketOrderKeyHttpQuery = TicketOrderKeyQuery.pipe(
   Schema.fieldsAssign({
     sort: Schema.optional(Schema.fromJsonString(TicketSort))
@@ -1750,7 +1757,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
   .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/tickets", {
       params: ProjectPath,
-      query: TicketListHttpQuery,
+      query: TicketPageHttpQuery,
       success: TicketListPage,
       error: [Unauthorized, NotFound, Forbidden]
     })

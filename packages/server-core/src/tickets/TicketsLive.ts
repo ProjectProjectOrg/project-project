@@ -497,10 +497,16 @@ export const TicketsLive = Layer.effect(
           project,
           query.groupId
         )
+        const sectionMemberSet = yield* resolveGroupMembers(
+          project,
+          query.section?.groupId
+        )
         const pageLimit = limit ?? TICKET_LIST_LIMIT
         const queryEntries = yield* ticketIndex.query(project, query, {
           viewerId: userId,
           ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet],
+          sectionTicketIds:
+            sectionMemberSet === null ? undefined : [...sectionMemberSet],
           limit: pageLimit + 1
         })
         return ticketPage(queryEntries, query, yield* gitView, pageLimit)
