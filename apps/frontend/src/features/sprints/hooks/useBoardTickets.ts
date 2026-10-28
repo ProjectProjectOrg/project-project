@@ -17,11 +17,11 @@ import { withoutNestedChildren } from "@/features/tickets/lib/nestedRows"
 
 import { boardStatusesFor } from "../lib/boardUtils"
 
-export type BoardTickets = {
-  readonly matchingTickets: ReadonlyArray<Ticket>
-  readonly visibleTickets: ReadonlyArray<Ticket>
-  readonly counts: Record<string, number>
-}
+export type BoardTickets = Readonly<{
+  matchingTickets: ReadonlyArray<Ticket>
+  visibleTickets: ReadonlyArray<Ticket>
+  counts: Readonly<Record<string, number>>
+}>
 
 export function useBoardTickets(
   orgSlug: string,
