@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { Member, TicketId } from "@pp/shared"
+import { hasSubTickets, type Member, type TicketId } from "@pp/shared"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
@@ -21,8 +21,6 @@ import { NestTree, type RowNest } from "./NestTree"
 import { Row, rowGridClassName } from "./Row"
 import { useSubTicketExpansion } from "./SubTicketExpansion"
 import { VirtualRows } from "./VirtualRows"
-
-const hasChildren = (row: TicketRow) => (row.ticket.subTicketCount ?? 0) > 0
 
 export function SectionRows({
   items,
@@ -52,7 +50,8 @@ export function SectionRows({
       ? []
       : items
           .filter(
-            (row) => hasChildren(row) && expansion.isExpanded(row.ticket.id)
+            ({ ticket }) =>
+              hasSubTickets(ticket) && expansion.isExpanded(ticket.id)
           )
           .map((row) => row.ticket.id)
   )
@@ -63,26 +62,15 @@ export function SectionRows({
     children.get(parent)
   )
 
-  const nestOf = (index: number): RowNest | undefined => {
-    const entry = entries[index]
-    if (entry.parent === null) {
-      if (
-        entry.kind !== "row" ||
-        !hasChildren(entry.row) ||
-        expansion === null
-      ) {
-        return undefined
-      }
-      const id = entry.row.ticket.id
-      return {
-        role: "parent",
-        expanded: expanded.has(id),
-        onToggle: () => expansion.toggle(id)
-      }
-    }
+  const nestOf = (entry: NestedEntry): RowNest | undefined => {
+    if (entry.kind === "children") return { role: "child", last: true }
+    if (entry.parent !== null) return { role: "child", last: entry.last }
+    const { ticket } = entry.row
+    if (expansion === null || !hasSubTickets(ticket)) return undefined
     return {
-      role: "child",
-      last: entries[index + 1]?.parent !== entry.parent
+      role: "parent",
+      expanded: expanded.has(ticket.id),
+      onToggle: () => expansion.toggle(ticket.id)
     }
   }
   const updatesFor = (entry: NestedEntry) =>
@@ -101,7 +89,7 @@ export function SectionRows({
     >
       {(index) => {
         const entry = entries[index]
-        const nest = nestOf(index)
+        const nest = nestOf(entry)
         if (entry.kind === "children") {
           return (
             <div

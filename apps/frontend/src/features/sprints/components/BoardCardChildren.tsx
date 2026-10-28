@@ -1,6 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
-import type { Ticket, TicketId } from "@pp/shared"
+import { hasSubTickets, type Ticket, type TicketId } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 
@@ -22,7 +22,7 @@ type Parent = Pick<Ticket, "id" | "subTicketCount" | "subTicketDoneCount">
 
 export function BoardCardProgress({ ticket }: Readonly<{ ticket: Parent }>) {
   const expansion = useSubTicketExpansion()
-  if ((ticket.subTicketCount ?? 0) === 0) return null
+  if (!hasSubTickets(ticket)) return null
   return (
     <span className="inline-flex items-center gap-0.5">
       {expansion !== null && (
@@ -39,7 +39,7 @@ export function BoardCardProgress({ ticket }: Readonly<{ ticket: Parent }>) {
 export function BoardCardChildren({ parent }: Readonly<{ parent: Parent }>) {
   const expansion = useSubTicketExpansion()
   if (
-    (parent.subTicketCount ?? 0) === 0 ||
+    !hasSubTickets(parent) ||
     expansion === null ||
     !expansion.isExpanded(parent.id)
   ) {
@@ -82,7 +82,8 @@ function ChildLine({
   ticket
 }: Readonly<{ parent: TicketId; ticket: Ticket }>) {
   const { orgSlug, slug } = useProjectRoute()
-  const editable = TicketPolicy.canChange(useProjectActor(), { content: true })
+  const actor = useProjectActor()
+  const editable = TicketPolicy.canChange(actor, { content: true })
   const onPatch = useAtomSet(
     childTicketUpdates(childTicketsRequest(orgSlug, slug, parent))(ticket.id)
   )

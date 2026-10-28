@@ -96,6 +96,9 @@ export const expandedChildrenRequest = (
   parents: [...parents].toSorted()
 })
 
+const childOf = (req: ExpandedChildrenRequest, parent: TicketId) =>
+  childTicketsRequest(req.params.orgSlug, req.params.slug, parent)
+
 export const expandedChildTickets = Atom.family(
   (req: ExpandedChildrenRequest) =>
     Atom.readable(
@@ -103,12 +106,12 @@ export const expandedChildTickets = Atom.family(
         new Map(
           req.parents.map((parent) => [
             parent,
-            get(
-              childTickets(
-                childTicketsRequest(req.params.orgSlug, req.params.slug, parent)
-              )
-            )
+            get(childTickets(childOf(req, parent)))
           ])
+        ),
+      (refresh) =>
+        req.parents.forEach((parent) =>
+          refresh(childTickets(childOf(req, parent)))
         )
     )
 )
