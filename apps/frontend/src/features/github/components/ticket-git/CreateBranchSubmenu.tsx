@@ -69,7 +69,7 @@ export function CreateBranchSubmenu({
           spellCheck={false}
           className="font-mono placeholder:font-sans"
           onKeyDown={(event) => {
-            if (event.key !== "Enter") return
+            if (event.key !== "Enter" || event.nativeEvent.isComposing) return
             const highlighted = event.currentTarget.getAttribute(
               "aria-activedescendant"
             )
