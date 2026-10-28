@@ -48,8 +48,8 @@ const LIST_BRANCHES_QUERY = /* GraphQL */ `
         totalCount
         nodes {
           name
-          branchProtectionRule {
-            id
+          refUpdateRule {
+            pattern
           }
         }
         pageInfo {
@@ -257,7 +257,7 @@ type ListBranchesResponse = Readonly<{
       nodes: ReadonlyArray<
         Readonly<{
           name: string
-          branchProtectionRule: Readonly<{ id: string }> | null
+          refUpdateRule: Readonly<{ pattern: string }> | null
         }>
       >
       pageInfo: Readonly<{ hasNextPage: boolean; endCursor: string | null }>
@@ -426,7 +426,7 @@ const branchListFromResponse = (
   return {
     items: data.repository.refs.nodes.map((n) => ({
       name: n.name,
-      isProtected: n.branchProtectionRule !== null
+      isProtected: n.refUpdateRule !== null
     })),
     nextCursor: data.repository.refs.pageInfo.hasNextPage
       ? data.repository.refs.pageInfo.endCursor
