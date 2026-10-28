@@ -1128,14 +1128,45 @@ export const TicketsLive = Layer.effect(
           ? Effect.fail(new Validation({ reason: "epic_with_parent" }))
           : validateParent(indexProject, null, parent)
 
+    const subTicketIds = (
+      indexProject: TicketIndexProject,
+      viewerId: string,
+      id: string
+    ): Effect.Effect<ReadonlyArray<string>> =>
+      Effect.forEach(
+        [false, true],
+        (archived) =>
+          Effect.gen(function* () {
+            const filter = { parent: [makeTicketId(id)], archived }
+            const { total } = yield* ticketIndex.count(indexProject, filter, {
+              viewerId
+            })
+            if (total === 0) return []
+            const entries = yield* ticketIndex.query(
+              indexProject,
+              { ...filter, sort: DEFAULT_TICKET_SORT },
+              { viewerId, limit: total }
+            )
+            return entries.map(({ entry }) => entry.id)
+          }),
+        { concurrency: 2 }
+      ).pipe(Effect.map((pages) => pages.flat()))
+
     const hasSubTickets = (
       indexProject: TicketIndexProject,
       viewerId: string,
       id: string
     ): Effect.Effect<boolean> =>
-      ticketIndex
-        .count(indexProject, { parent: [makeTicketId(id)] }, { viewerId })
-        .pipe(Effect.map((counts) => counts.total > 0))
+      Effect.forEach(
+        [false, true],
+        (archived) =>
+          ticketIndex.count(
+            indexProject,
+            { parent: [makeTicketId(id)], archived },
+            { viewerId }
+          ),
+        { concurrency: 2 }
+      ).pipe(Effect.map((counts) => counts.some(({ total }) => total > 0)))
 
     const writeWithIdAllocation = (
       orgSlug: string,
@@ -1972,21 +2003,19 @@ export const TicketsLive = Layer.effect(
       epicId: string
     ) =>
       Effect.gen(function* () {
-        const children = (yield* ticketIndex.list(indexProject)).filter(
-          (entry) => entry.parent === epicId
-        )
+        const children = yield* subTicketIds(indexProject, userId, epicId)
         const now = yield* DateTime.nowAsDate
         yield* Effect.forEach(
           children,
-          (child) =>
+          (childId) =>
             withTicketDocumentLock(
               orgSlug,
               slug,
-              child.id,
+              childId,
               ticketDocs.update(
                 orgSlug,
                 slug,
-                child.id,
+                childId,
                 (existing) =>
                   Effect.succeed({
                     ...existing,
@@ -1996,7 +2025,17 @@ export const TicketsLive = Layer.effect(
                   }),
                 (next) => ticketIndex.upsertTicket(indexProject, next)
               )
-            ).pipe(Effect.ignore),
+            ).pipe(
+              Effect.catchCause((cause) =>
+                Effect.logError("remove: releasing sub-ticket failed", {
+                  orgSlug,
+                  slug,
+                  epicId,
+                  childId,
+                  cause
+                })
+              )
+            ),
           { discard: true }
         )
       })

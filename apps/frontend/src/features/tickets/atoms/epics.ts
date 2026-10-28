@@ -1,7 +1,8 @@
 import {
   TicketStatus,
-  type Ticket,
   type TicketId,
+  type TicketListPage,
+  type TicketListRow,
   type TicketSort
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -37,33 +38,67 @@ export const epicsRequest = (orgSlug: string, slug: string): EpicsRequest => ({
 
 const EPIC_SORT: TicketSort = { key: "title", dir: "asc" }
 
-const epicsQuery = (req: EpicsRequest, archived: boolean) =>
+const allPages = <E>(
+  get: Atom.AtomContext,
+  page: (
+    cursor: string | undefined
+  ) => Atom.Atom<AsyncResult.AsyncResult<TicketListPage, E>>
+): AsyncResult.AsyncResult<ReadonlyArray<TicketListRow>, E> => {
+  const rows: Array<TicketListRow> = []
+  let cursor: string | undefined = undefined
+  let waiting = false
+  do {
+    const result: AsyncResult.AsyncResult<TicketListPage, E> = get(page(cursor))
+    if (!AsyncResult.isSuccess(result)) {
+      return AsyncResult.map(result, (): ReadonlyArray<TicketListRow> => rows)
+    }
+    rows.push(...result.value.items)
+    waiting ||= result.waiting
+    cursor = result.value.nextCursor ?? undefined
+  } while (cursor !== undefined)
+  return AsyncResult.success(rows, { waiting })
+}
+
+const epicsPage = (
+  req: EpicsRequest,
+  archived: boolean,
+  cursor: string | undefined
+) =>
   Api.query("tickets", "list", {
     params: req.params,
-    query: { type: ["epic"], archived, sort: EPIC_SORT },
+    query: {
+      type: ["epic"],
+      archived,
+      sort: EPIC_SORT,
+      cursor
+    },
     timeToLive: "2 minutes",
     reactivityKeys: [
       Keys.ticketsIn(projectScope(req.params.orgSlug, req.params.slug))
     ]
   })
 
-export const projectEpics = Atom.family((req: EpicsRequest) =>
-  Atom.mapResult(epicsQuery(req, false), (page) =>
-    page.items.map((row) => row.ticket)
+const epicRows = (req: EpicsRequest, archived: boolean) =>
+  Atom.readable(
+    (get) => allPages(get, (cursor) => epicsPage(req, archived, cursor)),
+    (refresh) => refresh(epicsPage(req, archived, undefined))
   )
+
+export const projectEpics = Atom.family((req: EpicsRequest) =>
+  Atom.mapResult(epicRows(req, false), (rows) => rows.map((row) => row.ticket))
 )
 
 const titlesOf = (
-  page: Readonly<{ items: ReadonlyArray<Readonly<{ ticket: Ticket }>> }>
+  rows: ReadonlyArray<TicketListRow>
 ): ReadonlyMap<TicketId, string> =>
-  new Map(page.items.map(({ ticket }) => [ticket.id, ticket.title]))
+  new Map(rows.map(({ ticket }) => [ticket.id, ticket.title]))
 
 export const openEpicTitles = Atom.family((req: EpicsRequest) =>
-  Atom.mapResult(epicsQuery(req, false), titlesOf)
+  Atom.mapResult(epicRows(req, false), titlesOf)
 )
 
 export const archivedEpicTitles = Atom.family((req: EpicsRequest) =>
-  Atom.mapResult(epicsQuery(req, true), titlesOf)
+  Atom.mapResult(epicRows(req, true), titlesOf)
 )
 
 export type SubTicketsRequest = Readonly<{
@@ -82,10 +117,14 @@ const SUB_TICKET_SORT: TicketSort = { key: "created", dir: "asc" }
 const scopeOf = (req: SubTicketsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-const subTicketsQuery = (req: SubTicketsRequest) =>
+const subTicketsPage = (req: SubTicketsRequest, cursor: string | undefined) =>
   Api.query("tickets", "list", {
     params: req.params,
-    query: { parent: [req.parent], sort: SUB_TICKET_SORT },
+    query: {
+      parent: [req.parent],
+      sort: SUB_TICKET_SORT,
+      cursor
+    },
     timeToLive: "2 minutes",
     reactivityKeys: [
       Keys.ticketsIn(scopeOf(req)),
@@ -98,12 +137,12 @@ const subTicketsView = (req: SubTicketsRequest) =>
     (get) => {
       const created = get(createdKeys(scopeOf(req)))
       return AsyncResult.map(
-        get(subTicketsQuery(req)),
-        (page): ReadonlyArray<TicketRow> =>
-          withCreatedKeys(page.items.map(toRow), created)
+        allPages(get, (cursor) => subTicketsPage(req, cursor)),
+        (rows): ReadonlyArray<TicketRow> =>
+          withCreatedKeys(rows.map(toRow), created)
       )
     },
-    (refresh) => refresh(subTicketsQuery(req))
+    (refresh) => refresh(subTicketsPage(req, undefined))
   )
 
 export const subTickets = Atom.family((req: SubTicketsRequest) =>

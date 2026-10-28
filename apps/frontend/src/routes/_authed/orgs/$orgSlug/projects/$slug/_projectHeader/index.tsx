@@ -15,6 +15,10 @@ import {
 import { backlog, backlogRequest } from "@/features/tickets/atoms/backlog"
 import { epicsRequest, openEpicTitles } from "@/features/tickets/atoms/epics"
 import {
+  epicSections,
+  epicSectionsRequest
+} from "@/features/tickets/atoms/epicSections"
+import {
   sprintSections,
   sprintSectionsRequest
 } from "@/features/tickets/atoms/sprintSections"
@@ -52,10 +56,13 @@ export const Route = createFileRoute(
     if (grouping !== "sprint") {
       registry.mount(backlog(backlogRequest(orgSlug, slug, query)))()
     }
-    if (grouping !== "status") {
+    if (grouping === "sprint") {
       registry.mount(
         sprintSections(sprintSectionsRequest(orgSlug, slug, query))
       )()
+    }
+    if (grouping === "epic") {
+      registry.mount(epicSections(epicSectionsRequest(orgSlug, slug, query)))()
     }
   },
   validateSearch: Schema.toStandardSchemaV1(BacklogRouteSearchSchema)

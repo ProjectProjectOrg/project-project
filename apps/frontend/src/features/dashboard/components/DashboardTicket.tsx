@@ -80,6 +80,7 @@ export function DashboardRow({
       >
         <Row
           variant={below === undefined ? "standalone" : "embedded"}
+          showSprint={false}
           ticket={item.ticket}
           members={members}
           editable={editable}

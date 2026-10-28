@@ -133,6 +133,10 @@ export function SectionList({
     !creatingSections.creatingIds.has(sectionId)
 
   const { items } = page
+  const inOneSprint =
+    snapshotReq?._view !== "sprintSections" &&
+    query.groupId?.length === 1 &&
+    query.groupId[0] !== "ungrouped"
 
   const gridCols = rowGridClassName
 
@@ -202,6 +206,7 @@ export function SectionList({
                   <Row
                     update={update}
                     showParent={snapshotReq?._view !== "epicSections"}
+                    showSprint={!inOneSprint}
                     ticket={ticket}
                     members={members}
                     pending={pending}

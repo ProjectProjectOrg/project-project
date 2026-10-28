@@ -39,6 +39,7 @@ export type RowProps = Readonly<{
   ticket: Ticket
   members: ReadonlyArray<Member>
   showParent?: boolean
+  showSprint?: boolean
   pending?: boolean
   editable?: boolean
   previewOpen: boolean
@@ -52,6 +53,7 @@ function RowImpl({
   ticket,
   members,
   showParent = true,
+  showSprint = true,
   pending,
   editable = true,
   previewOpen,
@@ -157,7 +159,7 @@ function RowImpl({
                 <UpdateFailureMarker update={update(ticket.id)} />
                 <TicketGitChip orgSlug={orgSlug} slug={slug} ticket={ticket} />
                 <EstimateChip ticket={ticket} mode={estimation} />
-                <RowSprint ticketId={ticket.id} />
+                {showSprint && <RowSprint ticketId={ticket.id} />}
                 <AssigneeField
                   ticket={ticket}
                   members={members}
