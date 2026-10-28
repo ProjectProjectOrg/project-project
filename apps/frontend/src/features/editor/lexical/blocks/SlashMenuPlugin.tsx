@@ -177,7 +177,7 @@ export function SlashMenuPlugin({
   )
 
   // Lexical's typeahead ignores outside clicks; clearing the selection closes it.
-  const open = query !== null
+  const [open, setOpen] = useState(false)
   useEffect(() => {
     if (!open) return undefined
     const onPointerDown = (event: PointerEvent) => {
@@ -226,7 +226,11 @@ export function SlashMenuPlugin({
   return (
     <LexicalTypeaheadMenuPlugin<SlashMenuOption>
       onQueryChange={changeQuery}
-      onClose={() => setTab("all")}
+      onOpen={() => setOpen(true)}
+      onClose={() => {
+        setOpen(false)
+        setTab("all")
+      }}
       onSelectOption={onSelectOption}
       triggerFn={slashTriggerMatch}
       options={menu.options}
