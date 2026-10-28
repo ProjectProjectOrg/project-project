@@ -450,9 +450,16 @@ function DropdownMenuShortcut({
 }
 
 function DropdownMenuSub({
+  filterable = false,
   ...props
-}: React.ComponentProps<typeof MenuPrimitive.SubmenuRoot>) {
-  return <MenuPrimitive.SubmenuRoot {...props} />
+}: React.ComponentProps<typeof MenuPrimitive.SubmenuRoot> & {
+  filterable?: DropdownMenuFilter
+}) {
+  return (
+    <FilterableRoot filterable={filterable}>
+      <MenuPrimitive.SubmenuRoot {...props} />
+    </FilterableRoot>
+  )
 }
 
 function DropdownMenuSubTrigger({

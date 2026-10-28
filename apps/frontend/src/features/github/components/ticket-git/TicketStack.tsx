@@ -15,31 +15,21 @@ import {
   GitPullRequest,
   GitPullRequestClosed,
   GitPullRequestDraft,
-  Copy,
   Layers,
-  MoreHorizontal,
-  X,
   type LucideIcon
 } from "lucide-react"
 import { useMemo, useState } from "react"
 
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import { unstackBranch } from "@/features/github/atoms/github"
-import { ClearBranchFields } from "@/features/github/components/ticket-git/ClearBranchFields"
-import { ConnectBranchFields } from "@/features/github/components/ticket-git/ConnectBranchFields"
 import { compareUrl } from "@/features/github/lib/branchUrl"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+
+import { BranchMenu } from "./BranchMenu"
+import { PANEL_CHROME } from "./gitPanelFrame"
 
 type LayerTone = "draft" | "open" | "merged" | "closed" | "none" | "deleted"
 
@@ -195,8 +185,6 @@ const ownLayer = (
     Match.exhaustive
   )
 
-type StackAction = "stack" | "clear"
-
 export function StackedBranches({
   ticket,
   github,
@@ -216,169 +204,44 @@ export function StackedBranches({
   const bottom = ownLayer(own, ticket, github.defaultBaseBranch ?? "main")
   const rows = bottom === null ? stack : [bottom, ...stack]
   const count = stackPullRequestCount(own, stack)
-  const Root = InlineForm.Root<StackAction>
   return (
-    <Root actions={["stack", "clear"]} variant={variant}>
-      <InlineForm.Idle block>
-        <section
-          className="flex flex-col gap-1.5"
-          aria-label={m.git_stack_heading()}
-        >
-          <ul className="flex flex-col">
-            {rows.map((layer, index) => (
-              <StackLayerRow
-                key={layer.branch}
-                ticket={ticket}
-                layer={layer}
-                previousBranch={rows[index - 1]?.branch ?? null}
-                first={index === 0}
-                last={index === rows.length - 1}
-                own={layer === bottom}
-                pulse={layer === bottom && pulse}
-                repoSlug={`${github.repoOwner}/${github.repoName}`}
-                canWrite={canWrite}
-              />
-            ))}
-          </ul>
-          <span
-            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"
-            title={m.git_stack_count_title(count)}
-          >
-            <Layers className="size-3" strokeWidth={1.75} aria-hidden />
-            {m.git_stack_count(count)}
-          </span>
-        </section>
-      </InlineForm.Idle>
-      <InlineForm.Form action="stack">
-        <ConnectBranchFields
-          ticket={ticket}
-          github={github}
-          variant={variant}
-          mode="stack"
-        />
-      </InlineForm.Form>
-      <InlineForm.Form action="clear">
-        <ClearBranchFields id={ticket.id} variant={variant} />
-      </InlineForm.Form>
-    </Root>
-  )
-}
-
-export function AddStackedBranch({
-  ticket,
-  github,
-  variant
-}: Readonly<{
-  ticket: TicketDetail
-  github: GithubConnection
-  variant: "bordered" | "ghost"
-}>) {
-  const canWrite = useProjectActor().call("tickets", "stackBranch")
-  if (!canWrite) return null
-  const Root = InlineForm.Root<"stack">
-  return (
-    <Root actions={["stack"]} variant="ghost">
-      <InlineForm.Idle>
-        <InlineForm.Trigger
-          action="stack"
-          size="xs"
-          variant="ghost"
-          leadingIcon={Layers}
-        >
-          {m.git_stack_add_button()}
-        </InlineForm.Trigger>
-      </InlineForm.Idle>
-      <InlineForm.Form action="stack">
-        <ConnectBranchFields
-          ticket={ticket}
-          github={github}
-          variant={variant}
-          mode="stack"
-        />
-      </InlineForm.Form>
-    </Root>
-  )
-}
-
-function BranchMenu({
-  layer,
-  own,
-  repoSlug,
-  canWrite,
-  busy,
-  onRemove
-}: Readonly<{
-  layer: StackLayerState
-  own: boolean
-  repoSlug: string
-  canWrite: boolean
-  busy: boolean
-  onRemove: () => void
-}>) {
-  const { open } = useInlineForm()
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            aria-label={m.git_stack_branch_menu_label({ branch: layer.branch })}
-          >
-            <MoreHorizontal strokeWidth={1.75} />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" sideOffset={4} className="w-48">
-        <DropdownMenuItem
-          onClick={() => void navigator.clipboard.writeText(layer.branch)}
-        >
-          <Copy strokeWidth={1.75} />
-          {m.git_copy_branch_name_label()}
-        </DropdownMenuItem>
-        {canWrite &&
-          (layer.pr === null || layer.pr.state === "closed") &&
-          layer.base !== null && (
-            <DropdownMenuItem
-              onClick={() =>
-                window.open(
-                  compareUrl(repoSlug, layer.base ?? "", layer.branch),
-                  "_blank",
-                  "noreferrer"
-                )
-              }
-            >
-              <GitPullRequest strokeWidth={1.75} />
-              {layer.pr?.state === "closed"
-                ? m.git_open_new_pr_button()
-                : m.git_open_pr_button()}
-            </DropdownMenuItem>
-          )}
-        {canWrite && (
-          <DropdownMenuItem onClick={() => open("stack")}>
-            <Layers strokeWidth={1.75} />
-            {m.git_stack_add_button()}
-          </DropdownMenuItem>
-        )}
-        {canWrite &&
-          (own ? (
-            <DropdownMenuItem onClick={() => open("clear")}>
-              <X strokeWidth={1.75} />
-              {m.git_stack_clear_branch()}
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem disabled={busy} onClick={onRemove}>
-              <X strokeWidth={1.75} />
-              {m.git_stack_remove_item()}
-            </DropdownMenuItem>
+    <div className={variant === "bordered" ? PANEL_CHROME : undefined}>
+      <section
+        className="flex flex-col gap-1.5"
+        aria-label={m.git_stack_heading()}
+      >
+        <ul className="flex flex-col">
+          {rows.map((layer, index) => (
+            <StackLayerRow
+              key={layer.branch}
+              ticket={ticket}
+              github={github}
+              layer={layer}
+              previousBranch={rows[index - 1]?.branch ?? null}
+              first={index === 0}
+              last={index === rows.length - 1}
+              own={layer === bottom}
+              pulse={layer === bottom && pulse}
+              repoSlug={`${github.repoOwner}/${github.repoName}`}
+              canWrite={canWrite}
+            />
           ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </ul>
+        <span
+          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"
+          title={m.git_stack_count_title(count)}
+        >
+          <Layers className="size-3" strokeWidth={1.75} aria-hidden />
+          {m.git_stack_count(count)}
+        </span>
+      </section>
+    </div>
   )
 }
 
 function StackLayerRow({
   ticket,
+  github,
   layer,
   previousBranch,
   first,
@@ -389,6 +252,7 @@ function StackLayerRow({
   canWrite
 }: Readonly<{
   ticket: TicketDetail
+  github: GithubConnection
   layer: StackLayerState
   previousBranch: string | null
   first: boolean
@@ -499,12 +363,27 @@ function StackLayerRow({
         )}
       </div>
       <BranchMenu
-        layer={layer}
-        own={own}
-        repoSlug={repoSlug}
-        canWrite={canWrite}
-        busy={busy}
-        onRemove={() => void onRemove()}
+        ticket={ticket}
+        github={github}
+        branch={layer.branch}
+        openPr={
+          canWrite &&
+          (layer.pr === null || layer.pr.state === "closed") &&
+          layer.base !== null
+            ? {
+                href: compareUrl(repoSlug, layer.base, layer.branch),
+                label:
+                  layer.pr?.state === "closed"
+                    ? m.git_open_new_pr_button()
+                    : m.git_open_pr_button()
+              }
+            : null
+        }
+        removal={
+          own
+            ? { kind: "ticket" }
+            : { kind: "stack", busy, onRemove: () => void onRemove() }
+        }
       />
     </li>
   )

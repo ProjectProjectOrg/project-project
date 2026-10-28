@@ -77,7 +77,8 @@ export interface ProjectsShape {
   >
   readonly githubBranches: (
     query: string | undefined,
-    first: number
+    first: number,
+    after: string | undefined
   ) => Effect.Effect<
     BranchListResponse,
     RepoGone | RateLimited | GitHubError,

@@ -124,7 +124,7 @@ When you write a new component with hover behavior, always pair the hover class 
 
 When you find yourself writing a one-off styled version of an existing component (different size, chrome, spacing, etc.), **add a variant to the component instead of rolling local Tailwind in the callsite**. Local styles compound: the second time we want the same look we have to copy classes; the third time they drift. A typed variant prop on the primitive keeps the design language singular and reusable.
 
-Concrete example: the inline-pill version of `SegmentedTabs` (used for "Update status to: …") lives as `variant="inline"` on the primitive, not as a hand-rolled set of classes inside `CreateBranchFields`. Same rule applies to buttons, inputs, badges, etc. — extend the primitive, don't reskin it locally.
+Concrete example: the inline-pill version of `SegmentedTabs` lives as `variant="inline"` on the primitive, not as a hand-rolled set of classes at each callsite. Same rule applies to buttons, inputs, badges, etc. — extend the primitive, don't reskin it locally.
 
 If extending the primitive feels disruptive (touches public API, would conflict with other callsites), stop and ask before going local.
 

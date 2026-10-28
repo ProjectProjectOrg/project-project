@@ -196,7 +196,7 @@ export function TicketPage({
           <TicketDiscussion ticket={ticket} members={members} />
         </main>
 
-        <aside className="flex min-w-0 flex-col gap-4 sm:pl-(--ticket-rail-inset) lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:self-start lg:overflow-y-auto lg:border-l lg:border-border/60 lg:pl-5">
+        <aside className="flex min-w-0 flex-col gap-4 sm:pl-(--ticket-rail-inset) lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:self-start lg:overflow-y-auto lg:border-l lg:border-border/60 lg:pr-1 lg:pl-5">
           <fieldset disabled={!canEdit} className="contents">
             <MetaRow label={m.tickets_page_meta_priority()}>
               <PriorityBadgeTrigger ticket={ticket} onPatch={updateTicket} />
