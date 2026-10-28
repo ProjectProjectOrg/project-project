@@ -90,6 +90,7 @@ export const Ticket = Schema.Struct({
   gitState: GitState,
   assignees: Schema.Array(Schema.String),
   parent: Schema.optional(Schema.NullOr(TicketId)),
+  subTicketCount: Schema.optional(Schema.Number),
   archivedAt: Schema.NullOr(Schema.DateFromString),
   createdBy: Schema.String,
   createdAt: Schema.DateFromString,
@@ -136,6 +137,11 @@ export const CreateTicketInput = Schema.Struct({
   template: Schema.optional(Schema.NullOr(TemplateKey))
 })
 export type CreateTicketInput = typeof CreateTicketInput.Type
+
+export const DeleteTicketQuery = Schema.Struct({
+  cascadeSubTickets: Schema.optional(Schema.Boolean)
+})
+export type DeleteTicketQuery = typeof DeleteTicketQuery.Type
 
 export const ArchiveTicketInput = Schema.Struct({
   reason: Schema.optional(

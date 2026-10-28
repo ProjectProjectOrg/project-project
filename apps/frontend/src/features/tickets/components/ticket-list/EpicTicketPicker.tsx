@@ -14,7 +14,10 @@ import {
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { subTickets, subTicketsRequest } from "@/features/tickets/atoms/epics"
+import {
+  childTickets,
+  childTicketsRequest
+} from "@/features/tickets/atoms/childTickets"
 import type { TicketRow } from "@/features/tickets/lib/ticketRows"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
@@ -24,7 +27,9 @@ const keepFocus = (e: React.MouseEvent) => e.preventDefault()
 
 const ROW_STAGGER = 0.025
 
-const idleSubTicketsAtom = Atom.make(Result.initial<ReadonlyArray<TicketRow>>())
+const idleEpicTicketsAtom = Atom.make(
+  Result.initial<ReadonlyArray<TicketRow>>()
+)
 
 export function useEpicPicker(inSprint: ReadonlySet<TicketId>) {
   const { orgSlug, slug } = useProjectRoute()
@@ -35,8 +40,8 @@ export function useEpicPicker(inSprint: ReadonlySet<TicketId>) {
   const [cursor, setCursor] = useState(0)
   const rows = useAtomValue(
     epic === null
-      ? idleSubTicketsAtom
-      : subTickets(subTicketsRequest(orgSlug, slug, epic.id))
+      ? idleEpicTicketsAtom
+      : childTickets(childTicketsRequest(orgSlug, slug, epic.id))
   )
   const statuses = useAtomValue(statusesFor(statusesRequest(orgSlug, slug)))
   const finished = Result.isSuccess(statuses)
@@ -106,7 +111,7 @@ export function useEpicPicker(inSprint: ReadonlySet<TicketId>) {
   }
 }
 
-export function EpicSubTicketPicker({
+export function EpicTicketPicker({
   tickets,
   failure,
   inSprint,

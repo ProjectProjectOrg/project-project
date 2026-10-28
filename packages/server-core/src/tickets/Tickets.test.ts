@@ -420,6 +420,7 @@ const entryFromDocument = (document: TicketDocument) => {
     ...entry,
     estimate: entry.estimate ?? null,
     parent: entry.parent ?? null,
+    subTicketCount: 0,
     prDraft: entry.prDraft ?? false,
     prBase: entry.prBase ?? null,
     ignoredBranches: entry.ignoredBranches ?? [],
@@ -2063,15 +2064,19 @@ it.effect("create files a sub-ticket under an epic", () => {
 })
 
 it.effect(
-  "create rejects a parent that isn't an epic, and an epic with a parent",
+  "create rejects a sub-ticket as parent, and an epic with a parent",
   () => {
-    const { layer } = makeEpicFixture()
+    const { docs, layer } = makeEpicFixture()
+    docs.documents.set(
+      "T-3",
+      makeTicketDocument("T-3", { parent: ticketId("T-2") })
+    )
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      const notAnEpic = yield* tickets
+      const underSubTicket = yield* tickets
         .create({
           title: "Child",
-          parent: ticketId("T-2")
+          parent: ticketId("T-3")
         })
         .pipe(Effect.flip)
       const nestedEpic = yield* tickets
@@ -2082,9 +2087,9 @@ it.effect(
         })
         .pipe(Effect.flip)
 
-      expect(notAnEpic).toMatchObject({
+      expect(underSubTicket).toMatchObject({
         _tag: "Validation",
-        reason: "invalid_parent:T-2"
+        reason: "invalid_parent:T-3"
       })
       expect(nestedEpic).toMatchObject({
         _tag: "Validation",
@@ -2094,7 +2099,7 @@ it.effect(
   }
 )
 
-it.effect("deleting an epic takes its sub-tickets out of it", () => {
+it.effect("deleting an epic takes its tickets out of it", () => {
   const { docs, layer } = makeEpicFixture()
   docs.documents.set(
     "T-2",
@@ -2109,7 +2114,7 @@ it.effect("deleting an epic takes its sub-tickets out of it", () => {
   }).pipe(Effect.provide(layer))
 })
 
-it.effect("an epic keeps its type while it has sub-tickets", () => {
+it.effect("an epic keeps its type while it has tickets", () => {
   const { layer } = makeEpicFixture()
   return Effect.gen(function* () {
     const tickets = yield* Tickets
@@ -2126,9 +2131,86 @@ it.effect("an epic keeps its type while it has sub-tickets", () => {
 
     expect(blocked).toMatchObject({
       _tag: "Validation",
-      reason: "epic_has_sub_tickets"
+      reason: "epic_has_tickets"
     })
     expect(freed.ticket.type).toBe("feat")
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("a ticket holds sub-tickets one level deep", () => {
+  const { docs, layer } = makeEpicFixture()
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const child = yield* tickets.quickCreate({
+      title: "Child",
+      parent: ticketId("T-2")
+    })
+    const grandchild = yield* tickets
+      .quickCreate({ title: "Grandchild", parent: child.id })
+      .pipe(Effect.flip)
+
+    expect(docs.documents.get(child.id)?.parent).toBe("T-2")
+    expect(grandchild).toMatchObject({
+      _tag: "Validation",
+      reason: `invalid_parent:${child.id}`
+    })
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect(
+  "a ticket with sub-tickets can move under an epic but not under a ticket or become an epic",
+  () => {
+    const { docs, layer } = makeEpicFixture()
+    docs.documents.set("T-3", makeTicketDocument("T-3"))
+    docs.documents.set(
+      "T-4",
+      makeTicketDocument("T-4", { parent: ticketId("T-2") })
+    )
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const underTicket = yield* tickets
+        .update("T-2", { parent: ticketId("T-3") })
+        .pipe(Effect.flip)
+      const toEpic = yield* tickets
+        .update("T-2", { type: "epic" })
+        .pipe(Effect.flip)
+      const underEpic = yield* tickets.update("T-2", {
+        parent: ticketId("T-1")
+      })
+
+      expect(underTicket).toMatchObject({
+        _tag: "Validation",
+        reason: "ticket_has_sub_tickets"
+      })
+      expect(toEpic).toMatchObject({
+        _tag: "Validation",
+        reason: "ticket_has_sub_tickets"
+      })
+      expect(underEpic.ticket.parent).toBe("T-1")
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect("deleting with cascadeSubTickets deletes the whole subtree", () => {
+  const { docs, layer } = makeEpicFixture()
+  docs.documents.set(
+    "T-2",
+    makeTicketDocument("T-2", { parent: ticketId("T-1") })
+  )
+  docs.documents.set(
+    "T-3",
+    makeTicketDocument("T-3", { parent: ticketId("T-2") })
+  )
+  docs.documents.set("T-4", makeTicketDocument("T-4"))
+  docs.documents.set(
+    "T-5",
+    makeTicketDocument("T-5", { parent: ticketId("T-4") })
+  )
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    yield* tickets.remove("T-1", { cascadeSubTickets: true })
+
+    expect([...docs.documents.keys()]).toEqual(["T-4", "T-5"])
   }).pipe(Effect.provide(layer))
 })
 

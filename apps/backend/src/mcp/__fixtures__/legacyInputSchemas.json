@@ -416,6 +416,17 @@
           }
         ]
       },
+      "subTickets": {
+        "anyOf": [
+          {
+            "enum": ["nested", "flat"],
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "archived": {
         "anyOf": [
           {

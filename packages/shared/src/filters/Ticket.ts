@@ -58,6 +58,9 @@ export type GroupIdFilter = typeof GroupIdFilter.Type
 export const ParentFilter = Schema.Union([Schema.Literal("none"), TicketId])
 export type ParentFilter = typeof ParentFilter.Type
 
+export const SubTicketsMode = Schema.Literals(["nested", "flat"])
+export type SubTicketsMode = typeof SubTicketsMode.Type
+
 const TicketFilterFields = {
   status: Schema.optional(Schema.Array(TicketStatus)),
   type: Schema.optional(Schema.Array(TicketType)),
@@ -69,6 +72,7 @@ const TicketFilterFields = {
   groupId: Schema.optional(Schema.Array(GroupIdFilter)),
   estimate: Schema.optional(Schema.Array(EstimateFilterValue)),
   parent: Schema.optional(Schema.Array(ParentFilter)),
+  subTickets: Schema.optional(SubTicketsMode),
   archived: Schema.optional(Schema.Boolean)
 } as const
 
@@ -184,6 +188,7 @@ export type TicketCountQuery = typeof TicketCountQuery.Type
 export const TicketSearchQuery = Schema.Struct({
   q: Schema.optional(Schema.String),
   excludeGroupId: Schema.optional(GroupId),
+  attachableTo: Schema.optional(TicketId),
   limit: Schema.optional(
     Schema.FiniteFromString.pipe(
       Schema.check(Schema.isInt()),

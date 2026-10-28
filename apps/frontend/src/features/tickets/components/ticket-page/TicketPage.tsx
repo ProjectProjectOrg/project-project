@@ -7,13 +7,10 @@ import type {
   TicketId,
   UpdateTicketInput
 } from "@pp/shared"
-import { useNavigate } from "@tanstack/react-router"
-import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Archive } from "lucide-react"
 import { useState } from "react"
 
-import { ConfirmButton } from "@/components/ui/confirm-button"
 import { type SaveStatus } from "@/features/editor/components/LexicalEditor"
 import { Markdown } from "@/features/editor/components/Markdown"
 import { MarkdownSaveIndicator } from "@/features/editor/components/MarkdownSaveIndicator"
@@ -23,7 +20,6 @@ import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TagEditor } from "@/features/tags/components/TagEditor"
 import {
   archiveTicket,
-  deleteTicket,
   ticketBodyDraft,
   ticketRequest,
   unarchiveTicket,
@@ -36,9 +32,11 @@ import { PriorityBadgeTrigger } from "@/features/tickets/components/ticket-list/
 import { SplitTicketControl } from "@/features/tickets/components/ticket-list/SplitControl"
 import { SprintBadgeTrigger } from "@/features/tickets/components/ticket-list/SprintField"
 import { TypeBadgeTrigger } from "@/features/tickets/components/ticket-list/TypeField"
+import { DeleteTicketControl } from "@/features/tickets/components/ticket-page/DeleteTicketControl"
 import { DescriptionField } from "@/features/tickets/components/ticket-page/DescriptionField"
 import { EpicField } from "@/features/tickets/components/ticket-page/EpicField"
 import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
+import { ParentTicketLink } from "@/features/tickets/components/ticket-page/ParentTicketLink"
 import { SaveAsTemplatePopover } from "@/features/tickets/components/ticket-page/SaveAsTemplatePopover"
 import { SplitResultBanner } from "@/features/tickets/components/ticket-page/SplitResultBanner"
 import { TemplateSwapNote } from "@/features/tickets/components/ticket-page/TemplateSwapNote"
@@ -49,6 +47,10 @@ import { TicketPageShell } from "@/features/tickets/components/ticket-page/Ticke
 import { UserTimestamp } from "@/features/tickets/components/ticket-page/UserTimestamp"
 import { useTemplateSwap } from "@/features/tickets/components/ticket-page/useTemplateSwap"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
+import {
+  useTicketHierarchy,
+  type TicketHierarchy
+} from "@/features/tickets/hooks/useTicketHierarchy"
 import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
@@ -69,8 +71,6 @@ export function TicketPage({
 }) {
   const { orgSlug, slug } = useProjectRoute()
   const req = ticketRequest(orgSlug, slug, ticket.id)
-  const remove = useAtomSet(deleteTicket(req), { mode: "promiseExit" })
-  const deleteState = useAtomValue(deleteTicket(req))
   const updateTicket = useAtomSet(updateTicketDetail(req))
   const patchTicket = useAtomSet(updateTicketDetail(req), {
     mode: "promiseExit"
@@ -83,10 +83,10 @@ export function TicketPage({
   const unarchiveState = useAtomValue(unarchiveTicket(req))
   const [bodyStatus, setBodyStatus] = useState<SaveStatus>("idle")
   const bodyDraft = useAtomValue(ticketBodyDraft(req))
-  const navigate = useNavigate()
   const actor = useProjectActor()
   const estimation = useEstimationMode()
   const canEdit = TicketPolicy.canChange(actor, { content: true })
+  const hierarchy = useTicketHierarchy(ticket)
   const {
     descriptionRef,
     onTypePatch,
@@ -128,28 +128,7 @@ export function TicketPage({
             />
           )}
           {actor.call("tickets", "delete") && (
-            <ConfirmButton.Root>
-              <ConfirmButton.DeleteTrigger
-                aria-label={m.tickets_detail_delete_aria_label()}
-              />
-              <ConfirmButton.Confirm>
-                <ConfirmButton.Action
-                  prompt={m.tickets_detail_delete_confirm()}
-                  label={m.common_delete_confirm_button()}
-                  busyLabel={m.common_deleting_button()}
-                  waiting={deleteState.waiting}
-                  onConfirm={async () => {
-                    const exit = await remove()
-                    if (Exit.isSuccess(exit))
-                      void navigate({
-                        to: "/orgs/$orgSlug/projects/$slug",
-                        params: { orgSlug, slug }
-                      })
-                    return exit
-                  }}
-                />
-              </ConfirmButton.Confirm>
-            </ConfirmButton.Root>
+            <DeleteTicketControl ticket={ticket} />
           )}
         </>
       }
@@ -163,6 +142,12 @@ export function TicketPage({
               <fieldset disabled={!canEdit} className="contents">
                 <TypeBadgeTrigger ticket={ticket} onPatch={onTypePatch} />
               </fieldset>
+              {hierarchy.subTicketOf !== null && (
+                <span className="inline-flex min-w-0 items-center gap-1 text-[13px] text-muted-foreground">
+                  {m.tickets_header_sub_ticket_of()}
+                  <ParentTicketLink parent={hierarchy.subTicketOf} />
+                </span>
+              )}
               {swapNote !== null && (
                 <TemplateSwapNote name={swapNote.name} onUndo={undoSwap} />
               )}
@@ -193,7 +178,12 @@ export function TicketPage({
             <Markdown>{ticket.body}</Markdown>
           )}
 
-          <TicketDiscussion ticket={ticket} members={members} />
+          <TicketDiscussion
+            ticket={ticket}
+            members={members}
+            editable={canEdit}
+            holdsChildren={hierarchy.holdsChildren}
+          />
         </main>
 
         <aside className="flex min-w-0 flex-col gap-4 sm:pl-(--ticket-rail-inset) lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:self-start lg:overflow-y-auto lg:border-l lg:border-border/60 lg:pr-1 lg:pl-5">
@@ -210,7 +200,11 @@ export function TicketPage({
                 />
               </MetaRow>
             )}
-            <PlanningMetaRows ticket={ticket} onPatch={updateTicket} />
+            <PlanningMetaRows
+              ticket={ticket}
+              hierarchy={hierarchy}
+              onPatch={updateTicket}
+            />
             <MetaRow label={m.tickets_page_meta_assignees()}>
               <AssigneePicker
                 ticket={ticket}
@@ -253,9 +247,11 @@ export function TicketPage({
 
 function PlanningMetaRows({
   ticket,
+  hierarchy,
   onPatch
 }: Readonly<{
   ticket: TicketDetail
+  hierarchy: TicketHierarchy
   onPatch: (patch: UpdateTicketInput) => void
 }>) {
   if (ticket.type === "epic") return null
@@ -264,9 +260,17 @@ function PlanningMetaRows({
       <MetaRow label={m.tickets_page_meta_sprint()}>
         <SprintBadgeTrigger ticketId={ticket.id} />
       </MetaRow>
-      <MetaRow label={m.tickets_page_meta_epic()}>
-        <EpicField ticket={ticket} onPatch={onPatch} />
-      </MetaRow>
+      {hierarchy.subTicketOf !== null ? (
+        <MetaRow label={m.tickets_page_meta_sub_ticket_of()}>
+          <ParentTicketLink parent={hierarchy.subTicketOf} />
+        </MetaRow>
+      ) : (
+        hierarchy.loaded && (
+          <MetaRow label={m.tickets_page_meta_epic()}>
+            <EpicField ticket={ticket} onPatch={onPatch} />
+          </MetaRow>
+        )
+      )}
     </>
   )
 }

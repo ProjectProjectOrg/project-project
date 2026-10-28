@@ -1,5 +1,6 @@
 import type {
   ArchiveTicketInput,
+  DeleteTicketQuery,
   SplitTicketInput,
   TicketId,
   UpdateTicketInput
@@ -104,8 +105,10 @@ export const unarchiveTicket = Atom.family((req: TicketRequest) =>
 
 export const deleteTicket = Atom.family((req: TicketRequest) =>
   Api.runtime.fn(
-    Effect.fn("deleteTicket")(function* (_input: void) {
-      yield* Api.use((client) => client.tickets.delete({ params: req.params }))
+    Effect.fn("deleteTicket")(function* (query: DeleteTicketQuery) {
+      yield* Api.use((client) =>
+        client.tickets.delete({ params: req.params, query })
+      )
       yield* Reactivity.invalidate(Keys.ticketsChanged(scopeOf(req)))
     })
   )

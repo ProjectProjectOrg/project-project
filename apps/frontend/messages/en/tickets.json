@@ -83,6 +83,11 @@
     }
   ],
   "tickets_assignees_row_unassigned_aria_label": "Unassigned. Click to assign.",
+  "tickets_children_attach_button": "Add existing",
+  "tickets_children_attach_empty": "No matching tickets",
+  "tickets_children_attach_failed": "Couldn't load tickets",
+  "tickets_children_attach_loading": "Searching tickets…",
+  "tickets_children_attach_placeholder": "Search tickets…",
   "tickets_clear_search_button": "Clear search",
   "tickets_create_error_fallback": "Failed to create ticket",
   "tickets_create_sprint_assignment_failed": "Ticket created, but sprint assignment failed. Find it in Unscheduled and try assigning it again.",
@@ -92,6 +97,26 @@
   "tickets_description_placeholder": "Write a description, or type / to add blocks…",
   "tickets_detail_defect": "Something went wrong: {defect}",
   "tickets_detail_delete_aria_label": "Delete ticket",
+  "tickets_detail_delete_cascade_sub_tickets": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Also delete {count} sub-ticket",
+        "countPlural=*": "Also delete {count} sub-tickets"
+      }
+    }
+  ],
+  "tickets_detail_delete_cascade_tickets": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Also delete {count} ticket",
+        "countPlural=*": "Also delete {count} tickets"
+      }
+    }
+  ],
   "tickets_detail_delete_confirm": "Delete this ticket?",
   "tickets_detail_load_error": "Couldn't load detail: {error}",
   "tickets_empty_hint_folder": "tickets/",
@@ -105,10 +130,12 @@
   "tickets_epic_no_match": "No matching epics",
   "tickets_epic_remove_action": "Remove from epic",
   "tickets_epic_search_placeholder": "Search epics…",
-  "tickets_error_epic_has_sub_tickets": "This epic still has sub-tickets. Move them out of the epic before changing its type.",
-  "tickets_error_epic_in_sprint": "Epics can't be planned in a sprint. Plan their sub-tickets instead.",
+  "tickets_epic_tickets_heading": "Tickets",
+  "tickets_error_epic_has_tickets": "This epic still has tickets. Move them out of the epic before changing its type.",
+  "tickets_error_epic_in_sprint": "Epics can't be planned in a sprint. Plan their tickets instead.",
   "tickets_error_epic_with_parent": "An epic can't be part of another epic.",
-  "tickets_error_invalid_parent": "That epic no longer exists.",
+  "tickets_error_invalid_parent": "That ticket can't be a parent. It may be archived, deleted, or a sub-ticket itself.",
+  "tickets_error_ticket_has_sub_tickets": "This ticket has sub-tickets, so it can't become an epic or a sub-ticket itself.",
   "tickets_estimate_aria_label": "Estimate: {label}. Click to change.",
   "tickets_estimate_chip_aria_label": "Estimate: {label}",
   "tickets_estimate_clear": "Clear estimate",
@@ -169,6 +196,7 @@
   "tickets_grouping_sprint": "Sprint",
   "tickets_grouping_status": "Status",
   "tickets_grouping_unscheduled": "Unscheduled",
+  "tickets_header_sub_ticket_of": "Sub-ticket of",
   "tickets_list_defect": "Something went wrong: {defect}",
   "tickets_list_load_error": "Couldn't load tickets: {error}",
   "tickets_list_malformed_query": "This URL has filter values we can't parse. Reset the filters to recover.",
@@ -189,6 +217,7 @@
   "tickets_page_meta_git": "git",
   "tickets_page_meta_priority": "priority",
   "tickets_page_meta_sprint": "sprint",
+  "tickets_page_meta_sub_ticket_of": "sub-ticket of",
   "tickets_page_meta_tags": "tags",
   "tickets_page_meta_updated": "updated",
   "tickets_page_read_more": "Read more",
@@ -202,6 +231,7 @@
   "tickets_row_delete_description": "This can't be undone.",
   "tickets_row_delete_error_fallback": "Couldn't delete this ticket. Try again.",
   "tickets_row_delete_menu_item": "Delete",
+  "tickets_row_detach_action": "Remove from {id}",
   "tickets_row_update_error_fallback": "Couldn't save this change.",
   "tickets_save_status_dirty": "Unsaved changes",
   "tickets_save_status_saved": "Saved",

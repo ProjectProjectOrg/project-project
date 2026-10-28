@@ -233,6 +233,7 @@ import {
 import { CreateTagInput, Tag, TagName, UpdateTagInput } from "./schemas/Tag"
 import {
   ArchiveTicketInput,
+  DeleteTicketQuery,
   CreateTicketInput,
   QuickCreateTicketInput,
   SplitTicketInput,
@@ -1851,6 +1852,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       "/orgs/:orgSlug/projects/:slug/tickets/:id",
       {
         params: TicketPath,
+        query: DeleteTicketQuery,
         error: [Unauthorized, NotFound, Forbidden]
       }
     )

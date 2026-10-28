@@ -6,7 +6,7 @@
   "sprints_active_with_days_left": "{days}d left",
   "sprints_add_epic_action": "Add {count} to sprint",
   "sprints_add_epic_cancel": "Cancel",
-  "sprints_add_epic_empty": "No open sub-tickets",
+  "sprints_add_epic_empty": "No open tickets",
   "sprints_add_epic_failed": "Couldn't add those tickets to the sprint. Try again.",
   "sprints_add_epic_in_sprint": "In this sprint",
   "sprints_add_epic_key_escape": "esc",

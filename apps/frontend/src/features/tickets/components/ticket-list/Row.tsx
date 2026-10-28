@@ -172,6 +172,10 @@ function RowImpl({
               <TicketRowActions
                 id={ticket.id}
                 archived={ticket.archivedAt !== null}
+                parent={ticket.parent ?? null}
+                onDetach={
+                  editable ? () => onPatch({ parent: null }) : undefined
+                }
               />
             </span>
           </div>

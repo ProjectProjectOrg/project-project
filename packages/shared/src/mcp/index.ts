@@ -94,6 +94,13 @@ const ESTIMATE_GUIDE =
   "estimate in another unit, or any estimate while `estimation` is `off`, " +
   "fails with `Validation`."
 
+const PARENT_GUIDE =
+  "`parent` is the id of an epic, making the ticket one of its tickets, " +
+  "or of another ticket, making it a sub-ticket. The hierarchy is at " +
+  "most epic > ticket > sub-ticket: an epic can't have a parent, a " +
+  "sub-ticket can't have sub-tickets, and a ticket with sub-tickets can " +
+  "only go under an epic."
+
 const BLOCK_FORMAT_POINTER =
   "The named-block format is described in the server instructions."
 
@@ -239,10 +246,14 @@ export const McpTools = {
       "project no longer uses) or t-shirt sizes\n" +
       "- `hasBranch`, `hasPr`: whether a branch or pull request is linked\n" +
       "- `updatedAfter`: an ISO 8601 timestamp\n" +
+      "- `parent`: parent ticket ids, or `none` for tickets without one\n" +
+      "- `subTickets`: `nested` leaves out a sub-ticket whose parent " +
+      "matches the same filters; `flat` (default) lists every match\n" +
       "- `archived`: `true` lists only archived tickets; they are left " +
       "out otherwise\n" +
-      "Ticket `status` values are slugs; use the label from " +
-      "`list_statuses` in conversation. Paginated: pass `nextCursor` back " +
+      "Items carry `parent` and `subTicketCount`. Ticket `status` values " +
+      "are slugs; use the label from `list_statuses` in conversation. " +
+      "Paginated: pass `nextCursor` back " +
       "as `cursor`; `limit` is up to 200 (default 50).",
     input: TicketListQuery.pipe(
       Schema.fieldsAssign({
@@ -439,10 +450,9 @@ export const McpTools = {
       "without your context can follow.\n\n" +
       "`title` is required; every other field has a default. `status` is " +
       "a slug from `list_statuses` (default `todo`). `type` is `feat`, " +
-      "`bug`, `chore`, `other` or `epic` (default `other`). `parent` is " +
-      "the id of an epic in the same project; the ticket becomes one of " +
-      "its sub-tickets. An epic can't have a parent. `priority` is `low`, " +
-      "`med` or `high` (default `med`). `tags` must already exist on the " +
+      "`bug`, `chore`, `other` or `epic` (default `other`). " +
+      PARENT_GUIDE +
+      " `priority` is `low`, `med` or `high` (default `med`). `tags` must already exist on the " +
       "project (`list_tags`); an unknown name fails. `assignees` are user " +
       "ids of project members (`list_members`). " +
       ESTIMATE_GUIDE +
@@ -475,9 +485,10 @@ export const McpTools = {
       "left unchanged. `status`, `type`, `priority`, `tags`, `assignees` " +
       "and `estimate` take the same values as in `create_ticket`; pass " +
       "`tags: []` or `assignees: []` to clear a list and `estimate: null` " +
-      "to clear the estimate. `parent` is the id of an epic in the same " +
-      "project, or null to take the ticket out of its epic; an epic with " +
-      "sub-tickets keeps its type, and a sub-ticket can't become an epic. " +
+      "to clear the estimate. " +
+      PARENT_GUIDE +
+      " Pass `parent: null` to take the ticket out of its parent. A " +
+      "ticket with children can't switch between epic and another type. " +
       "Before moving `status`, check `setBy` in " +
       "`list_statuses`: don't set a status that git automation sets on " +
       "its own.\n\n" +

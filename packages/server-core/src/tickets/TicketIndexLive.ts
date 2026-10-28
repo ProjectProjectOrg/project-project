@@ -52,6 +52,7 @@ import {
   sql as drizzleSql,
   type SQL
 } from "drizzle-orm"
+import type { AnyPgColumn } from "drizzle-orm/pg-core"
 import * as Cause from "effect/Cause"
 import * as Clock from "effect/Clock"
 import * as DateTime from "effect/DateTime"
@@ -79,6 +80,7 @@ import {
   type TicketIndexProject,
   type TicketIndexProjectPreview,
   type TicketIndexQueryEntry,
+  type TicketIndexAttachable,
   type TicketIndexQueryOptions,
   type TicketIndexSections,
   type TicketIndexSectionsOptions,
@@ -300,6 +302,46 @@ export const ticketCursorCondition = (
 
 const UPDATED_DESC: TicketSort = { key: "updated", dir: "desc" }
 
+const columnOf = (table: SQL, column: AnyPgColumn): SQL =>
+  drizzleSql`${table}.${drizzleSql.identifier(column.name)}`
+
+const parentRow = drizzleSql`${ticketIndex}`
+const childRow = drizzleSql`${drizzleSql.identifier("child_tickets")}`
+
+const subTicketCount = drizzleSql<number>`(
+  select count(*) from ${ticketIndex} as ${childRow}
+  where ${columnOf(childRow, ticketIndex.projectId)} = ${columnOf(parentRow, ticketIndex.projectId)}
+    and ${columnOf(childRow, ticketIndex.parent)} = ${columnOf(parentRow, ticketIndex.ticketId)}
+    and ${columnOf(childRow, ticketIndex.archivedAt)} is null
+)`
+  .mapWith(Number)
+  .as("sub_ticket_count")
+
+const entryColumns = { ...getTableColumns(ticketIndex), subTicketCount }
+
+type EntryRow = typeof ticketIndex.$inferSelect &
+  Readonly<{ subTicketCount: number }>
+
+const attachableConditions = (
+  attachable: TicketIndexAttachable | undefined
+): ReadonlyArray<SQL> =>
+  attachable === undefined
+    ? []
+    : [
+        ne(ticketIndex.type, "epic"),
+        ne(ticketIndex.ticketId, attachable.parent),
+        drizzleSql`${ticketIndex.parent} is distinct from ${attachable.parent}`,
+        ...(attachable.leavesOnly
+          ? [
+              drizzleSql`not exists (
+                select 1 from ${ticketIndex} as ${childRow}
+                where ${columnOf(childRow, ticketIndex.projectId)} = ${columnOf(parentRow, ticketIndex.projectId)}
+                  and ${columnOf(childRow, ticketIndex.parent)} = ${columnOf(parentRow, ticketIndex.ticketId)}
+              )`
+            ]
+          : [])
+      ]
+
 const escapedLikePattern = (value: string): string =>
   `%${value.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_")}%`
 
@@ -398,6 +440,21 @@ const ticketWhereConditions = (
       parentConditions.push(inArray(ticketIndex.parent, parentIds))
     }
     conditions.push(or(...parentConditions) ?? drizzleSql`false`)
+  }
+  if (filter?.subTickets === "nested") {
+    const matchingParents = and(
+      ne(ticketIndex.type, "epic"),
+      ...ticketWhereConditions(
+        project,
+        { ...query, subTickets: "flat" },
+        options
+      )
+    )
+    conditions.push(
+      drizzleSql`not (${ticketIndex.parent} is not null and ${ticketIndex.parent} in (
+        select ${ticketIndex.ticketId} from ${ticketIndex} where ${matchingParents}
+      ))`
+    )
   }
   if (filter?.updatedAfter !== undefined) {
     conditions.push(gt(ticketIndex.updatedAt, filter.updatedAfter))
@@ -615,9 +672,7 @@ export const TicketIndexLive = Layer.effect(
         return row ?? (yield* new NotFound())
       })
 
-    const toEntry = (
-      row: typeof ticketIndex.$inferSelect
-    ): TicketIndexEntry => ({
+    const toEntry = (row: EntryRow): TicketIndexEntry => ({
       id: makeTicketId(row.ticketId),
       title: row.title,
       status: TicketStatus.make(row.status),
@@ -638,6 +693,7 @@ export const TicketIndexLive = Layer.effect(
       checksUpdatedAt: row.checksUpdatedAt,
       assignees: row.assignees,
       parent: row.parent === null ? null : makeTicketId(row.parent),
+      subTicketCount: row.subTicketCount,
       archivedAt: row.archivedAt,
       createdBy: row.createdBy,
       createdAt: row.createdAt,
@@ -659,7 +715,7 @@ export const TicketIndexLive = Layer.effect(
               inArray(ticketIndex.ticketId, [...ticketIds])
             )
       return db
-        .select()
+        .select(entryColumns)
         .from(ticketIndex)
         .where(where)
         .pipe(
@@ -677,11 +733,12 @@ export const TicketIndexLive = Layer.effect(
       const expression = ticketSortExpression(ticketQuery.sort)
       const conditions = [
         ...ticketWhereConditions(project, ticketQuery, options),
+        ...attachableConditions(options.attachableTo),
         ticketCursorCondition(ticketQuery, expression)
       ].filter((condition) => condition !== undefined)
       return db
         .select({
-          ...getTableColumns(ticketIndex),
+          ...entryColumns,
           sortValue: expression
         })
         .from(ticketIndex)
@@ -751,7 +808,7 @@ export const TicketIndexLive = Layer.effect(
       const ascending = ticketQuery.sort.dir === "asc"
       const ranked = db
         .select({
-          ...getTableColumns(ticketIndex),
+          ...entryColumns,
           sortValue: drizzleSql<string | Date>`${expression}`.as("sort_value"),
           section: drizzleSql<string | null>`${section}`.as("section"),
           rank: drizzleSql<number>`row_number() over (
@@ -875,7 +932,7 @@ export const TicketIndexLive = Layer.effect(
         ...conditions
       )
 
-    const orgEntriesOf = <Row extends typeof ticketIndex.$inferSelect>(
+    const orgEntriesOf = <Row extends EntryRow>(
       projects: ReadonlyArray<TicketIndexProject>,
       rows: ReadonlyArray<Row>
     ): ReadonlyArray<TicketIndexOrgEntry & Readonly<{ row: Row }>> => {
@@ -901,7 +958,7 @@ export const TicketIndexLive = Layer.effect(
     ): Effect.Effect<ReadonlyArray<TicketIndexOrgEntry>> => {
       if (projects.length === 0) return Effect.succeed([])
       return db
-        .select()
+        .select(entryColumns)
         .from(ticketIndex)
         .where(acrossProjects(projects, conditions))
         .orderBy(desc(ticketIndex.updatedAt), desc(ticketIndex.ticketId))
@@ -972,7 +1029,7 @@ export const TicketIndexLive = Layer.effect(
       if (projects.length === 0) return Effect.succeed([])
       const ranked = db
         .select({
-          ...getTableColumns(ticketIndex),
+          ...entryColumns,
           rank: drizzleSql<number>`row_number() over (
             partition by ${ticketIndex.projectId}
             order by ${ticketIndex.updatedAt} desc, ${ticketIndex.ticketId} desc
@@ -1052,7 +1109,7 @@ export const TicketIndexLive = Layer.effect(
       )`
       return db
         .select({
-          ...getTableColumns(ticketIndex),
+          ...entryColumns,
           lastCommentAt: lastCommentAt.mapWith(commentIndex.createdAt)
         })
         .from(ticketIndex)

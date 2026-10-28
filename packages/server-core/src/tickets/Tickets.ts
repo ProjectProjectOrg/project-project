@@ -1,4 +1,5 @@
 import type {
+  DeleteTicketQuery,
   ActivityActor,
   AttachBranchInput,
   BulkUpdateTicketsInput,
@@ -192,7 +193,8 @@ export type TicketsShape = Readonly<{
     ProjectScope | ActivityActor
   >
   remove: (
-    id: string
+    id: string,
+    options?: DeleteTicketQuery
   ) => Effect.Effect<
     void,
     NotFound | MarkdownError,

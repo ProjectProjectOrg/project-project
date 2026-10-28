@@ -84,6 +84,7 @@ function ticketIndexEntryFromDocument(ticket: TicketDocument) {
     prBase: entry.prBase ?? null,
     ignoredBranches: entry.ignoredBranches ?? [],
     parent: entry.parent ?? null,
+    subTicketCount: 0,
     branchDeletedAt: null,
     checks: null,
     checksHeadSha: null,

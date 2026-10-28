@@ -88,11 +88,12 @@ function Root({
 
 function Trigger({
   disabled,
+  persist = false,
   children,
   ...rest
-}: Omit<ButtonProps, "onClick">) {
+}: Omit<ButtonProps, "onClick"> & Readonly<{ persist?: boolean }>) {
   const { state, open, busy } = useConfirmButton()
-  if (state !== "idle") return null
+  if (!persist && state !== "idle") return null
   return (
     <motion.div
       className="flex"
@@ -111,7 +112,8 @@ function DeleteTrigger({
   className,
   dense = false,
   ...rest
-}: Omit<ButtonProps, "onClick" | "children"> & Readonly<{ dense?: boolean }>) {
+}: Omit<ButtonProps, "onClick" | "children"> &
+  Readonly<{ dense?: boolean; persist?: boolean }>) {
   return (
     <Trigger
       variant="ghost"
