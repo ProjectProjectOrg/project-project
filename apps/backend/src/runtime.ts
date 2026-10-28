@@ -28,9 +28,17 @@ import { TicketActivityFeedLive } from "@pp/server-core/activity/TicketActivityF
 import { TicketActivityLive } from "@pp/server-core/activity/TicketActivityLive"
 import { AttachmentsLive } from "@pp/server-core/attachments/AttachmentsLive"
 import { AttachmentUploadsLive } from "@pp/server-core/attachments/AttachmentUploadsLive"
+import { BotsLive } from "@pp/server-core/bots/BotsLive"
 import { CommentsLive } from "@pp/server-core/comments/CommentsLive"
 import { OrgEmail } from "@pp/server-core/email/OrgEmail"
 import { Smtp } from "@pp/server-core/email/Smtp"
+import { FeedbackAttachments } from "@pp/server-core/feedback/FeedbackAttachments"
+import { FeedbackConfig } from "@pp/server-core/feedback/FeedbackConfig"
+import {
+  FeedbackDelivery,
+  FeedbackDeliveryWorkflowLive
+} from "@pp/server-core/feedback/FeedbackDelivery"
+import { FeedbackIntake } from "@pp/server-core/feedback/FeedbackIntake"
 import { FigmaIntegrationsLive } from "@pp/server-core/figma/FigmaIntegrationsLive"
 import { FigmaLinksLive } from "@pp/server-core/figma/FigmaLinksLive"
 import { FigmaLive } from "@pp/server-core/figma/FigmaLive"
@@ -49,6 +57,7 @@ import { ProjectDocsLive } from "@pp/server-core/projects/ProjectDocsLive"
 import { ProjectGitAutomationLive } from "@pp/server-core/projects/ProjectGitAutomationLive"
 import { ProjectsLive } from "@pp/server-core/projects/ProjectsLive"
 import { ProjectStatusesLive } from "@pp/server-core/projects/ProjectStatusesLive"
+import { SystemProjectsLive } from "@pp/server-core/projects/SystemProjectsLive"
 import { OrgStorageLive } from "@pp/server-core/storage/OrgStorageLive"
 import { S3StorageLive } from "@pp/server-core/storage/S3StorageLive"
 import { SecretCryptoLive } from "@pp/server-core/storage/SecretCryptoLive"
@@ -70,12 +79,20 @@ import { JiraWorkflowsLive } from "./jira/WorkflowRuntime"
 import { OrgAccessLive, ProjectAccessLive } from "./Layers/Access"
 import { AuthenticationLive } from "./Layers/Auth"
 import { BetterAuthLive } from "./Layers/BetterAuth"
+import { FeedbackIntakeGuardLive } from "./Layers/FeedbackIntakeGuard"
 import { SlackHostLive } from "./slack/HostLive"
 
 const SlackLive = SlackServicesLive.pipe(
   Layer.provideMerge(SlackHostLive),
   Layer.provideMerge(AccessLive),
   Layer.provideMerge(UsersLive)
+)
+
+const FeedbackLive = FeedbackDeliveryWorkflowLive.pipe(
+  Layer.provideMerge(FeedbackDelivery.layer),
+  Layer.provideMerge(FeedbackAttachments.layer),
+  Layer.provideMerge(BotsLive),
+  Layer.provideMerge(FeedbackConfig.layer)
 )
 
 const EverhourIntegrationLive = EverhourServicesLive.pipe(
@@ -136,6 +153,8 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
   oauthConfig: Layer.Layer<JiraOAuthConfig, CE, CR>
 ) =>
   TagsLive.pipe(
+    Layer.provideMerge(FeedbackIntake.layer),
+    Layer.provideMerge(SystemProjectsLive),
     Layer.provideMerge(ProjectStatusesLive),
     Layer.provideMerge(TicketsLive),
     Layer.provideMerge(TicketActivityFeedLive),
@@ -162,6 +181,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(UsersLive),
       Layer.provideMerge(TicketIndexLive),
       Layer.provideMerge(SlackLive),
+      Layer.provideMerge(FeedbackLive),
       Layer.provideMerge(JiraDurableServicesLive),
       Layer.provideMerge(JiraWorkflowsLive),
       Layer.provideMerge(ProjectDocsLive),
@@ -203,7 +223,12 @@ export const makeBackendHttpServicesLive = <TE, TR, EE, ER, CE, CR>(
   tokenEndpoint: Layer.Layer<JiraTokenEndpoint, EE, ER>,
   oauthConfig: Layer.Layer<JiraOAuthConfig, CE, CR>
 ) =>
-  Layer.mergeAll(AuthenticationLive, OrgAccessLive, ProjectAccessLive).pipe(
+  Layer.mergeAll(
+    AuthenticationLive,
+    OrgAccessLive,
+    ProjectAccessLive,
+    FeedbackIntakeGuardLive
+  ).pipe(
     Layer.provideMerge(
       makeBackendServicesLive(transport, tokenEndpoint, oauthConfig)
     )

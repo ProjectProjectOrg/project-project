@@ -20,7 +20,7 @@ export type SegmentedItem<K extends string> = Readonly<{
   render?: ReactElement
 }>
 
-export type SegmentedVariant = "default" | "inline" | "view"
+export type SegmentedVariant = "default" | "inline" | "rail" | "view"
 
 type VariantTokens = Readonly<{
   container: string
@@ -47,6 +47,14 @@ const VARIANTS: Readonly<Record<SegmentedVariant, VariantTokens>> = {
     iconSize: "size-3.5",
     pillRounding: "rounded-lg",
     itemBase: "h-7 flex-1 justify-center rounded-lg px-2.5 text-xs"
+  },
+  rail: {
+    container: "inline-flex items-center gap-0.5 rounded-lg bg-tint p-0.5",
+    innerGap: "gap-1",
+    innerGapPx: 4,
+    iconSize: "size-3",
+    pillRounding: "rounded-md",
+    itemBase: "h-6 rounded-md px-2 text-xs"
   },
   inline: {
     container: "inline-flex items-center gap-0.5",
@@ -81,7 +89,7 @@ export function SegmentedTabs<K extends string>({
 }: SegmentedTabsProps<K>) {
   const v = VARIANTS[variant]
   const surface = useSurface()
-  const pillLevel = Math.min(surface + 4, 8)
+  const pillLevel = Math.min(surface + (variant === "rail" ? 7 : 4), 8)
   return (
     <div
       role={ariaLabel === undefined ? undefined : "group"}
@@ -89,14 +97,16 @@ export function SegmentedTabs<K extends string>({
       className={cn(
         "relative",
         v.container,
-        variant !== "inline" && SURFACE_BG[Math.min(surface + 2, 8)],
+        variant !== "inline" &&
+          variant !== "rail" &&
+          SURFACE_BG[Math.min(surface + 2, 8)],
         className
       )}
     >
       <SegmentedIndicator
         activeIndex={items.findIndex((item) => item.key === value)}
         className={cn(
-          variant === "inline"
+          variant === "inline" || variant === "rail"
             ? cn(SURFACE_BG[pillLevel], "shadow-surface-1")
             : "bg-tint",
           v.pillRounding

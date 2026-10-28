@@ -16,17 +16,22 @@ export function CollapsingLabel({
   gap?: number
 }>) {
   const innerRef = useRef<HTMLSpanElement>(null)
-  const [width, setWidth] = useState<number | "auto">("auto")
+  const [size, setSize] = useState<
+    Readonly<{ width: number | "auto"; instant: boolean }>
+  >({ width: "auto", instant: true })
 
   useLayoutEffect(() => {
     const el = innerRef.current
     if (!el) return
-    setWidth(el.offsetWidth)
+    setSize({ width: el.offsetWidth, instant: true })
     const observer = new ResizeObserver(([entry]) => {
       if (entry)
-        setWidth(
-          Math.ceil(entry.borderBoxSize[0]?.inlineSize ?? el.offsetWidth)
-        )
+        setSize({
+          width: Math.ceil(
+            entry.borderBoxSize[0]?.inlineSize ?? el.offsetWidth
+          ),
+          instant: false
+        })
     })
     observer.observe(el)
     return () => observer.disconnect()
@@ -37,10 +42,13 @@ export function CollapsingLabel({
       initial={false}
       animate={
         show
-          ? { width, opacity: 1, marginLeft: 0 }
+          ? { width: size.width, opacity: 1, marginLeft: 0 }
           : { width: 0, opacity: 0, marginLeft: -gap }
       }
-      transition={transitions.presence}
+      transition={{
+        ...transitions.presence,
+        width: size.instant ? { duration: 0 } : transitions.presence
+      }}
       aria-hidden={!show}
       className="inline-flex items-center overflow-hidden whitespace-nowrap"
     >

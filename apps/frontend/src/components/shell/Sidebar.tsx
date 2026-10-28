@@ -14,6 +14,7 @@ import {
   useSidebarSlotContent
 } from "@/components/shell/SidebarSlot"
 import { ThemeSwitcher } from "@/components/shell/ThemeSwitcher"
+import { FeedbackPopover } from "@/features/feedback/components/FeedbackPopover"
 import { OrgSwitcher } from "@/features/organizations/components/OrgSwitcher"
 import { transitions } from "@/lib/springs"
 
@@ -83,8 +84,9 @@ export function SidebarContent({ user }: { user: User }) {
           )}
         </AnimatePresence>
       </div>
-      <div className="p-3">
+      <div className="flex flex-col gap-1 p-3">
         <ThemeSwitcher />
+        {orgSlug ? <FeedbackPopover orgSlug={orgSlug} /> : null}
       </div>
     </div>
   )

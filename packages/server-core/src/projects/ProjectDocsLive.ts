@@ -9,6 +9,7 @@ import {
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as SchemaTransformation from "effect/SchemaTransformation"
 import * as Struct from "effect/Struct"
@@ -24,6 +25,7 @@ import {
   type ProjectDocument,
   type ProjectDocumentWrite
 } from "./ProjectDocs"
+import { systemRoleFrom, withSystemRole } from "./systemProjectFrontmatter"
 
 function checkOrgFrontmatter(
   expected: string,
@@ -162,6 +164,10 @@ export const ProjectDocsLive = Layer.effect(
             icon: frontmatter.icon ?? fallback.icon,
             color: frontmatter.color ?? fallback.color,
             templateDefaults: templateDefaultsFrom(file.data),
+            ...Option.match(systemRoleFrom(file.data), {
+              onNone: () => ({}),
+              onSome: (system) => ({ system })
+            }),
             body: file.body
           }
         })
@@ -178,13 +184,24 @@ export const ProjectDocsLive = Layer.effect(
         slug,
         Effect.gen(function* () {
           const existing = yield* markdown.readProjectFile(orgSlug, slug).pipe(
-            Effect.map((file) => templateDefaultsFrom(file.data)),
-            Effect.catchTag("NotFound", () => Effect.succeed({}))
+            Effect.map((file) => ({
+              templateDefaults: templateDefaultsFrom(file.data),
+              system: systemRoleFrom(file.data)
+            })),
+            Effect.catchTag("NotFound", () =>
+              Effect.succeed({ templateDefaults: {}, system: Option.none() })
+            )
           )
           yield* markdown.writeProjectFile(
             orgSlug,
             slug,
-            withTemplateDefaults(encodeProjectFrontmatter(document), existing),
+            withSystemRole(
+              withTemplateDefaults(
+                encodeProjectFrontmatter(document),
+                existing.templateDefaults
+              ),
+              existing.system
+            ),
             document.body
           )
         })
@@ -205,6 +222,22 @@ export const ProjectDocsLive = Layer.effect(
             orgSlug,
             slug,
             withTemplateDefaults(file.data, defaults),
+            file.body
+          )
+        })
+      )
+
+    const markSystem: ProjectDocsShape["markSystem"] = (orgSlug, slug, role) =>
+      withProjectDocTelemetry(
+        "markSystem",
+        orgSlug,
+        slug,
+        Effect.gen(function* () {
+          const file = yield* markdown.readProjectFile(orgSlug, slug)
+          yield* markdown.writeProjectFile(
+            orgSlug,
+            slug,
+            withSystemRole(file.data, Option.some(role)),
             file.body
           )
         })
@@ -239,6 +272,7 @@ export const ProjectDocsLive = Layer.effect(
       read,
       write,
       writeTemplateDefaults,
+      markSystem,
       removeDir,
       readRaw
     } satisfies ProjectDocsShape

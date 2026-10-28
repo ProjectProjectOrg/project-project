@@ -347,3 +347,47 @@ test tries each in turn until one accepts the connection.
 
 This configuration currently supports connection testing only. Authentication
 emails, invitations, and notifications are not yet routed through it.
+
+## Feedback and bug reports
+
+Every install shows **Send feedback** in the sidebar. Reports are saved in a
+local outbox and forwarded in the background to `FEEDBACK_TARGET_URL`, which
+defaults to the ProjectProject maintainers' instance
+(`https://projectproject.missler.xyz`). Delivery retries with backoff for about
+two days when the target is down or rate-limiting, so a report is never lost to a
+short outage.
+
+- **Send to your own instance:** set `FEEDBACK_TARGET_URL` to its public URL.
+- **Turn sending off:** set `FEEDBACK_SENDING_ENABLED=false`. The sidebar entry
+  disappears and nothing leaves the install.
+
+Each report carries the sender's name and email, the install's
+`BETTER_AUTH_URL` and `APP_VERSION`, the page it was sent from, and the browser
+user agent.
+
+### Attachments
+
+Users can attach up to 5 files of 10 MB each (images, PDF, text, archives) when
+their organization has storage connected under **Organization settings →
+Storage**; otherwise the paperclip is hidden. Files are kept in the sender's own
+storage until the report is delivered, then deleted. Uploads that never get
+sent are cleaned up after a day.
+
+### Receiving reports
+
+To accept reports from other installs, set `FEEDBACK_INTAKE_ENABLED=true`. The
+public endpoint `POST /api/feedback/intake` then files each report as a `bug` or
+`feat` ticket, written by a "Feedback" bot user that cannot sign in and does not
+appear in member lists. Tickets go into the project marked `system: feedback` in
+its frontmatter inside `FEEDBACK_INTAKE_ORG` (default `BOOTSTRAP_ORG_SLUG`); the
+first report creates it as "Feedback & bug reports" (`FEEDBACK_INTAKE_PROJECT_NAME`,
+key `FEEDBACK_INTAKE_PROJECT_KEY`), owned by the org's owner. Renaming the
+project is fine; the frontmatter marker is what identifies it.
+
+Attachments are stored in the receiving organization's storage. Without
+storage, or when a file is rejected, the ticket is still filed and lists the
+files that couldn't be stored. A report delivered twice is filed once.
+
+The endpoint allows 30 reports per client IP per hour. Behind
+nginx-proxy-manager plus the bundled nginx, set `TRUSTED_PROXY_HOPS=2` so the
+limit applies to the real client rather than the proxy.

@@ -1,7 +1,7 @@
 import { attachmentDownloadSrc } from "@pp/shared"
 import { Download, FileText, Image as ImageIcon } from "lucide-react"
 import { motion } from "motion/react"
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 
 import { Chip } from "@/components/ui/chip"
 import { MorphIconLink } from "@/components/ui/morph-icon-link"
@@ -57,6 +57,7 @@ export function AttachmentChip({
   kind,
   morphId,
   onBroken,
+  action,
   variant = "default"
 }: {
   url: string
@@ -66,9 +67,10 @@ export function AttachmentChip({
   morphId: string
   variant?: "default" | "linked"
   onBroken?: () => void
+  action?: ReactNode
 }) {
   const [broken, setBroken] = useState(false)
-  const download = (
+  const download = action ?? (
     <MorphIconLink
       layoutId={`${morphId}-download`}
       href={attachmentDownloadSrc(url)}

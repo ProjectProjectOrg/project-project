@@ -24,6 +24,7 @@ import {
   Authentication,
   Conflict,
   CurrentUser,
+  FeedbackIntakeGuard,
   JiraMigrationConfiguration,
   type JiraMigrationDetail,
   NotFound,
@@ -84,13 +85,16 @@ const accessMiddleware = Layer.mergeAll(OrgAccessLive, ProjectAccessLive).pipe(
   )
 )
 
-const authentication = Layer.succeed(Authentication)({
-  sessionCookie: (effect) =>
-    effect.pipe(
-      Effect.provideService(CurrentUser, user),
-      Effect.provideService(ActivityActor, ActivityActor.user(user.id))
-    )
-})
+const authentication = Layer.merge(
+  Layer.succeed(Authentication)({
+    sessionCookie: (effect) =>
+      effect.pipe(
+        Effect.provideService(CurrentUser, user),
+        Effect.provideService(ActivityActor, ActivityActor.user(user.id))
+      )
+  }),
+  Layer.succeed(FeedbackIntakeGuard)((effect) => effect)
+)
 const dependenciesFor = (
   failure?: JiraCallError,
   failureAt: "sites" | "projects" = "sites",

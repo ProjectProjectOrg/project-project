@@ -11,6 +11,7 @@ import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 
 import type { MarkdownError } from "../markdown/Markdown"
+import type { SystemProjectRole } from "./systemProjectFrontmatter"
 
 export type ProjectDocument = Readonly<{
   org?: Slug
@@ -25,6 +26,7 @@ export type ProjectDocument = Readonly<{
   estimation: EstimationMode
   setup: ProjectSetup
   templateDefaults: PartialTemplateDefaults
+  system?: SystemProjectRole
   body: string
 }>
 
@@ -57,6 +59,11 @@ export interface ProjectDocsShape {
     orgSlug: string,
     slug: string,
     defaults: PartialTemplateDefaults
+  ) => Effect.Effect<void, NotFound | MarkdownError>
+  readonly markSystem: (
+    orgSlug: string,
+    slug: string,
+    role: SystemProjectRole
   ) => Effect.Effect<void, NotFound | MarkdownError>
   readonly removeDir: (
     orgSlug: string,

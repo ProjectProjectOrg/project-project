@@ -314,6 +314,32 @@ export const AttachmentsLive = Layer.effect(
         return toAttachment(updated)
       })
 
+    const storeBytes: AttachmentsShape["storeBytes"] = (ticketId, file) =>
+      Effect.gen(function* () {
+        const prepared = yield* prepare(ticketId, {
+          filename: file.filename,
+          contentType: file.contentType,
+          byteSize: file.bytes.byteLength
+        })
+        const [row] = yield* db
+          .select({ objectKey: attachmentIndex.objectKey })
+          .from(attachmentIndex)
+          .where(eq(attachmentIndex.id, prepared.id))
+          .limit(1)
+          .pipe(Effect.orDie)
+        if (!row) return yield* new NotFound()
+        const { orgSlug } = yield* ProjectScope
+        const connection = yield* orgStorage.requireConnection(orgSlug)
+        yield* s3
+          .putObject(connection, row.objectKey, file.contentType, file.bytes)
+          .pipe(
+            Effect.catchTag("S3Unavailable", (error) =>
+              Effect.fail(mapS3Unavailable(error))
+            )
+          )
+        return yield* commit(ticketId, prepared.id)
+      })
+
     const resolveForServing: AttachmentsShape["resolveForServing"] = (
       orgSlug,
       attachmentId,
@@ -1041,6 +1067,7 @@ export const AttachmentsLive = Layer.effect(
     return {
       prepare,
       commit,
+      storeBytes,
       resolveForServing,
       reconcileTicket,
       orphanProject,

@@ -68,6 +68,7 @@ import { SlackRuntimeLive } from "@pp/integration-slack/Runtime"
 import { TicketActivityRecoveryLive } from "@pp/server-core/activity/TicketActivityLive"
 import { AttachmentReaperLive } from "@pp/server-core/attachments/AttachmentReaperLive"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import { FeedbackDispatcherLive } from "@pp/server-core/feedback/FeedbackDelivery"
 import { TicketIndexReconcilerLive } from "@pp/server-core/tickets/TicketIndexReconcilerLive"
 import { AppApi } from "@pp/shared"
 import { count } from "drizzle-orm"
@@ -95,6 +96,10 @@ import { TicketActivityHandlerLive } from "./handlers/activity"
 import { AttachmentsHandlerLive } from "./handlers/attachments"
 import { AuthHandlerLive } from "./handlers/auth"
 import { CommentsHandlerLive } from "./handlers/comments"
+import {
+  FeedbackHandlerLive,
+  FeedbackIntakeHandlerLive
+} from "./handlers/feedback"
 import { FigmaHandlerLive } from "./handlers/figma"
 import { GitAutomationHandlerLive } from "./handlers/gitAutomation"
 import { GroupsHandlerLive } from "./handlers/groups"
@@ -184,7 +189,14 @@ export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(LibraryHandlerLive),
   Layer.provide(OAuthApplicationsHandlerLive),
   Layer.provide(PublicOAuthHandlerLive),
-  Layer.provide(Layer.mergeAll(StorageHandlerLive, OrgEmailHandlerLive)),
+  Layer.provide(
+    Layer.mergeAll(
+      StorageHandlerLive,
+      OrgEmailHandlerLive,
+      FeedbackHandlerLive,
+      FeedbackIntakeHandlerLive
+    )
+  ),
   Layer.provide(AttachmentsHandlerLive)
 )
 
@@ -455,6 +467,11 @@ const ReaperLive = AttachmentReaperLive.pipe(
   Layer.provide(BackendInfrastructureLive)
 )
 
+const FeedbackDispatchLive = FeedbackDispatcherLive.pipe(
+  Layer.provide(BackendHttpServicesLive),
+  Layer.provide(BackendInfrastructureLive)
+)
+
 const OtlpSerializationLive = Layer.unwrap(
   Effect.gen(function* () {
     const protocol = yield* Config.String(
@@ -485,9 +502,12 @@ const TracerDisabledLive = Layer.succeed(HttpMiddleware.TracerDisabledWhen)(
   (request) => untracedPrefixes.some((prefix) => request.url.startsWith(prefix))
 )
 
-const AppLive = Layer.mergeAll(ServerLive, ReconcilerLive, ReaperLive).pipe(
-  Layer.provide(Layer.mergeAll(TracingLive, TracerDisabledLive))
-)
+const AppLive = Layer.mergeAll(
+  ServerLive,
+  ReconcilerLive,
+  ReaperLive,
+  FeedbackDispatchLive
+).pipe(Layer.provide(Layer.mergeAll(TracingLive, TracerDisabledLive)))
 
 // Only boot the real server when this file is the entry point. When tests
 // import { ApiLive } from this module, `import.meta.main` is false and we

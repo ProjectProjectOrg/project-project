@@ -18,6 +18,7 @@ import {
   HttpApi,
   HttpApiEndpoint,
   HttpApiGroup,
+  HttpApiMiddleware,
   HttpApiSchema,
   OpenApi
 } from "effect/http-api"
@@ -114,6 +115,13 @@ import {
   EverhourSyncSummary,
   PersonalEverhour
 } from "./schemas/Everhour"
+import {
+  FeedbackAttachment,
+  FeedbackIntakePayload,
+  FeedbackStatus,
+  FeedbackUploadPayload,
+  SubmitFeedbackInput
+} from "./schemas/Feedback"
 import {
   ConnectFigmaProjectInput,
   FigmaLinkMetadata,
@@ -2686,6 +2694,58 @@ const PublicOAuthGroup = HttpApiGroup.make("publicOAuth").add(
   })
 )
 
+const FeedbackGroup = HttpApiGroup.make("feedback")
+  .add(
+    HttpApiEndpoint.get("status", "/orgs/:orgSlug/feedback", {
+      params: OrgPath,
+      success: FeedbackStatus,
+      error: [Unauthorized, NotFound, Forbidden]
+    }).annotate(RequiresOrg, "membership")
+  )
+  .add(
+    HttpApiEndpoint.post("upload", "/orgs/:orgSlug/feedback/attachments", {
+      params: OrgPath,
+      payload: FeedbackUploadPayload,
+      success: FeedbackAttachment,
+      error: [
+        Unauthorized,
+        NotFound,
+        Forbidden,
+        AttachmentTooLarge,
+        AttachmentTypeRejected,
+        StorageNotConnected,
+        StorageConfigMissing,
+        StorageError,
+        Validation
+      ]
+    }).annotate(RequiresOrg, "membership")
+  )
+  .add(
+    HttpApiEndpoint.post("submit", "/orgs/:orgSlug/feedback", {
+      params: OrgPath,
+      payload: SubmitFeedbackInput,
+      success: HttpApiSchema.NoContent,
+      error: [Unauthorized, NotFound, Forbidden, Validation]
+    }).annotate(RequiresOrg, "membership")
+  )
+  .middleware(OrgAccess)
+  .middleware(Authentication)
+
+export class FeedbackIntakeGuard extends HttpApiMiddleware.Service<FeedbackIntakeGuard>()(
+  "@pp/shared/api/FeedbackIntakeGuard",
+  { error: [NotFound, RateLimited] }
+) {}
+
+const FeedbackIntakeGroup = HttpApiGroup.make("feedbackIntake")
+  .add(
+    HttpApiEndpoint.post("receive", "/feedback/intake", {
+      payload: FeedbackIntakePayload,
+      success: HttpApiSchema.NoContent,
+      error: [NotFound, RateLimited]
+    })
+  )
+  .middleware(FeedbackIntakeGuard)
+
 const LinkPreviewsGroup = HttpApiGroup.make("linkPreviews")
   .add(
     HttpApiEndpoint.get("get", "/link-previews", {
@@ -2722,5 +2782,7 @@ const AppApi = HttpApi.make("projectproject")
   .add(LibraryGroup)
   .add(OAuthApplicationsGroup)
   .add(PublicOAuthGroup)
+  .add(FeedbackGroup)
+  .add(FeedbackIntakeGroup)
   .annotateMerge(OpenApi.annotations({ servers: [{ url: "/api" }] }))
 export { AppApi }
