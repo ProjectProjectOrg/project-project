@@ -11,6 +11,7 @@ import {
 import type { ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
+import { MiddleTruncate } from "@/components/ui/middle-truncate"
 import { compareUrl } from "@/features/github/lib/branchUrl"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -59,9 +60,7 @@ export function GitField({
               )}
               strokeWidth={1.75}
             />
-            <span className="min-w-0 truncate font-mono text-xs">
-              {view.branch}
-            </span>
+            <MiddleTruncate value={view.branch} className="font-mono text-xs" />
             <ChevronDown
               className="size-3 shrink-0 text-muted-foreground"
               strokeWidth={1.75}

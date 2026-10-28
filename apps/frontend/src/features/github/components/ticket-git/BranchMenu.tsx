@@ -28,7 +28,7 @@ import { useProjectActor } from "@/lib/access"
 import { m } from "@/paraglide/messages"
 
 import { usePreferredBranchLink } from "./BranchChip"
-import { BranchPickerSubmenu } from "./BranchPicker"
+import { BranchPicker } from "./BranchPicker"
 
 export type BranchMenuRemoval =
   | Readonly<{ kind: "ticket" }>
@@ -62,6 +62,7 @@ export function BranchMenu({
   const canStackBranch = canStack && actor.call("tickets", "stackBranch")
   const anchor = useRef<HTMLSpanElement>(null)
   const [open, setOpen] = useState(false)
+  const [stacking, setStacking] = useState(false)
   const removable = removal.kind === "stack" || canClear
 
   return (
@@ -106,18 +107,10 @@ export function BranchMenu({
             {m.git_copy_branch_name_label()}
           </DropdownMenuItem>
           {canStackBranch && (
-            <BranchPickerSubmenu
-              mode="stack"
-              ticket={ticket}
-              github={github}
-              onDone={() => setOpen(false)}
-              label={
-                <>
-                  <Layers strokeWidth={1.75} />
-                  {m.git_stack_add_button()}
-                </>
-              }
-            />
+            <DropdownMenuItem onClick={() => setStacking(true)}>
+              <Layers strokeWidth={1.75} />
+              {m.git_stack_add_button()}
+            </DropdownMenuItem>
           )}
           {removable && <DropdownMenuSeparator />}
           {removal.kind === "stack" ? (
@@ -136,6 +129,17 @@ export function BranchMenu({
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
+      {canStackBranch && (
+        <BranchPicker
+          mode="stack"
+          ticket={ticket}
+          github={github}
+          anchor={anchor}
+          align={trigger === undefined ? "end" : "start"}
+          open={stacking}
+          onOpenChange={setStacking}
+        />
+      )}
       {removal.kind === "ticket" && canClear ? (
         <ConfirmButton.Popover anchor={anchor} className="w-72">
           <RemoveBranchAction ticket={ticket} />

@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import { useMemo, useState } from "react"
 
+import { MiddleTruncate } from "@/components/ui/middle-truncate"
 import { unstackBranch } from "@/features/github/atoms/github"
 import { compareUrl } from "@/features/github/lib/branchUrl"
 import { projectRequest } from "@/features/projects/atoms/projects"
@@ -342,7 +343,7 @@ function StackLayerRow({
         {hasMeta && (
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-[11px] text-muted-foreground">
             {title !== "" && (
-              <span className="min-w-0 truncate font-mono">{layer.branch}</span>
+              <MiddleTruncate value={layer.branch} className="font-mono" />
             )}
             {showBase && (
               <span className="truncate font-mono">

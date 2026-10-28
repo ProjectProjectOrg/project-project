@@ -20,20 +20,30 @@ type HighlightState = Readonly<{
 }>
 
 const HIGHLIGHTED = "[data-highlighted]:not(input)"
+const OPEN_SUBMENU_TRIGGER =
+  "[data-slot=dropdown-menu-sub-trigger][data-popup-open]"
 const HIGHLIGHT_INSET = 1
 
 const toneOf = (element: HTMLElement): HighlightTone =>
   element.dataset.variant === "destructive" ? "destructive" : "default"
 
+const firstOwned = (
+  container: HTMLElement,
+  selector: string
+): HTMLElement | undefined =>
+  Array.from(container.querySelectorAll<HTMLElement>(selector)).find(
+    (candidate) => candidate.closest("[data-menu-highlight-host]") === container
+  )
+
 export const measureHighlight = (
   container: HTMLElement,
   selector: string = HIGHLIGHTED
 ): HighlightRect | null => {
-  const element = Array.from(
-    container.querySelectorAll<HTMLElement>(selector)
-  ).find(
-    (candidate) => candidate.closest("[data-menu-highlight-host]") === container
-  )
+  const element =
+    firstOwned(container, selector) ??
+    (selector === HIGHLIGHTED
+      ? firstOwned(container, OPEN_SUBMENU_TRIGGER)
+      : undefined)
   if (element === undefined) return null
   return {
     top: element.offsetTop + HIGHLIGHT_INSET,
@@ -71,7 +81,7 @@ function observeHighlight(container: HTMLElement, measure: () => void) {
     subtree: true,
     childList: true,
     attributes: true,
-    attributeFilter: ["data-highlighted"]
+    attributeFilter: ["data-highlighted", "data-popup-open"]
   })
   const resizes =
     typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure)

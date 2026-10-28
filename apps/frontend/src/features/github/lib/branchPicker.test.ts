@@ -2,6 +2,7 @@ import type { BranchListItem } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
 import {
+  baseBranchOrder,
   branchPickerEntries,
   branchSearchView,
   defaultBranchName,
@@ -90,6 +91,29 @@ describe("branchPickerEntries", () => {
         branchPickerEntries({ ...base, canCreate: false, query: "", items })
       ).some((name) => name.startsWith("+"))
     ).toBe(false)
+  })
+})
+
+describe("baseBranchOrder", () => {
+  it("puts the default branch first, then protected, ticket, and recent branches", () => {
+    const ordered = baseBranchOrder({
+      items: [
+        branch("feat/T-9-other"),
+        branch("fix/T-1-crash"),
+        { name: "develop", isProtected: true },
+        branch("chore/deps"),
+        branch("main")
+      ],
+      ticketId: "T-1",
+      defaultBase: "main"
+    })
+    expect(ordered.map((item) => item.name)).toEqual([
+      "main",
+      "develop",
+      "fix/T-1-crash",
+      "feat/T-9-other",
+      "chore/deps"
+    ])
   })
 })
 

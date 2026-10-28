@@ -75,6 +75,29 @@ export const branchPickerEntries = ({
     : [...leading, ...trailing, ...create]
 }
 
+export const baseBranchOrder = ({
+  items,
+  ticketId,
+  defaultBase
+}: Readonly<{
+  items: ReadonlyArray<BranchListItem>
+  ticketId: string
+  defaultBase: string
+}>): ReadonlyArray<BranchListItem> => {
+  const rank = (branch: BranchListItem): number =>
+    branch.name === defaultBase
+      ? 0
+      : branch.isProtected
+        ? 1
+        : mentionsTicket(branch.name, ticketId)
+          ? 2
+          : 3
+  return items
+    .map((branch, index) => ({ branch, index, rank: rank(branch) }))
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .map(({ branch }) => branch)
+}
+
 export const branchSearchView = ({
   term,
   exact,
