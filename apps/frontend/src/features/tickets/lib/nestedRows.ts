@@ -16,6 +16,7 @@ export type NestedEntry =
       key: string
       parent: TicketId
       state: "loading" | "failed"
+      last: boolean
     }>
 
 export type ChildRowsResult = AsyncResult.AsyncResult<
@@ -23,21 +24,38 @@ export type ChildRowsResult = AsyncResult.AsyncResult<
   unknown
 >
 
+// While loading, reserve one row per known sub-ticket so the list lands at
+// its final height in one step instead of growing once the children arrive.
 const childrenEntries = (
-  parent: TicketId,
+  parent: Pick<Ticket, "id" | "subTicketCount">,
   children: ChildRowsResult | undefined
 ): ReadonlyArray<NestedEntry> => {
   if (children === undefined || AsyncResult.isInitial(children)) {
-    return [{ kind: "children", key: `${parent}/…`, parent, state: "loading" }]
+    const count = Math.max(1, parent.subTicketCount ?? 0)
+    return Array.from({ length: count }, (_, index) => ({
+      kind: "children",
+      key: `${parent.id}/…${index}`,
+      parent: parent.id,
+      state: "loading",
+      last: index === count - 1
+    }))
   }
   if (AsyncResult.isFailure(children)) {
-    return [{ kind: "children", key: `${parent}/…`, parent, state: "failed" }]
+    return [
+      {
+        kind: "children",
+        key: `${parent.id}/…0`,
+        parent: parent.id,
+        state: "failed",
+        last: true
+      }
+    ]
   }
   return children.value.map((child, index) => ({
     kind: "row",
-    key: `${parent}/${child.key}`,
+    key: `${parent.id}/${child.key}`,
     row: child,
-    parent,
+    parent: parent.id,
     last: index === children.value.length - 1
   }))
 }
@@ -51,7 +69,7 @@ export const withExpandedChildren = (
     (row): ReadonlyArray<NestedEntry> => [
       { kind: "row", key: row.key, row, parent: null, last: false },
       ...(expanded.has(row.ticket.id)
-        ? childrenEntries(row.ticket.id, childrenOf(row.ticket.id))
+        ? childrenEntries(row.ticket, childrenOf(row.ticket.id))
         : [])
     ]
   )

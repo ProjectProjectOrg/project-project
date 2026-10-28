@@ -22,7 +22,13 @@ import { cn } from "@/lib/utils"
 import { AssigneeField } from "./AssigneeField"
 import { EpicLink, EpicSeparator, useParentLabel } from "./EpicLabel"
 import { EstimateChip } from "./EstimateField"
-import { NestTree, type RowNest } from "./NestTree"
+import {
+  NestProgressToggle,
+  NestTree,
+  nestIndent,
+  nestTitleIndent,
+  type RowNest
+} from "./NestTree"
 import { PriorityButton } from "./PriorityField"
 import { TicketRowActions } from "./RowActions"
 import { SprintField } from "./SprintField"
@@ -99,7 +105,12 @@ function RowImpl({
             )}
           >
             <NestTree nest={nest} />
-            <div className="col-start-4 row-start-1 flex min-w-0 items-center self-stretch pl-1.5">
+            <div
+              className={cn(
+                "col-start-4 row-start-1 flex min-w-0 items-center self-stretch",
+                nestTitleIndent(nest)
+              )}
+            >
               {!isChild && showParent && ticket.parent && (
                 <EpicPrefix epicId={ticket.parent} />
               )}
@@ -132,32 +143,56 @@ function RowImpl({
                     />
                   )}
                 >
-                  <span
-                    className={cn(
-                      "min-w-0 truncate text-sm font-medium",
-                      isChild && "text-foreground/65"
-                    )}
-                  >
+                  <span className="min-w-0 truncate text-sm font-medium">
                     {ticket.title}
                   </span>
                 </PopoverTrigger>
               </Link>
-              <SubTicketProgress
-                ticket={ticket}
-                className="relative z-20 ml-2"
-              />
+              {nest?.role === "parent" ? (
+                <NestProgressToggle
+                  expanded={nest.expanded}
+                  onToggle={nest.onToggle}
+                >
+                  <SubTicketProgress ticket={ticket} className="text-inherit" />
+                </NestProgressToggle>
+              ) : (
+                <SubTicketProgress
+                  ticket={ticket}
+                  className="relative z-20 ml-2"
+                />
+              )}
               {!isChild && ticket.parent && (
                 <SubTicketMarker parentId={ticket.parent} />
               )}
             </div>
             <fieldset disabled={!editable} className="contents">
-              <StatusButton ticket={ticket} stopPropagation onPatch={onPatch} />
-              <PriorityButton
-                ticket={ticket}
-                stopPropagation
-                onPatch={onPatch}
-              />
-              <span className="inline-flex shrink-0 items-center font-mono text-xs text-muted-foreground tabular-nums">
+              <span
+                className={cn("relative z-20 inline-flex", nestIndent(nest))}
+              >
+                <StatusButton
+                  ticket={ticket}
+                  stopPropagation
+                  onPatch={onPatch}
+                />
+              </span>
+              <span
+                className={cn("relative z-20 inline-flex", nestIndent(nest))}
+              >
+                <PriorityButton
+                  ticket={ticket}
+                  stopPropagation
+                  onPatch={onPatch}
+                />
+              </span>
+              <span
+                // Room for a four-digit number, so a longer id further down
+                // (say a sub-ticket) doesn't widen the column and shift titles.
+                style={{ minWidth: `${idPrefix.length + 5}ch` }}
+                className={cn(
+                  "inline-flex shrink-0 items-center font-mono text-xs text-muted-foreground tabular-nums",
+                  nestIndent(nest)
+                )}
+              >
                 <span>{idPrefix}-</span>
                 <AnimatePresence initial={false} mode="popLayout">
                   {!pending && (

@@ -1,5 +1,7 @@
 import { ChevronRight } from "lucide-react"
+import type { ReactNode } from "react"
 
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -8,7 +10,16 @@ export type RowNest =
   | Readonly<{ role: "child"; last: boolean }>
 
 const LINE =
-  "border-[color-mix(in_oklab,var(--muted-foreground)_28%,var(--background))]"
+  "border-[color-mix(in_oklab,var(--muted-foreground)_45%,var(--background))]"
+
+// A sub-ticket's leading cells slide right by one step, so its status sits
+// past the line dropping from under its parent's status. The cells keep their
+// grid tracks, so the columns after the title stay aligned with every row.
+export const nestIndent = (nest: RowNest | undefined) =>
+  nest?.role === "child" ? "translate-x-6" : undefined
+
+export const nestTitleIndent = (nest: RowNest | undefined) =>
+  nest?.role === "child" ? "pl-[30px]" : "pl-1.5"
 
 export function NestTree({ nest }: Readonly<{ nest: RowNest | undefined }>) {
   if (nest === undefined) return null
@@ -16,40 +27,31 @@ export function NestTree({ nest }: Readonly<{ nest: RowNest | undefined }>) {
     return (
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-y-0 left-0 w-4"
+        className="pointer-events-none absolute inset-y-0 left-0 w-10"
       >
         {!nest.last && (
           <span
-            className={cn(
-              "absolute -top-2 -bottom-2 left-[6px] border-l",
-              LINE
-            )}
+            className={cn("absolute -top-2 -bottom-2 left-7 border-l", LINE)}
           />
         )}
         <span
           className={cn(
-            "absolute -top-2 bottom-1/2 left-[6px] w-3 rounded-bl-[6px] border-b border-l",
+            "absolute -top-2 bottom-1/2 left-7 w-3 rounded-bl-[6px] border-b border-l",
             LINE
           )}
         />
       </span>
     )
   }
+  if (!nest.expanded) return null
   return (
-    <>
-      {nest.expanded && (
-        <span
-          aria-hidden
-          className={cn(
-            "pointer-events-none absolute top-[calc(50%+9px)] -bottom-2 left-[6px] border-l",
-            LINE
-          )}
-        />
+    <span
+      aria-hidden
+      className={cn(
+        "pointer-events-none absolute top-[calc(50%+10px)] -bottom-2 left-7 border-l",
+        LINE
       )}
-      <span className="absolute top-1/2 left-[-4px] z-20 -translate-y-1/2">
-        <NestToggle expanded={nest.expanded} onToggle={nest.onToggle} />
-      </span>
-    </>
+    />
   )
 }
 
@@ -82,5 +84,44 @@ export function NestToggle({
         strokeWidth={1.75}
       />
     </button>
+  )
+}
+
+export function NestProgressToggle({
+  expanded,
+  onToggle,
+  children
+}: Readonly<{
+  expanded: boolean
+  onToggle: () => void
+  children: ReactNode
+}>) {
+  return (
+    <Button
+      type="button"
+      variant="chip"
+      aria-expanded={expanded}
+      aria-label={
+        expanded
+          ? m.tickets_sub_tickets_collapse()
+          : m.tickets_sub_tickets_expand()
+      }
+      onClick={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        onToggle()
+      }}
+      className="ml-1 shrink-0 gap-1 pr-1.5 text-muted-foreground hover:text-foreground"
+    >
+      {children}
+      <ChevronRight
+        aria-hidden
+        className={cn(
+          "size-3.5 transition-transform duration-150",
+          expanded && "rotate-90"
+        )}
+        strokeWidth={1.75}
+      />
+    </Button>
   )
 }

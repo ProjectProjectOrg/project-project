@@ -17,7 +17,7 @@ import type { TicketRow } from "@/features/tickets/lib/ticketRows"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import { NestTree, type RowNest } from "./NestTree"
+import { NestTree, nestIndent, nestTitleIndent, type RowNest } from "./NestTree"
 import { Row, rowGridClassName } from "./Row"
 import { useSubTicketExpansion } from "./SubTicketExpansion"
 import { VirtualRows } from "./VirtualRows"
@@ -63,8 +63,9 @@ export function SectionRows({
   )
 
   const nestOf = (entry: NestedEntry): RowNest | undefined => {
-    if (entry.kind === "children") return { role: "child", last: true }
-    if (entry.parent !== null) return { role: "child", last: entry.last }
+    if (entry.kind === "children" || entry.parent !== null) {
+      return { role: "child", last: entry.last }
+    }
     const { ticket } = entry.row
     if (expansion === null || !hasSubTickets(ticket)) return undefined
     return {
@@ -101,18 +102,25 @@ export function SectionRows({
               <span
                 className={cn(
                   "col-start-1 mx-auto size-3.5 rounded-full border border-dashed border-border",
+                  nestIndent(nest),
                   entry.state === "loading" && "animate-pulse"
                 )}
               />
               <span
                 className={cn(
-                  "col-start-4 pl-1.5 text-sm text-muted-foreground",
+                  "col-start-4 text-sm text-muted-foreground",
+                  nestTitleIndent(nest),
                   entry.state === "loading" && "animate-pulse"
                 )}
               >
-                {entry.state === "loading"
-                  ? m.tickets_sub_tickets_loading()
-                  : m.tickets_sub_tickets_load_failed()}
+                {entry.state === "loading" ? (
+                  <output
+                    aria-label={m.tickets_sub_tickets_loading()}
+                    className="block h-2.5 w-40 rounded-full bg-muted"
+                  />
+                ) : (
+                  m.tickets_sub_tickets_load_failed()
+                )}
               </span>
             </div>
           )

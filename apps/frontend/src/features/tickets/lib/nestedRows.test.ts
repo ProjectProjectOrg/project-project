@@ -65,6 +65,20 @@ describe("withExpandedChildren", () => {
     expect(failed[1]).toMatchObject({ kind: "children", state: "failed" })
   })
 
+  it("reserves a loading row per known sub-ticket", () => {
+    const parent = row("T-1", { subTicketCount: 3 })
+    const entries = withExpandedChildren(
+      [parent],
+      new Set([ticketId("T-1")]),
+      () => undefined
+    )
+    expect(entries.slice(1).map(({ kind, last }) => ({ kind, last }))).toEqual([
+      { kind: "children", last: false },
+      { kind: "children", last: false },
+      { kind: "children", last: true }
+    ])
+  })
+
   it("leaves collapsed parents alone", () => {
     expect(
       keys(withExpandedChildren(rows, new Set(), () => undefined))
