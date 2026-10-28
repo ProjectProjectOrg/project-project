@@ -2190,7 +2190,7 @@ const StatusesGroup = HttpApiGroup.make("statuses")
         params: ProjectStatusPath,
         payload: ReorderStatusInput,
         success: ProjectStatus,
-        error: [Unauthorized, NotFound, Forbidden]
+        error: [Unauthorized, NotFound, Forbidden, Conflict]
       }
     ).annotate(RequiresProject, { workflow: ["manage"] })
   )

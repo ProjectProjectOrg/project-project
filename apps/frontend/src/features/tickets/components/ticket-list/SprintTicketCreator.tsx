@@ -4,7 +4,12 @@ import {
   useAtomSet,
   useAtomValue
 } from "@effect/atom-react"
-import type { GroupId, Ticket, TicketId } from "@pp/shared"
+import {
+  finishedStatusSlugs,
+  type GroupId,
+  type Ticket,
+  type TicketId
+} from "@pp/shared"
 import { useDebouncer } from "@tanstack/react-pacer"
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
@@ -31,6 +36,10 @@ import {
 import { menuItemMetaClass } from "@/components/ui/menu-styles"
 import { projectGitStates } from "@/features/github/atoms/github"
 import { projectRequest } from "@/features/projects/atoms/projects"
+import {
+  statusesFor,
+  statusesRequest
+} from "@/features/projects/atoms/projectStatuses"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   assignTicketToSprint,
@@ -133,6 +142,9 @@ export function SprintTicketCreator({
       : idleSearchAtom
   )
   const sprintsResult = useAtomValue(sprintList(sprintReq))
+  const statusesResult = useAtomValue(
+    statusesFor(statusesRequest(orgSlug, slug))
+  )
 
   const memberOfOtherSprint = useMemo(() => {
     const map = new Map<string, string>()
@@ -148,10 +160,17 @@ export function SprintTicketCreator({
 
   const items: ReadonlyArray<Item> = useMemo(() => {
     const lowered = trimmed.toLowerCase()
-    const all = Result.isSuccess(ticketsResult) ? ticketsResult.value : []
+    const statuses = Result.isSuccess(statusesResult)
+      ? statusesResult.value
+      : null
+    const all =
+      Result.isSuccess(ticketsResult) && statuses !== null
+        ? ticketsResult.value
+        : []
+    const finished = finishedStatusSlugs(statuses ?? [])
     const eligible = all.filter(
       (t) =>
-        t.status !== "done" &&
+        !finished.has(t.status) &&
         !excludeIds.has(t.id) &&
         (trimmed.length > 0 || !t.parent)
     )
@@ -167,7 +186,7 @@ export function SprintTicketCreator({
     }))
     if (trimmed.length === 0 || exactTitle) return existing
     return [{ kind: "create" as const, label: trimmed }, ...existing]
-  }, [trimmed, ticketsResult, excludeIds, memberOfOtherSprint])
+  }, [trimmed, ticketsResult, statusesResult, excludeIds, memberOfOtherSprint])
 
   const dropdownOpen =
     inputFocused &&

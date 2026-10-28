@@ -6,6 +6,7 @@ import {
   projectGithubRepository,
   projectIndex,
   projectIntegrationLink,
+  projectStatus,
   ticketBranch,
   ticketIndex,
   user
@@ -913,10 +914,20 @@ export const TicketIndexLive = Layer.effect(
         )
     }
 
+    const finishedTicket = drizzleSql`(${ticketIndex.status} = 'done' or exists (
+      select 1 from ${projectStatus} s
+      join ${projectStatus} anchor
+        on anchor.project_id = s.project_id and anchor.slug = 'done'
+      where s.project_id = ${ticketIndex.projectId}
+        and s.slug = ${ticketIndex.status}
+        and s.slug not in ('todo', 'in_progress')
+        and s.order_key collate "C" > anchor.order_key collate "C"
+    ))`
+
     const assignedConditions = (scope: TicketIndexAssignedScope) => [
       arrayContains(ticketIndex.assignees, [scope.viewerId]),
       or(
-        ne(ticketIndex.status, "done"),
+        drizzleSql`not ${finishedTicket}`,
         gt(ticketIndex.updatedAt, scope.doneAfter)
       )
     ]

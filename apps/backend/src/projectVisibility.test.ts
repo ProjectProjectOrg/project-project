@@ -17,6 +17,7 @@ import { FigmaLinks } from "@pp/server-core/figma/FigmaLinks"
 import { FigmaLinksLive } from "@pp/server-core/figma/FigmaLinksLive"
 import { GitHub } from "@pp/server-core/github/GitHub"
 import { BannerPlaceholders } from "@pp/server-core/projects/BannerPlaceholders"
+import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { Projects } from "@pp/server-core/projects/Projects"
 import { ProjectsLive } from "@pp/server-core/projects/ProjectsLive"
@@ -185,6 +186,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
     projectsLayer = ProjectsLive.pipe(
       Layer.provideMerge(AccessLive),
       Layer.provide(TicketDocumentLock.layer),
+      Layer.provide(FinishedStatuses.baseline),
       Layer.provide(
         Layer.mergeAll(
           db,

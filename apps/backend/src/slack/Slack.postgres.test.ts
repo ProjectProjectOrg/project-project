@@ -22,6 +22,7 @@ import { GroupDocs } from "@pp/server-core/groups/GroupDocs"
 import { GroupDocsLive } from "@pp/server-core/groups/GroupDocsLive"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
+import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import { SecretCryptoLive } from "@pp/server-core/storage/SecretCryptoLive"
 import {
   TicketDocs,
@@ -250,6 +251,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
       Layer.provideMerge(UsersLive),
       Layer.provideMerge(GroupDocsLive),
       Layer.provideMerge(TicketDocsLive),
+      Layer.provideMerge(FinishedStatuses.layer),
       Layer.provideMerge(KeyedLock.layer),
       Layer.provideMerge(TicketActivityLive),
       Layer.provideMerge(MarkdownLive),

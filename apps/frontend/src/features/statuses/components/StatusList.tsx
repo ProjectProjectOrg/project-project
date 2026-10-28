@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
-import { OrderKey, type ProjectStatus } from "@pp/shared"
-import { generateKeyBetween } from "fractional-indexing"
+import type { ProjectStatus, StatusPhase } from "@pp/shared"
+import * as Result from "effect/reactivity/AsyncResult"
 import { Reorder } from "motion/react"
 import { useMemo, useRef, useState } from "react"
 
@@ -11,15 +11,27 @@ import {
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { StatusCreateRow } from "@/features/statuses/components/StatusCreateRow"
+import { StatusDraftRow } from "@/features/statuses/components/StatusDraftRow"
+import { StatusPhaseHeader } from "@/features/statuses/components/StatusPhaseHeader"
 import { StatusRow } from "@/features/statuses/components/StatusRow"
+import {
+  moveStatus,
+  phaseEntries,
+  placeStatus,
+  type PhaseEntry
+} from "@/features/statuses/lib/statusPhases"
 import {
   countsRequest,
   ticketCounts
 } from "@/features/tickets/atoms/ticketCounts"
 import { useProjectActor } from "@/lib/access"
-import { compareByOrderKey } from "@/lib/orderKey"
 import { m } from "@/paraglide/messages"
+
+const PHASE_LABEL: Readonly<Record<StatusPhase, () => string>> = {
+  unstarted: m.tickets_status_phase_unstarted,
+  started: m.tickets_status_phase_started,
+  finished: m.tickets_status_phase_finished
+}
 
 export function StatusList() {
   const { orgSlug, slug } = useProjectRoute()
@@ -37,63 +49,70 @@ export function StatusList() {
           </p>
         </SettingsGroup>
       )}
-      onSuccess={({ value }) => <OrderedStatuses statuses={value} />}
+      onSuccess={({ value }) => <PhasedStatuses statuses={value} />}
     />
   )
 }
 
-type OrderedProps = Readonly<{
-  statuses: ReadonlyArray<ProjectStatus>
-}>
+const INSTANT_LAYOUT = { layout: { duration: 0 } }
 
-function OrderedStatuses({ statuses }: OrderedProps) {
+const entryKey = (entry: PhaseEntry) =>
+  entry.kind === "status"
+    ? `status:${entry.status.slug}`
+    : `phase:${entry.phase}`
+
+function PhasedStatuses({
+  statuses
+}: Readonly<{ statuses: ReadonlyArray<ProjectStatus> }>) {
   const { orgSlug, slug } = useProjectRoute()
-  useAtomValue(ticketCounts(countsRequest(orgSlug, slug, {})))
+  const counts = useAtomValue(ticketCounts(countsRequest(orgSlug, slug, {})))
+  const byStatus = Result.isSuccess(counts) ? counts.value.byStatus : {}
   const canManage = useProjectActor().call("statuses", "update")
 
-  const sorted = useMemo(
-    () => [...statuses].toSorted(compareByOrderKey),
-    [statuses]
+  const entries = useMemo(() => phaseEntries(statuses), [statuses])
+  const [dragOrder, setDragOrder] = useState<ReadonlyArray<PhaseEntry> | null>(
+    null
   )
-
-  const [dragOrder, setDragOrder] =
-    useState<ReadonlyArray<ProjectStatus> | null>(null)
-  const order = dragOrder ?? sorted
+  const order = dragOrder ?? entries
+  const dragging = dragOrder !== null
   const orderRef = useRef(order)
   orderRef.current = order
+  const [creating, setCreating] = useState<StatusPhase | null>(null)
 
-  const commitDrop = (statusSlug: string): ProjectStatus["orderKey"] | null => {
-    const list = orderRef.current
-    const idx = list.findIndex((s) => s.slug === statusSlug)
-    if (idx < 0) {
-      setDragOrder(null)
-      return null
-    }
-    if (sorted[idx]?.slug === statusSlug) {
-      setDragOrder(null)
-      return null
-    }
-    const prevKey = list[idx - 1]?.orderKey ?? null
-    const nextKey = list[idx + 1]?.orderKey ?? null
-    const newKey = generateKeyBetween(prevKey, nextKey)
-    setDragOrder(null)
-    return OrderKey.make(newKey)
+  const phaseCounts: Record<StatusPhase, number> = {
+    unstarted: 0,
+    started: 0,
+    finished: 0
+  }
+  let phase: StatusPhase = "unstarted"
+  for (const entry of entries) {
+    if (entry.kind === "phase") phase = entry.phase
+    if (entry.kind === "status")
+      phaseCounts[phase] += byStatus[entry.status.slug] ?? 0
   }
 
-  const moveBy = (
-    statusSlug: string,
-    delta: number
-  ): ProjectStatus["orderKey"] | null => {
-    const idx = sorted.findIndex((s) => s.slug === statusSlug)
-    const targetIdx = idx + delta
-    if (idx < 0 || targetIdx < 0 || targetIdx >= sorted.length) return null
-    const next = [...sorted]
-    const [moved] = next.splice(idx, 1)
-    next.splice(targetIdx, 0, moved)
-    const prevKey = next[targetIdx - 1]?.orderKey ?? null
-    const nextKey = next[targetIdx + 1]?.orderKey ?? null
-    const newKey = generateKeyBetween(prevKey, nextKey)
-    return OrderKey.make(newKey)
+  const creatingAt = order.findIndex(
+    (entry) => entry.kind === "phase" && entry.phase === creating
+  )
+  const nextPhaseAt = order.findIndex(
+    (entry, i) => i > creatingAt && entry.kind === "phase"
+  )
+  const draftAt =
+    creating === null ? -1 : nextPhaseAt === -1 ? order.length : nextPhaseAt
+  const draft =
+    creating === null ? null : (
+      <StatusDraftRow
+        key={`draft:${creating}`}
+        phase={creating}
+        statuses={statuses}
+        onClose={() => setCreating(null)}
+      />
+    )
+
+  const commitDrop = (statusSlug: string) => {
+    const key = placeStatus(orderRef.current, statusSlug)
+    setDragOrder(null)
+    return key
   }
 
   return (
@@ -106,28 +125,47 @@ function OrderedStatuses({ statuses }: OrderedProps) {
           onReorder={(next) => setDragOrder(next)}
           className="divide-y divide-border"
         >
-          {order.map((s, i) => (
-            <StatusRow
-              key={s.slug}
-              status={s}
-              statuses={order}
-              onDragStart={() => {
-                if (dragOrder === null) setDragOrder(sorted)
-              }}
-              onDragEnd={() => commitDrop(s.slug)}
-              onMoveUp={i > 0 ? () => moveBy(s.slug, -1) : undefined}
-              onMoveDown={
-                i < order.length - 1 ? () => moveBy(s.slug, 1) : undefined
-              }
-            />
-          ))}
+          {order.map((entry, i) => {
+            switch (entry.kind) {
+              case "phase":
+                return [
+                  i === draftAt ? draft : null,
+                  <Reorder.Item
+                    key={entryKey(entry)}
+                    value={entry}
+                    dragListener={false}
+                    transition={dragging ? undefined : INSTANT_LAYOUT}
+                    className="list-none"
+                  >
+                    <StatusPhaseHeader
+                      label={PHASE_LABEL[entry.phase]()}
+                      ticketCount={phaseCounts[entry.phase]}
+                      onAdd={canManage ? () => setCreating(entry.phase) : null}
+                    />
+                  </Reorder.Item>
+                ]
+              case "status":
+                return (
+                  <StatusRow
+                    key={entryKey(entry)}
+                    entry={entry}
+                    statuses={statuses}
+                    count={byStatus[entry.status.slug] ?? 0}
+                    dragging={dragging}
+                    onDragStart={() => {
+                      if (!dragging) setDragOrder(entries)
+                    }}
+                    onDragEnd={() => commitDrop(entry.status.slug)}
+                    onMove={(delta) =>
+                      moveStatus(entries, entry.status.slug, delta)
+                    }
+                  />
+                )
+            }
+          })}
+          {draftAt === order.length ? draft : null}
         </Reorder.Group>
       </fieldset>
-      {canManage && (
-        <div className="px-3 py-2">
-          <StatusCreateRow />
-        </div>
-      )}
     </SettingsGroup>
   )
 }

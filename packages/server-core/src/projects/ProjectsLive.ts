@@ -75,6 +75,7 @@ import {
 import { Users } from "../users/Users"
 import { bannerNeedsPlaceholder } from "./bannerPlaceholder"
 import { BannerPlaceholders } from "./BannerPlaceholders"
+import { FinishedStatuses } from "./FinishedStatuses"
 import { ProjectDocs } from "./ProjectDocs"
 import {
   iconImageSlots,
@@ -189,6 +190,7 @@ export const ProjectsLive = Layer.effect(
     const users = yield* Users
     const github = yield* GitHub
     const ticketDocumentLock = yield* TicketDocumentLock.TicketDocumentLock
+    const finishedStatuses = yield* FinishedStatuses
 
     const inScope = Effect.gen(function* () {
       const scope = yield* ProjectScope
@@ -1069,6 +1071,7 @@ export const ProjectsLive = Layer.effect(
           .projectFor(orgSlug, slug)
           .pipe(Effect.orDie)
         const ids = yield* ticketDocs.listIds(orgSlug, slug).pipe(Effect.orDie)
+        const finished = yield* finishedStatuses.forProject(orgSlug, slug)
         yield* Effect.forEach(
           ids,
           (id) =>
@@ -1079,7 +1082,7 @@ export const ProjectsLive = Layer.effect(
                 id,
                 (ticket) => {
                   if (
-                    ticket.status === "done" ||
+                    finished.has(ticket.status) ||
                     !ticket.assignees.includes(userId)
                   ) {
                     return Effect.succeed(ticket)

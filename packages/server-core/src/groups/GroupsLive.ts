@@ -29,6 +29,7 @@ import * as Schema from "effect/Schema"
 
 import { KeyedLock, LockKey } from "../locks/KeyedLock"
 import type { MarkdownError } from "../markdown/Markdown"
+import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { TicketDocs } from "../tickets/TicketDocs"
 import { TicketIndex } from "../tickets/TicketIndex"
 import { GroupDocs, type GroupDocument } from "./GroupDocs"
@@ -81,6 +82,7 @@ export const GroupsLive = Layer.effect(
     const ticketDocs = yield* TicketDocs
     const ticketIndex = yield* TicketIndex
     const keyedLock = yield* KeyedLock
+    const finishedStatuses = yield* FinishedStatuses
 
     const withGroupFilesLock = <A, E, R>(
       orgSlug: string,
@@ -642,10 +644,11 @@ export const GroupsLive = Layer.effect(
                 ),
             { concurrency: 8 }
           )
+          const finished = yield* finishedStatuses.forProject(orgSlug, slug)
           const stay: Array<TicketId> = []
           const carry: Array<TicketId> = []
           for (const ticket of tickets) {
-            if (isCarryover(ticket.status)) carry.push(ticket.id)
+            if (isCarryover(ticket.status, finished)) carry.push(ticket.id)
             else stay.push(ticket.id)
           }
 

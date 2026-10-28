@@ -21,6 +21,7 @@ import { expect } from "vitest"
 import { projectScope } from "../access/testing"
 import * as KeyedLock from "../locks/KeyedLock"
 import { GroupIdTaken, MarkdownError } from "../markdown/Markdown"
+import { FinishedStatuses } from "../projects/FinishedStatuses"
 import {
   TicketDocs,
   type TicketDocsShape,
@@ -300,7 +301,7 @@ function groupsLayer(docs?: Parameters<typeof makeFakeDocs>[0]) {
     Layer.provide(fakeDocs.groupLayer),
     Layer.provide(fakeDocs.ticketLayer),
     Layer.provide(fakeDocs.ticketIndexLayer),
-    Layer.provide(KeyedLock.layer),
+    Layer.provide(Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)),
     Layer.merge(actorLayer)
   )
 }
@@ -1258,7 +1259,7 @@ it.effect(
       Layer.provide(fakeDocs.ticketLayer),
       Layer.provide(fakeDocs.ticketIndexLayer),
       Layer.provide(TicketDocumentLock.layer),
-      Layer.provide(KeyedLock.layer),
+      Layer.provide(Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)),
       Layer.merge(scopeLayer("pm")),
       Layer.merge(actorLayer)
     )

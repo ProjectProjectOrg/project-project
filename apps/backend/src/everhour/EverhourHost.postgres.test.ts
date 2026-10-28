@@ -17,6 +17,7 @@ import { GroupDocsLive } from "@pp/server-core/groups/GroupDocsLive"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { Markdown } from "@pp/server-core/markdown/Markdown"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
+import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import { SecretCryptoLive } from "@pp/server-core/storage/SecretCryptoLive"
 import { TicketDocsLive } from "@pp/server-core/tickets/TicketDocsLive"
 import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
@@ -150,6 +151,7 @@ describe.skipIf(!databaseUrl)("Everhour backend composition", () => {
           Layer.provideMerge(TicketIndexLive),
           Layer.provideMerge(GroupDocsLive),
           Layer.provideMerge(TicketDocsLive),
+          Layer.provideMerge(FinishedStatuses.layer),
           Layer.provideMerge(KeyedLock.layer),
           Layer.provideMerge(TicketActivityLive),
           Layer.provideMerge(MarkdownLive),

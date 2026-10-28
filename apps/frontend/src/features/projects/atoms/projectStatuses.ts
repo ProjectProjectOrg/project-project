@@ -3,6 +3,7 @@ import {
   StatusSlug,
   StatusColor,
   OrderKey,
+  phaseEndNeighbors,
   pickStatusColor,
   type CreateStatusInput,
   type DeleteStatusInput,
@@ -12,6 +13,7 @@ import {
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Atom from "effect/reactivity/Atom"
+import { generateKeyBetween } from "fractional-indexing"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
@@ -73,12 +75,16 @@ const syntheticStatus = (
     color:
       input.color ??
       StatusColor.make(pickStatusColor(statuses.map((status) => status.color))),
-    orderKey: OrderKey.make("zzz"),
-    description: null,
+    orderKey: OrderKey.make(
+      generateKeyBetween(
+        ...phaseEndNeighbors(statuses, input.phase ?? "started")
+      )
+    ),
+    description: input.description ?? null,
     createdBy: "",
     createdAt: DateTime.toDate(DateTime.nowUnsafe())
   }
-  return [...statuses, synthetic]
+  return [...statuses, synthetic].toSorted(compareByOrderKey)
 }
 
 export const createStatus = Atom.family((req: StatusesRequest) =>
@@ -143,7 +149,8 @@ export const reorderStatus = Atom.family(({ req, statusSlug }: StatusKey) =>
     confirm: (statuses, reordered) =>
       replaceStatus(statuses, statusSlug, () => reordered).toSorted(
         compareByOrderKey
-      )
+      ),
+    publish: () => Keys.ticketsChanged(scopeOf(req))
   })
 )
 

@@ -75,6 +75,7 @@ import * as GitHub from "../github/GitHub"
 import { Groups } from "../groups/Groups"
 import { Library, type TemplateExpansion } from "../library/Library"
 import type { MarkdownError } from "../markdown/Markdown"
+import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { ProjectDocs } from "../projects/ProjectDocs"
 import { ProjectGitAutomation } from "../projects/ProjectGitAutomation"
 import { Projects } from "../projects/Projects"
@@ -370,6 +371,7 @@ export const TicketsLive = Layer.effect(
     const github = yield* GitHub.GitHub
     const groups = yield* Groups
     const db = yield* Db
+    const finishedStatuses = yield* FinishedStatuses
     const attachments = yield* Attachments
     const figmaLinks = yield* FigmaLinks
     const users = yield* Users
@@ -836,12 +838,22 @@ export const TicketsLive = Layer.effect(
           : yield* ticketIndex.list(project, estimatedIds)
         ).map((entry): [string, typeof entry] => [entry.id, entry])
       )
+      const finished =
+        unit === null
+          ? null
+          : yield* finishedStatuses.forProject(
+              project.orgSlug,
+              project.projectSlug
+            )
       const emptyCounts = { total: 0, byStatus: {} as Record<string, number> }
       const pages = members.map(({ key: groupId, ticketIds }) => {
         const result = bySection.get(groupId)
         const counts = result?.counts ?? emptyCounts
         const estimates =
-          unit === null || groupId === "ungrouped" || ticketIds === undefined
+          unit === null ||
+          finished === null ||
+          groupId === "ungrouped" ||
+          ticketIds === undefined
             ? null
             : summarizeEstimates(
                 ticketIds.flatMap((id) => {
@@ -850,7 +862,8 @@ export const TicketsLive = Layer.effect(
                     ? []
                     : [entry]
                 }),
-                unit
+                unit,
+                finished
               )
         return {
           section: {

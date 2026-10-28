@@ -25,6 +25,7 @@ import * as KeyedLock from "../locks/KeyedLock"
 import { Markdown, type MarkdownShape } from "../markdown/Markdown"
 import { TicketDocs } from "../tickets/TicketDocs"
 import { TicketDocsLive } from "../tickets/TicketDocsLive"
+import { FinishedStatuses } from "./FinishedStatuses"
 import { ProjectDocs } from "./ProjectDocs"
 import { ProjectDocsLive } from "./ProjectDocsLive"
 
@@ -104,7 +105,9 @@ it.effect("TicketDocs reads ticket frontmatter as a typed document", () =>
     Effect.provide(
       TicketDocsLive.pipe(
         Layer.provideMerge(testActivityLayer()),
-        Layer.provide(KeyedLock.layer),
+        Layer.provide(
+          Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
+        ),
         Layer.provide(
           makeMarkdown({
             readTicketParts: () =>
@@ -165,7 +168,9 @@ it.effect(
       Effect.provide(
         TicketDocsLive.pipe(
           Layer.provideMerge(testActivityLayer()),
-          Layer.provide(KeyedLock.layer),
+          Layer.provide(
+            Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
+          ),
           Layer.provide(
             makeMarkdown({
               createTicketFile: (
@@ -245,7 +250,9 @@ it.effect(
       Effect.provide(
         TicketDocsLive.pipe(
           Layer.provideMerge(testActivityLayer()),
-          Layer.provide(KeyedLock.layer),
+          Layer.provide(
+            Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
+          ),
           Layer.provide(
             makeMarkdown({
               writeTicketWithRegion: (
@@ -333,7 +340,9 @@ it.effect("TicketDocs serializes concurrent document updates", () => {
     Effect.provide(
       TicketDocsLive.pipe(
         Layer.provideMerge(testActivityLayer()),
-        Layer.provide(KeyedLock.layer),
+        Layer.provide(
+          Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
+        ),
         Layer.provide(
           makeMarkdown({
             readTicketParts: () => Effect.succeed(stored),
@@ -439,7 +448,9 @@ it.effect(
       Effect.provide(
         TicketDocsLive.pipe(
           Layer.provideMerge(testActivityLayer()),
-          Layer.provide(KeyedLock.layer),
+          Layer.provide(
+            Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
+          ),
           Layer.provide(
             makeMarkdown({
               readTicketParts: () => Effect.succeed(stored),
@@ -736,7 +747,9 @@ it.effect(
       Effect.provide(
         TicketDocsLive.pipe(
           Layer.provideMerge(testActivityLayer()),
-          Layer.provide(KeyedLock.layer),
+          Layer.provide(
+            Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
+          ),
           Layer.provide(
             makeMarkdown({
               readTicketFileRaw: (_org, _slug, _id) =>

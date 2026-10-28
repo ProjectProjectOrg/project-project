@@ -38,6 +38,7 @@ import { Library } from "../library/Library"
 import * as KeyedLock from "../locks/KeyedLock"
 import { MarkdownError } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
+import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { gitAutomationTestLayer } from "../projects/gitAutomationTesting"
 import { ProjectDocs } from "../projects/ProjectDocs"
 import { Projects, type ProjectsShape } from "../projects/Projects"
@@ -338,7 +339,7 @@ const TestLayer = Layer.unwrap(
       Layer.provide(FakeTicketIndex),
       Layer.provide(FakeDb),
       Layer.provide(TicketDocumentLock.layer),
-      Layer.provide(KeyedLock.layer),
+      Layer.provide(Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)),
       Layer.provide(accessLayer({})),
       Layer.merge(
         Layer.succeed(

@@ -48,6 +48,7 @@ import { Groups, type GroupsShape } from "../groups/Groups"
 import { Library } from "../library/Library"
 import { MarkdownError } from "../markdown/Markdown"
 import { TicketIdTaken } from "../markdown/Markdown"
+import { FinishedStatuses } from "../projects/FinishedStatuses"
 import {
   DEFAULT_GIT_AUTOMATION_CONFIG,
   gitAutomationTestLayer,
@@ -806,6 +807,7 @@ function makeTicketsLayer(
     Layer.provide(options.github ?? makeFakeGitHub()),
     Layer.provide(options.ticketIndex ?? makeFakeTicketIndex(new Map())),
     Layer.provide(FakeDb),
+    Layer.provide(FinishedStatuses.baseline),
     Layer.provideMerge(testInfra(options.scope))
   )
 }
@@ -864,6 +866,7 @@ it.effect("listGitStates fetches only distinct ticket branches", () => {
     ),
     Layer.provide(makeFakeTicketIndex(docs.documents)),
     Layer.provide(FakeDb),
+    Layer.provide(FinishedStatuses.baseline),
     Layer.provideMerge(testInfra())
   )
 
@@ -958,6 +961,7 @@ it.effect(
         })
       ),
       Layer.provide(FakeDb),
+      Layer.provide(FinishedStatuses.baseline),
       Layer.provideMerge(testInfra())
     )
 
