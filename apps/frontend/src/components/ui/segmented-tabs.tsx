@@ -108,6 +108,7 @@ export function SegmentedTabs<K extends string>({
     <div
       role={ariaLabel === undefined ? undefined : "group"}
       aria-label={ariaLabel}
+      data-hovered={hoveringOther || undefined}
       onPointerLeave={subtle ? () => setHovered(null) : undefined}
       onBlur={
         subtle
@@ -129,7 +130,7 @@ export function SegmentedTabs<K extends string>({
           variant === "inline" && cn(SURFACE_BG[pillLevel], "shadow-surface-1"),
           subtle &&
             cn(
-              "bg-selected/50 transition-opacity duration-75 dark:bg-accent/40",
+              "bg-selected/50 transition-opacity duration-150 dark:bg-accent/40",
               hoveringOther && "opacity-80"
             ),
           variant !== "inline" && !subtle && "bg-tint",
@@ -137,14 +138,12 @@ export function SegmentedTabs<K extends string>({
         )}
       />
       {subtle && (
-        // Rests on the selected tab while hidden, so the next hover slides
-        // out from the selection and a leave slides back into it.
         <SegmentedIndicator
           activeIndex={items.findIndex(
             (item) => item.key === (hovered ?? value)
           )}
           className={cn(
-            "bg-accent/60 transition-opacity duration-75 dark:bg-accent/30",
+            "bg-accent/60 transition-opacity duration-150 dark:bg-accent/30",
             hoveringOther ? "opacity-40" : "opacity-0",
             v.pillRounding
           )}
@@ -271,8 +270,6 @@ function SegmentedTab({
   })
 }
 
-// A hidden semibold copy reserves the bold width, so the tab doesn't
-// shift when the weight changes.
 function WeightShiftLabel({
   label,
   bold
