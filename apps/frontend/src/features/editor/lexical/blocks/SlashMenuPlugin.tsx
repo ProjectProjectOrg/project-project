@@ -11,6 +11,7 @@ import {
   COMMAND_PRIORITY_CRITICAL,
   COMMAND_PRIORITY_EDITOR,
   createCommand,
+  $setSelection,
   KEY_TAB_COMMAND,
   type LexicalCommand,
   type TextNode
@@ -174,6 +175,24 @@ export function SlashMenuPlugin({
       ),
     [editor, switchTab]
   )
+
+  // Lexical's typeahead only closes when the editor selection changes, and a
+  // click outside the editor leaves the selection alone. Dropping it closes
+  // the menu.
+  const open = query !== null
+  useEffect(() => {
+    if (!open) return undefined
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (editor.getRootElement()?.contains(target) === true) return
+      if (target instanceof Element && target.closest("#typeahead-menu")) return
+      editor.update(() => $setSelection(null))
+    }
+    document.addEventListener("pointerdown", onPointerDown, true)
+    return () =>
+      document.removeEventListener("pointerdown", onPointerDown, true)
+  }, [editor, open])
 
   const onSelectOption = useCallback(
     (
