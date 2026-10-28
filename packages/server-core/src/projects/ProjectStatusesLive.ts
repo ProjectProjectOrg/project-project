@@ -10,7 +10,9 @@ import {
   StatusLabel,
   StatusSlug,
   deriveStatusSlug,
+  hasBaselineOrder,
   isReservedStatusSlug,
+  phaseEndNeighbors,
   pickStatusColor
 } from "@pp/shared"
 import { ProjectScope } from "@pp/shared"
@@ -105,9 +107,9 @@ export const ProjectStatusesLive = Layer.effect(
         if (existing.some((s) => s.slug === derived))
           return yield* new Conflict({ reason: "slug_exists" })
 
-        const lastKey =
-          existing.length > 0 ? existing[existing.length - 1].orderKey : null
-        const nextKey = generateKeyBetween(lastKey, null)
+        const nextKey = generateKeyBetween(
+          ...phaseEndNeighbors(existing, input.phase ?? "started")
+        )
 
         const color =
           input.color ?? pickStatusColor(existing.map((s) => s.color))
@@ -121,6 +123,7 @@ export const ProjectStatusesLive = Layer.effect(
             label: input.label,
             icon,
             color,
+            description: input.description ?? null,
             orderKey: nextKey,
             createdBy: userId
           })
@@ -147,9 +150,7 @@ export const ProjectStatusesLive = Layer.effect(
         if (!current) return yield* new NotFound()
 
         const touchesIdentity =
-          input.label !== undefined ||
-          input.icon !== undefined ||
-          input.color !== undefined
+          input.label !== undefined || input.icon !== undefined
         if (isReservedStatusSlug(statusSlug) && touchesIdentity)
           return yield* new Forbidden()
 
@@ -240,6 +241,21 @@ export const ProjectStatusesLive = Layer.effect(
     const reorder: ProjectStatusesShape["reorder"] = (statusSlug, input) =>
       Effect.gen(function* () {
         const { projectId } = yield* ProjectScope
+        const existing = yield* db.query.projectStatus
+          .findMany({
+            where: {
+              RAW: (table, _operators) =>
+                _operators.eq(table.projectId, projectId)
+            }
+          })
+          .pipe(Effect.orDie)
+        if (!existing.some((s) => s.slug === statusSlug))
+          return yield* new NotFound()
+        const reordered = existing.map((s) =>
+          s.slug === statusSlug ? { ...s, orderKey: input.orderKey } : s
+        )
+        if (hasBaselineOrder(existing) && !hasBaselineOrder(reordered))
+          return yield* new Conflict({ reason: "baseline_order" })
         const updated = yield* db
           .update(projectStatus)
           .set({ orderKey: input.orderKey })

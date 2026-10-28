@@ -22,6 +22,7 @@ import { Groups, type GroupsShape } from "@pp/server-core/groups/Groups"
 import { Library } from "@pp/server-core/library/Library"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
+import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
 import { Projects, type ProjectsShape } from "@pp/server-core/projects/Projects"
@@ -468,6 +469,7 @@ const PassthroughLibrary = Layer.mock(Library, {
 
 const DocsLive = TicketDocsLive.pipe(
   Layer.provide(KeyedLock.layer),
+  Layer.provide(FinishedStatuses.baseline),
   Layer.provide(passthroughTicketActivity),
   Layer.provide(MarkdownLive),
   Layer.provideMerge(BunServices.layer)
@@ -498,6 +500,7 @@ const BenchmarkLive = (options: Options) =>
         FakeFigmaLinks,
         FakeUsers,
         TicketDocumentLock.layer,
+        FinishedStatuses.baseline,
         passthroughTicketActivity,
         accessLayer({})
       )

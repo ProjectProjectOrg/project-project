@@ -33,6 +33,10 @@ export const BASELINE_STATUS_SEED = [
   }
 ] as const
 
+export const STATUS_PHASES = ["unstarted", "started", "finished"] as const
+export const StatusPhase = Schema.Literals(STATUS_PHASES)
+export type StatusPhase = typeof StatusPhase.Type
+
 export const baselineStatusDescription = (slug: string): string | null =>
   BASELINE_STATUS_SEED.find((baseline) => baseline.slug === slug)
     ?.description ?? null
@@ -102,7 +106,7 @@ export const OrderKey = Schema.String.pipe(
 )
 export type OrderKey = typeof OrderKey.Type
 
-export const STATUS_DESCRIPTION_MAX_LENGTH = 500
+export const STATUS_DESCRIPTION_MAX_LENGTH = 255
 
 export const StatusDescription = Schema.String.pipe(
   Schema.check(Schema.isMinLength(1)),
@@ -124,7 +128,9 @@ export type ProjectStatus = typeof ProjectStatus.Type
 export const CreateStatusInput = Schema.Struct({
   label: StatusLabel,
   icon: Schema.optional(StatusIcon),
-  color: Schema.optional(StatusColor)
+  color: Schema.optional(StatusColor),
+  description: Schema.optional(Schema.NullOr(StatusDescription)),
+  phase: Schema.optional(StatusPhase)
 })
 export type CreateStatusInput = typeof CreateStatusInput.Type
 

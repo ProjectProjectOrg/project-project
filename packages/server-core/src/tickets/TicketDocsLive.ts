@@ -9,7 +9,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
 import { ticketChanges } from "../activity/changes"
-import { ticketEvents } from "../activity/projectEvents"
+import { ticketCreatedEvents, ticketEvents } from "../activity/projectEvents"
 import { TicketActivity } from "../activity/TicketActivity"
 import * as KeyedLock from "../locks/KeyedLock"
 import { ticketFileBody } from "../markdown/fileContent"
@@ -18,6 +18,7 @@ import {
   type MarkdownError,
   type TicketIdTaken
 } from "../markdown/Markdown"
+import { FinishedStatuses } from "../projects/FinishedStatuses"
 import {
   MalformedTicketDocument,
   TicketFrontmatter,
@@ -71,6 +72,7 @@ export const TicketDocsLive = Layer.effect(
     const markdown = yield* Markdown
     const keyedLock = yield* KeyedLock.KeyedLock
     const ticketActivity = yield* TicketActivity
+    const finishedStatuses = yield* FinishedStatuses
 
     const withMutationLock = <A, E, R>(
       orgSlug: string,
@@ -166,7 +168,7 @@ export const TicketDocsLive = Layer.effect(
                 encodeFrontmatter(document),
                 ticketFileBody(document.body, document.commentsRegion)
               ),
-              ticketEvents(null, document)
+              ticketCreatedEvents(document)
             )
             .pipe(
               Effect.provideService(
@@ -262,7 +264,13 @@ export const TicketDocsLive = Layer.effect(
               ),
               activity.cause ?? null,
               write(orgSlug, slug, id, next),
-              activity.silent ? [] : ticketEvents(current, next)
+              activity.silent || current.status === next.status
+                ? []
+                : ticketEvents(
+                    current,
+                    next,
+                    yield* finishedStatuses.forProject(orgSlug, slug)
+                  )
             )
             if (onPersist) yield* onPersist(next)
             return next

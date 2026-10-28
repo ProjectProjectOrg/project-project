@@ -6,6 +6,7 @@ import type { Estimate } from "./schemas/Estimate"
 import { StatusSlug } from "./schemas/Status"
 
 const s = Schema.decodeUnknownSync(StatusSlug)
+const FINISHED: ReadonlySet<string> = new Set(["done"])
 
 const ticket = (
   status: string,
@@ -23,7 +24,7 @@ describe("summarizeEstimates", () => {
       ticket("in_progress", null),
       ticket("done", { unit: "tshirt", value: "M" })
     ]
-    expect(summarizeEstimates(tickets, "points")).toEqual({
+    expect(summarizeEstimates(tickets, "points", FINISHED)).toEqual({
       unit: "points",
       committed: 8,
       done: 3,
@@ -36,7 +37,7 @@ describe("summarizeEstimates", () => {
       ticket("done", { unit: "time", minutes: 90 }),
       ticket("todo", { unit: "time", minutes: 30 })
     ]
-    expect(summarizeEstimates(tickets, "time")).toEqual({
+    expect(summarizeEstimates(tickets, "time", FINISHED)).toEqual({
       unit: "time",
       committed: 120,
       done: 90,
@@ -51,7 +52,7 @@ describe("summarizeEstimates", () => {
       ticket("todo", { unit: "tshirt", value: "XL" }),
       ticket("todo", { unit: "points", value: 5 })
     ]
-    expect(summarizeEstimates(tickets, "tshirt")).toEqual({
+    expect(summarizeEstimates(tickets, "tshirt", FINISHED)).toEqual({
       unit: "tshirt",
       sizes: { XS: 0, S: 0, M: 2, L: 0, XL: 1 },
       unestimated: 1

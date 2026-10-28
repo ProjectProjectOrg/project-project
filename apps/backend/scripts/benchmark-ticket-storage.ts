@@ -17,6 +17,7 @@ import {
 } from "@pp/server-core/activity/testing"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
+import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import {
   TicketDocs,
   type TicketDocument
@@ -360,6 +361,7 @@ const benchmarkProgram = (options: Options, scratchRoot: string) =>
     Effect.provide(
       TicketDocsLive.pipe(
         Layer.provide(KeyedLock.layer),
+        Layer.provide(FinishedStatuses.baseline),
         Layer.provide(passthroughTicketActivity),
         Layer.provide(MarkdownLive),
         Layer.provideMerge(

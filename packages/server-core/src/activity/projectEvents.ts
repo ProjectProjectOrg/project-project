@@ -3,23 +3,38 @@ import type { ProjectEvent, SprintEvent } from "@pp/shared"
 import type { GroupDocument } from "../groups/GroupDocs"
 import type { TicketDocument } from "../tickets/TicketDocs"
 
-export const ticketEvents = (
-  before: TicketDocument | null,
-  after: TicketDocument
-): ReadonlyArray<ProjectEvent> => {
-  const kind =
-    before === null
-      ? "ticket_created"
-      : before.status === after.status
-        ? null
-        : after.status === "done"
-          ? "ticket_completed"
-          : before.status === "done"
-            ? "ticket_reopened"
-            : null
-  return kind && after.archivedAt === null
-    ? [{ kind, id: after.id, title: after.title, status: after.status }]
+type EventTicket = Pick<
+  TicketDocument,
+  "id" | "title" | "status" | "archivedAt"
+>
+
+const ticketEvent = (
+  kind: "ticket_created" | "ticket_completed" | "ticket_reopened" | null,
+  ticket: EventTicket
+): ReadonlyArray<ProjectEvent> =>
+  kind && ticket.archivedAt === null
+    ? [{ kind, id: ticket.id, title: ticket.title, status: ticket.status }]
     : []
+
+export const ticketCreatedEvents = (
+  ticket: TicketDocument
+): ReadonlyArray<ProjectEvent> => ticketEvent("ticket_created", ticket)
+
+export const ticketEvents = (
+  before: EventTicket,
+  after: EventTicket,
+  finished: ReadonlySet<string>
+): ReadonlyArray<ProjectEvent> => {
+  const wasFinished = finished.has(before.status)
+  const isFinished = finished.has(after.status)
+  return ticketEvent(
+    wasFinished === isFinished
+      ? null
+      : isFinished
+        ? "ticket_completed"
+        : "ticket_reopened",
+    after
+  )
 }
 
 type SprintEventKind = (typeof SprintEvent.Type)["kind"]

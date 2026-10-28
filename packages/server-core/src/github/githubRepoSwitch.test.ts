@@ -42,6 +42,8 @@ import * as SqlClient from "effect/sql/SqlClient"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
+import { FinishedStatuses } from "../projects/FinishedStatuses"
+
 const decodeSlugSync = Schema.decodeSync(Slug)
 
 const decodeTicketIdSync = Schema.decodeSync(TicketId)
@@ -214,6 +216,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
       ),
       Layer.provide(docs),
       Layer.provide(lock),
+      Layer.provide(FinishedStatuses.baseline),
       Layer.provide(db),
       Layer.provide(
         Layer.succeed(BannerPlaceholders, {

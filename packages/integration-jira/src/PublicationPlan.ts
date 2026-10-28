@@ -10,6 +10,7 @@ import {
   deriveProjectIdentity,
   GroupId,
   JiraMigrationConfiguration,
+  phaseEndNeighbors,
   pickStatusColor,
   ProjectKey,
   Slug,
@@ -17,7 +18,8 @@ import {
   TagName,
   TicketId,
   TicketPriority,
-  TicketType
+  TicketType,
+  type StatusPhase
 } from "@pp/shared"
 import { DateTime, Effect, Schema } from "effect"
 import * as Match from "effect/Match"
@@ -44,6 +46,7 @@ import {
   jiraRestrictionPolicy,
   resolveTagDestinations,
   type JiraMappingSource,
+  type JiraStatusCreateOption,
   type JiraMigrationMappings
 } from "./Mappings"
 import { JiraArtifactRef } from "./MigrationArtifacts"
@@ -1023,6 +1026,31 @@ const PlannedMember = Schema.Struct({
   username: Schema.String,
   role: Schema.Literals(["owner", "member"])
 })
+const JIRA_STATUS_PHASE: Readonly<
+  Record<JiraStatusCreateOption["icon"], StatusPhase>
+> = {
+  CircleDashed: "unstarted",
+  CircleDot: "started",
+  CircleCheck: "finished"
+}
+
+export const placeJiraStatuses = <
+  S extends Readonly<{ slug: string; icon: JiraStatusCreateOption["icon"] }>
+>(
+  created: ReadonlyArray<S>
+): ReadonlyArray<S & Readonly<{ orderKey: string }>> => {
+  const placed: Array<Readonly<{ slug: string; orderKey: string }>> = [
+    ...BASELINE_STATUS_SEED
+  ]
+  return created.map((status) => {
+    const orderKey = generateKeyBetween(
+      ...phaseEndNeighbors(placed, JIRA_STATUS_PHASE[status.icon])
+    )
+    placed.push({ slug: status.slug, orderKey })
+    return { ...status, orderKey }
+  })
+}
+
 const PlannedStatus = Schema.Struct({
   slug: StatusSlug,
   label: Schema.String,
@@ -1370,11 +1398,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
         ...user,
         role: user.userId === prepared.ownerId ? "owner" : "member"
       }))
-    let orderKey: string = BASELINE_STATUS_SEED.at(-1)!.orderKey
-    const statuses = draft.plan.createdStatuses.map((status) => {
-      orderKey = generateKeyBetween(orderKey, null)
-      return { ...status, orderKey }
-    })
+    const statuses = placeJiraStatuses(draft.plan.createdStatuses)
     const usedColors: Array<string> = []
     const tags = draft.plan.tags.map((tag) => {
       const color = pickStatusColor(usedColors)

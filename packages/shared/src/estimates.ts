@@ -90,10 +90,11 @@ const emptySizes = (): Record<EstimateSize, number> => ({
 
 export const summarizeEstimates = (
   tickets: ReadonlyArray<EstimatedTicket>,
-  unit: EstimateUnit
+  unit: EstimateUnit,
+  finished: ReadonlySet<string>
 ): EstimateSummary => {
   const active = tickets.map((ticket) => ({
-    done: !isCarryover(ticket.status),
+    done: !isCarryover(ticket.status, finished),
     estimate: activeEstimate(ticket.estimate, unit)
   }))
   const unestimated = active.filter((t) => t.estimate === null).length

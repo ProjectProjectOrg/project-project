@@ -1,10 +1,10 @@
-import { GroupDetail, TicketId } from "@pp/shared"
+import { GroupDetail, StatusSlug, TicketId } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import type { GroupDocument } from "../groups/GroupDocs"
-import { sprintEvents } from "./projectEvents"
+import { sprintEvents, ticketEvents } from "./projectEvents"
 
 const sprint = Schema.decodeUnknownSync(GroupDetail)({
   id: "G-1",
@@ -71,5 +71,28 @@ describe("sprintEvents", () => {
     ["writing an epic", null, { ...sprint, kind: "epic" as const }, []]
   ])("%s", (_name, before, after, expected) => {
     expect(kinds(before, after)).toEqual(expected)
+  })
+})
+
+describe("ticketEvents", () => {
+  const finished: ReadonlySet<string> = new Set(["done", "wont_do"])
+  const inStatus = (status: string) => ({
+    id: ticket,
+    title: "Ship it",
+    status: Schema.decodeUnknownSync(StatusSlug)(status),
+    archivedAt: null
+  })
+  const kinds = (from: string, to: string) =>
+    ticketEvents(inStatus(from), inStatus(to), finished).map(
+      (event) => event.kind
+    )
+
+  it.each([
+    ["todo", "wont_do", ["ticket_completed"]],
+    ["wont_do", "in_progress", ["ticket_reopened"]],
+    ["done", "wont_do", []],
+    ["todo", "in_progress", []]
+  ])("%s -> %s", (from, to, expected) => {
+    expect(kinds(from, to)).toEqual(expected)
   })
 })

@@ -1,6 +1,7 @@
 import {
   matchesTicketQuery,
   SPRINT_SECTION_UNSCHEDULED,
+  finishedStatusSlugs,
   summarizeEstimates,
   type EstimateSummary,
   type EstimationMode,
@@ -29,6 +30,10 @@ import {
   projectEstimation,
   projectRequest
 } from "@/features/projects/atoms/projects"
+import {
+  statusesFor,
+  statusesRequest
+} from "@/features/projects/atoms/projectStatuses"
 import {
   createInSprint,
   sprintAssignmentKeys
@@ -91,6 +96,7 @@ export type SprintSectionsValue = Readonly<{
   viewer: Readonly<{
     id: UserId | undefined
     estimation: EstimationMode
+    finished: ReadonlySet<string>
   }>
 }>
 
@@ -137,10 +143,16 @@ const pageQuery = (
   })
 
 const viewerOf = (get: Atom.AtomContext, req: SprintSectionsRequest) => {
+  const statuses = get(
+    statusesFor(statusesRequest(req.params.orgSlug, req.params.slug))
+  )
   return {
     id: get(currentUserId),
     estimation: get(
       projectEstimation(projectRequest(req.params.orgSlug, req.params.slug))
+    ),
+    finished: finishedStatusSlugs(
+      AsyncResult.isSuccess(statuses) ? statuses.value : []
     )
   }
 }
@@ -246,11 +258,16 @@ const shift = (current: number, out: number, into: number) =>
 const shiftEstimates = (
   summary: EstimateSummary | null,
   removed: Ticket | null,
-  added: Ticket | null
+  added: Ticket | null,
+  finished: ReadonlySet<string>
 ): EstimateSummary | null => {
   if (summary === null) return null
-  const minus = summarizeEstimates(removed ? [removed] : [], summary.unit)
-  const plus = summarizeEstimates(added ? [added] : [], summary.unit)
+  const minus = summarizeEstimates(
+    removed ? [removed] : [],
+    summary.unit,
+    finished
+  )
+  const plus = summarizeEstimates(added ? [added] : [], summary.unit, finished)
   const unestimated = shift(
     summary.unestimated,
     minus.unestimated,
@@ -320,7 +337,12 @@ const patchRow = (
     return {
       ...section,
       count: section.count - (staysVisible ? 0 : 1),
-      estimates: shiftEstimates(section.estimates, before, found.ticket),
+      estimates: shiftEstimates(
+        section.estimates,
+        before,
+        found.ticket,
+        value.viewer.finished
+      ),
       page: {
         ...section.page,
         items: staysVisible
@@ -445,7 +467,12 @@ const insertCreated = (
   const nextSection: SprintSectionValue = {
     key,
     count: (existing?.count ?? 0) + 1,
-    estimates: shiftEstimates(existing?.estimates ?? null, null, row.ticket),
+    estimates: shiftEstimates(
+      existing?.estimates ?? null,
+      null,
+      row.ticket,
+      value.viewer.finished
+    ),
     page: { ...page, items: [row, ...page.items] }
   }
   return {
