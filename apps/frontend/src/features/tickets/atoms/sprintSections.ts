@@ -42,14 +42,13 @@ import {
   insertByOrderKey,
   patchTicketRow,
   placeholderRow,
-  ticketListQueryOf,
   toRow,
   withCreatedKeys,
   type QueryWithView,
   type QuickCreateInput,
   type TicketRow,
   type TicketRowPage,
-  withoutEpicsByDefault
+  viewQuery
 } from "@/features/tickets/lib/ticketRows"
 
 import {
@@ -74,7 +73,7 @@ export const sprintSectionsRequest = (
   _view: "sprintSections",
   params: { orgSlug, slug },
   query: {
-    ...withoutEpicsByDefault(ticketListQueryOf(query)),
+    ...viewQuery(query),
     cursor: undefined
   }
 })
@@ -131,7 +130,7 @@ const pageQuery = (
     params: req.params,
     query: {
       ...req.query,
-      groupId: [groupIdFilter(key)],
+      section: { groupId: [groupIdFilter(key)] },
       cursor
     },
     timeToLive: "2 minutes",

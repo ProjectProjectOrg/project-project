@@ -38,6 +38,7 @@ import {
 import { SPRINT_STATE_META } from "@/features/sprints/components/SprintChip"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import { TagChip } from "@/features/tags/components/TagChip"
+import { useSubTicketsExpanded } from "@/features/tickets/hooks/useSubTicketsExpanded"
 import {
   estimateFilterLabel,
   estimateFilterValues
@@ -175,6 +176,7 @@ export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
                       />
                     )
                   case "tags":
+                  case "subTickets":
                     return null
                 }
                 return null
@@ -191,6 +193,7 @@ export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
                   onChange={(tags) => onChange({ tags })}
                 />
               )}
+              {filters.includes("subTickets") && <ExpandSubTickets />}
             </div>
           </div>
         </PopoverContent>
@@ -212,6 +215,16 @@ function FilterArchived({
     <label className="flex min-h-8 items-center justify-between gap-3 text-[13px] text-muted-foreground">
       {m.tickets_filters_archived_show()}
       <Switch checked={archivedFilter} onCheckedChange={setArchivedFilter} />
+    </label>
+  )
+}
+
+function ExpandSubTickets() {
+  const [expanded, setExpanded] = useSubTicketsExpanded()
+  return (
+    <label className="flex min-h-8 items-center justify-between gap-3 text-[13px] text-muted-foreground">
+      {m.tickets_filters_expand_sub_tickets()}
+      <Switch checked={expanded} onCheckedChange={setExpanded} />
     </label>
   )
 }

@@ -15,7 +15,13 @@ type EpicRef = Readonly<{ orgSlug: string; slug: string; epicId: TicketId }>
 
 const noTitles = Atom.make(Result.initial<ReadonlyMap<TicketId, string>>())
 
-export function useEpicTitle({ orgSlug, slug, epicId }: EpicRef) {
+type ParentLabel = Readonly<{ title: string; epic: boolean }>
+
+export function useParentLabel({
+  orgSlug,
+  slug,
+  epicId
+}: EpicRef): ParentLabel | null {
   const req = epicsRequest(orgSlug, slug)
   const open = useAtomValue(openEpicTitles(req))
   const archived = useAtomValue(
@@ -24,21 +30,23 @@ export function useEpicTitle({ orgSlug, slug, epicId }: EpicRef) {
       : noTitles
   )
   if (!Result.isSuccess(open)) return null
-  const title = open.value.get(epicId)
-  if (title !== undefined) return title
-  return Result.isSuccess(archived)
-    ? (archived.value.get(epicId) ?? epicId)
-    : Result.isFailure(archived)
-      ? epicId
-      : null
+  const title =
+    open.value.get(epicId) ??
+    (Result.isSuccess(archived) ? archived.value.get(epicId) : undefined)
+  if (title !== undefined) return { title, epic: true }
+  return Result.isInitial(archived) ? null : { title: epicId, epic: false }
+}
+
+export function useEpicTitle(ref: EpicRef) {
+  return useParentLabel(ref)?.title ?? null
 }
 
 export function EpicLink({
   className,
   ...ref
 }: EpicRef & Readonly<{ className?: string }>) {
-  const title = useEpicTitle(ref)
-  if (title === null) return null
+  const label = useParentLabel(ref)
+  if (label?.epic !== true) return null
   return (
     <Link
       to="/orgs/$orgSlug/projects/$slug/tickets/$id"
@@ -49,7 +57,7 @@ export function EpicLink({
         className
       )}
     >
-      {title}
+      {label.title}
     </Link>
   )
 }

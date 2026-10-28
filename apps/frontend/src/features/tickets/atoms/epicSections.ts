@@ -26,10 +26,9 @@ import {
 } from "@/features/tickets/lib/epicSectionRows"
 import {
   placeholderRow,
-  ticketListQueryOf,
   toRow,
   withCreatedKeys,
-  withoutEpicsByDefault,
+  viewQuery,
   type QueryWithView,
   type QuickCreateInput
 } from "@/features/tickets/lib/ticketRows"
@@ -56,7 +55,7 @@ export const epicSectionsRequest = (
   _view: "epicSections",
   params: { orgSlug, slug },
   query: {
-    ...withoutEpicsByDefault(ticketListQueryOf(query)),
+    ...viewQuery(query),
     cursor: undefined
   }
 })
@@ -91,7 +90,7 @@ const pageQuery = (
     query: {
       ...req.query,
       type: req.query.type?.filter((type) => type !== "epic"),
-      parent: [key],
+      section: { parent: [key] },
       cursor
     },
     timeToLive: "2 minutes",

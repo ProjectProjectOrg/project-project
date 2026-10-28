@@ -13,10 +13,13 @@ import { EpicLink } from "@/features/tickets/components/ticket-list/EpicLabel"
 import { EstimateChip } from "@/features/tickets/components/ticket-list/EstimateField"
 import { PriorityButton } from "@/features/tickets/components/ticket-list/PriorityField"
 import { SplitTicketControl } from "@/features/tickets/components/ticket-list/SplitControl"
+import { SubTicketMarker } from "@/features/tickets/components/ticket-list/SubTicketMarker"
 import { TypeButton } from "@/features/tickets/components/ticket-list/TypeField"
 import { UpdateFailureMarker } from "@/features/tickets/components/ticket-list/UpdateFailureMarker"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { useProjectActor } from "@/lib/access"
+
+import { BoardCardChildren, BoardCardProgress } from "./BoardCardChildren"
 
 function SprintBoardCardImpl({
   update,
@@ -89,6 +92,10 @@ function BoardCardFields({
           <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
             {ticket.id}
           </span>
+          <BoardCardProgress ticket={ticket} />
+          {ticket.parent && (
+            <SubTicketMarker parentId={ticket.parent} className="ml-0" />
+          )}
           {failure}
           <EstimateChip ticket={ticket} mode={estimation} />
           <div className="flex min-w-0 flex-1 items-center">
@@ -110,6 +117,7 @@ function BoardCardFields({
             />
           </fieldset>
         </div>
+        <BoardCardChildren parent={ticket} />
       </div>
     </DeferredDropdownMenus>
   )
