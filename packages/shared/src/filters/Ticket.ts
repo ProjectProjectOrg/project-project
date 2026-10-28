@@ -92,6 +92,18 @@ export const TicketListQuery = TicketFilter.pipe(
 )
 export type TicketListQuery = typeof TicketListQuery.Type
 
+export const TicketSection = Schema.Struct({
+  status: TicketFilterFields.status,
+  groupId: TicketFilterFields.groupId,
+  parent: TicketFilterFields.parent
+})
+export type TicketSection = typeof TicketSection.Type
+
+export const TicketPageQuery = TicketListQuery.pipe(
+  Schema.fieldsAssign({ section: Schema.optional(TicketSection) })
+)
+export type TicketPageQuery = typeof TicketPageQuery.Type
+
 export const TicketListRow = Schema.Struct({
   ticket: Ticket,
   orderKey: Schema.String

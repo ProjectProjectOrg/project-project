@@ -38,11 +38,12 @@ import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import { Row, rowGridClassName } from "./Row"
 import { SectionBody } from "./SectionBody"
 import { SectionHeader, type SectionHeading } from "./SectionHeader"
+import { SectionRows } from "./SectionRows"
 import { SectionTicketCreator } from "./SectionTicketCreator"
-import { AutoLoad, VirtualRows } from "./VirtualRows"
+import { SubTicketExpansionProvider } from "./SubTicketExpansion"
+import { AutoLoad } from "./VirtualRows"
 
 type CreatingSections = Readonly<{
   creatingIds: ReadonlySet<string>
@@ -138,8 +139,6 @@ export function SectionList({
     query.groupId?.length === 1 &&
     query.groupId[0] !== "ungrouped"
 
-  const gridCols = rowGridClassName
-
   const shellRef = useRef<HTMLDivElement>(null)
 
   const onStartCreate = () => {
@@ -179,58 +178,37 @@ export function SectionList({
         }
       />
 
-      <SectionBody collapsed={collapsed}>
-        {items.length === 0 ? (
-          <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-            {emptyMessage ?? "—"}
-          </div>
-        ) : (
-          <VirtualRows
-            className={gridCols}
-            rowKeys={items.map((row) => row.key)}
-            activeIndex={items.findIndex(
-              ({ ticket }) => ticket.id === activePreviewId
-            )}
-          >
-            {(index) => {
-              const { ticket, pending } = items[index]
-              return (
-                <div
-                  inert={pending}
-                  aria-busy={pending}
-                  className={cn(
-                    "col-span-full grid grid-cols-subgrid",
-                    pending && "pointer-events-none animate-pulse"
-                  )}
-                >
-                  <Row
-                    update={update}
-                    showParent={snapshotReq?._view !== "epicSections"}
-                    showSprint={!inOneSprint}
-                    ticket={ticket}
-                    members={members}
-                    pending={pending}
-                    editable={editable}
-                    previewOpen={activePreviewId === ticket.id}
-                    onPreviewPointerEnter={onPreviewPointerEnter}
-                    onPreviewOpenChange={onPreviewOpenChange}
-                  />
-                </div>
-              )
-            }}
-          </VirtualRows>
-        )}
+      <SubTicketExpansionProvider>
+        <SectionBody collapsed={collapsed}>
+          {items.length === 0 ? (
+            <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+              {emptyMessage ?? "—"}
+            </div>
+          ) : (
+            <SectionRows
+              items={items}
+              update={update}
+              members={members}
+              editable={editable}
+              showParent={snapshotReq?._view !== "epicSections"}
+              showSprint={!inOneSprint}
+              activePreviewId={activePreviewId}
+              onPreviewPointerEnter={onPreviewPointerEnter}
+              onPreviewOpenChange={onPreviewOpenChange}
+            />
+          )}
 
-        {pagination ?? (
-          <SectionPagination
-            req={req}
-            collapsed={collapsed}
-            status={status}
-            page={page}
-            count={count}
-          />
-        )}
-      </SectionBody>
+          {pagination ?? (
+            <SectionPagination
+              req={req}
+              collapsed={collapsed}
+              status={status}
+              page={page}
+              count={count}
+            />
+          )}
+        </SectionBody>
+      </SubTicketExpansionProvider>
     </div>
   )
 }

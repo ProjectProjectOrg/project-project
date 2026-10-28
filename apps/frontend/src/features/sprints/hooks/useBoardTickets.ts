@@ -13,13 +13,15 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { withoutNestedChildren } from "@/features/tickets/lib/nestedRows"
 
 import { boardStatusesFor } from "../lib/boardUtils"
 
-export type BoardTickets = {
-  readonly matchingTickets: ReadonlyArray<Ticket>
-  readonly counts: Record<string, number>
-}
+export type BoardTickets = Readonly<{
+  matchingTickets: ReadonlyArray<Ticket>
+  visibleTickets: ReadonlyArray<Ticket>
+  counts: Readonly<Record<string, number>>
+}>
 
 export function useBoardTickets(
   orgSlug: string,
@@ -70,5 +72,10 @@ export function useBoardTickets(
     return next
   }, [matchingTickets, statusSlugs])
 
-  return { matchingTickets, counts }
+  const visibleTickets = useMemo(
+    () => withoutNestedChildren(matchingTickets),
+    [matchingTickets]
+  )
+
+  return { matchingTickets, visibleTickets, counts }
 }
