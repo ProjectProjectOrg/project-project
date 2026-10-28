@@ -37,6 +37,7 @@ export function ThemeSwitcher() {
   return (
     <div onClickCapture={handleClickCapture}>
       <SegmentedTabs
+        variant="subtle"
         aria-label={m.theme_switcher_aria_label()}
         labels="active"
         value={preference}
