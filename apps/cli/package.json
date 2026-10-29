@@ -1,0 +1,27 @@
+{
+  "name": "@pp/cli",
+  "version": "0.0.0",
+  "private": true,
+  "bin": {
+    "pp": "./src/main.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "pp": "bun src/main.ts",
+    "build": "bun build src/main.ts --compile --minify --outfile dist/pp",
+    "typecheck": "tsc --noEmit",
+    "test": "bun run --bun vitest run",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint . --fix"
+  },
+  "dependencies": {
+    "@effect/platform-bun": "4.0.5",
+    "@pp/shared": "workspace:*",
+    "effect": "4.0.5"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.0.5",
+    "@types/bun": "latest",
+    "vitest": "5.0.5"
+  }
+}
