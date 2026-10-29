@@ -150,49 +150,23 @@ Tagged errors map to the same taxonomy on every surface.
 
 ## Access
 
-Access lives in Postgres, not in markdown. There are two levels. Org owners and admins can read every project's content, but changing it always needs a project role.
+Access lives in Postgres, not in markdown, at two levels:
 
-- **Org roles** (Better Auth's `member.role`): `owner`, `admin`, `member`, `guest`. They govern the org: its people, integrations and projects.
-- **Project roles** (`project_member.role_id`): `pm`, `developer`, `client`. One per person per project. Only people in the org can be on a project; leaving the org removes their project access.
+- **Org roles** (`owner`, `admin`, `member`, `guest`) govern the org: its people, integrations and projects.
+- **Project roles** (`pm`, `developer`, `client`) govern one project. One per person per project, and only people in the org can hold one.
 
-Both role sets and their permissions are defined in `@pp/access` (`packages/access`). These matrices are its spec.
+What each role grants is defined in `packages/access/src/roles`: `org.ts` and `project.ts` hold the grants, and `effective.ts` combines them into a person's role on a project. Rules that depend on the data, such as comment authorship, ticket splits and sprint moves, live in `packages/access/src/policies`. Read those files for the current matrix; don't copy it here.
 
-| Org action                                               | owner | admin | member | guest |
-| -------------------------------------------------------- | ----- | ----- | ------ | ----- |
-| Delete org, transfer ownership, billing                  | ✓     | –     | –      | –     |
-| Invite and remove people, change org roles below owner   | ✓     | ✓     | –      | –     |
-| Integrations, storage, org blocks and templates          | ✓     | ✓     | –      | –     |
-| See all projects, manage their members, archive/delete   | ✓     | ✓     | –      | –     |
-| Read every project's content                             | ✓     | ✓     | –      | –     |
-| Create projects (creator becomes PM)                     | ✓     | ✓     | ✓      | –     |
-| See the org member directory                             | ✓     | ✓     | ✓      | –     |
+The parts the code doesn't make obvious:
 
-| Project action                                                  | pm | developer | client |
-| --------------------------------------------------------------- | -- | --------- | ------ |
-| View board, tickets, sprints, docs; create tickets              | ✓  | ✓         | ✓      |
-| Edit tickets, change their status and assignees                 | ✓  | ✓         | ✓      |
-| Delete tickets                                                  | ✓  | –         | –      |
-| Plan sprints: create, edit, complete, delete                    | ✓  | –         | –      |
-| Add tickets to a sprint and reorder it                          | ✓  | ✓         | ✓      |
-| Take tickets out of a sprint or move them to another            | ✓  | –         | –      |
-| Comment; edit and delete own comments                           | ✓  | ✓         | ✓      |
-| Edit or delete others' comments                                 | ✓  | –         | –      |
-| Epics, edit docs                                                | ✓  | ✓         | –      |
-| Log time (after connecting your own Everhour), see time totals  | ✓  | ✓         | –      |
-| GitHub: state, branches, PRs, connect the repo                  | ✓  | ✓         | –      |
-| Figma links                                                     | ✓  | ✓         | ✓      |
-| Tags, statuses, workflow, blocks and templates                  | ✓  | –         | –      |
-| Project settings and integrations, members, archive/delete      | ✓  | –         | –      |
+- Org owners and admins can see every project. Without a project role they can read its content and manage its members and lifecycle, but not change its content. They can add themselves as PM.
+- A project always keeps at least one PM. Leaving the org removes all project access.
+- Without `github` read access, tickets and the project come back with their git data stripped. Clients never see it.
+- A caller who isn't in the org, or has no access to the project, gets `NotFound`, not `Forbidden`.
 
-A project always keeps at least one PM. Org owners and admins without a project role can read every project's content, GitHub state and time totals, manage its members and archive or delete it, but can't change its content. Because they manage members, they can add themselves as PM and work on the project from then on.
+**Enforcement.** The `Access` service in `server-core` resolves the caller's roles into an `OrgScope` or `ProjectScope`. Every org and project endpoint in `packages/shared/src/api.ts` declares what it needs with a `RequiresOrg` or `RequiresProject` annotation; the `OrgAccess` / `ProjectAccess` middleware resolves the scope, checks it and hands it to the handler, failing with a tagged `Forbidden`. Tools declare the same requirement. Services read the scope from context, so a service can't run without one, and only data-dependent checks stay in the service.
 
-Changing a ticket's status on the sprint board is a status change like any other; reordering the sprint doesn't change status. When a ticket is split, the new tickets may copy the original's status and sprint; choosing anything else needs the same permission as changing it.
-
-Clients never see GitHub data: tickets come back with `branch`, `pr`, `prState` and `lastTransitionedPr` as null and an empty `gitState`, and project detail comes back without its `github` connection.
-
-The frontend asks the same sources the server enforces: `canCallProject(permissions)` and `canCallOrg(role)` from `@pp/shared` read each endpoint's required permission from `AppApi`, and rules that depend on the data (comment authors, docs vs settings, sprint moves) call the `@pp/access` policies. Anything the viewer can't do is hidden or rendered read-only; the server still checks every request.
-
-The `Access` service in `server-core` resolves the caller's roles into an `OrgScope` or `ProjectScope`. Every org and project endpoint in `packages/shared/src/api.ts` declares what it needs with a `RequiresOrg` or `RequiresProject` annotation, and the `OrgAccess` / `ProjectAccess` middleware resolves the scope, checks the annotation and hands the scope to the handler, failing with a tagged `Forbidden`. MCP tools declare the same requirement next to the tool. Services read the scope from context, so a service can't run without one, and only checks that depend on the data itself stay in the service. A caller who isn't in the org, or has no access to the project, gets `NotFound`.
+**The frontend asks the same sources.** `canCallProject` and `canCallOrg` from `@pp/shared` read each endpoint's requirement from `AppApi`, and data-dependent rules call the `@pp/access` policies. Anything the viewer can't do is hidden or read-only; the server still checks every request.
 
 ---
 
