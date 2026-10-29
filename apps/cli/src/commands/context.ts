@@ -7,6 +7,7 @@ import { callToolAs } from "../client/callTool"
 import { CliFailure, ExitCode, usage } from "../CliFailure"
 import { originOf } from "../servers/origin"
 import { type SavedServer, ServerStore } from "../servers/ServerStore"
+import { UpdateNotice } from "../update/UpdateNotice"
 import type { Field } from "./fields"
 import { root } from "./root"
 
@@ -47,7 +48,9 @@ export const currentServer = Effect.gen(function* () {
   if (Option.isSome(chosen) && Option.isNone(origin)) {
     return yield* usage(`"${chosen.value.value}" isn't a valid server address.`)
   }
-  return yield* (yield* ServerStore).select(origin)
+  const server = yield* (yield* ServerStore).select(origin)
+  yield* (yield* UpdateNotice).check(server.origin)
+  return server
 })
 
 export type OrgChoice = Readonly<{ slug: string; name: string }>
