@@ -782,7 +782,7 @@ export const Tools = Toolkit.make(
     title: "Stack branch",
     hints: {
       readOnly: false,
-      destructive: false,
+      destructive: true,
       idempotent: true,
       openWorld: true
     },
