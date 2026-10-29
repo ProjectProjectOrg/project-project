@@ -87,7 +87,8 @@ pp tickets comment T-80 --body @notes.md
 pp tickets attach T-130 ./screenshot.png
 ```
 
-- Flags that take several values are repeated: `--status todo --status in_progress`.
+- Flags that take several values are repeated: `--status todo --status in_progress`. Yes/no flags turn off with `--no-`, as in `--no-has-branch`.
+- `pp tickets list --sort updated` sorts by a key in its natural direction; add `:asc` or `:desc` to choose.
 - Clear a field with `null` (`--parent null`, `--starts-at null`) and a list with an empty value (`--tags ''`, `--assignees ''`).
 - Text flags accept `@file`, or `@-` for standard input.
 - JSON flags take JSON or `@file`.

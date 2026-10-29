@@ -7,6 +7,7 @@ import * as Option from "effect/Option"
 
 import { catalogEntries } from "./catalog"
 import { toolInput } from "./input"
+import { groupFilter, parseSort } from "./shaping"
 
 const entry = (name: string) => {
   const found = catalogEntries.find((candidate) => candidate.name === name)
@@ -53,6 +54,20 @@ describe("generated commands", () => {
     for (const field of entry("create_ticket").fields) {
       expect(field.description, field.name).toBeDefined()
     }
+  })
+
+  it("read --sort as key[:dir], defaulting to the key's natural direction", () => {
+    expect(parseSort("updated")).toEqual({ key: "updated", dir: "desc" })
+    expect(parseSort("title:desc")).toEqual({ key: "title", dir: "desc" })
+    expect(parseSort("size")).toBeUndefined()
+    expect(parseSort("title:up")).toBeUndefined()
+  })
+
+  it("build the group filter from --kind and --active, or leave it out", () => {
+    expect(groupFilter([], Option.none())).toEqual({})
+    expect(groupFilter(["epic"], Option.some(false))).toEqual({
+      filter: { kind: ["epic"], active: false }
+    })
   })
 
   it.effect("fill org and project from the scope and read @files", () =>

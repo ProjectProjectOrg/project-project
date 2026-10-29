@@ -20,6 +20,7 @@ import {
 import { type Field, fieldsOf, flagName } from "./fields"
 import { toolInput } from "./input"
 import { root } from "./root"
+import { shapings } from "./shaping"
 
 const SCOPE_FIELDS = new Set(["orgSlug", "projectSlug"])
 
@@ -27,7 +28,7 @@ const hints: Readonly<Record<Field["kind"], string>> = {
   string: "Text, or @file / @- to read it.",
   integer: "A whole number.",
   number: "A number.",
-  boolean: "",
+  boolean: "Pass --no-<flag> for false.",
   strings: "Repeat the flag for several values; pass '' to clear.",
   json: "JSON, or @file / @- to read it."
 }
@@ -152,10 +153,15 @@ export const commandFor = (entry: CatalogEntry) => {
   const decodeInput = Schema.decodeUnknownEffect(
     Tools.tools[entry.name].parametersSchema
   )
-  const fields = entry.fields.filter((field) => !SCOPE_FIELDS.has(field.name))
+  const shaping = shapings[entry.name]
+  const inputFields = entry.fields.filter(
+    (field) => !shaping?.hides.includes(field.name)
+  )
+  const fields = inputFields.filter((field) => !SCOPE_FIELDS.has(field.name))
   const paginated = fields.some((field) => field.name === "cursor")
   const config = Object.fromEntries([
     ...(paginated ? [["all", allFlag]] : []),
+    ...Object.entries(shaping?.flags ?? {}),
     ...entry.args.flatMap((arg) => {
       const field = fields.find((candidate) => candidate.name === arg)
       return field === undefined ? [] : [[field.name, argumentFor(field)]]
@@ -169,10 +175,13 @@ export const commandFor = (entry: CatalogEntry) => {
       const flags = yield* root
       const server = yield* currentServer
       const scope = yield* resolveScope(server, entry.fields)
-      const input = yield* toolInput(entry.fields, raw, {
-        orgSlug: Option.map(scope.org, (org) => org.value),
-        projectSlug: Option.map(scope.project, (project) => project.value)
-      })
+      const input = {
+        ...(yield* toolInput(inputFields, raw, {
+          orgSlug: Option.map(scope.org, (org) => org.value),
+          projectSlug: Option.map(scope.project, (project) => project.value)
+        })),
+        ...shaping?.build(raw)
+      }
       yield* decodeInput(input).pipe(
         Effect.mapError((error) => usage(flagPath(error.message)))
       )
