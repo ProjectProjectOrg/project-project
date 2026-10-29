@@ -64,14 +64,13 @@ const table = (rows: ReadonlyArray<Readonly<Record<string, unknown>>>) => {
 }
 
 const flatten = (
-  record: Readonly<Record<string, unknown>>
+  record: Readonly<Record<string, unknown>>,
+  prefix = ""
 ): ReadonlyArray<readonly [string, unknown]> =>
   Object.entries(record).flatMap(([key, value]) =>
     Predicate.isObject(value) && !Array.isArray(value)
-      ? Object.entries(value).map(
-          ([inner, nested]) => [`${key}.${inner}`, nested] as const
-        )
-      : [[key, value] as const]
+      ? flatten(value, `${prefix}${key}.`)
+      : [[`${prefix}${key}`, value] as const]
   )
 
 const details = (record: Readonly<Record<string, unknown>>) => {

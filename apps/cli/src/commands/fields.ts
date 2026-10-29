@@ -14,6 +14,7 @@ export type Field = Readonly<{
   name: string
   kind: FieldKind
   required: boolean
+  nullable: boolean
   description: string | undefined
 }>
 
@@ -48,6 +49,15 @@ const kindOf = (schema: unknown): FieldKind => {
   return kindOf(schema.items) === "string" ? "strings" : "json"
 }
 
+const allowsNull = (schema: unknown) =>
+  isAlternatives(schema) && schema.anyOf.some((option) => isNull(option))
+
+const isClearable = (schema: unknown, required: boolean) =>
+  required
+    ? allowsNull(schema)
+    : isAlternatives(schema) &&
+      schema.anyOf.some((option) => !isNull(option) && allowsNull(option))
+
 export const fieldsOf = (tool: Tool.Any): ReadonlyArray<Field> => {
   const schema = decodeObject(ToolModule.getJsonSchema(tool))
   const required = new Set(schema.required ?? [])
@@ -55,6 +65,7 @@ export const fieldsOf = (tool: Tool.Any): ReadonlyArray<Field> => {
     name,
     kind: kindOf(property),
     required: required.has(name),
+    nullable: isClearable(property, required.has(name)),
     description: isDescribed(property) ? property.description : undefined
   }))
 }
