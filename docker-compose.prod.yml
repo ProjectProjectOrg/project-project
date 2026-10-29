@@ -5,13 +5,7 @@
 # exposes the `web` container's port 80 to the host network so NPM can
 # forward to it.
 #
-# Lifecycle:
-#   - GitHub Actions builds and pushes `app` + `web` images to ghcr on
-#     every push to `main`.
-#   - Watchtower polls ghcr every 5 minutes; when a tag's digest changes
-#     it pulls and recreates the container.
-#   - On recreation, `migrations` runs first (apply Drizzle migrations),
-#     then `app` starts.
+# Release channels, IMAGE_TAG and update lifecycle: see docs/deploy.md.
 #
 # Secrets live in `/srv/projectproject/.env` on the host (gitignored, see
 # `.env.production.example` for the shape). Bind-mounted into containers
