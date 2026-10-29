@@ -2,11 +2,9 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { getRouteApi, Navigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useState, type ReactNode } from "react"
+import { useState } from "react"
 
-import { Logo, Wordmark } from "@/components/shell/Logo"
 import { Button } from "@/components/ui/button"
-import { DitherShell } from "@/components/ui/dither-shell"
 import { me } from "@/features/auth/atoms/auth"
 import {
   oauthClientNameAtom,
@@ -14,6 +12,7 @@ import {
   oauthConsentRequest,
   submitConsentAtom
 } from "@/features/oauth/atoms/oauthConsent"
+import { OauthShell } from "@/features/oauth/components/OauthShell"
 import { rawQueryFromSearch } from "@/features/oauth/lib/oauthQuery"
 import { oauthConsentErrorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
@@ -43,7 +42,7 @@ export function OauthConsentPage() {
   }
 
   if (!oauthQuery) {
-    return <ConsentShell title={m.auth_oauth_consent_title()} />
+    return <OauthShell title={m.auth_oauth_consent_title()} />
   }
 
   return <ConsentForm oauthQuery={oauthQuery} clientId={clientId} />
@@ -92,7 +91,7 @@ function ConsentForm({
   ]
 
   return (
-    <ConsentShell title={m.auth_oauth_consent_title()}>
+    <OauthShell title={m.auth_oauth_consent_title()}>
       <p className="text-center text-sm wrap-anywhere text-muted-foreground">
         {m.auth_oauth_consent_subtitle({ client: displayName })}
       </p>
@@ -148,29 +147,6 @@ function ConsentForm({
           {m.auth_oauth_consent_footnote()}
         </p>
       )}
-    </ConsentShell>
-  )
-}
-
-function ConsentShell({
-  title,
-  children
-}: {
-  title: string
-  children?: ReactNode
-}) {
-  return (
-    <DitherShell>
-      <div className="relative flex flex-col items-center gap-4 px-8 pt-10 pb-2 text-foreground">
-        <div className="relative flex size-16 items-center justify-center rounded-2xl bg-primary corner-squircle">
-          <Logo className="size-10" inverted />
-        </div>
-        <Wordmark className="h-5 w-auto" />
-      </div>
-      <div className="relative flex flex-col items-center gap-5 px-8 pt-6 pb-8">
-        <h1 className="text-base font-medium text-foreground">{title}</h1>
-        {children}
-      </div>
-    </DitherShell>
+    </OauthShell>
   )
 }

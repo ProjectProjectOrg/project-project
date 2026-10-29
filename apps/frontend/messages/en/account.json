@@ -1,5 +1,12 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "auth_cli_sign_in_failed_denied": "You declined access, so PP CLI isn't signed in.",
+  "auth_cli_sign_in_failed_detail": "Your terminal shows what went wrong.",
+  "auth_cli_sign_in_failed_retry": "To try again, run pp login in your terminal.",
+  "auth_cli_sign_in_failed_title": "Sign-in didn't finish",
+  "auth_cli_signed_in_as": "Signed in as",
+  "auth_cli_signed_in_body": "PP CLI can now work in ProjectProject for you. You can close this tab and go back to your terminal.",
+  "auth_cli_signed_in_title": "You're signed in",
   "auth_consent_notice": "By signing in you authorize this instance to create a session and connect provider accounts you choose.",
   "auth_continue_with_email_button": "Continue with email",
   "auth_continue_with_google_button": "Continue with Google",

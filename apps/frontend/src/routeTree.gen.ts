@@ -21,6 +21,8 @@ import { Route as AuthedProfileConnectionsRouteImport } from './routes/_authed/p
 import { Route as AuthedProfileAgentsRouteImport } from './routes/_authed/profile/agents'
 import { Route as AuthedProfileAccountRouteImport } from './routes/_authed/profile/account'
 import { Route as publicOauthConsentRouteImport } from './routes/(public)/oauth.consent'
+import { Route as publicCliSignedInRouteImport } from './routes/(public)/cli.signed-in'
+import { Route as publicCliSignInFailedRouteImport } from './routes/(public)/cli.sign-in-failed'
 import { Route as AuthedOrgsOrgSlugRouteRouteImport } from './routes/_authed/orgs/$orgSlug/route'
 import { Route as AuthedOrgsOrgSlugIndexRouteImport } from './routes/_authed/orgs/$orgSlug/index'
 import { Route as AuthedOrgsOrgSlugSettingsRouteRouteImport } from './routes/_authed/orgs/$orgSlug/settings/route'
@@ -126,6 +128,16 @@ const AuthedProfileAccountRoute = AuthedProfileAccountRouteImport.update({
 const publicOauthConsentRoute = publicOauthConsentRouteImport.update({
   id: '/(public)/oauth/consent',
   path: '/oauth/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const publicCliSignedInRoute = publicCliSignedInRouteImport.update({
+  id: '/(public)/cli/signed-in',
+  path: '/cli/signed-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const publicCliSignInFailedRoute = publicCliSignInFailedRouteImport.update({
+  id: '/(public)/cli/sign-in-failed',
+  path: '/cli/sign-in-failed',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthedOrgsOrgSlugRouteRoute = AuthedOrgsOrgSlugRouteRouteImport.update({
@@ -409,6 +421,8 @@ export interface FileRoutesByFullPath {
   '/login': typeof publicLoginRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
+  '/cli/sign-in-failed': typeof publicCliSignInFailedRoute
+  '/cli/signed-in': typeof publicCliSignedInRoute
   '/oauth/consent': typeof publicOauthConsentRoute
   '/profile/account': typeof AuthedProfileAccountRoute
   '/profile/agents': typeof AuthedProfileAgentsRoute
@@ -464,6 +478,8 @@ export interface FileRoutesByTo {
   '/login': typeof publicLoginRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/': typeof AuthedIndexRoute
+  '/cli/sign-in-failed': typeof publicCliSignInFailedRoute
+  '/cli/signed-in': typeof publicCliSignedInRoute
   '/oauth/consent': typeof publicOauthConsentRoute
   '/profile/account': typeof AuthedProfileAccountRoute
   '/profile/agents': typeof AuthedProfileAgentsRoute
@@ -517,6 +533,8 @@ export interface FileRoutesById {
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
+  '/(public)/cli/sign-in-failed': typeof publicCliSignInFailedRoute
+  '/(public)/cli/signed-in': typeof publicCliSignedInRoute
   '/(public)/oauth/consent': typeof publicOauthConsentRoute
   '/_authed/profile/account': typeof AuthedProfileAccountRoute
   '/_authed/profile/agents': typeof AuthedProfileAgentsRoute
@@ -577,6 +595,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/invite/$invitationId'
     | '/orgs/$orgSlug'
+    | '/cli/sign-in-failed'
+    | '/cli/signed-in'
     | '/oauth/consent'
     | '/profile/account'
     | '/profile/agents'
@@ -632,6 +652,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/invite/$invitationId'
     | '/'
+    | '/cli/sign-in-failed'
+    | '/cli/signed-in'
     | '/oauth/consent'
     | '/profile/account'
     | '/profile/agents'
@@ -684,6 +706,8 @@ export interface FileRouteTypes {
     | '/invite/$invitationId'
     | '/_authed/'
     | '/_authed/orgs/$orgSlug'
+    | '/(public)/cli/sign-in-failed'
+    | '/(public)/cli/signed-in'
     | '/(public)/oauth/consent'
     | '/_authed/profile/account'
     | '/_authed/profile/agents'
@@ -741,6 +765,8 @@ export interface RootRouteChildren {
   WelcomeRoute: typeof WelcomeRoute
   publicLoginRoute: typeof publicLoginRoute
   InviteInvitationIdRoute: typeof InviteInvitationIdRoute
+  publicCliSignInFailedRoute: typeof publicCliSignInFailedRoute
+  publicCliSignedInRoute: typeof publicCliSignedInRoute
   publicOauthConsentRoute: typeof publicOauthConsentRoute
 }
 
@@ -828,6 +854,20 @@ declare module '@tanstack/react-router' {
       path: '/oauth/consent'
       fullPath: '/oauth/consent'
       preLoaderRoute: typeof publicOauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(public)/cli/signed-in': {
+      id: '/(public)/cli/signed-in'
+      path: '/cli/signed-in'
+      fullPath: '/cli/signed-in'
+      preLoaderRoute: typeof publicCliSignedInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(public)/cli/sign-in-failed': {
+      id: '/(public)/cli/sign-in-failed'
+      path: '/cli/sign-in-failed'
+      fullPath: '/cli/sign-in-failed'
+      preLoaderRoute: typeof publicCliSignInFailedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authed/orgs/$orgSlug': {
@@ -1411,6 +1451,8 @@ const rootRouteChildren: RootRouteChildren = {
   WelcomeRoute: WelcomeRoute,
   publicLoginRoute: publicLoginRoute,
   InviteInvitationIdRoute: InviteInvitationIdRoute,
+  publicCliSignInFailedRoute: publicCliSignInFailedRoute,
+  publicCliSignedInRoute: publicCliSignedInRoute,
   publicOauthConsentRoute: publicOauthConsentRoute,
 }
 export const routeTree = rootRouteImport
