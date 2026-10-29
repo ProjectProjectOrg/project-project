@@ -1,7 +1,11 @@
-import type { ToolFailure } from "@pp/shared"
+import type {
+  OrgRequirement,
+  ProjectRequirement,
+  ToolFailure
+} from "@pp/shared"
 import * as Effect from "effect/Effect"
 
-import { forUser, inOrg, inProject } from "./access"
+import { inOrg, inProject } from "./access"
 import { toolFailureOf } from "./errorText"
 import { withToolCaller } from "./ToolCaller"
 import type { ToolServices } from "./ToolHandlers"
@@ -16,29 +20,19 @@ export const asToolFailure = <A, E, R>(
 
 export const toolRunner = Effect.gen(function* () {
   const services = yield* Effect.context<ToolServices>()
-  const finish =
-    (name: string) =>
-    <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-      effect.pipe(
-        asToolFailure,
-        withToolCaller,
-        Effect.provideContext(services),
-        Effect.withSpan(`tool.${name}`)
-      )
+  const finish = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(asToolFailure, withToolCaller, Effect.provideContext(services))
   return {
-    user: <I, A, E, R>(
-      name: Parameters<typeof forUser>[0],
-      handler: (input: I) => Effect.Effect<A, E, R>
-    ) => {
-      const scoped = forUser(name, handler)
-      return (input: I) => finish(name)(scoped(input))
-    },
+    user:
+      <I, A, E, R>(handler: (input: I) => Effect.Effect<A, E, R>) =>
+      (input: I) =>
+        finish(handler(input)),
     org: <I extends Readonly<{ orgSlug: string }>, A, E, R>(
-      name: Parameters<typeof inOrg>[0],
+      requires: OrgRequirement,
       handler: (input: I) => Effect.Effect<A, E, R>
     ) => {
-      const scoped = inOrg(name, handler)
-      return (input: I) => finish(name)(scoped(input))
+      const scoped = inOrg(requires, handler)
+      return (input: I) => finish(scoped(input))
     },
     project: <
       I extends Readonly<{ orgSlug: string; projectSlug: string }>,
@@ -46,11 +40,11 @@ export const toolRunner = Effect.gen(function* () {
       E,
       R
     >(
-      name: Parameters<typeof inProject>[0],
+      requires: ProjectRequirement,
       handler: (input: I) => Effect.Effect<A, E, R>
     ) => {
-      const scoped = inProject(name, handler)
-      return (input: I) => finish(name)(scoped(input))
+      const scoped = inProject(requires, handler)
+      return (input: I) => finish(scoped(input))
     }
   }
 })

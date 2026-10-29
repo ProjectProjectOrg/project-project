@@ -30,8 +30,10 @@ type BackendToolError = typeof BackendToolError.Type
 const isBackendError = Schema.is(BackendToolError)
 const isToolError = Schema.is(Schema.Union(ToolErrors))
 
-type Messages<E extends { readonly _tag: string }> = {
-  readonly [K in E["_tag"]]: (error: Extract<E, { readonly _tag: K }>) => string
+type Messages<E extends Readonly<{ _tag: string }>> = {
+  readonly [K in E["_tag"]]: (
+    error: Extract<E, Readonly<{ _tag: K }>>
+  ) => string
 }
 
 const backendMessages: Messages<BackendToolError> = {

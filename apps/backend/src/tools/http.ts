@@ -26,7 +26,7 @@ const toolRoute = (toolkit: ToolkitHandlers) =>
     })
   }).pipe(
     Effect.catchTags({
-      SchemaError: (error) =>
+      ToolInputInvalid: (error) =>
         Effect.succeed(
           failure(400, "Validation", `Validation error: ${error.message}`)
         ),

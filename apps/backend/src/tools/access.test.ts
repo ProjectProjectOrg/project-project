@@ -12,9 +12,7 @@ import {
   type OrgRole,
   type Role
 } from "@pp/shared"
-import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
-import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
 
 import { inOrg, inProject } from "./access"
@@ -39,12 +37,14 @@ const user = Schema.decodeSync(User)({
   }
 })
 
-const orgTool = inOrg("get_org", (input: Readonly<{ orgSlug: string }>) =>
-  Effect.gen(function* () {
-    const scope = yield* OrgScope
-    const caller = yield* CurrentUser
-    return `${caller.id}:${input.orgSlug}:${scope.role}`
-  })
+const orgTool = inOrg(
+  { storage: ["manage"] },
+  (input: Readonly<{ orgSlug: string }>) =>
+    Effect.gen(function* () {
+      const scope = yield* OrgScope
+      const caller = yield* CurrentUser
+      return `${caller.id}:${input.orgSlug}:${scope.role}`
+    })
 )
 
 const runAs = (role: OrgRole, orgSlug: string) =>
@@ -56,7 +56,14 @@ const runAs = (role: OrgRole, orgSlug: string) =>
 describe("scoped org tools", () => {
   it.effect("runs the tool in the caller's org scope", () =>
     Effect.gen(function* () {
-      expect(yield* runAs("member", "acme")).toBe("user-1:acme:member")
+      expect(yield* runAs("admin", "acme")).toBe("user-1:acme:admin")
+    })
+  )
+
+  it.effect("refuses a caller without the tool's grants", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(runAs("member", "acme"))
+      expect(error._tag).toBe("Forbidden")
     })
   )
 
@@ -69,7 +76,7 @@ describe("scoped org tools", () => {
 })
 
 const projectTool = inProject(
-  "rebuild_ticket_index",
+  { settings: ["manage"] },
   (input: Readonly<{ orgSlug: string; projectSlug: string }>) =>
     Effect.gen(function* () {
       const scope = yield* ProjectScope
@@ -102,29 +109,6 @@ describe("scoped project tools", () => {
     Effect.gen(function* () {
       const error = yield* Effect.flip(rebuildAs("pm", "elsewhere"))
       expect(error._tag).toBe("NotFound")
-    })
-  )
-})
-
-describe("scope declared in the catalog", () => {
-  it.effect("must match the scope a handler runs in", () =>
-    Effect.gen(function* () {
-      const exit = yield* Effect.exit(
-        inProject(
-          "get_org",
-          () => Effect.void
-        )({
-          orgSlug: "acme",
-          projectSlug: "website"
-        }).pipe(
-          Effect.provide(
-            accessLayer({ projects: [projectScope("member", "pm")] })
-          ),
-          Effect.provideService(CurrentUser, user)
-        )
-      )
-      expect(Exit.isFailure(exit)).toBe(true)
-      if (Exit.isFailure(exit)) expect(Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 })

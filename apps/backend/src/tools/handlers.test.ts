@@ -101,7 +101,7 @@ const register = (runtime: Context.Context<HandlerServices>): Registered => {
     registered.set(name, (input) =>
       Effect.flatMap(Tools, (toolkit) => invokeTool(toolkit, name, input)).pipe(
         Effect.map(toResult),
-        Effect.catchTag("SchemaError", (error) =>
+        Effect.catchTag("ToolInputInvalid", (error) =>
           Effect.succeed<ToolResult>({
             isError: true,
             content: [

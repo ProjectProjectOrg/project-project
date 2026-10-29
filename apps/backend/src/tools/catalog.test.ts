@@ -1,5 +1,5 @@
 import { describe, expect, test } from "@effect/vitest"
-import { ToolAccess, ToolCli, Tools } from "@pp/shared"
+import { ToolCli, Tools } from "@pp/shared"
 import Ajv from "ajv"
 import { Tool } from "effect/ai"
 import * as Context from "effect/Context"
@@ -52,15 +52,6 @@ describe("Tools", () => {
           before(input)
         )
       }
-    }
-  })
-
-  test("every tool declares who may call it", () => {
-    for (const tool of tools) {
-      expect(
-        Option.isSome(Context.getOption(tool.annotations, ToolAccess)),
-        tool.name
-      ).toBe(true)
     }
   })
 

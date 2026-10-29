@@ -21,7 +21,7 @@ export const callTool = <A, I>(
         ? Effect.flatMap(decodeFailure(result.encoded), Effect.fail)
         : Schema.decodeUnknownEffect(success)(result.encoded)
     ),
-    Effect.catchTag("SchemaError", Effect.die),
+    Effect.catchTags({ SchemaError: Effect.die, ToolInputInvalid: Effect.die }),
     Effect.provide(ToolHandlersLive),
     Effect.provideService(
       ToolCaller,

@@ -363,6 +363,17 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     expect(http.body.error).toBe("Validation")
   })
 
+  it("http: input that only fails once decoded is a 400, not a crash", async () => {
+    const http = await httpTool(tokens[0], "create_sprint", {
+      orgSlug: "acme",
+      projectSlug: "demo",
+      name: "Sprint",
+      startsAt: "not-a-date"
+    })
+    expect(http.status).toBe(400)
+    expect(http.body.error).toBe("Validation")
+  })
+
   it("http: an unknown tool is a 404", async () => {
     const http = await httpTool(tokens[0], "drop_database")
     expect(http.status).toBe(404)

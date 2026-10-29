@@ -2,8 +2,6 @@ import { Tool, Toolkit } from "effect/ai"
 import * as Context from "effect/Context"
 import * as Schema from "effect/Schema"
 
-import type { OrgRequirement } from "../access/OrgAccess"
-import type { ProjectRequirement } from "../access/ProjectAccess"
 import {
   AttachmentTooLarge,
   AttachmentTypeRejected,
@@ -115,15 +113,6 @@ const StatusWithAutomation = Schema.Struct({
   setBy: Schema.optional(Schema.Array(GitAutomationEvent))
 })
 
-export type ToolAccessShape =
-  | Readonly<{ scope: "user" }>
-  | Readonly<{ scope: "org"; requires: OrgRequirement }>
-  | Readonly<{ scope: "project"; requires: ProjectRequirement }>
-
-export class ToolAccess extends Context.Service<ToolAccess, ToolAccessShape>()(
-  "@pp/shared/tools/Tools/ToolAccess"
-) {}
-
 export type ToolCliShape = Readonly<{
   command: readonly [string, ...ReadonlyArray<string>]
   args?: ReadonlyArray<string>
@@ -161,18 +150,6 @@ export const ToolErrors = [
 
 export type ToolError = Schema.Schema.Type<(typeof ToolErrors)[number]>
 
-const signedIn: ToolAccessShape = { scope: "user" }
-
-const inOrg = (requires: OrgRequirement): ToolAccessShape => ({
-  scope: "org",
-  requires
-})
-
-const inProject = (requires: ProjectRequirement): ToolAccessShape => ({
-  scope: "project",
-  requires
-})
-
 const defineTool = <
   const Name extends string,
   Parameters extends Schema.Top,
@@ -181,7 +158,6 @@ const defineTool = <
   name: Name,
   spec: Readonly<{
     description: string
-    access: ToolAccessShape
     cli: ToolCliShape
     parameters: Parameters
     success: Success
@@ -194,7 +170,6 @@ const defineTool = <
     failure: ToolFailure,
     failureMode: "error"
   })
-    .annotate(ToolAccess, spec.access)
     .annotate(ToolCli, spec.cli)
 
 export const Tools = Toolkit.make(
@@ -204,7 +179,6 @@ export const Tools = Toolkit.make(
       "when assigning yourself to a ticket, and each org you belong to " +
       "with your role there. Call this first when you don't know which " +
       "org to work in.",
-    access: signedIn,
     cli: { command: ["me"] },
     parameters: Schema.Record(Schema.String, Schema.Never),
     success: MeOutput
@@ -213,7 +187,6 @@ export const Tools = Toolkit.make(
     description:
       "List the organizations you belong to. Each `slug` is the `orgSlug` " +
       "other tools take. Paginated: pass `nextCursor` back as `cursor`.",
-    access: signedIn,
     cli: { command: ["orgs", "list"] },
     parameters: Pagination,
     success: Page(Org)
@@ -227,7 +200,6 @@ export const Tools = Toolkit.make(
       "their own. If storage is not connected or broken, the user has to " +
       "fix it in organization settings before `prepare_ticket_attachment` " +
       "can work.",
-    access: inOrg("membership"),
     cli: { command: ["orgs", "get"] },
     parameters: Schema.Struct({ orgSlug: Slug }),
     success: Schema.Struct({
@@ -244,7 +216,6 @@ export const Tools = Toolkit.make(
       "`projectSlug` other tools take, and `key` is the prefix of its " +
       "ticket ids (key `T` gives `T-12`). Paginated: pass `nextCursor` " +
       "back as `cursor`.",
-    access: inOrg("membership"),
     cli: { command: ["projects", "list"] },
     parameters: Schema.Struct({ orgSlug: Slug, ...Pagination.fields }),
     success: Page(Project)
@@ -257,7 +228,6 @@ export const Tools = Toolkit.make(
       "(`estimation`, see `create_ticket`), members, your `permissions`, " +
       "and `body`, the project's own markdown description. Read `body` " +
       "for background before writing or refining tickets.",
-    access: inProject({ docs: ["read"] }),
     cli: { command: ["projects", "get"] },
     parameters: Schema.Struct({ orgSlug: Slug, projectSlug: Slug }),
     success: ProjectDetail
@@ -270,7 +240,6 @@ export const Tools = Toolkit.make(
       "set): `true` keeps sprints running now, `false` keeps planned or " +
       "completed ones. For sprints alone, `list_sprints` is simpler. " +
       "Paginated: pass `nextCursor` back as `cursor`.",
-    access: inProject({ ticket: ["read"] }),
     cli: { command: ["groups", "list"] },
     parameters: Schema.Struct({
       orgSlug: Slug,
@@ -287,7 +256,6 @@ export const Tools = Toolkit.make(
       "for all. Uses the same rules as the app's sprint page. Use this to " +
       "find the current sprint, and `list_groups` for epics and " +
       "milestones. Paginated: pass `nextCursor` back as `cursor`.",
-    access: inProject({ ticket: ["read"] }),
     cli: { command: ["sprints", "list"] },
     parameters: Schema.Struct({
       orgSlug: Slug,
@@ -302,7 +270,6 @@ export const Tools = Toolkit.make(
       "Fetch one group (sprint, epic or milestone) by id (`G-N`): its " +
       "kind, dates, member ticket ids (`tickets`) and markdown `body`. To " +
       "read those tickets, call `list_tickets` with `groupId`.",
-    access: inProject({ ticket: ["read"] }),
     cli: { command: ["groups", "get"], args: ["id"] },
     parameters: Schema.Struct({
       orgSlug: Slug,
@@ -339,7 +306,6 @@ export const Tools = Toolkit.make(
       "are slugs; use the label from `list_statuses` in conversation. " +
       "Paginated: pass `nextCursor` back " +
       "as `cursor`; `limit` is up to 200 (default 50).",
-    access: inProject({ ticket: ["read"] }),
     cli: { command: ["tickets", "list"] },
     parameters: TicketListQuery.pipe(
       Schema.fieldsAssign({
@@ -361,7 +327,6 @@ export const Tools = Toolkit.make(
       "Read a ticket before updating it: `update_ticket` replaces the " +
       "whole body. Use the label from `list_statuses` when naming its " +
       "status in conversation.",
-    access: inProject({ ticket: ["read"] }),
     cli: { command: ["tickets", "get"], args: ["id"] },
     parameters: Schema.Struct({
       orgSlug: Slug,
@@ -385,7 +350,6 @@ export const Tools = Toolkit.make(
       "moves a ticket backwards. Don't set a status by hand that " +
       "automation will set for you. `setBy` and `automationForwardOnly` " +
       "are left out when you can't read the project's GitHub settings.",
-    access: inProject({ ticket: ["read"] }),
     cli: { command: ["statuses", "list"] },
     parameters: Schema.Struct({ orgSlug: Slug, projectSlug: Slug }),
     success: Schema.Struct({
@@ -398,7 +362,6 @@ export const Tools = Toolkit.make(
       "List the tags defined in a project. Tickets can only use existing " +
       "tags: `create_ticket` and `update_ticket` fail on an unknown name. " +
       "Paginated: pass `nextCursor` back as `cursor`.",
-    access: inProject({ ticket: ["read"] }),
     cli: { command: ["tags", "list"] },
     parameters: Schema.Struct({
       orgSlug: Slug,
@@ -412,7 +375,6 @@ export const Tools = Toolkit.make(
       "List the project's members with their role. Use a member's `id` in " +
       "ticket `assignees` and in `[Label](mention:user/<id>)` mentions. " +
       "Paginated: pass `nextCursor` back as `cursor`.",
-    access: inProject({ ticket: ["read"] }),
     cli: { command: ["members", "list"] },
     parameters: Schema.Struct({
       orgSlug: Slug,
@@ -434,7 +396,6 @@ export const Tools = Toolkit.make(
       "report problems with the repository connection. Use this to check " +
       "pull requests and CI across a project; `get_ticket` carries the " +
       "same `gitState` for a single ticket.",
-    access: inProject({ github: ["read"] }),
     cli: { command: ["git", "state"], args: ["ticketId"] },
     parameters: Schema.Struct({
       orgSlug: Slug,
@@ -449,7 +410,6 @@ export const Tools = Toolkit.make(
       "markdown body, exactly as stored. `get_project` returns the same " +
       "data parsed, plus members and permissions; use this when you need " +
       "the file verbatim.",
-    access: inProject({ docs: ["read"], github: ["read"] }),
     cli: { command: ["projects", "doc"] },
     parameters: Schema.Struct({ orgSlug: Slug, projectSlug: Slug }),
     success: DocFile
@@ -459,7 +419,6 @@ export const Tools = Toolkit.make(
       "Raw source of a group's markdown file: YAML frontmatter and body, " +
       "exactly as stored. `get_group` returns the same data parsed; use " +
       "this when you need the file verbatim.",
-    access: inProject({ ticket: ["read"] }),
     cli: { command: ["groups", "doc"], args: ["id"] },
     parameters: Schema.Struct({
       orgSlug: Slug,
@@ -474,7 +433,6 @@ export const Tools = Toolkit.make(
       "exactly as stored. Prefer `get_ticket`, which returns the parsed " +
       "ticket with resolved blocks and git state; use this when you need " +
       "the file verbatim.",
-    access: inProject({ ticket: ["read"], github: ["read"] }),
     cli: { command: ["tickets", "doc"], args: ["id"] },
     parameters: Schema.Struct({
       orgSlug: Slug,
@@ -497,7 +455,6 @@ export const Tools = Toolkit.make(
       "line as-is. Hidden blocks are omitted. `sync` true means the block " +
       "is a shared, managed definition. " +
       BLOCK_FORMAT_POINTER,
-    access: inProject({ ticket: ["read"] }),
     cli: { command: ["blocks", "list"] },
     parameters: Schema.Struct({ orgSlug: Slug, projectSlug: Slug }),
     success: Schema.Array(
@@ -526,7 +483,6 @@ export const Tools = Toolkit.make(
       "without an explicit `type` gives the ticket that type. Hidden " +
       "templates are omitted. " +
       BLOCK_FORMAT_POINTER,
-    access: inProject({ ticket: ["read"] }),
     cli: { command: ["templates", "list"] },
     parameters: Schema.Struct({ orgSlug: Slug, projectSlug: Slug }),
     success: Schema.Array(
@@ -570,7 +526,6 @@ export const Tools = Toolkit.make(
       MENTION_GUIDE +
       " Returns the full ticket, with the same `blocks` breakdown as " +
       "`get_ticket`.",
-    access: inProject({ ticket: ["create"] }),
     cli: { command: ["tickets", "create"], args: ["title"] },
     parameters: Schema.Struct({
       orgSlug: Slug,
@@ -625,7 +580,6 @@ export const Tools = Toolkit.make(
       "The branch can't be changed here; use `attach_branch`. Returns the " +
       "full ticket after the update, with the same `blocks` breakdown as " +
       "`get_ticket`.",
-    access: inProject("membership"),
     cli: { command: ["tickets", "update"], args: ["id"] },
     parameters: Schema.Struct({
       orgSlug: Slug,
@@ -656,7 +610,6 @@ export const Tools = Toolkit.make(
       "Only insert markdown after the upload succeeds. Never save uploadUrl in markdown. " +
       "Does not modify the description automatically. Do not send file paths or base64 as " +
       "file content. If storage is not connected, connect it in organization settings and retry.",
-    access: inProject({ attachment: ["upload"] }),
     cli: {
       command: ["attachments", "prepare"],
       args: ["ticketId", "filename"]
@@ -688,7 +641,6 @@ export const Tools = Toolkit.make(
       "and anything a reviewer should know. " +
       MENTION_GUIDE +
       " Returns the created comment.",
-    access: inProject({ comment: ["create"] }),
     cli: { command: ["tickets", "comment"], args: ["ticketId"] },
     parameters: Schema.Struct({
       orgSlug: Slug,
@@ -715,7 +667,6 @@ export const Tools = Toolkit.make(
       "requests, use `stack_branch`. Linking can move the ticket's status " +
       "when a status is set by `branch_linked` (see `list_statuses`). " +
       "Returns the updated ticket.",
-    access: inProject({ github: ["write"] }),
     cli: { command: ["branches", "attach"], args: ["id", "name"] },
     parameters: Schema.Struct({
       orgSlug: Slug,
@@ -736,7 +687,6 @@ export const Tools = Toolkit.make(
       "that mentions the ticket is also stacked automatically when it " +
       "opens on a ticket that already has a branch. Pull request state " +
       "for each layer comes from GitHub. Returns the updated ticket.",
-    access: inProject({ github: ["write"] }),
     cli: { command: ["branches", "stack"], args: ["id", "name"] },
     parameters: Schema.Struct({
       orgSlug: Slug,
@@ -752,7 +702,6 @@ export const Tools = Toolkit.make(
       "ignored so it is not stacked on the ticket again automatically; " +
       "`stack_branch` adds it back. Fails with `Conflict` when the branch " +
       "is not stacked on the ticket. Returns the updated ticket.",
-    access: inProject({ github: ["write"] }),
     cli: { command: ["branches", "unstack"], args: ["id", "name"] },
     parameters: Schema.Struct({
       orgSlug: Slug,
@@ -771,7 +720,6 @@ export const Tools = Toolkit.make(
       "creation (sprint membership is exclusive across sprints, so those " +
       "tickets leave any other sprint). Set the sprint's markdown `body` " +
       "afterwards with `update_sprint`. Returns the created sprint.",
-    access: inProject({ sprint: ["manage"] }),
     cli: { command: ["sprints", "create"], args: ["name"] },
     parameters: Schema.Struct({
       orgSlug: Slug,
@@ -795,7 +743,6 @@ export const Tools = Toolkit.make(
       "null. To complete a sprint, use `complete_sprint` (it carries " +
       "destination semantics for carryover); this tool deliberately " +
       "excludes `completedAt`. Returns the updated sprint.",
-    access: inProject({ sprint: ["manage"] }),
     cli: { command: ["sprints", "update"], args: ["id"] },
     parameters: Schema.Struct({
       orgSlug: Slug,
@@ -820,7 +767,6 @@ export const Tools = Toolkit.make(
       "Already-completed sprints fail with `SprintCompletedImmutable`. " +
       "Returns the now-completed sprint plus the `carried` ticket ids the " +
       "server moved to the destination.",
-    access: inProject({ sprint: ["manage"] }),
     cli: { command: ["sprints", "complete"], args: ["id"] },
     parameters: Schema.Struct({
       orgSlug: Slug,
@@ -844,7 +790,6 @@ export const Tools = Toolkit.make(
       "content was out of date), the number of documents `indexed`, the " +
       "number `skipped` because they were unreadable, and whether the index " +
       "was actually `rebuilt`.",
-    access: inProject({ settings: ["manage"] }),
     cli: { command: ["tickets", "rebuild-index"] },
     parameters: Schema.Struct({ orgSlug: Slug, projectSlug: Slug }),
     success: RebuildTicketIndexOutput
@@ -862,7 +807,6 @@ export const Tools = Toolkit.make(
       "`evicted` field of the response. Adding to a completed sprint " +
       "fails with `SprintCompletedImmutable`. Returns the updated group " +
       "and the list of evictions.",
-    access: inProject("membership"),
     cli: { command: ["groups", "add-tickets"], args: ["groupId"] },
     parameters: Schema.Struct({
       orgSlug: Slug,

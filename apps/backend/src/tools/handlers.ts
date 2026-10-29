@@ -627,46 +627,49 @@ export const ToolHandlersLive = Tools.toLayer(
   Effect.gen(function* () {
     const run = yield* toolRunner
     return Tools.of({
-      me: run.user("me", me),
-      list_orgs: run.user("list_orgs", list_orgs),
-      get_org: run.org("get_org", get_org),
-      list_projects: run.org("list_projects", list_projects),
-      get_project: run.project("get_project", get_project),
-      list_groups: run.project("list_groups", list_groups),
-      list_sprints: run.project("list_sprints", list_sprints),
-      get_group: run.project("get_group", get_group),
-      list_tickets: run.project("list_tickets", list_tickets),
-      get_ticket: run.project("get_ticket", get_ticket),
-      list_statuses: run.project("list_statuses", list_statuses),
-      list_tags: run.project("list_tags", list_tags),
-      list_members: run.project("list_members", list_members),
-      get_git_state: run.project("get_git_state", get_git_state),
-      get_project_doc: run.project("get_project_doc", get_project_doc),
-      get_group_doc: run.project("get_group_doc", get_group_doc),
-      get_ticket_doc: run.project("get_ticket_doc", get_ticket_doc),
-      list_blocks: run.project("list_blocks", list_blocks),
-      list_templates: run.project("list_templates", list_templates),
-      create_ticket: run.project("create_ticket", create_ticket),
-      update_ticket: run.project("update_ticket", update_ticket),
+      me: run.user(me),
+      list_orgs: run.user(list_orgs),
+      get_org: run.org("membership", get_org),
+      list_projects: run.org("membership", list_projects),
+      get_project: run.project({ docs: ["read"] }, get_project),
+      list_groups: run.project({ ticket: ["read"] }, list_groups),
+      list_sprints: run.project({ ticket: ["read"] }, list_sprints),
+      get_group: run.project({ ticket: ["read"] }, get_group),
+      list_tickets: run.project({ ticket: ["read"] }, list_tickets),
+      get_ticket: run.project({ ticket: ["read"] }, get_ticket),
+      list_statuses: run.project({ ticket: ["read"] }, list_statuses),
+      list_tags: run.project({ ticket: ["read"] }, list_tags),
+      list_members: run.project({ ticket: ["read"] }, list_members),
+      get_git_state: run.project({ github: ["read"] }, get_git_state),
+      get_project_doc: run.project(
+        { docs: ["read"], github: ["read"] },
+        get_project_doc
+      ),
+      get_group_doc: run.project({ ticket: ["read"] }, get_group_doc),
+      get_ticket_doc: run.project(
+        { ticket: ["read"], github: ["read"] },
+        get_ticket_doc
+      ),
+      list_blocks: run.project({ ticket: ["read"] }, list_blocks),
+      list_templates: run.project({ ticket: ["read"] }, list_templates),
+      create_ticket: run.project({ ticket: ["create"] }, create_ticket),
+      update_ticket: run.project("membership", update_ticket),
       prepare_ticket_attachment: run.project(
-        "prepare_ticket_attachment",
+        { attachment: ["upload"] },
         prepare_ticket_attachment
       ),
-      create_comment: run.project("create_comment", create_comment),
-      attach_branch: run.project("attach_branch", attach_branch),
-      stack_branch: run.project("stack_branch", stack_branch),
-      unstack_branch: run.project("unstack_branch", unstack_branch),
+      create_comment: run.project({ comment: ["create"] }, create_comment),
+      attach_branch: run.project({ github: ["write"] }, attach_branch),
+      stack_branch: run.project({ github: ["write"] }, stack_branch),
+      unstack_branch: run.project({ github: ["write"] }, unstack_branch),
       rebuild_ticket_index: run.project(
-        "rebuild_ticket_index",
+        { settings: ["manage"] },
         rebuild_ticket_index
       ),
-      add_tickets_to_group: run.project(
-        "add_tickets_to_group",
-        add_tickets_to_group
-      ),
-      create_sprint: run.project("create_sprint", create_sprint),
-      update_sprint: run.project("update_sprint", update_sprint),
-      complete_sprint: run.project("complete_sprint", complete_sprint)
+      add_tickets_to_group: run.project("membership", add_tickets_to_group),
+      create_sprint: run.project({ sprint: ["manage"] }, create_sprint),
+      update_sprint: run.project({ sprint: ["manage"] }, update_sprint),
+      complete_sprint: run.project({ sprint: ["manage"] }, complete_sprint)
     })
   })
 )

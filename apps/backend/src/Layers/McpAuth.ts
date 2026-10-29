@@ -21,6 +21,7 @@ import * as Schema from "effect/Schema"
 
 import { auth, mcpResource } from "../auth"
 import { ToolCaller, type ToolClient } from "../tools/ToolCaller"
+import { proofUrl } from "./proofUrl"
 
 class TokenRejected extends Data.TaggedError("TokenRejected")<{
   readonly cause: unknown
@@ -101,7 +102,7 @@ export const McpAuthMiddlewareLive = HttpRouter.middleware(
               authorizationHeader: request.headers["authorization"],
               dpopProofJwt: request.headers["dpop"],
               method: request.method,
-              url: mcpResource
+              url: proofUrl(request.url, mcpResource)
             },
             {
               verifyOptions: { issuer: baseURL, audience: mcpResource },
