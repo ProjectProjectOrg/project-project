@@ -437,7 +437,7 @@ export const Tools = Toolkit.make(
     title: "Check Git state",
     hints: {
       readOnly: false,
-      destructive: false,
+      destructive: true,
       idempotent: true,
       openWorld: true
     },
@@ -831,7 +831,7 @@ export const Tools = Toolkit.make(
     title: "Create sprint",
     hints: {
       readOnly: false,
-      destructive: false,
+      destructive: true,
       idempotent: false,
       openWorld: false
     },
@@ -942,7 +942,7 @@ export const Tools = Toolkit.make(
     title: "Add tickets to group",
     hints: {
       readOnly: false,
-      destructive: false,
+      destructive: true,
       idempotent: true,
       openWorld: false
     },

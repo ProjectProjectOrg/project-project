@@ -291,10 +291,12 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
   it("modern: tells hosts which tools only read", async () => {
     const { body } = await modern(tokens[0], "tools/list")
     const annotations = Object.fromEntries(
-      body.result.tools.map((t: { name: string; annotations: unknown }) => [
-        t.name,
-        t.annotations
-      ])
+      body.result.tools.map(
+        (t: Readonly<{ name: string; annotations: unknown }>) => [
+          t.name,
+          t.annotations
+        ]
+      )
     )
     for (const tool of body.result.tools)
       expect(tool.annotations.title).toEqual(expect.any(String))
@@ -309,7 +311,7 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     })
     expect(annotations.get_git_state).toMatchObject({
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       openWorldHint: true
     })
   })
