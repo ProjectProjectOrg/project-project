@@ -6,6 +6,7 @@ import * as Fiber from "effect/Fiber"
 import { FetchHttpClient, HttpClient } from "effect/http"
 import * as Layer from "effect/Layer"
 
+import { notSignedIn } from "../CliFailure"
 import { type SavedServer, ServerStore } from "../servers/ServerStore"
 import { fakeHttp } from "../testing"
 import { Browser } from "./Browser"
@@ -73,7 +74,7 @@ const services = (world: Browsing) => {
       remove: () => Effect.die("unused"),
       setDefault: () => Effect.die("unused"),
       setScope: () => Effect.die("unused"),
-      select: () => Effect.die("unused")
+      select: () => Effect.fail(notSignedIn("unused"))
     })
   )
   const server = fakeHttp((url) => {

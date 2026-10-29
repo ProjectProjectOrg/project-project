@@ -1,6 +1,7 @@
 import { catalogVersion, cliOAuthClient, cliRelease, Tools } from "@pp/shared"
 import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
 
 import { callToolAs } from "../client/callTool"
@@ -119,13 +120,16 @@ const signIn = (discovered: Discovered, pkce: Pkce) =>
         listening.redirectUri,
         params
       ).pipe(
-        Effect.tapError(() =>
-          listening.finish({
-            signedIn: false,
-            reason: params.get("error") ?? "sign_in_failed"
-          })
-        ),
-        Effect.tap(() => listening.finish({ signedIn: true }))
+        Effect.onExit((exit) =>
+          listening.finish(
+            Exit.isSuccess(exit)
+              ? { signedIn: true }
+              : {
+                  signedIn: false,
+                  reason: params.get("error") ?? "sign_in_failed"
+                }
+          )
+        )
       )
     })
   )
