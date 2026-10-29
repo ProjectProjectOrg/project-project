@@ -64,7 +64,12 @@ jobs:
         run: |
           prefix="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/projectproject"
           for name in app web; do
-            docker buildx imagetools inspect "$prefix-$name:$SOURCE_TAG" >/dev/null
+            revision=$(docker buildx imagetools inspect "$prefix-$name:$SOURCE_TAG" --format '{{json .Image}}' \
+              | jq -r '.config.Labels["org.opencontainers.image.revision"] // empty')
+            if [ "$revision" != "$SHA" ]; then
+              echo "::error::$prefix-$name:$SOURCE_TAG was built from '${revision:-unknown}', not $SHA."
+              exit 1
+            fi
           done
           for name in app web; do
             docker buildx imagetools create \

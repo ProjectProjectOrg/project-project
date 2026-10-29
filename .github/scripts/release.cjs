@@ -135,11 +135,6 @@ async function resolveStable({
         `No nightly older than ${soakHours}h. Pass a ref to ship an explicit commit.`
       )
     sha = (await getCommit(api, candidate.tag_name)).sha
-    if (previous && (await compare(api, previous.tag_name, sha)) !== "ahead") {
-      throw new Error(
-        `${candidate.tag_name} is not ahead of ${previous.tag_name}. Nothing newer to release.`
-      )
-    }
     day = NIGHTLY_TAG.exec(candidate.tag_name)[1]
     sourceTag = candidate.tag_name
     core.notice(
@@ -148,6 +143,12 @@ async function resolveStable({
   }
 
   await assertOnDefaultBranch(api, sha)
+
+  if (previous && (await compare(api, previous.tag_name, sha)) !== "ahead") {
+    throw new Error(
+      `${sha} is not ahead of ${previous.tag_name}. Nothing newer to release.`
+    )
+  }
 
   const version = stableVersionForDay(day, releases)
   if (previous && !isNewerTag(`v${version}`, previous.tag_name)) {
