@@ -17,6 +17,24 @@ describe("splitForMiddleTruncate", () => {
     })
   })
 
+  it("keeps the last words of a title whole", () => {
+    expect(
+      splitForMiddleTruncate(
+        "pp CLI sharing one tool catalog with the MCP server"
+      )
+    ).toEqual({
+      head: "pp CLI sharing one tool catalog with",
+      tail: " the MCP server"
+    })
+  })
+
+  it("keeps ten characters when the last word is too long", () => {
+    expect(splitForMiddleTruncate("Support for internationalization")).toEqual({
+      head: "Support for internatio",
+      tail: "nalization"
+    })
+  })
+
   it("leaves short values whole", () => {
     expect(splitForMiddleTruncate("main")).toBeNull()
   })

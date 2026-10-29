@@ -25,7 +25,7 @@ export function MiddleTruncate({
       ) : (
         <>
           <span className="min-w-0 truncate">{split.head}</span>
-          <span className="shrink-0">{split.tail}</span>
+          <span className="shrink-0 whitespace-pre">{split.tail}</span>
         </>
       )}
     </span>
