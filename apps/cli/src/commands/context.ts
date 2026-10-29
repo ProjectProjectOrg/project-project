@@ -61,7 +61,7 @@ export type ProjectChoice = Readonly<{
   key: string
 }>
 
-const allPages = <A, E, R>(
+export const allPages = <A, E, R>(
   page: (
     cursor: string | undefined
   ) => Effect.Effect<
@@ -207,32 +207,24 @@ export const resolveProject = (
     )
   })
 
-export type GivenScope = Readonly<{ orgSlug?: string; projectSlug?: string }>
-
-const fromInput = (value: string | undefined) =>
-  value === undefined ? Option.none() : Option.some(sourced(value, "flag"))
-
 export const resolveScope = (
   server: SavedServer,
-  fields: ReadonlyArray<Field>,
-  given: GivenScope = {}
+  fields: ReadonlyArray<Field>
 ) =>
   Effect.gen(function* () {
     const orgField = fields.find((field) => field.name === "orgSlug")
     const projectField = fields.find((field) => field.name === "projectSlug")
     const needsOrg =
       orgField?.required === true || projectField?.required === true
-    const givenOrg = fromInput(given.orgSlug)
     const org: Option.Option<Sourced> =
-      Option.isSome(givenOrg) || orgField === undefined
-        ? givenOrg
+      orgField === undefined
+        ? Option.none()
         : needsOrg
           ? Option.some(yield* resolveOrg(server))
           : yield* configuredOrg(server)
-    const givenProject = fromInput(given.projectSlug)
     const project: Option.Option<Sourced> =
-      Option.isSome(givenProject) || projectField === undefined
-        ? givenProject
+      projectField === undefined
+        ? Option.none()
         : projectField.required
           ? Option.some(yield* resolveProject(server, org))
           : yield* configuredProject(server, org)

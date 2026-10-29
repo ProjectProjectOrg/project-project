@@ -2,7 +2,6 @@ import { Command } from "effect/cli"
 
 import { loginCommand, logoutCommand, serversCommand } from "./account"
 import { attachCommand } from "./attach"
-import { callCommand, toolsCommand } from "./call"
 import { catalogEntries, commandFor } from "./catalog"
 import { guideCommand } from "./guide"
 import { root } from "./root"
@@ -56,8 +55,6 @@ export const pp = root.pipe(
     statusCommand,
     guideCommand,
     upgradeCommand,
-    toolsCommand,
-    callCommand,
     ...topLevel,
     ...[...leaves.keys()].map(groupCommand)
   ])

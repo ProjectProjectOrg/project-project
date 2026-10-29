@@ -85,7 +85,6 @@ pp tickets get T-80
 pp tickets update T-80 --status in_progress
 pp tickets comment T-80 --body @notes.md
 pp tickets attach T-130 ./screenshot.png
-pp tools                                  # every tool and its command
 ```
 
 - Flags that take several values are repeated: `--status todo --status in_progress`.
@@ -93,16 +92,7 @@ pp tools                                  # every tool and its command
 - Text flags accept `@file`, or `@-` for standard input.
 - JSON flags take JSON or `@file`.
 - Add `--json` to any command for machine-readable output.
-
-Any tool can also be called with raw JSON:
-
-```sh
-pp call get_ticket '{"id":"T-80"}'
-pp call update_ticket @changes.json
-echo '{"id":"T-80"}' | pp call get_ticket -
-```
-
-`pp call` fills in `orgSlug` and `projectSlug` the same way when the input leaves them out.
+- List commands print one page and a `--cursor` hint for the next; add `--all` to follow every page.
 
 `pp` only prompts when you run `pp use` or `pp login` at a terminal, or ask for it with `--wizard`, so agents can run it without hanging. Shell completions: `pp --completions zsh` (also `bash` and `fish`).
 

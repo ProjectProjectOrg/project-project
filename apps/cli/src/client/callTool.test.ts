@@ -31,6 +31,10 @@ const store = Layer.succeed(
     remove: () => Effect.die("unused"),
     setDefault: () => Effect.die("unused"),
     setScope: () => Effect.die("unused"),
+    update: (_origin, change) =>
+      Effect.tap(change(saved.at(-1) ?? server), (updated) =>
+        Effect.sync(() => void saved.push(updated))
+      ),
     select: () =>
       saved.length === 0
         ? Effect.fail(notSignedIn("unused"))

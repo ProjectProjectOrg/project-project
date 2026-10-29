@@ -4,10 +4,17 @@ import { Argument, Command, Flag } from "effect/cli"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
 
-import { callTool } from "../client/callTool"
+import { callTool, callToolAs } from "../client/callTool"
 import { printResult } from "../output/format"
-import { currentServer, explainDefault, resolveScope } from "./context"
+import { quotedCommandText } from "../output/terminalText"
+import {
+  allPages,
+  currentServer,
+  explainDefault,
+  resolveScope
+} from "./context"
 import { type Field, fieldsOf, flagName } from "./fields"
 import { toolInput } from "./input"
 import { root } from "./root"
@@ -65,7 +72,7 @@ const flagFor = (field: Field) => {
       )
     case "strings":
       return describe(Flag.String(name), field, Flag.withDescription).pipe(
-        Flag.atLeast(0)
+        Flag.atLeast(field.required ? 1 : 0)
       )
     case "string":
     case "json":
@@ -83,6 +90,16 @@ export type CatalogEntry = Readonly<{
   description: string
 }>
 
+const UnknownPage = Schema.Struct({
+  items: Schema.Array(Schema.Unknown),
+  nextCursor: Schema.NullOr(Schema.String)
+})
+
+const allFlag = Flag.Boolean("all").pipe(
+  Flag.withDescription("Follow every page and print all results."),
+  Flag.withDefault(false)
+)
+
 const isToolName = (name: string): name is ToolName =>
   Object.hasOwn(Tools.tools, name)
 
@@ -97,7 +114,7 @@ const entryFor = (tool: Tool.Any): ReadonlyArray<CatalogEntry> => {
         command: cli.command,
         args: cli.args ?? [],
         fields: fieldsOf(tool),
-        description: tool.description ?? ""
+        description: quotedCommandText(tool.description ?? "")
       }
       return [entry]
     }
@@ -111,7 +128,9 @@ export const catalogEntries: ReadonlyArray<CatalogEntry> = Object.values(
 export const commandFor = (entry: CatalogEntry) => {
   const name = entry.command[entry.command.length - 1] ?? entry.name
   const fields = entry.fields.filter((field) => !SCOPE_FIELDS.has(field.name))
+  const paginated = fields.some((field) => field.name === "cursor")
   const config = Object.fromEntries([
+    ...(paginated ? [["all", allFlag]] : []),
     ...entry.args.flatMap((arg) => {
       const field = fields.find((candidate) => candidate.name === arg)
       return field === undefined ? [] : [[field.name, argumentFor(field)]]
@@ -129,9 +148,23 @@ export const commandFor = (entry: CatalogEntry) => {
         orgSlug: Option.map(scope.org, (org) => org.value),
         projectSlug: Option.map(scope.project, (project) => project.value)
       })
-      const result = yield* callTool(server, entry.name, input).pipe(
-        explainDefault(scope)
+      const everyPage = Effect.map(
+        allPages((cursor) =>
+          callToolAs(
+            server,
+            entry.name,
+            { limit: 200, ...input, cursor },
+            UnknownPage
+          )
+        ),
+        (items) => ({ items, nextCursor: null })
       )
+      const result =
+        raw["all"] === true
+          ? yield* everyPage.pipe(explainDefault(scope))
+          : yield* callTool(server, entry.name, input).pipe(
+              explainDefault(scope)
+            )
       yield* printResult(result, flags.json)
     })
   ).pipe(Command.withDescription(entry.description))

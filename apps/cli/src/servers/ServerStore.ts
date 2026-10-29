@@ -82,6 +82,10 @@ export class ServerStore extends Context.Service<
       origin: string,
       scope: Option.Option<SavedScope>
     ) => Effect.Effect<void, CliFailure>
+    update: <E, R>(
+      origin: string,
+      change: (saved: SavedServer) => Effect.Effect<SavedServer, E, R>
+    ) => Effect.Effect<SavedServer, E | CliFailure, R>
     select: (
       preferred: Option.Option<string>
     ) => Effect.Effect<SavedServer, CliFailure>
@@ -147,7 +151,7 @@ export class ServerStore extends Context.Service<
           return yield* lock(attempt + 1)
         })
 
-      const locked = <A, E>(effect: Effect.Effect<A, E>) =>
+      const locked = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
         Effect.acquireUseRelease(
           fs
             .makeDirectory(directory, { recursive: true, mode: 0o700 })
@@ -236,6 +240,33 @@ export class ServerStore extends Context.Service<
           })
         )
 
+      const update = <E, R>(
+        origin: string,
+        change: (saved: SavedServer) => Effect.Effect<SavedServer, E, R>
+      ) =>
+        locked(
+          Effect.gen(function* () {
+            const catalog = yield* list
+            const found = catalog.servers.find(
+              (saved) => saved.origin === origin
+            )
+            if (found === undefined) {
+              return yield* notSignedIn(
+                `You're not signed in to ${origin}. Run \`pp login ${origin}\`.`
+              )
+            }
+            const updated = yield* change(found)
+            if (updated === found) return found
+            yield* write({
+              ...catalog,
+              servers: catalog.servers.map((saved) =>
+                saved.origin === origin ? updated : saved
+              )
+            })
+            return updated
+          })
+        )
+
       const select = (preferred: Option.Option<string>) =>
         Effect.gen(function* () {
           const catalog = yield* list
@@ -259,6 +290,7 @@ export class ServerStore extends Context.Service<
         remove,
         setDefault,
         setScope,
+        update,
         select
       })
     })
