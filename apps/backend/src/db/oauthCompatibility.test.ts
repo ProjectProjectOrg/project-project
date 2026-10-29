@@ -10,6 +10,7 @@ import { join } from "node:path"
 
 import { requireMcpAuth } from "@better-auth/mcp"
 import { migrationsFolder } from "@pp/db"
+import { cliOAuthClient } from "@pp/shared"
 import { betterAuth } from "better-auth"
 import { makeSignature } from "better-auth/crypto"
 import { toNodeHandler } from "better-auth/node"
@@ -19,6 +20,11 @@ import { Layer, Schema } from "effect"
 import { HttpRouter } from "effect/http"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+
+import {
+  BuiltInOAuthClientConflict,
+  builtInOAuthClient
+} from "../auth/builtInOAuthClient"
 
 const decodeUnknownAuthorizationServerMetadataSync = Schema.decodeUnknownSync(
   Schema.Struct({
@@ -459,6 +465,162 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       body: tokenBody
     })
     expect(replay.status).toBe(400)
+  })
+
+  it("signs the PP CLI in with PKCE on any loopback port, for the tools resource only", async () => {
+    const toolsResource = `${baseUrl}${cliOAuthClient.resourcePath}`
+    const mcpResource = `${baseUrl}/mcp`
+    const redirectUri = "http://127.0.0.1:54321/callback"
+    const verifier = `pp-cli-pkce-verifier-${randomUUID()}-${randomUUID()}`
+    const authorize = (params: Readonly<Record<string, string>>) =>
+      auth.handler(
+        new Request(
+          `${baseUrl}/api/auth/oauth2/authorize?${new URLSearchParams({
+            client_id: cliOAuthClient.id,
+            redirect_uri: redirectUri,
+            response_type: "code",
+            scope: "openid profile email offline_access",
+            resource: toolsResource,
+            state: "cli-state",
+            code_challenge_method: "S256",
+            code_challenge: createHash("sha256")
+              .update(verifier)
+              .digest("base64url"),
+            ...params
+          }).toString()}`,
+          {
+            headers: {
+              cookie,
+              accept: "text/html",
+              "sec-fetch-mode": "navigate",
+              "sec-fetch-dest": "document"
+            }
+          }
+        )
+      )
+    const reachesConsent = async (response: Response) =>
+      response.status === 302 &&
+      new URL(response.headers.get("location") ?? "/", baseUrl).pathname ===
+        "/oauth/consent"
+    expect(
+      await reachesConsent(
+        await authorize({ code_challenge: "", code_challenge_method: "" })
+      )
+    ).toBe(false)
+    expect(
+      await reachesConsent(
+        await authorize({ redirect_uri: "http://localhost:54321/callback" })
+      )
+    ).toBe(false)
+    expect(
+      await reachesConsent(
+        await authorize({ redirect_uri: "http://127.0.0.1:54321/other" })
+      )
+    ).toBe(false)
+    expect(
+      await reachesConsent(await authorize({ resource: mcpResource }))
+    ).toBe(false)
+    const callbackFor = async () => {
+      const authorization = await authorize({})
+      const location = new URL(
+        authorization.headers.get("location") ?? "/",
+        baseUrl
+      )
+      if (location.pathname !== "/oauth/consent") return location
+      const consent = await httpFetch(`${baseUrl}/api/auth/oauth2/consent`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: baseUrl
+        },
+        body: JSON.stringify({
+          accept: true,
+          oauth_query: location.search.slice(1)
+        })
+      })
+      expect(consent.status, await consent.clone().text()).toBe(200)
+      return new URL(decodeUnknownRedirectSync(await consent.json()).url)
+    }
+    expect(await reachesConsent(await authorize({}))).toBe(true)
+    const exchange = async (codeVerifier: string) => {
+      const callback = await callbackFor()
+      expect(callback.origin + callback.pathname).toBe(redirectUri)
+      return httpFetch(`${baseUrl}/api/auth/oauth2/token`, {
+        method: "POST",
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          client_id: cliOAuthClient.id,
+          code: callback.searchParams.get("code") ?? "",
+          redirect_uri: redirectUri,
+          code_verifier: codeVerifier,
+          resource: toolsResource
+        })
+      })
+    }
+    const wrongVerifier = await exchange(`wrong-${verifier}`)
+    expect(wrongVerifier.ok).toBe(false)
+    expect(await wrongVerifier.text()).not.toContain("access_token")
+    const tokenResponse = await exchange(verifier)
+    expect(tokenResponse.status, await tokenResponse.clone().text()).toBe(200)
+    const token = decodeUnknownTokenSync(await tokenResponse.json())
+    const verifiedFor = (resource: string) =>
+      requireMcpAuth(auth, async () => new Response("ok"), { resource })(
+        new Request(resource, {
+          headers: { authorization: `Bearer ${token.access_token}` }
+        })
+      )
+    expect((await verifiedFor(toolsResource)).status).toBe(200)
+    expect((await verifiedFor(mcpResource)).status).toBe(401)
+    const refresh = await pool.query(
+      "SELECT expires_at, created_at FROM oauth_refresh_token WHERE client_id=$1 AND user_id=$2",
+      [cliOAuthClient.id, userId]
+    )
+    const lifetimeDays = refresh.rows.map((row) =>
+      Math.round(
+        (row.expires_at.getTime() - row.created_at.getTime()) / 86_400_000
+      )
+    )
+    expect(lifetimeDays).toEqual([90])
+  })
+
+  it("won't take over an oauth_client it didn't create, and keeps the CLI to the tools resource", async () => {
+    const toolsResource = `${baseUrl}${cliOAuthClient.resourcePath}`
+    const register = () =>
+      builtInOAuthClient({
+        db: drizzle({ client: pool }),
+        client: cliOAuthClient,
+        resource: { identifier: toolsResource, name: cliOAuthClient.name }
+      }).init()
+    await pool.query(
+      "INSERT INTO oauth_client_resource (id, client_id, resource_id, created_at) VALUES ($1, $2, $3, now())",
+      [randomUUID(), cliOAuthClient.id, `${baseUrl}/mcp`]
+    )
+    await register()
+    const links = await pool.query(
+      "SELECT resource_id FROM oauth_client_resource WHERE client_id=$1",
+      [cliOAuthClient.id]
+    )
+    expect(links.rows).toEqual([{ resource_id: toolsResource }])
+    await pool.query(
+      "UPDATE oauth_client SET client_secret='not-ours' WHERE client_id=$1",
+      [cliOAuthClient.id]
+    )
+    try {
+      await expect(register()).rejects.toBeInstanceOf(
+        BuiltInOAuthClientConflict
+      )
+      const kept = await pool.query(
+        "SELECT client_secret FROM oauth_client WHERE client_id=$1",
+        [cliOAuthClient.id]
+      )
+      expect(kept.rows).toEqual([{ client_secret: "not-ours" }])
+    } finally {
+      await pool.query(
+        "UPDATE oauth_client SET client_secret=NULL WHERE client_id=$1",
+        [cliOAuthClient.id]
+      )
+    }
   })
 
   it("advertises Client ID Metadata Document support", async () => {

@@ -1,4 +1,3 @@
-import { createResourceServerChallenge } from "@better-auth/oauth-provider"
 import * as Effect from "effect/Effect"
 import {
   Headers as HttpHeaders,
@@ -11,11 +10,7 @@ import * as Option from "effect/Option"
 import { mcpResource } from "../auth"
 import { ToolCaller } from "../tools/ToolCaller"
 import { bearerVerifier } from "./BearerAuth"
-
-const resourceMetadataUrl = new URL(
-  "/.well-known/oauth-protected-resource/mcp",
-  mcpResource
-).href
+import { bearerChallenge, resourceChallenge } from "./resourceChallenge"
 
 const jsonRpcError = (
   message: string,
@@ -32,24 +27,25 @@ const jsonRpcError = (
   )
 
 const unauthorized = jsonRpcError("Unauthorized", 401, {
-  "www-authenticate": `Bearer resource_metadata="${resourceMetadataUrl}"`
+  "www-authenticate": bearerChallenge(mcpResource)
 })
 
-const challenge = (cause: unknown) => {
-  const apiError = createResourceServerChallenge(cause, mcpResource)
-  if (!apiError) {
-    return Effect.logError("mcp access token verification failed", cause).pipe(
-      Effect.andThen(Effect.die(cause))
-    )
-  }
-  return Effect.succeed(
-    jsonRpcError(
-      apiError.message,
-      apiError.statusCode,
-      HttpHeaders.fromInput(new Headers(apiError.headers))
-    )
+const challenge = (cause: unknown) =>
+  Effect.flatMap(
+    resourceChallenge(cause, mcpResource),
+    Option.match({
+      onNone: () =>
+        Effect.logError("mcp access token verification failed", cause).pipe(
+          Effect.andThen(Effect.die(cause))
+        ),
+      onSome: (found) =>
+        Effect.succeed(
+          jsonRpcError(found.message, found.status, {
+            "www-authenticate": found.wwwAuthenticate
+          })
+        )
+    })
   )
-}
 
 export const McpAuthMiddlewareLive = HttpRouter.middleware(
   Effect.gen(function* () {
