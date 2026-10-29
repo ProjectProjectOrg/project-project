@@ -263,20 +263,18 @@ const list_members = (
     )
   )
 
-const get_git_state = (input: {
+type GitStateInput = Readonly<{
   orgSlug: string
   projectSlug: string
   ticketId?: string
-}) =>
+}>
+
+const get_git_state = (input: GitStateInput) =>
   Effect.flatMap(Tickets, (tickets) =>
     tickets.getGitState(input.ticketId, { reconcile: false })
   )
 
-const sync_git_state = (input: {
-  orgSlug: string
-  projectSlug: string
-  ticketId?: string
-}) =>
+const sync_git_state = (input: GitStateInput) =>
   Effect.flatMap(Tickets, (tickets) =>
     tickets.getGitState(input.ticketId, { reconcile: true })
   )
