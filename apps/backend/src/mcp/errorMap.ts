@@ -45,6 +45,10 @@ const asSentence = (text: string): string => {
 
 const editFailureMessage = (failure: string): string => {
   const [code, count] = failure.split(":")
+  const markup = failure.match(/^block_markup:(.*)$/s)
+  if (markup) {
+    return `it leaves invalid block markup: ${asSentence(markup[1] ?? "")}`
+  }
   switch (code) {
     case "no_match":
       return "oldText doesn't appear in the current description; read it again with get_ticket and copy the text exactly."

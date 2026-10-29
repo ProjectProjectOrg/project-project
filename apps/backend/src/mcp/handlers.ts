@@ -55,7 +55,8 @@ import {
 import { Tool } from "effect/ai"
 import * as Effect from "effect/Effect"
 import type * as Layer from "effect/Layer"
-import * as Schema from "effect/Schema"
+import * as Predicate from "effect/Predicate"
+import type * as Schema from "effect/Schema"
 
 import { orgTool, projectTool } from "./access"
 import { McpCurrentUser } from "./McpRequestUser"
@@ -392,11 +393,6 @@ const editedBody = (id: TicketId, edits: ReadonlyArray<TicketBodyEdit>) =>
     }
   })
 
-const isValidation = Schema.is(Validation)
-
-const isBodyChanged = (error: unknown) =>
-  isValidation(error) && error.reason === "ticket_body_changed"
-
 const update_ticket = (
   input: {
     orgSlug: string
@@ -444,7 +440,14 @@ const update_ticket = (
     const updated = yield* (
       edits === undefined
         ? write
-        : write.pipe(Effect.retry({ times: 2, while: isBodyChanged }))
+        : write.pipe(
+            Effect.retry({
+              times: 2,
+              while: (error) =>
+                Predicate.isTagged(error, "Validation") &&
+                error.reason === "ticket_body_changed"
+            })
+          )
     ).pipe(
       Effect.catchTag("Validation", (error) =>
         error.reason === "ticket_body_changed" && template != null

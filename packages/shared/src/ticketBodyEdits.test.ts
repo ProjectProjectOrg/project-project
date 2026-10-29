@@ -139,4 +139,17 @@ describe("applyTicketBodyEdits", () => {
       ])
     ).toEqual({ ok: false, index: 2, failure: { code: "no_match" } })
   })
+
+  it("names the edit that breaks block markup", () => {
+    expect(
+      applyTicketBodyEdits(BODY, [
+        { kind: "append", text: "More." },
+        { kind: "append", text: '<block type="context">\n\nUnclosed' }
+      ])
+    ).toMatchObject({
+      ok: false,
+      index: 1,
+      failure: { code: "block_markup" }
+    })
+  })
 })

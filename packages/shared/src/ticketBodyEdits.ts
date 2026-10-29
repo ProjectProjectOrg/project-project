@@ -3,9 +3,11 @@ import * as Schema from "effect/Schema"
 import {
   advanceFence,
   findTicketBlockEnd,
+  formatBlockIssue,
   normalizeLineEndings,
   TICKET_BLOCK_OPEN,
-  TICKET_BLOCK_TYPE_PATTERN
+  TICKET_BLOCK_TYPE_PATTERN,
+  validateTicketBlocks
 } from "./ticketBlocks"
 
 export const TICKET_BODY_EDITS_MAX = 50
@@ -50,6 +52,7 @@ export type TicketBodyEditFailure =
   | Readonly<{ code: "block_not_found" }>
   | Readonly<{ code: "block_ambiguous"; count: number }>
   | Readonly<{ code: "block_synced" }>
+  | Readonly<{ code: "block_markup"; issue: string }>
 
 export type TicketBodyEditsResult =
   | Readonly<{ ok: true; body: string }>
@@ -150,9 +153,18 @@ export const applyTicketBodyEdits = (
   edits: ReadonlyArray<TicketBodyEdit>
 ): TicketBodyEditsResult => {
   let current = normalizeLineEndings(body)
+  const checkMarkup = validateTicketBlocks(current).length === 0
   for (const [index, edit] of edits.entries()) {
     const outcome = applyEdit(current, edit)
     if (!outcome.ok) return { ok: false, index, failure: outcome.failure }
+    const [issue] = checkMarkup ? validateTicketBlocks(outcome.body) : []
+    if (issue !== undefined) {
+      return {
+        ok: false,
+        index,
+        failure: { code: "block_markup", issue: formatBlockIssue(issue) }
+      }
+    }
     current = outcome.body
   }
   return { ok: true, body: current }
@@ -172,5 +184,7 @@ export const formatTicketBodyEditFailure = (
       return `block_ambiguous:${failure.count}`
     case "block_synced":
       return "block_synced"
+    case "block_markup":
+      return `block_markup:${failure.issue}`
   }
 }
