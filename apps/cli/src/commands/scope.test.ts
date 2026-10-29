@@ -38,13 +38,15 @@ const meUser = {
   }
 }
 
+const titleOf = (slug: string) => `${slug[0]?.toUpperCase()}${slug.slice(1)}`
+
 const project = (org: string, slug: string) => ({
   banner: null,
   iconImage: null,
   org,
   slug,
-  key: "T",
-  name: slug,
+  key: slug.slice(0, 3).toUpperCase(),
+  name: titleOf(slug),
   icon: "box",
   color: "#94a3b8",
   createdBy: "u-1",
@@ -102,6 +104,15 @@ const run = (world: World, args: ReadonlyArray<string>) => {
         return Response.json({
           user: meUser,
           roles: world.orgs.map((orgSlug) => ({ orgSlug, role: "member" }))
+        })
+      case "list_orgs":
+        return Response.json({
+          items: world.orgs.map((slug) => ({
+            slug,
+            name: titleOf(slug),
+            role: "member"
+          })),
+          nextCursor: null
         })
       case "list_projects": {
         const org =
@@ -237,7 +248,9 @@ describe("choosing the org and project", () => {
     return Effect.gen(function* () {
       const failure = yield* Effect.flip(world.effect)
       expect(failure).toMatchObject({ _tag: "CliFailure", code: 2 })
-      expect(failure.message).toContain("Yours: acme, beta.")
+      expect(failure.message).toContain(
+        "Yours:\n\n  Acme   acme\n  Beta   beta"
+      )
       expect(world.toolInput("list_tickets")).toBeUndefined()
     })
   })
@@ -249,8 +262,10 @@ describe("choosing the org and project", () => {
     )
     return Effect.gen(function* () {
       const failure = yield* Effect.flip(world.effect)
-      expect(failure.message).toContain("Its projects: website, app.")
-      expect(failure.message).toContain("pp use acme/<project>")
+      expect(failure.message).toContain(
+        "Its projects:\n\n  Website   WEB   website\n  App       APP   app"
+      )
+      expect(failure.message).toContain("pp use acme/<slug>")
     })
   })
 
@@ -290,7 +305,7 @@ describe("pp use", () => {
     const world = run({ orgs: ["acme"], projects: {} }, ["use", "beta"])
     return Effect.gen(function* () {
       const failure = yield* Effect.flip(world.effect)
-      expect(failure.message).toContain("Yours: acme.")
+      expect(failure.message).toContain("  Acme   acme")
       expect(world.saved).toEqual([])
     })
   })

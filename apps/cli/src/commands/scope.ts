@@ -14,8 +14,11 @@ import {
 import {
   configuredProject,
   currentServer,
+  indented,
   myOrgs,
   orgProjects,
+  orgRows,
+  projectRows,
   resolveOrg,
   resolveProject,
   type Source,
@@ -37,11 +40,18 @@ export const canPrompt = Effect.gen(function* () {
   )
 })
 
-const choose = (message: string, slugs: ReadonlyArray<string>, none?: string) =>
+const choose = (
+  message: string,
+  rows: ReadonlyArray<Readonly<{ title: string; slug: string }>>,
+  none?: string
+) =>
   Prompt.Select({
     message,
     choices: [
-      ...slugs.map((slug) => ({ title: slug, value: Option.some(slug) })),
+      ...rows.map((row) => ({
+        title: row.title,
+        value: Option.some(row.slug)
+      })),
       ...(none === undefined
         ? []
         : [{ title: none, value: Option.none<string>() }])
@@ -51,26 +61,38 @@ const choose = (message: string, slugs: ReadonlyArray<string>, none?: string) =>
     Effect.orElseSucceed(() => Option.none<string>())
   )
 
+const titled = (
+  items: ReadonlyArray<Readonly<{ slug: string }>>,
+  rows: ReadonlyArray<string>
+) =>
+  items.map((item, index) => ({
+    title: rows[index] ?? item.slug,
+    slug: item.slug
+  }))
+
 const pickScope = (server: SavedServer, interactive: boolean) =>
   Effect.gen(function* () {
     const orgs = yield* myOrgs(server)
     const [onlyOrg] = orgs
     const org =
       onlyOrg !== undefined && orgs.length === 1
-        ? Option.some(onlyOrg)
+        ? Option.some(onlyOrg.slug)
         : interactive && orgs.length > 1
-          ? yield* choose("Which org should pp use by default?", orgs)
+          ? yield* choose(
+              "Which org should pp use by default?",
+              titled(orgs, orgRows(orgs))
+            )
           : Option.none<string>()
     if (Option.isNone(org)) return Option.none<SavedScope>()
     const projects = yield* orgProjects(server, org.value)
     const [onlyProject] = projects
     const project =
       onlyProject !== undefined && projects.length === 1
-        ? Option.some(onlyProject)
+        ? Option.some(onlyProject.slug)
         : interactive && projects.length > 1
           ? yield* choose(
               `Which project in ${org.value}?`,
-              projects,
+              titled(projects, projectRows(projects)),
               "No default project"
             )
           : Option.none<string>()
@@ -87,7 +109,9 @@ export const chooseDefaultScope = (server: SavedServer) =>
     const saved = yield* store.select(Option.some(server.origin))
     if (saved.scope !== undefined) {
       const orgs = yield* myOrgs(server)
-      if (orgs.includes(saved.scope.org)) return Option.some(saved.scope)
+      if (orgs.some((org) => org.slug === saved.scope?.org)) {
+        return Option.some(saved.scope)
+      }
     }
     const picked = yield* pickScope(server, yield* canPrompt)
     yield* store.setScope(server.origin, picked)
@@ -108,17 +132,17 @@ const parseTarget = (target: string) => {
 const checkScope = (server: SavedServer, scope: SavedScope) =>
   Effect.gen(function* () {
     const orgs = yield* myOrgs(server)
-    if (!orgs.includes(scope.org)) {
+    if (!orgs.some((org) => org.slug === scope.org)) {
       return yield* new CliFailure({
-        message: `You don't belong to an org called ${scope.org} on ${server.origin}. Yours: ${orgs.join(", ")}.`,
+        message: `You don't belong to an org called ${scope.org} on ${server.origin}. Yours:\n\n${indented(orgRows(orgs))}`,
         code: ExitCode.notFound
       })
     }
     if (scope.project === undefined) return
     const projects = yield* orgProjects(server, scope.org)
-    if (!projects.includes(scope.project)) {
+    if (!projects.some((project) => project.slug === scope.project)) {
       return yield* new CliFailure({
-        message: `${scope.org} has no project called ${scope.project} that you can see. Its projects: ${projects.join(", ")}.`,
+        message: `${scope.org} has no project called ${scope.project} that you can see. Its projects:\n\n${indented(projectRows(projects))}`,
         code: ExitCode.notFound
       })
     }

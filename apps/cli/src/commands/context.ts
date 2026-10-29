@@ -50,9 +50,24 @@ export const currentServer = Effect.gen(function* () {
   return yield* (yield* ServerStore).select(origin)
 })
 
+export type OrgChoice = Readonly<{ slug: string; name: string }>
+
+export type ProjectChoice = Readonly<{
+  slug: string
+  name: string
+  key: string
+}>
+
 export const myOrgs = (server: SavedServer) =>
-  callToolAs(server, "me", {}, Tools.tools.me.successSchema).pipe(
-    Effect.map((me) => me.roles.map((role) => role.orgSlug))
+  callToolAs(
+    server,
+    "list_orgs",
+    { limit: 200 },
+    Tools.tools.list_orgs.successSchema
+  ).pipe(
+    Effect.map((page) =>
+      page.items.map((org): OrgChoice => ({ slug: org.slug, name: org.name }))
+    )
   )
 
 export const orgProjects = (server: SavedServer, org: string) =>
@@ -61,7 +76,38 @@ export const orgProjects = (server: SavedServer, org: string) =>
     "list_projects",
     { orgSlug: org, limit: 200 },
     Tools.tools.list_projects.successSchema
-  ).pipe(Effect.map((page) => page.items.map((project) => project.slug)))
+  ).pipe(
+    Effect.map((page) =>
+      page.items.map(
+        (project): ProjectChoice => ({
+          slug: project.slug,
+          name: project.name,
+          key: project.key
+        })
+      )
+    )
+  )
+
+const aligned = (rows: ReadonlyArray<ReadonlyArray<string>>) => {
+  const widths = (rows[0] ?? []).map((_, column) =>
+    Math.max(...rows.map((row) => (row[column] ?? "").length))
+  )
+  return rows.map((row) =>
+    row
+      .map((cell, column) => cell.padEnd(widths[column] ?? 0))
+      .join("   ")
+      .trimEnd()
+  )
+}
+
+export const orgRows = (orgs: ReadonlyArray<OrgChoice>) =>
+  aligned(orgs.map((org) => [org.name, org.slug]))
+
+export const projectRows = (projects: ReadonlyArray<ProjectChoice>) =>
+  aligned(projects.map((project) => [project.name, project.key, project.slug]))
+
+export const indented = (lines: ReadonlyArray<string>) =>
+  lines.map((line) => `  ${line}`).join("\n")
 
 const savedOrg = (server: SavedServer) =>
   Option.map(Option.fromNullishOr(server.scope), (scope) =>
@@ -94,19 +140,19 @@ export const configuredProject = (
     return Option.orElse(given, () => savedProject(server, org))
   })
 
-const listed = (slugs: ReadonlyArray<string>) => slugs.join(", ")
-
 export const resolveOrg = (server: SavedServer) =>
   Effect.gen(function* () {
     const configured = yield* configuredOrg(server)
     if (Option.isSome(configured)) return configured.value
     const orgs = yield* myOrgs(server)
     const [only] = orgs
-    if (only !== undefined && orgs.length === 1) return sourced(only, "only")
+    if (only !== undefined && orgs.length === 1) {
+      return sourced(only.slug, "only")
+    }
     return yield* usage(
       orgs.length === 0
         ? `You don't belong to any org on ${server.origin} yet.`
-        : `This command needs an org. Yours: ${listed(orgs)}.\nPass --org <slug>, or make one your default with \`pp use <org>\`.`
+        : `This command needs an org. Yours:\n\n${indented(orgRows(orgs))}\n\nPass --org <slug>, or make one your default with \`pp use <slug>\`.`
     )
   })
 
@@ -123,12 +169,12 @@ export const resolveProject = (
     const projects = yield* orgProjects(server, org.value.value)
     const [only] = projects
     if (only !== undefined && projects.length === 1) {
-      return sourced(only, "only")
+      return sourced(only.slug, "only")
     }
     return yield* usage(
       projects.length === 0
         ? `${org.value.value} has no projects yet.`
-        : `This command needs a project in ${org.value.value}. Its projects: ${listed(projects)}.\nPass --project <slug>, or make one your default with \`pp use ${org.value.value}/<project>\`.`
+        : `This command needs a project in ${org.value.value}. Its projects:\n\n${indented(projectRows(projects))}\n\nPass --project <slug>, or make one your default with \`pp use ${org.value.value}/<slug>\`.`
     )
   })
 
