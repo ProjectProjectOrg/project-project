@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as TestClock from "effect/testing/TestClock"
 
+import { notSignedIn } from "../CliFailure"
 import { type SavedServer, ServerStore } from "../servers/ServerStore"
 import { fakeHttp, formBody } from "../testing"
 import { callTool } from "./callTool"
@@ -29,7 +30,10 @@ const store = Layer.succeed(
     save: (updated) => Effect.sync(() => void saved.push(updated)),
     remove: () => Effect.die("unused"),
     setDefault: () => Effect.die("unused"),
-    select: () => Effect.die("unused")
+    select: () =>
+      saved.length === 0
+        ? Effect.fail(notSignedIn("unused"))
+        : Effect.succeed(saved[saved.length - 1]!)
   })
 )
 
@@ -149,5 +153,39 @@ describe("callTool", () => {
         expiresAt: 3_590_000 + 3_600_000
       })
     })
+  )
+
+  it.effect(
+    "uses the sign-in a previous call refreshed instead of refreshing again",
+    () =>
+      Effect.gen(function* () {
+        yield* TestClock.setTime(3_590_000)
+        const seen: Array<string> = []
+        const layer = Layer.merge(
+          store,
+          fakeHttp((url, request) => {
+            if (url.pathname === "/api/auth/oauth2/token") {
+              seen.push(
+                `refresh with ${formBody(request).get("refresh_token")}`
+              )
+              return Response.json({
+                access_token: "access-3",
+                refresh_token: "refresh-3",
+                expires_in: 3600
+              })
+            }
+            seen.push(request.headers["authorization"] ?? "")
+            return Response.json({ ok: true })
+          })
+        )
+        saved.length = 0
+        yield* callTool(server, "me", {}).pipe(Effect.provide(layer))
+        yield* callTool(server, "me", {}).pipe(Effect.provide(layer))
+        expect(seen).toEqual([
+          "refresh with refresh-1",
+          "Bearer access-3",
+          "Bearer access-3"
+        ])
+      })
   )
 })

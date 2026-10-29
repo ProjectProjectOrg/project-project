@@ -68,6 +68,7 @@ pp tools                                  # every tool and its command
 ```
 
 - Flags that take several values are repeated: `--status todo --status in_progress`.
+- Clear a field with `null` (`--parent null`, `--starts-at null`) and a list with an empty value (`--tags ''`, `--assignees ''`).
 - Text flags accept `@file`, or `@-` for standard input.
 - JSON flags take JSON or `@file`.
 - Add `--json` to any command for machine-readable output.

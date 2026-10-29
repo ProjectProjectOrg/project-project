@@ -64,6 +64,12 @@ export const logoutCommand = Command.make("logout", {}, () =>
       )
     }
     yield* (yield* ServerStore).remove(server.origin)
+    if ((yield* root).json) {
+      return yield* printResult(
+        { server: server.origin, signedOut: true },
+        true
+      )
+    }
     yield* Console.log(`Signed out of ${server.origin}.`)
   })
 ).pipe(
@@ -92,6 +98,9 @@ const useServer = Command.make(
     Effect.gen(function* () {
       const origin = yield* requireOrigin(address)
       yield* (yield* ServerStore).setDefault(origin)
+      if ((yield* root).json) {
+        return yield* printResult({ server: origin, default: true }, true)
+      }
       yield* Console.log(`${origin} is now your default server.`)
     })
 ).pipe(Command.withDescription("Make a saved server the default."))
