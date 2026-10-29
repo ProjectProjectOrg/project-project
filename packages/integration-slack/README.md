@@ -2,7 +2,7 @@
 
 Owns Slack credentials and identity linking, project subscriptions, message
 formatting, Socket Mode, ticket previews and durable notification delivery.
-Self-host setup is documented in the [root README](../../README.md#slack-integration).
+Self-host setup is documented in the [Slack setup guide](../../docs/integrations/slack.md).
 
 Socket Mode uses SDK 3.1.0 and requires Bun 1.4.4 or newer. Bun 1.4.4 fixes
 the missing Undici ping and heartbeat diagnostics APIs that caused SDK 3 to

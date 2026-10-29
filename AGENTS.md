@@ -2,7 +2,7 @@
 
 ## Project context
 
-This repo builds **ProjectProject**, a markdown-first project management tool described in `docs/PROJECTPROJECT.md`. **Read that file first** before any non-trivial response — it is the spec we're building toward.
+This repo builds **ProjectProject**, a markdown-first project management tool. `docs/PROJECTPROJECT.md` describes its architecture as it is: workspaces, data model, surfaces, access and integrations. Read it before any non-trivial change, and update it in the same PR when your change makes it wrong.
 
 ### What lives in markdown, what lives in Postgres
 
@@ -12,18 +12,9 @@ A project's `icon` (emoji) and `color` (hex) stay in frontmatter; its `banner`, 
 
 **For any UI/frontend work**, also read `PRODUCT.md` (strategic design context — users, brand personality, aesthetic direction, design principles) and `DESIGN.md` (visual system — color tokens, typography hierarchy, elevation, component primitives, named rules, do's and don'ts). Both are binding for visual and interaction decisions. Use the project UI quality checklist when working on UI so the change is reviewed against the product and design rules.
 
-The project started as a structured Effect-learning curriculum (chapter-by-chapter exercises in `docs/chapters/`). Wouter has now absorbed enough Effect to shift to a **normal collaborative implementation workflow**. The chapter docs stay in the repo for reference, but the chapter-viewer app is gone and we no longer follow the stub-and-exercise pattern.
-
-## Wouter
-
-TypeScript engineer, frontend background, comfortable with Effect v3 fundamentals (Layers, scopes, tagged errors, `Effect.gen`, `HttpApi`, `@effect-rx`). Works in a real engineering setting most of the time and is fine pair-programming with AI. Treat him as a peer, not a student — but he's still building Effect intuition, so flag non-obvious choices when you make them.
-
 ## How we work
 
-We implement the app together. You can write working code anywhere in the repo (`backend/`, `frontend/`, `shared/`). The split is collaborative:
-
-- **You implement** — services, handlers, atoms, components, schemas. Working code is the norm.
-- **Wouter reviews and steers** — he decides direction; you propose and execute.
+You implement; the human decides. Write working code anywhere in the repo — services, handlers, atoms, components, schemas. The human reviews and steers: you propose and execute, they pick the direction.
 
 ### No architectural decisions without asking
 
@@ -35,20 +26,20 @@ This is the firm rule. **Do not make architectural decisions unilaterally.** Tha
 - Naming conventions for shared concepts (route layouts, atom families, service tags).
 - API surface decisions on `packages/shared` (endpoint shape, error taxonomy, schema modeling).
 
-When you hit one of these, **stop and ask**. Present the options with tradeoffs; let Wouter pick. Implementation details inside an already-agreed shape are fine to just do.
+When you hit one of these, **stop and ask**. Present the options with tradeoffs; let the human pick. Implementation details inside an already-agreed shape are fine to just do.
 
 ### Tone
 
-- Short, direct, peer-level. No teaching voice unless he asks for one.
-- Show the why before the what when something is non-obvious.
+- Short, direct, peer-level. No teaching voice unless asked for one.
+- Show the why before the what when something is non-obvious, especially around Effect.
 - No emoji unless asked.
 
 ## Frontend stack
 
-- **TanStack Start + TanStack Router** as already wired up.
+- **TanStack Router** (file routes through the Vite plugin), as an SPA.
 - **`@effect/atom-react`** for Effect-aware state (`Atom.runtime`, atom families, etc.).
-- **shadcn/ui (Radix-backed)** as the component foundation. Install via the shadcn CLI.
-- **Fluid Functionalism components** from <https://www.fluidfunctionalism.com>, installed through the shadcn registry (`npx shadcn@latest registry add @fluid`). Also Radix-backed, so they coexist cleanly with shadcn defaults. Prefer these where they exist for richer motion-aware primitives before reaching for something custom.
+- **shadcn/ui on Base UI** (`@base-ui/react`) as the component foundation. Install via the shadcn CLI.
+- **Fluid Functionalism components** from <https://www.fluidfunctionalism.com>, installed through the shadcn registry (`npx shadcn@latest registry add @fluid`). Prefer these where they exist for richer motion-aware primitives before reaching for something custom.
 - Don't add other UI libraries (Headless UI, Mantine, Chakra, etc.) without asking — see the architecture rule above.
 
 ### Frontend layout
@@ -354,20 +345,16 @@ Package test scripts use Bun to run Vitest for backend, database, shared, access
 
 ## Backend stack
 
-Effect HttpApi + Drizzle + Better Auth + Postgres, as set up in chapters 0–2. Extend within those choices unless we explicitly revisit them.
+Effect HttpApi + Drizzle + Better Auth + Postgres. Extend within those choices unless we explicitly revisit them.
 
 Integration packages own provider behavior and consume PP capabilities through Effect host services supplied by the backend. Core must not import integration packages. Slack lives in `packages/integration-slack`, GitHub in `packages/integration-github`, Everhour in `packages/integration-everhour`, and Jira in `packages/integration-jira`; their host implementations and composition tests live in the matching backend directories. GitHub ticket ownership, stack reconciliation and status automation stay in core, reached through the backend host. Jira owns its durable migration workflow and planning; backend adapters own PP materialization and the atomic visibility/success commit. Document writes persist provider-neutral events through the existing durable outbox, and each integration consumes only its own subscribed deliveries. Keep migrations in `db`, HTTP contracts in `shared`, and the SQL workflow engine shared across integrations. Do not add a universal integration-driver interface or migrate other integrations as part of ordinary integration changes.
 
 ## Repo orientation
 
-- **Spec / source of truth:** `docs/PROJECTPROJECT.md`
-- **Reference material:** `docs/chapters/` — chapter docs and walk-throughs from the learning phase. Read-only context; we don't add new chapters.
-- **Code:**
-  - `apps/backend` — Effect HTTP server.
-  - `apps/frontend` — TanStack Start app.
-  - `packages/shared` — HttpApi definition, schemas, tagged errors. The typed seam between ends.
-
-The `packages/chapters-viewer` workspace has been removed.
+- **Architecture:** `docs/PROJECTPROJECT.md` — workspaces and what each owns.
+- **Running and deploying:** `README.md`, `docs/deploy.md`.
+- **Decisions:** `docs/superpowers/specs/` — design specs from past features. Context for why something is shaped the way it is, not a description of the current code.
+- **History:** `docs/chapters/` is the Effect curriculum the project started from. Historical; don't treat it as current.
 
 ## What you may freely do
 
@@ -381,11 +368,10 @@ The `packages/chapters-viewer` workspace has been removed.
 - Architectural decisions (see list above).
 - Installing new dependencies that aren't already implied by the current task.
 - Destructive git operations.
-- Touching `docs/PROJECTPROJECT.md` or `docs/chapters/` content.
 
 ## When in doubt
 
-Re-read the relevant section of `docs/PROJECTPROJECT.md`, then ask. Cheaper to confirm than to redo.
+Read the relevant code and `docs/PROJECTPROJECT.md`, then ask. Cheaper to confirm than to redo.
 
 <!-- opensrc:start -->
 
