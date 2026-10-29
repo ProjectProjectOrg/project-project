@@ -69,6 +69,9 @@ type BlockSpan = Readonly<{
   sync: boolean
 }>
 
+const trimBlankLines = (text: string): string =>
+  text.replace(/^(?:[ \t]*\n)+|(?:\n[ \t]*)+$/g, "")
+
 const countOccurrences = (text: string, search: string): number =>
   text.split(search).length - 1
 
@@ -88,7 +91,7 @@ const replaceText = (
 
 const append = (body: string, edit: typeof AppendEdit.Type): EditOutcome => {
   const head = body.trimEnd()
-  const text = normalizeLineEndings(edit.text).trim()
+  const text = trimBlankLines(normalizeLineEndings(edit.text))
   return { ok: true, body: head === "" ? text : `${head}\n\n${text}` }
 }
 
@@ -125,7 +128,7 @@ const replaceBlock = (
   }
   const [span] = matches
   if (span.sync) return { ok: false, failure: { code: "block_synced" } }
-  const content = normalizeLineEndings(edit.content).trim()
+  const content = trimBlankLines(normalizeLineEndings(edit.content))
   const inner = content === "" ? [""] : ["", ...content.split("\n"), ""]
   return {
     ok: true,

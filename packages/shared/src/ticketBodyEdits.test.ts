@@ -152,4 +152,27 @@ describe("applyTicketBodyEdits", () => {
       failure: { code: "block_markup" }
     })
   })
+
+  it("keeps the indentation of inserted code", () => {
+    expect(
+      applyTicketBodyEdits("Intro.", [
+        { kind: "append", text: "\n    const a = 1\n    const b = 2\n" }
+      ])
+    ).toEqual({
+      ok: true,
+      body: "Intro.\n\n    const a = 1\n    const b = 2"
+    })
+    expect(
+      applyTicketBodyEdits(BODY, [
+        {
+          kind: "replace_block",
+          type: "acceptance-criteria",
+          content: "    indented"
+        }
+      ])
+    ).toMatchObject({
+      ok: true,
+      body: expect.stringContaining("\n\n    indented\n\n</block>")
+    })
+  })
 })
