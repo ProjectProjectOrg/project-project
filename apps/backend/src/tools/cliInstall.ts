@@ -1,4 +1,4 @@
-import { cliRelease } from "@pp/shared"
+import { cliRelease, isReleaseTag } from "@pp/shared"
 import * as Config from "effect/Config"
 import * as Effect from "effect/Effect"
 import { HttpClient, HttpRouter, HttpServerResponse } from "effect/http"
@@ -6,13 +6,19 @@ import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 
 import { toolsResource } from "../auth"
-import { findRelease, installWrapper } from "./cliRelease"
+import { findRelease, findTaggedRelease, installWrapper } from "./cliRelease"
 
-const commitOf = (build: string) =>
-  build.startsWith("sha-") ? Option.some(build.slice(4)) : Option.none()
+const lookupFor = (build: string) =>
+  isReleaseTag(build)
+    ? Option.some(findTaggedRelease(build))
+    : build.startsWith("sha-")
+      ? Option.some(findRelease(build.slice(4)))
+      : Option.none()
 
-const lookupRelease = (commit: string) =>
-  findRelease(commit).pipe(
+const quietly = <E>(
+  lookup: Effect.Effect<Option.Option<string>, E, HttpClient.HttpClient>
+) =>
+  lookup.pipe(
     Effect.catch((error) =>
       Effect.as(
         Effect.logWarning("Couldn't look up this server's pp release", error),
@@ -27,11 +33,11 @@ export const CliInstallRouteLive = Layer.unwrap(
       Config.withDefault("dev")
     )
     const client = yield* HttpClient.HttpClient
-    const release = yield* Option.match(commitOf(build), {
+    const release = yield* Option.match(lookupFor(build), {
       onNone: () => Effect.succeed(Effect.succeed(Option.none<string>())),
-      onSome: (commit) =>
+      onSome: (lookup) =>
         Effect.cachedWithTTL(
-          lookupRelease(commit).pipe(
+          quietly(lookup).pipe(
             Effect.provideService(HttpClient.HttpClient, client)
           ),
           "10 minutes"
