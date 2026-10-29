@@ -52,20 +52,14 @@ pp logout            # revokes the sign-in and forgets the server
 
 Saved servers and their tokens live in `~/.config/pp/servers.json` (or `$XDG_CONFIG_HOME/pp`), readable only by you.
 
-## Set up a repository
-
-```sh
-pp init --org acme --project website
-```
-
-This writes `.pp.json`, so commands in that directory and below don't need `--org` or `--project`. Find slugs with `pp orgs list` and `pp projects list`.
-
 ## Commands
 
 Every tool has a command, generated from the same catalog as the MCP server:
 
 ```sh
-pp tickets list --status todo --assignee mine
+pp orgs list
+pp projects list --org acme
+pp tickets list --org acme --project website --status todo --assignee mine
 pp tickets get T-80
 pp tickets update T-80 --status in_progress
 pp tickets comment T-80 --body @notes.md
@@ -86,7 +80,7 @@ pp call update_ticket @changes.json
 echo '{"id":"T-80"}' | pp call get_ticket -
 ```
 
-`--org` and `--project` (or `.pp.json`) fill in `orgSlug` and `projectSlug` when the input leaves them out.
+Commands that work inside an org or project take `--org` and `--project`; find the slugs with `pp orgs list` and `pp projects list`. With `pp call`, `--org` and `--project` fill in `orgSlug` and `projectSlug` when the input leaves them out.
 
 `pp` never prompts unless you ask for it with `--wizard`, so agents can run it without hanging. Shell completions: `pp --completions zsh` (also `bash` and `fish`).
 

@@ -5,19 +5,17 @@ export const root = Command.make("pp").pipe(
   Command.withSharedFlags({
     server: Flag.String("server").pipe(
       Flag.withDescription(
-        "Server to use, by address. Defaults to PP_SERVER, the project's .pp.json, then your default server."
+        "Server to use, by address. Defaults to PP_SERVER, then your default server."
       ),
       Flag.withFallbackConfig(Config.String("PP_SERVER")),
       Flag.optional
     ),
     org: Flag.String("org").pipe(
-      Flag.withDescription(
-        "Organization slug. Defaults to the project's .pp.json."
-      ),
+      Flag.withDescription("Organization slug."),
       Flag.optional
     ),
     project: Flag.String("project").pipe(
-      Flag.withDescription("Project slug. Defaults to the project's .pp.json."),
+      Flag.withDescription("Project slug."),
       Flag.optional
     ),
     json: Flag.Boolean("json").pipe(

@@ -81,7 +81,7 @@ export const callCommand = Command.make(
     })
 ).pipe(
   Command.withDescription(
-    "Call any tool with raw JSON input. Org and project are filled in from --org/--project or .pp.json when missing."
+    "Call any tool with raw JSON input. Org and project are filled in from --org and --project when missing."
   ),
   Command.withExamples([
     {

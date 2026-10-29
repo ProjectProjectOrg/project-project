@@ -1,11 +1,6 @@
 import { Command } from "effect/cli"
 
-import {
-  initCommand,
-  loginCommand,
-  logoutCommand,
-  serversCommand
-} from "./account"
+import { loginCommand, logoutCommand, serversCommand } from "./account"
 import { attachCommand } from "./attach"
 import { callCommand, toolsCommand } from "./call"
 import { catalogEntries, commandFor } from "./catalog"
@@ -55,7 +50,6 @@ export const pp = root.pipe(
     loginCommand,
     logoutCommand,
     serversCommand,
-    initCommand,
     upgradeCommand,
     toolsCommand,
     callCommand,
