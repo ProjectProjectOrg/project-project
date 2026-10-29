@@ -12,7 +12,7 @@ import { CliFailure, ExitCode, unreachable } from "../CliFailure"
 import { originOf } from "../servers/origin"
 import { ServerStore } from "../servers/ServerStore"
 import { buildVersion } from "../version"
-import { root } from "./root"
+import { serverChoice } from "./context"
 
 const releases = `https://github.com/${cliRelease.repository}/releases`
 
@@ -65,10 +65,9 @@ export const upgradeCommand = Command.make(
   },
   ({ latest, nightly }) =>
     Effect.gen(function* () {
-      const flags = yield* root
       const catalog = yield* (yield* ServerStore).list
       const origin = Option.getOrElse(
-        Option.flatMap(flags.server, originOf),
+        Option.flatMap(yield* serverChoice, (choice) => originOf(choice.value)),
         () => catalog.defaultServer
       )
       const nightlyTag = nightly

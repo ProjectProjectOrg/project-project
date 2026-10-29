@@ -58,27 +58,53 @@ export type ProjectChoice = Readonly<{
   key: string
 }>
 
+const allPages = <A, E, R>(
+  page: (
+    cursor: string | undefined
+  ) => Effect.Effect<
+    Readonly<{ items: ReadonlyArray<A>; nextCursor: string | null }>,
+    E,
+    R
+  >,
+  cursor?: string
+): Effect.Effect<ReadonlyArray<A>, E, R> =>
+  Effect.flatMap(page(cursor), (current) =>
+    current.nextCursor === null
+      ? Effect.succeed(current.items)
+      : Effect.map(allPages(page, current.nextCursor), (rest) => [
+          ...current.items,
+          ...rest
+        ])
+  )
+
+const pageInput = (cursor: string | undefined) =>
+  cursor === undefined ? { limit: 200 } : { limit: 200, cursor }
+
 export const myOrgs = (server: SavedServer) =>
-  callToolAs(
-    server,
-    "list_orgs",
-    { limit: 200 },
-    Tools.tools.list_orgs.successSchema
+  allPages((cursor) =>
+    callToolAs(
+      server,
+      "list_orgs",
+      pageInput(cursor),
+      Tools.tools.list_orgs.successSchema
+    )
   ).pipe(
-    Effect.map((page) =>
-      page.items.map((org): OrgChoice => ({ slug: org.slug, name: org.name }))
+    Effect.map((orgs) =>
+      orgs.map((org): OrgChoice => ({ slug: org.slug, name: org.name }))
     )
   )
 
 export const orgProjects = (server: SavedServer, org: string) =>
-  callToolAs(
-    server,
-    "list_projects",
-    { orgSlug: org, limit: 200 },
-    Tools.tools.list_projects.successSchema
+  allPages((cursor) =>
+    callToolAs(
+      server,
+      "list_projects",
+      { orgSlug: org, ...pageInput(cursor) },
+      Tools.tools.list_projects.successSchema
+    )
   ).pipe(
-    Effect.map((page) =>
-      page.items.map(
+    Effect.map((projects) =>
+      projects.map(
         (project): ProjectChoice => ({
           slug: project.slug,
           name: project.name,
