@@ -24,6 +24,7 @@ import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
 import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
+import * as TestClock from "effect/testing/TestClock"
 import { expect } from "vitest"
 
 import { databaseLayer } from "../../test/database"
@@ -410,6 +411,27 @@ it.effect("archiving with a blank reason records no reason", () =>
     })
     yield* tickets.archive(created.id, "   ")
     expect(archiveChanges(created.id)).toEqual([{ kind: "archived" }])
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect("repeating archive or unarchive leaves the ticket untouched", () =>
+  Effect.gen(function* () {
+    recordedActivity.length = 0
+    const tickets = yield* Tickets
+    const created = yield* tickets.quickCreate({ title: "archive twice" })
+
+    const archived = yield* tickets.archive(created.id)
+    yield* TestClock.adjust("1 minute")
+    const again = yield* tickets.archive(created.id, "late reason")
+    expect(again.archivedAt).toEqual(archived.archivedAt)
+    expect(again.updatedAt).toEqual(archived.updatedAt)
+    expect(archiveChanges(created.id)).toEqual([{ kind: "archived" }])
+
+    const restored = yield* tickets.unarchive(created.id)
+    yield* TestClock.adjust("1 minute")
+    const restoredAgain = yield* tickets.unarchive(created.id)
+    expect(restoredAgain.archivedAt).toBeNull()
+    expect(restoredAgain.updatedAt).toEqual(restored.updatedAt)
   }).pipe(Effect.provide(TestLayer))
 )
 

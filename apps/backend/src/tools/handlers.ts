@@ -461,6 +461,21 @@ const update_ticket = (
     return withBlocks(updated.ticket)
   })
 
+const archive_ticket = (
+  input: Tool.Parameters<typeof Tools.tools.archive_ticket>
+) =>
+  Effect.flatMap(Tickets, (tickets) =>
+    tickets.archive(input.id, input.reason)
+  ).pipe(
+    Effect.catchTag("InvalidCommentBody", (error) =>
+      Effect.fail(new Validation({ reason: error.reason }))
+    )
+  )
+
+const restore_ticket = (
+  input: Tool.Parameters<typeof Tools.tools.restore_ticket>
+) => Effect.flatMap(Tickets, (tickets) => tickets.unarchive(input.id))
+
 const prepare_ticket_attachment = (
   input: Tool.Parameters<typeof Tools.tools.prepare_ticket_attachment>
 ) =>
@@ -665,6 +680,8 @@ export const ToolHandlersLive = Tools.toLayer(
       list_templates: run.project({ ticket: ["read"] }, list_templates),
       create_ticket: run.project({ ticket: ["create"] }, create_ticket),
       update_ticket: run.project("membership", update_ticket),
+      archive_ticket: run.project({ ticket: ["update"] }, archive_ticket),
+      restore_ticket: run.project({ ticket: ["update"] }, restore_ticket),
       prepare_ticket_attachment: run.project(
         { attachment: ["upload"] },
         prepare_ticket_attachment

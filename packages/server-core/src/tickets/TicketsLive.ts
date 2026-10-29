@@ -2295,13 +2295,15 @@ export const TicketsLive = Layer.effect(
               slug,
               id,
               (existing) =>
-                DateTime.nowAsDate.pipe(
-                  Effect.map((now) => ({
-                    ...existing,
-                    archivedAt: existing.archivedAt ?? now,
-                    updatedAt: now
-                  }))
-                ),
+                existing.archivedAt !== null
+                  ? Effect.succeed(existing)
+                  : DateTime.nowAsDate.pipe(
+                      Effect.map((now) => ({
+                        ...existing,
+                        archivedAt: now,
+                        updatedAt: now
+                      }))
+                    ),
               (next) => ticketIndex.upsertTicket(indexProject, next),
               trimmed ? { archiveReason: trimmed } : {}
             )
@@ -2326,13 +2328,15 @@ export const TicketsLive = Layer.effect(
               slug,
               id,
               (existing) =>
-                DateTime.nowAsDate.pipe(
-                  Effect.map((updatedAt) => ({
-                    ...existing,
-                    archivedAt: null,
-                    updatedAt
-                  }))
-                ),
+                existing.archivedAt === null
+                  ? Effect.succeed(existing)
+                  : DateTime.nowAsDate.pipe(
+                      Effect.map((updatedAt) => ({
+                        ...existing,
+                        archivedAt: null,
+                        updatedAt
+                      }))
+                    ),
               (next) => ticketIndex.upsertTicket(indexProject, next)
             )
             return yield* detailOf(next, yield* gitView)

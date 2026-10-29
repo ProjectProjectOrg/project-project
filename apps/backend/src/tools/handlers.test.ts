@@ -624,6 +624,7 @@ describe("MCP handlers → write tools", () => {
     update?: any
     attach?: any
     createComment?: any
+    archive?: any
   } = {}
 
   const WriteTicketsStub = Layer.mock(Tickets, {
@@ -658,6 +659,14 @@ describe("MCP handlers → write tools", () => {
         orderKey: null
       })
     },
+    archive: (id, reason) => {
+      captured.archive = { id, reason }
+      return Effect.succeed({
+        ...fakeTicketDetail,
+        archivedAt: isoDate("2026-05-11T00:00:00.000Z")
+      })
+    },
+    unarchive: (_id) => Effect.succeed(fakeTicketDetail),
     attachBranch: (_id, input) => {
       captured.attach = input
       if (input.name === "missing/branch") {
@@ -936,6 +945,41 @@ describe("MCP handlers → write tools", () => {
         })
       })
     }).pipe(Effect.provide(WriteTestLayer))
+  )
+
+  it.effect(
+    "archive_ticket forwards the reason and restore_ticket clears archivedAt",
+    () =>
+      Effect.gen(function* () {
+        captured.archive = undefined
+        const registered = register(yield* Effect.context<HandlerServices>())
+        yield* Effect.gen(function* () {
+          const archived = yield* withFakeUser(() =>
+            registered.get("archive_ticket")!({
+              orgSlug: "acme",
+              projectSlug: "demo",
+              id: "T-1",
+              reason: "Folded into T-2."
+            })
+          )
+          expect(archived.isError).toBeUndefined()
+          expect(parseJson(archived.content[0].text).archivedAt).not.toBeNull()
+          expect(captured.archive).toEqual({
+            id: "T-1",
+            reason: "Folded into T-2."
+          })
+
+          const restored = yield* withFakeUser(() =>
+            registered.get("restore_ticket")!({
+              orgSlug: "acme",
+              projectSlug: "demo",
+              id: "T-1"
+            })
+          )
+          expect(restored.isError).toBeUndefined()
+          expect(parseJson(restored.content[0].text).archivedAt).toBeNull()
+        })
+      }).pipe(Effect.provide(WriteTestLayer))
   )
 
   it.effect("attach_branch returns ticket with branch set on happy path", () =>
