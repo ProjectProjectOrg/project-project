@@ -1,0 +1,126 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "7f41f831-8217-4c15-b6c2-1da1251d6215",
+  "prevIds": [
+    "e0e1dcfb-5149-4d93-8b71-9baec79b7fda"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ticket_activity",
+        "kind"
+      ],
+      "writes": [
+        "s|col|public.ticket_activity.kind",
+        "n|col|public.ticket_activity.kind",
+        "e|col|public.ticket_activity.kind"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_activity",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "ticket_activity",
+        "ticket_activity_ticket_kind_idx"
+      ],
+      "writes": [
+        "s|idx|public.ticket_activity_ticket_kind_idx",
+        "n|idx|public.ticket_activity_ticket_kind_idx",
+        "e|idx|public.ticket_activity_ticket_kind_idx",
+        "n|rel|public.ticket_activity_ticket_kind_idx"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_activity",
+        "n|sch|public",
+        "n|col|public.ticket_activity.project_id",
+        "n|col|public.ticket_activity.ticket_id",
+        "n|col|public.ticket_activity.kind",
+        "n|col|public.ticket_activity.occurred_at",
+        "n|col|public.ticket_activity.seq"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_activity",
+        "name": "kind",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": {
+          "as": "change->>'kind'",
+          "type": "stored"
+        },
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_activity",
+        "name": "ticket_activity_ticket_kind_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "project_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "ticket_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "kind",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "occurred_at",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "seq",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    }
+  ]
+}

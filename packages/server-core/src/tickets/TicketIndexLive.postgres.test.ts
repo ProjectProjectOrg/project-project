@@ -1947,6 +1947,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
 
         const touched = yield* index.touchedBy(visible, {
           viewerId,
+          gitProjectIds: [],
           limit: 10
         })
         expect(idsOf(touched)).toEqual([
@@ -1956,6 +1957,53 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
           `${betaSlug}:BE-1`,
           `${alphaSlug}:AL-2`
         ])
+
+        yield* withClient((client) =>
+          client.query(
+            `insert into ticket_activity
+               (id, project_id, ticket_id, occurred_at, actor_kind, actor_user_id, actor_source, cause, change)
+             values
+               (gen_random_uuid(), $1, 'AL-2', '2030-01-01T00:00:00Z', 'user', $3, null, null,
+                 jsonb_build_object('kind', 'assignees_changed', 'added', jsonb_build_array($3::text), 'removed', '[]'::jsonb)),
+               (gen_random_uuid(), $1, 'AL-1', '2030-01-03T00:00:00Z', 'user', $3, null, null,
+                 '{"kind":"assignees_changed","added":["someone-else"],"removed":[]}'),
+               (gen_random_uuid(), $2, 'BE-1', '2030-01-02T00:00:00Z', 'system', null, 'github', 'git_automation',
+                 '{"kind":"status_changed","from":"in_progress","to":"done"}')`,
+            [alpha.projectId, beta.projectId, viewerId]
+          )
+        )
+        const withoutGit = yield* index.touchedBy(visible, {
+          viewerId,
+          gitProjectIds: [],
+          limit: 10
+        })
+        expect(idsOf(withoutGit)).toEqual([
+          `${alphaSlug}:AL-2`,
+          `${betaSlug}:BE-2`,
+          `${alphaSlug}:AL-3`,
+          `${alphaSlug}:AL-1`,
+          `${betaSlug}:BE-1`
+        ])
+        expect(withoutGit[0].assignedEvent?.actor).toEqual({
+          kind: "user",
+          userId: viewerId
+        })
+        expect(withoutGit[4].statusEvent).toBeNull()
+
+        const withGit = yield* index.touchedBy(visible, {
+          viewerId,
+          gitProjectIds: [beta.projectId],
+          limit: 10
+        })
+        expect(idsOf(withGit).slice(0, 2)).toEqual([
+          `${betaSlug}:BE-1`,
+          `${alphaSlug}:AL-2`
+        ])
+        expect(withGit[0].statusEvent?.change).toEqual({
+          kind: "status_changed",
+          from: "in_progress",
+          to: "done"
+        })
 
         const allTime = {
           viewerId,
