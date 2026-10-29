@@ -38,21 +38,26 @@ export const releaseForCommit = (
 const RELEASES_PER_PAGE = 100
 const MAX_RELEASE_PAGES = 10
 
-const releasesPage = (page: number) =>
-  Effect.gen(function* () {
-    const client = yield* HttpClient.HttpClient
-    const response = yield* HttpClientRequest.get(
-      `https://api.github.com/repos/${cliRelease.repository}/releases?per_page=${RELEASES_PER_PAGE}&page=${page}`
+const github = (path: string) =>
+  Effect.flatMap(HttpClient.HttpClient, (client) =>
+    HttpClientRequest.get(
+      `https://api.github.com/repos/${cliRelease.repository}${path}`
     ).pipe(
       HttpClientRequest.setHeaders({
         accept: "application/vnd.github+json",
         "user-agent": "projectproject-server"
       }),
-      client.execute,
-      Effect.flatMap(HttpClientResponse.filterStatusOk)
+      client.execute
     )
-    return yield* decodeReleases(response)
-  })
+  )
+
+const decodeRelease = HttpClientResponse.schemaBodyJson(Release)
+
+const releasesPage = (page: number) =>
+  github(`/releases?per_page=${RELEASES_PER_PAGE}&page=${page}`).pipe(
+    Effect.flatMap(HttpClientResponse.filterStatusOk),
+    Effect.flatMap(decodeReleases)
+  )
 
 const searchReleases = (
   commit: string,
@@ -76,6 +81,19 @@ const searchReleases = (
   })
 
 export const findRelease = (commit: string) => searchReleases(commit, 1)
+
+const hasInstaller = (release: Release) =>
+  !release.draft && release.assets.some((asset) => asset.name === "install.sh")
+
+export const findTaggedRelease = (tag: string) =>
+  Effect.gen(function* () {
+    const response = yield* github(`/releases/tags/${encodeURIComponent(tag)}`)
+    if (response.status === 404) return Option.none<string>()
+    const release = yield* HttpClientResponse.filterStatusOk(response).pipe(
+      Effect.flatMap(decodeRelease)
+    )
+    return hasInstaller(release) ? Option.some(release.tag_name) : Option.none()
+  })
 
 export const installWrapper = (
   release: Option.Option<string>,

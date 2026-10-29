@@ -4,7 +4,12 @@ import { HttpClient, HttpClientResponse } from "effect/http"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 
-import { findRelease, installWrapper, releaseForCommit } from "./cliRelease"
+import {
+  findRelease,
+  findTaggedRelease,
+  installWrapper,
+  releaseForCommit
+} from "./cliRelease"
 
 const release = (
   tag: string,
@@ -125,4 +130,53 @@ describe("findRelease", () => {
       expect(endless.requested).toHaveLength(10)
     })
   })
+})
+
+const githubTag = (status: number, body: unknown) =>
+  Layer.succeed(
+    HttpClient.HttpClient,
+    HttpClient.make((request, url) =>
+      Effect.succeed(
+        HttpClientResponse.fromWeb(
+          request,
+          url.pathname.endsWith("/releases/tags/v2026.10.29")
+            ? Response.json(body, { status })
+            : new Response("not found", { status: 404 })
+        )
+      )
+    )
+  )
+
+describe("findTaggedRelease", () => {
+  it.effect(
+    "uses a release-tagged server build when it has the pp installer",
+    () =>
+      Effect.gen(function* () {
+        expect(yield* findTaggedRelease("v2026.10.29")).toEqual(
+          Option.some("v2026.10.29")
+        )
+      }).pipe(Effect.provide(githubTag(200, release("v2026.10.29", "abc"))))
+  )
+
+  it.effect(
+    "falls back when the release has no pp installer or doesn't exist",
+    () =>
+      Effect.gen(function* () {
+        expect(
+          yield* findTaggedRelease("v2026.10.29").pipe(
+            Effect.provide(
+              githubTag(
+                200,
+                release("v2026.10.29", "abc", { installer: false })
+              )
+            )
+          )
+        ).toEqual(Option.none())
+        expect(
+          yield* findTaggedRelease("v2026.10.29").pipe(
+            Effect.provide(githubTag(404, { message: "Not Found" }))
+          )
+        ).toEqual(Option.none())
+      })
+  )
 })
