@@ -200,7 +200,7 @@ The `Access` service in `server-core` resolves the caller's roles into an `OrgSc
 - **Slack** — workspace per organization, channel notifications per project, ticket link previews. See `packages/integration-slack/README.md`.
 - **Everhour** — per-user time tracking against tickets. See `packages/integration-everhour/README.md`.
 - **Figma** — linked frames on tickets. See `docs/figma-setup.md`.
-- **Jira Cloud** — a durable, resumable migration of a Jira project into PP.
+- **Jira Cloud** — a durable, resumable migration of a Jira project into PP. The package owns the migration workflow and planning; backend adapters own writing PP data and the atomic commit that makes it visible.
 - **Feedback** — instances send feedback and bug reports to a central instance. See `docs/deploy.md`.
 
 Document writes persist provider-neutral events through the durable outbox; each integration consumes only its own subscribed deliveries. Don't add a universal integration-driver interface.

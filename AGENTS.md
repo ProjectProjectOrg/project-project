@@ -4,11 +4,9 @@
 
 This repo builds **ProjectProject**, a markdown-first project management tool. `docs/PROJECTPROJECT.md` describes its architecture as it is: workspaces, data model, surfaces, access and integrations. Read it before any non-trivial change, and update it in the same PR when your change makes it wrong.
 
-### What lives in markdown, what lives in Postgres
+**Markdown holds what is portable and cheap; Postgres holds what is large, opaque or meaningless outside this instance.** New content a human writes goes in markdown, never in a new column. See the data model in `docs/PROJECTPROJECT.md`.
 
-Markdown holds what is **portable and cheap**: anything a human would write or read, anything another tool could use, expressed in a few characters. Postgres holds what is neither — data that is large, opaque, or meaningless outside this instance. Losing the Postgres half costs a re-upload, not information.
-
-A project's `icon` (emoji) and `color` (hex) stay in frontmatter; its `banner`, `iconImage`, and banner `placeholder` live only in `project_index`. An attachment id is meaningless copied into another workspace; a hex colour survives that copy. See `docs/superpowers/specs/2026-09-10-aesthetic-data-in-postgres-design.md`.
+`CONTEXT.md` is the domain glossary. Use its terms in code, copy and commits.
 
 **For any UI/frontend work**, also read `PRODUCT.md` (strategic design context — users, brand personality, aesthetic direction, design principles) and `DESIGN.md` (visual system — color tokens, typography hierarchy, elevation, component primitives, named rules, do's and don'ts). Both are binding for visual and interaction decisions. Use the project UI quality checklist when working on UI so the change is reviewed against the product and design rules.
 
@@ -101,7 +99,7 @@ Buttons that open a popup (dropdown, popover, select, dialog) don't scale: the p
 
 ### Hover feel — instant in, eased out
 
-Hover (and Radix `[data-highlighted]` / `[data-selected]`) state changes should land **instantly on enter** and **ease out at ~150ms on exit**. That asymmetry is what makes the app feel responsive without feeling twitchy.
+Hover (and Base UI `[data-highlighted]` / `[data-selected]`) state changes should land **instantly on enter** and **ease out at ~150ms on exit**. That asymmetry is what makes the app feel responsive without feeling twitchy.
 
 Implementation lives as a single global rule in `apps/frontend/src/styles.css`: while the element is hovered or carries the highlight data attribute, `transition-duration` is forced to `0ms`; once the cursor leaves (or the highlight clears), the override is gone and the element's underlying transition-duration governs the exit.
 
@@ -129,6 +127,7 @@ Each UI pattern has exactly one primitive. Reach for it (or add a variant to it)
 - **Inline embed chip:** `Chip` (`components/ui/chip.tsx`) for bordered inline chips in the editor. Tinted labels and tags use `Badge`.
 - **Icon chrome buttons:** `Button variant="quiet"` with `size="square-7" | "square-8" | "square-9"`, not hand-pasted `grid size-N … hover:bg-hover` buttons.
 - **Sliding highlights:** `useFluidHover` + `FluidHoverHighlight` when we own the pointer and keyboard index (nav rails, command menu); `MenuHighlight` when Base UI owns `data-highlighted` (menus, selects); `SegmentedIndicator` for the selected tab.
+
 ### Ticket rows are one component
 
 Render every ticket in a list with `Row` (`apps/frontend/src/features/tickets/components/ticket-list/Row.tsx`) inside a `rowGridClassName` grid. `Row` owns its columns — sprint chip, actions menu, epic prefix — and reads the data it needs itself, so callsites pass the ticket and its mutation, nothing about which columns to show. Don't hand-build a ticket row, and add new row behaviour to `Row` rather than to a list. The visual rule is "The One Ticket Row Rule" in `DESIGN.md`.
@@ -168,166 +167,32 @@ Render every ticket in a list with `Row` (`apps/frontend/src/features/tickets/co
 
 Within each message file, group keys by prefix in the order listed above, then sort alphabetically inside each prefix group.
 
-## Forms — TanStack Form and the mutation atom
+## Forms
 
-Multi-field and multi-step forms use **TanStack Form** (`@tanstack/react-form`, currently the v2 alpha). Setup follows the conventions in the `omgevingschat-platform` web app:
+Multi-field and multi-step forms use **TanStack Form** (v2 alpha) through `useAppForm` from `apps/frontend/src/lib/form.ts`, in `features/<feature>/forms/<name>/` (`opts.ts`, `index.tsx`, one file per step).
 
-- `apps/frontend/src/lib/form.ts` builds the hook via `createFormHook` and exports `useAppForm`, `useFormContext`, `appFormOptions`, `defineAppFieldGroup`, plus `useFormValues`. In v2 `createFormHook` no longer takes contexts, so there is no `form-context.ts`.
-- A form lives in `apps/frontend/src/features/<feature>/forms/<name>/`, with shared options and schemas in `opts.ts` and the form in `index.tsx`. Multi-step forms get one file per step beside them (`SourceStep.tsx`, `CropStep.tsx`).
+- Validators are Effect Schema (`Schema.toStandardSchemaV1`), never zod.
+- Multi-step forms are one `form.FormGroup` per step; the group's `onSubmit` advances. No stepped-form primitive.
+- Single-step forms wrap their schema in `validateAfterSubmit`.
+- The form owns values and validity; the mutation atom owns progress and failure. Never read `isSubmitting` or disable on it.
+- `form.state` and `group.state` are snapshots, not reactive. Read values through `useFormValues(form)` or `group.Subscribe`.
 
-**Validators are Effect Schema, not zod.** TanStack Form accepts any Standard Schema, and `Schema.toStandardSchemaV1` (Effect v4) produces one — so `@pp/shared` schemas can be used directly. Do not add zod; it is not a dependency and a second schema library is not wanted.
+Read `docs/frontend/forms.md` before writing or changing a form.
 
-### Multi-step forms are FormGroups, not a bespoke primitive
+## Data layer
 
-Follow the upstream multi-step wizard example. There is no stepped-form component and there should not be one — the library already does the work:
+Read `docs/frontend/data-layer.md` before adding or changing a read, a mutation or an `AsyncResult` render. The rules most often broken:
 
-- One `form.FormGroup name="<step>"` per step, rendered conditionally on the current step index.
-- **The group's `onSubmit` is how you advance.** A step's button submits the *group*; the group validates, and `onSubmit` fires only when it passes, so advancing is gated without computing validity or disabling anything. `onSubmitInvalid` handles the failure case.
-- The last step's group `onSubmit` calls `form.handleSubmit()`.
-- Put the whole-form schema in the form's own `validators` with `triggers: []`, so it runs on `form.handleSubmit()` only. That validates every step regardless of which groups are mounted.
-- Use `createValidator` for the per-step validators so a step only revalidates on change after its first submit attempt — don't show errors before the user has tried.
+- **One client.** `apps/frontend/src/api/Api.ts` is the only way to reach the server. Never hand-roll a fetch atom.
+- **Reads are wrappers.** Every exported read is `Atom.family((req) => Atom.optimistic(query(req)))`, keyed by a request object with a `_view` literal. The query stays module-private, and `timeToLive` and `reactivityKeys` are declared on it.
+- **Default to optimistic.** Mutations are `viewMutation` against the wrapper of the view they fire from, keyed by view request plus entity id, with input equal to the API payload.
+- **Read and write through the same wrapper.** An optimistic value on an atom nobody renders is invisible until a reload, and nothing errors.
+- **Reactivity keys come from `src/api/keys.ts`**, in array form.
+- **Never hold a transition open** with a pending map, preview merge, React context or a suspended read inside a mutation.
+- **`waiting` means a mutation is in flight, never a read.** Pulse the data the mutation changed with `animate-pulse`.
+- **Handle every `AsyncResult` variant.** Default to `AsyncView`; use `AsyncResult.matchWithError` only for custom failure UI. Inline mutation errors go through `mutationErrorText`. Never show a raw `error.message`.
 
-### Single-step forms
-
-- Wrap the form's Effect Schema in `validateAfterSubmit` from `lib/form.ts`. It runs on submit, then on change and blur after the first attempt. Include blur: a blur clears submit errors from validators that don't run on blur.
-- Validators that depend on runtime data (taken keys, a derived key) are a `Schema.makeFilter` on the struct returning `{ path: ["field"], issue: m.message() }`, so the issue lands on that field.
-- Keep the payload builder (`toLogTimeInput`, `toConnectStorageInput`) in `opts.ts` and test it there.
-- Inside an `InlineForm` shell, read busy and failure from the mutation atom; call the shell's `setBusy` around the awaited mutation only when its `Cancel` or Escape handling must respect it. Never mirror the atom into the shell from an effect.
-- Type a form passed to step components with `ReactFormType<typeof yourFormOpts>`.
-
-### The form owns validity; the atom owns the mutation
-
-- **The form owns** field values, validation, and step progression.
-- **The atom owns** the mutation. `onSubmit` awaits the Effect-Atom mutation, and everything the user sees about progress and failure (`waiting`, `animate-pulse`, error text) is read from the atom, never from `isSubmitting`.
-
-Never disable a control on `isSubmitting` when an atom is doing the work — pass the atom's `waiting` down instead.
-
-### Notes on the v2 alpha
-
-- Validators are an array of `{ run, triggers, runOnMount }`. There is no `onChange`/`onMount` key and no `revalidateLogic` — that was the v1 model.
-- **Neither `form.state` nor `group.state` is reactive.** Both are snapshots. Read group state through `group.Subscribe`; read form values through `useFormValues(form)`, which selects off `form.atom`. Fields subscribe for themselves, so a component reading `form.state.values` during render silently freezes at whatever the values were when it last rendered for some other reason — live previews and step summaries drawn that way never update.
-- Range checks are `Schema.isBetween({ minimum, maximum })` in Effect v4, not `Schema.between`.
-
-## Mutations and optimistic updates
-
-**Default to optimistic.** Reads are `Api.query(...)` wrapped in `Atom.optimistic`. Mutations are `viewMutation` (`apps/frontend/src/api/viewMutation.ts`) against the wrapper of the view they fire from. Worked examples and the legacy shapes we removed: `.agents/skills/effect-atom-optimistic-updates/SKILL.md`. Rationale: `docs/superpowers/specs/2026-09-11-native-atom-data-layer-design.md`.
-
-1. **One client.** `apps/frontend/src/api/Api.ts` is the only way to reach the server. Never hand-roll a fetch atom. Calls to better-auth stay `Effect.tryPromise`, but run inside `Api.runtime.fn` so there is one runtime.
-
-2. **Reads are wrappers.** Every exported read is `Atom.family((req) => Atom.optimistic(query(req)))`, and the query stays module-private. Family keys are request objects, never concatenated strings, so there is nothing to parse back apart:
-
-   ```ts
-   export type TagsRequest = Readonly<{
-     _view: "tags"
-     params: Readonly<{ orgSlug: string; slug: string }>
-   }>
-
-   const tagsQuery = (req: TagsRequest) =>
-     Api.query("tags", "list", {
-       params: req.params,
-       timeToLive: "2 minutes",
-       reactivityKeys: [Keys.tags(scopeOf(req))]
-     })
-
-   export const tagsFor = Atom.family((req: TagsRequest) =>
-     Atom.optimistic(tagsQuery(req))
-   )
-   ```
-
-   Each view's request carries a `_view` literal and is built by its own builder (`tagsRequest`, `backlogRequest`, `sprintSectionsRequest`), so two views with the same params cannot take each other's request: `updateBacklogTicket({ req: sprintSectionsReq, id })` does not compile. Requests shared by several reads on purpose (`ProjectRequest`, `OrgRequest`) stay unbranded.
-
-   `Atom.family` hashes its key by Effect's structural equality (`node_modules/effect/src/Equal.ts`), not by reference, so rebuilding the request literal on every render is free. What must be stable is the request's _contents_ — a field that is not structurally equal from one render to the next (a fresh `Date`, a generated id, a callback) is a different key and a second fetch. Export a query only to compose it into another region inside the atom layer (`sprintDetail.ts` exports `sprintQuery` for `sprintBoard.ts`, and nothing else does); components never see one.
-
-3. **Retention and invalidation are declared at the query.** `timeToLive` and `reactivityKeys` sit in the `Api.query` call next to the data they describe, so a view states what it listens to and how long it is kept. Neither belongs in a mutation body.
-
-4. **Read and write through the same wrapper.** The atom a view renders and the atom its editors mutate must be the same one. This is the worst failure mode in this layer: the optimistic value lands on an atom nobody renders, so the edit is invisible until a reload, and nothing errors. Adding a tag did exactly this during the migration — the detail view read `ticketDetail` while four editors still wrote a legacy atom that no longer had a consumer.
-
-5. **Optimism is per view.** A mutation targets the wrapper of the view it fires from. Other views catch up through reactivity keys, updating once, old to new — that is not flicker. Never fan one transition into several wrappers, and never normalise entities into a store. When the same action must feel instant in three views, write three small `optimisticFn` atoms over one shared pure helper (`applyTicketPatch`).
-
-6. **Key mutations by view request plus entity id**, never by the container alone:
-
-   ```ts
-   export const deleteTag = Atom.family(
-     ({ req, name }: Readonly<{ req: TagsRequest; name: TagName }>) =>
-       viewMutation(tagsFor(req), {
-         name: "deleteTag",
-         predict: (tags, _input: void) => withoutTag(tags, name),
-         call: (client) => client.tags.delete({ params: { ...req.params, name } }),
-         confirm: (tags) => withoutTag(tags, name),
-         publish: () => tagsChanged(scopeOf(req))
-       })
-   )
-   ```
-
-   A mutation atom's `AsyncResult` is per key. Key a row mutation by the project and every row in the list shares one transition, so one failed assignment paints the error state onto every visible row. Values that only change when another read loads (the viewer, the project's estimation mode) are not key material: the view reads them, as `sprintSections` does, so the key doesn't change under an in-flight edit.
-
-   `viewMutation` maps `predict` over the current `AsyncResult`, runs `call` with the API client, pushes `confirm` through `set` and publishes the keys `publish` returns. `confirm: replaceWith` takes the server's value as is; `keepPredicted` is for calls that confirm nothing. Editors that send queued edits (ticket fields, project setup) use `coalescingMutation`, or `coalescingTicketUpdate` in `features/tickets/atoms/ticketRows.ts`, which serializes requests per mutation key and merges only waiting edits into the next payload. Sent fields are removed from the queue, so completed or rejected fields are not replayed. Saves keep their mutation and view mounted until settlement, including after navigation. Active writes finish before the next starts; only the latest invocation confirms into the view. Nested payloads supply a `merge` callback; flat patches use the default shallow merge. Write `Atom.optimisticFn` by hand only when the factory can't express the mutation, such as a timer start that reads the previous timer before calling.
-
-7. **Mutation input equals the API payload.** Path params come from the family key. Cache keys, settle targets and view metadata never appear in the input. A quick-create that must draw a placeholder row takes `{ payload, prediction }`: `call` sends `payload` alone, and `prediction` (client id, project prefix, template priority) only feeds `predict`.
-
-8. **Reactivity keys are array form, built in `src/api/keys.ts`.** `Keys` returns a branded `ReactivityKey`, and `publish` accepts nothing else. Use the bundles for the common lists: `Keys.ticketChanged(scope, id)` for one ticket's content plus every ticket list, `Keys.ticketsChanged(scope)` for the lists alone. Record form also hashes the bare key, which would make any ticket mutation refetch every ticket query. Publish every key another view needs, including each source of a composed region. Prefer not to publish a key your own view registered — the wrapper already refreshes its source when the transition commits, so that is a second refetch per edit — but when the key another view needs is one yours also listens to, publish it anyway: correctness before a saved request.
-
-9. **Reducers are pure,** use `AsyncResult.map(current, ...)` and derive from `current`, so stacked edits compose. Don't set `waiting` yourself — `optimisticFn` marks the provisional value waiting for you. A reducer that returns `current` unchanged is a pulse-only reducer: allowed only when the result is genuinely unpredictable, such as a PR number the server assigns.
-
-10. **Push the confirmed value** through `optimisticFn`'s `set` before returning, so the server's own value is on screen before the refetch lands.
-
-11. **Never hold a transition open** by waiting on a read — no `get.result(x, { suspendOnWaiting: true })` inside a mutation body, no pending map, no preview merge, no React context. The wrapper holds the optimistic value until its own source has refetched; that is the reason we wrap the view rather than the entity. (Firing a mutation from outside React and awaiting its own result is a different thing and is fine: `fireMutation(registry, atom, input)` in `src/api/viewMutation.ts` mounts it, sets it, waits for it to settle and unmounts, resolving to the settled `AsyncResult`.)
-
-12. **Multi-query regions** compose in `Atom.readable(read, (refresh) => ...)` that forwards refresh to every source, with one wrapper around the region. The composed result must report `waiting` while any source is waiting, and must not carry a timestamp older than the value it replaces — `AsyncResult.all` does both, unioning `waiting` and stamping the composed success with the composition time. Get either wrong and the confirmed value is dropped silently, which looks exactly like the bug you were fixing.
-
-13. **Refresh the wrapper, not the query.** `Atom.optimistic` forwards `refresh` to its source (`node_modules/effect/src/reactivity/Atom.ts`, the third argument to `writable`), and queries aren't exported, so `useAtomRefresh(backlog(req))` is both correct and the only option. This reverses the pre-migration rule that had callers refresh a base atom.
-
-14. **Rows bind their update one way.** The view passes its mutation family already bound to its request — `backlogTicketUpdates(req)`, `sprintSectionsTicketUpdates(req)`, `boardTicketUpdates(req)`, `myTicketUpdates(req)` — and `Row` or `SprintBoardCard` calls it with the ticket id, sets through it and renders its failure with `UpdateFailureMarker`, an icon with the message in a tooltip that fits the fixed row height. Rows hold no default mutation and no per-view wrapper component.
-
-**`waiting` means a mutation is in flight, never a read.** Once a wrapper holds a success it ignores a `Success { waiting: true }` from its source — see the `Success` branch of the source subscription in `Atom.optimistic` (`node_modules/effect/src/reactivity/Atom.ts`, around line 2557), which only adopts a source value that is not waiting and is not older. A refetch behind an already-loaded view is therefore invisible through the wrapper, and any loading state driven off a wrapper's `waiting` is dead code. Two consequences:
-
-- Surface `waiting` with `animate-pulse` on the data the mutation changed, never on idle controls.
-- When a view genuinely needs the read's in-flight state, expose it next to the wrapper as its own atom — `projectGitStatesWaiting` in `features/github/atoms/github.ts` is `Atom.readable((get) => get(gitStatesQuery(req)).waiting)`. For the same reason, don't wrap a read that nothing mutates: the wrapper costs the refetch transition and buys nothing.
-- A form reads its own submitting and error state off the mutation atom rather than mirroring it into `useState`: `const state = useAtomValue(createProject(req))` gives both `state.waiting` and the failure to render. Forms wired through reusable shells (`InlineForm`, `ConfirmButton`) keep their imperative `setBusy` / `setError` API — the shell doesn't know which atom is firing — as do callsites needing richer state than the atom carries, such as which row of a list is in flight.
-
-Types obey the repo rule above — nested `Readonly<{ ... }>`, `ReadonlyArray<T>`, `readonly [A, B]`, no `interface`, no per-field `readonly`. That covers request types, mutation inputs and composed view-model types.
-
-Reference: `apps/frontend/src/features/tickets/atoms/backlog.ts` (one sections query plus on-demand cursor pages through `readLoadedPages` and `loadNextPage`, with sort-aware placement in the reducers), `apps/frontend/src/features/sprints/atoms/sprintBoard.ts` (a region composed from two queries), `apps/frontend/src/features/tags/atoms/tags.ts` (`tagsFor` as a plain aggregate, `tagEditor` as a region composed from two wrappers).
-
-## Rendering atom AsyncResults — `AsyncView`, with `AsyncResult.matchWithError` as the escape hatch
-
-A `useAtomValue` on a runtime atom returns a `AsyncResult<A, E>` with four variants: `Initial`, `Success`, `Failure-with-typed-error`, `Failure-with-defect`. **Always handle all four — never just check `AsyncResult.isSuccess` and render a forever-loading state on anything else.** That swallows real errors silently and makes failures invisible.
-
-**The default is `AsyncView`** (`apps/frontend/src/components/shell/AsyncView.tsx`). It takes the result, an `onInitial` render and an `onSuccess` render, and draws both failure paths (typed error and defect) with the shared `ErrorPage` (`apps/frontend/src/components/shell/ErrorPage.tsx`), which wraps the dither shell with a retry button and a home link. Pass `contained` when rendering inside a settings panel or any non-full-page surface, and `reset` to refresh the atom on retry.
-
-```tsx
-import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
-import { AsyncView } from "@/components/shell/AsyncView"
-
-function ProjectStatusesSettings() {
-  const req = statusesRequest(orgSlug, slug)
-  const result = useAtomValue(statusesFor(req))
-  const refresh = useAtomRefresh(statusesFor(req))
-
-  return (
-    <AsyncView
-      result={result}
-      reset={refresh}
-      contained
-      onInitial={() => <LoadingSkeleton />}
-      onSuccess={({ value }) => <StatusList statuses={value} />}
-    />
-  )
-}
-```
-
-**Reach for `AsyncResult.matchWithError`** from `effect/reactivity/AsyncResult` only when a failure needs different UI than `ErrorPage`: a `NotFoundPage` for `NotFound`, a custom title and body, an inline message, or extra content beside the error. It splits the failure path into `onError` (your typed `E` channel — `NotFound`, `Unauthorized`, etc.) and `onDefect` (unexpected throws, decode failures, interruptions). `ProjectLayout.tsx` and `TicketDetail.tsx` are examples.
-
-A few details worth knowing:
-
-- **`onError` receives the typed error itself** (the value from the `E` channel, with its `_tag`), not the Failure variant. Narrow on `error._tag` if you want to render different messages per error kind — but `ErrorPage` already does this via `lib/errorMessage.ts` for any `AppError`, so most callsites use `AsyncView`.
-- **`onDefect` receives the unknown cause** (a Cause defect, a thrown JS error, a decode failure). Treat it the same way — pass it to `ErrorPage`, which falls back to `String(defect)` for the detail line.
-- **`onSuccess` argument is the Success variant** (`{ value, waiting }`), not the raw value. Destructure `value` to get your data. The `waiting: true` flag is set during an in-flight optimistic mutation (per the optimistic-mutation conventions above) — useful when you want to pulse the success view while a refresh is happening.
-- **Don't combine `AsyncView` or `matchWithError` with a separate `if (!AsyncResult.isSuccess) ...` early return.** Pick one. Mixing both is dead code and a refactor hazard.
-- **For tiny callsites where you only care about success vs anything else** (e.g. a sidebar count that defaults to 0), `AsyncResult.isSuccess(result) ? result.value : fallback` is fine. Use `AsyncView` once the failure case needs visible UI.
-- **Inline mutation errors** come from `mutationErrorText(result, describe?, defect?)` in `lib/mutationError.ts`: `null` until the result fails, then the typed error through `describe` (default `errorMessage`) or `defect` (default `m.error_unknown`). Feature mappers such as `ticketCreateErrorMessage`, `slackActionErrorMessage` and `orgActionError` live beside it. Never show a raw `error.message`.
-
-Reference: `apps/frontend/src/features/statuses/components/StatusList.tsx` for `AsyncView`, `apps/frontend/src/features/projects/components/Projects.tsx` for an inline failure through `matchWithError`, and `features/projects/forms/create-project` for a form reading a mutation atom's own state. `AsyncResult` is imported as `Result` in most components; either alias is fine, but keep one per file.
+The `effect-atom-optimistic-updates` skill has worked examples.
 
 ## Test scope
 
@@ -335,43 +200,32 @@ Keep tests for domain logic, API contracts, atoms, and hooks. Do not add compone
 
 When removing a rendering suite, retain independent logic and atom assertions in the appropriate owner suite. Do not create production exports or injection hooks solely to preserve a deleted component test.
 
-Server-core reuses a worker for tests that do not depend on fresh module state. Tests that mock modules, mutate process environment or globals, or require fresh module configuration belong in `isolatedTests` in `packages/server-core/vite.config.ts`. Keep database files serialized. When changing this split, run the full server-core suite with at least two shuffled file-order seeds (`--sequence.shuffle.files --sequence.seed=<seed>`); use file-only shuffling for this check because some existing database suites share state between tests. Root-level filters use `--project "server-core*"` to include both groups.
-
-Frontend tests default to Node with per-file isolation. `domTests` in `apps/frontend/vite.config.ts` selects hooks, editor, upload, storage, and other browser-dependent tests for isolated jsdom. The HTTP test fixture supplies a URL origin when Node has no `location`; do not add DOM shims for tests that belong in jsdom. Root-level filters use `--project "frontend*"` to include both groups.
-
-Shared and database tests reuse their workers. Keep their process globals and module state clean, scope database resources, and validate changes with two shuffled file-order seeds. Backend Vitest uses shorter cluster polling intervals; real retry delays, restart boundaries, and production polling settings stay unchanged.
-
-Package test scripts use Bun to run Vitest for backend, database, shared, access, and the frontend Node project. Frontend jsdom and server-core remain on Node. Use `bun run test:all` for the CI runtime selection; a direct root Vitest invocation uses the runtime that launched it. Keep runtime comparisons on unchanged tests and verify failure exit codes as well as passing results.
+Worker isolation, jsdom selection and runtime rules: `docs/testing.md`. Read it before changing test configuration.
 
 ## Backend stack
 
 Effect HttpApi + Drizzle + Better Auth + Postgres. Extend within those choices unless we explicitly revisit them.
 
-Integration packages own provider behavior and consume PP capabilities through Effect host services supplied by the backend. Core must not import integration packages. Slack lives in `packages/integration-slack`, GitHub in `packages/integration-github`, Everhour in `packages/integration-everhour`, and Jira in `packages/integration-jira`; their host implementations and composition tests live in the matching backend directories. GitHub ticket ownership, stack reconciliation and status automation stay in core, reached through the backend host. Jira owns its durable migration workflow and planning; backend adapters own PP materialization and the atomic visibility/success commit. Document writes persist provider-neutral events through the existing durable outbox, and each integration consumes only its own subscribed deliveries. Keep migrations in `db`, HTTP contracts in `shared`, and the SQL workflow engine shared across integrations. Do not add a universal integration-driver interface or migrate other integrations as part of ordinary integration changes.
+- Core (`server-core`) never imports an integration package. Integrations reach PP through host services the backend supplies; their host implementations and composition tests live in the matching backend directory.
+- Migrations live in `db`, HTTP contracts in `shared`. One SQL workflow engine serves every integration.
+- Don't add a universal integration-driver interface, and don't migrate other integrations as part of an ordinary integration change.
 
 ## Repo orientation
 
 - **Architecture:** `docs/PROJECTPROJECT.md` — workspaces and what each owns.
+- **Domain glossary:** `CONTEXT.md`.
+- **Frontend deep dives:** `docs/frontend/data-layer.md`, `docs/frontend/forms.md`, `docs/data-fetching-policy.md`.
+- **Tests:** `docs/testing.md`.
 - **Running and deploying:** `README.md`, `docs/deploy.md`.
 - **Decisions:** `docs/superpowers/specs/` — design specs from past features. Context for why something is shaped the way it is, not a description of the current code.
 - **History:** `docs/chapters/` is the Effect curriculum the project started from. Historical; don't treat it as current.
 
-## What you may freely do
+## Also ask first
 
-- Read any file in the repo.
-- Run `git status` / `git diff` / `git log`.
-- Run `bun install`, `bun test`, type-checks, lint, format.
-- Write working code in any package.
-
-## What requires asking first
-
-- Architectural decisions (see list above).
-- Installing new dependencies that aren't already implied by the current task.
+- Installing dependencies the current task doesn't already imply.
 - Destructive git operations.
 
-## When in doubt
-
-Read the relevant code and `docs/PROJECTPROJECT.md`, then ask. Cheaper to confirm than to redo.
+When in doubt, read the relevant code and `docs/PROJECTPROJECT.md`, then ask. Cheaper to confirm than to redo.
 
 <!-- opensrc:start -->
 
