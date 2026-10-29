@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { catalogVersion } from "@pp/shared"
+import { toolInputVersions } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as TestClock from "effect/testing/TestClock"
@@ -89,7 +89,7 @@ describe("callTool", () => {
     )
   )
 
-  it.effect("tells the server which tool catalog it was built with", () =>
+  it.effect("tells the server which input shape it sends the tool", () =>
     Effect.gen(function* () {
       const headers: Array<string | undefined> = []
       yield* callTool(server, "me", {}).pipe(
@@ -97,17 +97,17 @@ describe("callTool", () => {
           Layer.merge(
             store,
             fakeHttp((_, request) => {
-              headers.push(request.headers["pp-catalog-version"])
+              headers.push(request.headers["pp-tool-version"])
               return Response.json({ ok: true })
             })
           )
         )
       )
-      expect(headers).toEqual([catalogVersion])
+      expect(headers).toEqual([toolInputVersions.me])
     })
   )
 
-  it.effect("asks you to upgrade when the server's catalog differs", () =>
+  it.effect("asks you to upgrade when the server expects another input", () =>
     Effect.gen(function* () {
       const failure = yield* Effect.flip(callTool(server, "me", {}))
       expect(failure.code).toBe(10)

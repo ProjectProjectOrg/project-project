@@ -2,26 +2,27 @@ import * as BunServices from "@effect/platform-bun/BunServices"
 import { describe, expect, it } from "@effect/vitest"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 
+import { CliFailure } from "../CliFailure"
 import { ServerStore } from "../servers/ServerStore"
 import { fakeHttp } from "../testing"
 import { Browser } from "./Browser"
-import { login } from "./login"
+import { discover } from "./discovery"
+import { catalogNotice, login } from "./login"
 import { Loopback } from "./Loopback"
 
 const origin = "https://pp.example.com"
 
-const opened: Array<string> = []
-
 const services = Layer.mergeAll(
   Layer.succeed(
     Loopback,
-    Loopback.of({ listen: () => Effect.die("not reached") })
+    Loopback.of({
+      listen: () =>
+        Effect.fail(new CliFailure({ message: "listening", code: 1 }))
+    })
   ),
-  Layer.succeed(
-    Browser,
-    Browser.of({ open: (url) => Effect.sync(() => opened.push(url) > 0) })
-  ),
+  Layer.succeed(Browser, Browser.of({ open: () => Effect.succeed(true) })),
   Layer.succeed(
     ServerStore,
     ServerStore.of({
@@ -52,14 +53,14 @@ const services = Layer.mergeAll(
 )
 
 describe("login", () => {
-  it.effect("stops before the browser when the server's catalog differs", () =>
+  it.effect("warns, then signs in, when the server's catalog differs", () =>
     Effect.gen(function* () {
-      const failure = yield* Effect.flip(login("pp.example.com"))
-      expect(failure.code).toBe(10)
-      expect(failure.message).toContain(
-        "curl -fsSL https://pp.example.com/api/cli/install.sh | sh"
+      const discovered = yield* discover(origin)
+      expect(Option.getOrNull(catalogNotice(discovered))).toContain(
+        "`pp upgrade`"
       )
-      expect(opened).toEqual([])
+      const failure = yield* Effect.flip(login("pp.example.com"))
+      expect(failure.message).toBe("listening")
     }).pipe(Effect.provide(services))
   )
 })
