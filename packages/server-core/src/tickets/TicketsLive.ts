@@ -971,7 +971,7 @@ export const TicketsLive = Layer.effect(
           type: (query.type?.length ? query.type : TicketType.literals).filter(
             (type) => type !== "epic"
           ),
-          parent: sectionsWanted.map(({ key }) => key),
+          parent: undefined,
           groupId: undefined,
           cursor: undefined
         },

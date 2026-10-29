@@ -13,6 +13,7 @@ import {
   TagName,
   TicketId,
   TicketStatus,
+  type ParentFilter,
   type TicketFilter,
   type TicketSort
 } from "@pp/shared"
@@ -1214,6 +1215,77 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       })
       expect(idsUnder(epic)).toEqual(["T-2", "T-3"])
       expect(idsUnder("none")).toEqual(["T-5"])
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("sections a lone sub-ticket under its parent's epic", () =>
+    Effect.gen(function* () {
+      const suffix = randomUUID()
+      const organizationId = `ticket-index-lone-${suffix}`
+      const orgSlug = `ticket-index-lone-${suffix}`
+      const projectSlug = `ticket-index-lone-${suffix}`
+      const projectId = randomUUID()
+      yield* withClient(async (client) => {
+        await client.query(
+          `insert into organization (id, name, slug, created_at)
+             values ($1, 'Ticket index lone sub-ticket', $2, now())`,
+          [organizationId, orgSlug]
+        )
+        await client.query(
+          `insert into project_index
+               (id, slug, organization_id, key, name, icon, color, created_by, created_at)
+             values ($1, $2, $3, 'T', 'Ticket index lone sub-ticket', 'folder', 'blue', 'test-user', now())`,
+          [projectId, projectSlug, organizationId]
+        )
+      })
+      yield* Effect.addFinalizer(() =>
+        withClient((client) =>
+          client.query("delete from organization where id = $1", [
+            organizationId
+          ])
+        )
+      )
+
+      const index = yield* TicketIndex
+      const project = yield* index.projectFor(orgSlug, projectSlug)
+      const epic = ticketId("T-1")
+      yield* Effect.forEach(
+        [
+          indexedDocument("T-1", { type: "epic" }),
+          indexedDocument("T-2", { parent: epic }),
+          indexedDocument("T-3", {
+            parent: ticketId("T-2"),
+            assignees: ["viewer"]
+          }),
+          indexedDocument("T-4", { assignees: ["viewer"] })
+        ],
+        (document) => index.upsertTicket(project, document)
+      )
+
+      const mine = {
+        type: ["feat", "bug", "chore", "other"],
+        assignee: ["mine"],
+        subTickets: "nested",
+        sort: { key: "id", dir: "asc" }
+      } as const
+      const options = { viewerId: "viewer", limit: 10 }
+      const grouped = yield* index.querySections(project, mine, {
+        ...options,
+        sections: "parent"
+      })
+      const page = (key: ParentFilter) =>
+        index
+          .query(project, { ...mine, section: { parent: [key] } }, options)
+          .pipe(Effect.map((rows) => rows.map(({ entry }) => entry.id)))
+
+      expect(grouped.get(epic)?.entries.map(({ entry }) => entry.id)).toEqual([
+        "T-3"
+      ])
+      expect(grouped.get("none")?.entries.map(({ entry }) => entry.id)).toEqual(
+        ["T-4"]
+      )
+      expect(yield* page(epic)).toEqual(["T-3"])
+      expect(yield* page("none")).toEqual(["T-4"])
     }).pipe(Effect.provide(TestLayer))
   )
 

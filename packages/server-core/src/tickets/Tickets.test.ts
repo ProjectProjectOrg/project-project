@@ -4,6 +4,7 @@ import {
   BranchNotFound,
   Conflict,
   DEFAULT_TICKET_SORT,
+  EPIC_SECTION_NONE,
   Group,
   matchesTicketQuery,
   NotFound,
@@ -70,6 +71,7 @@ import {
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import {
   TicketIndex,
+  type TicketIndexEntry,
   type TicketIndexProject,
   type TicketIndexQueryEntry,
   type TicketIndexShape
@@ -479,7 +481,7 @@ const decodeStatusSlug = Schema.decodeSync(StatusSlug)
 
 const querySectionsVia =
   (
-    index: Pick<TicketIndexShape, "query" | "count">
+    index: Pick<TicketIndexShape, "list" | "query" | "count">
   ): TicketIndexShape["querySections"] =>
   (project, query, options) =>
     Effect.gen(function* () {
@@ -512,15 +514,27 @@ const querySectionsVia =
         return out
       }
       if (options.sections === "parent") {
-        for (const parent of query.parent ?? []) {
-          const scopedQuery = { ...query, parent: [parent] }
-          const counts = yield* index.count(
-            project,
-            { ...scopedQuery, status: undefined },
-            options
-          )
-          const entries = yield* index.query(project, scopedQuery, options)
-          out.set(parent, { counts, entries })
+        const all = yield* index.list(project)
+        const byId = new Map(all.map((entry) => [entry.id, entry]))
+        const epicOf = (entry: TicketIndexEntry): string => {
+          const parent =
+            entry.parent === null ? undefined : byId.get(entry.parent)
+          if (parent === undefined) return EPIC_SECTION_NONE
+          return parent.type === "epic"
+            ? parent.id
+            : (parent.parent ?? EPIC_SECTION_NONE)
+        }
+        const keys = new Set(all.map(epicOf))
+        for (const key of keys) {
+          const scoped = {
+            ...options,
+            ticketIds: all
+              .filter((entry) => epicOf(entry) === key)
+              .map((entry) => entry.id)
+          }
+          const counts = yield* index.count(project, countQuery, scoped)
+          const entries = yield* index.query(project, query, scoped)
+          if (counts.total > 0) out.set(key, { counts, entries })
         }
         return out
       }

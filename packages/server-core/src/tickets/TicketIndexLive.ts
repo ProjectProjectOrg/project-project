@@ -326,6 +326,20 @@ const finishedStatus = (
     and s.order_key collate "C" > anchor.order_key collate "C"
 ))`
 
+const parentTicketRow = drizzleSql`${drizzleSql.identifier("parent_ticket")}`
+
+const epicSection = drizzleSql`coalesce((
+  select case when ${columnOf(parentTicketRow, ticketIndex.type)} = 'epic'
+    then ${columnOf(parentTicketRow, ticketIndex.ticketId)}
+    else ${columnOf(parentTicketRow, ticketIndex.parent)} end
+  from ${ticketIndex} as ${parentTicketRow}
+  where ${columnOf(parentTicketRow, ticketIndex.projectId)} = ${columnOf(parentRow, ticketIndex.projectId)}
+    and ${columnOf(parentTicketRow, ticketIndex.ticketId)} = ${columnOf(parentRow, ticketIndex.parent)}
+), ${EPIC_SECTION_NONE}::text)`
+
+const epicSectionCondition = (epics: ReadonlyArray<ParentFilter>): SQL =>
+  drizzleSql`${epicSection} = any(${drizzleSql.param([...epics])}::text[])`
+
 const childTicketCount = (condition: SQL) =>
   drizzleSql<number>`(
   select count(*) from ${ticketIndex} as ${childRow}
@@ -390,7 +404,9 @@ const sectionConditions = (
   sectionTicketIds: ReadonlyArray<string> | undefined
 ): ReadonlyArray<SQL> => [
   ...(section?.status === undefined ? [] : [statusCondition(section.status)]),
-  ...(section?.parent === undefined ? [] : [parentCondition(section.parent)]),
+  ...(section?.parent === undefined
+    ? []
+    : [epicSectionCondition(section.parent)]),
   ...(sectionTicketIds === undefined
     ? []
     : [ticketIdsCondition(sectionTicketIds)])
@@ -806,7 +822,7 @@ export const TicketIndexLive = Layer.effect(
     ): SQL => {
       if (sections === "status") return drizzleSql`${ticketIndex.status}`
       if (sections === "parent") {
-        return drizzleSql`coalesce(${ticketIndex.parent}, ${EPIC_SECTION_NONE}::text)`
+        return epicSection
       }
       const rest = sections.find((section) => section.ticketIds === undefined)
       const branches = sections.flatMap((section) =>
