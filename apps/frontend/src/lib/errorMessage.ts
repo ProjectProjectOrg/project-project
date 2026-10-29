@@ -173,6 +173,10 @@ const conflictMessage = (reason: string): string => {
       return m.slack_error_disconnect_first()
     case "slack_workspace_connected":
       return m.slack_error_workspace_connected()
+    case "ticket_already_archived":
+      return m.tickets_archive_error_already_archived()
+    case "ticket_not_archived":
+      return m.tickets_unarchive_error_not_archived()
     default:
       return m.error_unknown()
   }

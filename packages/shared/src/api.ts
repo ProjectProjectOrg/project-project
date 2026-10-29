@@ -1874,7 +1874,14 @@ const TicketsGroup = HttpApiGroup.make("tickets")
         params: TicketPath,
         payload: ArchiveTicketInput,
         success: TicketDetail,
-        error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          Conflict,
+          Validation,
+          MentionInvalid
+        ]
       }
     )
       .annotate(RequiresProject, { ticket: ["update"] })
@@ -1887,7 +1894,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       {
         params: TicketPath,
         success: TicketDetail,
-        error: [Unauthorized, NotFound, Forbidden]
+        error: [Unauthorized, NotFound, Forbidden, Conflict]
       }
     )
       .annotate(RequiresProject, { ticket: ["update"] })

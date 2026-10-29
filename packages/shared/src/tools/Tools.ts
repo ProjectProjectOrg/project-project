@@ -681,8 +681,8 @@ export const Tools = Toolkit.make(
       "name the ticket that replaces it, e.g. " +
       "`Folded into [T-238](mention:ticket/T-238)`. " +
       MENTION_GUIDE +
-      " Archiving an archived ticket changes nothing and keeps its " +
-      "original reason. Returns the ticket with `archivedAt` set.",
+      " Archiving an archived ticket fails with `Conflict`. Returns the " +
+      "ticket with `archivedAt` set.",
     cli: { command: ["tickets", "archive"], args: ["id"] },
     parameters: Schema.Struct({
       orgSlug,
@@ -708,7 +708,7 @@ export const Tools = Toolkit.make(
       "boards again, with its status, description and history as they " +
       "were. Find archived tickets with `list_tickets` and `archived` set " +
       "to true, and read one with `get_ticket`. Restoring a " +
-      "ticket that isn't archived changes nothing. Returns the ticket " +
+      "ticket that isn't archived fails with `Conflict`. Returns the ticket " +
       "with `archivedAt` null.",
     cli: { command: ["tickets", "restore"], args: ["id"] },
     parameters: Schema.Struct({ orgSlug, projectSlug, id: ticketId }),

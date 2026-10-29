@@ -2287,7 +2287,10 @@ export const TicketsLive = Layer.effect(
           slug,
           id,
           Effect.gen(function* () {
-            yield* readTicket(orgSlug, slug, id)
+            const current = yield* readTicket(orgSlug, slug, id)
+            if (current.archivedAt !== null) {
+              return yield* new Conflict({ reason: "ticket_already_archived" })
+            }
             const indexProject = indexProjectOf(scope)
             const trimmed = reason?.trim()
             const next = yield* ticketDocs.update(
@@ -2295,15 +2298,13 @@ export const TicketsLive = Layer.effect(
               slug,
               id,
               (existing) =>
-                existing.archivedAt !== null
-                  ? Effect.succeed(existing)
-                  : DateTime.nowAsDate.pipe(
-                      Effect.map((now) => ({
-                        ...existing,
-                        archivedAt: now,
-                        updatedAt: now
-                      }))
-                    ),
+                DateTime.nowAsDate.pipe(
+                  Effect.map((now) => ({
+                    ...existing,
+                    archivedAt: existing.archivedAt ?? now,
+                    updatedAt: now
+                  }))
+                ),
               (next) => ticketIndex.upsertTicket(indexProject, next),
               trimmed ? { archiveReason: trimmed } : {}
             )
@@ -2321,22 +2322,23 @@ export const TicketsLive = Layer.effect(
           slug,
           id,
           Effect.gen(function* () {
-            yield* readTicket(orgSlug, slug, id)
+            const current = yield* readTicket(orgSlug, slug, id)
+            if (current.archivedAt === null) {
+              return yield* new Conflict({ reason: "ticket_not_archived" })
+            }
             const indexProject = indexProjectOf(scope)
             const next = yield* ticketDocs.update(
               orgSlug,
               slug,
               id,
               (existing) =>
-                existing.archivedAt === null
-                  ? Effect.succeed(existing)
-                  : DateTime.nowAsDate.pipe(
-                      Effect.map((updatedAt) => ({
-                        ...existing,
-                        archivedAt: null,
-                        updatedAt
-                      }))
-                    ),
+                DateTime.nowAsDate.pipe(
+                  Effect.map((updatedAt) => ({
+                    ...existing,
+                    archivedAt: null,
+                    updatedAt
+                  }))
+                ),
               (next) => ticketIndex.upsertTicket(indexProject, next)
             )
             return yield* detailOf(next, yield* gitView)

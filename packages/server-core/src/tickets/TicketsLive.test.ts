@@ -6,6 +6,7 @@ import {
   BUILTIN_BLOCKS,
   BUILTIN_TEMPLATE_DEFAULTS,
   BUILTIN_TEMPLATES,
+  Conflict,
   formatMentionHref,
   ProjectKey,
   TemplateDraft,
@@ -24,7 +25,6 @@ import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
 import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
-import * as TestClock from "effect/testing/TestClock"
 import { expect } from "vitest"
 
 import { databaseLayer } from "../../test/database"
@@ -414,25 +414,28 @@ it.effect("archiving with a blank reason records no reason", () =>
   }).pipe(Effect.provide(TestLayer))
 )
 
-it.effect("repeating archive or unarchive leaves the ticket untouched", () =>
-  Effect.gen(function* () {
-    recordedActivity.length = 0
-    const tickets = yield* Tickets
-    const created = yield* tickets.quickCreate({ title: "archive twice" })
+it.effect(
+  "archiving an archived ticket or restoring an active one conflicts",
+  () =>
+    Effect.gen(function* () {
+      recordedActivity.length = 0
+      const tickets = yield* Tickets
+      const created = yield* tickets.quickCreate({ title: "archive twice" })
 
-    const archived = yield* tickets.archive(created.id)
-    yield* TestClock.adjust("1 minute")
-    const again = yield* tickets.archive(created.id, "late reason")
-    expect(again.archivedAt).toEqual(archived.archivedAt)
-    expect(again.updatedAt).toEqual(archived.updatedAt)
-    expect(archiveChanges(created.id)).toEqual([{ kind: "archived" }])
+      const notArchived = yield* Effect.flip(tickets.unarchive(created.id))
+      expect(notArchived).toEqual(
+        new Conflict({ reason: "ticket_not_archived" })
+      )
 
-    const restored = yield* tickets.unarchive(created.id)
-    yield* TestClock.adjust("1 minute")
-    const restoredAgain = yield* tickets.unarchive(created.id)
-    expect(restoredAgain.archivedAt).toBeNull()
-    expect(restoredAgain.updatedAt).toEqual(restored.updatedAt)
-  }).pipe(Effect.provide(TestLayer))
+      const archived = yield* tickets.archive(created.id)
+      const again = yield* Effect.flip(
+        tickets.archive(created.id, "late reason")
+      )
+      expect(again).toEqual(new Conflict({ reason: "ticket_already_archived" }))
+      expect(archiveChanges(created.id)).toEqual([{ kind: "archived" }])
+      const stored = yield* tickets.get(created.id)
+      expect(stored.archivedAt).toEqual(archived.archivedAt)
+    }).pipe(Effect.provide(TestLayer))
 )
 
 it.effect(

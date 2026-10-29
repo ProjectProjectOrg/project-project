@@ -34,6 +34,7 @@ import {
   ProjectStatus,
   StatusSlug,
   BranchNotFound,
+  Conflict,
   CurrentUser,
   GroupId,
   NotFound,
@@ -661,6 +662,9 @@ describe("MCP handlers → write tools", () => {
     },
     archive: (id, reason) => {
       captured.archive = { id, reason }
+      if (id === "T-2") {
+        return Effect.fail(new Conflict({ reason: "ticket_already_archived" }))
+      }
       return Effect.succeed({
         ...fakeTicketDetail,
         archivedAt: isoDate("2026-05-11T00:00:00.000Z")
@@ -978,6 +982,27 @@ describe("MCP handlers → write tools", () => {
           )
           expect(restored.isError).toBeUndefined()
           expect(parseJson(restored.content[0].text).archivedAt).toBeNull()
+        })
+      }).pipe(Effect.provide(WriteTestLayer))
+  )
+
+  it.effect(
+    "archive_ticket reports an already archived ticket as Conflict",
+    () =>
+      Effect.gen(function* () {
+        const registered = register(yield* Effect.context<HandlerServices>())
+        yield* Effect.gen(function* () {
+          const result = yield* withFakeUser(() =>
+            registered.get("archive_ticket")!({
+              orgSlug: "acme",
+              projectSlug: "demo",
+              id: "T-2"
+            })
+          )
+          expect(result.isError).toBe(true)
+          expect(result.content[0].text).toContain(
+            "Conflict (ticket_already_archived)"
+          )
         })
       }).pipe(Effect.provide(WriteTestLayer))
   )
