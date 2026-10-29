@@ -1,23 +1,20 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import type { Ticket } from "@pp/shared"
-import { useDebouncer } from "@tanstack/react-pacer"
+import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Link2 } from "lucide-react"
 import { useContext, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
-  CommandMenu,
-  CommandMenuEmpty,
-  CommandMenuInput,
-  CommandMenuItem,
-  CommandMenuList
-} from "@/components/ui/command-menu"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuEmpty,
+  DropdownMenuInput,
+  DropdownMenuItem,
+  DropdownMenuList,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   attachToParent,
@@ -32,11 +29,16 @@ import { m } from "@/paraglide/messages"
 export function AttachTicketPicker({
   parent
 }: Readonly<{ parent: Pick<Ticket, "id"> }>) {
-  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
+    <DropdownMenu
+      onOpenChangeComplete={(open) => {
+        if (!open) setQuery("")
+      }}
+      filterable={{ value: query, onValueChange: setQuery, filter: null }}
+    >
+      <DropdownMenuTrigger
         render={
           <Button
             type="button"
@@ -49,35 +51,30 @@ export function AttachTicketPicker({
           </Button>
         }
       />
-      <PopoverContent align="start" sideOffset={6} className="w-72 p-0">
-        <AttachTicketSearch parent={parent} onPicked={() => setOpen(false)} />
-      </PopoverContent>
-    </Popover>
+      <DropdownMenuContent align="start" sideOffset={6} className="w-72">
+        <AttachTicketList parent={parent} query={query} />
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
-function AttachTicketSearch({
+function AttachTicketList({
   parent,
-  onPicked
-}: Readonly<{ parent: Pick<Ticket, "id">; onPicked: () => void }>) {
+  query
+}: Readonly<{ parent: Pick<Ticket, "id">; query: string }>) {
   const { orgSlug, slug } = useProjectRoute()
   const registry = useContext(RegistryContext)
-  const [search, setSearch] = useState("")
-  const [query, setQuery] = useState("")
-  const debouncer = useDebouncer(setQuery, { wait: 200 })
+  const [debounced] = useDebouncedValue(query.trim(), { wait: 200 })
   const result = useAtomValue(
     ticketSearch(
       searchRequest(orgSlug, slug, {
-        q: query || undefined,
+        q: debounced || undefined,
         attachableTo: parent.id,
         limit: 24
       })
     )
   )
   const candidates = Result.isSuccess(result) ? result.value : []
-  const byId = new Map<string, Ticket>(
-    candidates.map((ticket) => [ticket.id, ticket])
-  )
   const emptyMessage = Result.matchWithError(result, {
     onInitial: () => m.tickets_children_attach_loading(),
     onError: () => m.tickets_children_attach_failed(),
@@ -86,51 +83,36 @@ function AttachTicketSearch({
   })
 
   return (
-    <CommandMenu
-      className="max-h-[300px]"
-      items={candidates.map((ticket) => ({
-        value: ticket.id,
-        label: `${ticket.id} ${ticket.title}`
-      }))}
-      onSelect={(picked) => {
-        const ticket = byId.get(picked.value)
-        onPicked()
-        if (ticket !== undefined) {
-          attachToParent(
-            registry,
-            childTicketsRequest(orgSlug, slug, parent.id),
-            ticket
-          )
-        }
-      }}
-    >
-      <CommandMenuInput
+    <>
+      <DropdownMenuInput
         placeholder={m.tickets_children_attach_placeholder()}
-        value={search}
-        onChange={(event) => {
-          setSearch(event.target.value)
-          debouncer.maybeExecute(event.target.value.trim())
-        }}
+        aria-label={m.tickets_children_attach_placeholder()}
       />
-      <CommandMenuList
-        renderItem={(row) => {
-          const ticket = byId.get(row.value)
-          return (
-            <CommandMenuItem value={row.value}>
-              <span className="shrink-0 font-mono text-xs text-muted-foreground">
-                {row.value}
-              </span>
-              <span className="min-w-0 truncate">{ticket?.title}</span>
-            </CommandMenuItem>
-          )
-        }}
+      <DropdownMenuList className="max-h-64 overflow-y-auto">
+        {candidates.map((ticket) => (
+          <DropdownMenuItem
+            key={ticket.id}
+            label={`${ticket.id} ${ticket.title}`}
+            onClick={() =>
+              attachToParent(
+                registry,
+                childTicketsRequest(orgSlug, slug, parent.id),
+                ticket
+              )
+            }
+          >
+            <span className="shrink-0 font-mono text-xs text-muted-foreground">
+              {ticket.id}
+            </span>
+            <span className="min-w-0 truncate">{ticket.title}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuList>
+      <DropdownMenuEmpty
+        className={Result.isInitial(result) ? "animate-pulse" : undefined}
       >
-        <CommandMenuEmpty
-          className={Result.isInitial(result) ? "animate-pulse" : undefined}
-        >
-          {emptyMessage}
-        </CommandMenuEmpty>
-      </CommandMenuList>
-    </CommandMenu>
+        {emptyMessage}
+      </DropdownMenuEmpty>
+    </>
   )
 }
