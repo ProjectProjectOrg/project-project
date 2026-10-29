@@ -10,6 +10,7 @@ import {
 } from "@/features/tickets/atoms/childTickets"
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import {
+  expandedParents,
   withExpandedChildren,
   type NestedEntry
 } from "@/features/tickets/lib/nestedRows"
@@ -45,16 +46,10 @@ export function SectionRows({
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const expansion = useSubTicketExpansion()
-  const expanded = new Set(
+  const expanded =
     expansion === null
-      ? []
-      : items
-          .filter(
-            ({ ticket }) =>
-              hasSubTickets(ticket) && expansion.isExpanded(ticket.id)
-          )
-          .map((row) => row.ticket.id)
-  )
+      ? new Set<TicketId>()
+      : expandedParents(items, expansion.isExpanded)
   const children = useAtomValue(
     expandedChildTickets(expandedChildrenRequest(orgSlug, slug, expanded))
   )
