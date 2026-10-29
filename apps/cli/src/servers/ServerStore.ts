@@ -1,6 +1,7 @@
 import * as Clock from "effect/Clock"
 import * as Config from "effect/Config"
 import * as Context from "effect/Context"
+import * as Crypto from "effect/Crypto"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
@@ -96,6 +97,7 @@ export class ServerStore extends Context.Service<
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
+      const crypto = yield* Crypto.Crypto
       const directory = path.join(yield* configHome, "pp")
       const file = path.join(directory, "servers.json")
       const failure = storageFailure(file)
@@ -151,14 +153,31 @@ export class ServerStore extends Context.Service<
           return yield* lock(attempt + 1)
         })
 
-      const locked = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-        Effect.acquireUseRelease(
-          fs
-            .makeDirectory(directory, { recursive: true, mode: 0o700 })
-            .pipe(Effect.mapError(failure), Effect.andThen(lock(0))),
-          () => effect,
-          () => fs.remove(lockPath, { recursive: true }).pipe(Effect.ignore)
+      const ownerPath = `${lockPath}/owner`
+
+      const acquire = Effect.gen(function* () {
+        yield* fs
+          .makeDirectory(directory, { recursive: true, mode: 0o700 })
+          .pipe(Effect.mapError(failure))
+        yield* lock(0)
+        const owner = yield* crypto.randomUUIDv4()
+        yield* fs.writeFileString(ownerPath, owner).pipe(Effect.ignore)
+        return owner
+      })
+
+      const release = (owner: string) =>
+        fs.readFileString(ownerPath).pipe(
+          Effect.orElseSucceed(() => owner),
+          Effect.flatMap((current) =>
+            current === owner
+              ? fs.remove(lockPath, { recursive: true })
+              : Effect.void
+          ),
+          Effect.ignore
         )
+
+      const locked = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        Effect.acquireUseRelease(acquire, () => effect, release)
 
       const save = (server: SavedServer) =>
         locked(

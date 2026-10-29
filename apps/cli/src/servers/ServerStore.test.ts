@@ -155,4 +155,24 @@ describe("ServerStore", () => {
       })
     )
   )
+
+  it.effect("leaves a lock alone when another pp took it over meanwhile", () =>
+    inTempConfig(
+      Effect.gen(function* () {
+        const store = yield* ServerStore
+        const fs = yield* FileSystem.FileSystem
+        const origin = "https://a.example.com"
+        const lockPath = `${store.file}.lock`
+        yield* store.save(server(origin))
+        yield* store.update(origin, (saved) =>
+          Effect.as(
+            fs.writeFileString(`${lockPath}/owner`, "another pp"),
+            saved
+          )
+        )
+        expect(yield* fs.exists(lockPath)).toBe(true)
+        expect(yield* fs.readFileString(`${lockPath}/owner`)).toBe("another pp")
+      })
+    )
+  )
 })
