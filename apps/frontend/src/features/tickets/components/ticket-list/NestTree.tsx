@@ -1,7 +1,8 @@
 import type { Ticket } from "@pp/shared"
-import { ChevronDown, ChevronRight } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import type { IconComponent } from "@/lib/icon"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -86,6 +87,16 @@ export function NestToggle({
   )
 }
 
+const ExpandChevron: IconComponent = ({ className, ...props }) => (
+  <ChevronRight
+    {...props}
+    className={cn(
+      className,
+      "transition-[rotate,stroke-width] duration-150 group-aria-expanded:rotate-90"
+    )}
+  />
+)
+
 export function NestProgressToggle({
   ticket,
   expanded,
@@ -104,7 +115,7 @@ export function NestProgressToggle({
       type="button"
       variant="ghost"
       size="sm"
-      trailingIcon={expanded ? ChevronDown : ChevronRight}
+      trailingIcon={ExpandChevron}
       aria-expanded={expanded}
       aria-label={
         expanded
