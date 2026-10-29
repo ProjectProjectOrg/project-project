@@ -45,6 +45,7 @@ import { FigmaLive } from "@pp/server-core/figma/FigmaLive"
 import { GitHubTicketEventsLive } from "@pp/server-core/github/GitHubTicketEventsLive"
 import { GroupDocsLive } from "@pp/server-core/groups/GroupDocsLive"
 import { GroupsLive } from "@pp/server-core/groups/GroupsLive"
+import { InstanceLive } from "@pp/server-core/instance/InstanceLive"
 import { LibraryDocsLive } from "@pp/server-core/library/LibraryDocsLive"
 import { LibraryLive } from "@pp/server-core/library/LibraryLive"
 import { LinkPreviewsLive } from "@pp/server-core/linkPreviews/LinkPreviewsLive"
@@ -180,6 +181,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       ),
       Layer.provideMerge(BannerPlaceholdersLive),
       Layer.provideMerge(UsersLive),
+      Layer.provideMerge(InstanceLive),
       Layer.provideMerge(TicketIndexLive),
       Layer.provideMerge(SlackLive),
       Layer.provideMerge(FeedbackLive),

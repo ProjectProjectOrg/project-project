@@ -56,6 +56,7 @@ import {
   JiraRateLimited,
   JiraReconnectRequired,
   JiraResourceNotFound,
+  InstanceNotConfigured,
   InvitationNotAcceptable,
   MentionInvalid,
   NotFound,
@@ -153,6 +154,7 @@ import {
   UpdateGroupTicketsOutput,
   UpdateTicketOrderInput
 } from "./schemas/Group"
+import { InstanceDescriptor } from "./schemas/Instance"
 import {
   ConfigureJiraMigrationInput,
   CreateJiraMigrationInput,
@@ -263,6 +265,13 @@ export type HealthResponse = typeof HealthResponse.Type
 const HealthGroup = HttpApiGroup.make("health").add(
   HttpApiEndpoint.get("get", "/health", {
     success: HealthResponse
+  })
+)
+
+const InstanceGroup = HttpApiGroup.make("instance").add(
+  HttpApiEndpoint.get("get", "/instance", {
+    success: InstanceDescriptor,
+    error: [InstanceNotConfigured]
   })
 )
 
@@ -2768,6 +2777,7 @@ const LinkPreviewsGroup = HttpApiGroup.make("linkPreviews")
 
 const AppApi = HttpApi.make("projectproject")
   .add(HealthGroup)
+  .add(InstanceGroup)
   .add(DbGroup)
   .add(AuthGroup)
   .add(OrgGroup)

@@ -60,8 +60,8 @@ import {
 } from "@pp/integration-github/GitHubWebhooks"
 
 import { AuthHandlerLive } from "./handlers/auth"
+import { ApiRouterLive } from "./http/apiRouter"
 import {
-  ApiRouterLive,
   GITHUB_WEBHOOK_MAX_BODY_BYTES,
   HealthHandlerLive,
   githubWebhookRoute,

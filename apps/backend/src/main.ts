@@ -103,6 +103,7 @@ import {
 import { FigmaHandlerLive } from "./handlers/figma"
 import { GitAutomationHandlerLive } from "./handlers/gitAutomation"
 import { GroupsHandlerLive } from "./handlers/groups"
+import { InstanceHandlerLive } from "./handlers/instance"
 import { InvitationsHandlerLive } from "./handlers/invitations"
 import { LibraryHandlerLive } from "./handlers/library"
 import { LinkPreviewsHandlerLive } from "./handlers/linkPreviews"
@@ -117,6 +118,7 @@ import { StatusesHandlerLive } from "./handlers/statuses"
 import { StorageHandlerLive } from "./handlers/storage"
 import { TagsHandlerLive } from "./handlers/tags"
 import { TicketsHandlerLive } from "./handlers/tickets"
+import { ApiRouterLive } from "./http/apiRouter"
 import { attachmentRoutes } from "./http/attachmentRoutes"
 import { attachmentUploadRoute } from "./http/attachmentUploadRoutes"
 import { figmaOauthRoutes } from "./http/figmaOauthRoutes"
@@ -170,7 +172,7 @@ const betterAuthApp = Effect.gen(function* () {
 )
 
 export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
-  Layer.provide(HealthHandlerLive),
+  Layer.provide(Layer.mergeAll(HealthHandlerLive, InstanceHandlerLive)),
   Layer.provide(DbHandlerLive),
   Layer.provide(AuthHandlerLive),
   Layer.provide(OrgHandlerLive),
@@ -420,11 +422,6 @@ const githubIntegrationRoutes = HttpRouter.addAll(
     HttpRouter.route("POST", "/webhook", githubWebhookRoute)
   ],
   { prefix: "/api/integrations/github" }
-)
-
-export const ApiRouterLive = Layer.effect(
-  HttpRouter.HttpRouter,
-  Effect.map(HttpRouter.HttpRouter, (router) => router.prefixed("/api"))
 )
 
 export const RouteLive = Layer.mergeAll(
