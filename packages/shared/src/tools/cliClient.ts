@@ -2,7 +2,9 @@ export const cliOAuthClient = {
   id: "projectproject-cli",
   name: "PP CLI",
   redirectUri: "http://127.0.0.1/callback",
-  resourcePath: "/api/v1/tools"
+  resourcePath: "/api/v1/tools",
+  signedInPath: "/cli/signed-in",
+  signInFailedPath: "/cli/sign-in-failed"
 } as const
 
 export const cliRelease = {

@@ -1,4 +1,5 @@
 import { cliOAuthClient } from "@pp/shared"
+import * as Option from "effect/Option"
 import { describe, expect, it } from "vitest"
 
 import { authorizeUrl } from "./login"
@@ -14,7 +15,8 @@ describe("authorizeUrl", () => {
             "https://pp.example.com/api/auth/oauth2/authorize",
           tokenEndpoint: "https://pp.example.com/api/auth/oauth2/token",
           revocationEndpoint: undefined,
-          catalogVersion: undefined
+          catalogVersion: undefined,
+          signInPages: Option.none()
         },
         "http://127.0.0.1:51234/callback",
         { verifier: "v", challenge: "c", state: "s" }

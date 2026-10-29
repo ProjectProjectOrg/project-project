@@ -9,7 +9,7 @@ import { originOf } from "../servers/origin"
 import { type SavedServer, ServerStore } from "../servers/ServerStore"
 import { Browser } from "./Browser"
 import { type Discovered, discover } from "./discovery"
-import { Loopback } from "./Loopback"
+import { type Listening, Loopback } from "./Loopback"
 import { newPkce, type Pkce } from "./pkce"
 import { exchangeCode } from "./tokens"
 
@@ -56,30 +56,77 @@ const codeFrom = (params: URLSearchParams, pkce: Pkce) => {
     : Effect.succeed(code)
 }
 
+const redirected = (listening: Listening) =>
+  listening.redirect.pipe(
+    Effect.timeoutOrElse({
+      duration: "10 minutes",
+      orElse: () =>
+        Effect.fail(notSignedIn("Sign-in timed out. Run `pp login` again."))
+    })
+  )
+
+const completeSignIn = (
+  discovered: Discovered,
+  pkce: Pkce,
+  redirectUri: string,
+  params: URLSearchParams
+) =>
+  Effect.gen(function* () {
+    const code = yield* codeFrom(params, pkce)
+    const tokens = yield* exchangeCode({
+      tokenEndpoint: discovered.tokenEndpoint,
+      code,
+      redirectUri,
+      verifier: pkce.verifier,
+      resource: discovered.resource
+    })
+    const signedIn: SavedServer = {
+      origin: discovered.origin,
+      user: { id: "", name: "", email: "" },
+      endpoints: {
+        token: discovered.tokenEndpoint,
+        revocation: discovered.revocationEndpoint
+      },
+      tokens
+    }
+    const me = yield* callToolAs(
+      signedIn,
+      "me",
+      {},
+      Tools.tools.me.successSchema
+    )
+    const server: SavedServer = {
+      ...signedIn,
+      user: { id: me.user.id, name: me.user.name, email: me.user.email }
+    }
+    yield* (yield* ServerStore).save(server)
+    return server
+  })
+
 const signIn = (discovered: Discovered, pkce: Pkce) =>
   Effect.scoped(
     Effect.gen(function* () {
-      const listening = yield* (yield* Loopback).listen
+      const listening = yield* (yield* Loopback).listen(discovered.signInPages)
       const url = authorizeUrl(discovered, listening.redirectUri, pkce)
       yield* Console.error(
         `Opening your browser to sign in to ${discovered.origin}.\nIf it doesn't open, visit:\n\n  ${url}\n`
       )
       yield* (yield* Browser).open(url)
-      const params = yield* listening.redirect.pipe(
-        Effect.timeoutOrElse({
-          duration: "10 minutes",
-          orElse: () =>
-            Effect.fail(notSignedIn("Sign-in timed out. Run `pp login` again."))
-        })
+      const params = yield* redirected(listening)
+      return yield* completeSignIn(
+        discovered,
+        pkce,
+        listening.redirectUri,
+        params
+      ).pipe(
+        Effect.tapError(() =>
+          listening.finish({
+            signedIn: false,
+            reason: params.get("error") ?? "sign_in_failed"
+          })
+        ),
+        Effect.tap(() => listening.finish({ signedIn: true }))
       )
-      const code = yield* codeFrom(params, pkce)
-      return yield* exchangeCode({
-        tokenEndpoint: discovered.tokenEndpoint,
-        code,
-        redirectUri: listening.redirectUri,
-        verifier: pkce.verifier,
-        resource: discovered.resource
-      })
     })
   )
 
@@ -98,22 +145,5 @@ export const login = Effect.fn("login")(function* (address: string) {
       code: ExitCode.outdated
     })
   }
-  const pkce = yield* newPkce
-  const tokens = yield* signIn(discovered, pkce)
-  const signedIn: SavedServer = {
-    origin,
-    user: { id: "", name: "", email: "" },
-    endpoints: {
-      token: discovered.tokenEndpoint,
-      revocation: discovered.revocationEndpoint
-    },
-    tokens
-  }
-  const me = yield* callToolAs(signedIn, "me", {}, Tools.tools.me.successSchema)
-  const server: SavedServer = {
-    ...signedIn,
-    user: { id: me.user.id, name: me.user.name, email: me.user.email }
-  }
-  yield* (yield* ServerStore).save(server)
-  return server
+  return yield* signIn(discovered, yield* newPkce)
 })

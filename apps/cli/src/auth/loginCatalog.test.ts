@@ -14,7 +14,10 @@ const origin = "https://pp.example.com"
 const opened: Array<string> = []
 
 const services = Layer.mergeAll(
-  Layer.succeed(Loopback, Loopback.of({ listen: Effect.die("not reached") })),
+  Layer.succeed(
+    Loopback,
+    Loopback.of({ listen: () => Effect.die("not reached") })
+  ),
   Layer.succeed(
     Browser,
     Browser.of({ open: (url) => Effect.sync(() => opened.push(url) > 0) })

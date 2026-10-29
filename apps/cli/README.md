@@ -43,7 +43,7 @@ bun run --cwd apps/cli build             # writes apps/cli/dist/pp
 pp login pp.example.com
 ```
 
-`pp` reads the server's discovery documents, opens your browser to sign in, and saves the server. If the browser doesn't open, it prints the link to visit. Sign in to more than one server and pick one with `--server`, `PP_SERVER`, or `pp servers use <address>`.
+`pp` reads the server's discovery documents, opens your browser to sign in, and saves the server. Once you approve, the browser shows a ProjectProject page saying you're signed in, or why not, and you can go back to your terminal. If the browser doesn't open, `pp` prints the link to visit. Sign in to more than one server and pick one with `--server`, `PP_SERVER`, or `pp servers use <address>`.
 
 ```sh
 pp servers list

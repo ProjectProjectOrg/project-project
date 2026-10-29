@@ -461,6 +461,12 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
       )
     )
     expect(metadata.pp_catalog_version).toBe(catalogVersion)
+    expect(metadata.pp_signed_in_page).toBe(
+      new URL("/cli/signed-in", resource).href
+    )
+    expect(metadata.pp_sign_in_failed_page).toBe(
+      new URL("/cli/sign-in-failed", resource).href
+    )
   })
 
   it("http: a pp with a different catalog is told to upgrade before anything runs", async () => {

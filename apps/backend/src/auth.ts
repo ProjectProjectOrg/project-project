@@ -527,7 +527,13 @@ export const auth = betterAuth({
       name: cliOAuthClient.name,
       extra: {
         pp_catalog_version: catalogVersion,
-        pp_build: process.env.APP_VERSION || "dev"
+        pp_build: process.env.APP_VERSION || "dev",
+        pp_signed_in_page: new URL(cliOAuthClient.signedInPath, toolsResource)
+          .href,
+        pp_sign_in_failed_page: new URL(
+          cliOAuthClient.signInFailedPath,
+          toolsResource
+        ).href
       }
     })
   ]

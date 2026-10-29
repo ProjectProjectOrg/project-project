@@ -1,6 +1,7 @@
 import { cliOAuthClient } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpClient, HttpClientResponse } from "effect/http"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import { unreachable } from "../CliFailure"
@@ -8,7 +9,9 @@ import { unreachable } from "../CliFailure"
 const ResourceMetadata = Schema.Struct({
   resource: Schema.String,
   authorization_servers: Schema.NonEmptyArray(Schema.String),
-  pp_catalog_version: Schema.optional(Schema.String)
+  pp_catalog_version: Schema.optional(Schema.String),
+  pp_signed_in_page: Schema.optional(Schema.String),
+  pp_sign_in_failed_page: Schema.optional(Schema.String)
 })
 
 const AuthorizationServerMetadata = Schema.Struct({
@@ -18,6 +21,8 @@ const AuthorizationServerMetadata = Schema.Struct({
   revocation_endpoint: Schema.optional(Schema.String)
 })
 
+export type SignInPages = Readonly<{ signedIn: string; failed: string }>
+
 export type Discovered = Readonly<{
   origin: string
   resource: string
@@ -25,7 +30,27 @@ export type Discovered = Readonly<{
   tokenEndpoint: string
   revocationEndpoint: string | undefined
   catalogVersion: string | undefined
+  signInPages: Option.Option<SignInPages>
 }>
+
+const sameOrigin = (origin: string, page: string | undefined) =>
+  page !== undefined && URL.canParse(page) && new URL(page).origin === origin
+    ? Option.some(page)
+    : Option.none()
+
+export const signInPagesFrom = (
+  origin: string,
+  signedIn: string | undefined,
+  failed: string | undefined
+): Option.Option<SignInPages> =>
+  Option.zipWith(
+    sameOrigin(origin, signedIn),
+    sameOrigin(origin, failed),
+    (signedInPage, failedPage) => ({
+      signedIn: signedInPage,
+      failed: failedPage
+    })
+  )
 
 export const resourceMetadataUrl = (origin: string) =>
   `${origin}/.well-known/oauth-protected-resource${cliOAuthClient.resourcePath}`
@@ -75,7 +100,12 @@ export const discover = Effect.fn("discover")(function* (origin: string) {
     authorizationEndpoint: server.authorization_endpoint,
     tokenEndpoint: server.token_endpoint,
     revocationEndpoint: server.revocation_endpoint,
-    catalogVersion: resource.pp_catalog_version
+    catalogVersion: resource.pp_catalog_version,
+    signInPages: signInPagesFrom(
+      origin,
+      resource.pp_signed_in_page,
+      resource.pp_sign_in_failed_page
+    )
   }
   return discovered
 })
