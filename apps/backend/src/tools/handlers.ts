@@ -29,7 +29,8 @@ import {
   serializeTicketBlocks,
   stripDefinitionHints,
   stripHints,
-  type McpTools,
+  Tools,
+  CurrentUser,
   TicketListQuery,
   Validation,
   validateTicketBlocks,
@@ -52,21 +53,11 @@ import {
   type UpdateGroupInput,
   type UpdateTicketInput
 } from "@pp/shared"
-import { Tool } from "effect/ai"
+import type { Tool } from "effect/ai"
 import * as Effect from "effect/Effect"
-import type * as Layer from "effect/Layer"
 import * as Predicate from "effect/Predicate"
-import type * as Schema from "effect/Schema"
 
-import { orgTool, projectTool } from "./access"
-import { McpCurrentUser } from "./McpRequestUser"
-import {
-  McpToolkit,
-  toToolkitHandlers,
-  type McpHandlerEnv,
-  type McpHandlers,
-  type McpToolsByName
-} from "./toolkit"
+import { toolRunner } from "./runTool"
 
 const DEFAULT_LIMIT = 50
 
@@ -130,7 +121,7 @@ const TICKET_TYPES: ReadonlyArray<TicketType> = [
 
 const me = (_input: {}) =>
   Effect.gen(function* () {
-    const current = yield* McpCurrentUser
+    const current = yield* CurrentUser
     const betterAuth = yield* BetterAuth
     const orgs = yield* betterAuth.listOrganizations(current.id)
     return {
@@ -141,7 +132,7 @@ const me = (_input: {}) =>
 
 const list_orgs = (input: Pagination) =>
   Effect.gen(function* () {
-    const current = yield* McpCurrentUser
+    const current = yield* CurrentUser
     const betterAuth = yield* BetterAuth
     return yield* betterAuth.listOrganizationsPaged(
       current.id,
@@ -151,7 +142,7 @@ const list_orgs = (input: Pagination) =>
   })
 
 const get_org = Effect.fn("get_org")(function* (input: { orgSlug: string }) {
-  const current = yield* McpCurrentUser
+  const current = yield* CurrentUser
   const betterAuth = yield* BetterAuth
   const org = yield* betterAuth.getOrganization(current.id, input.orgSlug)
   const orgStorage = yield* OrgStorage
@@ -461,7 +452,7 @@ const update_ticket = (
   })
 
 const prepare_ticket_attachment = (
-  input: Schema.Schema.Type<typeof McpTools.prepare_ticket_attachment.input>
+  input: Tool.Parameters<typeof Tools.tools.prepare_ticket_attachment>
 ) =>
   Effect.gen(function* () {
     const uploads = yield* AttachmentUploads.AttachmentUploads
@@ -632,56 +623,50 @@ const add_tickets_to_group = (input: {
     groups.addTickets(input.groupId, input.ticketIds)
   )
 
-export const handlers: McpHandlers<McpHandlerEnv> = {
-  me,
-  list_orgs,
-  get_org: orgTool("membership", get_org),
-  list_projects: orgTool("membership", list_projects),
-  get_project: projectTool({ docs: ["read"] }, get_project),
-  list_groups: projectTool({ ticket: ["read"] }, list_groups),
-  list_sprints: projectTool({ ticket: ["read"] }, list_sprints),
-  get_group: projectTool({ ticket: ["read"] }, get_group),
-  list_tickets: projectTool({ ticket: ["read"] }, list_tickets),
-  get_ticket: projectTool({ ticket: ["read"] }, get_ticket),
-  list_statuses: projectTool({ ticket: ["read"] }, list_statuses),
-  list_tags: projectTool({ ticket: ["read"] }, list_tags),
-  list_members: projectTool({ ticket: ["read"] }, list_members),
-  get_git_state: projectTool({ github: ["read"] }, get_git_state),
-  get_project_doc: projectTool(
-    { docs: ["read"], github: ["read"] },
-    get_project_doc
-  ),
-  get_group_doc: projectTool({ ticket: ["read"] }, get_group_doc),
-  get_ticket_doc: projectTool(
-    { ticket: ["read"], github: ["read"] },
-    get_ticket_doc
-  ),
-  list_blocks: projectTool({ ticket: ["read"] }, list_blocks),
-  list_templates: projectTool({ ticket: ["read"] }, list_templates),
-  create_ticket: projectTool({ ticket: ["create"] }, create_ticket),
-  update_ticket: projectTool("membership", update_ticket),
-  prepare_ticket_attachment: projectTool(
-    { attachment: ["upload"] },
-    prepare_ticket_attachment
-  ),
-  create_comment: projectTool({ comment: ["create"] }, create_comment),
-  attach_branch: projectTool({ github: ["write"] }, attach_branch),
-  stack_branch: projectTool({ github: ["write"] }, stack_branch),
-  unstack_branch: projectTool({ github: ["write"] }, unstack_branch),
-  rebuild_ticket_index: projectTool(
-    { settings: ["manage"] },
-    rebuild_ticket_index
-  ),
-  add_tickets_to_group: projectTool("membership", add_tickets_to_group),
-  create_sprint: projectTool({ sprint: ["manage"] }, create_sprint),
-  update_sprint: projectTool({ sprint: ["manage"] }, update_sprint),
-  complete_sprint: projectTool({ sprint: ["manage"] }, complete_sprint)
-}
-
-export const toolkitHandlers = McpToolkit.of(toToolkitHandlers(handlers))
-
-export const McpToolkitHandlersLive: Layer.Layer<
-  Tool.HandlersFor<McpToolsByName>,
-  never,
-  McpHandlerEnv
-> = McpToolkit.toLayer(toolkitHandlers)
+export const ToolHandlersLive = Tools.toLayer(
+  Effect.gen(function* () {
+    const run = yield* toolRunner
+    return Tools.of({
+      me: run.user("me", me),
+      list_orgs: run.user("list_orgs", list_orgs),
+      get_org: run.org("get_org", get_org),
+      list_projects: run.org("list_projects", list_projects),
+      get_project: run.project("get_project", get_project),
+      list_groups: run.project("list_groups", list_groups),
+      list_sprints: run.project("list_sprints", list_sprints),
+      get_group: run.project("get_group", get_group),
+      list_tickets: run.project("list_tickets", list_tickets),
+      get_ticket: run.project("get_ticket", get_ticket),
+      list_statuses: run.project("list_statuses", list_statuses),
+      list_tags: run.project("list_tags", list_tags),
+      list_members: run.project("list_members", list_members),
+      get_git_state: run.project("get_git_state", get_git_state),
+      get_project_doc: run.project("get_project_doc", get_project_doc),
+      get_group_doc: run.project("get_group_doc", get_group_doc),
+      get_ticket_doc: run.project("get_ticket_doc", get_ticket_doc),
+      list_blocks: run.project("list_blocks", list_blocks),
+      list_templates: run.project("list_templates", list_templates),
+      create_ticket: run.project("create_ticket", create_ticket),
+      update_ticket: run.project("update_ticket", update_ticket),
+      prepare_ticket_attachment: run.project(
+        "prepare_ticket_attachment",
+        prepare_ticket_attachment
+      ),
+      create_comment: run.project("create_comment", create_comment),
+      attach_branch: run.project("attach_branch", attach_branch),
+      stack_branch: run.project("stack_branch", stack_branch),
+      unstack_branch: run.project("unstack_branch", unstack_branch),
+      rebuild_ticket_index: run.project(
+        "rebuild_ticket_index",
+        rebuild_ticket_index
+      ),
+      add_tickets_to_group: run.project(
+        "add_tickets_to_group",
+        add_tickets_to_group
+      ),
+      create_sprint: run.project("create_sprint", create_sprint),
+      update_sprint: run.project("update_sprint", update_sprint),
+      complete_sprint: run.project("complete_sprint", complete_sprint)
+    })
+  })
+)

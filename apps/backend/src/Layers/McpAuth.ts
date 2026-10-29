@@ -20,11 +20,7 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import { auth, mcpResource } from "../auth"
-import {
-  McpRequestClient,
-  McpRequestUser,
-  type McpClient
-} from "../mcp/McpRequestUser"
+import { ToolCaller, type ToolClient } from "../tools/ToolCaller"
 
 class TokenRejected extends Data.TaggedError("TokenRejected")<{
   readonly cause: unknown
@@ -160,7 +156,7 @@ export const McpAuthMiddlewareLive = HttpRouter.middleware(
       if (!found[0]) {
         return yield* Effect.die("MCP token subject is missing from users")
       }
-      const client: McpClient = {
+      const client: ToolClient = {
         id: decoded.client_id,
         name: consents[0].clientName ?? decoded.client_id
       }
@@ -173,8 +169,13 @@ export const McpAuthMiddlewareLive = HttpRouter.middleware(
         const claims = yield* verify(request)
         const caller = yield* resolveUser(claims)
         return yield* effect.pipe(
-          Effect.provideService(McpRequestUser, Option.some(caller.user)),
-          Effect.provideService(McpRequestClient, Option.some(caller.client))
+          Effect.provideService(
+            ToolCaller,
+            Option.some({
+              user: caller.user,
+              client: Option.some(caller.client)
+            })
+          )
         )
       }).pipe(
         Effect.catchTags({

@@ -128,6 +128,7 @@ import { McpLive } from "./Layers/Mcp"
 import { BackendHttpServicesLive, BackendInfrastructureLive } from "./runtime"
 import { SlackHandlerLive } from "./slack/Handlers"
 import { slackOAuthRoutes } from "./slack/OAuthRoutes"
+import { ToolsRouteLive } from "./tools/http"
 
 // Exported so tests can compose them without booting a real Bun server.
 export const HealthHandlerLive = HttpApiBuilder.group(
@@ -446,6 +447,7 @@ export const RouteLive = Layer.mergeAll(
   ),
   HttpRouter.add("POST", "/api/attachment-uploads", attachmentUploadRoute),
   McpLive,
+  ToolsRouteLive,
   Layer.mergeAll(ApiLive, SwaggerLive).pipe(Layer.provide(ApiRouterLive))
 )
 

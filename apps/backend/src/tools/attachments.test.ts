@@ -46,9 +46,10 @@ import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import * as Tickets from "@pp/server-core/tickets/Tickets"
 import * as Users from "@pp/server-core/users/Users"
 import {
+  ActivityActor,
   AttachmentTooLarge,
   CurrentUser,
-  McpTools,
+  Tools,
   NotFound,
   StorageNotConnected,
   StorageConfigMissing,
@@ -66,7 +67,6 @@ import * as Fiber from "effect/Fiber"
 import { HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
-import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
@@ -76,9 +76,8 @@ import { Pool } from "pg"
 import { beforeAll, afterAll, describe, expect, vi } from "vitest"
 
 import { attachmentUploadRoute } from "../http/attachmentUploadRoutes"
-import { mappedToolErrorText } from "./errorMap"
-import { handlers } from "./handlers"
-import { McpRequestUser } from "./McpRequestUser"
+import { toolErrorMessage } from "./errorText"
+import { callTool } from "./testing"
 
 const sealedCodec = Schema.fromJsonString(
   Schema.Record(Schema.String, Schema.String)
@@ -90,18 +89,14 @@ const decodeTicketId = Schema.decodeEffect(TicketId)
 
 const decodeTicketStatusSync = Schema.decodeSync(TicketStatus)
 
-const decodePrepareTicketAttachmentInput = Schema.decodeEffect(
-  McpTools.prepare_ticket_attachment.input
-)
-
 const isPrepareTicketAttachmentInput = Schema.is(
-  McpTools.prepare_ticket_attachment.input
+  Tools.tools.prepare_ticket_attachment.parametersSchema
 )
 
 const decodeDateFromStringSync = Schema.decodeSync(Schema.DateFromString)
 
 const isPrepareTicketAttachmentOutput = Schema.is(
-  McpTools.prepare_ticket_attachment.output
+  Tools.tools.prepare_ticket_attachment.successSchema
 )
 
 const user = Schema.decodeSync(User)({
@@ -275,7 +270,8 @@ const fixture = Effect.fn("attachmentFixture")(function* (
     Layer.mergeAll(
       domain,
       access,
-      Layer.succeed(McpRequestUser, Option.some(user)),
+      Layer.succeed(CurrentUser, user),
+      Layer.succeed(ActivityActor, ActivityActor.user(user.id)),
       Layer.mock(Projects.Projects, {}),
       Layer.mock(Tickets.Tickets, {}),
       Layer.mock(Comments.Comments, {}),
@@ -294,13 +290,12 @@ const fixture = Effect.fn("attachmentFixture")(function* (
   const prepare = Effect.fn("attachmentFixture.prepare")(function* (
     input = upload
   ) {
-    const decoded = yield* decodePrepareTicketAttachmentInput({
-      ...scope,
-      ...input
-    })
-    return yield* handlers
-      .prepare_ticket_attachment(decoded)
-      .pipe(Effect.provide(context))
+    return yield* callTool(
+      "prepare_ticket_attachment",
+      { ...scope, ...input },
+      user,
+      Tools.tools.prepare_ticket_attachment.successSchema
+    ).pipe(Effect.provide(context))
   })
   const post = (url: string, body = bytes, contentType = upload.contentType) =>
     attachmentUploadRoute.pipe(
@@ -393,7 +388,7 @@ describe.skipIf(!databaseUrl)("MCP attachment upload with Postgres", () => {
                 ConfigProvider.fromUnknown({ BETTER_AUTH_URL: baseUrl })
               )
             )
-        ))._tag
+        )).error
       ).toBe("StorageConfigMissing")
       expect(yield* f.rows).toEqual([])
     }).pipe(Effect.scoped, Effect.provide(dbLayer))
@@ -590,7 +585,7 @@ describe.skipIf(!databaseUrl)("MCP attachment upload with Postgres", () => {
     Effect.gen(function* () {
       const f = yield* fixture(options)
       const error = yield* Effect.flip(f.prepare())
-      expect(error._tag).toBe(
+      expect(error.error).toBe(
         "disconnected" in options ? "StorageNotConnected" : "NotFound"
       )
       expect(yield* f.rows).toEqual([])
@@ -639,7 +634,7 @@ describe.skipIf(!databaseUrl)("MCP attachment upload with Postgres", () => {
             filename: "payload.exe",
             contentType: "application/x-msdownload"
           })
-        ))._tag
+        )).error
       ).toBe("AttachmentTypeRejected")
       expect(yield* f.rows).toEqual([])
     }).pipe(Effect.scoped, Effect.provide(dbLayer))
@@ -884,14 +879,12 @@ describe("MCP attachment contracts", () => {
         })
       )
       const { expected, ...input } = options
-      const decoded = yield* decodePrepareTicketAttachmentInput({
-        orgSlug: "acme",
-        projectSlug: "demo",
-        ticketId: "T-122",
-        ...input
-      })
-      const result = yield* handlers.prepare_ticket_attachment(decoded).pipe(
-        Effect.provideService(McpRequestUser, Option.some(user)),
+      const result = yield* callTool(
+        "prepare_ticket_attachment",
+        { orgSlug: "acme", projectSlug: "demo", ticketId: "T-122", ...input },
+        user,
+        Tools.tools.prepare_ticket_attachment.successSchema
+      ).pipe(
         Effect.provide(
           Layer.mergeAll(
             accessLayer({
@@ -942,7 +935,7 @@ describe("MCP attachment contracts", () => {
       })
     ).toBe(true)
     expect(
-      Object.keys(McpTools.prepare_ticket_attachment.input.fields)
+      Object.keys(Tools.tools.prepare_ticket_attachment.parametersSchema.fields)
     ).not.toContain("byteSize")
     expect(
       isPrepareTicketAttachmentInput({
@@ -954,7 +947,7 @@ describe("MCP attachment contracts", () => {
   })
   it("reports the actual size limit without requesting a prepared byte size", () => {
     expect(
-      mappedToolErrorText(new AttachmentTooLarge({ maxBytes: 1536 * 1024 }))
+      toolErrorMessage(new AttachmentTooLarge({ maxBytes: 1536 * 1024 }))
     ).toBe(
       "AttachmentTooLarge: The file must be non-empty and at most 1.5 MiB."
     )
@@ -966,7 +959,7 @@ describe("MCP attachment contracts", () => {
   ])(
     "exposes actionable storage errors without upstream details: $_tag",
     (error) => {
-      const text = mappedToolErrorText(error)
+      const text = toolErrorMessage(error)
       expect(text).toBeDefined()
       expect(text).toContain(error._tag)
       expect(text).not.toContain("private upstream details")

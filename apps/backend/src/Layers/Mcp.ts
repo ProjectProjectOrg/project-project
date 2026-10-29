@@ -1,9 +1,8 @@
-import { MCP_INSTRUCTIONS } from "@pp/shared"
+import { MCP_INSTRUCTIONS, Tools } from "@pp/shared"
 import { McpProtocol, McpServer } from "effect/ai"
 import * as Layer from "effect/Layer"
 
-import { McpToolkitHandlersLive } from "../mcp/handlers"
-import { McpToolkit } from "../mcp/toolkit"
+import { ToolHandlersLive } from "../tools/handlers"
 import { McpAuthMiddlewareLive } from "./McpAuth"
 
 export const McpLive = McpServer.layerHttp({
@@ -17,8 +16,8 @@ export const McpLive = McpServer.layerHttp({
   ],
   instructions: MCP_INSTRUCTIONS
 }).pipe(
-  Layer.provideMerge(McpServer.toolkit(McpToolkit)),
-  Layer.provide(McpToolkitHandlersLive),
+  Layer.provideMerge(McpServer.toolkit(Tools)),
+  Layer.provide(ToolHandlersLive),
   Layer.provide(McpAuthMiddlewareLive),
   Layer.orDie
 )

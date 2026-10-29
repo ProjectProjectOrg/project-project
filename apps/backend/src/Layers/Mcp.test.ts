@@ -11,7 +11,7 @@ import { join } from "node:path"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 import { migrationsFolder } from "@pp/db"
-import { McpTools } from "@pp/shared"
+import { Tools } from "@pp/shared"
 import { toNodeHandler } from "better-auth/node"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
@@ -199,9 +199,10 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
       }
     }
     const { McpLive } = await import("./Mcp")
+    const { ToolsRouteLive } = await import("../tools/http")
     const { BackendServicesLive, BackendInfrastructureLive } =
       await import("../runtime")
-    const app = McpLive.pipe(
+    const app = Layer.mergeAll(McpLive, ToolsRouteLive).pipe(
       Layer.provide(
         BackendServicesLive.pipe(Layer.provideMerge(BackendInfrastructureLive))
       )
@@ -250,7 +251,7 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     const names = body.result.tools
       .map((t: { name: string }) => t.name)
       .toSorted()
-    expect(names).toEqual(Object.keys(McpTools).toSorted())
+    expect(names).toEqual(Object.keys(Tools.tools).toSorted())
     for (const tool of body.result.tools)
       expect(tool.inputSchema.type).toBe("object")
   })
@@ -315,6 +316,62 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     expect(deleted.body.result.content[0].text).toBe("Not found.")
     const listed = await callTool(tokens[1], "list_orgs")
     expect(listed.body.result.content[0].text).not.toContain(orgId)
+  })
+
+  const httpTool = async (
+    token: string | undefined,
+    name: string,
+    body: unknown = {}
+  ) => {
+    const headers = new Headers({ "content-type": "application/json" })
+    if (token) headers.set("authorization", `Bearer ${token}`)
+    const response = await nextHandler()(
+      new Request(new URL(`/api/v1/tools/${name}`, resource).href, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body)
+      })
+    )
+    return { status: response.status, body: JSON.parse(await response.text()) }
+  }
+
+  it("http: a tool returns the same result as over MCP", async () => {
+    const mcp = await callTool(tokens[0], "me")
+    const http = await httpTool(tokens[0], "me")
+    expect(http.status).toBe(200)
+    expect(http.body).toEqual(mcp.body.result.structuredContent)
+  })
+
+  it("http: a tool failure carries the same message as over MCP", async () => {
+    const mcp = await callTool(tokens[0], "get_org", { orgSlug: orgId })
+    const http = await httpTool(tokens[0], "get_org", { orgSlug: orgId })
+    expect(http.status).toBe(422)
+    expect(http.body).toEqual({
+      _tag: "ToolFailure",
+      error: "NotFound",
+      message: mcp.body.result.content[0].text
+    })
+  })
+
+  it("http: invalid input is a 400 Validation failure", async () => {
+    const http = await httpTool(tokens[0], "create_ticket", {
+      orgSlug: "acme",
+      projectSlug: "demo",
+      title: ""
+    })
+    expect(http.status).toBe(400)
+    expect(http.body.error).toBe("Validation")
+  })
+
+  it("http: an unknown tool is a 404", async () => {
+    const http = await httpTool(tokens[0], "drop_database")
+    expect(http.status).toBe(404)
+    expect(http.body.error).toBe("NotFound")
+  })
+
+  it("http: calls without a valid token get a 401", async () => {
+    const http = await httpTool(undefined, "me")
+    expect(http.status).toBe(401)
   })
 
   it("modern: unknown tool is JSON-RPC -32602", async () => {

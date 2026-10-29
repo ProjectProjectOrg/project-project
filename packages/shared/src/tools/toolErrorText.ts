@@ -1,41 +1,11 @@
-import { BetterAuthError } from "@pp/server-core/auth/BetterAuth"
-import {
-  GroupIdTaken,
-  MarkdownError,
-  TicketIdTaken
-} from "@pp/server-core/markdown/Markdown"
-import {
-  McpTools,
-  AttachmentNotUploaded,
-  BranchExists,
-  BranchProtected,
-  type McpToolError
-} from "@pp/shared"
 import * as Match from "effect/Match"
-import * as Schema from "effect/Schema"
 
-const BackendToolError = Schema.Union([
-  AttachmentNotUploaded,
-  BetterAuthError,
-  BranchExists,
-  BranchProtected,
-  Schema.instanceOf(GroupIdTaken),
-  Schema.instanceOf(MarkdownError),
-  Schema.instanceOf(Schema.SchemaError),
-  Schema.instanceOf(TicketIdTaken)
-])
-type BackendToolError = typeof BackendToolError.Type
-const isBackendError = Schema.is(BackendToolError)
-const isCatalogError = Schema.is(
-  Schema.Union(
-    Object.values(McpTools).flatMap<
-      (typeof McpTools)[keyof typeof McpTools]["errors"][number]
-    >((spec) => spec.errors)
-  )
-)
+import type { ToolError } from "./Tools"
 
-type Messages<E extends { readonly _tag: string }> = {
-  readonly [K in E["_tag"]]: (error: Extract<E, { readonly _tag: K }>) => string
+type Messages<E extends Readonly<{ _tag: string }>> = {
+  readonly [K in E["_tag"]]: (
+    error: Extract<E, Readonly<{ _tag: K }>>
+  ) => string
 }
 
 const asSentence = (text: string): string => {
@@ -65,7 +35,7 @@ const editFailureMessage = (failure: string): string => {
   }
 }
 
-const catalogMessages: Messages<McpToolError> = {
+const messages: Messages<ToolError> = {
   Unauthorized: () => "Unauthorized.",
   Forbidden: () => "Forbidden.",
   NotFound: () => "Not found.",
@@ -138,24 +108,4 @@ const catalogMessages: Messages<McpToolError> = {
     message ? `GitHub error: ${message}.` : "GitHub error."
 }
 
-const backendMessages: Messages<BackendToolError> = {
-  SchemaError: (error) => `Validation error: ${error.message}`,
-  MarkdownError: () => "Document read failed.",
-  BetterAuthError: () => "Auth provider error.",
-  TicketIdTaken: () => "Identifier already taken.",
-  GroupIdTaken: () => "Identifier already taken.",
-  AttachmentNotUploaded: () =>
-    "AttachmentNotUploaded: The uploaded object could not be verified. Retry the POST to uploadUrl. If the upload URL expired, prepare a new upload.",
-  BranchExists: ({ branch }) =>
-    branch ? `Branch already exists: ${branch}.` : "Branch already exists.",
-  BranchProtected: () => "Branch is protected."
-}
-
-const catalogMessage = Match.typeTags<McpToolError>()(catalogMessages)
-const backendMessage = Match.typeTags<BackendToolError>()(backendMessages)
-
-export const mappedToolErrorText = Match.type<unknown>().pipe(
-  Match.when(isCatalogError, catalogMessage),
-  Match.when(isBackendError, backendMessage),
-  Match.orElse(() => undefined)
-)
+export const toolErrorText = Match.typeTags<ToolError>()(messages)

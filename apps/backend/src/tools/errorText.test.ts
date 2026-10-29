@@ -1,6 +1,6 @@
 import { it } from "@effect/vitest"
 import {
-  type McpToolError,
+  type ToolError,
   Forbidden,
   NotFound,
   Unauthorized,
@@ -10,34 +10,34 @@ import { Effect, Schema } from "effect"
 import * as Data from "effect/Data"
 import { describe, expect } from "vitest"
 
-import { mappedToolErrorText } from "./errorMap"
+import { toolErrorMessage } from "./errorText"
 
 const TestErrors = Data.taggedEnum<Readonly<{ _tag: "NotADomainError" }>>()
 
 const decodeUnknownString = Schema.decodeUnknownEffect(Schema.String)
 
-describe("mappedToolErrorText", () => {
+describe("toolErrorMessage", () => {
   it("maps Unauthorized", () => {
-    const declared: McpToolError = new Unauthorized()
-    expect(mappedToolErrorText(declared)).toContain("Unauthorized")
+    const declared: ToolError = new Unauthorized()
+    expect(toolErrorMessage(declared)).toContain("Unauthorized")
   })
 
   it("maps NotFound to Not found", () => {
-    expect(mappedToolErrorText(new NotFound())).toContain("Not found")
+    expect(toolErrorMessage(new NotFound())).toContain("Not found")
   })
 
   it("maps Forbidden", () => {
-    expect(mappedToolErrorText(new Forbidden())).toContain("Forbidden")
+    expect(toolErrorMessage(new Forbidden())).toContain("Forbidden")
   })
 
   it("maps Validation with reason", () => {
-    expect(mappedToolErrorText(new Validation({ reason: "bad_input" }))).toBe(
+    expect(toolErrorMessage(new Validation({ reason: "bad_input" }))).toBe(
       "Validation error (bad_input)."
     )
   })
 
   it("maps a block_markup Validation reason to the formatted issue text", () => {
-    const text = mappedToolErrorText(
+    const text = toolErrorMessage(
       new Validation({
         reason:
           'block_markup:line 3: <block type="foo"> is not a valid block ' +
@@ -52,7 +52,7 @@ describe("mappedToolErrorText", () => {
 
   it("ends the block issue as a sentence before pointing at list_blocks", () => {
     expect(
-      mappedToolErrorText(
+      toolErrorMessage(
         new Validation({
           reason: 'block_markup:line 2: <block type="notes"> is never closed'
         })
@@ -65,7 +65,7 @@ describe("mappedToolErrorText", () => {
   })
 
   it("names an unknown template key and points at list_templates", () => {
-    const text = mappedToolErrorText(
+    const text = toolErrorMessage(
       new Validation({ reason: "unknown_template:bug-report" })
     )
     expect(text).toBe(
@@ -75,17 +75,17 @@ describe("mappedToolErrorText", () => {
   })
 
   it("leaves untagged values unmapped for the caller to treat as internal", () => {
-    expect(mappedToolErrorText(new Error("boom"))).toBeUndefined()
+    expect(toolErrorMessage(new Error("boom"))).toBeUndefined()
   })
 
   it("leaves unknown tags unmapped", () => {
-    expect(mappedToolErrorText(TestErrors.NotADomainError())).toBeUndefined()
+    expect(toolErrorMessage(TestErrors.NotADomainError())).toBeUndefined()
   })
 
   it.effect("preserves schema validation details", () =>
     Effect.gen(function* () {
       const error = yield* decodeUnknownString(42).pipe(Effect.flip)
-      const result = mappedToolErrorText(error)
+      const result = toolErrorMessage(error)
       expect(result).toContain("Validation error:")
     })
   )

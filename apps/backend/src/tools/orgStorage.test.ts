@@ -17,7 +17,9 @@ import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import * as Tickets from "@pp/server-core/tickets/Tickets"
 import * as Users from "@pp/server-core/users/Users"
 import {
-  McpTools,
+  CurrentUser,
+  ActivityActor,
+  Tools,
   NotFound,
   Org,
   OrgScope,
@@ -26,14 +28,14 @@ import {
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import { describe, expect } from "vitest"
 
-import { handlers } from "./handlers"
-import { McpRequestUser } from "./McpRequestUser"
+import { callTool } from "./testing"
 
-const encodeGetOrgOutput = Schema.encodeEffect(McpTools.get_org.output)
+const encodeGetOrgOutput = Schema.encodeEffect(
+  Tools.tools.get_org.successSchema
+)
 
 const user = Schema.decodeSync(User)({
   id: "user-1",
@@ -104,7 +106,8 @@ const fixture = (
         ? {}
         : { org: orgScope(options.role ?? org.role, { userId: user.id }) }
     ),
-    Layer.succeed(McpRequestUser, Option.some(user)),
+    Layer.succeed(CurrentUser, user),
+    Layer.succeed(ActivityActor, ActivityActor.user(user.id)),
     Layer.mock(BetterAuth.BetterAuth, {
       getOrganization: (userId, orgSlug) => {
         calls.push({ operation: "organization", userId, orgSlug })
@@ -132,7 +135,12 @@ const fixture = (
   )
   return {
     calls,
-    get: handlers.get_org({ orgSlug: org.slug }).pipe(Effect.provide(layer))
+    get: callTool(
+      "get_org",
+      { orgSlug: org.slug },
+      user,
+      Tools.tools.get_org.successSchema
+    ).pipe(Effect.provide(layer))
   }
 }
 
@@ -179,7 +187,7 @@ describe("MCP organization storage availability", () => {
     (denied) =>
       Effect.gen(function* () {
         const f = fixture({ denied })
-        expect((yield* Effect.flip(f.get))._tag).toBe("NotFound")
+        expect((yield* Effect.flip(f.get)).error).toBe("NotFound")
         expect(f.calls.map((call) => call.operation)).toEqual(
           denied === "access" ? [] : ["organization"]
         )
