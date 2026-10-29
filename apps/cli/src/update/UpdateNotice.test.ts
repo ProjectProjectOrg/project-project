@@ -17,7 +17,7 @@ describe("noticeFor", () => {
   it("recommends pp upgrade when the server runs another release", () => {
     expect(noticeFor(origin, Option.some("v2026.11.02"), "2026.10.30")).toEqual(
       Option.some(
-        "https://pp.example.com runs pp v2026.11.02; you have 2026.10.30. Run `pp upgrade` to match it."
+        "https://pp.example.com runs pp v2026.11.02; you have 2026.10.30. Run `pp upgrade --server https://pp.example.com` to match it."
       )
     )
   })

@@ -53,7 +53,7 @@ export const noticeFor = (
     tag.replace(/^v/, "") === build
       ? Option.none()
       : Option.some(
-          `${origin} runs pp ${tag}; you have ${build}. Run \`pp upgrade\` to match it.`
+          `${origin} runs pp ${tag}; you have ${build}. Run \`pp upgrade --server ${origin}\` to match it.`
         )
   )
 
