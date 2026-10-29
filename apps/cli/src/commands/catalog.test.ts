@@ -77,4 +77,21 @@ describe("generated commands", () => {
       })
     }).pipe(Effect.provide(BunServices.layer))
   )
+
+  it.effect("turn null into a cleared field and '' into an empty list", () =>
+    Effect.gen(function* () {
+      const input = yield* toolInput(
+        entry("update_ticket").fields,
+        {
+          id: "T-1",
+          parent: Option.some("null"),
+          tags: [""],
+          title: Option.some("null")
+        },
+        { orgSlug: Option.some("acme"), projectSlug: Option.some("web") }
+      )
+      expect(input).toMatchObject({ parent: null, tags: [] })
+      expect(input).toMatchObject({ title: "null" })
+    }).pipe(Effect.provide(BunServices.layer))
+  )
 })

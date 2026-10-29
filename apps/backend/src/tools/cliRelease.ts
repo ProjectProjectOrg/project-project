@@ -1,5 +1,6 @@
-import { cliRelease } from "@pp/shared"
-import { HttpClientResponse } from "effect/http"
+import { cliRelease, runInstaller } from "@pp/shared"
+import * as Effect from "effect/Effect"
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
@@ -34,7 +35,47 @@ export const releaseForCommit = (
   )
 }
 
-const quote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`
+const RELEASES_PER_PAGE = 100
+const MAX_RELEASE_PAGES = 10
+
+const releasesPage = (page: number) =>
+  Effect.gen(function* () {
+    const client = yield* HttpClient.HttpClient
+    const response = yield* HttpClientRequest.get(
+      `https://api.github.com/repos/${cliRelease.repository}/releases?per_page=${RELEASES_PER_PAGE}&page=${page}`
+    ).pipe(
+      HttpClientRequest.setHeaders({
+        accept: "application/vnd.github+json",
+        "user-agent": "projectproject-server"
+      }),
+      client.execute,
+      Effect.flatMap(HttpClientResponse.filterStatusOk)
+    )
+    return yield* decodeReleases(response)
+  })
+
+const searchReleases = (
+  commit: string,
+  page: number
+): Effect.Effect<
+  Option.Option<string>,
+  Effect.Error<ReturnType<typeof releasesPage>>,
+  HttpClient.HttpClient
+> =>
+  Effect.gen(function* () {
+    const releases = yield* releasesPage(page)
+    const found = releaseForCommit(releases, commit)
+    if (
+      Option.isSome(found) ||
+      releases.length < RELEASES_PER_PAGE ||
+      page >= MAX_RELEASE_PAGES
+    ) {
+      return found
+    }
+    return yield* searchReleases(commit, page + 1)
+  })
+
+export const findRelease = (commit: string) => searchReleases(commit, 1)
 
 export const installWrapper = (
   release: Option.Option<string>,
@@ -46,11 +87,13 @@ export const installWrapper = (
     onSome: (tag) =>
       `https://github.com/${cliRelease.repository}/releases/download/${tag}`
   })
-  const version = Option.getOrElse(release, () => "latest")
   return [
     "#!/bin/sh",
     "set -eu",
-    `curl -fsSL ${quote(`${base}/install.sh`)} | PP_VERSION=${quote(version)} PP_SERVER=${quote(origin)} sh`,
+    runInstaller(`${base}/install.sh`, {
+      PP_VERSION: Option.getOrElse(release, () => "latest"),
+      PP_SERVER: origin
+    }),
     ""
   ].join("\n")
 }

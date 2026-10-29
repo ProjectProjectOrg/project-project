@@ -5,6 +5,7 @@ import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
+import { notSignedIn } from "../CliFailure"
 import { type SavedServer, ServerStore } from "../servers/ServerStore"
 import { fakeHttp } from "../testing"
 import { attachFile, contentTypeFor } from "./attach"
@@ -33,7 +34,7 @@ const store = Layer.succeed(
     remove: () => Effect.die("unused"),
     setDefault: () => Effect.die("unused"),
     setScope: () => Effect.die("unused"),
-    select: () => Effect.die("unused")
+    select: () => Effect.fail(notSignedIn("unused"))
   })
 )
 
