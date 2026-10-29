@@ -1,37 +1,18 @@
 import { cliRelease } from "@pp/shared"
 import * as Config from "effect/Config"
 import * as Effect from "effect/Effect"
-import {
-  HttpClient,
-  HttpClientRequest,
-  HttpClientResponse,
-  HttpRouter,
-  HttpServerResponse
-} from "effect/http"
+import { HttpClient, HttpRouter, HttpServerResponse } from "effect/http"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 
 import { toolsResource } from "../auth"
-import { decodeReleases, installWrapper, releaseForCommit } from "./cliRelease"
+import { findRelease, installWrapper } from "./cliRelease"
 
 const commitOf = (build: string) =>
   build.startsWith("sha-") ? Option.some(build.slice(4)) : Option.none()
 
 const lookupRelease = (commit: string) =>
-  Effect.gen(function* () {
-    const client = yield* HttpClient.HttpClient
-    const response = yield* HttpClientRequest.get(
-      `https://api.github.com/repos/${cliRelease.repository}/releases?per_page=100`
-    ).pipe(
-      HttpClientRequest.setHeaders({
-        accept: "application/vnd.github+json",
-        "user-agent": "projectproject-server"
-      }),
-      client.execute,
-      Effect.flatMap(HttpClientResponse.filterStatusOk)
-    )
-    return releaseForCommit(yield* decodeReleases(response), commit)
-  }).pipe(
+  findRelease(commit).pipe(
     Effect.catch((error) =>
       Effect.as(
         Effect.logWarning("Couldn't look up this server's pp release", error),

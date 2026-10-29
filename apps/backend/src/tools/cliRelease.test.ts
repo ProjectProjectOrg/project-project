@@ -1,7 +1,10 @@
+import { describe, expect, it } from "@effect/vitest"
+import * as Effect from "effect/Effect"
+import { HttpClient, HttpClientResponse } from "effect/http"
+import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
-import { describe, expect, it } from "vitest"
 
-import { installWrapper, releaseForCommit } from "./cliRelease"
+import { findRelease, installWrapper, releaseForCommit } from "./cliRelease"
 
 const release = (
   tag: string,
@@ -53,16 +56,73 @@ describe("releaseForCommit", () => {
 
 describe("installWrapper", () => {
   it("pins the installer to the server's release and signs in to it", () => {
-    expect(
-      installWrapper(Option.some("v2026.10.29"), "https://pp.example.com")
-    ).toContain(
-      "curl -fsSL 'https://github.com/ProjectProjectOrg/project-project/releases/download/v2026.10.29/install.sh' | PP_VERSION='v2026.10.29' PP_SERVER='https://pp.example.com' sh"
+    const script = installWrapper(
+      Option.some("v2026.10.29"),
+      "https://pp.example.com"
+    )
+    expect(script).toContain(
+      "curl -fsSL 'https://github.com/ProjectProjectOrg/project-project/releases/download/v2026.10.29/install.sh'"
+    )
+    expect(script).toContain(
+      "PP_VERSION='v2026.10.29' PP_SERVER='https://pp.example.com' sh"
     )
   })
 
   it("falls back to the latest stable release", () => {
-    expect(installWrapper(Option.none(), "https://pp.example.com")).toContain(
-      "releases/latest/download/install.sh' | PP_VERSION='latest'"
+    const script = installWrapper(Option.none(), "https://pp.example.com")
+    expect(script).toContain("releases/latest/download/install.sh'")
+    expect(script).toContain("PP_VERSION='latest'")
+  })
+})
+
+const githubWith = (
+  pages: ReadonlyArray<ReadonlyArray<ReturnType<typeof release>>>
+) => {
+  const requested: Array<string> = []
+  const layer = Layer.succeed(
+    HttpClient.HttpClient,
+    HttpClient.make((request, url) => {
+      const page = Number(url.searchParams.get("page"))
+      requested.push(String(page))
+      return Effect.succeed(
+        HttpClientResponse.fromWeb(
+          request,
+          Response.json(pages[page - 1] ?? [])
+        )
+      )
+    })
+  )
+  return { layer, requested }
+}
+
+const others = (count: number, offset: number) =>
+  Array.from({ length: count }, (_, index) =>
+    release(`v${offset + index}`, `other-${offset + index}`)
+  )
+
+describe("findRelease", () => {
+  it.effect("keeps reading pages until it finds the server's commit", () => {
+    const github = githubWith([others(100, 0), [release("v2026.10.29", "abc")]])
+    return Effect.gen(function* () {
+      expect(yield* findRelease("abc")).toEqual(Option.some("v2026.10.29"))
+      expect(github.requested).toEqual(["1", "2"])
+    }).pipe(Effect.provide(github.layer))
+  })
+
+  it.effect("stops at the last page, and after ten pages at most", () => {
+    const short = githubWith([others(100, 0), others(3, 100)])
+    const endless = githubWith(
+      Array.from({ length: 12 }, (_, page) => others(100, page * 100))
     )
+    return Effect.gen(function* () {
+      expect(
+        yield* findRelease("abc").pipe(Effect.provide(short.layer))
+      ).toEqual(Option.none())
+      expect(short.requested).toEqual(["1", "2"])
+      expect(
+        yield* findRelease("abc").pipe(Effect.provide(endless.layer))
+      ).toEqual(Option.none())
+      expect(endless.requested).toHaveLength(10)
+    })
   })
 })

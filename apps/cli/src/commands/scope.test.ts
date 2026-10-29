@@ -53,6 +53,17 @@ const project = (org: string, slug: string) => ({
   createdAt: "2026-01-01T00:00:00.000Z"
 })
 
+const onePerPage = <A>(input: unknown, items: ReadonlyArray<A>) => {
+  const start =
+    Predicate.hasProperty(input, "cursor") && Predicate.isString(input.cursor)
+      ? Number(input.cursor)
+      : 0
+  return {
+    items: items.slice(start, start + 1),
+    nextCursor: start + 1 < items.length ? String(start + 1) : null
+  }
+}
+
 type World = Readonly<{
   orgs: ReadonlyArray<string>
   projects: Readonly<Record<string, ReadonlyArray<string>>>
@@ -106,24 +117,28 @@ const run = (world: World, args: ReadonlyArray<string>) => {
           roles: world.orgs.map((orgSlug) => ({ orgSlug, role: "member" }))
         })
       case "list_orgs":
-        return Response.json({
-          items: world.orgs.map((slug) => ({
-            slug,
-            name: titleOf(slug),
-            role: "member"
-          })),
-          nextCursor: null
-        })
+        return Response.json(
+          onePerPage(
+            input,
+            world.orgs.map((slug) => ({
+              slug,
+              name: titleOf(slug),
+              role: "member"
+            }))
+          )
+        )
       case "list_projects": {
         const org =
           Predicate.hasProperty(input, "orgSlug") &&
           Predicate.isString(input.orgSlug)
             ? input.orgSlug
             : ""
-        return Response.json({
-          items: (world.projects[org] ?? []).map((slug) => project(org, slug)),
-          nextCursor: null
-        })
+        return Response.json(
+          onePerPage(
+            input,
+            (world.projects[org] ?? []).map((slug) => project(org, slug))
+          )
+        )
       }
       default:
         return world.ticketsStatus === undefined

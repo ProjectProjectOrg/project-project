@@ -40,6 +40,16 @@ const present = (raw: unknown): Option.Option<unknown> => {
 }
 
 const valueFor = (field: Field, value: unknown) => {
+  if (field.nullable && field.kind === "string" && value === "null") {
+    return Effect.succeed(null)
+  }
+  if (
+    field.kind === "strings" &&
+    Array.isArray(value) &&
+    value.every((item) => item === "")
+  ) {
+    return Effect.succeed([])
+  }
   if (field.kind === "json" && Predicate.isString(value)) {
     return Effect.flatMap(textValue(value), (text) =>
       decodeJson(text).pipe(

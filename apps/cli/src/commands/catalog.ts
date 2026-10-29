@@ -19,7 +19,7 @@ const hints: Readonly<Record<Field["kind"], string>> = {
   integer: "A whole number.",
   number: "A number.",
   boolean: "",
-  strings: "Repeat the flag for several values.",
+  strings: "Repeat the flag for several values; pass '' to clear.",
   json: "JSON, or @file / @- to read it."
 }
 

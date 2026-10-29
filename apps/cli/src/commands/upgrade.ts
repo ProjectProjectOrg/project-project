@@ -1,9 +1,10 @@
-import { cliRelease } from "@pp/shared"
+import { cliRelease, runInstaller } from "@pp/shared"
 import { Command, Flag } from "effect/cli"
 import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
 import { HttpClient, HttpClientResponse } from "effect/http"
 import * as Option from "effect/Option"
+import * as Path from "effect/Path"
 import { ChildProcess, ChildProcessSpawner } from "effect/process"
 import * as Schema from "effect/Schema"
 
@@ -11,7 +12,7 @@ import { CliFailure, ExitCode, unreachable } from "../CliFailure"
 import { originOf } from "../servers/origin"
 import { ServerStore } from "../servers/ServerStore"
 import { buildVersion } from "../version"
-import { root } from "./root"
+import { serverChoice } from "./context"
 
 const releases = `https://github.com/${cliRelease.repository}/releases`
 
@@ -64,18 +65,28 @@ export const upgradeCommand = Command.make(
   },
   ({ latest, nightly }) =>
     Effect.gen(function* () {
-      const flags = yield* root
       const catalog = yield* (yield* ServerStore).list
       const origin = Option.getOrElse(
-        Option.flatMap(flags.server, originOf),
+        Option.flatMap(yield* serverChoice, (choice) => originOf(choice.value)),
         () => catalog.defaultServer
       )
-      const script = nightly
-        ? `curl -fsSL '${releases}/download/${yield* latestNightly}/install.sh' | sh`
-        : latest || origin === null
-          ? `curl -fsSL '${releases}/latest/download/install.sh' | sh`
-          : `curl -fsSL '${origin}${cliRelease.installScriptPath}' | sh`
-      yield* Console.error(`pp ${buildVersion}: ${script}`)
+      const nightlyTag = nightly
+        ? Option.some(yield* latestNightly)
+        : Option.none()
+      const url = Option.match(nightlyTag, {
+        onSome: (tag) => `${releases}/download/${tag}/install.sh`,
+        onNone: () =>
+          latest || origin === null
+            ? `${releases}/latest/download/install.sh`
+            : `${origin}${cliRelease.installScriptPath}`
+      })
+      const env: Record<string, string> = {}
+      if (Option.isSome(nightlyTag)) env["PP_VERSION"] = nightlyTag.value
+      if (buildVersion !== "dev") {
+        env["PP_INSTALL_DIR"] = (yield* Path.Path).dirname(process.execPath)
+      }
+      const script = runInstaller(url, env)
+      yield* Console.error(`pp ${buildVersion}: installing from ${url}`)
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
       const code = yield* spawner
         .exitCode(
