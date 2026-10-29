@@ -36,7 +36,8 @@ const withConfigHome = <A, E>(
   run: (
     noticeIn: (build: string) => Effect.Effect<Option.Option<string>>
   ) => Effect.Effect<A, E>,
-  asked: Array<string>
+  asked: Array<string>,
+  failing = false
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
@@ -45,7 +46,9 @@ const withConfigHome = <A, E>(
       ServerStore.layer,
       fakeHttp((url) => {
         asked.push(url.pathname)
-        return Response.json({ version: "v2026.11.02" })
+        return failing
+          ? new Response("unavailable", { status: 503 })
+          : Response.json({ version: "v2026.11.02" })
       })
     ).pipe(
       Layer.provideMerge(BunServices.layer),
@@ -97,6 +100,24 @@ describe("update notice", () => {
           expect(asked).toEqual([])
         }),
       asked
+    )
+  })
+
+  it.effect("waits an hour before asking a failing server again", () => {
+    const asked: Array<string> = []
+    return withConfigHome(
+      (noticeIn) =>
+        Effect.gen(function* () {
+          expect(yield* noticeIn("2026.10.30")).toEqual(Option.none())
+          yield* TestClock.adjust("30 minutes")
+          yield* noticeIn("2026.10.30")
+          expect(asked).toHaveLength(1)
+          yield* TestClock.adjust("31 minutes")
+          yield* noticeIn("2026.10.30")
+          expect(asked).toHaveLength(2)
+        }),
+      asked,
+      true
     )
   })
 })

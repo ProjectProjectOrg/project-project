@@ -15,12 +15,14 @@ import { ServerStore } from "../servers/ServerStore"
 import { serverRelease } from "./serverRelease"
 
 const CHECK_EVERY_MS = 24 * 60 * 60 * 1000
+const RETRY_FAILED_AFTER_MS = 60 * 60 * 1000
 
 const UpdateChecks = Schema.Record(
   Schema.String,
   Schema.Struct({
     checkedAt: Schema.Finite,
-    version: Schema.NullOr(Schema.String)
+    version: Schema.NullOr(Schema.String),
+    failed: Schema.optional(Schema.Boolean)
   })
 )
 type UpdateChecks = typeof UpdateChecks.Type
@@ -71,18 +73,27 @@ const releaseFor = (origin: string) =>
     )
     const now = yield* Clock.currentTimeMillis
     const cached = checks[origin]
-    if (cached !== undefined && now - cached.checkedAt < CHECK_EVERY_MS) {
-      return Option.fromNullishOr(cached.version)
+    const previous = Option.fromNullishOr(cached?.version)
+    const waitFor =
+      cached?.failed === true ? RETRY_FAILED_AFTER_MS : CHECK_EVERY_MS
+    if (cached !== undefined && now - cached.checkedAt < waitFor) {
+      return previous
     }
-    const release = yield* serverRelease(origin).pipe(
+    const answer = yield* serverRelease(origin).pipe(
       Effect.timeoutOrElse({
         duration: "2 seconds",
         orElse: () => Effect.fail("timed out")
-      })
+      }),
+      Effect.option
     )
+    const release = Option.getOrElse(answer, () => previous)
     yield* encodeChecks({
       ...checks,
-      [origin]: { checkedAt: now, version: Option.getOrNull(release) }
+      [origin]: {
+        checkedAt: now,
+        version: Option.getOrNull(release),
+        ...(Option.isNone(answer) ? { failed: true } : {})
+      }
     }).pipe(
       Effect.flatMap((text) => fs.writeFileString(file, text)),
       Effect.ignore
