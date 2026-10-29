@@ -90,6 +90,24 @@ jobs:
             "$prefix-web:sha-$SHORT_SHA"
           echo "retagged=true" >> "$GITHUB_ENV"
 
+      - name: Check out the released commit
+        if: env.retagged == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Set up Bun
+        if: env.retagged == 'true'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Build the pp CLI
+        if: env.retagged == 'true'
+        run: |
+          bun install --frozen-lockfile
+          sh .github/scripts/build-cli.sh "$TAG" dist/cli
+
       - name: Publish prerelease
         if: env.retagged == 'true'
         env:
@@ -98,4 +116,4 @@ jobs:
         run: |
           args=(--target "$SHA" --prerelease --generate-notes --title "ProjectProject nightly $VERSION ($SHORT_SHA)")
           [ -n "$PREVIOUS_TAG" ] && args+=(--notes-start-tag "$PREVIOUS_TAG")
-          gh release create "$TAG" "${args[@]}"
+          gh release create "$TAG" "${args[@]}" dist/cli/*

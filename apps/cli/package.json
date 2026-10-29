@@ -9,6 +9,7 @@
   "scripts": {
     "pp": "bun src/main.ts",
     "build": "bun build src/main.ts --compile --minify --outfile dist/pp",
+    "build:release": "sh ../../.github/scripts/build-cli.sh",
     "typecheck": "tsc --noEmit",
     "test": "bun run --bun vitest run",
     "lint": "oxlint .",

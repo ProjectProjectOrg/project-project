@@ -11,7 +11,7 @@ import { join } from "node:path"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 import { migrationsFolder } from "@pp/db"
-import { cliOAuthClient, Tools } from "@pp/shared"
+import { catalogVersion, cliOAuthClient, Tools } from "@pp/shared"
 import { toNodeHandler } from "better-auth/node"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
@@ -227,9 +227,14 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     }
     const { McpLive } = await import("./Mcp")
     const { ToolsRouteLive } = await import("../tools/http")
+    const { CliInstallRouteLive } = await import("../tools/cliInstall")
     const { BackendServicesLive, BackendInfrastructureLive } =
       await import("../runtime")
-    const app = Layer.mergeAll(McpLive, ToolsRouteLive).pipe(
+    const app = Layer.mergeAll(
+      McpLive,
+      ToolsRouteLive,
+      CliInstallRouteLive
+    ).pipe(
       Layer.provide(
         BackendServicesLive.pipe(Layer.provideMerge(BackendInfrastructureLive))
       )
@@ -447,6 +452,53 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     expect(authServer.issuer).toBe(issuer.href)
     expect(authServer.authorization_endpoint).toEqual(expect.any(String))
     expect(authServer.token_endpoint).toEqual(expect.any(String))
+  })
+
+  it("http: the server publishes the catalog version pp was built with", async () => {
+    const metadata = await readJson(
+      await httpFetch(
+        new URL("/.well-known/oauth-protected-resource/api/v1/tools", resource)
+      )
+    )
+    expect(metadata.pp_catalog_version).toBe(catalogVersion)
+  })
+
+  it("http: a pp with a different catalog is told to upgrade before anything runs", async () => {
+    const headers = new Headers({
+      "content-type": "application/json",
+      authorization: `Bearer ${cliTokens[0]}`,
+      "pp-catalog-version": "00000000"
+    })
+    const response = await nextHandler()(
+      new Request(new URL("/api/v1/tools/me", resource).href, {
+        method: "POST",
+        headers,
+        body: "{}"
+      })
+    )
+    expect(response.status).toBe(409)
+    const body = JSON.parse(await response.text())
+    expect(body.error).toBe("CatalogMismatch")
+    expect(body.message).toContain("pp upgrade")
+  })
+
+  it("http: the server serves an installer that signs in to it", async () => {
+    const response = await nextHandler()(
+      new Request(new URL("/api/cli/install.sh", resource).href)
+    )
+    expect(response.status).toBe(200)
+    const script = await response.text()
+    expect(script).toContain(`PP_SERVER='${new URL(resource).origin}'`)
+    expect(script).toContain("releases/latest/download/install.sh")
+  })
+
+  it("http: the server names its pp release without serving code", async () => {
+    const response = await nextHandler()(
+      new Request(new URL("/api/cli/release", resource).href)
+    )
+    expect(response.status).toBe(200)
+    expect(response.headers.get("content-type")).toContain("application/json")
+    expect(await response.json()).toEqual({ version: null })
   })
 
   it("http: an MCP token can't call the tools route", async () => {

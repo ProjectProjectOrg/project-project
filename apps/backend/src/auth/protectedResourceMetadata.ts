@@ -7,6 +7,7 @@ import type { BetterAuthPlugin } from "better-auth"
 type ProtectedResourceInput = Readonly<{
   identifier: string
   name: string
+  extra?: Readonly<Record<string, string>>
 }>
 
 export const protectedResourceMetadataUrl = (resource: string) => {
@@ -42,6 +43,6 @@ export const protectedResourceMetadata = (
       authorization_servers: [ctx.baseURL],
       bearer_methods_supported: ["header"]
     }
-    return { response: metadataResponse(metadata) }
+    return { response: metadataResponse({ ...metadata, ...resource.extra }) }
   }
 })

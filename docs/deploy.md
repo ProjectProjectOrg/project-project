@@ -220,6 +220,30 @@ release so the previous tag can always run against the current database.
   that is not ahead of the previous stable or would sort before it.
 - Point the homelab at `IMAGE_TAG=nightly` and production at `IMAGE_TAG=stable`.
   A box that should follow every merge uses `IMAGE_TAG=main`.
+- **The `pp` CLI** ships with both channels. The nightly builds `pp` for macOS
+  (arm64, x64) and Linux (arm64, x64) from the commit it promotes
+  (`.github/scripts/build-cli.sh`) and attaches the gzipped binaries,
+  `SHA256SUMS` and `install.sh` to its prerelease. Stable copies those exact
+  files onto its release, so the `pp` you ship is the one that soaked; a hotfix
+  without a nightly builds them from its commit. `pp --version` therefore shows
+  the nightly it was built as.
+
+### Installing `pp` from a server
+
+Every server serves an installer at `/api/cli/install.sh`. People install the
+CLI that matches it, and sign in to it, with one line in Terminal:
+
+```sh
+curl -fsSL https://pp.example.com/api/cli/install.sh | sh
+```
+
+The server finds the GitHub release whose commit equals its own `APP_VERSION`
+(stable before nightly, cached for ten minutes) and pins the installer to it.
+A server running a commit that was never released, such as a `main` or
+`sha-` image, installs the latest stable instead. `pp` sends its tool catalog
+version with every call and the server refuses a mismatch with a message to
+run `pp upgrade`, so a drifted install never runs the wrong tools. See
+`apps/cli/README.md` for everything else.
 
 ---
 

@@ -10,7 +10,8 @@ export const ExitCode = {
   invalidInput: 6,
   conflict: 7,
   unreachable: 8,
-  externalService: 9
+  externalService: 9,
+  outdated: 10
 } as const
 
 export type ExitCode = (typeof ExitCode)[keyof typeof ExitCode]
@@ -43,7 +44,8 @@ const exitCodeByError: Readonly<Record<string, ExitCode>> = {
   GitHubScopeInsufficient: ExitCode.externalService,
   GitHubError: ExitCode.externalService,
   RepoGone: ExitCode.externalService,
-  RateLimited: ExitCode.externalService
+  RateLimited: ExitCode.externalService,
+  CatalogMismatch: ExitCode.outdated
 }
 
 export const exitCodeForError = (error: string): ExitCode =>

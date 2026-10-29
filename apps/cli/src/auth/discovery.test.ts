@@ -32,7 +32,8 @@ describe("discover", () => {
         resource: `${origin}/api/v1/tools`,
         authorizationEndpoint: `${origin}/api/auth/oauth2/authorize`,
         tokenEndpoint: `${origin}/api/auth/oauth2/token`,
-        revocationEndpoint: `${origin}/api/auth/oauth2/revoke`
+        revocationEndpoint: `${origin}/api/auth/oauth2/revoke`,
+        catalogVersion: undefined
       })
     }).pipe(Effect.provide(projectProject))
   )
