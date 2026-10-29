@@ -18,3 +18,12 @@ export const terminalText = (message: string) =>
       ),
     message
   )
+
+export const quotedCommandText = (text: string) =>
+  commandsByTool
+    .reduce(
+      (result, [name, command]) =>
+        result.replaceAll(`\`${name}\``, `\`${command}\``),
+      text
+    )
+    .replaceAll("an `pp ", "a `pp ")

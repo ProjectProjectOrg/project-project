@@ -76,5 +76,9 @@ esac
 
 if [ -n "$SERVER" ] && [ -z "${PP_SKIP_LOGIN:-}" ]; then
   say "Signing in to $SERVER…"
-  "$INSTALL_DIR/pp" login "$SERVER" < /dev/null
+  if (exec < /dev/tty) 2>/dev/null; then
+    "$INSTALL_DIR/pp" login "$SERVER" < /dev/tty
+  else
+    "$INSTALL_DIR/pp" login "$SERVER" < /dev/null
+  fi
 fi

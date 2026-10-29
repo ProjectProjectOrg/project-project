@@ -10,6 +10,12 @@ import * as Schema from "effect/Schema"
 
 import { CliFailure, ExitCode, notSignedIn } from "../CliFailure"
 
+export const SavedScope = Schema.Struct({
+  org: Schema.String,
+  project: Schema.optional(Schema.String)
+})
+export type SavedScope = typeof SavedScope.Type
+
 export const SavedServer = Schema.Struct({
   origin: Schema.String,
   user: Schema.Struct({
@@ -25,7 +31,8 @@ export const SavedServer = Schema.Struct({
     accessToken: Schema.String,
     refreshToken: Schema.String,
     expiresAt: Schema.Finite
-  })
+  }),
+  scope: Schema.optional(SavedScope)
 })
 export type SavedServer = typeof SavedServer.Type
 
@@ -71,6 +78,10 @@ export class ServerStore extends Context.Service<
     save: (server: SavedServer) => Effect.Effect<void, CliFailure>
     remove: (origin: string) => Effect.Effect<boolean, CliFailure>
     setDefault: (origin: string) => Effect.Effect<void, CliFailure>
+    setScope: (
+      origin: string,
+      scope: Option.Option<SavedScope>
+    ) => Effect.Effect<void, CliFailure>
     select: (
       preferred: Option.Option<string>
     ) => Effect.Effect<SavedServer, CliFailure>
@@ -147,18 +158,23 @@ export class ServerStore extends Context.Service<
 
       const save = (server: SavedServer) =>
         locked(
-          Effect.flatMap(list, (catalog) =>
-            write({
+          Effect.flatMap(list, (catalog) => {
+            const previous = catalog.servers.find(
+              (saved) => saved.origin === server.origin
+            )
+            const { scope: _given, ...credentials } = server
+            const scope = previous?.scope
+            return write({
               version: 1,
               defaultServer: catalog.defaultServer ?? server.origin,
               servers: [
                 ...catalog.servers.filter(
                   (saved) => saved.origin !== server.origin
                 ),
-                server
+                scope === undefined ? credentials : { ...credentials, scope }
               ]
             })
-          )
+          })
         )
 
       const remove = (origin: string) =>
@@ -194,6 +210,32 @@ export class ServerStore extends Context.Service<
           })
         )
 
+      const setScope = (origin: string, scope: Option.Option<SavedScope>) =>
+        locked(
+          Effect.gen(function* () {
+            const catalog = yield* list
+            const found = catalog.servers.find(
+              (saved) => saved.origin === origin
+            )
+            if (found === undefined) {
+              return yield* notSignedIn(
+                `You're not signed in to ${origin}. Run \`pp login ${origin}\`.`
+              )
+            }
+            const { scope: _previous, ...rest } = found
+            const updated: SavedServer = Option.match(scope, {
+              onNone: () => rest,
+              onSome: (value) => ({ ...rest, scope: value })
+            })
+            yield* write({
+              ...catalog,
+              servers: catalog.servers.map((saved) =>
+                saved.origin === origin ? updated : saved
+              )
+            })
+          })
+        )
+
       const select = (preferred: Option.Option<string>) =>
         Effect.gen(function* () {
           const catalog = yield* list
@@ -210,7 +252,15 @@ export class ServerStore extends Context.Service<
           )
         })
 
-      return ServerStore.of({ file, list, save, remove, setDefault, select })
+      return ServerStore.of({
+        file,
+        list,
+        save,
+        remove,
+        setDefault,
+        setScope,
+        select
+      })
     })
   )
 }

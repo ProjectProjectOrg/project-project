@@ -4,7 +4,9 @@ import { loginCommand, logoutCommand, serversCommand } from "./account"
 import { attachCommand } from "./attach"
 import { callCommand, toolsCommand } from "./call"
 import { catalogEntries, commandFor } from "./catalog"
+import { guideCommand } from "./guide"
 import { root } from "./root"
+import { statusCommand, useCommand } from "./scope"
 import { upgradeCommand } from "./upgrade"
 
 const groupDescriptions: Readonly<Record<string, string>> = {
@@ -50,6 +52,9 @@ export const pp = root.pipe(
     loginCommand,
     logoutCommand,
     serversCommand,
+    useCommand,
+    statusCommand,
+    guideCommand,
     upgradeCommand,
     toolsCommand,
     callCommand,

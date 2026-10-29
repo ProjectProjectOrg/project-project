@@ -30,6 +30,7 @@ const store = Layer.succeed(
     save: (updated) => Effect.sync(() => void saved.push(updated)),
     remove: () => Effect.die("unused"),
     setDefault: () => Effect.die("unused"),
+    setScope: () => Effect.die("unused"),
     select: () =>
       saved.length === 0
         ? Effect.fail(notSignedIn("unused"))

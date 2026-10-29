@@ -231,7 +231,8 @@ release so the previous tag can always run against the current database.
 ### Installing `pp` from a server
 
 Every server serves an installer at `/api/cli/install.sh`. People install the
-CLI that matches it, and sign in to it, with one line in Terminal:
+CLI that matches it, sign in to it, and choose their default org and project,
+with one line in Terminal:
 
 ```sh
 curl -fsSL https://pp.example.com/api/cli/install.sh | sh
