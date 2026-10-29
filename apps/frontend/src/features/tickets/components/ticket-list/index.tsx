@@ -103,7 +103,8 @@ function StatusSections({
     value: BacklogValue
   } | null>(null)
   const subTicketsSettled = useSubTicketsSettled(
-    Result.isSuccess(result) ? result.value : null
+    Result.isSuccess(result) ? result.value : null,
+    query.status
   )
   const current =
     Result.isSuccess(result) && subTicketsSettled ? result.value : null
