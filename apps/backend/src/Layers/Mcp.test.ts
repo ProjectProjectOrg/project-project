@@ -526,6 +526,15 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     expect(script).toContain("releases/latest/download/install.sh")
   })
 
+  it("http: the server names its pp release without serving code", async () => {
+    const response = await nextHandler()(
+      new Request(new URL("/api/cli/release", resource).href)
+    )
+    expect(response.status).toBe(200)
+    expect(response.headers.get("content-type")).toContain("application/json")
+    expect(await response.json()).toEqual({ version: null })
+  })
+
   it("http: an MCP token can't call the tools route", async () => {
     const http = await httpTool(tokens[0], "me")
     expect(http.status).toBe(401)
