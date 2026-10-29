@@ -28,7 +28,7 @@ pp upgrade --latest     # the latest stable release
 pp upgrade --nightly    # the latest nightly
 ```
 
-If `pp` and your server drift apart, commands stop and tell you to run `pp upgrade`.
+Once a day `pp` asks your server which release it runs. When yours is different, commands still work and end with a line suggesting `pp upgrade`. If `pp` and your server drift so far apart that their tools differ, commands stop and tell you to run `pp upgrade`. Set `PP_NO_UPDATE_CHECK=1` to turn the daily check off.
 
 ### From the repository
 

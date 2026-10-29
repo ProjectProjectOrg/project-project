@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 
 import { fakeHttp } from "../testing"
-import { serverRelease } from "./upgrade"
+import { serverRelease } from "./serverRelease"
 
 const origin = "https://pp.example.com"
 
