@@ -80,7 +80,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
       .handle("update", ({ params, payload, query }) =>
         Effect.flatMap(Tickets, (tickets) =>
           tickets.update(params.id, payload, query.sort)
-        ).pipe(dieOnMarkdown)
+        ).pipe(dieOnMarkdown, Effect.catchTag("Conflict", Effect.die))
       )
       .handle("bulkUpdate", ({ payload }) =>
         Effect.flatMap(Tickets, (tickets) => tickets.bulkUpdate(payload)).pipe(

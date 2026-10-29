@@ -64,6 +64,7 @@ import {
   UpdateTicketInput
 } from "../schemas/Ticket"
 import { SprintState } from "../sprintLogic"
+import { TicketBodyEdits } from "../ticketBodyEdits"
 import { DocFile } from "./DocFile"
 import { MeOutput } from "./MeOutput"
 import { RebuildTicketIndexOutput } from "./RebuildTicketIndexOutput"
@@ -493,11 +494,25 @@ export const McpTools = {
       "Before moving `status`, check `setBy` in " +
       "`list_statuses`: don't set a status that git automation sets on " +
       "its own.\n\n" +
-      "`body` replaces the entire description. Read the current body with " +
-      "`get_ticket`, edit it, and send it back in full so nothing is " +
-      "lost; ticking an acceptance criterion means changing its `- [ ]` " +
-      "to `- [x]` this way. Fill named blocks in rather than replacing " +
-      "them; a malformed block fails with `Validation` naming the line. " +
+      "`edits` changes part of the description without resending it, and " +
+      "is the way to make small changes such as ticking an acceptance " +
+      "criterion or adding an attachment. Each entry runs in order " +
+      "against the current stored description: " +
+      '`{ kind: "replace", oldText, newText, replaceAll? }` replaces ' +
+      "exact text (it must match once, or set `replaceAll`); " +
+      '`{ kind: "append", text }` adds markdown at the end; ' +
+      '`{ kind: "replace_block", type, content }` replaces the content ' +
+      "of the one named block of that type, heading included, keeping its " +
+      "tags (synced blocks can't be replaced). If any edit fails, nothing " +
+      "is saved and `Validation` names the edit's index. `edits` can't be " +
+      "combined with `body` or `template`.\n\n" +
+      "`body` replaces the entire description; use it for rewrites. Read " +
+      "the current body with `get_ticket`, edit it, and send it back in " +
+      "full so nothing is lost. Pass `expectedUpdatedAt` with the " +
+      "`updatedAt` you read to fail with `Conflict` instead of " +
+      "overwriting a change made since. Fill named blocks in rather than " +
+      "replacing them; a malformed block fails with `Validation` naming " +
+      "the line. " +
       BLOCK_FORMAT_POINTER +
       " " +
       MENTION_GUIDE +
@@ -517,10 +532,18 @@ export const McpTools = {
       projectSlug: Slug,
       id: TicketId,
       ...UpdateTicketInput.fields,
-      template: Schema.optional(Schema.NullOr(TemplateKey))
+      template: Schema.optional(Schema.NullOr(TemplateKey)),
+      edits: Schema.optional(TicketBodyEdits),
+      expectedUpdatedAt: Schema.optional(Schema.DateFromString)
     }),
     output: TicketDetailWithBlocks,
-    errors: [Unauthorized, NotFound, Validation, MentionInvalid] as const
+    errors: [
+      Unauthorized,
+      NotFound,
+      Validation,
+      MentionInvalid,
+      Conflict
+    ] as const
   },
   prepare_ticket_attachment: {
     description:
@@ -536,7 +559,7 @@ export const McpTools = {
       "no separate commit call is needed. The uploadUrl is a temporary credential: " +
       "use it only for the upload, and prepare again if it expires. Retrying a completed " +
       "upload returns its metadata without replacing its bytes. After a successful upload, " +
-      "read the current ticket and use update_ticket to insert the returned markdown, preserving existing content. " +
+      "add the returned markdown with an update_ticket append edit. " +
       "Only insert markdown after the upload succeeds. Never save uploadUrl in markdown. " +
       "Does not modify the description automatically. Do not send file paths or base64 as " +
       "file content. If storage is not connected, connect it in organization settings and retry.",

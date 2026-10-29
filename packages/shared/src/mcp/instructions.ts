@@ -26,8 +26,9 @@ export const MCP_INSTRUCTIONS = [
     "in its name (e.g. `feat/T-12-short-description`), push it, and " +
     "link it with `attach_branch`. For stacked pull requests, link each " +
     "layer above it with `stack_branch`, bottom to top.\n" +
-    "4. As you complete acceptance criteria, tick them: edit the " +
-    "ticket's current body and send it back with `update_ticket`.\n" +
+    "4. As you complete acceptance criteria, tick them with an " +
+    "`update_ticket` `edits` entry that replaces `- [ ] criterion` with " +
+    "`- [x] criterion`.\n" +
     "5. Open the pull request with the ticket id in its title.\n" +
     "6. Leave a comment with `create_comment` summarising what changed, " +
     "with a link to the pull request.\n" +
@@ -65,6 +66,7 @@ export const MCP_INSTRUCTIONS = [
     "untick its checkboxes. Malformed block markup is rejected with a " +
     "`Validation` error naming the line and the fix.",
   "Attachments: call `prepare_ticket_attachment`, POST the file bytes " +
-    "to its `uploadUrl` from your file environment, then put the " +
-    "returned markdown in the ticket body with `update_ticket`."
+    "to its `uploadUrl` from your file environment, then add the " +
+    "returned markdown to the ticket body with an `update_ticket` " +
+    "`append` edit."
 ].join("\n\n")

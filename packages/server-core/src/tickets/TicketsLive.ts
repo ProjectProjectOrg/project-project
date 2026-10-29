@@ -1400,7 +1400,7 @@ export const TicketsLive = Layer.effect(
         return yield* detailOf(document, yield* gitView)
       })
 
-    const update: TicketsShape["update"] = (id, input, sort, expectedBody) =>
+    const update: TicketsShape["update"] = (id, input, sort, expected) =>
       Effect.gen(function* () {
         const scope = yield* ProjectScope
         const { orgSlug, slug, userId, projectId } = scope
@@ -1442,8 +1442,21 @@ export const TicketsLive = Layer.effect(
               (existing) =>
                 Effect.gen(function* () {
                   if (
-                    expectedBody !== undefined &&
-                    existing.body !== expectedBody
+                    expected?.updatedAt !== undefined &&
+                    existing.updatedAt.getTime() !==
+                      expected.updatedAt.getTime()
+                  ) {
+                    return yield* new Conflict({
+                      reason: "ticket_updated_since_read"
+                    })
+                  }
+                  if (
+                    expected?.body !== undefined &&
+                    (yield* library.resolveSynced(
+                      orgSlug,
+                      slug,
+                      existing.body
+                    )) !== expected.body
                   ) {
                     return yield* new Validation({
                       reason: "ticket_body_changed"

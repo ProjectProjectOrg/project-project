@@ -16,8 +16,10 @@ import { Tickets } from "@pp/server-core/tickets/Tickets"
 import {
   blockLookupFor,
   expandTemplateKeepingHints,
+  applyTicketBodyEdits,
   formatAttachmentMarkdown,
   formatBlockIssue,
+  formatTicketBodyEditFailure,
   GIT_AUTOMATION_EVENTS,
   isPristineTemplateBody,
   isRasterImageContentType,
@@ -44,6 +46,7 @@ import {
   type ProjectStatus,
   type SprintState,
   type TemplateKey,
+  type TicketBodyEdit,
   type TicketId,
   type TicketType,
   type UpdateGroupInput,
@@ -52,7 +55,7 @@ import {
 import { Tool } from "effect/ai"
 import * as Effect from "effect/Effect"
 import type * as Layer from "effect/Layer"
-import type * as Schema from "effect/Schema"
+import * as Schema from "effect/Schema"
 
 import { orgTool, projectTool } from "./access"
 import { McpCurrentUser } from "./McpRequestUser"
@@ -374,12 +377,34 @@ const templateBodyFor = (id: TicketId, template: TemplateKey) =>
     return { body: expansion.body, expectedBody: ticket.body }
   })
 
+const editedBody = (id: TicketId, edits: ReadonlyArray<TicketBodyEdit>) =>
+  Effect.gen(function* () {
+    const ticket = yield* (yield* Tickets).get(id)
+    const result = applyTicketBodyEdits(ticket.body, edits)
+    if (!result.ok) {
+      return yield* new Validation({
+        reason: `edit_failed:${result.index}:${formatTicketBodyEditFailure(result.failure)}`
+      })
+    }
+    return {
+      body: yield* sanitizeMcpBody(result.body),
+      expectedBody: ticket.body
+    }
+  })
+
+const isValidation = Schema.is(Validation)
+
+const isBodyChanged = (error: unknown) =>
+  isValidation(error) && error.reason === "ticket_body_changed"
+
 const update_ticket = (
   input: {
     orgSlug: string
     projectSlug: string
     id: TicketId
     template?: TemplateKey | null
+    edits?: ReadonlyArray<TicketBodyEdit>
+    expectedUpdatedAt?: Date
   } & UpdateTicketInput
 ) =>
   Effect.gen(function* () {
@@ -390,33 +415,45 @@ const update_ticket = (
       id,
       body,
       template,
+      edits,
+      expectedUpdatedAt,
       ...payload
     } = input
-    const templateBody =
-      body === undefined && template !== undefined && template !== null
-        ? yield* templateBodyFor(id, template)
-        : undefined
-    const sanitizedBody =
-      body !== undefined ? yield* sanitizeMcpBody(body) : templateBody?.body
-    const updated = yield* tickets
-      .update(
+    if (edits !== undefined && (body !== undefined || template != null)) {
+      return yield* new Validation({ reason: "edits_with_body_or_template" })
+    }
+    const write = Effect.gen(function* () {
+      const pending =
+        edits !== undefined
+          ? yield* editedBody(id, edits)
+          : body === undefined && template !== undefined && template !== null
+            ? yield* templateBodyFor(id, template)
+            : undefined
+      const nextBody =
+        body !== undefined ? yield* sanitizeMcpBody(body) : pending?.body
+      return yield* tickets.update(
         id,
         {
           ...payload,
-          ...(sanitizedBody === undefined ? {} : { body: sanitizedBody })
+          ...(nextBody === undefined ? {} : { body: nextBody })
         },
         undefined,
-        templateBody?.expectedBody
+        { body: pending?.expectedBody, updatedAt: expectedUpdatedAt }
       )
-      .pipe(
-        Effect.catchTag("Validation", (error) =>
-          error.reason === "ticket_body_changed" && template != null
-            ? Effect.fail(
-                new Validation({ reason: `template_needs_body:${template}` })
-              )
-            : Effect.fail(error)
-        )
+    })
+    const updated = yield* (
+      edits === undefined
+        ? write
+        : write.pipe(Effect.retry({ times: 2, while: isBodyChanged }))
+    ).pipe(
+      Effect.catchTag("Validation", (error) =>
+        error.reason === "ticket_body_changed" && template != null
+          ? Effect.fail(
+              new Validation({ reason: `template_needs_body:${template}` })
+            )
+          : Effect.fail(error)
       )
+    )
     return withBlocks(updated.ticket)
   })
 
