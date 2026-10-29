@@ -10,7 +10,7 @@ ghcr.io/<owner>/projectproject-{app,web}:{sha-<short>,main}
    ↓
 `nightly` workflow (hourly, gated) retags the tip of main as :nightly
    ↓
-`stable` workflow (manual) retags a soaked nightly as :vYYYY.M.D, :stable, :latest
+`stable` workflow (manual) retags a soaked nightly as :vYYYY.MM.DD, :stable, :latest
    ↓
 each instance pulls the channel its IMAGE_TAG names
    ↓
@@ -203,11 +203,12 @@ release so the previous tag can always run against the current database.
   `main` is ahead of the last nightly and that nightly is older than
   `NIGHTLY_MIN_GAP_HOURS`. Set the variable to `0` for a nightly per push.
   Run it with `force` to publish regardless of the gap. The version is the
-  UTC build date plus the run number, as `vYYYY.M.D-nightly.<run>` (no leading
-  zeros), published as a GitHub prerelease with generated notes.
+  build date in Amsterdam time plus the run number, as
+  `vYYYY.MM.DD-nightly.<run>`, published as a GitHub prerelease with generated
+  notes.
 - **Stable** (`.github/workflows/stable.yml`) is a manual dispatch from `main`.
   It takes the newest nightly older than `STABLE_MIN_SOAK_HOURS` (default 2),
-  retags that nightly's images as `vYYYY.M.D`, `stable` and `latest`, and
+  retags that nightly's images as `vYYYY.MM.DD`, `stable` and `latest`, and
   publishes a GitHub Release with notes since the previous stable. The version
   is the nightly's build date, not the promotion date, so the nightly you
   tested and the stable you ship carry the same date. A second stable from the

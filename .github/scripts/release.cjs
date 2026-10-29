@@ -1,5 +1,5 @@
-const NIGHTLY_TAG = /^v(\d{4}\.\d{1,2}\.\d{1,2})-nightly\.\d+$/
-const STABLE_TAG = /^v(\d{4}\.\d{1,2}\.\d{1,2})(?:\.(\d+))?$/
+const NIGHTLY_TAG = /^v(\d{4}\.\d{2}\.\d{2})-nightly\.\d+$/
+const STABLE_TAG = /^v(\d{4}\.\d{2}\.\d{2})(?:\.(\d+))?$/
 const HOUR_MS = 60 * 60 * 1000
 
 const listReleases = async ({ github, context }) =>
@@ -23,10 +23,10 @@ const stables = (releases) =>
 const ageHours = (release, now) =>
   (now - Date.parse(release.published_at)) / HOUR_MS
 
-const calendarDay = (date) => {
-  const d = new Date(date)
-  return `${d.getUTCFullYear()}.${d.getUTCMonth() + 1}.${d.getUTCDate()}`
-}
+const calendarDay = (date) =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Amsterdam" })
+    .format(new Date(date))
+    .replaceAll("-", ".")
 
 const versionParts = (tag) => {
   const [, day, sequence] = STABLE_TAG.exec(tag)
