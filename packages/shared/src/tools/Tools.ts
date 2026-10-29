@@ -169,8 +169,7 @@ const defineTool = <
     success: spec.success,
     failure: ToolFailure,
     failureMode: "error"
-  })
-    .annotate(ToolCli, spec.cli)
+  }).annotate(ToolCli, spec.cli)
 
 export const Tools = Toolkit.make(
   defineTool("me", {
