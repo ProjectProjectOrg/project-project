@@ -288,6 +288,34 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
       expect(tool.inputSchema.type).toBe("object")
   })
 
+  it("modern: tells hosts which tools only read", async () => {
+    const { body } = await modern(tokens[0], "tools/list")
+    const annotations = Object.fromEntries(
+      body.result.tools.map(
+        (t: Readonly<{ name: string; annotations: unknown }>) => [
+          t.name,
+          t.annotations
+        ]
+      )
+    )
+    for (const tool of body.result.tools)
+      expect(tool.annotations.title).toEqual(expect.any(String))
+    expect(annotations.get_ticket).toMatchObject({
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false
+    })
+    expect(annotations.update_ticket).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: true
+    })
+    expect(annotations.get_git_state).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: true
+    })
+  })
+
   it("modern: isolates users across round-robin handlers", async () => {
     await Promise.all(
       Array.from({ length: 6 }, async (_, i) => {

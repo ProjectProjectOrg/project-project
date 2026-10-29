@@ -150,6 +150,17 @@ export const ToolErrors = [
 
 export type ToolError = Schema.Schema.Type<(typeof ToolErrors)[number]>
 
+export type ToolHints =
+  | Readonly<{ readOnly: true; openWorld: boolean }>
+  | Readonly<{
+      readOnly: false
+      destructive: boolean
+      idempotent: boolean
+      openWorld: boolean
+    }>
+
+const reads: ToolHints = { readOnly: true, openWorld: false }
+
 const defineTool = <
   const Name extends string,
   Parameters extends Schema.Top,
@@ -157,6 +168,8 @@ const defineTool = <
 >(
   name: Name,
   spec: Readonly<{
+    title: string
+    hints: ToolHints
     description: string
     cli: ToolCliShape
     parameters: Parameters
@@ -169,10 +182,24 @@ const defineTool = <
     success: spec.success,
     failure: ToolFailure,
     failureMode: "error"
-  }).annotate(ToolCli, spec.cli)
+  })
+    .annotate(ToolCli, spec.cli)
+    .annotate(Tool.Title, spec.title)
+    .annotate(Tool.Readonly, spec.hints.readOnly)
+    .annotate(
+      Tool.Destructive,
+      spec.hints.readOnly ? false : spec.hints.destructive
+    )
+    .annotate(
+      Tool.Idempotent,
+      spec.hints.readOnly ? true : spec.hints.idempotent
+    )
+    .annotate(Tool.OpenWorld, spec.hints.openWorld)
 
 export const Tools = Toolkit.make(
   defineTool("me", {
+    title: "Who am I",
+    hints: reads,
     description:
       "Who you are: the authenticated user, including the `id` to use " +
       "when assigning yourself to a ticket, and each org you belong to " +
@@ -183,6 +210,8 @@ export const Tools = Toolkit.make(
     success: MeOutput
   }),
   defineTool("list_orgs", {
+    title: "List organizations",
+    hints: reads,
     description:
       "List the organizations you belong to. Each `slug` is the `orgSlug` " +
       "other tools take. Paginated: pass `nextCursor` back as `cursor`.",
@@ -191,6 +220,8 @@ export const Tools = Toolkit.make(
     success: Page(Org)
   }),
   defineTool("get_org", {
+    title: "Get organization",
+    hints: reads,
     description:
       "Fetch one organization by slug, including its attachment storage " +
       "status (`not_connected`, `active` or `broken`) and `lastCheckedAt` " +
@@ -210,6 +241,8 @@ export const Tools = Toolkit.make(
     })
   }),
   defineTool("list_projects", {
+    title: "List projects",
+    hints: reads,
     description:
       "List the projects in an org that you can see. Each `slug` is the " +
       "`projectSlug` other tools take, and `key` is the prefix of its " +
@@ -220,6 +253,8 @@ export const Tools = Toolkit.make(
     success: Page(Project)
   }),
   defineTool("get_project", {
+    title: "Get project",
+    hints: reads,
     description:
       "Fetch one project: its name and ticket `key`, the GitHub " +
       "connection (`github`, null when no repository is connected, in " +
@@ -232,6 +267,8 @@ export const Tools = Toolkit.make(
     success: ProjectDetail
   }),
   defineTool("list_groups", {
+    title: "List groups",
+    hints: reads,
     description:
       "List a project's groups: sprints, epics, milestones and other sets " +
       "of tickets (ids like `G-3`). Filter by `kind`. `active` is a " +
@@ -249,6 +286,8 @@ export const Tools = Toolkit.make(
     success: Page(Group)
   }),
   defineTool("list_sprints", {
+    title: "List sprints",
+    hints: reads,
     description:
       "List a project's sprints, optionally narrowed by `state`: `active` " +
       "(running now), `planned` (future) or `completed` (past); omit it " +
@@ -265,6 +304,8 @@ export const Tools = Toolkit.make(
     success: Page(Group)
   }),
   defineTool("get_group", {
+    title: "Get group",
+    hints: reads,
     description:
       "Fetch one group (sprint, epic or milestone) by id (`G-N`): its " +
       "kind, dates, member ticket ids (`tickets`) and markdown `body`. To " +
@@ -278,6 +319,8 @@ export const Tools = Toolkit.make(
     success: GroupDetail
   }),
   defineTool("list_tickets", {
+    title: "List tickets",
+    hints: reads,
     description:
       "List a project's tickets, newest first unless `sort` says " +
       "otherwise (`key`: `id`, `created`, `updated`, `title`, `priority` " +
@@ -316,6 +359,8 @@ export const Tools = Toolkit.make(
     success: Page(Ticket)
   }),
   defineTool("get_ticket", {
+    title: "Get ticket",
+    hints: reads,
     description:
       "Fetch one ticket with what you need to work on it: its status " +
       "slug, assignees, branch, `stack`, pull request state (`gitState`) " +
@@ -335,6 +380,8 @@ export const Tools = Toolkit.make(
     success: TicketDetailWithBlocks
   }),
   defineTool("list_statuses", {
+    title: "List statuses",
+    hints: reads,
     description:
       "List the project's statuses in workflow order. Each has a stable " +
       "`slug` (what ticket tools take), a `label` (what to say in " +
@@ -357,6 +404,8 @@ export const Tools = Toolkit.make(
     })
   }),
   defineTool("list_tags", {
+    title: "List tags",
+    hints: reads,
     description:
       "List the tags defined in a project. Tickets can only use existing " +
       "tags: `create_ticket` and `update_ticket` fail on an unknown name. " +
@@ -370,6 +419,8 @@ export const Tools = Toolkit.make(
     success: Page(Tag)
   }),
   defineTool("list_members", {
+    title: "List members",
+    hints: reads,
     description:
       "List the project's members with their role. Use a member's `id` in " +
       "ticket `assignees` and in `[Label](mention:user/<id>)` mentions. " +
@@ -383,6 +434,13 @@ export const Tools = Toolkit.make(
     success: Page(Member)
   }),
   defineTool("get_git_state", {
+    title: "Check Git state",
+    hints: {
+      readOnly: false,
+      destructive: true,
+      idempotent: true,
+      openWorld: true
+    },
     description:
       "Fetch GitHub state for a project's tickets, keyed by ticket id in " +
       "`states`, or for one ticket with `ticketId`. Each state's `tag` " +
@@ -404,6 +462,8 @@ export const Tools = Toolkit.make(
     success: GitStatesResponse
   }),
   defineTool("get_project_doc", {
+    title: "Get project document",
+    hints: reads,
     description:
       "Raw source of the project's `project.md`: YAML frontmatter and " +
       "markdown body, exactly as stored. `get_project` returns the same " +
@@ -414,6 +474,8 @@ export const Tools = Toolkit.make(
     success: DocFile
   }),
   defineTool("get_group_doc", {
+    title: "Get group document",
+    hints: reads,
     description:
       "Raw source of a group's markdown file: YAML frontmatter and body, " +
       "exactly as stored. `get_group` returns the same data parsed; use " +
@@ -427,6 +489,8 @@ export const Tools = Toolkit.make(
     success: DocFile
   }),
   defineTool("get_ticket_doc", {
+    title: "Get ticket document",
+    hints: reads,
     description:
       "Raw source of a ticket's markdown file: YAML frontmatter and body, " +
       "exactly as stored. Prefer `get_ticket`, which returns the parsed " +
@@ -441,6 +505,8 @@ export const Tools = Toolkit.make(
     success: DocFile
   }),
   defineTool("list_blocks", {
+    title: "List blocks",
+    hints: reads,
     description:
       "List the blocks available to a project: the org's and the " +
       "project's own, with project overriding org. Built-in starting " +
@@ -468,6 +534,8 @@ export const Tools = Toolkit.make(
     )
   }),
   defineTool("list_templates", {
+    title: "List templates",
+    hints: reads,
     description:
       "List the templates available to a project: the org's and the " +
       "project's own, with project overriding org. Each entry's `body` is " +
@@ -497,6 +565,13 @@ export const Tools = Toolkit.make(
     )
   }),
   defineTool("create_ticket", {
+    title: "Create ticket",
+    hints: {
+      readOnly: false,
+      destructive: false,
+      idempotent: false,
+      openWorld: false
+    },
     description:
       "Create a ticket in a project. Follow the ticket-writing guidance " +
       "in the server instructions: check for an existing ticket first, " +
@@ -534,6 +609,13 @@ export const Tools = Toolkit.make(
     success: TicketDetailWithBlocks
   }),
   defineTool("update_ticket", {
+    title: "Update ticket",
+    hints: {
+      readOnly: false,
+      destructive: true,
+      idempotent: false,
+      openWorld: false
+    },
     description:
       "Update a ticket. Every field is optional and omitted fields are " +
       "left unchanged. `status`, `type`, `priority`, `tags`, `assignees` " +
@@ -592,6 +674,13 @@ export const Tools = Toolkit.make(
     success: TicketDetailWithBlocks
   }),
   defineTool("prepare_ticket_attachment", {
+    title: "Prepare attachment upload",
+    hints: {
+      readOnly: false,
+      destructive: false,
+      idempotent: false,
+      openWorld: true
+    },
     description:
       "Prepare an attachment upload for an existing ticket. Requires organization storage " +
       `and project membership. Accepts non-empty files up to ${ATTACHMENT_MAX_BYTES / (1024 * 1024)} MiB: PNG, JPEG, GIF, ` +
@@ -633,6 +722,13 @@ export const Tools = Toolkit.make(
     })
   }),
   defineTool("create_comment", {
+    title: "Comment on ticket",
+    hints: {
+      readOnly: false,
+      destructive: false,
+      idempotent: false,
+      openWorld: false
+    },
     description:
       "Add a comment to a ticket, attributed to you. `body` is CommonMark " +
       "markdown, 1–20,000 characters. Use it to record what you did, for " +
@@ -650,6 +746,13 @@ export const Tools = Toolkit.make(
     success: Comment
   }),
   defineTool("attach_branch", {
+    title: "Attach branch",
+    hints: {
+      readOnly: false,
+      destructive: true,
+      idempotent: true,
+      openWorld: true
+    },
     description:
       "Link a GitHub branch to a ticket as the ticket's own branch. " +
       "Create and push the branch with your own git tooling first: the " +
@@ -676,6 +779,13 @@ export const Tools = Toolkit.make(
     success: TicketDetail
   }),
   defineTool("stack_branch", {
+    title: "Stack branch",
+    hints: {
+      readOnly: false,
+      destructive: true,
+      idempotent: true,
+      openWorld: true
+    },
     description:
       "Add a GitHub branch to the stack on top of a ticket's own branch, " +
       "for work split into stacked pull requests (e.g. with `gh stack`). " +
@@ -696,6 +806,13 @@ export const Tools = Toolkit.make(
     success: TicketDetail
   }),
   defineTool("unstack_branch", {
+    title: "Unstack branch",
+    hints: {
+      readOnly: false,
+      destructive: true,
+      idempotent: true,
+      openWorld: false
+    },
     description:
       "Remove a branch from a ticket's stack. The branch is remembered as " +
       "ignored so it is not stacked on the ticket again automatically; " +
@@ -711,6 +828,13 @@ export const Tools = Toolkit.make(
     success: TicketDetail
   }),
   defineTool("create_sprint", {
+    title: "Create sprint",
+    hints: {
+      readOnly: false,
+      destructive: true,
+      idempotent: false,
+      openWorld: false
+    },
     description:
       "Create a sprint in a project. This tool only creates sprints, not " +
       "epics or milestones. `name` is required (1–200 chars); `color` is " +
@@ -732,6 +856,13 @@ export const Tools = Toolkit.make(
     success: Group
   }),
   defineTool("update_sprint", {
+    title: "Update sprint",
+    hints: {
+      readOnly: false,
+      destructive: true,
+      idempotent: true,
+      openWorld: false
+    },
     description:
       "Update a sprint's metadata. Targets `kind: 'sprint'` groups only — " +
       "passing the id of an epic or milestone fails with `Validation` " +
@@ -756,6 +887,13 @@ export const Tools = Toolkit.make(
     success: GroupDetail
   }),
   defineTool("complete_sprint", {
+    title: "Complete sprint",
+    hints: {
+      readOnly: false,
+      destructive: true,
+      idempotent: false,
+      openWorld: false
+    },
     description:
       "Complete a sprint, sending any carryover (non-`done`) tickets to " +
       "the chosen destination. Targets `kind: 'sprint'` groups only — " +
@@ -776,6 +914,13 @@ export const Tools = Toolkit.make(
     success: CompleteSprintOutput
   }),
   defineTool("rebuild_ticket_index", {
+    title: "Rebuild ticket index",
+    hints: {
+      readOnly: false,
+      destructive: false,
+      idempotent: true,
+      openWorld: false
+    },
     description:
       "Rebuild the operational ticket index for a project from its markdown " +
       "ticket documents (the source of truth). The index powers ticket " +
@@ -794,6 +939,13 @@ export const Tools = Toolkit.make(
     success: RebuildTicketIndexOutput
   }),
   defineTool("add_tickets_to_group", {
+    title: "Add tickets to group",
+    hints: {
+      readOnly: false,
+      destructive: true,
+      idempotent: true,
+      openWorld: false
+    },
     description:
       "Add one or more tickets to a group (sprint, epic, or milestone). " +
       "Additive: existing membership is preserved, ids already in the " +
