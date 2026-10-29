@@ -18,6 +18,7 @@ import {
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { SegmentedList } from "./SegmentedList"
 import { CreatorActiveScope, DimWhileCreating } from "./TicketCreatorShell"
+import { useSubTicketsSettled } from "./useSubTicketsSettled"
 
 type TicketListProps = Readonly<{
   query: TicketListQuery
@@ -101,15 +102,21 @@ function StatusSections({
     query: TicketListQuery
     value: BacklogValue
   } | null>(null)
+  const subTicketsSettled = useSubTicketsSettled(
+    Result.isSuccess(result) ? result.value : null,
+    query.status
+  )
+  const current =
+    Result.isSuccess(result) && subTicketsSettled ? result.value : null
   if (
-    Result.isSuccess(result) &&
-    (!Equal.equals(previous?.req, req) || previous?.value !== result.value)
+    current !== null &&
+    (!Equal.equals(previous?.req, req) || previous?.value !== current)
   ) {
-    setPrevious({ req, query, value: result.value })
+    setPrevious({ req, query, value: current })
   }
   const retainedResult = useAtomValue(backlog(previous?.req ?? req))
-  const active = Result.isSuccess(result)
-    ? { req, query, value: result.value }
+  const active = current
+    ? { req, query, value: current }
     : Result.isFailure(result) && !Equal.equals(previous?.req, req)
       ? null
       : previous && {
@@ -155,7 +162,11 @@ function StatusSections({
   )
 
   return (
-    <div aria-busy={result.waiting || Result.isInitial(result)}>
+    <div
+      aria-busy={
+        result.waiting || Result.isInitial(result) || !subTicketsSettled
+      }
+    >
       {Result.matchWithError(result, {
         onInitial: renderSections,
         onError: renderFailure,
