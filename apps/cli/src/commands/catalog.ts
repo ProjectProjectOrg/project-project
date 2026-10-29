@@ -7,7 +7,7 @@ import * as Option from "effect/Option"
 
 import { callTool } from "../client/callTool"
 import { printResult } from "../output/format"
-import { currentScope, currentServer, requireSlug } from "./context"
+import { currentServer, explainDefault, resolveScope } from "./context"
 import { type Field, fieldsOf, flagName } from "./fields"
 import { toolInput } from "./input"
 import { root } from "./root"
@@ -108,21 +108,6 @@ export const catalogEntries: ReadonlyArray<CatalogEntry> = Object.values(
   Tools.tools
 ).flatMap(entryFor)
 
-const scopeFor = (fields: ReadonlyArray<Field>) =>
-  Effect.gen(function* () {
-    const scope = yield* currentScope
-    const needs = (name: string) =>
-      fields.some((field) => field.name === name && field.required)
-    return {
-      orgSlug: needs("orgSlug")
-        ? Option.some(yield* requireSlug(scope.org, "org"))
-        : scope.org,
-      projectSlug: needs("projectSlug")
-        ? Option.some(yield* requireSlug(scope.project, "project"))
-        : scope.project
-    }
-  })
-
 export const commandFor = (entry: CatalogEntry) => {
   const name = entry.command[entry.command.length - 1] ?? entry.name
   const fields = entry.fields.filter((field) => !SCOPE_FIELDS.has(field.name))
@@ -139,12 +124,14 @@ export const commandFor = (entry: CatalogEntry) => {
     Effect.gen(function* () {
       const flags = yield* root
       const server = yield* currentServer
-      const input = yield* toolInput(
-        entry.fields,
-        raw,
-        yield* scopeFor(entry.fields)
+      const scope = yield* resolveScope(server, entry.fields)
+      const input = yield* toolInput(entry.fields, raw, {
+        orgSlug: Option.map(scope.org, (org) => org.value),
+        projectSlug: Option.map(scope.project, (project) => project.value)
+      })
+      const result = yield* callTool(server, entry.name, input).pipe(
+        explainDefault(scope)
       )
-      const result = yield* callTool(server, entry.name, input)
       yield* printResult(result, flags.json)
     })
   ).pipe(Command.withDescription(entry.description))

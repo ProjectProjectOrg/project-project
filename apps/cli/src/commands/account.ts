@@ -11,6 +11,7 @@ import { originOf } from "../servers/origin"
 import { type SavedServer, ServerStore } from "../servers/ServerStore"
 import { currentServer } from "./context"
 import { root } from "./root"
+import { chooseDefaultScope } from "./scope"
 
 const publicView = (server: SavedServer, isDefault: boolean) => ({
   server: server.origin,
@@ -40,9 +41,23 @@ export const loginCommand = Command.make(
     Effect.gen(function* () {
       const flags = yield* root
       const server = yield* login(address)
-      if (flags.json) return yield* printResult(publicView(server, true), true)
+      const scope = yield* chooseDefaultScope(server)
+      if (flags.json) {
+        return yield* printResult(
+          { ...publicView(server, true), scope: Option.getOrNull(scope) },
+          true
+        )
+      }
       yield* Console.log(
         `Signed in to ${server.origin} as ${server.user.name} (${server.user.email}).`
+      )
+      yield* Console.log(
+        Option.match(scope, {
+          onSome: (chosen) =>
+            `Commands use ${chosen.project === undefined ? chosen.org : `${chosen.org}/${chosen.project}`} by default. Change it with \`pp use\`.`,
+          onNone: () =>
+            "Choose the org and project commands use with `pp use`, or pass --org and --project."
+        })
       )
     })
 ).pipe(

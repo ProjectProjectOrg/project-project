@@ -1,5 +1,4 @@
 import { Command, Flag } from "effect/cli"
-import * as Config from "effect/Config"
 
 export const root = Command.make("pp").pipe(
   Command.withSharedFlags({
@@ -7,15 +6,18 @@ export const root = Command.make("pp").pipe(
       Flag.withDescription(
         "Server to use, by address. Defaults to PP_SERVER, then your default server."
       ),
-      Flag.withFallbackConfig(Config.String("PP_SERVER")),
       Flag.optional
     ),
     org: Flag.String("org").pipe(
-      Flag.withDescription("Organization slug."),
+      Flag.withDescription(
+        "Organization slug. Defaults to PP_ORG, then the default from `pp use`, then your only org."
+      ),
       Flag.optional
     ),
     project: Flag.String("project").pipe(
-      Flag.withDescription("Project slug."),
+      Flag.withDescription(
+        "Project slug. Defaults to PP_PROJECT, then the default from `pp use`, then the org's only project."
+      ),
       Flag.optional
     ),
     json: Flag.Boolean("json").pipe(
@@ -24,6 +26,6 @@ export const root = Command.make("pp").pipe(
     )
   }),
   Command.withDescription(
-    "ProjectProject from your terminal: the same tools agents use over MCP."
+    "ProjectProject from your terminal: the same tools agents use over MCP. Agents: run `pp guide` first."
   )
 )

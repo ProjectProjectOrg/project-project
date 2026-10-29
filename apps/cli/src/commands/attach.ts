@@ -4,13 +4,15 @@ import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import { HttpClient, HttpClientRequest } from "effect/http"
+import * as Option from "effect/Option"
 import * as Path from "effect/Path"
 
 import { callTool, callToolAs } from "../client/callTool"
 import { CliFailure, ExitCode, unreachable, usage } from "../CliFailure"
 import { printResult } from "../output/format"
 import type { SavedServer } from "../servers/ServerStore"
-import { currentScope, currentServer, requireSlug } from "./context"
+import { currentServer, explainDefault, resolveScope } from "./context"
+import { fieldsOf } from "./fields"
 import { root } from "./root"
 
 const contentTypes: Readonly<Record<string, AttachmentContentType>> = {
@@ -77,6 +79,8 @@ export const attachFile = Effect.fn("attachFile")(function* (
   return { filename, url: prepared.url, markdown: prepared.markdown }
 })
 
+const scopeFields = fieldsOf(Tools.tools.prepare_ticket_attachment)
+
 export const attachCommand = Command.make(
   "attach",
   {
@@ -91,16 +95,19 @@ export const attachCommand = Command.make(
     Effect.gen(function* () {
       const flags = yield* root
       const server = yield* currentServer
-      const scope = yield* currentScope
+      const scope = yield* resolveScope(server, scopeFields)
+      if (Option.isNone(scope.org) || Option.isNone(scope.project)) {
+        return yield* usage("This command needs an org and a project.")
+      }
       const attached = yield* attachFile(
         server,
         {
-          orgSlug: yield* requireSlug(scope.org, "org"),
-          projectSlug: yield* requireSlug(scope.project, "project")
+          orgSlug: scope.org.value.value,
+          projectSlug: scope.project.value.value
         },
         id,
         file
-      )
+      ).pipe(explainDefault(scope))
       if (flags.json) {
         return yield* printResult({ id, ...attached }, true)
       }

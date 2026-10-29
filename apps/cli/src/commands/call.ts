@@ -8,12 +8,19 @@ import { callTool } from "../client/callTool"
 import { usage } from "../CliFailure"
 import { printResult } from "../output/format"
 import { catalogEntries } from "./catalog"
-import { currentScope, currentServer } from "./context"
+import { currentServer, explainDefault, resolveScope } from "./context"
 import { readText } from "./input"
 import { root } from "./root"
 
 const decodeObject = Schema.decodeUnknownEffect(
   Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown))
+)
+
+const decodeGivenScope = Schema.decodeUnknownOption(
+  Schema.Struct({
+    orgSlug: Schema.optional(Schema.String),
+    projectSlug: Schema.optional(Schema.String)
+  })
 )
 
 const firstSentence = (text: string) => text.split(/(?<=\.)\s/)[0] ?? text
@@ -64,24 +71,26 @@ export const callCommand = Command.make(
       const given = yield* decodeObject(text).pipe(
         Effect.mapError(() => usage("The input must be a JSON object."))
       )
-      const scope = yield* currentScope
       const entry = catalogEntries.find((candidate) => candidate.name === tool)
-      const wants = (name: string) =>
-        entry?.fields.some((field) => field.name === name) === true
+      const scope = yield* resolveScope(
+        server,
+        entry?.fields ?? [],
+        Option.getOrElse(decodeGivenScope(given), () => ({}))
+      )
       const withScope: Record<string, unknown> = {}
-      if (wants("orgSlug") && Option.isSome(scope.org)) {
-        withScope["orgSlug"] = scope.org.value
-      }
-      if (wants("projectSlug") && Option.isSome(scope.project)) {
-        withScope["projectSlug"] = scope.project.value
+      if (Option.isSome(scope.org)) withScope["orgSlug"] = scope.org.value.value
+      if (Option.isSome(scope.project)) {
+        withScope["projectSlug"] = scope.project.value.value
       }
       Object.assign(withScope, given)
-      const result = yield* callTool(server, tool, withScope)
+      const result = yield* callTool(server, tool, withScope).pipe(
+        explainDefault(scope)
+      )
       yield* printResult(result, flags.json || !Predicate.isObject(result))
     })
 ).pipe(
   Command.withDescription(
-    "Call any tool with raw JSON input. Org and project are filled in from --org and --project when missing."
+    "Call any tool with raw JSON input. Org and project are filled in like other commands when the input leaves them out."
   ),
   Command.withExamples([
     {

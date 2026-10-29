@@ -32,6 +32,7 @@ const store = Layer.succeed(
     save: () => Effect.die("unused"),
     remove: () => Effect.die("unused"),
     setDefault: () => Effect.die("unused"),
+    setScope: () => Effect.die("unused"),
     select: () => Effect.die("unused")
   })
 )
