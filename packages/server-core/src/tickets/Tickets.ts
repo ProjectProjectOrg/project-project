@@ -59,6 +59,11 @@ import type { MalformedTicketDocument } from "./TicketDocs"
 
 type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
 
+export type TicketUpdateExpectation = Readonly<{
+  body?: string
+  updatedAt?: Date
+}>
+
 type GitHubFailure =
   | GitHubTokenExpired
   | GitHubScopeInsufficient
@@ -150,10 +155,10 @@ export type TicketsShape = Readonly<{
     id: string,
     input: UpdateTicketInput,
     sort?: TicketSort,
-    expectedBody?: string
+    expected?: TicketUpdateExpectation
   ) => Effect.Effect<
     TicketUpdateResult,
-    Forbidden | TicketReadError | Validation | MentionInvalid,
+    Forbidden | TicketReadError | Validation | MentionInvalid | Conflict,
     ProjectScope | ActivityActor
   >
   clearStaleEstimates: () => Effect.Effect<

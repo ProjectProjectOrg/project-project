@@ -1022,7 +1022,7 @@ describe("MCP handlers → write tools", () => {
   )
 })
 
-describe("MCP handlers → update_ticket with a template", () => {
+describe("MCP handlers → update_ticket with a template or edits", () => {
   const expandedBody = expandTemplate(
     bugReportTemplate,
     blockLookupFor(fakeLibrary)
@@ -1054,9 +1054,9 @@ describe("MCP handlers → update_ticket with a template", () => {
         title: input.title,
         body: input.body ?? ""
       }),
-    update: (_id, input, _sort, expectedBody?: string) => {
+    update: (_id, input, _sort, expected) => {
       state.update = input
-      if (expectedBody !== undefined && state.currentBody !== expectedBody) {
+      if (expected?.body !== undefined && state.currentBody !== expected.body) {
         return Effect.fail(new Validation({ reason: "ticket_body_changed" }))
       }
       return Effect.succeed({
@@ -1227,6 +1227,115 @@ describe("MCP handlers → update_ticket with a template", () => {
         expect.objectContaining({ type: "acceptance-criteria", sync: false })
       ])
     }).pipe(Effect.provide(TemplateTestLayer))
+  )
+
+  it.effect("ticks one criterion with an edit, sending only the change", () =>
+    Effect.gen(function* () {
+      const result = yield* updateWith("Intro.\n\n- [ ] Ship it", {
+        edits: [
+          {
+            kind: "replace",
+            oldText: "- [ ] Ship it",
+            newText: "- [x] Ship it"
+          }
+        ]
+      })
+
+      expect(result.isError).toBeUndefined()
+      expect(state.update).toEqual({ body: "Intro.\n\n- [x] Ship it" })
+    }).pipe(Effect.provide(TemplateTestLayer))
+  )
+
+  it.effect("appends attachment markdown to the description", () =>
+    Effect.gen(function* () {
+      yield* updateWith("Intro.", {
+        edits: [{ kind: "append", text: "![shot.png](/api/attachments/o/1)" }]
+      })
+
+      expect(state.update).toEqual({
+        body: "Intro.\n\n![shot.png](/api/attachments/o/1)"
+      })
+    }).pipe(Effect.provide(TemplateTestLayer))
+  )
+
+  it.effect("saves nothing when one edit in the list fails", () =>
+    Effect.gen(function* () {
+      const result = yield* updateWith("- [ ] a\n- [ ] b", {
+        edits: [
+          { kind: "append", text: "More." },
+          { kind: "replace", oldText: "- [ ]", newText: "- [x]" }
+        ]
+      })
+
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toBe(
+        "edits[1] failed: oldText appears 2 times; include more surrounding " +
+          "text so it matches once, or set replaceAll. Nothing was saved."
+      )
+      expect(state.update).toBeUndefined()
+    }).pipe(Effect.provide(TemplateTestLayer))
+  )
+
+  it.effect("rejects edits combined with a body", () =>
+    Effect.gen(function* () {
+      const result = yield* updateWith("Intro.", {
+        body: "Rewrite",
+        edits: [{ kind: "append", text: "More." }]
+      })
+
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toContain("can't be combined with body")
+      expect(state.update).toBeUndefined()
+    }).pipe(Effect.provide(TemplateTestLayer))
+  )
+
+  it.effect("reapplies edits on top of a description changed mid-update", () =>
+    Effect.gen(function* () {
+      const result = yield* updateWith(
+        "- [ ] a",
+        { edits: [{ kind: "append", text: "More." }] },
+        "- [ ] a\n- [ ] b"
+      )
+
+      expect(result.isError).toBeUndefined()
+      expect(state.update).toEqual({ body: "- [ ] a\n- [ ] b\n\nMore." })
+    }).pipe(Effect.provide(TemplateTestLayer))
+  )
+
+  it.effect(
+    "passes expectedUpdatedAt through as the update's expectation",
+    () => {
+      let seen: unknown
+      const ExpectingTicketsStub = Layer.mock(Tickets, {
+        update: (_id, input, _sort, expected) => {
+          seen = expected
+          return Effect.succeed({
+            ticket: {
+              ...fakeTicket,
+              creator: null,
+              updater: null,
+              body: input.body ?? ""
+            },
+            orderKey: null
+          })
+        }
+      })
+      return Effect.gen(function* () {
+        yield* updateWith("", {
+          body: "Rewrite",
+          expectedUpdatedAt: "2026-05-10T00:00:00.000Z"
+        })
+
+        expect(seen).toEqual({
+          body: undefined,
+          updatedAt: isoDate("2026-05-10T00:00:00.000Z")
+        })
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(TestLayer, ExpectingTicketsStub, TemplateLibraryStub)
+        )
+      )
+    }
   )
 })
 

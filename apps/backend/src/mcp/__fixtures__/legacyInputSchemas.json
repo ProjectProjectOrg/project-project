@@ -1178,6 +1178,93 @@
             "type": "null"
           }
         ]
+      },
+      "edits": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": ["replace"]
+                    },
+                    "oldText": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "newText": {
+                      "type": "string"
+                    },
+                    "replaceAll": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": ["kind", "oldText", "newText"],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": ["append"]
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": ["kind", "text"],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": ["replace_block"]
+                    },
+                    "type": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                    },
+                    "content": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["kind", "type", "content"],
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 50
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "expectedUpdatedAt": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     },
     "required": ["orgSlug", "projectSlug", "id"],

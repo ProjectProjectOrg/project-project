@@ -43,6 +43,28 @@ const asSentence = (text: string): string => {
   return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`
 }
 
+const editFailureMessage = (failure: string): string => {
+  const [code, count] = failure.split(":")
+  const markup = failure.match(/^block_markup:(.*)$/s)
+  if (markup) {
+    return `it leaves invalid block markup: ${asSentence(markup[1] ?? "")}`
+  }
+  switch (code) {
+    case "no_match":
+      return "oldText doesn't appear in the current description; read it again with get_ticket and copy the text exactly."
+    case "multiple_matches":
+      return `oldText appears ${count} times; include more surrounding text so it matches once, or set replaceAll.`
+    case "block_not_found":
+      return "the description has no block of that type; see blocks in get_ticket."
+    case "block_ambiguous":
+      return `the description has ${count} blocks of that type; use a replace edit on the exact text instead.`
+    case "block_synced":
+      return "that block is synced and managed centrally; only tick or untick its checkboxes with a replace edit."
+    default:
+      return `${failure}.`
+  }
+}
+
 const catalogMessages: Messages<McpToolError> = {
   Unauthorized: () => "Unauthorized.",
   Forbidden: () => "Forbidden.",
@@ -72,6 +94,16 @@ const catalogMessages: Messages<McpToolError> = {
         "description, and this ticket already has content. Read the " +
         "template's body from list_templates, fill it in around the " +
         "existing content, and pass it to update_ticket as body."
+      )
+    }
+    const editFailed = reason?.match(/^edit_failed:(\d+):(.*)$/s)
+    if (editFailed) {
+      return `edits[${editFailed[1]}] failed: ${editFailureMessage(editFailed[2] ?? "")} Nothing was saved.`
+    }
+    if (reason === "edits_with_body_or_template") {
+      return (
+        "Pass edits on its own: it can't be combined with body or " +
+        "template in one update_ticket call."
       )
     }
     return reason ? `Validation error (${reason}).` : "Validation error."

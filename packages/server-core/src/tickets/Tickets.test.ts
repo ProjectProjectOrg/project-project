@@ -2943,7 +2943,9 @@ it.effect(
       )
 
       const error = yield* tickets
-        .update("T-1", { body: "Template content" }, undefined, read.body)
+        .update("T-1", { body: "Template content" }, undefined, {
+          body: read.body
+        })
         .pipe(Effect.flip)
 
       expect(error).toMatchObject({
@@ -2954,6 +2956,44 @@ it.effect(
     }).pipe(Effect.provide(layer))
   }
 )
+
+it.effect("rejects an update when the ticket changed after it was read", () => {
+  const docs = makeFakeTicketDocs(["T-1"])
+  const layer = makeTicketsLayer("T", docs.layer, {
+    ticketIndex: makeFakeTicketIndex(docs.documents)
+  })
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const read = yield* tickets.get("T-1")
+    docs.documents.set(
+      "T-1",
+      makeTicketDocument("T-1", {
+        body: "A concurrent edit",
+        updatedAt: isoDate("2026-04-02T00:00:00.000Z")
+      })
+    )
+
+    const error = yield* tickets
+      .update("T-1", { body: "Stale rewrite" }, undefined, {
+        updatedAt: read.updatedAt
+      })
+      .pipe(Effect.flip)
+
+    expect(error).toMatchObject({
+      _tag: "Conflict",
+      reason: "ticket_updated_since_read"
+    })
+    expect(docs.documents.get("T-1")?.body).toBe("A concurrent edit")
+
+    const updated = yield* tickets.update(
+      "T-1",
+      { body: "Fresh rewrite" },
+      undefined,
+      { updatedAt: isoDate("2026-04-02T00:00:00.000Z") }
+    )
+    expect(updated.ticket.body).toBe("Fresh rewrite")
+  }).pipe(Effect.provide(layer))
+})
 
 it.effect(
   "metadata edits skip attachment reconciliation while body edits retain it",
