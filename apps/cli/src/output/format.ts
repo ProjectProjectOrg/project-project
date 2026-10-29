@@ -73,11 +73,23 @@ const flatten = (
       : [[`${prefix}${key}`, value] as const]
   )
 
+const isValues = (value: unknown): value is ReadonlyArray<unknown> =>
+  Array.isArray(value) && value.every(isPrimitive)
+
+const shortCell = (value: unknown) =>
+  isValues(value)
+    ? value.length === 0
+      ? "none"
+      : value.map(cell).join(", ")
+    : cell(value)
+
 const details = (record: Readonly<Record<string, unknown>>) => {
   const entries = flatten(record)
   const short = entries.filter(
     ([, value]) =>
-      isPrimitive(value) && !(Predicate.isString(value) && value.includes("\n"))
+      isValues(value) ||
+      (isPrimitive(value) &&
+        !(Predicate.isString(value) && value.includes("\n")))
   )
   const long = entries.filter(
     ([, value]) => Predicate.isString(value) && value.includes("\n")
@@ -93,7 +105,7 @@ const details = (record: Readonly<Record<string, unknown>>) => {
   )
   return [
     ...short.map(
-      ([key, value]) => `${`${key}:`.padEnd(width + 2)}${cell(value)}`
+      ([key, value]) => `${`${key}:`.padEnd(width + 2)}${shortCell(value)}`
     ),
     ...lists.map(([key, rows]) => `\n${key}:\n${table(rows)}`),
     ...long.map(([key, value]) => `\n${key}:\n${cellText(value)}`)

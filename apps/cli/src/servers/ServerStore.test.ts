@@ -89,4 +89,21 @@ describe("ServerStore", () => {
       })
     )
   )
+
+  it.live("keeps every server when several pp processes save at once", () =>
+    inTempConfig(
+      Effect.gen(function* () {
+        const store = yield* ServerStore
+        const origins = Array.from(
+          { length: 20 },
+          (_, index) => `https://pp${index}.example.com`
+        )
+        yield* Effect.forEach(origins, (origin) => store.save(server(origin)), {
+          concurrency: "unbounded"
+        })
+        const saved = (yield* store.list).servers.map((entry) => entry.origin)
+        expect(saved.toSorted()).toEqual(origins.toSorted())
+      })
+    )
+  )
 })
