@@ -106,4 +106,26 @@ describe("ServerStore", () => {
       })
     )
   )
+
+  it.effect("keeps the saved default when a refresh saves an older copy", () =>
+    inTempConfig(
+      Effect.gen(function* () {
+        const store = yield* ServerStore
+        const origin = "https://a.example.com"
+        yield* store.save(server(origin))
+        const beforeUse = yield* store.select(Option.some(origin))
+        yield* store.setScope(origin, Option.some({ org: "acme" }))
+        yield* store.save({
+          ...beforeUse,
+          tokens: { accessToken: "a2", refreshToken: "r2", expiresAt: 2 }
+        })
+        const afterRefresh = yield* store.select(Option.some(origin))
+        expect(afterRefresh.scope).toEqual({ org: "acme" })
+        expect(afterRefresh.tokens.refreshToken).toBe("r2")
+        yield* store.setScope(origin, Option.none())
+        yield* store.save({ ...afterRefresh, tokens: beforeUse.tokens })
+        expect((yield* store.select(Option.some(origin))).scope).toBeUndefined()
+      })
+    )
+  )
 })
