@@ -1,8 +1,3 @@
-# Promotes the tip of main to the `nightly` channel by retagging the images CI
-# already pushed. Runs hourly but only publishes when main has new commits and
-# the last nightly is older than NIGHTLY_MIN_GAP_HOURS (repository variable,
-# default 2). Set it to 0 for a nightly per push.
-
 name: nightly
 
 on:
