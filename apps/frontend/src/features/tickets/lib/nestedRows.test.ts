@@ -101,9 +101,9 @@ describe("expandedParents", () => {
       row("T-2", { subTicketCount: 0 }),
       row("T-3", { subTicketCount: 1 })
     ]
-    expect([
-      ...expandedParents(rows, (id) => id !== ticketId("T-3"))
-    ]).toEqual(["T-1"])
+    expect([...expandedParents(rows, (id) => id !== ticketId("T-3"))]).toEqual([
+      "T-1"
+    ])
   })
 })
 

@@ -2,11 +2,11 @@ import { useAtomValue } from "@effect/atom-react"
 import type { TicketId } from "@pp/shared"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import type { BacklogValue } from "@/features/tickets/atoms/backlog"
 import {
   expandedChildTickets,
   expandedChildrenRequest
 } from "@/features/tickets/atoms/childTickets"
-import type { BacklogValue } from "@/features/tickets/atoms/backlog"
 import { useSubTicketsExpanded } from "@/features/tickets/hooks/useSubTicketsExpanded"
 import {
   childrenSettled,
