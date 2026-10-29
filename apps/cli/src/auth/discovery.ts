@@ -7,7 +7,8 @@ import { unreachable } from "../CliFailure"
 
 const ResourceMetadata = Schema.Struct({
   resource: Schema.String,
-  authorization_servers: Schema.NonEmptyArray(Schema.String)
+  authorization_servers: Schema.NonEmptyArray(Schema.String),
+  pp_catalog_version: Schema.optional(Schema.String)
 })
 
 const AuthorizationServerMetadata = Schema.Struct({
@@ -23,6 +24,7 @@ export type Discovered = Readonly<{
   authorizationEndpoint: string
   tokenEndpoint: string
   revocationEndpoint: string | undefined
+  catalogVersion: string | undefined
 }>
 
 export const resourceMetadataUrl = (origin: string) =>
@@ -72,7 +74,8 @@ export const discover = Effect.fn("discover")(function* (origin: string) {
     resource: resource.resource,
     authorizationEndpoint: server.authorization_endpoint,
     tokenEndpoint: server.token_endpoint,
-    revocationEndpoint: server.revocation_endpoint
+    revocationEndpoint: server.revocation_endpoint,
+    catalogVersion: resource.pp_catalog_version
   }
   return discovered
 })

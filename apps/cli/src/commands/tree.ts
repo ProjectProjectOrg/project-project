@@ -10,6 +10,7 @@ import { attachCommand } from "./attach"
 import { callCommand, toolsCommand } from "./call"
 import { catalogEntries, commandFor } from "./catalog"
 import { root } from "./root"
+import { upgradeCommand } from "./upgrade"
 
 const groupDescriptions: Readonly<Record<string, string>> = {
   tickets: "Read, create and change tickets.",
@@ -55,6 +56,7 @@ export const pp = root.pipe(
     logoutCommand,
     serversCommand,
     initCommand,
+    upgradeCommand,
     toolsCommand,
     callCommand,
     ...topLevel,

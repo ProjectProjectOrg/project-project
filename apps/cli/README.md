@@ -4,13 +4,38 @@ ProjectProject from your terminal. `pp` runs the same tools agents use over MCP,
 
 ## Install
 
-Build a single binary with Bun:
+Open Terminal and paste the line for your ProjectProject server, replacing `pp.example.com` with its address:
 
 ```sh
-bun run --cwd apps/cli build   # writes apps/cli/dist/pp
+curl -fsSL https://pp.example.com/api/cli/install.sh | sh
 ```
 
-Or run it from the repository with `bun run --cwd apps/cli pp -- <command>`.
+This installs the `pp` that matches your server and then signs you in: your browser opens, you approve, and you're done. Nothing else needs to be installed first. `pp` goes into `~/.local/bin`, and the installer adds that folder to your terminal's PATH, so open a new Terminal window afterwards.
+
+To install the latest release without signing in to a server yet:
+
+```sh
+curl -fsSL https://github.com/ProjectProjectOrg/project-project/releases/latest/download/install.sh | sh
+```
+
+`pp` runs on macOS (Apple silicon and Intel) and Linux.
+
+### Upgrade
+
+```sh
+pp upgrade              # the version that matches your server
+pp upgrade --latest     # the latest stable release
+pp upgrade --nightly    # the latest nightly
+```
+
+If `pp` and your server drift apart, commands stop and tell you to run `pp upgrade`.
+
+### From the repository
+
+```sh
+bun run --cwd apps/cli pp -- <command>   # run from source
+bun run --cwd apps/cli build             # writes apps/cli/dist/pp
+```
 
 ## Sign in
 
@@ -79,3 +104,4 @@ echo '{"id":"T-80"}' | pp call get_ticket -
 | 7 | Conflict with the current state |
 | 8 | The server can't be reached, or isn't a ProjectProject server |
 | 9 | An external service (GitHub, storage) failed |
+| 10 | `pp` doesn't match the server's version: run `pp upgrade` |

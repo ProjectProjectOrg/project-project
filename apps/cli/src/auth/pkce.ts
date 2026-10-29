@@ -14,14 +14,20 @@ export const challengeFor = Effect.fn("challengeFor")(function* (
   verifier: string
 ) {
   const crypto = yield* Crypto.Crypto
-  const hash = yield* crypto.digest("SHA-256", encoder.encode(verifier))
+  const hash = yield* crypto
+    .digest("SHA-256", encoder.encode(verifier))
+    .pipe(Effect.orDie)
   return Base64Url.encode(hash)
 })
 
 export const newPkce = Effect.gen(function* () {
   const crypto = yield* Crypto.Crypto
-  const verifier = Base64Url.encode(yield* crypto.randomBytes(32))
-  const state = Base64Url.encode(yield* crypto.randomBytes(16))
+  const verifier = Base64Url.encode(
+    yield* crypto.randomBytes(32).pipe(Effect.orDie)
+  )
+  const state = Base64Url.encode(
+    yield* crypto.randomBytes(16).pipe(Effect.orDie)
+  )
   const pkce: Pkce = {
     verifier,
     challenge: yield* challengeFor(verifier),

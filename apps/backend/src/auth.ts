@@ -10,7 +10,11 @@ import {
   projectMember,
   user
 } from "@pp/db/schema"
-import { cliOAuthClient, INVITATION_VALID_DAYS } from "@pp/shared"
+import {
+  catalogVersion,
+  cliOAuthClient,
+  INVITATION_VALID_DAYS
+} from "@pp/shared"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { APIError } from "better-auth/api"
@@ -520,7 +524,11 @@ export const auth = betterAuth({
     }),
     protectedResourceMetadata({
       identifier: toolsResource,
-      name: cliOAuthClient.name
+      name: cliOAuthClient.name,
+      extra: {
+        pp_catalog_version: catalogVersion,
+        pp_build: process.env.APP_VERSION || "dev"
+      }
     })
   ]
 })

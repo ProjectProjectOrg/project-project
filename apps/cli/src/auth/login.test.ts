@@ -13,7 +13,8 @@ describe("authorizeUrl", () => {
           authorizationEndpoint:
             "https://pp.example.com/api/auth/oauth2/authorize",
           tokenEndpoint: "https://pp.example.com/api/auth/oauth2/token",
-          revocationEndpoint: undefined
+          revocationEndpoint: undefined,
+          catalogVersion: undefined
         },
         "http://127.0.0.1:51234/callback",
         { verifier: "v", challenge: "c", state: "s" }

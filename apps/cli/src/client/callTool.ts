@@ -1,4 +1,10 @@
-import { cliOAuthClient, ToolFailure, type ToolName } from "@pp/shared"
+import {
+  catalogVersion,
+  cliOAuthClient,
+  cliRelease,
+  ToolFailure,
+  type ToolName
+} from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http"
 import * as Schema from "effect/Schema"
@@ -55,6 +61,10 @@ export const callTool = Effect.fn("callTool")(function* (
     `${server.origin}${cliOAuthClient.resourcePath}/${name}`
   ).pipe(
     HttpClientRequest.bearerToken(accessToken),
+    HttpClientRequest.setHeader(
+      cliRelease.catalogVersionHeader,
+      catalogVersion
+    ),
     HttpClientRequest.bodyJson(input),
     Effect.flatMap(client.execute),
     Effect.mapError(() => unreachable(`Couldn't reach ${server.origin}.`))

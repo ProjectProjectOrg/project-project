@@ -11,6 +11,7 @@ import { Browser } from "./auth/Browser"
 import { Loopback } from "./auth/Loopback"
 import { pp } from "./commands/tree"
 import { ServerStore } from "./servers/ServerStore"
+import { buildVersion } from "./version"
 
 const CliLive = Layer.mergeAll(
   ServerStore.layer,
@@ -20,7 +21,7 @@ const CliLive = Layer.mergeAll(
 ).pipe(Layer.provideMerge(BunServices.layer))
 
 pp.pipe(
-  Command.run({ version: "0.1.0" }),
+  Command.run({ version: buildVersion }),
   Effect.tapErrorTag("CliFailure", (failure) => Console.error(failure.message)),
   Effect.provide(CliLive),
   BunRuntime.runMain

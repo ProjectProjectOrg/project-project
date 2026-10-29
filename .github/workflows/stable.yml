@@ -79,6 +79,39 @@ jobs:
               "$prefix-$name:$SOURCE_TAG"
           done
 
+      - name: Reuse the nightly's pp CLI
+        id: cli
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release download "$SOURCE_TAG" --dir dist/cli \
+            --pattern 'pp-*.gz' --pattern SHA256SUMS --pattern install.sh 2>/dev/null; then
+            echo "reused=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$SOURCE_TAG has no pp binaries; building them from $SHA."
+            rm -rf dist/cli
+            echo "reused=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out the released commit
+        if: steps.cli.outputs.reused == 'false'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Set up Bun
+        if: steps.cli.outputs.reused == 'false'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Build the pp CLI
+        if: steps.cli.outputs.reused == 'false'
+        run: |
+          bun install --frozen-lockfile
+          sh .github/scripts/build-cli.sh "$TAG" dist/cli
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -86,4 +119,4 @@ jobs:
         run: |
           args=(--target "$SHA" --latest --generate-notes --title "ProjectProject $TAG")
           [ -n "$PREVIOUS_TAG" ] && args+=(--notes-start-tag "$PREVIOUS_TAG")
-          gh release create "$TAG" "${args[@]}"
+          gh release create "$TAG" "${args[@]}" dist/cli/*

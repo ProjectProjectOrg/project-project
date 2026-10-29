@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
+import { catalogVersion } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as TestClock from "effect/testing/TestClock"
@@ -74,6 +75,40 @@ describe("callTool", () => {
           _tag: "ToolFailure",
           error: "Unauthorized",
           message: "Run `pp login` and try again."
+        })
+      )
+    )
+  )
+
+  it.effect("tells the server which tool catalog it was built with", () =>
+    Effect.gen(function* () {
+      const headers: Array<string | undefined> = []
+      yield* callTool(server, "me", {}).pipe(
+        Effect.provide(
+          Layer.merge(
+            store,
+            fakeHttp((_, request) => {
+              headers.push(request.headers["pp-catalog-version"])
+              return Response.json({ ok: true })
+            })
+          )
+        )
+      )
+      expect(headers).toEqual([catalogVersion])
+    })
+  )
+
+  it.effect("asks you to upgrade when the server's catalog differs", () =>
+    Effect.gen(function* () {
+      const failure = yield* Effect.flip(callTool(server, "me", {}))
+      expect(failure.code).toBe(10)
+      expect(failure.message).toContain("`pp upgrade`")
+    }).pipe(
+      Effect.provide(
+        answering(409, {
+          _tag: "ToolFailure",
+          error: "CatalogMismatch",
+          message: "Run `pp upgrade` to get the matching version."
         })
       )
     )

@@ -4,3 +4,9 @@ export const cliOAuthClient = {
   redirectUri: "http://127.0.0.1/callback",
   resourcePath: "/api/v1/tools"
 } as const
+
+export const cliRelease = {
+  repository: "ProjectProjectOrg/project-project",
+  installScriptPath: "/api/cli/install.sh",
+  catalogVersionHeader: "pp-catalog-version"
+} as const

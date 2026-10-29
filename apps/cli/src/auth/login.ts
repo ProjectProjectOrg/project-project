@@ -1,10 +1,10 @@
-import { cliOAuthClient, Tools } from "@pp/shared"
+import { catalogVersion, cliOAuthClient, cliRelease, Tools } from "@pp/shared"
 import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 
 import { callToolAs } from "../client/callTool"
-import { notSignedIn, usage } from "../CliFailure"
+import { CliFailure, ExitCode, notSignedIn, usage } from "../CliFailure"
 import { originOf } from "../servers/origin"
 import { type SavedServer, ServerStore } from "../servers/ServerStore"
 import { Browser } from "./Browser"
@@ -89,6 +89,15 @@ export const login = Effect.fn("login")(function* (address: string) {
     onSome: Effect.succeed
   })
   const discovered = yield* discover(origin)
+  if (
+    discovered.catalogVersion !== undefined &&
+    discovered.catalogVersion !== catalogVersion
+  ) {
+    return yield* new CliFailure({
+      message: `This pp knows a different set of tools (${catalogVersion}) than ${origin} (${discovered.catalogVersion}). Install the matching version with:\n\n  curl -fsSL ${origin}${cliRelease.installScriptPath} | sh`,
+      code: ExitCode.outdated
+    })
+  }
   const pkce = yield* newPkce
   const tokens = yield* signIn(discovered, pkce)
   const signedIn: SavedServer = {
