@@ -29,8 +29,8 @@ import {
   expandTemplate,
   formatTicketBlock,
   Library as LibrarySchema,
-  McpTools,
-  type McpToolName,
+  Tools,
+  ToolFailure,
   ProjectStatus,
   StatusSlug,
   BranchNotFound,
@@ -58,9 +58,10 @@ import * as Option from "effect/Option"
 import * as Record from "effect/Record"
 import * as Schema from "effect/Schema"
 
-import { toolkitHandlers } from "./handlers"
-import { McpRequestUser } from "./McpRequestUser"
-import { toolFailure, type McpHandlerEnv } from "./toolkit"
+import { ToolHandlersLive } from "./handlers"
+import { invokeTool, isToolName } from "./invokeTool"
+import { ToolCaller } from "./ToolCaller"
+import type { ToolServices } from "./ToolHandlers"
 
 const decodeProjectStatuses = Schema.decodeSync(Schema.Array(ProjectStatus))
 
@@ -71,41 +72,48 @@ type ToolResult = {
   isError?: boolean
 }
 
-type HandlerServices = McpHandlerEnv
+type HandlerServices = ToolServices
 
 type Registered = Map<string, (input: Schema.Json) => Effect.Effect<ToolResult>>
 
 const parseJson = (text: string) => JSON.parse(text)
 
-type Invocation = ReturnType<(typeof toolkitHandlers)[McpToolName]>
-const invoke = <Name extends McpToolName>(
-  name: Name,
-  input: Schema.Schema.Type<(typeof McpTools)[Name]["input"]>
-): Effect.Effect<unknown, Effect.Error<Invocation>, HandlerServices> =>
-  toolkitHandlers[name](input)
+const decodeFailure = Schema.decodeUnknownSync(ToolFailure)
+
+const toResult = (
+  result: Readonly<{ isFailure: boolean; encoded: unknown }>
+): ToolResult =>
+  result.isFailure
+    ? {
+        isError: true,
+        content: [{ type: "text", text: decodeFailure(result.encoded).message }]
+      }
+    : {
+        content: [
+          { type: "text", text: JSON.stringify(result.encoded, null, 2) }
+        ]
+      }
 
 const register = (runtime: Context.Context<HandlerServices>): Registered => {
   const registered: Registered = new Map()
-  for (const name of Record.keys(McpTools)) {
-    const decode = Schema.decodeUnknownEffect(McpTools[name].input)
-    const encode = Schema.encodeUnknownEffect(McpTools[name].output)
+  for (const name of Object.keys(Tools.tools)) {
+    if (!isToolName(name)) continue
     registered.set(name, (input) =>
-      decode(input).pipe(
-        Effect.flatMap((decoded) => invoke(name, decoded)),
-        Effect.flatMap((value) => encode(value)),
-        Effect.map(
-          (value): ToolResult => ({
-            content: [{ type: "text", text: JSON.stringify(value, null, 2) }]
-          })
-        ),
-        toolFailure,
-        Effect.catch((failure) =>
+      Effect.flatMap(Tools, (toolkit) => invokeTool(toolkit, name, input)).pipe(
+        Effect.map(toResult),
+        Effect.catchTag("ToolInputInvalid", (error) =>
           Effect.succeed<ToolResult>({
             isError: true,
-            content: [{ type: "text", text: failure.message }]
+            content: [
+              { type: "text", text: `Validation error: ${error.message}` }
+            ]
           })
         ),
-        Effect.provideService(McpRequestUser, Option.some(fakeUser)),
+        Effect.provide(ToolHandlersLive),
+        Effect.provideService(
+          ToolCaller,
+          Option.some({ user: fakeUser, client: Option.none() })
+        ),
         Effect.provide(runtime)
       )
     )

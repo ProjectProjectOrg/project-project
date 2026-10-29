@@ -6,7 +6,7 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 
-import { mappedToolErrorText } from "../mcp/errorMap"
+import { toolErrorMessage } from "../tools/errorText"
 
 const AttachmentUploadQuery = Schema.fromURLSearchParams(
   Schema.Struct({ token: Schema.NonEmptyString })
@@ -22,7 +22,7 @@ type UploadFailure = Effect.Error<
 
 const failure = (error: UploadFailure, status: number) =>
   HttpServerResponse.jsonUnsafe(
-    { error: mappedToolErrorText(error) ?? "Internal error." },
+    { error: toolErrorMessage(error) ?? "Internal error." },
     { status, headers: { "cache-control": "no-store" } }
   )
 
