@@ -2,7 +2,7 @@
 
 ProjectProject (PP) is a markdown-first project management tool: organizations, projects, tickets, sprints and epics, with GitHub branch and PR automation, integrations, an MCP server and the `pp` CLI. Project content lives in markdown files on disk; Postgres holds identity, access, integration state and rebuildable indexes.
 
-This file describes the system as it is. Keep it current in the same PR as the change that makes it wrong. How we work, and the frontend conventions, live in `AGENTS.md`; the visual system lives in `DESIGN.md` and `PRODUCT.md`; running it lives in `README.md` and `docs/deploy.md`.
+This file describes the system as it is. Keep it current in the same PR as the change that makes it wrong. Describe shapes and boundaries, and point at the code for anything it enumerates — tools, endpoints, tables, env vars — so there is no second list to fall out of step. How we work, and the frontend conventions, live in `AGENTS.md`; the visual system lives in `DESIGN.md` and `PRODUCT.md`; running it lives in `README.md` and `docs/deploy.md`.
 
 ---
 
@@ -124,11 +124,13 @@ Ticket IDs are sequential per project.
 
 ### What lives in Postgres
 
-- **Identity and access:** Better Auth tables (users, sessions, accounts, organizations, members, invitations, OAuth clients and tokens), plus `project_member`, `project_role` and `project_invite_grant`.
-- **Indexes:** `project_index`, `ticket_index`, `comment_index`, `attachment_index` and friends. They mirror markdown so lists, filters and lookups don't parse every file, and they can be rebuilt from it (`rebuild_ticket_index`). `project_index` also holds instance-local aesthetics: banner, icon image, placeholder.
+- **Identity and access:** Better Auth's tables, plus project membership, roles and invite grants.
+- **Indexes.** They mirror markdown so lists, filters and lookups don't parse every file, and they can be rebuilt from it. The project index also holds instance-local aesthetics such as banner images.
 - **Project configuration that is instance-bound:** statuses, tags, git automation.
 - **Integration state:** connections, OAuth state, encrypted credentials, links, and per-integration delivery records.
-- **Durable work:** activity, the provider-neutral integration event outbox, feedback outbox, and workflow engine state.
+- **Durable work:** activity, outboxes and workflow engine state.
+
+The tables themselves are in `packages/db/src/schema.ts`.
 
 Adding a column for content a human writes is still a smell; it belongs in markdown.
 
@@ -139,7 +141,7 @@ Adding a column for content a human writes is still a smell; it belongs in markd
 One set of services in `server-core` serves every surface. Handlers and tools stay thin.
 
 - **Web app.** The SPA calls `/api/*` through the client derived from `AppApi`, with a Better Auth session cookie.
-- **MCP.** A Streamable HTTP endpoint on the backend, authenticated through Better Auth's OAuth provider so each client acts as the consenting user. It serves the tool catalog: reads (`me`, orgs, projects, tickets, groups and sprints, statuses, tags, members, git state, docs, blocks and templates) and writes (create and update tickets, comments, attachments, branches and stacks, sprints). Tools carry read-only and destructive hints for agent hosts.
+- **MCP.** A Streamable HTTP endpoint on the backend, authenticated through Better Auth's OAuth provider so each client acts as the consenting user. It serves the tool catalog, defined in `packages/shared/src/tools`.
 - **CLI.** `pp` calls the same tool catalog over an HTTP tool route, with its own OAuth client, token audience and DPoP-bound tokens. It picks a default org and project, and keeps itself in step with the server's release.
 
 Tagged errors map to the same taxonomy on every surface.
