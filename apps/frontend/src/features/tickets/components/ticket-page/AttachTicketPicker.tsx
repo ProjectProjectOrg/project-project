@@ -38,11 +38,14 @@ export function AttachTicketPicker({
   const { orgSlug, slug } = useProjectRoute()
   const registry = useContext(RegistryContext)
   const [open, setOpen] = useState(false)
+  // Stays true through the exit animation so the popup keeps its results
+  // instead of collapsing to the loading state (and flipping sides) as it fades.
+  const [mounted, setMounted] = useState(false)
   const [search, setSearch] = useState("")
   const [query, setQuery] = useState("")
   const debouncer = useDebouncer(setQuery, { wait: 200 })
   const result = useAtomValue(
-    open
+    mounted
       ? ticketSearch(
           searchRequest(orgSlug, slug, {
             q: query || undefined,
@@ -65,15 +68,26 @@ export function AttachTicketPicker({
 
   const close = () => {
     setOpen(false)
-    setSearch("")
     debouncer.cancel()
-    setQuery("")
   }
 
   return (
     <Popover
       open={open}
-      onOpenChange={(next) => (next ? setOpen(true) : close())}
+      onOpenChange={(next) => {
+        if (next) {
+          setOpen(true)
+          setMounted(true)
+        } else {
+          close()
+        }
+      }}
+      onOpenChangeComplete={(next) => {
+        if (next) return
+        setMounted(false)
+        setSearch("")
+        setQuery("")
+      }}
     >
       <PopoverTrigger
         render={
