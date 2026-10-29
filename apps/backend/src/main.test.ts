@@ -52,7 +52,8 @@ import { afterAll, expect, vi } from "vitest"
 
 vi.mock("./auth", () => ({
   auth: {},
-  mcpResource: "http://localhost:3000/mcp"
+  mcpResource: "http://localhost:3000/mcp",
+  toolsResource: "http://localhost:3000/api/v1/tools"
 }))
 import {
   GitHubWebhooks,

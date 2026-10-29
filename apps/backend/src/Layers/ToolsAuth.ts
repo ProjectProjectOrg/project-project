@@ -5,19 +5,19 @@ import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as Option from "effect/Option"
 
 import { toolsResource } from "../auth"
+import { protectedResourceMetadataUrl } from "../auth/protectedResourceMetadata"
 import { ToolCaller } from "../tools/ToolCaller"
 import { bearerVerifier } from "./BearerAuth"
 
 const signInAgain =
   "You're not signed in, or your sign-in expired or was revoked. Run `pp login` and try again."
 
+const challenge = `Bearer resource_metadata="${protectedResourceMetadataUrl(toolsResource)}"`
+
 const failure = (status: number, error: string, message: string) =>
   HttpServerResponse.jsonUnsafe(new ToolFailure({ error, message }), {
     status,
-    headers:
-      status === 401
-        ? { "www-authenticate": 'Bearer error="invalid_token"' }
-        : undefined
+    headers: status === 401 ? { "www-authenticate": challenge } : undefined
   })
 
 const unauthorized = failure(401, "Unauthorized", signInAgain)

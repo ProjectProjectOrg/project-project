@@ -28,6 +28,7 @@ import {
   orgRoles,
   requireSingleOrgRole
 } from "./auth/orgAccess"
+import { protectedResourceMetadata } from "./auth/protectedResourceMetadata"
 
 const db = drizzle(process.env.DATABASE_URL!, { relations: schema.relations })
 
@@ -516,6 +517,10 @@ export const auth = betterAuth({
       db,
       client: cliOAuthClient,
       resource: { identifier: toolsResource, name: cliOAuthClient.name }
+    }),
+    protectedResourceMetadata({
+      identifier: toolsResource,
+      name: cliOAuthClient.name
     })
   ]
 })

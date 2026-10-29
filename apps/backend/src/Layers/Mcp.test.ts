@@ -29,6 +29,10 @@ const meta = {
   "io.modelcontextprotocol/clientCapabilities": {}
 }
 
+const httpFetch = globalThis.fetch.bind(globalThis)
+
+const readJson = async (response: Response) => JSON.parse(await response.text())
+
 describe.skipIf(!databaseUrl)("MCP endpoint", () => {
   const userIds = [randomUUID(), randomUUID()]
   const tokens: Array<string> = []
@@ -412,10 +416,37 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
       })
     )
     expect(response.status).toBe(401)
-    expect(response.headers.get("www-authenticate")).toContain("Bearer")
+    expect(response.headers.get("www-authenticate")).toBe(
+      `Bearer resource_metadata="${new URL("/.well-known/oauth-protected-resource/api/v1/tools", resource).href}"`
+    )
     const body = JSON.parse(await response.text())
     expect(body).toMatchObject({ _tag: "ToolFailure", error: "Unauthorized" })
     expect(body.message).toContain("pp login")
+  })
+
+  it("auth: pp login can discover the tools resource and its authorization server", async () => {
+    const resourceResponse = await httpFetch(
+      new URL("/.well-known/oauth-protected-resource/api/v1/tools", resource)
+    )
+    expect(resourceResponse.status).toBe(200)
+    const metadata = await readJson(resourceResponse)
+    expect(metadata).toMatchObject({
+      resource: toolsResource,
+      resource_name: cliOAuthClient.name,
+      bearer_methods_supported: ["header"]
+    })
+    const issuer = new URL(metadata.authorization_servers[0])
+    const serverResponse = await httpFetch(
+      new URL(
+        `/.well-known/oauth-authorization-server${issuer.pathname}`,
+        issuer.origin
+      )
+    )
+    expect(serverResponse.status).toBe(200)
+    const authServer = await readJson(serverResponse)
+    expect(authServer.issuer).toBe(issuer.href)
+    expect(authServer.authorization_endpoint).toEqual(expect.any(String))
+    expect(authServer.token_endpoint).toEqual(expect.any(String))
   })
 
   it("http: an MCP token can't call the tools route", async () => {
