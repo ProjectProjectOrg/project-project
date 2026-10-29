@@ -14,7 +14,7 @@ ghcr.io/<owner>/projectproject-{app,web}:{sha-<short>,main}
    ↓
 each instance pulls the channel its IMAGE_TAG names
    ↓
-docker compose recreates `app` + `web` with the new image
+docker compose runs `migrations`, then recreates `app` + `web`
    ↓
 nginx-proxy-manager continues to forward your public hostname → `web` :8080
 ```
