@@ -7,10 +7,9 @@ import { login } from "../auth/login"
 import { revokeToken } from "../auth/tokens"
 import { usage } from "../CliFailure"
 import { printResult } from "../output/format"
-import { writeProjectConfig } from "../project/ProjectConfig"
 import { originOf } from "../servers/origin"
 import { type SavedServer, ServerStore } from "../servers/ServerStore"
-import { currentScope, currentServer, requireSlug } from "./context"
+import { currentServer } from "./context"
 import { root } from "./root"
 
 const publicView = (server: SavedServer, isDefault: boolean) => ({
@@ -100,35 +99,4 @@ const useServer = Command.make(
 export const serversCommand = Command.make("servers").pipe(
   Command.withDescription("Manage the servers you're signed in to."),
   Command.withSubcommands([listServers, useServer])
-)
-
-export const initCommand = Command.make("init", {}, () =>
-  Effect.gen(function* () {
-    const flags = yield* root
-    const scope = yield* currentScope
-    const org = yield* requireSlug(scope.org, "org")
-    const server = yield* currentServer
-    const file = yield* writeProjectConfig({
-      server: server.origin,
-      org,
-      project: Option.getOrUndefined(scope.project)
-    })
-    yield* Console.log(
-      `Wrote ${file}: commands in this directory now use ${org}${Option.match(
-        scope.project,
-        { onNone: () => "", onSome: (project) => `/${project}` }
-      )} on ${server.origin}.`
-    )
-    if (flags.json) yield* printResult({ file }, true)
-  })
-).pipe(
-  Command.withDescription(
-    "Remember the server, org and project for this directory in .pp.json. Find slugs with `pp orgs list` and `pp projects list`."
-  ),
-  Command.withExamples([
-    {
-      command: "pp init --org acme --project website",
-      description: "Use acme/website for commands run in this repository"
-    }
-  ])
 )
