@@ -1,4 +1,4 @@
-import type { Ticket, TicketId } from "@pp/shared"
+import { hasSubTickets, type Ticket, type TicketId } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 
 import type { TicketRow } from "./ticketRows"
@@ -41,6 +41,21 @@ const childrenEntries = (
     last: index === children.value.length - 1
   }))
 }
+
+export const expandedParents = (
+  rows: ReadonlyArray<TicketRow>,
+  isExpanded: (id: TicketId) => boolean
+): ReadonlySet<TicketId> =>
+  new Set(
+    rows.flatMap(({ ticket }) =>
+      hasSubTickets(ticket) && isExpanded(ticket.id) ? [ticket.id] : []
+    )
+  )
+
+export const childrenSettled = (
+  children: ReadonlyMap<TicketId, ChildRowsResult>
+): boolean =>
+  [...children.values()].every((result) => !AsyncResult.isInitial(result))
 
 export const withExpandedChildren = (
   rows: ReadonlyArray<TicketRow>,
