@@ -10,7 +10,7 @@ import {
   projectMember,
   user
 } from "@pp/db/schema"
-import { INVITATION_VALID_DAYS } from "@pp/shared"
+import { cliOAuthClient, INVITATION_VALID_DAYS } from "@pp/shared"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { APIError } from "better-auth/api"
@@ -20,6 +20,7 @@ import { drizzle } from "drizzle-orm/node-postgres"
 import { alias } from "drizzle-orm/pg-core"
 import * as DateTime from "effect/DateTime"
 
+import { builtInOAuthClient } from "./auth/builtInOAuthClient"
 import { fetchClientMetadataResource } from "./auth/cimdTransport"
 import { legacyMcpResources } from "./auth/legacyMcpResources"
 import {
@@ -244,12 +245,19 @@ export async function acceptAsExistingMember(
   })
 }
 
-export const mcpResource = new URL(
-  "/mcp",
+const resourceOrigin =
   process.env.MCP_RESOURCE_URL ??
-    process.env.BETTER_AUTH_URL ??
-    "http://localhost:3000"
+  process.env.BETTER_AUTH_URL ??
+  "http://localhost:3000"
+
+export const mcpResource = new URL("/mcp", resourceOrigin).href
+
+export const toolsResource = new URL(
+  cliOAuthClient.resourcePath,
+  resourceOrigin
 ).href
+
+const DAY_SECONDS = 24 * 60 * 60
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -463,6 +471,20 @@ export const auth = betterAuth({
       // clients run as several long-lived processes sharing one credential,
       // so concurrent refreshes across the access-token expiry are routine.
       refreshTokenReuseInterval: 60,
+      refreshTokenExpiresIn: 90 * DAY_SECONDS,
+      resourceSeedMode: "merge",
+      resources: [
+        {
+          identifier: mcpResource,
+          name: "ProjectProject MCP",
+          refreshTokenTtl: 30 * DAY_SECONDS
+        },
+        {
+          identifier: toolsResource,
+          name: cliOAuthClient.name,
+          refreshTokenTtl: 90 * DAY_SECONDS
+        }
+      ],
       extensions: [
         {
           claims: {
@@ -489,7 +511,12 @@ export const auth = betterAuth({
       fetchClientMetadataResource,
       metadataProfile: "mcp-2026-07-28"
     }),
-    legacyMcpResources({ db, resource: mcpResource })
+    legacyMcpResources({ db, resource: mcpResource }),
+    builtInOAuthClient({
+      db,
+      client: cliOAuthClient,
+      resource: { identifier: toolsResource, name: cliOAuthClient.name }
+    })
   ]
 })
 

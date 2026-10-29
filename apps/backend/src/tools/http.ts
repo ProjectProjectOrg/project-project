@@ -1,9 +1,9 @@
-import { ToolFailure, Tools } from "@pp/shared"
+import { cliOAuthClient, ToolFailure, Tools } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as Layer from "effect/Layer"
 
-import { McpAuthMiddlewareLive } from "../Layers/McpAuth"
+import { ToolsAuthMiddlewareLive } from "../Layers/ToolsAuth"
 import { ToolHandlersLive } from "./handlers"
 import { invokeTool, isToolName, type ToolkitHandlers } from "./invokeTool"
 
@@ -39,6 +39,10 @@ const toolRoute = (toolkit: ToolkitHandlers) =>
 
 export const ToolsRouteLive = Layer.unwrap(
   Effect.map(Tools, (toolkit) =>
-    HttpRouter.add("POST", "/api/v1/tools/:name", toolRoute(toolkit))
+    HttpRouter.add(
+      "POST",
+      `${cliOAuthClient.resourcePath}/:name`,
+      toolRoute(toolkit)
+    )
   )
-).pipe(Layer.provide([ToolHandlersLive, McpAuthMiddlewareLive]))
+).pipe(Layer.provide([ToolHandlersLive, ToolsAuthMiddlewareLive]))

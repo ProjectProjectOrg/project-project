@@ -11,7 +11,7 @@ import { join } from "node:path"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 import { migrationsFolder } from "@pp/db"
-import { Tools } from "@pp/shared"
+import { cliOAuthClient, Tools } from "@pp/shared"
 import { toNodeHandler } from "better-auth/node"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
@@ -32,6 +32,9 @@ const meta = {
 describe.skipIf(!databaseUrl)("MCP endpoint", () => {
   const userIds = [randomUUID(), randomUUID()]
   const tokens: Array<string> = []
+  const cliTokens: Array<string> = []
+  const cliConsentIds = [randomUUID(), randomUUID()]
+  let toolsResource: string
   const consentIds = [randomUUID(), randomUUID()]
   const clientId = randomUUID()
   const orgId = randomUUID()
@@ -155,6 +158,8 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
       [orgId, "Private organization"]
     )
     const { auth } = await import("../auth")
+    await auth.$context
+    toolsResource = `${baseUrl}${cliOAuthClient.resourcePath}`
     server.on("request", toNodeHandler(auth))
     for (const [index, id] of userIds.entries()) {
       await pool.query(
@@ -179,6 +184,24 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
         }
       })
       tokens.push(signed.token)
+      await pool.query(
+        "INSERT INTO oauth_provider_consent (id,client_id,user_id,scopes,created_at,updated_at) VALUES ($1,$2,$3,ARRAY['openid'],now(),now())",
+        [cliConsentIds[index], cliOAuthClient.id, id]
+      )
+      const cliSigned = await auth.api.signJWT({
+        body: {
+          payload: {
+            sub: id,
+            client_id: cliOAuthClient.id,
+            pp_consent_ids: [cliConsentIds[index]],
+            aud: toolsResource,
+            iss: `${baseUrl}/api/auth`,
+            exp:
+              Math.floor(DateTime.nowUnsafe().epochMilliseconds / 1000) + 3600
+          }
+        }
+      })
+      cliTokens.push(cliSigned.token)
       if (index === 0) {
         expiredToken = (
           await auth.api.signJWT({
@@ -337,14 +360,14 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
 
   it("http: a tool returns the same result as over MCP", async () => {
     const mcp = await callTool(tokens[0], "me")
-    const http = await httpTool(tokens[0], "me")
+    const http = await httpTool(cliTokens[0], "me")
     expect(http.status).toBe(200)
     expect(http.body).toEqual(mcp.body.result.structuredContent)
   })
 
   it("http: a tool failure carries the same message as over MCP", async () => {
     const mcp = await callTool(tokens[0], "get_org", { orgSlug: orgId })
-    const http = await httpTool(tokens[0], "get_org", { orgSlug: orgId })
+    const http = await httpTool(cliTokens[0], "get_org", { orgSlug: orgId })
     expect(http.status).toBe(422)
     expect(http.body).toEqual({
       _tag: "ToolFailure",
@@ -354,7 +377,7 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
   })
 
   it("http: invalid input is a 400 Validation failure", async () => {
-    const http = await httpTool(tokens[0], "create_ticket", {
+    const http = await httpTool(cliTokens[0], "create_ticket", {
       orgSlug: "acme",
       projectSlug: "demo",
       title: ""
@@ -364,7 +387,7 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
   })
 
   it("http: input that only fails once decoded is a 400, not a crash", async () => {
-    const http = await httpTool(tokens[0], "create_sprint", {
+    const http = await httpTool(cliTokens[0], "create_sprint", {
       orgSlug: "acme",
       projectSlug: "demo",
       name: "Sprint",
@@ -375,14 +398,62 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
   })
 
   it("http: an unknown tool is a 404", async () => {
-    const http = await httpTool(tokens[0], "drop_database")
+    const http = await httpTool(cliTokens[0], "drop_database")
     expect(http.status).toBe(404)
     expect(http.body.error).toBe("NotFound")
   })
 
-  it("http: calls without a valid token get a 401", async () => {
-    const http = await httpTool(undefined, "me")
+  it("http: calls without a token are told to run pp login", async () => {
+    const response = await nextHandler()(
+      new Request(new URL("/api/v1/tools/me", resource).href, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}"
+      })
+    )
+    expect(response.status).toBe(401)
+    expect(response.headers.get("www-authenticate")).toContain("Bearer")
+    const body = JSON.parse(await response.text())
+    expect(body).toMatchObject({ _tag: "ToolFailure", error: "Unauthorized" })
+    expect(body.message).toContain("pp login")
+  })
+
+  it("http: an MCP token can't call the tools route", async () => {
+    const http = await httpTool(tokens[0], "me")
     expect(http.status).toBe(401)
+  })
+
+  it("mcp: a CLI token can't call /mcp", async () => {
+    const { status } = await callTool(cliTokens[0], "me")
+    expect(status).toBe(401)
+  })
+
+  it("auth: pp CLI is a built-in PKCE client limited to the tools resource", async () => {
+    const { rows } = await pool.query(
+      "SELECT name, require_pkce, token_endpoint_auth_method, redirect_uris FROM oauth_client WHERE client_id=$1",
+      [cliOAuthClient.id]
+    )
+    expect(rows[0]).toEqual({
+      name: cliOAuthClient.name,
+      require_pkce: true,
+      token_endpoint_auth_method: "none",
+      redirect_uris: [cliOAuthClient.redirectUri]
+    })
+    const links = await pool.query(
+      "SELECT resource_id FROM oauth_client_resource WHERE client_id=$1",
+      [cliOAuthClient.id]
+    )
+    expect(links.rows).toEqual([{ resource_id: toolsResource }])
+  })
+
+  it("http: revoking the CLI's consent signs it out", async () => {
+    expect((await httpTool(cliTokens[1], "me")).status).toBe(200)
+    await pool.query("DELETE FROM oauth_provider_consent WHERE id=$1", [
+      cliConsentIds[1]
+    ])
+    const http = await httpTool(cliTokens[1], "me")
+    expect(http.status).toBe(401)
+    expect(http.body.message).toContain("pp login")
   })
 
   it("modern: unknown tool is JSON-RPC -32602", async () => {
