@@ -150,11 +150,10 @@ function RowImpl({
               </Link>
               {nest?.role === "parent" ? (
                 <NestProgressToggle
+                  ticket={ticket}
                   expanded={nest.expanded}
                   onToggle={nest.onToggle}
-                >
-                  <SubTicketProgress ticket={ticket} className="text-inherit" />
-                </NestProgressToggle>
+                />
               ) : (
                 <SubTicketProgress
                   ticket={ticket}
@@ -185,8 +184,6 @@ function RowImpl({
                 />
               </span>
               <span
-                // Room for a four-digit number, so a longer id further down
-                // (say a sub-ticket) doesn't widen the column and shift titles.
                 style={{ minWidth: `${idPrefix.length + 5}ch` }}
                 className={cn(
                   "inline-flex shrink-0 items-center font-mono text-xs text-muted-foreground tabular-nums",

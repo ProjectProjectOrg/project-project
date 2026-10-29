@@ -1,9 +1,11 @@
-import { ChevronRight } from "lucide-react"
-import type { ReactNode } from "react"
+import type { Ticket } from "@pp/shared"
+import { ChevronDown, ChevronRight } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+
+import { SubTicketProgress } from "./SubTicketProgress"
 
 export type RowNest =
   | Readonly<{ role: "parent"; expanded: boolean; onToggle: () => void }>
@@ -12,9 +14,6 @@ export type RowNest =
 const LINE =
   "border-[color-mix(in_oklab,var(--muted-foreground)_45%,var(--background))]"
 
-// A sub-ticket's leading cells slide right by one step, so its status sits
-// past the line dropping from under its parent's status. The cells keep their
-// grid tracks, so the columns after the title stay aligned with every row.
 export const nestIndent = (nest: RowNest | undefined) =>
   nest?.role === "child" ? "translate-x-6" : undefined
 
@@ -88,40 +87,38 @@ export function NestToggle({
 }
 
 export function NestProgressToggle({
+  ticket,
   expanded,
-  onToggle,
-  children
+  onToggle
 }: Readonly<{
+  ticket: Pick<Ticket, "subTicketCount" | "subTicketDoneCount">
   expanded: boolean
   onToggle: () => void
-  children: ReactNode
 }>) {
+  const progress = {
+    done: ticket.subTicketDoneCount ?? 0,
+    total: ticket.subTicketCount ?? 0
+  }
   return (
     <Button
       type="button"
-      variant="chip"
+      variant="ghost"
+      size="sm"
+      trailingIcon={expanded ? ChevronDown : ChevronRight}
       aria-expanded={expanded}
       aria-label={
         expanded
-          ? m.tickets_sub_tickets_collapse()
-          : m.tickets_sub_tickets_expand()
+          ? m.tickets_sub_tickets_collapse_progress(progress)
+          : m.tickets_sub_tickets_expand_progress(progress)
       }
       onClick={(event) => {
         event.preventDefault()
         event.stopPropagation()
         onToggle()
       }}
-      className="ml-1 shrink-0 gap-1 pr-1.5 text-muted-foreground hover:text-foreground"
+      className="ml-1 shrink-0"
     >
-      {children}
-      <ChevronRight
-        aria-hidden
-        className={cn(
-          "size-3.5 transition-transform duration-150",
-          expanded && "rotate-90"
-        )}
-        strokeWidth={1.75}
-      />
+      <SubTicketProgress ticket={ticket} className="text-inherit" />
     </Button>
   )
 }

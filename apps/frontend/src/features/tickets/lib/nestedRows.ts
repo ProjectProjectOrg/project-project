@@ -24,8 +24,6 @@ export type ChildRowsResult = AsyncResult.AsyncResult<
   unknown
 >
 
-// While loading, reserve one row per known sub-ticket so the list lands at
-// its final height in one step instead of growing once the children arrive.
 const childrenEntries = (
   parent: Pick<Ticket, "id" | "subTicketCount">,
   children: ChildRowsResult | undefined
