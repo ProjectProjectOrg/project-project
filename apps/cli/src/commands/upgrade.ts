@@ -1,4 +1,9 @@
-import { cliRelease, runInstaller } from "@pp/shared"
+import {
+  cliRelease,
+  isReleaseTag,
+  runInstaller,
+  ServerCliRelease
+} from "@pp/shared"
 import { Command, Flag } from "effect/cli"
 import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
@@ -49,6 +54,38 @@ const latestNightly = Effect.gen(function* () {
   )
 )
 
+export const serverRelease = (origin: string) =>
+  Effect.gen(function* () {
+    const client = yield* HttpClient.HttpClient
+    const response = yield* client
+      .get(`${origin}${cliRelease.releasePath}`)
+      .pipe(Effect.flatMap(HttpClientResponse.filterStatusOk))
+    const { version } =
+      yield* HttpClientResponse.schemaBodyJson(ServerCliRelease)(response)
+    if (version === null) return Option.none<string>()
+    if (!isReleaseTag(version)) {
+      return yield* unreachable(
+        `${origin} named "${version}" as its pp version, which isn't a pp release. Try \`pp upgrade --latest\`.`
+      )
+    }
+    return Option.some(version)
+  }).pipe(
+    Effect.catchTags({
+      HttpClientError: () =>
+        Effect.fail(
+          unreachable(
+            `Couldn't ask ${origin} which pp to install. Try \`pp upgrade --latest\`.`
+          )
+        ),
+      SchemaError: () =>
+        Effect.fail(
+          unreachable(
+            `${origin} didn't say which pp to install. Try \`pp upgrade --latest\`.`
+          )
+        )
+    })
+  )
+
 export const upgradeCommand = Command.make(
   "upgrade",
   {
@@ -70,18 +107,17 @@ export const upgradeCommand = Command.make(
         Option.flatMap(yield* serverChoice, (choice) => originOf(choice.value)),
         () => catalog.defaultServer
       )
-      const nightlyTag = nightly
+      const tag = nightly
         ? Option.some(yield* latestNightly)
-        : Option.none()
-      const url = Option.match(nightlyTag, {
-        onSome: (tag) => `${releases}/download/${tag}/install.sh`,
-        onNone: () =>
-          latest || origin === null
-            ? `${releases}/latest/download/install.sh`
-            : `${origin}${cliRelease.installScriptPath}`
+        : latest || origin === null
+          ? Option.none<string>()
+          : yield* serverRelease(origin)
+      const url = Option.match(tag, {
+        onSome: (found) => `${releases}/download/${found}/install.sh`,
+        onNone: () => `${releases}/latest/download/install.sh`
       })
       const env: Record<string, string> = {}
-      if (Option.isSome(nightlyTag)) env["PP_VERSION"] = nightlyTag.value
+      if (Option.isSome(tag)) env["PP_VERSION"] = tag.value
       if (buildVersion !== "dev") {
         env["PP_INSTALL_DIR"] = (yield* Path.Path).dirname(process.execPath)
       }

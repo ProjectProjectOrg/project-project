@@ -38,13 +38,22 @@ export const CliInstallRouteLive = Layer.unwrap(
         )
     })
     const origin = new URL(toolsResource).origin
-    return HttpRouter.add(
-      "GET",
-      cliRelease.installScriptPath,
-      Effect.map(release, (tag) =>
-        HttpServerResponse.text(installWrapper(tag, origin), {
-          contentType: "text/x-shellscript"
-        })
+    return Layer.mergeAll(
+      HttpRouter.add(
+        "GET",
+        cliRelease.installScriptPath,
+        Effect.map(release, (tag) =>
+          HttpServerResponse.text(installWrapper(tag, origin), {
+            contentType: "text/x-shellscript"
+          })
+        )
+      ),
+      HttpRouter.add(
+        "GET",
+        cliRelease.releasePath,
+        Effect.map(release, (tag) =>
+          HttpServerResponse.jsonUnsafe({ version: Option.getOrNull(tag) })
+        )
       )
     )
   })
