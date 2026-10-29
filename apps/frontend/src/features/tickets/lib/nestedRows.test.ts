@@ -4,7 +4,13 @@ import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import { withExpandedChildren, withoutNestedChildren } from "./nestedRows"
+import {
+  childrenSettled,
+  expandedParents,
+  type ChildRowsResult,
+  withExpandedChildren,
+  withoutNestedChildren
+} from "./nestedRows"
 import type { TicketRow } from "./ticketRows"
 
 const ticketId = Schema.decodeSync(TicketId)
@@ -85,5 +91,40 @@ describe("withoutNestedChildren", () => {
       "T-2",
       "T-4"
     ])
+  })
+})
+
+describe("expandedParents", () => {
+  it("keeps expanded rows that have sub-tickets", () => {
+    const rows = [
+      row("T-1", { subTicketCount: 2 }),
+      row("T-2", { subTicketCount: 0 }),
+      row("T-3", { subTicketCount: 1 })
+    ]
+    expect([...expandedParents(rows, (id) => id !== ticketId("T-3"))]).toEqual([
+      "T-1"
+    ])
+  })
+})
+
+describe("childrenSettled", () => {
+  it("is false while any parent's sub-tickets are still loading", () => {
+    const loaded: ChildRowsResult = AsyncResult.success([row("T-2")])
+    expect(
+      childrenSettled(
+        new Map<TicketId, ChildRowsResult>([
+          [ticketId("T-1"), loaded],
+          [ticketId("T-3"), AsyncResult.initial(true)]
+        ])
+      )
+    ).toBe(false)
+    expect(
+      childrenSettled(
+        new Map<TicketId, ChildRowsResult>([
+          [ticketId("T-1"), loaded],
+          [ticketId("T-3"), AsyncResult.fail("boom")]
+        ])
+      )
+    ).toBe(true)
   })
 })

@@ -8,9 +8,9 @@ push to main
 GitHub Actions `ci` runs check + tests, then pushes
 ghcr.io/<owner>/projectproject-{app,web}:{sha-<short>,main}
    ↓
-`nightly` workflow (hourly, gated) retags the tip of main as :nightly
+`nightly` workflow (hourly, gated) promotes the tip of main as :nightly
    ↓
-`stable` workflow (manual) retags a soaked nightly as :vYYYY.MM.DD, :stable, :latest
+`stable` workflow (manual) promotes a soaked nightly as :vYYYY.MM.DD, :stable, :latest
    ↓
 each instance pulls the channel its IMAGE_TAG names
    ↓
@@ -21,9 +21,12 @@ nginx-proxy-manager continues to forward your public hostname → `web` :8080
 
 Channels are image tags. `main` is every green push, `nightly` is `main`
 promoted at most once per `NIGHTLY_MIN_GAP_HOURS` (repository variable, default
-2), `stable` and `latest` are a nightly promoted by hand. Promotion retags the
-digest CI built; nothing is rebuilt, so the bytes that ran on the nightly
-instance are the bytes production gets. See [Releasing](#releasing).
+2), `stable` and `latest` are a nightly promoted by hand. Promotion preserves
+CI's application layers and stamps the backend image's `APP_VERSION` and OCI
+version label with the release tag. This changes the backend image digest,
+but does not rebuild application code. The web image is retagged unchanged.
+Bug reports therefore identify the installed nightly or stable release;
+`main` builds retain their commit SHA. See [Releasing](#releasing).
 
 No SSH from CI to the homelab. No public ports on the homelab beyond what NPM
 already exposes. Image tags are immutable per commit (`sha-<short>`) so
@@ -208,7 +211,7 @@ release so the previous tag can always run against the current database.
   notes.
 - **Stable** (`.github/workflows/stable.yml`) is a manual dispatch from `main`.
   It takes the newest nightly older than `STABLE_MIN_SOAK_HOURS` (default 2),
-  retags that nightly's images as `vYYYY.MM.DD`, `stable` and `latest`, and
+  promotes that nightly's images as `vYYYY.MM.DD`, `stable` and `latest`, and
   publishes a GitHub Release with notes since the previous stable. The version
   is the nightly's build date, not the promotion date, so the nightly you
   tested and the stable you ship carry the same date. A second stable from the
