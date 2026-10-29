@@ -56,16 +56,18 @@ case ":$PATH:" in
   *":$INSTALL_DIR:"*) ;;
   *)
     case "$(basename "${SHELL:-sh}")" in
-      zsh) profile="$HOME/.zshrc" ;;
-      bash) profile="$HOME/.bash_profile" ;;
-      *) profile="" ;;
+      zsh) set -- "$HOME/.zshrc" ;;
+      bash) set -- "$HOME/.bashrc" "$HOME/.bash_profile" ;;
+      *) set -- ;;
     esac
     line="export PATH=\"$INSTALL_DIR:\$PATH\""
-    if [ -n "$profile" ] && [ -z "${PP_NO_PROFILE:-}" ]; then
-      if ! grep -qsF "$line" "$profile"; then
-        printf '\n# Added by the pp installer\n%s\n' "$line" >> "$profile"
-      fi
-      say "Added $INSTALL_DIR to your PATH in $profile. Open a new terminal to use pp."
+    if [ "$#" -gt 0 ] && [ -z "${PP_NO_PROFILE:-}" ]; then
+      for profile in "$@"; do
+        if ! grep -qsF "$line" "$profile"; then
+          printf '\n# Added by the pp installer\n%s\n' "$line" >> "$profile"
+        fi
+      done
+      say "Added $INSTALL_DIR to your PATH in $*. Open a new terminal to use pp."
     else
       say "Add $INSTALL_DIR to your PATH to use pp: $line"
     fi
