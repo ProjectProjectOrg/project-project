@@ -20,7 +20,6 @@ import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 
 import { AssigneeField } from "./AssigneeField"
-import { EpicLink, EpicSeparator, useParentLabel } from "./EpicLabel"
 import { EstimateChip } from "./EstimateField"
 import {
   NestProgressToggle,
@@ -29,11 +28,11 @@ import {
   nestTitleIndent,
   type RowNest
 } from "./NestTree"
+import { ParentPrefix } from "./ParentPrefix"
 import { PriorityButton } from "./PriorityField"
 import { TicketRowActions } from "./RowActions"
 import { SprintField } from "./SprintField"
 import { StatusButton } from "./StatusField"
-import { SubTicketMarker } from "./SubTicketMarker"
 import { SubTicketProgress } from "./SubTicketProgress"
 import { UpdateFailureMarker } from "./UpdateFailureMarker"
 
@@ -111,8 +110,8 @@ function RowImpl({
                 nestTitleIndent(nest)
               )}
             >
-              {!isChild && showParent && ticket.parent && (
-                <EpicPrefix epicId={ticket.parent} />
+              {!isChild && ticket.parent && (
+                <ParentPrefix parentId={ticket.parent} showEpic={showParent} />
               )}
               <Link
                 to="/orgs/$orgSlug/projects/$slug/tickets/$id"
@@ -159,9 +158,6 @@ function RowImpl({
                   ticket={ticket}
                   className="relative z-20 ml-2"
                 />
-              )}
-              {!isChild && ticket.parent && (
-                <SubTicketMarker parentId={ticket.parent} />
               )}
             </div>
             <fieldset disabled={!editable} className="contents">
@@ -256,18 +252,6 @@ function RowSprint({ ticketId }: Readonly<{ ticketId: TicketId }>) {
       ticketId={ticketId}
       membership={membership.value.get(ticketId) ?? null}
     />
-  )
-}
-
-function EpicPrefix({ epicId }: Readonly<{ epicId: TicketId }>) {
-  const { orgSlug, slug } = useProjectRoute()
-  const ref = { orgSlug, slug, epicId }
-  if (useParentLabel(ref)?.epic !== true) return null
-  return (
-    <>
-      <EpicLink {...ref} className="text-sm" />
-      <EpicSeparator className="shrink-0 text-sm" />
-    </>
   )
 }
 
