@@ -36,6 +36,25 @@ describe("generated commands", () => {
     })
   })
 
+  it("offer enum values as choices and describe each flag", () => {
+    const fields = Object.fromEntries(
+      entry("list_tickets").fields.map((field) => [field.name, field])
+    )
+    expect(fields["type"]?.choices).toEqual([
+      "feat",
+      "bug",
+      "chore",
+      "other",
+      "epic"
+    ])
+    expect(fields["estimate"]?.choices).toContain("stale")
+    expect(fields["assignee"]?.choices).toBeUndefined()
+    expect(fields["sort"]?.description).toContain("`key`")
+    for (const field of entry("create_ticket").fields) {
+      expect(field.description, field.name).toBeDefined()
+    }
+  })
+
   it.effect("fill org and project from the scope and read @files", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem

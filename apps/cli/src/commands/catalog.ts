@@ -8,6 +8,7 @@ import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
 
 import { callTool, callToolAs } from "../client/callTool"
+import { usage } from "../CliFailure"
 import { printResult } from "../output/format"
 import { quotedCommandText } from "../output/terminalText"
 import {
@@ -23,7 +24,7 @@ import { root } from "./root"
 const SCOPE_FIELDS = new Set(["orgSlug", "projectSlug"])
 
 const hints: Readonly<Record<Field["kind"], string>> = {
-  string: "Text, or @file / @- to read it from a file or standard input.",
+  string: "Text, or @file / @- to read it.",
   integer: "A whole number.",
   number: "A number.",
   boolean: "",
@@ -38,8 +39,10 @@ const describe = <P>(
 ) =>
   withDescription(
     [
-      field.description,
-      hints[field.kind],
+      field.description === undefined
+        ? undefined
+        : quotedCommandText(field.description),
+      field.choices === undefined ? hints[field.kind] : undefined,
       field.required ? "Required." : undefined
     ]
       .filter((part) => part !== undefined && part !== "")
@@ -51,13 +54,25 @@ const argumentFor = (field: Field) => {
     field.description === undefined
       ? Argument.String(field.name)
       : Argument.String(field.name).pipe(
-          Argument.withDescription(field.description)
+          Argument.withDescription(quotedCommandText(field.description))
         )
   return field.required ? argument : Argument.optional(argument)
 }
 
 const flagFor = (field: Field) => {
   const name = flagName(field.name)
+  if (field.choices !== undefined && field.kind === "string") {
+    return Flag.optional(
+      describe(Flag.Literals(name, field.choices), field, Flag.withDescription)
+    )
+  }
+  if (field.choices !== undefined && field.kind === "strings") {
+    return describe(
+      Flag.Literals(name, field.choices),
+      field,
+      Flag.withDescription
+    ).pipe(Flag.atLeast(field.required ? 1 : 0))
+  }
   switch (field.kind) {
     case "integer":
       return Flag.optional(
@@ -126,8 +141,17 @@ export const catalogEntries: ReadonlyArray<CatalogEntry> = Object.values(
   Tools.tools
 ).flatMap(entryFor)
 
+const flagPath = (message: string) =>
+  message.replace(
+    /\n\s+at \["(\w+)"\](.*)$/s,
+    (_, field: string, rest: string) => ` for --${flagName(field)}${rest}`
+  )
+
 export const commandFor = (entry: CatalogEntry) => {
   const name = entry.command[entry.command.length - 1] ?? entry.name
+  const decodeInput = Schema.decodeUnknownEffect(
+    Tools.tools[entry.name].parametersSchema
+  )
   const fields = entry.fields.filter((field) => !SCOPE_FIELDS.has(field.name))
   const paginated = fields.some((field) => field.name === "cursor")
   const config = Object.fromEntries([
@@ -149,6 +173,9 @@ export const commandFor = (entry: CatalogEntry) => {
         orgSlug: Option.map(scope.org, (org) => org.value),
         projectSlug: Option.map(scope.project, (project) => project.value)
       })
+      yield* decodeInput(input).pipe(
+        Effect.mapError((error) => usage(flagPath(error.message)))
+      )
       const firstCursor = input["cursor"]
       const everyPage = Effect.map(
         allPages(

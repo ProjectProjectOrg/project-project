@@ -1,5 +1,5 @@
 import { describe, expect, test } from "@effect/vitest"
-import { ToolCli, Tools } from "@pp/shared"
+import { ToolCli, Tools, withoutDescriptions } from "@pp/shared"
 import Ajv from "ajv"
 import { Tool } from "effect/ai"
 import * as Context from "effect/Context"
@@ -38,7 +38,9 @@ describe("Tools", () => {
     for (const tool of tools) {
       const { $defs, ...before } = legacy[tool.name]
       expect($defs).toEqual({})
-      expect(Tool.getJsonSchema(tool), tool.name).toEqual(before)
+      expect(withoutDescriptions(Tool.getJsonSchema(tool)), tool.name).toEqual(
+        before
+      )
     }
   })
 

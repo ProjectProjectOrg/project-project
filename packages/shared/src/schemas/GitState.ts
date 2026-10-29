@@ -172,7 +172,9 @@ export const AttachBranchInput = Schema.Struct({
   name: Schema.String.pipe(
     Schema.check(Schema.isMinLength(1)),
     Schema.check(Schema.isMaxLength(255))
-  )
+  ).annotate({
+    description: "The branch name as it exists on the connected repository."
+  })
 })
 export type AttachBranchInput = typeof AttachBranchInput.Type
 
