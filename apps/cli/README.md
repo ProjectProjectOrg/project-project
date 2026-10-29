@@ -92,7 +92,7 @@ pp tickets attach T-130 ./screenshot.png
 - Text flags accept `@file`, or `@-` for standard input.
 - JSON flags take JSON or `@file`.
 - Add `--json` to any command for machine-readable output.
-- List commands print one page and a `--cursor` hint for the next; add `--all` to follow every page.
+- Paginated list commands such as `pp tickets list` print one page and a `--cursor` hint for the next; add `--all` to follow every page from there.
 
 `pp` only prompts when you run `pp use` or `pp login` at a terminal, or ask for it with `--wizard`, so agents can run it without hanging. Shell completions: `pp --completions zsh` (also `bash` and `fish`).
 

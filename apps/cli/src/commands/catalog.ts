@@ -4,6 +4,7 @@ import { Argument, Command, Flag } from "effect/cli"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
 
 import { callTool, callToolAs } from "../client/callTool"
@@ -148,14 +149,17 @@ export const commandFor = (entry: CatalogEntry) => {
         orgSlug: Option.map(scope.org, (org) => org.value),
         projectSlug: Option.map(scope.project, (project) => project.value)
       })
+      const firstCursor = input["cursor"]
       const everyPage = Effect.map(
-        allPages((cursor) =>
-          callToolAs(
-            server,
-            entry.name,
-            { limit: 200, ...input, cursor },
-            UnknownPage
-          )
+        allPages(
+          (cursor) =>
+            callToolAs(
+              server,
+              entry.name,
+              { limit: 200, ...input, cursor },
+              UnknownPage
+            ),
+          Predicate.isString(firstCursor) ? firstCursor : undefined
         ),
         (items) => ({ items, nextCursor: null })
       )

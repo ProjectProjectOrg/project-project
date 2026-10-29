@@ -3,9 +3,11 @@ import * as Clock from "effect/Clock"
 import * as Effect from "effect/Effect"
 
 import { refreshTokens } from "../auth/tokens"
+import { unreachable } from "../CliFailure"
 import { type SavedServer, ServerStore } from "../servers/ServerStore"
 
 const REFRESH_BEFORE_MS = 60_000
+const REFRESH_TIMEOUT = "8 seconds"
 
 export const resourceFor = (origin: string) =>
   `${origin}${cliOAuthClient.resourcePath}`
@@ -22,7 +24,17 @@ const refreshed = (server: SavedServer) =>
       tokenEndpoint: server.endpoints.token,
       refreshToken: server.tokens.refreshToken,
       resource: resourceFor(server.origin)
-    }),
+    }).pipe(
+      Effect.timeoutOrElse({
+        duration: REFRESH_TIMEOUT,
+        orElse: () =>
+          Effect.fail(
+            unreachable(
+              `${server.origin} didn't answer the sign-in refresh in time.`
+            )
+          )
+      })
+    ),
     (tokens): SavedServer => ({ ...server, tokens })
   )
 
