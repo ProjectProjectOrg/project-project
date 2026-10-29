@@ -162,7 +162,8 @@ export class ServerStore extends Context.Service<
             const previous = catalog.servers.find(
               (saved) => saved.origin === server.origin
             )
-            const scope = server.scope ?? previous?.scope
+            const { scope: _given, ...credentials } = server
+            const scope = previous?.scope
             return write({
               version: 1,
               defaultServer: catalog.defaultServer ?? server.origin,
@@ -170,7 +171,7 @@ export class ServerStore extends Context.Service<
                 ...catalog.servers.filter(
                   (saved) => saved.origin !== server.origin
                 ),
-                scope === undefined ? server : { ...server, scope }
+                scope === undefined ? credentials : { ...credentials, scope }
               ]
             })
           })
