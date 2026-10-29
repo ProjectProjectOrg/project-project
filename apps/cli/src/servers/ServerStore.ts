@@ -1,3 +1,4 @@
+import * as Clock from "effect/Clock"
 import * as Config from "effect/Config"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
@@ -52,6 +53,10 @@ const emptyCatalog: ServerCatalog = {
   servers: []
 }
 
+const STALE_LOCK_MS = 10_000
+const LOCK_RETRY = "50 millis"
+const LOCK_ATTEMPTS = 200
+
 const configHome = Config.String("XDG_CONFIG_HOME").pipe(
   Config.orElse(() =>
     Config.String("HOME").pipe(Config.map((home) => `${home}/.config`))
@@ -100,80 +105,135 @@ export class ServerStore extends Context.Service<
 
       const write = (catalog: ServerCatalog) =>
         Effect.gen(function* () {
-          yield* fs.makeDirectory(directory, { recursive: true, mode: 0o700 })
           const text = yield* encodeCatalog(catalog)
-          yield* fs.writeFileString(file, text, { mode: 0o600 })
-          yield* fs.chmod(file, 0o600)
+          const staged = `${file}.tmp`
+          yield* fs.writeFileString(staged, text, { mode: 0o600 })
+          yield* fs.chmod(staged, 0o600)
+          yield* fs.rename(staged, file)
         }).pipe(Effect.mapError(failure))
 
-      const save = (server: SavedServer) =>
-        Effect.flatMap(list, (catalog) => {
-          const previous = catalog.servers.find(
-            (saved) => saved.origin === server.origin
+      const lockPath = `${file}.lock`
+
+      const isStale = fs.stat(lockPath).pipe(
+        Effect.flatMap((info) =>
+          Effect.map(Clock.currentTimeMillis, (now) =>
+            Option.match(info.mtime, {
+              onNone: () => false,
+              onSome: (modified) => now - modified.getTime() > STALE_LOCK_MS
+            })
           )
-          const scope = server.scope ?? previous?.scope
-          return write({
-            version: 1,
-            defaultServer: catalog.defaultServer ?? server.origin,
-            servers: [
-              ...catalog.servers.filter(
-                (saved) => saved.origin !== server.origin
-              ),
-              scope === undefined ? server : { ...server, scope }
-            ]
-          })
+        ),
+        Effect.orElseSucceed(() => false)
+      )
+
+      const lock = (attempt: number): Effect.Effect<void, CliFailure> =>
+        Effect.gen(function* () {
+          const acquired = yield* fs.makeDirectory(lockPath).pipe(
+            Effect.as(true),
+            Effect.orElseSucceed(() => false)
+          )
+          if (acquired) return
+          if (attempt >= LOCK_ATTEMPTS) {
+            return yield* new CliFailure({
+              message: `Another pp is still updating ${file}. If none is running, delete ${lockPath}.`,
+              code: ExitCode.failure
+            })
+          }
+          if (yield* isStale) {
+            yield* fs.remove(lockPath, { recursive: true }).pipe(Effect.ignore)
+          } else {
+            yield* Effect.sleep(LOCK_RETRY)
+          }
+          return yield* lock(attempt + 1)
         })
+
+      const locked = <A, E>(effect: Effect.Effect<A, E>) =>
+        Effect.acquireUseRelease(
+          fs
+            .makeDirectory(directory, { recursive: true, mode: 0o700 })
+            .pipe(Effect.mapError(failure), Effect.andThen(lock(0))),
+          () => effect,
+          () => fs.remove(lockPath, { recursive: true }).pipe(Effect.ignore)
+        )
+
+      const save = (server: SavedServer) =>
+        locked(
+          Effect.flatMap(list, (catalog) => {
+            const previous = catalog.servers.find(
+              (saved) => saved.origin === server.origin
+            )
+            const scope = server.scope ?? previous?.scope
+            return write({
+              version: 1,
+              defaultServer: catalog.defaultServer ?? server.origin,
+              servers: [
+                ...catalog.servers.filter(
+                  (saved) => saved.origin !== server.origin
+                ),
+                scope === undefined ? server : { ...server, scope }
+              ]
+            })
+          })
+        )
 
       const remove = (origin: string) =>
-        Effect.gen(function* () {
-          const catalog = yield* list
-          const servers = catalog.servers.filter(
-            (saved) => saved.origin !== origin
-          )
-          if (servers.length === catalog.servers.length) return false
-          yield* write({
-            version: 1,
-            defaultServer:
-              catalog.defaultServer === origin
-                ? (servers[0]?.origin ?? null)
-                : catalog.defaultServer,
-            servers
+        locked(
+          Effect.gen(function* () {
+            const catalog = yield* list
+            const servers = catalog.servers.filter(
+              (saved) => saved.origin !== origin
+            )
+            if (servers.length === catalog.servers.length) return false
+            yield* write({
+              version: 1,
+              defaultServer:
+                catalog.defaultServer === origin
+                  ? (servers[0]?.origin ?? null)
+                  : catalog.defaultServer,
+              servers
+            })
+            return true
           })
-          return true
-        })
+        )
 
       const setDefault = (origin: string) =>
-        Effect.gen(function* () {
-          const catalog = yield* list
-          if (!catalog.servers.some((saved) => saved.origin === origin)) {
-            return yield* notSignedIn(
-              `You're not signed in to ${origin}. Run \`pp login ${origin}\`.`
-            )
-          }
-          yield* write({ ...catalog, defaultServer: origin })
-        })
+        locked(
+          Effect.gen(function* () {
+            const catalog = yield* list
+            if (!catalog.servers.some((saved) => saved.origin === origin)) {
+              return yield* notSignedIn(
+                `You're not signed in to ${origin}. Run \`pp login ${origin}\`.`
+              )
+            }
+            yield* write({ ...catalog, defaultServer: origin })
+          })
+        )
 
       const setScope = (origin: string, scope: Option.Option<SavedScope>) =>
-        Effect.gen(function* () {
-          const catalog = yield* list
-          const found = catalog.servers.find((saved) => saved.origin === origin)
-          if (found === undefined) {
-            return yield* notSignedIn(
-              `You're not signed in to ${origin}. Run \`pp login ${origin}\`.`
+        locked(
+          Effect.gen(function* () {
+            const catalog = yield* list
+            const found = catalog.servers.find(
+              (saved) => saved.origin === origin
             )
-          }
-          const { scope: _previous, ...rest } = found
-          const updated: SavedServer = Option.match(scope, {
-            onNone: () => rest,
-            onSome: (value) => ({ ...rest, scope: value })
+            if (found === undefined) {
+              return yield* notSignedIn(
+                `You're not signed in to ${origin}. Run \`pp login ${origin}\`.`
+              )
+            }
+            const { scope: _previous, ...rest } = found
+            const updated: SavedServer = Option.match(scope, {
+              onNone: () => rest,
+              onSome: (value) => ({ ...rest, scope: value })
+            })
+            yield* write({
+              ...catalog,
+              servers: catalog.servers.map((saved) =>
+                saved.origin === origin ? updated : saved
+              )
+            })
           })
-          yield* write({
-            ...catalog,
-            servers: catalog.servers.map((saved) =>
-              saved.origin === origin ? updated : saved
-            )
-          })
-        })
+        )
 
       const select = (preferred: Option.Option<string>) =>
         Effect.gen(function* () {
