@@ -56,7 +56,9 @@ export const CreateCommentInput = Schema.Struct({
   body: Schema.String.pipe(
     Schema.check(Schema.isMinLength(1)),
     Schema.check(Schema.isMaxLength(20_000))
-  )
+  ).annotate({
+    description: "The comment as CommonMark markdown, 1 to 20,000 characters."
+  })
 })
 export type CreateCommentInput = typeof CreateCommentInput.Type
 

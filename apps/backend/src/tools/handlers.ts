@@ -263,11 +263,21 @@ const list_members = (
     )
   )
 
-const get_git_state = (input: {
+type GitStateInput = Readonly<{
   orgSlug: string
   projectSlug: string
   ticketId?: string
-}) => Effect.flatMap(Tickets, (tickets) => tickets.getGitState(input.ticketId))
+}>
+
+const get_git_state = (input: GitStateInput) =>
+  Effect.flatMap(Tickets, (tickets) =>
+    tickets.getGitState(input.ticketId, { reconcile: false })
+  )
+
+const sync_git_state = (input: GitStateInput) =>
+  Effect.flatMap(Tickets, (tickets) =>
+    tickets.getGitState(input.ticketId, { reconcile: true })
+  )
 
 const get_project_doc = (input: { orgSlug: string; projectSlug: string }) =>
   Effect.gen(function* () {
@@ -641,6 +651,7 @@ export const ToolHandlersLive = Tools.toLayer(
       list_tags: run.project({ ticket: ["read"] }, list_tags),
       list_members: run.project({ ticket: ["read"] }, list_members),
       get_git_state: run.project({ github: ["read"] }, get_git_state),
+      sync_git_state: run.project({ github: ["read"] }, sync_git_state),
       get_project_doc: run.project(
         { docs: ["read"], github: ["read"] },
         get_project_doc

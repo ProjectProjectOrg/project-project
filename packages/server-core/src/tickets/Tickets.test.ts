@@ -1082,6 +1082,61 @@ it.effect(
   }
 )
 
+it.effect(
+  "listGitStates without reconcile reads GitHub and writes nothing",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1", "T-2"])
+    docs.documents.set(
+      "T-2",
+      makeTicketDocument("T-2", { branch: "feat/T-2-gone" })
+    )
+    const before = docs.documents.get("T-1")
+    const beforeGone = docs.documents.get("T-2")
+    const layer = makeTicketsLayer("T", docs.layer, {
+      projects: makeFakeProjects("T", {
+        githubIntegration: () => Effect.succeed(githubIntegration)
+      }),
+      ticketIndex: makeFakeTicketIndex(docs.documents),
+      github: makeFakeGitHub({
+        fetchInstallationProjectStates: () =>
+          Effect.succeed({
+            defaultBranch: "main",
+            openPullRequestText: new Map(),
+            mergedPrsByBranch: new Map(),
+            fetchedAt: isoDate("2026-04-01T00:00:00Z"),
+            existingBranches: new Set(["feat/T-1-external"]),
+            prByBranch: new Map([
+              [
+                "feat/T-1-external",
+                {
+                  headRefName: "feat/T-1-external",
+                  baseRefName: "main",
+                  state: "open",
+                  draft: false,
+                  number: 42,
+                  url: "https://github.com/acme/app/pull/42",
+                  title: "External change",
+                  mergedAt: null,
+                  checks: "passing"
+                }
+              ]
+            ])
+          })
+      })
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const result = yield* tickets.listGitStates({ reconcile: false })
+      expect(result.changedTicketIds).toEqual([])
+      expect(result.transitioned).toEqual([])
+      expect(result.states["T-1"]).toMatchObject({ tag: "no_branch" })
+      expect(result.states["T-2"]).toMatchObject({ tag: "stale_branch" })
+      expect(docs.documents.get("T-1")).toEqual(before)
+      expect(docs.documents.get("T-2")).toEqual(beforeGone)
+    }).pipe(Effect.provide(layer))
+  }
+)
+
 it.effect("listGitStates links an external branch and its existing PR", () => {
   const docs = makeFakeTicketDocs(["T-1"])
   const queries: Array<string | undefined> = []

@@ -1,6 +1,7 @@
 import * as Clock from "effect/Clock"
 import * as Config from "effect/Config"
 import * as Context from "effect/Context"
+import * as Crypto from "effect/Crypto"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
@@ -82,6 +83,10 @@ export class ServerStore extends Context.Service<
       origin: string,
       scope: Option.Option<SavedScope>
     ) => Effect.Effect<void, CliFailure>
+    update: <E, R>(
+      origin: string,
+      change: (saved: SavedServer) => Effect.Effect<SavedServer, E, R>
+    ) => Effect.Effect<SavedServer, E | CliFailure, R>
     select: (
       preferred: Option.Option<string>
     ) => Effect.Effect<SavedServer, CliFailure>
@@ -92,6 +97,7 @@ export class ServerStore extends Context.Service<
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
+      const crypto = yield* Crypto.Crypto
       const directory = path.join(yield* configHome, "pp")
       const file = path.join(directory, "servers.json")
       const failure = storageFailure(file)
@@ -147,14 +153,31 @@ export class ServerStore extends Context.Service<
           return yield* lock(attempt + 1)
         })
 
-      const locked = <A, E>(effect: Effect.Effect<A, E>) =>
-        Effect.acquireUseRelease(
-          fs
-            .makeDirectory(directory, { recursive: true, mode: 0o700 })
-            .pipe(Effect.mapError(failure), Effect.andThen(lock(0))),
-          () => effect,
-          () => fs.remove(lockPath, { recursive: true }).pipe(Effect.ignore)
+      const ownerPath = `${lockPath}/owner`
+
+      const acquire = Effect.gen(function* () {
+        yield* fs
+          .makeDirectory(directory, { recursive: true, mode: 0o700 })
+          .pipe(Effect.mapError(failure))
+        yield* lock(0)
+        const owner = yield* crypto.randomUUIDv4().pipe(Effect.orDie)
+        yield* fs.writeFileString(ownerPath, owner).pipe(Effect.ignore)
+        return owner
+      })
+
+      const release = (owner: string) =>
+        fs.readFileString(ownerPath).pipe(
+          Effect.orElseSucceed(() => owner),
+          Effect.flatMap((current) =>
+            current === owner
+              ? fs.remove(lockPath, { recursive: true })
+              : Effect.void
+          ),
+          Effect.ignore
         )
+
+      const locked = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        Effect.acquireUseRelease(acquire, () => effect, release)
 
       const save = (server: SavedServer) =>
         locked(
@@ -236,6 +259,33 @@ export class ServerStore extends Context.Service<
           })
         )
 
+      const update = <E, R>(
+        origin: string,
+        change: (saved: SavedServer) => Effect.Effect<SavedServer, E, R>
+      ) =>
+        locked(
+          Effect.gen(function* () {
+            const catalog = yield* list
+            const found = catalog.servers.find(
+              (saved) => saved.origin === origin
+            )
+            if (found === undefined) {
+              return yield* notSignedIn(
+                `You're not signed in to ${origin}. Run \`pp login ${origin}\`.`
+              )
+            }
+            const updated = yield* change(found)
+            if (updated === found) return found
+            yield* write({
+              ...catalog,
+              servers: catalog.servers.map((saved) =>
+                saved.origin === origin ? updated : saved
+              )
+            })
+            return updated
+          })
+        )
+
       const select = (preferred: Option.Option<string>) =>
         Effect.gen(function* () {
           const catalog = yield* list
@@ -259,6 +309,7 @@ export class ServerStore extends Context.Service<
         remove,
         setDefault,
         setScope,
+        update,
         select
       })
     })

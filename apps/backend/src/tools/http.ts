@@ -1,8 +1,8 @@
 import {
-  catalogVersion,
   cliOAuthClient,
   cliRelease,
   ToolFailure,
+  toolInputVersions,
   Tools
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
@@ -13,12 +13,9 @@ import { ToolsAuthMiddlewareLive } from "../Layers/ToolsAuth"
 import { ToolHandlersLive } from "./handlers"
 import { invokeTool, isToolName, type ToolkitHandlers } from "./invokeTool"
 
-const catalogHeaders = { [cliRelease.catalogVersionHeader]: catalogVersion }
-
 const failure = (status: number, error: string, message: string) =>
   HttpServerResponse.jsonUnsafe(new ToolFailure({ error, message }), {
-    status,
-    headers: catalogHeaders
+    status
   })
 
 const toolRoute = (toolkit: ToolkitHandlers) =>
@@ -28,19 +25,21 @@ const toolRoute = (toolkit: ToolkitHandlers) =>
       return failure(404, "NotFound", `Unknown tool: ${name ?? ""}.`)
     }
     const request = yield* HttpServerRequest.HttpServerRequest
-    const callerCatalog = request.headers[cliRelease.catalogVersionHeader]
-    if (callerCatalog !== undefined && callerCatalog !== catalogVersion) {
+    const callerVersion = request.headers[cliRelease.toolVersionHeader]
+    if (
+      callerVersion !== undefined &&
+      callerVersion !== toolInputVersions[name]
+    ) {
       return failure(
         409,
         "CatalogMismatch",
-        `This pp knows a different set of tools (${callerCatalog}) than this server (${catalogVersion}). Run \`pp upgrade\` to get the matching version.`
+        `This pp sends ${name} a different input (${callerVersion}) than this server expects (${toolInputVersions[name]}). Run \`pp upgrade\` to get the matching version.`
       )
     }
     const body = yield* request.json
     const result = yield* invokeTool(toolkit, name, body)
     return HttpServerResponse.jsonUnsafe(result.encoded, {
-      status: result.isFailure ? 422 : 200,
-      headers: catalogHeaders
+      status: result.isFailure ? 422 : 200
     })
   }).pipe(
     Effect.catchTags({

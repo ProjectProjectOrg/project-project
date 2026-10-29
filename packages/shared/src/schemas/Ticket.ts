@@ -8,7 +8,7 @@
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
-import { Estimate } from "./Estimate"
+import { Estimate, ESTIMATE_MAX_MINUTES } from "./Estimate"
 import { GitState, StackLayerState } from "./GitState"
 import { GroupId } from "./GroupId"
 import { TemplateKey } from "./LibraryKey"
@@ -122,20 +122,56 @@ export const QuickCreateTicketInput = Schema.Struct({
 })
 export type QuickCreateTicketInput = typeof QuickCreateTicketInput.Type
 
+const ticketFieldDocs = {
+  status: "A status slug from `list_statuses` (default `todo`).",
+  type: "The ticket type (default `other`).",
+  priority: "The priority (default `med`).",
+  estimate:
+    "An estimate in the project's estimation unit (`estimation` in `get_project`): " +
+    '`{ unit: "points", value: 1-999 }`, `{ unit: "tshirt", value: "XS" | "S" | "M" | "L" | "XL" }` ' +
+    `or \`{ unit: "time", minutes: 1-${ESTIMATE_MAX_MINUTES} }\`; \`null\` clears it.`,
+  tags: "Tag names; each must exist on the project (`list_tags`).",
+  assignees: "User ids of project members (`list_members`).",
+  body: "The description as CommonMark markdown, which may contain named blocks.",
+  parent:
+    "The id of an epic (making this one of its tickets) or of a ticket (making this a sub-ticket)."
+} as const
+
 export const CreateTicketInput = Schema.Struct({
   title: Schema.String.pipe(
     Schema.check(Schema.isMinLength(1)),
     Schema.check(Schema.isMaxLength(200))
-  ),
-  status: Schema.optional(TicketStatus),
-  type: Schema.optional(TicketType),
-  priority: Schema.optional(TicketPriority),
-  estimate: Schema.optional(Schema.NullOr(Estimate)),
-  tags: Schema.optional(Schema.Array(TagName)),
-  assignees: Schema.optional(Schema.Array(Schema.String)),
-  body: Schema.optional(Schema.String),
-  parent: Schema.optional(TicketId),
-  template: Schema.optional(Schema.NullOr(TemplateKey))
+  ).annotate({
+    description: "The title, 1 to 200 characters."
+  }),
+  status: Schema.optional(TicketStatus).annotate({
+    description: ticketFieldDocs.status
+  }),
+  type: Schema.optional(TicketType).annotate({
+    description: ticketFieldDocs.type
+  }),
+  priority: Schema.optional(TicketPriority).annotate({
+    description: ticketFieldDocs.priority
+  }),
+  estimate: Schema.optional(Schema.NullOr(Estimate)).annotate({
+    description: ticketFieldDocs.estimate
+  }),
+  tags: Schema.optional(Schema.Array(TagName)).annotate({
+    description: ticketFieldDocs.tags
+  }),
+  assignees: Schema.optional(Schema.Array(Schema.String)).annotate({
+    description: ticketFieldDocs.assignees
+  }),
+  body: Schema.optional(Schema.String).annotate({
+    description: ticketFieldDocs.body
+  }),
+  parent: Schema.optional(TicketId).annotate({
+    description: ticketFieldDocs.parent
+  }),
+  template: Schema.optional(Schema.NullOr(TemplateKey)).annotate({
+    description:
+      "A template key from `list_templates` to expand into the body; omit or pass `null` for a blank ticket."
+  })
 })
 export type CreateTicketInput = typeof CreateTicketInput.Type
 
@@ -157,15 +193,32 @@ export const UpdateTicketInput = Schema.Struct({
       Schema.check(Schema.isMinLength(1)),
       Schema.check(Schema.isMaxLength(200))
     )
-  ),
-  status: Schema.optional(TicketStatus),
-  type: Schema.optional(TicketType),
-  priority: Schema.optional(TicketPriority),
-  estimate: Schema.optional(Schema.NullOr(Estimate)),
-  tags: Schema.optional(Schema.Array(TagName)),
-  assignees: Schema.optional(Schema.Array(Schema.String)),
-  body: Schema.optional(Schema.String),
-  parent: Schema.optional(Schema.NullOr(TicketId))
+  ).annotate({ description: "A new title, 1 to 200 characters." }),
+  status: Schema.optional(TicketStatus).annotate({
+    description:
+      "A status slug from `list_statuses`; don't set one that git automation sets (`setBy`)."
+  }),
+  type: Schema.optional(TicketType).annotate({
+    description: ticketFieldDocs.type
+  }),
+  priority: Schema.optional(TicketPriority).annotate({
+    description: ticketFieldDocs.priority
+  }),
+  estimate: Schema.optional(Schema.NullOr(Estimate)).annotate({
+    description: ticketFieldDocs.estimate
+  }),
+  tags: Schema.optional(Schema.Array(TagName)).annotate({
+    description: `${ticketFieldDocs.tags} Pass an empty list to clear.`
+  }),
+  assignees: Schema.optional(Schema.Array(Schema.String)).annotate({
+    description: `${ticketFieldDocs.assignees} Pass an empty list to clear.`
+  }),
+  body: Schema.optional(Schema.String).annotate({
+    description: `${ticketFieldDocs.body} Replaces the whole description.`
+  }),
+  parent: Schema.optional(Schema.NullOr(TicketId)).annotate({
+    description: `${ticketFieldDocs.parent} \`null\` removes the parent.`
+  })
 })
 export type UpdateTicketInput = typeof UpdateTicketInput.Type
 

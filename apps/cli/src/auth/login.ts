@@ -1,11 +1,11 @@
-import { catalogVersion, cliOAuthClient, cliRelease, Tools } from "@pp/shared"
+import { catalogVersion, cliOAuthClient, Tools } from "@pp/shared"
 import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
 
 import { callToolAs } from "../client/callTool"
-import { CliFailure, ExitCode, notSignedIn, usage } from "../CliFailure"
+import { notSignedIn, usage } from "../CliFailure"
 import { originOf } from "../servers/origin"
 import { type SavedServer, ServerStore } from "../servers/ServerStore"
 import { Browser } from "./Browser"
@@ -134,20 +134,23 @@ const signIn = (discovered: Discovered, pkce: Pkce) =>
     })
   )
 
+export const catalogNotice = (discovered: Discovered) =>
+  discovered.catalogVersion === undefined ||
+  discovered.catalogVersion === catalogVersion
+    ? Option.none()
+    : Option.some(
+        `${discovered.origin} knows a different set of tools than this pp. Commands whose input changed will ask you to run \`pp upgrade\`.`
+      )
+
 export const login = Effect.fn("login")(function* (address: string) {
   const origin = yield* Option.match(originOf(address), {
     onNone: () => Effect.fail(usage(`"${address}" isn't a valid address.`)),
     onSome: Effect.succeed
   })
   const discovered = yield* discover(origin)
-  if (
-    discovered.catalogVersion !== undefined &&
-    discovered.catalogVersion !== catalogVersion
-  ) {
-    return yield* new CliFailure({
-      message: `This pp knows a different set of tools (${catalogVersion}) than ${origin} (${discovered.catalogVersion}). Install the matching version with:\n\n  curl -fsSL ${origin}${cliRelease.installScriptPath} | sh`,
-      code: ExitCode.outdated
-    })
-  }
+  yield* Option.match(catalogNotice(discovered), {
+    onNone: () => Effect.void,
+    onSome: Console.error
+  })
   return yield* signIn(discovered, yield* newPkce)
 })

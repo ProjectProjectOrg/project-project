@@ -7,12 +7,14 @@ import * as Schema from "effect/Schema"
 // base64url-encoded JSON payloads — handlers decode them to read keyset state.
 
 export const Pagination = Schema.Struct({
-  cursor: Schema.optional(Schema.String),
+  cursor: Schema.optional(Schema.String).annotate({
+    description: "The `nextCursor` of the previous page."
+  }),
   limit: Schema.optional(
     Schema.Int.pipe(
       Schema.check(Schema.isBetween({ minimum: 1, maximum: 200 }))
     )
-  )
+  ).annotate({ description: "Items per page, 1 to 200 (default 50)." })
 })
 export type Pagination = typeof Pagination.Type
 

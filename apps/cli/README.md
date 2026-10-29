@@ -28,7 +28,7 @@ pp upgrade --latest     # the latest stable release
 pp upgrade --nightly    # the latest nightly
 ```
 
-Once a day `pp` asks your server which release it runs. When yours is different, commands still work and end with a line suggesting `pp upgrade`. If `pp` and your server drift so far apart that their tools differ, commands stop and tell you to run `pp upgrade`. Set `PP_NO_UPDATE_CHECK=1` to turn the daily check off.
+Once a day `pp` asks your server which release it runs. When yours is different, commands still work and end with a line suggesting `pp upgrade`. If a command's input has changed between your `pp` and the server, that command stops and tells you to run `pp upgrade`; other commands keep working. Set `PP_NO_UPDATE_CHECK=1` to turn the daily check off.
 
 ### From the repository
 
@@ -85,24 +85,15 @@ pp tickets get T-80
 pp tickets update T-80 --status in_progress
 pp tickets comment T-80 --body @notes.md
 pp tickets attach T-130 ./screenshot.png
-pp tools                                  # every tool and its command
 ```
 
-- Flags that take several values are repeated: `--status todo --status in_progress`.
+- Flags that take several values are repeated: `--status todo --status in_progress`. Yes/no flags turn off with `--no-`, as in `--no-has-branch`.
+- `pp tickets list --sort updated` sorts by a key in its natural direction; add `:asc` or `:desc` to choose.
 - Clear a field with `null` (`--parent null`, `--starts-at null`) and a list with an empty value (`--tags ''`, `--assignees ''`).
 - Text flags accept `@file`, or `@-` for standard input.
 - JSON flags take JSON or `@file`.
 - Add `--json` to any command for machine-readable output.
-
-Any tool can also be called with raw JSON:
-
-```sh
-pp call get_ticket '{"id":"T-80"}'
-pp call update_ticket @changes.json
-echo '{"id":"T-80"}' | pp call get_ticket -
-```
-
-`pp call` fills in `orgSlug` and `projectSlug` the same way when the input leaves them out.
+- Paginated list commands such as `pp tickets list` print one page and a `--cursor` hint for the next; add `--all` to follow every page from there.
 
 `pp` only prompts when you run `pp use` or `pp login` at a terminal, or ask for it with `--wizard`, so agents can run it without hanging. Shell completions: `pp --completions zsh` (also `bash` and `fish`).
 

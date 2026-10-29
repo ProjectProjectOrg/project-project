@@ -128,4 +128,51 @@ describe("ServerStore", () => {
       })
     )
   )
+
+  it.live("runs one update at a time against the latest saved copy", () =>
+    inTempConfig(
+      Effect.gen(function* () {
+        const store = yield* ServerStore
+        const origin = "https://a.example.com"
+        yield* store.save(server(origin))
+        yield* Effect.forEach(
+          [1, 2, 3, 4, 5],
+          () =>
+            store.update(origin, (saved) =>
+              Effect.succeed({
+                ...saved,
+                tokens: {
+                  ...saved.tokens,
+                  expiresAt: saved.tokens.expiresAt + 1
+                }
+              })
+            ),
+          { concurrency: "unbounded" }
+        )
+        expect(
+          (yield* store.select(Option.some(origin))).tokens.expiresAt
+        ).toBe(6)
+      })
+    )
+  )
+
+  it.effect("leaves a lock alone when another pp took it over meanwhile", () =>
+    inTempConfig(
+      Effect.gen(function* () {
+        const store = yield* ServerStore
+        const fs = yield* FileSystem.FileSystem
+        const origin = "https://a.example.com"
+        const lockPath = `${store.file}.lock`
+        yield* store.save(server(origin))
+        yield* store.update(origin, (saved) =>
+          Effect.as(
+            fs.writeFileString(`${lockPath}/owner`, "another pp"),
+            saved
+          )
+        )
+        expect(yield* fs.exists(lockPath)).toBe(true)
+        expect(yield* fs.readFileString(`${lockPath}/owner`)).toBe("another pp")
+      })
+    )
+  )
 })

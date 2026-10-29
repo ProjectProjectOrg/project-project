@@ -62,18 +62,46 @@ export const SubTicketsMode = Schema.Literals(["nested", "flat"])
 export type SubTicketsMode = typeof SubTicketsMode.Type
 
 const TicketFilterFields = {
-  status: Schema.optional(Schema.Array(TicketStatus)),
-  type: Schema.optional(Schema.Array(TicketType)),
-  assignee: Schema.optional(Schema.Array(AssigneeFilter)),
-  tags: Schema.optional(Schema.Array(TagName)),
-  hasBranch: Schema.optional(Schema.Boolean),
-  hasPr: Schema.optional(Schema.Boolean),
-  updatedAfter: Schema.optional(Schema.DateFromString),
-  groupId: Schema.optional(Schema.Array(GroupIdFilter)),
-  estimate: Schema.optional(Schema.Array(EstimateFilterValue)),
-  parent: Schema.optional(Schema.Array(ParentFilter)),
-  subTickets: Schema.optional(SubTicketsMode),
-  archived: Schema.optional(Schema.Boolean)
+  status: Schema.optional(Schema.Array(TicketStatus)).annotate({
+    description: "Status slugs from `list_statuses`."
+  }),
+  type: Schema.optional(Schema.Array(TicketType)).annotate({
+    description: "Ticket types."
+  }),
+  assignee: Schema.optional(Schema.Array(AssigneeFilter)).annotate({
+    description: "User ids, `mine` for yourself, or `unassigned`."
+  }),
+  tags: Schema.optional(Schema.Array(TagName)).annotate({
+    description: "Tag names from `list_tags`."
+  }),
+  hasBranch: Schema.optional(Schema.Boolean).annotate({
+    description: "Whether a branch is linked."
+  }),
+  hasPr: Schema.optional(Schema.Boolean).annotate({
+    description: "Whether a pull request is linked."
+  }),
+  updatedAfter: Schema.optional(Schema.DateFromString).annotate({
+    description: "Only tickets updated after this ISO 8601 timestamp."
+  }),
+  groupId: Schema.optional(Schema.Array(GroupIdFilter)).annotate({
+    description:
+      "Group ids, or `ungrouped` for tickets in no planned or active sprint (the backlog)."
+  }),
+  estimate: Schema.optional(Schema.Array(EstimateFilterValue)).annotate({
+    description:
+      "`none`, `any`, `stale` (estimated in a unit the project no longer uses) or t-shirt sizes."
+  }),
+  parent: Schema.optional(Schema.Array(ParentFilter)).annotate({
+    description: "Parent ticket ids, or `none` for tickets without one."
+  }),
+  subTickets: Schema.optional(SubTicketsMode).annotate({
+    description:
+      "`nested` leaves out a sub-ticket whose parent matches the same filters; `flat` (default) lists every match."
+  }),
+  archived: Schema.optional(Schema.Boolean).annotate({
+    description:
+      "`true` lists only archived tickets; they are left out otherwise."
+  })
 } as const
 
 export const TicketFilter = Schema.Struct(TicketFilterFields)
@@ -83,11 +111,18 @@ export const TICKET_LIST_LIMIT = 50
 
 export const TicketListQuery = TicketFilter.pipe(
   Schema.fieldsAssign({
-    sort: TicketSort.pipe(
+    sort: TicketSort.annotate({
+      description:
+        "`{ key, dir }` with `key` one of `id`, `created`, `updated`, `title`, `priority` or `estimate` and `dir` `asc` or `desc` (default newest first)."
+    }).pipe(
       Schema.withDecodingDefaultType(Effect.succeed(DEFAULT_TICKET_SORT))
     ),
-    q: Schema.optional(Schema.String),
-    cursor: Schema.optional(Schema.String)
+    q: Schema.optional(Schema.String).annotate({
+      description: "Text in the title or ticket id (not the body)."
+    }),
+    cursor: Schema.optional(Schema.String).annotate({
+      description: "The `nextCursor` of the previous page."
+    })
   })
 )
 export type TicketListQuery = typeof TicketListQuery.Type

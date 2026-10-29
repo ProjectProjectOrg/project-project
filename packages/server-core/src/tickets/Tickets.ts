@@ -71,6 +71,8 @@ type GitHubFailure =
   | RateLimited
   | GitHubError
 
+export type GitStateOptions = Readonly<{ reconcile: boolean }>
+
 export type TicketsShape = Readonly<{
   mine: (query: MyTicketsQuery) => Effect.Effect<OrgTicketPage, never, OrgScope>
   mineByProject: () => Effect.Effect<
@@ -283,13 +285,12 @@ export type TicketsShape = Readonly<{
     ProjectScope | ActivityActor
   >
   getGitState: (
-    ticketId: string | undefined
+    ticketId: string | undefined,
+    options?: GitStateOptions
   ) => Effect.Effect<GitStatesResponse, NotFound | MarkdownError, ProjectScope>
-  listGitStates: () => Effect.Effect<
-    GitStatesResponse,
-    NotFound | MarkdownError,
-    ProjectScope
-  >
+  listGitStates: (
+    options?: GitStateOptions
+  ) => Effect.Effect<GitStatesResponse, NotFound | MarkdownError, ProjectScope>
 }>
 
 export class Tickets extends Context.Service<Tickets, TicketsShape>()(

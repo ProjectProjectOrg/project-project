@@ -310,6 +310,11 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
       destructiveHint: true
     })
     expect(annotations.get_git_state).toMatchObject({
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: true
+    })
+    expect(annotations.sync_git_state).toMatchObject({
       readOnlyHint: false,
       destructiveHint: true,
       openWorldHint: true
@@ -497,11 +502,11 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     )
   })
 
-  it("http: a pp with a different catalog is told to upgrade before anything runs", async () => {
+  it("http: a pp sending a tool's input in another shape is told to upgrade before anything runs", async () => {
     const headers = new Headers({
       "content-type": "application/json",
       authorization: `Bearer ${cliTokens[0]}`,
-      "pp-catalog-version": "00000000"
+      "pp-tool-version": "00000000"
     })
     const response = await nextHandler()(
       new Request(new URL("/api/v1/tools/me", resource).href, {
