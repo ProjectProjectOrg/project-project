@@ -310,6 +310,11 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
       destructiveHint: true
     })
     expect(annotations.get_git_state).toMatchObject({
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: true
+    })
+    expect(annotations.sync_git_state).toMatchObject({
       readOnlyHint: false,
       destructiveHint: true,
       openWorldHint: true

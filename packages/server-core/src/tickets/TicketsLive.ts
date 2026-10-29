@@ -3153,7 +3153,9 @@ export const TicketsLive = Layer.effect(
       }
     )
 
-    const listGitStates: TicketsShape["listGitStates"] = () =>
+    const listGitStates: TicketsShape["listGitStates"] = (
+      options = { reconcile: true }
+    ) =>
       Effect.gen(function* () {
         const indexProject = indexProjectOf(yield* ProjectScope)
         const projectGithub = yield* projects.githubIntegration()
@@ -3198,7 +3200,7 @@ export const TicketsLive = Layer.effect(
           }
         }
 
-        if (result.raw.refreshStatus) {
+        if (result.raw.refreshStatus || !options.reconcile) {
           const snapshot = planTicketGitStates(
             tickets,
             result.raw,
@@ -3220,8 +3222,12 @@ export const TicketsLive = Layer.effect(
             changedTicketIds: [],
             tokenStatus: "ok",
             repoStatus: "ok",
-            refreshStatus: result.raw.refreshStatus,
-            retryAt: result.raw.retryAt
+            ...(result.raw.refreshStatus
+              ? {
+                  refreshStatus: result.raw.refreshStatus,
+                  retryAt: result.raw.retryAt
+                }
+              : {})
           }
         }
 
@@ -3233,9 +3239,9 @@ export const TicketsLive = Layer.effect(
         )
       })
 
-    const getGitState: TicketsShape["getGitState"] = (ticketId) =>
+    const getGitState: TicketsShape["getGitState"] = (ticketId, options) =>
       Effect.gen(function* () {
-        const all = yield* listGitStates()
+        const all = yield* listGitStates(options)
         if (ticketId === undefined) return all
         const single = all.states[ticketId]
         const stack = all.stacks?.[ticketId]

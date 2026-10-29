@@ -407,12 +407,7 @@ export const Tools = Toolkit.make(
   }),
   defineTool("get_git_state", {
     title: "Check Git state",
-    hints: {
-      readOnly: false,
-      destructive: true,
-      idempotent: true,
-      openWorld: true
-    },
+    hints: { readOnly: true, openWorld: true },
     description:
       "Fetch GitHub state for a project's tickets, keyed by ticket id in " +
       "`states`, or for one ticket with `ticketId`. Each state's `tag` " +
@@ -424,8 +419,36 @@ export const Tools = Toolkit.make(
       "request of each stacked layer, and `repoStatus` and `tokenStatus` " +
       "report problems with the repository connection. Use this to check " +
       "pull requests and CI across a project; `get_ticket` carries the " +
-      "same `gitState` for a single ticket.",
+      "same `gitState` for a single ticket. This only reads: it never " +
+      "links branches or moves statuses. `sync_git_state` does.",
     cli: { command: ["git", "state"], args: ["ticketId"] },
+    parameters: Schema.Struct({
+      orgSlug,
+      projectSlug,
+      ticketId: Schema.optional(TicketId).annotate({
+        description: "Limit the result to one ticket."
+      })
+    }),
+    success: GitStatesResponse
+  }),
+  defineTool("sync_git_state", {
+    title: "Sync Git state",
+    hints: {
+      readOnly: false,
+      destructive: true,
+      idempotent: true,
+      openWorld: true
+    },
+    description:
+      "Fetch GitHub state for a project's tickets and run git automation " +
+      "on it: link branches and pull requests that name a ticket, stack " +
+      "layers, mark deleted branches stale and move statuses per `setBy` " +
+      "in `list_statuses`. The app does the same whenever it shows git " +
+      "state, so call this only when you need the result now, for " +
+      "example right after opening a pull request. Returns the same " +
+      "shape as `get_git_state`; `transitioned` lists the status moves " +
+      "and `changedTicketIds` the tickets written.",
+    cli: { command: ["git", "sync"], args: ["ticketId"] },
     parameters: Schema.Struct({
       orgSlug,
       projectSlug,
