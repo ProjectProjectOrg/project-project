@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
+import { MiddleTruncate } from "@/components/ui/middle-truncate"
 import {
   archivedEpicTitles,
   epicsRequest,
@@ -54,11 +55,11 @@ export function EpicLink({
       params={{ orgSlug: ref.orgSlug, slug: ref.slug, id: ref.epicId }}
       preload="intent"
       className={cn(
-        "max-w-[24ch] shrink-0 truncate text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline",
+        "flex max-w-[24ch] min-w-0 shrink-0 text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline",
         className
       )}
     >
-      {label.title}
+      <MiddleTruncate value={label.title} />
     </Link>
   )
 }
