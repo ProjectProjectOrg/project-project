@@ -28,13 +28,13 @@ describe("withToolCaller", () => {
           ToolCaller,
           Option.some({
             user,
-            client: Option.some({ id: "c-1", name: "pp CLI" })
+            client: Option.some({ id: "c-1", name: "PP CLI" })
           })
         )
       )
       expect(current.id).toBe("u-1")
       expect(actor).toEqual(
-        ActivityActor.agent("u-1", { id: "c-1", name: "pp CLI" })
+        ActivityActor.agent("u-1", { id: "c-1", name: "PP CLI" })
       )
     })
   )

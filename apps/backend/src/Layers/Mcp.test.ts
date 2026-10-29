@@ -502,7 +502,7 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     expect(status).toBe(401)
   })
 
-  it("auth: pp CLI is a built-in PKCE client limited to the tools resource", async () => {
+  it("auth: PP CLI is a built-in PKCE client limited to the tools resource", async () => {
     const { rows } = await pool.query(
       "SELECT name, require_pkce, token_endpoint_auth_method, redirect_uris FROM oauth_client WHERE client_id=$1",
       [cliOAuthClient.id]
