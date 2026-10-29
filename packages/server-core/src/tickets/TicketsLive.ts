@@ -3200,7 +3200,7 @@ export const TicketsLive = Layer.effect(
           }
         }
 
-        if (result.raw.refreshStatus || !options.reconcile) {
+        if (result.raw.refreshStatus) {
           const snapshot = planTicketGitStates(
             tickets,
             result.raw,
@@ -3222,12 +3222,28 @@ export const TicketsLive = Layer.effect(
             changedTicketIds: [],
             tokenStatus: "ok",
             repoStatus: "ok",
-            ...(result.raw.refreshStatus
-              ? {
-                  refreshStatus: result.raw.refreshStatus,
-                  retryAt: result.raw.retryAt
-                }
-              : {})
+            refreshStatus: result.raw.refreshStatus,
+            retryAt: result.raw.retryAt
+          }
+        }
+
+        if (!options.reconcile) {
+          const snapshot = planTicketGitStates(
+            tickets,
+            result.raw,
+            yield* DateTime.nowAsDate
+          )
+          const planned = tickets.map((ticket) => ({
+            ...ticket,
+            stack: planStackPullRequests(ticket.stack, result.raw)
+          }))
+          return {
+            states: snapshot.states,
+            stacks: stacksOf(planned, projectGithub, result.raw),
+            transitioned: [],
+            changedTicketIds: [],
+            tokenStatus: "ok",
+            repoStatus: "ok"
           }
         }
 
