@@ -82,4 +82,3 @@ jobs:
           args=(--target "$SHA" --latest --generate-notes --title "ProjectProject $TAG")
           [ -n "$PREVIOUS_TAG" ] && args+=(--notes-start-tag "$PREVIOUS_TAG")
           gh release create "$TAG" "${args[@]}"
-
