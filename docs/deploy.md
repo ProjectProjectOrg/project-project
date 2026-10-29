@@ -10,7 +10,7 @@ ghcr.io/<owner>/projectproject-{app,web}:{sha-<short>,main}
    ↓
 `nightly` workflow (hourly, gated) retags the tip of main as :nightly
    ↓
-`stable` workflow (manual) retags a soaked nightly as :vX.Y.Z, :X.Y, :stable, :latest
+`stable` workflow (manual) retags a soaked nightly as :vYYYY.M.D, :stable, :latest
    ↓
 each instance pulls the channel its IMAGE_TAG names
    ↓
@@ -203,14 +203,17 @@ release so the previous tag can always run against the current database.
   `main` is ahead of the last nightly and that nightly is older than
   `NIGHTLY_MIN_GAP_HOURS`. Set the variable to `0` for a nightly per push.
   Run it with `force` to publish regardless of the gap. The version is the
-  root `package.json` version plus one patch, as `X.Y.Z-nightly.<date>.<run>`,
-  published as a GitHub prerelease with generated notes.
+  UTC build date plus the run number, as `vYYYY.M.D-nightly.<run>` (no leading
+  zeros), published as a GitHub prerelease with generated notes.
 - **Stable** (`.github/workflows/stable.yml`) is a manual dispatch from `main`.
   It takes the newest nightly older than `STABLE_MIN_SOAK_HOURS` (default 2),
-  retags it as `vX.Y.Z`, `X.Y`, `stable` and `latest`, publishes a GitHub
-  Release with notes since the previous stable, and commits the version bump to
-  `main`. Pass `version` to choose a number other than the one the nightly
-  previewed (a minor or major bump), or `ref` to ship an explicit commit.
+  retags that nightly's images as `vYYYY.M.D`, `stable` and `latest`, and
+  publishes a GitHub Release with notes since the previous stable. The version
+  is the nightly's build date, not the promotion date, so the nightly you
+  tested and the stable you ship carry the same date. A second stable from the
+  same build day gets `.2`, then `.3`. Pass `ref` to ship an explicit commit as
+  a hotfix; it is versioned by its commit date. The workflow refuses a release
+  that is not ahead of the previous stable or would sort before it.
 - Point the homelab at `IMAGE_TAG=nightly` and production at `IMAGE_TAG=stable`.
   A box that should follow every merge uses `IMAGE_TAG=main`.
 

@@ -1,7 +1,5 @@
-const fs = require("node:fs")
-
-const NIGHTLY_TAG = /^v(\d+\.\d+\.\d+)-nightly\.\d{8}\.\d+$/
-const STABLE_TAG = /^v(\d+)\.(\d+)\.(\d+)$/
+const NIGHTLY_TAG = /^v(\d{4}\.\d{1,2}\.\d{1,2})-nightly\.\d+$/
+const STABLE_TAG = /^v(\d{4}\.\d{1,2}\.\d{1,2})(?:\.(\d+))?$/
 const HOUR_MS = 60 * 60 * 1000
 
 const listReleases = async ({ github, context }) =>
@@ -25,25 +23,29 @@ const stables = (releases) =>
 const ageHours = (release, now) =>
   (now - Date.parse(release.published_at)) / HOUR_MS
 
-const semver = (version) => STABLE_TAG.exec(`v${version}`).slice(1).map(Number)
+const calendarDay = (date) => {
+  const d = new Date(date)
+  return `${d.getUTCFullYear()}.${d.getUTCMonth() + 1}.${d.getUTCDate()}`
+}
 
-const isNewerVersion = (candidate, current) => {
-  const [a, b] = [semver(candidate), semver(current)]
-  for (let i = 0; i < 3; i += 1) if (a[i] !== b[i]) return a[i] > b[i]
+const versionParts = (tag) => {
+  const [, day, sequence] = STABLE_TAG.exec(tag)
+  return [...day.split(".").map(Number), Number(sequence ?? 1)]
+}
+
+const isNewerTag = (candidate, current) => {
+  const [a, b] = [versionParts(candidate), versionParts(current)]
+  for (let i = 0; i < a.length; i += 1) if (a[i] !== b[i]) return a[i] > b[i]
   return false
 }
 
-const nextPatch = (version) => {
-  const match = STABLE_TAG.exec(`v${version.replace(/[-+].*$/, "")}`)
-  if (!match)
-    throw new Error(
-      `package.json version '${version}' is not MAJOR.MINOR.PATCH`
-    )
-  return `${match[1]}.${match[2]}.${Number(match[3]) + 1}`
+const stableVersionForDay = (day, releases) => {
+  const taken = releases
+    .map((r) => STABLE_TAG.exec(r.tag_name))
+    .filter((match) => match && match[1] === day)
+    .map((match) => Number(match[2] ?? 1))
+  return taken.length === 0 ? day : `${day}.${Math.max(...taken) + 1}`
 }
-
-const packageVersion = () =>
-  JSON.parse(fs.readFileSync("package.json", "utf8")).version
 
 const compare = async ({ github, context }, base, head) =>
   (
@@ -54,17 +56,15 @@ const compare = async ({ github, context }, base, head) =>
     })
   ).data.status
 
+const getCommit = async ({ github, context }, ref) =>
+  (await github.rest.repos.getCommit({ ...context.repo, ref })).data
+
 const assertOnDefaultBranch = async (api, sha) => {
   const branch = api.context.payload.repository.default_branch
   const status = await compare(api, sha, branch)
   if (status !== "ahead" && status !== "identical") {
     throw new Error(`${sha} is not on ${branch} (${status})`)
   }
-}
-
-const nightlyVersion = ({ base, date, runNumber }) => {
-  const day = new Date(date).toISOString().slice(0, 10).replace(/-/g, "")
-  return `${base}-nightly.${day}.${runNumber}`
 }
 
 const skip = (core, reason) => {
@@ -96,11 +96,7 @@ async function resolveNightly({
       return skip(core, `${sha} is ${status} relative to ${last.tag_name}`)
   }
 
-  const version = nightlyVersion({
-    base: nextPatch(packageVersion()),
-    date: now,
-    runNumber: context.runNumber
-  })
+  const version = `${calendarDay(now)}-nightly.${context.runNumber}`
   core.setOutput("publish", "true")
   core.setOutput("sha", sha)
   core.setOutput("short_sha", sha.slice(0, 7))
@@ -114,7 +110,6 @@ async function resolveStable({
   context,
   core,
   soakHours,
-  version,
   ref,
   now = Date.now()
 }) {
@@ -122,13 +117,15 @@ async function resolveStable({
   const releases = await listReleases(api)
   const previous = stables(releases)[0]
   let sha
-  let base
+  let day
   let sourceTag
 
   if (ref) {
-    sha = (await github.rest.repos.getCommit({ ...context.repo, ref })).data.sha
+    const commit = await getCommit(api, ref)
+    sha = commit.sha
+    day = calendarDay(commit.commit.committer.date)
     sourceTag = `sha-${sha.slice(0, 7)}`
-    core.notice(`Stable release builds explicit commit ${sha}.`)
+    core.notice(`Stable release ships explicit commit ${sha}.`)
   } else {
     const candidate = nightlies(releases).find(
       (r) => ageHours(r, now) >= soakHours
@@ -137,45 +134,34 @@ async function resolveStable({
       throw new Error(
         `No nightly older than ${soakHours}h. Pass a ref to ship an explicit commit.`
       )
-    sha = (
-      await github.rest.repos.getCommit({
-        ...context.repo,
-        ref: candidate.tag_name
-      })
-    ).data.sha
+    sha = (await getCommit(api, candidate.tag_name)).sha
     if (previous && (await compare(api, previous.tag_name, sha)) !== "ahead") {
       throw new Error(
         `${candidate.tag_name} is not ahead of ${previous.tag_name}. Nothing newer to release.`
       )
     }
+    day = NIGHTLY_TAG.exec(candidate.tag_name)[1]
     sourceTag = candidate.tag_name
-    base = NIGHTLY_TAG.exec(candidate.tag_name)[1]
     core.notice(
-      `Stable release builds ${sha}, the commit shipped by ${candidate.tag_name}.`
+      `Stable release ships ${sha}, the commit published as ${candidate.tag_name}.`
     )
   }
 
   await assertOnDefaultBranch(api, sha)
 
-  const resolved = (version || base || "").replace(/^v/, "")
-  const match = STABLE_TAG.exec(`v${resolved}`)
-  if (!match)
+  const version = stableVersionForDay(day, releases)
+  if (previous && !isNewerTag(`v${version}`, previous.tag_name)) {
     throw new Error(
-      `Stable version '${resolved}' is not MAJOR.MINOR.PATCH. Pass a version input.`
-    )
-  if (previous && !isNewerVersion(resolved, previous.tag_name.slice(1))) {
-    throw new Error(
-      `v${resolved} is not newer than ${previous.tag_name}. Pass a higher version input.`
+      `v${version} would sort before ${previous.tag_name}. Release a newer commit.`
     )
   }
 
   core.setOutput("sha", sha)
   core.setOutput("short_sha", sha.slice(0, 7))
-  core.setOutput("version", resolved)
-  core.setOutput("tag", `v${resolved}`)
-  core.setOutput("minor_tag", `${match[1]}.${match[2]}`)
+  core.setOutput("version", version)
+  core.setOutput("tag", `v${version}`)
   core.setOutput("source_tag", sourceTag)
   core.setOutput("previous_tag", previous?.tag_name ?? "")
 }
 
-module.exports = { resolveNightly, resolveStable, nextPatch, nightlyVersion }
+module.exports = { resolveNightly, resolveStable }

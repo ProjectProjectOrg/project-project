@@ -1,6 +1,6 @@
 # Release strategy for ProjectProject — options and recommendation
 
-Status: option B accepted. Workflows live in `.github/workflows/{ci,nightly,stable}.yml`; cadence is driven by the `NIGHTLY_MIN_GAP_HOURS` and `STABLE_MIN_SOAK_HOURS` repository variables. Instance-side puller still to be decided.
+Status: option B accepted. Workflows live in `.github/workflows/{ci,nightly,stable}.yml`; cadence is driven by the `NIGHTLY_MIN_GAP_HOURS` and `STABLE_MIN_SOAK_HOURS` repository variables. Versions are calendar based (`vYYYY.M.D`, `.2` for a second release from the same build day) instead of semantic versioning, so stable needs no version input and nothing is committed back to `main`; see `docs/deploy.md`. Instance-side puller still to be decided.
 
 ## Where we are
 
