@@ -17,7 +17,9 @@ import {
   type TicketSort
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
+import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
+import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import pg from "pg"
@@ -157,6 +159,26 @@ const withClient = <A>(use: (client: pg.Client) => Promise<A>) =>
     }
   }).pipe(Effect.orDie)
 
+const seedRebuildProject = Effect.gen(function* () {
+  const organizationId = `rebuild-${randomUUID()}`
+  yield* withClient(async (client) => {
+    await client.query(
+      "insert into organization (id, name, slug, created_at) values ($1, $1, $1, now())",
+      [organizationId]
+    )
+    await client.query(
+      "insert into project_index (id, slug, organization_id, key, name, icon, color, created_by, created_at) values ($1, $2, $2, 'T', 'Test', 'folder', 'blue', 'test-user', now())",
+      [randomUUID(), organizationId]
+    )
+  })
+  yield* Effect.addFinalizer(() =>
+    withClient((client) =>
+      client.query("delete from organization where id = $1", [organizationId])
+    )
+  )
+  return organizationId
+})
+
 describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
   it.effect("reserves unique ticket numbers under concurrency", () =>
     Effect.gen(function* () {
@@ -198,6 +220,153 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         Array.from({ length: 32 }, (_, value) => value + 1)
       )
     }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("rebuilds an index row that is ahead of its ticket file", () =>
+    Effect.gen(function* () {
+      const organizationId = yield* seedRebuildProject
+      const docs = Layer.succeed(TicketDocs, {
+        listIds: () => Effect.succeed([rebuiltDocument.id]),
+        read: () => Effect.succeed(rebuiltDocument),
+        create: () => unexpected("create"),
+        write: () => unexpected("write"),
+        update: () => unexpected("update"),
+        remove: () => unexpected("remove"),
+        readRaw: () => unexpected("readRaw")
+      } satisfies TicketDocsShape)
+      yield* Effect.gen(function* () {
+        const index = yield* TicketIndex
+        const project = yield* index.projectFor(organizationId, organizationId)
+        yield* index.upsertTicket(project, {
+          ...rebuiltDocument,
+          title: "Rolled back",
+          updatedAt: DateTime.toDate(
+            DateTime.makeUnsafe("2026-02-01T00:00:00.000Z")
+          )
+        })
+        yield* index.rebuildProject(project)
+        const rows = yield* index.list(project, ["T-41"])
+        expect(rows.map(({ id, title }) => [id, title])).toEqual([
+          ["T-41", "Restored ticket"]
+        ])
+      }).pipe(
+        Effect.provide(
+          TicketIndexLive.pipe(Layer.provide(docs), Layer.provide(DatabaseLive))
+        )
+      )
+    }).pipe(Effect.provide(DatabaseLive))
+  )
+
+  it.effect("clears cached git state when a rebuild changes the branch", () =>
+    Effect.gen(function* () {
+      const organizationId = yield* seedRebuildProject
+      const onDisk: TicketDocument = {
+        ...rebuiltDocument,
+        branch: "feat/new",
+        updatedAt: DateTime.toDate(
+          DateTime.makeUnsafe("2026-02-01T00:00:00.000Z")
+        )
+      }
+      const docs = Layer.succeed(TicketDocs, {
+        listIds: () => Effect.succeed([onDisk.id]),
+        read: () => Effect.succeed(onDisk),
+        create: () => unexpected("create"),
+        write: () => unexpected("write"),
+        update: () => unexpected("update"),
+        remove: () => unexpected("remove"),
+        readRaw: () => unexpected("readRaw")
+      } satisfies TicketDocsShape)
+      yield* Effect.gen(function* () {
+        const index = yield* TicketIndex
+        const project = yield* index.projectFor(organizationId, organizationId)
+        yield* index.upsertTicket(project, {
+          ...rebuiltDocument,
+          branch: "feat/old"
+        })
+        yield* withClient((client) =>
+          client.query(
+            "update ticket_index set branch_deleted_at = now(), checks = 'failing', checks_head_sha = 'abc', checks_updated_at = now(), pr_updated_at = now() where project_id = $1",
+            [project.projectId]
+          )
+        )
+        yield* index.rebuildProject(project)
+        const row = yield* withClient((client) =>
+          client.query(
+            "select branch, branch_deleted_at, checks, checks_head_sha, checks_updated_at, pr_updated_at from ticket_index where project_id = $1",
+            [project.projectId]
+          )
+        )
+        expect(row.rows).toEqual([
+          {
+            branch: "feat/new",
+            branch_deleted_at: null,
+            checks: null,
+            checks_head_sha: null,
+            checks_updated_at: null,
+            pr_updated_at: null
+          }
+        ])
+      }).pipe(
+        Effect.provide(
+          TicketIndexLive.pipe(Layer.provide(docs), Layer.provide(DatabaseLive))
+        )
+      )
+    }).pipe(Effect.provide(DatabaseLive))
+  )
+
+  it.effect("preserves edits and creations during a rebuild", () =>
+    Effect.gen(function* () {
+      const organizationId = yield* seedRebuildProject
+      const collected = yield* Deferred.make<void>()
+      const resume = yield* Deferred.make<void>()
+      const docs = Layer.succeed(TicketDocs, {
+        listIds: () => Effect.succeed([rebuiltDocument.id]),
+        read: () =>
+          Effect.gen(function* () {
+            yield* Deferred.succeed(collected, undefined)
+            yield* Deferred.await(resume)
+            return rebuiltDocument
+          }),
+        create: () => unexpected("create"),
+        write: () => unexpected("write"),
+        update: () => unexpected("update"),
+        remove: () => unexpected("remove"),
+        readRaw: () => unexpected("readRaw")
+      } satisfies TicketDocsShape)
+      yield* Effect.gen(function* () {
+        const index = yield* TicketIndex
+        const project = yield* index.projectFor(organizationId, organizationId)
+        const fiber = yield* Effect.forkChild(index.rebuildProject(project))
+        yield* Deferred.await(collected)
+        const updatedAt = DateTime.toDate(
+          DateTime.makeUnsafe("2026-02-01T00:00:00.000Z")
+        )
+        yield* index.upsertTicket(project, {
+          ...rebuiltDocument,
+          title: "Newer",
+          updatedAt
+        })
+        yield* index.upsertTicket(
+          project,
+          indexedDocument("T-42", { title: "Created", updatedAt })
+        )
+        yield* Deferred.succeed(resume, undefined)
+        yield* Fiber.join(fiber)
+        const rows = yield* index.list(project, ["T-41", "T-42"])
+        expect(
+          rows
+            .map(({ id, title }) => [id, title])
+            .sort((a, b) => a[0].localeCompare(b[0]))
+        ).toEqual([
+          ["T-41", "Newer"],
+          ["T-42", "Created"]
+        ])
+      }).pipe(
+        Effect.provide(
+          TicketIndexLive.pipe(Layer.provide(docs), Layer.provide(DatabaseLive))
+        )
+      )
+    }).pipe(Effect.provide(DatabaseLive))
   )
 
   it.effect("advances the counter when rebuilding from ticket files", () =>

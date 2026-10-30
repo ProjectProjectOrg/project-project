@@ -20,7 +20,7 @@ export const reapAttachments = Effect.gen(function* () {
 )
 
 export const AttachmentReaperLive = Layer.effectDiscard(
-  Effect.forkDetach(
+  Effect.forkScoped(
     Effect.repeat(
       reapAttachments,
       Schedule.spaced(Duration.millis(REAPER_INTERVAL_MS))

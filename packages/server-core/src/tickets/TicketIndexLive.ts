@@ -576,7 +576,8 @@ export interface TicketIndexReconcilerDeps {
   ) => Effect.Effect<ReadonlyArray<IndexedTicketRef>>
   readonly writeProject: (
     project: TicketIndexProject,
-    documents: ReadonlyArray<TicketDocument>
+    documents: ReadonlyArray<TicketDocument>,
+    indexedBefore: ReadonlyArray<IndexedTicketRef>
   ) => Effect.Effect<void>
 }
 
@@ -586,6 +587,7 @@ export const makeTicketIndexReconciler = (deps: TicketIndexReconcilerDeps) => {
     options?: TicketIndexReconcileOptions
   ): Effect.Effect<TicketIndexReconcileProjectSummary, MarkdownError> =>
     Effect.gen(function* () {
+      const indexedBefore = yield* deps.indexedRefs(project)
       const { documents, skipped } = yield* deps.collectDocuments(project)
       const indexed = yield* deps.indexedRefs(project)
       const drift = detectTicketIndexDrift(
@@ -615,7 +617,7 @@ export const makeTicketIndexReconciler = (deps: TicketIndexReconcilerDeps) => {
           documentCount: documents.length
         })
       }
-      yield* deps.writeProject(project, documents)
+      yield* deps.writeProject(project, documents, indexedBefore)
       return {
         project,
         drift,
@@ -1774,14 +1776,38 @@ export const TicketIndexLive = Layer.effect(
         return { documents, skipped }
       })
 
+    const branchCacheColumns = new Set<string>([
+      "prUpdatedAt",
+      "branchDeletedAt",
+      "checks",
+      "checksHeadSha",
+      "checksUpdatedAt"
+    ])
+
+    const excludedTicketIndexColumns = (row: object) =>
+      Object.fromEntries([
+        ...Object.entries(getTableColumns(ticketIndex))
+          .filter(
+            ([key]) => key in row && key !== "projectId" && key !== "ticketId"
+          )
+          .map(([key, column]) => [
+            key,
+            drizzleSql.raw(`excluded.${column.name}`)
+          ]),
+        ...Object.entries(getTableColumns(ticketIndex))
+          .filter(([key]) => branchCacheColumns.has(key))
+          .map(([key, column]) => [
+            key,
+            drizzleSql`case when ${ticketIndex.branch} is distinct from excluded.branch then null else ${column} end`
+          ])
+      ])
+
     const writeProjectIndex = (
       project: TicketIndexProject,
-      documents: ReadonlyArray<TicketDocument>
+      documents: ReadonlyArray<TicketDocument>,
+      indexedBefore: ReadonlyArray<IndexedTicketRef>
     ): Effect.Effect<void> => {
       const tickets = ticketIndexRowsFor(project, documents)
-      const branches = documents.flatMap((document) =>
-        ticketBranchRowsFor(project, document)
-      )
       const allComments = commentIndexRowsFor(project, documents)
       return sql
         .withTransaction(
@@ -1808,31 +1834,97 @@ export const TicketIndexLive = Layer.effect(
               (comment) =>
                 comment.authorId == null || knownAuthors.has(comment.authorId)
             )
-            yield* db
-              .delete(ticketIndex)
-              .where(eq(ticketIndex.projectId, project.projectId))
-              .pipe(Effect.asVoid, Effect.orDie)
-            if (tickets.length > 0) {
+            const documentIds = new Set<string>(
+              documents.map((document) => document.id)
+            )
+            const missing = indexedBefore.filter(
+              (ref) => !documentIds.has(ref.ticketId)
+            )
+            const documentUpdatedAt = new Map(
+              documents.map((document) => [
+                document.id as string,
+                document.updatedAt.getTime()
+              ])
+            )
+            const aheadOfDisk = indexedBefore.filter(
+              (ref) =>
+                ref.updatedAt.getTime() >
+                (documentUpdatedAt.get(ref.ticketId) ?? Infinity)
+            )
+            const removed =
+              missing.length === 0
+                ? []
+                : yield* db
+                    .delete(ticketIndex)
+                    .where(
+                      and(
+                        eq(ticketIndex.projectId, project.projectId),
+                        or(
+                          ...missing.map((ref) =>
+                            and(
+                              eq(ticketIndex.ticketId, ref.ticketId),
+                              eq(ticketIndex.updatedAt, ref.updatedAt)
+                            )
+                          )
+                        )
+                      )
+                    )
+                    .returning({ ticketId: ticketIndex.ticketId })
+            const written =
+              tickets.length === 0
+                ? []
+                : yield* db
+                    .insert(ticketIndex)
+                    .values([...tickets])
+                    .onConflictDoUpdate({
+                      target: [ticketIndex.projectId, ticketIndex.ticketId],
+                      set: excludedTicketIndexColumns(tickets[0]),
+                      setWhere: or(
+                        drizzleSql`${ticketIndex.updatedAt} <= excluded.updated_at`,
+                        ...aheadOfDisk.map((ref) =>
+                          and(
+                            eq(ticketIndex.ticketId, ref.ticketId),
+                            eq(ticketIndex.updatedAt, ref.updatedAt)
+                          )
+                        )
+                      )
+                    })
+                    .returning({ ticketId: ticketIndex.ticketId })
+            const writtenIds = new Set(written.map((row) => row.ticketId))
+            const touchedIds = [...removed, ...written].map(
+              (row) => row.ticketId
+            )
+            if (writtenIds.size > 0) {
               yield* db
-                .insert(ticketIndex)
-                .values([...tickets])
-                .pipe(Effect.asVoid, Effect.orDie)
+                .delete(ticketBranch)
+                .where(
+                  and(
+                    eq(ticketBranch.projectId, project.projectId),
+                    inArray(ticketBranch.ticketId, [...writtenIds])
+                  )
+                )
+              const branches = documents
+                .filter((document) => writtenIds.has(document.id))
+                .flatMap((document) => ticketBranchRowsFor(project, document))
+              if (branches.length > 0) {
+                yield* db.insert(ticketBranch).values(branches)
+              }
             }
-            if (branches.length > 0) {
+            if (touchedIds.length > 0) {
               yield* db
-                .insert(ticketBranch)
-                .values([...branches])
-                .pipe(Effect.asVoid, Effect.orDie)
+                .delete(commentIndex)
+                .where(
+                  and(
+                    eq(commentIndex.projectId, project.projectId),
+                    inArray(commentIndex.ticketId, touchedIds)
+                  )
+                )
             }
-            yield* db
-              .delete(commentIndex)
-              .where(eq(commentIndex.projectId, project.projectId))
-              .pipe(Effect.asVoid, Effect.orDie)
-            if (comments.length > 0) {
-              yield* db
-                .insert(commentIndex)
-                .values([...comments])
-                .pipe(Effect.asVoid, Effect.orDie)
+            const writtenComments = comments.filter((comment) =>
+              writtenIds.has(comment.ticketId)
+            )
+            if (writtenComments.length > 0) {
+              yield* db.insert(commentIndex).values(writtenComments)
             }
             yield* db
               .update(projectIndex)
@@ -1843,7 +1935,7 @@ export const TicketIndexLive = Layer.effect(
               .pipe(Effect.asVoid, Effect.orDie)
           })
         )
-        .pipe(Effect.catchTag("SqlError", Effect.die), Effect.asVoid)
+        .pipe(Effect.orDie, Effect.asVoid)
     }
 
     const indexedRefs = (project: TicketIndexProject) =>
@@ -1870,8 +1962,9 @@ export const TicketIndexLive = Layer.effect(
 
     const rebuildProject = (project: TicketIndexProject) =>
       Effect.gen(function* () {
+        const indexedBefore = yield* indexedRefs(project)
         const { documents, skipped } = yield* collectDocuments(project)
-        yield* writeProjectIndex(project, documents)
+        yield* writeProjectIndex(project, documents, indexedBefore)
         return { project, indexed: documents.length, skipped }
       })
 
