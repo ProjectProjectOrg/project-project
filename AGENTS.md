@@ -219,9 +219,9 @@ Never disable a control on `isSubmitting` when an atom is doing the work — pas
 
 ## Mutations and optimistic updates
 
-**Default to optimistic.** Reads are `Api.query(...)` wrapped in `Atom.optimistic`. Mutations are `viewMutation` (`apps/frontend/src/api/viewMutation.ts`) against the wrapper of the view they fire from. Worked examples and the legacy shapes we removed: `.agents/skills/effect-atom-optimistic-updates/SKILL.md`. Rationale: `docs/superpowers/specs/2026-09-11-native-atom-data-layer-design.md`.
+**Default to optimistic.** Reads are `query(...)` (`apps/frontend/src/api/query.ts`) wrapped in `Atom.optimistic`. Mutations are `viewMutation` (`apps/frontend/src/api/viewMutation.ts`) against the wrapper of the view they fire from. Worked examples and the legacy shapes we removed: `.agents/skills/effect-atom-optimistic-updates/SKILL.md`. Rationale: `docs/superpowers/specs/2026-09-11-native-atom-data-layer-design.md`.
 
-1. **One client.** `apps/frontend/src/api/Api.ts` is the only way to reach the server. Never hand-roll a fetch atom. Calls to better-auth stay `Effect.tryPromise`, but run inside `Api.runtime.fn` so there is one runtime.
+1. **One client.** `apps/frontend/src/api/Api.ts` is the only way to reach the server. Never hand-roll a fetch atom. Calls to better-auth stay `Effect.tryPromise`, but run inside `Api.runtime.fn` so there is one runtime. Reads go through `query` from `@/api/query`, a drop-in for `Api.query` that revalidates in the background when the tab becomes visible or a view remounts and its data is older than 30 seconds (`Atom.swr`). `workspace/no-raw-api-query` rejects `Api.query` outside `src/api/`.
 
 2. **Reads are wrappers.** Every exported read is `Atom.family((req) => Atom.optimistic(query(req)))`, and the query stays module-private. Family keys are request objects, never concatenated strings, so there is nothing to parse back apart:
 
@@ -232,7 +232,7 @@ Never disable a control on `isSubmitting` when an atom is doing the work — pas
    }>
 
    const tagsQuery = (req: TagsRequest) =>
-     Api.query("tags", "list", {
+     query("tags", "list", {
        params: req.params,
        timeToLive: "2 minutes",
        reactivityKeys: [Keys.tags(scopeOf(req))]
@@ -247,7 +247,7 @@ Never disable a control on `isSubmitting` when an atom is doing the work — pas
 
    `Atom.family` hashes its key by Effect's structural equality (`node_modules/effect/src/Equal.ts`), not by reference, so rebuilding the request literal on every render is free. What must be stable is the request's _contents_ — a field that is not structurally equal from one render to the next (a fresh `Date`, a generated id, a callback) is a different key and a second fetch. Export a query only to compose it into another region inside the atom layer (`sprintDetail.ts` exports `sprintQuery` for `sprintBoard.ts`, and nothing else does); components never see one.
 
-3. **Retention and invalidation are declared at the query.** `timeToLive` and `reactivityKeys` sit in the `Api.query` call next to the data they describe, so a view states what it listens to and how long it is kept. Neither belongs in a mutation body.
+3. **Retention and invalidation are declared at the query.** `timeToLive` and `reactivityKeys` sit in the `query` call next to the data they describe, so a view states what it listens to and how long it is kept. Neither belongs in a mutation body.
 
 4. **Read and write through the same wrapper.** The atom a view renders and the atom its editors mutate must be the same one. This is the worst failure mode in this layer: the optimistic value lands on an atom nobody renders, so the edit is invisible until a reload, and nothing errors. Adding a tag did exactly this during the migration — the detail view read `ticketDetail` while four editors still wrote a legacy atom that no longer had a consumer.
 
@@ -302,7 +302,7 @@ Reference: `apps/frontend/src/features/tickets/atoms/backlog.ts` (one sections q
 
 A `useAtomValue` on a runtime atom returns a `AsyncResult<A, E>` with four variants: `Initial`, `Success`, `Failure-with-typed-error`, `Failure-with-defect`. **Always handle all four — never just check `AsyncResult.isSuccess` and render a forever-loading state on anything else.** That swallows real errors silently and makes failures invisible.
 
-**The default is `AsyncView`** (`apps/frontend/src/components/shell/AsyncView.tsx`). It takes the result, an `onInitial` render and an `onSuccess` render, and draws both failure paths (typed error and defect) with the shared `ErrorPage` (`apps/frontend/src/components/shell/ErrorPage.tsx`), which wraps the dither shell with a retry button and a home link. Pass `contained` when rendering inside a settings panel or any non-full-page surface, and `reset` to refresh the atom on retry.
+**The default is `AsyncView`** (`apps/frontend/src/components/shell/AsyncView.tsx`). It takes the result, an `onInitial` render and an `onSuccess` render, and draws both failure paths (typed error and defect) with the shared `ErrorPage` (`apps/frontend/src/components/shell/ErrorPage.tsx`), which wraps the dither shell with a retry button and a home link. Pass `contained` when rendering inside a settings panel or any non-full-page surface, and `reset` to refresh the atom on retry. When a refetch fails after the view had loaded, `AsyncView` keeps rendering the last loaded value (`previousSuccess`) under an inline notice instead of `ErrorPage`, so a background revalidation on a flaky network never replaces a loaded view.
 
 ```tsx
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
