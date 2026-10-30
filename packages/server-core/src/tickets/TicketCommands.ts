@@ -120,22 +120,22 @@ export type TicketUpdateExpectation = Readonly<{
 
 export class TicketCommands extends Context.Service<
   TicketCommands,
-  {
-    readonly quickCreate: (
+  Readonly<{
+    quickCreate: (
       input: QuickCreateTicketInput
     ) => Effect.Effect<
       TicketDetail,
       Forbidden | NotFound | Validation | MentionInvalid | MarkdownError,
       ProjectScope
     >
-    readonly create: (
+    create: (
       input: CreateTicketInput
     ) => Effect.Effect<
       TicketDetail,
       Forbidden | NotFound | Validation | MentionInvalid | MarkdownError,
       ProjectScope
     >
-    readonly update: (
+    update: (
       id: string,
       input: UpdateTicketInput,
       sort?: TicketSort,
@@ -145,12 +145,12 @@ export class TicketCommands extends Context.Service<
       Forbidden | TicketReadError | Validation | MentionInvalid | Conflict,
       ProjectScope | ActivityActor
     >
-    readonly clearStaleEstimates: () => Effect.Effect<
+    clearStaleEstimates: () => Effect.Effect<
       ClearStaleEstimatesResult,
       Forbidden | TicketReadError,
       ProjectScope | ActivityActor
     >
-    readonly moveInGroup: (
+    moveInGroup: (
       groupId: string,
       input: UpdateTicketOrderInput
     ) => Effect.Effect<
@@ -162,7 +162,7 @@ export class TicketCommands extends Context.Service<
       | MarkdownError,
       ProjectScope | ActivityActor
     >
-    readonly split: (
+    split: (
       id: string,
       input: SplitTicketInput
     ) => Effect.Effect<
@@ -175,14 +175,14 @@ export class TicketCommands extends Context.Service<
       | SprintCompletedImmutable,
       ProjectScope | ActivityActor
     >
-    readonly bulkUpdate: (
+    bulkUpdate: (
       input: BulkUpdateTicketsInput
     ) => Effect.Effect<
       BulkUpdateTicketsResult,
       TicketReadError | Validation | Forbidden | SprintCompletedImmutable,
       ProjectScope | ActivityActor
     >
-    readonly remove: (
+    remove: (
       id: string,
       options?: DeleteTicketQuery
     ) => Effect.Effect<
@@ -190,7 +190,7 @@ export class TicketCommands extends Context.Service<
       NotFound | MarkdownError,
       ProjectScope | ActivityActor
     >
-    readonly archive: (
+    archive: (
       id: string,
       reason?: string
     ) => Effect.Effect<
@@ -202,28 +202,28 @@ export class TicketCommands extends Context.Service<
       | InvalidCommentBody,
       ProjectScope | ActivityActor
     >
-    readonly unarchive: (
+    unarchive: (
       id: string
     ) => Effect.Effect<
       TicketDetail,
       Forbidden | Conflict | TicketReadError,
       ProjectScope | ActivityActor
     >
-    readonly replaceTag: (
+    replaceTag: (
       orgSlug: string,
       slug: string,
       id: string,
       oldName: string,
       newName: string | null
     ) => Effect.Effect<boolean, TicketReadError, ActivityActor>
-    readonly replaceStatus: (
+    replaceStatus: (
       orgSlug: string,
       slug: string,
       id: string,
       newStatus: string,
       reason: "renamed" | "removed"
     ) => Effect.Effect<boolean, TicketReadError, ActivityActor>
-  }
+  }>
 >()("@pp/server-core/tickets/TicketCommands") {}
 
 const make = Effect.gen(function* () {
