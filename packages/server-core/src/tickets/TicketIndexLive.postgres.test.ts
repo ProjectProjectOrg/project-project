@@ -245,7 +245,9 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         const project = yield* index.projectFor(organizationId, organizationId)
         const fiber = yield* Effect.forkChild(index.rebuildProject(project))
         yield* Deferred.await(collected)
-        const updatedAt = new Date("2026-02-01T00:00:00.000Z")
+        const updatedAt = DateTime.toDate(
+          DateTime.makeUnsafe("2026-02-01T00:00:00.000Z")
+        )
         yield* index.upsertTicket(project, {
           ...rebuiltDocument,
           title: "Newer",
@@ -258,7 +260,11 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         yield* Deferred.succeed(resume, undefined)
         yield* Fiber.join(fiber)
         const rows = yield* index.list(project, ["T-41", "T-42"])
-        expect(rows.map(({ id, title }) => [id, title]).sort()).toEqual([
+        expect(
+          rows
+            .map(({ id, title }) => [id, title])
+            .sort((a, b) => a[0].localeCompare(b[0]))
+        ).toEqual([
           ["T-41", "Newer"],
           ["T-42", "Created"]
         ])

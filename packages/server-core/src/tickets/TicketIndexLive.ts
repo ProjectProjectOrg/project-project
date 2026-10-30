@@ -576,7 +576,8 @@ export interface TicketIndexReconcilerDeps {
   ) => Effect.Effect<ReadonlyArray<IndexedTicketRef>>
   readonly writeProject: (
     project: TicketIndexProject,
-    documents: ReadonlyArray<TicketDocument>
+    documents: ReadonlyArray<TicketDocument>,
+    indexedBefore: ReadonlyArray<IndexedTicketRef>
   ) => Effect.Effect<void>
 }
 
@@ -586,6 +587,7 @@ export const makeTicketIndexReconciler = (deps: TicketIndexReconcilerDeps) => {
     options?: TicketIndexReconcileOptions
   ): Effect.Effect<TicketIndexReconcileProjectSummary, MarkdownError> =>
     Effect.gen(function* () {
+      const indexedBefore = yield* deps.indexedRefs(project)
       const { documents, skipped } = yield* deps.collectDocuments(project)
       const indexed = yield* deps.indexedRefs(project)
       const drift = detectTicketIndexDrift(
@@ -615,7 +617,7 @@ export const makeTicketIndexReconciler = (deps: TicketIndexReconcilerDeps) => {
           documentCount: documents.length
         })
       }
-      yield* deps.writeProject(project, documents)
+      yield* deps.writeProject(project, documents, indexedBefore)
       return {
         project,
         drift,
@@ -1776,12 +1778,10 @@ export const TicketIndexLive = Layer.effect(
 
     const writeProjectIndex = (
       project: TicketIndexProject,
-      documents: ReadonlyArray<TicketDocument>
+      documents: ReadonlyArray<TicketDocument>,
+      indexedBefore: ReadonlyArray<IndexedTicketRef>
     ): Effect.Effect<void> => {
       const tickets = ticketIndexRowsFor(project, documents)
-      const branches = documents.flatMap((document) =>
-        ticketBranchRowsFor(project, document)
-      )
       const allComments = commentIndexRowsFor(project, documents)
       return sql
         .withTransaction(
@@ -1808,31 +1808,58 @@ export const TicketIndexLive = Layer.effect(
               (comment) =>
                 comment.authorId == null || knownAuthors.has(comment.authorId)
             )
-            yield* db
-              .delete(ticketIndex)
-              .where(eq(ticketIndex.projectId, project.projectId))
-              .pipe(Effect.asVoid, Effect.orDie)
-            if (tickets.length > 0) {
-              yield* db
+            const documentIds = new Set<string>(
+              documents.map((document) => document.id)
+            )
+            for (const ref of indexedBefore) {
+              if (documentIds.has(ref.ticketId)) continue
+              const deleted = yield* db
+                .delete(ticketIndex)
+                .where(
+                  and(
+                    eq(ticketIndex.projectId, project.projectId),
+                    eq(ticketIndex.ticketId, ref.ticketId),
+                    eq(ticketIndex.updatedAt, ref.updatedAt)
+                  )
+                )
+                .returning({ id: ticketIndex.ticketId })
+              if (deleted.length > 0) {
+                yield* db
+                  .delete(commentIndex)
+                  .where(
+                    and(
+                      eq(commentIndex.projectId, project.projectId),
+                      eq(commentIndex.ticketId, ref.ticketId)
+                    )
+                  )
+              }
+            }
+            for (const [i, document] of documents.entries()) {
+              const row = tickets[i]
+              const written = yield* db
                 .insert(ticketIndex)
-                .values([...tickets])
-                .pipe(Effect.asVoid, Effect.orDie)
-            }
-            if (branches.length > 0) {
+                .values(row)
+                .onConflictDoUpdate({
+                  target: [ticketIndex.projectId, ticketIndex.ticketId],
+                  set: row,
+                  setWhere: drizzleSql`${ticketIndex.updatedAt} <= excluded.updated_at`
+                })
+                .returning({ id: ticketIndex.ticketId })
+              if (written.length === 0) continue
+              yield* syncTicketBranches(project, document)
               yield* db
-                .insert(ticketBranch)
-                .values([...branches])
-                .pipe(Effect.asVoid, Effect.orDie)
-            }
-            yield* db
-              .delete(commentIndex)
-              .where(eq(commentIndex.projectId, project.projectId))
-              .pipe(Effect.asVoid, Effect.orDie)
-            if (comments.length > 0) {
-              yield* db
-                .insert(commentIndex)
-                .values([...comments])
-                .pipe(Effect.asVoid, Effect.orDie)
+                .delete(commentIndex)
+                .where(
+                  and(
+                    eq(commentIndex.projectId, project.projectId),
+                    eq(commentIndex.ticketId, document.id)
+                  )
+                )
+              const ticketComments = comments.filter(
+                (comment) => comment.ticketId === document.id
+              )
+              if (ticketComments.length > 0)
+                yield* db.insert(commentIndex).values(ticketComments)
             }
             yield* db
               .update(projectIndex)
@@ -1843,7 +1870,7 @@ export const TicketIndexLive = Layer.effect(
               .pipe(Effect.asVoid, Effect.orDie)
           })
         )
-        .pipe(Effect.catchTag("SqlError", Effect.die), Effect.asVoid)
+        .pipe(Effect.orDie, Effect.asVoid)
     }
 
     const indexedRefs = (project: TicketIndexProject) =>
@@ -1870,8 +1897,9 @@ export const TicketIndexLive = Layer.effect(
 
     const rebuildProject = (project: TicketIndexProject) =>
       Effect.gen(function* () {
+        const indexedBefore = yield* indexedRefs(project)
         const { documents, skipped } = yield* collectDocuments(project)
-        yield* writeProjectIndex(project, documents)
+        yield* writeProjectIndex(project, documents, indexedBefore)
         return { project, indexed: documents.length, skipped }
       })
 

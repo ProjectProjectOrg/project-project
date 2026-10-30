@@ -17,5 +17,5 @@ export const reconcileTicketIndexOnBoot = Effect.gen(function* () {
 )
 
 export const TicketIndexReconcilerLive = Layer.effectDiscard(
-  Effect.forkDetach(reconcileTicketIndexOnBoot)
+  Effect.forkScoped(reconcileTicketIndexOnBoot)
 )
