@@ -276,10 +276,8 @@ const fixture = Effect.fn("attachmentFixture")(function* (
       Layer.succeed(ActivityActor, ActivityActor.user(user.id)),
       Layer.mock(Projects.Projects, {}),
       Layer.mergeAll(
-        Layer.mergeAll(
-          Layer.mock(TicketCommands.TicketCommands, {}),
-          Layer.mock(TicketGit.TicketGit, {})
-        ),
+        Layer.mock(TicketCommands.TicketCommands, {}),
+        Layer.mock(TicketGit.TicketGit, {}),
         Layer.mock(TicketQueries.TicketQueries, {})
       ),
       Layer.mock(Comments.Comments, {}),
@@ -918,10 +916,8 @@ describe("MCP attachment contracts", () => {
             Layer.mock(TicketDocs.TicketDocs, {}),
             Layer.mock(TicketIndex.TicketIndex, {}),
             Layer.mergeAll(
-              Layer.mergeAll(
-                Layer.mock(TicketCommands.TicketCommands, {}),
-                Layer.mock(TicketGit.TicketGit, {})
-              ),
+              Layer.mock(TicketCommands.TicketCommands, {}),
+              Layer.mock(TicketGit.TicketGit, {}),
               Layer.mock(TicketQueries.TicketQueries, {})
             ),
             Layer.mock(Users.Users, {}),

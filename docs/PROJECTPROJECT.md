@@ -291,7 +291,7 @@ Each service is a `Context.Tag` with a `Layer`. The wiring graph for the backend
               └──────┬──────┘
      ┌───────────────┼─────────────────┐
      │               │                 │
- ProjectsLive   TicketsLive       AuthLive
+ ProjectsLive   tickets/layer     AuthLive
      │               │                 │
      ├───────────────┤                 │
      │               │                 │
@@ -306,7 +306,7 @@ MarkdownLive   GitHubLive         BetterAuthLive
 - **`Auth`** — middleware service. Reads session cookie, returns the current user, fails with `Unauthorized` if absent. Used in HttpApi middleware to gate routes.
 - **`Markdown`** — read/write a markdown file with parsed frontmatter. Returns `Effect<{ frontmatter, body }, MarkdownError | NotFound>`. Internally uses `gray-matter` (the standard YAML+markdown parser); you wrap each call in `Effect.tryPromise`.
 - **`Projects`** — domain service. `list(userId)`, `get(slug, userId)`, `create(...)`, etc. Each method composes Markdown + Db. Permission checks happen here, not in handlers.
-- **`Tickets`** — same shape. Uses Projects internally to verify access.
+- **`TicketQueries`, `TicketCommands`, `TicketGit`** — reads, edits, and branches and pull requests, wired together by `tickets/layer.ts`. Uses Projects internally to verify access.
 - **`GitHub`** — wraps Octokit. `createBranch(repo, name, fromSha)`. Takes the user's access token from `Auth`/`BetterAuth`. Errors are tagged: `BranchExists`, `RepoNotFound`, `RateLimited`, `GitHubError`.
 
 ### Handler shape

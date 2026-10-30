@@ -259,10 +259,8 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
         Layer.provide(TicketsHandlerLive),
         Layer.provideMerge(
           Layer.mergeAll(
-            Layer.mergeAll(
-              Layer.mock(TicketCommands.TicketCommands, {}),
-              Layer.mock(TicketGit.TicketGit, {})
-            ),
+            Layer.mock(TicketCommands.TicketCommands, {}),
+            Layer.mock(TicketGit.TicketGit, {}),
             Layer.mock(TicketQueries.TicketQueries, {})
           )
         ),

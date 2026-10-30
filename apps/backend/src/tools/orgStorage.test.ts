@@ -79,10 +79,8 @@ const unused = Layer.mergeAll(
   Layer.mock(AttachmentUploads.AttachmentUploads, {}),
   Layer.mock(Projects.Projects, {}),
   Layer.mergeAll(
-    Layer.mergeAll(
-      Layer.mock(TicketCommands.TicketCommands, {}),
-      Layer.mock(TicketGit.TicketGit, {})
-    ),
+    Layer.mock(TicketCommands.TicketCommands, {}),
+    Layer.mock(TicketGit.TicketGit, {}),
     Layer.mock(TicketQueries.TicketQueries, {})
   ),
   Layer.mock(Comments.Comments, {}),
