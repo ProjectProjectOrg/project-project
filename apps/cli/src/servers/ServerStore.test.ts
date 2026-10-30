@@ -35,24 +35,26 @@ const inTempConfig = <A, E>(
   }).pipe(Effect.scoped, Effect.provide(BunServices.layer))
 
 describe("ServerStore", () => {
-  it.effect("keeps servers by origin, the first one as default", () =>
-    inTempConfig(
-      Effect.gen(function* () {
-        const store = yield* ServerStore
-        yield* store.save(server("https://a.example.com"))
-        yield* store.save(server("https://b.example.com"))
-        expect((yield* store.select(Option.none())).origin).toBe(
-          "https://a.example.com"
-        )
-        expect(
-          (yield* store.select(Option.some("https://b.example.com"))).origin
-        ).toBe("https://b.example.com")
-        yield* store.setDefault("https://b.example.com")
-        expect((yield* store.select(Option.none())).origin).toBe(
-          "https://b.example.com"
-        )
-      })
-    )
+  it.effect(
+    "keeps servers by origin, the last one signed in to as default",
+    () =>
+      inTempConfig(
+        Effect.gen(function* () {
+          const store = yield* ServerStore
+          yield* store.save(server("https://a.example.com"))
+          yield* store.save(server("https://b.example.com"))
+          expect((yield* store.select(Option.none())).origin).toBe(
+            "https://b.example.com"
+          )
+          expect(
+            (yield* store.select(Option.some("https://a.example.com"))).origin
+          ).toBe("https://a.example.com")
+          yield* store.setDefault("https://a.example.com")
+          expect((yield* store.select(Option.none())).origin).toBe(
+            "https://a.example.com"
+          )
+        })
+      )
   )
 
   it.effect("keeps the token file readable only by you", () =>
@@ -72,8 +74,8 @@ describe("ServerStore", () => {
         const store = yield* ServerStore
         yield* store.save(server("https://a.example.com"))
         yield* store.save(server("https://b.example.com"))
-        expect(yield* store.remove("https://a.example.com")).toBe(true)
-        expect((yield* store.list).defaultServer).toBe("https://b.example.com")
+        expect(yield* store.remove("https://b.example.com")).toBe(true)
+        expect((yield* store.list).defaultServer).toBe("https://a.example.com")
       })
     )
   )
