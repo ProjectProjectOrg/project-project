@@ -115,42 +115,38 @@ function ticketPage(
 
 export class TicketQueries extends Context.Service<
   TicketQueries,
-  {
-    readonly mine: (
+  Readonly<{
+    mine: (
       query: MyTicketsQuery
     ) => Effect.Effect<OrgTicketPage, never, OrgScope>
-    readonly mineByProject: () => Effect.Effect<
+    mineByProject: () => Effect.Effect<
       ReadonlyArray<ProjectTicketsPreview>,
       never,
       OrgScope
     >
-    readonly recent: () => Effect.Effect<
-      ReadonlyArray<RecentTicketRow>,
-      never,
-      OrgScope
-    >
-    readonly sections: (
+    recent: () => Effect.Effect<ReadonlyArray<RecentTicketRow>, never, OrgScope>
+    sections: (
       query: TicketListQuery
     ) => Effect.Effect<
       TicketSections,
       Forbidden | NotFound | MarkdownError,
       ProjectScope
     >
-    readonly sprintSections: (
+    sprintSections: (
       query: TicketListQuery
     ) => Effect.Effect<
       TicketSprintSections,
       Forbidden | NotFound | MarkdownError,
       ProjectScope
     >
-    readonly epicSections: (
+    epicSections: (
       query: TicketListQuery
     ) => Effect.Effect<
       TicketEpicSections,
       Forbidden | NotFound | MarkdownError,
       ProjectScope
     >
-    readonly list: (
+    list: (
       query: TicketPageQuery,
       limit?: number
     ) => Effect.Effect<
@@ -158,36 +154,36 @@ export class TicketQueries extends Context.Service<
       Forbidden | NotFound | MarkdownError,
       ProjectScope
     >
-    readonly count: (
+    count: (
       query: TicketCountQuery
     ) => Effect.Effect<
       TicketCounts,
       Forbidden | NotFound | MarkdownError,
       ProjectScope
     >
-    readonly search: (
+    search: (
       options: TicketSearchQuery
     ) => Effect.Effect<
       ReadonlyArray<Ticket>,
       NotFound | MarkdownError,
       ProjectScope
     >
-    readonly listInGroup: (
+    listInGroup: (
       groupId: string
     ) => Effect.Effect<
       ReadonlyArray<Ticket>,
       NotFound | MarkdownError,
       ProjectScope
     >
-    readonly tagUsageCounts: () => Effect.Effect<
+    tagUsageCounts: () => Effect.Effect<
       Readonly<Record<string, number>>,
       never,
       ProjectScope
     >
-    readonly get: (
+    get: (
       id: string
     ) => Effect.Effect<TicketDetail, TicketReadError, ProjectScope>
-  }
+  }>
 >()("@pp/server-core/tickets/TicketQueries") {}
 
 const make = Effect.gen(function* () {

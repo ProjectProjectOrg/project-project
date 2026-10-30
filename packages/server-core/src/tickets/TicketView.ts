@@ -21,24 +21,24 @@ import {
 
 export class TicketView extends Context.Service<
   TicketView,
-  {
-    readonly gitViewOf: (scope: ProjectScopeShape) => Effect.Effect<GitView>
-    readonly gitView: Effect.Effect<GitView, never, ProjectScope>
-    readonly readTicket: (
+  Readonly<{
+    gitViewOf: (scope: ProjectScopeShape) => Effect.Effect<GitView>
+    gitView: Effect.Effect<GitView, never, ProjectScope>
+    readTicket: (
       orgSlug: string,
       slug: string,
       id: string
     ) => Effect.Effect<TicketDocument, TicketReadError>
-    readonly detailOf: (
+    detailOf: (
       document: TicketDocument,
       view: GitView,
       branchDeletedAt?: Date | null
     ) => Effect.Effect<TicketDetail>
-    readonly withMissingAttachments: (
+    withMissingAttachments: (
       orgSlug: string,
       detail: TicketDetail
     ) => Effect.Effect<TicketDetail>
-  }
+  }>
 >()("@pp/server-core/tickets/TicketView") {}
 
 const make = Effect.gen(function* () {
