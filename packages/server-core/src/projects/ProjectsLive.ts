@@ -24,6 +24,7 @@ import {
 } from "@pp/shared"
 import { and, asc, eq, gt, inArray, sql as sqlFragment } from "drizzle-orm"
 import type { EffectDrizzleQueryError } from "drizzle-orm/effect-core"
+import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -122,15 +123,30 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "")
 }
 
+const querySqlError = (
+  error: EffectDrizzleQueryError
+): Option.Option<SqlError.SqlError> =>
+  SqlError.isSqlError(error.cause)
+    ? Option.some(error.cause)
+    : Cause.isCause(error.cause)
+      ? Option.filter(Cause.findErrorOption(error.cause), SqlError.isSqlError)
+      : Option.none()
+
 const uniqueConstraint = (
   error: EffectDrizzleQueryError,
   constraint: string
 ): boolean =>
-  SqlError.isSqlError(error.cause) &&
-  Match.value(error.cause.reason).pipe(
-    Match.tag("UniqueViolation", (reason) => reason.constraint === constraint),
-    Match.orElse(() => false)
-  )
+  Option.match(querySqlError(error), {
+    onNone: () => false,
+    onSome: (sqlError) =>
+      Match.value(sqlError.reason).pipe(
+        Match.tag(
+          "UniqueViolation",
+          (reason) => reason.constraint === constraint
+        ),
+        Match.orElse(() => false)
+      )
+  })
 
 const presentDetail = (
   scope: ProjectScopeShape,
