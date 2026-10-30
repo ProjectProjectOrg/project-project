@@ -26,11 +26,12 @@ import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
 import { Projects, type ProjectsShape } from "@pp/server-core/projects/Projects"
+import * as TicketServices from "@pp/server-core/tickets/layer"
 import { TicketDocsLive } from "@pp/server-core/tickets/TicketDocsLive"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
 import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
+import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import { Tickets } from "@pp/server-core/tickets/Tickets"
-import { TicketsLive } from "@pp/server-core/tickets/TicketsLive"
 import { Users, type UsersShape } from "@pp/server-core/users/Users"
 import {
   ActivityActor,
@@ -481,7 +482,7 @@ const IndexLive = TicketIndexLive.pipe(
   Layer.provide(DatabaseLive)
 )
 const BenchmarkLive = (options: Options) =>
-  TicketsLive.pipe(
+  TicketServices.layer.pipe(
     Layer.provide(PassthroughLibrary),
     Layer.provide(
       Layer.mergeAll(
@@ -667,6 +668,7 @@ const benchmarkProgram = (
 ) =>
   Effect.gen(function* () {
     const tickets = yield* Tickets
+    const queries = yield* TicketQueries.TicketQueries
     const results: Array<BenchmarkResult> = []
     const fixtures = Array.from({ length: options.ticketCount }, (_, index) =>
       fixtureFor(index, options.ticketCount)
@@ -734,7 +736,7 @@ const benchmarkProgram = (
 
     yield* measure("list-default", () =>
       verify(
-        tickets.list({
+        queries.list({
           sort: { key: "created", dir: "desc" }
         }),
         (page) =>
@@ -745,7 +747,7 @@ const benchmarkProgram = (
     )
     yield* measure("list-deep-cursor", () =>
       verify(
-        tickets.list({
+        queries.list({
           sort: { key: "id", dir: "asc" },
           cursor: deepCursor
         }),
@@ -759,7 +761,7 @@ const benchmarkProgram = (
     )
     yield* measure("list-filter-status", () =>
       verify(
-        tickets.list({
+        queries.list({
           status: [inProgress],
           sort: { key: "created", dir: "desc" }
         }),
@@ -774,7 +776,7 @@ const benchmarkProgram = (
     )
     yield* measure("list-filter-tag", () =>
       verify(
-        tickets.list({
+        queries.list({
           tags: [performanceTag],
           sort: { key: "created", dir: "desc" }
         }),
@@ -788,7 +790,7 @@ const benchmarkProgram = (
     )
     yield* measure("list-filter-assignee", () =>
       verify(
-        tickets.list({
+        queries.list({
           assignee: ["mine"],
           sort: { key: "created", dir: "desc" }
         }),
@@ -800,7 +802,7 @@ const benchmarkProgram = (
     )
     yield* measure("list-archived", () =>
       verify(
-        tickets.list({
+        queries.list({
           archived: true,
           sort: { key: "created", dir: "desc" }
         }),
@@ -812,7 +814,7 @@ const benchmarkProgram = (
     )
     yield* measure("list-filter-group", () =>
       verify(
-        tickets.list({
+        queries.list({
           groupId: [groupId],
           sort: { key: "created", dir: "desc" }
         }),
@@ -826,7 +828,7 @@ const benchmarkProgram = (
     )
     yield* measure("count-filtered", () =>
       verify(
-        tickets.count({
+        queries.count({
           type: ["bug"]
         }),
         (counts) =>
@@ -840,7 +842,7 @@ const benchmarkProgram = (
     )
     yield* measure("search-common", () =>
       verify(
-        tickets.search({
+        queries.search({
           q: "benchmark",
           limit: 100
         }),
@@ -854,7 +856,7 @@ const benchmarkProgram = (
     )
     yield* measure("search-rare", () =>
       verify(
-        tickets.search({
+        queries.search({
           q: "unique latency sentinel",
           limit: 100
         }),
@@ -866,7 +868,7 @@ const benchmarkProgram = (
     )
     yield* measure("search-empty", () =>
       verify(
-        tickets.search({
+        queries.search({
           q: "no-ticket-has-this-title",
           limit: 100
         }),
@@ -877,7 +879,7 @@ const benchmarkProgram = (
     yield* measure("detail", (sample) => {
       const id = targetId(sample)
       return verify(
-        tickets.get(id),
+        queries.get(id),
         (ticket) => ticket.id === id,
         `ticket detail returned the wrong ticket for ${id}`
       )

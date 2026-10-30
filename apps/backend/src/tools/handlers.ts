@@ -12,6 +12,7 @@ import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import { Tags } from "@pp/server-core/tags/Tags"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
+import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import { Tickets } from "@pp/server-core/tickets/Tickets"
 import {
   blockLookupFor,
@@ -205,8 +206,8 @@ const list_tickets = (
     Pick<Pagination, "limit">
 ) =>
   Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const page = yield* tickets.list(TicketListQuery.make(input), input.limit)
+    const queries = yield* TicketQueries.TicketQueries
+    const page = yield* queries.list(TicketListQuery.make(input), input.limit)
     return {
       items: page.items.map((row) => row.ticket),
       nextCursor: page.nextCursor
@@ -219,8 +220,8 @@ const get_ticket = (input: {
   id: string
 }) =>
   Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const detail = yield* tickets.get(input.id)
+    const queries = yield* TicketQueries.TicketQueries
+    const detail = yield* queries.get(input.id)
     return withBlocks(detail)
   })
 
@@ -364,11 +365,11 @@ const create_ticket = (
 const templateBodyFor = (id: TicketId, template: TemplateKey) =>
   Effect.gen(function* () {
     const { orgSlug, slug } = yield* ProjectScope
-    const tickets = yield* Tickets
+    const queries = yield* TicketQueries.TicketQueries
     const library = yield* Library
     const expansion = yield* library.expandForCreate(orgSlug, slug, template)
     const [ticket, projectLibrary] = yield* Effect.all(
-      [tickets.get(id), library.projectLibrary()],
+      [queries.get(id), library.projectLibrary()],
       { concurrency: 2 }
     )
     if (!isUntouchedBody(ticket.body, projectLibrary)) {
@@ -381,7 +382,7 @@ const templateBodyFor = (id: TicketId, template: TemplateKey) =>
 
 const editedBody = (id: TicketId, edits: ReadonlyArray<TicketBodyEdit>) =>
   Effect.gen(function* () {
-    const ticket = yield* (yield* Tickets).get(id)
+    const ticket = yield* (yield* TicketQueries.TicketQueries).get(id)
     const result = applyTicketBodyEdits(ticket.body, edits)
     if (!result.ok) {
       return yield* new Validation({

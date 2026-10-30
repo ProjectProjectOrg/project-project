@@ -22,6 +22,7 @@ import {
   TicketIndex,
   type TicketIndexProject
 } from "@pp/server-core/tickets/TicketIndex"
+import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import { Tickets } from "@pp/server-core/tickets/Tickets"
 import { Users } from "@pp/server-core/users/Users"
 import {
@@ -148,21 +149,24 @@ const fakeTicket = {
 const capturedListLimits: Array<number | undefined> = []
 const capturedListQueries: Array<TicketListQuery> = []
 
-const TicketsStub = Layer.mock(Tickets, {
-  list: (query: TicketListQuery, limit?: number) => {
-    capturedListLimits.push(limit)
-    capturedListQueries.push(query)
-    const all = Array.from({ length: 25 }, (_, i) => ({
-      ticket: { ...fakeTicket, id: decodeTicketId(`T-${i + 1}`) },
-      orderKey: `${i + 1}`.padStart(4, "0")
-    }))
-    const effective = limit ?? all.length
-    return Effect.succeed({
-      items: all.slice(0, effective),
-      nextCursor: effective < all.length ? "cursor-next" : null
-    })
-  }
-})
+const TicketsStub = Layer.mergeAll(
+  Layer.mock(Tickets, {}),
+  Layer.mock(TicketQueries.TicketQueries, {
+    list: (query: TicketListQuery, limit?: number) => {
+      capturedListLimits.push(limit)
+      capturedListQueries.push(query)
+      const all = Array.from({ length: 25 }, (_, i) => ({
+        ticket: { ...fakeTicket, id: decodeTicketId(`T-${i + 1}`) },
+        orderKey: `${i + 1}`.padStart(4, "0")
+      }))
+      const effective = limit ?? all.length
+      return Effect.succeed({
+        items: all.slice(0, effective),
+        nextCursor: effective < all.length ? "cursor-next" : null
+      })
+    }
+  })
+)
 
 const fakeUser = testUser("u-1")
 
@@ -628,57 +632,63 @@ describe("MCP handlers → write tools", () => {
     archive?: any
   } = {}
 
-  const WriteTicketsStub = Layer.mock(Tickets, {
-    get: (_id) =>
-      Effect.succeed({
-        ...fakeTicketDetail,
-        body: [
-          "Some context.",
-          formatTicketBlock(
-            "acceptance-criteria",
-            "## Acceptance criteria\n\n- [x] Done"
-          ),
-          formatTicketBlock(
-            "definition-of-done",
-            "## Definition of done\n\n- [ ] Reviewed",
-            { sync: true }
+  const WriteTicketsStub = Layer.mergeAll(
+    Layer.mock(Tickets, {
+      create: (input) => {
+        captured.create = input
+        return Effect.succeed({ ...fakeTicketDetail, ...input })
+      },
+      update: (_id, input) => {
+        captured.update = input
+        return Effect.succeed({
+          ticket: {
+            ...fakeTicketDetail,
+            tags: input.tags ?? fakeTicketDetail.tags,
+            assignees: input.assignees ?? fakeTicketDetail.assignees
+          },
+          orderKey: null
+        })
+      },
+      archive: (id, reason) => {
+        captured.archive = { id, reason }
+        if (id === "T-2") {
+          return Effect.fail(
+            new Conflict({ reason: "ticket_already_archived" })
           )
-        ].join("\n\n")
-      }),
-    create: (input) => {
-      captured.create = input
-      return Effect.succeed({ ...fakeTicketDetail, ...input })
-    },
-    update: (_id, input) => {
-      captured.update = input
-      return Effect.succeed({
-        ticket: {
+        }
+        return Effect.succeed({
           ...fakeTicketDetail,
-          tags: input.tags ?? fakeTicketDetail.tags,
-          assignees: input.assignees ?? fakeTicketDetail.assignees
-        },
-        orderKey: null
-      })
-    },
-    archive: (id, reason) => {
-      captured.archive = { id, reason }
-      if (id === "T-2") {
-        return Effect.fail(new Conflict({ reason: "ticket_already_archived" }))
+          archivedAt: isoDate("2026-05-11T00:00:00.000Z")
+        })
+      },
+      unarchive: (_id) => Effect.succeed(fakeTicketDetail),
+      attachBranch: (_id, input) => {
+        captured.attach = input
+        if (input.name === "missing/branch") {
+          return Effect.fail(new BranchNotFound({ name: input.name }))
+        }
+        return Effect.succeed({ ...fakeTicketDetail, branch: input.name })
       }
-      return Effect.succeed({
-        ...fakeTicketDetail,
-        archivedAt: isoDate("2026-05-11T00:00:00.000Z")
-      })
-    },
-    unarchive: (_id) => Effect.succeed(fakeTicketDetail),
-    attachBranch: (_id, input) => {
-      captured.attach = input
-      if (input.name === "missing/branch") {
-        return Effect.fail(new BranchNotFound({ name: input.name }))
-      }
-      return Effect.succeed({ ...fakeTicketDetail, branch: input.name })
-    }
-  })
+    }),
+    Layer.mock(TicketQueries.TicketQueries, {
+      get: (_id) =>
+        Effect.succeed({
+          ...fakeTicketDetail,
+          body: [
+            "Some context.",
+            formatTicketBlock(
+              "acceptance-criteria",
+              "## Acceptance criteria\n\n- [x] Done"
+            ),
+            formatTicketBlock(
+              "definition-of-done",
+              "## Definition of done\n\n- [ ] Reviewed",
+              { sync: true }
+            )
+          ].join("\n\n")
+        })
+    })
+  )
 
   const WriteCommentsStub = Layer.mock(Comments, {
     create: (ticketId, input: { body: string }) => {
@@ -1110,43 +1120,50 @@ describe("MCP handlers → update_ticket with a template or edits", () => {
     update?: any
   } = { currentBody: "" }
 
-  const TemplateTicketsStub = Layer.mock(Tickets, {
-    get: (_id) => {
-      const body = state.currentBody
-      if (state.concurrentBody !== undefined) {
-        state.currentBody = state.concurrentBody
-      }
-      return Effect.succeed({
-        ...fakeTicket,
-        creator: null,
-        updater: null,
-        body
-      })
-    },
-    create: (input) =>
-      Effect.succeed({
-        ...fakeTicket,
-        creator: null,
-        updater: null,
-        title: input.title,
-        body: input.body ?? ""
-      }),
-    update: (_id, input, _sort, expected) => {
-      state.update = input
-      if (expected?.body !== undefined && state.currentBody !== expected.body) {
-        return Effect.fail(new Validation({ reason: "ticket_body_changed" }))
-      }
-      return Effect.succeed({
-        ticket: {
+  const TemplateTicketsStub = Layer.mergeAll(
+    Layer.mock(Tickets, {
+      create: (input) =>
+        Effect.succeed({
           ...fakeTicket,
           creator: null,
           updater: null,
-          body: input.body ?? state.currentBody
-        },
-        orderKey: null
-      })
-    }
-  })
+          title: input.title,
+          body: input.body ?? ""
+        }),
+      update: (_id, input, _sort, expected) => {
+        state.update = input
+        if (
+          expected?.body !== undefined &&
+          state.currentBody !== expected.body
+        ) {
+          return Effect.fail(new Validation({ reason: "ticket_body_changed" }))
+        }
+        return Effect.succeed({
+          ticket: {
+            ...fakeTicket,
+            creator: null,
+            updater: null,
+            body: input.body ?? state.currentBody
+          },
+          orderKey: null
+        })
+      }
+    }),
+    Layer.mock(TicketQueries.TicketQueries, {
+      get: (_id) => {
+        const body = state.currentBody
+        if (state.concurrentBody !== undefined) {
+          state.currentBody = state.concurrentBody
+        }
+        return Effect.succeed({
+          ...fakeTicket,
+          creator: null,
+          updater: null,
+          body
+        })
+      }
+    })
+  )
 
   const TemplateLibraryStub = Layer.mock(Library, {
     projectLibrary: () => Effect.succeed(fakeLibrary),
@@ -1383,20 +1400,23 @@ describe("MCP handlers → update_ticket with a template or edits", () => {
     "passes expectedUpdatedAt through as the update's expectation",
     () => {
       let seen: unknown
-      const ExpectingTicketsStub = Layer.mock(Tickets, {
-        update: (_id, input, _sort, expected) => {
-          seen = expected
-          return Effect.succeed({
-            ticket: {
-              ...fakeTicket,
-              creator: null,
-              updater: null,
-              body: input.body ?? ""
-            },
-            orderKey: null
-          })
-        }
-      })
+      const ExpectingTicketsStub = Layer.mergeAll(
+        Layer.mock(Tickets, {
+          update: (_id, input, _sort, expected) => {
+            seen = expected
+            return Effect.succeed({
+              ticket: {
+                ...fakeTicket,
+                creator: null,
+                updater: null,
+                body: input.body ?? ""
+              },
+              orderKey: null
+            })
+          }
+        }),
+        Layer.mock(TicketQueries.TicketQueries, {})
+      )
       return Effect.gen(function* () {
         yield* updateWith("", {
           body: "Rewrite",
@@ -1461,7 +1481,14 @@ describe("MCP handlers → add_tickets_to_group", () => {
   }
 
   const makeLayer = (groupsLayer: Layer.Layer<Groups>) =>
-    Layer.mergeAll(TestLayer, Layer.mock(Tickets, {}), groupsLayer)
+    Layer.mergeAll(
+      TestLayer,
+      Layer.mergeAll(
+        Layer.mock(Tickets, {}),
+        Layer.mock(TicketQueries.TicketQueries, {})
+      ),
+      groupsLayer
+    )
 
   const registerAndCall = (
     runtime: Context.Context<HandlerServices>,
@@ -1592,7 +1619,14 @@ describe("MCP handlers → sprint writes", () => {
   }
 
   const makeLayer = (groupsLayer: Layer.Layer<Groups>) =>
-    Layer.mergeAll(TestLayer, Layer.mock(Tickets, {}), groupsLayer)
+    Layer.mergeAll(
+      TestLayer,
+      Layer.mergeAll(
+        Layer.mock(Tickets, {}),
+        Layer.mock(TicketQueries.TicketQueries, {})
+      ),
+      groupsLayer
+    )
 
   const registerAndCall = (
     name: string,

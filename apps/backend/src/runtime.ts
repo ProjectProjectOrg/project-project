@@ -63,10 +63,10 @@ import { OrgStorageLive } from "@pp/server-core/storage/OrgStorageLive"
 import { S3StorageLive } from "@pp/server-core/storage/S3StorageLive"
 import { SecretCryptoLive } from "@pp/server-core/storage/SecretCryptoLive"
 import { TagsLive } from "@pp/server-core/tags/TagsLive"
+import * as TicketServices from "@pp/server-core/tickets/layer"
 import { TicketDocsLive } from "@pp/server-core/tickets/TicketDocsLive"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
 import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
-import { TicketsLive } from "@pp/server-core/tickets/TicketsLive"
 import { UsersLive } from "@pp/server-core/users/UsersLive"
 import * as Effect from "effect/Effect"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
@@ -157,7 +157,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
     Layer.provideMerge(FeedbackIntake.layer),
     Layer.provideMerge(SystemProjectsLive),
     Layer.provideMerge(ProjectStatusesLive),
-    Layer.provideMerge(TicketsLive),
+    Layer.provideMerge(TicketServices.layer),
     Layer.provideMerge(TicketActivityFeedLive),
     Layer.provideMerge(LibraryLive),
     Layer.provideMerge(AttachmentUploadsLive),

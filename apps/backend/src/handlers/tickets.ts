@@ -1,5 +1,6 @@
 // Thin handlers for the `tickets` HttpApi group. All logic in Tickets.
 
+import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import { Tickets } from "@pp/server-core/tickets/Tickets"
 import { AppApi, Validation } from "@pp/shared"
 import * as Effect from "effect/Effect"
@@ -13,49 +14,49 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
   (handlers) =>
     handlers
       .handle("mine", ({ query }) =>
-        Effect.flatMap(Tickets, (tickets) => tickets.mine(query)).pipe(
-          dieOnMarkdown
-        )
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.mine(query)
+        ).pipe(dieOnMarkdown)
       )
       .handle("mineByProject", () =>
-        Effect.flatMap(Tickets, (tickets) => tickets.mineByProject()).pipe(
-          dieOnMarkdown
-        )
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.mineByProject()
+        ).pipe(dieOnMarkdown)
       )
       .handle("recent", () =>
-        Effect.flatMap(Tickets, (tickets) => tickets.recent()).pipe(
-          dieOnMarkdown
-        )
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.recent()
+        ).pipe(dieOnMarkdown)
       )
       .handle("sections", ({ query }) =>
-        Effect.flatMap(Tickets, (tickets) => tickets.sections(query)).pipe(
-          dieOnMarkdown
-        )
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.sections(query)
+        ).pipe(dieOnMarkdown)
       )
       .handle("sprintSections", ({ query }) =>
-        Effect.flatMap(Tickets, (tickets) =>
-          tickets.sprintSections(query)
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.sprintSections(query)
         ).pipe(dieOnMarkdown)
       )
       .handle("epicSections", ({ query }) =>
-        Effect.flatMap(Tickets, (tickets) => tickets.epicSections(query)).pipe(
-          dieOnMarkdown
-        )
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.epicSections(query)
+        ).pipe(dieOnMarkdown)
       )
       .handle("list", ({ query }) =>
-        Effect.flatMap(Tickets, (tickets) => tickets.list(query)).pipe(
-          dieOnMarkdown
-        )
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.list(query)
+        ).pipe(dieOnMarkdown)
       )
       .handle("search", ({ query }) =>
-        Effect.flatMap(Tickets, (tickets) => tickets.search(query)).pipe(
-          dieOnMarkdown
-        )
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.search(query)
+        ).pipe(dieOnMarkdown)
       )
       .handle("count", ({ query }) =>
-        Effect.flatMap(Tickets, (tickets) => tickets.count(query)).pipe(
-          dieOnMarkdown
-        )
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.count(query)
+        ).pipe(dieOnMarkdown)
       )
       .handle("quickCreate", ({ payload }) =>
         Effect.flatMap(Tickets, (tickets) => tickets.quickCreate(payload)).pipe(
@@ -73,9 +74,9 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
         ).pipe(dieOnMarkdown)
       )
       .handle("get", ({ params }) =>
-        Effect.flatMap(Tickets, (tickets) => tickets.get(params.id)).pipe(
-          dieOnMarkdown
-        )
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.get(params.id)
+        ).pipe(dieOnMarkdown)
       )
       .handle("update", ({ params, payload, query }) =>
         Effect.flatMap(Tickets, (tickets) =>

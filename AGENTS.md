@@ -358,6 +358,18 @@ Effect HttpApi + Drizzle + Better Auth + Postgres, as set up in chapters 0–2. 
 
 Integration packages own provider behavior and consume PP capabilities through Effect host services supplied by the backend. Core must not import integration packages. Slack lives in `packages/integration-slack`, GitHub in `packages/integration-github`, Everhour in `packages/integration-everhour`, and Jira in `packages/integration-jira`; their host implementations and composition tests live in the matching backend directories. GitHub ticket ownership, stack reconciliation and status automation stay in core, reached through the backend host. Jira owns its durable migration workflow and planning; backend adapters own PP materialization and the atomic visibility/success commit. Document writes persist provider-neutral events through the existing durable outbox, and each integration consumes only its own subscribed deliveries. Keep migrations in `db`, HTTP contracts in `shared`, and the SQL workflow engine shared across integrations. Do not add a universal integration-driver interface or migrate other integrations as part of ordinary integration changes.
 
+### Backend services
+
+New services, and services you split or substantially rewrite, follow one shape. Older services keep theirs until they are touched; don't rename them in passing.
+
+- One module per service: the `Context.Service` tag with its interface written inline, a private `make`, then `export const layer = Layer.effect(Tag, make)`. No separate `XShape` type; refer to the interface as `X["Service"]`.
+- Consumers import the module as a namespace (`import * as TicketQueries from "./TicketQueries"`) and use `TicketQueries.TicketQueries` and `TicketQueries.layer`.
+- Split a large service by what callers use it for, not by file length. T-259 splits `Tickets` into `TicketQueries` (reads), `TicketCommands` (edits) and `TicketGit` (branches and pull requests); each yields only the services it uses.
+- Helpers shared by a domain's services live in an internal service (`TicketView`) or a module of pure functions (`ticketPresentation.ts`). A domain's `layer.ts` provides the internal pieces and exports only the public services; `runtime.ts` composes domain layers.
+- Every service method is `Effect.fn("Service.method")`, so it gets a span. A shared effect value, such as `TicketView.gitView`, stays a plain `Effect`.
+
+Reference: `packages/server-core/src/tickets/` and t3code's `docs/internals/effect-services.md` in `opensrc/`.
+
 ## Repo orientation
 
 - **Spec / source of truth:** `docs/PROJECTPROJECT.md`

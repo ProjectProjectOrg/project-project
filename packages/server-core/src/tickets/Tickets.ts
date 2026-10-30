@@ -18,35 +18,20 @@ import type {
   GitHubTokenExpired,
   GitStatesResponse,
   MentionInvalid,
-  MyTicketsQuery,
   NotFound,
   OpenPrInput,
   OpenPrResult,
-  OrgTicketPage,
-  ProjectTicketsPreview,
   QuickCreateTicketInput,
-  RecentTicketRow,
   RateLimited,
   SplitTicketInput,
   SplitTicketResult,
   RepoGone,
-  Ticket,
-  TicketCountQuery,
-  TicketSearchQuery,
-  TicketCounts,
   TicketDetail,
-  TicketListPage,
-  TicketListQuery,
-  TicketPageQuery,
-  TicketSections,
   TicketSort,
-  TicketEpicSections,
-  TicketSprintSections,
   TicketUpdateResult,
   UpdateTicketInput,
   UpdateTicketOrderInput,
   Validation,
-  OrgScope,
   ProjectScope,
   Forbidden
 } from "@pp/shared"
@@ -74,71 +59,6 @@ type GitHubFailure =
 export type GitStateOptions = Readonly<{ reconcile: boolean }>
 
 export type TicketsShape = Readonly<{
-  mine: (query: MyTicketsQuery) => Effect.Effect<OrgTicketPage, never, OrgScope>
-  mineByProject: () => Effect.Effect<
-    ReadonlyArray<ProjectTicketsPreview>,
-    never,
-    OrgScope
-  >
-  recent: () => Effect.Effect<ReadonlyArray<RecentTicketRow>, never, OrgScope>
-  sections: (
-    query: TicketListQuery
-  ) => Effect.Effect<
-    TicketSections,
-    Forbidden | NotFound | MarkdownError,
-    ProjectScope
-  >
-  sprintSections: (
-    query: TicketListQuery
-  ) => Effect.Effect<
-    TicketSprintSections,
-    Forbidden | NotFound | MarkdownError,
-    ProjectScope
-  >
-  epicSections: (
-    query: TicketListQuery
-  ) => Effect.Effect<
-    TicketEpicSections,
-    Forbidden | NotFound | MarkdownError,
-    ProjectScope
-  >
-  list: (
-    query: TicketPageQuery,
-    limit?: number
-  ) => Effect.Effect<
-    TicketListPage,
-    Forbidden | NotFound | MarkdownError,
-    ProjectScope
-  >
-  count: (
-    query: TicketCountQuery
-  ) => Effect.Effect<
-    TicketCounts,
-    Forbidden | NotFound | MarkdownError,
-    ProjectScope
-  >
-  search: (
-    options: TicketSearchQuery
-  ) => Effect.Effect<
-    ReadonlyArray<Ticket>,
-    NotFound | MarkdownError,
-    ProjectScope
-  >
-  listInGroup: (
-    groupId: string
-  ) => Effect.Effect<
-    ReadonlyArray<Ticket>,
-    NotFound | MarkdownError,
-    ProjectScope
-  >
-  tagUsageCounts: () => Effect.Effect<
-    Readonly<Record<string, number>>,
-    never,
-    ProjectScope
-  >
-  get: (
-    id: string
-  ) => Effect.Effect<TicketDetail, TicketReadError, ProjectScope>
   quickCreate: (
     input: QuickCreateTicketInput
   ) => Effect.Effect<

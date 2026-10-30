@@ -43,6 +43,7 @@ import * as SecretCryptoLayer from "@pp/server-core/storage/SecretCryptoLive"
 import * as Tags from "@pp/server-core/tags/Tags"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
+import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import * as Tickets from "@pp/server-core/tickets/Tickets"
 import * as Users from "@pp/server-core/users/Users"
 import {
@@ -273,7 +274,10 @@ const fixture = Effect.fn("attachmentFixture")(function* (
       Layer.succeed(CurrentUser, user),
       Layer.succeed(ActivityActor, ActivityActor.user(user.id)),
       Layer.mock(Projects.Projects, {}),
-      Layer.mock(Tickets.Tickets, {}),
+      Layer.mergeAll(
+        Layer.mock(Tickets.Tickets, {}),
+        Layer.mock(TicketQueries.TicketQueries, {})
+      ),
       Layer.mock(Comments.Comments, {}),
       Layer.mock(Groups.Groups, {}),
       Layer.mock(Tags.Tags, {}),
@@ -909,7 +913,10 @@ describe("MCP attachment contracts", () => {
             Layer.mock(Tags.Tags, {}),
             Layer.mock(TicketDocs.TicketDocs, {}),
             Layer.mock(TicketIndex.TicketIndex, {}),
-            Layer.mock(Tickets.Tickets, {}),
+            Layer.mergeAll(
+              Layer.mock(Tickets.Tickets, {}),
+              Layer.mock(TicketQueries.TicketQueries, {})
+            ),
             Layer.mock(Users.Users, {}),
             Layer.mock(Library.Library, {})
           )

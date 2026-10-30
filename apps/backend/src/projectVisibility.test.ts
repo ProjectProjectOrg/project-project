@@ -27,6 +27,7 @@ import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
 import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
 import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
+import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import { Tickets } from "@pp/server-core/tickets/Tickets"
 import { Users } from "@pp/server-core/users/Users"
 import {
@@ -255,7 +256,12 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
         HttpApi.make(AppApi.identifier).add(ticketsGroup)
       ).pipe(
         Layer.provide(TicketsHandlerLive),
-        Layer.provideMerge(Layer.mock(Tickets, {})),
+        Layer.provideMerge(
+          Layer.mergeAll(
+            Layer.mock(Tickets, {}),
+            Layer.mock(TicketQueries.TicketQueries, {})
+          )
+        ),
         Layer.provide(
           Layer.mergeAll(OrgAccessLive, ProjectAccessLive).pipe(
             Layer.provide(access())

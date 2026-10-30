@@ -27,10 +27,11 @@ import { FigmaLinks } from "../figma/FigmaLinks"
 import { GitHub } from "../github/GitHub"
 import { Groups } from "../groups/Groups"
 import { Library } from "../library/Library"
+import * as TicketServices from "../tickets/layer"
 import { TicketDocs } from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
+import * as TicketQueries from "../tickets/TicketQueries"
 import { Tickets } from "../tickets/Tickets"
-import { TicketsLive } from "../tickets/TicketsLive"
 import { Users } from "../users/Users"
 import { FinishedStatuses } from "./FinishedStatuses"
 import { gitAutomationTestLayer } from "./gitAutomationTesting"
@@ -50,7 +51,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
     slug: "project"
   })
   let pool: Pool
-  let layer: Layer.Layer<Projects | Tickets>
+  let layer: Layer.Layer<Projects | Tickets | TicketQueries.TicketQueries>
   let document: ProjectDocument = {
     slug: "project",
     name: "Project",
@@ -113,28 +114,30 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
     const db = DbLive.pipe(
       Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl) }))
     )
-    layer = TicketsLive.pipe(
-      Layer.provide(gitAutomationTestLayer()),
-      Layer.provideMerge(projectsOnPostgres(databaseUrl, [id], {}, docs)),
-      Layer.provide(docs),
-      Layer.provide(testActivityLayer(id)),
-      Layer.provide(FinishedStatuses.layer.pipe(Layer.provide(db))),
-      Layer.provide(db),
-      Layer.provide(TicketDocumentLock.layer),
-      Layer.provide(accessLayer({})),
-      Layer.provide(
-        Layer.mergeAll(
-          Layer.mock(TicketDocs, {}),
-          Layer.mock(GitHub, {}),
-          Layer.mock(Groups, {}),
-          Layer.mock(Comments, {}),
-          Layer.mock(Attachments, {}),
-          Layer.mock(FigmaLinks, {}),
-          Layer.mock(Users, {}),
-          Layer.mock(Library, {})
+    layer = TicketServices.layer
+      .pipe(
+        Layer.provide(gitAutomationTestLayer()),
+        Layer.provideMerge(projectsOnPostgres(databaseUrl, [id], {}, docs)),
+        Layer.provide(docs),
+        Layer.provide(testActivityLayer(id)),
+        Layer.provide(FinishedStatuses.layer.pipe(Layer.provide(db))),
+        Layer.provide(db),
+        Layer.provide(TicketDocumentLock.layer),
+        Layer.provide(accessLayer({})),
+        Layer.provide(
+          Layer.mergeAll(
+            Layer.mock(TicketDocs, {}),
+            Layer.mock(GitHub, {}),
+            Layer.mock(Groups, {}),
+            Layer.mock(Comments, {}),
+            Layer.mock(Attachments, {}),
+            Layer.mock(FigmaLinks, {}),
+            Layer.mock(Users, {}),
+            Layer.mock(Library, {})
+          )
         )
       )
-    ).pipe(Layer.orDie)
+      .pipe(Layer.orDie)
   })
 
   afterAll(async () => {
@@ -149,15 +152,16 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
     () =>
       Effect.gen(function* () {
         const tickets = yield* Tickets
+        const queries = yield* TicketQueries.TicketQueries
         const projects = yield* Projects
-        const sorted = yield* tickets.list({
+        const sorted = yield* queries.list({
           sort: { key: "estimate", dir: "asc" }
         })
         expect(sorted.items.map(({ ticket }) => ticket.id)).toEqual([
           "T-2",
           "T-1"
         ])
-        expect((yield* tickets.count({ estimate: ["any"] })).total).toBe(1)
+        expect((yield* queries.count({ estimate: ["any"] })).total).toBe(1)
         expect((yield* projects.get()).estimation).toBe("points")
 
         document = { ...document, estimation: "tshirt" }
@@ -168,7 +172,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
           new Validation({ reason: "estimate_unit_mismatch:points:tshirt" })
         )
         expect(
-          (yield* tickets.list({
+          (yield* queries.list({
             estimate: ["stale"],
             sort: DEFAULT_TICKET_SORT
           })).items.map(({ ticket }) => ticket.id)
@@ -189,7 +193,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
 
         document = { ...document, estimation: "off" }
         expect((yield* projects.get()).estimation).toBe("off")
-        expect((yield* tickets.count({ estimate: ["any"] })).total).toBe(0)
+        expect((yield* queries.count({ estimate: ["any"] })).total).toBe(0)
         yield* projects.update({ estimation: "points" })
         expect(document.estimation).toBe("points")
       }).pipe(

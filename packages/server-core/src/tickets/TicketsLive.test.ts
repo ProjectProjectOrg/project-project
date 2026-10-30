@@ -47,12 +47,13 @@ import { gitAutomationTestLayer } from "../projects/gitAutomationTesting"
 import { ProjectDocs } from "../projects/ProjectDocs"
 import { Projects, type ProjectsShape } from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
+import * as TicketServices from "./layer"
 import { TicketDocs } from "./TicketDocs"
 import { TicketDocsLive } from "./TicketDocsLive"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import { TicketIndex, type TicketIndexShape } from "./TicketIndex"
+import * as TicketQueries from "./TicketQueries"
 import { Tickets } from "./Tickets"
-import { TicketsLive } from "./TicketsLive"
 
 const decodeProjectKey = Schema.decodeUnknownSync(ProjectKey)
 
@@ -236,66 +237,70 @@ const TestLayer = Layer.unwrap(
     const tmpRoot = yield* fs.makeTempDirectoryScoped({
       prefix: "projectproject-tk-"
     })
-    return TicketsLive.pipe(Layer.provide(gitAutomationTestLayer())).pipe(
-      Layer.provideMerge(LibraryLive),
-      Layer.provideMerge(LibraryDocsLive),
-      Layer.provide(
-        Layer.mock(ProjectDocs, {
-          read: () =>
-            Effect.succeed({
-              slug: Slug.make("project"),
-              name: "Project",
-              icon: "P",
-              color: "#123456",
-              createdAt: DateTime.toDate(
-                DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")
-              ),
-              github: null,
-              estimation: "points",
-              setup: {
-                workflowReviewedAt: null,
-                invitePeopleDismissedAt: null,
-                connectGithubDismissedAt: null
-              },
-              templateDefaults: {},
-              body: ""
-            })
-        })
-      ),
-      Layer.provideMerge(TicketDocsLive),
-      Layer.provideMerge(recordingTicketActivity(recordedActivity)),
-      Layer.provideMerge(
-        Layer.succeed(ActivityActor, ActivityActor.user("user-1"))
-      ),
-      Layer.provide(FakeAttachments),
-      Layer.provide(FakeFigmaLinks),
-      Layer.provide(FakeProjects),
-      Layer.provide(FakeGroups),
-      Layer.provide(FakeUsers),
-      Layer.provide(FakeGitHub),
-      Layer.provide(FakeTicketIndex),
-      Layer.provide(FakeDb),
-      Layer.provide(TicketDocumentLock.layer),
-      Layer.provide(Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)),
-      Layer.provide(accessLayer({})),
-      Layer.merge(
-        Layer.succeed(
-          ProjectScope,
-          projectScope("member", "pm", {
-            orgSlug: "org",
-            slug: "p",
-            projectId: "p",
-            organizationId: "org"
+    return TicketServices.layer
+      .pipe(Layer.provide(gitAutomationTestLayer()))
+      .pipe(
+        Layer.provideMerge(LibraryLive),
+        Layer.provideMerge(LibraryDocsLive),
+        Layer.provide(
+          Layer.mock(ProjectDocs, {
+            read: () =>
+              Effect.succeed({
+                slug: Slug.make("project"),
+                name: "Project",
+                icon: "P",
+                color: "#123456",
+                createdAt: DateTime.toDate(
+                  DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")
+                ),
+                github: null,
+                estimation: "points",
+                setup: {
+                  workflowReviewedAt: null,
+                  invitePeopleDismissedAt: null,
+                  connectGithubDismissedAt: null
+                },
+                templateDefaults: {},
+                body: ""
+              })
           })
-        )
-      ),
-      Layer.provide(MarkdownLive),
-      Layer.provideMerge(
-        ConfigProvider.layer(
-          ConfigProvider.fromUnknown({ PROJECTS_DIR: tmpRoot })
+        ),
+        Layer.provideMerge(TicketDocsLive),
+        Layer.provideMerge(recordingTicketActivity(recordedActivity)),
+        Layer.provideMerge(
+          Layer.succeed(ActivityActor, ActivityActor.user("user-1"))
+        ),
+        Layer.provide(FakeAttachments),
+        Layer.provide(FakeFigmaLinks),
+        Layer.provide(FakeProjects),
+        Layer.provide(FakeGroups),
+        Layer.provide(FakeUsers),
+        Layer.provide(FakeGitHub),
+        Layer.provide(FakeTicketIndex),
+        Layer.provide(FakeDb),
+        Layer.provide(TicketDocumentLock.layer),
+        Layer.provide(
+          Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
+        ),
+        Layer.provide(accessLayer({})),
+        Layer.merge(
+          Layer.succeed(
+            ProjectScope,
+            projectScope("member", "pm", {
+              orgSlug: "org",
+              slug: "p",
+              projectId: "p",
+              organizationId: "org"
+            })
+          )
+        ),
+        Layer.provide(MarkdownLive),
+        Layer.provideMerge(
+          ConfigProvider.layer(
+            ConfigProvider.fromUnknown({ PROJECTS_DIR: tmpRoot })
+          )
         )
       )
-    )
   })
 ).pipe(Layer.provideMerge(BunServices.layer))
 
@@ -420,6 +425,7 @@ it.effect(
     Effect.gen(function* () {
       recordedActivity.length = 0
       const tickets = yield* Tickets
+      const queries = yield* TicketQueries.TicketQueries
       const created = yield* tickets.quickCreate({ title: "archive twice" })
 
       const notArchived = yield* Effect.flip(tickets.unarchive(created.id))
@@ -433,7 +439,7 @@ it.effect(
       )
       expect(again).toEqual(new Conflict({ reason: "ticket_already_archived" }))
       expect(archiveChanges(created.id)).toEqual([{ kind: "archived" }])
-      const stored = yield* tickets.get(created.id)
+      const stored = yield* queries.get(created.id)
       expect(stored.archivedAt).toEqual(archived.archivedAt)
     }).pipe(Effect.provide(TestLayer))
 )
@@ -443,6 +449,7 @@ it.effect(
   () =>
     Effect.gen(function* () {
       const tickets = yield* Tickets
+      const queries = yield* TicketQueries.TicketQueries
 
       const original = yield* tickets.quickCreate({
         title: "foo"
@@ -455,7 +462,7 @@ it.effect(
       const reborn = yield* tickets.quickCreate({
         title: "foo"
       })
-      const fetched = yield* tickets.get(reborn.id)
+      const fetched = yield* queries.get(reborn.id)
 
       expect(fetched.body).not.toContain("old secret description")
       expect(fetched.body.trim()).toBe("")
@@ -539,6 +546,7 @@ it.effect("quickCreate with a template writes its expanded body and type", () =>
   Effect.gen(function* () {
     yield* adoptAtOrg(BUG_REPORT_KIT)
     const tickets = yield* Tickets
+    const queries = yield* TicketQueries.TicketQueries
     const created = yield* tickets.quickCreate({
       title: "login loops",
       template: templateKey("bug-report")
@@ -550,7 +558,7 @@ it.effect("quickCreate with a template writes its expanded body and type", () =>
     expect(created.body).toContain("**Expected:**")
     expect(created.body).not.toContain("{{")
 
-    const fetched = yield* tickets.get(created.id)
+    const fetched = yield* queries.get(created.id)
     expect(fetched.body).toBe(created.body)
   }).pipe(Effect.provide(TestLayer))
 )
@@ -665,13 +673,14 @@ it.effect("get resolves synced blocks without rewriting the file", () =>
   Effect.gen(function* () {
     yield* adoptAtOrg(["definition-of-done"])
     const tickets = yield* Tickets
+    const queries = yield* TicketQueries.TicketQueries
     const created = yield* tickets.create({
       title: "synced",
       body: SYNCED_DONE
     })
     yield* (yield* LibraryDocs).writeBlock("org", "p", projectDoneBlock)
 
-    const fetched = yield* tickets.get(created.id)
+    const fetched = yield* queries.get(created.id)
     expect(fetched.body).toContain("- [x] Reviewed and merged")
     expect(fetched.body).toContain("- [ ] Released")
     expect(fetched.body).not.toContain("Tests cover the change")
@@ -719,6 +728,7 @@ it.effect("a body without synced blocks is stored and read byte for byte", () =>
       "trailing *md*"
     ].join("\n")
     const tickets = yield* Tickets
+    const queries = yield* TicketQueries.TicketQueries
     const created = yield* tickets.quickCreate({
       title: "plain"
     })
@@ -727,7 +737,7 @@ it.effect("a body without synced blocks is stored and read byte for byte", () =>
     })
 
     const stored = yield* (yield* TicketDocs).read("org", "p", created.id)
-    const fetched = yield* tickets.get(created.id)
+    const fetched = yield* queries.get(created.id)
     expect(updated.ticket.body).toBe(body)
     expect(fetched.body).toBe(stored.body)
   }).pipe(Effect.provide(TestLayer))

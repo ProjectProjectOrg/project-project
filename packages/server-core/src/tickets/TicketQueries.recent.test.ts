@@ -3,7 +3,7 @@ import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import { recentActivityOf } from "./TicketsLive"
+import { recentActivityOf } from "./TicketQueries"
 
 const at = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
 const earlier = at("2026-03-01T00:00:00.000Z")
