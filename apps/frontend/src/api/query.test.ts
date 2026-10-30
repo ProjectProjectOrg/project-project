@@ -106,6 +106,67 @@ describe("query revalidation", () => {
     }
   })
 
+  it("keeps loaded data when a background refetch can't reach the server", async () => {
+    let offline = false
+    const gets = vi.fn(() =>
+      offline
+        ? Promise.reject(new TypeError("Failed to fetch"))
+        : Promise.resolve(Response.json([encode(tag)]))
+    )
+    fetchStub.set(gets)
+    const registry = AtomRegistry.make()
+    const view = tagsFor(tagsRequest("acme", "offline"))
+    registry.mount(view)
+    try {
+      await vi.waitFor(() =>
+        expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
+      )
+      offline = true
+      elapse(31_000)
+      returnToTab()
+      await vi.waitFor(() => expect(gets).toHaveBeenCalledTimes(2))
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({ waiting: false })
+      )
+      const shown = registry.get(view)
+      if (!AsyncResult.isSuccess(shown)) throw new Error("lost the view")
+      expect(shown.value.map((t) => t.name)).toEqual([before])
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("surfaces a typed error from a background refetch", async () => {
+    let gone = false
+    const gets = vi.fn(() =>
+      Promise.resolve(
+        gone
+          ? Response.json({ _tag: "NotFound" }, { status: 404 })
+          : Response.json([encode(tag)])
+      )
+    )
+    fetchStub.set(gets)
+    const registry = AtomRegistry.make()
+    const view = tagsFor(tagsRequest("acme", "gone"))
+    registry.mount(view)
+    try {
+      await vi.waitFor(() =>
+        expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
+      )
+      gone = true
+      elapse(31_000)
+      returnToTab()
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Failure",
+          waiting: false
+        })
+      )
+    } finally {
+      registry.dispose()
+    }
+  })
+
   it("shows cached data on remount and refetches it in the background", async () => {
     const gets = serving(() => [tag])
     fetchStub.set(gets)

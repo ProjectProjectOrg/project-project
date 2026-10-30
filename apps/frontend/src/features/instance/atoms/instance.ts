@@ -1,5 +1,5 @@
-import { Api } from "@/api/Api"
+import { query } from "@/api/query"
 
-export const instanceHealth = Api.query("health", "get", {
+export const instanceHealth = query("health", "get", {
   timeToLive: "1 minute"
 })
