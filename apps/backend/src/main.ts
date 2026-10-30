@@ -136,7 +136,14 @@ export const HealthHandlerLive = HttpApiBuilder.group(
   AppApi,
   "health",
   (handlers) =>
-    handlers.handle("get", () => Effect.succeed({ status: "ok" as const }))
+    handlers.handle("get", () =>
+      Effect.gen(function* () {
+        const version = yield* Config.String("APP_VERSION").pipe(
+          Config.withDefault("")
+        )
+        return { status: "ok" as const, version: version || "dev" }
+      }).pipe(Effect.orDie)
+    )
 )
 
 export const DbHandlerLive = HttpApiBuilder.group(AppApi, "db", (handlers) =>

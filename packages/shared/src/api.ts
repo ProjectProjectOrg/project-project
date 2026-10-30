@@ -259,7 +259,8 @@ import {
 import { User } from "./schemas/User"
 
 const HealthResponse = Schema.Struct({
-  status: Schema.Literal("ok")
+  status: Schema.Literal("ok"),
+  version: Schema.String
 })
 export type HealthResponse = typeof HealthResponse.Type
 

@@ -130,7 +130,7 @@ const TestHttpClientLayer = FetchHttpClient.layer.pipe(
 // 1. The test you wrote: happy path through the raw web handler.
 // ----------------------------------------------------------------------------
 
-it.effect("GET /api/health responds with { status: 'ok' } and a 200", () =>
+it.effect("GET /api/health responds with status and version and a 200", () =>
   Effect.gen(function* () {
     const response = yield* Effect.promise(() =>
       handler(new Request("http://localhost/api/health"))
@@ -139,7 +139,7 @@ it.effect("GET /api/health responds with { status: 'ok' } and a 200", () =>
     expect(response.status).toBe(200)
 
     const body = yield* Effect.promise(() => response.json())
-    expect(body).toEqual({ status: "ok" })
+    expect(body).toEqual({ status: "ok", version: "dev" })
   })
 )
 
@@ -191,14 +191,14 @@ it.effect("GET /unknown returns 404", () =>
 //    forcing the test to keep up with the contract.
 // ----------------------------------------------------------------------------
 
-it.effect("HttpApiClient.health.get() returns { status: 'ok' }", () =>
+it.effect("HttpApiClient.health.get() returns the status and version", () =>
   Effect.gen(function* () {
     const client = yield* HttpApiClient.make(AppApi, {
       baseUrl: "http://localhost/api"
     })
     const result = yield* client.health.get()
 
-    expect(result).toEqual({ status: "ok" })
+    expect(result).toEqual({ status: "ok", version: "dev" })
   }).pipe(Effect.provide(TestHttpClientLayer))
 )
 
