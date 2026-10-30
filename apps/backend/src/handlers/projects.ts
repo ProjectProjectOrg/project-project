@@ -62,6 +62,16 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           integrations.startInstall(payload.returnProjectSlug)
         )
       )
+      .handle("githubInstallationChoices", ({ query }) =>
+        Effect.flatMap(GitHubIntegrations, (integrations) =>
+          integrations.installationChoices(query.state)
+        )
+      )
+      .handle("chooseGithubInstallation", ({ payload }) =>
+        Effect.flatMap(GitHubIntegrations, (integrations) =>
+          integrations.chooseInstallation(payload.state, payload.installationId)
+        )
+      )
       .handle("listGithubInstallationRepos", ({ query }) =>
         Effect.flatMap(GitHubIntegrations, (integrations) =>
           integrations.listRepos(query.q, query.page ?? 1)

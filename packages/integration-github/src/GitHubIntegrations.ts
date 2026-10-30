@@ -1,6 +1,8 @@
 import type {
+  Conflict,
   Forbidden,
   GitHubError,
+  GithubInstallationChoices,
   GithubOrgIntegrationStatus,
   GithubRepoPage,
   NotFound,
@@ -31,6 +33,17 @@ export type GitHubIntegrationsShape = Readonly<{
   ) => Effect.Effect<
     Readonly<{ redirectUrl: string }>,
     NotFound | Forbidden | RateLimited | GitHubError
+  >
+  installationChoices: (
+    state: string
+  ) => Effect.Effect<GithubInstallationChoices, NotFound, OrgScope>
+  chooseInstallation: (
+    state: string,
+    installationId: string | null
+  ) => Effect.Effect<
+    Readonly<{ redirectUrl: string }>,
+    NotFound | Forbidden | Conflict | GitHubError,
+    OrgScope
   >
   listRepos: (
     query: string | undefined,

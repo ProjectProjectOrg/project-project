@@ -1,0 +1,1 @@
+ALTER TABLE "github_app_install_session" ADD COLUMN "candidate_installations" jsonb;
