@@ -69,6 +69,7 @@ import {
   type TicketDocument
 } from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
+import * as TicketGit from "./TicketGit"
 import {
   TicketIndex,
   type TicketIndexProject,
@@ -875,8 +876,8 @@ it.effect("listGitStates fetches only distinct ticket branches", () => {
   )
 
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const result = yield* tickets.listGitStates()
+    const git = yield* TicketGit.TicketGit
+    const result = yield* git.listGitStates()
 
     expect(fetchedBranches).toEqual([["feat/T-1", "bug/T-3"]])
     expect(result.states["T-1"]).toEqual({
@@ -970,8 +971,8 @@ it.effect(
     )
 
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
-      const result = yield* tickets.listGitStates()
+      const git = yield* TicketGit.TicketGit
+      const result = yield* git.listGitStates()
 
       expect(docs.documents.get("T-1")).toMatchObject({
         branch: "feat/T-1-current",
@@ -1062,8 +1063,8 @@ it.effect(
     })
 
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
-      yield* tickets.listGitStates()
+      const git = yield* TicketGit.TicketGit
+      yield* git.listGitStates()
 
       expect(fetchedBranches).toEqual([
         ["feat/T-1", "release"],
@@ -1126,8 +1127,8 @@ it.effect(
       })
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
-      const result = yield* tickets.listGitStates({ reconcile: false })
+      const git = yield* TicketGit.TicketGit
+      const result = yield* git.listGitStates({ reconcile: false })
       expect(result.changedTicketIds).toEqual([])
       expect(result.transitioned).toEqual([])
       expect(result.states["T-1"]).toMatchObject({ tag: "no_branch" })
@@ -1182,8 +1183,8 @@ it.effect("listGitStates links an external branch and its existing PR", () => {
     })
   })
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const result = yield* tickets.listGitStates()
+    const git = yield* TicketGit.TicketGit
+    const result = yield* git.listGitStates()
     expect(queries).toEqual(["T-"])
     expect(result.changedTicketIds).toEqual(["T-1"])
     expect(docs.documents.get("T-1")).toMatchObject({
@@ -1192,7 +1193,7 @@ it.effect("listGitStates links an external branch and its existing PR", () => {
       prState: "open"
     })
     expect(result.states["T-1"]).toMatchObject({ tag: "pr_open", number: 42 })
-    yield* tickets.listGitStates()
+    yield* git.listGitStates()
     expect(queries).toEqual(["T-", "T-"])
   }).pipe(Effect.provide(layer))
 })
@@ -1243,8 +1244,8 @@ it.effect(
       }
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
-      const result = yield* tickets.listGitStates()
+      const git = yield* TicketGit.TicketGit
+      const result = yield* git.listGitStates()
       expect(result.changedTicketIds).toEqual(["T-1"])
       expect(docs.documents.get("T-1")).toMatchObject({
         branch: "fix-login",
@@ -1298,7 +1299,8 @@ it.effect(
     docs.documents.set("T-1", makeTicketDocument("T-1", { branch: "feat/T-1" }))
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      const first = yield* tickets.listGitStates()
+      const git = yield* TicketGit.TicketGit
+      const first = yield* git.listGitStates()
       expect(docs.documents.get("T-1")).toMatchObject({
         status: ticketStatus("done"),
         prState: "merged",
@@ -1314,7 +1316,7 @@ it.effect(
       ])
 
       yield* tickets.update("T-1", { status: ticketStatus("in_progress") })
-      const second = yield* tickets.listGitStates()
+      const second = yield* git.listGitStates()
       expect(docs.documents.get("T-1")?.status).toBe(
         ticketStatus("in_progress")
       )
@@ -1329,8 +1331,8 @@ it.effect(
     const docs = makeFakeTicketDocs(["T-1"])
     docs.documents.set("T-1", makeTicketDocument("T-1", { branch: "feat/T-1" }))
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
-      const result = yield* tickets.listGitStates()
+      const git = yield* TicketGit.TicketGit
+      const result = yield* git.listGitStates()
       expect(docs.documents.get("T-1")).toMatchObject({
         status: ticketStatus("todo"),
         prState: "merged"
@@ -1359,8 +1361,8 @@ it.effect("attachBranch moves the ticket by the branch rule", () => {
     }
   })
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    yield* tickets.attachBranch("T-1", { name: "feat/T-1" })
+    const git = yield* TicketGit.TicketGit
+    yield* git.attachBranch("T-1", { name: "feat/T-1" })
     expect(docs.documents.get("T-1")).toMatchObject({
       branch: "feat/T-1",
       status: ticketStatus("in_progress")
@@ -1393,9 +1395,10 @@ it.effect(
     })
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      yield* tickets.clearBranch("T-1")
+      const git = yield* TicketGit.TicketGit
+      yield* git.clearBranch("T-1")
       yield* tickets.update("T-1", { title: "Renamed" })
-      const result = yield* tickets.listGitStates()
+      const result = yield* git.listGitStates()
       expect(docs.documents.get("T-1")).toMatchObject({
         branch: null,
         branchAutoLinkDisabled: true,
@@ -1406,7 +1409,7 @@ it.effect(
         tag: "no_branch",
         baseBranch: "main"
       })
-      yield* tickets.attachBranch("T-1", {
+      yield* git.attachBranch("T-1", {
         name: "feat/T-1"
       })
       expect(docs.documents.get("T-1")).toMatchObject({
@@ -1446,8 +1449,8 @@ it.effect(
       })
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
-      const result = yield* tickets.listGitStates()
+      const git = yield* TicketGit.TicketGit
+      const result = yield* git.listGitStates()
       expect(docs.documents.get("T-1")?.branch).toBe("manual-branch")
       expect(result.states["T-1"]).toEqual({
         tag: "branch_pending",
@@ -1485,12 +1488,12 @@ it.effect("reserved repository branches require manual attachment", () => {
     })
   })
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const result = yield* tickets.listGitStates()
+    const git = yield* TicketGit.TicketGit
+    const result = yield* git.listGitStates()
     expect(result.states["T-1"].tag).toBe("no_branch")
     expect(result.changedTicketIds).toEqual([])
     expect(docs.documents.get("T-1")?.branch).toBeNull()
-    yield* tickets.attachBranch("T-1", {
+    yield* git.attachBranch("T-1", {
       name: "feat/T-1"
     })
     expect(docs.documents.get("T-1")?.branch).toBe("feat/T-1")
@@ -1580,13 +1583,13 @@ it.effect(
         }
       )
       yield* Effect.gen(function* () {
-        const tickets = yield* Tickets
+        const git = yield* TicketGit.TicketGit
         const scans = yield* Effect.all(
           [
-            tickets
+            git
               .listGitStates()
               .pipe(Effect.provideService(ProjectScope, scopeIn("org-a", "a"))),
-            tickets
+            git
               .listGitStates()
               .pipe(Effect.provideService(ProjectScope, scopeIn("org-b", "b")))
           ],
@@ -1645,7 +1648,7 @@ it.effect("manual unlink waits for a webhook write and remains unlinked", () =>
       }
     )
     return yield* Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const git = yield* TicketGit.TicketGit
       const index = yield* TicketIndex
       const ticketDocumentLock = yield* TicketDocumentLock.TicketDocumentLock
       const webhook = yield* Effect.forkChild(
@@ -1681,7 +1684,7 @@ it.effect("manual unlink waits for a webhook write and remains unlinked", () =>
         )
       )
       yield* Deferred.await(writeStarted)
-      const unlink = yield* Effect.forkChild(tickets.clearBranch("T-1"))
+      const unlink = yield* Effect.forkChild(git.clearBranch("T-1"))
       yield* Effect.yieldNow
       yield* Deferred.succeed(releaseWrite, undefined)
       yield* Fiber.join(webhook)
@@ -1712,8 +1715,8 @@ it.effect(
       })
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
-      const result = yield* tickets.listGitStates()
+      const git = yield* TicketGit.TicketGit
+      const result = yield* git.listGitStates()
       expect(result).toMatchObject({
         refreshStatus: "rate_limited",
         retryAt: 1234,
@@ -1768,8 +1771,8 @@ it.effect(
       })
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
-      const result = yield* tickets.listGitStates()
+      const git = yield* TicketGit.TicketGit
+      const result = yield* git.listGitStates()
       expect(result).toMatchObject({
         refreshStatus: "stale",
         changedTicketIds: [],
@@ -1835,8 +1838,8 @@ it.effect(
       })
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
-      const result = yield* tickets.listGitStates()
+      const git = yield* TicketGit.TicketGit
+      const result = yield* git.listGitStates()
       expect(result.changedTicketIds).toEqual([])
       expect(result.states["T-1"]).toMatchObject({
         tag: "pr_merged",
@@ -1876,8 +1879,8 @@ it.effect("createBranch writes markdown and upserts the ticket index", () => {
   })
 
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const updated = yield* tickets.createBranch("T-1", {
+    const git = yield* TicketGit.TicketGit
+    const updated = yield* git.createBranch("T-1", {
       name: "feat/T-1"
     })
 
@@ -1999,8 +2002,8 @@ it.effect(
     })
 
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
-      const updated = yield* tickets.clearBranch("T-1")
+      const git = yield* TicketGit.TicketGit
+      const updated = yield* git.clearBranch("T-1")
 
       expect(updated.branch).toBeNull()
       expect(docs.documents.get("T-1")?.branch).toBeNull()
@@ -3113,8 +3116,8 @@ it.effect(
       })
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
-      yield* tickets.createBranch("T-1", {
+      const git = yield* TicketGit.TicketGit
+      yield* git.createBranch("T-1", {
         name: "feat/T-1"
       })
       expect(docs.documents.get("T-1")).toMatchObject({
@@ -3907,10 +3910,10 @@ it.effect(
       }
     )
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
-      expect(yield* Effect.flip(tickets.listGitStates())).toEqual(diskFull)
+      const git = yield* TicketGit.TicketGit
+      expect(yield* Effect.flip(git.listGitStates())).toEqual(diskFull)
       expect(stale.size).toBe(0)
-      const first = yield* tickets.listGitStates()
+      const first = yield* git.listGitStates()
       expect(first.changedTicketIds).toEqual(["T-1"])
       expect(docs.documents.get("T-1")?.status).toBe(ticketStatus("todo"))
 
@@ -3921,7 +3924,7 @@ it.effect(
           status: ticketStatus("in_progress")
         })
       }
-      yield* tickets.listGitStates()
+      yield* git.listGitStates()
       expect(docs.documents.get("T-1")?.status).toBe(
         ticketStatus("in_progress")
       )
@@ -3966,8 +3969,8 @@ it.effect(
       })
     )
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
-      yield* tickets.stackBranch("T-1", { name: "feat/T-1-ui" })
+      const git = yield* TicketGit.TicketGit
+      yield* git.stackBranch("T-1", { name: "feat/T-1-ui" })
 
       expect(docs.documents.get("T-1")).toMatchObject({
         branch: "feat/T-1",
@@ -4020,9 +4023,9 @@ it.effect("attachBranch refuses a branch already stacked on the ticket", () => {
     })
   )
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const git = yield* TicketGit.TicketGit
     const failure = yield* Effect.flip(
-      tickets.attachBranch("T-1", { name: "feat/T-1-ui" })
+      git.attachBranch("T-1", { name: "feat/T-1-ui" })
     )
 
     expect(failure).toEqual(
@@ -4042,9 +4045,9 @@ it.effect("attachBranch rejects a branch stacked on another ticket", () => {
     })
   )
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const git = yield* TicketGit.TicketGit
     expect(
-      yield* Effect.flip(tickets.attachBranch("T-2", { name: "shared-ui" }))
+      yield* Effect.flip(git.attachBranch("T-2", { name: "shared-ui" }))
     ).toEqual(new Conflict({ reason: "branch_on_other_ticket" }))
     expect(docs.documents.get("T-2")?.branch).toBeNull()
   }).pipe(Effect.provide(stackLayer(docs)))
@@ -4061,7 +4064,7 @@ it.effect("stackBranch refuses branches that can't be stacked", () => {
   )
   docs.documents.set("T-3", makeTicketDocument("T-3", { branch: "feat/T-3" }))
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const git = yield* TicketGit.TicketGit
     const failures = yield* Effect.forEach(
       [
         ["T-2", "feat/T-2-ui"],
@@ -4070,7 +4073,7 @@ it.effect("stackBranch refuses branches that can't be stacked", () => {
         ["T-1", "missing"],
         ["T-1", "feat/T-3"]
       ] as const,
-      ([id, name]) => Effect.flip(tickets.stackBranch(id, { name }))
+      ([id, name]) => Effect.flip(git.stackBranch(id, { name }))
     )
 
     expect(failures).toEqual([
@@ -4095,10 +4098,10 @@ it.effect(
       })
     )
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
-      yield* tickets.unstackBranch("T-1", { name: "feat/T-1-ui" })
+      const git = yield* TicketGit.TicketGit
+      yield* git.unstackBranch("T-1", { name: "feat/T-1-ui" })
       const missing = yield* Effect.flip(
-        tickets.unstackBranch("T-1", { name: "feat/T-1-ui" })
+        git.unstackBranch("T-1", { name: "feat/T-1-ui" })
       )
 
       expect(docs.documents.get("T-1")).toMatchObject({
@@ -4123,8 +4126,8 @@ it.effect("clearBranch drops the stack and the pull request base", () => {
     })
   )
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    yield* tickets.clearBranch("T-1")
+    const git = yield* TicketGit.TicketGit
+    yield* git.clearBranch("T-1")
 
     const cleared = docs.documents.get("T-1")
     expect(cleared?.branch).toBeNull()
@@ -4192,8 +4195,8 @@ it.effect(
       }
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
-      const result = yield* tickets.listGitStates()
+      const git = yield* TicketGit.TicketGit
+      const result = yield* git.listGitStates()
 
       expect(requested).toEqual([["feat/T-1", "feat/T-1-api"]])
       expect(result.changedTicketIds).toEqual(["T-1"])
@@ -4243,8 +4246,8 @@ it.effect(
       }
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
-      yield* tickets.listGitStates()
+      const git = yield* TicketGit.TicketGit
+      yield* git.listGitStates()
       expect(queries).toEqual(["T-"])
     }).pipe(Effect.provide(layer))
   }
@@ -4302,8 +4305,8 @@ it.effect(
       }
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
-      yield* tickets.listGitStates()
+      const git = yield* TicketGit.TicketGit
+      yield* git.listGitStates()
 
       expect(requested).toEqual([["api", "feat/base"]])
       expect(docs.documents.get("T-1")).toMatchObject({

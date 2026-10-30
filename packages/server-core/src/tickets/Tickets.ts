@@ -1,31 +1,18 @@
 import type {
   DeleteTicketQuery,
   ActivityActor,
-  AttachBranchInput,
   BulkUpdateTicketsInput,
   BulkUpdateTicketsResult,
   ClearStaleEstimatesResult,
   SprintCompletedImmutable,
-  BranchExists,
-  BranchNotFound,
-  BranchProtected,
   Conflict,
-  CreateBranchInput,
   CreateTicketInput,
-  GitHubError,
   GroupDetail,
-  GitHubScopeInsufficient,
-  GitHubTokenExpired,
-  GitStatesResponse,
   MentionInvalid,
   NotFound,
-  OpenPrInput,
-  OpenPrResult,
   QuickCreateTicketInput,
-  RateLimited,
   SplitTicketInput,
   SplitTicketResult,
-  RepoGone,
   TicketDetail,
   TicketSort,
   TicketUpdateResult,
@@ -48,15 +35,6 @@ export type TicketUpdateExpectation = Readonly<{
   body?: string
   updatedAt?: Date
 }>
-
-type GitHubFailure =
-  | GitHubTokenExpired
-  | GitHubScopeInsufficient
-  | RepoGone
-  | RateLimited
-  | GitHubError
-
-export type GitStateOptions = Readonly<{ reconcile: boolean }>
 
 export type TicketsShape = Readonly<{
   quickCreate: (
@@ -161,60 +139,6 @@ export type TicketsShape = Readonly<{
     newStatus: string,
     reason: "renamed" | "removed"
   ) => Effect.Effect<boolean, TicketReadError, ActivityActor>
-  createBranch: (
-    id: string,
-    input: CreateBranchInput
-  ) => Effect.Effect<
-    TicketDetail,
-    TicketReadError | Conflict | BranchExists | BranchProtected | GitHubFailure,
-    ProjectScope | ActivityActor
-  >
-  attachBranch: (
-    id: string,
-    input: AttachBranchInput
-  ) => Effect.Effect<
-    TicketDetail,
-    TicketReadError | Conflict | BranchNotFound | GitHubFailure,
-    ProjectScope | ActivityActor
-  >
-  openPr: (
-    id: string,
-    input: OpenPrInput
-  ) => Effect.Effect<
-    OpenPrResult,
-    TicketReadError | Conflict | BranchProtected | GitHubFailure,
-    ProjectScope | ActivityActor
-  >
-  clearBranch: (
-    id: string
-  ) => Effect.Effect<
-    TicketDetail,
-    TicketReadError,
-    ProjectScope | ActivityActor
-  >
-  stackBranch: (
-    id: string,
-    input: AttachBranchInput
-  ) => Effect.Effect<
-    TicketDetail,
-    TicketReadError | Conflict | BranchNotFound | GitHubFailure,
-    ProjectScope | ActivityActor
-  >
-  unstackBranch: (
-    id: string,
-    input: AttachBranchInput
-  ) => Effect.Effect<
-    TicketDetail,
-    TicketReadError | Conflict,
-    ProjectScope | ActivityActor
-  >
-  getGitState: (
-    ticketId: string | undefined,
-    options?: GitStateOptions
-  ) => Effect.Effect<GitStatesResponse, NotFound | MarkdownError, ProjectScope>
-  listGitStates: (
-    options?: GitStateOptions
-  ) => Effect.Effect<GitStatesResponse, NotFound | MarkdownError, ProjectScope>
 }>
 
 export class Tickets extends Context.Service<Tickets, TicketsShape>()(

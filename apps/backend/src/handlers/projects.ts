@@ -7,7 +7,7 @@
 import { GitHubIntegrations } from "@pp/integration-github/GitHubIntegrations"
 import { Attachments } from "@pp/server-core/attachments/Attachments"
 import { Projects } from "@pp/server-core/projects/Projects"
-import { Tickets } from "@pp/server-core/tickets/Tickets"
+import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import { AppApi, ProjectScope } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/http-api"
@@ -116,7 +116,7 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
         ).pipe(dieOnMarkdown)
       )
       .handle("gitStates", () =>
-        Effect.flatMap(Tickets, (tickets) => tickets.listGitStates()).pipe(
+        Effect.flatMap(TicketGit.TicketGit, (git) => git.listGitStates()).pipe(
           dieOnMarkdown
         )
       )
