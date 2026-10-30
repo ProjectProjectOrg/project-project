@@ -66,6 +66,7 @@ import * as Schema from "effect/Schema"
 import * as Struct from "effect/Struct"
 
 import { Access } from "../access/Access"
+import { presentActor } from "../activity/actorRow"
 import { ticketChanges } from "../activity/changes"
 import { TicketActivity } from "../activity/TicketActivity"
 import { Attachments } from "../attachments/Attachments"
@@ -111,6 +112,7 @@ import {
   type TicketIndexEntry,
   type TicketIndexOrgEntry,
   type TicketIndexTouchedEntry,
+  type TicketIndexTouchedEvent,
   type TicketIndexQueryEntry,
   type TicketIndexProject
 } from "./TicketIndex"
@@ -259,20 +261,96 @@ function indexEntryToTicket(entry: TicketIndexEntry, view: GitView): Ticket {
   })
 }
 
-export function recentActivityOf(
-  entry: Pick<TicketIndexTouchedEntry, "lastCommentAt"> &
-    Readonly<{ entry: Pick<TicketIndexEntry, "createdBy" | "createdAt"> }>,
-  viewerId: UserId
-): RecentTicketActivity {
-  const created =
-    entry.entry.createdBy === viewerId ? entry.entry.createdAt : null
-  const commented = entry.lastCommentAt
-  if (commented !== null && (created === null || commented >= created)) {
-    return { tag: "commented", actor: viewerId, at: commented }
+type RecentCandidate = Readonly<{
+  at: Date
+  activity: RecentTicketActivity
+}>
+
+const touchedEventCandidate = (
+  event: TicketIndexTouchedEvent | null,
+  users: ReadonlyMap<string, User>
+): RecentCandidate | null => {
+  if (event === null) return null
+  const actor = presentActor(event.actor, users)
+  if (event.change.kind === "status_changed") {
+    return actor === null
+      ? null
+      : {
+          at: event.occurredAt,
+          activity: {
+            tag: "status_changed",
+            actor,
+            at: event.occurredAt,
+            from: event.change.from,
+            to: event.change.to
+          }
+        }
   }
-  if (created !== null) return { tag: "created", actor: viewerId, at: created }
-  return { tag: "assigned" }
+  return {
+    at: event.occurredAt,
+    activity:
+      actor === null
+        ? { tag: "assigned", at: event.occurredAt }
+        : { tag: "assigned", actor, at: event.occurredAt }
+  }
 }
+
+export function recentActivityOf(
+  entry: Pick<
+    TicketIndexTouchedEntry,
+    "lastCommentAt" | "assignedEvent" | "statusEvent"
+  > &
+    Readonly<{ entry: Pick<TicketIndexEntry, "createdBy" | "createdAt"> }>,
+  viewerId: UserId,
+  users: ReadonlyMap<string, User>
+): RecentTicketActivity {
+  const candidates: ReadonlyArray<RecentCandidate | null> = [
+    touchedEventCandidate(entry.statusEvent, users),
+    touchedEventCandidate(entry.assignedEvent, users),
+    entry.lastCommentAt === null
+      ? null
+      : {
+          at: entry.lastCommentAt,
+          activity: {
+            tag: "commented",
+            actor: viewerId,
+            at: entry.lastCommentAt
+          }
+        },
+    entry.entry.createdBy === viewerId
+      ? {
+          at: entry.entry.createdAt,
+          activity: {
+            tag: "created",
+            actor: viewerId,
+            at: entry.entry.createdAt
+          }
+        }
+      : null
+  ]
+  const latest = candidates.reduce<RecentCandidate | null>(
+    (best, candidate) =>
+      candidate !== null && (best === null || candidate.at > best.at)
+        ? candidate
+        : best,
+    null
+  )
+  return latest?.activity ?? { tag: "assigned" }
+}
+
+const touchedActorIds = (
+  entries: ReadonlyArray<TicketIndexTouchedEntry>
+): ReadonlyArray<string> => [
+  ...new Set(
+    entries.flatMap(({ assignedEvent, statusEvent }) =>
+      [assignedEvent, statusEvent].flatMap((event) =>
+        event === null || event.actor.kind === "system"
+          ? []
+          : [event.actor.userId]
+      )
+    )
+  )
+]
 
 function ticketPage(
   entries: ReadonlyArray<TicketIndexQueryEntry>,
@@ -631,14 +709,19 @@ export const TicketsLive = Layer.effect(
       const { projects: visible, scopeOf } = yield* readableProjects
       const entries = yield* ticketIndex.touchedBy(visible, {
         viewerId: userId,
+        gitProjectIds: [...scopeOf.values()]
+          .filter((scope) => scope.permissions.can({ github: ["read"] }))
+          .map((scope) => scope.projectId),
         limit: RECENT_TICKETS_LIMIT
       })
       const rows = yield* orgTicketRows(scopeOf, entries)
+      const actors = yield* users.fullByIds(touchedActorIds(entries))
+      const actorsById = new Map(actors.map((actor) => [actor.id, actor]))
       const viewerId = makeUserId(userId)
       return rows.map(
         (row, index): RecentTicketRow => ({
           ...row,
-          activity: recentActivityOf(entries[index], viewerId)
+          activity: recentActivityOf(entries[index], viewerId, actorsById)
         })
       )
     })

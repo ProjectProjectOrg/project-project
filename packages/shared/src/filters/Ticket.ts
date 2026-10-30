@@ -8,6 +8,7 @@ import { Slug } from "../schemas/Project"
 import { TagName } from "../schemas/Tag"
 import { TicketId, TicketStatus, TicketType } from "../schemas/Ticket"
 import { Ticket, TicketDetail } from "../schemas/Ticket"
+import { TicketActivityActor } from "../schemas/TicketActivity"
 import { UserId } from "../schemas/User"
 
 export const SortKey = Schema.Literals([
@@ -167,8 +168,15 @@ export const RecentTicketActivity = Schema.Union([
   }),
   Schema.Struct({
     tag: Schema.Literal("assigned"),
-    actor: Schema.optional(UserId),
+    actor: Schema.optional(TicketActivityActor),
     at: Schema.optional(Schema.DateFromString)
+  }),
+  Schema.Struct({
+    tag: Schema.Literal("status_changed"),
+    actor: TicketActivityActor,
+    at: Schema.DateFromString,
+    from: TicketStatus,
+    to: TicketStatus
   })
 ])
 export type RecentTicketActivity = typeof RecentTicketActivity.Type

@@ -826,7 +826,11 @@ export const ticketActivity = pgTable(
         "git_automation"
       ]
     }),
-    change: jsonb("change").$type<TicketActivityChangeEncoded>().notNull()
+    change: jsonb("change").$type<TicketActivityChangeEncoded>().notNull(),
+    kind: text("kind")
+      .$type<TicketActivityChangeEncoded["kind"]>()
+      .generatedAlwaysAs(sql`change->>'kind'`)
+      .notNull()
   },
   (t) => [
     check(
@@ -854,6 +858,13 @@ export const ticketActivity = pgTable(
     index("ticket_activity_ticket_idx").on(
       t.projectId,
       t.ticketId,
+      t.occurredAt,
+      t.seq
+    ),
+    index("ticket_activity_ticket_kind_idx").on(
+      t.projectId,
+      t.ticketId,
+      t.kind,
       t.occurredAt,
       t.seq
     )

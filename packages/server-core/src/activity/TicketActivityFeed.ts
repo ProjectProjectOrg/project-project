@@ -4,9 +4,7 @@ import {
   ProjectScope,
   TICKET_ACTIVITY_PAGE_SIZE,
   Validation,
-  type ActivityActorShape,
   type NotFound,
-  type TicketActivityActor,
   type TicketActivityEntry,
   type TicketActivityPage,
   type User
@@ -19,6 +17,7 @@ import * as Layer from "effect/Layer"
 import type { MarkdownError } from "../markdown/Markdown"
 import { TicketDocs, type MalformedTicketDocument } from "../tickets/TicketDocs"
 import { Users } from "../users/Users"
+import { presentActor } from "./actorRow"
 import { coalesceActivity } from "./coalesce"
 import {
   TicketActivity,
@@ -65,22 +64,6 @@ const cursorOf = (entry: StoredTicketActivity): string =>
     id: String(entry.seq),
     sort: DateTime.formatIso(DateTime.fromDateUnsafe(entry.occurredAt))
   })
-
-const presentActor = (
-  actor: ActivityActorShape,
-  users: ReadonlyMap<string, User>
-): TicketActivityActor | null => {
-  if (actor.kind === "system") return actor
-  const user = users.get(actor.userId)
-  if (user === undefined) return null
-  return actor.kind === "user"
-    ? { kind: "user", user }
-    : {
-        kind: "agent",
-        user,
-        client: { id: actor.clientId, name: actor.clientName }
-      }
-}
 
 export const TicketActivityFeedLive = Layer.effect(
   TicketActivityFeed,

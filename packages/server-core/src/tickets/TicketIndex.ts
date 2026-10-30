@@ -1,4 +1,5 @@
 import type {
+  ActivityActorShape,
   ChecksStatus,
   Estimate,
   PullRequestState,
@@ -11,7 +12,8 @@ import type {
   TicketListQuery,
   TicketPageQuery,
   TicketSort,
-  TicketBranchEntry
+  TicketBranchEntry,
+  TicketActivityChange
 } from "@pp/shared"
 import type { NotFound } from "@pp/shared"
 import * as Context from "effect/Context"
@@ -113,8 +115,18 @@ export type TicketIndexOrgEntry = Readonly<{
   sortValue: string
 }>
 
+export type TicketIndexTouchedEvent = Readonly<{
+  occurredAt: Date
+  actor: ActivityActorShape
+  change: TicketActivityChange
+}>
+
 export type TicketIndexTouchedEntry = TicketIndexOrgEntry &
-  Readonly<{ lastCommentAt: Date | null }>
+  Readonly<{
+    lastCommentAt: Date | null
+    assignedEvent: TicketIndexTouchedEvent | null
+    statusEvent: TicketIndexTouchedEvent | null
+  }>
 
 export type TicketIndexAssignedOptions = Readonly<{
   viewerId: string
@@ -136,6 +148,7 @@ export type TicketIndexProjectPreview = Readonly<{
 
 export type TicketIndexTouchedOptions = Readonly<{
   viewerId: string
+  gitProjectIds: ReadonlyArray<string>
   limit: number
 }>
 
