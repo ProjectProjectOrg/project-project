@@ -3,7 +3,7 @@
 **Date:** 2026-05-11
 **Branch:** feat/T-6-mcp-simple-ai-chat
 **Parent spec:** `docs/superpowers/specs/2026-05-11-mcp-server-design.md`
-**Predecessor plan:** `docs/superpowers/plans/2026-05-11-mcp-entity-read-surface.md` (Plan 2)
+**Predecessor spec:** `docs/superpowers/specs/2026-05-11-mcp-entity-read-surface-design.md`
 
 ## Goal
 
