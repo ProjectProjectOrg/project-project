@@ -1776,6 +1776,18 @@ export const TicketIndexLive = Layer.effect(
         return { documents, skipped }
       })
 
+    const excludedTicketIndexColumns = (row: object) =>
+      Object.fromEntries(
+        Object.entries(getTableColumns(ticketIndex))
+          .filter(
+            ([key]) => key in row && key !== "projectId" && key !== "ticketId"
+          )
+          .map(([key, column]) => [
+            key,
+            drizzleSql.raw(`excluded.${column.name}`)
+          ])
+      )
+
     const writeProjectIndex = (
       project: TicketIndexProject,
       documents: ReadonlyArray<TicketDocument>,
@@ -1811,55 +1823,75 @@ export const TicketIndexLive = Layer.effect(
             const documentIds = new Set<string>(
               documents.map((document) => document.id)
             )
-            for (const ref of indexedBefore) {
-              if (documentIds.has(ref.ticketId)) continue
-              const deleted = yield* db
-                .delete(ticketIndex)
+            const missing = indexedBefore.filter(
+              (ref) => !documentIds.has(ref.ticketId)
+            )
+            const removed =
+              missing.length === 0
+                ? []
+                : yield* db
+                    .delete(ticketIndex)
+                    .where(
+                      and(
+                        eq(ticketIndex.projectId, project.projectId),
+                        or(
+                          ...missing.map((ref) =>
+                            and(
+                              eq(ticketIndex.ticketId, ref.ticketId),
+                              eq(ticketIndex.updatedAt, ref.updatedAt)
+                            )
+                          )
+                        )
+                      )
+                    )
+                    .returning({ ticketId: ticketIndex.ticketId })
+            const written =
+              tickets.length === 0
+                ? []
+                : yield* db
+                    .insert(ticketIndex)
+                    .values([...tickets])
+                    .onConflictDoUpdate({
+                      target: [ticketIndex.projectId, ticketIndex.ticketId],
+                      set: excludedTicketIndexColumns(tickets[0]),
+                      setWhere: drizzleSql`${ticketIndex.updatedAt} <= excluded.updated_at`
+                    })
+                    .returning({ ticketId: ticketIndex.ticketId })
+            const writtenIds = new Set(written.map((row) => row.ticketId))
+            const touchedIds = [...removed, ...written].map(
+              (row) => row.ticketId
+            )
+            if (writtenIds.size > 0) {
+              yield* db
+                .delete(ticketBranch)
                 .where(
                   and(
-                    eq(ticketIndex.projectId, project.projectId),
-                    eq(ticketIndex.ticketId, ref.ticketId),
-                    eq(ticketIndex.updatedAt, ref.updatedAt)
+                    eq(ticketBranch.projectId, project.projectId),
+                    inArray(ticketBranch.ticketId, [...writtenIds])
                   )
                 )
-                .returning({ id: ticketIndex.ticketId })
-              if (deleted.length > 0) {
-                yield* db
-                  .delete(commentIndex)
-                  .where(
-                    and(
-                      eq(commentIndex.projectId, project.projectId),
-                      eq(commentIndex.ticketId, ref.ticketId)
-                    )
-                  )
+              const branches = documents
+                .filter((document) => writtenIds.has(document.id))
+                .flatMap((document) => ticketBranchRowsFor(project, document))
+              if (branches.length > 0) {
+                yield* db.insert(ticketBranch).values(branches)
               }
             }
-            for (const [i, document] of documents.entries()) {
-              const row = tickets[i]
-              const written = yield* db
-                .insert(ticketIndex)
-                .values(row)
-                .onConflictDoUpdate({
-                  target: [ticketIndex.projectId, ticketIndex.ticketId],
-                  set: row,
-                  setWhere: drizzleSql`${ticketIndex.updatedAt} <= excluded.updated_at`
-                })
-                .returning({ id: ticketIndex.ticketId })
-              if (written.length === 0) continue
-              yield* syncTicketBranches(project, document)
+            if (touchedIds.length > 0) {
               yield* db
                 .delete(commentIndex)
                 .where(
                   and(
                     eq(commentIndex.projectId, project.projectId),
-                    eq(commentIndex.ticketId, document.id)
+                    inArray(commentIndex.ticketId, touchedIds)
                   )
                 )
-              const ticketComments = comments.filter(
-                (comment) => comment.ticketId === document.id
-              )
-              if (ticketComments.length > 0)
-                yield* db.insert(commentIndex).values(ticketComments)
+            }
+            const writtenComments = comments.filter((comment) =>
+              writtenIds.has(comment.ticketId)
+            )
+            if (writtenComments.length > 0) {
+              yield* db.insert(commentIndex).values(writtenComments)
             }
             yield* db
               .update(projectIndex)
