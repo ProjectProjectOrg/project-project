@@ -39,6 +39,7 @@
   "error_page_home_link": "Go to dashboard",
   "error_page_retry_button": "Try again",
   "error_page_title": "Something broke",
+  "error_refresh_failed": "Couldn't refresh. Showing what was loaded before.",
   "error_unknown": "Something went wrong.",
   "validation_required": "Required"
 }
