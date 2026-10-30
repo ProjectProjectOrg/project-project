@@ -1,5 +1,5 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { OAuthApplication } from "@pp/shared"
+import { cliRelease, type OAuthApplication } from "@pp/shared"
 import { KeyRound } from "lucide-react"
 import { useMemo, useState } from "react"
 
@@ -60,6 +60,7 @@ export function ConnectedAgentsSection() {
           )}
         />
       </SettingsSection>
+      <InstallCliSection />
       <ConnectMcpDisclosure />
     </>
   )
@@ -113,6 +114,24 @@ function AgentRow({
         </ConfirmButton.Confirm>
       </ConfirmButton.Root>
     </SettingsRow>
+  )
+}
+
+function InstallCliSection() {
+  const origin =
+    typeof window === "undefined"
+      ? "https://your-instance.example.com"
+      : window.location.origin
+  return (
+    <SettingsSection
+      title={m.profile_cli_install_title()}
+      description={m.profile_cli_install_description()}
+    >
+      <CodeSnippet
+        code={`curl -fsSL ${origin}${cliRelease.installScriptPath} | sh`}
+        language="bash"
+      />
+    </SettingsSection>
   )
 }
 
