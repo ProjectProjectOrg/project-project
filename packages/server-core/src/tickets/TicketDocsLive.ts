@@ -252,28 +252,30 @@ export const TicketDocsLive = Layer.effect(
                   ...ticketChanges(current, next, activity.archiveReason),
                   ...(activity.extra ?? [])
                 ]
-            yield* ticketActivity.record(
-              orgSlug,
-              slug,
-              { kind: "ticket", id, content: ticketFileContent(next) },
-              changes.map((change) =>
-                change.kind === "status_changed" &&
-                activity.statusCause !== undefined
-                  ? { ticketId: next.id, change, cause: activity.statusCause }
-                  : { ticketId: next.id, change }
-              ),
-              activity.cause ?? null,
-              write(orgSlug, slug, id, next),
-              activity.silent || current.status === next.status
-                ? []
-                : ticketEvents(
-                    current,
-                    next,
-                    yield* finishedStatuses.forProject(orgSlug, slug)
-                  )
-            )
-            if (onPersist) yield* onPersist(next)
-            return next
+            return yield* Effect.gen(function* () {
+              yield* ticketActivity.record(
+                orgSlug,
+                slug,
+                { kind: "ticket", id, content: ticketFileContent(next) },
+                changes.map((change) =>
+                  change.kind === "status_changed" &&
+                  activity.statusCause !== undefined
+                    ? { ticketId: next.id, change, cause: activity.statusCause }
+                    : { ticketId: next.id, change }
+                ),
+                activity.cause ?? null,
+                write(orgSlug, slug, id, next),
+                activity.silent || current.status === next.status
+                  ? []
+                  : ticketEvents(
+                      current,
+                      next,
+                      yield* finishedStatuses.forProject(orgSlug, slug)
+                    )
+              )
+              if (onPersist) yield* onPersist(next)
+              return next
+            }).pipe(Effect.uninterruptible)
           })
         )
       )
