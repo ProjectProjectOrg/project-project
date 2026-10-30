@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { logout } from "@/features/auth/atoms/auth"
+import { InstanceInfo } from "@/features/instance/components/InstanceInfo"
 import { m } from "@/paraglide/messages"
 
 export function UserMenu({ user }: { user: User }) {
@@ -75,6 +76,8 @@ export function UserMenu({ user }: { user: User }) {
           <LogOut className="size-4" strokeWidth={1.75} />
           {m.chrome_user_menu_sign_out()}
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <InstanceInfo />
       </DropdownMenuContent>
     </DropdownMenu>
   )
