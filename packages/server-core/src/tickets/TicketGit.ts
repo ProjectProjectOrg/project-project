@@ -127,8 +127,8 @@ const withoutIgnored = (
 
 export class TicketGit extends Context.Service<
   TicketGit,
-  {
-    readonly createBranch: (
+  Readonly<{
+    createBranch: (
       id: string,
       input: CreateBranchInput
     ) => Effect.Effect<
@@ -140,7 +140,7 @@ export class TicketGit extends Context.Service<
       | GitHubFailure,
       ProjectScope | ActivityActor
     >
-    readonly attachBranch: (
+    attachBranch: (
       id: string,
       input: AttachBranchInput
     ) => Effect.Effect<
@@ -148,7 +148,7 @@ export class TicketGit extends Context.Service<
       TicketReadError | Conflict | BranchNotFound | GitHubFailure,
       ProjectScope | ActivityActor
     >
-    readonly openPr: (
+    openPr: (
       id: string,
       input: OpenPrInput
     ) => Effect.Effect<
@@ -156,14 +156,14 @@ export class TicketGit extends Context.Service<
       TicketReadError | Conflict | BranchProtected | GitHubFailure,
       ProjectScope | ActivityActor
     >
-    readonly clearBranch: (
+    clearBranch: (
       id: string
     ) => Effect.Effect<
       TicketDetail,
       TicketReadError,
       ProjectScope | ActivityActor
     >
-    readonly stackBranch: (
+    stackBranch: (
       id: string,
       input: AttachBranchInput
     ) => Effect.Effect<
@@ -171,7 +171,7 @@ export class TicketGit extends Context.Service<
       TicketReadError | Conflict | BranchNotFound | GitHubFailure,
       ProjectScope | ActivityActor
     >
-    readonly unstackBranch: (
+    unstackBranch: (
       id: string,
       input: AttachBranchInput
     ) => Effect.Effect<
@@ -179,7 +179,7 @@ export class TicketGit extends Context.Service<
       TicketReadError | Conflict,
       ProjectScope | ActivityActor
     >
-    readonly getGitState: (
+    getGitState: (
       ticketId: string | undefined,
       options?: GitStateOptions
     ) => Effect.Effect<
@@ -187,14 +187,14 @@ export class TicketGit extends Context.Service<
       NotFound | MarkdownError,
       ProjectScope
     >
-    readonly listGitStates: (
+    listGitStates: (
       options?: GitStateOptions
     ) => Effect.Effect<
       GitStatesResponse,
       NotFound | MarkdownError,
       ProjectScope
     >
-  }
+  }>
 >()("@pp/server-core/tickets/TicketGit") {}
 
 const make = Effect.gen(function* () {
