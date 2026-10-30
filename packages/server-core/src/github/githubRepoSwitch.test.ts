@@ -259,11 +259,11 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
       ),
       Layer.provide(
         Layer.succeed(GitHub, {
-          verifyInstallationRepo: () =>
+          verifyInstallationRepo: (_installationId, owner, name) =>
             Effect.succeed({
-              repoId: "new-repo",
-              owner: "acme",
-              name: "new",
+              repoId: `${name}-repo`,
+              owner,
+              name,
               defaultBranch: "main"
             }),
           listInstallationRepos: unused,
@@ -286,12 +286,12 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
     }
   })
 
-  const connect = () =>
+  const connect = (repoName = "new") =>
     Effect.flatMap(Projects, (projects) =>
       projects.connectGithub({
-        repoId: "new-repo",
+        repoId: `${repoName}-repo`,
         repoOwner: "acme",
-        repoName: "new"
+        repoName
       })
     ).pipe(
       Effect.provideServiceEffect(
@@ -345,5 +345,32 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
           }
         ])
       })
+  )
+
+  it.effect("refuses a repository another project already uses", () =>
+    Effect.gen(function* () {
+      const otherProjectId = randomUUID()
+      const otherLinkId = randomUUID()
+      yield* Effect.promise(async () => {
+        await pool.query(
+          "INSERT INTO project_index (id,slug,organization_id,key,name,icon,color,created_by) VALUES ($1,$2,$3,'O','Other','folder','#3b82f6',$4)",
+          [otherProjectId, `other-${otherProjectId}`, organizationId, userId]
+        )
+        await pool.query(
+          "INSERT INTO project_integration_link (id,project_id,organization_id,organization_integration_id,provider,status) VALUES ($1,$2,$3,$4,'github','active')",
+          [otherLinkId, otherProjectId, organizationId, integrationId]
+        )
+        await pool.query(
+          "INSERT INTO project_github_repository (project_integration_link_id,organization_id,status,repo_id,repo_owner,repo_name,default_branch) VALUES ($1,$2,'active','taken-repo','acme','taken','main')",
+          [otherLinkId, organizationId]
+        )
+      })
+
+      const error = yield* Effect.flip(connect("taken"))
+      expect(error).toMatchObject({
+        _tag: "Conflict",
+        reason: "github_repo_already_connected"
+      })
+    })
   )
 })

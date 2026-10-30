@@ -2,7 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
-import { GitBranch as GithubIcon } from "lucide-react"
+import { AlertTriangle, GitBranch as GithubIcon } from "lucide-react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -20,6 +20,7 @@ import {
 } from "@/features/github/atoms/github"
 import { MenuNote } from "@/features/github/components/MenuNote"
 import { RepoList } from "@/features/github/components/RepoList"
+import { useConnectGithubError } from "@/features/github/hooks/useConnectGithubError"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useOrgActor } from "@/lib/access"
 import { mutationErrorText } from "@/lib/mutationError"
@@ -27,6 +28,8 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function ConnectMenu() {
+  const { orgSlug, slug } = useProjectRoute()
+  const connectError = useConnectGithubError(orgSlug, slug)
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   return (
@@ -44,7 +47,9 @@ export function ConnectMenu() {
             type="button"
             variant="tertiary"
             size="sm"
-            leadingIcon={GithubIcon}
+            leadingIcon={connectError ? AlertTriangle : GithubIcon}
+            title={connectError ?? undefined}
+            className={cn(connectError && "text-state-warning")}
           >
             {m.github_chip_connect_repo_button()}
           </Button>

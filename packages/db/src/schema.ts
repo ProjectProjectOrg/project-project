@@ -42,6 +42,7 @@
 
 import type {
   GitAutomationEvent,
+  GitHubInstallationAccount,
   ProjectEvent,
   ProjectEventKind,
   SlackNotification,
@@ -371,6 +372,9 @@ export const githubAppInstallSession = pgTable(
     returnProjectOrgId: text("return_project_org_id"),
     stateHash: text("state_hash").notNull().unique(),
     installationId: text("installation_id"),
+    candidateInstallations: jsonb("candidate_installations").$type<
+      ReadonlyArray<GitHubInstallationAccount>
+    >(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })

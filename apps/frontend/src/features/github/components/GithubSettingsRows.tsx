@@ -10,6 +10,7 @@ import { ConfirmButton } from "@/components/ui/confirm-button"
 import { connectGithub, disconnectGithub } from "@/features/github/atoms/github"
 import { ConnectMenu } from "@/features/github/components/ConnectMenu"
 import { useCanManageGithub } from "@/features/github/hooks/useCanManageGithub"
+import { useConnectGithubError } from "@/features/github/hooks/useConnectGithubError"
 import { useGithubWarning } from "@/features/github/hooks/useGithubWarning"
 import { repoUrl } from "@/features/github/lib/branchUrl"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
@@ -23,6 +24,7 @@ export function GithubSettingsRows({
   const { orgSlug, slug } = useProjectRoute()
   const canManage = useCanManageGithub(orgSlug)
   const warning = useGithubWarning(orgSlug, slug)
+  const connectError = useConnectGithubError(orgSlug, slug)
   const req = projectRequest(orgSlug, slug)
   const connect = useAtomSet(connectGithub(req))
   const connectFailed = Result.isFailure(useAtomValue(connectGithub(req)))
@@ -50,7 +52,7 @@ export function GithubSettingsRows({
             m.project_settings_github_not_connected()
           )
         }
-        error={warning}
+        error={github ? warning : (connectError ?? warning)}
       >
         {canManage ? (
           github ? (

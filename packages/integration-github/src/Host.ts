@@ -29,6 +29,10 @@ export class GitHubHost extends Context.Service<
       organizationId: string,
       projectId: string | null
     ) => Effect.Effect<string, NotFound | GitHubError>
+    installationChoiceRedirect: (
+      organizationId: string,
+      state: string
+    ) => Effect.Effect<string, NotFound | GitHubError>
     pullRequestChanged: (
       change: GitHubPullRequestWebhookChange,
       deliveryId: string | null

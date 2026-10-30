@@ -120,7 +120,12 @@ describe("GitHub installation authentication", () => {
     Effect.gen(function* () {
       const installations = json({
         total_count: 1,
-        installations: [{ id: 123 }]
+        installations: [
+          {
+            id: 123,
+            account: { id: 9, login: "acme", type: "Organization" }
+          }
+        ]
       })
       Object.defineProperty(installations, "url", {
         value: "https://api.github.com/user/installations"
@@ -130,13 +135,18 @@ describe("GitHub installation authentication", () => {
       fetch.mockResolvedValueOnce(limited).mockResolvedValueOnce(installations)
       const github = yield* GitHub
       yield* github
-        .appUserCanAccessInstallation("limited-app-user", "123")
+        .listAppUserInstallations("limited-app-user")
         .pipe(Effect.flip)
-      expect(
-        yield* github.appUserCanAccessInstallation("other-app-user", "123")
-      ).toBe(true)
+      expect(yield* github.listAppUserInstallations("other-app-user")).toEqual([
+        {
+          installationId: "123",
+          accountId: "9",
+          accountLogin: "acme",
+          accountType: "Organization"
+        }
+      ])
       yield* github
-        .appUserCanAccessInstallation("limited-app-user", "123")
+        .listAppUserInstallations("limited-app-user")
         .pipe(Effect.flip)
       expect(fetch).toHaveBeenCalledTimes(2)
     }).pipe(Effect.provide(layer))

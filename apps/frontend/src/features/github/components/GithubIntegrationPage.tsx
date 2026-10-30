@@ -18,6 +18,7 @@ import {
   githubOrgRequest,
   startGithubInstall
 } from "@/features/github/atoms/github"
+import { InstallationChoices } from "@/features/github/components/InstallationChoices"
 import {
   IntegrationDetail,
   IntegrationStatus
@@ -40,6 +41,7 @@ const installationsUrl = (status: GithubOrgIntegrationStatus) =>
 
 export function GithubIntegrationPage() {
   const { orgSlug } = routeApi.useParams()
+  const { installChoice } = routeApi.useSearch()
   const canInstall = useOrgActor(orgSlug).call("projects", "startGithubInstall")
   const req = githubOrgRequest(orgSlug)
   const integration = useAtomValue(githubIntegration(req))
@@ -117,6 +119,9 @@ export function GithubIntegrationPage() {
         }
       ]}
     >
+      {installChoice ? (
+        <InstallationChoices orgSlug={orgSlug} state={installChoice} />
+      ) : null}
       <GithubAccount integration={integration} installError={installError} />
     </IntegrationDetail>
   )

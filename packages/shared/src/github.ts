@@ -78,10 +78,12 @@ export type GitHubShape = Readonly<{
     RepoGone | RateLimited | GitHubError
   >
   exchangeAppUserCode: (code: string) => Effect.Effect<string, GitHubError>
-  appUserCanAccessInstallation: (
-    userAccessToken: string,
-    installationId: string
-  ) => Effect.Effect<boolean, RateLimited | GitHubError>
+  listAppUserInstallations: (
+    userAccessToken: string
+  ) => Effect.Effect<
+    ReadonlyArray<GitHubInstallationAccount>,
+    RateLimited | GitHubError
+  >
   createBranchAsUser: (
     owner: string,
     name: string,

@@ -46,6 +46,28 @@ export function githubRepoMatchesQuery(
   return tokens.every((token) => haystack.includes(token))
 }
 
+const installationAccount = (
+  installation: Readonly<{
+    id: number
+    account:
+      | Readonly<{ id: number; login: string; type?: string }>
+      | Readonly<{ id: number; slug: string }>
+      | null
+  }>
+): GitHubInstallationAccount | null => {
+  const account = installation.account
+  if (!account) return null
+  return {
+    installationId: String(installation.id),
+    accountId: String(account.id),
+    accountLogin: "login" in account ? account.login : account.slug,
+    accountType:
+      "type" in account && account.type === "Organization"
+        ? "Organization"
+        : "User"
+  }
+}
+
 export const GitHubLive = Layer.effect(
   GitHub,
   Effect.gen(function* () {
@@ -106,20 +128,10 @@ export const GitHubLive = Layer.effect(
             }),
           narrow(["RepoGone"] as const)
         )
-        const account = result.data.account
+        const account = installationAccount(result.data)
         if (!account)
           return yield* new GitHubError({ message: "missing account" })
-        const accountLogin = "login" in account ? account.login : account.slug
-        const accountType =
-          "type" in account && account.type === "Organization"
-            ? "Organization"
-            : "User"
-        return {
-          installationId,
-          accountId: String(account.id),
-          accountLogin,
-          accountType
-        } satisfies GitHubInstallationAccount
+        return account
       }
     )
 
@@ -211,16 +223,15 @@ export const GitHubLive = Layer.effect(
       }
     )
 
-    const appUserCanAccessInstallation = Effect.fn(
-      "GitHub.appUserCanAccessInstallation"
-    )(function* (userAccessToken: string, installationId: string) {
+    const listAppUserInstallations = Effect.fn(
+      "GitHub.listAppUserInstallations"
+    )(function* (userAccessToken: string) {
       const octokit = octokitFor(userAccessToken)
       const installations = yield* request(
         {
           tokenSource: "user",
           scopeKey: `app-user:${createHash("sha256").update(userAccessToken).digest("hex")}`,
-          operation: "appUserCanAccessInstallation",
-          installationId
+          operation: "listAppUserInstallations"
         },
         (signal) =>
           octokit.paginate(
@@ -232,9 +243,10 @@ export const GitHubLive = Layer.effect(
           ),
         narrow(["RateLimited"] as const)
       )
-      return installations.some(
-        (installation) => String(installation.id) === installationId
-      )
+      return installations.flatMap((installation) => {
+        const account = installationAccount(installation)
+        return account ? [account] : []
+      })
     })
 
     const createBranchAsUser = Effect.fn("GitHub.createBranchAsUser")(
@@ -493,7 +505,7 @@ export const GitHubLive = Layer.effect(
       listInstallationRepos,
       verifyInstallationRepo,
       exchangeAppUserCode,
-      appUserCanAccessInstallation,
+      listAppUserInstallations,
       createBranchAsUser,
       openPullRequestAsUser,
       fetchInstallationProjectStates,

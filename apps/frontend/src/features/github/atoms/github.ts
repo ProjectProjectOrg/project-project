@@ -1,6 +1,7 @@
 import type {
   AttachBranchInput,
   BranchListItem,
+  ChooseGithubInstallationInput,
   ConnectGithubInput,
   GitState,
   GitStatesResponse,
@@ -355,6 +356,45 @@ export const startGithubInstall = Atom.family((req: GithubOrgRequest) =>
         client.projects.startGithubInstall({
           params: req.params,
           payload: { returnProjectSlug: input.returnProjectSlug ?? null }
+        })
+      )
+      yield* Reactivity.invalidate([Keys.githubIntegration(req.params.orgSlug)])
+      return response
+    })
+  )
+)
+
+export type GithubInstallationChoicesRequest = Readonly<{
+  params: Readonly<{ orgSlug: string }>
+  query: Readonly<{ state: string }>
+}>
+
+export const githubInstallationChoicesRequest = (
+  orgSlug: string,
+  state: string
+): GithubInstallationChoicesRequest => ({
+  params: { orgSlug },
+  query: { state }
+})
+
+export const githubInstallationChoices = Atom.family(
+  (req: GithubInstallationChoicesRequest) =>
+    Api.query("projects", "githubInstallationChoices", {
+      params: req.params,
+      query: req.query,
+      timeToLive: "10 minutes"
+    })
+)
+
+export const chooseGithubInstallation = Atom.family((req: GithubOrgRequest) =>
+  Api.runtime.fn(
+    Effect.fn("chooseGithubInstallation")(function* (
+      input: ChooseGithubInstallationInput
+    ) {
+      const response = yield* Api.use((client) =>
+        client.projects.chooseGithubInstallation({
+          params: req.params,
+          payload: input
         })
       )
       yield* Reactivity.invalidate([Keys.githubIntegration(req.params.orgSlug)])
