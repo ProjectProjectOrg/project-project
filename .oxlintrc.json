@@ -150,6 +150,7 @@
     {
       "files": ["apps/frontend/src/**/*.{ts,tsx}"],
       "rules": {
+        "workspace/no-raw-api-query": "error",
         "eslint/max-lines": [
           "warn",
           {
@@ -178,6 +179,12 @@
       "rules": {
         "eslint/max-lines": "off",
         "eslint/max-lines-per-function": "off"
+      }
+    },
+    {
+      "files": ["apps/frontend/src/api/**/*.{ts,tsx}"],
+      "rules": {
+        "workspace/no-raw-api-query": "off"
       }
     },
     {

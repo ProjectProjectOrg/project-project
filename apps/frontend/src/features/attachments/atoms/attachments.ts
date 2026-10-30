@@ -16,6 +16,7 @@ import * as Schema from "effect/Schema"
 
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
+import { query } from "@/api/query"
 import { keepPredicted, viewMutation } from "@/api/viewMutation"
 
 const decodeAttachmentId = Schema.decodeEffect(AttachmentId)
@@ -201,7 +202,7 @@ export const orgAttachmentsRequest = (
 })
 
 const orgAttachmentsQuery = (req: OrgAttachmentsRequest) =>
-  Api.query("attachments", "list", {
+  query("attachments", "list", {
     params: req.params,
     query: req.query,
     timeToLive: "30 seconds",
@@ -209,7 +210,7 @@ const orgAttachmentsQuery = (req: OrgAttachmentsRequest) =>
   })
 
 const orgAttachmentsSummaryQuery = (req: OrgAttachmentsRequest) =>
-  Api.query("attachments", "summary", {
+  query("attachments", "summary", {
     params: req.params,
     timeToLive: "30 seconds",
     reactivityKeys: [Keys.attachments(req.params.orgSlug)]

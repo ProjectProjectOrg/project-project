@@ -1,8 +1,8 @@
 import type { TicketCountQuery } from "@pp/shared"
 import * as Atom from "effect/reactivity/Atom"
 
-import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 
 export type CountsRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
@@ -20,7 +20,7 @@ export const countsRequest = (
 
 const countsQuery = (req: CountsRequest) => {
   const scope = projectScope(req.params.orgSlug, req.params.slug)
-  return Api.query("tickets", "count", {
+  return query("tickets", "count", {
     params: req.params,
     query: req.query,
     timeToLive: "2 minutes",

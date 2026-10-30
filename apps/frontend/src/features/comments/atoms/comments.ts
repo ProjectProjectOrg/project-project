@@ -12,8 +12,8 @@ import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Schema from "effect/Schema"
 
-import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 import { keepPredicted, viewMutation } from "@/api/viewMutation"
 
 export type CommentsRequest = Readonly<{
@@ -47,7 +47,7 @@ const createdKeys = Atom.family((_req: CommentsRequest) =>
 )
 
 const commentsQuery = (req: CommentsRequest) =>
-  Api.query("ticketComments", "list", {
+  query("ticketComments", "list", {
     params: req.params,
     timeToLive: "5 minutes",
     reactivityKeys: [Keys.comments(scopeOf(req), req.params.id)]

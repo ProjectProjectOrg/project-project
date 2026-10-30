@@ -1,8 +1,8 @@
 import type { ConnectStorageInput } from "@pp/shared"
 import * as Atom from "effect/reactivity/Atom"
 
-import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
+import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 export type StorageRequest = Readonly<{
@@ -14,7 +14,7 @@ export const storageRequest = (orgSlug: string): StorageRequest => ({
 })
 
 const storageQuery = (req: StorageRequest) =>
-  Api.query("storage", "get", {
+  query("storage", "get", {
     params: req.params,
     timeToLive: "30 seconds",
     reactivityKeys: [Keys.storage(req.params.orgSlug)]

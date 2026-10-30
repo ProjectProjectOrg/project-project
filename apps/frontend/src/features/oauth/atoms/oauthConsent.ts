@@ -5,6 +5,7 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
+import { query } from "@/api/query"
 
 export type OAuthConsentRequest = Readonly<{
   oauthQuery: string
@@ -54,7 +55,7 @@ const missingOAuthClient = Atom.make(
 const oauthClientNameQuery = (req: OAuthClientRequest) =>
   req.query === null
     ? missingOAuthClient
-    : Api.query("publicOAuth", "publicClient", {
+    : query("publicOAuth", "publicClient", {
         query: req.query,
         timeToLive: "2 minutes",
         reactivityKeys: [Keys.oauthClient(req.query.client_id)]

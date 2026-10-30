@@ -24,6 +24,7 @@ import * as Atom from "effect/reactivity/Atom"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 import { bindRowMutation, viewMutation } from "@/api/viewMutation"
 import { currentUserId } from "@/features/auth/atoms/auth"
 import {
@@ -103,7 +104,7 @@ const groupIdFilter = (key: SprintSectionKey): GroupIdFilter =>
   key === SPRINT_SECTION_UNSCHEDULED ? "ungrouped" : key
 
 const snapshotQuery = (req: SprintSectionsRequest) =>
-  Api.query("tickets", "sprintSections", {
+  query("tickets", "sprintSections", {
     params: req.params,
     query: req.query,
     timeToLive: "2 minutes",
@@ -126,7 +127,7 @@ const pageQuery = (
   key: SprintSectionKey,
   cursor: string
 ) =>
-  Api.query("tickets", "list", {
+  query("tickets", "list", {
     params: req.params,
     query: {
       ...req.query,

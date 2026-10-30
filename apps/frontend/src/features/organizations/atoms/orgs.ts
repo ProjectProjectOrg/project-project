@@ -16,6 +16,7 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
+import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 export type OrgRequest = Readonly<{
@@ -26,7 +27,7 @@ export const orgRequest = (orgSlug: string): OrgRequest => ({
   params: { orgSlug }
 })
 
-const userOrgsQuery = Api.query("org", "myOrgs", {
+const userOrgsQuery = query("org", "myOrgs", {
   timeToLive: "1 minute",
   reactivityKeys: [Keys.orgs()]
 })
@@ -36,7 +37,7 @@ const userOrgsAtom = Atom.optimistic(userOrgsQuery)
 export const userOrgs = () => userOrgsAtom
 
 const orgDetailQuery = (req: OrgRequest) =>
-  Api.query("org", "get", {
+  query("org", "get", {
     params: req.params,
     timeToLive: "2 minutes",
     reactivityKeys: [Keys.org(req.params.orgSlug)]
@@ -56,7 +57,7 @@ export const orgActor = Atom.family((req: OrgRequest) =>
 )
 
 const orgMembersQuery = (req: OrgRequest) =>
-  Api.query("org", "members", {
+  query("org", "members", {
     params: req.params,
     timeToLive: "30 seconds",
     reactivityKeys: [Keys.orgMembers(req.params.orgSlug)]

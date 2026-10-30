@@ -1,8 +1,8 @@
 import type { TicketId, TicketListRow, TicketSort } from "@pp/shared"
 import * as Atom from "effect/reactivity/Atom"
 
-import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 
 import { allPages } from "./allPages"
 
@@ -21,7 +21,7 @@ const epicsPage = (
   archived: boolean,
   cursor: string | undefined
 ) =>
-  Api.query("tickets", "list", {
+  query("tickets", "list", {
     params: req.params,
     query: {
       type: ["epic"],

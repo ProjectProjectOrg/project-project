@@ -1,7 +1,7 @@
 import * as Atom from "effect/reactivity/Atom"
 
-import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
+import { query } from "@/api/query"
 import { viewMutation } from "@/api/viewMutation"
 
 export type OAuthApplicationsRequest = Readonly<{}>
@@ -9,7 +9,7 @@ export type OAuthApplicationsRequest = Readonly<{}>
 export const oauthApplicationsRequest = (): OAuthApplicationsRequest => ({})
 
 const oauthApplicationsQuery = (_req: OAuthApplicationsRequest) =>
-  Api.query("oauthApplications", "list", {
+  query("oauthApplications", "list", {
     timeToLive: "2 minutes",
     reactivityKeys: [Keys.oauthApplications()]
   })

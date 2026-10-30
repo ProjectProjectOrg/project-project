@@ -18,6 +18,7 @@ import * as Schema from "effect/Schema"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
+import { query } from "@/api/query"
 import { viewMutation } from "@/api/viewMutation"
 
 import { everhourProfileQuery } from "./everhour"
@@ -79,7 +80,7 @@ const scopeOf = (
 const fallbackGroupId = Schema.decodeSync(GroupId)("G-1")
 
 const activeTimerQuery = (req: ActiveTimerRequest) =>
-  Api.query("everhour", "currentTimer", {
+  query("everhour", "currentTimer", {
     params: req.params,
     timeToLive: "15 seconds",
     reactivityKeys: [Keys.activeTimer(req.params.orgSlug)]
@@ -90,7 +91,7 @@ export const activeTimerAtom = Atom.family((req: ActiveTimerRequest) =>
 )
 
 const workTypesQuery = (req: TicketTimeRequest) =>
-  Api.query("everhour", "ticketWorkTypes", {
+  query("everhour", "ticketWorkTypes", {
     params: req.params,
     timeToLive: "1 minute",
     reactivityKeys: [Keys.workTypes(scopeOf(req))]
@@ -101,7 +102,7 @@ export const workTypesForTicketAtom = Atom.family((req: TicketTimeRequest) =>
 )
 
 const ticketTimeQuery = (req: TicketTimeRequest) =>
-  Api.query("everhour", "ticketTime", {
+  query("everhour", "ticketTime", {
     params: req.params,
     timeToLive: "30 seconds",
     reactivityKeys: [Keys.ticketTime(scopeOf(req), req.params.id)]

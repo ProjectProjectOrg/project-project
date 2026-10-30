@@ -5,6 +5,7 @@ import * as Atom from "effect/reactivity/Atom"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 export type EverhourProjectRequest = Readonly<{
@@ -21,7 +22,7 @@ export const everhourProjectRequest = (
 const scopeOf = (req: EverhourProjectRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-export const everhourProfileQuery = Api.query("everhour", "profile", {
+export const everhourProfileQuery = query("everhour", "profile", {
   timeToLive: "1 minute",
   reactivityKeys: [Keys.everhourProfile()]
 })
@@ -56,7 +57,7 @@ export const disconnectEverhourProfileAtom = viewMutation(everhourProfileAtom, {
 })
 
 const everhourProjectQuery = (req: EverhourProjectRequest) =>
-  Api.query("everhour", "projectStatus", {
+  query("everhour", "projectStatus", {
     params: req.params,
     timeToLive: "30 seconds",
     reactivityKeys: [Keys.everhourProject(scopeOf(req))]

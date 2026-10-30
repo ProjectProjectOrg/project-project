@@ -4,8 +4,8 @@ import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
 import { describe, expect, it, vi } from "vitest"
 
-import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
+import { query } from "@/api/query"
 import { stubFetch } from "@/api/testFetch"
 
 import {
@@ -200,7 +200,7 @@ describe("org members optimistic updates", () => {
     const served: OrgMembers = { members: [owner, plain], invitations: [] }
     const fetched = new Map<string, number>()
     const probe = (name: string, key: string) =>
-      Api.query("tickets", "count", {
+      query("tickets", "count", {
         params: { orgSlug: "acme", slug: "web" },
         query: { q: name },
         timeToLive: "2 minutes",

@@ -20,6 +20,7 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 import { viewMutation } from "@/api/viewMutation"
 import {
   mergeStackPrDetails,
@@ -81,7 +82,7 @@ const scopeOf = (req: ProjectRequest | BranchesRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
 const gitStatesQuery = (req: ProjectRequest) =>
-  Api.query("projects", "gitStates", {
+  query("projects", "gitStates", {
     params: req.params,
     timeToLive: "30 seconds",
     reactivityKeys: [
@@ -155,7 +156,7 @@ export const invalidateGitStateTickets = Atom.family((req: ProjectRequest) =>
 )
 
 const githubIntegrationQuery = (req: GithubOrgRequest) =>
-  Api.query("projects", "githubIntegration", {
+  query("projects", "githubIntegration", {
     params: req.params,
     timeToLive: "1 minute",
     reactivityKeys: [
@@ -215,7 +216,7 @@ export const githubRepos = Atom.family((req: GithubReposRequest) =>
 const BRANCH_PAGE_SIZE = 100
 
 const branchPage = (req: BranchesRequest, after: string | null) =>
-  Api.query("projects", "listBranches", {
+  query("projects", "listBranches", {
     params: req.params,
     query: {
       ...req.query,
@@ -379,7 +380,7 @@ export const githubInstallationChoicesRequest = (
 
 export const githubInstallationChoices = Atom.family(
   (req: GithubInstallationChoicesRequest) =>
-    Api.query("projects", "githubInstallationChoices", {
+    query("projects", "githubInstallationChoices", {
       params: req.params,
       query: req.query,
       timeToLive: "10 minutes"

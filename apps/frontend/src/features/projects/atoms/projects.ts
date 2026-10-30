@@ -22,6 +22,7 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 import { coalescingMutation, viewMutation } from "@/api/viewMutation"
 import { me } from "@/features/auth/atoms/auth"
 import type { BannerPreview } from "@/features/projects/lib/bannerFrame"
@@ -83,7 +84,7 @@ const scopeOf = (req: ProjectRequest) =>
 
 const projectsQuery = (req: ProjectsRequest) =>
   Atom.map(
-    Api.query("projects", "list", {
+    query("projects", "list", {
       params: req.params,
       timeToLive: "1 minute",
       reactivityKeys: [Keys.projects(req.params.orgSlug)]
@@ -104,7 +105,7 @@ export const projectsFor = Atom.family((req: ProjectsRequest) =>
 
 export const confirmedProject = (req: ProjectRequest) =>
   Atom.map(
-    Api.query("projects", "get", {
+    query("projects", "get", {
       params: req.params,
       timeToLive: "2 minutes",
       reactivityKeys: [

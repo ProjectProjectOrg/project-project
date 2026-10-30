@@ -20,6 +20,7 @@ import * as Schema from "effect/Schema"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
+import { query } from "@/api/query"
 import { fireMutation, keepPredicted, viewMutation } from "@/api/viewMutation"
 
 import { applySprintPatch } from "./sprintPatch"
@@ -38,7 +39,7 @@ const scopeOf = (req: SprintListRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
 const sprintsQuery = (req: SprintListRequest) =>
-  Api.query("groups", "list", {
+  query("groups", "list", {
     params: req.params,
     timeToLive: "1 minute",
     reactivityKeys: [Keys.sprints(scopeOf(req))]

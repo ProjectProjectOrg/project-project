@@ -9,6 +9,7 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
+import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 export type JiraOrgRequest = Readonly<{
@@ -41,23 +42,23 @@ export const jiraMigrationRequest = (
   migrationId: string
 ): JiraMigrationRequest => ({ params: { orgSlug, migrationId } })
 
-export const jiraProfile = Api.query("jira", "profile", {
+export const jiraProfile = query("jira", "profile", {
   timeToLive: "1 minute"
 })
 
-export const jiraSites = Api.query("jira", "sites", {
+export const jiraSites = query("jira", "sites", {
   timeToLive: "1 minute"
 })
 
 export const jiraProjects = Atom.family((req: JiraProjectsRequest) =>
-  Api.query("jira", "projects", {
+  query("jira", "projects", {
     params: req.params,
     timeToLive: "1 minute"
   })
 )
 
 const jiraMigrationsQuery = (req: JiraOrgRequest) =>
-  Api.query("jiraMigrations", "list", {
+  query("jiraMigrations", "list", {
     params: req.params,
     timeToLive: "30 seconds",
     reactivityKeys: [Keys.jiraMigrations(req.params.orgSlug)]
@@ -68,7 +69,7 @@ export const jiraMigrations = Atom.family((req: JiraOrgRequest) =>
 )
 
 const jiraMigrationQuery = (req: JiraMigrationRequest) =>
-  Api.query("jiraMigrations", "get", {
+  query("jiraMigrations", "get", {
     params: req.params,
     timeToLive: "30 seconds",
     reactivityKeys: [
@@ -82,7 +83,7 @@ export const jiraMigration = Atom.family((req: JiraMigrationRequest) =>
 
 export const jiraDestinationConflicts = Atom.family(
   (req: JiraDestinationConflictsRequest) =>
-    Api.query("jiraMigrations", "destinationConflicts", {
+    query("jiraMigrations", "destinationConflicts", {
       params: req.params,
       query: req.query,
       timeToLive: "30 seconds"
@@ -90,7 +91,7 @@ export const jiraDestinationConflicts = Atom.family(
 )
 
 export const jiraSkippedAttachments = Atom.family((req: JiraMigrationRequest) =>
-  Api.query("jiraMigrations", "skippedAttachments", {
+  query("jiraMigrations", "skippedAttachments", {
     params: req.params,
     timeToLive: "1 hour"
   })
