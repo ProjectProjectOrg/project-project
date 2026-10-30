@@ -257,6 +257,63 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
     }).pipe(Effect.provide(DatabaseLive))
   )
 
+  it.effect("clears cached git state when a rebuild changes the branch", () =>
+    Effect.gen(function* () {
+      const organizationId = yield* seedRebuildProject
+      const onDisk: TicketDocument = {
+        ...rebuiltDocument,
+        branch: "feat/new",
+        updatedAt: DateTime.toDate(
+          DateTime.makeUnsafe("2026-02-01T00:00:00.000Z")
+        )
+      }
+      const docs = Layer.succeed(TicketDocs, {
+        listIds: () => Effect.succeed([onDisk.id]),
+        read: () => Effect.succeed(onDisk),
+        create: () => unexpected("create"),
+        write: () => unexpected("write"),
+        update: () => unexpected("update"),
+        remove: () => unexpected("remove"),
+        readRaw: () => unexpected("readRaw")
+      } satisfies TicketDocsShape)
+      yield* Effect.gen(function* () {
+        const index = yield* TicketIndex
+        const project = yield* index.projectFor(organizationId, organizationId)
+        yield* index.upsertTicket(project, {
+          ...rebuiltDocument,
+          branch: "feat/old"
+        })
+        yield* withClient((client) =>
+          client.query(
+            "update ticket_index set branch_deleted_at = now(), checks = 'failing', checks_head_sha = 'abc', checks_updated_at = now(), pr_updated_at = now() where project_id = $1",
+            [project.projectId]
+          )
+        )
+        yield* index.rebuildProject(project)
+        const row = yield* withClient((client) =>
+          client.query(
+            "select branch, branch_deleted_at, checks, checks_head_sha, checks_updated_at, pr_updated_at from ticket_index where project_id = $1",
+            [project.projectId]
+          )
+        )
+        expect(row.rows).toEqual([
+          {
+            branch: "feat/new",
+            branch_deleted_at: null,
+            checks: null,
+            checks_head_sha: null,
+            checks_updated_at: null,
+            pr_updated_at: null
+          }
+        ])
+      }).pipe(
+        Effect.provide(
+          TicketIndexLive.pipe(Layer.provide(docs), Layer.provide(DatabaseLive))
+        )
+      )
+    }).pipe(Effect.provide(DatabaseLive))
+  )
+
   it.effect("preserves edits and creations during a rebuild", () =>
     Effect.gen(function* () {
       const organizationId = yield* seedRebuildProject

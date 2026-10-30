@@ -1776,17 +1776,31 @@ export const TicketIndexLive = Layer.effect(
         return { documents, skipped }
       })
 
+    const branchCacheColumns = new Set<string>([
+      "prUpdatedAt",
+      "branchDeletedAt",
+      "checks",
+      "checksHeadSha",
+      "checksUpdatedAt"
+    ])
+
     const excludedTicketIndexColumns = (row: object) =>
-      Object.fromEntries(
-        Object.entries(getTableColumns(ticketIndex))
+      Object.fromEntries([
+        ...Object.entries(getTableColumns(ticketIndex))
           .filter(
             ([key]) => key in row && key !== "projectId" && key !== "ticketId"
           )
           .map(([key, column]) => [
             key,
             drizzleSql.raw(`excluded.${column.name}`)
+          ]),
+        ...Object.entries(getTableColumns(ticketIndex))
+          .filter(([key]) => branchCacheColumns.has(key))
+          .map(([key, column]) => [
+            key,
+            drizzleSql`case when ${ticketIndex.branch} is distinct from excluded.branch then null else ${column} end`
           ])
-      )
+      ])
 
     const writeProjectIndex = (
       project: TicketIndexProject,
