@@ -3,9 +3,10 @@ import * as Effect from "effect/Effect"
 import * as Atom from "effect/reactivity/Atom"
 
 import { Api } from "@/api/Api"
+import { query } from "@/api/query"
 
 export const feedbackStatus = Atom.family((orgSlug: string) =>
-  Api.query("feedback", "status", {
+  query("feedback", "status", {
     params: { orgSlug },
     timeToLive: "5 minutes"
   })

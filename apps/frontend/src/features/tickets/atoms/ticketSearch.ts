@@ -1,8 +1,8 @@
 import type { GroupId, TicketId, TicketSearchQuery } from "@pp/shared"
 import * as Atom from "effect/reactivity/Atom"
 
-import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 
 export type TicketSearchOptions = Readonly<{
   q?: string
@@ -27,7 +27,7 @@ export const searchRequest = (
 
 export const ticketSearch = Atom.family((req: SearchRequest) => {
   const scope = projectScope(req.params.orgSlug, req.params.slug)
-  return Api.query("tickets", "search", {
+  return query("tickets", "search", {
     params: req.params,
     query: req.query,
     timeToLive: "2 minutes",

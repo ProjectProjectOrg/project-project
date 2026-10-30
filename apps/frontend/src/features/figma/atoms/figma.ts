@@ -1,8 +1,8 @@
 import type { ConnectFigmaProjectInput, TicketId } from "@pp/shared"
 import * as Atom from "effect/reactivity/Atom"
 
-import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 export type FigmaProjectRequest = Readonly<{
@@ -33,7 +33,7 @@ export const figmaTicketLinksRequest = (
 const scopeOf = (req: FigmaProjectRequest | FigmaTicketLinksRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-const figmaProfileQuery = Api.query("figma", "profile", {
+const figmaProfileQuery = query("figma", "profile", {
   timeToLive: "1 minute",
   reactivityKeys: [Keys.figmaProfile()]
 })
@@ -56,7 +56,7 @@ export const disconnectFigmaProfileAtom = viewMutation(figmaProfileAtom, {
 })
 
 const figmaProjectQuery = (req: FigmaProjectRequest) =>
-  Api.query("figma", "projectStatus", {
+  query("figma", "projectStatus", {
     params: req.params,
     timeToLive: "30 seconds",
     reactivityKeys: [Keys.figmaProject(scopeOf(req))]
@@ -83,7 +83,7 @@ export const connectFigmaProjectAtom = Atom.family((req: FigmaProjectRequest) =>
 )
 
 const figmaTicketLinksQuery = (req: FigmaTicketLinksRequest) =>
-  Api.query("figma", "ticketLinks", {
+  query("figma", "ticketLinks", {
     params: req.params,
     timeToLive: "30 seconds",
     reactivityKeys: [Keys.figmaTicketLinks(scopeOf(req))]

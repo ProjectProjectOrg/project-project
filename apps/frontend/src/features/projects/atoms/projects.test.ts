@@ -12,8 +12,8 @@ import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
 import { describe, expect, it, vi } from "vitest"
 
-import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
+import { query } from "@/api/query"
 import { stubFetch } from "@/api/testFetch"
 import { bannerRenderGeneration } from "@/features/projects/lib/bannerRenderCache"
 
@@ -298,7 +298,7 @@ describe("project member mutations", () => {
 
   it("invalidates organization invitations after a project invite", async () => {
     const fetched = new Map<string, number>()
-    const probe = Api.query("tickets", "count", {
+    const probe = query("tickets", "count", {
       params: { orgSlug: "acme", slug: "web" },
       query: { q: "orgMembers" },
       timeToLive: "2 minutes",
@@ -371,7 +371,7 @@ describe("project member mutations", () => {
       ]
     }
     const fetched = new Map<string, number>()
-    const probe = Api.query("tickets", "count", {
+    const probe = query("tickets", "count", {
       params: { orgSlug: "acme", slug: "web" },
       query: { q: "orgMembers" },
       timeToLive: "2 minutes",
@@ -418,7 +418,7 @@ describe("leaving a project", () => {
   it("refreshes the project list without refetching the project", async () => {
     const fetched = new Map<string, number>()
     const count = (key: string) => fetched.set(key, (fetched.get(key) ?? 0) + 1)
-    const probe = Api.query("tickets", "count", {
+    const probe = query("tickets", "count", {
       params: { orgSlug: "acme", slug: "web" },
       query: { q: "projects" },
       timeToLive: "2 minutes",

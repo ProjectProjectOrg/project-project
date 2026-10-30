@@ -17,6 +17,7 @@ import * as Atom from "effect/reactivity/Atom"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
+import { query } from "@/api/query"
 import { viewMutation, type OptimisticView } from "@/api/viewMutation"
 
 import {
@@ -60,14 +61,14 @@ const scopeOf = (req: ProjectLibraryRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
 const orgLibraryQuery = (req: OrgLibraryRequest) =>
-  Api.query("library", "org", {
+  query("library", "org", {
     params: req.params,
     timeToLive: "5 minutes",
     reactivityKeys: [Keys.orgLibrary(req.params.orgSlug)]
   })
 
 const projectLibraryQuery = (req: ProjectLibraryRequest) =>
-  Api.query("library", "project", {
+  query("library", "project", {
     params: req.params,
     timeToLive: "5 minutes",
     reactivityKeys: [

@@ -7,10 +7,11 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
+import { query } from "@/api/query"
 import { clearBannerRenderCache } from "@/features/projects/lib/bannerRenderCache"
 import { authClient } from "@/services/AuthClient"
 
-const meQuery = Api.query("auth", "me", {
+const meQuery = query("auth", "me", {
   reactivityKeys: [Keys.me()]
 })
 

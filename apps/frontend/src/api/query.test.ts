@@ -3,10 +3,19 @@ import * as DateTime from "effect/DateTime"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi
+} from "vitest"
 
 import { tagsFor, tagsRequest, updateTag } from "@/features/tags/atoms/tags"
 
+import { query } from "./query"
 import { stubFetch } from "./testFetch"
 
 const encode = Schema.encodeSync(Tag)
@@ -28,14 +37,20 @@ beforeAll(() => {
   vi.stubGlobal("document", visibility)
 })
 
-afterEach(() => {
-  vi.restoreAllMocks()
+const start = DateTime.toEpochMillis(
+  DateTime.makeUnsafe("2026-10-30T12:00:00.000Z")
+)
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] })
+  vi.setSystemTime(start)
 })
 
-const elapse = (ms: number) => {
-  const now = Date.now() + ms
-  vi.spyOn(Date, "now").mockReturnValue(now)
-}
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+const elapse = (ms: number) => vi.setSystemTime(start + ms)
 
 const returnToTab = () => tab.dispatchEvent(new Event("visibilitychange"))
 
@@ -47,6 +62,15 @@ const serving = (tags: () => ReadonlyArray<Tag>) => {
 }
 
 describe("query revalidation", () => {
+  it("shares one revalidating atom between equal requests", () => {
+    const request = () =>
+      query("tags", "list", {
+        params: { orgSlug: "acme", slug: "shared" },
+        timeToLive: "2 minutes"
+      })
+    expect(request()).toBe(request())
+  })
+
   it("refetches a stale open view when the tab becomes visible", async () => {
     const gets = serving(() => [tag])
     fetchStub.set(gets)
@@ -93,6 +117,7 @@ describe("query revalidation", () => {
         expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
       )
       unmount()
+      await vi.waitFor(() => expect(registry.getNodes().has(view)).toBe(false))
       elapse(31_000)
       registry.mount(view)
       expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
@@ -105,7 +130,7 @@ describe("query revalidation", () => {
   it("keeps an open optimistic edit through a background refetch", async () => {
     let finish = (_response: Response) => {}
     const gets = serving(() => [tag])
-    fetchStub.set((input, init) => {
+    fetchStub.set((_input, init) => {
       if (init?.method === "PATCH") {
         return new Promise<Response>((resolve) => {
           finish = resolve
