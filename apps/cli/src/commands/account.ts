@@ -40,6 +40,7 @@ export const loginCommand = Command.make(
   ({ address }) =>
     Effect.gen(function* () {
       const flags = yield* root
+      const previousDefault = (yield* (yield* ServerStore).list).defaultServer
       const server = yield* login(address)
       const scope = yield* chooseDefaultScope(server)
       if (flags.json) {
@@ -51,6 +52,11 @@ export const loginCommand = Command.make(
       yield* Console.log(
         `Signed in to ${server.origin} as ${server.user.name} (${server.user.email}).`
       )
+      if (previousDefault !== null && previousDefault !== server.origin) {
+        yield* Console.log(
+          `${server.origin} is now your default server. Switch back with \`pp servers use ${previousDefault}\`.`
+        )
+      }
       yield* Console.log(
         Option.match(scope, {
           onSome: (chosen) =>

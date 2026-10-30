@@ -189,7 +189,7 @@ export class ServerStore extends Context.Service<
             const scope = previous?.scope
             return write({
               version: 1,
-              defaultServer: catalog.defaultServer ?? server.origin,
+              defaultServer: server.origin,
               servers: [
                 ...catalog.servers.filter(
                   (saved) => saved.origin !== server.origin
