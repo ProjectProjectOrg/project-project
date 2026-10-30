@@ -139,6 +139,7 @@ describe("query revalidation", () => {
           waiting: false
         })
       )
+      expect(gets).toHaveBeenCalledTimes(2)
       const shown = registry.get(view)
       if (!AsyncResult.isSuccess(shown)) throw new Error("lost the view")
       expect(shown.value.map((t) => t.name)).toEqual([before])
