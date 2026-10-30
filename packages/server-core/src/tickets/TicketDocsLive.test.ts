@@ -8,7 +8,9 @@ import {
 } from "@pp/shared"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as DateTime from "effect/DateTime"
+import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
+import * as Fiber from "effect/Fiber"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
@@ -19,7 +21,7 @@ import {
   recordingTicketActivity,
   type RecordedActivity
 } from "../activity/testing"
-import type { TicketActivity } from "../activity/TicketActivity"
+import { TicketActivity } from "../activity/TicketActivity"
 import * as KeyedLock from "../locks/KeyedLock"
 import { Markdown } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
@@ -682,5 +684,100 @@ describe("TicketDocs activity capture", () => {
         "split"
       ])
     })
+  )
+
+  const gatedActivity = Effect.gen(function* () {
+    const armed = yield* Deferred.make<void>()
+    const landed = yield* Deferred.make<void>()
+    const gate = yield* Deferred.make<void>()
+    const layer = Layer.succeed(
+      TicketActivity,
+      TicketActivity.of({
+        record: (_orgSlug, _slug, _document, _changes, _cause, write) =>
+          Effect.gen(function* () {
+            const result = yield* write
+            if (yield* Deferred.isDone(armed)) {
+              yield* Deferred.succeed(landed, undefined)
+              yield* Deferred.await(gate)
+            }
+            return result
+          }),
+        recover: () => Effect.void,
+        removeTicket: () => Effect.void,
+        page: () => Effect.succeed([])
+      })
+    )
+    const interruptAfterWrite = <A, E>(fiber: Fiber.Fiber<A, E>) =>
+      Effect.gen(function* () {
+        yield* Deferred.await(landed)
+        const interrupt = yield* Fiber.interrupt(fiber).pipe(
+          Effect.forkChild({ startImmediately: true })
+        )
+        yield* Deferred.succeed(gate, undefined)
+        yield* Fiber.await(interrupt)
+      })
+    return {
+      layer,
+      arm: Deferred.succeed(armed, undefined),
+      interruptAfterWrite
+    }
+  })
+
+  it.effect(
+    "persists the index when update is interrupted after the write",
+    () =>
+      Effect.gen(function* () {
+        const gated = yield* gatedActivity
+        const persisted = yield* Deferred.make<string>()
+        yield* Effect.gen(function* () {
+          const docs = yield* TicketDocs
+          yield* docs.create("acme", "project", ticketDocument("T-1"))
+          yield* gated.arm
+          const fiber = yield* docs
+            .update(
+              "acme",
+              "project",
+              "T-1",
+              (ticket) =>
+                Effect.succeed({
+                  ...ticket,
+                  title: "Renamed",
+                  updatedAt: later
+                }),
+              (document) =>
+                Deferred.succeed(persisted, document.title).pipe(Effect.asVoid)
+            )
+            .pipe(
+              Effect.provideService(
+                ActivityActor,
+                ActivityActor.user("user-2")
+              ),
+              Effect.forkChild
+            )
+          yield* gated.interruptAfterWrite(fiber)
+          expect(yield* Deferred.isDone(persisted)).toBe(true)
+          expect(yield* Deferred.await(persisted)).toBe("Renamed")
+        }).pipe(Effect.provide(testLayer(gated.layer)))
+      })
+  )
+
+  it.effect(
+    "persists the index when create is interrupted after the write",
+    () =>
+      Effect.gen(function* () {
+        const gated = yield* gatedActivity
+        const persisted = yield* Deferred.make<string>()
+        yield* Effect.gen(function* () {
+          const docs = yield* TicketDocs
+          yield* gated.arm
+          const fiber = yield* docs
+            .create("acme", "project", ticketDocument("T-1"), (document) =>
+              Deferred.succeed(persisted, document.id).pipe(Effect.asVoid)
+            )
+            .pipe(Effect.forkChild)
+          yield* gated.interruptAfterWrite(fiber)
+          expect(yield* Deferred.isDone(persisted)).toBe(true)
+        }).pipe(Effect.provide(testLayer(gated.layer)))
+      })
   )
 })

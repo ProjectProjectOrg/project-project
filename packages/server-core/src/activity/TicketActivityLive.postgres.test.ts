@@ -6,8 +6,10 @@ import { it } from "@effect/vitest"
 import { DbLive, PgLive } from "@pp/db"
 import { ActivityActor, TicketId, TicketStatus } from "@pp/shared"
 import * as ConfigProvider from "effect/ConfigProvider"
+import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
+import * as Fiber from "effect/Fiber"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
@@ -177,6 +179,43 @@ const seedPendingBatch = (
   )
 
 describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
+  it.live("commits activity when interrupted after the write lands", () =>
+    Effect.gen(function* () {
+      const project = yield* seedProject
+      const activity = yield* TicketActivity
+      const landed = yield* Deferred.make<void>()
+      const gate = yield* Deferred.make<void>()
+      const fiber = yield* activity
+        .record(
+          project.orgSlug,
+          project.slug,
+          { kind: "ticket", id: "T-1", content: "after" },
+          statusMove,
+          null,
+          writeTicketFile(project.orgSlug, project.slug, "After").pipe(
+            Effect.andThen(Deferred.succeed(landed, undefined)),
+            Effect.andThen(Deferred.await(gate))
+          )
+        )
+        .pipe(
+          Effect.provideService(
+            ActivityActor,
+            ActivityActor.user(project.userId)
+          ),
+          Effect.forkChild
+        )
+      yield* Deferred.await(landed)
+      const interrupt = yield* Fiber.interrupt(fiber).pipe(
+        Effect.forkChild({ startImmediately: true })
+      )
+      yield* Deferred.succeed(gate, undefined)
+      yield* Fiber.await(interrupt)
+      expect(
+        yield* activity.page(project.projectId, "T-1", null, 10, true)
+      ).toHaveLength(1)
+    }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
   it.live("commits the batch once the document write succeeds", () =>
     Effect.gen(function* () {
       const project = yield* seedProject

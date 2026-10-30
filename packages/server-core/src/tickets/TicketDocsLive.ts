@@ -181,7 +181,8 @@ export const TicketDocsLive = Layer.effect(
                 Effect.suspend(() =>
                   onPersist ? onPersist(document) : Effect.void
                 )
-              )
+              ),
+              Effect.uninterruptible
             )
         )
       )
@@ -252,18 +253,7 @@ export const TicketDocsLive = Layer.effect(
                   ...ticketChanges(current, next, activity.archiveReason),
                   ...(activity.extra ?? [])
                 ]
-            yield* ticketActivity.record(
-              orgSlug,
-              slug,
-              { kind: "ticket", id, content: ticketFileContent(next) },
-              changes.map((change) =>
-                change.kind === "status_changed" &&
-                activity.statusCause !== undefined
-                  ? { ticketId: next.id, change, cause: activity.statusCause }
-                  : { ticketId: next.id, change }
-              ),
-              activity.cause ?? null,
-              write(orgSlug, slug, id, next),
+            const events =
               activity.silent || current.status === next.status
                 ? []
                 : ticketEvents(
@@ -271,9 +261,24 @@ export const TicketDocsLive = Layer.effect(
                     next,
                     yield* finishedStatuses.forProject(orgSlug, slug)
                   )
-            )
-            if (onPersist) yield* onPersist(next)
-            return next
+            return yield* Effect.gen(function* () {
+              yield* ticketActivity.record(
+                orgSlug,
+                slug,
+                { kind: "ticket", id, content: ticketFileContent(next) },
+                changes.map((change) =>
+                  change.kind === "status_changed" &&
+                  activity.statusCause !== undefined
+                    ? { ticketId: next.id, change, cause: activity.statusCause }
+                    : { ticketId: next.id, change }
+                ),
+                activity.cause ?? null,
+                write(orgSlug, slug, id, next),
+                events
+              )
+              if (onPersist) yield* onPersist(next)
+              return next
+            }).pipe(Effect.uninterruptible)
           })
         )
       )

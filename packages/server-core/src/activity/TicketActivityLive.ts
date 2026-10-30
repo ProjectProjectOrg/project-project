@@ -343,20 +343,24 @@ export const TicketActivityLive = Layer.effect(
             integrationEvents
           })
           .pipe(Effect.orDie)
-        const result = yield* write.pipe(Effect.onError(() => discard(batchId)))
-        yield* commit(batchId, rows, integrationEvents).pipe(
-          Effect.retry({
-            times: 3,
-            schedule: Schedule.exponential("50 millis")
-          }),
-          Effect.catchCause((failure) =>
-            Effect.logError(
-              "ticket activity commit failed; boot recovery will settle it",
-              { batchId, failure }
+        return yield* Effect.gen(function* () {
+          const result = yield* write.pipe(
+            Effect.onError(() => discard(batchId))
+          )
+          yield* commit(batchId, rows, integrationEvents).pipe(
+            Effect.retry({
+              times: 3,
+              schedule: Schedule.exponential("50 millis")
+            }),
+            Effect.catchCause((failure) =>
+              Effect.logError(
+                "ticket activity commit failed; boot recovery will settle it",
+                { batchId, failure }
+              )
             )
           )
-        )
-        return result
+          return result
+        }).pipe(Effect.uninterruptible)
       })
 
     const recover: TicketActivityShape["recover"] = () =>
