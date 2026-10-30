@@ -1826,6 +1826,17 @@ export const TicketIndexLive = Layer.effect(
             const missing = indexedBefore.filter(
               (ref) => !documentIds.has(ref.ticketId)
             )
+            const documentUpdatedAt = new Map(
+              documents.map((document) => [
+                document.id as string,
+                document.updatedAt.getTime()
+              ])
+            )
+            const aheadOfDisk = indexedBefore.filter(
+              (ref) =>
+                ref.updatedAt.getTime() >
+                (documentUpdatedAt.get(ref.ticketId) ?? Infinity)
+            )
             const removed =
               missing.length === 0
                 ? []
@@ -1854,7 +1865,15 @@ export const TicketIndexLive = Layer.effect(
                     .onConflictDoUpdate({
                       target: [ticketIndex.projectId, ticketIndex.ticketId],
                       set: excludedTicketIndexColumns(tickets[0]),
-                      setWhere: drizzleSql`${ticketIndex.updatedAt} <= excluded.updated_at`
+                      setWhere: or(
+                        drizzleSql`${ticketIndex.updatedAt} <= excluded.updated_at`,
+                        ...aheadOfDisk.map((ref) =>
+                          and(
+                            eq(ticketIndex.ticketId, ref.ticketId),
+                            eq(ticketIndex.updatedAt, ref.updatedAt)
+                          )
+                        )
+                      )
                     })
                     .returning({ ticketId: ticketIndex.ticketId })
             const writtenIds = new Set(written.map((row) => row.ticketId))
