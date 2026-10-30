@@ -181,7 +181,8 @@ export const TicketDocsLive = Layer.effect(
                 Effect.suspend(() =>
                   onPersist ? onPersist(document) : Effect.void
                 )
-              )
+              ),
+              Effect.uninterruptible
             )
         )
       )
@@ -252,6 +253,14 @@ export const TicketDocsLive = Layer.effect(
                   ...ticketChanges(current, next, activity.archiveReason),
                   ...(activity.extra ?? [])
                 ]
+            const events =
+              activity.silent || current.status === next.status
+                ? []
+                : ticketEvents(
+                    current,
+                    next,
+                    yield* finishedStatuses.forProject(orgSlug, slug)
+                  )
             return yield* Effect.gen(function* () {
               yield* ticketActivity.record(
                 orgSlug,
@@ -265,13 +274,7 @@ export const TicketDocsLive = Layer.effect(
                 ),
                 activity.cause ?? null,
                 write(orgSlug, slug, id, next),
-                activity.silent || current.status === next.status
-                  ? []
-                  : ticketEvents(
-                      current,
-                      next,
-                      yield* finishedStatuses.forProject(orgSlug, slug)
-                    )
+                events
               )
               if (onPersist) yield* onPersist(next)
               return next
