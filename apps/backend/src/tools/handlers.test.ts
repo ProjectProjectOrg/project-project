@@ -17,6 +17,7 @@ import { Projects } from "@pp/server-core/projects/Projects"
 import { ProjectStatuses } from "@pp/server-core/projects/ProjectStatuses"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import { Tags } from "@pp/server-core/tags/Tags"
+import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import {
@@ -24,7 +25,6 @@ import {
   type TicketIndexProject
 } from "@pp/server-core/tickets/TicketIndex"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
-import { Tickets } from "@pp/server-core/tickets/Tickets"
 import { Users } from "@pp/server-core/users/Users"
 import {
   blockLookupFor,
@@ -151,7 +151,10 @@ const capturedListLimits: Array<number | undefined> = []
 const capturedListQueries: Array<TicketListQuery> = []
 
 const TicketsStub = Layer.mergeAll(
-  Layer.mergeAll(Layer.mock(Tickets, {}), Layer.mock(TicketGit.TicketGit, {})),
+  Layer.mergeAll(
+    Layer.mock(TicketCommands.TicketCommands, {}),
+    Layer.mock(TicketGit.TicketGit, {})
+  ),
   Layer.mock(TicketQueries.TicketQueries, {
     list: (query: TicketListQuery, limit?: number) => {
       capturedListLimits.push(limit)
@@ -310,7 +313,7 @@ const TestLayer = Layer.mergeAll(
 )
 
 describe("MCP handlers → list_tickets", () => {
-  it.effect("threads the requested limit through to Tickets.list", () =>
+  it.effect("threads the requested limit through to TicketQueries.list", () =>
     Effect.gen(function* () {
       capturedListLimits.length = 0
       capturedListQueries.length = 0
@@ -635,7 +638,7 @@ describe("MCP handlers → write tools", () => {
 
   const WriteTicketsStub = Layer.mergeAll(
     Layer.mergeAll(
-      Layer.mock(Tickets, {
+      Layer.mock(TicketCommands.TicketCommands, {
         create: (input) => {
           captured.create = input
           return Effect.succeed({ ...fakeTicketDetail, ...input })
@@ -1127,7 +1130,7 @@ describe("MCP handlers → update_ticket with a template or edits", () => {
 
   const TemplateTicketsStub = Layer.mergeAll(
     Layer.mergeAll(
-      Layer.mock(Tickets, {
+      Layer.mock(TicketCommands.TicketCommands, {
         create: (input) =>
           Effect.succeed({
             ...fakeTicket,
@@ -1412,7 +1415,7 @@ describe("MCP handlers → update_ticket with a template or edits", () => {
       let seen: unknown
       const ExpectingTicketsStub = Layer.mergeAll(
         Layer.mergeAll(
-          Layer.mock(Tickets, {
+          Layer.mock(TicketCommands.TicketCommands, {
             update: (_id, input, _sort, expected) => {
               seen = expected
               return Effect.succeed({
@@ -1498,7 +1501,7 @@ describe("MCP handlers → add_tickets_to_group", () => {
       TestLayer,
       Layer.mergeAll(
         Layer.mergeAll(
-          Layer.mock(Tickets, {}),
+          Layer.mock(TicketCommands.TicketCommands, {}),
           Layer.mock(TicketGit.TicketGit, {})
         ),
         Layer.mock(TicketQueries.TicketQueries, {})
@@ -1639,7 +1642,7 @@ describe("MCP handlers → sprint writes", () => {
       TestLayer,
       Layer.mergeAll(
         Layer.mergeAll(
-          Layer.mock(Tickets, {}),
+          Layer.mock(TicketCommands.TicketCommands, {}),
           Layer.mock(TicketGit.TicketGit, {})
         ),
         Layer.mock(TicketQueries.TicketQueries, {})

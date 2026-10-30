@@ -22,7 +22,7 @@ import * as Option from "effect/Option"
 import { Attachments } from "../attachments/Attachments"
 import type { Bot } from "../bots/Bots"
 import { SystemProjects } from "../projects/SystemProjects"
-import { Tickets } from "../tickets/Tickets"
+import * as TicketCommands from "../tickets/TicketCommands"
 import { FeedbackConfig, type FeedbackConfigShape } from "./FeedbackConfig"
 import {
   feedbackTicketBody,
@@ -71,7 +71,7 @@ export class FeedbackIntake extends Context.Service<
       const db = yield* Db
       const config = yield* FeedbackConfig
       const systemProjects = yield* SystemProjects
-      const tickets = yield* Tickets
+      const commands = yield* TicketCommands.TicketCommands
       const attachments = yield* Attachments
       const fs = yield* FileSystem.FileSystem
 
@@ -165,7 +165,7 @@ export class FeedbackIntake extends Context.Service<
             report.attachments,
             stored.map((file) => file.filename)
           )
-          yield* tickets.update(ticketId, {
+          yield* commands.update(ticketId, {
             body: feedbackTicketBody(report, {
               verbatim,
               attachments: { stored, notStored }
@@ -206,7 +206,7 @@ export class FeedbackIntake extends Context.Service<
         report: FeedbackReport
       ) {
         const create = (verbatim: boolean) =>
-          tickets
+          commands
             .create({
               title: report.title,
               type: feedbackTicketType(report),

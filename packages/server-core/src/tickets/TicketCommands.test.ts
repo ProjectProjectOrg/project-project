@@ -48,12 +48,12 @@ import { ProjectDocs } from "../projects/ProjectDocs"
 import { Projects, type ProjectsShape } from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
 import * as TicketServices from "./layer"
+import * as TicketCommands from "./TicketCommands"
 import { TicketDocs } from "./TicketDocs"
 import { TicketDocsLive } from "./TicketDocsLive"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import { TicketIndex, type TicketIndexShape } from "./TicketIndex"
 import * as TicketQueries from "./TicketQueries"
-import { Tickets } from "./Tickets"
 
 const decodeProjectKey = Schema.decodeUnknownSync(ProjectKey)
 
@@ -306,7 +306,7 @@ const TestLayer = Layer.unwrap(
 
 it.effect("deleting a ticket removes its markdown file from disk", () =>
   Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const root = yield* Config.String("PROJECTS_DIR")
@@ -338,7 +338,7 @@ it.effect("deleting a ticket removes its markdown file from disk", () =>
 
 it.effect("honors a custom status on quickCreate", () =>
   Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const created = yield* tickets.quickCreate({
       title: "in progress at birth",
       status: TicketStatus.make("in_progress")
@@ -349,7 +349,7 @@ it.effect("honors a custom status on quickCreate", () =>
 
 it.effect("falls back to 'todo' when status is omitted on quickCreate", () =>
   Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const created = yield* tickets.quickCreate({
       title: "no status given"
     })
@@ -359,7 +359,7 @@ it.effect("falls back to 'todo' when status is omitted on quickCreate", () =>
 
 it.effect("rejects an unknown status on quickCreate", () =>
   Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const result = yield* Effect.result(
       tickets.quickCreate({
         title: "bogus",
@@ -386,7 +386,7 @@ const archiveChanges = (ticketId: string) =>
 it.effect("archiving records the trimmed reason on the activity entry", () =>
   Effect.gen(function* () {
     recordedActivity.length = 0
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const created = yield* tickets.quickCreate({
       title: "archive me"
     })
@@ -410,7 +410,7 @@ it.effect("archiving records the trimmed reason on the activity entry", () =>
 it.effect("archiving with a blank reason records no reason", () =>
   Effect.gen(function* () {
     recordedActivity.length = 0
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const created = yield* tickets.quickCreate({
       title: "silent archive"
     })
@@ -424,7 +424,7 @@ it.effect(
   () =>
     Effect.gen(function* () {
       recordedActivity.length = 0
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       const queries = yield* TicketQueries.TicketQueries
       const created = yield* tickets.quickCreate({ title: "archive twice" })
 
@@ -448,7 +448,7 @@ it.effect(
   "creating a ticket after deleting one with the same name does not inherit the old description",
   () =>
     Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       const queries = yield* TicketQueries.TicketQueries
 
       const original = yield* tickets.quickCreate({
@@ -545,7 +545,7 @@ const BUG_REPORT_KIT = [
 it.effect("quickCreate with a template writes its expanded body and type", () =>
   Effect.gen(function* () {
     yield* adoptAtOrg(BUG_REPORT_KIT)
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const queries = yield* TicketQueries.TicketQueries
     const created = yield* tickets.quickCreate({
       title: "login loops",
@@ -566,7 +566,7 @@ it.effect("quickCreate with a template writes its expanded body and type", () =>
 it.effect("quickCreate keeps an explicit type over the template's", () =>
   Effect.gen(function* () {
     yield* adoptAtOrg(BUG_REPORT_KIT)
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const created = yield* tickets.quickCreate({
       title: "typed",
       type: "chore",
@@ -579,7 +579,7 @@ it.effect("quickCreate keeps an explicit type over the template's", () =>
 
 it.effect("no template or a null template creates a blank ticket", () =>
   Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const omitted = yield* tickets.quickCreate({
       title: "bug without template",
       type: "bug"
@@ -599,7 +599,7 @@ it.effect("create lets explicit fields win and filters template tags", () =>
   Effect.gen(function* () {
     yield* adoptAtOrg(["context"])
     yield* (yield* LibraryDocs).writeTemplate("org", "p", projectTemplate({}))
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const defaults = yield* tickets.create({
       title: "from template",
       template: templateKey("incident-lite")
@@ -626,7 +626,7 @@ it.effect("create lets explicit fields win and filters template tags", () =>
 
 it.effect("an unknown template fails with Validation", () =>
   Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const quick = yield* Effect.flip(
       tickets.quickCreate({
         title: "nope",
@@ -660,7 +660,7 @@ it.effect("unresolvable template mentions become plain text on create", () =>
         body: `Follow up on [T-99](${formatMentionHref("ticket", "T-99")})`
       })
     )
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const created = yield* tickets.quickCreate({
       title: "mentions",
       template: templateKey("incident-lite")
@@ -672,7 +672,7 @@ it.effect("unresolvable template mentions become plain text on create", () =>
 it.effect("get resolves synced blocks without rewriting the file", () =>
   Effect.gen(function* () {
     yield* adoptAtOrg(["definition-of-done"])
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const queries = yield* TicketQueries.TicketQueries
     const created = yield* tickets.create({
       title: "synced",
@@ -693,7 +693,7 @@ it.effect("get resolves synced blocks without rewriting the file", () =>
 
 it.effect("update refreshes the stored synced snapshot", () =>
   Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const created = yield* tickets.quickCreate({
       title: "stale snapshot"
     })
@@ -727,7 +727,7 @@ it.effect("a body without synced blocks is stored and read byte for byte", () =>
       "",
       "trailing *md*"
     ].join("\n")
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const queries = yield* TicketQueries.TicketQueries
     const created = yield* tickets.quickCreate({
       title: "plain"

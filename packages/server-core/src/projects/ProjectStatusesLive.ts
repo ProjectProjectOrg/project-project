@@ -22,8 +22,8 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { generateKeyBetween } from "fractional-indexing"
 
+import * as TicketCommands from "../tickets/TicketCommands"
 import { TicketIndex } from "../tickets/TicketIndex"
-import { Tickets } from "../tickets/Tickets"
 import { ProjectStatuses, type ProjectStatusesShape } from "./ProjectStatuses"
 
 const makeSlug = Schema.decodeUnknownSync(StatusSlug)
@@ -46,7 +46,7 @@ export const ProjectStatusesLive = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db
     const ticketIndex = yield* TicketIndex
-    const tickets = yield* Tickets
+    const commands = yield* TicketCommands.TicketCommands
 
     const list: ProjectStatusesShape["list"] = () =>
       Effect.gen(function* () {
@@ -75,7 +75,7 @@ export const ProjectStatusesLive = Layer.effect(
       Effect.forEach(
         ids,
         (id) =>
-          tickets.replaceStatus(orgSlug, slug, id, toSlug, reason).pipe(
+          commands.replaceStatus(orgSlug, slug, id, toSlug, reason).pipe(
             Effect.catchTag("NotFound", () => Effect.succeed(false)),
             Effect.catchTag("MalformedTicketDocument", () =>
               Effect.succeed(false)

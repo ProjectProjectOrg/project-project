@@ -28,10 +28,10 @@ import { GitHub } from "../github/GitHub"
 import { Groups } from "../groups/Groups"
 import { Library } from "../library/Library"
 import * as TicketServices from "../tickets/layer"
+import * as TicketCommands from "../tickets/TicketCommands"
 import { TicketDocs } from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import * as TicketQueries from "../tickets/TicketQueries"
-import { Tickets } from "../tickets/Tickets"
 import { Users } from "../users/Users"
 import { FinishedStatuses } from "./FinishedStatuses"
 import { gitAutomationTestLayer } from "./gitAutomationTesting"
@@ -51,7 +51,9 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
     slug: "project"
   })
   let pool: Pool
-  let layer: Layer.Layer<Projects | Tickets | TicketQueries.TicketQueries>
+  let layer: Layer.Layer<
+    Projects | TicketCommands.TicketCommands | TicketQueries.TicketQueries
+  >
   let document: ProjectDocument = {
     slug: "project",
     name: "Project",
@@ -151,7 +153,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
     "reconciles before ticket queries and validation, and preserves file settings on unrelated writes",
     () =>
       Effect.gen(function* () {
-        const tickets = yield* Tickets
+        const tickets = yield* TicketCommands.TicketCommands
         const queries = yield* TicketQueries.TicketQueries
         const projects = yield* Projects
         const sorted = yield* queries.list({

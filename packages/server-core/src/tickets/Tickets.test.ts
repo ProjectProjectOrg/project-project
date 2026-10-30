@@ -63,6 +63,7 @@ import {
 import { Users, type UsersShape } from "../users/Users"
 import type { GitAutomationConfig } from "./gitAutomation"
 import * as TicketServices from "./layer"
+import * as TicketCommands from "./TicketCommands"
 import {
   TicketDocs,
   type TicketDocsShape,
@@ -78,7 +79,6 @@ import {
 } from "./TicketIndex"
 import { TICKET_ORDER_KEY_SEPARATOR } from "./TicketIndexLive"
 import * as TicketQueries from "./TicketQueries"
-import { Tickets } from "./Tickets"
 
 const decodeGroupSync = Schema.decodeSync(Group)
 
@@ -1298,7 +1298,7 @@ it.effect(
     const docs = makeFakeTicketDocs(["T-1"])
     docs.documents.set("T-1", makeTicketDocument("T-1", { branch: "feat/T-1" }))
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       const git = yield* TicketGit.TicketGit
       const first = yield* git.listGitStates()
       expect(docs.documents.get("T-1")).toMatchObject({
@@ -1394,7 +1394,7 @@ it.effect(
       })
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       const git = yield* TicketGit.TicketGit
       yield* git.clearBranch("T-1")
       yield* tickets.update("T-1", { title: "Renamed" })
@@ -1924,7 +1924,7 @@ it.effect(
     })
 
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       yield* tickets.remove("T-1")
 
       expect(attachments.calls).toEqual([
@@ -1948,7 +1948,7 @@ it.effect(
     })
 
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       const created = yield* tickets.create({
         title: "One",
         body: "# One\nhttps://www.figma.com/design/FILEKEY123/Spec\n"
@@ -1981,7 +1981,7 @@ it.effect("create propagates ticket index write failures", () => {
   })
 
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const exit = yield* tickets.create({ title: "Indexed" }).pipe(Effect.exit)
 
     expect(exit._tag).toBe("Failure")
@@ -2053,7 +2053,7 @@ it.effect("get uses persisted prState for the fallback git state", () => {
 it.effect("create allocates the next id from the project key", () => {
   const { documents, layer } = makeTicketsFixture("FOO", ["FOO-1", "FOO-3"])
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const created = yield* tickets.create({
       title: "Add project keys"
     })
@@ -2067,7 +2067,7 @@ it.effect("create allocates the next id from the project key", () => {
 it.effect("create keeps legacy T project ids readable and sequential", () => {
   const { documents, layer } = makeTicketsFixture("T", ["T-1", "T-35"])
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const created = yield* tickets.create({
       title: "Keep legacy ids"
     })
@@ -2089,7 +2089,7 @@ it.effect(
     })
 
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       const created = yield* tickets.create({
         title: "Skip stale collision"
       })
@@ -2112,7 +2112,7 @@ const makeEpicFixture = () => {
 it.effect("create files a sub-ticket under an epic", () => {
   const { docs, layer } = makeEpicFixture()
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const created = yield* tickets.quickCreate({
       title: "Estimate field",
       parent: ticketId("T-1")
@@ -2132,7 +2132,7 @@ it.effect(
       makeTicketDocument("T-3", { parent: ticketId("T-2") })
     )
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       const underSubTicket = yield* tickets
         .create({
           title: "Child",
@@ -2166,7 +2166,7 @@ it.effect("deleting an epic takes its tickets out of it", () => {
     makeTicketDocument("T-2", { parent: ticketId("T-1") })
   )
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     yield* tickets.remove("T-1")
 
     expect(docs.documents.has("T-1")).toBe(false)
@@ -2177,7 +2177,7 @@ it.effect("deleting an epic takes its tickets out of it", () => {
 it.effect("an epic keeps its type while it has tickets", () => {
   const { layer } = makeEpicFixture()
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     yield* tickets.update("T-2", {
       parent: ticketId("T-1")
     })
@@ -2200,7 +2200,7 @@ it.effect("an epic keeps its type while it has tickets", () => {
 it.effect("a ticket holds sub-tickets one level deep", () => {
   const { docs, layer } = makeEpicFixture()
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const child = yield* tickets.quickCreate({
       title: "Child",
       parent: ticketId("T-2")
@@ -2227,7 +2227,7 @@ it.effect(
       makeTicketDocument("T-4", { parent: ticketId("T-2") })
     )
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       const underTicket = yield* tickets
         .update("T-2", { parent: ticketId("T-3") })
         .pipe(Effect.flip)
@@ -2267,7 +2267,7 @@ it.effect("deleting with cascadeSubTickets deletes the whole subtree", () => {
     makeTicketDocument("T-5", { parent: ticketId("T-4") })
   )
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     yield* tickets.remove("T-1", { cascadeSubTickets: true })
 
     expect([...docs.documents.keys()]).toEqual(["T-4", "T-5"])
@@ -2294,7 +2294,7 @@ it.effect("a ticket in an open sprint can't become an epic", () => {
     groups: makeFakeGroups({ list: () => Effect.succeed([sprint]) })
   })
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const error = yield* tickets
       .update("T-1", { type: "epic" })
       .pipe(Effect.flip)
@@ -2377,7 +2377,7 @@ it.effect("bulkUpdate patches every ticket and plans them in one call", () => {
     })
   )
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const result = yield* tickets.bulkUpdate({
       tickets: [ticketId("T-1"), ticketId("T-2")],
       patch: {
@@ -2399,7 +2399,7 @@ it.effect("bulkUpdate patches every ticket and plans them in one call", () => {
 it.effect("bulkUpdate writes nothing when one ticket breaks a rule", () => {
   const { docs, layer } = makeBulkFixture(() => unexpected("Groups.addTickets"))
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const error = yield* tickets
       .bulkUpdate({
         tickets: [ticketId("T-1"), ticketId("T-3")],
@@ -2420,7 +2420,7 @@ it.effect("bulkUpdate restores the tickets when planning fails", () => {
     Effect.fail(new SprintCompletedImmutable())
   )
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const error = yield* tickets
       .bulkUpdate({
         tickets: [ticketId("T-1"), ticketId("T-2")],
@@ -2441,7 +2441,7 @@ it.effect("ticket mention validation trusts the ticket index", () => {
   })
 
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const error = yield* tickets
       .create({
         title: "Reference a ticket",
@@ -2626,7 +2626,7 @@ it.effect("list paginates by cursor", () => {
   const { layer } = makeTicketsFixture("T", [])
   const total = TICKET_LIST_LIMIT + 5
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const queries = yield* TicketQueries.TicketQueries
     for (let i = 0; i < total; i++) {
       yield* tickets.create({ title: `t-${i}` })
@@ -2701,7 +2701,7 @@ it.effect("list paginates by cursor with default created desc sort", () => {
 it.effect("list honors an explicit limit override", () => {
   const { layer } = makeTicketsFixture("T", [])
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const queries = yield* TicketQueries.TicketQueries
     for (let i = 0; i < 10; i++) {
       yield* tickets.create({ title: `t-${i}` })
@@ -2716,7 +2716,7 @@ it.effect("list honors an explicit limit override", () => {
 it.effect("list filters by q and substitutes mine to viewerId", () => {
   const { layer } = makeTicketsFixture("T", [])
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const queries = yield* TicketQueries.TicketQueries
     yield* tickets.create({
       title: "hello world",
@@ -2958,7 +2958,7 @@ it.effect(
       ticketIndex: makeFakeTicketIndex(docs.documents)
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       const queries = yield* TicketQueries.TicketQueries
       const sort = { key: "title", dir: "asc" } as const
       const updated = yield* tickets.update("T-2", { title: "Zulu" }, sort)
@@ -2982,7 +2982,7 @@ it.effect("omits the order key when no sort is asked for", () => {
     ticketIndex: makeFakeTicketIndex(docs.documents)
   })
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const updated = yield* tickets.update("T-1", {
       title: "Quiet"
     })
@@ -2998,7 +2998,7 @@ it.effect(
       ticketIndex: makeFakeTicketIndex(docs.documents)
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       const queries = yield* TicketQueries.TicketQueries
       const read = yield* queries.get("T-1")
       docs.documents.set(
@@ -3027,7 +3027,7 @@ it.effect("rejects an update when the ticket changed after it was read", () => {
     ticketIndex: makeFakeTicketIndex(docs.documents)
   })
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const queries = yield* TicketQueries.TicketQueries
     const read = yield* queries.get("T-1")
     docs.documents.set(
@@ -3069,7 +3069,7 @@ it.effect(
       attachments: attachments.layer
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       yield* tickets.update("T-1", {
         title: "New title",
         priority: "high"
@@ -3476,7 +3476,7 @@ it.effect(
     const { docs, layer } = permissionFixture()
     const client = as(scopeAs("guest", "client", "client-1"))
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       yield* tickets
         .update("T-1", {
           title: "Clearer title",
@@ -3506,7 +3506,7 @@ it.effect("rejects statuses the project doesn't have", () => {
   const { docs, layer } = permissionFixture()
   const pm = as(scopeAs("member", "pm", "user-1"))
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const updating = yield* Effect.flip(
       tickets.update("T-1", { status: ticketStatus("bogus") }).pipe(pm)
     )
@@ -3544,7 +3544,7 @@ it.effect(
       ticketIndex: makeFakeTicketIndex(docs.documents)
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       expect(yield* tickets.clearStaleEstimates()).toEqual({ cleared: 2 })
       expect(docs.documents.get("T-1")?.estimate).toBeUndefined()
       expect(docs.documents.get("T-2")?.estimate).toBeUndefined()
@@ -3604,7 +3604,7 @@ it.effect(
       })
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       expect(yield* tickets.clearStaleEstimates()).toEqual({ cleared: 0 })
       expect(docs.documents.get("T-1")?.estimate).toEqual({
         unit: "time",
@@ -3643,7 +3643,7 @@ it.effect(
       })
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       expect(yield* tickets.clearStaleEstimates()).toEqual({ cleared: 0 })
       expect(docs.documents.get("T-1")?.estimate).toEqual({
         unit: "points",
@@ -3657,7 +3657,7 @@ it.effect("only accepts estimates in the project's estimation unit", () => {
   const { docs, layer } = permissionFixture()
   const pm = as(scopeAs("member", "pm", "user-1"))
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const mismatched = yield* Effect.flip(
       tickets
         .update("T-1", { estimate: { unit: "tshirt", value: "M" } })
@@ -3714,7 +3714,7 @@ it.effect(
       })
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       const move = { ticketId: ticketId("T-1"), after: null }
       const readOnly = yield* Effect.flip(
         tickets
@@ -3808,7 +3808,7 @@ it.effect("refuses GitHub filters to anyone without github:read", () => {
 it.effect("keeps org admins without a role from editing", () => {
   const { docs, layer } = permissionFixture()
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const queries = yield* TicketQueries.TicketQueries
     const adminView = yield* queries
       .get("T-1")
