@@ -15,6 +15,8 @@ import {
 
 import { tagsFor, tagsRequest, updateTag } from "@/features/tags/atoms/tags"
 
+import { Api } from "./Api"
+import { Keys, projectScope } from "./keys"
 import { query } from "./query"
 import { stubFetch } from "./testFetch"
 
@@ -53,6 +55,13 @@ afterEach(() => {
 const elapse = (ms: number) => vi.setSystemTime(start + ms)
 
 const returnToTab = () => tab.dispatchEvent(new Event("visibilitychange"))
+
+const tagsSource = (slug: string) =>
+  Api.query("tags", "list", {
+    params: { orgSlug: "acme", slug },
+    timeToLive: "2 minutes",
+    reactivityKeys: [Keys.tags(projectScope("acme", slug))]
+  })
 
 const serving = (tags: () => ReadonlyArray<Tag>) => {
   const gets = vi.fn(() =>
@@ -124,9 +133,11 @@ describe("query revalidation", () => {
       offline = true
       elapse(31_000)
       returnToTab()
-      await vi.waitFor(() => expect(gets).toHaveBeenCalledTimes(2))
       await vi.waitFor(() =>
-        expect(registry.get(view)).toMatchObject({ waiting: false })
+        expect(registry.get(tagsSource("offline"))).toMatchObject({
+          _tag: "Failure",
+          waiting: false
+        })
       )
       const shown = registry.get(view)
       if (!AsyncResult.isSuccess(shown)) throw new Error("lost the view")
@@ -154,6 +165,37 @@ describe("query revalidation", () => {
         expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
       )
       gone = true
+      elapse(31_000)
+      returnToTab()
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Failure",
+          waiting: false
+        })
+      )
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("surfaces a server error from a background refetch", async () => {
+    let broken = false
+    const gets = vi.fn(() =>
+      Promise.resolve(
+        broken
+          ? new Response("boom", { status: 500 })
+          : Response.json([encode(tag)])
+      )
+    )
+    fetchStub.set(gets)
+    const registry = AtomRegistry.make()
+    const view = tagsFor(tagsRequest("acme", "broken"))
+    registry.mount(view)
+    try {
+      await vi.waitFor(() =>
+        expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
+      )
+      broken = true
       elapse(31_000)
       returnToTab()
       await vi.waitFor(() =>
