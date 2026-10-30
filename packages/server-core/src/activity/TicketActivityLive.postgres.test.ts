@@ -205,7 +205,9 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
           Effect.forkChild
         )
       yield* Deferred.await(landed)
-      const interrupt = yield* Fiber.interrupt(fiber).pipe(Effect.forkChild)
+      const interrupt = yield* Fiber.interrupt(fiber).pipe(
+        Effect.forkChild({ startImmediately: true })
+      )
       yield* Deferred.succeed(gate, undefined)
       yield* Fiber.await(interrupt)
       expect(
