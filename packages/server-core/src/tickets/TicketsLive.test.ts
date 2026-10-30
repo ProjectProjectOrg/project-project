@@ -6,6 +6,7 @@ import {
   BUILTIN_BLOCKS,
   BUILTIN_TEMPLATE_DEFAULTS,
   BUILTIN_TEMPLATES,
+  Conflict,
   formatMentionHref,
   ProjectKey,
   TemplateDraft,
@@ -411,6 +412,30 @@ it.effect("archiving with a blank reason records no reason", () =>
     yield* tickets.archive(created.id, "   ")
     expect(archiveChanges(created.id)).toEqual([{ kind: "archived" }])
   }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect(
+  "archiving an archived ticket or restoring an active one conflicts",
+  () =>
+    Effect.gen(function* () {
+      recordedActivity.length = 0
+      const tickets = yield* Tickets
+      const created = yield* tickets.quickCreate({ title: "archive twice" })
+
+      const notArchived = yield* Effect.flip(tickets.unarchive(created.id))
+      expect(notArchived).toEqual(
+        new Conflict({ reason: "ticket_not_archived" })
+      )
+
+      const archived = yield* tickets.archive(created.id)
+      const again = yield* Effect.flip(
+        tickets.archive(created.id, "late reason")
+      )
+      expect(again).toEqual(new Conflict({ reason: "ticket_already_archived" }))
+      expect(archiveChanges(created.id)).toEqual([{ kind: "archived" }])
+      const stored = yield* tickets.get(created.id)
+      expect(stored.archivedAt).toEqual(archived.archivedAt)
+    }).pipe(Effect.provide(TestLayer))
 )
 
 it.effect(

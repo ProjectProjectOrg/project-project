@@ -213,14 +213,18 @@ export type TicketsShape = Readonly<{
     reason?: string
   ) => Effect.Effect<
     TicketDetail,
-    Forbidden | TicketReadError | MentionInvalid | InvalidCommentBody,
+    | Forbidden
+    | Conflict
+    | TicketReadError
+    | MentionInvalid
+    | InvalidCommentBody,
     ProjectScope | ActivityActor
   >
   unarchive: (
     id: string
   ) => Effect.Effect<
     TicketDetail,
-    Forbidden | TicketReadError,
+    Forbidden | Conflict | TicketReadError,
     ProjectScope | ActivityActor
   >
   replaceTag: (

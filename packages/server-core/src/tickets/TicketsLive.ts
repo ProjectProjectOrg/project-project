@@ -2287,7 +2287,10 @@ export const TicketsLive = Layer.effect(
           slug,
           id,
           Effect.gen(function* () {
-            yield* readTicket(orgSlug, slug, id)
+            const current = yield* readTicket(orgSlug, slug, id)
+            if (current.archivedAt !== null) {
+              return yield* new Conflict({ reason: "ticket_already_archived" })
+            }
             const indexProject = indexProjectOf(scope)
             const trimmed = reason?.trim()
             const next = yield* ticketDocs.update(
@@ -2319,7 +2322,10 @@ export const TicketsLive = Layer.effect(
           slug,
           id,
           Effect.gen(function* () {
-            yield* readTicket(orgSlug, slug, id)
+            const current = yield* readTicket(orgSlug, slug, id)
+            if (current.archivedAt === null) {
+              return yield* new Conflict({ reason: "ticket_not_archived" })
+            }
             const indexProject = indexProjectOf(scope)
             const next = yield* ticketDocs.update(
               orgSlug,
