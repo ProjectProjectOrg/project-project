@@ -121,15 +121,7 @@ export const GroupsLive = Layer.effect(
     ): Effect.Effect<void, Validation> =>
       Effect.gen(function* () {
         if (kind !== "sprint" || ticketIds.length === 0) return
-        const entries = yield* ticketIndex.list(
-          {
-            orgSlug: scope.orgSlug,
-            organizationId: scope.organizationId,
-            projectId: scope.projectId,
-            slug: scope.slug
-          },
-          ticketIds
-        )
+        const entries = yield* ticketIndex.list(scope, ticketIds)
         if (entries.some((entry) => entry.type === "epic")) {
           return yield* new Validation({ reason: "epic_in_sprint" })
         }

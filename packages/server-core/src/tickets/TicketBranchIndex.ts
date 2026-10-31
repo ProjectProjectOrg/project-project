@@ -68,8 +68,7 @@ export class TicketBranchIndex extends Context.Service<
       stackedOnly?: boolean
     ) => Effect.Effect<boolean>
     getBranchDeletedAt: (
-      orgSlug: string,
-      slug: string,
+      project: TicketProject,
       ticketId: string
     ) => Effect.Effect<Date | null>
     markBranchStale: (
@@ -283,7 +282,7 @@ const make = Effect.gen(function* () {
   })
 
   const getBranchDeletedAt = Effect.fn("TicketBranchIndex.getBranchDeletedAt")(
-    function* (orgSlug: string, slug: string, id: string) {
+    function* (project: TicketProject, id: string) {
       return yield* db
         .select({ branchDeletedAt: ticketIndex.branchDeletedAt })
         .from(ticketIndex)
@@ -294,8 +293,8 @@ const make = Effect.gen(function* () {
         )
         .where(
           and(
-            eq(organization.slug, orgSlug),
-            eq(projectIndex.slug, slug),
+            eq(organization.slug, project.orgSlug),
+            eq(projectIndex.slug, project.slug),
             publishedProject(),
             eq(ticketIndex.ticketId, id)
           )

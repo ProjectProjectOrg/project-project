@@ -1090,20 +1090,24 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       )
 
       yield* branchIndex.markBranchStale(projectId, "feat/T-2", januaryTwelfth)
+      expect(yield* branchIndex.getBranchDeletedAt(project, "T-2")).toEqual(
+        januaryTwelfth
+      )
+      expect(yield* branchIndex.getBranchDeletedAt(project, "T-10")).toBeNull()
       expect(
-        yield* branchIndex.getBranchDeletedAt(orgSlug, projectSlug, "T-2")
-      ).toEqual(januaryTwelfth)
-      expect(
-        yield* branchIndex.getBranchDeletedAt(orgSlug, projectSlug, "T-10")
+        yield* branchIndex.getBranchDeletedAt(
+          { ...project, orgSlug: "wrong-org" },
+          "T-2"
+        )
       ).toBeNull()
       expect(
-        yield* branchIndex.getBranchDeletedAt("wrong-org", projectSlug, "T-2")
+        yield* branchIndex.getBranchDeletedAt(
+          { ...project, slug: "wrong-project" },
+          "T-2"
+        )
       ).toBeNull()
       expect(
-        yield* branchIndex.getBranchDeletedAt(orgSlug, "wrong-project", "T-2")
-      ).toBeNull()
-      expect(
-        yield* branchIndex.getBranchDeletedAt(orgSlug, projectSlug, "T-missing")
+        yield* branchIndex.getBranchDeletedAt(project, "T-missing")
       ).toBeNull()
 
       const firstPage = yield* index.query(

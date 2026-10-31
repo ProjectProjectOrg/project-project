@@ -14,7 +14,6 @@ import type { ProjectGithubIntegration } from "../projects/Projects"
 import { stackLayerStates } from "./stackLayerStates"
 import type { MalformedTicketDocument, TicketDocument } from "./TicketDocs"
 import type { TicketIndexEntry } from "./TicketIndex"
-import type { TicketProject } from "./ticketProject"
 
 export type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
 
@@ -124,13 +123,6 @@ export function documentToDetail(
     body: document.body
   }
 }
-
-export const indexProjectOf = (scope: ProjectScopeShape): TicketProject => ({
-  orgSlug: scope.orgSlug,
-  organizationId: scope.organizationId,
-  projectId: scope.projectId,
-  slug: scope.slug
-})
 
 export const requirePolicy = (
   allowed: (scope: ProjectScopeShape) => boolean

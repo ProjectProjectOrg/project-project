@@ -119,12 +119,6 @@ const writePullRequestWebhook = (
   ) => Effect.Effect<PullRequestWebhookPatch | null>
 ): Effect.Effect<void, MarkdownError> =>
   Effect.gen(function* () {
-    const indexProject = {
-      orgSlug: match.orgSlug,
-      organizationId: match.organizationId,
-      projectId: match.projectId,
-      slug: match.slug
-    }
     if (
       claim !== null &&
       deps.claimPullRequest !== undefined &&
@@ -150,9 +144,7 @@ const writePullRequestWebhook = (
             )
           }),
         (next) =>
-          changed
-            ? deps.ticketIndex.upsertTicket(indexProject, next)
-            : Effect.void,
+          changed ? deps.ticketIndex.upsertTicket(match, next) : Effect.void,
         gitAutomationActivity
       )
       .pipe(
@@ -674,11 +666,7 @@ export const GitHubTicketEventsLive = Layer.effect(
             )
             const pending = yield* Effect.filter(matches, (match) =>
               Effect.map(
-                ticketBranchIndex.getBranchDeletedAt(
-                  match.orgSlug,
-                  match.slug,
-                  match.ticketId
-                ),
+                ticketBranchIndex.getBranchDeletedAt(match, match.ticketId),
                 (deletedAt) => deletedAt === null
               )
             )

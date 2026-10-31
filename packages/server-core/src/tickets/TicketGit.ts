@@ -49,11 +49,7 @@ import {
   planTicketGitStates
 } from "./ticketGitStatePlanner"
 import { TicketIndex, type TicketIndexEntry } from "./TicketIndex"
-import {
-  indexProjectOf,
-  pendingGitState,
-  type TicketReadError
-} from "./ticketPresentation"
+import { pendingGitState, type TicketReadError } from "./ticketPresentation"
 import type { TicketProject } from "./ticketProject"
 import { stackLayerFor, ticketBranches } from "./ticketStack"
 import * as TicketView from "./TicketView"
@@ -207,7 +203,7 @@ const make = Effect.gen(function* () {
   const { gitView, detailOf, readTicket } = yield* TicketView.TicketView
 
   const writeGitFields = (
-    indexProject: TicketProject,
+    project: TicketProject,
     existing: TicketDocument,
     patch: {
       branch?: string | null
@@ -222,13 +218,13 @@ const make = Effect.gen(function* () {
     }
   ): Effect.Effect<TicketDocument, TicketReadError, ActivityActor> =>
     ticketDocs.update(
-      indexProject.orgSlug,
-      indexProject.slug,
+      project.orgSlug,
+      project.slug,
       existing.id,
       (current) =>
         DateTime.nowAsDate.pipe(
           Effect.flatMap((updatedAt) =>
-            withGitAutomation(gitAutomation, indexProject.projectId, current, {
+            withGitAutomation(gitAutomation, project.projectId, current, {
               ...(patch.branch !== undefined && patch.branch !== current.branch
                 ? Struct.omit(current, ["prBase"])
                 : current),
@@ -237,7 +233,7 @@ const make = Effect.gen(function* () {
             })
           )
         ),
-      (next) => ticketIndex.upsertTicket(indexProject, next),
+      (next) => ticketIndex.upsertTicket(project, next),
       gitAutomationActivity
     )
 
@@ -252,12 +248,11 @@ const make = Effect.gen(function* () {
       slug,
       id,
       Effect.gen(function* () {
-        const indexProject = indexProjectOf(scope)
         const projectGithub = yield* projects.githubIntegration()
         if (!projectGithub) {
           return yield* new Conflict({ reason: "no_github_connection" })
         }
-        const ticket = yield* readTicket(orgSlug, slug, id)
+        const ticket = yield* readTicket(scope, id)
         const baseBranch = input.baseBranch ?? projectGithub.defaultBaseBranch
 
         yield* github.createBranchAsUser(
@@ -270,7 +265,7 @@ const make = Effect.gen(function* () {
 
         const next = yield* withRepositoryBranchLock(
           projectGithub.repoId,
-          writeGitFields(indexProject, ticket, {
+          writeGitFields(scope, ticket, {
             branch: input.name,
             branchAutoLinkDisabled: false,
             pr: null,
@@ -296,12 +291,11 @@ const make = Effect.gen(function* () {
       slug,
       id,
       Effect.gen(function* () {
-        const indexProject = indexProjectOf(scope)
         const projectGithub = yield* projects.githubIntegration()
         if (!projectGithub) {
           return yield* new Conflict({ reason: "no_github_connection" })
         }
-        const ticket = yield* readTicket(orgSlug, slug, id)
+        const ticket = yield* readTicket(scope, id)
         if ((ticket.stack ?? []).some((layer) => layer.branch === input.name)) {
           return yield* new Conflict({ reason: "branch_already_on_ticket" })
         }
@@ -331,7 +325,7 @@ const make = Effect.gen(function* () {
                 reason: "branch_on_other_ticket"
               })
             }
-            return yield* writeGitFields(indexProject, ticket, {
+            return yield* writeGitFields(scope, ticket, {
               branch: input.name,
               branchAutoLinkDisabled: false,
               pr: null,
@@ -359,12 +353,11 @@ const make = Effect.gen(function* () {
       slug,
       id,
       Effect.gen(function* () {
-        const indexProject = indexProjectOf(scope)
         const projectGithub = yield* projects.githubIntegration()
         if (!projectGithub) {
           return yield* new Conflict({ reason: "no_github_connection" })
         }
-        const ticket = yield* readTicket(orgSlug, slug, id)
+        const ticket = yield* readTicket(scope, id)
         if (!ticket.branch) {
           return yield* new Conflict({ reason: "no_branch_on_ticket" })
         }
@@ -386,7 +379,7 @@ const make = Effect.gen(function* () {
           userId
         )
 
-        yield* writeGitFields(indexProject, ticket, {
+        yield* writeGitFields(scope, ticket, {
           pr: result.number,
           prState: "open",
           prDraft: input.draft ?? false,
@@ -408,13 +401,12 @@ const make = Effect.gen(function* () {
       slug,
       id,
       Effect.gen(function* () {
-        const indexProject = indexProjectOf(scope)
-        const ticket = yield* readTicket(orgSlug, slug, id)
+        const ticket = yield* readTicket(scope, id)
         const removed = [
           ...(ticket.branch === null ? [] : [ticket.branch]),
           ...(ticket.stack ?? []).map((layer) => layer.branch)
         ]
-        const next = yield* writeGitFields(indexProject, ticket, {
+        const next = yield* writeGitFields(scope, ticket, {
           branch: null,
           branchAutoLinkDisabled: true,
           pr: null,
@@ -442,12 +434,11 @@ const make = Effect.gen(function* () {
       slug,
       id,
       Effect.gen(function* () {
-        const indexProject = indexProjectOf(scope)
         const projectGithub = yield* projects.githubIntegration()
         if (!projectGithub) {
           return yield* new Conflict({ reason: "no_github_connection" })
         }
-        const ticket = yield* readTicket(orgSlug, slug, id)
+        const ticket = yield* readTicket(scope, id)
         if (!ticket.branch) {
           return yield* new Conflict({ reason: "no_branch_on_ticket" })
         }
@@ -494,7 +485,7 @@ const make = Effect.gen(function* () {
                 reason: "branch_on_other_ticket"
               })
             }
-            return yield* writeGitFields(indexProject, ticket, {
+            return yield* writeGitFields(scope, ticket, {
               stack: [...(ticket.stack ?? []), layer],
               ignoredBranches: withoutIgnored(ticket, input.name)
             })
@@ -516,13 +507,12 @@ const make = Effect.gen(function* () {
       slug,
       id,
       Effect.gen(function* () {
-        const indexProject = indexProjectOf(scope)
-        const ticket = yield* readTicket(orgSlug, slug, id)
+        const ticket = yield* readTicket(scope, id)
         const stack = ticket.stack ?? []
         if (!stack.some((layer) => layer.branch === input.name)) {
           return yield* new Conflict({ reason: "branch_not_stacked" })
         }
-        const next = yield* writeGitFields(indexProject, ticket, {
+        const next = yield* writeGitFields(scope, ticket, {
           stack: stack.filter((layer) => layer.branch !== input.name),
           ignoredBranches: [...(ticket.ignoredBranches ?? []), input.name]
         })
@@ -654,12 +644,12 @@ const make = Effect.gen(function* () {
 
   const reconcileGitStates = Effect.fn("TicketGit.reconcileGitStates")(
     function* (
-      indexProject: TicketProject,
+      project: TicketProject,
       projectGithub: ProjectGithubIntegration,
       tickets: ReadonlyArray<StackedTicketEntry>,
       raw: GitHub.RawProjectStates
     ): Effect.fn.Return<GitStatesResponse, MarkdownError> {
-      const { orgSlug, slug } = indexProject
+      const { orgSlug, slug } = project
       const automaticLinks = planAutomaticBranchLinks(
         tickets,
         raw.existingBranches,
@@ -741,7 +731,7 @@ const make = Effect.gen(function* () {
         const automaticBranch = automaticLinks.get(ticketId)
         const automaticLayers = automaticStacks.get(ticketId) ?? []
         const reconcile = Effect.gen(function* () {
-          const ticket = yield* readTicket(orgSlug, slug, ticketId).pipe(
+          const ticket = yield* readTicket(project, ticketId).pipe(
             Effect.catchTags({
               MalformedTicketDocument: (error) =>
                 Effect.logWarning("Skipping unreadable ticket for git state", {
@@ -793,7 +783,7 @@ const make = Effect.gen(function* () {
             }
           }
           if (resurrectedIds.has(ticketId)) {
-            yield* ticketBranchIndex.clearBranchStale(indexProject, [ticketId])
+            yield* ticketBranchIndex.clearBranchStale(project, [ticketId])
             changedTicketIds.add(ticketId)
           }
           const addedLayers = yield* Effect.filter(automaticLayers, (layer) =>
@@ -814,7 +804,7 @@ const make = Effect.gen(function* () {
             ? planned
             : { ...planned, stack }
           if (!patch) return
-          const next = yield* writeGitFields(indexProject, ticket, patch).pipe(
+          const next = yield* writeGitFields(project, ticket, patch).pipe(
             Effect.provideService(ActivityActor, ActivityActor.system("github"))
           )
           branchesById.set(ticketId, {
@@ -892,11 +882,11 @@ const make = Effect.gen(function* () {
               gitAutomation,
               ticketDocumentLock: { withTicketDocumentLock }
             },
-            { ...indexProject, ticketId, branch }
+            { ...project, ticketId, branch }
           )
         }
         yield* ticketBranchIndex.markBranchStale(
-          indexProject.projectId,
+          project.projectId,
           branch,
           deletedAt
         )
@@ -921,7 +911,7 @@ const make = Effect.gen(function* () {
     NotFound | MarkdownError,
     ProjectScope
   > {
-    const indexProject = indexProjectOf(yield* ProjectScope)
+    const scope = yield* ProjectScope
     const projectGithub = yield* projects.githubIntegration()
 
     if (!projectGithub) {
@@ -933,8 +923,8 @@ const make = Effect.gen(function* () {
       }
     }
 
-    const indexed = yield* ticketIndex.list(indexProject)
-    const stacks = yield* ticketBranchIndex.stacksFor(indexProject)
+    const indexed = yield* ticketIndex.list(scope)
+    const stacks = yield* ticketBranchIndex.stacksFor(scope)
     const tickets = indexed.map(
       (ticket): StackedTicketEntry =>
         Object.assign({ stack: stacks.get(ticket.id) ?? [] }, ticket)
@@ -1011,12 +1001,7 @@ const make = Effect.gen(function* () {
       }
     }
 
-    return yield* reconcileGitStates(
-      indexProject,
-      projectGithub,
-      tickets,
-      result.raw
-    )
+    return yield* reconcileGitStates(scope, projectGithub, tickets, result.raw)
   })
 
   const getGitState = Effect.fn("TicketGit.getGitState")(function* (

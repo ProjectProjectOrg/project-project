@@ -66,7 +66,6 @@ import {
 import {
   type GitView,
   indexEntryToTicket,
-  indexProjectOf,
   requirePolicy,
   type TicketReadError
 } from "./ticketPresentation"
@@ -263,14 +262,13 @@ const make = Effect.gen(function* () {
   ) {
     const scope = yield* queryable(query)
     const { userId } = scope
-    const project = indexProjectOf(scope)
-    const groupMemberSet = yield* resolveGroupMembers(project, query.groupId)
+    const groupMemberSet = yield* resolveGroupMembers(scope, query.groupId)
     const sectionMemberSet = yield* resolveGroupMembers(
-      project,
+      scope,
       query.section?.groupId
     )
     const pageLimit = limit ?? TICKET_LIST_LIMIT
-    const queryEntries = yield* ticketIndex.query(project, query, {
+    const queryEntries = yield* ticketIndex.query(scope, query, {
       viewerId: userId,
       ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet],
       sectionTicketIds:
@@ -285,7 +283,7 @@ const make = Effect.gen(function* () {
       scope.permissions.can({ ticket: ["read"] })
     )
     return {
-      projects: scopes.map(indexProjectOf),
+      projects: scopes,
       scopeOf: new Map(scopes.map((scope) => [scope.projectId, scope]))
     }
   })
@@ -414,9 +412,9 @@ const make = Effect.gen(function* () {
   const listInGroup = Effect.fn("TicketQueries.listInGroup")(function* (
     groupId: string
   ) {
-    const project = indexProjectOf(yield* ProjectScope)
+    const scope = yield* ProjectScope
     const group = yield* groups.get(groupId)
-    const entries = yield* ticketIndex.list(project, group.tickets)
+    const entries = yield* ticketIndex.list(scope, group.tickets)
     const byId = new Map(entries.map((entry) => [entry.id, entry]))
     const view = yield* gitView
     return group.tickets.flatMap((id) => {
@@ -434,7 +432,6 @@ const make = Effect.gen(function* () {
   ) {
     const scope = yield* ProjectScope
     const { userId } = scope
-    const project = indexProjectOf(scope)
     const excludedTicketIds = options.excludeGroupId
       ? (yield* groups
           .get(options.excludeGroupId)
@@ -449,9 +446,9 @@ const make = Effect.gen(function* () {
     const attachParent =
       options.attachableTo === undefined
         ? undefined
-        : (yield* ticketIndex.list(project, [options.attachableTo]))[0]
+        : (yield* ticketIndex.list(scope, [options.attachableTo]))[0]
     const queryEntries = yield* ticketIndex.query(
-      project,
+      scope,
       { q: options.q, sort: DEFAULT_TICKET_SORT },
       {
         viewerId: userId,
@@ -473,7 +470,7 @@ const make = Effect.gen(function* () {
   const tagUsageCounts = Effect.fn("TicketQueries.tagUsageCounts")(
     function* () {
       const scope = yield* ProjectScope
-      return yield* ticketIndex.tagUsageCounts(indexProjectOf(scope))
+      return yield* ticketIndex.tagUsageCounts(scope)
     }
   )
 
@@ -482,13 +479,12 @@ const make = Effect.gen(function* () {
   ) {
     const scope = yield* queryable(query)
     const { userId } = scope
-    const project = indexProjectOf(scope)
-    const groupMemberSet = yield* resolveGroupMembers(project, query.groupId)
+    const groupMemberSet = yield* resolveGroupMembers(scope, query.groupId)
     const queryForCount: TicketCountQuery = {
       ...query,
       status: undefined
     }
-    const counts = yield* ticketIndex.count(project, queryForCount, {
+    const counts = yield* ticketIndex.count(scope, queryForCount, {
       viewerId: userId,
       ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet]
     })
@@ -503,14 +499,13 @@ const make = Effect.gen(function* () {
   ) {
     const scope = yield* queryable(query)
     const { userId } = scope
-    const project = indexProjectOf(scope)
-    const groupMemberSet = yield* resolveGroupMembers(project, query.groupId)
+    const groupMemberSet = yield* resolveGroupMembers(scope, query.groupId)
     const options = {
       viewerId: userId,
       ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet]
     }
     const bySection = yield* ticketIndex.querySections(
-      project,
+      scope,
       { ...query, cursor: undefined },
       { ...options, limit: TICKET_LIST_LIMIT + 1, sections: "status" }
     )
@@ -548,7 +543,6 @@ const make = Effect.gen(function* () {
   ) {
     const scope = yield* queryable(query)
     const { userId } = scope
-    const project = indexProjectOf(scope)
     const sprints = (yield* groups.list()).filter(
       (group) => group.kind === "sprint"
     )
@@ -587,7 +581,7 @@ const make = Effect.gen(function* () {
       }
     }
     const ungroupedMembers = query.groupId?.includes("ungrouped")
-      ? yield* resolveGroupMembers(project, ["ungrouped"])
+      ? yield* resolveGroupMembers(scope, ["ungrouped"])
       : null
     const members = yield* Effect.forEach(
       sectionIds,
@@ -602,7 +596,7 @@ const make = Effect.gen(function* () {
                 : [...ungroupedMembers].filter((id) => !claimed.has(id))
               : known !== undefined
                 ? known
-                : yield* resolveGroupMembers(project, [groupId]).pipe(
+                : yield* resolveGroupMembers(scope, [groupId]).pipe(
                     Effect.map((members) =>
                       members === null
                         ? []
@@ -614,7 +608,7 @@ const make = Effect.gen(function* () {
       { concurrency: 4 }
     )
     const bySection = yield* ticketIndex.querySections(
-      project,
+      scope,
       { ...query, groupId: undefined, cursor: undefined },
       {
         viewerId: userId,
@@ -631,13 +625,13 @@ const make = Effect.gen(function* () {
     const estimatedEntries = new Map(
       (estimatedIds.length === 0
         ? []
-        : yield* ticketIndex.list(project, estimatedIds)
+        : yield* ticketIndex.list(scope, estimatedIds)
       ).map((entry): [string, typeof entry] => [entry.id, entry])
     )
     const finished =
       unit === null
         ? null
-        : yield* finishedStatuses.forProject(project.orgSlug, project.slug)
+        : yield* finishedStatuses.forProject(scope.orgSlug, scope.slug)
     const emptyCounts = { total: 0, byStatus: {} as Record<string, number> }
     const pages = members.map(({ key: groupId, ticketIds }) => {
       const result = bySection.get(groupId)
@@ -700,18 +694,17 @@ const make = Effect.gen(function* () {
   ) {
     const scope = yield* queryable(query)
     const { userId } = scope
-    const project = indexProjectOf(scope)
-    const groupMemberSet = yield* resolveGroupMembers(project, query.groupId)
+    const groupMemberSet = yield* resolveGroupMembers(scope, query.groupId)
     const epicOptions = { viewerId: userId, limit: EPIC_SECTIONS_LIMIT }
     const [openEpics, archivedEpics] = yield* Effect.all(
       [
         ticketIndex.query(
-          project,
+          scope,
           { type: ["epic"], sort: EPIC_SECTION_SORT },
           epicOptions
         ),
         ticketIndex.query(
-          project,
+          scope,
           { type: ["epic"], archived: true, sort: EPIC_SECTION_SORT },
           epicOptions
         )
@@ -730,7 +723,7 @@ const make = Effect.gen(function* () {
       { key: EPIC_SECTION_NONE, title: null }
     ]
     const bySection = yield* ticketIndex.querySections(
-      project,
+      scope,
       {
         ...query,
         type: (query.type?.length ? query.type : TicketType.literals).filter(
@@ -795,15 +788,14 @@ const make = Effect.gen(function* () {
     const scope = yield* ProjectScope
     const { orgSlug, slug, userId } = scope
     const view = yield* gitView
-    const ticket = yield* readTicket(orgSlug, slug, id)
+    const ticket = yield* readTicket(scope, id)
     const body = yield* library.resolveSynced(orgSlug, slug, ticket.body)
     const branchDeletedAt = yield* ticketBranchIndex.getBranchDeletedAt(
-      orgSlug,
-      slug,
+      scope,
       id
     )
     const { total: subTicketCount } = yield* ticketIndex.count(
-      indexProjectOf(scope),
+      scope,
       { parent: [ticket.id] },
       { viewerId: userId }
     )
