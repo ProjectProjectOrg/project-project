@@ -5,12 +5,7 @@ import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { migrationsFolder } from "@pp/db"
 import { DbLive } from "@pp/db"
-import {
-  TicketDocs,
-  type TicketDocsShape
-} from "@pp/server-core/tickets/TicketDocs"
-import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
-import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
+import * as TicketBranchIndex from "@pp/server-core/tickets/TicketBranchIndex"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as Effect from "effect/Effect"
@@ -21,29 +16,13 @@ import { afterAll, beforeAll, describe, expect } from "vitest"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
-const unusedTicketDocs: TicketDocsShape = {
-  listIds: () =>
-    Effect.die(new Error("TicketDocs unavailable in ownership test")),
-  read: () => Effect.die(new Error("TicketDocs unavailable in ownership test")),
-  create: () =>
-    Effect.die(new Error("TicketDocs unavailable in ownership test")),
-  update: () =>
-    Effect.die(new Error("TicketDocs unavailable in ownership test")),
-  write: () =>
-    Effect.die(new Error("TicketDocs unavailable in ownership test")),
-  remove: () =>
-    Effect.die(new Error("TicketDocs unavailable in ownership test")),
-  readRaw: () =>
-    Effect.die(new Error("TicketDocs unavailable in ownership test"))
-}
-
 describe.skipIf(!databaseUrl)("GitHub branch ownership", () => {
   const suffix = randomUUID()
   const organizationIds = [`ownership-a-${suffix}`, `ownership-b-${suffix}`]
   const projectIds = [randomUUID(), randomUUID()]
   const linkIds = [randomUUID(), randomUUID()]
   let pool: Pool
-  let indexLayer: Layer.Layer<TicketIndex>
+  let indexLayer: Layer.Layer<TicketBranchIndex.TicketBranchIndex>
 
   beforeAll(async () => {
     if (!databaseUrl) throw new Error("Test database URL is required")
@@ -60,11 +39,7 @@ describe.skipIf(!databaseUrl)("GitHub branch ownership", () => {
     })
     const pg = PgClient.layer({ url: Redacted.make(databaseUrl) })
     const db = DbLive.pipe(Layer.provideMerge(pg))
-    indexLayer = TicketIndexLive.pipe(
-      Layer.provide(Layer.succeed(TicketDocs, unusedTicketDocs)),
-      Layer.provide(db),
-      Layer.orDie
-    )
+    indexLayer = TicketBranchIndex.layer.pipe(Layer.provide(db), Layer.orDie)
     await pool.query(
       "INSERT INTO organization (id, name, slug, created_at) VALUES ($1,$2,$1,now()),($3,$4,$3,now())",
       [organizationIds[0], "Ownership A", organizationIds[1], "Ownership B"]
@@ -119,7 +94,7 @@ describe.skipIf(!databaseUrl)("GitHub branch ownership", () => {
     () =>
       Effect.gen(function* () {
         const result = yield* Effect.gen(function* () {
-          const index = yield* TicketIndex
+          const index = yield* TicketBranchIndex.TicketBranchIndex
           return {
             shared: yield* index.isRepositoryBranchAttached(
               "repo-shared",
@@ -140,7 +115,7 @@ describe.skipIf(!databaseUrl)("GitHub branch ownership", () => {
           )
         )
         const disconnectedLink = yield* Effect.gen(function* () {
-          const index = yield* TicketIndex
+          const index = yield* TicketBranchIndex.TicketBranchIndex
           return yield* index.isRepositoryBranchAttached(
             "repo-shared",
             "feat/T-1"
@@ -160,7 +135,7 @@ describe.skipIf(!databaseUrl)("GitHub branch ownership", () => {
           )
         )
         const disconnected = yield* Effect.gen(function* () {
-          const index = yield* TicketIndex
+          const index = yield* TicketBranchIndex.TicketBranchIndex
           return yield* index.isRepositoryBranchAttached(
             "repo-shared",
             "feat/T-1"
@@ -175,7 +150,7 @@ describe.skipIf(!databaseUrl)("GitHub branch ownership", () => {
           )
         )
         const broken = yield* Effect.gen(function* () {
-          const index = yield* TicketIndex
+          const index = yield* TicketBranchIndex.TicketBranchIndex
           return yield* index.isRepositoryBranchAttached(
             "repo-shared",
             "feat/T-1"

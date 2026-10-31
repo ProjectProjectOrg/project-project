@@ -40,6 +40,7 @@ import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { ProjectDocs } from "../projects/ProjectDocs"
 import { Projects, type ProjectsShape } from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
+import * as TicketBranchIndex from "./TicketBranchIndex"
 import * as TicketCommands from "./TicketCommands"
 import { TicketDocs } from "./TicketDocs"
 import { TicketDocsLive } from "./TicketDocsLive"
@@ -230,12 +231,6 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
   tagUsageCounts: () => Effect.succeed({}),
   findTicketIdsByTag: () => Effect.succeed([]),
   findTicketIdsByStatus: () => Effect.succeed([]),
-  findTicketsByBranch: () => Effect.succeed([]),
-  findStackLayers: () => Effect.succeed([]),
-  stacksFor: () => Effect.succeed(new Map()),
-  findMergesAwaiting: () => Effect.succeed([]),
-  isRepositoryBranchAttached: () => Effect.succeed(false),
-  getBranchDeletedAt: () => Effect.succeed(null),
   upsertTicket: () =>
     Effect.suspend(() => {
       upserts += 1
@@ -243,9 +238,6 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
         ? Effect.die(new Error("index write failed"))
         : Effect.void
     }),
-  markBranchStale: () => Effect.succeed([]),
-  clearBranchStale: () => Effect.void,
-  updateBranchChecks: () => Effect.succeed([]),
   deleteTicket: () => Effect.void,
   rebuildProject: () =>
     Effect.succeed({ project: ticketIndexProject, indexed: 0, skipped: 0 }),
@@ -260,6 +252,21 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
     }),
   reconcileAllProjects: () => Effect.succeed({ projects: [], reconciled: 0 })
 } satisfies TicketIndexShape)
+
+const FakeTicketBranchIndex = Layer.succeed(
+  TicketBranchIndex.TicketBranchIndex,
+  {
+    findTicketsByBranch: () => Effect.succeed([]),
+    findStackLayers: () => Effect.succeed([]),
+    stacksFor: () => Effect.succeed(new Map()),
+    findMergesAwaiting: () => Effect.succeed([]),
+    isRepositoryBranchAttached: () => Effect.succeed(false),
+    getBranchDeletedAt: () => Effect.succeed(null),
+    markBranchStale: () => Effect.succeed([]),
+    clearBranchStale: () => Effect.void,
+    updateBranchChecks: () => Effect.succeed([])
+  }
+)
 
 const FakeAttachments = Layer.succeed(Attachments, {
   prepare: () => unexpected("Attachments.prepare"),
@@ -314,6 +321,7 @@ const TestLayer = Layer.unwrap(
       Layer.provide(FakeGroups),
       Layer.provide(FakeUsers),
       Layer.provide(FakeTicketIndex),
+      Layer.provide(FakeTicketBranchIndex),
       Layer.provide(FakeDb),
       Layer.provide(TicketDocumentLock.layer),
       Layer.provide(Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)),

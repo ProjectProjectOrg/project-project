@@ -26,6 +26,7 @@ import { databaseLayer } from "../../test/database"
 import { projectScope } from "../access/testing"
 import { MarkdownError } from "../markdown/Markdown"
 import { Projects, type ProjectsShape } from "../projects/Projects"
+import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
 import {
   MalformedTicketDocument,
   TicketDocs,
@@ -131,22 +132,28 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
   tagUsageCounts: () => unexpected("TicketIndex.tagUsageCounts"),
   findTicketIdsByTag: () => unexpected("TicketIndex.findTicketIdsByTag"),
   findTicketIdsByStatus: () => unexpected("TicketIndex.findTicketIdsByStatus"),
-  findTicketsByBranch: () => unexpected("TicketIndex.findTicketsByBranch"),
-  findStackLayers: () => unexpected("TicketIndex.findStackLayers"),
-  stacksFor: () => unexpected("TicketIndex.stacksFor"),
-  findMergesAwaiting: () => unexpected("TicketIndex.findMergesAwaiting"),
-  isRepositoryBranchAttached: () => Effect.succeed(false),
-  getBranchDeletedAt: () => Effect.succeed(null),
   upsertTicket: () => unexpected("TicketIndex.upsertTicket"),
-  markBranchStale: () => unexpected("TicketIndex.markBranchStale"),
-  clearBranchStale: () => unexpected("TicketIndex.clearBranchStale"),
-  updateBranchChecks: () => unexpected("TicketIndex.updateBranchChecks"),
   deleteTicket: () => unexpected("TicketIndex.deleteTicket"),
   rebuildProject: () => unexpected("TicketIndex.rebuildProject"),
   rebuildAllProjects: () => unexpected("TicketIndex.rebuildAllProjects"),
   reconcileProject: () => unexpected("TicketIndex.reconcileProject"),
   reconcileAllProjects: () => unexpected("TicketIndex.reconcileAllProjects")
 } satisfies TicketIndexShape)
+
+const FakeTicketBranchIndex = Layer.succeed(
+  TicketBranchIndex.TicketBranchIndex,
+  {
+    findTicketsByBranch: () => unexpected("TicketIndex.findTicketsByBranch"),
+    findStackLayers: () => unexpected("TicketIndex.findStackLayers"),
+    stacksFor: () => unexpected("TicketIndex.stacksFor"),
+    findMergesAwaiting: () => unexpected("TicketIndex.findMergesAwaiting"),
+    isRepositoryBranchAttached: () => Effect.succeed(false),
+    getBranchDeletedAt: () => Effect.succeed(null),
+    markBranchStale: () => unexpected("TicketIndex.markBranchStale"),
+    clearBranchStale: () => unexpected("TicketIndex.clearBranchStale"),
+    updateBranchChecks: () => unexpected("TicketIndex.updateBranchChecks")
+  }
+)
 
 const author = {
   id: userId("user-1"),
@@ -213,6 +220,7 @@ const makeLayer = (ticketDocs: TicketDocsShape, database = FakeDb) =>
         Layer.succeed(TicketDocs, ticketDocs),
         FakeProjects,
         FakeTicketIndex,
+        FakeTicketBranchIndex,
         FakeUsers,
         database,
         BunCrypto.layer

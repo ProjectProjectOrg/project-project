@@ -34,6 +34,7 @@ import {
   pickPullRequestTicket,
   pullRequestTicketReferences
 } from "../tickets/pullRequestTicketReference"
+import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
 import {
   TicketDocs,
   type TicketDocsShape,
@@ -75,6 +76,7 @@ export type PullRequestWebhookMatch = Readonly<{
 type PullRequestWebhookDeps = Readonly<{
   ticketDocs: TicketDocsShape
   ticketIndex: TicketIndexShape
+  ticketBranchIndex: TicketBranchIndex.TicketBranchIndex["Service"]
   ticketDocumentLock: TicketDocumentLock.TicketDocumentLock["Service"]
   gitAutomation: ProjectGitAutomationShape
   claimPullRequest?: (
@@ -326,7 +328,7 @@ export const landMergesInto = Effect.fn("GitHubWebhooks.landMergesInto")(
     while (frontier.length > 0) {
       const next: Array<Readonly<{ branch: string; mergedAt: Date }>> = []
       for (const base of frontier) {
-        const waiting = yield* deps.ticketIndex.findMergesAwaiting(
+        const waiting = yield* deps.ticketBranchIndex.findMergesAwaiting(
           projectId,
           base.branch
         )
@@ -416,7 +418,7 @@ export const linkPullRequestWebhookToTicket = Effect.fn(
       change.repositoryId,
       Effect.gen(function* () {
         if (
-          yield* deps.ticketIndex.isRepositoryBranchAttached(
+          yield* deps.ticketBranchIndex.isRepositoryBranchAttached(
             change.repositoryId,
             change.branch
           )
@@ -479,6 +481,7 @@ export const GitHubTicketEventsLive = Layer.effect(
     const sql = yield* SqlClient.SqlClient
     const ticketDocs = yield* TicketDocs
     const ticketIndex = yield* TicketIndex
+    const ticketBranchIndex = yield* TicketBranchIndex.TicketBranchIndex
     const ticketDocumentLock = yield* TicketDocumentLock.TicketDocumentLock
     const gitAutomation = yield* ProjectGitAutomation
     const activeProjectLinksForRepository = Effect.fn(
@@ -582,14 +585,18 @@ export const GitHubTicketEventsLive = Layer.effect(
               const deps = {
                 ticketDocs,
                 ticketIndex,
+                ticketBranchIndex,
                 ticketDocumentLock,
                 gitAutomation,
                 claimPullRequest: (update: GitHubPullRequestWebhookChange) =>
                   rememberPullRequest(db, update)
               }
               const [owners, stacked] = yield* Effect.all([
-                ticketIndex.findTicketsByBranch(link.projectId, change.branch),
-                ticketIndex.findStackLayers(link.projectId, change.branch)
+                ticketBranchIndex.findTicketsByBranch(
+                  link.projectId,
+                  change.branch
+                ),
+                ticketBranchIndex.findStackLayers(link.projectId, change.branch)
               ])
               if (owners.length === 0 && stacked.length === 0) {
                 yield* linkPullRequestWebhookToTicket(
@@ -664,13 +671,13 @@ export const GitHubTicketEventsLive = Layer.effect(
         links,
         (link) =>
           Effect.gen(function* () {
-            const matches = yield* ticketIndex.findTicketsByBranch(
+            const matches = yield* ticketBranchIndex.findTicketsByBranch(
               link.projectId,
               change.branch
             )
             const pending = yield* Effect.filter(matches, (match) =>
               Effect.map(
-                ticketIndex.getBranchDeletedAt(
+                ticketBranchIndex.getBranchDeletedAt(
                   match.orgSlug,
                   match.projectSlug,
                   match.ticketId
@@ -692,7 +699,7 @@ export const GitHubTicketEventsLive = Layer.effect(
                 ),
               { concurrency: 1, discard: true }
             )
-            yield* ticketIndex.markBranchStale(
+            yield* ticketBranchIndex.markBranchStale(
               link.projectId,
               change.branch,
               now
@@ -721,7 +728,7 @@ export const GitHubTicketEventsLive = Layer.effect(
             Effect.forEach(
               links,
               (link) =>
-                ticketIndex
+                ticketBranchIndex
                   .updateBranchChecks(
                     link.projectId,
                     change.branch,

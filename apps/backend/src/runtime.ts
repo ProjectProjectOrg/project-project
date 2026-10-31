@@ -64,6 +64,7 @@ import { S3StorageLive } from "@pp/server-core/storage/S3StorageLive"
 import { SecretCryptoLive } from "@pp/server-core/storage/SecretCryptoLive"
 import { TagsLive } from "@pp/server-core/tags/TagsLive"
 import * as TicketServices from "@pp/server-core/tickets/layer"
+import * as TicketBranchIndex from "@pp/server-core/tickets/TicketBranchIndex"
 import { TicketDocsLive } from "@pp/server-core/tickets/TicketDocsLive"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
 import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
@@ -181,6 +182,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(BannerPlaceholdersLive),
       Layer.provideMerge(UsersLive),
       Layer.provideMerge(TicketIndexLive),
+      Layer.provideMerge(TicketBranchIndex.layer),
       Layer.provideMerge(SlackLive),
       Layer.provideMerge(FeedbackLive),
       Layer.provideMerge(JiraDurableServicesLive),

@@ -10,8 +10,7 @@ import type {
   TicketCountQuery,
   TicketListQuery,
   TicketPageQuery,
-  TicketSort,
-  TicketBranchEntry
+  TicketSort
 } from "@pp/shared"
 import type { NotFound } from "@pp/shared"
 import * as Context from "effect/Context"
@@ -251,54 +250,10 @@ export type TicketIndexShape = Readonly<{
     project: TicketIndexProject,
     status: string
   ) => Effect.Effect<ReadonlyArray<string>>
-  findTicketsByBranch: (
-    projectId: string,
-    branch: string
-  ) => Effect.Effect<ReadonlyArray<TicketIndexMatch>>
-  findStackLayers: (
-    projectId: string,
-    branch: string
-  ) => Effect.Effect<ReadonlyArray<TicketIndexMatch>>
-  stacksFor: (
-    project: TicketIndexProject,
-    ticketIds?: ReadonlyArray<string>
-  ) => Effect.Effect<ReadonlyMap<string, ReadonlyArray<TicketBranchEntry>>>
-  findMergesAwaiting: (
-    projectId: string,
-    base: string
-  ) => Effect.Effect<
-    ReadonlyArray<TicketIndexMatch & Readonly<{ stacked: boolean }>>
-  >
-  isRepositoryBranchAttached: (
-    repoId: string,
-    branch: string,
-    stackedOnly?: boolean
-  ) => Effect.Effect<boolean>
-  getBranchDeletedAt: (
-    orgSlug: string,
-    slug: string,
-    ticketId: string
-  ) => Effect.Effect<Date | null>
   upsertTicket: (
     project: TicketIndexProject,
     document: TicketDocument
   ) => Effect.Effect<void>
-  markBranchStale: (
-    projectId: string,
-    branch: string,
-    deletedAt: Date
-  ) => Effect.Effect<ReadonlyArray<string>>
-  clearBranchStale: (
-    project: TicketIndexProject,
-    ticketIds: ReadonlyArray<string>
-  ) => Effect.Effect<void>
-  updateBranchChecks: (
-    projectId: string,
-    branch: string,
-    checks: ChecksStatus,
-    headSha: string,
-    updatedAt: Date
-  ) => Effect.Effect<ReadonlyArray<string>>
   deleteTicket: (
     project: TicketIndexProject,
     ticketId: string

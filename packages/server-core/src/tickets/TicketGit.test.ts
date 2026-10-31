@@ -40,6 +40,7 @@ import {
   PassthroughLibrary,
   makeTicketsLayer
 } from "./testing"
+import * as TicketBranchIndex from "./TicketBranchIndex"
 import * as TicketCommands from "./TicketCommands"
 import { TicketDocs, type TicketDocsShape } from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
@@ -875,6 +876,7 @@ it.effect("manual unlink waits for a webhook write and remains unlinked", () =>
           {
             ticketDocs: coordinatedDocs,
             ticketIndex: index,
+            ticketBranchIndex: yield* TicketBranchIndex.TicketBranchIndex,
             ticketDocumentLock,
             gitAutomation: gitAutomationTestService()
           },

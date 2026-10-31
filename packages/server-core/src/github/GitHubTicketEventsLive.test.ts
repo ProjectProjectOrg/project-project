@@ -16,6 +16,7 @@ import {
   gitAutomationTestService
 } from "../projects/gitAutomationTesting"
 import { moveForDeletedBranch } from "../tickets/moveByGitAutomation"
+import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
 import {
   MalformedTicketDocument,
   type TicketDocsShape,
@@ -110,9 +111,12 @@ const makeFakeDocs = (initial: ReadonlyArray<TicketDocument>) => {
   return { documents, writes, reads, shape }
 }
 
-const makeFakeIndex = (overrides: Partial<TicketIndexShape> = {}) => {
+type FakeIndexShape = TicketIndexShape &
+  TicketBranchIndex.TicketBranchIndex["Service"]
+
+const makeFakeIndex = (overrides: Partial<FakeIndexShape> = {}) => {
   const upserts: Array<{ projectId: string; ticketId: string }> = []
-  const shape: TicketIndexShape = {
+  const shape: FakeIndexShape = {
     projectsFor: () => Effect.succeed([]),
     assignedTo: () => Effect.succeed([]),
     touchedBy: () => Effect.succeed([]),
@@ -184,6 +188,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
+            ticketBranchIndex: index.shape,
             ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
             gitAutomation: gitAutomationTestService()
           },
@@ -216,6 +221,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
+            ticketBranchIndex: index.shape,
             ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
             gitAutomation: gitAutomationTestService()
           },
@@ -266,6 +272,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
               {
                 ticketDocs: serialDocs,
                 ticketIndex: index.shape,
+                ticketBranchIndex: index.shape,
                 ticketDocumentLock:
                   yield* TicketDocumentLock.TicketDocumentLock,
                 gitAutomation: gitAutomationTestService()
@@ -278,6 +285,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
               {
                 ticketDocs: serialDocs,
                 ticketIndex: index.shape,
+                ticketBranchIndex: index.shape,
                 ticketDocumentLock:
                   yield* TicketDocumentLock.TicketDocumentLock,
                 gitAutomation: gitAutomationTestService()
@@ -309,6 +317,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
+            ticketBranchIndex: index.shape,
             ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
             gitAutomation: gitAutomationTestService()
           },
@@ -347,6 +356,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           {
             ticketDocs: malformedDocs,
             ticketIndex: index.shape,
+            ticketBranchIndex: index.shape,
             ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
             gitAutomation: gitAutomationTestService()
           },
@@ -371,6 +381,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
+            ticketBranchIndex: index.shape,
             ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
             gitAutomation: gitAutomationTestService()
           },
@@ -395,6 +406,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
+            ticketBranchIndex: index.shape,
             ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
             gitAutomation: gitAutomationTestService()
           },
@@ -414,6 +426,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
+            ticketBranchIndex: index.shape,
             ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
             gitAutomation: gitAutomationTestService()
           },
@@ -438,6 +451,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
+            ticketBranchIndex: index.shape,
             ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
             gitAutomation: gitAutomationTestService()
           },
@@ -465,6 +479,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
         const deps = {
           ticketDocs: docs.shape,
           ticketIndex: makeFakeIndex().shape,
+          ticketBranchIndex: makeFakeIndex().shape,
           ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
           gitAutomation: gitAutomationTestService({
             ...DEFAULT_GIT_AUTOMATION_CONFIG,
@@ -503,7 +518,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
   const linkPullRequest = (
     documents: ReadonlyArray<TicketDocument>,
     change: Partial<GitHubPullRequestWebhookChange>,
-    indexOverrides: Partial<TicketIndexShape> = {}
+    indexOverrides: Partial<FakeIndexShape> = {}
   ) =>
     Effect.gen(function* () {
       const docs = makeFakeDocs(documents)
@@ -516,6 +531,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
         {
           ticketDocs: docs.shape,
           ticketIndex: index.shape,
+          ticketBranchIndex: index.shape,
           ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
           gitAutomation: gitAutomationTestService()
         },
@@ -750,6 +766,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
         {
           ticketDocs: docs.shape,
           ticketIndex: makeFakeIndex().shape,
+          ticketBranchIndex: makeFakeIndex().shape,
           ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
           gitAutomation: gitAutomationTestService()
         },
@@ -842,6 +859,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
         const deps = {
           ticketDocs: docs.shape,
           ticketIndex: makeFakeIndex().shape,
+          ticketBranchIndex: makeFakeIndex().shape,
           ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
           gitAutomation: gitAutomationTestService()
         }
@@ -886,6 +904,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
         {
           ticketDocs: docs.shape,
           ticketIndex: index.shape,
+          ticketBranchIndex: index.shape,
           ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
           gitAutomation: gitAutomationTestService(),
           claimPullRequest: () => Effect.succeed(false)
@@ -978,6 +997,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
+            ticketBranchIndex: index.shape,
             ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
             gitAutomation: gitAutomationTestService()
           },
