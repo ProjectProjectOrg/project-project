@@ -15,7 +15,7 @@ const countText = (count: number, noun: string) =>
   `${count} ${count === 1 ? noun.replace(/s$/, "") : noun}`
 
 const rowsText = (items: ReadonlyArray<unknown>, layout: Layout) =>
-  isRows(items) ? items.map((row) => `${layout.row(row)}\n`).join("") : ""
+  isRows(items) ? items.map((row) => `${layout.laterRow(row)}\n`).join("") : ""
 
 const streamRest = <E, R>(
   fetch: (cursor: string) => Effect.Effect<Page, E, R>,

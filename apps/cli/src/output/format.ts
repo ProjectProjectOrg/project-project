@@ -53,18 +53,23 @@ export const tableLayout = (rows: ReadonlyArray<Row>) => {
       )
     )
   )
-  const line = (values: ReadonlyArray<string>) =>
+  const line = (values: ReadonlyArray<string>, cutAt = widths) =>
     values
       .map((value, index) =>
-        value.length > (widths[index] ?? 0)
-          ? `${value.slice(0, (widths[index] ?? 1) - 1)}…`
+        value.length > (cutAt[index] ?? 0)
+          ? `${value.slice(0, (cutAt[index] ?? 1) - 1)}…`
           : value.padEnd(widths[index] ?? 0)
       )
       .join("  ")
       .trimEnd()
   return {
     header: line(picked.map((key) => key.toUpperCase())),
-    row: (row: Row) => line(cellsOf(row))
+    row: (row: Row) => line(cellsOf(row)),
+    laterRow: (row: Row) =>
+      line(
+        cellsOf(row),
+        picked.map(() => 60)
+      )
   }
 }
 
