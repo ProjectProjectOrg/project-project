@@ -40,7 +40,6 @@ import {
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
-import * as Equal from "effect/Equal"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
@@ -69,6 +68,12 @@ import {
 } from "./ticketHierarchy"
 import { TicketIndex, type TicketIndexProject } from "./TicketIndex"
 import {
+  applyTicketPatch,
+  hierarchyChangeOf,
+  requestedChangeOf,
+  ticketChangeOf
+} from "./ticketPatch"
+import {
   documentToTicket,
   indexProjectOf,
   requirePolicy,
@@ -96,22 +101,6 @@ const requireSplit = (
       defaultStatus: DEFAULT_STATUS
     })
   )
-
-const changed = <A>(next: A | undefined, current: A) =>
-  next !== undefined && next !== current
-
-const estimateChanged = (
-  next: Estimate | null | undefined,
-  current: Estimate | undefined
-) => next !== undefined && !Equal.equals(next ?? undefined, current)
-
-const listChanged = (
-  next: ReadonlyArray<string> | undefined,
-  current: ReadonlyArray<string>
-) =>
-  next !== undefined &&
-  (next.length !== current.length ||
-    next.some((value, index) => value !== current[index]))
 
 export type TicketUpdateExpectation = Readonly<{
   body?: string
@@ -637,22 +626,13 @@ const make = Effect.gen(function* () {
                   reason: "ticket_body_changed"
                 })
               }
-              const content =
-                changed(input.title, existing.title) ||
-                changed(input.type, existing.type) ||
-                changed(input.priority, existing.priority) ||
-                (input.parent !== undefined &&
-                  (input.parent ?? undefined) !== existing.parent) ||
-                estimateChanged(input.estimate, existing.estimate) ||
-                changed(body, existing.body) ||
-                listChanged(input.tags, existing.tags)
-              const status = changed(input.status, existing.status)
-              const assignees = listChanged(input.assignees, existing.assignees)
-              yield* requireTicketChange({
-                content: content || (!status && !assignees),
-                status,
-                assignees
-              })
+              const next = applyTicketPatch(
+                existing,
+                { ...input, body },
+                userId,
+                existing.updatedAt
+              )
+              yield* requireTicketChange(ticketChangeOf(existing, next))
               if (input.assignees !== undefined) {
                 const existingSet = new Set(existing.assignees)
                 const newcomers = input.assignees.filter(
@@ -662,20 +642,12 @@ const make = Effect.gen(function* () {
                   yield* validateAssigneesAreMembers(newcomers)
                 }
               }
-              const type = input.type ?? existing.type
-              const parent =
-                input.parent === undefined
-                  ? existing.parent
-                  : (input.parent ?? undefined)
-              yield* validateHierarchy(hierarchyLookups(indexProject, userId), {
-                id: existing.id,
-                fromType: existing.type,
-                type,
-                parent,
-                parentChanged: parent !== existing.parent
-              })
+              yield* validateHierarchy(
+                hierarchyLookups(indexProject, userId),
+                hierarchyChangeOf(existing, next)
+              )
               if (
-                type === "epic" &&
+                next.type === "epic" &&
                 existing.type !== "epic" &&
                 (yield* groups.list()).some(
                   (group) =>
@@ -686,27 +658,7 @@ const make = Effect.gen(function* () {
               ) {
                 return yield* new Validation({ reason: "epic_in_sprint" })
               }
-              return {
-                ...existing,
-                title: input.title ?? existing.title,
-                status: input.status ?? existing.status,
-                type,
-                parent,
-                priority: input.priority ?? existing.priority,
-                estimate:
-                  input.estimate !== undefined
-                    ? (input.estimate ?? undefined)
-                    : existing.estimate,
-                tags:
-                  input.tags !== undefined ? [...input.tags] : existing.tags,
-                assignees:
-                  input.assignees !== undefined
-                    ? input.assignees
-                    : existing.assignees,
-                updatedBy: userId,
-                updatedAt: yield* DateTime.nowAsDate,
-                body: body ?? existing.body
-              }
+              return { ...next, updatedAt: yield* DateTime.nowAsDate }
             }),
           (next) =>
             (input.body === undefined
@@ -864,6 +816,17 @@ const make = Effect.gen(function* () {
     )
   })
 
+  const restoreTicket = (
+    orgSlug: string,
+    slug: string,
+    indexProject: TicketIndexProject,
+    id: string,
+    original: TicketDocument
+  ) =>
+    ticketDocs
+      .write(orgSlug, slug, id, original)
+      .pipe(Effect.andThen(ticketIndex.upsertTicket(indexProject, original)))
+
   const discardSplitResult = (
     orgSlug: string,
     slug: string,
@@ -899,13 +862,7 @@ const make = Effect.gen(function* () {
       (document) => discardSplitResult(orgSlug, slug, indexProject, document),
       { discard: true }
     ).pipe(
-      Effect.andThen(
-        ticketDocs
-          .write(orgSlug, slug, id, original)
-          .pipe(
-            Effect.andThen(ticketIndex.upsertTicket(indexProject, original))
-          )
-      )
+      Effect.andThen(restoreTicket(orgSlug, slug, indexProject, id, original))
     )
 
   const split = Effect.fn("TicketCommands.split")(function* (
@@ -1294,19 +1251,7 @@ const make = Effect.gen(function* () {
     const { sprint, ...fields } = input.patch
     const touchesTickets = Object.keys(fields).length > 0
     if (touchesTickets) {
-      const status = fields.status !== undefined
-      const assignees = fields.assignees !== undefined
-      yield* requireTicketChange({
-        content:
-          fields.type !== undefined ||
-          fields.priority !== undefined ||
-          fields.estimate !== undefined ||
-          fields.tags !== undefined ||
-          fields.parent !== undefined ||
-          (!status && !assignees),
-        status,
-        assignees
-      })
+      yield* requireTicketChange(requestedChangeOf(fields))
     }
     const indexProject = indexProjectOf(scope)
     if (fields.status !== undefined) {
@@ -1334,11 +1279,7 @@ const make = Effect.gen(function* () {
           written.some((next) => next.id === original.id)
         ),
         (original) =>
-          ticketDocs
-            .write(orgSlug, slug, original.id, original)
-            .pipe(
-              Effect.andThen(ticketIndex.upsertTicket(indexProject, original))
-            ),
+          restoreTicket(orgSlug, slug, indexProject, original.id, original),
         { discard: true }
       ).pipe(Effect.ignore)
     const { originals, nexts } = yield* withTicketLocks(
@@ -1353,50 +1294,19 @@ const make = Effect.gen(function* () {
         const lookups = hierarchyLookups(indexProject, userId)
         const nexts: Array<TicketDocument> = []
         for (const existing of originals) {
-          const type = fields.type ?? existing.type
-          const parent =
-            fields.parent === undefined
-              ? existing.parent
-              : (fields.parent ?? undefined)
-          yield* validateHierarchy(lookups, {
-            id: existing.id,
-            fromType: existing.type,
-            type,
-            parent,
-            parentChanged: parent !== existing.parent
-          })
+          const patched = applyTicketPatch(existing, fields, userId, now)
+          yield* validateHierarchy(
+            lookups,
+            hierarchyChangeOf(existing, patched)
+          )
           const plannedInSprint =
             sprint === undefined
               ? openSprints.some((group) => group.tickets.includes(existing.id))
               : sprint !== null
-          if (type === "epic" && plannedInSprint) {
+          if (patched.type === "epic" && plannedInSprint) {
             return yield* new Validation({ reason: "epic_in_sprint" })
           }
-          nexts.push(
-            touchesTickets
-              ? {
-                  ...existing,
-                  status: fields.status ?? existing.status,
-                  type,
-                  priority: fields.priority ?? existing.priority,
-                  estimate:
-                    fields.estimate !== undefined
-                      ? (fields.estimate ?? undefined)
-                      : existing.estimate,
-                  tags:
-                    fields.tags !== undefined
-                      ? [...fields.tags]
-                      : existing.tags,
-                  assignees:
-                    fields.assignees !== undefined
-                      ? [...fields.assignees]
-                      : existing.assignees,
-                  parent,
-                  updatedBy: userId,
-                  updatedAt: now
-                }
-              : existing
-          )
+          nexts.push(touchesTickets ? patched : existing)
         }
 
         if (touchesTickets) {
