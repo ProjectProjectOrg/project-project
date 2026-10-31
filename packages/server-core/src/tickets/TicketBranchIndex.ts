@@ -93,20 +93,10 @@ export class TicketBranchIndex extends Context.Service<
 const make = Effect.gen(function* () {
   const db = yield* Db
 
-  const findTicketsByBranch = (
-    projectId: string,
-    branch: string
-  ): Effect.Effect<
-    ReadonlyArray<{
-      readonly orgSlug: string
-      readonly organizationId: string
-      readonly projectId: string
-      readonly projectSlug: string
-      readonly ticketId: string
-      readonly branch: string
-    }>
-  > =>
-    db
+  const findTicketsByBranch = Effect.fn(
+    "TicketBranchIndex.findTicketsByBranch"
+  )(function* (projectId: string, branch: string) {
+    return yield* db
       .select({
         orgSlug: organization.slug,
         organizationId: ticketIndex.organizationId,
@@ -132,6 +122,7 @@ const make = Effect.gen(function* () {
         ),
         Effect.orDie
       )
+  })
 
   const stackLayerMatches = (where: SQL | undefined) =>
     db
@@ -148,22 +139,22 @@ const make = Effect.gen(function* () {
       .innerJoin(organization, eq(organization.id, projectIndex.organizationId))
       .where(where)
 
-  const findStackLayers = (
-    projectId: string,
-    branch: string
-  ): Effect.Effect<ReadonlyArray<TicketIndexMatch>> =>
-    stackLayerMatches(
-      and(
-        eq(ticketBranch.projectId, projectId),
-        eq(ticketBranch.branch, branch)
-      )
-    ).pipe(Effect.orDie)
+  const findStackLayers = Effect.fn("TicketBranchIndex.findStackLayers")(
+    function* (projectId: string, branch: string) {
+      return yield* stackLayerMatches(
+        and(
+          eq(ticketBranch.projectId, projectId),
+          eq(ticketBranch.branch, branch)
+        )
+      ).pipe(Effect.orDie)
+    }
+  )
 
-  const stacksFor = (
+  const stacksFor = Effect.fn("TicketBranchIndex.stacksFor")(function* (
     project: TicketIndexProject,
     ticketIds?: ReadonlyArray<string>
-  ): Effect.Effect<ReadonlyMap<string, ReadonlyArray<TicketBranchEntry>>> =>
-    ticketIds !== undefined && ticketIds.length === 0
+  ) {
+    return yield* ticketIds !== undefined && ticketIds.length === 0
       ? Effect.succeed(new Map())
       : db
           .select()
@@ -189,67 +180,64 @@ const make = Effect.gen(function* () {
             }),
             Effect.orDie
           )
+  })
 
-  const findMergesAwaiting = (
-    projectId: string,
-    base: string
-  ): Effect.Effect<
-    ReadonlyArray<TicketIndexMatch & Readonly<{ stacked: boolean }>>
-  > =>
-    Effect.all([
-      db
-        .select({
-          orgSlug: organization.slug,
-          organizationId: projectIndex.organizationId,
-          projectId: ticketIndex.projectId,
-          projectSlug: projectIndex.slug,
-          ticketId: ticketIndex.ticketId,
-          branch: ticketIndex.branch
-        })
-        .from(ticketIndex)
-        .innerJoin(projectIndex, eq(projectIndex.id, ticketIndex.projectId))
-        .innerJoin(
-          organization,
-          eq(organization.id, projectIndex.organizationId)
-        )
-        .where(
-          and(
-            eq(ticketIndex.projectId, projectId),
-            eq(ticketIndex.prBase, base),
-            eq(ticketIndex.prState, "merged"),
-            isNotNull(ticketIndex.pr),
-            or(
-              isNull(ticketIndex.lastTransitionedPr),
-              ne(ticketIndex.lastTransitionedPr, ticketIndex.pr)
-            )
+  const findMergesAwaiting = Effect.fn("TicketBranchIndex.findMergesAwaiting")(
+    function* (projectId: string, base: string) {
+      return yield* Effect.all([
+        db
+          .select({
+            orgSlug: organization.slug,
+            organizationId: projectIndex.organizationId,
+            projectId: ticketIndex.projectId,
+            projectSlug: projectIndex.slug,
+            ticketId: ticketIndex.ticketId,
+            branch: ticketIndex.branch
+          })
+          .from(ticketIndex)
+          .innerJoin(projectIndex, eq(projectIndex.id, ticketIndex.projectId))
+          .innerJoin(
+            organization,
+            eq(organization.id, projectIndex.organizationId)
           )
-        ),
-      stackLayerMatches(
-        and(
-          eq(ticketBranch.projectId, projectId),
-          eq(ticketBranch.base, base),
-          eq(ticketBranch.prState, "merged"),
-          eq(ticketBranch.landed, false)
+          .where(
+            and(
+              eq(ticketIndex.projectId, projectId),
+              eq(ticketIndex.prBase, base),
+              eq(ticketIndex.prState, "merged"),
+              isNotNull(ticketIndex.pr),
+              or(
+                isNull(ticketIndex.lastTransitionedPr),
+                ne(ticketIndex.lastTransitionedPr, ticketIndex.pr)
+              )
+            )
+          ),
+        stackLayerMatches(
+          and(
+            eq(ticketBranch.projectId, projectId),
+            eq(ticketBranch.base, base),
+            eq(ticketBranch.prState, "merged"),
+            eq(ticketBranch.landed, false)
+          )
         )
+      ]).pipe(
+        Effect.map(([own, stacked]) => [
+          ...own.flatMap((row) =>
+            row.branch === null
+              ? []
+              : [{ ...row, branch: row.branch, stacked: false }]
+          ),
+          ...stacked.map((row) => ({ ...row, stacked: true }))
+        ]),
+        Effect.orDie
       )
-    ]).pipe(
-      Effect.map(([own, stacked]) => [
-        ...own.flatMap((row) =>
-          row.branch === null
-            ? []
-            : [{ ...row, branch: row.branch, stacked: false }]
-        ),
-        ...stacked.map((row) => ({ ...row, stacked: true }))
-      ]),
-      Effect.orDie
-    )
+    }
+  )
 
-  const isRepositoryBranchAttached = (
-    repoId: string,
-    branch: string,
-    stackedOnly = false
-  ) =>
-    db
+  const isRepositoryBranchAttached = Effect.fn(
+    "TicketBranchIndex.isRepositoryBranchAttached"
+  )(function* (repoId: string, branch: string, stackedOnly = false) {
+    return yield* db
       .select({ ticketId: ticketIndex.ticketId })
       .from(ticketIndex)
       .innerJoin(
@@ -291,96 +279,100 @@ const make = Effect.gen(function* () {
         Effect.map((rows) => rows.length > 0),
         Effect.orDie
       )
+  })
 
-  const getBranchDeletedAt = (
-    orgSlug: string,
-    slug: string,
-    id: string
-  ): Effect.Effect<Date | null> =>
-    db
-      .select({ branchDeletedAt: ticketIndex.branchDeletedAt })
-      .from(ticketIndex)
-      .innerJoin(projectIndex, eq(projectIndex.id, ticketIndex.projectId))
-      .innerJoin(organization, eq(organization.id, projectIndex.organizationId))
-      .where(
-        and(
-          eq(organization.slug, orgSlug),
-          eq(projectIndex.slug, slug),
-          publishedProject(),
-          eq(ticketIndex.ticketId, id)
+  const getBranchDeletedAt = Effect.fn("TicketBranchIndex.getBranchDeletedAt")(
+    function* (orgSlug: string, slug: string, id: string) {
+      return yield* db
+        .select({ branchDeletedAt: ticketIndex.branchDeletedAt })
+        .from(ticketIndex)
+        .innerJoin(projectIndex, eq(projectIndex.id, ticketIndex.projectId))
+        .innerJoin(
+          organization,
+          eq(organization.id, projectIndex.organizationId)
         )
-      )
-      .limit(1)
-      .pipe(
-        Effect.map((rows) => rows[0]?.branchDeletedAt ?? null),
-        Effect.orDie
-      )
-
-  const markBranchStale = (
-    projectId: string,
-    branch: string,
-    deletedAt: Date
-  ): Effect.Effect<ReadonlyArray<string>> =>
-    db
-      .update(ticketIndex)
-      .set({ branchDeletedAt: deletedAt })
-      .where(
-        and(
-          eq(ticketIndex.projectId, projectId),
-          eq(ticketIndex.branch, branch),
-          isNull(ticketIndex.branchDeletedAt)
-        )
-      )
-      .returning({ ticketId: ticketIndex.ticketId })
-      .pipe(
-        Effect.map((rows) => rows.map((row) => row.ticketId)),
-        Effect.orDie
-      )
-
-  const clearBranchStale = (
-    project: TicketIndexProject,
-    ticketIds: ReadonlyArray<string>
-  ): Effect.Effect<void> => {
-    if (ticketIds.length === 0) return Effect.void
-    return db
-      .update(ticketIndex)
-      .set({ branchDeletedAt: null })
-      .where(
-        and(
-          eq(ticketIndex.projectId, project.projectId),
-          inArray(ticketIndex.ticketId, [...ticketIds])
-        )
-      )
-      .pipe(Effect.asVoid, Effect.orDie)
-  }
-
-  const updateBranchChecks = (
-    projectId: string,
-    branch: string,
-    checks: ChecksStatus,
-    headSha: string,
-    updatedAt: Date
-  ): Effect.Effect<ReadonlyArray<string>> =>
-    db
-      .update(ticketIndex)
-      .set({ checks, checksHeadSha: headSha, checksUpdatedAt: updatedAt })
-      .where(
-        and(
-          eq(ticketIndex.projectId, projectId),
-          eq(ticketIndex.branch, branch),
-          or(
-            isNull(ticketIndex.checksUpdatedAt),
-            lt(ticketIndex.checksUpdatedAt, updatedAt)
+        .where(
+          and(
+            eq(organization.slug, orgSlug),
+            eq(projectIndex.slug, slug),
+            publishedProject(),
+            eq(ticketIndex.ticketId, id)
           )
         )
-      )
-      .returning({ ticketId: ticketIndex.ticketId })
-      .pipe(
-        Effect.map((rows) => rows.map((row) => row.ticketId)),
-        Effect.orDie
-      )
+        .limit(1)
+        .pipe(
+          Effect.map((rows) => rows[0]?.branchDeletedAt ?? null),
+          Effect.orDie
+        )
+    }
+  )
 
-  return {
+  const markBranchStale = Effect.fn("TicketBranchIndex.markBranchStale")(
+    function* (projectId: string, branch: string, deletedAt: Date) {
+      return yield* db
+        .update(ticketIndex)
+        .set({ branchDeletedAt: deletedAt })
+        .where(
+          and(
+            eq(ticketIndex.projectId, projectId),
+            eq(ticketIndex.branch, branch),
+            isNull(ticketIndex.branchDeletedAt)
+          )
+        )
+        .returning({ ticketId: ticketIndex.ticketId })
+        .pipe(
+          Effect.map((rows) => rows.map((row) => row.ticketId)),
+          Effect.orDie
+        )
+    }
+  )
+
+  const clearBranchStale = Effect.fn("TicketBranchIndex.clearBranchStale")(
+    function* (project: TicketIndexProject, ticketIds: ReadonlyArray<string>) {
+      if (ticketIds.length === 0) return
+      yield* db
+        .update(ticketIndex)
+        .set({ branchDeletedAt: null })
+        .where(
+          and(
+            eq(ticketIndex.projectId, project.projectId),
+            inArray(ticketIndex.ticketId, [...ticketIds])
+          )
+        )
+        .pipe(Effect.orDie)
+    }
+  )
+
+  const updateBranchChecks = Effect.fn("TicketBranchIndex.updateBranchChecks")(
+    function* (
+      projectId: string,
+      branch: string,
+      checks: ChecksStatus,
+      headSha: string,
+      updatedAt: Date
+    ) {
+      return yield* db
+        .update(ticketIndex)
+        .set({ checks, checksHeadSha: headSha, checksUpdatedAt: updatedAt })
+        .where(
+          and(
+            eq(ticketIndex.projectId, projectId),
+            eq(ticketIndex.branch, branch),
+            or(
+              isNull(ticketIndex.checksUpdatedAt),
+              lt(ticketIndex.checksUpdatedAt, updatedAt)
+            )
+          )
+        )
+        .returning({ ticketId: ticketIndex.ticketId })
+        .pipe(
+          Effect.map((rows) => rows.map((row) => row.ticketId)),
+          Effect.orDie
+        )
+    }
+  )
+
+  return TicketBranchIndex.of({
     findTicketsByBranch,
     findStackLayers,
     stacksFor,
@@ -390,7 +382,7 @@ const make = Effect.gen(function* () {
     markBranchStale,
     clearBranchStale,
     updateBranchChecks
-  }
+  })
 })
 
 export const layer = Layer.effect(TicketBranchIndex, make)
