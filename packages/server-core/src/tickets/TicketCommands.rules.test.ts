@@ -427,6 +427,72 @@ it.effect("bulkUpdate patches every ticket and plans them in one call", () => {
   }).pipe(Effect.provide(layer))
 })
 
+it.effect(
+  "update keeps a former member who is still assigned while bulkUpdate rejects them",
+  () => {
+    const docs = makeFakeTicketDocs([])
+    docs.documents.set(
+      "T-1",
+      makeTicketDocument("T-1", { assignees: ["former-1"] })
+    )
+    docs.documents.set(
+      "T-2",
+      makeTicketDocument("T-2", { assignees: ["former-1"] })
+    )
+    const layer = makeTicketsLayer("T", docs.layer, {
+      ticketIndex: makeFakeTicketIndex(docs.documents)
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* TicketCommands.TicketCommands
+      const updated = yield* tickets.update("T-1", {
+        assignees: ["former-1", "user-2"]
+      })
+      const error = yield* tickets
+        .bulkUpdate({
+          tickets: [ticketId("T-2")],
+          patch: { assignees: ["former-1", "user-2"] }
+        })
+        .pipe(Effect.flip)
+
+      expect(updated.ticket.assignees).toEqual(["former-1", "user-2"])
+      expect(error).toMatchObject({
+        _tag: "Validation",
+        reason: "non_member_assignees:former-1"
+      })
+      expect(docs.documents.get("T-2")?.assignees).toEqual(["former-1"])
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "update edits an epic already in an open sprint while bulkUpdate rejects it",
+  () => {
+    const docs = makeFakeTicketDocs([])
+    docs.documents.set("T-1", makeTicketDocument("T-1", { type: "epic" }))
+    const layer = makeTicketsLayer("T", docs.layer, {
+      ticketIndex: makeFakeTicketIndex(docs.documents),
+      groups: makeFakeGroups({
+        list: () =>
+          Effect.succeed([{ ...bulkSprint, tickets: [ticketId("T-1")] }])
+      })
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* TicketCommands.TicketCommands
+      const updated = yield* tickets.update("T-1", { priority: "high" })
+      const error = yield* tickets
+        .bulkUpdate({ tickets: [ticketId("T-1")], patch: { priority: "low" } })
+        .pipe(Effect.flip)
+
+      expect(updated.ticket.priority).toBe("high")
+      expect(error).toMatchObject({
+        _tag: "Validation",
+        reason: "epic_in_sprint"
+      })
+      expect(docs.documents.get("T-1")?.priority).toBe("high")
+    }).pipe(Effect.provide(layer))
+  }
+)
+
 it.effect("bulkUpdate writes nothing when one ticket breaks a rule", () => {
   const { docs, layer } = makeBulkFixture(() => unexpected("Groups.addTickets"))
   return Effect.gen(function* () {
