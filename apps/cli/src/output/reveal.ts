@@ -2,7 +2,7 @@ import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
 
 import { markWith } from "./mark"
-import type { Terminal } from "./terminal"
+import { type Terminal, visibleWidth } from "./terminal"
 
 const indent = (lines: ReadonlyArray<string>) =>
   lines.map((line) => (line === "" ? "" : `  ${line}`))
@@ -23,9 +23,13 @@ export const animate = (
   terminal: Terminal,
   frames = 26
 ) => {
-  const height = draw(1).length
-  if (!terminal.fancy || height >= (process.stdout.rows ?? 0)) {
-    return Console.log(draw(1).join("\n"))
+  const lines = draw(1)
+  const height = lines.length
+  const fits =
+    height < (process.stdout.rows ?? 0) &&
+    lines.every((line) => visibleWidth(line) < (process.stdout.columns ?? 0))
+  if (!terminal.fancy || !fits) {
+    return Console.log(lines.join("\n"))
   }
   const frame = (index: number) =>
     write(

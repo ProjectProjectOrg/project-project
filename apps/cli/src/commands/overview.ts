@@ -1,4 +1,4 @@
-import { Tools } from "@pp/shared"
+import { pickActiveSprint, Tools } from "@pp/shared"
 import { Command } from "effect/cli"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -31,11 +31,13 @@ export const overviewCommand = Command.make("overview", {}, () =>
           scope,
           Tools.tools.list_statuses.successSchema
         ),
-        callToolAs(
-          server,
-          "list_sprints",
-          { ...scope, state: "active", limit: 1 },
-          Tools.tools.list_sprints.successSchema
+        allPages((cursor) =>
+          callToolAs(
+            server,
+            "list_sprints",
+            { ...scope, state: "active", ...page(cursor) },
+            Tools.tools.list_sprints.successSchema
+          )
         ),
         allPages((cursor) =>
           callToolAs(
@@ -48,12 +50,13 @@ export const overviewCommand = Command.make("overview", {}, () =>
       ],
       { concurrency: "unbounded" }
     ).pipe(withLoading(`Reading ${org.value}/${project.value}`))
+    const now = DateTime.setZone(yield* DateTime.now, DateTime.zoneMakeLocal())
     const overview = summarize({
       scope: `${org.value}/${project.value}`,
       statuses: statuses.statuses,
       tickets,
-      sprint: sprints.items[0],
-      now: DateTime.setZone(yield* DateTime.now, DateTime.zoneMakeLocal())
+      sprint: pickActiveSprint(sprints, DateTime.toDateUtc(now)) ?? undefined,
+      now
     })
     if (flags.json) return yield* printResult(overview, true)
     const terminal = stdoutTerminal()
