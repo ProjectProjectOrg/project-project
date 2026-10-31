@@ -1,8 +1,8 @@
-// Thin handlers for the `tickets` HttpApi group. All logic in Tickets.
+// Thin handlers for the `tickets` HttpApi group. All logic in TicketQueries, TicketCommands and TicketGit.
 
+import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
-import { Tickets } from "@pp/server-core/tickets/Tickets"
 import { AppApi, Validation } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/http-api"
@@ -60,18 +60,18 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
         ).pipe(dieOnMarkdown)
       )
       .handle("quickCreate", ({ payload }) =>
-        Effect.flatMap(Tickets, (tickets) => tickets.quickCreate(payload)).pipe(
-          dieOnMarkdown
-        )
+        Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+          commands.quickCreate(payload)
+        ).pipe(dieOnMarkdown)
       )
       .handle("create", ({ payload }) =>
-        Effect.flatMap(Tickets, (tickets) => tickets.create(payload)).pipe(
-          dieOnMarkdown
-        )
+        Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+          commands.create(payload)
+        ).pipe(dieOnMarkdown)
       )
       .handle("clearStaleEstimates", () =>
-        Effect.flatMap(Tickets, (tickets) =>
-          tickets.clearStaleEstimates()
+        Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+          commands.clearStaleEstimates()
         ).pipe(dieOnMarkdown)
       )
       .handle("get", ({ params }) =>
@@ -80,28 +80,28 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
         ).pipe(dieOnMarkdown)
       )
       .handle("update", ({ params, payload, query }) =>
-        Effect.flatMap(Tickets, (tickets) =>
-          tickets.update(params.id, payload, query.sort)
+        Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+          commands.update(params.id, payload, query.sort)
         ).pipe(dieOnMarkdown, Effect.catchTag("Conflict", Effect.die))
       )
       .handle("bulkUpdate", ({ payload }) =>
-        Effect.flatMap(Tickets, (tickets) => tickets.bulkUpdate(payload)).pipe(
-          dieOnMarkdown
-        )
+        Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+          commands.bulkUpdate(payload)
+        ).pipe(dieOnMarkdown)
       )
       .handle("delete", ({ params, query }) =>
-        Effect.flatMap(Tickets, (tickets) =>
-          tickets.remove(params.id, query)
+        Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+          commands.remove(params.id, query)
         ).pipe(dieOnMarkdown)
       )
       .handle("split", ({ params, payload }) =>
-        Effect.flatMap(Tickets, (tickets) =>
-          tickets.split(params.id, payload)
+        Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+          commands.split(params.id, payload)
         ).pipe(dieOnMarkdown)
       )
       .handle("archive", ({ params, payload }) =>
-        Effect.flatMap(Tickets, (tickets) =>
-          tickets.archive(params.id, payload.reason)
+        Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+          commands.archive(params.id, payload.reason)
         ).pipe(
           Effect.catchTag("InvalidCommentBody", (error) =>
             Effect.fail(new Validation({ reason: error.reason }))
@@ -110,9 +110,9 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
         )
       )
       .handle("unarchive", ({ params }) =>
-        Effect.flatMap(Tickets, (tickets) => tickets.unarchive(params.id)).pipe(
-          dieOnMarkdown
-        )
+        Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+          commands.unarchive(params.id)
+        ).pipe(dieOnMarkdown)
       )
       .handle("createBranch", ({ params, payload }) =>
         Effect.flatMap(TicketGit.TicketGit, (git) =>

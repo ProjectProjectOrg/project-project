@@ -17,6 +17,7 @@ import { Projects } from "@pp/server-core/projects/Projects"
 import { ProjectStatuses } from "@pp/server-core/projects/ProjectStatuses"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import { Tags } from "@pp/server-core/tags/Tags"
+import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import {
@@ -24,7 +25,6 @@ import {
   type TicketIndexProject
 } from "@pp/server-core/tickets/TicketIndex"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
-import { Tickets } from "@pp/server-core/tickets/Tickets"
 import { Users } from "@pp/server-core/users/Users"
 import {
   blockLookupFor,
@@ -151,7 +151,8 @@ const capturedListLimits: Array<number | undefined> = []
 const capturedListQueries: Array<TicketListQuery> = []
 
 const TicketsStub = Layer.mergeAll(
-  Layer.mergeAll(Layer.mock(Tickets, {}), Layer.mock(TicketGit.TicketGit, {})),
+  Layer.mock(TicketCommands.TicketCommands, {}),
+  Layer.mock(TicketGit.TicketGit, {}),
   Layer.mock(TicketQueries.TicketQueries, {
     list: (query: TicketListQuery, limit?: number) => {
       capturedListLimits.push(limit)
@@ -310,7 +311,7 @@ const TestLayer = Layer.mergeAll(
 )
 
 describe("MCP handlers → list_tickets", () => {
-  it.effect("threads the requested limit through to Tickets.list", () =>
+  it.effect("threads the requested limit through to TicketQueries.list", () =>
     Effect.gen(function* () {
       capturedListLimits.length = 0
       capturedListQueries.length = 0
@@ -634,47 +635,45 @@ describe("MCP handlers → write tools", () => {
   } = {}
 
   const WriteTicketsStub = Layer.mergeAll(
-    Layer.mergeAll(
-      Layer.mock(Tickets, {
-        create: (input) => {
-          captured.create = input
-          return Effect.succeed({ ...fakeTicketDetail, ...input })
-        },
-        update: (_id, input) => {
-          captured.update = input
-          return Effect.succeed({
-            ticket: {
-              ...fakeTicketDetail,
-              tags: input.tags ?? fakeTicketDetail.tags,
-              assignees: input.assignees ?? fakeTicketDetail.assignees
-            },
-            orderKey: null
-          })
-        },
-        archive: (id, reason) => {
-          captured.archive = { id, reason }
-          if (id === "T-2") {
-            return Effect.fail(
-              new Conflict({ reason: "ticket_already_archived" })
-            )
-          }
-          return Effect.succeed({
+    Layer.mock(TicketCommands.TicketCommands, {
+      create: (input) => {
+        captured.create = input
+        return Effect.succeed({ ...fakeTicketDetail, ...input })
+      },
+      update: (_id, input) => {
+        captured.update = input
+        return Effect.succeed({
+          ticket: {
             ...fakeTicketDetail,
-            archivedAt: isoDate("2026-05-11T00:00:00.000Z")
-          })
-        },
-        unarchive: (_id) => Effect.succeed(fakeTicketDetail)
-      }),
-      Layer.mock(TicketGit.TicketGit, {
-        attachBranch: (_id, input) => {
-          captured.attach = input
-          if (input.name === "missing/branch") {
-            return Effect.fail(new BranchNotFound({ name: input.name }))
-          }
-          return Effect.succeed({ ...fakeTicketDetail, branch: input.name })
+            tags: input.tags ?? fakeTicketDetail.tags,
+            assignees: input.assignees ?? fakeTicketDetail.assignees
+          },
+          orderKey: null
+        })
+      },
+      archive: (id, reason) => {
+        captured.archive = { id, reason }
+        if (id === "T-2") {
+          return Effect.fail(
+            new Conflict({ reason: "ticket_already_archived" })
+          )
         }
-      })
-    ),
+        return Effect.succeed({
+          ...fakeTicketDetail,
+          archivedAt: isoDate("2026-05-11T00:00:00.000Z")
+        })
+      },
+      unarchive: (_id) => Effect.succeed(fakeTicketDetail)
+    }),
+    Layer.mock(TicketGit.TicketGit, {
+      attachBranch: (_id, input) => {
+        captured.attach = input
+        if (input.name === "missing/branch") {
+          return Effect.fail(new BranchNotFound({ name: input.name }))
+        }
+        return Effect.succeed({ ...fakeTicketDetail, branch: input.name })
+      }
+    }),
     Layer.mock(TicketQueries.TicketQueries, {
       get: (_id) =>
         Effect.succeed({
@@ -1126,39 +1125,35 @@ describe("MCP handlers → update_ticket with a template or edits", () => {
   } = { currentBody: "" }
 
   const TemplateTicketsStub = Layer.mergeAll(
-    Layer.mergeAll(
-      Layer.mock(Tickets, {
-        create: (input) =>
-          Effect.succeed({
+    Layer.mock(TicketCommands.TicketCommands, {
+      create: (input) =>
+        Effect.succeed({
+          ...fakeTicket,
+          creator: null,
+          updater: null,
+          title: input.title,
+          body: input.body ?? ""
+        }),
+      update: (_id, input, _sort, expected) => {
+        state.update = input
+        if (
+          expected?.body !== undefined &&
+          state.currentBody !== expected.body
+        ) {
+          return Effect.fail(new Validation({ reason: "ticket_body_changed" }))
+        }
+        return Effect.succeed({
+          ticket: {
             ...fakeTicket,
             creator: null,
             updater: null,
-            title: input.title,
-            body: input.body ?? ""
-          }),
-        update: (_id, input, _sort, expected) => {
-          state.update = input
-          if (
-            expected?.body !== undefined &&
-            state.currentBody !== expected.body
-          ) {
-            return Effect.fail(
-              new Validation({ reason: "ticket_body_changed" })
-            )
-          }
-          return Effect.succeed({
-            ticket: {
-              ...fakeTicket,
-              creator: null,
-              updater: null,
-              body: input.body ?? state.currentBody
-            },
-            orderKey: null
-          })
-        }
-      }),
-      Layer.mock(TicketGit.TicketGit, {})
-    ),
+            body: input.body ?? state.currentBody
+          },
+          orderKey: null
+        })
+      }
+    }),
+    Layer.mock(TicketGit.TicketGit, {}),
     Layer.mock(TicketQueries.TicketQueries, {
       get: (_id) => {
         const body = state.currentBody
@@ -1411,23 +1406,21 @@ describe("MCP handlers → update_ticket with a template or edits", () => {
     () => {
       let seen: unknown
       const ExpectingTicketsStub = Layer.mergeAll(
-        Layer.mergeAll(
-          Layer.mock(Tickets, {
-            update: (_id, input, _sort, expected) => {
-              seen = expected
-              return Effect.succeed({
-                ticket: {
-                  ...fakeTicket,
-                  creator: null,
-                  updater: null,
-                  body: input.body ?? ""
-                },
-                orderKey: null
-              })
-            }
-          }),
-          Layer.mock(TicketGit.TicketGit, {})
-        ),
+        Layer.mock(TicketCommands.TicketCommands, {
+          update: (_id, input, _sort, expected) => {
+            seen = expected
+            return Effect.succeed({
+              ticket: {
+                ...fakeTicket,
+                creator: null,
+                updater: null,
+                body: input.body ?? ""
+              },
+              orderKey: null
+            })
+          }
+        }),
+        Layer.mock(TicketGit.TicketGit, {}),
         Layer.mock(TicketQueries.TicketQueries, {})
       )
       return Effect.gen(function* () {
@@ -1497,10 +1490,8 @@ describe("MCP handlers → add_tickets_to_group", () => {
     Layer.mergeAll(
       TestLayer,
       Layer.mergeAll(
-        Layer.mergeAll(
-          Layer.mock(Tickets, {}),
-          Layer.mock(TicketGit.TicketGit, {})
-        ),
+        Layer.mock(TicketCommands.TicketCommands, {}),
+        Layer.mock(TicketGit.TicketGit, {}),
         Layer.mock(TicketQueries.TicketQueries, {})
       ),
       groupsLayer
@@ -1638,10 +1629,8 @@ describe("MCP handlers → sprint writes", () => {
     Layer.mergeAll(
       TestLayer,
       Layer.mergeAll(
-        Layer.mergeAll(
-          Layer.mock(Tickets, {}),
-          Layer.mock(TicketGit.TicketGit, {})
-        ),
+        Layer.mock(TicketCommands.TicketCommands, {}),
+        Layer.mock(TicketGit.TicketGit, {}),
         Layer.mock(TicketQueries.TicketQueries, {})
       ),
       groupsLayer

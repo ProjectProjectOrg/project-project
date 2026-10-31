@@ -11,11 +11,11 @@ import { Projects } from "@pp/server-core/projects/Projects"
 import { ProjectStatuses } from "@pp/server-core/projects/ProjectStatuses"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import { Tags } from "@pp/server-core/tags/Tags"
+import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
-import { Tickets } from "@pp/server-core/tickets/Tickets"
 
 export const toolDependencies = [
   Access,
@@ -35,7 +35,7 @@ export const toolDependencies = [
   TicketGit.TicketGit,
   TicketIndex,
   TicketQueries.TicketQueries,
-  Tickets
+  TicketCommands.TicketCommands
 ] as const
 
 export type ToolServices = (typeof toolDependencies)[number]["Identifier"]

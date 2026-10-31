@@ -27,11 +27,11 @@ import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
 import { Projects, type ProjectsShape } from "@pp/server-core/projects/Projects"
 import * as TicketServices from "@pp/server-core/tickets/layer"
+import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import { TicketDocsLive } from "@pp/server-core/tickets/TicketDocsLive"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
 import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
-import { Tickets } from "@pp/server-core/tickets/Tickets"
 import { Users, type UsersShape } from "@pp/server-core/users/Users"
 import {
   ActivityActor,
@@ -667,7 +667,7 @@ const benchmarkProgram = (
   projectId: string
 ) =>
   Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const commands = yield* TicketCommands.TicketCommands
     const queries = yield* TicketQueries.TicketQueries
     const results: Array<BenchmarkResult> = []
     const fixtures = Array.from({ length: options.ticketCount }, (_, index) =>
@@ -887,7 +887,7 @@ const benchmarkProgram = (
     yield* measure("update-metadata", (sample) => {
       const title = `Updated benchmark ticket ${sample}`
       return verify(
-        tickets.update(targetId(sample), {
+        commands.update(targetId(sample), {
           title
         }),
         ({ ticket }) => ticket.title === title,
@@ -897,7 +897,7 @@ const benchmarkProgram = (
     yield* measure("update-body", (sample) => {
       const body = makeBody(sample)
       return verify(
-        tickets.update(targetId(sample), {
+        commands.update(targetId(sample), {
           body
         }),
         ({ ticket }) => ticket.body === body,
@@ -907,7 +907,7 @@ const benchmarkProgram = (
     yield* measure("update-body-with-ticket-mentions", (sample) => {
       const body = `${makeBody(sample)}\n\nSee [first](mention:ticket/T-1), [middle](mention:ticket/T-${Math.max(1, Math.floor(options.ticketCount / 2))}), and [last](mention:ticket/T-${options.ticketCount}).\n`
       return verify(
-        tickets.update(targetId(sample), {
+        commands.update(targetId(sample), {
           body
         }),
         ({ ticket }) => ticket.body === body,
@@ -919,7 +919,7 @@ const benchmarkProgram = (
       const title = `Created benchmark ticket ${sample}`
       const body = makeBody(sample)
       return verify(
-        tickets.create({ title, body }),
+        commands.create({ title, body }),
         (ticket) => {
           const unique = !createdIds.has(ticket.id)
           createdIds.add(ticket.id)

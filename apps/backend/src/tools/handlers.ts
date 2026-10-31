@@ -10,11 +10,11 @@ import * as Projects from "@pp/server-core/projects/Projects"
 import { ProjectStatuses } from "@pp/server-core/projects/ProjectStatuses"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import { Tags } from "@pp/server-core/tags/Tags"
+import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
-import { Tickets } from "@pp/server-core/tickets/Tickets"
 import {
   blockLookupFor,
   expandTemplateKeepingHints,
@@ -347,7 +347,7 @@ const create_ticket = (
   input: { orgSlug: string; projectSlug: string } & CreateTicketInput
 ) =>
   Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const commands = yield* TicketCommands.TicketCommands
     const {
       orgSlug: _orgSlug,
       projectSlug: _projectSlug,
@@ -356,7 +356,7 @@ const create_ticket = (
     } = input
     const sanitizedBody =
       body === undefined ? undefined : yield* sanitizeMcpBody(body)
-    const created = yield* tickets.create({
+    const created = yield* commands.create({
       ...payload,
       ...(sanitizedBody === undefined ? {} : { body: sanitizedBody })
     })
@@ -407,7 +407,7 @@ const update_ticket = (
   } & UpdateTicketInput
 ) =>
   Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const commands = yield* TicketCommands.TicketCommands
     const {
       orgSlug: _orgSlug,
       projectSlug: _projectSlug,
@@ -430,7 +430,7 @@ const update_ticket = (
             : undefined
       const nextBody =
         body !== undefined ? yield* sanitizeMcpBody(body) : pending?.body
-      return yield* tickets.update(
+      return yield* commands.update(
         id,
         {
           ...payload,
@@ -466,8 +466,8 @@ const update_ticket = (
 const archive_ticket = (
   input: Tool.Parameters<typeof Tools.tools.archive_ticket>
 ) =>
-  Effect.flatMap(Tickets, (tickets) =>
-    tickets.archive(input.id, input.reason)
+  Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+    commands.archive(input.id, input.reason)
   ).pipe(
     Effect.catchTag("InvalidCommentBody", (error) =>
       Effect.fail(new Validation({ reason: error.reason }))
@@ -476,7 +476,10 @@ const archive_ticket = (
 
 const restore_ticket = (
   input: Tool.Parameters<typeof Tools.tools.restore_ticket>
-) => Effect.flatMap(Tickets, (tickets) => tickets.unarchive(input.id))
+) =>
+  Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+    commands.unarchive(input.id)
+  )
 
 const prepare_ticket_attachment = (
   input: Tool.Parameters<typeof Tools.tools.prepare_ticket_attachment>

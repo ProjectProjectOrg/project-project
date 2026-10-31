@@ -23,13 +23,13 @@ import { Projects } from "@pp/server-core/projects/Projects"
 import { ProjectsLive } from "@pp/server-core/projects/ProjectsLive"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import { S3Storage } from "@pp/server-core/storage/S3Storage"
+import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
 import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
-import { Tickets } from "@pp/server-core/tickets/Tickets"
 import { Users } from "@pp/server-core/users/Users"
 import {
   ActivityActor,
@@ -259,10 +259,8 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
         Layer.provide(TicketsHandlerLive),
         Layer.provideMerge(
           Layer.mergeAll(
-            Layer.mergeAll(
-              Layer.mock(Tickets, {}),
-              Layer.mock(TicketGit.TicketGit, {})
-            ),
+            Layer.mock(TicketCommands.TicketCommands, {}),
+            Layer.mock(TicketGit.TicketGit, {}),
             Layer.mock(TicketQueries.TicketQueries, {})
           )
         ),

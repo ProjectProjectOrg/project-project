@@ -12,11 +12,11 @@ import * as Projects from "@pp/server-core/projects/Projects"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import * as Tags from "@pp/server-core/tags/Tags"
+import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
-import * as Tickets from "@pp/server-core/tickets/Tickets"
 import * as Users from "@pp/server-core/users/Users"
 import {
   CurrentUser,
@@ -79,10 +79,8 @@ const unused = Layer.mergeAll(
   Layer.mock(AttachmentUploads.AttachmentUploads, {}),
   Layer.mock(Projects.Projects, {}),
   Layer.mergeAll(
-    Layer.mergeAll(
-      Layer.mock(Tickets.Tickets, {}),
-      Layer.mock(TicketGit.TicketGit, {})
-    ),
+    Layer.mock(TicketCommands.TicketCommands, {}),
+    Layer.mock(TicketGit.TicketGit, {}),
     Layer.mock(TicketQueries.TicketQueries, {})
   ),
   Layer.mock(Comments.Comments, {}),

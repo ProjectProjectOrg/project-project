@@ -24,31 +24,28 @@ import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
 import { databaseLayer } from "../../test/database"
-import { accessLayer, projectScope } from "../access/testing"
+import { projectScope } from "../access/testing"
 import {
   recordingActivityLayer,
   type RecordedActivity
 } from "../activity/testing"
 import { Attachments, type AttachmentsShape } from "../attachments/Attachments"
-import { Comments, type CommentsShape } from "../comments/Comments"
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
-import { GitHub, type GitHubShape } from "../github/GitHub"
 import { Groups, type GroupsShape } from "../groups/Groups"
 import { Library } from "../library/Library"
 import * as KeyedLock from "../locks/KeyedLock"
 import { MarkdownError } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
-import { gitAutomationTestLayer } from "../projects/gitAutomationTesting"
 import { ProjectDocs } from "../projects/ProjectDocs"
 import { Projects, type ProjectsShape } from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
-import * as TicketServices from "./layer"
+import * as TicketCommands from "./TicketCommands"
 import { TicketDocs } from "./TicketDocs"
 import { TicketDocsLive } from "./TicketDocsLive"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import { TicketIndex, type TicketIndexShape } from "./TicketIndex"
-import { Tickets } from "./Tickets"
+import * as TicketView from "./TicketView"
 
 const decodeProjectKey = Schema.decodeUnknownSync(ProjectKey)
 const decodeTagName = Schema.decodeUnknownSync(TagName)
@@ -189,25 +186,6 @@ const FakeGroups = Layer.succeed(Groups, {
   removeTicketFromAllGroups: () => Effect.void
 } satisfies GroupsShape)
 
-const FakeGitHub = Layer.succeed(GitHub, {
-  listInstallationRepos: () => unexpected("GitHub.listInstallationRepos"),
-  verifyInstallationRepo: () => unexpected("GitHub.verifyInstallationRepo"),
-  createBranchAsUser: () => unexpected("GitHub.createBranchAsUser"),
-  openPullRequestAsUser: () => unexpected("GitHub.openPullRequestAsUser"),
-  fetchInstallationProjectStates: () =>
-    unexpected("GitHub.fetchInstallationProjectStates"),
-  listInstallationBranches: () => unexpected("GitHub.listInstallationBranches"),
-  branchExistsInstallation: () => unexpected("GitHub.branchExistsInstallation")
-} satisfies GitHubShape)
-
-const FakeComments = Layer.succeed(Comments, {
-  list: () => unexpected("Comments.list"),
-  create: () => unexpected("Comments.create"),
-  edit: () => unexpected("Comments.edit"),
-  remove: () => unexpected("Comments.remove"),
-  importHistorical: () => unexpected("Comments.importHistorical")
-} satisfies CommentsShape)
-
 const fakeUser = (id: string): User => ({
   id: decodeUserId(id),
   email: `${id}@example.com`,
@@ -324,8 +302,8 @@ const TestLayer = Layer.unwrap(
     const tmpRoot = yield* fs.makeTempDirectoryScoped({
       prefix: "projectproject-split-"
     })
-    return TicketServices.layer.pipe(
-      Layer.provide(gitAutomationTestLayer()),
+    return TicketCommands.layer.pipe(
+      Layer.provide(TicketView.layer),
       Layer.provide(Layer.mock(ProjectDocs, {})),
       Layer.provide(PassthroughLibrary),
       Layer.provideMerge(TicketDocsLive),
@@ -334,14 +312,11 @@ const TestLayer = Layer.unwrap(
       Layer.provide(FakeFigmaLinks),
       Layer.provide(FakeProjects),
       Layer.provide(FakeGroups),
-      Layer.provide(FakeComments),
       Layer.provide(FakeUsers),
-      Layer.provide(FakeGitHub),
       Layer.provide(FakeTicketIndex),
       Layer.provide(FakeDb),
       Layer.provide(TicketDocumentLock.layer),
       Layer.provide(Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)),
-      Layer.provide(accessLayer({})),
       Layer.merge(
         Layer.succeed(
           ProjectScope,
@@ -401,7 +376,7 @@ const result = (
 })
 
 const seedOriginal = Effect.gen(function* () {
-  const tickets = yield* Tickets
+  const tickets = yield* TicketCommands.TicketCommands
   return yield* tickets.create({
     title: "Rework the detail page",
     type: "feat",
@@ -416,7 +391,7 @@ const seedOriginal = Effect.gen(function* () {
 it.effect("split retains the original and creates the remaining tickets", () =>
   Effect.gen(function* () {
     yield* resetFakes
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const docs = yield* TicketDocs
     const original = yield* seedOriginal
 
@@ -475,7 +450,7 @@ it.effect("split retains the original and creates the remaining tickets", () =>
 it.effect("split keeps the new tickets in the original's epic", () =>
   Effect.gen(function* () {
     yield* resetFakes
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const docs = yield* TicketDocs
     const original = yield* seedOriginal
     const epicId = decodeTicketId("T-99")
@@ -497,7 +472,7 @@ it.effect("split keeps the new tickets in the original's epic", () =>
 it.effect("split rejects fewer than two results", () =>
   Effect.gen(function* () {
     yield* resetFakes
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const original = yield* seedOriginal
 
     const attempt = yield* Effect.result(
@@ -517,7 +492,7 @@ it.effect("split refuses a sprint the caller may not change", () =>
   Effect.gen(function* () {
     yield* resetFakes
     sprintAssignable = false
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const root = yield* Config.String("PROJECTS_DIR")
@@ -547,7 +522,7 @@ it.effect("split refuses a sprint the caller may not change", () =>
 it.effect("split restores the original when a later write fails", () =>
   Effect.gen(function* () {
     yield* resetFakes
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const docs = yield* TicketDocs
     const original = yield* seedOriginal
 
@@ -573,7 +548,7 @@ it.effect("split restores the original when a later write fails", () =>
 it.effect("split removes created tickets when the original update fails", () =>
   Effect.gen(function* () {
     yield* resetFakes
-    const tickets = yield* Tickets
+    const tickets = yield* TicketCommands.TicketCommands
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const root = yield* Config.String("PROJECTS_DIR")
@@ -603,7 +578,7 @@ it.effect(
   () =>
     Effect.gen(function* () {
       yield* resetFakes
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       const docs = yield* TicketDocs
       const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
@@ -660,7 +635,7 @@ const scopedAs = (role: "developer" | "client", userId: string) =>
   )
 
 const seedClientTicket = Effect.gen(function* () {
-  const tickets = yield* Tickets
+  const tickets = yield* TicketCommands.TicketCommands
   const created = yield* tickets
     .create({ title: "Client request", type: "feat" })
     .pipe(scopedAs("client", "client-1"))
@@ -676,7 +651,7 @@ it.effect(
     Effect.gen(function* () {
       yield* resetFakes
       sprintAssignable = false
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       const original = yield* seedOriginal
       const sprintId = decodeGroupId("G-1")
       sprintMemberships.set(original.id, sprintId)
@@ -702,7 +677,7 @@ it.effect(
   () =>
     Effect.gen(function* () {
       yield* resetFakes
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       const original = yield* seedOriginal
       const sprintId = decodeGroupId("G-1")
       sprintMemberships.set(original.id, sprintId)
@@ -739,7 +714,7 @@ it.effect(
   () =>
     Effect.gen(function* () {
       yield* resetFakes
-      const tickets = yield* Tickets
+      const tickets = yield* TicketCommands.TicketCommands
       const docs = yield* TicketDocs
       const { ticket: original } = yield* seedClientTicket
       yield* docs.update("org", "p", original.id, (existing) =>
