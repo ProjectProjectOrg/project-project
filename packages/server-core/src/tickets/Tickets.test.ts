@@ -62,6 +62,7 @@ import {
 } from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
 import type { GitAutomationConfig } from "./gitAutomation"
+import * as TicketServices from "./layer"
 import {
   TicketDocs,
   type TicketDocsShape,
@@ -75,8 +76,8 @@ import {
   type TicketIndexShape
 } from "./TicketIndex"
 import { TICKET_ORDER_KEY_SEPARATOR } from "./TicketIndexLive"
+import * as TicketQueries from "./TicketQueries"
 import { Tickets } from "./Tickets"
-import { TicketsLive } from "./TicketsLive"
 
 const decodeGroupSync = Schema.decodeSync(Group)
 
@@ -795,7 +796,7 @@ function makeTicketsLayer(
   ticketDocsLayer: Layer.Layer<TicketDocs>,
   options: TicketsLayerOptions = {}
 ) {
-  return TicketsLive.pipe(
+  return TicketServices.layer.pipe(
     Layer.provide(gitAutomationTestLayer(options.gitAutomation)),
     Layer.provide(PassthroughLibrary),
     Layer.provide(passthroughTicketActivity),
@@ -832,7 +833,7 @@ it.effect("listGitStates fetches only distinct ticket branches", () => {
   docs.documents.set("T-3", makeTicketDocument("T-3", { branch: "bug/T-3" }))
 
   const fetchedBranches: string[][] = []
-  const layer = TicketsLive.pipe(
+  const layer = TicketServices.layer.pipe(
     Layer.provide(gitAutomationTestLayer()),
     Layer.provide(PassthroughLibrary),
     Layer.provide(passthroughTicketActivity),
@@ -902,7 +903,7 @@ it.effect(
     const indexedTicket = makeTicketDocument("T-1", {
       branch: "feat/T-1-old"
     })
-    const layer = TicketsLive.pipe(
+    const layer = TicketServices.layer.pipe(
       Layer.provide(gitAutomationTestLayer()),
       Layer.provide(PassthroughLibrary),
       Layer.provide(passthroughTicketActivity),
@@ -2031,8 +2032,8 @@ it.effect("get uses persisted prState for the fallback git state", () => {
   })
 
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const ticket = yield* tickets.get("T-1")
+    const queries = yield* TicketQueries.TicketQueries
+    const ticket = yield* queries.get("T-1")
 
     expect(ticket.gitState).toEqual({
       tag: "pr_merged",
@@ -2314,8 +2315,8 @@ it.effect("epicSections groups tickets under their epic, then No epic", () => {
     ticketIndex: makeFakeTicketIndex(docs.documents)
   })
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const result = yield* tickets.epicSections({
+    const queries = yield* TicketQueries.TicketQueries
+    const result = yield* queries.epicSections({
       sort: DEFAULT_TICKET_SORT
     })
 
@@ -2456,8 +2457,8 @@ it.effect("list reads ticket index rows", () => {
   const docs = makeFakeTicketDocs(["T-1"])
 
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const result = yield* tickets.list({
+    const queries = yield* TicketQueries.TicketQueries
+    const result = yield* queries.list({
       sort: DEFAULT_TICKET_SORT
     })
 
@@ -2507,8 +2508,8 @@ it.effect(
     })
 
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
-      const result = yield* tickets.list({
+      const queries = yield* TicketQueries.TicketQueries
+      const result = yield* queries.list({
         sort: DEFAULT_TICKET_SORT,
         groupId: ["ungrouped"]
       })
@@ -2545,8 +2546,8 @@ it.effect("list ungrouped filter excludes tickets in a planned sprint", () => {
   })
 
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const result = yield* tickets.list({
+    const queries = yield* TicketQueries.TicketQueries
+    const result = yield* queries.list({
       sort: DEFAULT_TICKET_SORT,
       groupId: ["ungrouped"]
     })
@@ -2587,8 +2588,8 @@ it.effect("list defaults to created desc", () => {
   )
 
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const result = yield* tickets.list({
+    const queries = yield* TicketQueries.TicketQueries
+    const result = yield* queries.list({
       sort: DEFAULT_TICKET_SORT
     })
 
@@ -2608,11 +2609,11 @@ it.effect("list sorts by title asc", () => {
   documents.set("T-3", makeTicketDocument("T-3", { title: "B" }))
 
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const queries = yield* TicketQueries.TicketQueries
     const query: TicketListQuery = {
       sort: { key: "title", dir: "asc" }
     }
-    const result = yield* tickets.list(query)
+    const result = yield* queries.list(query)
 
     expect(result.items.map((row) => row.ticket.title)).toEqual(["A", "B", "C"])
   }).pipe(Effect.provide(layer))
@@ -2623,6 +2624,7 @@ it.effect("list paginates by cursor", () => {
   const total = TICKET_LIST_LIMIT + 5
   return Effect.gen(function* () {
     const tickets = yield* Tickets
+    const queries = yield* TicketQueries.TicketQueries
     for (let i = 0; i < total; i++) {
       yield* tickets.create({ title: `t-${i}` })
     }
@@ -2630,11 +2632,11 @@ it.effect("list paginates by cursor", () => {
     const sortById: TicketListQuery = {
       sort: { key: "id", dir: "asc" }
     }
-    const page1 = yield* tickets.list(sortById)
+    const page1 = yield* queries.list(sortById)
     expect(page1.items.length).toBe(TICKET_LIST_LIMIT)
     expect(page1.nextCursor).not.toBeNull()
 
-    const page2 = yield* tickets.list({
+    const page2 = yield* queries.list({
       ...sortById,
       cursor: page1.nextCursor ?? undefined
     })
@@ -2664,8 +2666,8 @@ it.effect("list paginates by cursor with default created desc sort", () => {
   }
 
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const page1 = yield* tickets.list({
+    const queries = yield* TicketQueries.TicketQueries
+    const page1 = yield* queries.list({
       sort: DEFAULT_TICKET_SORT
     })
     expect(page1.items.length).toBe(TICKET_LIST_LIMIT)
@@ -2675,7 +2677,7 @@ it.effect("list paginates by cursor with default created desc sort", () => {
       expect(page1Times[i - 1]).toBeGreaterThan(page1Times[i])
     }
 
-    const page2 = yield* tickets.list({
+    const page2 = yield* queries.list({
       sort: DEFAULT_TICKET_SORT,
       cursor: page1.nextCursor ?? undefined
     })
@@ -2697,11 +2699,12 @@ it.effect("list honors an explicit limit override", () => {
   const { layer } = makeTicketsFixture("T", [])
   return Effect.gen(function* () {
     const tickets = yield* Tickets
+    const queries = yield* TicketQueries.TicketQueries
     for (let i = 0; i < 10; i++) {
       yield* tickets.create({ title: `t-${i}` })
     }
 
-    const page = yield* tickets.list({ sort: { key: "id", dir: "asc" } }, 3)
+    const page = yield* queries.list({ sort: { key: "id", dir: "asc" } }, 3)
     expect(page.items.length).toBe(3)
     expect(page.nextCursor).not.toBeNull()
   }).pipe(Effect.provide(layer))
@@ -2711,6 +2714,7 @@ it.effect("list filters by q and substitutes mine to viewerId", () => {
   const { layer } = makeTicketsFixture("T", [])
   return Effect.gen(function* () {
     const tickets = yield* Tickets
+    const queries = yield* TicketQueries.TicketQueries
     yield* tickets.create({
       title: "hello world",
       assignees: ["user-1"]
@@ -2720,13 +2724,13 @@ it.effect("list filters by q and substitutes mine to viewerId", () => {
       assignees: ["user-2"]
     })
 
-    const byQ = yield* tickets.list({
+    const byQ = yield* queries.list({
       sort: DEFAULT_TICKET_SORT,
       q: "hello"
     })
     expect(byQ.items.map((row) => row.ticket.title)).toEqual(["hello world"])
 
-    const mine = yield* tickets.list({
+    const mine = yield* queries.list({
       sort: DEFAULT_TICKET_SORT,
       assignee: ["mine"]
     })
@@ -2737,8 +2741,8 @@ it.effect("list filters by q and substitutes mine to viewerId", () => {
 it.effect("count returns zeros for every status on empty project", () => {
   const { layer } = makeTicketsFixture("T", [])
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const result = yield* tickets.count({})
+    const queries = yield* TicketQueries.TicketQueries
+    const result = yield* queries.count({})
     expect(result).toEqual({
       total: 0,
       byStatus: {}
@@ -2774,8 +2778,8 @@ it.effect("count aggregates byStatus across a mixed-status project", () => {
   )
 
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const result = yield* tickets.count({})
+    const queries = yield* TicketQueries.TicketQueries
+    const result = yield* queries.count({})
     expect(result).toEqual({
       total: 6,
       byStatus: { todo: 3, in_progress: 2, done: 1 }
@@ -2813,8 +2817,8 @@ it.effect(
     )
 
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
-      const result = yield* tickets.count({
+      const queries = yield* TicketQueries.TicketQueries
+      const result = yield* queries.count({
         status: [ticketStatus("done")]
       })
       expect(result).toEqual({
@@ -2855,8 +2859,8 @@ it.effect("count still applies non-status filters", () => {
   )
 
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const result = yield* tickets.count({
+    const queries = yield* TicketQueries.TicketQueries
+    const result = yield* queries.count({
       type: ["bug"]
     })
     expect(result).toEqual({
@@ -2891,8 +2895,8 @@ it.effect("count substitutes mine to viewerId like list", () => {
   )
 
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const result = yield* tickets.count({
+    const queries = yield* TicketQueries.TicketQueries
+    const result = yield* queries.count({
       assignee: ["mine"]
     })
     expect(result).toEqual({
@@ -2933,8 +2937,8 @@ for (const scenario of [
         })
       })
       return Effect.gen(function* () {
-        const tickets = yield* Tickets
-        const detail = yield* tickets.get("T-1")
+        const queries = yield* TicketQueries.TicketQueries
+        const detail = yield* queries.get("T-1")
         expect(detail.gitState.tag).toBe(scenario.tag)
         expect(projectReads).toBe(0)
         expect(indexReads).toBe(scenario.indexReads)
@@ -2952,11 +2956,12 @@ it.effect(
     })
     return Effect.gen(function* () {
       const tickets = yield* Tickets
+      const queries = yield* TicketQueries.TicketQueries
       const sort = { key: "title", dir: "asc" } as const
       const updated = yield* tickets.update("T-2", { title: "Zulu" }, sort)
       expect(updated.ticket.title).toBe("Zulu")
 
-      const page = yield* tickets.list({ sort })
+      const page = yield* queries.list({ sort })
       const row = page.items.find((item) => item.ticket.id === "T-2")
       expect(updated.orderKey).toBe(row?.orderKey)
       expect(page.items.map((item) => item.ticket.id)).toEqual([
@@ -2991,7 +2996,8 @@ it.effect(
     })
     return Effect.gen(function* () {
       const tickets = yield* Tickets
-      const read = yield* tickets.get("T-1")
+      const queries = yield* TicketQueries.TicketQueries
+      const read = yield* queries.get("T-1")
       docs.documents.set(
         "T-1",
         makeTicketDocument("T-1", { body: "A concurrent edit" })
@@ -3019,7 +3025,8 @@ it.effect("rejects an update when the ticket changed after it was read", () => {
   })
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const read = yield* tickets.get("T-1")
+    const queries = yield* TicketQueries.TicketQueries
+    const read = yield* queries.get("T-1")
     docs.documents.set(
       "T-1",
       makeTicketDocument("T-1", {
@@ -3146,9 +3153,9 @@ it.effect(
       })
     )
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const queries = yield* TicketQueries.TicketQueries
       const query = { q: "needle", sort: { key: "id", dir: "asc" } } as const
-      const snapshot = yield* tickets.sections(query)
+      const snapshot = yield* queries.sections(query)
       expect(snapshot.counts).toEqual({
         total: 53,
         byStatus: { todo: 52, in_progress: 1 }
@@ -3161,7 +3168,7 @@ it.effect(
           ({ ticket }) => ticket.id
         )
       ).toEqual(["T-53"])
-      const next = yield* tickets.list({
+      const next = yield* queries.list({
         ...query,
         status: [ticketStatus("todo")],
         cursor: todo.nextCursor ?? undefined
@@ -3171,7 +3178,7 @@ it.effect(
         "T-52"
       ])
       expect(next.nextCursor).toBeNull()
-      const selected = yield* tickets.sections({
+      const selected = yield* queries.sections({
         ...query,
         status: [ticketStatus("in_progress")]
       })
@@ -3253,9 +3260,9 @@ it.effect(
       groups: makeFakeSprintGroups([g1, g2])
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const queries = yield* TicketQueries.TicketQueries
       const query = { sort: { key: "id", dir: "asc" } } as const
-      const snapshot = yield* tickets.sprintSections(query)
+      const snapshot = yield* queries.sprintSections(query)
       expect(snapshot.total).toBe(53)
       const g1Section = snapshot.sections.find(
         (section) => section.key === g1.id
@@ -3273,7 +3280,7 @@ it.effect(
       expect(unscheduled?.page.items.map(({ ticket }) => ticket.id)).toEqual([
         "T-53"
       ])
-      const next = yield* tickets.list({
+      const next = yield* queries.list({
         ...query,
         groupId: [g1.id],
         cursor: g1Section?.page.nextCursor ?? undefined
@@ -3283,7 +3290,7 @@ it.effect(
         "T-52"
       ])
       expect(next.nextCursor).toBeNull()
-      const selected = yield* tickets.sprintSections({
+      const selected = yield* queries.sprintSections({
         ...query,
         groupId: [g2.id]
       })
@@ -3315,18 +3322,18 @@ it.effect(
       groups: makeFakeSprintGroups([g1, g2])
     })
     return Effect.gen(function* () {
-      const tickets = yield* Tickets
+      const queries = yield* TicketQueries.TicketQueries
       const query = {
         sort: { key: "id", dir: "asc" },
         status: [ticketStatus("review")]
       } as const
-      const all = yield* tickets.sprintSections(query)
+      const all = yield* queries.sprintSections(query)
       expect(all.total).toBe(2)
       expect(all.counts).toEqual({
         total: 4,
         byStatus: { todo: 2, review: 2 }
       })
-      const selected = yield* tickets.sprintSections({
+      const selected = yield* queries.sprintSections({
         ...query,
         groupId: [g1.id]
       })
@@ -3337,7 +3344,7 @@ it.effect(
         total: 2,
         byStatus: { todo: 1, review: 1 }
       })
-      const repeated = yield* tickets.sprintSections({
+      const repeated = yield* queries.sprintSections({
         ...query,
         status: [ticketStatus("review"), ticketStatus("review")],
         groupId: [g1.id, g1.id]
@@ -3367,8 +3374,8 @@ it.effect("sprintSections assigns each ticket to one section", () => {
     groups: makeFakeSprintGroups([done, active])
   })
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const snapshot = yield* tickets.sprintSections({
+    const queries = yield* TicketQueries.TicketQueries
+    const snapshot = yield* queries.sprintSections({
       sort: { key: "id", dir: "asc" }
     })
     const doneSection = snapshot.sections.find(
@@ -3395,15 +3402,15 @@ it.effect("sprintSections assigns each ticket to one section", () => {
       sort: { key: "id", dir: "asc" },
       groupId: ["ungrouped"]
     } as const
-    const ungroupedList = yield* tickets.list(ungroupedQuery)
-    const ungroupedSections = yield* tickets.sprintSections(ungroupedQuery)
+    const ungroupedList = yield* queries.list(ungroupedQuery)
+    const ungroupedSections = yield* queries.sprintSections(ungroupedQuery)
     expect(ungroupedSections.sections).toHaveLength(1)
     expect(
       ungroupedSections.sections[0]?.page.items.map(({ ticket }) => ticket.id)
     ).toEqual(ungroupedList.items.map(({ ticket }) => ticket.id))
     expect(ungroupedSections.counts.total).toBe(2)
 
-    const completedOnly = yield* tickets.sprintSections({
+    const completedOnly = yield* queries.sprintSections({
       ...ungroupedQuery,
       groupId: [done.id]
     })
@@ -3411,7 +3418,7 @@ it.effect("sprintSections assigns each ticket to one section", () => {
       completedOnly.sections[0]?.page.items.map(({ ticket }) => ticket.id)
     ).toEqual(["T-1", "T-2"])
 
-    const both = yield* tickets.sprintSections({
+    const both = yield* queries.sprintSections({
       ...ungroupedQuery,
       groupId: ["ungrouped", done.id]
     })
@@ -3737,11 +3744,11 @@ it.effect(
 it.effect("hides GitHub state from anyone without github:read", () => {
   const { layer } = permissionFixture()
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const developerView = yield* tickets
+    const queries = yield* TicketQueries.TicketQueries
+    const developerView = yield* queries
       .get("T-1")
       .pipe(as(scopeAs("member", "developer", "user-1")))
-    const clientView = yield* tickets
+    const clientView = yield* queries
       .get("T-1")
       .pipe(as(scopeAs("guest", "client", "client-1")))
     expect(developerView.branch).toBe("feat/T-1")
@@ -3759,25 +3766,25 @@ it.effect("refuses GitHub filters to anyone without github:read", () => {
   const { layer } = permissionFixture()
   const client = as(scopeAs("guest", "client", "client-1"))
   return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const withBranch = yield* tickets
+    const queries = yield* TicketQueries.TicketQueries
+    const withBranch = yield* queries
       .list({ sort: DEFAULT_TICKET_SORT, hasBranch: true })
       .pipe(as(scopeAs("member", "developer", "user-1")))
     expect(withBranch.items.map(({ ticket }) => ticket.id)).toEqual(["T-1"])
     const refused = [
       yield* Effect.flip(
-        tickets
+        queries
           .list({ sort: DEFAULT_TICKET_SORT, hasBranch: true })
           .pipe(client)
       ),
-      yield* Effect.flip(tickets.count({ hasPr: false }).pipe(client)),
+      yield* Effect.flip(queries.count({ hasPr: false }).pipe(client)),
       yield* Effect.flip(
-        tickets
+        queries
           .sections({ sort: DEFAULT_TICKET_SORT, hasPr: true })
           .pipe(client)
       ),
       yield* Effect.flip(
-        tickets
+        queries
           .sprintSections({ sort: DEFAULT_TICKET_SORT, hasBranch: false })
           .pipe(client)
       )
@@ -3788,7 +3795,7 @@ it.effect("refuses GitHub filters to anyone without github:read", () => {
       "Forbidden",
       "Forbidden"
     ])
-    const unfiltered = yield* tickets
+    const unfiltered = yield* queries
       .list({ sort: DEFAULT_TICKET_SORT })
       .pipe(client)
     expect(unfiltered.items).toHaveLength(2)
@@ -3799,7 +3806,8 @@ it.effect("keeps org admins without a role from editing", () => {
   const { docs, layer } = permissionFixture()
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const adminView = yield* tickets
+    const queries = yield* TicketQueries.TicketQueries
+    const adminView = yield* queries
       .get("T-1")
       .pipe(as(scopeAs("admin", null, "admin-1")))
     const adminEdit = yield* Effect.flip(

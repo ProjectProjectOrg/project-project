@@ -43,12 +43,12 @@ import { gitAutomationTestLayer } from "../projects/gitAutomationTesting"
 import { ProjectDocs } from "../projects/ProjectDocs"
 import { Projects, type ProjectsShape } from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
+import * as TicketServices from "./layer"
 import { TicketDocs } from "./TicketDocs"
 import { TicketDocsLive } from "./TicketDocsLive"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import { TicketIndex, type TicketIndexShape } from "./TicketIndex"
 import { Tickets } from "./Tickets"
-import { TicketsLive } from "./TicketsLive"
 
 const decodeProjectKey = Schema.decodeUnknownSync(ProjectKey)
 const decodeTagName = Schema.decodeUnknownSync(TagName)
@@ -324,7 +324,7 @@ const TestLayer = Layer.unwrap(
     const tmpRoot = yield* fs.makeTempDirectoryScoped({
       prefix: "projectproject-split-"
     })
-    return TicketsLive.pipe(
+    return TicketServices.layer.pipe(
       Layer.provide(gitAutomationTestLayer()),
       Layer.provide(Layer.mock(ProjectDocs, {})),
       Layer.provide(PassthroughLibrary),

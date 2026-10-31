@@ -13,6 +13,7 @@ import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import { Tags } from "@pp/server-core/tags/Tags"
 import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
 import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
+import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import { Tickets } from "@pp/server-core/tickets/Tickets"
 
 export const toolDependencies = [
@@ -31,6 +32,7 @@ export const toolDependencies = [
   Tags,
   TicketDocs,
   TicketIndex,
+  TicketQueries.TicketQueries,
   Tickets
 ] as const
 
