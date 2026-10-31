@@ -64,29 +64,26 @@ const sinkFor = (opened: Opened): PagerSink =>
     ? stdoutSink
     : {
         write: (text) =>
-          Effect.sync(() => {
-            if (opened.state.closed) return false
-            try {
-              void opened.child.stdin.write(text)
-              return true
-            } catch {
-              opened.state.closed = true
-              return false
-            }
-          })
+          opened.state.closed
+            ? Effect.succeed(false)
+            : Effect.tryPromise(async () => {
+                await opened.child.stdin.write(text)
+                return true
+              }).pipe(
+                Effect.orElseSucceed(() => {
+                  opened.state.closed = true
+                  return false
+                })
+              )
       }
 
 const close = (opened: Opened) =>
   opened === undefined
     ? Effect.void
     : Effect.andThen(
-        Effect.sync(() => {
-          try {
-            void opened.child.stdin.end()
-          } catch {
-            opened.state.closed = true
-          }
-        }),
+        Effect.tryPromise(async () => {
+          await opened.child.stdin.end()
+        }).pipe(Effect.ignore),
         Effect.promise(() => opened.child.exited)
       )
 

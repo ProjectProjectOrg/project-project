@@ -45,7 +45,7 @@ const alreadyToldToUpgrade = <A>(exit: Exit.Exit<A, unknown>) =>
 
 const showNotice = (notice: Notice) => {
   const terminal = stderrTerminal()
-  return terminal.fancy
+  return terminal.fancy && (process.stderr.columns ?? 0) >= 80
     ? `\n${framed("update", [notice.fact, `${muted("►", terminal)} ${notice.action}`], terminal)}`
     : noticeText(notice)
 }
@@ -63,10 +63,12 @@ const printNotice = Effect.flatMap(
 )
 
 const welcome = Effect.gen(function* () {
-  const catalog = yield* (yield* ServerStore).list
-  const server = catalog.servers.find(
-    (saved) => saved.origin === catalog.defaultServer
+  const catalog = yield* (yield* ServerStore).list.pipe(
+    Effect.orElseSucceed(() => ({ servers: [], defaultServer: null }))
   )
+  const server =
+    catalog.servers.find((saved) => saved.origin === catalog.defaultServer) ??
+    catalog.servers[0]
   const terminal = stdoutTerminal()
   yield* reveal(
     welcomeLines(

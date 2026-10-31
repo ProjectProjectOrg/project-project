@@ -20,6 +20,10 @@ describe("terminalFor", () => {
       fancy: true,
       color: false
     })
+    expect(terminalFor({ isTTY: true }, { NO_COLOR: "0" })).toEqual({
+      fancy: true,
+      color: false
+    })
     expect(terminalFor({ isTTY: true }, { TERM: "dumb" })).toEqual({
       fancy: false,
       color: false

@@ -96,7 +96,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           if gh release download "$SOURCE_TAG" --dir dist/cli \
-            --pattern 'pp-*.gz' --pattern SHA256SUMS --pattern install.sh 2>/dev/null; then
+            --pattern 'pp-*.gz' --pattern SHA256SUMS --pattern install.sh \
+              --pattern 'THIRD_PARTY_LICENSE-*' 2>/dev/null; then
             echo "reused=true" >> "$GITHUB_OUTPUT"
           else
             echo "::notice::$SOURCE_TAG has no pp binaries; building them from $SHA."

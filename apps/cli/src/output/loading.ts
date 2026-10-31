@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect"
 
 import { dither, paintShades } from "./dither"
-import { muted, stderrTerminal, type Terminal } from "./terminal"
+import { muted, stderrTerminal, type Terminal, visibleWidth } from "./terminal"
 
 const WIDTH = 14
 
@@ -33,7 +33,12 @@ export const withLoading =
   (label: string) =>
   <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> => {
     const terminal = stderrTerminal()
-    if (!terminal.fancy) return effect
+    if (
+      !terminal.fancy ||
+      visibleWidth(label) + WIDTH + 2 >= (process.stderr.columns ?? 0)
+    ) {
+      return effect
+    }
     return Effect.scoped(
       Effect.andThen(Effect.forkScoped(animate(label, terminal)), effect)
     ).pipe(Effect.ensuring(write("\r\x1b[2K\x1b[?25h")))

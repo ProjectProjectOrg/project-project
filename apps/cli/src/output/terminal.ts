@@ -1,5 +1,3 @@
-import { stripVTControlCharacters } from "node:util"
-
 export type Terminal = Readonly<{ fancy: boolean; color: boolean }>
 
 type Env = Readonly<Record<string, string | undefined>>
@@ -16,7 +14,9 @@ export const terminalFor = (
   const fancy = stream.isTTY === true && env.TERM !== "dumb"
   return {
     fancy,
-    color: isSet(env.FORCE_COLOR) || (fancy && !isSet(env.NO_COLOR))
+    color:
+      isSet(env.FORCE_COLOR) ||
+      (fancy && (env.NO_COLOR === undefined || env.NO_COLOR === ""))
   }
 }
 
@@ -29,8 +29,7 @@ export const muted = (text: string, terminal: Terminal) =>
 export const strong = (text: string, terminal: Terminal) =>
   terminal.color && text !== "" ? `\x1b[1m${text}\x1b[22m` : text
 
-export const visibleWidth = (text: string) =>
-  stripVTControlCharacters(text).length
+export const visibleWidth = (text: string) => Bun.stringWidth(text)
 
 export const padVisible = (text: string, width: number) =>
   text + " ".repeat(Math.max(0, width - visibleWidth(text)))
