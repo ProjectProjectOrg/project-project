@@ -26,12 +26,12 @@ import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
 import { Projects, type ProjectsShape } from "@pp/server-core/projects/Projects"
+import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketServices from "@pp/server-core/tickets/layer"
 import * as TicketBranchIndex from "@pp/server-core/tickets/TicketBranchIndex"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import { TicketDocsLive } from "@pp/server-core/tickets/TicketDocsLive"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
-import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import { Users, type UsersShape } from "@pp/server-core/users/Users"
 import {
@@ -478,7 +478,7 @@ const DocsLive = TicketDocsLive.pipe(
   Layer.provideMerge(BunServices.layer)
 )
 const DatabaseLive = DbLive.pipe(Layer.provideMerge(PgLive))
-const IndexLive = TicketIndexLive.pipe(
+const IndexLive = TicketIndexServices.layer.pipe(
   Layer.provide(DocsLive),
   Layer.provide(DatabaseLive)
 )

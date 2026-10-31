@@ -23,12 +23,13 @@ import { Projects } from "@pp/server-core/projects/Projects"
 import { ProjectsLive } from "@pp/server-core/projects/ProjectsLive"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import { S3Storage } from "@pp/server-core/storage/S3Storage"
+import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
-import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
+import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMaintenance"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import { Users } from "@pp/server-core/users/Users"
 import {
@@ -61,7 +62,9 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
   const hiddenId = randomUUID()
   let pool: Pool
   let projectsLayer: Layer.Layer<Projects | Access>
-  let ticketIndexLayer: Layer.Layer<TicketIndex>
+  let ticketIndexLayer: Layer.Layer<
+    TicketIndex | TicketIndexMaintenance.TicketIndexMaintenance
+  >
   let reconciledSlugs: ReadonlyArray<string> = []
 
   const dbLayer = () =>
@@ -179,7 +182,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
         return Effect.succeed([])
       }
     })
-    const ticketIndex = TicketIndexLive.pipe(
+    const ticketIndex = TicketIndexServices.layer.pipe(
       Layer.provide(db),
       Layer.provide(ticketDocs),
       Layer.orDie
@@ -302,8 +305,9 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
       "skips unpublished projects during index reconciliation while direct migration lookup retains them",
       () =>
         Effect.gen(function* () {
-          const summary = yield* Effect.flatMap(TicketIndex, (index) =>
-            index.reconcileAllProjects()
+          const summary = yield* Effect.flatMap(
+            TicketIndexMaintenance.TicketIndexMaintenance,
+            (maintenance) => maintenance.reconcileAllProjects()
           )
           const hidden = yield* Effect.promise(() =>
             pool.query("select id from project_index where id = $1", [hiddenId])

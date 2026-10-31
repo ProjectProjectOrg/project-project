@@ -174,19 +174,7 @@ const FakeTicketIndex = Layer.sync(TicketIndex, () => {
     findTicketIdsByTag: () => Effect.succeed([]),
     findTicketIdsByStatus: () => Effect.succeed([]),
     upsertTicket: () => Effect.void,
-    deleteTicket: () => Effect.void,
-    rebuildProject: () =>
-      Effect.succeed({ project: ticketIndexProject, indexed: 0, skipped: 0 }),
-    rebuildAllProjects: () => Effect.succeed({ projects: [] }),
-    reconcileProject: () =>
-      Effect.succeed({
-        project: ticketIndexProject,
-        drift: { missing: [], orphaned: [], stale: [] },
-        rebuilt: false,
-        indexed: 0,
-        skipped: 0
-      }),
-    reconcileAllProjects: () => Effect.succeed({ projects: [], reconciled: 0 })
+    deleteTicket: () => Effect.void
   } satisfies TicketIndexShape
 })
 

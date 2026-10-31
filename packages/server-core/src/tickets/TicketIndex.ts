@@ -16,8 +16,7 @@ import type { NotFound } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 
-import type { MarkdownError } from "../markdown/Markdown"
-import type { MalformedTicketDocument, TicketDocument } from "./TicketDocs"
+import type { TicketDocument } from "./TicketDocs"
 
 export interface TicketIndexProject {
   readonly orgSlug: string
@@ -258,27 +257,6 @@ export type TicketIndexShape = Readonly<{
     project: TicketIndexProject,
     ticketId: string
   ) => Effect.Effect<void>
-  rebuildProject: (
-    project: TicketIndexProject
-  ) => Effect.Effect<
-    TicketIndexRebuildProjectSummary,
-    MarkdownError | MalformedTicketDocument
-  >
-  rebuildAllProjects: () => Effect.Effect<
-    TicketIndexRebuildSummary,
-    MarkdownError | MalformedTicketDocument
-  >
-  reconcileProject: (
-    project: TicketIndexProject,
-    options?: TicketIndexReconcileOptions
-  ) => Effect.Effect<
-    TicketIndexReconcileProjectSummary,
-    MarkdownError | MalformedTicketDocument
-  >
-  reconcileAllProjects: () => Effect.Effect<
-    TicketIndexReconcileSummary,
-    MarkdownError | MalformedTicketDocument
-  >
 }>
 
 export class TicketIndex extends Context.Service<

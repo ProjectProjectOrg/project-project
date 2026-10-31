@@ -12,10 +12,10 @@ import { ConnectionError, SqlError } from "effect/sql/SqlError"
 import * as TestClock from "effect/testing/TestClock"
 
 import { databaseLayer } from "../../test/database"
+import * as TicketIndexServices from "./indexLayer"
 import { TicketDocs } from "./TicketDocs"
 import type { TicketDocument } from "./TicketDocs"
 import { TicketIndex, type TicketIndexProject } from "./TicketIndex"
-import { TicketIndexLive } from "./TicketIndexLive"
 
 const ticketId = Schema.decodeUnknownSync(TicketId)
 
@@ -72,7 +72,7 @@ const makeDb = (failures: number) => {
 const layerFor = (
   db: Layer.Layer<Db | SqlClient.SqlClient>,
   docs: Layer.Layer<TicketDocs> = Layer.mock(TicketDocs, {})
-) => TicketIndexLive.pipe(Layer.provide(db), Layer.provide(docs))
+) => TicketIndexServices.layer.pipe(Layer.provide(db), Layer.provide(docs))
 
 it.effect("retries a transient index publication failure", () => {
   const { layer, state } = makeDb(2)

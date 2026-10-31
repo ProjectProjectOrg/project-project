@@ -133,11 +133,7 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
   findTicketIdsByTag: () => unexpected("TicketIndex.findTicketIdsByTag"),
   findTicketIdsByStatus: () => unexpected("TicketIndex.findTicketIdsByStatus"),
   upsertTicket: () => unexpected("TicketIndex.upsertTicket"),
-  deleteTicket: () => unexpected("TicketIndex.deleteTicket"),
-  rebuildProject: () => unexpected("TicketIndex.rebuildProject"),
-  rebuildAllProjects: () => unexpected("TicketIndex.rebuildAllProjects"),
-  reconcileProject: () => unexpected("TicketIndex.reconcileProject"),
-  reconcileAllProjects: () => unexpected("TicketIndex.reconcileAllProjects")
+  deleteTicket: () => unexpected("TicketIndex.deleteTicket")
 } satisfies TicketIndexShape)
 
 const FakeTicketBranchIndex = Layer.succeed(

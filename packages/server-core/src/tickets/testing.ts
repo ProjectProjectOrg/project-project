@@ -707,35 +707,6 @@ export const makeFakeTicketIndex = (
       Effect.sync(() => {
         documents.delete(ticketId)
       }),
-    rebuildProject: (project) =>
-      Effect.succeed({ project, indexed: documents.size, skipped: 0 }),
-    rebuildAllProjects: () =>
-      Effect.succeed({
-        projects: [
-          { project: ticketIndexProject, indexed: documents.size, skipped: 0 }
-        ]
-      }),
-    reconcileProject: (project) =>
-      Effect.succeed({
-        project,
-        drift: { missing: [], orphaned: [], stale: [] },
-        rebuilt: false,
-        indexed: documents.size,
-        skipped: 0
-      }),
-    reconcileAllProjects: () =>
-      Effect.succeed({
-        projects: [
-          {
-            project: ticketIndexProject,
-            drift: { missing: [], orphaned: [], stale: [] },
-            rebuilt: false,
-            indexed: documents.size,
-            skipped: 0
-          }
-        ],
-        reconciled: 0
-      }),
     querySections: (project, query, options) =>
       querySectionsVia(index)(project, query, options),
     ...overrides
